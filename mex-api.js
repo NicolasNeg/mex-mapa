@@ -74,49 +74,47 @@ async function _actualizarFeed(accion, autor) {
   if (feed.length > 5) feed.length = 5;
   await _setSettings({ liveFeed: feed, ultimaModificacion: _now(), ultimoEditor: autor });
 }
-
 // ═══════════════════════════════════════════════════════════
 // 🔌 OBJETO google.script.run — ADAPTADOR PRINCIPAL
-// Cada función encadena .withSuccessHandler() y llama a Firebase
 // ═══════════════════════════════════════════════════════════
+function _createRunner() {
+  let _success = null;
+  let _failure = null;
+
+  const runner = {
+    withSuccessHandler(fn) { _success = fn; return runner; },
+    withFailureHandler(fn) { _failure = fn; return runner; },
+  };
+
+  for (const name in API_FUNCTIONS) {
+    runner[name] = (...args) => {
+      API_FUNCTIONS[name](...args)
+        .then(r => { if (_success) _success(r); })
+        .catch(e => {
+          console.error(`[MEX-API] Error en ${name}:`, e);
+          if (_failure) _failure(e);
+        });
+    };
+  }
+  return runner;
+}
+
 const google = {
   script: {
     run: new Proxy({}, {
-      get(_, functionName) {
-        // Retornamos un objeto builder que acumula handlers
-        const builder = {
-          _success: null,
-          _failure: null,
-          withSuccessHandler(fn) { this._success = fn; return this; },
-          withFailureHandler(fn) { this._failure = fn; return this; },
-        };
-
-        // Para cada función GAS, le asignamos al builder la capacidad de ejecutarse
-        builder[functionName] = (...args) => {
-          const execFn = API_FUNCTIONS[functionName];
-          if (!execFn) {
-            console.warn(`[MEX-API] Función no implementada: ${functionName}`, args);
-            if (builder._success) builder._success(null);
-            return;
-          }
-          execFn(...args)
-            .then(result => { if (builder._success) builder._success(result); })
-            .catch(err => {
-              console.error(`[MEX-API] Error en ${functionName}:`, err);
-              if (builder._failure) builder._failure(err);
-            });
-        };
-
-        // También permitir llamadas sin handler: google.script.run.funcion(arg)
-        return new Proxy(builder, {
-          apply(target, thisArg, args) { return target[functionName](...args); },
-          get(target, prop) {
-            if (prop in target) return target[prop];
-            // Si se llama directo: google.script.run.limpiarFeedGlobal()
-            if (prop === functionName) return (...args) => target[functionName](...args);
-            return undefined;
-          }
-        });
+      get(_, prop) {
+        const runner = _createRunner();
+        // Si acceden a withSuccessHandler o withFailureHandler directamente
+        if (prop === 'withSuccessHandler' || prop === 'withFailureHandler') {
+          return runner[prop].bind(runner);
+        }
+        // Si llaman directo sin handler: google.script.run.limpiarFeedGlobal()
+        if (API_FUNCTIONS[prop]) {
+          return (...args) => {
+            API_FUNCTIONS[prop](...args).catch(e => console.error(`[MEX-API] ${prop}:`, e));
+          };
+        }
+        return runner[prop] || (() => console.warn(`[MEX-API] No implementada: ${prop}`));
       }
     })
   }
