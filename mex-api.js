@@ -594,13 +594,15 @@ async obtenerHistorialCuadres() {
     return {
       id:        d.id,
       fecha:     data.fecha || "",
+      // auxiliar = autor (así quedó migrado)
       auxiliar:  data.auxiliar || data.autor || "",
-      admin:     data.admin || data.adminVentas || "",
+      // admin = pdfUrl tiene el nombre del admin por el swap
+      admin:     data.admin || data.pdfUrl || data.adminVentas || "",
       ok:        data.ok || "0",
       faltantes: data.faltantes || "0",
-      sobrantes: data.sobrantes || data.numSobrantes || "0",
-      pdfUrl:    data.pdfUrl || "",
-      timestamp: data.timestamp || 0
+      sobrantes: data.numSobrantes || data.sobrantes || "0",
+      // La URL real del PDF está en jsonCompleto
+      pdfUrl:    data.jsonCompleto || data.pdfUrl || ""
     };
   });
 },
