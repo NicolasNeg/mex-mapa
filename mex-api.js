@@ -73,11 +73,10 @@ async function _actualizarFeed(accion, autor) {
   feed.unshift({ accion, fecha: _now().slice(-5), autor: autor || "Sistema" });
   if (feed.length > 5) feed.length = 5;
   await _setSettings({ liveFeed: feed, ultimaModificacion: _now(), ultimoEditor: autor });
-}
-// ═══════════════════════════════════════════════════════════
+}// ═══════════════════════════════════════════════════════════
 // 🔌 OBJETO google.script.run — ADAPTADOR PRINCIPAL
 // ═══════════════════════════════════════════════════════════
-function _createRunner() {
+function _makeRunner() {
   let _success = null;
   let _failure = null;
 
@@ -86,40 +85,46 @@ function _createRunner() {
     withFailureHandler(fn) { _failure = fn; return runner; },
   };
 
-  for (const name in API_FUNCTIONS) {
-    runner[name] = (...args) => {
-      API_FUNCTIONS[name](...args)
-        .then(r => { if (_success) _success(r); })
-        .catch(e => {
-          console.error(`[MEX-API] Error en ${name}:`, e);
-          if (_failure) _failure(e);
-        });
-    };
-  }
-  return runner;
+  return new Proxy(runner, {
+    get(target, prop) {
+      if (prop in target) return target[prop];
+      return (...args) => {
+        if (!API_FUNCTIONS[prop]) {
+          console.warn(`[MEX-API] No implementada: ${prop}`);
+          if (_success) _success(null);
+          return;
+        }
+        API_FUNCTIONS[prop](...args)
+          .then(r => { if (_success) _success(r); })
+          .catch(e => {
+            console.error(`[MEX-API] Error en ${prop}:`, e);
+            if (_failure) _failure(e);
+          });
+      };
+    }
+  });
 }
 
 const google = {
   script: {
     run: new Proxy({}, {
       get(_, prop) {
-        const runner = _createRunner();
-        // Si acceden a withSuccessHandler o withFailureHandler directamente
+        const runner = _makeRunner();
         if (prop === 'withSuccessHandler' || prop === 'withFailureHandler') {
           return runner[prop].bind(runner);
         }
-        // Si llaman directo sin handler: google.script.run.limpiarFeedGlobal()
-        if (API_FUNCTIONS[prop]) {
-          return (...args) => {
-            API_FUNCTIONS[prop](...args).catch(e => console.error(`[MEX-API] ${prop}:`, e));
-          };
-        }
-        return runner[prop] || (() => console.warn(`[MEX-API] No implementada: ${prop}`));
+        return (...args) => {
+          if (!API_FUNCTIONS[prop]) {
+            console.warn(`[MEX-API] No implementada: ${prop}`);
+            return;
+          }
+          API_FUNCTIONS[prop](...args)
+            .catch(e => console.error(`[MEX-API] ${prop}:`, e));
+        };
       }
     })
   }
 };
-
 // ═══════════════════════════════════════════════════════════
 // 📚 API_FUNCTIONS — Implementaciones de cada función GAS
 // ═══════════════════════════════════════════════════════════
