@@ -15,7 +15,6 @@ const FIREBASE_CONFIG = {
   appId:             "1:35913204070:web:8d2c2fa94376449dbd08a7"
 };
 
-
 // ─── INICIALIZACIÓN ──────────────────────────────────────────
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
@@ -58,10 +57,12 @@ async function _registrarLog(tipo, mensaje, autor) {
 }
 async function _actualizarFeed(accion, autor) {
   const settings = await _getSettings();
-  const feed = settings.liveFeed || [];
-  feed.unshift({ accion, fecha: _now().slice(-5), autor: autor || "Sistema" });
+  let feed = settings.liveFeed || [];
+  if (typeof feed === "string") { try { feed = JSON.parse(feed); } catch(e) { feed = []; } }
+  if (!Array.isArray(feed)) feed = [];
+  feed.unshift({ accion: accion, fecha: _now().slice(-5), autor: autor || "Sistema" });
   if (feed.length > 5) feed.length = 5;
-  await _setSettings({ liveFeed: feed, ultimaModificacion: _now(), ultimoEditor: autor });
+  await _setSettings({ liveFeed: JSON.stringify(feed), ultimaModificacion: _now(), ultimoEditor: autor });
 }
 
 const API_FUNCTIONS = {
@@ -340,7 +341,7 @@ const API_FUNCTIONS = {
    * Limpia el feed de actividad
    */
   async limpiarFeedGlobal() {
-    await _setSettings({ liveFeed: [] });
+    await _setSettings({ liveFeed: JSON.stringify([]) });
     return "OK";
   },
 
@@ -679,7 +680,7 @@ const API_FUNCTIONS = {
 
   // ─── FUNCIONES VACÍAS (Solo GAS, no necesarias en cliente) ─
   async limpiarFeedGlobal() {
-    await _setSettings({ liveFeed: [] });
+    await _setSettings({ liveFeed: JSON.stringify([]) });
     return "OK";
   },
 
