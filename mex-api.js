@@ -6,7 +6,6 @@
  */
 
 // ─── CONFIGURACIÓN FIREBASE ─────────────────────────────────
-// ⚠️ REEMPLAZA ESTOS VALORES con los de tu proyecto Firebase
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyBk_A5U37Surm-K1PxZnNbzN-htyrnNmVc",
   authDomain:        "mex-mapa-bjx.firebaseapp.com",
@@ -22,27 +21,25 @@ const db = firebase.firestore();
 
 // ─── COLECCIONES FIRESTORE ───────────────────────────────────
 const COL = {
-  CUADRE:    "cuadre",         // Unidades en patio/taller
-  EXTERNOS:  "externos",       // Vehículos externos/particulares
-  USERS:     "usuarios",       // CHECK_MAPA_USERS
-  ADMINS:    "admins",         // CHECK_ADMINS (GlobalAdmins)
-  ALERTAS:   "alertas",        // Alertas maestras
-  MENSAJES:  "mensajes",       // Chat interno
-  LOGS:      "logs",           // Registro de actividad
-  NOTAS:     "notas_admin",    // Notas de administradores
-  SETTINGS:  "settings",       // SETTINGS_ (feed, bloqueo, cuadre)
-  INDEX:     "index_unidades", // BASE MAESTRA de vehículos
-  MAPA_CFG:  "mapa_config",    // Estructura del mapa (cajones)
-  CUADRE_ADM:"cuadre_admins",  // Cuadre de administradores
-  AUDITORIA: "auditoria",      // Misiones de auditoría
-  HISTORIAL_CUADRES: "historial_cuadres", // Historial de cuadres
-  SIPP:      "sipp",           // Disponibles SIPP
+  CUADRE:    "cuadre",
+  EXTERNOS:  "externos",
+  USERS:     "usuarios",
+  ADMINS:    "admins",
+  ALERTAS:   "alertas",
+  MENSAJES:  "mensajes",
+  LOGS:      "logs",
+  NOTAS:     "notas_admin",
+  SETTINGS:  "settings",
+  INDEX:     "index_unidades",
+  MAPA_CFG:  "mapa_config",
+  CUADRE_ADM:"cuadre_admins",
+  AUDITORIA: "auditoria",
+  HISTORIAL_CUADRES: "historial_cuadres",
+  SIPP:      "sipp",
 };
 
-// ─── DOCUMENTO ÚNICO DE SETTINGS ────────────────────────────
 const SETTINGS_DOC = "principal";
 
-// ─── HELPERS INTERNOS ────────────────────────────────────────
 function _now() {
   return new Date().toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
 }
@@ -52,82 +49,20 @@ async function _getSettings() {
   const snap = await db.collection(COL.SETTINGS).doc(SETTINGS_DOC).get();
   return snap.exists ? snap.data() : {};
 }
-
 async function _setSettings(data) {
   await db.collection(COL.SETTINGS).doc(SETTINGS_DOC).set(data, { merge: true });
 }
-
 async function _registrarLog(tipo, mensaje, autor) {
-  await db.collection(COL.LOGS).add({
-    fecha: _now(),
-    timestamp: _ts(),
-    tipo: tipo,
-    accion: mensaje,
-    autor: autor || "Sistema"
-  });
+  await db.collection(COL.LOGS).add({ fecha: _now(), timestamp: _ts(), tipo, accion: mensaje, autor: autor || "Sistema" });
 }
-
 async function _actualizarFeed(accion, autor) {
   const settings = await _getSettings();
   const feed = settings.liveFeed || [];
   feed.unshift({ accion, fecha: _now().slice(-5), autor: autor || "Sistema" });
   if (feed.length > 5) feed.length = 5;
   await _setSettings({ liveFeed: feed, ultimaModificacion: _now(), ultimoEditor: autor });
-}// ═══════════════════════════════════════════════════════════
-// 🔌 OBJETO google.script.run — ADAPTADOR PRINCIPAL
-// ═══════════════════════════════════════════════════════════
-function _makeRunner() {
-  let _success = null;
-  let _failure = null;
-
-  const runner = {
-    withSuccessHandler(fn) { _success = fn; return runner; },
-    withFailureHandler(fn) { _failure = fn; return runner; },
-  };
-
-  return new Proxy(runner, {
-    get(target, prop) {
-      if (prop in target) return target[prop];
-      return (...args) => {
-        if (!API_FUNCTIONS[prop]) {
-          console.warn(`[MEX-API] No implementada: ${prop}`);
-          if (_success) _success(null);
-          return;
-        }
-        API_FUNCTIONS[prop](...args)
-          .then(r => { if (_success) _success(r); })
-          .catch(e => {
-            console.error(`[MEX-API] Error en ${prop}:`, e);
-            if (_failure) _failure(e);
-          });
-      };
-    }
-  });
 }
 
-const google = {
-  script: {
-    run: new Proxy({}, {
-      get(_, prop) {
-        const runner = _makeRunner();
-        if (prop === 'withSuccessHandler' || prop === 'withFailureHandler') {
-          return runner[prop].bind(runner);
-        }
-        return (...args) => {
-          if (!API_FUNCTIONS[prop]) {
-            console.warn(`[MEX-API] No implementada: ${prop}`);
-            return;
-          }
-          API_FUNCTIONS[prop](...args)
-            .catch(e => console.error(`[MEX-API] ${prop}:`, e));
-        };
-      }
-    })
-  }
-};
-// ═══════════════════════════════════════════════════════════
-// 📚 API_FUNCTIONS — Implementaciones de cada función GAS
-// ═══════════════════════════════════════════════════════════
 const API_FUNCTIONS = {
 
   // ─── AUTENTICACIÓN ────────────────────────────────────────
@@ -793,3 +728,57 @@ window.obtenerUrlImagenModelo = function(modelo) {
 };
 
 console.log("✅ [MEX-API] Adaptador Firebase cargado correctamente.");
+
+// ═══════════════════════════════════════════════════════════
+// 🔌 OBJETO google.script.run — SIN PROXY, 100% COMPATIBLE
+// ═══════════════════════════════════════════════════════════
+(function() {
+  function makeRun() {
+    var _success = null;
+    var _failure = null;
+
+    var obj = {
+      withSuccessHandler: function(fn) { _success = fn; return obj; },
+      withFailureHandler: function(fn) { _failure = fn; return obj; }
+    };
+
+    // Agregar cada función de la API directamente al objeto
+    Object.keys(API_FUNCTIONS).forEach(function(name) {
+      obj[name] = function() {
+        var args = Array.prototype.slice.call(arguments);
+        API_FUNCTIONS[name].apply(null, args)
+          .then(function(r) { if (_success) _success(r); })
+          .catch(function(e) {
+            console.error('[MEX-API] Error en ' + name + ':', e);
+            if (_failure) _failure(e);
+          });
+      };
+    });
+
+    return obj;
+  }
+
+  // google.script.run es un objeto especial:
+  // - Cuando llamas .withSuccessHandler() crea un runner nuevo
+  // - Cuando llamas una función directo (sin handler) también funciona
+  var runHandler = {
+    withSuccessHandler: function(fn) {
+      return makeRun().withSuccessHandler(fn);
+    },
+    withFailureHandler: function(fn) {
+      return makeRun().withFailureHandler(fn);
+    }
+  };
+
+  // También agregamos las funciones directo para calls sin handler
+  Object.keys(API_FUNCTIONS).forEach(function(name) {
+    runHandler[name] = function() {
+      var args = Array.prototype.slice.call(arguments);
+      API_FUNCTIONS[name].apply(null, args)
+        .catch(function(e) { console.error('[MEX-API] ' + name + ':', e); });
+    };
+  });
+
+  window.google = { script: { run: runHandler } };
+  console.log('✅ [MEX-API] google.script.run listo con ' + Object.keys(API_FUNCTIONS).length + ' funciones.');
+})();
