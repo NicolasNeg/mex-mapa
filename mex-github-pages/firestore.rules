@@ -1,0 +1,80 @@
+rules_version = '2';
+// ============================================================
+// REGLAS DE SEGURIDAD FIRESTORE — MEX MAPA
+// Sube este archivo en Firebase Console > Firestore > Reglas
+// ============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── COLECCIONES DE SOLO LECTURA PÚBLICA ────────────────
+    // La configuración del mapa y el index de unidades
+    // son de solo lectura para todos los autenticados desde web
+    match /mapa_config/{doc} {
+      allow read: if true;
+      allow write: if false; // Solo se modifica desde el script de migración
+    }
+
+    match /index_unidades/{doc} {
+      allow read: if true;
+      allow write: if true; // El app necesita escribir (insert de unidades)
+    }
+
+    // ─── COLECCIONES DE LECTURA/ESCRITURA LIBRE ─────────────
+    // (La seguridad real está en el login del HTML)
+    // Estas colecciones permiten leer y escribir sin auth de Firebase
+    // porque el login lo maneja tu propio sistema de usuarios/PINs.
+    match /cuadre/{doc} {
+      allow read, write: if true;
+    }
+
+    match /externos/{doc} {
+      allow read, write: if true;
+    }
+
+    match /usuarios/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /admins/{doc} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /alertas/{doc} {
+      allow read, write: if true;
+    }
+
+    match /mensajes/{doc} {
+      allow read, write: if true;
+    }
+
+    match /logs/{doc} {
+      allow read, write: if true;
+    }
+
+    match /notas_admin/{doc} {
+      allow read, write: if true;
+    }
+
+    match /settings/{doc} {
+      allow read, write: if true;
+    }
+
+    match /auditoria/{doc} {
+      allow read, write: if true;
+    }
+
+    match /historial_cuadres/{doc} {
+      allow read, write: if true;
+    }
+
+    match /cuadre_admins/{doc} {
+      allow read, write: if true;
+    }
+
+    match /sipp/{doc} {
+      allow read, write: if true;
+    }
+  }
+}
