@@ -483,11 +483,33 @@ const API_FUNCTIONS = {
     return "OK";
   },
 
-  // ─── LOGS / BITÁCORA ─────────────────────────────────────
-  async obtenerLogsServer() {
-    const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
-    return snap.docs.map(d => d.data());
-  },
+async obtenerLogsServer() {
+  const snap = await db.collection("historial_patio")
+    .orderBy("timestamp", "desc").limit(200).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    // Formatear fecha legible
+    let fecha = data.fecha || "";
+    try {
+      const f = new Date(data.fecha);
+      fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+    } catch(e) {}
+    return {
+      fecha:     fecha,
+      tipo:      data.tipo || "MOVE",
+      accion:    `${data.mva} → ${data.posAnterior} ➜ ${data.posNueva}`,
+      mva:       data.mva || "",
+      ubicacion: data.posNueva || "",
+      estado:    data.hoja || "",
+      autor:     data.autor || "",
+      usuario:   data.autor || ""
+    };
+  });
+},
+
+async obtenerHistorialLogs() {
+  return this.obtenerLogsServer();
+},
 
   async obtenerHistorialLogs() {
     const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
