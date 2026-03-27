@@ -15,6 +15,7 @@ const FIREBASE_CONFIG = {
   appId:             "1:35913204070:web:8d2c2fa94376449dbd08a7"
 };
 
+
 // ─── INICIALIZACIÓN ──────────────────────────────────────────
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
@@ -314,6 +315,13 @@ const API_FUNCTIONS = {
 
     const mensajesSinLeer = msgsSnap.docs.filter(d => d.data().leido !== "SI").length;
 
+    // liveFeed puede estar guardado como string JSON en Firestore — lo parseamos
+    let liveFeed = settings.liveFeed || [];
+    if (typeof liveFeed === "string") {
+      try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; }
+    }
+    if (!Array.isArray(liveFeed)) liveFeed = [];
+
     return {
       incidenciasPendientes: 0,
       alertas,
@@ -323,7 +331,7 @@ const API_FUNCTIONS = {
       mapaBloqueado:       settings.mapaBloqueado === true,
       estadoCuadreV3:      settings.estadoCuadreV3 || "LIBRE",
       adminIniciador:      settings.adminIniciador || "",
-      liveFeed:            settings.liveFeed || [],
+      liveFeed:            liveFeed,
       error: null
     };
   },
@@ -334,6 +342,33 @@ const API_FUNCTIONS = {
   async limpiarFeedGlobal() {
     await _setSettings({ liveFeed: [] });
     return "OK";
+  },
+
+  async obtenerDatosFlotaConsola() {
+    const [cuadre, externos] = await Promise.all([
+      db.collection(COL.CUADRE).get(),
+      db.collection(COL.EXTERNOS).get()
+    ]);
+    return [
+      ...cuadre.docs.map(d => ({ id: d.id, ...d.data() })),
+      ...externos.docs.map(d => ({ id: d.id, ...d.data(), ubicacion: "EXTERNO" }))
+    ];
+  },
+
+  async obtenerConteoGeneral() {
+    const snap = await db.collection(COL.CUADRE).get();
+    const conteo = { LISTO: 0, SUCIO: 0, MANTENIMIENTO: 0, total: 0 };
+    snap.docs.forEach(d => {
+      const estado = (d.data().estado || "").toUpperCase();
+      if (conteo[estado] !== undefined) conteo[estado]++;
+      conteo.total++;
+    });
+    return conteo;
+  },
+
+  async obtenerMovimientosRecientes() {
+    const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(20).get();
+    return snap.docs.map(d => d.data());
   },
 
   // ─── ALERTAS GLOBALES ─────────────────────────────────────
