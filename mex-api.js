@@ -593,7 +593,15 @@ async obtenerHistorialCuadres() {
     const data = d.data();
     return {
       id:        d.id,
-      fecha:     data.fecha || "",
+      fecha: (() => {
+  try {
+    const f = new Date(data.fecha);
+    return f.toLocaleDateString("es-MX", { 
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit"
+    });
+  } catch { return data.fecha || ""; }
+})(),
       auxiliar:  data.auxiliar || "",
       admin:     data.admin || "",
       ok:        data.ok || "0",
