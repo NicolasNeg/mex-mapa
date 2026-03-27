@@ -586,10 +586,24 @@ const API_FUNCTIONS = {
     return "OK";
   },
 
-  async obtenerHistorialCuadres() {
-    const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-  },
+async obtenerHistorialCuadres() {
+  const snap = await db.collection(COL.HISTORIAL_CUADRES)
+    .orderBy("timestamp", "desc").limit(30).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    return {
+      id:        d.id,
+      fecha:     data.fecha || "",
+      auxiliar:  data.auxiliar || data.autor || "",
+      admin:     data.admin || data.adminVentas || "",
+      ok:        data.ok || "0",
+      faltantes: data.faltantes || "0",
+      sobrantes: data.sobrantes || data.numSobrantes || "0",
+      pdfUrl:    data.pdfUrl || "",
+      timestamp: data.timestamp || 0
+    };
+  });
+},
 
   // ─── CONFIGURACIÓN DEL MAPA ───────────────────────────────
   async actualizarFeedSettings(accion, autor) {
