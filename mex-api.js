@@ -8,12 +8,12 @@
 // ─── CONFIGURACIÓN FIREBASE ─────────────────────────────────
 // ⚠️ REEMPLAZA ESTOS VALORES con los de tu proyecto Firebase
 const FIREBASE_CONFIG = {
-  apiKey:            "TU_API_KEY",
-  authDomain:        "TU_PROJECT_ID.firebaseapp.com",
-  projectId:         "TU_PROJECT_ID",
-  storageBucket:     "TU_PROJECT_ID.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId:             "TU_APP_ID"
+  apiKey:            "AIzaSyBk_A5U37Surm-K1PxZnNbzN-htyrnNmVc",
+  authDomain:        "mex-mapa-bjx.firebaseapp.com",
+  projectId:         "mex-mapa-bjx",
+  storageBucket:     "mex-mapa-bjx.appspot.com",
+  messagingSenderId: "35913204070",
+  appId:             "1:35913204070:web:8d2c2fa94376449dbd08a7"
 };
 
 // ─── INICIALIZACIÓN ──────────────────────────────────────────
