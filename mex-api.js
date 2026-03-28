@@ -484,11 +484,10 @@ const API_FUNCTIONS = {
   },
 
 async obtenerLogsServer() {
-  const snap = await db.collection("historial_patio")
+  const snap = await db.collection(COL.LOGS)
     .orderBy("timestamp", "desc").limit(200).get();
   return snap.docs.map(d => {
     const data = d.data();
-    // Formatear fecha legible
     let fecha = data.fecha || "";
     try {
       const f = new Date(data.fecha);
@@ -496,11 +495,11 @@ async obtenerLogsServer() {
     } catch(e) {}
     return {
       fecha:     fecha,
-      tipo:      data.tipo || "MOVE",
-      accion:    `${data.mva} → ${data.posAnterior} ➜ ${data.posNueva}`,
-      mva:       data.mva || "",
-      ubicacion: data.posNueva || "",
-      estado:    data.hoja || "",
+      tipo:      data.tipo || "OTRO",
+      accion:    data.accion || "",
+      mva:       data.mva || data.accion?.match(/\*(\w+)\*/)?.[1] || "",
+      ubicacion: data.ubicacion || "",
+      estado:    data.estado || data.tipo || "",
       autor:     data.autor || "",
       usuario:   data.autor || ""
     };
@@ -508,8 +507,9 @@ async obtenerLogsServer() {
 },
 
 async obtenerHistorialLogs() {
-  return this.obtenerLogsServer();
+  return API_FUNCTIONS.obtenerLogsServer();
 },
+
 
   async obtenerHistorialLogs() {
     const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
