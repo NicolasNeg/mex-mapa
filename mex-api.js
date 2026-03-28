@@ -1,10 +1,3 @@
-/**
- * ============================================================
- * MEX-API.JS — ADAPTADOR FIREBASE PARA GITHUB PAGES
- * Reemplaza completamente google.script.run con Firebase Firestore
- * ============================================================
- */
-
 // ─── CONFIGURACIÓN FIREBASE ─────────────────────────────────
 const FIREBASE_CONFIG = {
   apiKey:            "AIzaSyBk_A5U37Surm-K1PxZnNbzN-htyrnNmVc",
@@ -346,14 +339,18 @@ const API_FUNCTIONS = {
   },
 
   async obtenerDatosFlotaConsola() {
+    const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
     const [cuadre, externos] = await Promise.all([
       db.collection(COL.CUADRE).get(),
       db.collection(COL.EXTERNOS).get()
     ]);
-    return [
-      ...cuadre.docs.map(d => ({ id: d.id, ...d.data() })),
-      ...externos.docs.map(d => ({ id: d.id, ...d.data(), ubicacion: "EXTERNO" }))
+    const lista = [
+      ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })),
+      ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" }))
     ];
+    lista.forEach(u => { u.orden = ORDEN[(u.estado || "").toUpperCase()] || 99; });
+    lista.sort((a, b) => (a.orden - b.orden) || (a.mva || "").localeCompare(b.mva || ""));
+    return lista;
   },
 
   async obtenerConteoGeneral() {
@@ -483,37 +480,43 @@ const API_FUNCTIONS = {
     return "OK";
   },
 
-async obtenerLogsServer() {
-  const snap = await db.collection(COL.LOGS)
-    .orderBy("timestamp", "desc").limit(200).get();
-  return snap.docs.map(d => {
-    const data = d.data();
-    let fecha = data.fecha || "";
-    try {
-      const f = new Date(data.fecha);
-      fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
-    } catch(e) {}
-    return {
-      fecha:     fecha,
-      tipo:      data.tipo || "OTRO",
-      accion:    data.accion || "",
-      mva:       data.mva || data.accion?.match(/\*(\w+)\*/)?.[1] || "",
-      ubicacion: data.ubicacion || "",
-      estado:    data.estado || data.tipo || "",
-      autor:     data.autor || "",
-      usuario:   data.autor || ""
-    };
-  });
-},
-
-async obtenerHistorialLogs() {
-  return API_FUNCTIONS.obtenerLogsServer();
-},
-
+  // ─── LOGS / BITÁCORA ─────────────────────────────────────
+  async obtenerLogsServer() {
+    const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(200).get();
+    return snap.docs.map(d => {
+      const data = d.data();
+      let fecha = data.fecha || "";
+      try { const f = new Date(data.fecha); fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" }); } catch(e) {}
+      return {
+        fecha:     fecha,
+        tipo:      data.tipo || "MOVE",
+        accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
+        mva:       data.mva || "",
+        ubicacion: data.posNueva || "",
+        estado:    data.hoja || "",
+        autor:     data.autor || "",
+        usuario:   data.autor || ""
+      };
+    });
+  },
 
   async obtenerHistorialLogs() {
-    const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
-    return snap.docs.map(d => d.data());
+    const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
+    return snap.docs.map(d => {
+      const data = d.data();
+      let fecha = data.fecha || "";
+      try { const f = new Date(data.fecha); fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" }); } catch(e) {}
+      return {
+        fecha:     fecha,
+        tipo:      data.tipo || "MOVE",
+        accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
+        mva:       data.mva || "",
+        ubicacion: data.posNueva || "",
+        estado:    data.hoja || "",
+        autor:     data.autor || "",
+        usuario:   data.autor || ""
+      };
+    });
   },
 
   // ─── GESTIÓN DE USUARIOS ─────────────────────────────────
@@ -608,31 +611,10 @@ async obtenerHistorialLogs() {
     return "OK";
   },
 
-async obtenerHistorialCuadres() {
-  const snap = await db.collection(COL.HISTORIAL_CUADRES)
-    .orderBy("timestamp", "desc").limit(30).get();
-  return snap.docs.map(d => {
-    const data = d.data();
-    return {
-      id:        d.id,
-      fecha: (() => {
-  try {
-    const f = new Date(data.fecha);
-    return f.toLocaleDateString("es-MX", { 
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit"
-    });
-  } catch { return data.fecha || ""; }
-})(),
-      auxiliar:  data.auxiliar || "",
-      admin:     data.admin || "",
-      ok:        data.ok || "0",
-      faltantes: data.faltantes || "0",
-      sobrantes: data.numSobrantes || "0",
-      pdfUrl:    data.pdfUrl || ""
-    };
-  });
-},
+  async obtenerHistorialCuadres() {
+    const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
 
   // ─── CONFIGURACIÓN DEL MAPA ───────────────────────────────
   async actualizarFeedSettings(accion, autor) {
@@ -655,18 +637,31 @@ async obtenerHistorialCuadres() {
   },
 
   async obtenerDetalleCompleto(sucursal, mva) {
-    const snap = await db.collection(COL.INDEX)
-      .where("mva", "==", mva.toString().trim().toUpperCase())
-      .limit(1).get();
+    const mvaStr = mva.toString().trim().toUpperCase();
+    const snap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     if (snap.empty) return null;
     const data = snap.docs[0].data();
-
-    // Enriquecer con datos del cuadre
-    const cuadreSnap = await db.collection(COL.CUADRE)
-      .where("mva", "==", mva.toString().trim().toUpperCase()).limit(1).get();
+    const cuadreSnap = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
     const cuadreData = cuadreSnap.empty ? {} : cuadreSnap.docs[0].data();
-
-    return { ...data, ...cuadreData, plaza: sucursal, id: snap.docs[0].id };
+    return {
+      id:        snap.docs[0].id,
+      plaza:     sucursal,
+      mva:       data.mva || mvaStr,
+      modelo:    data.modelo || cuadreData.modelo || "",
+      marca:     data.marca || "",
+      año:       data.año || data.anio || "",
+      vin:       data.vin || data.VIN || data.numeroSerie || "",
+      placas:    data.placas || cuadreData.placas || "",
+      categoria: data.categoria || data.clase || cuadreData.categoria || "",
+      sucursal:  data.sucursal || sucursal || "",
+      gasolina:  cuadreData.gasolina || data.gasolina || "",
+      estado:    cuadreData.estado || data.estado || "",
+      ubicacion: cuadreData.ubicacion || "",
+      notas:     cuadreData.notas || "",
+      pos:       cuadreData.pos || "LIMBO",
+      ...data,
+      ...cuadreData
+    };
   },
 
   async actualizarUnidadPlaza(data) {
