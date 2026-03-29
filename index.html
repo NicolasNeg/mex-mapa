@@ -556,8 +556,19 @@ header { background: white; padding: 0 20px; display: flex; align-items: center;
     /* --- LOGIN Y SIDEBAR ADMIN --- */
     .login-overlay { position: fixed; inset: 0; background: var(--bg-viewport); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
     .login-box { background: white; padding: 40px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 380px; text-align: center; }
-    .admin-sidebar { position: fixed; right: 0; top: 0; bottom: 0; width: 320px; background: #1e293b; z-index: 2000; transform: translateX(100%); transition: 0.3s ease; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.3); }
+    .admin-sidebar { position: fixed; right: 0; top: 0; bottom: 0; width: 300px; background: #1e293b; z-index: 2000; transform: translateX(100%); transition: 0.3s ease; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.3); }
     .admin-sidebar.open { transform: translateX(0); }
+    @media (max-width: 400px) { .admin-sidebar { width: 100%; } }
+    .sb-section-label { font-size: 9px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 0 6px 2px; }
+    .sb-btn { width:100%; padding:13px 16px; border:none; border-radius:11px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.18s; gap:8px; }
+    .sb-btn:active { transform: scale(0.98); }
+    .sb-btn-dark { background:#2d3f55; color:white; }
+    .sb-btn-dark:hover { background:#374f6b; }
+    .sb-btn-blue { background:linear-gradient(135deg,#1a73e8,#0d47a1); color:white; box-shadow:0 4px 12px rgba(26,115,232,0.25); }
+    .sb-btn-red { background:linear-gradient(135deg,#ef4444,#b91c1c); color:white; box-shadow:0 4px 12px rgba(239,68,68,0.25); }
+    .sb-btn-ghost { background:transparent; color:#38bdf8; border:1px solid #0284c7; }
+    .sb-btn-ghost:hover { background:rgba(2,132,199,0.1); }
+    .sb-divider { height:1px; background:rgba(255,255,255,0.06); margin:6px 0; }
 
     /* --- MODALES GENERALES (FLOTA, AUDIT) --- */
     .fleet-modal { position: fixed; inset: 0; background: var(--bg); z-index: 3000; display: none; flex-direction: column; overflow: hidden; }
@@ -2042,95 +2053,108 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 </div>
 
 <aside id="admin-sidebar" class="admin-sidebar">
-  <div style="padding: 25px; border-bottom: 1px solid #334155; display:flex; justify-content:space-between; align-items:center;">
-    <h2 style="color:white; font-weight:900; font-size: 20px;">PANEL ADMIN</h2>
-    <button id="btnCloseAdminSidebar" onclick="toggleAdminSidebar()" style="background:none; border:none; font-size:24px; cursor:pointer; color:#94a3b8;">✕</button>
+
+  <!-- Header -->
+  <div style="padding: 18px 20px 14px; border-bottom: 1px solid #334155; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
+    <div>
+      <h2 style="color:white; font-weight:900; font-size:18px; margin:0;">PANEL ADMIN</h2>
+      <div style="color:#475569; font-size:10px; font-weight:700; margin-top:3px; display:flex; align-items:center; gap:4px;">
+        <span class="material-icons" style="font-size:11px;">update</span> Última modif: <span id="lastUpdateAdmin">--/-- 00:00</span>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:8px;">
+      <button id="btnThemeToggle" onclick="toggleDarkMode()" title="Modo oscuro" style="background:rgba(255,255,255,0.07); border:none; color:#94a3b8; border-radius:8px; width:34px; height:34px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+        <span class="material-icons" id="iconTheme" style="font-size:18px;">dark_mode</span>
+      </button>
+      <button id="btnCloseAdminSidebar" onclick="toggleAdminSidebar()" style="background:rgba(255,255,255,0.07); border:none; color:#94a3b8; border-radius:8px; width:34px; height:34px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center;">✕</button>
+    </div>
   </div>
 
-  <div style="color: #64748b; font-size: 11px; font-weight: 700; display: flex; align-items: center; gap: 4px;">
-      <span class="material-icons" style="font-size: 12px;">update</span> Última modif: <span id="lastUpdateAdmin">--/-- 00:00</span>
-    </div>
-  
-  <div style="padding: 20px; display: flex; flex-direction: column; gap: 12px; flex: 1; overflow-y: auto;">
-    
-    <p id="titleOperacion" style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">Operación</p>
-    
-    <button id="btnMenuFlota" onclick="abrirModalFlota()" style="width:100%; padding:15px; background:linear-gradient(135deg, #1a73e8 0%, #0d2a54 100%); color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; box-shadow: 0 4px 10px rgba(26, 115, 232, 0.2);">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">directions_car</span> GESTIÓN DE FLOTA</div> <span>→</span>
+  <!-- Scroll body -->
+  <div style="padding: 16px; display:flex; flex-direction:column; gap:8px; flex:1; overflow-y:auto;">
+
+    <!-- OPERACIÓN -->
+    <p id="titleOperacion" class="sb-section-label">Operación</p>
+
+    <button id="btnMenuFlota" onclick="abrirModalFlota()" class="sb-btn sb-btn-blue">
+      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">directions_car</span> GESTIÓN DE FLOTA</div>
+      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
     </button>
-    
-    <button id="btnMenuMapaCalor" onclick="toggleMapaCalor()" style="width:100%; padding:15px; background:#334155; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s; margin-bottom: 5px;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px; color:#fca5a5;">local_fire_department</span> MAPA DE CALOR</div> 
+
+    <button id="btnMenuMapaCalor" onclick="toggleMapaCalor()" class="sb-btn sb-btn-dark">
+      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px; color:#fca5a5;">local_fire_department</span> MAPA DE CALOR</div>
       <div class="heatmap-switch"></div>
     </button>
 
+    <div class="sb-divider"></div>
 
-    <button id="btnProtocoloV3" onclick="manejadorFlujoV3()" style="width:100%; padding:15px; background:#64748b; color:white; border:none; border-radius:12px; font-weight:800; font-size:12px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:10px; margin-top:10px; transition: 0.3s;">
-  <span class="material-icons" id="icoV3">lock</span> 
-  <span id="txtV3">CUADRE CERRADO</span>
-</button>
+    <!-- CUADRE -->
+    <p id="titleCuadre" class="sb-section-label">Cuadre</p>
 
-<button id="btnVerCuadres" onclick="abrirHistorialCuadres()" style="display:none; width:100%; padding:15px; background:#1e293b; color:#38bdf8; border:1px solid #0284c7; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; justify-content:space-between; align-items:center; transition:0.2s; margin-top: 5px;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">history_edu</span> HISTORIAL DE CUADRES</div> <span>→</span>
+    <button id="btnProtocoloV3" onclick="manejadorFlujoV3()" class="sb-btn" style="background:#374151; color:white; justify-content:center; gap:10px;">
+      <span class="material-icons" id="icoV3" style="font-size:18px;">lock</span>
+      <span id="txtV3">CUADRE CERRADO</span>
     </button>
 
-    <div id="divider1" style="height: 1px; background: rgba(255,255,255,0.05); margin: 5px 0;"></div>
-
-    <p id="titleHerramientas" style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">Herramientas</p>
-
-    <button id="btnMenuUsuarios" onclick="abrirUsuarios()" style="display:none; width:100%; padding:15px; background:#334155; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; justify-content:space-between; align-items:center; transition:0.2s;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">manage_accounts</span> GESTIÓN USUARIOS</div> <span>→</span>
+    <button id="btnVerCuadres" onclick="abrirHistorialCuadres()" class="sb-btn sb-btn-ghost" style="display:none;">
+      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">history_edu</span> HISTORIAL DE CUADRES</div>
+      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
     </button>
 
-    <button id="btnMenuHistorial" onclick="abrirLogs()" style="width:100%; padding:15px; background:#334155; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">history</span> HISTORIAL ACTIVIDAD</div> <span>→</span>
+    <div class="sb-divider"></div>
+
+    <!-- HERRAMIENTAS -->
+    <p id="titleHerramientas" class="sb-section-label">Herramientas</p>
+
+    <button id="btnMenuUsuarios" onclick="abrirUsuarios()" class="sb-btn sb-btn-dark" style="display:none;">
+      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">manage_accounts</span> GESTIÓN USUARIOS</div>
+      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
     </button>
 
-    <button id="btnMenuBitacora" onclick="abrirIncidencias()" style="width:100%; padding:15px; background:#334155; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s;">
+    <button id="btnMenuHistorial" onclick="abrirLogs()" class="sb-btn sb-btn-dark">
+      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">history</span> HISTORIAL ACTIVIDAD</div>
+      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
+    </button>
+
+    <button id="btnMenuBitacora" onclick="abrirIncidencias()" class="sb-btn sb-btn-dark">
       <div style="display:flex; align-items:center; gap:10px; position:relative;">
         <span class="material-icons" style="font-size:18px;">content_paste</span> BITÁCORA INCIDENCIAS
-        <span id="menuBadgeIncidencias" class="badge-pulse" style="display:none; position:relative; top:0; right:0; margin-left: 5px; width: 18px; height: 18px;">0</span>
-      </div> 
-      <span>→</span>
+        <span id="menuBadgeIncidencias" class="badge-pulse" style="display:none; position:relative; top:0; right:0; margin-left:5px; width:18px; height:18px;">0</span>
+      </div>
+      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
     </button>
 
-    <button id="btnThemeToggle" onclick="toggleDarkMode()" class="header-icon-btn" title="Alternar Modo Oscuro">
-      <span class="material-icons" id="iconTheme">dark_mode</span>
+    <div class="sb-divider"></div>
+
+    <!-- ADMINISTRACIÓN (visible solo para admins) -->
+    <button id="btnMenuAlertasGlobales" onclick="abrirCreadorAlertas()" class="sb-btn sb-btn-red" style="display:none;">
+      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">campaign</span> EMITIR ALERTA MAESTRA</div>
+      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
     </button>
 
-    <div id="divider2" style="height: 1px; background: rgba(255,255,255,0.05); margin: 5px 0;"></div>
-
-    <button id="btnMenuAlertasGlobales" onclick="abrirCreadorAlertas()" style="display:none; width:100%; padding:15px; background:linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; justify-content:space-between; align-items:center; margin-bottom: 5px;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">campaign</span> EMITIR ALERTA MAESTRA</div> <span>→</span>
+    <button id="btnMenuHistorialAlertas" onclick="abrirGestorAlertas()" class="sb-btn sb-btn-dark" style="display:none;">
+      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">notifications_active</span> HISTORIAL ALERTAS</div>
+      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
     </button>
 
-    <button id="btnMenuHistorialAlertas" onclick="abrirGestorAlertas()" style="display:none; width:100%; padding:15px; background:#334155; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">format_list_bulleted</span> HISTORIAL ALERTAS</div> <span>→</span>
+    <button id="btnLockAdminSidebar" onclick="solicitarToggleBloqueo()" class="sb-btn sb-btn-dark" style="display:none;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="material-icons" id="iconLockAdmin" style="font-size:18px; color:#f59e0b;">lock</span>
+        <span id="txtLockAdmin">BLOQUEAR PATIO</span>
+      </div>
+      <div class="heatmap-switch" id="switchLockAdmin"></div>
     </button>
 
-<button id="btnLockAdminSidebar" onclick="solicitarToggleBloqueo()" style="display:none; width:100%; padding:15px; background:#334155; color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.2s; margin-top: 5px;">
-  <div style="display:flex; align-items:center; gap:10px;">
-    <span class="material-icons" id="iconLockAdmin" style="font-size:18px; color:#f59e0b;">lock</span> 
-    <span id="txtLockAdmin">BLOQUEAR PATIO</span>
-  </div>
-  <div class="heatmap-switch" id="switchLockAdmin"></div>
-</button>
-
-<!--
-<button id="btnClearFeed" onclick="ejecutarLimpiarFeed()" style="width:100%; padding:15px; background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; border-radius:12px; font-weight:800; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:10px; margin-top:10px;">
-  <span class="material-icons" style="font-size:18px;">delete_sweep</span> VACIAR FEED EN VIVO
-</button>-->
-
-
-    <button id="btnMenuExportar" onclick="exportarMapa()" style="width:100%; padding:15px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:white; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:10px; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);">
-      <span class="material-icons" style="font-size:18px;">download</span> EXPORTAR INVENTARIO
+    <!-- EXPORTAR oculto — reservado para uso futuro -->
+    <button id="btnMenuExportar" onclick="exportarMapa()" style="display:none;">
     </button>
 
   </div>
 
-  <div style="padding: 20px; border-top: 1px solid #334155;">
-    <button id="btnMenuLogout" onclick="confirmarCierreSesion()" style="width:100%; padding:15px; background:transparent; color:#ef4444; border:2px solid #ef4444; border-radius:12px; font-weight:900; font-size:13px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap: 10px; transition:0.2s;">
-      <span class="material-icons" style="font-size: 18px;">logout</span> CERRAR SESIÓN
+  <!-- Footer: Cerrar Sesión -->
+  <div style="padding: 14px 16px; border-top: 1px solid #334155; flex-shrink:0;">
+    <button id="btnMenuLogout" onclick="confirmarCierreSesion()" style="width:100%; padding:13px; background:transparent; color:#ef4444; border:1.5px solid #ef4444; border-radius:11px; font-weight:900; font-size:13px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:10px; transition:0.2s;">
+      <span class="material-icons" style="font-size:18px;">logout</span> CERRAR SESIÓN
     </button>
   </div>
 </aside>
@@ -7534,6 +7558,9 @@ function abrirHistorialCuadres() {
 let allChatMessages = [];
 let activeChatUser = null;
 
+const AVATAR_COLORS = ['#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce','#805ad5','#d53f8c','#00b5d8','#e36112','#2f855a'];
+function _avatarColor(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % AVATAR_COLORS.length; return AVATAR_COLORS[Math.abs(h)]; }
+
 function abrirBuzon() {
   document.getElementById('buzon-modal').classList.add('active');
   document.getElementById('chat-window-view').style.transform = 'translateX(100%)';
@@ -7592,9 +7619,6 @@ function renderContactos() {
     container.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b; font-weight:700;">No hay usuarios.</div>`;
     return;
   }
-
-  const AVATAR_COLORS = ['#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce','#805ad5','#d53f8c','#00b5d8','#e53e3e','#2f855a'];
-  function _avatarColor(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % AVATAR_COLORS.length; return AVATAR_COLORS[Math.abs(h)]; }
 
   container.innerHTML = usuariosMostrar.map(u => {
     const uName = u.usuario.trim().toUpperCase();
