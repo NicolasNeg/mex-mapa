@@ -529,9 +529,31 @@ const API_FUNCTIONS = {
     }
     return "ERROR: Nota no encontrada";
   },
-
 async obtenerLogsServer() {
-  const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
+  const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(200).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    let fecha = "";
+    try {
+      const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
+      if (!isNaN(f)) fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+    } catch(e) {}
+    return {
+      fecha,
+      tipo:      data.tipo || "MOVE",
+      accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
+      mva:       data.mva || "",
+      ubicacion: data.posNueva || "",
+      estado:    data.posNueva || "",
+      autor:     data.autor || "",
+      usuario:   data.autor || "",
+      detalles:  `${data.posAnterior || ""} → ${data.posNueva || ""}`
+    };
+  });
+},
+
+async obtenerHistorialLogs() {
+  const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
   return snap.docs.map(d => {
     const data = d.data();
     let fecha = "";
@@ -551,28 +573,8 @@ async obtenerLogsServer() {
       ubicacion: ubiMatch ? ubiMatch[1] : "",
       estado:    estadoMatch ? estadoMatch[1] : (data.tipo || ""),
       autor:     data.autor || "",
-      usuario:   data.autor || ""
-    };
-  });
-},
-async obtenerHistorialLogs() {
-  const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
-  return snap.docs.map(d => {
-    const data = d.data();
-    let fecha = "";
-    try {
-      const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
-      if (!isNaN(f)) fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
-    } catch(e) {}
-    return {
-      fecha,
-      tipo:      data.tipo || "MOVE",
-      accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
-      mva:       data.mva || "",
-      ubicacion: data.posNueva || "",
-      estado:    data.posNueva || "",
-      autor:     data.autor || "",
-      usuario:   data.autor || ""
+      usuario:   data.autor || "",
+      detalles:  ubiMatch ? ubiMatch[1] : (estadoMatch ? estadoMatch[1] : "")
     };
   });
 },
