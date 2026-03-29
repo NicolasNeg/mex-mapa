@@ -530,67 +530,54 @@ const API_FUNCTIONS = {
     return "ERROR: Nota no encontrada";
   },
 
-async obtenerLogsServer() {
+  async obtenerLogsServer() {
   const snap = await db.collection("historial_patio")
     .orderBy("timestamp", "desc").limit(200).get();
   return snap.docs.map(d => {
     const data = d.data();
-    
-    // Intentar todas las formas posibles de obtener la fecha
     let fecha = "";
     try {
-      let f = null;
-      if (data.timestamp && typeof data.timestamp === "number") {
-        f = new Date(data.timestamp);
-      } else if (data.fecha && data.fecha.includes("T")) {
-        // Formato ISO: "2026-03-23T14:47:54.479Z"
-        f = new Date(data.fecha);
-      } else if (data.fecha) {
-        f = new Date(data.fecha);
-      }
-      if (f && !isNaN(f)) {
-        fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
-      }
-    } catch(e) { fecha = data.fecha || "Sin fecha"; }
-
-    // Ubicación/Estado: usar posNueva, si no hoja
-    const ubicacion = data.posNueva || data.hoja || "";
-
+      const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
+      if (!isNaN(f)) fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+    } catch(e) {}
     return {
-      fecha:     fecha,
+      fecha,
       tipo:      data.tipo || "MOVE",
       accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
       mva:       data.mva || "",
-      ubicacion: ubicacion,
-      estado:    ubicacion,
+      ubicacion: data.posNueva || "",
+      estado:    data.posNueva || "",
       autor:     data.autor || "",
       usuario:   data.autor || ""
     };
   });
 },
-
 async obtenerHistorialLogs() {
   return API_FUNCTIONS.obtenerLogsServer();
 },
-
-  async obtenerHistorialLogs() {
-    const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
-    return snap.docs.map(d => {
-      const data = d.data();
-      let fecha = data.fecha || "";
-      try { const f = new Date(data.fecha); fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" }); } catch(e) {}
-      return {
-        fecha:     fecha,
-        tipo:      data.tipo || "MOVE",
-        accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
-        mva:       data.mva || "",
-        ubicacion: data.posNueva || "",
-        estado:    data.hoja || "",
-        autor:     data.autor || "",
-        usuario:   data.autor || ""
-      };
-    });
-  },
+// HISTORIAL DE ACTIVIDAD — cambios de estado
+async obtenerHistorialLogs() {
+  const snap = await db.collection(COL.LOGS)
+    .orderBy("timestamp", "desc").limit(500).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    let fecha = "";
+    try {
+      const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
+      if (!isNaN(f)) fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+    } catch(e) {}
+    return {
+      fecha,
+      tipo:      data.tipo || "OTRO",
+      accion:    data.accion || "",
+      mva:       data.mva || data.accion?.match(/\*(\w+)\*/)?.[1] || "",
+      ubicacion: data.ubicacion || "",
+      estado:    data.estado || data.tipo || "",
+      autor:     data.autor || "",
+      usuario:   data.autor || ""
+    };
+  });
+},
 
   // ─── GESTIÓN DE USUARIOS ─────────────────────────────────
   async guardarNuevoUsuario(nombre, pin, isAdmin) {
