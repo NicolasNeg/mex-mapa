@@ -530,9 +530,33 @@ const API_FUNCTIONS = {
     return "ERROR: Nota no encontrada";
   },
 
-  async obtenerLogsServer() {
-  const snap = await db.collection("logs")
-    .orderBy("timestamp", "desc").limit(200).get();
+async obtenerLogsServer() {
+  const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    let fecha = "";
+    try {
+      const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
+      if (!isNaN(f)) fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+    } catch(e) {}
+    const accion = data.accion || "";
+    const mvaMatch = accion.match(/\*(\w+)\*/);
+    const estadoMatch = accion.match(/ESTADO\s*[→➜]\s*(\w+)/);
+    const ubiMatch = accion.match(/UBI\s*[→➜]\s*(\w+)/);
+    return {
+      fecha,
+      tipo:      data.tipo || "OTRO",
+      accion:    accion,
+      mva:       data.mva || (mvaMatch ? mvaMatch[1] : ""),
+      ubicacion: ubiMatch ? ubiMatch[1] : "",
+      estado:    estadoMatch ? estadoMatch[1] : (data.tipo || ""),
+      autor:     data.autor || "",
+      usuario:   data.autor || ""
+    };
+  });
+},
+async obtenerHistorialLogs() {
+  const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
   return snap.docs.map(d => {
     const data = d.data();
     let fecha = "";
@@ -547,42 +571,6 @@ const API_FUNCTIONS = {
       mva:       data.mva || "",
       ubicacion: data.posNueva || "",
       estado:    data.posNueva || "",
-      autor:     data.autor || "",
-      usuario:   data.autor || ""
-    };
-  });
-},
-
-async obtenerHistorialLogs() {
-  const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
-  return snap.docs.map(d => {
-    const data = d.data();
-    let fecha = "";
-    try {
-      const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
-      if (!isNaN(f)) fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
-    } catch(e) {}
-
-    // Extraer MVA del texto: *T048* → T048
-    const accion = data.accion || "";
-    const mvaMatch = accion.match(/\*(\w+)\*/);
-    const mva = data.mva || (mvaMatch ? mvaMatch[1] : "");
-
-    // Extraer ESTADO del texto: ESTADO → LISTO
-    const estadoMatch = accion.match(/ESTADO\s*[→➜]\s*(\w+)/);
-    const estado = estadoMatch ? estadoMatch[1] : (data.tipo || "");
-
-    // Extraer UBICACIÓN del texto: UBI → PATIO
-    const ubiMatch = accion.match(/UBI\s*[→➜]\s*(\w+)/);
-    const ubicacion = ubiMatch ? ubiMatch[1] : "";
-
-    return {
-      fecha,
-      tipo:      data.tipo || "OTRO",
-      accion:    accion,
-      mva:       mva,
-      ubicacion: ubicacion,
-      estado:    estado,
       autor:     data.autor || "",
       usuario:   data.autor || ""
     };
