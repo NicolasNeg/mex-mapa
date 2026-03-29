@@ -531,7 +531,7 @@ const API_FUNCTIONS = {
   },
 
   async obtenerLogsServer() {
-  const snap = await db.collection("historial_patio")
+  const snap = await db.collection("logs")
     .orderBy("timestamp", "desc").limit(200).get();
   return snap.docs.map(d => {
     const data = d.data();
@@ -557,7 +557,7 @@ async obtenerHistorialLogs() {
 },
 // HISTORIAL DE ACTIVIDAD — cambios de estado
 async obtenerHistorialLogs() {
-  const snap = await db.collection(COL.LOGS)
+  const snap = await db.collection(COL.historial_patio)
     .orderBy("timestamp", "desc").limit(500).get();
   return snap.docs.map(d => {
     const data = d.data();
