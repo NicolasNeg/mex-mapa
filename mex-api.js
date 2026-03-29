@@ -535,21 +535,34 @@ async obtenerLogsServer() {
     .orderBy("timestamp", "desc").limit(200).get();
   return snap.docs.map(d => {
     const data = d.data();
+    
+    // Intentar todas las formas posibles de obtener la fecha
     let fecha = "";
     try {
-      // Si tiene timestamp numérico úsalo, si no usa el campo fecha
-      const f = data.timestamp 
-        ? new Date(data.timestamp) 
-        : new Date(data.fecha);
-      fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
-    } catch(e) { fecha = data.fecha || ""; }
+      let f = null;
+      if (data.timestamp && typeof data.timestamp === "number") {
+        f = new Date(data.timestamp);
+      } else if (data.fecha && data.fecha.includes("T")) {
+        // Formato ISO: "2026-03-23T14:47:54.479Z"
+        f = new Date(data.fecha);
+      } else if (data.fecha) {
+        f = new Date(data.fecha);
+      }
+      if (f && !isNaN(f)) {
+        fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+      }
+    } catch(e) { fecha = data.fecha || "Sin fecha"; }
+
+    // Ubicación/Estado: usar posNueva, si no hoja
+    const ubicacion = data.posNueva || data.hoja || "";
+
     return {
       fecha:     fecha,
       tipo:      data.tipo || "MOVE",
       accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
       mva:       data.mva || "",
-      ubicacion: data.posNueva || "",
-      estado:    data.posNueva || "",
+      ubicacion: ubicacion,
+      estado:    ubicacion,
       autor:     data.autor || "",
       usuario:   data.autor || ""
     };
