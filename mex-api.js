@@ -179,7 +179,7 @@ const API_FUNCTIONS = {
     const indexSnap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     const indexData = indexSnap.empty ? {} : indexSnap.docs[0].data();
 
-    await db.collection(COL.CUADRE).doc(mvaStr).set({
+    await db.collection(COL.CUADRE).add({
       categoria:    indexData.categoria || objeto.categ || "S/C",
       modelo:       indexData.modelo || objeto.modelo || "S/M",
       mva:          mvaStr,
@@ -220,40 +220,18 @@ const API_FUNCTIONS = {
    */
   async guardarNuevasPosiciones(reporte, usuarioResponsable) {
     const batch = db.batch();
-    const histBatch = [];
     for (const item of reporte) {
       if (!item.mva || !item.pos) continue;
       const mvaStr = item.mva.toString().trim().toUpperCase();
-      const posNueva = item.pos.toString().toUpperCase();
 
+      // Buscar en CUADRE primero, luego EXTERNOS
       let snap = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
-      let hoja = "CUADRE";
-      if (snap.empty) { snap = await db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1).get(); hoja = "EXTERNOS"; }
-
+      if (snap.empty) snap = await db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1).get();
       if (!snap.empty) {
-        const posAnterior = snap.docs[0].data().pos || "LIMBO";
-        // Solo guardar si la posición realmente cambió
-        if (posAnterior !== posNueva) {
-          batch.set(snap.docs[0].ref, { pos: posNueva }, { merge: true });
-          histBatch.push({ mva: mvaStr, hoja, posAnterior, posNueva });
-        }
+        batch.update(snap.docs[0].ref, { pos: item.pos.toUpperCase() });
       }
     }
     await batch.commit();
-
-    // Escribir historial de movimientos
-    for (const h of histBatch) {
-      await db.collection("historial_patio").add({
-        timestamp:   _ts(),
-        fecha:       _now(),
-        tipo:        "MOVE",
-        mva:         h.mva,
-        hoja:        h.hoja,
-        posAnterior: h.posAnterior,
-        posNueva:    h.posNueva,
-        autor:       usuarioResponsable || "Sistema"
-      });
-    }
     return true;
   },
 
@@ -469,22 +447,15 @@ const API_FUNCTIONS = {
   // ─── NOTAS DE ADMIN ───────────────────────────────────────
   async obtenerTodasLasNotas() {
     const snap = await db.collection(COL.NOTAS).orderBy("timestamp", "desc").get();
-    return snap.docs.map(d => {
-      const data = d.data();
-      // Usar timestamp como id (numérico) para que funcione en onclick del HTML
-      // Guardar docId real para operaciones
-      return {
-        id: data.timestamp || d.id,
-        _docId: d.id,
-        ...data
-      };
-    });
+    return snap.docs.map(d => ({
+      id: d.id,
+      ...d.data()
+    }));
   },
 
   async guardarNuevaNotaDirecto(nota, autor) {
-    const ts = _ts();
-    await db.collection(COL.NOTAS).doc(ts.toString()).set({
-      timestamp: ts,
+    await db.collection(COL.NOTAS).add({
+      timestamp: _ts(),
       fecha:     _now(),
       autor:     autor,
       nota:      nota,
@@ -496,38 +467,17 @@ const API_FUNCTIONS = {
   },
 
   async resolverNotaDirecto(idNota, solucion, autor) {
-    const idStr = idNota.toString();
-    // Intentar primero por docId directo
-    const ref = db.collection(COL.NOTAS).doc(idStr);
-    const snap = await ref.get();
-    if (snap.exists) {
-      await ref.update({ quienResolvio: autor, estado: "RESUELTA", solucion: solucion });
-      return "OK";
-    }
-    // Buscar por timestamp (para notas antiguas con id numérico)
-    const ts = parseInt(idStr);
-    if (!isNaN(ts)) {
-      const q = await db.collection(COL.NOTAS).where("timestamp", "==", ts).limit(1).get();
-      if (!q.empty) {
-        await q.docs[0].ref.update({ quienResolvio: autor, estado: "RESUELTA", solucion: solucion });
-        return "OK";
-      }
-    }
-    return "ERROR: Nota no encontrada";
+    await db.collection(COL.NOTAS).doc(idNota.toString()).update({
+      quienResolvio: autor,
+      estado:        "RESUELTA",
+      solucion:      solucion
+    });
+    return "OK";
   },
 
   async eliminarNotaDirecto(idNota) {
-    const idStr = idNota.toString();
-    const ref = db.collection(COL.NOTAS).doc(idStr);
-    const snap = await ref.get();
-    if (snap.exists) { await ref.delete(); return "OK"; }
-    // Buscar por timestamp
-    const ts = parseInt(idStr);
-    if (!isNaN(ts)) {
-      const q = await db.collection(COL.NOTAS).where("timestamp", "==", ts).limit(1).get();
-      if (!q.empty) { await q.docs[0].ref.delete(); return "OK"; }
-    }
-    return "ERROR: Nota no encontrada";
+    await db.collection(COL.NOTAS).doc(idNota.toString()).delete();
+    return "OK";
   },
 
   // ─── LOGS / BITÁCORA ─────────────────────────────────────
@@ -663,24 +613,7 @@ const API_FUNCTIONS = {
 
   async obtenerHistorialCuadres() {
     const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
-    return snap.docs.map(d => {
-      const data = d.data();
-      let fecha = data.fecha || "";
-      try {
-        const f = new Date(data.fecha);
-        if (!isNaN(f)) fecha = f.toLocaleDateString("es-MX", { day:"2-digit", month:"2-digit", year:"numeric", hour:"2-digit", minute:"2-digit", timeZone:"America/Hermosillo" });
-      } catch(e) {}
-      return {
-        id:        d.id,
-        fecha:     fecha,
-        auxiliar:  data.auxiliar || data.autor || "",
-        admin:     data.admin || data.adminVentas || "",
-        ok:        data.ok || "0",
-        faltantes: data.faltantes || "0",
-        sobrantes: data.sobrantes || data.numSobrantes || "0",
-        pdfUrl:    data.pdfUrl || data.jsonCompleto || ""
-      };
-    });
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
 
   // ─── CONFIGURACIÓN DEL MAPA ───────────────────────────────
