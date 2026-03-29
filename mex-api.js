@@ -52,8 +52,10 @@ async function _setSettings(data) {
   await db.collection(COL.SETTINGS).doc(SETTINGS_DOC).set(data, { merge: true });
 }
 async function _registrarLog(tipo, mensaje, autor) {
-  await db.collection(COL.LOGS).add({
-    fecha: _now(), timestamp: _ts(), tipo, accion: mensaje, autor: autor || "Sistema"
+  const ts = _ts();
+  const id = `log_${ts}_${Math.floor(Math.random() * 1000)}`;
+  await db.collection(COL.LOGS).doc(id).set({
+    fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: autor || "Sistema"
   });
 }
 async function _actualizarFeed(accion, autor) {
@@ -388,9 +390,29 @@ const API_FUNCTIONS = {
   // ─── HISTORIAL ───────────────────────────────────────────
 
   // Gestión de Flota → Más Controles → REGISTROS/MOVIMIENTOS
-  // Lee de LOGS: inserciones, modificaciones de estado, bajas
+  // Lee de historial_patio: movimientos de cajón (MOVE)
   async obtenerHistorialLogs() {
-    const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
+    const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
+    return snap.docs.map(d => {
+      const data = d.data();
+      return {
+        fecha:    _fecha(data),
+        tipo:     data.tipo || "MOVE",
+        accion:   `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
+        mva:      data.mva || "",
+        detalles: `${data.posAnterior || ""} → ${data.posNueva || ""}`,
+        ubicacion: data.posNueva || "",
+        estado:   data.posNueva || "",
+        autor:    data.autor || "",
+        usuario:  data.autor || ""
+      };
+    });
+  },
+
+  // Sidebar → HISTORIAL ACTIVIDAD (AUDITORÍA DEL SISTEMA)
+  // Lee de LOGS: inserciones, modificaciones de estado, bajas
+  async obtenerLogsServer() {
+    const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
     return snap.docs.map(d => {
       const data = d.data();
       const accion = data.accion || "";
@@ -405,26 +427,6 @@ const API_FUNCTIONS = {
         detalles: ubiMatch ? ubiMatch[1] : (estadoMatch ? estadoMatch[1] : ""),
         ubicacion: ubiMatch ? ubiMatch[1] : "",
         estado:   estadoMatch ? estadoMatch[1] : (data.tipo || ""),
-        autor:    data.autor || "",
-        usuario:  data.autor || ""
-      };
-    });
-  },
-
-  // Sidebar → HISTORIAL ACTIVIDAD
-  // Lee de historial_patio: movimientos de cajón (MOVE)
-  async obtenerLogsServer() {
-    const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(200).get();
-    return snap.docs.map(d => {
-      const data = d.data();
-      return {
-        fecha:    _fecha(data),
-        tipo:     data.tipo || "MOVE",
-        accion:   `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
-        mva:      data.mva || "",
-        detalles: `${data.posAnterior || ""} → ${data.posNueva || ""}`,
-        ubicacion: data.posNueva || "",
-        estado:   data.posNueva || "",
         autor:    data.autor || "",
         usuario:  data.autor || ""
       };
