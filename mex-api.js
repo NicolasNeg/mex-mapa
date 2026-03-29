@@ -552,13 +552,9 @@ const API_FUNCTIONS = {
     };
   });
 },
+
 async obtenerHistorialLogs() {
-  return API_FUNCTIONS.obtenerLogsServer();
-},
-// HISTORIAL DE ACTIVIDAD — cambios de estado
-async obtenerHistorialLogs() {
-  const snap = await db.collection(COL.historial_patio)
-    .orderBy("timestamp", "desc").limit(500).get();
+  const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
   return snap.docs.map(d => {
     const data = d.data();
     let fecha = "";
@@ -566,13 +562,27 @@ async obtenerHistorialLogs() {
       const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
       if (!isNaN(f)) fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
     } catch(e) {}
+
+    // Extraer MVA del texto: *T048* → T048
+    const accion = data.accion || "";
+    const mvaMatch = accion.match(/\*(\w+)\*/);
+    const mva = data.mva || (mvaMatch ? mvaMatch[1] : "");
+
+    // Extraer ESTADO del texto: ESTADO → LISTO
+    const estadoMatch = accion.match(/ESTADO\s*[→➜]\s*(\w+)/);
+    const estado = estadoMatch ? estadoMatch[1] : (data.tipo || "");
+
+    // Extraer UBICACIÓN del texto: UBI → PATIO
+    const ubiMatch = accion.match(/UBI\s*[→➜]\s*(\w+)/);
+    const ubicacion = ubiMatch ? ubiMatch[1] : "";
+
     return {
       fecha,
       tipo:      data.tipo || "OTRO",
-      accion:    data.accion || "",
-      mva:       data.mva || data.accion?.match(/\*(\w+)\*/)?.[1] || "",
-      ubicacion: data.ubicacion || "",
-      estado:    data.estado || data.tipo || "",
+      accion:    accion,
+      mva:       mva,
+      ubicacion: ubicacion,
+      estado:    estado,
       autor:     data.autor || "",
       usuario:   data.autor || ""
     };
