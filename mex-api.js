@@ -106,6 +106,28 @@ const API_FUNCTIONS = {
     return _generarEstructuraPorDefecto();
   },
 
+  async guardarEstructuraMapa(elementos) {
+    // 1. Borrar todos los documentos actuales
+    const snap = await db.collection(COL.MAPA_CFG).get();
+    if (!snap.empty) {
+      const batch = db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    }
+    // 2. Insertar nueva estructura en lotes de 490
+    for (let i = 0; i < elementos.length; i += 490) {
+      const chunk = elementos.slice(i, i + 490);
+      const batch = db.batch();
+      chunk.forEach((el, j) => {
+        const ref = db.collection(COL.MAPA_CFG).doc(`cel_${el.orden ?? (i + j)}`);
+        batch.set(ref, el);
+      });
+      await batch.commit();
+    }
+    await _registrarLog("SISTEMA", "🗺️ Estructura del mapa actualizada", "Sistema");
+    return "OK";
+  },
+
   // ─── MODIFICACIONES ──────────────────────────────────────
   async aplicarEstado(mva, estado, ubi, gas, notasFormulario, borrarNotas, nombreAutor, responsableSesion) {
     const mvaStr = mva.toString().trim().toUpperCase();
