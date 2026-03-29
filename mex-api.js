@@ -530,15 +530,17 @@ const API_FUNCTIONS = {
     return "ERROR: Nota no encontrada";
   },
 
-  // ─── LOGS / BITÁCORA ─────────────────────────────────────
-  async obtenerLogsServer() {
-  const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(200).get();
+async obtenerLogsServer() {
+  const snap = await db.collection("historial_patio")
+    .orderBy("timestamp", "desc").limit(200).get();
   return snap.docs.map(d => {
     const data = d.data();
-    // Usar timestamp numérico para formatear la fecha correctamente
     let fecha = "";
     try {
-      const f = new Date(data.timestamp);
+      // Si tiene timestamp numérico úsalo, si no usa el campo fecha
+      const f = data.timestamp 
+        ? new Date(data.timestamp) 
+        : new Date(data.fecha);
       fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
     } catch(e) { fecha = data.fecha || ""; }
     return {
