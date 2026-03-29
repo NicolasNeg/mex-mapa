@@ -5116,7 +5116,7 @@ function abrirLogs() {
        tbody.innerHTML = logs.map(l => `
          <tr>
            <td style="font-size:11px; color:#64748b; font-weight:800;">${l.fecha}</td>
-           <td><span class="badge ${l.accion.includes('MOVE') ? 'st-LISTO' : 'st-SUCIO'}">${l.accion}</span></td>
+           <td><span class="badge ${l.tipo === 'MOVE' ? 'st-LISTO' : 'st-SUCIO'}">${l.tipo}</span></td>
            <td style="font-weight:900; color:var(--mex-blue); font-size:14px;">${l.mva}</td>
            <td style="font-size:12px; font-weight:700;">${l.detalles}</td>
            <td style="font-size:11px; font-weight:800;">${l.usuario}</td>
@@ -7593,42 +7593,48 @@ function renderContactos() {
     return;
   }
 
+  const AVATAR_COLORS = ['#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce','#805ad5','#d53f8c','#00b5d8','#e53e3e','#2f855a'];
+  function _avatarColor(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % AVATAR_COLORS.length; return AVATAR_COLORS[Math.abs(h)]; }
+
   container.innerHTML = usuariosMostrar.map(u => {
     const uName = u.usuario.trim().toUpperCase();
     const unread = noLeidos[uName] || 0;
     const lastMsg = ultimosMensajes[uName];
-    
-    let snippet = "Comenzar chat...";
+
+    let snippet = "Toca para chatear";
     let dateStr = "";
     let unreadBadge = "";
-    let boldStyle = "color:#64748b;";
+    let snippetColor = "color:#8696a0;";
+    let snippetWeight = "font-weight:400;";
 
     if (lastMsg) {
-       snippet = lastMsg.esMio ? `Tú: ${lastMsg.mensaje}` : lastMsg.mensaje;
-       if (snippet.length > 30) snippet = snippet.substring(0, 30) + "...";
-       
-       // 🔥 EXTRACCIÓN SEGURA DE LA HORA
+       const raw = lastMsg.esMio ? `✓ ${lastMsg.mensaje}` : lastMsg.mensaje;
+       snippet = raw.length > 35 ? raw.substring(0, 35) + "…" : raw;
        let partesFecha = String(lastMsg.fecha || "").split(' ');
-       dateStr = partesFecha.length > 1 ? partesFecha[1] : ""; 
+       dateStr = partesFecha.length > 1 ? partesFecha[1] : "";
     }
 
     if (unread > 0) {
-       unreadBadge = `<span style="background:#ef4444; color:white; font-size:10px; font-weight:900; padding:2px 8px; border-radius:10px; box-shadow: 0 2px 4px rgba(239,68,68,0.3);">${unread}</span>`;
-       boldStyle = "color:#0284c7; font-weight:800;";
+       unreadBadge = `<span style="background:#25D366; color:white; font-size:11px; font-weight:900; min-width:20px; height:20px; padding:0 6px; border-radius:10px; display:flex; align-items:center; justify-content:center;">${unread}</span>`;
+       snippetColor = "color:#111;";
+       snippetWeight = "font-weight:600;";
+       dateStr = `<span style="color:#25D366; font-weight:700;">${dateStr}</span>`;
     }
+
+    const avatarColor = _avatarColor(uName);
 
     return `
       <div class="chat-contact" onclick="abrirChat('${uName}')">
-         <div style="display:flex; align-items:center; gap:15px; width:calc(100% - 60px);">
-            <div class="chat-avatar">${uName.charAt(0).toUpperCase()}</div>
-            <div style="overflow: hidden;">
-               <div style="font-weight:900; font-size:14px; color:var(--mex-blue); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${uName}</div>
-               <div style="font-size:12px; ${boldStyle} margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${snippet}</div>
+         <div class="chat-avatar" style="background:${avatarColor}; width:46px; height:46px; font-size:18px; flex-shrink:0;">${uName.charAt(0)}</div>
+         <div style="flex:1; overflow:hidden; padding: 0 10px; border-bottom: 1px solid #f0f0f0; padding-bottom:13px; margin-bottom:-13px;">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
+              <span style="font-weight:700; font-size:14.5px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;">${uName}</span>
+              <span style="font-size:11px; ${unread > 0 ? '' : 'color:#8696a0;'} flex-shrink:0;">${dateStr}</span>
             </div>
-         </div>
-         <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px; flex-shrink:0;">
-            <span style="font-size:10px; color:#94a3b8; font-weight:700;">${dateStr}</span>
-            ${unreadBadge}
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:13px; ${snippetColor} ${snippetWeight} white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80%;">${snippet}</span>
+              ${unreadBadge}
+            </div>
          </div>
       </div>
     `;
@@ -7639,7 +7645,9 @@ function abrirChat(nombre) {
   activeChatUser = String(nombre).trim().toUpperCase();
   
   document.getElementById('chat-active-name').innerText = activeChatUser;
-  document.getElementById('chat-active-avatar').innerText = activeChatUser.charAt(0);
+  const avatarEl = document.getElementById('chat-active-avatar');
+  avatarEl.innerText = activeChatUser.charAt(0);
+  avatarEl.style.background = _avatarColor(activeChatUser);
   document.getElementById('chat-window-view').style.transform = 'translateX(0)';
   
   const input = document.getElementById('chat-input');
@@ -9039,16 +9047,24 @@ function ejecutarLogicaOCR(textoDetectado) {
 
 
   /* =========================================
-       💬 ESTILOS DE CHAT (TIPO INSTAGRAM/WHATSAPP)
+       💬 ESTILOS DE CHAT (TIPO WHATSAPP)
        ========================================= */
-    .chat-contact { padding: 15px 20px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.2s; }
-    .chat-contact:hover { background: #f8fafc; }
-    .chat-avatar { width: 45px; height: 45px; border-radius: 50%; background: #e0f2fe; color: #0284c7; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; flex-shrink: 0; border: 2px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    
-    .chat-bubble { max-width: 80%; padding: 12px 16px; font-size: 13px; line-height: 1.4; position: relative; margin-bottom: 15px; font-weight: 600; clear: both; word-wrap: break-word; }
-    .chat-bubble.sent { background: #0284c7; color: white; float: right; border-radius: 16px 16px 4px 16px; box-shadow: 0 4px 10px rgba(2, 132, 199, 0.2); }
-    .chat-bubble.received { background: white; color: #334155; float: left; border-radius: 16px 16px 16px 4px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-    .chat-time { font-size: 9px; opacity: 0.7; margin-top: 6px; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+    .chat-contact { padding: 13px 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.15s; }
+    .chat-contact:hover { background: #f5f5f5; }
+    .chat-contact:active { background: #ebebeb; }
+
+    .chat-avatar { width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 19px; flex-shrink: 0; color: white; }
+
+    .chat-bubble { max-width: 78%; padding: 7px 12px 20px 12px; font-size: 13.5px; line-height: 1.45; position: relative; margin-bottom: 4px; font-weight: 500; clear: both; word-wrap: break-word; border-radius: 7.5px; }
+    .chat-bubble.sent { background: #dcf8c6; color: #111; float: right; border-radius: 7.5px 7.5px 0 7.5px; box-shadow: 0 1px 1px rgba(0,0,0,0.13); }
+    .chat-bubble.received { background: white; color: #111; float: left; border-radius: 7.5px 7.5px 7.5px 0; box-shadow: 0 1px 1px rgba(0,0,0,0.13); }
+    .chat-time { font-size: 10px; color: #8696a0; position: absolute; bottom: 5px; right: 10px; display: flex; align-items: center; gap: 3px; }
+    .chat-time .check { color: #53bdeb; font-size: 12px; }
+
+    .chat-date-sep { text-align: center; margin: 12px 0; clear: both; }
+    .chat-date-sep span { background: #d9fdd3; color: #54656f; font-size: 11.5px; font-weight: 600; padding: 4px 12px; border-radius: 8px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); }
+
+    #chat-messages-container::after { content: ''; display: block; clear: both; }
 
 
 
@@ -9103,41 +9119,57 @@ function ejecutarLogicaOCR(textoDetectado) {
 </div>
 
 
-<div id="buzon-modal" class="fleet-modal" style="z-index: 8000;">
-  <div class="fleet-header-top" style="padding: 10px 20px;">
-    <div style="display:flex; align-items:center; gap: 10px;">
-      <h2 style="color:var(--primary); font-weight:900; margin:0; font-size: 18px;"><span class="material-icons" style="font-size: 20px; vertical-align: bottom;">forum</span> MENSAJES</h2>
+<div id="buzon-modal" class="fleet-modal" style="z-index: 8000; border-radius: 16px; overflow: hidden;">
+
+  <!-- Header verde WhatsApp -->
+  <div style="background: #075E54; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+    <div style="display:flex; align-items:center; gap: 12px;">
+      <span class="material-icons" style="color: #25D366; font-size: 22px;">forum</span>
+      <h2 style="color: white; font-weight:900; margin:0; font-size: 17px; letter-spacing: 0.5px;">MENSAJES</h2>
     </div>
-    <button onclick="document.getElementById('buzon-modal').classList.remove('active')" style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-size:12px; font-weight:800; cursor:pointer;">CERRAR</button>
+    <button onclick="document.getElementById('buzon-modal').classList.remove('active')" style="background: rgba(255,255,255,0.15); color: white; border:none; padding: 7px 16px; border-radius:20px; font-size:12px; font-weight:800; cursor:pointer; backdrop-filter: blur(5px);">✕ CERRAR</button>
   </div>
-  
-  <div class="fleet-wrapper" style="padding: 0; background: #f8fafc; position: relative; overflow: hidden; flex-direction: row;">
-    
-    <div id="chat-contacts-view" style="width: 100%; height: 100%; overflow-y: auto; background: white;">
-       <div style="padding: 15px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0;">
-         <input type="text" id="buscadorContactos" placeholder="Buscar usuario..." onkeyup="renderContactos()" style="width:100%; padding:12px 15px; border-radius:12px; border:1px solid var(--border); outline:none; font-family:inherit; font-weight:600; background: white;">
+
+  <div class="fleet-wrapper" style="padding: 0; background: #f0f0f0; position: relative; overflow: hidden; flex-direction: row;">
+
+    <!-- Lista de contactos -->
+    <div id="chat-contacts-view" style="width: 100%; height: 100%; overflow-y: auto; background: white; display: flex; flex-direction: column;">
+       <div style="padding: 10px 12px; background: #f6f6f6; border-bottom: 1px solid #e9e9e9;">
+         <div style="display:flex; align-items:center; background: white; border-radius: 20px; padding: 8px 14px; gap: 8px; border: 1px solid #e0e0e0;">
+           <span class="material-icons" style="font-size:18px; color:#8696a0;">search</span>
+           <input type="text" id="buscadorContactos" placeholder="Buscar..." onkeyup="renderContactos()" style="flex:1; border:none; outline:none; font-family:inherit; font-weight:500; font-size:14px; color:#111; background:transparent;">
+         </div>
        </div>
-       <div id="listaContactosContainer">
-         <div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner">sync</span></div>
+       <div id="listaContactosContainer" style="flex:1; overflow-y:auto;">
+         <div style="text-align:center; padding:40px; color:#8696a0;"><span class="material-icons spinner">sync</span></div>
        </div>
     </div>
 
-    <div id="chat-window-view" style="width: 100%; height: 100%; background: #f8fafc; position: absolute; top: 0; left: 0; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; z-index: 10;">
-       
-       <div style="background: white; padding: 10px 15px; border-bottom: 1px solid #e2e8f0; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
-         <button onclick="cerrarChat()" style="background:#f1f5f9; border:none; color:var(--mex-blue); border-radius: 50%; width: 35px; height: 35px; cursor:pointer; display:flex; align-items:center; justify-content: center;"><span class="material-icons" style="font-size: 16px; margin-left: 5px;">arrow_back_ios</span></button>
-         <div class="chat-avatar" id="chat-active-avatar" style="width: 35px; height: 35px; font-size: 14px;">U</div>
-         <b id="chat-active-name" style="font-size: 15px; color: var(--mex-blue); font-weight: 900; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Nombre</b>
-       </div>
-       
-       <div id="chat-messages-container" style="flex: 1; overflow-y: auto; padding: 20px; display: block;">
-          </div>
+    <!-- Ventana de chat individual -->
+    <div id="chat-window-view" style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; z-index: 10;">
 
-       <div style="background: white; padding: 15px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; align-items: flex-end;">
-         <textarea id="chat-input" rows="1" placeholder="Escribe un mensaje..." style="flex:1; padding:14px 15px; border-radius:20px; border:1px solid #cbd5e1; outline:none; font-family:inherit; font-weight:600; resize:none; max-height: 100px; background:#f8fafc;" oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"></textarea>
-         <button onclick="enviarMensajeChat()" style="background: var(--mex-accent); color: white; border: none; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink:0; transition:0.2s; box-shadow: 0 4px 10px rgba(26,115,232,0.3);"><span class="material-icons" style="margin-left:4px;">send</span></button>
+       <!-- Header del chat activo -->
+       <div style="background: #075E54; padding: 8px 14px; display: flex; align-items: center; gap: 12px; flex-shrink:0;">
+         <button onclick="cerrarChat()" style="background: transparent; border:none; color: white; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:4px;"><span class="material-icons" style="font-size:22px;">arrow_back</span></button>
+         <div class="chat-avatar" id="chat-active-avatar" style="width: 38px; height: 38px; font-size: 15px;">U</div>
+         <div style="flex:1; overflow:hidden;">
+           <div id="chat-active-name" style="font-size: 15px; color: white; font-weight: 700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Nombre</div>
+           <div style="font-size: 11px; color: #25D366; font-weight: 600;">En línea</div>
+         </div>
        </div>
-       
+
+       <!-- Área de mensajes con fondo tipo WhatsApp -->
+       <div id="chat-messages-container" style="flex: 1; overflow-y: auto; padding: 12px 16px 8px 16px; background: #ece5dd url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 opacity=%220.04%22><text y=%2240%22 font-size=%2240%22>💬</text></svg>') repeat; display: block;">
+       </div>
+
+       <!-- Input bar -->
+       <div style="background: #f0f0f0; padding: 8px 10px; display: flex; gap: 8px; align-items: flex-end; flex-shrink:0;">
+         <div style="flex:1; background: white; border-radius: 24px; padding: 10px 16px; display:flex; align-items:flex-end; gap:8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+           <textarea id="chat-input" rows="1" placeholder="Escribe un mensaje..." style="flex:1; border:none; outline:none; font-family:inherit; font-weight:500; font-size:14px; resize:none; max-height: 100px; background:transparent; color:#111;" oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
+         </div>
+         <button onclick="enviarMensajeChat()" style="background: #25D366; color: white; border: none; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink:0; transition:0.2s; box-shadow: 0 2px 8px rgba(37,211,102,0.4);"><span class="material-icons" style="font-size:22px; margin-left:3px;">send</span></button>
+       </div>
+
     </div>
 
   </div>

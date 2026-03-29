@@ -196,9 +196,12 @@ const API_FUNCTIONS = {
       }
     }
     await batch.commit();
-    for (const h of histBatch) {
-      await db.collection("historial_patio").add({
-        timestamp: _ts(), fecha: _now(), tipo: "MOVE",
+    for (let i = 0; i < histBatch.length; i++) {
+      const h = histBatch[i];
+      const ts = _ts();
+      const id = `move_${i}_${ts}`;
+      await db.collection("historial_patio").doc(id).set({
+        timestamp: ts, fecha: _now(), tipo: "MOVE",
         mva: h.mva, hoja: h.hoja, posAnterior: h.posAnterior, posNueva: h.posNueva,
         autor: usuarioResponsable || "Sistema"
       });
