@@ -530,7 +530,7 @@ const API_FUNCTIONS = {
     return "ERROR: Nota no encontrada";
   },
 async obtenerLogsServer() {
-  const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(200).get();
+  const snap = await db.collection("logs").orderBy("timestamp", "desc").limit(200).get();
   return snap.docs.map(d => {
     const data = d.data();
     let fecha = "";
@@ -553,7 +553,7 @@ async obtenerLogsServer() {
 },
 
 async obtenerHistorialLogs() {
-  const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(500).get();
+  const snap = await db.collection(COL.historial_patio).orderBy("timestamp", "desc").limit(500).get();
   return snap.docs.map(d => {
     const data = d.data();
     let fecha = "";
