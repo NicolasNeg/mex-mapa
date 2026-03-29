@@ -532,23 +532,31 @@ const API_FUNCTIONS = {
 
   // ─── LOGS / BITÁCORA ─────────────────────────────────────
   async obtenerLogsServer() {
-    const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(200).get();
-    return snap.docs.map(d => {
-      const data = d.data();
-      let fecha = data.fecha || "";
-      try { const f = new Date(data.fecha); fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" }); } catch(e) {}
-      return {
-        fecha:     fecha,
-        tipo:      data.tipo || "MOVE",
-        accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
-        mva:       data.mva || "",
-        ubicacion: data.posNueva || "",
-        estado:    data.hoja || "",
-        autor:     data.autor || "",
-        usuario:   data.autor || ""
-      };
-    });
-  },
+  const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(200).get();
+  return snap.docs.map(d => {
+    const data = d.data();
+    // Usar timestamp numérico para formatear la fecha correctamente
+    let fecha = "";
+    try {
+      const f = new Date(data.timestamp);
+      fecha = f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+    } catch(e) { fecha = data.fecha || ""; }
+    return {
+      fecha:     fecha,
+      tipo:      data.tipo || "MOVE",
+      accion:    `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
+      mva:       data.mva || "",
+      ubicacion: data.posNueva || "",
+      estado:    data.posNueva || "",
+      autor:     data.autor || "",
+      usuario:   data.autor || ""
+    };
+  });
+},
+
+async obtenerHistorialLogs() {
+  return API_FUNCTIONS.obtenerLogsServer();
+},
 
   async obtenerHistorialLogs() {
     const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
