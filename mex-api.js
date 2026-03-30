@@ -527,26 +527,30 @@ const API_FUNCTIONS = {
   },
   async modificarUsuario(nombreOriginal, nuevoNombre, nuevoPin, isAdmin, telefono, isGlobalAdmin) {
     const origUpper = nombreOriginal.trim().toUpperCase();
+    const nuevoUpper = nuevoNombre.trim().toUpperCase();
     const snap = await db.collection(COL.USERS).where("usuario", "==", origUpper).limit(1).get();
     if (snap.empty) return "ERROR: Usuario no encontrado";
     const esAdmin = isAdmin === true || isAdmin === "true";
     const esGlobal = isGlobalAdmin === true || isGlobalAdmin === "true";
     await snap.docs[0].ref.update({
-      usuario: nuevoNombre.trim().toUpperCase(),
+      usuario: nuevoUpper,
       password: nuevoPin.toString(),
       isAdmin: esAdmin,
       telefono: (telefono || "").trim()
     });
+    // Buscar por campo usuario (no por doc ID) para cubrir docs con ID legacy
     const adminSnap = await db.collection(COL.ADMINS).where("usuario", "==", origUpper).limit(1).get();
-    if (esAdmin && esGlobal) {
+    if (esAdmin) {
+      // Siempre mantener en admins — solo cambia el flag isGlobal
       if (adminSnap.empty) {
-        await db.collection(COL.ADMINS).doc(nuevoNombre.trim().toUpperCase()).set({
-          usuario: nuevoNombre.trim().toUpperCase(), password: nuevoPin.toString(), isGlobal: true
+        await db.collection(COL.ADMINS).doc(nuevoUpper).set({
+          usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal
         });
       } else {
-        await adminSnap.docs[0].ref.update({ usuario: nuevoNombre.trim().toUpperCase(), password: nuevoPin.toString(), isGlobal: true });
+        await adminSnap.docs[0].ref.update({ usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal });
       }
     } else {
+      // Ya no es admin — eliminar de admins
       if (!adminSnap.empty) await adminSnap.docs[0].ref.delete();
     }
     return "EXITO";
