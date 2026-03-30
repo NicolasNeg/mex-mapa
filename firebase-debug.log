@@ -1,0 +1,133 @@
+[debug] [2026-03-30T18:31:36.798Z] ----------------------------------------------------------------------
+[debug] [2026-03-30T18:31:36.801Z] Command:       /usr/bin/node /usr/bin/firebase init
+[debug] [2026-03-30T18:31:36.801Z] CLI Version:   15.12.0
+[debug] [2026-03-30T18:31:36.801Z] Platform:      linux
+[debug] [2026-03-30T18:31:36.801Z] Node Version:  v22.22.0
+[debug] [2026-03-30T18:31:36.802Z] Time:          Mon Mar 30 2026 12:31:36 GMT-0600 (hora estándar central)
+[debug] [2026-03-30T18:31:36.802Z] ----------------------------------------------------------------------
+[debug] 
+[info] 
+     ######## #### ########  ######## ########     ###     ######  ########
+     ##        ##  ##     ## ##       ##     ##  ##   ##  ##       ##
+     ######    ##  ########  ######   ########  #########  ######  ######
+     ##        ##  ##    ##  ##       ##     ## ##     ##       ## ##
+     ##       #### ##     ## ######## ########  ##     ##  ######  ########
+
+You're about to initialize a Firebase project in this directory:
+
+  /home/negrura/Escritorio/MYPROYECT/mex-mapa
+
+Before we get started, keep in mind:
+
+  * You are initializing within an existing Firebase project directory
+
+[info] 
+=== Project Setup
+[info] 
+[info] First, let's associate this project directory with a Firebase project.
+[info] You can create multiple project aliases by running firebase use --add, 
+[info] 
+[debug] [2026-03-30T18:32:40.792Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-03-30T18:32:40.792Z] > authorizing via signed-in user (armentanegreteangelnicolas@gmail.com)
+[debug] [2026-03-30T18:32:40.794Z] Checked if tokens are valid: false, expires at: 1774834076960
+[debug] [2026-03-30T18:32:40.794Z] Checked if tokens are valid: false, expires at: 1774834076960
+[debug] [2026-03-30T18:32:40.795Z] > refreshing access token with scopes: []
+[debug] [2026-03-30T18:32:40.798Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-03-30T18:32:40.798Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-30T18:32:41.056Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-03-30T18:32:41.057Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-03-30T18:32:41.077Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/mex-mapa-bjx [none]
+[debug] [2026-03-30T18:32:41.434Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/mex-mapa-bjx 200
+[debug] [2026-03-30T18:32:41.434Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/mex-mapa-bjx {"projectId":"mex-mapa-bjx","projectNumber":"35913204070","displayName":"mex-mapa-bjx","name":"projects/mex-mapa-bjx","resources":{"hostingSite":"mex-mapa-bjx"},"state":"ACTIVE","etag":"1_7223fc62-1054-4a00-a4a8-225fb103ecb3"}
+[info] i  Using project mex-mapa-bjx (mex-mapa-bjx) . 
+[info] 
+=== App Hosting Setup
+[debug] [2026-03-30T18:32:41.459Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:41.460Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:41.460Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/mex-mapa-bjx/billingInfo [none]
+[debug] [2026-03-30T18:32:41.948Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/mex-mapa-bjx/billingInfo 200
+[debug] [2026-03-30T18:32:41.948Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/mex-mapa-bjx/billingInfo {"name":"projects/mex-mapa-bjx/billingInfo","projectId":"mex-mapa-bjx","billingAccountName":"billingAccounts/01B7AA-C566C7-B039CA","billingEnabled":true}
+[debug] [2026-03-30T18:32:41.950Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:41.951Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:41.951Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-03-30T18:32:41.951Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:42.472Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com 200
+[debug] [2026-03-30T18:32:42.472Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-03-30T18:32:42.473Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:42.474Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:42.474Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com:enable [none]
+[debug] [2026-03-30T18:32:42.474Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com:enable  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:43.053Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com:enable 200
+[debug] [2026-03-30T18:32:43.054Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/firebaseapphosting.googleapis.com:enable [omitted]
+[debug] [2026-03-30T18:32:53.074Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.074Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.074Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.075Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.075Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.075Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.075Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.075Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.075Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.076Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.076Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.076Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.076Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com [none]
+[debug] [2026-03-30T18:32:53.076Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.079Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com [none]
+[debug] [2026-03-30T18:32:53.079Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.081Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com [none]
+[debug] [2026-03-30T18:32:53.081Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.083Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com [none]
+[debug] [2026-03-30T18:32:53.083Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.085Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com [none]
+[debug] [2026-03-30T18:32:53.085Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.086Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com [none]
+[debug] [2026-03-30T18:32:53.086Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.638Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com 200
+[debug] [2026-03-30T18:32:53.639Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com [omitted]
+[debug] [2026-03-30T18:32:53.639Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.639Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.639Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com:enable [none]
+[debug] [2026-03-30T18:32:53.640Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com:enable  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.643Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com 200
+[debug] [2026-03-30T18:32:53.643Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com [omitted]
+[debug] [2026-03-30T18:32:53.644Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.644Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.644Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com:enable [none]
+[debug] [2026-03-30T18:32:53.644Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com:enable  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.647Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com 200
+[debug] [2026-03-30T18:32:53.648Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com [omitted]
+[debug] [2026-03-30T18:32:53.648Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.648Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.649Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com:enable [none]
+[debug] [2026-03-30T18:32:53.649Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com:enable  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.653Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com 200
+[debug] [2026-03-30T18:32:53.654Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com [omitted]
+[debug] [2026-03-30T18:32:53.654Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.655Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.655Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com:enable [none]
+[debug] [2026-03-30T18:32:53.655Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com:enable  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.656Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com 200
+[debug] [2026-03-30T18:32:53.656Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com [omitted]
+[debug] [2026-03-30T18:32:53.656Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.656Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.656Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com:enable [none]
+[debug] [2026-03-30T18:32:53.656Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com:enable  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:53.658Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com 200
+[debug] [2026-03-30T18:32:53.658Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com [omitted]
+[debug] [2026-03-30T18:32:53.658Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.658Z] Checked if tokens are valid: true, expires at: 1774899160057
+[debug] [2026-03-30T18:32:53.658Z] >>> [apiv2][query] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com:enable [none]
+[debug] [2026-03-30T18:32:53.658Z] >>> [apiv2][(partial)header] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com:enable  x-goog-user-project=mex-mapa-bjx
+[debug] [2026-03-30T18:32:54.030Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com:enable 200
+[debug] [2026-03-30T18:32:54.031Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/developerconnect.googleapis.com:enable [omitted]
+[debug] [2026-03-30T18:32:54.045Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com:enable 200
+[debug] [2026-03-30T18:32:54.045Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/secretmanager.googleapis.com:enable [omitted]
+[debug] [2026-03-30T18:32:54.052Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com:enable 200
+[debug] [2026-03-30T18:32:54.053Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/artifactregistry.googleapis.com:enable [omitted]
+[debug] [2026-03-30T18:32:54.091Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com:enable 200
+[debug] [2026-03-30T18:32:54.091Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/iam.googleapis.com:enable [omitted]
+[debug] [2026-03-30T18:32:54.297Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com:enable 200
+[debug] [2026-03-30T18:32:54.297Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/cloudbuild.googleapis.com:enable [omitted]
+[debug] [2026-03-30T18:32:54.308Z] <<< [apiv2][status] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com:enable 200
+[debug] [2026-03-30T18:32:54.308Z] <<< [apiv2][body] POST https://serviceusage.googleapis.com/v1/projects/mex-mapa-bjx/services/run.googleapis.com:enable [omitted]

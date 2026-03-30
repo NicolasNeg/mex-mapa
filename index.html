@@ -341,31 +341,31 @@ header { background: white; padding: 0 20px; display: flex; align-items: center;
       background-size: 20px 20px;
     }
 
-    .spot { 
-      width: 100%; 
-      height: 100%; 
-      background: transparent; /* Quitamos el fondo blanco */
-      border-left: 3px solid #E2E8F0; 
-      border-right: 3px solid #E2E8F0; 
-      border-top: 3px solid #E2E8F0;
+    .spot {
+      width: 100%;
+      height: 100%;
+      background: rgba(255,255,255,0.02);
+      border-left: 2px solid rgba(255,255,255,0.10);
+      border-right: 2px solid rgba(255,255,255,0.10);
+      border-top: 2px solid rgba(255,255,255,0.10);
       border-bottom: none;
-      border-radius: 4px 4px 0 0; 
-      position: relative; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      transition: opacity 0.3s ease; 
+      border-radius: 6px 6px 0 0;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.3s ease;
     }
 
-    .spot label { 
-      position: absolute; 
-      top: -20px; 
-      width: 100%; 
-      text-align: center; 
-      font-size: 11px; 
-      font-weight: 900; 
-      color: #94A3B8; 
-      letter-spacing: 1px;
+    .spot label {
+      position: absolute;
+      top: -20px;
+      width: 100%;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(148,163,184,0.7);
+      letter-spacing: 0.5px;
     }
     
     .area { 
@@ -383,29 +383,35 @@ header { background: white; padding: 0 20px; display: flex; align-items: center;
     }
 
     /* --- ESTILOS PREMIUM PARA LOS CARROS --- */
-    .car { 
-      width: 100%; 
-      height: 100%; 
-      border-radius: 20px 20px 14px 14px; 
-      display: flex; 
-      align-items: center; 
-      justify-content: center; 
-      color: white; 
-      font-weight: 900; 
-      font-size: 19px; 
-      cursor: pointer; 
-      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.4), inset 0 0 5px rgba(255,255,255,0.8);
+    .car {
+      width: 100%;
+      height: 100%;
+      border-radius: 16px 16px 10px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 900;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow:
+        0 8px 24px -4px rgba(0,0,0,0.55),
+        0 2px 6px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.22);
       position: relative;
-      z-index: 5; 
-      border: 1px solid rgba(0,0,0,0.05);
-      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
-      animation: popInCar 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      z-index: 5;
+      border: 1px solid rgba(0,0,0,0.12);
+      text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+      animation: popInCar 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
-    
+
     .car:hover {
-      transform: translateY(-2px); 
-      box-shadow: inset 0 1px 1px rgba(255,255,255,0.4), 0 10px 15px -3px rgba(0,0,0,0.15);
+      transform: translateY(-3px) scale(1.02);
+      box-shadow:
+        0 14px 32px -4px rgba(0,0,0,0.6),
+        0 3px 8px rgba(0,0,0,0.3),
+        inset 0 1px 0 rgba(255,255,255,0.28);
     }
 
     @keyframes popInCar {
@@ -420,20 +426,16 @@ header { background: white; padding: 0 20px; display: flex; align-items: center;
     .car.fade { opacity: 0.15 !important; filter: grayscale(1); }
     .car.hide { display: none !important; }
 
-    /* Gradientes modernos en lugar de colores planos */
-    .listo { background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important; }
-    .sucio { background: linear-gradient(135deg, #fbbf24 0%, #d97706 100%) !important; }
-    .mantenimiento { background: linear-gradient(135deg, #f87171 0%, #dc2626 100%) !important; }
-    .traslado { background: linear-gradient(135deg, #c084fc 0%, #9333ea 100%) !important; color: white !important; }
-    .venta { background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%) !important; }
-    .no-arrendable { background: linear-gradient(135deg, #22d3ee 0%, #06b6d4 100%) !important; color: #083344 !important; text-shadow: none; }
-    /* Traslado (Morado Vibrante) */
-    .traslado { background: linear-gradient(135deg, #c084fc 0%, #9333ea 100%) !important; color: white !important; }
-    /* Resguardo (Café/Bronce intenso) */
-    .resguardo { background: linear-gradient(135deg, #b45309 0%, #78350f 100%) !important; color: white !important; }
-    /* Externo / HYP (Gris Pizarra Oscuro con borde especial para indicar que no está físicamente en el patio) */
-    .externo { background: linear-gradient(135deg, #64748b 0%, #334155 100%) !important; color: white !important; border: 2px dashed rgba(255, 255, 255, 0.6) !important; }
-    .retenida { background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%) !important; color: white !important; border: 2px dashed rgba(255, 255, 255, 0.4) !important; }
+    /* Gradientes de estado — paleta más profesional */
+    .listo         { background: linear-gradient(160deg, #0d9488 0%, #0f766e 100%) !important; }
+    .sucio         { background: linear-gradient(160deg, #d97706 0%, #b45309 100%) !important; }
+    .mantenimiento { background: linear-gradient(160deg, #dc2626 0%, #991b1b 100%) !important; }
+    .traslado      { background: linear-gradient(160deg, #7c3aed 0%, #5b21b6 100%) !important; color: white !important; }
+    .venta         { background: linear-gradient(160deg, #f59e0b 0%, #d97706 100%) !important; }
+    .no-arrendable { background: linear-gradient(160deg, #0891b2 0%, #0e7490 100%) !important; color: white !important; }
+    .resguardo     { background: linear-gradient(160deg, #92400e 0%, #78350f 100%) !important; color: white !important; }
+    .externo       { background: linear-gradient(160deg, #475569 0%, #334155 100%) !important; color: white !important; border: 2px dashed rgba(255,255,255,0.35) !important; }
+    .retenida      { background: linear-gradient(160deg, #1d4ed8 0%, #1e3a8a 100%) !important; color: white !important; border: 2px dashed rgba(255,255,255,0.3) !important; }
 
     /* --- NUEVA BARRA DE GASOLINA REAL --- */
     .gas-container {
@@ -2198,10 +2200,29 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
         <label>PIN (4 DÍGITOS)</label>
         <input type="password" id="newUserPin" placeholder="****" maxlength="4" style="letter-spacing:5px; font-weight:900; text-align:center;">
       </div>
-      
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom: 20px; background:#f8fafc; padding:12px; border-radius:8px;">
-        <input type="checkbox" id="newUserAdmin" style="width: 18px; height: 18px;">
-        <label for="newUserAdmin" style="margin:0; font-weight:800; font-size:12px; color: var(--text); cursor:pointer;">Dar permisos de Administrador</label>
+      <div class="field">
+        <label>TELÉFONO (opcional)</label>
+        <input type="tel" id="newUserPhone" placeholder="Ej. 6441234567" maxlength="10" style="letter-spacing:1px;">
+      </div>
+
+      <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+          <input type="checkbox" id="newUserAdmin" onchange="toggleNivelAdmin()" style="width:18px; height:18px;">
+          <label for="newUserAdmin" style="margin:0; font-weight:800; font-size:12px; color:var(--text); cursor:pointer;">Dar permisos de Administrador</label>
+        </div>
+        <div id="nivelAdminBox" style="display:none; padding-top:8px; border-top:1px solid #e2e8f0; margin-top:4px;">
+          <p style="margin:0 0 8px; font-size:11px; font-weight:800; color:#64748b;">NIVEL DE ACCESO:</p>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; font-weight:800;">
+              <input type="radio" name="nivelAdmin" id="adminNormal" value="normal" checked> ADMIN NORMAL
+              <span style="font-size:10px; color:#64748b; font-weight:600;">(sin acceso global)</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; font-weight:800; color:#ef4444;">
+              <input type="radio" name="nivelAdmin" id="adminGlobal" value="global"> ADMIN GLOBAL
+              <span style="font-size:10px; color:#ef4444; font-weight:600;">(acceso completo)</span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:10px;">
@@ -2214,7 +2235,7 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
       <div class="table-container" style="border:none; border-radius:0;">
         <table>
           <thead>
-            <tr><th>NOMBRE</th><th>PIN</th><th>ROL</th><th>ACCIONES</th></tr>
+            <tr><th>NOMBRE</th><th>TELÉFONO</th><th>ROL</th><th>ACCIONES</th></tr>
           </thead>
           <tbody id="users-table-body">
             <tr><td colspan="4" style="text-align:center; padding:20px;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando...</td></tr>
@@ -4977,26 +4998,45 @@ function abrirUsuarios() {
 
 function renderUsersTable() {
   const tbody = document.getElementById('users-table-body');
-  tbody.innerHTML = dbUsuariosLogin.map(u => `
+  tbody.innerHTML = dbUsuariosLogin.map(u => {
+    let rolBadge;
+    if (u.isAdmin && u.isGlobal) {
+      rolBadge = `<span class="badge" style="background:#fee2e2;color:#991b1b;">ADMIN GLOBAL</span>`;
+    } else if (u.isAdmin) {
+      rolBadge = `<span class="badge st-LISTO">ADMIN</span>`;
+    } else {
+      rolBadge = `<span class="badge" style="background:#e2e8f0;color:#64748b;">USUARIO</span>`;
+    }
+    const tel = u.telefono || '—';
+    return `
     <tr>
       <td style="font-weight:900; color:var(--mex-blue);">${u.usuario}</td>
-      <td style="letter-spacing:2px; font-weight:800;">****</td>
-      <td><span class="badge ${u.isAdmin ? 'st-LISTO' : 'st-DEFAULT'}" style="${!u.isAdmin ? 'background:#e2e8f0; color:#64748b;' : ''}">${u.isAdmin ? 'ADMIN' : 'USUARIO'}</span></td>
+      <td style="font-size:12px; color:#64748b; font-weight:700;">${tel}</td>
+      <td>${rolBadge}</td>
       <td>
         <div style="display:flex; gap:15px; align-items:center;">
-          <button onclick="prepararEdicionUsuario('${u.usuario}', '${u.password}', ${u.isAdmin})" style="background:none; border:none; color:var(--mex-accent); cursor:pointer; display:flex;" title="Editar"><span class="material-icons">edit</span></button>
+          <button onclick="prepararEdicionUsuario('${u.usuario}', '${u.password}', ${!!u.isAdmin}, '${u.telefono||''}', ${!!u.isGlobal})" style="background:none; border:none; color:var(--mex-accent); cursor:pointer; display:flex;" title="Editar"><span class="material-icons">edit</span></button>
           <button onclick="eliminarUsuarioUI('${u.usuario}')" style="background:none; border:none; color:var(--mex-red); cursor:pointer; display:flex;" title="Eliminar"><span class="material-icons">delete</span></button>
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
-function prepararEdicionUsuario(nombre, pin, isAdmin) {
-  usuarioEnEdicion = nombre; 
+function toggleNivelAdmin() {
+  const checked = document.getElementById('newUserAdmin').checked;
+  document.getElementById('nivelAdminBox').style.display = checked ? 'block' : 'none';
+}
+
+function prepararEdicionUsuario(nombre, pin, isAdmin, telefono, isGlobal) {
+  usuarioEnEdicion = nombre;
   document.getElementById('newUserName').value = nombre;
   document.getElementById('newUserPin').value = pin;
+  document.getElementById('newUserPhone').value = telefono || '';
   document.getElementById('newUserAdmin').checked = isAdmin;
+  toggleNivelAdmin();
+  if (isAdmin && isGlobal) document.getElementById('adminGlobal').checked = true;
+  else document.getElementById('adminNormal').checked = true;
   
   // Cambiamos el diseño a "Modo Edición" (Naranja)
   document.getElementById('tituloFormularioUsuario').innerText = "EDITANDO: " + nombre;
@@ -5013,23 +5053,24 @@ function cancelarEdicionUsuario() {
   usuarioEnEdicion = null;
   document.getElementById('newUserName').value = "";
   document.getElementById('newUserPin').value = "";
+  document.getElementById('newUserPhone').value = "";
   document.getElementById('newUserAdmin').checked = false;
-  
-  // Restauramos el diseño a "Modo Creación" (Azul)
+  document.getElementById('adminNormal').checked = true;
+  document.getElementById('nivelAdminBox').style.display = 'none';
   document.getElementById('tituloFormularioUsuario').innerText = "AGREGAR USUARIO";
   document.getElementById('tituloFormularioUsuario').style.color = "var(--mex-blue)";
-  
   const btn = document.getElementById('btnGuardarUsuario');
   btn.innerText = "GUARDAR USUARIO";
   btn.style.background = "var(--mex-accent)";
-  
   document.getElementById('btnCancelarEdicion').style.display = "none";
 }
 
 function guardarNuevoUsuarioUI() {
   const nombre = document.getElementById('newUserName').value.trim();
   const pin = document.getElementById('newUserPin').value.trim();
+  const telefono = document.getElementById('newUserPhone').value.trim();
   const isAdmin = document.getElementById('newUserAdmin').checked;
+  const isGlobal = isAdmin && document.getElementById('adminGlobal').checked;
 
   if (!nombre) return showToast("El nombre es obligatorio", "error");
   if (pin.length < 4) return showToast("El PIN debe tener 4 dígitos", "error");
@@ -5039,38 +5080,29 @@ function guardarNuevoUsuarioUI() {
   btn.innerHTML = `<span class="material-icons spinner">sync</span> Guardando...`;
 
   if (usuarioEnEdicion) {
-    // --- 🔹 MODO EDICIÓN ---
-    api.modificarUsuario(usuarioEnEdicion, nombre, pin, isAdmin).then(res => {
-         btn.disabled = false;
-         if (res === "EXITO") {
-            showToast("Usuario actualizado", "success");
-            cancelarEdicionUsuario(); // Limpia los campos y restaura colores
-            recargarUsuariosLocales(); // Actualiza la tabla visualmente
-         } else if (res === "DUPLICADO") {
-            showToast("El nuevo nombre ya existe", "error");
-            btn.innerText = "ACTUALIZAR USUARIO";
-         } else {
-            showToast(res, "error");
-            btn.innerText = "ACTUALIZAR USUARIO";
-         }
-      }).catch(e => console.error(e));
-
+    api.modificarUsuario(usuarioEnEdicion, nombre, pin, isAdmin, telefono, isGlobal).then(res => {
+      btn.disabled = false;
+      if (res === "EXITO") {
+        showToast("Usuario actualizado", "success");
+        cancelarEdicionUsuario();
+        recargarUsuariosLocales();
+      } else {
+        showToast(res, "error");
+        btn.innerText = "ACTUALIZAR USUARIO";
+      }
+    }).catch(e => { console.error(e); btn.disabled = false; btn.innerText = "ACTUALIZAR USUARIO"; });
   } else {
-    // --- 🔸 MODO CREAR NUEVO ---
-    api.guardarNuevoUsuario(nombre, pin, isAdmin).then(res => {
-         btn.disabled = false;
-         if (res === "EXITO") {
-            showToast("Usuario creado", "success");
-            cancelarEdicionUsuario();
-            recargarUsuariosLocales();
-         } else if (res === "DUPLICADO") {
-            showToast("Este usuario ya existe", "error");
-            btn.innerText = "GUARDAR USUARIO";
-         } else {
-            showToast(res, "error");
-            btn.innerText = "GUARDAR USUARIO";
-         }
-      }).catch(e => console.error(e));
+    api.guardarNuevoUsuario(nombre, pin, isAdmin, telefono, isGlobal).then(res => {
+      btn.disabled = false;
+      if (res === "EXITO") {
+        showToast("Usuario creado", "success");
+        cancelarEdicionUsuario();
+        recargarUsuariosLocales();
+      } else {
+        showToast(res, "error");
+        btn.innerText = "GUARDAR USUARIO";
+      }
+    }).catch(e => { console.error(e); btn.disabled = false; btn.innerText = "GUARDAR USUARIO"; });
   }
 }
 

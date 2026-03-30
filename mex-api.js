@@ -72,8 +72,17 @@ const API_FUNCTIONS = {
 
   // ─── AUTENTICACIÓN ────────────────────────────────────────
   async obtenerCredencialesMapa() {
-    const snap = await db.collection(COL.USERS).orderBy("usuario").get();
-    return snap.docs.map(d => d.data());
+    const [usersSnap, adminsSnap] = await Promise.all([
+      db.collection(COL.USERS).orderBy("usuario").get(),
+      db.collection(COL.ADMINS).get()
+    ]);
+    const globalesSet = new Set(adminsSnap.docs
+      .filter(d => d.data().isGlobal === true)
+      .map(d => d.data().usuario));
+    return usersSnap.docs.map(d => {
+      const data = d.data();
+      return { ...data, isGlobal: globalesSet.has(data.usuario) };
+    });
   },
 
   async verificarAdminGlobal(nombreUsuario) {
@@ -496,23 +505,59 @@ const API_FUNCTIONS = {
   },
 
   // ─── USUARIOS ────────────────────────────────────────────
-  async guardarNuevoUsuario(nombre, pin, isAdmin) {
+  async guardarNuevoUsuario(nombre, pin, isAdmin, telefono, isGlobalAdmin) {
     const nombreUpper = nombre.trim().toUpperCase();
     const existe = await db.collection(COL.USERS).where("usuario", "==", nombreUpper).limit(1).get();
     if (!existe.empty) return "ERROR: El usuario ya existe";
-    await db.collection(COL.USERS).add({ usuario: nombreUpper, password: pin.toString(), isAdmin: isAdmin === true || isAdmin === "true", telefono: "" });
+    const docId = nombreUpper.replace(/\s+/g, '_');
+    const esAdmin = isAdmin === true || isAdmin === "true";
+    const esGlobal = isGlobalAdmin === true || isGlobalAdmin === "true";
+    await db.collection(COL.USERS).doc(docId).set({
+      usuario: nombreUpper,
+      password: pin.toString(),
+      isAdmin: esAdmin,
+      telefono: (telefono || "").trim()
+    });
+    if (esAdmin && esGlobal) {
+      await db.collection(COL.ADMINS).doc(nombreUpper).set({
+        usuario: nombreUpper, password: pin.toString(), isGlobal: true
+      });
+    }
     return "EXITO";
   },
-  async modificarUsuario(nombreOriginal, nuevoNombre, nuevoPin, isAdmin) {
-    const snap = await db.collection(COL.USERS).where("usuario", "==", nombreOriginal.trim().toUpperCase()).limit(1).get();
+  async modificarUsuario(nombreOriginal, nuevoNombre, nuevoPin, isAdmin, telefono, isGlobalAdmin) {
+    const origUpper = nombreOriginal.trim().toUpperCase();
+    const snap = await db.collection(COL.USERS).where("usuario", "==", origUpper).limit(1).get();
     if (snap.empty) return "ERROR: Usuario no encontrado";
-    await snap.docs[0].ref.update({ usuario: nuevoNombre.trim().toUpperCase(), password: nuevoPin.toString(), isAdmin: isAdmin === true || isAdmin === "true" });
+    const esAdmin = isAdmin === true || isAdmin === "true";
+    const esGlobal = isGlobalAdmin === true || isGlobalAdmin === "true";
+    await snap.docs[0].ref.update({
+      usuario: nuevoNombre.trim().toUpperCase(),
+      password: nuevoPin.toString(),
+      isAdmin: esAdmin,
+      telefono: (telefono || "").trim()
+    });
+    const adminSnap = await db.collection(COL.ADMINS).where("usuario", "==", origUpper).limit(1).get();
+    if (esAdmin && esGlobal) {
+      if (adminSnap.empty) {
+        await db.collection(COL.ADMINS).doc(nuevoNombre.trim().toUpperCase()).set({
+          usuario: nuevoNombre.trim().toUpperCase(), password: nuevoPin.toString(), isGlobal: true
+        });
+      } else {
+        await adminSnap.docs[0].ref.update({ usuario: nuevoNombre.trim().toUpperCase(), password: nuevoPin.toString(), isGlobal: true });
+      }
+    } else {
+      if (!adminSnap.empty) await adminSnap.docs[0].ref.delete();
+    }
     return "EXITO";
   },
   async eliminarUsuario(nombre) {
-    const snap = await db.collection(COL.USERS).where("usuario", "==", nombre.trim().toUpperCase()).limit(1).get();
+    const nombreUpper = nombre.trim().toUpperCase();
+    const snap = await db.collection(COL.USERS).where("usuario", "==", nombreUpper).limit(1).get();
     if (snap.empty) return "ERROR: Usuario no encontrado";
     await snap.docs[0].ref.delete();
+    const adminSnap = await db.collection(COL.ADMINS).where("usuario", "==", nombreUpper).limit(1).get();
+    if (!adminSnap.empty) await adminSnap.docs[0].ref.delete();
     return "EXITO";
   },
 
