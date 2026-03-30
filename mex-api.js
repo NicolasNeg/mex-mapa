@@ -597,7 +597,7 @@ const API_FUNCTIONS = {
   },
   async enviarAuditoriaAVentas(auditList, autor) {
     await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${auditList.length} unidades)`, autor);
-    return "EXITO";
+    return { exito: true };
   },
   async llamarGeminiAI(instruccionUsuario, contextoPatio, ultimoMVA) { return null; },
   async generarPDFActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {

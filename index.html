@@ -7425,17 +7425,27 @@ function enviarReporteAuditoriaFinal() {
              
              google.script.run
                .withSuccessHandler(res => {
-                   if(res.exito) {
+                   if(res && res.exito) {
                        document.getElementById('audit-modal').classList.remove('active');
                        showToast("Auditoría enviada a Ventas. ¡Buen trabajo!", "success");
-                       setTimeout(compartirWhatsApp, 1000); 
+                       setTimeout(compartirWhatsApp, 1000);
                        setTimeout(() => {
                          document.getElementById('audit-paso3').style.display = 'none';
                          document.getElementById('audit-paso1').style.display = 'block';
                          btn.disabled = false;
-                         hacerPingNotificaciones(); 
+                         btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
+                         hacerPingNotificaciones();
                        }, 1000);
+                   } else {
+                       btn.disabled = false;
+                       btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
+                       showToast("Error al enviar. Intenta de nuevo.", "error");
                    }
+               })
+               .withFailureHandler(err => {
+                   btn.disabled = false;
+                   btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
+                   showToast("Error: " + err, "error");
                })
                .enviarAuditoriaAVentas(window.AUDIT_LIST, USER_NAME);
          }

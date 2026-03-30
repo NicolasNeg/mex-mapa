@@ -11,7 +11,11 @@ service cloud.firestore {
     // son de solo lectura para todos los autenticados desde web
     match /mapa_config/{doc} {
       allow read: if true;
-      allow write: if false; // Solo se modifica desde el script de migración
+      allow write: if true;
+    }
+
+    match /historial_patio/{doc} {
+      allow read, write: if true;
     }
 
     match /index_unidades/{doc} {
