@@ -100,8 +100,7 @@ body.dark-theme {
     body.dark-theme #modal-resumen-flota,
     body.dark-theme #modal-insertar-admin,
     body.dark-theme #modal-insertar-global,
-    body.dark-theme #modal-modificador-maestro,
-    body.dark-theme #modal-editor-mapa { background-color: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
+    body.dark-theme #modal-modificador-maestro { background-color: var(--surface) !important; color: var(--text) !important; border-color: var(--border) !important; }
 
     body.dark-theme .content,
     body.dark-theme .scroll-area,
@@ -388,11 +387,20 @@ header {
       text-shadow: 0 1px 4px rgba(0,0,0,0.4);
     }
 
-#searchInput:focus, #searchInputMobile:focus, .search-box-flota:focus {
+#searchInput:focus {
+      border-color: rgba(255,255,255,0.5) !important;
+      box-shadow: 0 0 0 3px rgba(255,255,255,0.1) !important;
+      background: rgba(255,255,255,0.16) !important;
+      color: white !important;
+      transform: translateY(-1px);
+      transition: all 0.2s ease;
+    }
+    #searchInputMobile:focus, .search-box-flota:focus {
       border-color: var(--mex-accent) !important;
       box-shadow: 0 0 0 4px rgba(26, 115, 232, 0.15) !important;
       background: white !important;
-      transform: translateY(-1px); /* Se levanta un milímetro */
+      color: #1e293b !important;
+      transform: translateY(-1px);
       transition: all 0.2s ease;
     }
 
@@ -680,6 +688,172 @@ header {
     body.dark-theme .sidebar-section-label.taller { color: #fbbf24 !important; }
     body.dark-theme .sidebar-taller-box { background: rgba(251,191,36,0.08) !important; border-color: rgba(251,191,36,0.3) !important; }
     body.dark-theme #no-results-message { color: #94a3b8 !important; }
+
+    /* ═══════════════════════════════════════════
+       MAP EDITOR MODAL — Professional Dark UI
+    ═══════════════════════════════════════════ */
+    .mapa-editor-shell {
+      background: #0d1929;
+      width: 100%;
+      max-width: 1380px;
+      height: 94vh;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    .mapa-editor-header {
+      background: linear-gradient(135deg, #0d2a54, #0f3460, #1a1a4e);
+      padding: 14px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .mapa-editor-header-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    .mapa-editor-header-left h2 { color: white; margin: 0; font-size: 17px; font-weight: 900; letter-spacing: 1px; }
+    .mapa-editor-header-left p { color: rgba(255,255,255,0.5); margin: 0; font-size: 11px; font-weight: 600; }
+    .mapa-editor-header-right { display: flex; gap: 8px; flex-shrink: 0; align-items: center; }
+    .mapa-btn-guardar {
+      background: linear-gradient(135deg, #059669, #10b981);
+      color: white; border: none; padding: 10px 22px; border-radius: 10px;
+      cursor: pointer; font-weight: 900; display: flex; align-items: center;
+      gap: 7px; font-size: 13px; white-space: nowrap; transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(16,185,129,0.4); font-family: inherit;
+    }
+    .mapa-btn-guardar:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(16,185,129,0.55); }
+    .mapa-btn-cerrar {
+      background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.15);
+      width: 40px; height: 40px; border-radius: 10px; cursor: pointer; display: flex;
+      align-items: center; justify-content: center; transition: all 0.2s; font-family: inherit;
+    }
+    .mapa-btn-cerrar:hover { background: rgba(239,68,68,0.3); border-color: rgba(239,68,68,0.5); }
+    .mapa-editor-body { display: flex; flex: 1; overflow: hidden; min-height: 0; }
+    .mapa-editor-sidebar {
+      width: 240px; min-width: 200px; background: #0f1e2e;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0;
+    }
+    .mapa-editor-section { padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+    .mapa-editor-section-title {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 9px; font-weight: 800; color: #4a90d9;
+      text-transform: uppercase; letter-spacing: 1.8px; margin-bottom: 12px;
+    }
+    .mapa-tool-grid { display: flex; flex-direction: column; gap: 7px; }
+    .mapa-tool-btn {
+      display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+      border-radius: 10px; border: 2px solid transparent; cursor: pointer;
+      font-family: inherit; transition: all 0.2s ease; text-align: left; width: 100%;
+    }
+    .mapa-tool-btn .material-icons { font-size: 20px; flex-shrink: 0; }
+    .mapa-tool-btn .mapa-tool-text { display: flex; flex-direction: column; }
+    .mapa-tool-btn .mapa-tool-name { font-size: 12px; font-weight: 800; color: white; line-height: 1.2; }
+    .mapa-tool-btn .mapa-tool-sub { font-size: 10px; font-weight: 600; opacity: 0.6; }
+    .mapa-tool-btn.cajon { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.3); color: #60a5fa; }
+    .mapa-tool-btn.cajon:hover, .mapa-tool-btn.cajon.active {
+      background: rgba(59,130,246,0.25); border-color: #3b82f6;
+      box-shadow: 0 4px 14px rgba(59,130,246,0.3); transform: translateX(4px);
+    }
+    .mapa-tool-btn.area { background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.3); color: #4ade80; }
+    .mapa-tool-btn.area:hover, .mapa-tool-btn.area.active {
+      background: rgba(34,197,94,0.25); border-color: #22c55e;
+      box-shadow: 0 4px 14px rgba(34,197,94,0.3); transform: translateX(4px);
+    }
+    .mapa-tool-btn.etiqueta { background: rgba(168,85,247,0.12); border-color: rgba(168,85,247,0.3); color: #c084fc; }
+    .mapa-tool-btn.etiqueta:hover, .mapa-tool-btn.etiqueta.active {
+      background: rgba(168,85,247,0.25); border-color: #a855f7;
+      box-shadow: 0 4px 14px rgba(168,85,247,0.3); transform: translateX(4px);
+    }
+    .mapa-add-hint {
+      margin-top: 10px; padding: 10px 12px;
+      background: rgba(251,191,36,0.1); border: 1px solid rgba(251,191,36,0.3);
+      border-radius: 9px; font-size: 11.5px; color: #fbbf24; font-weight: 700;
+      display: flex; align-items: center; gap: 8px; line-height: 1.4;
+      animation: mapa-pulse-hint 2s ease-in-out infinite;
+    }
+    @keyframes mapa-pulse-hint { 0%,100% { opacity:1; } 50% { opacity:0.55; } }
+    .mapa-no-sel { text-align: center; padding: 28px 10px; }
+    .mapa-no-sel p { font-size: 12px; font-weight: 700; color: #334155; margin: 0; line-height: 1.6; }
+    .mapa-field-group { margin-bottom: 13px; }
+    .mapa-field-label {
+      font-size: 9px; font-weight: 800; color: #4a90d9; display: block;
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.8px;
+    }
+    .mapa-input {
+      width: 100%; padding: 9px 12px; border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 8px; font-family: inherit; font-weight: 800; font-size: 15px;
+      outline: none; box-sizing: border-box; text-transform: uppercase;
+      background: rgba(255,255,255,0.05); color: white; transition: border-color 0.2s;
+    }
+    .mapa-input:focus { border-color: #3b82f6; background: rgba(59,130,246,0.08); }
+    .mapa-select {
+      width: 100%; padding: 9px 8px; border: 1.5px solid rgba(255,255,255,0.1);
+      border-radius: 8px; font-family: inherit; font-weight: 700; font-size: 12px;
+      outline: none; background: rgba(255,255,255,0.05); color: white; transition: border-color 0.2s;
+    }
+    .mapa-select:focus { border-color: #3b82f6; }
+    .mapa-size-card {
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 9px; padding: 9px; text-align: center;
+    }
+    .mapa-size-label { font-size: 8px; font-weight: 700; color: #4a90d9; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .mapa-size-ctrl { display: flex; align-items: center; justify-content: center; gap: 4px; }
+    .mapa-size-ctrl button {
+      background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12); color: white;
+      width: 28px; height: 28px; border-radius: 7px; cursor: pointer; font-weight: 900;
+      font-size: 15px; display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s; font-family: inherit; line-height: 1;
+    }
+    .mapa-size-ctrl button:hover { background: rgba(59,130,246,0.3); border-color: rgba(59,130,246,0.5); }
+    .mapa-size-ctrl span { font-weight: 900; font-size: 18px; min-width: 26px; text-align: center; color: white; }
+    .mapa-arrow-pad { display: grid; grid-template-columns: repeat(3, 38px); gap: 5px; margin: 0 auto; width: fit-content; }
+    .mapa-arrow-btn {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px; height: 38px; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; color: #64748b; transition: all 0.15s; font-family: inherit;
+    }
+    .mapa-arrow-btn:hover { background: rgba(59,130,246,0.25); border-color: rgba(59,130,246,0.5); color: #60a5fa; transform: scale(1.1); }
+    .mapa-arrow-btn .material-icons { font-size: 18px; }
+    .mapa-arrow-center {
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      color: #2d4a6e; height: 38px;
+    }
+    .mapa-arrow-center .material-icons { font-size: 16px; }
+    .mapa-btn-eliminar {
+      width: 100%; padding: 11px; background: rgba(239,68,68,0.1); color: #f87171;
+      border: 1.5px solid rgba(239,68,68,0.25); border-radius: 10px; cursor: pointer;
+      font-weight: 800; font-size: 13px; display: flex; align-items: center;
+      justify-content: center; gap: 7px; transition: all 0.2s; font-family: inherit; margin-top: 4px;
+    }
+    .mapa-btn-eliminar:hover { background: rgba(239,68,68,0.25); border-color: rgba(239,68,68,0.5); transform: translateY(-1px); }
+    .mapa-editor-canvas {
+      flex: 1; overflow: auto; padding: 16px; background: #07101e; position: relative; min-width: 0;
+      background-image: radial-gradient(circle at 15% 60%, rgba(59,130,246,0.05) 0%, transparent 50%),
+        radial-gradient(circle at 85% 20%, rgba(16,185,129,0.04) 0%, transparent 50%);
+    }
+    .mapa-editor-loading {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 14px; background: #07101e; z-index: 2;
+    }
+    .mapa-editor-loading p { font-weight: 700; color: #4a90d9; margin: 0; font-size: 14px; }
+    .mapa-editor-legend {
+      display: flex; align-items: center; gap: 14px; margin-bottom: 14px; flex-wrap: wrap;
+      background: rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.07);
+    }
+    .mapa-legend-title { font-size: 9px; font-weight: 800; color: #4a90d9; text-transform: uppercase; letter-spacing: 1.5px; }
+    .mapa-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: #4a6080; }
+    .mapa-legend-dot { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+    .mapa-legend-dot.cajon { background: #3b82f6; }
+    .mapa-legend-dot.area { background: #334155; border: 1px solid #475569; }
+    .mapa-legend-dot.etiqueta { background: #1e293b; border: 1px solid #334155; }
+    .mapa-legend-dot.selected { background: transparent; border: 2.5px solid #fbbf24; box-shadow: 0 0 6px rgba(251,191,36,0.4); }
+    .mapa-legend-dot.empty-add { background: rgba(251,191,36,0.12); border: 1px dashed #fbbf24; }
 
     /* INFO PANEL (DETALLE UNIDAD) */
 /* --- PANEL DE DETALLES FLOTANTE E INTELIGENTE --- */
@@ -8796,13 +8970,13 @@ function _renderEditorGrid() {
 
   // Esquina top-left
   const corner = document.createElement('div');
-  corner.style.cssText = 'grid-column:1; grid-row:1; background:#b0b8c8; border-radius:4px;';
+  corner.style.cssText = 'grid-column:1; grid-row:1; background:rgba(255,255,255,0.04); border-radius:4px;';
   grid.appendChild(corner);
 
   // Headers de columna
   for (let c = 1; c <= _edCols; c++) {
     const h = document.createElement('div');
-    h.style.cssText = `grid-column:${c+1}; grid-row:1; background:#d1d5db; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#6b7280;`;
+    h.style.cssText = `grid-column:${c+1}; grid-row:1; background:rgba(255,255,255,0.06); border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#4a90d9;`;
     h.innerText = c;
     grid.appendChild(h);
   }
@@ -8811,7 +8985,7 @@ function _renderEditorGrid() {
   for (let r = 1; r <= _edRows; r++) {
     // Header de fila
     const rh = document.createElement('div');
-    rh.style.cssText = `grid-column:1; grid-row:${r+1}; background:#d1d5db; border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#6b7280;`;
+    rh.style.cssText = `grid-column:1; grid-row:${r+1}; background:rgba(255,255,255,0.06); border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#4a90d9;`;
     rh.innerText = r;
     grid.appendChild(rh);
 
@@ -8822,43 +8996,44 @@ function _renderEditorGrid() {
       if (cId) {
         const celda = byId[cId];
         if (celda && celda.row === r && celda.col === c) {
-          // Celda principal del cajón
           const isSel = _edSel && _edSel.id === cId;
           const isLabel = celda.tipo === 'label';
           const isArea  = celda.tipo === 'area';
-          const bg = isLabel ? '#1e293b' : isArea ? '#334155' : '#3b82f6';
-
+          const bgNormal = isLabel ? 'linear-gradient(135deg,#1e293b,#0f172a)' : isArea ? 'linear-gradient(135deg,#334155,#1e3a5f)' : 'linear-gradient(135deg,#3b82f6,#2563eb)';
+          const bgSel    = isLabel ? 'linear-gradient(135deg,#0f172a,#020617)' : isArea ? 'linear-gradient(135deg,#1e40af,#1e3a8a)' : 'linear-gradient(135deg,#1d4ed8,#1e40af)';
           const div = document.createElement('div');
           div.style.cssText = `
             grid-column:${c+1} / span ${celda.colspan};
             grid-row:${r+1} / span ${celda.rowspan};
-            background:${isSel ? (isLabel?'#0f172a':isArea?'#1e40af':'#1d4ed8') : bg};
-            border:${isSel ? '3px solid #fbbf24' : '2px solid transparent'};
-            border-radius:6px; color:white; display:flex; align-items:center;
-            justify-content:center; font-weight:800;
+            background:${isSel ? bgSel : bgNormal};
+            border:${isSel ? '2.5px solid #fbbf24' : '1.5px solid rgba(255,255,255,0.12)'};
+            border-radius:7px; color:white; display:flex; align-items:center;
+            justify-content:center; font-weight:900;
             font-size:${celda.valor.length > 6 ? '9' : '11'}px;
             cursor:pointer; text-align:center; word-break:break-all; padding:3px;
-            transition:all 0.12s; user-select:none;
-            box-shadow:${isSel ? '0 0 0 3px rgba(251,191,36,0.4)' : '0 1px 3px rgba(0,0,0,0.25)'};
+            transition:all 0.15s; user-select:none;
+            box-shadow:${isSel ? '0 0 0 3px rgba(251,191,36,0.35), 0 4px 12px rgba(0,0,0,0.4)' : '0 2px 6px rgba(0,0,0,0.35)'};
+            letter-spacing:0.3px;
           `;
           div.innerText = celda.valor;
+          div.onmouseenter = () => { if (!(_edSel && _edSel.id === cId)) div.style.opacity = '0.8'; };
+          div.onmouseleave = () => { div.style.opacity = '1'; };
           div.onclick = e => { e.stopPropagation(); _edSelectCelda(celda); };
           grid.appendChild(div);
         }
-        // Celdas interiores del span → omitir (el span CSS las cubre)
       } else {
         // Celda vacía
         const div = document.createElement('div');
         const modoActivo = !!_edModo;
         div.style.cssText = `
           grid-column:${c+1}; grid-row:${r+1};
-          background:${modoActivo ? '#fef9c3' : '#f1f5f9'};
-          border:1px dashed ${modoActivo ? '#f59e0b' : '#c8d3df'};
-          border-radius:4px; cursor:${modoActivo ? 'cell' : 'default'};
-          transition:background 0.1s;
+          background:${modoActivo ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)'};
+          border:1px dashed ${modoActivo ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.08)'};
+          border-radius:5px; cursor:${modoActivo ? 'cell' : 'default'};
+          transition:all 0.12s;
         `;
-        div.onmouseenter = () => { div.style.background = modoActivo ? '#fde68a' : '#e8edf3'; };
-        div.onmouseleave = () => { div.style.background = modoActivo ? '#fef9c3' : '#f1f5f9'; };
+        div.onmouseenter = () => { div.style.background = modoActivo ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.07)'; if(modoActivo) div.style.borderColor='rgba(251,191,36,0.8)'; };
+        div.onmouseleave = () => { div.style.background = modoActivo ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)'; if(modoActivo) div.style.borderColor='rgba(251,191,36,0.5)'; };
         div.onclick = () => _edClickVacio(r, c);
         grid.appendChild(div);
       }
@@ -8884,6 +9059,10 @@ function _resetEditorPanel() {
   document.getElementById('editor-no-sel').style.display    = 'block';
   document.getElementById('editor-sel-form').style.display  = 'none';
   document.getElementById('editor-add-hint').style.display  = 'none';
+  ['btn-tool-cajon','btn-tool-area','btn-tool-label'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
 }
 
 function _edClickVacio(r, c) {
@@ -8956,9 +9135,18 @@ function editorEliminarCelda() {
 function modoAgregarEditor(tipo) {
   _edModo = tipo;
   _resetEditorPanel();
+  // Highlight active tool button
+  ['btn-tool-cajon','btn-tool-area','btn-tool-label'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.remove('active');
+  });
+  const btnMap = { cajon:'btn-tool-cajon', area:'btn-tool-area', label:'btn-tool-label' };
+  const activeBtn = document.getElementById(btnMap[tipo]);
+  if (activeBtn) activeBtn.classList.add('active');
   const hint = document.getElementById('editor-add-hint');
-  hint.style.display = 'block';
-  hint.innerText = `👆 Haz clic en una celda vacía para agregar ${tipo === 'cajon' ? 'un cajón' : tipo === 'area' ? 'un área' : 'una etiqueta'}`;
+  hint.style.display = 'flex';
+  const labels = { cajon:'un cajón', area:'un área especial', label:'una etiqueta' };
+  hint.innerHTML = `<span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span> Toca una celda vacía para agregar ${labels[tipo] || tipo}`;
   _renderEditorGrid();
 }
 
@@ -9765,158 +9953,183 @@ function guardarMapaEditor(btn) {
      🗺️  EDITOR VISUAL DE MAPA
      ═══════════════════════════════════════════════════════════ -->
 <div id="modal-editor-mapa" class="modal-overlay" style="z-index:75000; padding:8px; align-items:center; justify-content:center;">
-  <div style="background:white; width:100%; max-width:1350px; height:94vh; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 30px 70px rgba(0,0,0,0.5);">
+  <div class="mapa-editor-shell">
 
-    <!-- ── Header ── -->
-    <div style="background:#0f172a; padding:13px 20px; display:flex; justify-content:space-between; align-items:center; flex-shrink:0; gap:12px;">
-      <div style="display:flex; align-items:center; gap:12px; min-width:0;">
-        <span class="material-icons" style="color:#38bdf8; font-size:24px; flex-shrink:0;">map</span>
-        <div style="min-width:0;">
-          <h2 style="color:white; margin:0; font-size:16px; font-weight:900; white-space:nowrap;">EDITOR VISUAL DE MAPA</h2>
-          <p style="color:#475569; margin:0; font-size:10.5px; font-weight:600;">Crea, mueve y redimensiona los cajones del patio · Guarda para aplicar cambios al instante</p>
+    <!-- Header -->
+    <div class="mapa-editor-header">
+      <div class="mapa-editor-header-left">
+        <span class="material-icons" style="color:#38bdf8; font-size:28px; flex-shrink:0;">map</span>
+        <div>
+          <h2>EDITOR DE MAPA</h2>
+          <p>Diseña el patio · agrega, mueve y edita cajones · guarda para aplicar al instante</p>
         </div>
       </div>
-      <div style="display:flex; gap:8px; flex-shrink:0; align-items:center;">
-        <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" style="background:#10b981; color:white; border:none; padding:9px 18px; border-radius:9px; cursor:pointer; font-weight:900; display:flex; align-items:center; gap:6px; font-size:13px; white-space:nowrap;">
-          <span class="material-icons" style="font-size:17px;">save</span> GUARDAR
+      <div class="mapa-editor-header-right">
+        <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="mapa-btn-guardar">
+          <span class="material-icons" style="font-size:18px;">save</span> GUARDAR CAMBIOS
         </button>
-        <button onclick="document.getElementById('modal-editor-mapa').classList.remove('active')" style="background:rgba(255,255,255,0.08); color:white; border:none; width:36px; height:36px; border-radius:8px; cursor:pointer; font-size:20px; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0;">✕</button>
+        <button onclick="document.getElementById('modal-editor-mapa').classList.remove('active')" class="mapa-btn-cerrar">
+          <span class="material-icons" style="font-size:20px;">close</span>
+        </button>
       </div>
     </div>
 
-    <!-- ── Body ── -->
-    <div style="display:flex; flex:1; overflow:hidden; min-height:0;">
+    <!-- Body -->
+    <div class="mapa-editor-body">
 
-      <!-- Left panel: tools + properties -->
-      <div style="width:230px; min-width:180px; background:#f8fafc; border-right:1px solid #e2e8f0; display:flex; flex-direction:column; overflow-y:auto; flex-shrink:0;">
+      <!-- Sidebar izquierdo -->
+      <div class="mapa-editor-sidebar">
 
-        <!-- Agregar -->
-        <div style="padding:13px; border-bottom:1px solid #e2e8f0;">
-          <p style="font-size:9px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1.5px; margin:0 0 9px;">➕ Agregar elemento</p>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <button onclick="modoAgregarEditor('cajon')" style="padding:10px 12px; background:#eff6ff; color:#2563eb; border:2px solid #bfdbfe; border-radius:9px; cursor:pointer; font-weight:800; font-size:12px; text-align:left; display:flex; align-items:center; gap:8px;">
-              <span class="material-icons" style="font-size:17px;">crop_square</span> CAJÓN (spot normal)
+        <!-- Herramientas -->
+        <div class="mapa-editor-section">
+          <div class="mapa-editor-section-title">
+            <span class="material-icons" style="font-size:13px;">construction</span>
+            AGREGAR ELEMENTO
+          </div>
+          <div class="mapa-tool-grid">
+            <button onclick="modoAgregarEditor('cajon')" class="mapa-tool-btn cajon" id="btn-tool-cajon">
+              <span class="material-icons">crop_square</span>
+              <div class="mapa-tool-text">
+                <span class="mapa-tool-name">CAJÓN</span>
+                <span class="mapa-tool-sub">Spot normal del patio</span>
+              </div>
             </button>
-            <button onclick="modoAgregarEditor('area')" style="padding:10px 12px; background:#f0fdf4; color:#15803d; border:2px solid #bbf7d0; border-radius:9px; cursor:pointer; font-weight:800; font-size:12px; text-align:left; display:flex; align-items:center; gap:8px;">
-              <span class="material-icons" style="font-size:17px;">dashboard</span> ÁREA ESPECIAL
+            <button onclick="modoAgregarEditor('area')" class="mapa-tool-btn area" id="btn-tool-area">
+              <span class="material-icons">dashboard</span>
+              <div class="mapa-tool-text">
+                <span class="mapa-tool-name">ÁREA ESPECIAL</span>
+                <span class="mapa-tool-sub">Zona de taller, acceso…</span>
+              </div>
             </button>
-            <button onclick="modoAgregarEditor('label')" style="padding:10px 12px; background:#faf5ff; color:#7c3aed; border:2px solid #ddd6fe; border-radius:9px; cursor:pointer; font-weight:800; font-size:12px; text-align:left; display:flex; align-items:center; gap:8px;">
-              <span class="material-icons" style="font-size:17px;">label</span> ETIQUETA SECCIÓN
+            <button onclick="modoAgregarEditor('label')" class="mapa-tool-btn etiqueta" id="btn-tool-label">
+              <span class="material-icons">label</span>
+              <div class="mapa-tool-text">
+                <span class="mapa-tool-name">ETIQUETA</span>
+                <span class="mapa-tool-sub">Nombre de sección</span>
+              </div>
             </button>
           </div>
-          <div id="editor-add-hint" style="margin-top:9px; padding:8px 10px; background:#fef3c7; border:1px solid #fcd34d; border-radius:8px; font-size:11px; color:#92400e; font-weight:700; display:none; line-height:1.45;">
-            👆 Haz clic en una celda vacía del mapa
+          <div id="editor-add-hint" class="mapa-add-hint" style="display:none;">
+            <span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span>
+            Toca una celda vacía en el mapa para colocar el elemento
           </div>
         </div>
 
-        <!-- Propiedades del seleccionado -->
-        <div style="padding:13px; flex:1;">
-          <p style="font-size:9px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1.5px; margin:0 0 11px;">✏️ Propiedades</p>
-          <div id="editor-no-sel" style="text-align:center; padding:22px 8px; color:#cbd5e1;">
-            <span class="material-icons" style="font-size:38px; display:block; margin-bottom:8px; color:#e2e8f0;">touch_app</span>
-            <p style="font-size:11.5px; font-weight:700; margin:0; color:#94a3b8;">Selecciona un cajón<br>del mapa para editarlo</p>
+        <!-- Propiedades del cajón seleccionado -->
+        <div class="mapa-editor-section" style="flex:1; overflow-y:auto; border-bottom:none;">
+          <div class="mapa-editor-section-title">
+            <span class="material-icons" style="font-size:13px;">tune</span>
+            PROPIEDADES
+          </div>
+          <div id="editor-no-sel" class="mapa-no-sel">
+            <span class="material-icons" style="font-size:54px; color:#1e3a5f; display:block; margin-bottom:12px;">touch_app</span>
+            <p>Toca cualquier cajón<br>del mapa para editarlo</p>
           </div>
           <div id="editor-sel-form" style="display:none;">
-            <div style="margin-bottom:10px;">
-              <label style="font-size:9px; font-weight:800; color:#64748b; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Nombre del cajón</label>
-              <input id="ep-nombre" type="text" maxlength="20" style="width:100%; padding:9px 11px; border:2px solid #e2e8f0; border-radius:8px; font-family:inherit; font-weight:800; font-size:15px; outline:none; box-sizing:border-box; text-transform:uppercase;" oninput="editorPropChange()">
+            <div class="mapa-field-group">
+              <label class="mapa-field-label">Nombre del cajón</label>
+              <input id="ep-nombre" type="text" maxlength="20" class="mapa-input" placeholder="Ej: A-01" oninput="editorPropChange()">
             </div>
-            <div style="margin-bottom:12px;">
-              <label style="font-size:9px; font-weight:800; color:#64748b; display:block; margin-bottom:5px; text-transform:uppercase; letter-spacing:0.5px;">Tipo</label>
-              <select id="ep-tipo" style="width:100%; padding:9px 8px; border:2px solid #e2e8f0; border-radius:8px; font-family:inherit; font-weight:700; font-size:12.5px; outline:none; background:white;" onchange="editorPropChange()">
+            <div class="mapa-field-group">
+              <label class="mapa-field-label">Tipo</label>
+              <select id="ep-tipo" class="mapa-select" onchange="editorPropChange()">
                 <option value="cajon">📦 Cajón (spot normal)</option>
                 <option value="area">🟩 Área especial</option>
                 <option value="label">🏷️ Etiqueta sección</option>
               </select>
             </div>
-            <div style="margin-bottom:13px;">
-              <label style="font-size:9px; font-weight:800; color:#64748b; display:block; margin-bottom:7px; text-transform:uppercase; letter-spacing:0.5px;">Tamaño en cuadrícula</label>
-              <div style="display:grid; grid-template-columns:1fr 1fr; gap:7px;">
-                <div style="background:white; border:1.5px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
-                  <div style="font-size:8px; font-weight:700; color:#94a3b8; margin-bottom:5px;">ANCHO (cols)</div>
-                  <div style="display:flex; align-items:center; justify-content:center; gap:3px;">
-                    <button onclick="editorSpanChange('colspan',-1)" style="background:#f1f5f9; border:none; width:25px; height:25px; border-radius:5px; cursor:pointer; font-weight:900; font-size:14px;">−</button>
-                    <span id="ep-colspan" style="font-weight:900; font-size:17px; min-width:22px; text-align:center;">1</span>
-                    <button onclick="editorSpanChange('colspan',1)" style="background:#f1f5f9; border:none; width:25px; height:25px; border-radius:5px; cursor:pointer; font-weight:900; font-size:14px;">+</button>
+            <div class="mapa-field-group">
+              <label class="mapa-field-label">Tamaño en cuadrícula</label>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <div class="mapa-size-card">
+                  <div class="mapa-size-label">ANCHO (cols)</div>
+                  <div class="mapa-size-ctrl">
+                    <button onclick="editorSpanChange('colspan',-1)">−</button>
+                    <span id="ep-colspan">1</span>
+                    <button onclick="editorSpanChange('colspan',1)">+</button>
                   </div>
                 </div>
-                <div style="background:white; border:1.5px solid #e2e8f0; border-radius:8px; padding:8px; text-align:center;">
-                  <div style="font-size:8px; font-weight:700; color:#94a3b8; margin-bottom:5px;">ALTO (filas)</div>
-                  <div style="display:flex; align-items:center; justify-content:center; gap:3px;">
-                    <button onclick="editorSpanChange('rowspan',-1)" style="background:#f1f5f9; border:none; width:25px; height:25px; border-radius:5px; cursor:pointer; font-weight:900; font-size:14px;">−</button>
-                    <span id="ep-rowspan" style="font-weight:900; font-size:17px; min-width:22px; text-align:center;">1</span>
-                    <button onclick="editorSpanChange('rowspan',1)" style="background:#f1f5f9; border:none; width:25px; height:25px; border-radius:5px; cursor:pointer; font-weight:900; font-size:14px;">+</button>
+                <div class="mapa-size-card">
+                  <div class="mapa-size-label">ALTO (filas)</div>
+                  <div class="mapa-size-ctrl">
+                    <button onclick="editorSpanChange('rowspan',-1)">−</button>
+                    <span id="ep-rowspan">1</span>
+                    <button onclick="editorSpanChange('rowspan',1)">+</button>
                   </div>
                 </div>
               </div>
             </div>
-            <div style="margin-bottom:13px;">
-              <label style="font-size:9px; font-weight:800; color:#64748b; display:block; margin-bottom:7px; text-transform:uppercase; letter-spacing:0.5px;">Mover posición</label>
-              <div style="display:grid; grid-template-columns:repeat(3,36px); gap:5px; margin:0 auto; width:fit-content;">
+            <div class="mapa-field-group">
+              <label class="mapa-field-label">Mover posición</label>
+              <div class="mapa-arrow-pad">
                 <div></div>
-                <button onclick="editorMoverCelda(0,-1)" title="Arriba" style="background:#f1f5f9; border:none; border-radius:7px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center;"><span class="material-icons" style="font-size:18px; color:#475569;">arrow_upward</span></button>
+                <button onclick="editorMoverCelda(0,-1)" class="mapa-arrow-btn" title="Arriba"><span class="material-icons">north</span></button>
                 <div></div>
-                <button onclick="editorMoverCelda(-1,0)" title="Izquierda" style="background:#f1f5f9; border:none; border-radius:7px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center;"><span class="material-icons" style="font-size:18px; color:#475569;">arrow_back</span></button>
-                <div style="background:#e2e8f0; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:8px; font-weight:800; color:#64748b;">POS</div>
-                <button onclick="editorMoverCelda(1,0)" title="Derecha" style="background:#f1f5f9; border:none; border-radius:7px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center;"><span class="material-icons" style="font-size:18px; color:#475569;">arrow_forward</span></button>
+                <button onclick="editorMoverCelda(-1,0)" class="mapa-arrow-btn" title="Izquierda"><span class="material-icons">west</span></button>
+                <div class="mapa-arrow-center"><span class="material-icons">open_with</span></div>
+                <button onclick="editorMoverCelda(1,0)" class="mapa-arrow-btn" title="Derecha"><span class="material-icons">east</span></button>
                 <div></div>
-                <button onclick="editorMoverCelda(0,1)" title="Abajo" style="background:#f1f5f9; border:none; border-radius:7px; height:36px; cursor:pointer; display:flex; align-items:center; justify-content:center;"><span class="material-icons" style="font-size:18px; color:#475569;">arrow_downward</span></button>
+                <button onclick="editorMoverCelda(0,1)" class="mapa-arrow-btn" title="Abajo"><span class="material-icons">south</span></button>
                 <div></div>
               </div>
             </div>
-            <button onclick="editorEliminarCelda()" style="width:100%; padding:10px; background:#fef2f2; color:#ef4444; border:1.5px solid #fecaca; border-radius:9px; cursor:pointer; font-weight:800; font-size:12.5px; display:flex; align-items:center; justify-content:center; gap:6px;">
-              <span class="material-icons" style="font-size:16px;">delete</span> Eliminar cajón
+            <button onclick="editorEliminarCelda()" class="mapa-btn-eliminar">
+              <span class="material-icons" style="font-size:16px;">delete_forever</span>
+              Eliminar este cajón
             </button>
           </div>
         </div>
 
-        <!-- Tamaño de cuadrícula -->
-        <div style="padding:13px; border-top:1px solid #e2e8f0;">
-          <p style="font-size:9px; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:1.5px; margin:0 0 9px;">📐 Cuadrícula</p>
+        <!-- Tamaño de cuadrícula (bottom) -->
+        <div class="mapa-editor-section" style="border-top:1px solid rgba(255,255,255,0.05); border-bottom:none;">
+          <div class="mapa-editor-section-title">
+            <span class="material-icons" style="font-size:13px;">grid_on</span>
+            TAMAÑO CUADRÍCULA
+          </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-            <div>
-              <div style="font-size:9px; font-weight:700; color:#64748b; margin-bottom:4px;">Filas</div>
-              <div style="display:flex; align-items:center; gap:3px; background:white; border:1.5px solid #e2e8f0; border-radius:7px; padding:4px;">
-                <button onclick="editorCambiarGrid('rows',-1)" style="background:#f1f5f9; border:none; width:23px; height:23px; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px;">−</button>
-                <span id="ep-grid-rows" style="flex:1; text-align:center; font-weight:800; font-size:13px;">12</span>
-                <button onclick="editorCambiarGrid('rows',1)" style="background:#f1f5f9; border:none; width:23px; height:23px; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px;">+</button>
+            <div class="mapa-size-card">
+              <div class="mapa-size-label">FILAS</div>
+              <div class="mapa-size-ctrl">
+                <button onclick="editorCambiarGrid('rows',-1)">−</button>
+                <span id="ep-grid-rows">12</span>
+                <button onclick="editorCambiarGrid('rows',1)">+</button>
               </div>
             </div>
-            <div>
-              <div style="font-size:9px; font-weight:700; color:#64748b; margin-bottom:4px;">Columnas</div>
-              <div style="display:flex; align-items:center; gap:3px; background:white; border:1.5px solid #e2e8f0; border-radius:7px; padding:4px;">
-                <button onclick="editorCambiarGrid('cols',-1)" style="background:#f1f5f9; border:none; width:23px; height:23px; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px;">−</button>
-                <span id="ep-grid-cols" style="flex:1; text-align:center; font-weight:800; font-size:13px;">15</span>
-                <button onclick="editorCambiarGrid('cols',1)" style="background:#f1f5f9; border:none; width:23px; height:23px; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px;">+</button>
+            <div class="mapa-size-card">
+              <div class="mapa-size-label">COLUMNAS</div>
+              <div class="mapa-size-ctrl">
+                <button onclick="editorCambiarGrid('cols',-1)">−</button>
+                <span id="ep-grid-cols">15</span>
+                <button onclick="editorCambiarGrid('cols',1)">+</button>
               </div>
             </div>
           </div>
         </div>
 
-      </div><!-- /Left panel -->
+      </div><!-- /Sidebar -->
 
-      <!-- Right: Canvas de cuadrícula -->
-      <div style="flex:1; overflow:auto; padding:14px; background:#e2e8f0; position:relative; min-width:0;">
+      <!-- Canvas -->
+      <div class="mapa-editor-canvas">
 
         <!-- Loading -->
-        <div id="editor-loading" style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:12px; background:#e2e8f0; z-index:2;">
-          <span class="material-icons spinner" style="font-size:42px; color:#3b82f6;">sync</span>
-          <p style="font-weight:700; color:#64748b; margin:0; font-size:14px;">Cargando estructura del mapa...</p>
+        <div id="editor-loading" class="mapa-editor-loading">
+          <span class="material-icons spinner" style="font-size:48px; color:#38bdf8;">sync</span>
+          <p>Cargando estructura del mapa…</p>
         </div>
 
         <!-- Grid wrapper -->
         <div id="editor-grid-wrapper" style="display:none;">
           <!-- Leyenda -->
-          <div style="display:flex; align-items:center; gap:14px; margin-bottom:11px; flex-wrap:wrap; background:white; padding:8px 13px; border-radius:9px; box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-            <span style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase; letter-spacing:1px;">Leyenda:</span>
-            <div style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#475569;"><div style="width:18px; height:18px; background:#3b82f6; border-radius:4px;"></div>Cajón</div>
-            <div style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#475569;"><div style="width:18px; height:18px; background:#334155; border-radius:4px;"></div>Área</div>
-            <div style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#475569;"><div style="width:18px; height:18px; background:#1e293b; border-radius:4px;"></div>Etiqueta</div>
-            <div style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#475569;"><div style="width:18px; height:18px; border:2.5px solid #fbbf24; border-radius:4px;"></div>Seleccionado</div>
-            <div style="display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; color:#475569;"><div style="width:18px; height:18px; background:#fef9c3; border:1px dashed #f59e0b; border-radius:4px;"></div>Haz clic aquí para agregar</div>
+          <div class="mapa-editor-legend">
+            <span class="mapa-legend-title">Leyenda</span>
+            <div class="mapa-legend-item"><div class="mapa-legend-dot cajon"></div>Cajón</div>
+            <div class="mapa-legend-item"><div class="mapa-legend-dot area"></div>Área especial</div>
+            <div class="mapa-legend-item"><div class="mapa-legend-dot etiqueta"></div>Etiqueta</div>
+            <div class="mapa-legend-item"><div class="mapa-legend-dot selected"></div>Seleccionado</div>
+            <div class="mapa-legend-item"><div class="mapa-legend-dot empty-add"></div>+ Clic para agregar</div>
           </div>
           <!-- Grid DOM -->
-          <div id="editor-grid" style="display:inline-grid; background:#cbd5e1; border:2px solid #94a3b8; border-radius:10px; overflow:hidden; gap:2px; padding:2px;"></div>
+          <div id="editor-grid" style="display:inline-grid; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;"></div>
         </div>
 
       </div><!-- /Canvas -->

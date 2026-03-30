@@ -33,13 +33,13 @@ const COL = {
 const SETTINGS_DOC = "principal";
 
 function _now() {
-  return new Date().toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+  return new Date().toLocaleString("es-MX", { timeZone: "America/Mazatlan" });
 }
 function _ts() { return Date.now(); }
 function _fecha(data) {
   try {
     const f = data.timestamp ? new Date(data.timestamp) : new Date(data.fecha);
-    if (!isNaN(f)) return f.toLocaleString("es-MX", { timeZone: "America/Hermosillo" });
+    if (!isNaN(f)) return f.toLocaleString("es-MX", { timeZone: "America/Mazatlan" });
   } catch(e) {}
   return data.fecha || "";
 }
