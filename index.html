@@ -1992,7 +1992,7 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
   <!-- FIREBASE SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
-  <!-- MEX API ADAPTER (reemplaza google.script.run) -->
+  <!-- MEX API — Firebase Client SDK directo -->
   <script src="mex-api.js"></script>
 </head>
 <body>
@@ -3033,12 +3033,10 @@ function cambiarTabFlota(tabSeleccionado) {
     
     document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;"><span class="material-icons spinner">sync</span> Cargando Cuadre Admins...</td></tr>`;
     
-    google.script.run
-      .withSuccessHandler(data => {
-        DB_ADMINS = data; 
-        renderFlota(DB_ADMINS); 
-      })
-      .obtenerCuadreAdminsData();
+    api.obtenerCuadreAdminsData().then(data => {
+        DB_ADMINS = data;
+        renderFlota(DB_ADMINS);
+      }).catch(e => console.error(e));
   }
 
 
@@ -3122,21 +3120,21 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 2. CARGAR LISTA DE USUARIOS DESDE EL SERVIDOR PARA EL LOGIN
-  google.script.run.withSuccessHandler(users => {
+  api.obtenerCredencialesMapa().then(users => {
     dbUsuariosLogin = users;
     let lastUser = localStorage.getItem('mex_mapa_last_user');
     let defaultUser = users.find(u => u.usuario === lastUser) ? lastUser : (users.length > 0 ? users[0].usuario : "");
-    
+
     if (defaultUser) seleccionarUsuario(defaultUser);
     renderModernDropdown(users);
-    
+
     const btn = document.getElementById('btnLoginBtn');
-    if (btn) { 
-      btn.disabled = false; 
-      btn.innerText = "INGRESAR"; 
-      btn.style.opacity = "1"; 
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "INGRESAR";
+      btn.style.opacity = "1";
     }
-  }).obtenerCredencialesMapa();
+  }).catch(e => console.error(e));
 });
 
 function guardarSesionEIniciar() {
@@ -3297,16 +3295,13 @@ function verificarLogin() {
 
     // MAGIA DE SEGURIDAD: Si el usuario es Admin, comprobamos en la DB si es Global
     if (userRole === 'admin') {
-      google.script.run
-        .withSuccessHandler(esGlobal => {
+      api.verificarAdminGlobal(USER_NAME).then(esGlobal => {
            isGlobalAdmin = esGlobal;
            guardarSesionEIniciar();
-        })
-        .withFailureHandler(() => {
+        }).catch(() => {
            isGlobalAdmin = false; // Ante duda, admin normal
            guardarSesionEIniciar();
-        })
-        .verificarAdminGlobal(USER_NAME);
+        });
     } else {
       isGlobalAdmin = false;
       guardarSesionEIniciar();
@@ -3398,7 +3393,7 @@ function cerrarSesion() {
 }
 
 function cargarMaestra() {
-  google.script.run.withSuccessHandler(data => {
+  api.obtenerUnidadesVeloz().then(data => {
     let unicos = [];
     let mvasVistos = new Set();
     (data || []).forEach(u => {
@@ -3408,7 +3403,7 @@ function cargarMaestra() {
       }
     });
     DB_MAESTRA = unicos;
-  }).obtenerUnidadesVeloz(); 
+  }).catch(e => console.error(e));
 }
 
 // ==========================================
@@ -3555,7 +3550,7 @@ function ejecutarFiltroMasivo() {
 function dibujarMapaCompleto() {
   const grid = document.getElementById("grid-map");
   grid.innerHTML = ""; 
-  google.script.run.withSuccessHandler(estructura => {
+  api.obtenerEstructuraMapa().then(estructura => {
     estructura.forEach(celda => {
       const div = document.createElement("div");
       div.className = celda.valor.includes("-") ? 'spot' : 'area';
@@ -3567,7 +3562,7 @@ function dibujarMapaCompleto() {
       grid.appendChild(div);
     });
     refrescarDatos();
-  }).obtenerEstructuraMapa();
+  }).catch(e => console.error(e));
 }
 
 function sincronizarMapa(nuevas) {
@@ -3954,9 +3949,9 @@ function actualizarContadores() {
 
 function refrescarDatos() {
   if (isSaving) return;
-  google.script.run.withSuccessHandler(data => {
+  api.obtenerDatosParaMapa().then(data => {
     if (data && data.unidades) sincronizarMapa(data.unidades);
-  }).obtenerDatosParaMapa();
+  }).catch(e => console.error(e));
 }
 function ejecutarAutoGuardado() {
   // Si ya se está enviando una petición, esperamos 1 segundo y reintentamos 
@@ -3983,11 +3978,10 @@ function ejecutarAutoGuardado() {
     }
   });
 
-  google.script.run
-    .withSuccessHandler((res) => {
+  api.guardarNuevasPosiciones(reporte, USER_NAME).then((res) => {
       isSaving = false;
       isMoving = false; // ✅ LIBERAMOS EL REFRESCO (Crucial)
-      
+
       if (res === true) {
         btn.innerText = '✓ ACTUALIZADO';
         btn.style.background = "var(--primary)";
@@ -3995,15 +3989,13 @@ function ejecutarAutoGuardado() {
         btn.innerText = '⚠️ REINTENTANDO...';
         setTimeout(ejecutarAutoGuardado, 2000); // Reintento automático si el lock falló
       }
-    })
-    .withFailureHandler((err) => {
+    }).catch((err) => {
       isSaving = false;
       isMoving = false;
       btn.style.background = "#ef4444";
       btn.innerText = "❌ ERROR RED";
       console.error(err);
-    })
-    .guardarNuevasPosiciones(reporte, USER_NAME);
+    });
 }
 
 function enfocarCajon(elemento) {
@@ -4224,7 +4216,7 @@ function cerrarModalFlota() {
 function cargarFlota() {
   document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="material-icons spinner" style="vertical-align:middle; margin-right:8px;">sync</span>Cargando inventario...</td></tr>`;
   
-  google.script.run.withSuccessHandler(data => {
+  api.obtenerDatosFlotaConsola().then(data => {
     let unicos = [];
     let mvasVistos = new Set();
     (data || []).forEach(u => {
@@ -4233,12 +4225,12 @@ function cargarFlota() {
         unicos.push(u);
       }
     });
-    
+
     DB_FLOTA = unicos;
-    filtrarFlota(); 
+    filtrarFlota();
     document.getElementById('statTotal').innerText = DB_FLOTA.length;
     document.getElementById('statListos').innerText = DB_FLOTA.filter(d => d.estado === 'LISTO').length;
-  }).obtenerDatosFlotaConsola(); 
+  }).catch(e => console.error(e));
 }
 
 function sortFlota(col) {
@@ -4619,9 +4611,7 @@ function ejecutarGuardadoFlota() {
       prepararNuevoFlota(); 
 
       // Guardado silencioso de fondo en Google
-      google.script.run
-        .withFailureHandler(() => showToast("Error de red de fondo", "error"))
-        .insertarUnidadDesdeHTML(payload);
+      api.insertarUnidadDesdeHTML(payload).catch(() => showToast("Error de red de fondo", "error"));
     } else {
       // 1. Modifica la Tabla al instante
       actualizarTablaLocal(payload.mva, 'MODIFICAR', payload);
@@ -4633,28 +4623,23 @@ function ejecutarGuardadoFlota() {
       prepararNuevoFlota(); // Limpia formulario
       
       // 3. Enviamos los datos reales a Google sin trabar la pantalla
-      google.script.run
-        .withFailureHandler(() => showToast("Error de sincronización", "error"))
-        .aplicarEstado(payload.mva, payload.estado, payload.ubicacion, payload.gasolina, payload.notas, payload.borrarNotas, payload.autor, payload.responsableSesion);
+      api.aplicarEstado(payload.mva, payload.estado, payload.ubicacion, payload.gasolina, payload.notas, payload.borrarNotas, payload.autor, payload.responsableSesion).catch(() => showToast("Error de sincronización", "error"));
     }
   } 
   else {
     // 👑 LÓGICA CUADRE ADMINS (Requiere recarga por las fotos y archivos pesados)
     const tipoAccion = (MODO_FLOTA === "INSERTAR") ? "ADD" : "MODIFICAR";
-    google.script.run
-      .withFailureHandler(err => { showToast("Error en Cuadre Admins", "error"); restaurarBotonFlota(); })
-      .withSuccessHandler(res => {
+    api.procesarModificacionMaestra(payload, tipoAccion).then(res => {
         if(res === "EXITO") {
           showToast("Cuadre Admins actualizado", "success");
           cambiarTabFlota('ADMINS');
           restaurarBotonFlota();
-          prepararNuevoFlota(); 
+          prepararNuevoFlota();
         } else {
           showToast(res, "error");
           restaurarBotonFlota();
         }
-      })
-      .procesarModificacionMaestra(payload, tipoAccion);
+      }).catch(err => { showToast("Error en Cuadre Admins", "error"); restaurarBotonFlota(); });
   }
 }
 
@@ -4683,9 +4668,7 @@ function ejecutarBorradoReal() {
     actualizarContadores(); // Refresca los números gigantes de arriba
     
     // Guardado silencioso (El servidor lo borra tranquilamente en segundo plano)
-    google.script.run
-      .withFailureHandler(() => showToast("Error de sincronización al borrar", "error"))
-      .ejecutarEliminacion([mvaABorrar], USER_NAME);
+    api.ejecutarEliminacion([mvaABorrar], USER_NAME).catch(() => showToast("Error de sincronización al borrar", "error"));
       
   } 
   else {
@@ -4696,9 +4679,7 @@ function ejecutarBorradoReal() {
       adminResponsable: USER_NAME
     };
 
-    google.script.run
-      .withFailureHandler(err => { showToast("Error al eliminar de Admins", "error"); restaurarBotonFlota(); })
-      .withSuccessHandler(res => {
+    api.procesarModificacionMaestra(payload, "ELIMINAR").then(res => {
         if(res === "EXITO") {
           showToast("Fila eliminada de Cuadre Admins", "success");
           cambiarTabFlota('ADMINS');
@@ -4708,8 +4689,7 @@ function ejecutarBorradoReal() {
           showToast(res, "error");
           restaurarBotonFlota();
         }
-      })
-      .procesarModificacionMaestra(payload, "ELIMINAR");
+      }).catch(err => { showToast("Error al eliminar de Admins", "error"); restaurarBotonFlota(); });
   }
 }
 
@@ -4974,9 +4954,7 @@ function enviarCambioRapido(mva, estado, ubi, gas, notas, borrarNotas = false) {
   }
 
   // 3. Sincronización silenciosa en Google (El orden de variables es correcto)
-  google.script.run
-    .withFailureHandler(() => showToast("Error de conexión", "error"))
-    .aplicarEstado(mva, estado, ubi, gas, notas, borrarNotas, USER_NAME, USER_NAME);
+  api.aplicarEstado(mva, estado, ubi, gas, notas, borrarNotas, USER_NAME, USER_NAME).catch(() => showToast("Error de conexión", "error"));
 }
 
 function cerrarReserveModal() { 
@@ -5062,8 +5040,7 @@ function guardarNuevoUsuarioUI() {
 
   if (usuarioEnEdicion) {
     // --- 🔹 MODO EDICIÓN ---
-    google.script.run
-      .withSuccessHandler(res => {
+    api.modificarUsuario(usuarioEnEdicion, nombre, pin, isAdmin).then(res => {
          btn.disabled = false;
          if (res === "EXITO") {
             showToast("Usuario actualizado", "success");
@@ -5076,18 +5053,16 @@ function guardarNuevoUsuarioUI() {
             showToast(res, "error");
             btn.innerText = "ACTUALIZAR USUARIO";
          }
-      })
-      .modificarUsuario(usuarioEnEdicion, nombre, pin, isAdmin);
+      }).catch(e => console.error(e));
 
   } else {
     // --- 🔸 MODO CREAR NUEVO ---
-    google.script.run
-      .withSuccessHandler(res => {
+    api.guardarNuevoUsuario(nombre, pin, isAdmin).then(res => {
          btn.disabled = false;
          if (res === "EXITO") {
             showToast("Usuario creado", "success");
-            cancelarEdicionUsuario(); 
-            recargarUsuariosLocales(); 
+            cancelarEdicionUsuario();
+            recargarUsuariosLocales();
          } else if (res === "DUPLICADO") {
             showToast("Este usuario ya existe", "error");
             btn.innerText = "GUARDAR USUARIO";
@@ -5095,18 +5070,17 @@ function guardarNuevoUsuarioUI() {
             showToast(res, "error");
             btn.innerText = "GUARDAR USUARIO";
          }
-      })
-      .guardarNuevoUsuario(nombre, pin, isAdmin);
+      }).catch(e => console.error(e));
   }
 }
 
 // Función auxiliar para actualizar la memoria del navegador sin recargar toda la página
 function recargarUsuariosLocales() {
-  google.script.run.withSuccessHandler(users => {
+  api.obtenerCredencialesMapa().then(users => {
      dbUsuariosLogin = users;
      renderUsersTable();
      if(typeof renderModernDropdown === 'function') renderModernDropdown(users);
-  }).obtenerCredencialesMapa();
+  }).catch(e => console.error(e));
 }
 
 function eliminarUsuarioUI(nombre) {
@@ -5114,22 +5088,20 @@ function eliminarUsuarioUI(nombre) {
 
   showToast("Eliminando usuario...", "success");
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.eliminarUsuario(nombre).then(res => {
        if (res === "EXITO") {
           showToast("Usuario eliminado", "success");
-          
+
           // Recargamos la lista
-          google.script.run.withSuccessHandler(users => {
+          api.obtenerCredencialesMapa().then(users => {
              dbUsuariosLogin = users;
              renderUsersTable();
              renderModernDropdown(users);
-          }).obtenerCredencialesMapa();
+          }).catch(e => console.error(e));
        } else {
           showToast(res, "error");
        }
-    })
-    .eliminarUsuario(nombre);
+    }).catch(e => console.error(e));
 }
 
 
@@ -5140,8 +5112,7 @@ function abrirLogs() {
   const tbody = document.getElementById('logs-table-body');
   tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Extrayendo historial de la base de datos...</td></tr>`;
 
-  google.script.run
-    .withSuccessHandler(logs => {
+  api.obtenerHistorialLogs().then(logs => {
        if (logs.length === 0) {
           tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b; font-weight:800;">No hay historial reciente registrado.</td></tr>`;
           return;
@@ -5155,8 +5126,7 @@ function abrirLogs() {
            <td style="font-size:11px; font-weight:800;">${l.usuario}</td>
          </tr>
        `).join('');
-    })
-    .obtenerHistorialLogs();
+    }).catch(e => console.error(e));
 }
 
 
@@ -5181,10 +5151,10 @@ function switchIncTab(e, tabId) {
 
 function cargarNotasIncidencias() {
   document.getElementById('listaNotas').innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:700;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando...</div>`;
-  google.script.run.withSuccessHandler(notas => {
+  api.obtenerTodasLasNotas().then(notas => {
     notasGlobales = notas || [];
     filtrarListaNotas();
-  }).obtenerTodasLasNotas();
+  }).catch(e => console.error(e));
 }
 
 function filtrarListaNotas() {
@@ -5243,20 +5213,17 @@ function guardarNuevaNota() {
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> ENVIANDO...`;
 
-  google.script.run
-    .withSuccessHandler(() => {
+  api.guardarNuevaNotaDirecto(nota, USER_NAME).then(() => {
       showToast("Nota publicada", "success");
       document.getElementById('nuevaNotaTxt').value = "";
       btn.disabled = false;
       btn.innerHTML = `<span class="material-icons">send</span> PUBLICAR NOTA`;
       switchIncTab({target: document.querySelector('.inc-tab:first-child')}, 'viewTab');
-    })
-    .withFailureHandler(() => {
+    }).catch(() => {
       showToast("Error al publicar", "error");
       btn.disabled = false;
       btn.innerHTML = `<span class="material-icons">send</span> PUBLICAR NOTA`;
-    })
-    .guardarNuevaNotaDirecto(nota, USER_NAME);
+    });
 }
 
 function abrirModalResolver(id) {
@@ -5274,20 +5241,17 @@ function ejecutarResolucion() {
   btn.disabled = true;
   btn.innerHTML = `RESOLVIENDO...`;
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.resolverNotaDirecto(idFilaPendiente, comentario, USER_NAME).then(res => {
       if(res === "OK") {
         showToast("Incidencia resuelta", "success");
         document.getElementById('modalAuthIncidencia').classList.remove('active');
         cargarNotasIncidencias();
       } else { showToast("Error: " + res, "error"); }
       btn.disabled = false; btn.innerHTML = `CONFIRMAR`;
-    })
-    .withFailureHandler(() => {
+    }).catch(() => {
       showToast("Error de conexión", "error");
       btn.disabled = false; btn.innerHTML = `CONFIRMAR`;
-    })
-    .resolverNotaDirecto(idFilaPendiente, comentario, USER_NAME); 
+    });
 }
 
 // Reutilizamos el CustomModal global de tu sistema para no inyectar código basura
@@ -5302,14 +5266,12 @@ function prepararEliminarIncidencia(id) {
 
 function ejecutarEliminacionIncidencia(id) {
   showToast("Eliminando...", "success");
-  google.script.run
-    .withSuccessHandler(res => {
+  api.eliminarNotaDirecto(id).then(res => {
       if(res === "OK") {
         showToast("Nota eliminada", "success");
         cargarNotasIncidencias();
       } else { showToast("Error al eliminar", "error"); }
-    })
-    .eliminarNotaDirecto(id);
+    }).catch(e => console.error(e));
 }
 
 
@@ -5324,9 +5286,9 @@ let alertaActualMostrandose = null;
 
 function refrescarDatos() {
   if (isSaving || window.PAUSA_CONEXIONES) return; // 🛑 ESCUDO DOBLE: Si estamos guardando o pausados, no hacer nada
-  google.script.run.withSuccessHandler(data => {
+  api.obtenerDatosParaMapa().then(data => {
     if (data && data.unidades) sincronizarMapa(data.unidades);
-  }).obtenerDatosParaMapa();
+  }).catch(e => console.error(e));
 }
 
 
@@ -5348,9 +5310,7 @@ function hacerPingNotificaciones() {
   if (window.PAUSA_CONEXIONES) return;
   console.log("📡 RADAR: Sincronizando estados...");
 
-  google.script.run
-    .withFailureHandler(err => { console.error("❌ RADAR ERROR:", err); })
-    .withSuccessHandler(res => {
+  api.checarNotificaciones(USER_NAME).then(res => {
       if (!res) return;
       if(res.error) console.error("Error en servidor:", res.error);
 
@@ -5453,8 +5413,8 @@ function hacerPingNotificaciones() {
           clearTimeout(window.feedTimer);
           window.feedTimer = setTimeout(() => {
              // Solo lo limpiamos si el usuario no ha movido nada nuevo
-             google.script.run.limpiarFeedGlobal();
-          }, 15000); 
+             api.limpiarFeedGlobal().catch(e => console.error(e));
+          }, 15000);
 
         } else if (feedContainer) {
           feedContainer.innerHTML = "";
@@ -5536,8 +5496,7 @@ if (userRole === 'admin') {
         if (badgeBuzon) badgeBuzon.style.display = 'none';
       }
 
-    })
-    .checarNotificaciones(USER_NAME);
+    }).catch(err => { console.error("❌ RADAR ERROR:", err); });
 }
 
 
@@ -5580,18 +5539,16 @@ function procesarAlertaLeida() {
   btn.disabled = true;
   btn.innerText = "PROCESANDO...";
 
-  google.script.run
-    .withSuccessHandler(() => {
+  api.marcarAlertaComoLeida(alertaActualMostrandose.id, USER_NAME).then(() => {
       // Ocultar modal
       document.getElementById('modalAlertaMaestra').classList.remove('active');
       btn.disabled = false;
       btn.innerText = "ENTENDIDO (MARCAR COMO LEÍDA)";
       alertaActualMostrandose = null;
-      
+
       // Checar si hay más y actualizar globos
       hacerPingNotificaciones();
-    })
-    .marcarAlertaComoLeida(alertaActualMostrandose.id, USER_NAME);
+    }).catch(e => console.error(e));
 }
 
 
@@ -5621,11 +5578,10 @@ function emitirAlertaGlobal() {
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> PROCESANDO...`;
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, USER_NAME).then(res => {
       btn.disabled = false;
       btn.innerHTML = `<span class="material-icons">send</span> EMITIR A TODA LA RED`;
-      
+
       if (res === "EXITO") {
         showToast("¡Alerta disparada a toda la red!", "success");
         document.getElementById('crear-alerta-modal').classList.remove('active');
@@ -5633,8 +5589,7 @@ function emitirAlertaGlobal() {
       } else {
         showToast(res, "error");
       }
-    })
-    .emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, USER_NAME);
+    }).catch(e => console.error(e));
 }
 
 // ==========================================
@@ -5694,8 +5649,7 @@ function abrirGestorAlertas() {
   document.getElementById('gestor-alertas-modal').classList.add('active');
   document.getElementById('listaHistorialAlertas').innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:700;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando historial...</div>`;
   
-  google.script.run
-    .withSuccessHandler(alertas => {
+  api.obtenerTodasLasAlertas().then(alertas => {
       // 🛡️ ESCUDO: Si por alguna razón Google manda null, lo convertimos en un arreglo vacío
       if (!alertas) alertas = [];
 
@@ -5739,8 +5693,7 @@ function abrirGestorAlertas() {
           </div>
         `;
       }).join('');
-    })
-    .obtenerTodasLasAlertas();
+    }).catch(e => console.error(e));
 }
 
 function verLectoresAlerta(lectoresStr) {
@@ -5760,8 +5713,7 @@ function verLectoresAlerta(lectoresStr) {
 function eliminarAlertaDesdeHistorial(idAlerta) {
   mostrarCustomModal("Eliminar Alerta", "¿Borrar esta alerta del sistema definitivamente?", "delete_forever", "#ef4444", "BORRAR", "#ef4444", () => {
     showToast("Borrando alerta...", "success");
-    google.script.run
-      .withSuccessHandler(res => {
+    api.eliminarAlertaMaestraBackend(idAlerta).then(res => {
         if(res === "EXITO") {
           showToast("Alerta eliminada", "success");
           abrirGestorAlertas(); // Recarga la lista
@@ -5769,8 +5721,7 @@ function eliminarAlertaDesdeHistorial(idAlerta) {
         } else {
           showToast(res, "error");
         }
-      })
-      .eliminarAlertaMaestraBackend(idAlerta);
+      }).catch(e => console.error(e));
   });
 }
 
@@ -5864,15 +5815,12 @@ function abrirResumenFlota() {
   actualizarFechaResumen();
 
   // 3. Llamada al Google Script
-  google.script.run
-    .withSuccessHandler(res => {
+  api.obtenerResumenFlotaPatio().then(res => {
       globalResData = res;
       cambiarVistaResumen('patio');
-    })
-    .withFailureHandler(() => {
+    }).catch(() => {
       document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #DC2626;">Error al cargar datos del servidor.</div>`;
-    })
-    .obtenerResumenFlotaPatio();
+    });
 }
 
 function cambiarVistaResumen(v) {
@@ -6028,11 +5976,10 @@ async function ejecutarInsertarAdmin() {
   };
 
   // 🔥 Llama a la función correcta: procesarModificacionMaestra, tipo: "INSERTAR"
-  google.script.run
-    .withSuccessHandler((res) => {
+  api.procesarModificacionMaestra(data, "INSERTAR").then((res) => {
       btn.disabled = false; txt.innerText = "CONFIRMAR REGISTRO";
       icon.innerText = "save"; icon.classList.remove("spinner");
-      
+
       if(res && (res.includes("ERROR") || res === "DUPLICADO")) {
          showToast(res, "error");
       } else {
@@ -6041,13 +5988,11 @@ async function ejecutarInsertarAdmin() {
          // Recargar la tabla
          if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
       }
-    })
-    .withFailureHandler((err) => {
+    }).catch((err) => {
       showToast("Fallo de red", "error");
       btn.disabled = false; txt.innerText = "REINTENTAR";
       icon.innerText = "error"; icon.classList.remove("spinner");
-    })
-    .procesarModificacionMaestra(data, "INSERTAR"); 
+    });
 }
 
 window.PAUSA_CONEXIONES = false; // 🔥 NUESTRA VARIABLE SEMÁFORO GLOBAL
@@ -6073,13 +6018,11 @@ async function abrirUltimoCuadre() {
     if(btnTxt) btnTxt.innerText = "⏳ ENVIANDO...";
 
     // 1. Sellamos primero en la base de datos
-    google.script.run
-      .withSuccessHandler(res => {
+    api.registrarCierreCuadre(USER_NAME).then(res => {
         showToast("Aplicando sello. Generando correo...", "info");
-        
+
         // 2. CUANDO EL SELLO TERMINA, MANDAMOS EL CORREO (Peticiones en fila india)
-        google.script.run
-          .withSuccessHandler(resMail => {
+        api.enviarReporteCuadreEmail(base64Image, USER_NAME, stats).then(resMail => {
             window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
             if(resMail === "EXITO") {
                 showToast("¡Cuadre enviado con éxito!", "success");
@@ -6088,19 +6031,15 @@ async function abrirUltimoCuadre() {
                 showToast("Fallo el correo: " + resMail, "error");
             }
             hacerPingNotificaciones(); // Hacemos un ping limpio
-          })
-          .withFailureHandler(err => {
+          }).catch(err => {
             window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
             showToast("Error enviando el correo", "error");
-          })
-          .enviarReporteCuadreEmail(base64Image, USER_NAME, stats);
-          
-      })
-      .withFailureHandler(err => {
+          });
+
+      }).catch(err => {
          window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
          showToast("Error de conexión", "error");
-      })
-      .registrarCierreCuadre(USER_NAME);
+      });
 
   } catch (err) {
     window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
@@ -6144,20 +6083,17 @@ function ejecutarInsertarGlobal() {
   btn.disabled = true; txt.innerText = "REGISTRANDO...";
   icon.innerText = "sync"; icon.classList.add("spinner"); 
 
-  google.script.run
-    .withSuccessHandler((msg) => {
+  api.registrarUnidadEnPlaza(data).then((msg) => {
       showToast("Unidad registrada con éxito", "success");
       btn.disabled = false; txt.innerText = "GUARDAR EN PLAZA";
       icon.innerText = "save"; icon.classList.remove("spinner");
       limpiarFormularioAltaGlobal();
       document.getElementById('modal-insertar-global').classList.remove('active');
-    })
-    .withFailureHandler((err) => {
+    }).catch((err) => {
       showToast("Error: " + err.message, "error");
       btn.disabled = false; txt.innerText = "REINTENTAR";
       icon.innerText = "error"; icon.classList.remove("spinner");
-    })
-    .registrarUnidadEnPlaza(data);
+    });
 }
 
 function limpiarFormularioAltaGlobal() {
@@ -6182,14 +6118,12 @@ function abrirModalEditarGlobal() {
   input.placeholder = "⏳ Descargando base global...";
 
 
-  google.script.run
-    .withSuccessHandler(data => {
-      FLOTA_TOTAL_GLOBAL = data; 
+  api.obtenerUnidadesPlazas().then(data => {
+      FLOTA_TOTAL_GLOBAL = data;
       input.disabled = false;
       input.placeholder = "🔍 Buscar MVA, Modelo o Placa...";
       input.focus();
-    })
-    .obtenerUnidadesPlazas(); 
+    }).catch(e => console.error(e));
 }
 
 function guardarEdicionGlobal(tipoAccion) {
@@ -6210,15 +6144,15 @@ function guardarEdicionGlobal(tipoAccion) {
   showToast(tipoAccion === 'ELIMINAR' ? "Eliminando..." : "Actualizando...", "warning");
 
   if(tipoAccion === 'MODIFICAR') {
-    google.script.run.withSuccessHandler(res => {
+    api.actualizarUnidadPlaza(data).then(res => {
       showToast("Unidad Actualizada", "success");
       cerrarModificadorGlobal();
-    }).actualizarUnidadPlaza(data); 
+    }).catch(e => console.error(e));
   } else {
-    google.script.run.withSuccessHandler(res => {
+    api.eliminarUnidadPlaza(data.plaza, data.fila).then(res => {
       showToast("Unidad Eliminada", "success");
       cerrarModificadorGlobal();
-    }).eliminarUnidadPlaza(data.plaza, data.fila); 
+    }).catch(e => console.error(e));
   }
 }
 
@@ -6251,8 +6185,7 @@ async function guardarEdicionAdmin(tipoAccion) {
   };
 
   // 👈 Llama a procesarModificacionMaestra para Cuadre Admins
-  google.script.run
-    .withSuccessHandler(res => {
+  api.procesarModificacionMaestra(data, tipoAccion).then(res => {
       if(res === "EXITO") {
         showToast(`Cuadre Actualizado`, "success");
         document.getElementById('modal-editar-admin').classList.remove('active');
@@ -6260,8 +6193,7 @@ async function guardarEdicionAdmin(tipoAccion) {
       } else {
         showToast("Error: " + res, "error");
       }
-    })
-    .procesarModificacionMaestra(data, tipoAccion);
+    }).catch(e => console.error(e));
 }
 
 
@@ -6317,12 +6249,12 @@ function seleccionarUnidadEdicionGlobal(sucursal, mva) {
 
   showToast("Abriendo expediente técnico...", "success");
 
-  google.script.run.withSuccessHandler(u => {
+  api.obtenerDetalleCompleto(sucursal, mva).then(u => {
     UNIDAD_GLOBAL_ACTIVA = u;
-    UNIDAD_GLOBAL_ACTIVA.plaza = sucursal; 
-    
+    UNIDAD_GLOBAL_ACTIVA.plaza = sucursal;
+
     document.getElementById('g_edit_formContainer').style.display = 'block';
-    
+
     document.getElementById('g_edit_fila').value = u.fila || "";
     document.getElementById('g_edit_vin').value = u.vin || "";
     document.getElementById('g_edit_cat').value = u.categoria || u.categ || "";
@@ -6331,7 +6263,7 @@ function seleccionarUnidadEdicionGlobal(sucursal, mva) {
     document.getElementById('g_edit_mod').value = u.modelo || "";
     document.getElementById('g_edit_mva').value = u.mva || "";
     document.getElementById('g_edit_pla').value = u.placas || "";
-  }).obtenerDetalleCompleto(sucursal, mva);
+  }).catch(e => console.error(e));
 }
 
 function desbloquearEdicionGlobal() {
@@ -6356,9 +6288,9 @@ function seleccionarUnidadGlobal(sucursal, mva) {
 
   showToast("Abriendo expediente...", "success");
 
-  google.script.run.withSuccessHandler(u => {
+  api.obtenerDetalleCompleto(sucursal, mva).then(u => {
     abrirExpedienteGlobal(u, sucursal); // Separamos esto para poder reutilizarlo
-  }).obtenerDetalleCompleto(sucursal, mva);
+  }).catch(e => console.error(e));
 }
 
 
@@ -6495,25 +6427,22 @@ async function ejecutarEdicionGlobal(tipoAccion) {
     adminResponsable: USER_NAME 
   };
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.procesarModificacionMaestra(data, tipoAccion).then(res => {
       btnMod.disabled = false; btnDel.disabled = false;
       if(res === "EXITO") {
         showToast(`Operación exitosa (${tipoAccion})`, "success");
         cerrarModificadorMaestro();
-        
+
         // Si estamos en la vista de admins, recargar la tabla por si modificamos algo
         if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
-        
+
       } else {
         showToast("Error: " + res, "error");
       }
-    })
-    .withFailureHandler(err => {
+    }).catch(err => {
       btnMod.disabled = false; btnDel.disabled = false;
       showToast("Fallo de conexión", "error");
-    })
-    .procesarModificacionMaestra(data, tipoAccion);
+    });
 }
 
 
@@ -6658,7 +6587,7 @@ function cargarLogsAuditoria() {
   contenedor.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner" style="font-size:30px;">sync</span><br>Sincronizando registros...</div>`;
 
   // ⚠️ NOTA: Asegúrate de que la función en Código.gs se llame "obtenerLogsServer" o cambia el nombre aquí
-  google.script.run.withSuccessHandler(data => {
+  api.obtenerLogsServer().then(data => {
     icon.classList.remove('spinner');
     if(!data || data.length === 0) {
       contenedor.innerHTML = `<div style="text-align:center; padding:30px; font-weight:700; color:#64748b;">El registro está vacío.</div>`;
@@ -6666,7 +6595,7 @@ function cargarLogsAuditoria() {
     }
     aud_logsGlobales = data;
     aplicarFiltrosLogs(true);
-  }).obtenerLogsServer(); 
+  }).catch(e => console.error(e));
 }
 
 function aplicarFiltrosLogs(reiniciarPagina = false) {
@@ -6835,12 +6764,10 @@ function solicitarToggleBloqueo() {
   
   if (confirm(msj)) {
     showToast(nuevo ? "Congelando sistema..." : "Liberando sistema...", "warning");
-    google.script.run
-      .withSuccessHandler(() => {
+    api.toggleBloqueoMapa(nuevo).then(() => {
         showToast(nuevo ? "Mapa Bloqueado" : "Mapa Disponible", "success");
         hacerPingNotificaciones();
-      })
-      .toggleBloqueoMapa(nuevo);
+      }).catch(e => console.error(e));
   }
 }
 
@@ -6870,20 +6797,17 @@ async function ejecutarSelloCuadre() {
     };
 
     // 3. Mandamos TODO a Google Sheets (Sello + Correo)
-    google.script.run
-      .withSuccessHandler(res => {
+    api.registrarCierreCuadre(USER_NAME).then(res => {
         if (res === "EXITO") {
           showToast("¡Cuadre validado y correo enviado!", "success");
           hacerPingNotificaciones();
         } else {
           showToast("Error: " + res, "error");
         }
-      })
-      .withFailureHandler(err => showToast("Fallo de red", "error"))
-      .registrarCierreCuadre(USER_NAME); // Sella la hoja SETTINGS_
+      }).catch(err => showToast("Fallo de red", "error"));
 
     // 4. Mandamos el correo (Función asíncrona de fondo)
-    google.script.run.enviarReporteCuadreEmail(base64Image, USER_NAME, stats);
+    api.enviarReporteCuadreEmail(base64Image, USER_NAME, stats).catch(e => console.error(e));
 
   } catch (err) {
     console.error("Error en captura:", err);
@@ -6895,12 +6819,10 @@ function ejecutarLimpiarFeed() {
   if(!confirm("¿Deseas limpiar los globos de actividad para todos?")) return;
   
   showToast("Limpiando feed...", "info");
-  google.script.run
-    .withSuccessHandler(() => {
+  api.limpiarFeedGlobal().then(() => {
       showToast("Feed vaciado", "success");
       hacerPingNotificaciones(); // Para que desaparezcan de tu pantalla rápido
-    })
-    .limpiarFeedGlobal();
+    }).catch(e => console.error(e));
 }
 
 
@@ -6982,16 +6904,14 @@ function finalizarCuadre3V() {
   };
 
   // 1. Mandamos el sello final al servidor para liberar F2/F3
-  google.script.run
-    .withSuccessHandler(res => {
+  api.finalizarProtocoloV3(USER_NAME).then(res => {
       showToast("¡CUADRE CERTIFICADO!", "success");
       cerrarCuadre3V();
       hacerPingNotificaciones(); // Actualiza el botón del sidebar para todos
-    })
-    .finalizarProtocoloV3(USER_NAME); // Esta función limpia F2 en SETTINGS_ 
+    }).catch(e => console.error(e));
 
   // 2. Enviamos el reporte por Email de fondo
-  google.script.run.enviarReporteCuadreEmail(EVIDENCIA_V3, USER_NAME, stats);
+  api.enviarReporteCuadreEmail(EVIDENCIA_V3, USER_NAME, stats).catch(e => console.error(e));
 }
 
 
@@ -7378,39 +7298,35 @@ function enviarReporteAuditoriaFinal() {
                  taller: document.getElementById('kpi-taller-loc').innerText 
              };
              
-             google.script.run
-               .withSuccessHandler(res => {
+             api.procesarAuditoriaDesdeAdmin(window.AUDIT_LIST, USER_NAME, stats).then(res => {
                    document.getElementById('audit-modal').classList.remove('active');
-                   
+
                    // 🚨 REVISAMOS EL VEREDICTO DEL SERVIDOR 🚨
                    if (res === "EXITO") {
                        showToast("¡Auditoría finalizada y Correo Enviado!", "success");
-                   } 
+                   }
                    else if (res === "EXITO_SIN_CORREO") {
                        showToast("✅ PDF creado, pero la celda B6 (Correos) está vacía.", "warning");
-                   } 
+                   }
                    else if (res && res.toString().startsWith("ERROR_CORREO")) {
                        showToast("❌ PDF creado, pero el correo falló: Revisa la celda B6.", "error");
                        console.error("Motivo del fallo:", res);
-                   } 
+                   }
                    else {
                        showToast("Error: " + res, "error");
                    }
-                   
+
                    setTimeout(() => {
                       document.getElementById('audit-paso3').style.display = 'none';
                       document.getElementById('audit-paso1').style.display = 'block';
                       btn.disabled = false;
                    }, 1000);
                    hacerPingNotificaciones();
-               })
-               .withFailureHandler(err => {
+               }).catch(err => {
                    showToast("Fallo de red o servidor", "error");
                    btn.disabled = false;
                    btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> REINTENTAR`;
-               })
-               // 🔥 ¡AQUÍ PASAMOS LOS 3 PARÁMETROS COMPLETOS!
-               .procesarAuditoriaDesdeAdmin(window.AUDIT_LIST, USER_NAME, stats); 
+               });
          }
      );
   } else {
@@ -7423,8 +7339,7 @@ function enviarReporteAuditoriaFinal() {
              btn.disabled = true;
              btn.innerHTML = `<span class="material-icons spinner">sync</span> ENVIANDO REPORTE...`;
              
-             google.script.run
-               .withSuccessHandler(res => {
+             api.enviarAuditoriaAVentas(window.AUDIT_LIST, USER_NAME).then(res => {
                    if(res && res.exito) {
                        document.getElementById('audit-modal').classList.remove('active');
                        showToast("Auditoría enviada a Ventas. ¡Buen trabajo!", "success");
@@ -7441,13 +7356,11 @@ function enviarReporteAuditoriaFinal() {
                        btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
                        showToast("Error al enviar. Intenta de nuevo.", "error");
                    }
-               })
-               .withFailureHandler(err => {
+               }).catch(err => {
                    btn.disabled = false;
                    btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
                    showToast("Error: " + err, "error");
-               })
-               .enviarAuditoriaAVentas(window.AUDIT_LIST, USER_NAME);
+               });
          }
      );
   }
@@ -7472,47 +7385,43 @@ function manejadorFlujoV3() {
     toggleAdminSidebar(); 
     showToast("Descargando revisión del patio...", "info");
     
-    google.script.run
-      .withSuccessHandler(mision => {
-          hacerPingNotificaciones(); 
+    api.obtenerMisionAuditoria().then(mision => {
+          hacerPingNotificaciones();
           if(mision && mision.length > 0) {
               window.AUDIT_LIST = mision; // Carga los estados (OK, FALTANTE, etc.) que puso el auxiliar
-              
+
               document.getElementById('audit-modal').classList.add('active');
               document.getElementById('audit-paso1').style.display = 'none';
               document.getElementById('audit-paso2').style.display = 'block';
               document.getElementById('audit-paso3').style.display = 'none';
-              
+
               // Le avisa visualmente al Admin que está en modo revisión
               document.querySelector('#audit-paso2 h3').innerHTML = '<span class="material-icons">admin_panel_settings</span> REVISIÓN DE ADMINISTRADOR';
-              
+
               renderizarPaseLista();
           } else {
               showToast("No hay datos del auxiliar.", "error");
           }
-      })
-      .obtenerMisionAuditoria();
+      }).catch(e => console.error(e));
   }
   else if (userRole !== 'admin' && estadoActual === "VERIFICAR INVENTARIO") {
     // 👷 EL AUXILIAR DESCARGA LA MISIÓN
     toggleAdminSidebar(); 
     showToast("Descargando misión...", "info");
     
-    google.script.run
-      .withSuccessHandler(mision => {
-          hacerPingNotificaciones(); 
+    api.obtenerMisionAuditoria().then(mision => {
+          hacerPingNotificaciones();
           if(mision && mision.length > 0) {
               window.UNIDADES_SISTEMA_CORPORATIVO = mision;
               window.AUDIT_LIST = window.UNIDADES_SISTEMA_CORPORATIVO.map(u => ({ mva: u.mva, placas: u.placas, modelo: u.modelo, status: 'PENDIENTE' }));
-              
+
               document.getElementById('audit-modal').classList.add('active');
               document.getElementById('audit-paso1').style.display = 'none';
               document.getElementById('audit-paso2').style.display = 'block';
               document.getElementById('audit-paso3').style.display = 'none';
               renderizarPaseLista();
           } else showToast("La misión está vacía.", "error");
-      })
-      .obtenerMisionAuditoria();
+      }).catch(e => console.error(e));
   }
 }
 // ⚡ EL ADMIN SUBE CSV Y ENVÍA MISIÓN
@@ -7520,14 +7429,12 @@ function iniciarMisionAuditoria() {
   const btn = document.getElementById('btnIniciarMision');
   btn.disabled = true; btn.innerHTML = `<span class="material-icons spinner">sync</span> DESPLEGANDO AL PATIO...`;
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(window.UNIDADES_SISTEMA_CORPORATIVO)).then(res => {
         showToast("¡Misión enviada al celular del patio! 📡", "success");
         document.getElementById('audit-modal').classList.remove('active');
-        hacerPingNotificaciones(); 
+        hacerPingNotificaciones();
         btn.innerHTML = `INICIAR MISIÓN DE AUDITORÍA`;
-    })
-    .iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(window.UNIDADES_SISTEMA_CORPORATIVO));
+    }).catch(e => console.error(e));
 }
 
 // 🗄️ ABRIR EL ARCHIVERO DE CUADRES
@@ -7537,8 +7444,7 @@ function abrirHistorialCuadres() {
   const container = document.getElementById('lista-historial-cuadres');
   container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner">sync</span> Buscando en los archivos...</div>`;
   
-  google.script.run
-    .withSuccessHandler(data => {
+  api.obtenerHistorialCuadres().then(data => {
       if (!data || data.length === 0) {
         container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:800;">No hay cuadres registrados.</div>`;
         return;
@@ -7564,8 +7470,7 @@ function abrirHistorialCuadres() {
           </button>
         </div>
       `).join('');
-    })
-    .obtenerHistorialCuadres();
+    }).catch(e => console.error(e));
 }
 
 
@@ -7588,13 +7493,11 @@ function abrirBuzon() {
 }
 
 function cargarMensajesDesdeServer() {
-  google.script.run
-    .withSuccessHandler(msgs => {
+  api.obtenerMensajesPrivados(USER_NAME).then(msgs => {
        allChatMessages = msgs || [];
        renderContactos();
        if(activeChatUser) renderChatWindow(); // Recarga el chat en vivo si estás dentro
-    })
-    .obtenerMensajesPrivados(USER_NAME);
+    }).catch(e => console.error(e));
 }
 
 function renderContactos() {
@@ -7710,7 +7613,7 @@ function abrirChat(nombre) {
   renderChatWindow();
 
   if(idsToMark.length > 0) {
-     google.script.run.withSuccessHandler(hacerPingNotificaciones).marcarMensajesLeidosArray(idsToMark);
+     api.marcarMensajesLeidosArray(idsToMark).then(hacerPingNotificaciones).catch(e => console.error(e));
   }
 }
 
@@ -7784,9 +7687,7 @@ function enviarMensajeChat() {
    renderChatWindow();
 
    // Enviarlo a Google en silencio
-   google.script.run
-     .withSuccessHandler(() => hacerPingNotificaciones())
-     .enviarMensajePrivado(USER_NAME, activeChatUser, txt);
+   api.enviarMensajePrivado(USER_NAME, activeChatUser, txt).then(() => hacerPingNotificaciones()).catch(e => console.error(e));
 }
 
 
@@ -7909,13 +7810,12 @@ function procesarActividadDiaria() {
   // Mandamos la fecha del navegador para calcular el nivel de urgencia con precisión
   const fechaFront = new Date().toISOString();
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.generarPDFActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront).then(res => {
       btn.disabled = false;
       btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> GENERAR REPORTE COMPLETO`;
       if (res.exito) {
         showToast("¡Reporte Creado!", "success");
-        document.getElementById('textoBrutoReservas').value = ""; 
+        document.getElementById('textoBrutoReservas').value = "";
         document.getElementById('textoBrutoRegresos').value = "";
         document.getElementById('textoBrutoVencidos').value = "";
         document.getElementById('modal-lector-reservas').classList.remove('active');
@@ -7924,8 +7824,7 @@ function procesarActividadDiaria() {
       } else {
         showToast("Error: " + res.error, "error");
       }
-    })
-    .generarPDFActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront);
+    }).catch(e => console.error(e));
 }
 // ==========================================
 // 🔮 MOTOR DEL CUADRE DE PREDICCIONES
@@ -8093,8 +7992,7 @@ function crearExcelPrediccion() {
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> ARMANDO EXCEL...`;
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.generarExcelPrediccion(datosCalculadosParaExcel, fechaSeleccionadaStr, USER_NAME).then(res => {
       btn.disabled = false;
       btn.innerHTML = `<span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE`;
       if (res.exito) {
@@ -8104,8 +8002,7 @@ function crearExcelPrediccion() {
       } else {
         showToast("Error al guardar: " + res.error, "error");
       }
-    })
-    .generarExcelPrediccion(datosCalculadosParaExcel, fechaSeleccionadaStr, USER_NAME);
+    }).catch(e => console.error(e));
 }
 
 
@@ -8198,13 +8095,10 @@ function obtenerImagenAuto(mva, modelo, callback) {
   }
 
   // Si no está, la pedimos al motor de Google Script
-  google.script.run
-    .withSuccessHandler(res => {
+  api.obtenerUrlImagenModelo(modelo).then(res => {
         CACHE_IMAGENES_AUDIT[searchKey] = res; // Guardamos en cache local
         callback(res);
-    })
-    .withFailureHandler(() => callback("")) // Falla, genérico
-    .obtenerUrlImagenModelo(modelo);
+    }).catch(() => callback("")); // Falla, genérico
 }
 function initTheme() {
   const savedTheme = localStorage.getItem('mex_mapa_theme');
@@ -8296,13 +8190,11 @@ function ejecutarAccionGemini(respuestaIA) {
                 const carVisual = document.getElementById(`auto-${mvaTarget}`);
                 if (carVisual) carVisual.remove();
                 actualizarContadores();
-                google.script.run.ejecutarEliminacion([mvaTarget], USER_NAME);
+                api.ejecutarEliminacion([mvaTarget], USER_NAME).catch(e => console.error(e));
             } else {
                 const itemAdmin = DB_ADMINS.find(u => u.mva === mvaTarget);
                 if (itemAdmin) {
-                    google.script.run
-                        .withSuccessHandler(() => { cambiarTabFlota('ADMINS'); })
-                        .procesarModificacionMaestra({ mva: mvaTarget, fila: itemAdmin.fila, adminResponsable: USER_NAME }, "ELIMINAR");
+                    api.procesarModificacionMaestra({ mva: mvaTarget, fila: itemAdmin.fila, adminResponsable: USER_NAME }, "ELIMINAR").then(() => { cambiarTabFlota('ADMINS'); }).catch(e => console.error(e));
                 }
             }
         }
@@ -8333,9 +8225,9 @@ function ejecutarAccionGemini(respuestaIA) {
             }
 
             // Manda a guardar a Google Sheets
-            google.script.run.withSuccessHandler((res) => { 
-                if(res.startsWith("EXITO")) refrescarDatos(); 
-            }).insertarUnidadDesdeHTML(payloadNuevo);
+            api.insertarUnidadDesdeHTML(payloadNuevo).then((res) => {
+                if(res.startsWith("EXITO")) refrescarDatos();
+            }).catch(e => console.error(e));
         }
 
         // --- 4. WHATSAPP (Cualquiera puede avisar) ---
@@ -8406,10 +8298,7 @@ function procesarComandoInteligente() {
     flota: contextoFlota
   };
 
-  google.script.run
-    .withSuccessHandler(ejecutarAccionGemini)
-    .withFailureHandler(() => notificarRespuestaIA("Fallo de red al contactar al cerebro."))
-    .llamarGeminiAI(textoOriginal, JSON.stringify(contextoConMeta), window.ultimoMVA_MEXIA);
+  api.llamarGeminiAI(textoOriginal, JSON.stringify(contextoConMeta), window.ultimoMVA_MEXIA).then(ejecutarAccionGemini).catch(() => notificarRespuestaIA("Fallo de red al contactar al cerebro."));
 
   input.value = "";
   colapsarTerminal();
@@ -8538,15 +8427,12 @@ async function procesarImagenOCR(event) {
 
       const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
       
-      google.script.run
-        .withSuccessHandler(function(textoDetectado) {
+      api.analizarPlacaVisionAPI(compressedBase64).then(function(textoDetectado) {
           // Ejecutamos la lógica de búsqueda sin alertas
           ejecutarLogicaOCR(textoDetectado);
-        })
-        .withFailureHandler(function(err) {
+        }).catch(function(err) {
           notificarRespuestaIA("❌ Error de comunicación con la cámara.");
-        })
-        .analizarPlacaVisionAPI(compressedBase64);
+        });
     };
   };
   reader.readAsDataURL(file);
@@ -8613,8 +8499,7 @@ function abrirEditorMapa() {
   _edCeldas = []; _edSel = null; _edModo = null;
   _resetEditorPanel();
 
-  google.script.run
-    .withSuccessHandler(estructura => {
+  api.obtenerEstructuraMapa().then(estructura => {
       document.getElementById('editor-loading').style.display = 'none';
       document.getElementById('editor-grid-wrapper').style.display = 'block';
       _edCeldas = estructura.map((c, i) => ({
@@ -8638,12 +8523,10 @@ function abrirEditorMapa() {
       document.getElementById('ep-grid-rows').innerText = _edRows;
       document.getElementById('ep-grid-cols').innerText = _edCols;
       _renderEditorGrid();
-    })
-    .withFailureHandler(err => {
+    }).catch(err => {
       document.getElementById('editor-loading').innerHTML =
         `<span style="color:#ef4444;font-weight:700;">Error: ${err}</span>`;
-    })
-    .obtenerEstructuraMapa();
+    });
 }
 
 function _buildOccupancy(excludeId) {
@@ -8857,8 +8740,7 @@ function guardarMapaEditor(btn) {
     orden:   i
   }));
 
-  google.script.run
-    .withSuccessHandler(res => {
+  api.guardarEstructuraMapa(payload).then(res => {
       btn.disabled = false;
       btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
       if (res === 'OK') {
@@ -8868,13 +8750,11 @@ function guardarMapaEditor(btn) {
           dibujarMapaCompleto();
         }, 1200);
       }
-    })
-    .withFailureHandler(err => {
+    }).catch(err => {
       btn.disabled = false;
       btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
       showToast("Error: " + err, "error");
-    })
-    .guardarEstructuraMapa(payload);
+    });
 }
 
 </script>

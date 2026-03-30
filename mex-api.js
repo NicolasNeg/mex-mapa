@@ -367,7 +367,9 @@ const API_FUNCTIONS = {
       .map(m => ({ ...m, esMio: m.remitente === me, leido: m.leido === "SI" }));
   },
   async enviarMensajePrivado(remitente, destinatario, texto) {
-    await db.collection(COL.MENSAJES).add({ timestamp: _ts(), fecha: _now(), remitente: remitente.trim().toUpperCase(), destinatario: destinatario.trim().toUpperCase(), mensaje: texto, leido: "NO" });
+    const ts = _ts();
+    const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
+    await db.collection(COL.MENSAJES).doc(id).set({ timestamp: ts, fecha: _now(), remitente: remitente.trim().toUpperCase(), destinatario: destinatario.trim().toUpperCase(), mensaje: texto, leido: "NO" });
     return "EXITO";
   },
   async marcarMensajesLeidosArray(idsArray) {
@@ -410,6 +412,41 @@ const API_FUNCTIONS = {
       if (!q.empty) { await q.docs[0].ref.delete(); return "OK"; }
     }
     return "ERROR: Nota no encontrada";
+  },
+
+  // ─── RESUMEN FLOTA ──────────────────────────────────────
+  async obtenerResumenFlotaPatio() {
+    const [cuadreSnap, externosSnap] = await Promise.all([
+      db.collection(COL.CUADRE).get(),
+      db.collection(COL.EXTERNOS).get()
+    ]);
+    const cuadreUnits = cuadreSnap.docs.map(d => ({ ...d.data() })).filter(u => u.mva);
+    const externosUnits = externosSnap.docs.map(d => ({ ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva);
+
+    function _agrupar(units) {
+      const byEstado = {};
+      for (const u of units) {
+        const estado = (u.estado || "SIN ESTADO").toUpperCase();
+        const cat = (u.categoria || "SIN CATEGORÍA").toUpperCase();
+        const mod = (u.modelo || u.mva || "").toUpperCase();
+        if (!byEstado[estado]) byEstado[estado] = {};
+        if (!byEstado[estado][cat]) byEstado[estado][cat] = { cant: 0, modelos: [] };
+        byEstado[estado][cat].cant++;
+        if (mod && !byEstado[estado][cat].modelos.includes(mod)) byEstado[estado][cat].modelos.push(mod);
+      }
+      const lista = Object.entries(byEstado).map(([nombre, categorias]) => {
+        const total = Object.values(categorias).reduce((s, c) => s + c.cant, 0);
+        return { nombre, total, categorias };
+      }).sort((a, b) => b.total - a.total);
+      return { total: units.length, lista };
+    }
+
+    const patioUnits = cuadreUnits.filter(u => u.ubicacion === "PATIO" || u.ubicacion === "TALLER");
+    const fueraUnits = [
+      ...cuadreUnits.filter(u => u.ubicacion !== "PATIO" && u.ubicacion !== "TALLER"),
+      ...externosUnits
+    ];
+    return { patio: _agrupar(patioUnits), fuera: _agrupar(fueraUnits) };
   },
 
   // ─── HISTORIAL ───────────────────────────────────────────
@@ -612,6 +649,19 @@ const API_FUNCTIONS = {
   async checkEsAdmin(nombre) {
     const snap = await db.collection(COL.ADMINS).where("usuario", "==", nombre.trim().toUpperCase()).limit(1).get();
     return !snap.empty;
+  },
+
+  async obtenerUrlImagenModelo(modelo) {
+    if (!modelo) return "";
+    const IMAGENES_MODELOS = window.MEX_IMAGENES_MODELOS || {};
+    const key = modelo.toString().trim().split(" ")[0].toLowerCase();
+    for (const nombre in IMAGENES_MODELOS) { if (nombre.includes(key)) return IMAGENES_MODELOS[nombre]; }
+    return "img/no-model.png";
+  },
+
+  async analizarPlacaVisionAPI(_base64Image) {
+    // La integración con Vision API requiere Cloud Functions; por ahora retorna vacío
+    return "";
   }
 };
 
@@ -641,36 +691,6 @@ window.obtenerUrlImagenModelo = function(modelo) {
   return "img/no-model.png";
 };
 
-console.log("✅ [MEX-API] Adaptador Firebase cargado correctamente.");
-
-// ─── google.script.run ───────────────────────────────────────
-(function() {
-  function makeRun() {
-    var _success = null, _failure = null;
-    var obj = {
-      withSuccessHandler: function(fn) { _success = fn; return obj; },
-      withFailureHandler: function(fn) { _failure = fn; return obj; }
-    };
-    Object.keys(API_FUNCTIONS).forEach(function(name) {
-      obj[name] = function() {
-        var args = Array.prototype.slice.call(arguments);
-        API_FUNCTIONS[name].apply(null, args)
-          .then(function(r) { if (_success) _success(r); })
-          .catch(function(e) { console.error('[MEX-API] Error en ' + name + ':', e); if (_failure) _failure(e); });
-      };
-    });
-    return obj;
-  }
-  var runHandler = {
-    withSuccessHandler: function(fn) { return makeRun().withSuccessHandler(fn); },
-    withFailureHandler: function(fn) { return makeRun().withFailureHandler(fn); }
-  };
-  Object.keys(API_FUNCTIONS).forEach(function(name) {
-    runHandler[name] = function() {
-      var args = Array.prototype.slice.call(arguments);
-      API_FUNCTIONS[name].apply(null, args).catch(function(e) { console.error('[MEX-API] ' + name + ':', e); });
-    };
-  });
-  window.google = { script: { run: runHandler } };
-  console.log('✅ [MEX-API] google.script.run listo con ' + Object.keys(API_FUNCTIONS).length + ' funciones.');
-})();
+// ─── API PÚBLICA ─────────────────────────────────────────────
+window.api = API_FUNCTIONS;
+console.log('✅ [MEX-API] Firebase API lista con ' + Object.keys(API_FUNCTIONS).length + ' funciones.');
