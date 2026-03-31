@@ -77,14 +77,14 @@ service cloud.firestore {
       allow read, write: if true;
     }
     match /configuracion/{document=**} {
-      // Cualquier usuario logueado en la app puede leer la configuración
-      allow read: if request.auth != null;
-      
-      // Para hacer la migración ahorita, permítete escribir si estás logueado.
-      // (Después puedes cambiarlo a que solo los Admins Globales puedan escribir)
-      allow write: if request.auth != null; 
+      allow read, write: if true; 
     }
     match /sipp/{doc} {
+      allow read, write: if true;
+    }
+    match /solicitudes_acceso/{doc} {
+      // Permitimos que cualquiera pueda enviar una solicitud 
+      // y que los admins puedan leerlas
       allow read, write: if true;
     }
   }
