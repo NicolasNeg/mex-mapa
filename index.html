@@ -921,8 +921,51 @@ header {
     #sidebar .clear-btn { width: 30px !important; height: 30px !important; right: 12px !important; }
 
     /* --- LOGIN Y SIDEBAR ADMIN --- */
-    .login-overlay { position: fixed; inset: 0; background: var(--bg-viewport); z-index: 9999; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(10px); }
-    .login-box { background: white; padding: 40px; border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); width: 90%; max-width: 380px; text-align: center; }
+.login-overlay { position: fixed; inset: 0; background: #e2e8f0; z-index: 99999; display: flex; align-items: center; justify-content: center; }
+  
+  .login-split-container {
+    display: flex; width: 100%; max-width: 900px; height: 550px; background: white;
+    border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    overflow: hidden; animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  
+  /* Mitad de la Imagen */
+  .login-left-side {
+    flex: 1; position: relative; display: flex; flex-direction: column; justify-content: flex-end;
+    /* Imagen de stock de autos (Cámbiala por una de tu patio si quieres) */
+    background: url('https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=800') center/cover no-repeat;
+  }
+  .login-left-overlay {
+    background: linear-gradient(to top, rgba(13,42,84, 0.95) 0%, rgba(13,42,84, 0.1) 100%);
+    padding: 40px; color: white; display: flex; flex-direction: column; justify-content: flex-end; height: 100%;
+  }
+  .login-left-overlay h1 { font-weight: 900; font-size: 42px; margin: 0; letter-spacing: 1px; line-height: 1; }
+  .login-left-overlay h2 { font-weight: 800; font-size: 20px; color: #38bdf8; margin: 0 0 15px 0; letter-spacing: 3px; }
+  .login-left-overlay p { font-size: 14px; font-weight: 500; color: #cbd5e1; margin: 0; max-width: 90%; }
+
+  /* Mitad del Formulario */
+  .login-right-side {
+    flex: 1; padding: 40px; display: flex; align-items: center; justify-content: center; background: white;
+  }
+  .login-form-wrapper { width: 100%; max-width: 320px; text-align: left; }
+  .login-form-wrapper h3 { color: #0f172a; font-weight: 900; font-size: 26px; margin: 0 0 5px; }
+  .login-form-wrapper p { color: #64748b; font-size: 13px; font-weight: 600; margin: 0 0 30px; }
+
+  .mex-input { width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 600; font-size: 14px; outline: none; transition: 0.2s; background: #f8fafc; color: #1e293b; box-sizing: border-box; }
+  .mex-input:focus { border-color: var(--mex-blue); background: white; box-shadow: 0 0 0 4px rgba(13,42,84,0.1); }
+  .input-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: block; }
+  .input-icon { position: absolute; right: 14px; top: 14px; color: #94a3b8; cursor: pointer; user-select: none; transition: 0.2s; }
+  .input-icon:hover { color: var(--mex-blue); }
+
+  @media (max-width: 768px) {
+    .login-split-container { flex-direction: column; height: auto; max-width: 400px; margin: 20px; }
+    .login-left-side { height: 180px; flex: none; }
+    .login-left-overlay { padding: 25px; }
+    .login-left-overlay h1 { font-size: 32px; }
+    .login-right-side { padding: 30px 25px; }
+  }
+
+
     .admin-sidebar { position: fixed; right: 0; top: 0; bottom: 0; width: 300px; background: #1e293b; z-index: 2000; transform: translateX(100%); transition: 0.3s ease; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.3); }
     .admin-sidebar.open { transform: translateX(0); }
     @media (max-width: 400px) { .admin-sidebar { width: 100%; } }
@@ -2358,9 +2401,7 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 
 
   </style>
-  <!-- FIREBASE SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
   <!-- MEX API — Firebase Client SDK directo -->
 </head>
 <body>
@@ -2384,40 +2425,61 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
   </div>
   
 </div>
-<div id="login-overlay" class="login-overlay" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); backdrop-filter: blur(10px);">
-  <div class="login-box" style="background: white; max-width: 400px; width: 90%; border-radius: 20px; padding: 40px 30px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center; position: relative; overflow: hidden;">
-    
-    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: var(--mex-accent);"></div>
-    <img src="img/logo.png" style="width: 140px; margin-bottom: 20px;" alt="GESTION MAP">
-    <h2 style="color: #0f172a; font-weight: 900; font-size: 22px; margin-bottom: 25px; letter-spacing: -0.5px;">INICIO DE SESION</h2>
-    
-    <input type="email" id="auth_email" placeholder="Correo electrónico" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 12px; font-weight: 700; outline: none;">
-    <div style="position: relative; margin-bottom: 15px;">
-      <input type="password" id="auth_pass" placeholder="Contraseña" style="width: 100%; padding: 14px; padding-right: 45px; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 700; outline: none; box-sizing: border-box;">
-      <span class="material-icons" onclick="togglePassword('auth_pass', this)" style="position: absolute; right: 14px; top: 15px; color: #94a3b8; cursor: pointer; user-select: none;">visibility</span>
-    </div>
-    
-    <button onclick="loginManual()" id="btnLoginManual" style="width: 100%; padding: 14px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.2s;">
-      INICIAR SESIÓN
-    </button>
 
-    <div style="display: flex; align-items: center; margin: 20px 0; color: #94a3b8; font-weight: 800; font-size: 12px;">
-      <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-      <span style="padding: 0 10px;">O ACCEDE CON</span>
-      <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+<div id="login-overlay" class="login-overlay">
+  <div class="login-split-container">
+    
+    <div class="login-left-side">
+      <div class="login-left-overlay">
+        <h1>MEX</h1>
+        <h2>RENT A CAR</h2>
+        <p>Plataforma avanzada para el control operativo y gestión de flota.</p>
+      </div>
     </div>
 
-    <button onclick="loginConGoogle()" id="btnGoogleLogin" style="width: 100%; padding: 14px; background: white; color: #334155; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: 0.2s;">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> GOOGLE
-    </button>
-    
-    <p id="login-error" style="color: #ef4444; margin-top: 15px; display: none; font-size: 13px; font-weight: 700; background: #fee2e2; padding: 10px; border-radius: 8px;">❌ Datos incorrectos o sin acceso.</p>
+    <div class="login-right-side">
+      <div class="login-form-wrapper">
+        <h3>BIENVENIDO</h3>
+        <p>Ingresa tus credenciales para continuar</p>
+        
+        <div style="margin-bottom: 15px;">
+          <label class="input-label">Correo Electrónico</label>
+          <input type="email" id="auth_email" class="mex-input" placeholder="usuario@mexrentacar.com">
+        </div>
 
-    <div style="margin-top: 25px; padding-top: 20px;">
-      <button onclick="abrirModalSolicitud()" style="background: transparent; border: none; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; text-decoration: underline;">Solicitar Acceso al Sistema</button>
+        <div style="margin-bottom: 25px; position: relative;">
+          <label class="input-label">Contraseña</label>
+          <input type="password" id="auth_pass" class="mex-input" placeholder="••••••••" style="padding-right: 45px; letter-spacing: 2px;">
+          <span class="material-icons input-icon" onclick="togglePassword('auth_pass', this)">visibility</span>
+        </div>
+        
+        <button onclick="loginManual()" id="btnLoginManual" style="width: 100%; padding: 14px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(13,42,84,0.3);">
+          INICIAR SESIÓN
+        </button>
+
+        <div style="display: flex; align-items: center; margin: 25px 0; color: #94a3b8; font-weight: 800; font-size: 11px;">
+          <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+          <span style="padding: 0 10px;">O CONTINÚA CON</span>
+          <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+        </div>
+
+        <button onclick="loginConGoogle()" id="btnGoogleLogin" style="width: 100%; padding: 13px; background: white; color: #334155; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 18px;"> CUENTA DE GOOGLE
+        </button>
+        
+        <p id="login-error" style="color: #ef4444; margin-top: 15px; display: none; font-size: 12px; font-weight: 700; background: #fee2e2; padding: 10px; border-radius: 8px; text-align: center;">❌ Datos incorrectos o sin acceso.</p>
+
+        <div style="margin-top: 30px; text-align: center;">
+          <p style="font-size: 12px; color: #64748b; font-weight: 600; margin: 0;">¿No tienes cuenta corporativa?</p>
+          <button onclick="abrirModalSolicitud()" style="background: transparent; border: none; color: var(--mex-accent); font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; margin-top: 5px;">Solicitar Acceso al Sistema</button>
+        </div>
+      </div>
     </div>
+
   </div>
 </div>
+
+
 <style>
   @keyframes modalFadeIn {
     0% { opacity: 0; transform: translateY(20px) scale(0.95); }
