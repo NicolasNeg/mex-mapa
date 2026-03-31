@@ -3,6 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="MEX Mapa">
+  <meta name="description" content="Plataforma de control operativo y gestión de flota MEX Rent a Car">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -11,7 +18,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="mex-api.js"></script>
-  <title>MAPA - beta</title>
+  <title>MEX Mapa</title>
   <style>
 
 
@@ -4151,6 +4158,7 @@ function iniciarApp(esNuevoLogin = true) {
 function cerrarSesion() {
   if(autoRefreshInterval) clearInterval(autoRefreshInterval);
   if(radarInterval) clearInterval(radarInterval);
+  if(_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
   
   // Destruir la sesión iniciada
   localStorage.removeItem('mex_mapa_session');
@@ -4181,9 +4189,10 @@ function cerrarSesion() {
   document.getElementById('activeUserBadge').style.display = 'none';
   document.getElementById('login-overlay').style.display = 'flex';
   
-  // Dejar pre-seleccionado al usuario que acaba de salir por comodidad
-  let lastUser = localStorage.getItem('mex_mapa_last_user');
-  if (lastUser) seleccionarUsuario(lastUser);
+  // Cerrar cualquier modal que esté abierto (incluido el de "Cerrar Sesión")
+  cerrarCustomModal();
+
+  auth.signOut().catch(e => console.warn("signOut error:", e));
 }
 
 function cargarMaestra() {
@@ -4207,34 +4216,29 @@ let selectedAuto = null;
 let zoomLevel = 0.8;
 isSaving = false;
 let isMoving = false; // 🔥
-let autoRefreshInterval = null;
-let saveTimeout = null; 
+let autoRefreshInterval = null; // mantenido por compatibilidad pero no se usa para el mapa
+let _unsubMapa = null;          // función para cancelar onSnapshot
+let saveTimeout = null;
 let lastMoveTime = 0;
 
 function init() {
   dibujarMapaCompleto();
   startAutoRefresh();
-  updateZoom(); 
+  updateZoom();
 }
 
 function startAutoRefresh() {
-  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
-  
-  autoRefreshInterval = setInterval(() => {
-    // No refrescar si hay modales abiertos
-    if(document.getElementById('fleet-modal').classList.contains('active')) return;
-    
-    const query = (document.getElementById('searchInput').value || document.getElementById('searchInputMobile').value).trim();
-    
-    // 🔥 REGLAS ESTRICTAS PARA REFRESAR LA PANTALLA:
-    // 1. Ningún auto seleccionado (!selectedAuto)
-    // 2. NO estamos en medio de una ráfaga de movimientos (!isMoving)
-    // 3. NO estamos guardando datos en este instante (!isSaving)
-    // 4. El buscador está vacío (query === "")
-    if (!selectedAuto && !isMoving && !isSaving && query === "") {
-      refrescarDatos();
-    }
-  }, 5000); // El radar checa cada 5 segundos si ya "hay permiso" de actualizar
+  // Cancelar suscripción anterior si existe
+  if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
+
+  _unsubMapa = api.suscribirMapa(unidades => {
+    // No actualizar si el usuario está en medio de algo
+    const fleetAbierto = document.getElementById('fleet-modal').classList.contains('active');
+    const query = (document.getElementById('searchInput').value || document.getElementById('searchInputMobile').value || '').trim();
+    if (fleetAbierto || selectedAuto || isMoving || isSaving || query !== '') return;
+
+    sincronizarMapa(unidades);
+  });
 }
 
 function adjustZoom(delta) { 
@@ -4975,6 +4979,8 @@ let CACHE_IMAGENES_AUDIT = {};
 function abrirModalFlota() {
   document.getElementById('fleet-modal').classList.add('active');
   document.getElementById('admin-sidebar').classList.remove('open');
+  // Repoblar selects cada vez que se abre — garantiza que estén al día
+  if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
   cargarFlota(); 
 
   // 1. BLINDAJE PARA AUXILIARES (Operativos)
@@ -11197,6 +11203,82 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
     });
   };
 })();
+</script>
+
+<!-- ═══════════════════════════════════════════════════════════
+     INDICADOR OFFLINE
+════════════════════════════════════════════════════════════ -->
+<div id="offline-banner" style="
+  display:none; position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
+  background:#1e293b; color:white; padding:10px 18px; border-radius:40px;
+  font-size:12px; font-weight:700; z-index:999999;
+  align-items:center; gap:8px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
+  border:1px solid rgba(255,255,255,0.08); letter-spacing:0.3px;
+">
+  <span class="material-icons" style="font-size:16px; color:#f59e0b;">wifi_off</span>
+  <span id="offline-banner-msg">Sin conexión — mostrando datos guardados</span>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     PWA — Service Worker + Instalación
+════════════════════════════════════════════════════════════ -->
+<script>
+// ── Registrar Service Worker ──────────────────────────────
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js')
+      .then(reg => console.log('✅ SW registrado:', reg.scope))
+      .catch(err => console.warn('SW error:', err));
+  });
+}
+
+// ── Indicador offline / online ────────────────────────────
+(function() {
+  const banner = document.getElementById('offline-banner');
+  const msg    = document.getElementById('offline-banner-msg');
+
+  function actualizarEstado() {
+    if (!navigator.onLine) {
+      banner.style.display = 'flex';
+      msg.textContent = 'Sin conexión — mostrando datos guardados';
+    } else {
+      msg.textContent = 'Conexión restaurada ✓';
+      banner.style.display = 'flex';
+      setTimeout(() => { banner.style.display = 'none'; }, 2500);
+    }
+  }
+
+  window.addEventListener('offline', actualizarEstado);
+  window.addEventListener('online',  actualizarEstado);
+  // Estado inicial — solo mostrar si ya está offline al cargar
+  if (!navigator.onLine) actualizarEstado();
+})();
+
+// ── Prompt de instalación "Añadir a pantalla" ─────────────
+let _deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  // Mostrar botón de instalación si existe en el DOM
+  const btn = document.getElementById('btnInstalarPWA');
+  if (btn) btn.style.display = 'flex';
+});
+
+window.addEventListener('appinstalled', () => {
+  _deferredInstallPrompt = null;
+  const btn = document.getElementById('btnInstalarPWA');
+  if (btn) btn.style.display = 'none';
+  showToast('App instalada correctamente', 'success');
+});
+
+function instalarPWA() {
+  if (!_deferredInstallPrompt) return;
+  _deferredInstallPrompt.prompt();
+  _deferredInstallPrompt.userChoice.then(result => {
+    if (result.outcome === 'accepted') showToast('Instalando MEX Mapa...', 'success');
+    _deferredInstallPrompt = null;
+  });
+}
 </script>
 
 </body>

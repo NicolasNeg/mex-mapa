@@ -8,12 +8,22 @@ const FIREBASE_CONFIG = {
   appId:             "1:35913204070:web:8d2c2fa94376449dbd08a7"
 };
 
-// Asegúrate de que esto esté al inicio de tu código JS principal
-const app = firebase.initializeApp(FIREBASE_CONFIG); // Tu config
-const auth = firebase.auth(); // <--- OBLIGATORIO DESPUÉS DE INITIALIZEAPP
-
-firebase.initializeApp(FIREBASE_CONFIG);
+const app = firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
 const db = firebase.firestore();
+
+// ── Persistencia offline (cache local de Firestore) ───────
+// Los datos ya descargados están disponibles sin internet.
+// Los cambios hechos offline se sincronizan al reconectar.
+db.enablePersistence({ synchronizeTabs: true })
+  .catch(err => {
+    if (err.code === 'failed-precondition') {
+      // Múltiples pestañas abiertas — solo una puede tener persistencia
+      console.warn('Offline persistence: múltiples pestañas, solo una activa.');
+    } else if (err.code === 'unimplemented') {
+      console.warn('Offline persistence: navegador no compatible.');
+    }
+  });
 
 const COL = {
   CUADRE:    "cuadre",
@@ -96,7 +106,41 @@ const API_FUNCTIONS = {
     return snap.docs[0].data().isGlobal === true;
   },
 
-  // ─── MAPA ────────────────────────────────────────────────
+  // ─── MAPA — SUSCRIPCIÓN EN TIEMPO REAL ──────────────────
+  // Llama a callback(unidades[]) cada vez que cuadre o externos cambian.
+  // Devuelve una función unsub() para cancelar la escucha.
+  suscribirMapa(callback) {
+    let cuadreDocs = [];
+    let externosDocs = [];
+    let pendingTimer = null;
+
+    function emitir() {
+      if (pendingTimer) clearTimeout(pendingTimer);
+      // Pequeño debounce: si ambas colecciones cambian juntas no emitimos dos veces
+      pendingTimer = setTimeout(() => {
+        const cuadreUnits = cuadreDocs
+          .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
+          .map(u => ({ ...u, tipo: "renta" }));
+        const externosUnits = externosDocs
+          .filter(u => u.mva)
+          .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
+        callback([...cuadreUnits, ...externosUnits]);
+      }, 300);
+    }
+
+    const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
+      cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emitir();
+    }, err => console.error("onSnapshot cuadre:", err));
+
+    const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emitir();
+    }, err => console.error("onSnapshot externos:", err));
+
+    return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
+  },
+
   async obtenerDatosParaMapa() {
     const [cuadreSnap, externosSnap] = await Promise.all([
       db.collection(COL.CUADRE).get(),

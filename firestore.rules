@@ -1,90 +1,99 @@
 rules_version = '2';
 // ============================================================
 // REGLAS DE SEGURIDAD FIRESTORE — MEX MAPA
-// Sube este archivo en Firebase Console > Firestore > Reglas
+// Requiere sesión de Firebase Auth para casi todo.
+// La única excepción es solicitudes_acceso (envío sin sesión).
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── COLECCIONES DE SOLO LECTURA PÚBLICA ────────────────
-    // La configuración del mapa y el index de unidades
-    // son de solo lectura para todos los autenticados desde web
-    match /mapa_config/{doc} {
-      allow read: if true;
-      allow write: if true;
+    // ─── HELPER ─────────────────────────────────────────────
+    function estaAutenticado() {
+      return request.auth != null;
     }
 
-    match /historial_patio/{doc} {
-      allow read, write: if true;
+    // ─── DATOS OPERATIVOS DEL MAPA ───────────────────────────
+    match /mapa_config/{doc} {
+      allow read, write: if estaAutenticado();
     }
 
     match /index_unidades/{doc} {
-      allow read: if true;
-      allow write: if true; // El app necesita escribir (insert de unidades)
+      allow read, write: if estaAutenticado();
     }
 
-    // ─── COLECCIONES DE LECTURA/ESCRITURA LIBRE ─────────────
-    // (La seguridad real está en el login del HTML)
-    // Estas colecciones permiten leer y escribir sin auth de Firebase
-    // porque el login lo maneja tu propio sistema de usuarios/PINs.
     match /cuadre/{doc} {
-      allow read, write: if true;
+      allow read, write: if estaAutenticado();
     }
 
     match /externos/{doc} {
-      allow read, write: if true;
+      allow read, write: if estaAutenticado();
     }
 
-    match /usuarios/{doc} {
-      allow read: if true;
-      allow write: if true;
-    }
-
-    match /admins/{doc} {
-      allow read: if true;
-      allow write: if true;
-    }
-
-    match /alertas/{doc} {
-      allow read, write: if true;
-    }
-
-    match /mensajes/{doc} {
-      allow read, write: if true;
-    }
-
-    match /logs/{doc} {
-      allow read, write: if true;
-    }
-
-    match /notas_admin/{doc} {
-      allow read, write: if true;
-    }
-
-    match /settings/{doc} {
-      allow read, write: if true;
-    }
-
-    match /auditoria/{doc} {
-      allow read, write: if true;
-    }
-
-    match /historial_cuadres/{doc} {
-      allow read, write: if true;
+    match /historial_patio/{doc} {
+      allow read, write: if estaAutenticado();
     }
 
     match /cuadre_admins/{doc} {
-      allow read, write: if true;
+      allow read, write: if estaAutenticado();
     }
-    match /configuracion/{document=**} {
-      allow read, write: if true; 
+
+    match /historial_cuadres/{doc} {
+      allow read, write: if estaAutenticado();
     }
+
+    match /auditoria/{doc} {
+      allow read, write: if estaAutenticado();
+    }
+
     match /sipp/{doc} {
-      allow read, write: if true;
+      allow read, write: if estaAutenticado();
     }
-// Permitir a cualquier persona enviar una solicitud de acceso
+
+    // ─── USUARIOS Y PERMISOS ─────────────────────────────────
+    // Lectura necesaria para validar login; escritura solo autenticados
+    match /usuarios/{doc} {
+      allow read: if estaAutenticado();
+      allow write: if estaAutenticado();
+    }
+
+    match /admins/{doc} {
+      allow read: if estaAutenticado();
+      allow write: if estaAutenticado();
+    }
+
+    // ─── COMUNICACIÓN Y LOGS ─────────────────────────────────
+    match /alertas/{doc} {
+      allow read, write: if estaAutenticado();
+    }
+
+    match /mensajes/{doc} {
+      allow read, write: if estaAutenticado();
+    }
+
+    match /logs/{doc} {
+      allow read, write: if estaAutenticado();
+    }
+
+    match /notas_admin/{doc} {
+      allow read, write: if estaAutenticado();
+    }
+
+    match /settings/{doc} {
+      allow read, write: if estaAutenticado();
+    }
+
+    // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
+    match /configuracion/{document=**} {
+      allow read, write: if estaAutenticado();
+    }
+
+    // ─── SOLICITUDES DE ACCESO ───────────────────────────────
+    // Abierto: el solicitante aún no tiene cuenta, no puede autenticarse.
+    // Solo permite crear (create), no leer ni modificar registros ajenos.
     match /solicitudes_acceso/{doc} {
-      allow read, write: if true;
+      allow create: if true;
+      allow read, update, delete: if estaAutenticado();
     }
+
   }
 }
