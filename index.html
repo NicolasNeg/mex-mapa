@@ -4150,7 +4150,12 @@ function iniciarApp(esNuevoLogin = true) {
   hacerPingNotificaciones(); 
   setTimeout(hacerPingNotificaciones, 1500); 
 
-  iniciarRadarNotificaciones(); 
+  iniciarRadarNotificaciones();
+
+  // Re-cargar config después de auth — garantiza que persistence esté lista
+  // y que los selects estén poblados con datos frescos de Firestore
+  inicializarConfiguracion();
+
   init(); // Carga el mapa
 }
 
@@ -4228,14 +4233,21 @@ function init() {
 }
 
 function startAutoRefresh() {
-  // Cancelar suscripción anterior si existe
   if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
 
+  if (typeof api === 'undefined' || typeof api.suscribirMapa !== 'function') {
+    // api aún no cargó — reintentar en 500ms
+    setTimeout(startAutoRefresh, 500);
+    return;
+  }
+
   _unsubMapa = api.suscribirMapa(unidades => {
-    // No actualizar si el usuario está en medio de algo
-    const fleetAbierto = document.getElementById('fleet-modal').classList.contains('active');
-    const query = (document.getElementById('searchInput').value || document.getElementById('searchInputMobile').value || '').trim();
-    if (fleetAbierto || selectedAuto || isMoving || isSaving || query !== '') return;
+    // Solo bloqueamos si ESTAMOS GUARDANDO LOCALMENTE en este instante exacto
+    // No bloqueamos por selectedAuto ni isMoving — eso impediría ver cambios remotos
+    if (isSaving || window.PAUSA_CONEXIONES) return;
+
+    // Si el usuario está arrastrando un auto en este dispositivo, esperar a que termine
+    if (isMoving) return;
 
     sincronizarMapa(unidades);
   });

@@ -87,16 +87,22 @@ const API_FUNCTIONS = {
   // ─── AUTENTICACIÓN ────────────────────────────────────────
   async obtenerCredencialesMapa() {
     const [usersSnap, adminsSnap] = await Promise.all([
-      db.collection(COL.USERS).orderBy("usuario").get(),
+      db.collection(COL.USERS).get(),
       db.collection(COL.ADMINS).get()
     ]);
     const globalesSet = new Set(adminsSnap.docs
       .filter(d => d.data().isGlobal === true)
-      .map(d => d.data().usuario));
+      .map(d => d.data().usuario || d.data().email || ''));
     return usersSnap.docs.map(d => {
       const data = d.data();
-      return { ...data, isGlobal: globalesSet.has(data.usuario) };
-    });
+      // Normalizar: usuarios nuevos (Firebase Auth) tienen nombre+email, los viejos tenían usuario
+      const displayName = (data.nombre || data.usuario || data.email || '').toUpperCase();
+      return {
+        ...data,
+        usuario: displayName, // campo unificado que usa el resto de la app
+        isGlobal: globalesSet.has(data.usuario || data.email || '')
+      };
+    }).sort((a, b) => a.usuario.localeCompare(b.usuario));
   },
 
   async verificarAdminGlobal(nombreUsuario) {
