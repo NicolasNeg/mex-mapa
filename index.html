@@ -2388,11 +2388,14 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
   <div class="login-box" style="background: white; max-width: 400px; width: 90%; border-radius: 20px; padding: 40px 30px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center; position: relative; overflow: hidden;">
     
     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: var(--mex-accent);"></div>
-    <img src="img/logo.png" style="width: 140px; margin-bottom: 20px;" alt="Mex Rent A Car">
-    <h2 style="color: #0f172a; font-weight: 900; font-size: 22px; margin-bottom: 25px; letter-spacing: -0.5px;">PORTAL DE FLOTA</h2>
+    <img src="img/logo.png" style="width: 140px; margin-bottom: 20px;" alt="GESTION MAP">
+    <h2 style="color: #0f172a; font-weight: 900; font-size: 22px; margin-bottom: 25px; letter-spacing: -0.5px;">INICIO DE SESION</h2>
     
     <input type="email" id="auth_email" placeholder="Correo electrónico" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 12px; font-weight: 700; outline: none;">
-    <input type="password" id="auth_pass" placeholder="Contraseña" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 15px; font-weight: 700; outline: none;">
+    <div style="position: relative; margin-bottom: 15px;">
+      <input type="password" id="auth_pass" placeholder="Contraseña" style="width: 100%; padding: 14px; padding-right: 45px; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 700; outline: none; box-sizing: border-box;">
+      <span class="material-icons" onclick="togglePassword('auth_pass', this)" style="position: absolute; right: 14px; top: 15px; color: #94a3b8; cursor: pointer; user-select: none;">visibility</span>
+    </div>
     
     <button onclick="loginManual()" id="btnLoginManual" style="width: 100%; padding: 14px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.2s;">
       INICIAR SESIÓN
@@ -2415,21 +2418,71 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
     </div>
   </div>
 </div>
+<style>
+  @keyframes modalFadeIn {
+    0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .animated-modal {
+    animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .mex-input {
+    width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 12px; 
+    font-weight: 600; font-size: 14px; outline: none; transition: all 0.2s ease; 
+    box-sizing: border-box; background: #f8fafc; color: #1e293b;
+  }
+  .mex-input::placeholder { color: #94a3b8; font-weight: 500; }
+  .mex-input:focus {
+    border-color: var(--mex-blue, #004a99); background: #ffffff; 
+    box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1);
+  }
+  .input-group { position: relative; margin-bottom: 16px; }
+  .input-icon { 
+    position: absolute; right: 14px; top: 14px; color: #94a3b8; 
+    cursor: pointer; user-select: none; transition: color 0.2s;
+  }
+  .input-icon:hover { color: var(--mex-blue, #004a99); }
+</style>
 
-<div id="modal-solicitud" class="login-overlay" style="display: none; background: rgba(15, 23, 42, 0.9); z-index: 99999;">
-  <div class="login-box" style="background: white; max-width: 400px; width: 90%; border-radius: 20px; padding: 30px; text-align: left;">
-    <h3 style="color: #0f172a; font-weight: 900; margin-bottom: 5px;">Solicitud de Acceso</h3>
-    <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">Un administrador revisará tus datos para darte de alta.</p>
+<div id="modal-solicitud" class="login-overlay" style="display: none; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center;">
+  <div class="login-box animated-modal" style="background: white; max-width: 420px; width: 90%; border-radius: 24px; padding: 35px; text-align: left; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+    
+    <div style="text-align: center; margin-bottom: 25px;">
+      <div style="background: #e0f2fe; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+        <span class="material-icons" style="color: var(--mex-blue, #004a99); font-size: 30px;">person_add</span>
+      </div>
+      <h3 style="color: #0f172a; font-weight: 900; font-size: 22px; margin: 0;">Solicitud de Acceso</h3>
+      <p style="color: #64748b; font-size: 14px; margin-top: 5px; font-weight: 500;">Completa tus datos para la revisión operativa.</p>
+    </div>
 
-    <input type="text" id="sol_nombre" placeholder="Nombre Completo" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; text-transform: uppercase; font-weight: 600;">
-    <input type="email" id="sol_email" placeholder="Correo de Trabajo o Google" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; font-weight: 600;">
-    <input type="text" id="sol_puesto" placeholder="Puesto y Ubicación (Ej. LAVADOR BJX)" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; text-transform: uppercase; font-weight: 600;">
-    <input type="tel" id="sol_telefono" placeholder="Teléfono / WhatsApp" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; font-weight: 600;">
-    <input type="password" id="sol_pass" placeholder="Crea una contraseña (Mínimo 6 letras)" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; font-weight: 600;">
+    <div class="input-group">
+      <input type="text" id="sol_nombre" class="mex-input" placeholder="Nombre Completo" style="text-transform: uppercase;">
+    </div>
+    
+    <div class="input-group">
+      <input type="email" id="sol_email" class="mex-input" placeholder="Correo de Trabajo o Google">
+    </div>
+    
+    <div class="input-group" style="display: flex; gap: 10px;">
+      <input type="text" id="sol_puesto" class="mex-input" placeholder="Puesto / Ubicación" style="text-transform: uppercase; flex: 1.5;">
+      <input type="tel" id="sol_telefono" class="mex-input" placeholder="Teléfono" style="flex: 1;">
+    </div>
 
-    <div style="display: flex; gap: 10px;">
-      <button onclick="cerrarModalSolicitud()" style="flex: 1; padding: 12px; background: #f1f5f9; color: #475569; border: none; border-radius: 10px; font-weight: 800; cursor: pointer;">CANCELAR</button>
-      <button onclick="enviarSolicitudAcceso()" style="flex: 1; padding: 12px; background: var(--mex-blue); color: white; border: none; border-radius: 10px; font-weight: 800; cursor: pointer;">ENVIAR</button>
+    <div style="height: 1px; background: #e2e8f0; margin: 25px 0 20px;"></div>
+
+    <div class="input-group">
+      <input type="password" id="sol_pass" class="mex-input" placeholder="Crea tu contraseña (Mín. 6 letras)" style="padding-right: 45px;">
+      <span class="material-icons input-icon" onclick="togglePassword('sol_pass', this)">visibility</span>
+    </div>
+
+    <div class="input-group">
+      <input type="password" id="sol_pass_confirm" class="mex-input" placeholder="Confirma tu contraseña" style="padding-right: 45px;">
+      <span class="material-icons input-icon" onclick="togglePassword('sol_pass_confirm', this)">visibility</span>
+    </div>
+
+    <div style="display: flex; gap: 12px; margin-top: 30px;">
+      <button onclick="cerrarModalSolicitud()" style="flex: 1; padding: 15px; background: #f1f5f9; color: #475569; border: none; border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s;">CANCELAR</button>
+      <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" style="flex: 1.5; padding: 15px; background: var(--mex-blue, #004a99); color: white; border: none; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(0,74,153,0.3);">ENVIAR DATOS</button>
     </div>
   </div>
 </div>
@@ -3670,87 +3723,64 @@ function showLoginError(msg) {
 function abrirModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'flex'; }
 function cerrarModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'none'; }
 
+
 async function enviarSolicitudAcceso() {
   const nombre = document.getElementById('sol_nombre').value.trim().toUpperCase();
   const email = document.getElementById('sol_email').value.trim().toLowerCase();
   const puesto = document.getElementById('sol_puesto').value.trim().toUpperCase();
   const telefono = document.getElementById('sol_telefono').value.trim();
-  const pass = document.getElementById('sol_pass').value.trim();
+  const pass = document.getElementById('sol_pass').value;
+  const passConfirm = document.getElementById('sol_pass_confirm').value;
+  const btn = document.getElementById('btnEnviarSolicitud');
 
-  if(!nombre || !email || !puesto || !telefono || !pass) return alert("Por favor llena todos los campos.");
-  if(pass.length < 6) return alert("Firebase exige contraseñas de al menos 6 caracteres.");
+  // 1. Validaciones
+  if(!nombre || !email || !puesto || !telefono || !pass || !passConfirm) {
+    return alert("⚠️ Por favor llena todos los campos del formulario.");
+  }
+  if(pass.length < 6) {
+    return alert("⚠️ La contraseña debe tener al menos 6 caracteres por seguridad.");
+  }
+  if(pass !== passConfirm) {
+    // Si no coinciden, limpiamos el campo de confirmación para que lo intenten de nuevo
+    document.getElementById('sol_pass_confirm').value = "";
+    document.getElementById('sol_pass_confirm').focus();
+    return alert("❌ Las contraseñas no coinciden. Verifícalas.");
+  }
+
+  // Animación de carga en el botón
+  btn.disabled = true;
+  btn.innerHTML = `<span class="material-icons spinner" style="font-size: 18px; vertical-align: middle;">sync</span> ENVIANDO...`;
 
   try {
-    // Guardamos la petición. La contraseña se guarda solo temporalmente.
+    // 2. Guardamos en Firebase
     await db.collection("solicitudes_acceso").doc(email).set({
       nombre: nombre,
       email: email,
       puesto: puesto,
       telefono: telefono,
       password: pass, 
-      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      fecha: new Date().toISOString(),
       estado: "PENDIENTE"
     });
 
-    alert("✅ Solicitud enviada correctamente. Un administrador revisará tu información.");
+    alert("✅ Solicitud enviada exitosamente. Un administrador revisará tu información para habilitar tu cuenta.");
+    
+    // Limpieza total del formulario
+    document.getElementById('sol_nombre').value = "";
+    document.getElementById('sol_email').value = "";
+    document.getElementById('sol_puesto').value = "";
+    document.getElementById('sol_telefono').value = "";
+    document.getElementById('sol_pass').value = "";
+    document.getElementById('sol_pass_confirm').value = "";
+    
     cerrarModalSolicitud();
   } catch (error) {
-    console.error(error);
-    alert("❌ Error al enviar la solicitud.");
-  }
-}
-
-
-// 🔑 FUNCIÓN DE INGRESO
-async function iniciarSesionSegura() {
-  const email = document.getElementById('emailInput').value.trim();
-  const password = document.getElementById('passwordInput').value.trim();
-  const btn = document.getElementById('btnLoginBtn');
-
-  if(!email || !password) return showLoginError("❌ Ingresa correo y contraseña");
-
-  btn.disabled = true;
-  btn.innerHTML = `<span class="material-icons spinner">sync</span> VERIFICANDO...`;
-
-  try {
-    // Firebase encripta la contraseña, la envía a Google y devuelve un Token
-    await auth.signInWithEmailAndPassword(email, password);
-    // ¡Ojo! No llamamos a iniciarApp() aquí. El Guardián de arriba detectará el login y lo hará solo.
-  } catch (error) {
+    console.error("Error al guardar solicitud:", error);
+    alert("❌ Error de conexión al enviar la solicitud.");
+  } finally {
+    // Restauramos el botón
     btn.disabled = false;
-    btn.innerHTML = `INICIAR SESIÓN`;
-    if(error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-      showLoginError("❌ Correo o contraseña incorrectos");
-    } else {
-      showLoginError("❌ Error de red");
-    }
-  }
-}
-
-// 🚪 FUNCIÓN DE CIERRE (Reemplaza la que tienes)
-function confirmarCierreSesion() {
-  if(confirm("¿Estás seguro de cerrar sesión?")) {
-    auth.signOut().then(() => {
-      window.location.reload(); // Recarga la app para limpiar memoria
-    });
-  }
-}
-
-// --- FUNCIONES DEL NUEVO SELECTOR ---
-function toggleModernDropdown() {
-  const drop = document.getElementById('modernDropdown');
-  const arrow = document.getElementById('selectArrow');
-  const isShowing = drop.classList.contains('show');
-  
-  if (isShowing) {
-    drop.classList.remove('show');
-    arrow.innerText = 'expand_more';
-  } else {
-    drop.classList.add('show');
-    arrow.innerText = 'expand_less';
-    document.getElementById('dropdownSearchInput').value = '';
-    filterModernUsers(); // Resetear lista
-    setTimeout(() => document.getElementById('dropdownSearchInput').focus(), 100);
+    btn.innerHTML = `ENVIAR DATOS`;
   }
 }
 
@@ -8196,6 +8226,18 @@ function validarTextareasActividad() {
   }
 }
 
+function togglePassword(inputId, iconElement) {
+  const input = document.getElementById(inputId);
+  if (input.type === "password") {
+    input.type = "text";
+    iconElement.innerText = "visibility_off"; // Cambia al ícono de ojo tachado
+    iconElement.style.color = "var(--mex-blue)"; // Lo pinta de azul para resaltar que está visible
+  } else {
+    input.type = "password";
+    iconElement.innerText = "visibility";
+    iconElement.style.color = "#94a3b8";
+  }
+}
 
 function parsearTablaSucia(rawText, esReserva) {
   let data = [];
@@ -9252,7 +9294,7 @@ function guardarMapaEditor(btn) {
 async function migrarConfiguracionAFirestore() {
   const configInicial = {
     empresa: {
-      nombre: "MEX RENT A CAR",
+      nombre: "NO NAME",
       slogan: "Administración de Flota",
       colorPrincipal: "#004a99"
     },
