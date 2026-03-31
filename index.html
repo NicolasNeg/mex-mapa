@@ -4197,15 +4197,35 @@ function iniciarApp(esNuevoLogin = true) {
   // y que los selects estén poblados con datos frescos de Firestore
   inicializarConfiguracion();
 
+  _iniciarSincronizacionUsuarios(); // Poblar dbUsuariosLogin en tiempo real
   init(); // Carga el mapa
 }
 
+function _iniciarSincronizacionUsuarios() {
+  if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
+
+  _unsubUsersLive = db.collection(COL.USERS).onSnapshot(snap => {
+    db.collection(COL.ADMINS).get().then(adminsSnap => {
+      const globalesSet = new Set(
+        adminsSnap.docs.filter(d => d.data().isGlobal).map(d => d.data().usuario || d.id)
+      );
+      dbUsuariosLogin = snap.docs.map(d => {
+        const data = d.data();
+        const displayName = (data.nombre || data.usuario || data.email || '').trim().toUpperCase();
+        return { ...data, id: d.id, usuario: displayName, isGlobal: !!data.isGlobal || globalesSet.has(displayName) };
+      }).sort((a, b) => a.usuario.localeCompare(b.usuario));
+      if (typeof renderModernDropdown === 'function') renderModernDropdown(dbUsuariosLogin);
+    });
+  }, err => console.warn('onSnapshot usuarios live:', err));
+}
 
 function cerrarSesion() {
   if(autoRefreshInterval) clearInterval(autoRefreshInterval);
   if(radarInterval) clearInterval(radarInterval);
   if(_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
-  
+  if(_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
+  dbUsuariosLogin = [];
+
   // Destruir la sesión iniciada
   localStorage.removeItem('mex_mapa_session');
 
@@ -4263,7 +4283,8 @@ let zoomLevel = 0.8;
 isSaving = false;
 let isMoving = false; // 🔥
 let autoRefreshInterval = null; // mantenido por compatibilidad pero no se usa para el mapa
-let _unsubMapa = null;          // función para cancelar onSnapshot
+let _unsubMapa = null;          // función para cancelar onSnapshot del mapa
+let _unsubUsersLive = null;     // función para cancelar onSnapshot de usuarios (chat/dropdown)
 let saveTimeout = null;
 let lastMoveTime = 0;
 
@@ -4417,9 +4438,7 @@ function dibujarMapaCompleto() {
 }
 
 function sincronizarMapa(nuevas) {
-  const query = (document.getElementById('searchInput').value || document.getElementById('searchInputMobile').value).trim();
-  if (selectedAuto || query !== "") return; 
-
+  // NO bloqueamos por selectedAuto — siempre procesamos cambios remotos
   const mvasNuevosIds = nuevas.map(u => `auto-${u.mva}`);
   const carsEnPantalla = document.querySelectorAll('.car');
   carsEnPantalla.forEach(car => { if (!mvasNuevosIds.includes(car.id)) car.remove(); });
@@ -4504,6 +4523,15 @@ function sincronizarMapa(nuevas) {
     if (car.parentElement !== dest) dest.appendChild(car);
   });
   actualizarContadores();
+
+  // Re-aplicar filtro de búsqueda si estaba activo
+  const _q = (document.getElementById('searchInput').value || document.getElementById('searchInputMobile').value || '').trim();
+  if (_q && typeof buscarMasivo === 'function') buscarMasivo();
+
+  // Si hay un auto seleccionado, refrescar el panel lateral con los datos más recientes
+  if (selectedAuto && selectedAuto.isConnected) {
+    mostrarDetalle(selectedAuto.dataset, true);
+  }
 }
 
 document.addEventListener('click', (e) => {
@@ -4555,12 +4583,14 @@ if (carClicked) {
   }
 });
 
-function mostrarDetalle(d) {
-  const inputD = document.getElementById('searchInput');
-  const inputM = document.getElementById('searchInputMobile');
-  if(inputD) inputD.value = "";
-  if(inputM) inputM.value = "";
-  if (typeof buscarMasivo === "function") buscarMasivo(); 
+function mostrarDetalle(d, esActualizacionRemota = false) {
+  if (!esActualizacionRemota) {
+    const inputD = document.getElementById('searchInput');
+    const inputM = document.getElementById('searchInputMobile');
+    if(inputD) inputD.value = "";
+    if(inputM) inputM.value = "";
+    if (typeof buscarMasivo === "function") buscarMasivo();
+  }
 
   const car = document.getElementById(`auto-${d.mva}`);
   const loc = car.parentElement.id.replace('spot-', '');
@@ -9938,8 +9968,9 @@ function llenarSelectsDinamicos() {
   const catOpts = categorias.map(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; return o; });
   ['filter-cat'].forEach(id => _setOptions(id, catOpts));
 
-  // Estados (ordenados por campo orden)
-  const estOrdenados = [...estados].sort((a, b) => ((a.orden||99) - (b.orden||99)));
+  // Estados (normalizar: admite strings simples o maps {id,color,orden})
+  const estNorm = estados.map(e => typeof e === 'string' ? { id: e, color: '#64748b', orden: 99 } : e);
+  const estOrdenados = estNorm.sort((a, b) => ((a.orden||99) - (b.orden||99)));
   const estOpts = estOrdenados.map(est => {
     const o = document.createElement('option');
     o.value = est.id;
