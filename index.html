@@ -1456,6 +1456,77 @@ header {
     #users-modal table { min-width: 550px; width: 100%; }
     #logs-modal table { min-width: 850px; width: 100%; } /* El log necesita más espacio */
 
+    /* ─── USER MANAGEMENT PANEL (um-*) ─── */
+    .um-body { display:flex; flex:1; overflow:hidden; }
+    .um-list-col { width:320px; min-width:260px; overflow-y:auto; padding:16px; background:#f8fafc; border-right:1px solid #e2e8f0; display:flex; flex-direction:column; gap:10px; flex-shrink:0; }
+    .um-edit-col { flex:1; overflow-y:auto; padding:30px; display:flex; align-items:flex-start; justify-content:center; background:#f1f5f9; }
+    .um-search-wrap { position:relative; margin-bottom:4px; }
+    .um-search-wrap input { width:100%; box-sizing:border-box; padding:10px 10px 10px 36px; background:white; border:1.5px solid #e2e8f0; border-radius:10px; font-size:13px; font-weight:700; color:var(--text); outline:none; }
+    .um-search-wrap input:focus { border-color:var(--mex-accent); }
+    .um-search-icon { position:absolute; left:10px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:18px; pointer-events:none; }
+    .um-card { background:white; border:1.5px solid #e2e8f0; border-radius:14px; padding:14px 16px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:.15s; }
+    .um-card:hover { border-color:var(--mex-accent); background:#f0f9ff; }
+    .um-card.active { border-color:var(--mex-accent); background:#eff6ff; box-shadow:0 0 0 3px rgba(59,130,246,.14); }
+    .um-avatar { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:900; flex-shrink:0; letter-spacing:-.5px; }
+    .um-card-info { flex:1; min-width:0; }
+    .um-card-name { font-weight:800; font-size:14px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .um-card-email { font-size:11px; color:#64748b; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+    .um-role-badge { font-size:10px; font-weight:800; padding:3px 9px; border-radius:20px; flex-shrink:0; white-space:nowrap; }
+    .um-placeholder { text-align:center; color:#94a3b8; padding:40px 20px; }
+    .um-placeholder .material-icons { font-size:72px; color:#cbd5e1; display:block; margin-bottom:12px; }
+    .um-placeholder p { font-weight:700; font-size:15px; line-height:1.7; margin:0; }
+    .um-loading { text-align:center; padding:30px; color:#94a3b8; font-weight:700; }
+    .um-form-card { background:white; border-radius:18px; border:1px solid #e2e8f0; padding:28px; width:100%; max-width:460px; box-sizing:border-box; }
+    .um-form-avatar-row { display:flex; align-items:center; gap:16px; margin-bottom:24px; }
+    .um-form-avatar { width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:22px; font-weight:900; letter-spacing:-.5px; flex-shrink:0; }
+    .um-form-title { font-size:18px; font-weight:900; color:var(--text); margin-bottom:2px; }
+    .um-form-subtitle { font-size:12px; color:#64748b; font-weight:600; }
+    .um-form-section { font-size:10px; font-weight:900; letter-spacing:.1em; color:#94a3b8; text-transform:uppercase; margin:20px 0 10px; }
+    .um-form-field { margin-bottom:14px; }
+    .um-form-field label { display:block; font-size:11px; font-weight:800; color:#64748b; letter-spacing:.06em; margin-bottom:5px; text-transform:uppercase; }
+    .um-form-field input { width:100%; box-sizing:border-box; padding:11px 14px; border:1.5px solid #e2e8f0; border-radius:10px; font-size:14px; font-weight:700; color:var(--text); transition:.15s; background:white; }
+    .um-form-field input:focus { outline:none; border-color:var(--mex-accent); }
+    .um-form-field input:disabled { background:#f8fafc; color:#94a3b8; cursor:not-allowed; }
+    .um-toggle-row { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#f8fafc; border-radius:10px; margin-bottom:8px; }
+    .um-toggle-row .um-tl { flex:1; }
+    .um-toggle-row label { font-size:13px; font-weight:800; color:var(--text); cursor:pointer; display:block; }
+    .um-toggle-desc { font-size:11px; color:#64748b; font-weight:600; margin-top:2px; }
+    .um-toggle-row input[type=checkbox] { width:18px; height:18px; cursor:pointer; flex-shrink:0; accent-color:var(--mex-accent); }
+    .um-divider { height:1px; background:#e2e8f0; margin:16px 0; }
+    .um-actions { display:flex; flex-direction:column; gap:10px; margin-top:20px; }
+    .um-btn-save { padding:13px; background:var(--mex-accent); color:white; border:none; border-radius:12px; font-weight:900; font-size:14px; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:8px; transition:.15s; }
+    .um-btn-save:hover:not(:disabled) { opacity:.9; }
+    .um-btn-save:disabled { opacity:.6; cursor:not-allowed; }
+    .um-btn-secondary { padding:11px; background:#f1f5f9; color:#0f172a; border:none; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:8px; transition:.15s; }
+    .um-btn-secondary:hover { background:#e2e8f0; }
+    .um-btn-danger { padding:11px; background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; border-radius:12px; font-weight:800; font-size:13px; cursor:pointer; width:100%; display:flex; align-items:center; justify-content:center; gap:8px; transition:.15s; }
+    .um-btn-danger:hover { background:#fecaca; }
+    /* Dark overrides */
+    body.dark-theme .um-list-col { background:#0d1929 !important; border-right-color:#1e293b !important; }
+    body.dark-theme .um-edit-col { background:#081628 !important; }
+    body.dark-theme .um-search-wrap input { background:#1a2a3d !important; border-color:#1e3a5f !important; color:#e2e8f0 !important; }
+    body.dark-theme .um-card { background:#1a2a3d !important; border-color:#1e3a5f !important; }
+    body.dark-theme .um-card:hover { background:#1e3a5f !important; border-color:#2563eb !important; }
+    body.dark-theme .um-card.active { background:#0a2a4a !important; border-color:#3b82f6 !important; }
+    body.dark-theme .um-card-name { color:#e2e8f0 !important; }
+    body.dark-theme .um-form-card { background:#1a2a3d !important; border-color:#1e3a5f !important; }
+    body.dark-theme .um-form-title { color:#e2e8f0 !important; }
+    body.dark-theme .um-form-field input { background:#0d1929 !important; border-color:#1e3a5f !important; color:#e2e8f0 !important; }
+    body.dark-theme .um-form-field input:disabled { background:#0a1525 !important; color:#334155 !important; }
+    body.dark-theme .um-toggle-row { background:#0d1929 !important; }
+    body.dark-theme .um-toggle-row label { color:#e2e8f0 !important; }
+    body.dark-theme .um-divider { background:#1e293b !important; }
+    body.dark-theme .um-btn-secondary { background:#1e293b !important; color:#e2e8f0 !important; }
+    body.dark-theme .um-btn-secondary:hover { background:#334155 !important; }
+    body.dark-theme .um-placeholder p { color:#475569 !important; }
+    /* Mobile */
+    @media (max-width:700px) {
+      .um-body { flex-direction:column; }
+      .um-list-col { width:100%; min-width:unset; border-right:none; border-bottom:1px solid #e2e8f0; max-height:42%; }
+      body.dark-theme .um-list-col { border-bottom-color:#1e293b !important; }
+      .um-edit-col { align-items:flex-start; padding:16px; }
+    }
+
     /* 3. Píldoras de colores para el Historial (Logs) */
     .badge.st-INFO { background: #e0f2fe; color: #0284c7; }
     .badge.st-MODIF { background: #fef3c7; color: #d97706; }
@@ -3009,68 +3080,38 @@ function cerrarModalSolicitud() {
 
 <div id="users-modal" class="fleet-modal">
   <div class="fleet-header-top">
-    <div style="display:flex; align-items:center; gap: 10px;">
-      <h2 style="color:var(--primary); font-weight:900; margin:0;">GESTIÓN DE USUARIOS</h2>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span class="material-icons" style="color:var(--primary);font-size:22px;">manage_accounts</span>
+      <h2 style="color:var(--primary);font-weight:900;margin:0;">GESTIÓN DE USUARIOS</h2>
     </div>
-    <button onclick="document.getElementById('users-modal').classList.remove('active')" style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
+    <div style="display:flex;gap:10px;">
+      <button onclick="umNuevoUsuario()" style="background:var(--mex-accent);color:white;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
+        <span class="material-icons" style="font-size:17px;">person_add</span> NUEVO USUARIO
+      </button>
+      <button onclick="cerrarUsuariosModal()" style="background:#f1f5f9;color:var(--text);border:none;padding:10px 20px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">CERRAR</button>
     </div>
-    <div class="fleet-wrapper" style="flex-direction:row; gap:20px;">
-    
-    <div style="flex:1; background:white; border-radius:16px; border:1px solid #e2e8f0; padding: 25px; display:flex; flex-direction:column; max-width: 350px;">
-      <h3 id="tituloFormularioUsuario" style="color:var(--mex-blue); margin-bottom:20px; font-size:15px; font-weight:800;">AGREGAR USUARIO</h3>
-      
-      <div class="field">
-        <label>NOMBRE COMPLETO</label>
-        <input type="text" id="newUserName" placeholder="Ej. Juan Pérez" style="text-transform:uppercase;">
+  </div>
+  <div class="um-body">
+    <!-- Lista de usuarios -->
+    <div class="um-list-col">
+      <div class="um-search-wrap">
+        <span class="material-icons um-search-icon">search</span>
+        <input type="text" id="um-search" placeholder="Buscar por nombre o correo..." oninput="umFiltrar()">
       </div>
-      <div class="field">
-        <label>PIN (4 DÍGITOS)</label>
-        <input type="password" id="newUserPin" placeholder="****" maxlength="4" style="letter-spacing:5px; font-weight:900; text-align:center;">
-      </div>
-      <div class="field">
-        <label>TELÉFONO (opcional)</label>
-        <input type="tel" id="newUserPhone" placeholder="Ej. 6441234567" maxlength="10" style="letter-spacing:1px;">
-      </div>
-
-      <div style="background:#f8fafc; padding:12px; border-radius:8px; margin-bottom:12px;">
-        <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-          <input type="checkbox" id="newUserAdmin" onchange="toggleNivelAdmin()" style="width:18px; height:18px;">
-          <label for="newUserAdmin" style="margin:0; font-weight:800; font-size:12px; color:var(--text); cursor:pointer;">Dar permisos de Administrador</label>
-        </div>
-        <div id="nivelAdminBox" style="display:none; padding-top:8px; border-top:1px solid #e2e8f0; margin-top:4px;">
-          <p style="margin:0 0 8px; font-size:11px; font-weight:800; color:#64748b;">NIVEL DE ACCESO:</p>
-          <div style="display:flex; flex-direction:column; gap:6px;">
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; font-weight:800;">
-              <input type="radio" name="nivelAdmin" id="adminNormal" value="normal" checked> ADMIN NORMAL
-              <span style="font-size:10px; color:#64748b; font-weight:600;">(sin acceso global)</span>
-            </label>
-            <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-size:12px; font-weight:800; color:#ef4444;">
-              <input type="radio" name="nivelAdmin" id="adminGlobal" value="global"> ADMIN GLOBAL
-              <span style="font-size:10px; color:#ef4444; font-weight:600;">(acceso completo)</span>
-            </label>
-          </div>
-        </div>
-      </div>
-
-      <div style="display:flex; flex-direction:column; gap:10px;">
-        <button id="btnGuardarUsuario" onclick="guardarNuevoUsuarioUI()" style="width:100%; padding:15px; background:var(--mex-accent); color:white; border:none; border-radius:12px; font-weight:900; cursor:pointer; transition:0.2s;">GUARDAR USUARIO</button>
-        <button id="btnCancelarEdicion" onclick="cancelarEdicionUsuario()" style="display:none; width:100%; padding:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:12px; font-weight:900; cursor:pointer; transition:0.2s;">CANCELAR EDICIÓN</button>
+      <div id="um-cards-container">
+        <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>
       </div>
     </div>
-
-    <div style="flex:2; background:white; border-radius:16px; border:1px solid #e2e8f0; display:flex; flex-direction:column; overflow:hidden;">
-      <div class="table-container" style="border:none; border-radius:0;">
-        <table>
-          <thead>
-            <tr><th>NOMBRE</th><th>TELÉFONO</th><th>ROL</th><th>ACCIONES</th></tr>
-          </thead>
-          <tbody id="users-table-body">
-            <tr><td colspan="4" style="text-align:center; padding:20px;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando...</td></tr>
-          </tbody>
-        </table>
+    <!-- Panel edición / creación -->
+    <div class="um-edit-col">
+      <div id="um-placeholder" class="um-placeholder">
+        <span class="material-icons">manage_accounts</span>
+        <p>Selecciona un usuario para editarlo<br>o crea uno nuevo.</p>
+      </div>
+      <div id="um-form-container" style="display:none;width:100%;max-width:480px;">
+        <!-- se llena dinámicamente -->
       </div>
     </div>
-
   </div>
 </div>
 
@@ -5779,152 +5820,317 @@ function obtenerCredencialesMapa() { return getUsuariosAdmin(); }
 // ==========================================
 // 6. MÓDULO: GESTIÓN DE USUARIOS Y ROLES
 // ==========================================
-let usuarioEnEdicion = null; 
+let _unsubUsuarios = null;
+let _umUsers       = [];
+let _umSelectedId  = null;
 
 function abrirUsuarios() {
   toggleAdminSidebar();
   document.getElementById('users-modal').classList.add('active');
-  renderUsersTable();
+  _umIniciar();
 }
 
-function renderUsersTable() {
-  const tbody = document.getElementById('users-table-body');
-  tbody.innerHTML = dbUsuariosLogin.map(u => {
-    let rolBadge;
-    if (u.isAdmin && u.isGlobal) {
-      rolBadge = `<span class="badge" style="background:#fee2e2;color:#991b1b;">ADMIN GLOBAL</span>`;
-    } else if (u.isAdmin) {
-      rolBadge = `<span class="badge st-LISTO">ADMIN</span>`;
-    } else {
-      rolBadge = `<span class="badge" style="background:#e2e8f0;color:#64748b;">USUARIO</span>`;
-    }
-    const tel = u.telefono || '—';
-    return `
-    <tr>
-      <td style="font-weight:900; color:var(--mex-blue);">${u.usuario}</td>
-      <td style="font-size:12px; color:#64748b; font-weight:700;">${tel}</td>
-      <td>${rolBadge}</td>
-      <td>
-        <div style="display:flex; gap:15px; align-items:center;">
-          <button onclick="prepararEdicionUsuario('${u.usuario}', '${u.password}', ${!!u.isAdmin}, '${u.telefono||''}', ${!!u.isGlobal})" style="background:none; border:none; color:var(--mex-accent); cursor:pointer; display:flex;" title="Editar"><span class="material-icons">edit</span></button>
-          <button onclick="eliminarUsuarioUI('${u.usuario}')" style="background:none; border:none; color:var(--mex-red); cursor:pointer; display:flex;" title="Eliminar"><span class="material-icons">delete</span></button>
-        </div>
-      </td>
-    </tr>`;
+function cerrarUsuariosModal() {
+  document.getElementById('users-modal').classList.remove('active');
+  if (_unsubUsuarios) { _unsubUsuarios(); _unsubUsuarios = null; }
+  _umUsers = []; _umSelectedId = null;
+  document.getElementById('um-form-container').style.display = 'none';
+  document.getElementById('um-placeholder').style.display = 'block';
+}
+
+function _umIniciar() {
+  if (_unsubUsuarios) _unsubUsuarios();
+  document.getElementById('um-cards-container').innerHTML =
+    '<div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>';
+
+  _unsubUsuarios = db.collection(COL.USERS).onSnapshot(snap => {
+    db.collection(COL.ADMINS).get().then(adminsSnap => {
+      const globalesSet = new Set(
+        adminsSnap.docs.filter(d => d.data().isGlobal).map(d => d.data().usuario || d.id)
+      );
+      _umUsers = snap.docs.map(d => {
+        const data = d.data();
+        const nombre = (data.nombre || data.usuario || data.email || '').toUpperCase();
+        return {
+          id:       d.id,
+          nombre,
+          email:    data.email    || '',
+          isAdmin:  !!data.isAdmin,
+          isGlobal: !!data.isGlobal || globalesSet.has(nombre),
+          telefono: data.telefono || ''
+        };
+      }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+      _umRenderCards();
+
+      // Si había uno seleccionado, actualizar el form con datos frescos
+      if (_umSelectedId) {
+        const updated = _umUsers.find(u => u.id === _umSelectedId);
+        if (updated) _umRenderEditForm(updated);
+      }
+    });
+  }, err => console.error('onSnapshot usuarios:', err));
+}
+
+function _umAvatarStyle(nombre) {
+  const hue = ((nombre.charCodeAt(0) || 65) * 37) % 360;
+  return `background:hsl(${hue},55%,48%);color:white;`;
+}
+
+function _umInitials(nombre) {
+  return nombre.split(' ').slice(0, 2).map(w => w[0] || '').join('') || '?';
+}
+
+function _umRenderCards() {
+  const container = document.getElementById('um-cards-container');
+  const q = (document.getElementById('um-search')?.value || '').toLowerCase().trim();
+  const list = q
+    ? _umUsers.filter(u => u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+    : _umUsers;
+
+  if (list.length === 0) {
+    container.innerHTML = '<div class="um-loading">No se encontraron usuarios.</div>';
+    return;
+  }
+
+  container.innerHTML = list.map(u => {
+    let roleLabel, roleStyle;
+    if (u.isGlobal)       { roleLabel = 'GLOBAL';  roleStyle = 'background:#fee2e2;color:#991b1b;'; }
+    else if (u.isAdmin)   { roleLabel = 'ADMIN';   roleStyle = 'background:#dbeafe;color:#1e40af;'; }
+    else                  { roleLabel = 'USUARIO'; roleStyle = 'background:#e2e8f0;color:#64748b;'; }
+    const active = u.id === _umSelectedId ? ' active' : '';
+    return `<div class="um-card${active}" onclick="umSeleccionar('${u.id}')">
+      <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
+      <div class="um-card-info">
+        <div class="um-card-name">${u.nombre}</div>
+        <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
+      </div>
+      <span class="um-role-badge" style="${roleStyle}">${roleLabel}</span>
+    </div>`;
   }).join('');
 }
 
-function toggleNivelAdmin() {
-  const checked = document.getElementById('newUserAdmin').checked;
-  document.getElementById('nivelAdminBox').style.display = checked ? 'block' : 'none';
+function umFiltrar() { _umRenderCards(); }
+
+function umSeleccionar(id) {
+  _umSelectedId = id;
+  _umRenderCards();
+  const user = _umUsers.find(u => u.id === id);
+  if (user) _umRenderEditForm(user);
 }
 
-function prepararEdicionUsuario(nombre, pin, isAdmin, telefono, isGlobal) {
-  usuarioEnEdicion = nombre;
-  document.getElementById('newUserName').value = nombre;
-  document.getElementById('newUserPin').value = pin;
-  document.getElementById('newUserPhone').value = telefono || '';
-  document.getElementById('newUserAdmin').checked = isAdmin;
-  toggleNivelAdmin();
-  if (isAdmin && isGlobal) document.getElementById('adminGlobal').checked = true;
-  else document.getElementById('adminNormal').checked = true;
-  
-  // Cambiamos el diseño a "Modo Edición" (Naranja)
-  document.getElementById('tituloFormularioUsuario').innerText = "EDITANDO: " + nombre;
-  document.getElementById('tituloFormularioUsuario').style.color = "#f59e0b"; 
-  
-  const btn = document.getElementById('btnGuardarUsuario');
-  btn.innerText = "ACTUALIZAR USUARIO";
-  btn.style.background = "#f59e0b";
-  
-  document.getElementById('btnCancelarEdicion').style.display = "block";
+function _umRenderEditForm(user) {
+  document.getElementById('um-placeholder').style.display = 'none';
+  const container = document.getElementById('um-form-container');
+  container.style.display = 'block';
+  container.innerHTML = `<div class="um-form-card">
+    <div class="um-form-avatar-row">
+      <div class="um-form-avatar" style="${_umAvatarStyle(user.nombre)}">${_umInitials(user.nombre)}</div>
+      <div>
+        <div class="um-form-title">${user.nombre}</div>
+        <div class="um-form-subtitle">${user.email || 'Usuario heredado (sin email)'}</div>
+      </div>
+    </div>
+
+    <div class="um-form-field">
+      <label>Nombre completo</label>
+      <input type="text" id="um-edit-nombre" value="${user.nombre.replace(/"/g,'&quot;')}" placeholder="Nombre completo">
+    </div>
+    <div class="um-form-field">
+      <label>Correo electrónico</label>
+      <input type="email" id="um-edit-email" value="${user.email}" placeholder="correo@ejemplo.com"
+        ${user.email ? 'disabled title="Para cambiar el email usa Firebase Console"' : ''}>
+    </div>
+    <div class="um-form-field">
+      <label>Teléfono (opcional)</label>
+      <input type="tel" id="um-edit-telefono" value="${user.telefono}" placeholder="Ej. 6441234567">
+    </div>
+
+    <div class="um-form-section">Permisos</div>
+    <div class="um-toggle-row">
+      <div class="um-tl">
+        <label for="um-edit-admin">Administrador</label>
+        <div class="um-toggle-desc">Puede gestionar el mapa y la flota</div>
+      </div>
+      <input type="checkbox" id="um-edit-admin" ${user.isAdmin ? 'checked' : ''} onchange="umToggleGlobal()">
+    </div>
+    <div id="um-global-row" class="um-toggle-row" style="${user.isAdmin ? '' : 'display:none;'}">
+      <div class="um-tl">
+        <label for="um-edit-global" style="color:#ef4444;">Admin Global</label>
+        <div class="um-toggle-desc" style="color:#ef4444;">Acceso completo, sin restricciones</div>
+      </div>
+      <input type="checkbox" id="um-edit-global" ${user.isGlobal ? 'checked' : ''}>
+    </div>
+
+    <div class="um-divider"></div>
+    <div class="um-actions">
+      <button class="um-btn-save" id="um-btn-guardar" onclick="umGuardarCambios('${user.id}')">
+        <span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS
+      </button>
+      ${user.email ? `<button class="um-btn-secondary" onclick="umResetPassword('${user.email}')">
+        <span class="material-icons" style="font-size:17px;">lock_reset</span> Enviar restablecimiento de contraseña
+      </button>` : ''}
+      <button class="um-btn-danger" onclick="umEliminar('${user.id}', '${user.nombre.replace(/'/g, "\\'")}')">
+        <span class="material-icons" style="font-size:17px;">person_remove</span> Eliminar usuario
+      </button>
+    </div>
+  </div>`;
 }
 
-function cancelarEdicionUsuario() {
-  usuarioEnEdicion = null;
-  document.getElementById('newUserName').value = "";
-  document.getElementById('newUserPin').value = "";
-  document.getElementById('newUserPhone').value = "";
-  document.getElementById('newUserAdmin').checked = false;
-  document.getElementById('adminNormal').checked = true;
-  document.getElementById('nivelAdminBox').style.display = 'none';
-  document.getElementById('tituloFormularioUsuario').innerText = "AGREGAR USUARIO";
-  document.getElementById('tituloFormularioUsuario').style.color = "var(--mex-blue)";
-  const btn = document.getElementById('btnGuardarUsuario');
-  btn.innerText = "GUARDAR USUARIO";
-  btn.style.background = "var(--mex-accent)";
-  document.getElementById('btnCancelarEdicion').style.display = "none";
+function umToggleGlobal() {
+  const isAdmin = document.getElementById('um-edit-admin').checked;
+  const row = document.getElementById('um-global-row');
+  if (row) row.style.display = isAdmin ? '' : 'none';
+  if (!isAdmin) { const g = document.getElementById('um-edit-global'); if (g) g.checked = false; }
 }
 
-function guardarNuevoUsuarioUI() {
-  const nombre = document.getElementById('newUserName').value.trim();
-  const pin = document.getElementById('newUserPin').value.trim();
-  const telefono = document.getElementById('newUserPhone').value.trim();
-  const isAdmin = document.getElementById('newUserAdmin').checked;
-  const isGlobal = isAdmin && document.getElementById('adminGlobal').checked;
+async function umGuardarCambios(docId) {
+  const nombre   = (document.getElementById('um-edit-nombre').value   || '').trim().toUpperCase();
+  const telefono = (document.getElementById('um-edit-telefono').value || '').trim();
+  const isAdmin  = document.getElementById('um-edit-admin').checked;
+  const isGlobal = isAdmin && document.getElementById('um-edit-global').checked;
 
-  if (!nombre) return showToast("El nombre es obligatorio", "error");
-  if (pin.length < 4) return showToast("El PIN debe tener 4 dígitos", "error");
+  if (!nombre) return showToast('El nombre es obligatorio', 'error');
 
-  const btn = document.getElementById('btnGuardarUsuario');
+  const btn = document.getElementById('um-btn-guardar');
   btn.disabled = true;
-  btn.innerHTML = `<span class="material-icons spinner">sync</span> Guardando...`;
+  btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Guardando...';
 
-  if (usuarioEnEdicion) {
-    api.modificarUsuario(usuarioEnEdicion, nombre, pin, isAdmin, telefono, isGlobal).then(res => {
-      btn.disabled = false;
-      if (res === "EXITO") {
-        showToast("Usuario actualizado", "success");
-        cancelarEdicionUsuario();
-        recargarUsuariosLocales();
-      } else {
-        showToast(res, "error");
-        btn.innerText = "ACTUALIZAR USUARIO";
-      }
-    }).catch(e => { console.error(e); btn.disabled = false; btn.innerText = "ACTUALIZAR USUARIO"; });
-  } else {
-    api.guardarNuevoUsuario(nombre, pin, isAdmin, telefono, isGlobal).then(res => {
-      btn.disabled = false;
-      if (res === "EXITO") {
-        showToast("Usuario creado", "success");
-        cancelarEdicionUsuario();
-        recargarUsuariosLocales();
-      } else {
-        showToast(res, "error");
-        btn.innerText = "GUARDAR USUARIO";
-      }
-    }).catch(e => { console.error(e); btn.disabled = false; btn.innerText = "GUARDAR USUARIO"; });
+  try {
+    await db.collection(COL.USERS).doc(docId).update({ nombre, telefono, isAdmin, isGlobal });
+    showToast('Usuario actualizado', 'success');
+  } catch(e) {
+    console.error(e);
+    showToast('Error: ' + e.message, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS';
+  }
+  // onSnapshot actualizará las tarjetas automáticamente
+}
+
+async function umResetPassword(email) {
+  const ok = await mexConfirm(
+    'Restablecer contraseña',
+    `Se enviará un correo de restablecimiento a:\n${email}`,
+    'warning'
+  );
+  if (!ok) return;
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    showToast(`Correo enviado a ${email}`, 'success');
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
   }
 }
 
-// Función auxiliar para actualizar la memoria del navegador sin recargar toda la página
-function recargarUsuariosLocales() {
-  api.obtenerCredencialesMapa().then(users => {
-     dbUsuariosLogin = users;
-     renderUsersTable();
-     if(typeof renderModernDropdown === 'function') renderModernDropdown(users);
-  }).catch(e => console.error(e));
+async function umEliminar(docId, nombre) {
+  const ok = await mexConfirm(
+    'Eliminar usuario',
+    `¿Eliminar a ${nombre}?\nEsta acción le quitará el acceso permanentemente.`,
+    'error'
+  );
+  if (!ok) return;
+  try {
+    await db.collection(COL.USERS).doc(docId).delete();
+    showToast('Usuario eliminado', 'success');
+    _umSelectedId = null;
+    document.getElementById('um-form-container').style.display = 'none';
+    document.getElementById('um-placeholder').style.display = 'block';
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
 }
 
-function eliminarUsuarioUI(nombre) {
-  if(!confirm(`¿Estás completamente seguro de eliminar al usuario: ${nombre}? \nEsta acción le quitará el acceso al mapa.`)) return;
+function umNuevoUsuario() {
+  _umSelectedId = null;
+  _umRenderCards();
+  document.getElementById('um-placeholder').style.display = 'none';
+  const container = document.getElementById('um-form-container');
+  container.style.display = 'block';
+  container.innerHTML = `<div class="um-form-card">
+    <div class="um-form-avatar-row">
+      <div class="um-form-avatar" style="background:var(--mex-accent);color:white;">
+        <span class="material-icons" style="font-size:28px;">person_add</span>
+      </div>
+      <div>
+        <div class="um-form-title">Nuevo Usuario</div>
+        <div class="um-form-subtitle">Crea una cuenta de Firebase Auth</div>
+      </div>
+    </div>
 
-  showToast("Eliminando usuario...", "success");
+    <div class="um-form-field">
+      <label>Nombre completo</label>
+      <input type="text" id="um-new-nombre" placeholder="Ej. Juan Pérez">
+    </div>
+    <div class="um-form-field">
+      <label>Correo electrónico</label>
+      <input type="email" id="um-new-email" placeholder="correo@ejemplo.com">
+    </div>
+    <div class="um-form-field">
+      <label>Contraseña temporal</label>
+      <input type="password" id="um-new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+    </div>
+    <div class="um-form-field">
+      <label>Teléfono (opcional)</label>
+      <input type="tel" id="um-new-tel" placeholder="Ej. 6441234567">
+    </div>
 
-  api.eliminarUsuario(nombre).then(res => {
-       if (res === "EXITO") {
-          showToast("Usuario eliminado", "success");
+    <div class="um-form-section">Permisos</div>
+    <div class="um-toggle-row">
+      <div class="um-tl">
+        <label for="um-new-admin">Administrador</label>
+        <div class="um-toggle-desc">Puede gestionar el mapa y la flota</div>
+      </div>
+      <input type="checkbox" id="um-new-admin" onchange="umToggleNuevoGlobal()">
+    </div>
+    <div id="um-new-global-row" class="um-toggle-row" style="display:none;">
+      <div class="um-tl">
+        <label for="um-new-global" style="color:#ef4444;">Admin Global</label>
+        <div class="um-toggle-desc" style="color:#ef4444;">Acceso completo, sin restricciones</div>
+      </div>
+      <input type="checkbox" id="um-new-global">
+    </div>
 
-          // Recargamos la lista
-          api.obtenerCredencialesMapa().then(users => {
-             dbUsuariosLogin = users;
-             renderUsersTable();
-             renderModernDropdown(users);
-          }).catch(e => console.error(e));
-       } else {
-          showToast(res, "error");
-       }
-    }).catch(e => console.error(e));
+    <div class="um-divider"></div>
+    <div class="um-actions">
+      <button class="um-btn-save" id="um-btn-crear" onclick="umCrearUsuario()">
+        <span class="material-icons" style="font-size:17px;">person_add</span> CREAR USUARIO
+      </button>
+    </div>
+  </div>`;
+}
+
+function umToggleNuevoGlobal() {
+  const isAdmin = document.getElementById('um-new-admin').checked;
+  document.getElementById('um-new-global-row').style.display = isAdmin ? '' : 'none';
+}
+
+async function umCrearUsuario() {
+  const nombre   = (document.getElementById('um-new-nombre').value || '').trim().toUpperCase();
+  const email    = (document.getElementById('um-new-email').value  || '').trim().toLowerCase();
+  const pass     = (document.getElementById('um-new-pass').value   || '').trim();
+  const telefono = (document.getElementById('um-new-tel').value    || '').trim();
+  const isAdmin  = document.getElementById('um-new-admin').checked;
+  const isGlobal = isAdmin && document.getElementById('um-new-global').checked;
+
+  if (!nombre)                   return showToast('El nombre es obligatorio', 'error');
+  if (!email || !email.includes('@')) return showToast('Correo inválido', 'error');
+  if (pass.length < 6)           return showToast('La contraseña debe tener mínimo 6 caracteres', 'error');
+
+  const btn = document.getElementById('um-btn-crear');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Creando...';
+
+  const res = await api.guardarNuevoUsuarioAuth(nombre, email, pass, isAdmin, telefono, isGlobal);
+  if (res === 'EXITO') {
+    showToast('Usuario creado exitosamente', 'success');
+    umNuevoUsuario(); // limpiar form
+    // onSnapshot actualizará la lista
+  } else {
+    showToast(res, 'error');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-icons" style="font-size:17px;">person_add</span> CREAR USUARIO';
+  }
 }
 
 
@@ -9724,7 +9930,7 @@ function llenarSelectsDinamicos() {
     const firstBlank = el.querySelector('option[value=""], option[value="N/A"]');
     el.innerHTML = '';
     if (firstBlank) el.appendChild(firstBlank.cloneNode(true));
-    options.forEach(o => el.appendChild(o));
+    options.forEach(o => el.appendChild(o.cloneNode(true)));
     if (el.querySelector(`option[value="${saved}"]`)) el.value = saved;
   }
 
