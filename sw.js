@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v3';
+const CACHE_NAME = 'mapa-v4';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -43,6 +43,17 @@ self.addEventListener('activate', event => {
 // ── Fetch: estrategia por tipo de recurso ───────────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const isDocumentRequest =
+    event.request.mode === 'navigate' ||
+    event.request.destination === 'document';
+  const isAppShellRequest =
+    sameOrigin && (
+      isDocumentRequest ||
+      event.request.destination === 'script' ||
+      event.request.destination === 'style' ||
+      event.request.destination === 'manifest'
+    );
 
   // Siempre ir a la red para Firebase (Firestore, Auth, FCM)
   if (
@@ -54,6 +65,27 @@ self.addEventListener('fetch', event => {
     event.request.method !== 'GET'
   ) {
     return; // deja que el browser lo maneje normalmente
+  }
+
+  // Para el shell principal de la app, priorizar la red para no quedar
+  // atrapados con una version vieja tras un deploy.
+  if (isAppShellRequest) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (response && response.status === 200 && response.type !== 'opaque') {
+            const toCache = response.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, toCache));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          if (isDocumentRequest) return caches.match('/index.html');
+        })
+    );
+    return;
   }
 
   // Para assets del propio dominio: Cache-first → si no hay cache, red → cachear
