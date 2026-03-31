@@ -82,9 +82,8 @@ service cloud.firestore {
     match /sipp/{doc} {
       allow read, write: if true;
     }
+// Permitir a cualquier persona enviar una solicitud de acceso
     match /solicitudes_acceso/{doc} {
-      // Permitimos que cualquiera pueda enviar una solicitud 
-      // y que los admins puedan leerlas
       allow read, write: if true;
     }
   }
