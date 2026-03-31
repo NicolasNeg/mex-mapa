@@ -3984,7 +3984,7 @@ let DB_MAESTRA = [];
 let radarInterval = null;
 let isSaving = false;
 
-const auth = firebase.auth();
+// auth ya está declarada en mex-api.js — no redeclarar
 
 // Handler único: valida por email (funciona con Google y email/contraseña)
 auth.onAuthStateChanged(async (user) => {
