@@ -28,7 +28,7 @@ const COL = {
   AUDITORIA: "auditoria",
   HISTORIAL_CUADRES: "historial_cuadres",
   SIPP:      "sipp",
-  CONFIG: "configuracion"
+  CONFIG: "configuracion",
 };
 
 const SETTINGS_DOC = "principal";

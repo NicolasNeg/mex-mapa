@@ -3,7 +3,16 @@ window.MEX_CONFIG = { empresa: {}, listas: {} };
 async function inicializarConfiguracion() {
   try {
     const config = await api.obtenerConfiguracion();
-    window.MEX_CONFIG = config;
+    // Arranca con un esqueleto seguro para que la UI nunca truene
+window.MEX_CONFIG = { 
+  empresa: { nombre: "MEX RENT A CAR" }, 
+  listas: { 
+    ubicaciones: [], 
+    estados: [], 
+    gasolinas: [], 
+    categorias: [] 
+  } 
+};
 
     // Inyectar nombre de empresa en el logo
     const logoEl = document.querySelector('.logo');
