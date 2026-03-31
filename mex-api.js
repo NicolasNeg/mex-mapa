@@ -762,7 +762,43 @@ window.obtenerUrlImagenModelo = function(modelo) {
 
 
 
+// 🔥 SCRIPT TEMPORAL DE MIGRACIÓN - BORRAR DESPUÉS 🔥
+setTimeout(async () => {
+  try {
+    const configInicial = {
+      empresa: {
+        nombre: "MEX RENT A CAR",
+        slogan: "Administración de Flota",
+        colorPrincipal: "#004a99"
+      },
+      listas: {
+        ubicaciones: ["PATIO","TALLER","AGENCIA","TALLER EXTERNO","HYP COBIAN","JORGE","GERARDO","OSVALDO","BALANDRAN","ULISES","JOSUE","ISRAEL","ISAAC","ANGEL","LEO","BRAULIO","LONGORIA","MARTHA","FERNANDA","ZALLO","UBALDO","JOSE LUIS","PASCUAL","EDUARDO","EDGAR"],
+        estados: [
+          { id:"LISTO", color:"#10b981", orden:1 },
+          { id:"SUCIO", color:"#f59e0b", orden:2 },
+          { id:"MANTENIMIENTO", color:"#ef4444", orden:3 },
+          { id:"RESGUARDO", color:"#64748b", orden:4 },
+          { id:"TRASLADO", color:"#c084fc", orden:5 },
+          { id:"EN RENTA", color:"#38bdf8", orden:6 },
+          { id:"NO ARRENDABLE", color:"#cbd5e1", orden:7 },
+          { id:"HYP", color:"#ef4444", orden:8 },
+          { id:"RETENIDA", color:"#78350f", orden:92 },
+          { id:"VENTA", color:"#1e293b", orden:93 }
+        ],
+        gasolinas: ["F","15/16","7/8","13/16","3/4","11/16","5/8","9/16","H","7/16","3/8","5/16","1/4","3/16","1/8","1/16","E","N/A"],
+        categorias: ["ECAR","CCAR","ICAR","FCAR","SCAR","CFAR","SFAR","FWAR","MVAR","IVAH","MVAH","FFBH","CKMR","MPMN","PFAR","GVMD"]
+      }
+    };
 
+    // Usamos COL.CONFIG que ya definiste al inicio de mex-api.js
+    await db.collection(COL.CONFIG).doc("empresa").set(configInicial.empresa);
+    await db.collection(COL.CONFIG).doc("listas").set(configInicial.listas);
+    
+    alert("✅ ¡ÉXITO! Migración completada. Ya puedes borrar este bloque al final de tu mex-api.js");
+  } catch (error) {
+    alert("❌ Error en la migración: " + error.message);
+  }
+}, 3000);
 // ─── API PÚBLICA ─────────────────────────────────────────────
 window.api = API_FUNCTIONS;
 console.log('✅ [MEX-API] Firebase API lista con ' + Object.keys(API_FUNCTIONS).length + ' funciones.');
