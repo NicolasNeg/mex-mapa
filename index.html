@@ -3654,12 +3654,29 @@ window.MEX_CONFIG = {
 };
 
 // 2. Función que descarga los datos de Firebase en tiempo real
+const ESTADOS_DEFAULT = [
+  { id:"LISTO",          color:"#10b981", orden:1 },
+  { id:"SUCIO",          color:"#f59e0b", orden:2 },
+  { id:"MANTENIMIENTO",  color:"#ef4444", orden:3 },
+  { id:"RESGUARDO",      color:"#64748b", orden:4 },
+  { id:"TRASLADO",       color:"#c084fc", orden:5 },
+  { id:"EN RENTA",       color:"#38bdf8", orden:6 },
+  { id:"NO ARRENDABLE",  color:"#cbd5e1", orden:7 },
+  { id:"HYP",            color:"#ef4444", orden:8 },
+  { id:"RETENIDA",       color:"#78350f", orden:92 },
+  { id:"VENTA",          color:"#1e293b", orden:93 }
+];
+
 async function inicializarConfiguracion() {
   try {
     const config = await api.obtenerConfiguracion();
-    
-    // Si Firebase devuelve datos válidos, los inyectamos en la variable global
+
     if (config && config.listas) {
+      // Auto-seed estados si Firestore no los tiene
+      if (!config.listas.estados || config.listas.estados.length === 0) {
+        config.listas.estados = ESTADOS_DEFAULT;
+        api.guardarConfiguracionListas(config.listas).catch(e => console.warn("No se pudo guardar estados por defecto:", e));
+      }
       window.MEX_CONFIG = config;
       console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
       if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
@@ -3845,6 +3862,7 @@ auth.onAuthStateChanged(async (user) => {
         iniciarApp(true);
       } else {
         showLoginError(`❌ El correo ${user.email} no tiene permisos en el sistema.`);
+        _resetLoginButtons();
         auth.signOut();
         const solEmail = document.getElementById('sol_email');
         if (solEmail) solEmail.value = user.email;
@@ -3852,9 +3870,11 @@ auth.onAuthStateChanged(async (user) => {
     } catch(e) {
       console.error("Error validando usuario:", e);
       showLoginError("❌ Error de conexión. Intenta de nuevo.");
+      _resetLoginButtons();
     }
   } else {
     document.getElementById('login-overlay').style.display = 'flex';
+    _resetLoginButtons();
   }
 });
 
@@ -3902,6 +3922,16 @@ function showLoginError(msg) {
   const msgEl = document.getElementById('login-error-msg');
   errEl.style.display = 'flex';
   if (msgEl) msgEl.innerText = msg; else errEl.innerText = msg;
+}
+
+function _resetLoginButtons() {
+  const btnManual = document.getElementById('btnLoginManual');
+  const btnGoogle = document.getElementById('btnGoogleLogin');
+  if (btnManual) { btnManual.disabled = false; btnManual.innerText = "INICIAR SESIÓN"; }
+  if (btnGoogle) {
+    btnGoogle.disabled = false;
+    btnGoogle.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE`;
+  }
 }
 
 // --- FORMULARIO DE SOLICITUD ---
@@ -9594,6 +9624,7 @@ function llenarSelectsDinamicos() {
   };
 
   function _setOptions(selectId, options) {
+    if (!options || options.length === 0) return; // No borrar si no hay datos
     const el = document.getElementById(selectId);
     if (!el) return;
     const saved = el.value;
@@ -9766,10 +9797,10 @@ async function cargarSolicitudesPendientes() {
             </div>
           </div>
           <div style="display: flex; gap: 10px;">
-            <button onclick="procesarSolicitud('${doc.id}', '${data.email}', '${data.nombre}', '${data.puesto}', false)" style="background: #fee2e2; color: #ef4444; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            <button onclick="procesarSolicitud('${doc.id}', false)" style="background: #fee2e2; color: #ef4444; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
               <span class="material-icons" style="font-size: 18px;">close</span> RECHAZAR
             </button>
-            <button onclick="procesarSolicitud('${doc.id}', '${data.email}', '${data.nombre}', '${data.puesto}', true)" style="background: #10b981; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+            <button onclick="procesarSolicitud('${doc.id}', true)" style="background: #10b981; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
               <span class="material-icons" style="font-size: 18px;">check</span> APROBAR
             </button>
           </div>
@@ -9792,14 +9823,22 @@ async function procesarSolicitud(docId, esAprobado) {
   
   const { email, nombre, puesto, telefono, password } = docSnap.data();
   let motivo = "";
-  
-  // Aquí dejamos el prompt/confirm porque requerimos confirmación explícita o escritura
+
   if (!esAprobado) {
-    motivo = prompt(`¿Motivo del rechazo para ${nombre}?\n(Este mensaje se enviará por correo)`);
-    if (motivo === null) return; 
-    if (motivo.trim() === "") motivo = "No cumples con los criterios de acceso requeridos en este momento.";
+    motivo = await mexPrompt(
+      `Rechazar solicitud de ${nombre}`,
+      'Escribe el motivo del rechazo (se enviará al solicitante):',
+      'No cumples con los criterios de acceso requeridos.'
+    );
+    if (motivo === null) return;
+    if (!motivo.trim()) motivo = "No cumples con los criterios de acceso requeridos en este momento.";
   } else {
-    if (!confirm(`¿Estás seguro de CREAR EL ACCESO para:\n${nombre} (${email})?`)) return;
+    const ok = await mexConfirm(
+      `Aprobar acceso para ${nombre}`,
+      `Se creará una cuenta para: ${email}. Esta acción no se puede deshacer.`,
+      'success'
+    );
+    if (!ok) return;
   }
 
   showToast("Procesando...", "info"); // Aviso visual mientras piensa
