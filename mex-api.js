@@ -1,12 +1,6 @@
 // ─── CONFIGURACIÓN FIREBASE ─────────────────────────────────
-const FIREBASE_CONFIG = {
-  apiKey:            "AIzaSyBk_A5U37Surm-K1PxZnNbzN-htyrnNmVc",
-  authDomain:        "mex-mapa-bjx.firebaseapp.com",
-  projectId:         "mex-mapa-bjx",
-  storageBucket:     "mex-mapa-bjx.appspot.com",
-  messagingSenderId: "35913204070",
-  appId:             "1:35913204070:web:8d2c2fa94376449dbd08a7"
-};
+// Los valores vienen de /config.js (no está en git — se genera en CI o localmente)
+const FIREBASE_CONFIG = window.FIREBASE_CONFIG;
 
 const app = firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();

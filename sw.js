@@ -4,13 +4,14 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v1';
+const CACHE_NAME = 'mapa-v3';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
   '/',
   '/index.html',
   '/mex-api.js',
+  '/config.js',
   '/manifest.json',
   '/img/logo.png',
   '/img/no-model.svg',

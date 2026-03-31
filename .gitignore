@@ -1,4 +1,5 @@
 # ─── Credenciales y configuración sensible ──────────────────
+config.js
 .env
 .env.*
 firebase-debug.log
