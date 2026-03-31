@@ -1030,19 +1030,28 @@ header {
   }
   .login-form-wrapper h3 { color: #0f172a; font-weight: 900; font-size: 28px; margin: 0 0 6px; letter-spacing: -0.5px; }
   .login-form-wrapper > p { color: #94a3b8; font-size: 13px; font-weight: 500; margin: 0 0 28px; }
-  .login-field { margin-bottom: 16px; }
+  .login-field { margin-bottom: 14px; }
   .input-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 7px; display: block; }
 
+  .mex-input-wrap { position: relative; }
+  .mex-input-icon {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: #b0bec5; font-size: 19px; pointer-events: none; transition: color 0.2s;
+    z-index: 1;
+  }
+  .mex-input-wrap:focus-within .mex-input-icon { color: #3b82f6; }
   .mex-input {
     width: 100%; padding: 13px 16px; border: 1.5px solid #e4ecf4; border-radius: 12px;
     font-weight: 500; font-size: 14px; outline: none; transition: all 0.2s;
     background: #f8fafc; color: #1e293b; box-sizing: border-box; font-family: inherit;
   }
+  .mex-input-wrap .mex-input { padding-left: 42px; }
   .mex-input::placeholder { color: #c4d0de; }
   .mex-input:focus { border-color: #3b82f6; background: white; box-shadow: 0 0 0 4px rgba(59,130,246,0.09); }
   .input-icon {
-    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    position: absolute; right: 13px; top: 50%; transform: translateY(-50%);
     color: #c4d0de; cursor: pointer; user-select: none; transition: color 0.2s; font-size: 20px;
+    z-index: 1;
   }
   .input-icon:hover { color: #3b82f6; }
 
@@ -1117,13 +1126,29 @@ header {
   .sol-btn-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(11,37,72,0.45); }
 
   @media (max-width: 768px) {
-    .login-split-container { flex-direction: column; height: auto; max-width: 410px; }
-    .login-left-side { height: 185px; flex: none; }
-    .login-left-overlay { position: static; height: 100%; justify-content: flex-end; }
-    .login-brand-mex { font-size: 42px; }
-    .login-stats { display: none; }
-    .login-right-side { padding: 30px 26px; }
+    .login-overlay { padding: 0; align-items: flex-end; background: linear-gradient(160deg, #060e1c 0%, #0c1e3a 100%); }
+    .login-split-container {
+      flex-direction: column; height: auto; width: 100%; max-width: 100%;
+      border-radius: 0; border-top-left-radius: 28px; border-top-right-radius: 28px;
+      box-shadow: 0 -20px 60px rgba(0,0,0,0.6);
+    }
+    .login-left-side { height: 200px; flex: none; }
+    .login-left-overlay { position: absolute; inset: 0; padding: 24px 28px; justify-content: flex-end; }
+    .login-brand-mex { font-size: 40px; }
+    .login-brand-sub { font-size: 11px; letter-spacing: 4px; }
+    .login-brand-desc { display: none; }
+    .login-stats { padding-top: 12px; gap: 20px; }
+    .login-stat-num { font-size: 17px; }
+    .login-right-side { padding: 28px 24px 36px; background: white; }
+    .login-logo-mark { width: 38px; height: 38px; border-radius: 12px; margin-bottom: 18px; }
+    .login-form-wrapper h3 { font-size: 22px; }
+    .login-form-wrapper > p { margin-bottom: 20px; }
+    .login-footer { margin-top: 16px; padding-top: 14px; }
     .sol-field-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 400px) {
+    .login-right-side { padding: 22px 18px 30px; }
+    .login-btn-primary, .login-btn-google { padding: 13px; font-size: 13px; }
   }
 
 
@@ -2615,12 +2640,16 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 
         <div class="login-field">
           <label class="input-label">Correo Electrónico</label>
-          <input type="email" id="auth_email" class="mex-input" placeholder="usuario@mexrentacar.com">
+          <div class="mex-input-wrap">
+            <span class="material-icons mex-input-icon">person</span>
+            <input type="email" id="auth_email" class="mex-input" placeholder="usuario@mexrentacar.com">
+          </div>
         </div>
 
-        <div class="login-field" style="position:relative;">
+        <div class="login-field">
           <label class="input-label">Contraseña</label>
-          <div style="position:relative;">
+          <div class="mex-input-wrap">
+            <span class="material-icons mex-input-icon">lock</span>
             <input type="password" id="auth_pass" class="mex-input" placeholder="••••••••" style="padding-right:46px; letter-spacing:2px;">
             <span class="material-icons input-icon" onclick="togglePassword('auth_pass', this)">visibility</span>
           </div>
