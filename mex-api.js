@@ -8,6 +8,9 @@ const FIREBASE_CONFIG = {
   appId:             "1:35913204070:web:8d2c2fa94376449dbd08a7"
 };
 
+// Asegúrate de que esto esté al inicio de tu código JS principal
+const app = firebase.initializeApp(FIREBASE_CONFIG); // Tu config
+const auth = firebase.auth(); // <--- OBLIGATORIO DESPUÉS DE INITIALIZEAPP
 
 firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.firestore();
@@ -504,27 +507,32 @@ const API_FUNCTIONS = {
       };
     });
   },
+async guardarNuevoUsuarioAuth(nombre, email, password, isAdmin, telefono, isGlobal) {
+    try {
+      // 1. Creamos un hilo secundario fantasma para no interrumpir tu sesión actual
+      const appSecundaria = firebase.initializeApp(FIREBASE_CONFIG, "AppRegistro_" + Date.now());
+      
+      // 2. Registramos la cuenta real con tokens en Firebase Auth
+      const credencial = await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
+      const nuevoUid = credencial.user.uid;
 
-  // ─── USUARIOS ────────────────────────────────────────────
-  async guardarNuevoUsuario(nombre, pin, isAdmin, telefono, isGlobalAdmin) {
-    const nombreUpper = nombre.trim().toUpperCase();
-    const existe = await db.collection(COL.USERS).where("usuario", "==", nombreUpper).limit(1).get();
-    if (!existe.empty) return "ERROR: El usuario ya existe";
-    const docId = nombreUpper.replace(/\s+/g, '_');
-    const esAdmin = isAdmin === true || isAdmin === "true";
-    const esGlobal = isGlobalAdmin === true || isGlobalAdmin === "true";
-    await db.collection(COL.USERS).doc(docId).set({
-      usuario: nombreUpper,
-      password: pin.toString(),
-      isAdmin: esAdmin,
-      telefono: (telefono || "").trim()
-    });
-    if (esAdmin && esGlobal) {
-      await db.collection(COL.ADMINS).doc(nombreUpper).set({
-        usuario: nombreUpper, password: pin.toString(), isGlobal: true
+      // 3. Guardamos su perfil en Firestore, pero ahora el ID del documento es su UID secreto
+      await db.collection(COL.USERS).doc(nuevoUid).set({
+        nombre: nombre.trim().toUpperCase(),
+        email: email.toLowerCase().trim(),
+        telefono: telefono || "",
+        isAdmin: isAdmin || false,
+        isGlobal: isGlobal || false
       });
+
+      // 4. Destruimos el hilo secundario
+      await appSecundaria.auth().signOut();
+      await appSecundaria.delete();
+
+      return "EXITO";
+    } catch (error) {
+      return "ERROR: " + error.message;
     }
-    return "EXITO";
   },
   async modificarUsuario(nombreOriginal, nuevoNombre, nuevoPin, isAdmin, telefono, isGlobalAdmin) {
     const origUpper = nombreOriginal.trim().toUpperCase();

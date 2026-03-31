@@ -694,6 +694,73 @@ header {
     body.dark-theme #no-results-message { color: #94a3b8 !important; }
 
     /* ═══════════════════════════════════════════
+       SISTEMA DE DIÁLOGOS — mexDialog
+    ═══════════════════════════════════════════ */
+    #mex-dialog-overlay {
+      position: fixed; inset: 0; z-index: 999999;
+      display: none; align-items: center; justify-content: center;
+      padding: 16px; background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(6px);
+    }
+    #mex-dialog-overlay.active { display: flex; }
+    .mex-dlg-card {
+      background: white; border-radius: 22px; max-width: 430px; width: 100%;
+      overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,0.5);
+      animation: mex-dlg-in 0.22s cubic-bezier(0.16,1,0.3,1);
+    }
+    @keyframes mex-dlg-in { from { opacity:0; transform:scale(0.84) translateY(24px); } }
+    .mex-dlg-icon-row {
+      display: flex; align-items: center; justify-content: center; padding: 30px 20px 24px;
+      position: relative; overflow: hidden;
+    }
+    .mex-dlg-icon-row::before {
+      content:''; position:absolute; inset:0; opacity:0.18;
+      background: radial-gradient(circle at 50% 120%, white 0%, transparent 70%);
+    }
+    .mex-dlg-icon-row.dlg-info    { background: linear-gradient(135deg, #0d2a54 0%, #1a73e8 100%); }
+    .mex-dlg-icon-row.dlg-success { background: linear-gradient(135deg, #064e3b 0%, #059669 100%); }
+    .mex-dlg-icon-row.dlg-warning { background: linear-gradient(135deg, #78350f 0%, #d97706 100%); }
+    .mex-dlg-icon-row.dlg-danger  { background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%); }
+    .mex-dlg-icon-row.dlg-error   { background: linear-gradient(135deg, #7f1d1d 0%, #dc2626 100%); }
+    .mex-dlg-main-icon { font-size: 52px; color: white; filter: drop-shadow(0 4px 10px rgba(0,0,0,0.35)); position: relative; z-index: 1; }
+    .mex-dlg-body { padding: 24px 28px 12px; }
+    .mex-dlg-title { margin: 0 0 8px; font-size: 19px; font-weight: 900; color: #0f172a; letter-spacing: -0.3px; }
+    .mex-dlg-text  { margin: 0; font-size: 14px; color: #64748b; line-height: 1.65; }
+    .mex-dlg-input-wrap { margin-top: 16px; }
+    .mex-dlg-input {
+      width: 100%; padding: 12px 14px; border: 2px solid #e2e8f0;
+      border-radius: 10px; font-family: inherit; font-size: 15px; font-weight: 700;
+      outline: none; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s;
+      color: #1e293b; background: #f8fafc;
+    }
+    .mex-dlg-input:focus { border-color: var(--mex-accent,#1a73e8); background: white; box-shadow: 0 0 0 3px rgba(26,115,232,0.12); }
+    .mex-dlg-actions { padding: 12px 28px 26px; display: flex; gap: 10px; justify-content: flex-end; }
+    .mex-dlg-btn {
+      padding: 11px 24px; border: none; border-radius: 10px;
+      font-family: inherit; font-weight: 900; font-size: 13px;
+      cursor: pointer; transition: all 0.18s; min-width: 90px; letter-spacing: 0.3px;
+    }
+    .mex-dlg-btn-cancel { background: #f1f5f9; color: #64748b; }
+    .mex-dlg-btn-cancel:hover { background: #e2e8f0; color: #475569; }
+    .mex-dlg-btn-confirm { background: var(--mex-accent,#1a73e8); color: white; box-shadow: 0 4px 14px rgba(26,115,232,0.35); }
+    .mex-dlg-btn-confirm:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(26,115,232,0.5); }
+    .mex-dlg-btn-confirm.dlg-danger, .mex-dlg-btn-confirm.dlg-error {
+      background: #dc2626; box-shadow: 0 4px 14px rgba(220,38,38,0.35);
+    }
+    .mex-dlg-btn-confirm.dlg-danger:hover, .mex-dlg-btn-confirm.dlg-error:hover { box-shadow: 0 6px 18px rgba(220,38,38,0.5); }
+    .mex-dlg-btn-confirm.dlg-success { background: #059669; box-shadow: 0 4px 14px rgba(5,150,105,0.35); }
+    .mex-dlg-btn-confirm.dlg-success:hover { box-shadow: 0 6px 18px rgba(5,150,105,0.5); }
+    .mex-dlg-btn-confirm.dlg-warning { background: #d97706; box-shadow: 0 4px 14px rgba(217,119,6,0.35); }
+    .mex-dlg-btn-confirm.dlg-warning:hover { box-shadow: 0 6px 18px rgba(217,119,6,0.5); }
+    body.dark-theme .mex-dlg-card { background: #1e293b; }
+    body.dark-theme .mex-dlg-title { color: #f1f5f9; }
+    body.dark-theme .mex-dlg-text  { color: #94a3b8; }
+    body.dark-theme .mex-dlg-input { background: #0f172a; border-color: #334155; color: #f1f5f9; }
+    body.dark-theme .mex-dlg-input:focus { background: #162032; }
+    body.dark-theme .mex-dlg-btn-cancel { background: #334155; color: #94a3b8; }
+    body.dark-theme .mex-dlg-btn-cancel:hover { background: #475569; color: #cbd5e1; }
+
+    /* ═══════════════════════════════════════════
        MAP EDITOR MODAL — Professional Dark UI
     ═══════════════════════════════════════════ */
     .mapa-editor-shell {
@@ -3492,7 +3559,7 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 
   // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
 window.MEX_CONFIG = {
-  empresa: { nombre: "MEX RENT A CAR" },
+  empresa: { nombre: "OPTIMA PROVISIONAL" },
   listas: {
     ubicaciones: [],
     estados: [],
@@ -3510,6 +3577,7 @@ async function inicializarConfiguracion() {
     if (config && config.listas) {
       window.MEX_CONFIG = config;
       console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
+      if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
     }
   } catch (error) {
     console.error("❌ Error descargando la configuración:", error);
@@ -3652,7 +3720,7 @@ async function loginConToken() {
       throw new Error("Usuario no registrado en base de datos");
     }
   } catch (error) {
-    alert("Error de acceso: " + error.message);
+    showToast("Error de acceso: " + error.message, "error");
     btn.disabled = false;
     btn.innerText = "ENTRAR AL SISTEMA";
   }
@@ -3785,7 +3853,6 @@ function showLoginError(msg) {
 function abrirModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'flex'; }
 function cerrarModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'none'; }
 
-
 async function enviarSolicitudAcceso() {
   const nombre = document.getElementById('sol_nombre').value.trim().toUpperCase();
   const email = document.getElementById('sol_email').value.trim().toLowerCase();
@@ -3795,26 +3862,23 @@ async function enviarSolicitudAcceso() {
   const passConfirm = document.getElementById('sol_pass_confirm').value;
   const btn = document.getElementById('btnEnviarSolicitud');
 
-  // 1. Validaciones
+  // Validaciones con Toasts de error
   if(!nombre || !email || !puesto || !telefono || !pass || !passConfirm) {
-    return alert("⚠️ Por favor llena todos los campos del formulario.");
+    return showToast("Llena todos los campos del formulario", "error");
   }
   if(pass.length < 6) {
-    return alert("⚠️ La contraseña debe tener al menos 6 caracteres por seguridad.");
+    return showToast("La contraseña debe tener mínimo 6 caracteres", "error");
   }
   if(pass !== passConfirm) {
-    // Si no coinciden, limpiamos el campo de confirmación para que lo intenten de nuevo
     document.getElementById('sol_pass_confirm').value = "";
     document.getElementById('sol_pass_confirm').focus();
-    return alert("❌ Las contraseñas no coinciden. Verifícalas.");
+    return showToast("Las contraseñas no coinciden", "error");
   }
 
-  // Animación de carga en el botón
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner" style="font-size: 18px; vertical-align: middle;">sync</span> ENVIANDO...`;
 
   try {
-    // 2. Guardamos en Firebase
     await db.collection("solicitudes_acceso").doc(email).set({
       nombre: nombre,
       email: email,
@@ -3825,9 +3889,9 @@ async function enviarSolicitudAcceso() {
       estado: "PENDIENTE"
     });
 
-    alert("✅ Solicitud enviada exitosamente. Un administrador revisará tu información para habilitar tu cuenta.");
+    // Toast de éxito y limpieza
+    showToast("Solicitud enviada a revisión", "success");
     
-    // Limpieza total del formulario
     document.getElementById('sol_nombre').value = "";
     document.getElementById('sol_email').value = "";
     document.getElementById('sol_puesto').value = "";
@@ -3838,9 +3902,8 @@ async function enviarSolicitudAcceso() {
     cerrarModalSolicitud();
   } catch (error) {
     console.error("Error al guardar solicitud:", error);
-    alert("❌ Error de conexión al enviar la solicitud.");
+    showToast("Error de conexión al enviar", "error");
   } finally {
-    // Restauramos el botón
     btn.disabled = false;
     btn.innerHTML = `ENVIAR DATOS`;
   }
@@ -7511,10 +7574,7 @@ window.ejecutarLectorCSV = function(file) {
     document.getElementById('upload-icon').classList.add('spinner');
     document.getElementById('upload-text').innerText = "Organizando columnas...";
     
-    const notificar = (msg, tipo) => {
-       if (typeof showToast === "function") showToast(msg, tipo);
-       else alert(msg); 
-    };
+    const notificar = (msg, tipo) => showToast(msg, tipo || 'error');
 
     const reader = new FileReader();
     
@@ -9396,6 +9456,7 @@ function abrirPanelConfiguracion() {
 function abrirTabConfig(tabName, btnElement) {
   document.querySelectorAll('.cfg-tab').forEach(btn => btn.classList.remove('active'));
   btnElement.classList.add('active');
+  // Accept 'ubicaciones' directly or legacy 'cfg-ubicaciones'
   TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
   renderizarListaConfig();
 }
@@ -9403,53 +9464,133 @@ function abrirTabConfig(tabName, btnElement) {
 function renderizarListaConfig() {
   const container = document.getElementById('cfg-lista-items');
   const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
-  
+  if (!lista || lista.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8; font-weight:700; font-size:13px;">Sin elementos. Agrega el primero arriba.</div>';
+    return;
+  }
   container.innerHTML = lista.map((item, index) => {
-    // Si es estado (tiene objeto), sacamos el ID, sino sacamos el string directo
-    const valorText = typeof item === 'object' ? item.id : item; 
-    
-    return `
-      <div class="cfg-item">
-        <span>${valorText}</span>
-        <button onclick="eliminarElementoConfig(${index})" style="background: #fee2e2; border: none; color: #ef4444; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
-          <span class="material-icons" style="font-size: 16px;">delete</span>
-        </button>
+    const esEstado = typeof item === 'object';
+    const valor = esEstado ? item.id : item;
+    const color = esEstado ? item.color : null;
+    return `<div class="cfg-item">
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        ${color ? `<div class="cfg-item-color" style="background:${color};" title="${color}"></div>` : ''}
+        <span style="truncate; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${valor}</span>
+        ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700;">·&nbsp;orden ${item.orden}</span>` : ''}
       </div>
-    `;
+      <button class="cfg-item-del" onclick="eliminarElementoConfig(${index})" title="Eliminar">
+        <span class="material-icons" style="font-size:16px;">delete</span>
+      </button>
+    </div>`;
   }).join('');
 }
 
 function agregarElementoConfig() {
   const input = document.getElementById('cfg-nuevo-input');
   const val = input.value.trim().toUpperCase();
-  if(!val) return;
-
-  if(TAB_ACTIVA_CFG === 'estados') {
-    window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].push({ id: val, color: "#1e293b", orden: 99 });
+  if (!val) { showToast("Escribe un valor primero", "error"); return; }
+  const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
+  // Prevent duplicates
+  const existe = lista.some(i => (typeof i === 'object' ? i.id : i) === val);
+  if (existe) { showToast(`"${val}" ya existe en la lista`, "error"); return; }
+  if (TAB_ACTIVA_CFG === 'estados') {
+    lista.push({ id: val, color: "#64748b", orden: 99 });
   } else {
-    window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].push(val);
+    lista.push(val);
   }
-  
   input.value = "";
   renderizarListaConfig();
 }
 
 function eliminarElementoConfig(index) {
-  window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);
-  renderizarListaConfig();
+  const item = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG][index];
+  const nombre = typeof item === 'object' ? item.id : item;
+  mexConfirm(`Eliminar "${nombre}"`, '¿Estás seguro? Esta acción no se puede deshacer.', 'danger').then(ok => {
+    if (!ok) return;
+    window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);
+    renderizarListaConfig();
+  });
 }
 
 async function guardarConfiguracionEnFirebase() {
-  showToast("Subiendo nueva configuración...", "warning");
-  
+  const ok = await mexConfirm('Publicar cambios', '¿Aplicar los cambios a toda la app ahora mismo?', 'warning');
+  if (!ok) return;
+  showToast("Subiendo configuración…", "success");
   try {
     await api.guardarConfiguracionListas(window.MEX_CONFIG.listas);
-    showToast("¡Configuración actualizada en vivo!", "success");
-    llenarSelectsDinamicos(); // Re-inyecta en la UI actual sin recargar
+    showToast("Configuración actualizada en toda la app", "success");
+    llenarSelectsDinamicos();
     document.getElementById('modal-config-global').classList.remove('active');
   } catch (error) {
-    showToast("Error al guardar", "error");
+    showToast("Error al guardar: " + error.message, "error");
   }
+}
+
+// ─── Inyecta MEX_CONFIG en todos los <select> de la app ──────────────────────
+function llenarSelectsDinamicos() {
+  if (!window.MEX_CONFIG || !window.MEX_CONFIG.listas) return;
+  const { ubicaciones = [], estados = [], categorias = [], gasolinas = [] } = window.MEX_CONFIG.listas;
+
+  const EMOJI_ESTADO = {
+    'LISTO':'🟢','SUCIO':'🟡','MANTENIMIENTO':'🔴','RESGUARDO':'🔘',
+    'TRASLADO':'🟣','VENTA':'⚫','RETENIDA':'🟤','NO ARRENDABLE':'▫️',
+    'HYP':'🚚','EN RENTA':'✈️','HIBRIDO':'🍃'
+  };
+
+  function _setOptions(selectId, options) {
+    const el = document.getElementById(selectId);
+    if (!el) return;
+    const saved = el.value;
+    const firstBlank = el.querySelector('option[value=""], option[value="N/A"]');
+    el.innerHTML = '';
+    if (firstBlank) el.appendChild(firstBlank.cloneNode(true));
+    options.forEach(o => el.appendChild(o));
+    if (el.querySelector(`option[value="${saved}"]`)) el.value = saved;
+  }
+
+  // Categorías
+  const catOpts = categorias.map(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; return o; });
+  ['filter-cat'].forEach(id => _setOptions(id, catOpts));
+
+  // Estados (ordenados por campo orden)
+  const estOrdenados = [...estados].sort((a, b) => ((a.orden||99) - (b.orden||99)));
+  const estOpts = estOrdenados.map(est => {
+    const o = document.createElement('option');
+    o.value = est.id;
+    o.textContent = `${EMOJI_ESTADO[est.id] || '●'} ${est.id}`;
+    return o;
+  });
+  ['filter-est','f_est','a_ins_est','a_mod_est'].forEach(id => _setOptions(id, estOpts));
+
+  // Ubicaciones (flat list — las personas quedan mezcladas, suficiente para v1)
+  const PLAZAS_FIJAS = new Set(['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN','OTRA PLAZA']);
+  const plazas  = ubicaciones.filter(u => PLAZAS_FIJAS.has(u));
+  const personas = ubicaciones.filter(u => !PLAZAS_FIJAS.has(u));
+
+  ['filter-ubi','f_ubi','a_ins_ubi','a_mod_ubi'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const saved = el.value;
+    const firstBlank = el.querySelector('option[value=""]');
+    el.innerHTML = '';
+    if (firstBlank) el.appendChild(firstBlank.cloneNode(true));
+
+    if (plazas.length) {
+      const grp = document.createElement('optgroup'); grp.label = 'PLAZAS FIJAS';
+      plazas.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = u; grp.appendChild(o); });
+      el.appendChild(grp);
+    }
+    if (personas.length) {
+      const grp = document.createElement('optgroup'); grp.label = 'PERSONA RESPONSABLE';
+      personas.forEach(u => { const o = document.createElement('option'); o.value = u; o.textContent = `👤 ${u}`; grp.appendChild(o); });
+      el.appendChild(grp);
+    }
+    if (el.querySelector(`option[value="${saved}"]`)) el.value = saved;
+  });
+
+  // Gasolinas — keep static fractional groups, just add custom values
+  // (La lista de gasolinas es compleja con grupos, no la reemplazamos completamente)
+  console.log('✅ Selects actualizados desde MEX_CONFIG');
 }
 
 function configurarPermisosUI() {
@@ -9589,58 +9730,60 @@ async function cargarSolicitudesPendientes() {
 // Al renderizar la lista en cargarSolicitudesPendientes, el botón APROBAR debe verse así:
 // <button onclick="procesarSolicitud('${doc.id}', true)"> APROBAR </button>
 // <button onclick="procesarSolicitud('${doc.id}', false)"> RECHAZAR </button>
-
 async function procesarSolicitud(docId, esAprobado) {
-  // 1. Traemos todos los datos frescos del documento
   const docSnap = await db.collection("solicitudes_acceso").doc(docId).get();
-  if(!docSnap.exists) return;
+  if(!docSnap.exists) return showToast("La solicitud ya no existe", "error");
   
   const { email, nombre, puesto, telefono, password } = docSnap.data();
   let motivo = "";
   
+  // Aquí dejamos el prompt/confirm porque requerimos confirmación explícita o escritura
   if (!esAprobado) {
     motivo = prompt(`¿Motivo del rechazo para ${nombre}?\n(Este mensaje se enviará por correo)`);
     if (motivo === null) return; 
+    if (motivo.trim() === "") motivo = "No cumples con los criterios de acceso requeridos en este momento.";
   } else {
     if (!confirm(`¿Estás seguro de CREAR EL ACCESO para:\n${nombre} (${email})?`)) return;
   }
 
+  showToast("Procesando...", "info"); // Aviso visual mientras piensa
+
   try {
     if (esAprobado) {
-      // 💡 MAGIA: Creamos un hilo secundario de Firebase para crear la cuenta 
-      // usando la contraseña que escribió, SIN que a ti se te cierre la sesión.
       const appSecundaria = firebase.initializeApp(firebase.app().options, "AppRegistro_" + Date.now());
       try {
          await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
       } catch(authErr) {
-         console.warn("Aviso de Auth:", authErr.message); // Por si el correo ya existía en auth
+         console.warn("Aviso de Auth:", authErr.message); 
       }
       await appSecundaria.auth().signOut();
-      await appSecundaria.delete(); // Matamos el hilo
+      await appSecundaria.delete(); 
 
-      // Damos de alta su perfil en tu app
+      // Creación automática del perfil
       await db.collection("usuarios").doc(email).set({
         nombre: nombre,
         email: email,
-        telefono: telefono,
+        telefono: telefono || "",
         isAdmin: false,
         isGlobal: false,
         puesto: puesto
       });
 
-      // Marcamos como aprobada y BORRAMOS la contraseña de la BD por seguridad
       await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA", password: "" });
     } else {
       await db.collection("solicitudes_acceso").doc(docId).update({ estado: "RECHAZADA", motivo_rechazo: motivo, password: "" });
     }
 
-    enviarCorreoWebhook(email, nombre, esAprobado ? "APROBADO" : "RECHAZADO", motivo);
-    alert(`Solicitud ${esAprobado ? 'APROBADA y cuenta creada' : 'RECHAZADA'} con éxito.`);
-    cargarSolicitudesPendientes(); // Refrescamos lista
+    if (typeof enviarCorreoWebhook === "function") {
+      enviarCorreoWebhook(email, nombre, esAprobado ? "APROBADO" : "RECHAZADO", motivo);
+    }
+    
+    showToast(`Solicitud ${esAprobado ? 'APROBADA' : 'RECHAZADA'} con éxito`, "success");
+    cargarSolicitudesPendientes(); 
 
   } catch (error) {
     console.error("Error procesando solicitud:", error);
-    alert("Hubo un error al procesar la solicitud.");
+    showToast("Error en el servidor al procesar", "error");
   }
 }
 
@@ -10614,56 +10757,100 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
       </div><!-- /Canvas -->
 
-      <div id="modal-config-global" class="fleet-modal" style="z-index: 65000;">
-  <div class="fleet-header-top">
-    <div style="display:flex; align-items:center; gap: 10px;">
-      <h2 style="color:var(--primary); font-weight:900; margin:0;">
-        <span class="material-icons" style="color: #38bdf8; vertical-align: bottom;">settings_suggest</span> CONFIGURACIÓN GLOBAL
-      </h2>
-    </div>
-    <button onclick="document.getElementById('modal-config-global').classList.remove('active')" style="background: rgba(255,255,255,0.2); color: #64748b; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+    </div><!-- /Body -->
   </div>
-  
-  <div class="fleet-wrapper" style="flex-direction: row; background: #f8fafc; padding: 25px;">
-    
-    <div style="width: 250px; background: white; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column;">
-      <div style="padding: 20px; background: var(--mex-blue); color: white; font-weight: 900; font-size: 14px;">CATÁLOGOS</div>
-      <button class="cfg-tab active" onclick="abrirTabConfig('cfg-ubicaciones', this)">📍 Ubicaciones</button>
-      <button class="cfg-tab" onclick="abrirTabConfig('cfg-estados', this)">🛠️ Estados</button>
-      <button class="cfg-tab" onclick="abrirTabConfig('cfg-categorias', this)">🚗 Categorías</button>
-      <button class="cfg-tab" onclick="abrirTabConfig('cfg-gasolinas', this)">⛽ Gasolinas</button>
+</div>
+
+<!-- ── PANEL DE CONFIGURACIÓN GLOBAL (solo Admin Global) ─────────────── -->
+<div id="modal-config-global" class="fleet-modal" style="z-index: 70000;">
+  <div class="fleet-header-top">
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span class="material-icons" style="color:#38bdf8; font-size:26px;">settings_suggest</span>
+      <div>
+        <h2 style="color:var(--primary); font-weight:900; margin:0; font-size:17px;">CONFIGURACIÓN GLOBAL</h2>
+        <p style="margin:0; font-size:11px; color:#64748b; font-weight:600;">Edita catálogos del sistema · Los cambios aplican al instante en toda la app</p>
+      </div>
+    </div>
+    <button onclick="document.getElementById('modal-config-global').classList.remove('active')" style="background:#f1f5f9; color:#64748b; border:none; border-radius:10px; width:36px; height:36px; cursor:pointer; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+      <span class="material-icons" style="font-size:20px;">close</span>
+    </button>
+  </div>
+
+  <div class="fleet-wrapper" style="flex-direction:row; background:#f8fafc; padding:20px; gap:16px; min-height:0;">
+
+    <!-- Sidebar de pestañas -->
+    <div style="width:200px; flex-shrink:0; background:white; border-radius:14px; border:1px solid #e2e8f0; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+      <div style="padding:14px 16px; background:var(--mex-blue); color:white; font-weight:900; font-size:11px; text-transform:uppercase; letter-spacing:1.5px;">CATÁLOGOS</div>
+      <button class="cfg-tab active" onclick="abrirTabConfig('ubicaciones', this)">
+        <span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:8px;">place</span>Ubicaciones
+      </button>
+      <button class="cfg-tab" onclick="abrirTabConfig('estados', this)">
+        <span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:8px;">tune</span>Estados
+      </button>
+      <button class="cfg-tab" onclick="abrirTabConfig('categorias', this)">
+        <span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:8px;">directions_car</span>Categorías
+      </button>
+      <button class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)">
+        <span class="material-icons" style="font-size:16px; vertical-align:middle; margin-right:8px;">local_gas_station</span>Gasolinas
+      </button>
     </div>
 
-    <div style="flex: 1; background: white; border-radius: 16px; border: 1px solid var(--border); padding: 25px; display: flex; flex-direction: column;">
-      
-      <div style="display: flex; gap: 10px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px dashed #e2e8f0;">
-        <input type="text" id="cfg-nuevo-input" placeholder="Escribe el nuevo valor..." style="flex: 1; padding: 12px; border-radius: 12px; border: 2px solid var(--border); font-weight: 800; text-transform: uppercase; outline: none;">
-        <button onclick="agregarElementoConfig()" style="background: var(--mex-accent); color: white; border: none; padding: 0 25px; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-          <span class="material-icons">add_circle</span> AGREGAR
+    <!-- Panel principal -->
+    <div style="flex:1; background:white; border-radius:14px; border:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,0.06); min-width:0;">
+
+      <div style="display:flex; gap:10px; margin-bottom:16px; padding-bottom:16px; border-bottom:2px dashed #e2e8f0;">
+        <input type="text" id="cfg-nuevo-input" placeholder="Nuevo valor en MAYÚSCULAS..."
+          style="flex:1; padding:11px 14px; border-radius:10px; border:2px solid #e2e8f0; font-weight:800; text-transform:uppercase; outline:none; font-family:inherit; transition:border-color 0.2s;"
+          onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='#e2e8f0'"
+          onkeydown="if(event.key==='Enter') agregarElementoConfig()">
+        <button onclick="agregarElementoConfig()"
+          style="background:var(--mex-accent); color:white; border:none; padding:0 20px; border-radius:10px; font-weight:900; cursor:pointer; display:flex; align-items:center; gap:7px; font-family:inherit; white-space:nowrap; font-size:13px; transition:opacity 0.2s;"
+          onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+          <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
         </button>
       </div>
 
-      <div id="cfg-lista-items" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
-        </div>
+      <div id="cfg-lista-items" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:7px; min-height:120px;"></div>
 
-      <button onclick="guardarConfiguracionEnFirebase()" style="width: 100%; margin-top: 20px; padding: 15px; background: #10b981; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;">
-        <span class="material-icons">cloud_upload</span> PUBLICAR CAMBIOS EN LA APP
-      </button>
-
+      <div style="display:flex; gap:10px; margin-top:16px; padding-top:16px; border-top:1px solid #f1f5f9;">
+        <button onclick="document.getElementById('modal-config-global').classList.remove('active')"
+          style="flex:1; padding:12px; background:#f1f5f9; color:#64748b; border:none; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer; font-family:inherit;">
+          CANCELAR
+        </button>
+        <button onclick="guardarConfiguracionEnFirebase()"
+          style="flex:2; padding:12px; background:linear-gradient(135deg,#059669,#10b981); color:white; border:none; border-radius:10px; font-weight:900; font-size:13px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; font-family:inherit; box-shadow:0 4px 12px rgba(16,185,129,0.35); transition:all 0.2s;"
+          onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
+          <span class="material-icons" style="font-size:18px;">cloud_upload</span> PUBLICAR CAMBIOS
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
 <style>
-  .cfg-tab { padding: 15px 20px; text-align: left; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #475569; cursor: pointer; transition: 0.2s; }
-  .cfg-tab:hover { background: #f8fafc; color: var(--mex-blue); padding-left: 25px; }
+  .cfg-tab {
+    padding: 13px 16px; text-align: left; background: transparent; border: none;
+    border-bottom: 1px solid #f8fafc; font-weight: 700; font-size: 13px; color: #64748b;
+    cursor: pointer; transition: all 0.18s; display: flex; align-items: center;
+    font-family: inherit;
+  }
+  .cfg-tab:hover { background: #f8fafc; color: var(--mex-blue); padding-left: 22px; }
   .cfg-tab.active { background: #e0f2fe; color: var(--mex-blue); border-left: 4px solid var(--mex-accent); font-weight: 900; }
-  .cfg-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 800; color: #1e293b; }
+  .cfg-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 11px 14px; background: #f8fafc; border: 1.5px solid #e2e8f0;
+    border-radius: 10px; font-weight: 800; color: #1e293b; font-size: 13px;
+    transition: border-color 0.15s;
+  }
+  .cfg-item:hover { border-color: #cbd5e1; }
+  .cfg-item-color { width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+  .cfg-item-del {
+    background: #fee2e2; border: none; color: #ef4444; width: 30px; height: 30px;
+    border-radius: 8px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; flex-shrink: 0; transition: background 0.15s;
+  }
+  .cfg-item-del:hover { background: #fecaca; }
 </style>
-
-    </div><!-- /Body -->
-  </div>
-</div>
 
 <div id="modal-admin-solicitudes" class="fleet-modal" style="z-index: 65000;">
   <div class="fleet-header-top">
@@ -10685,6 +10872,162 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
   </div>
 </div>
 
+
+<!-- ══════════════════════════════════════════════════════
+     SISTEMA DE DIÁLOGOS — mexDialog (reemplaza alert/confirm/prompt)
+══════════════════════════════════════════════════════ -->
+<div id="mex-dialog-overlay">
+  <div class="mex-dlg-card">
+    <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
+      <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+    </div>
+    <div class="mex-dlg-body">
+      <h3 id="mex-dlg-title" class="mex-dlg-title"></h3>
+      <p id="mex-dlg-text" class="mex-dlg-text"></p>
+      <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap">
+        <input id="mex-dlg-input" class="mex-dlg-input" type="text" autocomplete="off">
+      </div>
+    </div>
+    <div class="mex-dlg-actions">
+      <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel"></button>
+      <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── mexDialog — Sistema global de diálogos ──────────────────────────────────
+// Reemplaza alert(), confirm() y prompt() con un diseño propio.
+//
+// Uso:
+//   mexDialog({ titulo, texto, tipo, icon, btnConfirmar, btnCancelar, input })
+//     .then(resultado => { /* true|false|string|null */ })
+//
+//   tipo: 'info' | 'success' | 'warning' | 'danger' | 'error'
+//   input: { tipo:'text'|'number', placeholder:'...', valor:'...' }  ← activa campo de entrada
+//   btnCancelar: string  ← si se incluye, aparece botón de cancelar (resolve null)
+//
+// Shortcuts:
+//   mexAlert(titulo, texto, tipo?)            → Promise<true>
+//   mexConfirm(titulo, texto, tipo?)          → Promise<boolean>
+//   mexPrompt(titulo, texto, placeholder?, inputTipo?) → Promise<string|null>
+
+(function() {
+  const tipoMap = {
+    info:    { icon: 'info',         cls: 'dlg-info'    },
+    success: { icon: 'check_circle', cls: 'dlg-success' },
+    warning: { icon: 'warning',      cls: 'dlg-warning' },
+    danger:  { icon: 'dangerous',    cls: 'dlg-danger'  },
+    error:   { icon: 'error',        cls: 'dlg-error'   },
+  };
+
+  let _cleanup = null;
+
+  window.mexDialog = function({ titulo = '', texto = '', tipo = 'info', icon, btnConfirmar = 'ACEPTAR', btnCancelar = null, input = null } = {}) {
+    return new Promise(resolve => {
+      const overlay    = document.getElementById('mex-dialog-overlay');
+      const iconRow    = document.getElementById('mex-dlg-icon-row');
+      const iconEl     = document.getElementById('mex-dlg-icon');
+      const titleEl    = document.getElementById('mex-dlg-title');
+      const textEl     = document.getElementById('mex-dlg-text');
+      const inputWrap  = document.getElementById('mex-dlg-input-wrap');
+      const inputEl    = document.getElementById('mex-dlg-input');
+      const cancelBtn  = document.getElementById('mex-dlg-cancel');
+      const confirmBtn = document.getElementById('mex-dlg-confirm');
+      const card       = overlay.querySelector('.mex-dlg-card');
+
+      // Clean up previous listeners if any
+      if (_cleanup) { _cleanup(); _cleanup = null; }
+
+      const cfg = tipoMap[tipo] || tipoMap.info;
+
+      // Icon row
+      iconRow.className = `mex-dlg-icon-row ${cfg.cls}`;
+      iconEl.innerText  = icon || cfg.icon;
+
+      // Content
+      titleEl.innerText = titulo;
+      textEl.innerText  = texto;
+
+      // Input field
+      if (input) {
+        inputWrap.style.display = 'block';
+        inputEl.type            = input.tipo || 'text';
+        inputEl.placeholder     = input.placeholder || '';
+        inputEl.value           = input.valor || '';
+        setTimeout(() => inputEl.focus(), 60);
+      } else {
+        inputWrap.style.display = 'none';
+        inputEl.value = '';
+      }
+
+      // Cancel button
+      if (btnCancelar) {
+        cancelBtn.style.display = '';
+        cancelBtn.innerText     = btnCancelar;
+      } else {
+        cancelBtn.style.display = 'none';
+      }
+
+      // Confirm button
+      confirmBtn.innerText   = btnConfirmar;
+      confirmBtn.className   = `mex-dlg-btn mex-dlg-btn-confirm ${cfg.cls}`;
+
+      // Show with animation
+      overlay.classList.add('active');
+      card.style.animation = 'none';
+      void card.offsetWidth;
+      card.style.animation = '';
+
+      function hide() {
+        overlay.classList.remove('active');
+        document.removeEventListener('keydown', onKey);
+        _cleanup = null;
+      }
+
+      function onConfirm() {
+        const val = input ? inputEl.value.trim() : true;
+        hide(); resolve(val);
+      }
+      function onCancel() {
+        hide(); resolve(null);
+      }
+
+      const onKey = e => {
+        if (e.key === 'Enter')  { e.preventDefault(); onConfirm(); }
+        if (e.key === 'Escape' && btnCancelar) { onCancel(); }
+      };
+
+      confirmBtn.onclick = onConfirm;
+      cancelBtn.onclick  = onCancel;
+
+      // Close on overlay click (only if there's a cancel button)
+      overlay.onclick = e => { if (e.target === overlay && btnCancelar) onCancel(); };
+
+      document.addEventListener('keydown', onKey);
+      _cleanup = () => document.removeEventListener('keydown', onKey);
+    });
+  };
+
+  // Shortcuts
+  window.mexAlert = function(titulo, texto, tipo = 'info') {
+    return window.mexDialog({ titulo, texto, tipo, btnConfirmar: 'ENTENDIDO' });
+  };
+
+  window.mexConfirm = function(titulo, texto, tipo = 'warning') {
+    return window.mexDialog({ titulo, texto, tipo, btnConfirmar: 'SÍ', btnCancelar: 'CANCELAR' })
+      .then(r => r !== null);
+  };
+
+  window.mexPrompt = function(titulo, texto, placeholder = '', inputTipo = 'text') {
+    return window.mexDialog({
+      titulo, texto, tipo: 'info',
+      input: { tipo: inputTipo, placeholder },
+      btnConfirmar: 'ACEPTAR', btnCancelar: 'CANCELAR'
+    });
+  };
+})();
+</script>
 
 </body>
 </html>
