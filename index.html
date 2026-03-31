@@ -7,6 +7,9 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <title>MAPA - beta</title>
   <style>
 
@@ -2383,38 +2386,17 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 </div>
 
 <div id="login-overlay" class="login-overlay">
-  <div class="login-box">
-    <h2 style="color:var(--primary); font-weight:900; margin-bottom:5px; font-size:28px;"> MAPA</h2>
-    <p style="color:#64748b; margin-bottom:25px; font-size:14px; font-weight:600;">Selecciona tu usuario e ingresa tu PIN</p>
-    
-    <div class="modern-select-wrapper" id="loginUserWrapper">
-      <div class="select-trigger" id="selectTrigger" onclick="toggleModernDropdown()">
-        <div class="user-info">
-          <span class="material-icons">account_circle</span>
-          <span id="selectedUserText">Cargando usuarios...</span>
-        </div>
-        <span class="material-icons" id="selectArrow">expand_more</span>
-      </div>
-      
-      <input type="hidden" id="userSelect" value="">
-      
-      <div class="select-dropdown" id="modernDropdown">
-        <div class="dropdown-search">
-          <span class="material-icons" style="font-size:18px; color:#94a3b8;">search</span>
-          <input type="text" id="dropdownSearchInput" placeholder="Buscar usuario..." oninput="filterModernUsers()">
-        </div>
-        <div class="dropdown-list" id="dropdownList">
-          <div style="padding:15px; text-align:center; color:#64748b;"><span class="material-icons spinner">sync</span></div>
-        </div>
-      </div>
-    </div>
-
-    <input type="password" id="pinInput" placeholder="****" maxlength="4" style="text-align:center; font-size:30px; padding:15px; width:100%; border-radius:12px; border:2px solid var(--border); margin-bottom:15px; letter-spacing:15px; outline:none; font-weight:900;">
-    
-    <button id="btnLoginBtn" onclick="verificarLogin()" disabled style="width:100%; padding:18px; background:var(--primary); color:white; border:none; border-radius:12px; font-weight:900; font-size:16px; cursor:pointer; box-shadow: 0 4px 10px rgba(0,74,153,0.3); transition: 0.3s; opacity: 0.5;">ESPERANDO...</button>
-    
-    <p id="login-error" style="color:#ef4444; margin-top:15px; display:none; font-size:14px; font-weight:800;">❌ PIN Incorrecto</p>
-  </div>
+  <div class="login-box" style="max-width: 350px; padding: 40px;">
+  <img src="img/logo.png" style="width: 120px; margin-bottom: 20px;">
+  <h3 style="color:#1e293b; font-weight:900;">ACCESO CORPORATIVO</h3>
+  
+  <input type="email" id="auth_email" placeholder="Correo electrónico" style="width:100%; padding:15px; border-radius:12px; border:2px solid #e2e8f0; margin-bottom:10px; font-weight:700;">
+  <input type="password" id="auth_pass" placeholder="Contraseña" style="width:100%; padding:15px; border-radius:12px; border:2px solid #e2e8f0; margin-bottom:20px; font-weight:700;">
+  
+  <button onclick="loginConToken()" id="btnLogin" style="width:100%; padding:18px; background:#004a99; color:white; border:none; border-radius:12px; font-weight:900; cursor:pointer;">
+    ENTRAR AL SISTEMA
+  </button>
+</div>
 </div>
 
 <aside id="admin-sidebar" class="admin-sidebar">
@@ -2946,7 +2928,9 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
             <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span> Insertar Unidad Global</div>
             <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span> Editar Unidad Global</div>
             <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
-          <div class="mc-item" onclick="abrirPanelConfiguracion()"><span class="material-icons" style="color: #f59e0b;">settings</span> Panel de Configuración</div>
+          <div class="mc-item" id="btnConfigGlobal" onclick="abrirPanelConfiguracion()">
+  <span class="material-icons" style="color: #f59e0b;">settings</span> Panel de Configuración
+</div>
             </div>
     
           <div id="mcPdfReservas" class="mc-item" onclick="document.getElementById('modal-lector-reservas').classList.add('active'); toggleMoreControls();">
@@ -3486,6 +3470,40 @@ function cambiarTabFlota(tabSeleccionado) {
   document.getElementById('formTitleFlota').innerText = "SELECCIONA UNA UNIDAD";
 }
 
+async function loginConToken() {
+  const email = document.getElementById('auth_email').value;
+  const pass = document.getElementById('auth_pass').value;
+  const btn = document.getElementById('btnLogin');
+
+  btn.disabled = true;
+  btn.innerText = "VERIFICANDO...";
+
+  try {
+    // Firebase se encarga de la encriptación y el token
+    const credencial = await firebase.auth().signInWithEmailAndPassword(email, pass);
+    const uid = credencial.user.uid;
+
+    // Buscamos sus permisos en la colección 'usuarios' usando su UID
+    const docUser = await db.collection("usuarios").doc(uid).get();
+    
+    if (docUser.exists) {
+      const uData = docUser.data();
+      USER_NAME = uData.nombre;
+      userRole = uData.isAdmin ? 'admin' : 'visitante';
+      isGlobalAdmin = uData.isGlobal || false;
+
+      guardarSesionEIniciar(); // Llamamos a tu configuración de botones
+    } else {
+      throw new Error("Usuario no registrado en base de datos");
+    }
+  } catch (error) {
+    alert("Error de acceso: " + error.message);
+    btn.disabled = false;
+    btn.innerText = "ENTRAR AL SISTEMA";
+  }
+}
+
+
 // ==========================================
 // 1. LÓGICA DE LOGIN Y ROLES
 // ==========================================
@@ -3577,80 +3595,70 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }).catch(e => console.error(e));
 });
-
-function guardarSesionEIniciar() {
-  localStorage.setItem('mex_mapa_session', JSON.stringify({ 
-    user: USER_NAME, 
-    role: userRole, 
-    isGlobal: isGlobalAdmin 
-  }));
-  localStorage.setItem('mex_mapa_last_user', USER_NAME);
-
-  // --- 🏷️ CATEGORIZACIÓN DE BOTONES (Basado en IDs del HTML) ---
-  // Solo los Jefes Supremos (isGlobalAdmin)
-  const soloJefes = [
-    'btnMenuUsuarios',
-    'btnMenuAlertasGlobales',
-    'btnMenuHistorialAlertas',
-    'btnLockMaestro',
-    'btnMenuHistorial',
-    'btnLockAdminSidebar',
-    'btnEditorMapa'
-  ];
-  
-// Admins Normales + Jefes (Operación avanzada)
-  const operacionAdmin = [
-    'btnMenuAuditoria', 
-    'btnMenuBitacora', 
-    'btnMenuExportar',
-    'btnVerCuadres' // <-- AÑADE ESTO AQUÍ
-  ];
-
-// Dentro de la lógica donde verificas isGlobalAdmin:
-const btnLockMaestro = document.getElementById('btnLockAdminSidebar');
-  if (btnLockMaestro) {
-    btnLockMaestro.style.display = (isGlobalAdmin === true) ? 'flex' : 'none';
-  }
-
-  // 1. Mostrar la tuerca ⚙️ siempre que haya una sesión iniciada
-  const btnAdminNut = document.getElementById('btnAdmin');
-  if (btnAdminNut) btnAdminNut.style.display = 'flex';
-
-  if (userRole === 'admin') {
-    // A) MOSTRAR HERRAMIENTAS DE OPERACIÓN (Bitácora, Exportar, Auditoría)
-    operacionAdmin.forEach(id => {
-      const btn = document.getElementById(id);
-      if(btn) btn.style.display = 'flex';
-    });
-
-    // B) FILTRAR LO QUE ES EXCLUSIVO DE JEFES GLOBALES
-    if (isGlobalAdmin) {
-      soloJefes.forEach(id => {
-        const btn = document.getElementById(id);
-        if(btn) btn.style.display = 'flex';
-      });
-    } else {
-      // Si es Admin Normal, nos aseguramos de que lo de Jefe esté oculto
-      soloJefes.forEach(id => {
-        const btn = document.getElementById(id);
-        if(btn) btn.style.display = 'none';
-      });
+// Variable global de Auth
+const auth = firebase.auth();
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    try {
+      // 1. Descarga el perfil del usuario validado
+      const docUser = await db.collection(COL.USERS).doc(user.uid).get();
+      
+      if(docUser.exists) {
+        const datos = docUser.data();
+        USER_NAME = datos.nombre; 
+        userRole = datos.isAdmin ? 'admin' : 'visitante';
+        isGlobalAdmin = datos.isGlobal || false;
+        
+        // 2. 🔥 APLICAMOS LOS PERMISOS VISUALES BASADOS EN LA BASE DE DATOS
+        configurarPermisosUI();
+        
+        // 3. Oculta el login y arranca el mapa
+        iniciarApp(true); 
+      } else {
+        showLoginError("❌ Usuario sin permisos en base de datos.");
+        auth.signOut();
+      }
+    } catch(e) {
+      console.error(e);
     }
-    
-    // Cargar base maestra para autocompletado (Solo Admins)
-    cargarMaestra();
-
   } else {
-    // C) ES OPERATIVO: Ocultamos TODO lo de los dos grupos anteriores
-    // Solo se quedan "Gestión de Flota" y "Mapa de Calor" por defecto
-    const todosLosBloqueados = [...soloJefes, ...operacionAdmin];
-    todosLosBloqueados.forEach(id => {
-      const btn = document.getElementById(id);
-      if(btn) btn.style.display = 'none';
+    document.getElementById('login-overlay').style.display = 'flex';
+  }
+});
+
+// 🔑 FUNCIÓN DE INGRESO
+async function iniciarSesionSegura() {
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value.trim();
+  const btn = document.getElementById('btnLoginBtn');
+
+  if(!email || !password) return showLoginError("❌ Ingresa correo y contraseña");
+
+  btn.disabled = true;
+  btn.innerHTML = `<span class="material-icons spinner">sync</span> VERIFICANDO...`;
+
+  try {
+    // Firebase encripta la contraseña, la envía a Google y devuelve un Token
+    await auth.signInWithEmailAndPassword(email, password);
+    // ¡Ojo! No llamamos a iniciarApp() aquí. El Guardián de arriba detectará el login y lo hará solo.
+  } catch (error) {
+    btn.disabled = false;
+    btn.innerHTML = `INICIAR SESIÓN`;
+    if(error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+      showLoginError("❌ Correo o contraseña incorrectos");
+    } else {
+      showLoginError("❌ Error de red");
+    }
+  }
+}
+
+// 🚪 FUNCIÓN DE CIERRE (Reemplaza la que tienes)
+function confirmarCierreSesion() {
+  if(confirm("¿Estás seguro de cerrar sesión?")) {
+    auth.signOut().then(() => {
+      window.location.reload(); // Recarga la app para limpiar memoria
     });
   }
-
-  iniciarApp(true);
 }
 
 // --- FUNCIONES DEL NUEVO SELECTOR ---
@@ -3716,47 +3724,6 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// --- VERIFICAR Y GUARDAR SESIÓN ---
-function verificarLogin() {
-  const usuarioSeleccionado = document.getElementById('userSelect').value;
-  const pinIngresado = document.getElementById('pinInput').value;
-  const errorMsg = document.getElementById('login-error');
-  
-  if(!usuarioSeleccionado) return showLoginError("❌ Selecciona un usuario");
-
-  const userData = dbUsuariosLogin.find(u => u.usuario === usuarioSeleccionado);
-
-  if (userData && userData.password === pinIngresado) {
-    const btn = document.getElementById('btnLoginBtn');
-    btn.disabled = true;
-    btn.innerHTML = `<span class="material-icons spinner">sync</span> VERIFICANDO PERMISOS...`;
-
-    USER_NAME = userData.usuario;
-    userRole = userData.isAdmin ? 'admin' : 'visitante';
-
-    // MAGIA DE SEGURIDAD: Si el usuario es Admin, comprobamos en la DB si es Global
-    if (userRole === 'admin') {
-      api.verificarAdminGlobal(USER_NAME).then(esGlobal => {
-           isGlobalAdmin = esGlobal;
-           guardarSesionEIniciar();
-        }).catch(() => {
-           isGlobalAdmin = false; // Ante duda, admin normal
-           guardarSesionEIniciar();
-        });
-    } else {
-      isGlobalAdmin = false;
-      guardarSesionEIniciar();
-    }
-  } else {
-    showLoginError("❌ PIN Incorrecto");
-  }
-}
-
-function showLoginError(msg) {
-  const err = document.getElementById('login-error');
-  err.innerText = msg; err.style.display = 'block';
-  setTimeout(() => { err.style.display = 'none'; }, 3000);
-}
 
 // Trigger de Enter
 document.getElementById('pinInput').addEventListener('keypress', function (e) {
@@ -9322,6 +9289,70 @@ async function guardarConfiguracionEnFirebase() {
   }
 }
 
+function configurarPermisosUI() {
+  // --- 🏷️ CATEGORIZACIÓN DE BOTONES ---
+  const soloJefes = [
+    'btnMenuUsuarios',
+    'btnMenuAlertasGlobales',
+    'btnMenuHistorialAlertas',
+    'btnLockMaestro',
+    'btnMenuHistorial',
+    'btnLockAdminSidebar',
+    'btnEditorMapa',
+    'btnConfigGlobal' // <--- TU NUEVO PANEL YA INCLUIDO AQUÍ
+  ];
+  
+  const operacionAdmin = [
+    'btnMenuAuditoria', 
+    'btnMenuBitacora', 
+    'btnMenuExportar',
+    'btnVerCuadres' 
+  ];
+
+  const btnLockMaestro = document.getElementById('btnLockAdminSidebar');
+  if (btnLockMaestro) {
+    btnLockMaestro.style.display = (isGlobalAdmin === true) ? 'flex' : 'none';
+  }
+
+  const btnAdminNut = document.getElementById('btnAdmin');
+  if (btnAdminNut) btnAdminNut.style.display = 'flex';
+
+  if (userRole === 'admin') {
+    // A) MOSTRAR HERRAMIENTAS DE OPERACIÓN
+    operacionAdmin.forEach(id => {
+      const btn = document.getElementById(id);
+      if(btn) btn.style.display = 'flex';
+    });
+
+    // B) FILTRAR EXCLUSIVO DE JEFES GLOBALES
+    if (isGlobalAdmin) {
+      soloJefes.forEach(id => {
+        const btn = document.getElementById(id);
+        if(btn) btn.style.display = 'flex';
+      });
+      
+      // 🔥 IMPORTANTE: Aquí mandamos llamar tu nueva configuración desde Firebase
+      inicializarConfiguracion();
+
+    } else {
+      soloJefes.forEach(id => {
+        const btn = document.getElementById(id);
+        if(btn) btn.style.display = 'none';
+      });
+    }
+    
+    // Cargar base maestra para autocompletado
+    if (typeof cargarMaestra === "function") cargarMaestra();
+
+  } else {
+    // C) ES OPERATIVO: Ocultamos TODO
+    const todosLosBloqueados = [...soloJefes, ...operacionAdmin];
+    todosLosBloqueados.forEach(id => {
+      const btn = document.getElementById(id);
+      if(btn) btn.style.display = 'none';
+    });
+  }
+}
 
 
 </script>
