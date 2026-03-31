@@ -3827,68 +3827,33 @@ let radarInterval = null;
 let isSaving = false;
 
 const auth = firebase.auth();
+
+// Handler único: valida por email (funciona con Google y email/contraseña)
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     try {
-      // 1. Descarga el perfil del usuario validado
-      const docUser = await db.collection(COL.USERS).doc(user.uid).get();
-      
-      if(docUser.exists) {
-        const datos = docUser.data();
-        USER_NAME = datos.nombre; 
-        userRole = datos.isAdmin ? 'admin' : 'visitante';
-        isGlobalAdmin = datos.isGlobal || false;
-        
-        // 2. 🔥 APLICAMOS LOS PERMISOS VISUALES BASADOS EN LA BASE DE DATOS
-        configurarPermisosUI();
-        
-        // 3. Oculta el login y arranca el mapa
-        iniciarApp(true); 
-      } else {
-        showLoginError("❌ Usuario sin permisos en base de datos.");
-        auth.signOut();
-      }
-    } catch(e) {
-      console.error(e);
-    }
-  } else {
-    document.getElementById('login-overlay').style.display = 'flex';
-  }
-});
-// Asegúrate de tener la constante de auth inicializada al principio de tu script
-// const auth = firebase.auth(); 
+      const snapshot = await db.collection(COL.USERS).where("email", "==", user.email).get();
 
-
-
-// 🛡️ EL GUARDIÁN MAESTRO
-auth.onAuthStateChanged(async (user) => {
-  if (user) {
-    try {
-      // Cruzamos el email de Google con nuestra base de datos
-      // (Buscamos si hay un documento en "usuarios" con su email)
-      const snapshot = await db.collection("usuarios").where("email", "==", user.email).get();
-      
-      if(!snapshot.empty) {
-        // ¡El usuario existe en nuestra BD y tiene permisos!
+      if (!snapshot.empty) {
         const datos = snapshot.docs[0].data();
         USER_NAME = datos.nombre;
         userRole = datos.isAdmin ? 'admin' : 'visitante';
         isGlobalAdmin = datos.isGlobal || false;
 
-        configurarPermisosUI(); // Tu función que oculta/muestra botones
+        configurarPermisosUI();
         document.getElementById('login-overlay').style.display = 'none';
         iniciarApp(true);
       } else {
-        // Logueó con Google pero NO está registrado en nuestra app
-        showLoginError(`El correo ${user.email} no tiene permisos.`);
-        auth.signOut(); // Lo expulsamos inmediatamente
-        document.getElementById('sol_email').value = user.email; // Prellenamos el form de solicitud por cortesía
+        showLoginError(`❌ El correo ${user.email} no tiene permisos en el sistema.`);
+        auth.signOut();
+        const solEmail = document.getElementById('sol_email');
+        if (solEmail) solEmail.value = user.email;
       }
     } catch(e) {
       console.error("Error validando usuario:", e);
+      showLoginError("❌ Error de conexión. Intenta de nuevo.");
     }
   } else {
-    // No hay sesión
     document.getElementById('login-overlay').style.display = 'flex';
   }
 });
@@ -6031,7 +5996,7 @@ function iniciarRadarNotificaciones() {
 let STRING_ULTIMO_FEED = ""; // Memoria para detectar cambios reales
 
 function hacerPingNotificaciones() {
-  if (window.PAUSA_CONEXIONES) return;
+  if (window.PAUSA_CONEXIONES || !USER_NAME) return;
   console.log("📡 RADAR: Sincronizando estados...");
 
   api.checarNotificaciones(USER_NAME).then(res => {
