@@ -2946,7 +2946,8 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
             <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span> Insertar Unidad Global</div>
             <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span> Editar Unidad Global</div>
             <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
-          </div>
+          <div class="mc-item" onclick="abrirPanelConfiguracion()"><span class="material-icons" style="color: #f59e0b;">settings</span> Panel de Configuración</div>
+            </div>
     
           <div id="mcPdfReservas" class="mc-item" onclick="document.getElementById('modal-lector-reservas').classList.add('active'); toggleMoreControls();">
             <span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas
@@ -9189,6 +9190,105 @@ function guardarMapaEditor(btn) {
     });
 }
 
+async function migrarConfiguracionAFirestore() {
+  const configInicial = {
+    empresa: {
+      nombre: "MEX RENT A CAR",
+      slogan: "Administración de Flota",
+      colorPrincipal: "#004a99"
+    },
+    listas: {
+      ubicaciones: ["PATIO","TALLER","AGENCIA","TALLER EXTERNO","HYP COBIAN","JORGE","GERARDO","OSVALDO","BALANDRAN","ULISES","JOSUE","ISRAEL","ISAAC","ANGEL","LEO","BRAULIO","LONGORIA","MARTHA","FERNANDA","ZALLO","UBALDO","JOSE LUIS","PASCUAL","EDUARDO","EDGAR"],
+      estados: [
+        { id:"LISTO", color:"#10b981", orden:1 },
+        { id:"SUCIO", color:"#f59e0b", orden:2 },
+        { id:"MANTENIMIENTO", color:"#ef4444", orden:3 },
+        { id:"RESGUARDO", color:"#64748b", orden:4 },
+        { id:"TRASLADO", color:"#c084fc", orden:5 },
+        { id:"EN RENTA", color:"#38bdf8", orden:6 },
+        { id:"NO ARRENDABLE", color:"#cbd5e1", orden:7 },
+        { id:"HYP", color:"#ef4444", orden:8 },
+        { id:"RETENIDA", color:"#78350f", orden:92 },
+        { id:"VENTA", color:"#1e293b", orden:93 }
+      ],
+      gasolinas: ["F","15/16","7/8","13/16","3/4","11/16","5/8","9/16","H","7/16","3/8","5/16","1/4","3/16","1/8","1/16","E","N/A"],
+      categorias: ["ECAR","CCAR","ICAR","FCAR","SCAR","CFAR","SFAR","FWAR","MVAR","IVAH","MVAH","FFBH","CKMR","MPMN","PFAR","GVMD"]
+    }
+  };
+
+  await db.collection("configuracion").doc("empresa").set(configInicial.empresa);
+  await db.collection("configuracion").doc("listas").set(configInicial.listas);
+  console.log("✅ ¡Migración de configuración completada!");
+}
+
+
+let TAB_ACTIVA_CFG = 'ubicaciones';
+
+function abrirPanelConfiguracion() {
+  toggleMoreControls();
+  document.getElementById('modal-config-global').classList.add('active');
+  renderizarListaConfig();
+}
+
+function abrirTabConfig(tabName, btnElement) {
+  document.querySelectorAll('.cfg-tab').forEach(btn => btn.classList.remove('active'));
+  btnElement.classList.add('active');
+  TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
+  renderizarListaConfig();
+}
+
+function renderizarListaConfig() {
+  const container = document.getElementById('cfg-lista-items');
+  const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
+  
+  container.innerHTML = lista.map((item, index) => {
+    // Si es estado (tiene objeto), sacamos el ID, sino sacamos el string directo
+    const valorText = typeof item === 'object' ? item.id : item; 
+    
+    return `
+      <div class="cfg-item">
+        <span>${valorText}</span>
+        <button onclick="eliminarElementoConfig(${index})" style="background: #fee2e2; border: none; color: #ef4444; width: 30px; height: 30px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center;">
+          <span class="material-icons" style="font-size: 16px;">delete</span>
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function agregarElementoConfig() {
+  const input = document.getElementById('cfg-nuevo-input');
+  const val = input.value.trim().toUpperCase();
+  if(!val) return;
+
+  if(TAB_ACTIVA_CFG === 'estados') {
+    window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].push({ id: val, color: "#1e293b", orden: 99 });
+  } else {
+    window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].push(val);
+  }
+  
+  input.value = "";
+  renderizarListaConfig();
+}
+
+function eliminarElementoConfig(index) {
+  window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);
+  renderizarListaConfig();
+}
+
+async function guardarConfiguracionEnFirebase() {
+  showToast("Subiendo nueva configuración...", "warning");
+  
+  try {
+    await api.guardarConfiguracionListas(window.MEX_CONFIG.listas);
+    showToast("¡Configuración actualizada en vivo!", "success");
+    llenarSelectsDinamicos(); // Re-inyecta en la UI actual sin recargar
+    document.getElementById('modal-config-global').classList.remove('active');
+  } catch (error) {
+    showToast("Error al guardar", "error");
+  }
+}
+
 </script>
 
 <div id="modal-insertar-admin" class="modal-overlay" style="z-index: 6000;">
@@ -10133,6 +10233,53 @@ function guardarMapaEditor(btn) {
         </div>
 
       </div><!-- /Canvas -->
+
+      <div id="modal-config-global" class="fleet-modal" style="z-index: 65000;">
+  <div class="fleet-header-top">
+    <div style="display:flex; align-items:center; gap: 10px;">
+      <h2 style="color:var(--primary); font-weight:900; margin:0;">
+        <span class="material-icons" style="color: #38bdf8; vertical-align: bottom;">settings_suggest</span> CONFIGURACIÓN GLOBAL
+      </h2>
+    </div>
+    <button onclick="document.getElementById('modal-config-global').classList.remove('active')" style="background: rgba(255,255,255,0.2); color: #64748b; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+  </div>
+  
+  <div class="fleet-wrapper" style="flex-direction: row; background: #f8fafc; padding: 25px;">
+    
+    <div style="width: 250px; background: white; border-radius: 16px; border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column;">
+      <div style="padding: 20px; background: var(--mex-blue); color: white; font-weight: 900; font-size: 14px;">CATÁLOGOS</div>
+      <button class="cfg-tab active" onclick="abrirTabConfig('cfg-ubicaciones', this)">📍 Ubicaciones</button>
+      <button class="cfg-tab" onclick="abrirTabConfig('cfg-estados', this)">🛠️ Estados</button>
+      <button class="cfg-tab" onclick="abrirTabConfig('cfg-categorias', this)">🚗 Categorías</button>
+      <button class="cfg-tab" onclick="abrirTabConfig('cfg-gasolinas', this)">⛽ Gasolinas</button>
+    </div>
+
+    <div style="flex: 1; background: white; border-radius: 16px; border: 1px solid var(--border); padding: 25px; display: flex; flex-direction: column;">
+      
+      <div style="display: flex; gap: 10px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 2px dashed #e2e8f0;">
+        <input type="text" id="cfg-nuevo-input" placeholder="Escribe el nuevo valor..." style="flex: 1; padding: 12px; border-radius: 12px; border: 2px solid var(--border); font-weight: 800; text-transform: uppercase; outline: none;">
+        <button onclick="agregarElementoConfig()" style="background: var(--mex-accent); color: white; border: none; padding: 0 25px; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+          <span class="material-icons">add_circle</span> AGREGAR
+        </button>
+      </div>
+
+      <div id="cfg-lista-items" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+        </div>
+
+      <button onclick="guardarConfiguracionEnFirebase()" style="width: 100%; margin-top: 20px; padding: 15px; background: #10b981; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px;">
+        <span class="material-icons">cloud_upload</span> PUBLICAR CAMBIOS EN LA APP
+      </button>
+
+    </div>
+  </div>
+</div>
+
+<style>
+  .cfg-tab { padding: 15px 20px; text-align: left; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; font-weight: 700; color: #475569; cursor: pointer; transition: 0.2s; }
+  .cfg-tab:hover { background: #f8fafc; color: var(--mex-blue); padding-left: 25px; }
+  .cfg-tab.active { background: #e0f2fe; color: var(--mex-blue); border-left: 4px solid var(--mex-accent); font-weight: 900; }
+  .cfg-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; font-weight: 800; color: #1e293b; }
+</style>
 
     </div><!-- /Body -->
   </div>

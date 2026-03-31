@@ -28,6 +28,7 @@ const COL = {
   AUDITORIA: "auditoria",
   HISTORIAL_CUADRES: "historial_cuadres",
   SIPP:      "sipp",
+  CONFIG: "configuracion"
 };
 
 const SETTINGS_DOC = "principal";
@@ -614,6 +615,25 @@ const API_FUNCTIONS = {
       };
     });
   },
+
+  // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
+  async obtenerConfiguracion() {
+    const [snapEmpresa, snapListas] = await Promise.all([
+      db.collection(COL.CONFIG).doc("empresa").get(),
+      db.collection(COL.CONFIG).doc("listas").get()
+    ]);
+    return {
+      empresa: snapEmpresa.exists ? snapEmpresa.data() : { nombre: "MEX RENT A CAR" },
+      listas: snapListas.exists ? snapListas.data() : { ubicaciones: [], estados: [], gasolinas: [], categorias: [] }
+    };
+  },
+
+  async guardarConfiguracionListas(listasActualizadas) {
+    await db.collection(COL.CONFIG).doc("listas").set(listasActualizadas, { merge: true });
+    await _registrarLog("SISTEMA", "⚙️ Modificó los catálogos del sistema", "Admin Global");
+    return "EXITO";
+  },
+
   async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats) {
     await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin);
     await db.collection(COL.HISTORIAL_CUADRES).add({
@@ -739,6 +759,9 @@ window.obtenerUrlImagenModelo = function(modelo) {
   for (const nombre in IMAGENES_MODELOS) { if (nombre.includes(key)) return IMAGENES_MODELOS[nombre]; }
   return "img/no-model.png";
 };
+
+
+
 
 // ─── API PÚBLICA ─────────────────────────────────────────────
 window.api = API_FUNCTIONS;
