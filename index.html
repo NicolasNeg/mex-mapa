@@ -987,49 +987,143 @@ header {
     #searchInputMobile { height: 50px !important; font-size: 16px !important; border-radius: 12px !important; }
     #sidebar .clear-btn { width: 30px !important; height: 30px !important; right: 12px !important; }
 
-    /* --- LOGIN Y SIDEBAR ADMIN --- */
-.login-overlay { position: fixed; inset: 0; background: #e2e8f0; z-index: 99999; display: flex; align-items: center; justify-content: center; }
-  
-  .login-split-container {
-    display: flex; width: 100%; max-width: 900px; height: 550px; background: white;
-    border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    overflow: hidden; animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    /* --- LOGIN --- */
+  .login-overlay {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #060e1c 0%, #0c1e3a 55%, #07152b 100%);
+    z-index: 99999; display: flex; align-items: center; justify-content: center;
+    padding: 20px; box-sizing: border-box;
   }
-  
-  /* Mitad de la Imagen */
+  .login-split-container {
+    display: flex; width: 100%; max-width: 940px; height: 590px;
+    border-radius: 28px; overflow: hidden;
+    box-shadow: 0 50px 100px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04);
+    animation: slideUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
   .login-left-side {
-    flex: 1; position: relative; display: flex; flex-direction: column; justify-content: flex-end;
-    /* Imagen de stock de autos (Cámbiala por una de tu patio si quieres) */
+    flex: 1.1; position: relative;
     background: url('https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=800') center/cover no-repeat;
   }
   .login-left-overlay {
-    background: linear-gradient(to top, rgba(13,42,84, 0.95) 0%, rgba(13,42,84, 0.1) 100%);
-    padding: 40px; color: white; display: flex; flex-direction: column; justify-content: flex-end; height: 100%;
+    position: absolute; inset: 0;
+    background: linear-gradient(160deg, rgba(6,14,28,0.3) 0%, rgba(6,14,28,0.82) 52%, rgba(6,14,28,0.97) 100%);
+    padding: 44px 40px; display: flex; flex-direction: column; justify-content: flex-end;
   }
-  .login-left-overlay h1 { font-weight: 900; font-size: 42px; margin: 0; letter-spacing: 1px; line-height: 1; }
-  .login-left-overlay h2 { font-weight: 800; font-size: 20px; color: #38bdf8; margin: 0 0 15px 0; letter-spacing: 3px; }
-  .login-left-overlay p { font-size: 14px; font-weight: 500; color: #cbd5e1; margin: 0; max-width: 90%; }
+  .login-brand { display: flex; flex-direction: column; margin-bottom: 10px; }
+  .login-brand-mex { font-size: 62px; font-weight: 900; line-height: 1; color: white; letter-spacing: -2px; }
+  .login-brand-sub { font-size: 12px; font-weight: 800; color: #38bdf8; letter-spacing: 5px; margin-top: 5px; text-transform: uppercase; }
+  .login-brand-desc { font-size: 13px; color: rgba(203,213,225,0.6); line-height: 1.65; margin: 14px 0 26px; max-width: 86%; font-weight: 400; }
+  .login-stats { display: flex; gap: 28px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 20px; }
+  .login-stat { display: flex; flex-direction: column; }
+  .login-stat-num { font-size: 21px; font-weight: 900; color: white; line-height: 1; }
+  .login-stat-lbl { font-size: 10px; color: rgba(148,163,184,0.6); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
 
-  /* Mitad del Formulario */
   .login-right-side {
-    flex: 1; padding: 40px; display: flex; align-items: center; justify-content: center; background: white;
+    flex: 1; background: white; padding: 48px 44px;
+    display: flex; align-items: center; justify-content: center;
   }
-  .login-form-wrapper { width: 100%; max-width: 320px; text-align: left; }
-  .login-form-wrapper h3 { color: #0f172a; font-weight: 900; font-size: 26px; margin: 0 0 5px; }
-  .login-form-wrapper p { color: #64748b; font-size: 13px; font-weight: 600; margin: 0 0 30px; }
+  .login-form-wrapper { width: 100%; max-width: 300px; }
+  .login-logo-mark {
+    width: 46px; height: 46px; background: linear-gradient(135deg, #0b2548, #1a53a0);
+    border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 24px; box-shadow: 0 6px 18px rgba(11,37,72,0.35);
+  }
+  .login-form-wrapper h3 { color: #0f172a; font-weight: 900; font-size: 28px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  .login-form-wrapper > p { color: #94a3b8; font-size: 13px; font-weight: 500; margin: 0 0 28px; }
+  .login-field { margin-bottom: 16px; }
+  .input-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 7px; display: block; }
 
-  .mex-input { width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 600; font-size: 14px; outline: none; transition: 0.2s; background: #f8fafc; color: #1e293b; box-sizing: border-box; }
-  .mex-input:focus { border-color: var(--mex-blue); background: white; box-shadow: 0 0 0 4px rgba(13,42,84,0.1); }
-  .input-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; margin-bottom: 6px; display: block; }
-  .input-icon { position: absolute; right: 14px; top: 14px; color: #94a3b8; cursor: pointer; user-select: none; transition: 0.2s; }
-  .input-icon:hover { color: var(--mex-blue); }
+  .mex-input {
+    width: 100%; padding: 13px 16px; border: 1.5px solid #e4ecf4; border-radius: 12px;
+    font-weight: 500; font-size: 14px; outline: none; transition: all 0.2s;
+    background: #f8fafc; color: #1e293b; box-sizing: border-box; font-family: inherit;
+  }
+  .mex-input::placeholder { color: #c4d0de; }
+  .mex-input:focus { border-color: #3b82f6; background: white; box-shadow: 0 0 0 4px rgba(59,130,246,0.09); }
+  .input-icon {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    color: #c4d0de; cursor: pointer; user-select: none; transition: color 0.2s; font-size: 20px;
+  }
+  .input-icon:hover { color: #3b82f6; }
+
+  .login-btn-primary {
+    width: 100%; padding: 14px; margin-top: 6px;
+    background: linear-gradient(135deg, #0b2548 0%, #1a53a0 100%);
+    color: white; border: none; border-radius: 12px;
+    font-weight: 800; font-size: 13.5px; cursor: pointer; font-family: inherit;
+    transition: all 0.25s; letter-spacing: 0.5px;
+    box-shadow: 0 4px 18px rgba(11,37,72,0.35);
+  }
+  .login-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(11,37,72,0.5); background: linear-gradient(135deg, #0d2f5c 0%, #1e5db8 100%); }
+  .login-btn-primary:active { transform: translateY(0); }
+
+  .login-divider {
+    display: flex; align-items: center; gap: 12px; margin: 20px 0;
+    color: #c4d0de; font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  }
+  .login-divider div { flex: 1; height: 1px; background: #edf2f8; }
+
+  .login-btn-google {
+    width: 100%; padding: 12px; background: white; color: #334155;
+    border: 1.5px solid #e4ecf4; border-radius: 12px;
+    font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit;
+    display: flex; align-items: center; justify-content: center; gap: 9px; transition: all 0.2s;
+  }
+  .login-btn-google:hover { border-color: #94a3b8; background: #f8fafc; transform: translateY(-1px); }
+
+  .login-error-box {
+    align-items: center; gap: 9px; margin-top: 14px; padding: 11px 14px;
+    background: #fff5f5; border: 1.5px solid #fca5a5; border-radius: 10px;
+    color: #dc2626; font-size: 12px; font-weight: 700;
+  }
+  .login-footer { margin-top: 22px; text-align: center; border-top: 1px solid #edf2f8; padding-top: 18px; }
+  .login-footer p { font-size: 12px; color: #94a3b8; font-weight: 500; margin: 0 0 5px; }
+  .login-link-btn {
+    background: none; border: none; color: #3b82f6;
+    font-weight: 700; font-size: 13px; cursor: pointer; font-family: inherit;
+    transition: color 0.2s; padding: 0;
+  }
+  .login-link-btn:hover { color: #1d4ed8; text-decoration: underline; }
+
+  /* --- SOLICITUD MODAL --- */
+  .sol-card {
+    background: white; max-width: 470px; width: 92%; border-radius: 24px;
+    padding: 36px; box-shadow: 0 40px 80px rgba(0,0,0,0.55); animation: slideUp 0.45s cubic-bezier(0.16,1,0.3,1) forwards;
+  }
+  .sol-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 22px; }
+  .sol-icon-wrap {
+    width: 52px; height: 52px; flex-shrink: 0;
+    background: linear-gradient(135deg, #0b2548, #1a53a0);
+    border-radius: 16px; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 6px 18px rgba(11,37,72,0.35);
+  }
+  .sol-title { color: #0f172a; font-weight: 900; font-size: 20px; margin: 0 0 4px; }
+  .sol-subtitle { color: #64748b; font-size: 13px; margin: 0; font-weight: 500; }
+  .sol-section-label { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+  .sol-divider { height: 1px; background: #edf2f8; margin: 18px 0 14px; }
+  .sol-field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .sol-btn-cancel {
+    flex: 1; padding: 14px; background: #f1f5f9; color: #64748b;
+    border: none; border-radius: 12px; font-weight: 700; font-size: 13px;
+    cursor: pointer; font-family: inherit; transition: all 0.2s;
+  }
+  .sol-btn-cancel:hover { background: #e2e8f0; }
+  .sol-btn-submit {
+    flex: 1.6; padding: 14px; background: linear-gradient(135deg, #0b2548, #1a53a0);
+    color: white; border: none; border-radius: 12px;
+    font-weight: 800; font-size: 13px; cursor: pointer; font-family: inherit;
+    transition: all 0.25s; box-shadow: 0 4px 14px rgba(11,37,72,0.3);
+  }
+  .sol-btn-submit:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(11,37,72,0.45); }
 
   @media (max-width: 768px) {
-    .login-split-container { flex-direction: column; height: auto; max-width: 400px; margin: 20px; }
-    .login-left-side { height: 180px; flex: none; }
-    .login-left-overlay { padding: 25px; }
-    .login-left-overlay h1 { font-size: 32px; }
-    .login-right-side { padding: 30px 25px; }
+    .login-split-container { flex-direction: column; height: auto; max-width: 410px; }
+    .login-left-side { height: 185px; flex: none; }
+    .login-left-overlay { position: static; height: 100%; justify-content: flex-end; }
+    .login-brand-mex { font-size: 42px; }
+    .login-stats { display: none; }
+    .login-right-side { padding: 30px 26px; }
+    .sol-field-grid { grid-template-columns: 1fr; }
   }
 
 
@@ -2495,50 +2589,59 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 
 <div id="login-overlay" class="login-overlay">
   <div class="login-split-container">
-    
+
     <div class="login-left-side">
       <div class="login-left-overlay">
-        <h1>MEX</h1>
-        <h2>RENT A CAR</h2>
-        <p>Plataforma avanzada para el control operativo y gestión de flota.</p>
+        <div class="login-brand">
+          <span class="login-brand-mex">MEX</span>
+          <span class="login-brand-sub">Rent a Car</span>
+        </div>
+        <p class="login-brand-desc">Plataforma avanzada para el control operativo y gestión de flota vehicular.</p>
+        <div class="login-stats">
+          <div class="login-stat"><span class="login-stat-num">24/7</span><span class="login-stat-lbl">Monitoreo</span></div>
+          <div class="login-stat"><span class="login-stat-num">100%</span><span class="login-stat-lbl">Seguro</span></div>
+          <div class="login-stat"><span class="login-stat-num">MX</span><span class="login-stat-lbl">Nacional</span></div>
+        </div>
       </div>
     </div>
 
     <div class="login-right-side">
       <div class="login-form-wrapper">
-        <h3>BIENVENIDO</h3>
+        <div class="login-logo-mark">
+          <span class="material-icons" style="font-size:22px; color:white;">directions_car</span>
+        </div>
+        <h3>Bienvenido</h3>
         <p>Ingresa tus credenciales para continuar</p>
-        
-        <div style="margin-bottom: 15px;">
+
+        <div class="login-field">
           <label class="input-label">Correo Electrónico</label>
           <input type="email" id="auth_email" class="mex-input" placeholder="usuario@mexrentacar.com">
         </div>
 
-        <div style="margin-bottom: 25px; position: relative;">
+        <div class="login-field" style="position:relative;">
           <label class="input-label">Contraseña</label>
-          <input type="password" id="auth_pass" class="mex-input" placeholder="••••••••" style="padding-right: 45px; letter-spacing: 2px;">
-          <span class="material-icons input-icon" onclick="togglePassword('auth_pass', this)">visibility</span>
-        </div>
-        
-        <button onclick="loginManual()" id="btnLoginManual" style="width: 100%; padding: 14px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 15px rgba(13,42,84,0.3);">
-          INICIAR SESIÓN
-        </button>
-
-        <div style="display: flex; align-items: center; margin: 25px 0; color: #94a3b8; font-weight: 800; font-size: 11px;">
-          <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
-          <span style="padding: 0 10px;">O CONTINÚA CON</span>
-          <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+          <div style="position:relative;">
+            <input type="password" id="auth_pass" class="mex-input" placeholder="••••••••" style="padding-right:46px; letter-spacing:2px;">
+            <span class="material-icons input-icon" onclick="togglePassword('auth_pass', this)">visibility</span>
+          </div>
         </div>
 
-        <button onclick="loginConGoogle()" id="btnGoogleLogin" style="width: 100%; padding: 13px; background: white; color: #334155; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 800; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; transition: 0.2s;">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 18px;"> CUENTA DE GOOGLE
-        </button>
-        
-        <p id="login-error" style="color: #ef4444; margin-top: 15px; display: none; font-size: 12px; font-weight: 700; background: #fee2e2; padding: 10px; border-radius: 8px; text-align: center;">❌ Datos incorrectos o sin acceso.</p>
+        <button onclick="loginManual()" id="btnLoginManual" class="login-btn-primary">INICIAR SESIÓN</button>
 
-        <div style="margin-top: 30px; text-align: center;">
-          <p style="font-size: 12px; color: #64748b; font-weight: 600; margin: 0;">¿No tienes cuenta corporativa?</p>
-          <button onclick="abrirModalSolicitud()" style="background: transparent; border: none; color: var(--mex-accent); font-weight: 800; font-size: 13px; cursor: pointer; text-decoration: underline; margin-top: 5px;">Solicitar Acceso al Sistema</button>
+        <div class="login-divider"><div></div><span>O CONTINÚA CON</span><div></div></div>
+
+        <button onclick="loginConGoogle()" id="btnGoogleLogin" class="login-btn-google">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE
+        </button>
+
+        <div id="login-error" class="login-error-box" style="display:none;">
+          <span class="material-icons" style="font-size:16px; flex-shrink:0;">error_outline</span>
+          <span id="login-error-msg">Datos incorrectos o sin acceso.</span>
+        </div>
+
+        <div class="login-footer">
+          <p>¿No tienes cuenta corporativa?</p>
+          <button onclick="abrirModalSolicitud()" class="login-link-btn">Solicitar Acceso al Sistema</button>
         </div>
       </div>
     </div>
@@ -2552,67 +2655,49 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
     0% { opacity: 0; transform: translateY(20px) scale(0.95); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
   }
-  .animated-modal {
-    animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-  .mex-input {
-    width: 100%; padding: 14px 16px; border: 2px solid #e2e8f0; border-radius: 12px; 
-    font-weight: 600; font-size: 14px; outline: none; transition: all 0.2s ease; 
-    box-sizing: border-box; background: #f8fafc; color: #1e293b;
-  }
-  .mex-input::placeholder { color: #94a3b8; font-weight: 500; }
-  .mex-input:focus {
-    border-color: var(--mex-blue, #004a99); background: #ffffff; 
-    box-shadow: 0 0 0 4px rgba(0, 74, 153, 0.1);
-  }
-  .input-group { position: relative; margin-bottom: 16px; }
-  .input-icon { 
-    position: absolute; right: 14px; top: 14px; color: #94a3b8; 
-    cursor: pointer; user-select: none; transition: color 0.2s;
-  }
-  .input-icon:hover { color: var(--mex-blue, #004a99); }
+  .animated-modal { animation: modalFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .input-group { position: relative; }
 </style>
 
-<div id="modal-solicitud" class="login-overlay" style="display: none; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); z-index: 99999; align-items: center; justify-content: center;">
-  <div class="login-box animated-modal" style="background: white; max-width: 420px; width: 90%; border-radius: 24px; padding: 35px; text-align: left; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
-    
-    <div style="text-align: center; margin-bottom: 25px;">
-      <div style="background: #e0f2fe; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
-        <span class="material-icons" style="color: var(--mex-blue, #004a99); font-size: 30px;">person_add</span>
+<div id="modal-solicitud" class="login-overlay" style="display:none; background:rgba(6,14,28,0.92); backdrop-filter:blur(14px); z-index:99999; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+  <div class="sol-card">
+
+    <div class="sol-header">
+      <div class="sol-icon-wrap">
+        <span class="material-icons" style="color:white; font-size:26px;">person_add</span>
       </div>
-      <h3 style="color: #0f172a; font-weight: 900; font-size: 22px; margin: 0;">Solicitud de Acceso</h3>
-      <p style="color: #64748b; font-size: 14px; margin-top: 5px; font-weight: 500;">Completa tus datos para la revisión operativa.</p>
+      <div>
+        <h3 class="sol-title">Solicitud de Acceso</h3>
+        <p class="sol-subtitle">Completa tus datos para la revisión operativa.</p>
+      </div>
     </div>
 
-    <div class="input-group">
-      <input type="text" id="sol_nombre" class="mex-input" placeholder="Nombre Completo" style="text-transform: uppercase;">
-    </div>
-    
-    <div class="input-group">
+    <div class="sol-section-label">Datos Personales</div>
+    <div style="margin-bottom:10px;">
+      <input type="text" id="sol_nombre" class="mex-input" placeholder="Nombre Completo" style="text-transform:uppercase; margin-bottom:10px;">
       <input type="email" id="sol_email" class="mex-input" placeholder="Correo de Trabajo o Google">
     </div>
-    
-    <div class="input-group" style="display: flex; gap: 10px;">
-      <input type="text" id="sol_puesto" class="mex-input" placeholder="Puesto / Ubicación" style="text-transform: uppercase; flex: 1.5;">
-      <input type="tel" id="sol_telefono" class="mex-input" placeholder="Teléfono" style="flex: 1;">
+    <div class="sol-field-grid" style="margin-bottom:0;">
+      <input type="text" id="sol_puesto" class="mex-input" placeholder="Puesto / Ubicación" style="text-transform:uppercase;">
+      <input type="tel" id="sol_telefono" class="mex-input" placeholder="Teléfono">
     </div>
 
-    <div style="height: 1px; background: #e2e8f0; margin: 25px 0 20px;"></div>
-
-    <div class="input-group">
-      <input type="password" id="sol_pass" class="mex-input" placeholder="Crea tu contraseña (Mín. 6 letras)" style="padding-right: 45px;">
+    <div class="sol-divider"></div>
+    <div class="sol-section-label">Credenciales de Acceso</div>
+    <div style="position:relative; margin-bottom:10px;">
+      <input type="password" id="sol_pass" class="mex-input" placeholder="Crea tu contraseña (Mín. 6 letras)" style="padding-right:46px;">
       <span class="material-icons input-icon" onclick="togglePassword('sol_pass', this)">visibility</span>
     </div>
-
-    <div class="input-group">
-      <input type="password" id="sol_pass_confirm" class="mex-input" placeholder="Confirma tu contraseña" style="padding-right: 45px;">
+    <div style="position:relative; margin-bottom:28px;">
+      <input type="password" id="sol_pass_confirm" class="mex-input" placeholder="Confirma tu contraseña" style="padding-right:46px;">
       <span class="material-icons input-icon" onclick="togglePassword('sol_pass_confirm', this)">visibility</span>
     </div>
 
-    <div style="display: flex; gap: 12px; margin-top: 30px;">
-      <button onclick="cerrarModalSolicitud()" style="flex: 1; padding: 15px; background: #f1f5f9; color: #475569; border: none; border-radius: 14px; font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s;">CANCELAR</button>
-      <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" style="flex: 1.5; padding: 15px; background: var(--mex-blue, #004a99); color: white; border: none; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 12px rgba(0,74,153,0.3);">ENVIAR DATOS</button>
+    <div style="display:flex; gap:12px;">
+      <button onclick="cerrarModalSolicitud()" class="sol-btn-cancel">CANCELAR</button>
+      <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" class="sol-btn-submit">ENVIAR SOLICITUD</button>
     </div>
+
   </div>
 </div>
 
@@ -3737,6 +3822,10 @@ let isGlobalAdmin = false; // <-- NUEVA VARIABLE GLOBAL
 let DB_MAESTRA = []; 
 
 // Variable global de Auth
+// Declared before auth init to avoid TDZ when onAuthStateChanged fires synchronously
+let radarInterval = null;
+let isSaving = false;
+
 const auth = firebase.auth();
 auth.onAuthStateChanged(async (user) => {
   if (user) {
@@ -3845,8 +3934,9 @@ function loginConGoogle() {
 
 function showLoginError(msg) {
   const errEl = document.getElementById('login-error');
-  errEl.style.display = 'block';
-  errEl.innerText = msg;
+  const msgEl = document.getElementById('login-error-msg');
+  errEl.style.display = 'flex';
+  if (msgEl) msgEl.innerText = msg; else errEl.innerText = msg;
 }
 
 // --- FORMULARIO DE SOLICITUD ---
@@ -3940,8 +4030,8 @@ document.addEventListener('click', (e) => {
 
 
 // Trigger de Enter
-document.getElementById('pinInput').addEventListener('keypress', function (e) {
-  if (e.key === 'Enter') verificarLogin();
+document.getElementById('auth_pass').addEventListener('keypress', function (e) {
+  if (e.key === 'Enter') loginManual();
 });
 
 
@@ -3988,7 +4078,8 @@ function cerrarSesion() {
   USER_NAME = "";
   isGlobalAdmin = false; // 🛡️ Borrado seguro del rol
   
-  document.getElementById('pinInput').value = "";
+  const _ef = document.getElementById('auth_email'); if (_ef) _ef.value = '';
+  const _pf = document.getElementById('auth_pass'); if (_pf) _pf.value = '';
   document.getElementById('btnAdmin').style.display = 'none';
   if(document.getElementById('btnAlerts')) document.getElementById('btnAlerts').style.display = 'none';
   if(document.getElementById('btnBuzon')) document.getElementById('btnBuzon').style.display = 'none';
@@ -4032,8 +4123,8 @@ function cargarMaestra() {
 // 2. LÓGICA DEL MAPA PRINCIPAL Y ZOOM NATIVO
 // ==========================================
 let selectedAuto = null;
-let zoomLevel = 0.8; 
-let isSaving = false;
+let zoomLevel = 0.8;
+isSaving = false;
 let isMoving = false; // 🔥
 let autoRefreshInterval = null;
 let saveTimeout = null; 
@@ -5912,7 +6003,7 @@ function ejecutarEliminacionIncidencia(id) {
 // ==========================================
 // 8. RADAR DE NOTIFICACIONES Y ALERTAS
 // ==========================================
-let radarInterval = null;
+radarInterval = null;
 let filaAlertasPendientes = [];
 let alertaActualMostrandose = null;
 
