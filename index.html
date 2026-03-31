@@ -7,9 +7,10 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="mex-api.js"></script>
   <title>MAPA - beta</title>
   <style>
 
@@ -2361,7 +2362,6 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <!-- MEX API — Firebase Client SDK directo -->
-  <script src="mex-api.js"></script>
 </head>
 <body>
 
@@ -2385,18 +2385,49 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
   
 </div>
 
-<div id="login-overlay" class="login-overlay">
-  <div class="login-box" style="max-width: 350px; padding: 40px;">
-  <img src="img/logo.png" style="width: 120px; margin-bottom: 20px;">
-  <h3 style="color:#1e293b; font-weight:900;">ACCESO CORPORATIVO</h3>
-  
-  <input type="email" id="auth_email" placeholder="Correo electrónico" style="width:100%; padding:15px; border-radius:12px; border:2px solid #e2e8f0; margin-bottom:10px; font-weight:700;">
-  <input type="password" id="auth_pass" placeholder="Contraseña" style="width:100%; padding:15px; border-radius:12px; border:2px solid #e2e8f0; margin-bottom:20px; font-weight:700;">
-  
-  <button onclick="loginConToken()" id="btnLogin" style="width:100%; padding:18px; background:#004a99; color:white; border:none; border-radius:12px; font-weight:900; cursor:pointer;">
-    ENTRAR AL SISTEMA
-  </button>
+<div id="login-overlay" class="login-overlay" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); backdrop-filter: blur(10px);">
+  <div class="login-box" style="background: white; max-width: 400px; width: 90%; border-radius: 20px; padding: 40px 30px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center; position: relative; overflow: hidden;">
+    
+    <div style="position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: var(--mex-accent);"></div>
+
+    <img src="img/logo.png" style="width: 140px; margin-bottom: 25px;" alt="Mex Rent A Car">
+    
+    <h2 style="color: #0f172a; font-weight: 900; font-size: 24px; margin-bottom: 5px; letter-spacing: -0.5px;">PORTAL DE FLOTA</h2>
+    <p style="color: #64748b; font-size: 14px; margin-bottom: 30px; font-weight: 500;">Acceso exclusivo para personal autorizado</p>
+
+    <button onclick="loginConGoogle()" id="btnGoogleLogin" style="width: 100%; padding: 14px; background: white; color: #334155; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;">
+      CONTINUAR CON GOOGLE
+    </button>
+    
+    <p id="login-error" style="color: #ef4444; margin-top: 15px; display: none; font-size: 13px; font-weight: 700; background: #fee2e2; padding: 10px; border-radius: 8px;">❌ No tienes acceso al sistema.</p>
+
+    <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+      <p style="font-size: 13px; color: #64748b; font-weight: 500;">¿Eres de nuevo ingreso o no tienes acceso?</p>
+      <button onclick="abrirModalSolicitud()" style="background: transparent; border: none; color: var(--mex-blue); font-weight: 800; font-size: 14px; margin-top: 5px; cursor: pointer; text-decoration: underline;">Solicitar Acceso al Sistema</button>
+    </div>
+  </div>
 </div>
+
+<div id="modal-solicitud" class="login-overlay" style="display: none; background: rgba(15, 23, 42, 0.9); z-index: 99999;">
+  <div class="login-box" style="background: white; max-width: 400px; width: 90%; border-radius: 20px; padding: 30px; text-align: left;">
+    <h3 style="color: #0f172a; font-weight: 900; margin-bottom: 5px;">Solicitud de Acceso</h3>
+    <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">Tus datos serán revisados por un administrador.</p>
+
+    <label style="font-size: 11px; font-weight: 800; color: #64748b;">NOMBRE COMPLETO</label>
+    <input type="text" id="sol_nombre" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 15px; text-transform: uppercase;">
+
+    <label style="font-size: 11px; font-weight: 800; color: #64748b;">CORREO CORPORATIVO / GOOGLE</label>
+    <input type="email" id="sol_email" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 15px;">
+
+    <label style="font-size: 11px; font-weight: 800; color: #64748b;">UBICACIÓN / PUESTO</label>
+    <input type="text" id="sol_puesto" placeholder="Ej. PATIO BJX / LAVADOR" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 25px; text-transform: uppercase;">
+
+    <div style="display: flex; gap: 10px;">
+      <button onclick="cerrarModalSolicitud()" style="flex: 1; padding: 12px; background: #f1f5f9; color: #475569; border: none; border-radius: 10px; font-weight: 800; cursor: pointer;">CANCELAR</button>
+      <button onclick="enviarSolicitudAcceso()" style="flex: 1; padding: 12px; background: var(--mex-blue); color: white; border: none; border-radius: 10px; font-weight: 800; cursor: pointer;">ENVIAR</button>
+    </div>
+  </div>
 </div>
 
 <aside id="admin-sidebar" class="admin-sidebar">
@@ -2930,6 +2961,10 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
             <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
           <div class="mc-item" id="btnConfigGlobal" onclick="abrirPanelConfiguracion()">
   <span class="material-icons" style="color: #f59e0b;">settings</span> Panel de Configuración
+</div>
+<div class="mc-item" id="btnMenuSolicitudes" onclick="abrirModalSolicitudes()">
+  <span class="material-icons" style="color: #38bdf8;">how_to_reg</span> Solicitudes Pendientes
+  <span id="badge-solicitudes" style="background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: 900; margin-left: auto; display: none;">0</span>
 </div>
             </div>
     
@@ -3513,88 +3548,6 @@ let dbUsuariosLogin = [];
 let isGlobalAdmin = false; // <-- NUEVA VARIABLE GLOBAL
 let DB_MAESTRA = []; 
 
-document.addEventListener("DOMContentLoaded", () => {
-  // 1. CHECAR SI YA HAY SESIÓN GUARDADA EN EL NAVEGADOR
-  const session = localStorage.getItem('mex_mapa_session');
-  if (session) {
-    try {
-      const data = JSON.parse(session);
-      USER_NAME = data.user;
-      userRole = data.role;
-      isGlobalAdmin = data.isGlobal || false;
-
-      // --- 🛡️ LÓGICA DE PERMISOS AL RECARGAR (F5) ---
-      const soloJefes = ['btnMenuUsuarios', 'btnMenuAlertasGlobales', 'btnMenuHistorialAlertas', 'btnMenuHistorial', 'btnEditorMapa'];
-// Admins Normales + Jefes (Operación avanzada)
-  const operacionAdmin = [
-    'btnMenuAuditoria', 
-    'btnMenuBitacora', 
-    'btnMenuExportar',
-    'btnVerCuadres', 
-    'mcValidarCuadre',   // <-- HERRAMIENTA BLOQUEADA
-    'mcPdfReservas',     // <-- HERRAMIENTA BLOQUEADA
-    'mcPredicciones'     // <-- HERRAMIENTA BLOQUEADA
-  ];
-
-      // Mostrar la tuerca ⚙️ de configuración
-      const btnAdminNut = document.getElementById('btnAdmin');
-      if (btnAdminNut) btnAdminNut.style.display = 'flex';
-
-      if (userRole === 'admin') {
-        // ES ADMIN: Mostramos Auditoría, Bitácora y Exportar
-        operacionAdmin.forEach(id => {
-          const btn = document.getElementById(id);
-          if (btn) btn.style.display = 'flex';
-        });
-
-        if (isGlobalAdmin) {
-          // ES GLOBAL: Mostramos además Usuarios, Alertas e Historial de Actividad
-          soloJefes.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) btn.style.display = 'flex';
-          });
-        } else {
-          // ES ADMIN NORMAL: Ocultamos lo exclusivo de Jefe Global
-          soloJefes.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) btn.style.display = 'none';
-          });
-        }
-        cargarMaestra();
-      } else {
-        // ES OPERATIVO: Bloqueo total de herramientas de administración
-        // No ven nada de las listas, solo Flota y Mapa de Calor
-        const todosLosBloqueados = [...soloJefes, ...operacionAdmin];
-        todosLosBloqueados.forEach(id => {
-          const btn = document.getElementById(id);
-          if (btn) btn.style.display = 'none';
-        });
-      }
-
-      iniciarApp(false); 
-    } catch(e) { 
-      console.error("Error al restaurar sesión:", e);
-      localStorage.removeItem('mex_mapa_session'); 
-    }
-  }
-
-  // 2. CARGAR LISTA DE USUARIOS DESDE EL SERVIDOR PARA EL LOGIN
-  api.obtenerCredencialesMapa().then(users => {
-    dbUsuariosLogin = users;
-    let lastUser = localStorage.getItem('mex_mapa_last_user');
-    let defaultUser = users.find(u => u.usuario === lastUser) ? lastUser : (users.length > 0 ? users[0].usuario : "");
-
-    if (defaultUser) seleccionarUsuario(defaultUser);
-    renderModernDropdown(users);
-
-    const btn = document.getElementById('btnLoginBtn');
-    if (btn) {
-      btn.disabled = false;
-      btn.innerText = "INGRESAR";
-      btn.style.opacity = "1";
-    }
-  }).catch(e => console.error(e));
-});
 // Variable global de Auth
 const auth = firebase.auth();
 auth.onAuthStateChanged(async (user) => {
@@ -3625,6 +3578,99 @@ auth.onAuthStateChanged(async (user) => {
     document.getElementById('login-overlay').style.display = 'flex';
   }
 });
+// Asegúrate de tener la constante de auth inicializada al principio de tu script
+// const auth = firebase.auth(); 
+
+function loginConGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  const btn = document.getElementById('btnGoogleLogin');
+  btn.innerText = "ESPERANDO A GOOGLE...";
+  
+  auth.signInWithPopup(provider).catch((error) => {
+    console.error(error);
+    btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> CONTINUAR CON GOOGLE`;
+  });
+}
+
+// 🛡️ EL GUARDIÁN MAESTRO
+auth.onAuthStateChanged(async (user) => {
+  if (user) {
+    try {
+      // Cruzamos el email de Google con nuestra base de datos
+      // (Buscamos si hay un documento en "usuarios" con su email)
+      const snapshot = await db.collection("usuarios").where("email", "==", user.email).get();
+      
+      if(!snapshot.empty) {
+        // ¡El usuario existe en nuestra BD y tiene permisos!
+        const datos = snapshot.docs[0].data();
+        USER_NAME = datos.nombre;
+        userRole = datos.isAdmin ? 'admin' : 'visitante';
+        isGlobalAdmin = datos.isGlobal || false;
+
+        configurarPermisosUI(); // Tu función que oculta/muestra botones
+        document.getElementById('login-overlay').style.display = 'none';
+        iniciarApp(true);
+      } else {
+        // Logueó con Google pero NO está registrado en nuestra app
+        showLoginError(`El correo ${user.email} no tiene permisos.`);
+        auth.signOut(); // Lo expulsamos inmediatamente
+        document.getElementById('sol_email').value = user.email; // Prellenamos el form de solicitud por cortesía
+      }
+    } catch(e) {
+      console.error("Error validando usuario:", e);
+    }
+  } else {
+    // No hay sesión
+    document.getElementById('login-overlay').style.display = 'flex';
+  }
+});
+
+function showLoginError(msg) {
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'block';
+  errEl.innerText = msg;
+  const btn = document.getElementById('btnGoogleLogin');
+  btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> CONTINUAR CON GOOGLE`;
+}
+
+function abrirModalSolicitud() {
+  document.getElementById('modal-solicitud').style.display = 'flex';
+}
+
+function cerrarModalSolicitud() {
+  document.getElementById('modal-solicitud').style.display = 'none';
+}
+
+async function enviarSolicitudAcceso() {
+  const nombre = document.getElementById('sol_nombre').value.trim().toUpperCase();
+  const email = document.getElementById('sol_email').value.trim().toLowerCase();
+  const puesto = document.getElementById('sol_puesto').value.trim().toUpperCase();
+
+  if(!nombre || !email || !puesto) {
+    alert("Por favor llena todos los campos.");
+    return;
+  }
+
+  try {
+    // Guardamos la solicitud en Firestore (usamos el email como ID del documento)
+    await db.collection("solicitudes_acceso").doc(email).set({
+      nombre: nombre,
+      email: email,
+      puesto: puesto,
+      fecha: firebase.firestore.FieldValue.serverTimestamp(),
+      estado: "PENDIENTE"
+    });
+
+    alert("✅ Solicitud enviada. Un administrador revisará tu información.");
+    cerrarModalSolicitud();
+    document.getElementById('sol_nombre').value = "";
+    document.getElementById('sol_puesto').value = "";
+  } catch (error) {
+    console.error("Error enviando solicitud:", error);
+    alert("❌ Hubo un error al enviar tu solicitud.");
+  }
+}
+
 
 // 🔑 FUNCIÓN DE INGRESO
 async function iniciarSesionSegura() {
@@ -3696,22 +3742,6 @@ function filterModernUsers() {
   const term = document.getElementById('dropdownSearchInput').value.toLowerCase().trim();
   const filtered = dbUsuariosLogin.filter(u => u.usuario.toLowerCase().includes(term));
   renderModernDropdown(filtered);
-}
-
-function seleccionarUsuario(nombre) {
-  document.getElementById('selectedUserText').innerText = nombre;
-  document.getElementById('userSelect').value = nombre; // Input oculto
-  
-  const drop = document.getElementById('modernDropdown');
-  if(drop.classList.contains('show')) toggleModernDropdown(); // Cerrar menú
-  
-  document.getElementById('login-error').style.display = 'none';
-  document.getElementById('pinInput').value = '';
-  
-  // Hacer focus al PIN solo si la pantalla de login es visible
-  if (document.getElementById('login-overlay').style.display !== 'none') {
-     document.getElementById('pinInput').focus();
-  }
 }
 
 // Cierra el menú al hacer clic afuera
@@ -9355,6 +9385,145 @@ function configurarPermisosUI() {
 }
 
 
+// --- LÓGICA DE SOLICITUDES DE ACCESO ---
+
+function abrirModalSolicitudes() {
+  // Cerramos el menú lateral si está abierto
+  if (typeof toggleMoreControls === "function") toggleMoreControls();
+  
+  document.getElementById('modal-admin-solicitudes').classList.add('active');
+  cargarSolicitudesPendientes();
+}
+
+async function cargarSolicitudesPendientes() {
+  const contenedor = document.getElementById('contenedor-solicitudes');
+  contenedor.innerHTML = `<div style="text-align:center; padding: 30px;"><span class="material-icons spinner" style="font-size:30px; color:var(--mex-blue);">sync</span></div>`;
+
+  try {
+    const snapshot = await db.collection("solicitudes_acceso")
+                             .where("estado", "==", "PENDIENTE")
+                             .get();
+
+    // Actualizamos el globito rojo del menú
+    const badge = document.getElementById('badge-solicitudes');
+    if (badge) {
+      badge.innerText = snapshot.size;
+      badge.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+    }
+
+    if (snapshot.empty) {
+      contenedor.innerHTML = `
+        <div style="text-align: center; color: #64748b; padding: 40px; font-weight: 700;">
+          <span class="material-icons" style="font-size: 40px; color: #cbd5e1;">check_circle</span><br>
+          No hay solicitudes pendientes.
+        </div>`;
+      return;
+    }
+
+    let html = "";
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Tarjeta de diseño corporativo para cada solicitud
+      html += `
+        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+          <div>
+            <h4 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 16px;">${data.nombre}</h4>
+            <div style="color: #64748b; font-size: 13px; font-weight: 600; margin-top: 4px;">
+              <span class="material-icons" style="font-size: 14px; vertical-align: text-bottom;">email</span> ${data.email}
+            </div>
+            <div style="color: var(--mex-blue); font-size: 12px; font-weight: 800; margin-top: 4px; background: #e0f2fe; display: inline-block; padding: 3px 8px; border-radius: 6px;">
+              📍 ${data.puesto}
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px;">
+            <button onclick="procesarSolicitud('${doc.id}', '${data.email}', '${data.nombre}', '${data.puesto}', false)" style="background: #fee2e2; color: #ef4444; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+              <span class="material-icons" style="font-size: 18px;">close</span> RECHAZAR
+            </button>
+            <button onclick="procesarSolicitud('${doc.id}', '${data.email}', '${data.nombre}', '${data.puesto}', true)" style="background: #10b981; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
+              <span class="material-icons" style="font-size: 18px;">check</span> APROBAR
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    contenedor.innerHTML = html;
+  } catch (error) {
+    console.error("Error cargando solicitudes:", error);
+    contenedor.innerHTML = `<p style="color:red; text-align:center;">Error al cargar datos.</p>`;
+  }
+}
+
+async function procesarSolicitud(docId, email, nombre, puesto, esAprobado) {
+  let motivo = "";
+  
+  if (!esAprobado) {
+    motivo = prompt(`¿Motivo del rechazo para ${nombre}?\n(Este mensaje se enviará por correo)`);
+    if (motivo === null) return; // Canceló el prompt
+    if (motivo.trim() === "") motivo = "No cumples con los criterios de acceso requeridos en este momento.";
+  } else {
+    const confirmar = confirm(`¿Estás seguro de APROBAR el acceso a:\n${nombre} (${email})?`);
+    if (!confirmar) return;
+  }
+
+  try {
+    if (esAprobado) {
+      // 1. Lo agregamos oficialmente a la colección "usuarios"
+      // Usamos su propio correo como ID del documento para que el login con Google lo encuentre rápido
+      await db.collection("usuarios").doc(email).set({
+        nombre: nombre,
+        email: email,
+        telefono: "",
+        isAdmin: false, // Entra como usuario operativo por defecto
+        isGlobal: false,
+        puesto: puesto
+      });
+      await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA" });
+    } else {
+      // Solo actualizamos el estado a rechazada
+      await db.collection("solicitudes_acceso").doc(docId).update({ 
+        estado: "RECHAZADA",
+        motivo_rechazo: motivo 
+      });
+    }
+
+    // 2. Disparamos el Webhook para enviar el correo
+    enviarCorreoWebhook(email, nombre, esAprobado ? "APROBADO" : "RECHAZADO", motivo);
+
+    alert(`Solicitud ${esAprobado ? 'APROBADA' : 'RECHAZADA'} con éxito.`);
+    cargarSolicitudesPendientes(); // Recargar la lista
+
+  } catch (error) {
+    console.error("Error procesando solicitud:", error);
+    alert("Hubo un error al procesar la solicitud.");
+  }
+}
+
+// --- CONEXIÓN CON GOOGLE APPS SCRIPT (WEBHOOK) ---
+function enviarCorreoWebhook(email, nombre, estado, motivo) {
+  // 🔥 ESTA URL LA CAMBIAREMOS POR LA TUYA EN EL SIGUIENTE PASO
+  const WEBHOOK_URL = "URL_DE_TU_APPS_SCRIPT_AQUI"; 
+  
+  if(WEBHOOK_URL === "URL_DE_TU_APPS_SCRIPT_AQUI") {
+    console.log("Simulando envío de correo a:", email, estado, motivo);
+    return; // Evita el error hasta que hagamos el script
+  }
+
+  const payload = {
+    email: email,
+    nombre: nombre,
+    estado: estado, // "APROBADO" o "RECHAZADO"
+    motivo: motivo
+  };
+
+  fetch(WEBHOOK_URL, {
+    method: 'POST',
+    mode: 'no-cors', // Importante para evitar bloqueos de CORS desde GAS
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  }).catch(e => console.error("Error en Webhook:", e));
+}
+
 </script>
 
 <div id="modal-insertar-admin" class="modal-overlay" style="z-index: 6000;">
@@ -10350,6 +10519,27 @@ function configurarPermisosUI() {
     </div><!-- /Body -->
   </div>
 </div>
+
+<div id="modal-admin-solicitudes" class="fleet-modal" style="z-index: 65000;">
+  <div class="fleet-header-top">
+    <div style="display:flex; align-items:center; gap: 10px;">
+      <h2 style="color:var(--primary); font-weight:900; margin:0;">
+        <span class="material-icons" style="color: #38bdf8; vertical-align: bottom;">how_to_reg</span> SOLICITUDES DE ACCESO
+      </h2>
+    </div>
+    <button onclick="document.getElementById('modal-admin-solicitudes').classList.remove('active')" style="background: rgba(255,255,255,0.2); color: #64748b; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+  </div>
+  
+  <div class="fleet-wrapper" style="background: #f8fafc; padding: 25px; flex-direction: column;">
+    <div id="contenedor-solicitudes" style="display: flex; flex-direction: column; gap: 15px; overflow-y: auto; max-height: 60vh;">
+      <div style="text-align: center; color: #64748b; padding: 40px; font-weight: 700;">
+        <span class="material-icons" style="font-size: 40px; color: #cbd5e1;">hourglass_empty</span><br>
+        Cargando solicitudes...
+      </div>
+    </div>
+  </div>
+</div>
+
 
 </body>
 </html>
