@@ -2384,27 +2384,34 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
   </div>
   
 </div>
-
 <div id="login-overlay" class="login-overlay" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); backdrop-filter: blur(10px);">
   <div class="login-box" style="background: white; max-width: 400px; width: 90%; border-radius: 20px; padding: 40px 30px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); text-align: center; position: relative; overflow: hidden;">
     
     <div style="position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: var(--mex-accent);"></div>
-
-    <img src="img/logo.png" style="width: 140px; margin-bottom: 25px;" alt="Mex Rent A Car">
+    <img src="img/logo.png" style="width: 140px; margin-bottom: 20px;" alt="Mex Rent A Car">
+    <h2 style="color: #0f172a; font-weight: 900; font-size: 22px; margin-bottom: 25px; letter-spacing: -0.5px;">PORTAL DE FLOTA</h2>
     
-    <h2 style="color: #0f172a; font-weight: 900; font-size: 24px; margin-bottom: 5px; letter-spacing: -0.5px;">PORTAL DE FLOTA</h2>
-    <p style="color: #64748b; font-size: 14px; margin-bottom: 30px; font-weight: 500;">Acceso exclusivo para personal autorizado</p>
+    <input type="email" id="auth_email" placeholder="Correo electrónico" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 12px; font-weight: 700; outline: none;">
+    <input type="password" id="auth_pass" placeholder="Contraseña" style="width: 100%; padding: 14px; border: 2px solid #e2e8f0; border-radius: 12px; margin-bottom: 15px; font-weight: 700; outline: none;">
+    
+    <button onclick="loginManual()" id="btnLoginManual" style="width: 100%; padding: 14px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; transition: 0.2s;">
+      INICIAR SESIÓN
+    </button>
 
-    <button onclick="loginConGoogle()" id="btnGoogleLogin" style="width: 100%; padding: 14px; background: white; color: #334155; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: all 0.2s; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;">
-      CONTINUAR CON GOOGLE
+    <div style="display: flex; align-items: center; margin: 20px 0; color: #94a3b8; font-weight: 800; font-size: 12px;">
+      <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+      <span style="padding: 0 10px;">O ACCEDE CON</span>
+      <div style="flex: 1; height: 1px; background: #e2e8f0;"></div>
+    </div>
+
+    <button onclick="loginConGoogle()" id="btnGoogleLogin" style="width: 100%; padding: 14px; background: white; color: #334155; border: 2px solid #e2e8f0; border-radius: 12px; font-weight: 800; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 12px; transition: 0.2s;">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> GOOGLE
     </button>
     
-    <p id="login-error" style="color: #ef4444; margin-top: 15px; display: none; font-size: 13px; font-weight: 700; background: #fee2e2; padding: 10px; border-radius: 8px;">❌ No tienes acceso al sistema.</p>
+    <p id="login-error" style="color: #ef4444; margin-top: 15px; display: none; font-size: 13px; font-weight: 700; background: #fee2e2; padding: 10px; border-radius: 8px;">❌ Datos incorrectos o sin acceso.</p>
 
-    <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 20px;">
-      <p style="font-size: 13px; color: #64748b; font-weight: 500;">¿Eres de nuevo ingreso o no tienes acceso?</p>
-      <button onclick="abrirModalSolicitud()" style="background: transparent; border: none; color: var(--mex-blue); font-weight: 800; font-size: 14px; margin-top: 5px; cursor: pointer; text-decoration: underline;">Solicitar Acceso al Sistema</button>
+    <div style="margin-top: 25px; padding-top: 20px;">
+      <button onclick="abrirModalSolicitud()" style="background: transparent; border: none; color: #64748b; font-weight: 700; font-size: 13px; cursor: pointer; text-decoration: underline;">Solicitar Acceso al Sistema</button>
     </div>
   </div>
 </div>
@@ -2412,16 +2419,13 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 <div id="modal-solicitud" class="login-overlay" style="display: none; background: rgba(15, 23, 42, 0.9); z-index: 99999;">
   <div class="login-box" style="background: white; max-width: 400px; width: 90%; border-radius: 20px; padding: 30px; text-align: left;">
     <h3 style="color: #0f172a; font-weight: 900; margin-bottom: 5px;">Solicitud de Acceso</h3>
-    <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">Tus datos serán revisados por un administrador.</p>
+    <p style="color: #64748b; font-size: 13px; margin-bottom: 20px;">Un administrador revisará tus datos para darte de alta.</p>
 
-    <label style="font-size: 11px; font-weight: 800; color: #64748b;">NOMBRE COMPLETO</label>
-    <input type="text" id="sol_nombre" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 15px; text-transform: uppercase;">
-
-    <label style="font-size: 11px; font-weight: 800; color: #64748b;">CORREO CORPORATIVO / GOOGLE</label>
-    <input type="email" id="sol_email" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 15px;">
-
-    <label style="font-size: 11px; font-weight: 800; color: #64748b;">UBICACIÓN / PUESTO</label>
-    <input type="text" id="sol_puesto" placeholder="Ej. PATIO BJX / LAVADOR" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 25px; text-transform: uppercase;">
+    <input type="text" id="sol_nombre" placeholder="Nombre Completo" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; text-transform: uppercase; font-weight: 600;">
+    <input type="email" id="sol_email" placeholder="Correo de Trabajo o Google" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; font-weight: 600;">
+    <input type="text" id="sol_puesto" placeholder="Puesto y Ubicación (Ej. LAVADOR BJX)" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; text-transform: uppercase; font-weight: 600;">
+    <input type="tel" id="sol_telefono" placeholder="Teléfono / WhatsApp" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 10px; font-weight: 600;">
+    <input type="password" id="sol_pass" placeholder="Crea una contraseña (Mínimo 6 letras)" style="width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; margin-bottom: 20px; font-weight: 600;">
 
     <div style="display: flex; gap: 10px;">
       <button onclick="cerrarModalSolicitud()" style="flex: 1; padding: 12px; background: #f1f5f9; color: #475569; border: none; border-radius: 10px; font-weight: 800; cursor: pointer;">CANCELAR</button>
@@ -2429,6 +2433,7 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
     </div>
   </div>
 </div>
+
 
 <aside id="admin-sidebar" class="admin-sidebar">
 
@@ -3581,16 +3586,7 @@ auth.onAuthStateChanged(async (user) => {
 // Asegúrate de tener la constante de auth inicializada al principio de tu script
 // const auth = firebase.auth(); 
 
-function loginConGoogle() {
-  const provider = new firebase.auth.GoogleAuthProvider();
-  const btn = document.getElementById('btnGoogleLogin');
-  btn.innerText = "ESPERANDO A GOOGLE...";
-  
-  auth.signInWithPopup(provider).catch((error) => {
-    console.error(error);
-    btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> CONTINUAR CON GOOGLE`;
-  });
-}
+
 
 // 🛡️ EL GUARDIÁN MAESTRO
 auth.onAuthStateChanged(async (user) => {
@@ -3625,49 +3621,82 @@ auth.onAuthStateChanged(async (user) => {
   }
 });
 
+
+// --- FUNCIONES DE ACCESO ---
+async function loginManual() {
+  const email = document.getElementById('auth_email').value.trim();
+  const pass = document.getElementById('auth_pass').value.trim();
+  const btn = document.getElementById('btnLoginManual');
+
+  if(!email || !pass) {
+    showLoginError("❌ Ingresa correo y contraseña.");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = "VERIFICANDO...";
+
+  try {
+    // Firebase se encarga de crear el token seguro
+    await firebase.auth().signInWithEmailAndPassword(email, pass);
+    // 💡 IMPORTANTE: Tu función "auth.onAuthStateChanged" que ya tienes,
+    // detectará esto automáticamente y nos dejará entrar al mapa.
+  } catch (error) {
+    btn.disabled = false;
+    btn.innerText = "INICIAR SESIÓN";
+    showLoginError("❌ Credenciales incorrectas o sin acceso.");
+  }
+}
+
+function loginConGoogle() {
+  // ✅ CORRECCIÓN: Llamamos directo a firebase.auth en lugar de la variable
+  const provider = new firebase.auth.GoogleAuthProvider();
+  const btn = document.getElementById('btnGoogleLogin');
+  btn.innerText = "ESPERANDO...";
+  
+  firebase.auth().signInWithPopup(provider).catch((error) => {
+    console.error(error);
+    btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> GOOGLE`;
+  });
+}
+
 function showLoginError(msg) {
   const errEl = document.getElementById('login-error');
   errEl.style.display = 'block';
   errEl.innerText = msg;
-  const btn = document.getElementById('btnGoogleLogin');
-  btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> CONTINUAR CON GOOGLE`;
 }
 
-function abrirModalSolicitud() {
-  document.getElementById('modal-solicitud').style.display = 'flex';
-}
-
-function cerrarModalSolicitud() {
-  document.getElementById('modal-solicitud').style.display = 'none';
-}
+// --- FORMULARIO DE SOLICITUD ---
+function abrirModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'flex'; }
+function cerrarModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'none'; }
 
 async function enviarSolicitudAcceso() {
   const nombre = document.getElementById('sol_nombre').value.trim().toUpperCase();
   const email = document.getElementById('sol_email').value.trim().toLowerCase();
   const puesto = document.getElementById('sol_puesto').value.trim().toUpperCase();
+  const telefono = document.getElementById('sol_telefono').value.trim();
+  const pass = document.getElementById('sol_pass').value.trim();
 
-  if(!nombre || !email || !puesto) {
-    alert("Por favor llena todos los campos.");
-    return;
-  }
+  if(!nombre || !email || !puesto || !telefono || !pass) return alert("Por favor llena todos los campos.");
+  if(pass.length < 6) return alert("Firebase exige contraseñas de al menos 6 caracteres.");
 
   try {
-    // Guardamos la solicitud en Firestore (usamos el email como ID del documento)
+    // Guardamos la petición. La contraseña se guarda solo temporalmente.
     await db.collection("solicitudes_acceso").doc(email).set({
       nombre: nombre,
       email: email,
       puesto: puesto,
+      telefono: telefono,
+      password: pass, 
       fecha: firebase.firestore.FieldValue.serverTimestamp(),
       estado: "PENDIENTE"
     });
 
-    alert("✅ Solicitud enviada. Un administrador revisará tu información.");
+    alert("✅ Solicitud enviada correctamente. Un administrador revisará tu información.");
     cerrarModalSolicitud();
-    document.getElementById('sol_nombre').value = "";
-    document.getElementById('sol_puesto').value = "";
   } catch (error) {
-    console.error("Error enviando solicitud:", error);
-    alert("❌ Hubo un error al enviar tu solicitud.");
+    console.error(error);
+    alert("❌ Error al enviar la solicitud.");
   }
 }
 
@@ -9453,45 +9482,57 @@ async function cargarSolicitudesPendientes() {
     contenedor.innerHTML = `<p style="color:red; text-align:center;">Error al cargar datos.</p>`;
   }
 }
+// Al renderizar la lista en cargarSolicitudesPendientes, el botón APROBAR debe verse así:
+// <button onclick="procesarSolicitud('${doc.id}', true)"> APROBAR </button>
+// <button onclick="procesarSolicitud('${doc.id}', false)"> RECHAZAR </button>
 
-async function procesarSolicitud(docId, email, nombre, puesto, esAprobado) {
+async function procesarSolicitud(docId, esAprobado) {
+  // 1. Traemos todos los datos frescos del documento
+  const docSnap = await db.collection("solicitudes_acceso").doc(docId).get();
+  if(!docSnap.exists) return;
+  
+  const { email, nombre, puesto, telefono, password } = docSnap.data();
   let motivo = "";
   
   if (!esAprobado) {
     motivo = prompt(`¿Motivo del rechazo para ${nombre}?\n(Este mensaje se enviará por correo)`);
-    if (motivo === null) return; // Canceló el prompt
-    if (motivo.trim() === "") motivo = "No cumples con los criterios de acceso requeridos en este momento.";
+    if (motivo === null) return; 
   } else {
-    const confirmar = confirm(`¿Estás seguro de APROBAR el acceso a:\n${nombre} (${email})?`);
-    if (!confirmar) return;
+    if (!confirm(`¿Estás seguro de CREAR EL ACCESO para:\n${nombre} (${email})?`)) return;
   }
 
   try {
     if (esAprobado) {
-      // 1. Lo agregamos oficialmente a la colección "usuarios"
-      // Usamos su propio correo como ID del documento para que el login con Google lo encuentre rápido
+      // 💡 MAGIA: Creamos un hilo secundario de Firebase para crear la cuenta 
+      // usando la contraseña que escribió, SIN que a ti se te cierre la sesión.
+      const appSecundaria = firebase.initializeApp(firebase.app().options, "AppRegistro_" + Date.now());
+      try {
+         await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
+      } catch(authErr) {
+         console.warn("Aviso de Auth:", authErr.message); // Por si el correo ya existía en auth
+      }
+      await appSecundaria.auth().signOut();
+      await appSecundaria.delete(); // Matamos el hilo
+
+      // Damos de alta su perfil en tu app
       await db.collection("usuarios").doc(email).set({
         nombre: nombre,
         email: email,
-        telefono: "",
-        isAdmin: false, // Entra como usuario operativo por defecto
+        telefono: telefono,
+        isAdmin: false,
         isGlobal: false,
         puesto: puesto
       });
-      await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA" });
+
+      // Marcamos como aprobada y BORRAMOS la contraseña de la BD por seguridad
+      await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA", password: "" });
     } else {
-      // Solo actualizamos el estado a rechazada
-      await db.collection("solicitudes_acceso").doc(docId).update({ 
-        estado: "RECHAZADA",
-        motivo_rechazo: motivo 
-      });
+      await db.collection("solicitudes_acceso").doc(docId).update({ estado: "RECHAZADA", motivo_rechazo: motivo, password: "" });
     }
 
-    // 2. Disparamos el Webhook para enviar el correo
     enviarCorreoWebhook(email, nombre, esAprobado ? "APROBADO" : "RECHAZADO", motivo);
-
-    alert(`Solicitud ${esAprobado ? 'APROBADA' : 'RECHAZADA'} con éxito.`);
-    cargarSolicitudesPendientes(); // Recargar la lista
+    alert(`Solicitud ${esAprobado ? 'APROBADA y cuenta creada' : 'RECHAZADA'} con éxito.`);
+    cargarSolicitudesPendientes(); // Refrescamos lista
 
   } catch (error) {
     console.error("Error procesando solicitud:", error);
