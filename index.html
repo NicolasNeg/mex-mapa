@@ -1094,6 +1094,28 @@ header {
   }
   .login-link-btn:hover { color: #1d4ed8; text-decoration: underline; }
 
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Remember me */
+  .login-remember { display: flex; align-items: center; gap: 9px; margin: 16px 0 4px; cursor: pointer; }
+  .login-remember input[type="checkbox"] { display: none; }
+  .remember-box {
+    width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid #d0d9e6;
+    background: #f8fafc; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .login-remember input:checked ~ .remember-box {
+    background: linear-gradient(135deg, #0b2548, #1a53a0);
+    border-color: #1a53a0;
+  }
+  .remember-box::after {
+    content: ''; width: 5px; height: 9px; border: 2px solid white;
+    border-top: none; border-left: none; transform: rotate(45deg) translateY(-1px);
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .login-remember input:checked ~ .remember-box::after { opacity: 1; }
+  .remember-text { font-size: 12px; color: #64748b; font-weight: 500; user-select: none; }
+
   /* --- SOLICITUD MODAL --- */
   .sol-card {
     background: white; max-width: 470px; width: 92%; border-radius: 24px;
@@ -2655,6 +2677,12 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
           </div>
         </div>
 
+        <label class="login-remember">
+          <input type="checkbox" id="auth_remember" checked>
+          <span class="remember-box"></span>
+          <span class="remember-text">Mantener sesión iniciada en este dispositivo</span>
+        </label>
+
         <button onclick="loginManual()" id="btnLoginManual" class="login-btn-primary">INICIAR SESIÓN</button>
 
         <div class="login-divider"><div></div><span>O CONTINÚA CON</span><div></div></div>
@@ -2730,6 +2758,121 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
   </div>
 </div>
 
+<!-- ═══════════════════════════════════════════════════════
+     MÓDULO DE AUTENTICACIÓN — script aislado del resto de la app
+     Definido aquí para que esté disponible aunque el script
+     principal tenga errores. No depende de nada de la app.
+════════════════════════════════════════════════════════════ -->
+<script>
+// ── Mostrar / ocultar contraseña ──────────────────────────
+function togglePassword(inputId, iconEl) {
+  var input = document.getElementById(inputId);
+  if (!input) return;
+  if (input.type === 'password') {
+    input.type = 'text';
+    iconEl.innerText = 'visibility_off';
+    iconEl.style.color = '#3b82f6';
+  } else {
+    input.type = 'password';
+    iconEl.innerText = 'visibility';
+    iconEl.style.color = '#c4d0de';
+  }
+}
+
+// ── Error visual en el login ──────────────────────────────
+function showLoginError(msg) {
+  var el = document.getElementById('login-error');
+  var msgEl = document.getElementById('login-error-msg');
+  if (!el) return;
+  el.style.display = 'flex';
+  if (msgEl) msgEl.innerText = msg;
+  else el.innerText = msg;
+}
+
+function hideLoginError() {
+  var el = document.getElementById('login-error');
+  if (el) el.style.display = 'none';
+}
+
+// ── Reset de botones al volver a la pantalla de login ─────
+function _resetLoginButtons() {
+  var btnM = document.getElementById('btnLoginManual');
+  var btnG = document.getElementById('btnGoogleLogin');
+  if (btnM) { btnM.disabled = false; btnM.innerText = 'INICIAR SESIÓN'; }
+  if (btnG) {
+    btnG.disabled = false;
+    btnG.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE';
+  }
+  hideLoginError();
+}
+
+// ── Login con correo y contraseña ─────────────────────────
+async function loginManual() {
+  var email   = document.getElementById('auth_email').value.trim();
+  var pass    = document.getElementById('auth_pass').value.trim();
+  var remember = document.getElementById('auth_remember') ? document.getElementById('auth_remember').checked : true;
+  var btn = document.getElementById('btnLoginManual');
+
+  if (!email || !pass) {
+    showLoginError('Ingresa correo y contraseña.');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerText = 'VERIFICANDO...';
+  hideLoginError();
+
+  try {
+    // Persistencia: LOCAL = sobrevive cierre de navegador, SESSION = sólo pestaña actual
+    var persistence = remember
+      ? firebase.auth.Auth.Persistence.LOCAL
+      : firebase.auth.Auth.Persistence.SESSION;
+
+    await firebase.auth().setPersistence(persistence);
+    await firebase.auth().signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged toma el control desde aquí
+  } catch (err) {
+    btn.disabled = false;
+    btn.innerText = 'INICIAR SESIÓN';
+    var msg;
+    switch (err.code) {
+      case 'auth/wrong-password':
+      case 'auth/invalid-credential':  msg = 'Contraseña incorrecta.';              break;
+      case 'auth/user-not-found':       msg = 'Correo no registrado.';               break;
+      case 'auth/invalid-email':        msg = 'Formato de correo inválido.';         break;
+      case 'auth/too-many-requests':    msg = 'Demasiados intentos. Espera un poco.'; break;
+      case 'auth/user-disabled':        msg = 'Esta cuenta ha sido deshabilitada.';  break;
+      default:                          msg = 'Error al iniciar sesión.';
+    }
+    showLoginError(msg);
+  }
+}
+
+// ── Login con Google ──────────────────────────────────────
+function loginConGoogle() {
+  var provider = new firebase.auth.GoogleAuthProvider();
+  var btn = document.getElementById('btnGoogleLogin');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> CONECTANDO...';
+  hideLoginError();
+
+  firebase.auth().signInWithPopup(provider).catch(function(err) {
+    btn.disabled = false;
+    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE';
+    if (err.code !== 'auth/popup-closed-by-user') {
+      showLoginError('Error con Google. Intenta de nuevo.');
+    }
+  });
+}
+
+// ── Solicitud de acceso ───────────────────────────────────
+function abrirModalSolicitud() {
+  document.getElementById('modal-solicitud').style.display = 'flex';
+}
+function cerrarModalSolicitud() {
+  document.getElementById('modal-solicitud').style.display = 'none';
+}
+</script>
 
 <aside id="admin-sidebar" class="admin-sidebar">
 
@@ -3824,38 +3967,7 @@ function cambiarTabFlota(tabSeleccionado) {
   document.getElementById('formTitleFlota').innerText = "SELECCIONA UNA UNIDAD";
 }
 
-async function loginConToken() {
-  const email = document.getElementById('auth_email').value;
-  const pass = document.getElementById('auth_pass').value;
-  const btn = document.getElementById('btnLogin');
-
-  btn.disabled = true;
-  btn.innerText = "VERIFICANDO...";
-
-  try {
-    // Firebase se encarga de la encriptación y el token
-    const credencial = await firebase.auth().signInWithEmailAndPassword(email, pass);
-    const uid = credencial.user.uid;
-
-    // Buscamos sus permisos en la colección 'usuarios' usando su UID
-    const docUser = await db.collection("usuarios").doc(uid).get();
-    
-    if (docUser.exists) {
-      const uData = docUser.data();
-      USER_NAME = uData.nombre;
-      userRole = uData.isAdmin ? 'admin' : 'visitante';
-      isGlobalAdmin = uData.isGlobal || false;
-
-      guardarSesionEIniciar(); // Llamamos a tu configuración de botones
-    } else {
-      throw new Error("Usuario no registrado en base de datos");
-    }
-  } catch (error) {
-    showToast("Error de acceso: " + error.message, "error");
-    btn.disabled = false;
-    btn.innerText = "ENTRAR AL SISTEMA";
-  }
-}
+// loginConToken eliminado (reemplazado por loginManual en el módulo de autenticación)
 
 
 // ==========================================
@@ -3908,64 +4020,9 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 
-// --- FUNCIONES DE ACCESO ---
-async function loginManual() {
-  const email = document.getElementById('auth_email').value.trim();
-  const pass = document.getElementById('auth_pass').value.trim();
-  const btn = document.getElementById('btnLoginManual');
-
-  if(!email || !pass) {
-    showLoginError("❌ Ingresa correo y contraseña.");
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerText = "VERIFICANDO...";
-
-  try {
-    // Firebase se encarga de crear el token seguro
-    await firebase.auth().signInWithEmailAndPassword(email, pass);
-    // 💡 IMPORTANTE: Tu función "auth.onAuthStateChanged" que ya tienes,
-    // detectará esto automáticamente y nos dejará entrar al mapa.
-  } catch (error) {
-    btn.disabled = false;
-    btn.innerText = "INICIAR SESIÓN";
-    showLoginError("❌ Credenciales incorrectas o sin acceso.");
-  }
-}
-
-function loginConGoogle() {
-  // ✅ CORRECCIÓN: Llamamos directo a firebase.auth en lugar de la variable
-  const provider = new firebase.auth.GoogleAuthProvider();
-  const btn = document.getElementById('btnGoogleLogin');
-  btn.innerText = "ESPERANDO...";
-  
-  firebase.auth().signInWithPopup(provider).catch((error) => {
-    console.error(error);
-    btn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px;"> GOOGLE`;
-  });
-}
-
-function showLoginError(msg) {
-  const errEl = document.getElementById('login-error');
-  const msgEl = document.getElementById('login-error-msg');
-  errEl.style.display = 'flex';
-  if (msgEl) msgEl.innerText = msg; else errEl.innerText = msg;
-}
-
-function _resetLoginButtons() {
-  const btnManual = document.getElementById('btnLoginManual');
-  const btnGoogle = document.getElementById('btnGoogleLogin');
-  if (btnManual) { btnManual.disabled = false; btnManual.innerText = "INICIAR SESIÓN"; }
-  if (btnGoogle) {
-    btnGoogle.disabled = false;
-    btnGoogle.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE`;
-  }
-}
-
-// --- FORMULARIO DE SOLICITUD ---
-function abrirModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'flex'; }
-function cerrarModalSolicitud() { document.getElementById('modal-solicitud').style.display = 'none'; }
+// loginManual, loginConGoogle, togglePassword, showLoginError, _resetLoginButtons,
+// abrirModalSolicitud, cerrarModalSolicitud — definidos en el módulo de autenticación
+// (script aislado antes del admin-sidebar)
 
 async function enviarSolicitudAcceso() {
   const nombre = document.getElementById('sol_nombre').value.trim().toUpperCase();
@@ -8463,18 +8520,7 @@ function validarTextareasActividad() {
   }
 }
 
-function togglePassword(inputId, iconElement) {
-  const input = document.getElementById(inputId);
-  if (input.type === "password") {
-    input.type = "text";
-    iconElement.innerText = "visibility_off"; // Cambia al ícono de ojo tachado
-    iconElement.style.color = "var(--mex-blue)"; // Lo pinta de azul para resaltar que está visible
-  } else {
-    input.type = "password";
-    iconElement.innerText = "visibility";
-    iconElement.style.color = "#94a3b8";
-  }
-}
+// togglePassword definido en el módulo de autenticación (aislado)
 
 function parsearTablaSucia(rawText, esReserva) {
   let data = [];
