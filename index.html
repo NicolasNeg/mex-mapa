@@ -1018,7 +1018,7 @@ header {
     padding: 44px 40px; display: flex; flex-direction: column; justify-content: flex-end;
   }
   .login-brand { display: flex; flex-direction: column; margin-bottom: 10px; }
-  .login-brand-mex { font-size: 62px; font-weight: 900; line-height: 1; color: white; letter-spacing: -2px; }
+  .login-brand-name { font-size: 62px; font-weight: 900; line-height: 1; color: white; letter-spacing: -2px; }
   .login-brand-sub { font-size: 12px; font-weight: 800; color: #38bdf8; letter-spacing: 5px; margin-top: 5px; text-transform: uppercase; }
   .login-brand-desc { font-size: 13px; color: rgba(203,213,225,0.6); line-height: 1.65; margin: 14px 0 26px; max-width: 86%; font-weight: 400; }
   .login-stats { display: flex; gap: 28px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 20px; }
@@ -1164,7 +1164,7 @@ header {
     }
     .login-left-side { height: 200px; flex: none; }
     .login-left-overlay { position: absolute; inset: 0; padding: 24px 28px; justify-content: flex-end; }
-    .login-brand-mex { font-size: 40px; }
+    .login-brand-name { font-size: 40px; }
     .login-brand-sub { font-size: 11px; letter-spacing: 4px; }
     .login-brand-desc { display: none; }
     .login-stats { padding-top: 12px; gap: 20px; }
@@ -2719,7 +2719,7 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
     <div class="login-left-side">
       <div class="login-left-overlay">
         <div class="login-brand">
-          <span class="login-brand-mex">MEX</span>
+          <span class="login-brand-name">NAMELESS</span>
           <span class="login-brand-sub">Rent a Car</span>
         </div>
         <p class="login-brand-desc">Plataforma avanzada para el control operativo y gestión de flota vehicular.</p>
@@ -4022,16 +4022,162 @@ function cambiarTabFlota(tabSeleccionado) {
 // ==========================================
 // 1. LÓGICA DE LOGIN Y ROLES
 // ==========================================
+const ROLE_META = Object.freeze({
+  AUXILIAR: {
+    level: 10, label: 'AUXILIAR', isAdmin: false, fullAccess: false,
+    canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
+    canEditAdminCuadre: false, canViewAdminCuadre: false, canUseProgrammerConfig: false, canLockMap: false
+  },
+  VENTAS: {
+    level: 20, label: 'VENTAS', isAdmin: true, fullAccess: false,
+    canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
+    canEditAdminCuadre: false, canViewAdminCuadre: true, canUseProgrammerConfig: false, canLockMap: false
+  },
+  JEFE_REGIONAL: {
+    level: 30, label: 'JEFE REGIONAL', isAdmin: true, fullAccess: false,
+    canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
+    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: false, canLockMap: false
+  },
+  CORPORATIVO_USER: {
+    level: 40, label: 'CORPORATIVO USER', isAdmin: true, fullAccess: true,
+    canManageUsers: true, canProcessAccessRequests: true, canEmitMasterAlerts: true,
+    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: true, canLockMap: true
+  },
+  PROGRAMADOR: {
+    level: 50, label: 'PROGRAMADOR', isAdmin: true, fullAccess: true,
+    canManageUsers: true, canProcessAccessRequests: true, canEmitMasterAlerts: true,
+    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: true, canLockMap: true
+  },
+  JEFE_OPERACION: {
+    level: 60, label: 'JEFE DE OPERACION', isAdmin: true, fullAccess: true,
+    canManageUsers: true, canProcessAccessRequests: true, canEmitMasterAlerts: true,
+    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: true, canLockMap: true
+  }
+});
+const ROLE_OPTIONS = Object.keys(ROLE_META);
+
 let userRole = null; 
 let USER_NAME = "";
 let dbUsuariosLogin = [];
 let isGlobalAdmin = false; // <-- NUEVA VARIABLE GLOBAL
+let userAccessRole = "AUXILIAR";
+let currentUserProfile = null;
 let DB_MAESTRA = []; 
 
 // Variable global de Auth
 // Declared before auth init to avoid TDZ when onAuthStateChanged fires synchronously
 let radarInterval = null;
 let isSaving = false;
+
+function _sanitizeRole(role) {
+  const normalized = String(role || '').trim().toUpperCase();
+  return ROLE_META[normalized] ? normalized : null;
+}
+
+function _legacyRoleFromFlags(data = {}) {
+  if (data.isGlobal === true) return 'CORPORATIVO_USER';
+  if (data.isAdmin === true) return 'VENTAS';
+  return 'AUXILIAR';
+}
+
+function _roleMeta(role = userAccessRole) {
+  return ROLE_META[_sanitizeRole(role) || 'AUXILIAR'];
+}
+
+function _normalizePlaza(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function _normalizeUserProfile(raw = {}) {
+  const explicitRole = _sanitizeRole(raw.rol);
+  const rol = explicitRole || _legacyRoleFromFlags(raw);
+  const meta = _roleMeta(rol);
+  const nombre = String(raw.nombre || raw.usuario || raw.email || '').trim().toUpperCase();
+  return {
+    ...raw,
+    id: raw.id || '',
+    nombre,
+    usuario: nombre,
+    email: String(raw.email || '').trim().toLowerCase(),
+    rol,
+    roleLabel: meta.label,
+    roleLevel: meta.level,
+    isAdmin: meta.isAdmin,
+    isGlobal: meta.fullAccess,
+    plazaAsignada: _normalizePlaza(raw.plazaAsignada || raw.plaza || raw.sucursalAsignada || raw.sucursal || ''),
+    telefono: String(raw.telefono || '').trim()
+  };
+}
+
+function _setSessionProfile(profile) {
+  currentUserProfile = profile;
+  USER_NAME = profile.nombre || profile.usuario || '';
+  userAccessRole = profile.rol || 'AUXILIAR';
+  userRole = profile.isAdmin ? 'admin' : 'visitante';
+  isGlobalAdmin = _roleMeta(userAccessRole).fullAccess;
+  window.CURRENT_USER_PROFILE = profile;
+}
+
+function _clearSessionProfile() {
+  currentUserProfile = null;
+  USER_NAME = "";
+  userAccessRole = "AUXILIAR";
+  userRole = null;
+  isGlobalAdmin = false;
+  window.CURRENT_USER_PROFILE = null;
+}
+
+function canManageUsers() { return _roleMeta().canManageUsers; }
+function canProcessAccessRequests() { return _roleMeta().canProcessAccessRequests; }
+function canEmitMasterAlerts() { return _roleMeta().canEmitMasterAlerts; }
+function canEditAdminCuadre() { return _roleMeta().canEditAdminCuadre; }
+function canViewAdminCuadre() { return _roleMeta().canViewAdminCuadre; }
+function canUseProgrammerConfig() { return _roleMeta().canUseProgrammerConfig; }
+function canLockMap() { return _roleMeta().canLockMap; }
+function hasFullAccess() { return _roleMeta().fullAccess; }
+
+function canAssignRole(targetRole) {
+  const role = _sanitizeRole(targetRole) || 'AUXILIAR';
+  if (!canManageUsers()) return false;
+  if (userAccessRole === 'CORPORATIVO_USER') {
+    return !['CORPORATIVO_USER', 'PROGRAMADOR', 'JEFE_OPERACION'].includes(role);
+  }
+  return true;
+}
+
+function canManageTargetRole(targetRole) {
+  const role = _sanitizeRole(targetRole) || 'AUXILIAR';
+  if (!canManageUsers()) return false;
+  if (userAccessRole === 'CORPORATIVO_USER') {
+    return !['CORPORATIVO_USER', 'PROGRAMADOR', 'JEFE_OPERACION'].includes(role);
+  }
+  return true;
+}
+
+function _roleOptionsHtml(selectedRole = 'AUXILIAR') {
+  const normalized = _sanitizeRole(selectedRole) || 'AUXILIAR';
+  return ROLE_OPTIONS.map(role => {
+    const meta = ROLE_META[role];
+    const selected = role === normalized ? 'selected' : '';
+    const disabled = canAssignRole(role) ? '' : 'disabled';
+    return `<option value="${role}" ${selected} ${disabled}>${meta.label}</option>`;
+  }).join('');
+}
+
+function _roleNeedsPlaza(role) {
+  const normalized = _sanitizeRole(role) || 'AUXILIAR';
+  return normalized === 'VENTAS' || normalized === 'JEFE_REGIONAL';
+}
+
+function _syncRoleScope(prefix) {
+  const roleInput = document.getElementById(`${prefix}-role`);
+  const plazaRow = document.getElementById(`${prefix}-plaza-row`);
+  const plazaInput = document.getElementById(`${prefix}-plaza`);
+  if (!roleInput || !plazaRow) return;
+  const needsPlaza = _roleNeedsPlaza(roleInput.value);
+  plazaRow.style.display = needsPlaza ? '' : 'none';
+  if (!needsPlaza && plazaInput) plazaInput.value = '';
+}
 
 // auth ya está declarada en mex-api.js — no redeclarar
 
@@ -4042,10 +4188,10 @@ auth.onAuthStateChanged(async (user) => {
       const snapshot = await db.collection(COL.USERS).where("email", "==", user.email).get();
 
       if (!snapshot.empty) {
-        const datos = snapshot.docs[0].data();
-        USER_NAME = datos.nombre;
-        userRole = datos.isAdmin ? 'admin' : 'visitante';
-        isGlobalAdmin = datos.isGlobal || false;
+        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const bestMatch = docs.find(d => d.id === user.uid) || docs[0];
+        const datos = _normalizeUserProfile(bestMatch);
+        _setSessionProfile(datos);
 
         configurarPermisosUI();
         document.getElementById('login-overlay').style.display = 'none';
@@ -4063,6 +4209,7 @@ auth.onAuthStateChanged(async (user) => {
       _resetLoginButtons();
     }
   } else {
+    _clearSessionProfile();
     document.getElementById('login-overlay').style.display = 'flex';
     _resetLoginButtons();
   }
@@ -4099,12 +4246,14 @@ async function enviarSolicitudAcceso() {
   btn.innerHTML = `<span class="material-icons spinner" style="font-size: 18px; vertical-align: middle;">sync</span> ENVIANDO...`;
 
   try {
-    await db.collection("solicitudes_acceso").doc(email).set({
+    await db.collection("solicitudes_acceso").add({
       nombre: nombre,
       email: email,
       puesto: puesto,
       telefono: telefono,
       password: pass, 
+      rolSolicitado: "AUXILIAR",
+      plazaSolicitada: "",
       fecha: new Date().toISOString(),
       estado: "PENDIENTE"
     });
@@ -4122,10 +4271,10 @@ async function enviarSolicitudAcceso() {
     cerrarModalSolicitud();
   } catch (error) {
     console.error("Error al guardar solicitud:", error);
-    showToast("Error de conexión al enviar", "error");
+    showToast(error && error.message ? error.message : "Error de conexión al enviar", "error");
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `ENVIAR DATOS`;
+    btn.innerHTML = `ENVIAR SOLICITUD`;
   }
 }
 
@@ -4206,17 +4355,10 @@ function _iniciarSincronizacionUsuarios() {
   if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
 
   _unsubUsersLive = db.collection(COL.USERS).onSnapshot(snap => {
-    db.collection(COL.ADMINS).get().then(adminsSnap => {
-      const globalesSet = new Set(
-        adminsSnap.docs.filter(d => d.data().isGlobal).map(d => d.data().usuario || d.id)
-      );
-      dbUsuariosLogin = snap.docs.map(d => {
-        const data = d.data();
-        const displayName = (data.nombre || data.usuario || data.email || '').trim().toUpperCase();
-        return { ...data, id: d.id, usuario: displayName, isGlobal: !!data.isGlobal || globalesSet.has(displayName) };
-      }).sort((a, b) => a.usuario.localeCompare(b.usuario));
-      if (typeof renderModernDropdown === 'function') renderModernDropdown(dbUsuariosLogin);
-    });
+    dbUsuariosLogin = snap.docs
+      .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
+      .sort((a, b) => a.usuario.localeCompare(b.usuario));
+    if (typeof renderModernDropdown === 'function') renderModernDropdown(dbUsuariosLogin);
   }, err => console.warn('onSnapshot usuarios live:', err));
 }
 
@@ -4230,9 +4372,7 @@ function cerrarSesion() {
   // Destruir la sesión iniciada
   localStorage.removeItem('mex_mapa_session');
 
-  userRole = null;
-  USER_NAME = "";
-  isGlobalAdmin = false; // 🛡️ Borrado seguro del rol
+  _clearSessionProfile();
   
   const _ef = document.getElementById('auth_email'); if (_ef) _ef.value = '';
   const _pf = document.getElementById('auth_pass'); if (_pf) _pf.value = '';
@@ -5082,12 +5222,12 @@ function abrirModalFlota() {
   // 2. BLINDAJE EXCLUSIVO PARA JEFES (Globales)
   const adminSection = document.getElementById('mc-admin-section');
   if (adminSection) {
-    adminSection.style.display = (typeof isGlobalAdmin !== 'undefined' && isGlobalAdmin === true) ? 'flex' : 'none';
+    adminSection.style.display = hasFullAccess() ? 'flex' : 'none';
   }
   
   const btnLock = document.getElementById('btnLockMapa');
   if (btnLock) {
-    btnLock.style.display = (isGlobalAdmin === true) ? 'flex' : 'none';
+    btnLock.style.display = canLockMap() ? 'flex' : 'none';
   }
 }
 
@@ -5309,7 +5449,7 @@ function seleccionarFilaFlota(index, rowElement) {
     }
 
     // Determinamos si es un Admin Normal (Solo Lectura) o Global (Edición) [cite: 891]
-    let esSoloLecturaAdmin = !isGlobalAdmin;
+    let esSoloLecturaAdmin = !canEditAdminCuadre();
 
     // Abrimos el modal correcto [cite: 1234]
     document.getElementById('modal-editar-admin').classList.add('active');
@@ -5402,8 +5542,8 @@ function prepararNuevoFlota() {
 
   // 🔥 2. SI ESTAMOS EN CUADRE ADMINS 🔥 [cite: 2180]
   if (VISTA_ACTUAL_FLOTA === 'ADMINS') {
-    if (typeof isGlobalAdmin !== 'undefined' && !isGlobalAdmin) {
-      showToast("⛔ Solo un Administrador Global puede ingresar unidades al Cuadre Administrativo.", "error");
+    if (!canEditAdminCuadre()) {
+      showToast("⛔ Tu rol solo puede consultar el Cuadre Administrativo.", "error");
       return;
     }
     // Si es Jefe, le abrimos el modal diseñado específicamente para esto [cite: 2181]
@@ -5856,6 +5996,10 @@ let _umUsers       = [];
 let _umSelectedId  = null;
 
 function abrirUsuarios() {
+  if (!canManageUsers()) {
+    showToast("Tu rol no puede gestionar usuarios.", "error");
+    return;
+  }
   toggleAdminSidebar();
   document.getElementById('users-modal').classList.add('active');
   _umIniciar();
@@ -5875,31 +6019,16 @@ function _umIniciar() {
     '<div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>';
 
   _unsubUsuarios = db.collection(COL.USERS).onSnapshot(snap => {
-    db.collection(COL.ADMINS).get().then(adminsSnap => {
-      const globalesSet = new Set(
-        adminsSnap.docs.filter(d => d.data().isGlobal).map(d => d.data().usuario || d.id)
-      );
-      _umUsers = snap.docs.map(d => {
-        const data = d.data();
-        const nombre = (data.nombre || data.usuario || data.email || '').toUpperCase();
-        return {
-          id:       d.id,
-          nombre,
-          email:    data.email    || '',
-          isAdmin:  !!data.isAdmin,
-          isGlobal: !!data.isGlobal || globalesSet.has(nombre),
-          telefono: data.telefono || ''
-        };
-      }).sort((a, b) => a.nombre.localeCompare(b.nombre));
+    _umUsers = snap.docs
+      .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
-      _umRenderCards();
+    _umRenderCards();
 
-      // Si había uno seleccionado, actualizar el form con datos frescos
-      if (_umSelectedId) {
-        const updated = _umUsers.find(u => u.id === _umSelectedId);
-        if (updated) _umRenderEditForm(updated);
-      }
-    });
+    if (_umSelectedId) {
+      const updated = _umUsers.find(u => u.id === _umSelectedId);
+      if (updated) _umRenderEditForm(updated);
+    }
   }, err => console.error('onSnapshot usuarios:', err));
 }
 
@@ -5910,6 +6039,22 @@ function _umAvatarStyle(nombre) {
 
 function _umInitials(nombre) {
   return nombre.split(' ').slice(0, 2).map(w => w[0] || '').join('') || '?';
+}
+
+function _umRoleBadge(role) {
+  const normalized = _sanitizeRole(role) || 'AUXILIAR';
+  const styles = {
+    AUXILIAR: 'background:#e2e8f0;color:#475569;',
+    VENTAS: 'background:#dbeafe;color:#1d4ed8;',
+    JEFE_REGIONAL: 'background:#dcfce7;color:#166534;',
+    CORPORATIVO_USER: 'background:#fee2e2;color:#991b1b;',
+    PROGRAMADOR: 'background:#ede9fe;color:#6d28d9;',
+    JEFE_OPERACION: 'background:#fef3c7;color:#92400e;'
+  };
+  return {
+    label: ROLE_META[normalized].label,
+    style: styles[normalized] || styles.AUXILIAR
+  };
 }
 
 function _umRenderCards() {
@@ -5925,18 +6070,15 @@ function _umRenderCards() {
   }
 
   container.innerHTML = list.map(u => {
-    let roleLabel, roleStyle;
-    if (u.isGlobal)       { roleLabel = 'GLOBAL';  roleStyle = 'background:#fee2e2;color:#991b1b;'; }
-    else if (u.isAdmin)   { roleLabel = 'ADMIN';   roleStyle = 'background:#dbeafe;color:#1e40af;'; }
-    else                  { roleLabel = 'USUARIO'; roleStyle = 'background:#e2e8f0;color:#64748b;'; }
+    const badge = _umRoleBadge(u.rol);
     const active = u.id === _umSelectedId ? ' active' : '';
     return `<div class="um-card${active}" onclick="umSeleccionar('${u.id}')">
       <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
       <div class="um-card-info">
         <div class="um-card-name">${u.nombre}</div>
-        <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
+        <div class="um-card-email">${u.email || '(usuario heredado)'}${u.plazaAsignada ? ` · ${u.plazaAsignada}` : ''}</div>
       </div>
-      <span class="um-role-badge" style="${roleStyle}">${roleLabel}</span>
+      <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
     </div>`;
   }).join('');
 }
@@ -5951,6 +6093,13 @@ function umSeleccionar(id) {
 }
 
 function _umRenderEditForm(user) {
+  const roleBadge = _umRoleBadge(user.rol);
+  const canEditThisUser = canManageTargetRole(user.rol);
+  const roleLockedMsg = canEditThisUser
+    ? ''
+    : `<div style="margin:14px 0; padding:12px 14px; border-radius:12px; background:#fff7ed; color:#9a3412; font-weight:700; font-size:12px;">
+         Tu rol actual no puede modificar a ${roleBadge.label}.
+       </div>`;
   document.getElementById('um-placeholder').style.display = 'none';
   const container = document.getElementById('um-form-container');
   container.style.display = 'block';
@@ -5965,7 +6114,7 @@ function _umRenderEditForm(user) {
 
     <div class="um-form-field">
       <label>Nombre completo</label>
-      <input type="text" id="um-edit-nombre" value="${user.nombre.replace(/"/g,'&quot;')}" placeholder="Nombre completo">
+      <input type="text" id="um-edit-nombre" value="${user.nombre.replace(/"/g,'&quot;')}" placeholder="Nombre completo" ${canEditThisUser ? '' : 'disabled'}>
     </div>
     <div class="um-form-field">
       <label>Correo electrónico</label>
@@ -5974,61 +6123,71 @@ function _umRenderEditForm(user) {
     </div>
     <div class="um-form-field">
       <label>Teléfono (opcional)</label>
-      <input type="tel" id="um-edit-telefono" value="${user.telefono}" placeholder="Ej. 6441234567">
+      <input type="tel" id="um-edit-telefono" value="${user.telefono}" placeholder="Ej. 6441234567" ${canEditThisUser ? '' : 'disabled'}>
     </div>
 
-    <div class="um-form-section">Permisos</div>
-    <div class="um-toggle-row">
-      <div class="um-tl">
-        <label for="um-edit-admin">Administrador</label>
-        <div class="um-toggle-desc">Puede gestionar el mapa y la flota</div>
-      </div>
-      <input type="checkbox" id="um-edit-admin" ${user.isAdmin ? 'checked' : ''} onchange="umToggleGlobal()">
+    <div class="um-form-section">Rol y alcance</div>
+    <div class="um-form-field">
+      <label>Rol</label>
+      <select id="um-edit-role" onchange="_syncRoleScope('um-edit')" ${canEditThisUser ? '' : 'disabled'}>
+        ${_roleOptionsHtml(user.rol)}
+      </select>
     </div>
-    <div id="um-global-row" class="um-toggle-row" style="${user.isAdmin ? '' : 'display:none;'}">
-      <div class="um-tl">
-        <label for="um-edit-global" style="color:#ef4444;">Admin Global</label>
-        <div class="um-toggle-desc" style="color:#ef4444;">Acceso completo, sin restricciones</div>
-      </div>
-      <input type="checkbox" id="um-edit-global" ${user.isGlobal ? 'checked' : ''}>
+    <div class="um-form-field" id="um-edit-plaza-row" style="${_roleNeedsPlaza(user.rol) ? '' : 'display:none;'}">
+      <label>Plaza asignada</label>
+      <input type="text" id="um-edit-plaza" value="${(user.plazaAsignada || '').replace(/"/g,'&quot;')}" placeholder="Ej. BJX" ${canEditThisUser ? '' : 'disabled'}>
     </div>
+    ${roleLockedMsg}
 
     <div class="um-divider"></div>
     <div class="um-actions">
-      <button class="um-btn-save" id="um-btn-guardar" onclick="umGuardarCambios('${user.id}')">
+      <button class="um-btn-save" id="um-btn-guardar" onclick="umGuardarCambios('${user.id}')" ${canEditThisUser ? '' : 'disabled'}>
         <span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS
       </button>
-      ${user.email ? `<button class="um-btn-secondary" onclick="umResetPassword('${user.email}')">
+      ${user.email ? `<button class="um-btn-secondary" onclick="umResetPassword('${user.email}')" ${canEditThisUser ? '' : 'disabled'}>
         <span class="material-icons" style="font-size:17px;">lock_reset</span> Enviar restablecimiento de contraseña
       </button>` : ''}
-      <button class="um-btn-danger" onclick="umEliminar('${user.id}', '${user.nombre.replace(/'/g, "\\'")}')">
+      <button class="um-btn-danger" onclick="umEliminar('${user.id}', '${user.nombre.replace(/'/g, "\\'")}')" ${canEditThisUser ? '' : 'disabled'}>
         <span class="material-icons" style="font-size:17px;">person_remove</span> Eliminar usuario
       </button>
     </div>
   </div>`;
-}
-
-function umToggleGlobal() {
-  const isAdmin = document.getElementById('um-edit-admin').checked;
-  const row = document.getElementById('um-global-row');
-  if (row) row.style.display = isAdmin ? '' : 'none';
-  if (!isAdmin) { const g = document.getElementById('um-edit-global'); if (g) g.checked = false; }
+  _syncRoleScope('um-edit');
 }
 
 async function umGuardarCambios(docId) {
+  if (!canManageUsers()) return showToast('No tienes permisos para editar usuarios.', 'error');
+  const targetUser = _umUsers.find(u => u.id === docId);
+  if (!targetUser) return showToast('Usuario no encontrado.', 'error');
   const nombre   = (document.getElementById('um-edit-nombre').value   || '').trim().toUpperCase();
   const telefono = (document.getElementById('um-edit-telefono').value || '').trim();
-  const isAdmin  = document.getElementById('um-edit-admin').checked;
-  const isGlobal = isAdmin && document.getElementById('um-edit-global').checked;
+  const rol      = _sanitizeRole(document.getElementById('um-edit-role').value) || 'AUXILIAR';
+  const plazaAsignada = _roleNeedsPlaza(rol)
+    ? _normalizePlaza(document.getElementById('um-edit-plaza').value)
+    : '';
+  const meta = ROLE_META[rol];
 
   if (!nombre) return showToast('El nombre es obligatorio', 'error');
+  if (_roleNeedsPlaza(rol) && !plazaAsignada) {
+    return showToast('Ese rol requiere una plaza asignada.', 'error');
+  }
+  if (!canManageTargetRole(targetUser.rol) || !canAssignRole(rol)) {
+    return showToast('Tu rol no puede modificar ese nivel de acceso.', 'error');
+  }
 
   const btn = document.getElementById('um-btn-guardar');
   btn.disabled = true;
   btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Guardando...';
 
   try {
-    await db.collection(COL.USERS).doc(docId).update({ nombre, telefono, isAdmin, isGlobal });
+    await db.collection(COL.USERS).doc(docId).update({
+      nombre,
+      telefono,
+      rol,
+      plazaAsignada,
+      isAdmin: meta.isAdmin,
+      isGlobal: meta.fullAccess
+    });
     showToast('Usuario actualizado', 'success');
   } catch(e) {
     console.error(e);
@@ -6055,6 +6214,11 @@ async function umResetPassword(email) {
 }
 
 async function umEliminar(docId, nombre) {
+  if (!canManageUsers()) return showToast('No tienes permisos para eliminar usuarios.', 'error');
+  const targetUser = _umUsers.find(u => u.id === docId);
+  if (!targetUser || !canManageTargetRole(targetUser.rol)) {
+    return showToast('Tu rol no puede eliminar ese usuario.', 'error');
+  }
   const ok = await mexConfirm(
     'Eliminar usuario',
     `¿Eliminar a ${nombre}?\nEsta acción le quitará el acceso permanentemente.`,
@@ -6073,6 +6237,10 @@ async function umEliminar(docId, nombre) {
 }
 
 function umNuevoUsuario() {
+  if (!canManageUsers()) {
+    showToast('Tu rol no puede crear usuarios.', 'error');
+    return;
+  }
   _umSelectedId = null;
   _umRenderCards();
   document.getElementById('um-placeholder').style.display = 'none';
@@ -6106,20 +6274,16 @@ function umNuevoUsuario() {
       <input type="tel" id="um-new-tel" placeholder="Ej. 6441234567">
     </div>
 
-    <div class="um-form-section">Permisos</div>
-    <div class="um-toggle-row">
-      <div class="um-tl">
-        <label for="um-new-admin">Administrador</label>
-        <div class="um-toggle-desc">Puede gestionar el mapa y la flota</div>
-      </div>
-      <input type="checkbox" id="um-new-admin" onchange="umToggleNuevoGlobal()">
+    <div class="um-form-section">Rol y alcance</div>
+    <div class="um-form-field">
+      <label>Rol</label>
+      <select id="um-new-role" onchange="_syncRoleScope('um-new')">
+        ${_roleOptionsHtml('AUXILIAR')}
+      </select>
     </div>
-    <div id="um-new-global-row" class="um-toggle-row" style="display:none;">
-      <div class="um-tl">
-        <label for="um-new-global" style="color:#ef4444;">Admin Global</label>
-        <div class="um-toggle-desc" style="color:#ef4444;">Acceso completo, sin restricciones</div>
-      </div>
-      <input type="checkbox" id="um-new-global">
+    <div class="um-form-field" id="um-new-plaza-row" style="display:none;">
+      <label>Plaza asignada</label>
+      <input type="text" id="um-new-plaza" placeholder="Ej. BJX">
     </div>
 
     <div class="um-divider"></div>
@@ -6129,30 +6293,35 @@ function umNuevoUsuario() {
       </button>
     </div>
   </div>`;
-}
-
-function umToggleNuevoGlobal() {
-  const isAdmin = document.getElementById('um-new-admin').checked;
-  document.getElementById('um-new-global-row').style.display = isAdmin ? '' : 'none';
+  _syncRoleScope('um-new');
 }
 
 async function umCrearUsuario() {
+  if (!canManageUsers()) return showToast('No tienes permisos para crear usuarios.', 'error');
   const nombre   = (document.getElementById('um-new-nombre').value || '').trim().toUpperCase();
   const email    = (document.getElementById('um-new-email').value  || '').trim().toLowerCase();
   const pass     = (document.getElementById('um-new-pass').value   || '').trim();
   const telefono = (document.getElementById('um-new-tel').value    || '').trim();
-  const isAdmin  = document.getElementById('um-new-admin').checked;
-  const isGlobal = isAdmin && document.getElementById('um-new-global').checked;
+  const rol      = _sanitizeRole(document.getElementById('um-new-role').value) || 'AUXILIAR';
+  const plazaAsignada = _roleNeedsPlaza(rol)
+    ? _normalizePlaza(document.getElementById('um-new-plaza').value)
+    : '';
 
   if (!nombre)                   return showToast('El nombre es obligatorio', 'error');
   if (!email || !email.includes('@')) return showToast('Correo inválido', 'error');
   if (pass.length < 6)           return showToast('La contraseña debe tener mínimo 6 caracteres', 'error');
+  if (_roleNeedsPlaza(rol) && !plazaAsignada) {
+    return showToast('Ese rol requiere una plaza asignada.', 'error');
+  }
+  if (!canAssignRole(rol)) {
+    return showToast('Tu rol no puede crear ese nivel de acceso.', 'error');
+  }
 
   const btn = document.getElementById('um-btn-crear');
   btn.disabled = true;
   btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Creando...';
 
-  const res = await api.guardarNuevoUsuarioAuth(nombre, email, pass, isAdmin, telefono, isGlobal);
+  const res = await api.guardarNuevoUsuarioAuth(nombre, email, pass, rol, telefono, plazaAsignada);
   if (res === 'EXITO') {
     showToast('Usuario creado exitosamente', 'success');
     umNuevoUsuario(); // limpiar form
@@ -6413,7 +6582,7 @@ function hacerPingNotificaciones() {
         if (overlay) {
           overlay.style.display = 'flex'; 
           
-          if (isGlobalAdmin) {
+          if (canLockMap()) {
             // PRENDER VISTA ADMIN
             overlay.className = "is-admin-global";
             if (viewAdmin) viewAdmin.style.display = "flex";
@@ -6627,6 +6796,10 @@ document.getElementById('textoUploadAlerta').style.color = "#64748b";
 
 // Función que manda la alerta al backend
 function emitirAlertaGlobal() {
+  if (!canEmitMasterAlerts()) {
+    showToast("Tu rol no puede emitir alertas maestras.", "error");
+    return;
+  }
   const tipo = document.getElementById('alertaNuevaTipo').value;
   const titulo = document.getElementById('alertaNuevaTitulo').value.trim();
   const mensaje = document.getElementById('alertaNuevaMensaje').value.trim();
@@ -7116,6 +7289,10 @@ let UNIDAD_GLOBAL_ACTIVA = null;
 
 // --- 1. INSERTAR (ALTA UNIVERSAL) ---
 function abrirModalInsertarGlobal() {
+  if (!hasFullAccess()) {
+    showToast("Tu rol no puede insertar unidades globales.", "error");
+    return;
+  }
   toggleMoreControls();
   document.getElementById('modal-insertar-global').classList.add('active');
   limpiarFormularioAltaGlobal();
@@ -7169,6 +7346,10 @@ function limpiarFormularioAltaGlobal() {
 // ==============================================================
 
 function abrirModalEditarGlobal() {
+  if (!hasFullAccess()) {
+    showToast("Tu rol no puede abrir la edición global.", "error");
+    return;
+  }
   toggleMoreControls();
   document.getElementById('modal-editar-global').classList.add('active');
   desbloquearEdicionGlobal();
@@ -7187,6 +7368,10 @@ function abrirModalEditarGlobal() {
 }
 
 function guardarEdicionGlobal(tipoAccion) {
+  if (!hasFullAccess()) {
+    showToast("Tu rol no puede modificar la flota global.", "error");
+    return;
+  }
   if (tipoAccion === 'ELIMINAR' && !confirm(`⚠️ ALERTA: Eliminarás a ${UNIDAD_GLOBAL_ACTIVA.mva} de la plaza ${UNIDAD_GLOBAL_ACTIVA.plaza} DEFINITIVAMENTE. ¿Continuar?`)) return;
 
   const data = {
@@ -7217,6 +7402,10 @@ function guardarEdicionGlobal(tipoAccion) {
 }
 
 async function guardarEdicionAdmin(tipoAccion) {
+  if (!canEditAdminCuadre()) {
+    showToast("Tu rol solo puede consultar el Cuadre Administrativo.", "error");
+    return;
+  }
   if (tipoAccion === 'ELIMINAR' && !confirm(`⚠️ ¿Deseas retirar a ${SELECT_REF_FLOTA.mva} del Cuadre Administrativo?`)) return;
 
   showToast("Sincronizando Cuadre Admins...", "warning");
@@ -7258,6 +7447,10 @@ async function guardarEdicionAdmin(tipoAccion) {
 
 
 function abrirModalEliminarGlobal() {
+  if (!hasFullAccess()) {
+    showToast("Tu rol no puede eliminar unidades globales.", "error");
+    return;
+  }
   abrirModalEditarGlobal();
   showToast("Busca la unidad que deseas eliminar globalmente", "warning");
 }
@@ -7813,8 +8006,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 let estadoLockLocal = false;
 function solicitarToggleBloqueo() {
-  if (!isGlobalAdmin) {
-    showToast("🚫 Solo un Administrador Global puede bloquear el patio.", "error");
+  if (!canLockMap()) {
+    showToast("🚫 Solo los roles con acceso total pueden bloquear el patio.", "error");
     return;
   }
 
@@ -9864,6 +10057,10 @@ async function migrarConfiguracionAFirestore() {
 let TAB_ACTIVA_CFG = 'ubicaciones';
 
 function abrirPanelConfiguracion() {
+  if (!canUseProgrammerConfig()) {
+    showToast("Tu rol no puede abrir la configuración global.", "error");
+    return;
+  }
   toggleMoreControls();
   document.getElementById('modal-config-global').classList.add('active');
   renderizarListaConfig();
@@ -9929,6 +10126,10 @@ function eliminarElementoConfig(index) {
 }
 
 async function guardarConfiguracionEnFirebase() {
+  if (!canUseProgrammerConfig()) {
+    showToast("Tu rol no puede publicar esta configuración.", "error");
+    return;
+  }
   const ok = await mexConfirm('Publicar cambios', '¿Aplicar los cambios a toda la app ahora mismo?', 'warning');
   if (!ok) return;
   showToast("Subiendo configuración…", "success");
@@ -10012,18 +10213,6 @@ function llenarSelectsDinamicos() {
 }
 
 function configurarPermisosUI() {
-  // --- 🏷️ CATEGORIZACIÓN DE BOTONES ---
-  const soloJefes = [
-    'btnMenuUsuarios',
-    'btnMenuAlertasGlobales',
-    'btnMenuHistorialAlertas',
-    'btnLockMaestro',
-    'btnMenuHistorial',
-    'btnLockAdminSidebar',
-    'btnEditorMapa',
-    'btnConfigGlobal' // <--- TU NUEVO PANEL YA INCLUIDO AQUÍ
-  ];
-  
   const operacionAdmin = [
     'btnMenuAuditoria', 
     'btnMenuBitacora', 
@@ -10031,45 +10220,40 @@ function configurarPermisosUI() {
     'btnVerCuadres' 
   ];
 
-  const btnLockMaestro = document.getElementById('btnLockAdminSidebar');
-  if (btnLockMaestro) {
-    btnLockMaestro.style.display = (isGlobalAdmin === true) ? 'flex' : 'none';
-  }
-
   const btnAdminNut = document.getElementById('btnAdmin');
   if (btnAdminNut) btnAdminNut.style.display = 'flex';
 
+  const visibilidadEspecial = {
+    btnMenuUsuarios: canManageUsers(),
+    btnMenuSolicitudes: canProcessAccessRequests(),
+    btnMenuAlertasGlobales: canEmitMasterAlerts(),
+    btnMenuHistorialAlertas: canEmitMasterAlerts(),
+    btnLockMaestro: canLockMap(),
+    btnMenuHistorial: hasFullAccess(),
+    btnLockAdminSidebar: canLockMap(),
+    btnEditorMapa: hasFullAccess(),
+    btnConfigGlobal: canUseProgrammerConfig()
+  };
+
+  Object.entries(visibilidadEspecial).forEach(([id, visible]) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.style.display = visible ? 'flex' : 'none';
+  });
+
   if (userRole === 'admin') {
-    // A) MOSTRAR HERRAMIENTAS DE OPERACIÓN
     operacionAdmin.forEach(id => {
       const btn = document.getElementById(id);
       if(btn) btn.style.display = 'flex';
     });
 
-    // B) FILTRAR EXCLUSIVO DE JEFES GLOBALES
-    if (isGlobalAdmin) {
-      soloJefes.forEach(id => {
-        const btn = document.getElementById(id);
-        if(btn) btn.style.display = 'flex';
-      });
-      
-      // 🔥 IMPORTANTE: Aquí mandamos llamar tu nueva configuración desde Firebase
+    if (hasFullAccess()) {
       inicializarConfiguracion();
-
-    } else {
-      soloJefes.forEach(id => {
-        const btn = document.getElementById(id);
-        if(btn) btn.style.display = 'none';
-      });
     }
     
-    // Cargar base maestra para autocompletado
     if (typeof cargarMaestra === "function") cargarMaestra();
 
   } else {
-    // C) ES OPERATIVO: Ocultamos TODO
-    const todosLosBloqueados = [...soloJefes, ...operacionAdmin];
-    todosLosBloqueados.forEach(id => {
+    operacionAdmin.forEach(id => {
       const btn = document.getElementById(id);
       if(btn) btn.style.display = 'none';
     });
@@ -10080,6 +10264,10 @@ function configurarPermisosUI() {
 // --- LÓGICA DE SOLICITUDES DE ACCESO ---
 
 function abrirModalSolicitudes() {
+  if (!canProcessAccessRequests()) {
+    showToast("Solo los roles superiores pueden revisar solicitudes.", "error");
+    return;
+  }
   // Cerramos el menú lateral si está abierto
   if (typeof toggleMoreControls === "function") toggleMoreControls();
   
@@ -10088,6 +10276,7 @@ function abrirModalSolicitudes() {
 }
 
 async function cargarSolicitudesPendientes() {
+  if (!canProcessAccessRequests()) return;
   const contenedor = document.getElementById('contenedor-solicitudes');
   contenedor.innerHTML = `<div style="text-align:center; padding: 30px;"><span class="material-icons spinner" style="font-size:30px; color:var(--mex-blue);">sync</span></div>`;
 
@@ -10149,6 +10338,9 @@ async function cargarSolicitudesPendientes() {
 // <button onclick="procesarSolicitud('${doc.id}', true)"> APROBAR </button>
 // <button onclick="procesarSolicitud('${doc.id}', false)"> RECHAZAR </button>
 async function procesarSolicitud(docId, esAprobado) {
+  if (!canProcessAccessRequests()) {
+    return showToast("No tienes permisos para procesar solicitudes.", "error");
+  }
   const docSnap = await db.collection("solicitudes_acceso").doc(docId).get();
   if(!docSnap.exists) return showToast("La solicitud ya no existe", "error");
   
@@ -10177,23 +10369,30 @@ async function procesarSolicitud(docId, esAprobado) {
   try {
     if (esAprobado) {
       const appSecundaria = firebase.initializeApp(firebase.app().options, "AppRegistro_" + Date.now());
+      let nuevoUid = null;
       try {
-         await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
+         const cred = await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
+         nuevoUid = cred && cred.user ? cred.user.uid : null;
       } catch(authErr) {
          console.warn("Aviso de Auth:", authErr.message); 
+         if (authErr.code !== 'auth/email-already-in-use') throw authErr;
       }
       await appSecundaria.auth().signOut();
       await appSecundaria.delete(); 
 
       // Creación automática del perfil
-      await db.collection("usuarios").doc(email).set({
-        nombre: nombre,
-        email: email,
+      const userDocId = nuevoUid || email;
+      await db.collection("usuarios").doc(userDocId).set({
+        nombre: String(nombre || '').trim().toUpperCase(),
+        email: String(email || '').trim().toLowerCase(),
         telefono: telefono || "",
+        puesto: puesto || "",
+        rol: "AUXILIAR",
+        plazaAsignada: "",
         isAdmin: false,
         isGlobal: false,
-        puesto: puesto
-      });
+        status: "ACTIVO"
+      }, { merge: true });
 
       await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA", password: "" });
     } else {

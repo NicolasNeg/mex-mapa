@@ -1,99 +1,332 @@
 rules_version = '2';
 // ============================================================
 // REGLAS DE SEGURIDAD FIRESTORE — MEX MAPA
-// Requiere sesión de Firebase Auth para casi todo.
-// La única excepción es solicitudes_acceso (envío sin sesión).
+// Jerarquía de acceso basada en perfiles guardados en /usuarios.
+// Compatibilidad legacy: si un perfil no tiene "rol", se infiere
+// desde isAdmin / isGlobal.
 // ============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ─── HELPER ─────────────────────────────────────────────
+    // ─── PERFIL Y ROLES ─────────────────────────────────────
     function estaAutenticado() {
       return request.auth != null;
     }
 
+    function tienePerfilUid() {
+      return estaAutenticado()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function tienePerfilEmail() {
+      return estaAutenticado()
+        && request.auth.token.email != null
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.token.email));
+    }
+
+    function tienePerfilActual() {
+      return tienePerfilUid() || tienePerfilEmail();
+    }
+
+    function perfilActual() {
+      return tienePerfilUid()
+        ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data
+        : get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data;
+    }
+
+    function rolValido(role) {
+      return role == "AUXILIAR"
+        || role == "VENTAS"
+        || role == "JEFE_REGIONAL"
+        || role == "CORPORATIVO_USER"
+        || role == "PROGRAMADOR"
+        || role == "JEFE_OPERACION";
+    }
+
+    function rolDePerfil(data) {
+      return data.rol == "PROGRAMADOR" ? "PROGRAMADOR"
+        : data.rol == "JEFE_OPERACION" ? "JEFE_OPERACION"
+        : data.rol == "CORPORATIVO_USER" ? "CORPORATIVO_USER"
+        : data.rol == "JEFE_REGIONAL" ? "JEFE_REGIONAL"
+        : data.rol == "VENTAS" ? "VENTAS"
+        : data.isGlobal == true ? "CORPORATIVO_USER"
+        : data.isAdmin == true ? "VENTAS"
+        : "AUXILIAR";
+    }
+
+    function rolActual() {
+      return tienePerfilActual() ? rolDePerfil(perfilActual()) : "SIN_ACCESO";
+    }
+
+    function esAccesoTotal() {
+      return rolActual() == "PROGRAMADOR"
+        || rolActual() == "JEFE_OPERACION"
+        || rolActual() == "CORPORATIVO_USER";
+    }
+
+    function esJefeOperacionOProgramador() {
+      return rolActual() == "PROGRAMADOR" || rolActual() == "JEFE_OPERACION";
+    }
+
+    function esAdminOperativo() {
+      return rolActual() == "VENTAS"
+        || rolActual() == "JEFE_REGIONAL"
+        || esAccesoTotal();
+    }
+
+    function puedeGestionarUsuarios() {
+      return esAccesoTotal();
+    }
+
+    function puedeGestionarSolicitudes() {
+      return esAccesoTotal();
+    }
+
+    function puedeEditarCuadreAdmins() {
+      return rolActual() == "JEFE_REGIONAL" || esAccesoTotal();
+    }
+
+    function puedeGestionarFlotaMaestra() {
+      return rolActual() == "VENTAS"
+        || rolActual() == "JEFE_REGIONAL"
+        || esAccesoTotal();
+    }
+
+    function plazaActual() {
+      return !tienePerfilActual() ? ""
+        : perfilActual().plazaAsignada != null ? perfilActual().plazaAsignada
+        : perfilActual().plaza != null ? perfilActual().plaza
+        : "";
+    }
+
+    function mismaPlaza(plaza) {
+      return esAccesoTotal()
+        || (
+          (rolActual() == "VENTAS" || rolActual() == "JEFE_REGIONAL")
+          && plazaActual() != ""
+          && plaza != null
+          && plaza != ""
+          && plaza == plazaActual()
+        );
+    }
+
+    function rolRequierePlaza(role) {
+      return role == "VENTAS" || role == "JEFE_REGIONAL";
+    }
+
+    function perfilUsuarioValido(data) {
+      return data.nombre is string
+        && data.email is string
+        && data.telefono is string
+        && data.rol is string
+        && data.plazaAsignada is string
+        && data.isAdmin is bool
+        && data.isGlobal is bool
+        && (data.status == null || data.status is string)
+        && rolValido(data.rol)
+        && rolDePerfil(data) == data.rol
+        && (!rolRequierePlaza(data.rol) || data.plazaAsignada.size() > 0);
+    }
+
+    function actorPuedeGestionarRol(role) {
+      return esJefeOperacionOProgramador()
+        || (
+          rolActual() == "CORPORATIVO_USER"
+          && role != "CORPORATIVO_USER"
+          && role != "PROGRAMADOR"
+          && role != "JEFE_OPERACION"
+        );
+    }
+
+    function puedeCrearUsuario(data) {
+      return puedeGestionarUsuarios()
+        && perfilUsuarioValido(data)
+        && actorPuedeGestionarRol(data.rol);
+    }
+
+    function puedeActualizarUsuario(actual, nuevo) {
+      return puedeCrearUsuario(nuevo)
+        && actorPuedeGestionarRol(rolDePerfil(actual));
+    }
+
+    function puedeEliminarUsuario(actual) {
+      return puedeGestionarUsuarios()
+        && actorPuedeGestionarRol(rolDePerfil(actual));
+    }
+
+    function solicitudCreateValida() {
+      return request.resource.data.keys().hasAll([
+          "nombre", "email", "puesto", "telefono", "password",
+          "rolSolicitado", "plazaSolicitada", "fecha", "estado"
+        ])
+        && request.resource.data.keys().hasOnly([
+          "nombre", "email", "puesto", "telefono", "password",
+          "rolSolicitado", "plazaSolicitada", "fecha", "estado"
+        ])
+        && request.resource.data.nombre is string
+        && request.resource.data.email is string
+        && request.resource.data.puesto is string
+        && request.resource.data.telefono is string
+        && request.resource.data.password is string
+        && request.resource.data.fecha is string
+        && request.resource.data.rolSolicitado == "AUXILIAR"
+        && request.resource.data.plazaSolicitada is string
+        && request.resource.data.estado == "PENDIENTE"
+        && request.resource.data.nombre.size() >= 3
+        && request.resource.data.email.size() >= 5
+        && request.resource.data.password.size() >= 6;
+    }
+
+    function solicitudUpdateValida() {
+      return puedeGestionarSolicitudes()
+        && request.resource.data.nombre == resource.data.nombre
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.puesto == resource.data.puesto
+        && request.resource.data.telefono == resource.data.telefono
+        && request.resource.data.fecha == resource.data.fecha
+        && request.resource.data.rolSolicitado == resource.data.rolSolicitado
+        && request.resource.data.plazaSolicitada == resource.data.plazaSolicitada
+        && request.resource.data.password == ""
+        && (
+          request.resource.data.estado == "APROBADA"
+          || request.resource.data.estado == "RECHAZADA"
+        )
+        && (
+          request.resource.data.motivo_rechazo == null
+          || request.resource.data.motivo_rechazo is string
+        );
+    }
+
+    function alertaLecturaValida() {
+      return tienePerfilActual()
+        && request.resource.data.timestamp == resource.data.timestamp
+        && request.resource.data.fecha == resource.data.fecha
+        && request.resource.data.autor == resource.data.autor
+        && request.resource.data.tipo == resource.data.tipo
+        && request.resource.data.titulo == resource.data.titulo
+        && request.resource.data.mensaje == resource.data.mensaje
+        && request.resource.data.imagen == resource.data.imagen
+        && request.resource.data.leidoPor is string;
+    }
+
+    function plazaIndexNueva() {
+      return request.resource.data.sucursal != null
+        ? request.resource.data.sucursal
+        : request.resource.data.plaza;
+    }
+
+    function plazaIndexActual() {
+      return resource.data.sucursal != null
+        ? resource.data.sucursal
+        : resource.data.plaza;
+    }
+
+    function plazaCuadreAdminNueva() {
+      return request.resource.data.plaza != null
+        ? request.resource.data.plaza
+        : request.resource.data.ubicacion;
+    }
+
+    function plazaCuadreAdminActual() {
+      return resource.data.plaza != null
+        ? resource.data.plaza
+        : resource.data.ubicacion;
+    }
+
     // ─── DATOS OPERATIVOS DEL MAPA ───────────────────────────
     match /mapa_config/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /index_unidades/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read: if tienePerfilActual();
+      allow create: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexNueva());
+      allow update: if puedeGestionarFlotaMaestra()
+        && mismaPlaza(plazaIndexActual())
+        && mismaPlaza(plazaIndexNueva());
+      allow delete: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexActual());
     }
 
     match /cuadre/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /externos/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /historial_patio/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /cuadre_admins/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read: if esAdminOperativo();
+      allow create: if puedeEditarCuadreAdmins() && mismaPlaza(plazaCuadreAdminNueva());
+      allow update: if puedeEditarCuadreAdmins()
+        && mismaPlaza(plazaCuadreAdminActual())
+        && mismaPlaza(plazaCuadreAdminNueva());
+      allow delete: if puedeEditarCuadreAdmins() && mismaPlaza(plazaCuadreAdminActual());
     }
 
     match /historial_cuadres/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /auditoria/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /sipp/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     // ─── USUARIOS Y PERMISOS ─────────────────────────────────
-    // Lectura necesaria para validar login; escritura solo autenticados
     match /usuarios/{doc} {
-      allow read: if estaAutenticado();
-      allow write: if estaAutenticado();
+      allow read: if tienePerfilActual();
+      allow create: if puedeCrearUsuario(request.resource.data);
+      allow update: if puedeActualizarUsuario(resource.data, request.resource.data);
+      allow delete: if puedeEliminarUsuario(resource.data);
     }
 
     match /admins/{doc} {
-      allow read: if estaAutenticado();
-      allow write: if estaAutenticado();
+      allow read: if tienePerfilActual();
+      allow write: if esJefeOperacionOProgramador();
     }
 
     // ─── COMUNICACIÓN Y LOGS ─────────────────────────────────
     match /alertas/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read: if tienePerfilActual();
+      allow create, delete: if esAccesoTotal();
+      allow update: if esAccesoTotal() || alertaLecturaValida();
     }
 
     match /mensajes/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /logs/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /notas_admin/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     match /settings/{doc} {
-      allow read, write: if estaAutenticado();
+      allow read, write: if tienePerfilActual();
     }
 
     // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
     match /configuracion/{document=**} {
-      allow read, write: if estaAutenticado();
+      allow read: if tienePerfilActual();
+      allow write: if esAccesoTotal();
     }
 
     // ─── SOLICITUDES DE ACCESO ───────────────────────────────
-    // Abierto: el solicitante aún no tiene cuenta, no puede autenticarse.
-    // Solo permite crear (create), no leer ni modificar registros ajenos.
     match /solicitudes_acceso/{doc} {
-      allow create: if true;
-      allow read, update, delete: if estaAutenticado();
+      allow create: if solicitudCreateValida();
+      allow read, delete: if puedeGestionarSolicitudes();
+      allow update: if solicitudUpdateValida();
     }
-
   }
 }

@@ -47,6 +47,14 @@ const COL = {
 };
 
 const SETTINGS_DOC = "principal";
+const ACCESS_ROLE_META = Object.freeze({
+  AUXILIAR: { isAdmin: false, isGlobal: false },
+  VENTAS: { isAdmin: true, isGlobal: false },
+  JEFE_REGIONAL: { isAdmin: true, isGlobal: false },
+  CORPORATIVO_USER: { isAdmin: true, isGlobal: true },
+  PROGRAMADOR: { isAdmin: true, isGlobal: true },
+  JEFE_OPERACION: { isAdmin: true, isGlobal: true }
+});
 
 function _now() {
   return new Date().toLocaleString("es-MX", { timeZone: "America/Mazatlan" });
@@ -58,6 +66,34 @@ function _fecha(data) {
     if (!isNaN(f)) return f.toLocaleString("es-MX", { timeZone: "America/Mazatlan" });
   } catch(e) {}
   return data.fecha || "";
+}
+
+function _sanitizeRole(role) {
+  const normalized = String(role || "").trim().toUpperCase();
+  return ACCESS_ROLE_META[normalized] ? normalized : null;
+}
+
+function _inferRole(roleOrIsAdmin, plazaOrIsGlobal) {
+  if (typeof roleOrIsAdmin === "string") {
+    return _sanitizeRole(roleOrIsAdmin) || "AUXILIAR";
+  }
+  if (roleOrIsAdmin === true || roleOrIsAdmin === "true") {
+    return (plazaOrIsGlobal === true || plazaOrIsGlobal === "true")
+      ? "CORPORATIVO_USER"
+      : "VENTAS";
+  }
+  return "AUXILIAR";
+}
+
+function _normalizeUserRoleData(data = {}) {
+  const rol = _sanitizeRole(data.rol) || (data.isGlobal ? "CORPORATIVO_USER" : (data.isAdmin ? "VENTAS" : "AUXILIAR"));
+  const meta = ACCESS_ROLE_META[rol];
+  return {
+    rol,
+    isAdmin: meta.isAdmin,
+    isGlobal: meta.isGlobal,
+    plazaAsignada: String(data.plazaAsignada || data.plaza || "").trim().toUpperCase()
+  };
 }
 
 async function _getSettings() {
@@ -88,30 +124,25 @@ const API_FUNCTIONS = {
 
   // ─── AUTENTICACIÓN ────────────────────────────────────────
   async obtenerCredencialesMapa() {
-    const [usersSnap, adminsSnap] = await Promise.all([
-      db.collection(COL.USERS).get(),
-      db.collection(COL.ADMINS).get()
-    ]);
-    const globalesSet = new Set(adminsSnap.docs
-      .filter(d => d.data().isGlobal === true)
-      .map(d => d.data().usuario || d.data().email || ''));
+    const usersSnap = await db.collection(COL.USERS).get();
     return usersSnap.docs.map(d => {
       const data = d.data();
+      const roleData = _normalizeUserRoleData(data);
       // Normalizar: usuarios nuevos (Firebase Auth) tienen nombre+email, los viejos tenían usuario
       const displayName = (data.nombre || data.usuario || data.email || '').toUpperCase();
       return {
         ...data,
+        ...roleData,
         usuario: displayName, // campo unificado que usa el resto de la app
-        isGlobal: globalesSet.has(data.usuario || data.email || '')
       };
     }).sort((a, b) => a.usuario.localeCompare(b.usuario));
   },
 
   async verificarAdminGlobal(nombreUsuario) {
     const nombre = nombreUsuario.trim().toUpperCase();
-    const snap = await db.collection(COL.ADMINS).where("usuario", "==", nombre).limit(1).get();
+    const snap = await db.collection(COL.USERS).where("nombre", "==", nombre).limit(1).get();
     if (snap.empty) return false;
-    return snap.docs[0].data().isGlobal === true;
+    return _normalizeUserRoleData(snap.docs[0].data()).isGlobal === true;
   },
 
   // ─── MAPA — SUSCRIPCIÓN EN TIEMPO REAL ──────────────────
@@ -559,8 +590,13 @@ const API_FUNCTIONS = {
       };
     });
   },
-async guardarNuevoUsuarioAuth(nombre, email, password, isAdmin, telefono, isGlobal) {
+async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, plazaOrIsGlobal) {
     try {
+      const rol = _inferRole(roleOrIsAdmin, plazaOrIsGlobal);
+      const roleData = _normalizeUserRoleData({
+        rol,
+        plazaAsignada: typeof roleOrIsAdmin === "string" ? plazaOrIsGlobal : ""
+      });
       // 1. Creamos un hilo secundario fantasma para no interrumpir tu sesión actual
       const appSecundaria = firebase.initializeApp(FIREBASE_CONFIG, "AppRegistro_" + Date.now());
       
@@ -573,8 +609,8 @@ async guardarNuevoUsuarioAuth(nombre, email, password, isAdmin, telefono, isGlob
         nombre: nombre.trim().toUpperCase(),
         email: email.toLowerCase().trim(),
         telefono: telefono || "",
-        isAdmin: isAdmin || false,
-        isGlobal: isGlobal || false
+        ...roleData,
+        status: "ACTIVO"
       });
 
       // 4. Destruimos el hilo secundario
@@ -776,8 +812,9 @@ async guardarNuevoUsuarioAuth(nombre, email, password, isAdmin, telefono, isGlob
   },
 
   async checkEsAdmin(nombre) {
-    const snap = await db.collection(COL.ADMINS).where("usuario", "==", nombre.trim().toUpperCase()).limit(1).get();
-    return !snap.empty;
+    const snap = await db.collection(COL.USERS).where("nombre", "==", nombre.trim().toUpperCase()).limit(1).get();
+    if (snap.empty) return false;
+    return _normalizeUserRoleData(snap.docs[0].data()).isAdmin === true;
   },
 
   async obtenerUrlImagenModelo(modelo) {
