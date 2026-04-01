@@ -18,7 +18,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="/config.js"></script>
   <script src="mex-api.js"></script>
   <title>MEX Mapa</title>
@@ -3121,10 +3120,44 @@ function cerrarModalSolicitud() {
 <div id="logs-modal" class="fleet-modal">
   <div class="fleet-header-top">
     <div style="display:flex; align-items:center; gap: 10px;">
-      <h2 style="color:var(--primary); font-weight:900; margin:0;">HISTORIAL DE ACTIVIDAD (Últimos 50)</h2>
+      <h2 style="color:var(--primary); font-weight:900; margin:0;">HISTORIAL DE ACTIVIDAD</h2>
     </div>
     <button onclick="document.getElementById('logs-modal').classList.remove('active')" style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
   </div>
+
+  <!-- ── Barra de filtros ── -->
+  <div style="padding: 0 20px 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+    <input id="logsBuscador" type="text"
+      placeholder="Buscar MVA, usuario o movimiento…"
+      oninput="_renderLogsTabla()"
+      style="flex:1; min-width:180px; padding:10px 14px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:600; outline:none;">
+
+    <input id="logsFecha" type="date"
+      onchange="_renderLogsTabla()"
+      style="padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:600; outline:none; cursor:pointer;">
+
+    <select id="logsTipo" onchange="_renderLogsTabla()"
+      style="padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:700; outline:none; cursor:pointer; background:white;">
+      <option value="">Todos los tipos</option>
+      <option value="MOVE">MOVE</option>
+      <option value="ADD">ADD</option>
+      <option value="EDIT">EDIT</option>
+      <option value="DEL">DEL</option>
+    </select>
+
+    <select id="logsUsuario" onchange="_renderLogsTabla()"
+      style="padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:700; outline:none; cursor:pointer; background:white; max-width:220px;">
+      <option value="">Todos los usuarios</option>
+    </select>
+
+    <button onclick="_limpiarFiltrosLogs()"
+      style="padding:10px 16px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:800; font-size:12px; cursor:pointer; letter-spacing:0.5px;">
+      LIMPIAR
+    </button>
+
+    <span id="logsContador" style="font-size:12px; font-weight:700; color:#64748b; white-space:nowrap;"></span>
+  </div>
+
   <div class="fleet-wrapper">
     <div style="flex:1; background:white; border-radius:16px; border:1px solid #e2e8f0; display:flex; flex-direction:column; overflow:hidden;">
       <div class="table-container" style="border:none; border-radius:0;">
@@ -3142,15 +3175,46 @@ function cerrarModalSolicitud() {
 
 <div id="gestor-alertas-modal" class="fleet-modal">
   <div class="fleet-header-top">
-    <div style="display:flex; align-items:center; gap: 10px;">
-      <h2 style="color:var(--primary); font-weight:900; margin:0;"><span class="material-icons" style="font-size: 22px; vertical-align: bottom;">format_list_bulleted</span> HISTORIAL DE ALERTAS</h2>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="material-icons" style="font-size:22px; color:#ef4444;">campaign</span>
+      <h2 style="color:var(--primary); font-weight:900; margin:0;">HISTORIAL DE ALERTAS</h2>
     </div>
-    <button onclick="document.getElementById('gestor-alertas-modal').classList.remove('active')" style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
+    <button onclick="document.getElementById('gestor-alertas-modal').classList.remove('active')" style="background:#f1f5f9; color:var(--text); border:none; padding:10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
   </div>
-  
-  <div class="fleet-wrapper" style="background: #f8fafc; padding: 25px; overflow-y: auto; align-items: center;">
-    <div id="listaHistorialAlertas" style="width: 100%; max-width: 650px; display: flex; flex-direction: column; gap: 15px;">
-      <div style="text-align:center; padding:40px; color:#64748b; font-weight:700;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando historial...</div>
+
+  <!-- Stats bar -->
+  <div id="alertaHistStatsBar" style="padding:8px 20px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; background:white; border-bottom:1px solid var(--border); min-height:38px; flex-shrink:0;">
+    <span style="font-size:12px; color:#94a3b8; font-weight:700;">Cargando...</span>
+  </div>
+
+  <!-- Filter bar -->
+  <div style="padding:10px 20px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#f8fafc; border-bottom:1px solid var(--border); flex-shrink:0;">
+    <input id="alertaHistBuscador" type="text" placeholder="Buscar título o autor..."
+      oninput="_renderHistorialAlertas()"
+      style="flex:1; min-width:150px; padding:8px 12px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:600; outline:none; font-family:'Inter';">
+    <select id="alertaHistTipo" onchange="_renderHistorialAlertas()"
+      style="padding:8px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; background:white; cursor:pointer; font-family:'Inter';">
+      <option value="">Todos los tipos</option>
+      <option value="URGENTE">🔴 URGENTE</option>
+      <option value="WARNING">🟡 ADVERTENCIA</option>
+      <option value="INFO">🔵 INFORMATIVO</option>
+    </select>
+    <select id="alertaHistModo" onchange="_renderHistorialAlertas()"
+      style="padding:8px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; background:white; cursor:pointer; font-family:'Inter';">
+      <option value="">Todos los modos</option>
+      <option value="INTERRUPTIVA">⚡ Interruptiva</option>
+      <option value="PASIVA">🔔 Pasiva</option>
+    </select>
+    <button onclick="_limpiarFiltrosHistAlertas()"
+      style="padding:8px 14px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:800; font-size:12px; cursor:pointer; letter-spacing:0.4px;">LIMPIAR</button>
+  </div>
+
+  <!-- List -->
+  <div class="fleet-wrapper" style="overflow-y:auto; padding:16px 20px; background:#f1f5f9;">
+    <div id="listaHistorialAlertas" style="display:flex; flex-direction:column; gap:10px; max-width:860px; margin:0 auto; width:100%;">
+      <div style="text-align:center; padding:40px; color:#64748b; font-weight:700;">
+        <span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando historial...
+      </div>
     </div>
   </div>
 </div>
@@ -3171,54 +3235,197 @@ function cerrarModalSolicitud() {
 
 <div id="crear-alerta-modal" class="fleet-modal">
   <div class="fleet-header-top">
-    <div style="display:flex; align-items:center; gap: 10px;">
-      <h2 style="color:#ef4444; font-weight:900; margin:0;"><span class="material-icons" style="font-size: 22px; vertical-align: bottom;">campaign</span> EMITIR ALERTA MAESTRA</h2>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <h2 style="color:#ef4444; font-weight:900; margin:0; font-size:clamp(14px,3vw,20px);">
+        <span class="material-icons" style="font-size:22px; vertical-align:bottom;">campaign</span> EMITIR ALERTA MAESTRA
+      </h2>
     </div>
-    <button onclick="document.getElementById('crear-alerta-modal').classList.remove('active')" style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
+    <button onclick="document.getElementById('crear-alerta-modal').classList.remove('active')" style="background:#f1f5f9; color:var(--text); border:none; padding:10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
   </div>
-  
-  <div class="fleet-wrapper" style="align-items: center; background: #f8fafc; padding: 25px; overflow-y: auto;">
-    <div style="width: 100%; max-width: 500px; background: white; padding: 30px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border);">
-      
-      <p style="font-size: 13px; color: #64748b; font-weight: 600; margin-bottom: 20px;">
-        Esta alerta interrumpirá la pantalla de todos los usuarios conectados hasta que la marquen como leída.
-      </p>
 
-      <div class="field">
-        <label>Nivel de Urgencia</label>
-        <select id="alertaNuevaTipo" style="border: 2px solid #ef4444; background: #fef2f2; color: #ef4444; font-weight: 800;">
-          <option value="URGENTE">🔴 URGENTE (Rojo)</option>
-          <option value="WARNING">🟡 ADVERTENCIA (Amarillo)</option>
-          <option value="INFO">🔵 INFORMATIVO (Azul)</option>
-        </select>
+  <div class="fleet-wrapper" style="overflow-y:auto; background:#f1f5f9; padding:18px; align-items:flex-start;">
+    <div style="display:flex; flex-wrap:wrap; gap:14px; width:100%; max-width:1060px; margin:0 auto;">
+
+      <!-- ══ COLUMNA IZQUIERDA: Configuración ══ -->
+      <div style="flex:0 0 330px; min-width:270px; background:white; border-radius:16px; border:1px solid var(--border); padding:20px; display:flex; flex-direction:column; gap:14px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+
+        <p style="font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin:0; text-transform:uppercase;">Configuración</p>
+
+        <!-- Urgencia -->
+        <div class="field" style="margin:0;">
+          <label>Nivel de Urgencia</label>
+          <select id="alertaNuevaTipo" onchange="_updateAlertaTipoStyle(); _actualizarPreviewAlerta();"
+            style="border:2px solid #ef4444; background:#fef2f2; color:#ef4444; font-weight:800;">
+            <option value="URGENTE">🔴 URGENTE</option>
+            <option value="WARNING">🟡 ADVERTENCIA</option>
+            <option value="INFO">🔵 INFORMATIVO</option>
+          </select>
+        </div>
+
+        <!-- Destinatarios -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Destinatarios</label>
+          <div style="display:flex; gap:5px;">
+            <button id="destBtnGlobal" onclick="_setDestMode('GLOBAL')"
+              style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid var(--mex-blue); background:var(--mex-blue); color:white; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
+              🌐 GLOBAL
+            </button>
+            <button id="destBtnSel" onclick="_setDestMode('SEL')"
+              style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
+              ☑ VARIOS
+            </button>
+            <button id="destBtnSolo" onclick="_setDestMode('SOLO')"
+              style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
+              👤 SOLO A
+            </button>
+          </div>
+          <!-- SELECCIONADOS panel -->
+          <div id="destPanelSel" style="display:none; flex-direction:column; gap:5px;">
+            <input type="text" id="destBuscadorUsuarios" placeholder="Filtrar usuarios..."
+              oninput="_filtrarDestinatarios()"
+              style="padding:7px 11px; border-radius:8px; border:1.5px solid var(--border); font-size:12px; font-weight:600; outline:none; width:100%; box-sizing:border-box;">
+            <div id="destListaCheckboxes" style="max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:3px; padding:2px;">
+              <span style="color:#94a3b8; font-size:12px; font-weight:700; padding:4px;">Cargando usuarios...</span>
+            </div>
+          </div>
+          <!-- SOLO panel -->
+          <div id="destPanelSolo" style="display:none;">
+            <select id="destSoloUsuario" onchange="_updateBtnEmitir()"
+              style="width:100%; padding:8px 11px; border-radius:8px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; box-sizing:border-box; background:white; font-family:'Inter';">
+              <option value="">Seleccionar usuario...</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Modo de entrega -->
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Tipo de Entrega</label>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <label id="modoCardInterr" onclick="_selectModo('INTERRUPTIVA')"
+              style="cursor:pointer; border:2px solid var(--mex-blue); border-radius:10px; padding:10px; background:#eff6ff; display:flex; flex-direction:column; gap:3px;">
+              <div style="display:flex; align-items:center; gap:4px;">
+                <span class="material-icons" style="font-size:15px; color:var(--mex-blue);">notification_important</span>
+                <b style="font-size:11px; color:var(--mex-blue);">INTERRUPTIVA</b>
+              </div>
+              <small style="font-size:9px; color:#64748b; line-height:1.3;">Bloquea pantalla hasta que se lea</small>
+            </label>
+            <label id="modoCardPasiva" onclick="_selectModo('PASIVA')"
+              style="cursor:pointer; border:2px solid #e2e8f0; border-radius:10px; padding:10px; background:white; display:flex; flex-direction:column; gap:3px;">
+              <div style="display:flex; align-items:center; gap:4px;">
+                <span class="material-icons" style="font-size:15px; color:#64748b;">notifications</span>
+                <b style="font-size:11px; color:#475569;">PASIVA</b>
+              </div>
+              <small style="font-size:9px; color:#64748b; line-height:1.3;">Solo en la campanita</small>
+            </label>
+          </div>
+          <input type="hidden" id="alertaModoActual" value="INTERRUPTIVA">
+        </div>
+
+        <!-- Título -->
+        <div class="field" style="margin:0;">
+          <label>Título Principal</label>
+          <input type="text" id="alertaNuevaTitulo" placeholder="Ej. Actualización del Sistema"
+            oninput="_actualizarPreviewAlerta()" style="font-size:15px; font-weight:800;">
+        </div>
+
+        <!-- Imagen -->
+        <div class="field" style="margin:0;">
+          <label>Imagen (Opcional)</label>
+          <label for="alertaFile" style="display:flex; align-items:center; justify-content:center; gap:8px; background:#f8fafc; border:2px dashed #cbd5e1; padding:11px; border-radius:10px; cursor:pointer; color:#64748b; font-weight:800; font-size:12px;">
+            <span class="material-icons" style="font-size:18px;">add_photo_alternate</span>
+            <span id="textoUploadAlerta">Seleccionar imagen...</span>
+          </label>
+          <input type="file" id="alertaFile" accept="image/*" style="display:none;" onchange="comprimirImagenAlerta(event)">
+          <input type="hidden" id="alertaNuevaImagen">
+        </div>
+
+        <!-- Emit button -->
+        <button id="btnEmitirAlertaGlobal" onclick="emitirAlertaGlobal()"
+          style="width:100%; padding:15px; background:#ef4444; color:white; border:none; border-radius:12px; font-weight:900; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; font-size:13px; box-shadow:0 6px 16px rgba(239,68,68,0.3); letter-spacing:0.5px; margin-top:auto;">
+          <span class="material-icons">send</span>
+          <span id="txtBtnEmitir">EMITIR A TODA LA RED</span>
+        </button>
       </div>
 
-      <div class="field">
-        <label>Título Principal</label>
-        <input type="text" id="alertaNuevaTitulo" placeholder="Ej. Actualización del Sistema" style="font-size: 16px; font-weight: 800;">
+      <!-- ══ COLUMNA DERECHA: Editor ══ -->
+      <div style="flex:1; min-width:280px; background:white; border-radius:16px; border:1px solid var(--border); padding:20px; display:flex; flex-direction:column; gap:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+
+        <p style="font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin:0; text-transform:uppercase;">Diseño del Cuerpo del Mensaje</p>
+
+        <!-- Toolbar -->
+        <div style="display:flex; flex-wrap:wrap; gap:2px; padding:7px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; align-items:center;">
+          <button onclick="alertaCmd('bold')" title="Negrita" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px; color:#334155; padding:0 5px;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><b>B</b></button>
+          <button onclick="alertaCmd('italic')" title="Cursiva" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><i>I</i></button>
+          <button onclick="alertaCmd('underline')" title="Subrayado" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><u>U</u></button>
+          <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+          <button onclick="alertaFontSize(1)" title="Pequeño" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:10px; color:#334155; padding:0 4px; font-weight:700;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">A<sub>s</sub></button>
+          <button onclick="alertaFontSize(3)" title="Normal" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 4px; font-weight:700;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">A</button>
+          <button onclick="alertaFontSize(5)" title="Grande" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:15px; color:#334155; padding:0 4px; font-weight:700;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">A<sup>+</sup></button>
+          <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+          <label title="Color de texto" style="display:flex; align-items:center; gap:1px; cursor:pointer; height:26px; padding:0 4px; border-radius:5px;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">
+            <span class="material-icons" style="font-size:14px; color:#334155;">format_color_text</span>
+            <input type="color" id="alertaColorPicker" onchange="alertaCmd('foreColor', this.value)" value="#334155"
+              style="width:16px; height:16px; border:none; padding:0; cursor:pointer; background:transparent; opacity:0; position:absolute;">
+          </label>
+          <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+          <button onclick="alertaCmd('justifyLeft')" title="Izquierda" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_align_left</span></button>
+          <button onclick="alertaCmd('justifyCenter')" title="Centrar" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_align_center</span></button>
+          <button onclick="alertaCmd('justifyRight')" title="Derecha" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_align_right</span></button>
+          <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+          <button onclick="alertaCmd('insertUnorderedList')" title="Lista" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_list_bulleted</span></button>
+          <button onclick="alertaInsertHR()" title="Línea separadora" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">horizontal_rule</span></button>
+          <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+          <button onclick="alertaCmd('removeFormat')" title="Limpiar formato" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#ef4444; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_clear</span></button>
+        </div>
+
+        <!-- Editor contenteditable -->
+        <div id="alertaEditorCuerpo" contenteditable="true"
+          oninput="_actualizarPreviewAlerta()"
+          style="min-height:160px; padding:14px; border:1.5px solid #e2e8f0; border-radius:10px; font-family:'Inter',sans-serif; font-size:14px; color:#334155; line-height:1.7; outline:none; overflow-y:auto;"
+          onfocus="this.style.borderColor='var(--mex-accent)'"
+          onblur="this.style.borderColor='#e2e8f0'">
+        </div>
+
+        <!-- Divider preview -->
+        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
+          <div style="flex:1; height:1px; background:#f1f5f9;"></div>
+          <span style="font-size:9px; font-weight:800; color:#94a3b8; letter-spacing:1px;">VISTA PREVIA EN TIEMPO REAL</span>
+          <div style="flex:1; height:1px; background:#f1f5f9;"></div>
+        </div>
+
+        <!-- Mini preview -->
+        <div style="border:2px solid #e2e8f0; border-radius:14px; overflow:hidden; max-width:420px; margin:0 auto; width:100%;">
+          <div id="alertaPreviewBanner" style="width:100%; height:0; background-size:cover; background-position:center; overflow:hidden; transition:height 0.3s;"></div>
+          <div style="padding:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span id="alertaPreviewBadge" style="font-size:10px; font-weight:900; padding:3px 9px; border-radius:50px; background:#fee2e2; color:#ef4444; letter-spacing:0.8px;">URGENTE</span>
+              <div style="display:flex; align-items:center; gap:5px;">
+                <span id="alertaPreviewModoBadge" style="font-size:9px; font-weight:800; padding:2px 7px; border-radius:50px; background:#eff6ff; color:#1a73e8;">⚡ INTERRUPTIVA</span>
+                <span style="font-size:10px; color:#94a3b8; font-weight:700;">Ahora</span>
+              </div>
+            </div>
+            <h3 id="alertaPreviewTitulo" style="margin:0 0 6px; color:#1e3a5f; font-size:15px; font-weight:900; line-height:1.2;">Sin título</h3>
+            <div id="alertaPreviewMensaje" style="font-size:13px; color:#334155; line-height:1.6;"></div>
+            <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; font-size:10px; color:#94a3b8; font-weight:700;">
+              Enviado por: <span id="alertaPreviewAutor" style="color:#1a73e8;">TÚ</span>
+            </div>
+          </div>
+        </div>
+
       </div>
-
-      <div class="field">
-        <label>Mensaje Detallado (Admite etiquetas HTML)</label>
-        <textarea id="alertaNuevaMensaje" rows="5" placeholder="Escribe el cuerpo de la alerta. Puedes usar <b>texto en negritas</b> o <br> para saltos de línea."></textarea>
-      </div>
-
-      <div class="field">
-        <label>Añadir Imagen (Opcional)</label>
-        
-        <label for="alertaFile" style="display: flex; align-items: center; justify-content: center; gap: 10px; background: #f1f5f9; border: 2px dashed #cbd5e1; padding: 15px; border-radius: 12px; cursor: pointer; color: #64748b; font-weight: 800; transition: 0.2s;">
-          <span class="material-icons">add_photo_alternate</span> <span id="textoUploadAlerta">Seleccionar imagen de la PC...</span>
-        </label>
-        
-        <input type="file" id="alertaFile" accept="image/*" style="display: none;" onchange="comprimirImagenAlerta(event)">
-        
-        <input type="hidden" id="alertaNuevaImagen">
-      </div>
-
-      <button id="btnEmitirAlertaGlobal" onclick="emitirAlertaGlobal()" style="width: 100%; padding: 18px; background: #ef4444; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; font-size: 15px; box-shadow: 0 10px 20px rgba(239, 68, 68, 0.3); transition: 0.2s; margin-top: 10px;">
-        <span class="material-icons">send</span> EMITIR A TODA LA RED
-      </button>
-
     </div>
   </div>
 </div>
@@ -3522,25 +3729,75 @@ function cerrarModalSolicitud() {
 <thead>
               <tr>
                 <th onclick="sortFlota('mva')" class="sortable">MVA ↕</th>
-	                <th>
-	                  <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
-	                    <option value="">CATEGORIA (ALL)</option>
-	                  </select>
-	                </th>
+                <th>
+                  <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
+                    <option value="">CATEGORIA (ALL)</option>
+                    <option value="ECAR">ECAR</option>
+                    <option value="CCAR">CCAR</option>
+                    <option value="ICAR">ICAR</option>
+                    <option value="FCAR">FCAR</option>
+                    <option value="SCAR">SCAR</option>
+                    <option value="CFAR">CFAR</option>
+                    <option value="SFAR">SFAR</option>
+                    <option value="FWAR">FWAR</option>
+                    <option value="MVAR">MVAR</option>
+                    <option value="IVAH">IVAH</option>
+                    <option value="MVAH">MVAH</option>
+                    <option value="FFBH">FFBH</option>
+                    <option value="CKMR">CKMR</option>
+                    <option value="MPMN">MPMN</option>
+                    <option value="PFAR">PFAR</option>
+                    <option value="GVMD">GVMD</option>
+                  </select>
+                </th>
                 <th onclick="sortFlota('modelo')" class="sortable">Modelo ↕</th>
                 <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
                 <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
-	                <th>
-	                  <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
-	                    <option value="">ESTADO (ALL)</option>
-	                  </select>
-	                </th>
-	                <th>
-	                  <select id="filter-ubi" class="excel-filter" onchange="filtrarFlota()">
-	                <option value="">UBICACION (ALL)</option>
-	                  </select>
-	                </th>
-                <th id="th-autor" style="display:none;">Autor</th> 
+                <th>
+                  <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
+                    <option value="">ESTADO (ALL)</option>
+                    <option value="LISTO">🟢 LISTO</option>
+                    <option value="SUCIO">🟡 SUCIO</option>
+                    <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
+                    <option value="RESGUARDO">🔘 RESGUARDO</option>
+                    <option value="TRASLADO">🟣 TRASLADO.</option>
+                    <option value="VENTA">⚫ VENTA</option>
+                    <option value="RETENIDA">🟤 RETENIDA.</option>
+                    <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
+                    <option value="HYP">🚚 HYP</option>
+                  </select>
+                </th>
+                <th>
+                  <select id="filter-ubi" class="excel-filter" onchange="filtrarFlota()">
+                <option value="">UBICACION (ALL)</option>
+                <optgroup label="PLAZAS FIJAS">
+                  <option value="PATIO">🏠 PATIO</option>
+                  <option value="TALLER">🔧 TALLER</option>
+                  <option value="AGENCIA">🏢 AGENCIA</option>
+                  <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
+                  <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                </optgroup>
+                <optgroup label="PERSONA RESPONSABLE">
+                  <option value="JORGE">👤 JORGE</option>
+                  <option value="GERARDO">👤 GERARDO</option>
+                  <option value="OSVALDO">👤 OSVALDO</option>
+                  <option value="BALANDRAN">👤 BALANDRAN</option>
+                  <option value="ULISES">👤 ULISES</option>
+                  <option value="JOSUE">👤 JOSUE</option>
+                  <option value="ISRAEL">👤 ISRAEL</option>
+                  <option value="ISAAC">👤 ISAAC</option>
+                  <option value="ANGEL">👤 ANGEL</option>
+                  <option value="LEO">👤 LEO</option>
+                  <option value="BRAULIO">👤 BRAULIO</option><option value="MARTHA">👤 MARTHA</option>
+                  <option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option>
+                  <option value="UBALDO">👤 UBALDO</option><option value="JOSE LUIS">👤 JOSE LUIS</option>
+                  <option value="PASCUAL">👤 PASCUAL</option>
+                  <option value="LALO">👤 LALO</option>
+                  <option value="EDGAR">👤 EDGAR</option>
+                </optgroup>
+                  </select>
+                </th>
+                <th id="th-autor" style="display:none;">Notas</th> 
               </tr>
             </thead>
             <tbody id="tablaCuerpoFlota">
@@ -3589,26 +3846,58 @@ function cerrarModalSolicitud() {
             </div>
 
             <div class="grid-2">
-	              <div class="field">
-	                <label>ESTADO 🛠️</label>
-	                <select id="f_est" onchange="validarBotonGuardar()">
-	                  <option value="">Seleccionar...</option>
-	                </select>
-	              </div>
-	              <div class="field">
-	                <label>GASOLINA ⛽</label>
-	                <select id="f_gas" onchange="validarBotonGuardar()">
-	                  <option value="">Seleccionar...</option>
-	                </select>
-	              </div>
-	            </div>
+              <div class="field">
+                <label>ESTADO 🛠️</label>
+                <select id="f_est" onchange="validarBotonGuardar()">
+                  <option value="">Seleccionar...</option>
+                  <option value="LISTO">🟢 LISTO</option><option value="SUCIO">🟡 SUCIO</option>
+                  <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option><option value="RESGUARDO">🔘 RESGUARDO</option>
+                  <option value="TRASLADO">🟣 TRASLADO</option><option value="VENTA">⚫ VENTA</option>
+                  <option value="RETENIDA">🟤 RETENIDA</option><option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
+                  <option value="HYP">🚚 HYP</option>
+                  <option value="EN RENTA">✈️ EN RENTA</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>GASOLINA ⛽</label>
+                <select id="f_gas" onchange="validarBotonGuardar()">
+                  <option value="N/A">Seleccionar...</option>
+                  <option value="F">F (Lleno Total)</option>
+                  <optgroup label="MEDIO">
+                    <option value="15/16">15/16</option><option value="7/8">7/8</option><option value="13/16">13/16</option><option value="3/4">3/4</option>
+                    <option value="11/16">11/16</option><option value="5/8">5/8</option><option value="9/16">9/16</option><option value="H">H (Medio)</option>
+                  </optgroup>
+                  <optgroup label="BAJO">
+                    <option value="7/16">7/16</option><option value="3/8">3/8</option><option value="5/16">5/16</option><option value="1/4">1/4</option>
+                    <option value="3/16">3/16</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="E">E (Vacío)</option>
+                  </optgroup>
+                  <option value="N/A"> N/A </option>
+                </select>
+              </div>
+            </div>
 
-	            <div class="field">
-	              <label>UBICACIÓN ACTUAL 📍</label>
-	              <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
-	                <option value="">Seleccionar...</option>
-	              </select>
-	            </div>
+            <div class="field">
+              <label>UBICACIÓN ACTUAL 📍</label>
+              <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
+                <option value="">Seleccionar...</option>
+                <optgroup label="PLAZAS FIJAS">
+                  <option value="PATIO">🏠 PATIO</option>
+                  <option value="TALLER">🔧 TALLER</option>
+                  <option value="AGENCIA">🏢 AGENCIA</option>
+                  <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
+                  <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                </optgroup>
+                <optgroup label="PERSONA RESPONSABLE">
+                  <option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option>
+                  <option value="BALANDRAN">👤 BALANDRAN</option><option value="ULISES">👤 ULISES</option><option value="JOSUE">👤 JOSUE</option>
+                  <option value="ISRAEL">👤 ISRAEL</option><option value="ISAAC">👤 ISAAC</option><option value="ANGEL">👤 ANGEL</option>
+                  <option value="LEO">👤 LEO</option><option value="BRAULIO">👤 BRAULIO</option><option value="MARTHA">👤 MARTHA</option>
+                  <option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option><option value="UBALDO">👤 UBALDO</option>
+                  <option value="JOSE LUIS">👤 JOSE LUIS</option><option value="PASCUAL">👤 PASCUAL</option><option value="LALO">👤 LALO</option>
+                  <option value="EDGAR">👤 EDGAR</option>
+                </optgroup>
+              </select>
+            </div>
 
             <div class="field">
               <label>Notas / Observaciones</label>
@@ -4137,185 +4426,6 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-function _sanitizeStorageSegment(value) {
-  return String(value || 'sin-dato')
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9._-]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'SIN-DATO';
-}
-
-function _normalizeEvidenceItems(record = {}) {
-  if (Array.isArray(record.evidencias) && record.evidencias.length > 0) {
-    return record.evidencias.map(item => ({
-      path: String(item.path || item.storagePath || '').trim(),
-      fileName: String(item.fileName || item.nombre || item.name || 'EVIDENCIA').trim(),
-      mimeType: String(item.mimeType || item.type || '').trim(),
-      size: Number(item.size || item.bytes || 0) || 0,
-      uploadedAt: String(item.uploadedAt || item.fecha || '').trim(),
-      uploadedBy: String(item.uploadedBy || item.autor || '').trim(),
-      url: String(item.url || '').trim()
-    })).filter(item => item.path || item.url);
-  }
-
-  const legacyUrl = String(record.url || record.URL || record.urlArchivo || record.urlEvidencia || record.evidencia || '').trim();
-  if (!legacyUrl) return [];
-
-  return [{
-    path: String(record.evidenciaPath || record.storagePath || '').trim(),
-    fileName: 'EVIDENCIA',
-    mimeType: '',
-    size: 0,
-    uploadedAt: '',
-    uploadedBy: '',
-    url: legacyUrl
-  }];
-}
-
-function _dedupeEvidenceItems(items = []) {
-  const seen = new Set();
-  return items.filter(item => {
-    const key = item.path || item.url || item.fileName;
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-function _isEvidencePdf(item, url = '') {
-  const mime = String(item && item.mimeType || '').toLowerCase();
-  return mime.includes('pdf') || /\.pdf([?#].*)?$/i.test(url);
-}
-
-function _isEvidenceImage(item, url = '') {
-  const mime = String(item && item.mimeType || '').toLowerCase();
-  return mime.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)([?#].*)?$/i.test(url);
-}
-
-async function _resolveEvidenceUrl(item) {
-  if (item.url) return item.url;
-  if (!item.path || !firebase.storage) return '';
-  try {
-    return await firebase.storage().ref(item.path).getDownloadURL();
-  } catch (error) {
-    console.warn('No se pudo resolver la evidencia en Storage:', item.path, error);
-    return '';
-  }
-}
-
-function _actualizarEstadoInputEvidencias(inputId, statusId) {
-  const input = document.getElementById(inputId);
-  const status = document.getElementById(statusId);
-  if (!input || !status) return;
-
-  const files = Array.from(input.files || []);
-  if (files.length === 0) {
-    if (status.dataset.mode === 'selection') {
-      status.innerHTML = '';
-      delete status.dataset.mode;
-    }
-    return;
-  }
-
-  status.dataset.mode = 'selection';
-  status.innerHTML = `📎 ${files.length} archivo(s) listos para subir:<br>${files.map(file => escapeHtml(file.name)).join('<br>')}`;
-}
-
-async function _subirEvidenciasCuadreAdmin(mva, fileList) {
-  const files = Array.from(fileList || []);
-  if (files.length === 0) return [];
-  if (!firebase.storage) throw new Error('Firebase Storage no está disponible en esta versión.');
-
-  const basePath = `evidencias_cuadre_admins/${_sanitizeStorageSegment(mva)}`;
-  const evidencias = [];
-
-  for (let index = 0; index < files.length; index++) {
-    const file = files[index];
-    const safeName = `${Date.now()}_${index + 1}_${String(file.name || 'archivo').replace(/[^a-zA-Z0-9._-]+/g, '_')}`;
-    const path = `${basePath}/${safeName}`;
-    const ref = firebase.storage().ref(path);
-
-    await ref.put(file, {
-      contentType: file.type || 'application/octet-stream',
-      customMetadata: {
-        mva: _sanitizeStorageSegment(mva),
-        autor: USER_NAME || 'Sistema'
-      }
-    });
-
-    evidencias.push({
-      path,
-      fileName: file.name || safeName,
-      mimeType: file.type || 'application/octet-stream',
-      size: file.size || 0,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: USER_NAME || 'Sistema'
-    });
-  }
-
-  return evidencias;
-}
-
-async function _renderEvidenceViewer(record, options = {}) {
-  const container = document.getElementById(options.containerId);
-  const frame = document.getElementById(options.frameId);
-  const link = document.getElementById(options.linkId);
-  const status = document.getElementById(options.statusId);
-  if (!container || !frame || !status) return;
-
-  const items = _dedupeEvidenceItems(_normalizeEvidenceItems(record));
-  if (items.length === 0) {
-    container.style.display = 'none';
-    frame.innerHTML = '';
-    status.innerHTML = options.emptyText || '⚪ SIN EVIDENCIA REGISTRADA';
-    if (link) {
-      link.style.display = 'none';
-      link.removeAttribute('href');
-    }
-    return;
-  }
-
-  container.style.display = 'block';
-  frame.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; color:#64748b; gap:8px;"><span class="material-icons spinner" style="font-size:34px;">sync</span><span style="font-size:12px; font-weight:700;">Cargando evidencia...</span></div>`;
-
-  const resolved = [];
-  for (const item of items) {
-    resolved.push({ ...item, resolvedUrl: await _resolveEvidenceUrl(item) });
-  }
-
-  const available = resolved.filter(item => item.resolvedUrl);
-  const primary = available[0];
-
-  if (!primary) {
-    frame.innerHTML = `<div style="padding: 20px; color: #64748b; display:flex; flex-direction:column; align-items:center; gap:8px;"><span class="material-icons" style="font-size:42px; color:#ef4444;">broken_image</span><b style="color:#0d2a54;">NO SE PUDO CARGAR LA EVIDENCIA</b></div>`;
-    status.innerHTML = '⚠️ Hay evidencia registrada, pero no fue posible abrirla desde Storage.';
-    if (link) {
-      link.style.display = 'none';
-      link.removeAttribute('href');
-    }
-    return;
-  }
-
-  if (_isEvidenceImage(primary, primary.resolvedUrl)) {
-    frame.innerHTML = `<img src="${primary.resolvedUrl}" alt="${escapeHtml(primary.fileName)}" style="width:100%; height:100%; object-fit:contain; background:#f8fafc;">`;
-  } else if (_isEvidencePdf(primary, primary.resolvedUrl)) {
-    frame.innerHTML = `<iframe src="${primary.resolvedUrl}#toolbar=0" width="100%" height="100%" frameborder="0"></iframe>`;
-  } else {
-    frame.innerHTML = `<div style="padding: 20px; color: #64748b; display:flex; flex-direction:column; align-items:center; gap:8px;"><span class="material-icons" style="font-size:42px; color:var(--mex-blue);">description</span><b style="color:#0d2a54;">${escapeHtml(primary.fileName || 'ARCHIVO ADJUNTO')}</b><span style="font-size:11px;">Abre el archivo para visualizarlo.</span></div>`;
-  }
-
-  if (link) {
-    link.href = primary.resolvedUrl;
-    link.style.display = 'inline-flex';
-  }
-
-  status.innerHTML = resolved.map((item, index) => {
-    const label = escapeHtml(item.fileName || `Archivo ${index + 1}`);
-    if (!item.resolvedUrl) return `<span style="color:#ef4444;">${index + 1}. ${label} (sin acceso)</span>`;
-    return `<a href="${item.resolvedUrl}" target="_blank" style="color:var(--mex-blue); text-decoration:none; font-weight:700;">${index + 1}. ${label}</a>`;
-  }).join('<br>');
-}
-
 async function registrarEventoGestion(tipo, mensaje, extra = {}) {
   try {
     await api.registrarEventoGestion(tipo, mensaje, USER_NAME || 'Sistema', extra);
@@ -4387,6 +4497,8 @@ function formatearFechaDocumento(fechaTexto) {
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     try {
+      // Force token refresh so Firestore security rules get the auth context immediately
+      await user.getIdToken(true);
       const emailNormalizado = _profileDocId(user.email);
       const snapshot = await db.collection(COL.USERS).where("email", "==", emailNormalizado).get();
 
@@ -4574,7 +4686,7 @@ function _iniciarSincronizacionUsuarios() {
 
 function cerrarSesion() {
   if(autoRefreshInterval) clearInterval(autoRefreshInterval);
-  if(radarInterval) clearInterval(radarInterval);
+  _limpiarRadar();
   if(_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
   if(_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
   dbUsuariosLogin = [];
@@ -6583,28 +6695,89 @@ async function umCrearUsuario() {
 }
 
 
+let _logsData = [];
+
 function abrirLogs() {
   toggleAdminSidebar();
   document.getElementById('logs-modal').classList.add('active');
 
   const tbody = document.getElementById('logs-table-body');
   tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Extrayendo historial de la base de datos...</td></tr>`;
+  document.getElementById('logsContador').textContent = '';
 
   api.obtenerHistorialLogs().then(logs => {
-       if (logs.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b; font-weight:800;">No hay historial reciente registrado.</td></tr>`;
-          return;
-       }
-       tbody.innerHTML = logs.map(l => `
-         <tr>
-           <td style="font-size:11px; color:#64748b; font-weight:800;">${l.fecha}</td>
-           <td><span class="badge ${l.tipo === 'MOVE' ? 'st-LISTO' : 'st-SUCIO'}">${l.tipo}</span></td>
-           <td style="font-weight:900; color:var(--mex-blue); font-size:14px;">${l.mva}</td>
-           <td style="font-size:12px; font-weight:700;">${l.detalles}</td>
-           <td style="font-size:11px; font-weight:800;">${l.usuario}</td>
-         </tr>
-       `).join('');
-    }).catch(e => console.error(e));
+    _logsData = logs;
+
+    // Rellenar selector de usuarios con los que aparecen en los datos
+    const usuarios = [...new Set(logs.map(l => l.usuario).filter(Boolean))].sort();
+    const selUsuario = document.getElementById('logsUsuario');
+    selUsuario.innerHTML = `<option value="">Todos los usuarios</option>` +
+      usuarios.map(u => `<option value="${u}">${u}</option>`).join('');
+
+    _renderLogsTabla();
+  }).catch(e => {
+    console.error(e);
+    document.getElementById('logs-table-body').innerHTML =
+      `<tr><td colspan="5" style="text-align:center;padding:20px;color:#ef4444;font-weight:800;">Error al cargar el historial.</td></tr>`;
+  });
+}
+
+function _renderLogsTabla() {
+  const busq    = (document.getElementById('logsBuscador').value || '').toLowerCase().trim();
+  const fecha   = document.getElementById('logsFecha').value;      // YYYY-MM-DD o ""
+  const tipo    = document.getElementById('logsTipo').value;
+  const usuario = document.getElementById('logsUsuario').value;
+
+  let filtered = _logsData;
+
+  if (busq) {
+    filtered = filtered.filter(l =>
+      (l.mva      || '').toLowerCase().includes(busq) ||
+      (l.usuario  || '').toLowerCase().includes(busq) ||
+      (l.detalles || '').toLowerCase().includes(busq) ||
+      (l.tipo     || '').toLowerCase().includes(busq)
+    );
+  }
+
+  if (fecha) {
+    filtered = filtered.filter(l => {
+      if (!l.timestamp) return false;
+      const d = new Date(l.timestamp * 1000);
+      const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return dStr === fecha;
+    });
+  }
+
+  if (tipo)    filtered = filtered.filter(l => l.tipo === tipo);
+  if (usuario) filtered = filtered.filter(l => l.usuario === usuario);
+
+  const tbody = document.getElementById('logs-table-body');
+  document.getElementById('logsContador').textContent =
+    `${filtered.length} de ${_logsData.length} registros`;
+
+  if (!filtered.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#64748b; font-weight:800;">
+      No hay registros que coincidan con los filtros.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(l => `
+    <tr>
+      <td style="font-size:11px; color:#64748b; font-weight:800;">${l.fecha}</td>
+      <td><span class="badge ${l.tipo === 'MOVE' ? 'st-LISTO' : 'st-SUCIO'}">${l.tipo}</span></td>
+      <td style="font-weight:900; color:var(--mex-blue); font-size:14px;">${l.mva}</td>
+      <td style="font-size:12px; font-weight:700;">${l.detalles}</td>
+      <td style="font-size:11px; font-weight:800;">${l.usuario}</td>
+    </tr>
+  `).join('');
+}
+
+function _limpiarFiltrosLogs() {
+  document.getElementById('logsBuscador').value = '';
+  document.getElementById('logsFecha').value    = '';
+  document.getElementById('logsTipo').value     = '';
+  document.getElementById('logsUsuario').value  = '';
+  _renderLogsTabla();
 }
 
 
@@ -6770,25 +6943,73 @@ function refrescarDatos() {
 }
 
 
+let _unsubRadar = [];
+let _radarState = { settings: null, alertas: null, mensajes: null };
+
+function _limpiarRadar() {
+  if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
+  _unsubRadar.forEach(u => u());
+  _unsubRadar = [];
+  _radarState = { settings: null, alertas: null, mensajes: null };
+}
+
 function iniciarRadarNotificaciones() {
-  if (radarInterval) clearInterval(radarInterval);
-  
-  hacerPingNotificaciones(); // Primera ejecución inmediata
-  
-  // 🔥 Bajamos a 4 segundos para que el bloqueo sea "casi" instantáneo
-  radarInterval = setInterval(() => {
-    if(!USER_NAME) return;
-    hacerPingNotificaciones();
-  }, 4000); 
+  _limpiarRadar();
+  if (!USER_NAME) return;
+
+  const emitir = () => {
+    if (!_radarState.settings) return; // Esperar primera carga
+    let liveFeed = _radarState.settings.liveFeed || [];
+    if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
+    if (!Array.isArray(liveFeed)) liveFeed = [];
+    const alertas = (_radarState.alertas || []).filter(a => !(a.leidoPor || "").includes(USER_NAME));
+    _procesarPingUI({
+      incidenciasPendientes: 0,
+      alertas,
+      mensajesSinLeer:     _radarState.mensajes || 0,
+      ultimaActualizacion: _radarState.settings.ultimaModificacion || "--/-- 00:00",
+      ultimoCuadre:        _radarState.settings.ultimoCuadreTexto  || "Sin registro",
+      mapaBloqueado:       _radarState.settings.mapaBloqueado === true,
+      estadoCuadreV3:      _radarState.settings.estadoCuadreV3    || "LIBRE",
+      adminIniciador:      _radarState.settings.adminIniciador     || "",
+      liveFeed,
+      error: null
+    });
+  };
+
+  _unsubRadar.push(
+    db.collection('settings').doc('principal').onSnapshot(snap => {
+      _radarState.settings = snap.exists ? snap.data() : {};
+      emitir();
+    }, err => console.warn('Radar settings:', err))
+  );
+
+  _unsubRadar.push(
+    db.collection('alertas').orderBy('timestamp', 'desc').limit(50).onSnapshot(snap => {
+      _radarState.alertas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emitir();
+    }, err => console.warn('Radar alertas:', err))
+  );
+
+  _unsubRadar.push(
+    db.collection('mensajes').where('destinatario', '==', USER_NAME.toUpperCase()).onSnapshot(snap => {
+      _radarState.mensajes = snap.docs.filter(d => d.data().leido !== 'SI').length;
+      emitir();
+    }, err => console.warn('Radar mensajes:', err))
+  );
 }
 
 let STRING_ULTIMO_FEED = ""; // Memoria para detectar cambios reales
 
+// Conservado para llamadas directas puntuales si se necesitan
 function hacerPingNotificaciones() {
   if (window.PAUSA_CONEXIONES || !USER_NAME) return;
-  console.log("📡 RADAR: Sincronizando estados...");
-
   api.checarNotificaciones(USER_NAME).then(res => {
+    if (res) _procesarPingUI(res);
+  }).catch(err => console.error("❌ RADAR ERROR:", err));
+}
+
+function _procesarPingUI(res) {
       if (!res) return;
       if(res.error) console.error("Error en servidor:", res.error);
 
@@ -6973,8 +7194,6 @@ if (userRole === 'admin') {
       } else {
         if (badgeBuzon) badgeBuzon.style.display = 'none';
       }
-
-    }).catch(err => { console.error("❌ RADAR ERROR:", err); });
 }
 
 
@@ -7380,8 +7599,6 @@ function abrirModalInsertarAdmin() {
   
   const fileInput = document.getElementById('a_ins_file');
   if(fileInput) fileInput.value = "";
-  const fileStatus = document.getElementById('a_ins_fileStatus');
-  if (fileStatus) fileStatus.innerHTML = "";
 }
 
 function filtrarBusquedaAdmin() {
@@ -7434,51 +7651,49 @@ async function ejecutarInsertarAdmin() {
   btn.disabled = true; txt.innerText = "Sincronizando...";
   icon.innerText = "sync"; icon.classList.add("spinner"); 
 
-  try {
-    const files = document.getElementById('a_ins_file').files;
-    const fileStatus = document.getElementById('a_ins_fileStatus');
-    let evidencias = [];
-    if (files.length > 0) {
-      if (fileStatus) fileStatus.innerHTML = "⏫ Subiendo evidencias a Firebase Storage...";
-      evidencias = await _subirEvidenciasCuadreAdmin(mva, files);
+  // Convertir archivos si existen
+  const files = document.getElementById('a_ins_file').files;
+  let archivosBase64 = [];
+  if (files.length > 0) {
+    for (const file of files) {
+      const base64 = await toBase64Global(file); // Función declarada en el acto anterior
+      archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
     }
-
-    const data = {
-      mva: mva,
-      categ: document.getElementById('a_ins_cat').value,
-      modelo: document.getElementById('a_ins_mod').value,
-      placas: document.getElementById('a_ins_pla').value,
-      gasolina: document.getElementById('a_ins_gas').value,
-      estado: est,
-      ubicacion: ubi,
-      notas: document.getElementById('a_ins_not').value,
-      borrarNotas: false,
-      evidencias,
-      adminResponsable: USER_NAME 
-    };
-
-    const res = await api.procesarModificacionMaestra(data, "INSERTAR");
-    btn.disabled = false;
-    txt.innerText = "CONFIRMAR REGISTRO";
-    icon.innerText = "save";
-    icon.classList.remove("spinner");
-
-    if (res && (res.includes("ERROR") || res === "DUPLICADO")) {
-      showToast(res, "error");
-      return;
-    }
-
-    showToast("Unidad registrada en Cuadre Admins", "success");
-    document.getElementById('modal-insertar-admin').classList.remove('active');
-    if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
-  } catch (error) {
-    console.error(error);
-    showToast(error && error.message ? error.message : "Fallo de red", "error");
-    btn.disabled = false;
-    txt.innerText = "REINTENTAR";
-    icon.innerText = "error";
-    icon.classList.remove("spinner");
   }
+
+  // Empaquetamos la data tal como la recibe 'procesarModificacionMaestra'
+  const data = {
+    mva: mva,
+    categ: document.getElementById('a_ins_cat').value,
+    modelo: document.getElementById('a_ins_mod').value,
+    placas: document.getElementById('a_ins_pla').value,
+    gasolina: document.getElementById('a_ins_gas').value,
+    estado: est,
+    ubicacion: ubi,
+    notas: document.getElementById('a_ins_not').value,
+    borrarNotas: false, // Es nuevo en admins
+    archivos: archivosBase64,
+    adminResponsable: USER_NAME 
+  };
+
+  // 🔥 Llama a la función correcta: procesarModificacionMaestra, tipo: "INSERTAR"
+  api.procesarModificacionMaestra(data, "INSERTAR").then((res) => {
+      btn.disabled = false; txt.innerText = "CONFIRMAR REGISTRO";
+      icon.innerText = "save"; icon.classList.remove("spinner");
+
+      if(res && (res.includes("ERROR") || res === "DUPLICADO")) {
+         showToast(res, "error");
+      } else {
+         showToast("Unidad registrada en Cuadre Admins", "success");
+         document.getElementById('modal-insertar-admin').classList.remove('active');
+         // Recargar la tabla
+         if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
+      }
+    }).catch((err) => {
+      showToast("Fallo de red", "error");
+      btn.disabled = false; txt.innerText = "REINTENTAR";
+      icon.innerText = "error"; icon.classList.remove("spinner");
+    });
 }
 
 window.PAUSA_CONEXIONES = false; // 🔥 NUESTRA VARIABLE SEMÁFORO GLOBAL
@@ -7659,47 +7874,50 @@ async function guardarEdicionAdmin(tipoAccion) {
     showToast("Tu rol solo puede consultar el Cuadre Administrativo.", "error");
     return;
   }
-  if (tipoAccion === 'ELIMINAR' && !confirm(`⚠️ ¿Deseas retirar a ${SELECT_REF_FLOTA.mva} del Cuadre Administrativo?`)) return;
+  if (tipoAccion === 'ELIMINAR') {
+    const ok = await mexConfirm(
+      'Retirar del Cuadre Administrativo',
+      `¿Deseas retirar a ${SELECT_REF_FLOTA.mva} del Cuadre Administrativo? Esta acción no se puede deshacer.`,
+      'warning'
+    );
+    if (!ok) return;
+  }
 
   showToast("Sincronizando Cuadre Admins...", "warning");
 
-  try {
-    const files = document.getElementById('a_mod_file').files;
-    const fileStatus = document.getElementById('a_mod_fileStatus');
-    let evidencias = [];
-    if (files.length > 0) {
-      if (fileStatus) fileStatus.innerHTML = "⏫ Subiendo evidencias a Firebase Storage...";
-      evidencias = await _subirEvidenciasCuadreAdmin(SELECT_REF_FLOTA.mva, files);
-    }
-
-    const data = {
-      plaza: SELECT_REF_FLOTA.ubicacion || "BJX",
-      fila: SELECT_REF_FLOTA.fila,
-      mva: SELECT_REF_FLOTA.mva,
-      placas: document.getElementById('a_mod_pla').value,
-      categ: document.getElementById('a_mod_cat').value,
-      modelo: document.getElementById('a_mod_mod').value,
-      gasolina: document.getElementById('a_mod_gas').value,
-      estado: document.getElementById('a_mod_est').value,
-      ubicacion: document.getElementById('a_mod_ubi').value,
-      notas: document.getElementById('a_mod_not').value,
-      borrarNotas: document.getElementById('a_mod_del_note').checked,
-      evidencias,
-      adminResponsable: USER_NAME 
-    };
-
-    const res = await api.procesarModificacionMaestra(data, tipoAccion);
-    if (res === "EXITO") {
-      showToast(`Cuadre Actualizado`, "success");
-      document.getElementById('modal-editar-admin').classList.remove('active');
-      cambiarTabFlota('ADMINS');
-    } else {
-      showToast("Error: " + res, "error");
-    }
-  } catch (error) {
-    console.error(error);
-    showToast(error && error.message ? error.message : "Fallo al guardar el expediente", "error");
+  const files = document.getElementById('a_mod_file').files;
+  let archivosBase64 = [];
+  for (const file of files) {
+    const base64 = await toBase64Global(file);
+    archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
   }
+
+  const data = {
+    plaza: SELECT_REF_FLOTA.ubicacion || "BJX",
+    fila: SELECT_REF_FLOTA.fila, // Asegúrate que tu array DB_ADMINS tiene .fila
+    mva: SELECT_REF_FLOTA.mva,
+    placas: document.getElementById('a_mod_pla').value,
+    categ: document.getElementById('a_mod_cat').value,
+    modelo: document.getElementById('a_mod_mod').value,
+    gasolina: document.getElementById('a_mod_gas').value,
+    estado: document.getElementById('a_mod_est').value,
+    ubicacion: document.getElementById('a_mod_ubi').value,
+    notas: document.getElementById('a_mod_not').value,
+    borrarNotas: document.getElementById('a_mod_del_note').checked,
+    archivos: archivosBase64,
+    adminResponsable: USER_NAME 
+  };
+
+  // 👈 Llama a procesarModificacionMaestra para Cuadre Admins
+  api.procesarModificacionMaestra(data, tipoAccion).then(res => {
+      if(res === "EXITO") {
+        showToast(`Cuadre Actualizado`, "success");
+        document.getElementById('modal-editar-admin').classList.remove('active');
+        cambiarTabFlota('ADMINS'); // Recarga la tabla de admins
+      } else {
+        showToast("Error: " + res, "error");
+      }
+    }).catch(e => console.error(e));
 }
 
 
@@ -7817,16 +8035,42 @@ function abrirExpedienteAdmin(u, esSoloLectura) {
     setVal('a_mod_ubi', u.ubicacion);
     setVal('a_mod_not', u.notas);
     if(document.getElementById('a_mod_del_note')) document.getElementById('a_mod_del_note').checked = false;
+    
+    // VISOR DE EVIDENCIA BLINDADO (Para Evitar Error 403 de Carpetas)
+    const urlDrive = u.url || u.URL || u.urlArchivo || u.urlEvidencia || u.evidencia || "";
+    const estadoArchivo = (u.file || u.FILE || u.archivoStatus || u.tieneArchivo || u.File || "").toString().toUpperCase().trim();
+    const tieneEvidencia = estadoArchivo === "SI" || urlDrive !== "";
+    
+    const visorContenedor = document.getElementById('a_visor_evidencia');
+    const visorFrame = document.getElementById('a_visor_frame');
+    const linkDrive = document.getElementById('a_link_drive');
+    const fileStatus = document.getElementById('a_mod_fileStatus');
 
-    const fileInput = document.getElementById('a_mod_file');
-    if (fileInput) fileInput.value = "";
-    _renderEvidenceViewer(u, {
-      containerId: 'a_visor_evidencia',
-      frameId: 'a_visor_frame',
-      linkId: 'a_link_drive',
-      statusId: 'a_mod_fileStatus',
-      emptyText: '⚪ SIN EVIDENCIA REGISTRADA'
-    });
+    if (tieneEvidencia && urlDrive.includes('drive.google.com')) {
+        visorContenedor.style.display = 'block';
+        linkDrive.href = urlDrive;
+        
+        if (urlDrive.includes('/folders/')) {
+            visorFrame.innerHTML = `
+              <div style="padding: 20px; color: #64748b; display: flex; flex-direction: column; align-items: center;">
+                <span class="material-icons" style="font-size: 48px; color: var(--mex-blue); margin-bottom: 10px;">folder_shared</span>
+                <b style="color: #0d2a54; font-size: 14px;">CARPETA DE EVIDENCIAS</b>
+                <span style="font-size: 11px; margin-top: 5px;">Drive bloquea previsualizar carpetas.<br>Abre el Drive para verlas.</span>
+              </div>`;
+        } else {
+            let previewUrl = urlDrive.replace('/view', '/preview'); 
+            visorFrame.innerHTML = `<iframe src="${previewUrl}" width="100%" height="100%" frameborder="0" allow="autoplay"></iframe>`;
+        }
+        if (fileStatus) fileStatus.innerHTML = ""; 
+    } else if (tieneEvidencia && !urlDrive) {
+        visorContenedor.style.display = 'none';
+        visorFrame.innerHTML = "";
+        if (fileStatus) fileStatus.innerHTML = "✅ EVIDENCIA REGISTRADA (Link no disponible)";
+    } else {
+        visorContenedor.style.display = 'none';
+        visorFrame.innerHTML = "";
+        if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
+    }
 
     // BLOQUEOS DE SOLO LECTURA
     const idsBloquear = ['a_mod_cat', 'a_mod_mod', 'a_mod_pla', 'a_mod_gas', 'a_mod_est', 'a_mod_ubi', 'a_mod_not'];
@@ -7884,54 +8128,49 @@ async function ejecutarEdicionGlobal(tipoAccion) {
 
   const btnMod = document.getElementById('btnModGlobal');
   const btnDel = document.getElementById('btnDelGlobal');
-  btnMod.disabled = true;
-  btnDel.disabled = true;
-
+  btnMod.disabled = true; btnDel.disabled = true;
+  
   showToast(tipoAccion === 'ELIMINAR' ? "Eliminando unidad..." : "Guardando cambios maestros...", "warning");
 
-  try {
-    const fileInput = document.getElementById('g_mod_file');
-    const fileStatus = document.getElementById('g_mod_fileStatus');
-    const files = fileInput ? fileInput.files : [];
-    let evidencias = [];
-    if (files && files.length > 0) {
-      if (fileStatus) fileStatus.innerHTML = "⏫ Subiendo evidencias a Firebase Storage...";
-      evidencias = await _subirEvidenciasCuadreAdmin(UNIDAD_GLOBAL_ACTIVA.mva, files);
-    }
-
-    const data = {
-      plaza: UNIDAD_GLOBAL_ACTIVA.plaza,
-      fila: document.getElementById('g_mod_fila').value,
-      mva: UNIDAD_GLOBAL_ACTIVA.mva,
-      placas: document.getElementById('g_mod_pla').value,
-      categ: document.getElementById('g_mod_cat').value,
-      modelo: document.getElementById('g_mod_mod').value,
-      gasolina: document.getElementById('g_mod_gas').value,
-      estado: document.getElementById('g_mod_est').value,
-      ubicacion: document.getElementById('g_mod_ubi').value,
-      notas: document.getElementById('g_mod_not').value,
-      borrarNotas: document.getElementById('g_mod_del_note').checked,
-      evidencias,
-      adminResponsable: USER_NAME
-    };
-
-    const res = await api.procesarModificacionMaestra(data, tipoAccion);
-    btnMod.disabled = false;
-    btnDel.disabled = false;
-    if (res === "EXITO") {
-      showToast(`Operación exitosa (${tipoAccion})`, "success");
-      cerrarModificadorMaestro();
-
-      if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
-    } else {
-      showToast("Error: " + res, "error");
-    }
-  } catch (err) {
-    console.error(err);
-    btnMod.disabled = false;
-    btnDel.disabled = false;
-    showToast(err && err.message ? err.message : "Fallo de conexión", "error");
+  const files = document.getElementById('g_mod_file').files;
+  let archivosBase64 = [];
+  for (const file of files) {
+    const base64 = await toBase64Global(file);
+    archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
   }
+
+  const data = {
+    plaza: UNIDAD_GLOBAL_ACTIVA.plaza,
+    fila: document.getElementById('g_mod_fila').value,
+    mva: UNIDAD_GLOBAL_ACTIVA.mva,
+    placas: document.getElementById('g_mod_pla').value,
+    categ: document.getElementById('g_mod_cat').value,
+    modelo: document.getElementById('g_mod_mod').value,
+    gasolina: document.getElementById('g_mod_gas').value,
+    estado: document.getElementById('g_mod_est').value,
+    ubicacion: document.getElementById('g_mod_ubi').value,
+    notas: document.getElementById('g_mod_not').value,
+    borrarNotas: document.getElementById('g_mod_del_note').checked,
+    archivos: archivosBase64,
+    adminResponsable: USER_NAME 
+  };
+
+  api.procesarModificacionMaestra(data, tipoAccion).then(res => {
+      btnMod.disabled = false; btnDel.disabled = false;
+      if(res === "EXITO") {
+        showToast(`Operación exitosa (${tipoAccion})`, "success");
+        cerrarModificadorMaestro();
+
+        // Si estamos en la vista de admins, recargar la tabla por si modificamos algo
+        if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
+
+      } else {
+        showToast("Error: " + res, "error");
+      }
+    }).catch(err => {
+      btnMod.disabled = false; btnDel.disabled = false;
+      showToast("Fallo de conexión", "error");
+    });
 }
 
 
@@ -7958,17 +8197,38 @@ function abrirExpedienteGlobal(u, plazaForzada, esSoloLectura = false) {
     const checkBorrar = document.getElementById('g_mod_del_note');
     if(checkBorrar) checkBorrar.checked = false;
     
-    const fileInput = document.getElementById('g_mod_file');
-    if (fileInput) fileInput.value = "";
-    _renderEvidenceViewer(u, {
-      containerId: 'g_visor_evidencia',
-      frameId: 'g_visor_frame',
-      linkId: 'g_link_drive',
-      statusId: 'g_mod_fileStatus',
-      emptyText: '⚪ SIN EVIDENCIA REGISTRADA'
-    });
+    // 🔥 LÓGICA DE EVIDENCIA SÚPER BLINDADA 🔥
+    // Buscamos la URL en todas las posibles variaciones de nombre de propiedad
+    const urlDrive = u.url || u.URL || u.urlArchivo || u.urlEvidencia || u.evidencia || "";
+    
+    // Verificamos si hay algún indicador de archivo adjunto
+    const estadoArchivo = (u.file || u.FILE || u.archivoStatus || u.tieneArchivo || u.File || "").toString().toUpperCase().trim();
+    const tieneEvidencia = estadoArchivo === "SI" || urlDrive !== "";
+    
+    const visorContenedor = document.getElementById('g_visor_evidencia');
+    const visorFrame = document.getElementById('g_visor_frame');
+    const linkDrive = document.getElementById('g_link_drive');
+    const fileStatus = document.getElementById('g_mod_fileStatus');
+    const inputCargarNuevo = document.getElementById('g_mod_file').parentElement;
 
-    const inputCargarNuevo = fileInput ? fileInput.parentElement : null;
+    if (tieneEvidencia && urlDrive.includes('drive.google.com')) {
+        // Formateamos la URL para la vista previa de Drive
+        let previewUrl = urlDrive.replace('/view', '/preview'); 
+        
+        visorContenedor.style.display = 'block';
+        linkDrive.href = urlDrive;
+        visorFrame.innerHTML = `<iframe src="${previewUrl}" width="100%" height="100%" frameborder="0" allow="autoplay"></iframe>`;
+        
+        if (fileStatus) fileStatus.innerHTML = ""; 
+    } else if (tieneEvidencia && !urlDrive) {
+        visorContenedor.style.display = 'none';
+        visorFrame.innerHTML = "";
+        if (fileStatus) fileStatus.innerHTML = "✅ EVIDENCIA REGISTRADA (Link no disponible)";
+    } else {
+        visorContenedor.style.display = 'none';
+        visorFrame.innerHTML = "";
+        if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
+    }
 
     // --- 🛡️ APLICAR BLOQUEOS DE SOLO LECTURA ---
     const idsBloquear = ['g_mod_cat', 'g_mod_mod', 'g_mod_pla', 'g_mod_gas', 'g_mod_est', 'g_mod_ubi', 'g_mod_not'];
@@ -9826,25 +10086,58 @@ async function crearExcelPrediccion() {
 
 
 // 🧠 INTELIGENCIA DE HÁBITOS: Sugerencias automáticas CARGA MASIVA DE FUNCIONES NUEVAS
-function verificarHabitosUbicacion() {
+async function verificarHabitosUbicacion() {
   if (MODO_FLOTA !== "MODIFICAR" || !SELECT_REF_FLOTA) return;
-  
+
   const ubiNueva = document.getElementById('f_ubi').value;
   const ubiVieja = (SELECT_REF_FLOTA.ubicacion || "").toUpperCase();
   const estSelect = document.getElementById('f_est');
+  const TALLERES = ["TALLER", "TALLER EXTERNO", "HYP COBIAN"];
 
-  // REGLA 1: Si viene de fuera de la sucursal directo al PATIO
-  if (ubiNueva === "PATIO" && ubiVieja !== "PATIO" && ubiVieja !== "LIMBO" && ubiVieja !== "") {
-     // Y si no está ya marcado como sucio o en mantenimiento
-     if (estSelect.value !== "SUCIO" && estSelect.value !== "MANTENIMIENTO") {
-        
-        // El sistema interviene y sugiere
-        if(confirm(`🤖 IA: Detecté que el auto regresa de [${ubiVieja}] a [PATIO].\n\n¿Deseas marcarlo automáticamente como SUCIO para que pase a lavado?`)) {
-           estSelect.value = "SUCIO";
-           showToast("Estado cambiado a SUCIO automáticamente", "info");
-           validarBotonGuardar(); // Actualiza el botón azul
-        }
-     }
+  // REGLA 1: Regresa al PATIO desde afuera → sugerir SUCIO
+  if (ubiNueva === "PATIO" && ubiVieja !== "PATIO" && ubiVieja !== "" ) {
+    if (estSelect.value !== "SUCIO" && estSelect.value !== "MANTENIMIENTO") {
+      const ok = await mexConfirm(
+        'Hábito detectado',
+        `La unidad regresa de [${ubiVieja}] al PATIO.\n¿Cambiar su estado a SUCIO para que pase a lavado?`,
+        'info'
+      );
+      if (ok) {
+        estSelect.value = "SUCIO";
+        showToast("Estado cambiado a SUCIO automáticamente", "info");
+        validarBotonGuardar();
+      }
+    }
+  }
+
+  // REGLA 2: Sale del PATIO con estado SUCIO → sugerir LISTO antes de entregarla
+  else if (ubiVieja === "PATIO" && ubiNueva !== "PATIO" && ubiNueva !== "" && !TALLERES.includes(ubiNueva)) {
+    if (estSelect.value === "SUCIO") {
+      const ok = await mexConfirm(
+        'Hábito detectado',
+        `La unidad sale del PATIO con estado SUCIO.\n¿Cambiarla a LISTO antes de enviarla?`,
+        'warning'
+      );
+      if (ok) {
+        estSelect.value = "LISTO";
+        showToast("Estado cambiado a LISTO", "info");
+        validarBotonGuardar();
+      }
+    }
+  }
+
+  // REGLA 3: Va a TALLER / TALLER EXTERNO / HYP → sugerir MANTENIMIENTO
+  else if (TALLERES.includes(ubiNueva) && estSelect.value !== "MANTENIMIENTO") {
+    const ok = await mexConfirm(
+      'Hábito detectado',
+      `La unidad va a [${ubiNueva}].\n¿Cambiar su estado a MANTENIMIENTO?`,
+      'info'
+    );
+    if (ok) {
+      estSelect.value = "MANTENIMIENTO";
+      showToast("Estado cambiado a MANTENIMIENTO", "info");
+      validarBotonGuardar();
+    }
   }
 }
 
@@ -10747,7 +11040,7 @@ function llenarSelectsDinamicos() {
   });
   ['filter-est','f_est','a_ins_est','a_mod_est'].forEach(id => _setOptions(id, estOpts));
 
-  // Ubicaciones
+  // Ubicaciones (flat list — las personas quedan mezcladas, suficiente para v1)
   const PLAZAS_FIJAS = new Set(['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN','OTRA PLAZA']);
   const plazas  = ubicaciones.filter(u => PLAZAS_FIJAS.has(u));
   const personas = ubicaciones.filter(u => !PLAZAS_FIJAS.has(u));
@@ -10773,17 +11066,8 @@ function llenarSelectsDinamicos() {
     if (el.querySelector(`option[value="${saved}"]`)) el.value = saved;
   });
 
-  // Gasolinas
-  const gasOpts = gasolinas.map(g => {
-    const value = typeof g === 'string' ? g : (g.id || g.value || '');
-    const label = typeof g === 'string' ? g : (g.label || g.id || g.value || '');
-    const o = document.createElement('option');
-    o.value = value;
-    o.textContent = label;
-    return o;
-  }).filter(Boolean);
-  ['f_gas','a_ins_gas','a_mod_gas'].forEach(id => _setOptions(id, gasOpts));
-
+  // Gasolinas — keep static fractional groups, just add custom values
+  // (La lista de gasolinas es compleja con grupos, no la reemplazamos completamente)
   console.log('✅ Selects actualizados desde MEX_CONFIG');
 }
 
@@ -11084,33 +11368,43 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
       <div class="inner-card">
         <div class="grid-2">
-	          <div class="field">
-	            <label>Gasolina ⛽</label>
-		            <select id="a_ins_gas">
-		              <option value="">Seleccionar...</option>
-	            </select>
-	          </div>
-	          <div class="field">
-	            <label>Estado 🛠️</label>
-	            <select id="a_ins_est">
-	              <option value="">Seleccionar...</option>
-	            </select>
-	          </div>
-	        </div>
-	        <div class="field" style="margin-top:10px">
-	          <label>Ubicación Física 📍</label>
-	          <select id="a_ins_ubi">
-	            <option value="">Seleccionar...</option>
-	          </select>
-	        </div>
-	      </div>
+          <div class="field">
+            <label>Gasolina ⛽</label>
+            <select id="a_ins_gas">
+              <option value="N/A">Seleccionar...</option><option value="F">F (Lleno Total)</option>
+              <optgroup label="MEDIO"><option value="15/16">15/16</option><option value="7/8">7/8</option><option value="13/16">13/16</option><option value="3/4">3/4</option><option value="11/16">11/16</option><option value="5/8">5/8</option><option value="9/16">9/16</option><option value="H">H (Medio)</option></optgroup>
+              <optgroup label="BAJO"><option value="7/16">7/16</option><option value="3/8">3/8</option><option value="5/16">5/16</option><option value="1/4">1/4</option><option value="3/16">3/16</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="E">E (Vacío)</option></optgroup><option value="N/A">N/A</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Estado 🛠️</label>
+            <select id="a_ins_est">
+              <option value="">Seleccionar...</option><option value="LISTO">🟢 LISTO</option><option value="SUCIO">🟡 SUCIO</option><option value="RESGUARDO">🔘 RESGUARDO</option><option value="TRASLADO">🟣 TRASLADO</option><option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option><option value="HYP">🔴 HYP</option><option value="EN RENTA">🔵 EN RENTA</option><option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option><option value="VENTA">⚫ VENTA</option><option value="RETENIDA">🟤 RETENIDA</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Ubicación Física 📍</label>
+          <select id="a_ins_ubi">
+            <option value="PATIO">🏠 PATIO</option><option value="TALLER">🔧 TALLER</option><option value="AGENCIA">🏢 AGENCIA</option><option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option><option value="HYP COBIAN">🛠️ HYP COBIAN</option><option value="OTRA PLAZA">📌 OTRA PLAZA</option>
+            <optgroup label="PERSONA RESPONSABLE">
+              <option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option>
+              <option value="BALANDRAN">👤 BALANDRAN</option><option value="ULISES">👤 ULISES</option><option value="JOSUE">👤 JOSUE</option>
+              <option value="ISRAEL">👤 ISRAEL</option><option value="ISAAC">👤 ISAAC</option><option value="ANGEL">👤 ANGEL</option>
+              <option value="LEO">👤 LEO</option><option value="BRAULIO">👤 BRAULIO</option><option value="LONGORIA">👤 LONGORIA</option>
+              <option value="MARTHA">👤 MARTHA</option><option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option>
+              <option value="UBALDO">👤 UBALDO</option><option value="JOSE LUIS">👤 JOSE LUIS</option><option value="PASCUAL">👤 PASCUAL</option>
+              <option value="EDUARDO">👤 EDUARDO</option><option value="EDGAR">👤 EDGAR</option>
+            </optgroup>
+          </select>
+        </div>
+      </div>
 
-	      <div class="inner-card">
-	        <div class="field">
-	          <label>📂 Cargar Evidencias (Fotos/PDF)</label>
-	          <input type="file" id="a_ins_file" multiple accept="image/*,application/pdf" onchange="_actualizarEstadoInputEvidencias('a_ins_file', 'a_ins_fileStatus')" style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-	          <div id="a_ins_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;"></div>
-	        </div>
+      <div class="inner-card">
+        <div class="field">
+          <label>📂 Cargar Evidencias (Fotos/PDF)</label>
+          <input type="file" id="a_ins_file" multiple style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+        </div>
         <div class="field" style="margin-top:10px">
           <label>Notas Administrativas</label>
           <textarea id="a_ins_not" rows="2" placeholder="Describe la incidencia..." style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
@@ -11272,46 +11566,49 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
       <div class="inner-card">
         <div class="grid-2">
-	          <div class="field">
-	            <label>Gasolina ⛽</label>
-		            <select id="a_mod_gas">
-		              <option value="">Seleccionar...</option>
-	            </select>
-	          </div>
-	          <div class="field">
-	            <label>Estado 🛠️</label>
-	            <select id="a_mod_est">
-	              <option value="">Seleccionar...</option>
-	            </select>
-	          </div>
-	        </div>
-	        <div class="field" style="margin-top:10px">
-	          <label>Ubicación Física 📍</label>
-	          <select id="a_mod_ubi">
-	            <option value="">Seleccionar...</option>
-	          </select>
-	        </div>
-	      </div>
+          <div class="field">
+            <label>Gasolina ⛽</label>
+            <select id="a_mod_gas">
+              <option value="N/A">Seleccionar...</option><option value="F">F (Lleno Total)</option>
+              <optgroup label="MEDIO"><option value="15/16">15/16</option><option value="7/8">7/8</option><option value="13/16">13/16</option><option value="3/4">3/4</option><option value="11/16">11/16</option><option value="5/8">5/8</option><option value="9/16">9/16</option><option value="H">H (Medio)</option></optgroup>
+              <optgroup label="BAJO"><option value="7/16">7/16</option><option value="3/8">3/8</option><option value="5/16">5/16</option><option value="1/4">1/4</option><option value="3/16">3/16</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="E">E (Vacío)</option><option value="N/A">N/A</option></optgroup>
+            </select>
+          </div>
+          <div class="field">
+            <label>Estado 🛠️</label>
+            <select id="a_mod_est">
+              <option value="">Seleccionar...</option><option value="LISTO">🟢 LISTO</option><option value="SUCIO">🟡 SUCIO</option><option value="RESGUARDO">🔘 RESGUARDO</option><option value="TRASLADO">🟣 TRASLADO</option><option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option><option value="HYP">🔴 HYP</option><option value="EN RENTA">🔵 EN RENTA</option><option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option><option value="VENTA">⚫ VENTA</option><option value="RETENIDA">🟤 RETENIDA</option>
+            </select>
+          </div>
+        </div>
+        <div class="field" style="margin-top:10px">
+          <label>Ubicación Física 📍</label>
+          <select id="a_mod_ubi">
+            <option value="PATIO">🏠 PATIO</option><option value="TALLER">🔧 TALLER</option><option value="AGENCIA">🏢 AGENCIA</option><option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option><option value="HYP COBIAN">🛠️ HYP COBIAN</option><option value="OTRA PLAZA">📌 OTRA PLAZA</option>
+            <optgroup label="PERSONA RESPONSABLE"><option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option><option value="BALANDRAN">👤 BALANDRAN</option><option value="ULISES">👤 ULISES</option><option value="JOSUE">👤 JOSUE</option><option value="ISRAEL">👤 ISRAEL</option><option value="ISAAC">👤 ISAAC</option><option value="ANGEL">👤 ANGEL</option><option value="LEO">👤 LEO</option><option value="BRAULIO">👤 BRAULIO</option><option value="LONGORIA">👤 LONGORIA</option><option value="MARTHA">👤 MARTHA</option><option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option><option value="UBALDO">👤 UBALDO</option><option value="JOSE LUIS">👤 JOSE LUIS</option><option value="PASCUAL">👤 PASCUAL</option><option value="EDUARDO">👤 EDUARDO</option><option value="EDGAR">👤 EDGAR</option></optgroup>
+          </select>
+        </div>
+      </div>
 
-	      <div class="inner-card">
-	        <div class="field">
-	          <label>📂 Cargar Nueva Evidencia (Fotos/PDF)</label>
-	          <input type="file" id="a_mod_file" multiple accept="image/*,application/pdf" onchange="_actualizarEstadoInputEvidencias('a_mod_file', 'a_mod_fileStatus')" style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-	          <div id="a_mod_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;"></div>
-	        </div>
+      <div class="inner-card">
+        <div class="field">
+          <label>📂 Cargar Nueva Evidencia (Fotos/PDF)</label>
+          <input type="file" id="a_mod_file" multiple style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+          <div id="a_mod_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;"></div>
+        </div>
         <div class="field" style="margin-top:10px">
           <label>Añadir Nota Administrativa</label>
           <textarea id="a_mod_not" rows="2" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
         </div>
       </div>
 
-	      <div class="inner-card" id="a_visor_evidencia" style="display:none; text-align:center; padding: 15px;">
-	         <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL SISTEMA</span>
-	         <div id="a_visor_frame" style="width:100%; height:220px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; background:#f1f5f9; display:flex; justify-content:center; align-items:center; margin-bottom: 10px;"></div>
-	         <a id="a_link_drive" href="#" target="_blank" style="font-size:11px; font-weight:800; color:var(--mex-blue); text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; background: #e0f2fe; padding: 8px 15px; border-radius: 8px;">
-	           <span class="material-icons" style="font-size:14px;">open_in_new</span> ABRIR EVIDENCIA
-	         </a>
-	      </div>
+      <div class="inner-card" id="a_visor_evidencia" style="display:none; text-align:center; padding: 15px;">
+         <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL SISTEMA</span>
+         <div id="a_visor_frame" style="width:100%; height:220px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; background:#f1f5f9; display:flex; justify-content:center; align-items:center; margin-bottom: 10px;"></div>
+         <a id="a_link_drive" href="#" target="_blank" style="font-size:11px; font-weight:800; color:var(--mex-blue); text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; background: #e0f2fe; padding: 8px 15px; border-radius: 8px;">
+           <span class="material-icons" style="font-size:14px;">open_in_new</span> ABRIR EN DRIVE
+         </a>
+      </div>
 
       <div class="danger-zone" id="a_mod_danger_zone" onclick="document.getElementById('a_mod_del_note').click()">
         <input type="checkbox" id="a_mod_del_note" onclick="event.stopPropagation()">

@@ -199,6 +199,20 @@ function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
   return payload;
 }
 
+async function subirEvidenciaAdmin(file, rutaStorage) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('rutaStorage', rutaStorage);
+  
+  const response = await fetch('/api/uploadFile', {
+    method: 'POST',
+    body: formData
+  });
+  
+  if (!response.ok) throw new Error('Error subiendo archivo');
+  return await response.json();
+}
+
 async function _deleteEvidenceFiles(items = []) {
   if (!storage) return;
   for (const item of _normalizeEvidenceItems(items)) {
@@ -277,6 +291,14 @@ const API_FUNCTIONS = {
         usuario: displayName, // campo unificado que usa el resto de la app
       };
     }).sort((a, b) => a.usuario.localeCompare(b.usuario));
+  },
+
+  async obtenerNombresUsuarios() {
+    const snap = await db.collection(COL.USERS).get();
+    return snap.docs.map(d => {
+      const data = d.data();
+      return (data.nombre || data.usuario || data.email || '').toUpperCase();
+    }).filter(Boolean).sort();
   },
 
   async verificarAdminGlobal(nombreUsuario) {
@@ -588,8 +610,13 @@ const API_FUNCTIONS = {
   },
 
   // ─── ALERTAS ─────────────────────────────────────────────
-  async emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, autor) {
-    await db.collection(COL.ALERTAS).add({ timestamp: _ts(), fecha: _now(), autor, tipo, titulo, mensaje, imagen: imagen || "", leidoPor: "" });
+  async emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, autor, destinatarios, modo) {
+    await db.collection(COL.ALERTAS).add({
+      timestamp: _ts(), fecha: _now(), autor, tipo, titulo, mensaje,
+      imagen: imagen || "", leidoPor: "",
+      destinatarios: destinatarios || "GLOBAL",
+      modo: modo || "INTERRUPTIVA"
+    });
     await _registrarEventoGestion("ALERTA_EMITIDA", `Emitió alerta maestra "${titulo}" (${tipo})`, autor, {
       entidad: "ALERTAS",
       referencia: titulo || ""
@@ -730,11 +757,12 @@ const API_FUNCTIONS = {
         tipo:     data.tipo || "MOVE",
         accion:   `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
         mva:      data.mva || "",
-        detalles: `${data.posAnterior || ""} → ${data.posNueva || ""}`,
+        detalles:  `${data.posAnterior || ""} → ${data.posNueva || ""}`,
         ubicacion: data.posNueva || "",
-        estado:   data.posNueva || "",
-        autor:    data.autor || "",
-        usuario:  data.autor || ""
+        estado:    data.posNueva || "",
+        autor:     data.autor || "",
+        usuario:   data.autor || "",
+        timestamp: data.timestamp || 0
       };
     });
   },
