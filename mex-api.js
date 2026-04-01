@@ -35,6 +35,7 @@ const COL = {
   ALERTAS:   "alertas",
   MENSAJES:  "mensajes",
   LOGS:      "logs",
+  ADMIN_AUDIT: "bitacora_gestion",
   NOTAS:     "notas_admin",
   SETTINGS:  "settings",
   INDEX:     "index_unidades",
@@ -73,6 +74,26 @@ function _sanitizeRole(role) {
   return ACCESS_ROLE_META[normalized] ? normalized : null;
 }
 
+function _profileDocId(email) {
+  return String(email || "").trim().toLowerCase();
+}
+
+function _sanitizeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function _sanearEventoGestionExtra(extra = {}) {
+  return {
+    entidad: _sanitizeText(extra.entidad),
+    referencia: _sanitizeText(extra.referencia),
+    detalles: _sanitizeText(extra.detalles),
+    objetivo: _sanitizeText(extra.objetivo),
+    rolObjetivo: _sanitizeText(extra.rolObjetivo),
+    plazaObjetivo: _sanitizeText(extra.plazaObjetivo),
+    resultado: _sanitizeText(extra.resultado)
+  };
+}
+
 function _inferRole(roleOrIsAdmin, plazaOrIsGlobal) {
   if (typeof roleOrIsAdmin === "string") {
     return _sanitizeRole(roleOrIsAdmin) || "AUXILIAR";
@@ -109,6 +130,32 @@ async function _registrarLog(tipo, mensaje, autor) {
   await db.collection(COL.LOGS).doc(id).set({
     fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: autor || "Sistema"
   });
+}
+async function _registrarEventoGestion(tipo, mensaje, autor, extra = {}) {
+  const ts = _ts();
+  const id = `gest_${ts}_${Math.floor(Math.random() * 1000)}`;
+  const extraSanitizado = _sanearEventoGestionExtra(extra);
+  await db.collection(COL.ADMIN_AUDIT).doc(id).set({
+    fecha: _now(),
+    timestamp: ts,
+    tipo: _sanitizeText(tipo) || "GESTION",
+    accion: _sanitizeText(mensaje),
+    autor: _sanitizeText(autor) || "Sistema",
+    ...extraSanitizado
+  });
+}
+
+async function _guardarPerfilUsuarioPorEmail(email, data = {}) {
+  const docId = _profileDocId(email);
+  if (!docId) throw new Error("Correo inválido para perfil de usuario");
+
+  const payload = {
+    ...data,
+    email: docId
+  };
+
+  await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+  return docId;
 }
 async function _actualizarFeed(accion, autor) {
   const settings = await _getSettings();
@@ -431,6 +478,10 @@ const API_FUNCTIONS = {
   // ─── ALERTAS ─────────────────────────────────────────────
   async emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, autor) {
     await db.collection(COL.ALERTAS).add({ timestamp: _ts(), fecha: _now(), autor, tipo, titulo, mensaje, imagen: imagen || "", leidoPor: "" });
+    await _registrarEventoGestion("ALERTA_EMITIDA", `Emitió alerta maestra "${titulo}" (${tipo})`, autor, {
+      entidad: "ALERTAS",
+      referencia: titulo || ""
+    });
     return "EXITO";
   },
   async marcarAlertaComoLeida(idAlerta, usuarioActivo) {
@@ -445,8 +496,17 @@ const API_FUNCTIONS = {
     const snap = await db.collection(COL.ALERTAS).orderBy("timestamp", "desc").get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
-  async eliminarAlertaMaestraBackend(idAlerta) {
-    await db.collection(COL.ALERTAS).doc(idAlerta).delete();
+  async eliminarAlertaMaestraBackend(idAlerta, actor = "Sistema") {
+    const ref = db.collection(COL.ALERTAS).doc(idAlerta);
+    const snap = await ref.get();
+    const titulo = snap.exists ? (snap.data().titulo || idAlerta) : idAlerta;
+    const autorOriginal = snap.exists ? (snap.data().autor || "") : "";
+    await ref.delete();
+    await _registrarEventoGestion("ALERTA_ELIMINADA", `Eliminó alerta maestra "${titulo}"`, actor || "Sistema", {
+      entidad: "ALERTAS",
+      referencia: idAlerta,
+      detalles: autorOriginal ? `Alerta creada originalmente por ${autorOriginal}` : ""
+    });
     return "EXITO";
   },
 
@@ -590,8 +650,36 @@ const API_FUNCTIONS = {
       };
     });
   },
+
+  async obtenerEventosGestion() {
+    const snap = await db.collection(COL.ADMIN_AUDIT).orderBy("timestamp", "desc").limit(300).get();
+    return snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        fecha: _fecha(data),
+        tipo: data.tipo || "GESTION",
+        accion: data.accion || "",
+        autor: data.autor || "Sistema",
+        usuario: data.autor || "Sistema",
+        referencia: data.referencia || "",
+        entidad: data.entidad || "",
+        detalles: data.detalles || "",
+        objetivo: data.objetivo || "",
+        rolObjetivo: data.rolObjetivo || "",
+        plazaObjetivo: data.plazaObjetivo || "",
+        resultado: data.resultado || ""
+      };
+    });
+  },
+
+  async registrarEventoGestion(tipo, mensaje, autor, extra) {
+    await _registrarEventoGestion(tipo, mensaje, autor, extra || {});
+    return "OK";
+  },
 async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, plazaOrIsGlobal) {
     try {
+      const emailNormalizado = _profileDocId(email);
       const rol = _inferRole(roleOrIsAdmin, plazaOrIsGlobal);
       const roleData = _normalizeUserRoleData({
         rol,
@@ -604,14 +692,22 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       const credencial = await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
       const nuevoUid = credencial.user.uid;
 
-      // 3. Guardamos su perfil en Firestore, pero ahora el ID del documento es su UID secreto
-      await db.collection(COL.USERS).doc(nuevoUid).set({
+      // 3. Guardamos su perfil con el correo como ID estable del documento
+      const docId = await _guardarPerfilUsuarioPorEmail(emailNormalizado, {
         nombre: nombre.trim().toUpperCase(),
-        email: email.toLowerCase().trim(),
+        email: emailNormalizado,
         telefono: telefono || "",
         ...roleData,
+        authUid: nuevoUid,
         status: "ACTIVO"
       });
+
+      // Limpia un posible documento legacy con UID para evitar duplicados raros.
+      if (nuevoUid && nuevoUid !== docId) {
+        const legacyRef = db.collection(COL.USERS).doc(nuevoUid);
+        const legacySnap = await legacyRef.get();
+        if (legacySnap.exists) await legacyRef.delete();
+      }
 
       // 4. Destruimos el hilo secundario
       await appSecundaria.auth().signOut();
@@ -663,8 +759,12 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   },
 
   // ─── BLOQUEO ─────────────────────────────────────────────
-  async toggleBloqueoMapa(nuevoEstado) {
+  async toggleBloqueoMapa(nuevoEstado, actor = "Sistema") {
     await _setSettings({ mapaBloqueado: nuevoEstado === true });
+    await _registrarEventoGestion(nuevoEstado === true ? "MAPA_BLOQUEADO" : "MAPA_LIBERADO", nuevoEstado === true ? "Bloqueó el mapa operativo" : "Liberó el mapa operativo", actor || "Sistema", {
+      entidad: "SETTINGS",
+      referencia: "mapaBloqueado"
+    });
     return "OK";
   },
 
@@ -724,9 +824,13 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     };
   },
 
-  async guardarConfiguracionListas(listasActualizadas) {
+  async guardarConfiguracionListas(listasActualizadas, autor = "Admin Global") {
     await db.collection(COL.CONFIG).doc("listas").set(listasActualizadas, { merge: true });
-    await _registrarLog("SISTEMA", "⚙️ Modificó los catálogos del sistema", "Admin Global");
+    await _registrarLog("SISTEMA", "⚙️ Modificó los catálogos del sistema", autor || "Admin Global");
+    await _registrarEventoGestion("CONFIG_GLOBAL", "Publicó cambios en catálogos globales", autor || "Admin Global", {
+      entidad: "CONFIGURACION",
+      referencia: "listas"
+    });
     return "EXITO";
   },
 

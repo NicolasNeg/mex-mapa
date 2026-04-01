@@ -3465,7 +3465,7 @@ function cerrarModalSolicitud() {
             <span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas
           </div>
 
-          <div id="mcPredicciones" class="mc-item" onclick="document.getElementById('modal-prediccion').classList.add('active'); toggleMoreControls(); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
+          <div id="mcPredicciones" class="mc-item" onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); toggleMoreControls(); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
             <span class="material-icons" style="color: #10b981;">query_stats</span> Cuadre de Predicciones
           </div>
         </div>
@@ -4088,6 +4088,10 @@ function _normalizePlaza(value) {
   return String(value || '').trim().toUpperCase();
 }
 
+function _profileDocId(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
 function _normalizeUserProfile(raw = {}) {
   const explicitRole = _sanitizeRole(raw.rol);
   const rol = explicitRole || _legacyRoleFromFlags(raw);
@@ -4179,17 +4183,94 @@ function _syncRoleScope(prefix) {
   if (!needsPlaza && plazaInput) plazaInput.value = '';
 }
 
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function registrarEventoGestion(tipo, mensaje, extra = {}) {
+  try {
+    await api.registrarEventoGestion(tipo, mensaje, USER_NAME || 'Sistema', extra);
+  } catch (error) {
+    console.warn('No se pudo registrar el evento de gestión:', error);
+  }
+}
+
+function generarSlugArchivo(texto) {
+  return String(texto || 'reporte')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'reporte';
+}
+
+function descargarArchivoLocal(nombreArchivo, contenido, mimeType) {
+  const blob = new Blob([contenido], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombreArchivo;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function abrirReporteImpresion(htmlContenido) {
+  const container = document.getElementById('reporte-pdf-container');
+  if (!container) return;
+
+  const cleanup = () => {
+    container.innerHTML = '';
+    container.style.display = 'none';
+  };
+
+  window.addEventListener('afterprint', cleanup, { once: true });
+  container.innerHTML = htmlContenido;
+  container.style.display = 'block';
+
+  setTimeout(() => {
+    try {
+      window.print();
+    } catch (error) {
+      cleanup();
+      console.error('No se pudo abrir la impresión:', error);
+      showToast('No se pudo abrir el generador de PDF.', 'error');
+    }
+  }, 80);
+}
+
+function formatearFechaDocumento(fechaTexto) {
+  const fecha = new Date(fechaTexto);
+  if (Number.isNaN(fecha.getTime())) return String(fechaTexto || '');
+  return fecha.toLocaleString('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 // auth ya está declarada en mex-api.js — no redeclarar
 
 // Handler único: valida por email (funciona con Google y email/contraseña)
 auth.onAuthStateChanged(async (user) => {
   if (user) {
     try {
-      const snapshot = await db.collection(COL.USERS).where("email", "==", user.email).get();
+      const emailNormalizado = _profileDocId(user.email);
+      const snapshot = await db.collection(COL.USERS).where("email", "==", emailNormalizado).get();
 
       if (!snapshot.empty) {
         const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-        const bestMatch = docs.find(d => d.id === user.uid) || docs[0];
+        const bestMatch = docs.find(d => d.id === emailNormalizado)
+          || docs.find(d => d.id === user.uid)
+          || docs[0];
         const datos = _normalizeUserProfile(bestMatch);
         _setSessionProfile(datos);
 
@@ -4228,6 +4309,7 @@ async function enviarSolicitudAcceso() {
   const pass = document.getElementById('sol_pass').value;
   const passConfirm = document.getElementById('sol_pass_confirm').value;
   const btn = document.getElementById('btnEnviarSolicitud');
+  const emailNormalizado = _profileDocId(email);
 
   // Validaciones con Toasts de error
   if(!nombre || !email || !puesto || !telefono || !pass || !passConfirm) {
@@ -4248,7 +4330,7 @@ async function enviarSolicitudAcceso() {
   try {
     await db.collection("solicitudes_acceso").add({
       nombre: nombre,
-      email: email,
+      email: emailNormalizado,
       puesto: puesto,
       telefono: telefono,
       password: pass, 
@@ -4280,6 +4362,7 @@ async function enviarSolicitudAcceso() {
 
 function renderModernDropdown(usersList) {
   const listDiv = document.getElementById('dropdownList');
+  if (!listDiv) return;
   if(usersList.length === 0) {
     listDiv.innerHTML = '<div style="padding:15px; text-align:center; color:#ef4444; font-weight:800;">🚫 No encontrado</div>';
     return;
@@ -4292,7 +4375,9 @@ function renderModernDropdown(usersList) {
 }
 
 function filterModernUsers() {
-  const term = document.getElementById('dropdownSearchInput').value.toLowerCase().trim();
+  const searchInput = document.getElementById('dropdownSearchInput');
+  if (!searchInput) return;
+  const term = searchInput.value.toLowerCase().trim();
   const filtered = dbUsuariosLogin.filter(u => u.usuario.toLowerCase().includes(term));
   renderModernDropdown(filtered);
 }
@@ -6180,6 +6265,12 @@ async function umGuardarCambios(docId) {
   btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Guardando...';
 
   try {
+    const cambios = [];
+    if ((targetUser.nombre || '') !== nombre) cambios.push(`Nombre: ${targetUser.nombre || 'N/D'} -> ${nombre}`);
+    if ((targetUser.telefono || '') !== telefono) cambios.push(`Teléfono: ${targetUser.telefono || 'N/D'} -> ${telefono || 'N/D'}`);
+    if ((targetUser.rol || 'AUXILIAR') !== rol) cambios.push(`Rol: ${ROLE_META[targetUser.rol || 'AUXILIAR'].label} -> ${meta.label}`);
+    if ((targetUser.plazaAsignada || '') !== plazaAsignada) cambios.push(`Plaza: ${targetUser.plazaAsignada || 'SIN PLAZA'} -> ${plazaAsignada || 'SIN PLAZA'}`);
+
     await db.collection(COL.USERS).doc(docId).update({
       nombre,
       telefono,
@@ -6187,6 +6278,15 @@ async function umGuardarCambios(docId) {
       plazaAsignada,
       isAdmin: meta.isAdmin,
       isGlobal: meta.fullAccess
+    });
+    await registrarEventoGestion('USUARIO_EDITADO', `Actualizó al usuario ${nombre}`, {
+      entidad: 'USUARIOS',
+      referencia: docId,
+      objetivo: targetUser.email || targetUser.nombre || docId,
+      rolObjetivo: rol,
+      plazaObjetivo: plazaAsignada || '',
+      detalles: cambios.join(' | ') || 'Guardó el perfil sin cambios visibles.',
+      resultado: 'EXITO'
     });
     showToast('Usuario actualizado', 'success');
   } catch(e) {
@@ -6207,6 +6307,12 @@ async function umResetPassword(email) {
   if (!ok) return;
   try {
     await firebase.auth().sendPasswordResetEmail(email);
+    await registrarEventoGestion('PASSWORD_RESET_ENVIADO', `Envió restablecimiento de contraseña a ${email}`, {
+      entidad: 'USUARIOS',
+      referencia: email,
+      objetivo: email,
+      resultado: 'EXITO'
+    });
     showToast(`Correo enviado a ${email}`, 'success');
   } catch(e) {
     showToast('Error: ' + e.message, 'error');
@@ -6227,6 +6333,14 @@ async function umEliminar(docId, nombre) {
   if (!ok) return;
   try {
     await db.collection(COL.USERS).doc(docId).delete();
+    await registrarEventoGestion('USUARIO_ELIMINADO', `Eliminó al usuario ${nombre}`, {
+      entidad: 'USUARIOS',
+      referencia: docId,
+      objetivo: targetUser.email || nombre,
+      rolObjetivo: targetUser.rol || 'AUXILIAR',
+      plazaObjetivo: targetUser.plazaAsignada || '',
+      resultado: 'EXITO'
+    });
     showToast('Usuario eliminado', 'success');
     _umSelectedId = null;
     document.getElementById('um-form-container').style.display = 'none';
@@ -6323,6 +6437,14 @@ async function umCrearUsuario() {
 
   const res = await api.guardarNuevoUsuarioAuth(nombre, email, pass, rol, telefono, plazaAsignada);
   if (res === 'EXITO') {
+    await registrarEventoGestion('USUARIO_CREADO', `Creó al usuario ${nombre}`, {
+      entidad: 'USUARIOS',
+      referencia: email,
+      objetivo: email,
+      rolObjetivo: rol,
+      plazaObjetivo: plazaAsignada || '',
+      resultado: 'EXITO'
+    });
     showToast('Usuario creado exitosamente', 'success');
     umNuevoUsuario(); // limpiar form
     // onSnapshot actualizará la lista
@@ -6946,7 +7068,7 @@ function verLectoresAlerta(lectoresStr) {
 function eliminarAlertaDesdeHistorial(idAlerta) {
   mostrarCustomModal("Eliminar Alerta", "¿Borrar esta alerta del sistema definitivamente?", "delete_forever", "#ef4444", "BORRAR", "#ef4444", () => {
     showToast("Borrando alerta...", "success");
-    api.eliminarAlertaMaestraBackend(idAlerta).then(res => {
+    api.eliminarAlertaMaestraBackend(idAlerta, USER_NAME).then(res => {
         if(res === "EXITO") {
           showToast("Alerta eliminada", "success");
           abrirGestorAlertas(); // Recarga la lista
@@ -7822,33 +7944,118 @@ function actualizarTablaLocal(mva, tipoAccion, datosNuevos = null) {
 let aud_logsGlobales = [];
 let aud_logsFiltrados = [];
 let aud_paginaActual = 1;
+let aud_modoActual = 'OPERACION';
 const AUD_ITEMS_POR_PAGINA = 25; 
+
+function _metaModoAuditoria(mode = aud_modoActual) {
+  if (mode === 'GESTION') {
+    return {
+      title: 'BITÁCORA DE GESTIÓN',
+      subtitle: 'Usuarios, solicitudes, bloqueos, alertas y cambios globales',
+      placeholder: 'Buscar usuario, acción, rol o referencia...',
+      loadingText: 'Sincronizando bitácora de gestión...',
+      emptyText: 'La bitácora de gestión está vacía.',
+      options: [
+        { value: 'TODOS', label: 'Todas las acciones' },
+        { value: 'SOLICITUD_APROBADA', label: 'Solicitudes aprobadas' },
+        { value: 'SOLICITUD_RECHAZADA', label: 'Solicitudes rechazadas' },
+        { value: 'USUARIO_CREADO', label: 'Usuarios creados' },
+        { value: 'USUARIO_EDITADO', label: 'Usuarios editados' },
+        { value: 'USUARIO_ELIMINADO', label: 'Usuarios eliminados' },
+        { value: 'CONFIG_GLOBAL', label: 'Configuración global' }
+      ]
+    };
+  }
+
+  return {
+    title: 'AUDITORÍA DEL SISTEMA',
+    subtitle: 'Historial operativo del mapa y la flota',
+    placeholder: 'Buscar unidad, fecha o autor...',
+    loadingText: 'Sincronizando registros operativos...',
+    emptyText: 'El registro operativo está vacío.',
+    options: [
+      { value: 'TODOS', label: 'Todas las acciones' },
+      { value: 'IN', label: 'Solo Entradas (IN)' },
+      { value: 'BAJA', label: 'Solo Bajas (BAJA)' },
+      { value: 'MODIF', label: 'Modificaciones' }
+    ]
+  };
+}
+
+function actualizarModoAuditoriaUI() {
+  const meta = _metaModoAuditoria();
+  const title = document.getElementById('auditTitle');
+  const subtitle = document.getElementById('auditSubtitle');
+  const search = document.getElementById('logBuscador');
+  const filter = document.getElementById('logFiltroTipo');
+  const tabOperacion = document.getElementById('auditModeOperacion');
+  const tabGestion = document.getElementById('auditModeGestion');
+
+  if (title) title.innerText = meta.title;
+  if (subtitle) subtitle.innerText = meta.subtitle;
+  if (search) search.placeholder = meta.placeholder;
+  if (filter) {
+    filter.innerHTML = meta.options.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('');
+  }
+
+  if (tabOperacion) {
+    tabOperacion.style.background = aud_modoActual === 'OPERACION' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+    tabOperacion.style.color = aud_modoActual === 'OPERACION' ? 'white' : '#cbd5e1';
+  }
+
+  if (tabGestion) {
+    tabGestion.style.display = hasFullAccess() ? 'inline-flex' : 'none';
+    tabGestion.style.background = aud_modoActual === 'GESTION' ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)';
+    tabGestion.style.color = aud_modoActual === 'GESTION' ? 'white' : '#cbd5e1';
+  }
+}
+
+function cambiarModoAuditoria(mode) {
+  if (mode === 'GESTION' && !hasFullAccess()) {
+    showToast('Solo los roles de acceso total pueden ver la bitácora de gestión.', 'error');
+    return;
+  }
+  aud_modoActual = mode === 'GESTION' ? 'GESTION' : 'OPERACION';
+  const search = document.getElementById('logBuscador');
+  if (search) search.value = '';
+  actualizarModoAuditoriaUI();
+  cargarLogsAuditoria();
+}
 
 function abrirRegistrosMovimientos() { 
   toggleMoreControls(); // Cierra el menú desplegable
+  aud_modoActual = 'OPERACION';
   document.getElementById('modal-registros-movimientos').classList.add('active');
+  const search = document.getElementById('logBuscador');
+  if (search) search.value = '';
+  actualizarModoAuditoriaUI();
   cargarLogsAuditoria();
 }
 
 function cargarLogsAuditoria() {
+  const meta = _metaModoAuditoria();
   const icon = document.getElementById('logRefreshIcon');
   const contenedor = document.getElementById('listaLogsAuditoria');
   const btnMas = document.getElementById('btnCargarMasLogs');
   
   icon.classList.add('spinner');
   btnMas.style.display = 'none';
-  contenedor.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner" style="font-size:30px;">sync</span><br>Sincronizando registros...</div>`;
+  contenedor.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner" style="font-size:30px;">sync</span><br>${meta.loadingText}</div>`;
 
-  // ⚠️ NOTA: Asegúrate de que la función en Código.gs se llame "obtenerLogsServer" o cambia el nombre aquí
-  api.obtenerLogsServer().then(data => {
+  const fetcher = aud_modoActual === 'GESTION' ? api.obtenerEventosGestion() : api.obtenerLogsServer();
+  fetcher.then(data => {
     icon.classList.remove('spinner');
-    if(!data || data.length === 0) {
-      contenedor.innerHTML = `<div style="text-align:center; padding:30px; font-weight:700; color:#64748b;">El registro está vacío.</div>`;
+    aud_logsGlobales = Array.isArray(data) ? data : [];
+    if (aud_logsGlobales.length === 0) {
+      contenedor.innerHTML = `<div style="text-align:center; padding:30px; font-weight:700; color:#64748b;">${meta.emptyText}</div>`;
       return;
     }
-    aud_logsGlobales = data;
     aplicarFiltrosLogs(true);
-  }).catch(e => console.error(e));
+  }).catch(error => {
+    icon.classList.remove('spinner');
+    console.error(error);
+    contenedor.innerHTML = `<div style="text-align:center; padding:30px; color:#ef4444; font-weight:700;">No se pudieron cargar los registros.</div>`;
+  });
 }
 
 function aplicarFiltrosLogs(reiniciarPagina = false) {
@@ -7858,11 +8065,18 @@ function aplicarFiltrosLogs(reiniciarPagina = false) {
   const tipo = document.getElementById('logFiltroTipo').value;
   
   aud_logsFiltrados = aud_logsGlobales.filter(log => {
-    // 1. Validar Tipo (IN, BAJA, MODIF)
     const coincideTipo = (tipo === "TODOS") || ((log.tipo || "").toUpperCase() === tipo);
-    
-    // 2. Validar Texto (Autor, Acción o Fecha)
-    const textoCombinado = ((log.autor || "") + " " + (log.accion || "") + " " + (log.fecha || "")).toLowerCase();
+    const textoCombinado = [
+      log.autor || "",
+      log.accion || "",
+      log.fecha || "",
+      log.entidad || "",
+      log.referencia || "",
+      log.detalles || "",
+      log.objetivo || "",
+      log.rolObjetivo || "",
+      log.plazaObjetivo || ""
+    ].join(' ').toLowerCase();
     const coincideTexto = textoCombinado.includes(termino);
 
     return coincideTipo && coincideTexto;
@@ -7871,9 +8085,29 @@ function aplicarFiltrosLogs(reiniciarPagina = false) {
   renderizarLogsAuditoria();
 }
 
+function _visualLogAuditoria(log) {
+  const tipo = String(log.tipo || '').toUpperCase();
+
+  if (aud_modoActual === 'GESTION') {
+    if (tipo.includes('APROBADA') || tipo.includes('CREADO') || tipo.includes('EMITIDA') || tipo.includes('LIBERADO')) {
+      return { colorClass: 'log-badge-in', borderLeft: '#10b981' };
+    }
+    if (tipo.includes('RECHAZADA') || tipo.includes('ELIMINADO') || tipo.includes('BLOQUEADO')) {
+      return { colorClass: 'log-badge-baja', borderLeft: '#ef4444' };
+    }
+    return { colorClass: 'log-badge-modif', borderLeft: '#0ea5e9' };
+  }
+
+  if (tipo === "IN") return { colorClass: 'log-badge-in', borderLeft: '#10b981' };
+  if (tipo === "BAJA") return { colorClass: 'log-badge-baja', borderLeft: '#ef4444' };
+  if (tipo === "MODIF" || tipo === "MODIFICACION") return { colorClass: 'log-badge-modif', borderLeft: '#f59e0b' };
+  return { colorClass: 'log-badge-default', borderLeft: '#e2e8f0' };
+}
+
 function renderizarLogsAuditoria() {
   const contenedor = document.getElementById('listaLogsAuditoria');
   const btnMas = document.getElementById('btnCargarMasLogs');
+  const meta = _metaModoAuditoria();
 
   if (aud_logsFiltrados.length === 0) {
     contenedor.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b; font-weight:700;">No se encontraron movimientos.</div>`;
@@ -7885,15 +8119,19 @@ function renderizarLogsAuditoria() {
   btnMas.style.display = (aud_logsFiltrados.length > recortes.length) ? 'flex' : 'none';
 
   contenedor.innerHTML = recortes.map((log, index) => {
-    let colorClass = "log-badge-default";
-    let borderLeft = "#e2e8f0";
-    
-    if(log.tipo === "IN") { colorClass = "log-badge-in"; borderLeft = "#10b981"; }
-    else if(log.tipo === "BAJA") { colorClass = "log-badge-baja"; borderLeft = "#ef4444"; }
-    else if(log.tipo === "MODIF" || log.tipo === "MODIFICACION") { colorClass = "log-badge-modif"; borderLeft = "#f59e0b"; }
-
-    // Formatear texto para que se vea ordenado
-    const accionFormateada = (log.accion || "").replace(/\*/g, '<b>').replace(/->/g, '→');
+    const visual = _visualLogAuditoria(log);
+    const detalles = [
+      log.entidad ? `Entidad: ${escapeHtml(log.entidad)}` : '',
+      log.referencia ? `Ref: ${escapeHtml(log.referencia)}` : '',
+      log.objetivo ? `Objetivo: ${escapeHtml(log.objetivo)}` : '',
+      log.rolObjetivo ? `Rol: ${escapeHtml(log.rolObjetivo)}` : '',
+      log.plazaObjetivo ? `Plaza: ${escapeHtml(log.plazaObjetivo)}` : '',
+      log.resultado ? `Resultado: ${escapeHtml(log.resultado)}` : '',
+      log.detalles ? escapeHtml(log.detalles) : ''
+    ].filter(Boolean);
+    const extraHtml = detalles.length
+      ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #dbe4ee; color:#64748b; font-size:11px; line-height:1.5;">${detalles.join(' · ')}</div>`
+      : '';
 
     return `
       <div class="log-card" style="animation-delay: ${index * 0.03}s">
@@ -7901,15 +8139,16 @@ function renderizarLogsAuditoria() {
           <div>
             <div class="log-author">
               <span class="material-icons" style="font-size:16px;">account_circle</span>
-              ${log.autor || 'Sistema'}
+              ${escapeHtml(log.autor || 'Sistema')}
             </div>
-            <div class="log-date">${log.fecha || ''}</div>
+            <div class="log-date">${escapeHtml(log.fecha || '')}</div>
           </div>
-          <div class="log-badge ${colorClass}">${log.tipo || 'INFO'}</div>
+          <div class="log-badge ${visual.colorClass}">${escapeHtml(log.tipo || 'INFO')}</div>
         </div>
-        <div class="log-action-text" style="border-left-color: ${borderLeft}">
-          ${accionFormateada}
+        <div class="log-action-text" style="border-left-color: ${visual.borderLeft}">
+          ${escapeHtml(log.accion || meta.emptyText)}
         </div>
+        ${extraHtml}
       </div>
     `;
   }).join('');
@@ -8017,7 +8256,7 @@ function solicitarToggleBloqueo() {
   
   if (confirm(msj)) {
     showToast(nuevo ? "Congelando sistema..." : "Liberando sistema...", "warning");
-    api.toggleBloqueoMapa(nuevo).then(() => {
+    api.toggleBloqueoMapa(nuevo, USER_NAME).then(() => {
         showToast(nuevo ? "Mapa Bloqueado" : "Mapa Disponible", "success");
         hacerPingNotificaciones();
       }).catch(e => console.error(e));
@@ -9029,53 +9268,172 @@ function parsearTablaSucia(rawText, esReserva) {
   return data;
 }
 
-function procesarActividadDiaria() {
+function _inicioDiaSeguro(fechaTexto) {
+  const fecha = new Date(fechaTexto);
+  if (Number.isNaN(fecha.getTime())) return null;
+  fecha.setHours(0, 0, 0, 0);
+  return fecha;
+}
+
+function _badgeTiempoActividad(fechaTexto, fechaBase, forzarUrgente = false) {
+  const fechaItem = _inicioDiaSeguro(fechaTexto);
+  const fechaRef = _inicioDiaSeguro(fechaBase);
+  if (!fechaItem || !fechaRef) return `<span class="status-badge bg-gray">SIN FECHA</span>`;
+
+  const dias = Math.round((fechaItem.getTime() - fechaRef.getTime()) / 86400000);
+  if (forzarUrgente || dias < 0) return `<span class="status-badge bg-red">URGENTE</span>`;
+  if (dias === 0) return `<span class="status-badge bg-yellow">HOY</span>`;
+  if (dias === 1) return `<span class="status-badge bg-green">MAÑANA</span>`;
+  return `<span class="status-badge bg-gray">${dias} DÍAS</span>`;
+}
+
+function _tablaActividadHtml(items, fechaBase, opciones = {}) {
+  const {
+    vacio = 'Sin registros.',
+    colorEncabezado = '#0d2a54',
+    mostrarEtiquetas = false,
+    forzarUrgente = false
+  } = opciones;
+
+  if (!items.length) {
+    return `<div style="padding:14px 16px; border:1px dashed #cbd5e1; border-radius:12px; color:#64748b; font-weight:700; background:#f8fafc;">${escapeHtml(vacio)}</div>`;
+  }
+
+  const filas = items.map(item => {
+    const etiquetas = [];
+    if (item.pago) etiquetas.push('CON PAGO');
+    if (item.frecuente) etiquetas.push('CLIENTE FRECUENTE');
+    const etiquetaHtml = mostrarEtiquetas
+      ? (etiquetas.length
+          ? etiquetas.map(tag => `<span class="status-badge bg-gray" style="margin-right:4px;">${escapeHtml(tag)}</span>`).join('')
+          : `<span style="color:#94a3b8; font-weight:700;">--</span>`)
+      : '';
+
+    return `
+      <tr>
+        <td>${escapeHtml(item.numero || 'S/C')}</td>
+        <td>${escapeHtml(formatearFechaDocumento(item.fecha))}</td>
+        <td>${escapeHtml(item.clase || 'S/C')}</td>
+        <td>${escapeHtml(item.cliente || 'SIN NOMBRE')}</td>
+        <td>${_badgeTiempoActividad(item.fecha, fechaBase, forzarUrgente)}</td>
+        ${mostrarEtiquetas ? `<td>${etiquetaHtml}</td>` : ''}
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <table class="pdf-table">
+      <thead>
+        <tr>
+          <th style="background:${colorEncabezado};">Contrato</th>
+          <th style="background:${colorEncabezado};">Fecha</th>
+          <th style="background:${colorEncabezado};">Clase</th>
+          <th style="background:${colorEncabezado};">Cliente</th>
+          <th style="background:${colorEncabezado};">Ventana</th>
+          ${mostrarEtiquetas ? `<th style="background:${colorEncabezado};">Etiquetas</th>` : ''}
+        </tr>
+      </thead>
+      <tbody>${filas}</tbody>
+    </table>
+  `;
+}
+
+function _resumenActividadCard(titulo, valor, colorFondo, colorTexto) {
+  return `
+    <div style="padding:14px 16px; border-radius:14px; background:${colorFondo}; color:${colorTexto};">
+      <div style="font-size:11px; font-weight:900; letter-spacing:0.8px;">${escapeHtml(titulo)}</div>
+      <div style="font-size:26px; font-weight:900; margin-top:4px;">${escapeHtml(valor)}</div>
+    </div>
+  `;
+}
+
+function generarHtmlActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {
+  return `
+    <div>
+      <div class="pdf-header">
+        <div>
+          <h1 class="pdf-title">Reporte de Actividad Diaria</h1>
+          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">Reservas, contratos por cerrar y vencidos del día</div>
+        </div>
+        <div class="pdf-meta">
+          <div><b>Generado por:</b> ${escapeHtml(autor || 'Sistema')}</div>
+          <div><b>Emitido:</b> ${escapeHtml(formatearFechaDocumento(new Date().toISOString()))}</div>
+          <div><b>Base:</b> ${escapeHtml(formatearFechaDocumento(fechaFront))}</div>
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-bottom:18px;">
+        ${_resumenActividadCard('RESERVAS', reservas.length, '#fffbeb', '#b45309')}
+        ${_resumenActividadCard('REGRESOS', regresos.length, '#eff6ff', '#1d4ed8')}
+        ${_resumenActividadCard('VENCIDOS', vencidos.length, '#fef2f2', '#b91c1c')}
+      </div>
+
+      <div class="pdf-section-title">1. Reservas priorizadas (${reservas.length})</div>
+      ${_tablaActividadHtml(reservas, fechaFront, {
+        vacio: 'No se detectaron reservas en la captura.',
+        colorEncabezado: '#d97706',
+        mostrarEtiquetas: true
+      })}
+
+      <div class="pdf-section-title">2. Contratos por cerrar (${regresos.length})</div>
+      ${_tablaActividadHtml(regresos, fechaFront, {
+        vacio: 'No se detectaron regresos en la captura.',
+        colorEncabezado: '#0284c7',
+        mostrarEtiquetas: true
+      })}
+
+      <div class="pdf-section-title">3. Vencidos / posibles llegadas (${vencidos.length})</div>
+      ${_tablaActividadHtml(vencidos, fechaFront, {
+        vacio: 'No hay vencidos incluidos en este reporte.',
+        colorEncabezado: '#dc2626',
+        forzarUrgente: true
+      })}
+    </div>
+  `;
+}
+
+async function procesarActividadDiaria() {
   const txtRes = document.getElementById('textoBrutoReservas').value;
   const txtReg = document.getElementById('textoBrutoRegresos').value;
-  const txtVen = document.getElementById('textoBrutoVencidos').value; // 🔥 LEE LA CAJA OPCIONAL
+  const txtVen = document.getElementById('textoBrutoVencidos').value;
   const btn = document.getElementById('btnGenerarPdfActividad');
 
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> ARMANDO REPORTE...`;
 
-  let reservas = parsearTablaSucia(txtRes, true);
-  let regresos = parsearTablaSucia(txtReg, false);
-  let vencidos = parsearTablaSucia(txtVen, false); // 🔥 PROCESA VENCIDOS
+  try {
+    const reservas = parsearTablaSucia(txtRes, true).sort((a, b) => {
+      const scoreA = (a.pago ? 2 : 0) + (a.frecuente ? 1 : 0);
+      const scoreB = (b.pago ? 2 : 0) + (b.frecuente ? 1 : 0);
+      if (scoreA !== scoreB) return scoreB - scoreA;
+      return new Date(a.fecha) - new Date(b.fecha);
+    });
 
-  reservas.sort((a, b) => {
-    let scoreA = (a.pago ? 2 : 0) + (a.frecuente ? 1 : 0);
-    let scoreB = (b.pago ? 2 : 0) + (b.frecuente ? 1 : 0);
-    if (scoreA !== scoreB) return scoreB - scoreA;
-    return new Date(a.fecha) - new Date(b.fecha);
-  });
+    const regresos = parsearTablaSucia(txtReg, false).sort((a, b) => {
+      if (a.frecuente && !b.frecuente) return -1;
+      if (!a.frecuente && b.frecuente) return 1;
+      return new Date(a.fecha) - new Date(b.fecha);
+    });
 
-  regresos.sort((a, b) => {
-    if (a.frecuente && !b.frecuente) return -1;
-    if (!a.frecuente && b.frecuente) return 1;
-    return new Date(a.fecha) - new Date(b.fecha);
-  });
+    const vencidos = parsearTablaSucia(txtVen, false).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const fechaFront = new Date().toISOString();
 
-  // 🔥 ORDENA VENCIDOS (LOS MÁS ANTIGUOS PRIMERO = MÁS URGENTES)
-  vencidos.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    await api.generarPDFActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront).catch(e => console.warn('No se pudo registrar el reporte diario:', e));
+    abrirReporteImpresion(generarHtmlActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront));
 
-  // Mandamos la fecha del navegador para calcular el nivel de urgencia con precisión
-  const fechaFront = new Date().toISOString();
-
-  api.generarPDFActividadDiaria(reservas, regresos, vencidos, USER_NAME, fechaFront).then(res => {
-      btn.disabled = false;
-      btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> GENERAR REPORTE COMPLETO`;
-      if (res.exito) {
-        showToast("¡Reporte Creado!", "success");
-        document.getElementById('textoBrutoReservas').value = "";
-        document.getElementById('textoBrutoRegresos').value = "";
-        document.getElementById('textoBrutoVencidos').value = "";
-        document.getElementById('modal-lector-reservas').classList.remove('active');
-        validarTextareasActividad();
-        window.open(res.url, '_blank');
-      } else {
-        showToast("Error: " + res.error, "error");
-      }
-    }).catch(e => console.error(e));
+    document.getElementById('textoBrutoReservas').value = "";
+    document.getElementById('textoBrutoRegresos').value = "";
+    document.getElementById('textoBrutoVencidos').value = "";
+    document.getElementById('modal-lector-reservas').classList.remove('active');
+    validarTextareasActividad();
+    showToast('Se abrió el generador de PDF del reporte diario.', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast('No se pudo generar el reporte diario.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> GENERAR REPORTE COMPLETO`;
+  }
 }
 // ==========================================
 // 🔮 MOTOR DEL CUADRE DE PREDICCIONES
@@ -9083,6 +9441,8 @@ function procesarActividadDiaria() {
 let htmlTablaPrediccion = "";
 let datosCalculadosParaExcel = []; 
 let fechaSeleccionadaStr = "";
+let fechaSeleccionadaIso = "";
+let resumenPrediccionActual = null;
 
 // Función que lee los textos sucios y extrae solo las siglas oficiales (SIPP)
 function extraerConteoClases(textoRaw) {
@@ -9130,21 +9490,33 @@ function reiniciarPrediccion() {
   // 1. Ocultar la tabla de resultados y mostrar de nuevo las cajas de texto
   document.getElementById('prediccion-paso-2').style.display = 'none';
   document.getElementById('prediccion-paso-1').style.display = 'block';
+  htmlTablaPrediccion = "";
+  datosCalculadosParaExcel = [];
+  resumenPrediccionActual = null;
+  fechaSeleccionadaStr = "";
+  fechaSeleccionadaIso = "";
   
   // 2. Limpiar las cajas de texto para que queden en blanco
   document.getElementById('txt-pred-reservas').value = "";
   document.getElementById('txt-pred-regresos').value = "";
+  const tabla = document.getElementById('tabla-prediccion-container');
+  if (tabla) tabla.innerHTML = '';
   
   // 3. Restaurar el botón de Excel por si se había quedado en "Cargando..."
-  const btnExcel = document.getElementById('btnDescargarPrediccion');
+  const btnExcel = document.getElementById('btnDescargarPrediccionExcel');
   if (btnExcel) {
       btnExcel.disabled = false;
       btnExcel.innerHTML = `<span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE`;
   }
+  const btnPdf = document.getElementById('btnDescargarPrediccionPdf');
+  if (btnPdf) {
+      btnPdf.disabled = false;
+      btnPdf.innerHTML = `<span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL`;
+  }
 }
 
 
-function ejecutarPrediccion() {
+async function ejecutarPrediccion() {
   const txtRes = document.getElementById('txt-pred-reservas').value;
   const txtReg = document.getElementById('txt-pred-regresos').value;
   const inputFecha = document.getElementById('fecha-prediccion').value;
@@ -9155,21 +9527,24 @@ function ejecutarPrediccion() {
   const f = new Date(inputFecha + 'T12:00:00'); 
   const meses = ["ENERO", "FEBRERO", "MARZO", "ABRIL", "MAYO", "JUNIO", "JULIO", "AGOSTO", "SEPTIEMBRE", "OCTUBRE", "NOVIEMBRE", "DICIEMBRE"];
   fechaSeleccionadaStr = `${("0"+f.getDate()).slice(-2)}/ ${meses[f.getMonth()]}/ ${f.getFullYear()}`;
+  fechaSeleccionadaIso = inputFecha;
 
   const btn = document.getElementById('btnProcesarPrediccion');
+  btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> CALCULANDO...`;
 
-  setTimeout(() => {
+  try {
     const conteoReservas = extraerConteoClases(txtRes);
     const conteoRegresos = extraerConteoClases(txtReg);
+    const inventarioActual = await api.obtenerDatosFlotaConsola();
+    const estadosDisponibles = new Set(["LISTO", "SUCIO", "RESGUARDO", "TRASLADO"]);
 
     let conteoDisponibles = {};
-    DB_FLOTA.forEach(car => {
+    (inventarioActual || []).forEach(car => {
       let est = (car.estado || "").toUpperCase();
-      let cat = (car.categoria || car.categ || "").toUpperCase();
+      let cat = (car.categoria || car.categ || "").toUpperCase().trim();
       
-      // 🔥 NUEVA REGLA: No importa la ubicación. Solo sumamos si el ESTADO es útil.
-      if (est === "LISTO" || est === "SUCIO" || est === "RESGUARDO" || est === "TRASLADO") {
+      if (estadosDisponibles.has(est) && cat) {
         conteoDisponibles[cat] = (conteoDisponibles[cat] || 0) + 1;
       }
     });
@@ -9190,7 +9565,7 @@ const mapeoFamilias = [
 
     let trs = "";
     let totRes = 0, totDev = 0, totDis = 0, totPred = 0;
-    datosCalculadosParaExcel = []; // Limpiamos memoria
+    datosCalculadosParaExcel = [];
 
     mapeoFamilias.forEach(fam => {
        let res = 0, dev = 0, dis = 0;
@@ -9204,7 +9579,7 @@ const mapeoFamilias = [
        let pred = dis + dev - res;
        totRes += res; totDev += dev; totDis += dis; totPred += pred;
 
-       datosCalculadosParaExcel.push({ nombre: fam.nombre, res: res, dev: dev, dis: dis });
+       datosCalculadosParaExcel.push({ nombre: fam.nombre, res: res, dev: dev, dis: dis, pred: pred });
 
        let colorPred = pred < 0 ? "background: #ffcdd2; color: #b71c1c;" : (pred === 0 ? "background: #fff9c4; color: #f57f17;" : "background: #b9f6ca; color: #1b5e20;");
 
@@ -9229,31 +9604,129 @@ const mapeoFamilias = [
       </tr>
     `;
 
-    document.getElementById('tabla-prediccion-container').innerHTML = `<table style="width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif;"><thead><tr><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">CATEGORIA</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">RESERVAS</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">DEVOLUCIONES</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">DISPONIBLES</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">PREDICCIÓN</th></tr></thead><tbody>${trs}</tbody></table>`;
+    htmlTablaPrediccion = `<table style="width: 100%; border-collapse: collapse; font-family: inherit;"><thead><tr><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">CATEGORIA</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">RESERVAS</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">DEVOLUCIONES</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">DISPONIBLES</th><th style="background: #e2e8f0; color: #1e293b; padding: 10px; border: 1px solid #cbd5e1; font-size: 10px;">PREDICCIÓN</th></tr></thead><tbody>${trs}</tbody></table>`;
+    resumenPrediccionActual = { totRes, totDev, totDis, totPred };
+    document.getElementById('tabla-prediccion-container').innerHTML = htmlTablaPrediccion;
     
     document.getElementById('prediccion-paso-1').style.display = 'none';
     document.getElementById('prediccion-paso-2').style.display = 'block';
+    showToast('Predicción calculada con datos actuales de Firebase.', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast('No se pudo calcular la predicción.', 'error');
+  } finally {
+    btn.disabled = false;
     btn.innerHTML = `<span class="material-icons">auto_awesome</span> CALCULAR DISPONIBILIDAD`;
-  }, 500); 
+  }
 }
 
-// 🔥 BOTÓN PARA CREAR/SOBREESCRIBIR EL EXCEL DE PREDICCIÓN
-function crearExcelPrediccion() {
-  const btn = document.getElementById('btnDescargarPrediccion');
+function generarHtmlPrediccionPdf() {
+  if (!htmlTablaPrediccion) return '';
+  const total = resumenPrediccionActual ? resumenPrediccionActual.totPred : 0;
+  const colorTotal = total < 0 ? '#dc2626' : '#16a34a';
+  return `
+    <div>
+      <div class="pdf-header">
+        <div>
+          <h1 class="pdf-title">Cuadre de Predicción</h1>
+          <div style="font-size:12px; color:#475569; font-weight:700; margin-top:6px;">Comparativo reservas vs regresos vs inventario disponible</div>
+        </div>
+        <div class="pdf-meta">
+          <div><b>Fecha objetivo:</b> ${escapeHtml(fechaSeleccionadaStr || fechaSeleccionadaIso || '--')}</div>
+          <div><b>Generado por:</b> ${escapeHtml(USER_NAME || 'Sistema')}</div>
+          <div><b>Total predicción:</b> <span style="color:${colorTotal}; font-weight:900;">${escapeHtml(total)}</span></div>
+        </div>
+      </div>
+      <div style="margin-top:8px;">${htmlTablaPrediccion}</div>
+    </div>
+  `;
+}
+
+async function descargarPDFPrediccion() {
+  if (!htmlTablaPrediccion) return showToast('Primero calcula la predicción.', 'warning');
+  const btn = document.getElementById('btnDescargarPrediccionPdf');
+  btn.disabled = true;
+  btn.innerHTML = `<span class="material-icons spinner">sync</span> PREPARANDO PDF...`;
+
+  try {
+    abrirReporteImpresion(generarHtmlPrediccionPdf());
+    showToast('Se abrió el generador de PDF de la predicción.', 'success');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL`;
+  }
+}
+
+async function crearExcelPrediccion() {
+  if (!datosCalculadosParaExcel.length) return showToast('Primero calcula la predicción.', 'warning');
+  const btn = document.getElementById('btnDescargarPrediccionExcel');
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> ARMANDO EXCEL...`;
 
-  api.generarExcelPrediccion(datosCalculadosParaExcel, fechaSeleccionadaStr, USER_NAME).then(res => {
-      btn.disabled = false;
-      btn.innerHTML = `<span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE`;
-      if (res.exito) {
-        showToast("¡Hoja de cálculo lista!", "success");
-        // Abre el Excel en una pestaña nueva
-        window.open(res.url, '_blank');
-      } else {
-        showToast("Error al guardar: " + res.error, "error");
-      }
-    }).catch(e => console.error(e));
+  try {
+    const filas = datosCalculadosParaExcel.map(item => `
+      <tr>
+        <td>${escapeHtml(item.nombre)}</td>
+        <td>${escapeHtml(item.res)}</td>
+        <td>${escapeHtml(item.dev)}</td>
+        <td>${escapeHtml(item.dis)}</td>
+        <td>${escapeHtml(item.pred)}</td>
+      </tr>
+    `).join('');
+
+    const totalRow = resumenPrediccionActual ? `
+      <tr style="font-weight:900; background:#e2e8f0;">
+        <td>TOTAL</td>
+        <td>${escapeHtml(resumenPrediccionActual.totRes)}</td>
+        <td>${escapeHtml(resumenPrediccionActual.totDev)}</td>
+        <td>${escapeHtml(resumenPrediccionActual.totDis)}</td>
+        <td>${escapeHtml(resumenPrediccionActual.totPred)}</td>
+      </tr>
+    ` : '';
+
+    const contenido = `\ufeff
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+        <head>
+          <meta charset="utf-8">
+          <style>
+            table { border-collapse: collapse; font-family: Arial, sans-serif; width: 100%; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px; }
+            th { background: #0d2a54; color: white; }
+          </style>
+        </head>
+        <body>
+          <h2>Cuadre de Predicción</h2>
+          <p><b>Fecha objetivo:</b> ${escapeHtml(fechaSeleccionadaStr || fechaSeleccionadaIso || '--')}</p>
+          <p><b>Generado por:</b> ${escapeHtml(USER_NAME || 'Sistema')}</p>
+          <table>
+            <thead>
+              <tr>
+                <th>CATEGORIA</th>
+                <th>RESERVAS</th>
+                <th>DEVOLUCIONES</th>
+                <th>DISPONIBLES</th>
+                <th>PREDICCIÓN</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filas}
+              ${totalRow}
+            </tbody>
+          </table>
+        </body>
+      </html>`;
+
+    const fechaArchivo = (fechaSeleccionadaIso || new Date().toISOString().slice(0, 10)).replace(/[^0-9-]/g, '');
+    descargarArchivoLocal(`prediccion-cuadre-${generarSlugArchivo(fechaArchivo)}.xls`, contenido, 'application/vnd.ms-excel;charset=utf-8;');
+    await api.generarExcelPrediccion(datosCalculadosParaExcel, fechaSeleccionadaStr, USER_NAME).catch(e => console.warn('No se pudo registrar el Excel de predicción:', e));
+    showToast('Hoja compatible con Excel descargada.', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast('No se pudo generar la hoja de predicción.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE`;
+  }
 }
 
 
@@ -10134,7 +10607,7 @@ async function guardarConfiguracionEnFirebase() {
   if (!ok) return;
   showToast("Subiendo configuración…", "success");
   try {
-    await api.guardarConfiguracionListas(window.MEX_CONFIG.listas);
+    await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME);
     showToast("Configuración actualizada en toda la app", "success");
     llenarSelectsDinamicos();
     document.getElementById('modal-config-global').classList.remove('active');
@@ -10367,36 +10840,62 @@ async function procesarSolicitud(docId, esAprobado) {
   showToast("Procesando...", "info"); // Aviso visual mientras piensa
 
   try {
+    let detalleGestion = "";
     if (esAprobado) {
       const appSecundaria = firebase.initializeApp(firebase.app().options, "AppRegistro_" + Date.now());
       let nuevoUid = null;
       try {
          const cred = await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
          nuevoUid = cred && cred.user ? cred.user.uid : null;
+         detalleGestion = "Cuenta creada en Firebase Auth";
       } catch(authErr) {
          console.warn("Aviso de Auth:", authErr.message); 
          if (authErr.code !== 'auth/email-already-in-use') throw authErr;
+         detalleGestion = "El correo ya existía en Auth; se restauró/actualizó solo el perfil de Firestore";
       }
       await appSecundaria.auth().signOut();
       await appSecundaria.delete(); 
 
       // Creación automática del perfil
-      const userDocId = nuevoUid || email;
+      const userDocId = _profileDocId(email);
       await db.collection("usuarios").doc(userDocId).set({
         nombre: String(nombre || '').trim().toUpperCase(),
-        email: String(email || '').trim().toLowerCase(),
+        email: userDocId,
         telefono: telefono || "",
         puesto: puesto || "",
         rol: "AUXILIAR",
         plazaAsignada: "",
         isAdmin: false,
         isGlobal: false,
+        authUid: nuevoUid || "",
         status: "ACTIVO"
       }, { merge: true });
 
+      if (nuevoUid && nuevoUid !== userDocId) {
+        const legacyRef = db.collection("usuarios").doc(nuevoUid);
+        const legacySnap = await legacyRef.get();
+        if (legacySnap.exists) await legacyRef.delete();
+      }
+
       await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA", password: "" });
+      await registrarEventoGestion('SOLICITUD_APROBADA', `Aprobó la solicitud de acceso de ${nombre}`, {
+        entidad: 'SOLICITUDES_ACCESO',
+        referencia: docId,
+        objetivo: email,
+        rolObjetivo: 'AUXILIAR',
+        plazaObjetivo: '',
+        detalles: detalleGestion,
+        resultado: 'APROBADA'
+      });
     } else {
       await db.collection("solicitudes_acceso").doc(docId).update({ estado: "RECHAZADA", motivo_rechazo: motivo, password: "" });
+      await registrarEventoGestion('SOLICITUD_RECHAZADA', `Rechazó la solicitud de acceso de ${nombre}`, {
+        entidad: 'SOLICITUDES_ACCESO',
+        referencia: docId,
+        objetivo: email,
+        detalles: motivo,
+        resultado: 'RECHAZADA'
+      });
     }
 
     if (typeof enviarCorreoWebhook === "function") {
@@ -10791,10 +11290,14 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
     <div class="log-header">
       <div class="log-header-text">
-        <h2>AUDITORÍA DEL SISTEMA</h2>
-        <p>Historial de Movimientos Globales</p>
+        <h2 id="auditTitle">AUDITORÍA DEL SISTEMA</h2>
+        <p id="auditSubtitle">Historial de Movimientos Globales</p>
       </div>
-      <div class="header-actions" style="margin-right: 40px;">
+      <div class="header-actions" style="margin-right: 40px; display:flex; align-items:center; gap:10px;">
+        <div style="display:flex; gap:8px; padding:4px; border-radius:999px; background:rgba(255,255,255,0.08);">
+          <button id="auditModeOperacion" onclick="cambiarModoAuditoria('OPERACION')" style="border:none; border-radius:999px; padding:9px 14px; font-weight:900; font-size:11px; cursor:pointer; background:rgba(255,255,255,0.18); color:white; letter-spacing:0.6px;">OPERACIÓN</button>
+          <button id="auditModeGestion" onclick="cambiarModoAuditoria('GESTION')" style="border:none; border-radius:999px; padding:9px 14px; font-weight:900; font-size:11px; cursor:pointer; background:rgba(255,255,255,0.08); color:#cbd5e1; letter-spacing:0.6px;">GESTIÓN</button>
+        </div>
         <button class="log-action-btn" onclick="cargarLogsAuditoria()" title="Actualizar Logs">
           <span class="material-icons" id="logRefreshIcon">sync</span>
         </button>
@@ -11147,18 +11650,10 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
       <div style="display: flex; gap: 10px; margin-top: 20px;">
         <button onclick="reiniciarPrediccion()" style="flex: 1; padding: 15px; background: #e2e8f0; color: #475569; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;">NUEVO CÁLCULO</button>
         
-        <button id="btnDescargarPrediccion" onclick="crearExcelPrediccion()" style="flex: 2; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(22,163,74,0.3);">
+        <button id="btnDescargarPrediccionExcel" onclick="crearExcelPrediccion()" style="flex: 2; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(22,163,74,0.3);">
           <span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE
         </button>
-      </div>
-    </div>
-
-    <div id="prediccion-paso-2" style="padding: 25px; display: none; background: #f8fafc;">
-      <div id="tabla-prediccion-container" style="background: white; border-radius: 12px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto;">
-        </div>
-      <div style="display: flex; gap: 10px; margin-top: 20px;">
-        <button onclick="reiniciarPrediccion()" style="flex: 1; padding: 15px; background: #e2e8f0; color: #475569; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;">NUEVO CÁLCULO</button>
-        <button id="btnDescargarPrediccion" onclick="descargarPDFPrediccion()" style="flex: 2; padding: 15px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
+        <button id="btnDescargarPrediccionPdf" onclick="descargarPDFPrediccion()" style="flex: 2; padding: 15px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
           <span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL
         </button>
       </div>

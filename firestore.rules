@@ -157,7 +157,7 @@ service cloud.firestore {
     function solicitudCreateValida() {
       return request.resource.data.keys().hasAll([
           "nombre", "email", "puesto", "telefono", "password",
-          "rolSolicitado", "plazaSolicitada", "fecha", "estado"
+          "fecha", "estado"
         ])
         && request.resource.data.keys().hasOnly([
           "nombre", "email", "puesto", "telefono", "password",
@@ -169,8 +169,14 @@ service cloud.firestore {
         && request.resource.data.telefono is string
         && request.resource.data.password is string
         && request.resource.data.fecha is string
-        && request.resource.data.rolSolicitado == "AUXILIAR"
-        && request.resource.data.plazaSolicitada is string
+        && (
+          request.resource.data.rolSolicitado == null
+          || request.resource.data.rolSolicitado == "AUXILIAR"
+        )
+        && (
+          request.resource.data.plazaSolicitada == null
+          || request.resource.data.plazaSolicitada is string
+        )
         && request.resource.data.estado == "PENDIENTE"
         && request.resource.data.nombre.size() >= 3
         && request.resource.data.email.size() >= 5
@@ -195,6 +201,29 @@ service cloud.firestore {
           request.resource.data.motivo_rechazo == null
           || request.resource.data.motivo_rechazo is string
         );
+    }
+
+    function eventoGestionValido() {
+      return request.resource.data.keys().hasAll([
+          "fecha", "timestamp", "tipo", "accion", "autor"
+        ])
+        && request.resource.data.keys().hasOnly([
+          "fecha", "timestamp", "tipo", "accion", "autor",
+          "entidad", "referencia", "detalles", "objetivo",
+          "rolObjetivo", "plazaObjetivo", "resultado"
+        ])
+        && request.resource.data.fecha is string
+        && request.resource.data.timestamp is int
+        && request.resource.data.tipo is string
+        && request.resource.data.accion is string
+        && request.resource.data.autor is string
+        && (request.resource.data.entidad == null || request.resource.data.entidad is string)
+        && (request.resource.data.referencia == null || request.resource.data.referencia is string)
+        && (request.resource.data.detalles == null || request.resource.data.detalles is string)
+        && (request.resource.data.objetivo == null || request.resource.data.objetivo is string)
+        && (request.resource.data.rolObjetivo == null || request.resource.data.rolObjetivo is string)
+        && (request.resource.data.plazaObjetivo == null || request.resource.data.plazaObjetivo is string)
+        && (request.resource.data.resultado == null || request.resource.data.resultado is string);
     }
 
     function alertaLecturaValida() {
@@ -306,6 +335,12 @@ service cloud.firestore {
 
     match /logs/{doc} {
       allow read, write: if tienePerfilActual();
+    }
+
+    match /bitacora_gestion/{doc} {
+      allow read: if esAccesoTotal();
+      allow create: if esAdminOperativo() && eventoGestionValido();
+      allow update, delete: if false;
     }
 
     match /notas_admin/{doc} {
