@@ -56,7 +56,7 @@ const ACCESS_ROLE_META = Object.freeze({
   PROGRAMADOR: { isAdmin: true, isGlobal: true },
   JEFE_OPERACION: { isAdmin: true, isGlobal: true }
 });
-const PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
+const API_PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
   "angelarmentta@icloud.com"
 ]);
 
@@ -82,7 +82,7 @@ function _profileDocId(email) {
 }
 
 function _isBootstrapProgrammerEmail(email) {
-  return PROGRAMADOR_BOOTSTRAP_EMAILS.includes(_profileDocId(email));
+  return API_PROGRAMADOR_BOOTSTRAP_EMAILS.includes(_profileDocId(email));
 }
 
 function _resolveRoleForEmail(email, role) {

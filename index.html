@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0b2548">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="MEX Mapa">
@@ -4055,7 +4056,7 @@ const ROLE_META = Object.freeze({
   }
 });
 const ROLE_OPTIONS = Object.keys(ROLE_META);
-const PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
+const UI_PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
   'angelarmentta@icloud.com'
 ]);
 
@@ -4096,7 +4097,7 @@ function _profileDocId(email) {
 }
 
 function _isBootstrapProgrammerEmail(email) {
-  return PROGRAMADOR_BOOTSTRAP_EMAILS.includes(_profileDocId(email));
+  return UI_PROGRAMADOR_BOOTSTRAP_EMAILS.includes(_profileDocId(email));
 }
 
 function _resolveStoredRoleForEmail(email, role) {
