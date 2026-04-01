@@ -3,20 +3,25 @@ window.MEX_CONFIG = { empresa: {}, listas: {} };
 async function inicializarConfiguracion() {
   try {
     const config = await api.obtenerConfiguracion();
-    // Arranca con un esqueleto seguro para que la UI nunca truene
-window.MEX_CONFIG = { 
-  empresa: { nombre: "MEX RENT A CAR" }, 
-  listas: { 
-    ubicaciones: [], 
-    estados: [], 
-    gasolinas: [], 
-    categorias: [] 
-  } 
-};
+    window.MEX_CONFIG = {
+      empresa: {
+        nombre: "MEX RENT A CAR",
+        ...(config && config.empresa ? config.empresa : {})
+      },
+      listas: {
+        ubicaciones: [],
+        estados: [],
+        gasolinas: [],
+        categorias: [],
+        ...(config && config.listas ? config.listas : {})
+      }
+    };
 
     // Inyectar nombre de empresa en el logo
     const logoEl = document.querySelector('.logo');
-    if (logoEl && config.empresa.nombre) logoEl.innerText = config.empresa.nombre;
+    if (logoEl && window.MEX_CONFIG.empresa.nombre) {
+      logoEl.innerText = window.MEX_CONFIG.empresa.nombre;
+    }
 
     // Rellenar Selects dinámicamente
     llenarSelectsDinamicos();
@@ -47,6 +52,9 @@ function llenarSelectsDinamicos() {
   rellenar('f_gas', gasolinas);
   
   // Modal Admin Global
+  rellenar('a_ins_ubi', ubicaciones);
+  rellenar('a_ins_est', estados.map(e => e.id));
+  rellenar('a_ins_gas', gasolinas);
   rellenar('a_mod_ubi', ubicaciones);
   rellenar('a_mod_est', estados.map(e => e.id));
   rellenar('a_mod_gas', gasolinas);

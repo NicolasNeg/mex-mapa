@@ -3,12 +3,16 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "hosting": {
     "public": ".",
     "ignore": [
       "firebase.json",
       "firestore.rules",
       "firestore.indexes.json",
+      "storage.rules",
       "MIGRAR_A_FIREBASE.gs",
       "README.md",
       ".git",

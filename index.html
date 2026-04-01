@@ -18,6 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="/config.js"></script>
   <script src="mex-api.js"></script>
   <title>MEX Mapa</title>
@@ -3521,74 +3522,24 @@ function cerrarModalSolicitud() {
 <thead>
               <tr>
                 <th onclick="sortFlota('mva')" class="sortable">MVA ↕</th>
-                <th>
-                  <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
-                    <option value="">CATEGORIA (ALL)</option>
-                    <option value="ECAR">ECAR</option>
-                    <option value="CCAR">CCAR</option>
-                    <option value="ICAR">ICAR</option>
-                    <option value="FCAR">FCAR</option>
-                    <option value="SCAR">SCAR</option>
-                    <option value="CFAR">CFAR</option>
-                    <option value="SFAR">SFAR</option>
-                    <option value="FWAR">FWAR</option>
-                    <option value="MVAR">MVAR</option>
-                    <option value="IVAH">IVAH</option>
-                    <option value="MVAH">MVAH</option>
-                    <option value="FFBH">FFBH</option>
-                    <option value="CKMR">CKMR</option>
-                    <option value="MPMN">MPMN</option>
-                    <option value="PFAR">PFAR</option>
-                    <option value="GVMD">GVMD</option>
-                  </select>
-                </th>
+	                <th>
+	                  <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
+	                    <option value="">CATEGORIA (ALL)</option>
+	                  </select>
+	                </th>
                 <th onclick="sortFlota('modelo')" class="sortable">Modelo ↕</th>
                 <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
                 <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
-                <th>
-                  <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
-                    <option value="">ESTADO (ALL)</option>
-                    <option value="LISTO">🟢 LISTO</option>
-                    <option value="SUCIO">🟡 SUCIO</option>
-                    <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                    <option value="RESGUARDO">🔘 RESGUARDO</option>
-                    <option value="TRASLADO">🟣 TRASLADO.</option>
-                    <option value="VENTA">⚫ VENTA</option>
-                    <option value="RETENIDA">🟤 RETENIDA.</option>
-                    <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
-                    <option value="HYP">🚚 HYP</option>
-                  </select>
-                </th>
-                <th>
-                  <select id="filter-ubi" class="excel-filter" onchange="filtrarFlota()">
-                <option value="">UBICACION (ALL)</option>
-                <optgroup label="PLAZAS FIJAS">
-                  <option value="PATIO">🏠 PATIO</option>
-                  <option value="TALLER">🔧 TALLER</option>
-                  <option value="AGENCIA">🏢 AGENCIA</option>
-                  <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                  <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
-                </optgroup>
-                <optgroup label="PERSONA RESPONSABLE">
-                  <option value="JORGE">👤 JORGE</option>
-                  <option value="GERARDO">👤 GERARDO</option>
-                  <option value="OSVALDO">👤 OSVALDO</option>
-                  <option value="BALANDRAN">👤 BALANDRAN</option>
-                  <option value="ULISES">👤 ULISES</option>
-                  <option value="JOSUE">👤 JOSUE</option>
-                  <option value="ISRAEL">👤 ISRAEL</option>
-                  <option value="ISAAC">👤 ISAAC</option>
-                  <option value="ANGEL">👤 ANGEL</option>
-                  <option value="LEO">👤 LEO</option>
-                  <option value="BRAULIO">👤 BRAULIO</option><option value="MARTHA">👤 MARTHA</option>
-                  <option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option>
-                  <option value="UBALDO">👤 UBALDO</option><option value="JOSE LUIS">👤 JOSE LUIS</option>
-                  <option value="PASCUAL">👤 PASCUAL</option>
-                  <option value="LALO">👤 LALO</option>
-                  <option value="EDGAR">👤 EDGAR</option>
-                </optgroup>
-                  </select>
-                </th>
+	                <th>
+	                  <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
+	                    <option value="">ESTADO (ALL)</option>
+	                  </select>
+	                </th>
+	                <th>
+	                  <select id="filter-ubi" class="excel-filter" onchange="filtrarFlota()">
+	                <option value="">UBICACION (ALL)</option>
+	                  </select>
+	                </th>
                 <th id="th-autor" style="display:none;">Autor</th> 
               </tr>
             </thead>
@@ -3638,58 +3589,26 @@ function cerrarModalSolicitud() {
             </div>
 
             <div class="grid-2">
-              <div class="field">
-                <label>ESTADO 🛠️</label>
-                <select id="f_est" onchange="validarBotonGuardar()">
-                  <option value="">Seleccionar...</option>
-                  <option value="LISTO">🟢 LISTO</option><option value="SUCIO">🟡 SUCIO</option>
-                  <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option><option value="RESGUARDO">🔘 RESGUARDO</option>
-                  <option value="TRASLADO">🟣 TRASLADO</option><option value="VENTA">⚫ VENTA</option>
-                  <option value="RETENIDA">🟤 RETENIDA</option><option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
-                  <option value="HYP">🚚 HYP</option>
-                  <option value="EN RENTA">✈️ EN RENTA</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>GASOLINA ⛽</label>
-                <select id="f_gas" onchange="validarBotonGuardar()">
-                  <option value="N/A">Seleccionar...</option>
-                  <option value="F">F (Lleno Total)</option>
-                  <optgroup label="MEDIO">
-                    <option value="15/16">15/16</option><option value="7/8">7/8</option><option value="13/16">13/16</option><option value="3/4">3/4</option>
-                    <option value="11/16">11/16</option><option value="5/8">5/8</option><option value="9/16">9/16</option><option value="H">H (Medio)</option>
-                  </optgroup>
-                  <optgroup label="BAJO">
-                    <option value="7/16">7/16</option><option value="3/8">3/8</option><option value="5/16">5/16</option><option value="1/4">1/4</option>
-                    <option value="3/16">3/16</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="E">E (Vacío)</option>
-                  </optgroup>
-                  <option value="N/A"> N/A </option>
-                </select>
-              </div>
-            </div>
+	              <div class="field">
+	                <label>ESTADO 🛠️</label>
+	                <select id="f_est" onchange="validarBotonGuardar()">
+	                  <option value="">Seleccionar...</option>
+	                </select>
+	              </div>
+	              <div class="field">
+	                <label>GASOLINA ⛽</label>
+	                <select id="f_gas" onchange="validarBotonGuardar()">
+	                  <option value="">Seleccionar...</option>
+	                </select>
+	              </div>
+	            </div>
 
-            <div class="field">
-              <label>UBICACIÓN ACTUAL 📍</label>
-              <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
-                <option value="">Seleccionar...</option>
-                <optgroup label="PLAZAS FIJAS">
-                  <option value="PATIO">🏠 PATIO</option>
-                  <option value="TALLER">🔧 TALLER</option>
-                  <option value="AGENCIA">🏢 AGENCIA</option>
-                  <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                  <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
-                </optgroup>
-                <optgroup label="PERSONA RESPONSABLE">
-                  <option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option>
-                  <option value="BALANDRAN">👤 BALANDRAN</option><option value="ULISES">👤 ULISES</option><option value="JOSUE">👤 JOSUE</option>
-                  <option value="ISRAEL">👤 ISRAEL</option><option value="ISAAC">👤 ISAAC</option><option value="ANGEL">👤 ANGEL</option>
-                  <option value="LEO">👤 LEO</option><option value="BRAULIO">👤 BRAULIO</option><option value="MARTHA">👤 MARTHA</option>
-                  <option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option><option value="UBALDO">👤 UBALDO</option>
-                  <option value="JOSE LUIS">👤 JOSE LUIS</option><option value="PASCUAL">👤 PASCUAL</option><option value="LALO">👤 LALO</option>
-                  <option value="EDGAR">👤 EDGAR</option>
-                </optgroup>
-              </select>
-            </div>
+	            <div class="field">
+	              <label>UBICACIÓN ACTUAL 📍</label>
+	              <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
+	                <option value="">Seleccionar...</option>
+	              </select>
+	            </div>
 
             <div class="field">
               <label>Notas / Observaciones</label>
@@ -4216,6 +4135,185 @@ function escapeHtml(value) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
+}
+
+function _sanitizeStorageSegment(value) {
+  return String(value || 'sin-dato')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'SIN-DATO';
+}
+
+function _normalizeEvidenceItems(record = {}) {
+  if (Array.isArray(record.evidencias) && record.evidencias.length > 0) {
+    return record.evidencias.map(item => ({
+      path: String(item.path || item.storagePath || '').trim(),
+      fileName: String(item.fileName || item.nombre || item.name || 'EVIDENCIA').trim(),
+      mimeType: String(item.mimeType || item.type || '').trim(),
+      size: Number(item.size || item.bytes || 0) || 0,
+      uploadedAt: String(item.uploadedAt || item.fecha || '').trim(),
+      uploadedBy: String(item.uploadedBy || item.autor || '').trim(),
+      url: String(item.url || '').trim()
+    })).filter(item => item.path || item.url);
+  }
+
+  const legacyUrl = String(record.url || record.URL || record.urlArchivo || record.urlEvidencia || record.evidencia || '').trim();
+  if (!legacyUrl) return [];
+
+  return [{
+    path: String(record.evidenciaPath || record.storagePath || '').trim(),
+    fileName: 'EVIDENCIA',
+    mimeType: '',
+    size: 0,
+    uploadedAt: '',
+    uploadedBy: '',
+    url: legacyUrl
+  }];
+}
+
+function _dedupeEvidenceItems(items = []) {
+  const seen = new Set();
+  return items.filter(item => {
+    const key = item.path || item.url || item.fileName;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function _isEvidencePdf(item, url = '') {
+  const mime = String(item && item.mimeType || '').toLowerCase();
+  return mime.includes('pdf') || /\.pdf([?#].*)?$/i.test(url);
+}
+
+function _isEvidenceImage(item, url = '') {
+  const mime = String(item && item.mimeType || '').toLowerCase();
+  return mime.startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|svg)([?#].*)?$/i.test(url);
+}
+
+async function _resolveEvidenceUrl(item) {
+  if (item.url) return item.url;
+  if (!item.path || !firebase.storage) return '';
+  try {
+    return await firebase.storage().ref(item.path).getDownloadURL();
+  } catch (error) {
+    console.warn('No se pudo resolver la evidencia en Storage:', item.path, error);
+    return '';
+  }
+}
+
+function _actualizarEstadoInputEvidencias(inputId, statusId) {
+  const input = document.getElementById(inputId);
+  const status = document.getElementById(statusId);
+  if (!input || !status) return;
+
+  const files = Array.from(input.files || []);
+  if (files.length === 0) {
+    if (status.dataset.mode === 'selection') {
+      status.innerHTML = '';
+      delete status.dataset.mode;
+    }
+    return;
+  }
+
+  status.dataset.mode = 'selection';
+  status.innerHTML = `📎 ${files.length} archivo(s) listos para subir:<br>${files.map(file => escapeHtml(file.name)).join('<br>')}`;
+}
+
+async function _subirEvidenciasCuadreAdmin(mva, fileList) {
+  const files = Array.from(fileList || []);
+  if (files.length === 0) return [];
+  if (!firebase.storage) throw new Error('Firebase Storage no está disponible en esta versión.');
+
+  const basePath = `evidencias_cuadre_admins/${_sanitizeStorageSegment(mva)}`;
+  const evidencias = [];
+
+  for (let index = 0; index < files.length; index++) {
+    const file = files[index];
+    const safeName = `${Date.now()}_${index + 1}_${String(file.name || 'archivo').replace(/[^a-zA-Z0-9._-]+/g, '_')}`;
+    const path = `${basePath}/${safeName}`;
+    const ref = firebase.storage().ref(path);
+
+    await ref.put(file, {
+      contentType: file.type || 'application/octet-stream',
+      customMetadata: {
+        mva: _sanitizeStorageSegment(mva),
+        autor: USER_NAME || 'Sistema'
+      }
+    });
+
+    evidencias.push({
+      path,
+      fileName: file.name || safeName,
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size || 0,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: USER_NAME || 'Sistema'
+    });
+  }
+
+  return evidencias;
+}
+
+async function _renderEvidenceViewer(record, options = {}) {
+  const container = document.getElementById(options.containerId);
+  const frame = document.getElementById(options.frameId);
+  const link = document.getElementById(options.linkId);
+  const status = document.getElementById(options.statusId);
+  if (!container || !frame || !status) return;
+
+  const items = _dedupeEvidenceItems(_normalizeEvidenceItems(record));
+  if (items.length === 0) {
+    container.style.display = 'none';
+    frame.innerHTML = '';
+    status.innerHTML = options.emptyText || '⚪ SIN EVIDENCIA REGISTRADA';
+    if (link) {
+      link.style.display = 'none';
+      link.removeAttribute('href');
+    }
+    return;
+  }
+
+  container.style.display = 'block';
+  frame.innerHTML = `<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; color:#64748b; gap:8px;"><span class="material-icons spinner" style="font-size:34px;">sync</span><span style="font-size:12px; font-weight:700;">Cargando evidencia...</span></div>`;
+
+  const resolved = [];
+  for (const item of items) {
+    resolved.push({ ...item, resolvedUrl: await _resolveEvidenceUrl(item) });
+  }
+
+  const available = resolved.filter(item => item.resolvedUrl);
+  const primary = available[0];
+
+  if (!primary) {
+    frame.innerHTML = `<div style="padding: 20px; color: #64748b; display:flex; flex-direction:column; align-items:center; gap:8px;"><span class="material-icons" style="font-size:42px; color:#ef4444;">broken_image</span><b style="color:#0d2a54;">NO SE PUDO CARGAR LA EVIDENCIA</b></div>`;
+    status.innerHTML = '⚠️ Hay evidencia registrada, pero no fue posible abrirla desde Storage.';
+    if (link) {
+      link.style.display = 'none';
+      link.removeAttribute('href');
+    }
+    return;
+  }
+
+  if (_isEvidenceImage(primary, primary.resolvedUrl)) {
+    frame.innerHTML = `<img src="${primary.resolvedUrl}" alt="${escapeHtml(primary.fileName)}" style="width:100%; height:100%; object-fit:contain; background:#f8fafc;">`;
+  } else if (_isEvidencePdf(primary, primary.resolvedUrl)) {
+    frame.innerHTML = `<iframe src="${primary.resolvedUrl}#toolbar=0" width="100%" height="100%" frameborder="0"></iframe>`;
+  } else {
+    frame.innerHTML = `<div style="padding: 20px; color: #64748b; display:flex; flex-direction:column; align-items:center; gap:8px;"><span class="material-icons" style="font-size:42px; color:var(--mex-blue);">description</span><b style="color:#0d2a54;">${escapeHtml(primary.fileName || 'ARCHIVO ADJUNTO')}</b><span style="font-size:11px;">Abre el archivo para visualizarlo.</span></div>`;
+  }
+
+  if (link) {
+    link.href = primary.resolvedUrl;
+    link.style.display = 'inline-flex';
+  }
+
+  status.innerHTML = resolved.map((item, index) => {
+    const label = escapeHtml(item.fileName || `Archivo ${index + 1}`);
+    if (!item.resolvedUrl) return `<span style="color:#ef4444;">${index + 1}. ${label} (sin acceso)</span>`;
+    return `<a href="${item.resolvedUrl}" target="_blank" style="color:var(--mex-blue); text-decoration:none; font-weight:700;">${index + 1}. ${label}</a>`;
+  }).join('<br>');
 }
 
 async function registrarEventoGestion(tipo, mensaje, extra = {}) {
@@ -7282,6 +7380,8 @@ function abrirModalInsertarAdmin() {
   
   const fileInput = document.getElementById('a_ins_file');
   if(fileInput) fileInput.value = "";
+  const fileStatus = document.getElementById('a_ins_fileStatus');
+  if (fileStatus) fileStatus.innerHTML = "";
 }
 
 function filtrarBusquedaAdmin() {
@@ -7334,49 +7434,51 @@ async function ejecutarInsertarAdmin() {
   btn.disabled = true; txt.innerText = "Sincronizando...";
   icon.innerText = "sync"; icon.classList.add("spinner"); 
 
-  // Convertir archivos si existen
-  const files = document.getElementById('a_ins_file').files;
-  let archivosBase64 = [];
-  if (files.length > 0) {
-    for (const file of files) {
-      const base64 = await toBase64Global(file); // Función declarada en el acto anterior
-      archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
+  try {
+    const files = document.getElementById('a_ins_file').files;
+    const fileStatus = document.getElementById('a_ins_fileStatus');
+    let evidencias = [];
+    if (files.length > 0) {
+      if (fileStatus) fileStatus.innerHTML = "⏫ Subiendo evidencias a Firebase Storage...";
+      evidencias = await _subirEvidenciasCuadreAdmin(mva, files);
     }
+
+    const data = {
+      mva: mva,
+      categ: document.getElementById('a_ins_cat').value,
+      modelo: document.getElementById('a_ins_mod').value,
+      placas: document.getElementById('a_ins_pla').value,
+      gasolina: document.getElementById('a_ins_gas').value,
+      estado: est,
+      ubicacion: ubi,
+      notas: document.getElementById('a_ins_not').value,
+      borrarNotas: false,
+      evidencias,
+      adminResponsable: USER_NAME 
+    };
+
+    const res = await api.procesarModificacionMaestra(data, "INSERTAR");
+    btn.disabled = false;
+    txt.innerText = "CONFIRMAR REGISTRO";
+    icon.innerText = "save";
+    icon.classList.remove("spinner");
+
+    if (res && (res.includes("ERROR") || res === "DUPLICADO")) {
+      showToast(res, "error");
+      return;
+    }
+
+    showToast("Unidad registrada en Cuadre Admins", "success");
+    document.getElementById('modal-insertar-admin').classList.remove('active');
+    if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
+  } catch (error) {
+    console.error(error);
+    showToast(error && error.message ? error.message : "Fallo de red", "error");
+    btn.disabled = false;
+    txt.innerText = "REINTENTAR";
+    icon.innerText = "error";
+    icon.classList.remove("spinner");
   }
-
-  // Empaquetamos la data tal como la recibe 'procesarModificacionMaestra'
-  const data = {
-    mva: mva,
-    categ: document.getElementById('a_ins_cat').value,
-    modelo: document.getElementById('a_ins_mod').value,
-    placas: document.getElementById('a_ins_pla').value,
-    gasolina: document.getElementById('a_ins_gas').value,
-    estado: est,
-    ubicacion: ubi,
-    notas: document.getElementById('a_ins_not').value,
-    borrarNotas: false, // Es nuevo en admins
-    archivos: archivosBase64,
-    adminResponsable: USER_NAME 
-  };
-
-  // 🔥 Llama a la función correcta: procesarModificacionMaestra, tipo: "INSERTAR"
-  api.procesarModificacionMaestra(data, "INSERTAR").then((res) => {
-      btn.disabled = false; txt.innerText = "CONFIRMAR REGISTRO";
-      icon.innerText = "save"; icon.classList.remove("spinner");
-
-      if(res && (res.includes("ERROR") || res === "DUPLICADO")) {
-         showToast(res, "error");
-      } else {
-         showToast("Unidad registrada en Cuadre Admins", "success");
-         document.getElementById('modal-insertar-admin').classList.remove('active');
-         // Recargar la tabla
-         if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
-      }
-    }).catch((err) => {
-      showToast("Fallo de red", "error");
-      btn.disabled = false; txt.innerText = "REINTENTAR";
-      icon.innerText = "error"; icon.classList.remove("spinner");
-    });
 }
 
 window.PAUSA_CONEXIONES = false; // 🔥 NUESTRA VARIABLE SEMÁFORO GLOBAL
@@ -7561,39 +7663,43 @@ async function guardarEdicionAdmin(tipoAccion) {
 
   showToast("Sincronizando Cuadre Admins...", "warning");
 
-  const files = document.getElementById('a_mod_file').files;
-  let archivosBase64 = [];
-  for (const file of files) {
-    const base64 = await toBase64Global(file);
-    archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
+  try {
+    const files = document.getElementById('a_mod_file').files;
+    const fileStatus = document.getElementById('a_mod_fileStatus');
+    let evidencias = [];
+    if (files.length > 0) {
+      if (fileStatus) fileStatus.innerHTML = "⏫ Subiendo evidencias a Firebase Storage...";
+      evidencias = await _subirEvidenciasCuadreAdmin(SELECT_REF_FLOTA.mva, files);
+    }
+
+    const data = {
+      plaza: SELECT_REF_FLOTA.ubicacion || "BJX",
+      fila: SELECT_REF_FLOTA.fila,
+      mva: SELECT_REF_FLOTA.mva,
+      placas: document.getElementById('a_mod_pla').value,
+      categ: document.getElementById('a_mod_cat').value,
+      modelo: document.getElementById('a_mod_mod').value,
+      gasolina: document.getElementById('a_mod_gas').value,
+      estado: document.getElementById('a_mod_est').value,
+      ubicacion: document.getElementById('a_mod_ubi').value,
+      notas: document.getElementById('a_mod_not').value,
+      borrarNotas: document.getElementById('a_mod_del_note').checked,
+      evidencias,
+      adminResponsable: USER_NAME 
+    };
+
+    const res = await api.procesarModificacionMaestra(data, tipoAccion);
+    if (res === "EXITO") {
+      showToast(`Cuadre Actualizado`, "success");
+      document.getElementById('modal-editar-admin').classList.remove('active');
+      cambiarTabFlota('ADMINS');
+    } else {
+      showToast("Error: " + res, "error");
+    }
+  } catch (error) {
+    console.error(error);
+    showToast(error && error.message ? error.message : "Fallo al guardar el expediente", "error");
   }
-
-  const data = {
-    plaza: SELECT_REF_FLOTA.ubicacion || "BJX",
-    fila: SELECT_REF_FLOTA.fila, // Asegúrate que tu array DB_ADMINS tiene .fila
-    mva: SELECT_REF_FLOTA.mva,
-    placas: document.getElementById('a_mod_pla').value,
-    categ: document.getElementById('a_mod_cat').value,
-    modelo: document.getElementById('a_mod_mod').value,
-    gasolina: document.getElementById('a_mod_gas').value,
-    estado: document.getElementById('a_mod_est').value,
-    ubicacion: document.getElementById('a_mod_ubi').value,
-    notas: document.getElementById('a_mod_not').value,
-    borrarNotas: document.getElementById('a_mod_del_note').checked,
-    archivos: archivosBase64,
-    adminResponsable: USER_NAME 
-  };
-
-  // 👈 Llama a procesarModificacionMaestra para Cuadre Admins
-  api.procesarModificacionMaestra(data, tipoAccion).then(res => {
-      if(res === "EXITO") {
-        showToast(`Cuadre Actualizado`, "success");
-        document.getElementById('modal-editar-admin').classList.remove('active');
-        cambiarTabFlota('ADMINS'); // Recarga la tabla de admins
-      } else {
-        showToast("Error: " + res, "error");
-      }
-    }).catch(e => console.error(e));
 }
 
 
@@ -7711,42 +7817,16 @@ function abrirExpedienteAdmin(u, esSoloLectura) {
     setVal('a_mod_ubi', u.ubicacion);
     setVal('a_mod_not', u.notas);
     if(document.getElementById('a_mod_del_note')) document.getElementById('a_mod_del_note').checked = false;
-    
-    // VISOR DE EVIDENCIA BLINDADO (Para Evitar Error 403 de Carpetas)
-    const urlDrive = u.url || u.URL || u.urlArchivo || u.urlEvidencia || u.evidencia || "";
-    const estadoArchivo = (u.file || u.FILE || u.archivoStatus || u.tieneArchivo || u.File || "").toString().toUpperCase().trim();
-    const tieneEvidencia = estadoArchivo === "SI" || urlDrive !== "";
-    
-    const visorContenedor = document.getElementById('a_visor_evidencia');
-    const visorFrame = document.getElementById('a_visor_frame');
-    const linkDrive = document.getElementById('a_link_drive');
-    const fileStatus = document.getElementById('a_mod_fileStatus');
 
-    if (tieneEvidencia && urlDrive.includes('drive.google.com')) {
-        visorContenedor.style.display = 'block';
-        linkDrive.href = urlDrive;
-        
-        if (urlDrive.includes('/folders/')) {
-            visorFrame.innerHTML = `
-              <div style="padding: 20px; color: #64748b; display: flex; flex-direction: column; align-items: center;">
-                <span class="material-icons" style="font-size: 48px; color: var(--mex-blue); margin-bottom: 10px;">folder_shared</span>
-                <b style="color: #0d2a54; font-size: 14px;">CARPETA DE EVIDENCIAS</b>
-                <span style="font-size: 11px; margin-top: 5px;">Drive bloquea previsualizar carpetas.<br>Abre el Drive para verlas.</span>
-              </div>`;
-        } else {
-            let previewUrl = urlDrive.replace('/view', '/preview'); 
-            visorFrame.innerHTML = `<iframe src="${previewUrl}" width="100%" height="100%" frameborder="0" allow="autoplay"></iframe>`;
-        }
-        if (fileStatus) fileStatus.innerHTML = ""; 
-    } else if (tieneEvidencia && !urlDrive) {
-        visorContenedor.style.display = 'none';
-        visorFrame.innerHTML = "";
-        if (fileStatus) fileStatus.innerHTML = "✅ EVIDENCIA REGISTRADA (Link no disponible)";
-    } else {
-        visorContenedor.style.display = 'none';
-        visorFrame.innerHTML = "";
-        if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
-    }
+    const fileInput = document.getElementById('a_mod_file');
+    if (fileInput) fileInput.value = "";
+    _renderEvidenceViewer(u, {
+      containerId: 'a_visor_evidencia',
+      frameId: 'a_visor_frame',
+      linkId: 'a_link_drive',
+      statusId: 'a_mod_fileStatus',
+      emptyText: '⚪ SIN EVIDENCIA REGISTRADA'
+    });
 
     // BLOQUEOS DE SOLO LECTURA
     const idsBloquear = ['a_mod_cat', 'a_mod_mod', 'a_mod_pla', 'a_mod_gas', 'a_mod_est', 'a_mod_ubi', 'a_mod_not'];
@@ -7804,49 +7884,54 @@ async function ejecutarEdicionGlobal(tipoAccion) {
 
   const btnMod = document.getElementById('btnModGlobal');
   const btnDel = document.getElementById('btnDelGlobal');
-  btnMod.disabled = true; btnDel.disabled = true;
-  
+  btnMod.disabled = true;
+  btnDel.disabled = true;
+
   showToast(tipoAccion === 'ELIMINAR' ? "Eliminando unidad..." : "Guardando cambios maestros...", "warning");
 
-  const files = document.getElementById('g_mod_file').files;
-  let archivosBase64 = [];
-  for (const file of files) {
-    const base64 = await toBase64Global(file);
-    archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
+  try {
+    const fileInput = document.getElementById('g_mod_file');
+    const fileStatus = document.getElementById('g_mod_fileStatus');
+    const files = fileInput ? fileInput.files : [];
+    let evidencias = [];
+    if (files && files.length > 0) {
+      if (fileStatus) fileStatus.innerHTML = "⏫ Subiendo evidencias a Firebase Storage...";
+      evidencias = await _subirEvidenciasCuadreAdmin(UNIDAD_GLOBAL_ACTIVA.mva, files);
+    }
+
+    const data = {
+      plaza: UNIDAD_GLOBAL_ACTIVA.plaza,
+      fila: document.getElementById('g_mod_fila').value,
+      mva: UNIDAD_GLOBAL_ACTIVA.mva,
+      placas: document.getElementById('g_mod_pla').value,
+      categ: document.getElementById('g_mod_cat').value,
+      modelo: document.getElementById('g_mod_mod').value,
+      gasolina: document.getElementById('g_mod_gas').value,
+      estado: document.getElementById('g_mod_est').value,
+      ubicacion: document.getElementById('g_mod_ubi').value,
+      notas: document.getElementById('g_mod_not').value,
+      borrarNotas: document.getElementById('g_mod_del_note').checked,
+      evidencias,
+      adminResponsable: USER_NAME
+    };
+
+    const res = await api.procesarModificacionMaestra(data, tipoAccion);
+    btnMod.disabled = false;
+    btnDel.disabled = false;
+    if (res === "EXITO") {
+      showToast(`Operación exitosa (${tipoAccion})`, "success");
+      cerrarModificadorMaestro();
+
+      if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
+    } else {
+      showToast("Error: " + res, "error");
+    }
+  } catch (err) {
+    console.error(err);
+    btnMod.disabled = false;
+    btnDel.disabled = false;
+    showToast(err && err.message ? err.message : "Fallo de conexión", "error");
   }
-
-  const data = {
-    plaza: UNIDAD_GLOBAL_ACTIVA.plaza,
-    fila: document.getElementById('g_mod_fila').value,
-    mva: UNIDAD_GLOBAL_ACTIVA.mva,
-    placas: document.getElementById('g_mod_pla').value,
-    categ: document.getElementById('g_mod_cat').value,
-    modelo: document.getElementById('g_mod_mod').value,
-    gasolina: document.getElementById('g_mod_gas').value,
-    estado: document.getElementById('g_mod_est').value,
-    ubicacion: document.getElementById('g_mod_ubi').value,
-    notas: document.getElementById('g_mod_not').value,
-    borrarNotas: document.getElementById('g_mod_del_note').checked,
-    archivos: archivosBase64,
-    adminResponsable: USER_NAME 
-  };
-
-  api.procesarModificacionMaestra(data, tipoAccion).then(res => {
-      btnMod.disabled = false; btnDel.disabled = false;
-      if(res === "EXITO") {
-        showToast(`Operación exitosa (${tipoAccion})`, "success");
-        cerrarModificadorMaestro();
-
-        // Si estamos en la vista de admins, recargar la tabla por si modificamos algo
-        if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
-
-      } else {
-        showToast("Error: " + res, "error");
-      }
-    }).catch(err => {
-      btnMod.disabled = false; btnDel.disabled = false;
-      showToast("Fallo de conexión", "error");
-    });
 }
 
 
@@ -7873,38 +7958,17 @@ function abrirExpedienteGlobal(u, plazaForzada, esSoloLectura = false) {
     const checkBorrar = document.getElementById('g_mod_del_note');
     if(checkBorrar) checkBorrar.checked = false;
     
-    // 🔥 LÓGICA DE EVIDENCIA SÚPER BLINDADA 🔥
-    // Buscamos la URL en todas las posibles variaciones de nombre de propiedad
-    const urlDrive = u.url || u.URL || u.urlArchivo || u.urlEvidencia || u.evidencia || "";
-    
-    // Verificamos si hay algún indicador de archivo adjunto
-    const estadoArchivo = (u.file || u.FILE || u.archivoStatus || u.tieneArchivo || u.File || "").toString().toUpperCase().trim();
-    const tieneEvidencia = estadoArchivo === "SI" || urlDrive !== "";
-    
-    const visorContenedor = document.getElementById('g_visor_evidencia');
-    const visorFrame = document.getElementById('g_visor_frame');
-    const linkDrive = document.getElementById('g_link_drive');
-    const fileStatus = document.getElementById('g_mod_fileStatus');
-    const inputCargarNuevo = document.getElementById('g_mod_file').parentElement;
+    const fileInput = document.getElementById('g_mod_file');
+    if (fileInput) fileInput.value = "";
+    _renderEvidenceViewer(u, {
+      containerId: 'g_visor_evidencia',
+      frameId: 'g_visor_frame',
+      linkId: 'g_link_drive',
+      statusId: 'g_mod_fileStatus',
+      emptyText: '⚪ SIN EVIDENCIA REGISTRADA'
+    });
 
-    if (tieneEvidencia && urlDrive.includes('drive.google.com')) {
-        // Formateamos la URL para la vista previa de Drive
-        let previewUrl = urlDrive.replace('/view', '/preview'); 
-        
-        visorContenedor.style.display = 'block';
-        linkDrive.href = urlDrive;
-        visorFrame.innerHTML = `<iframe src="${previewUrl}" width="100%" height="100%" frameborder="0" allow="autoplay"></iframe>`;
-        
-        if (fileStatus) fileStatus.innerHTML = ""; 
-    } else if (tieneEvidencia && !urlDrive) {
-        visorContenedor.style.display = 'none';
-        visorFrame.innerHTML = "";
-        if (fileStatus) fileStatus.innerHTML = "✅ EVIDENCIA REGISTRADA (Link no disponible)";
-    } else {
-        visorContenedor.style.display = 'none';
-        visorFrame.innerHTML = "";
-        if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
-    }
+    const inputCargarNuevo = fileInput ? fileInput.parentElement : null;
 
     // --- 🛡️ APLICAR BLOQUEOS DE SOLO LECTURA ---
     const idsBloquear = ['g_mod_cat', 'g_mod_mod', 'g_mod_pla', 'g_mod_gas', 'g_mod_est', 'g_mod_ubi', 'g_mod_not'];
@@ -10683,7 +10747,7 @@ function llenarSelectsDinamicos() {
   });
   ['filter-est','f_est','a_ins_est','a_mod_est'].forEach(id => _setOptions(id, estOpts));
 
-  // Ubicaciones (flat list — las personas quedan mezcladas, suficiente para v1)
+  // Ubicaciones
   const PLAZAS_FIJAS = new Set(['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN','OTRA PLAZA']);
   const plazas  = ubicaciones.filter(u => PLAZAS_FIJAS.has(u));
   const personas = ubicaciones.filter(u => !PLAZAS_FIJAS.has(u));
@@ -10709,8 +10773,17 @@ function llenarSelectsDinamicos() {
     if (el.querySelector(`option[value="${saved}"]`)) el.value = saved;
   });
 
-  // Gasolinas — keep static fractional groups, just add custom values
-  // (La lista de gasolinas es compleja con grupos, no la reemplazamos completamente)
+  // Gasolinas
+  const gasOpts = gasolinas.map(g => {
+    const value = typeof g === 'string' ? g : (g.id || g.value || '');
+    const label = typeof g === 'string' ? g : (g.label || g.id || g.value || '');
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = label;
+    return o;
+  }).filter(Boolean);
+  ['f_gas','a_ins_gas','a_mod_gas'].forEach(id => _setOptions(id, gasOpts));
+
   console.log('✅ Selects actualizados desde MEX_CONFIG');
 }
 
@@ -11011,43 +11084,33 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
       <div class="inner-card">
         <div class="grid-2">
-          <div class="field">
-            <label>Gasolina ⛽</label>
-            <select id="a_ins_gas">
-              <option value="N/A">Seleccionar...</option><option value="F">F (Lleno Total)</option>
-              <optgroup label="MEDIO"><option value="15/16">15/16</option><option value="7/8">7/8</option><option value="13/16">13/16</option><option value="3/4">3/4</option><option value="11/16">11/16</option><option value="5/8">5/8</option><option value="9/16">9/16</option><option value="H">H (Medio)</option></optgroup>
-              <optgroup label="BAJO"><option value="7/16">7/16</option><option value="3/8">3/8</option><option value="5/16">5/16</option><option value="1/4">1/4</option><option value="3/16">3/16</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="E">E (Vacío)</option></optgroup><option value="N/A">N/A</option>
-            </select>
-          </div>
-          <div class="field">
-            <label>Estado 🛠️</label>
-            <select id="a_ins_est">
-              <option value="">Seleccionar...</option><option value="LISTO">🟢 LISTO</option><option value="SUCIO">🟡 SUCIO</option><option value="RESGUARDO">🔘 RESGUARDO</option><option value="TRASLADO">🟣 TRASLADO</option><option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option><option value="HYP">🔴 HYP</option><option value="EN RENTA">🔵 EN RENTA</option><option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option><option value="VENTA">⚫ VENTA</option><option value="RETENIDA">🟤 RETENIDA</option>
-            </select>
-          </div>
-        </div>
-        <div class="field" style="margin-top:10px">
-          <label>Ubicación Física 📍</label>
-          <select id="a_ins_ubi">
-            <option value="PATIO">🏠 PATIO</option><option value="TALLER">🔧 TALLER</option><option value="AGENCIA">🏢 AGENCIA</option><option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option><option value="HYP COBIAN">🛠️ HYP COBIAN</option><option value="OTRA PLAZA">📌 OTRA PLAZA</option>
-            <optgroup label="PERSONA RESPONSABLE">
-              <option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option>
-              <option value="BALANDRAN">👤 BALANDRAN</option><option value="ULISES">👤 ULISES</option><option value="JOSUE">👤 JOSUE</option>
-              <option value="ISRAEL">👤 ISRAEL</option><option value="ISAAC">👤 ISAAC</option><option value="ANGEL">👤 ANGEL</option>
-              <option value="LEO">👤 LEO</option><option value="BRAULIO">👤 BRAULIO</option><option value="LONGORIA">👤 LONGORIA</option>
-              <option value="MARTHA">👤 MARTHA</option><option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option>
-              <option value="UBALDO">👤 UBALDO</option><option value="JOSE LUIS">👤 JOSE LUIS</option><option value="PASCUAL">👤 PASCUAL</option>
-              <option value="EDUARDO">👤 EDUARDO</option><option value="EDGAR">👤 EDGAR</option>
-            </optgroup>
-          </select>
-        </div>
-      </div>
+	          <div class="field">
+	            <label>Gasolina ⛽</label>
+		            <select id="a_ins_gas">
+		              <option value="">Seleccionar...</option>
+	            </select>
+	          </div>
+	          <div class="field">
+	            <label>Estado 🛠️</label>
+	            <select id="a_ins_est">
+	              <option value="">Seleccionar...</option>
+	            </select>
+	          </div>
+	        </div>
+	        <div class="field" style="margin-top:10px">
+	          <label>Ubicación Física 📍</label>
+	          <select id="a_ins_ubi">
+	            <option value="">Seleccionar...</option>
+	          </select>
+	        </div>
+	      </div>
 
-      <div class="inner-card">
-        <div class="field">
-          <label>📂 Cargar Evidencias (Fotos/PDF)</label>
-          <input type="file" id="a_ins_file" multiple style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-        </div>
+	      <div class="inner-card">
+	        <div class="field">
+	          <label>📂 Cargar Evidencias (Fotos/PDF)</label>
+	          <input type="file" id="a_ins_file" multiple accept="image/*,application/pdf" onchange="_actualizarEstadoInputEvidencias('a_ins_file', 'a_ins_fileStatus')" style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+	          <div id="a_ins_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;"></div>
+	        </div>
         <div class="field" style="margin-top:10px">
           <label>Notas Administrativas</label>
           <textarea id="a_ins_not" rows="2" placeholder="Describe la incidencia..." style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
@@ -11209,49 +11272,46 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
       <div class="inner-card">
         <div class="grid-2">
-          <div class="field">
-            <label>Gasolina ⛽</label>
-            <select id="a_mod_gas">
-              <option value="N/A">Seleccionar...</option><option value="F">F (Lleno Total)</option>
-              <optgroup label="MEDIO"><option value="15/16">15/16</option><option value="7/8">7/8</option><option value="13/16">13/16</option><option value="3/4">3/4</option><option value="11/16">11/16</option><option value="5/8">5/8</option><option value="9/16">9/16</option><option value="H">H (Medio)</option></optgroup>
-              <optgroup label="BAJO"><option value="7/16">7/16</option><option value="3/8">3/8</option><option value="5/16">5/16</option><option value="1/4">1/4</option><option value="3/16">3/16</option><option value="1/8">1/8</option><option value="1/16">1/16</option><option value="E">E (Vacío)</option><option value="N/A">N/A</option></optgroup>
-            </select>
-          </div>
-          <div class="field">
-            <label>Estado 🛠️</label>
-            <select id="a_mod_est">
-              <option value="">Seleccionar...</option><option value="LISTO">🟢 LISTO</option><option value="SUCIO">🟡 SUCIO</option><option value="RESGUARDO">🔘 RESGUARDO</option><option value="TRASLADO">🟣 TRASLADO</option><option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option><option value="HYP">🔴 HYP</option><option value="EN RENTA">🔵 EN RENTA</option><option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option><option value="VENTA">⚫ VENTA</option><option value="RETENIDA">🟤 RETENIDA</option>
-            </select>
-          </div>
-        </div>
-        <div class="field" style="margin-top:10px">
-          <label>Ubicación Física 📍</label>
-          <select id="a_mod_ubi">
-            <option value="PATIO">🏠 PATIO</option><option value="TALLER">🔧 TALLER</option><option value="AGENCIA">🏢 AGENCIA</option><option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option><option value="HYP COBIAN">🛠️ HYP COBIAN</option><option value="OTRA PLAZA">📌 OTRA PLAZA</option>
-            <optgroup label="PERSONA RESPONSABLE"><option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option><option value="BALANDRAN">👤 BALANDRAN</option><option value="ULISES">👤 ULISES</option><option value="JOSUE">👤 JOSUE</option><option value="ISRAEL">👤 ISRAEL</option><option value="ISAAC">👤 ISAAC</option><option value="ANGEL">👤 ANGEL</option><option value="LEO">👤 LEO</option><option value="BRAULIO">👤 BRAULIO</option><option value="LONGORIA">👤 LONGORIA</option><option value="MARTHA">👤 MARTHA</option><option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option><option value="UBALDO">👤 UBALDO</option><option value="JOSE LUIS">👤 JOSE LUIS</option><option value="PASCUAL">👤 PASCUAL</option><option value="EDUARDO">👤 EDUARDO</option><option value="EDGAR">👤 EDGAR</option></optgroup>
-          </select>
-        </div>
-      </div>
+	          <div class="field">
+	            <label>Gasolina ⛽</label>
+		            <select id="a_mod_gas">
+		              <option value="">Seleccionar...</option>
+	            </select>
+	          </div>
+	          <div class="field">
+	            <label>Estado 🛠️</label>
+	            <select id="a_mod_est">
+	              <option value="">Seleccionar...</option>
+	            </select>
+	          </div>
+	        </div>
+	        <div class="field" style="margin-top:10px">
+	          <label>Ubicación Física 📍</label>
+	          <select id="a_mod_ubi">
+	            <option value="">Seleccionar...</option>
+	          </select>
+	        </div>
+	      </div>
 
-      <div class="inner-card">
-        <div class="field">
-          <label>📂 Cargar Nueva Evidencia (Fotos/PDF)</label>
-          <input type="file" id="a_mod_file" multiple style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-          <div id="a_mod_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;"></div>
-        </div>
+	      <div class="inner-card">
+	        <div class="field">
+	          <label>📂 Cargar Nueva Evidencia (Fotos/PDF)</label>
+	          <input type="file" id="a_mod_file" multiple accept="image/*,application/pdf" onchange="_actualizarEstadoInputEvidencias('a_mod_file', 'a_mod_fileStatus')" style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+	          <div id="a_mod_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;"></div>
+	        </div>
         <div class="field" style="margin-top:10px">
           <label>Añadir Nota Administrativa</label>
           <textarea id="a_mod_not" rows="2" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
         </div>
       </div>
 
-      <div class="inner-card" id="a_visor_evidencia" style="display:none; text-align:center; padding: 15px;">
-         <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL SISTEMA</span>
-         <div id="a_visor_frame" style="width:100%; height:220px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; background:#f1f5f9; display:flex; justify-content:center; align-items:center; margin-bottom: 10px;"></div>
-         <a id="a_link_drive" href="#" target="_blank" style="font-size:11px; font-weight:800; color:var(--mex-blue); text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; background: #e0f2fe; padding: 8px 15px; border-radius: 8px;">
-           <span class="material-icons" style="font-size:14px;">open_in_new</span> ABRIR EN DRIVE
-         </a>
-      </div>
+	      <div class="inner-card" id="a_visor_evidencia" style="display:none; text-align:center; padding: 15px;">
+	         <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL SISTEMA</span>
+	         <div id="a_visor_frame" style="width:100%; height:220px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; background:#f1f5f9; display:flex; justify-content:center; align-items:center; margin-bottom: 10px;"></div>
+	         <a id="a_link_drive" href="#" target="_blank" style="font-size:11px; font-weight:800; color:var(--mex-blue); text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; background: #e0f2fe; padding: 8px 15px; border-radius: 8px;">
+	           <span class="material-icons" style="font-size:14px;">open_in_new</span> ABRIR EVIDENCIA
+	         </a>
+	      </div>
 
       <div class="danger-zone" id="a_mod_danger_zone" onclick="document.getElementById('a_mod_del_note').click()">
         <input type="checkbox" id="a_mod_del_note" onclick="event.stopPropagation()">

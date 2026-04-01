@@ -13,6 +13,7 @@ const FIREBASE_CONFIG = window.FIREBASE_CONFIG;
 const app = firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
+const storage = firebase.storage ? firebase.storage() : null;
 
 // ── Persistencia offline (cache local de Firestore) ───────
 // Los datos ya descargados están disponibles sin internet.
@@ -48,6 +49,7 @@ const COL = {
 };
 
 const SETTINGS_DOC = "principal";
+const EVIDENCE_FOLDER = "evidencias_cuadre_admins";
 const ACCESS_ROLE_META = Object.freeze({
   AUXILIAR: { isAdmin: false, isGlobal: false },
   VENTAS: { isAdmin: true, isGlobal: false },
@@ -79,6 +81,14 @@ function _sanitizeRole(role) {
 
 function _profileDocId(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function _sanitizeStorageSegment(value) {
+  return String(value || "sin-dato")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "SIN-DATO";
 }
 
 function _isBootstrapProgrammerEmail(email) {
@@ -128,6 +138,77 @@ function _normalizeUserRoleData(data = {}) {
     isGlobal: meta.isGlobal,
     plazaAsignada: String(data.plazaAsignada || data.plaza || "").trim().toUpperCase()
   };
+}
+
+function _normalizeEvidenceItems(items = []) {
+  const source = Array.isArray(items) ? items : [];
+  return source.map(item => ({
+    path: _sanitizeText(item.path || item.storagePath),
+    fileName: _sanitizeText(item.fileName || item.name || item.nombre) || "EVIDENCIA",
+    mimeType: _sanitizeText(item.mimeType || item.type),
+    size: Number(item.size || item.bytes || 0) || 0,
+    uploadedAt: _sanitizeText(item.uploadedAt || item.fecha),
+    uploadedBy: _sanitizeText(item.uploadedBy || item.autor),
+    url: _sanitizeText(item.url)
+  })).filter(item => item.path || item.url);
+}
+
+function _normalizeLegacyEvidence(data = {}) {
+  if (Array.isArray(data.evidencias) && data.evidencias.length > 0) {
+    return _normalizeEvidenceItems(data.evidencias);
+  }
+
+  const legacyUrl = _sanitizeText(data.url || data.URL || data.urlArchivo || data.urlEvidencia || data.evidencia);
+  if (!legacyUrl) return [];
+
+  return [{
+    path: _sanitizeText(data.evidenciaPath || data.storagePath),
+    fileName: "EVIDENCIA",
+    mimeType: "",
+    size: 0,
+    uploadedAt: "",
+    uploadedBy: "",
+    url: legacyUrl
+  }];
+}
+
+function _dedupeEvidenceItems(items = []) {
+  const seen = new Set();
+  return items.filter(item => {
+    const key = item.path || item.url || `${item.fileName}-${item.uploadedAt}`;
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
+  const payload = { ...datos };
+  const evidenciaLista = _dedupeEvidenceItems(_normalizeEvidenceItems(evidencias));
+  const principal = evidenciaLista[0] || null;
+
+  delete payload.archivos;
+  payload.evidencias = evidenciaLista;
+  payload.evidenciaPath = principal ? principal.path : "";
+  payload.archivoStatus = evidenciaLista.length > 0 ? "SI" : "NO";
+  payload.tieneArchivo = evidenciaLista.length > 0 ? "SI" : "NO";
+  payload.file = evidenciaLista.length > 0 ? "SI" : "NO";
+  payload._updatedAt = _now();
+  payload._updatedBy = payload.adminResponsable || "Sistema";
+
+  return payload;
+}
+
+async function _deleteEvidenceFiles(items = []) {
+  if (!storage) return;
+  for (const item of _normalizeEvidenceItems(items)) {
+    if (!item.path) continue;
+    try {
+      await storage.ref(item.path).delete();
+    } catch (error) {
+      console.warn("No se pudo borrar evidencia en Storage:", item.path, error);
+    }
+  }
 }
 
 async function _getSettings() {
@@ -426,13 +507,31 @@ const API_FUNCTIONS = {
   async procesarModificacionMaestra(datos, tipoAccion) {
     try {
       if (tipoAccion === "ADD" || tipoAccion === "INSERTAR") {
-        await db.collection(COL.CUADRE_ADM).add({ ...datos, _createdAt: _now(), _createdBy: datos.adminResponsable || "Sistema" });
+        const payload = _buildCuadreAdminPayload({
+          ...datos,
+          _createdAt: _now(),
+          _createdBy: datos.adminResponsable || "Sistema"
+        }, datos.evidencias || []);
+        await db.collection(COL.CUADRE_ADM).add(payload);
       } else if (tipoAccion === "MODIFICAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
-        await db.collection(COL.CUADRE_ADM).doc(datos.fila).set(datos, { merge: true });
+        const ref = db.collection(COL.CUADRE_ADM).doc(datos.fila);
+        const snap = await ref.get();
+        const actual = snap.exists ? snap.data() : {};
+        const evidencias = _dedupeEvidenceItems([
+          ..._normalizeLegacyEvidence(actual),
+          ..._normalizeEvidenceItems(datos.evidencias || [])
+        ]);
+        const payload = _buildCuadreAdminPayload(datos, evidencias);
+        await ref.set(payload, { merge: true });
       } else if (tipoAccion === "ELIMINAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
-        await db.collection(COL.CUADRE_ADM).doc(datos.fila).delete();
+        const ref = db.collection(COL.CUADRE_ADM).doc(datos.fila);
+        const snap = await ref.get();
+        if (snap.exists) {
+          await _deleteEvidenceFiles(_normalizeLegacyEvidence(snap.data()));
+        }
+        await ref.delete();
       }
       return "EXITO";
     } catch(e) { return "ERROR: " + e.message; }
