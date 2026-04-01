@@ -28,10 +28,22 @@ service cloud.firestore {
       return tienePerfilUid() || tienePerfilEmail();
     }
 
+    function esEmailBootstrapProgramador(email) {
+      return email != null
+        && (
+          email == "angelarmentta@icloud.com"
+        );
+    }
+
+    function esProgramadorBootstrap() {
+      return estaAutenticado()
+        && esEmailBootstrapProgramador(request.auth.token.email);
+    }
+
     function perfilActual() {
-      return tienePerfilUid()
-        ? get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data
-        : get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data;
+      return tienePerfilEmail()
+        ? get(/databases/$(database)/documents/usuarios/$(request.auth.token.email)).data
+        : get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
     function rolValido(role) {
@@ -44,7 +56,8 @@ service cloud.firestore {
     }
 
     function rolDePerfil(data) {
-      return data.rol == "PROGRAMADOR" ? "PROGRAMADOR"
+      return esEmailBootstrapProgramador(data.email) ? "PROGRAMADOR"
+        : data.rol == "PROGRAMADOR" ? "PROGRAMADOR"
         : data.rol == "JEFE_OPERACION" ? "JEFE_OPERACION"
         : data.rol == "CORPORATIVO_USER" ? "CORPORATIVO_USER"
         : data.rol == "JEFE_REGIONAL" ? "JEFE_REGIONAL"
@@ -55,7 +68,9 @@ service cloud.firestore {
     }
 
     function rolActual() {
-      return tienePerfilActual() ? rolDePerfil(perfilActual()) : "SIN_ACCESO";
+      return !tienePerfilActual() ? "SIN_ACCESO"
+        : esProgramadorBootstrap() ? "PROGRAMADOR"
+        : rolDePerfil(perfilActual());
     }
 
     function esAccesoTotal() {
@@ -154,7 +169,7 @@ service cloud.firestore {
         && actorPuedeGestionarRol(rolDePerfil(actual));
     }
 
-    function solicitudCreateValida() {
+    function solicitudCreateValida(docId) {
       return request.resource.data.keys().hasAll([
           "nombre", "email", "puesto", "telefono", "password",
           "fecha", "estado"
@@ -169,9 +184,10 @@ service cloud.firestore {
         && request.resource.data.telefono is string
         && request.resource.data.password is string
         && request.resource.data.fecha is string
+        && docId == request.resource.data.email
         && (
           request.resource.data.rolSolicitado == null
-          || request.resource.data.rolSolicitado == "AUXILIAR"
+          || rolValido(request.resource.data.rolSolicitado)
         )
         && (
           request.resource.data.plazaSolicitada == null
@@ -359,7 +375,7 @@ service cloud.firestore {
 
     // ─── SOLICITUDES DE ACCESO ───────────────────────────────
     match /solicitudes_acceso/{doc} {
-      allow create: if solicitudCreateValida();
+      allow create: if solicitudCreateValida(doc);
       allow read, delete: if puedeGestionarSolicitudes();
       allow update: if solicitudUpdateValida();
     }

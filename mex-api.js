@@ -56,6 +56,9 @@ const ACCESS_ROLE_META = Object.freeze({
   PROGRAMADOR: { isAdmin: true, isGlobal: true },
   JEFE_OPERACION: { isAdmin: true, isGlobal: true }
 });
+const PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
+  "angelarmentta@icloud.com"
+]);
 
 function _now() {
   return new Date().toLocaleString("es-MX", { timeZone: "America/Mazatlan" });
@@ -76,6 +79,15 @@ function _sanitizeRole(role) {
 
 function _profileDocId(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+function _isBootstrapProgrammerEmail(email) {
+  return PROGRAMADOR_BOOTSTRAP_EMAILS.includes(_profileDocId(email));
+}
+
+function _resolveRoleForEmail(email, role) {
+  const normalizedRole = _sanitizeRole(role) || "AUXILIAR";
+  return _isBootstrapProgrammerEmail(email) ? "PROGRAMADOR" : normalizedRole;
 }
 
 function _sanitizeText(value) {
@@ -107,7 +119,8 @@ function _inferRole(roleOrIsAdmin, plazaOrIsGlobal) {
 }
 
 function _normalizeUserRoleData(data = {}) {
-  const rol = _sanitizeRole(data.rol) || (data.isGlobal ? "CORPORATIVO_USER" : (data.isAdmin ? "VENTAS" : "AUXILIAR"));
+  const rolBase = _sanitizeRole(data.rol) || (data.isGlobal ? "CORPORATIVO_USER" : (data.isAdmin ? "VENTAS" : "AUXILIAR"));
+  const rol = _resolveRoleForEmail(data.email || data.id || "", rolBase);
   const meta = ACCESS_ROLE_META[rol];
   return {
     rol,
@@ -680,7 +693,7 @@ const API_FUNCTIONS = {
 async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, plazaOrIsGlobal) {
     try {
       const emailNormalizado = _profileDocId(email);
-      const rol = _inferRole(roleOrIsAdmin, plazaOrIsGlobal);
+      const rol = _resolveRoleForEmail(emailNormalizado, _inferRole(roleOrIsAdmin, plazaOrIsGlobal));
       const roleData = _normalizeUserRoleData({
         rol,
         plazaAsignada: typeof roleOrIsAdmin === "string" ? plazaOrIsGlobal : ""

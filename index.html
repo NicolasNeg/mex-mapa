@@ -4055,6 +4055,9 @@ const ROLE_META = Object.freeze({
   }
 });
 const ROLE_OPTIONS = Object.keys(ROLE_META);
+const PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
+  'angelarmentta@icloud.com'
+]);
 
 let userRole = null; 
 let USER_NAME = "";
@@ -4092,9 +4095,19 @@ function _profileDocId(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function _isBootstrapProgrammerEmail(email) {
+  return PROGRAMADOR_BOOTSTRAP_EMAILS.includes(_profileDocId(email));
+}
+
+function _resolveStoredRoleForEmail(email, role) {
+  const normalizedRole = _sanitizeRole(role) || 'AUXILIAR';
+  return _isBootstrapProgrammerEmail(email) ? 'PROGRAMADOR' : normalizedRole;
+}
+
 function _normalizeUserProfile(raw = {}) {
+  const email = _profileDocId(raw.email || raw.id || '');
   const explicitRole = _sanitizeRole(raw.rol);
-  const rol = explicitRole || _legacyRoleFromFlags(raw);
+  const rol = _resolveStoredRoleForEmail(email, explicitRole || _legacyRoleFromFlags(raw));
   const meta = _roleMeta(rol);
   const nombre = String(raw.nombre || raw.usuario || raw.email || '').trim().toUpperCase();
   return {
@@ -4102,7 +4115,7 @@ function _normalizeUserProfile(raw = {}) {
     id: raw.id || '',
     nombre,
     usuario: nombre,
-    email: String(raw.email || '').trim().toLowerCase(),
+    email,
     rol,
     roleLabel: meta.label,
     roleLevel: meta.level,
@@ -4171,6 +4184,18 @@ function _roleOptionsHtml(selectedRole = 'AUXILIAR') {
 function _roleNeedsPlaza(role) {
   const normalized = _sanitizeRole(role) || 'AUXILIAR';
   return normalized === 'VENTAS' || normalized === 'JEFE_REGIONAL';
+}
+
+function _inferRequestedAccessRole(puesto, email = '') {
+  if (_isBootstrapProgrammerEmail(email)) return 'PROGRAMADOR';
+  const texto = String(puesto || '').trim().toUpperCase();
+  if (!texto) return 'AUXILIAR';
+  if (texto.includes('PROGRAMADOR')) return 'PROGRAMADOR';
+  if (texto.includes('JEFE DE OPERACION') || texto.includes('JEFE OPERACION')) return 'JEFE_OPERACION';
+  if (texto.includes('CORPORATIVO')) return 'CORPORATIVO_USER';
+  if (texto.includes('JEFE REGIONAL')) return 'JEFE_REGIONAL';
+  if (texto.includes('VENTAS') || texto.includes('ADMIN')) return 'VENTAS';
+  return 'AUXILIAR';
 }
 
 function _syncRoleScope(prefix) {
@@ -4310,6 +4335,7 @@ async function enviarSolicitudAcceso() {
   const passConfirm = document.getElementById('sol_pass_confirm').value;
   const btn = document.getElementById('btnEnviarSolicitud');
   const emailNormalizado = _profileDocId(email);
+  const rolSolicitado = _inferRequestedAccessRole(puesto, emailNormalizado);
 
   // Validaciones con Toasts de error
   if(!nombre || !email || !puesto || !telefono || !pass || !passConfirm) {
@@ -4328,13 +4354,13 @@ async function enviarSolicitudAcceso() {
   btn.innerHTML = `<span class="material-icons spinner" style="font-size: 18px; vertical-align: middle;">sync</span> ENVIANDO...`;
 
   try {
-    await db.collection("solicitudes_acceso").add({
+    await db.collection("solicitudes_acceso").doc(emailNormalizado).set({
       nombre: nombre,
       email: emailNormalizado,
       puesto: puesto,
       telefono: telefono,
       password: pass, 
-      rolSolicitado: "AUXILIAR",
+      rolSolicitado: rolSolicitado,
       plazaSolicitada: "",
       fecha: new Date().toISOString(),
       estado: "PENDIENTE"
@@ -6246,7 +6272,8 @@ async function umGuardarCambios(docId) {
   if (!targetUser) return showToast('Usuario no encontrado.', 'error');
   const nombre   = (document.getElementById('um-edit-nombre').value   || '').trim().toUpperCase();
   const telefono = (document.getElementById('um-edit-telefono').value || '').trim();
-  const rol      = _sanitizeRole(document.getElementById('um-edit-role').value) || 'AUXILIAR';
+  const rolSeleccionado = _sanitizeRole(document.getElementById('um-edit-role').value) || 'AUXILIAR';
+  const rol = _resolveStoredRoleForEmail(targetUser.email, rolSeleccionado);
   const plazaAsignada = _roleNeedsPlaza(rol)
     ? _normalizePlaza(document.getElementById('um-edit-plaza').value)
     : '';
@@ -6416,7 +6443,8 @@ async function umCrearUsuario() {
   const email    = (document.getElementById('um-new-email').value  || '').trim().toLowerCase();
   const pass     = (document.getElementById('um-new-pass').value   || '').trim();
   const telefono = (document.getElementById('um-new-tel').value    || '').trim();
-  const rol      = _sanitizeRole(document.getElementById('um-new-role').value) || 'AUXILIAR';
+  const rolSeleccionado = _sanitizeRole(document.getElementById('um-new-role').value) || 'AUXILIAR';
+  const rol = _resolveStoredRoleForEmail(email, rolSeleccionado);
   const plazaAsignada = _roleNeedsPlaza(rol)
     ? _normalizePlaza(document.getElementById('um-new-plaza').value)
     : '';
@@ -10775,21 +10803,29 @@ async function cargarSolicitudesPendientes() {
     }
 
     let html = "";
-    snapshot.forEach(doc => {
-      const data = doc.data();
-      // Tarjeta de diseño corporativo para cada solicitud
-      html += `
-        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-          <div>
-            <h4 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 16px;">${data.nombre}</h4>
+	    snapshot.forEach(doc => {
+	      const data = doc.data();
+	      const requestedRole = _resolveStoredRoleForEmail(
+	        data.email,
+	        _sanitizeRole(data.rolSolicitado) || _inferRequestedAccessRole(data.puesto, data.email)
+	      );
+	      const roleLabel = ROLE_META[requestedRole] ? ROLE_META[requestedRole].label : requestedRole;
+	      // Tarjeta de diseño corporativo para cada solicitud
+	      html += `
+	        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+	          <div>
+	            <h4 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 16px;">${data.nombre}</h4>
             <div style="color: #64748b; font-size: 13px; font-weight: 600; margin-top: 4px;">
               <span class="material-icons" style="font-size: 14px; vertical-align: text-bottom;">email</span> ${data.email}
             </div>
-            <div style="color: var(--mex-blue); font-size: 12px; font-weight: 800; margin-top: 4px; background: #e0f2fe; display: inline-block; padding: 3px 8px; border-radius: 6px;">
-              📍 ${data.puesto}
-            </div>
-          </div>
-          <div style="display: flex; gap: 10px;">
+	            <div style="color: var(--mex-blue); font-size: 12px; font-weight: 800; margin-top: 4px; background: #e0f2fe; display: inline-block; padding: 3px 8px; border-radius: 6px;">
+	              📍 ${data.puesto}
+	            </div>
+	            <div style="color: #7c3aed; font-size: 12px; font-weight: 800; margin-top: 8px; background: #f3e8ff; display: inline-block; padding: 3px 8px; border-radius: 6px;">
+	              🔐 ${roleLabel}
+	            </div>
+	          </div>
+	          <div style="display: flex; gap: 10px;">
             <button onclick="procesarSolicitud('${doc.id}', false)" style="background: #fee2e2; color: #ef4444; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
               <span class="material-icons" style="font-size: 18px;">close</span> RECHAZAR
             </button>
@@ -10817,8 +10853,14 @@ async function procesarSolicitud(docId, esAprobado) {
   const docSnap = await db.collection("solicitudes_acceso").doc(docId).get();
   if(!docSnap.exists) return showToast("La solicitud ya no existe", "error");
   
-  const { email, nombre, puesto, telefono, password } = docSnap.data();
-  let motivo = "";
+	  const { email, nombre, puesto, telefono, password, rolSolicitado, plazaSolicitada } = docSnap.data();
+	  const requestedRole = _resolveStoredRoleForEmail(
+	    email,
+	    _sanitizeRole(rolSolicitado) || _inferRequestedAccessRole(puesto, email)
+	  );
+	  const requestedRoleMeta = ROLE_META[requestedRole] || ROLE_META.AUXILIAR;
+	  const requestedPlaza = _roleNeedsPlaza(requestedRole) ? _normalizePlaza(plazaSolicitada) : "";
+	  let motivo = "";
 
   if (!esAprobado) {
     motivo = await mexPrompt(
@@ -10858,18 +10900,18 @@ async function procesarSolicitud(docId, esAprobado) {
 
       // Creación automática del perfil
       const userDocId = _profileDocId(email);
-      await db.collection("usuarios").doc(userDocId).set({
-        nombre: String(nombre || '').trim().toUpperCase(),
-        email: userDocId,
-        telefono: telefono || "",
-        puesto: puesto || "",
-        rol: "AUXILIAR",
-        plazaAsignada: "",
-        isAdmin: false,
-        isGlobal: false,
-        authUid: nuevoUid || "",
-        status: "ACTIVO"
-      }, { merge: true });
+	      await db.collection("usuarios").doc(userDocId).set({
+	        nombre: String(nombre || '').trim().toUpperCase(),
+	        email: userDocId,
+	        telefono: telefono || "",
+	        puesto: puesto || "",
+	        rol: requestedRole,
+	        plazaAsignada: requestedPlaza,
+	        isAdmin: requestedRoleMeta.isAdmin,
+	        isGlobal: requestedRoleMeta.fullAccess,
+	        authUid: nuevoUid || "",
+	        status: "ACTIVO"
+	      }, { merge: true });
 
       if (nuevoUid && nuevoUid !== userDocId) {
         const legacyRef = db.collection("usuarios").doc(nuevoUid);
@@ -10877,16 +10919,16 @@ async function procesarSolicitud(docId, esAprobado) {
         if (legacySnap.exists) await legacyRef.delete();
       }
 
-      await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA", password: "" });
-      await registrarEventoGestion('SOLICITUD_APROBADA', `Aprobó la solicitud de acceso de ${nombre}`, {
-        entidad: 'SOLICITUDES_ACCESO',
-        referencia: docId,
-        objetivo: email,
-        rolObjetivo: 'AUXILIAR',
-        plazaObjetivo: '',
-        detalles: detalleGestion,
-        resultado: 'APROBADA'
-      });
+	      await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA", password: "" });
+	      await registrarEventoGestion('SOLICITUD_APROBADA', `Aprobó la solicitud de acceso de ${nombre}`, {
+	        entidad: 'SOLICITUDES_ACCESO',
+	        referencia: docId,
+	        objetivo: email,
+	        rolObjetivo: requestedRole,
+	        plazaObjetivo: requestedPlaza,
+	        detalles: detalleGestion,
+	        resultado: 'APROBADA'
+	      });
     } else {
       await db.collection("solicitudes_acceso").doc(docId).update({ estado: "RECHAZADA", motivo_rechazo: motivo, password: "" });
       await registrarEventoGestion('SOLICITUD_RECHAZADA', `Rechazó la solicitud de acceso de ${nombre}`, {
