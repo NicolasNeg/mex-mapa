@@ -23,8 +23,3 @@ Thumbs.db
 *.log
 dist/
 build/
-
-
-.firebase/
-google-cloud-sdk/
-node_modules/
