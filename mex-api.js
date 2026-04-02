@@ -583,7 +583,11 @@ const API_FUNCTIONS = {
       db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get()
     ]);
     const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(a => !(a.leidoPor || "").includes(usuarioActivo));
+      .filter(a => !(a.leidoPor || "").includes(usuarioActivo))
+      .filter(a => {
+        if (!a.destinatarios || a.destinatarios === "GLOBAL") return true;
+        return a.destinatarios.split(',').map(s => s.trim().toUpperCase()).includes(usuarioActivo.toUpperCase());
+      });
     const mensajesSinLeer = msgsSnap.docs.filter(d => d.data().leido !== "SI").length;
     let liveFeed = settings.liveFeed || [];
     if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }

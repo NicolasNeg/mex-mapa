@@ -6962,7 +6962,11 @@ function iniciarRadarNotificaciones() {
     let liveFeed = _radarState.settings.liveFeed || [];
     if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
     if (!Array.isArray(liveFeed)) liveFeed = [];
-    const alertas = (_radarState.alertas || []).filter(a => !(a.leidoPor || "").includes(USER_NAME));
+    const alertas = (_radarState.alertas || []).filter(a => {
+      if ((a.leidoPor || "").includes(USER_NAME)) return false;
+      if (!a.destinatarios || a.destinatarios === "GLOBAL") return true;
+      return a.destinatarios.split(',').map(s => s.trim().toUpperCase()).includes(USER_NAME.toUpperCase());
+    });
     _procesarPingUI({
       incidenciasPendientes: 0,
       alertas,
@@ -7180,8 +7184,22 @@ if (userRole === 'admin') {
       if (res.alertas && res.alertas.length > 0) {
         if (badgeAlt) { badgeAlt.innerText = res.alertas.length; badgeAlt.style.display = 'flex'; }
         filaAlertasPendientes = res.alertas;
+        
+        // LÓGICA DE ALERTA INTERRUPTIVA VS PASIVA
+        const modalOpen = document.getElementById('modalAlertaMaestra').classList.contains('active');
+        const hasInterruptiva = res.alertas.some(a => !a.modo || a.modo === "INTERRUPTIVA");
+        
+        if (hasInterruptiva && !modalOpen && !window.PAUSA_CONEXIONES) {
+          const idx = filaAlertasPendientes.findIndex(a => !a.modo || a.modo === "INTERRUPTIVA");
+          if (idx > 0) {
+            const alertInt = filaAlertasPendientes.splice(idx, 1)[0];
+            filaAlertasPendientes.unshift(alertInt); // Moverla al frente
+          }
+          abrirSiguienteAlerta();
+        }
       } else {
         if (badgeAlt) badgeAlt.style.display = 'none';
+        filaAlertasPendientes = [];
       }
 
       // 🔥 7. GESTIÓN DEL BUZÓN DE MENSAJES (EL CULPABLE) 🔥
@@ -7369,24 +7387,44 @@ function abrirGestorAlertas() {
         let arrayLectores = a.leidoPor ? a.leidoPor.split(',').map(s => s.trim()).filter(s => s) : [];
         let cantidadLectores = arrayLectores.length;
         let lectoresSeguros = a.leidoPor ? a.leidoPor.replace(/'/g, "\\'") : "";
+        
+        let destIcon = "public";
+        let destText = "GLOBAL";
+        if (a.destinatarios && a.destinatarios !== "GLOBAL") {
+            const dests = a.destinatarios.split(',');
+            if (dests.length > 1) { destIcon = "groups"; destText = dests.length + " USUARIOS"; }
+            else { destIcon = "person"; destText = "1 USUARIO"; }
+        }
+
+        let modoIcon = (!a.modo || a.modo === "INTERRUPTIVA") ? "bolt" : "notifications";
 
         return `
-          <div style="background: white; border-radius: 16px; padding: 20px; border: 1px solid var(--border); box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-              <span style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 50px; background: ${colorBadge}; color: ${colorTxt}; letter-spacing: 1px;">${a.tipo}</span>
-              <span style="font-size: 11px; color: #64748b; font-weight: 700;">${a.fecha}</span>
+          <div style="background: white; border-radius: 12px; padding: 18px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 12px; transition: 0.2s;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <span style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 6px; background: ${colorBadge}; color: ${colorTxt}; letter-spacing: 1px;">${a.tipo}</span>
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;"><span class="material-icons" style="font-size: 14px;">${modoIcon}</span> ${a.modo || "INTERRUPTIVA"}</span>
+                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;"><span class="material-icons" style="font-size: 14px;">${destIcon}</span> ${destText}</span>
+              </div>
+              <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${a.fecha}</span>
             </div>
             
-            <h3 style="margin: 0 0 5px 0; color: var(--mex-blue); font-size: 16px;">${a.titulo}</h3>
-            <p style="font-size: 13px; color: #475569; margin-bottom: 15px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${a.mensaje}</p>
+            <div>
+                <h3 style="margin: 0 0 4px 0; color: var(--mex-blue); font-size: 16px;">${a.titulo}</h3>
+                <div style="font-size: 11px; color: #64748b; font-weight: 700;">Enviado por: <span style="color: var(--primary);">${a.autor}</span></div>
+            </div>
+
+            <div style="font-size: 13px; color: #475569; background: #f8fafc; padding: 12px; border-radius: 8px; border-left: 3px solid #e2e8f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">
+              ${a.mensaje}
+            </div>
             
-            <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 15px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 5px;">
               
-              <button onclick="verLectoresAlerta('${lectoresSeguros}')" style="background: #f8fafc; border: 1px solid var(--border); padding: 8px 15px; border-radius: 8px; font-size: 12px; font-weight: 800; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;">
-                <span class="material-icons" style="font-size: 16px;">visibility</span> LECTURAS (${cantidadLectores})
+              <button onclick="verLectoresAlerta('${lectoresSeguros}')" style="background: white; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;">
+                <span class="material-icons" style="font-size: 14px;">visibility</span> LEÍDO POR ${cantidadLectores}
               </button>
 
-              <button onclick="eliminarAlertaDesdeHistorial('${a.id}')" style="background: #fee2e2; border: none; padding: 8px 15px; border-radius: 8px; font-size: 12px; font-weight: 800; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;">
+              <button onclick="eliminarAlertaDesdeHistorial('${a.id}')" style="background: transparent; border: none; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 800; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: 0.2s;">
                 <span class="material-icons" style="font-size: 16px;">delete</span> BORRAR
               </button>
 
