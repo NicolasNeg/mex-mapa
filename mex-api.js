@@ -46,6 +46,7 @@ const COL = {
   HISTORIAL_CUADRES: "historial_cuadres",
   SIPP:      "sipp",
   CONFIG: "configuracion",
+  PLANTILLAS_ALERTAS: "plantillas_alertas"
 };
 
 const SETTINGS_DOC = "principal";
@@ -651,6 +652,20 @@ const API_FUNCTIONS = {
       detalles: autorOriginal ? `Alerta creada originalmente por ${autorOriginal}` : ""
     });
     return "EXITO";
+  },
+
+  async obtenerPlantillasAlerta() {
+    const snap = await db.collection(COL.PLANTILLAS_ALERTAS).orderBy("nombre").get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  },
+  
+  async guardarPlantillaAlerta(nombre, tipo, titulo, mensaje, modo, autor) {
+    try {
+      await db.collection(COL.PLANTILLAS_ALERTAS).add({
+        nombre, tipo, titulo, mensaje, modo, autor, timestamp: _ts(), fecha: _now()
+      });
+      return "EXITO";
+    } catch(e) { return "ERROR: " + e.message; }
   },
 
   // ─── MENSAJES ────────────────────────────────────────────
