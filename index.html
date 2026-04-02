@@ -7365,6 +7365,9 @@ function comprimirImagenAlerta(event) {
       // 6. Avisar al usuario
       textoUpload.innerText = "¡Imagen cargada lista para enviar!";
       textoUpload.style.color = "#10b981"; // Verde éxito
+      
+      // Refrescar el preview automáticamente para que se vea la imagen
+      if (typeof _actualizarPreviewAlerta === "function") _actualizarPreviewAlerta();
     }
   }
 }
