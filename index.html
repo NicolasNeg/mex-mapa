@@ -3236,7 +3236,7 @@ function cerrarModalSolicitud() {
 <div id="crear-alerta-modal" class="fleet-modal">
   <div class="fleet-header-top">
     <div style="display:flex; align-items:center; gap:10px;">
-      <h2 style="color:#ef4444; font-weight:900; margin:0; font-size:clamp(14px,3vw,20px);">
+      <h2 id="tituloModalCrearAlerta" style="color:#ef4444; font-weight:900; margin:0; font-size:clamp(14px,3vw,20px);">
         <span class="material-icons" style="font-size:22px; vertical-align:bottom;">campaign</span> EMITIR ALERTA MAESTRA
       </h2>
     </div>
@@ -3290,7 +3290,7 @@ function cerrarModalSolicitud() {
           </div>
           <!-- SOLO panel -->
           <div id="destPanelSolo" style="display:none;">
-            <select id="destSoloUsuario" onchange="_updateBtnEmitir()"
+            <select id="destSoloUsuario" onchange="_seleccionarUsuarioDestino(this.value)"
               style="width:100%; padding:8px 11px; border-radius:8px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; box-sizing:border-box; background:white; font-family:'Inter';">
               <option value="">Seleccionar usuario...</option>
             </select>
@@ -3337,6 +3337,10 @@ function cerrarModalSolicitud() {
           </label>
           <input type="file" id="alertaFile" accept="image/*" style="display:none;" onchange="comprimirImagenAlerta(event)">
           <input type="hidden" id="alertaNuevaImagen">
+          <button id="btnQuitarImagenAlerta" onclick="limpiarImagenAlerta()" type="button"
+            style="margin-top:8px; width:100%; padding:8px 10px; border-radius:9px; border:1px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:11px; cursor:pointer;">
+            Quitar imagen actual
+          </button>
         </div>
 
         <!-- Emit button -->
@@ -4689,6 +4693,10 @@ function _iniciarSincronizacionUsuarios() {
       .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
       .sort((a, b) => a.usuario.localeCompare(b.usuario));
     if (typeof renderModernDropdown === 'function') renderModernDropdown(dbUsuariosLogin);
+    if (document.getElementById('crear-alerta-modal')?.classList.contains('active') && typeof _renderDestinatariosAlerta === 'function') {
+      _renderDestinatariosAlerta();
+      _updateBtnEmitir();
+    }
   }, err => console.warn('onSnapshot usuarios live:', err));
 }
 
@@ -6941,6 +6949,250 @@ function ejecutarEliminacionIncidencia(id) {
 radarInterval = null;
 let filaAlertasPendientes = [];
 let alertaActualMostrandose = null;
+let historialAlertasCache = [];
+let alertasPlantillasCache = [];
+let alertaSelectionRange = null;
+let alertaEditorState = {
+  editingId: '',
+  destMode: 'GLOBAL',
+  destinatariosSeleccionados: [],
+  editorBound: false
+};
+
+const ALERTA_TIPO_META = Object.freeze({
+  URGENTE: { label: 'URGENTE', bg: '#fee2e2', color: '#ef4444', selectBg: '#fef2f2', border: '#ef4444' },
+  WARNING: { label: 'ADVERTENCIA', bg: '#fef3c7', color: '#d97706', selectBg: '#fffbeb', border: '#f59e0b' },
+  INFO: { label: 'INFORMATIVO', bg: '#dbeafe', color: '#1d4ed8', selectBg: '#eff6ff', border: '#60a5fa' }
+});
+
+const ALERTA_MODO_META = Object.freeze({
+  INTERRUPTIVA: { label: 'INTERRUPTIVA', icon: '⚡', bg: '#eff6ff', color: '#1a73e8' },
+  PASIVA: { label: 'PASIVA', icon: '🔔', bg: '#f8fafc', color: '#475569' }
+});
+
+function _obtenerMetaTipoAlerta(tipo) {
+  return ALERTA_TIPO_META[String(tipo || '').trim().toUpperCase()] || ALERTA_TIPO_META.INFO;
+}
+
+function _normalizarModoAlerta(modo) {
+  return String(modo || '').trim().toUpperCase() === 'PASIVA' ? 'PASIVA' : 'INTERRUPTIVA';
+}
+
+function _obtenerMetaModoAlerta(modo) {
+  return ALERTA_MODO_META[_normalizarModoAlerta(modo)];
+}
+
+function _parseListaAlertaCsv(valor) {
+  return Array.from(new Set(
+    String(valor || '')
+      .split(',')
+      .map(item => item.trim().toUpperCase())
+      .filter(Boolean)
+  ));
+}
+
+function _alertaYaLeidaPor(alerta, usuario = USER_NAME) {
+  return _parseListaAlertaCsv(alerta && alerta.leidoPor).includes(String(usuario || '').trim().toUpperCase());
+}
+
+function _alertaAplicaAUsuario(alerta, usuario = USER_NAME) {
+  const usuarioNorm = String(usuario || '').trim().toUpperCase();
+  if (!usuarioNorm) return false;
+  const destinatarios = _parseListaAlertaCsv(alerta && alerta.destinatarios).filter(item => item !== 'GLOBAL');
+  if (destinatarios.length === 0) return true;
+  return destinatarios.includes(usuarioNorm);
+}
+
+function _inferirModoDestinatariosAlerta(alerta = {}) {
+  const modoGuardado = String(alerta.destMode || '').trim().toUpperCase();
+  if (modoGuardado === 'SEL' || modoGuardado === 'SOLO' || modoGuardado === 'GLOBAL') return modoGuardado;
+  const destinatarios = _parseListaAlertaCsv(alerta.destinatarios).filter(item => item !== 'GLOBAL');
+  if (destinatarios.length === 0) return 'GLOBAL';
+  return destinatarios.length === 1 ? 'SOLO' : 'SEL';
+}
+
+function _obtenerResumenDestinatariosAlerta(alerta = {}) {
+  const destinatarios = _parseListaAlertaCsv(alerta.destinatarios).filter(item => item !== 'GLOBAL');
+  const modo = _inferirModoDestinatariosAlerta(alerta);
+  if (destinatarios.length === 0 || modo === 'GLOBAL') {
+    return { icon: 'public', label: 'GLOBAL', detail: 'Visible para toda la red', count: 0 };
+  }
+  if (modo === 'SOLO' || destinatarios.length === 1) {
+    return { icon: 'person', label: `SOLO A ${destinatarios[0]}`, detail: destinatarios[0], count: 1 };
+  }
+  const detalle = destinatarios.length > 4
+    ? `${destinatarios.slice(0, 4).join(', ')} +${destinatarios.length - 4}`
+    : destinatarios.join(', ');
+  return {
+    icon: 'groups',
+    label: `${destinatarios.length} SELECCIONADOS`,
+    detail: detalle,
+    count: destinatarios.length
+  };
+}
+
+function _ordenarAlertasPendientes(alertas = []) {
+  return [...alertas].sort((a, b) => {
+    const modoA = _normalizarModoAlerta(a && a.modo) === 'INTERRUPTIVA' ? 0 : 1;
+    const modoB = _normalizarModoAlerta(b && b.modo) === 'INTERRUPTIVA' ? 0 : 1;
+    if (modoA !== modoB) return modoA - modoB;
+    return Number(b && b.timestamp || 0) - Number(a && a.timestamp || 0);
+  });
+}
+
+function _normalizarMensajeAlertaHtml(mensaje) {
+  const contenido = String(mensaje || '').trim();
+  if (!contenido) return '';
+  if (/<[a-z][\s\S]*>/i.test(contenido)) return _sanitizarHtmlAlerta(contenido);
+  return escapeHtml(contenido).replace(/\n/g, '<br>');
+}
+
+function _sanitizarHtmlAlerta(html) {
+  const template = document.createElement('template');
+  template.innerHTML = String(html || '');
+
+  const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI', 'SPAN', 'FONT', 'HR', 'BLOCKQUOTE']);
+  const allowedStyles = new Set(['text-align', 'color', 'font-size', 'font-weight', 'font-style', 'text-decoration']);
+
+  function limpiarNodo(node) {
+    Array.from(node.childNodes).forEach(child => {
+      if (child.nodeType === Node.COMMENT_NODE) {
+        child.remove();
+        return;
+      }
+      if (child.nodeType !== Node.ELEMENT_NODE) return;
+
+      limpiarNodo(child);
+
+      const tag = child.tagName.toUpperCase();
+      if (!allowedTags.has(tag)) {
+        if (['SCRIPT', 'STYLE', 'NOSCRIPT', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META'].includes(tag)) {
+          child.remove();
+          return;
+        }
+        child.replaceWith(...Array.from(child.childNodes));
+        return;
+      }
+
+      Array.from(child.attributes).forEach(attr => {
+        const attrName = attr.name.toLowerCase();
+        if (attrName.startsWith('on')) {
+          child.removeAttribute(attr.name);
+          return;
+        }
+        if (attrName === 'style') {
+          const safeStyle = attr.value
+            .split(';')
+            .map(rule => rule.trim())
+            .filter(Boolean)
+            .map(rule => {
+              const parts = rule.split(':');
+              if (parts.length < 2) return '';
+              const prop = parts.shift().trim().toLowerCase();
+              const value = parts.join(':').trim();
+              if (!allowedStyles.has(prop)) return '';
+              if (/[<>]/.test(value)) return '';
+              return `${prop}:${value}`;
+            })
+            .filter(Boolean)
+            .join('; ');
+          if (safeStyle) child.setAttribute('style', safeStyle);
+          else child.removeAttribute('style');
+          return;
+        }
+        if (tag === 'FONT' && (attrName === 'color' || attrName === 'size')) return;
+        child.removeAttribute(attr.name);
+      });
+    });
+  }
+
+  limpiarNodo(template.content);
+  return template.innerHTML.trim();
+}
+
+function _obtenerTextoPlanoAlerta(html) {
+  const div = document.createElement('div');
+  div.innerHTML = _normalizarMensajeAlertaHtml(html);
+  return String(div.textContent || div.innerText || '').trim().replace(/\s+/g, ' ');
+}
+
+function _safeCssUrl(url) {
+  return String(url || '').replace(/'/g, '%27');
+}
+
+function _obtenerUsuariosDestinoAlerta() {
+  return Array.from(new Set(
+    (dbUsuariosLogin || [])
+      .map(u => String((u && (u.usuario || u.nombre)) || '').trim().toUpperCase())
+      .filter(Boolean)
+  )).sort((a, b) => a.localeCompare(b));
+}
+
+function _obtenerEditorAlerta() {
+  return document.getElementById('alertaEditorCuerpo');
+}
+
+function _colocarCursorFinalAlerta(editor) {
+  const range = document.createRange();
+  const sel = window.getSelection();
+  range.selectNodeContents(editor);
+  range.collapse(false);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  alertaSelectionRange = range.cloneRange();
+}
+
+function _guardarSeleccionEditorAlerta() {
+  const editor = _obtenerEditorAlerta();
+  const sel = window.getSelection();
+  if (!editor || !sel || !sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  if (editor.contains(range.commonAncestorContainer)) {
+    alertaSelectionRange = range.cloneRange();
+  }
+}
+
+function _restaurarSeleccionEditorAlerta() {
+  const editor = _obtenerEditorAlerta();
+  const sel = window.getSelection();
+  if (!editor || !sel) return;
+  editor.focus();
+  sel.removeAllRanges();
+  if (alertaSelectionRange && editor.contains(alertaSelectionRange.commonAncestorContainer)) {
+    sel.addRange(alertaSelectionRange);
+  } else {
+    _colocarCursorFinalAlerta(editor);
+  }
+}
+
+function _asegurarBindingsEditorAlerta() {
+  if (alertaEditorState.editorBound) return;
+  const editor = _obtenerEditorAlerta();
+  if (!editor) return;
+
+  ['keyup', 'mouseup', 'focus', 'blur', 'input'].forEach(evento => {
+    editor.addEventListener(evento, _guardarSeleccionEditorAlerta);
+  });
+
+  editor.addEventListener('paste', event => {
+    event.preventDefault();
+    const textoPlano = (event.clipboardData || window.clipboardData).getData('text/plain');
+    _restaurarSeleccionEditorAlerta();
+    document.execCommand('insertHTML', false, escapeHtml(textoPlano).replace(/\n/g, '<br>'));
+    _guardarSeleccionEditorAlerta();
+    _actualizarPreviewAlerta();
+  });
+
+  alertaEditorState.editorBound = true;
+}
+
+function _renderBotonEmitirAlerta() {
+  const btn = document.getElementById('btnEmitirAlertaGlobal');
+  if (!btn) return;
+  const icon = alertaEditorState.editingId ? 'save' : 'send';
+  btn.innerHTML = `<span class="material-icons">${icon}</span><span id="txtBtnEmitir"></span>`;
+  _updateBtnEmitir();
+}
 
 
 function refrescarDatos() {
@@ -6970,11 +7222,9 @@ function iniciarRadarNotificaciones() {
     let liveFeed = _radarState.settings.liveFeed || [];
     if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
     if (!Array.isArray(liveFeed)) liveFeed = [];
-    const alertas = (_radarState.alertas || []).filter(a => {
-      if ((a.leidoPor || "").includes(USER_NAME)) return false;
-      if (!a.destinatarios || a.destinatarios === "GLOBAL") return true;
-      return a.destinatarios.split(',').map(s => s.trim().toUpperCase()).includes(USER_NAME.toUpperCase());
-    });
+    const alertas = _ordenarAlertasPendientes((_radarState.alertas || []).filter(a =>
+      !_alertaYaLeidaPor(a, USER_NAME) && _alertaAplicaAUsuario(a, USER_NAME)
+    ));
     _procesarPingUI({
       incidenciasPendientes: 0,
       alertas,
@@ -7187,22 +7437,23 @@ if (userRole === 'admin') {
     }
 }
 
-     // 6. GESTIÓN DE ALERTAS (CAMPANA)
+      // 6. GESTIÓN DE ALERTAS (CAMPANA)
       const badgeAlt = document.getElementById('badgeAlerts');
-      if (res.alertas && res.alertas.length > 0) {
-        if (badgeAlt) { badgeAlt.innerText = res.alertas.length; badgeAlt.style.display = 'flex'; }
-        filaAlertasPendientes = res.alertas;
-        
-        // LÓGICA DE ALERTA INTERRUPTIVA VS PASIVA
-        const modalOpen = document.getElementById('modalAlertaMaestra').classList.contains('active');
-        const hasInterruptiva = res.alertas.some(a => !a.modo || a.modo === "INTERRUPTIVA");
-        
+      const alertasPendientes = _ordenarAlertasPendientes((res.alertas || []).filter(a =>
+        !_alertaYaLeidaPor(a, USER_NAME) && _alertaAplicaAUsuario(a, USER_NAME)
+      ));
+      if (alertasPendientes.length > 0) {
+        if (badgeAlt) {
+          badgeAlt.innerText = alertasPendientes.length;
+          badgeAlt.style.display = 'flex';
+        }
+        filaAlertasPendientes = alertasPendientes;
+
+        const modalAlertas = document.getElementById('modalAlertaMaestra');
+        const modalOpen = modalAlertas ? modalAlertas.classList.contains('active') : false;
+        const hasInterruptiva = alertasPendientes.some(a => _normalizarModoAlerta(a.modo) === 'INTERRUPTIVA');
+
         if (hasInterruptiva && !modalOpen && !window.PAUSA_CONEXIONES) {
-          const idx = filaAlertasPendientes.findIndex(a => !a.modo || a.modo === "INTERRUPTIVA");
-          if (idx > 0) {
-            const alertInt = filaAlertasPendientes.splice(idx, 1)[0];
-            filaAlertasPendientes.unshift(alertInt); // Moverla al frente
-          }
           abrirSiguienteAlerta();
         }
       } else {
@@ -7225,98 +7476,510 @@ if (userRole === 'admin') {
 
 // Llama al modal flotante de la primera alerta en la fila
 function abrirSiguienteAlerta() {
-  // Si le dan clic y no hay nada:
+  filaAlertasPendientes = _ordenarAlertasPendientes(filaAlertasPendientes.filter(a =>
+    !_alertaYaLeidaPor(a, USER_NAME) && _alertaAplicaAUsuario(a, USER_NAME)
+  ));
+
   if (filaAlertasPendientes.length === 0) {
     showToast("No tienes alertas nuevas", "success");
     return;
   }
-  
+
   alertaActualMostrandose = filaAlertasPendientes[0];
-  const a = alertaActualMostrandose;
+  const alerta = alertaActualMostrandose;
+  const metaTipo = _obtenerMetaTipoAlerta(alerta.tipo);
+  const metaModo = _obtenerMetaModoAlerta(alerta.modo);
+  const mensajeHtml = _normalizarMensajeAlertaHtml(alerta.mensaje);
 
-  document.getElementById('alertaTitulo').innerText = a.titulo;
-  document.getElementById('alertaMensaje').innerHTML = a.mensaje; 
-  document.getElementById('alertaFecha').innerText = a.fecha || "Reciente";
-  document.getElementById('alertaAutor').innerText = a.autor;
-  
+  document.getElementById('alertaTitulo').innerText = alerta.titulo || 'Sin título';
+  document.getElementById('alertaMensaje').innerHTML = mensajeHtml || `<div style="color:#94a3b8;">Sin contenido disponible.</div>`;
+  document.getElementById('alertaFecha').innerText = alerta.fecha || 'Reciente';
+  document.getElementById('alertaAutor').innerText = alerta.autor || 'Sistema';
+
   const tipoBadge = document.getElementById('alertaTipo');
-  tipoBadge.innerText = a.tipo || "INFO";
-  if (a.tipo === 'URGENTE') { tipoBadge.style.background = '#fee2e2'; tipoBadge.style.color = '#ef4444'; }
-  else if (a.tipo === 'WARNING') { tipoBadge.style.background = '#fef3c7'; tipoBadge.style.color = '#d97706'; }
-  else { tipoBadge.style.background = '#e0f2fe'; tipoBadge.style.color = '#0284c7'; }
+  tipoBadge.innerText = metaTipo.label;
+  tipoBadge.style.background = metaTipo.bg;
+  tipoBadge.style.color = metaTipo.color;
 
-const banner = document.getElementById('alertaBannerImg');
-  if (a.imagen && (a.imagen.startsWith('http') || a.imagen.startsWith('data:image'))) {
-    banner.style.backgroundImage = `url('${a.imagen}')`;
+  const modoBadge = document.getElementById('alertaModoBadgeModal');
+  if (modoBadge) {
+    modoBadge.innerText = `${metaModo.icon} ${metaModo.label}`;
+    modoBadge.style.background = metaModo.bg;
+    modoBadge.style.color = metaModo.color;
+  }
+
+  const banner = document.getElementById('alertaBannerImg');
+  if (alerta.imagen && (String(alerta.imagen).startsWith('http') || String(alerta.imagen).startsWith('data:image'))) {
+    banner.style.backgroundImage = `url('${_safeCssUrl(alerta.imagen)}')`;
     banner.style.display = 'block';
   } else {
+    banner.style.backgroundImage = '';
     banner.style.display = 'none';
   }
+
+  const btnCerrar = document.getElementById('btnCerrarAlerta');
+  btnCerrar.innerText = _normalizarModoAlerta(alerta.modo) === 'PASIVA'
+    ? 'MARCAR COMO LEÍDA'
+    : 'ENTENDIDO (MARCAR COMO LEÍDA)';
+
   document.getElementById('modalAlertaMaestra').classList.add('active');
 }
 
 function procesarAlertaLeida() {
   if (!alertaActualMostrandose) return;
-  
+
   const btn = document.getElementById('btnCerrarAlerta');
   btn.disabled = true;
   btn.innerText = "PROCESANDO...";
 
   api.marcarAlertaComoLeida(alertaActualMostrandose.id, USER_NAME).then(() => {
-      // Ocultar modal
+      filaAlertasPendientes = filaAlertasPendientes.filter(a => a.id !== alertaActualMostrandose.id);
       document.getElementById('modalAlertaMaestra').classList.remove('active');
       btn.disabled = false;
       btn.innerText = "ENTENDIDO (MARCAR COMO LEÍDA)";
       alertaActualMostrandose = null;
-
-      // Checar si hay más y actualizar globos
       hacerPingNotificaciones();
-    }).catch(e => console.error(e));
+    }).catch(e => {
+      console.error(e);
+      btn.disabled = false;
+      btn.innerText = "REINTENTAR";
+    });
 }
 
+function alertaCmd(cmd, value = null) {
+  const editor = _obtenerEditorAlerta();
+  if (!editor) return;
+  _restaurarSeleccionEditorAlerta();
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  if (cmd === 'removeFormat') {
+    document.execCommand('removeFormat', false, null);
+    document.execCommand('unlink', false, null);
+  } else {
+    document.execCommand(cmd, false, value);
+  }
+  _guardarSeleccionEditorAlerta();
+  _actualizarPreviewAlerta();
+}
+
+function alertaFontSize(size) {
+  alertaCmd('fontSize', size);
+}
+
+function alertaInsertHR() {
+  alertaCmd('insertHorizontalRule');
+}
+
+function _renderDestinatariosAlerta() {
+  const lista = document.getElementById('destListaCheckboxes');
+  const soloSelect = document.getElementById('destSoloUsuario');
+  if (!lista || !soloSelect) return;
+
+  const usuarios = _obtenerUsuariosDestinoAlerta();
+  if (!usuarios.length) {
+    lista.innerHTML = `<span style="color:#94a3b8; font-size:12px; font-weight:700; padding:4px;">No hay usuarios cargados todavía.</span>`;
+    soloSelect.innerHTML = `<option value="">No hay usuarios disponibles</option>`;
+    return;
+  }
+
+  const usuariosSet = new Set(usuarios);
+  alertaEditorState.destinatariosSeleccionados = alertaEditorState.destinatariosSeleccionados.filter(usuario => usuariosSet.has(usuario));
+  const seleccionados = new Set(_parseListaAlertaCsv(alertaEditorState.destinatariosSeleccionados.join(',')));
+
+  lista.innerHTML = usuarios.map(usuario => `
+    <label data-usuario="${escapeHtml(usuario.toLowerCase())}" style="display:flex; align-items:center; gap:8px; padding:7px 8px; border-radius:8px; background:#f8fafc; border:1px solid #e2e8f0; cursor:pointer;">
+      <input type="checkbox" data-usuario="${escapeHtml(usuario)}" ${seleccionados.has(usuario) ? 'checked' : ''} onchange="_toggleDestinatarioAlerta(this.dataset.usuario, this.checked)">
+      <span style="font-size:12px; font-weight:700; color:#334155;">${escapeHtml(usuario)}</span>
+    </label>
+  `).join('');
+
+  soloSelect.innerHTML = `<option value="">Seleccionar usuario...</option>` +
+    usuarios.map(usuario => `<option value="${escapeHtml(usuario)}">${escapeHtml(usuario)}</option>`).join('');
+  soloSelect.value = alertaEditorState.destMode === 'SOLO'
+    ? (alertaEditorState.destinatariosSeleccionados[0] || '')
+    : '';
+
+  _filtrarDestinatarios();
+}
+
+function _toggleDestinatarioAlerta(usuario, checked) {
+  const set = new Set(alertaEditorState.destinatariosSeleccionados);
+  if (checked) set.add(String(usuario || '').trim().toUpperCase());
+  else set.delete(String(usuario || '').trim().toUpperCase());
+  alertaEditorState.destinatariosSeleccionados = Array.from(set).sort((a, b) => a.localeCompare(b));
+  _updateBtnEmitir();
+  _actualizarPreviewAlerta();
+}
+
+function _seleccionarUsuarioDestino(usuario) {
+  alertaEditorState.destinatariosSeleccionados = usuario ? [String(usuario).trim().toUpperCase()] : [];
+  _updateBtnEmitir();
+  _actualizarPreviewAlerta();
+}
+
+function _filtrarDestinatarios() {
+  const term = String(document.getElementById('destBuscadorUsuarios')?.value || '').trim().toLowerCase();
+  document.querySelectorAll('#destListaCheckboxes label[data-usuario]').forEach(item => {
+    item.style.display = !term || item.dataset.usuario.includes(term) ? 'flex' : 'none';
+  });
+}
+
+function _pintarBotonDestino(btn, activo, colorActivo) {
+  if (!btn) return;
+  btn.style.borderColor = activo ? colorActivo : '#e2e8f0';
+  btn.style.background = activo ? colorActivo : 'white';
+  btn.style.color = activo ? 'white' : '#64748b';
+}
+
+function _setDestMode(mode) {
+  const normalized = String(mode || '').trim().toUpperCase();
+  alertaEditorState.destMode = normalized === 'SOLO' || normalized === 'SEL' ? normalized : 'GLOBAL';
+
+  if (alertaEditorState.destMode === 'SOLO' && alertaEditorState.destinatariosSeleccionados.length > 1) {
+    alertaEditorState.destinatariosSeleccionados = alertaEditorState.destinatariosSeleccionados.slice(0, 1);
+  }
+
+  const panelSel = document.getElementById('destPanelSel');
+  const panelSolo = document.getElementById('destPanelSolo');
+  _pintarBotonDestino(document.getElementById('destBtnGlobal'), alertaEditorState.destMode === 'GLOBAL', 'var(--mex-blue)');
+  _pintarBotonDestino(document.getElementById('destBtnSel'), alertaEditorState.destMode === 'SEL', '#0f766e');
+  _pintarBotonDestino(document.getElementById('destBtnSolo'), alertaEditorState.destMode === 'SOLO', '#7c3aed');
+
+  if (panelSel) panelSel.style.display = alertaEditorState.destMode === 'SEL' ? 'flex' : 'none';
+  if (panelSolo) panelSolo.style.display = alertaEditorState.destMode === 'SOLO' ? 'block' : 'none';
+
+  _renderDestinatariosAlerta();
+  _updateBtnEmitir();
+  _actualizarPreviewAlerta();
+}
+
+function _selectModo(mode) {
+  const normalized = _normalizarModoAlerta(mode);
+  const inter = document.getElementById('modoCardInterr');
+  const pasiva = document.getElementById('modoCardPasiva');
+  const input = document.getElementById('alertaModoActual');
+  if (input) input.value = normalized;
+
+  if (inter) {
+    inter.style.borderColor = normalized === 'INTERRUPTIVA' ? 'var(--mex-blue)' : '#e2e8f0';
+    inter.style.background = normalized === 'INTERRUPTIVA' ? '#eff6ff' : 'white';
+  }
+  if (pasiva) {
+    pasiva.style.borderColor = normalized === 'PASIVA' ? '#475569' : '#e2e8f0';
+    pasiva.style.background = normalized === 'PASIVA' ? '#f8fafc' : 'white';
+  }
+
+  _updateBtnEmitir();
+  _actualizarPreviewAlerta();
+}
+
+function _updateAlertaTipoStyle() {
+  const select = document.getElementById('alertaNuevaTipo');
+  if (!select) return;
+  const meta = _obtenerMetaTipoAlerta(select.value);
+  select.style.borderColor = meta.border;
+  select.style.background = meta.selectBg;
+  select.style.color = meta.color;
+}
+
+function _actualizarTituloModalAlerta() {
+  const titulo = document.getElementById('tituloModalCrearAlerta');
+  if (titulo) {
+    titulo.innerHTML = `<span class="material-icons" style="font-size:22px; vertical-align:bottom;">campaign</span> ${alertaEditorState.editingId ? 'EDITAR ALERTA MAESTRA' : 'EMITIR ALERTA MAESTRA'}`;
+  }
+
+  const btn = document.getElementById('btnEmitirAlertaGlobal');
+  if (btn) {
+    btn.style.background = alertaEditorState.editingId ? '#1a73e8' : '#ef4444';
+    btn.style.boxShadow = alertaEditorState.editingId
+      ? '0 6px 16px rgba(26,115,232,0.30)'
+      : '0 6px 16px rgba(239,68,68,0.30)';
+  }
+
+  _renderBotonEmitirAlerta();
+}
+
+function _updateBtnEmitir() {
+  const btn = document.getElementById('btnEmitirAlertaGlobal');
+  const txt = document.getElementById('txtBtnEmitir');
+  if (!btn || !txt) return;
+
+  let label = alertaEditorState.editingId ? 'GUARDAR CAMBIOS' : 'EMITIR A TODA LA RED';
+  let destinatariosValidos = true;
+
+  if (alertaEditorState.destMode === 'SEL') {
+    const total = alertaEditorState.destinatariosSeleccionados.length;
+    destinatariosValidos = total > 0;
+    label = total > 0 ? `${alertaEditorState.editingId ? 'GUARDAR PARA' : 'EMITIR A'} ${total} USUARIO${total === 1 ? '' : 'S'}`
+      : 'SELECCIONA USUARIOS';
+  } else if (alertaEditorState.destMode === 'SOLO') {
+    const usuario = alertaEditorState.destinatariosSeleccionados[0] || '';
+    destinatariosValidos = Boolean(usuario);
+    label = usuario
+      ? `${alertaEditorState.editingId ? 'GUARDAR PARA' : 'EMITIR A'} ${usuario}`
+      : 'SELECCIONA UN USUARIO';
+  } else if (alertaEditorState.editingId) {
+    label = 'GUARDAR CAMBIOS GLOBALES';
+  }
+
+  btn.disabled = !destinatariosValidos;
+  btn.style.opacity = destinatariosValidos ? '1' : '0.65';
+  txt.innerText = label;
+}
+
+function _actualizarPreviewAlerta() {
+  const tipo = document.getElementById('alertaNuevaTipo')?.value || 'URGENTE';
+  const titulo = document.getElementById('alertaNuevaTitulo')?.value.trim() || '';
+  const imagen = document.getElementById('alertaNuevaImagen')?.value.trim() || '';
+  const modo = document.getElementById('alertaModoActual')?.value || 'INTERRUPTIVA';
+  const html = _sanitizarHtmlAlerta(_obtenerEditorAlerta()?.innerHTML || '');
+
+  const metaTipo = _obtenerMetaTipoAlerta(tipo);
+  const metaModo = _obtenerMetaModoAlerta(modo);
+
+  const badge = document.getElementById('alertaPreviewBadge');
+  if (badge) {
+    badge.innerText = metaTipo.label;
+    badge.style.background = metaTipo.bg;
+    badge.style.color = metaTipo.color;
+  }
+
+  const badgeModo = document.getElementById('alertaPreviewModoBadge');
+  if (badgeModo) {
+    badgeModo.innerText = `${metaModo.icon} ${metaModo.label}`;
+    badgeModo.style.background = metaModo.bg;
+    badgeModo.style.color = metaModo.color;
+  }
+
+  const tituloPreview = document.getElementById('alertaPreviewTitulo');
+  if (tituloPreview) tituloPreview.innerText = titulo || 'Sin título';
+
+  const mensajePreview = document.getElementById('alertaPreviewMensaje');
+  if (mensajePreview) {
+    mensajePreview.innerHTML = html || `<span style="color:#94a3b8;">Diseña aquí el cuerpo de la alerta y aparecerá la vista previa.</span>`;
+  }
+
+  const autorPreview = document.getElementById('alertaPreviewAutor');
+  if (autorPreview) autorPreview.innerText = USER_NAME || 'TÚ';
+
+  const bannerPreview = document.getElementById('alertaPreviewBanner');
+  if (bannerPreview) {
+    if (imagen && (imagen.startsWith('http') || imagen.startsWith('data:image'))) {
+      bannerPreview.style.height = '110px';
+      bannerPreview.style.backgroundImage = `url('${_safeCssUrl(imagen)}')`;
+    } else {
+      bannerPreview.style.height = '0';
+      bannerPreview.style.backgroundImage = '';
+    }
+  }
+}
+
+function limpiarImagenAlerta() {
+  const fileInput = document.getElementById('alertaFile');
+  const hidden = document.getElementById('alertaNuevaImagen');
+  const texto = document.getElementById('textoUploadAlerta');
+  if (fileInput) fileInput.value = '';
+  if (hidden) hidden.value = '';
+  if (texto) {
+    texto.innerText = 'Seleccionar imagen...';
+    texto.style.color = '#64748b';
+  }
+  _actualizarPreviewAlerta();
+}
+
+async function _cargarPlantillasAlerta() {
+  const select = document.getElementById('alertaPlantillasSelect');
+  if (!select) return;
+  select.disabled = true;
+  select.innerHTML = `<option value="">📂 Cargando plantillas...</option>`;
+
+  try {
+    alertasPlantillasCache = await api.obtenerPlantillasAlerta() || [];
+    select.innerHTML = `<option value="">📂 Cargar plantilla...</option>` +
+      alertasPlantillasCache.map(p => `<option value="${escapeHtml(p.id)}">${escapeHtml(p.nombre || 'Plantilla')}</option>`).join('');
+  } catch (error) {
+    console.error(error);
+    select.innerHTML = `<option value="">No se pudieron cargar</option>`;
+  } finally {
+    select.disabled = false;
+  }
+}
+
+function cargarPlantillaSeleccionada() {
+  const select = document.getElementById('alertaPlantillasSelect');
+  const plantilla = alertasPlantillasCache.find(item => item.id === select?.value);
+  if (!plantilla) return;
+
+  document.getElementById('alertaNuevaTipo').value = plantilla.tipo || 'INFO';
+  document.getElementById('alertaNuevaTitulo').value = plantilla.titulo || '';
+  _obtenerEditorAlerta().innerHTML = _normalizarMensajeAlertaHtml(plantilla.mensaje);
+  _selectModo(plantilla.modo || 'INTERRUPTIVA');
+  _updateAlertaTipoStyle();
+  _actualizarPreviewAlerta();
+  showToast(`Plantilla "${plantilla.nombre}" cargada`, 'success');
+}
+
+async function guardarComoPlantilla() {
+  if (!canEmitMasterAlerts()) {
+    showToast("Tu rol no puede guardar plantillas de alertas.", "error");
+    return;
+  }
+
+  const tipo = document.getElementById('alertaNuevaTipo').value;
+  const titulo = document.getElementById('alertaNuevaTitulo').value.trim();
+  const mensaje = _sanitizarHtmlAlerta(_obtenerEditorAlerta()?.innerHTML || '');
+  const mensajePlano = _obtenerTextoPlanoAlerta(mensaje);
+  const modo = document.getElementById('alertaModoActual').value || 'INTERRUPTIVA';
+
+  if (!titulo && !mensajePlano) {
+    showToast("Primero diseña la alerta antes de guardar una plantilla.", "error");
+    return;
+  }
+
+  const sugerencia = titulo ? `Plantilla ${titulo}` : 'Nueva plantilla';
+  const nombre = prompt('Nombre para la plantilla:', sugerencia);
+  if (!nombre || !nombre.trim()) return;
+
+  try {
+    const res = await api.guardarPlantillaAlerta(nombre.trim(), tipo, titulo || 'Sin título', mensaje, modo, USER_NAME);
+    if (res === 'EXITO') {
+      await _cargarPlantillasAlerta();
+      showToast("Plantilla guardada", "success");
+    } else {
+      showToast(res, "error");
+    }
+  } catch (error) {
+    console.error(error);
+    showToast("No se pudo guardar la plantilla.", "error");
+  }
+}
+
+function _prepararFormularioAlerta(alerta = null) {
+  alertaEditorState.editingId = alerta && alerta.id ? alerta.id : '';
+  alertaEditorState.destMode = alerta ? _inferirModoDestinatariosAlerta(alerta) : 'GLOBAL';
+  alertaEditorState.destinatariosSeleccionados = alerta
+    ? _parseListaAlertaCsv(alerta.destinatarios).filter(item => item !== 'GLOBAL')
+    : [];
+
+  document.getElementById('alertaNuevaTipo').value = alerta?.tipo || 'URGENTE';
+  document.getElementById('alertaNuevaTitulo').value = alerta?.titulo || '';
+  document.getElementById('alertaNuevaImagen').value = alerta?.imagen || '';
+  document.getElementById('alertaFile').value = '';
+
+  const editor = _obtenerEditorAlerta();
+  editor.innerHTML = _normalizarMensajeAlertaHtml(alerta?.mensaje || '');
+  if (!editor.innerHTML.trim()) editor.innerHTML = '';
+  _colocarCursorFinalAlerta(editor);
+
+  const textoUpload = document.getElementById('textoUploadAlerta');
+  if (alerta?.imagen) {
+    textoUpload.innerText = 'Imagen actual cargada';
+    textoUpload.style.color = '#1a73e8';
+  } else {
+    textoUpload.innerText = 'Seleccionar imagen...';
+    textoUpload.style.color = '#64748b';
+  }
+
+  _renderDestinatariosAlerta();
+  _setDestMode(alertaEditorState.destMode);
+  if (alertaEditorState.destMode === 'SOLO') {
+    const soloSelect = document.getElementById('destSoloUsuario');
+    soloSelect.value = alertaEditorState.destinatariosSeleccionados[0] || '';
+  }
+  _selectModo(alerta?.modo || 'INTERRUPTIVA');
+  _updateAlertaTipoStyle();
+  _actualizarTituloModalAlerta();
+  _actualizarPreviewAlerta();
+}
 
 // Función para abrir el modal de creación
-function abrirCreadorAlertas() {
-  toggleAdminSidebar();
-  document.getElementById('crear-alerta-modal').classList.add('active');
-  document.getElementById('alertaNuevaTitulo').value = "";
-  document.getElementById('alertaNuevaMensaje').value = "";
-  document.getElementById('alertaNuevaImagen').value = "";
-
-document.getElementById('alertaFile').value = "";
-document.getElementById('textoUploadAlerta').innerText = "Seleccionar imagen de la PC...";
-document.getElementById('textoUploadAlerta').style.color = "#64748b";
-}
-
-// Función que manda la alerta al backend
-function emitirAlertaGlobal() {
+function abrirCreadorAlertas(alerta = null) {
   if (!canEmitMasterAlerts()) {
     showToast("Tu rol no puede emitir alertas maestras.", "error");
     return;
   }
+
+  const adminSidebar = document.getElementById('admin-sidebar');
+  if (adminSidebar?.classList.contains('open')) toggleAdminSidebar();
+  document.getElementById('gestor-alertas-modal').classList.remove('active');
+  document.getElementById('crear-alerta-modal').classList.add('active');
+  _asegurarBindingsEditorAlerta();
+  _prepararFormularioAlerta(alerta);
+  _cargarPlantillasAlerta();
+}
+
+// Función que manda la alerta al backend
+async function emitirAlertaGlobal() {
+  if (!canEmitMasterAlerts()) {
+    showToast("Tu rol no puede emitir alertas maestras.", "error");
+    return;
+  }
+
   const tipo = document.getElementById('alertaNuevaTipo').value;
   const titulo = document.getElementById('alertaNuevaTitulo').value.trim();
-  const mensaje = document.getElementById('alertaNuevaMensaje').value.trim();
+  const mensaje = _sanitizarHtmlAlerta(_obtenerEditorAlerta()?.innerHTML || '');
+  const mensajePlano = _obtenerTextoPlanoAlerta(mensaje);
   const imagen = document.getElementById('alertaNuevaImagen').value.trim();
+  const modo = _normalizarModoAlerta(document.getElementById('alertaModoActual').value);
   const btn = document.getElementById('btnEmitirAlertaGlobal');
 
-  if (!titulo || !mensaje) return showToast("Título y Mensaje son obligatorios", "error");
+  let destinatarios = 'GLOBAL';
+  const destinatariosSeleccionados = _parseListaAlertaCsv(alertaEditorState.destinatariosSeleccionados.join(','));
+
+  if (alertaEditorState.destMode === 'SEL') {
+    if (destinatariosSeleccionados.length === 0) return showToast("Selecciona al menos un usuario.", "error");
+    destinatarios = destinatariosSeleccionados.join(', ');
+  }
+
+  if (alertaEditorState.destMode === 'SOLO') {
+    const solo = destinatariosSeleccionados[0];
+    if (!solo) return showToast("Selecciona el usuario destinatario.", "error");
+    destinatarios = solo;
+  }
+
+  if (!titulo || !mensajePlano) {
+    return showToast("Título y cuerpo del mensaje son obligatorios.", "error");
+  }
 
   btn.disabled = true;
-  btn.innerHTML = `<span class="material-icons spinner">sync</span> PROCESANDO...`;
+  btn.innerHTML = `<span class="material-icons spinner">sync</span> ${alertaEditorState.editingId ? 'GUARDANDO...' : 'EMITIENDO...'}`;
 
-  api.emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, USER_NAME).then(res => {
-      btn.disabled = false;
-      btn.innerHTML = `<span class="material-icons">send</span> EMITIR A TODA LA RED`;
+  try {
+    const res = alertaEditorState.editingId
+      ? await api.actualizarAlertaMaestra(alertaEditorState.editingId, {
+          tipo,
+          titulo,
+          mensaje,
+          imagen,
+          modo,
+          destinatarios,
+          destMode: alertaEditorState.destMode
+        }, USER_NAME)
+      : await api.emitirNuevaAlertaMaestra(
+          tipo,
+          titulo,
+          mensaje,
+          imagen,
+          USER_NAME,
+          destinatarios,
+          modo,
+          { destMode: alertaEditorState.destMode }
+        );
 
-      if (res === "EXITO") {
-        showToast("¡Alerta disparada a toda la red!", "success");
-        document.getElementById('crear-alerta-modal').classList.remove('active');
-        hacerPingNotificaciones(); // Forzamos un escaneo para que a él también le salga su propia alerta
-      } else {
-        showToast(res, "error");
-      }
-    }).catch(e => console.error(e));
+    _actualizarTituloModalAlerta();
+
+    if (res === "EXITO") {
+      showToast(alertaEditorState.editingId ? "Alerta actualizada correctamente." : "¡Alerta disparada a la red!", "success");
+      document.getElementById('crear-alerta-modal').classList.remove('active');
+      historialAlertasCache = [];
+      hacerPingNotificaciones();
+    } else {
+      showToast(res, "error");
+    }
+  } catch (e) {
+    console.error(e);
+    showToast("No se pudo guardar la alerta.", "error");
+    _actualizarTituloModalAlerta();
+  }
 }
 
 // ==========================================
@@ -7375,89 +8038,168 @@ function comprimirImagenAlerta(event) {
 
 
 function abrirGestorAlertas() {
-  toggleAdminSidebar();
+  if (!canEmitMasterAlerts()) {
+    showToast("Tu rol no puede consultar el historial de alertas.", "error");
+    return;
+  }
+
+  const adminSidebar = document.getElementById('admin-sidebar');
+  if (adminSidebar?.classList.contains('open')) toggleAdminSidebar();
   document.getElementById('gestor-alertas-modal').classList.add('active');
+  document.getElementById('alertaHistStatsBar').innerHTML = `<span style="font-size:12px; color:#94a3b8; font-weight:700;">Cargando métricas...</span>`;
   document.getElementById('listaHistorialAlertas').innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:700;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando historial...</div>`;
-  
+
   api.obtenerTodasLasAlertas().then(alertas => {
-      // 🛡️ ESCUDO: Si por alguna razón Google manda null, lo convertimos en un arreglo vacío
-      if (!alertas) alertas = [];
-
-      const contenedor = document.getElementById('listaHistorialAlertas');
-      
-      if (alertas.length === 0) {
-        contenedor.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:700;">No hay alertas en el historial.</div>`;
-        return;
-      }
-
-      contenedor.innerHTML = alertas.map(a => {
-        let colorBadge = "#e0f2fe"; let colorTxt = "#0284c7";
-        if (a.tipo === "URGENTE") { colorBadge = "#fee2e2"; colorTxt = "#ef4444"; }
-        if (a.tipo === "WARNING") { colorBadge = "#fef3c7"; colorTxt = "#d97706"; }
-
-        let arrayLectores = a.leidoPor ? a.leidoPor.split(',').map(s => s.trim()).filter(s => s) : [];
-        let cantidadLectores = arrayLectores.length;
-        let lectoresSeguros = a.leidoPor ? a.leidoPor.replace(/'/g, "\\'") : "";
-        
-        let destIcon = "public";
-        let destText = "GLOBAL";
-        if (a.destinatarios && a.destinatarios !== "GLOBAL") {
-            const dests = a.destinatarios.split(',');
-            if (dests.length > 1) { destIcon = "groups"; destText = dests.length + " USUARIOS"; }
-            else { destIcon = "person"; destText = "1 USUARIO"; }
-        }
-
-        let modoIcon = (!a.modo || a.modo === "INTERRUPTIVA") ? "bolt" : "notifications";
-
-        return `
-          <div style="background: white; border-radius: 12px; padding: 18px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.03); display: flex; flex-direction: column; gap: 12px; transition: 0.2s;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <span style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 6px; background: ${colorBadge}; color: ${colorTxt}; letter-spacing: 1px;">${a.tipo}</span>
-                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;"><span class="material-icons" style="font-size: 14px;">${modoIcon}</span> ${a.modo || "INTERRUPTIVA"}</span>
-                <span style="font-size: 11px; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; display: flex; align-items: center; gap: 4px;"><span class="material-icons" style="font-size: 14px;">${destIcon}</span> ${destText}</span>
-              </div>
-              <span style="font-size: 11px; color: #94a3b8; font-weight: 700;">${a.fecha}</span>
-            </div>
-            
-            <div>
-                <h3 style="margin: 0 0 4px 0; color: var(--mex-blue); font-size: 16px;">${a.titulo}</h3>
-                <div style="font-size: 11px; color: #64748b; font-weight: 700;">Enviado por: <span style="color: var(--primary);">${a.autor}</span></div>
-            </div>
-
-            <div style="font-size: 13px; color: #475569; background: #f8fafc; padding: 12px; border-radius: 8px; border-left: 3px solid #e2e8f0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">
-              ${a.mensaje}
-            </div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 5px;">
-              
-              <button onclick="verLectoresAlerta('${lectoresSeguros}')" style="background: white; border: 1px solid #cbd5e1; padding: 8px 12px; border-radius: 8px; font-size: 11px; font-weight: 800; color: var(--primary); cursor: pointer; display: flex; align-items: center; gap: 6px; transition: 0.2s;">
-                <span class="material-icons" style="font-size: 14px;">visibility</span> LEÍDO POR ${cantidadLectores}
-              </button>
-
-              <button onclick="eliminarAlertaDesdeHistorial('${a.id}')" style="background: transparent; border: none; padding: 8px; border-radius: 8px; font-size: 11px; font-weight: 800; color: #ef4444; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: 0.2s;">
-                <span class="material-icons" style="font-size: 16px;">delete</span> BORRAR
-              </button>
-
-            </div>
-          </div>
-        `;
-      }).join('');
-    }).catch(e => console.error(e));
+      historialAlertasCache = (alertas || []).map(alerta => ({
+        ...alerta,
+        mensaje: _normalizarMensajeAlertaHtml(alerta.mensaje)
+      }));
+      _renderHistorialAlertas();
+    }).catch(e => {
+      console.error(e);
+      document.getElementById('listaHistorialAlertas').innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626; font-weight:700;">No se pudo cargar el historial.</div>`;
+      document.getElementById('alertaHistStatsBar').innerHTML = `<span style="font-size:12px; color:#dc2626; font-weight:800;">Error al cargar métricas</span>`;
+    });
 }
 
-function verLectoresAlerta(lectoresStr) {
-  let texto = "Nadie ha confirmado la lectura aún.";
-  if (lectoresStr && lectoresStr.trim() !== "") {
-    texto = "Han confirmado de enterados:\n\n• " + lectoresStr.split(',').map(s => s.trim()).join('\n• ');
+function _limpiarFiltrosHistAlertas() {
+  const buscador = document.getElementById('alertaHistBuscador');
+  const tipo = document.getElementById('alertaHistTipo');
+  const modo = document.getElementById('alertaHistModo');
+  if (buscador) buscador.value = '';
+  if (tipo) tipo.value = '';
+  if (modo) modo.value = '';
+  _renderHistorialAlertas();
+}
+
+function _renderHistorialAlertas() {
+  const contenedor = document.getElementById('listaHistorialAlertas');
+  const stats = document.getElementById('alertaHistStatsBar');
+  if (!contenedor || !stats) return;
+
+  const term = String(document.getElementById('alertaHistBuscador')?.value || '').trim().toLowerCase();
+  const filtroTipo = String(document.getElementById('alertaHistTipo')?.value || '').trim().toUpperCase();
+  const filtroModo = String(document.getElementById('alertaHistModo')?.value || '').trim().toUpperCase();
+
+  const filtradas = historialAlertasCache.filter(alerta => {
+    const resumenDest = _obtenerResumenDestinatariosAlerta(alerta);
+    const textoBusqueda = [
+      alerta.titulo || '',
+      alerta.autor || '',
+      resumenDest.label,
+      resumenDest.detail,
+      _obtenerTextoPlanoAlerta(alerta.mensaje)
+    ].join(' ').toLowerCase();
+
+    const coincideTipo = !filtroTipo || String(alerta.tipo || '').toUpperCase() === filtroTipo;
+    const coincideModo = !filtroModo || _normalizarModoAlerta(alerta.modo) === filtroModo;
+    const coincideTexto = !term || textoBusqueda.includes(term);
+    return coincideTipo && coincideModo && coincideTexto;
+  });
+
+  const total = historialAlertasCache.length;
+  const interruptivas = historialAlertasCache.filter(alerta => _normalizarModoAlerta(alerta.modo) === 'INTERRUPTIVA').length;
+  const pasivas = total - interruptivas;
+  const globales = historialAlertasCache.filter(alerta => _inferirModoDestinatariosAlerta(alerta) === 'GLOBAL').length;
+
+  stats.innerHTML = `
+    <span style="padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:900;">${total} TOTAL</span>
+    <span style="padding:6px 10px; border-radius:999px; background:#ecfeff; color:#0f766e; font-size:11px; font-weight:900;">${filtradas.length} FILTRADAS</span>
+    <span style="padding:6px 10px; border-radius:999px; background:#fef2f2; color:#dc2626; font-size:11px; font-weight:900;">${interruptivas} INTERRUPTIVAS</span>
+    <span style="padding:6px 10px; border-radius:999px; background:#f8fafc; color:#475569; font-size:11px; font-weight:900;">${pasivas} PASIVAS</span>
+    <span style="padding:6px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:900;">${globales} GLOBALES</span>
+  `;
+
+  if (filtradas.length === 0) {
+    contenedor.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:700;">No hay alertas que coincidan con los filtros actuales.</div>`;
+    return;
   }
-  
-  // Reutilizamos tu modal de confirmación, ajustando el texto para que preserve los saltos de línea
-  document.getElementById('modalText').style.whiteSpace = 'pre-wrap'; // Permite saltos de línea
+
+  contenedor.innerHTML = filtradas.map(alerta => {
+    const metaTipo = _obtenerMetaTipoAlerta(alerta.tipo);
+    const metaModo = _obtenerMetaModoAlerta(alerta.modo);
+    const resumenDest = _obtenerResumenDestinatariosAlerta(alerta);
+    const lectores = _parseListaAlertaCsv(alerta.leidoPor);
+    const editadaInfo = alerta.editadoEn
+      ? `<div style="font-size:11px; color:#64748b; font-weight:700;">Editada por <span style="color:#1a73e8;">${escapeHtml(alerta.editadoPor || 'Sistema')}</span> · ${escapeHtml(alerta.editadoEn)}</div>`
+      : '';
+    const imagen = alerta.imagen
+      ? `<div style="width:100%; height:130px; border-radius:12px; background-image:url('${_safeCssUrl(alerta.imagen)}'); background-size:cover; background-position:center;"></div>`
+      : '';
+
+    return `
+      <div style="background:white; border-radius:16px; padding:18px; border:1px solid #dbe4f0; box-shadow:0 10px 30px rgba(15,23,42,0.06); display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${metaTipo.bg}; color:${metaTipo.color}; letter-spacing:0.8px;">${metaTipo.label}</span>
+            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${metaModo.bg}; color:${metaModo.color}; letter-spacing:0.8px;">${metaModo.icon} ${metaModo.label}</span>
+            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:#f8fafc; color:#475569; letter-spacing:0.8px; display:flex; align-items:center; gap:4px;">
+              <span class="material-icons" style="font-size:13px;">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}
+            </span>
+          </div>
+          <div style="text-align:right; min-width:145px;">
+            <div style="font-size:11px; color:#64748b; font-weight:900;">${escapeHtml(alerta.fecha || 'Sin fecha')}</div>
+            <div style="font-size:10px; color:#94a3b8; font-weight:700;">${lectores.length} lectura${lectores.length === 1 ? '' : 's'}</div>
+          </div>
+        </div>
+
+        ${imagen}
+
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
+          <div style="flex:1; min-width:220px;">
+            <h3 style="margin:0 0 6px; color:#163a63; font-size:18px; line-height:1.2;">${escapeHtml(alerta.titulo || 'Sin título')}</h3>
+            <div style="font-size:12px; color:#64748b; font-weight:800; margin-bottom:4px;">Emitida por <span style="color:#1a73e8;">${escapeHtml(alerta.autor || 'Sistema')}</span></div>
+            ${editadaInfo}
+          </div>
+          <div style="min-width:180px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px;">
+            <div style="font-size:10px; color:#94a3b8; font-weight:900; letter-spacing:0.8px; margin-bottom:6px;">ALCANCE</div>
+            <div style="font-size:12px; color:#334155; font-weight:800;">${escapeHtml(resumenDest.detail)}</div>
+          </div>
+        </div>
+
+        <details style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px;">
+          <summary style="cursor:pointer; font-size:12px; font-weight:900; color:#334155; letter-spacing:0.5px;">VER CUERPO COMPLETO</summary>
+          <div style="margin-top:12px; font-size:14px; color:#334155; line-height:1.7;">
+            ${alerta.mensaje || `<div style="color:#94a3b8;">Sin contenido.</div>`}
+          </div>
+        </details>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+          <button onclick="verLectoresAlerta('${alerta.id}')" style="background:white; border:1px solid #cbd5e1; padding:9px 12px; border-radius:10px; font-size:11px; font-weight:900; color:#0f172a; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <span class="material-icons" style="font-size:14px;">visibility</span> LEÍDO POR ${lectores.length}
+          </button>
+          <button onclick="editarAlertaDesdeHistorial('${alerta.id}')" style="background:#eff6ff; border:1px solid #bfdbfe; padding:9px 12px; border-radius:10px; font-size:11px; font-weight:900; color:#1d4ed8; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <span class="material-icons" style="font-size:14px;">edit</span> EDITAR
+          </button>
+          <button onclick="eliminarAlertaDesdeHistorial('${alerta.id}')" style="background:#fef2f2; border:1px solid #fecaca; padding:9px 12px; border-radius:10px; font-size:11px; font-weight:900; color:#dc2626; cursor:pointer; display:flex; align-items:center; gap:6px;">
+            <span class="material-icons" style="font-size:14px;">delete</span> BORRAR
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function editarAlertaDesdeHistorial(idAlerta) {
+  const alerta = historialAlertasCache.find(item => item.id === idAlerta);
+  if (!alerta) {
+    showToast("No encontré la alerta para editar.", "error");
+    return;
+  }
+  abrirCreadorAlertas(alerta);
+}
+
+function verLectoresAlerta(idAlerta) {
+  const alerta = historialAlertasCache.find(item => item.id === idAlerta);
+  const lectores = _parseListaAlertaCsv(alerta && alerta.leidoPor);
+  let texto = "Nadie ha confirmado la lectura aún.";
+  if (lectores.length > 0) {
+    texto = "Han confirmado de enterados:\n\n• " + lectores.join('\n• ');
+  }
+
+  document.getElementById('modalText').style.whiteSpace = 'pre-wrap';
   mostrarCustomModal("Reporte de Lecturas", texto, "visibility", "var(--mex-blue)", "CERRAR", "#64748b", null);
-  
-  // Limpiamos el whiteSpace cuando se cierre para no afectar otras confirmaciones
-  setTimeout(() => { document.getElementById('modalText').style.whiteSpace = 'normal'; }, 5000); 
+  setTimeout(() => { document.getElementById('modalText').style.whiteSpace = 'normal'; }, 5000);
 }
 
 function eliminarAlertaDesdeHistorial(idAlerta) {
@@ -11680,7 +12422,10 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
     
     <div style="padding: 25px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <span id="alertaTipo" style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 50px; background: #fee2e2; color: #ef4444; letter-spacing: 1px;">URGENTE</span>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span id="alertaTipo" style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 50px; background: #fee2e2; color: #ef4444; letter-spacing: 1px;">URGENTE</span>
+          <span id="alertaModoBadgeModal" style="font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 50px; background: #eff6ff; color: #1a73e8; letter-spacing: 0.6px;">⚡ INTERRUPTIVA</span>
+        </div>
         <span id="alertaFecha" style="font-size: 11px; color: #64748b; font-weight: 700;">--</span>
       </div>
       

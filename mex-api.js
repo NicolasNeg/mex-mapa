@@ -75,6 +75,52 @@ function _fecha(data) {
   return data.fecha || "";
 }
 
+function _splitAlertCsv(value) {
+  return Array.from(new Set(
+    String(value || "")
+      .split(",")
+      .map(item => item.trim().toUpperCase())
+      .filter(Boolean)
+  ));
+}
+
+function _serializeAlertCsv(value) {
+  if (Array.isArray(value)) return _splitAlertCsv(value.join(",")).join(", ");
+  const normalized = _splitAlertCsv(value);
+  return normalized.length ? normalized.join(", ") : "GLOBAL";
+}
+
+function _normalizeAlertType(tipo) {
+  const normalized = String(tipo || "").trim().toUpperCase();
+  return normalized === "URGENTE" || normalized === "WARNING" ? normalized : "INFO";
+}
+
+function _normalizeAlertMode(modo) {
+  return String(modo || "").trim().toUpperCase() === "PASIVA" ? "PASIVA" : "INTERRUPTIVA";
+}
+
+function _normalizeAlertDestMode(destMode, destinatarios) {
+  const explicit = String(destMode || "").trim().toUpperCase();
+  if (explicit === "GLOBAL" || explicit === "SEL" || explicit === "SOLO") return explicit;
+  const lista = _splitAlertCsv(destinatarios).filter(item => item !== "GLOBAL");
+  if (!lista.length) return "GLOBAL";
+  return lista.length === 1 ? "SOLO" : "SEL";
+}
+
+function _alertMatchesUser(alerta, usuarioActivo) {
+  const usuario = String(usuarioActivo || "").trim().toUpperCase();
+  if (!usuario) return false;
+  const destinatarios = _splitAlertCsv(alerta && alerta.destinatarios).filter(item => item !== "GLOBAL");
+  if (!destinatarios.length) return true;
+  return destinatarios.includes(usuario);
+}
+
+function _alertReadByUser(alerta, usuarioActivo) {
+  const usuario = String(usuarioActivo || "").trim().toUpperCase();
+  if (!usuario) return false;
+  return _splitAlertCsv(alerta && alerta.leidoPor).includes(usuario);
+}
+
 function _sanitizeRole(role) {
   const normalized = String(role || "").trim().toUpperCase();
   return ACCESS_ROLE_META[normalized] ? normalized : null;
@@ -584,11 +630,8 @@ const API_FUNCTIONS = {
       db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get()
     ]);
     const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(a => !(a.leidoPor || "").includes(usuarioActivo))
-      .filter(a => {
-        if (!a.destinatarios || a.destinatarios === "GLOBAL") return true;
-        return a.destinatarios.split(',').map(s => s.trim().toUpperCase()).includes(usuarioActivo.toUpperCase());
-      });
+      .filter(a => !_alertReadByUser(a, usuarioActivo))
+      .filter(a => _alertMatchesUser(a, usuarioActivo));
     const mensajesSinLeer = msgsSnap.docs.filter(d => d.data().leido !== "SI").length;
     let liveFeed = settings.liveFeed || [];
     if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
@@ -615,12 +658,21 @@ const API_FUNCTIONS = {
   },
 
   // ─── ALERTAS ─────────────────────────────────────────────
-  async emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, autor, destinatarios, modo) {
+  async emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, autor, destinatarios, modo, meta = {}) {
+    const destinatariosNormalizados = _serializeAlertCsv(destinatarios);
     await db.collection(COL.ALERTAS).add({
-      timestamp: _ts(), fecha: _now(), autor, tipo, titulo, mensaje,
-      imagen: imagen || "", leidoPor: "",
-      destinatarios: destinatarios || "GLOBAL",
-      modo: modo || "INTERRUPTIVA"
+      timestamp: _ts(),
+      fecha: _now(),
+      autor: _sanitizeText(autor) || "Sistema",
+      tipo: _normalizeAlertType(tipo),
+      titulo: _sanitizeText(titulo),
+      mensaje: String(mensaje || "").trim(),
+      imagen: String(imagen || "").trim(),
+      leidoPor: "",
+      destinatarios: destinatariosNormalizados,
+      destMode: _normalizeAlertDestMode(meta.destMode, destinatariosNormalizados),
+      modo: _normalizeAlertMode(modo),
+      version: 1
     });
     await _registrarEventoGestion("ALERTA_EMITIDA", `Emitió alerta maestra "${titulo}" (${tipo})`, autor, {
       entidad: "ALERTAS",
@@ -632,9 +684,51 @@ const API_FUNCTIONS = {
     const ref = db.collection(COL.ALERTAS).doc(idAlerta);
     const snap = await ref.get();
     if (!snap.exists) return "ERROR";
-    const actual = snap.data().leidoPor || "";
-    await ref.update({ leidoPor: actual ? actual + ", " + usuarioActivo : usuarioActivo });
+    const lectores = _splitAlertCsv(snap.data().leidoPor);
+    const usuario = String(usuarioActivo || "").trim().toUpperCase();
+    if (!usuario) return "ERROR";
+    if (!lectores.includes(usuario)) lectores.push(usuario);
+    await ref.update({ leidoPor: lectores.join(", ") });
     return "OK";
+  },
+  async actualizarAlertaMaestra(idAlerta, cambios = {}, actor = "Sistema") {
+    const ref = db.collection(COL.ALERTAS).doc(idAlerta);
+    const snap = await ref.get();
+    if (!snap.exists) return "ERROR: Alerta no encontrada";
+
+    const actual = snap.data() || {};
+    const destinatarios = _serializeAlertCsv(cambios.destinatarios || actual.destinatarios || "GLOBAL");
+    const tipo = _normalizeAlertType(cambios.tipo || actual.tipo);
+    const titulo = _sanitizeText(cambios.titulo || actual.titulo);
+    const mensaje = String(cambios.mensaje ?? actual.mensaje ?? "").trim();
+    const imagen = String(cambios.imagen ?? actual.imagen ?? "").trim();
+    const modo = _normalizeAlertMode(cambios.modo || actual.modo);
+    const destMode = _normalizeAlertDestMode(cambios.destMode || actual.destMode, destinatarios);
+    const ahora = _now();
+    const nuevoTimestamp = _ts();
+
+    await ref.update({
+      timestamp: nuevoTimestamp,
+      fecha: ahora,
+      tipo,
+      titulo,
+      mensaje,
+      imagen,
+      destinatarios,
+      destMode,
+      modo,
+      leidoPor: "",
+      editadoPor: _sanitizeText(actor) || "Sistema",
+      editadoEn: ahora,
+      version: Number(actual.version || 1) + 1
+    });
+
+    await _registrarEventoGestion("ALERTA_EDITADA", `Editó alerta maestra "${titulo}" (${tipo})`, actor, {
+      entidad: "ALERTAS",
+      referencia: idAlerta,
+      detalles: `Modo ${modo} · Destino ${destMode}`
+    });
+    return "EXITO";
   },
   async obtenerTodasLasAlertas() {
     const snap = await db.collection(COL.ALERTAS).orderBy("timestamp", "desc").get();
