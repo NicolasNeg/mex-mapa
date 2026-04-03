@@ -1543,6 +1543,375 @@ header {
     .inc-tab.active { background: white; color: var(--mex-accent); box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
     .inc-content { display: none; animation: fadeIn 0.4s ease; }
     .inc-content.active { display: block; }
+
+    /* --- STUDIO ALERTAS MAESTRAS --- */
+    .alerta-scroll-thin { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
+    .alerta-scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
+    .alerta-scroll-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 999px; }
+    .alerta-scroll-thin::-webkit-scrollbar-track { background: transparent; }
+
+    .alerta-studio-layout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+      align-items: stretch;
+    }
+    .alerta-config-card,
+    .alerta-editor-card {
+      background: white;
+      border-radius: 22px;
+      border: 1px solid #dbe4f0;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.07);
+    }
+    .alerta-config-card {
+      flex: 0 0 330px;
+      min-width: 270px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .alerta-editor-card {
+      flex: 1;
+      min-width: 320px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+    }
+    .alerta-editor-topline {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .alerta-live-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #0f172a;
+      color: white;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      box-shadow: 0 12px 26px rgba(15, 23, 42, 0.2);
+      text-transform: uppercase;
+    }
+    .alerta-live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45);
+      animation: alertLivePulse 1.8s infinite;
+    }
+    @keyframes alertLivePulse {
+      0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); }
+      70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .alerta-editor-shell {
+      display: flex;
+      flex-direction: column;
+      min-height: 370px;
+      border-radius: 20px;
+      overflow: hidden;
+      border: 1px solid #dbe4f0;
+      background: white;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+    .alerta-editor-info {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      background: linear-gradient(180deg, #fff7f7 0%, #ffffff 100%);
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .alerta-editor-info strong {
+      display: block;
+      font-size: 12px;
+      font-weight: 900;
+      color: #0f172a;
+      letter-spacing: 0.3px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+    .alerta-editor-info span {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      line-height: 1.45;
+    }
+    .alerta-editor-destino {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 900;
+      white-space: nowrap;
+    }
+    .alerta-editor-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+      padding: 10px;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+      align-items: center;
+    }
+    .alerta-rich-editor {
+      min-height: 230px;
+      max-height: 340px;
+      overflow-y: auto;
+      padding: 16px;
+      font-family: 'Inter', sans-serif;
+      font-size: 14px;
+      color: #334155;
+      line-height: 1.75;
+      outline: none;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+    }
+    .alerta-editor-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 12px 16px;
+      border-top: 1px solid #e2e8f0;
+      background: #f8fafc;
+      font-size: 11px;
+      font-weight: 800;
+      color: #64748b;
+    }
+    .alerta-preview-shell {
+      border-radius: 28px;
+      padding: 18px;
+      background: linear-gradient(180deg, #0b1220 0%, #111827 100%);
+      box-shadow: 0 28px 60px rgba(15, 23, 42, 0.22);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .alerta-preview-caption {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: rgba(255,255,255,0.88);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .alerta-preview-card {
+      width: 100%;
+      max-width: 470px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 30px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      max-height: 660px;
+      box-shadow: 0 35px 80px rgba(0, 0, 0, 0.28);
+    }
+    .alerta-preview-banner {
+      width: 100%;
+      height: 180px;
+      background-size: cover;
+      background-position: center;
+      background-color: #0f172a;
+      display: none;
+      position: relative;
+      flex-shrink: 0;
+    }
+    .alerta-preview-banner::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(15,23,42,0.06) 0%, rgba(15,23,42,0.38) 100%);
+    }
+    .alerta-preview-content {
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-height: 0;
+    }
+    .alerta-preview-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .alerta-preview-recipient,
+    .alerta-final-destinos {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .alerta-preview-message {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 14px;
+      min-height: 120px;
+      max-height: 240px;
+      overflow-y: auto;
+      color: #334155;
+      font-size: 14px;
+      line-height: 1.75;
+    }
+    .alerta-preview-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 11px;
+      font-weight: 800;
+      color: #64748b;
+      border-top: 1px solid #eef2f7;
+      padding-top: 12px;
+    }
+    .alerta-empty-state {
+      color: #94a3b8;
+      font-weight: 700;
+    }
+    .alerta-final-shell {
+      padding: 0;
+      width: min(92vw, 500px);
+      max-width: 500px;
+      max-height: min(88vh, 760px);
+      text-align: left;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      border-radius: 30px;
+      background: white;
+      box-shadow: 0 35px 85px rgba(15, 23, 42, 0.34);
+    }
+    .alerta-final-banner {
+      width: 100%;
+      height: 200px;
+      display: none;
+      flex-shrink: 0;
+      background-size: cover;
+      background-position: center;
+      background-color: #0f172a;
+      position: relative;
+    }
+    .alerta-final-banner::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.28) 100%);
+    }
+    .alerta-final-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 24px;
+      min-height: 0;
+      flex: 1;
+    }
+    .alerta-final-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .alerta-final-badges {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .alerta-final-title {
+      margin: 0;
+      color: #0f172a;
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1.14;
+    }
+    .alerta-final-subline {
+      margin-top: 8px;
+      font-size: 11px;
+      font-weight: 900;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .alerta-final-message-scroll {
+      flex: 1;
+      min-height: 130px;
+      max-height: 340px;
+      overflow-y: auto;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 18px;
+      padding: 16px;
+      font-size: 14px;
+      color: #334155;
+      line-height: 1.75;
+    }
+    .alerta-final-footer {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .alerta-final-author {
+      font-size: 11px;
+      color: #94a3b8;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 14px;
+      font-weight: 800;
+    }
+    .alerta-final-cta {
+      width: 100%;
+      padding: 15px;
+      border: none;
+      border-radius: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: 0.2s;
+      color: white;
+      background: var(--mex-accent);
+      box-shadow: 0 14px 28px rgba(26, 115, 232, 0.24);
+    }
+    @media (max-width: 920px) {
+      .alerta-studio-layout { flex-direction: column; }
+      .alerta-config-card,
+      .alerta-editor-card { flex: 1 1 auto; min-width: 0; }
+      .alerta-rich-editor { max-height: 270px; }
+      .alerta-preview-card { max-height: none; }
+      .alerta-final-message-scroll { max-height: 250px; }
+    }
     
     .filter-bar { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
     .search-input-inc { flex: 1; padding: 12px 15px 12px 35px; border-radius: 12px; border: 1.5px solid var(--border); outline: none; font-family: inherit; font-weight:600; background: #fff url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%2394a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>') no-repeat 12px center; transition: border-color 0.2s; }
@@ -3244,10 +3613,10 @@ function cerrarModalSolicitud() {
   </div>
 
   <div class="fleet-wrapper" style="overflow-y:auto; background:#f1f5f9; padding:18px; align-items:flex-start;">
-    <div style="display:flex; flex-wrap:wrap; gap:14px; width:100%; max-width:1060px; margin:0 auto;">
+    <div class="alerta-studio-layout">
 
       <!-- ══ COLUMNA IZQUIERDA: Configuración ══ -->
-      <div style="flex:0 0 330px; min-width:270px; background:white; border-radius:16px; border:1px solid var(--border); padding:20px; display:flex; flex-direction:column; gap:14px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+      <div class="alerta-config-card">
 
         <p style="font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin:0; text-transform:uppercase;">Configuración</p>
 
@@ -3352,32 +3721,51 @@ function cerrarModalSolicitud() {
       </div>
 
       <!-- ══ COLUMNA DERECHA: Editor ══ -->
-      <div style="flex:1; min-width:280px; background:white; border-radius:16px; border:1px solid var(--border); padding:20px; display:flex; flex-direction:column; gap:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+      <div class="alerta-editor-card">
 
-        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
-          <p style="font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin:0; text-transform:uppercase;">Diseño del Cuerpo del Mensaje</p>
-          <div style="display:flex; gap:6px;">
-            <select id="alertaPlantillasSelect" onchange="cargarPlantillaSeleccionada()" style="font-size:11px; font-weight:700; padding:4px 8px; border-radius:6px; border:1px solid var(--border); outline:none; background:#f8fafc; color:#475569; cursor:pointer;">
+        <div class="alerta-editor-topline">
+          <div>
+            <p style="font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin:0 0 5px; text-transform:uppercase;">Diseño del Cuerpo del Mensaje</p>
+            <div style="font-size:12px; color:#64748b; font-weight:700;">Texto, formato y preview trabajando en tiempo real mientras redactas.</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+            <div class="alerta-live-pill">
+              <span class="alerta-live-dot"></span>
+              <span id="alertaPreviewSyncLabel">Preview sincronizado</span>
+            </div>
+            <select id="alertaPlantillasSelect" onchange="cargarPlantillaSeleccionada()" style="font-size:11px; font-weight:700; padding:7px 10px; border-radius:10px; border:1px solid var(--border); outline:none; background:#f8fafc; color:#475569; cursor:pointer;">
               <option value="">📂 Cargar plantilla...</option>
             </select>
-            <button onclick="guardarComoPlantilla()" style="font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid var(--mex-accent); background:#e0f2fe; color:var(--mex-accent); cursor:pointer; font-weight:800; transition:0.2s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">💾 Guardar como plantilla</button>
+            <button onclick="guardarComoPlantilla()" style="font-size:11px; padding:7px 12px; border-radius:10px; border:1px solid var(--mex-accent); background:#e0f2fe; color:var(--mex-accent); cursor:pointer; font-weight:800; transition:0.2s;" onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">💾 Guardar como plantilla</button>
           </div>
         </div>
 
+        <div class="alerta-editor-shell">
+          <div class="alerta-editor-info">
+            <div>
+              <strong>Texto del Mensaje</strong>
+              <span>Este cuerpo es scrolleable y el lector verá el mismo contenido en un modal desplazable.</span>
+            </div>
+            <div id="alertaEditorDestinos" class="alerta-editor-destino">
+              <span class="material-icons" style="font-size:14px;">public</span>
+              <span>GLOBAL</span>
+            </div>
+          </div>
+
         <!-- Toolbar -->
-        <div style="display:flex; flex-wrap:wrap; gap:2px; padding:7px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; align-items:center;">
-          <button onclick="alertaCmd('bold')" title="Negrita" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px; color:#334155; padding:0 5px;"
+        <div class="alerta-editor-toolbar">
+          <button type="button" onclick="alertaCmd('bold')" title="Negrita" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px; color:#334155; padding:0 5px;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><b>B</b></button>
-          <button onclick="alertaCmd('italic')" title="Cursiva" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
+          <button type="button" onclick="alertaCmd('italic')" title="Cursiva" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><i>I</i></button>
-          <button onclick="alertaCmd('underline')" title="Subrayado" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
+          <button type="button" onclick="alertaCmd('underline')" title="Subrayado" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><u>U</u></button>
           <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
-          <button onclick="alertaFontSize(1)" title="Pequeño" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:10px; color:#334155; padding:0 4px; font-weight:700;"
+          <button type="button" onclick="alertaFontSize(1)" title="Pequeño" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:10px; color:#334155; padding:0 4px; font-weight:700;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">A<sub>s</sub></button>
-          <button onclick="alertaFontSize(3)" title="Normal" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 4px; font-weight:700;"
+          <button type="button" onclick="alertaFontSize(3)" title="Normal" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 4px; font-weight:700;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">A</button>
-          <button onclick="alertaFontSize(5)" title="Grande" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:15px; color:#334155; padding:0 4px; font-weight:700;"
+          <button type="button" onclick="alertaFontSize(5)" title="Grande" style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:15px; color:#334155; padding:0 4px; font-weight:700;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">A<sup>+</sup></button>
           <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
           <label title="Color de texto" style="display:flex; align-items:center; gap:1px; cursor:pointer; height:26px; padding:0 4px; border-radius:5px;"
@@ -3387,54 +3775,66 @@ function cerrarModalSolicitud() {
               style="width:16px; height:16px; border:none; padding:0; cursor:pointer; background:transparent; opacity:0; position:absolute;">
           </label>
           <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
-          <button onclick="alertaCmd('justifyLeft')" title="Izquierda" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+          <button type="button" onclick="alertaCmd('justifyLeft')" title="Izquierda" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_align_left</span></button>
-          <button onclick="alertaCmd('justifyCenter')" title="Centrar" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+          <button type="button" onclick="alertaCmd('justifyCenter')" title="Centrar" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_align_center</span></button>
-          <button onclick="alertaCmd('justifyRight')" title="Derecha" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+          <button type="button" onclick="alertaCmd('justifyRight')" title="Derecha" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_align_right</span></button>
           <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
-          <button onclick="alertaCmd('insertUnorderedList')" title="Lista" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+          <button type="button" onclick="alertaCmd('insertUnorderedList')" title="Lista" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_list_bulleted</span></button>
-          <button onclick="alertaInsertHR()" title="Línea separadora" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+          <button type="button" onclick="alertaInsertHR()" title="Línea separadora" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">horizontal_rule</span></button>
           <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
-          <button onclick="alertaCmd('removeFormat')" title="Limpiar formato" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#ef4444; padding:0 3px; display:flex; align-items:center;"
+          <button type="button" onclick="alertaCmd('removeFormat')" title="Limpiar formato" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#ef4444; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_clear</span></button>
         </div>
 
         <!-- Editor contenteditable -->
         <div id="alertaEditorCuerpo" contenteditable="true"
           oninput="_actualizarPreviewAlerta()"
-          style="min-height:160px; padding:14px; border:1.5px solid #e2e8f0; border-radius:10px; font-family:'Inter',sans-serif; font-size:14px; color:#334155; line-height:1.7; outline:none; overflow-y:auto;"
-          onfocus="this.style.borderColor='var(--mex-accent)'"
-          onblur="this.style.borderColor='#e2e8f0'">
+          class="alerta-rich-editor alerta-scroll-thin">
+        </div>
+        <div class="alerta-editor-status">
+          <span id="alertaEditorStats">0 palabras · 0 caracteres</span>
+          <span id="alertaPreviewHoraStatus">Última vista previa: --:--</span>
+        </div>
         </div>
 
         <!-- Divider preview -->
-        <div style="display:flex; align-items:center; gap:10px; flex-shrink:0;">
-          <div style="flex:1; height:1px; background:#f1f5f9;"></div>
-          <span style="font-size:9px; font-weight:800; color:#94a3b8; letter-spacing:1px;">VISTA PREVIA EN TIEMPO REAL</span>
-          <div style="flex:1; height:1px; background:#f1f5f9;"></div>
-        </div>
+        <div class="alerta-preview-shell">
+          <div class="alerta-preview-caption">
+            <span class="alerta-live-dot" style="background:#ff4d4f;"></span>
+            Vista previa en tiempo real
+          </div>
 
         <!-- Mini preview -->
-        <div style="border:2px solid #e2e8f0; border-radius:14px; overflow:hidden; max-width:420px; margin:0 auto; width:100%;">
-          <div id="alertaPreviewBanner" style="width:100%; height:0; background-size:cover; background-position:center; overflow:hidden; transition:height 0.3s;"></div>
-          <div style="padding:16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <span id="alertaPreviewBadge" style="font-size:10px; font-weight:900; padding:3px 9px; border-radius:50px; background:#fee2e2; color:#ef4444; letter-spacing:0.8px;">URGENTE</span>
-              <div style="display:flex; align-items:center; gap:5px;">
-                <span id="alertaPreviewModoBadge" style="font-size:9px; font-weight:800; padding:2px 7px; border-radius:50px; background:#eff6ff; color:#1a73e8;">⚡ INTERRUPTIVA</span>
-                <span style="font-size:10px; color:#94a3b8; font-weight:700;">Ahora</span>
+        <div class="alerta-preview-card">
+          <div id="alertaPreviewBanner" class="alerta-preview-banner"></div>
+          <div class="alerta-preview-content">
+            <div class="alerta-preview-head">
+              <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                <span id="alertaPreviewBadge" style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#fee2e2; color:#ef4444; letter-spacing:0.8px;">URGENTE</span>
+                <span id="alertaPreviewModoBadge" style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#eff6ff; color:#1a73e8; letter-spacing:0.8px;">⚡ INTERRUPTIVA</span>
+                <span id="alertaPreviewDestinatarios" class="alerta-preview-recipient">
+                  <span class="material-icons" style="font-size:14px;">public</span>
+                  GLOBAL
+                </span>
               </div>
+              <span id="alertaPreviewHora" style="font-size:11px; color:#94a3b8; font-weight:800;">Ahora</span>
             </div>
-            <h3 id="alertaPreviewTitulo" style="margin:0 0 6px; color:#1e3a5f; font-size:15px; font-weight:900; line-height:1.2;">Sin título</h3>
-            <div id="alertaPreviewMensaje" style="font-size:13px; color:#334155; line-height:1.6;"></div>
-            <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; font-size:10px; color:#94a3b8; font-weight:700;">
-              Enviado por: <span id="alertaPreviewAutor" style="color:#1a73e8;">TÚ</span>
+            <div>
+              <h3 id="alertaPreviewTitulo" style="margin:0 0 6px; color:#0f172a; font-size:21px; font-weight:900; line-height:1.18;">Sin título</h3>
+              <div id="alertaPreviewSubline" style="font-size:11px; color:#64748b; font-weight:900; letter-spacing:1px; text-transform:uppercase;">Mensaje listo para toda la red</div>
+            </div>
+            <div id="alertaPreviewMensaje" class="alerta-preview-message alerta-scroll-thin"></div>
+            <div class="alerta-preview-meta">
+              <span>Enviado por: <span id="alertaPreviewAutor" style="color:#1a73e8;">TÚ</span></span>
+              <span id="alertaPreviewStats">0 palabras · 0 caracteres</span>
             </div>
           </div>
+        </div>
         </div>
 
       </div>
@@ -7031,6 +7431,53 @@ function _obtenerResumenDestinatariosAlerta(alerta = {}) {
   };
 }
 
+function _obtenerResumenDestinatariosEditor() {
+  const destinatarios = _parseListaAlertaCsv(alertaEditorState.destinatariosSeleccionados.join(',')).filter(item => item !== 'GLOBAL');
+  if (alertaEditorState.destMode === 'SOLO') {
+    const usuario = destinatarios[0] || '';
+    return {
+      icon: 'person',
+      label: usuario ? `SOLO A ${usuario}` : 'SOLO A',
+      detail: usuario || 'Selecciona un usuario',
+      count: usuario ? 1 : 0
+    };
+  }
+  if (alertaEditorState.destMode === 'SEL') {
+    const detalle = destinatarios.length > 3
+      ? `${destinatarios.slice(0, 3).join(', ')} +${destinatarios.length - 3}`
+      : (destinatarios.join(', ') || 'Selecciona destinatarios');
+    return {
+      icon: 'groups',
+      label: destinatarios.length ? `${destinatarios.length} SELECCIONADOS` : 'SELECCIONADOS',
+      detail: detalle,
+      count: destinatarios.length
+    };
+  }
+  return { icon: 'public', label: 'GLOBAL', detail: 'Visible para toda la red', count: 0 };
+}
+
+function _obtenerStatsTextoAlerta(html = '') {
+  const plano = _obtenerTextoPlanoAlerta(html);
+  const palabras = plano ? plano.split(/\s+/).filter(Boolean).length : 0;
+  const caracteres = plano.length;
+  const bloques = String(html || '').trim()
+    ? Math.max(1, (String(html).match(/<br\s*\/?>|<\/p>|<\/div>|<\/li>|<hr\b/gi) || []).length + 1)
+    : 0;
+  return { palabras, caracteres, bloques };
+}
+
+function _obtenerSublineaModoAlerta(modo, resumenDest) {
+  const metaModo = _obtenerMetaModoAlerta(modo);
+  if (_normalizarModoAlerta(modo) === 'PASIVA') {
+    return `${metaModo.label} · Llega a campanita · ${resumenDest.label}`;
+  }
+  return `${metaModo.label} · Aparece al abrir el mapa · ${resumenDest.label}`;
+}
+
+function _horaPreviewActual() {
+  return new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
 function _ordenarAlertasPendientes(alertas = []) {
   return [...alertas].sort((a, b) => {
     const modoA = _normalizarModoAlerta(a && a.modo) === 'INTERRUPTIVA' ? 0 : 1;
@@ -7490,11 +7937,15 @@ function abrirSiguienteAlerta() {
   const metaTipo = _obtenerMetaTipoAlerta(alerta.tipo);
   const metaModo = _obtenerMetaModoAlerta(alerta.modo);
   const mensajeHtml = _normalizarMensajeAlertaHtml(alerta.mensaje);
+  const resumenDest = _obtenerResumenDestinatariosAlerta(alerta);
 
   document.getElementById('alertaTitulo').innerText = alerta.titulo || 'Sin título';
   document.getElementById('alertaMensaje').innerHTML = mensajeHtml || `<div style="color:#94a3b8;">Sin contenido disponible.</div>`;
+  document.getElementById('alertaMensaje').scrollTop = 0;
   document.getElementById('alertaFecha').innerText = alerta.fecha || 'Reciente';
   document.getElementById('alertaAutor').innerText = alerta.autor || 'Sistema';
+  const subline = document.getElementById('alertaTipoSubline');
+  if (subline) subline.innerText = _obtenerSublineaModoAlerta(alerta.modo, resumenDest);
 
   const tipoBadge = document.getElementById('alertaTipo');
   tipoBadge.innerText = metaTipo.label;
@@ -7506,6 +7957,12 @@ function abrirSiguienteAlerta() {
     modoBadge.innerText = `${metaModo.icon} ${metaModo.label}`;
     modoBadge.style.background = metaModo.bg;
     modoBadge.style.color = metaModo.color;
+  }
+
+  const destinosBadge = document.getElementById('alertaDestinatariosModal');
+  if (destinosBadge) {
+    destinosBadge.innerHTML = `<span class="material-icons" style="font-size:14px;">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}`;
+    destinosBadge.title = resumenDest.detail;
   }
 
   const banner = document.getElementById('alertaBannerImg');
@@ -7521,6 +7978,7 @@ function abrirSiguienteAlerta() {
   btnCerrar.innerText = _normalizarModoAlerta(alerta.modo) === 'PASIVA'
     ? 'MARCAR COMO LEÍDA'
     : 'ENTENDIDO (MARCAR COMO LEÍDA)';
+  btnCerrar.style.background = metaTipo.color;
 
   document.getElementById('modalAlertaMaestra').classList.add('active');
 }
@@ -7735,6 +8193,9 @@ function _actualizarPreviewAlerta() {
 
   const metaTipo = _obtenerMetaTipoAlerta(tipo);
   const metaModo = _obtenerMetaModoAlerta(modo);
+  const resumenDest = _obtenerResumenDestinatariosEditor();
+  const statsTexto = _obtenerStatsTextoAlerta(html);
+  const hora = _horaPreviewActual();
 
   const badge = document.getElementById('alertaPreviewBadge');
   if (badge) {
@@ -7755,20 +8216,50 @@ function _actualizarPreviewAlerta() {
 
   const mensajePreview = document.getElementById('alertaPreviewMensaje');
   if (mensajePreview) {
-    mensajePreview.innerHTML = html || `<span style="color:#94a3b8;">Diseña aquí el cuerpo de la alerta y aparecerá la vista previa.</span>`;
+    mensajePreview.innerHTML = html || `<span class="alerta-empty-state">Escribe aquí el texto de la alerta. La vista previa y el modal final se actualizan al instante.</span>`;
   }
 
   const autorPreview = document.getElementById('alertaPreviewAutor');
   if (autorPreview) autorPreview.innerText = USER_NAME || 'TÚ';
 
+  const previewHora = document.getElementById('alertaPreviewHora');
+  if (previewHora) previewHora.innerText = hora;
+
+  const previewStats = document.getElementById('alertaPreviewStats');
+  if (previewStats) previewStats.innerText = `${statsTexto.palabras} palabras · ${statsTexto.caracteres} caracteres`;
+
+  const editorStats = document.getElementById('alertaEditorStats');
+  if (editorStats) editorStats.innerText = `${statsTexto.palabras} palabras · ${statsTexto.caracteres} caracteres · ${statsTexto.bloques} bloque${statsTexto.bloques === 1 ? '' : 's'}`;
+
+  const previewSync = document.getElementById('alertaPreviewSyncLabel');
+  if (previewSync) previewSync.innerText = statsTexto.caracteres > 0 ? `Preview sincronizado ${hora}` : 'Preview sincronizado';
+
+  const previewHoraStatus = document.getElementById('alertaPreviewHoraStatus');
+  if (previewHoraStatus) previewHoraStatus.innerText = `Última vista previa: ${hora}`;
+
+  const previewSubline = document.getElementById('alertaPreviewSubline');
+  if (previewSubline) previewSubline.innerText = _obtenerSublineaModoAlerta(modo, resumenDest);
+
+  const previewDest = document.getElementById('alertaPreviewDestinatarios');
+  if (previewDest) {
+    previewDest.innerHTML = `<span class="material-icons" style="font-size:14px;">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}`;
+    previewDest.title = resumenDest.detail;
+  }
+
+  const editorDestino = document.getElementById('alertaEditorDestinos');
+  if (editorDestino) {
+    editorDestino.innerHTML = `<span class="material-icons" style="font-size:14px;">${resumenDest.icon}</span><span>${escapeHtml(resumenDest.label)}</span>`;
+    editorDestino.title = resumenDest.detail;
+  }
+
   const bannerPreview = document.getElementById('alertaPreviewBanner');
   if (bannerPreview) {
     if (imagen && (imagen.startsWith('http') || imagen.startsWith('data:image'))) {
-      bannerPreview.style.height = '110px';
       bannerPreview.style.backgroundImage = `url('${_safeCssUrl(imagen)}')`;
+      bannerPreview.style.display = 'block';
     } else {
-      bannerPreview.style.height = '0';
       bannerPreview.style.backgroundImage = '';
+      bannerPreview.style.display = 'none';
     }
   }
 }
@@ -12416,31 +12907,38 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
 
 <div id="modalAlertaMaestra" class="modal-overlay" style="z-index: 99999;">
-  <div class="modal-box" style="padding: 0; max-height: 85vh; overflow-y: auto; overflow-x: hidden; max-width: 450px; text-align: left;">
+  <div class="modal-box alerta-final-shell">
     
-    <div id="alertaBannerImg" style="width: 100%; height: 180px; background-size: cover; background-position: center; display: none;"></div>
+    <div id="alertaBannerImg" class="alerta-final-banner"></div>
     
-    <div style="padding: 25px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+    <div class="alerta-final-content">
+      <div class="alerta-final-head">
+        <div class="alerta-final-badges">
           <span id="alertaTipo" style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 50px; background: #fee2e2; color: #ef4444; letter-spacing: 1px;">URGENTE</span>
           <span id="alertaModoBadgeModal" style="font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 50px; background: #eff6ff; color: #1a73e8; letter-spacing: 0.6px;">⚡ INTERRUPTIVA</span>
+          <span id="alertaDestinatariosModal" class="alerta-final-destinos">
+            <span class="material-icons" style="font-size:14px;">public</span>GLOBAL
+          </span>
         </div>
-        <span id="alertaFecha" style="font-size: 11px; color: #64748b; font-weight: 700;">--</span>
+        <span id="alertaFecha" style="font-size: 11px; color: #64748b; font-weight: 800;">--</span>
       </div>
       
-      <h2 id="alertaTitulo" style="margin: 0 0 10px 0; color: var(--mex-blue); font-weight: 900; font-size: 22px; line-height: 1.2;">Cargando...</h2>
-      
-      <div id="alertaMensaje" style="font-size: 14px; color: #334155; line-height: 1.6; margin-bottom: 20px; font-weight: 500;">
-        </div>
-      
-      <div style="font-size: 11px; color: #94a3b8; border-top: 1px solid var(--border); padding-top: 15px; margin-bottom: 20px; font-weight: 700;">
-        Enviado por: <span id="alertaAutor" style="color: var(--primary);">Administración</span>
+      <div>
+        <h2 id="alertaTitulo" class="alerta-final-title">Cargando...</h2>
+        <div id="alertaTipoSubline" class="alerta-final-subline">Mensaje maestro en tiempo real</div>
       </div>
       
-      <button id="btnCerrarAlerta" onclick="procesarAlertaLeida()" style="width: 100%; padding: 15px; background: var(--mex-accent); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 10px rgba(26,115,232,0.3);">
+      <div id="alertaMensaje" class="alerta-final-message-scroll alerta-scroll-thin"></div>
+      
+      <div class="alerta-final-footer">
+        <div class="alerta-final-author">
+          Enviado por: <span id="alertaAutor" style="color: var(--primary);">Administración</span>
+        </div>
+      
+      <button id="btnCerrarAlerta" class="alerta-final-cta" onclick="procesarAlertaLeida()">
         ENTENDIDO (MARCAR COMO LEÍDA)
       </button>
+      </div>
     </div>
   </div>
 </div>
