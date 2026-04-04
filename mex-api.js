@@ -107,6 +107,20 @@ function _normalizeAlertDestMode(destMode, destinatarios) {
   return lista.length === 1 ? "SOLO" : "SEL";
 }
 
+function _normalizeAlertCta(cta = {}) {
+  const rawType = String((cta && (cta.type || cta.tipo)) || "").trim().toUpperCase();
+  const type = rawType === "URL" || rawType === "WHATSAPP" || rawType === "COPY" ? rawType : "NONE";
+  if (type === "NONE") {
+    return { type: "NONE", label: "", value: "", extra: "" };
+  }
+  return {
+    type,
+    label: _sanitizeText(cta.label || cta.texto || cta.text || ""),
+    value: String(cta.value || cta.url || cta.telefono || cta.contenido || "").trim(),
+    extra: _sanitizeText(cta.extra || cta.mensaje || cta.helper || "")
+  };
+}
+
 function _alertMatchesUser(alerta, usuarioActivo) {
   const usuario = String(usuarioActivo || "").trim().toUpperCase();
   if (!usuario) return false;
@@ -412,6 +426,16 @@ const API_FUNCTIONS = {
     return _generarEstructuraPorDefecto();
   },
 
+  suscribirEstructuraMapa(callback) {
+    return db.collection(COL.MAPA_CFG).orderBy("orden").onSnapshot(snap => {
+      if (!snap.empty) {
+        callback(snap.docs.map(d => d.data()));
+        return;
+      }
+      callback(_generarEstructuraPorDefecto());
+    }, err => console.error("onSnapshot mapa_cfg:", err));
+  },
+
   async guardarEstructuraMapa(elementos) {
     // 1. Borrar todos los documentos actuales
     const snap = await db.collection(COL.MAPA_CFG).get();
@@ -672,6 +696,7 @@ const API_FUNCTIONS = {
       destinatarios: destinatariosNormalizados,
       destMode: _normalizeAlertDestMode(meta.destMode, destinatariosNormalizados),
       modo: _normalizeAlertMode(modo),
+      cta: _normalizeAlertCta(meta.cta),
       version: 1
     });
     await _registrarEventoGestion("ALERTA_EMITIDA", `Emitió alerta maestra "${titulo}" (${tipo})`, autor, {
@@ -704,6 +729,7 @@ const API_FUNCTIONS = {
     const imagen = String(cambios.imagen ?? actual.imagen ?? "").trim();
     const modo = _normalizeAlertMode(cambios.modo || actual.modo);
     const destMode = _normalizeAlertDestMode(cambios.destMode || actual.destMode, destinatarios);
+    const cta = _normalizeAlertCta(cambios.cta || actual.cta || {});
     const ahora = _now();
     const nuevoTimestamp = _ts();
 
@@ -717,6 +743,7 @@ const API_FUNCTIONS = {
       destinatarios,
       destMode,
       modo,
+      cta,
       leidoPor: "",
       editadoPor: _sanitizeText(actor) || "Sistema",
       editadoEn: ahora,
@@ -753,10 +780,19 @@ const API_FUNCTIONS = {
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
   
-  async guardarPlantillaAlerta(nombre, tipo, titulo, mensaje, modo, autor) {
+  async guardarPlantillaAlerta(nombre, tipo, titulo, mensaje, modo, autor, meta = {}) {
     try {
       await db.collection(COL.PLANTILLAS_ALERTAS).add({
-        nombre, tipo, titulo, mensaje, modo, autor, timestamp: _ts(), fecha: _now()
+        nombre,
+        tipo,
+        titulo,
+        mensaje,
+        modo,
+        autor,
+        imagen: String(meta.imagen || "").trim(),
+        cta: _normalizeAlertCta(meta.cta),
+        timestamp: _ts(),
+        fecha: _now()
       });
       return "EXITO";
     } catch(e) { return "ERROR: " + e.message; }

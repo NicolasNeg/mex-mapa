@@ -424,7 +424,17 @@ header {
     .search-icon { position: absolute; left: 10px; color: rgba(255,255,255,0.45); font-size: 14px; pointer-events: none; line-height:1; }
     .clear-btn { position: absolute; right: 10px; background: rgba(255,255,255,0.15); border: none; border-radius: 50%; width: 20px; height: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; color: rgba(255,255,255,0.7); font-weight: bold; }
 
-    .content { flex: 1; width: 100%; background: var(--bg-viewport); position: relative; overflow: auto; height: auto; }
+    .content {
+      flex: 1;
+      width: 100%;
+      background: var(--bg-viewport);
+      position: relative;
+      overflow: auto;
+      height: auto;
+      box-sizing: border-box;
+      padding: clamp(10px, 1.8vw, 24px);
+      scroll-behavior: smooth;
+    }
     
 /* --- NUEVO SELECTOR DE USUARIOS MODERNIZADO --- */
     .modern-select-wrapper { position: relative; margin-bottom: 20px; text-align: left; }
@@ -461,15 +471,27 @@ header {
 
 
     /* MODIFICADO PARA COMPATIBILIDAD DE ZOOM NATIVO */
-    #map-zoom-container { transform-origin: 0 0; padding: 150px; display: inline-block; min-width: 100%; transition: transform 0.1s ease-out;}
+    #map-zoom-container {
+      --map-outer-pad: clamp(16px, 2.6vw, 36px);
+      transform-origin: 0 0;
+      padding: var(--map-outer-pad);
+      display: block;
+      width: max-content;
+      min-width: max-content;
+      margin: 82px auto 48px;
+      transition: transform 0.1s ease-out;
+    }
     
     .map-grid { 
+      --map-cols: 12;
+      --map-cell-size: 95px;
+      --map-row-size: 95px;
       display: grid; 
-      grid-template-columns: repeat(30, 95px); 
-      grid-auto-rows: 95px; 
-      gap: 35px 15px; 
+      grid-template-columns: repeat(var(--map-cols), var(--map-cell-size)); 
+      grid-auto-rows: var(--map-row-size); 
+      gap: 28px 15px; 
       background: #2A3441; /* Color asfalto oscuro */
-      padding: 80px; 
+      padding: clamp(28px, 4vw, 56px); 
       border-radius: 30px; 
       box-shadow: 0 20px 50px rgba(0,0,0,0.5); 
       width: max-content; 
@@ -1686,6 +1708,72 @@ header {
       outline: none;
       background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
     }
+    .alerta-rich-editor img,
+    .alerta-preview-message img,
+    .alerta-final-message-scroll img {
+      display: block;
+      max-width: 100%;
+      width: auto;
+      height: auto;
+      margin: 14px auto;
+      border-radius: 18px;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+    }
+    .alerta-rich-editor a,
+    .alerta-preview-message a,
+    .alerta-final-message-scroll a {
+      color: #1a73e8;
+      font-weight: 800;
+      text-decoration: underline;
+      word-break: break-word;
+    }
+    .alerta-action-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 16px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+    }
+    .alerta-action-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .alerta-action-field {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .alerta-action-field label {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #64748b;
+      margin: 0;
+    }
+    .alerta-action-field input,
+    .alerta-action-field select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1.5px solid #dbe4ee;
+      background: white;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 700;
+      outline: none;
+      box-sizing: border-box;
+      font-family: 'Inter', sans-serif;
+    }
+    .alerta-action-help {
+      font-size: 11px;
+      font-weight: 700;
+      color: #64748b;
+      line-height: 1.45;
+    }
     .alerta-editor-status {
       display: flex;
       align-items: center;
@@ -1797,6 +1885,35 @@ header {
       border-top: 1px solid #eef2f7;
       padding-top: 12px;
     }
+    .alerta-preview-action {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .alerta-preview-action-btn,
+    .alerta-final-secondary {
+      width: 100%;
+      border: none;
+      border-radius: 16px;
+      padding: 14px 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+      font-weight: 900;
+      font-size: 14px;
+      color: white;
+      transition: 0.2s;
+      box-shadow: 0 16px 32px rgba(15, 23, 42, 0.16);
+    }
+    .alerta-preview-action-hint {
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 700;
+      line-height: 1.45;
+      text-align: center;
+    }
     .alerta-empty-state {
       color: #94a3b8;
       font-weight: 700;
@@ -1884,6 +2001,11 @@ header {
       display: flex;
       flex-direction: column;
       gap: 12px;
+    }
+    .alerta-final-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .alerta-final-author {
       font-size: 11px;
@@ -2732,8 +2854,18 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
         font-size: 11px !important;
       }
       
-      #map-zoom-container { 
-        padding: 20px 20px 100px 20px !important; 
+      #map-zoom-container {
+        --map-outer-pad: 14px !important;
+        width: max-content !important;
+        min-width: max-content !important;
+        padding: 14px 14px 96px 14px !important;
+        margin: 14px auto 36px !important;
+      }
+      .map-grid {
+        --map-cell-size: 82px !important;
+        --map-row-size: 82px !important;
+        gap: 22px 12px !important;
+        padding: 20px !important;
       }
       .login-box { width: 95%; padding: 25px; }
       
@@ -3712,6 +3844,39 @@ function cerrarModalSolicitud() {
           </button>
         </div>
 
+        <div class="alerta-action-stack">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <label style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase; margin:0;">Botón y función</label>
+            <span style="font-size:10px; color:#64748b; font-weight:800;">Personaliza la acción que verá el usuario</span>
+          </div>
+          <div class="alerta-action-field">
+            <label for="alertaActionType">Tipo de acción</label>
+            <select id="alertaActionType" onchange="_actualizarCamposAccionAlerta(); _actualizarPreviewAlerta();">
+              <option value="NONE">Sin botón extra</option>
+              <option value="URL">Abrir enlace</option>
+              <option value="WHATSAPP">Abrir WhatsApp</option>
+              <option value="COPY">Copiar texto / enlace</option>
+            </select>
+          </div>
+          <div id="alertaActionConfig" class="alerta-action-grid" style="display:none;">
+            <div class="alerta-action-field">
+              <label id="alertaActionLabelCaption" for="alertaActionLabel">Texto del botón</label>
+              <input type="text" id="alertaActionLabel" placeholder="Ej. Abrir actualización" oninput="_actualizarPreviewAlerta()">
+            </div>
+            <div class="alerta-action-field">
+              <label id="alertaActionValueCaption" for="alertaActionValue">Destino</label>
+              <input type="text" id="alertaActionValue" placeholder="https://..." oninput="_actualizarPreviewAlerta()">
+            </div>
+            <div id="alertaActionExtraWrap" class="alerta-action-field">
+              <label id="alertaActionExtraCaption" for="alertaActionExtra">Dato extra</label>
+              <input type="text" id="alertaActionExtra" placeholder="" oninput="_actualizarPreviewAlerta()">
+            </div>
+          </div>
+          <div id="alertaActionHelp" class="alerta-action-help">
+            La alerta solo mostrará el botón para marcarla como leída.
+          </div>
+        </div>
+
         <!-- Emit button -->
         <button id="btnEmitirAlertaGlobal" onclick="emitirAlertaGlobal()"
           style="width:100%; padding:15px; background:#ef4444; color:white; border:none; border-radius:12px; font-weight:900; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; font-size:13px; box-shadow:0 6px 16px rgba(239,68,68,0.3); letter-spacing:0.5px; margin-top:auto;">
@@ -3782,6 +3947,12 @@ function cerrarModalSolicitud() {
           <button type="button" onclick="alertaCmd('justifyRight')" title="Derecha" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_align_right</span></button>
           <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+          <button type="button" onclick="alertaInsertLink()" title="Insertar enlace" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">link</span></button>
+          <button type="button" onclick="abrirSelectorImagenCuerpoAlerta()" title="Insertar imagen en el cuerpo" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+            onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">image</span></button>
+          <input type="file" id="alertaBodyImageFile" accept="image/*" style="display:none;" onchange="insertarImagenCuerpoAlerta(event)">
+          <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
           <button type="button" onclick="alertaCmd('insertUnorderedList')" title="Lista" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
             onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span class="material-icons" style="font-size:14px;">format_list_bulleted</span></button>
           <button type="button" onclick="alertaInsertHR()" title="Línea separadora" style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
@@ -3829,6 +4000,13 @@ function cerrarModalSolicitud() {
               <div id="alertaPreviewSubline" style="font-size:11px; color:#64748b; font-weight:900; letter-spacing:1px; text-transform:uppercase;">Mensaje listo para toda la red</div>
             </div>
             <div id="alertaPreviewMensaje" class="alerta-preview-message alerta-scroll-thin"></div>
+            <div id="alertaPreviewActionWrap" class="alerta-preview-action">
+              <button id="alertaPreviewActionBtn" type="button" class="alerta-preview-action-btn" onclick="return false;">
+                <span class="material-icons" style="font-size:16px;">bolt</span>
+                <span>Acción</span>
+              </button>
+              <div id="alertaPreviewActionHint" class="alerta-preview-action-hint"></div>
+            </div>
             <div class="alerta-preview-meta">
               <span>Enviado por: <span id="alertaPreviewAutor" style="color:#1a73e8;">TÚ</span></span>
               <span id="alertaPreviewStats">0 palabras · 0 caracteres</span>
@@ -5104,6 +5282,7 @@ function cerrarSesion() {
   if(autoRefreshInterval) clearInterval(autoRefreshInterval);
   _limpiarRadar();
   if(_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
+  if(_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
   if(_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
   dbUsuariosLogin = [];
 
@@ -5163,23 +5342,47 @@ isSaving = false;
 let isMoving = false; // 🔥
 let autoRefreshInterval = null; // mantenido por compatibilidad pero no se usa para el mapa
 let _unsubMapa = null;          // función para cancelar onSnapshot del mapa
+let _unsubMapaEstructura = null;
 let _unsubUsersLive = null;     // función para cancelar onSnapshot de usuarios (chat/dropdown)
 let saveTimeout = null;
 let lastMoveTime = 0;
+let _mapaRenderRAF = 0;
+let _ultimaFlotaMapa = [];
+let _ultimaEstructuraMapa = [];
+let _mapaRuntime = {
+  estructuraReady: false,
+  unidadesReady: false,
+  estructuraSig: '',
+  viewportBound: false
+};
 
 function init() {
-  dibujarMapaCompleto();
   startAutoRefresh();
   updateZoom();
+  _ajustarViewportMapa();
+  if (!_mapaRuntime.viewportBound) {
+    window.addEventListener('resize', _ajustarViewportMapa);
+    _mapaRuntime.viewportBound = true;
+  }
 }
 
 function startAutoRefresh() {
   if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
+  if (_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
 
   if (typeof api === 'undefined' || typeof api.suscribirMapa !== 'function') {
     // api aún no cargó — reintentar en 500ms
     setTimeout(startAutoRefresh, 500);
     return;
+  }
+
+  if (typeof api.suscribirEstructuraMapa === 'function') {
+    _unsubMapaEstructura = api.suscribirEstructuraMapa(estructura => {
+      _mapaRuntime.estructuraReady = true;
+      dibujarMapaCompleto(estructura);
+    });
+  } else {
+    dibujarMapaCompleto();
   }
 
   _unsubMapa = api.suscribirMapa(unidades => {
@@ -5190,8 +5393,25 @@ function startAutoRefresh() {
     // Si el usuario está arrastrando un auto en este dispositivo, esperar a que termine
     if (isMoving) return;
 
+    _mapaRuntime.unidadesReady = true;
     sincronizarMapa(unidades);
   });
+}
+
+function _ajustarViewportMapa() {
+  const container = document.getElementById('map-zoom-container');
+  const grid = document.getElementById('grid-map');
+  if (!container || !grid) return;
+
+  const isMobile = window.innerWidth <= 768;
+  const outerPad = isMobile ? 14 : Math.max(16, Math.min(36, Math.round(window.innerWidth * 0.022)));
+  const topMargin = isMobile ? 14 : 82;
+  container.style.setProperty('--map-outer-pad', `${outerPad}px`);
+  container.style.marginTop = `${topMargin}px`;
+
+  if (!_ultimaEstructuraMapa.length) return;
+  const bounds = _normalizarEstructuraMapa(_ultimaEstructuraMapa);
+  grid.style.setProperty('--map-cols', String(bounds.cols));
 }
 
 function adjustZoom(delta) { 
@@ -5298,119 +5518,283 @@ function ejecutarFiltroMasivo() {
   }
 }
 
-function dibujarMapaCompleto() {
-  const grid = document.getElementById("grid-map");
-  grid.innerHTML = ""; 
-  api.obtenerEstructuraMapa().then(estructura => {
-    estructura.forEach(celda => {
-      const div = document.createElement("div");
-      div.className = celda.valor.includes("-") ? 'spot' : 'area';
-      div.id = "spot-" + celda.valor.replace(/\s/g, '').toUpperCase();
-      div.style.gridColumn = `${celda.col} / span ${celda.colspan}`;
-      div.style.gridRow = `${celda.row} / span ${celda.rowspan}`;
-      if (div.className === 'spot') div.innerHTML = `<label>${celda.valor}</label>`;
-      else div.innerHTML = `<span>${celda.valor}</span>`;
-      grid.appendChild(div);
-    });
-    refrescarDatos();
-  }).catch(e => console.error(e));
+function _normalizarEstructuraMapa(estructura = []) {
+  const items = Array.isArray(estructura)
+    ? estructura
+        .map((celda, index) => ({
+          valor: String(celda?.valor || '').trim(),
+          row: Math.max(1, Number(celda?.row) || 1),
+          col: Math.max(1, Number(celda?.col) || 1),
+          rowspan: Math.max(1, Number(celda?.rowspan) || 1),
+          colspan: Math.max(1, Number(celda?.colspan) || 1),
+          tipo: celda?.esLabel ? 'label' : (celda?.tipo || 'cajon'),
+          esLabel: Boolean(celda?.esLabel),
+          orden: Number(celda?.orden ?? index)
+        }))
+        .sort((a, b) => a.orden - b.orden)
+    : [];
+
+  if (!items.length) {
+    return { items: [], cols: 1, rows: 1, signature: 'empty' };
+  }
+
+  let minCol = Infinity;
+  let minRow = Infinity;
+  let maxCol = 1;
+  let maxRow = 1;
+
+  items.forEach(celda => {
+    minCol = Math.min(minCol, celda.col);
+    minRow = Math.min(minRow, celda.row);
+    maxCol = Math.max(maxCol, celda.col + celda.colspan - 1);
+    maxRow = Math.max(maxRow, celda.row + celda.rowspan - 1);
+  });
+
+  const normalizados = items.map(celda => ({
+    ...celda,
+    gridCol: (celda.col - minCol) + 1,
+    gridRow: (celda.row - minRow) + 1
+  }));
+
+  const signature = normalizados
+    .map(celda => `${celda.valor}|${celda.gridRow}|${celda.gridCol}|${celda.rowspan}|${celda.colspan}|${celda.tipo}`)
+    .join('~');
+
+  return {
+    items: normalizados,
+    cols: Math.max(1, maxCol - minCol + 1),
+    rows: Math.max(1, maxRow - minRow + 1),
+    signature
+  };
 }
 
-function sincronizarMapa(nuevas) {
-  // NO bloqueamos por selectedAuto — siempre procesamos cambios remotos
-  const mvasNuevosIds = nuevas.map(u => `auto-${u.mva}`);
-  const carsEnPantalla = document.querySelectorAll('.car');
-  carsEnPantalla.forEach(car => { if (!mvasNuevosIds.includes(car.id)) car.remove(); });
+function dibujarMapaCompleto(estructura = null) {
+  const grid = document.getElementById("grid-map");
+  if (!grid) return Promise.resolve();
 
-  nuevas.forEach(u => {
-    let car = document.getElementById(`auto-${u.mva}`);
-    let dest;
-    const pos = (u.pos || "LIMBO").toString().trim().toUpperCase();
-    const ubiDB = (u.ubicacion || "PATIO").toString().trim().toUpperCase(); 
-    
-    if (pos === "LIMBO") {
-      dest = (ubiDB === "TALLER") ? document.getElementById("unidades-taller") : document.getElementById("unidades-limbo");
-    } else {
-      dest = document.getElementById("spot-" + pos.replace(/\s/g, ''));
-      if (!dest) dest = (ubiDB === "TALLER") ? document.getElementById("unidades-taller") : document.getElementById("unidades-limbo");
+  if (!Array.isArray(estructura)) {
+    return api.obtenerEstructuraMapa()
+      .then(dibujarMapaCompleto)
+      .catch(e => console.error(e));
+  }
+
+  _ultimaEstructuraMapa = estructura;
+  const normalizada = _normalizarEstructuraMapa(estructura);
+
+  if (normalizada.signature === _mapaRuntime.estructuraSig && grid.children.length) {
+    _ajustarViewportMapa();
+    if (_ultimaFlotaMapa.length) sincronizarMapa(_ultimaFlotaMapa, { immediate: true });
+    else if (!_mapaRuntime.unidadesReady) refrescarDatos(true);
+    return Promise.resolve();
+  }
+
+  _mapaRuntime.estructuraSig = normalizada.signature;
+  const prevSelectedMva = selectedAuto?.dataset?.mva || '';
+
+  grid.innerHTML = "";
+  grid.style.setProperty('--map-cols', String(normalizada.cols));
+
+  const fragment = document.createDocumentFragment();
+  normalizada.items.forEach(celda => {
+    const div = document.createElement("div");
+    div.className = celda.valor.includes("-") ? 'spot' : 'area';
+    div.id = "spot-" + celda.valor.replace(/\s/g, '').toUpperCase();
+    div.style.gridColumn = `${celda.gridCol} / span ${celda.colspan}`;
+    div.style.gridRow = `${celda.gridRow} / span ${celda.rowspan}`;
+    if (div.className === 'spot') div.innerHTML = `<label>${celda.valor}</label>`;
+    else div.innerHTML = `<span>${celda.valor}</span>`;
+    fragment.appendChild(div);
+  });
+  grid.appendChild(fragment);
+
+  _ajustarViewportMapa();
+
+  if (_ultimaFlotaMapa.length) sincronizarMapa(_ultimaFlotaMapa, { immediate: true });
+  else if (!_mapaRuntime.unidadesReady) refrescarDatos(true);
+
+  if (prevSelectedMva) {
+    const nuevaSeleccion = document.getElementById(`auto-${prevSelectedMva}`);
+    if (nuevaSeleccion) {
+      selectedAuto = nuevaSeleccion;
+      nuevaSeleccion.classList.add('selected');
     }
+  }
 
+  return Promise.resolve();
+}
+
+function _normalizarUnidadMapa(unit = {}) {
+  const mva = String(unit?.mva || '').trim().toUpperCase();
+  const placas = String(unit?.placas || '').trim().toUpperCase();
+  const modelo = String(unit?.modelo || '').trim().toUpperCase();
+  const estado = String(unit?.estado || 'SUCIO').trim().toUpperCase();
+  const gasolina = String(unit?.gasolina || 'N/A').trim().toUpperCase() || 'N/A';
+  const ubicacion = String(unit?.ubicacion || 'PATIO').trim().toUpperCase();
+  const pos = String(unit?.pos || 'LIMBO').trim().toUpperCase();
+  const notas = String(unit?.notas || '').replace(/[\r\n]+/g, ' ').trim();
+  const fechaIngreso = String(unit?.fechaIngreso || '').trim();
+  return { ...unit, mva, placas, modelo, estado, gasolina, ubicacion, pos, notas, fechaIngreso };
+}
+
+function _firmaUnidadMapa(unit) {
+  return [
+    unit.mva,
+    unit.pos,
+    unit.ubicacion,
+    unit.estado,
+    unit.gasolina,
+    unit.notas,
+    unit.placas,
+    unit.modelo,
+    unit.fechaIngreso
+  ].join('|');
+}
+
+function _obtenerDestinoUnidadMapa(unit) {
+  if (unit.pos === "LIMBO") {
+    return unit.ubicacion === "TALLER"
+      ? document.getElementById("unidades-taller")
+      : document.getElementById("unidades-limbo");
+  }
+
+  const destinoMapa = document.getElementById("spot-" + unit.pos.replace(/\s/g, ''));
+  if (destinoMapa) return destinoMapa;
+
+  return unit.ubicacion === "TALLER"
+    ? document.getElementById("unidades-taller")
+    : document.getElementById("unidades-limbo");
+}
+
+function _renderGasolinaMapa(gasolina) {
+  if (!gasolina || gasolina === "N/A") return "";
+
+  let pct = 0;
+  let gasColor = "#ffffff";
+  if (gasolina === "F") pct = 100;
+  else if (gasolina === "E") pct = 0;
+  else if (gasolina === "H") pct = 50;
+  else if (gasolina.includes('/')) {
+    const parts = gasolina.split('/');
+    if (parts.length === 2 && parseFloat(parts[1]) !== 0) {
+      pct = Math.round((parseFloat(parts[0]) / parseFloat(parts[1])) * 100);
+    }
+  }
+
+  if (pct >= 75) gasColor = "#4ade80";
+  else if (pct >= 37) gasColor = "#facc15";
+  else gasColor = "#f87171";
+
+  return `<div class="gas-container"><div class="gas-fill" style="width: ${pct}%; background: ${gasColor};"></div><span class="gas-text">${gasolina}</span></div>`;
+}
+
+function _actualizarNodoUnidadMapa(car, unit, signature) {
+  const esGhost = car.classList.contains('ghost');
+  const esForgotten = car.classList.contains('forgotten');
+  const esSelected = car.classList.contains('selected');
+
+  car.dataset.mva = unit.mva;
+  car.dataset.placas = unit.placas || "";
+  car.dataset.modelo = unit.modelo || "";
+  car.dataset.estado = unit.estado || "SUCIO";
+  car.dataset.gasolina = unit.gasolina || "N/A";
+  car.dataset.ubicacion = unit.ubicacion;
+  car.dataset.ingreso = unit.fechaIngreso || "";
+  car.dataset.notas = unit.notas || "";
+
+  const textoNotas = unit.notas.toUpperCase();
+  const urgHtml = textoNotas.includes("URGENTE") ? `<div class="urgent-badge">⚡</div>` : '';
+  const lockHtml = (textoNotas.includes("RESERVAD") || textoNotas.includes("APARTAD")) ? `<div class="lock-badge">🔒</div>` : '';
+  const docHtml = textoNotas.includes("DOBLE CERO") ? `<div class="doc-badge">🍃</div>` : '';
+  const mantoHtml = (unit.estado === "MANTENIMIENTO" || unit.estado === "TALLER") ? `<div class="manto-badge">⚙️</div>` : '';
+  const termometro = obtenerDisenoCalor(unit.fechaIngreso);
+  const calorHtml = `<div class="badge-calor ${termometro.clase}" style="background: ${termometro.bg}; border: 1px solid ${termometro.border}; color: ${termometro.color};"><span class="material-icons" style="font-size: 11px;">${termometro.icon}</span> ${termometro.text}</div>`;
+  const gasBarHtml = _renderGasolinaMapa(unit.gasolina);
+  const estadoClase = unit.estado
+    ? unit.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')
+    : "sucio";
+
+  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${urgHtml}<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; pointer-events:none;"><span style="font-size:19px; flex:1; display:flex; align-items:center;">${unit.mva}</span>${gasBarHtml}</div>`;
+  car.className = `car ${estadoClase}`;
+  if (esGhost) car.classList.add('ghost');
+  if (esForgotten) car.classList.add('forgotten');
+  if (esSelected) car.classList.add('selected');
+  car.dataset.renderHash = signature;
+}
+
+function _flushMapaSync() {
+  _mapaRenderRAF = 0;
+  if (!_ultimaFlotaMapa.length) {
+    if (selectedAuto) cerrarPanel();
+    document.querySelectorAll('.car').forEach(car => car.remove());
+    actualizarContadores();
+    return;
+  }
+
+  if (!_mapaRuntime.estructuraReady && !document.getElementById('grid-map')?.children.length) return;
+
+  const nuevas = _ultimaFlotaMapa
+    .map(_normalizarUnidadMapa)
+    .filter(unit => unit.mva)
+    .sort((a, b) => a.mva.localeCompare(b.mva));
+
+  const idsActuales = new Set(nuevas.map(unit => `auto-${unit.mva}`));
+  let huboCambios = false;
+
+  document.querySelectorAll('.car').forEach(car => {
+    if (!idsActuales.has(car.id)) {
+      if (selectedAuto && car.id === selectedAuto.id) {
+        cerrarPanel();
+      }
+      car.remove();
+      huboCambios = true;
+    }
+  });
+
+  nuevas.forEach(unit => {
+    const id = `auto-${unit.mva}`;
+    const destino = _obtenerDestinoUnidadMapa(unit);
+    if (!destino) return;
+
+    let car = document.getElementById(id);
     if (!car) {
       car = document.createElement('div');
-      car.id = `auto-${u.mva}`;
-    }
-    
-    // --- DATOS ---
-    car.dataset.mva = u.mva;
-    car.dataset.placas = u.placas || "";
-    car.dataset.modelo = u.modelo || "";
-    car.dataset.estado = u.estado || "SUCIO";
-    car.dataset.gasolina = u.gasolina || "";
-    car.dataset.ubicacion = ubiDB;
-    car.dataset.ingreso = u.fechaIngreso || ""; 
-
-    let notasLimpias = (u.notas || "").toString().replace(/[\r\n]+/g, ' '); 
-    car.dataset.notas = notasLimpias; 
-
-    // LÓGICA DE INSIGNIAS
-    let textoNotas = notasLimpias.toUpperCase();
-    
-    let esUrgente = textoNotas.includes("URGENTE");
-    let urgHtml = esUrgente ? `<div class="urgent-badge">⚡</div>` : '';
-
-    let estaReservado = textoNotas.includes("RESERVAD") || textoNotas.includes("APARTAD");
-    car.dataset.reservado = estaReservado ? "true" : "false";
-    let lockHtml = estaReservado ? `<div class="lock-badge">🔒</div>` : '';
-
-    let tieneDobleCero = textoNotas.includes("DOBLE CERO");
-    let docHtml = tieneDobleCero ? `<div class="doc-badge">🍃</div>` : '';
-
-    let esManto = car.dataset.estado === "MANTENIMIENTO" || car.dataset.estado === "TALLER";
-    let mantoHtml = esManto ? `<div class="manto-badge">⚙️</div>` : '';
-
-    // 🔥 MAPA DE CALOR: Obtenemos el diseño
-    const termometro = obtenerDisenoCalor(u.fechaIngreso);
-    let calorHtml = `<div class="badge-calor ${termometro.clase}" style="background: ${termometro.bg}; border: 1px solid ${termometro.border}; color: ${termometro.color};"><span class="material-icons" style="font-size: 11px;">${termometro.icon}</span> ${termometro.text}</div>`;
-
-    // --- GASOLINA ---
-    let gasBarHtml = "";
-    if (u.gasolina && u.gasolina !== "N/A") {
-      let pct = 0; let gasColor = "#ffffff"; 
-      if (u.gasolina === "F") pct = 100;
-      else if (u.gasolina === "E") pct = 0;
-      else if (u.gasolina === "H") pct = 50;
-      else if (u.gasolina.includes('/')) {
-        let parts = u.gasolina.split('/');
-        if(parts.length === 2 && parseFloat(parts[1]) !== 0) pct = Math.round((parseFloat(parts[0]) / parseFloat(parts[1])) * 100);
-      }
-      if (pct >= 75) gasColor = "#4ade80"; else if (pct >= 37) gasColor = "#facc15"; else gasColor = "#f87171";
-      gasBarHtml = `<div class="gas-container"><div class="gas-fill" style="width: ${pct}%; background: ${gasColor};"></div><span class="gas-text">${u.gasolina}</span></div>`;
+      car.id = id;
+      huboCambios = true;
     }
 
-    // Inyectamos todo el HTML (Incluyendo calorHtml)
-    car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${urgHtml}<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; pointer-events:none;"><span style="font-size: 19px; flex: 1; display: flex; align-items: center;">${u.mva}</span>${gasBarHtml}</div>`;
-    
-    const estadoClase = u.estado ? u.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-') : "sucio";
-    
-    let esGhost = car.classList.contains('ghost');
-    let esForgotten = car.classList.contains('forgotten');
-    
-    car.className = `car ${estadoClase}`;
-    if(esGhost) car.classList.add('ghost');
-    if(esForgotten) car.classList.add('forgotten');
-    
-    if (car.parentElement !== dest) dest.appendChild(car);
+    const signature = _firmaUnidadMapa(unit);
+    if (car.dataset.renderHash !== signature) {
+      _actualizarNodoUnidadMapa(car, unit, signature);
+      huboCambios = true;
+    }
+
+    if (car.parentElement !== destino) {
+      destino.appendChild(car);
+      huboCambios = true;
+    }
   });
-  actualizarContadores();
 
-  // Re-aplicar filtro de búsqueda si estaba activo
-  const _q = (document.getElementById('searchInput').value || document.getElementById('searchInputMobile').value || '').trim();
-  if (_q && typeof buscarMasivo === 'function') buscarMasivo();
-
-  // Si hay un auto seleccionado, refrescar el panel lateral con los datos más recientes
-  if (selectedAuto && selectedAuto.isConnected) {
-    mostrarDetalle(selectedAuto.dataset, true);
+  if (huboCambios) {
+    actualizarContadores();
+    const q = (document.getElementById('searchInput')?.value || document.getElementById('searchInputMobile')?.value || '').trim();
+    if (q && typeof buscarMasivo === 'function') buscarMasivo();
+    if (selectedAuto && selectedAuto.isConnected) {
+      mostrarDetalle(selectedAuto.dataset, true);
+    }
   }
+}
+
+function sincronizarMapa(nuevas, opciones = {}) {
+  _ultimaFlotaMapa = Array.isArray(nuevas) ? nuevas : [];
+
+  if (opciones.immediate === true) {
+    if (_mapaRenderRAF) cancelAnimationFrame(_mapaRenderRAF);
+    _flushMapaSync();
+    return;
+  }
+
+  if (_mapaRenderRAF) return;
+  _mapaRenderRAF = requestAnimationFrame(_flushMapaSync);
 }
 
 document.addEventListener('click', (e) => {
@@ -5707,8 +6091,9 @@ function actualizarContadores() {
   }
 }
 
-function refrescarDatos() {
-  if (isSaving) return;
+function refrescarDatos(force = false) {
+  if (isSaving || window.PAUSA_CONEXIONES) return;
+  if (!force && _mapaRuntime.unidadesReady) return;
   api.obtenerDatosParaMapa().then(data => {
     if (data && data.unidades) sincronizarMapa(data.unidades);
   }).catch(e => console.error(e));
@@ -7352,11 +7737,13 @@ let alertaActualMostrandose = null;
 let historialAlertasCache = [];
 let alertasPlantillasCache = [];
 let alertaSelectionRange = null;
+let alertaAccionActualActiva = null;
 let alertaEditorState = {
   editingId: '',
   destMode: 'GLOBAL',
   destinatariosSeleccionados: [],
-  editorBound: false
+  editorBound: false,
+  cta: { type: 'NONE', label: '', value: '', extra: '' }
 };
 
 const ALERTA_TIPO_META = Object.freeze({
@@ -7370,6 +7757,45 @@ const ALERTA_MODO_META = Object.freeze({
   PASIVA: { label: 'PASIVA', icon: '🔔', bg: '#f8fafc', color: '#475569' }
 });
 
+const ALERTA_ACTION_META = Object.freeze({
+  NONE: {
+    icon: 'remove_circle_outline',
+    defaultLabel: '',
+    valueLabel: 'Sin acción',
+    valuePlaceholder: '',
+    extraLabel: '',
+    extraPlaceholder: '',
+    help: 'La alerta solo mostrará el botón para marcarla como leída.'
+  },
+  URL: {
+    icon: 'open_in_new',
+    defaultLabel: 'Abrir enlace',
+    valueLabel: 'URL destino',
+    valuePlaceholder: 'https://...',
+    extraLabel: 'Texto secundario (opcional)',
+    extraPlaceholder: 'Ej. Se abrirá en una nueva pestaña',
+    help: 'Abre una página externa o documento cuando el usuario pulse el botón.'
+  },
+  WHATSAPP: {
+    icon: 'chat',
+    defaultLabel: 'Abrir WhatsApp',
+    valueLabel: 'Número de WhatsApp',
+    valuePlaceholder: '5215512345678',
+    extraLabel: 'Mensaje inicial (opcional)',
+    extraPlaceholder: 'Texto que aparecerá precargado',
+    help: 'Abre una conversación directa de WhatsApp con el número indicado.'
+  },
+  COPY: {
+    icon: 'content_copy',
+    defaultLabel: 'Copiar información',
+    valueLabel: 'Texto o enlace a copiar',
+    valuePlaceholder: 'Código, URL o mensaje corto',
+    extraLabel: 'Confirmación (opcional)',
+    extraPlaceholder: 'Ej. Enlace copiado al portapapeles',
+    help: 'Copia contenido útil al portapapeles del usuario con un toque.'
+  }
+});
+
 function _obtenerMetaTipoAlerta(tipo) {
   return ALERTA_TIPO_META[String(tipo || '').trim().toUpperCase()] || ALERTA_TIPO_META.INFO;
 }
@@ -7380,6 +7806,183 @@ function _normalizarModoAlerta(modo) {
 
 function _obtenerMetaModoAlerta(modo) {
   return ALERTA_MODO_META[_normalizarModoAlerta(modo)];
+}
+
+function _crearAccionAlertaVacia() {
+  return { type: 'NONE', label: '', value: '', extra: '' };
+}
+
+function _normalizarAccionAlerta(accion = {}) {
+  const rawType = String((accion && (accion.type || accion.tipo)) || '').trim().toUpperCase();
+  const type = Object.prototype.hasOwnProperty.call(ALERTA_ACTION_META, rawType) ? rawType : 'NONE';
+  const label = String((accion && (accion.label || accion.texto || accion.text)) || '').trim();
+  const value = String((accion && (accion.value || accion.url || accion.telefono || accion.contenido)) || '').trim();
+  const extra = String((accion && (accion.extra || accion.mensaje || accion.helper)) || '').trim();
+  if (type === 'NONE') return _crearAccionAlertaVacia();
+  return { type, label, value, extra };
+}
+
+function _obtenerMetaAccionAlerta(type) {
+  return ALERTA_ACTION_META[String(type || '').trim().toUpperCase()] || ALERTA_ACTION_META.NONE;
+}
+
+function _obtenerAccionFormularioAlerta() {
+  return _normalizarAccionAlerta({
+    type: document.getElementById('alertaActionType')?.value || 'NONE',
+    label: document.getElementById('alertaActionLabel')?.value || '',
+    value: document.getElementById('alertaActionValue')?.value || '',
+    extra: document.getElementById('alertaActionExtra')?.value || ''
+  });
+}
+
+function _sincronizarFormularioAccionAlerta(accion = _crearAccionAlertaVacia(), forceDefaults = false) {
+  const normalized = _normalizarAccionAlerta(accion);
+  const typeSelect = document.getElementById('alertaActionType');
+  const labelInput = document.getElementById('alertaActionLabel');
+  const valueInput = document.getElementById('alertaActionValue');
+  const extraInput = document.getElementById('alertaActionExtra');
+  if (typeSelect) typeSelect.value = normalized.type;
+  if (labelInput) labelInput.value = normalized.label || '';
+  if (valueInput) valueInput.value = normalized.value || '';
+  if (extraInput) extraInput.value = normalized.extra || '';
+  alertaEditorState.cta = normalized;
+  _actualizarCamposAccionAlerta(forceDefaults);
+}
+
+function _actualizarCamposAccionAlerta(forceDefaults = false) {
+  const current = _obtenerAccionFormularioAlerta();
+  const meta = _obtenerMetaAccionAlerta(current.type);
+  const config = document.getElementById('alertaActionConfig');
+  const labelCaption = document.getElementById('alertaActionLabelCaption');
+  const valueCaption = document.getElementById('alertaActionValueCaption');
+  const extraCaption = document.getElementById('alertaActionExtraCaption');
+  const valueInput = document.getElementById('alertaActionValue');
+  const extraInput = document.getElementById('alertaActionExtra');
+  const help = document.getElementById('alertaActionHelp');
+  const extraWrap = document.getElementById('alertaActionExtraWrap');
+  const labelInput = document.getElementById('alertaActionLabel');
+
+  if (config) config.style.display = current.type === 'NONE' ? 'none' : 'grid';
+  if (labelCaption) labelCaption.innerText = 'Texto del botón';
+  if (valueCaption) valueCaption.innerText = meta.valueLabel;
+  if (extraCaption) extraCaption.innerText = meta.extraLabel || 'Dato extra';
+  if (valueInput) valueInput.placeholder = meta.valuePlaceholder;
+  if (extraInput) extraInput.placeholder = meta.extraPlaceholder;
+  if (extraWrap) extraWrap.style.display = meta.extraLabel ? 'flex' : 'none';
+  if (help) help.innerText = meta.help;
+
+  if (labelInput && current.type !== 'NONE' && (forceDefaults || !labelInput.value.trim())) {
+    labelInput.value = meta.defaultLabel;
+  }
+
+  alertaEditorState.cta = _obtenerAccionFormularioAlerta();
+}
+
+function _normalizarUrlAccionAlerta(url = '') {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  if (/^(https?:\/\/|mailto:|tel:)/i.test(raw)) return raw;
+  return `https://${raw.replace(/^\/+/, '')}`;
+}
+
+function _esUrlSeguraAlerta(url = '', allowDataImage = false) {
+  const value = String(url || '').trim();
+  if (!value) return false;
+  if (allowDataImage) return /^data:image\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(value);
+  return /^(https?:\/\/|mailto:|tel:)/i.test(value);
+}
+
+function _obtenerTextoBotonAccionAlerta(accion = {}) {
+  const normalized = _normalizarAccionAlerta(accion);
+  if (normalized.type === 'NONE') return '';
+  return normalized.label || _obtenerMetaAccionAlerta(normalized.type).defaultLabel || 'Abrir';
+}
+
+function _obtenerHintAccionAlerta(accion = {}) {
+  const normalized = _normalizarAccionAlerta(accion);
+  if (normalized.type === 'URL') {
+    return normalized.value ? `Abrirá ${normalized.value}` : 'Configura la URL que quieres abrir.';
+  }
+  if (normalized.type === 'WHATSAPP') {
+    return normalized.value ? `Abrirá WhatsApp con ${normalized.value}` : 'Configura el número de destino.';
+  }
+  if (normalized.type === 'COPY') {
+    return normalized.extra || 'Copiará contenido útil al portapapeles.';
+  }
+  return '';
+}
+
+function _renderizarBotonAccionAlerta(boton, accion = {}, color = 'var(--mex-accent)') {
+  if (!boton) return;
+  const normalized = _normalizarAccionAlerta(accion);
+  if (normalized.type === 'NONE') {
+    boton.style.display = 'none';
+    boton.innerHTML = '';
+    return;
+  }
+  const meta = _obtenerMetaAccionAlerta(normalized.type);
+  boton.style.display = 'inline-flex';
+  boton.style.background = color;
+  boton.style.boxShadow = `0 16px 32px ${color}33`;
+  boton.innerHTML = `<span class="material-icons" style="font-size:17px;">${meta.icon}</span><span>${escapeHtml(_obtenerTextoBotonAccionAlerta(normalized))}</span>`;
+}
+
+function _copiarTextoAlPortapapeles(texto = '') {
+  const contenido = String(texto || '').trim();
+  if (!contenido) return Promise.reject(new Error('No hay contenido para copiar.'));
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(contenido);
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const area = document.createElement('textarea');
+      area.value = contenido;
+      area.setAttribute('readonly', 'readonly');
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.focus();
+      area.select();
+      const ok = document.execCommand('copy');
+      area.remove();
+      if (!ok) throw new Error('copy failed');
+      resolve();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
+
+async function ejecutarAccionAlertaActual() {
+  const accion = _normalizarAccionAlerta(alertaAccionActualActiva || alertaActualMostrandose?.cta || {});
+  if (accion.type === 'NONE') return;
+
+  try {
+    if (accion.type === 'URL') {
+      const target = _normalizarUrlAccionAlerta(accion.value);
+      if (!_esUrlSeguraAlerta(target)) throw new Error('URL inválida');
+      window.open(target, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (accion.type === 'WHATSAPP') {
+      const numero = String(accion.value || '').replace(/\D/g, '');
+      if (numero.length < 8) throw new Error('Número inválido');
+      const texto = encodeURIComponent(accion.extra || alertaActualMostrandose?.titulo || '');
+      const url = `https://wa.me/${numero}${texto ? `?text=${texto}` : ''}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (accion.type === 'COPY') {
+      await _copiarTextoAlPortapapeles(accion.value || accion.extra || alertaActualMostrandose?.titulo || '');
+      showToast(accion.extra || 'Información copiada', 'success');
+      return;
+    }
+  } catch (error) {
+    console.error(error);
+    showToast(error?.message || 'No se pudo ejecutar la acción.', 'error');
+  }
 }
 
 function _parseListaAlertaCsv(valor) {
@@ -7498,8 +8101,12 @@ function _sanitizarHtmlAlerta(html) {
   const template = document.createElement('template');
   template.innerHTML = String(html || '');
 
-  const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI', 'SPAN', 'FONT', 'HR', 'BLOCKQUOTE']);
-  const allowedStyles = new Set(['text-align', 'color', 'font-size', 'font-weight', 'font-style', 'text-decoration']);
+  const allowedTags = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'BR', 'P', 'DIV', 'UL', 'OL', 'LI', 'SPAN', 'FONT', 'HR', 'BLOCKQUOTE', 'IMG', 'A']);
+  const allowedStyles = new Set([
+    'text-align', 'color', 'font-size', 'font-weight', 'font-style', 'text-decoration',
+    'display', 'margin', 'margin-top', 'margin-bottom', 'margin-left', 'margin-right',
+    'width', 'max-width', 'border-radius', 'line-height'
+  ]);
 
   function limpiarNodo(node) {
     Array.from(node.childNodes).forEach(child => {
@@ -7538,7 +8145,7 @@ function _sanitizarHtmlAlerta(html) {
               const prop = parts.shift().trim().toLowerCase();
               const value = parts.join(':').trim();
               if (!allowedStyles.has(prop)) return '';
-              if (/[<>]/.test(value)) return '';
+              if (/[<>]/.test(value) || /url\s*\(/i.test(value)) return '';
               return `${prop}:${value}`;
             })
             .filter(Boolean)
@@ -7548,8 +8155,29 @@ function _sanitizarHtmlAlerta(html) {
           return;
         }
         if (tag === 'FONT' && (attrName === 'color' || attrName === 'size')) return;
+        if (tag === 'IMG' && attrName === 'src') {
+          if (_esUrlSeguraAlerta(attr.value, true)) return;
+          child.remove();
+          return;
+        }
+        if (tag === 'IMG' && attrName === 'alt') return;
+        if (tag === 'A' && attrName === 'href') {
+          const href = _normalizarUrlAccionAlerta(attr.value);
+          if (_esUrlSeguraAlerta(href)) {
+            child.setAttribute('href', href);
+            child.setAttribute('target', '_blank');
+            child.setAttribute('rel', 'noopener noreferrer');
+            return;
+          }
+          child.removeAttribute(attr.name);
+          return;
+        }
         child.removeAttribute(attr.name);
       });
+
+      if (tag === 'A' && !child.getAttribute('href')) {
+        child.replaceWith(...Array.from(child.childNodes));
+      }
     });
   }
 
@@ -7642,8 +8270,9 @@ function _renderBotonEmitirAlerta() {
 }
 
 
-function refrescarDatos() {
+function refrescarDatos(force = false) {
   if (isSaving || window.PAUSA_CONEXIONES) return; // 🛑 ESCUDO DOBLE: Si estamos guardando o pausados, no hacer nada
+  if (!force && _mapaRuntime.unidadesReady) return;
   api.obtenerDatosParaMapa().then(data => {
     if (data && data.unidades) sincronizarMapa(data.unidades);
   }).catch(e => console.error(e));
@@ -7652,12 +8281,14 @@ function refrescarDatos() {
 
 let _unsubRadar = [];
 let _radarState = { settings: null, alertas: null, mensajes: null };
+let _radarReady = { settings: false, alertas: false, mensajes: false };
 
 function _limpiarRadar() {
   if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
   _unsubRadar.forEach(u => u());
   _unsubRadar = [];
   _radarState = { settings: null, alertas: null, mensajes: null };
+  _radarReady = { settings: false, alertas: false, mensajes: false };
 }
 
 function iniciarRadarNotificaciones() {
@@ -7689,6 +8320,7 @@ function iniciarRadarNotificaciones() {
   _unsubRadar.push(
     db.collection('settings').doc('principal').onSnapshot(snap => {
       _radarState.settings = snap.exists ? snap.data() : {};
+      _radarReady.settings = true;
       emitir();
     }, err => console.warn('Radar settings:', err))
   );
@@ -7696,6 +8328,7 @@ function iniciarRadarNotificaciones() {
   _unsubRadar.push(
     db.collection('alertas').orderBy('timestamp', 'desc').limit(50).onSnapshot(snap => {
       _radarState.alertas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _radarReady.alertas = true;
       emitir();
     }, err => console.warn('Radar alertas:', err))
   );
@@ -7703,6 +8336,7 @@ function iniciarRadarNotificaciones() {
   _unsubRadar.push(
     db.collection('mensajes').where('destinatario', '==', USER_NAME.toUpperCase()).onSnapshot(snap => {
       _radarState.mensajes = snap.docs.filter(d => d.data().leido !== 'SI').length;
+      _radarReady.mensajes = true;
       emitir();
     }, err => console.warn('Radar mensajes:', err))
   );
@@ -7711,8 +8345,9 @@ function iniciarRadarNotificaciones() {
 let STRING_ULTIMO_FEED = ""; // Memoria para detectar cambios reales
 
 // Conservado para llamadas directas puntuales si se necesitan
-function hacerPingNotificaciones() {
+function hacerPingNotificaciones(force = false) {
   if (window.PAUSA_CONEXIONES || !USER_NAME) return;
+  if (!force && _radarReady.settings && _radarReady.alertas && _radarReady.mensajes) return;
   api.checarNotificaciones(USER_NAME).then(res => {
     if (res) _procesarPingUI(res);
   }).catch(err => console.error("❌ RADAR ERROR:", err));
@@ -7935,35 +8570,19 @@ function abrirSiguienteAlerta() {
   alertaActualMostrandose = filaAlertasPendientes[0];
   const alerta = alertaActualMostrandose;
   const metaTipo = _obtenerMetaTipoAlerta(alerta.tipo);
-  const metaModo = _obtenerMetaModoAlerta(alerta.modo);
   const mensajeHtml = _normalizarMensajeAlertaHtml(alerta.mensaje);
-  const resumenDest = _obtenerResumenDestinatariosAlerta(alerta);
+  const accion = _normalizarAccionAlerta(alerta.cta || {});
 
   document.getElementById('alertaTitulo').innerText = alerta.titulo || 'Sin título';
   document.getElementById('alertaMensaje').innerHTML = mensajeHtml || `<div style="color:#94a3b8;">Sin contenido disponible.</div>`;
   document.getElementById('alertaMensaje').scrollTop = 0;
   document.getElementById('alertaFecha').innerText = alerta.fecha || 'Reciente';
   document.getElementById('alertaAutor').innerText = alerta.autor || 'Sistema';
-  const subline = document.getElementById('alertaTipoSubline');
-  if (subline) subline.innerText = _obtenerSublineaModoAlerta(alerta.modo, resumenDest);
 
   const tipoBadge = document.getElementById('alertaTipo');
   tipoBadge.innerText = metaTipo.label;
   tipoBadge.style.background = metaTipo.bg;
   tipoBadge.style.color = metaTipo.color;
-
-  const modoBadge = document.getElementById('alertaModoBadgeModal');
-  if (modoBadge) {
-    modoBadge.innerText = `${metaModo.icon} ${metaModo.label}`;
-    modoBadge.style.background = metaModo.bg;
-    modoBadge.style.color = metaModo.color;
-  }
-
-  const destinosBadge = document.getElementById('alertaDestinatariosModal');
-  if (destinosBadge) {
-    destinosBadge.innerHTML = `<span class="material-icons" style="font-size:14px;">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}`;
-    destinosBadge.title = resumenDest.detail;
-  }
 
   const banner = document.getElementById('alertaBannerImg');
   if (alerta.imagen && (String(alerta.imagen).startsWith('http') || String(alerta.imagen).startsWith('data:image'))) {
@@ -7979,6 +8598,9 @@ function abrirSiguienteAlerta() {
     ? 'MARCAR COMO LEÍDA'
     : 'ENTENDIDO (MARCAR COMO LEÍDA)';
   btnCerrar.style.background = metaTipo.color;
+
+  alertaAccionActualActiva = accion.type === 'NONE' ? null : accion;
+  _renderizarBotonAccionAlerta(document.getElementById('btnAccionAlerta'), accion, metaTipo.color);
 
   document.getElementById('modalAlertaMaestra').classList.add('active');
 }
@@ -7996,6 +8618,7 @@ function procesarAlertaLeida() {
       btn.disabled = false;
       btn.innerText = "ENTENDIDO (MARCAR COMO LEÍDA)";
       alertaActualMostrandose = null;
+      alertaAccionActualActiva = null;
       hacerPingNotificaciones();
     }).catch(e => {
       console.error(e);
@@ -8025,6 +8648,86 @@ function alertaFontSize(size) {
 
 function alertaInsertHR() {
   alertaCmd('insertHorizontalRule');
+}
+
+function alertaInsertLink() {
+  const url = prompt('Enlace para insertar:', 'https://');
+  if (!url || !url.trim()) return;
+  const normalized = _normalizarUrlAccionAlerta(url);
+  if (!_esUrlSeguraAlerta(normalized)) {
+    showToast('Ese enlace no es válido.', 'error');
+    return;
+  }
+  alertaCmd('createLink', normalized);
+}
+
+function alertaInsertHtml(html = '') {
+  if (!String(html || '').trim()) return;
+  const editor = _obtenerEditorAlerta();
+  if (!editor) return;
+  _restaurarSeleccionEditorAlerta();
+  try { document.execCommand('styleWithCSS', false, true); } catch (e) {}
+  document.execCommand('insertHTML', false, html);
+  _guardarSeleccionEditorAlerta();
+  _actualizarPreviewAlerta();
+}
+
+function abrirSelectorImagenCuerpoAlerta() {
+  const input = document.getElementById('alertaBodyImageFile');
+  if (input) input.click();
+}
+
+function _comprimirArchivoImagenAlerta(file, options = {}) {
+  return new Promise((resolve, reject) => {
+    if (!file) {
+      resolve('');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen.'));
+    reader.onload = event => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('No se pudo procesar la imagen.'));
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const MAX_WIDTH = Number(options.maxWidth || 1000);
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH) {
+          height = Math.round((height * MAX_WIDTH) / width);
+          width = MAX_WIDTH;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', Number(options.quality || 0.68)));
+      };
+      img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function insertarImagenCuerpoAlerta(event) {
+  const input = event?.target;
+  const file = input?.files?.[0];
+  if (!file) return;
+
+  try {
+    const base64 = await _comprimirArchivoImagenAlerta(file, { maxWidth: 1100, quality: 0.7 });
+    const alt = escapeHtml((file.name || 'Imagen alerta').replace(/\.[^.]+$/, ''));
+    alertaInsertHtml(`<div style="text-align:center; margin:14px 0;"><img src="${base64}" alt="${alt}" style="display:block; max-width:100%; width:auto; margin:0 auto; border-radius:18px;"></div>`);
+    showToast('Imagen agregada al cuerpo.', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast('No se pudo insertar la imagen.', 'error');
+  } finally {
+    if (input) input.value = '';
+  }
 }
 
 function _renderDestinatariosAlerta() {
@@ -8190,6 +8893,7 @@ function _actualizarPreviewAlerta() {
   const imagen = document.getElementById('alertaNuevaImagen')?.value.trim() || '';
   const modo = document.getElementById('alertaModoActual')?.value || 'INTERRUPTIVA';
   const html = _sanitizarHtmlAlerta(_obtenerEditorAlerta()?.innerHTML || '');
+  const accion = _obtenerAccionFormularioAlerta();
 
   const metaTipo = _obtenerMetaTipoAlerta(tipo);
   const metaModo = _obtenerMetaModoAlerta(modo);
@@ -8262,6 +8966,14 @@ function _actualizarPreviewAlerta() {
       bannerPreview.style.display = 'none';
     }
   }
+
+  const actionWrap = document.getElementById('alertaPreviewActionWrap');
+  const actionHint = document.getElementById('alertaPreviewActionHint');
+  _renderizarBotonAccionAlerta(document.getElementById('alertaPreviewActionBtn'), accion, metaTipo.color);
+  if (actionWrap) actionWrap.style.display = accion.type === 'NONE' ? 'none' : 'flex';
+  if (actionHint) actionHint.innerText = accion.type === 'NONE' ? '' : _obtenerHintAccionAlerta(accion);
+
+  alertaEditorState.cta = accion;
 }
 
 function limpiarImagenAlerta() {
@@ -8302,8 +9014,20 @@ function cargarPlantillaSeleccionada() {
 
   document.getElementById('alertaNuevaTipo').value = plantilla.tipo || 'INFO';
   document.getElementById('alertaNuevaTitulo').value = plantilla.titulo || '';
+  document.getElementById('alertaNuevaImagen').value = plantilla.imagen || '';
   _obtenerEditorAlerta().innerHTML = _normalizarMensajeAlertaHtml(plantilla.mensaje);
+  _sincronizarFormularioAccionAlerta(plantilla.cta || {}, true);
   _selectModo(plantilla.modo || 'INTERRUPTIVA');
+  const textoUpload = document.getElementById('textoUploadAlerta');
+  if (textoUpload) {
+    if (plantilla.imagen) {
+      textoUpload.innerText = 'Imagen actual cargada';
+      textoUpload.style.color = '#1a73e8';
+    } else {
+      textoUpload.innerText = 'Seleccionar imagen...';
+      textoUpload.style.color = '#64748b';
+    }
+  }
   _updateAlertaTipoStyle();
   _actualizarPreviewAlerta();
   showToast(`Plantilla "${plantilla.nombre}" cargada`, 'success');
@@ -8320,6 +9044,8 @@ async function guardarComoPlantilla() {
   const mensaje = _sanitizarHtmlAlerta(_obtenerEditorAlerta()?.innerHTML || '');
   const mensajePlano = _obtenerTextoPlanoAlerta(mensaje);
   const modo = document.getElementById('alertaModoActual').value || 'INTERRUPTIVA';
+  const imagen = document.getElementById('alertaNuevaImagen').value.trim();
+  const cta = _obtenerAccionFormularioAlerta();
 
   if (!titulo && !mensajePlano) {
     showToast("Primero diseña la alerta antes de guardar una plantilla.", "error");
@@ -8331,7 +9057,10 @@ async function guardarComoPlantilla() {
   if (!nombre || !nombre.trim()) return;
 
   try {
-    const res = await api.guardarPlantillaAlerta(nombre.trim(), tipo, titulo || 'Sin título', mensaje, modo, USER_NAME);
+    const res = await api.guardarPlantillaAlerta(nombre.trim(), tipo, titulo || 'Sin título', mensaje, modo, USER_NAME, {
+      imagen,
+      cta
+    });
     if (res === 'EXITO') {
       await _cargarPlantillasAlerta();
       showToast("Plantilla guardada", "success");
@@ -8370,6 +9099,7 @@ function _prepararFormularioAlerta(alerta = null) {
     textoUpload.style.color = '#64748b';
   }
 
+  _sincronizarFormularioAccionAlerta(alerta?.cta || {}, true);
   _renderDestinatariosAlerta();
   _setDestMode(alertaEditorState.destMode);
   if (alertaEditorState.destMode === 'SOLO') {
@@ -8411,6 +9141,7 @@ async function emitirAlertaGlobal() {
   const mensajePlano = _obtenerTextoPlanoAlerta(mensaje);
   const imagen = document.getElementById('alertaNuevaImagen').value.trim();
   const modo = _normalizarModoAlerta(document.getElementById('alertaModoActual').value);
+  const cta = _obtenerAccionFormularioAlerta();
   const btn = document.getElementById('btnEmitirAlertaGlobal');
 
   let destinatarios = 'GLOBAL';
@@ -8442,6 +9173,7 @@ async function emitirAlertaGlobal() {
           mensaje,
           imagen,
           modo,
+          cta,
           destinatarios,
           destMode: alertaEditorState.destMode
         }, USER_NAME)
@@ -8453,7 +9185,7 @@ async function emitirAlertaGlobal() {
           USER_NAME,
           destinatarios,
           modo,
-          { destMode: alertaEditorState.destMode }
+          { destMode: alertaEditorState.destMode, cta }
         );
 
     _actualizarTituloModalAlerta();
@@ -8482,48 +9214,19 @@ function comprimirImagenAlerta(event) {
 
   const textoUpload = document.getElementById('textoUploadAlerta');
   textoUpload.innerText = "Procesando...";
-
-  const reader = new FileReader();
-  reader.readAsDataURL(file);
-  reader.onload = function(e) {
-    const img = new Image();
-    img.src = e.target.result;
-    
-    img.onload = function() {
-      // 1. Crear un lienzo (canvas) invisible
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      // 2. Calcular nuevo tamaño (Máximo 800px de ancho)
-      const MAX_WIDTH = 800;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > MAX_WIDTH) {
-        height = Math.round((height * MAX_WIDTH) / width);
-        width = MAX_WIDTH;
-      }
-
-      canvas.width = width;
-      canvas.height = height;
-
-      // 3. Dibujar la imagen encogida
-      ctx.drawImage(img, 0, 0, width, height);
-
-      // 4. Convertirla a texto (JPG con 60% de calidad para que pese muy poco)
-      const base64Comprimido = canvas.toDataURL('image/jpeg', 0.6);
-
-      // 5. Guardarla en el input oculto
+  _comprimirArchivoImagenAlerta(file, { maxWidth: 900, quality: 0.6 })
+    .then(base64Comprimido => {
       document.getElementById('alertaNuevaImagen').value = base64Comprimido;
-      
-      // 6. Avisar al usuario
       textoUpload.innerText = "¡Imagen cargada lista para enviar!";
-      textoUpload.style.color = "#10b981"; // Verde éxito
-      
-      // Refrescar el preview automáticamente para que se vea la imagen
+      textoUpload.style.color = "#10b981";
       if (typeof _actualizarPreviewAlerta === "function") _actualizarPreviewAlerta();
-    }
-  }
+    })
+    .catch(error => {
+      console.error(error);
+      textoUpload.innerText = "No se pudo procesar la imagen";
+      textoUpload.style.color = "#ef4444";
+      showToast("No se pudo procesar la imagen.", "error");
+    });
 }
 
 
@@ -12915,29 +13618,29 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
       <div class="alerta-final-head">
         <div class="alerta-final-badges">
           <span id="alertaTipo" style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 50px; background: #fee2e2; color: #ef4444; letter-spacing: 1px;">URGENTE</span>
-          <span id="alertaModoBadgeModal" style="font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 50px; background: #eff6ff; color: #1a73e8; letter-spacing: 0.6px;">⚡ INTERRUPTIVA</span>
-          <span id="alertaDestinatariosModal" class="alerta-final-destinos">
-            <span class="material-icons" style="font-size:14px;">public</span>GLOBAL
-          </span>
         </div>
         <span id="alertaFecha" style="font-size: 11px; color: #64748b; font-weight: 800;">--</span>
       </div>
       
       <div>
         <h2 id="alertaTitulo" class="alerta-final-title">Cargando...</h2>
-        <div id="alertaTipoSubline" class="alerta-final-subline">Mensaje maestro en tiempo real</div>
       </div>
       
       <div id="alertaMensaje" class="alerta-final-message-scroll alerta-scroll-thin"></div>
       
       <div class="alerta-final-footer">
+        <div class="alerta-final-actions">
+          <button id="btnAccionAlerta" class="alerta-final-secondary" type="button" onclick="ejecutarAccionAlertaActual()" style="display:none;">
+            <span class="material-icons" style="font-size:17px;">bolt</span>
+            <span>Acción</span>
+          </button>
+          <button id="btnCerrarAlerta" class="alerta-final-cta" onclick="procesarAlertaLeida()">
+            ENTENDIDO (MARCAR COMO LEÍDA)
+          </button>
+        </div>
         <div class="alerta-final-author">
           Enviado por: <span id="alertaAutor" style="color: var(--primary);">Administración</span>
         </div>
-      
-      <button id="btnCerrarAlerta" class="alerta-final-cta" onclick="procesarAlertaLeida()">
-        ENTENDIDO (MARCAR COMO LEÍDA)
-      </button>
       </div>
     </div>
   </div>
