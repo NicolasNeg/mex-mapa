@@ -388,7 +388,7 @@ const API_FUNCTIONS = {
           .filter(u => u.mva)
           .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
         callback([...cuadreUnits, ...externosUnits]);
-      }, 300);
+      }, 1000);
     }
 
     const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {

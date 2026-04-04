@@ -171,9 +171,21 @@ body.dark-theme {
 
     /* ── Sidebar oscura ── */
     body.dark-theme .sb-section-label { color: var(--text-muted) !important; }
-    body.dark-theme .sb-btn { color: var(--text) !important; }
     body.dark-theme .sb-btn:hover { background: rgba(255,255,255,0.08) !important; }
     body.dark-theme .sb-divider { background: var(--border) !important; }
+    body.dark-theme .sb-btn-dark { color: #8f9db5 !important; }
+    body.dark-theme .sb-btn-blue { color: #dfe5f8 !important; }
+    body.dark-theme .sb-btn-red { color: #ffb1ab !important; }
+    body.dark-theme .sb-btn-ghost { color: #9fcbff !important; }
+    body.dark-theme .sb-btn-status { color: #dfe5f8 !important; }
+    body.dark-theme .admin-sidebar-icon-btn { color: #8f9db5 !important; }
+    body.dark-theme .admin-sidebar-icon-btn:hover { color: #dfe5f8 !important; }
+    body.dark-theme .admin-user-name { color: #dfe5f8 !important; }
+    body.dark-theme .admin-user-meta,
+    body.dark-theme .admin-user-monitor,
+    body.dark-theme .admin-sidebar-brand-copy p { color: #5a6b8c !important; }
+    body.dark-theme .admin-sidebar-brand-copy h2,
+    body.dark-theme .admin-sidebar-status-copy strong { color: #dfe5f8 !important; }
 
     /* ── Bordes ── */
     body.dark-theme [style*="border: 1px solid #e2e8f0"],
@@ -1008,8 +1020,46 @@ header {
     }
     .btn-zoom:active { transform: scale(0.9); background: #f1f5f9; }
     
-    #btnGuardar { padding: 15px 25px; min-width: 160px; border-radius: 12px; border: none; background: var(--primary); color: white; font-weight: 800; cursor: pointer; font-size: 15px; box-shadow: 0 4px 10px rgba(0,74,153,0.3); transition: all 0.2s ease; }
-    #btnGuardar:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .map-sync-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 148px;
+      padding: 10px 16px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: white;
+      user-select: none;
+      transition: 0.2s;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.22);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .map-sync-badge .material-icons {
+      font-size: 16px;
+    }
+    .map-sync-badge.sync-live {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+    }
+    .map-sync-badge.sync-queued {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.30);
+    }
+    .map-sync-badge.sync-saving {
+      background: linear-gradient(135deg, #0ea5e9, #0284c7);
+      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.30);
+    }
+    .map-sync-badge.sync-error {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.30);
+    }
+    .map-sync-badge.sync-locked {
+      background: linear-gradient(135deg, #64748b, #475569);
+      box-shadow: 0 4px 12px rgba(71, 85, 105, 0.26);
+      opacity: 0.9;
+    }
 
     /* OVERLAY Y BUSCADOR MOBILE */
     .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1500; display: none; backdrop-filter: blur(4px); }
@@ -1205,19 +1255,346 @@ header {
   }
 
 
-    .admin-sidebar { position: fixed; right: 0; top: 0; bottom: 0; width: 300px; background: #1e293b; z-index: 2000; transform: translateX(100%); transition: 0.3s ease; display: flex; flex-direction: column; box-shadow: -10px 0 30px rgba(0,0,0,0.3); }
+    .admin-sidebar {
+      position: fixed;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 278px;
+      background: linear-gradient(180deg, #10131a 0%, #121722 100%);
+      border-left: 1px solid rgba(111, 117, 134, 0.22);
+      z-index: 2000;
+      transform: translateX(100%);
+      transition: transform 0.28s ease, box-shadow 0.28s ease;
+      display: flex;
+      flex-direction: column;
+      box-shadow: -24px 0 60px rgba(0,0,0,0.42);
+      overflow: hidden;
+    }
     .admin-sidebar.open { transform: translateX(0); }
     @media (max-width: 400px) { .admin-sidebar { width: 100%; } }
-    .sb-section-label { font-size: 9px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 1.5px; padding: 4px 0 6px 2px; }
-    .sb-btn { width:100%; padding:13px 16px; border:none; border-radius:11px; font-weight:800; font-size:12.5px; cursor:pointer; display:flex; justify-content:space-between; align-items:center; transition:0.18s; gap:8px; }
+    .admin-sidebar-head {
+      padding: 18px 16px 14px;
+      border-bottom: 1px solid rgba(111, 117, 134, 0.15);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+    .admin-sidebar-brand {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .admin-sidebar-brand-main {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      min-width: 0;
+    }
+    .admin-sidebar-brand-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 8px;
+      background: #202634;
+      border: 1px solid rgba(111, 117, 134, 0.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #b5c7ec;
+      flex-shrink: 0;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+    .admin-sidebar-brand-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .admin-sidebar-brand-copy h2 {
+      margin: 0;
+      color: #dfe5f8;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.2px;
+      line-height: 1.1;
+    }
+    .admin-sidebar-brand-copy p {
+      margin: 0;
+      color: #5a6b8c;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1px;
+      opacity: 0.78;
+    }
+    .admin-sidebar-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .admin-sidebar-icon-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid rgba(111, 117, 134, 0.16);
+      background: #161923;
+      color: #8f9db5;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.2s;
+    }
+    .admin-sidebar-icon-btn:hover {
+      background: #202634;
+      color: #dfe5f8;
+      transform: translateY(-1px);
+    }
+    .admin-sidebar-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 9px;
+      background: rgba(32, 38, 52, 0.78);
+      border: 1px solid rgba(111, 117, 134, 0.14);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+    }
+    .admin-sidebar-status-copy {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      color: #9aa5bb;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+    }
+    .admin-sidebar-status-copy strong {
+      color: #dfe5f8;
+      font-size: 11px;
+      letter-spacing: 0.1px;
+      text-transform: none;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .admin-status-pip {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #4ade80;
+      box-shadow: 0 0 10px rgba(74, 222, 128, 0.72);
+      flex-shrink: 0;
+    }
+    .admin-sidebar-scroll {
+      padding: 14px 12px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1;
+      overflow-y: auto;
+    }
+    .admin-nav-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sb-section-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: #394766;
+      text-transform: uppercase;
+      letter-spacing: 1.7px;
+      padding: 4px 8px 6px;
+      margin: 0;
+    }
+    .sb-btn {
+      width:100%;
+      padding:11px 12px;
+      border:1px solid transparent;
+      border-radius:8px;
+      font-weight:800;
+      font-size:12px;
+      cursor:pointer;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      transition:0.18s;
+      gap:10px;
+      background: transparent;
+      color: #8c97ac;
+      box-sizing: border-box;
+    }
     .sb-btn:active { transform: scale(0.98); }
-    .sb-btn-dark { background:#2d3f55; color:white; }
-    .sb-btn-dark:hover { background:#374f6b; }
-    .sb-btn-blue { background:linear-gradient(135deg,#1a73e8,#0d47a1); color:white; box-shadow:0 4px 12px rgba(26,115,232,0.25); }
-    .sb-btn-red { background:linear-gradient(135deg,#ef4444,#b91c1c); color:white; box-shadow:0 4px 12px rgba(239,68,68,0.25); }
-    .sb-btn-ghost { background:transparent; color:#38bdf8; border:1px solid #0284c7; }
-    .sb-btn-ghost:hover { background:rgba(2,132,199,0.1); }
-    .sb-divider { height:1px; background:rgba(255,255,255,0.06); margin:6px 0; }
+    .sb-btn > div:first-child {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1;
+      text-align: left;
+    }
+    .sb-btn .material-icons {
+      font-size: 18px;
+      color: #929ab0;
+      transition: 0.18s;
+      flex-shrink: 0;
+    }
+    .sb-btn:hover {
+      background: #161923;
+      color: #dfe5f8;
+      border-color: rgba(111, 117, 134, 0.12);
+    }
+    .sb-btn:hover .material-icons {
+      color: #b5c7ec;
+    }
+    .sb-btn-dark { background: transparent; color:#8f9db5; }
+    .sb-btn-blue {
+      background: #202634;
+      color:#dfe5f8;
+      border-color: rgba(181, 199, 236, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+    }
+    .sb-btn-blue .material-icons { color:#b5c7ec; }
+    .sb-btn-red {
+      background: rgba(127, 41, 39, 0.22);
+      color:#ffb1ab;
+      border-color: rgba(238, 125, 119, 0.18);
+    }
+    .sb-btn-red .material-icons { color:#ee7d77; }
+    .sb-btn-ghost {
+      background: rgba(21, 28, 39, 0.45);
+      color:#9fcbff;
+      border-color: rgba(56, 189, 248, 0.18);
+    }
+    .sb-btn-ghost .material-icons { color:#67c7ff; }
+    .sb-btn-status {
+      background: #202634;
+      color: #dfe5f8;
+      border-color: rgba(111, 117, 134, 0.14);
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+    }
+    .sb-btn-status .material-icons {
+      color: #f59e0b;
+    }
+    .sb-btn-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .sb-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #4ade80;
+      box-shadow: 0 0 8px rgba(74, 222, 128, 0.68);
+      flex-shrink: 0;
+    }
+    .sb-chevron {
+      font-size: 16px !important;
+      color: #5f6d87 !important;
+    }
+    .sb-divider {
+      height:1px;
+      background: rgba(111, 117, 134, 0.14);
+      margin:2px 8px 0;
+    }
+    .admin-sidebar-footer {
+      padding: 12px;
+      border-top: 1px solid rgba(111, 117, 134, 0.14);
+      background: rgba(8, 10, 14, 0.22);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .admin-user-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 8px 6px;
+    }
+    .admin-user-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, #161923, #202634);
+      border: 1px solid rgba(111, 117, 134, 0.18);
+      color: #dfe5f8;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.8px;
+      flex-shrink: 0;
+    }
+    .admin-user-copy {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .admin-user-name {
+      color: #dfe5f8;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      letter-spacing: 0.2px;
+    }
+    .admin-user-meta {
+      color: #5a6b8c;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .admin-user-monitor {
+      margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #70819e;
+      font-size: 9px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      flex-shrink: 0;
+    }
+    .admin-sidebar-logout {
+      width:100%;
+      padding:12px 14px;
+      background: transparent;
+      color:#ee7d77;
+      border:1px solid rgba(238, 125, 119, 0.22);
+      border-radius:10px;
+      font-weight:900;
+      font-size:12px;
+      cursor:pointer;
+      display:flex;
+      justify-content:center;
+      align-items:center;
+      gap:10px;
+      transition:0.2s;
+    }
+    .admin-sidebar-logout:hover {
+      background: rgba(127, 41, 39, 0.18);
+      border-color: rgba(238, 125, 119, 0.3);
+    }
 
     /* --- MODALES GENERALES (FLOTA, AUDIT) --- */
     .fleet-modal { position: fixed; inset: 0; background: var(--bg); z-index: 3000; display: none; flex-direction: column; overflow: hidden; }
@@ -2824,35 +3201,11 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
       .search-wrapper { order: 10; min-width: 100%; margin: 5px 0 0 0; }
       #searchInputMobile { height: 45px !important; font-size: 14px !important; }
       
-      /* 3. Nombre de usuario solo muestra la PRIMERA LETRA en celular */
-      #activeUserBadge { 
-        padding: 6px 8px !important; 
-        border-radius: 8px !important; 
-      }
-      #activeUserName { 
-        max-width: 60px; /* Corta nombres largos */
-        white-space: nowrap; 
-        overflow: hidden; 
-        text-overflow: ellipsis; 
-      }
-
-      /* 4. Ocultar la hora flotante en móvil (ya está en el Panel Admin) */
+      /* 3. Ocultar la hora flotante en móvil (ya está en el Panel Admin) */
       div[style*="top:85px"] { display: none !important; }
 
 
       .search-wrapper { order: 3; min-width: 100%; margin: 5px 0 0 0; }
-      #activeUserBadge { 
-        margin-left: auto !important; 
-        margin-right: 0 !important; 
-        max-width: 140px; /* Evita que empuje el logo */
-      }
-      #activeUserName { 
-        display: block !important; 
-        white-space: nowrap; 
-        overflow: hidden; 
-        text-overflow: ellipsis; /* Pone los 3 puntitos si es muy largo */
-        font-size: 11px !important;
-      }
       
       #map-zoom-container {
         --map-outer-pad: 14px !important;
@@ -3456,115 +3809,144 @@ function cerrarModalSolicitud() {
 </script>
 
 <aside id="admin-sidebar" class="admin-sidebar">
-
-  <!-- Header -->
-  <div style="padding: 18px 20px 14px; border-bottom: 1px solid #334155; display:flex; justify-content:space-between; align-items:center; flex-shrink:0;">
-    <div>
-      <h2 style="color:white; font-weight:900; font-size:18px; margin:0;">PANEL ADMIN</h2>
-      <div style="color:#475569; font-size:10px; font-weight:700; margin-top:3px; display:flex; align-items:center; gap:4px;">
-        <span class="material-icons" style="font-size:11px;">update</span> Última modif: <span id="lastUpdateAdmin">--/-- 00:00</span>
+  <div class="admin-sidebar-head">
+    <div class="admin-sidebar-brand">
+      <div class="admin-sidebar-brand-main">
+        <div class="admin-sidebar-brand-icon">
+          <span class="material-icons" style="font-size:20px;">terminal</span>
+        </div>
+        <div class="admin-sidebar-brand-copy">
+          <h2>ADMIN CONSOLE</h2>
+          <p>high-density monitor</p>
+        </div>
+      </div>
+      <div class="admin-sidebar-actions">
+        <button id="btnThemeToggle" onclick="toggleDarkMode()" title="Modo oscuro" class="admin-sidebar-icon-btn">
+          <span class="material-icons" id="iconTheme" style="font-size:18px;">dark_mode</span>
+        </button>
+        <button id="btnCloseAdminSidebar" onclick="toggleAdminSidebar()" title="Cerrar panel" class="admin-sidebar-icon-btn">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
       </div>
     </div>
-    <div style="display:flex; align-items:center; gap:8px;">
-      <button id="btnThemeToggle" onclick="toggleDarkMode()" title="Modo oscuro" style="background:rgba(255,255,255,0.07); border:none; color:#94a3b8; border-radius:8px; width:34px; height:34px; cursor:pointer; display:flex; align-items:center; justify-content:center;">
-        <span class="material-icons" id="iconTheme" style="font-size:18px;">dark_mode</span>
+
+    <div class="admin-sidebar-status">
+      <div class="admin-sidebar-status-copy">
+        <span class="admin-status-pip"></span>
+        <span>Live Ops</span>
+      </div>
+      <strong id="lastUpdateAdmin">--/-- 00:00</strong>
+    </div>
+  </div>
+
+  <div id="adminSidebarNav" class="admin-sidebar-scroll alerta-scroll-thin">
+    <div class="admin-nav-group">
+      <p id="titleOperacion" class="sb-section-label">Operación</p>
+
+      <button id="btnMenuFlota" onclick="abrirModalFlota()" class="sb-btn sb-btn-blue">
+        <div><span class="material-icons">sensors</span> GESTIÓN DE FLOTA</div>
+        <span class="sb-btn-right"><span class="sb-dot"></span></span>
       </button>
-      <button id="btnCloseAdminSidebar" onclick="toggleAdminSidebar()" style="background:rgba(255,255,255,0.07); border:none; color:#94a3b8; border-radius:8px; width:34px; height:34px; cursor:pointer; font-size:18px; display:flex; align-items:center; justify-content:center;">✕</button>
+
+      <button id="btnMenuMapaCalor" onclick="toggleMapaCalor()" class="sb-btn sb-btn-dark">
+        <div><span class="material-icons" style="color:#fca5a5;">local_fire_department</span> MAPA DE CALOR</div>
+        <div class="heatmap-switch"></div>
+      </button>
     </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="admin-nav-group">
+      <p id="titleCuadre" class="sb-section-label">Cuadre</p>
+
+      <button id="btnProtocoloV3" onclick="manejadorFlujoV3()" class="sb-btn sb-btn-status">
+        <span class="material-icons" id="icoV3" style="font-size:18px;">lock</span>
+        <span id="txtV3">CUADRE CERRADO</span>
+      </button>
+
+      <button id="btnVerCuadres" onclick="abrirHistorialCuadres()" class="sb-btn sb-btn-ghost" style="display:none;">
+        <div><span class="material-icons">history_edu</span> HISTORIAL DE CUADRES</div>
+        <span class="material-icons sb-chevron">chevron_right</span>
+      </button>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="admin-nav-group">
+      <p id="titleHerramientas" class="sb-section-label">Herramientas</p>
+
+      <button id="btnMenuUsuarios" onclick="abrirUsuarios()" class="sb-btn sb-btn-dark" style="display:none;">
+        <div><span class="material-icons">manage_accounts</span> GESTIÓN USUARIOS</div>
+        <span class="material-icons sb-chevron">chevron_right</span>
+      </button>
+
+      <button id="btnMenuHistorial" onclick="abrirLogs()" class="sb-btn sb-btn-dark">
+        <div><span class="material-icons">history</span> HISTORIAL ACTIVIDAD</div>
+        <span class="material-icons sb-chevron">chevron_right</span>
+      </button>
+
+      <button id="btnMenuBitacora" onclick="abrirIncidencias()" class="sb-btn sb-btn-dark">
+        <div>
+          <span class="material-icons">content_paste</span>
+          <span>BITÁCORA INCIDENCIAS</span>
+          <span id="menuBadgeIncidencias" class="badge-pulse" style="display:none; position:relative; top:0; right:0; margin-left:6px; width:18px; height:18px;">0</span>
+        </div>
+        <span class="material-icons sb-chevron">chevron_right</span>
+      </button>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="admin-nav-group">
+      <p class="sb-section-label">Sistema</p>
+
+      <button id="btnEditorMapa" onclick="abrirEditorMapa()" class="sb-btn sb-btn-dark" style="display:none;">
+        <div><span class="material-icons" style="color:#67c7ff;">map</span> EDITOR DE MAPA</div>
+        <span class="material-icons sb-chevron">chevron_right</span>
+      </button>
+
+      <button id="btnLockAdminSidebar" onclick="solicitarToggleBloqueo()" class="sb-btn sb-btn-dark" style="display:none;">
+        <div>
+          <span class="material-icons" id="iconLockAdmin" style="font-size:18px; color:#f59e0b;">lock</span>
+          <span id="txtLockAdmin">BLOQUEAR PATIO</span>
+        </div>
+        <div class="heatmap-switch" id="switchLockAdmin"></div>
+      </button>
+    </div>
+
+    <div class="sb-divider"></div>
+
+    <div class="admin-nav-group">
+      <p class="sb-section-label">Alertas</p>
+
+      <button id="btnMenuAlertasGlobales" onclick="abrirCreadorAlertas()" class="sb-btn sb-btn-red" style="display:none;">
+        <div><span class="material-icons">campaign</span> EMITIR ALERTA MAESTRA</div>
+        <span class="material-icons sb-chevron">chevron_right</span>
+      </button>
+
+      <button id="btnMenuHistorialAlertas" onclick="abrirGestorAlertas()" class="sb-btn sb-btn-dark" style="display:none;">
+        <div><span class="material-icons">notifications_active</span> HISTORIAL ALERTAS</div>
+        <span class="material-icons sb-chevron">chevron_right</span>
+      </button>
+    </div>
+
+    <button id="btnMenuExportar" onclick="exportarMapa()" style="display:none;"></button>
   </div>
 
-  <!-- Scroll body -->
-  <div style="padding: 16px; display:flex; flex-direction:column; gap:8px; flex:1; overflow-y:auto;">
-
-    <!-- OPERACIÓN -->
-    <p id="titleOperacion" class="sb-section-label">Operación</p>
-
-    <button id="btnMenuFlota" onclick="abrirModalFlota()" class="sb-btn sb-btn-blue">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">directions_car</span> GESTIÓN DE FLOTA</div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <button id="btnMenuMapaCalor" onclick="toggleMapaCalor()" class="sb-btn sb-btn-dark">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px; color:#fca5a5;">local_fire_department</span> MAPA DE CALOR</div>
-      <div class="heatmap-switch"></div>
-    </button>
-
-    <div class="sb-divider"></div>
-
-    <!-- CUADRE -->
-    <p id="titleCuadre" class="sb-section-label">Cuadre</p>
-
-    <button id="btnProtocoloV3" onclick="manejadorFlujoV3()" class="sb-btn" style="background:#374151; color:white; justify-content:center; gap:10px;">
-      <span class="material-icons" id="icoV3" style="font-size:18px;">lock</span>
-      <span id="txtV3">CUADRE CERRADO</span>
-    </button>
-
-    <button id="btnVerCuadres" onclick="abrirHistorialCuadres()" class="sb-btn sb-btn-ghost" style="display:none;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">history_edu</span> HISTORIAL DE CUADRES</div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <div class="sb-divider"></div>
-
-    <!-- HERRAMIENTAS -->
-    <p id="titleHerramientas" class="sb-section-label">Herramientas</p>
-
-    <button id="btnMenuUsuarios" onclick="abrirUsuarios()" class="sb-btn sb-btn-dark" style="display:none;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">manage_accounts</span> GESTIÓN USUARIOS</div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <button id="btnMenuHistorial" onclick="abrirLogs()" class="sb-btn sb-btn-dark">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">history</span> HISTORIAL ACTIVIDAD</div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <button id="btnMenuBitacora" onclick="abrirIncidencias()" class="sb-btn sb-btn-dark">
-      <div style="display:flex; align-items:center; gap:10px; position:relative;">
-        <span class="material-icons" style="font-size:18px;">content_paste</span> BITÁCORA INCIDENCIAS
-        <span id="menuBadgeIncidencias" class="badge-pulse" style="display:none; position:relative; top:0; right:0; margin-left:5px; width:18px; height:18px;">0</span>
+  <div class="admin-sidebar-footer">
+    <div class="admin-user-card">
+      <div id="adminSidebarUserAvatar" class="admin-user-avatar">--</div>
+      <div class="admin-user-copy">
+        <div id="adminSidebarUserName" class="admin-user-name">SIN SESIÓN</div>
+        <div id="adminSidebarUserMeta" class="admin-user-meta">Esperando autenticación</div>
       </div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <div class="sb-divider"></div>
-
-    <!-- CONFIGURACIÓN (solo jefes) -->
-    <button id="btnEditorMapa" onclick="abrirEditorMapa()" class="sb-btn sb-btn-dark" style="display:none;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px; color:#38bdf8;">map</span> EDITOR DE MAPA</div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <div class="sb-divider"></div>
-
-    <!-- ADMINISTRACIÓN (solo jefes) -->
-    <button id="btnMenuAlertasGlobales" onclick="abrirCreadorAlertas()" class="sb-btn sb-btn-red" style="display:none;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">campaign</span> EMITIR ALERTA MAESTRA</div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <button id="btnMenuHistorialAlertas" onclick="abrirGestorAlertas()" class="sb-btn sb-btn-dark" style="display:none;">
-      <div style="display:flex; align-items:center; gap:10px;"><span class="material-icons" style="font-size:18px;">notifications_active</span> HISTORIAL ALERTAS</div>
-      <span class="material-icons" style="font-size:16px; opacity:0.7;">chevron_right</span>
-    </button>
-
-    <button id="btnLockAdminSidebar" onclick="solicitarToggleBloqueo()" class="sb-btn sb-btn-dark" style="display:none;">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <span class="material-icons" id="iconLockAdmin" style="font-size:18px; color:#f59e0b;">lock</span>
-        <span id="txtLockAdmin">BLOQUEAR PATIO</span>
+      <div class="admin-user-monitor">
+        <span class="admin-status-pip"></span>
+        <span>Activo</span>
       </div>
-      <div class="heatmap-switch" id="switchLockAdmin"></div>
-    </button>
+    </div>
 
-    <!-- EXPORTAR oculto — reservado para uso futuro -->
-    <button id="btnMenuExportar" onclick="exportarMapa()" style="display:none;">
-    </button>
-
-  </div>
-
-  <!-- Footer: Cerrar Sesión -->
-  <div style="padding: 14px 16px; border-top: 1px solid #334155; flex-shrink:0;">
-    <button id="btnMenuLogout" onclick="confirmarCierreSesion()" style="width:100%; padding:13px; background:transparent; color:#ef4444; border:1.5px solid #ef4444; border-radius:11px; font-weight:900; font-size:13px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:10px; transition:0.2s;">
+    <button id="btnMenuLogout" onclick="confirmarCierreSesion()" class="admin-sidebar-logout">
       <span class="material-icons" style="font-size:18px;">logout</span> CERRAR SESIÓN
     </button>
   </div>
@@ -4552,14 +4934,11 @@ function cerrarModalSolicitud() {
       <span id="badgeIncidencias" class="badge-pulse yellow" style="display:none;">0</span>
     </button>
 
-    <button id="btnGuardar" onclick="ejecutarAutoGuardado()" style="padding:10px 18px; border-radius:10px; border:none; background:linear-gradient(135deg,#10b981,#059669); color:white; font-weight:800; cursor:pointer; font-size:12px; letter-spacing:0.5px; box-shadow:0 4px 12px rgba(16,185,129,0.35); transition:0.2s;">✓ ACTUALIZADO</button>
-
-    <!-- Usuario — separado con divisor -->
-    <div style="width:1px; height:30px; background:rgba(255,255,255,0.12); margin:0 4px;"></div>
-    <div id="activeUserBadge" style="display:none; align-items:center; gap:6px; font-size:11px; font-weight:800; color:rgba(255,255,255,0.85); background:rgba(255,255,255,0.1); padding:7px 11px; border-radius:10px; border:1px solid rgba(255,255,255,0.12);">
-      <span class="material-icons" style="font-size:16px; color:#60a5fa;">account_circle</span>
-      <span id="activeUserName"></span>
+    <div id="mapSyncBadge" class="map-sync-badge sync-live" aria-live="polite">
+      <span id="mapSyncIcon" class="material-icons">cloud_done</span>
+      <span id="mapSyncText">EN VIVO</span>
     </div>
+
   </div>
 </header>
 
@@ -4943,6 +5322,54 @@ function _clearSessionProfile() {
   window.CURRENT_USER_PROFILE = null;
 }
 
+function _obtenerInicialesUsuario(nombre = '') {
+  const partes = String(nombre || '')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (!partes.length) return '--';
+  return partes.map(parte => parte[0]).join('').toUpperCase();
+}
+
+function _actualizarIdentidadSidebarUsuario() {
+  const profile = window.CURRENT_USER_PROFILE || {};
+  const nombre = USER_NAME || profile.nombre || 'SIN SESIÓN';
+  const roleLabel = profile.roleLabel || _roleMeta().label;
+  const plaza = profile.plazaAsignada ? ` · ${profile.plazaAsignada}` : '';
+
+  const avatar = document.getElementById('adminSidebarUserAvatar');
+  const nameEl = document.getElementById('adminSidebarUserName');
+  const metaEl = document.getElementById('adminSidebarUserMeta');
+
+  if (avatar) avatar.innerText = _obtenerInicialesUsuario(nombre);
+  if (nameEl) nameEl.innerText = nombre;
+  if (metaEl) metaEl.innerText = USER_NAME ? `${roleLabel}${plaza}` : 'Esperando autenticación';
+}
+
+function _actualizarBloquesAdminSidebar() {
+  const nav = document.getElementById('adminSidebarNav');
+  if (!nav) return;
+
+  const children = Array.from(nav.children);
+  children.forEach(child => {
+    if (child.classList.contains('admin-nav-group')) {
+      const hasVisibleButton = Array.from(child.querySelectorAll('.sb-btn'))
+        .some(btn => getComputedStyle(btn).display !== 'none');
+      child.style.display = hasVisibleButton ? 'flex' : 'none';
+    }
+  });
+
+  children.forEach((child, index) => {
+    if (!child.classList.contains('sb-divider')) return;
+    const prev = [...children.slice(0, index)].reverse().find(el => !el.classList.contains('sb-divider'));
+    const next = children.slice(index + 1).find(el => !el.classList.contains('sb-divider'));
+    const prevVisible = prev && getComputedStyle(prev).display !== 'none';
+    const nextVisible = next && getComputedStyle(next).display !== 'none';
+    child.style.display = prevVisible && nextVisible ? 'block' : 'none';
+  });
+}
+
 function canManageUsers() { return _roleMeta().canManageUsers; }
 function canProcessAccessRequests() { return _roleMeta().canProcessAccessRequests; }
 function canEmitMasterAlerts() { return _roleMeta().canEmitMasterAlerts; }
@@ -5229,8 +5656,7 @@ document.getElementById('auth_pass').addEventListener('keypress', function (e) {
 
 function iniciarApp(esNuevoLogin = true) {
   document.getElementById('login-overlay').style.display = 'none';
-  document.getElementById('activeUserName').innerText = USER_NAME;
-  document.getElementById('activeUserBadge').style.display = 'flex';
+  _actualizarIdentidadSidebarUsuario();
 
   // Cerramos sidebars
   document.getElementById('sidebar').classList.remove('open');
@@ -5284,7 +5710,13 @@ function cerrarSesion() {
   if(_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
   if(_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
   if(_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
+  if(saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
   dbUsuariosLogin = [];
+  _mapaRuntime.pendingUnits = null;
+  _mapaSyncState.hasPendingWrite = false;
+  _mapaSyncState.lastSavedFingerprint = '';
+  isMoving = false;
+  isSaving = false;
 
   // Destruir la sesión iniciada
   localStorage.removeItem('mex_mapa_session');
@@ -5310,7 +5742,7 @@ function cerrarSesion() {
 
   cerrarPanel();
   
-  document.getElementById('activeUserBadge').style.display = 'none';
+  _actualizarIdentidadSidebarUsuario();
   document.getElementById('login-overlay').style.display = 'flex';
   
   // Cerrar cualquier modal que esté abierto (incluido el de "Cerrar Sesión")
@@ -5346,6 +5778,8 @@ let _unsubMapaEstructura = null;
 let _unsubUsersLive = null;     // función para cancelar onSnapshot de usuarios (chat/dropdown)
 let saveTimeout = null;
 let lastMoveTime = 0;
+const MAPA_SAVE_DEBOUNCE_MS = 900;
+const MAPA_SAVE_RETRY_MS = 1500;
 let _mapaRenderRAF = 0;
 let _ultimaFlotaMapa = [];
 let _ultimaEstructuraMapa = [];
@@ -5353,13 +5787,95 @@ let _mapaRuntime = {
   estructuraReady: false,
   unidadesReady: false,
   estructuraSig: '',
-  viewportBound: false
+  viewportBound: false,
+  pendingUnits: null
 };
+let _mapaSyncState = {
+  hasPendingWrite: false,
+  lastSavedFingerprint: ''
+};
+
+function _setMapSyncBadge(mode = 'live', text = '') {
+  const badge = document.getElementById('mapSyncBadge');
+  const icon = document.getElementById('mapSyncIcon');
+  const label = document.getElementById('mapSyncText');
+  if (!badge || !icon || !label) return;
+
+  badge.className = `map-sync-badge sync-${mode}`;
+
+  const meta = {
+    live:   { icon: 'cloud_done', text: 'EN VIVO' },
+    queued: { icon: 'schedule', text: 'CAMBIOS EN COLA' },
+    saving: { icon: 'sync', text: 'SINCRONIZANDO...' },
+    error:  { icon: 'wifi_off', text: 'REINTENTANDO...' },
+    locked: { icon: 'lock', text: 'BLOQUEADO' }
+  }[mode] || { icon: 'cloud_done', text: 'EN VIVO' };
+
+  icon.innerText = meta.icon;
+  icon.classList.toggle('spinner', mode === 'saving');
+  label.innerText = text || meta.text;
+}
+
+function _obtenerReportePosicionesMapa() {
+  const reporte = [];
+  document.querySelectorAll('.car').forEach(car => {
+    let pos = "LIMBO";
+    const parent = car.parentElement;
+    if (parent && parent.id && parent.id.startsWith('spot-')) {
+      pos = parent.id.replace('spot-', '');
+    }
+    if (car.dataset.mva) {
+      reporte.push({ mva: car.dataset.mva, pos });
+    }
+  });
+  return reporte.sort((a, b) => a.mva.localeCompare(b.mva));
+}
+
+function _firmaReportePosicionesMapa(reporte = []) {
+  return reporte
+    .map(item => `${String(item.mva || '').trim().toUpperCase()}:${String(item.pos || '').trim().toUpperCase()}`)
+    .sort()
+    .join('|');
+}
+
+function _programarGuardadoMapa(delay = MAPA_SAVE_DEBOUNCE_MS) {
+  if (saveTimeout) clearTimeout(saveTimeout);
+  saveTimeout = setTimeout(() => {
+    saveTimeout = null;
+    ejecutarAutoGuardado();
+  }, Math.max(0, Number(delay) || 0));
+}
+
+function _procesarSnapshotPendienteMapa() {
+  if (!Array.isArray(_mapaRuntime.pendingUnits)) return;
+  const pending = _mapaRuntime.pendingUnits;
+  _mapaRuntime.pendingUnits = null;
+  sincronizarMapa(pending, { immediate: true });
+}
+
+function _finalizarCicloGuardadoMapa() {
+  isMoving = false;
+  _procesarSnapshotPendienteMapa();
+  if (!window.MAPA_LOCKED && !isSaving && !saveTimeout && !_mapaSyncState.hasPendingWrite) {
+    _setMapSyncBadge('live');
+  }
+}
+
+function _forzarGuardadoMapaPendiente() {
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  if (_mapaSyncState.hasPendingWrite || isMoving) {
+    ejecutarAutoGuardado(true);
+  }
+}
 
 function init() {
   startAutoRefresh();
   updateZoom();
   _ajustarViewportMapa();
+  _setMapSyncBadge(window.MAPA_LOCKED ? 'locked' : 'live');
   if (!_mapaRuntime.viewportBound) {
     window.addEventListener('resize', _ajustarViewportMapa);
     _mapaRuntime.viewportBound = true;
@@ -5386,14 +5902,13 @@ function startAutoRefresh() {
   }
 
   _unsubMapa = api.suscribirMapa(unidades => {
-    // Solo bloqueamos si ESTAMOS GUARDANDO LOCALMENTE en este instante exacto
-    // No bloqueamos por selectedAuto ni isMoving — eso impediría ver cambios remotos
-    if (isSaving || window.PAUSA_CONEXIONES) return;
-
-    // Si el usuario está arrastrando un auto en este dispositivo, esperar a que termine
-    if (isMoving) return;
-
     _mapaRuntime.unidadesReady = true;
+    if (window.PAUSA_CONEXIONES) return;
+    if (isSaving || isMoving) {
+      _mapaRuntime.pendingUnits = unidades;
+      return;
+    }
+    _mapaRuntime.pendingUnits = null;
     sincronizarMapa(unidades);
   });
 }
@@ -5972,7 +6487,7 @@ function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
     origenRef.appendChild(ocupante);
     destino.appendChild(moviendo);
     lastMoveTime = Date.now();
-    solicitarGuardadoProgresivo(); 
+    solicitarGuardadoProgresivo();
     cerrarPanel();
     actualizarContadores();
   };
@@ -5995,16 +6510,10 @@ function resetUnitToLimbo() {
 }
 
 function solicitarGuardadoProgresivo() {
-  const btn = document.getElementById('btnGuardar');
-  btn.style.background = "#f59e0b";
-  btn.innerText = "⏳ PENDIENTE...";
-  
-  isMoving = true; // Pausamos refrescos temporales
-  
-  if (saveTimeout) clearTimeout(saveTimeout);
-  saveTimeout = setTimeout(() => { 
-    ejecutarAutoGuardado(); 
-  }, 4000); // 4 segundos de calma tras el último movimiento
+  _mapaSyncState.hasPendingWrite = true;
+  isMoving = true;
+  _setMapSyncBadge('queued');
+  _programarGuardadoMapa(MAPA_SAVE_DEBOUNCE_MS);
 }
 
 function cerrarPanel() {
@@ -6099,46 +6608,47 @@ function refrescarDatos(force = false) {
   }).catch(e => console.error(e));
 }
 function ejecutarAutoGuardado() {
-  // Si ya se está enviando una petición, esperamos 1 segundo y reintentamos 
-  // para no perder el movimiento actual.
+  const reporte = _obtenerReportePosicionesMapa();
+  const fingerprint = _firmaReportePosicionesMapa(reporte);
+
+  if (!_mapaSyncState.hasPendingWrite && fingerprint === _mapaSyncState.lastSavedFingerprint && !isSaving) {
+    _finalizarCicloGuardadoMapa();
+    return;
+  }
+
   if (isSaving) {
-    setTimeout(ejecutarAutoGuardado, 1000);
+    _mapaSyncState.hasPendingWrite = true;
+    _setMapSyncBadge('queued');
     return;
   }
 
   isSaving = true;
-  const btn = document.getElementById('btnGuardar');
-  btn.style.background = "#10b981";
-  btn.innerText = '⚡ SINCRONIZANDO...';
-
-  const reporte = [];
-  document.querySelectorAll('.car').forEach(car => {
-    let p = "LIMBO";
-    const parent = car.parentElement;
-    if (parent && parent.id) {
-      if (parent.id.startsWith('spot-')) p = parent.id.replace('spot-', '');
-    }
-    if (car.dataset.mva) {
-      reporte.push({ mva: car.dataset.mva, pos: p });
-    }
-  });
+  _mapaSyncState.hasPendingWrite = false;
+  _setMapSyncBadge('saving');
 
   api.guardarNuevasPosiciones(reporte, USER_NAME).then((res) => {
       isSaving = false;
-      isMoving = false; // ✅ LIBERAMOS EL REFRESCO (Crucial)
 
       if (res === true) {
-        btn.innerText = '✓ ACTUALIZADO';
-        btn.style.background = "var(--primary)";
+        _mapaSyncState.lastSavedFingerprint = fingerprint;
+        const currentFingerprint = _firmaReportePosicionesMapa(_obtenerReportePosicionesMapa());
+        if (_mapaSyncState.hasPendingWrite || currentFingerprint !== fingerprint) {
+          _mapaSyncState.hasPendingWrite = true;
+          _setMapSyncBadge('queued');
+          _programarGuardadoMapa(120);
+          return;
+        }
+        _finalizarCicloGuardadoMapa();
       } else {
-        btn.innerText = '⚠️ REINTENTANDO...';
-        setTimeout(ejecutarAutoGuardado, 2000); // Reintento automático si el lock falló
+        _mapaSyncState.hasPendingWrite = true;
+        _setMapSyncBadge('error');
+        _programarGuardadoMapa(MAPA_SAVE_RETRY_MS);
       }
     }).catch((err) => {
       isSaving = false;
-      isMoving = false;
-      btn.style.background = "#ef4444";
-      btn.innerText = "❌ ERROR RED";
+      _mapaSyncState.hasPendingWrite = true;
+      _setMapSyncBadge('error', 'ERROR DE RED');
+      _programarGuardadoMapa(MAPA_SAVE_RETRY_MS);
       console.error(err);
     });
 }
@@ -6726,9 +7236,8 @@ function ejecutarGuardadoFlota() {
   if(!isValid) return;
 
   // 🔥 SINCRONIZADOR: Si movieron el mapa justo antes de entrar a la tabla, guarda ese movimiento AHORA
-  if (saveTimeout) {
-      clearTimeout(saveTimeout);
-      ejecutarAutoGuardado();
+  if (saveTimeout || _mapaSyncState.hasPendingWrite || isMoving) {
+      _forzarGuardadoMapaPendiente();
   }
 
   const btn = document.getElementById('btnSaveFlota');
@@ -7082,9 +7591,8 @@ function enviarCambioRapido(mva, estado, ubi, gas, notas, borrarNotas = false) {
   cerrarPanel();
   
   // 🔥 SINCRONIZADOR: Si había un movimiento de auto pendiente de guardarse, FUÉRZALO a guardarse AHORA
-  if (saveTimeout) {
-      clearTimeout(saveTimeout);
-      ejecutarAutoGuardado();
+  if (saveTimeout || _mapaSyncState.hasPendingWrite || isMoving) {
+      _forzarGuardadoMapaPendiente();
   }
 
   // 1. MAGIA VISUAL: Actualiza el auto en el mapa al instante
@@ -8386,7 +8894,6 @@ function _procesarPingUI(res) {
       const overlay = document.getElementById('overlayAuditoria');
       const viewAdmin = document.getElementById('auditViewAdmin');
       const viewUser = document.getElementById('auditViewUser');
-      const btnGuardar = document.getElementById('btnGuardar');
       const switchLock = document.getElementById('switchLockAdmin');
 
       if (res.mapaBloqueado) {
@@ -8408,8 +8915,7 @@ function _procesarPingUI(res) {
             if (viewUser) viewUser.style.display = "flex";
           }
         }
-        
-        if (btnGuardar) { btnGuardar.disabled = true; btnGuardar.style.opacity = "0.3"; btnGuardar.innerText = "BLOQUEADO"; }
+        _setMapSyncBadge('locked');
         if (switchLock) switchLock.style.background = "#ef4444";
         
       } else {
@@ -8422,7 +8928,9 @@ function _procesarPingUI(res) {
         }
         
         if (switchLock) switchLock.style.background = "#64748b";
-        if (btnGuardar && !isSaving) { btnGuardar.disabled = false; btnGuardar.style.opacity = "1"; btnGuardar.innerText = "✓ SINCRONIZAR"; }
+        if (isSaving) _setMapSyncBadge('saving');
+        else if (_mapaSyncState.hasPendingWrite || saveTimeout) _setMapSyncBadge('queued');
+        else _setMapSyncBadge('live');
       }
       // 5. 🕒 LÓGICA DE FEED INTELIGENTE (CON BRILLO Y AUTO-CLEAN)
       const currentFeedStr = JSON.stringify(res.liveFeed);
@@ -13102,6 +13610,8 @@ function configurarPermisosUI() {
       if(btn) btn.style.display = 'none';
     });
   }
+
+  _actualizarBloquesAdminSidebar();
 }
 
 
