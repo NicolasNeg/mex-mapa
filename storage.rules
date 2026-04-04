@@ -66,6 +66,10 @@ service firebase.storage {
       allow write: if puedeEditarCuadreAdmins();
     }
 
+    match /notas_admin_adjuntos/{docId}/{fileName} {
+      allow read, write: if tienePerfilActual();
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

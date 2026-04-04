@@ -51,6 +51,7 @@ const COL = {
 
 const SETTINGS_DOC = "principal";
 const EVIDENCE_FOLDER = "evidencias_cuadre_admins";
+const NOTE_ATTACHMENT_FOLDER = "notas_admin_adjuntos";
 const ACCESS_ROLE_META = Object.freeze({
   AUXILIAR: { isAdmin: false, isGlobal: false },
   VENTAS: { isAdmin: true, isGlobal: false },
@@ -241,6 +242,110 @@ function _dedupeEvidenceItems(items = []) {
     seen.add(key);
     return true;
   });
+}
+
+function _normalizeIncidentPriority(value, fallbackText = "") {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (["CRITICA", "CRÍTICA", "URGENTE", "CRITICO", "CRÍTICO"].includes(normalized)) return "CRITICA";
+  if (["ALTA", "HIGH"].includes(normalized)) return "ALTA";
+  if (["BAJA", "LOW"].includes(normalized)) return "BAJA";
+
+  const fallback = String(fallbackText || "").toUpperCase();
+  if (fallback.includes("URGENT") || fallback.includes("CRITIC")) return "CRITICA";
+  if (fallback.includes("ALTA")) return "ALTA";
+  if (fallback.includes("BAJA")) return "BAJA";
+  return "MEDIA";
+}
+
+function _normalizeIncidentStatus(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized === "RESUELTA" || normalized === "RESUELTO" ? "RESUELTA" : "PENDIENTE";
+}
+
+function _buildIncidentCode(timestampValue) {
+  const stamp = String(timestampValue || _ts());
+  return `INC-${stamp.slice(-6).padStart(6, "0")}`;
+}
+
+function _normalizeIncidentAttachments(data = {}) {
+  return _dedupeEvidenceItems(_normalizeEvidenceItems(
+    data.adjuntos || data.attachments || data.evidencias || []
+  ));
+}
+
+function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampValue = null) {
+  const timestamp = Number(timestampValue || data.timestamp || _ts()) || _ts();
+  const descripcion = String(data.descripcion ?? data.nota ?? "").trim();
+  const tituloBase = _sanitizeText(data.titulo || "");
+  const titulo = tituloBase || (descripcion ? descripcion.split(/\r?\n/)[0].slice(0, 90) : "Incidencia sin título");
+  const prioridad = _normalizeIncidentPriority(data.prioridad, `${titulo} ${descripcion}`);
+  const estado = _normalizeIncidentStatus(data.estado);
+  const archivos = _dedupeEvidenceItems(_normalizeEvidenceItems(adjuntos));
+  const fecha = _sanitizeText(data.fecha) || _now();
+
+  return {
+    timestamp,
+    fecha,
+    autor: _sanitizeText(autor || data.autor) || "Sistema",
+    titulo,
+    prioridad,
+    nota: descripcion,
+    descripcion,
+    estado,
+    quienResolvio: _sanitizeText(data.quienResolvio || ""),
+    solucion: _sanitizeText(data.solucion || ""),
+    resueltaEn: _sanitizeText(data.resueltaEn || ""),
+    codigo: _sanitizeText(data.codigo || "") || _buildIncidentCode(timestamp),
+    adjuntos: archivos,
+    version: Number(data.version || 1) || 1
+  };
+}
+
+function _normalizeIncidentRecord(docId, data = {}) {
+  const timestamp = Number(data.timestamp || parseInt(docId, 10) || _ts()) || _ts();
+  const fecha = _sanitizeText(data.fecha) || _fecha({ timestamp, fecha: data.fecha });
+  const adjuntos = _normalizeIncidentAttachments(data);
+  return {
+    id: docId,
+    _docId: docId,
+    ..._buildIncidentPayload({
+      ...data,
+      fecha,
+      codigo: data.codigo || _buildIncidentCode(timestamp)
+    }, data.autor, adjuntos, timestamp)
+  };
+}
+
+async function _uploadIncidentAttachments(filesLike, docId, author) {
+  const files = Array.from(filesLike || []).filter(Boolean);
+  if (!files.length) return [];
+  if (!storage) throw new Error("Firebase Storage no está disponible");
+
+  const uploadedAt = _now();
+  const uploadedBy = _sanitizeText(author) || "Sistema";
+  const uploads = [];
+
+  for (const file of files) {
+    const safeName = _sanitizeStorageSegment(file.name || `archivo-${_ts()}`);
+    const path = `${NOTE_ATTACHMENT_FOLDER}/${docId}/${Date.now()}-${safeName}`;
+    const ref = storage.ref(path);
+    const snapshot = await ref.put(file, {
+      contentType: file.type || "application/octet-stream",
+      customMetadata: { uploadedBy }
+    });
+    const url = await snapshot.ref.getDownloadURL();
+    uploads.push({
+      path,
+      fileName: file.name || safeName,
+      mimeType: file.type || "",
+      size: Number(file.size || 0) || 0,
+      uploadedAt,
+      uploadedBy,
+      url
+    });
+  }
+
+  return uploads;
 }
 
 function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
@@ -648,10 +753,11 @@ const API_FUNCTIONS = {
 
   // ─── RADAR ───────────────────────────────────────────────
   async checarNotificaciones(usuarioActivo) {
-    const [settings, alertasSnap, msgsSnap] = await Promise.all([
+    const [settings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
       _getSettings(),
       db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50).get(),
-      db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get()
+      db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
+      db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get()
     ]);
     const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(a => !_alertReadByUser(a, usuarioActivo))
@@ -661,7 +767,7 @@ const API_FUNCTIONS = {
     if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
     if (!Array.isArray(liveFeed)) liveFeed = [];
     return {
-      incidenciasPendientes: 0, alertas, mensajesSinLeer,
+      incidenciasPendientes: notasSnap.size, alertas, mensajesSinLeer,
       ultimaActualizacion: settings.ultimaModificacion || "--/-- 00:00",
       ultimoCuadre:        settings.ultimoCuadreTexto || "Sin registro",
       mapaBloqueado:       settings.mapaBloqueado === true,
@@ -826,22 +932,66 @@ const API_FUNCTIONS = {
   // ─── NOTAS ───────────────────────────────────────────────
   async obtenerTodasLasNotas() {
     const snap = await db.collection(COL.NOTAS).orderBy("timestamp", "desc").get();
-    return snap.docs.map(d => ({ id: d.id, _docId: d.id, ...d.data() }));
+    return snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
+  },
+  suscribirNotasAdmin(callback) {
+    return db.collection(COL.NOTAS).orderBy("timestamp", "desc").onSnapshot(snap => {
+      callback(snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
+    }, err => console.error("onSnapshot notas_admin:", err));
   },
   async guardarNuevaNotaDirecto(nota, autor) {
     const ts = _ts();
-    await db.collection(COL.NOTAS).doc(ts.toString()).set({ timestamp: ts, fecha: _now(), autor, nota, estado: "PENDIENTE", quienResolvio: "", solucion: "" });
+    const id = ts.toString();
+    const payloadEntrada = typeof nota === "object" && nota !== null
+      ? { ...nota }
+      : { descripcion: String(nota || "") };
+    const actor = _sanitizeText(payloadEntrada.autor || autor) || "Sistema";
+    const archivosNuevos = Array.from(payloadEntrada.archivos || payloadEntrada.files || []);
+    const adjuntosManual = _normalizeEvidenceItems(payloadEntrada.adjuntos || payloadEntrada.attachments || []);
+    const adjuntosSubidos = archivosNuevos.length
+      ? await _uploadIncidentAttachments(archivosNuevos, id, actor)
+      : [];
+
+    const payload = _buildIncidentPayload({
+      ...payloadEntrada,
+      fecha: _now(),
+      estado: "PENDIENTE",
+      quienResolvio: "",
+      solucion: "",
+      resueltaEn: ""
+    }, actor, [...adjuntosManual, ...adjuntosSubidos], ts);
+
+    await db.collection(COL.NOTAS).doc(id).set(payload);
     return "OK";
   },
   async resolverNotaDirecto(idNota, solucion, autor) {
     const idStr = idNota.toString();
     const ref = db.collection(COL.NOTAS).doc(idStr);
     const snap = await ref.get();
-    if (snap.exists) { await ref.update({ quienResolvio: autor, estado: "RESUELTA", solucion }); return "OK"; }
+    if (snap.exists) {
+      await ref.update({
+        quienResolvio: _sanitizeText(autor) || "Sistema",
+        estado: "RESUELTA",
+        solucion: _sanitizeText(solucion),
+        resueltaEn: _now(),
+        version: Number((snap.data() || {}).version || 1) + 1
+      });
+      return "OK";
+    }
     const ts = parseInt(idStr);
     if (!isNaN(ts)) {
       const q = await db.collection(COL.NOTAS).where("timestamp", "==", ts).limit(1).get();
-      if (!q.empty) { await q.docs[0].ref.update({ quienResolvio: autor, estado: "RESUELTA", solucion }); return "OK"; }
+      if (!q.empty) {
+        const actual = q.docs[0].data() || {};
+        await q.docs[0].ref.update({
+          quienResolvio: _sanitizeText(autor) || "Sistema",
+          estado: "RESUELTA",
+          solucion: _sanitizeText(solucion),
+          resueltaEn: _now(),
+          version: Number(actual.version || 1) + 1
+        });
+        return "OK";
+      }
     }
     return "ERROR: Nota no encontrada";
   },
@@ -849,11 +999,19 @@ const API_FUNCTIONS = {
     const idStr = idNota.toString();
     const ref = db.collection(COL.NOTAS).doc(idStr);
     const snap = await ref.get();
-    if (snap.exists) { await ref.delete(); return "OK"; }
+    if (snap.exists) {
+      await _deleteEvidenceFiles(_normalizeIncidentAttachments(snap.data()));
+      await ref.delete();
+      return "OK";
+    }
     const ts = parseInt(idStr);
     if (!isNaN(ts)) {
       const q = await db.collection(COL.NOTAS).where("timestamp", "==", ts).limit(1).get();
-      if (!q.empty) { await q.docs[0].ref.delete(); return "OK"; }
+      if (!q.empty) {
+        await _deleteEvidenceFiles(_normalizeIncidentAttachments(q.docs[0].data()));
+        await q.docs[0].ref.delete();
+        return "OK";
+      }
     }
     return "ERROR: Nota no encontrada";
   },
