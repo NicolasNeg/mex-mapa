@@ -10996,10 +10996,23 @@ function abrirSiguienteAlerta() {
     banner.style.display = 'none';
   }
 
-  const btnCerrar = document.getElementById('btnCerrarAlerta');
-  btnCerrar.innerText = _normalizarModoAlerta(alerta.modo) === 'PASIVA'
-    ? 'MARCAR COMO LEÍDA'
-    : 'ENTENDIDO (MARCAR COMO LEÍDA)';
+ const btnCerrar = document.getElementById('btnCerrarAlerta');
+
+  // Definimos la variable para el contenido
+  let contenidoBoton;
+
+  if (_normalizarModoAlerta(alerta.modo) === 'PASIVA') {
+    contenidoBoton = 'MARCAR COMO LEÍDA';
+  } else {
+    // Generamos el HTML con el ícono de Material Icons
+    // Añadimos estilos en línea para alinear el ícono verticalmente con el texto
+    contenidoBoton = `ENTENDIDO ( <span class="material-icons" style="font-size: 18px; vertical-align: middle; margin-bottom: 2px;">check_circle</span> )`;
+  }
+
+  // IMPORTANTE: Cambiamos .innerText por .innerHTML para poder renderizar el ícono
+  btnCerrar.innerHTML = contenidoBoton;
+
+  // El resto del código se mantiene igual
   btnCerrar.style.background = metaTipo.color;
 
   alertaAccionActualActiva = accion.type === 'NONE' ? null : accion;
