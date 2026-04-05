@@ -31,6 +31,8 @@
       --color-listo: #10b981; --color-sucio: #f59e0b; --color-manto: #ef4444;
       --color-no-arrendable: #34fbff;
       --bg-viewport: #475569;
+      --admin-sidebar-width: 278px;
+      --floating-edge-gap: 30px;
       --color-retenida: #1e293b; 
       --color-venta-bg: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
       --color-venta-text: #ffffff;
@@ -998,16 +1000,19 @@ header {
     .zoom-controls { 
       position: fixed; 
       bottom: 40px; 
-      right: 30px; 
+      right: var(--floating-edge-gap); 
       display: flex; 
       flex-direction: column; 
-      gap: 20px; 
-      z-index: 2600; 
-      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+      gap: 14px; 
+      z-index: 1900; 
+      transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), right 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease; 
     }
     
     .zoom-controls.panel-open {
       transform: translateY(-160px); 
+    }
+    body.admin-sidebar-open .zoom-controls {
+      right: calc(var(--admin-sidebar-width) + var(--floating-edge-gap));
     }
     .btn-zoom { 
       width: 60px; height: 60px; 
@@ -1017,8 +1022,8 @@ header {
       cursor: pointer; font-size: 28px; color: var(--primary); 
       font-weight: bold; display: flex; align-items: center; justify-content: center; 
       transition: all 0.1s ease; 
-      position: fixed;
-      z-index: 10;
+      position: static;
+      z-index: auto;
     }
     .btn-zoom:active { transform: scale(0.9); background: #f1f5f9; }
     
@@ -1262,7 +1267,11 @@ header {
       right: 0;
       top: 0;
       bottom: 0;
-      width: 278px;
+      width: min(var(--admin-sidebar-width), 100vw);
+      height: 100vh;
+      height: 100dvh;
+      max-height: 100vh;
+      max-height: 100dvh;
       background: linear-gradient(180deg, #303d5cff 0%, #2c374dff 100%);
       border-left: 1px solid rgba(55, 56, 58, 0.22);
       z-index: 2000;
@@ -1272,9 +1281,14 @@ header {
       flex-direction: column;
       box-shadow: -24px 0 60px rgba(44, 37, 87, 0.51);
       overflow: hidden;
+      min-height: 0;
+      overscroll-behavior: contain;
     }
     .admin-sidebar.open { transform: translateX(0); }
-    @media (max-width: 400px) { .admin-sidebar { width: 100%; } }
+    @media (max-width: 400px) {
+      :root { --admin-sidebar-width: 100vw; }
+      .admin-sidebar { width: 100vw; }
+    }
     .admin-sidebar-head {
       padding: 18px 16px 14px;
       border-bottom: 1px solid rgba(111, 117, 134, 0.15);
@@ -1282,6 +1296,7 @@ header {
       flex-direction: column;
       gap: 14px;
       flex-shrink: 0;
+      min-height: 0;
     }
     .admin-sidebar-brand {
       display: flex;
@@ -1395,12 +1410,16 @@ background: rgba(26, 32, 47, 0.65);
       flex-shrink: 0;
     }
     .admin-sidebar-scroll {
-      padding: 14px 12px 18px;
+      padding: 14px 12px calc(18px + env(safe-area-inset-bottom, 0px));
       display: flex;
       flex-direction: column;
       gap: 16px;
       flex: 1;
       overflow-y: auto;
+      min-height: 0;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
     }
     .admin-nav-group {
       display: flex;
@@ -1512,7 +1531,7 @@ color: #64748b;
       margin:2px 8px 0;
     }
     .admin-sidebar-footer {
-      padding: 12px;
+      padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
       border-top: 1px solid rgba(111, 117, 134, 0.14);
       background: rgba(8, 10, 14, 0.22);
       flex-shrink: 0;
@@ -4634,6 +4653,10 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 
       .zoom-controls { bottom: 20px; right: 15px; }
       .zoom-controls.panel-open { transform: translateY(-160px); } 
+      body.admin-sidebar-open .zoom-controls {
+        opacity: 0;
+        pointer-events: none;
+      }
 
       #swap-container > div {
         padding: 8px !important;
@@ -5084,6 +5107,7 @@ function cerrarModalSolicitud() {
     <span class="material-icons" style="font-size:18px;">close</span>
   </button>
 </div>
+    </div>
 
     <div class="admin-sidebar-status">
       <div class="admin-sidebar-status-copy">
@@ -5422,6 +5446,46 @@ function cerrarModalSolicitud() {
           </select>
         </div>
 
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Firma visible</label>
+          <select id="alertaAutorModo" onchange="_actualizarAutorAlertaUI(); _actualizarPreviewAlerta();"
+            style="width:100%; padding:10px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:12px; font-weight:700; outline:none; box-sizing:border-box; background:white; font-family:'Inter';">
+            <option value="CURRENT">Usuario actual</option>
+            <option value="NONE">Sin autor visible</option>
+            <option value="CUSTOM">Autor personalizado</option>
+          </select>
+          <input type="text" id="alertaAutorCustom" placeholder="Ej. MEX RENT A CAR BJX" oninput="_actualizarPreviewAlerta()"
+            style="display:none; width:100%; padding:10px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:12px; font-weight:700; outline:none; box-sizing:border-box;">
+          <div style="font-size:11px; color:#64748b; font-weight:700; line-height:1.4;">Puedes firmar con tu usuario, ocultar la firma o usar un nombre institucional como EQUIPO DE PROTECCIÓN DE DATOS.</div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+            <label style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Banner visible</label>
+            <label style="display:inline-flex; align-items:center; gap:7px; font-size:11px; color:#64748b; font-weight:800; cursor:pointer;">
+              <input type="checkbox" id="alertaBannerCustomToggle" onchange="_actualizarBannerAlertaUI(); _actualizarPreviewAlerta();">
+              Personalizar
+            </label>
+          </div>
+          <div id="alertaBannerCustomWrap" style="display:none; flex-direction:column; gap:8px; padding:10px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0;">
+            <input type="text" id="alertaBannerLabel" placeholder="Ej. EQUIPO DE PROTECCIÓN DE DATOS" oninput="_actualizarPreviewAlerta()"
+              style="width:100%; padding:10px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:12px; font-weight:700; outline:none; box-sizing:border-box; background:white;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:900; color:#64748b; letter-spacing:0.6px; text-transform:uppercase;">
+                Fondo
+                <input type="color" id="alertaBannerBg" value="#fee2e2" onchange="_actualizarPreviewAlerta()"
+                  style="width:100%; height:40px; border:none; border-radius:10px; background:transparent; cursor:pointer;">
+              </label>
+              <label style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:900; color:#64748b; letter-spacing:0.6px; text-transform:uppercase;">
+                Texto
+                <input type="color" id="alertaBannerText" value="#ef4444" onchange="_actualizarPreviewAlerta()"
+                  style="width:100%; height:40px; border:none; border-radius:10px; background:transparent; cursor:pointer;">
+              </label>
+            </div>
+            <div style="font-size:11px; color:#64748b; font-weight:700; line-height:1.4;">Si lo dejas apagado, el banner usará automáticamente el estilo del nivel de urgencia seleccionado.</div>
+          </div>
+        </div>
+
         <!-- Destinatarios -->
         <div style="display:flex; flex-direction:column; gap:8px;">
           <label style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Destinatarios</label>
@@ -5667,7 +5731,7 @@ function cerrarModalSolicitud() {
               <div id="alertaPreviewActionHint" class="alerta-preview-action-hint"></div>
             </div>
             <div class="alerta-preview-meta">
-              <span>Enviado por: <span id="alertaPreviewAutor" style="color:#1a73e8;">TÚ</span></span>
+              <span id="alertaPreviewAuthorWrap">Enviado por: <span id="alertaPreviewAutor" style="color:#1a73e8;">TÚ</span></span>
               <span id="alertaPreviewStats">0 palabras · 0 caracteres</span>
             </div>
           </div>
@@ -6357,7 +6421,7 @@ function cerrarModalSolicitud() {
   </div>
 </div>
 </div>
-<div id="overlay" class="overlay" onclick="toggleSidebar(); toggleAdminSidebar();"></div>
+<div id="overlay" class="overlay" onclick="closeMainSidebars()"></div>
 
 <header>
   <!-- Izquierda: menú + logo -->
@@ -7104,9 +7168,7 @@ function iniciarApp(esNuevoLogin = true) {
   _actualizarIdentidadSidebarUsuario();
 
   // Cerramos sidebars
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('admin-sidebar').classList.remove('open');
-  document.getElementById('overlay').classList.remove('active');
+  closeMainSidebars();
 
 // Mostramos botones de alertas/admin
   if (document.getElementById('btnAlerts')) document.getElementById('btnAlerts').style.display = 'flex';
@@ -7174,9 +7236,9 @@ function cerrarSesion() {
   if(document.getElementById('btnAlerts')) document.getElementById('btnAlerts').style.display = 'none';
   if(document.getElementById('btnBuzon')) document.getElementById('btnBuzon').style.display = 'none';
   
-  document.getElementById('admin-sidebar').classList.remove('open');
+  toggleAdminSidebar(false);
   document.getElementById('fleet-modal').classList.remove('active');
-  document.getElementById('overlay').classList.remove('active');
+  sincronizarEstadoSidebars();
   
   // 🛑 APAGAR OVERLAY DE AUDITORIA DE INMEDIATO
   const auditOverlay = document.getElementById('overlayAuditoria');
@@ -7215,6 +7277,8 @@ function cargarMaestra() {
 // ==========================================
 let selectedAuto = null;
 let zoomLevel = 0.8;
+const MAP_MIN_ZOOM = 0.3;
+const MAP_MAX_ZOOM = 1.5;
 isSaving = false;
 let isMoving = false; // 🔥
 let autoRefreshInterval = null; // mantenido por compatibilidad pero no se usa para el mapa
@@ -7233,6 +7297,8 @@ let _mapaRuntime = {
   unidadesReady: false,
   estructuraSig: '',
   viewportBound: false,
+  gesturesBound: false,
+  pinchState: null,
   pendingUnits: null
 };
 let _mapaSyncState = {
@@ -7321,6 +7387,7 @@ function init() {
   updateZoom();
   _ajustarViewportMapa();
   _setMapSyncBadge(window.MAPA_LOCKED ? 'locked' : 'live');
+  _bindMapZoomGestures();
   if (!_mapaRuntime.viewportBound) {
     window.addEventListener('resize', _ajustarViewportMapa);
     _mapaRuntime.viewportBound = true;
@@ -7374,9 +7441,128 @@ function _ajustarViewportMapa() {
   grid.style.setProperty('--map-cols', String(bounds.cols));
 }
 
-function adjustZoom(delta) { 
-  zoomLevel = Math.min(Math.max(0.3, zoomLevel + delta), 1.5); 
-  updateZoom(); 
+function _getMapViewport() {
+  return document.querySelector('.content');
+}
+
+function _clampMapZoom(value) {
+  return Math.min(MAP_MAX_ZOOM, Math.max(MAP_MIN_ZOOM, Number(value) || zoomLevel));
+}
+
+function _getViewportCenterPoint() {
+  const viewport = _getMapViewport();
+  if (!viewport) return null;
+  const rect = viewport.getBoundingClientRect();
+  return {
+    clientX: rect.left + (rect.width / 2),
+    clientY: rect.top + (rect.height / 2)
+  };
+}
+
+function _isMapZoomTarget(target) {
+  return !!target?.closest?.('#map-zoom-container');
+}
+
+function _getTouchDistance(touchA, touchB) {
+  return Math.hypot(touchA.clientX - touchB.clientX, touchA.clientY - touchB.clientY);
+}
+
+function _getTouchCenter(touchA, touchB) {
+  return {
+    clientX: (touchA.clientX + touchB.clientX) / 2,
+    clientY: (touchA.clientY + touchB.clientY) / 2
+  };
+}
+
+function _applyMapZoom(nextZoom, anchorPoint = null) {
+  const mapContainer = document.getElementById('map-zoom-container');
+  const viewport = _getMapViewport();
+  const clampedZoom = _clampMapZoom(nextZoom);
+  const prevZoom = zoomLevel;
+  if (!mapContainer || clampedZoom === prevZoom) return;
+
+  const hasAnchor = viewport
+    && anchorPoint
+    && Number.isFinite(anchorPoint.clientX)
+    && Number.isFinite(anchorPoint.clientY);
+
+  let contentX = 0;
+  let contentY = 0;
+  let pointX = 0;
+  let pointY = 0;
+
+  if (hasAnchor) {
+    const rect = viewport.getBoundingClientRect();
+    pointX = anchorPoint.clientX - rect.left;
+    pointY = anchorPoint.clientY - rect.top;
+    contentX = (viewport.scrollLeft + pointX) / prevZoom;
+    contentY = (viewport.scrollTop + pointY) / prevZoom;
+  }
+
+  zoomLevel = clampedZoom;
+  updateZoom();
+
+  if (hasAnchor) {
+    viewport.scrollLeft = Math.max(0, (contentX * clampedZoom) - pointX);
+    viewport.scrollTop = Math.max(0, (contentY * clampedZoom) - pointY);
+  }
+}
+
+function _handleMapWheelZoom(event) {
+  if (window.innerWidth <= 768) return;
+  if (!_isMapZoomTarget(event.target)) return;
+  event.preventDefault();
+  const deltaMultiplier = event.deltaMode === 1 ? 16 : 1;
+  const normalizedDelta = event.deltaY * deltaMultiplier;
+  const nextZoom = zoomLevel * Math.exp(-normalizedDelta * 0.0015);
+  _applyMapZoom(nextZoom, { clientX: event.clientX, clientY: event.clientY });
+}
+
+function _handleMapTouchStart(event) {
+  if (event.touches.length !== 2 || !_isMapZoomTarget(event.target)) return;
+  const [touchA, touchB] = event.touches;
+  _mapaRuntime.pinchState = {
+    startDistance: _getTouchDistance(touchA, touchB),
+    startZoom: zoomLevel
+  };
+  event.preventDefault();
+}
+
+function _handleMapTouchMove(event) {
+  if (!_mapaRuntime.pinchState || event.touches.length !== 2) return;
+  const [touchA, touchB] = event.touches;
+  const distance = _getTouchDistance(touchA, touchB);
+  if (!distance || !_mapaRuntime.pinchState.startDistance) return;
+  const scaleFactor = distance / _mapaRuntime.pinchState.startDistance;
+  _applyMapZoom(_mapaRuntime.pinchState.startZoom * scaleFactor, _getTouchCenter(touchA, touchB));
+  event.preventDefault();
+}
+
+function _handleMapTouchEnd(event) {
+  if (event.touches.length === 2) {
+    const [touchA, touchB] = event.touches;
+    _mapaRuntime.pinchState = {
+      startDistance: _getTouchDistance(touchA, touchB),
+      startZoom: zoomLevel
+    };
+    return;
+  }
+  _mapaRuntime.pinchState = null;
+}
+
+function _bindMapZoomGestures() {
+  const viewport = _getMapViewport();
+  if (!viewport || _mapaRuntime.gesturesBound) return;
+  viewport.addEventListener('wheel', _handleMapWheelZoom, { passive: false });
+  viewport.addEventListener('touchstart', _handleMapTouchStart, { passive: false });
+  viewport.addEventListener('touchmove', _handleMapTouchMove, { passive: false });
+  viewport.addEventListener('touchend', _handleMapTouchEnd, { passive: true });
+  viewport.addEventListener('touchcancel', _handleMapTouchEnd, { passive: true });
+  _mapaRuntime.gesturesBound = true;
+}
+
+function adjustZoom(delta, anchorPoint = null) { 
+  _applyMapZoom(zoomLevel + delta, anchorPoint || _getViewportCenterPoint()); 
 }
 
 function updateZoom() { 
@@ -7979,30 +8165,39 @@ function cerrarPanel() {
     limpiarBusqueda(false);
 }
 
-function toggleSidebar() {
-  const sidebar = document.getElementById('sidebar');
-  const adminSidebar = document.getElementById('admin-sidebar');
-  
-  if(adminSidebar.classList.contains('open')) adminSidebar.classList.remove('open');
-  
-  sidebar.classList.toggle('open');
-
-  // 🔥 LÓGICA DE MOVIMIENTO DEL FEED 🔥
-  if (sidebar.classList.contains('open')) {
-    document.body.classList.add('sidebar-open'); // Activa el movimiento
-  } else {
-    document.body.classList.remove('sidebar-open'); // Regresa a su lugar
-  }
-
-  document.getElementById('overlay').classList.toggle('active', sidebar.classList.contains('open'));
+function sincronizarEstadoSidebars() {
+  const sidebarOpen = document.getElementById('sidebar')?.classList.contains('open');
+  const adminOpen = document.getElementById('admin-sidebar')?.classList.contains('open');
+  document.body.classList.toggle('sidebar-open', !!sidebarOpen);
+  document.body.classList.toggle('admin-sidebar-open', !!adminOpen);
+  document.getElementById('overlay')?.classList.toggle('active', !!(sidebarOpen || adminOpen));
 }
 
-function toggleAdminSidebar() {
+function toggleSidebar(forceState = null) {
   const sidebar = document.getElementById('sidebar');
   const adminSidebar = document.getElementById('admin-sidebar');
-  if(sidebar.classList.contains('open')) sidebar.classList.remove('open');
-  adminSidebar.classList.toggle('open');
-  document.getElementById('overlay').classList.toggle('active', adminSidebar.classList.contains('open')); 
+  if (!sidebar) return;
+
+  const abrir = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
+  if (abrir) adminSidebar?.classList.remove('open');
+  sidebar.classList.toggle('open', abrir);
+  sincronizarEstadoSidebars();
+}
+
+function toggleAdminSidebar(forceState = null) {
+  const sidebar = document.getElementById('sidebar');
+  const adminSidebar = document.getElementById('admin-sidebar');
+  if (!adminSidebar) return;
+
+  const abrir = typeof forceState === 'boolean' ? forceState : !adminSidebar.classList.contains('open');
+  if (abrir) sidebar?.classList.remove('open');
+  adminSidebar.classList.toggle('open', abrir);
+  sincronizarEstadoSidebars();
+}
+
+function closeMainSidebars() {
+  toggleSidebar(false);
+  toggleAdminSidebar(false);
 }
 
 function actualizarContadores() {
@@ -8280,7 +8475,7 @@ let CACHE_IMAGENES_AUDIT = {};
 
 function abrirModalFlota() {
   document.getElementById('fleet-modal').classList.add('active');
-  document.getElementById('admin-sidebar').classList.remove('open');
+  toggleAdminSidebar(false);
   // Repoblar selects cada vez que se abre — garantiza que estén al día
   if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
   cargarFlota(); 
@@ -8311,7 +8506,7 @@ function abrirModalFlota() {
 
 function cerrarModalFlota() {
   document.getElementById('fleet-modal').classList.remove('active');
-  document.getElementById('overlay').classList.remove('active');
+  sincronizarEstadoSidebars();
   refrescarDatos();
 }
 
@@ -9884,7 +10079,7 @@ function aplicarFormatoIncidencia(tipo) {
 }
 
 function abrirIncidencias() {
-  document.getElementById('admin-sidebar')?.classList.remove('open');
+  toggleAdminSidebar(false);
   document.getElementById('incidencias-modal').classList.add('active');
   document.getElementById('autorNuevaNota').value = USER_NAME || 'Sistema';
   actualizarPreviewNuevaNota();
@@ -10192,6 +10387,132 @@ const ALERTA_ACTION_META = Object.freeze({
 
 function _obtenerMetaTipoAlerta(tipo) {
   return ALERTA_TIPO_META[String(tipo || '').trim().toUpperCase()] || ALERTA_TIPO_META.INFO;
+}
+
+function _normalizarHexColorAlerta(color = '', fallback = '#1d4ed8') {
+  const limpio = String(color || '').trim();
+  if (/^#[0-9a-f]{6}$/i.test(limpio)) return limpio.toUpperCase();
+  if (/^#[0-9a-f]{3}$/i.test(limpio)) {
+    const [, r, g, b] = limpio;
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  return fallback;
+}
+
+function _normalizarModoAutorAlerta(mode = 'CURRENT') {
+  const normalized = String(mode || '').trim().toUpperCase();
+  if (normalized === 'NONE' || normalized === 'CUSTOM') return normalized;
+  return 'CURRENT';
+}
+
+function _resolverAutorVisibleDesdeConfig(config = {}, fallback = USER_NAME || 'Sistema') {
+  const mode = _normalizarModoAutorAlerta(config.mode || config.modo || config.type);
+  const value = String(config.value || config.autor || config.nombre || '').trim();
+  if (mode === 'NONE') return '';
+  if (mode === 'CUSTOM') return value;
+  return value || String(fallback || '').trim();
+}
+
+function _obtenerAutorFormularioAlerta() {
+  const mode = _normalizarModoAutorAlerta(document.getElementById('alertaAutorModo')?.value || 'CURRENT');
+  const customValue = String(document.getElementById('alertaAutorCustom')?.value || '').trim();
+  return {
+    mode,
+    value: mode === 'CUSTOM' ? customValue : '',
+    visible: _resolverAutorVisibleDesdeConfig({ mode, value: customValue }, USER_NAME || 'Sistema')
+  };
+}
+
+function _obtenerAutorVisibleAlerta(alerta = {}, fallback = USER_NAME || 'Sistema') {
+  return _resolverAutorVisibleDesdeConfig({
+    mode: alerta.authorMode || alerta.autorModo || alerta.author?.mode || alerta.author?.modo,
+    value: alerta.authorValue || alerta.autorValor || alerta.author?.value || alerta.author?.autor || alerta.autor || ''
+  }, alerta.actor || alerta.emitidoPor || fallback);
+}
+
+function _normalizarBannerAlerta(banner = {}, tipo = 'INFO') {
+  const metaTipo = _obtenerMetaTipoAlerta(tipo);
+  const labelRaw = String(banner.label || banner.text || banner.nombre || '').trim();
+  const bgRaw = String(banner.bg || banner.background || banner.fondo || '').trim();
+  const colorRaw = String(banner.color || banner.textColor || banner.texto || '').trim();
+  const custom = banner.custom === true || Boolean(labelRaw || bgRaw || colorRaw);
+  return {
+    label: labelRaw || metaTipo.label,
+    bg: _normalizarHexColorAlerta(bgRaw, metaTipo.bg),
+    color: _normalizarHexColorAlerta(colorRaw, metaTipo.color),
+    custom
+  };
+}
+
+function _obtenerBannerVisibleAlerta(alerta = {}, tipoFallback = '') {
+  const tipo = alerta.tipo || tipoFallback || 'INFO';
+  return _normalizarBannerAlerta(alerta.banner || alerta.badge || {}, tipo);
+}
+
+function _actualizarAutorAlertaUI() {
+  const mode = _normalizarModoAutorAlerta(document.getElementById('alertaAutorModo')?.value || 'CURRENT');
+  const customInput = document.getElementById('alertaAutorCustom');
+  if (!customInput) return;
+  customInput.style.display = mode === 'CUSTOM' ? 'block' : 'none';
+  if (mode !== 'CUSTOM') customInput.value = '';
+}
+
+function _actualizarBannerAlertaUI() {
+  const toggle = document.getElementById('alertaBannerCustomToggle');
+  const wrap = document.getElementById('alertaBannerCustomWrap');
+  const tipo = document.getElementById('alertaNuevaTipo')?.value || 'INFO';
+  const metaTipo = _obtenerMetaTipoAlerta(tipo);
+  const inputLabel = document.getElementById('alertaBannerLabel');
+  const inputBg = document.getElementById('alertaBannerBg');
+  const inputText = document.getElementById('alertaBannerText');
+  const custom = !!toggle?.checked;
+
+  if (wrap) wrap.style.display = custom ? 'flex' : 'none';
+  if (!custom) {
+    if (inputLabel) inputLabel.value = '';
+    if (inputBg) inputBg.value = metaTipo.bg;
+    if (inputText) inputText.value = metaTipo.color;
+    return;
+  }
+
+  if (inputBg && !inputBg.value) inputBg.value = metaTipo.bg;
+  if (inputText && !inputText.value) inputText.value = metaTipo.color;
+}
+
+function _obtenerBannerFormularioAlerta() {
+  const tipo = document.getElementById('alertaNuevaTipo')?.value || 'INFO';
+  const custom = !!document.getElementById('alertaBannerCustomToggle')?.checked;
+  if (!custom) return _normalizarBannerAlerta({}, tipo);
+  return _normalizarBannerAlerta({
+    custom: true,
+    label: document.getElementById('alertaBannerLabel')?.value || '',
+    bg: document.getElementById('alertaBannerBg')?.value || '',
+    color: document.getElementById('alertaBannerText')?.value || ''
+  }, tipo);
+}
+
+function _setAutorFormularioAlerta(data = {}) {
+  const mode = _normalizarModoAutorAlerta(data.mode || data.modo || data.authorMode || ((data.value || data.autor || data.nombre) ? 'CUSTOM' : 'CURRENT'));
+  const modeSelect = document.getElementById('alertaAutorModo');
+  const customInput = document.getElementById('alertaAutorCustom');
+  if (modeSelect) modeSelect.value = mode;
+  if (customInput) {
+    customInput.value = mode === 'CUSTOM' ? String(data.value || data.autor || data.nombre || '').trim() : '';
+  }
+  _actualizarAutorAlertaUI();
+}
+
+function _setBannerFormularioAlerta(data = {}, tipo = 'INFO') {
+  const normalized = _normalizarBannerAlerta(data, tipo);
+  const toggle = document.getElementById('alertaBannerCustomToggle');
+  const inputLabel = document.getElementById('alertaBannerLabel');
+  const inputBg = document.getElementById('alertaBannerBg');
+  const inputText = document.getElementById('alertaBannerText');
+  if (toggle) toggle.checked = !!normalized.custom;
+  if (inputLabel) inputLabel.value = normalized.custom ? normalized.label : '';
+  if (inputBg) inputBg.value = normalized.bg;
+  if (inputText) inputText.value = normalized.color;
+  _actualizarBannerAlertaUI();
 }
 
 function _normalizarModoAlerta(modo) {
@@ -10972,6 +11293,8 @@ function abrirSiguienteAlerta() {
   alertaActualMostrandose = filaAlertasPendientes[0];
   const alerta = alertaActualMostrandose;
   const metaTipo = _obtenerMetaTipoAlerta(alerta.tipo);
+  const bannerMeta = _obtenerBannerVisibleAlerta(alerta);
+  const autorVisible = _obtenerAutorVisibleAlerta(alerta, '');
   const mensajeHtml = _normalizarMensajeAlertaHtml(alerta.mensaje);
   const accion = _normalizarAccionAlerta(alerta.cta || {});
 
@@ -10979,12 +11302,14 @@ function abrirSiguienteAlerta() {
   document.getElementById('alertaMensaje').innerHTML = mensajeHtml || `<div style="color:#94a3b8;">Sin contenido disponible.</div>`;
   document.getElementById('alertaMensaje').scrollTop = 0;
   document.getElementById('alertaFecha').innerText = alerta.fecha || 'Reciente';
-  document.getElementById('alertaAutor').innerText = alerta.autor || 'Sistema';
+  document.getElementById('alertaAutor').innerText = autorVisible || '';
+  const autorWrap = document.getElementById('alertaFinalAuthorWrap');
+  if (autorWrap) autorWrap.style.display = autorVisible ? 'block' : 'none';
 
   const tipoBadge = document.getElementById('alertaTipo');
-  tipoBadge.innerText = metaTipo.label;
-  tipoBadge.style.background = metaTipo.bg;
-  tipoBadge.style.color = metaTipo.color;
+  tipoBadge.innerText = bannerMeta.label;
+  tipoBadge.style.background = bannerMeta.bg;
+  tipoBadge.style.color = bannerMeta.color;
 
   const banner = document.getElementById('alertaBannerImg');
   if (alerta.imagen && (String(alerta.imagen).startsWith('http') || String(alerta.imagen).startsWith('data:image'))) {
@@ -11255,6 +11580,9 @@ function _updateAlertaTipoStyle() {
   select.style.borderColor = meta.border;
   select.style.background = meta.selectBg;
   select.style.color = meta.color;
+  if (!document.getElementById('alertaBannerCustomToggle')?.checked) {
+    _actualizarBannerAlertaUI();
+  }
 }
 
 function _actualizarTituloModalAlerta() {
@@ -11309,6 +11637,8 @@ function _actualizarPreviewAlerta() {
   const modo = document.getElementById('alertaModoActual')?.value || 'INTERRUPTIVA';
   const html = _sanitizarHtmlAlerta(_obtenerEditorAlerta()?.innerHTML || '');
   const accion = _obtenerAccionFormularioAlerta();
+  const autor = _obtenerAutorFormularioAlerta();
+  const banner = _obtenerBannerFormularioAlerta();
 
   const metaTipo = _obtenerMetaTipoAlerta(tipo);
   const metaModo = _obtenerMetaModoAlerta(modo);
@@ -11318,9 +11648,9 @@ function _actualizarPreviewAlerta() {
 
   const badge = document.getElementById('alertaPreviewBadge');
   if (badge) {
-    badge.innerText = metaTipo.label;
-    badge.style.background = metaTipo.bg;
-    badge.style.color = metaTipo.color;
+    badge.innerText = banner.label;
+    badge.style.background = banner.bg;
+    badge.style.color = banner.color;
   }
 
   const badgeModo = document.getElementById('alertaPreviewModoBadge');
@@ -11338,8 +11668,10 @@ function _actualizarPreviewAlerta() {
     mensajePreview.innerHTML = html || `<span class="alerta-empty-state">Escribe aquí el texto de la alerta. La vista previa y el modal final se actualizan al instante.</span>`;
   }
 
+  const autorPreviewWrap = document.getElementById('alertaPreviewAuthorWrap');
   const autorPreview = document.getElementById('alertaPreviewAutor');
-  if (autorPreview) autorPreview.innerText = USER_NAME || 'TÚ';
+  if (autorPreviewWrap) autorPreviewWrap.style.display = autor.visible ? 'inline' : 'none';
+  if (autorPreview) autorPreview.innerText = autor.visible || '';
 
   const previewHora = document.getElementById('alertaPreviewHora');
   if (previewHora) previewHora.innerText = hora;
@@ -11430,6 +11762,11 @@ function cargarPlantillaSeleccionada() {
   document.getElementById('alertaNuevaTipo').value = plantilla.tipo || 'INFO';
   document.getElementById('alertaNuevaTitulo').value = plantilla.titulo || '';
   document.getElementById('alertaNuevaImagen').value = plantilla.imagen || '';
+  _setAutorFormularioAlerta({
+    mode: plantilla.authorMode || plantilla.autorModo || plantilla.author?.mode || 'CURRENT',
+    value: plantilla.authorValue || plantilla.autorValor || plantilla.author?.value || plantilla.autor || ''
+  });
+  _setBannerFormularioAlerta(plantilla.banner || {}, plantilla.tipo || 'INFO');
   _obtenerEditorAlerta().innerHTML = _normalizarMensajeAlertaHtml(plantilla.mensaje);
   _sincronizarFormularioAccionAlerta(plantilla.cta || {}, true);
   _selectModo(plantilla.modo || 'INTERRUPTIVA');
@@ -11461,9 +11798,15 @@ async function guardarComoPlantilla() {
   const modo = document.getElementById('alertaModoActual').value || 'INTERRUPTIVA';
   const imagen = document.getElementById('alertaNuevaImagen').value.trim();
   const cta = _obtenerAccionFormularioAlerta();
+  const autor = _obtenerAutorFormularioAlerta();
+  const banner = _obtenerBannerFormularioAlerta();
 
   if (!titulo && !mensajePlano) {
     showToast("Primero diseña la alerta antes de guardar una plantilla.", "error");
+    return;
+  }
+  if (autor.mode === 'CUSTOM' && !autor.value) {
+    showToast("Escribe el autor personalizado o cambia la firma visible.", "error");
     return;
   }
 
@@ -11474,7 +11817,9 @@ async function guardarComoPlantilla() {
   try {
     const res = await api.guardarPlantillaAlerta(nombre.trim(), tipo, titulo || 'Sin título', mensaje, modo, USER_NAME, {
       imagen,
-      cta
+      cta,
+      author: { mode: autor.mode, value: autor.value },
+      banner
     });
     if (res === 'EXITO') {
       await _cargarPlantillasAlerta();
@@ -11499,6 +11844,11 @@ function _prepararFormularioAlerta(alerta = null) {
   document.getElementById('alertaNuevaTitulo').value = alerta?.titulo || '';
   document.getElementById('alertaNuevaImagen').value = alerta?.imagen || '';
   document.getElementById('alertaFile').value = '';
+  _setAutorFormularioAlerta({
+    mode: alerta?.authorMode || alerta?.autorModo || alerta?.author?.mode || 'CURRENT',
+    value: alerta?.authorValue || alerta?.autorValor || alerta?.author?.value || alerta?.author?.autor || alerta?.autor || ''
+  });
+  _setBannerFormularioAlerta(alerta?.banner || {}, alerta?.tipo || 'URGENTE');
 
   const editor = _obtenerEditorAlerta();
   editor.innerHTML = _normalizarMensajeAlertaHtml(alerta?.mensaje || '');
@@ -11557,6 +11907,8 @@ async function emitirAlertaGlobal() {
   const imagen = document.getElementById('alertaNuevaImagen').value.trim();
   const modo = _normalizarModoAlerta(document.getElementById('alertaModoActual').value);
   const cta = _obtenerAccionFormularioAlerta();
+  const autor = _obtenerAutorFormularioAlerta();
+  const banner = _obtenerBannerFormularioAlerta();
   const btn = document.getElementById('btnEmitirAlertaGlobal');
 
   let destinatarios = 'GLOBAL';
@@ -11576,6 +11928,9 @@ async function emitirAlertaGlobal() {
   if (!titulo || !mensajePlano) {
     return showToast("Título y cuerpo del mensaje son obligatorios.", "error");
   }
+  if (autor.mode === 'CUSTOM' && !autor.value) {
+    return showToast("Escribe el autor personalizado o cambia la firma visible.", "error");
+  }
 
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> ${alertaEditorState.editingId ? 'GUARDANDO...' : 'EMITIENDO...'}`;
@@ -11590,7 +11945,9 @@ async function emitirAlertaGlobal() {
           modo,
           cta,
           destinatarios,
-          destMode: alertaEditorState.destMode
+          destMode: alertaEditorState.destMode,
+          author: { mode: autor.mode, value: autor.value },
+          banner
         }, USER_NAME)
       : await api.emitirNuevaAlertaMaestra(
           tipo,
@@ -11600,7 +11957,7 @@ async function emitirAlertaGlobal() {
           USER_NAME,
           destinatarios,
           modo,
-          { destMode: alertaEditorState.destMode, cta }
+          { destMode: alertaEditorState.destMode, cta, author: { mode: autor.mode, value: autor.value }, banner }
         );
 
     _actualizarTituloModalAlerta();
@@ -11692,9 +12049,13 @@ function _renderHistorialAlertas() {
 
   const filtradas = historialAlertasCache.filter(alerta => {
     const resumenDest = _obtenerResumenDestinatariosAlerta(alerta);
+    const autorVisible = _obtenerAutorVisibleAlerta(alerta, '');
+    const bannerMeta = _obtenerBannerVisibleAlerta(alerta);
     const textoBusqueda = [
       alerta.titulo || '',
-      alerta.autor || '',
+      autorVisible,
+      alerta.actor || '',
+      bannerMeta.label,
       resumenDest.label,
       resumenDest.detail,
       _obtenerTextoPlanoAlerta(alerta.mensaje)
@@ -11726,11 +12087,17 @@ function _renderHistorialAlertas() {
 
   contenedor.innerHTML = filtradas.map(alerta => {
     const metaTipo = _obtenerMetaTipoAlerta(alerta.tipo);
+    const bannerMeta = _obtenerBannerVisibleAlerta(alerta);
     const metaModo = _obtenerMetaModoAlerta(alerta.modo);
     const resumenDest = _obtenerResumenDestinatariosAlerta(alerta);
+    const autorVisible = _obtenerAutorVisibleAlerta(alerta, '');
+    const actorVisible = String(alerta.actor || alerta.emitidoPor || '').trim();
     const lectores = _parseListaAlertaCsv(alerta.leidoPor);
     const editadaInfo = alerta.editadoEn
       ? `<div style="font-size:11px; color:#64748b; font-weight:700;">Editada por <span style="color:#1a73e8;">${escapeHtml(alerta.editadoPor || 'Sistema')}</span> · ${escapeHtml(alerta.editadoEn)}</div>`
+      : '';
+    const actorInfo = actorVisible && actorVisible.toUpperCase() !== String(autorVisible || '').toUpperCase()
+      ? `<div style="font-size:11px; color:#64748b; font-weight:700;">Publicada por <span style="color:#1a73e8;">${escapeHtml(actorVisible)}</span></div>`
       : '';
     const imagen = alerta.imagen
       ? `<div style="width:100%; height:130px; border-radius:12px; background-image:url('${_safeCssUrl(alerta.imagen)}'); background-size:cover; background-position:center;"></div>`
@@ -11740,11 +12107,12 @@ function _renderHistorialAlertas() {
       <div style="background:white; border-radius:16px; padding:18px; border:1px solid #dbe4f0; box-shadow:0 10px 30px rgba(15,23,42,0.06); display:flex; flex-direction:column; gap:14px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
           <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${metaTipo.bg}; color:${metaTipo.color}; letter-spacing:0.8px;">${metaTipo.label}</span>
+            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${bannerMeta.bg}; color:${bannerMeta.color}; letter-spacing:0.8px;">${escapeHtml(bannerMeta.label)}</span>
             <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${metaModo.bg}; color:${metaModo.color}; letter-spacing:0.8px;">${metaModo.icon} ${metaModo.label}</span>
             <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:#f8fafc; color:#475569; letter-spacing:0.8px; display:flex; align-items:center; gap:4px;">
               <span class="material-icons" style="font-size:13px;">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}
             </span>
+            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${metaTipo.selectBg}; color:${metaTipo.color}; letter-spacing:0.8px;">BASE ${metaTipo.label}</span>
           </div>
           <div style="text-align:right; min-width:145px;">
             <div style="font-size:11px; color:#64748b; font-weight:900;">${escapeHtml(alerta.fecha || 'Sin fecha')}</div>
@@ -11757,7 +12125,8 @@ function _renderHistorialAlertas() {
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
           <div style="flex:1; min-width:220px;">
             <h3 style="margin:0 0 6px; color:#163a63; font-size:18px; line-height:1.2;">${escapeHtml(alerta.titulo || 'Sin título')}</h3>
-            <div style="font-size:12px; color:#64748b; font-weight:800; margin-bottom:4px;">Emitida por <span style="color:#1a73e8;">${escapeHtml(alerta.autor || 'Sistema')}</span></div>
+            <div style="font-size:12px; color:#64748b; font-weight:800; margin-bottom:4px;">${autorVisible ? `Emitida como <span style="color:#1a73e8;">${escapeHtml(autorVisible)}</span>` : 'Sin autor visible'}</div>
+            ${actorInfo}
             ${editadaInfo}
           </div>
           <div style="min-width:180px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px;">
@@ -16055,7 +16424,7 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
             ENTENDIDO (MARCAR COMO LEÍDA)
           </button>
         </div>
-        <div class="alerta-final-author">
+        <div id="alertaFinalAuthorWrap" class="alerta-final-author">
           Enviado por: <span id="alertaAutor" style="color: var(--primary);">Administración</span>
         </div>
       </div>

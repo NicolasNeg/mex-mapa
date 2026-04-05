@@ -122,6 +122,55 @@ function _normalizeAlertCta(cta = {}) {
   };
 }
 
+function _normalizeAlertHexColor(color = "", fallback = "#1D4ED8") {
+  const value = String(color || "").trim();
+  if (/^#[0-9A-F]{6}$/i.test(value)) return value.toUpperCase();
+  if (/^#[0-9A-F]{3}$/i.test(value)) {
+    const [, r, g, b] = value;
+    return `#${r}${r}${g}${g}${b}${b}`.toUpperCase();
+  }
+  return fallback;
+}
+
+function _defaultAlertBannerMeta(tipo = "INFO") {
+  const normalized = _normalizeAlertType(tipo);
+  if (normalized === "URGENTE") return { label: "URGENTE", bg: "#FEE2E2", color: "#EF4444" };
+  if (normalized === "WARNING") return { label: "ADVERTENCIA", bg: "#FEF3C7", color: "#D97706" };
+  return { label: "INFORMATIVO", bg: "#DBEAFE", color: "#1D4ED8" };
+}
+
+function _normalizeAlertBanner(banner = {}, tipo = "INFO") {
+  const meta = _defaultAlertBannerMeta(tipo);
+  const labelRaw = _sanitizeText(banner.label || banner.text || banner.nombre || "");
+  const bgRaw = String(banner.bg || banner.background || banner.fondo || "").trim();
+  const colorRaw = String(banner.color || banner.textColor || banner.texto || "").trim();
+  const custom = banner.custom === true || Boolean(labelRaw || bgRaw || colorRaw);
+  return {
+    label: labelRaw || meta.label,
+    bg: _normalizeAlertHexColor(bgRaw, meta.bg),
+    color: _normalizeAlertHexColor(colorRaw, meta.color),
+    custom
+  };
+}
+
+function _normalizeAlertAuthor(author = {}, fallbackActor = "") {
+  const rawValue = _sanitizeText(author.value || author.autor || author.nombre || "");
+  const rawMode = String(author.mode || author.modo || author.type || "").trim().toUpperCase();
+  let mode = rawMode === "NONE" || rawMode === "CUSTOM"
+    ? rawMode
+    : (rawValue ? "CUSTOM" : "CURRENT");
+
+  if (mode === "CUSTOM" && !rawValue) mode = "CURRENT";
+
+  return {
+    mode,
+    value: mode === "CUSTOM" ? rawValue : "",
+    visible: mode === "NONE"
+      ? ""
+      : (mode === "CUSTOM" ? rawValue : (_sanitizeText(fallbackActor) || "Sistema"))
+  };
+}
+
 function _alertMatchesUser(alerta, usuarioActivo) {
   const usuario = String(usuarioActivo || "").trim().toUpperCase();
   if (!usuario) return false;
@@ -790,11 +839,19 @@ const API_FUNCTIONS = {
   // ─── ALERTAS ─────────────────────────────────────────────
   async emitirNuevaAlertaMaestra(tipo, titulo, mensaje, imagen, autor, destinatarios, modo, meta = {}) {
     const destinatariosNormalizados = _serializeAlertCsv(destinatarios);
+    const actor = _sanitizeText(autor) || "Sistema";
+    const tipoNormalizado = _normalizeAlertType(tipo);
+    const authorMeta = _normalizeAlertAuthor(meta.author || {}, actor);
+    const banner = _normalizeAlertBanner(meta.banner || {}, tipoNormalizado);
     await db.collection(COL.ALERTAS).add({
       timestamp: _ts(),
       fecha: _now(),
-      autor: _sanitizeText(autor) || "Sistema",
-      tipo: _normalizeAlertType(tipo),
+      actor,
+      autor: authorMeta.visible,
+      authorMode: authorMeta.mode,
+      authorValue: authorMeta.value,
+      tipo: tipoNormalizado,
+      banner,
       titulo: _sanitizeText(titulo),
       mensaje: String(mensaje || "").trim(),
       imagen: String(imagen || "").trim(),
@@ -836,13 +893,26 @@ const API_FUNCTIONS = {
     const modo = _normalizeAlertMode(cambios.modo || actual.modo);
     const destMode = _normalizeAlertDestMode(cambios.destMode || actual.destMode, destinatarios);
     const cta = _normalizeAlertCta(cambios.cta || actual.cta || {});
+    const authorMeta = _normalizeAlertAuthor(
+      cambios.author || {
+        mode: actual.authorMode || actual.autorModo || actual.author?.mode || "",
+        value: actual.authorValue || actual.autorValor || actual.author?.value || actual.autor || ""
+      },
+      actor
+    );
+    const banner = _normalizeAlertBanner(cambios.banner || actual.banner || {}, tipo);
     const ahora = _now();
     const nuevoTimestamp = _ts();
 
     await ref.update({
       timestamp: nuevoTimestamp,
       fecha: ahora,
+      actor: _sanitizeText(actor) || "Sistema",
+      autor: authorMeta.visible,
+      authorMode: authorMeta.mode,
+      authorValue: authorMeta.value,
       tipo,
+      banner,
       titulo,
       mensaje,
       imagen,
@@ -888,13 +958,18 @@ const API_FUNCTIONS = {
   
   async guardarPlantillaAlerta(nombre, tipo, titulo, mensaje, modo, autor, meta = {}) {
     try {
+      const tipoNormalizado = _normalizeAlertType(tipo);
+      const authorMeta = _normalizeAlertAuthor(meta.author || {}, autor);
       await db.collection(COL.PLANTILLAS_ALERTAS).add({
         nombre,
-        tipo,
+        tipo: tipoNormalizado,
         titulo,
         mensaje,
         modo,
         autor,
+        authorMode: authorMeta.mode,
+        authorValue: authorMeta.value,
+        banner: _normalizeAlertBanner(meta.banner || {}, tipoNormalizado),
         imagen: String(meta.imagen || "").trim(),
         cta: _normalizeAlertCta(meta.cta),
         timestamp: _ts(),
