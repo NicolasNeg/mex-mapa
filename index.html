@@ -18,6 +18,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="/config.js"></script>
   <script src="mex-api.js"></script>
   <title>MEX Mapa</title>
@@ -485,6 +486,14 @@ header {
 
 
     /* MODIFICADO PARA COMPATIBILIDAD DE ZOOM NATIVO */
+    #map-stage {
+      position: relative;
+      display: block;
+      width: max-content;
+      height: max-content;
+      margin: 82px auto 48px;
+    }
+
     #map-zoom-container {
       --map-outer-pad: clamp(16px, 2.6vw, 36px);
       transform-origin: 0 0;
@@ -492,8 +501,8 @@ header {
       display: block;
       width: max-content;
       min-width: max-content;
-      margin: 82px auto 48px;
       transition: transform 0.1s ease-out;
+      will-change: transform;
     }
     
     .map-grid { 
@@ -4482,12 +4491,12 @@ body.sidebar-open #liveActivityFeed { transform: none; opacity: 0.1; }
 
       .search-wrapper { order: 3; min-width: 100%; margin: 5px 0 0 0; }
       
+      #map-stage { margin: 14px auto 36px !important; }
       #map-zoom-container {
         --map-outer-pad: 14px !important;
         width: max-content !important;
         min-width: max-content !important;
         padding: 14px 14px 96px 14px !important;
-        margin: 14px auto 36px !important;
       }
       .map-grid {
         --map-cell-size: 82px !important;
@@ -5916,8 +5925,8 @@ function cerrarModalSolicitud() {
               </div>
 
               <div class="inc-form-actions">
-                <button class="inc-btn-ghost" onclick="resetFormularioIncidencia()">Descartar</button>
-                <button id="btnPublicarInc" class="inc-btn-primary" onclick="guardarNuevaNota()">
+                <button type="button" class="inc-btn-ghost" onclick="resetFormularioIncidencia()">Descartar</button>
+                <button type="button" id="btnPublicarInc" class="inc-btn-primary" onclick="guardarNuevaNota(event)">
                   <span>Publicar Nota</span>
                   <span class="material-icons" style="font-size:18px;">send</span>
                 </button>
@@ -6534,8 +6543,10 @@ function cerrarModalSolicitud() {
 
   </aside>
 
-  <div id="map-zoom-container">
-    <div id="grid-map" class="map-grid"></div>
+  <div id="map-stage">
+    <div id="map-zoom-container">
+      <div id="grid-map" class="map-grid"></div>
+    </div>
   </div>
 
   <div id="info-panel" class="info-sidebar">
@@ -7426,19 +7437,21 @@ function startAutoRefresh() {
 }
 
 function _ajustarViewportMapa() {
+  const stage = document.getElementById('map-stage');
   const container = document.getElementById('map-zoom-container');
   const grid = document.getElementById('grid-map');
-  if (!container || !grid) return;
+  if (!stage || !container || !grid) return;
 
   const isMobile = window.innerWidth <= 768;
   const outerPad = isMobile ? 14 : Math.max(16, Math.min(36, Math.round(window.innerWidth * 0.022)));
   const topMargin = isMobile ? 14 : 82;
   container.style.setProperty('--map-outer-pad', `${outerPad}px`);
-  container.style.marginTop = `${topMargin}px`;
+  stage.style.marginTop = `${topMargin}px`;
 
   if (!_ultimaEstructuraMapa.length) return;
   const bounds = _normalizarEstructuraMapa(_ultimaEstructuraMapa);
   grid.style.setProperty('--map-cols', String(bounds.cols));
+  _syncMapStageSize();
 }
 
 function _getMapViewport() {
@@ -7459,8 +7472,19 @@ function _getViewportCenterPoint() {
   };
 }
 
+function _syncMapStageSize() {
+  const stage = document.getElementById('map-stage');
+  const mapContainer = document.getElementById('map-zoom-container');
+  if (!stage || !mapContainer) return;
+
+  const rawWidth = mapContainer.scrollWidth;
+  const rawHeight = mapContainer.scrollHeight;
+  stage.style.width = `${Math.ceil(rawWidth * zoomLevel)}px`;
+  stage.style.height = `${Math.ceil(rawHeight * zoomLevel)}px`;
+}
+
 function _isMapZoomTarget(target) {
-  return !!target?.closest?.('#map-zoom-container');
+  return !!target?.closest?.('#map-stage, #map-zoom-container');
 }
 
 function _getTouchDistance(touchA, touchB) {
@@ -7571,6 +7595,7 @@ function updateZoom() {
     mapContainer.style.transform = `scale(${zoomLevel})`;
     mapContainer.style.transformOrigin = '0 0'; 
   }
+  _syncMapStageSize();
 }
 
 let searchTimeout;
@@ -10039,7 +10064,7 @@ function resetFormularioIncidencia() {
   actualizarPreviewNuevaNota();
 }
 
-function aplicarFormatoIncidencia(tipo) {
+async function aplicarFormatoIncidencia(tipo) {
   const area = document.getElementById('nuevaNotaTxt');
   if (!area) return;
 
@@ -10060,11 +10085,18 @@ function aplicarFormatoIncidencia(tipo) {
     offsetStart = 1;
     offsetEnd = 1;
   } else if (tipo === 'link') {
-    const url = prompt('Ingresa la URL del enlace:', 'https://');
-    if (!url) return;
-    reemplazo = `[${seleccionado}](${url})`;
+    const url = await mexPrompt(
+      'Insertar enlace',
+      'Ingresa la URL del enlace:',
+      'https://',
+      'url',
+      'https://'
+    );
+    if (url === null || !url.trim()) return;
+    const enlace = url.trim();
+    reemplazo = `[${seleccionado}](${enlace})`;
     offsetStart = 1;
-    offsetEnd = url.length + 3;
+    offsetEnd = enlace.length + 3;
   } else if (tipo === 'ul') {
     reemplazo = seleccionado.split('\n').map(linea => `- ${linea}`).join('\n');
   } else if (tipo === 'ol') {
@@ -10234,36 +10266,47 @@ function filtrarListaNotas() {
   }).join('');
 }
 
-function guardarNuevaNota() {
+async function guardarNuevaNota(event) {
+  if (event?.preventDefault) event.preventDefault();
   const titulo = document.getElementById('nuevaNotaTitulo').value.trim();
   const nota = document.getElementById('nuevaNotaTxt').value.trim();
   const prioridad = document.getElementById('nuevaNotaPrioridad').value;
   const btn = document.getElementById('btnPublicarInc');
+  const storageDisponible = typeof firebase !== 'undefined' && typeof firebase.storage === 'function';
 
   if(!titulo) return showToast("Escribe el titulo de la incidencia", "warning");
   if(!nota) return showToast("Escribe la descripción", "warning");
+  if (archivosNuevaNota.length && !storageDisponible) {
+    return showToast("Los adjuntos no están disponibles todavía. Recarga la app e intenta de nuevo.", "error");
+  }
 
   btn.disabled = true;
   btn.innerHTML = `<span class="material-icons spinner">sync</span> ENVIANDO...`;
 
-  api.guardarNuevaNotaDirecto({
+  try {
+    const res = await api.guardarNuevaNotaDirecto({
       titulo,
       descripcion: nota,
       prioridad,
       archivos: archivosNuevaNota.map(item => item.file),
       codigo: incidenciaDraftCode,
       autor: USER_NAME || 'Sistema'
-    }, USER_NAME).then(() => {
-      showToast("Nota publicada", "success");
-      resetFormularioIncidencia();
-      btn.disabled = false;
-      btn.innerHTML = `<span>Publicar Nota</span><span class="material-icons" style="font-size:18px;">send</span>`;
-      switchIncTab({target: document.querySelector('[data-inc-tab="viewTab"]')}, 'viewTab');
-    }).catch(() => {
-      showToast("Error al publicar", "error");
-      btn.disabled = false;
-      btn.innerHTML = `<span>Publicar Nota</span><span class="material-icons" style="font-size:18px;">send</span>`;
-    });
+    }, USER_NAME);
+
+    if (res !== 'OK') {
+      throw new Error(typeof res === 'string' ? res : 'No se pudo publicar la nota.');
+    }
+
+    showToast("Nota publicada", "success");
+    resetFormularioIncidencia();
+    switchIncTab({target: document.querySelector('[data-inc-tab="viewTab"]')}, 'viewTab');
+  } catch (error) {
+    console.error('Error publicando incidencia:', error);
+    showToast(error?.message || "Error al publicar", "error");
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<span>Publicar Nota</span><span class="material-icons" style="font-size:18px;">send</span>`;
+  }
 }
 
 function abrirModalResolver(id) {
@@ -11390,9 +11433,16 @@ function alertaInsertHR() {
   alertaCmd('insertHorizontalRule');
 }
 
-function alertaInsertLink() {
-  const url = prompt('Enlace para insertar:', 'https://');
-  if (!url || !url.trim()) return;
+async function alertaInsertLink() {
+  _guardarSeleccionEditorAlerta();
+  const url = await mexPrompt(
+    'Insertar enlace',
+    'Enlace para insertar:',
+    'https://',
+    'url',
+    'https://'
+  );
+  if (url === null || !url.trim()) return;
   const normalized = _normalizarUrlAccionAlerta(url);
   if (!_esUrlSeguraAlerta(normalized)) {
     showToast('Ese enlace no es válido.', 'error');
@@ -11811,8 +11861,14 @@ async function guardarComoPlantilla() {
   }
 
   const sugerencia = titulo ? `Plantilla ${titulo}` : 'Nueva plantilla';
-  const nombre = prompt('Nombre para la plantilla:', sugerencia);
-  if (!nombre || !nombre.trim()) return;
+  const nombre = await mexPrompt(
+    'Guardar plantilla',
+    'Nombre para la plantilla:',
+    'Nombre de la plantilla',
+    'text',
+    sugerencia
+  );
+  if (nombre === null || !nombre.trim()) return;
 
   try {
     const res = await api.guardarPlantillaAlerta(nombre.trim(), tipo, titulo || 'Sin título', mensaje, modo, USER_NAME, {
@@ -12468,7 +12524,12 @@ async function ejecutarInsertarAdmin() {
 window.PAUSA_CONEXIONES = false; // 🔥 NUESTRA VARIABLE SEMÁFORO GLOBAL
 
 async function abrirUltimoCuadre() {
-  if (!confirm("¿Deseas VALIDAR el CUADRE y enviar el reporte a Gerencia?")) return;
+  const ok = await mexConfirm(
+    'Validar Cuadre',
+    '¿Deseas VALIDAR el CUADRE y enviar el reporte a Gerencia?',
+    'warning'
+  );
+  if (!ok) return;
 
   window.PAUSA_CONEXIONES = true; // 🛑 DETENEMOS EL RADAR PARA NO ATURDIR A GOOGLE
   showToast("Capturando mapa...", "info");
@@ -12604,12 +12665,19 @@ function abrirModalEditarGlobal() {
     }).catch(e => console.error(e));
 }
 
-function guardarEdicionGlobal(tipoAccion) {
+async function guardarEdicionGlobal(tipoAccion) {
   if (!hasFullAccess()) {
     showToast("Tu rol no puede modificar la flota global.", "error");
     return;
   }
-  if (tipoAccion === 'ELIMINAR' && !confirm(`⚠️ ALERTA: Eliminarás a ${UNIDAD_GLOBAL_ACTIVA.mva} de la plaza ${UNIDAD_GLOBAL_ACTIVA.plaza} DEFINITIVAMENTE. ¿Continuar?`)) return;
+  if (tipoAccion === 'ELIMINAR') {
+    const ok = await mexConfirm(
+      'Eliminar unidad global',
+      `Eliminarás a ${UNIDAD_GLOBAL_ACTIVA.mva} de la plaza ${UNIDAD_GLOBAL_ACTIVA.plaza} definitivamente. ¿Continuar?`,
+      'danger'
+    );
+    if (!ok) return;
+  }
 
   const data = {
     plaza: UNIDAD_GLOBAL_ACTIVA.plaza,
@@ -12892,7 +12960,12 @@ const toBase64Global = file => new Promise((resolve, reject) => {
 
 async function ejecutarEdicionGlobal(tipoAccion) {
   if (tipoAccion === 'ELIMINAR') {
-    if (!confirm(`⚠️ ALERTA: Estás a punto de eliminar la unidad ${UNIDAD_GLOBAL_ACTIVA.mva}. Esta acción es IRREVERSIBLE. ¿Deseas continuar?`)) return;
+    const ok = await mexConfirm(
+      'Eliminar unidad global',
+      `Estás a punto de eliminar la unidad ${UNIDAD_GLOBAL_ACTIVA.mva}. Esta acción es irreversible. ¿Deseas continuar?`,
+      'danger'
+    );
+    if (!ok) return;
   }
 
   const btnMod = document.getElementById('btnModGlobal');
@@ -13366,7 +13439,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 
 let estadoLockLocal = false;
-function solicitarToggleBloqueo() {
+async function solicitarToggleBloqueo() {
   if (!canLockMap()) {
     showToast("🚫 Solo los roles con acceso total pueden bloquear el patio.", "error");
     return;
@@ -13376,13 +13449,18 @@ function solicitarToggleBloqueo() {
   const nuevo = !window.MAPA_LOCKED; 
   const msj = nuevo ? "¿Bloquear todos los movimientos del patio?" : "¿Liberar el mapa para movimientos?";
   
-  if (confirm(msj)) {
-    showToast(nuevo ? "Congelando sistema..." : "Liberando sistema...", "warning");
-    api.toggleBloqueoMapa(nuevo, USER_NAME).then(() => {
-        showToast(nuevo ? "Mapa Bloqueado" : "Mapa Disponible", "success");
-        hacerPingNotificaciones();
-      }).catch(e => console.error(e));
-  }
+  const ok = await mexConfirm(
+    nuevo ? 'Bloquear patio' : 'Liberar patio',
+    msj,
+    'warning'
+  );
+  if (!ok) return;
+
+  showToast(nuevo ? "Congelando sistema..." : "Liberando sistema...", "warning");
+  api.toggleBloqueoMapa(nuevo, USER_NAME).then(() => {
+      showToast(nuevo ? "Mapa Bloqueado" : "Mapa Disponible", "success");
+      hacerPingNotificaciones();
+    }).catch(e => console.error(e));
 }
 
 
@@ -13429,8 +13507,13 @@ async function ejecutarSelloCuadre() {
   }
 }
 
-function ejecutarLimpiarFeed() {
-  if(!confirm("¿Deseas limpiar los globos de actividad para todos?")) return;
+async function ejecutarLimpiarFeed() {
+  const ok = await mexConfirm(
+    'Limpiar feed global',
+    '¿Deseas limpiar los globos de actividad para todos?',
+    'warning'
+  );
+  if (!ok) return;
   
   showToast("Limpiando feed...", "info");
   api.limpiarFeedGlobal().then(() => {
@@ -17211,7 +17294,7 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 // Shortcuts:
 //   mexAlert(titulo, texto, tipo?)            → Promise<true>
 //   mexConfirm(titulo, texto, tipo?)          → Promise<boolean>
-//   mexPrompt(titulo, texto, placeholder?, inputTipo?) → Promise<string|null>
+//   mexPrompt(titulo, texto, placeholder?, inputTipo?, valor?) → Promise<string|null>
 
 (function() {
   const tipoMap = {
@@ -17320,10 +17403,10 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
       .then(r => r !== null);
   };
 
-  window.mexPrompt = function(titulo, texto, placeholder = '', inputTipo = 'text') {
+  window.mexPrompt = function(titulo, texto, placeholder = '', inputTipo = 'text', valor = '') {
     return window.mexDialog({
       titulo, texto, tipo: 'info',
-      input: { tipo: inputTipo, placeholder },
+      input: { tipo: inputTipo, placeholder, valor },
       btnConfirmar: 'ACEPTAR', btnCancelar: 'CANCELAR'
     });
   };

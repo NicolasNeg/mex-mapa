@@ -13,7 +13,12 @@ const FIREBASE_CONFIG = window.FIREBASE_CONFIG;
 const app = firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
-const storage = firebase.storage ? firebase.storage() : null;
+
+function _getStorageClient() {
+  return (typeof firebase !== "undefined" && typeof firebase.storage === "function")
+    ? firebase.storage()
+    : null;
+}
 
 // ── Persistencia offline (cache local de Firestore) ───────
 // Los datos ya descargados están disponibles sin internet.
@@ -368,7 +373,8 @@ function _normalizeIncidentRecord(docId, data = {}) {
 async function _uploadIncidentAttachments(filesLike, docId, author) {
   const files = Array.from(filesLike || []).filter(Boolean);
   if (!files.length) return [];
-  if (!storage) throw new Error("Firebase Storage no está disponible");
+  const storage = _getStorageClient();
+  if (!storage) throw new Error("Firebase Storage no está disponible para subir adjuntos.");
 
   const uploadedAt = _now();
   const uploadedBy = _sanitizeText(author) || "Sistema";
@@ -429,6 +435,7 @@ async function subirEvidenciaAdmin(file, rutaStorage) {
 }
 
 async function _deleteEvidenceFiles(items = []) {
+  const storage = _getStorageClient();
   if (!storage) return;
   for (const item of _normalizeEvidenceItems(items)) {
     if (!item.path) continue;
