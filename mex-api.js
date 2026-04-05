@@ -8,7 +8,26 @@ if (!window.FIREBASE_CONFIG) {
     + 'Si ves esto en producción, contacta al administrador.</p></div>';
   throw new Error('config.js no encontrado — window.FIREBASE_CONFIG no definido');
 }
-const FIREBASE_CONFIG = window.FIREBASE_CONFIG;
+function _normalizeFirebaseConfig(config = {}) {
+  const next = { ...config };
+  const projectId = String(next.projectId || '').trim();
+  const rawBucket = String(next.storageBucket || '').trim().replace(/^gs:\/\//i, '');
+  const derivedBucket = projectId ? `${projectId}.firebasestorage.app` : '';
+
+  if (derivedBucket && (!rawBucket || rawBucket.endsWith('.appspot.com'))) {
+    if (rawBucket && rawBucket !== derivedBucket) {
+      console.warn(`Firebase Storage bucket legado detectado (${rawBucket}). Se usará ${derivedBucket}.`);
+    }
+    next.storageBucket = derivedBucket;
+  } else if (rawBucket) {
+    next.storageBucket = rawBucket;
+  }
+
+  return next;
+}
+
+const FIREBASE_CONFIG = _normalizeFirebaseConfig(window.FIREBASE_CONFIG);
+window.FIREBASE_CONFIG = FIREBASE_CONFIG;
 
 const app = firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
