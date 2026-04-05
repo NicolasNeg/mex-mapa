@@ -6303,7 +6303,7 @@ function cerrarModalSolicitud() {
                 </optgroup>
                   </select>
                 </th>
-                <th id="th-autor" style="display:none;">Notas</th> 
+                <th id="th-autor" style="display:none;">Notas / Responsable</th> 
               </tr>
             </thead>
             <tbody id="tablaCuerpoFlota">
@@ -6321,11 +6321,21 @@ function cerrarModalSolicitud() {
 
        <div class="form-panel">
           <button id="btnNuevaUnidadFlota" class="btn btn-new" onclick="prepararNuevoFlota()">
-            <span class="material-icons" style="font-size: 18px;">add</span> REGISTRAR NUEVA UNIDAD
+            <span class="material-icons" style="font-size: 18px;">add</span> <span id="btnNuevaUnidadFlotaLabel">REGISTRAR NUEVA UNIDAD</span>
           </button>
 
           <div class="form-header">
             <div class="form-title" id="formTitleFlota">NUEVO REGISTRO</div>
+          </div>
+
+          <div id="admin-flota-panel-hint" style="display:none; margin-bottom:15px; padding:14px 16px; border-radius:14px; border:1px solid #fed7aa; background:linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);">
+            <div style="display:flex; align-items:flex-start; gap:10px;">
+              <span class="material-icons" style="color:#d97706; font-size:20px;">inventory_2</span>
+              <div style="display:flex; flex-direction:column; gap:5px;">
+                <strong style="color:#9a3412; font-size:13px; letter-spacing:0.3px;">Modo Cuadre Admins</strong>
+                <span style="font-size:12px; color:#7c2d12; line-height:1.45;">En esta vista el registro se hace solo desde el modal administrativo. El buscador del cuadre normal queda oculto para no mezclar procesos.</span>
+              </div>
+            </div>
           </div>
           
           <div id="autofill-section" class="field" style="background:#f8fafc; padding:12px; border-radius:12px; border:1px dashed var(--mex-accent); position:relative; margin-bottom: 15px;">
@@ -6673,13 +6683,101 @@ function showToast(msg, type='success') {
 // Variable para saber en qué pestaña estamos
 let VISTA_ACTUAL_FLOTA = 'NORMAL';
 let DB_ADMINS = []; // Aquí guardaremos los autos de los jefes
+let ADMIN_INSERT_UNIT = null;
+const CUADRE_ADMIN_UBICACIONES_FIJAS = new Set([
+  'PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN', 'OTRA PLAZA'
+]);
+
+function _obtenerPlazaOperativaCuadreAdmin(fallback = '') {
+  return _normalizePlaza(
+    (currentUserProfile && (currentUserProfile.plazaAsignada || currentUserProfile.plaza))
+    || fallback
+    || ''
+  );
+}
+
+function _resolverResponsableCuadreAdmin(item = {}) {
+  const ubicacionRaw = String(item.ubicacion || '').trim();
+  const ubicacion = ubicacionRaw.replace(/^👤\s*/i, '').trim();
+  const ubicacionUpper = ubicacion.toUpperCase();
+  if (ubicacion && !CUADRE_ADMIN_UBICACIONES_FIJAS.has(ubicacionUpper)) return ubicacion;
+  return String(
+    item.responsable
+    || item.responsableVisual
+    || item.adminResponsable
+    || item._updatedBy
+    || item._createdBy
+    || ''
+  ).trim();
+}
+
+function _resumirTextoCuadreAdmin(texto = '', max = 84) {
+  const limpio = String(texto || '').replace(/\s+/g, ' ').trim();
+  if (!limpio) return 'Sin notas registradas';
+  return limpio.length > max ? `${limpio.slice(0, max - 1)}…` : limpio;
+}
+
+function actualizarEstadoArchivosAdmin(inputId, statusId) {
+  const input = document.getElementById(inputId);
+  const status = document.getElementById(statusId);
+  if (!input || !status) return;
+  const total = input.files ? input.files.length : 0;
+  if (!total) {
+    status.innerText = inputId === 'a_ins_file'
+      ? '⚪ SIN EVIDENCIA SELECCIONADA'
+      : '⚪ SIN EVIDENCIA NUEVA SELECCIONADA';
+    return;
+  }
+  const nombre = total === 1 ? input.files[0].name : `${total} archivos seleccionados`;
+  status.innerText = `📎 ${nombre}`;
+}
+
+function actualizarPanelLateralFlota() {
+  const esAdmins = VISTA_ACTUAL_FLOTA === 'ADMINS';
+  const title = document.getElementById('formTitleFlota');
+  const hint = document.getElementById('admin-flota-panel-hint');
+  const autofill = document.getElementById('autofill-section');
+  const fields = document.getElementById('form-fields-container');
+  const btnLabel = document.getElementById('btnNuevaUnidadFlotaLabel');
+  const btnSave = document.getElementById('btnSaveFlota');
+  const btnDel = document.getElementById('btnDelFlota');
+  const delNote = document.getElementById('del-note-wrapper');
+  const search = document.getElementById('searchFlota');
+  const autofillInput = document.getElementById('autofill-input');
+  const autofillResults = document.getElementById('autofill-results');
+  const autofillReset = document.getElementById('btnResetAutofill');
+
+  if (btnLabel) btnLabel.innerText = esAdmins ? 'REGISTRAR EN CUADRE ADMINS' : 'REGISTRAR NUEVA UNIDAD';
+  if (hint) hint.style.display = esAdmins ? 'block' : 'none';
+  if (autofill) autofill.style.display = 'none';
+  if (fields) fields.style.display = 'none';
+  if (delNote) delNote.style.display = 'none';
+  if (btnSave) btnSave.style.display = esAdmins ? 'none' : 'flex';
+  if (btnDel) btnDel.style.display = 'none';
+  if (search) search.placeholder = esAdmins
+    ? 'Buscar MVA, notas, placas, modelo o responsable...'
+    : 'Buscar MVA, Notas, Placas o Modelo...';
+  if (autofillInput) {
+    autofillInput.value = '';
+    autofillInput.disabled = false;
+  }
+  if (autofillResults) autofillResults.style.display = 'none';
+  if (autofillReset) autofillReset.style.display = 'none';
+  if (title) {
+    title.innerText = esAdmins ? 'GESTIÓN CUADRE ADMINS' : 'SELECCIONA UNA UNIDAD';
+    title.style.color = esAdmins ? '#d97706' : 'var(--mex-blue)';
+  }
+}
 
 function cambiarTabFlota(tabSeleccionado) {
   VISTA_ACTUAL_FLOTA = tabSeleccionado;
+  SELECT_REF_FLOTA = null;
+  ADMIN_INSERT_UNIT = null;
   
   // 🔥 NUEVO: Resetear buscador y chips al cambiar de pestaña
   document.getElementById('searchFlota').value = "";
   currentFilterFlota = "TODOS";
+  currentFiltroEspecial = "TODOS";
   document.querySelectorAll('#chipContainer .chip').forEach(c => c.classList.remove('active'));
   const chipTodos = document.querySelector('#chipContainer .chip:first-child');
   if (chipTodos) chipTodos.classList.add('active');
@@ -6694,6 +6792,8 @@ function cambiarTabFlota(tabSeleccionado) {
     btnAdmins.style.background = '#f1f5f9';
     btnAdmins.style.color = '#64748b';
     renderFlota(DB_FLOTA); 
+    document.getElementById('statTotal').innerText = DB_FLOTA.length;
+    document.getElementById('statListos').innerText = DB_FLOTA.filter(d => d.estado === 'LISTO').length;
   } else {
     btnAdmins.style.background = '#d97706'; 
     btnAdmins.style.color = 'white';
@@ -6705,14 +6805,17 @@ function cambiarTabFlota(tabSeleccionado) {
     api.obtenerCuadreAdminsData().then(data => {
         DB_ADMINS = data;
         renderFlota(DB_ADMINS);
+        document.getElementById('statTotal').innerText = DB_ADMINS.length;
+        document.getElementById('statListos').innerText = DB_ADMINS.filter(d => d.estado === 'LISTO').length;
       }).catch(e => console.error(e));
   }
 
 
   // 3. Limpieza de interfaz del panel derecho
-  document.getElementById('form-fields-container').style.display = 'none';
-  document.getElementById('formTitleFlota').innerText = "SELECCIONA UNA UNIDAD";
+  actualizarPanelLateralFlota();
 }
+
+setTimeout(actualizarPanelLateralFlota, 0);
 
 // loginConToken eliminado (reemplazado por loginManual en el módulo de autenticación)
 
@@ -8589,9 +8692,13 @@ function filtrarFlota() {
   let filtrados = baseDatosActiva.filter(u => {
      const notas = (u.notas || "").toUpperCase();
      const estado = (u.estado || "").toUpperCase();
+     const responsable = _resolverResponsableCuadreAdmin(u).toUpperCase();
+     const adminResponsable = String(u.adminResponsable || u._updatedBy || u._createdBy || '').toUpperCase();
 
      // A) BUSCADOR GLOBAL
-     const stringBusqueda = (u.etiqueta || `${u.categoria} ${u.modelo} ${u.placas} ${u.mva} ${u.estado} ${u.ubicacion}`).toUpperCase() + " " + notas;
+     const stringBusqueda = (
+       u.etiqueta || `${u.categoria} ${u.modelo} ${u.placas} ${u.mva} ${u.estado} ${u.ubicacion}`
+     ).toUpperCase() + " " + notas + " " + responsable + " " + adminResponsable;
      const pasaBuscador = s === "" || stringBusqueda.includes(s);
 
      // B) FILTROS EXCEL
@@ -8662,6 +8769,7 @@ function renderFlota(data) {
   
   if (thAutor) {
     thAutor.style.display = (VISTA_ACTUAL_FLOTA === 'ADMINS') ? 'table-cell' : 'none';
+    thAutor.innerText = 'Notas / Responsable';
   }
 
   if(!data || data.length === 0) {
@@ -8679,10 +8787,23 @@ function renderFlota(data) {
     else if(ubiUpper.includes("TALLER")) ubiClass = "ubi-TALLER";
     else if(ubiUpper.includes("AGENCIA")) ubiClass = "ubi-AGENCIA";
     else if(ubiUpper.includes("EXTERNO") || ubiUpper.includes("HYP")) ubiClass = "ubi-EXTERNO";
-    else if(u.ubicacion && u.ubicacion.includes("👤")) ubiClass = "ubi-PERSONA";
+    else if(ubiUpper && !CUADRE_ADMIN_UBICACIONES_FIJAS.has(ubiUpper.replace(/^👤\s*/i, '').trim())) ubiClass = "ubi-PERSONA";
     
-    const tdAutor = (VISTA_ACTUAL_FLOTA === 'ADMINS') 
-      ? `<td style="font-size:10px; font-weight:800; color:#64748b;">${u.autor || '---'}</td>` 
+    const responsable = _resolverResponsableCuadreAdmin(u);
+    const adminResponsable = String(u.adminResponsable || u._updatedBy || u._createdBy || '').trim();
+    const notaResumen = escapeHtml(_resumirTextoCuadreAdmin(u.notas || ''));
+    const responsableLabel = escapeHtml(responsable || adminResponsable || 'Sin responsable');
+    const extraAdminLine = adminResponsable && adminResponsable !== responsable
+      ? `<span style="font-size:10px; color:#94a3b8; font-weight:800;">Capturó: ${escapeHtml(adminResponsable)}</span>`
+      : '';
+    const tdAutor = (VISTA_ACTUAL_FLOTA === 'ADMINS')
+      ? `<td style="min-width:220px;">
+          <div style="display:flex; flex-direction:column; gap:5px;">
+            <span style="font-size:10px; font-weight:900; color:#0f172a;">${notaResumen}</span>
+            <span style="font-size:10px; color:#64748b; font-weight:800;">Responsable: ${responsableLabel}</span>
+            ${extraAdminLine}
+          </div>
+        </td>`
       : '';
 
     return `
@@ -8717,6 +8838,7 @@ function seleccionarFilaFlota(index, rowElement) {
     let esSoloLectura = (typeof userRole !== 'undefined' && userRole !== 'admin');
     
     document.getElementById('formTitleFlota').innerText = (esSoloLectura ? "VISUALIZANDO: " : "MODIFICANDO: ") + SELECT_REF_FLOTA.mva;
+    document.getElementById('admin-flota-panel-hint').style.display = 'none';
     document.getElementById('autofill-section').style.display = 'none';
     document.getElementById('form-fields-container').style.display = 'flex';
     
@@ -8857,6 +8979,7 @@ function prepararNuevoFlota() {
   document.getElementById('formTitleFlota').style.color = "var(--mex-blue)";
   
   document.getElementById('form-fields-container').style.display = 'none';
+  document.getElementById('admin-flota-panel-hint').style.display = 'none';
   document.getElementById('autofill-section').style.display = 'block';
   resetAutofill();
   document.getElementById('del-note-wrapper').style.display = 'none';
@@ -12401,29 +12524,40 @@ function actualizarFechaResumen() {
 function abrirModalInsertarAdmin() {
   const menu = document.getElementById('moreControlsDropdown');
   if(menu) menu.classList.remove('show'); 
+  const plazaOperativa = _obtenerPlazaOperativaCuadreAdmin();
+  if (!plazaOperativa && !hasFullAccess()) {
+    showToast("No tienes una plaza asignada para registrar en Cuadre Admins.", "error");
+    return;
+  }
+  ADMIN_INSERT_UNIT = null;
   
   // 1. Mostrar el modal
   document.getElementById('modal-insertar-admin').classList.add('active');
   
   // 🔥 Aseguramos que el contenedor sea visible desde el segundo 1
   document.getElementById('a_ins_formContainer').style.display = 'block'; 
+  document.getElementById('a_ins_badgePlaza').innerText = `PLAZA ${plazaOperativa || 'GLOBAL'}`;
+  document.getElementById('a_ins_badgeAdmin').innerText = `RESPONSABLE ${USER_NAME || 'SISTEMA'}`;
   
   // 2. Limpiar y habilitar el buscador
   const searchInput = document.getElementById('a_ins_searchInput');
   searchInput.disabled = false;
   searchInput.value = "";
   document.getElementById('a_ins_results').style.display = 'none';
+  setTimeout(() => searchInput.focus(), 80);
   
   // 3. Resetear todos los campos para que aparezcan vacíos pero visibles
-  ['a_ins_mva','a_ins_cat','a_ins_mod','a_ins_pla','a_ins_gas','a_ins_est','a_ins_ubi','a_ins_not'].forEach(id => {
+  ['a_ins_mva','a_ins_cat','a_ins_mod','a_ins_pla','a_ins_est','a_ins_ubi','a_ins_not'].forEach(id => {
      const el = document.getElementById(id);
      if(el) {
        el.value = "";
      }
   });
+  if (document.getElementById('a_ins_gas')) document.getElementById('a_ins_gas').value = 'N/A';
   
   const fileInput = document.getElementById('a_ins_file');
   if(fileInput) fileInput.value = "";
+  actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus');
 }
 
 function filtrarBusquedaAdmin() {
@@ -12432,7 +12566,13 @@ function filtrarBusquedaAdmin() {
   if(term.length < 2) { resDiv.style.display = 'none'; return; }
   
   // Buscamos en DB_MAESTRA
-  const matches = DB_MAESTRA.filter(u => (u.etiqueta || u.mva || "").includes(term)).slice(0, 6);
+  const matches = DB_MAESTRA.filter(u => {
+    const texto = (
+      u.etiqueta
+      || `${u.mva || ''} ${u.placas || ''} ${u.modelo || ''} ${u.categoria || u.categ || ''} ${u.plaza || u.sucursal || ''}`
+    ).toUpperCase();
+    return texto.includes(term);
+  }).slice(0, 6);
   
   if(matches.length > 0) {
     resDiv.innerHTML = matches.map(u => `
@@ -12446,11 +12586,14 @@ function filtrarBusquedaAdmin() {
 }
 
 function autocompletarInsertarAdmin(u) {
+  ADMIN_INSERT_UNIT = u;
   // Bloqueamos el buscador
   const input = document.getElementById('a_ins_searchInput');
   input.value = `${u.mva} - ${u.modelo}`;
   input.disabled = true;
   document.getElementById('a_ins_results').style.display = 'none';
+  const plazaOperativa = _obtenerPlazaOperativaCuadreAdmin(u.plaza || u.sucursal);
+  document.getElementById('a_ins_badgePlaza').innerText = `PLAZA ${plazaOperativa || 'GLOBAL'}`;
   
   // Mostramos formulario y llenamos los datos inamovibles
   document.getElementById('a_ins_formContainer').style.display = 'block';
@@ -12466,7 +12609,12 @@ async function ejecutarInsertarAdmin() {
   const mva = document.getElementById('a_ins_mva').value.toUpperCase().trim();
   const est = document.getElementById('a_ins_est').value;
   const ubi = document.getElementById('a_ins_ubi').value;
+  const plaza = _obtenerPlazaOperativaCuadreAdmin(
+    (ADMIN_INSERT_UNIT && (ADMIN_INSERT_UNIT.plaza || ADMIN_INSERT_UNIT.sucursal)) || ''
+  );
   
+  if (!mva) return showToast("Primero selecciona una unidad desde Base Maestra.", "error");
+  if (!plaza) return showToast("No se pudo resolver la plaza operativa para este registro.", "error");
   if (!est || !ubi) return showToast("Debes seleccionar un Estado y una Ubicación", "error");
 
   const btn = document.getElementById('btnGuardarAdmin');
@@ -12476,18 +12624,11 @@ async function ejecutarInsertarAdmin() {
   btn.disabled = true; txt.innerText = "Sincronizando...";
   icon.innerText = "sync"; icon.classList.add("spinner"); 
 
-  // Convertir archivos si existen
-  const files = document.getElementById('a_ins_file').files;
-  let archivosBase64 = [];
-  if (files.length > 0) {
-    for (const file of files) {
-      const base64 = await toBase64Global(file); // Función declarada en el acto anterior
-      archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
-    }
-  }
+  const files = Array.from(document.getElementById('a_ins_file').files || []);
 
   // Empaquetamos la data tal como la recibe 'procesarModificacionMaestra'
   const data = {
+    plaza,
     mva: mva,
     categ: document.getElementById('a_ins_cat').value,
     modelo: document.getElementById('a_ins_mod').value,
@@ -12497,7 +12638,7 @@ async function ejecutarInsertarAdmin() {
     ubicacion: ubi,
     notas: document.getElementById('a_ins_not').value,
     borrarNotas: false, // Es nuevo en admins
-    archivos: archivosBase64,
+    evidenceFiles: files,
     adminResponsable: USER_NAME 
   };
 
@@ -12506,7 +12647,7 @@ async function ejecutarInsertarAdmin() {
       btn.disabled = false; txt.innerText = "CONFIRMAR REGISTRO";
       icon.innerText = "save"; icon.classList.remove("spinner");
 
-      if(res && (res.includes("ERROR") || res === "DUPLICADO")) {
+      if(res && (res.includes("ERROR") || res.includes("DUPLICADO"))) {
          showToast(res, "error");
       } else {
          showToast("Unidad registrada en Cuadre Admins", "success");
@@ -12515,7 +12656,7 @@ async function ejecutarInsertarAdmin() {
          if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
       }
     }).catch((err) => {
-      showToast("Fallo de red", "error");
+      showToast(err && err.message ? err.message : "Fallo de red", "error");
       btn.disabled = false; txt.innerText = "REINTENTAR";
       icon.innerText = "error"; icon.classList.remove("spinner");
     });
@@ -12711,6 +12852,11 @@ async function guardarEdicionAdmin(tipoAccion) {
     showToast("Tu rol solo puede consultar el Cuadre Administrativo.", "error");
     return;
   }
+  const plaza = _obtenerPlazaOperativaCuadreAdmin(SELECT_REF_FLOTA.plaza || SELECT_REF_FLOTA.sucursal);
+  if (!plaza) {
+    showToast("No se pudo resolver la plaza operativa para esta unidad.", "error");
+    return;
+  }
   if (tipoAccion === 'ELIMINAR') {
     const ok = await mexConfirm(
       'Retirar del Cuadre Administrativo',
@@ -12718,19 +12864,17 @@ async function guardarEdicionAdmin(tipoAccion) {
       'warning'
     );
     if (!ok) return;
+  } else if (!document.getElementById('a_mod_est').value || !document.getElementById('a_mod_ubi').value) {
+    showToast("Debes seleccionar Estado y Ubicación para guardar el expediente administrativo.", "error");
+    return;
   }
 
   showToast("Sincronizando Cuadre Admins...", "warning");
 
-  const files = document.getElementById('a_mod_file').files;
-  let archivosBase64 = [];
-  for (const file of files) {
-    const base64 = await toBase64Global(file);
-    archivosBase64.push({ base64: base64.split(',')[1], mimeType: file.type, fileName: file.name });
-  }
+  const files = Array.from(document.getElementById('a_mod_file').files || []);
 
   const data = {
-    plaza: SELECT_REF_FLOTA.ubicacion || "BJX",
+    plaza,
     fila: SELECT_REF_FLOTA.fila, // Asegúrate que tu array DB_ADMINS tiene .fila
     mva: SELECT_REF_FLOTA.mva,
     placas: document.getElementById('a_mod_pla').value,
@@ -12741,7 +12885,7 @@ async function guardarEdicionAdmin(tipoAccion) {
     ubicacion: document.getElementById('a_mod_ubi').value,
     notas: document.getElementById('a_mod_not').value,
     borrarNotas: document.getElementById('a_mod_del_note').checked,
-    archivos: archivosBase64,
+    evidenceFiles: files,
     adminResponsable: USER_NAME 
   };
 
@@ -12754,7 +12898,10 @@ async function guardarEdicionAdmin(tipoAccion) {
       } else {
         showToast("Error: " + res, "error");
       }
-    }).catch(e => console.error(e));
+    }).catch(e => {
+      console.error(e);
+      showToast(e && e.message ? e.message : "Fallo de conexión al actualizar Cuadre Admins", "error");
+    });
 }
 
 
@@ -12859,56 +13006,103 @@ function seleccionarUnidadGlobal(sucursal, mva) {
 }
 
 
+function _obtenerEvidenciasAdminUI(u = {}) {
+    if (Array.isArray(u.evidencias) && u.evidencias.length) {
+      return u.evidencias.filter(item => item && (item.url || item.path));
+    }
+    const legacyUrl = u.url || u.URL || u.urlArchivo || u.urlEvidencia || u.evidencia || "";
+    return legacyUrl ? [{ url: legacyUrl, fileName: 'EVIDENCIA', mimeType: '' }] : [];
+}
+
+function renderizarVisorEvidenciasAdmin(u = {}) {
+    const evidencias = _obtenerEvidenciasAdminUI(u);
+    const visorContenedor = document.getElementById('a_visor_evidencia');
+    const visorFrame = document.getElementById('a_visor_frame');
+    const visorList = document.getElementById('a_visor_list');
+    const linkDrive = document.getElementById('a_link_drive');
+    const fileStatus = document.getElementById('a_mod_fileStatus');
+
+    if (!visorContenedor || !visorFrame || !visorList || !linkDrive) return;
+
+    if (!evidencias.length) {
+        visorContenedor.style.display = 'none';
+        visorFrame.innerHTML = "";
+        visorList.innerHTML = "";
+        linkDrive.href = "#";
+        if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
+        return;
+    }
+
+    const principal = evidencias[0];
+    const principalUrl = principal.url || "";
+    const mime = String(principal.mimeType || '').toLowerCase();
+    const fileName = principal.fileName || 'ARCHIVO PRINCIPAL';
+    const esCarpetaDrive = principalUrl.includes('drive.google.com') && principalUrl.includes('/folders/');
+    const esImagen = mime.startsWith('image/') || /\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(principalUrl);
+    const esPdf = mime === 'application/pdf' || /\.pdf(\?|$)/i.test(principalUrl);
+
+    visorContenedor.style.display = 'block';
+    linkDrive.href = principalUrl || "#";
+    linkDrive.style.display = principalUrl ? 'inline-flex' : 'none';
+    linkDrive.innerHTML = `<span class="material-icons" style="font-size:14px;">open_in_new</span> ${escapeHtml(fileName.toUpperCase())}`;
+
+    if (esCarpetaDrive) {
+        visorFrame.innerHTML = `
+          <div style="padding: 20px; color: #64748b; display: flex; flex-direction: column; align-items: center;">
+            <span class="material-icons" style="font-size: 48px; color: var(--mex-blue); margin-bottom: 10px;">folder_shared</span>
+            <b style="color: #0d2a54; font-size: 14px;">CARPETA DE EVIDENCIAS</b>
+            <span style="font-size: 11px; margin-top: 5px;">Drive bloquea previsualizar carpetas.<br>Abre el archivo principal para verlas.</span>
+          </div>`;
+    } else if (esImagen && principalUrl) {
+        visorFrame.innerHTML = `<img src="${principalUrl}" alt="${escapeHtml(fileName)}" style="max-width:100%; max-height:100%; object-fit:contain; display:block;">`;
+    } else if ((esPdf || principalUrl.includes('drive.google.com')) && principalUrl) {
+        const previewUrl = principalUrl.includes('/view') ? principalUrl.replace('/view', '/preview') : principalUrl;
+        visorFrame.innerHTML = `<iframe src="${previewUrl}" width="100%" height="100%" frameborder="0" allow="autoplay"></iframe>`;
+    } else {
+        visorFrame.innerHTML = `
+          <div style="padding: 20px; color: #64748b; display: flex; flex-direction: column; align-items: center;">
+            <span class="material-icons" style="font-size: 48px; color: var(--mex-blue); margin-bottom: 10px;">attach_file</span>
+            <b style="color: #0d2a54; font-size: 14px;">ARCHIVO REGISTRADO</b>
+            <span style="font-size: 11px; margin-top: 5px;">La vista previa no está disponible para este formato.<br>Usa el enlace para abrirlo.</span>
+          </div>`;
+    }
+
+    visorList.innerHTML = evidencias.map((item, index) => {
+      const nombre = escapeHtml(item.fileName || `EVIDENCIA ${index + 1}`);
+      if (!item.url) {
+        return `<span style="padding:7px 10px; border-radius:999px; background:#f8fafc; border:1px solid #e2e8f0; color:#64748b; font-size:11px; font-weight:800;">${nombre}</span>`;
+      }
+      const url = escapeHtml(item.url);
+      return `<a href="${url}" target="_blank" style="padding:7px 10px; border-radius:999px; background:#f8fafc; border:1px solid #dbeafe; color:#1d4ed8; text-decoration:none; font-size:11px; font-weight:800;">${nombre}</a>`;
+    }).join('');
+
+    if (fileStatus) {
+      fileStatus.innerHTML = `✅ ${evidencias.length} evidencia${evidencias.length === 1 ? '' : 's'} registrada${evidencias.length === 1 ? '' : 's'}`;
+    }
+}
+
 // Función que llena los datos del modal maestro y aplica bloqueos
 function abrirExpedienteAdmin(u, esSoloLectura) {
     let setVal = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ""; };
+    const plaza = _obtenerPlazaOperativaCuadreAdmin(u.plaza || u.sucursal);
+    const responsable = _resolverResponsableCuadreAdmin(u) || USER_NAME || 'Sistema';
     
     setVal('a_mod_cat', u.categoria || u.categ);
     setVal('a_mod_mod', u.modelo);
     setVal('a_mod_mva', u.mva);
     setVal('a_mod_pla', u.placas);
-    setVal('a_mod_gas', u.gasolina);
+    setVal('a_mod_gas', u.gasolina || 'N/A');
     setVal('a_mod_est', u.estado);
     setVal('a_mod_ubi', u.ubicacion);
     setVal('a_mod_not', u.notas);
     if(document.getElementById('a_mod_del_note')) document.getElementById('a_mod_del_note').checked = false;
+    if(document.getElementById('a_mod_badgePlaza')) document.getElementById('a_mod_badgePlaza').innerText = `PLAZA: ${plaza || 'GLOBAL'}`;
+    if(document.getElementById('a_mod_metaPlaza')) document.getElementById('a_mod_metaPlaza').innerText = plaza || 'GLOBAL';
+    if(document.getElementById('a_mod_metaResponsable')) document.getElementById('a_mod_metaResponsable').innerText = responsable;
+    if(document.getElementById('a_mod_metaUpdated')) document.getElementById('a_mod_metaUpdated').innerText = u._updatedAt || u._createdAt || 'SIN FECHA';
+    if(document.getElementById('a_mod_file')) document.getElementById('a_mod_file').value = '';
+    renderizarVisorEvidenciasAdmin(u);
     
-    // VISOR DE EVIDENCIA BLINDADO (Para Evitar Error 403 de Carpetas)
-    const urlDrive = u.url || u.URL || u.urlArchivo || u.urlEvidencia || u.evidencia || "";
-    const estadoArchivo = (u.file || u.FILE || u.archivoStatus || u.tieneArchivo || u.File || "").toString().toUpperCase().trim();
-    const tieneEvidencia = estadoArchivo === "SI" || urlDrive !== "";
-    
-    const visorContenedor = document.getElementById('a_visor_evidencia');
-    const visorFrame = document.getElementById('a_visor_frame');
-    const linkDrive = document.getElementById('a_link_drive');
-    const fileStatus = document.getElementById('a_mod_fileStatus');
-
-    if (tieneEvidencia && urlDrive.includes('drive.google.com')) {
-        visorContenedor.style.display = 'block';
-        linkDrive.href = urlDrive;
-        
-        if (urlDrive.includes('/folders/')) {
-            visorFrame.innerHTML = `
-              <div style="padding: 20px; color: #64748b; display: flex; flex-direction: column; align-items: center;">
-                <span class="material-icons" style="font-size: 48px; color: var(--mex-blue); margin-bottom: 10px;">folder_shared</span>
-                <b style="color: #0d2a54; font-size: 14px;">CARPETA DE EVIDENCIAS</b>
-                <span style="font-size: 11px; margin-top: 5px;">Drive bloquea previsualizar carpetas.<br>Abre el Drive para verlas.</span>
-              </div>`;
-        } else {
-            let previewUrl = urlDrive.replace('/view', '/preview'); 
-            visorFrame.innerHTML = `<iframe src="${previewUrl}" width="100%" height="100%" frameborder="0" allow="autoplay"></iframe>`;
-        }
-        if (fileStatus) fileStatus.innerHTML = ""; 
-    } else if (tieneEvidencia && !urlDrive) {
-        visorContenedor.style.display = 'none';
-        visorFrame.innerHTML = "";
-        if (fileStatus) fileStatus.innerHTML = "✅ EVIDENCIA REGISTRADA (Link no disponible)";
-    } else {
-        visorContenedor.style.display = 'none';
-        visorFrame.innerHTML = "";
-        if (fileStatus) fileStatus.innerHTML = "⚪ SIN EVIDENCIA REGISTRADA";
-    }
-
     // BLOQUEOS DE SOLO LECTURA
     const idsBloquear = ['a_mod_cat', 'a_mod_mod', 'a_mod_pla', 'a_mod_gas', 'a_mod_est', 'a_mod_ubi', 'a_mod_not'];
     idsBloquear.forEach(id => {
@@ -16201,6 +16395,11 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
       <div class="subtitle">Añadir unidad existente al Cuadre Admins</div>
     </div>
 
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px;">
+      <div id="a_ins_badgePlaza" style="padding:8px 12px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:900; letter-spacing:0.5px;">PLAZA --</div>
+      <div id="a_ins_badgeAdmin" style="padding:8px 12px; border-radius:999px; background:#ecfdf5; color:#047857; font-size:11px; font-weight:900; letter-spacing:0.5px;">RESPONSABLE --</div>
+    </div>
+
     <div class="search-wrapper" style="margin-bottom: 20px; position:relative;">
       <span class="material-icons" style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
       <input type="text" id="a_ins_searchInput" class="search-global-input" placeholder="Buscar unidad en Base Maestra..." oninput="filtrarBusquedaAdmin()" autocomplete="off">
@@ -16240,6 +16439,7 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
         <div class="field" style="margin-top:10px">
           <label>Ubicación Física 📍</label>
           <select id="a_ins_ubi">
+            <option value="">Seleccionar...</option>
             <option value="PATIO">🏠 PATIO</option><option value="TALLER">🔧 TALLER</option><option value="AGENCIA">🏢 AGENCIA</option><option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option><option value="HYP COBIAN">🛠️ HYP COBIAN</option><option value="OTRA PLAZA">📌 OTRA PLAZA</option>
             <optgroup label="PERSONA RESPONSABLE">
               <option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option>
@@ -16257,7 +16457,8 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
       <div class="inner-card">
         <div class="field">
           <label>📂 Cargar Evidencias (Fotos/PDF)</label>
-          <input type="file" id="a_ins_file" multiple style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+          <input type="file" id="a_ins_file" multiple onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')" style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+          <div id="a_ins_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;">⚪ SIN EVIDENCIA SELECCIONADA</div>
         </div>
         <div class="field" style="margin-top:10px">
           <label>Notas Administrativas</label>
@@ -16403,6 +16604,21 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
       </div>
     </div>
 
+    <div id="a_mod_metaRow" style="display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px;">
+      <div style="flex:1; min-width:160px; padding:12px 14px; border-radius:14px; background:#f8fafc; border:1px solid #e2e8f0;">
+        <div style="font-size:10px; font-weight:900; letter-spacing:0.6px; color:#64748b;">PLAZA OPERATIVA</div>
+        <div id="a_mod_metaPlaza" style="margin-top:5px; font-size:14px; font-weight:900; color:#0f172a;">--</div>
+      </div>
+      <div style="flex:1; min-width:160px; padding:12px 14px; border-radius:14px; background:#f8fafc; border:1px solid #e2e8f0;">
+        <div style="font-size:10px; font-weight:900; letter-spacing:0.6px; color:#64748b;">ADMIN / RESPONSABLE</div>
+        <div id="a_mod_metaResponsable" style="margin-top:5px; font-size:14px; font-weight:900; color:#0f172a;">--</div>
+      </div>
+      <div style="flex:1; min-width:160px; padding:12px 14px; border-radius:14px; background:#f8fafc; border:1px solid #e2e8f0;">
+        <div style="font-size:10px; font-weight:900; letter-spacing:0.6px; color:#64748b;">ÚLTIMA ACTUALIZACIÓN</div>
+        <div id="a_mod_metaUpdated" style="margin-top:5px; font-size:14px; font-weight:900; color:#0f172a;">--</div>
+      </div>
+    </div>
+
     <div id="a_mod_formContainer">
       <div class="inner-card">
         <div class="grid-2">
@@ -16438,6 +16654,7 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
         <div class="field" style="margin-top:10px">
           <label>Ubicación Física 📍</label>
           <select id="a_mod_ubi">
+            <option value="">Seleccionar...</option>
             <option value="PATIO">🏠 PATIO</option><option value="TALLER">🔧 TALLER</option><option value="AGENCIA">🏢 AGENCIA</option><option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option><option value="HYP COBIAN">🛠️ HYP COBIAN</option><option value="OTRA PLAZA">📌 OTRA PLAZA</option>
             <optgroup label="PERSONA RESPONSABLE"><option value="JORGE">👤 JORGE</option><option value="GERARDO">👤 GERARDO</option><option value="OSVALDO">👤 OSVALDO</option><option value="BALANDRAN">👤 BALANDRAN</option><option value="ULISES">👤 ULISES</option><option value="JOSUE">👤 JOSUE</option><option value="ISRAEL">👤 ISRAEL</option><option value="ISAAC">👤 ISAAC</option><option value="ANGEL">👤 ANGEL</option><option value="LEO">👤 LEO</option><option value="BRAULIO">👤 BRAULIO</option><option value="LONGORIA">👤 LONGORIA</option><option value="MARTHA">👤 MARTHA</option><option value="FERNANDA">👤 FERNANDA</option><option value="ZALLO">👤 ZALLO</option><option value="UBALDO">👤 UBALDO</option><option value="JOSE LUIS">👤 JOSE LUIS</option><option value="PASCUAL">👤 PASCUAL</option><option value="EDUARDO">👤 EDUARDO</option><option value="EDGAR">👤 EDGAR</option></optgroup>
           </select>
@@ -16447,20 +16664,21 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
       <div class="inner-card">
         <div class="field">
           <label>📂 Cargar Nueva Evidencia (Fotos/PDF)</label>
-          <input type="file" id="a_mod_file" multiple style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+          <input type="file" id="a_mod_file" multiple onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')" style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
           <div id="a_mod_fileStatus" style="font-size: 11px; color: var(--mex-blue); margin-top: 8px; font-weight: 700;"></div>
         </div>
         <div class="field" style="margin-top:10px">
           <label>Añadir Nota Administrativa</label>
-          <textarea id="a_mod_not" rows="2" style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
+          <textarea id="a_mod_not" rows="2" placeholder="Agrega detalle operativo, seguimiento o contexto administrativo..." style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
         </div>
       </div>
 
       <div class="inner-card" id="a_visor_evidencia" style="display:none; text-align:center; padding: 15px;">
          <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL SISTEMA</span>
          <div id="a_visor_frame" style="width:100%; height:220px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; background:#f1f5f9; display:flex; justify-content:center; align-items:center; margin-bottom: 10px;"></div>
+         <div id="a_visor_list" style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:10px;"></div>
          <a id="a_link_drive" href="#" target="_blank" style="font-size:11px; font-weight:800; color:var(--mex-blue); text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; background: #e0f2fe; padding: 8px 15px; border-radius: 8px;">
-           <span class="material-icons" style="font-size:14px;">open_in_new</span> ABRIR EN DRIVE
+           <span class="material-icons" style="font-size:14px;">open_in_new</span> ABRIR ARCHIVO PRINCIPAL
          </a>
       </div>
 

@@ -57,6 +57,14 @@ const COL = {
 const SETTINGS_DOC = "principal";
 const EVIDENCE_FOLDER = "evidencias_cuadre_admins";
 const NOTE_ATTACHMENT_FOLDER = "notas_admin_adjuntos";
+const ADMIN_FIXED_LOCATIONS = new Set([
+  "PATIO",
+  "TALLER",
+  "AGENCIA",
+  "TALLER EXTERNO",
+  "HYP COBIAN",
+  "OTRA PLAZA"
+]);
 const ACCESS_ROLE_META = Object.freeze({
   AUXILIAR: { isAdmin: false, isGlobal: false },
   VENTAS: { isAdmin: true, isGlobal: false },
@@ -298,6 +306,37 @@ function _dedupeEvidenceItems(items = []) {
   });
 }
 
+function _resolveAdminResponsibleValue(data = {}) {
+  const ubicacionRaw = _sanitizeText(data.ubicacion || "");
+  const ubicacion = ubicacionRaw.replace(/^👤\s*/i, "").trim();
+  const ubicacionUpper = ubicacion.toUpperCase();
+  if (ubicacion && !ADMIN_FIXED_LOCATIONS.has(ubicacionUpper)) return ubicacion;
+  return _sanitizeText(
+    data.responsable
+    || data.adminResponsable
+    || data.responsableVisual
+    || data._updatedBy
+    || data._createdBy
+    || data.autor
+  );
+}
+
+async function _hydrateEvidenceItemsWithUrls(items = []) {
+  const normalized = _normalizeEvidenceItems(items);
+  const storage = _getStorageClient();
+  if (!storage) return normalized;
+
+  return Promise.all(normalized.map(async item => {
+    if (item.url || !item.path) return item;
+    try {
+      return { ...item, url: await storage.ref(item.path).getDownloadURL() };
+    } catch (error) {
+      console.warn("No se pudo hidratar URL de evidencia:", item.path, error);
+      return item;
+    }
+  }));
+}
+
 function _normalizeIncidentPriority(value, fallbackText = "") {
   const normalized = String(value || "").trim().toUpperCase();
   if (["CRITICA", "CRÍTICA", "URGENTE", "CRITICO", "CRÍTICO"].includes(normalized)) return "CRITICA";
@@ -403,21 +442,154 @@ async function _uploadIncidentAttachments(filesLike, docId, author) {
   return uploads;
 }
 
+async function _uploadAdminEvidenceFiles(filesLike, docId, author) {
+  const files = Array.from(filesLike || []).filter(file =>
+    file
+    && typeof file.name === "string"
+    && typeof file.size !== "undefined"
+  );
+  if (!files.length) return [];
+
+  const storage = _getStorageClient();
+  if (!storage) throw new Error("Firebase Storage no está disponible para subir evidencias del Cuadre Admins.");
+
+  const uploadedAt = _now();
+  const uploadedBy = _sanitizeText(author) || "Sistema";
+  const uploads = [];
+
+  for (const file of files) {
+    const safeName = _sanitizeStorageSegment(file.name || `evidencia-${_ts()}`);
+    const path = `${EVIDENCE_FOLDER}/${docId}/${Date.now()}-${safeName}`;
+    const ref = storage.ref(path);
+    const snapshot = await ref.put(file, {
+      contentType: file.type || "application/octet-stream",
+      customMetadata: { uploadedBy }
+    });
+    const url = await snapshot.ref.getDownloadURL();
+    uploads.push({
+      path,
+      fileName: file.name || safeName,
+      mimeType: file.type || "",
+      size: Number(file.size || 0) || 0,
+      uploadedAt,
+      uploadedBy,
+      url
+    });
+  }
+
+  return uploads;
+}
+
 function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
   const payload = { ...datos };
   const evidenciaLista = _dedupeEvidenceItems(_normalizeEvidenceItems(evidencias));
   const principal = evidenciaLista[0] || null;
+  const adminResponsable = _sanitizeText(
+    payload.adminResponsable || payload._updatedBy || payload._createdBy || payload.autor
+  ) || "Sistema";
+  const plaza = _sanitizeText(payload.plaza || payload.sucursal || payload.plazaAsignada).toUpperCase();
+  const notas = payload.borrarNotas ? "" : _sanitizeText(payload.notas || payload.nota || payload.observaciones || "");
+  const responsable = _resolveAdminResponsibleValue({
+    ...payload,
+    adminResponsable,
+    notas
+  });
+  const principalUrl = principal
+    ? principal.url
+    : _sanitizeText(payload.url || payload.URL || payload.urlArchivo || payload.urlEvidencia || payload.evidencia);
 
   delete payload.archivos;
+  delete payload.files;
+  delete payload.evidenceFiles;
+  delete payload.borrarNotas;
+  payload.plaza = plaza;
+  payload.notas = notas;
+  payload.adminResponsable = adminResponsable;
+  payload.responsable = responsable;
+  payload.responsableVisual = responsable || adminResponsable;
   payload.evidencias = evidenciaLista;
+  payload.url = principalUrl;
+  payload.urlArchivo = principalUrl;
+  payload.urlEvidencia = principalUrl;
+  payload.evidencia = principalUrl;
   payload.evidenciaPath = principal ? principal.path : "";
   payload.archivoStatus = evidenciaLista.length > 0 ? "SI" : "NO";
   payload.tieneArchivo = evidenciaLista.length > 0 ? "SI" : "NO";
   payload.file = evidenciaLista.length > 0 ? "SI" : "NO";
+  payload.evidenciaCount = evidenciaLista.length;
   payload._updatedAt = _now();
-  payload._updatedBy = payload.adminResponsable || "Sistema";
+  payload._updatedBy = adminResponsable;
+  if (!payload._createdAt) payload._createdAt = _now();
+  if (!payload._createdBy) payload._createdBy = adminResponsable;
 
   return payload;
+}
+
+async function _normalizeCuadreAdminRecord(docId, data = {}) {
+  const evidencias = await _hydrateEvidenceItemsWithUrls(_dedupeEvidenceItems([
+    ..._normalizeLegacyEvidence(data),
+    ..._normalizeEvidenceItems(data.evidencias || [])
+  ]));
+  const principal = evidencias[0] || null;
+  const plaza = _sanitizeText(data.plaza || data.sucursal || data.plazaAsignada).toUpperCase();
+  const adminResponsable = _sanitizeText(
+    data.adminResponsable || data._updatedBy || data._createdBy || data.autor
+  );
+  const responsable = _resolveAdminResponsibleValue(data);
+  const notas = _sanitizeText(data.notas || data.nota || data.observaciones || "");
+  const legacyFlag = (data.file || data.FILE || data.archivoStatus || data.tieneArchivo || data.File || "")
+    .toString()
+    .toUpperCase()
+    .trim() === "SI";
+  const tieneArchivo = evidencias.length > 0 || legacyFlag;
+  const categoria = _sanitizeText(data.categoria || data.categ);
+  const modelo = _sanitizeText(data.modelo);
+  const placas = _sanitizeText(data.placas);
+  const mva = _sanitizeText(data.mva).toUpperCase();
+  const estado = _sanitizeText(data.estado);
+  const ubicacion = _sanitizeText(data.ubicacion);
+  const gasolina = _sanitizeText(data.gasolina);
+
+  return {
+    id: docId,
+    fila: docId,
+    ...data,
+    plaza,
+    categoria,
+    categ: categoria || _sanitizeText(data.categ),
+    modelo,
+    placas,
+    mva,
+    estado,
+    ubicacion,
+    gasolina,
+    notas,
+    adminResponsable: adminResponsable || responsable || "Sistema",
+    responsable,
+    responsableVisual: responsable || adminResponsable || "Sistema",
+    evidencias,
+    url: (principal && principal.url) || _sanitizeText(data.url || data.URL || data.urlArchivo || data.urlEvidencia || data.evidencia),
+    urlArchivo: (principal && principal.url) || _sanitizeText(data.urlArchivo || data.url || data.URL || data.urlEvidencia || data.evidencia),
+    urlEvidencia: (principal && principal.url) || _sanitizeText(data.urlEvidencia || data.url || data.URL || data.urlArchivo || data.evidencia),
+    evidenciaPath: (principal && principal.path) || _sanitizeText(data.evidenciaPath || data.storagePath),
+    evidenciaCount: evidencias.length,
+    archivoStatus: tieneArchivo ? "SI" : "NO",
+    tieneArchivo: tieneArchivo ? "SI" : "NO",
+    file: tieneArchivo ? "SI" : "NO",
+    etiqueta: [
+      plaza,
+      categoria,
+      modelo,
+      placas,
+      mva,
+      estado,
+      ubicacion,
+      gasolina,
+      notas,
+      responsable,
+      adminResponsable
+    ].filter(Boolean).join(" ").toUpperCase()
+  };
 }
 
 async function subirEvidenciaAdmin(file, rutaStorage) {
@@ -755,28 +927,50 @@ const API_FUNCTIONS = {
 
   async obtenerCuadreAdminsData() {
     const snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
-    return snap.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() }));
+    return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
   },
 
   async procesarModificacionMaestra(datos, tipoAccion) {
     try {
+      const actor = _sanitizeText(datos.adminResponsable || datos._updatedBy || datos._createdBy || datos.autor) || "Sistema";
+      const mva = _sanitizeText(datos.mva).toUpperCase();
+      const manualEvidence = _normalizeEvidenceItems(datos.evidencias || []);
+      const evidenceFiles = datos.evidenceFiles || [];
+
       if (tipoAccion === "ADD" || tipoAccion === "INSERTAR") {
+        if (!mva) return "ERROR: Falta la unidad (MVA) para registrar en Cuadre Admins.";
+        const existente = await db.collection(COL.CUADRE_ADM).where("mva", "==", mva).limit(1).get();
+        if (!existente.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
+
+        const ref = db.collection(COL.CUADRE_ADM).doc();
+        const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, ref.id, actor);
         const payload = _buildCuadreAdminPayload({
           ...datos,
+          mva,
           _createdAt: _now(),
-          _createdBy: datos.adminResponsable || "Sistema"
-        }, datos.evidencias || []);
-        await db.collection(COL.CUADRE_ADM).add(payload);
+          _createdBy: actor
+        }, [...manualEvidence, ...uploadedEvidence]);
+        if (!payload.plaza) return "ERROR: Falta la plaza operativa para registrar en Cuadre Admins.";
+        await ref.set(payload);
       } else if (tipoAccion === "MODIFICAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
         const ref = db.collection(COL.CUADRE_ADM).doc(datos.fila);
         const snap = await ref.get();
         const actual = snap.exists ? snap.data() : {};
+        const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, datos.fila, actor);
         const evidencias = _dedupeEvidenceItems([
           ..._normalizeLegacyEvidence(actual),
-          ..._normalizeEvidenceItems(datos.evidencias || [])
+          ...manualEvidence,
+          ...uploadedEvidence
         ]);
-        const payload = _buildCuadreAdminPayload(datos, evidencias);
+        const payload = _buildCuadreAdminPayload({
+          ...actual,
+          ...datos,
+          mva: mva || _sanitizeText(actual.mva).toUpperCase(),
+          _createdAt: actual._createdAt || _now(),
+          _createdBy: actual._createdBy || actor
+        }, evidencias);
+        if (!payload.plaza) return "ERROR: Falta la plaza operativa para actualizar en Cuadre Admins.";
         await ref.set(payload, { merge: true });
       } else if (tipoAccion === "ELIMINAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
