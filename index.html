@@ -9820,9 +9820,10 @@
 
       .col-form {
         right: 0; left: 0; top: auto; bottom: -120%;
-        width: 100%; height: 88vh; border-radius: 28px 28px 0 0;
+        width: 100%; height: 85vh; border-radius: 28px 28px 0 0;
         transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1);
         padding: 24px 20px;
+        padding-bottom: 90px;
       }
       .col-form.active {
         bottom: 0; right: auto;
@@ -11798,25 +11799,6 @@
             <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen
               Flota</div>
 
-            <div id="mc-admin-section" style="display: none; flex-direction: column;">
-              <div class="mc-divider"></div>
-              <div class="mc-header">ADMINISTRACIÓN GLOBAL</div>
-              <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span>
-                Insertar Unidad Global</div>
-              <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span>
-                Editar Unidad Global</div>
-              <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span
-                  class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
-              <div class="mc-item" id="btnConfigGlobal" onclick="abrirPanelConfiguracion()">
-                <span class="material-icons" style="color: #f59e0b;">settings</span> Panel de Configuración
-              </div>
-              <div class="mc-item" id="btnMenuSolicitudes" onclick="abrirModalSolicitudes()">
-                <span class="material-icons" style="color: #38bdf8;">how_to_reg</span> Solicitudes Pendientes
-                <span id="badge-solicitudes"
-                  style="background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: 900; margin-left: auto; display: none;">0</span>
-              </div>
-            </div>
-
             <div id="mcPdfReservas" class="mc-item"
               onclick="document.getElementById('modal-lector-reservas').classList.add('active'); toggleMoreControls();">
               <span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas
@@ -11825,6 +11807,34 @@
             <div id="mcPredicciones" class="mc-item"
               onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); toggleMoreControls(); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
               <span class="material-icons" style="color: #10b981;">query_stats</span> Cuadre de Predicciones
+            </div>
+          </div>
+        </div>
+
+        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display: none;">
+          <button class="btn-more-controls btn-icon-mobile" style="background:var(--mex-blue); border-color:var(--mex-blue); color:white;" onclick="toggleAdminControls()">
+            <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
+            <span class="txt-mobile-hide">GESTIÓN ADMIN</span>
+          </button>
+
+          <div id="adminControlsDropdown" class="more-controls-dropdown">
+            <div class="mc-header">ADMINISTRACIÓN GLOBAL</div>
+            <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span>
+              Insertar Unidad Global</div>
+            <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span>
+              Editar Unidad Global</div>
+            <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span
+                class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
+            
+            <div class="mc-divider"></div>
+            
+            <div class="mc-item" id="btnConfigGlobal" onclick="abrirPanelConfiguracion()">
+              <span class="material-icons" style="color: #f59e0b;">settings</span> Panel de Configuración
+            </div>
+            <div class="mc-item" id="btnMenuSolicitudes" onclick="abrirModalSolicitudes()">
+              <span class="material-icons" style="color: #38bdf8;">how_to_reg</span> Solicitudes Pendientes
+              <span id="badge-solicitudes"
+                style="background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: 900; margin-left: auto; display: none;">0</span>
             </div>
           </div>
         </div>
@@ -14349,9 +14359,9 @@
 
 
       // 2. BLINDAJE EXCLUSIVO PARA JEFES (Globales)
-      const adminSection = document.getElementById('mc-admin-section');
+      const adminSection = document.getElementById('btnAdminControlsWrapper');
       if (adminSection) {
-        adminSection.style.display = hasFullAccess() ? 'flex' : 'none';
+        adminSection.style.display = hasFullAccess() ? 'inline-block' : 'none';
       }
 
       const btnLock = document.getElementById('btnLockMapa');
@@ -14534,9 +14544,22 @@
         </td>`
           : '';
 
+        const isMobileOrAdmin = (typeof userRole !== 'undefined' && userRole === 'admin');
+        const isMobileVisual = window.innerWidth <= 950;
+        const formBotones = (isMobileOrAdmin && isMobileVisual && VISTA_ACTUAL_FLOTA === 'NORMAL') 
+          ? '<div style="display:flex; gap:10px; margin-top:10px; width:100%; border-top:1px dashed #e2e8f0; padding-top:10px;" class="card-quick-actions">' +
+               '<button onclick="event.stopPropagation(); seleccionarFilaFlota('+i+', this.closest(\'tr\')); setTimeout(()=>window.scrollTo(0, document.body.scrollHeight), 50);" style="background:#f1f5f9; color:var(--mex-blue); border:none; padding:8px 15px; border-radius:8px; display:flex; align-items:center; gap:5px; font-weight:800; cursor:pointer; flex:1; justify-content:center;">' +
+                 '<span class="material-icons" style="font-size:16px;">edit</span> EDITAR' +
+               '</button>' +
+               '<button onclick="event.stopPropagation(); seleccionarFilaFlota('+i+', this.closest(\'tr\')); setTimeout(()=>document.getElementById(\'btnDelFlota\').click(), 100);" style="background:#fee2e2; color:var(--mex-red); border:none; padding:8px 15px; border-radius:8px; display:flex; align-items:center; gap:5px; font-weight:800; cursor:pointer; flex:1; justify-content:center;">' +
+                 '<span class="material-icons" style="font-size:16px;">delete</span> ELIMINAR' +
+               '</button>' +
+             '</div>'
+          : '';
+
         return `
     <tr onclick="seleccionarFilaFlota(${i}, this)">
-      <td class="td-mva">${u.mva}</td>
+      <td class="td-mva"><div style="display:block;">${u.mva}</div>${formBotones}</td>
       <td><span class="td-cat">${u.categoria || u.categ || 'N/A'}</span></td>
       <td>${u.modelo}</td>
       <td style="color: #64748b;">${u.placas}</td>
@@ -14549,6 +14572,20 @@
       }).join('');
     }
 
+
+    function abrirFormularioFlota() {
+      const panel = document.getElementById('form-flota-panel');
+      const overlay = document.getElementById('form-flota-overlay');
+      if(panel) panel.classList.add('active');
+      if(overlay) overlay.classList.add('active');
+    }
+
+    function cerrarFormularioFlota() {
+      const panel = document.getElementById('form-flota-panel');
+      const overlay = document.getElementById('form-flota-overlay');
+      if(panel) panel.classList.remove('active');
+      if(overlay) overlay.classList.remove('active');
+    }
 
     function seleccionarFilaFlota(index, rowElement) {
       // Resaltar la fila seleccionada
@@ -14706,6 +14743,8 @@
       document.querySelectorAll('#tablaCuerpoFlota tr').forEach(tr => tr.classList.remove('selected'));
       document.getElementById('formTitleFlota').innerText = "NUEVO REGISTRO";
       document.getElementById('formTitleFlota').style.color = "var(--mex-blue)";
+
+      abrirFormularioFlota();
 
       document.getElementById('form-fields-container').style.display = 'none';
       document.getElementById('admin-flota-panel-hint').style.display = 'none';
@@ -18154,16 +18193,26 @@
     // --- LÓGICA DEL MENÚ 'MÁS CONTROLES' ---
 
     function toggleMoreControls() {
+      document.getElementById('adminControlsDropdown').classList.remove('show'); // close the other
       const menu = document.getElementById('moreControlsDropdown');
       menu.classList.toggle('show');
     }
 
-    // Cerrar el menú si hacemos clic afuera de él
+    function toggleAdminControls() {
+      document.getElementById('moreControlsDropdown').classList.remove('show'); // close the other
+      const menu = document.getElementById('adminControlsDropdown');
+      menu.classList.toggle('show');
+    }
+
+    // Cerrar los menús si hacemos clic afuera de ellos
     document.addEventListener('click', function (event) {
-      const wrapper = document.querySelector('.more-controls-wrapper');
-      const menu = document.getElementById('moreControlsDropdown');
-      if (wrapper && !wrapper.contains(event.target) && menu.classList.contains('show')) {
-        menu.classList.remove('show');
+      const wrappers = document.querySelectorAll('.more-controls-wrapper');
+      let clickInside = false;
+      wrappers.forEach(w => { if(w.contains(event.target)) clickInside = true; });
+      
+      if (!clickInside) {
+        document.getElementById('moreControlsDropdown')?.classList.remove('show');
+        document.getElementById('adminControlsDropdown')?.classList.remove('show');
       }
     });
 
