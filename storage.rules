@@ -73,7 +73,8 @@ service firebase.storage {
     }
 
     match /mensajes_chat/{fileName} {
-      allow read, write: if tienePerfilActual()
+      allow read: if tienePerfilActual();
+      allow write: if tienePerfilActual()
         && request.resource.size < 10 * 1024 * 1024;
     }
 

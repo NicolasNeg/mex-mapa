@@ -1228,6 +1228,22 @@ const API_FUNCTIONS = {
     await batch.commit();
     return "OK";
   },
+  async editarMensajeChatDb(idStr, nuevoTexto) {
+    await db.collection(COL.MENSAJES).doc(idStr).update({ mensaje: nuevoTexto });
+    return "OK";
+  },
+  async eliminarMensajeChatDb(idStr) {
+    const ref = db.collection(COL.MENSAJES).doc(idStr);
+    const snap = await ref.get();
+    if(snap.exists && snap.data().archivoUrl) {
+      try {
+         const storageRef = firebase.storage().refFromURL(snap.data().archivoUrl);
+         await storageRef.delete();
+      } catch(e) { console.warn("Could not delete associated chat file", e); }
+    }
+    await ref.delete();
+    return "OK";
+  },
 
   // ─── NOTAS ───────────────────────────────────────────────
   async obtenerTodasLasNotas() {

@@ -3425,6 +3425,37 @@
       box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
       border: 1px solid var(--border);
       overflow: hidden;
+      position: relative;
+    }
+
+    .btn-flotante-agregar-cuadre {
+      position: absolute;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background-color: var(--mex-blue, #0f172a);
+      color: white;
+      border: none;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 100;
+    }
+    .btn-flotante-agregar-cuadre:hover {
+      transform: scale(1.08) translateY(-2px);
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.4);
+      background-color: #0284c7;
+    }
+    .btn-flotante-agregar-cuadre:active {
+      transform: scale(0.95);
+    }
+    .btn-flotante-agregar-cuadre .material-icons {
+      font-size: 28px;
     }
 
     .col-form {
@@ -11856,14 +11887,14 @@
         <div class="col-table">
           <div class="toolbar-flota">
 
-            <div
-              style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px;">
+            <div class="flota-tabs-slider"
+              style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; justify-content: flex-start;">
               <button id="tabFlotaNormal" onclick="cambiarTabFlota('NORMAL')"
-                style="background: var(--mex-blue); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s;">
+                style="background: var(--mex-blue); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
                 🚗 FLOTA REGULAR
               </button>
               <button id="tabFlotaAdmins" onclick="cambiarTabFlota('ADMINS')"
-                style="background: #f1f5f9; color: #64748b; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s;">
+                style="background: #f1f5f9; color: #64748b; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
                 👑 CUADRE ADMINS
               </button>
             </div>
@@ -11978,6 +12009,12 @@
               </tbody>
             </table>
           </div>
+
+          <!-- BOTÓN FLOTANTE AGREGAR -->
+          <button class="btn-flotante-agregar-cuadre" onclick="manejarBotonAgregarFlotante()" title="Agregar Unidad">
+            <span class="material-icons">add</span>
+          </button>
+
         </div>
 
         <div class="col-form-overlay" id="form-flota-overlay" onclick="cerrarFormularioFlota()"></div>
@@ -12334,6 +12371,17 @@
       { id: "VENTA", color: "#1e293b", orden: 93 }
     ];
 
+    function aplicarVariablesDeEmpresa(empresaObj) {
+      if(!empresaObj) return;
+      const nombre = empresaObj.nombre || "MEX RENT A CAR";
+      const color = empresaObj.colorPrincipal || "var(--mex-blue)";
+      
+      const lbl = document.getElementById("empresa-cfg-lbl");
+      if(lbl) lbl.innerText = nombre;
+      
+      document.documentElement.style.setProperty('--mex-blue', color);
+    }
+
     async function inicializarConfiguracion() {
       try {
         const config = await api.obtenerConfiguracion();
@@ -12346,6 +12394,7 @@
           }
           window.MEX_CONFIG = config;
           console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
+          aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
           if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
         }
       } catch (error) {
@@ -12422,9 +12471,14 @@
     let VISTA_ACTUAL_FLOTA = 'NORMAL';
     let DB_ADMINS = []; // Aquí guardaremos los autos de los jefes
     let ADMIN_INSERT_UNIT = null;
-    const CUADRE_ADMIN_UBICACIONES_FIJAS = new Set([
-      'PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN', 'OTRA PLAZA'
-    ]);
+    function _esPlazaFija(ubiNombre) {
+      if(!window.MEX_CONFIG || !window.MEX_CONFIG.listas || !window.MEX_CONFIG.listas.ubicaciones) {
+        return ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(ubiNombre); // Fallback safe
+      }
+      const item = window.MEX_CONFIG.listas.ubicaciones.find(u => (typeof u === 'object' ? (u.id || u.nombre) : u) === ubiNombre);
+      if(!item) return ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(ubiNombre);
+      return typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
+    }
 
     function _obtenerPlazaOperativaCuadreAdmin(fallback = '') {
       return _normalizePlaza(
@@ -12438,7 +12492,7 @@
       const ubicacionRaw = String(item.ubicacion || '').trim();
       const ubicacion = ubicacionRaw.replace(/^👤\s*/i, '').trim();
       const ubicacionUpper = ubicacion.toUpperCase();
-      if (ubicacion && !CUADRE_ADMIN_UBICACIONES_FIJAS.has(ubicacionUpper)) return ubicacion;
+      if (ubicacion && !_esPlazaFija(ubicacionUpper)) return ubicacion;
       return String(
         item.responsable
         || item.responsableVisual
@@ -14525,7 +14579,7 @@
         else if (ubiUpper.includes("TALLER")) ubiClass = "ubi-TALLER";
         else if (ubiUpper.includes("AGENCIA")) ubiClass = "ubi-AGENCIA";
         else if (ubiUpper.includes("EXTERNO") || ubiUpper.includes("HYP")) ubiClass = "ubi-EXTERNO";
-        else if (ubiUpper && !CUADRE_ADMIN_UBICACIONES_FIJAS.has(ubiUpper.replace(/^👤\s*/i, '').trim())) ubiClass = "ubi-PERSONA";
+        else if (ubiUpper && !_esPlazaFija(ubiUpper.replace(/^👤\s*/i, '').trim())) ubiClass = "ubi-PERSONA";
 
         const responsable = _resolverResponsableCuadreAdmin(u);
         const adminResponsable = String(u.adminResponsable || u._updatedBy || u._createdBy || '').trim();
@@ -14585,6 +14639,21 @@
       const overlay = document.getElementById('form-flota-overlay');
       if(panel) panel.classList.remove('active');
       if(overlay) overlay.classList.remove('active');
+    }
+
+    // ==========================================
+    // MANEJADOR BOTÓN FLOTANTE GLOBAL DE CUADRE
+    // ==========================================
+    function manejarBotonAgregarFlotante() {
+      if (VISTA_ACTUAL_FLOTA === 'ADMINS') {
+        if (!hasFullAccess()) {
+          showToast("No tienes permisos suficientes para modificar Cuadre Admins.", "error");
+          return;
+        }
+        abrirModalInsertarAdmin();
+      } else {
+        prepararNuevoFlota();
+      }
     }
 
     function seleccionarFilaFlota(index, rowElement) {
@@ -20427,9 +20496,20 @@
           }
         }
 
+        let opcionesNav = "";
+        if (m.esMio) {
+          opcionesNav = `
+            <div class="chat-options-menu" style="position: absolute; top: -5px; right: -5px; opacity: 0; display: flex; gap: 4px; transition: 0.2s;">
+               <button onclick="editarMensajeChat('${m.id}')" title="Editar" style="background: white; border: 1px solid #e2e8f0; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><span class="material-icons" style="font-size:12px;">edit</span></button>
+               <button onclick="eliminarMensajeChat('${m.id}')" title="Borrar" style="background: white; border: 1px solid #e2e8f0; border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #ef4444; box-shadow: 0 2px 4px rgba(0,0,0,0.1);"><span class="material-icons" style="font-size:12px;">delete</span></button>
+            </div>
+          `;
+        }
+
         return `
-       <div class="chat-bubble ${typeClass}">
+       <div class="chat-bubble ${typeClass}" onmouseover="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 1 : null" onmouseleave="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 0 : null">
           ${contenido}${fileHtml}
+          ${opcionesNav}
           <span class="chat-time">${horaLimpia} ${checkIcon}</span>
        </div>
      `;
@@ -20440,6 +20520,34 @@
       }, 50);
     }
 
+
+    async function editarMensajeChat(idMsg) {
+      const msg = allChatMessages.find(m => m.id == idMsg);
+      if(!msg) return;
+      const act = prompt("Edita tu mensaje:", msg.mensaje);
+      if(act && act !== msg.mensaje) {
+        msg.mensaje = act;
+        renderChatWindow();
+        try {
+          await api.editarMensajeChatDb(idMsg.toString(), act);
+          showToast("Mensaje editado.", "success");
+        } catch(e) {
+          showToast("Error al editar", "error");
+        }
+      }
+    }
+
+    async function eliminarMensajeChat(idMsg) {
+      if(!confirm("¿Borrar este mensaje para todos?")) return;
+      allChatMessages = allChatMessages.filter(m => m.id != idMsg);
+      renderChatWindow();
+      try {
+        await api.eliminarMensajeChatDb(idMsg.toString());
+        showToast("Mensaje borrado.", "info");
+      } catch(e) {
+        showToast("Error al borrar", "error");
+      }
+    }
 
     function enviarMensajeChat() {
       const input = document.getElementById('chat-input');
@@ -21900,53 +22008,131 @@
       btnElement.classList.add('active');
       // Accept 'ubicaciones' directly or legacy 'cfg-ubicaciones'
       TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
+      
+      const searchBox = document.querySelector('.cfg-v2-add-bar');
+      if(TAB_ACTIVA_CFG === 'empresa') {
+         if(searchBox) searchBox.style.display = 'none';
+      } else {
+         if(searchBox) searchBox.style.display = 'flex';
+      }
+
       renderizarListaConfig();
     }
 
     function renderizarListaConfig() {
       const container = document.getElementById('cfg-lista-items');
-      const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
+      
+      if(TAB_ACTIVA_CFG === 'empresa') {
+        const emp = window.MEX_CONFIG.empresa || { nombre: "MEX RENT A CAR" };
+        container.innerHTML = `
+          <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
+            <h3 style="margin-top:0;">Configuración de la Empresa</h3>
+            <label style="display:block; margin-bottom:5px; font-weight:700; color:#475569;">Nombre de la Empresa</label>
+            <input type="text" id="cfg-empresa-nombre" class="form-control" value="${escapeHtml(emp.nombre || '')}" placeholder="Ej: MEX RENT A CAR" onchange="window.MEX_CONFIG.empresa.nombre = this.value">
+            
+            <label style="display:block; margin-top:15px; margin-bottom:5px; font-weight:700; color:#475569;">Color Principal (Hex)</label>
+            <input type="color" id="cfg-empresa-color" value="${escapeHtml(emp.colorPrincipal || '#004a99')}" style="width:50px; height:40px; cursor:pointer;" onchange="window.MEX_CONFIG.empresa.colorPrincipal = this.value">
+          </div>
+        `;
+        return;
+      }
+
+      const rawLista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] || [];
+      const query = (document.getElementById('cfg-search-input')?.value || "").trim().toUpperCase();
+      let lista = rawLista.map((item, idx) => ({ ...((typeof item === 'object') ? item : { nombre: item }), _origIndex: idx }));
+      
+      if(query) {
+         lista = lista.filter(item => (item.id || item.nombre || "").toUpperCase().includes(query));
+      }
+
       if (!lista || lista.length === 0) {
         container.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8; font-weight:700; font-size:13px;">Sin elementos. Agrega el primero arriba.</div>';
         return;
       }
-      container.innerHTML = lista.map((item, index) => {
-        const esEstado = typeof item === 'object';
-        const valor = esEstado ? item.id : item;
+
+      container.innerHTML = lista.map((itemObj, visIndex) => {
+        const i = itemObj._origIndex;
+        const item = rawLista[i];
+        const esEstado = typeof item === 'object' && item.color !== undefined;
+        let valor = esEstado ? item.id : (item.nombre || item);
         const color = esEstado ? item.color : null;
-        return `<div class="cfg-item">
+        let pText = "";
+        
+        if(TAB_ACTIVA_CFG === 'ubicaciones') {
+          // Normalize legacy to object rendering
+          const isPlaza = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
+          pText = isPlaza ? `<span style="font-size:10px; background:#10b981; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PLAZA FIJA</span>` : `<span style="font-size:10px; background:#6366f1; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PERSONA RESPON.</span>`;
+        }
+
+        return `<div class="cfg-item" style="padding: 10px 15px; display:flex; align-items:center; justify-content:space-between; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px;">
       <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-        ${color ? `<div class="cfg-item-color" style="background:${color};" title="${color}"></div>` : ''}
-        <span style="truncate; overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">${valor}</span>
+        ${color ? `<div class="cfg-item-color" style="background:${color}; width:16px; height:16px; border-radius:50%;" title="${color}"></div>` : ''}
+        <strong style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${valor}</strong>
+        ${pText}
         ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700;">·&nbsp;orden ${item.orden}</span>` : ''}
       </div>
-      <button class="cfg-item-del" onclick="eliminarElementoConfig(${index})" title="Eliminar">
-        <span class="material-icons" style="font-size:16px;">delete</span>
-      </button>
+      
+      <div style="display:flex; gap: 4px;">
+        <button style="border:none; background:#f1f5f9; padding:4px; border-radius:4px; cursor:pointer;" onclick="moverElementoConfig(${i}, -1)" title="Subir" ${i === 0 ? 'disabled style="opacity:0.3; cursor:not-allowed"' : ''}>
+          <span class="material-icons" style="font-size:14px; color:#475569;">arrow_upward</span>
+        </button>
+        <button style="border:none; background:#f1f5f9; padding:4px; border-radius:4px; cursor:pointer;" onclick="moverElementoConfig(${i}, 1)" title="Bajar" ${i === rawLista.length - 1 ? 'disabled style="opacity:0.3; cursor:not-allowed"' : ''}>
+          <span class="material-icons" style="font-size:14px; color:#475569;">arrow_downward</span>
+        </button>
+        <button class="cfg-item-del" style="border:none; background:#fee2e2; padding:4px; border-radius:4px; cursor:pointer;" onclick="eliminarElementoConfig(${i})" title="Eliminar">
+          <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
+        </button>
+      </div>
     </div>`;
       }).join('');
     }
 
-    function agregarElementoConfig() {
-      const input = document.getElementById('cfg-nuevo-input');
-      const val = input.value.trim().toUpperCase();
-      if (!val) { showToast("Escribe un valor primero", "error"); return; }
+    function buscarEnListaConfig() { renderizarListaConfig(); }
+
+    function abrirModalNuevaConfig() {
+      document.getElementById('cfg-add-name').value = '';
+      if(TAB_ACTIVA_CFG === 'ubicaciones') {
+        document.getElementById('cfg-add-ubi-options').style.display = 'block';
+        document.getElementById('cfg-add-is-plaza').checked = true;
+      } else {
+        document.getElementById('cfg-add-ubi-options').style.display = 'none';
+      }
+      document.getElementById('modal-cfg-add').style.display = 'flex';
+      setTimeout(() => document.getElementById('cfg-add-name').focus(), 100);
+    }
+
+    function confirmarAgregadoConfig() {
+      const val = document.getElementById('cfg-add-name').value.trim().toUpperCase();
+      if (!val) { showToast("Escribe un nombre", "error"); return; }
+      
       const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
-      // Prevent duplicates
-      const existe = lista.some(i => (typeof i === 'object' ? i.id : i) === val);
-      if (existe) { showToast(`"${val}" ya existe en la lista`, "error"); return; }
+      const existe = lista.some(i => (typeof i === 'object' ? (i.id || i.nombre) : i) === val);
+      if (existe) { showToast(`"${val}" ya existe`, "error"); return; }
+
       if (TAB_ACTIVA_CFG === 'estados') {
         lista.push({ id: val, color: "#64748b", orden: 99 });
+      } else if(TAB_ACTIVA_CFG === 'ubicaciones') {
+        const isPlaza = document.getElementById('cfg-add-is-plaza').checked;
+        lista.push({ nombre: val, isPlazaFija: isPlaza });
       } else {
         lista.push(val);
       }
-      input.value = "";
+      document.getElementById('modal-cfg-add').style.display = 'none';
       renderizarListaConfig();
+    }
+
+    function moverElementoConfig(index, dir) {
+       const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
+       if(index + dir < 0 || index + dir >= lista.length) return;
+       const temp = lista[index];
+       lista[index] = lista[index+dir];
+       lista[index+dir] = temp;
+       renderizarListaConfig();
     }
 
     function eliminarElementoConfig(index) {
       const item = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG][index];
-      const nombre = typeof item === 'object' ? item.id : item;
+      const nombre = typeof item === 'object' ? (item.id || item.nombre) : item;
       mexConfirm(`Eliminar "${nombre}"`, '¿Estás seguro? Esta acción no se puede deshacer.', 'danger').then(ok => {
         if (!ok) return;
         window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);
@@ -21961,10 +22147,12 @@
       }
       const ok = await mexConfirm('Publicar cambios', '¿Aplicar los cambios a toda la app ahora mismo?', 'warning');
       if (!ok) return;
-      showToast("Subiendo configuración…", "success");
+      showToast("Subiendo configuración…", "info");
       try {
+        await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, {merge:true});
         await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME);
-        showToast("Configuración actualizada en toda la app", "success");
+        showToast("Configuración actualizada", "success");
+        aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
         llenarSelectsDinamicos();
         document.getElementById('modal-config-global').classList.remove('active');
       } catch (error) {
@@ -22125,10 +22313,10 @@
       });
       ['filter-est', 'f_est', 'a_ins_est', 'a_mod_est'].forEach(id => _setOptions(id, estOpts));
 
-      // Ubicaciones (flat list — las personas quedan mezcladas, suficiente para v1)
-      const PLAZAS_FIJAS = new Set(['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN', 'OTRA PLAZA']);
-      const plazas = ubicaciones.filter(u => PLAZAS_FIJAS.has(u));
-      const personas = ubicaciones.filter(u => !PLAZAS_FIJAS.has(u));
+      // Formatea objetos {nombre, isPlazaFija} y legacy strings a un estándar interno para dividir en grupos OptGroup.
+      const ubiParsed = ubicaciones.map(u => typeof u === 'object' ? u : { nombre: u, isPlazaFija: ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(u) });
+      const plazas = ubiParsed.filter(u => u.isPlazaFija).map(u => u.nombre);
+      const personas = ubiParsed.filter(u => !u.isPlazaFija).map(u => u.nombre);
 
       ['filter-ubi', 'f_ubi', 'a_ins_ubi', 'a_mod_ubi'].forEach(id => {
         const el = document.getElementById(id);
@@ -24248,7 +24436,7 @@
         </div>
         <h2 class="cfg-v2-title">CONFIGURACIÓN<br>GLOBAL</h2>
         <p class="cfg-v2-subtitle">Gestiona los catálogos fundamentales de la infraestructura operativa de
-          ${companyName}. Los cambios aplican en tiempo real.</p>
+          <b id="empresa-cfg-lbl">MEX RENT A CAR</b>. Los cambios aplican en tiempo real.</p>
       </div>
       <button class="cfg-v2-close" onclick="document.getElementById('modal-config-global').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
@@ -24266,6 +24454,10 @@
         </div>
         <div class="cfg-v2-sidebar-sublabel">Catálogos del Sistema</div>
         <nav class="cfg-v2-nav">
+          <button class="cfg-tab" onclick="abrirTabConfig('empresa', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+            <span>Empresa</span>
+          </button>
           <button class="cfg-tab active" onclick="abrirTabConfig('ubicaciones', this)">
             <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
             <span>Ubicaciones</span>
@@ -24292,10 +24484,10 @@
         <div class="cfg-v2-add-bar">
           <div class="cfg-v2-search-box">
             <span class="material-icons cfg-v2-search-icon">search</span>
-            <input type="text" id="cfg-nuevo-input" placeholder="Buscar o agregar nuevo catálogo..."
-              onkeydown="if(event.key==='Enter') agregarElementoConfig()" autocomplete="off">
+            <input type="text" id="cfg-search-input" placeholder="Buscar catálogo..."
+              oninput="buscarEnListaConfig()">
           </div>
-          <button class="cfg-v2-btn-add" onclick="agregarElementoConfig()">
+          <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
             <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
           </button>
         </div>
@@ -24320,6 +24512,25 @@
     </div>
   </div>
 
+  <!-- MODAL DE AGREGAR ITEM (DENTRO DEL CONFIG) -->
+  <div id="modal-cfg-add" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75000; justify-content:center; align-items:center; padding:15px;">
+    <div style="background:white; border-radius:16px; width:100%; max-width:320px; padding:20px; box-shadow:0 25px 50px rgba(0,0,0,0.2);">
+      <h3 style="margin:0 0 15px 0; font-size:16px; font-weight:800; color:#1e293b;">Agregar Nuevo</h3>
+      <input type="text" id="cfg-add-name" placeholder="Nombre (Ej: AEROPUERTO)" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; margin-bottom:15px; outline:none; box-sizing:border-box;" autocomplete="off">
+      
+      <div id="cfg-add-ubi-options" style="display:none; margin-bottom:15px;">
+        <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#475569; cursor:pointer;">
+          <input type="checkbox" id="cfg-add-is-plaza" style="width:16px; height:16px; margin-top:2px;" checked>
+          <div><b>Es Plaza Fija</b><br><span style="font-size:11px; color:#94a3b8;">Desmarca si es "Persona Responsable"</span></div>
+        </label>
+      </div>
+
+      <div style="display:flex; gap:10px;">
+        <button onclick="document.getElementById('modal-cfg-add').style.display='none'" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:10px; border-radius:8px; font-weight:700; cursor:pointer;">CANCELAR</button>
+        <button onclick="confirmarAgregadoConfig()" style="flex:1; background:#0f172a; color:white; border:none; padding:10px; border-radius:8px; font-weight:700; cursor:pointer;">GUARDAR</button>
+      </div>
+    </div>
+  </div>
   <style>
     /* ═══════════════════════════════════════════════════════════
        CONFIG MODAL V2 — STITCH AZURE HORIZON DESIGN
