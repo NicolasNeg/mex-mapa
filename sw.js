@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v28';
+const CACHE_NAME = 'mapa-v29';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -121,11 +121,11 @@ self.addEventListener('push', event => {
 
   event.waitUntil(
     self.registration.showNotification(payload.title || 'MEX Mapa', {
-      body:    payload.body  || '',
-      icon:    payload.icon  || '/img/logo.png',
-      badge:   '/img/logo.png',
-      tag:     payload.tag   || 'mex-notif',
-      data:    payload.data  || {},
+      body: payload.body || '',
+      icon: payload.icon || '/img/logo.png',
+      badge: '/img/logo.png',
+      tag: payload.tag || 'mex-notif',
+      data: payload.data || {},
       vibrate: [200, 100, 200]
     })
   );
