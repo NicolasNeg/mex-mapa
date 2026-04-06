@@ -5645,11 +5645,17 @@
       padding-bottom: 8px;
     }
 
-    .inc-compose-grid,
     .inc-history-grid {
       display: grid;
       grid-template-columns: 220px 1fr;
       gap: 20px;
+      align-items: start;
+    }
+
+    .inc-compose-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.85fr);
+      gap: 28px;
       align-items: start;
     }
 
@@ -19995,6 +20001,8 @@
     }
 
     // 🗄️ ABRIR EL ARCHIVERO DE CUADRES
+    let globalHistorialAuditorias = [];
+    
     function abrirHistorialCuadres() {
       toggleAdminSidebar();
       document.getElementById('historial-cuadres-modal').classList.add('active');
@@ -20002,32 +20010,77 @@
       container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner">sync</span> Buscando en los archivos...</div>`;
 
       api.obtenerHistorialCuadres().then(data => {
-        if (!data || data.length === 0) {
-          container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:800;">No hay cuadres registrados.</div>`;
-          return;
-        }
-        container.innerHTML = data.map(c => `
-        <div style="background: white; border: 1px solid var(--border); border-radius: 16px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 15px;">
-          <div>
-            <h3 style="margin: 0 0 8px 0; color: var(--mex-blue); font-size: 16px;">Reporte del ${String(c.fecha).split(' ')[0]}</h3>
-            
-            <div style="display:flex; flex-direction:column; gap:4px; margin-bottom: 12px;">
-                <span style="font-size: 11px; color: #64748b; font-weight: 700;">Auxiliar en patio: <b style="color:var(--mex-accent);">${c.auxiliar}</b></span>
-                <span style="font-size: 11px; color: #64748b; font-weight: 700;">Autorizado por (Ventas): <b style="color:var(--mex-blue);">${c.admin}</b></span>
-            </div>
+        globalHistorialAuditorias = data || [];
+        renderHistorialCuadres();
+      }).catch(e => console.error(e));
+    }
 
-            <div style="display: flex; gap: 10px; font-size: 11px; font-weight: 800;">
-               <span style="color: #16a34a;">OK: ${c.ok}</span>
-               <span style="color: #dc2626;">FALTAN: ${c.faltantes}</span>
-               <span style="color: #d97706;">SOBRAN: ${c.sobrantes}</span>
+    function toggleIframe(id) {
+       const el = document.getElementById(id);
+       if(el.style.display === 'none') { el.style.display = 'block'; }
+       else { el.style.display = 'none'; }
+    }
+
+    function renderHistorialCuadres() {
+      const container = document.getElementById('lista-historial-cuadres');
+      const query = (document.getElementById('buscadorArchivero')?.value || "").toLowerCase().trim();
+      
+      let filtered = globalHistorialAuditorias;
+      if(query) {
+         filtered = filtered.filter(c => 
+            String(c.auxiliar||"").toLowerCase().includes(query) || 
+            String(c.admin||"").toLowerCase().includes(query) || 
+            String(c.fecha||"").toLowerCase().includes(query)
+         );
+      }
+
+      if (filtered.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:800;">No hay cuadres registrados.</div>`;
+        return;
+      }
+      
+      container.innerHTML = filtered.map((c, i) => `
+        <div style="background: white; border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 15px;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+            <div>
+              <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                <span class="material-icons" style="color:var(--mex-blue); font-size:20px;">description</span>
+                <h3 style="margin: 0; color: var(--mex-blue); font-size: 16px; font-weight:800;">Reporte del ${String(c.fecha).split(' ')[0]}</h3>
+              </div>
+              
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom: 16px;">
+                  <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
+                     <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Auxiliar en Patio</span>
+                     <span style="font-size: 13px; color: var(--mex-accent); font-weight: 800;">${c.auxiliar}</span>
+                  </div>
+                  <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
+                     <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Autorizado por (Ventas)</span>
+                     <span style="font-size: 13px; color: var(--mex-blue); font-weight: 800;">${c.admin}</span>
+                  </div>
+              </div>
+
+              <div style="display: flex; gap: 12px; font-size: 11px; font-weight: 800; background:#f1f5f9; padding:8px 12px; border-radius:8px; width:fit-content;">
+                 <span style="color: #16a34a; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">check_circle</span> OK: ${c.ok}</span>
+                 <span style="color: #dc2626; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">error</span> FALTAN: ${c.faltantes}</span>
+                 <span style="color: #d97706; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">warning</span> SOBRAN: ${c.sobrantes}</span>
+              </div>
+            </div>
+            
+            <div style="display:flex; flex-direction:column; gap:8px;">
+               <button onclick="window.open('${c.pdfUrl}', '_blank')" style="background: #0f172a; color: white; border: none; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;">
+                 <span class="material-icons" style="font-size:16px;">download</span> DESCARGAR PDF
+               </button>
+               <button onclick="toggleIframe('iframe-pdf-${i}')" style="background: white; color: #0f172a; border: 1.5px solid #0f172a; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; justify-content:center; align-items: center; gap: 8px; transition: 0.2s;">
+                 <span class="material-icons" style="font-size:16px;">visibility</span> VISTA PREVIA
+               </button>
             </div>
           </div>
-          <button onclick="window.open('${c.pdfUrl}', '_blank')" style="background: #f0fdf4; color: #16a34a; border: 1px solid #86efac; padding: 12px 15px; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;">
-            <span class="material-icons">open_in_new</span> VER PDF
-          </button>
+          
+          <div id="iframe-pdf-${i}" style="display:none; width:100%; height:450px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; margin-top:8px;">
+             <iframe src="${c.pdfUrl}?usp=sharing" style="width:100%; height:100%; border:none;"></iframe>
+          </div>
         </div>
       `).join('');
-      }).catch(e => console.error(e));
     }
 
 
@@ -23013,10 +23066,19 @@
   <div id="reporte-pdf-container" style="display: none;"></div>
 
   <div id="historial-cuadres-modal" class="fleet-modal" style="z-index: 6000;">
-    <div class="fleet-header-top">
-      <h2 style="color:var(--primary); font-weight:900; margin:0;">ARCHIVERO DE AUDITORÍAS</h2>
-      <button onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')"
-        style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
+    <div class="fleet-header-top" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+      <div style="display:flex; align-items:center; gap: 10px;">
+         <span class="material-icons" style="font-size:24px; color:var(--mex-blue);">folder_special</span>
+         <h2 style="color:var(--primary); font-weight:900; margin:0;">ARCHIVERO DE AUDITORÍAS</h2>
+      </div>
+      <div style="display:flex; align-items:center; gap: 15px;">
+        <div style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:8px 15px; border:1px solid #e2e8f0;">
+           <span class="material-icons" style="color:#94a3b8; font-size:18px; margin-right:8px;">search</span>
+           <input type="text" id="buscadorArchivero" placeholder="Buscar por nombre o fecha..." onkeyup="renderHistorialCuadres()" style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); width:220px; font-size:13px;">
+        </div>
+        <button onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')"
+          style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
+      </div>
     </div>
     <div class="fleet-wrapper" style="padding: 25px; overflow-y: auto; background: #f8fafc; align-items: center;">
       <div id="lista-historial-cuadres"
