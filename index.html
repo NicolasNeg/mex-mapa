@@ -10683,15 +10683,36 @@
       <div class="admin-nav-group">
         <p id="titleHerramientas" class="sb-section-label">Herramientas</p>
 
-        <button id="btnMenuUsuarios" onclick="abrirUsuarios()" class="sb-btn sb-btn-dark" style="display:none;">
-          <div><span class="material-icons">manage_accounts</span> GESTIÓN USUARIOS</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-
         <button id="btnMenuHistorial" onclick="abrirLogs()" class="sb-btn sb-btn-dark">
           <div><span class="material-icons">history</span>HISTORIAL MAPA</div>
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
+      </div>
+
+      <div class="sb-divider" id="panelAdminDivider" style="display:none;"></div>
+
+      <div class="admin-nav-group" id="navGroupPanelAdmin" style="display:none;">
+        <p id="titlePanelAdmin" class="sb-section-label">Panel Admin</p>
+
+        <button id="btnConfigGlobal" onclick="abrirPanelConfiguracion()" class="sb-btn sb-btn-dark">
+          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span class="material-icons" style="color:#f59e0b;">settings_suggest</span>
+              <span style="font-weight: 800; font-size: 11px;">AJUSTES DEL SISTEMA</span>
+            </div>
+            <div style="display: flex; align-items: center;">
+              <span id="badge-solicitudes" class="badge-pulse"
+                style="display:none; margin-right: 5px; width:18px; height:18px; background:#ef4444; color:white; border-radius:50%; text-align:center; line-height:18px; font-size:10px;">0</span>
+              <span class="material-icons sb-chevron">chevron_right</span>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      <div class="sb-divider"></div>
+
+      <div class="nav-group-general" style="display: flex; flex-direction: column; gap: 8px;">
+        <p class="sb-section-label">Comunicaciones</p>
 
         <button id="btnMenuBitacora" onclick="abrirIncidencias()" class="sb-btn sb-btn-dark">
           <div>
@@ -10702,12 +10723,6 @@
           </div>
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
-      </div>
-
-      <div class="sb-divider"></div>
-
-      <div class="nav-group-general" style="display: flex; flex-direction: column; gap: 8px;">
-        <p class="sb-section-label">Comunicaciones</p>
 
         <button id="btnAlerts" onclick="abrirSiguienteAlerta()" class="sb-btn sb-btn-dark" style="display:none;"
           title="Alertas">
@@ -10800,45 +10815,7 @@
     </div>
   </div>
 
-  <div id="users-modal" class="fleet-modal">
-    <div class="fleet-header-top">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span class="material-icons" style="color:var(--primary);font-size:22px;">manage_accounts</span>
-        <h2 style="color:var(--primary);font-weight:900;margin:0;">GESTIÓN DE USUARIOS</h2>
-      </div>
-      <div style="display:flex;gap:10px;">
-        <button onclick="umNuevoUsuario()"
-          style="background:var(--mex-accent);color:white;border:none;padding:10px 18px;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
-          <span class="material-icons" style="font-size:17px;">person_add</span> NUEVO USUARIO
-        </button>
-        <button onclick="cerrarUsuariosModal()"
-          style="background:#f1f5f9;color:var(--text);border:none;padding:10px 20px;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;">CERRAR</button>
-      </div>
-    </div>
-    <div class="um-body">
-      <!-- Lista de usuarios -->
-      <div class="um-list-col">
-        <div class="um-search-wrap">
-          <span class="material-icons um-search-icon">search</span>
-          <input type="text" id="um-search" placeholder="Buscar por nombre o correo..." oninput="umFiltrar()">
-        </div>
-        <div id="um-cards-container">
-          <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span>
-            Cargando usuarios...</div>
-        </div>
-      </div>
-      <!-- Panel edición / creación -->
-      <div class="um-edit-col">
-        <div id="um-placeholder" class="um-placeholder">
-          <span class="material-icons">manage_accounts</span>
-          <p>Selecciona un usuario para editarlo<br>o crea uno nuevo.</p>
-        </div>
-        <div id="um-form-container" style="display:none;width:100%;max-width:480px;">
-          <!-- se llena dinámicamente -->
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- UM modal removed. Logic goes into Config Modals now -->
 
   <div id="logs-modal" class="fleet-modal">
     <div class="fleet-header-top">
@@ -11859,16 +11836,6 @@
             <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span
                 class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
             
-            <div class="mc-divider"></div>
-            
-            <div class="mc-item" id="btnConfigGlobal" onclick="abrirPanelConfiguracion()">
-              <span class="material-icons" style="color: #f59e0b;">settings</span> Panel de Configuración
-            </div>
-            <div class="mc-item" id="btnMenuSolicitudes" onclick="abrirModalSolicitudes()">
-              <span class="material-icons" style="color: #38bdf8;">how_to_reg</span> Solicitudes Pendientes
-              <span id="badge-solicitudes"
-                style="background: #ef4444; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; font-weight: 900; margin-left: auto; display: none;">0</span>
-            </div>
           </div>
         </div>
 
@@ -15263,17 +15230,13 @@
         showToast("Tu rol no puede gestionar usuarios.", "error");
         return;
       }
-      toggleAdminSidebar();
-      document.getElementById('users-modal').classList.add('active');
-      _umIniciar();
+      abrirPanelConfiguracion('usuarios');
     }
 
     function cerrarUsuariosModal() {
-      document.getElementById('users-modal').classList.remove('active');
+      // Ahora los usuarios están dentro del Config modal; solo limpiar estado interno
       if (_unsubUsuarios) { _unsubUsuarios(); _unsubUsuarios = null; }
       _umUsers = []; _umSelectedId = null;
-      document.getElementById('um-form-container').style.display = 'none';
-      document.getElementById('um-placeholder').style.display = 'block';
     }
 
     function _umIniciar() {
@@ -22001,14 +21964,21 @@
 
     let TAB_ACTIVA_CFG = 'ubicaciones';
 
-    function abrirPanelConfiguracion() {
+    function abrirPanelConfiguracion(tabInicial) {
       if (!canUseProgrammerConfig()) {
         showToast("Tu rol no puede abrir la configuración global.", "error");
         return;
       }
-      toggleMoreControls();
+      if(typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
       document.getElementById('modal-config-global').classList.add('active');
-      renderizarListaConfig();
+      if(tabInicial) {
+        // Activar el tab indicado
+        const btnTarget = document.querySelector(`.cfg-tab[onclick*="'${tabInicial}'"]`);
+        if(btnTarget) abrirTabConfig(tabInicial, btnTarget);
+        else renderizarListaConfig();
+      } else {
+        renderizarListaConfig();
+      }
     }
 
     function abrirTabConfig(tabName, btnElement) {
@@ -22018,7 +21988,8 @@
       TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
       
       const searchBox = document.querySelector('.cfg-v2-add-bar');
-      if(TAB_ACTIVA_CFG === 'empresa') {
+      const tabsSinBarra = ['empresa', 'usuarios', 'solicitudes'];
+      if(tabsSinBarra.includes(TAB_ACTIVA_CFG)) {
          if(searchBox) searchBox.style.display = 'none';
       } else {
          if(searchBox) searchBox.style.display = 'flex';
@@ -22058,6 +22029,16 @@
           </div>
         `;
         return;
+      }
+
+      if(TAB_ACTIVA_CFG === 'usuarios') {
+         renderizarTabConfigUsuarios(container);
+         return;
+      }
+
+      if(TAB_ACTIVA_CFG === 'solicitudes') {
+         renderizarTabConfigSolicitudes(container);
+         return;
       }
 
       const rawLista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] || [];
@@ -22266,6 +22247,178 @@
       }
     }
 
+    // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
+    function renderizarTabConfigUsuarios(container) {
+       container.innerHTML = `
+         <div style="display:flex; justify-content:flex-end; margin-bottom:15px; padding: 0 10px;">
+           <button onclick="umNuevoUsuario()" style="background:var(--mex-accent);color:white;border:none;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
+             <span class="material-icons" style="font-size:17px;">person_add</span> NUEVO USUARIO
+           </button>
+         </div>
+         <div class="um-body" style="height: auto; min-height: 55vh; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin: 0 10px;">
+            <div class="um-list-col">
+              <div class="um-search-wrap">
+                <span class="material-icons um-search-icon">search</span>
+                <input type="text" id="um-search" placeholder="Buscar por nombre o correo..." oninput="umFiltrar()">
+              </div>
+              <div id="um-cards-container">
+                <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>
+              </div>
+            </div>
+            <div class="um-edit-col">
+              <div id="um-placeholder" class="um-placeholder">
+                <span class="material-icons">manage_accounts</span>
+                <p>Selecciona un usuario para editarlo<br>o crea uno nuevo.</p>
+              </div>
+              <div id="um-form-container" style="display:none;width:100%;max-width:480px;"></div>
+            </div>
+         </div>
+       `;
+       _umIniciar();
+    }
+
+    // ─── LÓGICA DE SOLICITUDES EN CONFIGURACIÓN ──────────────────────
+    function renderizarTabConfigSolicitudes(container) {
+       container.innerHTML = `
+         <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; display:flex; flex-direction:column; height: 100%; min-height: 60vh; margin: 0 10px;">
+            <div style="display:flex; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+               <button id="tab-sol-PENDIENTE" class="sol-tab active" onclick="cambiarTabSolicitudes('PENDIENTE')" style="flex:1; padding:12px; font-weight:800; font-size:12px; color:var(--mex-blue); border:none; background:transparent; border-bottom:2px solid var(--mex-blue); cursor:pointer;">PENDIENTES</button>
+               <button id="tab-sol-APROBADO" class="sol-tab" onclick="cambiarTabSolicitudes('APROBADO')" style="flex:1; padding:12px; font-weight:800; font-size:12px; color:#64748b; border:none; background:transparent; border-bottom:2px solid transparent; cursor:pointer;">APROBADAS</button>
+               <button id="tab-sol-RECHAZADO" class="sol-tab" onclick="cambiarTabSolicitudes('RECHAZADO')" style="flex:1; padding:12px; font-weight:800; font-size:12px; color:#64748b; border:none; background:transparent; border-bottom:2px solid transparent; cursor:pointer;">RECHAZADAS</button>
+            </div>
+            <div style="padding:15px; border-bottom:1px solid #e2e8f0;">
+               <div style="position:relative; width:100%;">
+                  <span class="material-icons" style="position:absolute; left:12px; top:10px; color:#94a3b8; font-size:18px;">search</span>
+                  <input type="text" id="busqueda-solicitudes" placeholder="Buscar por nombre, correo, rol o puesto..." oninput="filtrarSolicitudesActuales()" style="width:100%; padding:10px 10px 10px 36px; border:1px solid #cbd5e1; border-radius:8px; font-family:inherit; outline:none; box-sizing:border-box;">
+               </div>
+            </div>
+            <div id="contenedor-solicitudes-v2" style="padding:15px; overflow-y:auto; flex:1; display:flex; flex-direction:column; gap:10px;">
+               <div style="text-align:center; padding: 30px;"><span class="material-icons spinner" style="font-size:30px; color:var(--mex-blue);">sync</span></div>
+            </div>
+         </div>
+       `;
+       cambiarTabSolicitudes('PENDIENTE');
+    }
+
+    function cambiarTabSolicitudes(estado) {
+       window._filtroSolicitudesEstatus = estado;
+       ['PENDIENTE', 'APROBADO', 'RECHAZADO'].forEach(st => {
+         const btn = document.getElementById('tab-sol-' + st);
+         if(btn) {
+           if(st === estado) {
+             btn.style.color = 'var(--mex-blue)';
+             btn.style.borderBottomColor = 'var(--mex-blue)';
+           } else {
+             btn.style.color = '#64748b';
+             btn.style.borderBottomColor = 'transparent';
+           }
+         }
+       });
+       const searchUrl = document.getElementById('busqueda-solicitudes');
+       if(searchUrl) searchUrl.value = '';
+       cargarSolicitudesDeTab(estado);
+    }
+
+    async function cargarSolicitudesDeTab(estado) {
+      if (!canProcessAccessRequests()) return;
+      const contenedor = document.getElementById('contenedor-solicitudes-v2');
+      if(!contenedor) return;
+      contenedor.innerHTML = `<div style="text-align:center; padding: 30px;"><span class="material-icons spinner" style="font-size:30px; color:var(--mex-blue);">sync</span></div>`;
+
+      try {
+        const estBD = estado === 'RECHAZADO' ? 'RECHAZADA' : estado === 'APROBADO' ? 'APROBADA' : 'PENDIENTE';
+        const snapshot = await db.collection("solicitudes_acceso")
+          .where("estado", "==", estBD)
+          .get();
+
+        if(estado === 'PENDIENTE') {
+           const badgeCfg = document.getElementById('badge-config-solicitudes');
+           if(badgeCfg) badgeCfg.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+           const badgeSb = document.getElementById('badge-solicitudes');
+           if(badgeSb) {
+             badgeSb.innerText = snapshot.size;
+             badgeSb.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+           }
+        }
+
+        if (snapshot.empty) {
+          contenedor.innerHTML = `
+           <div style="text-align: center; color: #64748b; padding: 40px; font-weight: 700;">
+             <span class="material-icons" style="font-size: 40px; color: #cbd5e1;">check_circle</span><br>
+             No hay solicitudes en este buzón.
+           </div>`;
+          window._objSolicitudesMemoria = [];
+          return;
+        }
+        
+        window._objSolicitudesMemoria = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        filtrarSolicitudesActuales();
+
+      } catch(e) { console.error(e); }
+    }
+
+    function filtrarSolicitudesActuales() {
+       const query = (document.getElementById('busqueda-solicitudes')?.value || "").toUpperCase().trim();
+       const contenedor = document.getElementById('contenedor-solicitudes-v2');
+       if(!contenedor) return;
+
+       const dataList = window._objSolicitudesMemoria.filter(data => {
+          if(!query) return true;
+          const str = `${data.nombre || ''} ${data.email || ''} ${data.puesto || ''} ${data.rolSolicitado || ''}`.toUpperCase();
+          return str.includes(query);
+       });
+
+       if(dataList.length === 0) {
+          contenedor.innerHTML = `<div style="text-align:center;color:#64748b;">Sin coincidencias...</div>`;
+          return;
+       }
+
+       let html = "";
+       dataList.forEach(data => {
+          const requestedRole = _resolveStoredRoleForEmail(data.email, _sanitizeRole(data.rolSolicitado) || _inferRequestedAccessRole(data.puesto, data.email));
+          const roleLabel = ROLE_META[requestedRole] ? ROLE_META[requestedRole].label : requestedRole;
+          let actionBtns = "";
+          if (window._filtroSolicitudesEstatus === 'PENDIENTE') {
+            actionBtns = `
+              <button onclick="procesarSolicitud('${data.id}', false)" style="background: #fee2e2; color: #ef4444; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
+                <span class="material-icons" style="font-size: 14px;">close</span> RECHAZAR
+              </button>
+              <button onclick="procesarSolicitud('${data.id}', true)" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
+                <span class="material-icons" style="font-size: 14px;">check</span> APROBAR
+              </button>
+            `;
+          } else if (window._filtroSolicitudesEstatus === 'RECHAZADO') {
+            // Opción a re-aprobar
+            actionBtns = `
+              <button onclick="procesarSolicitud('${data.id}', true)" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
+                <span class="material-icons" style="font-size: 14px;">refresh</span> RE-APROBAR
+              </button>
+            `;
+          }
+          
+          html += `
+            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02);">
+              <div>
+                <h4 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 14px;">${data.nombre}</h4>
+                <div style="color: #64748b; font-size: 12px; font-weight: 600; margin-top: 4px;">
+                  <span class="material-icons" style="font-size: 12px; vertical-align: text-bottom;">email</span> ${data.email}
+                </div>
+                <div style="color: var(--mex-blue); font-size: 10px; font-weight: 800; margin-top: 6px; background: #e0f2fe; display: inline-block; padding: 3px 6px; border-radius: 4px;">
+                  📍 ${data.puesto || 'N/A'}
+                </div>
+                <div style="color: #7c3aed; font-size: 10px; font-weight: 800; margin-top: 6px; background: #f3e8ff; display: inline-block; padding: 3px 6px; border-radius: 4px;">
+                  🔐 ${roleLabel}
+                </div>
+              </div>
+              <div style="display: flex; gap: 8px;">
+                ${actionBtns}
+              </div>
+            </div>
+          `;
+       });
+       contenedor.innerHTML = html;
+    }
+
     // ─── Inyecta MEX_CONFIG en todos los <select> de la app ──────────────────────
     function llenarSelectsDinamicos() {
       if (!window.MEX_CONFIG || !window.MEX_CONFIG.listas) return;
@@ -22467,20 +22620,19 @@
       if (btnAdminNut) btnAdminNut.style.display = 'flex';
 
       const visibilidadEspecial = {
-        btnMenuUsuarios: canManageUsers(),
-        btnMenuSolicitudes: canProcessAccessRequests(),
         btnMenuAlertasGlobales: canEmitMasterAlerts(),
         btnMenuHistorialAlertas: canEmitMasterAlerts(),
         btnLockMaestro: canLockMap(),
         btnMenuHistorial: hasFullAccess(),
         btnLockAdminSidebar: canLockMap(),
         btnEditorMapa: hasFullAccess(),
-        btnConfigGlobal: canUseProgrammerConfig()
+        panelAdminDivider: canUseProgrammerConfig(),
+        navGroupPanelAdmin: canUseProgrammerConfig()
       };
 
       Object.entries(visibilidadEspecial).forEach(([id, visible]) => {
-        const btn = document.getElementById(id);
-        if (btn) btn.style.display = visible ? 'flex' : 'none';
+        const el = document.getElementById(id);
+        if (el) el.style.display = visible ? (el.tagName === 'DIV' && !el.classList.contains('sb-divider') ? 'flex' : (el.classList.contains('sb-divider') ? 'block' : 'flex')) : 'none';
       });
 
       if (userRole === 'admin') {
@@ -22513,83 +22665,26 @@
         showToast("Solo los roles superiores pueden revisar solicitudes.", "error");
         return;
       }
-      // Cerramos el menú lateral si está abierto
-      if (typeof toggleMoreControls === "function") toggleMoreControls();
-
-      document.getElementById('modal-admin-solicitudes').classList.add('active');
-      cargarSolicitudesPendientes();
+      abrirPanelConfiguracion('solicitudes');
     }
 
+    // Mantener solo la actualización del badge del sidebar en tiempo de carga
     async function cargarSolicitudesPendientes() {
       if (!canProcessAccessRequests()) return;
-      const contenedor = document.getElementById('contenedor-solicitudes');
-      contenedor.innerHTML = `<div style="text-align:center; padding: 30px;"><span class="material-icons spinner" style="font-size:30px; color:var(--mex-blue);">sync</span></div>`;
-
       try {
         const snapshot = await db.collection("solicitudes_acceso")
           .where("estado", "==", "PENDIENTE")
           .get();
-
-        // Actualizamos el globito rojo del menú
         const badge = document.getElementById('badge-solicitudes');
         if (badge) {
           badge.innerText = snapshot.size;
           badge.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
         }
-
-        if (snapshot.empty) {
-          contenedor.innerHTML = `
-        <div style="text-align: center; color: #64748b; padding: 40px; font-weight: 700;">
-          <span class="material-icons" style="font-size: 40px; color: #cbd5e1;">check_circle</span><br>
-          No hay solicitudes pendientes.
-        </div>`;
-          return;
-        }
-
-        let html = "";
-        snapshot.forEach(doc => {
-          const data = doc.data();
-          const requestedRole = _resolveStoredRoleForEmail(
-            data.email,
-            _sanitizeRole(data.rolSolicitado) || _inferRequestedAccessRole(data.puesto, data.email)
-          );
-          const roleLabel = ROLE_META[requestedRole] ? ROLE_META[requestedRole].label : requestedRole;
-          // Tarjeta de diseño corporativo para cada solicitud
-          html += `
-	        <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-	          <div>
-	            <h4 style="margin: 0; color: #0f172a; font-weight: 900; font-size: 16px;">${data.nombre}</h4>
-            <div style="color: #64748b; font-size: 13px; font-weight: 600; margin-top: 4px;">
-              <span class="material-icons" style="font-size: 14px; vertical-align: text-bottom;">email</span> ${data.email}
-            </div>
-	            <div style="color: var(--mex-blue); font-size: 12px; font-weight: 800; margin-top: 4px; background: #e0f2fe; display: inline-block; padding: 3px 8px; border-radius: 6px;">
-	              📍 ${data.puesto}
-	            </div>
-	            <div style="color: #7c3aed; font-size: 12px; font-weight: 800; margin-top: 8px; background: #f3e8ff; display: inline-block; padding: 3px 8px; border-radius: 6px;">
-	              🔐 ${roleLabel}
-	            </div>
-	          </div>
-	          <div style="display: flex; gap: 10px;">
-            <button onclick="procesarSolicitud('${doc.id}', false)" style="background: #fee2e2; color: #ef4444; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
-              <span class="material-icons" style="font-size: 18px;">close</span> RECHAZAR
-            </button>
-            <button onclick="procesarSolicitud('${doc.id}', true)" style="background: #10b981; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px;">
-              <span class="material-icons" style="font-size: 18px;">check</span> APROBAR
-            </button>
-          </div>
-        </div>
-      `;
-        });
-
-        contenedor.innerHTML = html;
-      } catch (error) {
-        console.error("Error cargando solicitudes:", error);
-        contenedor.innerHTML = `<p style="color:red; text-align:center;">Error al cargar datos.</p>`;
-      }
+        const badgeCfg = document.getElementById('badge-config-solicitudes');
+        if (badgeCfg) badgeCfg.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+      } catch(e) { console.warn('cargarSolicitudesPendientes badge error', e); }
     }
-    // Al renderizar la lista en cargarSolicitudesPendientes, el botón APROBAR debe verse así:
-    // <button onclick="procesarSolicitud('${doc.id}', true)"> APROBAR </button>
-    // <button onclick="procesarSolicitud('${doc.id}', false)"> RECHAZAR </button>
+
     async function procesarSolicitud(docId, esAprobado) {
       if (!canProcessAccessRequests()) {
         return showToast("No tienes permisos para procesar solicitudes.", "error");
@@ -22689,7 +22784,10 @@
         }
 
         showToast(`Solicitud ${esAprobado ? 'APROBADA' : 'RECHAZADA'} con éxito`, "success");
-        cargarSolicitudesPendientes();
+        // Recargar el tab actual del panel de solicitudes v2
+        if(typeof cargarSolicitudesDeTab === 'function' && document.getElementById('contenedor-solicitudes-v2')) {
+          cargarSolicitudesDeTab(window._filtroSolicitudesEstatus || 'PENDIENTE');
+        }
 
       } catch (error) {
         console.error("Error procesando solicitud:", error);
@@ -24588,6 +24686,18 @@
             <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
             <span>Gasolinas</span>
           </button>
+          
+          <div style="margin: 15px 0 5px 0; padding-left: 10px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Gestión y Permisos</div>
+          
+          <button class="cfg-tab" onclick="abrirTabConfig('usuarios', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+            <span>Usuarios</span>
+          </button>
+          <button class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;">
+            <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
+            <span>Solicitudes</span>
+            <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; right:10px; top:12px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
+          </button>
         </nav>
       </div>
 
@@ -25178,28 +25288,7 @@
     }
   </style>
 
-  <div id="modal-admin-solicitudes" class="fleet-modal" style="z-index: 65000;">
-    <div class="fleet-header-top">
-      <div style="display:flex; align-items:center; gap: 10px;">
-        <h2 style="color:var(--primary); font-weight:900; margin:0;">
-          <span class="material-icons" style="color: #38bdf8; vertical-align: bottom;">how_to_reg</span> SOLICITUDES DE
-          ACCESO
-        </h2>
-      </div>
-      <button onclick="document.getElementById('modal-admin-solicitudes').classList.remove('active')"
-        style="background: rgba(255,255,255,0.2); color: #64748b; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
-    </div>
-
-    <div class="fleet-wrapper" style="background: #f8fafc; padding: 25px; flex-direction: column;">
-      <div id="contenedor-solicitudes"
-        style="display: flex; flex-direction: column; gap: 15px; overflow-y: auto; max-height: 60vh;">
-        <div style="text-align: center; color: #64748b; padding: 40px; font-weight: 700;">
-          <span class="material-icons" style="font-size: 40px; color: #cbd5e1;">hourglass_empty</span><br>
-          Cargando solicitudes...
-        </div>
-      </div>
-    </div>
-  </div>
+  <!-- Modal Solicitudes Viejo Removido, ahora inyectado en modal ConfigV2 -->
 
 
   <!-- ══════════════════════════════════════════════════════
