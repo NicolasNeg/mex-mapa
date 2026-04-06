@@ -1608,7 +1608,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const cuadreSnap = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
     const cuadreData = cuadreSnap.empty ? {} : cuadreSnap.docs[0].data();
     return {
-      id: snap.docs[0].id, plaza: sucursal,
+      id: snap.docs[0].id, fila: snap.docs[0].id, plaza: sucursal,
       mva: data.mva || mvaStr, modelo: data.modelo || cuadreData.modelo || "",
       marca: data.marca || "", año: data.año || data.anio || "",
       vin: data.vin || data.VIN || "", placas: data.placas || cuadreData.placas || "",

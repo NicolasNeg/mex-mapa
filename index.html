@@ -3985,12 +3985,16 @@
     .modal-overlay {
       position: fixed;
       inset: 0;
+      padding: 18px;
+      box-sizing: border-box;
       background: rgba(15, 23, 42, 0.7);
       z-index: 9999;
       display: flex;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(4px);
+      overflow-y: auto;
+      overscroll-behavior: contain;
       opacity: 0;
       pointer-events: none;
       transition: opacity 0.2s;
@@ -7362,6 +7366,9 @@
       animation: slideUp 0.4s ease;
       max-height: 90vh;
       overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
       font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
     }
 
@@ -7748,6 +7755,255 @@
       border-color: #F87171;
     }
 
+    .form-console-card {
+      max-width: 760px;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #dbe4f0;
+      background:
+        radial-gradient(circle at top left, rgba(125, 211, 252, 0.24), transparent 34%),
+        linear-gradient(180deg, #f5faff 0%, #ffffff 28%, #f8fbfe 100%);
+      box-shadow: 0 38px 80px rgba(10, 30, 61, 0.22);
+    }
+
+    .form-console-card::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 220px;
+      background:
+        radial-gradient(circle at 85% 22%, rgba(255, 255, 255, 0.22), transparent 18%),
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.28), transparent 36%),
+        linear-gradient(135deg, #07162e 0%, #0d2a54 48%, #1763ae 100%);
+      pointer-events: none;
+    }
+
+    .form-console-card>* {
+      position: relative;
+      z-index: 1;
+    }
+
+    .form-modal-close {
+      position: absolute;
+      right: 18px;
+      top: 18px;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(255, 255, 255, 0.12);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      transition: transform 0.2s ease, background 0.2s ease;
+      z-index: 5;
+    }
+
+    .form-modal-close:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .form-modal-hero {
+      padding: 30px 30px 24px;
+      color: white;
+    }
+
+    .form-modal-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .form-modal-title {
+      margin: 16px 0 8px;
+      font-size: 31px;
+      line-height: 0.98;
+      font-weight: 900;
+      letter-spacing: -1.2px;
+      text-transform: uppercase;
+    }
+
+    .form-modal-subtitle {
+      max-width: 560px;
+      font-size: 12px;
+      line-height: 1.55;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .form-modal-metrics {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 18px;
+    }
+
+    .form-modal-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: white;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .form-modal-body {
+      padding: 0 28px 28px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .form-modal-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 6px;
+      margin-right: -6px;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .form-modal-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .form-modal-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
+    }
+
+    .form-modal-card {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, #f8fbff 100%);
+      border: 1px solid #dbe4f0;
+      border-radius: 24px;
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: 0 18px 35px rgba(15, 35, 67, 0.08);
+    }
+
+    .form-modal-card:focus-within {
+      border-color: #93c5fd;
+      box-shadow: 0 22px 40px rgba(37, 99, 235, 0.14);
+    }
+
+    .form-search-card {
+      position: relative;
+    }
+
+    .form-search-card .search-global-input {
+      background: #ffffff;
+      border-color: #d0dceb;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .form-modal-card .field:last-child {
+      margin-bottom: 0;
+    }
+
+    .form-modal-card .field label {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: #52627a;
+    }
+
+    .form-modal-card input,
+    .form-modal-card select,
+    .form-modal-card textarea {
+      border-radius: 14px;
+      border: 1px solid #cdd9e8;
+      background: #ffffff;
+      color: #0f172a;
+      font-weight: 800;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .form-modal-card input:focus,
+    .form-modal-card select:focus,
+    .form-modal-card textarea:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.16);
+    }
+
+    .form-modal-card input[disabled] {
+      background: #eef4fb;
+      color: #546980;
+      font-weight: 800;
+    }
+
+    .form-modal-helper {
+      margin: 2px 2px 12px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    .form-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      min-height: 240px;
+      text-align: center;
+      color: #475569;
+    }
+
+    .form-empty-state-icon {
+      width: 82px;
+      height: 82px;
+      border-radius: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--mex-blue);
+      background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    .global-action-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .btn-save-global.btn-ghost-danger {
+      margin-top: 0;
+      background: #fff1f2;
+      color: #dc2626;
+      box-shadow: none;
+      border: 1px solid #fecaca;
+    }
+
+    .btn-save-global.btn-ghost-danger:hover:not(:disabled) {
+      box-shadow: 0 12px 24px rgba(239, 68, 68, 0.14);
+    }
+
     .admin-console-card {
       max-width: 720px;
       padding: 0;
@@ -7755,6 +8011,10 @@
       border: 1px solid #dbe4f0;
       background: linear-gradient(180deg, #f7fbff 0%, #ffffff 24%, #ffffff 100%);
       box-shadow: 0 38px 80px rgba(10, 30, 61, 0.24);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      max-height: min(92vh, 900px);
     }
 
     .admin-console-card::before {
@@ -7871,6 +8131,30 @@
     .admin-modal-body {
       padding: 0 28px 28px;
       margin-top: -8px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .admin-modal-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      padding-right: 6px;
+      margin-right: -6px;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .admin-modal-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .admin-modal-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
     }
 
     .admin-highlight-card,
@@ -8086,6 +8370,33 @@
     }
 
     @media (max-width: 768px) {
+      .form-console-card {
+        width: calc(100vw - 16px);
+        max-height: calc(100vh - 16px);
+        border-radius: 28px;
+      }
+
+      .form-modal-hero {
+        padding: 24px 20px 20px;
+      }
+
+      .form-modal-title {
+        font-size: 25px;
+      }
+
+      .form-modal-body {
+        padding: 0 18px 20px;
+      }
+
+      .form-modal-card .grid-2,
+      .admin-form-card .grid-2 {
+        grid-template-columns: 1fr;
+      }
+
+      .global-action-row {
+        flex-direction: column;
+      }
+
       .admin-console-card {
         width: calc(100vw - 16px);
         max-height: calc(100vh - 16px);
@@ -17589,6 +17900,7 @@
 
       // 🔥 Aseguramos que el contenedor sea visible desde el segundo 1
       document.getElementById('a_ins_formContainer').style.display = 'block';
+      document.getElementById('a_ins_formContainer').scrollTop = 0;
       document.getElementById('a_ins_badgePlaza').innerText = `PLAZA ${plazaOperativa || 'GLOBAL'}`;
       document.getElementById('a_ins_badgeAdmin').innerText = `RESPONSABLE ${USER_NAME || 'SISTEMA'}`;
 
@@ -17788,6 +18100,8 @@
       toggleMoreControls();
       document.getElementById('modal-insertar-global').classList.add('active');
       limpiarFormularioAltaGlobal();
+      const scrollPanel = document.querySelector('#modal-insertar-global .form-modal-scroll');
+      if (scrollPanel) scrollPanel.scrollTop = 0;
     }
 
     function ejecutarInsertarGlobal() {
@@ -17845,6 +18159,8 @@
       toggleMoreControls();
       document.getElementById('modal-editar-global').classList.add('active');
       desbloquearEdicionGlobal();
+      const scrollPanel = document.querySelector('#modal-editar-global .form-modal-scroll');
+      if (scrollPanel) scrollPanel.scrollTop = 0;
 
       const input = document.getElementById('g_edit_searchInput');
       input.disabled = true;
@@ -17893,10 +18209,18 @@
           cerrarModificadorGlobal();
         }).catch(e => console.error(e));
       } else {
-        api.eliminarUnidadPlaza(data.plaza, data.fila).then(res => {
+        const docIdEliminar = UNIDAD_GLOBAL_ACTIVA.id || UNIDAD_GLOBAL_ACTIVA.fila || data.fila;
+        if (!docIdEliminar) {
+          showToast("Error: No se pudo identificar el documento a eliminar (ID vacío).", "error");
+          return;
+        }
+        api.eliminarUnidadPlaza(data.plaza, docIdEliminar).then(res => {
           showToast("Unidad Eliminada", "success");
           cerrarModificadorGlobal();
-        }).catch(e => console.error(e));
+        }).catch(e => {
+          console.error(e);
+          showToast("Error al eliminar: " + (e.message || e), "error");
+        });
       }
     }
 
@@ -18019,6 +18343,7 @@
         UNIDAD_GLOBAL_ACTIVA.plaza = sucursal;
 
         document.getElementById('g_edit_formContainer').style.display = 'block';
+        document.getElementById('g_edit_formContainer').scrollTop = 0;
 
         document.getElementById('g_edit_fila').value = u.fila || "";
         document.getElementById('g_edit_vin').value = u.vin || "";
@@ -18037,6 +18362,7 @@
       document.getElementById('g_edit_unitIdentity').style.display = 'none';
       document.getElementById('g_edit_formContainer').style.display = 'none';
       document.getElementById('g_edit_searchInput').value = "";
+      document.getElementById('g_edit_formContainer').scrollTop = 0;
       UNIDAD_GLOBAL_ACTIVA = null;
     }
 
@@ -18175,6 +18501,9 @@
 
       const botonesGuardar = document.getElementById('a_mod_btn_container');
       if (botonesGuardar) botonesGuardar.style.display = esSoloLectura ? 'none' : 'flex';
+
+      const formContainer = document.getElementById('a_mod_formContainer');
+      if (formContainer) formContainer.scrollTop = 0;
     }
 
 
@@ -21555,7 +21884,7 @@
   </script>
 
   <div id="modal-insertar-admin" class="modal-overlay" style="z-index: 6000;">
-    <div class="console-card admin-console-card" style="min-height: 580px; display: flex; flex-direction: column;">
+    <div class="console-card admin-console-card" style="min-height: 580px;">
       <button class="admin-modal-close" onclick="document.getElementById('modal-insertar-admin').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
       </button>
@@ -21585,7 +21914,22 @@
           <div class="admin-search-hint">Busca por MVA, placas o modelo y después completa el expediente administrativo para Cuadre Admins.</div>
         </div>
 
-        <div id="a_ins_formContainer" style="animation: slideUp 0.5s ease; overflow-y:auto; padding-right:2px;">
+        <div class="admin-meta-grid" style="margin: 0 0 16px;">
+          <div class="admin-meta-card">
+            <div class="admin-meta-card__label">Paso 1</div>
+            <div class="admin-meta-card__value">Vincula la unidad correcta desde Base Maestra.</div>
+          </div>
+          <div class="admin-meta-card">
+            <div class="admin-meta-card__label">Paso 2</div>
+            <div class="admin-meta-card__value">Confirma gasolina, estado y ubicación operativa.</div>
+          </div>
+          <div class="admin-meta-card">
+            <div class="admin-meta-card__label">Paso 3</div>
+            <div class="admin-meta-card__value">Adjunta evidencia y notas antes de registrar.</div>
+          </div>
+        </div>
+
+        <div id="a_ins_formContainer" class="admin-modal-scroll" style="animation: slideUp 0.5s ease;">
           <div class="admin-section-title">Identificación de Unidad</div>
           <div class="inner-card admin-form-card">
             <div class="grid-2">
@@ -21710,141 +22054,184 @@
   </div>
 
   <div id="modal-insertar-global" class="modal-overlay" style="z-index: 6000;">
-    <div class="console-card">
-      <button onclick="document.getElementById('modal-insertar-global').classList.remove('active')"
-        style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
+    <div class="console-card form-console-card">
+      <button class="form-modal-close" onclick="document.getElementById('modal-insertar-global').classList.remove('active')">
+        <span class="material-icons" style="font-size:20px;">close</span>
+      </button>
 
-      <div class="brand-header">
-        <span>MEX<b> RENT A CAR</b></span>
-        <div class="subtitle">Alta de Unidades a Inventario Global</div>
-      </div>
-
-      <div class="field" style="margin-bottom: 20px;">
-        <label>Sede de Destino</label>
-        <select id="g_plaza">
-          <option value="BJX">BJX - León</option>
-          <option value="GDL">GDL - Guadalajara</option>
-          <option value="QRO">QRO - Querétaro</option>
-          <option value="PVR">PVR - Puerto Vallarta</option>
-          <option value="MID">MID - Mérida</option>
-          <option value="CUN">CUN - Cancún</option>
-          <option value="TLC">TLC - Toluca</option>
-          <option value="TQO">TQO - Tulum</option>
-          <option value="CTM">CTM - Chetumal</option>
-          <option value="MEX">MEX - CDMX</option>
-          <option value="HMO">HMO - Hermosillo</option>
-          <option value="TGZ">TGZ - Tuxtla</option>
-          <option value="TPQ">TPQ - Tepic</option>
-          <option value="TIJ">TIJ - Tijuana</option>
-          <option value="CUL">CUL - Culiacán</option>
-          <option value="MTY">MTY - Monterrey</option>
-        </select>
-      </div>
-
-      <span class="section-label-modal">Identificación Técnica</span>
-      <div class="inner-card">
-        <div class="field"><label>VIN (Número de Serie)</label><input type="text" id="g_vin"
-            placeholder="3N1CN8AE0SK5..."></div>
-        <div class="grid-2" style="margin-top:15px">
-          <div class="field"><label>Categoría</label><input type="text" id="g_categoria" placeholder="Ej. CCAR"></div>
-          <div class="field"><label>Año</label><input type="number" id="g_año" placeholder="2025"></div>
+      <div class="form-modal-hero">
+        <div class="form-modal-kicker">
+          <span class="material-icons" style="font-size:16px;">add_business</span>
+          Base Maestra Global
         </div>
-      </div>
+        <div class="form-modal-title">Alta de Unidad Global</div>
+        <div class="form-modal-subtitle">Registra una unidad nueva con identidad técnica, plaza destino y datos clave listos para entrar al inventario maestro.</div>
 
-      <span class="section-label-modal">Especificaciones & Control</span>
-      <div class="inner-card">
-        <div class="grid-2">
-          <div class="field"><label>Marca</label><input type="text" id="g_marca" placeholder="NISSAN"></div>
-          <div class="field">
-            <label>Modelo</label>
-            <input type="text" id="g_ins_mod" placeholder="Ej. AVEO SEDAN...">
+        <div class="form-modal-metrics">
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">warehouse</span>
+            Inventario central
+          </div>
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">pin_drop</span>
+            Alta por plaza
           </div>
         </div>
-        <div class="grid-2" style="margin-top:15px">
-          <div class="field"><label>Económico (MVA)</label><input type="text" id="g_mva" placeholder="C2974"></div>
-          <div class="field"><label>Placas</label><input type="text" id="g_placas" placeholder="GVT840F"></div>
-        </div>
       </div>
 
-      <button class="btn-save-global" id="btnGuardarGlobal" onclick="ejecutarInsertarGlobal()">
-        <span class="material-icons" id="iconInsertGlobal">save</span> <span id="txtInsertGlobal">GUARDAR EN
-          PLAZA</span>
-      </button>
+      <div class="form-modal-body">
+        <div class="form-modal-scroll">
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Destino Operativo</span>
+            <div class="field" style="margin-bottom:0;">
+              <label>Sede de Destino</label>
+              <select id="g_plaza">
+                <option value="BJX">BJX - León</option>
+                <option value="GDL">GDL - Guadalajara</option>
+                <option value="QRO">QRO - Querétaro</option>
+                <option value="PVR">PVR - Puerto Vallarta</option>
+                <option value="MID">MID - Mérida</option>
+                <option value="CUN">CUN - Cancún</option>
+                <option value="TLC">TLC - Toluca</option>
+                <option value="TQO">TQO - Tulum</option>
+                <option value="CTM">CTM - Chetumal</option>
+                <option value="MEX">MEX - CDMX</option>
+                <option value="HMO">HMO - Hermosillo</option>
+                <option value="TGZ">TGZ - Tuxtla</option>
+                <option value="TPQ">TPQ - Tepic</option>
+                <option value="TIJ">TIJ - Tijuana</option>
+                <option value="CUL">CUL - Culiacán</option>
+                <option value="MTY">MTY - Monterrey</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Identificación Técnica</span>
+            <div class="field"><label>VIN (Número de Serie)</label><input type="text" id="g_vin"
+                placeholder="3N1CN8AE0SK5..."></div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>Categoría</label><input type="text" id="g_categoria" placeholder="Ej. CCAR"></div>
+              <div class="field"><label>Año</label><input type="number" id="g_año" placeholder="2025"></div>
+            </div>
+          </div>
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Especificaciones y Control</span>
+            <div class="grid-2">
+              <div class="field"><label>Marca</label><input type="text" id="g_marca" placeholder="NISSAN"></div>
+              <div class="field">
+                <label>Modelo</label>
+                <input type="text" id="g_ins_mod" placeholder="Ej. AVEO SEDAN...">
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>Económico (MVA)</label><input type="text" id="g_mva" placeholder="C2974"></div>
+              <div class="field"><label>Placas</label><input type="text" id="g_placas" placeholder="GVT840F"></div>
+            </div>
+          </div>
+
+          <div class="form-modal-helper">La unidad se registrará en la plaza seleccionada y quedará disponible para su expediente técnico global.</div>
+        </div>
+
+        <button class="btn-save-global" id="btnGuardarGlobal" onclick="ejecutarInsertarGlobal()">
+          <span class="material-icons" id="iconInsertGlobal">save</span> <span id="txtInsertGlobal">GUARDAR EN
+            PLAZA</span>
+        </button>
+      </div>
     </div>
   </div>
 
   <div id="modal-editar-global" class="modal-overlay" style="z-index: 6000;">
-    <div class="console-card" style="min-height: 500px; display: flex; flex-direction: column;">
-      <button onclick="cerrarModificadorGlobal()"
-        style="position:absolute; right:20px; top:20px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:35px; height:35px; cursor:pointer; font-weight:900; z-index:10;">✕</button>
+    <div class="console-card form-console-card" style="min-height: 500px;">
+      <button class="form-modal-close" onclick="cerrarModificadorGlobal()">
+        <span class="material-icons" style="font-size:20px;">close</span>
+      </button>
 
-      <div class="brand-header">
-        <span>MODIFICADOR<b> GLOBAL</b></span>
-        <div class="subtitle">Edición Técnica en Base Maestra</div>
-      </div>
-
-      <div class="search-wrapper" id="g_edit_searchCont" style="margin-bottom: 20px; position:relative;">
-        <span class="material-icons"
-          style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
-        <input type="text" id="g_edit_searchInput" class="search-global-input" placeholder="Cargando flota global..."
-          disabled oninput="filtrarEdicionGlobal()" autocomplete="off">
-        <div id="g_edit_results" class="floating-results"></div>
-      </div>
-
-      <div id="g_edit_emptyState"
-        style="text-align:center; padding: 40px 20px; flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-        <span class="material-icons" style="font-size: 70px; color: #cbd5e1; margin-bottom: 20px;">build_circle</span>
-        <h3 style="margin:0; font-weight: 900; color: #475569; font-size: 18px;">EDICIÓN GLOBAL</h3>
-        <p style="font-size: 13px; margin-top: 10px; color: #94a3b8; font-weight: 600;">Ingresa el MVA para modificar
-          los datos técnicos (VIN, Año, Marca) directamente en la hoja de su plaza.</p>
-      </div>
-
-      <div class="unit-identity-card" id="g_edit_unitIdentity" style="display:none;">
-        <div class="unit-meta">
-          <span id="g_edit_badgePlaza">SEDE</span>
-          <h2 id="g_edit_badgeMVA">MVA</h2>
+      <div class="form-modal-hero">
+        <div class="form-modal-kicker">
+          <span class="material-icons" style="font-size:16px;">tune</span>
+          Modificador Global
         </div>
-        <button class="btn-change" onclick="desbloquearEdicionGlobal()">CAMBIAR</button>
-      </div>
+        <div class="form-modal-title">Expediente Técnico Global</div>
+        <div class="form-modal-subtitle">Busca la unidad en la base maestra, actualiza sus datos principales y, si hace falta, retírala de su plaza con control total.</div>
 
-      <div id="g_edit_formContainer" style="display:none; animation: slideUp 0.5s ease;">
-        <input type="hidden" id="g_edit_fila">
-
-        <div class="inner-card">
-          <div class="field"><label>Número de Serie (VIN)</label><input type="text" id="g_edit_vin"></div>
-          <div class="grid-2" style="margin-top:15px">
-            <div class="field"><label>Categoría</label><input type="text" id="g_edit_cat"></div>
-            <div class="field"><label>Año</label><input type="number" id="g_edit_año"></div>
+        <div class="form-modal-metrics">
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">manage_search</span>
+            Búsqueda central
+          </div>
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">edit_note</span>
+            Edición y baja
           </div>
         </div>
+      </div>
 
-        <div class="inner-card">
-          <div class="grid-2">
-            <div class="field"><label>Marca</label><input type="text" id="g_edit_mar"></div>
-            <div class="field">
-              <label>Modelo</label>
-              <input type="text" id="g_edit_mod" placeholder="Ej. AVEO SEDAN...">
+      <div class="form-modal-body">
+        <div class="form-modal-card form-search-card" id="g_edit_searchCont" style="margin-bottom: 16px;">
+          <span class="material-icons"
+            style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
+          <input type="text" id="g_edit_searchInput" class="search-global-input" placeholder="Cargando flota global..."
+            disabled oninput="filtrarEdicionGlobal()" autocomplete="off">
+          <div id="g_edit_results" class="floating-results"></div>
+        </div>
+
+        <div id="g_edit_emptyState" class="form-modal-card form-empty-state">
+          <div class="form-empty-state-icon">
+            <span class="material-icons" style="font-size:40px;">build_circle</span>
+          </div>
+          <h3 style="margin:0; font-weight: 900; color: #475569; font-size: 18px;">Edición Global</h3>
+          <p style="font-size: 13px; margin:0; color: #94a3b8; font-weight: 700; max-width: 360px;">Ingresa el MVA, modelo o placas para abrir el expediente técnico de la unidad en su plaza correspondiente.</p>
+        </div>
+
+        <div class="unit-identity-card" id="g_edit_unitIdentity" style="display:none;">
+          <div class="unit-meta">
+            <span id="g_edit_badgePlaza">SEDE</span>
+            <h2 id="g_edit_badgeMVA">MVA</h2>
+          </div>
+          <button class="btn-change" onclick="desbloquearEdicionGlobal()">CAMBIAR</button>
+        </div>
+
+        <div id="g_edit_formContainer" class="form-modal-scroll" style="display:none; animation: slideUp 0.5s ease;">
+          <input type="hidden" id="g_edit_fila">
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Identificación Técnica</span>
+            <div class="field"><label>Número de Serie (VIN)</label><input type="text" id="g_edit_vin"></div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>Categoría</label><input type="text" id="g_edit_cat"></div>
+              <div class="field"><label>Año</label><input type="number" id="g_edit_año"></div>
             </div>
           </div>
-          <div class="grid-2" style="margin-top:15px">
-            <div class="field"><label>MVA</label><input type="text" id="g_edit_mva"
-                style="background:#f1f5f9; color:#94a3b8;"></div>
-            <div class="field"><label>Placas</label><input type="text" id="g_edit_pla"></div>
-          </div>
-        </div>
 
-        <div style="display:flex; gap:10px; margin-top:20px;">
-          <button class="btn-save-global" onclick="guardarEdicionGlobal('MODIFICAR')" style="margin-top:0;">💾 GUARDAR
-            CAMBIOS</button>
-          <button class="btn-save-global" onclick="guardarEdicionGlobal('ELIMINAR')"
-            style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;">🗑️ ELIMINAR</button>
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Datos Comerciales</span>
+            <div class="grid-2">
+              <div class="field"><label>Marca</label><input type="text" id="g_edit_mar"></div>
+              <div class="field">
+                <label>Modelo</label>
+                <input type="text" id="g_edit_mod" placeholder="Ej. AVEO SEDAN...">
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>MVA</label><input type="text" id="g_edit_mva"
+                  style="background:#f1f5f9; color:#94a3b8;"></div>
+              <div class="field"><label>Placas</label><input type="text" id="g_edit_pla"></div>
+            </div>
+          </div>
+
+          <div class="global-action-row">
+            <button class="btn-save-global" onclick="guardarEdicionGlobal('MODIFICAR')">GUARDAR CAMBIOS</button>
+            <button class="btn-save-global btn-ghost-danger" onclick="guardarEdicionGlobal('ELIMINAR')">ELIMINAR UNIDAD</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <div id="modal-editar-admin" class="modal-overlay" style="z-index: 6000;">
-    <div class="console-card admin-console-card" style="max-height: 90vh; overflow-y: auto; display: flex; flex-direction: column;">
+    <div class="console-card admin-console-card" style="min-height: 620px;">
       <button class="admin-modal-close" onclick="document.getElementById('modal-editar-admin').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
       </button>
@@ -21881,7 +22268,7 @@
           </div>
         </div>
 
-        <div id="a_mod_formContainer">
+        <div id="a_mod_formContainer" class="admin-modal-scroll">
           <div class="admin-section-title" style="margin-top:0;">Ficha de Unidad</div>
           <div class="inner-card admin-form-card">
             <div class="grid-2">
