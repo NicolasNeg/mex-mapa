@@ -9841,8 +9841,10 @@
 
       .col-table {
         flex: 1;
-        height: 100%;
+        height: auto !important;
         min-height: 50vh;
+        overflow: visible !important;
+        padding-bottom: 90px !important;
       }
 
       .table-container {
@@ -11946,8 +11948,11 @@
                       <option value="PFAR">PFAR</option>
                       <option value="GVMD">GVMD</option>
                     </select>
+                  <th>
+                    <select id="filter-modelo" class="excel-filter" onchange="filtrarFlota()">
+                      <option value="">MODELO (ALL)</option>
+                    </select>
                   </th>
-                  <th onclick="sortFlota('modelo')" class="sortable">Modelo ↕</th>
                   <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
                   <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
                   <th>
@@ -14470,11 +14475,12 @@
 
       // 1. Capturamos lo que el usuario eligió en los filtros tipo Excel
       const fCat = document.getElementById('filter-cat') ? document.getElementById('filter-cat').value.toUpperCase() : "";
+      const fMod = document.getElementById('filter-modelo') ? document.getElementById('filter-modelo').value.toUpperCase() : "";
       const fEst = document.getElementById('filter-est') ? document.getElementById('filter-est').value.toUpperCase() : "";
       const fUbi = document.getElementById('filter-ubi') ? document.getElementById('filter-ubi').value.toUpperCase() : "";
 
       // Colorear los filtros de Azul si están activos
-      ['filter-cat', 'filter-est', 'filter-ubi'].forEach(id => {
+      ['filter-cat', 'filter-modelo', 'filter-est', 'filter-ubi'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.toggle('filter-active', el.value !== "");
       });
@@ -14495,6 +14501,7 @@
 
         // B) FILTROS EXCEL
         const pasaCat = fCat === "" || (u.categoria || u.categ || "").toUpperCase().includes(fCat);
+        const pasaMod = fMod === "" || (u.modelo || "").toUpperCase().includes(fMod);
         const pasaEst = fEst === "" || estado === fEst;
         const pasaUbi = fUbi === "" || (u.ubicacion || "").toUpperCase().includes(fUbi);
 
@@ -14512,7 +14519,7 @@
         }
 
         // Solo mostramos el auto si cumple con TODO lo que esté seleccionado
-        return pasaBuscador && pasaCat && pasaEst && pasaUbi && pasaEspecial;
+        return pasaBuscador && pasaCat && pasaMod && pasaEst && pasaUbi && pasaEspecial;
       });
 
       // Ordenamiento (MVA, Modelo, etc.)
@@ -22400,6 +22407,10 @@
       // Categorías
       const catOpts = categorias.map(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; return o; });
       ['filter-cat'].forEach(id => _setOptions(id, catOpts));
+
+      // Modelos
+      const modOpts = (window.MEX_CONFIG.listas.modelos || []).map(m => { const o = document.createElement('option'); o.value = m.nombre; o.textContent = m.nombre; return o; });
+      ['filter-modelo'].forEach(id => _setOptions(id, modOpts));
 
       // Estados (normalizar: admite strings simples o maps {id,color,orden})
       const estNorm = estados.map(e => typeof e === 'string' ? { id: e, color: '#64748b', orden: 99 } : e);
