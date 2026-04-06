@@ -5648,8 +5648,8 @@
     .inc-compose-grid,
     .inc-history-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1.75fr) minmax(300px, 0.85fr);
-      gap: 28px;
+      grid-template-columns: 220px 1fr;
+      gap: 20px;
       align-items: start;
     }
 
@@ -7417,9 +7417,9 @@
     .resv2-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 10px;
-      padding: 16px 20px;
-      max-height: 50vh;
+      gap: 16px;
+      padding: 24px 28px;
+      max-height: 55vh;
       overflow-y: auto;
     }
 
@@ -7433,12 +7433,12 @@
     }
 
     .stat-box {
-      padding: 14px 16px;
+      padding: 16px 20px;
       border-radius: 16px;
       background: #f8fafc;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
       cursor: pointer;
       position: relative;
       transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
@@ -11354,20 +11354,7 @@
         </div>
 
         <div id="addTab" class="inc-content">
-          <div class="incidencias-hero">
-            <div class="inc-hero-copy">
-              <div class="inc-hero-eyebrow">
-                <span class="material-icons">edit_note</span>
-                <span>Incidencias &gt; Nueva nota</span>
-              </div>
-              <h3 class="inc-hero-title">Nueva Nota de Incidencia</h3>
-              <p class="inc-hero-subtitle">Documenta el evento con precision tecnica para el registro global de
-                operaciones, incluyendo prioridad, titulo y evidencia adjunta.</p>
-            </div>
-            <div class="inc-hero-side">Protocolo operativo v4.2</div>
-          </div>
-
-          <div class="inc-compose-grid">
+          <div class="inc-compose-grid" style="margin-top: 12px;">
             <div class="inc-form-panel">
               <div class="inc-form-card">
                 <div class="inc-field-grid">
