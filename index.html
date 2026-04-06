@@ -4830,6 +4830,152 @@
     }
 
 
+    /* --- ESTILOS BITÁCORA V2 HEADER --- */
+    .incv2-header {
+      position: relative;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .incv2-header-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #07162e 0%, #0d2a54 50%, #1763ae 100%);
+    }
+
+    .incv2-header-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      gap: 16px;
+    }
+
+    .incv2-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .incv2-header-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 900;
+      color: white;
+      letter-spacing: -0.5px;
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    }
+
+    .incv2-header-sub {
+      margin: 2px 0 0;
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.50);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .incv2-header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .incv2-stat-pills {
+      display: flex;
+      gap: 6px;
+    }
+
+    .incv2-stat-pill {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 14px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+    }
+
+    .incv2-stat-pill span {
+      font-size: 9px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .incv2-stat-pill strong {
+      font-size: 20px;
+      font-weight: 900;
+      color: white;
+      line-height: 1;
+    }
+
+    .incv2-stat-pill--danger strong {
+      color: #f87171;
+    }
+
+    .incv2-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+
+    .incv2-close:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .incv2-btn-new {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 14px;
+      border: none;
+      background: #0f172a;
+      color: white;
+      font-weight: 800;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-family: inherit;
+      transition: all 0.2s ease;
+      margin-top: 8px;
+    }
+
+    .incv2-btn-new:hover {
+      background: #1e293b;
+      transform: translateY(-1px);
+    }
+
+    @media (max-width: 768px) {
+      .incv2-header-content {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 14px 16px;
+      }
+
+      .incv2-stat-pills {
+        width: 100%;
+      }
+
+      .incv2-stat-pill {
+        flex: 1;
+      }
+    }
+
     /* --- ESTILOS BITÁCORA DE INCIDENCIAS --- */
     .inc-tabs {
       display: inline-flex;
@@ -11100,60 +11246,50 @@
   </div>
 
   <div id="incidencias-modal" class="fleet-modal">
-    <div class="fleet-header-top">
-      <div style="display:flex; align-items:center; gap: 12px;">
-        <span class="material-icons" style="color:var(--mex-accent); font-size:24px;">description</span>
-        <div style="display:flex; flex-direction:column; gap:3px;">
-          <h2 style="color:var(--primary); font-weight:900; margin:0;">BITÁCORA DE INCIDENCIAS</h2>
-          <p
-            style="margin:0; font-size:12px; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#7b8a94;">
-            Registro global con prioridad, adjuntos y seguimiento operativo</p>
+    <!-- HEADER V2: Navy gradient, compact -->
+    <div class="incv2-header">
+      <div class="incv2-header-bg"></div>
+      <div class="incv2-header-content">
+        <div class="incv2-header-left">
+          <span class="material-icons" style="font-size:22px; color:rgba(255,255,255,0.7);">description</span>
+          <div>
+            <h2 class="incv2-header-title">BITÁCORA</h2>
+            <p class="incv2-header-sub">Incidencias operativas</p>
+          </div>
+        </div>
+        <div class="incv2-header-right">
+          <div class="incv2-stat-pills">
+            <div class="incv2-stat-pill"><span>Activas</span><strong id="incStatPendientes">0</strong></div>
+            <div class="incv2-stat-pill"><span>Total</span><strong id="incStatTotal">0</strong></div>
+            <div class="incv2-stat-pill incv2-stat-pill--danger"><span>Críticas</span><strong id="incStatCriticas">0</strong></div>
+          </div>
+          <button class="incv2-close" onclick="cerrarIncidencias()">
+            <span class="material-icons" style="font-size:18px;">close</span>
+          </button>
         </div>
       </div>
-      <button onclick="cerrarIncidencias()"
-        style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
     </div>
 
     <div class="fleet-wrapper alerta-scroll-thin"
-      style="overflow-y: auto; background: var(--bg); padding: 28px; align-items: stretch;">
+      style="overflow-y: auto; background: #f7f9fb; padding: 20px; align-items: stretch;">
       <div class="incidencias-shell">
         <div class="inc-tabs">
-          <div class="inc-tab active" data-inc-tab="viewTab" onclick="switchIncTab(event, 'viewTab')">Historial Maestro
+          <div class="inc-tab active" data-inc-tab="viewTab" onclick="switchIncTab(event, 'viewTab')">Historial
           </div>
-          <div class="inc-tab" data-inc-tab="addTab" onclick="switchIncTab(event, 'addTab')">Nueva Nota</div>
+          <div class="inc-tab" data-inc-tab="addTab" onclick="switchIncTab(event, 'addTab')">+ Nueva</div>
         </div>
 
         <div id="viewTab" class="inc-content active">
           <div class="inc-history-shell">
-            <div class="inc-history-top">
-              <div class="inc-history-heading">
-                <h3>Registro Maestro de Incidencias</h3>
-                <p>Monitoreo global de operaciones criticas, evidencias visuales y resolucion de conflictos en tiempo
-                  real.</p>
-              </div>
-              <div class="inc-inline-stats">
-                <div class="inc-inline-stat">
-                  <span>Activas</span>
-                  <strong id="incStatPendientes">0</strong>
-                </div>
-                <div class="inc-inline-stat">
-                  <span>Total</span>
-                  <strong id="incStatTotal">0</strong>
-                </div>
-                <div class="inc-inline-stat is-danger">
-                  <span>Criticas</span>
-                  <strong id="incStatCriticas">0</strong>
-                </div>
-              </div>
-            </div>
 
-            <div class="inc-history-grid">
+            <div class="inc-history-grid" style="margin-top:0;">
+              <!-- SIDEBAR COMPACTA -->
               <aside class="inc-filter-column">
                 <div class="inc-filter-card">
-                  <h3 class="inc-filter-title">Filtrar por prioridad</h3>
+                  <h3 class="inc-filter-title">Prioridad</h3>
                   <div class="inc-filter-stack">
                     <label class="inc-filter-item">
-                      <span><span class="inc-filter-dot is-critica"></span> Critica</span>
+                      <span><span class="inc-filter-dot is-critica"></span> Crítica</span>
                       <input type="checkbox" id="incFilterCritica" checked onchange="filtrarListaNotas()">
                     </label>
                     <label class="inc-filter-item">
@@ -11172,51 +11308,45 @@
                 </div>
 
                 <div class="inc-filter-card">
-                  <h3 class="inc-filter-title">Estado del tablero</h3>
-                  <div style="display:flex; flex-wrap:wrap; gap:10px;">
+                  <h3 class="inc-filter-title">Estado</h3>
+                  <div style="display:flex; flex-wrap:wrap; gap:8px;">
                     <span class="inc-filter-pill"><span class="inc-filter-dot is-pendiente"></span><span
-                        id="incCountPendientes">0 Pendientes</span></span>
+                        id="incCountPendientes">0</span></span>
                     <span class="inc-filter-pill"><span class="inc-filter-dot is-resuelta"></span><span
-                        id="incCountResueltas">0 Resueltas</span></span>
+                        id="incCountResueltas">0</span></span>
                     <span class="inc-filter-pill"><span class="material-icons"
-                        style="font-size:15px;">attach_file</span><span id="incCountAdjuntos">0 Adjuntos</span></span>
+                        style="font-size:14px;">attach_file</span><span id="incCountAdjuntos">0</span></span>
                   </div>
                 </div>
 
-                <div class="inc-filter-card">
-                  <h3 class="inc-filter-title">Ayuda Operativa</h3>
-                  <p class="inc-filter-note">Las incidencias con prioridad critica deben documentar impacto,
-                    responsables y evidencia antes de cerrarse. Usa el buscador para localizar notas por autor, titulo,
-                    codigo o contenido.</p>
-                  <button class="btn-inline-inc" style="margin-top:16px;"
-                    onclick="switchIncTab({ target: document.querySelector('[data-inc-tab=&quot;addTab&quot;]') }, 'addTab')">
-                    <span class="material-icons" style="font-size:17px;">add</span> Crear nueva nota
-                  </button>
-                </div>
+                <button class="incv2-btn-new"
+                  onclick="switchIncTab({ target: document.querySelector('[data-inc-tab=&quot;addTab&quot;]') }, 'addTab')">
+                  <span class="material-icons" style="font-size:16px;">add</span> Nueva nota
+                </button>
               </aside>
 
               <div class="inc-list-column">
                 <div class="inc-history-toolbar">
                   <input type="text" id="buscadorNotas" class="search-input-inc"
-                    placeholder="Filtrar por autor, titulo, codigo o palabras clave..." onkeyup="filtrarListaNotas()">
+                    placeholder="Buscar..." onkeyup="filtrarListaNotas()">
                   <select id="filtroEstado" class="inc-select-filter" onchange="filtrarListaNotas()">
                     <option value="TODAS">Todas</option>
                     <option value="PENDIENTE">Pendientes</option>
                     <option value="RESUELTA">Resueltas</option>
                   </select>
                   <button class="btn-inline-inc" onclick="cargarNotasIncidencias()">
-                    <span class="material-icons" style="font-size:17px;">refresh</span> Actualizar
+                    <span class="material-icons" style="font-size:17px;">refresh</span>
                   </button>
                 </div>
 
                 <div id="listaNotas" class="inc-history-list">
                   <div class="inc-empty-state"><span class="material-icons spinner">sync</span>
-                    <div>Cargando registros...</div>
+                    <div>Cargando...</div>
                   </div>
                 </div>
 
                 <div class="inc-history-footer">
-                  <button class="inc-load-more" onclick="cargarNotasIncidencias()">Actualizar incidencias</button>
+                  <button class="inc-load-more" onclick="cargarNotasIncidencias()">Actualizar</button>
                 </div>
               </div>
             </div>
@@ -15542,9 +15672,9 @@
       setText('incStatTotal', total);
       setText('incStatPendientes', pendientes);
       setText('incStatCriticas', criticas);
-      setText('incCountPendientes', `${pendientes} Pendientes`);
-      setText('incCountResueltas', `${resueltas} Resueltas`);
-      setText('incCountAdjuntos', `${adjuntos} Adjuntos`);
+      setText('incCountPendientes', pendientes);
+      setText('incCountResueltas', resueltas);
+      setText('incCountAdjuntos', adjuntos);
     }
 
     function actualizarMetaNuevaNota() {
@@ -15845,7 +15975,7 @@
           : renderizarTextoNotaHtml(obtenerResumenNota(descripcion, 360));
         const puedeExpandir = descripcion.length > 360;
         const adjuntosHtml = renderizarAdjuntosIncidencia(Array.isArray(n.adjuntos) ? n.adjuntos : []);
-        const idSeguro = JSON.stringify(String(n.id));
+        const idSeguro = `'${String(n.id).replace(/'/g, "\\'")}'`;
 
         return `
       <div class="nota-card" data-prioridad="${escapeHtml(String(n.prioridad || 'MEDIA').toUpperCase())}">
@@ -19929,7 +20059,15 @@
       document.getElementById('buzon-modal').classList.add('active');
       document.getElementById('chat-window-view').style.transform = 'translateX(100%)';
       activeChatUser = null;
+      // Inject companyName
+      const lbl = document.getElementById('chatv2-company-label');
+      if (lbl) lbl.innerText = typeof companyName !== 'undefined' ? companyName : '';
       cargarMensajesDesdeServer();
+    }
+
+    function _linkifyText(text) {
+      const urlPattern = /(https?:\/\/[^\s<]+)/g;
+      return text.replace(urlPattern, '<a href="$1" target="_blank" rel="noopener">$1</a>');
     }
 
     function cargarMensajesDesdeServer() {
@@ -20068,14 +20206,15 @@
     function renderChatWindow() {
       const container = document.getElementById('chat-messages-container');
 
-      // 🔥 BLINDAJE FRONTAL: Agrupa los mensajes ignorando cualquier espacio extra
       let history = allChatMessages.filter(m =>
         String(m.remitente).trim().toUpperCase() === activeChatUser ||
         String(m.destinatario).trim().toUpperCase() === activeChatUser
       ).reverse();
 
       if (history.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:40px 20px; color:#94a3b8; font-weight:600; font-size:13px; background:white; border-radius:16px; border:1px dashed #cbd5e1; margin-top:20px;">👋 Este es el inicio de tu conversación segura con ${activeChatUser}.<br><br>Escribe un mensaje abajo para comenzar.</div>`;
+        container.innerHTML = `<div style="text-align:center; padding:40px 20px; color:#94a3b8; font-weight:600; font-size:12px; background:white; border-radius:16px; border:1px solid #f1f5f9; margin-top:20px;">
+          <span class="material-icons" style="font-size:32px; display:block; margin-bottom:8px; color:#cbd5e1;">chat_bubble_outline</span>
+          Inicio de la conversación con ${activeChatUser}<br><br>Escribe un mensaje para comenzar.</div>`;
         return;
       }
 
@@ -20085,16 +20224,30 @@
         let checkIcon = "";
         if (m.esMio) {
           checkIcon = m.leido ?
-            `<span class="material-icons" style="font-size:13px; color:#93c5fd;">done_all</span>` :
-            `<span class="material-icons" style="font-size:13px; opacity:0.6;">done</span>`;
+            `<span class="material-icons" style="font-size:12px; color:#93c5fd;">done_all</span>` :
+            `<span class="material-icons" style="font-size:12px; opacity:0.5;">done</span>`;
         }
 
         let partesFecha = String(m.fecha || "").split(' ');
         let horaLimpia = partesFecha.length > 1 ? partesFecha[1] : "";
 
+        // Linkify + file rendering
+        let contenido = _linkifyText(escapeHtml(m.mensaje));
+
+        // Render file attachment if present
+        let fileHtml = "";
+        if (m.archivoUrl) {
+          const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(m.archivoNombre || '');
+          if (isImg) {
+            fileHtml = `<div class="chat-file-preview"><img src="${m.archivoUrl}" alt="${escapeHtml(m.archivoNombre || 'Imagen')}"></div>`;
+          } else {
+            fileHtml = `<div class="chat-file-preview"><span class="material-icons" style="font-size:14px; vertical-align:middle;">description</span> <a href="${m.archivoUrl}" target="_blank" rel="noopener">${escapeHtml(m.archivoNombre || 'Archivo adjunto')}</a></div>`;
+          }
+        }
+
         return `
        <div class="chat-bubble ${typeClass}">
-          ${m.mensaje}
+          ${contenido}${fileHtml}
           <span class="chat-time">${horaLimpia} ${checkIcon}</span>
        </div>
      `;
@@ -20130,7 +20283,45 @@
       api.enviarMensajePrivado(USER_NAME, activeChatUser, txt).then(() => hacerPingNotificaciones()).catch(e => console.error(e));
     }
 
+    async function enviarArchivoChatV2(inputEl) {
+      if (!inputEl.files || !inputEl.files[0] || !activeChatUser) return;
+      const file = inputEl.files[0];
+      if (file.size > 10 * 1024 * 1024) {
+        showToast("Archivo demasiado grande (máx 10MB)", "error");
+        inputEl.value = "";
+        return;
+      }
 
+      const ts = Date.now();
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const storagePath = `mensajes_chat/${ts}-${safeName}`;
+
+      showToast("Subiendo archivo...", "info");
+      try {
+        const storageRef = firebase.storage().ref(storagePath);
+        const snap = await storageRef.put(file);
+        const url = await snap.ref.getDownloadURL();
+
+        const now = new Date();
+        const tempDate = ("0" + now.getDate()).slice(-2) + "/" + ("0" + (now.getMonth() + 1)).slice(-2) + "/" + now.getFullYear() + " " + ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
+
+        const msgText = `📎 ${file.name}`;
+
+        allChatMessages.unshift({
+          id: ts, fecha: tempDate, remitente: USER_NAME, destinatario: activeChatUser,
+          mensaje: msgText, leido: false, esMio: true,
+          archivoUrl: url, archivoNombre: file.name
+        });
+
+        renderChatWindow();
+        api.enviarMensajePrivado(USER_NAME, activeChatUser, msgText, url, file.name).then(() => hacerPingNotificaciones()).catch(e => console.error(e));
+        showToast("Archivo enviado", "success");
+      } catch (err) {
+        console.error("Error upload chat file:", err);
+        showToast("Error al subir archivo", "error");
+      }
+      inputEl.value = "";
+    }
     // ==========================================
     // 🧠 PARSER INTELIGENTE DE ACTIVIDAD DIARIA
     // ==========================================
@@ -22971,11 +23162,124 @@
 
 
     /* =========================================
-       💬 ESTILOS DE CHAT (TIPO WHATSAPP)
+       💬 CHAT V2 — STITCH ENTERPRISE
        ========================================= */
+    .chatv2-modal {
+      border-radius: 0 !important;
+    }
+
+    .chatv2-header {
+      position: relative;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .chatv2-header-bg {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, #07162e 0%, #0d2a54 50%, #1763ae 100%);
+    }
+
+    .chatv2-header-content {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+    }
+
+    .chatv2-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .chatv2-header-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 900;
+      color: white;
+      letter-spacing: -0.3px;
+    }
+
+    .chatv2-header-sub {
+      margin: 1px 0 0;
+      font-size: 10px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.45);
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    .chatv2-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+
+    .chatv2-close:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* contacts */
+    .chatv2-contacts {
+      width: 100%;
+      height: 100%;
+      overflow-y: auto;
+      background: white;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chatv2-search-bar {
+      padding: 12px 16px;
+      background: #f7f9fb;
+      border-bottom: 1px solid #f1f5f9;
+      position: relative;
+    }
+
+    .chatv2-search-icon {
+      position: absolute;
+      left: 28px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 18px;
+      color: #94a3b8;
+      pointer-events: none;
+    }
+
+    .chatv2-search-input {
+      width: 100%;
+      padding: 10px 14px 10px 40px;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: white;
+      font-weight: 600;
+      font-size: 13px;
+      outline: none;
+      font-family: inherit;
+      color: #0f172a;
+      box-sizing: border-box;
+      transition: border-color 0.2s;
+    }
+
+    .chatv2-search-input:focus {
+      border-color: #93c5fd;
+    }
+
     .chat-contact {
-      padding: 13px 16px;
-      border-bottom: 1px solid #f0f0f0;
+      padding: 14px 16px;
+      border-bottom: 1px solid #f1f5f9;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -22984,91 +23288,256 @@
     }
 
     .chat-contact:hover {
-      background: #f5f5f5;
-    }
-
-    .chat-contact:active {
-      background: #ebebeb;
+      background: #f8fafc;
     }
 
     .chat-avatar {
-      width: 46px;
-      height: 46px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: 900;
-      font-size: 19px;
+      font-size: 16px;
       flex-shrink: 0;
       color: white;
     }
 
+    /* chat window */
+    .chatv2-window {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      transform: translateX(100%);
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      background: #f7f9fb;
+    }
+
+    .chatv2-chat-header {
+      background: linear-gradient(135deg, #07162e, #0d2a54);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .chatv2-back {
+      background: transparent;
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      padding: 4px;
+    }
+
+    .chatv2-active-name {
+      font-size: 14px;
+      color: white;
+      font-weight: 800;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chatv2-active-status {
+      font-size: 10px;
+      color: rgba(255, 255, 255, 0.45);
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    /* messages area */
+    .chatv2-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px 8px;
+      background: #f7f9fb;
+      display: block;
+    }
+
     .chat-bubble {
-      max-width: 78%;
-      padding: 7px 12px 20px 12px;
-      font-size: 13.5px;
-      line-height: 1.45;
+      max-width: 75%;
+      padding: 10px 14px 22px;
+      font-size: 13px;
+      line-height: 1.5;
       position: relative;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
       font-weight: 500;
       clear: both;
       word-wrap: break-word;
-      border-radius: 7.5px;
+      border-radius: 16px;
     }
 
     .chat-bubble.sent {
-      background: #dcf8c6;
-      color: #111;
+      background: #0d2a54;
+      color: white;
       float: right;
-      border-radius: 7.5px 7.5px 0 7.5px;
-      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.13);
+      border-radius: 16px 16px 4px 16px;
+      box-shadow: 0 4px 12px rgba(13, 42, 84, 0.15);
     }
 
     .chat-bubble.received {
       background: white;
-      color: #111;
+      color: #0f172a;
       float: left;
-      border-radius: 7.5px 7.5px 7.5px 0;
-      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.13);
+      border-radius: 16px 16px 16px 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+      border: 1px solid #f1f5f9;
+    }
+
+    .chat-bubble a {
+      color: #3b82f6;
+      text-decoration: underline;
+      word-break: break-all;
+    }
+
+    .chat-bubble.sent a {
+      color: #93c5fd;
+    }
+
+    .chat-bubble .chat-file-preview {
+      display: block;
+      margin-top: 6px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .chat-bubble.received .chat-file-preview {
+      background: #f1f5f9;
+    }
+
+    .chat-bubble .chat-file-preview img {
+      max-width: 200px;
+      max-height: 160px;
+      border-radius: 8px;
+      margin-top: 4px;
+      display: block;
     }
 
     .chat-time {
-      font-size: 10px;
-      color: #8696a0;
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.50);
       position: absolute;
-      bottom: 5px;
-      right: 10px;
+      bottom: 6px;
+      right: 12px;
       display: flex;
       align-items: center;
       gap: 3px;
     }
 
-    .chat-time .check {
-      color: #53bdeb;
-      font-size: 12px;
+    .chat-bubble.received .chat-time {
+      color: #94a3b8;
     }
 
     .chat-date-sep {
       text-align: center;
-      margin: 12px 0;
+      margin: 14px 0;
       clear: both;
     }
 
     .chat-date-sep span {
-      background: #d9fdd3;
-      color: #54656f;
-      font-size: 11.5px;
-      font-weight: 600;
-      padding: 4px 12px;
-      border-radius: 8px;
-      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1);
+      background: #e2e8f0;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 5px 14px;
+      border-radius: 999px;
+      letter-spacing: 0.3px;
     }
 
     #chat-messages-container::after {
       content: '';
       display: block;
       clear: both;
+    }
+
+    /* input bar */
+    .chatv2-input-bar {
+      background: white;
+      padding: 10px 14px;
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      flex-shrink: 0;
+      border-top: 1px solid #f1f5f9;
+    }
+
+    .chatv2-attach-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .chatv2-attach-btn:hover {
+      background: #e2e8f0;
+      color: #0d2a54;
+    }
+
+    .chatv2-input-box {
+      flex: 1;
+      background: #f8fafc;
+      border-radius: 14px;
+      padding: 8px 16px;
+      border: 1.5px solid #e2e8f0;
+      transition: border-color 0.2s;
+    }
+
+    .chatv2-input-box:focus-within {
+      border-color: #93c5fd;
+    }
+
+    .chatv2-textarea {
+      width: 100%;
+      border: none;
+      outline: none;
+      font-family: inherit;
+      font-weight: 500;
+      font-size: 13px;
+      resize: none;
+      max-height: 100px;
+      background: transparent;
+      color: #0f172a;
+    }
+
+    .chatv2-send-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #0d2a54 0%, #1d4ed8 100%);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(13, 42, 84, 0.25);
+    }
+
+    .chatv2-send-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(13, 42, 84, 0.30);
     }
   </style>
 
@@ -23134,77 +23603,72 @@
   </div>
 
 
-  <div id="buzon-modal" class="fleet-modal" style="z-index: 8000; border-radius: 16px; overflow: hidden;">
+  <div id="buzon-modal" class="fleet-modal chatv2-modal" style="z-index: 8000;">
 
-    <!-- Header verde WhatsApp -->
-    <div
-      style="background: #075E54; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
-      <div style="display:flex; align-items:center; gap: 12px;">
-        <span class="material-icons" style="color: #25D366; font-size: 22px;">forum</span>
-        <h2 style="color: white; font-weight:900; margin:0; font-size: 17px; letter-spacing: 0.5px;">MENSAJES</h2>
+    <!-- Header enterprise navy -->
+    <div class="chatv2-header">
+      <div class="chatv2-header-bg"></div>
+      <div class="chatv2-header-content">
+        <div class="chatv2-header-left">
+          <span class="material-icons" style="font-size:20px; color:rgba(255,255,255,0.7);">forum</span>
+          <div>
+            <h2 class="chatv2-header-title">Mensajes Internos</h2>
+            <p class="chatv2-header-sub" id="chatv2-company-label"></p>
+          </div>
+        </div>
+        <button class="chatv2-close" onclick="document.getElementById('buzon-modal').classList.remove('active')">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
       </div>
-      <button onclick="document.getElementById('buzon-modal').classList.remove('active')"
-        style="background: rgba(255,255,255,0.15); color: white; border:none; padding: 7px 16px; border-radius:20px; font-size:12px; font-weight:800; cursor:pointer; backdrop-filter: blur(5px);">✕
-        CERRAR</button>
     </div>
 
     <div class="fleet-wrapper"
-      style="padding: 0; background: #f0f0f0; position: relative; overflow: hidden; flex-direction: row;">
+      style="padding: 0; background: #f7f9fb; position: relative; overflow: hidden; flex-direction: row;">
 
       <!-- Lista de contactos -->
-      <div id="chat-contacts-view"
-        style="width: 100%; height: 100%; overflow-y: auto; background: white; display: flex; flex-direction: column;">
-        <div style="padding: 10px 12px; background: #f6f6f6; border-bottom: 1px solid #e9e9e9;">
-          <div
-            style="display:flex; align-items:center; background: white; border-radius: 20px; padding: 8px 14px; gap: 8px; border: 1px solid #e0e0e0;">
-            <span class="material-icons" style="font-size:18px; color:#8696a0;">search</span>
-            <input type="text" id="buscadorContactos" placeholder="Buscar..." onkeyup="renderContactos()"
-              style="flex:1; border:none; outline:none; font-family:inherit; font-weight:500; font-size:14px; color:#111; background:transparent;">
-          </div>
+      <div id="chat-contacts-view" class="chatv2-contacts">
+        <div class="chatv2-search-bar">
+          <span class="material-icons chatv2-search-icon">search</span>
+          <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar contacto..." onkeyup="renderContactos()">
         </div>
         <div id="listaContactosContainer" style="flex:1; overflow-y:auto;">
-          <div style="text-align:center; padding:40px; color:#8696a0;"><span class="material-icons spinner">sync</span>
-          </div>
+          <div style="text-align:center; padding:40px; color:#94a3b8;"><span class="material-icons spinner">sync</span></div>
         </div>
       </div>
 
       <!-- Ventana de chat individual -->
-      <div id="chat-window-view"
-        style="width: 100%; height: 100%; position: absolute; top: 0; left: 0; transform: translateX(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; z-index: 10;">
+      <div id="chat-window-view" class="chatv2-window">
 
         <!-- Header del chat activo -->
-        <div
-          style="background: #075E54; padding: 8px 14px; display: flex; align-items: center; gap: 12px; flex-shrink:0;">
-          <button onclick="cerrarChat()"
-            style="background: transparent; border:none; color: white; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:4px;"><span
-              class="material-icons" style="font-size:22px;">arrow_back</span></button>
-          <div class="chat-avatar" id="chat-active-avatar" style="width: 38px; height: 38px; font-size: 15px;">U</div>
+        <div class="chatv2-chat-header">
+          <button class="chatv2-back" onclick="cerrarChat()">
+            <span class="material-icons" style="font-size:20px;">arrow_back</span>
+          </button>
+          <div class="chat-avatar" id="chat-active-avatar" style="width: 36px; height: 36px; font-size: 14px;">U</div>
           <div style="flex:1; overflow:hidden;">
-            <div id="chat-active-name"
-              style="font-size: 15px; color: white; font-weight: 700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-              Nombre</div>
-            <div style="font-size: 11px; color: #25D366; font-weight: 600;">En línea</div>
+            <div id="chat-active-name" class="chatv2-active-name">Nombre</div>
+            <div class="chatv2-active-status">Conversación segura</div>
           </div>
         </div>
 
-        <!-- Área de mensajes con fondo tipo WhatsApp -->
-        <div id="chat-messages-container"
-          style="flex: 1; overflow-y: auto; padding: 12px 16px 8px 16px; background: #ece5dd url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2260%22 height=%2260%22 opacity=%220.04%22><text y=%2240%22 font-size=%2240%22>💬</text></svg>') repeat; display: block;">
-        </div>
+        <!-- Área de mensajes limpia -->
+        <div id="chat-messages-container" class="chatv2-messages"></div>
 
-        <!-- Input bar -->
-        <div
-          style="background: #f0f0f0; padding: 8px 10px; display: flex; gap: 8px; align-items: flex-end; flex-shrink:0;">
-          <div
-            style="flex:1; background: white; border-radius: 24px; padding: 10px 16px; display:flex; align-items:flex-end; gap:8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-            <textarea id="chat-input" rows="1" placeholder="Escribe un mensaje..."
-              style="flex:1; border:none; outline:none; font-family:inherit; font-weight:500; font-size:14px; resize:none; max-height: 100px; background:transparent; color:#111;"
+        <!-- Input bar enterprise -->
+        <div class="chatv2-input-bar">
+          <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx"
+            onchange="enviarArchivoChatV2(this)">
+          <button class="chatv2-attach-btn" onclick="document.getElementById('chatFileInput').click()" title="Adjuntar archivo">
+            <span class="material-icons" style="font-size:20px;">attach_file</span>
+          </button>
+          <div class="chatv2-input-box">
+            <textarea id="chat-input" rows="1" class="chatv2-textarea" placeholder="Escribe un mensaje..."
               oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
           </div>
-          <button onclick="enviarMensajeChat()"
-            style="background: #25D366; color: white; border: none; border-radius: 50%; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink:0; transition:0.2s; box-shadow: 0 2px 8px rgba(37,211,102,0.4);"><span
-              class="material-icons" style="font-size:22px; margin-left:3px;">send</span></button>
+          <button class="chatv2-send-btn" onclick="enviarMensajeChat()">
+            <span class="material-icons" style="font-size:20px;">send</span>
+          </button>
         </div>
 
       </div>
