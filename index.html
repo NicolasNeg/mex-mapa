@@ -4860,6 +4860,85 @@
       }
     }
 
+    /* ─── EMPRESA TAB REDESIGN ─── */
+    .cfg-emp-card { background: white; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; margin-bottom: 0; }
+    .cfg-emp-section-header { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
+    .cfg-emp-section-header .material-icons { font-size: 16px; color: var(--mex-accent); }
+    .cfg-emp-field { margin-bottom: 14px; }
+    .cfg-emp-field > label { display: block; font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 5px; }
+    .cfg-emp-input { width: 100%; box-sizing: border-box; padding: 11px 14px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--text); transition: .15s; font-family: inherit; background: white; }
+    .cfg-emp-input:focus { outline: none; border-color: var(--mex-accent); }
+    .cfg-emp-logo-zone { border: 2px dashed #cbd5e1; border-radius: 14px; padding: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; cursor: pointer; transition: .2s; background: #f8fafc; min-height: 120px; }
+    .cfg-emp-logo-zone:hover { border-color: var(--mex-accent); background: #eff6ff; }
+    .cfg-emp-logo-zone img { max-height: 80px; max-width: 220px; object-fit: contain; border-radius: 8px; }
+    .cfg-emp-logo-placeholder { display: flex; flex-direction: column; align-items: center; gap: 6px; color: #94a3b8; }
+    .cfg-emp-logo-placeholder .material-icons { font-size: 38px; }
+    .cfg-emp-logo-placeholder span { font-size: 12px; font-weight: 700; }
+    .cfg-emp-color-row { display: flex; align-items: center; gap: 12px; }
+    .cfg-emp-color-row input[type=color] { width: 48px; height: 44px; border: 2px solid #e2e8f0; border-radius: 10px; cursor: pointer; padding: 2px; flex-shrink: 0; }
+    .cfg-emp-color-val { font-size: 13px; font-weight: 800; color: #475569; font-family: monospace; }
+    .cfg-email-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; min-height: 32px; }
+    .cfg-email-tag { display: flex; align-items: center; gap: 5px; background: #e0f2fe; color: #0369a1; border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 700; }
+    .cfg-email-tag button { background: none; border: none; cursor: pointer; color: #0369a1; padding: 0; display: flex; align-items: center; font-size: 16px; line-height: 1; opacity: .7; }
+    .cfg-email-tag button:hover { opacity: 1; }
+    .cfg-email-add-row { display: flex; gap: 8px; }
+    .cfg-email-add-row input { flex: 1; padding: 9px 12px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 13px; font-weight: 600; font-family: inherit; outline: none; box-sizing: border-box; background: white; }
+    .cfg-email-add-row input:focus { border-color: var(--mex-accent); }
+    .cfg-email-add-row button { background: var(--mex-blue); color: white; border: none; border-radius: 10px; padding: 0 16px; font-weight: 800; font-size: 12px; cursor: pointer; white-space: nowrap; }
+    .cfg-emp-plazas-grid { display: flex; flex-direction: column; gap: 6px; }
+    .cfg-emp-plaza-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+    .cfg-emp-plaza-item-left { display: flex; align-items: center; gap: 10px; }
+    .cfg-emp-plaza-badge { width: 32px; height: 32px; border-radius: 8px; background: var(--mex-blue); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 11px; flex-shrink: 0; }
+
+    /* ─── PLAZAS TAB ─── */
+    .cfg-plazas-body { display: flex; height: auto; min-height: 55vh; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; margin: 0 10px; }
+    .cfg-plazas-list-col { width: 260px; min-width: 200px; overflow-y: auto; background: #f8fafc; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; flex-shrink: 0; }
+    .cfg-plazas-add-bar { padding: 12px 14px; background: white; border-bottom: 1px solid #e2e8f0; display: flex; gap: 8px; flex-shrink: 0; }
+    .cfg-plazas-add-bar input { flex: 1; padding: 8px 12px; border: 1.5px solid #e2e8f0; border-radius: 8px; font-size: 13px; font-weight: 700; font-family: inherit; outline: none; }
+    .cfg-plazas-add-bar input:focus { border-color: var(--mex-accent); }
+    .cfg-plazas-add-bar button { background: var(--mex-blue); color: white; border: none; border-radius: 8px; padding: 0 14px; font-weight: 800; font-size: 11px; cursor: pointer; }
+    .cfg-plazas-cards { padding: 12px; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; flex: 1; }
+    .cfg-plazas-edit-col { flex: 1; overflow-y: auto; padding: 24px; display: flex; align-items: flex-start; justify-content: center; background: #f1f5f9; }
+    .cfg-plaza-card { background: white; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: .15s; }
+    .cfg-plaza-card:hover { border-color: var(--mex-accent); background: #f0f9ff; }
+    .cfg-plaza-card.active { border-color: var(--mex-accent); background: #eff6ff; box-shadow: 0 0 0 3px rgba(59,130,246,.14); }
+    .cfg-plaza-icon { width: 38px; height: 38px; border-radius: 10px; background: var(--mex-blue); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 12px; flex-shrink: 0; letter-spacing: -.5px; }
+    .cfg-plaza-info { flex: 1; min-width: 0; }
+    .cfg-plaza-name { font-weight: 800; font-size: 13px; color: var(--text); }
+    .cfg-plaza-local { font-size: 11px; color: #64748b; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cfg-plaza-form-card { background: white; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px; width: 100%; max-width: 420px; box-sizing: border-box; }
+    .cfg-plaza-form-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #f1f5f9; }
+    .cfg-plaza-form-icon { width: 48px; height: 48px; border-radius: 12px; background: var(--mex-blue); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; flex-shrink: 0; }
+    .cfg-plaza-form-title { font-size: 17px; font-weight: 900; color: var(--text); }
+    .cfg-plaza-form-sub { font-size: 12px; color: #64748b; font-weight: 600; margin-top: 2px; }
+    .cfg-plaza-form-field { margin-bottom: 14px; }
+    .cfg-plaza-form-field label { display: block; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+    .cfg-plaza-form-field input { width: 100%; box-sizing: border-box; padding: 10px 13px; border: 1.5px solid #e2e8f0; border-radius: 10px; font-size: 14px; font-weight: 700; color: var(--text); font-family: inherit; transition: .15s; background: white; }
+    .cfg-plaza-form-field input:focus { outline: none; border-color: var(--mex-accent); }
+    .cfg-plaza-form-section { font-size: 10px; font-weight: 900; letter-spacing: .1em; color: #94a3b8; text-transform: uppercase; margin: 18px 0 10px; }
+    .cfg-plaza-placeholder { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #94a3b8; text-align: center; padding: 40px 20px; }
+    .cfg-plaza-placeholder .material-icons { font-size: 48px; }
+    .cfg-plaza-placeholder p { font-size: 13px; font-weight: 700; line-height: 1.6; margin: 0; }
+    .cfg-plaza-delete-btn { background: #fee2e2; color: #ef4444; border: none; border-radius: 8px; padding: 5px 8px; cursor: pointer; display: flex; align-items: center; }
+
+    /* Dark overrides for Empresa + Plazas */
+    body.dark-theme .cfg-emp-card { background: #1a2a3d !important; border-color: #1e3a5f !important; }
+    body.dark-theme .cfg-emp-section-header { border-bottom-color: #1e293b !important; }
+    body.dark-theme .cfg-emp-input,
+    body.dark-theme .cfg-plaza-form-field input { background: #0d1929 !important; border-color: #1e3a5f !important; color: #e2e8f0 !important; }
+    body.dark-theme .cfg-emp-logo-zone { background: #0d1929 !important; border-color: #1e3a5f !important; }
+    body.dark-theme .cfg-email-add-row input { background: #0d1929 !important; border-color: #1e3a5f !important; color: #e2e8f0 !important; }
+    body.dark-theme .cfg-emp-plaza-item { background: #0d1929 !important; border-color: #1e3a5f !important; }
+    body.dark-theme .cfg-plazas-body { border-color: #1e293b !important; }
+    body.dark-theme .cfg-plazas-list-col { background: #0d1929 !important; border-right-color: #1e293b !important; }
+    body.dark-theme .cfg-plazas-add-bar { background: #1a2a3d !important; border-bottom-color: #1e293b !important; }
+    body.dark-theme .cfg-plazas-add-bar input { background: #0d1929 !important; border-color: #1e3a5f !important; color: #e2e8f0 !important; }
+    body.dark-theme .cfg-plazas-edit-col { background: #081628 !important; }
+    body.dark-theme .cfg-plaza-card { background: #1a2a3d !important; border-color: #1e3a5f !important; }
+    body.dark-theme .cfg-plaza-card:hover { background: #1e3a5f !important; }
+    body.dark-theme .cfg-plaza-card.active { background: #0a2a4a !important; border-color: #3b82f6 !important; }
+    body.dark-theme .cfg-plaza-form-card { background: #1a2a3d !important; border-color: #1e3a5f !important; }
+
     /* 3. Píldoras de colores para el Historial (Logs) */
     .badge.st-INFO {
       background: #e0f2fe;
@@ -15285,6 +15364,11 @@
 
     function _umRenderCards() {
       const container = document.getElementById('um-cards-container');
+      // Guard: el contenedor puede no estar en el DOM si el tab fue cambiado
+      if (!container) {
+        if (_unsubUsuarios) { _unsubUsuarios(); _unsubUsuarios = null; }
+        return;
+      }
       const q = (document.getElementById('um-search')?.value || '').toLowerCase().trim();
       const list = q
         ? _umUsers.filter(u => u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
@@ -21982,13 +22066,18 @@
     }
 
     function abrirTabConfig(tabName, btnElement) {
+      // Si estábamos en el tab de usuarios, desuscribir el listener
+      if (TAB_ACTIVA_CFG === 'usuarios' && _unsubUsuarios) {
+        _unsubUsuarios(); _unsubUsuarios = null;
+        _umUsers = []; _umSelectedId = null;
+      }
+
       document.querySelectorAll('.cfg-tab').forEach(btn => btn.classList.remove('active'));
       btnElement.classList.add('active');
-      // Accept 'ubicaciones' directly or legacy 'cfg-ubicaciones'
       TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
       
       const searchBox = document.querySelector('.cfg-v2-add-bar');
-      const tabsSinBarra = ['empresa', 'usuarios', 'solicitudes'];
+      const tabsSinBarra = ['empresa', 'usuarios', 'solicitudes', 'plazas'];
       if(tabsSinBarra.includes(TAB_ACTIVA_CFG)) {
          if(searchBox) searchBox.style.display = 'none';
       } else {
@@ -22002,30 +22091,125 @@
       const container = document.getElementById('cfg-lista-items');
       
       if(TAB_ACTIVA_CFG === 'empresa') {
-        const emp = window.MEX_CONFIG.empresa || { nombre: "MEX RENT A CAR" };
+        const emp = window.MEX_CONFIG.empresa || {};
+        const correosInternos = emp.correosInternos || [];
+        const correoTagsHtml = correosInternos.map((c, i) => `
+          <span class="cfg-email-tag">
+            <span class="material-icons" style="font-size:13px; margin-right:2px;">alternate_email</span>
+            ${escapeHtml(c)}
+            <button onclick="eliminarCorreoInterno(${i})" title="Eliminar">×</button>
+          </span>
+        `).join('');
+
+        const logoHtml = emp.logoURL
+          ? `<img src="${escapeHtml(emp.logoURL)}" alt="Logo empresa"><div style="margin-top:6px; font-size:11px; font-weight:700; color:#64748b;">Click para cambiar</div>`
+          : `<div class="cfg-emp-logo-placeholder">
+               <span class="material-icons">add_photo_alternate</span>
+               <span>Click para subir logo</span>
+               <span style="font-size:10px; color:#cbd5e1;">PNG, JPG, SVG</span>
+             </div>`;
+
         const plazasHtml = (emp.plazas || []).map((p, idx) => `
-          <div style="display:flex; justify-content:space-between; padding:8px; border:1px solid #e2e8f0; margin-bottom:5px; border-radius:6px; background:#f8fafc;">
-            <strong>${escapeHtml(p)}</strong>
-            <button onclick="window.MEX_CONFIG.empresa.plazas.splice(${idx},1); renderizarListaConfig();" class="material-icons" style="font-size:16px; color:#ef4444; border:none; background:none; cursor:pointer;" title="Eliminar Plaza">delete</button>
+          <div class="cfg-emp-plaza-item">
+            <div class="cfg-emp-plaza-item-left">
+              <div class="cfg-emp-plaza-badge">${escapeHtml((p).slice(0,3))}</div>
+              <strong style="font-size:14px;">${escapeHtml(p)}</strong>
+            </div>
+            <button class="cfg-plaza-delete-btn" onclick="window.MEX_CONFIG.empresa.plazas.splice(${idx},1); renderizarListaConfig();" title="Eliminar Plaza">
+              <span class="material-icons" style="font-size:16px;">delete</span>
+            </button>
           </div>
         `).join('');
 
         container.innerHTML = `
-          <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
-            <h3 style="margin-top:0;">Configuración de la Empresa</h3>
-            <label style="display:block; margin-bottom:5px; font-weight:700; color:#475569;">Nombre de la Empresa</label>
-            <input type="text" id="cfg-empresa-nombre" class="form-control" value="${escapeHtml(emp.nombre || '')}" placeholder="Ej: MEX RENT A CAR" onchange="window.MEX_CONFIG.empresa.nombre = this.value">
-            
-            <label style="display:block; margin-top:15px; margin-bottom:5px; font-weight:700; color:#475569;">Color Principal (Hex)</label>
-            <input type="color" id="cfg-empresa-color" value="${escapeHtml(emp.colorPrincipal || '#004a99')}" style="width:50px; height:40px; cursor:pointer;" onchange="window.MEX_CONFIG.empresa.colorPrincipal = this.value">
-            
-            <hr style="border:none; border-top:1px solid #e2e8f0; margin: 20px 0;">
-            <label style="display:block; margin-bottom:5px; font-weight:700; color:#475569;">Catálogo Maestro de Plazas (Sucursales/Regiones)</label>
-            <div style="display:flex; gap:10px; margin-bottom:10px;">
-              <input type="text" id="cfg-empresa-plaza-add" class="form-control" placeholder="Ej: GDL">
-              <button onclick="const input = document.getElementById('cfg-empresa-plaza-add'); const p = input.value.trim().toUpperCase(); if(p && !(window.MEX_CONFIG.empresa.plazas || []).includes(p)) { window.MEX_CONFIG.empresa.plazas = window.MEX_CONFIG.empresa.plazas || []; window.MEX_CONFIG.empresa.plazas.push(p); renderizarListaConfig(); }" style="background:var(--mex-blue); color:white; border:none; border-radius:8px; padding:0 15px; cursor:pointer; font-weight:700;">AÑADIR</button>
+          <div style="display:flex; flex-direction:column; gap:14px; width:100%;">
+
+            <!-- Identidad Visual -->
+            <div class="cfg-emp-card">
+              <div class="cfg-emp-section-header">
+                <span class="material-icons">palette</span>
+                Identidad Visual
+              </div>
+
+              <div class="cfg-emp-field">
+                <label>Logo de la Empresa</label>
+                <div class="cfg-emp-logo-zone" id="cfg-logo-zone" onclick="document.getElementById('cfg-logo-file').click()">
+                  ${logoHtml}
+                </div>
+                <input type="file" id="cfg-logo-file" accept="image/*" style="display:none" onchange="subirLogoEmpresa(this)">
+                ${emp.logoURL ? `<div style="margin-top:8px; display:flex; align-items:center; gap:10px;">
+                  <span style="font-size:11px; font-weight:800; color:#10b981; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">check_circle</span> Logo activo</span>
+                  <button onclick="eliminarLogoEmpresa()" style="background:#fee2e2;color:#ef4444;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;">ELIMINAR</button>
+                </div>` : ''}
+              </div>
+
+              <div class="cfg-emp-field">
+                <label>Nombre de la Empresa</label>
+                <input type="text" id="cfg-empresa-nombre" class="cfg-emp-input" value="${escapeHtml(emp.nombre || '')}" placeholder="Ej: MEX RENT A CAR" onchange="window.MEX_CONFIG.empresa.nombre = this.value">
+              </div>
+
+              <div class="cfg-emp-field">
+                <label>Color Principal</label>
+                <div class="cfg-emp-color-row">
+                  <input type="color" id="cfg-empresa-color" value="${emp.colorPrincipal || '#004a99'}" onchange="window.MEX_CONFIG.empresa.colorPrincipal = this.value; document.getElementById('cfg-color-val').textContent = this.value;">
+                  <span class="cfg-emp-color-val" id="cfg-color-val">${emp.colorPrincipal || '#004a99'}</span>
+                  <span style="font-size:11px; color:#94a3b8; font-weight:600;">Aplica al guardar</span>
+                </div>
+              </div>
             </div>
-            <div>${plazasHtml || '<span style="font-size:12px; color:#94a3b8;">No hay plazas configuradas.</span>'}</div>
+
+            <!-- Correos Corporativos -->
+            <div class="cfg-emp-card">
+              <div class="cfg-emp-section-header">
+                <span class="material-icons">alternate_email</span>
+                Correos Corporativos
+              </div>
+
+              <div class="cfg-emp-field">
+                <label>Correo de la Empresa</label>
+                <input type="email" id="cfg-correo-empresa" class="cfg-emp-input" value="${escapeHtml(emp.correoEmpresa || '')}" placeholder="contacto@tuempresa.com" onchange="window.MEX_CONFIG.empresa.correoEmpresa = this.value">
+              </div>
+
+              <div class="cfg-emp-field">
+                <label>Correo de Facturación</label>
+                <input type="email" id="cfg-correo-facturacion" class="cfg-emp-input" value="${escapeHtml(emp.correoFacturacion || '')}" placeholder="facturacion@tuempresa.com" onchange="window.MEX_CONFIG.empresa.correoFacturacion = this.value">
+              </div>
+            </div>
+
+            <!-- Correos Internos -->
+            <div class="cfg-emp-card">
+              <div class="cfg-emp-section-header">
+                <span class="material-icons">notifications_active</span>
+                Correos Internos · MAPA
+              </div>
+              <p style="font-size:12px; color:#64748b; font-weight:600; margin-bottom:14px; line-height:1.6;">
+                Reciben notificaciones automáticas del sistema (alertas, resúmenes, eventos críticos).
+              </p>
+              <div class="cfg-email-tags" id="cfg-correos-internos-tags">
+                ${correoTagsHtml || '<span style="font-size:12px; color:#cbd5e1; font-weight:700;">Sin correos internos configurados.</span>'}
+              </div>
+              <div class="cfg-email-add-row">
+                <input type="email" id="cfg-correo-interno-input" placeholder="nuevo@correo.com" onkeydown="if(event.key==='Enter') agregarCorreoInterno()">
+                <button onclick="agregarCorreoInterno()">+ AÑADIR</button>
+              </div>
+            </div>
+
+            <!-- Catálogo de Plazas -->
+            <div class="cfg-emp-card">
+              <div class="cfg-emp-section-header">
+                <span class="material-icons">location_city</span>
+                Catálogo de Plazas
+                <span style="margin-left:auto; font-size:10px; color:#94a3b8; font-weight:600; text-transform:none; letter-spacing:0;">Config. detallada → tab "Plazas"</span>
+              </div>
+              <div style="display:flex; gap:10px; margin-bottom:12px;">
+                <input type="text" id="cfg-empresa-plaza-add" class="cfg-emp-input" style="flex:1;" placeholder="Ej: GDL">
+                <button onclick="const input=document.getElementById('cfg-empresa-plaza-add');const p=input.value.trim().toUpperCase();if(p&&!(window.MEX_CONFIG.empresa.plazas||[]).includes(p)){window.MEX_CONFIG.empresa.plazas=window.MEX_CONFIG.empresa.plazas||[];window.MEX_CONFIG.empresa.plazas.push(p);input.value='';renderizarListaConfig();}" style="background:var(--mex-blue);color:white;border:none;border-radius:10px;padding:0 18px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">AÑADIR</button>
+              </div>
+              <div class="cfg-emp-plazas-grid">
+                ${plazasHtml || '<span style="font-size:12px; color:#94a3b8; font-weight:700;">No hay plazas configuradas.</span>'}
+              </div>
+            </div>
+
           </div>
         `;
         return;
@@ -22038,6 +22222,12 @@
 
       if(TAB_ACTIVA_CFG === 'solicitudes') {
          renderizarTabConfigSolicitudes(container);
+         return;
+      }
+
+      if(TAB_ACTIVA_CFG === 'plazas') {
+         _plazaSeleccionadaCfg = null;
+         renderizarTabConfigPlazas(container);
          return;
       }
 
@@ -22299,6 +22489,255 @@
        `;
        cambiarTabSolicitudes('PENDIENTE');
     }
+
+    // ─── LÓGICA DE PLAZAS EN CONFIGURACIÓN ──────────────────────
+    let _plazaSeleccionadaCfg = null;
+
+    function renderizarTabConfigPlazas(container) {
+      const emp = window.MEX_CONFIG.empresa || {};
+      const plazas = emp.plazas || [];
+      const plazasDetalle = emp.plazasDetalle || [];
+
+      const cardsHtml = plazas.map(plazaId => {
+        const detalle = plazasDetalle.find(d => d.id === plazaId) || {};
+        const isActive = _plazaSeleccionadaCfg === plazaId ? ' active' : '';
+        return `
+          <div class="cfg-plaza-card${isActive}" onclick="plazaSeleccionarCfg('${escapeHtml(plazaId)}')">
+            <div class="cfg-plaza-icon">${escapeHtml(plazaId.slice(0,3))}</div>
+            <div class="cfg-plaza-info">
+              <div class="cfg-plaza-name">${escapeHtml(plazaId)}</div>
+              <div class="cfg-plaza-local">${escapeHtml(detalle.nombre || detalle.localidad || 'Sin configurar')}</div>
+            </div>
+            <span class="material-icons" style="font-size:16px; color:#cbd5e1;">chevron_right</span>
+          </div>
+        `;
+      }).join('');
+
+      const editColHtml = _plazaSeleccionadaCfg
+        ? _renderPlazaForm(_plazaSeleccionadaCfg)
+        : `<div class="cfg-plaza-placeholder">
+             <span class="material-icons">location_city</span>
+             <p>Selecciona una plaza para<br>configurar sus detalles.</p>
+           </div>`;
+
+      container.innerHTML = `
+        <div style="margin-bottom:15px; padding: 0 10px; display:flex; justify-content:space-between; align-items:center;">
+          <p style="font-size:12px; color:#64748b; font-weight:700; margin:0;">
+            Agrega plazas desde el tab <b>Empresa</b>. Aquí configuras los detalles de cada una.
+          </p>
+        </div>
+        <div class="cfg-plazas-body">
+          <div class="cfg-plazas-list-col">
+            <div class="cfg-plazas-cards" id="cfg-plazas-cards">
+              ${plazas.length === 0
+                ? '<div style="padding:20px; text-align:center; color:#94a3b8; font-size:12px; font-weight:700;">No hay plazas.<br>Agrega en el tab Empresa.</div>'
+                : cardsHtml
+              }
+            </div>
+          </div>
+          <div class="cfg-plazas-edit-col" id="cfg-plaza-edit-col">
+            ${editColHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    function _renderPlazaForm(plazaId) {
+      const emp = window.MEX_CONFIG.empresa || {};
+      const plazasDetalle = emp.plazasDetalle || [];
+      const d = plazasDetalle.find(x => x.id === plazaId) || {};
+      return `
+        <div class="cfg-plaza-form-card">
+          <div class="cfg-plaza-form-header">
+            <div class="cfg-plaza-form-icon">${escapeHtml(plazaId.slice(0,3))}</div>
+            <div>
+              <div class="cfg-plaza-form-title">${escapeHtml(plazaId)}</div>
+              <div class="cfg-plaza-form-sub">Configuración de la plaza</div>
+            </div>
+          </div>
+
+          <div class="cfg-plaza-form-section">Información General</div>
+
+          <div class="cfg-plaza-form-field">
+            <label>Nombre de la Plaza</label>
+            <input type="text" id="plaza-nombre" value="${escapeHtml(d.nombre || '')}" placeholder="Ej: Hermosillo Centro">
+          </div>
+          <div class="cfg-plaza-form-field">
+            <label>Localidad</label>
+            <input type="text" id="plaza-localidad" value="${escapeHtml(d.localidad || '')}" placeholder="Ej: Hermosillo, Sonora">
+          </div>
+          <div class="cfg-plaza-form-field">
+            <label>Correo de la Plaza</label>
+            <input type="email" id="plaza-correo" value="${escapeHtml(d.correo || '')}" placeholder="plaza@tuempresa.com">
+          </div>
+          <div class="cfg-plaza-form-field">
+            <label>Teléfono (opcional)</label>
+            <input type="tel" id="plaza-telefono" value="${escapeHtml(d.telefono || '')}" placeholder="Ej: 6441234567">
+          </div>
+
+          <div class="cfg-plaza-form-section">Gerencia</div>
+
+          <div class="cfg-plaza-form-field">
+            <label>Gerente de Plaza</label>
+            <input type="text" id="plaza-gerente" value="${escapeHtml(d.gerente || '')}" placeholder="Nombre del gerente">
+          </div>
+          <div class="cfg-plaza-form-field">
+            <label>Correo del Gerente</label>
+            <input type="email" id="plaza-correo-gerente" value="${escapeHtml(d.correoGerente || '')}" placeholder="gerente@tuempresa.com">
+          </div>
+
+          <div style="margin-top:20px; display:flex; gap:10px;">
+            <button onclick="plazaGuardarCfg('${escapeHtml(plazaId)}')" style="flex:1; padding:12px; background:var(--mex-accent); color:white; border:none; border-radius:12px; font-weight:900; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
+              <span class="material-icons" style="font-size:17px;">save</span> GUARDAR PLAZA
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function plazaSeleccionarCfg(plazaId) {
+      _plazaSeleccionadaCfg = plazaId;
+      // Re-render cards to update active state
+      const emp = window.MEX_CONFIG.empresa || {};
+      const plazas = emp.plazas || [];
+      const plazasDetalle = emp.plazasDetalle || [];
+      const cardsContainer = document.getElementById('cfg-plazas-cards');
+      if(cardsContainer) {
+        cardsContainer.innerHTML = plazas.map(pid => {
+          const detalle = plazasDetalle.find(d => d.id === pid) || {};
+          const isActive = _plazaSeleccionadaCfg === pid ? ' active' : '';
+          return `
+            <div class="cfg-plaza-card${isActive}" onclick="plazaSeleccionarCfg('${escapeHtml(pid)}')">
+              <div class="cfg-plaza-icon">${escapeHtml(pid.slice(0,3))}</div>
+              <div class="cfg-plaza-info">
+                <div class="cfg-plaza-name">${escapeHtml(pid)}</div>
+                <div class="cfg-plaza-local">${escapeHtml(detalle.nombre || detalle.localidad || 'Sin configurar')}</div>
+              </div>
+              <span class="material-icons" style="font-size:16px; color:#cbd5e1;">chevron_right</span>
+            </div>
+          `;
+        }).join('');
+      }
+      const editCol = document.getElementById('cfg-plaza-edit-col');
+      if(editCol) editCol.innerHTML = _renderPlazaForm(plazaId);
+    }
+
+    function plazaGuardarCfg(plazaId) {
+      const emp = window.MEX_CONFIG.empresa;
+      if(!emp) return showToast('Error: config no cargada', 'error');
+      emp.plazasDetalle = emp.plazasDetalle || [];
+      const idx = emp.plazasDetalle.findIndex(d => d.id === plazaId);
+      const datos = {
+        id: plazaId,
+        nombre: (document.getElementById('plaza-nombre')?.value || '').trim(),
+        localidad: (document.getElementById('plaza-localidad')?.value || '').trim(),
+        correo: (document.getElementById('plaza-correo')?.value || '').trim().toLowerCase(),
+        telefono: (document.getElementById('plaza-telefono')?.value || '').trim(),
+        gerente: (document.getElementById('plaza-gerente')?.value || '').trim().toUpperCase(),
+        correoGerente: (document.getElementById('plaza-correo-gerente')?.value || '').trim().toLowerCase()
+      };
+      if(idx > -1) emp.plazasDetalle[idx] = datos;
+      else emp.plazasDetalle.push(datos);
+      showToast(`Plaza ${plazaId} actualizada. Publica los cambios para guardar.`, 'success');
+      // Refresh cards
+      plazaSeleccionarCfg(plazaId);
+    }
+
+    // ─── HELPERS EMPRESA ─────────────────────────────────────────────
+
+    function agregarCorreoInterno() {
+      const input = document.getElementById('cfg-correo-interno-input');
+      if(!input) return;
+      const correo = input.value.trim().toLowerCase();
+      if(!correo || !correo.includes('@')) { showToast('Correo inválido', 'error'); return; }
+      const emp = window.MEX_CONFIG.empresa || {};
+      emp.correosInternos = emp.correosInternos || [];
+      if(emp.correosInternos.includes(correo)) { showToast('Ese correo ya existe', 'error'); return; }
+      emp.correosInternos.push(correo);
+      window.MEX_CONFIG.empresa = emp;
+      input.value = '';
+      renderCorreosInternos();
+    }
+
+    function eliminarCorreoInterno(idx) {
+      const emp = window.MEX_CONFIG.empresa || {};
+      if(!emp.correosInternos) return;
+      emp.correosInternos.splice(idx, 1);
+      renderCorreosInternos();
+    }
+
+    function renderCorreosInternos() {
+      const container = document.getElementById('cfg-correos-internos-tags');
+      if(!container) return;
+      const correos = (window.MEX_CONFIG.empresa || {}).correosInternos || [];
+      container.innerHTML = correos.length === 0
+        ? '<span style="font-size:12px; color:#cbd5e1; font-weight:700;">Sin correos internos configurados.</span>'
+        : correos.map((c, i) => `
+            <span class="cfg-email-tag">
+              <span class="material-icons" style="font-size:13px; margin-right:2px;">alternate_email</span>
+              ${escapeHtml(c)}
+              <button onclick="eliminarCorreoInterno(${i})" title="Eliminar">×</button>
+            </span>
+          `).join('');
+    }
+
+    async function subirLogoEmpresa(inputEl) {
+      const file = inputEl?.files?.[0];
+      if(!file) return;
+      if(file.size > 2 * 1024 * 1024) { showToast('El archivo no debe superar 2MB', 'error'); return; }
+
+      const zone = document.getElementById('cfg-logo-zone');
+      if(zone) zone.innerHTML = `
+        <div class="cfg-emp-logo-placeholder">
+          <span class="material-icons spinner">sync</span>
+          <span>Subiendo logo...</span>
+        </div>`;
+
+      try {
+        const ext = file.name.split('.').pop() || 'png';
+        const storageRef = firebase.storage().ref('empresa_config/logo.' + ext);
+        const snapshot = await storageRef.put(file);
+        const url = await snapshot.ref.getDownloadURL();
+        window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
+        window.MEX_CONFIG.empresa.logoURL = url;
+        if(zone) zone.innerHTML = `<img src="${escapeHtml(url)}" alt="Logo empresa"><div style="margin-top:6px;font-size:11px;font-weight:700;color:#64748b;">Click para cambiar</div>`;
+        showToast('Logo subido. Publica los cambios para guardar.', 'success');
+        // Show status badge
+        const field = zone?.closest('.cfg-emp-field');
+        if(field) {
+          let badge = field.querySelector('.cfg-logo-status');
+          if(!badge) {
+            badge = document.createElement('div');
+            badge.className = 'cfg-logo-status';
+            badge.style.cssText = 'margin-top:8px;display:flex;align-items:center;gap:10px;';
+            field.appendChild(badge);
+          }
+          badge.innerHTML = `<span style="font-size:11px;font-weight:800;color:#10b981;display:flex;align-items:center;gap:4px;"><span class="material-icons" style="font-size:14px;">check_circle</span> Logo activo</span>
+            <button onclick="eliminarLogoEmpresa()" style="background:#fee2e2;color:#ef4444;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;">ELIMINAR</button>`;
+        }
+      } catch(e) {
+        console.error(e);
+        showToast('Error al subir logo: ' + e.message, 'error');
+        if(zone) zone.innerHTML = `<div class="cfg-emp-logo-placeholder"><span class="material-icons">add_photo_alternate</span><span>Click para subir logo</span></div>`;
+      }
+    }
+
+    async function eliminarLogoEmpresa() {
+      const ok = await mexConfirm('Eliminar logo', '¿Eliminar el logo de la empresa?', 'danger');
+      if(!ok) return;
+      try {
+        if(window.MEX_CONFIG.empresa?.logoURL) {
+          try { await firebase.storage().refFromURL(window.MEX_CONFIG.empresa.logoURL).delete(); } catch(_){}
+        }
+        window.MEX_CONFIG.empresa.logoURL = '';
+        renderizarListaConfig();
+        showToast('Logo eliminado. Publica los cambios.', 'success');
+      } catch(e) {
+        showToast('Error: ' + e.message, 'error');
+      }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
 
     function cambiarTabSolicitudes(estado) {
        window._filtroSolicitudesEstatus = estado;
@@ -22737,20 +23176,23 @@
           await appSecundaria.auth().signOut();
           await appSecundaria.delete();
 
-          // Creación automática del perfil
+          // Crea el perfil con solo los campos que valida perfilUsuarioValido
           const userDocId = _profileDocId(email);
-          await db.collection("usuarios").doc(userDocId).set({
+          const perfilData = {
             nombre: String(nombre || '').trim().toUpperCase(),
             email: userDocId,
             telefono: telefono || "",
-            puesto: puesto || "",
             rol: requestedRole,
             plazaAsignada: requestedPlaza,
             isAdmin: requestedRoleMeta.isAdmin,
-            isGlobal: requestedRoleMeta.fullAccess,
-            authUid: nuevoUid || "",
-            status: "ACTIVO"
-          }, { merge: true });
+            isGlobal: requestedRoleMeta.fullAccess
+          };
+          await db.collection("usuarios").doc(userDocId).set(perfilData, { merge: true });
+
+          // Guardar datos extra en un sub-doc separado para no violar el schema estricto
+          if (nuevoUid) {
+            await db.collection("usuarios").doc(userDocId).update({ status: "ACTIVO" }).catch(() => {});
+          }
 
           if (nuevoUid && nuevoUid !== userDocId) {
             const legacyRef = db.collection("usuarios").doc(nuevoUid);
@@ -22758,7 +23200,19 @@
             if (legacySnap.exists) await legacyRef.delete();
           }
 
-          await db.collection("solicitudes_acceso").doc(docId).update({ estado: "APROBADA", password: "" });
+          // Update solicitud con todos los campos que la regla exige (solicitudUpdateValida)
+          const solDoc = docSnap.data();
+          await db.collection("solicitudes_acceso").doc(docId).update({
+            nombre: solDoc.nombre,
+            email: solDoc.email,
+            puesto: solDoc.puesto,
+            telefono: solDoc.telefono,
+            fecha: solDoc.fecha,
+            rolSolicitado: solDoc.rolSolicitado || null,
+            plazaSolicitada: solDoc.plazaSolicitada || null,
+            password: "",
+            estado: "APROBADA"
+          });
           await registrarEventoGestion('SOLICITUD_APROBADA', `Aprobó la solicitud de acceso de ${nombre}`, {
             entidad: 'SOLICITUDES_ACCESO',
             referencia: docId,
@@ -22769,7 +23223,20 @@
             resultado: 'APROBADA'
           });
         } else {
-          await db.collection("solicitudes_acceso").doc(docId).update({ estado: "RECHAZADA", motivo_rechazo: motivo, password: "" });
+          // Update solicitud con todos los campos que la regla exige (solicitudUpdateValida)
+          const solDocR = docSnap.data();
+          await db.collection("solicitudes_acceso").doc(docId).update({
+            nombre: solDocR.nombre,
+            email: solDocR.email,
+            puesto: solDocR.puesto,
+            telefono: solDocR.telefono,
+            fecha: solDocR.fecha,
+            rolSolicitado: solDocR.rolSolicitado || null,
+            plazaSolicitada: solDocR.plazaSolicitada || null,
+            password: "",
+            estado: "RECHAZADA",
+            motivo_rechazo: motivo
+          });
           await registrarEventoGestion('SOLICITUD_RECHAZADA', `Rechazó la solicitud de acceso de ${nombre}`, {
             entidad: 'SOLICITUDES_ACCESO',
             referencia: docId,
@@ -24665,6 +25132,10 @@
           <button class="cfg-tab" onclick="abrirTabConfig('empresa', this)">
             <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
             <span>Empresa</span>
+          </button>
+          <button class="cfg-tab" onclick="abrirTabConfig('plazas', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+            <span>Plazas</span>
           </button>
           <button class="cfg-tab active" onclick="abrirTabConfig('ubicaciones', this)">
             <span class="cfg-tab-icon"><span class="material-icons">place</span></span>

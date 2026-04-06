@@ -78,6 +78,13 @@ service firebase.storage {
         && request.resource.size < 10 * 1024 * 1024;
     }
 
+    match /empresa_config/{fileName} {
+      allow read: if tienePerfilActual();
+      allow write: if esAccesoTotal()
+        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }
