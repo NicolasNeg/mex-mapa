@@ -20538,7 +20538,8 @@
     }
 
     async function eliminarMensajeChat(idMsg) {
-      if(!confirm("¿Borrar este mensaje para todos?")) return;
+      const ok = await mexConfirm("Confirmación", "¿Borrar este mensaje para todos?", "warning");
+      if(!ok) return;
       allChatMessages = allChatMessages.filter(m => m.id != idMsg);
       renderChatWindow();
       try {
@@ -22024,6 +22025,13 @@
       
       if(TAB_ACTIVA_CFG === 'empresa') {
         const emp = window.MEX_CONFIG.empresa || { nombre: "MEX RENT A CAR" };
+        const plazasHtml = (emp.plazas || []).map((p, idx) => `
+          <div style="display:flex; justify-content:space-between; padding:8px; border:1px solid #e2e8f0; margin-bottom:5px; border-radius:6px; background:#f8fafc;">
+            <strong>${escapeHtml(p)}</strong>
+            <button onclick="window.MEX_CONFIG.empresa.plazas.splice(${idx},1); renderizarListaConfig();" class="material-icons" style="font-size:16px; color:#ef4444; border:none; background:none; cursor:pointer;" title="Eliminar Plaza">delete</button>
+          </div>
+        `).join('');
+
         container.innerHTML = `
           <div style="background:white; padding:20px; border-radius:12px; border:1px solid #e2e8f0;">
             <h3 style="margin-top:0;">Configuración de la Empresa</h3>
@@ -22032,6 +22040,14 @@
             
             <label style="display:block; margin-top:15px; margin-bottom:5px; font-weight:700; color:#475569;">Color Principal (Hex)</label>
             <input type="color" id="cfg-empresa-color" value="${escapeHtml(emp.colorPrincipal || '#004a99')}" style="width:50px; height:40px; cursor:pointer;" onchange="window.MEX_CONFIG.empresa.colorPrincipal = this.value">
+            
+            <hr style="border:none; border-top:1px solid #e2e8f0; margin: 20px 0;">
+            <label style="display:block; margin-bottom:5px; font-weight:700; color:#475569;">Catálogo Maestro de Plazas (Sucursales/Regiones)</label>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+              <input type="text" id="cfg-empresa-plaza-add" class="form-control" placeholder="Ej: GDL">
+              <button onclick="const input = document.getElementById('cfg-empresa-plaza-add'); const p = input.value.trim().toUpperCase(); if(p && !(window.MEX_CONFIG.empresa.plazas || []).includes(p)) { window.MEX_CONFIG.empresa.plazas = window.MEX_CONFIG.empresa.plazas || []; window.MEX_CONFIG.empresa.plazas.push(p); renderizarListaConfig(); }" style="background:var(--mex-blue); color:white; border:none; border-radius:8px; padding:0 15px; cursor:pointer; font-weight:700;">AÑADIR</button>
+            </div>
+            <div>${plazasHtml || '<span style="font-size:12px; color:#94a3b8;">No hay plazas configuradas.</span>'}</div>
           </div>
         `;
         return;
@@ -22064,15 +22080,31 @@
           pText = isPlaza ? `<span style="font-size:10px; background:#10b981; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PLAZA FIJA</span>` : `<span style="font-size:10px; background:#6366f1; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PERSONA RESPON.</span>`;
         }
 
+        if(TAB_ACTIVA_CFG === 'modelos') {
+          const modCat = typeof item === 'object' ? item.categoria : 'SIN ASIGNAR';
+          pText = `<span style="font-size:10px; background:#475569; color:white; padding:2px 6px; border-radius:4px; display:inline-block; margin-left:8px;">${modCat}</span>`;
+        }
+
+        if(TAB_ACTIVA_CFG === 'categorias') {
+           const misModelos = (window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor).map(m => m.nombre).slice(0, 3);
+           const cuantosAg = misModelos.length;
+           const extraTag = (window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor).length > 3 ? '...' : '';
+           const catStr = cuantosAg > 0 ? ` [${misModelos.join(', ')}${extraTag}]` : '';
+           if(catStr) pText = `<span style="font-size:11px; color:#64748b; font-weight:600; margin-left:8px;">${catStr}</span>`;
+        }
+
         return `<div class="cfg-item" style="padding: 10px 15px; display:flex; align-items:center; justify-content:space-between; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px;">
       <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-        ${color ? `<div class="cfg-item-color" style="background:${color}; width:16px; height:16px; border-radius:50%;" title="${color}"></div>` : ''}
+        ${color ? `<div class="cfg-item-color" style="background:${color}; width:16px; height:16px; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,0.1);" title="${color}"></div>` : ''}
         <strong style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${valor}</strong>
         ${pText}
         ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700;">·&nbsp;orden ${item.orden}</span>` : ''}
       </div>
       
       <div style="display:flex; gap: 4px;">
+        <button style="border:none; background:#f1f5f9; padding:4px; border-radius:4px; cursor:pointer;" onclick="editarElementoConfig(${i})" title="Editar">
+          <span class="material-icons" style="font-size:14px; color:#0f172a;">edit</span>
+        </button>
         <button style="border:none; background:#f1f5f9; padding:4px; border-radius:4px; cursor:pointer;" onclick="moverElementoConfig(${i}, -1)" title="Subir" ${i === 0 ? 'disabled style="opacity:0.3; cursor:not-allowed"' : ''}>
           <span class="material-icons" style="font-size:14px; color:#475569;">arrow_upward</span>
         </button>
@@ -22091,32 +22123,99 @@
 
     function abrirModalNuevaConfig() {
       document.getElementById('cfg-add-name').value = '';
+      document.getElementById('cfg-add-ubi-options').style.display = 'none';
+      document.getElementById('cfg-add-estado-options').style.display = 'none';
+      document.getElementById('cfg-add-modelo-options').style.display = 'none';
+      
       if(TAB_ACTIVA_CFG === 'ubicaciones') {
         document.getElementById('cfg-add-ubi-options').style.display = 'block';
         document.getElementById('cfg-add-is-plaza').checked = true;
-      } else {
-        document.getElementById('cfg-add-ubi-options').style.display = 'none';
+      } else if (TAB_ACTIVA_CFG === 'estados') {
+        document.getElementById('cfg-add-estado-options').style.display = 'block';
+        document.getElementById('cfg-add-color').value = '#64748b';
+        document.getElementById('cfg-add-orden').value = '99';
+      } else if (TAB_ACTIVA_CFG === 'modelos') {
+        document.getElementById('cfg-add-modelo-options').style.display = 'block';
+        const cats = window.MEX_CONFIG.listas.categorias || [];
+        document.getElementById('cfg-add-modelo-cat').innerHTML = '<option value="">(Ninguna)</option>' + cats.map(c => `<option value="${escapeHtml(typeof c === 'object'? c.nombre||c.id : c)}">${escapeHtml(typeof c === 'object'? c.nombre||c.id : c)}</option>`).join('');
       }
+
+      // Se usa -1 como identificador de "Nuevo Elemento"
+      document.getElementById('cfg-add-name').dataset.editIndex = -1;
+      document.getElementById('modal-cfg-add-title').innerText = "Agregar Nuevo";
+      
       document.getElementById('modal-cfg-add').style.display = 'flex';
       setTimeout(() => document.getElementById('cfg-add-name').focus(), 100);
+    }
+
+    function editarElementoConfig(index) {
+      const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
+      const item = lista[index];
+      const nombre = typeof item === 'object' ? (item.id || item.nombre) : item;
+      
+      document.getElementById('cfg-add-name').value = nombre;
+      document.getElementById('cfg-add-ubi-options').style.display = 'none';
+      document.getElementById('cfg-add-estado-options').style.display = 'none';
+      document.getElementById('cfg-add-modelo-options').style.display = 'none';
+
+      if(TAB_ACTIVA_CFG === 'ubicaciones') {
+        document.getElementById('cfg-add-ubi-options').style.display = 'block';
+        document.getElementById('cfg-add-is-plaza').checked = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
+      } else if (TAB_ACTIVA_CFG === 'estados') {
+        document.getElementById('cfg-add-estado-options').style.display = 'block';
+        document.getElementById('cfg-add-color').value = item.color || '#64748b';
+        document.getElementById('cfg-add-orden').value = item.orden || '99';
+      } else if (TAB_ACTIVA_CFG === 'modelos') {
+        document.getElementById('cfg-add-modelo-options').style.display = 'block';
+        const cats = window.MEX_CONFIG.listas.categorias || [];
+        document.getElementById('cfg-add-modelo-cat').innerHTML = '<option value="">(Ninguna)</option>' + cats.map(c => {
+          const cName = typeof c === 'object'? c.nombre||c.id : c;
+          return `<option value="${escapeHtml(cName)}">${escapeHtml(cName)}</option>`;
+        }).join('');
+        document.getElementById('cfg-add-modelo-cat').value = typeof item === 'object' ? item.categoria : '';
+      }
+
+      document.getElementById('cfg-add-name').dataset.editIndex = index;
+      document.getElementById('modal-cfg-add-title').innerText = "Editar Elemento";
+      
+      document.getElementById('modal-cfg-add').style.display = 'flex';
     }
 
     function confirmarAgregadoConfig() {
       const val = document.getElementById('cfg-add-name').value.trim().toUpperCase();
       if (!val) { showToast("Escribe un nombre", "error"); return; }
       
+      window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] || [];
       const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
-      const existe = lista.some(i => (typeof i === 'object' ? (i.id || i.nombre) : i) === val);
+      
+      const editIndex = parseInt(document.getElementById('cfg-add-name').dataset.editIndex, 10);
+      const existe = lista.some((i, idx) => {
+         if (idx === editIndex) return false; // ignore self
+         return (typeof i === 'object' ? (i.id || i.nombre) : i) === val;
+      });
       if (existe) { showToast(`"${val}" ya existe`, "error"); return; }
 
+      let newItem;
       if (TAB_ACTIVA_CFG === 'estados') {
-        lista.push({ id: val, color: "#64748b", orden: 99 });
+        newItem = { 
+           id: val, 
+           color: document.getElementById('cfg-add-color').value, 
+           orden: parseInt(document.getElementById('cfg-add-orden').value || 99) 
+        };
       } else if(TAB_ACTIVA_CFG === 'ubicaciones') {
-        const isPlaza = document.getElementById('cfg-add-is-plaza').checked;
-        lista.push({ nombre: val, isPlazaFija: isPlaza });
+        newItem = { nombre: val, isPlazaFija: document.getElementById('cfg-add-is-plaza').checked };
+      } else if(TAB_ACTIVA_CFG === 'modelos') {
+        newItem = { nombre: val, categoria: document.getElementById('cfg-add-modelo-cat').value };
       } else {
-        lista.push(val);
+        newItem = val;
       }
+
+      if (editIndex > -1) {
+         lista[editIndex] = newItem; // Edit
+      } else {
+         lista.push(newItem); // Add
+      }
+
       document.getElementById('modal-cfg-add').style.display = 'none';
       renderizarListaConfig();
     }
@@ -24470,6 +24569,10 @@
             <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
             <span>Categorías</span>
           </button>
+          <button class="cfg-tab" onclick="abrirTabConfig('modelos', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+            <span>Modelos</span>
+          </button>
           <button class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)">
             <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
             <span>Gasolinas</span>
@@ -24512,17 +24615,34 @@
     </div>
   </div>
 
-  <!-- MODAL DE AGREGAR ITEM (DENTRO DEL CONFIG) -->
+  <!-- MODAL DE AGREGAR/EDITAR ITEM (DENTRO DEL CONFIG) -->
   <div id="modal-cfg-add" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75000; justify-content:center; align-items:center; padding:15px;">
     <div style="background:white; border-radius:16px; width:100%; max-width:320px; padding:20px; box-shadow:0 25px 50px rgba(0,0,0,0.2);">
-      <h3 style="margin:0 0 15px 0; font-size:16px; font-weight:800; color:#1e293b;">Agregar Nuevo</h3>
-      <input type="text" id="cfg-add-name" placeholder="Nombre (Ej: AEROPUERTO)" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; margin-bottom:15px; outline:none; box-sizing:border-box;" autocomplete="off">
+      <h3 id="modal-cfg-add-title" style="margin:0 0 15px 0; font-size:16px; font-weight:800; color:#1e293b;">Agregar Nuevo</h3>
+      
+      <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Nombre / Clave</label>
+      <input type="text" id="cfg-add-name" placeholder="Nombre (Ej: ECAR)" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; margin-bottom:15px; outline:none; box-sizing:border-box;" autocomplete="off">
       
       <div id="cfg-add-ubi-options" style="display:none; margin-bottom:15px;">
         <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#475569; cursor:pointer;">
           <input type="checkbox" id="cfg-add-is-plaza" style="width:16px; height:16px; margin-top:2px;" checked>
           <div><b>Es Plaza Fija</b><br><span style="font-size:11px; color:#94a3b8;">Desmarca si es "Persona Responsable"</span></div>
         </label>
+      </div>
+
+      <div id="cfg-add-estado-options" style="display:none; margin-bottom:15px;">
+        <label style="display:inline-block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Color de Etiqueta</label>
+        <input type="color" id="cfg-add-color" value="#64748b" style="width:100%; height:40px; cursor:pointer; margin-bottom:15px; border:1px solid #cbd5e1; border-radius:8px;">
+        
+        <label style="display:inline-block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Orden (Visibilidad en tabla)</label>
+        <input type="number" id="cfg-add-orden" placeholder="Ej: 1" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; box-sizing:border-box;">
+      </div>
+
+      <div id="cfg-add-modelo-options" style="display:none; margin-bottom:15px;">
+        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Asignar a Categoría</label>
+        <select id="cfg-add-modelo-cat" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; box-sizing:border-box; background:white;">
+          <!-- Llenado dinámico en JS -->
+        </select>
       </div>
 
       <div style="display:flex; gap:10px;">
