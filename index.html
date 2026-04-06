@@ -3415,7 +3415,7 @@
     }
 
     .col-table {
-      flex: 7;
+      flex: 1;
       background: var(--surface);
       border-radius: 16px;
       padding: 20px;
@@ -3428,13 +3428,39 @@
     }
 
     .col-form {
-      flex: 3;
+      position: fixed;
+      top: 0;
+      right: -450px;
+      width: 420px;
+      height: 100vh;
+      background: white;
+      box-shadow: -5px 0 25px rgba(0,0,0,0.1);
+      z-index: 9999;
+      transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      padding: 25px;
       display: flex;
       flex-direction: column;
       gap: 15px;
-      min-width: 320px;
       overflow-y: auto;
-      padding-right: 5px;
+    }
+    
+    .col-form.active {
+      right: 0;
+    }
+
+    .col-form-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(15, 23, 42, 0.3);
+      backdrop-filter: blur(2px);
+      z-index: 9998;
+      opacity: 0;
+      visibility: hidden;
+      transition: all 0.3s;
+    }
+    .col-form-overlay.active {
+      opacity: 1;
+      visibility: visible;
     }
 
     .toolbar-flota {
@@ -9783,9 +9809,9 @@
       }
 
       .col-table {
-        flex: none;
-        height: 45vh;
-        min-height: 350px;
+        flex: 1;
+        height: 100%;
+        min-height: 50vh;
       }
 
       .table-container {
@@ -9793,14 +9819,76 @@
       }
 
       .col-form {
-        flex: none;
-        min-width: 100%;
-        overflow: visible;
+        right: 0; left: 0; top: auto; bottom: -120%;
+        width: 100%; height: 88vh; border-radius: 28px 28px 0 0;
+        transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+        padding: 24px 20px;
+      }
+      .col-form.active {
+        bottom: 0; right: auto;
       }
 
       .fleet-wrapper {
         overflow: hidden;
-        padding: 10px;
+        padding: 5px;
+      }
+
+      /* --- TARJETAS MÓVILES EN LUGAR DE TABLA (STITCH) --- */
+      .table-container {
+        border: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+      }
+      .col-table table, .col-table thead, .col-table tbody, .col-table th, .col-table td, .col-table tr {
+        display: block;
+      }
+      .col-table thead tr {
+        display: none;
+      }
+      .col-table tr {
+        background: white;
+        margin-bottom: 12px;
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+        border: 1.5px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .col-table td {
+        border: none;
+        padding: 0 !important;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px !important;
+        font-weight: 800;
+      }
+      .col-table td::before {
+        font-weight: 800;
+        color: #94a3b8;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .col-table td:nth-child(1)::before { content: "MVA"; display:none; }
+      .col-table td:nth-child(2)::before { content: "CATEGORÍA"; }
+      .col-table td:nth-child(3)::before { content: "MODELO"; }
+      .col-table td:nth-child(4)::before { content: "PLACAS"; }
+      .col-table td:nth-child(5)::before { content: "GASOLINA"; }
+      .col-table td:nth-child(6)::before { content: "ESTADO"; }
+      .col-table td:nth-child(7)::before { content: "UBICACIÓN"; }
+
+      .col-table td.td-mva {
+        font-size: 20px !important;
+        font-weight: 900;
+        color: var(--mex-blue);
+        border-bottom: 2px dashed #e2e8f0;
+        padding-bottom: 12px !important;
+        margin-bottom: 5px;
+        justify-content: center !important;
+        text-align: center;
       }
 
       /* --- PANEL INFERIOR MÁS COMPACTO EN MÓVIL --- */
@@ -11882,7 +11970,16 @@
           </div>
         </div>
 
-        <div class="col-form">
+        <div class="col-form-overlay" id="form-flota-overlay" onclick="cerrarFormularioFlota()"></div>
+        <div class="col-form" id="form-flota-panel">
+          
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+             <h3 style="margin:0; color:var(--primary); font-size:18px; font-weight:900;">GESTOR DE UNIDAD</h3>
+             <button onclick="cerrarFormularioFlota()" style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:10px; color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+               <span class="material-icons" style="font-size:20px;">close</span>
+             </button>
+          </div>
+
           <div class="stats-grid">
             <div class="stat-box">
               <div class="num" id="statTotal">--</div>
@@ -11895,13 +11992,8 @@
           </div>
 
           <div class="form-panel">
-            <button id="btnNuevaUnidadFlota" class="btn btn-new" onclick="prepararNuevoFlota()">
-              <span class="material-icons" style="font-size: 18px;">add</span> <span
-                id="btnNuevaUnidadFlotaLabel">REGISTRAR NUEVA UNIDAD</span>
-            </button>
-
-            <div class="form-header">
-              <div class="form-title" id="formTitleFlota">NUEVO REGISTRO</div>
+            <div class="form-header" style="margin-bottom: 15px;">
+              <div class="form-title" id="formTitleFlota" style="font-size: 15px;">NUEVO REGISTRO</div>
             </div>
 
             <div id="admin-flota-panel-hint"
@@ -14495,6 +14587,7 @@
         if (document.getElementById('btnDelFlota')) document.getElementById('btnDelFlota').style.display = esSoloLectura ? "none" : "flex";
         if (document.getElementById('btnSaveFlota')) document.getElementById('btnSaveFlota').style.display = esSoloLectura ? "none" : "flex";
 
+        abrirFormularioFlota();
       } else {
         // ---- LÓGICA CUADRE ADMINS (Abre el Modal de Expediente) [cite: 890] ----
 
