@@ -7081,199 +7081,318 @@
 
 
 
-    .report-card {
+    /* ═══════════════════════════════════════════════════════════
+       RESUMEN FLOTA V2 — STITCH AZURE HORIZON
+       ═══════════════════════════════════════════════════════════ */
+
+    .resv2-wrapper {
+      position: relative;
       width: 100%;
-      max-width: 450px;
-      background: white;
-      border-radius: 28px;
-      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-      overflow: hidden;
+      max-width: 520px;
       margin: auto;
-      font-family: 'Inter', sans-serif;
     }
 
-    .res-tabs {
-      display: flex;
-      background: #f0f0f0;
-      padding: 6px;
-      gap: 6px;
-      margin: 10px;
-      border-radius: 18px;
-    }
-
-    .res-tab-btn {
-      flex: 1;
-      border: none;
-      padding: 10px;
-      border-radius: 14px;
-      font-weight: 800;
-      cursor: pointer;
-      font-size: 11px;
-      transition: all 0.3s ease;
-      color: #777;
-      background: transparent;
-    }
-
-    .res-tab-btn.active {
+    .resv2-card {
       background: white;
-      color: var(--res-green);
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-      transform: translateY(-1px);
+      border-radius: 24px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.25);
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      transform: scale(0.92) translateY(20px);
+      opacity: 0;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    .res-header {
-      padding: 10px 10px 5px;
-      text-align: center;
+    #modal-resumen-flota.active .resv2-card {
+      transform: scale(1) translateY(0);
+      opacity: 1;
     }
 
-    .res-header h1 {
-      margin: 0;
-      font-size: 20px;
-      color: var(--res-dark);
+    /* ── HERO ─────────────────────────── */
+    .resv2-hero {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .resv2-hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 90% 20%, rgba(56, 189, 248, 0.14), transparent 40%),
+        linear-gradient(135deg, #07162e 0%, #0d2a54 50%, #1763ae 100%);
+    }
+
+    .resv2-hero-content {
+      position: relative;
+      z-index: 1;
+      padding: 24px 24px 20px;
+    }
+
+    .resv2-brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .resv2-brand-badge {
+      font-size: 11px;
       font-weight: 900;
+      color: rgba(255, 255, 255, 0.85);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+    }
+
+    .resv2-tab-switch {
+      display: flex;
+      gap: 4px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .resv2-tab {
+      border: none;
+      padding: 7px 16px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 10px;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.50);
+      font-family: inherit;
+    }
+
+    .resv2-tab.active {
+      background: white;
+      color: #0d2a54;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .resv2-title {
+      margin: 0;
+      font-size: 26px;
+      font-weight: 900;
+      color: white;
+      letter-spacing: -1px;
+      line-height: 1;
+    }
+
+    .resv2-date {
+      margin: 6px 0 0;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .resv2-close {
+      position: absolute;
+      right: 16px;
+      top: 16px;
+      z-index: 5;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.08);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+
+    .resv2-close:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    /* ── METRICS ROW ──────────────────── */
+    .resv2-metrics {
+      display: flex;
+      gap: 10px;
+      padding: 16px 20px;
+      background: #f7f9fb;
+    }
+
+    .resv2-metric {
+      flex: 1;
+      padding: 12px 14px;
+      background: white;
+      border-radius: 14px;
+      border-left: 4px solid #e2e8f0;
+      transition: all 0.2s ease;
+    }
+
+    .resv2-metric--green {
+      border-left-color: #16a34a;
+    }
+
+    .resv2-metric--blue {
+      border-left-color: #3b82f6;
+    }
+
+    .resv2-metric-label {
+      display: block;
+      font-size: 9px;
+      font-weight: 800;
+      color: #94a3b8;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .resv2-metric-val {
+      font-size: 24px;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1;
       letter-spacing: -0.5px;
     }
 
-    .grid-stats {
+    .resv2-metric--green .resv2-metric-val {
+      color: #16a34a;
+    }
+
+    .resv2-metric--blue .resv2-metric-val {
+      color: #3b82f6;
+    }
+
+    /* ── GRID ─────────────────────────── */
+    .resv2-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 10px;
-      padding: 12px;
+      padding: 16px 20px;
       max-height: 50vh;
       overflow-y: auto;
     }
 
+    .resv2-grid::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    .resv2-grid::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
+    }
+
     .stat-box {
-      padding: 12px 10px;
-      border-radius: 20px;
-      background: #fff;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: #f8fafc;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 6px;
+      gap: 4px;
       cursor: pointer;
       position: relative;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      border: 1px solid #f0f0f0;
-      animation: fadeIn 0.5s ease backwards;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      border: 1px solid transparent;
+      border-left: 4px solid #e2e8f0;
+      animation: fadeIn 0.4s ease backwards;
     }
 
-    .LISTO {
-      background: #e8f5e9;
-      border-bottom: 5px solid var(--c-listo);
+    .stat-box:hover {
+      background: white;
+      border-color: #e2e8f0;
+      border-left-width: 4px;
+      box-shadow: 0 8px 20px rgba(15, 35, 67, 0.06);
+      transform: translateY(-2px);
     }
 
-    .LISTO .lbl,
-    .LISTO .val {
-      color: var(--c-listo);
+    .stat-box .stat-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
 
-    .SUCIO {
-      background: #fff3e0;
-      border-bottom: 5px solid var(--c-sucio);
+    .stat-box .stat-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
 
-    .SUCIO .lbl,
-    .SUCIO .val {
-      color: var(--c-sucio);
-    }
-
-    .TRASLADO {
-      background: #e3f2fd;
-      border-bottom: 5px solid var(--c-traslado);
-    }
-
-    .TRASLADO .lbl,
-    .TRASLADO .val {
-      color: var(--c-traslado);
-    }
-
-    .RESGUARDO {
-      background: #eceff1;
-      border-bottom: 5px solid var(--c-resguardo);
-    }
-
-    .RESGUARDO .lbl,
-    .RESGUARDO .val {
-      color: var(--c-resguardo);
-    }
-
-    .MANTENIMIENTO {
-      background: #ffebee;
-      border-bottom: 5px solid var(--c-manto);
-    }
-
-    .MANTENIMIENTO .lbl,
-    .MANTENIMIENTO .val {
-      color: var(--c-manto);
-    }
-
-    .RETENIDA {
-      background: #efebe9;
-      border-bottom: 5px solid var(--c-retenida);
-    }
-
-    .RETENIDA .lbl,
-    .RETENIDA .val {
-      color: var(--c-retenida);
+    .stat-box .stat-icon .material-icons {
+      font-size: 16px;
     }
 
     .stat-box .lbl {
       font-size: 10px;
-      font-weight: 800;
+      font-weight: 900;
       text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .stat-box .val {
-      font-size: 30px;
+      font-size: 32px;
       font-weight: 900;
       line-height: 1;
+      letter-spacing: -1px;
+      margin-top: 2px;
     }
 
-    .icon-box svg {
-      width: 20px;
-      height: 20px;
-      margin-bottom: 2px;
-    }
+    /* state colors — border + icon bg + text */
+    .LISTO { border-left-color: #16a34a; }
+    .LISTO .lbl, .LISTO .val { color: #16a34a; }
+    .LISTO .stat-icon { background: #dcfce7; color: #16a34a; }
 
-    .LISTO svg {
-      fill: var(--c-listo);
-    }
+    .RETENIDA { border-left-color: #92400e; }
+    .RETENIDA .lbl, .RETENIDA .val { color: #92400e; }
+    .RETENIDA .stat-icon { background: #fef3c7; color: #92400e; }
 
-    .SUCIO svg {
-      fill: var(--c-sucio);
-    }
+    .VENTA { border-left-color: #b45309; }
+    .VENTA .lbl, .VENTA .val { color: #b45309; }
+    .VENTA .stat-icon { background: #fef9c3; color: #b45309; }
 
-    .TRASLADO svg {
-      fill: var(--c-traslado);
-    }
+    .NO-ARRENDABLE { border-left-color: #475569; }
+    .NO-ARRENDABLE .lbl, .NO-ARRENDABLE .val { color: #475569; }
+    .NO-ARRENDABLE .stat-icon { background: #f1f5f9; color: #475569; }
 
-    .RESGUARDO svg {
-      fill: var(--c-resguardo);
-    }
+    .SUCIO { border-left-color: #ea580c; }
+    .SUCIO .lbl, .SUCIO .val { color: #ea580c; }
+    .SUCIO .stat-icon { background: #fff7ed; color: #ea580c; }
 
-    .MANTENIMIENTO svg {
-      fill: var(--c-manto);
-    }
+    .MANTENIMIENTO { border-left-color: #dc2626; }
+    .MANTENIMIENTO .lbl, .MANTENIMIENTO .val { color: #dc2626; }
+    .MANTENIMIENTO .stat-icon { background: #fef2f2; color: #dc2626; }
 
-    .RETENIDA svg {
-      fill: var(--c-retenida);
-    }
+    .TRASLADO { border-left-color: #2563eb; }
+    .TRASLADO .lbl, .TRASLADO .val { color: #2563eb; }
+    .TRASLADO .stat-icon { background: #eff6ff; color: #2563eb; }
 
+    .RESGUARDO { border-left-color: #6b7280; }
+    .RESGUARDO .lbl, .RESGUARDO .val { color: #6b7280; }
+    .RESGUARDO .stat-icon { background: #f3f4f6; color: #6b7280; }
+
+    /* EXPANDED state */
     .stat-box.active {
       grid-column: span 2;
       order: -1;
-      padding: 20px;
-      background: white !important;
-      border: 2px solid var(--res-green);
+      padding: 18px;
+      background: white;
+      border-color: #e2e8f0;
+      box-shadow: 0 12px 28px rgba(15, 35, 67, 0.08);
     }
 
     .inner-detail {
       display: none;
       width: 100%;
-      margin-top: 15px;
-      border-top: 1px solid #eee;
-      padding-top: 10px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f1f5f9;
     }
 
     .stat-box.active .inner-detail {
@@ -7286,70 +7405,100 @@
       justify-content: space-between;
       font-size: 12px;
       font-weight: 800;
-      color: #333;
-      padding: 4px 0;
+      color: #334155;
+      padding: 5px 0;
     }
 
     .mod-list {
       font-size: 10px;
-      color: #666;
-      margin-bottom: 10px;
+      color: #94a3b8;
+      margin-bottom: 8px;
       display: block;
       font-weight: 600;
       line-height: 1.5;
     }
 
-    .res-footer {
-      background: var(--res-dark);
-      color: white;
-      padding: 20px;
+    /* ── FOOTER ────────────────────────── */
+    .resv2-footer {
+      background: linear-gradient(135deg, #07162e 0%, #0d2a54 100%);
+      padding: 16px 24px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-radius: 0 0 28px 28px;
+      border-radius: 0 0 24px 24px;
     }
 
-    .total-box strong {
-      font-size: 38px;
+    .resv2-footer-total {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .resv2-footer-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: rgba(255, 255, 255, 0.50);
+      letter-spacing: 0.8px;
+    }
+
+    .resv2-footer-total strong {
+      font-size: 28px;
       font-weight: 900;
-      color: #ffffff;
+      color: white;
       line-height: 1;
+      letter-spacing: -0.5px;
     }
 
-    .time-box {
-      text-align: right;
-      line-height: 1.2;
-    }
-
-    #fecha-full {
+    .resv2-footer-unit {
       font-size: 11px;
       font-weight: 800;
-      color: #ffffff;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      display: block;
-      margin-bottom: 2px;
+      color: rgba(255, 255, 255, 0.55);
+      letter-spacing: 0.5px;
     }
 
-    #reloj-big {
-      font-size: 20px;
-      font-weight: 900;
-      color: #ffffff;
-      display: block;
+    .resv2-footer-sync {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255, 255, 255, 0.45);
     }
 
-    /* Animación suave para la tarjeta del resumen */
-    #modal-resumen-flota .report-card {
-      transform: scale(0.9) translateY(20px);
-      opacity: 0;
-      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    }
+    /* ── MOBILE ────────────────────────── */
+    @media (max-width: 768px) {
+      .resv2-wrapper {
+        max-width: calc(100vw - 24px);
+      }
 
-    #modal-resumen-flota.active .report-card {
-      transform: scale(1) translateY(0);
-      opacity: 1;
-    }
+      .resv2-brand-row {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+      }
 
+      .resv2-title {
+        font-size: 22px;
+      }
+
+      .resv2-metrics {
+        gap: 6px;
+        padding: 12px 14px;
+      }
+
+      .resv2-metric {
+        padding: 10px;
+      }
+
+      .resv2-metric-val {
+        font-size: 20px;
+      }
+
+      .resv2-grid {
+        padding: 12px 14px;
+        gap: 8px;
+      }
+    }
 
     /* =========================================================
        ACTO 3: ESTILOS MODALES UNIVERSALES (ALTA / EDICIÓN)
@@ -17802,37 +17951,52 @@
       }
     });
 
-    // --- MOTOR: RESUMEN DE FLOTA ---
+    // --- MOTOR: RESUMEN DE FLOTA V2 ---
 
     const ICONOS_RESUMEN = {
-      "LISTO": '<svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
-      "SUCIO": '<svg viewBox="0 0 24 24"><path d="M13.22 3l.53 1.06 1.06.53-1.06.53-.53 1.06-.53-1.06-1.06-.53 1.06-.53.53-1.06M12 21.4c-5.19 0-9.4-4.21-9.4-9.4 0-4.03 2.54-7.48 6.1-8.78l1.34 2.68c-1.87.68-3.21 2.51-3.21 4.65 0 2.73 2.22 4.95 4.95 4.95 2.14 0 3.97-1.34 4.65-3.21l2.68 1.34c-1.3 3.56-4.75 6.1-8.78 6.1m7.13-10.45l.93 1.87 1.87.93-1.87.93-.93 1.87-.93-1.87-1.87-.93 1.87-.93.93-1.87"/></svg>',
-      "TRASLADO": '<svg viewBox="0 0 24 24"><path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>',
-      "RESGUARDO": '<svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/></svg>',
-      "MANTENIMIENTO": '<svg viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6 6 9 1.6 4.7C.5 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></svg>',
-      "RETENIDA": '<svg viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/></svg>'
+      "LISTO": "check_circle",
+      "SUCIO": "cleaning_services",
+      "TRASLADO": "local_shipping",
+      "RESGUARDO": "shield",
+      "MANTENIMIENTO": "build",
+      "RETENIDA": "lock",
+      "VENTA": "sell",
+      "NO ARRENDABLE": "block",
+      "SIN ESTADO": "help_outline"
     };
 
     let globalResData = null;
     let vistaActualResumen = 'patio';
 
     function abrirResumenFlota() {
-      // 1. Cerramos el menú desplegable y mostramos el modal
       toggleMoreControls();
       document.getElementById('modal-resumen-flota').classList.add('active');
 
-      // 2. Ponemos un loader bonito
-      document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #666;"><span class="material-icons spinner" style="border-top-color: var(--mex-green); width: 30px; height: 30px;">sync</span><br><br>Calculando inventario...</div>`;
+      // Loader
+      document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #94a3b8;">
+        <span class="material-icons spinner" style="border-top-color: var(--mex-green); width: 30px; height: 30px;">sync</span>
+        <br><br><span style="font-weight:700; font-size:12px;">Calculando inventario...</span></div>`;
       document.getElementById('total-val-resumen').innerText = "...";
+      document.getElementById('resv2-patio-val').innerText = "...";
+      document.getElementById('resv2-fuera-val').innerText = "...";
+      document.getElementById('resv2-footer-num').innerText = "...";
 
       actualizarFechaResumen();
 
-      // 3. Llamada al Google Script
       api.obtenerResumenFlotaPatio().then(res => {
         globalResData = res;
+
+        // Populate metrics row (always show both)
+        const totalFlota = res.patio.total + res.fuera.total;
+        document.getElementById('total-val-resumen').innerText = totalFlota;
+        document.getElementById('resv2-patio-val').innerText = res.patio.total;
+        document.getElementById('resv2-fuera-val').innerText = res.fuera.total;
+        document.getElementById('resv2-footer-num').innerText = totalFlota;
+        document.getElementById('resv2-sync-time').innerText = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
         cambiarVistaResumen('patio');
       }).catch(() => {
-        document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #DC2626;">Error al cargar datos del servidor.</div>`;
+        document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #DC2626; font-weight:700;">Error al cargar datos del servidor.</div>`;
       });
     }
 
@@ -17848,7 +18012,8 @@
       const grid = document.getElementById('main-grid-resumen');
       const d = globalResData[vistaActualResumen];
 
-      document.getElementById('total-val-resumen').innerText = d.total;
+      // Update footer
+      document.getElementById('resv2-footer-num').innerText = d.total;
       grid.innerHTML = "";
 
       d.lista.forEach((info, index) => {
@@ -17856,14 +18021,19 @@
         box.className = `stat-box ${info.nombre.replace(/\s+/g, '-')}`;
         box.style.animationDelay = `${index * 0.05}s`;
 
+        const iconName = ICONOS_RESUMEN[info.nombre] || "help_outline";
+
         let detHtml = "";
         for (let c in info.categorias) {
           detHtml += `<div class="fila-cat"><span>${c}</span><span>${info.categorias[c].cant}</span></div>
-                  <span class="mod-list">${info.categorias[c].modelos.join(' • ')}</span>`;
+                  <span class="mod-list">${info.categorias[c].modelos.join(' · ')}</span>`;
         }
 
-        box.innerHTML = `<div class="icon-box">${ICONOS_RESUMEN[info.nombre] || ''}</div>
-                     <span class="lbl">${info.nombre}</span><span class="val">${info.total}</span>
+        box.innerHTML = `<div class="stat-top">
+                       <div class="stat-icon"><span class="material-icons">${iconName}</span></div>
+                       <span class="lbl">${info.nombre}</span>
+                     </div>
+                     <span class="val">${info.total}</span>
                      <div class="inner-detail">${detHtml}</div>`;
 
         box.onclick = () => {
@@ -21885,7 +22055,8 @@
 
   <div id="modal-insertar-admin" class="modal-overlay" style="z-index: 6000;">
     <div class="console-card admin-console-card" style="min-height: 580px;">
-      <button class="admin-modal-close" onclick="document.getElementById('modal-insertar-admin').classList.remove('active')">
+      <button class="admin-modal-close"
+        onclick="document.getElementById('modal-insertar-admin').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
       </button>
 
@@ -21895,7 +22066,8 @@
           Control Administrativo
         </div>
         <div class="admin-modal-title">Registro Administrativo</div>
-        <div class="admin-modal-subtitle">Alta controlada al cuadre admins con trazabilidad operativa, evidencia documental y responsable visible.</div>
+        <div class="admin-modal-subtitle">Alta controlada al cuadre admins con trazabilidad operativa, evidencia
+          documental y responsable visible.</div>
 
         <div class="admin-badge-row">
           <div id="a_ins_badgePlaza" class="admin-badge">PLAZA --</div>
@@ -21907,11 +22079,14 @@
         <div class="admin-highlight-card">
           <div class="admin-section-title" style="margin-top:0;">Vincular Base Maestra</div>
           <div class="search-wrapper admin-search-shell" style="position:relative;">
-            <span class="material-icons" style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
-            <input type="text" id="a_ins_searchInput" class="search-global-input" placeholder="Buscar unidad en Base Maestra..." oninput="filtrarBusquedaAdmin()" autocomplete="off">
+            <span class="material-icons"
+              style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
+            <input type="text" id="a_ins_searchInput" class="search-global-input"
+              placeholder="Buscar unidad en Base Maestra..." oninput="filtrarBusquedaAdmin()" autocomplete="off">
             <div id="a_ins_results" class="floating-results"></div>
           </div>
-          <div class="admin-search-hint">Busca por MVA, placas o modelo y después completa el expediente administrativo para Cuadre Admins.</div>
+          <div class="admin-search-hint">Busca por MVA, placas o modelo y después completa el expediente administrativo
+            para Cuadre Admins.</div>
         </div>
 
         <div class="admin-meta-grid" style="margin: 0 0 16px;">
@@ -22034,19 +22209,22 @@
           <div class="inner-card admin-form-card">
             <div class="field admin-upload-box">
               <label>📂 Cargar Evidencias (Fotos/PDF)</label>
-              <input type="file" id="a_ins_file" multiple onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')"
+              <input type="file" id="a_ins_file" multiple
+                onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
               <div id="a_ins_fileStatus" class="admin-file-status">⚪ SIN EVIDENCIA SELECCIONADA</div>
             </div>
             <div class="field" style="margin-top:10px">
               <label>Notas Administrativas</label>
-              <textarea id="a_ins_not" rows="2" placeholder="Describe la incidencia, seguimiento o contexto administrativo relevante..."
+              <textarea id="a_ins_not" rows="2"
+                placeholder="Describe la incidencia, seguimiento o contexto administrativo relevante..."
                 style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
             </div>
           </div>
 
           <button class="btn-save-global" id="btnGuardarAdmin" onclick="ejecutarInsertarAdmin()">
-            <span class="material-icons" id="iconGuardarAdmin">save</span> <span id="txtGuardarAdmin">CONFIRMAR REGISTRO</span>
+            <span class="material-icons" id="iconGuardarAdmin">save</span> <span id="txtGuardarAdmin">CONFIRMAR
+              REGISTRO</span>
           </button>
         </div>
       </div>
@@ -22055,7 +22233,8 @@
 
   <div id="modal-insertar-global" class="modal-overlay" style="z-index: 6000;">
     <div class="console-card form-console-card">
-      <button class="form-modal-close" onclick="document.getElementById('modal-insertar-global').classList.remove('active')">
+      <button class="form-modal-close"
+        onclick="document.getElementById('modal-insertar-global').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
       </button>
 
@@ -22065,7 +22244,8 @@
           Base Maestra Global
         </div>
         <div class="form-modal-title">Alta de Unidad Global</div>
-        <div class="form-modal-subtitle">Registra una unidad nueva con identidad técnica, plaza destino y datos clave listos para entrar al inventario maestro.</div>
+        <div class="form-modal-subtitle">Registra una unidad nueva con identidad técnica, plaza destino y datos clave
+          listos para entrar al inventario maestro.</div>
 
         <div class="form-modal-metrics">
           <div class="form-modal-pill">
@@ -22111,7 +22291,8 @@
             <div class="field"><label>VIN (Número de Serie)</label><input type="text" id="g_vin"
                 placeholder="3N1CN8AE0SK5..."></div>
             <div class="grid-2" style="margin-top:15px">
-              <div class="field"><label>Categoría</label><input type="text" id="g_categoria" placeholder="Ej. CCAR"></div>
+              <div class="field"><label>Categoría</label><input type="text" id="g_categoria" placeholder="Ej. CCAR">
+              </div>
               <div class="field"><label>Año</label><input type="number" id="g_año" placeholder="2025"></div>
             </div>
           </div>
@@ -22131,7 +22312,8 @@
             </div>
           </div>
 
-          <div class="form-modal-helper">La unidad se registrará en la plaza seleccionada y quedará disponible para su expediente técnico global.</div>
+          <div class="form-modal-helper">La unidad se registrará en la plaza seleccionada y quedará disponible para su
+            expediente técnico global.</div>
         </div>
 
         <button class="btn-save-global" id="btnGuardarGlobal" onclick="ejecutarInsertarGlobal()">
@@ -22154,7 +22336,8 @@
           Modificador Global
         </div>
         <div class="form-modal-title">Expediente Técnico Global</div>
-        <div class="form-modal-subtitle">Busca la unidad en la base maestra, actualiza sus datos principales y, si hace falta, retírala de su plaza con control total.</div>
+        <div class="form-modal-subtitle">Busca la unidad en la base maestra, actualiza sus datos principales y, si hace
+          falta, retírala de su plaza con control total.</div>
 
         <div class="form-modal-metrics">
           <div class="form-modal-pill">
@@ -22182,7 +22365,8 @@
             <span class="material-icons" style="font-size:40px;">build_circle</span>
           </div>
           <h3 style="margin:0; font-weight: 900; color: #475569; font-size: 18px;">Edición Global</h3>
-          <p style="font-size: 13px; margin:0; color: #94a3b8; font-weight: 700; max-width: 360px;">Ingresa el MVA, modelo o placas para abrir el expediente técnico de la unidad en su plaza correspondiente.</p>
+          <p style="font-size: 13px; margin:0; color: #94a3b8; font-weight: 700; max-width: 360px;">Ingresa el MVA,
+            modelo o placas para abrir el expediente técnico de la unidad en su plaza correspondiente.</p>
         </div>
 
         <div class="unit-identity-card" id="g_edit_unitIdentity" style="display:none;">
@@ -22223,7 +22407,8 @@
 
           <div class="global-action-row">
             <button class="btn-save-global" onclick="guardarEdicionGlobal('MODIFICAR')">GUARDAR CAMBIOS</button>
-            <button class="btn-save-global btn-ghost-danger" onclick="guardarEdicionGlobal('ELIMINAR')">ELIMINAR UNIDAD</button>
+            <button class="btn-save-global btn-ghost-danger" onclick="guardarEdicionGlobal('ELIMINAR')">ELIMINAR
+              UNIDAD</button>
           </div>
         </div>
       </div>
@@ -22232,7 +22417,8 @@
 
   <div id="modal-editar-admin" class="modal-overlay" style="z-index: 6000;">
     <div class="console-card admin-console-card" style="min-height: 620px;">
-      <button class="admin-modal-close" onclick="document.getElementById('modal-editar-admin').classList.remove('active')">
+      <button class="admin-modal-close"
+        onclick="document.getElementById('modal-editar-admin').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
       </button>
 
@@ -22242,7 +22428,8 @@
           Cuadre Admins
         </div>
         <div class="admin-modal-title">Expediente Administrativo</div>
-        <div class="admin-modal-subtitle">Seguimiento profesional de unidad con notas, evidencia, responsable, plaza operativa e historial visible para auditoría.</div>
+        <div class="admin-modal-subtitle">Seguimiento profesional de unidad con notas, evidencia, responsable, plaza
+          operativa e historial visible para auditoría.</div>
       </div>
 
       <div class="admin-modal-body">
@@ -22373,19 +22560,23 @@
           <div class="inner-card admin-form-card">
             <div class="field admin-upload-box">
               <label>📂 Cargar Nueva Evidencia (Fotos/PDF)</label>
-              <input type="file" id="a_mod_file" multiple onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')"
+              <input type="file" id="a_mod_file" multiple
+                onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
               <div id="a_mod_fileStatus" class="admin-file-status"></div>
             </div>
             <div class="field" style="margin-top:10px">
               <label>Añadir Nota Administrativa</label>
-              <textarea id="a_mod_not" rows="2" placeholder="Agrega detalle operativo, seguimiento o contexto administrativo..."
+              <textarea id="a_mod_not" rows="2"
+                placeholder="Agrega detalle operativo, seguimiento o contexto administrativo..."
                 style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
             </div>
           </div>
 
-          <div class="inner-card admin-form-card admin-visor-card" id="a_visor_evidencia" style="display:none; text-align:center; padding: 15px;">
-            <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL SISTEMA</span>
+          <div class="inner-card admin-form-card admin-visor-card" id="a_visor_evidencia"
+            style="display:none; text-align:center; padding: 15px;">
+            <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL
+              SISTEMA</span>
             <div id="a_visor_frame" class="admin-visor-frame"></div>
             <div id="a_visor_list" class="admin-visor-list"></div>
             <a id="a_link_drive" href="#" target="_blank"
@@ -22400,8 +22591,10 @@
           </div>
 
           <div id="a_mod_btn_container" class="admin-actions" style="display:flex; gap:10px; margin-top:20px;">
-            <button class="btn-save-global" onclick="guardarEdicionAdmin('MODIFICAR')" style="margin-top:0;">💾 GUARDAR CAMBIOS</button>
-            <button class="btn-save-global" onclick="guardarEdicionAdmin('ELIMINAR')" style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;">🗑️ RETIRAR DE CUADRE</button>
+            <button class="btn-save-global" onclick="guardarEdicionAdmin('MODIFICAR')" style="margin-top:0;">💾 GUARDAR
+              CAMBIOS</button>
+            <button class="btn-save-global" onclick="guardarEdicionAdmin('ELIMINAR')"
+              style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;">🗑️ RETIRAR DE CUADRE</button>
           </div>
         </div>
       </div>
@@ -22450,33 +22643,57 @@
 
 
   <div id="modal-resumen-flota" class="modal-overlay" style="z-index: 6000;">
-    <div style="position:relative; width: 100%; max-width: 450px; margin: auto;">
+    <div class="resv2-wrapper">
 
-      <button onclick="document.getElementById('modal-resumen-flota').classList.remove('active')"
-        style="position:absolute; right: -10px; top: -10px; background:var(--mex-red); color:white; border:2px solid white; border-radius:50%; width:35px; height:35px; cursor:pointer; font-weight:900; z-index:10; display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(0,0,0,0.3);">✕</button>
-
-      <div class="report-card">
-        <div class="res-tabs">
-          <button id="btn-patio-res" class="res-tab-btn active" onclick="cambiarVistaResumen('patio')">EN PATIO</button>
-          <button id="btn-fuera-res" class="res-tab-btn" onclick="cambiarVistaResumen('fuera')">FUERA</button>
-        </div>
-        <div class="res-header">
-          <h1> RENT A CAR <span style="color:var(--mex-green);">BJX</span></h1>
-        </div>
-
-        <div class="grid-stats" id="main-grid-resumen"
-          style="max-height: 55vh; overflow-y: auto; padding-bottom: 15px;"></div>
-
-        <div class="res-footer">
-          <div class="total-box">
-            <span
-              style="font-size: 10px; font-weight: 800; opacity: 0.7; display:block; margin-bottom: 4px; color: white;">TOTAL
-              UNIDADES</span>
-            <strong id="total-val-resumen" style="color: white;">0</strong>
+      <div class="resv2-card">
+        <!-- HERO -->
+        <div class="resv2-hero">
+          <div class="resv2-hero-bg"></div>
+          <button class="resv2-close" onclick="document.getElementById('modal-resumen-flota').classList.remove('active')">
+            <span class="material-icons" style="font-size:18px;">close</span>
+          </button>
+          <div class="resv2-hero-content">
+            <div class="resv2-brand-row">
+              <span class="resv2-brand-badge">MEX RENT A CAR · <span id="resv2-branch" style="color:#38bdf8;">BJX</span></span>
+              <div class="resv2-tab-switch">
+                <button id="btn-patio-res" class="resv2-tab active" onclick="cambiarVistaResumen('patio')">EN PATIO</button>
+                <button id="btn-fuera-res" class="resv2-tab" onclick="cambiarVistaResumen('fuera')">FUERA</button>
+              </div>
+            </div>
+            <h2 class="resv2-title">RESUMEN DE FLOTA</h2>
+            <p class="resv2-date"><span id="fecha-full-resumen"></span> · <span id="reloj-big-resumen"></span></p>
           </div>
-          <div class="time-box">
-            <span id="fecha-full-resumen" style="color: white;"></span>
-            <span id="reloj-big-resumen" style="color: white;"></span>
+        </div>
+
+        <!-- METRICS ROW -->
+        <div class="resv2-metrics" id="resv2-metrics-row">
+          <div class="resv2-metric">
+            <span class="resv2-metric-label">TOTAL FLOTA</span>
+            <strong class="resv2-metric-val" id="total-val-resumen">0</strong>
+          </div>
+          <div class="resv2-metric resv2-metric--green">
+            <span class="resv2-metric-label">EN PATIO</span>
+            <strong class="resv2-metric-val" id="resv2-patio-val">0</strong>
+          </div>
+          <div class="resv2-metric resv2-metric--blue">
+            <span class="resv2-metric-label">FUERA</span>
+            <strong class="resv2-metric-val" id="resv2-fuera-val">0</strong>
+          </div>
+        </div>
+
+        <!-- GRID STATUS CARDS -->
+        <div id="main-grid-resumen" class="resv2-grid"></div>
+
+        <!-- FOOTER -->
+        <div class="resv2-footer">
+          <div class="resv2-footer-total">
+            <span class="resv2-footer-label">TOTAL</span>
+            <strong id="resv2-footer-num">0</strong>
+            <span class="resv2-footer-unit">VEHÍCULOS</span>
+          </div>
+          <div class="resv2-footer-sync">
+            <span class="material-icons" style="font-size:14px; opacity:0.6;">sync</span>
+            <span id="resv2-sync-time">--:--</span>
           </div>
         </div>
       </div>
@@ -23364,154 +23581,603 @@
   </div>
 
   <!-- ── PANEL DE CONFIGURACIÓN GLOBAL (solo Admin Global) ─────────────── -->
-  <div id="modal-config-global" class="fleet-modal" style="z-index: 70000;">
-    <div class="fleet-header-top">
-      <div style="display:flex; align-items:center; gap:12px;">
-        <span class="material-icons" style="color:#38bdf8; font-size:26px;">settings_suggest</span>
-        <div>
-          <h2 style="color:var(--primary); font-weight:900; margin:0; font-size:17px;">CONFIGURACIÓN GLOBAL</h2>
-          <p style="margin:0; font-size:11px; color:#64748b; font-weight:600;">Edita catálogos del sistema · Los cambios
-            aplican al instante en toda la app</p>
+  <div id="modal-config-global" class="fleet-modal cfg-modal-v2" style="z-index: 70000;">
+
+    <!-- HERO HEADER -->
+    <div class="cfg-v2-hero">
+      <div class="cfg-v2-hero-bg"></div>
+      <div class="cfg-v2-hero-content">
+        <div class="cfg-v2-kicker">
+          <span class="material-icons" style="font-size:14px;">settings_suggest</span>
+          SISTEMA
         </div>
+        <h2 class="cfg-v2-title">CONFIGURACIÓN<br>GLOBAL</h2>
+        <p class="cfg-v2-subtitle">Gestiona los catálogos fundamentales de la infraestructura operativa de
+          ${companyName}. Los cambios aplican en tiempo real.</p>
       </div>
-      <button onclick="document.getElementById('modal-config-global').classList.remove('active')"
-        style="background:#f1f5f9; color:#64748b; border:none; border-radius:10px; width:36px; height:36px; cursor:pointer; font-weight:900; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+      <button class="cfg-v2-close" onclick="document.getElementById('modal-config-global').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
       </button>
     </div>
 
-    <div class="fleet-wrapper" style="flex-direction:row; background:#f8fafc; padding:20px; gap:16px; min-height:0;">
+    <!-- BODY: SIDEBAR + CONTENT -->
+    <div class="cfg-v2-body">
 
-      <!-- Sidebar de pestañas -->
-      <div
-        style="width:200px; flex-shrink:0; background:white; border-radius:14px; border:1px solid #e2e8f0; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
-        <div
-          style="padding:14px 16px; background:var(--mex-blue); color:white; font-weight:900; font-size:11px; text-transform:uppercase; letter-spacing:1.5px;">
-          CATÁLOGOS</div>
-        <button class="cfg-tab active" onclick="abrirTabConfig('ubicaciones', this)">
-          <span class="material-icons"
-            style="font-size:16px; vertical-align:middle; margin-right:8px;">place</span>Ubicaciones
-        </button>
-        <button class="cfg-tab" onclick="abrirTabConfig('estados', this)">
-          <span class="material-icons"
-            style="font-size:16px; vertical-align:middle; margin-right:8px;">tune</span>Estados
-        </button>
-        <button class="cfg-tab" onclick="abrirTabConfig('categorias', this)">
-          <span class="material-icons"
-            style="font-size:16px; vertical-align:middle; margin-right:8px;">directions_car</span>Categorías
-        </button>
-        <button class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)">
-          <span class="material-icons"
-            style="font-size:16px; vertical-align:middle; margin-right:8px;">local_gas_station</span>Gasolinas
-        </button>
+      <!-- SIDEBAR -->
+      <div class="cfg-v2-sidebar">
+        <div class="cfg-v2-sidebar-label">
+          <span class="material-icons" style="font-size:14px;">folder_open</span>
+          Settings
+        </div>
+        <div class="cfg-v2-sidebar-sublabel">Catálogos del Sistema</div>
+        <nav class="cfg-v2-nav">
+          <button class="cfg-tab active" onclick="abrirTabConfig('ubicaciones', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+            <span>Ubicaciones</span>
+          </button>
+          <button class="cfg-tab" onclick="abrirTabConfig('estados', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+            <span>Estados</span>
+          </button>
+          <button class="cfg-tab" onclick="abrirTabConfig('categorias', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+            <span>Categorías</span>
+          </button>
+          <button class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+            <span>Gasolinas</span>
+          </button>
+        </nav>
       </div>
 
-      <!-- Panel principal -->
-      <div
-        style="flex:1; background:white; border-radius:14px; border:1px solid #e2e8f0; padding:20px; display:flex; flex-direction:column; box-shadow:0 2px 8px rgba(0,0,0,0.06); min-width:0;">
+      <!-- MAIN PANEL -->
+      <div class="cfg-v2-main">
 
-        <div style="display:flex; gap:10px; margin-bottom:16px; padding-bottom:16px; border-bottom:2px dashed #e2e8f0;">
-          <input type="text" id="cfg-nuevo-input" placeholder="Nuevo valor en MAYÚSCULAS..."
-            style="flex:1; padding:11px 14px; border-radius:10px; border:2px solid #e2e8f0; font-weight:800; text-transform:uppercase; outline:none; font-family:inherit; transition:border-color 0.2s;"
-            onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='#e2e8f0'"
-            onkeydown="if(event.key==='Enter') agregarElementoConfig()">
-          <button onclick="agregarElementoConfig()"
-            style="background:var(--mex-accent); color:white; border:none; padding:0 20px; border-radius:10px; font-weight:900; cursor:pointer; display:flex; align-items:center; gap:7px; font-family:inherit; white-space:nowrap; font-size:13px; transition:opacity 0.2s;"
-            onmouseenter="this.style.opacity='0.85'" onmouseleave="this.style.opacity='1'">
+        <!-- ADD BAR -->
+        <div class="cfg-v2-add-bar">
+          <div class="cfg-v2-search-box">
+            <span class="material-icons cfg-v2-search-icon">search</span>
+            <input type="text" id="cfg-nuevo-input" placeholder="Buscar o agregar nuevo catálogo..."
+              onkeydown="if(event.key==='Enter') agregarElementoConfig()" autocomplete="off">
+          </div>
+          <button class="cfg-v2-btn-add" onclick="agregarElementoConfig()">
             <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
           </button>
         </div>
 
-        <div id="cfg-lista-items"
-          style="flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:7px; min-height:120px;"></div>
+        <!-- LIST -->
+        <div id="cfg-lista-items" class="cfg-v2-list"></div>
 
-        <div style="display:flex; gap:10px; margin-top:16px; padding-top:16px; border-top:1px solid #f1f5f9;">
-          <button onclick="document.getElementById('modal-config-global').classList.remove('active')"
-            style="flex:1; padding:12px; background:#f1f5f9; color:#64748b; border:none; border-radius:10px; font-weight:800; font-size:13px; cursor:pointer; font-family:inherit;">
-            CANCELAR
-          </button>
-          <button onclick="guardarConfiguracionEnFirebase()"
-            style="flex:2; padding:12px; background:linear-gradient(135deg,#059669,#10b981); color:white; border:none; border-radius:10px; font-weight:900; font-size:13px; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; font-family:inherit; box-shadow:0 4px 12px rgba(16,185,129,0.35); transition:all 0.2s;"
-            onmouseenter="this.style.transform='translateY(-1px)'" onmouseleave="this.style.transform=''">
-            <span class="material-icons" style="font-size:18px;">cloud_upload</span> PUBLICAR CAMBIOS
-          </button>
+        <!-- FOOTER -->
+        <div class="cfg-v2-footer">
+          <span class="cfg-v2-footer-copy">© MEX RENT A CAR · Configuración v3</span>
+          <div class="cfg-v2-footer-actions">
+            <button class="cfg-v2-btn-cancel"
+              onclick="document.getElementById('modal-config-global').classList.remove('active')">
+              CANCELAR
+            </button>
+            <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
+              <span class="material-icons" style="font-size:18px;">cloud_upload</span> PUBLICAR CAMBIOS
+            </button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
   <style>
+    /* ═══════════════════════════════════════════════════════════
+       CONFIG MODAL V2 — STITCH AZURE HORIZON DESIGN
+       ═══════════════════════════════════════════════════════════ */
+
+    .cfg-modal-v2 {
+      border-radius: 28px !important;
+      overflow: hidden !important;
+    }
+
+    .cfg-modal-v2.active {
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    /* ── HERO ────────────────────────────────────────────────── */
+    .cfg-v2-hero {
+      position: relative;
+      min-height: 170px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .cfg-v2-hero-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 85% 22%, rgba(255, 255, 255, 0.10), transparent 18%),
+        radial-gradient(circle at top left, rgba(56, 189, 248, 0.22), transparent 36%),
+        linear-gradient(135deg, #07162e 0%, #0d2a54 48%, #1763ae 100%);
+    }
+
+    .cfg-v2-hero-bg::after {
+      content: '';
+      position: absolute;
+      right: -40px;
+      top: -20px;
+      width: 260px;
+      height: 200px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.15) 0%, transparent 65%);
+      border-radius: 50%;
+    }
+
+    .cfg-v2-hero-content {
+      position: relative;
+      z-index: 1;
+      padding: 30px 32px 26px;
+    }
+
+    .cfg-v2-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      color: white;
+      background: rgba(255, 255, 255, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      backdrop-filter: blur(8px);
+    }
+
+    .cfg-v2-title {
+      margin: 16px 0 10px;
+      font-size: 32px;
+      line-height: 0.96;
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      text-transform: uppercase;
+      color: white;
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    }
+
+    .cfg-v2-subtitle {
+      margin: 0;
+      max-width: 480px;
+      font-size: 12px;
+      line-height: 1.55;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .cfg-v2-close {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      z-index: 5;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: rgba(255, 255, 255, 0.10);
+      color: white;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(12px);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .cfg-v2-close:hover {
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.20);
+    }
+
+    /* ── BODY ────────────────────────────────────────────────── */
+    .cfg-v2-body {
+      flex: 1;
+      display: flex;
+      min-height: 0;
+      background: #f7f9fb;
+      padding: 24px;
+      gap: 20px;
+    }
+
+    /* ── SIDEBAR ──────────────────────────────────────────────── */
+    .cfg-v2-sidebar {
+      width: 210px;
+      flex-shrink: 0;
+      padding: 20px 16px;
+    }
+
+    .cfg-v2-sidebar-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 900;
+      color: #0f172a;
+      margin-bottom: 2px;
+    }
+
+    .cfg-v2-sidebar-sublabel {
+      font-size: 11px;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 0.3px;
+      margin-bottom: 18px;
+    }
+
+    .cfg-v2-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
     .cfg-tab {
-      padding: 13px 16px;
+      padding: 12px 16px;
       text-align: left;
       background: transparent;
       border: none;
-      border-bottom: 1px solid #f8fafc;
+      border-radius: 14px;
       font-weight: 700;
       font-size: 13px;
       color: #64748b;
       cursor: pointer;
-      transition: all 0.18s;
+      transition: all 0.2s ease;
       display: flex;
       align-items: center;
+      gap: 10px;
       font-family: inherit;
     }
 
+    .cfg-tab-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #f1f5f9;
+      color: #94a3b8;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .cfg-tab-icon .material-icons {
+      font-size: 17px;
+    }
+
     .cfg-tab:hover {
-      background: #f8fafc;
-      color: var(--mex-blue);
-      padding-left: 22px;
+      background: #f1f5f9;
+      color: #0d2a54;
+    }
+
+    .cfg-tab:hover .cfg-tab-icon {
+      background: #e0e7ff;
+      color: #3b82f6;
     }
 
     .cfg-tab.active {
-      background: #e0f2fe;
-      color: var(--mex-blue);
-      border-left: 4px solid var(--mex-accent);
+      background: linear-gradient(135deg, #0d2a54 0%, #1d4ed8 100%);
+      color: white;
       font-weight: 900;
+      box-shadow: 0 8px 20px rgba(13, 42, 84, 0.25);
+    }
+
+    .cfg-tab.active .cfg-tab-icon {
+      background: rgba(255, 255, 255, 0.18);
+      color: white;
+    }
+
+    /* ── MAIN PANEL ──────────────────────────────────────────── */
+    .cfg-v2-main {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      background: white;
+      border-radius: 24px;
+      border: 1px solid #e8edf4;
+      box-shadow: 0 18px 40px rgba(15, 35, 67, 0.06);
+      overflow: hidden;
+    }
+
+    /* ── ADD BAR ──────────────────────────────────────────────── */
+    .cfg-v2-add-bar {
+      display: flex;
+      gap: 12px;
+      padding: 20px 24px;
+      border-bottom: 1px solid #f1f5f9;
+      flex-shrink: 0;
+    }
+
+    .cfg-v2-search-box {
+      flex: 1;
+      position: relative;
+    }
+
+    .cfg-v2-search-icon {
+      position: absolute;
+      left: 16px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 20px;
+      color: #94a3b8;
+      pointer-events: none;
+    }
+
+    .cfg-v2-search-box input {
+      width: 100%;
+      padding: 13px 16px 13px 48px;
+      border-radius: 14px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      font-weight: 700;
+      font-size: 13px;
+      text-transform: uppercase;
+      outline: none;
+      font-family: inherit;
+      color: #0f172a;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      box-sizing: border-box;
+    }
+
+    .cfg-v2-search-box input:focus {
+      border-color: #93c5fd;
+      box-shadow: 0 0 0 4px rgba(96, 165, 250, 0.12);
+      background: white;
+    }
+
+    .cfg-v2-search-box input::placeholder {
+      text-transform: none;
+      font-weight: 600;
+      color: #94a3b8;
+    }
+
+    .cfg-v2-btn-add {
+      padding: 0 24px;
+      border-radius: 14px;
+      border: none;
+      background: #0f172a;
+      color: white;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      white-space: nowrap;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2);
+    }
+
+    .cfg-v2-btn-add:hover {
+      background: #1e293b;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+    }
+
+    /* ── LIST ─────────────────────────────────────────────────── */
+    .cfg-v2-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 16px 24px;
+      min-height: 120px;
+    }
+
+    .cfg-v2-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .cfg-v2-list::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 999px;
     }
 
     .cfg-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 11px 14px;
+      padding: 14px 18px;
       background: #f8fafc;
-      border: 1.5px solid #e2e8f0;
-      border-radius: 10px;
+      border: 1px solid transparent;
+      border-radius: 16px;
       font-weight: 800;
-      color: #1e293b;
+      color: #0f172a;
       font-size: 13px;
-      transition: border-color 0.15s;
+      letter-spacing: 0.3px;
+      transition: all 0.2s ease;
     }
 
     .cfg-item:hover {
-      border-color: #cbd5e1;
+      background: white;
+      border-color: #e2e8f0;
+      box-shadow: 0 8px 20px rgba(15, 35, 67, 0.06);
+      transform: translateY(-1px);
     }
 
     .cfg-item-color {
       width: 14px;
       height: 14px;
-      border-radius: 3px;
+      border-radius: 5px;
       flex-shrink: 0;
     }
 
     .cfg-item-del {
-      background: #fee2e2;
+      background: transparent;
       border: none;
-      color: #ef4444;
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
+      color: #cbd5e1;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
-      transition: background 0.15s;
+      transition: all 0.2s ease;
     }
 
     .cfg-item-del:hover {
-      background: #fecaca;
+      background: #fef2f2;
+      color: #ef4444;
+    }
+
+    /* ── FOOTER ───────────────────────────────────────────────── */
+    .cfg-v2-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      border-top: 1px solid #f1f5f9;
+      flex-shrink: 0;
+    }
+
+    .cfg-v2-footer-copy {
+      font-size: 10px;
+      font-weight: 700;
+      color: #94a3b8;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .cfg-v2-footer-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .cfg-v2-btn-cancel {
+      padding: 11px 28px;
+      border-radius: 999px;
+      border: 1.5px solid #e2e8f0;
+      background: white;
+      color: #64748b;
+      font-weight: 800;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s ease;
+    }
+
+    .cfg-v2-btn-cancel:hover {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+    }
+
+    .cfg-v2-btn-publish {
+      padding: 11px 28px;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+      color: white;
+      font-weight: 900;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-family: inherit;
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.30);
+      transition: all 0.2s ease;
+    }
+
+    .cfg-v2-btn-publish:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 24px rgba(16, 185, 129, 0.35);
+    }
+
+    /* ── MOBILE ───────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .cfg-modal-v2 {
+        border-radius: 20px !important;
+      }
+
+      .cfg-v2-hero {
+        min-height: 140px;
+      }
+
+      .cfg-v2-hero-content {
+        padding: 22px 20px 20px;
+      }
+
+      .cfg-v2-title {
+        font-size: 24px;
+      }
+
+      .cfg-v2-body {
+        flex-direction: column;
+        padding: 16px;
+        gap: 12px;
+      }
+
+      .cfg-v2-sidebar {
+        width: 100%;
+        padding: 12px;
+      }
+
+      .cfg-v2-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 6px;
+        padding-bottom: 2px;
+      }
+
+      .cfg-tab {
+        white-space: nowrap;
+        padding: 10px 14px;
+        font-size: 12px;
+      }
+
+      .cfg-tab-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+      }
+
+      .cfg-tab-icon .material-icons {
+        font-size: 15px;
+      }
+
+      .cfg-v2-add-bar {
+        flex-direction: column;
+        padding: 16px 16px;
+      }
+
+      .cfg-v2-btn-add {
+        justify-content: center;
+        padding: 12px 20px;
+      }
+
+      .cfg-v2-list {
+        padding: 12px 16px;
+      }
+
+      .cfg-v2-footer {
+        flex-direction: column;
+        gap: 12px;
+        padding: 14px 16px;
+      }
+
+      .cfg-v2-footer-actions {
+        width: 100%;
+      }
+
+      .cfg-v2-btn-cancel,
+      .cfg-v2-btn-publish {
+        flex: 1;
+        justify-content: center;
+        padding: 12px 16px;
+      }
     }
   </style>
 
