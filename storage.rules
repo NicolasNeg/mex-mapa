@@ -63,7 +63,9 @@ service firebase.storage {
 
     match /evidencias_cuadre_admins/{docId}/{fileName} {
       allow read: if esAdminOperativo();
-      allow write: if puedeEditarCuadreAdmins();
+      allow write: if puedeEditarCuadreAdmins()
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats.*');
     }
 
     match /notas_admin_adjuntos/{docId}/{fileName} {
