@@ -33,8 +33,8 @@ service firebase.storage {
     }
 
     function rolActual() {
-      return !tienePerfilActual() ? "SIN_ACCESO"
-        : esEmailBootstrapProgramador(request.auth.token.email) ? "PROGRAMADOR"
+      return estaAutenticado() && esEmailBootstrapProgramador(request.auth.token.email) ? "PROGRAMADOR"
+        : !tienePerfilActual() ? "SIN_ACCESO"
         : perfilActual().rol == "PROGRAMADOR" ? "PROGRAMADOR"
         : perfilActual().rol == "JEFE_OPERACION" ? "JEFE_OPERACION"
         : perfilActual().rol == "CORPORATIVO_USER" ? "CORPORATIVO_USER"

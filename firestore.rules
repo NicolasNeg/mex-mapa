@@ -68,8 +68,8 @@ service cloud.firestore {
     }
 
     function rolActual() {
-      return !tienePerfilActual() ? "SIN_ACCESO"
-        : esProgramadorBootstrap() ? "PROGRAMADOR"
+      return esProgramadorBootstrap() ? "PROGRAMADOR"
+        : !tienePerfilActual() ? "SIN_ACCESO"
         : rolDePerfil(perfilActual());
     }
 

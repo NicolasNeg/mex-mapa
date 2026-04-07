@@ -10781,7 +10781,7 @@
             </div>
             <div style="display: flex; align-items: center;">
               <span id="badge-solicitudes" class="badge-pulse"
-                style="display:none; margin-right: 5px; width:18px; height:18px; background:#ef4444; color:white; border-radius:50%; text-align:center; line-height:18px; font-size:10px;">0</span>
+                style="display:none; position:relative; top:0; right:0; margin-right: 5px; width:18px; height:18px; background:#ef4444; color:white; border-radius:50%; text-align:center; line-height:18px; font-size:10px;">0</span>
               <span class="material-icons sb-chevron">chevron_right</span>
             </div>
           </div>
@@ -20356,6 +20356,11 @@
     // ==========================================
     let allChatMessages = [];
     let activeChatUser = null;
+    let pendingChatFile  = null;   // { file, previewUrl, isImg }
+    let replyingToMsg    = null;   // { id, remitente, mensaje }
+    let chatMediaRecorder = null;
+    let chatAudioChunks  = [];
+    let emojiPickerTarget = null;  // msgId for reaction picker
 
     const AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
     function _avatarColor(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % AVATAR_COLORS.length; return AVATAR_COLORS[Math.abs(h)]; }
@@ -20482,6 +20487,7 @@
       const input = document.getElementById('chat-input');
       input.value = "";
       input.style.height = "auto";
+      _clearChatStaging();
 
       let idsToMark = [];
       allChatMessages.forEach(m => {
@@ -20525,6 +20531,7 @@
 
       container.innerHTML = history.map(m => {
         const typeClass = m.esMio ? "sent" : "received";
+        const mIdSafe   = String(m.id).replace(/[^a-zA-Z0-9_-]/g, '_');
 
         let checkIcon = "";
         if (m.esMio) {
@@ -20536,20 +20543,72 @@
         let partesFecha = String(m.fecha || "").split(' ');
         let horaLimpia = partesFecha.length > 1 ? partesFecha[1] : "";
 
-        // Linkify + file rendering
-        let contenido = _linkifyText(escapeHtml(m.mensaje));
+        // ── Reply quote context ──
+        let replyHtml = "";
+        if (m.replyTo) {
+          const rqText  = escapeHtml(String(m.replyTo.mensaje || "").substring(0, 80));
+          const rqAuthor = escapeHtml(m.replyTo.remitente || "");
+          replyHtml = `<div class="chat-reply-quote">
+            <div class="rq-author">${rqAuthor}</div>
+            <div class="rq-text">${rqText}</div>
+          </div>`;
+        }
 
-        // Render file attachment if present
+        // ── Message text (hide if it's just the auto-file label and file is present) ──
+        let msgText = m.mensaje || "";
+        if (m.archivoUrl && msgText === `📎 ${m.archivoNombre}`) msgText = "";
+        let contenido = msgText ? _linkifyText(escapeHtml(msgText)) : "";
+
+        // ── File/media attachment ──
         let fileHtml = "";
         if (m.archivoUrl) {
-          const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(m.archivoNombre || '');
+          const nom = m.archivoNombre || '';
+          const isImg   = /\.(jpg|jpeg|png|gif|webp)$/i.test(nom);
+          const isAudio = /\.(ogg|mp3|wav|m4a|webm)$/i.test(nom);
           if (isImg) {
-            fileHtml = `<div class="chat-file-preview"><img src="${m.archivoUrl}" alt="${escapeHtml(m.archivoNombre || 'Imagen')}"></div>`;
+            fileHtml = `<div style="margin-top:${contenido ? 4 : 0}px;">
+              <img class="chat-img-thumb" src="${m.archivoUrl}" alt="${escapeHtml(nom)}"
+                onclick="abrirLightboxChat('${m.archivoUrl}')">
+            </div>`;
+          } else if (isAudio) {
+            fileHtml = `<div class="chat-audio-card">
+              <span class="material-icons audio-icon">graphic_eq</span>
+              <audio controls src="${m.archivoUrl}"></audio>
+            </div>`;
           } else {
-            fileHtml = `<div class="chat-file-preview"><span class="material-icons" style="font-size:14px; vertical-align:middle;">description</span> <a href="${m.archivoUrl}" target="_blank" rel="noopener">${escapeHtml(m.archivoNombre || 'Archivo adjunto')}</a></div>`;
+            const ext = nom.split('.').pop().toUpperCase();
+            const docIcon = _docIconForExt(ext);
+            fileHtml = `<div class="chat-doc-card">
+              <span class="material-icons doc-icon">${docIcon}</span>
+              <div class="doc-info">
+                <div class="doc-name">${escapeHtml(nom || 'Archivo')}</div>
+                <div class="doc-ext">${ext}</div>
+              </div>
+              <a class="doc-dl" href="${m.archivoUrl}" target="_blank" rel="noopener" download title="Descargar">
+                <span class="material-icons" style="font-size:16px;">download</span>
+              </a>
+            </div>`;
           }
         }
 
+        // ── Reactions ──
+        let reactionsHtml = "";
+        const reacs = m.reacciones || {};
+        const reacEntries = Object.entries(reacs).filter(([,users]) => users && users.length > 0);
+        if (reacEntries.length > 0 || true) {
+          const reacBtns = reacEntries.map(([emoji, users]) => {
+            const mine = users.includes(USER_NAME) ? " mine" : "";
+            const whoStr = users.join(', ');
+            return `<button class="chat-reaction-btn${mine}" title="${escapeHtml(whoStr)}"
+              onclick="toggleReaccionChat('${mIdSafe}','${emoji}')">${emoji}<span class="rc-count">${users.length}</span></button>`;
+          }).join('');
+          reactionsHtml = `<div class="chat-reactions">
+            ${reacBtns}
+            <button class="chat-add-reaction" onclick="mostrarEmojiPickerReaccion('${mIdSafe}',this)" title="Reaccionar">😊</button>
+          </div>`;
+        }
+
+        // ── Edit/Delete options (own messages) ──
         let opcionesNav = "";
         if (m.esMio) {
           opcionesNav = `
@@ -20560,11 +20619,20 @@
           `;
         }
 
+        // ── Reply button ──
+        const replyBtn = `<button class="chat-reply-btn" onclick="iniciarRespuestaChat('${mIdSafe}')" title="Responder">
+          <span class="material-icons" style="font-size:14px;">reply</span>
+        </button>`;
+
         return `
-       <div class="chat-bubble ${typeClass}" onmouseover="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 1 : null" onmouseleave="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 0 : null">
-          ${contenido}${fileHtml}
+       <div class="chat-bubble ${typeClass}" id="bubble-${mIdSafe}"
+         onmouseover="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 1 : null"
+         onmouseleave="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 0 : null">
+          ${replyHtml}${contenido}${fileHtml}
           ${opcionesNav}
+          ${replyBtn}
           <span class="chat-time">${horaLimpia} ${checkIcon}</span>
+          ${reactionsHtml}
        </div>
      `;
       }).join('');
@@ -20572,6 +20640,15 @@
       setTimeout(() => {
         container.scrollTop = container.scrollHeight;
       }, 50);
+    }
+
+    function _docIconForExt(ext) {
+      const e = (ext || '').toLowerCase();
+      if (['pdf'].includes(e)) return 'picture_as_pdf';
+      if (['doc','docx'].includes(e)) return 'description';
+      if (['xls','xlsx'].includes(e)) return 'table_chart';
+      if (['ppt','pptx'].includes(e)) return 'slideshow';
+      return 'insert_drive_file';
     }
 
 
@@ -20604,69 +20681,282 @@
       }
     }
 
-    function enviarMensajeChat() {
+    async function enviarMensajeChat() {
       const input = document.getElementById('chat-input');
       const txt = input.value.trim();
-      if (!txt || !activeChatUser) return;
+      if (!txt && !pendingChatFile && !chatAudioChunks.length) return;
+      if (!activeChatUser) return;
 
       input.value = "";
       input.style.height = "auto";
-      document.getElementById('chat-input').focus(); // Mantener teclado abierto en celular
+      input.focus();
 
-      // Actualización optimista (Lo pintamos en pantalla al instante)
       const tempId = Date.now();
       const now = new Date();
       const tempDate = ("0" + now.getDate()).slice(-2) + "/" + ("0" + (now.getMonth() + 1)).slice(-2) + "/" + now.getFullYear() + " " + ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
 
-      allChatMessages.unshift({
-        id: tempId, fecha: tempDate, remitente: USER_NAME, destinatario: activeChatUser, mensaje: txt, leido: false, esMio: true
-      });
+      const capturedReply = replyingToMsg ? { ...replyingToMsg } : null;
 
+      // ── Upload pending file if any ──
+      let archivoUrl = null, archivoNombre = null;
+      if (pendingChatFile) {
+        const file = pendingChatFile.file;
+        const ts2 = Date.now();
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        try {
+          showToast("Subiendo archivo...", "info");
+          const snap = await firebase.storage().ref(`mensajes_chat/${ts2}-${safeName}`).put(file);
+          archivoUrl = await snap.ref.getDownloadURL();
+          archivoNombre = file.name;
+        } catch(e) {
+          console.error("Error upload chat file:", e);
+          showToast("Error al subir archivo", "error");
+          return;
+        }
+      }
+
+      _clearChatStaging();
+
+      const finalTxt = txt || (archivoNombre ? "" : "");
+
+      const msgLocal = {
+        id: tempId, fecha: tempDate, remitente: USER_NAME, destinatario: activeChatUser,
+        mensaje: finalTxt, leido: false, esMio: true,
+        replyTo: capturedReply || undefined
+      };
+      if (archivoUrl)    { msgLocal.archivoUrl = archivoUrl; msgLocal.archivoNombre = archivoNombre; }
+
+      allChatMessages.unshift(msgLocal);
       renderChatWindow();
 
-      // Enviarlo a Google en silencio
-      api.enviarMensajePrivado(USER_NAME, activeChatUser, txt).then(() => hacerPingNotificaciones()).catch(e => console.error(e));
+      api.enviarMensajePrivado(USER_NAME, activeChatUser, finalTxt, archivoUrl, archivoNombre, capturedReply)
+        .then(() => hacerPingNotificaciones()).catch(e => console.error(e));
     }
 
-    async function enviarArchivoChatV2(inputEl) {
-      if (!inputEl.files || !inputEl.files[0] || !activeChatUser) return;
+    // Stage a selected file (no auto-send)
+    function stagedArchivoChatV2(inputEl) {
+      if (!inputEl.files || !inputEl.files[0]) return;
       const file = inputEl.files[0];
       if (file.size > 10 * 1024 * 1024) {
         showToast("Archivo demasiado grande (máx 10MB)", "error");
         inputEl.value = "";
         return;
       }
-
-      const ts = Date.now();
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const storagePath = `mensajes_chat/${ts}-${safeName}`;
-
-      showToast("Subiendo archivo...", "info");
-      try {
-        const storageRef = firebase.storage().ref(storagePath);
-        const snap = await storageRef.put(file);
-        const url = await snap.ref.getDownloadURL();
-
-        const now = new Date();
-        const tempDate = ("0" + now.getDate()).slice(-2) + "/" + ("0" + (now.getMonth() + 1)).slice(-2) + "/" + now.getFullYear() + " " + ("0" + now.getHours()).slice(-2) + ":" + ("0" + now.getMinutes()).slice(-2);
-
-        const msgText = `📎 ${file.name}`;
-
-        allChatMessages.unshift({
-          id: ts, fecha: tempDate, remitente: USER_NAME, destinatario: activeChatUser,
-          mensaje: msgText, leido: false, esMio: true,
-          archivoUrl: url, archivoNombre: file.name
-        });
-
-        renderChatWindow();
-        api.enviarMensajePrivado(USER_NAME, activeChatUser, msgText, url, file.name).then(() => hacerPingNotificaciones()).catch(e => console.error(e));
-        showToast("Archivo enviado", "success");
-      } catch (err) {
-        console.error("Error upload chat file:", err);
-        showToast("Error al subir archivo", "error");
-      }
+      const isImg = /\.(jpg|jpeg|png|gif|webp)$/i.test(file.name);
+      const previewUrl = isImg ? URL.createObjectURL(file) : null;
+      pendingChatFile = { file, previewUrl, isImg };
+      _renderStagingArea();
       inputEl.value = "";
+      document.getElementById('chat-input').focus();
     }
+
+    function _clearChatStaging() {
+      if (pendingChatFile && pendingChatFile.previewUrl) URL.revokeObjectURL(pendingChatFile.previewUrl);
+      pendingChatFile = null;
+      replyingToMsg   = null;
+      _renderStagingArea();
+    }
+
+    function _renderStagingArea() {
+      const area = document.getElementById('chatStagingArea');
+      if (!area) return;
+      const chips = [];
+
+      if (replyingToMsg) {
+        chips.push(`<div class="chatv2-staging-chip chatv2-reply-chip">
+          <span class="material-icons chip-icon" style="color:#1d4ed8; font-size:16px;">reply</span>
+          <div style="flex:1; overflow:hidden;">
+            <div style="font-size:10px; color:#1d4ed8; font-weight:800;">${escapeHtml(replyingToMsg.remitente)}</div>
+            <div class="chip-name" style="font-size:11px; color:#475569;">${escapeHtml(String(replyingToMsg.mensaje||'').substring(0,60))}</div>
+          </div>
+          <button class="chip-cancel" onclick="cancelarRespuestaChat()">
+            <span class="material-icons" style="font-size:14px;">close</span>
+          </button>
+        </div>`);
+      }
+
+      if (pendingChatFile) {
+        const f = pendingChatFile;
+        const imgEl = f.isImg && f.previewUrl
+          ? `<img src="${f.previewUrl}" alt="preview">`
+          : `<span class="material-icons chip-icon">insert_drive_file</span>`;
+        chips.push(`<div class="chatv2-staging-chip">
+          ${imgEl}
+          <span class="chip-name">${escapeHtml(f.file.name)}</span>
+          <span style="font-size:10px; color:#94a3b8; flex-shrink:0;">${(f.file.size/1024).toFixed(0)} KB</span>
+          <button class="chip-cancel" onclick="cancelarArchivoChat()">
+            <span class="material-icons" style="font-size:14px;">close</span>
+          </button>
+        </div>`);
+      }
+
+      area.innerHTML = chips.join('');
+      area.classList.toggle('active', chips.length > 0);
+    }
+
+    function cancelarArchivoChat() {
+      if (pendingChatFile && pendingChatFile.previewUrl) URL.revokeObjectURL(pendingChatFile.previewUrl);
+      pendingChatFile = null;
+      _renderStagingArea();
+    }
+
+    function cancelarRespuestaChat() {
+      replyingToMsg = null;
+      _renderStagingArea();
+    }
+
+    // ── Reply ──
+    function iniciarRespuestaChat(mIdSafe) {
+      // Find message by safe id (convert back)
+      const msg = allChatMessages.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
+      if (!msg) return;
+      replyingToMsg = { id: msg.id, remitente: msg.remitente, mensaje: msg.mensaje };
+      _renderStagingArea();
+      document.getElementById('chat-input').focus();
+    }
+
+    // ── Lightbox ──
+    function abrirLightboxChat(url) {
+      const lb = document.getElementById('chatLightbox');
+      const img = document.getElementById('chatLightboxImg');
+      img.src = url;
+      lb.classList.add('active');
+    }
+    function cerrarLightboxChat() {
+      document.getElementById('chatLightbox').classList.remove('active');
+    }
+
+    // ── Emoji Reactions ──
+    const EMOJI_LIST = ["😀","😂","😍","🥰","😎","😢","😡","👍","👎","❤️","🔥","🎉","✅","🙏","😮","🤔","💯","🚀","💪","😴","😅","🤣","🤩","😇","😏","🥳","😤","🤯","👏","🙌","🤝","💔","💥","⭐","🌟","✨","🎁","🎊","🎈","💡","📌","📎","🔒","🔑","📢","💬","📱","💻","🖥️","📊","📈","🚗","🏠","🌍","🍕","☕","🍺","🌈","☀️","❄️","🌙","⚡","🌊","🐶","🐱","😻","👀","🫡","🫶","🤌","💀","👻","🤖","🦊","🦁","🐸","🍀","🌸","🌺","🎵","🎶","🎸","🏆","⚽","🏀","🎮","🎯","🎲","📚","✏️","🔎","🧩","🧠","💊","🌡️","🛒","🎬","📸","🖼️","🗺️","⏰","📅","🔔","🔕","❓","❗","⚠️","🆕","🆓","🆙","🔴","🟠","🟡","🟢","🔵","🟣","⚫","⚪"];
+
+    let emojiPickerTimeout = null;
+
+    function mostrarEmojiPickerReaccion(mIdSafe, btn) {
+      const panel = document.getElementById('chatEmojiPickerPanel');
+      if (!panel) return;
+
+      // Toggle off if same message
+      if (emojiPickerTarget === mIdSafe && panel.classList.contains('active')) {
+        panel.classList.remove('active');
+        emojiPickerTarget = null;
+        return;
+      }
+
+      emojiPickerTarget = mIdSafe;
+
+      let filterText = '';
+
+      const renderGrid = (filter) => {
+        const filtered = filter ? EMOJI_LIST.filter(e => e.includes(filter)) : EMOJI_LIST;
+        return filtered.map(e =>
+          `<button onclick="toggleReaccionChat('${mIdSafe}','${e}'); cerrarEmojiPickerReaccion();">${e}</button>`
+        ).join('');
+      };
+
+      panel.innerHTML = `
+        <input class="emoji-picker-search" type="text" placeholder="Buscar emoji..." id="emojiSearch"
+          oninput="document.getElementById('emojiGrid').innerHTML = (function(){
+            const v = document.getElementById('emojiSearch').value;
+            const all = ${JSON.stringify(EMOJI_LIST)};
+            return all.filter(e=>e.includes(v)||!v).map(e=>\`<button onclick=\\"toggleReaccionChat('${mIdSafe}','\${e}'); cerrarEmojiPickerReaccion();\\">\\${e}</button>\`).join('');
+          })()">
+        <div class="emoji-picker-grid" id="emojiGrid">${renderGrid('')}</div>
+      `;
+      panel.classList.add('active');
+
+      // Position near the button
+      setTimeout(() => { const inp = document.getElementById('emojiSearch'); if(inp) inp.focus(); }, 50);
+    }
+
+    function cerrarEmojiPickerReaccion() {
+      const panel = document.getElementById('chatEmojiPickerPanel');
+      if (panel) panel.classList.remove('active');
+      emojiPickerTarget = null;
+    }
+
+    async function toggleReaccionChat(mIdSafe, emoji) {
+      const msg = allChatMessages.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
+      if (!msg) return;
+
+      if (!msg.reacciones) msg.reacciones = {};
+      if (!msg.reacciones[emoji]) msg.reacciones[emoji] = [];
+
+      const idx = msg.reacciones[emoji].indexOf(USER_NAME);
+      if (idx === -1) {
+        msg.reacciones[emoji].push(USER_NAME);
+      } else {
+        msg.reacciones[emoji].splice(idx, 1);
+        if (msg.reacciones[emoji].length === 0) delete msg.reacciones[emoji];
+      }
+
+      renderChatWindow();
+
+      try {
+        await api.actualizarReaccionesChatDb(String(msg.id), msg.reacciones);
+      } catch(e) {
+        console.warn("Error guardando reacción:", e);
+      }
+    }
+
+    // ── Audio recording ──
+    async function toggleGrabacionChat() {
+      if (chatMediaRecorder && chatMediaRecorder.state === 'recording') {
+        chatMediaRecorder.stop();
+        return;
+      }
+      if (!navigator.mediaDevices) {
+        showToast("Tu navegador no soporta grabación de audio", "error");
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        chatAudioChunks = [];
+        chatMediaRecorder = new MediaRecorder(stream);
+        chatMediaRecorder.ondataavailable = e => { if (e.data.size > 0) chatAudioChunks.push(e.data); };
+        chatMediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          document.getElementById('chatMicBtn').classList.remove('recording');
+          document.getElementById('chatMicBtn').querySelector('.material-icons').textContent = 'mic';
+
+          if (chatAudioChunks.length === 0) return;
+          const blob = new Blob(chatAudioChunks, { type: 'audio/webm' });
+          chatAudioChunks = [];
+          if (blob.size > 10 * 1024 * 1024) { showToast("Audio demasiado largo (máx 10MB)", "error"); return; }
+
+          const ts = Date.now();
+          const fname = `audio_${ts}.webm`;
+          showToast("Subiendo audio...", "info");
+          try {
+            const snap = await firebase.storage().ref(`mensajes_chat/${ts}-${fname}`).put(blob, { contentType: 'audio/webm' });
+            const url = await snap.ref.getDownloadURL();
+            const now = new Date();
+            const tempDate = ("0"+now.getDate()).slice(-2)+"/"+("0"+(now.getMonth()+1)).slice(-2)+"/"+now.getFullYear()+" "+("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
+            allChatMessages.unshift({ id: ts, fecha: tempDate, remitente: USER_NAME, destinatario: activeChatUser, mensaje: "", leido: false, esMio: true, archivoUrl: url, archivoNombre: fname });
+            renderChatWindow();
+            api.enviarMensajePrivado(USER_NAME, activeChatUser, "", url, fname, null).then(() => hacerPingNotificaciones()).catch(e => console.error(e));
+            showToast("Audio enviado", "success");
+          } catch(uploadErr) {
+            showToast("Error al subir audio", "error");
+            console.error(uploadErr);
+          }
+        };
+        chatMediaRecorder.start();
+        document.getElementById('chatMicBtn').classList.add('recording');
+        document.getElementById('chatMicBtn').querySelector('.material-icons').textContent = 'stop';
+        showToast("Grabando... toca el micrófono para detener", "info");
+      } catch(err) {
+        showToast("No se pudo acceder al micrófono", "error");
+        console.error(err);
+      }
+    }
+
+    // Close emoji picker when clicking outside
+    document.addEventListener('click', function(e) {
+      const panel = document.getElementById('chatEmojiPickerPanel');
+      if (panel && panel.classList.contains('active') && !panel.contains(e.target) && !e.target.closest('.chat-add-reaction')) {
+        cerrarEmojiPickerReaccion();
+      }
+    });
     // ==========================================
     // 🧠 PARSER INTELIGENTE DE ACTIVIDAD DIARIA
     // ==========================================
@@ -23208,8 +23498,8 @@
             puesto: solDoc.puesto,
             telefono: solDoc.telefono,
             fecha: solDoc.fecha,
-            rolSolicitado: solDoc.rolSolicitado || null,
-            plazaSolicitada: solDoc.plazaSolicitada || null,
+            rolSolicitado: solDoc.rolSolicitado ?? null,
+            plazaSolicitada: solDoc.plazaSolicitada ?? null,
             password: "",
             estado: "APROBADA"
           });
@@ -23231,8 +23521,8 @@
             puesto: solDocR.puesto,
             telefono: solDocR.telefono,
             fecha: solDocR.fecha,
-            rolSolicitado: solDocR.rolSolicitado || null,
-            plazaSolicitada: solDocR.plazaSolicitada || null,
+            rolSolicitado: solDocR.rolSolicitado ?? null,
+            plazaSolicitada: solDocR.plazaSolicitada ?? null,
             password: "",
             estado: "RECHAZADA",
             motivo_rechazo: motivo
@@ -24593,6 +24883,185 @@
       transform: translateY(-1px);
       box-shadow: 0 6px 16px rgba(13, 42, 84, 0.30);
     }
+
+    /* ── STAGING AREA (archivo + reply pendientes) ── */
+    .chatv2-staging-area {
+      display: none;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 14px 0;
+      background: white;
+    }
+    .chatv2-staging-area.active { display: flex; }
+
+    .chatv2-staging-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #f1f5f9;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #334155;
+    }
+    .chatv2-staging-chip img {
+      width: 36px; height: 36px; border-radius: 6px; object-fit: cover;
+    }
+    .chatv2-staging-chip .chip-icon { color: #64748b; font-size: 18px; }
+    .chatv2-staging-chip .chip-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+    .chatv2-staging-chip .chip-cancel {
+      background: none; border: none; cursor: pointer; color: #94a3b8;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%; width: 20px; height: 20px; transition: background 0.15s;
+    }
+    .chatv2-staging-chip .chip-cancel:hover { background: #e2e8f0; color: #ef4444; }
+
+    .chatv2-reply-chip {
+      border-left: 3px solid #1d4ed8;
+      background: #eff6ff;
+      border-radius: 0 10px 10px 0;
+    }
+
+    /* ── MIC BUTTON ── */
+    .chatv2-mic-btn {
+      width: 40px; height: 40px; border-radius: 12px;
+      border: 1.5px solid #e2e8f0; background: #f8fafc;
+      color: #64748b; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.2s;
+    }
+    .chatv2-mic-btn:hover { background: #fee2e2; color: #ef4444; }
+    .chatv2-mic-btn.recording {
+      background: #ef4444; color: white; border-color: #ef4444;
+      animation: micPulse 1s infinite;
+    }
+    @keyframes micPulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+      50%      { box-shadow: 0 0 0 8px rgba(239,68,68,0); }
+    }
+
+    /* ── DOCUMENT CARD ── */
+    .chat-doc-card {
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(0,0,0,0.06); border-radius: 10px;
+      padding: 8px 10px; margin-top: 4px; min-width: 200px;
+    }
+    .chat-doc-card .doc-icon { font-size: 28px; color: #64748b; flex-shrink: 0; }
+    .chat-doc-card .doc-info { flex: 1; overflow: hidden; }
+    .chat-doc-card .doc-name { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .chat-doc-card .doc-ext  { font-size: 10px; color: #94a3b8; text-transform: uppercase; }
+    .chat-doc-card .doc-dl   {
+      background: #1d4ed8; color: white; border: none; border-radius: 8px;
+      width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; text-decoration: none; transition: background 0.2s;
+    }
+    .chat-doc-card .doc-dl:hover { background: #1e40af; }
+
+    /* ── IMAGE PREVIEW (clickable) ── */
+    .chat-img-thumb {
+      cursor: zoom-in; border-radius: 10px; max-width: 220px; max-height: 200px;
+      display: block; transition: opacity 0.15s;
+    }
+    .chat-img-thumb:hover { opacity: 0.85; }
+
+    /* ── LIGHTBOX ── */
+    #chatLightbox {
+      display: none; position: fixed; inset: 0; z-index: 200000;
+      background: rgba(0,0,0,0.85); align-items: center; justify-content: center;
+    }
+    #chatLightbox.active { display: flex; }
+    #chatLightbox img {
+      max-width: 90vw; max-height: 90vh; border-radius: 12px;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.5); cursor: zoom-out;
+    }
+    #chatLightboxClose {
+      position: absolute; top: 18px; right: 22px;
+      background: rgba(255,255,255,0.15); border: none; color: white;
+      border-radius: 50%; width: 42px; height: 42px; font-size: 22px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    #chatLightboxClose:hover { background: rgba(255,255,255,0.3); }
+
+    /* ── REPLY QUOTE inside bubble ── */
+    .chat-reply-quote {
+      background: rgba(0,0,0,0.08); border-left: 3px solid rgba(0,0,0,0.25);
+      border-radius: 6px; padding: 5px 8px; margin-bottom: 5px;
+      font-size: 11px; line-height: 1.4;
+    }
+    .chat-reply-quote .rq-author { font-weight: 800; margin-bottom: 2px; }
+    .chat-reply-quote .rq-text { opacity: 0.75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── REACTIONS ── */
+    .chat-reactions {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+    }
+    .chat-reaction-btn {
+      display: flex; align-items: center; gap: 3px;
+      background: rgba(0,0,0,0.07); border: 1.5px solid transparent;
+      border-radius: 20px; padding: 2px 7px; font-size: 14px;
+      cursor: pointer; transition: all 0.15s; user-select: none;
+    }
+    .chat-reaction-btn .rc-count { font-size: 11px; font-weight: 700; color: #374151; }
+    .chat-reaction-btn.mine { border-color: #1d4ed8; background: #eff6ff; }
+    .chat-reaction-btn.mine .rc-count { color: #1d4ed8; }
+    .chat-reaction-btn:hover { background: #e2e8f0; }
+    .chat-add-reaction {
+      background: none; border: 1.5px dashed #cbd5e1; border-radius: 20px;
+      padding: 2px 7px; font-size: 14px; cursor: pointer; opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+    .chat-add-reaction:hover { opacity: 1; background: #f1f5f9; }
+
+    /* ── EMOJI PICKER PANEL ── */
+    #chatEmojiPickerPanel {
+      display: none; position: absolute; bottom: 100%; right: 0;
+      background: white; border: 1.5px solid #e2e8f0; border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12); z-index: 9999;
+      width: 320px; padding: 10px;
+    }
+    #chatEmojiPickerPanel.active { display: block; }
+    .emoji-picker-search {
+      width: 100%; padding: 7px 10px; border-radius: 8px;
+      border: 1.5px solid #e2e8f0; font-size: 13px; outline: none;
+      box-sizing: border-box; margin-bottom: 8px;
+    }
+    .emoji-picker-search:focus { border-color: #93c5fd; }
+    .emoji-picker-grid {
+      display: grid; grid-template-columns: repeat(8, 1fr);
+      gap: 2px; max-height: 200px; overflow-y: auto;
+    }
+    .emoji-picker-grid button {
+      background: none; border: none; font-size: 20px; cursor: pointer;
+      border-radius: 6px; padding: 3px; line-height: 1;
+      transition: background 0.1s;
+    }
+    .emoji-picker-grid button:hover { background: #f1f5f9; }
+
+    /* ── REPLY BUTTON ON HOVER ── */
+    .chat-bubble { position: relative; }
+    .chat-reply-btn {
+      position: absolute; top: 4px;
+      background: white; border: 1px solid #e2e8f0;
+      border-radius: 50%; width: 26px; height: 26px;
+      display: none; align-items: center; justify-content: center;
+      cursor: pointer; color: #64748b; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      transition: background 0.15s;
+    }
+    .chat-bubble.sent    .chat-reply-btn { left: -34px; }
+    .chat-bubble.received .chat-reply-btn { right: -34px; }
+    .chat-bubble:hover .chat-reply-btn { display: flex; }
+    .chat-reply-btn:hover { background: #eff6ff; color: #1d4ed8; }
+
+    /* ── AUDIO PLAYER ── */
+    .chat-audio-card {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(0,0,0,0.06); border-radius: 24px;
+      padding: 6px 12px; min-width: 180px; margin-top: 4px;
+    }
+    .chat-audio-card audio { max-width: 160px; height: 32px; }
+    .chat-audio-card .audio-icon { font-size: 20px; color: #64748b; }
   </style>
 
   <div id="modalWhatsapp" class="modal-overlay" style="z-index: 75000;">
@@ -24657,6 +25126,14 @@
   </div>
 
 
+  <!-- ── LIGHTBOX para imágenes del chat ── -->
+  <div id="chatLightbox" onclick="cerrarLightboxChat()">
+    <button id="chatLightboxClose" onclick="cerrarLightboxChat()">
+      <span class="material-icons" style="font-size:22px;">close</span>
+    </button>
+    <img id="chatLightboxImg" src="" alt="preview" onclick="event.stopPropagation()">
+  </div>
+
   <div id="buzon-modal" class="fleet-modal chatv2-modal" style="z-index: 8000;">
 
     <!-- Header enterprise navy -->
@@ -24708,10 +25185,13 @@
         <!-- Área de mensajes limpia -->
         <div id="chat-messages-container" class="chatv2-messages"></div>
 
+        <!-- Staging area: pending file + reply-to -->
+        <div id="chatStagingArea" class="chatv2-staging-area"></div>
+
         <!-- Input bar enterprise -->
-        <div class="chatv2-input-bar">
-          <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx"
-            onchange="enviarArchivoChatV2(this)">
+        <div class="chatv2-input-bar" style="position:relative;">
+          <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+            onchange="stagedArchivoChatV2(this)">
           <button class="chatv2-attach-btn" onclick="document.getElementById('chatFileInput').click()" title="Adjuntar archivo">
             <span class="material-icons" style="font-size:20px;">attach_file</span>
           </button>
@@ -24720,9 +25200,14 @@
               oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
           </div>
+          <button id="chatMicBtn" class="chatv2-mic-btn" onclick="toggleGrabacionChat()" title="Grabar audio">
+            <span class="material-icons" style="font-size:20px;">mic</span>
+          </button>
           <button class="chatv2-send-btn" onclick="enviarMensajeChat()">
             <span class="material-icons" style="font-size:20px;">send</span>
           </button>
+          <!-- Emoji picker panel (positioned relative to input bar) -->
+          <div id="chatEmojiPickerPanel"></div>
         </div>
 
       </div>

@@ -1211,16 +1211,18 @@ const API_FUNCTIONS = {
     return todos.filter(m => { if (vistos.has(m.id)) return false; vistos.add(m.id); return true; })
       .map(m => ({ ...m, esMio: m.remitente === me, leido: m.leido === "SI" }));
   },
-  async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null) {
+  async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null, replyTo = null) {
     const ts = _ts();
     const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
-    const payload = { timestamp: ts, fecha: _now(), remitente: remitente.trim().toUpperCase(), destinatario: destinatario.trim().toUpperCase(), mensaje: texto, leido: "NO" };
-    if (archivoUrl) {
-      payload.archivoUrl = archivoUrl;
-      payload.archivoNombre = archivoNombre;
-    }
+    const payload = { timestamp: ts, fecha: _now(), remitente: remitente.trim().toUpperCase(), destinatario: destinatario.trim().toUpperCase(), mensaje: texto || "", leido: "NO" };
+    if (archivoUrl)  { payload.archivoUrl = archivoUrl; payload.archivoNombre = archivoNombre; }
+    if (replyTo)     { payload.replyTo = { id: replyTo.id, remitente: replyTo.remitente, mensaje: replyTo.mensaje }; }
     await db.collection(COL.MENSAJES).doc(id).set(payload);
     return "EXITO";
+  },
+  async actualizarReaccionesChatDb(msgId, reacciones) {
+    await db.collection(COL.MENSAJES).doc(msgId).update({ reacciones });
+    return "OK";
   },
   async marcarMensajesLeidosArray(idsArray) {
     const batch = db.batch();
