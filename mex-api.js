@@ -87,6 +87,7 @@ const ADMIN_FIXED_LOCATIONS = new Set([
 const ACCESS_ROLE_META = Object.freeze({
   AUXILIAR: { isAdmin: false, isGlobal: false },
   VENTAS: { isAdmin: true, isGlobal: false },
+  GERENTE_PLAZA: { isAdmin: true, isGlobal: false },
   JEFE_REGIONAL: { isAdmin: true, isGlobal: false },
   CORPORATIVO_USER: { isAdmin: true, isGlobal: true },
   PROGRAMADOR: { isAdmin: true, isGlobal: true },

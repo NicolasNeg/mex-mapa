@@ -49,6 +49,7 @@ service cloud.firestore {
     function rolValido(role) {
       return role == "AUXILIAR"
         || role == "VENTAS"
+        || role == "GERENTE_PLAZA"
         || role == "JEFE_REGIONAL"
         || role == "CORPORATIVO_USER"
         || role == "PROGRAMADOR"
@@ -61,6 +62,7 @@ service cloud.firestore {
         : data.rol == "JEFE_OPERACION" ? "JEFE_OPERACION"
         : data.rol == "CORPORATIVO_USER" ? "CORPORATIVO_USER"
         : data.rol == "JEFE_REGIONAL" ? "JEFE_REGIONAL"
+        : data.rol == "GERENTE_PLAZA" ? "GERENTE_PLAZA"
         : data.rol == "VENTAS" ? "VENTAS"
         : data.isGlobal == true ? "CORPORATIVO_USER"
         : data.isAdmin == true ? "VENTAS"
@@ -85,6 +87,7 @@ service cloud.firestore {
 
     function esAdminOperativo() {
       return rolActual() == "VENTAS"
+        || rolActual() == "GERENTE_PLAZA"
         || rolActual() == "JEFE_REGIONAL"
         || esAccesoTotal();
     }
@@ -103,6 +106,7 @@ service cloud.firestore {
 
     function puedeGestionarFlotaMaestra() {
       return rolActual() == "VENTAS"
+        || rolActual() == "GERENTE_PLAZA"
         || rolActual() == "JEFE_REGIONAL"
         || esAccesoTotal();
     }
@@ -117,7 +121,7 @@ service cloud.firestore {
     function mismaPlaza(plaza) {
       return esAccesoTotal()
         || (
-          (rolActual() == "VENTAS" || rolActual() == "JEFE_REGIONAL")
+          (rolActual() == "VENTAS" || rolActual() == "GERENTE_PLAZA" || rolActual() == "JEFE_REGIONAL")
           && plazaActual() != ""
           && plaza != null
           && plaza != ""
@@ -126,7 +130,7 @@ service cloud.firestore {
     }
 
     function rolRequierePlaza(role) {
-      return role == "VENTAS" || role == "JEFE_REGIONAL";
+      return role == "VENTAS" || role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL";
     }
 
     function perfilUsuarioValido(data) {

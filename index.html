@@ -12677,6 +12677,11 @@
         canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
         canEditAdminCuadre: false, canViewAdminCuadre: true, canUseProgrammerConfig: false, canLockMap: false
       },
+      GERENTE_PLAZA: {
+        level: 25, label: 'GERENTE DE PLAZA', isAdmin: true, fullAccess: false,
+        canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
+        canEditAdminCuadre: false, canViewAdminCuadre: true, canUseProgrammerConfig: false, canLockMap: false
+      },
       JEFE_REGIONAL: {
         level: 30, label: 'JEFE REGIONAL', isAdmin: true, fullAccess: false,
         canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
@@ -20357,9 +20362,13 @@
     let allChatMessages = [];
     let activeChatUser = null;
     let pendingChatFile  = null;   // { file, previewUrl, isImg }
+    let pendingAudioBlob = null;   // { blob, localUrl }
     let replyingToMsg    = null;   // { id, remitente, mensaje }
     let chatMediaRecorder = null;
     let chatAudioChunks  = [];
+    let _chatAudioCtx    = null;
+    let _chatAnalyser    = null;
+    let _chatSpectrumRaf = null;
     let emojiPickerTarget = null;  // msgId for reaction picker
 
     const AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
@@ -20684,7 +20693,7 @@
     async function enviarMensajeChat() {
       const input = document.getElementById('chat-input');
       const txt = input.value.trim();
-      if (!txt && !pendingChatFile && !chatAudioChunks.length) return;
+      if (!txt && !pendingChatFile && !pendingAudioBlob) return;
       if (!activeChatUser) return;
 
       input.value = "";
@@ -20697,7 +20706,7 @@
 
       const capturedReply = replyingToMsg ? { ...replyingToMsg } : null;
 
-      // ── Upload pending file if any ──
+      // ── Upload pending file or audio ──
       let archivoUrl = null, archivoNombre = null;
       if (pendingChatFile) {
         const file = pendingChatFile.file;
@@ -20711,6 +20720,19 @@
         } catch(e) {
           console.error("Error upload chat file:", e);
           showToast("Error al subir archivo", "error");
+          return;
+        }
+      } else if (pendingAudioBlob) {
+        const ts2 = Date.now();
+        const fname = `audio_${ts2}.webm`;
+        try {
+          showToast("Subiendo audio...", "info");
+          const snap = await firebase.storage().ref(`mensajes_chat/${ts2}-${fname}`).put(pendingAudioBlob.blob, { contentType: 'audio/webm' });
+          archivoUrl = await snap.ref.getDownloadURL();
+          archivoNombre = fname;
+        } catch(e) {
+          console.error("Error upload audio:", e);
+          showToast("Error al subir audio", "error");
           return;
         }
       }
@@ -20752,8 +20774,10 @@
 
     function _clearChatStaging() {
       if (pendingChatFile && pendingChatFile.previewUrl) URL.revokeObjectURL(pendingChatFile.previewUrl);
-      pendingChatFile = null;
-      replyingToMsg   = null;
+      if (pendingAudioBlob && pendingAudioBlob.localUrl) URL.revokeObjectURL(pendingAudioBlob.localUrl);
+      pendingChatFile  = null;
+      pendingAudioBlob = null;
+      replyingToMsg    = null;
       _renderStagingArea();
     }
 
@@ -20762,6 +20786,26 @@
       if (!area) return;
       const chips = [];
 
+      // ── Recording in progress: show spectrum canvas ──
+      const isRecordingNow = chatMediaRecorder && chatMediaRecorder.state === 'recording';
+      if (isRecordingNow) {
+        chips.push(`<div class="chatv2-staging-chip" style="gap:10px; padding:8px 12px;">
+          <span class="material-icons" style="color:#ef4444; font-size:18px; animation:micPulse 1s infinite;">mic</span>
+          <canvas id="chatSpectrumCanvas" width="180" height="30" style="flex:1; border-radius:4px;"></canvas>
+          <span style="font-size:11px; color:#ef4444; font-weight:700;" id="chatRecordTimer">0:00</span>
+          <button class="chip-cancel" style="background:#fee2e2; border-radius:6px; width:auto; padding:0 6px; height:24px; color:#ef4444;"
+            onclick="toggleGrabacionChat()">
+            <span class="material-icons" style="font-size:14px;">stop</span>
+          </button>
+        </div>`);
+        area.innerHTML = chips.join('');
+        area.classList.add('active');
+        _dibujarEspectroGrabacion();
+        _iniciarTimerGrabacion();
+        return;
+      }
+
+      // ── Reply context ──
       if (replyingToMsg) {
         chips.push(`<div class="chatv2-staging-chip chatv2-reply-chip">
           <span class="material-icons chip-icon" style="color:#1d4ed8; font-size:16px;">reply</span>
@@ -20775,6 +20819,7 @@
         </div>`);
       }
 
+      // ── Pending file ──
       if (pendingChatFile) {
         const f = pendingChatFile;
         const imgEl = f.isImg && f.previewUrl
@@ -20790,8 +20835,36 @@
         </div>`);
       }
 
+      // ── Pending audio (preview before send) ──
+      if (pendingAudioBlob) {
+        chips.push(`<div class="chatv2-staging-chip" style="flex-direction:column; align-items:stretch; gap:6px; padding:10px 12px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span class="material-icons" style="color:#1d4ed8; font-size:20px;">graphic_eq</span>
+            <audio controls src="${pendingAudioBlob.localUrl}" style="flex:1; height:32px; max-width:220px;"></audio>
+            <button class="chip-cancel" onclick="cancelarAudioChat()">
+              <span class="material-icons" style="font-size:14px;">delete</span>
+            </button>
+          </div>
+          <div style="font-size:10px; color:#64748b; font-weight:600; text-align:center;">
+            Escucha tu audio · luego presiona <strong>enviar →</strong>
+          </div>
+        </div>`);
+      }
+
       area.innerHTML = chips.join('');
       area.classList.toggle('active', chips.length > 0);
+    }
+
+    let _recTimerInterval = null;
+    function _iniciarTimerGrabacion() {
+      if (_recTimerInterval) clearInterval(_recTimerInterval);
+      const start = Date.now();
+      _recTimerInterval = setInterval(() => {
+        const el = document.getElementById('chatRecordTimer');
+        if (!el) { clearInterval(_recTimerInterval); return; }
+        const s = Math.floor((Date.now() - start) / 1000);
+        el.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+      }, 500);
     }
 
     function cancelarArchivoChat() {
@@ -20844,28 +20917,30 @@
 
       emojiPickerTarget = mIdSafe;
 
-      let filterText = '';
-
-      const renderGrid = (filter) => {
-        const filtered = filter ? EMOJI_LIST.filter(e => e.includes(filter)) : EMOJI_LIST;
-        return filtered.map(e =>
-          `<button onclick="toggleReaccionChat('${mIdSafe}','${e}'); cerrarEmojiPickerReaccion();">${e}</button>`
-        ).join('');
-      };
-
       panel.innerHTML = `
         <input class="emoji-picker-search" type="text" placeholder="Buscar emoji..." id="emojiSearch"
-          oninput="document.getElementById('emojiGrid').innerHTML = (function(){
-            const v = document.getElementById('emojiSearch').value;
-            const all = ${JSON.stringify(EMOJI_LIST)};
-            return all.filter(e=>e.includes(v)||!v).map(e=>\`<button onclick=\\"toggleReaccionChat('${mIdSafe}','\${e}'); cerrarEmojiPickerReaccion();\\">\\${e}</button>\`).join('');
-          })()">
-        <div class="emoji-picker-grid" id="emojiGrid">${renderGrid('')}</div>
+          oninput="_filtrarEmojisReaccion()">
+        <div class="emoji-picker-grid" id="emojiGrid"></div>
       `;
+      _renderEmojiGrid(mIdSafe, '');
       panel.classList.add('active');
-
-      // Position near the button
       setTimeout(() => { const inp = document.getElementById('emojiSearch'); if(inp) inp.focus(); }, 50);
+    }
+
+    function _renderEmojiGrid(mIdSafe, filter) {
+      const grid = document.getElementById('emojiGrid');
+      if (!grid) return;
+      const filtered = filter ? EMOJI_LIST.filter(em => em.includes(filter)) : EMOJI_LIST;
+      grid.innerHTML = filtered.map(em => {
+        const safeEm = em.replace(/'/g, "\\'");
+        return `<button onclick="toggleReaccionChat('${mIdSafe}','${safeEm}'); cerrarEmojiPickerReaccion();">${em}</button>`;
+      }).join('');
+    }
+
+    function _filtrarEmojisReaccion() {
+      const inp = document.getElementById('emojiSearch');
+      const val = inp ? inp.value.trim() : '';
+      if (emojiPickerTarget) _renderEmojiGrid(emojiPickerTarget, val);
     }
 
     function cerrarEmojiPickerReaccion() {
@@ -20898,10 +20973,11 @@
       }
     }
 
-    // ── Audio recording ──
+    // ── Audio recording con espectro ──
     async function toggleGrabacionChat() {
       if (chatMediaRecorder && chatMediaRecorder.state === 'recording') {
         chatMediaRecorder.stop();
+        if (_chatSpectrumRaf) cancelAnimationFrame(_chatSpectrumRaf);
         return;
       }
       if (!navigator.mediaDevices) {
@@ -20911,10 +20987,20 @@
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         chatAudioChunks = [];
+
+        // AudioContext para el espectro
+        _chatAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        _chatAnalyser = _chatAudioCtx.createAnalyser();
+        _chatAnalyser.fftSize = 64;
+        const source = _chatAudioCtx.createMediaStreamSource(stream);
+        source.connect(_chatAnalyser);
+
         chatMediaRecorder = new MediaRecorder(stream);
-        chatMediaRecorder.ondataavailable = e => { if (e.data.size > 0) chatAudioChunks.push(e.data); };
-        chatMediaRecorder.onstop = async () => {
+        chatMediaRecorder.ondataavailable = ev => { if (ev.data.size > 0) chatAudioChunks.push(ev.data); };
+        chatMediaRecorder.onstop = () => {
           stream.getTracks().forEach(t => t.stop());
+          if (_chatAudioCtx) { _chatAudioCtx.close(); _chatAudioCtx = null; }
+          if (_chatSpectrumRaf) { cancelAnimationFrame(_chatSpectrumRaf); _chatSpectrumRaf = null; }
           document.getElementById('chatMicBtn').classList.remove('recording');
           document.getElementById('chatMicBtn').querySelector('.material-icons').textContent = 'mic';
 
@@ -20923,31 +21009,55 @@
           chatAudioChunks = [];
           if (blob.size > 10 * 1024 * 1024) { showToast("Audio demasiado largo (máx 10MB)", "error"); return; }
 
-          const ts = Date.now();
-          const fname = `audio_${ts}.webm`;
-          showToast("Subiendo audio...", "info");
-          try {
-            const snap = await firebase.storage().ref(`mensajes_chat/${ts}-${fname}`).put(blob, { contentType: 'audio/webm' });
-            const url = await snap.ref.getDownloadURL();
-            const now = new Date();
-            const tempDate = ("0"+now.getDate()).slice(-2)+"/"+("0"+(now.getMonth()+1)).slice(-2)+"/"+now.getFullYear()+" "+("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
-            allChatMessages.unshift({ id: ts, fecha: tempDate, remitente: USER_NAME, destinatario: activeChatUser, mensaje: "", leido: false, esMio: true, archivoUrl: url, archivoNombre: fname });
-            renderChatWindow();
-            api.enviarMensajePrivado(USER_NAME, activeChatUser, "", url, fname, null).then(() => hacerPingNotificaciones()).catch(e => console.error(e));
-            showToast("Audio enviado", "success");
-          } catch(uploadErr) {
-            showToast("Error al subir audio", "error");
-            console.error(uploadErr);
-          }
+          // Stage el audio (no auto-enviar)
+          if (pendingAudioBlob && pendingAudioBlob.localUrl) URL.revokeObjectURL(pendingAudioBlob.localUrl);
+          pendingAudioBlob = { blob, localUrl: URL.createObjectURL(blob) };
+          _renderStagingArea();
         };
+
         chatMediaRecorder.start();
         document.getElementById('chatMicBtn').classList.add('recording');
         document.getElementById('chatMicBtn').querySelector('.material-icons').textContent = 'stop';
-        showToast("Grabando... toca el micrófono para detener", "info");
+
+        // Mostrar espectro en staging area
+        _renderStagingArea();
+        _dibujarEspectroGrabacion();
+
       } catch(err) {
         showToast("No se pudo acceder al micrófono", "error");
         console.error(err);
       }
+    }
+
+    function _dibujarEspectroGrabacion() {
+      const canvas = document.getElementById('chatSpectrumCanvas');
+      if (!canvas || !_chatAnalyser) return;
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+      const bufLen = _chatAnalyser.frequencyBinCount;
+      const dataArr = new Uint8Array(bufLen);
+
+      function draw() {
+        _chatSpectrumRaf = requestAnimationFrame(draw);
+        _chatAnalyser.getByteFrequencyData(dataArr);
+        ctx.clearRect(0, 0, W, H);
+        const barW = Math.floor(W / bufLen);
+        for (let i = 0; i < bufLen; i++) {
+          const v = dataArr[i] / 255;
+          const h = v * H;
+          const r = Math.round(239 - v * 80);
+          const g = Math.round(68 + v * 50);
+          ctx.fillStyle = `rgb(${r},${g},68)`;
+          ctx.fillRect(i * barW, H - h, barW - 1, h);
+        }
+      }
+      draw();
+    }
+
+    function cancelarAudioChat() {
+      if (pendingAudioBlob && pendingAudioBlob.localUrl) URL.revokeObjectURL(pendingAudioBlob.localUrl);
+      pendingAudioBlob = null;
+      _renderStagingArea();
     }
 
     // Close emoji picker when clicking outside
@@ -22374,6 +22484,27 @@
          if(searchBox) searchBox.style.display = 'flex';
       }
 
+      // Plaza filter for ubicaciones
+      const existingFilter = document.getElementById('cfg-ubi-plaza-filter-wrap');
+      if (existingFilter) existingFilter.remove();
+      if (TAB_ACTIVA_CFG === 'ubicaciones' && searchBox) {
+        const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
+        if (plazas.length > 0) {
+          const wrap = document.createElement('div');
+          wrap.id = 'cfg-ubi-plaza-filter-wrap';
+          wrap.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:8px;';
+          wrap.innerHTML = `
+            <span class="material-icons" style="font-size:16px; color:#94a3b8;">location_city</span>
+            <select id="cfg-ubi-plaza-filter" onchange="renderizarListaConfig()"
+              style="padding:7px 10px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; font-weight:700; outline:none; background:white; color:#334155; cursor:pointer;">
+              <option value="">Todas las plazas</option>
+              ${plazas.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
+            </select>
+          `;
+          searchBox.parentNode.insertBefore(wrap, searchBox);
+        }
+      }
+
       renderizarListaConfig();
     }
 
@@ -22439,11 +22570,26 @@
               </div>
 
               <div class="cfg-emp-field">
-                <label>Color Principal</label>
-                <div class="cfg-emp-color-row">
-                  <input type="color" id="cfg-empresa-color" value="${emp.colorPrincipal || '#004a99'}" onchange="window.MEX_CONFIG.empresa.colorPrincipal = this.value; document.getElementById('cfg-color-val').textContent = this.value;">
-                  <span class="cfg-emp-color-val" id="cfg-color-val">${emp.colorPrincipal || '#004a99'}</span>
-                  <span style="font-size:11px; color:#94a3b8; font-weight:600;">Aplica al guardar</span>
+                <label>Paleta de Colores de la Empresa</label>
+                <p style="font-size:11px; color:#94a3b8; font-weight:600; margin:0 0 10px;">Aplican al guardar y publicar.</p>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  ${[
+                    { key:'colorPrincipal',   label:'Principal',   default:'#004a99', hint:'Barra principal, botones' },
+                    { key:'colorSecundario',  label:'Secundario',  default:'#1d4ed8', hint:'Acentos, hover' },
+                    { key:'colorAcento',      label:'Acento',      default:'#f59e0b', hint:'Alertas, highlights' },
+                    { key:'colorTexto',       label:'Texto',       default:'#0f172a', hint:'Texto principal' },
+                  ].map(c => `
+                    <div style="display:flex; align-items:center; gap:10px;">
+                      <input type="color" value="${emp[c.key] || c.default}"
+                        style="width:42px; height:36px; border-radius:8px; border:none; padding:2px; cursor:pointer; background:none;"
+                        onchange="window.MEX_CONFIG.empresa['${c.key}']=this.value; document.getElementById('lbl-${c.key}').textContent=this.value;">
+                      <div style="flex:1;">
+                        <div style="font-size:12px; font-weight:800; color:#334155;">${c.label}</div>
+                        <div style="font-size:10px; color:#94a3b8;">${c.hint}</div>
+                      </div>
+                      <code id="lbl-${c.key}" style="font-size:11px; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${emp[c.key] || c.default}</code>
+                    </div>
+                  `).join('')}
                 </div>
               </div>
             </div>
@@ -22455,15 +22601,29 @@
                 Correos Corporativos
               </div>
 
-              <div class="cfg-emp-field">
-                <label>Correo de la Empresa</label>
-                <input type="email" id="cfg-correo-empresa" class="cfg-emp-input" value="${escapeHtml(emp.correoEmpresa || '')}" placeholder="contacto@tuempresa.com" onchange="window.MEX_CONFIG.empresa.correoEmpresa = this.value">
-              </div>
-
-              <div class="cfg-emp-field">
-                <label>Correo de Facturación</label>
-                <input type="email" id="cfg-correo-facturacion" class="cfg-emp-input" value="${escapeHtml(emp.correoFacturacion || '')}" placeholder="facturacion@tuempresa.com" onchange="window.MEX_CONFIG.empresa.correoFacturacion = this.value">
-              </div>
+              ${[
+                { id:'cfg-correo-empresa',      key:'correoEmpresa',      label:'Correo de la Empresa',   ph:'contacto@tuempresa.com' },
+                { id:'cfg-correo-facturacion',   key:'correoFacturacion',  label:'Correo de Facturación',  ph:'facturacion@tuempresa.com' },
+              ].map(f => `
+                <div class="cfg-emp-field">
+                  <label>${f.label}</label>
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <input type="email" id="${f.id}" class="cfg-emp-input" style="flex:1;"
+                      value="${escapeHtml(emp[f.key] || '')}" placeholder="${f.ph}"
+                      readonly
+                      oninput="window.MEX_CONFIG.empresa['${f.key}'] = this.value"
+                      onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor=''">
+                    <button onclick="_toggleEditCorreo('${f.id}')" title="Editar"
+                      style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                      <span class="material-icons" style="font-size:16px; color:#475569;">edit</span>
+                    </button>
+                    <button onclick="_borrarCampoCorreo('${f.id}','${f.key}')" title="Borrar"
+                      style="background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+                      <span class="material-icons" style="font-size:16px; color:#ef4444;">delete</span>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
             </div>
 
             <!-- Correos Internos -->
@@ -22472,33 +22632,40 @@
                 <span class="material-icons">notifications_active</span>
                 Correos Internos · MAPA
               </div>
-              <p style="font-size:12px; color:#64748b; font-weight:600; margin-bottom:14px; line-height:1.6;">
-                Reciben notificaciones automáticas del sistema (alertas, resúmenes, eventos críticos).
+              <p style="font-size:12px; color:#64748b; font-weight:600; margin-bottom:12px; line-height:1.6;">
+                Reciben notificaciones automáticas (alertas, resúmenes, eventos críticos).
               </p>
-              <div class="cfg-email-tags" id="cfg-correos-internos-tags">
-                ${correoTagsHtml || '<span style="font-size:12px; color:#cbd5e1; font-weight:700;">Sin correos internos configurados.</span>'}
+
+              <!-- Buscador -->
+              <div style="display:flex; align-items:center; gap:6px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:6px 10px; margin-bottom:10px;">
+                <span class="material-icons" style="font-size:16px; color:#94a3b8;">search</span>
+                <input type="text" id="cfg-correo-interno-search" placeholder="Buscar correo o título..."
+                  oninput="_renderCorreosInternosList()"
+                  style="border:none; background:transparent; outline:none; font-size:12px; flex:1; color:#334155;">
               </div>
-              <div class="cfg-email-add-row">
-                <input type="email" id="cfg-correo-interno-input" placeholder="nuevo@correo.com" onkeydown="if(event.key==='Enter') agregarCorreoInterno()">
-                <button onclick="agregarCorreoInterno()">+ AÑADIR</button>
+
+              <div id="cfg-correos-internos-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+                ${_renderCorreosInternosHtml(emp.correosInternos || [])}
+              </div>
+
+              <!-- Agregar nuevo -->
+              <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:10px 12px;">
+                <div style="font-size:11px; font-weight:800; color:#64748b; margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">Agregar Correo</div>
+                <div style="display:flex; gap:6px; margin-bottom:6px;">
+                  <input type="text" id="cfg-correo-interno-titulo" placeholder="Título (ej: Gerente GDL)"
+                    style="flex:1; padding:7px 10px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+                </div>
+                <div style="display:flex; gap:6px;">
+                  <input type="email" id="cfg-correo-interno-input" placeholder="nuevo@correo.com"
+                    onkeydown="if(event.key==='Enter') agregarCorreoInterno()"
+                    style="flex:1; padding:7px 10px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+                  <button onclick="agregarCorreoInterno()"
+                    style="background:var(--mex-blue); color:white; border:none; border-radius:8px; padding:7px 14px; font-weight:800; font-size:12px; cursor:pointer; white-space:nowrap;">+ AÑADIR</button>
+                </div>
               </div>
             </div>
 
-            <!-- Catálogo de Plazas -->
-            <div class="cfg-emp-card">
-              <div class="cfg-emp-section-header">
-                <span class="material-icons">location_city</span>
-                Catálogo de Plazas
-                <span style="margin-left:auto; font-size:10px; color:#94a3b8; font-weight:600; text-transform:none; letter-spacing:0;">Config. detallada → tab "Plazas"</span>
-              </div>
-              <div style="display:flex; gap:10px; margin-bottom:12px;">
-                <input type="text" id="cfg-empresa-plaza-add" class="cfg-emp-input" style="flex:1;" placeholder="Ej: GDL">
-                <button onclick="const input=document.getElementById('cfg-empresa-plaza-add');const p=input.value.trim().toUpperCase();if(p&&!(window.MEX_CONFIG.empresa.plazas||[]).includes(p)){window.MEX_CONFIG.empresa.plazas=window.MEX_CONFIG.empresa.plazas||[];window.MEX_CONFIG.empresa.plazas.push(p);input.value='';renderizarListaConfig();}" style="background:var(--mex-blue);color:white;border:none;border-radius:10px;padding:0 18px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">AÑADIR</button>
-              </div>
-              <div class="cfg-emp-plazas-grid">
-                ${plazasHtml || '<span style="font-size:12px; color:#94a3b8; font-weight:700;">No hay plazas configuradas.</span>'}
-              </div>
-            </div>
+            <!-- Catálogo de Plazas movido al tab Plazas -->
 
           </div>
         `;
@@ -22523,10 +22690,24 @@
 
       const rawLista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] || [];
       const query = (document.getElementById('cfg-search-input')?.value || "").trim().toUpperCase();
+      const plazaFilter = TAB_ACTIVA_CFG === 'ubicaciones' ? (document.getElementById('cfg-ubi-plaza-filter')?.value || '') : '';
+
+      // GERENTE_PLAZA only sees their plaza's ubicaciones
+      const myPlaza = (typeof currentUserProfile !== 'undefined' && currentUserProfile?.plazaAsignada) || '';
+      const esGerentePlaza = (typeof userAccessRole !== 'undefined') && userAccessRole === 'GERENTE_PLAZA';
+
       let lista = rawLista.map((item, idx) => ({ ...((typeof item === 'object') ? item : { nombre: item }), _origIndex: idx }));
-      
+
       if(query) {
          lista = lista.filter(item => (item.id || item.nombre || "").toUpperCase().includes(query));
+      }
+
+      if(TAB_ACTIVA_CFG === 'ubicaciones') {
+        // Filter by plaza selector
+        const activePlazaFilter = plazaFilter || (esGerentePlaza ? myPlaza : '');
+        if (activePlazaFilter) {
+          lista = lista.filter(item => (item.plazaId || '') === activePlazaFilter);
+        }
       }
 
       if (!lista || lista.length === 0) {
@@ -22541,11 +22722,14 @@
         let valor = esEstado ? item.id : (item.nombre || item);
         const color = esEstado ? item.color : null;
         let pText = "";
-        
+
         if(TAB_ACTIVA_CFG === 'ubicaciones') {
           // Normalize legacy to object rendering
           const isPlaza = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
-          pText = isPlaza ? `<span style="font-size:10px; background:#10b981; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PLAZA FIJA</span>` : `<span style="font-size:10px; background:#6366f1; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PERSONA RESPON.</span>`;
+          const plazaTag = item.plazaId ? `<span style="font-size:10px; background:#0ea5e9; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:4px;">${escapeHtml(item.plazaId)}</span>` : '';
+          pText = (isPlaza
+            ? `<span style="font-size:10px; background:#10b981; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PLAZA FIJA</span>`
+            : `<span style="font-size:10px; background:#6366f1; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:8px;">PERSONA RESPON.</span>`) + plazaTag;
         }
 
         if(TAB_ACTIVA_CFG === 'modelos') {
@@ -22598,6 +22782,7 @@
       if(TAB_ACTIVA_CFG === 'ubicaciones') {
         document.getElementById('cfg-add-ubi-options').style.display = 'block';
         document.getElementById('cfg-add-is-plaza').checked = true;
+        _llenarSelectPlazasUbi('cfg-add-ubi-plaza', '');
       } else if (TAB_ACTIVA_CFG === 'estados') {
         document.getElementById('cfg-add-estado-options').style.display = 'block';
         document.getElementById('cfg-add-color').value = '#64748b';
@@ -22629,6 +22814,8 @@
       if(TAB_ACTIVA_CFG === 'ubicaciones') {
         document.getElementById('cfg-add-ubi-options').style.display = 'block';
         document.getElementById('cfg-add-is-plaza').checked = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
+        const currentPlaza = typeof item === 'object' ? (item.plazaId || '') : '';
+        _llenarSelectPlazasUbi('cfg-add-ubi-plaza', currentPlaza);
       } else if (TAB_ACTIVA_CFG === 'estados') {
         document.getElementById('cfg-add-estado-options').style.display = 'block';
         document.getElementById('cfg-add-color').value = item.color || '#64748b';
@@ -22671,7 +22858,8 @@
            orden: parseInt(document.getElementById('cfg-add-orden').value || 99) 
         };
       } else if(TAB_ACTIVA_CFG === 'ubicaciones') {
-        newItem = { nombre: val, isPlazaFija: document.getElementById('cfg-add-is-plaza').checked };
+        const plazaSel = document.getElementById('cfg-add-ubi-plaza')?.value || '';
+        newItem = { nombre: val, isPlazaFija: document.getElementById('cfg-add-is-plaza').checked, plazaId: plazaSel };
       } else if(TAB_ACTIVA_CFG === 'modelos') {
         newItem = { nombre: val, categoria: document.getElementById('cfg-add-modelo-cat').value };
       } else {
@@ -22798,7 +22986,10 @@
               <div class="cfg-plaza-name">${escapeHtml(plazaId)}</div>
               <div class="cfg-plaza-local">${escapeHtml(detalle.nombre || detalle.localidad || 'Sin configurar')}</div>
             </div>
-            <span class="material-icons" style="font-size:16px; color:#cbd5e1;">chevron_right</span>
+            <button onclick="event.stopPropagation(); eliminarPlazaCatalogo('${escapeHtml(plazaId)}')"
+              style="background:#fee2e2; border:none; border-radius:6px; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; margin-left:4px;">
+              <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
+            </button>
           </div>
         `;
       }).join('');
@@ -22811,10 +23002,15 @@
            </div>`;
 
       container.innerHTML = `
-        <div style="margin-bottom:15px; padding: 0 10px; display:flex; justify-content:space-between; align-items:center;">
-          <p style="font-size:12px; color:#64748b; font-weight:700; margin:0;">
-            Agrega plazas desde el tab <b>Empresa</b>. Aquí configuras los detalles de cada una.
-          </p>
+        <div style="margin-bottom:15px; padding:0 10px; display:flex; gap:8px; align-items:center;">
+          <input type="text" id="cfg-plaza-add-input" placeholder="Ej: GDL" maxlength="10"
+            style="flex:1; padding:9px 12px; border-radius:10px; border:1.5px solid #e2e8f0; font-weight:800; font-size:13px; text-transform:uppercase; outline:none;"
+            onkeydown="if(event.key==='Enter') agregarPlazaCatalogo()"
+            oninput="this.value=this.value.toUpperCase()">
+          <button onclick="agregarPlazaCatalogo()"
+            style="background:var(--mex-blue);color:white;border:none;border-radius:10px;padding:9px 18px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;">
+            + AGREGAR
+          </button>
         </div>
         <div class="cfg-plazas-body">
           <div class="cfg-plazas-list-col">
@@ -22933,27 +23129,133 @@
       plazaSeleccionarCfg(plazaId);
     }
 
+    function _llenarSelectPlazasUbi(selectId, selected) {
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
+      sel.innerHTML = '<option value="">— Todas las plazas —</option>' +
+        plazas.map(p => `<option value="${escapeHtml(p)}"${p === selected ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('');
+    }
+
+    function agregarPlazaCatalogo() {
+      const input = document.getElementById('cfg-plaza-add-input');
+      if (!input) return;
+      const p = input.value.trim().toUpperCase();
+      if (!p) return;
+      const emp = window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
+      emp.plazas = emp.plazas || [];
+      if (emp.plazas.includes(p)) { showToast('Esa plaza ya existe', 'error'); return; }
+      emp.plazas.push(p);
+      input.value = '';
+      renderizarListaConfig();
+      showToast(`Plaza "${p}" agregada. Publica para guardar.`, 'success');
+    }
+
+    async function eliminarPlazaCatalogo(plazaId) {
+      const ok = await mexConfirm(
+        `Eliminar plaza "${plazaId}"`,
+        'Se eliminará del catálogo. Los datos de la plaza configurada también se perderán.',
+        'danger'
+      );
+      if (!ok) return;
+      const emp = window.MEX_CONFIG.empresa || {};
+      emp.plazas = (emp.plazas || []).filter(p => p !== plazaId);
+      emp.plazasDetalle = (emp.plazasDetalle || []).filter(d => d.id !== plazaId);
+      if (_plazaSeleccionadaCfg === plazaId) _plazaSeleccionadaCfg = null;
+      renderizarListaConfig();
+      showToast(`Plaza "${plazaId}" eliminada.`, 'success');
+    }
+
     // ─── HELPERS EMPRESA ─────────────────────────────────────────────
 
+    function _toggleEditCorreo(inputId) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      const locked = el.hasAttribute('readonly');
+      if (locked) {
+        el.removeAttribute('readonly');
+        el.focus();
+        el.select();
+      } else {
+        el.setAttribute('readonly', true);
+      }
+    }
+
+    async function _borrarCampoCorreo(inputId, key) {
+      const ok = await mexConfirm('Borrar correo', '¿Eliminar este correo del registro global?', 'warning');
+      if (!ok) return;
+      const el = document.getElementById(inputId);
+      if (el) el.value = '';
+      if (window.MEX_CONFIG && window.MEX_CONFIG.empresa) window.MEX_CONFIG.empresa[key] = '';
+    }
+
+    function _renderCorreosInternosHtml(correos, filter) {
+      const q = filter || (document.getElementById('cfg-correo-interno-search')?.value || '').toLowerCase().trim();
+      const lista = correos.filter(c => {
+        if (!q) return true;
+        const str = typeof c === 'object' ? `${c.titulo||''} ${c.correo||''}` : c;
+        return str.toLowerCase().includes(q);
+      });
+      if (lista.length === 0) return '<div style="font-size:12px; color:#cbd5e1; font-weight:700; padding:8px 0;">Sin correos configurados.</div>';
+      return lista.map((c, i) => {
+        const correo = typeof c === 'object' ? (c.correo || '') : c;
+        const titulo = typeof c === 'object' ? (c.titulo || '') : '';
+        const origIdx = correos.indexOf(c);
+        return `<div style="display:flex; align-items:center; gap:8px; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px;">
+          <span class="material-icons" style="font-size:16px; color:#94a3b8; flex-shrink:0;">email</span>
+          <div style="flex:1; overflow:hidden;">
+            ${titulo ? `<div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase;">${escapeHtml(titulo)}</div>` : ''}
+            <div style="font-size:12px; font-weight:700; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(correo)}</div>
+          </div>
+          <button onclick="_borrarCorreoInterno(${origIdx})" title="Eliminar"
+            style="background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+            <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
+          </button>
+        </div>`;
+      }).join('');
+    }
+
+    function _renderCorreosInternosList() {
+      const el = document.getElementById('cfg-correos-internos-list');
+      if (!el) return;
+      const emp = window.MEX_CONFIG?.empresa || {};
+      el.innerHTML = _renderCorreosInternosHtml(emp.correosInternos || []);
+    }
+
+    async function _borrarCorreoInterno(idx) {
+      const emp = window.MEX_CONFIG?.empresa || {};
+      const lista = emp.correosInternos || [];
+      const item = lista[idx];
+      const correoStr = typeof item === 'object' ? item.correo : item;
+      const ok = await mexConfirm(
+        'Eliminar correo interno',
+        `"${correoStr}" desaparecerá del registro global y dejará de recibir notificaciones del sistema.`,
+        'danger'
+      );
+      if (!ok) return;
+      lista.splice(idx, 1);
+      emp.correosInternos = lista;
+      _renderCorreosInternosList();
+      showToast('Correo eliminado. Publica para confirmar.', 'success');
+    }
+
     function agregarCorreoInterno() {
-      const input = document.getElementById('cfg-correo-interno-input');
+      const input  = document.getElementById('cfg-correo-interno-input');
+      const tInput = document.getElementById('cfg-correo-interno-titulo');
       if(!input) return;
       const correo = input.value.trim().toLowerCase();
+      const titulo = tInput ? tInput.value.trim() : '';
       if(!correo || !correo.includes('@')) { showToast('Correo inválido', 'error'); return; }
       const emp = window.MEX_CONFIG.empresa || {};
       emp.correosInternos = emp.correosInternos || [];
-      if(emp.correosInternos.includes(correo)) { showToast('Ese correo ya existe', 'error'); return; }
-      emp.correosInternos.push(correo);
+      const yaExiste = emp.correosInternos.some(c => (typeof c === 'object' ? c.correo : c) === correo);
+      if(yaExiste) { showToast('Ese correo ya existe', 'error'); return; }
+      emp.correosInternos.push(titulo ? { correo, titulo } : correo);
       window.MEX_CONFIG.empresa = emp;
       input.value = '';
-      renderCorreosInternos();
-    }
-
-    function eliminarCorreoInterno(idx) {
-      const emp = window.MEX_CONFIG.empresa || {};
-      if(!emp.correosInternos) return;
-      emp.correosInternos.splice(idx, 1);
-      renderCorreosInternos();
+      if (tInput) tInput.value = '';
+      _renderCorreosInternosList();
+      showToast('Correo añadido. Publica para guardar.', 'success');
     }
 
     function renderCorreosInternos() {
@@ -23117,8 +23419,12 @@
               </button>
             `;
           } else if (window._filtroSolicitudesEstatus === 'RECHAZADO') {
-            // Opción a re-aprobar
+            const motivoEsc = escapeHtml(data.motivo_rechazo || 'Sin motivo registrado');
+            const porEsc    = escapeHtml(data.rechazadoPor   || 'Desconocido');
             actionBtns = `
+              <button onclick="verInfoRechazo('${data.id}')" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
+                <span class="material-icons" style="font-size: 14px;">info</span> MÁS INFO
+              </button>
               <button onclick="procesarSolicitud('${data.id}', true)" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
                 <span class="material-icons" style="font-size: 14px;">refresh</span> RE-APROBAR
               </button>
@@ -23146,6 +23452,19 @@
           `;
        });
        contenedor.innerHTML = html;
+    }
+
+    function verInfoRechazo(docId) {
+      const data = (window._objSolicitudesMemoria || []).find(d => d.id === docId);
+      if (!data) return;
+      const motivo  = data.motivo_rechazo  || 'Sin motivo registrado';
+      const rechPor = data.rechazadoPor    || 'Desconocido';
+      const fecha   = data.fecha           || '';
+      mexAlert(
+        `Rechazo — ${data.nombre}`,
+        `Rechazado por: ${rechPor}\nFecha: ${fecha}\n\nMotivo:\n"${motivo}"`,
+        'warning'
+      );
     }
 
     // ─── Inyecta MEX_CONFIG en todos los <select> de la app ──────────────────────
@@ -23525,7 +23844,8 @@
             plazaSolicitada: solDocR.plazaSolicitada ?? null,
             password: "",
             estado: "RECHAZADA",
-            motivo_rechazo: motivo
+            motivo_rechazo: motivo,
+            rechazadoPor: USER_NAME || ""
           });
           await registrarEventoGestion('SOLICITUD_RECHAZADA', `Rechazó la solicitud de acceso de ${nombre}`, {
             entidad: 'SOLICITUDES_ACCESO',
@@ -25039,29 +25359,64 @@
     }
     .emoji-picker-grid button:hover { background: #f1f5f9; }
 
-    /* ── REPLY BUTTON ON HOVER ── */
+    /* ── REPLY BUTTON ── */
     .chat-bubble { position: relative; }
     .chat-reply-btn {
-      position: absolute; top: 4px;
+      position: absolute; top: 50%; transform: translateY(-50%);
       background: white; border: 1px solid #e2e8f0;
-      border-radius: 50%; width: 26px; height: 26px;
-      display: none; align-items: center; justify-content: center;
-      cursor: pointer; color: #64748b; box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-      transition: background 0.15s;
+      border-radius: 50%; width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #94a3b8; box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+      opacity: 0; transition: opacity 0.2s, background 0.15s, color 0.15s;
+      pointer-events: none;
     }
-    .chat-bubble.sent    .chat-reply-btn { left: -34px; }
-    .chat-bubble.received .chat-reply-btn { right: -34px; }
-    .chat-bubble:hover .chat-reply-btn { display: flex; }
-    .chat-reply-btn:hover { background: #eff6ff; color: #1d4ed8; }
+    .chat-bubble.sent    .chat-reply-btn { left: -36px; }
+    .chat-bubble.received .chat-reply-btn { right: -36px; }
+    /* Desktop: show on hover with delay so click is reachable */
+    @media (hover: hover) {
+      .chat-bubble:hover .chat-reply-btn,
+      .chat-reply-btn:focus {
+        opacity: 1; pointer-events: auto;
+      }
+      .chat-reply-btn:hover { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    }
+    /* Mobile: show permanently (always-on, low opacity) */
+    @media (hover: none) {
+      .chat-reply-btn { opacity: 0.45; pointer-events: auto; }
+      .chat-reply-btn:active { opacity: 1; background: #eff6ff; color: #1d4ed8; }
+    }
 
-    /* ── AUDIO PLAYER ── */
+    /* ── AUDIO PLAYER (estilo moderno) ── */
     .chat-audio-card {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(0,0,0,0.06); border-radius: 24px;
-      padding: 6px 12px; min-width: 180px; margin-top: 4px;
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(0,0,0,0.08); border-radius: 18px;
+      padding: 8px 14px; min-width: 200px; max-width: 280px; margin-top: 4px;
     }
-    .chat-audio-card audio { max-width: 160px; height: 32px; }
-    .chat-audio-card .audio-icon { font-size: 20px; color: #64748b; }
+    .chat-bubble.sent .chat-audio-card { background: rgba(255,255,255,0.12); }
+    .chat-audio-card audio {
+      flex: 1; height: 30px; min-width: 0;
+      accent-color: #1d4ed8;
+    }
+    .chat-audio-card .audio-icon {
+      font-size: 22px; color: #64748b; flex-shrink: 0;
+    }
+    .chat-bubble.sent .chat-audio-card .audio-icon { color: rgba(255,255,255,0.75); }
+
+    /* ── ADD REACTION button gris neutro ── */
+    .chat-add-reaction {
+      background: none; border: 1.5px dashed #cbd5e1; border-radius: 20px;
+      padding: 2px 7px; cursor: pointer; opacity: 0.55;
+      transition: opacity 0.15s; font-size: 0; /* hide emoji text */
+      display: flex; align-items: center; justify-content: center;
+      width: 28px; height: 20px;
+    }
+    .chat-add-reaction::before {
+      content: ''; display: block;
+      width: 14px; height: 14px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M8 14s1.5 2 4 2 4-2 4-2'/%3E%3Cline x1='9' y1='9' x2='9.01' y2='9'/%3E%3Cline x1='15' y1='9' x2='15.01' y2='9'/%3E%3C/svg%3E");
+      background-size: contain; background-repeat: no-repeat;
+    }
+    .chat-add-reaction:hover { opacity: 1; background: #f1f5f9; border-color: #94a3b8; }
   </style>
 
   <div id="modalWhatsapp" class="modal-overlay" style="z-index: 75000;">
@@ -25701,10 +26056,14 @@
       <input type="text" id="cfg-add-name" placeholder="Nombre (Ej: ECAR)" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; margin-bottom:15px; outline:none; box-sizing:border-box;" autocomplete="off">
       
       <div id="cfg-add-ubi-options" style="display:none; margin-bottom:15px;">
-        <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#475569; cursor:pointer;">
+        <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#475569; cursor:pointer; margin-bottom:10px;">
           <input type="checkbox" id="cfg-add-is-plaza" style="width:16px; height:16px; margin-top:2px;" checked>
           <div><b>Es Plaza Fija</b><br><span style="font-size:11px; color:#94a3b8;">Desmarca si es "Persona Responsable"</span></div>
         </label>
+        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Plaza Asignada</label>
+        <select id="cfg-add-ubi-plaza" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none; box-sizing:border-box; background:white;">
+          <option value="">— Todas las plazas —</option>
+        </select>
       </div>
 
       <div id="cfg-add-estado-options" style="display:none; margin-bottom:15px;">

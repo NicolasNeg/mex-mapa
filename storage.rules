@@ -39,6 +39,7 @@ service firebase.storage {
         : perfilActual().rol == "JEFE_OPERACION" ? "JEFE_OPERACION"
         : perfilActual().rol == "CORPORATIVO_USER" ? "CORPORATIVO_USER"
         : perfilActual().rol == "JEFE_REGIONAL" ? "JEFE_REGIONAL"
+        : perfilActual().rol == "GERENTE_PLAZA" ? "GERENTE_PLAZA"
         : perfilActual().rol == "VENTAS" ? "VENTAS"
         : perfilActual().isGlobal == true ? "CORPORATIVO_USER"
         : perfilActual().isAdmin == true ? "VENTAS"
@@ -53,6 +54,7 @@ service firebase.storage {
 
     function esAdminOperativo() {
       return rolActual() == "VENTAS"
+        || rolActual() == "GERENTE_PLAZA"
         || rolActual() == "JEFE_REGIONAL"
         || esAccesoTotal();
     }
