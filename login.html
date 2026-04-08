@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mapa — Login">
+  <meta name="description" content="Iniciar sesión en MEX Rent a Car">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+
+  <!-- Firebase compat SDK (necesario para auth) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+
+  <!-- Configuración y arranque de Firebase -->
+  <script src="/config.js"></script>
+  <script src="/js/core/firebase-init.js"></script>
+
+  <title>Iniciar Sesión — MEX</title>
+</head>
+<body style="margin:0; background:#0b1e3d;">
+
+  <!-- ── Overlay de login ───────────────────────────────── -->
+  <div id="login-overlay" class="login-overlay" style="display:flex;">
+    <div class="login-split-container">
+
+      <div class="login-left-side">
+        <div class="login-left-overlay">
+          <div class="login-brand">
+            <span class="login-brand-name" id="loginBrandName">MEX</span>
+            <span class="login-brand-sub">Rent a Car</span>
+          </div>
+          <p class="login-brand-desc">Plataforma avanzada para el control operativo y gestión de flota vehicular.</p>
+          <div class="login-stats">
+            <div class="login-stat"><span class="login-stat-num">24/7</span><span class="login-stat-lbl">Monitoreo</span></div>
+            <div class="login-stat"><span class="login-stat-num">100%</span><span class="login-stat-lbl">Seguro</span></div>
+            <div class="login-stat"><span class="login-stat-num">MX</span><span class="login-stat-lbl">Nacional</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="login-right-side">
+        <div class="login-form-wrapper">
+          <div class="login-logo-mark">
+            <span class="material-icons" style="font-size:22px; color:white;">directions_car</span>
+          </div>
+          <h3>Bienvenido</h3>
+          <p>Ingresa tus credenciales para continuar</p>
+
+          <div class="login-field">
+            <label class="input-label">Correo Electrónico</label>
+            <div class="mex-input-wrap">
+              <span class="material-icons mex-input-icon">person</span>
+              <input type="email" id="auth_email" class="mex-input" placeholder="usuario@mexrentacar.com">
+            </div>
+          </div>
+
+          <div class="login-field">
+            <label class="input-label">Contraseña</label>
+            <div class="mex-input-wrap">
+              <span class="material-icons mex-input-icon">lock</span>
+              <input type="password" id="auth_pass" class="mex-input" placeholder="••••••••"
+                style="padding-right:46px; letter-spacing:2px;">
+              <span class="material-icons input-icon" onclick="togglePassword('auth_pass', this)">visibility</span>
+            </div>
+          </div>
+
+          <label class="login-remember">
+            <input type="checkbox" id="auth_remember" checked>
+            <span class="remember-box"></span>
+            <span class="remember-text">Mantener sesión iniciada en este dispositivo</span>
+          </label>
+
+          <button onclick="loginManual()" id="btnLoginManual" class="login-btn-primary">INICIAR SESIÓN</button>
+
+          <div class="login-divider">
+            <div></div><span>O CONTINÚA CON</span><div></div>
+          </div>
+
+          <button onclick="loginConGoogle()" id="btnGoogleLogin" class="login-btn-google">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;">
+            CUENTA DE GOOGLE
+          </button>
+
+          <div id="login-error" class="login-error-box" style="display:none;">
+            <span class="material-icons" style="font-size:16px; flex-shrink:0;">error_outline</span>
+            <span id="login-error-msg">Datos incorrectos o sin acceso.</span>
+          </div>
+
+          <div class="login-footer">
+            <p>¿No tienes cuenta corporativa?</p>
+            <button onclick="abrirModalSolicitud()" class="login-link-btn">Solicitar Acceso al Sistema</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Modal solicitud de acceso ─────────────────────── -->
+  <div id="modal-solicitud" class="solicitud-modal-overlay" style="display:none;">
+    <div class="solicitud-modal-card">
+      <div class="solicitud-modal-header">
+        <h2 class="solicitud-modal-title">Solicitar Acceso</h2>
+        <p class="solicitud-modal-sub">Completa el formulario y un administrador lo revisará.</p>
+      </div>
+      <div class="solicitud-form-body">
+        <input type="text"  id="sol_nombre"   class="sol-input" placeholder="Nombre completo" autocomplete="off">
+        <input type="email" id="sol_email"    class="sol-input" placeholder="Correo corporativo">
+        <input type="text"  id="sol_puesto"   class="sol-input" placeholder="Puesto solicitado">
+        <input type="tel"   id="sol_telefono" class="sol-input" placeholder="Teléfono (opcional)">
+        <div class="mex-input-wrap">
+          <input type="password" id="sol_pass"         class="sol-input" placeholder="Contraseña" style="padding-right:46px;">
+          <span class="material-icons input-icon" onclick="togglePassword('sol_pass', this)">visibility</span>
+        </div>
+        <div class="mex-input-wrap">
+          <input type="password" id="sol_pass_confirm" class="sol-input" placeholder="Confirmar contraseña" style="padding-right:46px;">
+          <span class="material-icons input-icon" onclick="togglePassword('sol_pass_confirm', this)">visibility</span>
+        </div>
+        <div style="display:flex; gap:12px;">
+          <button onclick="cerrarModalSolicitud()" class="sol-btn-cancel">CANCELAR</button>
+          <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" class="sol-btn-submit">ENVIAR SOLICITUD</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Controlador de la vista (ES6 module) ──────────── -->
+  <script type="module" src="/js/views/login.js"></script>
+
+</body>
+</html>

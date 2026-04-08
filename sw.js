@@ -4,17 +4,30 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v31';
+const CACHE_NAME = 'mapa-v34';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
   '/',
   '/index.html',
+  '/login.html',
+  '/mapa.html',
   '/mex-api.js',
   '/config.js',
   '/manifest.json',
   '/img/logo.png',
   '/img/no-model.svg',
+  // Módulos JS (nueva arquitectura)
+  '/js/core/firebase-init.js',
+  '/js/core/database.js',
+  '/js/views/login.js',
+  '/js/views/mapa.js',
+  '/js/views/gestion.js',
+  '/js/views/cuadre.js',
+  '/gestion.html',
+  '/cuadre.html',
+  // CSS global
+  '/css/global.css',
   // Fuentes de Google — se cachean en runtime la primera vez que se descargan
 ];
 
