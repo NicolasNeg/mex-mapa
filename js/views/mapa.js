@@ -515,11 +515,30 @@ const api = window.api;
     function _syncRoleScope(prefix) {
       const roleInput = document.getElementById(`${prefix}-role`);
       const plazaRow = document.getElementById(`${prefix}-plaza-row`);
-      const plazaInput = document.getElementById(`${prefix}-plaza`);
+      const plazaSelect = document.getElementById(`${prefix}-plaza`);
       if (!roleInput || !plazaRow) return;
       const needsPlaza = _roleNeedsPlaza(roleInput.value);
       plazaRow.style.display = needsPlaza ? '' : 'none';
-      if (!needsPlaza && plazaInput) plazaInput.value = '';
+      if (!needsPlaza && plazaSelect) plazaSelect.value = '';
+    }
+
+    // Genera el <select> de plazas desde MEX_CONFIG
+    function _plazaSelectHtml(id, selectedValue = '', extraAttr = '') {
+      const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
+      const opts = plazas.map(p =>
+        `<option value="${escapeHtml(p)}" ${p === selectedValue ? 'selected' : ''}>${escapeHtml(p)}</option>`
+      ).join('');
+      return `<select id="${id}" ${extraAttr} style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:13px;background:white;color:var(--text);">
+        <option value="">— Sin plaza —</option>
+        ${opts}
+      </select>`;
+    }
+
+    // Retorna plazas únicas de los usuarios cargados (para chips de filtro)
+    function _umGetPlazasDisponibles() {
+      const set = new Set();
+      _umUsers.forEach(u => { if (u.plazaAsignada) set.add(u.plazaAsignada.toUpperCase()); });
+      return [...set].sort();
     }
 
     function escapeHtml(value) {
@@ -784,6 +803,18 @@ const api = window.api;
         if (document.getElementById('crear-alerta-modal')?.classList.contains('active') && typeof _renderDestinatariosAlerta === 'function') {
           _renderDestinatariosAlerta();
           _updateBtnEmitir();
+        }
+
+        // Detectar si el usuario actual tiene _reloadRequired → recargar permisos
+        const myEmail = _profileDocId(auth.currentUser?.email || '');
+        if (myEmail) {
+          const myDoc = snap.docs.find(d => d.id === myEmail);
+          if (myDoc?.data()?._reloadRequired) {
+            // Limpiar el flag antes de recargar para no hacer loop
+            db.collection(COL.USERS).doc(myEmail).update({ _reloadRequired: false }).catch(() => {});
+            showToast('Tus permisos fueron actualizados. Recargando...', 'warning');
+            setTimeout(() => window.location.reload(), 2000);
+          }
         }
       }, err => console.warn('onSnapshot usuarios live:', err));
     }
@@ -1825,6 +1856,7 @@ const api = window.api;
       }
     }
 
+    function ejecutarAutoGuardado() {
       const reporte = _obtenerReportePosicionesMapa();
       const fingerprint = _firmaReportePosicionesMapa(reporte);
 
@@ -2972,15 +3004,28 @@ const api = window.api;
 
     function _umRenderCards() {
       const container = document.getElementById('um-cards-container');
-      // Guard: el contenedor puede no estar en el DOM si el tab fue cambiado
       if (!container) {
         if (_unsubUsuarios) { _unsubUsuarios(); _unsubUsuarios = null; }
         return;
       }
+      _umRenderPlazaChips();
+
       const q = (document.getElementById('um-search')?.value || '').toLowerCase().trim();
-      const list = q
-        ? _umUsers.filter(u => u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
-        : _umUsers;
+      let list = _umUsers;
+
+      // Filtro texto: nombre, email, rol label
+      if (q) {
+        list = list.filter(u =>
+          u.nombre.toLowerCase().includes(q) ||
+          (u.email || '').toLowerCase().includes(q) ||
+          (_umRoleBadge(u.rol).label || '').toLowerCase().includes(q)
+        );
+      }
+
+      // Filtro chip plaza
+      if (_umPlazaFiltro) {
+        list = list.filter(u => (u.plazaAsignada || '').toUpperCase() === _umPlazaFiltro);
+      }
 
       if (list.length === 0) {
         container.innerHTML = '<div class="um-loading">No se encontraron usuarios.</div>';
@@ -2991,13 +3036,13 @@ const api = window.api;
         const badge = _umRoleBadge(u.rol);
         const active = u.id === _umSelectedId ? ' active' : '';
         return `<div class="um-card${active}" onclick="umSeleccionar('${u.id}')">
-      <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
-      <div class="um-card-info">
-        <div class="um-card-name">${u.nombre}</div>
-        <div class="um-card-email">${u.email || '(usuario heredado)'}${u.plazaAsignada ? ` · ${u.plazaAsignada}` : ''}</div>
-      </div>
-      <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
-    </div>`;
+          <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
+          <div class="um-card-info">
+            <div class="um-card-name">${u.nombre}</div>
+            <div class="um-card-email">${u.email || '(usuario heredado)'}${u.plazaAsignada ? ` · <b>${u.plazaAsignada}</b>` : ''}</div>
+          </div>
+          <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
+        </div>`;
       }).join('');
     }
 
@@ -3012,77 +3057,120 @@ const api = window.api;
 
     function _umRenderEditForm(user) {
       const roleBadge = _umRoleBadge(user.rol);
-      const canEditThisUser = canManageTargetRole(user.rol);
-      const roleLockedMsg = canEditThisUser
-        ? ''
-        : `<div style="margin:14px 0; padding:12px 14px; border-radius:12px; background:#fff7ed; color:#9a3412; font-weight:700; font-size:12px;">
-         Tu rol actual no puede modificar a ${roleBadge.label}.
-       </div>`;
+      const canEdit = canManageTargetRole(user.rol);
+
+      const roleLockedMsg = canEdit ? '' : `
+        <div style="margin:14px 0;padding:12px 14px;border-radius:12px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:12px;">
+          Tu rol actual no puede modificar a ${roleBadge.label}.
+        </div>`;
+
+      // Helper: campo bloqueado con lápiz para habilitar
+      const lockBtn = (fieldId) => canEdit
+        ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleField('${fieldId}')" title="Editar campo">
+             <span class="material-icons" style="font-size:15px;">edit</span>
+           </button>`
+        : '';
+
       document.getElementById('um-placeholder').style.display = 'none';
       const container = document.getElementById('um-form-container');
       container.style.display = 'block';
       container.innerHTML = `<div class="um-form-card">
-    <div class="um-form-avatar-row">
-      <div class="um-form-avatar" style="${_umAvatarStyle(user.nombre)}">${_umInitials(user.nombre)}</div>
-      <div>
-        <div class="um-form-title">${user.nombre}</div>
-        <div class="um-form-subtitle">${user.email || 'Usuario heredado (sin email)'}</div>
-      </div>
-    </div>
+        <div class="um-form-avatar-row">
+          <div class="um-form-avatar" style="${_umAvatarStyle(user.nombre)}">${_umInitials(user.nombre)}</div>
+          <div style="flex:1;min-width:0;">
+            <div class="um-form-title">${escapeHtml(user.nombre)}</div>
+            <div class="um-form-subtitle">${escapeHtml(user.email || 'Usuario heredado')}</div>
+          </div>
+        </div>
 
-    <div class="um-form-field">
-      <label>Nombre completo</label>
-      <input type="text" id="um-edit-nombre" value="${user.nombre.replace(/"/g, '&quot;')}" placeholder="Nombre completo" ${canEditThisUser ? '' : 'disabled'}>
-    </div>
-    <div class="um-form-field">
-      <label>Correo electrónico</label>
-      <input type="email" id="um-edit-email" value="${user.email}" placeholder="correo@ejemplo.com"
-        ${user.email ? 'disabled title="Para cambiar el email usa Firebase Console"' : ''}>
-    </div>
-    <div class="um-form-field">
-      <label>Teléfono (opcional)</label>
-      <input type="tel" id="um-edit-telefono" value="${user.telefono}" placeholder="Ej. 6441234567" ${canEditThisUser ? '' : 'disabled'}>
-    </div>
+        <div class="um-form-field">
+          <div class="um-field-label-row">
+            <label>Nombre completo</label>
+            ${lockBtn('um-edit-nombre')}
+          </div>
+          <input type="text" id="um-edit-nombre" value="${escapeHtml(user.nombre)}" placeholder="Nombre completo" disabled>
+        </div>
 
-    <div class="um-form-section">Rol y alcance</div>
-    <div class="um-form-field">
-      <label>Rol</label>
-      <select id="um-edit-role" onchange="_syncRoleScope('um-edit')" ${canEditThisUser ? '' : 'disabled'}>
-        ${_roleOptionsHtml(user.rol)}
-      </select>
-    </div>
-    <div class="um-form-field" id="um-edit-plaza-row" style="${_roleNeedsPlaza(user.rol) ? '' : 'display:none;'}">
-      <label>Plaza asignada</label>
-      <input type="text" id="um-edit-plaza" value="${(user.plazaAsignada || '').replace(/"/g, '&quot;')}" placeholder="Ej. BJX" ${canEditThisUser ? '' : 'disabled'}>
-    </div>
-    ${roleLockedMsg}
+        <div class="um-form-field">
+          <label>Correo electrónico</label>
+          <input type="email" id="um-edit-email" value="${escapeHtml(user.email || '')}" disabled
+            title="Para cambiar el email usa Firebase Console">
+        </div>
 
-    <div class="um-divider"></div>
-    <div class="um-actions">
-      <button class="um-btn-save" id="um-btn-guardar" onclick="umGuardarCambios('${user.id}')" ${canEditThisUser ? '' : 'disabled'}>
-        <span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS
-      </button>
-      ${user.email ? `<button class="um-btn-secondary" onclick="umResetPassword('${user.email}')" ${canEditThisUser ? '' : 'disabled'}>
-        <span class="material-icons" style="font-size:17px;">lock_reset</span> Enviar restablecimiento de contraseña
-      </button>` : ''}
-      <button class="um-btn-danger" onclick="umEliminar('${user.id}', '${user.nombre.replace(/'/g, "\\'")}')" ${canEditThisUser ? '' : 'disabled'}>
-        <span class="material-icons" style="font-size:17px;">person_remove</span> Eliminar usuario
-      </button>
-    </div>
-  </div>`;
+        <div class="um-form-field">
+          <div class="um-field-label-row">
+            <label>Teléfono (opcional)</label>
+            ${lockBtn('um-edit-telefono')}
+          </div>
+          <input type="tel" id="um-edit-telefono" value="${escapeHtml(user.telefono || '')}" placeholder="Ej. 6441234567" disabled>
+        </div>
+
+        <div class="um-form-section" style="display:flex;align-items:center;justify-content:space-between;">
+          Rol y alcance
+          ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleRolSection()" title="Editar rol">
+            <span class="material-icons" style="font-size:15px;">edit</span>
+          </button>` : ''}
+        </div>
+
+        <div class="um-form-field">
+          <label>ROL</label>
+          <select id="um-edit-role" onchange="_syncRoleScope('um-edit')" disabled>
+            ${_roleOptionsHtml(user.rol)}
+          </select>
+        </div>
+
+        <div class="um-form-field" id="um-edit-plaza-row" style="${_roleNeedsPlaza(user.rol) ? '' : 'display:none;'}">
+          <label>Plaza asignada</label>
+          ${_plazaSelectHtml('um-edit-plaza', user.plazaAsignada || '', 'disabled')}
+        </div>
+
+        ${roleLockedMsg}
+
+        <div class="um-divider"></div>
+        <div class="um-actions">
+          <button class="um-btn-save" id="um-btn-guardar" onclick="umGuardarCambios('${user.id}')" ${canEdit ? '' : 'disabled'}>
+            <span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS
+          </button>
+          ${user.email ? `<button class="um-btn-secondary" onclick="umResetPassword('${escapeHtml(user.email)}')" ${canEdit ? '' : 'disabled'}>
+            <span class="material-icons" style="font-size:17px;">lock_reset</span> Restablecer contraseña
+          </button>` : ''}
+          <button class="um-btn-danger" onclick="umEliminar('${user.id}', '${user.nombre.replace(/'/g, "\\'")}')" ${canEdit ? '' : 'disabled'}>
+            <span class="material-icons" style="font-size:17px;">person_remove</span> Eliminar usuario
+          </button>
+        </div>
+      </div>`;
       _syncRoleScope('um-edit');
+    }
+
+    // Alterna disabled/enabled en un campo de edición de usuario
+    function _umToggleField(fieldId) {
+      const el = document.getElementById(fieldId);
+      if (!el) return;
+      el.disabled = !el.disabled;
+      if (!el.disabled) { el.focus(); el.select?.(); }
+    }
+
+    // Desbloquea el select de rol y el de plaza
+    function _umToggleRolSection() {
+      const roleEl = document.getElementById('um-edit-role');
+      const plazaEl = document.getElementById('um-edit-plaza');
+      if (!roleEl) return;
+      const nowEditing = roleEl.disabled;
+      roleEl.disabled = !nowEditing;
+      if (plazaEl) plazaEl.disabled = !nowEditing;
     }
 
     async function umGuardarCambios(docId) {
       if (!canManageUsers()) return showToast('No tienes permisos para editar usuarios.', 'error');
       const targetUser = _umUsers.find(u => u.id === docId);
       if (!targetUser) return showToast('Usuario no encontrado.', 'error');
+
       const nombre = (document.getElementById('um-edit-nombre').value || '').trim().toUpperCase();
       const telefono = (document.getElementById('um-edit-telefono').value || '').trim();
       const rolSeleccionado = _sanitizeRole(document.getElementById('um-edit-role').value) || 'AUXILIAR';
       const rol = _resolveStoredRoleForEmail(targetUser.email, rolSeleccionado);
       const plazaAsignada = _roleNeedsPlaza(rol)
-        ? _normalizePlaza(document.getElementById('um-edit-plaza').value)
+        ? _normalizePlaza(document.getElementById('um-edit-plaza')?.value || '')
         : '';
       const meta = ROLE_META[rol];
 
@@ -3094,35 +3182,46 @@ const api = window.api;
         return showToast('Tu rol no puede modificar ese nivel de acceso.', 'error');
       }
 
+      // Confirmación si el rol cambió
+      const rolAnterior = targetUser.rol || 'AUXILIAR';
+      if (rolAnterior !== rol) {
+        const ok = await mexConfirm(
+          'Cambio de Rol',
+          `¿Confirmas cambiar el rol de ${targetUser.nombre}?\n\n${ROLE_META[rolAnterior].label}  →  ${meta.label}\n\nEste cambio se aplicará de inmediato.`,
+          'warning'
+        );
+        if (!ok) return;
+      }
+
       const btn = document.getElementById('um-btn-guardar');
       btn.disabled = true;
       btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Guardando...';
 
       try {
         const cambios = [];
-        if ((targetUser.nombre || '') !== nombre) cambios.push(`Nombre: ${targetUser.nombre || 'N/D'} -> ${nombre}`);
-        if ((targetUser.telefono || '') !== telefono) cambios.push(`Teléfono: ${targetUser.telefono || 'N/D'} -> ${telefono || 'N/D'}`);
-        if ((targetUser.rol || 'AUXILIAR') !== rol) cambios.push(`Rol: ${ROLE_META[targetUser.rol || 'AUXILIAR'].label} -> ${meta.label}`);
-        if ((targetUser.plazaAsignada || '') !== plazaAsignada) cambios.push(`Plaza: ${targetUser.plazaAsignada || 'SIN PLAZA'} -> ${plazaAsignada || 'SIN PLAZA'}`);
+        if ((targetUser.nombre || '') !== nombre) cambios.push(`Nombre: ${targetUser.nombre || 'N/D'} → ${nombre}`);
+        if ((targetUser.telefono || '') !== telefono) cambios.push(`Teléfono: ${targetUser.telefono || 'N/D'} → ${telefono || 'N/D'}`);
+        if (rolAnterior !== rol) cambios.push(`Rol: ${ROLE_META[rolAnterior].label} → ${meta.label}`);
+        if ((targetUser.plazaAsignada || '') !== plazaAsignada) cambios.push(`Plaza: ${targetUser.plazaAsignada || 'SIN PLAZA'} → ${plazaAsignada || 'SIN PLAZA'}`);
 
         await db.collection(COL.USERS).doc(docId).update({
-          nombre,
-          telefono,
-          email: targetUser.email,
-          rol,
-          plazaAsignada,
-          isAdmin: meta.isAdmin,
-          isGlobal: meta.fullAccess
+          nombre, telefono, email: targetUser.email,
+          rol, plazaAsignada, isAdmin: meta.isAdmin, isGlobal: meta.fullAccess
         });
+
         await registrarEventoGestion('USUARIO_EDITADO', `Actualizó al usuario ${nombre}`, {
-          entidad: 'USUARIOS',
-          referencia: docId,
+          entidad: 'USUARIOS', referencia: docId,
           objetivo: targetUser.email || targetUser.nombre || docId,
-          rolObjetivo: rol,
-          plazaObjetivo: plazaAsignada || '',
-          detalles: cambios.join(' | ') || 'Guardó el perfil sin cambios visibles.',
+          rolObjetivo: rol, plazaObjetivo: plazaAsignada || '',
+          detalles: cambios.join(' | ') || 'Sin cambios visibles.',
           resultado: 'EXITO'
         });
+
+        // Si el rol cambió, forzar recarga del usuario afectado via flag en Firestore
+        if (rolAnterior !== rol) {
+          db.collection(COL.USERS).doc(docId).update({ _reloadRequired: true }).catch(() => {});
+        }
+
         showToast('Usuario actualizado', 'success');
       } catch (e) {
         console.error(e);
@@ -3130,7 +3229,6 @@ const api = window.api;
         btn.disabled = false;
         btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS';
       }
-      // onSnapshot actualizará las tarjetas automáticamente
     }
 
     async function umResetPassword(email) {
@@ -3196,53 +3294,85 @@ const api = window.api;
       const container = document.getElementById('um-form-container');
       container.style.display = 'block';
       container.innerHTML = `<div class="um-form-card">
-    <div class="um-form-avatar-row">
-      <div class="um-form-avatar" style="background:var(--mex-accent);color:white;">
-        <span class="material-icons" style="font-size:28px;">person_add</span>
-      </div>
-      <div>
-        <div class="um-form-title">Nuevo Usuario</div>
-        <div class="um-form-subtitle">Crea una cuenta de Firebase Auth</div>
-      </div>
-    </div>
+        <div class="um-form-avatar-row">
+          <div class="um-form-avatar" style="background:var(--mex-accent);color:white;">
+            <span class="material-icons" style="font-size:28px;">person_add</span>
+          </div>
+          <div>
+            <div class="um-form-title">Nuevo Usuario</div>
+            <div class="um-form-subtitle">Completa todos los campos para crear la cuenta.</div>
+          </div>
+        </div>
 
-    <div class="um-form-field">
-      <label>Nombre completo</label>
-      <input type="text" id="um-new-nombre" placeholder="Ej. Juan Pérez">
-    </div>
-    <div class="um-form-field">
-      <label>Correo electrónico</label>
-      <input type="email" id="um-new-email" placeholder="correo@ejemplo.com">
-    </div>
-    <div class="um-form-field">
-      <label>Contraseña temporal</label>
-      <input type="password" id="um-new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
-    </div>
-    <div class="um-form-field">
-      <label>Teléfono (opcional)</label>
-      <input type="tel" id="um-new-tel" placeholder="Ej. 6441234567">
-    </div>
+        <div class="um-form-field">
+          <label>Nombre completo <span style="color:#ef4444;">*</span></label>
+          <input type="text" id="um-new-nombre" placeholder="Ej. Juan Pérez" oninput="_umValidarNuevo()">
+        </div>
+        <div class="um-form-field">
+          <label>Correo electrónico <span style="color:#ef4444;">*</span></label>
+          <input type="email" id="um-new-email" placeholder="correo@ejemplo.com" oninput="_umValidarNuevo()">
+        </div>
+        <div class="um-form-field">
+          <label>Contraseña temporal <span style="color:#ef4444;">*</span></label>
+          <input type="password" id="um-new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" oninput="_umValidarNuevo()">
+        </div>
+        <div class="um-form-field">
+          <label>Teléfono (opcional)</label>
+          <input type="tel" id="um-new-tel" placeholder="Ej. 6441234567">
+        </div>
 
-    <div class="um-form-section">Rol y alcance</div>
-    <div class="um-form-field">
-      <label>Rol</label>
-      <select id="um-new-role" onchange="_syncRoleScope('um-new')">
-        ${_roleOptionsHtml('AUXILIAR')}
-      </select>
-    </div>
-    <div class="um-form-field" id="um-new-plaza-row" style="display:none;">
-      <label>Plaza asignada</label>
-      <input type="text" id="um-new-plaza" placeholder="Ej. BJX">
-    </div>
+        <div class="um-form-section">Rol y alcance</div>
+        <div class="um-form-field">
+          <label>Rol <span style="color:#ef4444;">*</span></label>
+          <select id="um-new-role" onchange="_syncRoleScope('um-new'); _umValidarNuevo();">
+            ${_roleOptionsHtml('AUXILIAR')}
+          </select>
+        </div>
+        <div class="um-form-field" id="um-new-plaza-row" style="display:none;">
+          <label>Plaza asignada <span style="color:#ef4444;">*</span></label>
+          ${_plazaSelectHtml('um-new-plaza', '', 'onchange="_umValidarNuevo()"')}
+        </div>
 
-    <div class="um-divider"></div>
-    <div class="um-actions">
-      <button class="um-btn-save" id="um-btn-crear" onclick="umCrearUsuario()">
-        <span class="material-icons" style="font-size:17px;">person_add</span> CREAR USUARIO
-      </button>
-    </div>
-  </div>`;
+        <div class="um-divider"></div>
+        <div class="um-actions">
+          <button class="um-btn-save" id="um-btn-crear" onclick="umCrearUsuario()" disabled style="opacity:.5;cursor:not-allowed;">
+            <span class="material-icons" style="font-size:17px;">person_add</span> CREAR USUARIO
+          </button>
+          <div id="um-new-hints" style="font-size:11px;color:#94a3b8;text-align:center;margin-top:4px;">
+            Completa los campos requeridos (<span style="color:#ef4444;">*</span>)
+          </div>
+        </div>
+      </div>`;
       _syncRoleScope('um-new');
+      _umValidarNuevo();
+    }
+
+    // Valida campos del form nuevo usuario y habilita/deshabilita el botón
+    function _umValidarNuevo() {
+      const nombre = (document.getElementById('um-new-nombre')?.value || '').trim();
+      const email = (document.getElementById('um-new-email')?.value || '').trim();
+      const pass = (document.getElementById('um-new-pass')?.value || '').trim();
+      const rol = document.getElementById('um-new-role')?.value || '';
+      const needsPlaza = _roleNeedsPlaza(rol);
+      const plaza = needsPlaza ? (document.getElementById('um-new-plaza')?.value || '').trim() : 'OK';
+
+      const btn = document.getElementById('um-btn-crear');
+      const hint = document.getElementById('um-new-hints');
+      if (!btn) return;
+
+      const missing = [];
+      if (!nombre) missing.push('nombre');
+      if (!email || !email.includes('@')) missing.push('correo válido');
+      if (pass.length < 6) missing.push('contraseña (mín. 6)');
+      if (!plaza) missing.push('plaza');
+
+      const ok = missing.length === 0;
+      btn.disabled = !ok;
+      btn.style.opacity = ok ? '1' : '.5';
+      btn.style.cursor = ok ? 'pointer' : 'not-allowed';
+      if (hint) hint.innerHTML = ok
+        ? '<span style="color:#10b981;">✓ Listo para crear</span>'
+        : `Falta: ${missing.join(', ')}`;
     }
 
     async function umCrearUsuario() {
@@ -10554,32 +10684,82 @@ const api = window.api;
 
     // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
     function renderizarTabConfigUsuarios(container) {
-       container.innerHTML = `
-         <div style="display:flex; justify-content:flex-end; margin-bottom:15px; padding: 0 10px;">
-           <button onclick="umNuevoUsuario()" style="background:var(--mex-accent);color:white;border:none;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:6px;">
-             <span class="material-icons" style="font-size:17px;">person_add</span> NUEVO USUARIO
-           </button>
-         </div>
-         <div class="um-body" style="height: auto; min-height: 55vh; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; margin: 0 10px;">
-            <div class="um-list-col">
-              <div class="um-search-wrap">
-                <span class="material-icons um-search-icon">search</span>
-                <input type="text" id="um-search" placeholder="Buscar por nombre o correo..." oninput="umFiltrar()">
-              </div>
-              <div id="um-cards-container">
-                <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>
-              </div>
+      container.innerHTML = `
+        <div style="padding:0 10px 12px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <!-- Buscador + chips -->
+          <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:220px;">
+            <div class="um-search-wrap">
+              <span class="material-icons um-search-icon">search</span>
+              <input type="text" id="um-search" placeholder="Buscar por nombre, correo o rol..." oninput="umFiltrar()">
             </div>
-            <div class="um-edit-col">
-              <div id="um-placeholder" class="um-placeholder">
-                <span class="material-icons">manage_accounts</span>
-                <p>Selecciona un usuario para editarlo<br>o crea uno nuevo.</p>
-              </div>
-              <div id="um-form-container" style="display:none;width:100%;max-width:480px;"></div>
+            <div id="um-plaza-chips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+          </div>
+          <!-- Botón nuevo usuario -->
+          <button id="btn-nuevo-usuario" onclick="_umNuevoUsuarioConAnim()"
+            style="background:var(--mex-accent);color:white;border:none;padding:11px 20px;border-radius:12px;
+                   font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:7px;
+                   box-shadow:0 4px 14px rgba(99,102,241,0.3);transition:opacity .15s;white-space:nowrap;">
+            <span class="material-icons" style="font-size:17px;">person_add</span> NUEVO USUARIO
+          </button>
+        </div>
+
+        <div class="um-body" style="height:auto;min-height:55vh;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin:0 10px;">
+          <div class="um-list-col">
+            <div id="um-cards-container">
+              <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando...</div>
             </div>
-         </div>
-       `;
-       _umIniciar();
+          </div>
+          <div class="um-edit-col">
+            <div id="um-placeholder" class="um-placeholder">
+              <span class="material-icons">manage_accounts</span>
+              <p>Selecciona un usuario para editarlo<br>o crea uno nuevo.</p>
+            </div>
+            <div id="um-form-container" style="display:none;width:100%;max-width:480px;"></div>
+          </div>
+        </div>
+      `;
+      _umIniciar();
+    }
+
+    // Variable para el filtro de plaza activo en usuarios
+    let _umPlazaFiltro = null;
+
+    function _umRenderPlazaChips() {
+      const wrap = document.getElementById('um-plaza-chips');
+      if (!wrap) return;
+      const plazas = _umGetPlazasDisponibles();
+      if (plazas.length === 0) { wrap.innerHTML = ''; return; }
+      wrap.innerHTML = plazas.map(p => {
+        const active = _umPlazaFiltro === p;
+        return `<button onclick="_umTogglePlazaChip('${escapeHtml(p)}')" style="
+          padding:4px 11px; border-radius:20px; font-size:11px; font-weight:800; cursor:pointer; border:1.5px solid;
+          ${active
+            ? 'background:var(--mex-accent);color:white;border-color:var(--mex-accent);'
+            : 'background:white;color:#475569;border-color:#e2e8f0;'
+          }transition:all .15s;">${p}</button>`;
+      }).join('');
+    }
+
+    function _umTogglePlazaChip(plaza) {
+      _umPlazaFiltro = _umPlazaFiltro === plaza ? null : plaza;
+      _umRenderPlazaChips();
+      _umRenderCards();
+    }
+
+    // Botón "Nuevo Usuario" con animación de carga antes de abrir el form
+    function _umNuevoUsuarioConAnim() {
+      const btn = document.getElementById('btn-nuevo-usuario');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Preparando...';
+        setTimeout(() => {
+          btn.disabled = false;
+          btn.innerHTML = '<span class="material-icons" style="font-size:17px;">person_add</span> NUEVO USUARIO';
+          umNuevoUsuario();
+        }, 600);
+      } else {
+        umNuevoUsuario();
+      }
     }
 
     // ─── LÓGICA DE SOLICITUDES EN CONFIGURACIÓN ──────────────────────
@@ -11719,7 +11899,14 @@ Object.assign(window, {
   _toggleEditCorreo,
   _togglePlazaAddRow,
   _umAvatarStyle,
+  _umGetPlazasDisponibles,
   _umIniciar,
+  _umNuevoUsuarioConAnim,
+  _umRenderPlazaChips,
+  _umToggleField,
+  _umTogglePlazaChip,
+  _umToggleRolSection,
+  _umValidarNuevo,
   _umInitials,
   _umRenderCards,
   _umRenderEditForm,

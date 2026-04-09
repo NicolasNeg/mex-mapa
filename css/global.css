@@ -4729,6 +4729,55 @@
     .um-btn-danger:hover {
       background: #fecaca;
     }
+    .um-btn-danger:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    /* ── Campo editable con lápiz ─────────────────────── */
+    .um-field-label-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+
+    .um-edit-lock-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      color: #64748b;
+      cursor: pointer;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+
+    .um-edit-lock-btn:hover {
+      background: var(--mex-accent, #6366f1);
+      color: white;
+      border-color: var(--mex-accent, #6366f1);
+    }
+
+    /* Inputs deshabilitados visualmente distintos */
+    .um-form-card input:disabled,
+    .um-form-card select:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: default;
+      border-color: #e2e8f0;
+    }
+
+    .um-form-card input:not(:disabled),
+    .um-form-card select:not(:disabled) {
+      border-color: var(--mex-accent, #6366f1) !important;
+      background: white !important;
+      color: var(--text) !important;
+    }
 
     /* Dark overrides */
     body.dark-theme .um-list-col {
