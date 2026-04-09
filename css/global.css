@@ -10418,6 +10418,7 @@
         border-color: var(--mex-accent);
         transform: scale(1.02);
       }
+    } /* end @media (max-width: 768px) */
 
 /* ── bloque de línea 138 del index original ── */
     @keyframes modalFadeIn {
