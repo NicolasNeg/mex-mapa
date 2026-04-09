@@ -767,7 +767,8 @@ const api = window.api;
 
 
     function iniciarApp(esNuevoLogin = true) {
-      document.getElementById('login-overlay').style.display = 'none';
+      const _loginOverlay = document.getElementById('login-overlay');
+      if (_loginOverlay) _loginOverlay.style.display = 'none';
       _actualizarIdentidadSidebarUsuario();
 
       // Cerramos sidebars
