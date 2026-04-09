@@ -10708,7 +10708,8 @@ const api = window.api;
           || (!_puedeVerTodasPlazas() ? _miPlaza() : '')
           || (esGerentePlaza ? myPlaza : '');
         if (activePlazaFilter) {
-          lista = lista.filter(item => !item.plazaId || (item.plazaId || '') === activePlazaFilter);
+          const apfUp = activePlazaFilter.toUpperCase();
+          lista = lista.filter(item => !item.plazaId || (item.plazaId || '').toUpperCase() === apfUp);
         }
       }
 
@@ -12082,8 +12083,20 @@ const api = window.api;
       });
       ['filter-est', 'f_est', 'a_ins_est', 'a_mod_est'].forEach(id => _setOptions(id, estOpts));
 
+      // Filtrar ubicaciones por plaza si el usuario no tiene acceso global
+      let ubicFiltradas = ubicaciones;
+      if (!_puedeVerTodasPlazas()) {
+        const miP = (_miPlaza() || '').toUpperCase();
+        if (miP) {
+          ubicFiltradas = ubicaciones.filter(u => {
+            const plazaId = ((typeof u === 'object' ? u.plazaId : null) || '').toUpperCase();
+            return !plazaId || plazaId === miP;
+          });
+        }
+      }
+
       // Formatea objetos {nombre, isPlazaFija} y legacy strings a un estándar interno para dividir en grupos OptGroup.
-      const ubiParsed = ubicaciones.map(u => typeof u === 'object' ? u : { nombre: u, isPlazaFija: ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(u) });
+      const ubiParsed = ubicFiltradas.map(u => typeof u === 'object' ? u : { nombre: u, isPlazaFija: ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(u) });
       const plazas = ubiParsed.filter(u => u.isPlazaFija).map(u => u.nombre);
       const personas = ubiParsed.filter(u => !u.isPlazaFija).map(u => u.nombre);
 

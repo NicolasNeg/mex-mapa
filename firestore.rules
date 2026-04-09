@@ -287,6 +287,12 @@ service cloud.firestore {
       allow read, write: if tienePerfilActual();
     }
 
+    // Colecciones de mapa por plaza (mapa_config_BJX, mapa_config_GDL, …)
+    match /{plazaCol}/{doc} {
+      allow read: if plazaCol.matches('mapa_config_.+') && tienePerfilActual();
+      allow write: if plazaCol.matches('mapa_config_.+') && esAccesoTotal();
+    }
+
     match /index_unidades/{doc} {
       allow read: if tienePerfilActual();
       allow create: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexNueva());
