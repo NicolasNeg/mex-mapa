@@ -43,11 +43,48 @@ const api = window.api;
       if(!empresaObj) return;
       const nombre = empresaObj.nombre || "MEX RENT A CAR";
       const color = empresaObj.colorPrincipal || "var(--mex-blue)";
-      
+
       const lbl = document.getElementById("empresa-cfg-lbl");
       if(lbl) lbl.innerText = nombre;
-      
+
       document.documentElement.style.setProperty('--mex-blue', color);
+    }
+
+    // ── Aplica los colores de estados desde MEX_CONFIG al CSS de los autos del mapa ──
+    function _aplicarColoresEstados() {
+      const estados = window.MEX_CONFIG?.listas?.estados || [];
+      if (estados.length === 0) return;
+
+      // Genera CSS por cada estado configurado
+      const css = estados.map(e => {
+        const id = typeof e === 'string' ? e : e.id;
+        const color = typeof e === 'object' ? (e.color || '#64748b') : '#64748b';
+        if (!id) return '';
+        // Mismo algoritmo de clase que usa _actualizarNodoUnidadMapa
+        const clase = id.toLowerCase().trim()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .replace(/\s+/g, '-');
+        // Gradiente basado en el color del estado
+        return `.car.${clase} { background: linear-gradient(160deg, ${color} 0%, ${_darken(color, 20)} 100%) !important; }`;
+      }).join('\n');
+
+      let styleTag = document.getElementById('mex-estado-colors');
+      if (!styleTag) {
+        styleTag = document.createElement('style');
+        styleTag.id = 'mex-estado-colors';
+        document.head.appendChild(styleTag);
+      }
+      styleTag.textContent = css;
+    }
+
+    // Oscurece un color hex por un % (0-100)
+    function _darken(hex, pct) {
+      let c = hex.replace('#', '');
+      if (c.length === 3) c = c.split('').map(x => x + x).join('');
+      const r = Math.max(0, parseInt(c.slice(0,2), 16) - Math.round(2.55 * pct));
+      const g = Math.max(0, parseInt(c.slice(2,4), 16) - Math.round(2.55 * pct));
+      const b = Math.max(0, parseInt(c.slice(4,6), 16) - Math.round(2.55 * pct));
+      return `#${[r,g,b].map(v => v.toString(16).padStart(2,'0')).join('')}`;
     }
 
     async function inicializarConfiguracion() {
@@ -63,6 +100,7 @@ const api = window.api;
           window.MEX_CONFIG = config;
           console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
           aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
+          _aplicarColoresEstados();
           if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
         }
       } catch (error) {
@@ -495,9 +533,15 @@ const api = window.api;
       }).join('');
     }
 
+    // Todos los roles excepto JEFE_OPERACION y PROGRAMADOR tienen plaza asignada
     function _roleNeedsPlaza(role) {
       const normalized = _sanitizeRole(role) || 'AUXILIAR';
-      return normalized === 'VENTAS' || normalized === 'JEFE_REGIONAL';
+      return normalized !== 'JEFE_OPERACION' && normalized !== 'PROGRAMADOR';
+    }
+
+    // JEFE_REGIONAL puede ver múltiples plazas (además de su plaza base)
+    function _roleNeedsMultiplePlazas(role) {
+      return (_sanitizeRole(role) || '') === 'JEFE_REGIONAL';
     }
 
     function _inferRequestedAccessRole(puesto, email = '') {
@@ -515,11 +559,17 @@ const api = window.api;
     function _syncRoleScope(prefix) {
       const roleInput = document.getElementById(`${prefix}-role`);
       const plazaRow = document.getElementById(`${prefix}-plaza-row`);
-      const plazaSelect = document.getElementById(`${prefix}-plaza`);
+      const multiRow = document.getElementById(`${prefix}-plazas-multi-row`);
       if (!roleInput || !plazaRow) return;
-      const needsPlaza = _roleNeedsPlaza(roleInput.value);
+      const rol = roleInput.value;
+      const needsPlaza = _roleNeedsPlaza(rol);
+      const needsMulti = _roleNeedsMultiplePlazas(rol);
       plazaRow.style.display = needsPlaza ? '' : 'none';
-      if (!needsPlaza && plazaSelect) plazaSelect.value = '';
+      if (multiRow) multiRow.style.display = needsMulti ? '' : 'none';
+      if (!needsPlaza) {
+        const plazaSelect = document.getElementById(`${prefix}-plaza`);
+        if (plazaSelect) plazaSelect.value = '';
+      }
     }
 
     // Genera el <select> de plazas desde MEX_CONFIG
@@ -532,6 +582,28 @@ const api = window.api;
         <option value="">— Sin plaza —</option>
         ${opts}
       </select>`;
+    }
+
+    // Genera checkboxes de plazas permitidas para JEFE_REGIONAL
+    function _plazasMultiHtml(id, selected = []) {
+      const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
+      if (plazas.length === 0) return '<span style="font-size:12px;color:#94a3b8;">Sin plazas configuradas.</span>';
+      return `<div id="${id}" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0;">
+        ${plazas.map(p => {
+          const checked = Array.isArray(selected) && selected.includes(p) ? 'checked' : '';
+          return `<label style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:8px;border:1.5px solid #e2e8f0;background:white;cursor:pointer;font-size:12px;font-weight:700;color:#334155;">
+            <input type="checkbox" value="${escapeHtml(p)}" ${checked} style="accent-color:var(--mex-accent);width:14px;height:14px;">
+            ${escapeHtml(p)}
+          </label>`;
+        }).join('')}
+      </div>`;
+    }
+
+    // Lee las plazas seleccionadas del multi-selector
+    function _getSelectedPlazas(containerId) {
+      const container = document.getElementById(containerId);
+      if (!container) return [];
+      return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
     }
 
     // Retorna plazas únicas de los usuarios cargados (para chips de filtro)
@@ -3128,8 +3200,18 @@ const api = window.api;
         </div>
 
         <div class="um-form-field" id="um-edit-plaza-row" style="${_roleNeedsPlaza(user.rol) ? '' : 'display:none;'}">
-          <label>Plaza asignada</label>
+          <div class="um-field-label-row">
+            <label>Plaza base ${_roleNeedsPlaza(user.rol) && !_roleNeedsMultiplePlazas(user.rol) ? '' : ''}</label>
+            ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleField('um-edit-plaza')" title="Cambiar plaza">
+              <span class="material-icons" style="font-size:15px;">edit</span>
+            </button>` : ''}
+          </div>
           ${_plazaSelectHtml('um-edit-plaza', user.plazaAsignada || '', 'disabled')}
+        </div>
+
+        <div class="um-form-field" id="um-edit-plazas-multi-row" style="${_roleNeedsMultiplePlazas(user.rol) ? '' : 'display:none;'}">
+          <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
+          ${_plazasMultiHtml('um-edit-plazas-permitidas', user.plazasPermitidas || [])}
         </div>
 
         ${roleLockedMsg}
@@ -3180,12 +3262,12 @@ const api = window.api;
       const plazaAsignada = _roleNeedsPlaza(rol)
         ? _normalizePlaza(document.getElementById('um-edit-plaza')?.value || '')
         : '';
+      const plazasPermitidas = _roleNeedsMultiplePlazas(rol)
+        ? _getSelectedPlazas('um-edit-plazas-permitidas')
+        : [];
       const meta = ROLE_META[rol];
 
       if (!nombre) return showToast('El nombre es obligatorio', 'error');
-      if (_roleNeedsPlaza(rol) && !plazaAsignada) {
-        return showToast('Ese rol requiere una plaza asignada.', 'error');
-      }
       if (!canManageTargetRole(targetUser.rol) || !canAssignRole(rol)) {
         return showToast('Tu rol no puede modificar ese nivel de acceso.', 'error');
       }
@@ -3211,11 +3293,12 @@ const api = window.api;
         if ((targetUser.telefono || '') !== telefono) cambios.push(`Teléfono: ${targetUser.telefono || 'N/D'} → ${telefono || 'N/D'}`);
         if (rolAnterior !== rol) cambios.push(`Rol: ${ROLE_META[rolAnterior].label} → ${meta.label}`);
         if ((targetUser.plazaAsignada || '') !== plazaAsignada) cambios.push(`Plaza: ${targetUser.plazaAsignada || 'SIN PLAZA'} → ${plazaAsignada || 'SIN PLAZA'}`);
+        if (_roleNeedsMultiplePlazas(rol)) cambios.push(`Plazas permitidas: [${plazasPermitidas.join(', ')}]`);
 
-        await db.collection(COL.USERS).doc(docId).update({
-          nombre, telefono, email: targetUser.email,
-          rol, plazaAsignada, isAdmin: meta.isAdmin, isGlobal: meta.fullAccess
-        });
+        const updateData = { nombre, telefono, email: targetUser.email, rol, plazaAsignada, isAdmin: meta.isAdmin, isGlobal: meta.fullAccess };
+        if (_roleNeedsMultiplePlazas(rol)) updateData.plazasPermitidas = plazasPermitidas;
+
+        await db.collection(COL.USERS).doc(docId).update(updateData);
 
         await registrarEventoGestion('USUARIO_EDITADO', `Actualizó al usuario ${nombre}`, {
           entidad: 'USUARIOS', referencia: docId,
@@ -3336,9 +3419,14 @@ const api = window.api;
             ${_roleOptionsHtml('AUXILIAR')}
           </select>
         </div>
-        <div class="um-form-field" id="um-new-plaza-row" style="display:none;">
-          <label>Plaza asignada <span style="color:#ef4444;">*</span></label>
+        <div class="um-form-field" id="um-new-plaza-row">
+          <label>Plaza base <span style="color:#ef4444;">*</span></label>
           ${_plazaSelectHtml('um-new-plaza', '', 'onchange="_umValidarNuevo()"')}
+        </div>
+
+        <div class="um-form-field" id="um-new-plazas-multi-row" style="display:none;">
+          <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
+          ${_plazasMultiHtml('um-new-plazas-permitidas', [])}
         </div>
 
         <div class="um-divider"></div>
@@ -3394,13 +3482,13 @@ const api = window.api;
       const plazaAsignada = _roleNeedsPlaza(rol)
         ? _normalizePlaza(document.getElementById('um-new-plaza').value)
         : '';
+      const plazasPermitidas = _roleNeedsMultiplePlazas(rol)
+        ? _getSelectedPlazas('um-new-plazas-permitidas')
+        : [];
 
       if (!nombre) return showToast('El nombre es obligatorio', 'error');
       if (!email || !email.includes('@')) return showToast('Correo inválido', 'error');
       if (pass.length < 6) return showToast('La contraseña debe tener mínimo 6 caracteres', 'error');
-      if (_roleNeedsPlaza(rol) && !plazaAsignada) {
-        return showToast('Ese rol requiere una plaza asignada.', 'error');
-      }
       if (!canAssignRole(rol)) {
         return showToast('Tu rol no puede crear ese nivel de acceso.', 'error');
       }
@@ -3409,7 +3497,7 @@ const api = window.api;
       btn.disabled = true;
       btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Creando...';
 
-      const res = await api.guardarNuevoUsuarioAuth(nombre, email, pass, rol, telefono, plazaAsignada);
+      const res = await api.guardarNuevoUsuarioAuth(nombre, email, pass, rol, telefono, plazaAsignada, plazasPermitidas);
       if (res === 'EXITO') {
         await registrarEventoGestion('USUARIO_CREADO', `Creó al usuario ${nombre}`, {
           entidad: 'USUARIOS',
@@ -10841,6 +10929,7 @@ const api = window.api;
         await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME);
         showToast("Configuración actualizada", "success");
         aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
+        _aplicarColoresEstados();
         llenarSelectsDinamicos();
         document.getElementById('modal-config-global').classList.remove('active');
       } catch (error) {
@@ -12136,6 +12225,8 @@ Object.assign(window, {
   _resumirTextoCuadreAdmin,
   _roleMeta,
   _roleNeedsPlaza,
+  _roleNeedsMultiplePlazas,
+  _getSelectedPlazas,
   _roleOptionsHtml,
   _safeCssUrl,
   _sanitizarHtmlAlerta,
