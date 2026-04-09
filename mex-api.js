@@ -29,7 +29,11 @@ function _normalizeFirebaseConfig(config = {}) {
 const FIREBASE_CONFIG = _normalizeFirebaseConfig(window.FIREBASE_CONFIG);
 window.FIREBASE_CONFIG = FIREBASE_CONFIG;
 
-const app = firebase.initializeApp(FIREBASE_CONFIG);
+// Reutilizar la app ya inicializada por firebase-init.js (si existe),
+// o inicializar aquí si mex-api.js se carga solo (e.g. en index.html legacy).
+const app = firebase.apps.length
+  ? firebase.apps[0]
+  : firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
@@ -39,18 +43,18 @@ function _getStorageClient() {
     : null;
 }
 
-// ── Persistencia offline (cache local de Firestore) ───────
-// Los datos ya descargados están disponibles sin internet.
-// Los cambios hechos offline se sincronizan al reconectar.
-db.enablePersistence({ synchronizeTabs: true })
-  .catch(err => {
-    if (err.code === 'failed-precondition') {
-      // Múltiples pestañas abiertas — solo una puede tener persistencia
-      console.warn('Offline persistence: múltiples pestañas, solo una activa.');
-    } else if (err.code === 'unimplemented') {
-      console.warn('Offline persistence: navegador no compatible.');
-    }
-  });
+// ── Persistencia offline — solo si firebase-init.js no lo hizo ya ────────
+if (!window._firestorePersistenceEnabled) {
+  window._firestorePersistenceEnabled = true;
+  db.enablePersistence({ synchronizeTabs: true })
+    .catch(err => {
+      if (err.code === 'failed-precondition') {
+        console.warn('Offline persistence: múltiples pestañas, solo una activa.');
+      } else if (err.code === 'unimplemented') {
+        console.warn('Offline persistence: navegador no compatible.');
+      }
+    });
+}
 
 const COL = {
   CUADRE:    "cuadre",

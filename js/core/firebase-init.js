@@ -35,13 +35,16 @@
   const auth    = firebase.auth();
   const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;
 
-  // Persistencia offline (Firestore)
-  db.enablePersistence({ synchronizeTabs: true })
-    .catch(err => {
-      if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
-        console.warn('[firebase-init] enablePersistence:', err);
-      }
-    });
+  // Persistencia offline (Firestore) — solo una vez por sesión
+  if (!window._firestorePersistenceEnabled) {
+    window._firestorePersistenceEnabled = true;
+    db.enablePersistence({ synchronizeTabs: true })
+      .catch(err => {
+        if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
+          console.warn('[firebase-init] enablePersistence:', err);
+        }
+      });
+  }
 
   // Exponer para ES6 modules y scripts legacy
   window._db      = db;
