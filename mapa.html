@@ -3209,43 +3209,94 @@
   </div>
 
   <!-- MODAL DE AGREGAR/EDITAR ITEM (DENTRO DEL CONFIG) -->
-  <div id="modal-cfg-add" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75000; justify-content:center; align-items:center; padding:15px;">
-    <div style="background:white; border-radius:16px; width:100%; max-width:320px; padding:20px; box-shadow:0 25px 50px rgba(0,0,0,0.2);">
-      <h3 id="modal-cfg-add-title" style="margin:0 0 15px 0; font-size:16px; font-weight:800; color:#1e293b;">Agregar Nuevo</h3>
-      
-      <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Nombre / Clave</label>
-      <input type="text" id="cfg-add-name" placeholder="Nombre (Ej: ECAR)" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; margin-bottom:15px; outline:none; box-sizing:border-box;" autocomplete="off">
-      
-      <div id="cfg-add-ubi-options" style="display:none; margin-bottom:15px;">
-        <label style="display:flex; align-items:flex-start; gap:8px; font-size:13px; color:#475569; cursor:pointer; margin-bottom:10px;">
-          <input type="checkbox" id="cfg-add-is-plaza" style="width:16px; height:16px; margin-top:2px;" checked>
-          <div><b>Es Plaza Fija</b><br><span style="font-size:11px; color:#94a3b8;">Desmarca si es "Persona Responsable"</span></div>
-        </label>
-        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Plaza Asignada</label>
-        <select id="cfg-add-ubi-plaza" style="width:100%; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font-size:13px; outline:none; box-sizing:border-box; background:white;">
-          <option value="">— Todas las plazas —</option>
-        </select>
+  <div id="modal-cfg-add" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75000; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div class="cfg-add-card">
+
+      <!-- Header dinámico -->
+      <div class="cfg-add-header">
+        <div class="cfg-add-header-icon" id="cfg-add-header-icon">
+          <span class="material-icons">add_circle</span>
+        </div>
+        <div class="cfg-add-header-text">
+          <div class="cfg-add-header-title" id="modal-cfg-add-title">Agregar Nuevo</div>
+          <div class="cfg-add-header-sub" id="cfg-add-header-sub">Nueva entrada en la lista</div>
+        </div>
+        <button class="cfg-add-close-btn" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+          <span class="material-icons">close</span>
+        </button>
       </div>
 
-      <div id="cfg-add-estado-options" style="display:none; margin-bottom:15px;">
-        <label style="display:inline-block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Color de Etiqueta</label>
-        <input type="color" id="cfg-add-color" value="#64748b" style="width:100%; height:40px; cursor:pointer; margin-bottom:15px; border:1px solid #cbd5e1; border-radius:8px;">
-        
-        <label style="display:inline-block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Orden (Visibilidad en tabla)</label>
-        <input type="number" id="cfg-add-orden" placeholder="Ej: 1" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; box-sizing:border-box;">
+      <!-- Cuerpo -->
+      <div class="cfg-add-body">
+
+        <!-- Nombre/Clave -->
+        <div class="cfg-add-field">
+          <label class="cfg-add-label">Nombre / Clave</label>
+          <input type="text" id="cfg-add-name" placeholder="Ej: NUEVO ESTADO"
+            class="cfg-add-input" autocomplete="off"
+            onkeydown="if(event.key==='Enter') confirmarAgregadoConfig()">
+        </div>
+
+        <!-- Opciones: Ubicación -->
+        <div id="cfg-add-ubi-options" style="display:none;">
+          <label class="cfg-add-checkbox-row" for="cfg-add-is-plaza">
+            <div class="cfg-add-checkbox-box">
+              <input type="checkbox" id="cfg-add-is-plaza" checked>
+              <div class="cfg-add-checkbox-custom"></div>
+            </div>
+            <div>
+              <div class="cfg-add-checkbox-label">Es Plaza Fija</div>
+              <div class="cfg-add-checkbox-sub">Desmarca si es una persona o responsable externo</div>
+            </div>
+          </label>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Plaza asignada</label>
+            <select id="cfg-add-ubi-plaza" class="cfg-add-select">
+              <option value="">— Todas las plazas —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Opciones: Estado -->
+        <div id="cfg-add-estado-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Color del estado</label>
+            <div class="cfg-add-color-row">
+              <input type="color" id="cfg-add-color" value="#64748b" oninput="_cfgUpdateColorSwatch(this.value)">
+              <div class="cfg-add-color-swatch" id="cfg-add-color-swatch" style="background:#64748b;">
+                <span id="cfg-add-color-hex">#64748B</span>
+              </div>
+            </div>
+            <div class="cfg-add-color-presets" id="cfg-add-color-presets"></div>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden en tabla (prioridad)</label>
+            <input type="number" id="cfg-add-orden" placeholder="Ej: 1" class="cfg-add-input" min="1" max="99">
+          </div>
+        </div>
+
+        <!-- Opciones: Modelo -->
+        <div id="cfg-add-modelo-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Categoría del modelo</label>
+            <select id="cfg-add-modelo-cat" class="cfg-add-select">
+              <!-- Llenado dinámico en JS -->
+            </select>
+          </div>
+        </div>
+
+      </div><!-- /cfg-add-body -->
+
+      <!-- Acciones -->
+      <div class="cfg-add-actions">
+        <button class="cfg-add-btn-cancel" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+          Cancelar
+        </button>
+        <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
+          <span class="material-icons">check</span> Guardar
+        </button>
       </div>
 
-      <div id="cfg-add-modelo-options" style="display:none; margin-bottom:15px;">
-        <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:5px;">Asignar a Categoría</label>
-        <select id="cfg-add-modelo-cat" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; outline:none; box-sizing:border-box; background:white;">
-          <!-- Llenado dinámico en JS -->
-        </select>
-      </div>
-
-      <div style="display:flex; gap:10px;">
-        <button onclick="document.getElementById('modal-cfg-add').style.display='none'" style="flex:1; background:#f1f5f9; color:#64748b; border:none; padding:10px; border-radius:8px; font-weight:700; cursor:pointer;">CANCELAR</button>
-        <button onclick="confirmarAgregadoConfig()" style="flex:1; background:#0f172a; color:white; border:none; padding:10px; border-radius:8px; font-weight:700; cursor:pointer;">GUARDAR</button>
-      </div>
     </div>
   </div>
   <!-- Modal Solicitudes Viejo Removido, ahora inyectado en modal ConfigV2 -->

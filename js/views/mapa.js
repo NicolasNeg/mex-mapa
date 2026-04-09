@@ -10794,13 +10794,61 @@ const api = window.api;
 
     function buscarEnListaConfig() { renderizarListaConfig(); }
 
+    // ── Helpers para modal-cfg-add ─────────────────────────────────
+    function _cfgSetModalMeta(type, isEdit) {
+      const META = {
+        ubicaciones: { icon: 'place',             sub: 'Patio, persona o lugar de destino' },
+        estados:     { icon: 'sell',              sub: 'Estado con color personalizado para el mapa' },
+        modelos:     { icon: 'directions_car',    sub: 'Modelo o versión de vehículo' },
+        categorias:  { icon: 'category',          sub: 'Agrupación de modelos de vehículo' },
+        gasolinas:   { icon: 'local_gas_station', sub: 'Nivel de combustible (ej: ½, ¾, F)' },
+      };
+      const LABELS = { ubicaciones:'Ubicación', estados:'Estado', modelos:'Modelo', categorias:'Categoría', gasolinas:'Nivel de gasolina' };
+      const m = META[type] || { icon: 'add_circle', sub: '' };
+      const label = LABELS[type] || 'Elemento';
+      const title = isEdit ? `Editar ${label}` : `Nueva ${label}`;
+      const iconEl  = document.getElementById('cfg-add-header-icon');
+      const titleEl = document.getElementById('modal-cfg-add-title');
+      const subEl   = document.getElementById('cfg-add-header-sub');
+      if (iconEl)  iconEl.innerHTML  = `<span class="material-icons">${m.icon}</span>`;
+      if (titleEl) titleEl.textContent = title;
+      if (subEl)   subEl.textContent   = m.sub;
+    }
+
+    function _cfgUpdateColorSwatch(hex) {
+      const swatch   = document.getElementById('cfg-add-color-swatch');
+      const hexLabel = document.getElementById('cfg-add-color-hex');
+      const colorIn  = document.getElementById('cfg-add-color');
+      if (swatch)   swatch.style.background = hex;
+      if (hexLabel) hexLabel.textContent = hex.toUpperCase();
+      if (colorIn && colorIn.value !== hex) colorIn.value = hex;
+    }
+
+    function _cfgFillColorPresets() {
+      const PRESETS = ['#0f172a','#3b82f6','#22c55e','#f59e0b','#ef4444','#8b5cf6','#0ea5e9','#f97316','#ec4899','#14b8a6','#64748b','#e2e8f0'];
+      const el = document.getElementById('cfg-add-color-presets');
+      if (!el) return;
+      el.innerHTML = PRESETS.map(c =>
+        `<div class="cfg-add-color-preset" style="background:${c}" onclick="_cfgUpdateColorSwatch('${c}')" title="${c}"></div>`
+      ).join('');
+    }
+
+    function _cfgShowModal() {
+      const overlay = document.getElementById('modal-cfg-add');
+      overlay.style.display = 'flex';
+      // Forzar re-animación
+      const card = overlay.querySelector('.cfg-add-card');
+      if (card) { card.style.animation = 'none'; card.offsetHeight; card.style.animation = ''; }
+      setTimeout(() => document.getElementById('cfg-add-name')?.focus(), 120);
+    }
+
     function abrirModalNuevaConfig() {
       document.getElementById('cfg-add-name').value = '';
       document.getElementById('cfg-add-ubi-options').style.display = 'none';
       document.getElementById('cfg-add-estado-options').style.display = 'none';
       document.getElementById('cfg-add-modelo-options').style.display = 'none';
-      
-      if(TAB_ACTIVA_CFG === 'ubicaciones') {
+
+      if (TAB_ACTIVA_CFG === 'ubicaciones') {
         document.getElementById('cfg-add-ubi-options').style.display = 'block';
         document.getElementById('cfg-add-is-plaza').checked = true;
         _llenarSelectPlazasUbi('cfg-add-ubi-plaza', '');
@@ -10808,53 +10856,54 @@ const api = window.api;
         document.getElementById('cfg-add-estado-options').style.display = 'block';
         document.getElementById('cfg-add-color').value = '#64748b';
         document.getElementById('cfg-add-orden').value = '99';
+        _cfgUpdateColorSwatch('#64748b');
+        _cfgFillColorPresets();
       } else if (TAB_ACTIVA_CFG === 'modelos') {
         document.getElementById('cfg-add-modelo-options').style.display = 'block';
         const cats = window.MEX_CONFIG.listas.categorias || [];
         document.getElementById('cfg-add-modelo-cat').innerHTML = '<option value="">(Ninguna)</option>' + cats.map(c => `<option value="${escapeHtml(typeof c === 'object'? c.nombre||c.id : c)}">${escapeHtml(typeof c === 'object'? c.nombre||c.id : c)}</option>`).join('');
       }
 
-      // Se usa -1 como identificador de "Nuevo Elemento"
       document.getElementById('cfg-add-name').dataset.editIndex = -1;
-      document.getElementById('modal-cfg-add-title').innerText = "Agregar Nuevo";
-      
-      document.getElementById('modal-cfg-add').style.display = 'flex';
-      setTimeout(() => document.getElementById('cfg-add-name').focus(), 100);
+      _cfgSetModalMeta(TAB_ACTIVA_CFG, false);
+      _cfgShowModal();
     }
 
     function editarElementoConfig(index) {
       const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
       const item = lista[index];
       const nombre = typeof item === 'object' ? (item.id || item.nombre) : item;
-      
+
       document.getElementById('cfg-add-name').value = nombre;
       document.getElementById('cfg-add-ubi-options').style.display = 'none';
       document.getElementById('cfg-add-estado-options').style.display = 'none';
       document.getElementById('cfg-add-modelo-options').style.display = 'none';
 
-      if(TAB_ACTIVA_CFG === 'ubicaciones') {
+      if (TAB_ACTIVA_CFG === 'ubicaciones') {
         document.getElementById('cfg-add-ubi-options').style.display = 'block';
         document.getElementById('cfg-add-is-plaza').checked = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
         const currentPlaza = typeof item === 'object' ? (item.plazaId || '') : '';
         _llenarSelectPlazasUbi('cfg-add-ubi-plaza', currentPlaza);
       } else if (TAB_ACTIVA_CFG === 'estados') {
         document.getElementById('cfg-add-estado-options').style.display = 'block';
-        document.getElementById('cfg-add-color').value = item.color || '#64748b';
-        document.getElementById('cfg-add-orden').value = item.orden || '99';
+        const color = (typeof item === 'object' ? item.color : null) || '#64748b';
+        document.getElementById('cfg-add-color').value = color;
+        document.getElementById('cfg-add-orden').value = (typeof item === 'object' ? item.orden : null) || '99';
+        _cfgUpdateColorSwatch(color);
+        _cfgFillColorPresets();
       } else if (TAB_ACTIVA_CFG === 'modelos') {
         document.getElementById('cfg-add-modelo-options').style.display = 'block';
         const cats = window.MEX_CONFIG.listas.categorias || [];
         document.getElementById('cfg-add-modelo-cat').innerHTML = '<option value="">(Ninguna)</option>' + cats.map(c => {
-          const cName = typeof c === 'object'? c.nombre||c.id : c;
+          const cName = typeof c === 'object' ? c.nombre||c.id : c;
           return `<option value="${escapeHtml(cName)}">${escapeHtml(cName)}</option>`;
         }).join('');
         document.getElementById('cfg-add-modelo-cat').value = typeof item === 'object' ? item.categoria : '';
       }
 
       document.getElementById('cfg-add-name').dataset.editIndex = index;
-      document.getElementById('modal-cfg-add-title').innerText = "Editar Elemento";
-      
-      document.getElementById('modal-cfg-add').style.display = 'flex';
+      _cfgSetModalMeta(TAB_ACTIVA_CFG, true);
+      _cfgShowModal();
     }
 
     function confirmarAgregadoConfig() {
@@ -11149,20 +11198,39 @@ const api = window.api;
       const plazasDetalle = emp.plazasDetalle || [];
       const d = plazasDetalle.find(x => x.id === plazaId) || {};
       const contactos = Array.isArray(d.contactos) ? d.contactos : [];
-      const roles = (window.MEX_CONFIG?.listas?.roles || []);
+
+      // Iniciales para el avatar de contacto
+      function _initials(nombre) {
+        if (!nombre) return '?';
+        const parts = nombre.trim().split(/\s+/);
+        return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : nombre.slice(0, 2).toUpperCase();
+      }
+
+      // Colores de avatar por índice
+      const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#0ea5e9','#f97316','#ec4899'];
 
       const contactosHtml = contactos.length > 0
         ? contactos.map((c, ci) => `
           <div class="cfg-plaza-contact-row" id="plaza-contact-${ci}">
-            <input type="text" class="plaza-cnt-nombre" value="${escapeHtml(c.nombre||'')}" placeholder="Nombre" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
-            <input type="text" class="plaza-cnt-rol" value="${escapeHtml(c.rol||'')}" placeholder="Rol/Puesto" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
-            <input type="tel" class="plaza-cnt-tel" value="${escapeHtml(c.telefono||'')}" placeholder="Teléfono" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
-            <button onclick="_plazaRemoveContact(${ci})" style="background:#fee2e2; border:none; border-radius:8px; width:30px; height:30px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
-              <span class="material-icons" style="font-size:14px; color:#ef4444;">close</span>
+            <div class="plaza-cnt-avatar" style="background:${AVATAR_COLORS[ci % AVATAR_COLORS.length]}">
+              ${_initials(c.nombre)}
+            </div>
+            <div class="plaza-cnt-fields">
+              <input type="text" class="plaza-cnt-nombre" value="${escapeHtml(c.nombre||'')}" placeholder="Nombre completo">
+              <div class="plaza-cnt-row2">
+                <input type="text" class="plaza-cnt-rol" value="${escapeHtml(c.rol||'')}" placeholder="Puesto / Rol">
+                <input type="tel" class="plaza-cnt-tel" value="${escapeHtml(c.telefono||'')}" placeholder="Teléfono">
+              </div>
+            </div>
+            <button class="plaza-cnt-del" onclick="_plazaRemoveContact(${ci})" title="Eliminar contacto">
+              <span class="material-icons">delete_outline</span>
             </button>
           </div>`)
           .join('')
-        : '<div id="plaza-contacts-empty" style="font-size:12px; color:#94a3b8; font-weight:700; padding:8px 0;">Sin contactos registrados.</div>';
+        : `<div id="plaza-contacts-empty" class="plaza-contacts-empty">
+             <span class="material-icons">contacts</span>
+             <span>Sin contactos registrados</span>
+           </div>`;
 
       const mapsEmbedUrl = d.mapsUrl
         ? `https://maps.google.com/maps?q=${encodeURIComponent(d.mapsUrl)}&output=embed`
@@ -11170,75 +11238,113 @@ const api = window.api;
 
       return `
         <div class="cfg-plaza-form-card">
-          <div class="cfg-plaza-form-header">
-            <div class="cfg-plaza-form-icon">${escapeHtml(plazaId.slice(0,3))}</div>
-            <div>
-              <div class="cfg-plaza-form-title">${escapeHtml(plazaId)}</div>
-              <div class="cfg-plaza-form-sub">Configuración de la plaza</div>
+
+          <!-- ── Header con gradiente ── -->
+          <div class="cfg-plaza-form-hero">
+            <div class="cfg-plaza-form-hero-badge">${escapeHtml(plazaId.slice(0,3))}</div>
+            <div class="cfg-plaza-form-hero-info">
+              <div class="cfg-plaza-form-hero-name">${escapeHtml(plazaId)}</div>
+              <div class="cfg-plaza-form-hero-sub">${escapeHtml(d.localidad || d.nombre || 'Configuración de la plaza')}</div>
             </div>
+            <span class="material-icons cfg-plaza-form-hero-icon">location_city</span>
           </div>
 
-          <!-- Información General -->
-          <div class="cfg-plaza-form-section">Información General</div>
-          <div class="cfg-plaza-form-field">
-            <label>Nombre de la Plaza</label>
-            <input type="text" id="plaza-nombre" value="${escapeHtml(d.nombre || '')}" placeholder="Ej: Hermosillo Centro">
+          <!-- ── Información General ── -->
+          <div class="cfg-plaza-section-header">
+            <span class="material-icons">info_outline</span> Información General
+          </div>
+          <div class="cfg-plaza-form-grid2">
+            <div class="cfg-plaza-form-field">
+              <label>Nombre oficial</label>
+              <input type="text" id="plaza-nombre" value="${escapeHtml(d.nombre || '')}" placeholder="Ej: Hermosillo Centro">
+            </div>
+            <div class="cfg-plaza-form-field">
+              <label>Localidad</label>
+              <input type="text" id="plaza-localidad" value="${escapeHtml(d.localidad || '')}" placeholder="Ej: Hermosillo, Sonora">
+            </div>
           </div>
           <div class="cfg-plaza-form-field">
-            <label>Localidad</label>
-            <input type="text" id="plaza-localidad" value="${escapeHtml(d.localidad || '')}" placeholder="Ej: Hermosillo, Sonora">
-          </div>
-          <div class="cfg-plaza-form-field">
-            <label>Dirección</label>
+            <label>Dirección completa</label>
             <input type="text" id="plaza-direccion" value="${escapeHtml(d.direccion || '')}" placeholder="Ej: Blvd. Rodríguez 123, Col. Centro" oninput="_plazaPreviewMaps()">
           </div>
+
+          <!-- ── Mapa ── -->
+          <div class="cfg-plaza-section-header">
+            <span class="material-icons">map</span> Ubicación en Mapa
+          </div>
           <div class="cfg-plaza-form-field">
-            <label>Google Maps — dirección o coordenadas</label>
-            <input type="text" id="plaza-maps-url" value="${escapeHtml(d.mapsUrl || '')}" placeholder="Ej: 29.0924,-110.9600  o  Nombre del lugar"
-              style="flex:1;" oninput="_plazaPreviewMaps()">
-            <div id="plaza-maps-preview" style="margin-top:8px; ${mapsEmbedUrl ? '' : 'display:none;'}">
-              <iframe id="plaza-maps-iframe" src="${mapsEmbedUrl ? escapeHtml(mapsEmbedUrl) : ''}"
-                style="width:100%; height:220px; border-radius:10px; border:1px solid #e2e8f0; display:block;"
-                loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+            <label>Dirección o coordenadas para Google Maps</label>
+            <div class="cfg-plaza-maps-input-wrap">
+              <span class="material-icons cfg-plaza-maps-pin">location_on</span>
+              <input type="text" id="plaza-maps-url" value="${escapeHtml(d.mapsUrl || '')}"
+                placeholder="Ej: 29.0924,-110.9600  o  nombre del lugar"
+                oninput="_plazaPreviewMaps()">
             </div>
           </div>
-          <div class="cfg-plaza-form-field">
-            <label>Correo de la Plaza</label>
-            <input type="email" id="plaza-correo" value="${escapeHtml(d.correo || '')}" placeholder="plaza@tuempresa.com">
-          </div>
-          <div class="cfg-plaza-form-field">
-            <label>Teléfono (opcional)</label>
-            <input type="tel" id="plaza-telefono" value="${escapeHtml(d.telefono || '')}" placeholder="Ej: 6441234567">
+          <div id="plaza-maps-preview" class="cfg-plaza-maps-preview ${mapsEmbedUrl ? '' : 'hidden'}">
+            <iframe id="plaza-maps-iframe" src="${mapsEmbedUrl ? escapeHtml(mapsEmbedUrl) : ''}"
+              loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
           </div>
 
-          <!-- Gerencia -->
-          <div class="cfg-plaza-form-section">Gerencia</div>
-          <div class="cfg-plaza-form-field">
-            <label>Gerente de Plaza</label>
-            <input type="text" id="plaza-gerente" value="${escapeHtml(d.gerente || '')}" placeholder="Nombre del gerente">
+          <!-- ── Contacto de la plaza ── -->
+          <div class="cfg-plaza-section-header">
+            <span class="material-icons">phone_in_talk</span> Contacto de la Plaza
           </div>
-          <div class="cfg-plaza-form-field">
-            <label>Correo del Gerente</label>
-            <input type="email" id="plaza-correo-gerente" value="${escapeHtml(d.correoGerente || '')}" placeholder="gerente@tuempresa.com">
+          <div class="cfg-plaza-form-grid2">
+            <div class="cfg-plaza-form-field">
+              <label>Correo institucional</label>
+              <div class="cfg-plaza-input-icon-wrap">
+                <span class="material-icons">alternate_email</span>
+                <input type="email" id="plaza-correo" value="${escapeHtml(d.correo || '')}" placeholder="plaza@empresa.com">
+              </div>
+            </div>
+            <div class="cfg-plaza-form-field">
+              <label>Teléfono directo</label>
+              <div class="cfg-plaza-input-icon-wrap">
+                <span class="material-icons">call</span>
+                <input type="tel" id="plaza-telefono" value="${escapeHtml(d.telefono || '')}" placeholder="Ej: 6441234567">
+              </div>
+            </div>
           </div>
 
-          <!-- Contactos -->
-          <div class="cfg-plaza-form-section" style="display:flex; align-items:center; justify-content:space-between;">
-            <span>Contactos</span>
-            <button onclick="_plazaAddContact()" style="background:var(--mex-blue); color:white; border:none; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:4px;">
-              <span class="material-icons" style="font-size:13px;">add</span> AGREGAR
+          <!-- ── Gerencia ── -->
+          <div class="cfg-plaza-section-header">
+            <span class="material-icons">manage_accounts</span> Gerencia
+          </div>
+          <div class="cfg-plaza-form-grid2">
+            <div class="cfg-plaza-form-field">
+              <label>Gerente de Plaza</label>
+              <input type="text" id="plaza-gerente" value="${escapeHtml(d.gerente || '')}" placeholder="Nombre del gerente">
+            </div>
+            <div class="cfg-plaza-form-field">
+              <label>Correo del Gerente</label>
+              <div class="cfg-plaza-input-icon-wrap">
+                <span class="material-icons">alternate_email</span>
+                <input type="email" id="plaza-correo-gerente" value="${escapeHtml(d.correoGerente || '')}" placeholder="gerente@empresa.com">
+              </div>
+            </div>
+          </div>
+
+          <!-- ── Contactos Adicionales ── -->
+          <div class="cfg-plaza-section-header" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span class="material-icons">groups</span> Contactos Adicionales
+            </div>
+            <button class="cfg-plaza-add-contact-btn" onclick="_plazaAddContact()">
+              <span class="material-icons">person_add</span> Agregar
             </button>
           </div>
-          <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;">Visible para jefes como directorio de contacto de la plaza.</div>
-          <div id="plaza-contacts-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+          <div class="cfg-plaza-contacts-hint">Directorio visible para Jefes Regionales y superiores.</div>
+          <div id="plaza-contacts-list" class="plaza-contacts-list">
             ${contactosHtml}
           </div>
 
-          <div style="margin-top:16px; display:flex; gap:10px;">
-            <button onclick="plazaGuardarCfg('${escapeHtml(plazaId)}')" style="flex:1; padding:12px; background:var(--mex-accent); color:white; border:none; border-radius:12px; font-weight:900; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
-              <span class="material-icons" style="font-size:17px;">save</span> GUARDAR PLAZA
-            </button>
-          </div>
+          <!-- ── Guardar ── -->
+          <button class="cfg-plaza-save-btn" onclick="plazaGuardarCfg('${escapeHtml(plazaId)}')">
+            <span class="material-icons">save</span>
+            Guardar Plaza
+          </button>
+
         </div>
       `;
     }
@@ -11260,17 +11366,26 @@ const api = window.api;
       const empty = document.getElementById('plaza-contacts-empty');
       if (empty) empty.remove();
       const ci = list.querySelectorAll('.cfg-plaza-contact-row').length;
+      const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#0ea5e9','#f97316','#ec4899'];
+      const color = AVATAR_COLORS[ci % AVATAR_COLORS.length];
       const row = document.createElement('div');
       row.className = 'cfg-plaza-contact-row';
       row.id = `plaza-contact-${ci}`;
       row.innerHTML = `
-        <input type="text" class="plaza-cnt-nombre" placeholder="Nombre" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
-        <input type="text" class="plaza-cnt-rol" placeholder="Rol/Puesto" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
-        <input type="tel" class="plaza-cnt-tel" placeholder="Teléfono" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
-        <button onclick="this.closest('.cfg-plaza-contact-row').remove()" style="background:#fee2e2; border:none; border-radius:8px; width:30px; height:30px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
-          <span class="material-icons" style="font-size:14px; color:#ef4444;">close</span>
+        <div class="plaza-cnt-avatar" style="background:${color}" data-initials="?">?</div>
+        <div class="plaza-cnt-fields">
+          <input type="text" class="plaza-cnt-nombre" placeholder="Nombre completo"
+            oninput="const av=this.closest('.cfg-plaza-contact-row').querySelector('.plaza-cnt-avatar'); const p=this.value.trim().split(/\\s+/); av.textContent=p.length>=2?(p[0][0]+p[1][0]).toUpperCase():(this.value.slice(0,2).toUpperCase()||'?');">
+          <div class="plaza-cnt-row2">
+            <input type="text" class="plaza-cnt-rol" placeholder="Puesto / Rol">
+            <input type="tel" class="plaza-cnt-tel" placeholder="Teléfono">
+          </div>
+        </div>
+        <button class="plaza-cnt-del" onclick="this.closest('.cfg-plaza-contact-row').remove()" title="Eliminar contacto">
+          <span class="material-icons">delete_outline</span>
         </button>`;
       list.appendChild(row);
+      row.querySelector('.plaza-cnt-nombre')?.focus();
     }
 
     function _plazaRemoveContact(ci) {
