@@ -1643,6 +1643,16 @@
     <!-- Derecha: acciones + usuario -->
     <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
 
+      <!-- Plaza picker: visible solo para usuarios con múltiples plazas -->
+      <div id="plaza-map-picker" style="display:none; align-items:center; position:relative;">
+        <button id="plaza-map-picker-btn" onclick="_togglePlazaPicker()" class="plaza-picker-btn" title="Cambiar plaza">
+          <span class="material-icons" style="font-size:14px;">location_city</span>
+          <span id="plaza-picker-label">—</span>
+          <span class="material-icons" style="font-size:12px;" id="plaza-picker-chevron">expand_more</span>
+        </button>
+        <div id="plaza-picker-dropdown" class="plaza-picker-dropdown" style="display:none;"></div>
+      </div>
+
       <button id="btnAdmin" onclick="toggleAdminSidebar()" class="header-icon-btn" style="display:none;"
         title="Panel Admin">
         <span class="material-icons" style="font-size:20px;">settings</span>
@@ -1686,9 +1696,6 @@
         <span class="kpi-label">EN TALLER</span>
       </div>
     </div>
-
-    <!-- Plaza switcher: visible solo para usuarios con acceso a múltiples plazas -->
-    <div id="plaza-map-switcher-bar"></div>
 
     <div class="zoom-controls">
       <button class="btn-zoom" onclick="adjustZoom(0.1)">+</button>

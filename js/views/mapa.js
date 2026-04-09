@@ -988,6 +988,7 @@ const api = window.api;
     let autoRefreshInterval = null; // mantenido por compatibilidad pero no se usa para el mapa
     let _unsubMapa = null;          // función para cancelar onSnapshot del mapa
     let _unsubMapaEstructura = null;
+    let _subPlaza = null;           // plaza actualmente suscrita (guard para evitar reinicios duplicados)
     let _unsubUsersLive = null;     // función para cancelar onSnapshot de usuarios (chat/dropdown)
     let saveTimeout = null;
     let lastMoveTime = 0;
@@ -1096,9 +1097,16 @@ const api = window.api;
         window.addEventListener('resize', _ajustarViewportMapa);
         _mapaRuntime.viewportBound = true;
       }
+      // Intentar renderizar el switcher de plaza cuando el perfil ya está listo
+      if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
     }
 
     function startAutoRefresh() {
+      const plazaActiva = _miPlaza();
+
+      // Guard: no reiniciar si ya tenemos suscripciones activas para esta misma plaza
+      if (_subPlaza === plazaActiva && _unsubMapa !== null && _unsubMapaEstructura !== null) return;
+
       if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
       if (_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
 
@@ -1107,9 +1115,7 @@ const api = window.api;
         return;
       }
 
-      // Siempre usamos la plaza activa — para la estructura siempre necesitamos
-      // una plaza específica; para unidades también filtramos por la plaza vista.
-      const plazaActiva = _miPlaza();
+      _subPlaza = plazaActiva; // Registrar plaza activa ANTES de suscribir
 
       if (typeof api.suscribirEstructuraMapa === 'function') {
         _unsubMapaEstructura = api.suscribirEstructuraMapa(estructura => {
@@ -1140,41 +1146,66 @@ const api = window.api;
     function cambiarPlazaMapa(plaza) {
       if (!plaza || PLAZA_ACTIVA_MAPA === plaza) return;
       PLAZA_ACTIVA_MAPA = plaza;
+      _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
       _renderPlazaSwitcher();
       startAutoRefresh();
+      // Cerrar el dropdown si está abierto
+      const dd = document.getElementById('plaza-picker-dropdown');
+      if (dd) dd.style.display = 'none';
     }
 
-    // Renderiza las píldoras del plaza-switcher (solo si el usuario tiene acceso a >1 plaza)
+    // Abre / cierra el dropdown del picker en el header
+    function _togglePlazaPicker() {
+      const dd = document.getElementById('plaza-picker-dropdown');
+      if (!dd) return;
+      dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Renderiza el picker de plaza en el header (solo si el usuario tiene acceso a >1 plaza)
+    // Requiere que perfil Y config estén cargados — si no, no hace nada (se llama dos veces en la init)
     function _renderPlazaSwitcher() {
-      const bar = document.getElementById('plaza-map-switcher-bar');
-      if (!bar) return;
+      // Guard: perfil y config deben estar disponibles
+      if (!currentUserProfile || !window.MEX_CONFIG?.empresa?.plazas?.length) return;
+
+      const picker = document.getElementById('plaza-map-picker');
+      const pickerLabel = document.getElementById('plaza-picker-label');
+      const dropdown = document.getElementById('plaza-picker-dropdown');
+      if (!picker) return;
 
       let plazas;
       if (_puedeVerTodasPlazas()) {
-        plazas = window.MEX_CONFIG?.empresa?.plazas || [];
+        plazas = window.MEX_CONFIG.empresa.plazas || [];
       } else {
         plazas = _plazasPermitidas() || [];
       }
 
       if (!plazas || plazas.length <= 1) {
-        bar.style.display = 'none';
+        picker.style.display = 'none';
         return;
       }
 
-      // Si no hay plaza activa aún, auto-seleccionar la primera y reiniciar subs
+      // Auto-seleccionar primera plaza si aún no hay ninguna activa
       if (!PLAZA_ACTIVA_MAPA && plazas.length > 0) {
         PLAZA_ACTIVA_MAPA = plazas[0];
-        startAutoRefresh();
+        // startAutoRefresh se llama desde init() — si ya terminó, forzar reinicio
+        if (_subPlaza !== PLAZA_ACTIVA_MAPA) {
+          _subPlaza = null;
+          startAutoRefresh();
+        }
       }
 
-      bar.style.display = 'flex';
-      bar.innerHTML = plazas.map(p => `
-        <button class="plaza-switch-pill${PLAZA_ACTIVA_MAPA === p ? ' active' : ''}"
-          onclick="cambiarPlazaMapa('${escapeHtml(p)}')">
-          <span class="material-icons" style="font-size:13px;margin-right:4px;vertical-align:middle;">location_city</span>
-          ${escapeHtml(p)}
-        </button>
-      `).join('');
+      const activa = PLAZA_ACTIVA_MAPA || plazas[0];
+      picker.style.display = 'flex';
+      if (pickerLabel) pickerLabel.textContent = activa;
+      if (dropdown) {
+        dropdown.innerHTML = plazas.map(p => `
+          <button class="plaza-picker-option${activa === p ? ' active' : ''}"
+            onclick="cambiarPlazaMapa('${escapeHtml(p)}')">
+            <span class="material-icons" style="font-size:13px;margin-right:6px;vertical-align:middle;">${activa === p ? 'check_circle' : 'location_city'}</span>
+            ${escapeHtml(p)}
+          </button>
+        `).join('');
+      }
     }
 
     function _ajustarViewportMapa() {
@@ -12912,4 +12943,5 @@ Object.assign(window, {
   // Plaza switcher
   cambiarPlazaMapa,
   _renderPlazaSwitcher,
+  _togglePlazaPicker,
 });
