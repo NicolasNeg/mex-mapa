@@ -430,12 +430,27 @@ const api = window.api;
       };
     }
 
+    // Plaza activa en el mapa (puede cambiar si JEFE_REGIONAL cambia de vista)
+    let PLAZA_ACTIVA_MAPA = '';
+
+    function _miPlaza() { return PLAZA_ACTIVA_MAPA || (currentUserProfile?.plazaAsignada || ''); }
+    function _puedeVerTodasPlazas() { return hasFullAccess(); }
+    function _plazasPermitidas() {
+      if (_puedeVerTodasPlazas()) return null; // null = sin restricción
+      const rol = _roleMeta().level;
+      const pp = currentUserProfile?.plazasPermitidas;
+      if (rol >= 30 && Array.isArray(pp) && pp.length > 0) return [currentUserProfile.plazaAsignada, ...pp].filter(Boolean);
+      return [currentUserProfile?.plazaAsignada].filter(Boolean);
+    }
+
     function _setSessionProfile(profile) {
       currentUserProfile = profile;
       USER_NAME = profile.nombre || profile.usuario || '';
       userAccessRole = profile.rol || 'AUXILIAR';
       userRole = profile.isAdmin ? 'admin' : 'visitante';
       isGlobalAdmin = _roleMeta(userAccessRole).fullAccess;
+      // Inicializar plaza activa del mapa con la plaza del usuario
+      PLAZA_ACTIVA_MAPA = profile.plazaAsignada || '';
       window.CURRENT_USER_PROFILE = profile;
     }
 
@@ -1086,16 +1101,24 @@ const api = window.api;
         return;
       }
 
+      // Plaza activa — null si tiene acceso global (ve todos)
+      const plazaFiltro = _puedeVerTodasPlazas() ? null : _miPlaza();
+
       if (typeof api.suscribirEstructuraMapa === 'function') {
         _unsubMapaEstructura = api.suscribirEstructuraMapa(estructura => {
           _mapaRuntime.estructuraReady = true;
           dibujarMapaCompleto(estructura);
-        });
+        }, plazaFiltro);
       } else {
         dibujarMapaCompleto();
       }
 
-      _unsubMapa = api.suscribirMapa(unidades => {
+      // Usar suscribirMapaPlaza si está disponible (filtra por plaza en el cliente)
+      const suscribir = api.suscribirMapaPlaza
+        ? (cb) => api.suscribirMapaPlaza(plazaFiltro, cb)
+        : api.suscribirMapa.bind(api);
+
+      _unsubMapa = suscribir(unidades => {
         _mapaRuntime.unidadesReady = true;
         if (window.PAUSA_CONEXIONES) return;
         if (isSaving || isMoving) {
@@ -1415,7 +1438,7 @@ const api = window.api;
       if (!grid) return Promise.resolve();
 
       if (!Array.isArray(estructura)) {
-        return api.obtenerEstructuraMapa()
+        return api.obtenerEstructuraMapa(_miPlaza())
           .then(dibujarMapaCompleto)
           .catch(e => console.error(e));
       }
@@ -2212,6 +2235,14 @@ const api = window.api;
           }
         });
 
+        // Filtrar por plaza si el usuario no tiene acceso global
+        if (!_puedeVerTodasPlazas()) {
+          const miPlaza = _miPlaza();
+          if (miPlaza) {
+            unicos = unicos.filter(u => !u.plaza || (u.plaza || '').toUpperCase() === miPlaza.toUpperCase());
+          }
+        }
+
         DB_FLOTA = unicos;
         filtrarFlota();
         document.getElementById('statTotal').innerText = DB_FLOTA.length;
@@ -2662,7 +2693,8 @@ const api = window.api;
           restaurarBotonFlota();
           prepararNuevoFlota();
 
-          // Guardado silencioso de fondo en Google
+          // Guardado silencioso de fondo en Google — etiquetar con plaza del usuario
+          payload.plaza = _miPlaza() || '';
           api.insertarUnidadDesdeHTML(payload).catch(() => showToast("Error de red de fondo", "error"));
         } else {
           // 1. Modifica la Tabla al instante
@@ -10060,7 +10092,7 @@ const api = window.api;
       _edCeldas = []; _edSel = null; _edModo = null;
       _resetEditorPanel();
 
-      api.obtenerEstructuraMapa().then(estructura => {
+      api.obtenerEstructuraMapa(_miPlaza()).then(estructura => {
         document.getElementById('editor-loading').style.display = 'none';
         document.getElementById('editor-grid-wrapper').style.display = 'block';
         _edCeldas = estructura.map((c, i) => ({
@@ -10314,7 +10346,7 @@ const api = window.api;
         orden: i
       }));
 
-      api.guardarEstructuraMapa(payload).then(res => {
+      api.guardarEstructuraMapa(payload, _miPlaza()).then(res => {
         btn.disabled = false;
         btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
         if (res === 'OK') {
@@ -10467,11 +10499,22 @@ const api = window.api;
         `).join('');
 
         const logoHtml = emp.logoURL
-          ? `<img src="${escapeHtml(emp.logoURL)}" alt="Logo empresa"><div style="margin-top:6px; font-size:11px; font-weight:700; color:#64748b;">Click para cambiar</div>`
-          : `<div class="cfg-emp-logo-placeholder">
+          ? `<div class="cfg-emp-logo-img-wrap"><img src="${escapeHtml(emp.logoURL)}" alt="Logo empresa" class="cfg-emp-logo-big"></div>
+             <div class="cfg-emp-logo-footer">
+               <span style="font-size:11px;font-weight:800;color:#10b981;display:flex;align-items:center;gap:4px;flex:1;">
+                 <span class="material-icons" style="font-size:14px;">check_circle</span> Logo activo
+               </span>
+               <button class="cfg-emp-logo-btn" onclick="document.getElementById('cfg-logo-file').click()" title="Cambiar logo">
+                 <span class="material-icons">edit</span>
+               </button>
+               <button class="cfg-emp-logo-btn danger" onclick="eliminarLogoEmpresa()" title="Eliminar logo">
+                 <span class="material-icons">delete</span>
+               </button>
+             </div>`
+          : `<div class="cfg-emp-logo-placeholder" onclick="document.getElementById('cfg-logo-file').click()" style="cursor:pointer;">
                <span class="material-icons">add_photo_alternate</span>
-               <span>Click para subir logo</span>
-               <span style="font-size:10px; color:#cbd5e1;">PNG, JPG, SVG</span>
+               <span>Clic para subir logo</span>
+               <span style="font-size:10px; color:#cbd5e1;">PNG, JPG, SVG — máx 2MB</span>
              </div>`;
 
         const plazasHtml = (emp.plazas || []).map((p, idx) => `
@@ -10515,25 +10558,33 @@ const api = window.api;
 
               <div class="cfg-emp-field">
                 <label>Paleta de Colores de la Empresa</label>
-                <p style="font-size:11px; color:#94a3b8; font-weight:600; margin:0 0 10px;">Aplican al guardar y publicar.</p>
-                <div style="display:flex; flex-direction:column; gap:8px;">
+                <p style="font-size:11px; color:#94a3b8; font-weight:600; margin:0 0 12px;">Aplican al guardar y publicar.</p>
+                <div class="cfg-emp-palette-grid">
                   ${[
-                    { key:'colorPrincipal',   label:'Principal',   default:'#004a99', hint:'Barra principal, botones' },
+                    { key:'colorPrincipal',   label:'Principal',   default:'#004a99', hint:'Barra, botones' },
                     { key:'colorSecundario',  label:'Secundario',  default:'#1d4ed8', hint:'Acentos, hover' },
                     { key:'colorAcento',      label:'Acento',      default:'#f59e0b', hint:'Alertas, highlights' },
                     { key:'colorTexto',       label:'Texto',       default:'#0f172a', hint:'Texto principal' },
-                  ].map(c => `
-                    <div style="display:flex; align-items:center; gap:10px;">
-                      <input type="color" value="${emp[c.key] || c.default}"
-                        style="width:42px; height:36px; border-radius:8px; border:none; padding:2px; cursor:pointer; background:none;"
-                        onchange="window.MEX_CONFIG.empresa['${c.key}']=this.value; document.getElementById('lbl-${c.key}').textContent=this.value;">
-                      <div style="flex:1;">
-                        <div style="font-size:12px; font-weight:800; color:#334155;">${c.label}</div>
-                        <div style="font-size:10px; color:#94a3b8;">${c.hint}</div>
+                  ].map(c => {
+                    const val = emp[c.key] || c.default;
+                    return `
+                    <div class="cfg-emp-palette-item">
+                      <div class="cfg-emp-palette-swatch-wrap">
+                        <div class="cfg-emp-palette-swatch" style="background:${val}" onclick="document.getElementById('emp-picker-${c.key}').click()"></div>
+                        <input type="color" id="emp-picker-${c.key}" value="${val}" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;"
+                          oninput="window.MEX_CONFIG.empresa['${c.key}']=this.value; document.getElementById('emp-hex-${c.key}').value=this.value.toUpperCase(); document.querySelector('#emp-swatch-wrapper-${c.key}').style.background=this.value;">
+                        <div class="cfg-emp-palette-hex-wrap" id="emp-swatch-wrapper-${c.key}" style="background:${val}">
+                          <input type="text" id="emp-hex-${c.key}" class="cfg-emp-palette-hex-input" value="${val.toUpperCase()}"
+                            maxlength="7"
+                            oninput="if(/^#[0-9a-fA-F]{6}$/.test(this.value)){window.MEX_CONFIG.empresa['${c.key}']=this.value;document.getElementById('emp-picker-${c.key}').value=this.value;document.querySelector('#emp-swatch-wrapper-${c.key}').style.background=this.value;}">
+                        </div>
                       </div>
-                      <code id="lbl-${c.key}" style="font-size:11px; color:#475569; background:#f1f5f9; padding:2px 6px; border-radius:4px;">${emp[c.key] || c.default}</code>
-                    </div>
-                  `).join('')}
+                      <div class="cfg-emp-palette-info">
+                        <div class="cfg-emp-palette-name">${c.label}</div>
+                        <div class="cfg-emp-palette-hint">${c.hint}</div>
+                      </div>
+                    </div>`;
+                  }).join('')}
                 </div>
               </div>
             </div>
@@ -10652,10 +10703,12 @@ const api = window.api;
       }
 
       if(TAB_ACTIVA_CFG === 'ubicaciones') {
-        // Filter by plaza selector
-        const activePlazaFilter = plazaFilter || (esGerentePlaza ? myPlaza : '');
+        // Si no tiene acceso global, solo ver ubicaciones de SU plaza
+        const activePlazaFilter = plazaFilter
+          || (!_puedeVerTodasPlazas() ? _miPlaza() : '')
+          || (esGerentePlaza ? myPlaza : '');
         if (activePlazaFilter) {
-          lista = lista.filter(item => (item.plazaId || '') === activePlazaFilter);
+          lista = lista.filter(item => !item.plazaId || (item.plazaId || '') === activePlazaFilter);
         }
       }
 
@@ -11111,23 +11164,9 @@ const api = window.api;
               style="flex:1; border:none; background:transparent; font-size:13px; font-weight:600; outline:none; color:#334155;"
               oninput="_filtrarPlazasCfg()">
           </div>
-          <button onclick="_togglePlazaAddRow()"
+          <button onclick="_abrirModalNuevaplaza()"
             style="background:var(--mex-blue);color:white;border:none;border-radius:10px;padding:9px 16px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;">
-            <span class="material-icons" style="font-size:16px;">add</span> NUEVA
-          </button>
-        </div>
-        <div id="cfg-plaza-add-row" style="display:none; padding:0 10px 8px; gap:8px; align-items:center;">
-          <input type="text" id="cfg-plaza-add-input" placeholder="Ej: GDL" maxlength="10"
-            style="flex:1; padding:9px 12px; border-radius:10px; border:1.5px solid #6366f1; font-weight:800; font-size:13px; text-transform:uppercase; outline:none;"
-            onkeydown="if(event.key==='Enter') agregarPlazaCatalogo()"
-            oninput="this.value=this.value.toUpperCase()">
-          <button onclick="agregarPlazaCatalogo()"
-            style="background:var(--mex-accent);color:white;border:none;border-radius:10px;padding:9px 16px;font-weight:800;font-size:12px;cursor:pointer;">
-            Agregar
-          </button>
-          <button onclick="_togglePlazaAddRow()"
-            style="background:#f1f5f9;color:#64748b;border:none;border-radius:10px;padding:9px 12px;font-weight:800;font-size:12px;cursor:pointer;">
-            ✕
+            <span class="material-icons" style="font-size:16px;">add_location_alt</span> NUEVA
           </button>
         </div>
         <div class="cfg-plazas-body">
@@ -11156,31 +11195,60 @@ const api = window.api;
       return filtered.map(plazaId => {
         const detalle = plazasDetalle.find(d => d.id === plazaId) || {};
         const isActive = _plazaSeleccionadaCfg === plazaId ? ' active' : '';
+        const sub = escapeHtml(detalle.descripcion || detalle.nombre || detalle.localidad || 'Sin configurar');
         return `
           <div class="cfg-plaza-card${isActive}" onclick="plazaSeleccionarCfg('${escapeHtml(plazaId)}')">
             <div class="cfg-plaza-icon">${escapeHtml(plazaId.slice(0,3))}</div>
             <div class="cfg-plaza-info">
               <div class="cfg-plaza-name">${escapeHtml(plazaId)}</div>
-              <div class="cfg-plaza-local">${escapeHtml(detalle.nombre || detalle.localidad || 'Sin configurar')}</div>
+              <div class="cfg-plaza-local">${sub}</div>
             </div>
-            <button onclick="event.stopPropagation(); eliminarPlazaCatalogo('${escapeHtml(plazaId)}')"
-              style="background:#fee2e2; border:none; border-radius:6px; width:26px; height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0; margin-left:4px;">
-              <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
-            </button>
           </div>
         `;
       }).join('');
     }
 
-    function _togglePlazaAddRow() {
-      const row = document.getElementById('cfg-plaza-add-row');
-      if (!row) return;
-      const showing = row.style.display === 'flex';
-      row.style.display = showing ? 'none' : 'flex';
-      if (!showing) {
-        const inp = document.getElementById('cfg-plaza-add-input');
-        if (inp) { inp.value = ''; inp.focus(); }
-      }
+    function _togglePlazaAddRow() { _abrirModalNuevaplaza(); } // legacy alias
+
+    function _abrirModalNuevaplaza() {
+      const m = document.getElementById('modal-nueva-plaza');
+      if (!m) return;
+      document.getElementById('nueva-plaza-id').value = '';
+      document.getElementById('nueva-plaza-nombre').value = '';
+      document.getElementById('nueva-plaza-descripcion').value = '';
+      m.style.display = 'flex';
+      const card = m.querySelector('.cfg-add-card');
+      if (card) { card.style.animation = 'none'; card.offsetHeight; card.style.animation = ''; }
+      setTimeout(() => document.getElementById('nueva-plaza-id')?.focus(), 100);
+    }
+
+    function _cerrarModalNuevaplaza() {
+      const m = document.getElementById('modal-nueva-plaza');
+      if (m) m.style.display = 'none';
+    }
+
+    function _confirmarNuevaplaza() {
+      const idInp   = document.getElementById('nueva-plaza-id');
+      const nomInp  = document.getElementById('nueva-plaza-nombre');
+      const descInp = document.getElementById('nueva-plaza-descripcion');
+      const p = (idInp?.value || '').trim().toUpperCase();
+      if (!p) { showToast('Escribe una clave para la plaza (ej: GDL)', 'error'); idInp?.focus(); return; }
+      const emp = window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
+      emp.plazas = emp.plazas || [];
+      if (emp.plazas.includes(p)) { showToast('Esa plaza ya existe', 'error'); idInp?.focus(); return; }
+      emp.plazas.push(p);
+      // Pre-populate detalle
+      emp.plazasDetalle = emp.plazasDetalle || [];
+      emp.plazasDetalle.push({
+        id: p,
+        nombre: (nomInp?.value || '').trim(),
+        descripcion: (descInp?.value || '').trim(),
+      });
+      _cerrarModalNuevaplaza();
+      _plazaFormLocked = false; // open in edit mode since just created
+      renderizarListaConfig();
+      setTimeout(() => plazaSeleccionarCfg(p), 50);
+      showToast(`Plaza "${p}" creada. Configura sus detalles y publica para guardar.`, 'success');
     }
 
     function _filtrarPlazasCfg() {
@@ -11193,40 +11261,80 @@ const api = window.api;
         : _renderPlazaCards(plazas, filter);
     }
 
+    let _plazaFormLocked = true;
+
+    function _togglePlazaFormEdit() {
+      _plazaFormLocked = !_plazaFormLocked;
+      const card = document.querySelector('.cfg-plaza-form-card');
+      if (!card) return;
+      card.classList.toggle('plaza-locked', _plazaFormLocked);
+      const btn = document.getElementById('plaza-edit-toggle-btn');
+      if (btn) {
+        btn.innerHTML = `<span class="material-icons">${_plazaFormLocked ? 'edit' : 'lock'}</span>`;
+        btn.title = _plazaFormLocked ? 'Editar plaza' : 'Bloquear edición';
+        btn.className = `cfg-plaza-header-btn${_plazaFormLocked ? '' : ' active'}`;
+      }
+    }
+
+    function _plazaConfirmMaps() {
+      const q = (document.getElementById('plaza-maps-url')?.value || '').trim();
+      if (!q) return;
+      const preview = document.getElementById('plaza-maps-preview');
+      const iframe = document.getElementById('plaza-maps-iframe');
+      if (!preview || !iframe) return;
+      iframe.src = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+      preview.classList.remove('hidden');
+    }
+
+    function _plazaGetUserEmailOptions(selectedVal) {
+      const users = (typeof _umUsers !== 'undefined' && _umUsers) ? _umUsers : [];
+      const emails = [...new Set(users.map(u => u.email).filter(Boolean))].sort();
+      if (emails.length === 0) {
+        return `<option value="${escapeHtml(selectedVal)}">${escapeHtml(selectedVal || '— Sin correos registrados —')}</option>`;
+      }
+      return `<option value="">— Sin asignar —</option>` +
+        emails.map(e => `<option value="${escapeHtml(e)}"${e === selectedVal ? ' selected' : ''}>${escapeHtml(e)}</option>`).join('');
+    }
+
     function _renderPlazaForm(plazaId) {
       const emp = window.MEX_CONFIG.empresa || {};
       const plazasDetalle = emp.plazasDetalle || [];
       const d = plazasDetalle.find(x => x.id === plazaId) || {};
       const contactos = Array.isArray(d.contactos) ? d.contactos : [];
+      const locked = _plazaFormLocked;
 
-      // Iniciales para el avatar de contacto
-      function _initials(nombre) {
-        if (!nombre) return '?';
-        const parts = nombre.trim().split(/\s+/);
-        return parts.length >= 2 ? (parts[0][0] + parts[1][0]).toUpperCase() : nombre.slice(0, 2).toUpperCase();
+      const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#0ea5e9','#f97316','#ec4899'];
+      function _initials(n) {
+        if (!n) return '?';
+        const p = n.trim().split(/\s+/);
+        return p.length >= 2 ? (p[0][0] + p[1][0]).toUpperCase() : n.slice(0,2).toUpperCase();
       }
 
-      // Colores de avatar por índice
-      const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#0ea5e9','#f97316','#ec4899'];
-
       const contactosHtml = contactos.length > 0
-        ? contactos.map((c, ci) => `
-          <div class="cfg-plaza-contact-row" id="plaza-contact-${ci}">
-            <div class="plaza-cnt-avatar" style="background:${AVATAR_COLORS[ci % AVATAR_COLORS.length]}">
-              ${_initials(c.nombre)}
-            </div>
-            <div class="plaza-cnt-fields">
-              <input type="text" class="plaza-cnt-nombre" value="${escapeHtml(c.nombre||'')}" placeholder="Nombre completo">
-              <div class="plaza-cnt-row2">
-                <input type="text" class="plaza-cnt-rol" value="${escapeHtml(c.rol||'')}" placeholder="Puesto / Rol">
-                <input type="tel" class="plaza-cnt-tel" value="${escapeHtml(c.telefono||'')}" placeholder="Teléfono">
+        ? contactos.map((c, ci) => {
+            const color = AVATAR_COLORS[ci % AVATAR_COLORS.length];
+            return `
+            <div class="plaza-contact-chip" id="plaza-contact-${ci}" onclick="_toggleContactExpand(${ci})">
+              <div class="plaza-cnt-avatar" style="background:${color}">${_initials(c.nombre)}</div>
+              <div class="plaza-contact-chip-info">
+                <div class="plaza-contact-chip-name">${escapeHtml(c.nombre || 'Sin nombre')}</div>
+                ${c.rol ? `<span class="plaza-contact-chip-role">${escapeHtml(c.rol)}</span>` : ''}
               </div>
+              <span class="material-icons plaza-contact-chip-arrow">expand_more</span>
             </div>
-            <button class="plaza-cnt-del" onclick="_plazaRemoveContact(${ci})" title="Eliminar contacto">
-              <span class="material-icons">delete_outline</span>
-            </button>
-          </div>`)
-          .join('')
+            <div class="plaza-contact-expanded" id="plaza-cnt-detail-${ci}" style="display:none;">
+              <div class="plaza-cnt-fields">
+                <input type="text" class="plaza-cnt-nombre" value="${escapeHtml(c.nombre||'')}" placeholder="Nombre completo">
+                <div class="plaza-cnt-row2">
+                  <input type="text" class="plaza-cnt-rol" value="${escapeHtml(c.rol||'')}" placeholder="Puesto / Rol">
+                  <input type="tel" class="plaza-cnt-tel" value="${escapeHtml(c.telefono||'')}" placeholder="Teléfono">
+                </div>
+              </div>
+              <button class="plaza-cnt-del" onclick="event.stopPropagation(); _plazaRemoveContact(${ci})" title="Eliminar">
+                <span class="material-icons">delete_outline</span>
+              </button>
+            </div>`;
+          }).join('')
         : `<div id="plaza-contacts-empty" class="plaza-contacts-empty">
              <span class="material-icons">contacts</span>
              <span>Sin contactos registrados</span>
@@ -11235,18 +11343,24 @@ const api = window.api;
       const mapsEmbedUrl = d.mapsUrl
         ? `https://maps.google.com/maps?q=${encodeURIComponent(d.mapsUrl)}&output=embed`
         : '';
+      const heroSub = escapeHtml(d.descripcion || d.nombre || 'Descripción de la plaza');
 
       return `
-        <div class="cfg-plaza-form-card">
+        <div class="cfg-plaza-form-card${locked ? ' plaza-locked' : ''}">
 
-          <!-- ── Header con gradiente ── -->
+          <!-- ── Hero ── -->
           <div class="cfg-plaza-form-hero">
             <div class="cfg-plaza-form-hero-badge">${escapeHtml(plazaId.slice(0,3))}</div>
             <div class="cfg-plaza-form-hero-info">
-              <div class="cfg-plaza-form-hero-name">${escapeHtml(plazaId)}</div>
-              <div class="cfg-plaza-form-hero-sub">${escapeHtml(d.localidad || d.nombre || 'Configuración de la plaza')}</div>
+              <div class="cfg-plaza-form-hero-name" id="plaza-hero-title">${escapeHtml(plazaId)}</div>
+              <div class="cfg-plaza-form-hero-sub" id="plaza-hero-sub">${heroSub}</div>
             </div>
-            <span class="material-icons cfg-plaza-form-hero-icon">location_city</span>
+            <button id="plaza-edit-toggle-btn"
+              class="cfg-plaza-header-btn${locked ? '' : ' active'}"
+              onclick="_togglePlazaFormEdit()"
+              title="${locked ? 'Editar plaza' : 'Bloquear edición'}">
+              <span class="material-icons">${locked ? 'edit' : 'lock'}</span>
+            </button>
           </div>
 
           <!-- ── Información General ── -->
@@ -11256,16 +11370,22 @@ const api = window.api;
           <div class="cfg-plaza-form-grid2">
             <div class="cfg-plaza-form-field">
               <label>Nombre oficial</label>
-              <input type="text" id="plaza-nombre" value="${escapeHtml(d.nombre || '')}" placeholder="Ej: Hermosillo Centro">
+              <input type="text" id="plaza-nombre" value="${escapeHtml(d.nombre || '')}" placeholder="Ej: Hermosillo Centro"
+                oninput="document.getElementById('plaza-hero-title').textContent=this.value||'${escapeHtml(plazaId)}'">
             </div>
             <div class="cfg-plaza-form-field">
-              <label>Localidad</label>
-              <input type="text" id="plaza-localidad" value="${escapeHtml(d.localidad || '')}" placeholder="Ej: Hermosillo, Sonora">
+              <label>Descripción (subtítulo)</label>
+              <input type="text" id="plaza-descripcion" value="${escapeHtml(d.descripcion || '')}" placeholder="Ej: Sucursal del Bajío"
+                oninput="document.getElementById('plaza-hero-sub').textContent=this.value||'Descripción de la plaza'">
             </div>
           </div>
           <div class="cfg-plaza-form-field">
+            <label>Localidad</label>
+            <input type="text" id="plaza-localidad" value="${escapeHtml(d.localidad || '')}" placeholder="Ej: Hermosillo, Sonora">
+          </div>
+          <div class="cfg-plaza-form-field">
             <label>Dirección completa</label>
-            <input type="text" id="plaza-direccion" value="${escapeHtml(d.direccion || '')}" placeholder="Ej: Blvd. Rodríguez 123, Col. Centro" oninput="_plazaPreviewMaps()">
+            <input type="text" id="plaza-direccion" value="${escapeHtml(d.direccion || '')}" placeholder="Ej: Blvd. Rodríguez 123, Col. Centro">
           </div>
 
           <!-- ── Mapa ── -->
@@ -11277,11 +11397,13 @@ const api = window.api;
             <div class="cfg-plaza-maps-input-wrap">
               <span class="material-icons cfg-plaza-maps-pin">location_on</span>
               <input type="text" id="plaza-maps-url" value="${escapeHtml(d.mapsUrl || '')}"
-                placeholder="Ej: 29.0924,-110.9600  o  nombre del lugar"
-                oninput="_plazaPreviewMaps()">
+                placeholder="Ej: 29.0924,-110.9600  o  nombre del lugar">
+              <button class="cfg-plaza-maps-confirm-btn" onclick="_plazaConfirmMaps()" title="Confirmar ubicación en mapa">
+                <span class="material-icons">task_alt</span>
+              </button>
             </div>
           </div>
-          <div id="plaza-maps-preview" class="cfg-plaza-maps-preview ${mapsEmbedUrl ? '' : 'hidden'}">
+          <div id="plaza-maps-preview" class="cfg-plaza-maps-preview${mapsEmbedUrl ? '' : ' hidden'}">
             <iframe id="plaza-maps-iframe" src="${mapsEmbedUrl ? escapeHtml(mapsEmbedUrl) : ''}"
               loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
           </div>
@@ -11295,7 +11417,9 @@ const api = window.api;
               <label>Correo institucional</label>
               <div class="cfg-plaza-input-icon-wrap">
                 <span class="material-icons">alternate_email</span>
-                <input type="email" id="plaza-correo" value="${escapeHtml(d.correo || '')}" placeholder="plaza@empresa.com">
+                <select id="plaza-correo" class="cfg-plaza-select-correo">
+                  ${_plazaGetUserEmailOptions(d.correo || '')}
+                </select>
               </div>
             </div>
             <div class="cfg-plaza-form-field">
@@ -11320,7 +11444,9 @@ const api = window.api;
               <label>Correo del Gerente</label>
               <div class="cfg-plaza-input-icon-wrap">
                 <span class="material-icons">alternate_email</span>
-                <input type="email" id="plaza-correo-gerente" value="${escapeHtml(d.correoGerente || '')}" placeholder="gerente@empresa.com">
+                <select id="plaza-correo-gerente" class="cfg-plaza-select-correo">
+                  ${_plazaGetUserEmailOptions(d.correoGerente || '')}
+                </select>
               </div>
             </div>
           </div>
@@ -11328,13 +11454,14 @@ const api = window.api;
           <!-- ── Contactos Adicionales ── -->
           <div class="cfg-plaza-section-header" style="justify-content:space-between;">
             <div style="display:flex;align-items:center;gap:6px;">
-              <span class="material-icons">groups</span> Contactos Adicionales
+              <span class="material-icons">groups</span> Contactos
+              <span class="plaza-cnt-count">${contactos.length}</span>
             </div>
             <button class="cfg-plaza-add-contact-btn" onclick="_plazaAddContact()">
               <span class="material-icons">person_add</span> Agregar
             </button>
           </div>
-          <div class="cfg-plaza-contacts-hint">Directorio visible para Jefes Regionales y superiores.</div>
+          <div class="cfg-plaza-contacts-hint">Haz clic en un nombre para ver y editar sus datos.</div>
           <div id="plaza-contacts-list" class="plaza-contacts-list">
             ${contactosHtml}
           </div>
@@ -11345,8 +11472,26 @@ const api = window.api;
             Guardar Plaza
           </button>
 
+          <!-- ── Zona de peligro ── -->
+          <div class="cfg-plaza-danger-zone">
+            <button class="cfg-plaza-danger-btn" onclick="eliminarPlazaCatalogo('${escapeHtml(plazaId)}')">
+              <span class="material-icons">delete_forever</span>
+              Eliminar Plaza
+            </button>
+          </div>
+
         </div>
       `;
+    }
+
+    function _toggleContactExpand(ci) {
+      const detail = document.getElementById(`plaza-cnt-detail-${ci}`);
+      const chip   = document.getElementById(`plaza-contact-${ci}`);
+      if (!detail) return;
+      const open = detail.style.display !== 'none';
+      detail.style.display = open ? 'none' : 'flex';
+      const arrow = chip?.querySelector('.plaza-contact-chip-arrow');
+      if (arrow) arrow.style.transform = open ? '' : 'rotate(180deg)';
     }
 
     function _plazaPreviewMaps() {
@@ -11365,27 +11510,44 @@ const api = window.api;
       if (!list) return;
       const empty = document.getElementById('plaza-contacts-empty');
       if (empty) empty.remove();
-      const ci = list.querySelectorAll('.cfg-plaza-contact-row').length;
       const AVATAR_COLORS = ['#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#0ea5e9','#f97316','#ec4899'];
+      // ci = total de contactos existentes (chips + details)
+      const ci = list.querySelectorAll('.plaza-contact-chip').length;
       const color = AVATAR_COLORS[ci % AVATAR_COLORS.length];
-      const row = document.createElement('div');
-      row.className = 'cfg-plaza-contact-row';
-      row.id = `plaza-contact-${ci}`;
-      row.innerHTML = `
-        <div class="plaza-cnt-avatar" style="background:${color}" data-initials="?">?</div>
+
+      // Chip (collapsed summary)
+      const chip = document.createElement('div');
+      chip.className = 'plaza-contact-chip';
+      chip.id = `plaza-contact-${ci}`;
+      chip.onclick = () => _toggleContactExpand(ci);
+      chip.innerHTML = `
+        <div class="plaza-cnt-avatar" style="background:${color}">?</div>
+        <div class="plaza-contact-chip-info">
+          <div class="plaza-contact-chip-name plaza-chip-live-name">Nuevo contacto</div>
+        </div>
+        <span class="material-icons plaza-contact-chip-arrow" style="transform:rotate(180deg)">expand_more</span>`;
+
+      // Detail (expanded edit)
+      const detail = document.createElement('div');
+      detail.className = 'plaza-contact-expanded';
+      detail.id = `plaza-cnt-detail-${ci}`;
+      detail.style.display = 'flex';
+      detail.innerHTML = `
         <div class="plaza-cnt-fields">
           <input type="text" class="plaza-cnt-nombre" placeholder="Nombre completo"
-            oninput="const av=this.closest('.cfg-plaza-contact-row').querySelector('.plaza-cnt-avatar'); const p=this.value.trim().split(/\\s+/); av.textContent=p.length>=2?(p[0][0]+p[1][0]).toUpperCase():(this.value.slice(0,2).toUpperCase()||'?');">
+            oninput="const av=document.querySelector('#plaza-contact-${ci} .plaza-cnt-avatar'); const ln=document.querySelector('#plaza-contact-${ci} .plaza-chip-live-name'); const p=this.value.trim().split(/\\s+/); if(av) av.textContent=p.length>=2?(p[0][0]+p[1][0]).toUpperCase():(this.value.slice(0,2).toUpperCase()||'?'); if(ln) ln.textContent=this.value||'Nuevo contacto';">
           <div class="plaza-cnt-row2">
             <input type="text" class="plaza-cnt-rol" placeholder="Puesto / Rol">
             <input type="tel" class="plaza-cnt-tel" placeholder="Teléfono">
           </div>
         </div>
-        <button class="plaza-cnt-del" onclick="this.closest('.cfg-plaza-contact-row').remove()" title="Eliminar contacto">
+        <button class="plaza-cnt-del" onclick="event.stopPropagation(); this.closest('.plaza-contact-expanded').previousElementSibling.remove(); this.closest('.plaza-contact-expanded').remove();" title="Eliminar contacto">
           <span class="material-icons">delete_outline</span>
         </button>`;
-      list.appendChild(row);
-      row.querySelector('.plaza-cnt-nombre')?.focus();
+
+      list.appendChild(chip);
+      list.appendChild(detail);
+      detail.querySelector('.plaza-cnt-nombre')?.focus();
     }
 
     function _plazaRemoveContact(ci) {
@@ -11410,17 +11572,18 @@ const api = window.api;
       emp.plazasDetalle = emp.plazasDetalle || [];
       const idx = emp.plazasDetalle.findIndex(d => d.id === plazaId);
 
-      // Recopilar contactos del DOM
-      const contactRows = document.querySelectorAll('.cfg-plaza-contact-row');
-      const contactos = Array.from(contactRows).map(row => ({
-        nombre: (row.querySelector('.plaza-cnt-nombre')?.value || '').trim().toUpperCase(),
-        rol: (row.querySelector('.plaza-cnt-rol')?.value || '').trim().toUpperCase(),
-        telefono: (row.querySelector('.plaza-cnt-tel')?.value || '').trim()
+      // Recopilar contactos del DOM — leer desde los campos del detail expandido
+      const detailEls = document.querySelectorAll('.plaza-contact-expanded');
+      const contactos = Array.from(detailEls).map(detail => ({
+        nombre: (detail.querySelector('.plaza-cnt-nombre')?.value || '').trim().toUpperCase(),
+        rol: (detail.querySelector('.plaza-cnt-rol')?.value || '').trim().toUpperCase(),
+        telefono: (detail.querySelector('.plaza-cnt-tel')?.value || '').trim()
       })).filter(c => c.nombre || c.telefono);
 
       const datos = {
         id: plazaId,
         nombre: (document.getElementById('plaza-nombre')?.value || '').trim(),
+        descripcion: (document.getElementById('plaza-descripcion')?.value || '').trim(),
         localidad: (document.getElementById('plaza-localidad')?.value || '').trim(),
         direccion: (document.getElementById('plaza-direccion')?.value || '').trim(),
         mapsUrl: (document.getElementById('plaza-maps-url')?.value || '').trim(),
@@ -11432,7 +11595,8 @@ const api = window.api;
       };
       if(idx > -1) emp.plazasDetalle[idx] = datos;
       else emp.plazasDetalle.push(datos);
-      showToast(`Plaza ${plazaId} actualizada. Publica los cambios para guardar.`, 'success');
+      _plazaFormLocked = true;
+      showToast(`Plaza ${plazaId} guardada. Publica los cambios para confirmar.`, 'success');
       plazaSeleccionarCfg(plazaId);
     }
 
@@ -11444,24 +11608,7 @@ const api = window.api;
         plazas.map(p => `<option value="${escapeHtml(p)}"${p === selected ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('');
     }
 
-    function agregarPlazaCatalogo() {
-      const input = document.getElementById('cfg-plaza-add-input');
-      if (!input) return;
-      const p = input.value.trim().toUpperCase();
-      if (!p) return;
-      const emp = window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
-      emp.plazas = emp.plazas || [];
-      if (emp.plazas.includes(p)) { showToast('Esa plaza ya existe', 'error'); return; }
-      emp.plazas.push(p);
-      input.value = '';
-      // Hide add row
-      const row = document.getElementById('cfg-plaza-add-row');
-      if (row) row.style.display = 'none';
-      // Re-render and immediately open the new plaza form
-      renderizarListaConfig();
-      setTimeout(() => plazaSeleccionarCfg(p), 50);
-      showToast(`Plaza "${p}" agregada. Configura sus detalles y publica para guardar.`, 'success');
-    }
+    function agregarPlazaCatalogo() { _confirmarNuevaplaza(); } // legacy alias → modal
 
     async function eliminarPlazaCatalogo(plazaId) {
       const ok = await mexConfirm(
@@ -11604,21 +11751,20 @@ const api = window.api;
         const url = await snapshot.ref.getDownloadURL();
         window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
         window.MEX_CONFIG.empresa.logoURL = url;
-        if(zone) zone.innerHTML = `<img src="${escapeHtml(url)}" alt="Logo empresa"><div style="margin-top:6px;font-size:11px;font-weight:700;color:#64748b;">Click para cambiar</div>`;
+        if(zone) zone.innerHTML = `
+          <div class="cfg-emp-logo-img-wrap"><img src="${escapeHtml(url)}" alt="Logo empresa" class="cfg-emp-logo-big"></div>
+          <div class="cfg-emp-logo-footer">
+            <span style="font-size:11px;font-weight:800;color:#10b981;display:flex;align-items:center;gap:4px;flex:1;">
+              <span class="material-icons" style="font-size:14px;">check_circle</span> Logo activo
+            </span>
+            <button class="cfg-emp-logo-btn" onclick="document.getElementById('cfg-logo-file').click()" title="Cambiar logo">
+              <span class="material-icons">edit</span>
+            </button>
+            <button class="cfg-emp-logo-btn danger" onclick="eliminarLogoEmpresa()" title="Eliminar logo">
+              <span class="material-icons">delete</span>
+            </button>
+          </div>`;
         showToast('Logo subido. Publica los cambios para guardar.', 'success');
-        // Show status badge
-        const field = zone?.closest('.cfg-emp-field');
-        if(field) {
-          let badge = field.querySelector('.cfg-logo-status');
-          if(!badge) {
-            badge = document.createElement('div');
-            badge.className = 'cfg-logo-status';
-            badge.style.cssText = 'margin-top:8px;display:flex;align-items:center;gap:10px;';
-            field.appendChild(badge);
-          }
-          badge.innerHTML = `<span style="font-size:11px;font-weight:800;color:#10b981;display:flex;align-items:center;gap:4px;"><span class="material-icons" style="font-size:14px;">check_circle</span> Logo activo</span>
-            <button onclick="eliminarLogoEmpresa()" style="background:#fee2e2;color:#ef4444;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;">ELIMINAR</button>`;
-        }
       } catch(e) {
         console.error(e);
         showToast('Error al subir logo: ' + e.message, 'error');
@@ -12687,4 +12833,20 @@ Object.assign(window, {
   verInfoRechazo,
   verLectoresAlerta,
   verificarHabitosUbicacion,
+  // Helpers de Config Global (llamados desde HTML inline)
+  _cfgUpdateColorSwatch,
+  _cfgFillColorPresets,
+  _cfgSetModalMeta,
+  _cfgShowModal,
+  _toggleContactExpand,
+  _plazaConfirmMaps,
+  _togglePlazaFormEdit,
+  _abrirModalNuevaplaza,
+  _cerrarModalNuevaplaza,
+  _confirmarNuevaplaza,
+  _plazaGetUserEmailOptions,
+  // Plaza isolation helpers
+  _miPlaza,
+  _puedeVerTodasPlazas,
+  _plazasPermitidas,
 });

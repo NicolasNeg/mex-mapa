@@ -1,15 +1,12 @@
-# MEX MAPA — GitHub Pages + Firebase
+# MEX MAPA — GitHub para controlar versiones + firebase hosting + auth + storage + db / backend
 
 ## Archivos del proyecto
 
 ```
 mex-mapa/
-├── index.html          ← Tu app completa
-├── mex-api.js          ← Adaptador Firebase (reemplaza google.script.run)
-├── firestore.rules     ← Reglas de seguridad (pegar en Firebase Console)
-├── MIGRAR_A_FIREBASE.gs ← Script de migración (pegar en Apps Script)
+├── index.html          ← Redireccionar a los modulos login o mapa
+├── mex-api.js          ← Adaptador Firebase
+├── firestore.rules     ← Reglas de seguridad 
 └── img/
-    └── no-model.svg    ← Placeholder de imagen de autos
+    └── no-model.svg    ← Placeholder de imagen de autos -                  cuando el  modelo no existe
 ```
-
-## Pasos de configuración

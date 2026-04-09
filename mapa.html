@@ -3303,6 +3303,54 @@
 
 
   <!-- ══════════════════════════════════════════════════════
+     MODAL — NUEVA PLAZA
+══════════════════════════════════════════════════════ -->
+  <div id="modal-nueva-plaza" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75001; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)_cerrarModalNuevaplaza()">
+    <div class="cfg-add-card">
+      <div class="cfg-add-header">
+        <div class="cfg-add-header-icon">
+          <span class="material-icons">add_location_alt</span>
+        </div>
+        <div class="cfg-add-header-text">
+          <div class="cfg-add-header-title">Nueva Plaza</div>
+          <div class="cfg-add-header-sub">Configura los datos iniciales de la sucursal</div>
+        </div>
+        <button class="cfg-add-close-btn" onclick="_cerrarModalNuevaplaza()">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="cfg-add-body">
+        <div class="cfg-add-field">
+          <label class="cfg-add-label">Clave / ID de la Plaza <span style="color:#ef4444">*</span></label>
+          <input type="text" id="nueva-plaza-id" class="cfg-add-input" maxlength="10"
+            placeholder="Ej: GDL, BJX, MTY"
+            oninput="this.value=this.value.toUpperCase()"
+            onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+          <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-top:4px;">Clave corta, única e irreversible. Ej: GDL</div>
+        </div>
+        <div class="cfg-add-field">
+          <label class="cfg-add-label">Nombre completo de la plaza</label>
+          <input type="text" id="nueva-plaza-nombre" class="cfg-add-input"
+            placeholder="Ej: Guadalajara Centro"
+            onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+        </div>
+        <div class="cfg-add-field">
+          <label class="cfg-add-label">Descripción (subtítulo en el header)</label>
+          <input type="text" id="nueva-plaza-descripcion" class="cfg-add-input"
+            placeholder="Ej: Sucursal principal del Bajío"
+            onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+        </div>
+      </div>
+      <div class="cfg-add-actions">
+        <button class="cfg-add-btn-cancel" onclick="_cerrarModalNuevaplaza()">Cancelar</button>
+        <button class="cfg-add-btn-save" onclick="_confirmarNuevaplaza()">
+          <span class="material-icons">add_location_alt</span> Crear Plaza
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
      SISTEMA DE DIÁLOGOS — mexDialog (reemplaza alert/confirm/prompt)
 ══════════════════════════════════════════════════════ -->
   <div id="mex-dialog-overlay">

@@ -761,41 +761,96 @@ const API_FUNCTIONS = {
     return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
   },
 
-  async obtenerDatosParaMapa() {
+  // ── suscribirMapa con filtro de plaza ──────────────────────────────────────
+  // plaza: string (ej 'BJX') — si vacío o null, devuelve todas (para admins)
+  suscribirMapaPlaza(plaza, callback) {
+    let cuadreDocs = [], externosDocs = [];
+    let pendingTimer = null;
+    const plazaUp = (plaza || '').toUpperCase().trim();
+
+    function _filtrarPlaza(docs) {
+      if (!plazaUp) return docs;
+      return docs.filter(u => !u.plaza || (u.plaza || '').toUpperCase() === plazaUp);
+    }
+
+    function emitir() {
+      if (pendingTimer) clearTimeout(pendingTimer);
+      pendingTimer = setTimeout(() => {
+        const cuadreUnits = _filtrarPlaza(cuadreDocs)
+          .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
+          .map(u => ({ ...u, tipo: "renta" }));
+        const externosUnits = _filtrarPlaza(externosDocs)
+          .filter(u => u.mva)
+          .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
+        callback([...cuadreUnits, ...externosUnits]);
+      }, 1000);
+    }
+
+    const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
+      cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emitir();
+    }, err => console.error("onSnapshot cuadre (plaza):", err));
+
+    const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emitir();
+    }, err => console.error("onSnapshot externos (plaza):", err));
+
+    return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
+  },
+
+  async obtenerDatosParaMapa(plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
     const [cuadreSnap, externosSnap] = await Promise.all([
       db.collection(COL.CUADRE).get(),
       db.collection(COL.EXTERNOS).get()
     ]);
+    function _f(u) { return !plazaUp || !u.plaza || (u.plaza || '').toUpperCase() === plazaUp; }
     const cuadreUnits = cuadreSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
+      .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER") && _f(u))
       .map(u => ({ ...u, tipo: "renta" }));
     const externosUnits = externosSnap.docs
       .map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => u.mva)
+      .filter(u => u.mva && _f(u))
       .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
     return { unidades: [...cuadreUnits, ...externosUnits] };
   },
 
-  async obtenerEstructuraMapa() {
-    const snap = await db.collection(COL.MAPA_CFG).orderBy("orden").get();
+  // ── Estructura de mapa por plaza ─────────────────────────────────────────
+  _mapaColeccion(plaza) {
+    const p = (plaza || '').toUpperCase().trim();
+    return p ? `mapa_config_${p}` : COL.MAPA_CFG;
+  },
+
+  async obtenerEstructuraMapa(plaza) {
+    const col = this._mapaColeccion(plaza);
+    const snap = await db.collection(col).orderBy("orden").get();
     if (!snap.empty) return snap.docs.map(d => d.data());
+    // Fallback: si la plaza no tiene mapa propio, intentar el global
+    if (col !== COL.MAPA_CFG) {
+      const fallback = await db.collection(COL.MAPA_CFG).orderBy("orden").get();
+      if (!fallback.empty) return fallback.docs.map(d => d.data());
+    }
     return _generarEstructuraPorDefecto();
   },
 
-  suscribirEstructuraMapa(callback) {
-    return db.collection(COL.MAPA_CFG).orderBy("orden").onSnapshot(snap => {
+  suscribirEstructuraMapa(callback, plaza) {
+    const col = this._mapaColeccion(plaza);
+    return db.collection(col).orderBy("orden").onSnapshot(snap => {
       if (!snap.empty) {
         callback(snap.docs.map(d => d.data()));
         return;
       }
+      // Fallback to default if empty
       callback(_generarEstructuraPorDefecto());
     }, err => console.error("onSnapshot mapa_cfg:", err));
   },
 
-  async guardarEstructuraMapa(elementos) {
+  async guardarEstructuraMapa(elementos, plaza) {
+    const col = this._mapaColeccion(plaza);
     // 1. Borrar todos los documentos actuales
-    const snap = await db.collection(COL.MAPA_CFG).get();
+    const snap = await db.collection(col).get();
     if (!snap.empty) {
       const batch = db.batch();
       snap.docs.forEach(d => batch.delete(d.ref));
@@ -806,12 +861,12 @@ const API_FUNCTIONS = {
       const chunk = elementos.slice(i, i + 490);
       const batch = db.batch();
       chunk.forEach((el, j) => {
-        const ref = db.collection(COL.MAPA_CFG).doc(`cel_${el.orden ?? (i + j)}`);
+        const ref = db.collection(col).doc(`cel_${el.orden ?? (i + j)}`);
         batch.set(ref, el);
       });
       await batch.commit();
     }
-    await _registrarLog("SISTEMA", "🗺️ Estructura del mapa actualizada", "Sistema");
+    await _registrarLog("SISTEMA", `🗺️ Estructura del mapa${plaza ? ' (' + plaza + ')' : ''} actualizada`, "Sistema");
     return "OK";
   },
 
@@ -880,6 +935,7 @@ const API_FUNCTIONS = {
       ubicacion:    objeto.ubicacion || "PATIO",
       notas:        notaFinal,
       pos:          "LIMBO",
+      plaza:        (objeto.plaza || '').toUpperCase().trim() || null,
       fechaIngreso: new Date().toISOString(),
       _createdAt:   ahora,
       _createdBy:   objeto.responsableSesion || "Sistema"
@@ -1464,7 +1520,7 @@ const API_FUNCTIONS = {
     await _registrarEventoGestion(tipo, mensaje, autor, extra || {});
     return "OK";
   },
-async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, plazaOrIsGlobal) {
+async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, plazaOrIsGlobal, plazasPermitidas) {
     try {
       const emailNormalizado = _profileDocId(email);
       const rol = _resolveRoleForEmail(emailNormalizado, _inferRole(roleOrIsAdmin, plazaOrIsGlobal));
@@ -1474,10 +1530,16 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       });
       // 1. Creamos un hilo secundario fantasma para no interrumpir tu sesión actual
       const appSecundaria = firebase.initializeApp(FIREBASE_CONFIG, "AppRegistro_" + Date.now());
-      
+
       // 2. Registramos la cuenta real con tokens en Firebase Auth
       const credencial = await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
       const nuevoUid = credencial.user.uid;
+
+      // Perfil extra: plazasPermitidas para JEFE_REGIONAL
+      const perfilExtra = {};
+      if (Array.isArray(plazasPermitidas) && plazasPermitidas.length > 0) {
+        perfilExtra.plazasPermitidas = plazasPermitidas;
+      }
 
       // 3. Guardamos su perfil con el correo como ID estable del documento
       const docId = await _guardarPerfilUsuarioPorEmail(emailNormalizado, {
@@ -1485,6 +1547,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
         email: emailNormalizado,
         telefono: telefono || "",
         ...roleData,
+        ...perfilExtra,
         authUid: nuevoUid,
         status: "ACTIVO"
       });
