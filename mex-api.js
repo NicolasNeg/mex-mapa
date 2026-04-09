@@ -838,7 +838,24 @@ const API_FUNCTIONS = {
 
     await docRef.update({ gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor });
     await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion);
-    await _registrarLog("MODIF", `🔄 MODIFICACION: *${mvaStr}* ESTADO ➜ ${estado} ⛽ GAS ➜ ${gas} 📍 UBI ➜ ${ubi}`, responsableSesion);
+
+    // Registrar SOLO los cambios reales (no mostrar campos sin cambio)
+    const cambiosReales = [];
+    if ((actual.estado || '') !== estado) cambiosReales.push(`Estado ${actual.estado || '?'} → ${estado}`);
+    if ((actual.gasolina || '') !== gas) cambiosReales.push(`Gas ${actual.gasolina || '?'} → ${gas}`);
+    if ((actual.ubicacion || '') !== ubi) cambiosReales.push(`Ubi ${actual.ubicacion || '?'} → ${ubi}`);
+    const notaAnterior = (actual.notas || '').trim();
+    if (notaFinal.trim() !== notaAnterior && notaEntrada !== '') {
+      cambiosReales.push(borrarNotas === true || borrarNotas === 'true' ? 'Notas reemplazadas' : 'Nota añadida');
+    }
+    if (borrarNotas === true || borrarNotas === 'true' && notaEntrada === '') {
+      cambiosReales.push('Notas eliminadas');
+    }
+
+    const logMsg = cambiosReales.length > 0
+      ? `✏️ ${mvaStr}: ${cambiosReales.join(' | ')}`
+      : `🔄 ${mvaStr} (revisión sin cambios)`;
+    await _registrarLog("MODIF", logMsg, responsableSesion);
     return "EXITO";
   },
 

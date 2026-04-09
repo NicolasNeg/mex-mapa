@@ -2549,16 +2549,29 @@
          <span class="material-icons" style="font-size:24px; color:var(--mex-blue);">folder_special</span>
          <h2 style="color:var(--primary); font-weight:900; margin:0;">ARCHIVERO DE AUDITORÍAS</h2>
       </div>
-      <div style="display:flex; align-items:center; gap: 15px;">
-        <div style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:8px 15px; border:1px solid #e2e8f0;">
-           <span class="material-icons" style="color:#94a3b8; font-size:18px; margin-right:8px;">search</span>
-           <input type="text" id="buscadorArchivero" placeholder="Buscar por nombre o fecha..." onkeyup="renderHistorialCuadres()" style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); width:220px; font-size:13px;">
-        </div>
-        <button onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')"
-          style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
-      </div>
+      <button onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')"
+        style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
     </div>
-    <div class="fleet-wrapper" style="padding: 25px; overflow-y: auto; background: #f8fafc; align-items: center;">
+    <!-- Filtros -->
+    <div style="display:flex; gap:10px; padding:0 25px 12px; flex-wrap:wrap; align-items:center;">
+      <div style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:8px 14px; border:1px solid #e2e8f0; flex:1; min-width:180px;">
+        <span class="material-icons" style="color:#94a3b8; font-size:18px; margin-right:8px;">search</span>
+        <input type="text" id="buscadorArchivero" placeholder="Buscar por nombre..." oninput="renderHistorialCuadres()" style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); width:100%; font-size:13px;">
+      </div>
+      <div style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:6px 12px; border:1px solid #e2e8f0; gap:6px;">
+        <span class="material-icons" style="color:#94a3b8; font-size:16px;">calendar_today</span>
+        <input type="date" id="filtroFechaArchivero" oninput="renderHistorialCuadres()" style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); font-size:13px; cursor:pointer;">
+      </div>
+      <select id="filtroAutorArchivero" onchange="renderHistorialCuadres()"
+        style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:12px; padding:9px 14px; font-weight:700; font-size:13px; color:var(--text); outline:none; cursor:pointer;">
+        <option value="">Todos los autores</option>
+      </select>
+      <button onclick="limpiarFiltrosArchivero()" title="Limpiar filtros"
+        style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; cursor:pointer; font-size:12px; font-weight:800; color:#64748b; display:flex; align-items:center; gap:4px;">
+        <span class="material-icons" style="font-size:15px;">filter_alt_off</span> Limpiar
+      </button>
+    </div>
+    <div class="fleet-wrapper" style="padding: 0 25px 25px; overflow-y: auto; background: #f8fafc; align-items: center;">
       <div id="lista-historial-cuadres"
         style="width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px;">
       </div>

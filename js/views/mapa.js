@@ -8023,8 +8023,33 @@ const api = window.api;
 
       api.obtenerHistorialCuadres().then(data => {
         globalHistorialAuditorias = data || [];
+        // Llenar select de autores
+        const autorSelect = document.getElementById('filtroAutorArchivero');
+        if (autorSelect) {
+          const autores = [...new Set(data.flatMap(c => [c.auxiliar, c.admin].filter(Boolean)))].sort();
+          autorSelect.innerHTML = '<option value="">Todos los autores</option>' +
+            autores.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
+        }
         renderHistorialCuadres();
       }).catch(e => console.error(e));
+    }
+
+    // Convierte URL de Google Drive share a URL de embed iframe
+    function _toDriveEmbedUrl(url) {
+      if (!url) return '';
+      const m = url.match(/\/file\/d\/([^/?#]+)/);
+      if (m) return `https://drive.google.com/file/d/${m[1]}/preview`;
+      return url; // Firebase Storage URL u otra — usar directamente
+    }
+
+    function limpiarFiltrosArchivero() {
+      const buscador = document.getElementById('buscadorArchivero');
+      const fecha = document.getElementById('filtroFechaArchivero');
+      const autor = document.getElementById('filtroAutorArchivero');
+      if (buscador) buscador.value = '';
+      if (fecha) fecha.value = '';
+      if (autor) autor.value = '';
+      renderHistorialCuadres();
     }
 
     function toggleIframe(id) {
@@ -8036,63 +8061,92 @@ const api = window.api;
     function renderHistorialCuadres() {
       const container = document.getElementById('lista-historial-cuadres');
       const query = (document.getElementById('buscadorArchivero')?.value || "").toLowerCase().trim();
-      
+      const fechaFiltro = (document.getElementById('filtroFechaArchivero')?.value || "").trim(); // "YYYY-MM-DD"
+      const autorFiltro = (document.getElementById('filtroAutorArchivero')?.value || "").toLowerCase().trim();
+
       let filtered = globalHistorialAuditorias;
-      if(query) {
-         filtered = filtered.filter(c => 
-            String(c.auxiliar||"").toLowerCase().includes(query) || 
-            String(c.admin||"").toLowerCase().includes(query) || 
-            String(c.fecha||"").toLowerCase().includes(query)
-         );
+
+      if (query) {
+        filtered = filtered.filter(c =>
+          String(c.auxiliar||"").toLowerCase().includes(query) ||
+          String(c.admin||"").toLowerCase().includes(query) ||
+          String(c.fecha||"").toLowerCase().includes(query)
+        );
+      }
+
+      if (fechaFiltro) {
+        // c.fecha may be "27/3/2026" or "2026-03-27 14:00" — try to match date
+        filtered = filtered.filter(c => {
+          const f = String(c.fecha || '');
+          // Normalize to "YYYY-MM-DD" for comparison
+          const parts = f.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+          if (parts) {
+            const yr = parts[3].length === 2 ? '20' + parts[3] : parts[3];
+            const mn = parts[2].padStart(2, '0');
+            const dy = parts[1].padStart(2, '0');
+            return `${yr}-${mn}-${dy}` === fechaFiltro;
+          }
+          return f.includes(fechaFiltro);
+        });
+      }
+
+      if (autorFiltro) {
+        filtered = filtered.filter(c =>
+          String(c.auxiliar||"").toLowerCase().includes(autorFiltro) ||
+          String(c.admin||"").toLowerCase().includes(autorFiltro)
+        );
       }
 
       if (filtered.length === 0) {
-        container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:800;">No hay cuadres registrados.</div>`;
+        container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:800;">No hay cuadres que coincidan con los filtros.</div>`;
         return;
       }
-      
-      container.innerHTML = filtered.map((c, i) => `
-        <div style="background: white; border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 15px;">
+
+      container.innerHTML = filtered.map((c, i) => {
+        const embedUrl = _toDriveEmbedUrl(c.pdfUrl);
+        const hasPdf = !!embedUrl;
+        return `
+        <div style="background: white; border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
           <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
             <div>
               <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
                 <span class="material-icons" style="color:var(--mex-blue); font-size:20px;">description</span>
                 <h3 style="margin: 0; color: var(--mex-blue); font-size: 16px; font-weight:800;">Reporte del ${String(c.fecha).split(' ')[0]}</h3>
               </div>
-              
+
               <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom: 16px;">
-                  <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
-                     <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Auxiliar en Patio</span>
-                     <span style="font-size: 13px; color: var(--mex-accent); font-weight: 800;">${c.auxiliar}</span>
-                  </div>
-                  <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
-                     <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Autorizado por (Ventas)</span>
-                     <span style="font-size: 13px; color: var(--mex-blue); font-weight: 800;">${c.admin}</span>
-                  </div>
+                <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
+                  <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Auxiliar en Patio</span>
+                  <span style="font-size: 13px; color: var(--mex-accent); font-weight: 800;">${escapeHtml(c.auxiliar || 'N/A')}</span>
+                </div>
+                <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
+                  <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Autorizado por (Ventas)</span>
+                  <span style="font-size: 13px; color: var(--mex-blue); font-weight: 800;">${escapeHtml(c.admin || 'N/A')}</span>
+                </div>
               </div>
 
               <div style="display: flex; gap: 12px; font-size: 11px; font-weight: 800; background:#f1f5f9; padding:8px 12px; border-radius:8px; width:fit-content;">
-                 <span style="color: #16a34a; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">check_circle</span> OK: ${c.ok}</span>
-                 <span style="color: #dc2626; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">error</span> FALTAN: ${c.faltantes}</span>
-                 <span style="color: #d97706; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">warning</span> SOBRAN: ${c.sobrantes}</span>
+                <span style="color: #16a34a; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">check_circle</span> OK: ${c.ok}</span>
+                <span style="color: #dc2626; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">error</span> FALTAN: ${c.faltantes}</span>
+                <span style="color: #d97706; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">warning</span> SOBRAN: ${c.sobrantes}</span>
               </div>
             </div>
-            
+
             <div style="display:flex; flex-direction:column; gap:8px;">
-               <button onclick="window.open('${c.pdfUrl}', '_blank')" style="background: #0f172a; color: white; border: none; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s;">
-                 <span class="material-icons" style="font-size:16px;">download</span> DESCARGAR PDF
-               </button>
-               <button onclick="toggleIframe('iframe-pdf-${i}')" style="background: white; color: #0f172a; border: 1.5px solid #0f172a; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; justify-content:center; align-items: center; gap: 8px; transition: 0.2s;">
-                 <span class="material-icons" style="font-size:16px;">visibility</span> VISTA PREVIA
-               </button>
+              ${hasPdf ? `<button onclick="window.open('${escapeHtml(c.pdfUrl)}', '_blank')" style="background: #0f172a; color: white; border: none; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons" style="font-size:16px;">download</span> DESCARGAR PDF
+              </button>
+              <button onclick="toggleIframe('iframe-pdf-${i}')" style="background: white; color: #0f172a; border: 1.5px solid #0f172a; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; justify-content:center; align-items: center; gap: 8px;">
+                <span class="material-icons" style="font-size:16px;">visibility</span> VISTA PREVIA
+              </button>` : `<div style="font-size:11px; color:#94a3b8; font-weight:700; text-align:center; padding:8px; background:#f8fafc; border-radius:8px; border:1px dashed #e2e8f0;">Sin PDF adjunto</div>`}
             </div>
           </div>
-          
-          <div id="iframe-pdf-${i}" style="display:none; width:100%; height:450px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; margin-top:8px;">
-             <iframe src="${c.pdfUrl}?usp=sharing" style="width:100%; height:100%; border:none;"></iframe>
-          </div>
-        </div>
-      `).join('');
+
+          ${hasPdf ? `<div id="iframe-pdf-${i}" style="display:none; width:100%; height:500px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; margin-top:4px; background:#f1f5f9;">
+            <iframe src="${escapeHtml(embedUrl)}" style="width:100%; height:100%; border:none;" allow="autoplay" loading="lazy"></iframe>
+          </div>` : ''}
+        </div>`;
+      }).join('');
     }
 
 
@@ -10259,9 +10313,13 @@ const api = window.api;
          if(searchBox) searchBox.style.display = 'flex';
       }
 
+      // Remove any existing extra filter bars
+      ['cfg-ubi-plaza-filter-wrap', 'cfg-modelo-cat-filter-wrap'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.remove();
+      });
+
       // Plaza filter for ubicaciones
-      const existingFilter = document.getElementById('cfg-ubi-plaza-filter-wrap');
-      if (existingFilter) existingFilter.remove();
       if (TAB_ACTIVA_CFG === 'ubicaciones' && searchBox) {
         const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
         if (plazas.length > 0) {
@@ -10274,6 +10332,29 @@ const api = window.api;
               style="padding:7px 10px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; font-weight:700; outline:none; background:white; color:#334155; cursor:pointer;">
               <option value="">Todas las plazas</option>
               ${plazas.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('')}
+            </select>
+          `;
+          searchBox.parentNode.insertBefore(wrap, searchBox);
+        }
+      }
+
+      // Category filter for modelos
+      if (TAB_ACTIVA_CFG === 'modelos' && searchBox) {
+        const cats = (window.MEX_CONFIG?.listas?.categorias || []);
+        if (cats.length > 0) {
+          const wrap = document.createElement('div');
+          wrap.id = 'cfg-modelo-cat-filter-wrap';
+          wrap.style.cssText = 'display:flex; align-items:center; gap:6px; margin-bottom:8px;';
+          const catOpts = cats.map(c => {
+            const n = typeof c === 'object' ? (c.nombre || c.id) : c;
+            return `<option value="${escapeHtml(n)}">${escapeHtml(n)}</option>`;
+          }).join('');
+          wrap.innerHTML = `
+            <span class="material-icons" style="font-size:16px; color:#94a3b8;">category</span>
+            <select id="cfg-modelo-cat-filter" onchange="renderizarListaConfig()"
+              style="padding:7px 10px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; font-weight:700; outline:none; background:white; color:#334155; cursor:pointer;">
+              <option value="">Todas las categorías</option>
+              ${catOpts}
             </select>
           `;
           searchBox.parentNode.insertBefore(wrap, searchBox);
@@ -10466,6 +10547,7 @@ const api = window.api;
       const rawLista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] || [];
       const query = (document.getElementById('cfg-search-input')?.value || "").trim().toUpperCase();
       const plazaFilter = TAB_ACTIVA_CFG === 'ubicaciones' ? (document.getElementById('cfg-ubi-plaza-filter')?.value || '') : '';
+      const catFilter = TAB_ACTIVA_CFG === 'modelos' ? (document.getElementById('cfg-modelo-cat-filter')?.value || '') : '';
 
       // GERENTE_PLAZA only sees their plaza's ubicaciones
       const myPlaza = (typeof currentUserProfile !== 'undefined' && currentUserProfile?.plazaAsignada) || '';
@@ -10475,6 +10557,10 @@ const api = window.api;
 
       if(query) {
          lista = lista.filter(item => (item.id || item.nombre || "").toUpperCase().includes(query));
+      }
+
+      if(catFilter) {
+        lista = lista.filter(item => (typeof item === 'object' ? item.categoria : '') === catFilter);
       }
 
       if(TAB_ACTIVA_CFG === 'ubicaciones') {
@@ -10490,6 +10576,9 @@ const api = window.api;
         return;
       }
 
+      const tabsSinDrag = ['gasolinas'];
+      const usaDrag = !tabsSinDrag.includes(TAB_ACTIVA_CFG) && !query && !plazaFilter;
+
       container.innerHTML = lista.map((itemObj, visIndex) => {
         const i = itemObj._origIndex;
         const item = rawLista[i];
@@ -10499,7 +10588,6 @@ const api = window.api;
         let pText = "";
 
         if(TAB_ACTIVA_CFG === 'ubicaciones') {
-          // Normalize legacy to object rendering
           const isPlaza = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
           const plazaTag = item.plazaId ? `<span style="font-size:10px; background:#0ea5e9; color:white; padding:2px 6px; border-radius:4px; font-weight:700; display:inline-block; margin-left:4px;">${escapeHtml(item.plazaId)}</span>` : '';
           pText = (isPlaza
@@ -10509,41 +10597,111 @@ const api = window.api;
 
         if(TAB_ACTIVA_CFG === 'modelos') {
           const modCat = typeof item === 'object' ? item.categoria : 'SIN ASIGNAR';
-          pText = `<span style="font-size:10px; background:#475569; color:white; padding:2px 6px; border-radius:4px; display:inline-block; margin-left:8px;">${modCat}</span>`;
+          const catFilter = document.getElementById('cfg-modelo-cat-filter')?.value || '';
+          pText = `<span style="font-size:10px; background:#475569; color:white; padding:2px 6px; border-radius:4px; display:inline-block; margin-left:8px;">${escapeHtml(modCat || 'SIN CAT.')}</span>`;
         }
 
         if(TAB_ACTIVA_CFG === 'categorias') {
-           const misModelos = (window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor).map(m => m.nombre).slice(0, 3);
-           const cuantosAg = misModelos.length;
-           const extraTag = (window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor).length > 3 ? '...' : '';
-           const catStr = cuantosAg > 0 ? ` [${misModelos.join(', ')}${extraTag}]` : '';
-           if(catStr) pText = `<span style="font-size:11px; color:#64748b; font-weight:600; margin-left:8px;">${catStr}</span>`;
+          const modelos = (window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor);
+          const preview = modelos.slice(0, 3).map(m => m.nombre).join(', ');
+          const extra = modelos.length > 3 ? ` +${modelos.length - 3}` : '';
+          if (modelos.length > 0) {
+            pText = `<span style="font-size:11px; color:#64748b; font-weight:600; margin-left:8px; cursor:pointer;" onclick="cfgToggleModelos('catmod-${i}')" title="Ver modelos">
+              [${preview}${extra}] <span class="material-icons" style="font-size:11px; vertical-align:middle;">expand_more</span>
+            </span>`;
+          }
         }
 
-        return `<div class="cfg-item" style="padding: 10px 15px; display:flex; align-items:center; justify-content:space-between; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px;">
-      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-        ${color ? `<div class="cfg-item-color" style="background:${color}; width:16px; height:16px; border-radius:50%; box-shadow:0 0 0 1px rgba(0,0,0,0.1);" title="${color}"></div>` : ''}
-        <strong style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden;">${valor}</strong>
-        ${pText}
-        ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700;">·&nbsp;orden ${item.orden}</span>` : ''}
-      </div>
-      
-      <div style="display:flex; gap: 4px;">
-        <button style="border:none; background:#f1f5f9; padding:4px; border-radius:4px; cursor:pointer;" onclick="editarElementoConfig(${i})" title="Editar">
-          <span class="material-icons" style="font-size:14px; color:#0f172a;">edit</span>
-        </button>
-        <button style="border:none; background:#f1f5f9; padding:4px; border-radius:4px; cursor:pointer;" onclick="moverElementoConfig(${i}, -1)" title="Subir" ${i === 0 ? 'disabled style="opacity:0.3; cursor:not-allowed"' : ''}>
-          <span class="material-icons" style="font-size:14px; color:#475569;">arrow_upward</span>
-        </button>
-        <button style="border:none; background:#f1f5f9; padding:4px; border-radius:4px; cursor:pointer;" onclick="moverElementoConfig(${i}, 1)" title="Bajar" ${i === rawLista.length - 1 ? 'disabled style="opacity:0.3; cursor:not-allowed"' : ''}>
-          <span class="material-icons" style="font-size:14px; color:#475569;">arrow_downward</span>
-        </button>
-        <button class="cfg-item-del" style="border:none; background:#fee2e2; padding:4px; border-radius:4px; cursor:pointer;" onclick="eliminarElementoConfig(${i})" title="Eliminar">
-          <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
-        </button>
-      </div>
-    </div>`;
+        if(TAB_ACTIVA_CFG === 'gasolinas') {
+          const pct = _gasToPercent(valor);
+          pText = `<span style="display:inline-flex; align-items:center; gap:6px; margin-left:8px;">
+            <span style="width:80px; height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; display:inline-block;">
+              <span style="display:block; height:100%; width:${pct}%; background:${pct > 60 ? '#10b981' : pct > 30 ? '#f59e0b' : '#ef4444'}; border-radius:4px; transition:width 0.3s;"></span>
+            </span>
+            <span style="font-size:10px; font-weight:800; color:#64748b;">${pct}%</span>
+          </span>`;
+        }
+
+        const dragAttrs = usaDrag ? `draggable="true" ondragstart="cfgDragStart(event,${i})" ondragover="cfgDragOver(event)" ondrop="cfgDrop(event,${i})"` : '';
+        const dragHandle = usaDrag ? `<span class="cfg-drag-handle" title="Arrastrar para reordenar"><span class="material-icons">drag_indicator</span></span>` : '';
+
+        const modelosExpandidos = TAB_ACTIVA_CFG === 'categorias'
+          ? `<div id="catmod-${i}" class="cfg-cat-models-expand" style="display:none;">
+              ${(window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor).map(m => `<span class="cfg-cat-model-chip">${escapeHtml(m.nombre)}</span>`).join('') || '<span style="font-size:11px;color:#94a3b8;">Sin modelos asignados</span>'}
+            </div>` : '';
+
+        return `<div class="cfg-item" ${dragAttrs} data-cfg-idx="${i}" style="padding:10px 12px; display:flex; flex-direction:column; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; transition:opacity 0.15s;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+              ${dragHandle}
+              ${color ? `<div style="background:${color}; width:14px; height:14px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,0.1);" title="${color}"></div>` : ''}
+              <strong style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden; font-size:13px;">${escapeHtml(valor)}</strong>
+              ${pText}
+              ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700; flex-shrink:0;">ord.${item.orden}</span>` : ''}
+            </div>
+            <div style="display:flex; gap:4px; flex-shrink:0;">
+              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="editarElementoConfig(${i})" title="Editar">
+                <span class="material-icons" style="font-size:14px; color:#0f172a;">edit</span>
+              </button>
+              <button class="cfg-item-del" style="border:none; background:#fee2e2; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="eliminarElementoConfig(${i})" title="Eliminar">
+                <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
+              </button>
+            </div>
+          </div>
+          ${modelosExpandidos}
+        </div>`;
       }).join('');
+    }
+
+    // ── Drag-and-drop para listas de configuración ──────────────────────
+    let _cfgDragSrcIdx = null;
+
+    function cfgDragStart(event, origIdx) {
+      _cfgDragSrcIdx = origIdx;
+      event.dataTransfer.effectAllowed = 'move';
+      event.currentTarget.style.opacity = '0.4';
+    }
+
+    function cfgDragOver(event) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'move';
+    }
+
+    function cfgDrop(event, destOrigIdx) {
+      event.preventDefault();
+      if (_cfgDragSrcIdx === null || _cfgDragSrcIdx === destOrigIdx) {
+        _cfgDragSrcIdx = null;
+        return;
+      }
+      const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
+      if (!lista) return;
+      const moved = lista.splice(_cfgDragSrcIdx, 1)[0];
+      // Adjust dest index if we removed an element before it
+      const adjustedDest = destOrigIdx > _cfgDragSrcIdx ? destOrigIdx - 1 : destOrigIdx;
+      lista.splice(adjustedDest, 0, moved);
+      _cfgDragSrcIdx = null;
+      renderizarListaConfig();
+    }
+
+    function cfgToggleModelos(id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    // Convierte valor de gasolina a porcentaje (0-100)
+    function _gasToPercent(val) {
+      const v = String(val || '').trim().toUpperCase();
+      if (v === 'F') return 100;
+      if (v === 'H') return 50;
+      if (v === 'E') return 0;
+      if (v === 'N/A') return 0;
+      const parts = v.split('/');
+      if (parts.length === 2) {
+        const n = Number(parts[0]), d = Number(parts[1]);
+        if (d > 0) return Math.round((n / d) * 100);
+      }
+      return 0;
     }
 
     function buscarEnListaConfig() { renderizarListaConfig(); }
@@ -10901,6 +11059,26 @@ const api = window.api;
       const emp = window.MEX_CONFIG.empresa || {};
       const plazasDetalle = emp.plazasDetalle || [];
       const d = plazasDetalle.find(x => x.id === plazaId) || {};
+      const contactos = Array.isArray(d.contactos) ? d.contactos : [];
+      const roles = (window.MEX_CONFIG?.listas?.roles || []);
+
+      const contactosHtml = contactos.length > 0
+        ? contactos.map((c, ci) => `
+          <div class="cfg-plaza-contact-row" id="plaza-contact-${ci}">
+            <input type="text" class="plaza-cnt-nombre" value="${escapeHtml(c.nombre||'')}" placeholder="Nombre" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+            <input type="text" class="plaza-cnt-rol" value="${escapeHtml(c.rol||'')}" placeholder="Rol/Puesto" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+            <input type="tel" class="plaza-cnt-tel" value="${escapeHtml(c.telefono||'')}" placeholder="Teléfono" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+            <button onclick="_plazaRemoveContact(${ci})" style="background:#fee2e2; border:none; border-radius:8px; width:30px; height:30px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+              <span class="material-icons" style="font-size:14px; color:#ef4444;">close</span>
+            </button>
+          </div>`)
+          .join('')
+        : '<div id="plaza-contacts-empty" style="font-size:12px; color:#94a3b8; font-weight:700; padding:8px 0;">Sin contactos registrados.</div>';
+
+      const mapsEmbedUrl = d.mapsUrl
+        ? `https://maps.google.com/maps?q=${encodeURIComponent(d.mapsUrl)}&output=embed`
+        : '';
+
       return `
         <div class="cfg-plaza-form-card">
           <div class="cfg-plaza-form-header">
@@ -10911,8 +11089,8 @@ const api = window.api;
             </div>
           </div>
 
+          <!-- Información General -->
           <div class="cfg-plaza-form-section">Información General</div>
-
           <div class="cfg-plaza-form-field">
             <label>Nombre de la Plaza</label>
             <input type="text" id="plaza-nombre" value="${escapeHtml(d.nombre || '')}" placeholder="Ej: Hermosillo Centro">
@@ -10920,6 +11098,20 @@ const api = window.api;
           <div class="cfg-plaza-form-field">
             <label>Localidad</label>
             <input type="text" id="plaza-localidad" value="${escapeHtml(d.localidad || '')}" placeholder="Ej: Hermosillo, Sonora">
+          </div>
+          <div class="cfg-plaza-form-field">
+            <label>Dirección</label>
+            <input type="text" id="plaza-direccion" value="${escapeHtml(d.direccion || '')}" placeholder="Ej: Blvd. Rodríguez 123, Col. Centro" oninput="_plazaPreviewMaps()">
+          </div>
+          <div class="cfg-plaza-form-field">
+            <label>Google Maps — dirección o coordenadas</label>
+            <input type="text" id="plaza-maps-url" value="${escapeHtml(d.mapsUrl || '')}" placeholder="Ej: 29.0924,-110.9600  o  Nombre del lugar"
+              style="flex:1;" oninput="_plazaPreviewMaps()">
+            <div id="plaza-maps-preview" style="margin-top:8px; ${mapsEmbedUrl ? '' : 'display:none;'}">
+              <iframe id="plaza-maps-iframe" src="${mapsEmbedUrl ? escapeHtml(mapsEmbedUrl) : ''}"
+                style="width:100%; height:220px; border-radius:10px; border:1px solid #e2e8f0; display:block;"
+                loading="lazy" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
           </div>
           <div class="cfg-plaza-form-field">
             <label>Correo de la Plaza</label>
@@ -10930,8 +11122,8 @@ const api = window.api;
             <input type="tel" id="plaza-telefono" value="${escapeHtml(d.telefono || '')}" placeholder="Ej: 6441234567">
           </div>
 
+          <!-- Gerencia -->
           <div class="cfg-plaza-form-section">Gerencia</div>
-
           <div class="cfg-plaza-form-field">
             <label>Gerente de Plaza</label>
             <input type="text" id="plaza-gerente" value="${escapeHtml(d.gerente || '')}" placeholder="Nombre del gerente">
@@ -10941,13 +11133,60 @@ const api = window.api;
             <input type="email" id="plaza-correo-gerente" value="${escapeHtml(d.correoGerente || '')}" placeholder="gerente@tuempresa.com">
           </div>
 
-          <div style="margin-top:20px; display:flex; gap:10px;">
+          <!-- Contactos -->
+          <div class="cfg-plaza-form-section" style="display:flex; align-items:center; justify-content:space-between;">
+            <span>Contactos</span>
+            <button onclick="_plazaAddContact()" style="background:var(--mex-blue); color:white; border:none; border-radius:8px; padding:4px 10px; font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:4px;">
+              <span class="material-icons" style="font-size:13px;">add</span> AGREGAR
+            </button>
+          </div>
+          <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;">Visible para jefes como directorio de contacto de la plaza.</div>
+          <div id="plaza-contacts-list" style="display:flex; flex-direction:column; gap:6px; margin-bottom:10px;">
+            ${contactosHtml}
+          </div>
+
+          <div style="margin-top:16px; display:flex; gap:10px;">
             <button onclick="plazaGuardarCfg('${escapeHtml(plazaId)}')" style="flex:1; padding:12px; background:var(--mex-accent); color:white; border:none; border-radius:12px; font-weight:900; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px;">
               <span class="material-icons" style="font-size:17px;">save</span> GUARDAR PLAZA
             </button>
           </div>
         </div>
       `;
+    }
+
+    function _plazaPreviewMaps() {
+      const q = (document.getElementById('plaza-maps-url')?.value || document.getElementById('plaza-direccion')?.value || '').trim();
+      const preview = document.getElementById('plaza-maps-preview');
+      const iframe = document.getElementById('plaza-maps-iframe');
+      if (!preview || !iframe) return;
+      if (!q) { preview.style.display = 'none'; iframe.src = ''; return; }
+      const url = `https://maps.google.com/maps?q=${encodeURIComponent(q)}&output=embed`;
+      iframe.src = url;
+      preview.style.display = 'block';
+    }
+
+    function _plazaAddContact() {
+      const list = document.getElementById('plaza-contacts-list');
+      if (!list) return;
+      const empty = document.getElementById('plaza-contacts-empty');
+      if (empty) empty.remove();
+      const ci = list.querySelectorAll('.cfg-plaza-contact-row').length;
+      const row = document.createElement('div');
+      row.className = 'cfg-plaza-contact-row';
+      row.id = `plaza-contact-${ci}`;
+      row.innerHTML = `
+        <input type="text" class="plaza-cnt-nombre" placeholder="Nombre" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+        <input type="text" class="plaza-cnt-rol" placeholder="Rol/Puesto" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+        <input type="tel" class="plaza-cnt-tel" placeholder="Teléfono" style="flex:2; padding:7px 9px; border-radius:8px; border:1.5px solid #e2e8f0; font-size:12px; outline:none;">
+        <button onclick="this.closest('.cfg-plaza-contact-row').remove()" style="background:#fee2e2; border:none; border-radius:8px; width:30px; height:30px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center;">
+          <span class="material-icons" style="font-size:14px; color:#ef4444;">close</span>
+        </button>`;
+      list.appendChild(row);
+    }
+
+    function _plazaRemoveContact(ci) {
+      const row = document.getElementById(`plaza-contact-${ci}`);
+      if (row) row.remove();
     }
 
     function plazaSeleccionarCfg(plazaId) {
@@ -10966,19 +11205,30 @@ const api = window.api;
       if(!emp) return showToast('Error: config no cargada', 'error');
       emp.plazasDetalle = emp.plazasDetalle || [];
       const idx = emp.plazasDetalle.findIndex(d => d.id === plazaId);
+
+      // Recopilar contactos del DOM
+      const contactRows = document.querySelectorAll('.cfg-plaza-contact-row');
+      const contactos = Array.from(contactRows).map(row => ({
+        nombre: (row.querySelector('.plaza-cnt-nombre')?.value || '').trim().toUpperCase(),
+        rol: (row.querySelector('.plaza-cnt-rol')?.value || '').trim().toUpperCase(),
+        telefono: (row.querySelector('.plaza-cnt-tel')?.value || '').trim()
+      })).filter(c => c.nombre || c.telefono);
+
       const datos = {
         id: plazaId,
         nombre: (document.getElementById('plaza-nombre')?.value || '').trim(),
         localidad: (document.getElementById('plaza-localidad')?.value || '').trim(),
+        direccion: (document.getElementById('plaza-direccion')?.value || '').trim(),
+        mapsUrl: (document.getElementById('plaza-maps-url')?.value || '').trim(),
         correo: (document.getElementById('plaza-correo')?.value || '').trim().toLowerCase(),
         telefono: (document.getElementById('plaza-telefono')?.value || '').trim(),
         gerente: (document.getElementById('plaza-gerente')?.value || '').trim().toUpperCase(),
-        correoGerente: (document.getElementById('plaza-correo-gerente')?.value || '').trim().toLowerCase()
+        correoGerente: (document.getElementById('plaza-correo-gerente')?.value || '').trim().toLowerCase(),
+        contactos
       };
       if(idx > -1) emp.plazasDetalle[idx] = datos;
       else emp.plazasDetalle.push(datos);
       showToast(`Plaza ${plazaId} actualizada. Publica los cambios para guardar.`, 'success');
-      // Refresh cards
       plazaSeleccionarCfg(plazaId);
     }
 
@@ -11703,7 +11953,7 @@ const api = window.api;
             password: "",
             estado: "RECHAZADA",
             motivo_rechazo: motivo,
-            rechazadoPor: USER_NAME || ""
+            rechazadoPor: (currentUserProfile?.nombre) || USER_NAME || "Sistema"
           });
           await registrarEventoGestion('SOLICITUD_RECHAZADA', `Rechazó la solicitud de acceso de ${nombre}`, {
             entidad: 'SOLICITUDES_ACCESO',
@@ -12168,6 +12418,15 @@ Object.assign(window, {
   renderCorreosInternos,
   renderFlota,
   renderHistorialCuadres,
+  limpiarFiltrosArchivero,
+  toggleIframe,
+  cfgDragStart,
+  cfgDragOver,
+  cfgDrop,
+  cfgToggleModelos,
+  _plazaPreviewMaps,
+  _plazaAddContact,
+  _plazaRemoveContact,
   renderModernDropdown,
   renderizarAdjuntosIncidencia,
   renderizarArchivosNuevaNota,
