@@ -626,6 +626,7 @@ const api = window.api;
           const emailNormalizado = _profileDocId(user.email);
           const snapshot = await db.collection(COL.USERS).where("email", "==", emailNormalizado).get();
 
+          let perfilValidado = null;
           if (!snapshot.empty) {
             const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
             const bestMatch = docs.find(d => d.id === emailNormalizado)
@@ -633,20 +634,23 @@ const api = window.api;
               || docs[0];
             const datos = _normalizeUserProfile(bestMatch);
             _setSessionProfile(datos);
-
             configurarPermisosUI();
-            iniciarApp(true);
+            perfilValidado = datos;
           } else {
             // Email no autorizado — redirigir a login con mensaje
             auth.signOut();
             sessionStorage.setItem('login_error', `❌ El correo ${user.email} no tiene permisos en el sistema.`);
             window.location.replace('/login');
+            return;
           }
         } catch (e) {
           console.error("Error validando usuario:", e);
           sessionStorage.setItem('login_error', '❌ Error de conexión. Intenta de nuevo.');
           window.location.replace('/login');
+          return;
         }
+        // iniciarApp fuera del try/catch: errores de UI no deben redirigir a /login
+        iniciarApp(true);
       } else {
         // Sin sesión — redirigir a /login
         _clearSessionProfile();
@@ -752,10 +756,13 @@ const api = window.api;
     });
 
 
-    // Trigger de Enter
-    document.getElementById('auth_pass').addEventListener('keypress', function (e) {
-      if (e.key === 'Enter') loginManual();
-    });
+    // Trigger de Enter (el elemento puede no existir en mapa.html)
+    const _authPassEl = document.getElementById('auth_pass');
+    if (_authPassEl) {
+      _authPassEl.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') loginManual();
+      });
+    }
 
 
 
