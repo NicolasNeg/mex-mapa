@@ -283,14 +283,15 @@ service cloud.firestore {
     }
 
     // ─── DATOS OPERATIVOS DEL MAPA ───────────────────────────
-    match /mapa_config/{doc} {
-      allow read, write: if tienePerfilActual();
-    }
-
-    // Colecciones de mapa por plaza (mapa_config_BJX, mapa_config_GDL, …)
-    match /{plazaCol}/{doc} {
-      allow read: if plazaCol.matches('mapa_config_.+') && tienePerfilActual();
-      allow write: if plazaCol.matches('mapa_config_.+') && esAccesoTotal();
+    // mapa_config/{plazaId}            → documento raíz por plaza (o doc legacy "cel_*")
+    // mapa_config/{plazaId}/estructura → subcolección con las celdas del mapa
+    match /mapa_config/{plazaId} {
+      allow read: if tienePerfilActual();
+      allow write: if esAccesoTotal();
+      match /estructura/{cel} {
+        allow read: if tienePerfilActual();
+        allow write: if esAccesoTotal();
+      }
     }
 
     match /index_unidades/{doc} {

@@ -102,6 +102,7 @@ const api = window.api;
           aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
           _aplicarColoresEstados();
           if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
+          if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
         }
       } catch (error) {
         console.error("❌ Error descargando la configuración:", error);
@@ -433,7 +434,13 @@ const api = window.api;
     // Plaza activa en el mapa (puede cambiar si JEFE_REGIONAL cambia de vista)
     let PLAZA_ACTIVA_MAPA = '';
 
-    function _miPlaza() { return PLAZA_ACTIVA_MAPA || (currentUserProfile?.plazaAsignada || ''); }
+    function _miPlaza() {
+      if (PLAZA_ACTIVA_MAPA) return PLAZA_ACTIVA_MAPA;
+      if (currentUserProfile?.plazaAsignada) return currentUserProfile.plazaAsignada;
+      // Fallback para fullAccess sin plaza asignada: primera plaza configurada
+      const plazas = window.MEX_CONFIG?.empresa?.plazas;
+      return (Array.isArray(plazas) && plazas.length > 0) ? plazas[0] : '';
+    }
     function _puedeVerTodasPlazas() { return hasFullAccess(); }
     function _plazasPermitidas() {
       if (_puedeVerTodasPlazas()) return null; // null = sin restricción
@@ -1096,26 +1103,25 @@ const api = window.api;
       if (_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
 
       if (typeof api === 'undefined' || typeof api.suscribirMapa !== 'function') {
-        // api aún no cargó — reintentar en 500ms
         setTimeout(startAutoRefresh, 500);
         return;
       }
 
-      // Plaza activa — null si tiene acceso global (ve todos)
-      const plazaFiltro = _puedeVerTodasPlazas() ? null : _miPlaza();
+      // Siempre usamos la plaza activa — para la estructura siempre necesitamos
+      // una plaza específica; para unidades también filtramos por la plaza vista.
+      const plazaActiva = _miPlaza();
 
       if (typeof api.suscribirEstructuraMapa === 'function') {
         _unsubMapaEstructura = api.suscribirEstructuraMapa(estructura => {
           _mapaRuntime.estructuraReady = true;
           dibujarMapaCompleto(estructura);
-        }, plazaFiltro);
+        }, plazaActiva);
       } else {
         dibujarMapaCompleto();
       }
 
-      // Usar suscribirMapaPlaza si está disponible (filtra por plaza en el cliente)
       const suscribir = api.suscribirMapaPlaza
-        ? (cb) => api.suscribirMapaPlaza(plazaFiltro, cb)
+        ? (cb) => api.suscribirMapaPlaza(plazaActiva, cb)
         : api.suscribirMapa.bind(api);
 
       _unsubMapa = suscribir(unidades => {
@@ -1128,6 +1134,47 @@ const api = window.api;
         _mapaRuntime.pendingUnits = null;
         sincronizarMapa(unidades);
       });
+    }
+
+    // Cambia la plaza activa en el mapa y reinicia las suscripciones
+    function cambiarPlazaMapa(plaza) {
+      if (!plaza || PLAZA_ACTIVA_MAPA === plaza) return;
+      PLAZA_ACTIVA_MAPA = plaza;
+      _renderPlazaSwitcher();
+      startAutoRefresh();
+    }
+
+    // Renderiza las píldoras del plaza-switcher (solo si el usuario tiene acceso a >1 plaza)
+    function _renderPlazaSwitcher() {
+      const bar = document.getElementById('plaza-map-switcher-bar');
+      if (!bar) return;
+
+      let plazas;
+      if (_puedeVerTodasPlazas()) {
+        plazas = window.MEX_CONFIG?.empresa?.plazas || [];
+      } else {
+        plazas = _plazasPermitidas() || [];
+      }
+
+      if (!plazas || plazas.length <= 1) {
+        bar.style.display = 'none';
+        return;
+      }
+
+      // Si no hay plaza activa aún, auto-seleccionar la primera y reiniciar subs
+      if (!PLAZA_ACTIVA_MAPA && plazas.length > 0) {
+        PLAZA_ACTIVA_MAPA = plazas[0];
+        startAutoRefresh();
+      }
+
+      bar.style.display = 'flex';
+      bar.innerHTML = plazas.map(p => `
+        <button class="plaza-switch-pill${PLAZA_ACTIVA_MAPA === p ? ' active' : ''}"
+          onclick="cambiarPlazaMapa('${escapeHtml(p)}')">
+          <span class="material-icons" style="font-size:13px;margin-right:4px;vertical-align:middle;">location_city</span>
+          ${escapeHtml(p)}
+        </button>
+      `).join('');
     }
 
     function _ajustarViewportMapa() {
@@ -12862,4 +12909,7 @@ Object.assign(window, {
   _miPlaza,
   _puedeVerTodasPlazas,
   _plazasPermitidas,
+  // Plaza switcher
+  cambiarPlazaMapa,
+  _renderPlazaSwitcher,
 });

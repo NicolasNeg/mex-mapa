@@ -12148,3 +12148,61 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
   font-family: inherit;
   color: var(--text, #0f172a);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PLAZA MAP SWITCHER
+═══════════════════════════════════════════════════════════ */
+#plaza-map-switcher-bar {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px 4px;
+  flex-wrap: wrap;
+  position: relative;
+  z-index: 10;
+}
+
+.plaza-switch-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid rgba(255,255,255,0.15);
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.6);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+.plaza-switch-pill:hover {
+  background: rgba(255,255,255,0.14);
+  color: #fff;
+  border-color: rgba(255,255,255,0.35);
+}
+.plaza-switch-pill.active {
+  background: var(--mex-accent, #6366f1);
+  border-color: var(--mex-accent, #6366f1);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(99,102,241,0.45);
+}
+
+/* Light mode override */
+body:not(.dark-theme) .plaza-switch-pill {
+  background: rgba(0,0,0,0.05);
+  color: #334155;
+  border-color: #cbd5e1;
+}
+body:not(.dark-theme) .plaza-switch-pill:hover {
+  background: rgba(0,0,0,0.09);
+  color: #0f172a;
+}
+body:not(.dark-theme) .plaza-switch-pill.active {
+  background: var(--mex-accent, #6366f1);
+  border-color: var(--mex-accent, #6366f1);
+  color: #fff;
+}

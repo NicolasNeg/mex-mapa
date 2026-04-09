@@ -818,39 +818,48 @@ const API_FUNCTIONS = {
   },
 
   // ── Estructura de mapa por plaza ─────────────────────────────────────────
-  _mapaColeccion(plaza) {
-    const p = (plaza || '').toUpperCase().trim();
-    return p ? `mapa_config_${p}` : COL.MAPA_CFG;
-  },
+  // Nueva arquitectura: mapa_config/{plaza}/estructura/{cel_N}
+  // Legacy fallback:   mapa_config/cel_N  (datos anteriores al cambio)
 
   async obtenerEstructuraMapa(plaza) {
-    const col = this._mapaColeccion(plaza);
-    const snap = await db.collection(col).orderBy("orden").get();
-    if (!snap.empty) return snap.docs.map(d => d.data());
-    // Fallback: si la plaza no tiene mapa propio, intentar el global
-    if (col !== COL.MAPA_CFG) {
-      const fallback = await db.collection(COL.MAPA_CFG).orderBy("orden").get();
-      if (!fallback.empty) return fallback.docs.map(d => d.data());
+    const p = (plaza || '').toUpperCase().trim();
+    if (p) {
+      const snap = await db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden').get();
+      if (!snap.empty) return snap.docs.map(d => d.data());
     }
+    // Fallback: colección legacy (documentos raíz cuyo ID empieza con "cel_")
+    const legSnap = await db.collection(COL.MAPA_CFG).orderBy('orden').get();
+    const legDocs = legSnap.docs.filter(d => d.id.startsWith('cel_'));
+    if (legDocs.length > 0) return legDocs.map(d => d.data());
     return _generarEstructuraPorDefecto();
   },
 
   suscribirEstructuraMapa(callback, plaza) {
-    const col = this._mapaColeccion(plaza);
-    return db.collection(col).orderBy("orden").onSnapshot(snap => {
-      if (!snap.empty) {
-        callback(snap.docs.map(d => d.data()));
-        return;
-      }
-      // Fallback to default if empty
-      callback(_generarEstructuraPorDefecto());
-    }, err => console.error("onSnapshot mapa_cfg:", err));
+    const p = (plaza || '').toUpperCase().trim();
+    if (p) {
+      return db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden')
+        .onSnapshot(snap => {
+          if (!snap.empty) { callback(snap.docs.map(d => d.data())); return; }
+          // Subcolección vacía → intentar legacy
+          db.collection(COL.MAPA_CFG).orderBy('orden').get().then(legSnap => {
+            const legDocs = legSnap.docs.filter(d => d.id.startsWith('cel_'));
+            callback(legDocs.length > 0 ? legDocs.map(d => d.data()) : _generarEstructuraPorDefecto());
+          }).catch(() => callback(_generarEstructuraPorDefecto()));
+        }, err => console.error('onSnapshot mapa_cfg:', err));
+    }
+    // Sin plaza → suscribir legacy collection
+    return db.collection(COL.MAPA_CFG).orderBy('orden').onSnapshot(snap => {
+      const docs = snap.docs.filter(d => d.id.startsWith('cel_'));
+      callback(docs.length > 0 ? docs.map(d => d.data()) : _generarEstructuraPorDefecto());
+    }, err => console.error('onSnapshot mapa_cfg (legacy):', err));
   },
 
   async guardarEstructuraMapa(elementos, plaza) {
-    const col = this._mapaColeccion(plaza);
+    if (!plaza) throw new Error('Plaza requerida para guardar estructura del mapa');
+    const p = plaza.toUpperCase().trim();
+    const ref = db.collection('mapa_config').doc(p).collection('estructura');
     // 1. Borrar todos los documentos actuales
-    const snap = await db.collection(col).get();
+    const snap = await ref.get();
     if (!snap.empty) {
       const batch = db.batch();
       snap.docs.forEach(d => batch.delete(d.ref));
@@ -861,13 +870,13 @@ const API_FUNCTIONS = {
       const chunk = elementos.slice(i, i + 490);
       const batch = db.batch();
       chunk.forEach((el, j) => {
-        const ref = db.collection(col).doc(`cel_${el.orden ?? (i + j)}`);
-        batch.set(ref, el);
+        const docRef = ref.doc(`cel_${el.orden ?? (i + j)}`);
+        batch.set(docRef, el);
       });
       await batch.commit();
     }
-    await _registrarLog("SISTEMA", `🗺️ Estructura del mapa${plaza ? ' (' + plaza + ')' : ''} actualizada`, "Sistema");
-    return "OK";
+    await _registrarLog('SISTEMA', `🗺️ Estructura del mapa (${p}) actualizada`, 'Sistema');
+    return 'OK';
   },
 
   // ─── MODIFICACIONES ──────────────────────────────────────
