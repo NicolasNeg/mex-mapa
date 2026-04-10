@@ -81,14 +81,26 @@ const SETTINGS_DOC = "principal";
 const EVIDENCE_FOLDER = "evidencias_cuadre_admins";
 const NOTE_ATTACHMENT_FOLDER = "notas_admin_adjuntos";
 
-// ── Helpers subcollections por plaza (Fase 2 escalabilidad) ──
-// cuadre/{plaza}/unidades/{mvaId}
-// externos/{plaza}/unidades/{mvaId}
+// ── Helpers subcollections por plaza ─────────────────────────
+// Fase 2: cuadre/{plaza}/unidades/{mvaId}
+//          externos/{plaza}/unidades/{mvaId}
+// Fase 3: cuadre_admins/{plaza}/registros/{docId}
+//          historial_cuadres/{plaza}/registros/{docId}
+// Fase 4: configuracion/{plaza}  → { ubicaciones: [...] }
 function _cuadreRef(plaza) {
   return db.collection('cuadre').doc((plaza || '').toUpperCase().trim()).collection('unidades');
 }
 function _externosRef(plaza) {
   return db.collection('externos').doc((plaza || '').toUpperCase().trim()).collection('unidades');
+}
+function _cuadreAdmRef(plaza) {
+  return db.collection('cuadre_admins').doc((plaza || '').toUpperCase().trim()).collection('registros');
+}
+function _histCuadreRef(plaza) {
+  return db.collection('historial_cuadres').doc((plaza || '').toUpperCase().trim()).collection('registros');
+}
+function _configPlazaRef(plaza) {
+  return db.collection('configuracion').doc((plaza || '').toUpperCase().trim());
 }
 // Búsqueda por MVA usando collectionGroup (cross-plaza).
 // Devuelve { ref, data } o null.
@@ -1181,9 +1193,27 @@ const API_FUNCTIONS = {
     return lista;
   },
 
-  async obtenerCuadreAdminsData() {
+  async obtenerCuadreAdminsData(plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
+    if (plazaUp) {
+      const snap = await _cuadreAdmRef(plazaUp).orderBy("_createdAt", "desc").get();
+      if (!snap.empty) return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+    }
+    // Fallback: collectionGroup cross-plaza (admins sin plaza o datos legacy)
+    try {
+      const groupSnap = await db.collectionGroup('registros').orderBy("_createdAt", "desc").get();
+      const admDocs = groupSnap.docs.filter(d =>
+        (d.ref.parent?.parent?.parent?.id || '') === 'cuadre_admins'
+        && (!plazaUp || (d.data().plaza || '').toUpperCase() === plazaUp)
+      );
+      if (!admDocs.empty && admDocs.length > 0) return Promise.all(admDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+    } catch { /* collectionGroup no disponible */ }
+    // Legacy plano
     const snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
-    return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+    const legacyDocs = plazaUp
+      ? snap.docs.filter(d => !d.data().plaza || (d.data().plaza || '').toUpperCase() === plazaUp)
+      : snap.docs;
+    return Promise.all(legacyDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
   },
 
   async procesarModificacionMaestra(datos, tipoAccion) {
@@ -1195,47 +1225,76 @@ const API_FUNCTIONS = {
 
       if (tipoAccion === "ADD" || tipoAccion === "INSERTAR") {
         if (!mva) return "ERROR: Falta la unidad (MVA) para registrar en Cuadre Admins.";
-        const existente = await db.collection(COL.CUADRE_ADM).where("mva", "==", mva).limit(1).get();
-        if (!existente.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
 
-        const ref = db.collection(COL.CUADRE_ADM).doc();
-        const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, ref.id, actor);
         const payload = _buildCuadreAdminPayload({
-          ...datos,
-          mva,
-          _createdAt: _now(),
-          _createdBy: actor
-        }, [...manualEvidence, ...uploadedEvidence]);
+          ...datos, mva, _createdAt: _now(), _createdBy: actor
+        }, manualEvidence);
         if (!payload.plaza) return "ERROR: Falta la plaza operativa para registrar en Cuadre Admins.";
-        await ref.set(payload);
+        const plazaUp = payload.plaza.toUpperCase().trim();
+
+        // Verificar duplicado en subcollection y legacy
+        const subSnap = await _cuadreAdmRef(plazaUp).where("mva", "==", mva).limit(1).get();
+        if (!subSnap.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
+        const legSnap = await db.collection(COL.CUADRE_ADM).where("mva", "==", mva).limit(1).get();
+        if (!legSnap.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
+
+        const ref = _cuadreAdmRef(plazaUp).doc();
+        const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, ref.id, actor);
+        const finalPayload = _buildCuadreAdminPayload({
+          ...datos, mva, _createdAt: _now(), _createdBy: actor
+        }, [...manualEvidence, ...uploadedEvidence]);
+        await ref.set(finalPayload);
+
       } else if (tipoAccion === "MODIFICAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
-        const ref = db.collection(COL.CUADRE_ADM).doc(datos.fila);
-        const snap = await ref.get();
-        const actual = snap.exists ? snap.data() : {};
+
+        // Buscar doc en subcollection o legacy
+        let ref = null, actual = {};
+        const plazaFila = (datos.plaza || '').toUpperCase().trim();
+        if (plazaFila) {
+          const subRef = _cuadreAdmRef(plazaFila).doc(datos.fila);
+          const subSnap = await subRef.get();
+          if (subSnap.exists) { ref = subRef; actual = subSnap.data(); }
+        }
+        if (!ref) {
+          const legRef = db.collection(COL.CUADRE_ADM).doc(datos.fila);
+          const legSnap = await legRef.get();
+          if (legSnap.exists) { ref = legRef; actual = legSnap.data(); }
+        }
+        if (!ref) return "ERROR: Registro no encontrado";
+
         const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, datos.fila, actor);
         const evidencias = _dedupeEvidenceItems([
-          ..._normalizeLegacyEvidence(actual),
-          ...manualEvidence,
-          ...uploadedEvidence
+          ..._normalizeLegacyEvidence(actual), ...manualEvidence, ...uploadedEvidence
         ]);
         const payload = _buildCuadreAdminPayload({
-          ...actual,
-          ...datos,
+          ...actual, ...datos,
           mva: mva || _sanitizeText(actual.mva).toUpperCase(),
           _createdAt: actual._createdAt || _now(),
           _createdBy: actual._createdBy || actor
         }, evidencias);
         if (!payload.plaza) return "ERROR: Falta la plaza operativa para actualizar en Cuadre Admins.";
         await ref.set(payload, { merge: true });
+
       } else if (tipoAccion === "ELIMINAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
-        const ref = db.collection(COL.CUADRE_ADM).doc(datos.fila);
-        const snap = await ref.get();
-        if (snap.exists) {
-          await _deleteEvidenceFiles(_normalizeLegacyEvidence(snap.data()));
+
+        const plazaFila = (datos.plaza || '').toUpperCase().trim();
+        let ref = null, snapData = null;
+        if (plazaFila) {
+          const subRef = _cuadreAdmRef(plazaFila).doc(datos.fila);
+          const subSnap = await subRef.get();
+          if (subSnap.exists) { ref = subRef; snapData = subSnap.data(); }
         }
-        await ref.delete();
+        if (!ref) {
+          const legRef = db.collection(COL.CUADRE_ADM).doc(datos.fila);
+          const legSnap = await legRef.get();
+          if (legSnap.exists) { ref = legRef; snapData = legSnap.data(); }
+        }
+        if (ref) {
+          if (snapData) await _deleteEvidenceFiles(_normalizeLegacyEvidence(snapData));
+          await ref.delete();
+        }
       }
       return "EXITO";
     } catch(e) { return "ERROR: " + e.message; }
@@ -1822,9 +1881,21 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     await _setSettings({ ultimaModificacion: _now(), ultimoEditor: autor });
     return "OK";
   },
-  async obtenerHistorialCuadres() {
-    const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
-    return snap.docs.map(d => {
+  async obtenerHistorialCuadres(plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
+    let docs = [];
+    if (plazaUp) {
+      const snap = await _histCuadreRef(plazaUp).orderBy("timestamp", "desc").limit(30).get();
+      if (!snap.empty) docs = snap.docs;
+    }
+    // Fallback legacy si no hay docs en subcollection
+    if (!docs.length) {
+      const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
+      docs = plazaUp
+        ? snap.docs.filter(d => !d.data().plaza || (d.data().plaza || '').toUpperCase() === plazaUp)
+        : snap.docs;
+    }
+    return docs.map(d => {
       const data = d.data();
       return {
         id:        d.id,
@@ -1834,25 +1905,64 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
         ok:        data.ok || "0",
         faltantes: data.faltantes || "0",
         sobrantes: data.sobrantes || data.numSobrantes || "0",
-        pdfUrl:    data.pdfUrl || data.jsonCompleto || ""
+        pdfUrl:    data.pdfUrl || data.jsonCompleto || "",
+        plaza:     data.plaza || plazaUp || ""
       };
     });
   },
 
   // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
-  async obtenerConfiguracion() {
-    const [snapEmpresa, snapListas] = await Promise.all([
+  // Fase 4: ubicaciones se guardan por plaza en configuracion/{plaza}
+  // El resto (estados, gasolinas, categorias, modelos) sigue en configuracion/listas (global)
+  async obtenerConfiguracion(plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
+    const fetches = [
       db.collection(COL.CONFIG).doc("empresa").get(),
       db.collection(COL.CONFIG).doc("listas").get()
-    ]);
+    ];
+    if (plazaUp) fetches.push(_configPlazaRef(plazaUp).get());
+    const snaps = await Promise.all(fetches);
+    const snapEmpresa = snaps[0];
+    const snapListas  = snaps[1];
+    const snapPlaza   = snaps[2] || null;
+
+    const globalListas = snapListas.exists
+      ? snapListas.data()
+      : { estados: [], gasolinas: [], categorias: [] };
+
+    // Si la plaza tiene sus propias ubicaciones, úsalas; si no, cae al campo global
+    let ubicaciones = globalListas.ubicaciones || [];
+    if (snapPlaza && snapPlaza.exists && Array.isArray(snapPlaza.data().ubicaciones)) {
+      ubicaciones = snapPlaza.data().ubicaciones;
+    } else if (plazaUp && Array.isArray(globalListas.ubicaciones)) {
+      // Migración suave: filtrar las del global que correspondan a esta plaza
+      const filtradas = globalListas.ubicaciones.filter(u =>
+        !u.plazaId || (u.plazaId || '').toUpperCase() === plazaUp
+      );
+      ubicaciones = filtradas.length > 0 ? filtradas : globalListas.ubicaciones;
+    }
+
     return {
       empresa: snapEmpresa.exists ? snapEmpresa.data() : { nombre: "MEX RENT A CAR" },
-      listas: snapListas.exists ? snapListas.data() : { ubicaciones: [], estados: [], gasolinas: [], categorias: [] }
+      listas: { ...globalListas, ubicaciones }
     };
   },
 
-  async guardarConfiguracionListas(listasActualizadas, autor = "Admin Global") {
-    await db.collection(COL.CONFIG).doc("listas").set(listasActualizadas, { merge: true });
+  async guardarConfiguracionListas(listasActualizadas, autor = "Admin Global", plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
+    const { ubicaciones, ...globalRest } = listasActualizadas;
+
+    // Siempre guarda los catálogos globales (sin ubicaciones) en /listas
+    await db.collection(COL.CONFIG).doc("listas").set(globalRest, { merge: true });
+
+    // Si hay plaza activa, guarda las ubicaciones en el doc de esa plaza
+    if (plazaUp && Array.isArray(ubicaciones)) {
+      await _configPlazaRef(plazaUp).set({ ubicaciones }, { merge: true });
+    } else if (Array.isArray(ubicaciones)) {
+      // Sin plaza → escribe en global (retrocompat)
+      await db.collection(COL.CONFIG).doc("listas").set({ ubicaciones }, { merge: true });
+    }
+
     await _registrarLog("SISTEMA", "⚙️ Modificó los catálogos del sistema", autor || "Admin Global");
     await _registrarEventoGestion("CONFIG_GLOBAL", "Publicó cambios en catálogos globales", autor || "Admin Global", {
       entidad: "CONFIGURACION",
@@ -1861,17 +1971,24 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     return "EXITO";
   },
 
-  async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats) {
+  async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats, plaza) {
+    const plazaUp = (plaza || stats?.plaza || '').toUpperCase().trim();
     await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin);
-    await db.collection(COL.HISTORIAL_CUADRES).add({
+    const registro = {
       timestamp: _ts(), fecha: _now(),
       auxiliar:  stats?.auxiliar || "",
       admin:     autorAdmin,
       ok:        stats?.ok || 0,
       faltantes: stats?.faltantes || 0,
       sobrantes: stats?.sobrantes || 0,
+      plaza:     plazaUp || "",
       pdfUrl:    ""
-    });
+    };
+    if (plazaUp) {
+      await _histCuadreRef(plazaUp).add(registro);
+    } else {
+      await db.collection(COL.HISTORIAL_CUADRES).add(registro);
+    }
     await _setSettings({ estadoCuadreV3: "LIBRE", adminIniciador: "" });
     return "EXITO";
   },
@@ -1890,8 +2007,17 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const snap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     if (snap.empty) return null;
     const data = snap.docs[0].data();
-    const cuadreSnap = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
-    const cuadreData = cuadreSnap.empty ? {} : cuadreSnap.docs[0].data();
+    // Busca estado operativo: subcollection primero, luego legacy
+    let cuadreData = {};
+    const plazaUp = (sucursal || (data.sucursal || data.plaza || '')).toUpperCase().trim();
+    if (plazaUp) {
+      const subSnap = await _cuadreRef(plazaUp).doc(mvaStr).get();
+      if (subSnap.exists) { cuadreData = subSnap.data(); }
+    }
+    if (!Object.keys(cuadreData).length) {
+      const found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
+      if (found) cuadreData = found.data;
+    }
     return {
       id: snap.docs[0].id, fila: snap.docs[0].id, plaza: sucursal,
       mva: data.mva || mvaStr, modelo: data.modelo || cuadreData.modelo || "",

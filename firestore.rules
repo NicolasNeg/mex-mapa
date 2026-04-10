@@ -322,15 +322,19 @@ service cloud.firestore {
       }
     }
 
-    // collectionGroup para lecturas cross-plaza de admins
+    // collectionGroup — lecturas cross-plaza (Fase 2/3)
     match /{path=**}/unidades/{doc} {
       allow read: if tienePerfilActual();
+    }
+    match /{path=**}/registros/{doc} {
+      allow read: if esAdminOperativo();
     }
 
     match /historial_patio/{doc} {
       allow read, write: if tienePerfilActual();
     }
 
+    // Cuadre Admins — doc raíz (legacy) + subcollection por plaza (Fase 3)
     match /cuadre_admins/{doc} {
       allow read: if esAdminOperativo();
       allow create: if puedeEditarCuadreAdmins() && mismaPlaza(plazaCuadreAdminNueva());
@@ -338,10 +342,19 @@ service cloud.firestore {
         && mismaPlaza(plazaCuadreAdminActual())
         && mismaPlaza(plazaCuadreAdminNueva());
       allow delete: if puedeEditarCuadreAdmins() && mismaPlaza(plazaCuadreAdminActual());
+      match /registros/{registro} {
+        allow read: if esAdminOperativo();
+        allow write: if puedeEditarCuadreAdmins() && mismaPlaza(doc);
+      }
     }
 
+    // Historial cuadres — doc raíz (legacy) + subcollection por plaza (Fase 3)
     match /historial_cuadres/{doc} {
       allow read, write: if tienePerfilActual();
+      match /registros/{registro} {
+        allow read: if tienePerfilActual();
+        allow write: if esAdminOperativo() && mismaPlaza(doc);
+      }
     }
 
     match /auditoria/{doc} {
@@ -395,9 +408,26 @@ service cloud.firestore {
     }
 
     // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
-    match /configuracion/{document=**} {
+    // configuracion/empresa, configuracion/listas → global (solo acceso total escribe)
+    // configuracion/{plaza} → catálogos por plaza (Fase 4: ubicaciones)
+    match /configuracion/{document} {
       allow read: if tienePerfilActual();
-      allow write: if esAccesoTotal();
+      allow write: if esAccesoTotal()
+        || (
+          // Gerentes/Jefes pueden escribir su propia configuración de plaza
+          (rolActual() == "GERENTE_PLAZA" || rolActual() == "JEFE_REGIONAL")
+          && document != "empresa"
+          && document != "listas"
+          && mismaPlaza(document)
+        );
+      match /{subcol=**} {
+        allow read: if tienePerfilActual();
+        allow write: if esAccesoTotal()
+          || (
+            (rolActual() == "GERENTE_PLAZA" || rolActual() == "JEFE_REGIONAL")
+            && mismaPlaza(document)
+          );
+      }
     }
 
     // ─── SOLICITUDES DE ACCESO ───────────────────────────────

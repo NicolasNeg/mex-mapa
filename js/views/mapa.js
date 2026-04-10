@@ -89,7 +89,7 @@ const api = window.api;
 
     async function inicializarConfiguracion() {
       try {
-        const config = await api.obtenerConfiguracion();
+        const config = await api.obtenerConfiguracion(_miPlaza());
 
         if (config && config.listas) {
           // Auto-seed estados si Firestore no los tiene
@@ -301,7 +301,7 @@ const api = window.api;
 
         document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;"><span class="material-icons spinner">sync</span> Cargando Cuadre Admins...</td></tr>`;
 
-        api.obtenerCuadreAdminsData().then(data => {
+        api.obtenerCuadreAdminsData(_miPlaza()).then(data => {
           DB_ADMINS = data;
           renderFlota(DB_ADMINS);
           document.getElementById('statTotal').innerText = DB_ADMINS.length;
@@ -8071,7 +8071,7 @@ const api = window.api;
               taller: document.getElementById('kpi-taller-loc').innerText
             };
 
-            api.procesarAuditoriaDesdeAdmin(window.AUDIT_LIST, USER_NAME, stats).then(res => {
+            api.procesarAuditoriaDesdeAdmin(window.AUDIT_LIST, USER_NAME, stats, _miPlaza()).then(res => {
               document.getElementById('audit-modal').classList.remove('active');
 
               // 🚨 REVISAMOS EL VEREDICTO DEL SERVIDOR 🚨
@@ -8219,7 +8219,7 @@ const api = window.api;
       const container = document.getElementById('lista-historial-cuadres');
       container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner">sync</span> Buscando en los archivos...</div>`;
 
-      api.obtenerHistorialCuadres().then(data => {
+      api.obtenerHistorialCuadres(_miPlaza()).then(data => {
         globalHistorialAuditorias = data || [];
         // Llenar select de autores
         const autorSelect = document.getElementById('filtroAutorArchivero');
@@ -11124,7 +11124,7 @@ const api = window.api;
       showToast("Subiendo configuración…", "info");
       try {
         await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, {merge:true});
-        await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME);
+        await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _miPlaza());
         showToast("Configuración actualizada", "success");
         aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
         _aplicarColoresEstados();
