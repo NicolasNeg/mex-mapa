@@ -1220,9 +1220,8 @@ const api = window.api;
       container.style.setProperty('--map-outer-pad', `${outerPad}px`);
       stage.style.marginTop = `${topMargin}px`;
 
+      // [F2] Canvas libre: el tamaño lo imponen las celdas absolutas — solo sync stage
       if (!_ultimaEstructuraMapa.length) return;
-      const bounds = _normalizarEstructuraMapa(_ultimaEstructuraMapa);
-      grid.style.setProperty('--map-cols', String(bounds.cols));
       _syncMapStageSize();
     }
 
@@ -1461,54 +1460,56 @@ const api = window.api;
       }
     }
 
+    // [F2] Normaliza estructura al modelo de posicionamiento absoluto x,y,width,height.
+    // Acepta tanto el formato nuevo (x,y,width,height) como el legado (row,col,rowspan,colspan).
     function _normalizarEstructuraMapa(estructura = []) {
-      const items = Array.isArray(estructura)
-        ? estructura
-          .map((celda, index) => ({
-            valor: String(celda?.valor || '').trim(),
-            row: Math.max(1, Number(celda?.row) || 1),
-            col: Math.max(1, Number(celda?.col) || 1),
-            rowspan: Math.max(1, Number(celda?.rowspan) || 1),
-            colspan: Math.max(1, Number(celda?.colspan) || 1),
-            tipo: celda?.esLabel ? 'label' : (celda?.tipo || 'cajon'),
-            esLabel: Boolean(celda?.esLabel),
-            orden: Number(celda?.orden ?? index)
-          }))
-          .sort((a, b) => a.orden - b.orden)
-        : [];
-
-      if (!items.length) {
-        return { items: [], cols: 1, rows: 1, signature: 'empty' };
+      if (!Array.isArray(estructura) || !estructura.length) {
+        return { items: [], canvasW: 0, canvasH: 0, signature: 'empty' };
       }
 
-      let minCol = Infinity;
-      let minRow = Infinity;
-      let maxCol = 1;
-      let maxRow = 1;
+      const items = estructura
+        .map((celda, index) => {
+          const valor = String(celda?.valor || '').trim();
+          const tipo  = celda?.esLabel ? 'label' : (celda?.tipo || 'cajon');
+          const esLabel = Boolean(celda?.esLabel);
+          const orden   = Number(celda?.orden ?? index);
 
-      items.forEach(celda => {
-        minCol = Math.min(minCol, celda.col);
-        minRow = Math.min(minRow, celda.row);
-        maxCol = Math.max(maxCol, celda.col + celda.colspan - 1);
-        maxRow = Math.max(maxRow, celda.row + celda.rowspan - 1);
+          // [F2] Si ya viene con x,y usar directo; si es legado grid → convertir
+          let x, y, width, height, rotation;
+          if (celda?.x !== undefined || celda?.y !== undefined) {
+            x        = Number(celda.x)        || 0;        // [F2]
+            y        = Number(celda.y)        || 0;        // [F2]
+            width    = Number(celda.width)    || 120;      // [F2]
+            height   = Number(celda.height)   || 80;       // [F2]
+            rotation = Number(celda.rotation) || 0;        // [F2]
+          } else {
+            // Legado: col/row/colspan/rowspan → calcular px con base 120×80 + 4 gap
+            const col     = Math.max(1, Number(celda?.col)     || 1);
+            const row     = Math.max(1, Number(celda?.row)     || 1);
+            const colspan = Math.max(1, Number(celda?.colspan) || 1);
+            const rowspan = Math.max(1, Number(celda?.rowspan) || 1);
+            const CW = 120, CH = 80, GAP = 4;
+            x        = (col  - 1) * (CW + GAP);
+            y        = (row  - 1) * (CH + GAP);
+            width    = colspan * CW + (colspan - 1) * GAP;
+            height   = rowspan * CH + (rowspan - 1) * GAP;
+            rotation = 0;
+          }
+          return { valor, tipo, esLabel, orden, x, y, width, height, rotation };
+        })
+        .sort((a, b) => a.orden - b.orden);
+
+      let canvasW = 0, canvasH = 0;
+      items.forEach(c => {
+        canvasW = Math.max(canvasW, c.x + c.width);
+        canvasH = Math.max(canvasH, c.y + c.height);
       });
 
-      const normalizados = items.map(celda => ({
-        ...celda,
-        gridCol: (celda.col - minCol) + 1,
-        gridRow: (celda.row - minRow) + 1
-      }));
-
-      const signature = normalizados
-        .map(celda => `${celda.valor}|${celda.gridRow}|${celda.gridCol}|${celda.rowspan}|${celda.colspan}|${celda.tipo}`)
+      const signature = items
+        .map(c => `${c.valor}|${c.x}|${c.y}|${c.width}|${c.height}|${c.tipo}`)
         .join('~');
 
-      return {
-        items: normalizados,
-        cols: Math.max(1, maxCol - minCol + 1),
-        rows: Math.max(1, maxRow - minRow + 1),
-        signature
-      };
+      return { items, canvasW: canvasW + 8, canvasH: canvasH + 8, signature };
     }
 
     function dibujarMapaCompleto(estructura = null) {
@@ -1534,17 +1535,25 @@ const api = window.api;
       _mapaRuntime.estructuraSig = normalizada.signature;
       const prevSelectedMva = selectedAuto?.dataset?.mva || '';
 
+      // [F2] Canvas libre: contenedor position:relative con tamaño calculado
       grid.innerHTML = "";
-      grid.style.setProperty('--map-cols', String(normalizada.cols));
+      grid.className = "mapa-canvas-libre"; // [F2]
+      grid.style.width  = `${normalizada.canvasW}px`; // [F2]
+      grid.style.height = `${normalizada.canvasH}px`; // [F2]
+      grid.style.removeProperty('--map-cols'); // ya no usa CSS grid
 
       const fragment = document.createDocumentFragment();
       normalizada.items.forEach(celda => {
         const div = document.createElement("div");
-        div.className = celda.valor.includes("-") ? 'spot' : 'area';
+        div.className = `mapa-celda-libre ${celda.tipo === 'cajon' ? 'spot' : 'area'}`; // [F2]
         div.id = "spot-" + celda.valor.replace(/\s/g, '').toUpperCase();
-        div.style.gridColumn = `${celda.gridCol} / span ${celda.colspan}`;
-        div.style.gridRow = `${celda.gridRow} / span ${celda.rowspan}`;
-        if (div.className === 'spot') div.innerHTML = `<label>${celda.valor}</label>`;
+        // [F2] Posicionamiento absoluto
+        div.style.left   = `${celda.x}px`;
+        div.style.top    = `${celda.y}px`;
+        div.style.width  = `${celda.width}px`;
+        div.style.height = `${celda.height}px`;
+        if (celda.rotation) div.style.transform = `rotate(${celda.rotation}deg)`; // [F2]
+        if (celda.tipo === 'cajon') div.innerHTML = `<label>${celda.valor}</label>`;
         else div.innerHTML = `<span>${celda.valor}</span>`;
         fragment.appendChild(div);
       });
@@ -10153,148 +10162,206 @@ const api = window.api;
     }
 
     // ═══════════════════════════════════════════════════════════
-    // 🗺️  EDITOR VISUAL DE MAPA
+    // 🗺️  EDITOR VISUAL DE MAPA — [F2] Posicionamiento absoluto libre
     // ═══════════════════════════════════════════════════════════
 
-    let _edCeldas = [];       // { id, valor, row, col, rowspan, colspan, tipo, esLabel, orden }
-    let _edSel = null;     // celda seleccionada
-    let _edRows = 12;
-    let _edCols = 15;
-    let _edModo = null;     // 'cajon' | 'area' | 'label' | null
-    const _ED_PX = 48;      // tamaño de cada celda en px
+    // [F2] Cada celda: { id, valor, tipo, esLabel, orden, x, y, width, height, rotation }
+    let _edCeldas = [];
+    let _edSel = null;          // celda seleccionada actualmente
+    let _edModo = null;         // 'cajon' | 'area' | 'label' | null (herramienta activa)
+    let _edDrag = null;         // estado de drag: { celdaId, startMouseX, startMouseY, startCeldaX, startCeldaY }
+    let _edResize = null;       // estado de resize: { celdaId, startMouseX, startMouseY, startW, startH }
+
+    // [F2] Defaults para celdas nuevas
+    const _ED_DEFAULT_W = 120;
+    const _ED_DEFAULT_H = 80;
 
     function abrirEditorMapa() {
       toggleAdminSidebar();
       document.getElementById('modal-editor-mapa').classList.add('active');
       document.getElementById('editor-loading').style.display = 'flex';
       document.getElementById('editor-grid-wrapper').style.display = 'none';
-      _edCeldas = []; _edSel = null; _edModo = null;
+      _edCeldas = []; _edSel = null; _edModo = null; _edDrag = null; _edResize = null;
       _resetEditorPanel();
 
       api.obtenerEstructuraMapa(_miPlaza()).then(estructura => {
         document.getElementById('editor-loading').style.display = 'none';
         document.getElementById('editor-grid-wrapper').style.display = 'block';
-        _edCeldas = estructura.map((c, i) => ({
+        // [F2] Normalizar al formato absoluto (también acepta legado grid)
+        const normalizada = _normalizarEstructuraMapa(estructura);
+        _edCeldas = normalizada.items.map((c, i) => ({
           id: 'ec_' + i + '_' + Math.random().toString(36).substr(2, 5),
-          valor: c.valor || '',
-          row: c.row || 1,
-          col: c.col || 1,
-          rowspan: c.rowspan || 1,
-          colspan: c.colspan || 1,
-          tipo: c.esLabel ? 'label' : (c.tipo || 'cajon'),
-          esLabel: !!c.esLabel,
-          orden: c.orden ?? i
+          valor:    c.valor,
+          tipo:     c.tipo     || 'cajon',
+          esLabel:  c.esLabel  || false,
+          orden:    c.orden    ?? i,
+          x:        c.x        ?? 0,       // [F2]
+          y:        c.y        ?? 0,       // [F2]
+          width:    c.width    ?? _ED_DEFAULT_W, // [F2]
+          height:   c.height   ?? _ED_DEFAULT_H, // [F2]
+          rotation: c.rotation ?? 0        // [F2]
         }));
-        // Ajustar tamaño de grid al contenido
-        _edRows = 10; _edCols = 13;
-        _edCeldas.forEach(c => {
-          _edRows = Math.max(_edRows, c.row + c.rowspan - 1);
-          _edCols = Math.max(_edCols, c.col + c.colspan - 1);
-        });
-        _edRows += 2; _edCols += 2;
-        document.getElementById('ep-grid-rows').innerText = _edRows;
-        document.getElementById('ep-grid-cols').innerText = _edCols;
-        _renderEditorGrid();
+        _renderEditorCanvas();
       }).catch(err => {
         document.getElementById('editor-loading').innerHTML =
           `<span style="color:#ef4444;font-weight:700;">Error: ${err}</span>`;
       });
     }
 
-    function _buildOccupancy(excludeId) {
-      const occ = {};
+    // [F2] Renderiza el canvas libre del editor con celdas posicionadas absolutamente
+    function _renderEditorCanvas() {
+      const wrapper = document.getElementById('editor-grid-wrapper');
+      if (!wrapper) return;
+
+      // Calcular tamaño del canvas
+      let canvasW = 800, canvasH = 500;
       _edCeldas.forEach(c => {
-        if (c.id === excludeId) return;
-        for (let r = c.row; r < c.row + c.rowspan; r++)
-          for (let cl = c.col; cl < c.col + c.colspan; cl++)
-            occ[`${r},${cl}`] = c.id;
+        canvasW = Math.max(canvasW, c.x + c.width + 20);
+        canvasH = Math.max(canvasH, c.y + c.height + 20);
       });
-      return occ;
-    }
 
-    function _renderEditorGrid() {
-      const grid = document.getElementById('editor-grid');
-      grid.innerHTML = '';
-      grid.style.gridTemplateColumns = `26px repeat(${_edCols}, ${_ED_PX}px)`;
-      grid.style.gridTemplateRows = `22px repeat(${_edRows}, ${_ED_PX}px)`;
-
-      const occ = _buildOccupancy(null);
-      const byId = {};
-      _edCeldas.forEach(c => byId[c.id] = c);
-
-      // Esquina top-left
-      const corner = document.createElement('div');
-      corner.style.cssText = 'grid-column:1; grid-row:1; background:rgba(255,255,255,0.04); border-radius:4px;';
-      grid.appendChild(corner);
-
-      // Headers de columna
-      for (let c = 1; c <= _edCols; c++) {
-        const h = document.createElement('div');
-        h.style.cssText = `grid-column:${c + 1}; grid-row:1; background:rgba(255,255,255,0.06); border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#4a90d9;`;
-        h.innerText = c;
-        grid.appendChild(h);
+      // Reusar o crear el canvas container
+      let canvas = document.getElementById('editor-canvas-libre');
+      if (!canvas) {
+        canvas = document.createElement('div');
+        canvas.id = 'editor-canvas-libre';
+        canvas.style.cssText = 'position:relative; overflow:auto; flex:1; background:rgba(0,0,0,0.22); border-radius:10px; border:1px solid rgba(255,255,255,0.07);';
+        // Reemplazar el editor-grid antiguo si existe
+        const oldGrid = document.getElementById('editor-grid');
+        if (oldGrid) oldGrid.replaceWith(canvas);
+        else wrapper.appendChild(canvas);
       }
 
-      // Filas
-      for (let r = 1; r <= _edRows; r++) {
-        // Header de fila
-        const rh = document.createElement('div');
-        rh.style.cssText = `grid-column:1; grid-row:${r + 1}; background:rgba(255,255,255,0.06); border-radius:3px; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#4a90d9;`;
-        rh.innerText = r;
-        grid.appendChild(rh);
+      // [F2] Contenedor interior con dimensiones calculadas
+      let inner = document.getElementById('editor-canvas-inner');
+      if (!inner) {
+        inner = document.createElement('div');
+        inner.id = 'editor-canvas-inner';
+        inner.style.cssText = 'position:relative; margin:8px;';
+        canvas.appendChild(inner);
+      }
+      inner.style.width  = `${canvasW}px`;
+      inner.style.height = `${canvasH}px`;
+      inner.innerHTML = '';
 
-        for (let c = 1; c <= _edCols; c++) {
-          const key = `${r},${c}`;
-          const cId = occ[key];
+      // Zona de drop para agregar nuevas celdas
+      inner.onclick = e => {
+        if (e.target !== inner) return;
+        if (!_edModo) { if (_edSel) { _resetEditorPanel(); _renderEditorCanvas(); } return; }
+        const rect = inner.getBoundingClientRect();
+        _edClickLibre(Math.round(e.clientX - rect.left), Math.round(e.clientY - rect.top));
+      };
 
-          if (cId) {
-            const celda = byId[cId];
-            if (celda && celda.row === r && celda.col === c) {
-              const isSel = _edSel && _edSel.id === cId;
-              const isLabel = celda.tipo === 'label';
-              const isArea = celda.tipo === 'area';
-              const bgNormal = isLabel ? 'linear-gradient(135deg,#1e293b,#0f172a)' : isArea ? 'linear-gradient(135deg,#334155,#1e3a5f)' : 'linear-gradient(135deg,#3b82f6,#2563eb)';
-              const bgSel = isLabel ? 'linear-gradient(135deg,#0f172a,#020617)' : isArea ? 'linear-gradient(135deg,#1e40af,#1e3a8a)' : 'linear-gradient(135deg,#1d4ed8,#1e40af)';
-              const div = document.createElement('div');
-              div.style.cssText = `
-            grid-column:${c + 1} / span ${celda.colspan};
-            grid-row:${r + 1} / span ${celda.rowspan};
-            background:${isSel ? bgSel : bgNormal};
-            border:${isSel ? '2.5px solid #fbbf24' : '1.5px solid rgba(255,255,255,0.12)'};
-            border-radius:7px; color:white; display:flex; align-items:center;
-            justify-content:center; font-weight:900;
-            font-size:${celda.valor.length > 6 ? '9' : '11'}px;
-            cursor:pointer; text-align:center; word-break:break-all; padding:3px;
-            transition:all 0.15s; user-select:none;
-            box-shadow:${isSel ? '0 0 0 3px rgba(251,191,36,0.35), 0 4px 12px rgba(0,0,0,0.4)' : '0 2px 6px rgba(0,0,0,0.35)'};
-            letter-spacing:0.3px;
-          `;
-              div.innerText = celda.valor;
-              div.onmouseenter = () => { if (!(_edSel && _edSel.id === cId)) div.style.opacity = '0.8'; };
-              div.onmouseleave = () => { div.style.opacity = '1'; };
-              div.onclick = e => { e.stopPropagation(); _edSelectCelda(celda); };
-              grid.appendChild(div);
-            }
-          } else {
-            // Celda vacía
-            const div = document.createElement('div');
-            const modoActivo = !!_edModo;
-            div.style.cssText = `
-          grid-column:${c + 1}; grid-row:${r + 1};
-          background:${modoActivo ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)'};
-          border:1px dashed ${modoActivo ? 'rgba(251,191,36,0.5)' : 'rgba(255,255,255,0.08)'};
-          border-radius:5px; cursor:${modoActivo ? 'cell' : 'default'};
-          transition:all 0.12s;
+      // [F2] Renderizar cada celda como elemento absolutamente posicionado
+      _edCeldas.forEach(celda => {
+        const isSel = _edSel && _edSel.id === celda.id;
+        const isLabel = celda.tipo === 'label';
+        const isArea  = celda.tipo === 'area';
+        const bg = isLabel ? '#1e293b' : isArea ? '#334155' : '#3b82f6';
+        const bgSel = isLabel ? '#0f172a' : isArea ? '#1e40af' : '#1d4ed8';
+
+        const el = document.createElement('div');
+        el.className = 'ed-celda-libre' + (isSel ? ' ed-celda-sel' : '');
+        el.style.cssText = `
+          position:absolute;
+          left:${celda.x}px; top:${celda.y}px;
+          width:${celda.width}px; height:${celda.height}px;
+          background:${isSel ? bgSel : bg};
+          border:${isSel ? '2.5px solid #fbbf24' : '1.5px solid rgba(255,255,255,0.15)'};
+          border-radius:7px; color:white; display:flex; align-items:center;
+          justify-content:center; font-weight:900;
+          font-size:${celda.valor.length > 6 ? '9' : '11'}px;
+          cursor:grab; text-align:center; word-break:break-all; padding:3px;
+          user-select:none; box-sizing:border-box;
+          box-shadow:${isSel ? '0 0 0 3px rgba(251,191,36,0.35)' : '0 2px 6px rgba(0,0,0,0.35)'};
+          ${celda.rotation ? `transform:rotate(${celda.rotation}deg);` : ''}
         `;
-            div.onmouseenter = () => { div.style.background = modoActivo ? 'rgba(251,191,36,0.2)' : 'rgba(255,255,255,0.07)'; if (modoActivo) div.style.borderColor = 'rgba(251,191,36,0.8)'; };
-            div.onmouseleave = () => { div.style.background = modoActivo ? 'rgba(251,191,36,0.1)' : 'rgba(255,255,255,0.03)'; if (modoActivo) div.style.borderColor = 'rgba(251,191,36,0.5)'; };
-            div.onclick = () => _edClickVacio(r, c);
-            grid.appendChild(div);
+        el.innerText = celda.valor;
+
+        // Seleccionar al hacer click
+        el.addEventListener('mousedown', e => {
+          e.stopPropagation();
+          _edSelectCelda(celda);
+          // [F2] Iniciar drag
+          _edDrag = { celdaId: celda.id, startMouseX: e.clientX, startMouseY: e.clientY, startCeldaX: celda.x, startCeldaY: celda.y };
+        });
+
+        // [F2] Handle de resize (esquina inferior-derecha)
+        const handle = document.createElement('div');
+        handle.className = 'ed-resize-handle';
+        handle.style.cssText = `
+          position:absolute; bottom:2px; right:2px; width:12px; height:12px;
+          background:rgba(251,191,36,0.7); border-radius:2px; cursor:se-resize;
+          display:${isSel ? 'block' : 'none'};
+        `;
+        handle.addEventListener('mousedown', e => {
+          e.stopPropagation();
+          _edResize = { celdaId: celda.id, startMouseX: e.clientX, startMouseY: e.clientY, startW: celda.width, startH: celda.height };
+        });
+        el.appendChild(handle);
+        inner.appendChild(el);
+      });
+
+      // [F2] Handlers globales de mousemove/mouseup para drag y resize
+      _bindEditorDragResize(inner);
+    }
+
+    // [F2] Bind de drag y resize en el canvas del editor
+    let _edDragResizeBound = false;
+    function _bindEditorDragResize(inner) {
+      if (_edDragResizeBound) return;
+      _edDragResizeBound = true;
+
+      document.addEventListener('mousemove', e => {
+        if (_edDrag) {
+          const dx = e.clientX - _edDrag.startMouseX;
+          const dy = e.clientY - _edDrag.startMouseY;
+          const c = _edCeldas.find(x => x.id === _edDrag.celdaId);
+          if (c) {
+            c.x = Math.max(0, _edDrag.startCeldaX + dx); // [F2]
+            c.y = Math.max(0, _edDrag.startCeldaY + dy); // [F2]
+            // Actualizar posición visual sin re-renderizar todo
+            const el = inner.querySelector(`.ed-celda-libre[data-id="${c.id}"]`);
+            if (el) { el.style.left = `${c.x}px`; el.style.top = `${c.y}px`; }
+            else _renderEditorCanvas(); // fallback
+          }
+          return;
+        }
+        if (_edResize) {
+          const dx = e.clientX - _edResize.startMouseX;
+          const dy = e.clientY - _edResize.startMouseY;
+          const c = _edCeldas.find(x => x.id === _edResize.celdaId);
+          if (c) {
+            c.width  = Math.max(40, _edResize.startW + dx);  // [F2]
+            c.height = Math.max(30, _edResize.startH + dy);  // [F2]
+            _renderEditorCanvas();
           }
         }
-      }
+      });
+
+      document.addEventListener('mouseup', e => {
+        if (_edDrag) {
+          _edDrag = null;
+          _renderEditorCanvas(); // re-render final para sincronizar
+        }
+        if (_edResize) {
+          _edResize = null;
+          // Actualizar panel lateral con nuevos valores
+          if (_edSel) _edSelectCelda(_edSel);
+        }
+      });
+
+      // Actualizar data-id en elementos
+      const observer = new MutationObserver(() => {
+        document.querySelectorAll('.ed-celda-libre').forEach((el, i) => {
+          const c = _edCeldas[i];
+          if (c) el.dataset.id = c.id;
+        });
+      });
+      observer.observe(inner, { childList: true });
     }
 
+    // [F2] Selecciona una celda y actualiza el panel de propiedades
     function _edSelectCelda(celda) {
       _edModo = null;
       document.getElementById('editor-add-hint').style.display = 'none';
@@ -10303,9 +10370,14 @@ const api = window.api;
       document.getElementById('editor-sel-form').style.display = 'block';
       document.getElementById('ep-nombre').value = celda.valor;
       document.getElementById('ep-tipo').value = celda.tipo || 'cajon';
-      document.getElementById('ep-colspan').innerText = celda.colspan;
-      document.getElementById('ep-rowspan').innerText = celda.rowspan;
-      _renderEditorGrid();
+      // [F2] Campos de posición y dimensión
+      const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+      setVal('ep-x',        Math.round(celda.x));
+      setVal('ep-y',        Math.round(celda.y));
+      setVal('ep-width',    Math.round(celda.width));
+      setVal('ep-height',   Math.round(celda.height));
+      setVal('ep-rotation', Math.round(celda.rotation || 0));
+      _renderEditorCanvas();
     }
 
     function _resetEditorPanel() {
@@ -10319,76 +10391,80 @@ const api = window.api;
       });
     }
 
-    function _edClickVacio(r, c) {
-      if (!_edModo) { if (_edSel) { _resetEditorPanel(); _renderEditorGrid(); } return; }
-
+    // [F2] Clic en área vacía del canvas al tener herramienta activa
+    function _edClickLibre(cx, cy) {
       const tipo = _edModo;
+      if (!tipo) return;
       const n = _edCeldas.filter(x => x.tipo === tipo).length + 1;
       const nombre = tipo === 'cajon' ? `X${n}` : tipo === 'area' ? `AREA${n}` : `S${n}`;
-      const rs = tipo === 'area' ? 2 : 1;
-      const cs = tipo === 'area' ? 3 : 1;
-
-      const occ = _buildOccupancy(null);
-      for (let rr = r; rr < r + rs; rr++)
-        for (let cc = c; cc < c + cs; cc++)
-          if (occ[`${rr},${cc}`]) { showToast("Espacio ocupado", "error"); return; }
-
-      const nueva = { id: 'ec_new_' + Date.now(), valor: nombre, row: r, col: c, rowspan: rs, colspan: cs, tipo, esLabel: tipo === 'label', orden: _edCeldas.length };
+      const w = tipo === 'area' ? _ED_DEFAULT_W * 2 : _ED_DEFAULT_W; // [F2]
+      const h = tipo === 'area' ? _ED_DEFAULT_H * 2 : _ED_DEFAULT_H; // [F2]
+      const nueva = {
+        id: 'ec_new_' + Date.now(), valor: nombre, tipo, esLabel: tipo === 'label',
+        orden: _edCeldas.length,
+        x: Math.max(0, cx - Math.round(w / 2)), y: Math.max(0, cy - Math.round(h / 2)), // [F2]
+        width: w, height: h, rotation: 0 // [F2]
+      };
       _edCeldas.push(nueva);
       _edModo = null;
       _edSelectCelda(nueva);
     }
 
+    // [F2] Cambio de propiedades desde el panel lateral
     function editorPropChange() {
       if (!_edSel) return;
-      _edSel.valor = document.getElementById('ep-nombre').value.toUpperCase();
-      _edSel.tipo = document.getElementById('ep-tipo').value;
-      _edSel.esLabel = _edSel.tipo === 'label';
+      _edSel.valor    = document.getElementById('ep-nombre').value.toUpperCase();
+      _edSel.tipo     = document.getElementById('ep-tipo').value;
+      _edSel.esLabel  = _edSel.tipo === 'label';
+      // [F2] Leer x,y,width,height,rotation del panel
+      const toNum = (id, fallback) => { const v = parseFloat(document.getElementById(id)?.value); return isNaN(v) ? fallback : v; };
+      _edSel.x        = toNum('ep-x',        _edSel.x);
+      _edSel.y        = toNum('ep-y',        _edSel.y);
+      _edSel.width    = Math.max(20, toNum('ep-width',  _edSel.width));
+      _edSel.height   = Math.max(20, toNum('ep-height', _edSel.height));
+      _edSel.rotation = toNum('ep-rotation', _edSel.rotation || 0);
       const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
       if (idx >= 0) _edCeldas[idx] = { ..._edSel };
-      _renderEditorGrid();
+      _renderEditorCanvas();
     }
 
+    // [F2] editorSpanChange renombrado a editorDimChange — ajusta width/height en pasos
     function editorSpanChange(prop, delta) {
       if (!_edSel) return;
-      const val = Math.max(1, (_edSel[prop] || 1) + delta);
-      const test = { ..._edSel, [prop]: val };
-      const occ = _buildOccupancy(_edSel.id);
-      for (let r = test.row; r < test.row + test.rowspan; r++)
-        for (let c = test.col; c < test.col + test.colspan; c++)
-          if (occ[`${r},${c}`]) { showToast("Hay otro cajón en esa área", "error"); return; }
-      _edSel[prop] = val;
+      const STEP = 10;
+      if (prop === 'colspan') { _edSel.width  = Math.max(20, (_edSel.width  || _ED_DEFAULT_W) + delta * STEP); } // [F2]
+      else                    { _edSel.height = Math.max(20, (_edSel.height || _ED_DEFAULT_H) + delta * STEP); } // [F2]
       const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
-      if (idx >= 0) _edCeldas[idx][prop] = val;
-      document.getElementById(`ep-${prop}`).innerText = val;
-      _renderEditorGrid();
+      if (idx >= 0) { _edCeldas[idx].width = _edSel.width; _edCeldas[idx].height = _edSel.height; }
+      // Actualizar inputs del panel
+      const wEl = document.getElementById('ep-width');  if (wEl) wEl.value = Math.round(_edSel.width);
+      const hEl = document.getElementById('ep-height'); if (hEl) hEl.value = Math.round(_edSel.height);
+      _renderEditorCanvas();
     }
 
+    // [F2] editorMoverCelda — mueve en pasos de px
     function editorMoverCelda(dCol, dRow) {
       if (!_edSel) return;
-      const nr = _edSel.row + dRow, nc = _edSel.col + dCol;
-      if (nr < 1 || nc < 1 || nr + _edSel.rowspan - 1 > _edRows || nc + _edSel.colspan - 1 > _edCols) { showToast("No se puede mover fuera del área", "error"); return; }
-      const occ = _buildOccupancy(_edSel.id);
-      for (let r = nr; r < nr + _edSel.rowspan; r++)
-        for (let c = nc; c < nc + _edSel.colspan; c++)
-          if (occ[`${r},${c}`]) { showToast("Espacio ocupado", "error"); return; }
-      _edSel.row = nr; _edSel.col = nc;
+      const STEP = 10;
+      _edSel.x = Math.max(0, (_edSel.x || 0) + dCol * STEP); // [F2]
+      _edSel.y = Math.max(0, (_edSel.y || 0) + dRow * STEP); // [F2]
       const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
-      if (idx >= 0) { _edCeldas[idx].row = nr; _edCeldas[idx].col = nc; }
-      _renderEditorGrid();
+      if (idx >= 0) { _edCeldas[idx].x = _edSel.x; _edCeldas[idx].y = _edSel.y; }
+      const xEl = document.getElementById('ep-x'); if (xEl) xEl.value = Math.round(_edSel.x);
+      const yEl = document.getElementById('ep-y'); if (yEl) yEl.value = Math.round(_edSel.y);
+      _renderEditorCanvas();
     }
 
     function editorEliminarCelda() {
       if (!_edSel) return;
       _edCeldas = _edCeldas.filter(c => c.id !== _edSel.id);
       _resetEditorPanel();
-      _renderEditorGrid();
+      _renderEditorCanvas();
     }
 
     function modoAgregarEditor(tipo) {
       _edModo = tipo;
       _resetEditorPanel();
-      // Highlight active tool button
       ['btn-tool-cajon', 'btn-tool-area', 'btn-tool-label'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.remove('active');
@@ -10399,30 +10475,29 @@ const api = window.api;
       const hint = document.getElementById('editor-add-hint');
       hint.style.display = 'flex';
       const labels = { cajon: 'un cajón', area: 'un área especial', label: 'una etiqueta' };
-      hint.innerHTML = `<span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span> Toca una celda vacía para agregar ${labels[tipo] || tipo}`;
-      _renderEditorGrid();
+      hint.innerHTML = `<span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span> Haz clic en el canvas para agregar ${labels[tipo] || tipo}`;
+      _renderEditorCanvas();
     }
 
-    function editorCambiarGrid(dim, delta) {
-      if (dim === 'rows') { _edRows = Math.max(5, _edRows + delta); document.getElementById('ep-grid-rows').innerText = _edRows; }
-      else { _edCols = Math.max(5, _edCols + delta); document.getElementById('ep-grid-cols').innerText = _edCols; }
-      _renderEditorGrid();
-    }
+    // [F2] editorCambiarGrid ya no aplica al canvas libre — se mantiene por compatibilidad HTML pero no hace nada
+    function editorCambiarGrid(dim, delta) { /* [F2] sin efecto en canvas libre */ }
 
     function guardarMapaEditor(btn) {
       if (_edCeldas.length === 0) { showToast("El mapa está vacío", "error"); return; }
       btn.disabled = true;
       btn.innerHTML = '<span class="material-icons spinner" style="font-size:16px;">sync</span> Guardando...';
 
+      // [F2] Payload con campos de posicionamiento absoluto
       const payload = _edCeldas.map((c, i) => ({
-        valor: c.valor,
-        row: c.row,
-        col: c.col,
-        rowspan: c.rowspan || 1,
-        colspan: c.colspan || 1,
-        esLabel: c.tipo === 'label',
-        tipo: c.tipo,
-        orden: i
+        valor:    c.valor,
+        tipo:     c.tipo,
+        esLabel:  c.tipo === 'label',
+        orden:    i,
+        x:        Math.round(c.x        || 0),       // [F2]
+        y:        Math.round(c.y        || 0),       // [F2]
+        width:    Math.round(c.width    || _ED_DEFAULT_W), // [F2]
+        height:   Math.round(c.height   || _ED_DEFAULT_H), // [F2]
+        rotation: Math.round(c.rotation || 0)        // [F2]
       }));
 
       api.guardarEstructuraMapa(payload, _miPlaza()).then(res => {

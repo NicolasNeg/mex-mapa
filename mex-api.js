@@ -77,176 +77,36 @@ const COL = {
   PLANTILLAS_ALERTAS: "plantillas_alertas"
 };
 
-const SETTINGS_DOC = "principal";
+// [F1] SETTINGS_DOC eliminado — settings se lean/escriben por plaza: settings/{plazaActual}
 const EVIDENCE_FOLDER = "evidencias_cuadre_admins";
 const NOTE_ATTACHMENT_FOLDER = "notas_admin_adjuntos";
 
-// ── Helpers subcollections por plaza ─────────────────────────
-// Fase 2: cuadre/{plaza}/unidades/{mvaId}
-//          externos/{plaza}/unidades/{mvaId}
-// Fase 3: cuadre_admins/{plaza}/registros/{docId}
-//          historial_cuadres/{plaza}/registros/{docId}
-// Fase 4: configuracion/{plaza}  → { ubicaciones: [...] }
-function _cuadreRef(plaza) {
-  return db.collection('cuadre').doc((plaza || '').toUpperCase().trim()).collection('unidades');
-}
-function _externosRef(plaza) {
-  return db.collection('externos').doc((plaza || '').toUpperCase().trim()).collection('unidades');
-}
-function _cuadreAdmRef(plaza) {
-  return db.collection('cuadre_admins').doc((plaza || '').toUpperCase().trim()).collection('registros');
-}
-function _histCuadreRef(plaza) {
-  return db.collection('historial_cuadres').doc((plaza || '').toUpperCase().trim()).collection('registros');
-}
+// [F1] Helpers eliminados: _cuadreRef, _externosRef, _cuadreAdmRef, _histCuadreRef
+// [F1] migrarDatosLegacyAPlazas eliminada (ya no tiene sentido con colecciones planas por plaza)
+
+// [F1] Sigue siendo necesario para configuracion/{plaza}
 function _configPlazaRef(plaza) {
   return db.collection('configuracion').doc((plaza || '').toUpperCase().trim());
 }
-// Búsqueda por MVA usando collectionGroup (cross-plaza).
-// Devuelve { ref, data } o null.
+
+// [F1] _buscarUnidadEnSubcol: ahora busca directamente en colecciones planas con campo plaza
 async function _buscarUnidadEnSubcol(mvaStr) {
-  try {
-    const snap = await db.collectionGroup('unidades').where('mva', '==', mvaStr).limit(1).get();
-    if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
-  } catch (e) { /* collectionGroup no disponible */ }
-  return null;
-}
-// Búsqueda legado: cuadre + externos planos.
-async function _buscarUnidadLegacy(mvaStr) {
+  // Busca en cuadre plano y externos plano (colecciones raíz con campo plaza)
   let snap = await db.collection(COL.CUADRE).where('mva', '==', mvaStr).limit(1).get();
-  if (snap.empty) snap = await db.collection(COL.EXTERNOS).where('mva', '==', mvaStr).limit(1).get();
+  if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
+  snap = await db.collection(COL.EXTERNOS).where('mva', '==', mvaStr).limit(1).get();
   if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
   return null;
 }
-// ── Fase 5: Migración legacy → subcollections por plaza ──────
-// Segura: sólo copia, no borra. Si el doc ya existe en subcollection → skip.
-// Usa batches de máx 490 para no romper límite de Firestore.
-async function migrarDatosLegacyAPlazas(onProgress) {
-  const informe = { ok: 0, skip: 0, errores: [] };
 
-  function _prog(col, total, done) {
-    if (typeof onProgress === 'function') onProgress({ col, total, done, informe });
-  }
+// [F1] _buscarUnidadLegacy: alias de _buscarUnidadEnSubcol (ya no hay distinción)
+async function _buscarUnidadLegacy(mvaStr) {
+  return _buscarUnidadEnSubcol(mvaStr);
+}
 
-  async function _escribirEnBatch(items) {
-    // items: [{ ref, data }]
-    for (let i = 0; i < items.length; i += 490) {
-      const lote = items.slice(i, i + 490);
-      const batch = db.batch();
-      lote.forEach(({ ref, data }) => batch.set(ref, data));
-      await batch.commit();
-    }
-  }
-
-  // ── 1. cuadre (docs raíz) ────────────────────────────────
-  try {
-    _prog('cuadre', 0, 0);
-    const snap = await db.collection(COL.CUADRE).get();
-    const docs = snap.docs.filter(d => !d.id.startsWith('__') && d.data().mva);
-    const escrituras = [];
-    for (const d of docs) {
-      const data = d.data();
-      const plaza = (data.plaza || data.sucursal || '').toUpperCase().trim();
-      if (!plaza) { informe.errores.push(`cuadre/${d.id}: sin plaza`); continue; }
-      const destRef = _cuadreRef(plaza).doc(d.id);
-      const existe = await destRef.get();
-      if (existe.exists) { informe.skip++; continue; }
-      escrituras.push({ ref: destRef, data });
-    }
-    await _escribirEnBatch(escrituras);
-    informe.ok += escrituras.length;
-    _prog('cuadre', docs.length, docs.length);
-  } catch (e) { informe.errores.push('cuadre: ' + e.message); }
-
-  // ── 2. externos (docs raíz) ───────────────────────────────
-  try {
-    _prog('externos', 0, 0);
-    const snap = await db.collection(COL.EXTERNOS).get();
-    const docs = snap.docs.filter(d => !d.id.startsWith('__') && d.data().mva);
-    const escrituras = [];
-    for (const d of docs) {
-      const data = d.data();
-      const plaza = (data.plaza || data.sucursal || '').toUpperCase().trim();
-      if (!plaza) { informe.errores.push(`externos/${d.id}: sin plaza`); continue; }
-      const destRef = _externosRef(plaza).doc(d.id);
-      const existe = await destRef.get();
-      if (existe.exists) { informe.skip++; continue; }
-      escrituras.push({ ref: destRef, data });
-    }
-    await _escribirEnBatch(escrituras);
-    informe.ok += escrituras.length;
-    _prog('externos', docs.length, docs.length);
-  } catch (e) { informe.errores.push('externos: ' + e.message); }
-
-  // ── 3. cuadre_admins ─────────────────────────────────────
-  try {
-    _prog('cuadre_admins', 0, 0);
-    const snap = await db.collection(COL.CUADRE_ADM).get();
-    const docs = snap.docs.filter(d => !d.id.startsWith('__'));
-    const escrituras = [];
-    for (const d of docs) {
-      const data = d.data();
-      const plaza = (data.plaza || data.ubicacion || '').toUpperCase().trim();
-      if (!plaza) { informe.errores.push(`cuadre_admins/${d.id}: sin plaza`); continue; }
-      const destRef = _cuadreAdmRef(plaza).doc(d.id);
-      const existe = await destRef.get();
-      if (existe.exists) { informe.skip++; continue; }
-      escrituras.push({ ref: destRef, data });
-    }
-    await _escribirEnBatch(escrituras);
-    informe.ok += escrituras.length;
-    _prog('cuadre_admins', docs.length, docs.length);
-  } catch (e) { informe.errores.push('cuadre_admins: ' + e.message); }
-
-  // ── 4. historial_cuadres ──────────────────────────────────
-  try {
-    _prog('historial_cuadres', 0, 0);
-    const snap = await db.collection(COL.HISTORIAL_CUADRES).get();
-    const docs = snap.docs.filter(d => !d.id.startsWith('__'));
-    const escrituras = [];
-    for (const d of docs) {
-      const data = d.data();
-      const plaza = (data.plaza || '').toUpperCase().trim();
-      if (!plaza) { informe.errores.push(`historial_cuadres/${d.id}: sin plaza`); continue; }
-      const destRef = _histCuadreRef(plaza).doc(d.id);
-      const existe = await destRef.get();
-      if (existe.exists) { informe.skip++; continue; }
-      escrituras.push({ ref: destRef, data });
-    }
-    await _escribirEnBatch(escrituras);
-    informe.ok += escrituras.length;
-    _prog('historial_cuadres', docs.length, docs.length);
-  } catch (e) { informe.errores.push('historial_cuadres: ' + e.message); }
-
-  // ── 5. configuracion/listas → ubicaciones por plaza ──────
-  try {
-    _prog('configuracion/listas', 0, 0);
-    const listasSnap = await db.collection(COL.CONFIG).doc('listas').get();
-    if (listasSnap.exists) {
-      const ubicaciones = listasSnap.data().ubicaciones || [];
-      // Agrupar ubicaciones por plaza
-      const byPlaza = {};
-      ubicaciones.forEach(u => {
-        const plazaId = ((typeof u === 'object' ? u.plazaId : null) || '').toUpperCase().trim();
-        if (!plazaId) return; // Sin plazaId → global, no migrar
-        if (!byPlaza[plazaId]) byPlaza[plazaId] = [];
-        byPlaza[plazaId].push(u);
-      });
-      for (const [plaza, ubics] of Object.entries(byPlaza)) {
-        const destRef = _configPlazaRef(plaza);
-        const existe = await destRef.get();
-        if (existe.exists && Array.isArray(existe.data().ubicaciones) && existe.data().ubicaciones.length > 0) {
-          informe.skip++;
-          continue;
-        }
-        await destRef.set({ ubicaciones: ubics }, { merge: true });
-        informe.ok++;
-      }
-    }
-    _prog('configuracion/listas', 1, 1);
-  } catch (e) { informe.errores.push('configuracion/listas: ' + e.message); }
-
-  return informe;
+// Convierte un MVA a un ID de documento Firestore seguro (sin '/', sin segmentos pares, etc.)
+function _mvaToDocId(mvaStr) {
+  return (mvaStr || '').replace(/\//g, '_').replace(/\s+/g, '_').trim() || 'SINMVA';
 }
 
 const ADMIN_FIXED_LOCATIONS = new Set([
@@ -812,19 +672,26 @@ async function _deleteEvidenceFiles(items = []) {
   }
 }
 
-async function _getSettings() {
-  const snap = await db.collection(COL.SETTINGS).doc(SETTINGS_DOC).get();
+// [F1] _getSettings/_setSettings ahora usan doc por plaza (settings/{plazaActual})
+// _settingsPlaza se inyecta desde las funciones públicas que ya conocen la plaza.
+// Cuando no se conoce la plaza se usa 'GLOBAL' como fallback.
+let _settingsPlazaActual = 'GLOBAL';
+function _settingsDoc(plaza) {
+  return db.collection(COL.SETTINGS).doc(((plaza || _settingsPlazaActual) || 'GLOBAL').toUpperCase().trim() || 'GLOBAL'); // [F1]
+}
+async function _getSettings(plaza) {
+  const snap = await _settingsDoc(plaza).get(); // [F1]
   return snap.exists ? snap.data() : {};
 }
-async function _setSettings(data) {
-  await db.collection(COL.SETTINGS).doc(SETTINGS_DOC).set(data, { merge: true });
+async function _setSettings(data, plaza) {
+  await _settingsDoc(plaza).set(data, { merge: true }); // [F1]
 }
-async function _registrarLog(tipo, mensaje, autor) {
+async function _registrarLog(tipo, mensaje, autor, plaza) {
   const ts = _ts();
   const id = `log_${ts}_${Math.floor(Math.random() * 1000)}`;
-  await db.collection(COL.LOGS).doc(id).set({
-    fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: autor || "Sistema"
-  });
+  const payload = { fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: autor || "Sistema" };
+  if (plaza) payload.plaza = (plaza || '').toUpperCase().trim(); // [F1] campo plaza en logs
+  await db.collection(COL.LOGS).doc(id).set(payload);
 }
 async function _registrarEventoGestion(tipo, mensaje, autor, extra = {}) {
   const ts = _ts();
@@ -852,14 +719,14 @@ async function _guardarPerfilUsuarioPorEmail(email, data = {}) {
   await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
   return docId;
 }
-async function _actualizarFeed(accion, autor) {
-  const settings = await _getSettings();
+async function _actualizarFeed(accion, autor, plaza) {
+  const settings = await _getSettings(plaza); // [F1]
   let feed = settings.liveFeed || [];
   if (typeof feed === "string") { try { feed = JSON.parse(feed); } catch(e) { feed = []; } }
   if (!Array.isArray(feed)) feed = [];
   feed.unshift({ accion: accion, fecha: _now().slice(-5), autor: autor || "Sistema" });
   if (feed.length > 5) feed.length = 5;
-  await _setSettings({ liveFeed: JSON.stringify(feed), ultimaModificacion: _now(), ultimoEditor: autor });
+  await _setSettings({ liveFeed: JSON.stringify(feed), ultimaModificacion: _now(), ultimoEditor: autor }, plaza); // [F1]
 }
 
 const API_FUNCTIONS = {
@@ -896,70 +763,49 @@ const API_FUNCTIONS = {
   },
 
   // ─── MAPA — SUSCRIPCIÓN EN TIEMPO REAL ──────────────────
-  // Llama a callback(unidades[]) cada vez que cuadre o externos cambian.
-  // Intenta collectionGroup('unidades') para ver todas las plazas nuevas;
-  // si falla (reglas / índice) cae al flat legacy.
+  // [F1] Lee directamente de colecciones planas (cuadre, externos).
+  // Para filtrar por plaza usa suscribirMapaPlaza().
   suscribirMapa(callback) {
     let pendingTimer = null;
-    let unsubFlat1 = null, unsubFlat2 = null;
-    let fallbackActive = false;
+    let fc = [], fe = [];
 
-    function _emit(cuadreDocs, externosDocs) {
+    function _emit() {
       if (pendingTimer) clearTimeout(pendingTimer);
       pendingTimer = setTimeout(() => {
-        const cuadreUnits = cuadreDocs
+        const cuadreUnits = fc
           .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
           .map(u => ({ ...u, tipo: "renta" }));
-        const externosUnits = externosDocs
+        const externosUnits = fe
           .filter(u => u.mva)
           .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
         callback([...cuadreUnits, ...externosUnits]);
       }, 1000);
     }
 
-    let groupDocs = [];
-    const unsubGroup = db.collectionGroup('unidades').onSnapshot(snap => {
-      groupDocs = snap.docs.map(d => ({
-        id: d.id, ...d.data(),
-        _col: d.ref.parent?.parent?.parent?.id || ''
-      }));
-      _emit(
-        groupDocs.filter(d => d._col === 'cuadre'),
-        groupDocs.filter(d => d._col === 'externos')
-      );
-    }, () => {
-      // Fallback a colecciones planas (legacy)
-      if (fallbackActive) return;
-      fallbackActive = true;
-      let fc = [], fe = [];
-      unsubFlat1 = db.collection(COL.CUADRE).onSnapshot(snap => {
-        fc = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        _emit(fc, fe);
-      }, err => console.error("onSnapshot cuadre:", err));
-      unsubFlat2 = db.collection(COL.EXTERNOS).onSnapshot(snap => {
-        fe = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        _emit(fc, fe);
-      }, err => console.error("onSnapshot externos:", err));
-    });
+    // [F1] Colecciones planas raíz
+    const unsubFlat1 = db.collection(COL.CUADRE).onSnapshot(snap => {
+      fc = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _emit();
+    }, err => console.error("onSnapshot cuadre:", err));
+    const unsubFlat2 = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      fe = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      _emit();
+    }, err => console.error("onSnapshot externos:", err));
 
     return () => {
-      unsubGroup();
-      if (unsubFlat1) unsubFlat1();
-      if (unsubFlat2) unsubFlat2();
+      unsubFlat1();
+      unsubFlat2();
       if (pendingTimer) clearTimeout(pendingTimer);
     };
   },
 
-  // ── suscribirMapa filtrado por plaza (subcollection-first) ─────────────────
-  // Lee de cuadre/{plaza}/unidades y externos/{plaza}/unidades.
-  // Si la subcollección está vacía, cae al legacy plano filtrado por campo plaza.
+  // [F1] suscribirMapaPlaza — colecciones planas filtradas por campo plaza
   suscribirMapaPlaza(plaza, callback) {
     const plazaUp = (plaza || '').toUpperCase().trim();
     if (!plazaUp) return this.suscribirMapa(callback);
 
     let cuadreDocs = [], externosDocs = [];
     let pendingTimer = null;
-    let legacyCuadre = false, legacyExternos = false;
 
     function emitir() {
       if (pendingTimer) clearTimeout(pendingTimer);
@@ -974,34 +820,16 @@ const API_FUNCTIONS = {
       }, 1000);
     }
 
-    const unsubCuadre = _cuadreRef(plazaUp).onSnapshot(snap => {
-      if (!snap.empty) {
-        legacyCuadre = false;
-        cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        emitir(); return;
-      }
-      if (legacyCuadre) return;
-      legacyCuadre = true;
-      db.collection(COL.CUADRE).get().then(ls => {
-        cuadreDocs = ls.docs.map(d => ({ id: d.id, ...d.data() }))
-          .filter(u => !u.plaza || (u.plaza || '').toUpperCase() === plazaUp);
-        emitir();
-      }).catch(() => { cuadreDocs = []; emitir(); });
+    // [F1] Colección plana con filtro de plaza
+    const unsubCuadre = db.collection(COL.CUADRE).where('plaza', '==', plazaUp).onSnapshot(snap => {
+      cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emitir();
     }, err => console.error("onSnapshot cuadre plaza:", err));
 
-    const unsubExternos = _externosRef(plazaUp).onSnapshot(snap => {
-      if (!snap.empty) {
-        legacyExternos = false;
-        externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        emitir(); return;
-      }
-      if (legacyExternos) return;
-      legacyExternos = true;
-      db.collection(COL.EXTERNOS).get().then(ls => {
-        externosDocs = ls.docs.map(d => ({ id: d.id, ...d.data() }))
-          .filter(u => !u.plaza || (u.plaza || '').toUpperCase() === plazaUp);
-        emitir();
-      }).catch(() => { externosDocs = []; emitir(); });
+    // [F1] Colección plana con filtro de plaza
+    const unsubExternos = db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).onSnapshot(snap => {
+      externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      emitir();
     }, err => console.error("onSnapshot externos plaza:", err));
 
     return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
@@ -1009,32 +837,31 @@ const API_FUNCTIONS = {
 
   async obtenerDatosParaMapa(plaza) {
     const plazaUp = (plaza || '').toUpperCase().trim();
+    // [F1] Colecciones planas filtradas por campo plaza
     if (plazaUp) {
       const [cs, es] = await Promise.all([
-        _cuadreRef(plazaUp).get(), _externosRef(plazaUp).get()
+        db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(), // [F1]
+        db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get() // [F1]
       ]);
-      if (!cs.empty || !es.empty) {
-        return { unidades: [
-          ...cs.docs.map(d => ({ id: d.id, ...d.data() }))
-            .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
-            .map(u => ({ ...u, tipo: "renta" })),
-          ...es.docs.map(d => ({ id: d.id, ...d.data() }))
-            .filter(u => u.mva)
-            .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }))
-        ]};
-      }
+      return { unidades: [
+        ...cs.docs.map(d => ({ id: d.id, ...d.data() }))
+          .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
+          .map(u => ({ ...u, tipo: "renta" })),
+        ...es.docs.map(d => ({ id: d.id, ...d.data() }))
+          .filter(u => u.mva)
+          .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }))
+      ]};
     }
-    // Legacy fallback
+    // Sin plaza: traer todo
     const [cuadreSnap, externosSnap] = await Promise.all([
       db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
     ]);
-    function _f(u) { return !plazaUp || !u.plaza || (u.plaza || '').toUpperCase() === plazaUp; }
     return { unidades: [
       ...cuadreSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER") && _f(u))
+        .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
         .map(u => ({ ...u, tipo: "renta" })),
       ...externosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .filter(u => u.mva && _f(u))
+        .filter(u => u.mva)
         .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }))
     ]};
   },
@@ -1045,6 +872,7 @@ const API_FUNCTIONS = {
 
   async obtenerEstructuraMapa(plaza) {
     const p = (plaza || '').toUpperCase().trim();
+    // [F1-B] mapa_config/{plazaId}/estructura/{cel}
     if (p) {
       const snap = await db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden').get();
       if (!snap.empty) return snap.docs.map(d => d.data());
@@ -1058,12 +886,12 @@ const API_FUNCTIONS = {
 
   suscribirEstructuraMapa(callback, plaza) {
     const p = (plaza || '').toUpperCase().trim();
+    // [F1-B] mapa_config/{plazaId}/estructura/{cel}
     if (p) {
       let fallbackCalled = false;
       return db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden')
         .onSnapshot(snap => {
           if (!snap.empty) { fallbackCalled = false; callback(snap.docs.map(d => d.data())); return; }
-          // Subcolección vacía → intentar legacy sólo una vez por suscripción
           if (fallbackCalled) return;
           fallbackCalled = true;
           db.collection(COL.MAPA_CFG).orderBy('orden').get().then(legSnap => {
@@ -1082,7 +910,7 @@ const API_FUNCTIONS = {
   async guardarEstructuraMapa(elementos, plaza) {
     if (!plaza) throw new Error('Plaza requerida para guardar estructura del mapa');
     const p = plaza.toUpperCase().trim();
-    const ref = db.collection('mapa_config').doc(p).collection('estructura');
+    const ref = db.collection('mapa_config').doc(p).collection('estructura'); // [F1-B]
     // 1. Borrar todos los documentos actuales
     const snap = await ref.get();
     if (!snap.empty) {
@@ -1091,16 +919,27 @@ const API_FUNCTIONS = {
       await batch.commit();
     }
     // 2. Insertar nueva estructura en lotes de 490
+    // [F2] Persiste x,y,width,height,rotation junto a valor/tipo/orden
     for (let i = 0; i < elementos.length; i += 490) {
       const chunk = elementos.slice(i, i + 490);
       const batch = db.batch();
       chunk.forEach((el, j) => {
         const docRef = ref.doc(`cel_${el.orden ?? (i + j)}`);
-        batch.set(docRef, el);
+        batch.set(docRef, {
+          valor:    el.valor    ?? '',
+          tipo:     el.tipo     ?? 'cajon',
+          esLabel:  el.esLabel  ?? false,
+          orden:    el.orden    ?? (i + j),
+          x:        el.x        ?? 0,        // [F2]
+          y:        el.y        ?? 0,        // [F2]
+          width:    el.width    ?? 120,      // [F2]
+          height:   el.height   ?? 80,       // [F2]
+          rotation: el.rotation ?? 0         // [F2]
+        });
       });
       await batch.commit();
     }
-    await _registrarLog('SISTEMA', `🗺️ Estructura del mapa (${p}) actualizada`, 'Sistema');
+    await _registrarLog('SISTEMA', `🗺️ Estructura del mapa (${p}) actualizada`, 'Sistema', p); // [F1]
     return 'OK';
   },
 
@@ -1111,16 +950,18 @@ const API_FUNCTIONS = {
 
     let docRef = null, actual = null;
 
-    // 1. Subcollection directa si se conoce la plaza
+    // [F1] Buscar en colecciones planas filtrando por plaza y mva
     if (plazaUp) {
-      for (const ref of [_cuadreRef(plazaUp).doc(mvaStr), _externosRef(plazaUp).doc(mvaStr)]) {
-        const snap = await ref.get();
-        if (snap.exists) { docRef = ref; actual = snap.data(); break; }
+      let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
+      if (!snap.empty) { docRef = snap.docs[0].ref; actual = snap.docs[0].data(); }
+      if (!docRef) {
+        snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
+        if (!snap.empty) { docRef = snap.docs[0].ref; actual = snap.docs[0].data(); }
       }
     }
-    // 2. CollectionGroup cross-plaza o legacy
+    // [F1] Fallback: buscar sin filtro de plaza
     if (!docRef) {
-      const found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
+      const found = await _buscarUnidadEnSubcol(mvaStr);
       if (!found) return "ERROR: MVA no encontrado";
       docRef = found.ref;
       actual = found.data;
@@ -1138,7 +979,7 @@ const API_FUNCTIONS = {
     }
 
     await docRef.update({ gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor });
-    await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion);
+    await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp); // [F1]
 
     // Registrar SOLO los cambios reales (no mostrar campos sin cambio)
     const cambiosReales = [];
@@ -1156,19 +997,16 @@ const API_FUNCTIONS = {
     const logMsg = cambiosReales.length > 0
       ? `✏️ ${mvaStr}: ${cambiosReales.join(' | ')}`
       : `🔄 ${mvaStr} (revisión sin cambios)`;
-    await _registrarLog("MODIF", logMsg, responsableSesion);
+    await _registrarLog("MODIF", logMsg, responsableSesion, plazaUp); // [F1] incluye plaza en log
     return "EXITO";
   },
 
   async insertarUnidadDesdeHTML(objeto) {
     const mvaStr = objeto.mva.toString().trim().toUpperCase();
-    const plazaUp = (objeto.plaza || '').toUpperCase().trim();
+    const docId  = _mvaToDocId(mvaStr);
+    const plazaUp = (objeto.plaza || '').toUpperCase().trim(); // [F1]
 
-    // Verificar duplicado: primero en subcollection, luego en legacy
-    if (plazaUp) {
-      const subDoc = await _cuadreRef(plazaUp).doc(mvaStr).get();
-      if (subDoc.exists) return `La unidad ${mvaStr} ya está registrada en el patio.`;
-    }
+    // [F1] Verificar duplicado en colección plana con campo plaza
     const existeLeg = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
     if (!existeLeg.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
 
@@ -1187,22 +1025,55 @@ const API_FUNCTIONS = {
       ubicacion:    objeto.ubicacion || "PATIO",
       notas:        notaFinal,
       pos:          "LIMBO",
-      plaza:        plazaUp || null,
+      plaza:        plazaUp || null, // [F1] siempre inyectar campo plaza
       fechaIngreso: new Date().toISOString(),
       _createdAt:   ahora,
       _createdBy:   objeto.responsableSesion || "Sistema"
     };
 
-    if (plazaUp) {
-      await _cuadreRef(plazaUp).doc(mvaStr).set(unitData);
-    } else {
-      // Sin plaza — escribe en colección plana legacy
-      await db.collection(COL.CUADRE).doc(mvaStr).set(unitData);
-    }
+    // [F1] Escribir siempre en colección raíz con docId sanitizado
+    await db.collection(COL.CUADRE).doc(docId).set(unitData); // [F1]
 
-    await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion);
-    await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion);
+    await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp); // [F1]
+    await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp); // [F1]
     return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
+  },
+
+  async insertarUnidadExterna(objeto) {
+    const mvaStr  = objeto.mva.toString().trim().toUpperCase();
+    const docId   = _mvaToDocId(mvaStr);
+    const plazaUp = (objeto.plaza || '').toUpperCase().trim(); // [F1]
+
+    // [F1] Verificar duplicado en colección plana
+    const existeLeg = await db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1).get();
+    if (!existeLeg.empty) return `La unidad externa ${mvaStr} ya está registrada.`;
+
+    const ahora = _now();
+    const notaFinal = objeto.notas ? `(${ahora}) - ${objeto.notas} - ${objeto.responsableSesion || ""}` : "";
+
+    const unitData = {
+      mva:          mvaStr,
+      modelo:       (objeto.modelo || "S/M").toUpperCase(),
+      categoria:    (objeto.categoria || objeto.categ || "EXTERNO").toUpperCase(),
+      placas:       (objeto.placas || "S/P").toUpperCase(),
+      estado:       "EXTERNO",
+      ubicacion:    "EXTERNO",
+      gasolina:     "N/A",
+      notas:        notaFinal,
+      pos:          "LIMBO",
+      plaza:        plazaUp || null, // [F1] siempre inyectar campo plaza
+      tipo:         "externo",
+      fechaIngreso: new Date().toISOString(),
+      _createdAt:   ahora,
+      _createdBy:   objeto.responsableSesion || "Sistema"
+    };
+
+    // [F1] Escribir siempre en colección raíz con docId sanitizado
+    await db.collection(COL.EXTERNOS).doc(docId).set(unitData); // [F1]
+
+    await _actualizarFeed(`EXT IN: ${mvaStr} (${objeto.modelo || 'S/M'})`, objeto.responsableSesion, plazaUp); // [F1]
+    await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp); // [F1]
+    return `EXITO|${objeto.modelo || 'S/M'}|${objeto.placas || 'S/P'}`;
   },
 
   async ejecutarEliminacion(listaMvas, responsableSesion, plaza) {
@@ -1211,24 +1082,23 @@ const API_FUNCTIONS = {
       const mvaStr = mva.toString().trim().toUpperCase();
       let eliminado = false;
 
-      // Subcollection (nueva arquitectura)
+      // [F1] Buscar en colecciones planas filtrando por plaza y mva
       if (plazaUp) {
-        const cuadreRef = _cuadreRef(plazaUp).doc(mvaStr);
-        const extRef    = _externosRef(plazaUp).doc(mvaStr);
-        const [cs, es]  = await Promise.all([cuadreRef.get(), extRef.get()]);
-        if (cs.exists) { await cuadreRef.delete(); eliminado = true; }
-        if (es.exists) { await extRef.delete(); eliminado = true; }
+        let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
+        if (!snap.empty) { await snap.docs[0].ref.delete(); eliminado = true; }
+        snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
+        if (!snap.empty) { await snap.docs[0].ref.delete(); eliminado = true; }
       }
 
-      // Si no encontró en subcollection (o no se pasó plaza), busca vía collectionGroup/legacy
+      // [F1] Fallback: buscar sin filtro de plaza
       if (!eliminado) {
-        const found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
+        const found = await _buscarUnidadEnSubcol(mvaStr);
         if (found) { await found.ref.delete(); eliminado = true; }
       }
 
       if (eliminado) {
-        await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion);
-        await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion);
+        await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp); // [F1]
+        await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp); // [F1]
       }
     }
     return "EXITO";
@@ -1246,20 +1116,22 @@ const API_FUNCTIONS = {
       let found = null;
       let hoja = "CUADRE";
 
-      // Subcollection directa si tenemos plaza
+      // [F1] Buscar en colecciones planas filtrando por plaza
       if (plazaUp) {
-        const ref = _cuadreRef(plazaUp).doc(mvaStr);
-        const snap = await ref.get();
-        if (snap.exists) { found = { ref, data: snap.data() }; hoja = "CUADRE"; }
+        let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
+        if (!snap.empty) { found = { ref: snap.docs[0].ref, data: snap.docs[0].data() }; hoja = "CUADRE"; }
         if (!found) {
-          const extRef = _externosRef(plazaUp).doc(mvaStr);
-          const extSnap = await extRef.get();
-          if (extSnap.exists) { found = { ref: extRef, data: extSnap.data() }; hoja = "EXTERNOS"; }
+          snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
+          if (!snap.empty) { found = { ref: snap.docs[0].ref, data: snap.docs[0].data() }; hoja = "EXTERNOS"; }
         }
       }
-      // Fallback collectionGroup / legacy
+      // [F1] Fallback sin filtro de plaza
       if (!found) {
-        found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
+        found = await _buscarUnidadEnSubcol(mvaStr);
+        if (found) {
+          const col = (found.ref.parent?.id || '');
+          hoja = col === COL.EXTERNOS ? "EXTERNOS" : "CUADRE";
+        }
       }
 
       if (found) {
@@ -1275,10 +1147,12 @@ const API_FUNCTIONS = {
       const h = histBatch[i];
       const ts = _ts();
       const id = `move_${i}_${ts}`;
+      // [F1] historial_patio — colección plana, incluir campo plaza
       await db.collection("historial_patio").doc(id).set({
         timestamp: ts, fecha: _now(), tipo: "MOVE",
         mva: h.mva, hoja: h.hoja, posAnterior: h.posAnterior, posNueva: h.posNueva,
-        autor: usuarioResponsable || "Sistema"
+        autor: usuarioResponsable || "Sistema",
+        plaza: plazaUp || "" // [F1]
       });
     }
     return true;
@@ -1286,39 +1160,30 @@ const API_FUNCTIONS = {
 
   // ─── TABLA DE FLOTA ───────────────────────────────────────
   async obtenerUnidadesVeloz() {
-    // Lee unidades de todas las plazas (collectionGroup) + index + legacy
-    const [grupSnap, index] = await Promise.all([
-      db.collectionGroup('unidades').get().catch(() => null),
+    // [F1] Lee de colecciones planas cuadre + externos + index
+    const [cuadre, externos, index] = await Promise.all([
+      db.collection(COL.CUADRE).get(),
+      db.collection(COL.EXTERNOS).get(),
       db.collection(COL.INDEX).get()
     ]);
     const lista = [];
     const vistos = new Set();
-    if (grupSnap && !grupSnap.empty) {
-      grupSnap.docs.forEach(d => { const u = d.data(); if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); } });
-    } else {
-      // Legacy fallback
-      const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
-      [...cuadre.docs, ...externos.docs].forEach(d => { const u = d.data(); if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); } });
-    }
+    [...cuadre.docs, ...externos.docs].forEach(d => {
+      const u = d.data();
+      if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); }
+    });
     index.docs.forEach(d => { const u = d.data(); if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); } });
     return lista;
   },
 
   async obtenerDatosFlotaConsola() {
+    // [F1] Colecciones planas raíz
     const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
-    let lista = [];
-    try {
-      const grupSnap = await db.collectionGroup('unidades').get();
-      lista = grupSnap.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() }));
-      // Mark externos by their subcollection parent
-      lista.forEach(u => { if ((d => d._col === 'externos')(u) || u.ubicacion === 'EXTERNO') u.ubicacion = 'EXTERNO'; });
-    } catch {
-      const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
-      lista = [
-        ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })),
-        ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" }))
-      ];
-    }
+    const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
+    const lista = [
+      ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })).filter(u => u.mva),
+      ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva)
+    ];
     lista.forEach(u => { u.orden = ORDEN[(u.estado || "").toUpperCase()] || 99; });
     lista.sort((a, b) => (a.orden - b.orden) || (a.mva || "").localeCompare(b.mva || ""));
     return lista;
@@ -1326,25 +1191,14 @@ const API_FUNCTIONS = {
 
   async obtenerCuadreAdminsData(plaza) {
     const plazaUp = (plaza || '').toUpperCase().trim();
+    // [F1] Colección plana cuadre_admins filtrada por plaza
+    let snap;
     if (plazaUp) {
-      const snap = await _cuadreAdmRef(plazaUp).orderBy("_createdAt", "desc").get();
-      if (!snap.empty) return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+      snap = await db.collection(COL.CUADRE_ADM).where('plaza', '==', plazaUp).orderBy("_createdAt", "desc").get(); // [F1]
+    } else {
+      snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
     }
-    // Fallback: collectionGroup cross-plaza (admins sin plaza o datos legacy)
-    try {
-      const groupSnap = await db.collectionGroup('registros').orderBy("_createdAt", "desc").get();
-      const admDocs = groupSnap.docs.filter(d =>
-        (d.ref.parent?.parent?.parent?.id || '') === 'cuadre_admins'
-        && (!plazaUp || (d.data().plaza || '').toUpperCase() === plazaUp)
-      );
-      if (!admDocs.empty && admDocs.length > 0) return Promise.all(admDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
-    } catch { /* collectionGroup no disponible */ }
-    // Legacy plano
-    const snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
-    const legacyDocs = plazaUp
-      ? snap.docs.filter(d => !d.data().plaza || (d.data().plaza || '').toUpperCase() === plazaUp)
-      : snap.docs;
-    return Promise.all(legacyDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+    return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
   },
 
   async procesarModificacionMaestra(datos, tipoAccion) {
@@ -1363,36 +1217,26 @@ const API_FUNCTIONS = {
         if (!payload.plaza) return "ERROR: Falta la plaza operativa para registrar en Cuadre Admins.";
         const plazaUp = payload.plaza.toUpperCase().trim();
 
-        // Verificar duplicado en subcollection y legacy
-        const subSnap = await _cuadreAdmRef(plazaUp).where("mva", "==", mva).limit(1).get();
-        if (!subSnap.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
-        const legSnap = await db.collection(COL.CUADRE_ADM).where("mva", "==", mva).limit(1).get();
-        if (!legSnap.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
+        // [F1] Verificar duplicado en colección plana cuadre_admins con campo plaza
+        const dupSnap = await db.collection(COL.CUADRE_ADM).where("plaza", "==", plazaUp).where("mva", "==", mva).limit(1).get(); // [F1]
+        if (!dupSnap.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
 
-        const ref = _cuadreAdmRef(plazaUp).doc();
-        const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, ref.id, actor);
+        // [F1] Insertar con .add() en colección plana (Firestore genera ID automático)
+        const newRef = db.collection(COL.CUADRE_ADM).doc(); // [F1]
+        const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, newRef.id, actor);
         const finalPayload = _buildCuadreAdminPayload({
           ...datos, mva, _createdAt: _now(), _createdBy: actor
         }, [...manualEvidence, ...uploadedEvidence]);
-        await ref.set(finalPayload);
+        await newRef.set(finalPayload); // [F1]
 
       } else if (tipoAccion === "MODIFICAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
 
-        // Buscar doc en subcollection o legacy
-        let ref = null, actual = {};
-        const plazaFila = (datos.plaza || '').toUpperCase().trim();
-        if (plazaFila) {
-          const subRef = _cuadreAdmRef(plazaFila).doc(datos.fila);
-          const subSnap = await subRef.get();
-          if (subSnap.exists) { ref = subRef; actual = subSnap.data(); }
-        }
-        if (!ref) {
-          const legRef = db.collection(COL.CUADRE_ADM).doc(datos.fila);
-          const legSnap = await legRef.get();
-          if (legSnap.exists) { ref = legRef; actual = legSnap.data(); }
-        }
-        if (!ref) return "ERROR: Registro no encontrado";
+        // [F1] Buscar directamente en colección plana por doc ID
+        const ref = db.collection(COL.CUADRE_ADM).doc(datos.fila); // [F1]
+        const snap = await ref.get();
+        if (!snap.exists) return "ERROR: Registro no encontrado";
+        const actual = snap.data();
 
         const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, datos.fila, actor);
         const evidencias = _dedupeEvidenceItems([
@@ -1405,25 +1249,16 @@ const API_FUNCTIONS = {
           _createdBy: actual._createdBy || actor
         }, evidencias);
         if (!payload.plaza) return "ERROR: Falta la plaza operativa para actualizar en Cuadre Admins.";
-        await ref.set(payload, { merge: true });
+        await ref.set(payload, { merge: true }); // [F1]
 
       } else if (tipoAccion === "ELIMINAR") {
         if (!datos.fila) return "ERROR: Sin ID de fila";
 
-        const plazaFila = (datos.plaza || '').toUpperCase().trim();
-        let ref = null, snapData = null;
-        if (plazaFila) {
-          const subRef = _cuadreAdmRef(plazaFila).doc(datos.fila);
-          const subSnap = await subRef.get();
-          if (subSnap.exists) { ref = subRef; snapData = subSnap.data(); }
-        }
-        if (!ref) {
-          const legRef = db.collection(COL.CUADRE_ADM).doc(datos.fila);
-          const legSnap = await legRef.get();
-          if (legSnap.exists) { ref = legRef; snapData = legSnap.data(); }
-        }
-        if (ref) {
-          if (snapData) await _deleteEvidenceFiles(_normalizeLegacyEvidence(snapData));
+        // [F1] Eliminar directamente por doc ID en colección plana
+        const ref = db.collection(COL.CUADRE_ADM).doc(datos.fila); // [F1]
+        const snap = await ref.get();
+        if (snap.exists) {
+          await _deleteEvidenceFiles(_normalizeLegacyEvidence(snap.data()));
           await ref.delete();
         }
       }
@@ -1432,16 +1267,10 @@ const API_FUNCTIONS = {
   },
 
   async obtenerConteoGeneral() {
+    // [F1] Colección plana cuadre raíz
     const conteo = { LISTO: 0, SUCIO: 0, MANTENIMIENTO: 0, total: 0 };
-    let docs = [];
-    try {
-      const snap = await db.collectionGroup('unidades').get();
-      docs = snap.docs.filter(d => (d.ref.parent?.parent?.parent?.id || '') === 'cuadre');
-    } catch {
-      const snap = await db.collection(COL.CUADRE).get();
-      docs = snap.docs;
-    }
-    docs.forEach(d => {
+    const snap = await db.collection(COL.CUADRE).get(); // [F1]
+    snap.docs.forEach(d => {
       const estado = (d.data().estado || "").toUpperCase();
       if (conteo[estado] !== undefined) conteo[estado]++;
       conteo.total++;
@@ -1455,9 +1284,9 @@ const API_FUNCTIONS = {
   },
 
   // ─── RADAR ───────────────────────────────────────────────
-  async checarNotificaciones(usuarioActivo) {
+  async checarNotificaciones(usuarioActivo, plaza) {
     const [settings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
-      _getSettings(),
+      _getSettings(plaza), // [F1] settings por plaza
       db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50).get(),
       db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
       db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get()
@@ -1480,13 +1309,13 @@ const API_FUNCTIONS = {
     };
   },
 
-  async limpiarFeedGlobal() {
-    await _setSettings({ liveFeed: JSON.stringify([]) });
+  async limpiarFeedGlobal(plaza) {
+    await _setSettings({ liveFeed: JSON.stringify([]) }, plaza); // [F1]
     return "OK";
   },
 
-  async actualizarFeedSettings(accion, autor) {
-    await _actualizarFeed(accion, autor);
+  async actualizarFeedSettings(accion, autor, plaza) {
+    await _actualizarFeed(accion, autor, plaza); // [F1]
     return "OK";
   },
 
@@ -1976,8 +1805,8 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   },
 
   // ─── BLOQUEO ─────────────────────────────────────────────
-  async toggleBloqueoMapa(nuevoEstado, actor = "Sistema") {
-    await _setSettings({ mapaBloqueado: nuevoEstado === true });
+  async toggleBloqueoMapa(nuevoEstado, actor = "Sistema", plaza) {
+    await _setSettings({ mapaBloqueado: nuevoEstado === true }, plaza); // [F1]
     await _registrarEventoGestion(nuevoEstado === true ? "MAPA_BLOQUEADO" : "MAPA_LIBERADO", nuevoEstado === true ? "Bloqueó el mapa operativo" : "Liberó el mapa operativo", actor || "Sistema", {
       entidad: "SETTINGS",
       referencia: "mapaBloqueado"
@@ -1986,47 +1815,42 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   },
 
   // ─── CUADRE V3 ───────────────────────────────────────────
-  async iniciarProtocoloDesdeAdmin(nombreAdmin, jsonMision) {
-    await _setSettings({ estadoCuadreV3: "PROCESO", adminIniciador: nombreAdmin, misionAuditoria: jsonMision });
+  async iniciarProtocoloDesdeAdmin(nombreAdmin, jsonMision, plaza) {
+    await _setSettings({ estadoCuadreV3: "PROCESO", adminIniciador: nombreAdmin, misionAuditoria: jsonMision }, plaza); // [F1]
     return "EXITO";
   },
-  async obtenerMisionAuditoria() {
-    const settings = await _getSettings();
+  async obtenerMisionAuditoria(plaza) {
+    const settings = await _getSettings(plaza); // [F1]
     try { return JSON.parse(settings.misionAuditoria || "[]"); } catch { return []; }
   },
-  async guardarAuditoriaCruzada(datosAuditoria, autor) {
-    await _setSettings({ estadoCuadreV3: "REVISION", datosAuditoria: JSON.stringify(datosAuditoria) });
+  async guardarAuditoriaCruzada(datosAuditoria, autor, plaza) {
+    await _setSettings({ estadoCuadreV3: "REVISION", datosAuditoria: JSON.stringify(datosAuditoria) }, plaza); // [F1]
     await db.collection(COL.AUDITORIA).add({ timestamp: _ts(), fecha: _now(), autor, datos: datosAuditoria });
     return "EXITO";
   },
-  async finalizarProtocoloV3(autorCierre) {
-    await _setSettings({ estadoCuadreV3: "LIBRE", adminIniciador: "", ultimoCuadreTexto: `${autorCierre} (${_now()})`, ultimaModificacion: _now() });
+  async finalizarProtocoloV3(autorCierre, plaza) {
+    await _setSettings({ estadoCuadreV3: "LIBRE", adminIniciador: "", ultimoCuadreTexto: `${autorCierre} (${_now()})`, ultimaModificacion: _now() }, plaza); // [F1]
     return "CUADRE FINALIZADO CON ÉXITO";
   },
-  async registrarCierreCuadre(autor) {
-    await _setSettings({ ultimoCuadreTexto: `${autor} (${_now()})` });
-    await _registrarLog("CUADRE", `✅ CUADRE CERRADO POR ${autor}`, autor);
+  async registrarCierreCuadre(autor, plaza) {
+    await _setSettings({ ultimoCuadreTexto: `${autor} (${_now()})` }, plaza); // [F1]
+    await _registrarLog("CUADRE", `✅ CUADRE CERRADO POR ${autor}`, autor, plaza); // [F1]
     return "OK";
   },
-  async marcarUltimaModificacion(autor) {
-    await _setSettings({ ultimaModificacion: _now(), ultimoEditor: autor });
+  async marcarUltimaModificacion(autor, plaza) {
+    await _setSettings({ ultimaModificacion: _now(), ultimoEditor: autor }, plaza); // [F1]
     return "OK";
   },
   async obtenerHistorialCuadres(plaza) {
     const plazaUp = (plaza || '').toUpperCase().trim();
-    let docs = [];
+    // [F1] Colección plana historial_cuadres filtrada por campo plaza
+    let snap;
     if (plazaUp) {
-      const snap = await _histCuadreRef(plazaUp).orderBy("timestamp", "desc").limit(30).get();
-      if (!snap.empty) docs = snap.docs;
+      snap = await db.collection(COL.HISTORIAL_CUADRES).where('plaza', '==', plazaUp).orderBy("timestamp", "desc").limit(30).get(); // [F1]
+    } else {
+      snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
     }
-    // Fallback legacy si no hay docs en subcollection
-    if (!docs.length) {
-      const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
-      docs = plazaUp
-        ? snap.docs.filter(d => !d.data().plaza || (d.data().plaza || '').toUpperCase() === plazaUp)
-        : snap.docs;
-    }
-    return docs.map(d => {
+    return snap.docs.map(d => {
       const data = d.data();
       return {
         id:        d.id,
@@ -2104,7 +1928,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
   async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats, plaza) {
     const plazaUp = (plaza || stats?.plaza || '').toUpperCase().trim();
-    await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin);
+    await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp); // [F1]
     const registro = {
       timestamp: _ts(), fecha: _now(),
       auxiliar:  stats?.auxiliar || "",
@@ -2112,15 +1936,12 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       ok:        stats?.ok || 0,
       faltantes: stats?.faltantes || 0,
       sobrantes: stats?.sobrantes || 0,
-      plaza:     plazaUp || "",
+      plaza:     plazaUp || "", // [F1] campo plaza siempre presente
       pdfUrl:    ""
     };
-    if (plazaUp) {
-      await _histCuadreRef(plazaUp).add(registro);
-    } else {
-      await db.collection(COL.HISTORIAL_CUADRES).add(registro);
-    }
-    await _setSettings({ estadoCuadreV3: "LIBRE", adminIniciador: "" });
+    // [F1] Colección plana historial_cuadres con .add() — Firestore genera ID
+    await db.collection(COL.HISTORIAL_CUADRES).add(registro); // [F1]
+    await _setSettings({ estadoCuadreV3: "LIBRE", adminIniciador: "" }, plazaUp); // [F1]
     return "EXITO";
   },
 
@@ -2138,17 +1959,10 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const snap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     if (snap.empty) return null;
     const data = snap.docs[0].data();
-    // Busca estado operativo: subcollection primero, luego legacy
+    // [F1] Busca estado operativo en colección plana cuadre/externos por campo mva
     let cuadreData = {};
-    const plazaUp = (sucursal || (data.sucursal || data.plaza || '')).toUpperCase().trim();
-    if (plazaUp) {
-      const subSnap = await _cuadreRef(plazaUp).doc(mvaStr).get();
-      if (subSnap.exists) { cuadreData = subSnap.data(); }
-    }
-    if (!Object.keys(cuadreData).length) {
-      const found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
-      if (found) cuadreData = found.data;
-    }
+    const found = await _buscarUnidadEnSubcol(mvaStr); // [F1]
+    if (found) cuadreData = found.data;
     return {
       id: snap.docs[0].id, fila: snap.docs[0].id, plaza: sucursal,
       mva: data.mva || mvaStr, modelo: data.modelo || cuadreData.modelo || "",
@@ -2218,23 +2032,27 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     return "";
   },
 
-  // ── Fase 5: migración legacy ────────────────────────────────
-  migrarDatosLegacyAPlazas
+  // [F1] migrarDatosLegacyAPlazas eliminada — colecciones planas por plaza ya no requieren migración
 };
 
 // ─── ESTRUCTURA POR DEFECTO DEL MAPA ────────────────────────
+// [F2] Genera estructura con coordenadas absolutas x,y,width,height
 function _generarEstructuraPorDefecto() {
   const estructura = [];
   let orden = 0;
+  const W = 120, H = 80, GAP = 4; // [F2] dimensiones por defecto por celda
   const secciones = [
-    { prefix: "S", cols: 8, row: 1 }, { prefix: "L", cols: 8, row: 2 },
-    { prefix: "O", cols: 8, row: 3 }, { prefix: "N", cols: 8, row: 4 },
+    { prefix: "S", cols: 8 }, { prefix: "L", cols: 8 },
+    { prefix: "O", cols: 8 }, { prefix: "N", cols: 8 },
   ];
   secciones.forEach((sec, si) => {
-    estructura.push({ valor: sec.prefix, row: si * 3 + 1, col: 1, rowspan: 1, colspan: 1, orden: orden++, esLabel: true });
+    const baseY = si * (H * 2 + GAP * 3);
+    // Etiqueta de sección
+    estructura.push({ valor: sec.prefix, x: 0, y: baseY, width: W, height: H * 2 + GAP, rotation: 0, tipo: 'label', esLabel: true, orden: orden++ }); // [F2]
     for (let i = 1; i <= sec.cols; i++) {
-      estructura.push({ valor: `${sec.prefix}${i}-1`, row: si * 3 + 1, col: i + 1, rowspan: 1, colspan: 1, orden: orden++ });
-      estructura.push({ valor: `${sec.prefix}${i}-2`, row: si * 3 + 2, col: i + 1, rowspan: 1, colspan: 1, orden: orden++ });
+      const x = (i) * (W + GAP);
+      estructura.push({ valor: `${sec.prefix}${i}-1`, x, y: baseY, width: W, height: H, rotation: 0, tipo: 'cajon', esLabel: false, orden: orden++ }); // [F2]
+      estructura.push({ valor: `${sec.prefix}${i}-2`, x, y: baseY + H + GAP, width: W, height: H, rotation: 0, tipo: 'cajon', esLabel: false, orden: orden++ }); // [F2]
     }
   });
   return estructura;

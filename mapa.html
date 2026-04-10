@@ -1274,11 +1274,12 @@
             <div class="mc-header">ADMINISTRACIÓN GLOBAL</div>
             <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span>
               Insertar Unidad Global</div>
+            <div class="mc-item" onclick="abrirModalInsertarExterno(); toggleAdminControls()"><span class="material-icons" style="color:#8b5cf6;">directions_car</span>
+              Insertar Unidad Externa</div>
             <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span>
               Editar Unidad Global</div>
             <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span
                 class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
-            
           </div>
         </div>
 
@@ -2993,26 +2994,44 @@
                   <option value="label">🏷️ Etiqueta sección</option>
                 </select>
               </div>
+              <!-- [F2] Posición y tamaño en px (canvas libre) -->
               <div class="mapa-field-group">
-                <label class="mapa-field-label">Tamaño en cuadrícula</label>
+                <label class="mapa-field-label">Posición (px)</label>
                 <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-                  <div class="mapa-size-card">
-                    <div class="mapa-size-label">ANCHO (cols)</div>
+                  <div>
+                    <div class="mapa-size-label">X</div>
+                    <input id="ep-x" type="number" min="0" step="10" class="mapa-input" style="width:100%;" oninput="editorPropChange()">
+                  </div>
+                  <div>
+                    <div class="mapa-size-label">Y</div>
+                    <input id="ep-y" type="number" min="0" step="10" class="mapa-input" style="width:100%;" oninput="editorPropChange()">
+                  </div>
+                </div>
+              </div>
+              <div class="mapa-field-group">
+                <label class="mapa-field-label">Tamaño (px)</label>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                  <div>
+                    <div class="mapa-size-label">ANCHO</div>
                     <div class="mapa-size-ctrl">
-                      <button onclick="editorSpanChange('colspan',-1)">−</button>
-                      <span id="ep-colspan">1</span>
-                      <button onclick="editorSpanChange('colspan',1)">+</button>
+                      <button onclick="editorSpanChange('width',-10)">−</button>
+                      <input id="ep-width" type="number" min="40" step="10" class="mapa-input" style="width:52px;text-align:center;" oninput="editorPropChange()">
+                      <button onclick="editorSpanChange('width',10)">+</button>
                     </div>
                   </div>
-                  <div class="mapa-size-card">
-                    <div class="mapa-size-label">ALTO (filas)</div>
+                  <div>
+                    <div class="mapa-size-label">ALTO</div>
                     <div class="mapa-size-ctrl">
-                      <button onclick="editorSpanChange('rowspan',-1)">−</button>
-                      <span id="ep-rowspan">1</span>
-                      <button onclick="editorSpanChange('rowspan',1)">+</button>
+                      <button onclick="editorSpanChange('height',-10)">−</button>
+                      <input id="ep-height" type="number" min="30" step="10" class="mapa-input" style="width:52px;text-align:center;" oninput="editorPropChange()">
+                      <button onclick="editorSpanChange('height',10)">+</button>
                     </div>
                   </div>
                 </div>
+              </div>
+              <div class="mapa-field-group">
+                <label class="mapa-field-label">Rotación (°)</label>
+                <input id="ep-rotation" type="number" min="-360" max="360" step="5" class="mapa-input" style="width:100%;" oninput="editorPropChange()">
               </div>
               <div class="mapa-field-group">
                 <label class="mapa-field-label">Mover posición</label>
@@ -3039,31 +3058,6 @@
             </div>
           </div>
 
-          <!-- Tamaño de cuadrícula (bottom) -->
-          <div class="mapa-editor-section" style="border-top:1px solid rgba(255,255,255,0.05); border-bottom:none;">
-            <div class="mapa-editor-section-title">
-              <span class="material-icons" style="font-size:13px;">grid_on</span>
-              TAMAÑO CUADRÍCULA
-            </div>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
-              <div class="mapa-size-card">
-                <div class="mapa-size-label">FILAS</div>
-                <div class="mapa-size-ctrl">
-                  <button onclick="editorCambiarGrid('rows',-1)">−</button>
-                  <span id="ep-grid-rows">12</span>
-                  <button onclick="editorCambiarGrid('rows',1)">+</button>
-                </div>
-              </div>
-              <div class="mapa-size-card">
-                <div class="mapa-size-label">COLUMNAS</div>
-                <div class="mapa-size-ctrl">
-                  <button onclick="editorCambiarGrid('cols',-1)">−</button>
-                  <span id="ep-grid-cols">15</span>
-                  <button onclick="editorCambiarGrid('cols',1)">+</button>
-                </div>
-              </div>
-            </div>
-          </div>
 
         </div><!-- /Sidebar -->
 
