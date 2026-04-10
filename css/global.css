@@ -12240,15 +12240,30 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
 }
 .mapa-celda-libre {
   position: absolute; /* [F2] */
-  cursor: grab;
+  cursor: default;
   box-sizing: border-box;
   border-radius: 6px;
-  overflow: hidden;
+  overflow: visible; /* permite que el label del spot aparezca encima */
   user-select: none;
   transition: box-shadow 0.15s;
 }
-.mapa-celda-libre:active {
-  cursor: grabbing;
+/* El spot tiene su propio overflow para no clipear el .car */
+.mapa-celda-libre.spot {
+  overflow: hidden;
+}
+/* El label del número de cajón: visible por encima del borde superior */
+.mapa-celda-libre.spot label {
+  position: absolute;
+  top: -18px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(148,163,184,0.7);
+  letter-spacing: 0.5px;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Editor canvas libre */

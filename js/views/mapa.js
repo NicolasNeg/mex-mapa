@@ -12636,6 +12636,11 @@ const api = window.api;
       }).catch(e => console.error("Error en Webhook:", e));
     }
 
+// ── Asignaciones críticas explícitas (evitan ReferenceError si el módulo carga tarde) ──
+window.toggleSidebar       = toggleSidebar;
+window.toggleAdminSidebar  = toggleAdminSidebar;
+window._togglePlazaPicker  = _togglePlazaPicker;
+
 // ── Exponer funciones al scope global para onclick/onchange ────────────────
 // (ES6 modules son strict y no exponen al window automáticamente)
 Object.assign(window, {

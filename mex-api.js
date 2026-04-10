@@ -820,17 +820,18 @@ const API_FUNCTIONS = {
       }, 1000);
     }
 
-    // [F1] Colección plana con filtro de plaza
-    const unsubCuadre = db.collection(COL.CUADRE).where('plaza', '==', plazaUp).onSnapshot(snap => {
-      cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    // [F1] Colección plana — filtra client-side para incluir docs legacy sin campo plaza
+    const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      cuadreDocs = all.filter(u => !u.plaza || u.plaza.toUpperCase() === plazaUp);
       emitir();
-    }, err => console.error("onSnapshot cuadre plaza:", err));
+    }, err => console.error("onSnapshot cuadre:", err));
 
-    // [F1] Colección plana con filtro de plaza
-    const unsubExternos = db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).onSnapshot(snap => {
-      externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      externosDocs = all.filter(u => !u.plaza || u.plaza.toUpperCase() === plazaUp);
       emitir();
-    }, err => console.error("onSnapshot externos plaza:", err));
+    }, err => console.error("onSnapshot externos:", err));
 
     return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
   },
@@ -838,29 +839,19 @@ const API_FUNCTIONS = {
   async obtenerDatosParaMapa(plaza) {
     const plazaUp = (plaza || '').toUpperCase().trim();
     // [F1] Colecciones planas filtradas por campo plaza
-    if (plazaUp) {
-      const [cs, es] = await Promise.all([
-        db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(), // [F1]
-        db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get() // [F1]
-      ]);
-      return { unidades: [
-        ...cs.docs.map(d => ({ id: d.id, ...d.data() }))
-          .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
-          .map(u => ({ ...u, tipo: "renta" })),
-        ...es.docs.map(d => ({ id: d.id, ...d.data() }))
-          .filter(u => u.mva)
-          .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }))
-      ]};
-    }
-    // Sin plaza: traer todo
+    // Traer todo y filtrar client-side (compatibilidad con docs legacy sin campo plaza)
     const [cuadreSnap, externosSnap] = await Promise.all([
       db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
     ]);
+    const cuadreDocs2 = cuadreSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => !plazaUp || !u.plaza || u.plaza.toUpperCase() === plazaUp);
+    const externosDocs2 = externosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      .filter(u => !plazaUp || !u.plaza || u.plaza.toUpperCase() === plazaUp);
     return { unidades: [
-      ...cuadreSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      ...cuadreDocs2
         .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
         .map(u => ({ ...u, tipo: "renta" })),
-      ...externosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      ...externosDocs2
         .filter(u => u.mva)
         .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }))
     ]};
