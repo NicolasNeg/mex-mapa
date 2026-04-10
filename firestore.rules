@@ -303,12 +303,28 @@ service cloud.firestore {
       allow delete: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexActual());
     }
 
+    // ─── CUADRE Y EXTERNOS — ESCALABILIDAD POR PLAZA ────────
+    // Nueva arquitectura: cuadre/{plaza}/unidades/{mvaId}
+    // Legacy: cuadre/{mvaId}  (docs raíz sin subcollección)
     match /cuadre/{doc} {
       allow read, write: if tienePerfilActual();
+      match /unidades/{unidad} {
+        allow read: if tienePerfilActual();
+        allow write: if mismaPlaza(doc) || esAccesoTotal();
+      }
     }
 
     match /externos/{doc} {
       allow read, write: if tienePerfilActual();
+      match /unidades/{unidad} {
+        allow read: if tienePerfilActual();
+        allow write: if mismaPlaza(doc) || esAccesoTotal();
+      }
+    }
+
+    // collectionGroup para lecturas cross-plaza de admins
+    match /{path=**}/unidades/{doc} {
+      allow read: if tienePerfilActual();
     }
 
     match /historial_patio/{doc} {

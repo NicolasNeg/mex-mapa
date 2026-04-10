@@ -80,6 +80,32 @@ const COL = {
 const SETTINGS_DOC = "principal";
 const EVIDENCE_FOLDER = "evidencias_cuadre_admins";
 const NOTE_ATTACHMENT_FOLDER = "notas_admin_adjuntos";
+
+// ── Helpers subcollections por plaza (Fase 2 escalabilidad) ──
+// cuadre/{plaza}/unidades/{mvaId}
+// externos/{plaza}/unidades/{mvaId}
+function _cuadreRef(plaza) {
+  return db.collection('cuadre').doc((plaza || '').toUpperCase().trim()).collection('unidades');
+}
+function _externosRef(plaza) {
+  return db.collection('externos').doc((plaza || '').toUpperCase().trim()).collection('unidades');
+}
+// Búsqueda por MVA usando collectionGroup (cross-plaza).
+// Devuelve { ref, data } o null.
+async function _buscarUnidadEnSubcol(mvaStr) {
+  try {
+    const snap = await db.collectionGroup('unidades').where('mva', '==', mvaStr).limit(1).get();
+    if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
+  } catch (e) { /* collectionGroup no disponible */ }
+  return null;
+}
+// Búsqueda legado: cuadre + externos planos.
+async function _buscarUnidadLegacy(mvaStr) {
+  let snap = await db.collection(COL.CUADRE).where('mva', '==', mvaStr).limit(1).get();
+  if (snap.empty) snap = await db.collection(COL.EXTERNOS).where('mva', '==', mvaStr).limit(1).get();
+  if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
+  return null;
+}
 const ADMIN_FIXED_LOCATIONS = new Set([
   "PATIO",
   "TALLER",
@@ -728,15 +754,15 @@ const API_FUNCTIONS = {
 
   // ─── MAPA — SUSCRIPCIÓN EN TIEMPO REAL ──────────────────
   // Llama a callback(unidades[]) cada vez que cuadre o externos cambian.
-  // Devuelve una función unsub() para cancelar la escucha.
+  // Intenta collectionGroup('unidades') para ver todas las plazas nuevas;
+  // si falla (reglas / índice) cae al flat legacy.
   suscribirMapa(callback) {
-    let cuadreDocs = [];
-    let externosDocs = [];
     let pendingTimer = null;
+    let unsubFlat1 = null, unsubFlat2 = null;
+    let fallbackActive = false;
 
-    function emitir() {
+    function _emit(cuadreDocs, externosDocs) {
       if (pendingTimer) clearTimeout(pendingTimer);
-      // Pequeño debounce: si ambas colecciones cambian juntas no emitimos dos veces
       pendingTimer = setTimeout(() => {
         const cuadreUnits = cuadreDocs
           .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
@@ -748,73 +774,126 @@ const API_FUNCTIONS = {
       }, 1000);
     }
 
-    const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
-      cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      emitir();
-    }, err => console.error("onSnapshot cuadre:", err));
+    let groupDocs = [];
+    const unsubGroup = db.collectionGroup('unidades').onSnapshot(snap => {
+      groupDocs = snap.docs.map(d => ({
+        id: d.id, ...d.data(),
+        _col: d.ref.parent?.parent?.parent?.id || ''
+      }));
+      _emit(
+        groupDocs.filter(d => d._col === 'cuadre'),
+        groupDocs.filter(d => d._col === 'externos')
+      );
+    }, () => {
+      // Fallback a colecciones planas (legacy)
+      if (fallbackActive) return;
+      fallbackActive = true;
+      let fc = [], fe = [];
+      unsubFlat1 = db.collection(COL.CUADRE).onSnapshot(snap => {
+        fc = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _emit(fc, fe);
+      }, err => console.error("onSnapshot cuadre:", err));
+      unsubFlat2 = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+        fe = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        _emit(fc, fe);
+      }, err => console.error("onSnapshot externos:", err));
+    });
 
-    const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
-      externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      emitir();
-    }, err => console.error("onSnapshot externos:", err));
-
-    return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
+    return () => {
+      unsubGroup();
+      if (unsubFlat1) unsubFlat1();
+      if (unsubFlat2) unsubFlat2();
+      if (pendingTimer) clearTimeout(pendingTimer);
+    };
   },
 
-  // ── suscribirMapa con filtro de plaza ──────────────────────────────────────
-  // plaza: string (ej 'BJX') — si vacío o null, devuelve todas (para admins)
+  // ── suscribirMapa filtrado por plaza (subcollection-first) ─────────────────
+  // Lee de cuadre/{plaza}/unidades y externos/{plaza}/unidades.
+  // Si la subcollección está vacía, cae al legacy plano filtrado por campo plaza.
   suscribirMapaPlaza(plaza, callback) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
+    if (!plazaUp) return this.suscribirMapa(callback);
+
     let cuadreDocs = [], externosDocs = [];
     let pendingTimer = null;
-    const plazaUp = (plaza || '').toUpperCase().trim();
-
-    function _filtrarPlaza(docs) {
-      if (!plazaUp) return docs;
-      return docs.filter(u => !u.plaza || (u.plaza || '').toUpperCase() === plazaUp);
-    }
+    let legacyCuadre = false, legacyExternos = false;
 
     function emitir() {
       if (pendingTimer) clearTimeout(pendingTimer);
       pendingTimer = setTimeout(() => {
-        const cuadreUnits = _filtrarPlaza(cuadreDocs)
+        const cuadreUnits = cuadreDocs
           .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
           .map(u => ({ ...u, tipo: "renta" }));
-        const externosUnits = _filtrarPlaza(externosDocs)
+        const externosUnits = externosDocs
           .filter(u => u.mva)
           .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
         callback([...cuadreUnits, ...externosUnits]);
       }, 1000);
     }
 
-    const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
-      cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      emitir();
-    }, err => console.error("onSnapshot cuadre (plaza):", err));
+    const unsubCuadre = _cuadreRef(plazaUp).onSnapshot(snap => {
+      if (!snap.empty) {
+        legacyCuadre = false;
+        cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        emitir(); return;
+      }
+      if (legacyCuadre) return;
+      legacyCuadre = true;
+      db.collection(COL.CUADRE).get().then(ls => {
+        cuadreDocs = ls.docs.map(d => ({ id: d.id, ...d.data() }))
+          .filter(u => !u.plaza || (u.plaza || '').toUpperCase() === plazaUp);
+        emitir();
+      }).catch(() => { cuadreDocs = []; emitir(); });
+    }, err => console.error("onSnapshot cuadre plaza:", err));
 
-    const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
-      externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      emitir();
-    }, err => console.error("onSnapshot externos (plaza):", err));
+    const unsubExternos = _externosRef(plazaUp).onSnapshot(snap => {
+      if (!snap.empty) {
+        legacyExternos = false;
+        externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        emitir(); return;
+      }
+      if (legacyExternos) return;
+      legacyExternos = true;
+      db.collection(COL.EXTERNOS).get().then(ls => {
+        externosDocs = ls.docs.map(d => ({ id: d.id, ...d.data() }))
+          .filter(u => !u.plaza || (u.plaza || '').toUpperCase() === plazaUp);
+        emitir();
+      }).catch(() => { externosDocs = []; emitir(); });
+    }, err => console.error("onSnapshot externos plaza:", err));
 
     return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
   },
 
   async obtenerDatosParaMapa(plaza) {
     const plazaUp = (plaza || '').toUpperCase().trim();
+    if (plazaUp) {
+      const [cs, es] = await Promise.all([
+        _cuadreRef(plazaUp).get(), _externosRef(plazaUp).get()
+      ]);
+      if (!cs.empty || !es.empty) {
+        return { unidades: [
+          ...cs.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
+            .map(u => ({ ...u, tipo: "renta" })),
+          ...es.docs.map(d => ({ id: d.id, ...d.data() }))
+            .filter(u => u.mva)
+            .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }))
+        ]};
+      }
+    }
+    // Legacy fallback
     const [cuadreSnap, externosSnap] = await Promise.all([
-      db.collection(COL.CUADRE).get(),
-      db.collection(COL.EXTERNOS).get()
+      db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
     ]);
     function _f(u) { return !plazaUp || !u.plaza || (u.plaza || '').toUpperCase() === plazaUp; }
-    const cuadreUnits = cuadreSnap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER") && _f(u))
-      .map(u => ({ ...u, tipo: "renta" }));
-    const externosUnits = externosSnap.docs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => u.mva && _f(u))
-      .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
-    return { unidades: [...cuadreUnits, ...externosUnits] };
+    return { unidades: [
+      ...cuadreSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER") && _f(u))
+        .map(u => ({ ...u, tipo: "renta" })),
+      ...externosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(u => u.mva && _f(u))
+        .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }))
+    ]};
   },
 
   // ── Estructura de mapa por plaza ─────────────────────────────────────────
@@ -837,10 +916,13 @@ const API_FUNCTIONS = {
   suscribirEstructuraMapa(callback, plaza) {
     const p = (plaza || '').toUpperCase().trim();
     if (p) {
+      let fallbackCalled = false;
       return db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden')
         .onSnapshot(snap => {
-          if (!snap.empty) { callback(snap.docs.map(d => d.data())); return; }
-          // Subcolección vacía → intentar legacy
+          if (!snap.empty) { fallbackCalled = false; callback(snap.docs.map(d => d.data())); return; }
+          // Subcolección vacía → intentar legacy sólo una vez por suscripción
+          if (fallbackCalled) return;
+          fallbackCalled = true;
           db.collection(COL.MAPA_CFG).orderBy('orden').get().then(legSnap => {
             const legDocs = legSnap.docs.filter(d => d.id.startsWith('cel_'));
             callback(legDocs.length > 0 ? legDocs.map(d => d.data()) : _generarEstructuraPorDefecto());
@@ -880,14 +962,26 @@ const API_FUNCTIONS = {
   },
 
   // ─── MODIFICACIONES ──────────────────────────────────────
-  async aplicarEstado(mva, estado, ubi, gas, notasFormulario, borrarNotas, nombreAutor, responsableSesion) {
+  async aplicarEstado(mva, estado, ubi, gas, notasFormulario, borrarNotas, nombreAutor, responsableSesion, plaza) {
     const mvaStr = mva.toString().trim().toUpperCase();
-    let snap = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
-    if (snap.empty) snap = await db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1).get();
-    if (snap.empty) return "ERROR: MVA no encontrado";
+    const plazaUp = (plaza || '').toUpperCase().trim();
 
-    const docRef = snap.docs[0].ref;
-    const actual = snap.docs[0].data();
+    let docRef = null, actual = null;
+
+    // 1. Subcollection directa si se conoce la plaza
+    if (plazaUp) {
+      for (const ref of [_cuadreRef(plazaUp).doc(mvaStr), _externosRef(plazaUp).doc(mvaStr)]) {
+        const snap = await ref.get();
+        if (snap.exists) { docRef = ref; actual = snap.data(); break; }
+      }
+    }
+    // 2. CollectionGroup cross-plaza o legacy
+    if (!docRef) {
+      const found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
+      if (!found) return "ERROR: MVA no encontrado";
+      docRef = found.ref;
+      actual = found.data;
+    }
     const ahora = _now();
     const sello = `(${ahora}) [${nombreAutor || "?"}]`;
 
@@ -925,16 +1019,22 @@ const API_FUNCTIONS = {
 
   async insertarUnidadDesdeHTML(objeto) {
     const mvaStr = objeto.mva.toString().trim().toUpperCase();
-    const existe = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
-    if (!existe.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
+    const plazaUp = (objeto.plaza || '').toUpperCase().trim();
+
+    // Verificar duplicado: primero en subcollection, luego en legacy
+    if (plazaUp) {
+      const subDoc = await _cuadreRef(plazaUp).doc(mvaStr).get();
+      if (subDoc.exists) return `La unidad ${mvaStr} ya está registrada en el patio.`;
+    }
+    const existeLeg = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
+    if (!existeLeg.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
 
     const ahora = _now();
     const notaFinal = objeto.notas ? `(${ahora}) - ${objeto.notas} - ${objeto.responsableSesion || ""}` : "";
     const indexSnap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     const indexData = indexSnap.empty ? {} : indexSnap.docs[0].data();
 
-    // Usar MVA como docId para evitar IDs random
-    await db.collection(COL.CUADRE).doc(mvaStr).set({
+    const unitData = {
       categoria:    indexData.categoria || objeto.categ || "S/C",
       modelo:       indexData.modelo || objeto.modelo || "S/M",
       mva:          mvaStr,
@@ -944,44 +1044,85 @@ const API_FUNCTIONS = {
       ubicacion:    objeto.ubicacion || "PATIO",
       notas:        notaFinal,
       pos:          "LIMBO",
-      plaza:        (objeto.plaza || '').toUpperCase().trim() || null,
+      plaza:        plazaUp || null,
       fechaIngreso: new Date().toISOString(),
       _createdAt:   ahora,
       _createdBy:   objeto.responsableSesion || "Sistema"
-    });
+    };
+
+    if (plazaUp) {
+      await _cuadreRef(plazaUp).doc(mvaStr).set(unitData);
+    } else {
+      // Sin plaza — escribe en colección plana legacy
+      await db.collection(COL.CUADRE).doc(mvaStr).set(unitData);
+    }
 
     await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion);
     await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion);
     return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
   },
 
-  async ejecutarEliminacion(listaMvas, responsableSesion) {
+  async ejecutarEliminacion(listaMvas, responsableSesion, plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
     for (const mva of listaMvas) {
       const mvaStr = mva.toString().trim().toUpperCase();
-      const snap = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).get();
-      const batch = db.batch();
-      snap.docs.forEach(d => batch.delete(d.ref));
-      await batch.commit();
-      await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion);
-      await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion);
+      let eliminado = false;
+
+      // Subcollection (nueva arquitectura)
+      if (plazaUp) {
+        const cuadreRef = _cuadreRef(plazaUp).doc(mvaStr);
+        const extRef    = _externosRef(plazaUp).doc(mvaStr);
+        const [cs, es]  = await Promise.all([cuadreRef.get(), extRef.get()]);
+        if (cs.exists) { await cuadreRef.delete(); eliminado = true; }
+        if (es.exists) { await extRef.delete(); eliminado = true; }
+      }
+
+      // Si no encontró en subcollection (o no se pasó plaza), busca vía collectionGroup/legacy
+      if (!eliminado) {
+        const found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
+        if (found) { await found.ref.delete(); eliminado = true; }
+      }
+
+      if (eliminado) {
+        await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion);
+        await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion);
+      }
     }
     return "EXITO";
   },
 
-  async guardarNuevasPosiciones(reporte, usuarioResponsable) {
+  async guardarNuevasPosiciones(reporte, usuarioResponsable, plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
     const batch = db.batch();
     const histBatch = [];
     for (const item of reporte) {
       if (!item.mva || !item.pos) continue;
       const mvaStr = item.mva.toString().trim().toUpperCase();
       const posNueva = item.pos.toString().toUpperCase();
-      let snap = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
+
+      let found = null;
       let hoja = "CUADRE";
-      if (snap.empty) { snap = await db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1).get(); hoja = "EXTERNOS"; }
-      if (!snap.empty) {
-        const posAnterior = snap.docs[0].data().pos || "LIMBO";
+
+      // Subcollection directa si tenemos plaza
+      if (plazaUp) {
+        const ref = _cuadreRef(plazaUp).doc(mvaStr);
+        const snap = await ref.get();
+        if (snap.exists) { found = { ref, data: snap.data() }; hoja = "CUADRE"; }
+        if (!found) {
+          const extRef = _externosRef(plazaUp).doc(mvaStr);
+          const extSnap = await extRef.get();
+          if (extSnap.exists) { found = { ref: extRef, data: extSnap.data() }; hoja = "EXTERNOS"; }
+        }
+      }
+      // Fallback collectionGroup / legacy
+      if (!found) {
+        found = await _buscarUnidadEnSubcol(mvaStr) || await _buscarUnidadLegacy(mvaStr);
+      }
+
+      if (found) {
+        const posAnterior = found.data.pos || "LIMBO";
         if (posAnterior !== posNueva) {
-          batch.set(snap.docs[0].ref, { pos: posNueva }, { merge: true });
+          batch.set(found.ref, { pos: posNueva }, { merge: true });
           histBatch.push({ mva: mvaStr, hoja, posAnterior, posNueva });
         }
       }
@@ -1002,30 +1143,39 @@ const API_FUNCTIONS = {
 
   // ─── TABLA DE FLOTA ───────────────────────────────────────
   async obtenerUnidadesVeloz() {
-    const [cuadre, externos, index] = await Promise.all([
-      db.collection(COL.CUADRE).get(),
-      db.collection(COL.EXTERNOS).get(),
+    // Lee unidades de todas las plazas (collectionGroup) + index + legacy
+    const [grupSnap, index] = await Promise.all([
+      db.collectionGroup('unidades').get().catch(() => null),
       db.collection(COL.INDEX).get()
     ]);
-    const lista = [
-      ...cuadre.docs.map(d => d.data()),
-      ...externos.docs.map(d => d.data()),
-      ...index.docs.map(d => d.data())
-    ];
+    const lista = [];
     const vistos = new Set();
-    return lista.filter(u => {
-      if (!u.mva || vistos.has(u.mva)) return false;
-      vistos.add(u.mva); return true;
-    });
+    if (grupSnap && !grupSnap.empty) {
+      grupSnap.docs.forEach(d => { const u = d.data(); if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); } });
+    } else {
+      // Legacy fallback
+      const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
+      [...cuadre.docs, ...externos.docs].forEach(d => { const u = d.data(); if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); } });
+    }
+    index.docs.forEach(d => { const u = d.data(); if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); } });
+    return lista;
   },
 
   async obtenerDatosFlotaConsola() {
     const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
-    const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
-    const lista = [
-      ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })),
-      ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" }))
-    ];
+    let lista = [];
+    try {
+      const grupSnap = await db.collectionGroup('unidades').get();
+      lista = grupSnap.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() }));
+      // Mark externos by their subcollection parent
+      lista.forEach(u => { if ((d => d._col === 'externos')(u) || u.ubicacion === 'EXTERNO') u.ubicacion = 'EXTERNO'; });
+    } catch {
+      const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
+      lista = [
+        ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })),
+        ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" }))
+      ];
+    }
     lista.forEach(u => { u.orden = ORDEN[(u.estado || "").toUpperCase()] || 99; });
     lista.sort((a, b) => (a.orden - b.orden) || (a.mva || "").localeCompare(b.mva || ""));
     return lista;
@@ -1092,9 +1242,16 @@ const API_FUNCTIONS = {
   },
 
   async obtenerConteoGeneral() {
-    const snap = await db.collection(COL.CUADRE).get();
     const conteo = { LISTO: 0, SUCIO: 0, MANTENIMIENTO: 0, total: 0 };
-    snap.docs.forEach(d => {
+    let docs = [];
+    try {
+      const snap = await db.collectionGroup('unidades').get();
+      docs = snap.docs.filter(d => (d.ref.parent?.parent?.parent?.id || '') === 'cuadre');
+    } catch {
+      const snap = await db.collection(COL.CUADRE).get();
+      docs = snap.docs;
+    }
+    docs.forEach(d => {
       const estado = (d.data().estado || "").toUpperCase();
       if (conteo[estado] !== undefined) conteo[estado]++;
       conteo.total++;
@@ -1423,12 +1580,23 @@ const API_FUNCTIONS = {
 
   // ─── RESUMEN FLOTA ──────────────────────────────────────
   async obtenerResumenFlotaPatio() {
-    const [cuadreSnap, externosSnap] = await Promise.all([
-      db.collection(COL.CUADRE).get(),
-      db.collection(COL.EXTERNOS).get()
-    ]);
-    const cuadreUnits = cuadreSnap.docs.map(d => ({ ...d.data() })).filter(u => u.mva);
-    const externosUnits = externosSnap.docs.map(d => ({ ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva);
+    let cuadreUnits = [], externosUnits = [];
+    try {
+      const grupSnap = await db.collectionGroup('unidades').get();
+      grupSnap.docs.forEach(d => {
+        const col = d.ref.parent?.parent?.parent?.id || '';
+        const u = d.data();
+        if (!u.mva) return;
+        if (col === 'externos') externosUnits.push({ ...u, ubicacion: "EXTERNO" });
+        else cuadreUnits.push({ ...u });
+      });
+    } catch {
+      const [cuadreSnap, externosSnap] = await Promise.all([
+        db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
+      ]);
+      cuadreUnits = cuadreSnap.docs.map(d => ({ ...d.data() })).filter(u => u.mva);
+      externosUnits = externosSnap.docs.map(d => ({ ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva);
+    }
 
     function _agrupar(units) {
       const byEstado = {};

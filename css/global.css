@@ -12080,12 +12080,12 @@ body.dark-theme .cfg-plaza-section-header { border-bottom-color: #1e293b; }
 ═══════════════════════════════════════════════════════════ */
 .cfg-emp-logo-img-wrap {
   display: flex; align-items: center; justify-content: center;
-  padding: 20px; background: #f8fafc;
-  border-radius: 12px 12px 0 0; min-height: 120px;
+  background: #f8fafc;
+  border-radius: 12px 12px 0 0; height: 160px; overflow: hidden;
 }
 .cfg-emp-logo-big {
-  max-height: 140px; max-width: 100%; object-fit: contain;
-  border-radius: 8px;
+  width: 100%; height: 100%; object-fit: contain;
+  display: block;
 }
 .cfg-emp-logo-footer {
   display: flex; align-items: center; gap: 8px;
@@ -12105,7 +12105,8 @@ body.dark-theme .cfg-plaza-section-header { border-bottom-color: #1e293b; }
 .cfg-emp-logo-btn .material-icons { font-size: 16px; color: #475569; }
 .cfg-emp-logo-btn.danger .material-icons { color: #ef4444; }
 /* Also wrap the logo zone nicely */
-.cfg-emp-logo-zone { border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
+.cfg-emp-logo-zone { border: 1.5px solid #e2e8f0; border-radius: 12px; overflow: hidden; padding: 0; min-height: unset; cursor: default; }
+.cfg-emp-logo-zone:has(.cfg-emp-logo-placeholder) { padding: 24px; cursor: pointer; min-height: 120px; }
 /* Palette grid */
 .cfg-emp-palette-grid { display: flex; flex-direction: column; gap: 12px; }
 .cfg-emp-palette-item { display: flex; align-items: center; gap: 14px; }
@@ -12138,6 +12139,20 @@ body.dark-theme .cfg-plaza-select-correo { background: #0d1929; border-color: #1
 body.dark-theme .cfg-emp-logo-img-wrap { background: #0d1929; }
 body.dark-theme .cfg-emp-logo-footer { background: #1a2a3d; border-color: #1e3a5f; }
 body.dark-theme .cfg-emp-logo-btn { background: #0d1929; border-color: #1e3a5f; }
+
+/* Empresa nombre — locked/pencil */
+.cfg-empresa-nombre-locked { background: #f1f5f9 !important; color: #94a3b8 !important; cursor: not-allowed !important; }
+.cfg-emp-pencil-btn {
+  background: #f1f5f9; border: 1.5px solid #e2e8f0; border-radius: 10px;
+  width: 40px; height: 40px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: .15s;
+}
+.cfg-emp-pencil-btn:hover { background: #e2e8f0; }
+.cfg-emp-pencil-btn .material-icons { font-size: 18px; color: #64748b; }
+body.dark-theme .cfg-empresa-nombre-locked { background: #0d1929 !important; color: #475569 !important; }
+body.dark-theme .cfg-emp-pencil-btn { background: #0d1929; border-color: #1e3a5f; }
+body.dark-theme .cfg-emp-pencil-btn .material-icons { color: #94a3b8; }
 body.dark-theme .plaza-locked .cfg-plaza-form-field input,
 body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929 !important; color: #475569 !important; }
 

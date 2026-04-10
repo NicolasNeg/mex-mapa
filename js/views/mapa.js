@@ -2056,7 +2056,7 @@ const api = window.api;
       _mapaSyncState.hasPendingWrite = false;
       _setMapSyncBadge('saving');
 
-      api.guardarNuevasPosiciones(reporte, USER_NAME).then((res) => {
+      api.guardarNuevasPosiciones(reporte, USER_NAME, _miPlaza()).then((res) => {
         isSaving = false;
 
         if (res === true) {
@@ -2785,7 +2785,7 @@ const api = window.api;
           prepararNuevoFlota(); // Limpia formulario
 
           // 3. Enviamos los datos reales a Google sin trabar la pantalla
-          api.aplicarEstado(payload.mva, payload.estado, payload.ubicacion, payload.gasolina, payload.notas, payload.borrarNotas, payload.autor, payload.responsableSesion).catch(() => showToast("Error de sincronización", "error"));
+          api.aplicarEstado(payload.mva, payload.estado, payload.ubicacion, payload.gasolina, payload.notas, payload.borrarNotas, payload.autor, payload.responsableSesion, _miPlaza()).catch(() => showToast("Error de sincronización", "error"));
         }
       }
       else {
@@ -2830,7 +2830,7 @@ const api = window.api;
         actualizarContadores(); // Refresca los números gigantes de arriba
 
         // Guardado silencioso (El servidor lo borra tranquilamente en segundo plano)
-        api.ejecutarEliminacion([mvaABorrar], USER_NAME).catch(() => showToast("Error de sincronización al borrar", "error"));
+        api.ejecutarEliminacion([mvaABorrar], USER_NAME, _miPlaza()).catch(() => showToast("Error de sincronización al borrar", "error"));
 
       }
       else {
@@ -3114,7 +3114,7 @@ const api = window.api;
       }
 
       // 3. Sincronización silenciosa en Google (El orden de variables es correcto)
-      api.aplicarEstado(mva, estado, ubi, gas, notas, borrarNotas, USER_NAME, USER_NAME).catch(() => showToast("Error de conexión", "error"));
+      api.aplicarEstado(mva, estado, ubi, gas, notas, borrarNotas, USER_NAME, USER_NAME, _miPlaza()).catch(() => showToast("Error de conexión", "error"));
     }
 
     function cerrarReserveModal() {
@@ -9861,7 +9861,7 @@ const api = window.api;
             const carVisual = document.getElementById(`auto-${mvaTarget}`);
             if (carVisual) carVisual.remove();
             actualizarContadores();
-            api.ejecutarEliminacion([mvaTarget], USER_NAME).catch(e => console.error(e));
+            api.ejecutarEliminacion([mvaTarget], USER_NAME, _miPlaza()).catch(e => console.error(e));
           } else {
             const itemAdmin = DB_ADMINS.find(u => u.mva === mvaTarget);
             if (itemAdmin) {
@@ -9885,9 +9885,10 @@ const api = window.api;
             placas: (d.placas || "S/P").toUpperCase(),
             estado: (d.estado || d.est || "SUCIO").toUpperCase(),
             ubicacion: (d.ubicacion || d.ubi || "PATIO").toUpperCase(),
-            gasolina: (d.gasolina || d.gas || "N/A").toUpperCase(), // La gasolina solicitada
+            gasolina: (d.gasolina || d.gas || "N/A").toUpperCase(),
             notas: (d.agregar_notas || d.notas || ""),
-            responsableSesion: USER_NAME
+            responsableSesion: USER_NAME,
+            plaza: _miPlaza() || ''
           };
 
           // Magia Visual: Actualiza la tabla al instante (Optimistic UI)
@@ -10631,7 +10632,23 @@ const api = window.api;
 
               <div class="cfg-emp-field">
                 <label>Nombre de la Empresa</label>
-                <input type="text" id="cfg-empresa-nombre" class="cfg-emp-input" value="${escapeHtml(emp.nombre || '')}" placeholder="Ej: MEX RENT A CAR" onchange="window.MEX_CONFIG.empresa.nombre = this.value">
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <input type="text" id="cfg-empresa-nombre" class="cfg-emp-input cfg-empresa-nombre-locked" value="${escapeHtml(emp.nombre || '')}"
+                    placeholder="Ej: MEX RENT A CAR" disabled
+                    onchange="window.MEX_CONFIG.empresa.nombre = this.value"
+                    style="flex:1;">
+                  <button id="cfg-empresa-nombre-pencil"
+                    onclick="(function(){
+                      const inp=document.getElementById('cfg-empresa-nombre');
+                      const btn=document.getElementById('cfg-empresa-nombre-pencil');
+                      const ico=btn.querySelector('.material-icons');
+                      if(inp.disabled){inp.disabled=false;inp.classList.remove('cfg-empresa-nombre-locked');inp.focus();ico.textContent='lock';}
+                      else{inp.disabled=true;inp.classList.add('cfg-empresa-nombre-locked');ico.textContent='edit';}
+                    })()"
+                    class="cfg-emp-pencil-btn" title="Editar nombre">
+                    <span class="material-icons">edit</span>
+                  </button>
+                </div>
               </div>
 
               <div class="cfg-emp-field">
@@ -11365,14 +11382,26 @@ const api = window.api;
       preview.classList.remove('hidden');
     }
 
-    function _plazaGetUserEmailOptions(selectedVal) {
+    function _plazaGetUserEmailOptions(selectedVal, currentPlazaId) {
       const users = (typeof _umUsers !== 'undefined' && _umUsers) ? _umUsers : [];
       const emails = [...new Set(users.map(u => u.email).filter(Boolean))].sort();
-      if (emails.length === 0) {
-        return `<option value="${escapeHtml(selectedVal)}">${escapeHtml(selectedVal || '— Sin correos registrados —')}</option>`;
+
+      // Correos ya asignados en OTRAS plazas (no en la actual)
+      const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
+      const emailsOtrasPlazas = new Set();
+      plazasDetalle.forEach(p => {
+        if (p.id === currentPlazaId) return;
+        if (p.correo) emailsOtrasPlazas.add(p.correo.toLowerCase());
+        if (p.correoGerente) emailsOtrasPlazas.add(p.correoGerente.toLowerCase());
+      });
+
+      const disponibles = emails.filter(e => !emailsOtrasPlazas.has(e.toLowerCase()));
+
+      if (disponibles.length === 0) {
+        return `<option value="${escapeHtml(selectedVal)}">${escapeHtml(selectedVal || '— Sin correos disponibles —')}</option>`;
       }
       return `<option value="">— Sin asignar —</option>` +
-        emails.map(e => `<option value="${escapeHtml(e)}"${e === selectedVal ? ' selected' : ''}>${escapeHtml(e)}</option>`).join('');
+        disponibles.map(e => `<option value="${escapeHtml(e)}"${e === selectedVal ? ' selected' : ''}>${escapeHtml(e)}</option>`).join('');
     }
 
     function _renderPlazaForm(plazaId) {
@@ -11497,7 +11526,7 @@ const api = window.api;
               <div class="cfg-plaza-input-icon-wrap">
                 <span class="material-icons">alternate_email</span>
                 <select id="plaza-correo" class="cfg-plaza-select-correo">
-                  ${_plazaGetUserEmailOptions(d.correo || '')}
+                  ${_plazaGetUserEmailOptions(d.correo || '', plazaId)}
                 </select>
               </div>
             </div>
@@ -11524,7 +11553,7 @@ const api = window.api;
               <div class="cfg-plaza-input-icon-wrap">
                 <span class="material-icons">alternate_email</span>
                 <select id="plaza-correo-gerente" class="cfg-plaza-select-correo">
-                  ${_plazaGetUserEmailOptions(d.correoGerente || '')}
+                  ${_plazaGetUserEmailOptions(d.correoGerente || '', plazaId)}
                 </select>
               </div>
             </div>
