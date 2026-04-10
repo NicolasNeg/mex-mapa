@@ -1041,17 +1041,34 @@
     .spot {
       width: 100%;
       height: 100%;
-      background: rgba(255, 255, 255, 0.02);
-      border-left: 2px solid rgba(255, 255, 255, 0.10);
-      border-right: 2px solid rgba(255, 255, 255, 0.10);
-      border-top: 2px solid rgba(255, 255, 255, 0.10);
-      border-bottom: none;
-      border-radius: 6px 6px 0 0;
+      /* Cajón vacío: fondo casi transparente con borde sutil */
+      background: rgba(255, 255, 255, 0.015);
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      /* Línea inferior más gruesa simulando el "frente del cajón" */
+      border-bottom: 3px solid rgba(255, 255, 255, 0.18);
+      border-radius: 6px 6px 2px 2px;
       position: relative;
       display: flex;
-      align-items: center;
+      align-items: stretch;
       justify-content: center;
       transition: opacity 0.3s ease;
+      /* Reflejo interno sutil en la base */
+      box-shadow: inset 0 -2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    /* Línea guía central del cajón vacío */
+    .spot:not(:has(.car))::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 15%;
+      bottom: 15%;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.04);
+      transform: translateX(-50%);
+      pointer-events: none;
     }
 
     .spot label {
@@ -1061,54 +1078,106 @@
       text-align: center;
       font-size: 10px;
       font-weight: 700;
-      color: rgba(148, 163, 184, 0.7);
+      color: rgba(148, 163, 184, 0.75);
       letter-spacing: 0.5px;
+      /* Garantiza visibilidad encima del overflow:hidden del spot */
+      z-index: 10;
+      pointer-events: none;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     }
 
     .area {
-      background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05) 10px, rgba(0, 0, 0, 0.1) 10px, rgba(0, 0, 0, 0.1) 20px);
-      border: 2px dashed #64748B;
-      border-radius: 12px;
-      color: #94A3B8;
+      background: repeating-linear-gradient(
+        45deg,
+        rgba(255, 255, 255, 0.03) 0px,
+        rgba(255, 255, 255, 0.03) 8px,
+        rgba(0, 0, 0, 0.08) 8px,
+        rgba(0, 0, 0, 0.08) 16px
+      );
+      border: 1.5px dashed rgba(100, 116, 139, 0.6);
+      border-radius: 10px;
+      color: rgba(148, 163, 184, 0.6);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 900;
-      font-size: 16px;
+      font-weight: 800;
+      font-size: 13px;
       text-transform: uppercase;
       letter-spacing: 2px;
+      text-shadow: none;
     }
 
     /* --- ESTILOS PREMIUM PARA LOS CARROS --- */
     .car {
       width: 100%;
       height: 100%;
-      border-radius: 16px 16px 10px 10px;
+      /* Forma de "auto": redondeado arriba, ligeramente plano abajo */
+      border-radius: 10px 10px 4px 4px;
       display: flex;
+      flex-direction: column;
       align-items: center;
-      justify-content: center;
+      justify-content: space-between;
       color: white;
       font-weight: 900;
-      font-size: 18px;
+      font-size: 16px;
       cursor: pointer;
-      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
+                  box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow:
-        0 8px 24px -4px rgba(0, 0, 0, 0.55),
-        0 2px 6px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+        0 6px 20px -3px rgba(0, 0, 0, 0.6),
+        0 2px 6px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25);
       position: relative;
       z-index: 5;
-      border: 1px solid rgba(0, 0, 0, 0.12);
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      /* Borde superior brillante (techo del auto) + borde lateral/inferior oscuro */
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      border-top-color: rgba(255, 255, 255, 0.25);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
       animation: popInCar 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      /* overflow visible para que los badges (lock, urgent, etc.) puedan sobresalir */
+      overflow: visible;
+    }
+
+    /* Franja de brillo/parabrisas en la parte superior del carro */
+    .car::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 30%;
+      background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.18) 0%,
+        rgba(255, 255, 255, 0.04) 70%,
+        transparent 100%
+      );
+      border-radius: 10px 10px 0 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Franja base/parachoques inferior */
+    .car::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 22%;
+      background: rgba(0, 0, 0, 0.28);
+      pointer-events: none;
+      z-index: 1;
     }
 
     .car:hover {
-      transform: translateY(-3px) scale(1.02);
+      transform: translateY(-4px) scale(1.03);
       box-shadow:
-        0 14px 32px -4px rgba(0, 0, 0, 0.6),
-        0 3px 8px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        0 16px 36px -4px rgba(0, 0, 0, 0.65),
+        0 4px 10px rgba(0, 0, 0, 0.35),
+        inset 0 1px 0 rgba(255, 255, 255, 0.32),
+        inset 0 -2px 0 rgba(0, 0, 0, 0.25);
     }
 
     @keyframes popInCar {
@@ -1140,64 +1209,66 @@
       display: none !important;
     }
 
-    /* Gradientes de estado — paleta más profesional */
+    /* Gradientes de estado — oscuro hacia abajo para simular profundidad 3D */
     .listo {
-      background: linear-gradient(160deg, #0d9488 0%, #0f766e 100%) !important;
+      background: linear-gradient(175deg, #10b981 0%, #059669 55%, #064e3b 100%) !important;
     }
 
     .sucio {
-      background: linear-gradient(160deg, #d97706 0%, #b45309 100%) !important;
+      background: linear-gradient(175deg, #f59e0b 0%, #d97706 55%, #78350f 100%) !important;
     }
 
     .mantenimiento {
-      background: linear-gradient(160deg, #dc2626 0%, #991b1b 100%) !important;
+      background: linear-gradient(175deg, #ef4444 0%, #dc2626 55%, #7f1d1d 100%) !important;
     }
 
     .traslado {
-      background: linear-gradient(160deg, #7c3aed 0%, #5b21b6 100%) !important;
+      background: linear-gradient(175deg, #a78bfa 0%, #7c3aed 55%, #3b0764 100%) !important;
       color: white !important;
     }
 
     .venta {
-      background: linear-gradient(160deg, #f59e0b 0%, #d97706 100%) !important;
+      background: linear-gradient(175deg, #fbbf24 0%, #f59e0b 55%, #78350f 100%) !important;
     }
 
     .no-arrendable {
-      background: linear-gradient(160deg, #0891b2 0%, #0e7490 100%) !important;
+      background: linear-gradient(175deg, #22d3ee 0%, #0891b2 55%, #083344 100%) !important;
       color: white !important;
     }
 
     .resguardo {
-      background: linear-gradient(160deg, #92400e 0%, #78350f 100%) !important;
+      background: linear-gradient(175deg, #b45309 0%, #92400e 55%, #431407 100%) !important;
       color: white !important;
     }
 
     .externo {
-      background: linear-gradient(160deg, #475569 0%, #334155 100%) !important;
+      background: linear-gradient(175deg, #64748b 0%, #475569 55%, #0f172a 100%) !important;
       color: white !important;
-      border: 2px dashed rgba(255, 255, 255, 0.35) !important;
+      border: 1px dashed rgba(255, 255, 255, 0.3) !important;
     }
 
     .retenida {
-      background: linear-gradient(160deg, #1d4ed8 0%, #1e3a8a 100%) !important;
+      background: linear-gradient(175deg, #3b82f6 0%, #1d4ed8 55%, #1e1b4b 100%) !important;
       color: white !important;
-      border: 2px dashed rgba(255, 255, 255, 0.3) !important;
+      border: 1px dashed rgba(255, 255, 255, 0.25) !important;
     }
 
-    /* --- NUEVA BARRA DE GASOLINA REAL --- */
+    /* --- BARRA DE GASOLINA --- */
     .gas-container {
-      width: 75%;
-      height: 14px;
-      background: rgba(0, 0, 0, 0.4);
-      border-radius: 8px;
-      margin-bottom: 8px;
+      width: 80%;
+      height: 12px;
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 6px;
+      margin-bottom: 6px;
       position: relative;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(255,255,255,0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      z-index: 2;
+      flex-shrink: 0;
     }
 
     .gas-fill {
@@ -1205,17 +1276,19 @@
       left: 0;
       top: 0;
       height: 100%;
-      border-radius: 6px;
+      border-radius: 5px;
       transition: width 0.3s ease;
+      /* Brillo interno en la barra */
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.3);
     }
 
     .gas-text {
       position: relative;
       z-index: 2;
-      font-size: 9px;
+      font-size: 8px;
       font-weight: 900;
       color: white;
-      text-shadow: 0px 1px 2px black, 0px 0px 4px black;
+      text-shadow: 0px 1px 3px rgba(0,0,0,0.9);
       letter-spacing: 0.5px;
     }
 
@@ -12243,15 +12316,17 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
   cursor: default;
   box-sizing: border-box;
   border-radius: 6px;
-  overflow: visible; /* permite que el label del spot aparezca encima */
+  /* overflow: visible es crítico para que el label del spot (top:-18px) no se clipee */
+  overflow: visible;
   user-select: none;
   transition: box-shadow 0.15s;
 }
-/* El spot tiene su propio overflow para no clipear el .car */
+/* overflow: visible es crítico — el label tiene top:-18px y quedaría clippeado si fuera hidden.
+   El .car tiene width/height:100% y no sobresale, así que no necesitamos hidden. */
 .mapa-celda-libre.spot {
-  overflow: hidden;
+  overflow: visible;
 }
-/* El label del número de cajón: visible por encima del borde superior */
+/* El label del número de cajón: emergente sobre el borde superior */
 .mapa-celda-libre.spot label {
   position: absolute;
   top: -18px;
@@ -12260,10 +12335,11 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
   text-align: center;
   font-size: 10px;
   font-weight: 700;
-  color: rgba(148,163,184,0.7);
+  color: rgba(148, 163, 184, 0.85);
   letter-spacing: 0.5px;
   pointer-events: none;
-  z-index: 2;
+  z-index: 10;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
 }
 
 /* Editor canvas libre */
