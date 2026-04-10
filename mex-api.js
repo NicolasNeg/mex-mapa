@@ -118,6 +118,137 @@ async function _buscarUnidadLegacy(mvaStr) {
   if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
   return null;
 }
+// ── Fase 5: Migración legacy → subcollections por plaza ──────
+// Segura: sólo copia, no borra. Si el doc ya existe en subcollection → skip.
+// Usa batches de máx 490 para no romper límite de Firestore.
+async function migrarDatosLegacyAPlazas(onProgress) {
+  const informe = { ok: 0, skip: 0, errores: [] };
+
+  function _prog(col, total, done) {
+    if (typeof onProgress === 'function') onProgress({ col, total, done, informe });
+  }
+
+  async function _escribirEnBatch(items) {
+    // items: [{ ref, data }]
+    for (let i = 0; i < items.length; i += 490) {
+      const lote = items.slice(i, i + 490);
+      const batch = db.batch();
+      lote.forEach(({ ref, data }) => batch.set(ref, data));
+      await batch.commit();
+    }
+  }
+
+  // ── 1. cuadre (docs raíz) ────────────────────────────────
+  try {
+    _prog('cuadre', 0, 0);
+    const snap = await db.collection(COL.CUADRE).get();
+    const docs = snap.docs.filter(d => !d.id.startsWith('__') && d.data().mva);
+    const escrituras = [];
+    for (const d of docs) {
+      const data = d.data();
+      const plaza = (data.plaza || data.sucursal || '').toUpperCase().trim();
+      if (!plaza) { informe.errores.push(`cuadre/${d.id}: sin plaza`); continue; }
+      const destRef = _cuadreRef(plaza).doc(d.id);
+      const existe = await destRef.get();
+      if (existe.exists) { informe.skip++; continue; }
+      escrituras.push({ ref: destRef, data });
+    }
+    await _escribirEnBatch(escrituras);
+    informe.ok += escrituras.length;
+    _prog('cuadre', docs.length, docs.length);
+  } catch (e) { informe.errores.push('cuadre: ' + e.message); }
+
+  // ── 2. externos (docs raíz) ───────────────────────────────
+  try {
+    _prog('externos', 0, 0);
+    const snap = await db.collection(COL.EXTERNOS).get();
+    const docs = snap.docs.filter(d => !d.id.startsWith('__') && d.data().mva);
+    const escrituras = [];
+    for (const d of docs) {
+      const data = d.data();
+      const plaza = (data.plaza || data.sucursal || '').toUpperCase().trim();
+      if (!plaza) { informe.errores.push(`externos/${d.id}: sin plaza`); continue; }
+      const destRef = _externosRef(plaza).doc(d.id);
+      const existe = await destRef.get();
+      if (existe.exists) { informe.skip++; continue; }
+      escrituras.push({ ref: destRef, data });
+    }
+    await _escribirEnBatch(escrituras);
+    informe.ok += escrituras.length;
+    _prog('externos', docs.length, docs.length);
+  } catch (e) { informe.errores.push('externos: ' + e.message); }
+
+  // ── 3. cuadre_admins ─────────────────────────────────────
+  try {
+    _prog('cuadre_admins', 0, 0);
+    const snap = await db.collection(COL.CUADRE_ADM).get();
+    const docs = snap.docs.filter(d => !d.id.startsWith('__'));
+    const escrituras = [];
+    for (const d of docs) {
+      const data = d.data();
+      const plaza = (data.plaza || data.ubicacion || '').toUpperCase().trim();
+      if (!plaza) { informe.errores.push(`cuadre_admins/${d.id}: sin plaza`); continue; }
+      const destRef = _cuadreAdmRef(plaza).doc(d.id);
+      const existe = await destRef.get();
+      if (existe.exists) { informe.skip++; continue; }
+      escrituras.push({ ref: destRef, data });
+    }
+    await _escribirEnBatch(escrituras);
+    informe.ok += escrituras.length;
+    _prog('cuadre_admins', docs.length, docs.length);
+  } catch (e) { informe.errores.push('cuadre_admins: ' + e.message); }
+
+  // ── 4. historial_cuadres ──────────────────────────────────
+  try {
+    _prog('historial_cuadres', 0, 0);
+    const snap = await db.collection(COL.HISTORIAL_CUADRES).get();
+    const docs = snap.docs.filter(d => !d.id.startsWith('__'));
+    const escrituras = [];
+    for (const d of docs) {
+      const data = d.data();
+      const plaza = (data.plaza || '').toUpperCase().trim();
+      if (!plaza) { informe.errores.push(`historial_cuadres/${d.id}: sin plaza`); continue; }
+      const destRef = _histCuadreRef(plaza).doc(d.id);
+      const existe = await destRef.get();
+      if (existe.exists) { informe.skip++; continue; }
+      escrituras.push({ ref: destRef, data });
+    }
+    await _escribirEnBatch(escrituras);
+    informe.ok += escrituras.length;
+    _prog('historial_cuadres', docs.length, docs.length);
+  } catch (e) { informe.errores.push('historial_cuadres: ' + e.message); }
+
+  // ── 5. configuracion/listas → ubicaciones por plaza ──────
+  try {
+    _prog('configuracion/listas', 0, 0);
+    const listasSnap = await db.collection(COL.CONFIG).doc('listas').get();
+    if (listasSnap.exists) {
+      const ubicaciones = listasSnap.data().ubicaciones || [];
+      // Agrupar ubicaciones por plaza
+      const byPlaza = {};
+      ubicaciones.forEach(u => {
+        const plazaId = ((typeof u === 'object' ? u.plazaId : null) || '').toUpperCase().trim();
+        if (!plazaId) return; // Sin plazaId → global, no migrar
+        if (!byPlaza[plazaId]) byPlaza[plazaId] = [];
+        byPlaza[plazaId].push(u);
+      });
+      for (const [plaza, ubics] of Object.entries(byPlaza)) {
+        const destRef = _configPlazaRef(plaza);
+        const existe = await destRef.get();
+        if (existe.exists && Array.isArray(existe.data().ubicaciones) && existe.data().ubicaciones.length > 0) {
+          informe.skip++;
+          continue;
+        }
+        await destRef.set({ ubicaciones: ubics }, { merge: true });
+        informe.ok++;
+      }
+    }
+    _prog('configuracion/listas', 1, 1);
+  } catch (e) { informe.errores.push('configuracion/listas: ' + e.message); }
+
+  return informe;
+}
+
 const ADMIN_FIXED_LOCATIONS = new Set([
   "PATIO",
   "TALLER",
@@ -2085,7 +2216,10 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   async analizarPlacaVisionAPI(_base64Image) {
     // La integración con Vision API requiere Cloud Functions; por ahora retorna vacío
     return "";
-  }
+  },
+
+  // ── Fase 5: migración legacy ────────────────────────────────
+  migrarDatosLegacyAPlazas
 };
 
 // ─── ESTRUCTURA POR DEFECTO DEL MAPA ────────────────────────

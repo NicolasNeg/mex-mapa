@@ -10757,6 +10757,34 @@ const api = window.api;
 
             <!-- Catálogo de Plazas movido al tab Plazas -->
 
+            ${canUseProgrammerConfig() ? `
+            <!-- Mantenimiento del Sistema -->
+            <div class="cfg-emp-card" id="cfg-maint-card">
+              <div class="cfg-emp-section-header">
+                <span class="material-icons">build_circle</span>
+                Mantenimiento del Sistema
+              </div>
+              <p style="font-size:12px; color:#64748b; font-weight:600; margin:0 0 14px; line-height:1.6;">
+                Migra los datos del formato antiguo (colecciones planas) al nuevo formato por plaza (subcollecciones).<br>
+                <strong style="color:#f59e0b;">Esta operación es segura: no borra datos existentes, solo copia.</strong>
+              </p>
+              <div id="cfg-mig-progress" style="display:none; margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; color:#64748b; margin-bottom:4px;">
+                  <span id="cfg-mig-label">Iniciando...</span>
+                  <span id="cfg-mig-pct">0%</span>
+                </div>
+                <div style="background:#e2e8f0; border-radius:99px; height:8px; overflow:hidden;">
+                  <div id="cfg-mig-bar" style="height:100%; width:0%; background:var(--mex-blue); border-radius:99px; transition:width .3s;"></div>
+                </div>
+              </div>
+              <div id="cfg-mig-log" style="display:none; font-size:11px; color:#475569; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:120px; overflow-y:auto; margin-bottom:12px; font-family:monospace; white-space:pre-wrap;"></div>
+              <button id="cfg-mig-btn" onclick="ejecutarMigracionLegacy()"
+                style="background:var(--mex-blue); color:white; border:none; border-radius:10px; padding:10px 20px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px; transition:.15s;">
+                <span class="material-icons" style="font-size:16px;">sync</span>
+                Migrar Datos Legacy
+              </button>
+            </div>` : ''}
+
           </div>
         `;
         return;
@@ -11112,6 +11140,64 @@ const api = window.api;
         window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);
         renderizarListaConfig();
       });
+    }
+
+    async function ejecutarMigracionLegacy() {
+      if (!canUseProgrammerConfig()) { showToast("Sin permiso para esta operación.", "error"); return; }
+      const ok = await mexConfirm(
+        'Migrar datos legacy',
+        '¿Migrar todos los datos al nuevo formato por plaza?\n\nEsta operación es segura: copia los datos, NO los borra.',
+        'warning'
+      );
+      if (!ok) return;
+
+      const btn   = document.getElementById('cfg-mig-btn');
+      const prog  = document.getElementById('cfg-mig-progress');
+      const bar   = document.getElementById('cfg-mig-bar');
+      const label = document.getElementById('cfg-mig-label');
+      const pct   = document.getElementById('cfg-mig-pct');
+      const log   = document.getElementById('cfg-mig-log');
+
+      const COLS = ['cuadre', 'externos', 'cuadre_admins', 'historial_cuadres', 'configuracion/listas'];
+      let colIdx = 0;
+
+      function onProgress({ col, informe }) {
+        colIdx = COLS.indexOf(col);
+        if (colIdx < 0) colIdx = COLS.length - 1;
+        const pctVal = Math.round(((colIdx + 1) / COLS.length) * 100);
+        bar.style.width = pctVal + '%';
+        pct.textContent = pctVal + '%';
+        label.textContent = `Procesando: ${col}`;
+        log.style.display = 'block';
+        log.textContent = `OK: ${informe.ok} | Skip: ${informe.skip} | Errores: ${informe.errores.length}`;
+        if (informe.errores.length) log.textContent += '\n' + informe.errores.slice(-5).join('\n');
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="material-icons spinner" style="font-size:16px;">sync</span> Migrando...';
+      prog.style.display = 'block';
+      bar.style.width = '0%';
+      log.style.display = 'none';
+      log.textContent = '';
+
+      try {
+        const result = await api.migrarDatosLegacyAPlazas(onProgress);
+        bar.style.width = '100%';
+        bar.style.background = result.errores.length === 0 ? '#10b981' : '#f59e0b';
+        pct.textContent = '100%';
+        label.textContent = result.errores.length === 0 ? '¡Migración completada!' : 'Completado con advertencias';
+        log.style.display = 'block';
+        log.textContent = `✅ Migrados: ${result.ok} | ⏭ Ya existían: ${result.skip} | ❌ Errores: ${result.errores.length}`;
+        if (result.errores.length) log.textContent += '\n\nSin plaza (no migrados):\n' + result.errores.join('\n');
+        btn.innerHTML = '<span class="material-icons" style="font-size:16px;">check_circle</span> Migración completada';
+        btn.style.background = '#10b981';
+        showToast(`Migración terminada: ${result.ok} docs migrados`, result.errores.length ? 'warning' : 'success');
+      } catch (e) {
+        btn.innerHTML = '<span class="material-icons" style="font-size:16px;">error</span> Error';
+        btn.style.background = '#ef4444';
+        btn.disabled = false;
+        showToast('Error en migración: ' + e.message, 'error');
+      }
     }
 
     async function guardarConfiguracionEnFirebase() {
@@ -12774,6 +12860,7 @@ Object.assign(window, {
   ejecutarEdicionGlobal,
   ejecutarEliminacionIncidencia,
   ejecutarFiltroMasivo,
+  ejecutarMigracionLegacy,
   ejecutarGuardadoFlota,
   ejecutarInsertarAdmin,
   ejecutarInsertarGlobal,
