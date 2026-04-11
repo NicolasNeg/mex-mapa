@@ -89,9 +89,32 @@ function _configPlazaRef(plaza) {
   return db.collection('configuracion').doc((plaza || '').toUpperCase().trim());
 }
 
-// [F1] _buscarUnidadEnSubcol: ahora busca directamente en colecciones planas con campo plaza
-async function _buscarUnidadEnSubcol(mvaStr) {
-  // Busca en cuadre plano y externos plano (colecciones raíz con campo plaza)
+// Busca una unidad en las colecciones planas.
+// Si se pasa plaza busca primero con filtro. Si no encuentra (o no se pasó plaza),
+// busca docs que NO tengan campo plaza (legacy sin stampear).
+// NUNCA devuelve un doc de otra plaza cuando se especifica plaza.
+async function _buscarUnidadEnSubcol(mvaStr, plaza) {
+  const plazaUp = (plaza || '').toUpperCase().trim();
+  if (plazaUp) {
+    // 1. Buscar doc que tenga campo plaza correcto
+    let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
+    if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
+    snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
+    if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
+    // 2. Fallback SOLO a docs sin campo plaza (legacy). Si tiene plaza de otra sucursal → ignorar.
+    let legSnap = await db.collection(COL.CUADRE).where('mva', '==', mvaStr).limit(5).get();
+    for (const d of legSnap.docs) {
+      const dp = (d.data().plaza || d.data().sucursal || '').toUpperCase().trim();
+      if (!dp || dp === plazaUp) return { ref: d.ref, data: d.data() };
+    }
+    legSnap = await db.collection(COL.EXTERNOS).where('mva', '==', mvaStr).limit(5).get();
+    for (const d of legSnap.docs) {
+      const dp = (d.data().plaza || d.data().sucursal || '').toUpperCase().trim();
+      if (!dp || dp === plazaUp) return { ref: d.ref, data: d.data() };
+    }
+    return null;
+  }
+  // Sin plaza — buscar sin filtro (solo para contextos que no tienen plaza)
   let snap = await db.collection(COL.CUADRE).where('mva', '==', mvaStr).limit(1).get();
   if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
   snap = await db.collection(COL.EXTERNOS).where('mva', '==', mvaStr).limit(1).get();
@@ -99,9 +122,48 @@ async function _buscarUnidadEnSubcol(mvaStr) {
   return null;
 }
 
-// [F1] _buscarUnidadLegacy: alias de _buscarUnidadEnSubcol (ya no hay distinción)
-async function _buscarUnidadLegacy(mvaStr) {
-  return _buscarUnidadEnSubcol(mvaStr);
+async function _buscarUnidadLegacy(mvaStr, plaza) {
+  return _buscarUnidadEnSubcol(mvaStr, plaza);
+}
+
+// ── Backfill: inyectar campo plaza en docs legacy que no lo tienen ──────────
+// Lee campo sucursal/plazaAsignada/plaza del propio doc para inferir la plaza.
+// Si no se puede inferir → skips (no toca el doc).
+// Llama onProgress({ col, total, done, stamped, skipped })
+async function backfillPlazaEnUnidades(onProgress) {
+  const informe = { stamped: 0, skipped: 0, errores: [] };
+  const cols = [COL.CUADRE, COL.EXTERNOS];
+  for (const colName of cols) {
+    try {
+      const snap = await db.collection(colName).get();
+      const docs = snap.docs;
+      let done = 0;
+      if (typeof onProgress === 'function') onProgress({ col: colName, total: docs.length, done: 0, ...informe });
+      const batch = db.batch();
+      let batchCount = 0;
+      for (const d of docs) {
+        const data = d.data();
+        // Ya tiene plaza correcta → skip
+        if (data.plaza && data.plaza.trim()) { informe.skipped++; done++; continue; }
+        // Inferir de otros campos
+        const inferred = (data.sucursal || data.plazaAsignada || data.plazaId || '').toUpperCase().trim();
+        if (!inferred) { informe.skipped++; done++; continue; }
+        batch.update(d.ref, { plaza: inferred });
+        informe.stamped++;
+        batchCount++;
+        done++;
+        // Commit cada 490 docs
+        if (batchCount >= 490) {
+          await batch.commit(); batchCount = 0;
+        }
+        if (typeof onProgress === 'function') onProgress({ col: colName, total: docs.length, done, ...informe });
+      }
+      if (batchCount > 0) await batch.commit();
+    } catch (e) {
+      informe.errores.push(`${colName}: ${e.message}`);
+    }
+  }
+  return informe;
 }
 
 // Convierte un MVA a un ID de documento Firestore seguro (sin '/', sin segmentos pares, etc.)
@@ -724,7 +786,9 @@ async function _actualizarFeed(accion, autor, plaza) {
   let feed = settings.liveFeed || [];
   if (typeof feed === "string") { try { feed = JSON.parse(feed); } catch(e) { feed = []; } }
   if (!Array.isArray(feed)) feed = [];
-  feed.unshift({ accion: accion, fecha: _now().slice(-5), autor: autor || "Sistema" });
+  const _fd = new Date();
+  const _feedFecha = _fd.toLocaleString("es-MX", { timeZone:"America/Mazatlan", month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false });
+  feed.unshift({ accion: accion, fecha: _feedFecha, autor: autor || "Sistema" });
   if (feed.length > 5) feed.length = 5;
   await _setSettings({ liveFeed: JSON.stringify(feed), ultimaModificacion: _now(), ultimoEditor: autor }, plaza); // [F1]
 }
@@ -950,9 +1014,9 @@ const API_FUNCTIONS = {
         if (!snap.empty) { docRef = snap.docs[0].ref; actual = snap.docs[0].data(); }
       }
     }
-    // [F1] Fallback: buscar sin filtro de plaza
+    // Fallback: buscar respetando plaza (solo encuentra docs legacy sin campo plaza de otra plaza)
     if (!docRef) {
-      const found = await _buscarUnidadEnSubcol(mvaStr);
+      const found = await _buscarUnidadEnSubcol(mvaStr, plazaUp);
       if (!found) return "ERROR: MVA no encontrado";
       docRef = found.ref;
       actual = found.data;
@@ -969,7 +1033,10 @@ const API_FUNCTIONS = {
       notaFinal = tieneSello ? notaEntrada : `${sello} ${notaEntrada}`;
     }
 
-    await docRef.update({ gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor });
+    // Si el doc no tiene plaza (legacy), stampearla ahora
+    const updatePayload = { gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor };
+    if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
+    await docRef.update(updatePayload);
     await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp); // [F1]
 
     // Registrar SOLO los cambios reales (no mostrar campos sin cambio)
@@ -997,8 +1064,11 @@ const API_FUNCTIONS = {
     const docId  = _mvaToDocId(mvaStr);
     const plazaUp = (objeto.plaza || '').toUpperCase().trim(); // [F1]
 
-    // [F1] Verificar duplicado en colección plana con campo plaza
-    const existeLeg = await db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1).get();
+    // Verificar duplicado solo dentro de la misma plaza
+    const dupQuery = plazaUp
+      ? db.collection(COL.CUADRE).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
+      : db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1);
+    const existeLeg = await dupQuery.get();
     if (!existeLeg.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
 
     const ahora = _now();
@@ -1035,8 +1105,11 @@ const API_FUNCTIONS = {
     const docId   = _mvaToDocId(mvaStr);
     const plazaUp = (objeto.plaza || '').toUpperCase().trim(); // [F1]
 
-    // [F1] Verificar duplicado en colección plana
-    const existeLeg = await db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1).get();
+    // Verificar duplicado solo dentro de la misma plaza
+    const dupQueryExt = plazaUp
+      ? db.collection(COL.EXTERNOS).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
+      : db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1);
+    const existeLeg = await dupQueryExt.get();
     if (!existeLeg.empty) return `La unidad externa ${mvaStr} ya está registrada.`;
 
     const ahora = _now();
@@ -1081,9 +1154,9 @@ const API_FUNCTIONS = {
         if (!snap.empty) { await snap.docs[0].ref.delete(); eliminado = true; }
       }
 
-      // [F1] Fallback: buscar sin filtro de plaza
+      // Fallback: solo docs legacy sin campo plaza (o misma plaza)
       if (!eliminado) {
-        const found = await _buscarUnidadEnSubcol(mvaStr);
+        const found = await _buscarUnidadEnSubcol(mvaStr, plazaUp);
         if (found) { await found.ref.delete(); eliminado = true; }
       }
 
@@ -1116,9 +1189,9 @@ const API_FUNCTIONS = {
           if (!snap.empty) { found = { ref: snap.docs[0].ref, data: snap.docs[0].data() }; hoja = "EXTERNOS"; }
         }
       }
-      // [F1] Fallback sin filtro de plaza
+      // Fallback respetando plaza
       if (!found) {
-        found = await _buscarUnidadEnSubcol(mvaStr);
+        found = await _buscarUnidadEnSubcol(mvaStr, plazaUp);
         if (found) {
           const col = (found.ref.parent?.id || '');
           hoja = col === COL.EXTERNOS ? "EXTERNOS" : "CUADRE";
@@ -2026,7 +2099,11 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     return "";
   },
 
-  // [F1] migrarDatosLegacyAPlazas eliminada — colecciones planas por plaza ya no requieren migración
+  // Inyectar campo `plaza` en docs legacy de cuadre/externos que no lo tengan.
+  // Usa batch de 490. Infiere plaza de sucursal/plazaAsignada/plazaId del propio doc.
+  async backfillPlazaEnUnidades(onProgress) {
+    return backfillPlazaEnUnidades(onProgress);
+  },
 };
 
 // ─── ESTRUCTURA POR DEFECTO DEL MAPA ────────────────────────

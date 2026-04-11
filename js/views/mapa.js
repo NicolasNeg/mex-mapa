@@ -911,11 +911,15 @@ const api = window.api;
         const myEmail = _profileDocId(auth.currentUser?.email || '');
         if (myEmail) {
           const myDoc = snap.docs.find(d => d.id === myEmail);
-          if (myDoc?.data()?._reloadRequired) {
-            // Limpiar el flag antes de recargar para no hacer loop
-            db.collection(COL.USERS).doc(myEmail).update({ _reloadRequired: false }).catch(() => {});
+          if (myDoc?.data()?._reloadRequired && !sessionStorage.getItem('_reloadGuard')) {
+            // Guard contra loop infinito si el update falla por permisos
+            sessionStorage.setItem('_reloadGuard', '1');
+            db.collection(COL.USERS).doc(myEmail).update({ _reloadRequired: false })
+              .catch(() => {
+                // Si falla (permisos), al menos el sessionStorage evita el loop
+              });
             showToast('Tus permisos fueron actualizados. Recargando...', 'warning');
-            setTimeout(() => window.location.reload(), 2000);
+            setTimeout(() => { sessionStorage.removeItem('_reloadGuard'); window.location.reload(); }, 2000);
           }
         }
       }, err => console.warn('onSnapshot usuarios live:', err));
@@ -5191,7 +5195,7 @@ const api = window.api;
           clearTimeout(window.feedTimer);
           window.feedTimer = setTimeout(() => {
             // Solo lo limpiamos si el usuario no ha movido nada nuevo
-            api.limpiarFeedGlobal().catch(e => console.error(e));
+            api.limpiarFeedGlobal(_miPlaza()).catch(e => console.error(e));
           }, 15000);
 
         } else if (feedContainer) {
@@ -11150,7 +11154,32 @@ const api = window.api;
 
             <!-- Catálogo de Plazas movido al tab Plazas -->
 
-            <!-- Mantenimiento del Sistema eliminado: colecciones ya son planas por plaza -->
+            ${canUseProgrammerConfig() ? `
+            <div class="cfg-emp-card" id="cfg-backfill-card">
+              <div class="cfg-emp-section-header">
+                <span class="material-icons">tag</span>
+                Backfill de Plaza en Unidades
+              </div>
+              <p style="font-size:12px; color:#64748b; line-height:1.6; margin:0 0 12px;">
+                Inyecta el campo <code>plaza</code> en documentos de <b>cuadre</b> y <b>externos</b> que aún no lo tienen
+                (datos legacy sin campo plaza → los inferimos de <code>sucursal</code> / <code>plazaAsignada</code>).
+                <br><strong style="color:#f59e0b;">Seguro: solo actualiza campo faltante, no borra nada.</strong>
+              </p>
+              <div id="cfg-bf-progress" style="display:none; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:#64748b; margin-bottom:4px;">
+                  <span id="cfg-bf-label">Iniciando...</span><span id="cfg-bf-pct">0%</span>
+                </div>
+                <div style="background:#e2e8f0; border-radius:99px; height:7px; overflow:hidden;">
+                  <div id="cfg-bf-bar" style="height:100%; width:0%; background:#10b981; border-radius:99px; transition:width .3s;"></div>
+                </div>
+              </div>
+              <div id="cfg-bf-log" style="display:none; font-size:11px; color:#475569; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:100px; overflow-y:auto; margin-bottom:10px; font-family:monospace; white-space:pre-wrap;"></div>
+              <button id="cfg-bf-btn" onclick="ejecutarBackfillPlaza()"
+                style="background:#10b981; color:white; border:none; border-radius:10px; padding:10px 20px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                <span class="material-icons" style="font-size:16px;">sync</span>
+                Inyectar campo plaza en unidades legacy
+              </button>
+            </div>` : ''}
 
           </div>
         `;
