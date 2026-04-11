@@ -3426,7 +3426,12 @@ const api = window.api;
         if (_roleNeedsMultiplePlazas(rol)) cambios.push(`Plazas permitidas: [${plazasPermitidas.join(', ')}]`);
 
         const updateData = { nombre, telefono, email: targetUser.email, rol, plazaAsignada, isAdmin: meta.isAdmin, isGlobal: meta.fullAccess };
-        if (_roleNeedsMultiplePlazas(rol)) updateData.plazasPermitidas = plazasPermitidas;
+        if (_roleNeedsMultiplePlazas(rol)) {
+          updateData.plazasPermitidas = plazasPermitidas;
+        } else {
+          // Borrar campos huérfanos de roles anteriores que ya no aplican
+          updateData.plazasPermitidas = firebase.firestore.FieldValue.delete();
+        }
 
         await db.collection(COL.USERS).doc(docId).update(updateData);
 
