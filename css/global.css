@@ -1537,6 +1537,18 @@
       color: #475569;
     }
 
+    .mex-dlg-btn-extra {
+      background: #e0f2fe;
+      color: #0369a1;
+      box-shadow: 0 4px 14px rgba(14, 165, 233, 0.16);
+    }
+
+    .mex-dlg-btn-extra:hover {
+      transform: translateY(-2px);
+      background: #bae6fd;
+      box-shadow: 0 6px 18px rgba(14, 165, 233, 0.24);
+    }
+
     .mex-dlg-btn-confirm {
       background: var(--mex-accent, #1a73e8);
       color: white;
@@ -1607,6 +1619,16 @@
     body.dark-theme .mex-dlg-btn-cancel:hover {
       background: #475569;
       color: #cbd5e1;
+    }
+
+    body.dark-theme .mex-dlg-btn-extra {
+      background: rgba(14, 165, 233, 0.18);
+      color: #7dd3fc;
+    }
+
+    body.dark-theme .mex-dlg-btn-extra:hover {
+      background: rgba(14, 165, 233, 0.28);
+      color: #e0f2fe;
     }
 
     /* ═══════════════════════════════════════════
@@ -9886,6 +9908,11 @@
         padding: 20px !important;
       }
 
+      .mapa-canvas-libre::before {
+        inset: -20px !important;
+        border-radius: 24px !important;
+      }
+
       .login-box {
         width: 95%;
         padding: 25px;
@@ -12243,6 +12270,20 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
   position: relative; /* [F2] */
   overflow: visible;
   flex-shrink: 0;
+  isolation: isolate;
+  z-index: 0;
+}
+.mapa-canvas-libre::before {
+  content: "";
+  position: absolute;
+  inset: calc(clamp(24px, 3vw, 40px) * -1);
+  background: #2A3441;
+  border-radius: 30px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  background-image: radial-gradient(#3f4d5e 1px, transparent 1px);
+  background-size: 20px 20px;
+  z-index: -1;
+  pointer-events: none;
 }
 .mapa-celda-libre {
   position: absolute; /* [F2] */

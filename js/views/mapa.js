@@ -1003,7 +1003,7 @@ const api = window.api;
     let _unsubUsersLive = null;     // función para cancelar onSnapshot de usuarios (chat/dropdown)
     let saveTimeout = null;
     let lastMoveTime = 0;
-    const MAPA_SAVE_DEBOUNCE_MS = 200;
+    const MAPA_SAVE_DEBOUNCE_MS = 120;
     const MAPA_SAVE_RETRY_MS = 2500;
     let _mapaRenderRAF = 0;
     let _ultimaFlotaMapa = [];
@@ -1160,6 +1160,8 @@ const api = window.api;
       _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
       _renderPlazaSwitcher();
       startAutoRefresh();
+      iniciarRadarNotificaciones();
+      hacerPingNotificaciones(true);
       // Cerrar el dropdown si está abierto
       const dd = document.getElementById('plaza-picker-dropdown');
       if (dd) dd.style.display = 'none';
@@ -1202,6 +1204,8 @@ const api = window.api;
         if (_subPlaza !== PLAZA_ACTIVA_MAPA) {
           _subPlaza = null;
           startAutoRefresh();
+          iniciarRadarNotificaciones();
+          hacerPingNotificaciones(true);
         }
       }
 
@@ -5023,26 +5027,31 @@ const api = window.api;
 
 
     let _unsubRadar = [];
-    let _radarState = { settings: null, alertas: null, mensajes: null, incidencias: 0 };
-    let _radarReady = { settings: false, alertas: false, mensajes: false, incidencias: false };
+    let _radarState = { settings: null, globalSettings: null, alertas: null, mensajes: null, incidencias: 0 };
+    let _radarReady = { settings: false, globalSettings: false, alertas: false, mensajes: false, incidencias: false };
 
     function _limpiarRadar() {
       if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
       _unsubRadar.forEach(u => u());
       _unsubRadar = [];
-      _radarState = { settings: null, alertas: null, mensajes: null, incidencias: 0 };
-      _radarReady = { settings: false, alertas: false, mensajes: false, incidencias: false };
+      _radarState = { settings: null, globalSettings: null, alertas: null, mensajes: null, incidencias: 0 };
+      _radarReady = { settings: false, globalSettings: false, alertas: false, mensajes: false, incidencias: false };
     }
 
     function iniciarRadarNotificaciones() {
       _limpiarRadar();
       if (!USER_NAME) return;
+      if (canLockMap() && typeof api.ensureGlobalSettingsDoc === 'function') {
+        api.ensureGlobalSettingsDoc().catch(err => console.warn('GLOBAL settings:', err));
+      }
 
       const emitir = () => {
-        if (!_radarState.settings) return; // Esperar primera carga
+        if (!_radarState.settings || !_radarState.globalSettings) return; // Esperar primera carga
         let liveFeed = _radarState.settings.liveFeed || [];
         if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
         if (!Array.isArray(liveFeed)) liveFeed = [];
+        const mapaBloqueadoLocal = _radarState.settings.mapaBloqueado === true;
+        const mapaBloqueadoGlobal = _radarState.globalSettings.mapaBloqueadoGlobal === true;
         const alertas = _ordenarAlertasPendientes((_radarState.alertas || []).filter(a =>
           !_alertaYaLeidaPor(a, USER_NAME) && _alertaAplicaAUsuario(a, USER_NAME)
         ));
@@ -5052,7 +5061,10 @@ const api = window.api;
           mensajesSinLeer: _radarState.mensajes || 0,
           ultimaActualizacion: _radarState.settings.ultimaModificacion || "--/-- 00:00",
           ultimoCuadre: _radarState.settings.ultimoCuadreTexto || "Sin registro",
-          mapaBloqueado: _radarState.settings.mapaBloqueado === true,
+          mapaBloqueado: mapaBloqueadoLocal || mapaBloqueadoGlobal,
+          mapaBloqueadoScope: mapaBloqueadoGlobal ? 'GLOBAL' : (mapaBloqueadoLocal ? 'PLAZA' : ''),
+          mapaBloqueadoLocal,
+          mapaBloqueadoGlobal,
           estadoCuadreV3: _radarState.settings.estadoCuadreV3 || "LIBRE",
           adminIniciador: _radarState.settings.adminIniciador || "",
           liveFeed,
@@ -5066,6 +5078,14 @@ const api = window.api;
           _radarReady.settings = true;
           emitir();
         }, err => console.warn('Radar settings:', err))
+      );
+
+      _unsubRadar.push(
+        db.collection('settings').doc('GLOBAL').onSnapshot(snap => {
+          _radarState.globalSettings = snap.exists ? snap.data() : {};
+          _radarReady.globalSettings = true;
+          emitir();
+        }, err => console.warn('Radar settings global:', err))
       );
 
       _unsubRadar.push(
@@ -5098,8 +5118,8 @@ const api = window.api;
     // Conservado para llamadas directas puntuales si se necesitan
     function hacerPingNotificaciones(force = false) {
       if (window.PAUSA_CONEXIONES || !USER_NAME) return;
-      if (!force && _radarReady.settings && _radarReady.alertas && _radarReady.mensajes && _radarReady.incidencias) return;
-      api.checarNotificaciones(USER_NAME).then(res => {
+      if (!force && _radarReady.settings && _radarReady.globalSettings && _radarReady.alertas && _radarReady.mensajes && _radarReady.incidencias) return;
+      api.checarNotificaciones(USER_NAME, _miPlaza()).then(res => {
         if (res) _procesarPingUI(res);
       }).catch(err => console.error("❌ RADAR ERROR:", err));
     }
@@ -5138,6 +5158,11 @@ const api = window.api;
       const viewAdmin = document.getElementById('auditViewAdmin');
       const viewUser = document.getElementById('auditViewUser');
       const switchLock = document.getElementById('switchLockAdmin');
+      const txtLock = document.getElementById('txtLockAdmin');
+      const scope = res.mapaBloqueadoScope === 'GLOBAL' ? 'GLOBAL' : (res.mapaBloqueado ? 'PLAZA' : '');
+      estadoLockLocal = res.mapaBloqueadoLocal === true;
+      estadoLockGlobal = res.mapaBloqueadoGlobal === true;
+      window.MAPA_LOCK_SCOPE = scope;
 
       if (res.mapaBloqueado) {
         window.MAPA_LOCKED = true;
@@ -5160,9 +5185,11 @@ const api = window.api;
         }
         _setMapSyncBadge('locked');
         if (switchLock) switchLock.style.background = "#ef4444";
+        if (txtLock) txtLock.innerText = scope === 'GLOBAL' ? 'LIBERAR BLOQUEO GLOBAL' : 'LIBERAR BLOQUEO PLAZA';
 
       } else {
         window.MAPA_LOCKED = false;
+        window.MAPA_LOCK_SCOPE = '';
         document.body.classList.remove('map-locked');
 
         if (overlay) {
@@ -5171,6 +5198,7 @@ const api = window.api;
         }
 
         if (switchLock) switchLock.style.background = "#64748b";
+        if (txtLock) txtLock.innerText = 'BLOQUEAR PATIO';
         if (isSaving) _setMapSyncBadge('saving');
         else if (_mapaSyncState.hasPendingWrite || saveTimeout) _setMapSyncBadge('queued');
         else _setMapSyncBadge('live');
@@ -7544,26 +7572,77 @@ const api = window.api;
 
 
     let estadoLockLocal = false;
+    let estadoLockGlobal = false;
+
+    async function _elegirAlcanceBloqueoMapa(nuevoEstado) {
+      const plazaActual = (_miPlaza() || 'ACTUAL').toUpperCase();
+
+      if (!nuevoEstado) {
+        if (estadoLockGlobal && estadoLockLocal) {
+          return mexDialog({
+            titulo: 'Liberar patio',
+            texto: `Hay un bloqueo GLOBAL y otro en la plaza ${plazaActual}. Elige cuál quieres liberar.`,
+            tipo: 'warning',
+            btnConfirmar: `PLAZA ${plazaActual}`,
+            btnExtra: 'GLOBAL',
+            btnCancelar: 'CANCELAR',
+            valorConfirmar: 'PLAZA',
+            valorExtra: 'GLOBAL',
+            valorCancelar: null
+          });
+        }
+        if (estadoLockGlobal) return 'GLOBAL';
+        return 'PLAZA';
+      }
+
+      return mexDialog({
+        titulo: 'Bloquear patio',
+        texto: `Selecciona el alcance del bloqueo.\n\nPLAZA ${plazaActual}: solo el patio que estás viendo.\nGLOBAL: bloquea todas las plazas al mismo tiempo desde settings/GLOBAL.`,
+        tipo: 'warning',
+        btnConfirmar: `PLAZA ${plazaActual}`,
+        btnExtra: 'GLOBAL',
+        btnCancelar: 'CANCELAR',
+        valorConfirmar: 'PLAZA',
+        valorExtra: 'GLOBAL',
+        valorCancelar: null
+      });
+    }
+
     async function solicitarToggleBloqueo() {
       if (!canLockMap()) {
         showToast("🚫 Solo los roles con acceso total pueden bloquear el patio.", "error");
         return;
       }
 
-      // 🔥 CORREGIDO: Declaramos 'nuevo' una sola vez
       const nuevo = !window.MAPA_LOCKED;
-      const msj = nuevo ? "¿Bloquear todos los movimientos del patio?" : "¿Liberar el mapa para movimientos?";
+      const scope = await _elegirAlcanceBloqueoMapa(nuevo);
+      if (!scope) return;
+      const plazaActual = (_miPlaza() || 'ACTUAL').toUpperCase();
+      const scopeLabel = scope === 'GLOBAL' ? 'todas las plazas' : `la plaza ${plazaActual}`;
+      const msj = nuevo
+        ? `¿Bloquear todos los movimientos en ${scopeLabel}?`
+        : `¿Liberar el mapa para movimientos en ${scopeLabel}?`;
 
       const ok = await mexConfirm(
-        nuevo ? 'Bloquear patio' : 'Liberar patio',
+        nuevo ? (scope === 'GLOBAL' ? 'Bloquear global' : 'Bloquear plaza') : (scope === 'GLOBAL' ? 'Liberar global' : 'Liberar plaza'),
         msj,
         'warning'
       );
       if (!ok) return;
 
-      showToast(nuevo ? "Congelando sistema..." : "Liberando sistema...", "warning");
-      api.toggleBloqueoMapa(nuevo, USER_NAME, _miPlaza()).then(() => {
-        showToast(nuevo ? "Mapa Bloqueado" : "Mapa Disponible", "success");
+      showToast(
+        nuevo
+          ? (scope === 'GLOBAL' ? "Congelando todas las plazas..." : `Congelando plaza ${plazaActual}...`)
+          : (scope === 'GLOBAL' ? "Liberando bloqueo global..." : `Liberando plaza ${plazaActual}...`),
+        "warning"
+      );
+      api.toggleBloqueoMapa(nuevo, USER_NAME, _miPlaza(), scope).then(() => {
+        showToast(
+          nuevo
+            ? (scope === 'GLOBAL' ? "Bloqueo global activado" : `Plaza ${plazaActual} bloqueada`)
+            : (scope === 'GLOBAL' ? "Bloqueo global liberado" : `Plaza ${plazaActual} disponible`),
+          "success"
+        );
         hacerPingNotificaciones();
       }).catch(e => console.error(e));
     }

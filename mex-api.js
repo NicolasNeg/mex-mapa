@@ -741,12 +741,33 @@ let _settingsPlazaActual = 'GLOBAL';
 function _settingsDoc(plaza) {
   return db.collection(COL.SETTINGS).doc(((plaza || _settingsPlazaActual) || 'GLOBAL').toUpperCase().trim() || 'GLOBAL'); // [F1]
 }
+function _resolverEstadoBloqueoMapa(settingsPlaza = {}, settingsGlobal = {}) {
+  const mapaBloqueadoLocal = settingsPlaza.mapaBloqueado === true;
+  const mapaBloqueadoGlobal = settingsGlobal.mapaBloqueadoGlobal === true;
+  return {
+    mapaBloqueado: mapaBloqueadoLocal || mapaBloqueadoGlobal,
+    mapaBloqueadoScope: mapaBloqueadoGlobal ? 'GLOBAL' : (mapaBloqueadoLocal ? 'PLAZA' : ''),
+    mapaBloqueadoLocal,
+    mapaBloqueadoGlobal
+  };
+}
 async function _getSettings(plaza) {
   const snap = await _settingsDoc(plaza).get(); // [F1]
   return snap.exists ? snap.data() : {};
 }
 async function _setSettings(data, plaza) {
   await _settingsDoc(plaza).set(data, { merge: true }); // [F1]
+}
+async function _ensureGlobalSettingsDoc() {
+  const existing = await _getSettings('GLOBAL');
+  if (existing && Object.keys(existing).length) return existing;
+  const defaults = {
+    mapaBloqueadoGlobal: false,
+    ultimaModificacion: _now(),
+    ultimoEditor: 'Sistema'
+  };
+  await _setSettings(defaults, 'GLOBAL');
+  return defaults;
 }
 async function _registrarLog(tipo, mensaje, autor, plaza) {
   const ts = _ts();
@@ -793,6 +814,8 @@ async function _actualizarFeed(accion, autor, plaza) {
   await _setSettings({ liveFeed: JSON.stringify(feed), ultimaModificacion: _now(), ultimoEditor: autor }, plaza); // [F1]
 }
 
+const MAPA_SNAPSHOT_MERGE_MS = 90;
+
 const API_FUNCTIONS = {
 
   // ─── AUTENTICACIÓN ────────────────────────────────────────
@@ -832,8 +855,10 @@ const API_FUNCTIONS = {
   suscribirMapa(callback) {
     let pendingTimer = null;
     let fc = [], fe = [];
+    let fcReady = false, feReady = false;
 
-    function _emit() {
+    function _emit(immediate = false) {
+      if (!fcReady || !feReady) return;
       if (pendingTimer) clearTimeout(pendingTimer);
       pendingTimer = setTimeout(() => {
         const cuadreUnits = fc
@@ -843,17 +868,21 @@ const API_FUNCTIONS = {
           .filter(u => u.mva)
           .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
         callback([...cuadreUnits, ...externosUnits]);
-      }, 1000);
+      }, immediate ? 0 : MAPA_SNAPSHOT_MERGE_MS);
     }
 
     // [F1] Colecciones planas raíz
     const unsubFlat1 = db.collection(COL.CUADRE).onSnapshot(snap => {
+      const bootstrap = !fcReady || !feReady;
       fc = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      _emit();
+      fcReady = true;
+      _emit(bootstrap && feReady);
     }, err => console.error("onSnapshot cuadre:", err));
     const unsubFlat2 = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      const bootstrap = !fcReady || !feReady;
       fe = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      _emit();
+      feReady = true;
+      _emit(bootstrap && fcReady);
     }, err => console.error("onSnapshot externos:", err));
 
     return () => {
@@ -870,8 +899,10 @@ const API_FUNCTIONS = {
 
     let cuadreDocs = [], externosDocs = [];
     let pendingTimer = null;
+    let cuadreReady = false, externosReady = false;
 
-    function emitir() {
+    function emitir(immediate = false) {
+      if (!cuadreReady || !externosReady) return;
       if (pendingTimer) clearTimeout(pendingTimer);
       pendingTimer = setTimeout(() => {
         const cuadreUnits = cuadreDocs
@@ -881,20 +912,24 @@ const API_FUNCTIONS = {
           .filter(u => u.mva)
           .map(u => ({ ...u, ubicacion: "EXTERNO", tipo: "externo" }));
         callback([...cuadreUnits, ...externosUnits]);
-      }, 1000);
+      }, immediate ? 0 : MAPA_SNAPSHOT_MERGE_MS);
     }
 
     // [F1] Colección plana — filtra client-side para incluir docs legacy sin campo plaza
     const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
+      const bootstrap = !cuadreReady || !externosReady;
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       cuadreDocs = all.filter(u => !u.plaza || u.plaza.toUpperCase() === plazaUp);
-      emitir();
+      cuadreReady = true;
+      emitir(bootstrap && externosReady);
     }, err => console.error("onSnapshot cuadre:", err));
 
     const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      const bootstrap = !cuadreReady || !externosReady;
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       externosDocs = all.filter(u => !u.plaza || u.plaza.toUpperCase() === plazaUp);
-      emitir();
+      externosReady = true;
+      emitir(bootstrap && cuadreReady);
     }, err => console.error("onSnapshot externos:", err));
 
     return () => { unsubCuadre(); unsubExternos(); if (pendingTimer) clearTimeout(pendingTimer); };
@@ -1215,9 +1250,11 @@ const API_FUNCTIONS = {
         }
       }
     }
+    if (!histBatch.length) return true;
+
     await batch.commit();
-    // Escribir historial en paralelo
-    await Promise.all(histBatch.map((h, i) => {
+
+    const historialWrites = histBatch.map((h, i) => {
       const ts = _ts();
       return db.collection("historial_patio").doc(`move_${i}_${ts}`).set({
         timestamp: ts, fecha: _now(), tipo: "MOVE",
@@ -1225,7 +1262,15 @@ const API_FUNCTIONS = {
         autor: usuarioResponsable || "Sistema",
         plaza: plazaUp || ""
       });
-    }));
+    });
+
+    Promise.allSettled(historialWrites).then(results => {
+      const errores = results.filter(r => r.status === 'rejected');
+      if (errores.length) {
+        console.warn(`[guardarNuevasPosiciones] ${errores.length} registros de historial no se pudieron guardar.`);
+      }
+    });
+
     return true;
   },
 
@@ -1354,8 +1399,9 @@ const API_FUNCTIONS = {
 
   // ─── RADAR ───────────────────────────────────────────────
   async checarNotificaciones(usuarioActivo, plaza) {
-    const [settings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
+    const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
       _getSettings(plaza), // [F1] settings por plaza
+      _getSettings('GLOBAL'),
       db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50).get(),
       db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
       db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get()
@@ -1367,11 +1413,15 @@ const API_FUNCTIONS = {
     let liveFeed = settings.liveFeed || [];
     if (typeof liveFeed === "string") { try { liveFeed = JSON.parse(liveFeed); } catch { liveFeed = []; } }
     if (!Array.isArray(liveFeed)) liveFeed = [];
+    const lockState = _resolverEstadoBloqueoMapa(settings, globalSettings);
     return {
       incidenciasPendientes: notasSnap.size, alertas, mensajesSinLeer,
       ultimaActualizacion: settings.ultimaModificacion || "--/-- 00:00",
       ultimoCuadre:        settings.ultimoCuadreTexto || "Sin registro",
-      mapaBloqueado:       settings.mapaBloqueado === true,
+      mapaBloqueado:       lockState.mapaBloqueado,
+      mapaBloqueadoScope:  lockState.mapaBloqueadoScope,
+      mapaBloqueadoLocal:  lockState.mapaBloqueadoLocal,
+      mapaBloqueadoGlobal: lockState.mapaBloqueadoGlobal,
       estadoCuadreV3:      settings.estadoCuadreV3 || "LIBRE",
       adminIniciador:      settings.adminIniciador || "",
       liveFeed, error: null
@@ -1880,12 +1930,45 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   },
 
   // ─── BLOQUEO ─────────────────────────────────────────────
-  async toggleBloqueoMapa(nuevoEstado, actor = "Sistema", plaza) {
-    await _setSettings({ mapaBloqueado: nuevoEstado === true }, plaza); // [F1]
-    await _registrarEventoGestion(nuevoEstado === true ? "MAPA_BLOQUEADO" : "MAPA_LIBERADO", nuevoEstado === true ? "Bloqueó el mapa operativo" : "Liberó el mapa operativo", actor || "Sistema", {
-      entidad: "SETTINGS",
-      referencia: "mapaBloqueado"
-    });
+  async ensureGlobalSettingsDoc() {
+    await _ensureGlobalSettingsDoc();
+    return "OK";
+  },
+
+  async toggleBloqueoMapa(nuevoEstado, actor = "Sistema", plaza, scope = "PLAZA") {
+    const enabled = nuevoEstado === true;
+    const scopeNorm = String(scope || "PLAZA").trim().toUpperCase() === "GLOBAL" ? "GLOBAL" : "PLAZA";
+    const plazaUp = (plaza || '').toUpperCase().trim();
+
+    if (scopeNorm === "GLOBAL") {
+      await _ensureGlobalSettingsDoc();
+      await _setSettings({
+        mapaBloqueadoGlobal: enabled,
+        ultimaModificacion: _now(),
+        ultimoEditor: actor || "Sistema"
+      }, 'GLOBAL');
+      await _registrarEventoGestion(
+        enabled ? "MAPA_BLOQUEADO_GLOBAL" : "MAPA_LIBERADO_GLOBAL",
+        enabled ? "Bloqueó el mapa operativo global" : "Liberó el mapa operativo global",
+        actor || "Sistema",
+        { entidad: "SETTINGS", referencia: "mapaBloqueadoGlobal", alcance: "GLOBAL" }
+      );
+      return "OK";
+    }
+
+    await _setSettings({
+      mapaBloqueado: enabled,
+      ultimaModificacion: _now(),
+      ultimoEditor: actor || "Sistema"
+    }, plaza); // [F1]
+    await _registrarEventoGestion(
+      enabled ? "MAPA_BLOQUEADO" : "MAPA_LIBERADO",
+      enabled
+        ? `Bloqueó el mapa operativo de ${plazaUp || 'PLAZA ACTUAL'}`
+        : `Liberó el mapa operativo de ${plazaUp || 'PLAZA ACTUAL'}`,
+      actor || "Sistema",
+      { entidad: "SETTINGS", referencia: "mapaBloqueado", alcance: plazaUp || "" }
+    );
     return "OK";
   },
 

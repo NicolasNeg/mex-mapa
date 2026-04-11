@@ -25,7 +25,19 @@
 
       let _cleanup = null;
 
-      window.mexDialog = function ({ titulo = '', texto = '', tipo = 'info', icon, btnConfirmar = 'ACEPTAR', btnCancelar = null, input = null } = {}) {
+      window.mexDialog = function ({
+        titulo = '',
+        texto = '',
+        tipo = 'info',
+        icon,
+        btnConfirmar = 'ACEPTAR',
+        btnCancelar = null,
+        btnExtra = null,
+        valorConfirmar = true,
+        valorCancelar = null,
+        valorExtra = 'extra',
+        input = null
+      } = {}) {
         return new Promise(resolve => {
           const overlay = document.getElementById('mex-dialog-overlay');
           const iconRow = document.getElementById('mex-dlg-icon-row');
@@ -34,6 +46,7 @@
           const textEl = document.getElementById('mex-dlg-text');
           const inputWrap = document.getElementById('mex-dlg-input-wrap');
           const inputEl = document.getElementById('mex-dlg-input');
+          const extraBtn = document.getElementById('mex-dlg-extra');
           const cancelBtn = document.getElementById('mex-dlg-cancel');
           const confirmBtn = document.getElementById('mex-dlg-confirm');
           const card = overlay.querySelector('.mex-dlg-card');
@@ -71,6 +84,15 @@
             cancelBtn.style.display = 'none';
           }
 
+          if (btnExtra) {
+            extraBtn.style.display = '';
+            extraBtn.innerText = btnExtra;
+            extraBtn.className = `mex-dlg-btn mex-dlg-btn-extra ${cfg.cls}`;
+          } else {
+            extraBtn.style.display = 'none';
+            extraBtn.className = 'mex-dlg-btn mex-dlg-btn-extra';
+          }
+
           // Confirm button
           confirmBtn.innerText = btnConfirmar;
           confirmBtn.className = `mex-dlg-btn mex-dlg-btn-confirm ${cfg.cls}`;
@@ -88,11 +110,14 @@
           }
 
           function onConfirm() {
-            const val = input ? inputEl.value.trim() : true;
+            const val = input ? inputEl.value.trim() : valorConfirmar;
             hide(); resolve(val);
           }
           function onCancel() {
-            hide(); resolve(null);
+            hide(); resolve(valorCancelar);
+          }
+          function onExtra() {
+            hide(); resolve(valorExtra);
           }
 
           const onKey = e => {
@@ -102,6 +127,7 @@
 
           confirmBtn.onclick = onConfirm;
           cancelBtn.onclick = onCancel;
+          extraBtn.onclick = onExtra;
 
           // Close on overlay click (only if there's a cancel button)
           overlay.onclick = e => { if (e.target === overlay && btnCancelar) onCancel(); };
