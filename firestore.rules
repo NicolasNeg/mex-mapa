@@ -369,7 +369,14 @@ service cloud.firestore {
     match /usuarios/{doc} {
       allow read: if tienePerfilActual();
       allow create: if puedeCrearUsuario(request.resource.data);
-      allow update: if puedeActualizarUsuario(resource.data, request.resource.data);
+      allow update: if puedeActualizarUsuario(resource.data, request.resource.data)
+        || (
+          // Usuario puede limpiar su propio _reloadRequired: sólo ese campo, sólo a false
+          estaAutenticado()
+          && (doc == request.auth.token.email || doc == request.auth.uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['_reloadRequired'])
+          && request.resource.data._reloadRequired == false
+        );
       allow delete: if puedeEliminarUsuario(resource.data);
     }
 

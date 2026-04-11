@@ -912,14 +912,21 @@ const api = window.api;
         if (myEmail) {
           const myDoc = snap.docs.find(d => d.id === myEmail);
           if (myDoc?.data()?._reloadRequired && !sessionStorage.getItem('_reloadGuard')) {
-            // Guard contra loop infinito si el update falla por permisos
+            // Guard anti-loop: sessionStorage persiste en reloads del mismo tab
             sessionStorage.setItem('_reloadGuard', '1');
-            db.collection(COL.USERS).doc(myEmail).update({ _reloadRequired: false })
-              .catch(() => {
-                // Si falla (permisos), al menos el sessionStorage evita el loop
+            // Limpiar flag — las reglas Firestore ahora permiten que el usuario
+            // escriba sólo este campo en su propio doc
+            db.collection(COL.USERS).doc(myEmail)
+              .update({ _reloadRequired: false })
+              .catch(err => {
+                console.warn('[_reloadRequired] No se pudo limpiar flag:', err.code);
+                // sessionStorage guard ya impide el loop aunque Firestore falle
               });
             showToast('Tus permisos fueron actualizados. Recargando...', 'warning');
-            setTimeout(() => { sessionStorage.removeItem('_reloadGuard'); window.location.reload(); }, 2000);
+            setTimeout(() => {
+              sessionStorage.removeItem('_reloadGuard');
+              window.location.reload();
+            }, 2000);
           }
         }
       }, err => console.warn('onSnapshot usuarios live:', err));
