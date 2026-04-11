@@ -12299,6 +12299,12 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
    El .car tiene width/height:100% y no sobresale, así que no necesitamos hidden. */
 .mapa-celda-libre.spot {
   overflow: visible;
+  padding: 4px;
+}
+
+.mapa-celda-libre.spot > .car {
+  width: 100%;
+  height: 100%;
 }
 /* El label del número de cajón: emergente sobre el borde superior */
 .mapa-celda-libre.spot label {

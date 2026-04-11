@@ -1475,12 +1475,18 @@ const api = window.api;
       }
     }
 
+    const MAPA_RENDER_AIRE_X = 6;
+    const MAPA_RENDER_AIRE_Y = 8;
+    const MAPA_RENDER_BASE_X = 120;
+    const MAPA_RENDER_BASE_Y = 84;
+
     // [F2] Normaliza estructura al modelo de posicionamiento absoluto x,y,width,height.
     // Acepta tanto el formato nuevo (x,y,width,height) como el legado (row,col,rowspan,colspan).
-    function _normalizarEstructuraMapa(estructura = []) {
+    function _normalizarEstructuraMapa(estructura = [], opciones = {}) {
       if (!Array.isArray(estructura) || !estructura.length) {
         return { items: [], canvasW: 0, canvasH: 0, signature: 'empty' };
       }
+      const aplicarAireRender = opciones.aplicarAireRender !== false;
 
       const items = estructura
         .map((celda, index) => {
@@ -1509,6 +1515,10 @@ const api = window.api;
             width    = colspan * CW + (colspan - 1) * GAP;
             height   = rowspan * CH + (rowspan - 1) * GAP;
             rotation = 0;
+          }
+          if (aplicarAireRender) {
+            x += Math.floor(Math.max(0, x) / MAPA_RENDER_BASE_X) * MAPA_RENDER_AIRE_X;
+            y += Math.floor(Math.max(0, y) / MAPA_RENDER_BASE_Y) * MAPA_RENDER_AIRE_Y;
           }
           return { valor, tipo, esLabel, orden, x, y, width, height, rotation };
         })
@@ -10289,7 +10299,7 @@ const api = window.api;
         document.getElementById('editor-loading').style.display = 'none';
         document.getElementById('editor-grid-wrapper').style.display = 'block';
         // [F2] Normalizar al formato absoluto (también acepta legado grid)
-        const normalizada = _normalizarEstructuraMapa(estructura);
+        const normalizada = _normalizarEstructuraMapa(estructura, { aplicarAireRender: false });
         _edCeldas = normalizada.items.map((c, i) => ({
           id: 'ec_' + i + '_' + Math.random().toString(36).substr(2, 5),
           valor:    c.valor,
