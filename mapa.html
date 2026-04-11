@@ -3051,13 +3051,67 @@
                   <div></div>
                 </div>
               </div>
-              <button onclick="editorEliminarCelda()" class="mapa-btn-eliminar">
-                <span class="material-icons" style="font-size:16px;">delete_forever</span>
-                Eliminar este cajón
-              </button>
+              <div style="display:flex; gap:6px; margin-top:6px;">
+                <button onclick="editorCopiarCelda()" class="mapa-btn-eliminar" style="background:rgba(56,189,248,0.15); border-color:#38bdf8; color:#38bdf8; flex:1;">
+                  <span class="material-icons" style="font-size:16px;">content_copy</span>
+                  Copiar
+                </button>
+                <button onclick="editorEliminarCelda()" class="mapa-btn-eliminar" style="flex:1;">
+                  <span class="material-icons" style="font-size:16px;">delete_forever</span>
+                  Eliminar
+                </button>
+              </div>
+              <!-- Menú "..." más opciones -->
+              <div style="position:relative; margin-top:6px;">
+                <button onclick="editorToggleMoreMenu()" class="mapa-btn-eliminar" style="background:rgba(255,255,255,0.07); border-color:rgba(255,255,255,0.15); color:#94a3b8; width:100%;">
+                  <span class="material-icons" style="font-size:16px;">more_horiz</span>
+                  Más opciones
+                </button>
+                <div id="ed-more-menu" class="ed-more-menu" style="display:none;">
+                  <button onclick="editorCentrarH()"><span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:6px;">align_horizontal_center</span>Centrar horizontalmente</button>
+                  <button onclick="editorCentrarV()"><span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:6px;">align_vertical_center</span>Centrar verticalmente</button>
+                  <hr>
+                  <button onclick="editorTraerFrente()"><span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:6px;">flip_to_front</span>Traer al frente</button>
+                  <button onclick="editorEnviarFondo()"><span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:6px;">flip_to_back</span>Enviar al fondo</button>
+                  <hr>
+                  <button onclick="editorDuplicarFila()"><span class="material-icons" style="font-size:14px;vertical-align:middle;margin-right:6px;">table_rows</span>Duplicar fila completa</button>
+                </div>
+              </div>
             </div>
           </div>
 
+          <!-- Alineación de grupo (multi-selección) -->
+          <div class="mapa-editor-section">
+            <div class="mapa-editor-section-title">
+              <span class="material-icons" style="font-size:13px;">format_align_left</span>
+              ALINEAR GRUPO
+            </div>
+            <div class="ed-align-grid">
+              <button class="ed-align-btn" onclick="editorAlinearGrupo('left')" title="Alinear izquierdas"><span class="material-icons" style="font-size:17px;">align_horizontal_left</span></button>
+              <button class="ed-align-btn" onclick="editorAlinearGrupo('centerH')" title="Centrar horizontalmente"><span class="material-icons" style="font-size:17px;">align_horizontal_center</span></button>
+              <button class="ed-align-btn" onclick="editorAlinearGrupo('right')" title="Alinear derechas"><span class="material-icons" style="font-size:17px;">align_horizontal_right</span></button>
+              <button class="ed-align-btn" onclick="editorAlinearGrupo('top')" title="Alinear tops"><span class="material-icons" style="font-size:17px;">align_vertical_top</span></button>
+              <button class="ed-align-btn" onclick="editorAlinearGrupo('centerV')" title="Centrar verticalmente"><span class="material-icons" style="font-size:17px;">align_vertical_center</span></button>
+              <button class="ed-align-btn" onclick="editorAlinearGrupo('bottom')" title="Alinear bottoms"><span class="material-icons" style="font-size:17px;">align_vertical_bottom</span></button>
+              <button class="ed-align-btn" onclick="editorDistribuirGrupo('H')" title="Distribuir horizontalmente" style="width:auto; padding:0 8px; font-size:11px;">↔ Dist H</button>
+              <button class="ed-align-btn" onclick="editorDistribuirGrupo('V')" title="Distribuir verticalmente" style="width:auto; padding:0 8px; font-size:11px;">↕ Dist V</button>
+            </div>
+          </div>
+
+          <!-- Formas predeterminadas -->
+          <div class="mapa-editor-section">
+            <div class="mapa-editor-section-title">
+              <span class="material-icons" style="font-size:13px;">shape_line</span>
+              FORMAS PREDETERMINADAS
+            </div>
+            <div class="ed-preset-shapes">
+              <button class="ed-preset-btn" onclick="editorAgregarForma('cuadrado')">■ Cuadrado<br><span style="font-size:9px;font-weight:400;">80×80</span></button>
+              <button class="ed-preset-btn" onclick="editorAgregarForma('rect-h')">▬ Rect H<br><span style="font-size:9px;font-weight:400;">120×80</span></button>
+              <button class="ed-preset-btn" onclick="editorAgregarForma('rect-v')">▮ Rect V<br><span style="font-size:9px;font-weight:400;">80×120</span></button>
+              <button class="ed-preset-btn" onclick="editorAgregarForma('rect-grande')">⬛ Grande<br><span style="font-size:9px;font-weight:400;">240×80</span></button>
+              <button class="ed-preset-btn" onclick="editorAgregarForma('fila-3')" style="grid-column:span 2;">⬜⬜⬜ Fila de 3 cajones (80×80 c/u)</button>
+            </div>
+          </div>
 
         </div><!-- /Sidebar -->
 
@@ -3071,9 +3125,11 @@
           </div>
 
           <!-- Grid wrapper -->
-          <div id="editor-grid-wrapper" style="display:none;">
+          <div id="editor-grid-wrapper" style="display:none; flex-direction:column; height:100%;">
+            <!-- Barra superior: leyenda + zoom -->
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 10px; background:rgba(0,0,0,0.15); border-bottom:1px solid rgba(255,255,255,0.05); flex-shrink:0;">
             <!-- Leyenda -->
-            <div class="mapa-editor-legend">
+            <div class="mapa-editor-legend" style="margin:0; border:none; padding:0; background:none; flex-wrap:wrap;">
               <span class="mapa-legend-title">Leyenda</span>
               <div class="mapa-legend-item">
                 <div class="mapa-legend-dot cajon"></div>Cajón
@@ -3091,9 +3147,18 @@
                 <div class="mapa-legend-dot empty-add"></div>+ Clic para agregar
               </div>
             </div>
-            <!-- Grid DOM -->
+            </div><!-- /legend -->
+            <!-- Zoom bar -->
+            <div class="ed-zoom-bar">
+              <button onclick="editorZoom(-0.1)" title="Zoom -">−</button>
+              <span id="ed-zoom-label">100%</span>
+              <button onclick="editorZoom(+0.1)" title="Zoom +">+</button>
+              <button onclick="editorZoom(0)" title="Reset zoom" style="font-size:11px; width:auto; padding:0 7px;">1:1</button>
+            </div>
+            </div><!-- /barra superior -->
+            <!-- Grid DOM (legacy, replaced by canvas libre) -->
             <div id="editor-grid"
-              style="display:inline-grid; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;">
+              style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;">
             </div>
           </div>
 

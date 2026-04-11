@@ -4088,7 +4088,7 @@ const api = window.api;
           notasGlobales = notas || [];
           actualizarResumenIncidencias();
           filtrarListaNotas();
-        });
+        }, _miPlaza());
       }
       cargarNotasIncidencias();
     }
@@ -4118,7 +4118,7 @@ const api = window.api;
       if (contenedor) {
         contenedor.innerHTML = `<div class="inc-empty-state"><span class="material-icons spinner">sync</span><div>Cargando registros...</div></div>`;
       }
-      api.obtenerTodasLasNotas().then(notas => {
+      api.obtenerTodasLasNotas(_miPlaza()).then(notas => {
         notasGlobales = notas || [];
         actualizarResumenIncidencias();
         filtrarListaNotas();
@@ -4258,7 +4258,8 @@ const api = window.api;
           prioridad,
           archivos: archivosNuevaNota.map(item => item.file),
           codigo: incidenciaDraftCode,
-          autor: USER_NAME || 'Sistema'
+          autor: USER_NAME || 'Sistema',
+          plaza: _miPlaza()
         }, USER_NAME);
 
         if (res !== 'OK') {
@@ -5044,7 +5045,7 @@ const api = window.api;
       };
 
       _unsubRadar.push(
-        db.collection('settings').doc('principal').onSnapshot(snap => {
+        db.collection('settings').doc((_miPlaza() || 'GLOBAL').toUpperCase()).onSnapshot(snap => {
           _radarState.settings = snap.exists ? snap.data() : {};
           _radarReady.settings = true;
           emitir();
@@ -7545,7 +7546,7 @@ const api = window.api;
       if (!ok) return;
 
       showToast(nuevo ? "Congelando sistema..." : "Liberando sistema...", "warning");
-      api.toggleBloqueoMapa(nuevo, USER_NAME).then(() => {
+      api.toggleBloqueoMapa(nuevo, USER_NAME, _miPlaza()).then(() => {
         showToast(nuevo ? "Mapa Bloqueado" : "Mapa Disponible", "success");
         hacerPingNotificaciones();
       }).catch(e => console.error(e));
@@ -10170,7 +10171,11 @@ const api = window.api;
     let _edSel = null;          // celda seleccionada actualmente
     let _edModo = null;         // 'cajon' | 'area' | 'label' | null (herramienta activa)
     let _edDrag = null;         // estado de drag: { celdaId, startMouseX, startMouseY, startCeldaX, startCeldaY }
-    let _edResize = null;       // estado de resize: { celdaId, startMouseX, startMouseY, startW, startH }
+    let _edResize = null;       // estado de resize: { celdaId, startMouseX, startMouseY, startW, startH, dir }
+    let _edZoom = 1.0;          // zoom del canvas
+    let _edMultiSel = [];       // multi-selección de celdas
+    let _edRotate = null;       // estado de rotación: { celdaId, cx, cy, startAngle }
+    let _edRectSel = null;      // rect de selección: { startX, startY }
 
     // [F2] Defaults para celdas nuevas
     const _ED_DEFAULT_W = 120;
@@ -10181,7 +10186,8 @@ const api = window.api;
       document.getElementById('modal-editor-mapa').classList.add('active');
       document.getElementById('editor-loading').style.display = 'flex';
       document.getElementById('editor-grid-wrapper').style.display = 'none';
-      _edCeldas = []; _edSel = null; _edModo = null; _edDrag = null; _edResize = null;
+      _edCeldas = []; _edSel = null; _edModo = null; _edDrag = null; _edResize = null; _edZoom = 1.0; _edMultiSel = []; _edRotate = null; _edRectSel = null; _edDragResizeBound = false;
+      const zl = document.getElementById('ed-zoom-label'); if (zl) zl.innerText = '100%';
       _resetEditorPanel();
 
       api.obtenerEstructuraMapa(_miPlaza()).then(estructura => {
@@ -10216,8 +10222,8 @@ const api = window.api;
       // Calcular tamaño del canvas
       let canvasW = 800, canvasH = 500;
       _edCeldas.forEach(c => {
-        canvasW = Math.max(canvasW, c.x + c.width + 20);
-        canvasH = Math.max(canvasH, c.y + c.height + 20);
+        canvasW = Math.max(canvasW, c.x + c.width + 40);
+        canvasH = Math.max(canvasH, c.y + c.height + 40);
       });
 
       // Reusar o crear el canvas container
@@ -10226,10 +10232,7 @@ const api = window.api;
         canvas = document.createElement('div');
         canvas.id = 'editor-canvas-libre';
         canvas.style.cssText = 'position:relative; overflow:auto; flex:1; background:rgba(0,0,0,0.22); border-radius:10px; border:1px solid rgba(255,255,255,0.07);';
-        // Reemplazar el editor-grid antiguo si existe
-        const oldGrid = document.getElementById('editor-grid');
-        if (oldGrid) oldGrid.replaceWith(canvas);
-        else wrapper.appendChild(canvas);
+        wrapper.appendChild(canvas);
       }
 
       // [F2] Contenedor interior con dimensiones calculadas
@@ -10237,31 +10240,60 @@ const api = window.api;
       if (!inner) {
         inner = document.createElement('div');
         inner.id = 'editor-canvas-inner';
-        inner.style.cssText = 'position:relative; margin:8px;';
+        inner.style.cssText = 'position:relative; margin:8px; transform-origin:top left;';
         canvas.appendChild(inner);
       }
       inner.style.width  = `${canvasW}px`;
       inner.style.height = `${canvasH}px`;
+      inner.style.transform = `scale(${_edZoom})`;
       inner.innerHTML = '';
 
-      // Zona de drop para agregar nuevas celdas
+      // SVG para líneas guía de alineación
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.id = 'ed-guides-svg';
+      svg.setAttribute('width', canvasW);
+      svg.setAttribute('height', canvasH);
+      svg.style.cssText = 'position:absolute; top:0; left:0; pointer-events:none; z-index:100;';
+      inner.appendChild(svg);
+
+      // Zona de drop + rect-select desde fondo vacío
+      inner.onmousedown = e => {
+        if (e.target !== inner) return;
+        if (_edModo) return; // el click se maneja en onclick
+        // Iniciar rect-select
+        const rect = inner.getBoundingClientRect();
+        const sx = (e.clientX - rect.left) / _edZoom;
+        const sy = (e.clientY - rect.top)  / _edZoom;
+        _edRectSel = { startX: sx, startY: sy };
+        // Crear elemento visual del rect
+        const rectEl = document.createElement('div');
+        rectEl.id = 'ed-rect-sel';
+        rectEl.style.cssText = `position:absolute; border:1.5px dashed #a855f7; background:rgba(168,85,247,0.08); pointer-events:none; z-index:99;
+          left:${sx}px; top:${sy}px; width:0; height:0;`;
+        inner.appendChild(rectEl);
+      };
       inner.onclick = e => {
         if (e.target !== inner) return;
-        if (!_edModo) { if (_edSel) { _resetEditorPanel(); _renderEditorCanvas(); } return; }
+        if (!_edModo) {
+          if (_edSel) { _edMultiSel = []; _resetEditorPanel(); _renderEditorCanvas(); }
+          return;
+        }
         const rect = inner.getBoundingClientRect();
-        _edClickLibre(Math.round(e.clientX - rect.left), Math.round(e.clientY - rect.top));
+        _edClickLibre(Math.round((e.clientX - rect.left) / _edZoom), Math.round((e.clientY - rect.top) / _edZoom));
       };
 
       // [F2] Renderizar cada celda como elemento absolutamente posicionado
       _edCeldas.forEach(celda => {
         const isSel = _edSel && _edSel.id === celda.id;
+        const isMulti = _edMultiSel.some(c => c.id === celda.id);
         const isLabel = celda.tipo === 'label';
         const isArea  = celda.tipo === 'area';
         const bg = isLabel ? '#1e293b' : isArea ? '#334155' : '#3b82f6';
         const bgSel = isLabel ? '#0f172a' : isArea ? '#1e40af' : '#1d4ed8';
 
         const el = document.createElement('div');
-        el.className = 'ed-celda-libre' + (isSel ? ' ed-celda-sel' : '');
+        el.className = 'ed-celda-libre' + (isSel ? ' ed-celda-sel' : '') + (isMulti && !isSel ? ' ed-celda-multi' : '');
+        el.dataset.id = celda.id;
         el.style.cssText = `
           position:absolute;
           left:${celda.x}px; top:${celda.y}px;
@@ -10272,33 +10304,67 @@ const api = window.api;
           justify-content:center; font-weight:900;
           font-size:${celda.valor.length > 6 ? '9' : '11'}px;
           cursor:grab; text-align:center; word-break:break-all; padding:3px;
-          user-select:none; box-sizing:border-box;
+          user-select:none; box-sizing:border-box; overflow:visible;
           box-shadow:${isSel ? '0 0 0 3px rgba(251,191,36,0.35)' : '0 2px 6px rgba(0,0,0,0.35)'};
           ${celda.rotation ? `transform:rotate(${celda.rotation}deg);` : ''}
         `;
         el.innerText = celda.valor;
 
-        // Seleccionar al hacer click
+        // Click con shift para multi-selección
         el.addEventListener('mousedown', e => {
           e.stopPropagation();
+          if (e.shiftKey) {
+            // Toggle en multi-sel
+            const idx = _edMultiSel.findIndex(c => c.id === celda.id);
+            if (idx >= 0) _edMultiSel.splice(idx, 1);
+            else _edMultiSel.push(celda);
+            _renderEditorCanvas();
+            return;
+          }
           _edSelectCelda(celda);
           // [F2] Iniciar drag
-          _edDrag = { celdaId: celda.id, startMouseX: e.clientX, startMouseY: e.clientY, startCeldaX: celda.x, startCeldaY: celda.y };
+          _edDrag = { celdaId: celda.id, startMouseX: e.clientX, startMouseY: e.clientY, startCeldaX: celda.x, startCeldaY: celda.y,
+            multiStarts: _edMultiSel.length > 0 ? _edMultiSel.map(c => ({ id: c.id, x: c.x, y: c.y })) : [] };
         });
 
-        // [F2] Handle de resize (esquina inferior-derecha)
-        const handle = document.createElement('div');
-        handle.className = 'ed-resize-handle';
-        handle.style.cssText = `
-          position:absolute; bottom:2px; right:2px; width:12px; height:12px;
-          background:rgba(251,191,36,0.7); border-radius:2px; cursor:se-resize;
-          display:${isSel ? 'block' : 'none'};
-        `;
-        handle.addEventListener('mousedown', e => {
-          e.stopPropagation();
-          _edResize = { celdaId: celda.id, startMouseX: e.clientX, startMouseY: e.clientY, startW: celda.width, startH: celda.height };
-        });
-        el.appendChild(handle);
+        if (isSel) {
+          // 8 handles de resize
+          const handleDefs = [
+            { dir: 'nw', style: 'top:-5px; left:-5px; cursor:nw-resize;' },
+            { dir: 'n',  style: `top:-5px; left:${celda.width/2-5}px; cursor:n-resize;` },
+            { dir: 'ne', style: `top:-5px; left:${celda.width-5}px; cursor:ne-resize;` },
+            { dir: 'w',  style: `top:${celda.height/2-5}px; left:-5px; cursor:w-resize;` },
+            { dir: 'e',  style: `top:${celda.height/2-5}px; left:${celda.width-5}px; cursor:e-resize;` },
+            { dir: 'sw', style: `top:${celda.height-5}px; left:-5px; cursor:sw-resize;` },
+            { dir: 's',  style: `top:${celda.height-5}px; left:${celda.width/2-5}px; cursor:s-resize;` },
+            { dir: 'se', style: `top:${celda.height-5}px; left:${celda.width-5}px; cursor:se-resize;` },
+          ];
+          handleDefs.forEach(({ dir, style }) => {
+            const h = document.createElement('div');
+            h.className = 'ed-handle-8';
+            h.style.cssText += style;
+            h.addEventListener('mousedown', e => {
+              e.stopPropagation();
+              _edResize = { celdaId: celda.id, dir, startMouseX: e.clientX, startMouseY: e.clientY,
+                startW: celda.width, startH: celda.height, startX: celda.x, startY: celda.y };
+            });
+            el.appendChild(h);
+          });
+
+          // Handle de rotación
+          const rotH = document.createElement('div');
+          rotH.className = 'ed-rotate-handle';
+          rotH.addEventListener('mousedown', e => {
+            e.stopPropagation();
+            const rect = el.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            const startAngle = Math.atan2(e.clientY - cy, e.clientX - cx) * (180 / Math.PI);
+            _edRotate = { celdaId: celda.id, cx, cy, startAngle, startRotation: celda.rotation || 0 };
+          });
+          el.appendChild(rotH);
+        }
+
         inner.appendChild(el);
       });
 
@@ -10313,52 +10379,163 @@ const api = window.api;
       _edDragResizeBound = true;
 
       document.addEventListener('mousemove', e => {
-        if (_edDrag) {
-          const dx = e.clientX - _edDrag.startMouseX;
-          const dy = e.clientY - _edDrag.startMouseY;
-          const c = _edCeldas.find(x => x.id === _edDrag.celdaId);
+        // --- ROTATE ---
+        if (_edRotate) {
+          const angle = Math.atan2(e.clientY - _edRotate.cy, e.clientX - _edRotate.cx) * (180 / Math.PI);
+          const delta = angle - _edRotate.startAngle;
+          const c = _edCeldas.find(x => x.id === _edRotate.celdaId);
           if (c) {
-            c.x = Math.max(0, _edDrag.startCeldaX + dx); // [F2]
-            c.y = Math.max(0, _edDrag.startCeldaY + dy); // [F2]
-            // Actualizar posición visual sin re-renderizar todo
+            c.rotation = Math.round(_edRotate.startRotation + delta);
             const el = inner.querySelector(`.ed-celda-libre[data-id="${c.id}"]`);
-            if (el) { el.style.left = `${c.x}px`; el.style.top = `${c.y}px`; }
-            else _renderEditorCanvas(); // fallback
+            if (el) el.style.transform = `rotate(${c.rotation}deg)`;
+            const rEl = document.getElementById('ep-rotation'); if (rEl) rEl.value = c.rotation;
           }
           return;
         }
+        // --- DRAG ---
+        if (_edDrag) {
+          const rawDx = (e.clientX - _edDrag.startMouseX) / _edZoom;
+          const rawDy = (e.clientY - _edDrag.startMouseY) / _edZoom;
+          const c = _edCeldas.find(x => x.id === _edDrag.celdaId);
+          if (c) {
+            let nx = Math.max(0, _edDrag.startCeldaX + rawDx);
+            let ny = Math.max(0, _edDrag.startCeldaY + rawDy);
+            // Snap guides
+            const snap = _edComputeSnap(c, nx, ny);
+            nx = snap.x; ny = snap.y;
+            c.x = nx; c.y = ny;
+            // Mover multi-selección con el mismo delta
+            if (_edDrag.multiStarts.length > 0) {
+              _edDrag.multiStarts.forEach(ms => {
+                const mc = _edCeldas.find(x => x.id === ms.id);
+                if (mc && mc.id !== c.id) {
+                  mc.x = Math.max(0, ms.x + (nx - _edDrag.startCeldaX));
+                  mc.y = Math.max(0, ms.y + (ny - _edDrag.startCeldaY));
+                  const mel = inner.querySelector(`.ed-celda-libre[data-id="${mc.id}"]`);
+                  if (mel) { mel.style.left = `${mc.x}px`; mel.style.top = `${mc.y}px`; }
+                }
+              });
+            }
+            // Dibujar guías
+            _edDrawGuides(c, snap.guideLines);
+            // Actualizar posición visual sin re-renderizar todo
+            const el = inner.querySelector(`.ed-celda-libre[data-id="${c.id}"]`);
+            if (el) { el.style.left = `${c.x}px`; el.style.top = `${c.y}px`; }
+            else _renderEditorCanvas();
+          }
+          return;
+        }
+        // --- RESIZE ---
         if (_edResize) {
-          const dx = e.clientX - _edResize.startMouseX;
-          const dy = e.clientY - _edResize.startMouseY;
+          const dx = (e.clientX - _edResize.startMouseX) / _edZoom;
+          const dy = (e.clientY - _edResize.startMouseY) / _edZoom;
           const c = _edCeldas.find(x => x.id === _edResize.celdaId);
           if (c) {
-            c.width  = Math.max(40, _edResize.startW + dx);  // [F2]
-            c.height = Math.max(30, _edResize.startH + dy);  // [F2]
+            const dir = _edResize.dir;
+            if (dir.includes('e')) c.width  = Math.max(40, _edResize.startW + dx);
+            if (dir.includes('s')) c.height = Math.max(30, _edResize.startH + dy);
+            if (dir.includes('w')) { const nw = Math.max(40, _edResize.startW - dx); c.x = _edResize.startX + (_edResize.startW - nw); c.width = nw; }
+            if (dir.includes('n')) { const nh = Math.max(30, _edResize.startH - dy); c.y = _edResize.startY + (_edResize.startH - nh); c.height = nh; }
             _renderEditorCanvas();
           }
+          return;
+        }
+        // --- RECT SELECT ---
+        if (_edRectSel) {
+          const rect = inner.getBoundingClientRect();
+          const cx = (e.clientX - rect.left) / _edZoom;
+          const cy = (e.clientY - rect.top)  / _edZoom;
+          const rx = Math.min(cx, _edRectSel.startX);
+          const ry = Math.min(cy, _edRectSel.startY);
+          const rw = Math.abs(cx - _edRectSel.startX);
+          const rh = Math.abs(cy - _edRectSel.startY);
+          const rectEl = document.getElementById('ed-rect-sel');
+          if (rectEl) { rectEl.style.left=rx+'px'; rectEl.style.top=ry+'px'; rectEl.style.width=rw+'px'; rectEl.style.height=rh+'px'; }
+          _edRectSel.curX = cx; _edRectSel.curY = cy;
         }
       });
 
       document.addEventListener('mouseup', e => {
+        if (_edRotate) { _edRotate = null; if (_edSel) _edSelectCelda(_edSel); return; }
         if (_edDrag) {
           _edDrag = null;
-          _renderEditorCanvas(); // re-render final para sincronizar
+          const svg = document.getElementById('ed-guides-svg');
+          if (svg) svg.innerHTML = '';
+          _renderEditorCanvas();
         }
         if (_edResize) {
           _edResize = null;
-          // Actualizar panel lateral con nuevos valores
           if (_edSel) _edSelectCelda(_edSel);
         }
+        if (_edRectSel) {
+          // Finalizar rect select
+          const sx = Math.min(_edRectSel.startX, _edRectSel.curX || _edRectSel.startX);
+          const sy = Math.min(_edRectSel.startY, _edRectSel.curY || _edRectSel.startY);
+          const ex = Math.max(_edRectSel.startX, _edRectSel.curX || _edRectSel.startX);
+          const ey = Math.max(_edRectSel.startY, _edRectSel.curY || _edRectSel.startY);
+          _edMultiSel = _edCeldas.filter(c => c.x >= sx && c.y >= sy && c.x + c.width <= ex && c.y + c.height <= ey);
+          _edRectSel = null;
+          _renderEditorCanvas();
+        }
       });
+    }
 
-      // Actualizar data-id en elementos
-      const observer = new MutationObserver(() => {
-        document.querySelectorAll('.ed-celda-libre').forEach((el, i) => {
-          const c = _edCeldas[i];
-          if (c) el.dataset.id = c.id;
+    // Calcular snap y líneas guía durante drag
+    function _edComputeSnap(dragged, nx, ny) {
+      const TOL = 6;
+      let snapX = nx, snapY = ny;
+      const guideLines = [];
+      const dEdges = {
+        l: nx, r: nx + dragged.width, cx: nx + dragged.width / 2,
+        t: ny, b: ny + dragged.height, cy: ny + dragged.height / 2
+      };
+      _edCeldas.forEach(other => {
+        if (other.id === dragged.id) return;
+        const oEdges = {
+          l: other.x, r: other.x + other.width, cx: other.x + other.width / 2,
+          t: other.y, b: other.y + other.height, cy: other.y + other.height / 2
+        };
+        // Snap X
+        const xPairs = [
+          [dEdges.l, oEdges.l], [dEdges.l, oEdges.r], [dEdges.r, oEdges.l], [dEdges.r, oEdges.r],
+          [dEdges.cx, oEdges.cx]
+        ];
+        xPairs.forEach(([da, oa]) => {
+          if (Math.abs(da - oa) < TOL) {
+            snapX = nx + (oa - da);
+            guideLines.push({ x1: oa, y1: 0, x2: oa, y2: 9999 });
+          }
+        });
+        // Snap Y
+        const yPairs = [
+          [dEdges.t, oEdges.t], [dEdges.t, oEdges.b], [dEdges.b, oEdges.t], [dEdges.b, oEdges.b],
+          [dEdges.cy, oEdges.cy]
+        ];
+        yPairs.forEach(([da, oa]) => {
+          if (Math.abs(da - oa) < TOL) {
+            snapY = ny + (oa - da);
+            guideLines.push({ x1: 0, y1: oa, x2: 9999, y2: oa });
+          }
         });
       });
-      observer.observe(inner, { childList: true });
+      return { x: snapX, y: snapY, guideLines };
+    }
+
+    // Dibujar líneas guía en el SVG overlay
+    function _edDrawGuides(dragged, lines) {
+      const svg = document.getElementById('ed-guides-svg');
+      if (!svg) return;
+      svg.innerHTML = '';
+      lines.forEach(l => {
+        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        line.setAttribute('x1', l.x1); line.setAttribute('y1', l.y1);
+        line.setAttribute('x2', l.x2); line.setAttribute('y2', l.y2);
+        line.setAttribute('stroke', '#a855f7');
+        line.setAttribute('stroke-width', '1');
+        line.setAttribute('stroke-dasharray', '4,3');
+        line.setAttribute('opacity', '0.8');
+        svg.appendChild(line);
+      });
     }
 
     // [F2] Selecciona una celda y actualiza el panel de propiedades
@@ -10459,6 +10636,147 @@ const api = window.api;
       if (!_edSel) return;
       _edCeldas = _edCeldas.filter(c => c.id !== _edSel.id);
       _resetEditorPanel();
+      _renderEditorCanvas();
+    }
+
+    // ── ZOOM ──
+    function editorZoom(delta) {
+      if (delta === 0) { _edZoom = 1.0; }
+      else { _edZoom = Math.min(3, Math.max(0.25, _edZoom + delta)); }
+      const inner = document.getElementById('editor-canvas-inner');
+      if (inner) { inner.style.transform = `scale(${_edZoom})`; inner.style.transformOrigin = 'top left'; }
+      const lbl = document.getElementById('ed-zoom-label');
+      if (lbl) lbl.innerText = Math.round(_edZoom * 100) + '%';
+    }
+
+    // ── COPIAR CELDA ──
+    function editorCopiarCelda() {
+      if (!_edSel) return;
+      const copia = { ..._edSel, id: 'ec_copy_' + Date.now(), x: _edSel.x + 20, y: _edSel.y + 20, orden: _edCeldas.length };
+      _edCeldas.push(copia);
+      _edSelectCelda(copia);
+    }
+
+    // ── FORMAS PREDETERMINADAS ──
+    function editorAgregarForma(tipo) {
+      const cx = 80, cy = 80;
+      const baseX = 60, baseY = 60;
+      const n = _edCeldas.length + 1;
+      const nombre = `C${n}`;
+      if (tipo === 'fila-3') {
+        const y = baseY + (_edCeldas.length > 0 ? Math.max(..._edCeldas.map(c => c.y + c.height)) + 10 : 0);
+        [0,1,2].forEach(i => {
+          const c = { id: 'ec_new_' + Date.now() + i, valor: `C${_edCeldas.length + 1}`, tipo: 'cajon', esLabel: false,
+            orden: _edCeldas.length, x: baseX + i * 84, y, width: 80, height: 80, rotation: 0 };
+          _edCeldas.push(c);
+        });
+        _edSelectCelda(_edCeldas[_edCeldas.length - 1]);
+        return;
+      }
+      const dims = { 'cuadrado': [80,80], 'rect-h': [120,80], 'rect-v': [80,120], 'rect-grande': [240,80] };
+      const [w, h] = dims[tipo] || [80, 80];
+      const nueva = { id: 'ec_new_' + Date.now(), valor: nombre, tipo: 'cajon', esLabel: false,
+        orden: _edCeldas.length, x: baseX, y: baseY + (_edCeldas.length > 0 ? Math.max(..._edCeldas.map(c => c.y + c.height)) + 10 : 0),
+        width: w, height: h, rotation: 0 };
+      _edCeldas.push(nueva);
+      _edSelectCelda(nueva);
+    }
+
+    // ── MENÚ "..." ──
+    function editorToggleMoreMenu() {
+      const m = document.getElementById('ed-more-menu');
+      if (!m) return;
+      m.style.display = m.style.display === 'none' ? 'block' : 'none';
+      if (m.style.display === 'block') {
+        const hide = e => { if (!m.contains(e.target)) { m.style.display = 'none'; document.removeEventListener('mousedown', hide); } };
+        setTimeout(() => document.addEventListener('mousedown', hide), 10);
+      }
+    }
+
+    function editorCentrarH() {
+      document.getElementById('ed-more-menu').style.display = 'none';
+      if (!_edSel) return;
+      const inner = document.getElementById('editor-canvas-inner');
+      const cw = inner ? parseInt(inner.style.width) : 800;
+      _edSel.x = Math.round((cw - _edSel.width) / 2);
+      const idx = _edCeldas.findIndex(c => c.id === _edSel.id); if (idx >= 0) _edCeldas[idx].x = _edSel.x;
+      _edSelectCelda(_edSel);
+    }
+
+    function editorCentrarV() {
+      document.getElementById('ed-more-menu').style.display = 'none';
+      if (!_edSel) return;
+      const inner = document.getElementById('editor-canvas-inner');
+      const ch = inner ? parseInt(inner.style.height) : 500;
+      _edSel.y = Math.round((ch - _edSel.height) / 2);
+      const idx = _edCeldas.findIndex(c => c.id === _edSel.id); if (idx >= 0) _edCeldas[idx].y = _edSel.y;
+      _edSelectCelda(_edSel);
+    }
+
+    function editorTraerFrente() {
+      document.getElementById('ed-more-menu').style.display = 'none';
+      if (!_edSel) return;
+      const maxOrden = Math.max(..._edCeldas.map(c => c.orden));
+      const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
+      if (idx >= 0) { _edCeldas[idx].orden = maxOrden + 1; _edSel.orden = maxOrden + 1; }
+      _renderEditorCanvas();
+    }
+
+    function editorEnviarFondo() {
+      document.getElementById('ed-more-menu').style.display = 'none';
+      if (!_edSel) return;
+      const minOrden = Math.min(..._edCeldas.map(c => c.orden));
+      const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
+      if (idx >= 0) { _edCeldas[idx].orden = minOrden - 1; _edSel.orden = minOrden - 1; }
+      _renderEditorCanvas();
+    }
+
+    function editorDuplicarFila() {
+      document.getElementById('ed-more-menu').style.display = 'none';
+      if (!_edSel) return;
+      const filaY = _edSel.y;
+      const tol = 20;
+      const fila = _edCeldas.filter(c => Math.abs(c.y - filaY) <= tol);
+      const maxY = Math.max(...fila.map(c => c.y + c.height));
+      const offsetY = maxY + 10 - filaY;
+      fila.forEach(c => {
+        const copia = { ...c, id: 'ec_copy_' + Date.now() + Math.random(), y: c.y + offsetY, orden: _edCeldas.length };
+        _edCeldas.push(copia);
+      });
+      _renderEditorCanvas();
+    }
+
+    // ── ALINEACIÓN DE GRUPO ──
+    function editorAlinearGrupo(modo) {
+      const sel = _edMultiSel.length > 1 ? _edMultiSel : (_edSel ? [_edSel] : []);
+      if (sel.length < 2) { showToast('Selecciona 2+ celdas con Shift+clic', 'error'); return; }
+      const refs = sel.map(c => _edCeldas.find(x => x.id === c.id)).filter(Boolean);
+      if (modo === 'left')    { const min = Math.min(...refs.map(c => c.x));    refs.forEach(c => c.x = min); }
+      if (modo === 'right')   { const max = Math.max(...refs.map(c => c.x + c.width));  refs.forEach(c => c.x = max - c.width); }
+      if (modo === 'centerH') { const avg = refs.reduce((s,c) => s + c.x + c.width/2, 0) / refs.length; refs.forEach(c => c.x = Math.round(avg - c.width/2)); }
+      if (modo === 'top')     { const min = Math.min(...refs.map(c => c.y));    refs.forEach(c => c.y = min); }
+      if (modo === 'bottom')  { const max = Math.max(...refs.map(c => c.y + c.height)); refs.forEach(c => c.y = max - c.height); }
+      if (modo === 'centerV') { const avg = refs.reduce((s,c) => s + c.y + c.height/2, 0) / refs.length; refs.forEach(c => c.y = Math.round(avg - c.height/2)); }
+      _renderEditorCanvas();
+    }
+
+    function editorDistribuirGrupo(eje) {
+      const sel = _edMultiSel.length > 1 ? _edMultiSel : (_edSel ? [_edSel] : []);
+      if (sel.length < 3) { showToast('Selecciona 3+ celdas para distribuir', 'error'); return; }
+      const refs = sel.map(c => _edCeldas.find(x => x.id === c.id)).filter(Boolean);
+      if (eje === 'H') {
+        refs.sort((a,b) => a.x - b.x);
+        const totalW = refs.reduce((s,c) => s + c.width, 0);
+        const space = (refs[refs.length-1].x + refs[refs.length-1].width - refs[0].x - totalW) / (refs.length - 1);
+        let cur = refs[0].x + refs[0].width;
+        for (let i = 1; i < refs.length - 1; i++) { refs[i].x = Math.round(cur + space); cur = refs[i].x + refs[i].width; }
+      } else {
+        refs.sort((a,b) => a.y - b.y);
+        const totalH = refs.reduce((s,c) => s + c.height, 0);
+        const space = (refs[refs.length-1].y + refs[refs.length-1].height - refs[0].y - totalH) / (refs.length - 1);
+        let cur = refs[0].y + refs[0].height;
+        for (let i = 1; i < refs.length - 1; i++) { refs[i].y = Math.round(cur + space); cur = refs[i].y + refs[i].height; }
+      }
       _renderEditorCanvas();
     }
 
@@ -10832,33 +11150,7 @@ const api = window.api;
 
             <!-- Catálogo de Plazas movido al tab Plazas -->
 
-            ${canUseProgrammerConfig() ? `
-            <!-- Mantenimiento del Sistema -->
-            <div class="cfg-emp-card" id="cfg-maint-card">
-              <div class="cfg-emp-section-header">
-                <span class="material-icons">build_circle</span>
-                Mantenimiento del Sistema
-              </div>
-              <p style="font-size:12px; color:#64748b; font-weight:600; margin:0 0 14px; line-height:1.6;">
-                Migra los datos del formato antiguo (colecciones planas) al nuevo formato por plaza (subcollecciones).<br>
-                <strong style="color:#f59e0b;">Esta operación es segura: no borra datos existentes, solo copia.</strong>
-              </p>
-              <div id="cfg-mig-progress" style="display:none; margin-bottom:12px;">
-                <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; color:#64748b; margin-bottom:4px;">
-                  <span id="cfg-mig-label">Iniciando...</span>
-                  <span id="cfg-mig-pct">0%</span>
-                </div>
-                <div style="background:#e2e8f0; border-radius:99px; height:8px; overflow:hidden;">
-                  <div id="cfg-mig-bar" style="height:100%; width:0%; background:var(--mex-blue); border-radius:99px; transition:width .3s;"></div>
-                </div>
-              </div>
-              <div id="cfg-mig-log" style="display:none; font-size:11px; color:#475569; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:120px; overflow-y:auto; margin-bottom:12px; font-family:monospace; white-space:pre-wrap;"></div>
-              <button id="cfg-mig-btn" onclick="ejecutarMigracionLegacy()"
-                style="background:var(--mex-blue); color:white; border:none; border-radius:10px; padding:10px 20px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px; transition:.15s;">
-                <span class="material-icons" style="font-size:16px;">sync</span>
-                Migrar Datos Legacy
-              </button>
-            </div>` : ''}
+            <!-- Mantenimiento del Sistema eliminado: colecciones ya son planas por plaza -->
 
           </div>
         `;
@@ -12923,11 +13215,22 @@ Object.assign(window, {
   editarAlertaDesdeHistorial,
   editarElementoConfig,
   editarMensajeChat,
+  editorAgregarForma,
+  editorAlinearGrupo,
   editorCambiarGrid,
+  editorCentrarH,
+  editorCentrarV,
+  editorCopiarCelda,
+  editorDistribuirGrupo,
+  editorDuplicarFila,
   editorEliminarCelda,
+  editorEnviarFondo,
   editorMoverCelda,
   editorPropChange,
   editorSpanChange,
+  editorToggleMoreMenu,
+  editorTraerFrente,
+  editorZoom,
   ejecutarAccionAlertaActual,
   ejecutarAccionGemini,
   ejecutarAccionRapida,

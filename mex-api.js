@@ -1184,12 +1184,10 @@ const API_FUNCTIONS = {
     const plazaUp = (plaza || '').toUpperCase().trim();
     // [F1] Colección plana cuadre_admins filtrada por plaza
     let snap;
-    if (plazaUp) {
-      snap = await db.collection(COL.CUADRE_ADM).where('plaza', '==', plazaUp).orderBy("_createdAt", "desc").get(); // [F1]
-    } else {
-      snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
-    }
-    return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+    // [F1] Filtro client-side para evitar índice compuesto plaza+_createdAt
+    snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
+    const allDocs = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp);
+    return Promise.all(allDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
   },
 
   async procesarModificacionMaestra(datos, tipoAccion) {
@@ -1502,13 +1500,17 @@ const API_FUNCTIONS = {
   },
 
   // ─── NOTAS ───────────────────────────────────────────────
-  async obtenerTodasLasNotas() {
+  async obtenerTodasLasNotas(plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
     const snap = await db.collection(COL.NOTAS).orderBy("timestamp", "desc").get();
-    return snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
+    const docs = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp);
+    return docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
   },
-  suscribirNotasAdmin(callback) {
+  suscribirNotasAdmin(callback, plaza) {
+    const plazaUp = (plaza || '').toUpperCase().trim();
     return db.collection(COL.NOTAS).orderBy("timestamp", "desc").onSnapshot(snap => {
-      callback(snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
+      const docs = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp);
+      callback(docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
     }, err => console.error("onSnapshot notas_admin:", err));
   },
   async guardarNuevaNotaDirecto(nota, autor) {
@@ -1524,6 +1526,7 @@ const API_FUNCTIONS = {
       ? await _uploadIncidentAttachments(archivosNuevos, id, actor)
       : [];
 
+    const plazaNotaUp = (payloadEntrada.plaza || '').toUpperCase().trim();
     const payload = _buildIncidentPayload({
       ...payloadEntrada,
       fecha: _now(),
@@ -1532,6 +1535,7 @@ const API_FUNCTIONS = {
       solucion: "",
       resueltaEn: ""
     }, actor, [...adjuntosManual, ...adjuntosSubidos], ts);
+    if (plazaNotaUp) payload.plaza = plazaNotaUp;
 
     await db.collection(COL.NOTAS).doc(id).set(payload);
     return "OK";
@@ -1836,11 +1840,10 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const plazaUp = (plaza || '').toUpperCase().trim();
     // [F1] Colección plana historial_cuadres filtrada por campo plaza
     let snap;
-    if (plazaUp) {
-      snap = await db.collection(COL.HISTORIAL_CUADRES).where('plaza', '==', plazaUp).orderBy("timestamp", "desc").limit(30).get(); // [F1]
-    } else {
-      snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(30).get();
-    }
+    // [F1] Filtro client-side para evitar índice compuesto plaza+timestamp
+    snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(200).get();
+    const filtrados = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp).slice(0, 30);
+    snap = { docs: filtrados };
     return snap.docs.map(d => {
       const data = d.data();
       return {

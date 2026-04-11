@@ -1041,34 +1041,17 @@
     .spot {
       width: 100%;
       height: 100%;
-      /* Cajón vacío: fondo casi transparente con borde sutil */
-      background: rgba(255, 255, 255, 0.015);
-      border-left: 1px solid rgba(255, 255, 255, 0.08);
-      border-right: 1px solid rgba(255, 255, 255, 0.08);
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      /* Línea inferior más gruesa simulando el "frente del cajón" */
-      border-bottom: 3px solid rgba(255, 255, 255, 0.18);
-      border-radius: 6px 6px 2px 2px;
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 2px solid rgba(255, 255, 255, 0.10);
+      border-right: 2px solid rgba(255, 255, 255, 0.10);
+      border-top: 2px solid rgba(255, 255, 255, 0.10);
+      border-bottom: none;
+      border-radius: 6px 6px 0 0;
       position: relative;
       display: flex;
-      align-items: stretch;
+      align-items: center;
       justify-content: center;
       transition: opacity 0.3s ease;
-      /* Reflejo interno sutil en la base */
-      box-shadow: inset 0 -2px 8px rgba(0, 0, 0, 0.25);
-    }
-
-    /* Línea guía central del cajón vacío */
-    .spot:not(:has(.car))::after {
-      content: '';
-      position: absolute;
-      left: 50%;
-      top: 15%;
-      bottom: 15%;
-      width: 1px;
-      background: rgba(255, 255, 255, 0.04);
-      transform: translateX(-50%);
-      pointer-events: none;
     }
 
     .spot label {
@@ -1078,106 +1061,56 @@
       text-align: center;
       font-size: 10px;
       font-weight: 700;
-      color: rgba(148, 163, 184, 0.75);
+      color: rgba(148, 163, 184, 0.7);
       letter-spacing: 0.5px;
-      /* Garantiza visibilidad encima del overflow:hidden del spot */
       z-index: 10;
       pointer-events: none;
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     }
 
     .area {
-      background: repeating-linear-gradient(
-        45deg,
-        rgba(255, 255, 255, 0.03) 0px,
-        rgba(255, 255, 255, 0.03) 8px,
-        rgba(0, 0, 0, 0.08) 8px,
-        rgba(0, 0, 0, 0.08) 16px
-      );
-      border: 1.5px dashed rgba(100, 116, 139, 0.6);
-      border-radius: 10px;
-      color: rgba(148, 163, 184, 0.6);
+      background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05) 10px, rgba(0, 0, 0, 0.1) 10px, rgba(0, 0, 0, 0.1) 20px);
+      border: 2px dashed #64748B;
+      border-radius: 12px;
+      color: #94A3B8;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: 800;
-      font-size: 13px;
+      font-weight: 900;
+      font-size: 16px;
       text-transform: uppercase;
       letter-spacing: 2px;
-      text-shadow: none;
     }
 
     /* --- ESTILOS PREMIUM PARA LOS CARROS --- */
     .car {
       width: 100%;
       height: 100%;
-      /* Forma de "auto": redondeado arriba, ligeramente plano abajo */
-      border-radius: 10px 10px 4px 4px;
+      border-radius: 16px 16px 10px 10px;
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: space-between;
+      justify-content: center;
       color: white;
       font-weight: 900;
-      font-size: 16px;
+      font-size: 18px;
       cursor: pointer;
-      transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-                  box-shadow 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
       box-shadow:
-        0 6px 20px -3px rgba(0, 0, 0, 0.6),
-        0 2px 6px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.28),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+        0 8px 24px -4px rgba(0, 0, 0, 0.55),
+        0 2px 6px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
       position: relative;
       z-index: 5;
-      /* Borde superior brillante (techo del auto) + borde lateral/inferior oscuro */
-      border: 1px solid rgba(0, 0, 0, 0.2);
-      border-top-color: rgba(255, 255, 255, 0.25);
-      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
       animation: popInCar 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      /* overflow visible para que los badges (lock, urgent, etc.) puedan sobresalir */
-      overflow: visible;
-    }
-
-    /* Franja de brillo/parabrisas en la parte superior del carro */
-    .car::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 30%;
-      background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0.18) 0%,
-        rgba(255, 255, 255, 0.04) 70%,
-        transparent 100%
-      );
-      border-radius: 10px 10px 0 0;
-      pointer-events: none;
-      z-index: 1;
-    }
-
-    /* Franja base/parachoques inferior */
-    .car::after {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 22%;
-      background: rgba(0, 0, 0, 0.28);
-      pointer-events: none;
-      z-index: 1;
     }
 
     .car:hover {
-      transform: translateY(-4px) scale(1.03);
+      transform: translateY(-3px) scale(1.02);
       box-shadow:
-        0 16px 36px -4px rgba(0, 0, 0, 0.65),
-        0 4px 10px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.32),
-        inset 0 -2px 0 rgba(0, 0, 0, 0.25);
+        0 14px 32px -4px rgba(0, 0, 0, 0.6),
+        0 3px 8px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.28);
     }
 
     @keyframes popInCar {
@@ -1209,54 +1142,53 @@
       display: none !important;
     }
 
-    /* Gradientes de estado — oscuro hacia abajo para simular profundidad 3D */
     .listo {
-      background: linear-gradient(175deg, #10b981 0%, #059669 55%, #064e3b 100%) !important;
+      background: linear-gradient(160deg, #0d9488 0%, #0f766e 100%) !important;
     }
 
     .sucio {
-      background: linear-gradient(175deg, #f59e0b 0%, #d97706 55%, #78350f 100%) !important;
+      background: linear-gradient(160deg, #d97706 0%, #b45309 100%) !important;
     }
 
     .mantenimiento {
-      background: linear-gradient(175deg, #ef4444 0%, #dc2626 55%, #7f1d1d 100%) !important;
+      background: linear-gradient(160deg, #dc2626 0%, #991b1b 100%) !important;
     }
 
     .traslado {
-      background: linear-gradient(175deg, #a78bfa 0%, #7c3aed 55%, #3b0764 100%) !important;
+      background: linear-gradient(160deg, #7c3aed 0%, #5b21b6 100%) !important;
       color: white !important;
     }
 
     .venta {
-      background: linear-gradient(175deg, #fbbf24 0%, #f59e0b 55%, #78350f 100%) !important;
+      background: linear-gradient(160deg, #f59e0b 0%, #d97706 100%) !important;
     }
 
     .no-arrendable {
-      background: linear-gradient(175deg, #22d3ee 0%, #0891b2 55%, #083344 100%) !important;
+      background: linear-gradient(160deg, #0891b2 0%, #0e7490 100%) !important;
       color: white !important;
     }
 
     .resguardo {
-      background: linear-gradient(175deg, #b45309 0%, #92400e 55%, #431407 100%) !important;
+      background: linear-gradient(160deg, #92400e 0%, #78350f 100%) !important;
       color: white !important;
     }
 
     .externo {
-      background: linear-gradient(175deg, #64748b 0%, #475569 55%, #0f172a 100%) !important;
+      background: linear-gradient(160deg, #475569 0%, #334155 100%) !important;
       color: white !important;
-      border: 1px dashed rgba(255, 255, 255, 0.3) !important;
+      border: 2px dashed rgba(255, 255, 255, 0.35) !important;
     }
 
     .retenida {
-      background: linear-gradient(175deg, #3b82f6 0%, #1d4ed8 55%, #1e1b4b 100%) !important;
+      background: linear-gradient(160deg, #1d4ed8 0%, #1e3a8a 100%) !important;
       color: white !important;
-      border: 1px dashed rgba(255, 255, 255, 0.25) !important;
+      border: 2px dashed rgba(255, 255, 255, 0.3) !important;
     }
 
-    /* --- BARRA DE GASOLINA --- */
+    /* --- NUEVA BARRA DE GASOLINA REAL --- */
     .gas-container {
-      width: 80%;
-      height: 12px;
+      width: 75%;
+      height: 14px;
       background: rgba(0, 0, 0, 0.5);
       border-radius: 6px;
       margin-bottom: 6px;
@@ -1783,8 +1715,9 @@
     }
 
     .mapa-editor-sidebar {
-      width: 240px;
-      min-width: 200px;
+      width: 290px;
+      min-width: 280px;
+      max-width: 300px;
       background: #0f1e2e;
       border-right: 1px solid rgba(255, 255, 255, 0.06);
       display: flex;
@@ -12383,3 +12316,125 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
   opacity: 1;
   background: #7dd3fc;
 }
+/* Editor pro: handles de 8 puntos */
+.ed-handle-8 {
+  position: absolute;
+  width: 10px; height: 10px;
+  background: #fbbf24;
+  border: 1.5px solid rgba(0,0,0,0.5);
+  border-radius: 50%;
+  z-index: 15;
+  opacity: 0.9;
+  pointer-events: auto;
+}
+.ed-handle-8:hover { opacity: 1; transform: scale(1.3); }
+/* Handle de rotación */
+.ed-rotate-handle {
+  position: absolute;
+  width: 14px; height: 14px;
+  background: #a855f7;
+  border: 2px solid white;
+  border-radius: 50%;
+  cursor: grab;
+  z-index: 16;
+  top: -26px;
+  left: calc(50% - 7px);
+}
+.ed-rotate-handle:hover { background: #c084fc; }
+/* Multi-selección highlight */
+.ed-celda-multi {
+  border-color: #34d399 !important;
+  box-shadow: 0 0 0 2px rgba(52,211,153,0.4) !important;
+}
+/* Toolbar del canvas — zoom bar */
+.ed-zoom-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+.ed-zoom-bar button {
+  background: rgba(255,255,255,0.1);
+  border: none;
+  color: white;
+  width: 26px; height: 26px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+.ed-zoom-bar button:hover { background: rgba(255,255,255,0.2); }
+/* Menú contextual "..." */
+.ed-more-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background: #1e293b;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  padding: 4px 0;
+  z-index: 9999;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+.ed-more-menu button {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  color: #e2e8f0;
+  text-align: left;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.ed-more-menu button:hover { background: rgba(255,255,255,0.08); }
+.ed-more-menu hr { border-color: rgba(255,255,255,0.08); margin: 3px 0; }
+/* Formas preset */
+.ed-preset-shapes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-top: 4px;
+}
+.ed-preset-btn {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 7px;
+  color: #94a3b8;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 7px 6px;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  transition: all 0.15s;
+}
+.ed-preset-btn:hover { background: rgba(56,189,248,0.15); color: #38bdf8; border-color: #38bdf8; }
+/* Botones de alineación de grupo */
+.ed-align-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ed-align-btn {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: #94a3b8;
+  width: 32px; height: 32px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  transition: all 0.15s;
+}
+.ed-align-btn:hover { background: rgba(56,189,248,0.2); color: #38bdf8; }
