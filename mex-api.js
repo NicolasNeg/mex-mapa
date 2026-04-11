@@ -1172,29 +1172,38 @@ const API_FUNCTIONS = {
     const plazaUp = (plaza || '').toUpperCase().trim();
     const batch = db.batch();
     const histBatch = [];
+
+    // [PERF] Cargar TODOS los docs de la plaza de una sola vez (2 queries en paralelo)
+    // en lugar de 2 queries secuenciales por cada unidad del reporte.
+    const unitMap = {}; // mva → { ref, data, hoja }
+    if (plazaUp) {
+      const [cuadreSnap, externosSnap] = await Promise.all([
+        db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(),
+        db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get()
+      ]);
+      cuadreSnap.docs.forEach(d => {
+        const mva = (d.data().mva || '').toString().trim().toUpperCase();
+        if (mva && !unitMap[mva]) unitMap[mva] = { ref: d.ref, data: d.data(), hoja: 'CUADRE' };
+      });
+      externosSnap.docs.forEach(d => {
+        const mva = (d.data().mva || '').toString().trim().toUpperCase();
+        if (mva && !unitMap[mva]) unitMap[mva] = { ref: d.ref, data: d.data(), hoja: 'EXTERNOS' };
+      });
+    }
+
     for (const item of reporte) {
       if (!item.mva || !item.pos) continue;
       const mvaStr = item.mva.toString().trim().toUpperCase();
       const posNueva = item.pos.toString().toUpperCase();
 
-      let found = null;
-      let hoja = "CUADRE";
+      let found = unitMap[mvaStr] || null;
 
-      // [F1] Buscar en colecciones planas filtrando por plaza
-      if (plazaUp) {
-        let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
-        if (!snap.empty) { found = { ref: snap.docs[0].ref, data: snap.docs[0].data() }; hoja = "CUADRE"; }
-        if (!found) {
-          snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get(); // [F1]
-          if (!snap.empty) { found = { ref: snap.docs[0].ref, data: snap.docs[0].data() }; hoja = "EXTERNOS"; }
-        }
-      }
-      // Fallback respetando plaza
+      // Fallback a subcollections si no se encontró en colecciones planas
       if (!found) {
-        found = await _buscarUnidadEnSubcol(mvaStr, plazaUp);
-        if (found) {
-          const col = (found.ref.parent?.id || '');
-          hoja = col === COL.EXTERNOS ? "EXTERNOS" : "CUADRE";
+        const sub = await _buscarUnidadEnSubcol(mvaStr, plazaUp);
+        if (sub) {
+          const col = (sub.ref.parent?.id || '');
+          found = { ref: sub.ref, data: sub.data, hoja: col === COL.EXTERNOS ? 'EXTERNOS' : 'CUADRE' };
         }
       }
 
@@ -1202,23 +1211,21 @@ const API_FUNCTIONS = {
         const posAnterior = found.data.pos || "LIMBO";
         if (posAnterior !== posNueva) {
           batch.set(found.ref, { pos: posNueva }, { merge: true });
-          histBatch.push({ mva: mvaStr, hoja, posAnterior, posNueva });
+          histBatch.push({ mva: mvaStr, hoja: found.hoja, posAnterior, posNueva });
         }
       }
     }
     await batch.commit();
-    for (let i = 0; i < histBatch.length; i++) {
-      const h = histBatch[i];
+    // Escribir historial en paralelo
+    await Promise.all(histBatch.map((h, i) => {
       const ts = _ts();
-      const id = `move_${i}_${ts}`;
-      // [F1] historial_patio — colección plana, incluir campo plaza
-      await db.collection("historial_patio").doc(id).set({
+      return db.collection("historial_patio").doc(`move_${i}_${ts}`).set({
         timestamp: ts, fecha: _now(), tipo: "MOVE",
         mva: h.mva, hoja: h.hoja, posAnterior: h.posAnterior, posNueva: h.posNueva,
         autor: usuarioResponsable || "Sistema",
-        plaza: plazaUp || "" // [F1]
+        plaza: plazaUp || ""
       });
-    }
+    }));
     return true;
   },
 
