@@ -5291,7 +5291,7 @@ function _renderBotonEmitirAlerta() {
 function refrescarDatos(force = false) {
   if (isSaving || window.PAUSA_CONEXIONES) return; // 🛑 ESCUDO DOBLE: Si estamos guardando o pausados, no hacer nada
   if (!force && _mapaRuntime.unidadesReady) return;
-  api.obtenerDatosParaMapa().then(data => {
+  api.obtenerDatosParaMapa(_miPlaza()).then(data => {
     if (data && data.unidades) sincronizarMapa(data.unidades);
   }).catch(e => console.error(e));
 }
@@ -8813,16 +8813,407 @@ let _chatAnalyser = null;
 let _chatSpectrumRaf = null;
 let emojiPickerTarget = null;  // msgId for reaction picker
 
-const AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-// function _avatarColor(name) { let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % AVATAR_COLORS.length; return AVATAR_COLORS[Math.abs(h)]; }
+function _chatUserName(value = '') {
+  return String(value || '').trim().toUpperCase();
+}
+
+function _chatMessageTimestamp(msg = {}) {
+  return _coerceTimestamp(msg.timestamp || msg.ts || msg.createdAt || msg.id);
+}
+
+function _chatContactByName(name = '') {
+  const normalized = _chatUserName(name);
+  if (!normalized) return null;
+  return dbUsuariosLogin.find(user => _chatUserName(user.usuario || user.nombre) === normalized) || null;
+}
+
+function _chatContactByIdentifier(identifier = '') {
+  const normalizedEmail = _profileDocId(identifier);
+  if (normalizedEmail) {
+    const foundByEmail = dbUsuariosLogin.find(user => _profileDocId(user.email) === normalizedEmail);
+    if (foundByEmail) return foundByEmail;
+  }
+  return _chatContactByName(identifier);
+}
+
+function _activeChatContact() {
+  return _chatContactByName(activeChatUser);
+}
+
+function _chatPresenceLabel(user = {}) {
+  if (_userPresenceIsOnline(user)) return 'En línea';
+  const lastSeen = _coerceTimestamp(user.lastSeenAt || user.lastActiveAt);
+  return lastSeen ? `Últ. ${_formatearUltimaConexion(lastSeen)}` : 'Sin actividad reciente';
+}
+
+function _chatListTimeLabel(ts) {
+  const safeTs = _coerceTimestamp(ts);
+  if (!safeTs) return '';
+  const date = new Date(safeTs);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return sameDay
+    ? date.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+    : date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
+}
+
+function _chatMessageSnippet(msg = {}) {
+  if (msg.archivoUrl) {
+    const fileName = String(msg.archivoNombre || '').trim();
+    if (/\.(jpg|jpeg|png|gif|webp)$/i.test(fileName)) return 'Foto adjunta';
+    if (/\.(ogg|mp3|wav|m4a|webm)$/i.test(fileName)) return 'Audio adjunto';
+    return fileName ? `Archivo: ${fileName}` : 'Archivo adjunto';
+  }
+
+  const text = String(msg.mensaje || '').trim();
+  if (!text) return 'Toca para chatear';
+  return text;
+}
+
+function _setSelectOptions(selectEl, items, placeholder) {
+  if (!selectEl) return;
+  const current = selectEl.value;
+  selectEl.innerHTML = `<option value="">${placeholder}</option>` + items.map(item =>
+    `<option value="${escapeHtml(item.value)}">${escapeHtml(item.label)}</option>`
+  ).join('');
+  if (current && items.some(item => item.value === current)) {
+    selectEl.value = current;
+  }
+}
+
+function _renderChatFilterOptions() {
+  const plazaSelect = document.getElementById('chatFilterPlaza');
+  const roleSelect = document.getElementById('chatFilterRol');
+  const statusSelect = document.getElementById('chatFilterStatus');
+
+  const plazas = Array.from(new Set([
+    ...(window.MEX_CONFIG?.empresa?.plazas || []).map(_normalizePlaza),
+    ...dbUsuariosLogin.map(user => _normalizePlaza(user.plazaAsignada)).filter(Boolean)
+  ])).sort();
+
+  const roles = ROLE_OPTIONS.map(role => ({
+    value: role,
+    label: ROLE_META[role]?.label || role
+  }));
+
+  const statuses = Array.from(new Set(
+    dbUsuariosLogin
+      .map(user => String(user.status || 'ACTIVO').trim().toUpperCase())
+      .filter(Boolean)
+  )).sort();
+
+  _setSelectOptions(plazaSelect, plazas.map(plaza => ({ value: plaza, label: plaza })), 'Todas');
+  _setSelectOptions(roleSelect, roles, 'Todos');
+  _setSelectOptions(statusSelect, statuses.map(status => ({ value: status, label: status })), 'Todos');
+}
+
+function _chatFilterState() {
+  const term = (document.getElementById('buscadorContactos')?.value || '').trim().toLowerCase();
+  const plaza = _normalizePlaza(document.getElementById('chatFilterPlaza')?.value || '');
+  const rol = _sanitizeRole(document.getElementById('chatFilterRol')?.value || '');
+  const status = String(document.getElementById('chatFilterStatus')?.value || '').trim().toUpperCase();
+  return {
+    term,
+    plaza,
+    rol,
+    status,
+    hasFilters: Boolean(term || plaza || rol || status)
+  };
+}
+
+function actualizarFiltrosChat() {
+  renderContactos();
+}
+
+function limpiarFiltrosChat() {
+  const search = document.getElementById('buscadorContactos');
+  const plaza = document.getElementById('chatFilterPlaza');
+  const rol = document.getElementById('chatFilterRol');
+  const status = document.getElementById('chatFilterStatus');
+
+  if (search) search.value = '';
+  if (plaza) plaza.value = '';
+  if (rol) rol.value = '';
+  if (status) status.value = '';
+
+  renderContactos();
+}
+
+function _actualizarHeaderChatActivo() {
+  const nameEl = document.getElementById('chat-active-name');
+  const avatarEl = document.getElementById('chat-active-avatar');
+  const statusEl = document.querySelector('.chatv2-active-status');
+
+  if (!nameEl || !avatarEl || !statusEl) return;
+  if (!activeChatUser) {
+    nameEl.innerText = 'Nombre';
+    avatarEl.style.background = _avatarColor('U');
+    avatarEl.innerHTML = '<span class="avatar-initial">U</span>';
+    statusEl.innerText = 'Conversación segura';
+    return;
+  }
+
+  const contact = _activeChatContact() || { usuario: activeChatUser, nombre: activeChatUser };
+  const plaza = _normalizePlaza(contact.plazaAsignada || '');
+  const role = contact.roleLabel || contact.rol || 'Contacto';
+  const pieces = [role];
+  if (plaza) pieces.unshift(plaza);
+  pieces.push(_chatPresenceLabel(contact));
+
+  nameEl.innerText = activeChatUser;
+  avatarEl.dataset.userEmail = contact.email || '';
+  _paintAvatarElement(avatarEl, contact, activeChatUser);
+  statusEl.innerText = pieces.join(' · ');
+}
+
+function _renderChatContactInfo(user = {}) {
+  const container = document.getElementById('chat-user-info-content');
+  if (!container) return;
+
+  const fallbackName = _chatUserName(user.usuario || user.nombre || activeChatUser || 'USUARIO');
+  const avatar = _buildAvatarMarkup(user, fallbackName);
+  const plaza = _normalizePlaza(user.plazaAsignada || '') || 'Sin plaza asignada';
+  const role = user.roleLabel || user.rol || 'Sin rol';
+  const accountStatus = String(user.status || 'ACTIVO').trim().toUpperCase() || 'ACTIVO';
+  const liveStatus = _userPresenceIsOnline(user) ? 'ONLINE' : 'OFFLINE';
+  const lastSeen = _chatPresenceLabel(user);
+  const safeEmail = String(user.email || '').trim().toLowerCase();
+
+  container.innerHTML = `
+    <div class="chat-user-info-hero">
+      <div class="chat-user-info-avatar" style="background:${avatar.background};">${avatar.html}</div>
+      <div>
+        <div class="chat-user-info-name">${escapeHtml(fallbackName)}</div>
+        <div class="chat-user-info-sub">${escapeHtml(role)} · ${escapeHtml(plaza)}</div>
+      </div>
+    </div>
+
+    <div class="chat-user-info-body">
+      <div class="chat-user-info-row">
+        <span class="chat-user-info-label">Correo</span>
+        <span class="chat-user-info-value">${escapeHtml(safeEmail || 'Sin correo registrado')}</span>
+      </div>
+      <div class="chat-user-info-row">
+        <span class="chat-user-info-label">Plaza</span>
+        <span class="chat-user-info-value">${escapeHtml(plaza)}</span>
+      </div>
+      <div class="chat-user-info-row">
+        <span class="chat-user-info-label">Rol</span>
+        <span class="chat-user-info-value">${escapeHtml(role)}</span>
+      </div>
+      <div class="chat-user-info-row">
+        <span class="chat-user-info-label">Status cuenta</span>
+        <span class="chat-user-info-value">${escapeHtml(accountStatus)}</span>
+      </div>
+      <div class="chat-user-info-row">
+        <span class="chat-user-info-label">Presencia</span>
+        <span class="chat-user-info-value">${escapeHtml(liveStatus)}</span>
+      </div>
+      <div class="chat-user-info-row">
+        <span class="chat-user-info-label">Última conexión</span>
+        <span class="chat-user-info-value">${escapeHtml(lastSeen)}</span>
+      </div>
+      <div class="chat-user-info-row">
+        <span class="chat-user-info-label">Teléfono</span>
+        <span class="chat-user-info-value">${escapeHtml(user.telefono || 'Sin teléfono registrado')}</span>
+      </div>
+    </div>
+
+    <div class="chat-user-info-actions">
+      <button class="primary" data-chat-name="${escapeHtml(fallbackName)}" onclick="abrirChat(this.dataset.chatName); cerrarInfoContacto();">
+        Abrir chat
+      </button>
+      <button class="secondary" onclick="cerrarInfoContacto()">
+        Cerrar
+      </button>
+    </div>
+  `;
+}
+
+function abrirInfoContacto(identifier = '') {
+  const user = _chatContactByIdentifier(identifier) || _activeChatContact();
+  if (!user && !identifier && !activeChatUser) {
+    showToast('Selecciona un contacto primero.', 'warning');
+    return;
+  }
+
+  _renderChatContactInfo(user || {
+    usuario: _chatUserName(identifier || activeChatUser || 'USUARIO'),
+    nombre: _chatUserName(identifier || activeChatUser || 'USUARIO')
+  });
+  document.getElementById('chat-user-info-modal')?.classList.add('active');
+}
+
+function abrirInfoContactoActivo() {
+  if (!activeChatUser) {
+    showToast('Abre una conversación para ver más información.', 'warning');
+    return;
+  }
+  abrirInfoContacto(activeChatUser);
+}
+
+function cerrarInfoContacto() {
+  document.getElementById('chat-user-info-modal')?.classList.remove('active');
+}
+
+function _renderPerfilUsuarioActual() {
+  const profile = currentUserProfile || window.CURRENT_USER_PROFILE;
+  if (!profile) return;
+
+  const avatarEl = document.getElementById('profileCurrentAvatar');
+  const nameEl = document.getElementById('profileCurrentName');
+  const metaEl = document.getElementById('profileCurrentMeta');
+  const removeBtn = document.querySelector('#perfil-modal .profile-modal-btn:not(.primary)');
+
+  if (avatarEl) _paintAvatarElement(avatarEl, profile, profile.nombre || USER_NAME || 'U');
+  if (nameEl) nameEl.innerText = profile.nombre || profile.usuario || USER_NAME || 'Usuario';
+
+  const meta = [
+    profile.roleLabel || profile.rol || 'Sin rol',
+    _normalizePlaza(profile.plazaAsignada || '') || 'Sin plaza',
+    profile.email || _currentUserDocId() || 'Sin correo'
+  ];
+  if (metaEl) metaEl.innerText = meta.join(' · ');
+  if (removeBtn) removeBtn.disabled = !_getUserAvatarUrl(profile);
+}
+
+function abrirPerfilUsuario() {
+  if (!currentUserProfile && !window.CURRENT_USER_PROFILE) {
+    showToast('Tu perfil todavía no está listo. Intenta de nuevo en unos segundos.', 'warning');
+    return;
+  }
+  _renderPerfilUsuarioActual();
+  document.getElementById('perfil-modal')?.classList.add('active');
+}
+
+function cerrarPerfilUsuario() {
+  document.getElementById('perfil-modal')?.classList.remove('active');
+  const input = document.getElementById('profileAvatarInput');
+  if (input) input.value = '';
+}
+
+async function subirAvatarPerfil(inputEl) {
+  const file = inputEl?.files?.[0];
+  const docId = _currentUserDocId();
+  if (!file || !docId) return;
+
+  if (!(file.type || '').startsWith('image/')) {
+    showToast('Selecciona una imagen válida para tu perfil.', 'error');
+    inputEl.value = '';
+    return;
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    showToast('La imagen es demasiado grande. Máximo 2MB.', 'error');
+    inputEl.value = '';
+    return;
+  }
+
+  const avatarPath = `profile_avatars/${docId}/avatar`;
+  const previousPath = String(currentUserProfile?.avatarPath || '').trim();
+  const previousUrl = String(currentUserProfile?.avatarUrl || '').trim();
+
+  try {
+    showToast('Subiendo foto de perfil...', 'info');
+    const ref = firebase.storage().ref(avatarPath);
+    await ref.put(file, { contentType: file.type || 'image/jpeg' });
+    const avatarUrl = await ref.getDownloadURL();
+
+    const payload = {
+      avatarUrl,
+      avatarPath,
+      photoURL: avatarUrl,
+      fotoURL: avatarUrl,
+      profilePhotoUrl: avatarUrl
+    };
+
+    await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+    if (previousPath && previousPath !== avatarPath) {
+      firebase.storage().ref(previousPath).delete().catch(() => { });
+    } else if (!previousPath && previousUrl && previousUrl !== avatarUrl) {
+      firebase.storage().refFromURL(previousUrl).delete().catch(() => { });
+    }
+
+    if (auth.currentUser?.updateProfile) {
+      auth.currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => { });
+    }
+
+    currentUserProfile = { ...(currentUserProfile || {}), ...payload };
+    window.CURRENT_USER_PROFILE = currentUserProfile;
+    _actualizarIdentidadSidebarUsuario();
+    _renderPerfilUsuarioActual();
+    if (document.getElementById('buzon-modal')?.classList.contains('active')) {
+      renderContactos();
+      if (activeChatUser) _actualizarHeaderChatActivo();
+    }
+    showToast('Foto de perfil actualizada.', 'success');
+  } catch (error) {
+    console.error('No se pudo subir el avatar del perfil:', error);
+    showToast('No se pudo subir tu foto de perfil.', 'error');
+  } finally {
+    inputEl.value = '';
+  }
+}
+
+async function eliminarAvatarPerfil() {
+  const docId = _currentUserDocId();
+  const avatarPath = String(currentUserProfile?.avatarPath || '').trim();
+  const avatarUrl = String(currentUserProfile?.avatarUrl || '').trim();
+  if (!docId || (!_getUserAvatarUrl(currentUserProfile || {}) && !avatarPath && !avatarUrl)) {
+    showToast('No tienes foto de perfil configurada.', 'info');
+    return;
+  }
+
+  const ok = await mexConfirm('Quitar foto de perfil', 'Se eliminará tu foto actual del sistema.', 'warning');
+  if (!ok) return;
+
+  try {
+    if (avatarPath) {
+      await firebase.storage().ref(avatarPath).delete().catch(() => { });
+    } else if (avatarUrl) {
+      await firebase.storage().refFromURL(avatarUrl).delete().catch(() => { });
+    }
+
+    const payload = {
+      avatarUrl: '',
+      avatarPath: '',
+      photoURL: '',
+      fotoURL: '',
+      profilePhotoUrl: ''
+    };
+
+    await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+    if (auth.currentUser?.updateProfile) {
+      auth.currentUser.updateProfile({ photoURL: '' }).catch(() => { });
+    }
+
+    currentUserProfile = { ...(currentUserProfile || {}), ...payload };
+    window.CURRENT_USER_PROFILE = currentUserProfile;
+    _actualizarIdentidadSidebarUsuario();
+    _renderPerfilUsuarioActual();
+    if (document.getElementById('buzon-modal')?.classList.contains('active')) {
+      renderContactos();
+      if (activeChatUser) _actualizarHeaderChatActivo();
+    }
+    showToast('Foto de perfil eliminada.', 'success');
+  } catch (error) {
+    console.error('No se pudo eliminar el avatar del perfil:', error);
+    showToast('No se pudo eliminar tu foto de perfil.', 'error');
+  }
+}
 
 function abrirBuzon() {
   document.getElementById('buzon-modal').classList.add('active');
   document.getElementById('chat-window-view').style.transform = 'translateX(100%)';
   activeChatUser = null;
-  // Inject companyName
   const lbl = document.getElementById('chatv2-company-label');
-  if (lbl) lbl.innerText = typeof companyName !== 'undefined' ? companyName : '';
+  if (lbl) lbl.innerText = _companyNameFrom(window.MEX_CONFIG?.empresa);
+  cerrarInfoContacto();
+  _renderChatFilterOptions();
+  _actualizarHeaderChatActivo();
+  renderContactos();
   _startChatListener();
 }
 
@@ -8841,8 +9232,8 @@ function _startChatListener() {
     const seen = new Set();
     allChatMessages = [..._sentMsgs, ..._recvMsgs]
       .filter(m => { if (seen.has(m.id)) return false; seen.add(m.id); return true; })
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .map(m => ({ ...m, esMio: m.remitente === me, leido: m.leido === 'SI' }));
+      .sort((a, b) => _chatMessageTimestamp(b) - _chatMessageTimestamp(a))
+      .map(m => ({ ...m, esMio: _chatUserName(m.remitente) === me, leido: m.leido === true || m.leido === 'SI' }));
     renderContactos();
     if (activeChatUser) renderChatWindow();
   }
@@ -8873,14 +9264,19 @@ function _linkifyText(text) {
 
 function renderContactos() {
   const container = document.getElementById('listaContactosContainer');
-  const term = document.getElementById('buscadorContactos').value.toLowerCase().trim();
+  if (!container) return;
+
+  _renderChatFilterOptions();
+  const hintEl = document.getElementById('chatContactsHint');
+  const { term, plaza, rol, status, hasFilters } = _chatFilterState();
 
   let ultimosMensajes = {};
   let noLeidos = {};
 
   // Agrupamos los mensajes por conversación
   allChatMessages.forEach(m => {
-    let elOtro = m.esMio ? m.destinatario : m.remitente;
+    let elOtro = _chatUserName(m.esMio ? m.destinatario : m.remitente);
+    if (!elOtro) return;
     if (!ultimosMensajes[elOtro]) {
       ultimosMensajes[elOtro] = m;
       noLeidos[elOtro] = 0;
@@ -8888,47 +9284,119 @@ function renderContactos() {
     if (!m.esMio && !m.leido) noLeidos[elOtro]++;
   });
 
-  let usuariosMostrar = dbUsuariosLogin.filter(u => u.usuario.trim().toUpperCase() !== USER_NAME.trim().toUpperCase());
-  if (term) usuariosMostrar = usuariosMostrar.filter(u => u.usuario.toLowerCase().includes(term));
+  const miNombre = _chatUserName(USER_NAME);
+  const usuariosMap = new Map();
+
+  dbUsuariosLogin
+    .filter(user => _chatUserName(user.usuario || user.nombre) !== miNombre)
+    .forEach(user => {
+      usuariosMap.set(_chatUserName(user.usuario || user.nombre), user);
+    });
+
+  Object.keys(ultimosMensajes).forEach(nombre => {
+    if (!usuariosMap.has(nombre) && nombre !== miNombre) {
+      usuariosMap.set(nombre, {
+        usuario: nombre,
+        nombre: nombre,
+        email: '',
+        rol: '',
+        roleLabel: 'Sin perfil',
+        plazaAsignada: '',
+        status: 'ACTIVO',
+        telefono: '',
+        isOnline: false,
+        lastSeenAt: 0,
+        avatarUrl: ''
+      });
+    }
+  });
+
+  let usuariosMostrar = Array.from(usuariosMap.values()).filter(user => {
+    const nombre = _chatUserName(user.usuario || user.nombre);
+    const samePlaza = plaza ? _normalizePlaza(user.plazaAsignada) === plaza : true;
+    const sameRole = rol ? _sanitizeRole(user.rol) === rol : true;
+    const sameStatus = status ? String(user.status || 'ACTIVO').trim().toUpperCase() === status : true;
+    const hasConversation = Boolean(ultimosMensajes[nombre]);
+    const inDefaultScope = _normalizePlaza(user.plazaAsignada) === _normalizePlaza(_miPlaza()) || hasConversation || nombre === _chatUserName(activeChatUser);
+    const searchable = [
+      user.usuario,
+      user.nombre,
+      user.email,
+      user.plazaAsignada,
+      user.roleLabel,
+      user.rol,
+      user.status
+    ].some(value => String(value || '').toLowerCase().includes(term));
+
+    if (!samePlaza || !sameRole || !sameStatus) return false;
+    if (term && !searchable) return false;
+    return hasFilters ? true : inDefaultScope;
+  });
 
   usuariosMostrar.sort((a, b) => {
-    let unreadA = noLeidos[a.usuario.trim().toUpperCase()] || 0;
-    let unreadB = noLeidos[b.usuario.trim().toUpperCase()] || 0;
+    const nameA = _chatUserName(a.usuario || a.nombre);
+    const nameB = _chatUserName(b.usuario || b.nombre);
+    let unreadA = noLeidos[nameA] || 0;
+    let unreadB = noLeidos[nameB] || 0;
     if (unreadA !== unreadB) return unreadB - unreadA;
 
-    let msgA = ultimosMensajes[a.usuario.trim().toUpperCase()];
-    let msgB = ultimosMensajes[b.usuario.trim().toUpperCase()];
+    let msgA = ultimosMensajes[nameA];
+    let msgB = ultimosMensajes[nameB];
 
-    // 🔥 ORDENAMIENTO SEGURO: Usamos el ID numérico en lugar de intentar leer el texto de la fecha
     if (msgA && msgB) {
-      return Number(msgB.id) - Number(msgA.id);
+      return _chatMessageTimestamp(msgB) - _chatMessageTimestamp(msgA);
     }
     if (msgA && !msgB) return -1;
     if (!msgA && msgB) return 1;
-    return a.usuario.localeCompare(b.usuario);
+
+    const plazaA = _normalizePlaza(a.plazaAsignada);
+    const plazaB = _normalizePlaza(b.plazaAsignada);
+    const miPlaza = _normalizePlaza(_miPlaza());
+    const plazaScoreA = plazaA && plazaA === miPlaza ? 1 : 0;
+    const plazaScoreB = plazaB && plazaB === miPlaza ? 1 : 0;
+    if (plazaScoreA !== plazaScoreB) return plazaScoreB - plazaScoreA;
+
+    const onlineA = _userPresenceIsOnline(a) ? 1 : 0;
+    const onlineB = _userPresenceIsOnline(b) ? 1 : 0;
+    if (onlineA !== onlineB) return onlineB - onlineA;
+
+    return nameA.localeCompare(nameB);
   });
 
+  if (hintEl) {
+    const baseHint = hasFilters
+      ? 'Búsqueda global habilitada.'
+      : 'Mostrando tu plaza y chats existentes.';
+    hintEl.innerText = `${usuariosMostrar.length} contacto${usuariosMostrar.length === 1 ? '' : 's'} · ${baseHint}`;
+  }
+
   if (usuariosMostrar.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b; font-weight:700;">No hay usuarios.</div>`;
+    container.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b; font-weight:700;">${hasFilters ? 'No hay contactos que coincidan con tu búsqueda.' : 'No hay contactos disponibles en tu plaza todavía.'}</div>`;
     return;
   }
 
   container.innerHTML = usuariosMostrar.map(u => {
-    const uName = u.usuario.trim().toUpperCase();
+    const uName = _chatUserName(u.usuario || u.nombre);
     const unread = noLeidos[uName] || 0;
     const lastMsg = ultimosMensajes[uName];
+    const avatar = _buildAvatarMarkup(u, uName);
+    const online = _userPresenceIsOnline(u);
+    const plazaLabel = _normalizePlaza(u.plazaAsignada || '') || 'Sin plaza';
+    const roleLabel = u.roleLabel || u.rol || 'Sin rol';
 
-    let snippet = "Toca para chatear";
+    let snippet = `${plazaLabel} · ${roleLabel}`;
     let dateStr = "";
     let unreadBadge = "";
     let snippetColor = "color:#8696a0;";
     let snippetWeight = "font-weight:400;";
 
     if (lastMsg) {
-      const raw = lastMsg.esMio ? `✓ ${lastMsg.mensaje}` : lastMsg.mensaje;
+      const rawText = _chatMessageSnippet(lastMsg);
+      const raw = lastMsg.esMio ? `Tú: ${rawText}` : rawText;
       snippet = raw.length > 35 ? raw.substring(0, 35) + "…" : raw;
-      let partesFecha = String(lastMsg.fecha || "").split(' ');
-      dateStr = partesFecha.length > 1 ? partesFecha[1] : "";
+      dateStr = _chatListTimeLabel(_chatMessageTimestamp(lastMsg));
+    } else if (online) {
+      dateStr = 'En línea';
     }
 
     if (unread > 0) {
@@ -8936,13 +9404,15 @@ function renderContactos() {
       snippetColor = "color:#111;";
       snippetWeight = "font-weight:600;";
       dateStr = `<span style="color:#25D366; font-weight:700;">${dateStr}</span>`;
+    } else if (online) {
+      unreadBadge = `<span style="font-size:10px; font-weight:800; color:#16a34a;">ONLINE</span>`;
     }
 
-    const avatarColor = _avatarColor(uName);
-
     return `
-      <div class="chat-contact" onclick="abrirChat('${uName}')">
-         <div class="chat-avatar" style="background:${avatarColor}; width:46px; height:46px; font-size:18px; flex-shrink:0;">${uName.charAt(0)}</div>
+      <div class="chat-contact" data-chat-name="${escapeHtml(uName)}" onclick="abrirChat(this.dataset.chatName)">
+         <button class="chat-avatar chat-avatar-button" data-user-id="${escapeHtml(u.email || uName)}"
+           onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)"
+           style="background:${avatar.background}; width:46px; height:46px; font-size:18px; flex-shrink:0;">${avatar.html}</button>
          <div style="flex:1; overflow:hidden; padding: 0 10px; border-bottom: 1px solid #f0f0f0; padding-bottom:13px; margin-bottom:-13px;">
             <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
               <span style="font-weight:700; font-size:14.5px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;">${uName}</span>
@@ -8959,12 +9429,8 @@ function renderContactos() {
 }
 
 function abrirChat(nombre) {
-  activeChatUser = String(nombre).trim().toUpperCase();
-
-  document.getElementById('chat-active-name').innerText = activeChatUser;
-  const avatarEl = document.getElementById('chat-active-avatar');
-  avatarEl.innerText = activeChatUser.charAt(0);
-  avatarEl.style.background = _avatarColor(activeChatUser);
+  activeChatUser = _chatUserName(nombre);
+  _actualizarHeaderChatActivo();
   document.getElementById('chat-window-view').style.transform = 'translateX(0)';
 
   const input = document.getElementById('chat-input');
@@ -8974,8 +9440,7 @@ function abrirChat(nombre) {
 
   let idsToMark = [];
   allChatMessages.forEach(m => {
-    // 🔥 BLINDAJE FRONTAL: Ignorar espacios al marcar como leídos
-    let rem = String(m.remitente).trim().toUpperCase();
+    let rem = _chatUserName(m.remitente);
     if (rem === activeChatUser && !m.leido && !m.esMio) {
       m.leido = true;
       idsToMark.push(m.id);
@@ -8994,15 +9459,18 @@ function abrirChat(nombre) {
 function cerrarChat() {
   activeChatUser = null;
   document.getElementById('chat-window-view').style.transform = 'translateX(100%)';
+  _actualizarHeaderChatActivo();
   renderContactos(); // Refresca los snippets
 }
 
 function renderChatWindow() {
   const container = document.getElementById('chat-messages-container');
+  if (!container) return;
+  _actualizarHeaderChatActivo();
 
   let history = allChatMessages.filter(m =>
-    String(m.remitente).trim().toUpperCase() === activeChatUser ||
-    String(m.destinatario).trim().toUpperCase() === activeChatUser
+    _chatUserName(m.remitente) === activeChatUser ||
+    _chatUserName(m.destinatario) === activeChatUser
   ).reverse();
 
   if (history.length === 0) {
@@ -13914,4 +14382,17 @@ Object.assign(window, {
   cambiarPlazaMapa,
   _renderPlazaSwitcher,
   _togglePlazaPicker,
+  // Chat / perfil
+  _actualizarHeaderChatActivo,
+  _renderChatFilterOptions,
+  _renderPerfilUsuarioActual,
+  abrirInfoContacto,
+  abrirInfoContactoActivo,
+  abrirPerfilUsuario,
+  actualizarFiltrosChat,
+  cerrarInfoContacto,
+  cerrarPerfilUsuario,
+  eliminarAvatarPerfil,
+  limpiarFiltrosChat,
+  subirAvatarPerfil,
 });

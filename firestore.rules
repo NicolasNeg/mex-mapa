@@ -173,6 +173,39 @@ service cloud.firestore {
         && actorPuedeGestionarRol(rolDePerfil(actual));
     }
 
+    function esDocumentoUsuarioPropio(docId) {
+      return estaAutenticado()
+        && (
+          docId == request.auth.token.email
+          || docId == request.auth.uid
+        );
+    }
+
+    function actualizacionSelfServiceUsuarioValida(docId) {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return esDocumentoUsuarioPropio(docId)
+        && changed.hasOnly([
+          "_reloadRequired",
+          "isOnline",
+          "lastSeenAt",
+          "lastActiveAt",
+          "avatarUrl",
+          "avatarPath",
+          "photoURL",
+          "fotoURL",
+          "profilePhotoUrl"
+        ])
+        && (!changed.hasAny(["_reloadRequired"]) || request.resource.data._reloadRequired == false)
+        && (!changed.hasAny(["isOnline"]) || request.resource.data.isOnline is bool)
+        && (!changed.hasAny(["lastSeenAt"]) || request.resource.data.lastSeenAt is int)
+        && (!changed.hasAny(["lastActiveAt"]) || request.resource.data.lastActiveAt is int)
+        && (!changed.hasAny(["avatarUrl"]) || request.resource.data.avatarUrl is string)
+        && (!changed.hasAny(["avatarPath"]) || request.resource.data.avatarPath is string)
+        && (!changed.hasAny(["photoURL"]) || request.resource.data.photoURL is string)
+        && (!changed.hasAny(["fotoURL"]) || request.resource.data.fotoURL is string)
+        && (!changed.hasAny(["profilePhotoUrl"]) || request.resource.data.profilePhotoUrl is string);
+    }
+
     function solicitudCreateValida(docId) {
       return request.resource.data.keys().hasAll([
           "nombre", "email", "puesto", "telefono", "password",
@@ -370,13 +403,7 @@ service cloud.firestore {
       allow read: if tienePerfilActual();
       allow create: if puedeCrearUsuario(request.resource.data);
       allow update: if puedeActualizarUsuario(resource.data, request.resource.data)
-        || (
-          // Usuario puede limpiar su propio _reloadRequired: sólo ese campo, sólo a false
-          estaAutenticado()
-          && (doc == request.auth.token.email || doc == request.auth.uid)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['_reloadRequired'])
-          && request.resource.data._reloadRequired == false
-        );
+        || actualizacionSelfServiceUsuarioValida(doc);
       allow delete: if puedeEliminarUsuario(resource.data);
     }
 
