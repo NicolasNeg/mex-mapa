@@ -4150,31 +4150,31 @@
     /* --- ESTILOS DEL BOTÓN "MÁS ACCIONES" --- */
     .actions-dropdown {
       position: absolute;
-      top: calc(100% + 10px);
+      bottom: calc(100% + 10px);
       left: 0;
-      bottom: auto;
       width: 100%;
       min-width: 220px;
       background: white;
       border-radius: 16px;
-      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.16);
+      box-shadow: 0 -16px 30px rgba(0, 0, 0, 0.16);
       margin-bottom: 0;
       display: none;
       flex-direction: column;
-      overflow: hidden;
+      overflow: auto;
+      max-height: min(52vh, 420px);
       border: 1px solid var(--border);
       z-index: 3000;
     }
 
     .actions-dropdown.show {
       display: flex;
-      animation: slideUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    @keyframes slideUp {
+    @keyframes slideDown {
       from {
         opacity: 0;
-        transform: translateY(15px);
+        transform: translateY(-15px);
       }
 
       to {
@@ -14054,6 +14054,237 @@ body.editor-inspector-dragging .editor-inspector-card {
   font-size: 11px;
   font-weight: 900;
   box-shadow: inset 0 -2px 0 rgba(148, 163, 184, 0.12);
+}
+
+.programmer-console-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.programmer-console-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, #0b1024 0%, #112a54 55%, #1d4ed8 100%);
+  color: white;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.24);
+}
+
+.programmer-console-kicker {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 6px;
+}
+
+.programmer-console-hero h3 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.programmer-console-hero p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.82);
+  max-width: 680px;
+}
+
+.programmer-console-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-content: flex-start;
+}
+
+.programmer-console-actions button,
+.programmer-console-json-actions button,
+.programmer-console-actions-list button {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 14px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.programmer-console-grid {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 16px;
+}
+
+.programmer-console-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #dbe4ee;
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 16px 34px rgba(148, 163, 184, 0.12);
+}
+
+.programmer-console-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.programmer-console-card-head h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.programmer-console-card-head span {
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #64748b;
+}
+
+.programmer-console-actions-list {
+  display: grid;
+  gap: 8px;
+}
+
+.programmer-console-actions-list button,
+.programmer-console-json-actions button {
+  background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%);
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.programmer-console-json {
+  grid-row: span 2;
+}
+
+.programmer-console-json textarea {
+  width: 100%;
+  min-height: 280px;
+  border-radius: 16px;
+  border: 1px solid #dbe4ee;
+  background: #0b1220;
+  color: #dbeafe;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 14px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.programmer-console-json-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.programmer-console-log {
+  display: grid;
+  gap: 10px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.programmer-log-item {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.programmer-log-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.programmer-log-kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.programmer-log-kind.kind-info { background: #dbeafe; color: #1d4ed8; }
+.programmer-log-kind.kind-success { background: #dcfce7; color: #15803d; }
+.programmer-log-kind.kind-warning { background: #fef3c7; color: #b45309; }
+.programmer-log-kind.kind-error { background: #fee2e2; color: #dc2626; }
+
+.programmer-log-time {
+  font-size: 10px;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.programmer-log-title {
+  font-size: 13px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.programmer-log-detail {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.programmer-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.programmer-summary-grid > div {
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.programmer-summary-grid span {
+  display: block;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.programmer-summary-grid strong {
+  font-size: 14px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+@media (max-width: 1120px) {
+  .programmer-console-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .programmer-console-json {
+    grid-row: auto;
+  }
 }
 
 .profile-avatar-crop-modal {

@@ -11864,13 +11864,12 @@ function _edOpenMoreMenuAt(clientX, clientY, celda = _edSel) {
   requestAnimationFrame(() => {
     const rect = wrapper.getBoundingClientRect();
     const maxLeft = Math.max(12, rect.width - menu.offsetWidth - 12);
-    const maxTop = Math.max(12, rect.height - menu.offsetHeight - 12);
     const left = Math.min(Math.max(12, clientX - rect.left), maxLeft);
-    const spaceBelow = rect.bottom - clientY;
-    const spaceAbove = clientY - rect.top;
-    const top = (spaceBelow >= menu.offsetHeight + 24 || spaceBelow >= spaceAbove)
-      ? Math.min(clientY - rect.top + 12, maxTop)
-      : Math.max(12, Math.min(clientY - rect.top - menu.offsetHeight - 12, maxTop));
+    const maxTop = Math.max(12, rect.height - menu.offsetHeight - 12);
+    const top = Math.max(
+      12,
+      Math.min(clientY - rect.top - menu.offsetHeight - 12, maxTop)
+    );
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
     menu.style.visibility = 'visible';
@@ -12664,12 +12663,216 @@ async function migrarConfiguracionAFirestore() {
 
 
 let TAB_ACTIVA_CFG = 'ubicaciones';
+let _programmerConsoleState = { log: [], selectedPlaza: '', jsonDraft: '' };
+
+function _programmerConsoleReadLog() {
+  try {
+    const raw = localStorage.getItem('programmer_console_log') || '[]';
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.slice(0, 50) : [];
+  } catch {
+    return [];
+  }
+}
+
+function _programmerConsolePushLog(title, detail = '', kind = 'info') {
+  const entry = {
+    ts: Date.now(),
+    title,
+    detail,
+    kind
+  };
+  _programmerConsoleState.log = [entry, ..._programmerConsoleReadLog()].slice(0, 50);
+  localStorage.setItem('programmer_console_log', JSON.stringify(_programmerConsoleState.log));
+  const view = document.getElementById('programmer-console-log');
+  if (view) view.innerHTML = _programmerConsoleRenderLog();
+}
+
+function _programmerConsoleRenderLog() {
+  const rows = _programmerConsoleState.log.length ? _programmerConsoleState.log : _programmerConsoleReadLog();
+  return rows.map(item => `
+    <div class="programmer-log-item">
+      <div class="programmer-log-top">
+        <span class="programmer-log-kind kind-${escapeHtml(item.kind || 'info')}">${escapeHtml(String(item.kind || 'info').toUpperCase())}</span>
+        <span class="programmer-log-time">${new Date(item.ts).toLocaleString('es-MX')}</span>
+      </div>
+      <div class="programmer-log-title">${escapeHtml(item.title || '')}</div>
+      ${item.detail ? `<div class="programmer-log-detail">${escapeHtml(item.detail)}</div>` : ''}
+    </div>
+  `).join('') || '<div style="color:#94a3b8; font-weight:700; text-align:center; padding:16px;">Sin acciones todavía.</div>';
+}
+
+function _programmerConsoleSetJsonDraft(obj) {
+  _programmerConsoleState.jsonDraft = JSON.stringify(obj, null, 2);
+  const ta = document.getElementById('programmer-json-editor');
+  if (ta) ta.value = _programmerConsoleState.jsonDraft;
+}
+
+function _programmerConsoleLoadSelectedPlaza() {
+  const plaza = (document.getElementById('programmer-plaza-select')?.value || '').trim().toUpperCase();
+  _programmerConsoleState.selectedPlaza = plaza;
+  const live = document.getElementById('programmer-plaza-preview');
+  const summary = _programmerConsoleBuildPlazaSummary(plaza);
+  if (live) live.innerHTML = summary;
+}
+
+function _programmerConsoleBuildPlazaSummary(plaza = '') {
+  const selected = String(plaza || '').trim().toUpperCase();
+  const empresa = window.MEX_CONFIG?.empresa || {};
+  const plazasDetalle = Array.isArray(empresa.plazasDetalle) ? empresa.plazasDetalle : [];
+  const plazaDetail = plazasDetalle.find(p => String(p.id || '').toUpperCase() === selected) || {};
+  const settings = selected ? (window._programmerCache?.settings?.[selected] || null) : null;
+  const estructura = selected ? (window._programmerCache?.estructura?.[selected] || []) : [];
+  const correo = plazaDetail.correo || '—';
+  const correoGerente = plazaDetail.correoGerente || '—';
+  return `
+    <div class="programmer-summary-grid">
+      <div><span>Plaza</span><strong>${escapeHtml(selected || 'GLOBAL')}</strong></div>
+      <div><span>Correo</span><strong>${escapeHtml(correo)}</strong></div>
+      <div><span>Gerencia</span><strong>${escapeHtml(correoGerente)}</strong></div>
+      <div><span>Ubicaciones</span><strong>${escapeHtml(String((window.MEX_CONFIG?.plazas?.[selected]?.length || 0)))}</strong></div>
+      <div><span>Estructura</span><strong>${escapeHtml(String(estructura.length || 0))}</strong></div>
+      <div><span>Bloqueo</span><strong>${settings?.mapaBloqueado ? 'ACTIVO' : 'LIBRE'}</strong></div>
+    </div>
+  `;
+}
+
+function _programmerConsoleRefreshCaches() {
+  _programmerConsolePushLog('Cache bump local', 'Forzando re-render y limpieza de datos temporales', 'info');
+  if (typeof limpiarBusqueda === 'function') limpiarBusqueda(false);
+  if (typeof renderizarListaConfig === 'function') renderizarListaConfig();
+}
+
+async function _programmerConsoleLoadData() {
+  const plazas = (window.MEX_CONFIG?.empresa?.plazasDetalle || []).map(p => String(p.id || '').trim().toUpperCase()).filter(Boolean);
+  window._programmerCache = window._programmerCache || { settings: {}, estructura: {}, unidades: {} };
+  const selectedPlaza = _programmerConsoleState.selectedPlaza || _miPlaza();
+  const targetPlazas = [...new Set([selectedPlaza, ...plazas].filter(Boolean))];
+  const out = [];
+  for (const plaza of targetPlazas) {
+    try {
+      const [settingsSnap, estructuraSnap] = await Promise.all([
+        db.collection('settings').doc(plaza).get(),
+        db.collection('mapa_config').doc(plaza).collection('estructura').get()
+      ]);
+      window._programmerCache.settings[plaza] = settingsSnap.exists ? (settingsSnap.data() || {}) : {};
+      window._programmerCache.estructura[plaza] = estructuraSnap.docs.map(d => d.data());
+      out.push(`${plaza}: ${window._programmerCache.estructura[plaza].length} piezas`);
+    } catch (error) {
+      out.push(`${plaza}: error`);
+      console.warn(error);
+    }
+  }
+  _programmerConsolePushLog('Inspección de plazas', out.join(' | '), 'success');
+  _programmerConsoleLoadSelectedPlaza();
+}
+
+async function _programmerConsoleSaveJsonDraft() {
+  const area = document.getElementById('programmer-json-editor');
+  if (!area) return;
+  try {
+    _programmerConsoleState.jsonDraft = area.value;
+    const payload = JSON.parse(area.value);
+    const plaza = _programmerConsoleState.selectedPlaza || _miPlaza() || 'GLOBAL';
+    await db.collection('settings').doc(plaza).set(payload, { merge: true });
+    _programmerConsolePushLog('JSON guardado', `settings/${plaza}`, 'success');
+    showToast(`JSON aplicado en ${plaza}`, 'success');
+  } catch (error) {
+    _programmerConsolePushLog('JSON inválido', error.message, 'error');
+    showToast('JSON inválido: ' + error.message, 'error');
+  }
+}
+
+async function _programmerConsoleExportConfig() {
+  const payload = {
+    empresa: window.MEX_CONFIG?.empresa || {},
+    listas: window.MEX_CONFIG?.listas || {},
+    ts: new Date().toISOString()
+  };
+  descargarArchivoLocal(`configuracion_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2), 'application/json');
+  _programmerConsolePushLog('Exportación', 'Se generó un JSON de configuración global', 'success');
+}
+
+function _programmerConsoleRender() {
+  _programmerConsoleState.log = _programmerConsoleReadLog();
+  const plazas = (window.MEX_CONFIG?.empresa?.plazasDetalle || []).map(p => String(p.id || '').trim().toUpperCase()).filter(Boolean);
+  const options = plazas.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  const selected = _programmerConsoleState.selectedPlaza || _miPlaza() || plazas[0] || '';
+  _programmerConsoleState.selectedPlaza = selected;
+  return `
+    <div class="programmer-console-shell">
+      <div class="programmer-console-hero">
+        <div>
+          <div class="programmer-console-kicker">Panel de programador</div>
+          <h3>Control total de la plataforma</h3>
+          <p>Consultas, migraciones, reindexado, validación y edición global con seguridad y trazabilidad.</p>
+        </div>
+        <div class="programmer-console-actions">
+          <button type="button" onclick="ejecutarMigracionLegacy()">Migrar legacy</button>
+          <button type="button" onclick="_programmerConsoleLoadData()">Inspeccionar plazas</button>
+          <button type="button" onclick="_programmerConsoleRefreshCaches()">Refrescar UI</button>
+          <button type="button" onclick="_programmerConsoleExportConfig()">Exportar config</button>
+        </div>
+      </div>
+      <div class="programmer-console-grid">
+        <section class="programmer-console-card">
+          <div class="programmer-console-card-head">
+            <h4>Acciones rápidas</h4>
+            <span>Dry-run mentalmente seguro</span>
+          </div>
+          <div class="programmer-console-actions-list">
+            <button type="button" onclick="_programmerConsolePushLog('Validación', 'Chequeo manual de plazas y settings', 'info'); _programmerConsoleLoadData();">Validar plazas</button>
+            <button type="button" onclick="_programmerConsolePushLog('Reindex', 'Reindexación lógica manual pendiente de backend', 'warning')">Reindexar</button>
+            <button type="button" onclick="_programmerConsolePushLog('Backfill', 'Usa el bloque de migración legacy o agrega tu flujo', 'warning')">Backfill</button>
+            <button type="button" onclick="_programmerConsolePushLog('Logs', 'Consulta de logs preparada', 'info')">Auditar logs</button>
+          </div>
+        </section>
+        <section class="programmer-console-card">
+          <div class="programmer-console-card-head">
+            <h4>Inspección por plaza</h4>
+            <span>settings / estructura / correo</span>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px;">
+            <select id="programmer-plaza-select" class="cfg-add-select" onchange="_programmerConsoleLoadSelectedPlaza()" style="flex:1; min-width:180px;">
+              <option value="">GLOBAL</option>
+              ${options}
+            </select>
+            <button type="button" onclick="_programmerConsoleLoadData()">Cargar</button>
+          </div>
+          <div id="programmer-plaza-preview">${_programmerConsoleBuildPlazaSummary(selected)}</div>
+        </section>
+        <section class="programmer-console-card programmer-console-json">
+          <div class="programmer-console-card-head">
+            <h4>Editor JSON</h4>
+            <span>merge directo sobre settings/{plaza}</span>
+          </div>
+          <textarea id="programmer-json-editor"></textarea>
+          <div class="programmer-console-json-actions">
+            <button type="button" onclick="_programmerConsoleSetJsonDraft(window.MEX_CONFIG?.empresa || {})">Cargar empresa</button>
+            <button type="button" onclick="_programmerConsoleSaveJsonDraft()">Guardar JSON</button>
+          </div>
+        </section>
+        <section class="programmer-console-card programmer-console-log-card">
+          <div class="programmer-console-card-head">
+            <h4>Historial</h4>
+            <span>últimas acciones</span>
+          </div>
+          <div id="programmer-console-log" class="programmer-console-log">
+            ${_programmerConsoleRenderLog()}
+          </div>
+        </section>
+      </div>
+    </div>
+  `;
+}
 
 function abrirPanelConfiguracion(tabInicial) {
   if (!canUseProgrammerConfig()) {
     showToast("Tu rol no puede abrir la configuración global.", "error");
     return;
   }
+  const tabProg = document.getElementById('cfg-tab-programador');
+  if (tabProg) tabProg.style.display = 'inline-flex';
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
   document.getElementById('modal-config-global').classList.add('active');
   if (tabInicial) {
@@ -12700,6 +12903,8 @@ function abrirTabConfig(tabName, btnElement) {
   } else {
     if (searchBox) searchBox.style.display = 'flex';
   }
+  const progTab = document.getElementById('cfg-tab-programador');
+  if (progTab) progTab.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
 
   // Remove any existing extra filter bars
   ['cfg-ubi-plaza-filter-wrap', 'cfg-modelo-cat-filter-wrap'].forEach(id => {
@@ -12985,6 +13190,19 @@ function renderizarListaConfig() {
 
   if (TAB_ACTIVA_CFG === 'solicitudes') {
     renderizarTabConfigSolicitudes(container);
+    return;
+  }
+
+  if (TAB_ACTIVA_CFG === 'programador') {
+    if (!canUseProgrammerConfig()) {
+      container.innerHTML = '<div style="padding:28px; text-align:center; color:#ef4444; font-weight:800;">Sin permiso para abrir la consola de programador.</div>';
+      return;
+    }
+    container.innerHTML = _programmerConsoleRender();
+    const jsonEditor = document.getElementById('programmer-json-editor');
+    if (jsonEditor) {
+      jsonEditor.value = _programmerConsoleState.jsonDraft || JSON.stringify(window.MEX_CONFIG?.empresa || {}, null, 2);
+    }
     return;
   }
 
@@ -15201,6 +15419,13 @@ Object.assign(window, {
   _plazaPreviewMaps,
   _plazaAddContact,
   _plazaRemoveContact,
+  _programmerConsoleExportConfig,
+  _programmerConsoleLoadData,
+  _programmerConsoleLoadSelectedPlaza,
+  _programmerConsolePushLog,
+  _programmerConsoleRefreshCaches,
+  _programmerConsoleSaveJsonDraft,
+  _programmerConsoleSetJsonDraft,
   renderModernDropdown,
   renderizarAdjuntosIncidencia,
   renderizarArchivosNuevaNota,
