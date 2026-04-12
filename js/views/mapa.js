@@ -9065,6 +9065,7 @@ function _renderPerfilUsuarioActual() {
   const avatarEl = document.getElementById('profileCurrentAvatar');
   const nameEl = document.getElementById('profileCurrentName');
   const metaEl = document.getElementById('profileCurrentMeta');
+  const badgesEl = document.getElementById('profileCurrentBadges');
   const removeBtn = document.querySelector('#perfil-modal .profile-modal-btn:not(.primary)');
 
   if (avatarEl) _paintAvatarElement(avatarEl, profile, profile.nombre || USER_NAME || 'U');
@@ -9076,6 +9077,16 @@ function _renderPerfilUsuarioActual() {
     profile.email || _currentUserDocId() || 'Sin correo'
   ];
   if (metaEl) metaEl.innerText = meta.join(' · ');
+  if (badgesEl) {
+    const chips = [
+      { icon: 'badge', label: profile.roleLabel || profile.rol || 'Sin rol' },
+      { icon: 'apartment', label: _normalizePlaza(profile.plazaAsignada || '') || 'Sin plaza' },
+      { icon: 'verified_user', label: String(profile.status || 'ACTIVO').trim().toUpperCase() || 'ACTIVO' }
+    ];
+    badgesEl.innerHTML = chips.map(chip =>
+      `<span class="profile-modal-badge"><span class="material-icons">${chip.icon}</span>${escapeHtml(chip.label)}</span>`
+    ).join('');
+  }
   if (removeBtn) removeBtn.disabled = !_getUserAvatarUrl(profile);
 }
 
@@ -9385,10 +9396,12 @@ function renderContactos() {
     const roleLabel = u.roleLabel || u.rol || 'Sin rol';
 
     let snippet = `${plazaLabel} · ${roleLabel}`;
-    let dateStr = "";
-    let unreadBadge = "";
-    let snippetColor = "color:#8696a0;";
-    let snippetWeight = "font-weight:400;";
+    let dateStr = '';
+    let dateClass = 'chat-contact-time';
+    let unreadBadge = '';
+    let snippetClass = 'chat-contact-snippet';
+    const presenceClass = online ? 'online' : 'offline';
+    const presenceLabel = online ? 'En línea' : _chatPresenceLabel(u);
 
     if (lastMsg) {
       const rawText = _chatMessageSnippet(lastMsg);
@@ -9400,29 +9413,40 @@ function renderContactos() {
     }
 
     if (unread > 0) {
-      unreadBadge = `<span style="background:#25D366; color:white; font-size:11px; font-weight:900; min-width:20px; height:20px; padding:0 6px; border-radius:10px; display:flex; align-items:center; justify-content:center;">${unread}</span>`;
-      snippetColor = "color:#111;";
-      snippetWeight = "font-weight:600;";
-      dateStr = `<span style="color:#25D366; font-weight:700;">${dateStr}</span>`;
-    } else if (online) {
-      unreadBadge = `<span style="font-size:10px; font-weight:800; color:#16a34a;">ONLINE</span>`;
+      unreadBadge = `<span class="chat-contact-pill unread"><span class="material-icons">mark_chat_unread</span>${unread}</span>`;
+      snippetClass += ' unread';
+      dateClass += ' has-unread';
     }
 
     return `
       <div class="chat-contact" data-chat-name="${escapeHtml(uName)}" onclick="abrirChat(this.dataset.chatName)">
-         <button class="chat-avatar chat-avatar-button" data-user-id="${escapeHtml(u.email || uName)}"
-           onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)"
-           style="background:${avatar.background}; width:46px; height:46px; font-size:18px; flex-shrink:0;">${avatar.html}</button>
-         <div style="flex:1; overflow:hidden; padding: 0 10px; border-bottom: 1px solid #f0f0f0; padding-bottom:13px; margin-bottom:-13px;">
-            <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:3px;">
-              <span style="font-weight:700; font-size:14.5px; color:#111; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:65%;">${uName}</span>
-              <span style="font-size:11px; ${unread > 0 ? '' : 'color:#8696a0;'} flex-shrink:0;">${dateStr}</span>
+        <button class="chat-avatar chat-avatar-button" data-user-id="${escapeHtml(u.email || uName)}"
+          onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)"
+          style="background:${avatar.background}; width:48px; height:48px; font-size:18px; flex-shrink:0;">
+          ${avatar.html}
+          <span class="chat-presence-dot ${online ? 'online' : 'offline'}"></span>
+        </button>
+        <div class="chat-contact-main">
+          <div class="chat-contact-top">
+            <div class="chat-contact-name-row">
+              <span class="chat-contact-name">${escapeHtml(uName)}</span>
             </div>
-            <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-size:13px; ${snippetColor} ${snippetWeight} white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:80%;">${snippet}</span>
-              ${unreadBadge}
-            </div>
-         </div>
+            <span class="${dateClass}">${escapeHtml(dateStr || '')}</span>
+          </div>
+          <div class="chat-contact-meta">
+            <span class="chat-contact-pill"><span class="material-icons">apartment</span>${escapeHtml(plazaLabel)}</span>
+            <span class="chat-contact-pill"><span class="material-icons">badge</span>${escapeHtml(roleLabel)}</span>
+            <span class="chat-contact-pill presence ${presenceClass}"><span class="material-icons">${online ? 'circle' : 'schedule'}</span>${escapeHtml(presenceLabel)}</span>
+          </div>
+          <div class="chat-contact-bottom">
+            <span class="${snippetClass}">${escapeHtml(snippet)}</span>
+            ${unreadBadge}
+            <button class="chat-contact-info-btn" type="button" data-user-id="${escapeHtml(u.email || uName)}"
+              onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)">
+              <span class="material-icons" style="font-size:18px;">more_horiz</span>
+            </button>
+          </div>
+        </div>
       </div>
     `;
   }).join('');
@@ -11083,10 +11107,161 @@ let _edZoom = 1.0;          // zoom del canvas
 let _edMultiSel = [];       // multi-selección de celdas
 let _edRotate = null;       // estado de rotación: { celdaId, cx, cy, startAngle }
 let _edRectSel = null;      // rect de selección: { startX, startY }
+let _edMenuHideHandler = null;
 
 // [F2] Defaults para celdas nuevas
 const _ED_DEFAULT_W = 120;
 const _ED_DEFAULT_H = 80;
+
+function _edSelectedRefs() {
+  const refs = new Map();
+  if (_edSel) {
+    const selected = _edCeldas.find(c => c.id === _edSel.id) || _edSel;
+    if (selected) refs.set(selected.id, selected);
+  }
+  _edMultiSel.forEach(item => {
+    const ref = _edCeldas.find(c => c.id === item.id) || item;
+    if (ref) refs.set(ref.id, ref);
+  });
+  return Array.from(refs.values());
+}
+
+function _edSelectionBounds(selection = _edSelectedRefs()) {
+  if (!selection.length) return null;
+  const minX = Math.min(...selection.map(c => c.x));
+  const minY = Math.min(...selection.map(c => c.y));
+  const maxX = Math.max(...selection.map(c => c.x + c.width));
+  const maxY = Math.max(...selection.map(c => c.y + c.height));
+  return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+function _edFillSelectionForm(celda) {
+  const noSel = document.getElementById('editor-no-sel');
+  const selForm = document.getElementById('editor-sel-form');
+  if (noSel) noSel.style.display = celda ? 'none' : 'block';
+  if (selForm) selForm.style.display = celda ? 'block' : 'none';
+  if (!celda) return;
+
+  const setVal = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.value = v;
+  };
+
+  setVal('ep-nombre', celda.valor || '');
+  setVal('ep-tipo', celda.tipo || 'cajon');
+  setVal('ep-x', Math.round(celda.x || 0));
+  setVal('ep-y', Math.round(celda.y || 0));
+  setVal('ep-width', Math.round(celda.width || _ED_DEFAULT_W));
+  setVal('ep-height', Math.round(celda.height || _ED_DEFAULT_H));
+  setVal('ep-rotation', Math.round(celda.rotation || 0));
+}
+
+function _edSyncEditorHud() {
+  const hint = document.getElementById('editor-add-hint');
+  const summary = document.getElementById('editor-selection-summary');
+  const liveBadge = document.getElementById('editor-live-badge');
+  const selectionActions = document.getElementById('editor-selection-actions');
+  const groupActions = document.getElementById('editor-group-actions');
+  const selectedRefs = _edSelectedRefs();
+  const selectedCount = selectedRefs.length;
+
+  if (hint) {
+    if (_edModo) {
+      const labels = {
+        cajon: 'Haz clic en el plano para soltar un cajón nuevo.',
+        area: 'Haz clic en el plano para crear una zona especial.',
+        label: 'Haz clic en el plano para colocar una etiqueta.'
+      };
+      hint.innerHTML = `<span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span>${labels[_edModo] || 'Haz clic en el plano para agregar una pieza.'}`;
+      hint.style.display = 'flex';
+    } else {
+      hint.style.display = 'none';
+    }
+  }
+
+  if (summary) {
+    let icon = 'mouse';
+    let text = 'Haz clic o encierra con el mouse para empezar.';
+    if (_edModo) {
+      icon = 'add_box';
+      text = `Modo ${_edModo.toUpperCase()} activo.`;
+    } else if (selectedCount > 1) {
+      icon = 'select_all';
+      text = `${selectedCount} piezas seleccionadas.`;
+    } else if (_edSel) {
+      icon = 'tune';
+      text = `Editando ${_edSel.valor || 'pieza'}.`;
+    }
+    summary.innerHTML = `<span class="material-icons" style="font-size:18px;">${icon}</span><span>${text}</span>`;
+  }
+
+  if (liveBadge) {
+    const parts = [`${_edCeldas.length} pieza${_edCeldas.length === 1 ? '' : 's'}`];
+    parts.push(selectedCount ? `${selectedCount} seleccionada${selectedCount === 1 ? '' : 's'}` : 'Vista previa en vivo');
+    liveBadge.innerHTML = `<span class="material-icons" style="font-size:18px;">visibility</span><span>${parts.join(' · ')}</span>`;
+  }
+
+  if (selectionActions) selectionActions.style.display = selectedCount ? 'flex' : 'none';
+  if (groupActions) groupActions.style.display = selectedCount > 1 ? 'flex' : 'none';
+}
+
+function _edCloseMoreMenu() {
+  const menu = document.getElementById('ed-more-menu');
+  if (menu) {
+    menu.style.display = 'none';
+    menu.style.visibility = '';
+    menu.style.removeProperty('left');
+    menu.style.removeProperty('top');
+  }
+  if (_edMenuHideHandler) {
+    document.removeEventListener('mousedown', _edMenuHideHandler);
+    _edMenuHideHandler = null;
+  }
+}
+
+function _edOpenMoreMenuAt(clientX, clientY, celda = _edSel) {
+  const menu = document.getElementById('ed-more-menu');
+  const wrapper = document.getElementById('editor-grid-wrapper');
+  if (!menu || !wrapper) return;
+
+  _edCloseMoreMenu();
+  if (celda) _edSelectCelda(celda, { preserveMulti: true });
+
+  menu.style.display = 'block';
+  menu.style.visibility = 'hidden';
+
+  requestAnimationFrame(() => {
+    const rect = wrapper.getBoundingClientRect();
+    const maxLeft = Math.max(12, rect.width - menu.offsetWidth - 12);
+    const maxTop = Math.max(12, rect.height - menu.offsetHeight - 12);
+    const left = Math.min(Math.max(12, clientX - rect.left), maxLeft);
+    const top = Math.min(Math.max(12, clientY - rect.top), maxTop);
+    menu.style.left = `${left}px`;
+    menu.style.top = `${top}px`;
+    menu.style.visibility = 'visible';
+  });
+
+  _edMenuHideHandler = e => {
+    if (!menu.contains(e.target)) _edCloseMoreMenu();
+  };
+  setTimeout(() => document.addEventListener('mousedown', _edMenuHideHandler), 10);
+}
+
+function _edToggleSelection(celda) {
+  const idx = _edMultiSel.findIndex(item => item.id === celda.id);
+  if (idx >= 0) {
+    _edMultiSel.splice(idx, 1);
+    if (_edSel?.id === celda.id) _edSel = _edMultiSel[_edMultiSel.length - 1] || null;
+  } else {
+    _edMultiSel.push(celda);
+    _edSel = celda;
+  }
+
+  _edModo = null;
+  _edFillSelectionForm(_edSel);
+  _edSyncEditorHud();
+  _renderEditorCanvas();
+}
 
 function abrirEditorMapa() {
   toggleAdminSidebar();
@@ -11095,7 +11270,9 @@ function abrirEditorMapa() {
   document.getElementById('editor-grid-wrapper').style.display = 'none';
   _edCeldas = []; _edSel = null; _edModo = null; _edDrag = null; _edResize = null; _edZoom = 1.0; _edMultiSel = []; _edRotate = null; _edRectSel = null; _edDragResizeBound = false;
   const zl = document.getElementById('ed-zoom-label'); if (zl) zl.innerText = '100%';
+  _edCloseMoreMenu();
   _resetEditorPanel();
+  _edSyncEditorHud();
 
   api.obtenerEstructuraMapa(_miPlaza()).then(estructura => {
     document.getElementById('editor-loading').style.display = 'none';
@@ -11115,6 +11292,7 @@ function abrirEditorMapa() {
       rotation: c.rotation ?? 0        // [F2]
     }));
     _renderEditorCanvas();
+    _edSyncEditorHud();
   }).catch(err => {
     document.getElementById('editor-loading').innerHTML =
       `<span style="color:#ef4444;font-weight:700;">Error: ${err}</span>`;
@@ -11127,35 +11305,31 @@ function _renderEditorCanvas() {
   if (!wrapper) return;
 
   // Calcular tamaño del canvas
-  let canvasW = 800, canvasH = 500;
+  let canvasW = 900, canvasH = 560;
   _edCeldas.forEach(c => {
-    canvasW = Math.max(canvasW, c.x + c.width + 40);
-    canvasH = Math.max(canvasH, c.y + c.height + 40);
+    canvasW = Math.max(canvasW, c.x + c.width + 80);
+    canvasH = Math.max(canvasH, c.y + c.height + 80);
   });
 
-  // Reusar o crear el canvas container
   let canvas = document.getElementById('editor-canvas-libre');
   if (!canvas) {
     canvas = document.createElement('div');
     canvas.id = 'editor-canvas-libre';
-    canvas.style.cssText = 'position:relative; overflow:auto; flex:1; background:rgba(0,0,0,0.22); border-radius:10px; border:1px solid rgba(255,255,255,0.07);';
     wrapper.appendChild(canvas);
   }
 
-  // [F2] Contenedor interior con dimensiones calculadas
   let inner = document.getElementById('editor-canvas-inner');
   if (!inner) {
     inner = document.createElement('div');
     inner.id = 'editor-canvas-inner';
-    inner.style.cssText = 'position:relative; margin:8px; transform-origin:top left;';
     canvas.appendChild(inner);
   }
+  inner.className = 'mapa-canvas-libre editor-live-canvas';
   inner.style.width = `${canvasW}px`;
   inner.style.height = `${canvasH}px`;
   inner.style.transform = `scale(${_edZoom})`;
   inner.innerHTML = '';
 
-  // SVG para líneas guía de alineación
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.id = 'ed-guides-svg';
   svg.setAttribute('width', canvasW);
@@ -11163,81 +11337,111 @@ function _renderEditorCanvas() {
   svg.style.cssText = 'position:absolute; top:0; left:0; pointer-events:none; z-index:100;';
   inner.appendChild(svg);
 
-  // Zona de drop + rect-select desde fondo vacío
-  inner.onmousedown = e => {
+  inner.oncontextmenu = e => {
     if (e.target !== inner) return;
+    e.preventDefault();
+    _edCloseMoreMenu();
+  };
+
+  inner.onmousedown = e => {
+    if (e.button !== 0 || e.target !== inner) return;
     if (_edModo) return; // el click se maneja en onclick
-    // Iniciar rect-select
+    _edCloseMoreMenu();
     const rect = inner.getBoundingClientRect();
     const sx = (e.clientX - rect.left) / _edZoom;
     const sy = (e.clientY - rect.top) / _edZoom;
-    _edRectSel = { startX: sx, startY: sy };
-    // Crear elemento visual del rect
+    _edRectSel = { startX: sx, startY: sy, additive: e.shiftKey || e.ctrlKey || e.metaKey };
     const rectEl = document.createElement('div');
     rectEl.id = 'ed-rect-sel';
     rectEl.style.cssText = `position:absolute; border:1.5px dashed #a855f7; background:rgba(168,85,247,0.08); pointer-events:none; z-index:99;
           left:${sx}px; top:${sy}px; width:0; height:0;`;
     inner.appendChild(rectEl);
   };
+
   inner.onclick = e => {
     if (e.target !== inner) return;
+    _edCloseMoreMenu();
     if (!_edModo) {
-      if (_edSel) { _edMultiSel = []; _resetEditorPanel(); _renderEditorCanvas(); }
+      if (_edSel || _edMultiSel.length) {
+        _resetEditorPanel();
+        _renderEditorCanvas();
+      }
       return;
     }
     const rect = inner.getBoundingClientRect();
     _edClickLibre(Math.round((e.clientX - rect.left) / _edZoom), Math.round((e.clientY - rect.top) / _edZoom));
   };
 
-  // [F2] Renderizar cada celda como elemento absolutamente posicionado
-  _edCeldas.forEach(celda => {
+  [..._edCeldas].sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)).forEach(celda => {
     const isSel = _edSel && _edSel.id === celda.id;
     const isMulti = _edMultiSel.some(c => c.id === celda.id);
     const isLabel = celda.tipo === 'label';
-    const isArea = celda.tipo === 'area';
-    const bg = isLabel ? '#1e293b' : isArea ? '#334155' : '#3b82f6';
-    const bgSel = isLabel ? '#0f172a' : isArea ? '#1e40af' : '#1d4ed8';
+    const typeClass = isLabel ? 'ed-label' : celda.tipo === 'area' ? 'area' : 'spot';
 
     const el = document.createElement('div');
-    el.className = 'ed-celda-libre' + (isSel ? ' ed-celda-sel' : '') + (isMulti && !isSel ? ' ed-celda-multi' : '');
+    el.className = `mapa-celda-libre ed-celda-libre ${typeClass}${isSel ? ' ed-celda-sel' : ''}${isMulti && !isSel ? ' ed-celda-multi' : ''}`;
     el.dataset.id = celda.id;
     el.style.cssText = `
           position:absolute;
           left:${celda.x}px; top:${celda.y}px;
           width:${celda.width}px; height:${celda.height}px;
-          background:${isSel ? bgSel : bg};
-          border:${isSel ? '2.5px solid #fbbf24' : '1.5px solid rgba(255,255,255,0.15)'};
-          border-radius:7px; color:white; display:flex; align-items:center;
-          justify-content:center; font-weight:900;
-          font-size:${celda.valor.length > 6 ? '9' : '11'}px;
-          cursor:grab; text-align:center; word-break:break-all; padding:3px;
+          z-index:${10 + (celda.orden ?? 0)};
+          cursor:grab; text-align:center; word-break:break-word;
           user-select:none; box-sizing:border-box; overflow:visible;
-          box-shadow:${isSel ? '0 0 0 3px rgba(251,191,36,0.35)' : '0 2px 6px rgba(0,0,0,0.35)'};
           ${celda.rotation ? `transform:rotate(${celda.rotation}deg);` : ''}
         `;
-    el.innerText = celda.valor;
 
-    // Click con shift para multi-selección
-    el.addEventListener('mousedown', e => {
+    if (isLabel) {
+      el.innerHTML = `<span class="ed-label-chip">${escapeHtml(celda.valor || 'Etiqueta')}</span>`;
+    } else if (celda.tipo === 'area') {
+      el.innerHTML = `<span class="ed-area-text">${escapeHtml(celda.valor || 'AREA')}</span>`;
+    } else {
+      el.innerHTML = `
+        <label>${escapeHtml(celda.valor || 'SPOT')}</label>
+        <div class="ed-spot-inner">
+          <span class="material-icons">drive_eta</span>
+        </div>
+      `;
+    }
+
+    const menuBtn = document.createElement('button');
+    menuBtn.type = 'button';
+    menuBtn.className = 'ed-spot-menu-trigger';
+    menuBtn.innerHTML = '<span class="material-icons">more_horiz</span>';
+    menuBtn.addEventListener('mousedown', e => e.stopPropagation());
+    menuBtn.addEventListener('click', e => {
+      e.preventDefault();
       e.stopPropagation();
-      if (e.shiftKey) {
-        // Toggle en multi-sel
-        const idx = _edMultiSel.findIndex(c => c.id === celda.id);
-        if (idx >= 0) _edMultiSel.splice(idx, 1);
-        else _edMultiSel.push(celda);
-        _renderEditorCanvas();
+      _edSelectCelda(celda, { preserveMulti: _edMultiSel.some(item => item.id === celda.id) });
+      _edOpenMoreMenuAt(e.clientX, e.clientY, celda);
+    });
+    el.appendChild(menuBtn);
+
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      _edSelectCelda(celda, { preserveMulti: _edMultiSel.some(item => item.id === celda.id) });
+      _edOpenMoreMenuAt(e.clientX, e.clientY, celda);
+    });
+
+    el.addEventListener('mousedown', e => {
+      if (e.button !== 0) return;
+      e.stopPropagation();
+      _edCloseMoreMenu();
+      if (e.shiftKey || e.ctrlKey || e.metaKey) {
+        _edToggleSelection(celda);
         return;
       }
-      _edSelectCelda(celda);
-      // [F2] Iniciar drag
+
+      const keepMulti = _edMultiSel.length > 1 && _edMultiSel.some(item => item.id === celda.id);
+      _edSelectCelda(celda, { preserveMulti: keepMulti });
       _edDrag = {
         celdaId: celda.id, startMouseX: e.clientX, startMouseY: e.clientY, startCeldaX: celda.x, startCeldaY: celda.y,
-        multiStarts: _edMultiSel.length > 0 ? _edMultiSel.map(c => ({ id: c.id, x: c.x, y: c.y })) : []
+        multiStarts: _edSelectedRefs().map(c => ({ id: c.id, x: c.x, y: c.y }))
       };
     });
 
     if (isSel) {
-      // 8 handles de resize
       const handleDefs = [
         { dir: 'nw', style: 'top:-5px; left:-5px; cursor:nw-resize;' },
         { dir: 'n', style: `top:-5px; left:${celda.width / 2 - 5}px; cursor:n-resize;` },
@@ -11253,6 +11457,7 @@ function _renderEditorCanvas() {
         h.className = 'ed-handle-8';
         h.style.cssText += style;
         h.addEventListener('mousedown', e => {
+          if (e.button !== 0) return;
           e.stopPropagation();
           _edResize = {
             celdaId: celda.id, dir, startMouseX: e.clientX, startMouseY: e.clientY,
@@ -11266,6 +11471,7 @@ function _renderEditorCanvas() {
       const rotH = document.createElement('div');
       rotH.className = 'ed-rotate-handle';
       rotH.addEventListener('mousedown', e => {
+        if (e.button !== 0) return;
         e.stopPropagation();
         const rect = el.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
@@ -11279,8 +11485,8 @@ function _renderEditorCanvas() {
     inner.appendChild(el);
   });
 
-  // [F2] Handlers globales de mousemove/mouseup para drag y resize
   _bindEditorDragResize(inner);
+  _edSyncEditorHud();
 }
 
 // [F2] Bind de drag y resize en el canvas del editor
@@ -11333,6 +11539,7 @@ function _bindEditorDragResize(inner) {
         const el = inner.querySelector(`.ed-celda-libre[data-id="${c.id}"]`);
         if (el) { el.style.left = `${c.x}px`; el.style.top = `${c.y}px`; }
         else _renderEditorCanvas();
+        _edFillSelectionForm(c);
       }
       return;
     }
@@ -11367,7 +11574,12 @@ function _bindEditorDragResize(inner) {
   });
 
   document.addEventListener('mouseup', e => {
-    if (_edRotate) { _edRotate = null; if (_edSel) _edSelectCelda(_edSel); return; }
+    if (_edRotate) {
+      const preserve = _edSelectedRefs().length > 1;
+      _edRotate = null;
+      if (_edSel) _edSelectCelda(_edSel, { preserveMulti: preserve });
+      return;
+    }
     if (_edDrag) {
       _edDrag = null;
       const svg = document.getElementById('ed-guides-svg');
@@ -11375,8 +11587,9 @@ function _bindEditorDragResize(inner) {
       _renderEditorCanvas();
     }
     if (_edResize) {
+      const preserve = _edSelectedRefs().length > 1;
       _edResize = null;
-      if (_edSel) _edSelectCelda(_edSel);
+      if (_edSel) _edSelectCelda(_edSel, { preserveMulti: preserve });
     }
     if (_edRectSel) {
       // Finalizar rect select
@@ -11384,7 +11597,20 @@ function _bindEditorDragResize(inner) {
       const sy = Math.min(_edRectSel.startY, _edRectSel.curY || _edRectSel.startY);
       const ex = Math.max(_edRectSel.startX, _edRectSel.curX || _edRectSel.startX);
       const ey = Math.max(_edRectSel.startY, _edRectSel.curY || _edRectSel.startY);
-      _edMultiSel = _edCeldas.filter(c => c.x >= sx && c.y >= sy && c.x + c.width <= ex && c.y + c.height <= ey);
+      const hits = _edCeldas.filter(c => !(c.x + c.width < sx || c.y + c.height < sy || c.x > ex || c.y > ey));
+      if (hits.length) {
+        if (_edRectSel.additive) {
+          const merged = new Map(_edSelectedRefs().map(c => [c.id, c]));
+          hits.forEach(c => merged.set(c.id, c));
+          _edMultiSel = Array.from(merged.values());
+        } else {
+          _edMultiSel = hits.slice();
+        }
+        _edSel = hits[hits.length - 1];
+        _edFillSelectionForm(_edSel);
+      } else if (!_edRectSel.additive) {
+        _resetEditorPanel();
+      }
       _edRectSel = null;
       _renderEditorCanvas();
     }
@@ -11450,33 +11676,31 @@ function _edDrawGuides(dragged, lines) {
 }
 
 // [F2] Selecciona una celda y actualiza el panel de propiedades
-function _edSelectCelda(celda) {
+function _edSelectCelda(celda, options = {}) {
+  const { preserveMulti = false } = options;
   _edModo = null;
-  document.getElementById('editor-add-hint').style.display = 'none';
+  const addHint = document.getElementById('editor-add-hint');
+  if (addHint) addHint.style.display = 'none';
   _edSel = celda;
-  document.getElementById('editor-no-sel').style.display = 'none';
-  document.getElementById('editor-sel-form').style.display = 'block';
-  document.getElementById('ep-nombre').value = celda.valor;
-  document.getElementById('ep-tipo').value = celda.tipo || 'cajon';
-  // [F2] Campos de posición y dimensión
-  const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-  setVal('ep-x', Math.round(celda.x));
-  setVal('ep-y', Math.round(celda.y));
-  setVal('ep-width', Math.round(celda.width));
-  setVal('ep-height', Math.round(celda.height));
-  setVal('ep-rotation', Math.round(celda.rotation || 0));
+  if (celda && !preserveMulti) _edMultiSel = [celda];
+  if (celda && preserveMulti && !_edMultiSel.some(item => item.id === celda.id)) _edMultiSel.push(celda);
+  _edFillSelectionForm(celda);
+  _edSyncEditorHud();
   _renderEditorCanvas();
 }
 
 function _resetEditorPanel() {
   _edSel = null;
-  document.getElementById('editor-no-sel').style.display = 'block';
-  document.getElementById('editor-sel-form').style.display = 'none';
-  document.getElementById('editor-add-hint').style.display = 'none';
+  _edMultiSel = [];
+  _edFillSelectionForm(null);
+  const hint = document.getElementById('editor-add-hint');
+  if (hint) hint.style.display = 'none';
   ['btn-tool-cajon', 'btn-tool-area', 'btn-tool-label'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.classList.remove('active');
   });
+  _edCloseMoreMenu();
+  _edSyncEditorHud();
 }
 
 // [F2] Clic en área vacía del canvas al tener herramienta activa
@@ -11495,6 +11719,7 @@ function _edClickLibre(cx, cy) {
   };
   _edCeldas.push(nueva);
   _edModo = null;
+  _edMultiSel = [nueva];
   _edSelectCelda(nueva);
 }
 
@@ -11513,39 +11738,39 @@ function editorPropChange() {
   _edSel.rotation = toNum('ep-rotation', _edSel.rotation || 0);
   const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
   if (idx >= 0) _edCeldas[idx] = { ..._edSel };
+  _edFillSelectionForm(_edSel);
   _renderEditorCanvas();
 }
 
 // [F2] editorSpanChange renombrado a editorDimChange — ajusta width/height en pasos
 function editorSpanChange(prop, delta) {
   if (!_edSel) return;
-  const STEP = 10;
-  if (prop === 'colspan') { _edSel.width = Math.max(20, (_edSel.width || _ED_DEFAULT_W) + delta * STEP); } // [F2]
-  else { _edSel.height = Math.max(20, (_edSel.height || _ED_DEFAULT_H) + delta * STEP); } // [F2]
+  if (prop === 'width') _edSel.width = Math.max(20, (_edSel.width || _ED_DEFAULT_W) + delta);
+  else if (prop === 'height') _edSel.height = Math.max(20, (_edSel.height || _ED_DEFAULT_H) + delta);
   const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
   if (idx >= 0) { _edCeldas[idx].width = _edSel.width; _edCeldas[idx].height = _edSel.height; }
-  // Actualizar inputs del panel
-  const wEl = document.getElementById('ep-width'); if (wEl) wEl.value = Math.round(_edSel.width);
-  const hEl = document.getElementById('ep-height'); if (hEl) hEl.value = Math.round(_edSel.height);
+  _edFillSelectionForm(_edSel);
   _renderEditorCanvas();
 }
 
 // [F2] editorMoverCelda — mueve en pasos de px
 function editorMoverCelda(dCol, dRow) {
-  if (!_edSel) return;
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
   const STEP = 10;
-  _edSel.x = Math.max(0, (_edSel.x || 0) + dCol * STEP); // [F2]
-  _edSel.y = Math.max(0, (_edSel.y || 0) + dRow * STEP); // [F2]
-  const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
-  if (idx >= 0) { _edCeldas[idx].x = _edSel.x; _edCeldas[idx].y = _edSel.y; }
-  const xEl = document.getElementById('ep-x'); if (xEl) xEl.value = Math.round(_edSel.x);
-  const yEl = document.getElementById('ep-y'); if (yEl) yEl.value = Math.round(_edSel.y);
+  refs.forEach(ref => {
+    ref.x = Math.max(0, (ref.x || 0) + dCol * STEP);
+    ref.y = Math.max(0, (ref.y || 0) + dRow * STEP);
+  });
+  if (_edSel) _edFillSelectionForm(_edSel);
   _renderEditorCanvas();
 }
 
 function editorEliminarCelda() {
-  if (!_edSel) return;
-  _edCeldas = _edCeldas.filter(c => c.id !== _edSel.id);
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
+  const ids = new Set(refs.map(c => c.id));
+  _edCeldas = _edCeldas.filter(c => !ids.has(c.id));
   _resetEditorPanel();
   _renderEditorCanvas();
 }
@@ -11562,10 +11787,18 @@ function editorZoom(delta) {
 
 // ── COPIAR CELDA ──
 function editorCopiarCelda() {
-  if (!_edSel) return;
-  const copia = { ..._edSel, id: 'ec_copy_' + Date.now(), x: _edSel.x + 20, y: _edSel.y + 20, orden: _edCeldas.length };
-  _edCeldas.push(copia);
-  _edSelectCelda(copia);
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
+  const copias = refs.map((ref, index) => ({
+    ...ref,
+    id: 'ec_copy_' + Date.now() + '_' + index,
+    x: ref.x + 24,
+    y: ref.y + 24,
+    orden: (_edCeldas.length + index)
+  }));
+  _edCeldas.push(...copias);
+  _edMultiSel = copias;
+  _edSelectCelda(copias[copias.length - 1], { preserveMulti: true });
 }
 
 // ── FORMAS PREDETERMINADAS ──
@@ -11575,6 +11808,7 @@ function editorAgregarForma(tipo) {
   const n = _edCeldas.length + 1;
   const nombre = `C${n}`;
   if (tipo === 'fila-3') {
+    const nuevas = [];
     const y = baseY + (_edCeldas.length > 0 ? Math.max(..._edCeldas.map(c => c.y + c.height)) + 10 : 0);
     [0, 1, 2].forEach(i => {
       const c = {
@@ -11582,8 +11816,10 @@ function editorAgregarForma(tipo) {
         orden: _edCeldas.length, x: baseX + i * 84, y, width: 80, height: 80, rotation: 0
       };
       _edCeldas.push(c);
+      nuevas.push(c);
     });
-    _edSelectCelda(_edCeldas[_edCeldas.length - 1]);
+    _edMultiSel = nuevas;
+    _edSelectCelda(nuevas[nuevas.length - 1], { preserveMulti: true });
     return;
   }
   const dims = { 'cuadrado': [80, 80], 'rect-h': [120, 80], 'rect-v': [80, 120], 'rect-grande': [240, 80] };
@@ -11599,55 +11835,67 @@ function editorAgregarForma(tipo) {
 
 // ── MENÚ "..." ──
 function editorToggleMoreMenu() {
-  const m = document.getElementById('ed-more-menu');
-  if (!m) return;
-  m.style.display = m.style.display === 'none' ? 'block' : 'none';
-  if (m.style.display === 'block') {
-    const hide = e => { if (!m.contains(e.target)) { m.style.display = 'none'; document.removeEventListener('mousedown', hide); } };
-    setTimeout(() => document.addEventListener('mousedown', hide), 10);
+  const selected = _edSel || _edSelectedRefs()[0];
+  if (!selected) {
+    showToast('Selecciona una pieza para ver más opciones.', 'warning');
+    return;
   }
+  const menu = document.getElementById('ed-more-menu');
+  if (menu?.style.display === 'block') {
+    _edCloseMoreMenu();
+    return;
+  }
+  const anchor = document.querySelector(`.ed-celda-libre[data-id="${selected.id}"]`);
+  const rect = anchor?.getBoundingClientRect();
+  const fallbackX = window.innerWidth / 2;
+  const fallbackY = window.innerHeight / 2;
+  _edOpenMoreMenuAt(rect ? rect.right : fallbackX, rect ? rect.bottom : fallbackY, selected);
 }
 
 function editorCentrarH() {
-  document.getElementById('ed-more-menu').style.display = 'none';
-  if (!_edSel) return;
+  _edCloseMoreMenu();
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
   const inner = document.getElementById('editor-canvas-inner');
   const cw = inner ? parseInt(inner.style.width) : 800;
-  _edSel.x = Math.round((cw - _edSel.width) / 2);
-  const idx = _edCeldas.findIndex(c => c.id === _edSel.id); if (idx >= 0) _edCeldas[idx].x = _edSel.x;
-  _edSelectCelda(_edSel);
+  const bounds = _edSelectionBounds(refs);
+  const offset = Math.round((cw - (bounds?.width || 0)) / 2) - (bounds?.minX || 0);
+  refs.forEach(ref => { ref.x = Math.max(0, ref.x + offset); });
+  _edSelectCelda(_edSel, { preserveMulti: refs.length > 1 });
 }
 
 function editorCentrarV() {
-  document.getElementById('ed-more-menu').style.display = 'none';
-  if (!_edSel) return;
+  _edCloseMoreMenu();
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
   const inner = document.getElementById('editor-canvas-inner');
   const ch = inner ? parseInt(inner.style.height) : 500;
-  _edSel.y = Math.round((ch - _edSel.height) / 2);
-  const idx = _edCeldas.findIndex(c => c.id === _edSel.id); if (idx >= 0) _edCeldas[idx].y = _edSel.y;
-  _edSelectCelda(_edSel);
+  const bounds = _edSelectionBounds(refs);
+  const offset = Math.round((ch - (bounds?.height || 0)) / 2) - (bounds?.minY || 0);
+  refs.forEach(ref => { ref.y = Math.max(0, ref.y + offset); });
+  _edSelectCelda(_edSel, { preserveMulti: refs.length > 1 });
 }
 
 function editorTraerFrente() {
-  document.getElementById('ed-more-menu').style.display = 'none';
-  if (!_edSel) return;
-  const maxOrden = Math.max(..._edCeldas.map(c => c.orden));
-  const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
-  if (idx >= 0) { _edCeldas[idx].orden = maxOrden + 1; _edSel.orden = maxOrden + 1; }
+  _edCloseMoreMenu();
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
+  let nextOrden = Math.max(..._edCeldas.map(c => c.orden ?? 0), 0) + 1;
+  refs.forEach(ref => { ref.orden = nextOrden++; });
   _renderEditorCanvas();
 }
 
 function editorEnviarFondo() {
-  document.getElementById('ed-more-menu').style.display = 'none';
-  if (!_edSel) return;
-  const minOrden = Math.min(..._edCeldas.map(c => c.orden));
-  const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
-  if (idx >= 0) { _edCeldas[idx].orden = minOrden - 1; _edSel.orden = minOrden - 1; }
+  _edCloseMoreMenu();
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
+  let nextOrden = Math.min(..._edCeldas.map(c => c.orden ?? 0), 0) - refs.length;
+  refs.forEach(ref => { ref.orden = nextOrden++; });
   _renderEditorCanvas();
 }
 
 function editorDuplicarFila() {
-  document.getElementById('ed-more-menu').style.display = 'none';
+  _edCloseMoreMenu();
   if (!_edSel) return;
   const filaY = _edSel.y;
   const tol = 20;
@@ -11663,7 +11911,7 @@ function editorDuplicarFila() {
 
 // ── ALINEACIÓN DE GRUPO ──
 function editorAlinearGrupo(modo) {
-  const sel = _edMultiSel.length > 1 ? _edMultiSel : (_edSel ? [_edSel] : []);
+  const sel = _edSelectedRefs();
   if (sel.length < 2) { showToast('Selecciona 2+ celdas con Shift+clic', 'error'); return; }
   const refs = sel.map(c => _edCeldas.find(x => x.id === c.id)).filter(Boolean);
   if (modo === 'left') { const min = Math.min(...refs.map(c => c.x)); refs.forEach(c => c.x = min); }
@@ -11676,7 +11924,7 @@ function editorAlinearGrupo(modo) {
 }
 
 function editorDistribuirGrupo(eje) {
-  const sel = _edMultiSel.length > 1 ? _edMultiSel : (_edSel ? [_edSel] : []);
+  const sel = _edSelectedRefs();
   if (sel.length < 3) { showToast('Selecciona 3+ celdas para distribuir', 'error'); return; }
   const refs = sel.map(c => _edCeldas.find(x => x.id === c.id)).filter(Boolean);
   if (eje === 'H') {
@@ -11705,10 +11953,7 @@ function modoAgregarEditor(tipo) {
   const btnMap = { cajon: 'btn-tool-cajon', area: 'btn-tool-area', label: 'btn-tool-label' };
   const activeBtn = document.getElementById(btnMap[tipo]);
   if (activeBtn) activeBtn.classList.add('active');
-  const hint = document.getElementById('editor-add-hint');
-  hint.style.display = 'flex';
-  const labels = { cajon: 'un cajón', area: 'un área especial', label: 'una etiqueta' };
-  hint.innerHTML = `<span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span> Haz clic en el canvas para agregar ${labels[tipo] || tipo}`;
+  _edSyncEditorHud();
   _renderEditorCanvas();
 }
 
