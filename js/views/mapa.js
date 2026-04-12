@@ -13,10 +13,15 @@ import { db, auth, COL, ACCESS_ROLE_META } from '/js/core/database.js';
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
 
+    const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
+    const USER_PRESENCE_HEARTBEAT_MS = 45000;
+    const USER_PRESENCE_STALE_MS = 120000;
+    const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
+
 
     // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
     window.MEX_CONFIG = {
-      empresa: { nombre: "OPTIMA PROVISIONAL" },
+      empresa: { nombre: APP_DEFAULT_COMPANY_NAME },
       listas: {
         ubicaciones: [],
         estados: [],
@@ -39,13 +44,28 @@ const api = window.api;
       { id: "VENTA", color: "#1e293b", orden: 93 }
     ];
 
+    function _companyNameFrom(empresaObj = window.MEX_CONFIG?.empresa || {}) {
+      return String(empresaObj?.nombre || APP_DEFAULT_COMPANY_NAME).trim() || APP_DEFAULT_COMPANY_NAME;
+    }
+
+    function _setTextById(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.innerText = value;
+    }
+
     function aplicarVariablesDeEmpresa(empresaObj) {
       if(!empresaObj) return;
-      const nombre = empresaObj.nombre || "MEX RENT A CAR";
+      const nombre = _companyNameFrom(empresaObj);
       const color = empresaObj.colorPrincipal || "var(--mex-blue)";
 
-      const lbl = document.getElementById("empresa-cfg-lbl");
-      if(lbl) lbl.innerText = nombre;
+      _setTextById('empresa-cfg-lbl', nombre);
+      _setTextById('cfg-footer-company-name', nombre);
+      _setTextById('resv2-company-name', nombre);
+      _setTextById('chatv2-company-label', nombre);
+
+      if (window.location.pathname.includes('/mapa')) {
+        document.title = `Mapa — ${nombre}`;
+      }
 
       document.documentElement.style.setProperty('--mex-blue', color);
     }
@@ -371,6 +391,8 @@ const api = window.api;
     let userAccessRole = "AUXILIAR";
     let currentUserProfile = null;
     let DB_MAESTRA = [];
+    let _presenceTimer = null;
+    let _presenceBound = false;
 
     // Variable global de Auth
     // Declared before auth init to avoid TDZ when onAuthStateChanged fires synchronously
@@ -409,6 +431,71 @@ const api = window.api;
       return _isBootstrapProgrammerEmail(email) ? 'PROGRAMADOR' : normalizedRole;
     }
 
+    function _avatarColor(name = '') {
+      let h = 0;
+      for (let i = 0; i < String(name || '').length; i++) {
+        h = (h * 31 + name.charCodeAt(i)) % APP_AVATAR_COLORS.length;
+      }
+      return APP_AVATAR_COLORS[Math.abs(h)] || APP_AVATAR_COLORS[0];
+    }
+
+    function _coerceTimestamp(value) {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (value && typeof value.toMillis === 'function') return value.toMillis();
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : 0;
+    }
+
+    function _getUserAvatarUrl(user = {}) {
+      return String(
+        user.avatarUrl
+        || user.fotoURL
+        || user.profilePhotoUrl
+        || user.photoURL
+        || ''
+      ).trim();
+    }
+
+    function _userPresenceIsOnline(user = {}) {
+      const lastSeenAt = _coerceTimestamp(user.lastSeenAt || user.lastActiveAt);
+      return user.isOnline === true && lastSeenAt > 0 && (Date.now() - lastSeenAt) < USER_PRESENCE_STALE_MS;
+    }
+
+    function _formatearUltimaConexion(rawTs) {
+      const ts = _coerceTimestamp(rawTs);
+      if (!ts) return 'Sin actividad reciente';
+      const fecha = new Date(ts);
+      if (Number.isNaN(fecha.getTime())) return 'Sin actividad reciente';
+      return fecha.toLocaleString('es-MX', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    function _buildAvatarMarkup(user = {}, fallbackName = '') {
+      const nombre = String(user.nombre || user.usuario || fallbackName || '').trim();
+      const url = _getUserAvatarUrl(user);
+      if (url) {
+        return {
+          background: '#0f172a',
+          html: `<img src="${escapeHtml(url)}" alt="${escapeHtml(nombre || 'Usuario')}" class="user-avatar-photo">`
+        };
+      }
+      return {
+        background: _avatarColor(nombre || fallbackName || 'U'),
+        html: `<span class="avatar-initial">${escapeHtml(_obtenerInicialesUsuario(nombre || fallbackName || 'U'))}</span>`
+      };
+    }
+
+    function _paintAvatarElement(el, user = {}, fallbackName = '') {
+      if (!el) return;
+      const avatar = _buildAvatarMarkup(user, fallbackName);
+      el.style.background = avatar.background;
+      el.innerHTML = avatar.html;
+    }
+
     function _normalizeUserProfile(raw = {}) {
       const email = _profileDocId(raw.email || raw.id || '');
       const explicitRole = _sanitizeRole(raw.rol);
@@ -427,7 +514,13 @@ const api = window.api;
         isAdmin: meta.isAdmin,
         isGlobal: meta.fullAccess,
         plazaAsignada: _normalizePlaza(raw.plazaAsignada || raw.plaza || raw.sucursalAsignada || raw.sucursal || ''),
-        telefono: String(raw.telefono || '').trim()
+        telefono: String(raw.telefono || '').trim(),
+        status: String(raw.status || 'ACTIVO').trim().toUpperCase() || 'ACTIVO',
+        isOnline: Boolean(raw.isOnline),
+        lastSeenAt: _coerceTimestamp(raw.lastSeenAt || raw.lastActiveAt || raw.ultimaConexionTs),
+        avatarUrl: _getUserAvatarUrl(raw),
+        avatarPath: String(raw.avatarPath || '').trim(),
+        plazasPermitidas: Array.isArray(raw.plazasPermitidas) ? raw.plazasPermitidas.map(_normalizePlaza).filter(Boolean) : []
       };
     }
 
@@ -480,6 +573,62 @@ const api = window.api;
       return partes.map(parte => parte[0]).join('').toUpperCase();
     }
 
+    function _currentUserDocId() {
+      return _profileDocId(auth.currentUser?.email || currentUserProfile?.email || '');
+    }
+
+    async function _actualizarPresenciaUsuario(isOnline = true) {
+      const docId = _currentUserDocId();
+      if (!docId) return;
+      const ahora = Date.now();
+      const payload = {
+        isOnline,
+        lastSeenAt: ahora,
+        lastActiveAt: ahora
+      };
+      try {
+        await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+        if (currentUserProfile && docId === currentUserProfile.email) {
+          currentUserProfile = { ...currentUserProfile, ...payload };
+          window.CURRENT_USER_PROFILE = currentUserProfile;
+        }
+      } catch (error) {
+        console.warn('No se pudo actualizar presencia del usuario:', error);
+      }
+    }
+
+    function _detenerPresenciaUsuario(forceOffline = false) {
+      if (_presenceTimer) {
+        clearInterval(_presenceTimer);
+        _presenceTimer = null;
+      }
+      if (forceOffline) {
+        _actualizarPresenciaUsuario(false).catch(() => {});
+      }
+    }
+
+    function _iniciarPresenciaUsuario() {
+      if (!currentUserProfile || !_currentUserDocId()) return;
+      _detenerPresenciaUsuario(false);
+      _actualizarPresenciaUsuario(true).catch(() => {});
+      _presenceTimer = setInterval(() => {
+        _actualizarPresenciaUsuario(true).catch(() => {});
+      }, USER_PRESENCE_HEARTBEAT_MS);
+
+      if (_presenceBound) return;
+      _presenceBound = true;
+
+      document.addEventListener('visibilitychange', () => {
+        if (!currentUserProfile) return;
+        _actualizarPresenciaUsuario(!document.hidden).catch(() => {});
+      });
+
+      window.addEventListener('pagehide', () => {
+        if (!currentUserProfile) return;
+        _actualizarPresenciaUsuario(false).catch(() => {});
+      });
+    }
+
     function _actualizarIdentidadSidebarUsuario() {
       const profile = window.CURRENT_USER_PROFILE || {};
       const nombre = USER_NAME || profile.nombre || 'SIN SESIÓN';
@@ -490,7 +639,7 @@ const api = window.api;
       const nameEl = document.getElementById('adminSidebarUserName');
       const metaEl = document.getElementById('adminSidebarUserMeta');
 
-      if (avatar) avatar.innerText = _obtenerInicialesUsuario(nombre);
+      if (avatar) _paintAvatarElement(avatar, profile, nombre);
       if (nameEl) nameEl.innerText = nombre;
       if (metaEl) metaEl.innerText = USER_NAME ? `${roleLabel}${plaza}` : 'Esperando autenticación';
     }
@@ -748,6 +897,7 @@ const api = window.api;
         iniciarApp(true);
       } else {
         // Sin sesión — redirigir a /login
+        _detenerPresenciaUsuario(false);
         _clearSessionProfile();
         window.location.replace('/login');
       }
@@ -865,6 +1015,7 @@ const api = window.api;
       const _loginOverlay = document.getElementById('login-overlay');
       if (_loginOverlay) _loginOverlay.style.display = 'none';
       _actualizarIdentidadSidebarUsuario();
+      _iniciarPresenciaUsuario();
 
       // Cerramos sidebars
       closeMainSidebars();
@@ -912,6 +1063,19 @@ const api = window.api;
         const myEmail = _profileDocId(auth.currentUser?.email || '');
         if (myEmail) {
           const myDoc = snap.docs.find(d => d.id === myEmail);
+          if (myDoc?.exists) {
+            const perfilActualizado = _normalizeUserProfile({ id: myDoc.id, ...myDoc.data() });
+            currentUserProfile = perfilActualizado;
+            window.CURRENT_USER_PROFILE = perfilActualizado;
+            _actualizarIdentidadSidebarUsuario();
+            if (document.getElementById('perfil-modal')?.classList.contains('active') && typeof _renderPerfilUsuarioActual === 'function') {
+              _renderPerfilUsuarioActual();
+            }
+            if (document.getElementById('buzon-modal')?.classList.contains('active') && typeof renderContactos === 'function') {
+              renderContactos();
+              if (activeChatUser && typeof _actualizarHeaderChatActivo === 'function') _actualizarHeaderChatActivo();
+            }
+          }
           if (myDoc?.data()?._reloadRequired && !sessionStorage.getItem('_reloadGuard')) {
             // Guard anti-loop: sessionStorage persiste en reloads del mismo tab
             sessionStorage.setItem('_reloadGuard', '1');
@@ -934,6 +1098,7 @@ const api = window.api;
     }
 
     function cerrarSesion() {
+      _detenerPresenciaUsuario(true);
       if (autoRefreshInterval) clearInterval(autoRefreshInterval);
       _limpiarRadar();
       if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
@@ -992,6 +1157,7 @@ const api = window.api;
     // 2. LÓGICA DEL MAPA PRINCIPAL Y ZOOM NATIVO
     // ==========================================
     let selectedAuto = null;
+    let MAP_SWAP_MODE_ACTIVE = false;
     let zoomLevel = 0.8;
     const MAP_MIN_ZOOM = 0.3;
     const MAP_MAX_ZOOM = 1.5;
@@ -1050,7 +1216,7 @@ const api = window.api;
         let pos = "LIMBO";
         const parent = car.parentElement;
         if (parent && parent.id && parent.id.startsWith('spot-')) {
-          pos = parent.id.replace('spot-', '');
+          pos = _spotValueFromElement(parent);
         }
         if (car.dataset.mva) {
           reporte.push({ mva: car.dataset.mva, pos });
@@ -1544,6 +1710,26 @@ const api = window.api;
       return { items, canvasW: canvasW + 8, canvasH: canvasH + 8, signature };
     }
 
+    function _sanitizeSpotToken(value = '') {
+      return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+    }
+
+    function _spotDomId(spotValue, plaza = _miPlaza()) {
+      const plazaToken = _sanitizeSpotToken(plaza || 'GLOBAL') || 'GLOBAL';
+      const spotToken = _sanitizeSpotToken(spotValue || 'LIMBO') || 'LIMBO';
+      return `spot-${plazaToken}-${spotToken}`;
+    }
+
+    function _spotValueFromElement(el) {
+      if (!el) return 'LIMBO';
+      if (el.dataset?.spot) return _sanitizeSpotToken(el.dataset.spot) || 'LIMBO';
+      if (el.id && el.id.startsWith('spot-')) {
+        const parts = el.id.split('-');
+        return parts.slice(2).join('-') || 'LIMBO';
+      }
+      return 'LIMBO';
+    }
+
     function dibujarMapaCompleto(estructura = null) {
       const grid = document.getElementById("grid-map");
       if (!grid) return Promise.resolve();
@@ -1578,7 +1764,9 @@ const api = window.api;
       normalizada.items.forEach(celda => {
         const div = document.createElement("div");
         div.className = `mapa-celda-libre ${celda.tipo === 'cajon' ? 'spot' : 'area'}`; // [F2]
-        div.id = "spot-" + celda.valor.replace(/\s/g, '').toUpperCase();
+        div.id = _spotDomId(celda.valor, _miPlaza());
+        div.dataset.spot = _sanitizeSpotToken(celda.valor);
+        div.dataset.plaza = _normalizePlaza(_miPlaza());
         // [F2] Posicionamiento absoluto
         div.style.left   = `${celda.x}px`;
         div.style.top    = `${celda.y}px`;
@@ -1617,7 +1805,8 @@ const api = window.api;
       const pos = String(unit?.pos || 'LIMBO').trim().toUpperCase();
       const notas = String(unit?.notas || '').replace(/[\r\n]+/g, ' ').trim();
       const fechaIngreso = String(unit?.fechaIngreso || '').trim();
-      return { ...unit, mva, placas, modelo, estado, gasolina, ubicacion, pos, notas, fechaIngreso };
+      const plaza = _normalizePlaza(unit?.plaza || unit?.plazaId || unit?.sucursal || unit?.plazaAsignada || '');
+      return { ...unit, mva, placas, modelo, estado, gasolina, ubicacion, pos, notas, fechaIngreso, plaza };
     }
 
     function _firmaUnidadMapa(unit) {
@@ -1630,18 +1819,22 @@ const api = window.api;
         unit.notas,
         unit.placas,
         unit.modelo,
-        unit.fechaIngreso
+        unit.fechaIngreso,
+        unit.plaza
       ].join('|');
     }
 
     function _obtenerDestinoUnidadMapa(unit) {
+      const plazaActual = _normalizePlaza(_miPlaza());
+      if (plazaActual && unit.plaza && unit.plaza !== plazaActual) return null;
+
       if (unit.pos === "LIMBO") {
         return unit.ubicacion === "TALLER"
           ? document.getElementById("unidades-taller")
           : document.getElementById("unidades-limbo");
       }
 
-      const destinoMapa = document.getElementById("spot-" + unit.pos.replace(/\s/g, ''));
+      const destinoMapa = document.getElementById(_spotDomId(unit.pos, plazaActual));
       if (destinoMapa) return destinoMapa;
 
       return unit.ubicacion === "TALLER"
@@ -1682,6 +1875,7 @@ const api = window.api;
       car.dataset.estado = unit.estado || "SUCIO";
       car.dataset.gasolina = unit.gasolina || "N/A";
       car.dataset.ubicacion = unit.ubicacion;
+      car.dataset.plaza = unit.plaza || "";
       car.dataset.ingreso = unit.fechaIngreso || "";
       car.dataset.notas = unit.notas || "";
 
@@ -1718,7 +1912,11 @@ const api = window.api;
 
       const nuevas = _ultimaFlotaMapa
         .map(_normalizarUnidadMapa)
-        .filter(unit => unit.mva)
+        .filter(unit => {
+          if (!unit.mva) return false;
+          const plazaActual = _normalizePlaza(_miPlaza());
+          return !plazaActual || !unit.plaza || unit.plaza === plazaActual;
+        })
         .sort((a, b) => a.mva.localeCompare(b.mva));
 
       const idsActuales = new Set(nuevas.map(unit => `auto-${unit.mva}`));
@@ -1781,12 +1979,61 @@ const api = window.api;
       _mapaRenderRAF = requestAnimationFrame(_flushMapaSync);
     }
 
+    function _renderSwapStatus() {
+      const swapDiv = document.getElementById('swap-container');
+      if (!swapDiv) return;
+      if (!MAP_SWAP_MODE_ACTIVE || !selectedAuto) {
+        swapDiv.innerHTML = "";
+        return;
+      }
+      swapDiv.innerHTML = `
+        <div style="background:#eff6ff; border:2px solid #60a5fa; padding:15px; border-radius:18px; margin-top:15px;">
+          <p style="color:#1d4ed8; font-weight:800; font-size:14px; text-align:center; margin:0 0 10px;">🔄 MODO CAMBIAR ACTIVO</p>
+          <p style="color:#1e3a8a; font-weight:700; font-size:12px; line-height:1.6; text-align:center; margin:0;">
+            Toca otro auto para intercambiar posición o toca un cajón vacío para mover <b>${selectedAuto.dataset.mva}</b>.
+          </p>
+          <button onclick="desactivarModoSwap(true)" style="margin-top:12px; width:100%; padding:12px; border-radius:12px; border:none; background:#dbeafe; color:#1d4ed8; font-weight:900; cursor:pointer;">
+            CANCELAR CAMBIO
+          </button>
+        </div>
+      `;
+    }
+
+    function activarModoSwap() {
+      if (!selectedAuto) return;
+      MAP_SWAP_MODE_ACTIVE = true;
+      const menu = document.getElementById('moreActionsMenu');
+      if (menu) menu.classList.remove('show');
+      _renderSwapStatus();
+      showToast(`Modo CAMBIAR activo para ${selectedAuto.dataset.mva}`, 'success');
+    }
+
+    function desactivarModoSwap(showFeedback = false) {
+      MAP_SWAP_MODE_ACTIVE = false;
+      _renderSwapStatus();
+      if (showFeedback) showToast('Cambio de posición cancelado', 'info');
+    }
+
     document.addEventListener('click', (e) => {
       const carClicked = e.target.closest('.car');
       const spotClicked = e.target.closest('.spot') || e.target.closest('#unidades-limbo') || e.target.closest('#unidades-taller');
 
+      if (MAP_SWAP_MODE_ACTIVE && selectedAuto) {
+        if (carClicked && carClicked !== selectedAuto) {
+          mostrarConfirmacionSwap(selectedAuto, carClicked, carClicked.parentElement);
+          e.stopPropagation();
+          return;
+        }
+        if (spotClicked && !carClicked) {
+          moverUnidadInmediato(selectedAuto, spotClicked);
+          e.stopPropagation();
+          return;
+        }
+      }
+
       if (carClicked) {
         if (selectedAuto) selectedAuto.classList.remove('selected');
+        MAP_SWAP_MODE_ACTIVE = false;
         selectedAuto = carClicked;
         carClicked.classList.add('selected');
 
@@ -1840,9 +2087,10 @@ const api = window.api;
       }
 
       const car = document.getElementById(`auto-${d.mva}`);
-      const loc = car.parentElement.id.replace('spot-', '');
-
-      document.getElementById('swap-container').innerHTML = "";
+      const parent = car?.parentElement;
+      const loc = parent?.classList?.contains('spot')
+        ? _spotValueFromElement(parent)
+        : (parent?.id === 'unidades-taller' ? 'TALLER' : 'LIMBO');
 
       const notasHtml = d.notas ? `<div class="nota-display" style="display:block;">📝 ${d.notas}</div>` : '';
 
@@ -1880,6 +2128,7 @@ const api = window.api;
       if (esAdmin && !esManto) actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'MANTENIMIENTO')"><span class="material-icons" style="color:#ef4444">build</span> PONER EN "TALLER"</div>`;
 
       if (d.estado !== "LISTO") actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'LISTO')"><span class="material-icons" style="color:#10b981">check_circle</span> PONER EN "LISTO"</div>`;
+      actionsHtml += `<div class="action-item" onclick="activarModoSwap()"><span class="material-icons" style="color:#2563eb">swap_horiz</span> CAMBIAR POSICIÓN</div>`;
 
       // OPCIONES PARA QUITAR (BORRAN LAS NOTAS) - Solo Admins pueden quitar cosas delicadas
       if (esAdmin && esApartado) removeActions += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'QUITAR_APARTADO')"><span class="material-icons" style="color:#64748b">lock_open</span> QUITAR APARTADO</div>`;
@@ -1916,6 +2165,7 @@ const api = window.api;
   `;
 
       document.getElementById('info-panel').classList.add('open');
+      _renderSwapStatus();
       const zoomControls = document.querySelector('.zoom-controls');
       if (zoomControls) zoomControls.classList.add('panel-open');
     }
@@ -1944,10 +2194,14 @@ const api = window.api;
     });
 
     function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
+      MAP_SWAP_MODE_ACTIVE = false;
       const swapDiv = document.getElementById('swap-container');
+      const destinoLabel = destino?.classList?.contains('spot')
+        ? _spotValueFromElement(destino)
+        : (destino?.id === 'unidades-taller' ? 'TALLER' : 'LIMBO');
       swapDiv.innerHTML = `
     <div style="background:#fffbeb; border:2px solid #fbbf24; padding:15px; border-radius:18px; margin-top:15px;">
-      <p style="color:#92400e; font-weight:800; font-size:14px; text-align:center;">⚠️ EL CAJÓN ESTÁ OCUPADO POR ${ocupante.dataset.mva}</p>
+      <p style="color:#92400e; font-weight:800; font-size:14px; text-align:center;">⚠️ ${destinoLabel} YA ESTÁ OCUPADO POR ${ocupante.dataset.mva}</p>
       <button class="btn-swap-confirm" id="confirmSwapBtn">🔄 CONFIRMAR CAMBIO DE POSICIÓN</button>
     </div>
   `;
@@ -1963,6 +2217,7 @@ const api = window.api;
     }
 
     function moverUnidadInmediato(unidad, destino) {
+      MAP_SWAP_MODE_ACTIVE = false;
       destino.appendChild(unidad);
       lastMoveTime = Date.now();
       solicitarGuardadoProgresivo();
@@ -1972,6 +2227,7 @@ const api = window.api;
 
     function resetUnitToLimbo() {
       if (!selectedAuto) return;
+      MAP_SWAP_MODE_ACTIVE = false;
       document.getElementById("unidades-limbo").appendChild(selectedAuto);
       lastMoveTime = Date.now();
       solicitarGuardadoProgresivo();
@@ -1987,6 +2243,7 @@ const api = window.api;
 
     function cerrarPanel() {
       if (selectedAuto) selectedAuto.classList.remove('selected');
+      MAP_SWAP_MODE_ACTIVE = false;
       selectedAuto = null;
       document.getElementById('info-panel').classList.remove('open');
       document.getElementById('swap-container').innerHTML = "";
@@ -2279,7 +2536,7 @@ const api = window.api;
         } else if (parentId.startsWith('spot-')) {
           // ESTÁ EN UN CAJÓN
           countCajones++;
-          let cajon = parentId.replace('spot-', '');
+          let cajon = _spotValueFromElement(car.parentElement);
           htmlCajones += `<tr><td style="font-weight:900; color:var(--mex-accent);">${mva}</td><td>${placa}</td><td style="font-weight:800;">${cajon}</td></tr>`;
         }
       });
@@ -10026,7 +10283,9 @@ const api = window.api;
             if (ubiNueva !== "PATIO" && ubiNueva !== "TALLER") posNueva = "LIMBO";
 
             if (posNueva) {
-              const dest = posNueva === "LIMBO" ? document.getElementById("unidades-limbo") : document.getElementById('spot-' + posNueva.replace(/[^A-Z0-9-]/gi, ''));
+              const dest = posNueva === "LIMBO"
+                ? document.getElementById("unidades-limbo")
+                : document.getElementById(_spotDomId(posNueva, _miPlaza()));
               if (dest) {
                 dest.appendChild(carNode);
                 if (typeof solicitarGuardadoProgresivo === "function") solicitarGuardadoProgresivo();
@@ -10145,7 +10404,7 @@ const api = window.api;
         modelo: c.dataset.modelo || "S/M",
         est: c.dataset.estado,
         ubi: c.dataset.ubicacion,
-        pos: c.parentElement.id.includes('spot') ? c.parentElement.id.replace('spot-', '') : 'LIMBO',
+        pos: c.parentElement.id.includes('spot') ? _spotValueFromElement(c.parentElement) : 'LIMBO',
         gas: c.dataset.gasolina,
         notas: c.dataset.notas || "",
         ingreso: c.dataset.ingreso || ""

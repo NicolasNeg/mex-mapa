@@ -197,6 +197,11 @@
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
 
+        <button id="btnMiPerfil" onclick="abrirPerfilUsuario()" class="sb-btn sb-btn-dark">
+          <div><span class="material-icons" style="color:#93c5fd;">account_circle</span> MI PERFIL</div>
+          <span class="material-icons sb-chevron">chevron_right</span>
+        </button>
+
         <button id="btnLockAdminSidebar" onclick="solicitarToggleBloqueo()" class="sb-btn sb-btn-dark"
           style="display:none;">
           <div>
@@ -2440,7 +2445,7 @@
           </button>
           <div class="resv2-hero-content">
             <div class="resv2-brand-row">
-              <span class="resv2-brand-badge">MEX RENT A CAR · <span id="resv2-branch" style="color:#38bdf8;">BJX</span></span>
+              <span class="resv2-brand-badge"><span id="resv2-company-name">MEX RENT A CAR</span> · <span id="resv2-branch" style="color:#38bdf8;">BJX</span></span>
               <div class="resv2-tab-switch">
                 <button id="btn-patio-res" class="resv2-tab active" onclick="cambiarVistaResumen('patio')">EN PATIO</button>
                 <button id="btn-fuera-res" class="resv2-tab" onclick="cambiarVistaResumen('fuera')">FUERA</button>
@@ -2753,8 +2758,30 @@
       <div id="chat-contacts-view" class="chatv2-contacts">
         <div class="chatv2-search-bar">
           <span class="material-icons chatv2-search-icon">search</span>
-          <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar contacto..." onkeyup="renderContactos()">
+          <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar por nombre, correo o plaza..." onkeyup="renderContactos()">
         </div>
+        <div class="chatv2-filter-row">
+          <label class="chat-filter-chip">
+            <span>PLAZA</span>
+            <select id="chatFilterPlaza" onchange="actualizarFiltrosChat()">
+              <option value="">Todas</option>
+            </select>
+          </label>
+          <label class="chat-filter-chip">
+            <span>ROL</span>
+            <select id="chatFilterRol" onchange="actualizarFiltrosChat()">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <label class="chat-filter-chip">
+            <span>STATUS</span>
+            <select id="chatFilterStatus" onchange="actualizarFiltrosChat()">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <button class="chat-filter-reset" onclick="limpiarFiltrosChat()">Limpiar</button>
+        </div>
+        <div class="chatv2-filter-hint" id="chatContactsHint">Mostrando tu plaza y chats existentes.</div>
         <div id="listaContactosContainer" style="flex:1; overflow-y:auto;">
           <div style="text-align:center; padding:40px; color:#94a3b8;"><span class="material-icons spinner">sync</span></div>
         </div>
@@ -2768,11 +2795,14 @@
           <button class="chatv2-back" onclick="cerrarChat()">
             <span class="material-icons" style="font-size:20px;">arrow_back</span>
           </button>
-          <div class="chat-avatar" id="chat-active-avatar" style="width: 36px; height: 36px; font-size: 14px;">U</div>
+          <button class="chat-avatar chat-avatar-button" id="chat-active-avatar" onclick="abrirInfoContactoActivo()" style="width: 36px; height: 36px; font-size: 14px;">U</button>
           <div style="flex:1; overflow:hidden;">
             <div id="chat-active-name" class="chatv2-active-name">Nombre</div>
             <div class="chatv2-active-status">Conversación segura</div>
           </div>
+          <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
+            <span class="material-icons" style="font-size:18px;">info</span>
+          </button>
         </div>
 
         <!-- Área de mensajes limpia -->
@@ -2805,6 +2835,57 @@
 
       </div>
 
+    </div>
+  </div>
+
+  <div id="chat-user-info-modal" class="modal-overlay chat-user-info-modal" onclick="if(event.target===this) cerrarInfoContacto()">
+    <div class="chat-user-info-card">
+      <button class="chat-user-info-close" onclick="cerrarInfoContacto()">
+        <span class="material-icons" style="font-size:18px;">close</span>
+      </button>
+      <div id="chat-user-info-content"></div>
+    </div>
+  </div>
+
+  <div id="perfil-modal" class="fleet-modal profile-modal" style="z-index: 8100;">
+    <div class="profile-modal-shell">
+      <div class="profile-modal-hero">
+        <div>
+          <div class="profile-modal-kicker">Tu Cuenta</div>
+          <h2 class="profile-modal-title">Perfil</h2>
+          <p class="profile-modal-sub">Por ahora esta sección solo administra tu foto de perfil.</p>
+        </div>
+        <button class="profile-modal-close" onclick="cerrarPerfilUsuario()">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+
+      <div class="profile-modal-body">
+        <div class="profile-modal-card">
+          <div id="profileCurrentAvatar" class="profile-avatar-large">U</div>
+          <div class="profile-modal-copy">
+            <div id="profileCurrentName" class="profile-modal-name">Usuario</div>
+            <div id="profileCurrentMeta" class="profile-modal-meta">Sin datos</div>
+          </div>
+        </div>
+
+        <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;" onchange="subirAvatarPerfil(this)">
+
+        <div class="profile-modal-actions">
+          <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
+            <span class="material-icons" style="font-size:18px;">photo_camera</span>
+            Subir Imagen
+          </button>
+          <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
+            <span class="material-icons" style="font-size:18px;">delete</span>
+            Quitar Foto
+          </button>
+        </div>
+
+        <div class="profile-modal-note">
+          Usa una imagen cuadrada o vertical ligera para que se vea mejor en el chat, la barra lateral y futuras vistas del sistema.
+        </div>
+      </div>
     </div>
   </div>
 
@@ -3328,7 +3409,7 @@
 
         <!-- FOOTER -->
         <div class="cfg-v2-footer">
-          <span class="cfg-v2-footer-copy">© MEX RENT A CAR · Configuración v3</span>
+          <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">MEX RENT A CAR</span> · Configuración v3</span>
           <div class="cfg-v2-footer-actions">
             <button class="cfg-v2-btn-cancel"
               onclick="document.getElementById('modal-config-global').classList.remove('active')">
