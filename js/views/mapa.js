@@ -1347,7 +1347,7 @@ function _handleGlobalShortcuts(event) {
 
   if (key === 'c') {
     event.preventDefault();
-    abrirModalCuadre3V();
+    abrirModalFlota();
     return;
   }
   if (key === 'm') {
@@ -4299,7 +4299,7 @@ function _renderLogsTabla() {
   tbody.innerHTML = filtered.map(l => `
     <tr>
       <td style="font-size:11px; color:#64748b; font-weight:800;">${l.fecha}</td>
-      <td><span class="badge ${l.tipo === 'MOVE' ? 'st-LISTO' : 'st-SUCIO'}">${l.tipo}</span></td>
+      <td><span class="badge ${l.tipo === 'MOVE' ? 'st-MOVE' : (l.tipo === 'SWAP' ? 'st-SWAP' : 'st-DELETE')}">${l.tipo}</span></td>
       <td style="font-weight:900; color:var(--mex-blue); font-size:14px;">${l.mva}</td>
       <td style="font-size:12px; font-weight:700;">${l.detalles}</td>
       <td style="font-size:11px; font-weight:800;">${l.usuario}</td>
@@ -4313,6 +4313,52 @@ function _limpiarFiltrosLogs() {
   document.getElementById('logsTipo').value = '';
   document.getElementById('logsUsuario').value = '';
   _renderLogsTabla();
+}
+
+function _bindEditorInspectorDrag() {
+  const card = document.querySelector('.editor-inspector-card');
+  const header = card?.querySelector('.editor-card-header');
+  if (!card || !header || card.dataset.dragBound === '1') return;
+  card.dataset.dragBound = '1';
+  card.style.touchAction = 'none';
+
+  let state = null;
+
+  const stopDrag = () => {
+    state = null;
+    document.body.classList.remove('editor-inspector-dragging');
+  };
+
+  header.style.cursor = 'move';
+  header.addEventListener('pointerdown', event => {
+    if (event.button !== undefined && event.button !== 0) return;
+    const rect = card.getBoundingClientRect();
+    state = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: rect.left,
+      top: rect.top
+    };
+    document.body.classList.add('editor-inspector-dragging');
+    card.setPointerCapture?.(event.pointerId);
+  });
+
+  window.addEventListener('pointermove', event => {
+    if (!state || event.pointerId !== state.pointerId) return;
+    event.preventDefault();
+    const maxLeft = window.innerWidth - card.offsetWidth - 12;
+    const maxTop = window.innerHeight - card.offsetHeight - 12;
+    const nextLeft = Math.min(maxLeft, Math.max(12, state.left + (event.clientX - state.startX)));
+    const nextTop = Math.min(maxTop, Math.max(12, state.top + (event.clientY - state.startY)));
+    card.style.left = `${nextLeft}px`;
+    card.style.top = `${nextTop}px`;
+    card.style.right = 'auto';
+    card.style.bottom = 'auto';
+  });
+
+  window.addEventListener('pointerup', stopDrag);
+  window.addEventListener('pointercancel', stopDrag);
 }
 
 
@@ -11820,7 +11866,11 @@ function _edOpenMoreMenuAt(clientX, clientY, celda = _edSel) {
     const maxLeft = Math.max(12, rect.width - menu.offsetWidth - 12);
     const maxTop = Math.max(12, rect.height - menu.offsetHeight - 12);
     const left = Math.min(Math.max(12, clientX - rect.left), maxLeft);
-    const top = Math.min(Math.max(12, clientY - rect.top), maxTop);
+    const spaceBelow = rect.bottom - clientY;
+    const spaceAbove = clientY - rect.top;
+    const top = (spaceBelow >= menu.offsetHeight + 24 || spaceBelow >= spaceAbove)
+      ? Math.min(clientY - rect.top + 12, maxTop)
+      : Math.max(12, Math.min(clientY - rect.top - menu.offsetHeight - 12, maxTop));
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
     menu.style.visibility = 'visible';
@@ -11858,6 +11908,7 @@ function abrirEditorMapa() {
   _edCloseMoreMenu();
   _resetEditorPanel();
   _edSyncEditorHud();
+  _bindEditorInspectorDrag();
 
   api.obtenerEstructuraMapa(_miPlaza()).then(estructura => {
     document.getElementById('editor-loading').style.display = 'none';
@@ -13608,8 +13659,14 @@ function _plazaConfirmMaps() {
 }
 
 function _plazaGetUserEmailOptions(selectedVal, currentPlazaId) {
-  const users = (typeof _umUsers !== 'undefined' && _umUsers) ? _umUsers : [];
-  const emails = [...new Set(users.map(u => u.email).filter(Boolean))].sort();
+  const sources = [
+    (typeof _umUsers !== 'undefined' && Array.isArray(_umUsers)) ? _umUsers : [],
+    Array.isArray(window.MEX_CONFIG?.usuarios) ? window.MEX_CONFIG.usuarios : [],
+    Array.isArray(window.MEX_CONFIG?.empresa?.usuarios) ? window.MEX_CONFIG.empresa.usuarios : [],
+    Array.isArray(window.CATALOGO_USUARIOS) ? window.CATALOGO_USUARIOS : []
+  ];
+  const users = sources.flat().filter(Boolean);
+  const emails = [...new Set(users.map(u => (u?.email || u?.correo || u?.mail || '').trim()).filter(Boolean))].sort();
 
   // Correos ya asignados en OTRAS plazas (no en la actual)
   const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
@@ -13622,11 +13679,14 @@ function _plazaGetUserEmailOptions(selectedVal, currentPlazaId) {
 
   const disponibles = emails.filter(e => !emailsOtrasPlazas.has(e.toLowerCase()));
 
-  if (disponibles.length === 0) {
-    return `<option value="${escapeHtml(selectedVal)}">${escapeHtml(selectedVal || '— Sin correos disponibles —')}</option>`;
+  const opciones = [...disponibles];
+  if (selectedVal && !opciones.includes(selectedVal)) opciones.unshift(selectedVal);
+
+  if (opciones.length === 0) {
+    return `<option value="">— Sin correos disponibles —</option>`;
   }
   return `<option value="">— Sin asignar —</option>` +
-    disponibles.map(e => `<option value="${escapeHtml(e)}"${e === selectedVal ? ' selected' : ''}>${escapeHtml(e)}</option>`).join('');
+    opciones.map(e => `<option value="${escapeHtml(e)}"${String(e).toLowerCase() === String(selectedVal || '').toLowerCase() ? ' selected' : ''}>${escapeHtml(e)}</option>`).join('');
 }
 
 function _renderPlazaForm(plazaId) {

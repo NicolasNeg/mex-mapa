@@ -3678,9 +3678,20 @@
       color: var(--st-sucio-txt);
     }
 
+    .st-MOVE {
+      background: var(--st-listo-bg);
+      color: var(--st-listo-txt);
+    }
+
     .st-MANTENIMIENTO {
       background: var(--st-mant-bg);
       color: var(--st-mant-txt);
+    }
+
+    .badge.st-SWAP,
+    .st-SWAP {
+      background: #fef3c7;
+      color: #b45309;
     }
 
     .st-TRASLADO {
@@ -4139,14 +4150,15 @@
     /* --- ESTILOS DEL BOTÓN "MÁS ACCIONES" --- */
     .actions-dropdown {
       position: absolute;
-      bottom: 110%;
+      top: calc(100% + 10px);
       left: 0;
+      bottom: auto;
       width: 100%;
       min-width: 220px;
       background: white;
       border-radius: 16px;
-      box-shadow: 0 -10px 25px rgba(0, 0, 0, 0.2);
-      margin-bottom: 10px;
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.16);
+      margin-bottom: 0;
       display: none;
       flex-direction: column;
       overflow: hidden;
@@ -5004,6 +5016,11 @@
     .badge.st-DELETE {
       background: #fee2e2;
       color: #ef4444;
+    }
+
+    .badge.st-SWAP {
+      background: #fef3c7;
+      color: #b45309;
     }
 
     .badge.st-CREATE {
@@ -13263,6 +13280,14 @@ body.dark-theme .plaza-locked .cfg-plaza-form-field select { background: #0d1929
   overflow: auto;
   border-radius: 24px;
   padding: 18px;
+}
+
+.editor-inspector-card[data-drag-bound="1"] .editor-card-header {
+  cursor: move;
+}
+
+body.editor-inspector-dragging .editor-inspector-card {
+  box-shadow: 0 26px 60px rgba(15, 23, 42, 0.24);
 }
 
 .editor-card-header {

@@ -1427,11 +1427,29 @@ const API_FUNCTIONS = {
 
     await batch.commit();
 
+    const pairKeys = new Map();
+    histBatch.forEach(h => {
+      const key = `${String(h.posAnterior || '').toUpperCase()}->${String(h.posNueva || '').toUpperCase()}`;
+      const reverseKey = `${String(h.posNueva || '').toUpperCase()}->${String(h.posAnterior || '').toUpperCase()}`;
+      pairKeys.set(key, (pairKeys.get(key) || 0) + 1);
+      pairKeys.set(reverseKey, (pairKeys.get(reverseKey) || 0) + 0);
+    });
+
     const historialWrites = histBatch.map((h, i) => {
       const ts = _ts();
-      return db.collection("historial_patio").doc(`move_${i}_${ts}`).set({
-        timestamp: ts, fecha: _now(), tipo: "MOVE",
-        mva: h.mva, hoja: h.hoja, posAnterior: h.posAnterior, posNueva: h.posNueva,
+      const origen = String(h.posAnterior || '').toUpperCase();
+      const destino = String(h.posNueva || '').toUpperCase();
+      const isLimboMove = destino === 'LIMBO';
+      const isSwap = !isLimboMove && pairKeys.has(`${destino}->${origen}`);
+      const tipo = isLimboMove ? 'DEL' : (isSwap ? 'SWAP' : 'MOVE');
+      return db.collection("historial_patio").doc(`${tipo.toLowerCase()}_${i}_${ts}`).set({
+        timestamp: ts,
+        fecha: _now(),
+        tipo,
+        mva: h.mva,
+        hoja: h.hoja,
+        posAnterior: h.posAnterior,
+        posNueva: h.posNueva,
         autor: usuarioResponsable || "Sistema",
         plaza: plazaUp || ""
       });
@@ -1943,14 +1961,14 @@ const API_FUNCTIONS = {
   // ─── HISTORIAL ───────────────────────────────────────────
 
   // Gestión de Flota → Más Controles → REGISTROS/MOVIMIENTOS
-  // Lee de historial_patio: movimientos de cajón (MOVE)
+  // Lee de historial_patio: movimientos de cajón (MOVE / SWAP / DEL)
   async obtenerHistorialLogs() {
     const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
     return snap.docs.map(d => {
       const data = d.data();
       return {
         fecha:    _fecha(data),
-        tipo:     data.tipo || "MOVE",
+        tipo:     String(data.tipo || "MOVE").toUpperCase(),
         accion:   `${data.mva || ""} ${data.hoja || ""} ${data.posAnterior || ""} → ${data.posNueva || ""}`.trim(),
         mva:      data.mva || "",
         detalles:  `${data.posAnterior || ""} → ${data.posNueva || ""}`,
