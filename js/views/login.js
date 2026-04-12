@@ -173,3 +173,35 @@ function _hideError() {
   const el = document.getElementById('login-error');
   if (el) el.style.display = 'none';
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const emailEl = document.getElementById('auth_email');
+  const passEl = document.getElementById('auth_pass');
+  const requestFields = ['sol_nombre', 'sol_email', 'sol_puesto', 'sol_telefono', 'sol_pass', 'sol_pass_confirm']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+
+  const tryLogin = event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    loginManual();
+  };
+
+  emailEl?.addEventListener('keydown', tryLogin);
+  passEl?.addEventListener('keydown', tryLogin);
+
+  requestFields.forEach(field => {
+    field.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      if (field.id === 'sol_telefono') return;
+      event.preventDefault();
+      enviarSolicitudAcceso();
+    });
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.getElementById('modal-solicitud')?.style.display === 'flex') {
+      cerrarModalSolicitud();
+    }
+  });
+});

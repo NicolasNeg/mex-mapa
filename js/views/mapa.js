@@ -1173,6 +1173,16 @@ let lastMoveTime = 0;
 const MAPA_SAVE_DEBOUNCE_MS = 120;
 const MAPA_SAVE_RETRY_MS = 2500;
 let _mapaRenderRAF = 0;
+let _mapDragSuppressClickUntil = 0;
+let _mapDragState = {
+  sourceCar: null,
+  currentZone: null,
+  ghost: null,
+  touchTimer: null,
+  pendingTouch: null,
+  activeTouchId: null,
+  active: false
+};
 let _ultimaFlotaMapa = [];
 let _ultimaEstructuraMapa = [];
 let _mapaRuntime = {
@@ -1181,6 +1191,7 @@ let _mapaRuntime = {
   estructuraSig: '',
   viewportBound: false,
   gesturesBound: false,
+  dragBindingsBound: false,
   pinchState: null,
   pendingUnits: null
 };
@@ -1265,12 +1276,109 @@ function _forzarGuardadoMapaPendiente() {
   }
 }
 
+function _isShortcutEditableTarget(target) {
+  if (!target || !(target instanceof Element)) return false;
+  return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+}
+
+function _cerrarCapasRapidas() {
+  if (document.getElementById('profile-avatar-crop-modal')?.classList.contains('active')) {
+    cancelarRecorteAvatarPerfil();
+    return true;
+  }
+  if (document.getElementById('chatLightbox')?.classList.contains('active')) {
+    cerrarLightboxChat();
+    return true;
+  }
+  if (document.getElementById('chat-user-info-modal')?.classList.contains('active')) {
+    cerrarInfoContacto();
+    return true;
+  }
+  if (document.getElementById('perfil-modal')?.classList.contains('active')) {
+    cerrarPerfilUsuario();
+    return true;
+  }
+  if (activeChatUser) {
+    cerrarChat();
+    return true;
+  }
+  if (document.getElementById('buzon-modal')?.classList.contains('active')) {
+    document.getElementById('buzon-modal').classList.remove('active');
+    _stopChatListener();
+    return true;
+  }
+  if (document.getElementById('modal-cuadre-3v')?.classList.contains('active')) {
+    cerrarCuadre3V();
+    return true;
+  }
+  if (document.getElementById('modal-resumen-flota')?.classList.contains('active')) {
+    document.getElementById('modal-resumen-flota').classList.remove('active');
+    return true;
+  }
+  if (document.getElementById('info-panel')?.classList.contains('open')) {
+    cerrarPanel();
+    return true;
+  }
+  return false;
+}
+
+function _handleGlobalShortcuts(event) {
+  const key = String(event.key || '').toLowerCase();
+
+  if (key === 'escape') {
+    if (_cerrarCapasRapidas()) event.preventDefault();
+    return;
+  }
+
+  if (_isShortcutEditableTarget(event.target)) return;
+  if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+  if (key === '/') {
+    const search = document.getElementById('searchInput') || document.getElementById('searchInputMobile');
+    if (search) {
+      event.preventDefault();
+      search.focus();
+      search.select?.();
+    }
+    return;
+  }
+
+  if (!event.shiftKey) return;
+
+  if (key === 'c') {
+    event.preventDefault();
+    abrirModalCuadre3V();
+    return;
+  }
+  if (key === 'm') {
+    event.preventDefault();
+    abrirBuzon();
+    return;
+  }
+  if (key === 'p') {
+    event.preventDefault();
+    abrirPerfilUsuario();
+    return;
+  }
+  if (key === 'r') {
+    event.preventDefault();
+    abrirResumenFlota();
+  }
+}
+
+function _bindGlobalShortcuts() {
+  if (_globalShortcutsBound) return;
+  document.addEventListener('keydown', _handleGlobalShortcuts);
+  _globalShortcutsBound = true;
+}
+
 function init() {
   startAutoRefresh();
   updateZoom();
   _ajustarViewportMapa();
   _setMapSyncBadge(window.MAPA_LOCKED ? 'locked' : 'live');
   _bindMapZoomGestures();
+  _bindGlobalShortcuts();
   if (!_mapaRuntime.viewportBound) {
     window.addEventListener('resize', _ajustarViewportMapa);
     _mapaRuntime.viewportBound = true;
@@ -1400,7 +1508,10 @@ function _ajustarViewportMapa() {
   const stage = document.getElementById('map-stage');
   const container = document.getElementById('map-zoom-container');
   const grid = document.getElementById('grid-map');
-  if (!stage || !container || !grid) return;
+  if (!stage || !container || !grid) {
+    if (_profileAvatarCropState) _renderProfileAvatarCrop();
+    return;
+  }
 
   const isMobile = window.innerWidth <= 768;
   const outerPad = isMobile ? 14 : Math.max(16, Math.min(36, Math.round(window.innerWidth * 0.022)));
@@ -1409,8 +1520,12 @@ function _ajustarViewportMapa() {
   stage.style.marginTop = `${topMargin}px`;
 
   // [F2] Canvas libre: el tamaño lo imponen las celdas absolutas — solo sync stage
-  if (!_ultimaEstructuraMapa.length) return;
+  if (!_ultimaEstructuraMapa.length) {
+    if (_profileAvatarCropState) _renderProfileAvatarCrop();
+    return;
+  }
   _syncMapStageSize();
+  if (_profileAvatarCropState) _renderProfileAvatarCrop();
 }
 
 function _getMapViewport() {
@@ -1950,11 +2065,15 @@ function _flushMapaSync() {
       huboCambios = true;
     }
 
+    _bindCarMapInteractions(car);
+
     if (car.parentElement !== destino) {
       destino.appendChild(car);
       huboCambios = true;
     }
   });
+
+  _bindMapDragDropEvents();
 
   if (huboCambios) {
     actualizarContadores();
@@ -1979,6 +2098,219 @@ function sincronizarMapa(nuevas, opciones = {}) {
   _mapaRenderRAF = requestAnimationFrame(_flushMapaSync);
 }
 
+function _resolveMapDropZone(target) {
+  if (!target || !(target instanceof Element)) return null;
+  return target.closest('.spot, #unidades-limbo, #unidades-taller');
+}
+
+function _clearMapDropHighlight() {
+  if (_mapDragState.currentZone) {
+    _mapDragState.currentZone.classList.remove('map-drop-target', 'map-drop-target-active', 'map-drop-target-empty', 'map-drop-target-swap');
+    _mapDragState.currentZone = null;
+  }
+}
+
+function _updateMapDropHighlight(zone, movingCar = null) {
+  if (_mapDragState.currentZone === zone) return;
+  _clearMapDropHighlight();
+  if (!zone) return;
+  zone.classList.add('map-drop-target', 'map-drop-target-active');
+  const occupant = zone.classList.contains('spot') ? zone.querySelector('.car') : null;
+  zone.classList.add(occupant && occupant !== movingCar ? 'map-drop-target-swap' : 'map-drop-target-empty');
+  _mapDragState.currentZone = zone;
+}
+
+function _positionMapDragGhost(clientX, clientY) {
+  if (!_mapDragState.ghost) return;
+  _mapDragState.ghost.style.left = `${clientX}px`;
+  _mapDragState.ghost.style.top = `${clientY}px`;
+}
+
+function _removeMapDragGhost() {
+  if (_mapDragState.ghost?.isConnected) _mapDragState.ghost.remove();
+  _mapDragState.ghost = null;
+}
+
+function _createMapDragGhost(car, clientX, clientY) {
+  _removeMapDragGhost();
+  const ghost = document.createElement('div');
+  ghost.className = 'map-drag-ghost';
+  ghost.innerHTML = `<span>${escapeHtml(car?.dataset?.mva || 'AUTO')}</span><small>${MAP_SWAP_MODE_ACTIVE ? 'SWAP' : 'MOVER'}</small>`;
+  document.body.appendChild(ghost);
+  _mapDragState.ghost = ghost;
+  _positionMapDragGhost(clientX, clientY);
+}
+
+function _cancelPendingMapTouchDrag() {
+  if (_mapDragState.touchTimer) {
+    clearTimeout(_mapDragState.touchTimer);
+    _mapDragState.touchTimer = null;
+  }
+  _mapDragState.pendingTouch = null;
+}
+
+function _finishMapDrag() {
+  _cancelPendingMapTouchDrag();
+  if (_mapDragState.sourceCar) _mapDragState.sourceCar.classList.remove('drag-origin');
+  _clearMapDropHighlight();
+  _removeMapDragGhost();
+  _mapDragState.sourceCar = null;
+  _mapDragState.activeTouchId = null;
+  _mapDragState.active = false;
+}
+
+function _selectCarOnMap(car, options = {}) {
+  if (!car) return;
+  const { openPanel = true, preserveSwap = false } = options;
+
+  if (selectedAuto && selectedAuto !== car) selectedAuto.classList.remove('selected');
+  selectedAuto = car;
+  car.classList.add('selected');
+  if (!preserveSwap) MAP_SWAP_MODE_ACTIVE = false;
+
+  const searchDesktop = document.getElementById('searchInput');
+  const searchMobile = document.getElementById('searchInputMobile');
+  if (searchDesktop) searchDesktop.value = "";
+  if (searchMobile) searchMobile.value = "";
+  if (typeof buscarMasivo === "function") buscarMasivo();
+
+  if (window.zoomBuscadorActivo) {
+    zoomLevel = 0.8;
+    updateZoom();
+    window.zoomBuscadorActivo = false;
+  }
+
+  limpiarBusqueda(false);
+
+  if (document.getElementById('sidebar')?.classList.contains('open')) {
+    toggleSidebar();
+  }
+
+  if (openPanel) mostrarDetalle(car.dataset);
+  else _renderSwapStatus();
+}
+
+async function _handleMapUnitDrop(unidad, destino) {
+  if (!unidad || !destino || unidad.parentElement === destino) return false;
+
+  const occupant = destino.classList.contains('spot') ? destino.querySelector('.car') : null;
+  if (occupant && occupant !== unidad) {
+    if (!MAP_SWAP_MODE_ACTIVE) {
+      showToast('Ese cajón ya está ocupado. Activa modo swap para intercambiar.', 'warning');
+      return false;
+    }
+    return mostrarConfirmacionSwap(unidad, occupant, destino);
+  }
+
+  moverUnidadInmediato(unidad, destino);
+  return true;
+}
+
+function _handleMapCarDragStart(event) {
+  const car = event.currentTarget;
+  if (!car) return;
+  _finishMapDrag();
+  _selectCarOnMap(car, { openPanel: false, preserveSwap: true });
+  _mapDragState.sourceCar = car;
+  car.classList.add('drag-origin');
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', car.id);
+  }
+}
+
+function _handleMapCarDragEnd() {
+  _finishMapDrag();
+}
+
+function _handleMapDragOver(event) {
+  if (!_mapDragState.sourceCar) return;
+  const zone = _resolveMapDropZone(event.target);
+  if (!zone) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  _updateMapDropHighlight(zone, _mapDragState.sourceCar);
+}
+
+async function _handleMapDrop(event) {
+  if (!_mapDragState.sourceCar) return;
+  const zone = _resolveMapDropZone(event.target);
+  if (!zone) return;
+  event.preventDefault();
+  _mapDragSuppressClickUntil = Date.now() + 350;
+  await _handleMapUnitDrop(_mapDragState.sourceCar, zone);
+  _finishMapDrag();
+}
+
+function _handleMapCarTouchStart(event) {
+  if (event.touches.length !== 1 || _mapaRuntime.pinchState) return;
+  const car = event.currentTarget;
+  const touch = event.touches[0];
+  _finishMapDrag();
+  _mapDragState.sourceCar = car;
+  _mapDragState.pendingTouch = { id: touch.identifier, startX: touch.clientX, startY: touch.clientY };
+  _mapDragState.touchTimer = setTimeout(() => {
+    _mapDragState.active = true;
+    _mapDragState.activeTouchId = touch.identifier;
+    _selectCarOnMap(car, { openPanel: false, preserveSwap: true });
+    car.classList.add('drag-origin');
+    _createMapDragGhost(car, touch.clientX, touch.clientY);
+  }, 220);
+}
+
+function _handleMapTouchDragMove(event) {
+  if (_mapDragState.touchTimer && !_mapDragState.active && _mapDragState.pendingTouch) {
+    const touch = Array.from(event.touches).find(t => t.identifier === _mapDragState.pendingTouch.id);
+    if (!touch) return;
+    if (Math.hypot(touch.clientX - _mapDragState.pendingTouch.startX, touch.clientY - _mapDragState.pendingTouch.startY) > 12) {
+      _finishMapDrag();
+    }
+    return;
+  }
+
+  if (!_mapDragState.active) return;
+  const touch = Array.from(event.touches).find(t => t.identifier === _mapDragState.activeTouchId);
+  if (!touch) return;
+  event.preventDefault();
+  _positionMapDragGhost(touch.clientX, touch.clientY);
+  const zone = _resolveMapDropZone(document.elementFromPoint(touch.clientX, touch.clientY));
+  _updateMapDropHighlight(zone, _mapDragState.sourceCar);
+}
+
+async function _handleMapTouchDragEnd(event) {
+  if (_mapDragState.touchTimer && !_mapDragState.active) {
+    _finishMapDrag();
+    return;
+  }
+  if (!_mapDragState.active) return;
+
+  const touch = Array.from(event.changedTouches).find(t => t.identifier === _mapDragState.activeTouchId) || event.changedTouches[0];
+  const zone = touch ? _resolveMapDropZone(document.elementFromPoint(touch.clientX, touch.clientY)) : null;
+  _mapDragSuppressClickUntil = Date.now() + 450;
+  if (touch) event.preventDefault();
+  await _handleMapUnitDrop(_mapDragState.sourceCar, zone);
+  _finishMapDrag();
+}
+
+function _bindMapDragDropEvents() {
+  if (_mapaRuntime.dragBindingsBound) return;
+  document.addEventListener('dragover', _handleMapDragOver);
+  document.addEventListener('drop', _handleMapDrop);
+  document.addEventListener('touchmove', _handleMapTouchDragMove, { passive: false });
+  document.addEventListener('touchend', _handleMapTouchDragEnd, { passive: false });
+  document.addEventListener('touchcancel', _handleMapTouchDragEnd, { passive: false });
+  _mapaRuntime.dragBindingsBound = true;
+}
+
+function _bindCarMapInteractions(car) {
+  if (!car || car.dataset.dragBound === '1') return;
+  car.dataset.dragBound = '1';
+  car.setAttribute('draggable', 'true');
+  car.addEventListener('dragstart', _handleMapCarDragStart);
+  car.addEventListener('dragend', _handleMapCarDragEnd);
+  car.addEventListener('touchstart', _handleMapCarTouchStart, { passive: true });
+}
+
 function _renderSwapStatus() {
   const swapDiv = document.getElementById('swap-container');
   if (!swapDiv) return;
@@ -1990,7 +2322,7 @@ function _renderSwapStatus() {
         <div style="background:#eff6ff; border:2px solid #60a5fa; padding:15px; border-radius:18px; margin-top:15px;">
           <p style="color:#1d4ed8; font-weight:800; font-size:14px; text-align:center; margin:0 0 10px;">🔄 MODO CAMBIAR ACTIVO</p>
           <p style="color:#1e3a8a; font-weight:700; font-size:12px; line-height:1.6; text-align:center; margin:0;">
-            Toca otro auto para intercambiar posición o toca un cajón vacío para mover <b>${selectedAuto.dataset.mva}</b>.
+            Arrastra o toca otro auto para intercambiar posición. También puedes soltar <b>${selectedAuto.dataset.mva}</b> en un cajón vacío.
           </p>
           <button onclick="desactivarModoSwap(true)" style="margin-top:12px; width:100%; padding:12px; border-radius:12px; border:none; background:#dbeafe; color:#1d4ed8; font-weight:900; cursor:pointer;">
             CANCELAR CAMBIO
@@ -2015,6 +2347,7 @@ function desactivarModoSwap(showFeedback = false) {
 }
 
 document.addEventListener('click', (e) => {
+  if (Date.now() < _mapDragSuppressClickUntil) return;
   const carClicked = e.target.closest('.car');
   const spotClicked = e.target.closest('.spot') || e.target.closest('#unidades-limbo') || e.target.closest('#unidades-taller');
 
@@ -2032,48 +2365,13 @@ document.addEventListener('click', (e) => {
   }
 
   if (carClicked) {
-    if (selectedAuto) selectedAuto.classList.remove('selected');
-    MAP_SWAP_MODE_ACTIVE = false;
-    selectedAuto = carClicked;
-    carClicked.classList.add('selected');
-
-    // --- MAGIA AQUÍ: Limpiar búsqueda automáticamente ---
-    const searchDesktop = document.getElementById('searchInput');
-    const searchMobile = document.getElementById('searchInputMobile');
-    if (searchDesktop) searchDesktop.value = "";
-    if (searchMobile) searchMobile.value = "";
-
-    // Ejecutamos la búsqueda vacía para que todos los autos recuperen su color
-    if (typeof buscarMasivo === "function") buscarMasivo();
-    // ----------------------------------------------------
-
-    mostrarDetalle(carClicked.dataset);
-
-    // 🔥 EL NUEVO TRUCO DE ZOOM 🔥
-    // Si el zoom lo provocó la lupa, lo regresamos a su tamaño normal (0.8) al tocar el carro
-    if (window.zoomBuscadorActivo) {
-      zoomLevel = 0.8; // <-- Puedes cambiar este 0.8 si quieres que quede más cerca o más lejos
-      updateZoom();
-      window.zoomBuscadorActivo = false;
-    }
-
-    limpiarBusqueda(false); // Mantenemos el false para no interferir con el zoom manual
-
-    if (document.getElementById('sidebar').classList.contains('open')) {
-      toggleSidebar();
-    }
-
+    _selectCarOnMap(carClicked);
     e.stopPropagation();
     return;
   }
 
   if (spotClicked && selectedAuto) {
-    const occupant = spotClicked.querySelector('.car');
-    if (occupant && occupant !== selectedAuto && spotClicked.classList.contains('spot')) {
-      mostrarConfirmacionSwap(selectedAuto, occupant, spotClicked);
-    } else {
-      moverUnidadInmediato(selectedAuto, spotClicked);
-    }
+    _handleMapUnitDrop(selectedAuto, spotClicked);
   }
 });
 
@@ -2193,30 +2491,34 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
-  MAP_SWAP_MODE_ACTIVE = false;
-  const swapDiv = document.getElementById('swap-container');
+async function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
   const destinoLabel = destino?.classList?.contains('spot')
     ? _spotValueFromElement(destino)
     : (destino?.id === 'unidades-taller' ? 'TALLER' : 'LIMBO');
-  swapDiv.innerHTML = `
-    <div style="background:#fffbeb; border:2px solid #fbbf24; padding:15px; border-radius:18px; margin-top:15px;">
-      <p style="color:#92400e; font-weight:800; font-size:14px; text-align:center;">⚠️ ${destinoLabel} YA ESTÁ OCUPADO POR ${ocupante.dataset.mva}</p>
-      <button class="btn-swap-confirm" id="confirmSwapBtn">🔄 CONFIRMAR CAMBIO DE POSICIÓN</button>
-    </div>
-  `;
-  document.getElementById('confirmSwapBtn').onclick = () => {
-    const origenRef = moviendo.parentElement;
-    origenRef.appendChild(ocupante);
-    destino.appendChild(moviendo);
-    lastMoveTime = Date.now();
-    solicitarGuardadoProgresivo();
-    cerrarPanel();
-    actualizarContadores();
-  };
+  const ok = await mexConfirm(
+    'Confirmar intercambio',
+    `${destinoLabel} ya está ocupado por ${ocupante.dataset.mva}. ¿Intercambiar ${moviendo.dataset.mva} por ${ocupante.dataset.mva}?`,
+    'warning'
+  );
+  if (!ok) {
+    _renderSwapStatus();
+    return false;
+  }
+
+  const origenRef = moviendo.parentElement;
+  if (!origenRef || !destino) return false;
+  MAP_SWAP_MODE_ACTIVE = false;
+  origenRef.appendChild(ocupante);
+  destino.appendChild(moviendo);
+  lastMoveTime = Date.now();
+  solicitarGuardadoProgresivo();
+  cerrarPanel();
+  actualizarContadores();
+  return true;
 }
 
 function moverUnidadInmediato(unidad, destino) {
+  if (!unidad || !destino || unidad.parentElement === destino) return;
   MAP_SWAP_MODE_ACTIVE = false;
   destino.appendChild(unidad);
   lastMoveTime = Date.now();
@@ -8812,6 +9114,9 @@ let _chatAudioCtx = null;
 let _chatAnalyser = null;
 let _chatSpectrumRaf = null;
 let emojiPickerTarget = null;  // msgId for reaction picker
+let _chatReplyHoverTimers = new Map();
+let _profileAvatarCropState = null;
+let _globalShortcutsBound = false;
 
 function _chatUserName(value = '') {
   return String(value || '').trim().toUpperCase();
@@ -9090,6 +9395,273 @@ function _renderPerfilUsuarioActual() {
   if (removeBtn) removeBtn.disabled = !_getUserAvatarUrl(profile);
 }
 
+function _bindProfileAvatarCropStage() {
+  const stage = document.getElementById('profileAvatarCropStage');
+  if (!stage || stage.dataset.bound === '1') return;
+  stage.dataset.bound = '1';
+
+  let activePointerId = null;
+
+  const endDrag = event => {
+    if (!_profileAvatarCropState?.dragging) return;
+    _profileAvatarCropState.dragging = false;
+    if (activePointerId !== null && event?.pointerId === activePointerId) {
+      try { stage.releasePointerCapture(activePointerId); } catch (_) { }
+    }
+    activePointerId = null;
+  };
+
+  stage.addEventListener('pointerdown', event => {
+    if (!_profileAvatarCropState) return;
+    if (event.button !== undefined && event.button !== 0) return;
+    activePointerId = event.pointerId;
+    _profileAvatarCropState.dragging = true;
+    _profileAvatarCropState.dragStartX = event.clientX;
+    _profileAvatarCropState.dragStartY = event.clientY;
+    _profileAvatarCropState.dragOriginX = _profileAvatarCropState.offsetX;
+    _profileAvatarCropState.dragOriginY = _profileAvatarCropState.offsetY;
+    stage.setPointerCapture(event.pointerId);
+  });
+
+  stage.addEventListener('pointermove', event => {
+    if (!_profileAvatarCropState?.dragging || event.pointerId !== activePointerId) return;
+    event.preventDefault();
+    _profileAvatarCropState.offsetX = _profileAvatarCropState.dragOriginX + (event.clientX - _profileAvatarCropState.dragStartX);
+    _profileAvatarCropState.offsetY = _profileAvatarCropState.dragOriginY + (event.clientY - _profileAvatarCropState.dragStartY);
+    _renderProfileAvatarCrop();
+  });
+
+  stage.addEventListener('pointerup', endDrag);
+  stage.addEventListener('pointercancel', endDrag);
+  stage.addEventListener('lostpointercapture', endDrag);
+}
+
+function _profileAvatarCropMetrics() {
+  const stage = document.getElementById('profileAvatarCropStage');
+  if (!stage) return null;
+  const stageW = stage.clientWidth || 320;
+  const stageH = stage.clientHeight || 320;
+  const boxSize = Math.min(stageW, stageH) - 36;
+  const left = Math.round((stageW - boxSize) / 2);
+  const top = Math.round((stageH - boxSize) / 2);
+  return { stage, stageW, stageH, box: { left, top, size: boxSize } };
+}
+
+function _clampProfileAvatarCropOffsets() {
+  if (!_profileAvatarCropState) return;
+  const metrics = _profileAvatarCropMetrics();
+  if (!metrics) return;
+  const { box } = metrics;
+  const scaledW = _profileAvatarCropState.naturalW * _profileAvatarCropState.scale;
+  const scaledH = _profileAvatarCropState.naturalH * _profileAvatarCropState.scale;
+  const minX = box.left + box.size - scaledW;
+  const minY = box.top + box.size - scaledH;
+  const maxX = box.left;
+  const maxY = box.top;
+  _profileAvatarCropState.offsetX = Math.min(maxX, Math.max(minX, _profileAvatarCropState.offsetX));
+  _profileAvatarCropState.offsetY = Math.min(maxY, Math.max(minY, _profileAvatarCropState.offsetY));
+}
+
+function _drawRoundedRectPath(ctx, x, y, width, height, radius) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + width, y, x + width, y + height, r);
+  ctx.arcTo(x + width, y + height, x, y + height, r);
+  ctx.arcTo(x, y + height, x, y, r);
+  ctx.arcTo(x, y, x + width, y, r);
+  ctx.closePath();
+}
+
+function _drawProfileAvatarCropToCanvas(canvas, options = {}) {
+  if (!_profileAvatarCropState) return;
+  const { clip = 'square' } = options;
+  const img = document.getElementById('profileAvatarCropImage');
+  const metrics = _profileAvatarCropMetrics();
+  if (!canvas || !img || !metrics) return;
+
+  const { box } = metrics;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  const ratio = canvas.width / box.size;
+  const drawX = (_profileAvatarCropState.offsetX - box.left) * ratio;
+  const drawY = (_profileAvatarCropState.offsetY - box.top) * ratio;
+  const drawW = _profileAvatarCropState.naturalW * _profileAvatarCropState.scale * ratio;
+  const drawH = _profileAvatarCropState.naturalH * _profileAvatarCropState.scale * ratio;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.save();
+  if (clip === 'circle') {
+    ctx.beginPath();
+    ctx.arc(canvas.width / 2, canvas.height / 2, canvas.width / 2, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+  } else if (clip === 'rounded') {
+    _drawRoundedRectPath(ctx, 0, 0, canvas.width, canvas.height, canvas.width * 0.22);
+    ctx.clip();
+  }
+  ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  ctx.restore();
+}
+
+function _renderProfileAvatarCrop() {
+  if (!_profileAvatarCropState) return;
+  const img = document.getElementById('profileAvatarCropImage');
+  const zoomInput = document.getElementById('profileAvatarCropZoom');
+  const metrics = _profileAvatarCropMetrics();
+  if (!img || !metrics) return;
+
+  _clampProfileAvatarCropOffsets();
+  img.style.width = `${_profileAvatarCropState.naturalW * _profileAvatarCropState.scale}px`;
+  img.style.height = `${_profileAvatarCropState.naturalH * _profileAvatarCropState.scale}px`;
+  img.style.transform = `translate(${_profileAvatarCropState.offsetX}px, ${_profileAvatarCropState.offsetY}px)`;
+
+  if (zoomInput) zoomInput.value = String(_profileAvatarCropState.zoomFactor || 1);
+  _drawProfileAvatarCropToCanvas(document.getElementById('profileAvatarPreviewCircle'), { clip: 'circle' });
+  _drawProfileAvatarCropToCanvas(document.getElementById('profileAvatarPreviewCard'), { clip: 'rounded' });
+}
+
+function _resetProfileAvatarCropTransform() {
+  if (!_profileAvatarCropState) return;
+  const metrics = _profileAvatarCropMetrics();
+  if (!metrics) return;
+  const { box } = metrics;
+  const baseScale = Math.max(box.size / _profileAvatarCropState.naturalW, box.size / _profileAvatarCropState.naturalH);
+  _profileAvatarCropState.baseScale = baseScale;
+  _profileAvatarCropState.zoomFactor = 1;
+  _profileAvatarCropState.scale = baseScale;
+  _profileAvatarCropState.offsetX = box.left + (box.size - (_profileAvatarCropState.naturalW * _profileAvatarCropState.scale)) / 2;
+  _profileAvatarCropState.offsetY = box.top + (box.size - (_profileAvatarCropState.naturalH * _profileAvatarCropState.scale)) / 2;
+  _renderProfileAvatarCrop();
+}
+
+function _abrirRecorteAvatarPerfil(file, inputEl) {
+  const objectUrl = URL.createObjectURL(file);
+  const modal = document.getElementById('profile-avatar-crop-modal');
+  const img = document.getElementById('profileAvatarCropImage');
+  const zoomInput = document.getElementById('profileAvatarCropZoom');
+  if (!modal || !img || !zoomInput) return;
+
+  _cleanupProfileAvatarCropState({ preserveInput: true });
+  _profileAvatarCropState = {
+    file,
+    inputEl,
+    objectUrl,
+    naturalW: 0,
+    naturalH: 0,
+    baseScale: 1,
+    scale: 1,
+    zoomFactor: 1,
+    offsetX: 0,
+    offsetY: 0,
+    dragging: false
+  };
+
+  _bindProfileAvatarCropStage();
+  zoomInput.value = '1';
+  img.onload = () => {
+    if (!_profileAvatarCropState) return;
+    _profileAvatarCropState.naturalW = img.naturalWidth || 1;
+    _profileAvatarCropState.naturalH = img.naturalHeight || 1;
+    _resetProfileAvatarCropTransform();
+  };
+  img.src = objectUrl;
+  modal.classList.add('active');
+}
+
+function _cleanupProfileAvatarCropState(options = {}) {
+  const { preserveInput = false } = options;
+  const modal = document.getElementById('profile-avatar-crop-modal');
+  const img = document.getElementById('profileAvatarCropImage');
+  const zoomInput = document.getElementById('profileAvatarCropZoom');
+  const input = document.getElementById('profileAvatarInput');
+
+  if (_profileAvatarCropState?.objectUrl) {
+    URL.revokeObjectURL(_profileAvatarCropState.objectUrl);
+  }
+
+  _profileAvatarCropState = null;
+  if (modal) modal.classList.remove('active');
+  if (img) {
+    img.onload = null;
+    img.removeAttribute('src');
+    img.style.width = '';
+    img.style.height = '';
+    img.style.transform = '';
+  }
+  if (zoomInput) zoomInput.value = '1';
+  if (!preserveInput && input) input.value = '';
+}
+
+function ajustarZoomAvatarPerfil(value) {
+  if (!_profileAvatarCropState) return;
+  const zoomFactor = Math.max(1, Math.min(3, Number(value) || 1));
+  const metrics = _profileAvatarCropMetrics();
+  if (!metrics) return;
+  const { box } = metrics;
+
+  const prevScale = _profileAvatarCropState.scale;
+  const nextScale = _profileAvatarCropState.baseScale * zoomFactor;
+  const centerX = box.left + (box.size / 2);
+  const centerY = box.top + (box.size / 2);
+  const relX = (centerX - _profileAvatarCropState.offsetX) / prevScale;
+  const relY = (centerY - _profileAvatarCropState.offsetY) / prevScale;
+
+  _profileAvatarCropState.zoomFactor = zoomFactor;
+  _profileAvatarCropState.scale = nextScale;
+  _profileAvatarCropState.offsetX = centerX - (relX * nextScale);
+  _profileAvatarCropState.offsetY = centerY - (relY * nextScale);
+  _renderProfileAvatarCrop();
+}
+
+function cancelarRecorteAvatarPerfil() {
+  _cleanupProfileAvatarCropState();
+}
+
+async function _subirBlobAvatarPerfil(fileBlob, contentType = 'image/jpeg') {
+  const docId = _currentUserDocId();
+  if (!fileBlob || !docId) return;
+
+  const avatarPath = `profile_avatars/${docId}/avatar`;
+  const previousPath = String(currentUserProfile?.avatarPath || '').trim();
+  const previousUrl = String(currentUserProfile?.avatarUrl || '').trim();
+
+  showToast('Subiendo foto de perfil...', 'info');
+  const ref = firebase.storage().ref(avatarPath);
+  await ref.put(fileBlob, { contentType });
+  const avatarUrl = await ref.getDownloadURL();
+
+  const payload = {
+    avatarUrl,
+    avatarPath,
+    photoURL: avatarUrl,
+    fotoURL: avatarUrl,
+    profilePhotoUrl: avatarUrl
+  };
+
+  await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+  if (previousPath && previousPath !== avatarPath) {
+    firebase.storage().ref(previousPath).delete().catch(() => { });
+  } else if (!previousPath && previousUrl && previousUrl !== avatarUrl) {
+    firebase.storage().refFromURL(previousUrl).delete().catch(() => { });
+  }
+
+  if (auth.currentUser?.updateProfile) {
+    auth.currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => { });
+  }
+
+  currentUserProfile = { ...(currentUserProfile || {}), ...payload };
+  window.CURRENT_USER_PROFILE = currentUserProfile;
+  _actualizarIdentidadSidebarUsuario();
+  _renderPerfilUsuarioActual();
+  if (document.getElementById('buzon-modal')?.classList.contains('active')) {
+    renderContactos();
+    if (activeChatUser) _actualizarHeaderChatActivo();
+  }
+  showToast('Foto de perfil actualizada.', 'success');
+}
+
 function abrirPerfilUsuario() {
   if (!currentUserProfile && !window.CURRENT_USER_PROFILE) {
     showToast('Tu perfil todavía no está listo. Intenta de nuevo en unos segundos.', 'warning');
@@ -9103,12 +9675,12 @@ function cerrarPerfilUsuario() {
   document.getElementById('perfil-modal')?.classList.remove('active');
   const input = document.getElementById('profileAvatarInput');
   if (input) input.value = '';
+  cancelarRecorteAvatarPerfil();
 }
 
-async function subirAvatarPerfil(inputEl) {
+function subirAvatarPerfil(inputEl) {
   const file = inputEl?.files?.[0];
-  const docId = _currentUserDocId();
-  if (!file || !docId) return;
+  if (!file || !_currentUserDocId()) return;
 
   if (!(file.type || '').startsWith('image/')) {
     showToast('Selecciona una imagen válida para tu perfil.', 'error');
@@ -9122,49 +9694,38 @@ async function subirAvatarPerfil(inputEl) {
     return;
   }
 
-  const avatarPath = `profile_avatars/${docId}/avatar`;
-  const previousPath = String(currentUserProfile?.avatarPath || '').trim();
-  const previousUrl = String(currentUserProfile?.avatarUrl || '').trim();
+  _abrirRecorteAvatarPerfil(file, inputEl);
+}
+
+async function guardarAvatarRecortadoPerfil() {
+  if (!_profileAvatarCropState) return;
+  const saveBtn = document.getElementById('profileAvatarCropSaveBtn');
+  const prevHtml = saveBtn?.innerHTML || '';
 
   try {
-    showToast('Subiendo foto de perfil...', 'info');
-    const ref = firebase.storage().ref(avatarPath);
-    await ref.put(file, { contentType: file.type || 'image/jpeg' });
-    const avatarUrl = await ref.getDownloadURL();
-
-    const payload = {
-      avatarUrl,
-      avatarPath,
-      photoURL: avatarUrl,
-      fotoURL: avatarUrl,
-      profilePhotoUrl: avatarUrl
-    };
-
-    await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
-    if (previousPath && previousPath !== avatarPath) {
-      firebase.storage().ref(previousPath).delete().catch(() => { });
-    } else if (!previousPath && previousUrl && previousUrl !== avatarUrl) {
-      firebase.storage().refFromURL(previousUrl).delete().catch(() => { });
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="material-icons spinner" style="font-size:16px;">sync</span> Guardando...';
     }
 
-    if (auth.currentUser?.updateProfile) {
-      auth.currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => { });
-    }
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    _drawProfileAvatarCropToCanvas(canvas, { clip: 'square' });
 
-    currentUserProfile = { ...(currentUserProfile || {}), ...payload };
-    window.CURRENT_USER_PROFILE = currentUserProfile;
-    _actualizarIdentidadSidebarUsuario();
-    _renderPerfilUsuarioActual();
-    if (document.getElementById('buzon-modal')?.classList.contains('active')) {
-      renderContactos();
-      if (activeChatUser) _actualizarHeaderChatActivo();
-    }
-    showToast('Foto de perfil actualizada.', 'success');
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+    if (!blob) throw new Error('No se pudo generar el recorte del avatar');
+
+    await _subirBlobAvatarPerfil(blob, 'image/jpeg');
+    _cleanupProfileAvatarCropState();
   } catch (error) {
-    console.error('No se pudo subir el avatar del perfil:', error);
-    showToast('No se pudo subir tu foto de perfil.', 'error');
+    console.error('No se pudo guardar el avatar recortado:', error);
+    showToast('No se pudo guardar tu foto recortada.', 'error');
   } finally {
-    inputEl.value = '';
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      saveBtn.innerHTML = prevHtml || '<span class="material-icons" style="font-size:18px;">check</span> Guardar Foto';
+    }
   }
 }
 
@@ -9487,6 +10048,28 @@ function cerrarChat() {
   renderContactos(); // Refresca los snippets
 }
 
+function _setChatReplyHoverState(bubbleId, visible) {
+  const bubble = document.getElementById(`bubble-${bubbleId}`);
+  if (!bubble) return;
+
+  const prevTimer = _chatReplyHoverTimers.get(bubbleId);
+  if (prevTimer) {
+    clearTimeout(prevTimer);
+    _chatReplyHoverTimers.delete(bubbleId);
+  }
+
+  if (visible) {
+    bubble.classList.add('reply-visible');
+    return;
+  }
+
+  const timer = setTimeout(() => {
+    bubble.classList.remove('reply-visible');
+    _chatReplyHoverTimers.delete(bubbleId);
+  }, 1500);
+  _chatReplyHoverTimers.set(bubbleId, timer);
+}
+
 function renderChatWindow() {
   const container = document.getElementById('chat-messages-container');
   if (!container) return;
@@ -9601,8 +10184,10 @@ function renderChatWindow() {
 
     return `
        <div class="chat-bubble ${typeClass}" id="bubble-${mIdSafe}"
-         onmouseover="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 1 : null"
-         onmouseleave="this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 0 : null">
+         onmouseenter="_setChatReplyHoverState('${mIdSafe}', true); this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 1 : null"
+         onmouseleave="_setChatReplyHoverState('${mIdSafe}', false); this.querySelector('.chat-options-menu') ? this.querySelector('.chat-options-menu').style.opacity = 0 : null"
+         onfocusin="_setChatReplyHoverState('${mIdSafe}', true)"
+         onfocusout="_setChatReplyHoverState('${mIdSafe}', false)">
           ${replyHtml}${contenido}${fileHtml}
           ${opcionesNav}
           ${replyBtn}
@@ -14318,6 +14903,7 @@ Object.assign(window, {
   abrirUltimoCuadre,
   abrirUsuarios,
   activarAlertaOlvidados,
+  activarModoSwap,
   actualizarContadores,
   actualizarEstadoArchivosAdmin,
   actualizarFechaResumen,
@@ -14359,6 +14945,7 @@ Object.assign(window, {
   canViewAdminCuadre,
   cancelarArchivoChat,
   cancelarAudioChat,
+  cancelarRecorteAvatarPerfil,
   cancelarRespuestaChat,
   cargarFlota,
   cargarLogsAuditoria,
@@ -14398,6 +14985,7 @@ Object.assign(window, {
   descargarArchivoLocal,
   descargarPDFPrediccion,
   dibujarMapaCompleto,
+  desactivarModoSwap,
   editarAlertaDesdeHistorial,
   editarElementoConfig,
   editarMensajeChat,
@@ -14639,5 +15227,8 @@ Object.assign(window, {
   cerrarPerfilUsuario,
   eliminarAvatarPerfil,
   limpiarFiltrosChat,
+  guardarAvatarRecortadoPerfil,
   subirAvatarPerfil,
+  ajustarZoomAvatarPerfil,
+  _setChatReplyHoverState,
 });

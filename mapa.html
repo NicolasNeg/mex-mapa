@@ -2887,7 +2887,7 @@
         <div class="profile-modal-actions">
           <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
             <span class="material-icons" style="font-size:18px;">photo_camera</span>
-            Subir Imagen
+            Subir y Recortar
           </button>
           <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
             <span class="material-icons" style="font-size:18px;">delete</span>
@@ -2980,7 +2980,94 @@
               <span class="profile-setting-toggle is-on"></span>
             </div>
           </section>
+
+          <section class="profile-settings-card profile-shortcuts-card">
+            <div class="profile-settings-head">
+              <div class="profile-settings-icon">
+                <span class="material-icons" style="font-size:20px;">keyboard_command_key</span>
+              </div>
+              <div>
+                <div class="profile-settings-title">Accesos rápidos</div>
+                <p class="profile-settings-sub">Atajos activos para moverte más rápido en escritorio.</p>
+              </div>
+              <span class="profile-settings-badge">Activos</span>
+            </div>
+            <div class="profile-shortcut-list">
+              <div class="profile-shortcut-item">
+                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>C</kbd></div>
+                <span>Abrir cuadre</span>
+              </div>
+              <div class="profile-shortcut-item">
+                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>M</kbd></div>
+                <span>Abrir mensajes</span>
+              </div>
+              <div class="profile-shortcut-item">
+                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>P</kbd></div>
+                <span>Abrir perfil</span>
+              </div>
+              <div class="profile-shortcut-item">
+                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>R</kbd></div>
+                <span>Resumen de flota</span>
+              </div>
+              <div class="profile-shortcut-item">
+                <div class="profile-shortcut-keys"><kbd>/</kbd></div>
+                <span>Enfocar buscador del mapa</span>
+              </div>
+              <div class="profile-shortcut-item">
+                <div class="profile-shortcut-keys"><kbd>Esc</kbd></div>
+                <span>Cerrar panel o modal activo</span>
+              </div>
+            </div>
+          </section>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="profile-avatar-crop-modal" class="modal-overlay profile-avatar-crop-modal" onclick="if(event.target===this) cancelarRecorteAvatarPerfil()">
+    <div class="profile-avatar-crop-card">
+      <div class="profile-avatar-crop-head">
+        <div>
+          <div class="profile-modal-kicker" style="margin-bottom:6px; color:#94a3b8;">Tu Avatar</div>
+          <h3 class="profile-avatar-crop-title">Recorta tu foto</h3>
+          <p class="profile-avatar-crop-sub">Arrastra y acerca la imagen para ver exactamente cómo se verá tu perfil.</p>
+        </div>
+        <button class="profile-modal-close" onclick="cancelarRecorteAvatarPerfil()" style="background:#f1f5f9; color:#334155;">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+
+      <div class="profile-avatar-crop-body">
+        <div class="profile-avatar-crop-stage-wrap">
+          <div id="profileAvatarCropStage" class="profile-avatar-crop-stage">
+            <img id="profileAvatarCropImage" class="profile-avatar-crop-image" alt="Recorte de avatar">
+            <div class="profile-avatar-crop-mask"></div>
+          </div>
+          <div class="profile-avatar-crop-controls">
+            <label for="profileAvatarCropZoom">Zoom</label>
+            <input id="profileAvatarCropZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="ajustarZoomAvatarPerfil(this.value)">
+            <p>Tip: mantén presionado y arrastra la foto. Funciona con mouse y touch.</p>
+          </div>
+        </div>
+
+        <div class="profile-avatar-preview-panel">
+          <div class="profile-avatar-preview-card">
+            <span class="profile-avatar-preview-label">Vista chat</span>
+            <canvas id="profileAvatarPreviewCircle" width="96" height="96"></canvas>
+          </div>
+          <div class="profile-avatar-preview-card">
+            <span class="profile-avatar-preview-label">Vista perfil</span>
+            <canvas id="profileAvatarPreviewCard" width="112" height="112"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="profile-avatar-crop-actions">
+        <button class="profile-modal-btn" onclick="cancelarRecorteAvatarPerfil()">Cancelar</button>
+        <button id="profileAvatarCropSaveBtn" class="profile-modal-btn primary" onclick="guardarAvatarRecortadoPerfil()">
+          <span class="material-icons" style="font-size:18px;">check</span>
+          Guardar Foto
+        </button>
       </div>
     </div>
   </div>
