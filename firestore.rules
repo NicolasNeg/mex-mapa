@@ -101,7 +101,7 @@ service cloud.firestore {
     }
 
     function puedeEditarCuadreAdmins() {
-      return rolActual() == "JEFE_REGIONAL" || esAccesoTotal();
+      return esAdminOperativo();
     }
 
     function puedeGestionarFlotaMaestra() {

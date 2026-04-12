@@ -89,28 +89,159 @@ function _configPlazaRef(plaza) {
   return db.collection('configuracion').doc((plaza || '').toUpperCase().trim());
 }
 
+const DEFAULT_PLAZA_LOCATIONS = Object.freeze([
+  { nombre: "PATIO", isPlazaFija: true },
+  { nombre: "TALLER", isPlazaFija: true },
+  { nombre: "AGENCIA", isPlazaFija: true },
+  { nombre: "TALLER EXTERNO", isPlazaFija: true },
+  { nombre: "HYP COBIAN", isPlazaFija: true },
+  { nombre: "OTRA PLAZA", isPlazaFija: true }
+]);
+
+function _normalizePlazaId(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function _inferPlazaId(data = {}) {
+  return _normalizePlazaId(
+    data.plaza
+    || data.plazaId
+    || data.plazaAsignada
+    || data.sucursalAsignada
+    || data.sucursal
+  );
+}
+
+function _matchesPlaza(data = {}, plaza) {
+  const plazaUp = _normalizePlazaId(plaza);
+  if (!plazaUp) return true;
+  return _inferPlazaId(data) === plazaUp;
+}
+
+function _normalizePlazaLocationItem(item, plaza) {
+  const plazaUp = _normalizePlazaId(plaza);
+  const raw = typeof item === 'object' && item !== null ? item : { nombre: String(item || '').trim() };
+  const nombre = _sanitizeText(raw.nombre || raw.id || (typeof item === 'string' ? item : ''));
+  if (!nombre) return null;
+  const nombreUp = nombre.toUpperCase();
+  return {
+    nombre: nombreUp,
+    isPlazaFija: typeof raw.isPlazaFija === 'boolean' ? raw.isPlazaFija : ADMIN_FIXED_LOCATIONS.has(nombreUp),
+    plazaId: plazaUp
+  };
+}
+
+function _buildDefaultPlazaLocations(plaza) {
+  return DEFAULT_PLAZA_LOCATIONS
+    .map(item => _normalizePlazaLocationItem(item, plaza))
+    .filter(Boolean);
+}
+
+function _buildDefaultPlazaSettings() {
+  return {
+    mapaBloqueado: false,
+    estadoCuadreV3: "LIBRE",
+    adminIniciador: "",
+    liveFeed: JSON.stringify([]),
+    ultimaModificacion: _now(),
+    ultimoEditor: "Sistema"
+  };
+}
+
+function _buildDefaultPlazaDetalle(plaza) {
+  const plazaUp = _normalizePlazaId(plaza);
+  return {
+    id: plazaUp,
+    nombre: plazaUp,
+    descripcion: "",
+    localidad: "",
+    direccion: "",
+    mapsUrl: "",
+    correo: "",
+    telefono: "",
+    gerente: "",
+    correoGerente: "",
+    contactos: []
+  };
+}
+
+async function _ensurePlazaBootstrap(plaza) {
+  const plazaUp = _normalizePlazaId(plaza);
+  if (!plazaUp || plazaUp === 'GLOBAL') return;
+
+  const empresaRef = db.collection(COL.CONFIG).doc('empresa');
+  const plazaRef = _configPlazaRef(plazaUp);
+  const settingsRef = _settingsDoc(plazaUp);
+  const estructuraRef = db.collection(COL.MAPA_CFG).doc(plazaUp).collection('estructura');
+
+  const [empresaSnap, plazaSnap, settingsSnap, estructuraSnap] = await Promise.all([
+    empresaRef.get(),
+    plazaRef.get(),
+    settingsRef.get(),
+    estructuraRef.limit(1).get()
+  ]);
+
+  const writes = [];
+
+  const empresa = empresaSnap.exists ? (empresaSnap.data() || {}) : {};
+  const plazas = Array.isArray(empresa.plazas) ? [...empresa.plazas] : [];
+  if (!plazas.includes(plazaUp)) plazas.push(plazaUp);
+
+  const plazasDetalle = Array.isArray(empresa.plazasDetalle) ? [...empresa.plazasDetalle] : [];
+  if (!plazasDetalle.some(item => _normalizePlazaId(item?.id) === plazaUp)) {
+    plazasDetalle.push(_buildDefaultPlazaDetalle(plazaUp));
+  }
+
+  if (!empresaSnap.exists || plazas.length !== (empresa.plazas || []).length || plazasDetalle.length !== (empresa.plazasDetalle || []).length) {
+    writes.push(
+      empresaRef.set({
+        plazas,
+        plazasDetalle
+      }, { merge: true })
+    );
+  }
+
+  const plazaData = plazaSnap.exists ? (plazaSnap.data() || {}) : {};
+  if (!Array.isArray(plazaData.ubicaciones) || plazaData.ubicaciones.length === 0) {
+    writes.push(
+      plazaRef.set({
+        ubicaciones: _buildDefaultPlazaLocations(plazaUp)
+      }, { merge: true })
+    );
+  }
+
+  if (!settingsSnap.exists || Object.keys(settingsSnap.data() || {}).length === 0) {
+    writes.push(
+      settingsRef.set(_buildDefaultPlazaSettings(), { merge: true })
+    );
+  }
+
+  if (estructuraSnap.empty) {
+    const batch = db.batch();
+    _generarEstructuraPorDefecto().forEach((el, idx) => {
+      batch.set(estructuraRef.doc(`cel_${el.orden ?? idx}`), el);
+    });
+    writes.push(batch.commit());
+  }
+
+  if (writes.length > 0) {
+    await Promise.all(writes);
+  }
+}
+
 // Busca una unidad en las colecciones planas.
 // Si se pasa plaza busca primero con filtro. Si no encuentra (o no se pasó plaza),
 // busca docs que NO tengan campo plaza (legacy sin stampear).
 // NUNCA devuelve un doc de otra plaza cuando se especifica plaza.
 async function _buscarUnidadEnSubcol(mvaStr, plaza) {
-  const plazaUp = (plaza || '').toUpperCase().trim();
+  const plazaUp = _normalizePlazaId(plaza);
   if (plazaUp) {
-    // 1. Buscar doc que tenga campo plaza correcto
-    let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
-    if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
-    snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
-    if (!snap.empty) return { ref: snap.docs[0].ref, data: snap.docs[0].data() };
-    // 2. Fallback SOLO a docs sin campo plaza (legacy). Si tiene plaza de otra sucursal → ignorar.
-    let legSnap = await db.collection(COL.CUADRE).where('mva', '==', mvaStr).limit(5).get();
-    for (const d of legSnap.docs) {
-      const dp = (d.data().plaza || d.data().sucursal || '').toUpperCase().trim();
-      if (!dp || dp === plazaUp) return { ref: d.ref, data: d.data() };
-    }
-    legSnap = await db.collection(COL.EXTERNOS).where('mva', '==', mvaStr).limit(5).get();
-    for (const d of legSnap.docs) {
-      const dp = (d.data().plaza || d.data().sucursal || '').toUpperCase().trim();
-      if (!dp || dp === plazaUp) return { ref: d.ref, data: d.data() };
+    const [cuadreSnap, externosSnap] = await Promise.all([
+      db.collection(COL.CUADRE).where('mva', '==', mvaStr).limit(10).get(),
+      db.collection(COL.EXTERNOS).where('mva', '==', mvaStr).limit(10).get()
+    ]);
+    for (const d of [...cuadreSnap.docs, ...externosSnap.docs]) {
+      if (_matchesPlaza(d.data(), plazaUp)) return { ref: d.ref, data: d.data() };
     }
     return null;
   }
@@ -146,7 +277,7 @@ async function backfillPlazaEnUnidades(onProgress) {
         // Ya tiene plaza correcta → skip
         if (data.plaza && data.plaza.trim()) { informe.skipped++; done++; continue; }
         // Inferir de otros campos
-        const inferred = (data.sucursal || data.plazaAsignada || data.plazaId || '').toUpperCase().trim();
+        const inferred = _inferPlazaId(data);
         if (!inferred) { informe.skipped++; done++; continue; }
         batch.update(d.ref, { plaza: inferred });
         informe.stamped++;
@@ -538,8 +669,9 @@ async function _uploadIncidentAttachments(filesLike, docId, author) {
     const safeName = _sanitizeStorageSegment(file.name || `archivo-${_ts()}`);
     const path = `${NOTE_ATTACHMENT_FOLDER}/${docId}/${Date.now()}-${safeName}`;
     const ref = storage.ref(path);
+    const contentType = _resolveUploadContentType(file);
     const snapshot = await ref.put(file, {
-      contentType: file.type || "application/octet-stream",
+      contentType,
       customMetadata: { uploadedBy }
     });
     const url = await snapshot.ref.getDownloadURL();
@@ -555,6 +687,22 @@ async function _uploadIncidentAttachments(filesLike, docId, author) {
   }
 
   return uploads;
+}
+
+function _resolveUploadContentType(file = {}) {
+  const explicit = _sanitizeText(file.type || '');
+  if (explicit) return explicit;
+
+  const name = String(file.name || '').trim().toLowerCase();
+  if (name.endsWith('.pdf')) return 'application/pdf';
+  if (name.endsWith('.doc')) return 'application/msword';
+  if (name.endsWith('.docx')) return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  if (name.endsWith('.png')) return 'image/png';
+  if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+  if (name.endsWith('.webp')) return 'image/webp';
+  if (name.endsWith('.heic')) return 'image/heic';
+  if (name.endsWith('.heif')) return 'image/heif';
+  return 'application/octet-stream';
 }
 
 async function _uploadAdminEvidenceFiles(filesLike, docId, author) {
@@ -576,8 +724,9 @@ async function _uploadAdminEvidenceFiles(filesLike, docId, author) {
     const safeName = _sanitizeStorageSegment(file.name || `evidencia-${_ts()}`);
     const path = `${EVIDENCE_FOLDER}/${docId}/${Date.now()}-${safeName}`;
     const ref = storage.ref(path);
+    const contentType = _resolveUploadContentType(file);
     const snapshot = await ref.put(file, {
-      contentType: file.type || "application/octet-stream",
+      contentType,
       customMetadata: { uploadedBy }
     });
     const url = await snapshot.ref.getDownloadURL();
@@ -602,7 +751,7 @@ function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
   const adminResponsable = _sanitizeText(
     payload.adminResponsable || payload._updatedBy || payload._createdBy || payload.autor
   ) || "Sistema";
-  const plaza = _sanitizeText(payload.plaza || payload.sucursal || payload.plazaAsignada).toUpperCase();
+  const plaza = _inferPlazaId(payload);
   const notas = payload.borrarNotas ? "" : _sanitizeText(payload.notas || payload.nota || payload.observaciones || "");
   const responsable = _resolveAdminResponsibleValue({
     ...payload,
@@ -618,6 +767,7 @@ function _buildCuadreAdminPayload(datos = {}, evidencias = []) {
   delete payload.evidenceFiles;
   delete payload.borrarNotas;
   payload.plaza = plaza;
+  payload.plazaId = plaza;
   payload.notas = notas;
   payload.adminResponsable = adminResponsable;
   payload.responsable = responsable;
@@ -646,7 +796,7 @@ async function _normalizeCuadreAdminRecord(docId, data = {}) {
     ..._normalizeEvidenceItems(data.evidencias || [])
   ]));
   const principal = evidencias[0] || null;
-  const plaza = _sanitizeText(data.plaza || data.sucursal || data.plazaAsignada).toUpperCase();
+  const plaza = _inferPlazaId(data);
   const adminResponsable = _sanitizeText(
     data.adminResponsable || data._updatedBy || data._createdBy || data.autor
   );
@@ -670,6 +820,7 @@ async function _normalizeCuadreAdminRecord(docId, data = {}) {
     fila: docId,
     ...data,
     plaza,
+    plazaId: plaza,
     categoria,
     categ: categoria || _sanitizeText(data.categ),
     modelo,
@@ -705,6 +856,28 @@ async function _normalizeCuadreAdminRecord(docId, data = {}) {
       adminResponsable
     ].filter(Boolean).join(" ").toUpperCase()
   };
+}
+
+async function _resolveCuadreAdminDocId(mva, plaza) {
+  const baseDocId = _mvaToDocId(_sanitizeText(mva).toUpperCase());
+  const plazaUp = _normalizePlazaId(plaza);
+  const snap = await db.collection(COL.CUADRE_ADM).where('mva', '==', _sanitizeText(mva).toUpperCase()).get();
+
+  const samePlaza = snap.docs.find(doc => _matchesPlaza(doc.data(), plazaUp));
+  if (samePlaza) {
+    return { duplicate: true, docId: samePlaza.id };
+  }
+
+  const usedIds = new Set(snap.docs.map(doc => String(doc.id || '').toUpperCase()));
+  if (!usedIds.has(baseDocId.toUpperCase())) {
+    return { duplicate: false, docId: baseDocId };
+  }
+
+  let idx = 1;
+  while (usedIds.has(`${baseDocId}_${idx}`.toUpperCase())) {
+    idx += 1;
+  }
+  return { duplicate: false, docId: `${baseDocId}_${idx}` };
 }
 
 async function subirEvidenciaAdmin(file, rutaStorage) {
@@ -752,6 +925,10 @@ function _resolverEstadoBloqueoMapa(settingsPlaza = {}, settingsGlobal = {}) {
   };
 }
 async function _getSettings(plaza) {
+  const plazaUp = _normalizePlazaId(plaza);
+  if (plazaUp && plazaUp !== 'GLOBAL') {
+    await _ensurePlazaBootstrap(plazaUp);
+  }
   const snap = await _settingsDoc(plaza).get(); // [F1]
   return snap.exists ? snap.data() : {};
 }
@@ -894,7 +1071,7 @@ const API_FUNCTIONS = {
 
   // [F1] suscribirMapaPlaza — colecciones planas filtradas por campo plaza
   suscribirMapaPlaza(plaza, callback) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     if (!plazaUp) return this.suscribirMapa(callback);
 
     let cuadreDocs = [], externosDocs = [];
@@ -919,7 +1096,7 @@ const API_FUNCTIONS = {
     const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
       const bootstrap = !cuadreReady || !externosReady;
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      cuadreDocs = all.filter(u => !u.plaza || u.plaza.toUpperCase() === plazaUp);
+      cuadreDocs = all.filter(u => _matchesPlaza(u, plazaUp));
       cuadreReady = true;
       emitir(bootstrap && externosReady);
     }, err => console.error("onSnapshot cuadre:", err));
@@ -927,7 +1104,7 @@ const API_FUNCTIONS = {
     const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
       const bootstrap = !cuadreReady || !externosReady;
       const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      externosDocs = all.filter(u => !u.plaza || u.plaza.toUpperCase() === plazaUp);
+      externosDocs = all.filter(u => _matchesPlaza(u, plazaUp));
       externosReady = true;
       emitir(bootstrap && cuadreReady);
     }, err => console.error("onSnapshot externos:", err));
@@ -936,16 +1113,16 @@ const API_FUNCTIONS = {
   },
 
   async obtenerDatosParaMapa(plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     // [F1] Colecciones planas filtradas por campo plaza
     // Traer todo y filtrar client-side (compatibilidad con docs legacy sin campo plaza)
     const [cuadreSnap, externosSnap] = await Promise.all([
       db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
     ]);
     const cuadreDocs2 = cuadreSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => !plazaUp || !u.plaza || u.plaza.toUpperCase() === plazaUp);
+      .filter(u => _matchesPlaza(u, plazaUp));
     const externosDocs2 = externosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-      .filter(u => !plazaUp || !u.plaza || u.plaza.toUpperCase() === plazaUp);
+      .filter(u => _matchesPlaza(u, plazaUp));
     return { unidades: [
       ...cuadreDocs2
         .filter(u => u.mva && (u.ubicacion === "PATIO" || u.ubicacion === "TALLER"))
@@ -961,11 +1138,13 @@ const API_FUNCTIONS = {
   // Legacy fallback:   mapa_config/cel_N  (datos anteriores al cambio)
 
   async obtenerEstructuraMapa(plaza) {
-    const p = (plaza || '').toUpperCase().trim();
+    const p = _normalizePlazaId(plaza);
     // [F1-B] mapa_config/{plazaId}/estructura/{cel}
     if (p) {
+      await _ensurePlazaBootstrap(p);
       const snap = await db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden').get();
       if (!snap.empty) return snap.docs.map(d => d.data());
+      return _generarEstructuraPorDefecto();
     }
     // Fallback: colección legacy (documentos raíz cuyo ID empieza con "cel_")
     const legSnap = await db.collection(COL.MAPA_CFG).orderBy('orden').get();
@@ -975,19 +1154,13 @@ const API_FUNCTIONS = {
   },
 
   suscribirEstructuraMapa(callback, plaza) {
-    const p = (plaza || '').toUpperCase().trim();
+    const p = _normalizePlazaId(plaza);
     // [F1-B] mapa_config/{plazaId}/estructura/{cel}
     if (p) {
-      let fallbackCalled = false;
+      _ensurePlazaBootstrap(p).catch(err => console.warn("No se pudo bootstrapear la plaza:", p, err));
       return db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden')
         .onSnapshot(snap => {
-          if (!snap.empty) { fallbackCalled = false; callback(snap.docs.map(d => d.data())); return; }
-          if (fallbackCalled) return;
-          fallbackCalled = true;
-          db.collection(COL.MAPA_CFG).orderBy('orden').get().then(legSnap => {
-            const legDocs = legSnap.docs.filter(d => d.id.startsWith('cel_'));
-            callback(legDocs.length > 0 ? legDocs.map(d => d.data()) : _generarEstructuraPorDefecto());
-          }).catch(() => callback(_generarEstructuraPorDefecto()));
+          callback(!snap.empty ? snap.docs.map(d => d.data()) : _generarEstructuraPorDefecto());
         }, err => console.error('onSnapshot mapa_cfg:', err));
     }
     // Sin plaza → suscribir legacy collection
@@ -1036,7 +1209,7 @@ const API_FUNCTIONS = {
   // ─── MODIFICACIONES ──────────────────────────────────────
   async aplicarEstado(mva, estado, ubi, gas, notasFormulario, borrarNotas, nombreAutor, responsableSesion, plaza) {
     const mvaStr = mva.toString().trim().toUpperCase();
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
 
     let docRef = null, actual = null;
 
@@ -1176,7 +1349,7 @@ const API_FUNCTIONS = {
   },
 
   async ejecutarEliminacion(listaMvas, responsableSesion, plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     for (const mva of listaMvas) {
       const mvaStr = mva.toString().trim().toUpperCase();
       let eliminado = false;
@@ -1204,7 +1377,7 @@ const API_FUNCTIONS = {
   },
 
   async guardarNuevasPosiciones(reporte, usuarioResponsable, plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     const batch = db.batch();
     const histBatch = [];
 
@@ -1275,7 +1448,8 @@ const API_FUNCTIONS = {
   },
 
   // ─── TABLA DE FLOTA ───────────────────────────────────────
-  async obtenerUnidadesVeloz() {
+  async obtenerUnidadesVeloz(plaza) {
+    const plazaUp = _normalizePlazaId(plaza);
     // [F1] Lee de colecciones planas cuadre + externos + index
     const [cuadre, externos, index] = await Promise.all([
       db.collection(COL.CUADRE).get(),
@@ -1286,32 +1460,40 @@ const API_FUNCTIONS = {
     const vistos = new Set();
     [...cuadre.docs, ...externos.docs].forEach(d => {
       const u = d.data();
-      if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); }
+      if (!u.mva || vistos.has(u.mva) || !_matchesPlaza(u, plazaUp)) return;
+      vistos.add(u.mva);
+      lista.push(u);
     });
-    index.docs.forEach(d => { const u = d.data(); if (u.mva && !vistos.has(u.mva)) { vistos.add(u.mva); lista.push(u); } });
+    index.docs.forEach(d => {
+      const u = d.data();
+      if (!u.mva || vistos.has(u.mva) || !_matchesPlaza(u, plazaUp)) return;
+      vistos.add(u.mva);
+      lista.push(u);
+    });
     return lista;
   },
 
-  async obtenerDatosFlotaConsola() {
+  async obtenerDatosFlotaConsola(plaza) {
+    const plazaUp = _normalizePlazaId(plaza);
     // [F1] Colecciones planas raíz
     const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
     const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
     const lista = [
       ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })).filter(u => u.mva),
       ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva)
-    ];
+    ].filter(u => _matchesPlaza(u, plazaUp));
     lista.forEach(u => { u.orden = ORDEN[(u.estado || "").toUpperCase()] || 99; });
     lista.sort((a, b) => (a.orden - b.orden) || (a.mva || "").localeCompare(b.mva || ""));
     return lista;
   },
 
   async obtenerCuadreAdminsData(plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     // [F1] Colección plana cuadre_admins filtrada por plaza
     let snap;
     // [F1] Filtro client-side para evitar índice compuesto plaza+_createdAt
     snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
-    const allDocs = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp);
+    const allDocs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
     return Promise.all(allDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
   },
 
@@ -1329,14 +1511,11 @@ const API_FUNCTIONS = {
           ...datos, mva, _createdAt: _now(), _createdBy: actor
         }, manualEvidence);
         if (!payload.plaza) return "ERROR: Falta la plaza operativa para registrar en Cuadre Admins.";
-        const plazaUp = payload.plaza.toUpperCase().trim();
+        const plazaUp = _normalizePlazaId(payload.plaza);
+        const docResolution = await _resolveCuadreAdminDocId(mva, plazaUp);
+        if (docResolution.duplicate) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins para la plaza ${plazaUp}.`;
 
-        // [F1] Verificar duplicado en colección plana cuadre_admins con campo plaza
-        const dupSnap = await db.collection(COL.CUADRE_ADM).where("plaza", "==", plazaUp).where("mva", "==", mva).limit(1).get(); // [F1]
-        if (!dupSnap.empty) return `DUPLICADO: La unidad ${mva} ya está registrada en Cuadre Admins.`;
-
-        // [F1] Insertar con .add() en colección plana (Firestore genera ID automático)
-        const newRef = db.collection(COL.CUADRE_ADM).doc(); // [F1]
+        const newRef = db.collection(COL.CUADRE_ADM).doc(docResolution.docId);
         const uploadedEvidence = await _uploadAdminEvidenceFiles(evidenceFiles, newRef.id, actor);
         const finalPayload = _buildCuadreAdminPayload({
           ...datos, mva, _createdAt: _now(), _createdBy: actor
@@ -1631,15 +1810,15 @@ const API_FUNCTIONS = {
 
   // ─── NOTAS ───────────────────────────────────────────────
   async obtenerTodasLasNotas(plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     const snap = await db.collection(COL.NOTAS).orderBy("timestamp", "desc").get();
-    const docs = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp);
+    const docs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
     return docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
   },
   suscribirNotasAdmin(callback, plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     return db.collection(COL.NOTAS).orderBy("timestamp", "desc").onSnapshot(snap => {
-      const docs = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp);
+      const docs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
       callback(docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
     }, err => console.error("onSnapshot notas_admin:", err));
   },
@@ -1723,24 +1902,17 @@ const API_FUNCTIONS = {
   },
 
   // ─── RESUMEN FLOTA ──────────────────────────────────────
-  async obtenerResumenFlotaPatio() {
-    let cuadreUnits = [], externosUnits = [];
-    try {
-      const grupSnap = await db.collectionGroup('unidades').get();
-      grupSnap.docs.forEach(d => {
-        const col = d.ref.parent?.parent?.parent?.id || '';
-        const u = d.data();
-        if (!u.mva) return;
-        if (col === 'externos') externosUnits.push({ ...u, ubicacion: "EXTERNO" });
-        else cuadreUnits.push({ ...u });
-      });
-    } catch {
-      const [cuadreSnap, externosSnap] = await Promise.all([
-        db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
-      ]);
-      cuadreUnits = cuadreSnap.docs.map(d => ({ ...d.data() })).filter(u => u.mva);
-      externosUnits = externosSnap.docs.map(d => ({ ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva);
-    }
+  async obtenerResumenFlotaPatio(plaza) {
+    const plazaUp = _normalizePlazaId(plaza);
+    const [cuadreSnap, externosSnap] = await Promise.all([
+      db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
+    ]);
+    const cuadreUnits = cuadreSnap.docs
+      .map(d => ({ ...d.data() }))
+      .filter(u => u.mva && _matchesPlaza(u, plazaUp));
+    const externosUnits = externosSnap.docs
+      .map(d => ({ ...d.data(), ubicacion: "EXTERNO" }))
+      .filter(u => u.mva && _matchesPlaza(u, plazaUp));
 
     function _agrupar(units) {
       const byEstado = {};
@@ -1938,7 +2110,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   async toggleBloqueoMapa(nuevoEstado, actor = "Sistema", plaza, scope = "PLAZA") {
     const enabled = nuevoEstado === true;
     const scopeNorm = String(scope || "PLAZA").trim().toUpperCase() === "GLOBAL" ? "GLOBAL" : "PLAZA";
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
 
     if (scopeNorm === "GLOBAL") {
       await _ensureGlobalSettingsDoc();
@@ -2000,12 +2172,12 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     return "OK";
   },
   async obtenerHistorialCuadres(plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     // [F1] Colección plana historial_cuadres filtrada por campo plaza
     let snap;
     // [F1] Filtro client-side para evitar índice compuesto plaza+timestamp
     snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(200).get();
-    const filtrados = snap.docs.filter(d => !plazaUp || !d.data().plaza || d.data().plaza.toUpperCase() === plazaUp).slice(0, 30);
+    const filtrados = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp)).slice(0, 30);
     snap = { docs: filtrados };
     return snap.docs.map(d => {
       const data = d.data();
@@ -2027,7 +2199,8 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   // Fase 4: ubicaciones se guardan por plaza en configuracion/{plaza}
   // El resto (estados, gasolinas, categorias, modelos) sigue en configuracion/listas (global)
   async obtenerConfiguracion(plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
+    if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
     const fetches = [
       db.collection(COL.CONFIG).doc("empresa").get(),
       db.collection(COL.CONFIG).doc("listas").get()
@@ -2048,10 +2221,15 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       ubicaciones = snapPlaza.data().ubicaciones;
     } else if (plazaUp && Array.isArray(globalListas.ubicaciones)) {
       // Migración suave: filtrar las del global que correspondan a esta plaza
-      const filtradas = globalListas.ubicaciones.filter(u =>
-        !u.plazaId || (u.plazaId || '').toUpperCase() === plazaUp
-      );
+      const filtradas = globalListas.ubicaciones.filter(u => _matchesPlaza(u, plazaUp));
       ubicaciones = filtradas.length > 0 ? filtradas : globalListas.ubicaciones;
+    }
+
+    if (plazaUp) {
+      ubicaciones = (Array.isArray(ubicaciones) ? ubicaciones : [])
+        .map(item => _normalizePlazaLocationItem(item, plazaUp))
+        .filter(Boolean);
+      if (ubicaciones.length === 0) ubicaciones = _buildDefaultPlazaLocations(plazaUp);
     }
 
     return {
@@ -2061,7 +2239,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   },
 
   async guardarConfiguracionListas(listasActualizadas, autor = "Admin Global", plaza) {
-    const plazaUp = (plaza || '').toUpperCase().trim();
+    const plazaUp = _normalizePlazaId(plaza);
     const { ubicaciones, ...globalRest } = listasActualizadas;
 
     // Siempre guarda los catálogos globales (sin ubicaciones) en /listas
@@ -2069,7 +2247,12 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
     // Si hay plaza activa, guarda las ubicaciones en el doc de esa plaza
     if (plazaUp && Array.isArray(ubicaciones)) {
-      await _configPlazaRef(plazaUp).set({ ubicaciones }, { merge: true });
+      await _ensurePlazaBootstrap(plazaUp);
+      await _configPlazaRef(plazaUp).set({
+        ubicaciones: ubicaciones
+          .map(item => _normalizePlazaLocationItem(item, plazaUp))
+          .filter(Boolean)
+      }, { merge: true });
     } else if (Array.isArray(ubicaciones)) {
       // Sin plaza → escribe en global (retrocompat)
       await db.collection(COL.CONFIG).doc("listas").set({ ubicaciones }, { merge: true });
@@ -2080,6 +2263,14 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       entidad: "CONFIGURACION",
       referencia: "listas"
     });
+    return "EXITO";
+  },
+
+  async garantizarPlazasOperativas(plazas = []) {
+    const lista = Array.isArray(plazas) ? plazas.map(_normalizePlazaId).filter(Boolean) : [];
+    for (const plaza of lista) {
+      await _ensurePlazaBootstrap(plaza);
+    }
     return "EXITO";
   },
 
@@ -2199,24 +2390,19 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 // ─── ESTRUCTURA POR DEFECTO DEL MAPA ────────────────────────
 // [F2] Genera estructura con coordenadas absolutas x,y,width,height
 function _generarEstructuraPorDefecto() {
-  const estructura = [];
-  let orden = 0;
-  const W = 120, H = 80, GAP = 4; // [F2] dimensiones por defecto por celda
-  const secciones = [
-    { prefix: "S", cols: 8 }, { prefix: "L", cols: 8 },
-    { prefix: "O", cols: 8 }, { prefix: "N", cols: 8 },
-  ];
-  secciones.forEach((sec, si) => {
-    const baseY = si * (H * 2 + GAP * 3);
-    // Etiqueta de sección
-    estructura.push({ valor: sec.prefix, x: 0, y: baseY, width: W, height: H * 2 + GAP, rotation: 0, tipo: 'label', esLabel: true, orden: orden++ }); // [F2]
-    for (let i = 1; i <= sec.cols; i++) {
-      const x = (i) * (W + GAP);
-      estructura.push({ valor: `${sec.prefix}${i}-1`, x, y: baseY, width: W, height: H, rotation: 0, tipo: 'cajon', esLabel: false, orden: orden++ }); // [F2]
-      estructura.push({ valor: `${sec.prefix}${i}-2`, x, y: baseY + H + GAP, width: W, height: H, rotation: 0, tipo: 'cajon', esLabel: false, orden: orden++ }); // [F2]
+  return [
+    {
+      valor: 'A1',
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 80,
+      rotation: 0,
+      tipo: 'cajon',
+      esLabel: false,
+      orden: 0
     }
-  });
-  return estructura;
+  ];
 }
 
 window.obtenerUrlImagenModelo = function(modelo) {

@@ -95,7 +95,7 @@ const api = window.api;
           // Auto-seed estados si Firestore no los tiene
           if (!config.listas.estados || config.listas.estados.length === 0) {
             config.listas.estados = ESTADOS_DEFAULT;
-            api.guardarConfiguracionListas(config.listas).catch(e => console.warn("No se pudo guardar estados por defecto:", e));
+            api.guardarConfiguracionListas(config.listas, 'Sistema', _miPlaza()).catch(e => console.warn("No se pudo guardar estados por defecto:", e));
           }
           window.MEX_CONFIG = config;
           console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
@@ -525,6 +525,7 @@ const api = window.api;
     function canViewAdminCuadre() { return _roleMeta().canViewAdminCuadre; }
     function canUseProgrammerConfig() { return _roleMeta().canUseProgrammerConfig; }
     function canLockMap() { return _roleMeta().canLockMap; }
+    function canInsertExternalUnits() { return _roleMeta().level >= ROLE_META.GERENTE_PLAZA.level; }
     function hasFullAccess() { return _roleMeta().fullAccess; }
 
     function canAssignRole(targetRole) {
@@ -974,7 +975,7 @@ const api = window.api;
     }
 
     function cargarMaestra() {
-      api.obtenerUnidadesVeloz().then(data => {
+      api.obtenerUnidadesVeloz(_miPlaza()).then(data => {
         let unicos = [];
         let mvasVistos = new Set();
         (data || []).forEach(u => {
@@ -1159,9 +1160,15 @@ const api = window.api;
       PLAZA_ACTIVA_MAPA = plaza;
       _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
       _renderPlazaSwitcher();
+      inicializarConfiguracion();
+      cargarMaestra();
       startAutoRefresh();
       iniciarRadarNotificaciones();
       hacerPingNotificaciones(true);
+      if (document.getElementById('fleet-modal')?.classList.contains('active')) {
+        if (VISTA_ACTUAL_FLOTA === 'ADMINS') cambiarTabFlota('ADMINS');
+        else cargarFlota();
+      }
       // Cerrar el dropdown si está abierto
       const dd = document.getElementById('plaza-picker-dropdown');
       if (dd) dd.style.display = 'none';
@@ -2322,6 +2329,11 @@ const api = window.api;
         adminSection.style.display = hasFullAccess() ? 'inline-block' : 'none';
       }
 
+      const itemInsertarExterno = document.getElementById('mcInsertarExterno');
+      if (itemInsertarExterno) {
+        itemInsertarExterno.style.display = canInsertExternalUnits() ? 'flex' : 'none';
+      }
+
       const btnLock = document.getElementById('btnLockMapa');
       if (btnLock) {
         btnLock.style.display = canLockMap() ? 'flex' : 'none';
@@ -2337,7 +2349,7 @@ const api = window.api;
     function cargarFlota() {
       document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="material-icons spinner" style="vertical-align:middle; margin-right:8px;">sync</span>Cargando inventario...</td></tr>`;
 
-      api.obtenerDatosFlotaConsola().then(data => {
+      api.obtenerDatosFlotaConsola(_miPlaza()).then(data => {
         let unicos = [];
         let mvasVistos = new Set();
         (data || []).forEach(u => {
@@ -2346,14 +2358,6 @@ const api = window.api;
             unicos.push(u);
           }
         });
-
-        // Filtrar por plaza si el usuario no tiene acceso global
-        if (!_puedeVerTodasPlazas()) {
-          const miPlaza = _miPlaza();
-          if (miPlaza) {
-            unicos = unicos.filter(u => !u.plaza || (u.plaza || '').toUpperCase() === miPlaza.toUpperCase());
-          }
-        }
 
         DB_FLOTA = unicos;
         filtrarFlota();
@@ -6368,6 +6372,8 @@ const api = window.api;
     function abrirResumenFlota() {
       toggleMoreControls();
       document.getElementById('modal-resumen-flota').classList.add('active');
+      const branch = document.getElementById('resv2-branch');
+      if (branch) branch.innerText = _miPlaza() || '---';
 
       // Loader
       document.getElementById('main-grid-resumen').innerHTML = `<div style="grid-column: span 2; text-align: center; padding: 40px; color: #94a3b8;">
@@ -6380,7 +6386,7 @@ const api = window.api;
 
       actualizarFechaResumen();
 
-      api.obtenerResumenFlotaPatio().then(res => {
+      api.obtenerResumenFlotaPatio(_miPlaza()).then(res => {
         globalResData = res;
 
         // Populate metrics row (always show both)
@@ -6490,6 +6496,75 @@ const api = window.api;
       const fileInput = document.getElementById('a_ins_file');
       if (fileInput) fileInput.value = "";
       actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus');
+    }
+
+    function limpiarFormularioInsertarExterno() {
+      ['ext_mva', 'ext_categoria', 'ext_modelo', 'ext_placas', 'ext_notas'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+    }
+
+    function abrirModalInsertarExterno() {
+      if (!canInsertExternalUnits()) {
+        showToast("Esta operación está disponible desde Gerente de Plaza hacia arriba.", "error");
+        return;
+      }
+      const plaza = _miPlaza();
+      if (!plaza) {
+        showToast("Selecciona primero una plaza operativa.", "error");
+        return;
+      }
+      document.getElementById('moreControlsDropdown')?.classList.remove('show');
+      const badge = document.getElementById('ext_badgePlaza');
+      if (badge) badge.innerText = `PLAZA ${plaza}`;
+      limpiarFormularioInsertarExterno();
+      document.getElementById('modal-insertar-externo').classList.add('active');
+      setTimeout(() => document.getElementById('ext_mva')?.focus(), 80);
+    }
+
+    function ejecutarInsertarExterno() {
+      const plaza = _miPlaza();
+      const mva = (document.getElementById('ext_mva')?.value || '').trim().toUpperCase();
+      const categoria = (document.getElementById('ext_categoria')?.value || '').trim().toUpperCase();
+      const modelo = (document.getElementById('ext_modelo')?.value || '').trim().toUpperCase();
+      const placas = (document.getElementById('ext_placas')?.value || '').trim().toUpperCase();
+      const notas = (document.getElementById('ext_notas')?.value || '').trim();
+
+      if (!plaza) return showToast("Selecciona una plaza antes de registrar externos.", "error");
+      if (!mva) return showToast("El MVA es obligatorio para registrar el externo.", "error");
+
+      const btn = document.getElementById('btnGuardarExterno');
+      const txt = document.getElementById('txtGuardarExterno');
+      const icon = document.getElementById('iconGuardarExterno');
+      if (btn) btn.disabled = true;
+      if (txt) txt.innerText = 'REGISTRANDO...';
+      if (icon) { icon.innerText = 'sync'; icon.classList.add('spinner'); }
+
+      api.insertarUnidadExterna({
+        plaza,
+        mva,
+        categoria,
+        categ: categoria,
+        modelo,
+        placas,
+        notas,
+        responsableSesion: USER_NAME
+      }).then(res => {
+        if (String(res || '').startsWith('EXITO')) {
+          showToast(`Unidad externa ${mva} registrada en ${plaza}.`, 'success');
+          document.getElementById('modal-insertar-externo')?.classList.remove('active');
+          if (document.getElementById('fleet-modal')?.classList.contains('active')) cargarFlota();
+        } else {
+          showToast(String(res || 'No se pudo registrar la unidad externa.'), 'error');
+        }
+      }).catch(err => {
+        showToast(err?.message || 'No se pudo registrar la unidad externa.', 'error');
+      }).finally(() => {
+        if (btn) btn.disabled = false;
+        if (txt) txt.innerText = 'REGISTRAR EXTERNO';
+        if (icon) { icon.innerText = 'save'; icon.classList.remove('spinner'); }
+      });
     }
 
     function filtrarBusquedaAdmin() {
@@ -11707,11 +11782,13 @@ const api = window.api;
       showToast("Subiendo configuración…", "info");
       try {
         await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, {merge:true});
+        await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
         await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _miPlaza());
         showToast("Configuración actualizada", "success");
         aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
         _aplicarColoresEstados();
         llenarSelectsDinamicos();
+        _renderPlazaSwitcher();
         document.getElementById('modal-config-global').classList.remove('active');
       } catch (error) {
         showToast("Error al guardar: " + error.message, "error");
@@ -12773,16 +12850,14 @@ const api = window.api;
       });
       ['filter-est', 'f_est', 'a_ins_est', 'a_mod_est'].forEach(id => _setOptions(id, estOpts));
 
-      // Filtrar ubicaciones por plaza si el usuario no tiene acceso global
+      // Filtrar ubicaciones siempre por la plaza activa para evitar mezclar plazas
       let ubicFiltradas = ubicaciones;
-      if (!_puedeVerTodasPlazas()) {
-        const miP = (_miPlaza() || '').toUpperCase();
-        if (miP) {
-          ubicFiltradas = ubicaciones.filter(u => {
-            const plazaId = ((typeof u === 'object' ? u.plazaId : null) || '').toUpperCase();
-            return !plazaId || plazaId === miP;
-          });
-        }
+      const miP = (_miPlaza() || '').toUpperCase();
+      if (miP) {
+        ubicFiltradas = ubicaciones.filter(u => {
+          const plazaId = ((typeof u === 'object' ? u.plazaId : null) || '').toUpperCase();
+          return !plazaId || plazaId === miP;
+        });
       }
 
       // Formatea objetos {nombre, isPlazaFija} y legacy strings a un estándar interno para dividir en grupos OptGroup.
@@ -13247,6 +13322,7 @@ Object.assign(window, {
   abrirModalEliminarGlobal,
   abrirModalFlota,
   abrirModalInsertarAdmin,
+  abrirModalInsertarExterno,
   abrirModalInsertarGlobal,
   abrirModalNuevaConfig,
   abrirModalResolver,
@@ -13373,6 +13449,7 @@ Object.assign(window, {
   ejecutarMigracionLegacy,
   ejecutarGuardadoFlota,
   ejecutarInsertarAdmin,
+  ejecutarInsertarExterno,
   ejecutarInsertarGlobal,
   ejecutarLimpiarFeed,
   ejecutarLogicaOCR,

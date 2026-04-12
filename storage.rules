@@ -60,14 +60,14 @@ service firebase.storage {
     }
 
     function puedeEditarCuadreAdmins() {
-      return rolActual() == "JEFE_REGIONAL" || esAccesoTotal();
+      return esAdminOperativo();
     }
 
     match /evidencias_cuadre_admins/{docId}/{fileName} {
       allow read: if esAdminOperativo();
       allow write: if puedeEditarCuadreAdmins()
         && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats.*');
+        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats.*|application/octet-stream');
     }
 
     match /notas_admin_adjuntos/{docId}/{fileName} {
