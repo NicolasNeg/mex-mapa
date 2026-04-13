@@ -1,10 +1,18 @@
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
-importScripts('/config.js');
+
+const FIREBASE_CONFIG = {
+  apiKey: 'AIzaSyBk_A5U37Surm-K1PxZnNbzN-htyrnNmVc',
+  authDomain: 'mex-mapa-bjx.firebaseapp.com',
+  projectId: 'mex-mapa-bjx',
+  storageBucket: 'mex-mapa-bjx.firebasestorage.app',
+  messagingSenderId: '35913204070',
+  appId: '1:35913204070:web:8d2c2fa94376449dbd08a7'
+};
 
 (function () {
   const root = self;
-  const cfg = Object.assign({}, root.FIREBASE_CONFIG || {});
+  const cfg = Object.assign({}, FIREBASE_CONFIG);
   const projectId = String(cfg.projectId || '').trim();
   const rawBucket = String(cfg.storageBucket || '').trim().replace(/^gs:\/\//i, '');
   const modernBucket = projectId ? `${projectId}.firebasestorage.app` : '';

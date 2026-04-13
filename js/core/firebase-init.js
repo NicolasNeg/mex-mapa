@@ -36,16 +36,9 @@
   const storage   = (typeof firebase.storage === 'function') ? firebase.storage() : null;
   const functions = (typeof firebase.functions === 'function') ? firebase.app().functions('us-central1') : null;
 
-  // Persistencia offline (Firestore) — solo una vez por sesión
-  if (!window._firestorePersistenceEnabled) {
-    window._firestorePersistenceEnabled = true;
-    db.enablePersistence({ synchronizeTabs: true })
-      .catch(err => {
-        if (err.code !== 'failed-precondition' && err.code !== 'unimplemented') {
-          console.warn('[firebase-init] enablePersistence:', err);
-        }
-      });
-  }
+  // El SDK compat ya marca esta ruta como deprecada. Dejamos Firestore
+  // en modo online hasta migrar por completo a FirestoreSettings.cache.
+  window._firestorePersistenceEnabled = false;
 
   // Exponer para ES6 modules y scripts legacy
   window._db      = db;

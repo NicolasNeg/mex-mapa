@@ -1,7 +1,9 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v68';
+const APP_BUILD = 'mapa-v69';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
+const MESSAGING_SW_URL = '/firebase-messaging-sw.js';
+const MESSAGING_SW_SCOPE = '/firebase-cloud-messaging-push-scope';
 
 const _state = {
   profileGetter: () => null,
@@ -22,7 +24,8 @@ const _state = {
   currentDevice: null,
   lastDeviceSyncAt: 0,
   lastDeviceSyncSignature: '',
-  foregroundListenerBound: false
+  foregroundListenerBound: false,
+  foregroundListenerPending: false
 };
 
 function _safeText(value) {
@@ -86,6 +89,22 @@ function _registerMainServiceWorker() {
   return window.__mexSwRegistrationPromise;
 }
 
+function _registerMessagingServiceWorker() {
+  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
+  if (window.__mexMessagingSwRegistration) return Promise.resolve(window.__mexMessagingSwRegistration);
+  if (window.__mexMessagingSwRegistrationPromise) return window.__mexMessagingSwRegistrationPromise;
+  window.__mexMessagingSwRegistrationPromise = navigator.serviceWorker.register(MESSAGING_SW_URL, {
+    scope: MESSAGING_SW_SCOPE
+  }).then(reg => {
+    window.__mexMessagingSwRegistration = reg;
+    return reg;
+  }).catch(error => {
+    console.warn('No se pudo registrar firebase-messaging-sw.js:', error);
+    return null;
+  });
+  return window.__mexMessagingSwRegistrationPromise;
+}
+
 function _getServiceWorkerRegistration() {
   if (window.__mexSwRegistration) return Promise.resolve(window.__mexSwRegistration);
   if (window.__mexSwRegistrationPromise) {
@@ -95,6 +114,20 @@ function _getServiceWorkerRegistration() {
     .then(reg => reg || navigator.serviceWorker.ready.catch(() => null))
     .then(reg => reg || _registerMainServiceWorker())
     .catch(() => _registerMainServiceWorker());
+}
+
+function _getMessagingServiceWorkerRegistration() {
+  if (window.__mexMessagingSwRegistration) return Promise.resolve(window.__mexMessagingSwRegistration);
+  if (window.__mexMessagingSwRegistrationPromise) return window.__mexMessagingSwRegistrationPromise;
+  return navigator.serviceWorker.getRegistration(MESSAGING_SW_SCOPE)
+    .then(reg => {
+      if (reg) {
+        window.__mexMessagingSwRegistration = reg;
+        return reg;
+      }
+      return _registerMessagingServiceWorker();
+    })
+    .catch(() => _registerMessagingServiceWorker());
 }
 
 function _platformMeta() {
@@ -227,27 +260,34 @@ async function _showSystemNotification({ title, body, data = {}, tag = 'mex-noti
 }
 
 function _bindForegroundMessaging() {
-  if (_state.foregroundListenerBound || !_supportsPush()) return;
-  try {
-    const messaging = firebase.messaging();
-    messaging.onMessage(payload => {
-      const notificationId = _safeText(payload?.data?.notificationId || payload?.messageId || `${Date.now()}`);
-      _showSystemNotification({
-        title: payload?.notification?.title || payload?.data?.title || _appDisplayName(),
-        body: payload?.notification?.body || payload?.data?.body || '',
-        tag: `foreground:${notificationId}`,
-        renotify: true,
-        data: {
-          url: payload?.data?.url || '/mapa?notif=inbox',
-          notificationId,
-          type: payload?.data?.type || 'system'
-        }
-      }).catch(() => {});
+  if (_state.foregroundListenerBound || _state.foregroundListenerPending || !_supportsPush() || Notification.permission !== 'granted') return;
+  _state.foregroundListenerPending = true;
+  _getMessagingServiceWorkerRegistration()
+    .then(registration => {
+      if (!registration) return;
+      const messaging = firebase.messaging();
+      messaging.onMessage(payload => {
+        const notificationId = _safeText(payload?.data?.notificationId || payload?.messageId || `${Date.now()}`);
+        _showSystemNotification({
+          title: payload?.notification?.title || payload?.data?.title || _appDisplayName(),
+          body: payload?.notification?.body || payload?.data?.body || '',
+          tag: `foreground:${notificationId}`,
+          renotify: true,
+          data: {
+            url: payload?.data?.url || '/mapa?notif=inbox',
+            notificationId,
+            type: payload?.data?.type || 'system'
+          }
+        }).catch(() => {});
+      });
+      _state.foregroundListenerBound = true;
+    })
+    .catch(error => {
+      console.warn('No se pudo enlazar firebase.messaging.onMessage:', error);
+    })
+    .finally(() => {
+      _state.foregroundListenerPending = false;
     });
-    _state.foregroundListenerBound = true;
-  } catch (error) {
-    console.warn('No se pudo enlazar firebase.messaging.onMessage:', error);
-  }
 }
 
 function _ensureNotificationCenterDom() {
@@ -540,9 +580,10 @@ async function _obtainMessagingToken(forcePrompt = false) {
   if (Notification.permission !== 'granted') return '';
 
   try {
-    const registration = await _getServiceWorkerRegistration();
+    const registration = await _getMessagingServiceWorkerRegistration();
+    if (!registration) return '';
     const messaging = firebase.messaging();
-    const options = registration ? { serviceWorkerRegistration: registration } : {};
+    const options = { serviceWorkerRegistration: registration };
     const vapidKey = _state.profileGetter?.()?.notifications?.vapidKey
       || window.MEX_CONFIG?.empresa?.notifications?.vapidKey
       || window.FIREBASE_CONFIG?.vapidKey
@@ -606,6 +647,9 @@ export function configureNotifications(options = {}) {
 export async function requestDeviceNotifications(forcePrompt = false) {
   _ensureNotificationCenterDom();
   const token = await _obtainMessagingToken(forcePrompt);
+  if (Notification.permission === 'granted') {
+    _bindForegroundMessaging();
+  }
   await _registerCurrentDevice(token);
   await syncDeviceFocusState({ force: true });
   _state.toast?.(
@@ -770,7 +814,9 @@ export async function initNotificationCenter() {
   _ensureNotificationCenterDom();
   _ensureSidebarButton();
   _bindNotificationLifecycle();
-  _bindForegroundMessaging();
+  if (_supportsPush() && Notification.permission === 'granted') {
+    _bindForegroundMessaging();
+  }
   await resubscribeInbox();
   await syncDeviceFocusState({ force: true });
   if (_supportsPush() && Notification.permission === 'default' && !_state.permissionPromptShown) {
