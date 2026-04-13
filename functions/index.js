@@ -93,6 +93,183 @@ function sanitizePlainObject(value) {
   return value;
 }
 
+function normalizeFirestorePath(value) {
+  return normalizeString(value)
+    .replace(/^\/+/, "")
+    .replace(/\/+$/, "")
+    .replace(/\/{2,}/g, "/");
+}
+
+function firestorePathSegments(path = "") {
+  const normalized = normalizeFirestorePath(path);
+  return normalized ? normalized.split("/").filter(Boolean) : [];
+}
+
+function isCollectionPath(path = "") {
+  const segments = firestorePathSegments(path);
+  return segments.length > 0 && segments.length % 2 === 1;
+}
+
+function isDocumentPath(path = "") {
+  const segments = firestorePathSegments(path);
+  return segments.length > 0 && segments.length % 2 === 0;
+}
+
+function requireCollectionPath(path, label = "collectionPath") {
+  const normalized = normalizeFirestorePath(path);
+  if (!isCollectionPath(normalized)) {
+    throw new HttpsError("invalid-argument", `${label} debe apuntar a una colección válida.`);
+  }
+  return normalized;
+}
+
+function requireDocumentPath(path, label = "docPath") {
+  const normalized = normalizeFirestorePath(path);
+  if (!isDocumentPath(normalized)) {
+    throw new HttpsError("invalid-argument", `${label} debe apuntar a un documento válido.`);
+  }
+  return normalized;
+}
+
+function collectionRefFromPath(path, label = "collectionPath") {
+  const normalized = requireCollectionPath(path, label);
+  const segments = firestorePathSegments(normalized);
+  if (segments.length === 1) return db.collection(normalized);
+  const parentDocPath = segments.slice(0, -1).join("/");
+  const collectionId = segments[segments.length - 1];
+  return db.doc(parentDocPath).collection(collectionId);
+}
+
+function documentRefFromPath(path, label = "docPath") {
+  const normalized = requireDocumentPath(path, label);
+  return db.doc(normalized);
+}
+
+function notificationKindLabel(eventType = "") {
+  const type = normalizeLower(eventType);
+  if (type === "message.created") return "Mensaje";
+  if (type === "alert.critical.created") return "Alerta critica";
+  if (type === "cuadre.assigned") return "Mision de cuadre";
+  if (type === "cuadre.updated") return "Cuadre actualizado";
+  if (type === "cuadre.review_ready") return "Revision de cuadre";
+  if (type === "system.test.push") return "Prueba de notificacion";
+  return "Notificacion";
+}
+
+function serializeFirestoreValue(value) {
+  if (value == null) return value;
+  if (value instanceof Date) {
+    return { __type: "timestamp", ms: value.getTime(), iso: value.toISOString() };
+  }
+  if (value instanceof admin.firestore.Timestamp) {
+    return { __type: "timestamp", ms: value.toMillis(), iso: value.toDate().toISOString() };
+  }
+  if (value instanceof admin.firestore.GeoPoint) {
+    return {
+      __type: "geopoint",
+      latitude: value.latitude,
+      longitude: value.longitude
+    };
+  }
+  if (value instanceof admin.firestore.DocumentReference) {
+    return { __type: "reference", path: value.path };
+  }
+  if (value instanceof admin.firestore.Bytes) {
+    return { __type: "bytes", base64: value.toBase64() };
+  }
+  if (Array.isArray(value)) return value.map(serializeFirestoreValue);
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, inner]) => inner !== undefined)
+        .map(([key, inner]) => [key, serializeFirestoreValue(inner)])
+    );
+  }
+  return value;
+}
+
+function reviveConsoleFirestoreValue(value) {
+  if (Array.isArray(value)) return value.map(reviveConsoleFirestoreValue);
+  if (value && typeof value === "object") {
+    const type = normalizeLower(value.__type);
+    if (type === "timestamp") {
+      const numeric = Number(value.ms);
+      if (Number.isFinite(numeric)) {
+        return admin.firestore.Timestamp.fromMillis(numeric);
+      }
+      const parsed = Date.parse(normalizeString(value.iso));
+      if (!Number.isNaN(parsed)) {
+        return admin.firestore.Timestamp.fromMillis(parsed);
+      }
+    }
+    if (type === "geopoint") {
+      const latitude = Number(value.latitude);
+      const longitude = Number(value.longitude);
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        return new admin.firestore.GeoPoint(latitude, longitude);
+      }
+    }
+    if (type === "reference") {
+      return db.doc(requireDocumentPath(value.path, "reference.path"));
+    }
+    if (type === "bytes") {
+      const base64 = normalizeString(value.base64);
+      if (base64) return admin.firestore.Bytes.fromBase64String(base64);
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([key, inner]) => [key, reviveConsoleFirestoreValue(inner)])
+    );
+  }
+  return value;
+}
+
+function buildDocumentPreview(data = {}) {
+  return Object.entries(data || {})
+    .slice(0, 4)
+    .map(([key, raw]) => {
+      const value = raw && typeof raw === "object"
+        ? JSON.stringify(serializeFirestoreValue(raw))
+        : String(raw ?? "");
+      return `${key}: ${value.slice(0, 64)}`;
+    })
+    .join(" · ");
+}
+
+function snapshotDateLabel(value) {
+  try {
+    return value?.toDate?.().toISOString?.() || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function serializeDocumentSummary(snap) {
+  const data = snap.exists ? (snap.data() || {}) : {};
+  return {
+    id: snap.id,
+    path: snap.ref.path,
+    exists: snap.exists,
+    fieldCount: Object.keys(data).length,
+    preview: buildDocumentPreview(data),
+    sample: serializeFirestoreValue(Object.fromEntries(Object.entries(data).slice(0, 6))),
+    createTime: snapshotDateLabel(snap.createTime),
+    updateTime: snapshotDateLabel(snap.updateTime)
+  };
+}
+
+function serializeDocumentDetail(snap) {
+  const data = snap.exists ? (snap.data() || {}) : {};
+  return {
+    id: snap.id,
+    path: snap.ref.path,
+    exists: snap.exists,
+    fieldCount: Object.keys(data).length,
+    createTime: snapshotDateLabel(snap.createTime),
+    updateTime: snapshotDateLabel(snap.updateTime),
+    data: serializeFirestoreValue(data)
+  };
+}
+
 function chunk(list, size) {
   const out = [];
   for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
@@ -397,7 +574,7 @@ function shouldDeviceReceiveEvent(device = {}, eventType = "") {
   if (prefs.muteAll || device.pushEnabled === false) return false;
   if (device.permission && device.permission !== "granted") return false;
   const focused = device.isFocused === true;
-  if (focused && device.suppressWhileFocused !== false) return false;
+  if (focused && device.suppressWhileFocused === true) return false;
   if (eventType === "message.created") return prefs.directMessages;
   if (eventType === "cuadre.assigned" || eventType === "cuadre.updated" || eventType === "cuadre.review_ready") return prefs.cuadreMissions;
   if (eventType === "alert.critical.created") return prefs.criticalAlerts;
@@ -426,6 +603,8 @@ async function deliverNotificationToUsers({ eventId, eventType, title, body, dee
     const inboxPayload = sanitizePlainObject({
       notificationId: eventId,
       type: eventType,
+      kindLabel: notificationKindLabel(eventType),
+      senderLabel: normalizeString(actorName || "Sistema"),
       title,
       body,
       deepLink,
@@ -461,6 +640,8 @@ async function deliverNotificationToUsers({ eventId, eventType, title, body, dee
         data: buildWebpushData({
           notificationId: eventId,
           type: eventType,
+          title,
+          body,
           url: deepLink,
           actorName,
           plaza: normalizePlaza(plaza)
@@ -483,6 +664,9 @@ async function deliverNotificationToUsers({ eventId, eventType, title, body, dee
               notificationId: eventId,
               type: eventType
             }
+          },
+          fcmOptions: {
+            link: deepLink
           }
         }
       });
@@ -784,7 +968,7 @@ exports.registerDevice = functions.region(REGION).https.onCall(async (data, cont
       activeRoute: normalizeString(payloadIn.activeRoute || "/mapa"),
       invalidToken: false,
       pushEnabled: payloadIn.pushEnabled !== false,
-      suppressWhileFocused: payloadIn.suppressWhileFocused !== false,
+      suppressWhileFocused: payloadIn.suppressWhileFocused === true,
       notificationPrefs: {
         ...DEVICE_PREF_DEFAULTS,
         ...normalizeNotificationPrefs(payloadIn.notificationPrefs || {})
@@ -846,6 +1030,74 @@ async function queryOverview() {
     errorsCount,
     unreadInboxCount,
     devicesCount
+  };
+}
+
+async function queryDbCollections(rawParams = {}) {
+  const parentPath = normalizeFirestorePath(rawParams.parentPath || "");
+  if (parentPath && !isDocumentPath(parentPath)) {
+    throw new HttpsError("invalid-argument", "parentPath debe apuntar a un documento o venir vacío.");
+  }
+  const collections = parentPath
+    ? await db.doc(parentPath).listCollections()
+    : await db.listCollections();
+  const rows = collections.map(ref => ({
+    id: ref.id,
+    path: ref.path,
+    parentPath,
+    level: firestorePathSegments(ref.path).length,
+    kind: parentPath ? "subcollection" : "root"
+  }));
+  return {
+    rows,
+    parentPath,
+    count: rows.length
+  };
+}
+
+async function queryDbDocs(rawParams = {}) {
+  const collectionPath = requireCollectionPath(rawParams.collectionPath || rawParams.path || "", "collectionPath");
+  const limit = Math.min(300, Math.max(20, Number(rawParams.limit) || 80));
+  const ref = collectionRefFromPath(collectionPath, "collectionPath");
+  let snap;
+  try {
+    snap = await ref
+      .orderBy(admin.firestore.FieldPath.documentId())
+      .limit(limit)
+      .get();
+  } catch (error) {
+    logger.warn("queryDbDocs fallback sin orderBy", {
+      collectionPath,
+      code: normalizeString(error?.code || ""),
+      message: normalizeString(error?.message || "")
+    });
+    snap = await ref.limit(limit).get();
+  }
+  const orderedDocs = [...snap.docs].sort((a, b) => a.id.localeCompare(b.id));
+  const rows = orderedDocs.map(serializeDocumentSummary);
+  return {
+    rows,
+    collectionPath,
+    limit,
+    truncated: orderedDocs.length >= limit
+  };
+}
+
+async function queryDbDocument(rawParams = {}) {
+  const docPath = requireDocumentPath(rawParams.docPath || rawParams.path || "", "docPath");
+  const ref = documentRefFromPath(docPath, "docPath");
+  const [snap, subcollections] = await Promise.all([
+    ref.get(),
+    ref.listCollections()
+  ]);
+  return {
+    rows: snap.exists ? [serializeDocumentSummary(snap)] : [],
+    docPath,
+    document: serializeDocumentDetail(snap),
+    subcollections: subcollections.map(col => ({
+      id: col.id,
+      path: col.path
+    }))
   };
 }
 
@@ -912,22 +1164,44 @@ async function runNamedQuery(name, rawParams = {}) {
     };
   }
 
+  if (name === "db_collections") {
+    return queryDbCollections(params);
+  }
+
+  if (name === "db_docs") {
+    return queryDbDocs(params);
+  }
+
+  if (name === "db_document") {
+    return queryDbDocument(params);
+  }
+
   throw new HttpsError("invalid-argument", `Consulta no soportada: ${name}`);
 }
 
 exports.queryProgrammerConsole = functions.region(REGION).https.onCall(async (data, context) => {
-  const actor = await requireProgrammerAuth(context);
   const queryName = normalizeString(data?.query || "overview");
-  const payload = await runNamedQuery(queryName, data || {});
-  await recordProgrammerAudit({
-    actor: normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
-    actorRole: actor.role,
-    action: "queryProgrammerConsole",
-    query: queryName,
-    plaza: normalizePlaza(data?.plaza || ""),
-    resultCount: Array.isArray(payload.rows) ? payload.rows.length : 0
-  });
-  return payload;
+  try {
+    const actor = await requireProgrammerAuth(context);
+    const payload = await runNamedQuery(queryName, data || {});
+    await recordProgrammerAudit({
+      actor: normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
+      actorRole: actor.role,
+      action: "queryProgrammerConsole",
+      query: queryName,
+      plaza: normalizePlaza(data?.plaza || ""),
+      resultCount: Array.isArray(payload.rows) ? payload.rows.length : 0
+    });
+    return payload;
+  } catch (error) {
+    await recordProgrammerError("queryProgrammerConsole", error, {
+      query: queryName,
+      plaza: normalizePlaza(data?.plaza || ""),
+      authUid: context.auth?.uid || ""
+    });
+    if (error instanceof HttpsError) throw error;
+    throw new HttpsError("internal", normalizeString(error?.message || "Error interno al consultar la consola."));
+  }
 });
 
 async function createJobDocument(job, actor, params) {
@@ -1062,6 +1336,54 @@ async function runSendTestNotificationJob(params = {}) {
   return { recipients, delivery };
 }
 
+async function runUpsertDocumentJob(params = {}) {
+  const docPath = requireDocumentPath(params.docPath || params.path || "", "docPath");
+  const merge = params.merge !== false;
+  const dryRun = params.dryRun === true;
+  let rawPayload = params.data;
+
+  if (typeof rawPayload === "string") {
+    rawPayload = JSON.parse(rawPayload || "{}");
+  }
+  if (!rawPayload || typeof rawPayload !== "object" || Array.isArray(rawPayload)) {
+    throw new HttpsError("invalid-argument", "data debe ser un objeto JSON.");
+  }
+
+  const revivedPayload = reviveConsoleFirestoreValue(rawPayload);
+  if (!dryRun) {
+    await db.doc(docPath).set(revivedPayload, { merge });
+  }
+
+  const snap = await db.doc(docPath).get();
+  return {
+    docPath,
+    merge,
+    dryRun,
+    exists: snap.exists,
+    fieldCount: Object.keys(snap.exists ? (snap.data() || {}) : {}).length,
+    updateTime: snapshotDateLabel(snap.updateTime)
+  };
+}
+
+async function runDeleteDocumentJob(params = {}) {
+  const docPath = requireDocumentPath(params.docPath || params.path || "", "docPath");
+  const dryRun = params.dryRun === true;
+  const ref = db.doc(docPath);
+  const snap = await ref.get();
+
+  if (!dryRun) {
+    await ref.delete();
+  }
+
+  return {
+    docPath,
+    dryRun,
+    existed: snap.exists,
+    deleted: !dryRun,
+    note: "Solo elimina el documento. Las subcolecciones viven aparte y deben borrarse manualmente."
+  };
+}
+
 exports.runProgrammerJob = functions.region(REGION).https.onCall(async (data, context) => {
   const actor = await requireProgrammerAuth(context);
   const job = normalizeString(data?.job || "");
@@ -1076,6 +1398,8 @@ exports.runProgrammerJob = functions.region(REGION).https.onCall(async (data, co
     else if (job === "export-config") result = await runExportConfigJob(params);
     else if (job === "cleanup-device-tokens") result = await runCleanupDeviceTokensJob(params);
     else if (job === "send-test-notification") result = await runSendTestNotificationJob(params);
+    else if (job === "upsert-document") result = await runUpsertDocumentJob(params);
+    else if (job === "delete-document") result = await runDeleteDocumentJob(params);
     else throw new HttpsError("invalid-argument", `Job no soportado: ${job}`);
 
     await finishJob(jobRef, "SUCCESS", result);

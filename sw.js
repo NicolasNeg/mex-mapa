@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v65';
+const CACHE_NAME = 'mapa-v67';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -77,6 +77,7 @@ self.addEventListener('fetch', event => {
     url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('firebase') ||
     url.hostname.includes('googleapis.com') ||
+    url.hostname.includes('google.com') ||
     url.hostname.includes('gstatic.com') ||
     url.hostname.includes('fonts.google') ||
     event.request.method !== 'GET'
@@ -99,7 +100,10 @@ self.addEventListener('fetch', event => {
         .catch(async () => {
           const cached = await caches.match(event.request);
           if (cached) return cached;
-          if (isDocumentRequest) return caches.match('/index.html');
+          if (isDocumentRequest) {
+            return (await caches.match('/index.html')) || Response.error();
+          }
+          return Response.error();
         })
     );
     return;
@@ -123,8 +127,9 @@ self.addEventListener('fetch', event => {
         .catch(() => {
           // Sin red y sin cache — devolver el shell (index.html) para rutas HTML
           if (event.request.destination === 'document') {
-            return caches.match('/index.html');
+            return caches.match('/index.html').then(match => match || Response.error());
           }
+          return Response.error();
         });
     })
   );

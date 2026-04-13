@@ -1,6 +1,6 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v63';
+const APP_BUILD = 'mapa-v67';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
 
 const _state = {
@@ -19,7 +19,10 @@ const _state = {
   deviceId: '',
   callableCache: new Map(),
   permissionPromptShown: false,
-  currentDevice: null
+  currentDevice: null,
+  lastDeviceSyncAt: 0,
+  lastDeviceSyncSignature: '',
+  foregroundListenerBound: false
 };
 
 function _safeText(value) {
@@ -84,6 +87,142 @@ function _platformMeta() {
   else if (/firefox\//i.test(ua)) browser = 'firefox';
 
   return { platform, browser };
+}
+
+function _friendlyPlatformLabel(value = '') {
+  const platform = _safeText(value).toLowerCase();
+  if (platform === 'ios') return 'iPhone';
+  if (platform === 'android') return 'Celular';
+  if (platform === 'mac' || platform === 'windows') return 'Computadora';
+  return 'Navegador';
+}
+
+function _friendlyBrowserLabel(value = '') {
+  const browser = _safeText(value).toLowerCase();
+  if (browser === 'safari') return 'Safari';
+  if (browser === 'chrome') return 'Chrome';
+  if (browser === 'firefox') return 'Firefox';
+  if (browser === 'edge') return 'Edge';
+  return 'Navegador';
+}
+
+function _friendlyDeviceLabel(device = {}) {
+  const platform = _friendlyPlatformLabel(device?.platform || _platformMeta().platform);
+  const browser = _friendlyBrowserLabel(device?.browser || _platformMeta().browser);
+  if (platform === 'Navegador') return browser;
+  if (platform === 'Computadora') return `${platform} · ${browser}`;
+  return platform;
+}
+
+function _friendlyNotificationKind(item = {}) {
+  const type = _safeText(item?.kindLabel || item?.type).toLowerCase();
+  if (type.includes('message') || type.includes('mensaje')) return 'Mensaje directo';
+  if (type.includes('cuadre.assigned')) return 'Mision de cuadre';
+  if (type.includes('cuadre.updated')) return 'Actualizacion de cuadre';
+  if (type.includes('cuadre.review_ready')) return 'Revision de cuadre';
+  if (type.includes('alert')) return 'Alerta critica';
+  if (type.includes('test')) return 'Prueba de notificacion';
+  return _safeText(item?.kindLabel) || 'Notificacion';
+}
+
+function _notificationSender(item = {}) {
+  return _safeText(
+    item?.senderLabel
+    || item?.actorName
+    || item?.payload?.remitente
+    || item?.payload?.actorName
+    || ''
+  );
+}
+
+function _notificationContextCopy(item = {}) {
+  const parts = [];
+  const kind = _friendlyNotificationKind(item);
+  if (kind) parts.push(kind);
+  const sender = _notificationSender(item);
+  if (sender) parts.push(`De ${sender}`);
+  if (_safeText(item?.plaza) && !_safeText(item?.type).toLowerCase().includes('test')) {
+    parts.push(_safeText(item.plaza));
+  }
+  return parts.join(' · ');
+}
+
+function _currentRoute() {
+  return `${window.location.pathname}${window.location.search || ''}`;
+}
+
+function _deviceSyncPayload() {
+  const meta = _platformMeta();
+  return {
+    lastSeenAt: Date.now(),
+    activeRoute: _currentRoute(),
+    isFocused: document.visibilityState === 'visible' && document.hasFocus(),
+    permission: _supportsPush() ? Notification.permission : 'unsupported',
+    browser: meta.browser,
+    platform: meta.platform,
+    swVersion: APP_BUILD,
+    appVersion: APP_BUILD,
+    suppressWhileFocused: false
+  };
+}
+
+function _deviceSyncSignature(payload = {}) {
+  return JSON.stringify({
+    activeRoute: payload.activeRoute || '',
+    isFocused: payload.isFocused === true,
+    permission: payload.permission || 'default',
+    browser: payload.browser || '',
+    platform: payload.platform || '',
+    swVersion: payload.swVersion || '',
+    suppressWhileFocused: payload.suppressWhileFocused === true
+  });
+}
+
+async function _showSystemNotification({ title, body, data = {}, tag = 'mex-notif', renotify = false } = {}) {
+  if (!_supportsPush() || Notification.permission !== 'granted') return;
+  const options = {
+    body: _safeText(body),
+    icon: _notificationIcon(),
+    badge: _notificationIcon(),
+    tag,
+    renotify,
+    data,
+    vibrate: [180, 80, 180]
+  };
+  try {
+    const registration = await _getServiceWorkerRegistration();
+    if (registration?.showNotification) {
+      await registration.showNotification(_safeText(title) || 'MEX Mapa', options);
+      return;
+    }
+  } catch (_) {}
+  try {
+    new Notification(_safeText(title) || 'MEX Mapa', options);
+  } catch (_) {}
+}
+
+function _bindForegroundMessaging() {
+  if (_state.foregroundListenerBound || !_supportsPush()) return;
+  try {
+    const messaging = firebase.messaging();
+    messaging.onMessage(payload => {
+      const notificationId = _safeText(payload?.data?.notificationId || payload?.messageId || `${Date.now()}`);
+      _showSystemNotification({
+        title: payload?.notification?.title || payload?.data?.title || 'Nueva notificación',
+        body: payload?.notification?.body || payload?.data?.body || '',
+        tag: `foreground:${notificationId}`,
+        renotify: true,
+        data: {
+          url: payload?.data?.url || '/mapa?notif=inbox',
+          notificationId,
+          type: payload?.data?.type || 'system'
+        }
+      }).catch(() => {});
+    });
+    _state.foregroundListenerBound = true;
+  } catch (error) {
+    console.warn('No se pudo enlazar firebase.messaging.onMessage:', error);
+  }
 }
 
 function _ensureNotificationCenterDom() {
@@ -275,7 +414,7 @@ function _renderNotificationCenter() {
       ? new Date(Number(_state.currentDevice.lastSeenAt)).toLocaleString('es-MX')
       : 'Pendiente';
     metaEl.innerHTML = `
-      <div><strong>Equipo:</strong> ${_safeText(_state.currentDevice?.browser || _platformMeta().browser)} · ${_safeText(_state.currentDevice?.platform || _platformMeta().platform)}</div>
+      <div><strong>Equipo:</strong> ${_friendlyDeviceLabel(_state.currentDevice || _platformMeta())}</div>
       <div><strong>Última actividad:</strong> ${lastSeen}</div>
       <div><strong>Build:</strong> ${APP_BUILD}</div>
     `;
@@ -298,6 +437,7 @@ function _renderNotificationCenter() {
     const icon = item.type === 'message.created'
       ? 'mail'
       : (item.type?.startsWith('cuadre') ? 'fact_check' : (item.type === 'alert.critical.created' ? 'warning' : 'notifications'));
+    const contextCopy = _notificationContextCopy(item);
     return `
       <button class="notif-item ${unreadClass}" type="button" data-id="${item.notificationId || item.id}">
         <div class="notif-item-icon"><span class="material-icons">${icon}</span></div>
@@ -306,11 +446,8 @@ function _renderNotificationCenter() {
             <strong>${_safeText(item.title || 'Notificación')}</strong>
             <span>${dateLabel}</span>
           </div>
+          ${contextCopy ? `<div class="notif-item-meta">${contextCopy}</div>` : ''}
           <p>${_safeText(item.body || '')}</p>
-          <div class="notif-item-tags">
-            <span>${_safeText(item.type || 'sistema')}</span>
-            <span>${_safeText(item.plaza || _state.getCurrentPlaza?.() || 'GLOBAL')}</span>
-          </div>
         </div>
       </button>
     `;
@@ -341,6 +478,7 @@ async function _upsertDeviceDirect(payload = {}) {
 async function _registerCurrentDevice(token = '') {
   const profile = _state.profileGetter?.() || {};
   const callable = _fxCallable('registerDevice');
+  const focusPayload = _deviceSyncPayload();
   const payload = {
     deviceId: _deviceId(),
     token,
@@ -350,11 +488,12 @@ async function _registerCurrentDevice(token = '') {
     browser: _platformMeta().browser,
     userAgent: navigator.userAgent || '',
     plaza: _state.getCurrentPlaza?.() || profile?.plazaAsignada || '',
-    activeRoute: `${window.location.pathname}${window.location.search || ''}`,
-    isFocused: !document.hidden,
+    activeRoute: focusPayload.activeRoute,
+    isFocused: focusPayload.isFocused,
     swVersion: APP_BUILD,
     appVersion: APP_BUILD,
-      notificationPrefs: _currentDevicePrefs()
+    suppressWhileFocused: false,
+    notificationPrefs: _currentDevicePrefs()
   };
   _state.currentDevice = {
     ...(_state.currentDevice || {}),
@@ -412,17 +551,20 @@ export async function updateCurrentDevicePreferences(changes = {}) {
   await persistCurrentDevicePrefs(changes);
 }
 
-async function syncDeviceFocusState() {
-  if (!_currentUserDocRef()) return;
-  await _upsertDeviceDirect({
-    lastSeenAt: Date.now(),
-    activeRoute: `${window.location.pathname}${window.location.search || ''}`,
-    isFocused: !document.hidden,
-    permission: _supportsPush() ? Notification.permission : 'unsupported',
-    browser: _platformMeta().browser,
-    platform: _platformMeta().platform,
-    swVersion: APP_BUILD
-  });
+async function syncDeviceFocusState(options = {}) {
+  if (!_currentUserDocRef() || navigator.onLine === false) return;
+  const payload = _deviceSyncPayload();
+  const signature = _deviceSyncSignature(payload);
+  const now = Date.now();
+  const intervalMs = payload.isFocused ? 45000 : 120000;
+
+  if (!options.force && signature === _state.lastDeviceSyncSignature && (now - _state.lastDeviceSyncAt) < intervalMs) {
+    return;
+  }
+
+  _state.lastDeviceSyncAt = now;
+  _state.lastDeviceSyncSignature = signature;
+  await _upsertDeviceDirect(payload);
 }
 
 function _updateUnreadFromInbox() {
@@ -440,7 +582,7 @@ export async function requestDeviceNotifications(forcePrompt = false) {
   _ensureNotificationCenterDom();
   const token = await _obtainMessagingToken(forcePrompt);
   await _registerCurrentDevice(token);
-  await syncDeviceFocusState();
+  await syncDeviceFocusState({ force: true });
   _state.toast?.(
     Notification.permission === 'granted'
       ? 'Este dispositivo ya puede recibir notificaciones reales.'
@@ -573,12 +715,10 @@ export async function resubscribeInbox() {
         const itemId = item.notificationId || item.id;
         if (prevIds.has(itemId)) continue;
         if (item.read === true || item.status === 'READ') continue;
-        if (isVisible) {
+        if (isVisible && Notification.permission !== 'granted') {
           _state.toast?.(`${_safeText(item.title || 'Notificación')}: ${_safeText(item.body || '')}`, 'info');
         }
       }
-
-      await syncDeviceFocusState();
     }, err => {
       console.error('notifications:inbox', err);
     });
@@ -596,8 +736,8 @@ function _bindNotificationLifecycle() {
   window.addEventListener('blur', () => {
     syncDeviceFocusState().catch(() => {});
   });
-  window.addEventListener('beforeunload', () => {
-    syncDeviceFocusState().catch(() => {});
+  window.addEventListener('online', () => {
+    syncDeviceFocusState({ force: true }).catch(() => {});
   });
 }
 
@@ -605,8 +745,9 @@ export async function initNotificationCenter() {
   _ensureNotificationCenterDom();
   _ensureSidebarButton();
   _bindNotificationLifecycle();
+  _bindForegroundMessaging();
   await resubscribeInbox();
-  await syncDeviceFocusState();
+  await syncDeviceFocusState({ force: true });
   if (_supportsPush() && Notification.permission === 'default' && !_state.permissionPromptShown) {
     _state.permissionPromptShown = true;
     setTimeout(() => {

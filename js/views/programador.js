@@ -21,10 +21,25 @@ const state = {
   opsRows: [],
   settingsGlobal: {},
   settingsPlaza: {},
-  configMode: 'plaza'
+  configMode: 'plaza',
+  dbParentPath: '',
+  dbCollectionPath: '',
+  dbDocPath: '',
+  dbCollections: [],
+  dbDocs: [],
+  dbDocument: null,
+  dbSubcollections: [],
+  dbCollectionSearch: '',
+  dbDocSearch: '',
+  dbLimit: 80,
+  dbLoaded: false,
+  sendingTestNotification: false,
+  testTarget: '',
+  testTitle: '',
+  testBody: ''
 };
 
-const BUILD_TAG = 'mapa-v65';
+const BUILD_TAG = 'mapa-v67';
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -79,6 +94,96 @@ function currentUserLabel() {
   return safe(state.profile?.nombre || state.profile?.email || '');
 }
 
+function friendlyRoleLabel(role = '') {
+  const normalized = upper(role);
+  if (normalized === 'PROGRAMADOR') return 'PROGRAMADOR';
+  if (normalized === 'JEFE_OPERACION') return 'JEFE DE OPERACION';
+  if (normalized === 'CORPORATIVO_USER') return 'OPERACION GLOBAL';
+  if (normalized === 'JEFE_REGIONAL') return 'JEFE REGIONAL';
+  if (normalized === 'GERENTE_PLAZA') return 'GERENTE DE PLAZA';
+  if (normalized === 'JEFE_PATIO') return 'JEFE DE PATIO';
+  if (normalized === 'SUPERVISOR') return 'SUPERVISOR';
+  if (normalized === 'VENTAS') return 'VENTAS';
+  if (normalized === 'AUXILIAR') return 'AUXILIAR';
+  return normalized || 'USUARIO';
+}
+
+function programmerModeLabel(profile = {}) {
+  if (roleCanUseProgrammerConsole(profile?.rol, profile)) return 'PROGRAMADOR';
+  return friendlyRoleLabel(profile?.rol);
+}
+
+function friendlyScopeLabel(plaza = '') {
+  return upper(plaza) || 'GLOBAL';
+}
+
+function describeError(error) {
+  return safe(
+    error?.details?.message
+    || error?.details
+    || error?.message
+    || error
+  ) || 'Error inesperado';
+}
+
+function friendlyDeviceType(row = {}) {
+  const platform = lower(row.platform);
+  const browser = lower(row.browser);
+  if (platform === 'ios') return 'IPHONE';
+  if (platform === 'android') return 'CELULAR';
+  if (platform === 'mac' || platform === 'windows') return 'COMPUTADORA';
+  if (browser) return 'NAVEGADOR';
+  return 'EQUIPO';
+}
+
+function friendlyDeviceBrowser(row = {}) {
+  const browser = lower(row.browser);
+  if (browser === 'chrome') return 'Chrome';
+  if (browser === 'safari') return 'Safari';
+  if (browser === 'firefox') return 'Firefox';
+  if (browser === 'edge') return 'Edge';
+  return 'Navegador';
+}
+
+function friendlyDevicePermission(row = {}) {
+  const permission = lower(row.permission);
+  if (permission === 'granted') return row.pushEnabled === false ? 'Silenciado' : 'Activo';
+  if (permission === 'denied') return 'Bloqueado';
+  if (permission === 'unsupported') return 'Sin soporte';
+  return 'Pendiente';
+}
+
+function notificationKindLabel(row = {}) {
+  const type = lower(row.kindLabel || row.type);
+  if (type.includes('message') || type.includes('mensaje')) return 'Mensaje directo';
+  if (type.includes('alert')) return 'Alerta critica';
+  if (type.includes('cuadre.assigned')) return 'Mision de cuadre';
+  if (type.includes('cuadre.updated')) return 'Cuadre actualizado';
+  if (type.includes('cuadre.review_ready')) return 'Revision de cuadre';
+  if (type.includes('test')) return 'Prueba de notificacion';
+  return safe(row.kindLabel || row.type || 'Notificacion');
+}
+
+function notificationSender(row = {}) {
+  return safe(row.senderLabel || row.actorName || row.payload?.remitente || row.payload?.actorName || 'Sistema');
+}
+
+function notificationContext(row = {}) {
+  const parts = [notificationKindLabel(row)];
+  const sender = notificationSender(row);
+  if (sender) parts.push(`De ${sender}`);
+  if (safe(row.plaza) && !lower(row.type).includes('test')) parts.push(safe(row.plaza));
+  return parts.filter(Boolean).join(' · ');
+}
+
+function notificationDeliveryLabel(row = {}) {
+  const delivery = row.delivery || {};
+  if (delivery.mode === 'PUSH') return `Push ${delivery.successCount || 0}/${delivery.tokenCount || 0}`;
+  if (delivery.mode === 'INBOX_ONLY') return 'Solo inbox';
+  if (delivery.mode === 'FAILED') return 'Entrega fallida';
+  return 'Pendiente';
+}
+
 function availablePlazas() {
   const plazasDetalle = Array.isArray(window.MEX_CONFIG?.empresa?.plazasDetalle) ? window.MEX_CONFIG.empresa.plazasDetalle : [];
   const direct = Array.isArray(window.MEX_CONFIG?.empresa?.plazas) ? window.MEX_CONFIG.empresa.plazas : [];
@@ -89,6 +194,13 @@ function callable(name) {
   if (!functions) return null;
   return functions.httpsCallable(name);
 }
+
+function enableProgrammerPageScroll() {
+  document.documentElement.classList.add('programmer-route');
+  document.body?.classList.add('programmer-page');
+}
+
+enableProgrammerPageScroll();
 
 async function loadProgrammerConfig() {
   try {
@@ -187,6 +299,7 @@ function renderShell() {
   const plazas = availablePlazas();
   const tabButtons = [
     ['resumen', 'Resumen'],
+    ['database', 'Base de datos'],
     ['notificaciones', 'Notificaciones'],
     ['consultas', 'Consultas'],
     ['jobs', 'Jobs'],
@@ -216,8 +329,8 @@ function renderShell() {
 
     <div class="programmer-page-statusbar">
       <span class="programmer-status-pill">${escapeHtml(currentUserLabel())}</span>
-      <span class="programmer-status-pill">${escapeHtml(state.profile?.rol || '')}</span>
-      <span class="programmer-status-pill">${escapeHtml(state.profile?.plazaAsignada || 'GLOBAL')}</span>
+      <span class="programmer-status-pill">${escapeHtml(programmerModeLabel(state.profile || {}))}</span>
+      <span class="programmer-status-pill">${escapeHtml(friendlyScopeLabel(state.profile?.plazaAsignada))}</span>
       <span class="programmer-status-pill">${escapeHtml(window.FIREBASE_CONFIG?.projectId || '')}</span>
     </div>
 
@@ -285,7 +398,7 @@ function summaryCardsHtml() {
   `).join('');
 }
 
-function rowsToTable(rows = []) {
+function rowsToTable(rows = [], options = {}) {
   if (!rows.length) {
     return `<div class="programmer-empty-state">
       <span class="material-icons">inbox</span>
@@ -295,7 +408,7 @@ function rowsToTable(rows = []) {
   }
   const keys = [...new Set(rows.flatMap(row => Object.keys(row)))].slice(0, 8);
   return `
-    <div class="programmer-table-wrap">
+    <div class="${escapeHtml(options.className || 'programmer-table-wrap')}">
       <table class="programmer-table">
         <thead>
           <tr>${keys.map(key => `<th>${escapeHtml(key)}</th>`).join('')}</tr>
@@ -310,6 +423,52 @@ function rowsToTable(rows = []) {
       </table>
     </div>
   `;
+}
+
+function renderQueryResultsHtml() {
+  return rowsToTable(filteredQueryRows(), { className: 'programmer-table-wrap programmer-table-wrap-tall' });
+}
+
+function renderNotificationsFeed(rows = []) {
+  if (!rows.length) return `<div class="programmer-empty-state">
+    <span class="material-icons">notifications_none</span>
+    <strong>Sin notificaciones registradas</strong>
+    <p>Cuando existan eventos reales aparecerán aquí con remitente, contexto y entrega.</p>
+  </div>`;
+
+  return `
+    <div class="programmer-feed-list">
+      ${rows.map(row => `
+        <article class="programmer-feed-card">
+          <div class="programmer-feed-top">
+            <div>
+              <strong>${escapeHtml(row.title || 'Notificacion')}</strong>
+              <span>${escapeHtml(notificationContext(row))}</span>
+            </div>
+            <em>${escapeHtml(dbDocDateLabel(row.createdAt || row.timestamp))}</em>
+          </div>
+          <p>${escapeHtml(row.body || '')}</p>
+          <div class="programmer-feed-meta">
+            <span>${escapeHtml(notificationDeliveryLabel(row))}</span>
+            <span>${row.read === true || row.status === 'READ' ? 'Leida' : 'Pendiente'}</span>
+          </div>
+        </article>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderDevicesTableHtml(rows = []) {
+  const mappedRows = rows.map(row => ({
+    equipo: friendlyDeviceType(row),
+    navegador: friendlyDeviceBrowser(row),
+    permiso: friendlyDevicePermission(row),
+    push: row.pushEnabled === false ? 'Pausado' : 'Listo',
+    plaza: safe(row.plaza) || 'GLOBAL',
+    ruta: safe(row.activeRoute) || '/mapa',
+    ultimaActividad: dbDocDateLabel(row.updatedAt || row.lastSeenAt)
+  }));
+  return rowsToTable(mappedRows, { className: 'programmer-table-wrap programmer-table-wrap-tall' });
 }
 
 function renderResumenTab() {
@@ -351,15 +510,16 @@ function renderNotificacionesTab() {
         <h3>Notificaciones reales</h3>
         <span>Inbox, delivery y prueba manual</span>
       </div>
-      <div class="programmer-notification-actions">
-        <input id="programmerTestTarget" class="programmer-input" type="text" placeholder="Correo o nombre del usuario">
-        <input id="programmerTestTitle" class="programmer-input" type="text" placeholder="Título de prueba">
-        <input id="programmerTestBody" class="programmer-input" type="text" placeholder="Mensaje de prueba">
-        <button type="button" class="programmer-page-btn primary" id="programmerSendTestNotifBtn">
-          <span class="material-icons">send</span>
-          Enviar prueba
+      <div class="programmer-notification-actions programmer-notification-actions-rich">
+        <input id="programmerTestTarget" class="programmer-input" type="text" placeholder="Correo o nombre del usuario" value="${escapeHtml(state.testTarget)}">
+        <input id="programmerTestTitle" class="programmer-input" type="text" placeholder="Título visible en el celular" value="${escapeHtml(state.testTitle)}">
+        <input id="programmerTestBody" class="programmer-input" type="text" placeholder="Mensaje que recibirá el usuario" value="${escapeHtml(state.testBody)}">
+        <button type="button" class="programmer-page-btn primary ${state.sendingTestNotification ? 'is-loading' : ''}" id="programmerSendTestNotifBtn" ${state.sendingTestNotification ? 'disabled' : ''}>
+          <span class="material-icons">${state.sendingTestNotification ? 'hourglass_top' : 'send'}</span>
+          ${state.sendingTestNotification ? 'Enviando...' : 'Enviar prueba'}
         </button>
       </div>
+      <div id="programmerTestStatus" class="programmer-test-status">La prueba dispara inbox y push del dispositivo para el usuario destino.</div>
     </section>
     <section class="programmer-two-col">
       <div class="programmer-panel">
@@ -367,14 +527,14 @@ function renderNotificacionesTab() {
           <h4>Inbox reciente</h4>
           <span>collectionGroup(inbox)</span>
         </div>
-        ${rowsToTable(state.notificationsRows.slice(0, 16))}
+        ${renderNotificationsFeed(state.notificationsRows.slice(0, 16))}
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
           <h4>Dispositivos recientes</h4>
           <span>Tokens, permisos y foco</span>
         </div>
-        ${rowsToTable(state.devicesRows.slice(0, 16))}
+        ${renderDevicesTableHtml(state.devicesRows.slice(0, 16))}
       </div>
     </section>
   `;
@@ -382,12 +542,40 @@ function renderNotificacionesTab() {
     const targetUser = safe(document.getElementById('programmerTestTarget')?.value);
     const title = safe(document.getElementById('programmerTestTitle')?.value) || 'Prueba MEX Mapa';
     const body = safe(document.getElementById('programmerTestBody')?.value) || 'Notificación de prueba desde consola.';
+    const setStatus = message => {
+      const statusEl = document.getElementById('programmerTestStatus');
+      if (statusEl) statusEl.textContent = message;
+    };
+    state.testTarget = targetUser;
+    state.testTitle = title;
+    state.testBody = body;
     if (!targetUser) {
       showToast('Indica el usuario o correo destino.', 'error');
       return;
     }
-    await runJob('send-test-notification', { targetUser, title, body, dryRun: false });
-    await refreshAll();
+    state.sendingTestNotification = true;
+    renderCurrentTab();
+    setStatus('Enviando prueba al dispositivo...');
+    try {
+      const result = await runJob('send-test-notification', { targetUser, title, body, dryRun: false });
+      if (result?.ok) {
+        setStatus('Prueba enviada. Ya deberia verse en el dispositivo y en el inbox.');
+        state.testBody = '';
+        await refreshAll();
+      }
+    } finally {
+      state.sendingTestNotification = false;
+      if (state.tab === 'notificaciones') renderCurrentTab();
+    }
+  });
+  document.getElementById('programmerTestTarget')?.addEventListener('input', event => {
+    state.testTarget = event.target.value;
+  });
+  document.getElementById('programmerTestTitle')?.addEventListener('input', event => {
+    state.testTitle = event.target.value;
+  });
+  document.getElementById('programmerTestBody')?.addEventListener('input', event => {
+    state.testBody = event.target.value;
   });
 }
 
@@ -423,7 +611,7 @@ function renderConsultasTab() {
           <h4>Resultado</h4>
           <span>${escapeHtml(state.queryName)}</span>
         </div>
-        ${rowsToTable(filteredQueryRows())}
+        <div id="programmerQueryResults">${renderQueryResultsHtml()}</div>
       </div>
     </section>
   `;
@@ -432,7 +620,8 @@ function renderConsultasTab() {
   });
   document.getElementById('programmerQuerySearch')?.addEventListener('input', event => {
     state.querySearch = event.target.value;
-    renderCurrentTab();
+    const target = document.getElementById('programmerQueryResults');
+    if (target) target.innerHTML = renderQueryResultsHtml();
   });
   document.getElementById('programmerQueryLimit')?.addEventListener('change', event => {
     state.queryLimit = Math.min(150, Math.max(10, Number(event.target.value) || 50));
@@ -525,23 +714,23 @@ function renderConfigTab() {
         </button>
       </div>
     </section>
-    <section class="programmer-three-col">
-      <div class="programmer-panel">
-        <div class="programmer-panel-head"><h4>GLOBAL</h4><span>settings/GLOBAL</span></div>
+    <section class="programmer-config-stack">
+      <details class="programmer-collapse" open>
+        <summary>GLOBAL <span>settings/GLOBAL</span></summary>
         <pre class="programmer-code-block">${escapeHtml(JSON.stringify(state.settingsGlobal || {}, null, 2))}</pre>
-      </div>
-      <div class="programmer-panel">
-        <div class="programmer-panel-head"><h4>Plaza</h4><span>settings/${escapeHtml(state.plaza || 'GLOBAL')}</span></div>
+      </details>
+      <details class="programmer-collapse" open>
+        <summary>Plaza <span>settings/${escapeHtml(state.plaza || 'GLOBAL')}</span></summary>
         <pre class="programmer-code-block">${escapeHtml(JSON.stringify(state.settingsPlaza || {}, null, 2))}</pre>
-      </div>
-      <div class="programmer-panel">
-        <div class="programmer-panel-head"><h4>Efectivo</h4><span>Overlay actual</span></div>
+      </details>
+      <details class="programmer-collapse" open>
+        <summary>Configuracion efectiva <span>Overlay actual</span></summary>
         <pre class="programmer-code-block">${escapeHtml(JSON.stringify(effective, null, 2))}</pre>
-      </div>
-    </section>
-    <section class="programmer-panel">
-      <div class="programmer-panel-head"><h4>Editor JSON</h4><span>${state.configMode === 'global' ? 'settings/GLOBAL' : `settings/${state.plaza || 'GLOBAL'}`}</span></div>
-      <textarea id="programmerConfigEditor" class="programmer-json-editor">${escapeHtml(JSON.stringify(editorSource || {}, null, 2))}</textarea>
+      </details>
+      <details class="programmer-collapse" open>
+        <summary>Editor JSON <span>${state.configMode === 'global' ? 'settings/GLOBAL' : `settings/${state.plaza || 'GLOBAL'}`}</span></summary>
+        <textarea id="programmerConfigEditor" class="programmer-json-editor">${escapeHtml(JSON.stringify(editorSource || {}, null, 2))}</textarea>
+      </details>
     </section>
   `;
   document.getElementById('programmerConfigPlaza')?.addEventListener('change', event => {
@@ -651,7 +840,7 @@ function renderDispositivosTab() {
           <h4>collectionGroup(devices)</h4>
           <span>Últimos dispositivos registrados</span>
         </div>
-        ${rowsToTable(state.devicesRows)}
+        ${renderDevicesTableHtml(state.devicesRows)}
       </div>
     </section>
   `;
@@ -659,6 +848,13 @@ function renderDispositivosTab() {
 
 function renderCurrentTab() {
   if (state.tab === 'resumen') return renderResumenTab();
+  if (state.tab === 'database') {
+    renderDatabaseTab();
+    ensureDatabaseTabReady().catch(error => {
+      console.error('ensureDatabaseTabReady', error);
+    });
+    return;
+  }
   if (state.tab === 'notificaciones') return renderNotificacionesTab();
   if (state.tab === 'consultas') return renderConsultasTab();
   if (state.tab === 'jobs') return renderJobsTab();
@@ -674,6 +870,379 @@ function filteredQueryRows() {
   return state.queryRows.filter(row => JSON.stringify(row).toLowerCase().includes(term));
 }
 
+function dbDocDateLabel(value) {
+  const text = safe(value);
+  if (!text) return 'Sin fecha';
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+  return parsed.toLocaleString('es-MX');
+}
+
+function filteredDbCollections() {
+  if (!state.dbCollectionSearch) return state.dbCollections;
+  const term = lower(state.dbCollectionSearch);
+  return state.dbCollections.filter(item => JSON.stringify(item).toLowerCase().includes(term));
+}
+
+function filteredDbDocs() {
+  if (!state.dbDocSearch) return state.dbDocs;
+  const term = lower(state.dbDocSearch);
+  return state.dbDocs.filter(item => JSON.stringify(item).toLowerCase().includes(term));
+}
+
+function renderDbCollectionsHtml() {
+  const collections = filteredDbCollections();
+  if (!collections.length) {
+    return `<div class="programmer-empty-state">
+      <span class="material-icons">folder_off</span>
+      <strong>Sin colecciones visibles</strong>
+      <p>Escribe una ruta padre válida o vuelve a la raíz para inspeccionar otra rama.</p>
+    </div>`;
+  }
+
+  return collections.map(item => `
+    <button type="button" class="programmer-db-item ${state.dbCollectionPath === item.path ? 'active' : ''}" data-db-collection="${escapeHtml(item.path)}">
+      <div class="programmer-db-item-copy">
+        <strong>${escapeHtml(item.id)}</strong>
+        <span>${escapeHtml(item.path)}</span>
+      </div>
+      <span class="material-icons">folder</span>
+    </button>
+  `).join('');
+}
+
+function renderDbDocsHtml() {
+  const docs = filteredDbDocs();
+  if (!docs.length) {
+    return `<div class="programmer-empty-state">
+      <span class="material-icons">description</span>
+      <strong>Sin documentos cargados</strong>
+      <p>Abre una colección para ver y editar sus documentos tal como viven en Firestore.</p>
+    </div>`;
+  }
+
+  return docs.map(item => `
+    <button type="button" class="programmer-db-item ${state.dbDocPath === item.path ? 'active' : ''}" data-db-doc="${escapeHtml(item.path)}">
+      <div class="programmer-db-item-copy">
+        <strong>${escapeHtml(item.id)}</strong>
+        <span>${escapeHtml(item.path)}</span>
+        <p>${escapeHtml(item.preview || `${item.fieldCount || 0} campos`)}</p>
+      </div>
+      <div class="programmer-db-item-meta">
+        <span>${escapeHtml(String(item.fieldCount || 0))} campos</span>
+        <span>${escapeHtml(dbDocDateLabel(item.updateTime))}</span>
+      </div>
+    </button>
+  `).join('');
+}
+
+function currentDbEditorValue() {
+  return document.getElementById('programmerDbEditor')?.value || '{}';
+}
+
+async function loadDbCollections(parentPath = state.dbParentPath || '') {
+  try {
+    const normalizedParent = safe(parentPath).replace(/^\/+|\/+$/g, '');
+    const res = await callConsoleQuery('db_collections', { parentPath: normalizedParent });
+    state.dbParentPath = safe(res.data?.parentPath || normalizedParent);
+    state.dbCollections = Array.isArray(res.data?.rows) ? res.data.rows : [];
+    state.dbLoaded = true;
+    if (state.tab === 'database') renderCurrentTab();
+  } catch (error) {
+    console.error('loadDbCollections', error);
+    showToast(`No se pudieron cargar las colecciones: ${describeError(error)}`, 'error');
+    reportProgrammerError({ kind: 'programmer.db.collections', scope: 'programador', message: describeError(error), stack: error.stack });
+  }
+}
+
+async function loadDbDocs(collectionPath = state.dbCollectionPath || '') {
+  const normalized = safe(collectionPath).replace(/^\/+|\/+$/g, '');
+  if (!normalized) {
+    state.dbCollectionPath = '';
+    state.dbDocs = [];
+    if (state.tab === 'database') renderCurrentTab();
+    return;
+  }
+  try {
+    const res = await callConsoleQuery('db_docs', {
+      collectionPath: normalized,
+      limit: state.dbLimit
+    });
+    state.dbCollectionPath = safe(res.data?.collectionPath || normalized);
+    state.dbDocs = Array.isArray(res.data?.rows) ? res.data.rows : [];
+    if (!state.dbDocPath && state.dbDocs[0]?.path) {
+      state.dbDocPath = state.dbDocs[0].path;
+    }
+    if (state.tab === 'database') renderCurrentTab();
+  } catch (error) {
+    console.error('loadDbDocs', error);
+    showToast(`No se pudo abrir la colección: ${describeError(error)}`, 'error');
+    reportProgrammerError({ kind: 'programmer.db.docs', scope: 'programador', message: describeError(error), stack: error.stack });
+  }
+}
+
+async function loadDbDocument(docPath = state.dbDocPath || '') {
+  const normalized = safe(docPath).replace(/^\/+|\/+$/g, '');
+  if (!normalized) {
+    state.dbDocPath = '';
+    state.dbDocument = null;
+    state.dbSubcollections = [];
+    if (state.tab === 'database') renderCurrentTab();
+    return;
+  }
+  try {
+    const res = await callConsoleQuery('db_document', { docPath: normalized });
+    state.dbDocPath = safe(res.data?.docPath || normalized);
+    state.dbDocument = res.data?.document || null;
+    state.dbSubcollections = Array.isArray(res.data?.subcollections) ? res.data.subcollections : [];
+    if (state.tab === 'database') renderCurrentTab();
+  } catch (error) {
+    console.error('loadDbDocument', error);
+    showToast(`No se pudo abrir el documento: ${describeError(error)}`, 'error');
+    reportProgrammerError({ kind: 'programmer.db.document', scope: 'programador', message: describeError(error), stack: error.stack });
+  }
+}
+
+async function openDbCollection(path = '') {
+  const normalized = safe(path).replace(/^\/+|\/+$/g, '');
+  if (!normalized) return;
+  state.dbCollectionPath = normalized;
+  state.dbDocPath = '';
+  state.dbDocument = null;
+  state.dbSubcollections = [];
+  await loadDbDocs(normalized);
+}
+
+async function openDbDocument(path = '') {
+  const normalized = safe(path).replace(/^\/+|\/+$/g, '');
+  if (!normalized) return;
+  state.dbDocPath = normalized;
+  await loadDbDocument(normalized);
+}
+
+async function saveDbDocument(merge = true) {
+  const docPathInput = safe(document.getElementById('programmerDbDocPathInput')?.value || state.dbDocPath);
+  if (!docPathInput) {
+    showToast('Indica la ruta del documento.', 'error');
+    return;
+  }
+  try {
+    const parsed = JSON.parse(currentDbEditorValue() || '{}');
+    const result = await runJob('upsert-document', {
+      dryRun: false,
+      docPath: docPathInput,
+      merge,
+      data: parsed
+    });
+    if (!result?.ok) return;
+    state.dbDocPath = docPathInput;
+    const collectionPath = docPathInput.split('/').slice(0, -1).join('/');
+    await Promise.all([
+      loadDbDocument(docPathInput),
+      loadDbDocs(collectionPath)
+    ]);
+  } catch (error) {
+    console.error('saveDbDocument', error);
+    showToast(`No se pudo guardar el documento: ${describeError(error)}`, 'error');
+  }
+}
+
+async function deleteDbDocument() {
+  const docPathInput = safe(document.getElementById('programmerDbDocPathInput')?.value || state.dbDocPath);
+  if (!docPathInput) {
+    showToast('Selecciona un documento para eliminar.', 'error');
+    return;
+  }
+  const ok = window.confirm(`Se eliminará ${docPathInput}. Las subcolecciones no se borran automáticamente. ¿Continuar?`);
+  if (!ok) return;
+  try {
+    const result = await runJob('delete-document', {
+      dryRun: false,
+      docPath: docPathInput
+    });
+    if (!result?.ok) return;
+    const collectionPath = docPathInput.split('/').slice(0, -1).join('/');
+    state.dbDocPath = '';
+    state.dbDocument = null;
+    state.dbSubcollections = [];
+    await loadDbDocs(collectionPath);
+  } catch (error) {
+    console.error('deleteDbDocument', error);
+    showToast(`No se pudo eliminar el documento: ${describeError(error)}`, 'error');
+  }
+}
+
+function renderDatabaseTab() {
+  const container = document.getElementById('programmerTabContent');
+  if (!container) return;
+  const documentPayload = state.dbDocument?.data || {};
+  const documentText = JSON.stringify(documentPayload, null, 2);
+
+  container.innerHTML = `
+    <section class="programmer-section">
+      <div class="programmer-section-head">
+        <h3>Base de datos</h3>
+        <span>Firestore completo por ruta, con edición directa y subcolecciones</span>
+      </div>
+      <div class="programmer-db-toolbar">
+        <label class="programmer-inline-control programmer-inline-control-grow">
+          <span>Ruta padre</span>
+          <input id="programmerDbParentPath" class="programmer-input" type="text" placeholder="Vacío = colecciones raíz | usuarios/correo@dominio" value="${escapeHtml(state.dbParentPath)}">
+        </label>
+        <label class="programmer-inline-control">
+          <span>Límite</span>
+          <input id="programmerDbLimit" class="programmer-input small" type="number" min="20" max="300" value="${state.dbLimit}">
+        </label>
+        <button id="programmerDbRootBtn" type="button" class="programmer-page-btn">
+          <span class="material-icons">home_storage</span>
+          Raíz
+        </button>
+        <button id="programmerDbBrowseBtn" type="button" class="programmer-page-btn primary">
+          <span class="material-icons">folder_open</span>
+          Ver colecciones
+        </button>
+      </div>
+    </section>
+
+    <section class="programmer-db-grid">
+      <div class="programmer-panel">
+        <div class="programmer-panel-head">
+          <h4>Colecciones</h4>
+          <span>${escapeHtml(state.dbParentPath || 'raíz')}</span>
+        </div>
+        <div class="programmer-db-panel-tools">
+          <input id="programmerDbCollectionSearch" class="programmer-input" type="text" placeholder="Buscar colección..." value="${escapeHtml(state.dbCollectionSearch)}">
+        </div>
+        <div id="programmerDbCollectionsList" class="programmer-db-list">
+          ${renderDbCollectionsHtml()}
+        </div>
+      </div>
+
+      <div class="programmer-panel">
+        <div class="programmer-panel-head">
+          <h4>Documentos</h4>
+          <span>${escapeHtml(state.dbCollectionPath || 'elige una colección')}</span>
+        </div>
+        <div class="programmer-db-panel-tools">
+          <input id="programmerDbCollectionPathInput" class="programmer-input" type="text" placeholder="Ruta colección, ej. usuarios o usuarios/correo/inbox" value="${escapeHtml(state.dbCollectionPath)}">
+          <button id="programmerDbOpenCollectionBtn" type="button" class="programmer-page-btn">
+            <span class="material-icons">pageview</span>
+            Abrir
+          </button>
+          <input id="programmerDbDocSearch" class="programmer-input" type="text" placeholder="Filtrar documentos..." value="${escapeHtml(state.dbDocSearch)}">
+        </div>
+        <div id="programmerDbDocsList" class="programmer-db-list">
+          ${renderDbDocsHtml()}
+        </div>
+      </div>
+
+      <div class="programmer-panel">
+        <div class="programmer-panel-head">
+          <h4>Editor de documento</h4>
+          <span>${escapeHtml(state.dbDocPath || 'selecciona un documento')}</span>
+        </div>
+        <div class="programmer-db-editor-meta">
+          <label class="programmer-inline-control">
+            <span>Ruta documento</span>
+            <input id="programmerDbDocPathInput" class="programmer-input" type="text" placeholder="usuarios/correo@dominio" value="${escapeHtml(state.dbDocPath)}">
+          </label>
+          <div class="programmer-db-actions">
+            <button id="programmerDbReloadDocBtn" type="button" class="programmer-page-btn">
+              <span class="material-icons">sync</span>
+              Recargar
+            </button>
+            <button id="programmerDbSaveMergeBtn" type="button" class="programmer-page-btn primary">
+              <span class="material-icons">save</span>
+              Guardar merge
+            </button>
+            <button id="programmerDbReplaceBtn" type="button" class="programmer-page-btn">
+              <span class="material-icons">upload_file</span>
+              Reemplazar
+            </button>
+            <button id="programmerDbDeleteBtn" type="button" class="programmer-page-btn danger">
+              <span class="material-icons">delete</span>
+              Eliminar
+            </button>
+          </div>
+        </div>
+        <div class="programmer-db-subcollections">
+          ${(state.dbSubcollections || []).length ? state.dbSubcollections.map(item => `
+            <button type="button" class="programmer-db-chip" data-db-subcollection="${escapeHtml(item.path)}">${escapeHtml(item.id)}</button>
+          `).join('') : '<span class="programmer-db-chip muted">Sin subcolecciones detectadas</span>'}
+        </div>
+        <textarea id="programmerDbEditor" class="programmer-json-editor">${escapeHtml(documentText)}</textarea>
+      </div>
+    </section>
+  `;
+
+  document.getElementById('programmerDbParentPath')?.addEventListener('input', event => {
+    state.dbParentPath = event.target.value;
+  });
+  document.getElementById('programmerDbLimit')?.addEventListener('input', event => {
+    state.dbLimit = Math.min(300, Math.max(20, Number(event.target.value) || 80));
+  });
+  document.getElementById('programmerDbRootBtn')?.addEventListener('click', async () => {
+    state.dbParentPath = '';
+    state.dbCollectionPath = '';
+    state.dbDocPath = '';
+    state.dbDocument = null;
+    state.dbSubcollections = [];
+    await loadDbCollections('');
+  });
+  document.getElementById('programmerDbBrowseBtn')?.addEventListener('click', () => {
+    state.dbLimit = Math.min(300, Math.max(20, Number(document.getElementById('programmerDbLimit')?.value) || state.dbLimit || 80));
+    loadDbCollections(document.getElementById('programmerDbParentPath')?.value || state.dbParentPath);
+  });
+  document.getElementById('programmerDbCollectionSearch')?.addEventListener('input', event => {
+    state.dbCollectionSearch = event.target.value;
+    const list = document.getElementById('programmerDbCollectionsList');
+    if (list) list.innerHTML = renderDbCollectionsHtml();
+    document.getElementById('programmerDbCollectionsList')?.querySelectorAll('[data-db-collection]').forEach(button => {
+      button.addEventListener('click', () => openDbCollection(button.dataset.dbCollection));
+    });
+  });
+  document.getElementById('programmerDbDocSearch')?.addEventListener('input', event => {
+    state.dbDocSearch = event.target.value;
+    const list = document.getElementById('programmerDbDocsList');
+    if (list) list.innerHTML = renderDbDocsHtml();
+    document.getElementById('programmerDbDocsList')?.querySelectorAll('[data-db-doc]').forEach(button => {
+      button.addEventListener('click', () => openDbDocument(button.dataset.dbDoc));
+    });
+  });
+  document.getElementById('programmerDbOpenCollectionBtn')?.addEventListener('click', () => {
+    state.dbLimit = Math.min(300, Math.max(20, Number(document.getElementById('programmerDbLimit')?.value) || state.dbLimit || 80));
+    openDbCollection(document.getElementById('programmerDbCollectionPathInput')?.value || state.dbCollectionPath);
+  });
+  document.getElementById('programmerDbReloadDocBtn')?.addEventListener('click', () => {
+    loadDbDocument(document.getElementById('programmerDbDocPathInput')?.value || state.dbDocPath);
+  });
+  document.getElementById('programmerDbSaveMergeBtn')?.addEventListener('click', () => saveDbDocument(true));
+  document.getElementById('programmerDbReplaceBtn')?.addEventListener('click', () => saveDbDocument(false));
+  document.getElementById('programmerDbDeleteBtn')?.addEventListener('click', () => deleteDbDocument());
+
+  container.querySelectorAll('[data-db-collection]').forEach(button => {
+    button.addEventListener('click', () => openDbCollection(button.dataset.dbCollection));
+  });
+  container.querySelectorAll('[data-db-doc]').forEach(button => {
+    button.addEventListener('click', () => openDbDocument(button.dataset.dbDoc));
+  });
+  container.querySelectorAll('[data-db-subcollection]').forEach(button => {
+    button.addEventListener('click', () => openDbCollection(button.dataset.dbSubcollection));
+  });
+}
+
+async function ensureDatabaseTabReady() {
+  if (!state.dbLoaded) {
+    await loadDbCollections(state.dbParentPath || '');
+  }
+  if (state.dbCollectionPath && state.dbDocs.length === 0) {
+    await loadDbDocs(state.dbCollectionPath);
+  }
+  if (state.dbDocPath && !state.dbDocument) {
+    await loadDbDocument(state.dbDocPath);
+  }
+}
+
 async function runQuery(queryName) {
   try {
     const res = await callConsoleQuery(queryName, { limit: state.queryLimit });
@@ -682,8 +1251,8 @@ async function runQuery(queryName) {
     renderCurrentTab();
   } catch (error) {
     console.error('queryProgrammerConsole', error);
-    showToast('No se pudo ejecutar la consulta.', 'error');
-    reportProgrammerError({ kind: 'programmer.query', scope: 'programador', message: error.message, stack: error.stack });
+    showToast(`No se pudo ejecutar la consulta: ${describeError(error)}`, 'error');
+    reportProgrammerError({ kind: 'programmer.query', scope: 'programador', message: describeError(error), stack: error.stack });
   }
 }
 
@@ -699,10 +1268,12 @@ async function runJob(job, extra = {}) {
     state.jobResult = res.data?.result || null;
     showToast(`Job ${job} ejecutado correctamente.`, 'success');
     renderCurrentTab();
+    return { ok: true, result: state.jobResult };
   } catch (error) {
     console.error('runProgrammerJob', error);
-    showToast(error?.message || `No se pudo ejecutar ${job}.`, 'error');
-    reportProgrammerError({ kind: 'programmer.job', scope: 'programador', message: error.message, stack: error.stack });
+    showToast(describeError(error) || `No se pudo ejecutar ${job}.`, 'error');
+    reportProgrammerError({ kind: 'programmer.job', scope: 'programador', message: describeError(error), stack: error.stack });
+    return { ok: false, error };
   }
 }
 
@@ -779,7 +1350,7 @@ async function refreshAll() {
   } catch (error) {
     console.error('refreshAll', error);
     setLoading('No se pudo cargar la consola.');
-    reportProgrammerError({ kind: 'programmer.refresh', scope: 'programador', message: error.message, stack: error.stack });
+    reportProgrammerError({ kind: 'programmer.refresh', scope: 'programador', message: describeError(error), stack: error.stack });
   }
 }
 
@@ -791,6 +1362,7 @@ installProgrammerErrorReporter({
 });
 
 auth.onAuthStateChanged(async user => {
+  enableProgrammerPageScroll();
   if (!user) {
     window.location.replace('/login');
     return;
@@ -818,7 +1390,7 @@ auth.onAuthStateChanged(async user => {
     await refreshAll();
   } catch (error) {
     console.error('programador:init', error);
-    reportProgrammerError({ kind: 'programmer.init', scope: 'programador', message: error.message, stack: error.stack });
+    reportProgrammerError({ kind: 'programmer.init', scope: 'programador', message: describeError(error), stack: error.stack });
     setLoading('No se pudo abrir la consola de programador.');
   }
 });

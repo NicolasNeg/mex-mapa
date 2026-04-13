@@ -2904,43 +2904,50 @@
                 <span class="material-icons" style="font-size:20px;">notifications_active</span>
               </div>
               <div>
-                <div class="profile-settings-title">Alertas</div>
-                <p class="profile-settings-sub">Preferencias reales para este dispositivo e inbox operativo.</p>
+                <div class="profile-settings-title">Notificaciones del dispositivo</div>
+                <p class="profile-settings-sub">Controla si este equipo recibe avisos reales en el celular o navegador.</p>
               </div>
-              <span class="profile-settings-badge" id="profileNotificationBadge">Inbox beta</span>
+              <span class="profile-settings-badge" id="profileNotificationBadge">Preparando</span>
+            </div>
+            <div class="profile-setting-row profile-setting-row-hero">
+              <div>
+                <strong>Notificaciones activas</strong>
+                <small>Si lo apagas, el historial sigue en el inbox pero este equipo deja de sonar.</small>
+              </div>
+              <button id="profileNotifMasterToggle" type="button" class="profile-setting-toggle is-on" aria-label="Notificaciones activas"></button>
             </div>
             <div class="profile-setting-row">
               <div>
                 <strong>Mensajes directos</strong>
-                <small>Activa push para chats y respuestas importantes.</small>
+                <small>Avísame cuando alguien me escriba o responda.</small>
               </div>
               <button id="profileNotifMessagesToggle" type="button" class="profile-setting-toggle is-on" aria-label="Mensajes directos"></button>
             </div>
             <div class="profile-setting-row">
               <div>
                 <strong>Misión de cuadre</strong>
-                <small>Recibe avisos cuando te asignen o actualicen el cuadre.</small>
+                <small>Recibe avisos cuando te asignen o actualicen tu cuadre.</small>
               </div>
               <button id="profileNotifCuadreToggle" type="button" class="profile-setting-toggle is-on" aria-label="Misión de cuadre"></button>
             </div>
             <div class="profile-setting-row">
               <div>
                 <strong>Alertas críticas</strong>
-                <small>Solo prioridades altas del patio y operación.</small>
+                <small>Solo las situaciones urgentes de operación y patio.</small>
               </div>
               <button id="profileNotifCriticalToggle" type="button" class="profile-setting-toggle is-on" aria-label="Alertas críticas"></button>
             </div>
             <div class="profile-setting-row">
               <div>
                 <strong>Silenciar este equipo</strong>
-                <small>Deja el inbox visible pero pausa el push del sistema operativo.</small>
+                <small>Pausa los avisos del sistema sin perder el historial dentro del inbox.</small>
               </div>
               <button id="profileNotifMuteToggle" type="button" class="profile-setting-toggle is-off" aria-label="Silenciar este equipo"></button>
             </div>
             <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
             <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary" style="width:100%; margin-top:14px;">
               <span class="material-icons" style="font-size:18px;">notifications</span>
-              Abrir Centro de Notificaciones
+              Ver historial y detalles
             </button>
           </section>
 
@@ -2978,20 +2985,20 @@
               </div>
               <div>
                 <div class="profile-settings-title">Privacidad y sesión</div>
-                <p class="profile-settings-sub">Estado actual de presencia, permiso push y sesiones del equipo.</p>
+                <p class="profile-settings-sub">Estado del permiso, este equipo activo y forma en que recibes avisos.</p>
               </div>
               <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
             </div>
             <div class="profile-setting-row">
               <div>
-                <strong>Permiso del navegador</strong>
+                <strong>Permiso del dispositivo</strong>
                 <small id="profilePermissionSummary">Revisando soporte de notificaciones…</small>
               </div>
-              <span id="profilePermissionPill" class="profile-settings-badge" style="margin-left:0;">Pendiente</span>
+              <button id="profilePermissionPill" type="button" class="profile-settings-badge profile-settings-badge-action" style="margin-left:0;">Pendiente</button>
             </div>
             <div class="profile-setting-row">
               <div>
-                <strong>Sesión activa</strong>
+                <strong>Este equipo</strong>
                 <small id="profileCurrentDeviceSummary">Cargando información del dispositivo actual.</small>
               </div>
               <span class="profile-settings-badge">Este equipo</span>
@@ -3520,7 +3527,7 @@
           ADMINISTRACIÓN
         </div>
         <h2 class="cfg-v2-title">PANEL<br>ADMINISTRATIVO</h2>
-        <p class="cfg-v2-subtitle">Gestiona usuarios, roles, solicitudes y permisos operativos de
+        <p class="cfg-v2-subtitle">Gestiona usuarios, roles, solicitudes, catálogos y configuración operativa de
           <b id="empresa-cfg-lbl">MEX RENT A CAR</b>.</p>
       </div>
       <button class="cfg-v2-close" onclick="document.getElementById('modal-config-global').classList.remove('active')">
@@ -3537,53 +3544,53 @@
           <span class="material-icons" style="font-size:14px;">shield_person</span>
           Administración
         </div>
-        <div class="cfg-v2-sidebar-sublabel">Usuarios, roles y permisos</div>
+        <div class="cfg-v2-sidebar-sublabel">Usuarios, roles, catálogos y configuración</div>
         <nav class="cfg-v2-nav">
-          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('empresa', this)">
+          <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)">
             <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
             <span>Empresa</span>
           </button>
-          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('plazas', this)">
+          <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)">
             <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
             <span>Plazas</span>
           </button>
-          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('ubicaciones', this)">
+          <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)">
             <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
             <span>Ubicaciones</span>
           </button>
-          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('estados', this)">
+          <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)">
             <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
             <span>Estados</span>
           </button>
-          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('categorias', this)">
+          <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)">
             <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
             <span>Categorías</span>
           </button>
-          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('modelos', this)">
+          <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)">
             <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
             <span>Modelos</span>
           </button>
-          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('gasolinas', this)">
+          <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)">
             <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
             <span>Gasolinas</span>
           </button>
           
           <div style="margin: 15px 0 5px 0; padding-left: 10px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Gestión y Permisos</div>
           
-          <button class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)">
+          <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)">
             <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
             <span>Usuarios</span>
           </button>
-          <button class="cfg-tab" onclick="abrirTabConfig('roles', this)">
+          <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)">
             <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
             <span>Roles</span>
           </button>
-          <button class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;">
+          <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;">
             <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
             <span>Solicitudes</span>
             <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; right:10px; top:12px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
           </button>
-          <button id="cfg-tab-programador" class="cfg-tab" style="display:none;" onclick="abrirTabConfig('programador', this)">
+          <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)">
             <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
             <span>Programador</span>
           </button>

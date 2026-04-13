@@ -29,7 +29,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v65';
+const APP_BUILD_TAG = 'mapa-v67';
 
 
 // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
@@ -10139,11 +10139,40 @@ function _toggleProfileSettingVisual(id, enabled) {
   el.setAttribute('aria-pressed', enabled ? 'true' : 'false');
 }
 
+function _friendlyProfileDeviceLabel(device = {}) {
+  const platform = String(device?.platform || '').trim().toLowerCase();
+  const browser = String(device?.browser || '').trim().toLowerCase();
+  if (platform === 'ios') return 'iPhone';
+  if (platform === 'android') return 'Celular';
+  if (platform === 'mac' || platform === 'windows') return 'Computadora';
+  if (browser === 'safari') return 'Safari';
+  if (browser === 'chrome') return 'Chrome';
+  if (browser === 'firefox') return 'Firefox';
+  if (browser === 'edge') return 'Edge';
+  return 'Navegador';
+}
+
 async function _togglePerfilNotificacion(field) {
   const snapshot = getCurrentDeviceSnapshot();
   const current = snapshot?.currentDevice?.notificationPrefs || {};
   const nextValue = !(current?.[field] !== false);
   await updateCurrentDevicePreferences({ [field]: nextValue });
+  _renderNotificationProfileState();
+}
+
+async function _togglePerfilMasterNotifications() {
+  const snapshot = getCurrentDeviceSnapshot();
+  const currentDevice = snapshot?.currentDevice || {};
+  const isMuted = currentDevice?.notificationPrefs?.muteAll === true;
+  const permission = ('Notification' in window) ? Notification.permission : 'unsupported';
+
+  if (permission !== 'granted') {
+    await requestDeviceNotifications(true);
+    _renderNotificationProfileState();
+    return;
+  }
+
+  await updateCurrentDevicePreferences({ muteAll: !isMuted });
   _renderNotificationProfileState();
 }
 
@@ -10181,7 +10210,10 @@ function _renderNotificationProfileState() {
     criticalAlerts: currentDevice?.notificationPrefs?.criticalAlerts !== false,
     muteAll: currentDevice?.notificationPrefs?.muteAll === true
   };
+  const permission = ('Notification' in window) ? Notification.permission : 'unsupported';
+  const masterEnabled = permission === 'granted' && currentDevice?.pushEnabled !== false && !prefs.muteAll;
 
+  _toggleProfileSettingVisual('profileNotifMasterToggle', masterEnabled);
   _toggleProfileSettingVisual('profileNotifMessagesToggle', prefs.directMessages);
   _toggleProfileSettingVisual('profileNotifCuadreToggle', prefs.cuadreMissions);
   _toggleProfileSettingVisual('profileNotifCriticalToggle', prefs.criticalAlerts);
@@ -10194,27 +10226,26 @@ function _renderNotificationProfileState() {
   const permissionPill = document.getElementById('profilePermissionPill');
   const currentDeviceSummary = document.getElementById('profileCurrentDeviceSummary');
 
-  const permission = ('Notification' in window) ? Notification.permission : 'unsupported';
-  if (badge) badge.innerText = snapshot?.unread > 0 ? `${snapshot.unread} nuevas` : 'Inbox listo';
+  if (badge) badge.innerText = masterEnabled ? 'Activo en este equipo' : (snapshot?.unread > 0 ? `${snapshot.unread} nuevas` : 'Activalas');
   if (meta) {
     const lastSeen = currentDevice?.lastSeenAt
       ? new Date(Number(currentDevice.lastSeenAt)).toLocaleString('es-MX')
       : 'Sin registro todavía';
-    meta.innerText = `Build ${APP_BUILD_TAG} · ${currentDevice?.browser || 'browser'} / ${currentDevice?.platform || 'web'} · Última actividad: ${lastSeen}`;
+    meta.innerText = `${masterEnabled ? 'Push activo' : 'Push en pausa'} en ${_friendlyProfileDeviceLabel(currentDevice)} · Última actividad: ${lastSeen}`;
   }
   if (sessionBadge) sessionBadge.innerText = _userPresenceIsOnline(currentUserProfile || {}) ? 'En línea' : 'Sesión activa';
   if (permissionSummary) {
     permissionSummary.innerText = permission === 'granted'
-      ? 'Este navegador ya puede recibir notificaciones del sistema.'
+      ? 'Este equipo ya puede recibir notificaciones reales del sistema.'
       : (permission === 'denied'
-        ? 'El navegador bloqueó el permiso. Puedes reactivarlo en la configuración del sitio.'
-        : 'Activa el permiso para recibir mensajes, cuadre y alertas críticas.');
+        ? 'El permiso está bloqueado. Puedes volver a activarlo desde la configuración del sitio.'
+        : 'Activa el permiso para recibir mensajes, cuadre y alertas críticas en este equipo.');
   }
   if (permissionPill) {
-    permissionPill.innerText = permission === 'granted' ? 'Activo' : (permission === 'denied' ? 'Bloqueado' : 'Pendiente');
+    permissionPill.innerText = permission === 'granted' ? 'Activar / revisar' : (permission === 'denied' ? 'Bloqueado' : 'Activar');
   }
   if (currentDeviceSummary) {
-    currentDeviceSummary.innerText = `${currentDevice?.browser || 'browser'} · ${currentDevice?.platform || 'web'} · ${currentDevice?.activeRoute || '/mapa'}`;
+    currentDeviceSummary.innerText = `${_friendlyProfileDeviceLabel(currentDevice)} · ${currentDevice?.activeRoute || '/mapa'} · ${prefs.muteAll ? 'Silenciado' : 'Disponible'}`;
   }
 }
 
@@ -10222,6 +10253,7 @@ function _bindProfileNotificationButtons() {
   if (window.__profileNotificationButtonsBound) return;
   window.__profileNotificationButtonsBound = true;
 
+  document.getElementById('profileNotifMasterToggle')?.addEventListener('click', () => _togglePerfilMasterNotifications());
   document.getElementById('profileNotifMessagesToggle')?.addEventListener('click', () => _togglePerfilNotificacion('directMessages'));
   document.getElementById('profileNotifCuadreToggle')?.addEventListener('click', () => _togglePerfilNotificacion('cuadreMissions'));
   document.getElementById('profileNotifCriticalToggle')?.addEventListener('click', () => _togglePerfilNotificacion('criticalAlerts'));
@@ -13953,17 +13985,26 @@ function abrirPanelConfiguracion(tabInicial) {
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }
+  const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
+  ['empresa', 'plazas', 'ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].forEach(tab => {
+    const button = document.getElementById(`cfg-tab-${tab}`) || document.querySelector(`.cfg-tab[onclick*="'${tab}'"]`);
+    if (button) button.style.display = canManageAdvancedConfig ? 'inline-flex' : 'none';
+  });
+  const tabUsuarios = document.getElementById('cfg-tab-usuarios') || document.querySelector(`.cfg-tab[onclick*="'usuarios'"]`);
+  if (tabUsuarios) tabUsuarios.style.display = 'inline-flex';
   const tabProg = document.getElementById('cfg-tab-programador');
-  if (tabProg) tabProg.style.display = 'none';
-  const tabRoles = document.querySelector(`.cfg-tab[onclick*="'roles'"]`);
+  if (tabProg) tabProg.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
+  const tabRoles = document.getElementById('cfg-tab-roles') || document.querySelector(`.cfg-tab[onclick*="'roles'"]`);
   if (tabRoles) tabRoles.style.display = hasPermission('manage_roles_permissions') || canManageUsers() ? 'inline-flex' : 'none';
+  const tabSolicitudes = document.getElementById('cfg-tab-solicitudes') || document.querySelector(`.cfg-tab[onclick*="'solicitudes'"]`);
+  if (tabSolicitudes) tabSolicitudes.style.display = canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig() ? 'inline-flex' : 'none';
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
   document.getElementById('modal-config-global').classList.add('active');
-  const targetTab = tabInicial === 'programador' ? 'usuarios' : (tabInicial || 'usuarios');
+  const targetTab = tabInicial || 'usuarios';
+  const targetButton = document.getElementById(`cfg-tab-${targetTab}`) || document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
   if (targetTab) {
-    // Activar el tab indicado
-    const btnTarget = document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
-    if (btnTarget) abrirTabConfig(targetTab, btnTarget);
+    if (targetButton && targetButton.style.display !== 'none') abrirTabConfig(targetTab, targetButton);
+    else if (tabUsuarios) abrirTabConfig('usuarios', tabUsuarios);
     else renderizarListaConfig();
   } else {
     renderizarListaConfig();
@@ -13981,8 +14022,11 @@ function abrirTabConfig(tabName, btnElement) {
     _umUsers = []; _umSelectedId = null;
   }
 
+  if (!btnElement) {
+    btnElement = document.getElementById(`cfg-tab-${tabName}`) || document.querySelector(`.cfg-tab[onclick*="'${tabName}'"]`);
+  }
   document.querySelectorAll('.cfg-tab').forEach(btn => btn.classList.remove('active'));
-  btnElement.classList.add('active');
+  btnElement?.classList.add('active');
   TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
 
   const searchBox = document.querySelector('.cfg-v2-add-bar');
@@ -13993,7 +14037,7 @@ function abrirTabConfig(tabName, btnElement) {
     if (searchBox) searchBox.style.display = 'flex';
   }
   const progTab = document.getElementById('cfg-tab-programador');
-  if (progTab) progTab.style.display = 'none';
+  if (progTab) progTab.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
 
   // Remove any existing extra filter bars
   ['cfg-ubi-plaza-filter-wrap', 'cfg-modelo-cat-filter-wrap'].forEach(id => {
