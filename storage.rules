@@ -32,6 +32,26 @@ service firebase.storage {
         : firestore.get(/databases/(default)/documents/usuarios/$(request.auth.uid)).data;
     }
 
+    function empresaConfig() {
+      return firestore.exists(/databases/(default)/documents/configuracion/empresa)
+        ? firestore.get(/databases/(default)/documents/configuracion/empresa).data
+        : {};
+    }
+
+    function seguridadConfig() {
+      return empresaConfig().security != null && empresaConfig().security is map
+        ? empresaConfig().security
+        : {};
+    }
+
+    function rolConfig(role) {
+      return seguridadConfig().roles != null
+        && seguridadConfig().roles is map
+        && seguridadConfig().roles.keys().hasAny([role])
+        ? seguridadConfig().roles[role]
+        : null;
+    }
+
     function rolActual() {
       return estaAutenticado() && esEmailBootstrapProgramador(request.auth.token.email) ? "PROGRAMADOR"
         : !tienePerfilActual() ? "SIN_ACCESO"
@@ -39,28 +59,84 @@ service firebase.storage {
         : perfilActual().rol == "JEFE_OPERACION" ? "JEFE_OPERACION"
         : perfilActual().rol == "CORPORATIVO_USER" ? "CORPORATIVO_USER"
         : perfilActual().rol == "JEFE_REGIONAL" ? "JEFE_REGIONAL"
+        : perfilActual().rol == "JEFE_PATIO" ? "JEFE_PATIO"
+        : perfilActual().rol == "SUPERVISOR" ? "SUPERVISOR"
         : perfilActual().rol == "GERENTE_PLAZA" ? "GERENTE_PLAZA"
         : perfilActual().rol == "VENTAS" ? "VENTAS"
+        : perfilActual().rol != null
+          && seguridadConfig().roles != null
+          && seguridadConfig().roles is map
+          && seguridadConfig().roles.keys().hasAny([perfilActual().rol]) ? perfilActual().rol
         : perfilActual().isGlobal == true ? "CORPORATIVO_USER"
         : perfilActual().isAdmin == true ? "VENTAS"
         : "AUXILIAR";
     }
 
+    function permisoOverride(permiso) {
+      return tienePerfilActual()
+        && perfilActual().permissionOverrides != null
+        && perfilActual().permissionOverrides is map
+        && perfilActual().permissionOverrides.keys().hasAny([permiso])
+        ? perfilActual().permissionOverrides[permiso]
+        : null;
+    }
+
+    function rolTienePermiso(role, permiso) {
+      return role == "PROGRAMADOR" || role == "JEFE_OPERACION" || role == "CORPORATIVO_USER"
+        ? true
+        : permiso == "edit_admin_cuadre"
+          ? (
+            role == "SUPERVISOR"
+            || role == "JEFE_PATIO"
+            || role == "GERENTE_PLAZA"
+            || role == "JEFE_REGIONAL"
+            || (
+              rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true
+            )
+          )
+        : permiso == "view_admin_cuadre"
+          ? (
+            role == "VENTAS"
+            || role == "SUPERVISOR"
+            || role == "JEFE_PATIO"
+            || role == "GERENTE_PLAZA"
+            || role == "JEFE_REGIONAL"
+            || (
+              rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true
+            )
+          )
+        : false;
+    }
+
+    function tienePermiso(permiso) {
+      return esEmailBootstrapProgramador(request.auth.token.email)
+        || permisoOverride(permiso) == true
+        || (permisoOverride(permiso) == null && rolTienePermiso(rolActual(), permiso));
+    }
+
     function esAccesoTotal() {
       return rolActual() == "PROGRAMADOR"
         || rolActual() == "JEFE_OPERACION"
-        || rolActual() == "CORPORATIVO_USER";
+        || rolActual() == "CORPORATIVO_USER"
+        || (
+          rolConfig(rolActual()) != null
+          && rolConfig(rolActual()).fullAccess != null
+          && rolConfig(rolActual()).fullAccess == true
+        );
     }
 
     function esAdminOperativo() {
-      return rolActual() == "VENTAS"
-        || rolActual() == "GERENTE_PLAZA"
-        || rolActual() == "JEFE_REGIONAL"
-        || esAccesoTotal();
+      return tienePermiso("view_admin_cuadre") || tienePermiso("edit_admin_cuadre");
     }
 
     function puedeEditarCuadreAdmins() {
-      return esAdminOperativo();
+      return tienePermiso("edit_admin_cuadre");
     }
 
     function esDocumentoUsuarioPropio(docId) {
@@ -74,8 +150,7 @@ service firebase.storage {
     match /evidencias_cuadre_admins/{docId}/{fileName} {
       allow read: if esAdminOperativo();
       allow write: if puedeEditarCuadreAdmins()
-        && request.resource.size < 10 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*|application/pdf|application/msword|application/vnd.openxmlformats.*|application/octet-stream');
+        && (request.resource == null || request.resource.size < 35 * 1024 * 1024);
     }
 
     match /notas_admin_adjuntos/{docId}/{fileName} {

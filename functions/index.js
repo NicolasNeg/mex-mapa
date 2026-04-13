@@ -19,8 +19,19 @@ const JOBS_COL = "programmer_jobs";
 const AUDIT_COL = "programmer_audit";
 const ADMIN_AUDIT_COL = "bitacora_gestion";
 const PROGRAMMER_ROLES = new Set(["PROGRAMADOR", "JEFE_OPERACION", "CORPORATIVO_USER"]);
-const ADMIN_ROLES = new Set(["VENTAS", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "PROGRAMADOR", "JEFE_OPERACION"]);
+const ADMIN_ROLES = new Set(["VENTAS", "SUPERVISOR", "JEFE_PATIO", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "PROGRAMADOR", "JEFE_OPERACION"]);
 const BOOTSTRAP_PROGRAMMER_EMAILS = new Set(["angelarmentta@icloud.com"]);
+const DEFAULT_ROLE_CAPABILITIES = Object.freeze({
+  AUXILIAR: { use_programmer_console: false, operational_admin: false },
+  VENTAS: { use_programmer_console: false, operational_admin: true },
+  SUPERVISOR: { use_programmer_console: false, operational_admin: true },
+  JEFE_PATIO: { use_programmer_console: false, operational_admin: true },
+  GERENTE_PLAZA: { use_programmer_console: false, operational_admin: true },
+  JEFE_REGIONAL: { use_programmer_console: false, operational_admin: true },
+  CORPORATIVO_USER: { use_programmer_console: true, operational_admin: true },
+  PROGRAMADOR: { use_programmer_console: true, operational_admin: true },
+  JEFE_OPERACION: { use_programmer_console: true, operational_admin: true }
+});
 const DEVICE_PREF_DEFAULTS = Object.freeze({
   muteAll: false,
   directMessages: true,
@@ -84,7 +95,7 @@ function inferRole(data = {}, email = "") {
   const normalizedEmail = normalizeLower(email || data.email);
   if (BOOTSTRAP_PROGRAMMER_EMAILS.has(normalizedEmail)) return "PROGRAMADOR";
   const explicit = normalizeUpper(data.rol);
-  if (PROGRAMMER_ROLES.has(explicit) || explicit === "VENTAS" || explicit === "GERENTE_PLAZA" || explicit === "JEFE_REGIONAL" || explicit === "AUXILIAR") {
+  if (explicit) {
     return explicit;
   }
   if (data.isGlobal === true) return "CORPORATIVO_USER";
@@ -92,12 +103,50 @@ function inferRole(data = {}, email = "") {
   return "AUXILIAR";
 }
 
-function canUseProgrammerConsole(role) {
-  return PROGRAMMER_ROLES.has(normalizeUpper(role));
+async function loadSecurityConfig() {
+  try {
+    const snap = await db.collection(CONFIG_COL).doc("empresa").get();
+    const empresa = snap.exists ? (snap.data() || {}) : {};
+    return empresa.security || {};
+  } catch (_) {
+    return {};
+  }
 }
 
-function isOperationalAdmin(role) {
-  return ADMIN_ROLES.has(normalizeUpper(role));
+function roleCapabilities(role, security = {}) {
+  const normalizedRole = normalizeUpper(role);
+  const fallback = DEFAULT_ROLE_CAPABILITIES[normalizedRole] || DEFAULT_ROLE_CAPABILITIES.AUXILIAR;
+  const configured = security?.roles?.[normalizedRole];
+  const configuredPermissions = configured && typeof configured.permissions === "object" ? configured.permissions : {};
+  return {
+    use_programmer_console: configured?.fullAccess === true
+      ? true
+      : (typeof configuredPermissions.use_programmer_console === "boolean"
+        ? configuredPermissions.use_programmer_console
+        : fallback.use_programmer_console),
+    operational_admin: configured?.fullAccess === true
+      ? true
+      : (typeof configuredPermissions.view_admin_cuadre === "boolean"
+        ? configuredPermissions.view_admin_cuadre
+        : fallback.operational_admin)
+  };
+}
+
+function profileHasPermission(profileData = {}, role, permissionKey, security = {}) {
+  const overrides = profileData?.permissionOverrides && typeof profileData.permissionOverrides === "object"
+    ? profileData.permissionOverrides
+    : {};
+  if (typeof overrides[permissionKey] === "boolean") return overrides[permissionKey];
+  return Boolean(roleCapabilities(role, security)[permissionKey]);
+}
+
+function canUseProgrammerConsole(role, security = {}, profileData = {}) {
+  return profileHasPermission(profileData, role, "use_programmer_console", security);
+}
+
+function isOperationalAdmin(role, security = {}, profileData = {}) {
+  if (ADMIN_ROLES.has(normalizeUpper(role))) return true;
+  return profileHasPermission(profileData, role, "operational_admin", security);
 }
 
 function defaultSettingsPayload() {
@@ -207,10 +256,11 @@ async function findUserProfileFromAuth(auth) {
 async function requireProgrammerAuth(request) {
   const profile = await findUserProfileFromAuth(request.auth);
   const role = inferRole(profile.data, profile.data?.email || request.auth?.token?.email);
-  if (!canUseProgrammerConsole(role)) {
+  const security = await loadSecurityConfig();
+  if (!canUseProgrammerConsole(role, security, profile.data || {})) {
     throw new HttpsError("permission-denied", "No autorizado para la consola de programador.");
   }
-  return { ...profile, role };
+  return { ...profile, role, security };
 }
 
 async function resolveUserDocIdsByHandle(handle) {
@@ -244,13 +294,14 @@ async function resolveAlertRecipients(data = {}) {
     return snap.docs.map(doc => doc.id);
   }
 
+  const security = await loadSecurityConfig();
   const resolved = new Set();
   for (const token of tokens) {
     const normalized = normalizeUpper(token);
     if (normalized === "ADMINS" || normalized === "ADMINS" || normalized === "OPERACION") {
       const snap = await db.collection(USERS_COL).get();
       snap.docs.forEach(doc => {
-        if (isOperationalAdmin(inferRole(doc.data(), doc.data()?.email))) resolved.add(doc.id);
+        if (isOperationalAdmin(inferRole(doc.data(), doc.data()?.email), security, doc.data() || {})) resolved.add(doc.id);
       });
       continue;
     }
@@ -765,6 +816,11 @@ async function runNamedQuery(name, rawParams = {}) {
 
   if (name === "jobs") {
     const snap = await db.collection(JOBS_COL).orderBy("createdAt", "desc").limit(limit).get();
+    return { rows: snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })) };
+  }
+
+  if (name === "audit") {
+    const snap = await db.collection(AUDIT_COL).orderBy("timestamp", "desc").limit(limit).get();
     return { rows: snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })) };
   }
 

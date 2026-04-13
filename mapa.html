@@ -1797,8 +1797,7 @@
           Control Administrativo
         </div>
         <div class="admin-modal-title">Registro Administrativo</div>
-        <div class="admin-modal-subtitle">Alta controlada al cuadre admins con trazabilidad operativa, evidencia
-          documental y responsable visible.</div>
+        <div class="admin-modal-subtitle">Alta rápida al cuadre admins con base global precargada, evidencia flexible y responsable visible.</div>
 
         <div class="admin-badge-row">
           <div id="a_ins_badgePlaza" class="admin-badge">PLAZA --</div>
@@ -1816,23 +1815,17 @@
               placeholder="Buscar unidad en Base Maestra..." oninput="filtrarBusquedaAdmin()" autocomplete="off">
             <div id="a_ins_results" class="floating-results"></div>
           </div>
-          <div class="admin-search-hint">Busca por MVA, placas o modelo y después completa el expediente administrativo
-            para Cuadre Admins.</div>
+          <div id="a_ins_searchMeta" class="admin-search-meta">
+            <span class="material-icons" style="font-size:14px;">dataset</span>
+            Preparando índice global...
+          </div>
+          <div class="admin-search-hint">Busca por MVA, placas, modelo o plaza. La base maestra se precarga desde que abre la app para responder al instante.</div>
         </div>
 
-        <div class="admin-meta-grid" style="margin: 0 0 16px;">
-          <div class="admin-meta-card">
-            <div class="admin-meta-card__label">Paso 1</div>
-            <div class="admin-meta-card__value">Vincula la unidad correcta desde Base Maestra.</div>
-          </div>
-          <div class="admin-meta-card">
-            <div class="admin-meta-card__label">Paso 2</div>
-            <div class="admin-meta-card__value">Confirma gasolina, estado y ubicación operativa.</div>
-          </div>
-          <div class="admin-meta-card">
-            <div class="admin-meta-card__label">Paso 3</div>
-            <div class="admin-meta-card__value">Adjunta evidencia y notas antes de registrar.</div>
-          </div>
+        <div class="admin-stitch-strip">
+          <div class="admin-stitch-pill"><span class="material-icons">hub</span><div><small>Paso 1</small><strong>Vincula la unidad</strong></div></div>
+          <div class="admin-stitch-pill"><span class="material-icons">inventory_2</span><div><small>Paso 2</small><strong>Confirma estado y ubicación</strong></div></div>
+          <div class="admin-stitch-pill"><span class="material-icons">attach_file</span><div><small>Paso 3</small><strong>Sube archivos y notas</strong></div></div>
         </div>
 
         <div id="a_ins_formContainer" class="admin-modal-scroll" style="animation: slideUp 0.5s ease;">
@@ -1939,11 +1932,12 @@
           <div class="admin-section-title">Evidencia y Seguimiento</div>
           <div class="inner-card admin-form-card">
             <div class="field admin-upload-box">
-              <label>📂 Cargar Evidencias (Fotos/PDF)</label>
+              <label>📂 Adjuntar archivos del expediente</label>
               <input type="file" id="a_ins_file" multiple
                 onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-              <div id="a_ins_fileStatus" class="admin-file-status">⚪ SIN EVIDENCIA SELECCIONADA</div>
+              <div class="admin-upload-meta">Acepta imágenes, PDF, hojas, documentos, ZIP y archivos de soporte en general.</div>
+              <div id="a_ins_fileStatus" class="admin-file-status"><span class="material-icons">folder_open</span> Sin archivos seleccionados todavía</div>
             </div>
             <div class="field" style="margin-top:10px">
               <label>Notas Administrativas</label>
@@ -2353,10 +2347,11 @@
           <div class="admin-section-title">Evidencia y Seguimiento</div>
           <div class="inner-card admin-form-card">
             <div class="field admin-upload-box">
-              <label>📂 Cargar Nueva Evidencia (Fotos/PDF)</label>
+              <label>📂 Cargar nuevos archivos al expediente</label>
               <input type="file" id="a_mod_file" multiple
                 onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+              <div class="admin-upload-meta">Puedes subir evidencia visual, PDFs, Excel, Word, ZIP u otros archivos de soporte.</div>
               <div id="a_mod_fileStatus" class="admin-file-status"></div>
             </div>
             <div class="field" style="margin-top:10px">
@@ -3578,6 +3573,10 @@
           <button class="cfg-tab" onclick="abrirTabConfig('usuarios', this)">
             <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
             <span>Usuarios</span>
+          </button>
+          <button class="cfg-tab" onclick="abrirTabConfig('roles', this)">
+            <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
+            <span>Roles</span>
           </button>
           <button class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;">
             <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>

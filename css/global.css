@@ -8690,6 +8690,71 @@
       color: #64748b;
     }
 
+    .admin-search-meta {
+      margin-top: 10px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 12px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #f8fbff 0%, #eff6ff 100%);
+      border: 1px solid #dbeafe;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    .admin-stitch-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+
+    .admin-stitch-pill {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid #dbe4ee;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      box-shadow: 0 12px 28px rgba(148, 163, 184, 0.12);
+      overflow: hidden;
+    }
+
+    .admin-stitch-pill::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border-radius: 14px;
+      border: 1px dashed rgba(148, 163, 184, 0.28);
+      pointer-events: none;
+    }
+
+    .admin-stitch-pill .material-icons {
+      font-size: 19px;
+      color: #1d4ed8;
+      flex-shrink: 0;
+    }
+
+    .admin-stitch-pill small {
+      display: block;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .admin-stitch-pill strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.35;
+      color: #0f172a;
+    }
+
     .admin-section-title {
       font-size: 11px;
       font-weight: 900;
@@ -8784,12 +8849,65 @@
       cursor: pointer;
     }
 
-    .admin-file-status {
-      font-size: 11px;
-      color: var(--mex-blue);
+    .admin-upload-meta {
       margin-top: 10px;
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .admin-file-status {
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #dbe4ee;
+      color: #0f172a;
+      font-size: 11px;
       font-weight: 800;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.02em;
+    }
+
+    .admin-file-status-top,
+    .admin-file-status-list {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .admin-file-status-top .material-icons {
+      font-size: 16px;
+      color: #1d4ed8;
+    }
+
+    .admin-file-status-list {
+      margin-top: 8px;
+    }
+
+    .admin-file-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 28px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 800;
+      max-width: 100%;
+    }
+
+    .admin-file-chip .material-icons {
+      font-size: 14px;
+    }
+
+    .admin-file-chip.soft {
+      background: #f8fafc;
+      color: #64748b;
+    }
     }
 
     .admin-meta-grid {
@@ -8818,6 +8936,51 @@
       line-height: 1.35;
       font-weight: 900;
       color: #0f172a;
+    }
+
+    .admin-search-result-card {
+      gap: 12px;
+    }
+
+    .admin-search-result-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .admin-search-result-plaza {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      border: 1px solid #dbeafe;
+      color: #1d4ed8;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .admin-search-result-tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 7px;
+    }
+
+    .admin-search-result-tags span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 10px;
+      font-weight: 900;
     }
 
     .admin-console-card .unit-identity-card {
@@ -8921,6 +9084,10 @@
       }
 
       .admin-meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .admin-stitch-strip {
         grid-template-columns: 1fr;
       }
 
@@ -12159,6 +12326,278 @@
       box-shadow: 0 10px 24px rgba(16, 185, 129, 0.35);
     }
 
+    .cfg-security-shell {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr);
+      gap: 16px;
+      height: 100%;
+    }
+
+    .cfg-security-sidebar-panel,
+    .cfg-security-main-panel {
+      background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+      border: 1px solid #dbe4ee;
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+    }
+
+    .cfg-security-panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .cfg-security-panel-head strong {
+      display: block;
+      color: #0f172a;
+      font-size: 15px;
+    }
+
+    .cfg-security-panel-head small {
+      display: block;
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .cfg-security-mini-btn {
+      min-height: 34px;
+      padding: 0 12px;
+      border-radius: 12px;
+      border: 1px solid #dbe4ee;
+      background: white;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 900;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+
+    .cfg-security-mini-btn.danger {
+      background: #fff1f2;
+      color: #be123c;
+      border-color: #fecdd3;
+    }
+
+    .cfg-security-role-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .cfg-security-role-pill {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid #dbe4ee;
+      background: #f8fafc;
+      color: #0f172a;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    .cfg-security-role-pill.active {
+      background: linear-gradient(135deg, #0f2f62 0%, #1d4ed8 100%);
+      border-color: transparent;
+      color: white;
+      box-shadow: 0 16px 30px rgba(29, 78, 216, 0.24);
+    }
+
+    .cfg-security-role-pill strong,
+    .cfg-security-role-pill small {
+      display: block;
+    }
+
+    .cfg-security-role-pill small {
+      margin-top: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      color: inherit;
+      opacity: 0.78;
+    }
+
+    .cfg-security-role-pill span:last-child {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+    }
+
+    .cfg-security-head-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .cfg-security-role-form {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .cfg-security-role-form label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .cfg-security-role-form input[type="text"],
+    .cfg-security-role-form input[type="number"] {
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: 12px;
+      border: 1px solid #dbe4ee;
+      background: white;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .cfg-security-check {
+      min-height: 40px;
+      justify-content: center;
+      border-radius: 14px;
+      border: 1px solid #dbe4ee;
+      background: #f8fafc;
+      padding: 0 12px;
+      text-transform: none !important;
+      letter-spacing: 0 !important;
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      flex-direction: row !important;
+      align-items: center;
+      gap: 8px !important;
+    }
+
+    .cfg-security-check input {
+      accent-color: #1d4ed8;
+    }
+
+    .cfg-security-permission-matrix,
+    .cfg-security-permission-editor,
+    .cfg-security-permission-groups {
+      display: grid;
+      gap: 12px;
+    }
+
+    .cfg-security-matrix-group,
+    .cfg-security-permission-group {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px solid #dbe4ee;
+      background: #f8fafc;
+    }
+
+    .cfg-security-matrix-group-title,
+    .cfg-security-permission-group-title {
+      margin-bottom: 10px;
+      color: #1d4ed8;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .cfg-security-matrix-item,
+    .cfg-security-permission-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 0;
+      border-top: 1px solid #e8eef5;
+    }
+
+    .cfg-security-matrix-item:first-of-type,
+    .cfg-security-permission-item:first-of-type {
+      border-top: none;
+      padding-top: 0;
+    }
+
+    .cfg-security-matrix-item strong,
+    .cfg-security-permission-item strong {
+      display: block;
+      color: #0f172a;
+      font-size: 12px;
+    }
+
+    .cfg-security-matrix-item small,
+    .cfg-security-permission-item small {
+      display: block;
+      margin-top: 4px;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .cfg-security-matrix-item input,
+    .cfg-security-permission-item select {
+      flex-shrink: 0;
+      accent-color: #1d4ed8;
+    }
+
+    .cfg-security-permission-item select {
+      min-width: 132px;
+      min-height: 36px;
+      padding: 0 10px;
+      border-radius: 12px;
+      border: 1px solid #dbe4ee;
+      background: white;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .cfg-security-catalog-item {
+      display: grid;
+      grid-template-columns: 220px 220px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .cfg-security-catalog-key {
+      padding: 11px 12px;
+      border-radius: 12px;
+      background: #091221;
+      color: #dbeafe;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .cfg-security-catalog-item input {
+      min-height: 40px;
+      padding: 0 12px;
+      border-radius: 12px;
+      border: 1px solid #dbe4ee;
+      background: white;
+      color: #0f172a;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
     /* ── MOBILE ───────────────────────────────────────────────── */
     @media (max-width: 768px) {
       .cfg-modal-v2 {
@@ -12240,6 +12679,12 @@
         flex: 1;
         justify-content: center;
         padding: 12px 16px;
+      }
+
+      .cfg-security-shell,
+      .cfg-security-role-form,
+      .cfg-security-catalog-item {
+        grid-template-columns: 1fr;
       }
     }
 

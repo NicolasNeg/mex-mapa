@@ -46,24 +46,137 @@ service cloud.firestore {
         : get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
     }
 
+    function empresaConfig() {
+      return exists(/databases/$(database)/documents/configuracion/empresa)
+        ? get(/databases/$(database)/documents/configuracion/empresa).data
+        : {};
+    }
+
+    function seguridadConfig() {
+      return empresaConfig().security != null && empresaConfig().security is map
+        ? empresaConfig().security
+        : {};
+    }
+
+    function rolesConfig() {
+      return seguridadConfig().roles != null && seguridadConfig().roles is map
+        ? seguridadConfig().roles
+        : {};
+    }
+
+    function rolConfig(role) {
+      return rolesConfig().keys().hasAny([role]) ? rolesConfig()[role] : null;
+    }
+
     function rolValido(role) {
       return role == "AUXILIAR"
         || role == "VENTAS"
+        || role == "SUPERVISOR"
+        || role == "JEFE_PATIO"
         || role == "GERENTE_PLAZA"
         || role == "JEFE_REGIONAL"
         || role == "CORPORATIVO_USER"
         || role == "PROGRAMADOR"
-        || role == "JEFE_OPERACION";
+        || role == "JEFE_OPERACION"
+        || rolesConfig().keys().hasAny([role]);
+    }
+
+    function permisoOverride(perfil, permiso) {
+      return perfil.permissionOverrides != null
+        && perfil.permissionOverrides is map
+        && perfil.permissionOverrides.keys().hasAny([permiso])
+        ? perfil.permissionOverrides[permiso]
+        : null;
+    }
+
+    function rolTienePermiso(role, permiso) {
+      return role == "PROGRAMADOR" || role == "JEFE_OPERACION" || role == "CORPORATIVO_USER"
+        ? true
+        : permiso == "view_admin_cuadre"
+          ? (
+            role == "VENTAS"
+            || role == "SUPERVISOR"
+            || role == "JEFE_PATIO"
+            || role == "GERENTE_PLAZA"
+            || role == "JEFE_REGIONAL"
+            || (rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true)
+          )
+        : permiso == "edit_admin_cuadre"
+          ? (
+            role == "SUPERVISOR"
+            || role == "JEFE_PATIO"
+            || role == "GERENTE_PLAZA"
+            || role == "JEFE_REGIONAL"
+            || (rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true)
+          )
+        : permiso == "manage_users"
+          ? (
+            (rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true)
+          )
+        : permiso == "process_access_requests"
+          ? (
+            (rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true)
+          )
+        : permiso == "manage_global_fleet"
+          ? (
+            role == "GERENTE_PLAZA"
+            || role == "JEFE_REGIONAL"
+            || (rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true)
+          )
+        : permiso == "manage_system_settings"
+          ? (
+            (rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true)
+          )
+        : permiso == "use_programmer_console"
+          ? (
+            (rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true)
+          )
+        : permiso == "platform_full_access"
+          ? (
+            rolConfig(role) != null
+            && (
+              (rolConfig(role).fullAccess != null && rolConfig(role).fullAccess == true)
+              || (rolConfig(role).permissions is map
+                && rolConfig(role).permissions.keys().hasAny([permiso])
+                && rolConfig(role).permissions[permiso] == true)
+            )
+          )
+        : false;
+    }
+
+    function tienePermiso(perfil, permiso) {
+      return esProgramadorBootstrap()
+        || permisoOverride(perfil, permiso) == true
+        || (
+          permisoOverride(perfil, permiso) == null
+          && rolTienePermiso(rolDePerfil(perfil), permiso)
+        );
     }
 
     function rolDePerfil(data) {
       return esEmailBootstrapProgramador(data.email) ? "PROGRAMADOR"
-        : data.rol == "PROGRAMADOR" ? "PROGRAMADOR"
-        : data.rol == "JEFE_OPERACION" ? "JEFE_OPERACION"
-        : data.rol == "CORPORATIVO_USER" ? "CORPORATIVO_USER"
-        : data.rol == "JEFE_REGIONAL" ? "JEFE_REGIONAL"
-        : data.rol == "GERENTE_PLAZA" ? "GERENTE_PLAZA"
-        : data.rol == "VENTAS" ? "VENTAS"
+        : data.rol is string && rolValido(data.rol) ? data.rol
         : data.isGlobal == true ? "CORPORATIVO_USER"
         : data.isAdmin == true ? "VENTAS"
         : "AUXILIAR";
@@ -76,9 +189,7 @@ service cloud.firestore {
     }
 
     function esAccesoTotal() {
-      return rolActual() == "PROGRAMADOR"
-        || rolActual() == "JEFE_OPERACION"
-        || rolActual() == "CORPORATIVO_USER";
+      return tienePerfilActual() && tienePermiso(perfilActual(), "platform_full_access");
     }
 
     function esJefeOperacionOProgramador() {
@@ -86,29 +197,31 @@ service cloud.firestore {
     }
 
     function esAdminOperativo() {
-      return rolActual() == "VENTAS"
-        || rolActual() == "GERENTE_PLAZA"
-        || rolActual() == "JEFE_REGIONAL"
-        || esAccesoTotal();
+      return tienePerfilActual()
+        && (
+          tienePermiso(perfilActual(), "view_admin_cuadre")
+          || tienePermiso(perfilActual(), "edit_admin_cuadre")
+        );
     }
 
     function puedeGestionarUsuarios() {
-      return esAccesoTotal();
+      return tienePerfilActual() && tienePermiso(perfilActual(), "manage_users");
     }
 
     function puedeGestionarSolicitudes() {
-      return esAccesoTotal();
+      return tienePerfilActual() && tienePermiso(perfilActual(), "process_access_requests");
     }
 
     function puedeEditarCuadreAdmins() {
-      return esAdminOperativo();
+      return tienePerfilActual() && tienePermiso(perfilActual(), "edit_admin_cuadre");
     }
 
     function puedeGestionarFlotaMaestra() {
-      return rolActual() == "VENTAS"
-        || rolActual() == "GERENTE_PLAZA"
-        || rolActual() == "JEFE_REGIONAL"
-        || esAccesoTotal();
+      return tienePerfilActual()
+        && (
+          tienePermiso(perfilActual(), "manage_global_fleet")
+          || esAccesoTotal()
+        );
     }
 
     function plazaActual() {
@@ -121,7 +234,7 @@ service cloud.firestore {
     function mismaPlaza(plaza) {
       return esAccesoTotal()
         || (
-          (rolActual() == "VENTAS" || rolActual() == "GERENTE_PLAZA" || rolActual() == "JEFE_REGIONAL")
+          rolRequierePlaza(rolActual())
           && plazaActual() != ""
           && plaza != null
           && plaza != ""
@@ -130,7 +243,16 @@ service cloud.firestore {
     }
 
     function rolRequierePlaza(role) {
-      return role == "VENTAS" || role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL";
+      return role == "VENTAS"
+        || role == "SUPERVISOR"
+        || role == "JEFE_PATIO"
+        || role == "GERENTE_PLAZA"
+        || role == "JEFE_REGIONAL"
+        || (
+          rolConfig(role) != null
+          && rolConfig(role).needsPlaza != null
+          && rolConfig(role).needsPlaza == true
+        );
     }
 
     function perfilUsuarioValido(data) {
@@ -154,6 +276,16 @@ service cloud.firestore {
           && role != "CORPORATIVO_USER"
           && role != "PROGRAMADOR"
           && role != "JEFE_OPERACION"
+          && (
+            rolConfig(role) == null
+            || (
+              (rolConfig(role).fullAccess == null || rolConfig(role).fullAccess != true)
+              && (
+                !(rolConfig(role).permissions is map)
+                || !rolConfig(role).permissions.keys().hasAny(["use_programmer_console", "manage_system_settings"])
+              )
+            )
+          )
         );
     }
 
@@ -508,7 +640,8 @@ service cloud.firestore {
     }
 
     match /settings/{doc} {
-      allow read, write: if tienePerfilActual();
+      allow read: if tienePerfilActual();
+      allow write: if tienePerfilActual() && tienePermiso(perfilActual(), "manage_system_settings");
     }
 
     match /ops_events/{doc} {
@@ -517,18 +650,18 @@ service cloud.firestore {
     }
 
     match /programmer_jobs/{doc} {
-      allow read: if esAccesoTotal();
+      allow read: if tienePerfilActual() && tienePermiso(perfilActual(), "use_programmer_console");
       allow write: if false;
     }
 
     match /programmer_audit/{doc} {
-      allow read: if esAccesoTotal();
+      allow read: if tienePerfilActual() && tienePermiso(perfilActual(), "use_programmer_console");
       allow write: if false;
     }
 
     match /programmer_errors/{doc} {
       allow create: if tienePerfilActual() && programmerErrorCreateValido();
-      allow read: if esAccesoTotal();
+      allow read: if tienePerfilActual() && tienePermiso(perfilActual(), "use_programmer_console");
       allow update, delete: if false;
     }
 
@@ -537,21 +670,21 @@ service cloud.firestore {
     // configuracion/{plaza} → catálogos por plaza (Fase 4: ubicaciones)
     match /configuracion/{document} {
       allow read: if tienePerfilActual();
-      allow write: if esAccesoTotal()
-        || (
-          // Gerentes/Jefes pueden escribir su propia configuración de plaza
-          (rolActual() == "GERENTE_PLAZA" || rolActual() == "JEFE_REGIONAL")
-          && document != "empresa"
-          && document != "listas"
-          && mismaPlaza(document)
+      allow write: if tienePerfilActual()
+        && (
+          tienePermiso(perfilActual(), "manage_system_settings")
+          || (
+            document != "empresa"
+            && document != "listas"
+            && mismaPlaza(document)
+            && tienePermiso(perfilActual(), "manage_system_settings")
+          )
         );
       match /{subcol=**} {
         allow read: if tienePerfilActual();
-        allow write: if esAccesoTotal()
-          || (
-            (rolActual() == "GERENTE_PLAZA" || rolActual() == "JEFE_REGIONAL")
-            && mismaPlaza(document)
-          );
+        allow write: if tienePerfilActual()
+          && mismaPlaza(document)
+          && tienePermiso(perfilActual(), "manage_system_settings");
       }
     }
 

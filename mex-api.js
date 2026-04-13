@@ -311,13 +311,15 @@ const ADMIN_FIXED_LOCATIONS = new Set([
   "OTRA PLAZA"
 ]);
 const ACCESS_ROLE_META = Object.freeze({
-  AUXILIAR: { isAdmin: false, isGlobal: false },
-  VENTAS: { isAdmin: true, isGlobal: false },
-  GERENTE_PLAZA: { isAdmin: true, isGlobal: false },
-  JEFE_REGIONAL: { isAdmin: true, isGlobal: false },
-  CORPORATIVO_USER: { isAdmin: true, isGlobal: true },
-  PROGRAMADOR: { isAdmin: true, isGlobal: true },
-  JEFE_OPERACION: { isAdmin: true, isGlobal: true }
+  AUXILIAR: { isAdmin: false, isGlobal: false, fullAccess: false },
+  VENTAS: { isAdmin: true, isGlobal: false, fullAccess: false },
+  SUPERVISOR: { isAdmin: true, isGlobal: false, fullAccess: false },
+  JEFE_PATIO: { isAdmin: true, isGlobal: false, fullAccess: false },
+  GERENTE_PLAZA: { isAdmin: true, isGlobal: false, fullAccess: false },
+  JEFE_REGIONAL: { isAdmin: true, isGlobal: false, fullAccess: false },
+  CORPORATIVO_USER: { isAdmin: true, isGlobal: true, fullAccess: true },
+  PROGRAMADOR: { isAdmin: true, isGlobal: true, fullAccess: true },
+  JEFE_OPERACION: { isAdmin: true, isGlobal: true, fullAccess: true }
 });
 const API_PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
   "angelarmentta@icloud.com"
@@ -446,7 +448,23 @@ function _alertReadByUser(alerta, usuarioActivo) {
 
 function _sanitizeRole(role) {
   const normalized = String(role || "").trim().toUpperCase();
-  return ACCESS_ROLE_META[normalized] ? normalized : null;
+  if (ACCESS_ROLE_META[normalized]) return normalized;
+  const configuredRoles = window.MEX_CONFIG?.empresa?.security?.roles;
+  if (configuredRoles && typeof configuredRoles === "object" && configuredRoles[normalized]) return normalized;
+  return null;
+}
+
+function _runtimeRoleMeta(role) {
+  const normalized = _sanitizeRole(role) || "AUXILIAR";
+  const configured = window.MEX_CONFIG?.empresa?.security?.roles?.[normalized];
+  const fallback = ACCESS_ROLE_META[normalized] || ACCESS_ROLE_META.AUXILIAR;
+  return {
+    isAdmin: configured?.isAdmin === undefined ? Boolean(fallback.isAdmin) : Boolean(configured.isAdmin),
+    isGlobal: configured?.fullAccess === true || configured?.isGlobal === true
+      ? true
+      : (configured?.isGlobal === undefined ? Boolean(fallback.isGlobal) : Boolean(configured.isGlobal)),
+    fullAccess: configured?.fullAccess === undefined ? Boolean(fallback.fullAccess) : Boolean(configured.fullAccess)
+  };
 }
 
 function _profileDocId(email) {
@@ -501,7 +519,7 @@ function _inferRole(roleOrIsAdmin, plazaOrIsGlobal) {
 function _normalizeUserRoleData(data = {}) {
   const rolBase = _sanitizeRole(data.rol) || (data.isGlobal ? "CORPORATIVO_USER" : (data.isAdmin ? "VENTAS" : "AUXILIAR"));
   const rol = _resolveRoleForEmail(data.email || data.id || "", rolBase);
-  const meta = ACCESS_ROLE_META[rol];
+  const meta = _runtimeRoleMeta(rol);
   return {
     rol,
     isAdmin: meta.isAdmin,

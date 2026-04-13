@@ -14,6 +14,7 @@ const state = {
   queryLimit: 50,
   jobResult: null,
   jobsRows: [],
+  auditRows: [],
   errorsRows: [],
   devicesRows: [],
   notificationsRows: [],
@@ -46,10 +47,30 @@ function escapeHtml(value) {
 
 function inferRole(data = {}) {
   const role = upper(data.rol);
-  if (PROGRAMMER_ROLES.has(role) || role === 'VENTAS' || role === 'GERENTE_PLAZA' || role === 'JEFE_REGIONAL' || role === 'AUXILIAR') return role;
+  if (role) return role;
   if (data.isGlobal === true) return 'CORPORATIVO_USER';
   if (data.isAdmin === true) return 'VENTAS';
   return 'AUXILIAR';
+}
+
+function roleConfig(role) {
+  return window.MEX_CONFIG?.empresa?.security?.roles?.[upper(role)] || null;
+}
+
+function permissionOverride(profile = {}, key = '') {
+  const overrides = profile?.permissionOverrides;
+  if (!overrides || typeof overrides !== 'object') return undefined;
+  return typeof overrides[key] === 'boolean' ? overrides[key] : undefined;
+}
+
+function roleCanUseProgrammerConsole(role, profile = {}) {
+  const override = permissionOverride(profile, 'use_programmer_console');
+  if (typeof override === 'boolean') return override;
+  if (PROGRAMMER_ROLES.has(upper(role))) return true;
+  const config = roleConfig(role);
+  if (!config || typeof config !== 'object') return false;
+  if (config.fullAccess === true) return true;
+  return config.permissions?.use_programmer_console === true;
 }
 
 function currentUserLabel() {
@@ -72,6 +93,24 @@ async function loadProgrammerConfig() {
     if (window.api?.obtenerConfiguracion) {
       const config = await window.api.obtenerConfiguracion(state.profile?.plazaAsignada || '');
       if (config) window.MEX_CONFIG = config;
+    }
+    window.MEX_CONFIG = window.MEX_CONFIG || { empresa: {}, listas: {} };
+    window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
+    if (!window.MEX_CONFIG.empresa.security) {
+      window.MEX_CONFIG.empresa.security = {
+        roles: {
+          AUXILIAR: { label: 'AUXILIAR', level: 10, permissions: {} },
+          VENTAS: { label: 'VENTAS', level: 20, permissions: { view_admin_cuadre: true } },
+          SUPERVISOR: { label: 'SUPERVISOR', level: 25, permissions: { view_admin_cuadre: true, edit_admin_cuadre: true } },
+          JEFE_PATIO: { label: 'JEFE DE PATIO', level: 25, permissions: { view_admin_cuadre: true, edit_admin_cuadre: true } },
+          GERENTE_PLAZA: { label: 'GERENTE DE PLAZA', level: 25, permissions: { view_admin_cuadre: true, edit_admin_cuadre: true } },
+          JEFE_REGIONAL: { label: 'JEFE REGIONAL', level: 30, permissions: { view_admin_cuadre: true, edit_admin_cuadre: true } },
+          CORPORATIVO_USER: { label: 'CORPORATIVO USER', level: 40, fullAccess: true, permissions: { use_programmer_console: true } },
+          PROGRAMADOR: { label: 'PROGRAMADOR', level: 50, fullAccess: true, permissions: { use_programmer_console: true } },
+          JEFE_OPERACION: { label: 'JEFE DE OPERACION', level: 60, fullAccess: true, permissions: { use_programmer_console: true } }
+        },
+        permissionsCatalog: {}
+      };
     }
   } catch (error) {
     console.warn('No se pudo cargar MEX_CONFIG en /programador:', error);
@@ -125,7 +164,7 @@ function showToast(message, type = 'success') {
 }
 
 function isAllowed() {
-  return PROGRAMMER_ROLES.has(upper(state.profile?.rol));
+  return roleCanUseProgrammerConsole(state.profile?.rol, state.profile || {});
 }
 
 function renderShell() {
@@ -138,6 +177,7 @@ function renderShell() {
     ['consultas', 'Consultas'],
     ['jobs', 'Jobs'],
     ['config', 'Config'],
+    ['seguridad', 'Seguridad'],
     ['errores', 'Errores'],
     ['dispositivos', 'Dispositivos']
   ];
@@ -353,6 +393,7 @@ function renderConsultasTab() {
           <option value="devices">Devices</option>
           <option value="errors">Errores</option>
           <option value="jobs">Jobs</option>
+          <option value="audit">Audit</option>
           <option value="users">Usuarios</option>
           <option value="settings">Settings</option>
         </select>
@@ -501,6 +542,67 @@ function renderConfigTab() {
   document.getElementById('programmerSaveConfigBtn')?.addEventListener('click', () => saveSettingsEditor());
 }
 
+function renderSeguridadTab() {
+  const container = document.getElementById('programmerTabContent');
+  if (!container) return;
+  const security = window.MEX_CONFIG?.empresa?.security || {};
+  const roles = Object.entries(security.roles || {}).map(([key, value]) => ({
+    id: key,
+    label: value?.label || key,
+    level: value?.level ?? 0,
+    fullAccess: value?.fullAccess === true,
+    needsPlaza: value?.needsPlaza !== false,
+    multiPlaza: value?.multiPlaza === true,
+    permissions: Object.entries(value?.permissions || {}).filter(([, enabled]) => enabled === true).map(([perm]) => perm)
+  })).sort((a, b) => (a.level - b.level) || a.id.localeCompare(b.id));
+  const catalog = Object.entries(security.permissionsCatalog || {}).map(([key, value]) => ({
+    id: key,
+    label: value?.label || key,
+    description: value?.description || '',
+    group: value?.group || 'General'
+  }));
+
+  container.innerHTML = `
+    <section class="programmer-section">
+      <div class="programmer-section-head">
+        <h3>Seguridad y permisos</h3>
+        <span>Resumen rápido del catálogo activo, roles configurados y auditoría reciente</span>
+      </div>
+    </section>
+    <section class="programmer-two-col">
+      <div class="programmer-panel">
+        <div class="programmer-panel-head">
+          <h4>Roles activos</h4>
+          <span>${escapeHtml(String(roles.length))} perfiles</span>
+        </div>
+        ${rowsToTable(roles.map(role => ({
+          role: role.id,
+          label: role.label,
+          level: role.level,
+          fullAccess: role.fullAccess,
+          needsPlaza: role.needsPlaza,
+          multiPlaza: role.multiPlaza,
+          permissions: role.permissions.join(', ')
+        })))}
+      </div>
+      <div class="programmer-panel">
+        <div class="programmer-panel-head">
+          <h4>Catálogo de permisos</h4>
+          <span>${escapeHtml(String(catalog.length))} claves</span>
+        </div>
+        ${rowsToTable(catalog)}
+      </div>
+    </section>
+    <section class="programmer-panel">
+      <div class="programmer-panel-head">
+        <h4>Auditoría reciente</h4>
+        <span>programmer_audit</span>
+      </div>
+      ${rowsToTable(state.auditRows.slice(0, 20))}
+    </section>
+  `;
+}
+
 function renderErroresTab() {
   const container = document.getElementById('programmerTabContent');
   if (!container) return;
@@ -547,6 +649,7 @@ function renderCurrentTab() {
   if (state.tab === 'consultas') return renderConsultasTab();
   if (state.tab === 'jobs') return renderJobsTab();
   if (state.tab === 'config') return renderConfigTab();
+  if (state.tab === 'seguridad') return renderSeguridadTab();
   if (state.tab === 'errores') return renderErroresTab();
   if (state.tab === 'dispositivos') return renderDispositivosTab();
 }
@@ -629,13 +732,14 @@ async function refreshAll() {
   try {
     const call = callable('queryProgrammerConsole');
     if (!call) throw new Error('Functions no disponibles');
-    const [overviewRes, notifRes, devicesRes, errorsRes, jobsRes, opsRes] = await Promise.all([
+    const [overviewRes, notifRes, devicesRes, errorsRes, jobsRes, opsRes, auditRes] = await Promise.all([
       call({ query: 'overview' }),
       call({ query: 'notifications', limit: 30 }),
       call({ query: 'devices', limit: 30 }),
       call({ query: 'errors', limit: 30 }),
       call({ query: 'jobs', limit: 30 }),
-      call({ query: 'ops_events', plaza: state.plaza, limit: 30 })
+      call({ query: 'ops_events', plaza: state.plaza, limit: 30 }),
+      call({ query: 'audit', limit: 30 })
     ]);
     state.overview = overviewRes.data?.rows?.[0] || null;
     state.notificationsRows = notifRes.data?.rows || [];
@@ -643,6 +747,7 @@ async function refreshAll() {
     state.errorsRows = errorsRes.data?.rows || [];
     state.jobsRows = jobsRes.data?.rows || [];
     state.opsRows = opsRes.data?.rows || [];
+    state.auditRows = auditRes.data?.rows || [];
     await loadSettingsPreview();
     if (state.tab === 'consultas' && state.queryRows.length === 0) {
       state.queryRows = state.opsRows;
@@ -659,7 +764,7 @@ async function refreshAll() {
 installProgrammerErrorReporter({
   screen: 'programador',
   getProfile: () => state.profile,
-  getBuild: () => 'mapa-v63',
+  getBuild: () => 'mapa-v64',
   enabled: () => Boolean(auth.currentUser)
 });
 
@@ -672,12 +777,11 @@ auth.onAuthStateChanged(async user => {
   try {
     await user.getIdToken(true);
     state.profile = await resolveProfile(user);
+    await loadProgrammerConfig();
     if (!state.profile || !isAllowed()) {
       window.location.replace('/mapa');
       return;
     }
-
-    await loadProgrammerConfig();
     state.plaza = state.profile.plazaAsignada || '';
     configureNotifications({
       profileGetter: () => state.profile,

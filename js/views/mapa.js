@@ -29,7 +29,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v63';
+const APP_BUILD_TAG = 'mapa-v64';
 
 
 // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
@@ -131,6 +131,7 @@ async function inicializarConfiguracion() {
         api.guardarConfiguracionListas(config.listas, 'Sistema', _miPlaza()).catch(e => console.warn("No se pudo guardar estados por defecto:", e));
       }
       window.MEX_CONFIG = config;
+      _ensureSecurityConfig();
       console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
       aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
       _aplicarColoresEstados();
@@ -255,13 +256,28 @@ function actualizarEstadoArchivosAdmin(inputId, statusId) {
   if (!input || !status) return;
   const total = input.files ? input.files.length : 0;
   if (!total) {
-    status.innerText = inputId === 'a_ins_file'
-      ? '⚪ SIN EVIDENCIA SELECCIONADA'
-      : '⚪ SIN EVIDENCIA NUEVA SELECCIONADA';
+    status.innerHTML = inputId === 'a_ins_file'
+      ? '<span class="material-icons">folder_open</span> Sin archivos seleccionados todavía'
+      : '<span class="material-icons">add_photo_alternate</span> Sin archivos nuevos por cargar';
     return;
   }
-  const nombre = total === 1 ? input.files[0].name : `${total} archivos seleccionados`;
-  status.innerText = `📎 ${nombre}`;
+  const files = Array.from(input.files || []);
+  const totalBytes = files.reduce((sum, file) => sum + Number(file.size || 0), 0);
+  const sample = files.slice(0, 3).map(file => {
+    const ext = String(file.name || '').split('.').pop().toLowerCase();
+    const icon = _docIconForExt(ext);
+    return `<span class="admin-file-chip"><span class="material-icons">${icon}</span>${escapeHtml(file.name)}</span>`;
+  }).join('');
+  const summary = total === 1
+    ? `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`
+    : `${total} archivos · ${(totalBytes / (1024 * 1024)).toFixed(2)} MB`;
+  status.innerHTML = `
+    <div class="admin-file-status-top">
+      <span class="material-icons">attach_file</span>
+      <strong>${summary}</strong>
+    </div>
+    <div class="admin-file-status-list">${sample}${total > 3 ? `<span class="admin-file-chip soft">+${total - 3} más</span>` : ''}</div>
+  `;
 }
 
 function actualizarPanelLateralFlota() {
@@ -355,44 +371,366 @@ setTimeout(actualizarPanelLateralFlota, 0);
 // ==========================================
 // 1. LÓGICA DE LOGIN Y ROLES
 // ==========================================
-const ROLE_META = Object.freeze({
-  AUXILIAR: {
-    level: 10, label: 'AUXILIAR', isAdmin: false, fullAccess: false,
-    canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
-    canEditAdminCuadre: false, canViewAdminCuadre: false, canUseProgrammerConfig: false, canLockMap: false
+const BASE_PERMISSION_CATALOG = Object.freeze({
+  manage_users: {
+    label: 'Gestionar usuarios',
+    description: 'Crear, editar o eliminar cuentas del sistema.',
+    group: 'Usuarios'
   },
-  VENTAS: {
-    level: 20, label: 'VENTAS', isAdmin: true, fullAccess: false,
-    canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
-    canEditAdminCuadre: false, canViewAdminCuadre: true, canUseProgrammerConfig: false, canLockMap: false
+  assign_roles: {
+    label: 'Asignar roles',
+    description: 'Cambiar el rol base de otros usuarios.',
+    group: 'Usuarios'
   },
-  GERENTE_PLAZA: {
-    level: 25, label: 'GERENTE DE PLAZA', isAdmin: true, fullAccess: false,
-    canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
-    canEditAdminCuadre: false, canViewAdminCuadre: true, canUseProgrammerConfig: false, canLockMap: false
+  process_access_requests: {
+    label: 'Procesar solicitudes',
+    description: 'Aprobar o rechazar solicitudes de acceso.',
+    group: 'Usuarios'
   },
-  JEFE_REGIONAL: {
-    level: 30, label: 'JEFE REGIONAL', isAdmin: true, fullAccess: false,
-    canManageUsers: false, canProcessAccessRequests: false, canEmitMasterAlerts: false,
-    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: false, canLockMap: false
+  emit_master_alerts: {
+    label: 'Emitir alertas maestras',
+    description: 'Crear alertas globales y comunicados.',
+    group: 'Operación'
   },
-  CORPORATIVO_USER: {
-    level: 40, label: 'CORPORATIVO USER', isAdmin: true, fullAccess: true,
-    canManageUsers: true, canProcessAccessRequests: true, canEmitMasterAlerts: true,
-    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: true, canLockMap: true
+  view_admin_cuadre: {
+    label: 'Ver Cuadre Admins',
+    description: 'Consultar expedientes del cuadre administrativo.',
+    group: 'Cuadre Admins'
   },
-  PROGRAMADOR: {
-    level: 50, label: 'PROGRAMADOR', isAdmin: true, fullAccess: true,
-    canManageUsers: true, canProcessAccessRequests: true, canEmitMasterAlerts: true,
-    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: true, canLockMap: true
+  edit_admin_cuadre: {
+    label: 'Editar Cuadre Admins',
+    description: 'Crear, modificar o retirar expedientes administrativos.',
+    group: 'Cuadre Admins'
   },
-  JEFE_OPERACION: {
-    level: 60, label: 'JEFE DE OPERACION', isAdmin: true, fullAccess: true,
-    canManageUsers: true, canProcessAccessRequests: true, canEmitMasterAlerts: true,
-    canEditAdminCuadre: true, canViewAdminCuadre: true, canUseProgrammerConfig: true, canLockMap: true
+  insert_external_units: {
+    label: 'Registrar externos',
+    description: 'Agregar unidades externas o sobrantes al flujo.',
+    group: 'Operación'
+  },
+  manage_global_fleet: {
+    label: 'Gestionar flota global',
+    description: 'Editar base maestra, unidades y catálogos globales.',
+    group: 'Flota'
+  },
+  manage_system_settings: {
+    label: 'Editar ajustes del sistema',
+    description: 'Publicar cambios en configuración global y catálogos.',
+    group: 'Sistema'
+  },
+  manage_roles_permissions: {
+    label: 'Editar roles y permisos',
+    description: 'Cambiar matrices de permisos y crear roles beta.',
+    group: 'Sistema'
+  },
+  use_programmer_console: {
+    label: 'Consola de programador',
+    description: 'Entrar a /programador y ejecutar consultas avanzadas.',
+    group: 'Sistema'
+  },
+  lock_map: {
+    label: 'Bloquear mapa',
+    description: 'Bloquear o liberar el mapa principal.',
+    group: 'Sistema'
+  },
+  platform_full_access: {
+    label: 'Acceso total',
+    description: 'Bypass operativo completo para soporte global.',
+    group: 'Sistema'
   }
 });
-const ROLE_OPTIONS = Object.keys(ROLE_META);
+
+const BASE_ROLE_META = Object.freeze({
+  AUXILIAR: {
+    level: 10,
+    label: 'AUXILIAR',
+    isAdmin: false,
+    fullAccess: false,
+    needsPlaza: true,
+    multiPlaza: false,
+    permissions: {}
+  },
+  VENTAS: {
+    level: 20,
+    label: 'VENTAS',
+    isAdmin: true,
+    fullAccess: false,
+    needsPlaza: true,
+    multiPlaza: false,
+    permissions: {
+      view_admin_cuadre: true
+    }
+  },
+  SUPERVISOR: {
+    level: 25,
+    label: 'SUPERVISOR',
+    isAdmin: true,
+    fullAccess: false,
+    needsPlaza: true,
+    multiPlaza: false,
+    permissions: {
+      view_admin_cuadre: true,
+      edit_admin_cuadre: true,
+      insert_external_units: true
+    }
+  },
+  JEFE_PATIO: {
+    level: 25,
+    label: 'JEFE DE PATIO',
+    isAdmin: true,
+    fullAccess: false,
+    needsPlaza: true,
+    multiPlaza: false,
+    permissions: {
+      view_admin_cuadre: true,
+      edit_admin_cuadre: true,
+      insert_external_units: true
+    }
+  },
+  GERENTE_PLAZA: {
+    level: 25,
+    label: 'GERENTE DE PLAZA',
+    isAdmin: true,
+    fullAccess: false,
+    needsPlaza: true,
+    multiPlaza: false,
+    permissions: {
+      view_admin_cuadre: true,
+      edit_admin_cuadre: true,
+      insert_external_units: true,
+      manage_global_fleet: true
+    }
+  },
+  JEFE_REGIONAL: {
+    level: 30,
+    label: 'JEFE REGIONAL',
+    isAdmin: true,
+    fullAccess: false,
+    needsPlaza: true,
+    multiPlaza: true,
+    permissions: {
+      view_admin_cuadre: true,
+      edit_admin_cuadre: true,
+      insert_external_units: true,
+      manage_global_fleet: true
+    }
+  },
+  CORPORATIVO_USER: {
+    level: 40,
+    label: 'CORPORATIVO USER',
+    isAdmin: true,
+    fullAccess: true,
+    needsPlaza: false,
+    multiPlaza: true,
+    permissions: {
+      manage_users: true,
+      assign_roles: true,
+      process_access_requests: true,
+      emit_master_alerts: true,
+      view_admin_cuadre: true,
+      edit_admin_cuadre: true,
+      insert_external_units: true,
+      manage_global_fleet: true,
+      manage_system_settings: true,
+      manage_roles_permissions: true,
+      use_programmer_console: true,
+      lock_map: true,
+      platform_full_access: true
+    }
+  },
+  PROGRAMADOR: {
+    level: 50,
+    label: 'PROGRAMADOR',
+    isAdmin: true,
+    fullAccess: true,
+    needsPlaza: false,
+    multiPlaza: true,
+    permissions: {
+      manage_users: true,
+      assign_roles: true,
+      process_access_requests: true,
+      emit_master_alerts: true,
+      view_admin_cuadre: true,
+      edit_admin_cuadre: true,
+      insert_external_units: true,
+      manage_global_fleet: true,
+      manage_system_settings: true,
+      manage_roles_permissions: true,
+      use_programmer_console: true,
+      lock_map: true,
+      platform_full_access: true
+    }
+  },
+  JEFE_OPERACION: {
+    level: 60,
+    label: 'JEFE DE OPERACION',
+    isAdmin: true,
+    fullAccess: true,
+    needsPlaza: false,
+    multiPlaza: true,
+    permissions: {
+      manage_users: true,
+      assign_roles: true,
+      process_access_requests: true,
+      emit_master_alerts: true,
+      view_admin_cuadre: true,
+      edit_admin_cuadre: true,
+      insert_external_units: true,
+      manage_global_fleet: true,
+      manage_system_settings: true,
+      manage_roles_permissions: true,
+      use_programmer_console: true,
+      lock_map: true,
+      platform_full_access: true
+    }
+  }
+});
+
+let ROLE_META = {};
+let ROLE_OPTIONS = [];
+
+function _cloneJson(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function _configuredSecurity() {
+  return window.MEX_CONFIG?.empresa?.security || {};
+}
+
+function _permissionCatalog() {
+  const configured = _configuredSecurity().permissionsCatalog;
+  const output = {};
+  Object.entries(BASE_PERMISSION_CATALOG).forEach(([key, meta]) => {
+    const incoming = configured && typeof configured[key] === 'object' ? configured[key] : {};
+    output[key] = {
+      label: String(incoming.label || meta.label || key).trim() || key,
+      description: String(incoming.description || meta.description || '').trim(),
+      group: String(incoming.group || meta.group || 'General').trim() || 'General'
+    };
+  });
+  return output;
+}
+
+function _normalizePermissionMap(raw = {}, fallback = {}) {
+  const out = {};
+  const catalog = _permissionCatalog();
+  Object.keys(catalog).forEach(key => {
+    if (typeof fallback[key] === 'boolean') out[key] = fallback[key];
+    if (typeof raw?.[key] === 'boolean') out[key] = raw[key];
+  });
+  return out;
+}
+
+function _buildRoleMetaEntry(roleKey, raw = {}, fallback = {}) {
+  const normalizedRole = String(roleKey || '').trim().toUpperCase();
+  const permissions = _normalizePermissionMap(raw.permissions || {}, fallback.permissions || {});
+  const fullAccess = raw.fullAccess === undefined ? Boolean(fallback.fullAccess) : Boolean(raw.fullAccess);
+  if (fullAccess) Object.keys(_permissionCatalog()).forEach(key => { permissions[key] = true; });
+  const meta = {
+    level: Number.isFinite(Number(raw.level)) ? Number(raw.level) : Number(fallback.level || 0),
+    label: String(raw.label || fallback.label || normalizedRole).trim() || normalizedRole,
+    isAdmin: raw.isAdmin === undefined ? Boolean(fallback.isAdmin) : Boolean(raw.isAdmin),
+    fullAccess,
+    needsPlaza: raw.needsPlaza === undefined ? Boolean(fallback.needsPlaza) : Boolean(raw.needsPlaza),
+    multiPlaza: raw.multiPlaza === undefined ? Boolean(fallback.multiPlaza) : Boolean(raw.multiPlaza),
+    permissions
+  };
+  meta.canManageUsers = Boolean(permissions.manage_users);
+  meta.canProcessAccessRequests = Boolean(permissions.process_access_requests);
+  meta.canEmitMasterAlerts = Boolean(permissions.emit_master_alerts);
+  meta.canEditAdminCuadre = Boolean(permissions.edit_admin_cuadre);
+  meta.canViewAdminCuadre = Boolean(permissions.view_admin_cuadre || permissions.edit_admin_cuadre);
+  meta.canUseProgrammerConfig = Boolean(permissions.use_programmer_console);
+  meta.canLockMap = Boolean(permissions.lock_map);
+  return meta;
+}
+
+function _buildRoleCatalog() {
+  const configuredRoles = _configuredSecurity().roles;
+  const built = {};
+
+  Object.entries(BASE_ROLE_META).forEach(([role, meta]) => {
+    built[role] = _buildRoleMetaEntry(role, meta, meta);
+  });
+
+  if (configuredRoles && typeof configuredRoles === 'object') {
+    Object.entries(configuredRoles).forEach(([rawRole, incoming]) => {
+      const role = String(rawRole || '').trim().toUpperCase();
+      if (!role || !incoming || typeof incoming !== 'object') return;
+      built[role] = _buildRoleMetaEntry(role, incoming, built[role] || {});
+    });
+  }
+
+  return built;
+}
+
+function _refreshSecurityRoleCatalog() {
+  ROLE_META = _buildRoleCatalog();
+  ROLE_OPTIONS = Object.keys(ROLE_META).sort((a, b) => {
+    const aMeta = ROLE_META[a];
+    const bMeta = ROLE_META[b];
+    if ((aMeta?.level || 0) !== (bMeta?.level || 0)) return (aMeta?.level || 0) - (bMeta?.level || 0);
+    return a.localeCompare(b);
+  });
+}
+
+function _normalizePermissionOverrides(raw = {}) {
+  const catalog = _permissionCatalog();
+  const out = {};
+  if (!raw || typeof raw !== 'object') return out;
+  Object.keys(catalog).forEach(key => {
+    if (typeof raw[key] === 'boolean') out[key] = raw[key];
+  });
+  return out;
+}
+
+function _permissionOverrides(profile = currentUserProfile) {
+  return _normalizePermissionOverrides(profile?.permissionOverrides || {});
+}
+
+function hasPermission(permissionKey, profile = currentUserProfile, role = userAccessRole) {
+  const key = String(permissionKey || '').trim();
+  if (!key) return false;
+  const overrides = _permissionOverrides(profile);
+  if (typeof overrides[key] === 'boolean') return overrides[key];
+  const meta = _roleMeta(role);
+  return Boolean(meta.fullAccess || meta.permissions?.[key]);
+}
+
+function _ensureSecurityConfig() {
+  window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
+  const existing = _configuredSecurity();
+  if (!existing || typeof existing !== 'object') {
+    window.MEX_CONFIG.empresa.security = {
+      permissionsCatalog: _cloneJson(_permissionCatalog()),
+      roles: _cloneJson(BASE_ROLE_META)
+    };
+    _refreshSecurityRoleCatalog();
+    return window.MEX_CONFIG.empresa.security;
+  }
+
+  window.MEX_CONFIG.empresa.security.permissionsCatalog = _cloneJson(_permissionCatalog());
+  window.MEX_CONFIG.empresa.security.roles = _cloneJson(
+    Object.fromEntries(
+      Object.entries(_buildRoleCatalog()).map(([role, meta]) => [role, {
+        label: meta.label,
+        level: meta.level,
+        isAdmin: meta.isAdmin,
+        fullAccess: meta.fullAccess,
+        needsPlaza: meta.needsPlaza,
+        multiPlaza: meta.multiPlaza,
+        permissions: { ...(meta.permissions || {}) }
+      }])
+    )
+  );
+  _refreshSecurityRoleCatalog();
+  return window.MEX_CONFIG.empresa.security;
+}
+
+function _isSystemRole(role) {
+  return Boolean(BASE_ROLE_META[String(role || '').trim().toUpperCase()]);
+}
+
+_refreshSecurityRoleCatalog();
 const UI_PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
   'angelarmentta@icloud.com'
 ]);
@@ -404,6 +742,10 @@ let isGlobalAdmin = false; // <-- NUEVA VARIABLE GLOBAL
 let userAccessRole = "AUXILIAR";
 let currentUserProfile = null;
 let DB_MAESTRA = [];
+let DB_MAESTRA_READY = false;
+let _adminMaestraPromise = null;
+const ADMIN_MAESTRA_CACHE_KEY = 'mex_mapa_admin_maestra_v2';
+const ADMIN_MAESTRA_CACHE_TTL_MS = 15 * 60 * 1000;
 let _presenceTimer = null;
 let _presenceBound = false;
 
@@ -540,7 +882,8 @@ function _normalizeUserProfile(raw = {}) {
     lastSeenAt: _coerceTimestamp(raw.lastSeenAt || raw.lastActiveAt || raw.ultimaConexionTs),
     avatarUrl: _getUserAvatarUrl(raw),
     avatarPath: String(raw.avatarPath || '').trim(),
-    plazasPermitidas: Array.isArray(raw.plazasPermitidas) ? raw.plazasPermitidas.map(_normalizePlaza).filter(Boolean) : []
+    plazasPermitidas: Array.isArray(raw.plazasPermitidas) ? raw.plazasPermitidas.map(_normalizePlaza).filter(Boolean) : [],
+    permissionOverrides: _normalizePermissionOverrides(raw.permissionOverrides || raw.permisosUsuario || {})
   };
 }
 
@@ -557,9 +900,8 @@ function _miPlaza() {
 function _puedeVerTodasPlazas() { return hasFullAccess(); }
 function _plazasPermitidas() {
   if (_puedeVerTodasPlazas()) return null; // null = sin restricción
-  const rol = _roleMeta().level;
   const pp = currentUserProfile?.plazasPermitidas;
-  if (rol >= 30 && Array.isArray(pp) && pp.length > 0) return [currentUserProfile.plazaAsignada, ...pp].filter(Boolean);
+  if (_roleMeta().multiPlaza && Array.isArray(pp) && pp.length > 0) return [currentUserProfile.plazaAsignada, ...pp].filter(Boolean);
   return [currentUserProfile?.plazaAsignada].filter(Boolean);
 }
 
@@ -694,15 +1036,15 @@ function _actualizarBloquesAdminSidebar() {
   });
 }
 
-function canManageUsers() { return _roleMeta().canManageUsers; }
-function canProcessAccessRequests() { return _roleMeta().canProcessAccessRequests; }
-function canEmitMasterAlerts() { return _roleMeta().canEmitMasterAlerts; }
-function canEditAdminCuadre() { return _roleMeta().canEditAdminCuadre; }
-function canViewAdminCuadre() { return _roleMeta().canViewAdminCuadre; }
-function canUseProgrammerConfig() { return _roleMeta().canUseProgrammerConfig; }
-function canLockMap() { return _roleMeta().canLockMap; }
-function canInsertExternalUnits() { return _roleMeta().level >= ROLE_META.GERENTE_PLAZA.level; }
-function hasFullAccess() { return _roleMeta().fullAccess; }
+function canManageUsers() { return hasPermission('manage_users'); }
+function canProcessAccessRequests() { return hasPermission('process_access_requests'); }
+function canEmitMasterAlerts() { return hasPermission('emit_master_alerts'); }
+function canEditAdminCuadre() { return hasPermission('edit_admin_cuadre'); }
+function canViewAdminCuadre() { return hasPermission('view_admin_cuadre') || canEditAdminCuadre(); }
+function canUseProgrammerConfig() { return hasPermission('use_programmer_console'); }
+function canLockMap() { return hasPermission('lock_map'); }
+function canInsertExternalUnits() { return hasPermission('insert_external_units') || _roleMeta().level >= (_roleMeta('GERENTE_PLAZA').level || 25); }
+function hasFullAccess() { return hasPermission('platform_full_access') || _roleMeta().fullAccess; }
 
 function _abrirProgrammerConsoleRoute() {
   if (!canUseProgrammerConfig()) {
@@ -736,18 +1078,20 @@ function _ensureProgrammerRouteButton() {
 
 function canAssignRole(targetRole) {
   const role = _sanitizeRole(targetRole) || 'AUXILIAR';
+  const meta = _roleMeta(role);
   if (!canManageUsers()) return false;
   if (userAccessRole === 'CORPORATIVO_USER') {
-    return !['CORPORATIVO_USER', 'PROGRAMADOR', 'JEFE_OPERACION'].includes(role);
+    return !(meta.fullAccess || meta.canUseProgrammerConfig || meta.permissions?.manage_roles_permissions);
   }
   return true;
 }
 
 function canManageTargetRole(targetRole) {
   const role = _sanitizeRole(targetRole) || 'AUXILIAR';
+  const meta = _roleMeta(role);
   if (!canManageUsers()) return false;
   if (userAccessRole === 'CORPORATIVO_USER') {
-    return !['CORPORATIVO_USER', 'PROGRAMADOR', 'JEFE_OPERACION'].includes(role);
+    return !(meta.fullAccess || meta.canUseProgrammerConfig || meta.permissions?.manage_roles_permissions);
   }
   return true;
 }
@@ -764,13 +1108,12 @@ function _roleOptionsHtml(selectedRole = 'AUXILIAR') {
 
 // Todos los roles excepto JEFE_OPERACION y PROGRAMADOR tienen plaza asignada
 function _roleNeedsPlaza(role) {
-  const normalized = _sanitizeRole(role) || 'AUXILIAR';
-  return normalized !== 'JEFE_OPERACION' && normalized !== 'PROGRAMADOR';
+  return _roleMeta(role).needsPlaza;
 }
 
 // JEFE_REGIONAL puede ver múltiples plazas (además de su plaza base)
 function _roleNeedsMultiplePlazas(role) {
-  return (_sanitizeRole(role) || '') === 'JEFE_REGIONAL';
+  return _roleMeta(role).multiPlaza;
 }
 
 function _inferRequestedAccessRole(puesto, email = '') {
@@ -781,6 +1124,9 @@ function _inferRequestedAccessRole(puesto, email = '') {
   if (texto.includes('JEFE DE OPERACION') || texto.includes('JEFE OPERACION')) return 'JEFE_OPERACION';
   if (texto.includes('CORPORATIVO')) return 'CORPORATIVO_USER';
   if (texto.includes('JEFE REGIONAL')) return 'JEFE_REGIONAL';
+  if (texto.includes('JEFE DE PATIO') || texto.includes('JEFE PATIO')) return 'JEFE_PATIO';
+  if (texto.includes('SUPERVISOR')) return 'SUPERVISOR';
+  if (texto.includes('GERENTE')) return 'GERENTE_PLAZA';
   if (texto.includes('VENTAS') || texto.includes('ADMIN')) return 'VENTAS';
   return 'AUXILIAR';
 }
@@ -833,6 +1179,67 @@ function _getSelectedPlazas(containerId) {
   const container = document.getElementById(containerId);
   if (!container) return [];
   return Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+}
+
+function _permissionEntries() {
+  const catalog = _permissionCatalog();
+  return Object.entries(catalog).map(([key, meta]) => ({ key, ...meta }));
+}
+
+function _permissionSummaryText(overrides = {}) {
+  const entries = Object.entries(_normalizePermissionOverrides(overrides));
+  if (!entries.length) return 'Sin overrides individuales';
+  const grants = entries.filter(([, value]) => value === true).length;
+  const denies = entries.filter(([, value]) => value === false).length;
+  return `${grants} concedido${grants === 1 ? '' : 's'} · ${denies} bloqueado${denies === 1 ? '' : 's'}`;
+}
+
+function _permissionOverridesEditorHtml(containerId, overrides = {}, disabled = false) {
+  const groups = _permissionEntries().reduce((acc, item) => {
+    const group = item.group || 'General';
+    acc[group] = acc[group] || [];
+    acc[group].push(item);
+    return acc;
+  }, {});
+  const disabledAttr = disabled ? 'disabled' : '';
+  return `
+    <div id="${containerId}" class="cfg-security-permission-groups">
+      ${Object.entries(groups).map(([group, items]) => `
+        <section class="cfg-security-permission-group">
+          <div class="cfg-security-permission-group-title">${escapeHtml(group)}</div>
+          ${items.map(item => {
+            const current = _normalizePermissionOverrides(overrides)[item.key];
+            return `
+              <div class="cfg-security-permission-item">
+                <div>
+                  <strong>${escapeHtml(item.label)}</strong>
+                  <small>${escapeHtml(item.description)}</small>
+                </div>
+                <select data-permission-key="${escapeHtml(item.key)}" ${disabledAttr}>
+                  <option value="inherit" ${current === undefined ? 'selected' : ''}>Heredar rol</option>
+                  <option value="allow" ${current === true ? 'selected' : ''}>Permitir</option>
+                  <option value="deny" ${current === false ? 'selected' : ''}>Bloquear</option>
+                </select>
+              </div>
+            `;
+          }).join('')}
+        </section>
+      `).join('')}
+    </div>
+  `;
+}
+
+function _readPermissionOverrides(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return {};
+  const overrides = {};
+  container.querySelectorAll('[data-permission-key]').forEach(select => {
+    const key = select.getAttribute('data-permission-key');
+    if (!key) return;
+    if (select.value === 'allow') overrides[key] = true;
+    else if (select.value === 'deny') overrides[key] = false;
+  });
+  return overrides;
 }
 
 // Retorna plazas únicas de los usuarios cargados (para chips de filtro)
@@ -1226,18 +1633,156 @@ function cerrarSesion() {
   auth.signOut().catch(e => console.warn("signOut error:", e));
 }
 
-function cargarMaestra() {
-  api.obtenerUnidadesVeloz(_miPlaza()).then(data => {
-    let unicos = [];
-    let mvasVistos = new Set();
-    (data || []).forEach(u => {
-      if (!mvasVistos.has(u.mva)) {
-        mvasVistos.add(u.mva);
-        unicos.push(u);
-      }
-    });
-    DB_MAESTRA = unicos;
-  }).catch(e => console.error(e));
+function _formatAdminUnitLabel(unit = {}) {
+  const pieces = [
+    unit.mva,
+    unit.placas,
+    unit.modelo,
+    unit.categoria || unit.categ,
+    unit.plaza || unit.sucursal
+  ].filter(Boolean);
+  return pieces.join(' • ').toUpperCase();
+}
+
+function _buildAdminSearchIndex(unit = {}) {
+  return [
+    unit.mva,
+    unit.placas,
+    unit.modelo,
+    unit.categoria,
+    unit.categ,
+    unit.plaza,
+    unit.sucursal,
+    unit.marca,
+    unit.vin
+  ].filter(Boolean).join(' ').toUpperCase();
+}
+
+function _normalizeAdminMaestraUnit(unit = {}) {
+  const plaza = _normalizePlaza(unit.plaza || unit.sucursal || unit.plazaId || '');
+  const categoria = String(unit.categoria || unit.categ || '').trim().toUpperCase();
+  const modelo = String(unit.modelo || '').trim().toUpperCase();
+  const placas = String(unit.placas || '').trim().toUpperCase();
+  const mva = String(unit.mva || '').trim().toUpperCase();
+  const normalized = {
+    ...unit,
+    plaza,
+    sucursal: plaza,
+    categoria,
+    categ: categoria,
+    modelo,
+    placas,
+    mva
+  };
+  normalized.etiqueta = _formatAdminUnitLabel(normalized);
+  normalized.searchIndex = _buildAdminSearchIndex(normalized);
+  return normalized;
+}
+
+function _dedupeAdminMaestra(units = []) {
+  const seen = new Set();
+  return units.reduce((acc, unit) => {
+    const normalized = _normalizeAdminMaestraUnit(unit);
+    if (!normalized.mva || seen.has(normalized.mva)) return acc;
+    seen.add(normalized.mva);
+    acc.push(normalized);
+    return acc;
+  }, []).sort((a, b) => {
+    const plazaCompare = String(a.plaza || '').localeCompare(String(b.plaza || ''));
+    if (plazaCompare !== 0) return plazaCompare;
+    return String(a.mva || '').localeCompare(String(b.mva || ''));
+  });
+}
+
+function _adminMaestraCacheRead() {
+  try {
+    const raw = sessionStorage.getItem(ADMIN_MAESTRA_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.rows)) return null;
+    if ((Date.now() - Number(parsed.savedAt || 0)) > ADMIN_MAESTRA_CACHE_TTL_MS) return null;
+    return _dedupeAdminMaestra(parsed.rows);
+  } catch (_) {
+    return null;
+  }
+}
+
+function _adminMaestraCacheWrite(rows = []) {
+  try {
+    sessionStorage.setItem(ADMIN_MAESTRA_CACHE_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      rows
+    }));
+  } catch (_) { }
+}
+
+function _setAdminMaestraRows(rows = [], source = 'remote') {
+  DB_MAESTRA = _dedupeAdminMaestra(rows);
+  DB_MAESTRA_READY = DB_MAESTRA.length > 0;
+  _adminMaestraCacheWrite(DB_MAESTRA);
+  const hint = document.getElementById('a_ins_searchMeta');
+  if (hint) {
+    hint.innerHTML = `
+      <span class="material-icons" style="font-size:14px;">dataset</span>
+      ${DB_MAESTRA.length.toLocaleString('es-MX')} unidades indexadas · ${source === 'cache' ? 'cache local' : 'base global'}
+    `;
+  }
+}
+
+function _scoreAdminMaestraMatch(unit = {}, term = '') {
+  const cleanTerm = String(term || '').trim().toUpperCase();
+  if (!cleanTerm) return 0;
+  const mva = String(unit.mva || '').toUpperCase();
+  const placas = String(unit.placas || '').toUpperCase();
+  const modelo = String(unit.modelo || '').toUpperCase();
+  const plaza = String(unit.plaza || unit.sucursal || '').toUpperCase();
+  const index = String(unit.searchIndex || '').toUpperCase();
+  const tokens = cleanTerm.split(/\s+/).filter(Boolean);
+  let score = 0;
+
+  if (mva === cleanTerm) score += 180;
+  else if (mva.startsWith(cleanTerm)) score += 120;
+  else if (mva.includes(cleanTerm)) score += 90;
+
+  if (placas === cleanTerm) score += 170;
+  else if (placas.startsWith(cleanTerm)) score += 115;
+  else if (placas.includes(cleanTerm)) score += 80;
+
+  if (modelo.startsWith(cleanTerm)) score += 70;
+  else if (modelo.includes(cleanTerm)) score += 55;
+
+  if (plaza === cleanTerm) score += 40;
+
+  tokens.forEach(token => {
+    if (mva.includes(token)) score += 28;
+    if (placas.includes(token)) score += 22;
+    if (modelo.includes(token)) score += 16;
+    if (index.includes(token)) score += 8;
+  });
+
+  return score;
+}
+
+async function cargarMaestra(force = false) {
+  const cached = !force ? _adminMaestraCacheRead() : null;
+  if (cached && cached.length > 0) {
+    _setAdminMaestraRows(cached, 'cache');
+  }
+
+  if (_adminMaestraPromise && !force) return _adminMaestraPromise;
+
+  _adminMaestraPromise = api.obtenerUnidadesPlazas().then(data => {
+    _setAdminMaestraRows(data || [], 'remote');
+    return DB_MAESTRA;
+  }).catch(e => {
+    console.error(e);
+    if (!DB_MAESTRA.length) DB_MAESTRA_READY = false;
+    throw e;
+  }).finally(() => {
+    _adminMaestraPromise = null;
+  });
+
+  return _adminMaestraPromise;
 }
 
 // ==========================================
@@ -4012,6 +4557,15 @@ function _umRenderEditForm(user) {
           ${_plazasMultiHtml('um-edit-plazas-permitidas', user.plazasPermitidas || [])}
         </div>
 
+        <div class="um-form-section">Permisos individuales</div>
+        <div class="um-form-field">
+          <label>Overrides del usuario</label>
+          <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;">
+            ${_permissionSummaryText(user.permissionOverrides || {})}. Usa esto para bloquear o conceder permisos específicos sin cambiar el rol.
+          </div>
+          ${_permissionOverridesEditorHtml('um-edit-permission-overrides', user.permissionOverrides || {}, !canEdit)}
+        </div>
+
         ${roleLockedMsg}
 
         <div class="um-divider"></div>
@@ -4063,6 +4617,7 @@ async function umGuardarCambios(docId) {
   const plazasPermitidas = _roleNeedsMultiplePlazas(rol)
     ? _getSelectedPlazas('um-edit-plazas-permitidas')
     : [];
+  const permissionOverrides = _readPermissionOverrides('um-edit-permission-overrides');
   const meta = ROLE_META[rol];
 
   if (!nombre) return showToast('El nombre es obligatorio', 'error');
@@ -4092,8 +4647,23 @@ async function umGuardarCambios(docId) {
     if (rolAnterior !== rol) cambios.push(`Rol: ${ROLE_META[rolAnterior].label} → ${meta.label}`);
     if ((targetUser.plazaAsignada || '') !== plazaAsignada) cambios.push(`Plaza: ${targetUser.plazaAsignada || 'SIN PLAZA'} → ${plazaAsignada || 'SIN PLAZA'}`);
     if (_roleNeedsMultiplePlazas(rol)) cambios.push(`Plazas permitidas: [${plazasPermitidas.join(', ')}]`);
+    if (JSON.stringify(_normalizePermissionOverrides(targetUser.permissionOverrides || {})) !== JSON.stringify(permissionOverrides)) {
+      cambios.push(`Overrides: ${_permissionSummaryText(permissionOverrides)}`);
+    }
 
-    const updateData = { nombre, telefono, email: targetUser.email, rol, plazaAsignada, isAdmin: meta.isAdmin, isGlobal: meta.fullAccess };
+    const updateData = {
+      nombre,
+      telefono,
+      email: targetUser.email,
+      rol,
+      plazaAsignada,
+      isAdmin: meta.isAdmin,
+      isGlobal: meta.fullAccess,
+      permissionOverrides
+    };
+    if (Object.keys(permissionOverrides).length === 0) {
+      updateData.permissionOverrides = firebase.firestore.FieldValue.delete();
+    }
     if (_roleNeedsMultiplePlazas(rol)) {
       updateData.plazasPermitidas = plazasPermitidas;
     } else {
@@ -7175,9 +7745,18 @@ function abrirModalInsertarAdmin() {
 
   // 2. Limpiar y habilitar el buscador
   const searchInput = document.getElementById('a_ins_searchInput');
+  const searchMeta = document.getElementById('a_ins_searchMeta');
   searchInput.disabled = false;
   searchInput.value = "";
+  searchInput.placeholder = DB_MAESTRA_READY
+    ? 'Buscar por MVA, placas, modelo o plaza...'
+    : 'Sincronizando base maestra global...';
   document.getElementById('a_ins_results').style.display = 'none';
+  if (searchMeta) {
+    searchMeta.innerHTML = DB_MAESTRA_READY
+      ? `<span class="material-icons" style="font-size:14px;">bolt</span> Base maestra lista para búsqueda inmediata`
+      : `<span class="material-icons spinner" style="font-size:14px;">sync</span> Cargando índice global de unidades...`;
+  }
   setTimeout(() => searchInput.focus(), 80);
 
   // 3. Resetear todos los campos para que aparezcan vacíos pero visibles
@@ -7192,6 +7771,14 @@ function abrirModalInsertarAdmin() {
   const fileInput = document.getElementById('a_ins_file');
   if (fileInput) fileInput.value = "";
   actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus');
+
+  cargarMaestra().then(() => {
+    searchInput.placeholder = 'Buscar por MVA, placas, modelo o plaza...';
+  }).catch(() => {
+    if (searchMeta) {
+      searchMeta.innerHTML = `<span class="material-icons" style="font-size:14px;">warning</span> No se pudo refrescar la base global.`;
+    }
+  });
 }
 
 function limpiarFormularioInsertarExterno() {
@@ -7264,28 +7851,57 @@ function ejecutarInsertarExterno() {
 }
 
 function filtrarBusquedaAdmin() {
-  const term = document.getElementById('a_ins_searchInput').value.toUpperCase().trim();
+  const term = (document.getElementById('a_ins_searchInput')?.value || '').toUpperCase().trim();
   const resDiv = document.getElementById('a_ins_results');
-  if (term.length < 2) { resDiv.style.display = 'none'; return; }
+  const searchMeta = document.getElementById('a_ins_searchMeta');
+  if (!resDiv) return;
 
-  // Buscamos en DB_MAESTRA
-  const matches = DB_MAESTRA.filter(u => {
-    const texto = (
-      u.etiqueta
-      || `${u.mva || ''} ${u.placas || ''} ${u.modelo || ''} ${u.categoria || u.categ || ''} ${u.plaza || u.sucursal || ''}`
-    ).toUpperCase();
-    return texto.includes(term);
-  }).slice(0, 6);
+  if (term.length < 2) {
+    resDiv.style.display = 'none';
+    if (searchMeta) {
+      searchMeta.innerHTML = DB_MAESTRA_READY
+        ? `<span class="material-icons" style="font-size:14px;">bolt</span> Busca por MVA, placas, modelo o plaza`
+        : `<span class="material-icons spinner" style="font-size:14px;">sync</span> Preparando la base maestra global...`;
+    }
+    return;
+  }
 
-  if (matches.length > 0) {
-    resDiv.innerHTML = matches.map(u => `
-      <div class="result-item" onclick='autocompletarInsertarAdmin(${JSON.stringify(u)})'>
-        <div class="res-info"><b>${u.mva}</b><small>${u.modelo} • ${u.placas}</small></div>
-        <span class="material-icons" style="color:var(--mex-blue);">add_circle</span>
+  const matches = DB_MAESTRA
+    .map(unit => ({ unit, score: _scoreAdminMaestraMatch(unit, term) }))
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12)
+    .map(item => item.unit);
+
+  if (!matches.length) {
+    resDiv.style.display = 'none';
+    if (searchMeta) {
+      searchMeta.innerHTML = `<span class="material-icons" style="font-size:14px;">search_off</span> Sin coincidencias para <strong>${escapeHtml(term)}</strong>`;
+    }
+    return;
+  }
+
+  if (searchMeta) {
+    searchMeta.innerHTML = `<span class="material-icons" style="font-size:14px;">tune</span> ${matches.length} resultado${matches.length === 1 ? '' : 's'} rápidos · ${DB_MAESTRA.length.toLocaleString('es-MX')} unidades indexadas`;
+  }
+
+  resDiv.innerHTML = matches.map(u => `
+    <div class="result-item admin-search-result-card" onclick='autocompletarInsertarAdmin(${JSON.stringify(u)})'>
+      <div class="res-info">
+        <div class="admin-search-result-top">
+          <b>${escapeHtml(u.mva || 'SIN MVA')}</b>
+          <span class="admin-search-result-plaza">${escapeHtml(u.plaza || u.sucursal || 'GLOBAL')}</span>
+        </div>
+        <small>${escapeHtml(u.modelo || 'MODELO SIN REGISTRO')} • ${escapeHtml(u.placas || 'SIN PLACAS')}</small>
+        <div class="admin-search-result-tags">
+          <span>${escapeHtml(u.categoria || u.categ || 'SIN CAT')}</span>
+          <span>${escapeHtml((u.vin || '').slice(-6) ? `VIN · ${(u.vin || '').slice(-6)}` : 'BASE GLOBAL')}</span>
+        </div>
       </div>
-    `).join('');
-    resDiv.style.display = 'block';
-  } else { resDiv.style.display = 'none'; }
+      <span class="material-icons" style="color:var(--mex-blue);">north_east</span>
+    </div>
+  `).join('');
+  resDiv.style.display = 'block';
 }
 
 function autocompletarInsertarAdmin(u) {
@@ -13063,13 +13679,269 @@ function _programmerConsoleRender() {
   `;
 }
 
+let _cfgSecuritySelectedRole = 'GERENTE_PLAZA';
+
+function _cfgSecurityRoleKey(raw = '') {
+  return String(raw || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '') || '';
+}
+
+function _cfgEnsureRoleSelection() {
+  _ensureSecurityConfig();
+  if (!ROLE_META[_cfgSecuritySelectedRole]) {
+    _cfgSecuritySelectedRole = ROLE_OPTIONS.includes('GERENTE_PLAZA') ? 'GERENTE_PLAZA' : (ROLE_OPTIONS[0] || 'AUXILIAR');
+  }
+  return _cfgSecuritySelectedRole;
+}
+
+function _cfgRoleTemplate(role) {
+  _ensureSecurityConfig();
+  return window.MEX_CONFIG.empresa.security.roles[role] || {};
+}
+
+function _cfgUpsertRole(role, patch = {}) {
+  const roleKey = _cfgSecurityRoleKey(role);
+  if (!roleKey) return;
+  const security = _ensureSecurityConfig();
+  const base = security.roles[roleKey] || {
+    label: roleKey,
+    level: 10,
+    isAdmin: false,
+    fullAccess: false,
+    needsPlaza: true,
+    multiPlaza: false,
+    permissions: {}
+  };
+  security.roles[roleKey] = {
+    ...base,
+    ...patch,
+    permissions: {
+      ...(base.permissions || {}),
+      ...(patch.permissions || {})
+    }
+  };
+  _refreshSecurityRoleCatalog();
+}
+
+function _cfgRenderRolesTab(container) {
+  _cfgEnsureRoleSelection();
+  const selectedRole = _cfgSecuritySelectedRole;
+  const selectedMeta = _roleMeta(selectedRole);
+  const selectedTemplate = _cfgRoleTemplate(selectedRole);
+  const permissionGroups = _permissionEntries().reduce((acc, item) => {
+    acc[item.group] = acc[item.group] || [];
+    acc[item.group].push(item);
+    return acc;
+  }, {});
+  const isSystem = _isSystemRole(selectedRole);
+
+  container.innerHTML = `
+    <div class="cfg-security-shell">
+      <aside class="cfg-security-sidebar-panel">
+        <div class="cfg-security-panel-head">
+          <div>
+            <strong>Roles activos</strong>
+            <small>${ROLE_OPTIONS.length} perfiles configurados</small>
+          </div>
+          <button type="button" class="cfg-security-mini-btn" onclick="_cfgCrearRolDesdePanel()">
+            <span class="material-icons">add</span> Nuevo rol
+          </button>
+        </div>
+        <div class="cfg-security-role-list">
+          ${ROLE_OPTIONS.map(role => {
+            const meta = _roleMeta(role);
+            const active = role === selectedRole ? 'active' : '';
+            return `
+              <button type="button" class="cfg-security-role-pill ${active}" onclick="_cfgSeleccionarRol('${role}')">
+                <div>
+                  <strong>${escapeHtml(meta.label)}</strong>
+                  <small>${escapeHtml(role)} · Nivel ${meta.level}</small>
+                </div>
+                <span>${meta.fullAccess ? 'FULL' : (meta.canUseProgrammerConfig ? 'PRO' : (meta.canEditAdminCuadre ? 'OPS' : 'BASE'))}</span>
+              </button>
+            `;
+          }).join('')}
+        </div>
+      </aside>
+
+      <section class="cfg-security-main-panel">
+        <div class="cfg-security-panel-head">
+          <div>
+            <strong>${escapeHtml(selectedMeta.label)}</strong>
+            <small>${escapeHtml(selectedRole)} · ${isSystem ? 'Rol base del sistema' : 'Rol personalizado'}</small>
+          </div>
+          <div class="cfg-security-head-actions">
+            ${isSystem ? '' : `
+              <button type="button" class="cfg-security-mini-btn danger" onclick="_cfgEliminarRolSeleccionado()">
+                <span class="material-icons">delete</span> Eliminar
+              </button>
+            `}
+          </div>
+        </div>
+
+        <div class="cfg-security-role-form">
+          <label>
+            <span>Nombre visible</span>
+            <input type="text" value="${escapeHtml(selectedTemplate.label || selectedMeta.label)}" oninput="_cfgActualizarRolCampo('${selectedRole}','label', this.value)">
+          </label>
+          <label>
+            <span>Nivel</span>
+            <input type="number" min="1" max="99" value="${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}" oninput="_cfgActualizarRolCampo('${selectedRole}','level', this.value)">
+          </label>
+          <label class="cfg-security-check">
+            <input type="checkbox" ${selectedMeta.isAdmin ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','isAdmin', this.checked)">
+            <span>Es admin</span>
+          </label>
+          <label class="cfg-security-check">
+            <input type="checkbox" ${selectedMeta.needsPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','needsPlaza', this.checked)">
+            <span>Requiere plaza base</span>
+          </label>
+          <label class="cfg-security-check">
+            <input type="checkbox" ${selectedMeta.multiPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','multiPlaza', this.checked)">
+            <span>Puede ver varias plazas</span>
+          </label>
+          <label class="cfg-security-check">
+            <input type="checkbox" ${selectedMeta.fullAccess ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','fullAccess', this.checked)">
+            <span>Acceso total</span>
+          </label>
+        </div>
+
+        <div class="cfg-security-permission-matrix">
+          ${Object.entries(permissionGroups).map(([group, items]) => `
+            <section class="cfg-security-matrix-group">
+              <div class="cfg-security-matrix-group-title">${escapeHtml(group)}</div>
+              ${items.map(item => `
+                <label class="cfg-security-matrix-item">
+                  <div>
+                    <strong>${escapeHtml(item.label)}</strong>
+                    <small>${escapeHtml(item.description)}</small>
+                  </div>
+                  <input type="checkbox" ${selectedMeta.permissions?.[item.key] ? 'checked' : ''} ${selectedMeta.fullAccess ? 'disabled' : ''} onchange="_cfgToggleRolPermiso('${selectedRole}','${item.key}', this.checked)">
+                </label>
+              `).join('')}
+            </section>
+          `).join('')}
+        </div>
+
+        <div class="cfg-security-permission-editor">
+          <div class="cfg-security-panel-head">
+            <div>
+              <strong>Catálogo de permisos</strong>
+              <small>Cambia solo el nombre visible y la descripción para el panel administrativo.</small>
+            </div>
+          </div>
+          ${_permissionEntries().map(item => `
+            <div class="cfg-security-catalog-item">
+              <div class="cfg-security-catalog-key">${escapeHtml(item.key)}</div>
+              <input type="text" value="${escapeHtml(item.label)}" oninput="_cfgActualizarPermisoMeta('${item.key}','label', this.value)">
+              <input type="text" value="${escapeHtml(item.description)}" oninput="_cfgActualizarPermisoMeta('${item.key}','description', this.value)">
+            </div>
+          `).join('')}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function _cfgSeleccionarRol(role) {
+  _cfgSecuritySelectedRole = _cfgSecurityRoleKey(role) || _cfgSecuritySelectedRole;
+  renderizarListaConfig();
+}
+
+function _cfgActualizarRolCampo(role, field, value) {
+  const roleKey = _cfgSecurityRoleKey(role);
+  if (!roleKey) return;
+  const normalizedValue = field === 'level' ? Math.max(1, Math.min(99, Number(value) || 1)) : String(value || '').trim();
+  _cfgUpsertRole(roleKey, { [field]: normalizedValue });
+}
+
+function _cfgActualizarRolBoolean(role, field, value) {
+  const roleKey = _cfgSecurityRoleKey(role);
+  if (!roleKey) return;
+  _cfgUpsertRole(roleKey, { [field]: Boolean(value) });
+  renderizarListaConfig();
+}
+
+function _cfgToggleRolPermiso(role, permissionKey, enabled) {
+  const roleKey = _cfgSecurityRoleKey(role);
+  if (!roleKey) return;
+  _cfgUpsertRole(roleKey, {
+    permissions: {
+      ...(ROLE_META[roleKey]?.permissions || {}),
+      [permissionKey]: Boolean(enabled)
+    }
+  });
+}
+
+function _cfgActualizarPermisoMeta(permissionKey, field, value) {
+  const security = _ensureSecurityConfig();
+  security.permissionsCatalog[permissionKey] = security.permissionsCatalog[permissionKey] || {};
+  security.permissionsCatalog[permissionKey][field] = String(value || '').trim();
+  _refreshSecurityRoleCatalog();
+}
+
+async function _cfgCrearRolDesdePanel() {
+  if (!hasPermission('manage_roles_permissions')) {
+    showToast('Tu rol no puede crear roles nuevos.', 'error');
+    return;
+  }
+  const sourceRole = _cfgEnsureRoleSelection();
+  const label = await mexPrompt(
+    'Crear nuevo rol',
+    `Escribe el nombre visible del nuevo rol. Se copiará la base de ${_roleMeta(sourceRole).label}.`,
+    ''
+  );
+  if (label === null) return;
+  const roleKey = _cfgSecurityRoleKey(label);
+  if (!roleKey) return showToast('Escribe un nombre válido para el rol.', 'error');
+  if (ROLE_META[roleKey]) return showToast(`El rol ${roleKey} ya existe.`, 'error');
+
+  const sourceMeta = _roleMeta(sourceRole);
+  _cfgUpsertRole(roleKey, {
+    label: String(label || roleKey).trim() || roleKey,
+    level: sourceMeta.level,
+    isAdmin: sourceMeta.isAdmin,
+    fullAccess: sourceMeta.fullAccess,
+    needsPlaza: sourceMeta.needsPlaza,
+    multiPlaza: sourceMeta.multiPlaza,
+    permissions: { ...(sourceMeta.permissions || {}) }
+  });
+  _cfgSecuritySelectedRole = roleKey;
+  renderizarListaConfig();
+  showToast(`Rol ${roleKey} creado.`, 'success');
+}
+
+async function _cfgEliminarRolSeleccionado() {
+  const roleKey = _cfgEnsureRoleSelection();
+  if (_isSystemRole(roleKey)) {
+    showToast('Los roles base del sistema no se pueden eliminar.', 'error');
+    return;
+  }
+  const ok = await mexConfirm(
+    'Eliminar rol',
+    `Se eliminará el rol ${roleKey}. Los usuarios que lo usen deberán reasignarse manualmente. ¿Continuar?`,
+    'warning'
+  );
+  if (!ok) return;
+  const security = _ensureSecurityConfig();
+  delete security.roles[roleKey];
+  _refreshSecurityRoleCatalog();
+  _cfgSecuritySelectedRole = 'GERENTE_PLAZA';
+  renderizarListaConfig();
+}
+
 function abrirPanelConfiguracion(tabInicial) {
-  if (!canUseProgrammerConfig()) {
+  if (!canUseProgrammerConfig() && !hasPermission('manage_system_settings')) {
     showToast("Tu rol no puede abrir la configuración global.", "error");
     return;
   }
   const tabProg = document.getElementById('cfg-tab-programador');
-  if (tabProg) tabProg.style.display = 'inline-flex';
+  if (tabProg) tabProg.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
+  const tabRoles = document.querySelector(`.cfg-tab[onclick*="'roles'"]`);
+  if (tabRoles) tabRoles.style.display = hasPermission('manage_roles_permissions') || canManageUsers() ? 'inline-flex' : 'none';
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
   document.getElementById('modal-config-global').classList.add('active');
   if (tabInicial) {
@@ -13094,7 +13966,7 @@ function abrirTabConfig(tabName, btnElement) {
   TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
 
   const searchBox = document.querySelector('.cfg-v2-add-bar');
-  const tabsSinBarra = ['empresa', 'usuarios', 'solicitudes', 'plazas'];
+  const tabsSinBarra = ['empresa', 'usuarios', 'roles', 'solicitudes', 'plazas'];
   if (tabsSinBarra.includes(TAB_ACTIVA_CFG)) {
     if (searchBox) searchBox.style.display = 'none';
   } else {
@@ -13382,6 +14254,15 @@ function renderizarListaConfig() {
 
   if (TAB_ACTIVA_CFG === 'usuarios') {
     renderizarTabConfigUsuarios(container);
+    return;
+  }
+
+  if (TAB_ACTIVA_CFG === 'roles') {
+    if (!hasPermission('manage_roles_permissions') && !canManageUsers()) {
+      container.innerHTML = '<div style="padding:28px; text-align:center; color:#ef4444; font-weight:800;">Sin permiso para editar roles o permisos.</div>';
+      return;
+    }
+    _cfgRenderRolesTab(container);
     return;
   }
 
@@ -13804,7 +14685,7 @@ async function ejecutarMigracionLegacy() {
 }
 
 async function guardarConfiguracionEnFirebase() {
-  if (!canUseProgrammerConfig()) {
+  if (!hasPermission('manage_system_settings') && !canUseProgrammerConfig()) {
     showToast("Tu rol no puede publicar esta configuración.", "error");
     return;
   }
@@ -13812,13 +14693,20 @@ async function guardarConfiguracionEnFirebase() {
   if (!ok) return;
   showToast("Subiendo configuración…", "info");
   try {
+    _ensureSecurityConfig();
     await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, { merge: true });
     await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
     await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _miPlaza());
     showToast("Configuración actualizada", "success");
+    _refreshSecurityRoleCatalog();
     aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
     _aplicarColoresEstados();
     llenarSelectsDinamicos();
+    if (currentUserProfile) {
+      currentUserProfile = _normalizeUserProfile(currentUserProfile);
+      _setSessionProfile(currentUserProfile);
+      configurarPermisosUI();
+    }
     _renderPlazaSwitcher();
     document.getElementById('modal-config-global').classList.remove('active');
   } catch (error) {
@@ -14950,8 +15838,8 @@ function configurarPermisosUI() {
     btnMenuHistorial: hasFullAccess(),
     btnLockAdminSidebar: canLockMap(),
     btnEditorMapa: hasFullAccess(),
-    panelAdminDivider: canUseProgrammerConfig(),
-    navGroupPanelAdmin: canUseProgrammerConfig()
+    panelAdminDivider: canUseProgrammerConfig() || hasPermission('manage_system_settings'),
+    navGroupPanelAdmin: canUseProgrammerConfig() || hasPermission('manage_system_settings')
   };
 
   Object.entries(visibilidadEspecial).forEach(([id, visible]) => {
@@ -14966,11 +15854,11 @@ function configurarPermisosUI() {
       if (btn) btn.style.display = 'flex';
     });
 
-    if (hasFullAccess()) {
+    if (canUseProgrammerConfig() || hasPermission('manage_system_settings')) {
       inicializarConfiguracion();
     }
 
-    if (typeof cargarMaestra === "function") cargarMaestra();
+    if (typeof cargarMaestra === "function" && canViewAdminCuadre()) cargarMaestra();
 
   } else {
     operacionAdmin.forEach(id => {
@@ -15679,6 +16567,13 @@ Object.assign(window, {
   verLectoresAlerta,
   verificarHabitosUbicacion,
   // Helpers de Config Global (llamados desde HTML inline)
+  _cfgActualizarPermisoMeta,
+  _cfgActualizarRolBoolean,
+  _cfgActualizarRolCampo,
+  _cfgCrearRolDesdePanel,
+  _cfgEliminarRolSeleccionado,
+  _cfgSeleccionarRol,
+  _cfgToggleRolPermiso,
   _cfgUpdateColorSwatch,
   _cfgFillColorPresets,
   _cfgSetModalMeta,
