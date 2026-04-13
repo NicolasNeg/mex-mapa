@@ -31,9 +31,10 @@
   }
 
   // ── Instancias globales ───────────────────────────────────
-  const db      = firebase.firestore();
-  const auth    = firebase.auth();
-  const storage = (typeof firebase.storage === 'function') ? firebase.storage() : null;
+  const db        = firebase.firestore();
+  const auth      = firebase.auth();
+  const storage   = (typeof firebase.storage === 'function') ? firebase.storage() : null;
+  const functions = (typeof firebase.functions === 'function') ? firebase.app().functions('us-central1') : null;
 
   // Persistencia offline (Firestore) — solo una vez por sesión
   if (!window._firestorePersistenceEnabled) {
@@ -50,6 +51,7 @@
   window._db      = db;
   window._auth    = auth;
   window._storage = storage;
+  window._functions = functions;
 
   // Compatibilidad con mex-api.js (que también exporta auth/db en su propio scope)
   // No redeclaramos — mex-api.js los tiene internamente.

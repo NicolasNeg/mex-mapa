@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v62';
+const CACHE_NAME = 'mapa-v63';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -12,6 +12,7 @@ const SHELL_ASSETS = [
   '/index.html',
   '/login.html',
   '/mapa.html',
+  '/programador.html',
   '/mex-api.js',
   '/config.js',
   '/manifest.json',
@@ -20,8 +21,11 @@ const SHELL_ASSETS = [
   // Módulos JS (nueva arquitectura)
   '/js/core/firebase-init.js',
   '/js/core/database.js',
+  '/js/core/notifications.js',
+  '/js/core/observability.js',
   '/js/views/login.js',
   '/js/views/mapa.js',
+  '/js/views/programador.js',
   '/js/views/gestion.js',
   '/js/views/cuadre.js',
   '/gestion.html',
@@ -146,10 +150,23 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
+  const targetUrl = (() => {
+    try {
+      return new URL(event.notification?.data?.url || '/', self.location.origin).toString();
+    } catch {
+      return new URL('/', self.location.origin).toString();
+    }
+  })();
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      if (list.length > 0) return list[0].focus();
-      return clients.openWindow('/');
+      if (list.length > 0) {
+        const first = list[0];
+        if (typeof first.navigate === 'function') {
+          return first.navigate(targetUrl).then(() => first.focus()).catch(() => first.focus());
+        }
+        return first.focus();
+      }
+      return clients.openWindow(targetUrl);
     })
   );
 });

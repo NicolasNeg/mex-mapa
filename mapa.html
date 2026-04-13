@@ -20,6 +20,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
   <script src="/mex-api.js"></script>
@@ -2908,24 +2910,43 @@
               </div>
               <div>
                 <div class="profile-settings-title">Alertas</div>
-                <p class="profile-settings-sub">Base visual para notificaciones por chat, correo y push.</p>
+                <p class="profile-settings-sub">Preferencias reales para este dispositivo e inbox operativo.</p>
               </div>
-              <span class="profile-settings-badge">Próximamente</span>
+              <span class="profile-settings-badge" id="profileNotificationBadge">Inbox beta</span>
             </div>
             <div class="profile-setting-row">
               <div>
-                <strong>Mensajes urgentes</strong>
-                <small>Reservado para avisos prioritarios y recordatorios.</small>
+                <strong>Mensajes directos</strong>
+                <small>Activa push para chats y respuestas importantes.</small>
               </div>
-              <span class="profile-setting-toggle is-off"></span>
+              <button id="profileNotifMessagesToggle" type="button" class="profile-setting-toggle is-on" aria-label="Mensajes directos"></button>
             </div>
             <div class="profile-setting-row">
               <div>
-                <strong>Resumen diario</strong>
-                <small>Espacio para un digest de actividad y pendientes.</small>
+                <strong>Misión de cuadre</strong>
+                <small>Recibe avisos cuando te asignen o actualicen el cuadre.</small>
               </div>
-              <span class="profile-setting-toggle is-off"></span>
+              <button id="profileNotifCuadreToggle" type="button" class="profile-setting-toggle is-on" aria-label="Misión de cuadre"></button>
             </div>
+            <div class="profile-setting-row">
+              <div>
+                <strong>Alertas críticas</strong>
+                <small>Solo prioridades altas del patio y operación.</small>
+              </div>
+              <button id="profileNotifCriticalToggle" type="button" class="profile-setting-toggle is-on" aria-label="Alertas críticas"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div>
+                <strong>Silenciar este equipo</strong>
+                <small>Deja el inbox visible pero pausa el push del sistema operativo.</small>
+              </div>
+              <button id="profileNotifMuteToggle" type="button" class="profile-setting-toggle is-off" aria-label="Silenciar este equipo"></button>
+            </div>
+            <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
+            <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary" style="width:100%; margin-top:14px;">
+              <span class="material-icons" style="font-size:18px;">notifications</span>
+              Abrir Centro de Notificaciones
+            </button>
           </section>
 
           <section class="profile-settings-card">
@@ -2962,23 +2983,23 @@
               </div>
               <div>
                 <div class="profile-settings-title">Privacidad y sesión</div>
-                <p class="profile-settings-sub">Lugar para permisos, visibilidad y dispositivos conectados.</p>
+                <p class="profile-settings-sub">Estado actual de presencia, permiso push y sesiones del equipo.</p>
               </div>
-              <span class="profile-settings-badge">Próximamente</span>
+              <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
             </div>
             <div class="profile-setting-row">
               <div>
-                <strong>Ocultar presencia</strong>
-                <small>Permitirá controlar cuándo apareces en línea.</small>
+                <strong>Permiso del navegador</strong>
+                <small id="profilePermissionSummary">Revisando soporte de notificaciones…</small>
               </div>
-              <span class="profile-setting-toggle is-off"></span>
+              <span id="profilePermissionPill" class="profile-settings-badge" style="margin-left:0;">Pendiente</span>
             </div>
             <div class="profile-setting-row">
               <div>
-                <strong>Sesiones activas</strong>
-                <small>Mostrará equipos recientes y cierre remoto de sesión.</small>
+                <strong>Sesión activa</strong>
+                <small id="profileCurrentDeviceSummary">Cargando información del dispositivo actual.</small>
               </div>
-              <span class="profile-setting-toggle is-on"></span>
+              <span class="profile-settings-badge">Este equipo</span>
             </div>
           </section>
 
@@ -2996,7 +3017,7 @@
             <div class="profile-shortcut-list">
               <div class="profile-shortcut-item">
                 <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>C</kbd></div>
-                <span>Abrir cuadre</span>
+                <span>Abrir gestión de flota</span>
               </div>
               <div class="profile-shortcut-item">
                 <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>M</kbd></div>

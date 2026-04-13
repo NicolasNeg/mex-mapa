@@ -1,0 +1,969 @@
+const admin = require("firebase-admin");
+const logger = require("firebase-functions/logger");
+const functions = require("firebase-functions/v1");
+
+admin.initializeApp();
+
+const db = admin.firestore();
+const messaging = admin.messaging();
+const HttpsError = functions.https.HttpsError;
+
+const REGION = "us-central1";
+const USERS_COL = "usuarios";
+const SETTINGS_COL = "settings";
+const CONFIG_COL = "configuracion";
+const MAPA_COL = "mapa_config";
+const OPS_EVENTS_COL = "ops_events";
+const ERRORS_COL = "programmer_errors";
+const JOBS_COL = "programmer_jobs";
+const AUDIT_COL = "programmer_audit";
+const ADMIN_AUDIT_COL = "bitacora_gestion";
+const PROGRAMMER_ROLES = new Set(["PROGRAMADOR", "JEFE_OPERACION", "CORPORATIVO_USER"]);
+const ADMIN_ROLES = new Set(["VENTAS", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "PROGRAMADOR", "JEFE_OPERACION"]);
+const BOOTSTRAP_PROGRAMMER_EMAILS = new Set(["angelarmentta@icloud.com"]);
+const DEVICE_PREF_DEFAULTS = Object.freeze({
+  muteAll: false,
+  directMessages: true,
+  cuadreMissions: true,
+  criticalAlerts: true
+});
+
+function nowMillis() {
+  return Date.now();
+}
+
+function nowIso() {
+  return new Date().toISOString();
+}
+
+function normalizeString(value) {
+  return String(value || "").trim();
+}
+
+function normalizeUpper(value) {
+  return normalizeString(value).toUpperCase();
+}
+
+function normalizeLower(value) {
+  return normalizeString(value).toLowerCase();
+}
+
+function normalizePlaza(value) {
+  return normalizeUpper(value);
+}
+
+function timestampToMillis(value) {
+  if (!value) return 0;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sanitizePlainObject(value) {
+  if (value == null) return value;
+  if (value instanceof admin.firestore.Timestamp) return value.toMillis();
+  if (Array.isArray(value)) return value.map(sanitizePlainObject);
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, inner]) => inner !== undefined)
+        .map(([key, inner]) => [key, sanitizePlainObject(inner)])
+    );
+  }
+  return value;
+}
+
+function chunk(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+function inferRole(data = {}, email = "") {
+  const normalizedEmail = normalizeLower(email || data.email);
+  if (BOOTSTRAP_PROGRAMMER_EMAILS.has(normalizedEmail)) return "PROGRAMADOR";
+  const explicit = normalizeUpper(data.rol);
+  if (PROGRAMMER_ROLES.has(explicit) || explicit === "VENTAS" || explicit === "GERENTE_PLAZA" || explicit === "JEFE_REGIONAL" || explicit === "AUXILIAR") {
+    return explicit;
+  }
+  if (data.isGlobal === true) return "CORPORATIVO_USER";
+  if (data.isAdmin === true) return "VENTAS";
+  return "AUXILIAR";
+}
+
+function canUseProgrammerConsole(role) {
+  return PROGRAMMER_ROLES.has(normalizeUpper(role));
+}
+
+function isOperationalAdmin(role) {
+  return ADMIN_ROLES.has(normalizeUpper(role));
+}
+
+function defaultSettingsPayload() {
+  return {
+    mapaBloqueado: false,
+    estadoCuadreV3: "LIBRE",
+    adminIniciador: "",
+    liveFeed: JSON.stringify([]),
+    ultimaModificacion: nowIso(),
+    ultimoEditor: "Sistema",
+    notifications: {
+      vapidKey: "",
+      allowForegroundPush: false
+    },
+    featureFlags: {
+      programmerConsoleV2: true,
+      inboxBeta: true,
+      opsEventsBeta: true
+    },
+    observability: {
+      enabled: true
+    },
+    integrations: {}
+  };
+}
+
+function defaultConfigPayload(plaza) {
+  return {
+    ubicaciones: [
+      { nombre: "PATIO", isPlazaFija: true, plazaId: plaza },
+      { nombre: "TALLER", isPlazaFija: true, plazaId: plaza },
+      { nombre: "AGENCIA", isPlazaFija: true, plazaId: plaza },
+      { nombre: "TALLER EXTERNO", isPlazaFija: true, plazaId: plaza }
+    ]
+  };
+}
+
+function defaultMapPiece() {
+  return {
+    valor: "A1",
+    x: 0,
+    y: 0,
+    width: 120,
+    height: 80,
+    rotation: 0,
+    tipo: "cajon",
+    esLabel: false,
+    orden: 0
+  };
+}
+
+async function recordProgrammerError(scope, error, extra = {}) {
+  try {
+    const payload = sanitizePlainObject({
+      timestamp: nowMillis(),
+      fecha: nowIso(),
+      scope: normalizeString(scope) || "functions",
+      message: normalizeString(error?.message || error),
+      stack: normalizeString(error?.stack || ""),
+      code: normalizeString(error?.code || error?.details?.code || ""),
+      ...extra
+    });
+    await db.collection(ERRORS_COL).add(payload);
+  } catch (writeError) {
+    logger.error("No se pudo registrar programmer_error", writeError);
+  }
+}
+
+async function recordProgrammerAudit(entry = {}) {
+  await db.collection(AUDIT_COL).add(sanitizePlainObject({
+    timestamp: nowMillis(),
+    fecha: nowIso(),
+    ...entry
+  }));
+}
+
+async function countDocs(ref) {
+  try {
+    const snap = await ref.count().get();
+    return snap.data().count || 0;
+  } catch (_) {
+    const snap = await ref.get();
+    return snap.size;
+  }
+}
+
+async function findUserProfileFromAuth(auth) {
+  if (!auth?.uid) throw new HttpsError("unauthenticated", "Sesión requerida.");
+  const email = normalizeLower(auth.token?.email);
+  if (email) {
+    const direct = await db.collection(USERS_COL).doc(email).get();
+    if (direct.exists) return { id: direct.id, ref: direct.ref, data: direct.data() || {} };
+
+    const byEmail = await db.collection(USERS_COL).where("email", "==", email).limit(1).get();
+    if (!byEmail.empty) {
+      const doc = byEmail.docs[0];
+      return { id: doc.id, ref: doc.ref, data: doc.data() || {} };
+    }
+  }
+
+  const byUid = await db.collection(USERS_COL).doc(auth.uid).get();
+  if (byUid.exists) return { id: byUid.id, ref: byUid.ref, data: byUid.data() || {} };
+
+  throw new HttpsError("permission-denied", "Perfil no encontrado.");
+}
+
+async function requireProgrammerAuth(request) {
+  const profile = await findUserProfileFromAuth(request.auth);
+  const role = inferRole(profile.data, profile.data?.email || request.auth?.token?.email);
+  if (!canUseProgrammerConsole(role)) {
+    throw new HttpsError("permission-denied", "No autorizado para la consola de programador.");
+  }
+  return { ...profile, role };
+}
+
+async function resolveUserDocIdsByHandle(handle) {
+  const raw = normalizeString(handle);
+  if (!raw) return [];
+  const upper = normalizeUpper(raw);
+  const lower = normalizeLower(raw);
+  const found = new Map();
+
+  async function absorbDoc(doc) {
+    if (!doc?.exists) return;
+    found.set(doc.id, doc.ref.path);
+  }
+
+  await Promise.all([
+    db.collection(USERS_COL).doc(lower).get().then(absorbDoc),
+    db.collection(USERS_COL).doc(upper).get().then(absorbDoc),
+    db.collection(USERS_COL).where("email", "==", lower).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path))),
+    db.collection(USERS_COL).where("nombre", "==", upper).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path))),
+    db.collection(USERS_COL).where("usuario", "==", upper).limit(5).get().then(snap => snap.docs.forEach(doc => found.set(doc.id, doc.ref.path)))
+  ]);
+
+  return [...found.keys()];
+}
+
+async function resolveAlertRecipients(data = {}) {
+  const destCsv = normalizeString(data.destinatarios || "");
+  const tokens = destCsv.split(",").map(item => normalizeString(item)).filter(Boolean);
+  if (!tokens.length || tokens.includes("GLOBAL")) {
+    const snap = await db.collection(USERS_COL).get();
+    return snap.docs.map(doc => doc.id);
+  }
+
+  const resolved = new Set();
+  for (const token of tokens) {
+    const normalized = normalizeUpper(token);
+    if (normalized === "ADMINS" || normalized === "ADMINS" || normalized === "OPERACION") {
+      const snap = await db.collection(USERS_COL).get();
+      snap.docs.forEach(doc => {
+        if (isOperationalAdmin(inferRole(doc.data(), doc.data()?.email))) resolved.add(doc.id);
+      });
+      continue;
+    }
+    (await resolveUserDocIdsByHandle(token)).forEach(id => resolved.add(id));
+  }
+  return [...resolved];
+}
+
+async function resolveCuadreRecipients(plaza, adminIniciador = "") {
+  const plazaUp = normalizePlaza(plaza);
+  const byPlaza = await db.collection(USERS_COL).where("plazaAsignada", "==", plazaUp).limit(200).get();
+  const recipients = byPlaza.docs.filter(doc => {
+    const data = doc.data() || {};
+    const role = inferRole(data, data.email);
+    const sameActor = normalizeUpper(data.nombre || data.usuario) === normalizeUpper(adminIniciador);
+    if (sameActor) return false;
+    return role === "AUXILIAR";
+  });
+  if (recipients.length) return recipients.map(doc => doc.id);
+  return byPlaza.docs
+    .filter(doc => normalizeUpper(doc.data()?.nombre || doc.data()?.usuario) !== normalizeUpper(adminIniciador))
+    .map(doc => doc.id);
+}
+
+function normalizeNotificationPrefs(raw = {}) {
+  return {
+    muteAll: raw.muteAll === true,
+    directMessages: raw.directMessages !== false,
+    cuadreMissions: raw.cuadreMissions !== false,
+    criticalAlerts: raw.criticalAlerts !== false
+  };
+}
+
+function shouldDeviceReceiveEvent(device = {}, eventType = "") {
+  const prefs = normalizeNotificationPrefs(device.notificationPrefs || DEVICE_PREF_DEFAULTS);
+  if (prefs.muteAll || device.pushEnabled === false) return false;
+  if (device.permission && device.permission !== "granted") return false;
+  const focused = device.isFocused === true;
+  if (focused && device.suppressWhileFocused !== false) return false;
+  if (eventType === "message.created") return prefs.directMessages;
+  if (eventType === "cuadre.assigned" || eventType === "cuadre.updated") return prefs.cuadreMissions;
+  if (eventType === "alert.critical.created") return prefs.criticalAlerts;
+  return true;
+}
+
+function buildWebpushData(payload = {}) {
+  return Object.fromEntries(
+    Object.entries(payload)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => [key, typeof value === "string" ? value : JSON.stringify(value)])
+  );
+}
+
+async function deliverNotificationToUsers({ eventId, eventType, title, body, deepLink, payload = {}, recipientDocIds = [], priority = "normal", actorName = "", plaza = "", sourceRef = "" }) {
+  const uniqueRecipients = [...new Set(recipientDocIds.filter(Boolean))];
+  if (!uniqueRecipients.length) return { inboxCount: 0, pushCount: 0, invalidTokens: 0 };
+
+  let pushCount = 0;
+  let inboxCount = 0;
+  let invalidTokens = 0;
+
+  for (const userDocId of uniqueRecipients) {
+    const userRef = db.collection(USERS_COL).doc(userDocId);
+    const inboxRef = userRef.collection("inbox").doc(eventId);
+    const inboxPayload = sanitizePlainObject({
+      notificationId: eventId,
+      type: eventType,
+      title,
+      body,
+      deepLink,
+      payload,
+      sourceRef,
+      plaza: normalizePlaza(plaza),
+      actorName: normalizeString(actorName),
+      createdAt: nowMillis(),
+      timestamp: payload.timestamp || nowMillis(),
+      read: false,
+      readAt: 0,
+      status: "UNREAD",
+      priority: normalizeUpper(priority || "normal")
+    });
+
+    await inboxRef.set(inboxPayload, { merge: true });
+    inboxCount += 1;
+
+    const devicesSnap = await userRef.collection("devices").get();
+    const deviceDocs = devicesSnap.docs.map(doc => ({ id: doc.id, ref: doc.ref, data: doc.data() || {} }));
+    const targetDevices = deviceDocs.filter(item => normalizeString(item.data.token) && shouldDeviceReceiveEvent(item.data, eventType));
+    const tokens = [...new Set(targetDevices.map(item => normalizeString(item.data.token)).filter(Boolean))];
+
+    if (!tokens.length) {
+      await inboxRef.set({ delivery: { mode: "INBOX_ONLY", sentAt: nowMillis(), tokenCount: 0 } }, { merge: true });
+      continue;
+    }
+
+    try {
+      const response = await messaging.sendEachForMulticast({
+        tokens,
+        notification: { title, body },
+        data: buildWebpushData({
+          notificationId: eventId,
+          type: eventType,
+          url: deepLink,
+          actorName,
+          plaza: normalizePlaza(plaza)
+        }),
+        webpush: {
+          headers: {
+            Urgency: priority === "high" ? "high" : "normal",
+            TTL: "3600"
+          },
+          notification: {
+            title,
+            body,
+            icon: "/img/logo.png",
+            badge: "/img/logo.png",
+            tag: `${eventType}:${userDocId}`,
+            renotify: priority === "high",
+            requireInteraction: priority === "high",
+            data: {
+              url: deepLink,
+              notificationId: eventId,
+              type: eventType
+            }
+          }
+        }
+      });
+
+      pushCount += response.successCount;
+      const invalidByToken = new Set();
+      response.responses.forEach((item, index) => {
+        if (item.success) return;
+        const code = item.error?.code || "";
+        if (code.includes("registration-token-not-registered") || code.includes("invalid-argument")) {
+          invalidByToken.add(tokens[index]);
+        }
+      });
+
+      if (invalidByToken.size) {
+        invalidTokens += invalidByToken.size;
+        await Promise.all(deviceDocs
+          .filter(item => invalidByToken.has(normalizeString(item.data.token)))
+          .map(item => item.ref.set({
+            invalidToken: true,
+            pushEnabled: false,
+            lastErrorAt: nowMillis(),
+            lastErrorCode: "TOKEN_INVALID"
+          }, { merge: true })));
+      }
+
+      await inboxRef.set({
+        delivery: {
+          mode: "PUSH",
+          sentAt: nowMillis(),
+          tokenCount: tokens.length,
+          successCount: response.successCount,
+          failureCount: response.failureCount
+        }
+      }, { merge: true });
+    } catch (error) {
+      await inboxRef.set({
+        delivery: {
+          mode: "FAILED",
+          sentAt: nowMillis(),
+          tokenCount: tokens.length,
+          error: normalizeString(error.message || error)
+        }
+      }, { merge: true });
+      await recordProgrammerError("push-delivery", error, { eventType, userDocId, sourceRef });
+    }
+  }
+
+  return { inboxCount, pushCount, invalidTokens };
+}
+
+async function writeOpsEvent(docId, payload) {
+  await db.collection(OPS_EVENTS_COL).doc(docId).set(sanitizePlainObject({
+    createdAt: nowMillis(),
+    ...payload
+  }), { merge: true });
+}
+
+function buildPatioEvent(data = {}, sourceId) {
+  const moveType = normalizeUpper(data.tipo || "MOVE");
+  const mappedType = moveType === "SWAP"
+    ? "unit.swap"
+    : (moveType === "DEL" ? "unit.del" : "unit.move");
+  return {
+    id: `patio_${sourceId}`,
+    type: mappedType,
+    source: "historial_patio",
+    sourceRef: `historial_patio/${sourceId}`,
+    timestamp: timestampToMillis(data.timestamp) || nowMillis(),
+    plaza: normalizePlaza(data.plaza),
+    actorName: normalizeString(data.autor || "Sistema"),
+    unit: {
+      mva: normalizeUpper(data.mva),
+      from: normalizeUpper(data.posAnterior),
+      to: normalizeUpper(data.posNueva),
+      sheet: normalizeUpper(data.hoja)
+    },
+    summary: `${normalizeUpper(data.mva)} ${normalizeUpper(data.posAnterior)} -> ${normalizeUpper(data.posNueva)}`
+  };
+}
+
+function safeParseArray(rawValue) {
+  try {
+    const parsed = JSON.parse(normalizeString(rawValue || "[]"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function isCriticalAlert(data = {}) {
+  const type = normalizeUpper(data.tipo);
+  return type === "URGENTE" || type === "CRITICA" || type === "CRÍTICA" || type === "ALTA";
+}
+
+exports.onPatioHistoryCreated = functions.region(REGION).firestore.document("historial_patio/{histId}").onCreate(async (snap, context) => {
+  try {
+    const data = snap.data();
+    if (!data) return;
+    const opsEvent = buildPatioEvent(data, context.params.histId);
+    await writeOpsEvent(opsEvent.id, opsEvent);
+  } catch (error) {
+    logger.error("onPatioHistoryCreated", error);
+    await recordProgrammerError("onPatioHistoryCreated", error, { histId: context.params.histId });
+  }
+});
+
+exports.onPrivateMessageCreated = functions.region(REGION).firestore.document("mensajes/{msgId}").onCreate(async (snap, context) => {
+  try {
+    const data = snap.data();
+    if (!data) return;
+    const recipients = await resolveUserDocIdsByHandle(data.destinatario);
+    const eventId = `msg_${context.params.msgId}`;
+    const actorName = normalizeUpper(data.remitente || "Sistema");
+    const deepLink = `/mapa?notif=chat&chatUser=${encodeURIComponent(actorName)}`;
+    const bodyText = normalizeString(data.mensaje || data.archivoNombre || "Tienes un nuevo mensaje.");
+    await writeOpsEvent(eventId, {
+      id: eventId,
+      type: "message.created",
+      source: "mensajes",
+      sourceRef: `mensajes/${context.params.msgId}`,
+      timestamp: timestampToMillis(data.timestamp) || nowMillis(),
+      actorName,
+      plaza: normalizePlaza(data.plaza),
+      targetUsers: recipients,
+      payload: {
+        remitente: actorName,
+        destinatario: normalizeUpper(data.destinatario),
+        preview: bodyText.slice(0, 160)
+      }
+    });
+    await deliverNotificationToUsers({
+      eventId,
+      eventType: "message.created",
+      title: `Mensaje de ${actorName}`,
+      body: bodyText.slice(0, 180),
+      deepLink,
+      payload: {
+        remitente: actorName,
+        destinatario: normalizeUpper(data.destinatario),
+        timestamp: timestampToMillis(data.timestamp) || nowMillis()
+      },
+      recipientDocIds: recipients,
+      priority: "high",
+      actorName,
+      plaza: data.plaza || "",
+      sourceRef: `mensajes/${context.params.msgId}`
+    });
+  } catch (error) {
+    logger.error("onPrivateMessageCreated", error);
+    await recordProgrammerError("onPrivateMessageCreated", error, { msgId: context.params.msgId });
+  }
+});
+
+exports.onCriticalAlertCreated = functions.region(REGION).firestore.document("alertas/{alertId}").onCreate(async (snap, context) => {
+  try {
+    const data = snap.data();
+    if (!data || !isCriticalAlert(data)) return;
+    const recipients = await resolveAlertRecipients(data);
+    const eventId = `alert_${context.params.alertId}`;
+    const actorName = normalizeString(data.autor || data.actor || "Sistema");
+    const title = normalizeString(data.titulo || "Alerta crítica");
+    const body = normalizeString(data.mensaje || "Revisa la alerta en MEX Mapa.").slice(0, 180);
+    const deepLink = "/mapa?notif=alerts";
+    await writeOpsEvent(eventId, {
+      id: eventId,
+      type: "alert.critical.created",
+      source: "alertas",
+      sourceRef: `alertas/${context.params.alertId}`,
+      timestamp: timestampToMillis(data.timestamp) || nowMillis(),
+      actorName,
+      plaza: normalizePlaza(data.plaza),
+      targetUsers: recipients,
+      payload: {
+        tipo: normalizeUpper(data.tipo),
+        titulo: title,
+        mensaje: body
+      }
+    });
+    await deliverNotificationToUsers({
+      eventId,
+      eventType: "alert.critical.created",
+      title,
+      body,
+      deepLink,
+      payload: {
+        tipo: normalizeUpper(data.tipo),
+        timestamp: timestampToMillis(data.timestamp) || nowMillis()
+      },
+      recipientDocIds: recipients,
+      priority: "high",
+      actorName,
+      plaza: data.plaza || "",
+      sourceRef: `alertas/${context.params.alertId}`
+    });
+  } catch (error) {
+    logger.error("onCriticalAlertCreated", error);
+    await recordProgrammerError("onCriticalAlertCreated", error, { alertId: context.params.alertId });
+  }
+});
+
+exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`${SETTINGS_COL}/{plazaId}`).onWrite(async (change, context) => {
+  try {
+    const before = change.before.exists ? (change.before.data() || {}) : {};
+    const after = change.after.exists ? (change.after.data() || {}) : {};
+    const plazaId = normalizePlaza(context.params.plazaId);
+    if (!plazaId || plazaId === "GLOBAL") return;
+
+    const previousState = normalizeUpper(before.estadoCuadreV3 || "LIBRE");
+    const nextState = normalizeUpper(after.estadoCuadreV3 || "LIBRE");
+    const missionChanged = normalizeString(before.misionAuditoria) !== normalizeString(after.misionAuditoria);
+    const adminChanged = normalizeString(before.adminIniciador) !== normalizeString(after.adminIniciador);
+    const shouldNotify = nextState === "PROCESO" && (previousState !== "PROCESO" || missionChanged || adminChanged);
+    if (!shouldNotify) return;
+
+    const recipients = await resolveCuadreRecipients(plazaId, after.adminIniciador || "");
+    const eventType = previousState === "PROCESO" ? "cuadre.updated" : "cuadre.assigned";
+    const eventId = `cuadre_${plazaId}_${timestampToMillis(after.ultimaModificacion) || nowMillis()}`;
+    const adminName = normalizeString(after.adminIniciador || "Operación");
+    const title = previousState === "PROCESO"
+      ? `Misión de cuadre actualizada en ${plazaId}`
+      : `Nueva misión de cuadre en ${plazaId}`;
+    const body = adminName
+      ? `${adminName} te envió la misión del cuadre.`
+      : "Ya tienes una nueva misión de cuadre asignada.";
+    const deepLink = `/mapa?notif=cuadre&openCuadre=1&plaza=${encodeURIComponent(plazaId)}`;
+
+    await writeOpsEvent(eventId, {
+      id: eventId,
+      type: eventType,
+      source: `${SETTINGS_COL}/${plazaId}`,
+      sourceRef: `${SETTINGS_COL}/${plazaId}`,
+      timestamp: nowMillis(),
+      actorName: adminName,
+      plaza: plazaId,
+      targetUsers: recipients,
+      payload: {
+        estadoCuadreV3: nextState,
+        adminIniciador: adminName,
+        missionSize: safeParseArray(after.misionAuditoria).length
+      }
+    });
+
+    await deliverNotificationToUsers({
+      eventId,
+      eventType,
+      title,
+      body,
+      deepLink,
+      payload: {
+        plaza: plazaId,
+        timestamp: nowMillis()
+      },
+      recipientDocIds: recipients,
+      priority: "high",
+      actorName: adminName,
+      plaza: plazaId,
+      sourceRef: `${SETTINGS_COL}/${plazaId}`
+    });
+  } catch (error) {
+    logger.error("onCuadreSettingsWritten", error);
+    await recordProgrammerError("onCuadreSettingsWritten", error, { plazaId: context.params.plazaId });
+  }
+});
+
+exports.registerDevice = functions.region(REGION).https.onCall(async (data, context) => {
+  try {
+    const profile = await findUserProfileFromAuth(context.auth);
+    const role = inferRole(profile.data, profile.data?.email || context.auth?.token?.email);
+    const payloadIn = sanitizePlainObject(data || {});
+    const deviceId = normalizeString(payloadIn.deviceId);
+    if (!deviceId) throw new HttpsError("invalid-argument", "deviceId es requerido.");
+
+    const ref = profile.ref.collection("devices").doc(deviceId);
+    const payload = {
+      deviceId,
+      token: normalizeString(payloadIn.token),
+      permission: normalizeString(payloadIn.permission || "default"),
+      platform: normalizeString(payloadIn.platform || "web"),
+      browser: normalizeString(payloadIn.browser || ""),
+      userAgent: normalizeString(payloadIn.userAgent || ""),
+      plaza: normalizePlaza(payloadIn.plaza || profile.data?.plazaAsignada || ""),
+      role,
+      appVersion: normalizeString(payloadIn.appVersion || ""),
+      swVersion: normalizeString(payloadIn.swVersion || ""),
+      lastSeenAt: nowMillis(),
+      createdAt: payloadIn.createdAt || nowMillis(),
+      updatedAt: nowMillis(),
+      isFocused: payloadIn.isFocused === true,
+      activeRoute: normalizeString(payloadIn.activeRoute || "/mapa"),
+      invalidToken: false,
+      pushEnabled: payloadIn.pushEnabled !== false,
+      suppressWhileFocused: payloadIn.suppressWhileFocused !== false,
+      notificationPrefs: {
+        ...DEVICE_PREF_DEFAULTS,
+        ...normalizeNotificationPrefs(payloadIn.notificationPrefs || {})
+      }
+    };
+    await ref.set(payload, { merge: true });
+    return { ok: true, deviceId, userDocId: profile.id };
+  } catch (error) {
+    await recordProgrammerError("registerDevice", error, { authUid: context.auth?.uid || "" });
+    throw error;
+  }
+});
+
+exports.unregisterDevice = functions.region(REGION).https.onCall(async (data, context) => {
+  try {
+    const profile = await findUserProfileFromAuth(context.auth);
+    const deviceId = normalizeString(data?.deviceId);
+    if (!deviceId) throw new HttpsError("invalid-argument", "deviceId es requerido.");
+    await profile.ref.collection("devices").doc(deviceId).delete();
+    return { ok: true };
+  } catch (error) {
+    await recordProgrammerError("unregisterDevice", error, { authUid: context.auth?.uid || "" });
+    throw error;
+  }
+});
+
+exports.ackNotification = functions.region(REGION).https.onCall(async (data, context) => {
+  try {
+    const profile = await findUserProfileFromAuth(context.auth);
+    const notificationId = normalizeString(data?.notificationId);
+    if (!notificationId) throw new HttpsError("invalid-argument", "notificationId es requerido.");
+    await profile.ref.collection("inbox").doc(notificationId).set({
+      read: true,
+      readAt: nowMillis(),
+      status: "READ"
+    }, { merge: true });
+    return { ok: true, notificationId };
+  } catch (error) {
+    await recordProgrammerError("ackNotification", error, { authUid: context.auth?.uid || "" });
+    throw error;
+  }
+});
+
+async function queryOverview() {
+  const [usersCount, settingsCount, opsEventsCount, jobsCount, errorsCount, unreadInboxCount, devicesCount] = await Promise.all([
+    countDocs(db.collection(USERS_COL)),
+    countDocs(db.collection(SETTINGS_COL)),
+    countDocs(db.collection(OPS_EVENTS_COL)),
+    countDocs(db.collection(JOBS_COL)),
+    countDocs(db.collection(ERRORS_COL)),
+    countDocs(db.collectionGroup("inbox").where("read", "==", false)),
+    countDocs(db.collectionGroup("devices"))
+  ]);
+  return {
+    usersCount,
+    settingsCount,
+    opsEventsCount,
+    jobsCount,
+    errorsCount,
+    unreadInboxCount,
+    devicesCount
+  };
+}
+
+async function runNamedQuery(name, rawParams = {}) {
+  const params = sanitizePlainObject(rawParams || {});
+  const limit = Math.min(150, Math.max(10, Number(params.limit) || 40));
+  const plaza = normalizePlaza(params.plaza || "");
+
+  if (name === "overview") {
+    return { rows: [await queryOverview()] };
+  }
+
+  if (name === "ops_events") {
+    let query = db.collection(OPS_EVENTS_COL).orderBy("timestamp", "desc").limit(limit);
+    if (plaza) query = db.collection(OPS_EVENTS_COL).where("plaza", "==", plaza).orderBy("timestamp", "desc").limit(limit);
+    const snap = await query.get();
+    return { rows: snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })) };
+  }
+
+  if (name === "notifications") {
+    const snap = await db.collectionGroup("inbox").orderBy("timestamp", "desc").limit(limit).get();
+    return { rows: snap.docs.map(doc => ({ id: doc.id, path: doc.ref.path, ...sanitizePlainObject(doc.data()) })) };
+  }
+
+  if (name === "devices") {
+    const snap = await db.collectionGroup("devices").orderBy("updatedAt", "desc").limit(limit).get();
+    return { rows: snap.docs.map(doc => ({ id: doc.id, path: doc.ref.path, ...sanitizePlainObject(doc.data()) })) };
+  }
+
+  if (name === "errors") {
+    const snap = await db.collection(ERRORS_COL).orderBy("timestamp", "desc").limit(limit).get();
+    return { rows: snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })) };
+  }
+
+  if (name === "jobs") {
+    const snap = await db.collection(JOBS_COL).orderBy("createdAt", "desc").limit(limit).get();
+    return { rows: snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })) };
+  }
+
+  if (name === "users") {
+    const snap = await db.collection(USERS_COL).orderBy("nombre").limit(limit).get();
+    return { rows: snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })) };
+  }
+
+  if (name === "settings") {
+    const globalSnap = await db.collection(SETTINGS_COL).doc("GLOBAL").get();
+    const plazaSnap = plaza ? await db.collection(SETTINGS_COL).doc(plaza).get() : null;
+    return {
+      rows: [{
+        global: sanitizePlainObject(globalSnap.exists ? globalSnap.data() : {}),
+        plaza,
+        plazaSettings: sanitizePlainObject(plazaSnap?.exists ? plazaSnap.data() : {})
+      }]
+    };
+  }
+
+  throw new HttpsError("invalid-argument", `Consulta no soportada: ${name}`);
+}
+
+exports.queryProgrammerConsole = functions.region(REGION).https.onCall(async (data, context) => {
+  const actor = await requireProgrammerAuth(context);
+  const queryName = normalizeString(data?.query || "overview");
+  const payload = await runNamedQuery(queryName, data || {});
+  await recordProgrammerAudit({
+    actor: normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
+    actorRole: actor.role,
+    action: "queryProgrammerConsole",
+    query: queryName,
+    plaza: normalizePlaza(data?.plaza || ""),
+    resultCount: Array.isArray(payload.rows) ? payload.rows.length : 0
+  });
+  return payload;
+});
+
+async function createJobDocument(job, actor, params) {
+  const ref = db.collection(JOBS_COL).doc();
+  await ref.set({
+    job,
+    dryRun: params.dryRun !== false,
+    status: "RUNNING",
+    createdAt: nowMillis(),
+    updatedAt: nowMillis(),
+    actor: normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
+    actorRole: actor.role,
+    params: sanitizePlainObject(params)
+  });
+  return ref;
+}
+
+async function finishJob(ref, status, result) {
+  await ref.set({
+    status,
+    updatedAt: nowMillis(),
+    result: sanitizePlainObject(result)
+  }, { merge: true });
+}
+
+async function runValidatePlazasJob(params = {}) {
+  const dryRun = params.dryRun !== false;
+  const empresaSnap = await db.collection(CONFIG_COL).doc("empresa").get();
+  const empresa = empresaSnap.exists ? (empresaSnap.data() || {}) : {};
+  const plazasDetalle = Array.isArray(empresa.plazasDetalle) ? empresa.plazasDetalle : [];
+  const plazas = [...new Set([
+    ...(Array.isArray(empresa.plazas) ? empresa.plazas : []),
+    ...plazasDetalle.map(item => item?.id)
+  ].map(normalizePlaza).filter(Boolean))];
+
+  const rows = [];
+  for (const plaza of plazas) {
+    const [settingsSnap, configSnap, estructuraSnap] = await Promise.all([
+      db.collection(SETTINGS_COL).doc(plaza).get(),
+      db.collection(CONFIG_COL).doc(plaza).get(),
+      db.collection(MAPA_COL).doc(plaza).collection("estructura").limit(1).get()
+    ]);
+    const row = {
+      plaza,
+      hasSettings: settingsSnap.exists,
+      hasConfig: configSnap.exists,
+      hasStructure: !estructuraSnap.empty
+    };
+    rows.push(row);
+
+    if (!dryRun) {
+      const writes = [];
+      if (!settingsSnap.exists) writes.push(db.collection(SETTINGS_COL).doc(plaza).set(defaultSettingsPayload(), { merge: true }));
+      if (!configSnap.exists) writes.push(db.collection(CONFIG_COL).doc(plaza).set(defaultConfigPayload(plaza), { merge: true }));
+      if (estructuraSnap.empty) writes.push(db.collection(MAPA_COL).doc(plaza).collection("estructura").doc("cel_0").set(defaultMapPiece(), { merge: true }));
+      if (writes.length) await Promise.all(writes);
+    }
+  }
+  return { total: rows.length, rows, dryRun };
+}
+
+async function runBackfillOpsEventsJob(params = {}) {
+  const dryRun = params.dryRun !== false;
+  const cutoff = Math.floor(Date.now() / 1000) - (90 * 24 * 60 * 60);
+  const snap = await db.collection("historial_patio").where("timestamp", ">=", cutoff).orderBy("timestamp", "desc").limit(1000).get();
+  let created = 0;
+  for (const doc of snap.docs) {
+    const targetId = `legacy_${doc.id}`;
+    const existing = await db.collection(OPS_EVENTS_COL).doc(targetId).get();
+    if (existing.exists) continue;
+    if (!dryRun) {
+      const payload = buildPatioEvent(doc.data() || {}, doc.id);
+      await writeOpsEvent(targetId, { ...payload, id: targetId, source: "legacy_backfill" });
+    }
+    created += 1;
+  }
+  return { scanned: snap.size, created, dryRun };
+}
+
+async function runExportConfigJob() {
+  const [configSnap, settingsSnap] = await Promise.all([
+    db.collection(CONFIG_COL).get(),
+    db.collection(SETTINGS_COL).get()
+  ]);
+  return {
+    config: configSnap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })),
+    settings: settingsSnap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) }))
+  };
+}
+
+async function runCleanupDeviceTokensJob(params = {}) {
+  const dryRun = params.dryRun !== false;
+  const snap = await db.collectionGroup("devices").where("invalidToken", "==", true).limit(200).get();
+  if (!dryRun) {
+    await Promise.all(snap.docs.map(doc => doc.ref.delete()));
+  }
+  return { total: snap.size, dryRun };
+}
+
+async function runSendTestNotificationJob(params = {}) {
+  const target = normalizeString(params.targetUser || params.targetEmail || "");
+  const title = normalizeString(params.title || "Prueba MEX Mapa");
+  const body = normalizeString(params.body || "Esta es una notificación de prueba enviada desde la consola.");
+  const recipients = await resolveUserDocIdsByHandle(target);
+  if (!recipients.length) throw new HttpsError("not-found", "No se encontró el usuario destino.");
+  const eventId = `test_${nowMillis()}_${Math.floor(Math.random() * 1000)}`;
+  const deepLink = "/mapa?notif=inbox";
+  await writeOpsEvent(eventId, {
+    id: eventId,
+    type: "system.test.push",
+    source: "programmer_console",
+    sourceRef: JOBS_COL,
+    timestamp: nowMillis(),
+    actorName: "Programmer Console",
+    plaza: "",
+    targetUsers: recipients,
+    payload: { title, body }
+  });
+  const delivery = await deliverNotificationToUsers({
+    eventId,
+    eventType: "system.test.push",
+    title,
+    body,
+    deepLink,
+    payload: { timestamp: nowMillis(), test: true },
+    recipientDocIds: recipients,
+    priority: "high",
+    actorName: "Programmer Console",
+    plaza: "",
+    sourceRef: `${JOBS_COL}/${eventId}`
+  });
+  return { recipients, delivery };
+}
+
+exports.runProgrammerJob = functions.region(REGION).https.onCall(async (data, context) => {
+  const actor = await requireProgrammerAuth(context);
+  const job = normalizeString(data?.job || "");
+  if (!job) throw new HttpsError("invalid-argument", "Debes indicar un job.");
+  const params = sanitizePlainObject(data || {});
+  const jobRef = await createJobDocument(job, actor, params);
+
+  try {
+    let result;
+    if (job === "validate-plazas") result = await runValidatePlazasJob(params);
+    else if (job === "backfill-ops-events") result = await runBackfillOpsEventsJob(params);
+    else if (job === "export-config") result = await runExportConfigJob(params);
+    else if (job === "cleanup-device-tokens") result = await runCleanupDeviceTokensJob(params);
+    else if (job === "send-test-notification") result = await runSendTestNotificationJob(params);
+    else throw new HttpsError("invalid-argument", `Job no soportado: ${job}`);
+
+    await finishJob(jobRef, "SUCCESS", result);
+    await recordProgrammerAudit({
+      actor: normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
+      actorRole: actor.role,
+      action: "runProgrammerJob",
+      job,
+      dryRun: params.dryRun !== false,
+      resultSummary: sanitizePlainObject(result)
+    });
+    return { ok: true, jobId: jobRef.id, result };
+  } catch (error) {
+    await finishJob(jobRef, "ERROR", { message: normalizeString(error.message || error) });
+    await recordProgrammerError("runProgrammerJob", error, { job, actor: actor.id });
+    throw error;
+  }
+});

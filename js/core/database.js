@@ -32,6 +32,7 @@
 export const db      = window._db;
 export const auth    = window._auth;
 export const storage = window._storage;
+export const functions = window._functions;
 
 // ── Constantes de colecciones ─────────────────────────────
 export const COL = Object.freeze({

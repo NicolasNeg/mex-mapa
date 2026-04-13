@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "source": "functions"
+  },
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
@@ -21,6 +24,8 @@
       ".git/**",
       ".github",
       ".github/**",
+      "functions",
+      "functions/**",
       ".env",
       ".env.*",
       "**/.git/**",
@@ -64,6 +69,7 @@
     "rewrites": [
       { "source": "/login",   "destination": "/login.html" },
       { "source": "/mapa",    "destination": "/mapa.html" },
+      { "source": "/programador", "destination": "/programador.html" },
       { "source": "/gestion", "destination": "/gestion.html" },
       { "source": "/cuadre",  "destination": "/cuadre.html" }
     ]

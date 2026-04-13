@@ -206,6 +206,62 @@ service cloud.firestore {
         && (!changed.hasAny(["profilePhotoUrl"]) || request.resource.data.profilePhotoUrl is string);
     }
 
+    function deviceDocValido(deviceId) {
+      return request.resource.data.deviceId == deviceId
+        && request.resource.data.deviceId is string
+        && (request.resource.data.token == null || request.resource.data.token is string)
+        && (request.resource.data.permission == null || request.resource.data.permission is string)
+        && (request.resource.data.platform == null || request.resource.data.platform is string)
+        && (request.resource.data.browser == null || request.resource.data.browser is string)
+        && (request.resource.data.userAgent == null || request.resource.data.userAgent is string)
+        && (request.resource.data.plaza == null || request.resource.data.plaza is string)
+        && (request.resource.data.role == null || request.resource.data.role is string)
+        && (request.resource.data.appVersion == null || request.resource.data.appVersion is string)
+        && (request.resource.data.swVersion == null || request.resource.data.swVersion is string)
+        && (request.resource.data.createdAt == null || request.resource.data.createdAt is int)
+        && (request.resource.data.updatedAt == null || request.resource.data.updatedAt is int)
+        && (request.resource.data.lastSeenAt == null || request.resource.data.lastSeenAt is int)
+        && (request.resource.data.isFocused == null || request.resource.data.isFocused is bool)
+        && (request.resource.data.activeRoute == null || request.resource.data.activeRoute is string)
+        && (request.resource.data.invalidToken == null || request.resource.data.invalidToken is bool)
+        && (request.resource.data.pushEnabled == null || request.resource.data.pushEnabled is bool)
+        && (request.resource.data.suppressWhileFocused == null || request.resource.data.suppressWhileFocused is bool)
+        && (request.resource.data.notificationPrefs == null || request.resource.data.notificationPrefs is map);
+    }
+
+    function inboxAckValido() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(["read", "readAt", "status"])
+        && request.resource.data.read is bool
+        && request.resource.data.readAt is int
+        && request.resource.data.status is string;
+    }
+
+    function programmerErrorCreateValido() {
+      return request.resource.data.keys().hasAll(["timestamp", "fecha", "kind", "scope", "message"])
+        && request.resource.data.keys().hasOnly([
+          "timestamp", "fecha", "kind", "scope", "message", "stack", "code", "route",
+          "plaza", "role", "userDocId", "userEmail", "userName", "build",
+          "source", "userAgent"
+        ])
+        && request.resource.data.timestamp is int
+        && request.resource.data.fecha is string
+        && request.resource.data.kind is string
+        && request.resource.data.scope is string
+        && request.resource.data.message is string
+        && (request.resource.data.stack == null || request.resource.data.stack is string)
+        && (request.resource.data.code == null || request.resource.data.code is string)
+        && (request.resource.data.route == null || request.resource.data.route is string)
+        && (request.resource.data.plaza == null || request.resource.data.plaza is string)
+        && (request.resource.data.role == null || request.resource.data.role is string)
+        && (request.resource.data.userDocId == null || request.resource.data.userDocId is string)
+        && (request.resource.data.userEmail == null || request.resource.data.userEmail is string)
+        && (request.resource.data.userName == null || request.resource.data.userName is string)
+        && (request.resource.data.build == null || request.resource.data.build is string)
+        && (request.resource.data.source == null || request.resource.data.source is string)
+        && (request.resource.data.userAgent == null || request.resource.data.userAgent is string);
+    }
+
     function solicitudCreateValida(docId) {
       return request.resource.data.keys().hasAll([
           "nombre", "email", "puesto", "telefono", "password",
@@ -405,6 +461,20 @@ service cloud.firestore {
       allow update: if puedeActualizarUsuario(resource.data, request.resource.data)
         || actualizacionSelfServiceUsuarioValida(doc);
       allow delete: if puedeEliminarUsuario(resource.data);
+
+      match /devices/{deviceId} {
+        allow read: if esAccesoTotal() || esDocumentoUsuarioPropio(doc);
+        allow create, update: if esAccesoTotal()
+          || (esDocumentoUsuarioPropio(doc) && deviceDocValido(deviceId));
+        allow delete: if esAccesoTotal() || esDocumentoUsuarioPropio(doc);
+      }
+
+      match /inbox/{notifId} {
+        allow read: if esAccesoTotal() || esDocumentoUsuarioPropio(doc);
+        allow create: if false;
+        allow update: if esAccesoTotal() || (esDocumentoUsuarioPropio(doc) && inboxAckValido());
+        allow delete: if esAccesoTotal();
+      }
     }
 
     match /admins/{doc} {
@@ -439,6 +509,27 @@ service cloud.firestore {
 
     match /settings/{doc} {
       allow read, write: if tienePerfilActual();
+    }
+
+    match /ops_events/{doc} {
+      allow read: if tienePerfilActual();
+      allow write: if false;
+    }
+
+    match /programmer_jobs/{doc} {
+      allow read: if esAccesoTotal();
+      allow write: if false;
+    }
+
+    match /programmer_audit/{doc} {
+      allow read: if esAccesoTotal();
+      allow write: if false;
+    }
+
+    match /programmer_errors/{doc} {
+      allow create: if tienePerfilActual() && programmerErrorCreateValido();
+      allow read: if esAccesoTotal();
+      allow update, delete: if false;
     }
 
     // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
