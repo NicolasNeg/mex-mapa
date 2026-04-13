@@ -29,7 +29,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v64';
+const APP_BUILD_TAG = 'mapa-v65';
 
 
 // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
@@ -413,8 +413,8 @@ const BASE_PERMISSION_CATALOG = Object.freeze({
     group: 'Flota'
   },
   manage_system_settings: {
-    label: 'Editar ajustes del sistema',
-    description: 'Publicar cambios en configuración global y catálogos.',
+    label: 'Gestionar configuración avanzada',
+    description: 'Administrar variables globales y configuración avanzada de la plataforma.',
     group: 'Sistema'
   },
   manage_roles_permissions: {
@@ -593,11 +593,12 @@ function _cloneJson(value) {
 }
 
 function _configuredSecurity() {
-  return window.MEX_CONFIG?.empresa?.security || {};
+  const security = window.MEX_CONFIG?.empresa?.security;
+  return security && typeof security === 'object' ? security : null;
 }
 
 function _permissionCatalog() {
-  const configured = _configuredSecurity().permissionsCatalog;
+  const configured = _configuredSecurity()?.permissionsCatalog;
   const output = {};
   Object.entries(BASE_PERMISSION_CATALOG).forEach(([key, meta]) => {
     const incoming = configured && typeof configured[key] === 'object' ? configured[key] : {};
@@ -645,7 +646,7 @@ function _buildRoleMetaEntry(roleKey, raw = {}, fallback = {}) {
 }
 
 function _buildRoleCatalog() {
-  const configuredRoles = _configuredSecurity().roles;
+  const configuredRoles = _configuredSecurity()?.roles;
   const built = {};
 
   Object.entries(BASE_ROLE_META).forEach(([role, meta]) => {
@@ -697,19 +698,22 @@ function hasPermission(permissionKey, profile = currentUserProfile, role = userA
 }
 
 function _ensureSecurityConfig() {
+  window.MEX_CONFIG = window.MEX_CONFIG || {};
   window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
-  const existing = _configuredSecurity();
-  if (!existing || typeof existing !== 'object') {
-    window.MEX_CONFIG.empresa.security = {
-      permissionsCatalog: _cloneJson(_permissionCatalog()),
-      roles: _cloneJson(BASE_ROLE_META)
-    };
-    _refreshSecurityRoleCatalog();
-    return window.MEX_CONFIG.empresa.security;
+  if (!window.MEX_CONFIG.empresa.security || typeof window.MEX_CONFIG.empresa.security !== 'object') {
+    window.MEX_CONFIG.empresa.security = {};
   }
 
-  window.MEX_CONFIG.empresa.security.permissionsCatalog = _cloneJson(_permissionCatalog());
-  window.MEX_CONFIG.empresa.security.roles = _cloneJson(
+  const security = window.MEX_CONFIG.empresa.security;
+  if (!security.permissionsCatalog || typeof security.permissionsCatalog !== 'object') {
+    security.permissionsCatalog = {};
+  }
+  if (!security.roles || typeof security.roles !== 'object') {
+    security.roles = {};
+  }
+
+  security.permissionsCatalog = _cloneJson(_permissionCatalog());
+  security.roles = _cloneJson(
     Object.fromEntries(
       Object.entries(_buildRoleCatalog()).map(([role, meta]) => [role, {
         label: meta.label,
@@ -723,7 +727,7 @@ function _ensureSecurityConfig() {
     )
   );
   _refreshSecurityRoleCatalog();
-  return window.MEX_CONFIG.empresa.security;
+  return security;
 }
 
 function _isSystemRole(role) {
@@ -1045,6 +1049,17 @@ function canUseProgrammerConfig() { return hasPermission('use_programmer_console
 function canLockMap() { return hasPermission('lock_map'); }
 function canInsertExternalUnits() { return hasPermission('insert_external_units') || _roleMeta().level >= (_roleMeta('GERENTE_PLAZA').level || 25); }
 function hasFullAccess() { return hasPermission('platform_full_access') || _roleMeta().fullAccess; }
+function canOpenAdminPanel() {
+  return canManageUsers()
+    || canProcessAccessRequests()
+    || hasPermission('manage_roles_permissions')
+    || hasPermission('manage_system_settings')
+    || canUseProgrammerConfig();
+}
+
+function abrirPanelAdministracion() {
+  abrirPanelConfiguracion('usuarios');
+}
 
 function _abrirProgrammerConsoleRoute() {
   if (!canUseProgrammerConfig()) {
@@ -9182,7 +9197,7 @@ function finalizarCuadre3V() {
   };
 
   // 1. Mandamos el sello final al servidor para liberar F2/F3
-  api.finalizarProtocoloV3(USER_NAME).then(res => {
+  api.finalizarProtocoloV3(USER_NAME, _miPlaza()).then(res => {
     showToast("¡CUADRE CERTIFICADO!", "success");
     cerrarCuadre3V();
     hacerPingNotificaciones(); // Actualiza el botón del sidebar para todos
@@ -9614,7 +9629,7 @@ function enviarReporteAuditoriaFinal() {
         btn.disabled = true;
         btn.innerHTML = `<span class="material-icons spinner">sync</span> ENVIANDO REPORTE...`;
 
-        api.enviarAuditoriaAVentas(window.AUDIT_LIST, USER_NAME).then(res => {
+        api.enviarAuditoriaAVentas(window.AUDIT_LIST, USER_NAME, _miPlaza()).then(res => {
           if (res && res.exito) {
             document.getElementById('audit-modal').classList.remove('active');
             showToast("Auditoría enviada a Ventas. ¡Buen trabajo!", "success");
@@ -9660,7 +9675,7 @@ function manejadorFlujoV3() {
     toggleAdminSidebar();
     showToast("Descargando revisión del patio...", "info");
 
-    api.obtenerMisionAuditoria().then(mision => {
+    api.obtenerRevisionAuditoria(_miPlaza()).then(mision => {
       hacerPingNotificaciones();
       if (mision && mision.length > 0) {
         window.AUDIT_LIST = mision; // Carga los estados (OK, FALTANTE, etc.) que puso el auxiliar
@@ -9684,7 +9699,7 @@ function manejadorFlujoV3() {
     toggleAdminSidebar();
     showToast("Descargando misión...", "info");
 
-    api.obtenerMisionAuditoria().then(mision => {
+    api.obtenerMisionAuditoria(_miPlaza()).then(mision => {
       hacerPingNotificaciones();
       if (mision && mision.length > 0) {
         window.UNIDADES_SISTEMA_CORPORATIVO = mision;
@@ -9704,7 +9719,7 @@ function iniciarMisionAuditoria() {
   const btn = document.getElementById('btnIniciarMision');
   btn.disabled = true; btn.innerHTML = `<span class="material-icons spinner">sync</span> DESPLEGANDO AL PATIO...`;
 
-  api.iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(window.UNIDADES_SISTEMA_CORPORATIVO)).then(res => {
+  api.iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(window.UNIDADES_SISTEMA_CORPORATIVO), _miPlaza()).then(res => {
     showToast("¡Misión enviada al celular del patio! 📡", "success");
     document.getElementById('audit-modal').classList.remove('active');
     hacerPingNotificaciones();
@@ -13474,7 +13489,7 @@ async function migrarConfiguracionAFirestore() {
 }
 
 
-let TAB_ACTIVA_CFG = 'ubicaciones';
+let TAB_ACTIVA_CFG = 'usuarios';
 let _programmerConsoleState = { log: [], selectedPlaza: '', jsonDraft: '' };
 
 function _programmerConsoleReadLog() {
@@ -13934,20 +13949,21 @@ async function _cfgEliminarRolSeleccionado() {
 }
 
 function abrirPanelConfiguracion(tabInicial) {
-  if (!canUseProgrammerConfig() && !hasPermission('manage_system_settings')) {
-    showToast("Tu rol no puede abrir la configuración global.", "error");
+  if (!canOpenAdminPanel()) {
+    showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }
   const tabProg = document.getElementById('cfg-tab-programador');
-  if (tabProg) tabProg.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
+  if (tabProg) tabProg.style.display = 'none';
   const tabRoles = document.querySelector(`.cfg-tab[onclick*="'roles'"]`);
   if (tabRoles) tabRoles.style.display = hasPermission('manage_roles_permissions') || canManageUsers() ? 'inline-flex' : 'none';
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
   document.getElementById('modal-config-global').classList.add('active');
-  if (tabInicial) {
+  const targetTab = tabInicial === 'programador' ? 'usuarios' : (tabInicial || 'usuarios');
+  if (targetTab) {
     // Activar el tab indicado
-    const btnTarget = document.querySelector(`.cfg-tab[onclick*="'${tabInicial}'"]`);
-    if (btnTarget) abrirTabConfig(tabInicial, btnTarget);
+    const btnTarget = document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
+    if (btnTarget) abrirTabConfig(targetTab, btnTarget);
     else renderizarListaConfig();
   } else {
     renderizarListaConfig();
@@ -13955,6 +13971,10 @@ function abrirPanelConfiguracion(tabInicial) {
 }
 
 function abrirTabConfig(tabName, btnElement) {
+  if (tabName === 'programador') {
+    _abrirProgrammerConsoleRoute();
+    return;
+  }
   // Si estábamos en el tab de usuarios, desuscribir el listener
   if (TAB_ACTIVA_CFG === 'usuarios' && _unsubUsuarios) {
     _unsubUsuarios(); _unsubUsuarios = null;
@@ -13973,7 +13993,7 @@ function abrirTabConfig(tabName, btnElement) {
     if (searchBox) searchBox.style.display = 'flex';
   }
   const progTab = document.getElementById('cfg-tab-programador');
-  if (progTab) progTab.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
+  if (progTab) progTab.style.display = 'none';
 
   // Remove any existing extra filter bars
   ['cfg-ubi-plaza-filter-wrap', 'cfg-modelo-cat-filter-wrap'].forEach(id => {
@@ -14276,11 +14296,24 @@ function renderizarListaConfig() {
       container.innerHTML = '<div style="padding:28px; text-align:center; color:#ef4444; font-weight:800;">Sin permiso para abrir la consola de programador.</div>';
       return;
     }
-    container.innerHTML = _programmerConsoleRender();
-    const jsonEditor = document.getElementById('programmer-json-editor');
-    if (jsonEditor) {
-      jsonEditor.value = _programmerConsoleState.jsonDraft || JSON.stringify(window.MEX_CONFIG?.empresa || {}, null, 2);
-    }
+    container.innerHTML = `
+      <div style="padding:28px; display:grid; gap:14px; text-align:center;">
+        <div style="font-size:13px; font-weight:800; color:#64748b; letter-spacing:.08em; text-transform:uppercase;">Consola nueva</div>
+        <div style="font-size:28px; font-weight:900; color:#0f172a;">La consola de programador ahora vive en una ruta dedicada</div>
+        <div style="font-size:14px; color:#475569; max-width:560px; margin:0 auto; line-height:1.7;">
+          Para evitar módulos duplicados y centralizar consultas, jobs, errores y dispositivos, usa la nueva consola en <b>/programador</b>.
+        </div>
+        <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
+          <button type="button" class="cfg-save-btn" onclick="_abrirProgrammerConsoleRoute()">
+            <span class="material-icons">terminal</span>
+            Abrir consola de programador
+          </button>
+          <button type="button" class="cfg-cancel-btn" onclick="abrirTabConfig('usuarios', document.getElementById('cfg-tab-usuarios'))">
+            Volver a usuarios
+          </button>
+        </div>
+      </div>
+    `;
     return;
   }
 
@@ -14685,7 +14718,8 @@ async function ejecutarMigracionLegacy() {
 }
 
 async function guardarConfiguracionEnFirebase() {
-  if (!hasPermission('manage_system_settings') && !canUseProgrammerConfig()) {
+  const canSaveRoles = TAB_ACTIVA_CFG === 'roles' && (hasPermission('manage_roles_permissions') || canUseProgrammerConfig());
+  if (!canSaveRoles && !hasPermission('manage_system_settings') && !canUseProgrammerConfig()) {
     showToast("Tu rol no puede publicar esta configuración.", "error");
     return;
   }
@@ -15838,8 +15872,8 @@ function configurarPermisosUI() {
     btnMenuHistorial: hasFullAccess(),
     btnLockAdminSidebar: canLockMap(),
     btnEditorMapa: hasFullAccess(),
-    panelAdminDivider: canUseProgrammerConfig() || hasPermission('manage_system_settings'),
-    navGroupPanelAdmin: canUseProgrammerConfig() || hasPermission('manage_system_settings')
+    panelAdminDivider: canOpenAdminPanel(),
+    navGroupPanelAdmin: canOpenAdminPanel()
   };
 
   Object.entries(visibilidadEspecial).forEach(([id, visible]) => {
@@ -15854,7 +15888,7 @@ function configurarPermisosUI() {
       if (btn) btn.style.display = 'flex';
     });
 
-    if (canUseProgrammerConfig() || hasPermission('manage_system_settings')) {
+    if (canOpenAdminPanel()) {
       inicializarConfiguracion();
     }
 
@@ -16256,6 +16290,7 @@ Object.assign(window, {
   abrirModalNuevaConfig,
   abrirModalResolver,
   abrirModalSolicitudes,
+  abrirPanelAdministracion,
   abrirPanelConfiguracion,
   abrirRegistrosMovimientos,
   abrirReporteImpresion,

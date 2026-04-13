@@ -24,6 +24,8 @@ const state = {
   configMode: 'plaza'
 };
 
+const BUILD_TAG = 'mapa-v65';
+
 function safe(value) {
   return String(value ?? '').trim();
 }
@@ -96,7 +98,7 @@ async function loadProgrammerConfig() {
     }
     window.MEX_CONFIG = window.MEX_CONFIG || { empresa: {}, listas: {} };
     window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
-    if (!window.MEX_CONFIG.empresa.security) {
+    if (!window.MEX_CONFIG.empresa.security || typeof window.MEX_CONFIG.empresa.security !== 'object') {
       window.MEX_CONFIG.empresa.security = {
         roles: {
           AUXILIAR: { label: 'AUXILIAR', level: 10, permissions: {} },
@@ -112,9 +114,21 @@ async function loadProgrammerConfig() {
         permissionsCatalog: {}
       };
     }
+    if (!window.MEX_CONFIG.empresa.security.permissionsCatalog || typeof window.MEX_CONFIG.empresa.security.permissionsCatalog !== 'object') {
+      window.MEX_CONFIG.empresa.security.permissionsCatalog = {};
+    }
+    if (!window.MEX_CONFIG.empresa.security.roles || typeof window.MEX_CONFIG.empresa.security.roles !== 'object') {
+      window.MEX_CONFIG.empresa.security.roles = {};
+    }
   } catch (error) {
     console.warn('No se pudo cargar MEX_CONFIG en /programador:', error);
   }
+}
+
+async function callConsoleQuery(query, extra = {}) {
+  const call = callable('queryProgrammerConsole');
+  if (!call) throw new Error('Functions no disponibles');
+  return call({ query, plaza: state.plaza, ...extra });
 }
 
 async function resolveProfile(user) {
@@ -662,13 +676,7 @@ function filteredQueryRows() {
 
 async function runQuery(queryName) {
   try {
-    const call = callable('queryProgrammerConsole');
-    if (!call) throw new Error('Functions no disponibles');
-    const res = await call({
-      query: queryName,
-      plaza: state.plaza,
-      limit: state.queryLimit
-    });
+    const res = await callConsoleQuery(queryName, { limit: state.queryLimit });
     state.queryRows = Array.isArray(res.data?.rows) ? res.data.rows : [];
     state.queryName = queryName;
     renderCurrentTab();
@@ -730,28 +738,42 @@ async function saveSettingsEditor() {
 
 async function refreshAll() {
   try {
-    const call = callable('queryProgrammerConsole');
-    if (!call) throw new Error('Functions no disponibles');
-    const [overviewRes, notifRes, devicesRes, errorsRes, jobsRes, opsRes, auditRes] = await Promise.all([
-      call({ query: 'overview' }),
-      call({ query: 'notifications', limit: 30 }),
-      call({ query: 'devices', limit: 30 }),
-      call({ query: 'errors', limit: 30 }),
-      call({ query: 'jobs', limit: 30 }),
-      call({ query: 'ops_events', plaza: state.plaza, limit: 30 }),
-      call({ query: 'audit', limit: 30 })
-    ]);
-    state.overview = overviewRes.data?.rows?.[0] || null;
-    state.notificationsRows = notifRes.data?.rows || [];
-    state.devicesRows = devicesRes.data?.rows || [];
-    state.errorsRows = errorsRes.data?.rows || [];
-    state.jobsRows = jobsRes.data?.rows || [];
-    state.opsRows = opsRes.data?.rows || [];
-    state.auditRows = auditRes.data?.rows || [];
+    const queries = [
+      ['overview', {}],
+      ['notifications', { limit: 30 }],
+      ['devices', { limit: 30 }],
+      ['errors', { limit: 30 }],
+      ['jobs', { limit: 30 }],
+      ['ops_events', { limit: 30 }],
+      ['audit', { limit: 30 }]
+    ];
+    const settled = await Promise.allSettled(
+      queries.map(([name, extra]) => callConsoleQuery(name, extra))
+    );
+    const failures = [];
+    const rowsFor = name => {
+      const index = queries.findIndex(([queryName]) => queryName === name);
+      const result = settled[index];
+      if (result?.status === 'fulfilled') return Array.isArray(result.value?.data?.rows) ? result.value.data.rows : [];
+      failures.push(name);
+      console.error(`refreshAll:${name}`, result?.reason);
+      return [];
+    };
+
+    state.overview = rowsFor('overview')[0] || null;
+    state.notificationsRows = rowsFor('notifications');
+    state.devicesRows = rowsFor('devices');
+    state.errorsRows = rowsFor('errors');
+    state.jobsRows = rowsFor('jobs');
+    state.opsRows = rowsFor('ops_events');
+    state.auditRows = rowsFor('audit');
     await loadSettingsPreview();
     if (state.tab === 'consultas' && state.queryRows.length === 0) {
       state.queryRows = state.opsRows;
       state.queryName = 'ops_events';
+    }
+    if (failures.length) {
+      showToast(`La consola cargó con pendientes en: ${failures.join(', ')}`, 'warning');
     }
     renderShell();
   } catch (error) {
@@ -764,7 +786,7 @@ async function refreshAll() {
 installProgrammerErrorReporter({
   screen: 'programador',
   getProfile: () => state.profile,
-  getBuild: () => 'mapa-v64',
+  getBuild: () => BUILD_TAG,
   enabled: () => Boolean(auth.currentUser)
 });
 

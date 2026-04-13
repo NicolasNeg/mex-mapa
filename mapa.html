@@ -139,11 +139,11 @@
       <div class="admin-nav-group" id="navGroupPanelAdmin" style="display:none;">
         <p id="titlePanelAdmin" class="sb-section-label">Panel Admin</p>
 
-        <button id="btnConfigGlobal" onclick="abrirPanelConfiguracion()" class="sb-btn sb-btn-dark">
+        <button id="btnConfigGlobal" onclick="abrirPanelAdministracion()" class="sb-btn sb-btn-dark">
           <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="material-icons" style="color:#f59e0b;">settings_suggest</span>
-              <span style="font-weight: 800; font-size: 11px;">AJUSTES DEL SISTEMA</span>
+              <span class="material-icons" style="color:#f59e0b;">admin_panel_settings</span>
+              <span style="font-weight: 800; font-size: 11px;">PANEL ADMIN</span>
             </div>
             <div style="display: flex; align-items: center;">
               <span id="badge-solicitudes" class="badge-pulse"
@@ -3517,11 +3517,11 @@
       <div class="cfg-v2-hero-content">
         <div class="cfg-v2-kicker">
           <span class="material-icons" style="font-size:14px;">settings_suggest</span>
-          SISTEMA
+          ADMINISTRACIÓN
         </div>
-        <h2 class="cfg-v2-title">CONFIGURACIÓN<br>GLOBAL</h2>
-        <p class="cfg-v2-subtitle">Gestiona los catálogos fundamentales de la infraestructura operativa de
-          <b id="empresa-cfg-lbl">MEX RENT A CAR</b>. Los cambios aplican en tiempo real.</p>
+        <h2 class="cfg-v2-title">PANEL<br>ADMINISTRATIVO</h2>
+        <p class="cfg-v2-subtitle">Gestiona usuarios, roles, solicitudes y permisos operativos de
+          <b id="empresa-cfg-lbl">MEX RENT A CAR</b>.</p>
       </div>
       <button class="cfg-v2-close" onclick="document.getElementById('modal-config-global').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
@@ -3534,43 +3534,43 @@
       <!-- SIDEBAR -->
       <div class="cfg-v2-sidebar">
         <div class="cfg-v2-sidebar-label">
-          <span class="material-icons" style="font-size:14px;">folder_open</span>
-          Settings
+          <span class="material-icons" style="font-size:14px;">shield_person</span>
+          Administración
         </div>
-        <div class="cfg-v2-sidebar-sublabel">Catálogos del Sistema</div>
+        <div class="cfg-v2-sidebar-sublabel">Usuarios, roles y permisos</div>
         <nav class="cfg-v2-nav">
-          <button class="cfg-tab" onclick="abrirTabConfig('empresa', this)">
+          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('empresa', this)">
             <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
             <span>Empresa</span>
           </button>
-          <button class="cfg-tab" onclick="abrirTabConfig('plazas', this)">
+          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('plazas', this)">
             <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
             <span>Plazas</span>
           </button>
-          <button class="cfg-tab active" onclick="abrirTabConfig('ubicaciones', this)">
+          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('ubicaciones', this)">
             <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
             <span>Ubicaciones</span>
           </button>
-          <button class="cfg-tab" onclick="abrirTabConfig('estados', this)">
+          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('estados', this)">
             <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
             <span>Estados</span>
           </button>
-          <button class="cfg-tab" onclick="abrirTabConfig('categorias', this)">
+          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('categorias', this)">
             <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
             <span>Categorías</span>
           </button>
-          <button class="cfg-tab" onclick="abrirTabConfig('modelos', this)">
+          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('modelos', this)">
             <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
             <span>Modelos</span>
           </button>
-          <button class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)">
+          <button class="cfg-tab" style="display:none;" onclick="abrirTabConfig('gasolinas', this)">
             <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
             <span>Gasolinas</span>
           </button>
           
           <div style="margin: 15px 0 5px 0; padding-left: 10px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Gestión y Permisos</div>
           
-          <button class="cfg-tab" onclick="abrirTabConfig('usuarios', this)">
+          <button class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)">
             <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
             <span>Usuarios</span>
           </button>
@@ -3617,7 +3617,7 @@
               CANCELAR
             </button>
             <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
-              <span class="material-icons" style="font-size:18px;">cloud_upload</span> PUBLICAR CAMBIOS
+              <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
             </button>
           </div>
         </div>

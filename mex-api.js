@@ -2182,20 +2182,45 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
   // ─── CUADRE V3 ───────────────────────────────────────────
   async iniciarProtocoloDesdeAdmin(nombreAdmin, jsonMision, plaza) {
-    await _setSettings({ estadoCuadreV3: "PROCESO", adminIniciador: nombreAdmin, misionAuditoria: jsonMision }, plaza); // [F1]
+    await _setSettings({
+      estadoCuadreV3: "PROCESO",
+      adminIniciador: nombreAdmin,
+      misionAuditoria: jsonMision,
+      datosAuditoria: "[]",
+      ultimaModificacion: _now(),
+      ultimoEditor: nombreAdmin || "Sistema"
+    }, plaza); // [F1]
     return "EXITO";
   },
   async obtenerMisionAuditoria(plaza) {
     const settings = await _getSettings(plaza); // [F1]
     try { return JSON.parse(settings.misionAuditoria || "[]"); } catch { return []; }
   },
+  async obtenerRevisionAuditoria(plaza) {
+    const settings = await _getSettings(plaza); // [F1]
+    try { return JSON.parse(settings.datosAuditoria || "[]"); } catch { return []; }
+  },
   async guardarAuditoriaCruzada(datosAuditoria, autor, plaza) {
-    await _setSettings({ estadoCuadreV3: "REVISION", datosAuditoria: JSON.stringify(datosAuditoria) }, plaza); // [F1]
-    await db.collection(COL.AUDITORIA).add({ timestamp: _ts(), fecha: _now(), autor, datos: datosAuditoria });
+    const plazaUp = _normalizePlazaId(plaza);
+    await _setSettings({
+      estadoCuadreV3: "REVISION",
+      datosAuditoria: JSON.stringify(datosAuditoria),
+      ultimaModificacion: _now(),
+      ultimoEditor: autor || "Sistema"
+    }, plazaUp); // [F1]
+    await db.collection(COL.AUDITORIA).add({ timestamp: _ts(), fecha: _now(), autor, datos: datosAuditoria, plaza: plazaUp });
     return "EXITO";
   },
   async finalizarProtocoloV3(autorCierre, plaza) {
-    await _setSettings({ estadoCuadreV3: "LIBRE", adminIniciador: "", ultimoCuadreTexto: `${autorCierre} (${_now()})`, ultimaModificacion: _now() }, plaza); // [F1]
+    await _setSettings({
+      estadoCuadreV3: "LIBRE",
+      adminIniciador: "",
+      misionAuditoria: "[]",
+      datosAuditoria: "[]",
+      ultimoCuadreTexto: `${autorCierre} (${_now()})`,
+      ultimaModificacion: _now(),
+      ultimoEditor: autorCierre || "Sistema"
+    }, plaza); // [F1]
     return "CUADRE FINALIZADO CON ÉXITO";
   },
   async registrarCierreCuadre(autor, plaza) {
@@ -2325,7 +2350,14 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     };
     // [F1] Colección plana historial_cuadres con .add() — Firestore genera ID
     await db.collection(COL.HISTORIAL_CUADRES).add(registro); // [F1]
-    await _setSettings({ estadoCuadreV3: "LIBRE", adminIniciador: "" }, plazaUp); // [F1]
+    await _setSettings({
+      estadoCuadreV3: "LIBRE",
+      adminIniciador: "",
+      misionAuditoria: "[]",
+      datosAuditoria: "[]",
+      ultimaModificacion: _now(),
+      ultimoEditor: autorAdmin || "Sistema"
+    }, plazaUp); // [F1]
     return "EXITO";
   },
 
@@ -2383,9 +2415,16 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     await _registrarLog("EMAIL", `📧 Reporte de cuadre enviado por ${autor}`, autor);
     return "EXITO";
   },
-  async enviarAuditoriaAVentas(auditList, autor) {
-    await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${auditList.length} unidades)`, autor);
-    return { exito: true };
+  async enviarAuditoriaAVentas(auditList, autor, plaza) {
+    const plazaUp = _normalizePlazaId(plaza);
+    await _setSettings({
+      estadoCuadreV3: "REVISION",
+      datosAuditoria: JSON.stringify(Array.isArray(auditList) ? auditList : []),
+      ultimaModificacion: _now(),
+      ultimoEditor: autor || "Sistema"
+    }, plazaUp);
+    await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${auditList.length} unidades)`, autor, plazaUp);
+    return { exito: true, plaza: plazaUp };
   },
   async llamarGeminiAI(instruccionUsuario, contextoPatio, ultimoMVA) { return null; },
   async generarPDFActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {

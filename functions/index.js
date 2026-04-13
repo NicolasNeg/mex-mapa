@@ -71,6 +71,14 @@ function timestampToMillis(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function isFailedPreconditionError(error) {
+  const code = error?.code;
+  const message = normalizeString(error?.message || "");
+  return code === 9
+    || normalizeString(code).toLowerCase() === "failed-precondition"
+    || message.includes("FAILED_PRECONDITION");
+}
+
 function sanitizePlainObject(value) {
   if (value == null) return value;
   if (value instanceof admin.firestore.Timestamp) return value.toMillis();
@@ -233,6 +241,43 @@ async function countDocs(ref) {
   }
 }
 
+async function safeCountDocs(ref, label, fallback = 0) {
+  try {
+    return await countDocs(ref);
+  } catch (error) {
+    if (isFailedPreconditionError(error)) {
+      logger.warn(`safeCountDocs fallback for ${label}`, { code: error.code || "", message: error.message || "" });
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+async function safeRows(label, loader, fallback = []) {
+  try {
+    return await loader();
+  } catch (error) {
+    if (isFailedPreconditionError(error)) {
+      logger.warn(`safeRows fallback for ${label}`, { code: error.code || "", message: error.message || "" });
+      return fallback;
+    }
+    throw error;
+  }
+}
+
+function sortRowsByTimestamp(rows = [], key = "timestamp") {
+  return [...rows].sort((a, b) => timestampToMillis(b?.[key]) - timestampToMillis(a?.[key]));
+}
+
+async function latestCollectionGroupRows(groupName, orderKey, limit) {
+  const fetchLimit = Math.min(Math.max((Number(limit) || 40) * 4, 40), 200);
+  return safeRows(`collectionGroup:${groupName}`, async () => {
+    const snap = await db.collectionGroup(groupName).limit(fetchLimit).get();
+    const rows = snap.docs.map(doc => ({ id: doc.id, path: doc.ref.path, ...sanitizePlainObject(doc.data()) }));
+    return sortRowsByTimestamp(rows, orderKey).slice(0, limit);
+  }, []);
+}
+
 async function findUserProfileFromAuth(auth) {
   if (!auth?.uid) throw new HttpsError("unauthenticated", "Sesión requerida.");
   const email = normalizeLower(auth.token?.email);
@@ -326,6 +371,18 @@ async function resolveCuadreRecipients(plaza, adminIniciador = "") {
     .map(doc => doc.id);
 }
 
+async function resolveCuadreReviewRecipients(plaza, actorName = "", security = {}) {
+  const plazaUp = normalizePlaza(plaza);
+  const byPlaza = await db.collection(USERS_COL).where("plazaAsignada", "==", plazaUp).limit(200).get();
+  return byPlaza.docs.filter(doc => {
+    const data = doc.data() || {};
+    const role = inferRole(data, data.email);
+    const sameActor = normalizeUpper(data.nombre || data.usuario) === normalizeUpper(actorName);
+    if (sameActor) return false;
+    return isOperationalAdmin(role, security, data);
+  }).map(doc => doc.id);
+}
+
 function normalizeNotificationPrefs(raw = {}) {
   return {
     muteAll: raw.muteAll === true,
@@ -342,7 +399,7 @@ function shouldDeviceReceiveEvent(device = {}, eventType = "") {
   const focused = device.isFocused === true;
   if (focused && device.suppressWhileFocused !== false) return false;
   if (eventType === "message.created") return prefs.directMessages;
-  if (eventType === "cuadre.assigned" || eventType === "cuadre.updated") return prefs.cuadreMissions;
+  if (eventType === "cuadre.assigned" || eventType === "cuadre.updated" || eventType === "cuadre.review_ready") return prefs.cuadreMissions;
   if (eventType === "alert.critical.created") return prefs.criticalAlerts;
   return true;
 }
@@ -638,19 +695,27 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
     const nextState = normalizeUpper(after.estadoCuadreV3 || "LIBRE");
     const missionChanged = normalizeString(before.misionAuditoria) !== normalizeString(after.misionAuditoria);
     const adminChanged = normalizeString(before.adminIniciador) !== normalizeString(after.adminIniciador);
-    const shouldNotify = nextState === "PROCESO" && (previousState !== "PROCESO" || missionChanged || adminChanged);
-    if (!shouldNotify) return;
+    const reviewChanged = normalizeString(before.datosAuditoria) !== normalizeString(after.datosAuditoria);
+    const shouldNotifyMission = nextState === "PROCESO" && (previousState !== "PROCESO" || missionChanged || adminChanged);
+    const shouldNotifyReview = nextState === "REVISION" && (previousState !== "REVISION" || reviewChanged);
+    if (!shouldNotifyMission && !shouldNotifyReview) return;
 
-    const recipients = await resolveCuadreRecipients(plazaId, after.adminIniciador || "");
-    const eventType = previousState === "PROCESO" ? "cuadre.updated" : "cuadre.assigned";
-    const eventId = `cuadre_${plazaId}_${timestampToMillis(after.ultimaModificacion) || nowMillis()}`;
     const adminName = normalizeString(after.adminIniciador || "Operación");
-    const title = previousState === "PROCESO"
-      ? `Misión de cuadre actualizada en ${plazaId}`
-      : `Nueva misión de cuadre en ${plazaId}`;
-    const body = adminName
-      ? `${adminName} te envió la misión del cuadre.`
-      : "Ya tienes una nueva misión de cuadre asignada.";
+    const actorName = normalizeString(after.ultimoEditor || adminName || "Operación");
+    const security = await loadSecurityConfig();
+    const recipients = shouldNotifyMission
+      ? await resolveCuadreRecipients(plazaId, adminName)
+      : await resolveCuadreReviewRecipients(plazaId, actorName, security);
+    const eventType = shouldNotifyMission
+      ? (previousState === "PROCESO" ? "cuadre.updated" : "cuadre.assigned")
+      : "cuadre.review_ready";
+    const eventId = `cuadre_${eventType.replace(/\./g, "_")}_${plazaId}_${timestampToMillis(after.ultimaModificacion) || nowMillis()}`;
+    const title = shouldNotifyMission
+      ? (previousState === "PROCESO" ? `Misión de cuadre actualizada en ${plazaId}` : `Nueva misión de cuadre en ${plazaId}`)
+      : `Auditoría lista para revisar en ${plazaId}`;
+    const body = shouldNotifyMission
+      ? (adminName ? `${adminName} te envió la misión del cuadre.` : "Ya tienes una nueva misión de cuadre asignada.")
+      : `${actorName || "Patio"} terminó la auditoría y ya puedes finalizar el cuadre.`;
     const deepLink = `/mapa?notif=cuadre&openCuadre=1&plaza=${encodeURIComponent(plazaId)}`;
 
     await writeOpsEvent(eventId, {
@@ -659,13 +724,14 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
       source: `${SETTINGS_COL}/${plazaId}`,
       sourceRef: `${SETTINGS_COL}/${plazaId}`,
       timestamp: nowMillis(),
-      actorName: adminName,
+      actorName: shouldNotifyMission ? adminName : actorName,
       plaza: plazaId,
       targetUsers: recipients,
       payload: {
         estadoCuadreV3: nextState,
         adminIniciador: adminName,
-        missionSize: safeParseArray(after.misionAuditoria).length
+        missionSize: safeParseArray(after.misionAuditoria).length,
+        reviewSize: safeParseArray(after.datosAuditoria).length
       }
     });
 
@@ -681,7 +747,7 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
       },
       recipientDocIds: recipients,
       priority: "high",
-      actorName: adminName,
+      actorName: shouldNotifyMission ? adminName : actorName,
       plaza: plazaId,
       sourceRef: `${SETTINGS_COL}/${plazaId}`
     });
@@ -764,13 +830,13 @@ exports.ackNotification = functions.region(REGION).https.onCall(async (data, con
 
 async function queryOverview() {
   const [usersCount, settingsCount, opsEventsCount, jobsCount, errorsCount, unreadInboxCount, devicesCount] = await Promise.all([
-    countDocs(db.collection(USERS_COL)),
-    countDocs(db.collection(SETTINGS_COL)),
-    countDocs(db.collection(OPS_EVENTS_COL)),
-    countDocs(db.collection(JOBS_COL)),
-    countDocs(db.collection(ERRORS_COL)),
-    countDocs(db.collectionGroup("inbox").where("read", "==", false)),
-    countDocs(db.collectionGroup("devices"))
+    safeCountDocs(db.collection(USERS_COL), USERS_COL),
+    safeCountDocs(db.collection(SETTINGS_COL), SETTINGS_COL),
+    safeCountDocs(db.collection(OPS_EVENTS_COL), OPS_EVENTS_COL),
+    safeCountDocs(db.collection(JOBS_COL), JOBS_COL),
+    safeCountDocs(db.collection(ERRORS_COL), ERRORS_COL),
+    safeCountDocs(db.collectionGroup("inbox").where("read", "==", false), "collectionGroup:inbox:unread"),
+    safeCountDocs(db.collectionGroup("devices"), "collectionGroup:devices")
   ]);
   return {
     usersCount,
@@ -793,20 +859,25 @@ async function runNamedQuery(name, rawParams = {}) {
   }
 
   if (name === "ops_events") {
-    let query = db.collection(OPS_EVENTS_COL).orderBy("timestamp", "desc").limit(limit);
-    if (plaza) query = db.collection(OPS_EVENTS_COL).where("plaza", "==", plaza).orderBy("timestamp", "desc").limit(limit);
-    const snap = await query.get();
-    return { rows: snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) })) };
+    const rows = await safeRows(`ops_events:${plaza || "GLOBAL"}`, async () => {
+      if (!plaza) {
+        const snap = await db.collection(OPS_EVENTS_COL).orderBy("timestamp", "desc").limit(limit).get();
+        return snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) }));
+      }
+      const fetchLimit = Math.min(Math.max(limit * 4, 40), 200);
+      const snap = await db.collection(OPS_EVENTS_COL).where("plaza", "==", plaza).limit(fetchLimit).get();
+      const rows = snap.docs.map(doc => ({ id: doc.id, ...sanitizePlainObject(doc.data()) }));
+      return sortRowsByTimestamp(rows, "timestamp").slice(0, limit);
+    }, []);
+    return { rows };
   }
 
   if (name === "notifications") {
-    const snap = await db.collectionGroup("inbox").orderBy("timestamp", "desc").limit(limit).get();
-    return { rows: snap.docs.map(doc => ({ id: doc.id, path: doc.ref.path, ...sanitizePlainObject(doc.data()) })) };
+    return { rows: await latestCollectionGroupRows("inbox", "timestamp", limit) };
   }
 
   if (name === "devices") {
-    const snap = await db.collectionGroup("devices").orderBy("updatedAt", "desc").limit(limit).get();
-    return { rows: snap.docs.map(doc => ({ id: doc.id, path: doc.ref.path, ...sanitizePlainObject(doc.data()) })) };
+    return { rows: await latestCollectionGroupRows("devices", "updatedAt", limit) };
   }
 
   if (name === "errors") {
