@@ -1,19 +1,15 @@
     // ── Registrar Service Worker ──────────────────────────────
-    if ('serviceWorker' in navigator) {
-      window.__mexSwRegistrationPromise = new Promise(resolve => {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => {
-              window.__mexSwRegistration = reg;
-              console.log('✅ SW registrado:', reg.scope);
-              resolve(reg);
-            })
-            .catch(err => {
-              console.warn('SW error:', err);
-              resolve(null);
-            });
-        }, { once: true });
-      });
+    if ('serviceWorker' in navigator && !window.__mexSwRegistrationPromise) {
+      window.__mexSwRegistrationPromise = navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          window.__mexSwRegistration = reg;
+          console.log('✅ SW registrado:', reg.scope);
+          return reg;
+        })
+        .catch(err => {
+          console.warn('SW error:', err);
+          return null;
+        });
     }
 
     // ── Indicador offline / online ────────────────────────────

@@ -829,7 +829,7 @@ exports.onCriticalAlertCreated = functions.region(REGION).firestore.document("al
     const eventId = `alert_${context.params.alertId}`;
     const actorName = normalizeString(data.autor || data.actor || "Sistema");
     const title = normalizeString(data.titulo || "Alerta crítica");
-    const body = normalizeString(data.mensaje || "Revisa la alerta en MEX Mapa.").slice(0, 180);
+    const body = normalizeString(data.mensaje || "Revisa la alerta en la plataforma.").slice(0, 180);
     const deepLink = "/mapa?notif=alerts";
     await writeOpsEvent(eventId, {
       id: eventId,
@@ -1303,7 +1303,7 @@ async function runCleanupDeviceTokensJob(params = {}) {
 
 async function runSendTestNotificationJob(params = {}) {
   const target = normalizeString(params.targetUser || params.targetEmail || "");
-  const title = normalizeString(params.title || "Prueba MEX Mapa");
+  const title = normalizeString(params.title || "Prueba de notificacion");
   const body = normalizeString(params.body || "Esta es una notificación de prueba enviada desde la consola.");
   const recipients = await resolveUserDocIdsByHandle(target);
   if (!recipients.length) throw new HttpsError("not-found", "No se encontró el usuario destino.");

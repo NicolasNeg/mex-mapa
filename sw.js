@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v67';
+const CACHE_NAME = 'mapa-v68';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -13,8 +13,10 @@ const SHELL_ASSETS = [
   '/login.html',
   '/mapa.html',
   '/programador.html',
+  '/firebase-messaging-sw.js',
   '/mex-api.js',
   '/config.js',
+  '/js/core/app-bootstrap.js',
   '/manifest.json',
   '/img/logo.png',
   '/img/no-model.svg',
@@ -139,10 +141,10 @@ self.addEventListener('fetch', event => {
 self.addEventListener('push', event => {
   if (!event.data) return;
   let payload;
-  try { payload = event.data.json(); } catch { payload = { title: 'MEX Mapa', body: event.data.text() }; }
+  try { payload = event.data.json(); } catch { payload = { title: 'Nueva notificacion', body: event.data.text() }; }
 
   event.waitUntil(
-    self.registration.showNotification(payload.title || 'MEX Mapa', {
+    self.registration.showNotification(payload.title || 'Nueva notificacion', {
       body: payload.body || '',
       icon: payload.icon || '/img/logo.png',
       badge: '/img/logo.png',

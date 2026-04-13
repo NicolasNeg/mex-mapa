@@ -1,6 +1,6 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v67';
+const APP_BUILD = 'mapa-v68';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
 
 const _state = {
@@ -58,6 +58,10 @@ function _notificationIcon() {
   return '/img/logo.png';
 }
 
+function _appDisplayName() {
+  return _safeText(window.MEX_CONFIG?.empresa?.nombre) || 'Nueva notificacion';
+}
+
 function _supportsPush() {
   return typeof window !== 'undefined'
     && 'Notification' in window
@@ -66,10 +70,31 @@ function _supportsPush() {
     && typeof firebase.messaging === 'function';
 }
 
-function _getServiceWorkerRegistration() {
+function _registerMainServiceWorker() {
+  if (!('serviceWorker' in navigator)) return Promise.resolve(null);
   if (window.__mexSwRegistration) return Promise.resolve(window.__mexSwRegistration);
   if (window.__mexSwRegistrationPromise) return window.__mexSwRegistrationPromise;
-  return navigator.serviceWorker.getRegistration('/sw.js');
+  window.__mexSwRegistrationPromise = navigator.serviceWorker.register('/sw.js')
+    .then(reg => {
+      window.__mexSwRegistration = reg;
+      return reg;
+    })
+    .catch(error => {
+      console.warn('No se pudo registrar /sw.js:', error);
+      return null;
+    });
+  return window.__mexSwRegistrationPromise;
+}
+
+function _getServiceWorkerRegistration() {
+  if (window.__mexSwRegistration) return Promise.resolve(window.__mexSwRegistration);
+  if (window.__mexSwRegistrationPromise) {
+    return window.__mexSwRegistrationPromise.then(reg => reg || navigator.serviceWorker.ready.catch(() => null));
+  }
+  return navigator.serviceWorker.getRegistration()
+    .then(reg => reg || navigator.serviceWorker.ready.catch(() => null))
+    .then(reg => reg || _registerMainServiceWorker())
+    .catch(() => _registerMainServiceWorker());
 }
 
 function _platformMeta() {
@@ -192,12 +217,12 @@ async function _showSystemNotification({ title, body, data = {}, tag = 'mex-noti
   try {
     const registration = await _getServiceWorkerRegistration();
     if (registration?.showNotification) {
-      await registration.showNotification(_safeText(title) || 'MEX Mapa', options);
+      await registration.showNotification(_safeText(title) || _appDisplayName(), options);
       return;
     }
   } catch (_) {}
   try {
-    new Notification(_safeText(title) || 'MEX Mapa', options);
+    new Notification(_safeText(title) || _appDisplayName(), options);
   } catch (_) {}
 }
 
@@ -208,7 +233,7 @@ function _bindForegroundMessaging() {
     messaging.onMessage(payload => {
       const notificationId = _safeText(payload?.data?.notificationId || payload?.messageId || `${Date.now()}`);
       _showSystemNotification({
-        title: payload?.notification?.title || payload?.data?.title || 'Nueva notificación',
+        title: payload?.notification?.title || payload?.data?.title || _appDisplayName(),
         body: payload?.notification?.body || payload?.data?.body || '',
         tag: `foreground:${notificationId}`,
         renotify: true,

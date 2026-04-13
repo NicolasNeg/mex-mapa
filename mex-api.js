@@ -2294,7 +2294,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     }
 
     return {
-      empresa: snapEmpresa.exists ? snapEmpresa.data() : { nombre: "MEX RENT A CAR" },
+      empresa: snapEmpresa.exists ? snapEmpresa.data() : { nombre: "EMPRESA" },
       listas: { ...globalListas, ubicaciones }
     };
   },

@@ -5,7 +5,7 @@ async function inicializarConfiguracion() {
     const config = await api.obtenerConfiguracion();
     window.MEX_CONFIG = {
       empresa: {
-        nombre: "MEX RENT A CAR",
+        nombre: "EMPRESA",
         ...(config && config.empresa ? config.empresa : {})
       },
       listas: {
@@ -16,12 +16,6 @@ async function inicializarConfiguracion() {
         ...(config && config.listas ? config.listas : {})
       }
     };
-
-    // Inyectar nombre de empresa en el logo
-    const logoEl = document.querySelector('.logo');
-    if (logoEl && window.MEX_CONFIG.empresa.nombre) {
-      logoEl.innerText = window.MEX_CONFIG.empresa.nombre;
-    }
 
     // Rellenar Selects dinámicamente
     llenarSelectsDinamicos();

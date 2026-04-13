@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-page-title="Mapa" data-page-description="Plataforma de control operativo y gestion de flota de %COMPANY%">
 
 <head>
   <meta charset="UTF-8">
@@ -9,7 +9,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Mapa">
-  <meta name="description" content="Plataforma de control operativo y gestión de flota">
+  <meta name="description" content="Plataforma de control operativo y gestion de flota">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
@@ -25,7 +25,8 @@
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
   <script src="/mex-api.js"></script>
-  <title>Mapa — MEX Rent a Car</title>
+  <script src="/js/core/app-bootstrap.js"></script>
+  <title>Mapa</title>
   <link rel="stylesheet" href="/css/global.css">
 
   <!-- MEX API — Firebase Client SDK directo -->
@@ -2443,7 +2444,7 @@
           </button>
           <div class="resv2-hero-content">
             <div class="resv2-brand-row">
-              <span class="resv2-brand-badge"><span id="resv2-company-name">MEX RENT A CAR</span> · <span id="resv2-branch" style="color:#38bdf8;">BJX</span></span>
+              <span class="resv2-brand-badge"><span id="resv2-company-name">Cargando empresa...</span> · <span id="resv2-branch" style="color:#38bdf8;">BJX</span></span>
               <div class="resv2-tab-switch">
                 <button id="btn-patio-res" class="resv2-tab active" onclick="cambiarVistaResumen('patio')">EN PATIO</button>
                 <button id="btn-fuera-res" class="resv2-tab" onclick="cambiarVistaResumen('fuera')">FUERA</button>
@@ -3528,7 +3529,7 @@
         </div>
         <h2 class="cfg-v2-title">PANEL<br>ADMINISTRATIVO</h2>
         <p class="cfg-v2-subtitle">Gestiona usuarios, roles, solicitudes, catálogos y configuración operativa de
-          <b id="empresa-cfg-lbl">MEX RENT A CAR</b>.</p>
+          <b id="empresa-cfg-lbl">Cargando empresa...</b>.</p>
       </div>
       <button class="cfg-v2-close" onclick="document.getElementById('modal-config-global').classList.remove('active')">
         <span class="material-icons" style="font-size:20px;">close</span>
@@ -3617,7 +3618,7 @@
 
         <!-- FOOTER -->
         <div class="cfg-v2-footer">
-          <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">MEX RENT A CAR</span> · Configuración v3</span>
+          <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> · Configuración v3</span>
           <div class="cfg-v2-footer-actions">
             <button class="cfg-v2-btn-cancel"
               onclick="document.getElementById('modal-config-global').classList.remove('active')">

@@ -39,7 +39,7 @@ const state = {
   testBody: ''
 };
 
-const BUILD_TAG = 'mapa-v67';
+const BUILD_TAG = 'mapa-v68';
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -204,10 +204,11 @@ enableProgrammerPageScroll();
 
 async function loadProgrammerConfig() {
   try {
-    if (window.api?.obtenerConfiguracion) {
-      const config = await window.api.obtenerConfiguracion(state.profile?.plazaAsignada || '');
-      if (config) window.MEX_CONFIG = config;
-    }
+    const plaza = state.profile?.plazaAsignada || '';
+    const config = typeof window.__mexEnsureConfigLoaded === 'function'
+      ? await window.__mexEnsureConfigLoaded(plaza)
+      : (window.api?.obtenerConfiguracion ? await window.api.obtenerConfiguracion(plaza) : null);
+    if (config) window.MEX_CONFIG = config;
     window.MEX_CONFIG = window.MEX_CONFIG || { empresa: {}, listas: {} };
     window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
     if (!window.MEX_CONFIG.empresa.security || typeof window.MEX_CONFIG.empresa.security !== 'object') {
@@ -540,7 +541,7 @@ function renderNotificacionesTab() {
   `;
   document.getElementById('programmerSendTestNotifBtn')?.addEventListener('click', async () => {
     const targetUser = safe(document.getElementById('programmerTestTarget')?.value);
-    const title = safe(document.getElementById('programmerTestTitle')?.value) || 'Prueba MEX Mapa';
+    const title = safe(document.getElementById('programmerTestTitle')?.value) || 'Prueba de notificacion';
     const body = safe(document.getElementById('programmerTestBody')?.value) || 'Notificación de prueba desde consola.';
     const setStatus = message => {
       const statusEl = document.getElementById('programmerTestStatus');

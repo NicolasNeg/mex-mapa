@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-page-title="Iniciar sesion" data-page-description="Iniciar sesion en %COMPANY%">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Mapa — Login">
-  <meta name="description" content="Iniciar sesión en MEX Rent a Car">
+  <meta name="apple-mobile-web-app-title" content="Login">
+  <meta name="description" content="Iniciar sesion en la plataforma operativa">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
@@ -24,8 +24,9 @@
   <!-- Configuración y arranque de Firebase -->
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
+  <script src="/js/core/app-bootstrap.js"></script>
 
-  <title>Iniciar Sesión — MEX</title>
+  <title>Iniciar sesion</title>
 </head>
 <body style="margin:0; background:#0b1e3d;">
 
@@ -36,8 +37,8 @@
       <div class="login-left-side">
         <div class="login-left-overlay">
           <div class="login-brand">
-            <span class="login-brand-name" id="loginBrandName">MEX</span>
-            <span class="login-brand-sub">Rent a Car</span>
+            <span class="login-brand-name" id="loginBrandName">Cargando empresa...</span>
+            <span class="login-brand-sub" id="loginBrandSub" style="display:none;"></span>
           </div>
           <p class="login-brand-desc">Plataforma avanzada para el control operativo y gestión de flota vehicular.</p>
           <div class="login-stats">
@@ -60,7 +61,7 @@
             <label class="input-label">Correo Electrónico</label>
             <div class="mex-input-wrap">
               <span class="material-icons mex-input-icon">person</span>
-              <input type="email" id="auth_email" class="mex-input" placeholder="usuario@mexrentacar.com">
+              <input type="email" id="auth_email" class="mex-input" placeholder="usuario@empresa.com">
             </div>
           </div>
 

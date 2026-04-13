@@ -29,7 +29,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v67';
+const APP_BUILD_TAG = 'mapa-v68';
 
 
 // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
@@ -122,7 +122,10 @@ function _darken(hex, pct) {
 
 async function inicializarConfiguracion() {
   try {
-    const config = await api.obtenerConfiguracion(_miPlaza());
+    const plaza = _miPlaza();
+    const config = typeof window.__mexEnsureConfigLoaded === 'function'
+      ? await window.__mexEnsureConfigLoaded(plaza)
+      : await api.obtenerConfiguracion(plaza);
 
     if (config && config.listas) {
       // Auto-seed estados si Firestore no los tiene
@@ -145,7 +148,10 @@ async function inicializarConfiguracion() {
 
 // 3. Le decimos a la app que descargue esto en cuanto cargue la página
 document.addEventListener("DOMContentLoaded", () => {
-  inicializarConfiguracion();
+  const ready = window.__mexConfigReadyPromise || Promise.resolve();
+  ready.finally(() => {
+    inicializarConfiguracion();
+  });
 });
 
 
@@ -14161,7 +14167,7 @@ function renderizarListaConfig() {
                 <label>Nombre de la Empresa</label>
                 <div style="display:flex; align-items:center; gap:8px;">
                   <input type="text" id="cfg-empresa-nombre" class="cfg-emp-input cfg-empresa-nombre-locked" value="${escapeHtml(emp.nombre || '')}"
-                    placeholder="Ej: MEX RENT A CAR" disabled
+                    placeholder="Ej: Nombre real de la empresa" disabled
                     onchange="window.MEX_CONFIG.empresa.nombre = this.value"
                     style="flex:1;">
                   <button id="cfg-empresa-nombre-pencil"
