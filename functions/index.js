@@ -63,6 +63,42 @@ function normalizePlaza(value) {
   return normalizeUpper(value);
 }
 
+function safeCtorInstance(value, ctor) {
+  return typeof ctor === "function" && value instanceof ctor;
+}
+
+function ctorName(value) {
+  return normalizeString(value?.constructor?.name);
+}
+
+function isFirestoreTimestamp(value) {
+  return Boolean(value) && (
+    safeCtorInstance(value, admin.firestore.Timestamp)
+    || (typeof value.toMillis === "function" && typeof value.toDate === "function")
+  );
+}
+
+function isFirestoreGeoPoint(value) {
+  return Boolean(value) && (
+    safeCtorInstance(value, admin.firestore.GeoPoint)
+    || (ctorName(value) === "GeoPoint" && Number.isFinite(value.latitude) && Number.isFinite(value.longitude))
+  );
+}
+
+function isFirestoreDocumentReference(value) {
+  return Boolean(value) && (
+    safeCtorInstance(value, admin.firestore.DocumentReference)
+    || (ctorName(value) === "DocumentReference" && typeof value.path === "string" && typeof value.get === "function")
+  );
+}
+
+function isFirestoreBytes(value) {
+  return Boolean(value) && (
+    safeCtorInstance(value, admin.firestore.Bytes)
+    || (ctorName(value) === "Bytes" && typeof value.toBase64 === "function")
+  );
+}
+
 function timestampToMillis(value) {
   if (!value) return 0;
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -81,7 +117,7 @@ function isFailedPreconditionError(error) {
 
 function sanitizePlainObject(value) {
   if (value == null) return value;
-  if (value instanceof admin.firestore.Timestamp) return value.toMillis();
+  if (isFirestoreTimestamp(value)) return value.toMillis();
   if (Array.isArray(value)) return value.map(sanitizePlainObject);
   if (typeof value === "object") {
     return Object.fromEntries(
@@ -161,20 +197,20 @@ function serializeFirestoreValue(value) {
   if (value instanceof Date) {
     return { __type: "timestamp", ms: value.getTime(), iso: value.toISOString() };
   }
-  if (value instanceof admin.firestore.Timestamp) {
+  if (isFirestoreTimestamp(value)) {
     return { __type: "timestamp", ms: value.toMillis(), iso: value.toDate().toISOString() };
   }
-  if (value instanceof admin.firestore.GeoPoint) {
+  if (isFirestoreGeoPoint(value)) {
     return {
       __type: "geopoint",
       latitude: value.latitude,
       longitude: value.longitude
     };
   }
-  if (value instanceof admin.firestore.DocumentReference) {
+  if (isFirestoreDocumentReference(value)) {
     return { __type: "reference", path: value.path };
   }
-  if (value instanceof admin.firestore.Bytes) {
+  if (isFirestoreBytes(value)) {
     return { __type: "bytes", base64: value.toBase64() };
   }
   if (Array.isArray(value)) return value.map(serializeFirestoreValue);
@@ -455,6 +491,42 @@ async function latestCollectionGroupRows(groupName, orderKey, limit) {
   }, []);
 }
 
+function deviceOwnerDocIdFromPath(path = "") {
+  const segments = firestorePathSegments(path);
+  if (segments.length >= 4 && segments[0] === USERS_COL && segments[2] === "devices") {
+    return segments[1];
+  }
+  return "";
+}
+
+async function enrichDeviceRows(rows = []) {
+  const ownerIds = [...new Set(rows.map(row => deviceOwnerDocIdFromPath(row.path)).filter(Boolean))];
+  if (!ownerIds.length) return rows;
+
+  const profileMap = new Map();
+  for (const group of chunk(ownerIds, 25)) {
+    const refs = group.map(id => db.collection(USERS_COL).doc(id));
+    const snaps = await db.getAll(...refs);
+    snaps.forEach(snap => {
+      profileMap.set(snap.id, snap.exists ? (snap.data() || {}) : {});
+    });
+  }
+
+  return rows.map(row => {
+    const userDocId = deviceOwnerDocIdFromPath(row.path);
+    const profile = profileMap.get(userDocId) || {};
+    const userEmail = normalizeLower(profile.email || userDocId);
+    return {
+      ...row,
+      userDocId,
+      userEmail,
+      userName: normalizeString(profile.nombre || profile.usuario || userEmail || userDocId),
+      userRole: inferRole(profile, userEmail),
+      userStatus: normalizeUpper(profile.status || "ACTIVO")
+    };
+  });
+}
+
 async function findUserProfileFromAuth(auth) {
   if (!auth?.uid) throw new HttpsError("unauthenticated", "Sesión requerida.");
   const email = normalizeLower(auth.token?.email);
@@ -566,6 +638,30 @@ function normalizeNotificationPrefs(raw = {}) {
     directMessages: raw.directMessages !== false,
     cuadreMissions: raw.cuadreMissions !== false,
     criticalAlerts: raw.criticalAlerts !== false
+  };
+}
+
+function normalizeRequestIp(value = "") {
+  return normalizeString(value).replace(/^::ffff:/, "");
+}
+
+function requestHeader(rawRequest, name) {
+  const value = rawRequest?.headers?.[name.toLowerCase()];
+  if (Array.isArray(value)) return normalizeString(value[0]);
+  return normalizeString(value);
+}
+
+function extractClientRequestMeta(rawRequest) {
+  const forwardedFor = requestHeader(rawRequest, "x-forwarded-for");
+  const firstForwardedIp = forwardedFor
+    .split(",")
+    .map(item => normalizeRequestIp(item))
+    .find(Boolean);
+  const directIp = normalizeRequestIp(rawRequest?.ip || rawRequest?.socket?.remoteAddress || rawRequest?.connection?.remoteAddress || "");
+  return {
+    ipAddress: firstForwardedIp || directIp,
+    forwardedFor,
+    userAgent: requestHeader(rawRequest, "user-agent")
   };
 }
 
@@ -948,6 +1044,7 @@ exports.registerDevice = functions.region(REGION).https.onCall(async (data, cont
     const payloadIn = sanitizePlainObject(data || {});
     const deviceId = normalizeString(payloadIn.deviceId);
     if (!deviceId) throw new HttpsError("invalid-argument", "deviceId es requerido.");
+    const clientMeta = extractClientRequestMeta(context.rawRequest);
 
     const ref = profile.ref.collection("devices").doc(deviceId);
     const payload = {
@@ -956,7 +1053,7 @@ exports.registerDevice = functions.region(REGION).https.onCall(async (data, cont
       permission: normalizeString(payloadIn.permission || "default"),
       platform: normalizeString(payloadIn.platform || "web"),
       browser: normalizeString(payloadIn.browser || ""),
-      userAgent: normalizeString(payloadIn.userAgent || ""),
+      userAgent: normalizeString(payloadIn.userAgent || clientMeta.userAgent),
       plaza: normalizePlaza(payloadIn.plaza || profile.data?.plazaAsignada || ""),
       role,
       appVersion: normalizeString(payloadIn.appVersion || ""),
@@ -969,15 +1066,64 @@ exports.registerDevice = functions.region(REGION).https.onCall(async (data, cont
       invalidToken: false,
       pushEnabled: payloadIn.pushEnabled !== false,
       suppressWhileFocused: payloadIn.suppressWhileFocused === true,
+      ipAddress: clientMeta.ipAddress,
+      forwardedFor: clientMeta.forwardedFor,
       notificationPrefs: {
         ...DEVICE_PREF_DEFAULTS,
         ...normalizeNotificationPrefs(payloadIn.notificationPrefs || {})
       }
     };
     await ref.set(payload, { merge: true });
-    return { ok: true, deviceId, userDocId: profile.id };
+    return { ok: true, deviceId, userDocId: profile.id, ipAddress: clientMeta.ipAddress };
   } catch (error) {
     await recordProgrammerError("registerDevice", error, { authUid: context.auth?.uid || "" });
+    throw error;
+  }
+});
+
+exports.syncDeviceContext = functions.region(REGION).https.onCall(async (data, context) => {
+  try {
+    const profile = await findUserProfileFromAuth(context.auth);
+    const role = inferRole(profile.data, profile.data?.email || context.auth?.token?.email);
+    const payloadIn = sanitizePlainObject(data || {});
+    const deviceId = normalizeString(payloadIn.deviceId);
+    if (!deviceId) throw new HttpsError("invalid-argument", "deviceId es requerido.");
+
+    const clientMeta = extractClientRequestMeta(context.rawRequest);
+    const ref = profile.ref.collection("devices").doc(deviceId);
+    const payload = {
+      deviceId,
+      permission: normalizeString(payloadIn.permission || "default"),
+      platform: normalizeString(payloadIn.platform || "web"),
+      browser: normalizeString(payloadIn.browser || ""),
+      userAgent: normalizeString(payloadIn.userAgent || clientMeta.userAgent),
+      plaza: normalizePlaza(payloadIn.plaza || profile.data?.plazaAsignada || ""),
+      role,
+      appVersion: normalizeString(payloadIn.appVersion || ""),
+      swVersion: normalizeString(payloadIn.swVersion || ""),
+      lastSeenAt: nowMillis(),
+      updatedAt: nowMillis(),
+      isFocused: payloadIn.isFocused === true,
+      activeRoute: normalizeString(payloadIn.activeRoute || "/mapa"),
+      suppressWhileFocused: payloadIn.suppressWhileFocused === true,
+      ipAddress: clientMeta.ipAddress,
+      forwardedFor: clientMeta.forwardedFor,
+      notificationPrefs: {
+        ...DEVICE_PREF_DEFAULTS,
+        ...normalizeNotificationPrefs(payloadIn.notificationPrefs || {})
+      }
+    };
+    await ref.set(payload, { merge: true });
+    return {
+      ok: true,
+      deviceId,
+      ipAddress: clientMeta.ipAddress,
+      forwardedFor: clientMeta.forwardedFor,
+      updatedAt: payload.updatedAt,
+      lastSeenAt: payload.lastSeenAt
+    };
+  } catch (error) {
+    await recordProgrammerError("syncDeviceContext", error, { authUid: context.auth?.uid || "" });
     throw error;
   }
 });
@@ -1129,7 +1275,8 @@ async function runNamedQuery(name, rawParams = {}) {
   }
 
   if (name === "devices") {
-    return { rows: await latestCollectionGroupRows("devices", "updatedAt", limit) };
+    const rows = await latestCollectionGroupRows("devices", "updatedAt", limit);
+    return { rows: await enrichDeviceRows(rows) };
   }
 
   if (name === "errors") {

@@ -39,7 +39,7 @@ const state = {
   testBody: ''
 };
 
-const BUILD_TAG = 'mapa-v69';
+const BUILD_TAG = 'mapa-v70';
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -151,6 +151,29 @@ function friendlyDevicePermission(row = {}) {
   if (permission === 'denied') return 'Bloqueado';
   if (permission === 'unsupported') return 'Sin soporte';
   return 'Pendiente';
+}
+
+function friendlyDeviceIp(row = {}) {
+  return safe(row.ipAddress || row.clientIp || row.forwardedFor || '') || 'Pendiente';
+}
+
+function friendlyDeviceGeo(row = {}) {
+  const latitude = Number(
+    row.geoLatitude
+    ?? row.geoLat
+    ?? row.approxLocation?.latitude
+    ?? row.geo?.latitude
+  );
+  const longitude = Number(
+    row.geoLongitude
+    ?? row.geoLng
+    ?? row.approxLocation?.longitude
+    ?? row.geo?.longitude
+  );
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+  }
+  return safe(row.locationLabel || row.allowedPlaceLabel || row.locationName || '') || 'Pendiente';
 }
 
 function notificationKindLabel(row = {}) {
@@ -365,7 +388,7 @@ function renderShell() {
       renderCurrentTab();
     });
   });
-  document.getElementById('programmerRefreshAllBtn')?.addEventListener('click', () => refreshAll());
+  document.getElementById('programmerRefreshAllBtn')?.addEventListener('click', () => refreshCurrentTabData());
   document.getElementById('programmerGlobalPlazaSelect')?.addEventListener('change', event => {
     state.plaza = upper(event.target.value || '');
     if (state.tab === 'config') loadSettingsPreview();
@@ -461,11 +484,16 @@ function renderNotificationsFeed(rows = []) {
 
 function renderDevicesTableHtml(rows = []) {
   const mappedRows = rows.map(row => ({
+    usuario: safe(row.userName) || 'Sin usuario',
+    correo: safe(row.userEmail || row.userDocId) || 'Sin correo',
+    rol: safe(row.userRole) || 'Sin rol',
     equipo: friendlyDeviceType(row),
     navegador: friendlyDeviceBrowser(row),
     permiso: friendlyDevicePermission(row),
     push: row.pushEnabled === false ? 'Pausado' : 'Listo',
     plaza: safe(row.plaza) || 'GLOBAL',
+    ip: friendlyDeviceIp(row),
+    ubicacion: friendlyDeviceGeo(row),
     ruta: safe(row.activeRoute) || '/mapa',
     ultimaActividad: dbDocDateLabel(row.updatedAt || row.lastSeenAt)
   }));
@@ -1242,6 +1270,33 @@ async function ensureDatabaseTabReady() {
   if (state.dbDocPath && !state.dbDocument) {
     await loadDbDocument(state.dbDocPath);
   }
+}
+
+async function refreshCurrentTabData() {
+  if (state.tab === 'database') {
+    state.dbLimit = Math.min(300, Math.max(20, Number(document.getElementById('programmerDbLimit')?.value) || state.dbLimit || 80));
+    const parentPath = document.getElementById('programmerDbParentPath')?.value || state.dbParentPath || '';
+    const collectionPath = document.getElementById('programmerDbCollectionPathInput')?.value || state.dbCollectionPath || '';
+    const docPath = document.getElementById('programmerDbDocPathInput')?.value || state.dbDocPath || '';
+    state.dbLoaded = false;
+    await loadDbCollections(parentPath);
+    if (collectionPath) await loadDbDocs(collectionPath);
+    if (docPath) await loadDbDocument(docPath);
+    return;
+  }
+
+  if (state.tab === 'consultas') {
+    await runQuery(state.queryName || 'ops_events');
+    return;
+  }
+
+  if (state.tab === 'config') {
+    await loadSettingsPreview();
+    renderCurrentTab();
+    return;
+  }
+
+  await refreshAll();
 }
 
 async function runQuery(queryName) {

@@ -1,6 +1,6 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v69';
+const APP_BUILD = 'mapa-v70';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
 const MESSAGING_SW_URL = '/firebase-messaging-sw.js';
 const MESSAGING_SW_SCOPE = '/firebase-cloud-messaging-push-scope';
@@ -619,7 +619,19 @@ export async function updateCurrentDevicePreferences(changes = {}) {
 
 async function syncDeviceFocusState(options = {}) {
   if (!_currentUserDocRef() || navigator.onLine === false) return;
-  const payload = _deviceSyncPayload();
+  const profile = _state.profileGetter?.() || {};
+  const meta = _platformMeta();
+  const payload = {
+    deviceId: _deviceId(),
+    ..._deviceSyncPayload(),
+    plaza: _state.getCurrentPlaza?.() || profile?.plazaAsignada || '',
+    browser: meta.browser,
+    platform: meta.platform,
+    userAgent: navigator.userAgent || '',
+    appVersion: APP_BUILD,
+    swVersion: APP_BUILD,
+    notificationPrefs: _currentDevicePrefs()
+  };
   const signature = _deviceSyncSignature(payload);
   const now = Date.now();
   const intervalMs = payload.isFocused ? 45000 : 120000;
@@ -630,6 +642,20 @@ async function syncDeviceFocusState(options = {}) {
 
   _state.lastDeviceSyncAt = now;
   _state.lastDeviceSyncSignature = signature;
+  const callable = _fxCallable('syncDeviceContext');
+  if (callable) {
+    try {
+      const res = await callable(payload);
+      _state.currentDevice = {
+        ...(_state.currentDevice || {}),
+        ...payload,
+        ...(res?.data || {})
+      };
+      return;
+    } catch (error) {
+      console.warn('syncDeviceContext fallback directo:', error);
+    }
+  }
   await _upsertDeviceDirect(payload);
 }
 
