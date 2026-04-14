@@ -12005,6 +12005,105 @@
       color: rgba(255, 255, 255, 0.75);
     }
 
+    .cfg-v2-hero-insights {
+      margin-top: 18px;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      max-width: 980px;
+    }
+
+    .cfg-v2-insight-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.04));
+      backdrop-filter: blur(8px);
+    }
+
+    .cfg-v2-insight-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: rgba(191, 219, 254, 0.24);
+      color: #dbeafe;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .cfg-v2-insight-icon.warn {
+      background: rgba(251, 191, 36, 0.24);
+      color: #fde68a;
+    }
+
+    .cfg-v2-insight-icon .material-icons {
+      font-size: 18px;
+    }
+
+    .cfg-v2-insight-body {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      gap: 3px;
+    }
+
+    .cfg-v2-insight-body strong {
+      font-size: 18px;
+      font-weight: 900;
+      color: #f8fafc;
+      line-height: 1;
+    }
+
+    .cfg-v2-insight-body span {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(226, 232, 240, 0.90);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cfg-v2-hero-shortcuts {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .cfg-v2-hero-shortcut {
+      min-height: 34px;
+      padding: 0 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.10);
+      color: #f8fafc;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: transform .2s ease, background .2s ease;
+    }
+
+    .cfg-v2-hero-shortcut .material-icons {
+      font-size: 16px;
+    }
+
+    .cfg-v2-hero-shortcut:hover {
+      background: rgba(255, 255, 255, 0.18);
+      transform: translateY(-1px);
+    }
+
     .cfg-v2-close {
       position: absolute;
       right: 20px;
@@ -12141,6 +12240,66 @@
       border: 1px solid #e8edf4;
       box-shadow: 0 18px 40px rgba(15, 35, 67, 0.06);
       overflow: hidden;
+    }
+
+    .cfg-v2-tools {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+      padding: 16px 24px 10px;
+      border-bottom: 1px dashed #e2e8f0;
+      flex-shrink: 0;
+      background:
+        radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 30%),
+        linear-gradient(180deg, #fbfdff 0%, #f8fbff 100%);
+    }
+
+    .cfg-v2-tool-btn {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1px solid #d7e3f4;
+      background: white;
+      color: #1e293b;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+
+    .cfg-v2-tool-btn .material-icons {
+      font-size: 16px;
+      color: #1d4ed8;
+    }
+
+    .cfg-v2-tool-btn:hover {
+      transform: translateY(-1px);
+      border-color: #93c5fd;
+      box-shadow: 0 10px 20px rgba(59, 130, 246, 0.14);
+    }
+
+    .cfg-v2-tool-btn.success {
+      border-color: rgba(16, 185, 129, 0.45);
+      background: linear-gradient(135deg, #0b8f6f, #12b981);
+      color: white;
+      box-shadow: 0 10px 22px rgba(16, 185, 129, 0.24);
+    }
+
+    .cfg-v2-tool-btn.success .material-icons {
+      color: #dcfce7;
+    }
+
+    .cfg-v2-tool-btn[disabled] {
+      opacity: 0.55;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
     }
 
     /* ── ADD BAR ──────────────────────────────────────────────── */
@@ -12644,6 +12803,14 @@
         font-size: 24px;
       }
 
+      .cfg-v2-hero-insights {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .cfg-v2-hero-shortcuts {
+        margin-top: 10px;
+      }
+
       .cfg-v2-body {
         flex-direction: column;
         padding: 16px;
@@ -12683,6 +12850,16 @@
         padding: 16px 16px;
       }
 
+      .cfg-v2-tools {
+        padding: 12px 16px 10px;
+        gap: 8px;
+      }
+
+      .cfg-v2-tool-btn {
+        flex: 1 1 calc(50% - 8px);
+        justify-content: center;
+      }
+
       .cfg-v2-btn-add {
         justify-content: center;
         padding: 12px 20px;
@@ -12714,6 +12891,75 @@
       .cfg-security-catalog-item {
         grid-template-columns: 1fr;
       }
+
+      .cfg-v2-hero-shortcut {
+        width: calc(50% - 4px);
+        justify-content: center;
+      }
+    }
+
+    .cfg-copy-inline-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+      color: #2563eb;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background .2s ease, transform .2s ease;
+    }
+
+    .cfg-copy-inline-btn .material-icons {
+      font-size: 16px;
+    }
+
+    .cfg-copy-inline-btn:hover {
+      background: #dbeafe;
+      transform: translateY(-1px);
+    }
+
+    .cfg-model-thumb {
+      width: 34px;
+      height: 34px;
+      border-radius: 9px;
+      object-fit: cover;
+      border: 1px solid #dbe4ee;
+      background: #f1f5f9;
+      flex-shrink: 0;
+    }
+
+    .cfg-add-modelo-preview {
+      margin-top: 10px;
+      min-height: 68px;
+      border-radius: 12px;
+      border: 1px dashed #cbd5e1;
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+    }
+
+    .cfg-add-modelo-preview img {
+      width: 54px;
+      height: 54px;
+      border-radius: 10px;
+      border: 1px solid #dbe4ee;
+      object-fit: cover;
+      background: white;
+      flex-shrink: 0;
+    }
+
+    .cfg-add-modelo-preview span {
+      font-size: 11px;
+      font-weight: 800;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .08em;
     }
 
 /* ═══════════════════════════════════════════════════════════

@@ -30,7 +30,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v75';
+const APP_BUILD_TAG = 'mapa-v76';
 const ADMIN_LOCATION_CACHE_MS = 90000;
 
 
@@ -3282,9 +3282,13 @@ async function _handleMapUnitDrop(unidad, destino) {
 
   const occupant = destino.classList.contains('spot') ? destino.querySelector('.car') : null;
   if (occupant && occupant !== unidad) {
-    if (!MAP_SWAP_MODE_ACTIVE) {
+    const dragTriggeredSwap = _mapDragState.sourceCar === unidad;
+    if (!MAP_SWAP_MODE_ACTIVE && !dragTriggeredSwap) {
       showToast('Ese cajón ya está ocupado. Activa modo swap para intercambiar.', 'warning');
       return false;
+    }
+    if (!MAP_SWAP_MODE_ACTIVE && dragTriggeredSwap) {
+      showToast('Cajón ocupado detectado: confirma el intercambio para continuar.', 'info');
     }
     return mostrarConfirmacionSwap(unidad, occupant, destino);
   }
@@ -4867,6 +4871,7 @@ function _umIniciar() {
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
     _umRenderCards();
+    _cfgRefreshAdminHeroStats(true).catch(() => {});
 
     if (_umSelectedId) {
       const updated = _umUsers.find(u => u.id === _umSelectedId);
@@ -14062,6 +14067,205 @@ async function migrarConfiguracionAFirestore() {
 
 let TAB_ACTIVA_CFG = 'usuarios';
 let _programmerConsoleState = { log: [], selectedPlaza: '', jsonDraft: '' };
+let _cfgAdminStatsCache = { users: null, pending: null, stamp: 0 };
+
+function _cfgSetInsightValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  if (value === null || value === undefined || value === '') {
+    el.textContent = '--';
+    return;
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    el.textContent = value.toLocaleString('es-MX');
+    return;
+  }
+  el.textContent = String(value);
+}
+
+function _cfgCatalogItemsTotal() {
+  const listas = window.MEX_CONFIG?.listas || {};
+  return Object.values(listas).reduce((sum, list) => sum + (Array.isArray(list) ? list.length : 0), 0);
+}
+
+function _cfgResolveTabButton(tabName = '') {
+  const tab = String(tabName || '').trim().toLowerCase();
+  return document.getElementById(`cfg-tab-${tab}`) || document.querySelector(`.cfg-tab[onclick*="'${tab}'"]`);
+}
+
+function _cfgSearchPlaceholderForTab(tabName = TAB_ACTIVA_CFG) {
+  const map = {
+    ubicaciones: 'Buscar ubicación o responsable...',
+    estados: 'Buscar estado...',
+    categorias: 'Buscar categoría...',
+    modelos: 'Buscar modelo...',
+    gasolinas: 'Buscar nivel de gasolina...'
+  };
+  return map[tabName] || 'Buscar catálogo...';
+}
+
+function _cfgRefreshSearchPlaceholder() {
+  const input = document.getElementById('cfg-search-input');
+  if (!input) return;
+  input.placeholder = _cfgSearchPlaceholderForTab(TAB_ACTIVA_CFG);
+}
+
+function _cfgJumpTab(tabName = 'usuarios') {
+  const btn = _cfgResolveTabButton(tabName);
+  if (!btn || btn.style.display === 'none') return;
+  abrirTabConfig(tabName, btn);
+}
+
+async function _cfgRefreshAdminHeroStats(force = false) {
+  _cfgSetInsightValue('cfg-insight-plazas', (window.MEX_CONFIG?.empresa?.plazas || []).length);
+  _cfgSetInsightValue('cfg-insight-catalogs', _cfgCatalogItemsTotal());
+
+  if (_umUsers.length > 0) _cfgSetInsightValue('cfg-insight-users', _umUsers.length);
+  else if (_cfgAdminStatsCache.users !== null) _cfgSetInsightValue('cfg-insight-users', _cfgAdminStatsCache.users);
+  else _cfgSetInsightValue('cfg-insight-users', '--');
+
+  if (_cfgAdminStatsCache.pending !== null) _cfgSetInsightValue('cfg-insight-pending', _cfgAdminStatsCache.pending);
+  else _cfgSetInsightValue('cfg-insight-pending', '--');
+
+  const now = Date.now();
+  if (!force && (now - _cfgAdminStatsCache.stamp) < 25000) return;
+  _cfgAdminStatsCache.stamp = now;
+
+  const jobs = [];
+  if ((canManageUsers() || canUseProgrammerConfig()) && db?.collection) {
+    jobs.push(
+      db.collection(COL.USERS).get().then(snap => {
+        _cfgAdminStatsCache.users = snap.size;
+      }).catch(() => {})
+    );
+  }
+  if ((canProcessAccessRequests() || canUseProgrammerConfig() || canManageUsers()) && db?.collection) {
+    jobs.push(
+      db.collection('solicitudes_acceso').where('estado', '==', 'PENDIENTE').get().then(snap => {
+        _cfgAdminStatsCache.pending = snap.size;
+      }).catch(() => {})
+    );
+  }
+
+  if (jobs.length > 0) await Promise.allSettled(jobs);
+  if (_cfgAdminStatsCache.users !== null) _cfgSetInsightValue('cfg-insight-users', _cfgAdminStatsCache.users);
+  if (_cfgAdminStatsCache.pending !== null) _cfgSetInsightValue('cfg-insight-pending', _cfgAdminStatsCache.pending);
+}
+
+function _cfgRefreshQuickTools() {
+  const tools = document.getElementById('cfg-v2-tools');
+  if (!tools) return;
+
+  const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
+  const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(TAB_ACTIVA_CFG);
+  const matrix = {
+    'new-user': canManageUsers(),
+    'new-plaza': canManageAdvancedConfig,
+    'new-item': isCatalogTab,
+    'open-programmer': canUseProgrammerConfig(),
+    'publish': true
+  };
+
+  tools.querySelectorAll('.cfg-v2-tool-btn[data-tool]').forEach(btn => {
+    const key = btn.getAttribute('data-tool') || '';
+    const enabled = matrix[key] !== false;
+    btn.disabled = !enabled;
+    if (key === 'open-programmer') btn.style.display = canUseProgrammerConfig() ? '' : 'none';
+    if (key === 'new-user') btn.style.display = canManageUsers() ? '' : 'none';
+    if (key === 'new-plaza') btn.style.display = canManageAdvancedConfig ? '' : 'none';
+    if (key === 'new-item') btn.style.display = isCatalogTab ? '' : 'none';
+  });
+}
+
+async function _cfgQuickAction(action = '') {
+  const mode = String(action || '').trim();
+  if (!mode) return;
+  if (mode === 'new-user') {
+    if (!canManageUsers()) return showToast('No tienes permisos para crear usuarios.', 'error');
+    _cfgJumpTab('usuarios');
+    setTimeout(() => { if (typeof _umNuevoUsuarioConAnim === 'function') _umNuevoUsuarioConAnim(); }, 120);
+    return;
+  }
+  if (mode === 'new-plaza') {
+    const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
+    if (!canManageAdvancedConfig) return showToast('No tienes permisos para crear plazas.', 'error');
+    _cfgJumpTab('plazas');
+    setTimeout(() => { if (typeof _abrirModalNuevaplaza === 'function') _abrirModalNuevaplaza(); }, 120);
+    return;
+  }
+  if (mode === 'new-item') {
+    const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(TAB_ACTIVA_CFG);
+    if (!isCatalogTab) _cfgJumpTab('ubicaciones');
+    setTimeout(() => abrirModalNuevaConfig(), 100);
+    return;
+  }
+  if (mode === 'open-programmer') {
+    if (!canUseProgrammerConfig()) return showToast('No tienes permisos para abrir programador.', 'error');
+    _abrirProgrammerConsoleRoute();
+    return;
+  }
+  if (mode === 'publish') {
+    await guardarConfiguracionEnFirebase();
+    return;
+  }
+  if (mode === 'refresh') {
+    await _cfgRefreshAdminHeroStats(true);
+    if (typeof renderizarListaConfig === 'function') renderizarListaConfig();
+  }
+}
+
+function _cfgModelImageValue(item) {
+  if (!item || typeof item !== 'object') return '';
+  return String(item.imagenURL || item.imagen || item.image || item.foto || '').trim();
+}
+
+function _cfgPreviewModeloImg(raw = '') {
+  const wrap = document.getElementById('cfg-add-modelo-preview');
+  const img = document.getElementById('cfg-add-modelo-preview-img');
+  const label = document.getElementById('cfg-add-modelo-preview-label');
+  const value = String(raw || '').trim();
+  if (!wrap || !img) return;
+  if (!value) {
+    wrap.style.display = 'none';
+    img.removeAttribute('src');
+    return;
+  }
+  wrap.style.display = 'flex';
+  img.src = value;
+  if (label) label.textContent = 'Preview de imagen';
+}
+
+async function _copyTextToClipboard(value = '', label = 'Texto') {
+  const text = String(value || '').trim();
+  if (!text) {
+    showToast(`No hay ${label.toLowerCase()} para copiar.`, 'error');
+    return;
+  }
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    showToast(`${label} copiado.`, 'success');
+  } catch (_) {
+    showToast(`No se pudo copiar ${label.toLowerCase()}.`, 'error');
+  }
+}
+
+function _copyPlazaCorreo(selectId, label = 'Correo') {
+  const el = document.getElementById(selectId);
+  const value = el ? el.value : '';
+  _copyTextToClipboard(value, label);
+}
 
 function _programmerConsoleReadLog() {
   try {
@@ -14609,6 +14813,9 @@ function abrirPanelConfiguracion(tabInicial) {
   _applyGestionAdminChrome();
   document.getElementById('modal-config-global').classList.add('active');
   _captureAdminExactLocation({ force: false }).catch(() => {});
+  _cfgRefreshSearchPlaceholder();
+  _cfgRefreshQuickTools();
+  _cfgRefreshAdminHeroStats(true).catch(() => {});
   const targetTab = tabInicial || 'usuarios';
   const targetButton = document.getElementById(`cfg-tab-${targetTab}`) || document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
   if (targetTab) {
@@ -14648,6 +14855,7 @@ function abrirTabConfig(tabName, btnElement) {
   } else {
     if (searchBox) searchBox.style.display = 'flex';
   }
+  _cfgRefreshSearchPlaceholder();
   const progTab = document.getElementById('cfg-tab-programador');
   if (progTab) progTab.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
 
@@ -14699,6 +14907,8 @@ function abrirTabConfig(tabName, btnElement) {
     }
   }
 
+  _cfgRefreshQuickTools();
+  _cfgRefreshAdminHeroStats(false).catch(() => {});
   renderizarListaConfig();
 }
 
@@ -15051,6 +15261,11 @@ function renderizarListaConfig() {
       pText = `<span style="font-size:10px; background:#475569; color:white; padding:2px 6px; border-radius:4px; display:inline-block; margin-left:8px;">${escapeHtml(modCat || 'SIN CAT.')}</span>`;
     }
 
+    const modelImgUrl = TAB_ACTIVA_CFG === 'modelos' ? _cfgModelImageValue(item) : '';
+    const modelThumb = modelImgUrl
+      ? `<img src="${escapeHtml(modelImgUrl)}" class="cfg-model-thumb" alt="Modelo" loading="lazy">`
+      : '';
+
     if (TAB_ACTIVA_CFG === 'categorias') {
       const modelos = (window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor);
       const preview = modelos.slice(0, 3).map(m => m.nombre).join(', ');
@@ -15085,6 +15300,7 @@ function renderizarListaConfig() {
             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
               ${dragHandle}
               ${color ? `<div style="background:${color}; width:14px; height:14px; border-radius:50%; flex-shrink:0; box-shadow:0 0 0 1px rgba(0,0,0,0.1);" title="${color}"></div>` : ''}
+              ${modelThumb}
               <strong style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden; font-size:13px;">${escapeHtml(valor)}</strong>
               ${pText}
               ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700; flex-shrink:0;">ord.${item.orden}</span>` : ''}
@@ -15230,6 +15446,9 @@ function abrirModalNuevaConfig() {
     document.getElementById('cfg-add-modelo-options').style.display = 'block';
     const cats = window.MEX_CONFIG.listas.categorias || [];
     document.getElementById('cfg-add-modelo-cat').innerHTML = '<option value="">(Ninguna)</option>' + cats.map(c => `<option value="${escapeHtml(typeof c === 'object' ? c.nombre || c.id : c)}">${escapeHtml(typeof c === 'object' ? c.nombre || c.id : c)}</option>`).join('');
+    const imgInput = document.getElementById('cfg-add-modelo-img');
+    if (imgInput) imgInput.value = '';
+    _cfgPreviewModeloImg('');
   }
 
   document.getElementById('cfg-add-name').dataset.editIndex = -1;
@@ -15267,6 +15486,9 @@ function editarElementoConfig(index) {
       return `<option value="${escapeHtml(cName)}">${escapeHtml(cName)}</option>`;
     }).join('');
     document.getElementById('cfg-add-modelo-cat').value = typeof item === 'object' ? item.categoria : '';
+    const imgInput = document.getElementById('cfg-add-modelo-img');
+    if (imgInput) imgInput.value = _cfgModelImageValue(item);
+    _cfgPreviewModeloImg(_cfgModelImageValue(item));
   }
 
   document.getElementById('cfg-add-name').dataset.editIndex = index;
@@ -15299,7 +15521,10 @@ async function confirmarAgregadoConfig() {
     const plazaSel = document.getElementById('cfg-add-ubi-plaza')?.value || '';
     newItem = { nombre: val, isPlazaFija: document.getElementById('cfg-add-is-plaza').checked, plazaId: plazaSel };
   } else if (TAB_ACTIVA_CFG === 'modelos') {
+    const imgInput = document.getElementById('cfg-add-modelo-img');
+    const imagenURL = String(imgInput?.value || '').trim();
     newItem = { nombre: val, categoria: document.getElementById('cfg-add-modelo-cat').value };
+    if (imagenURL) newItem.imagenURL = imagenURL;
   } else {
     newItem = val;
   }
@@ -15984,6 +16209,9 @@ function _renderPlazaForm(plazaId) {
                 <select id="plaza-correo" class="cfg-plaza-select-correo">
                   ${_plazaGetUserEmailOptions(d.correo || '', plazaId, 'correo', d)}
                 </select>
+                <button type="button" class="cfg-copy-inline-btn" onclick="_copyPlazaCorreo('plaza-correo','Correo institucional')" title="Copiar correo institucional">
+                  <span class="material-icons">content_copy</span>
+                </button>
               </div>
             </div>
             <div class="cfg-plaza-form-field">
@@ -16011,6 +16239,9 @@ function _renderPlazaForm(plazaId) {
                 <select id="plaza-correo-gerente" class="cfg-plaza-select-correo">
                   ${_plazaGetUserEmailOptions(d.correoGerente || '', plazaId, 'correoGerente', d)}
                 </select>
+                <button type="button" class="cfg-copy-inline-btn" onclick="_copyPlazaCorreo('plaza-correo-gerente','Correo de gerencia')" title="Copiar correo gerencial">
+                  <span class="material-icons">content_copy</span>
+                </button>
               </div>
             </div>
           </div>
@@ -16449,6 +16680,8 @@ async function cargarSolicitudesDeTab(estado) {
         badgeSb.innerText = snapshot.size;
         badgeSb.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
       }
+      _cfgAdminStatsCache.pending = snapshot.size;
+      _cfgSetInsightValue('cfg-insight-pending', snapshot.size);
     }
 
     if (snapshot.empty) {
@@ -16820,6 +17053,8 @@ async function cargarSolicitudesPendientes() {
     }
     const badgeCfg = document.getElementById('badge-config-solicitudes');
     if (badgeCfg) badgeCfg.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+    _cfgAdminStatsCache.pending = snapshot.size;
+    _cfgSetInsightValue('cfg-insight-pending', snapshot.size);
   } catch (e) { console.warn('cargarSolicitudesPendientes badge error', e); }
 }
 
@@ -17141,6 +17376,10 @@ Object.assign(window, {
   _tablaActividadHtml,
   _toggleDestinatarioAlerta,
   _toggleEditCorreo,
+  _cfgJumpTab,
+  _cfgQuickAction,
+  _cfgPreviewModeloImg,
+  _copyPlazaCorreo,
   _togglePlazaAddRow,
   _umAvatarStyle,
   _umGetPlazasDisponibles,
