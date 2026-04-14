@@ -941,6 +941,7 @@
       const cleanupFns = [];
       let settled = false;
       let attemptRunning = false;
+      let currentAttemptId = 0;
       let attachedPermissionStatus = null;
       let permissionOnChangeHandler = null;
       let permissionPollTimer = null;
@@ -989,7 +990,12 @@
       };
 
       const attempt = async (force = true, source = 'manual') => {
-        if (settled || attemptRunning) return;
+        if (settled) return;
+        // Non-forced attempts are skipped while one is already running.
+        // Forced attempts (permission-change, poll, focus, manual click) always proceed
+        // and supersede any in-flight attempt so the result of the stale one is discarded.
+        if (attemptRunning && !force) return;
+        const myAttemptId = ++currentAttemptId;
         attemptRunning = true;
         if (retryBtn) {
           retryBtn.disabled = true;
@@ -1008,6 +1014,9 @@
             timeoutMs: Number(options.timeoutMs || 12000),
             maxAgeMs: Number(options.maxAgeMs || 30000)
           });
+
+          // Discard result if a newer attempt has already started
+          if (myAttemptId !== currentAttemptId) return;
 
           const usableSnapshot = snapshot?.exactLocation && snapshot?.status !== 'denied' && snapshot?.status !== 'unsupported';
           if (usableSnapshot) {
@@ -1031,10 +1040,12 @@
             allowLogout: options.allowLogout === true
           });
         } finally {
-          attemptRunning = false;
-          if (retryBtn) {
-            retryBtn.disabled = false;
-            retryBtn.textContent = 'Permitir ubicación';
+          if (myAttemptId === currentAttemptId) {
+            attemptRunning = false;
+            if (retryBtn) {
+              retryBtn.disabled = false;
+              retryBtn.textContent = 'Permitir ubicación';
+            }
           }
         }
       };
@@ -1077,6 +1088,11 @@
       queryGeolocationPermission().then(({ state: permissionState, status }) => {
         if (settled) return;
         showPendingPermissionState(permissionState);
+        // If permission was already granted when the gate opened, force a fresh attempt
+        // immediately so we don't wait for the slow non-forced initial attempt.
+        if (permissionState === 'granted') {
+          attempt(true, 'permission-already-granted').catch(() => {});
+        }
         if (!status) return;
         attachedPermissionStatus = status;
         permissionOnChangeHandler = () => {
