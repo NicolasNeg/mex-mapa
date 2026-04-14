@@ -1,6 +1,6 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v78';
+const APP_BUILD = 'mapa-v79';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
 const MESSAGING_SW_URL = '/firebase-messaging-sw.js';
 const MESSAGING_SW_SCOPE = '/firebase-cloud-messaging-push-scope';

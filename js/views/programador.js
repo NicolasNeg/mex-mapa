@@ -39,7 +39,7 @@ const state = {
   testBody: ''
 };
 
-const BUILD_TAG = 'mapa-v78';
+const BUILD_TAG = 'mapa-v79';
 
 function safe(value) {
   return String(value ?? '').trim();

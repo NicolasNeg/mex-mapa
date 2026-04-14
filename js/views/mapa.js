@@ -30,7 +30,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v78';
+const APP_BUILD_TAG = 'mapa-v79';
 const ADMIN_LOCATION_CACHE_MS = 90000;
 
 
@@ -3319,17 +3319,17 @@ function _selectCarOnMap(car, options = {}) {
   else _renderSwapStatus();
 }
 
-async function _handleMapUnitDrop(unidad, destino) {
+async function _handleMapUnitDrop(unidad, destino, options = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return false;
+  const fromDrag = options.fromDrag === true;
 
   const occupant = destino.classList.contains('spot') ? destino.querySelector('.car') : null;
   if (occupant && occupant !== unidad) {
-    const dragTriggeredSwap = _mapDragState.sourceCar === unidad;
-    if (!MAP_SWAP_MODE_ACTIVE && !dragTriggeredSwap) {
+    if (!MAP_SWAP_MODE_ACTIVE && !fromDrag) {
       showToast('Ese cajón ya está ocupado. Activa modo swap para intercambiar.', 'warning');
       return false;
     }
-    if (!MAP_SWAP_MODE_ACTIVE && dragTriggeredSwap) {
+    if (!MAP_SWAP_MODE_ACTIVE && fromDrag) {
       showToast('Cajón ocupado detectado: confirma el intercambio para continuar.', 'info');
     }
     return mostrarConfirmacionSwap(unidad, occupant, destino);
@@ -3367,11 +3367,11 @@ function _handleMapDragOver(event) {
 
 async function _handleMapDrop(event) {
   if (!_mapDragState.sourceCar) return;
-  const zone = _resolveMapDropZone(event.target);
+  const zone = _resolveMapDropZone(event.target) || _mapDragState.currentZone;
   if (!zone) return;
   event.preventDefault();
   _mapDragSuppressClickUntil = Date.now() + 350;
-  await _handleMapUnitDrop(_mapDragState.sourceCar, zone);
+  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
   _finishMapDrag();
 }
 
@@ -3418,10 +3418,12 @@ async function _handleMapTouchDragEnd(event) {
   if (!_mapDragState.active) return;
 
   const touch = Array.from(event.changedTouches).find(t => t.identifier === _mapDragState.activeTouchId) || event.changedTouches[0];
-  const zone = touch ? _resolveMapDropZone(document.elementFromPoint(touch.clientX, touch.clientY)) : null;
+  const zone = touch
+    ? (_resolveMapDropZone(document.elementFromPoint(touch.clientX, touch.clientY)) || _mapDragState.currentZone)
+    : _mapDragState.currentZone;
   _mapDragSuppressClickUntil = Date.now() + 450;
   if (touch) event.preventDefault();
-  await _handleMapUnitDrop(_mapDragState.sourceCar, zone);
+  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
   _finishMapDrag();
 }
 
