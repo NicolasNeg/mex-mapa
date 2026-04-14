@@ -35,6 +35,14 @@ auth.onAuthStateChanged(async (user) => {
       .where('email', '==', emailNorm).get();
 
     if (!snap.empty) {
+      if (typeof window.__mexRequireLocationAccess === 'function') {
+        await window.__mexRequireLocationAccess({
+          title: 'Ubicacion obligatoria para entrar',
+          copy: 'Antes de entrar al sistema necesitamos tu ubicacion exacta para auditar movimientos, configuraciones y actividad operativa.',
+          allowLogout: true,
+          force: true
+        });
+      }
       // Sesión válida → ir al mapa
       window.location.href = '/mapa';
     } else {

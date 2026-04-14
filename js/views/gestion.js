@@ -17,10 +17,19 @@ function markFrameReady() {
   if (loader) loader.classList.add('ready');
 }
 
-auth.onAuthStateChanged((user) => {
+auth.onAuthStateChanged(async (user) => {
   if (!user) {
     window.location.replace('/login');
     return;
+  }
+
+  if (typeof window.__mexRequireLocationAccess === 'function') {
+    await window.__mexRequireLocationAccess({
+      title: 'Ubicacion obligatoria para administracion',
+      copy: 'Activa tu ubicación exacta antes de abrir el panel administrativo para auditar cambios globales y permisos.',
+      allowLogout: true,
+      force: false
+    });
   }
 
   const frame = document.getElementById('gestionRouteFrame');

@@ -30,7 +30,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v72';
+const APP_BUILD_TAG = 'mapa-v73';
 const ADMIN_LOCATION_CACHE_MS = 90000;
 
 
@@ -331,6 +331,9 @@ function cambiarTabFlota(tabSeleccionado) {
   VISTA_ACTUAL_FLOTA = tabSeleccionado;
   SELECT_REF_FLOTA = null;
   ADMIN_INSERT_UNIT = null;
+  if (_isCuadreFleetMode() && !_isDedicatedCuadreIframeMode()) {
+    _syncInlineFleetRoute(tabSeleccionado);
+  }
 
   // 🔥 NUEVO: Resetear buscador y chips al cambiar de pestaña
   document.getElementById('searchFlota').value = "";
@@ -436,6 +439,11 @@ const BASE_PERMISSION_CATALOG = Object.freeze({
     label: 'Consola de programador',
     description: 'Entrar a /programador y ejecutar consultas avanzadas.',
     group: 'Sistema'
+  },
+  view_exact_location_logs: {
+    label: 'Ver ubicaciones exactas',
+    description: 'Consultar coordenadas y abrir Google Maps desde bitácoras, movimientos y auditorías.',
+    group: 'Auditoría'
   },
   lock_map: {
     label: 'Bloquear mapa',
@@ -543,6 +551,7 @@ const BASE_ROLE_META = Object.freeze({
       manage_system_settings: true,
       manage_roles_permissions: true,
       use_programmer_console: true,
+      view_exact_location_logs: true,
       lock_map: true,
       platform_full_access: true
     }
@@ -566,6 +575,7 @@ const BASE_ROLE_META = Object.freeze({
       manage_system_settings: true,
       manage_roles_permissions: true,
       use_programmer_console: true,
+      view_exact_location_logs: true,
       lock_map: true,
       platform_full_access: true
     }
@@ -589,6 +599,7 @@ const BASE_ROLE_META = Object.freeze({
       manage_system_settings: true,
       manage_roles_permissions: true,
       use_programmer_console: true,
+      view_exact_location_logs: true,
       lock_map: true,
       platform_full_access: true
     }
@@ -1059,6 +1070,7 @@ function canEmitMasterAlerts() { return hasPermission('emit_master_alerts'); }
 function canEditAdminCuadre() { return hasPermission('edit_admin_cuadre'); }
 function canViewAdminCuadre() { return hasPermission('view_admin_cuadre') || canEditAdminCuadre(); }
 function canUseProgrammerConfig() { return hasPermission('use_programmer_console'); }
+function canViewExactLocationLogs() { return hasPermission('view_exact_location_logs'); }
 function canLockMap() { return hasPermission('lock_map'); }
 function canInsertExternalUnits() { return hasPermission('insert_external_units') || _roleMeta().level >= (_roleMeta('GERENTE_PLAZA').level || 25); }
 function hasFullAccess() { return hasPermission('platform_full_access') || _roleMeta().fullAccess; }
@@ -1302,6 +1314,7 @@ const _adminAuditLocationState = {
 };
 let _gestionAdminBooted = false;
 let _cuadreFleetBooted = false;
+let _fleetInlineRouteBound = false;
 
 function _safeUpper(value) {
   return String(value || '').trim().toUpperCase();
@@ -1316,10 +1329,14 @@ function _qs(name) {
 }
 
 function _isGestionAdminMode() {
-  return _qs('admin') === '1';
+  return _qs('admin') === '1' || /^\/gestion(?:\.html)?$/i.test(window.location.pathname || '');
 }
 
 function _isCuadreFleetMode() {
+  return _qs('fleet') === '1' || /^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '');
+}
+
+function _isDedicatedCuadreIframeMode() {
   return _qs('fleet') === '1';
 }
 
@@ -1355,6 +1372,48 @@ function _navigateTop(url) {
     }
   } catch (_) {}
   window.location.href = url;
+}
+
+function _syncInlineFleetRoute(tab = 'NORMAL') {
+  if (_isDedicatedCuadreIframeMode() || !window.history?.pushState) return;
+  const targetUrl = _buildCuadreRouteUrl(String(tab || 'NORMAL').trim().toLowerCase() === 'admins' ? 'admins' : 'normal');
+  try {
+    if (/^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '')) {
+      window.history.replaceState({ mexInlineRoute: 'fleet', tab }, '', targetUrl);
+    } else {
+      window.history.pushState({ mexInlineRoute: 'fleet', tab }, '', targetUrl);
+    }
+  } catch (_) {}
+}
+
+function _restoreInlineFleetRoute() {
+  if (_isDedicatedCuadreIframeMode() || !window.history?.replaceState) return;
+  try {
+    window.history.replaceState({ mexInlineRoute: 'map' }, '', '/mapa');
+  } catch (_) {}
+}
+
+function _bindInlineFleetRouteState() {
+  if (_fleetInlineRouteBound) return;
+  _fleetInlineRouteBound = true;
+  window.addEventListener('popstate', () => {
+    if (_isDedicatedCuadreIframeMode()) return;
+    const modal = document.getElementById('fleet-modal');
+    if (!modal) return;
+    if (_isCuadreFleetMode()) {
+      if (!modal.classList.contains('active')) {
+        _openFleetModalInPlace(_cuadreInitialTab());
+      } else {
+        setTimeout(() => cambiarTabFlota(_cuadreInitialTab()), 0);
+      }
+      return;
+    }
+    if (modal.classList.contains('active')) {
+      modal.classList.remove('active');
+      sincronizarEstadoSidebars();
+      refrescarDatos();
+    }
+  });
 }
 
 function _updateGlobalPlazaEmail() {
@@ -1452,6 +1511,20 @@ async function _pushAdminLocationToDevice(exactLocation = null, locationStatus =
 }
 
 async function _captureAdminExactLocation(options = {}) {
+  if (typeof window.__mexGetExactLocationSnapshot === 'function') {
+    const snapshot = await window.__mexGetExactLocationSnapshot({
+      force: options.force === true,
+      maxAgeMs: ADMIN_LOCATION_CACHE_MS,
+      timeoutMs: 12000
+    });
+    _adminAuditLocationState.status = snapshot.status || 'pending';
+    _adminAuditLocationState.exactLocation = snapshot.exactLocation ? { ...snapshot.exactLocation } : null;
+    _adminAuditLocationState.lastUpdated = Number(snapshot.lastUpdated || Date.now());
+    _adminAuditLocationState.error = String(snapshot.error || '').trim();
+    await _pushAdminLocationToDevice(_adminAuditLocationState.exactLocation, _adminAuditLocationState.status);
+    return { ..._adminAuditLocationState };
+  }
+
   const force = options.force === true;
   const now = Date.now();
   if (!force && _adminAuditLocationState.lastUpdated && (now - _adminAuditLocationState.lastUpdated) < ADMIN_LOCATION_CACHE_MS) {
@@ -1629,6 +1702,14 @@ auth.onAuthStateChanged(async (user) => {
       window.location.replace('/login');
       return;
     }
+    if (typeof window.__mexRequireLocationAccess === 'function') {
+      await window.__mexRequireLocationAccess({
+        title: 'Ubicacion obligatoria para entrar',
+        copy: 'Activa tu ubicacion exacta para permitir auditoria de movimientos, cambios globales y eventos operativos dentro de la plataforma.',
+        allowLogout: true,
+        force: false
+      });
+    }
     // iniciarApp fuera del try/catch: errores de UI no deben redirigir a /login
     iniciarApp(true);
   } else {
@@ -1763,6 +1844,20 @@ function iniciarApp(esNuevoLogin = true) {
       openAlerts: () => abrirSiguienteAlerta()
     }
   });
+  if (typeof window.__mexGetLastLocationAuditPayload === 'function') {
+    syncCurrentDeviceContext(window.__mexGetLastLocationAuditPayload(), { force: true }).catch(() => {});
+    if (!window.__mexLocationSyncHandlerBound) {
+      window.addEventListener('mex-location-updated', event => {
+        const detail = event?.detail || {};
+        const payload = {
+          locationStatus: detail.status || 'pending'
+        };
+        if (detail.exactLocation) payload.exactLocation = { ...detail.exactLocation };
+        syncCurrentDeviceContext(payload, { force: true }).catch(() => {});
+      });
+      window.__mexLocationSyncHandlerBound = true;
+    }
+  }
   _iniciarPresenciaUsuario();
 
   // Cerramos sidebars
@@ -3582,7 +3677,10 @@ function ejecutarAutoGuardado() {
   _mapaSyncState.hasPendingWrite = false;
   _setMapSyncBadge('saving');
 
-  api.guardarNuevasPosiciones(reporte, USER_NAME, _miPlaza()).then((res) => {
+  const locationAuditPayload = typeof window.__mexGetLastLocationAuditPayload === 'function'
+    ? window.__mexGetLastLocationAuditPayload()
+    : {};
+  api.guardarNuevasPosiciones(reporte, USER_NAME, _miPlaza(), locationAuditPayload).then((res) => {
     isSaving = false;
 
     if (res === true) {
@@ -3789,9 +3887,12 @@ let window_IS_SWIPE_ACTIVE = false;
 let currentSwipeIndex = 0; // 🔥 NUEVA GLOBAL PARA RASTREAR EL CARRO ACTUAL
 let CACHE_IMAGENES_AUDIT = {};
 
-function abrirModalFlota() {
-  if (!_isCuadreFleetMode()) {
-    _navigateTop(_buildCuadreRouteUrl(VISTA_ACTUAL_FLOTA === 'ADMINS' ? 'admins' : 'normal'));
+function abrirModalFlota(initialTab) {
+  if (!_isDedicatedCuadreIframeMode()) {
+    _bindInlineFleetRouteState();
+    const requestedTab = String(initialTab || (VISTA_ACTUAL_FLOTA === 'ADMINS' ? 'ADMINS' : 'NORMAL')).trim().toUpperCase() === 'ADMINS' ? 'ADMINS' : 'NORMAL';
+    _syncInlineFleetRoute(requestedTab);
+    _openFleetModalInPlace(requestedTab);
     return;
   }
   _openFleetModalInPlace(_cuadreInitialTab());
@@ -3838,9 +3939,12 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
 
 function cerrarModalFlota() {
   document.getElementById('fleet-modal').classList.remove('active');
-  if (_isCuadreFleetMode()) {
+  if (_isDedicatedCuadreIframeMode()) {
     _navigateTop('/mapa');
     return;
+  }
+  if (/^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '')) {
+    _restoreInlineFleetRoute();
   }
   sincronizarEstadoSidebars();
   refrescarDatos();
@@ -4763,13 +4867,20 @@ function _umRenderCards() {
   container.innerHTML = list.map(u => {
     const badge = _umRoleBadge(u.rol);
     const active = u.id === _umSelectedId ? ' active' : '';
+    const plazaLabel = escapeHtml(u.plazaAsignada || 'Sin plaza');
     return `<div class="um-card${active}" onclick="umSeleccionar('${u.id}')">
           <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
           <div class="um-card-info">
-            <div class="um-card-name">${u.nombre}</div>
-            <div class="um-card-email">${u.email || '(usuario heredado)'}${u.plazaAsignada ? ` · <b>${u.plazaAsignada}</b>` : ''}</div>
+            <div class="um-card-head">
+              <div class="um-card-name">${u.nombre}</div>
+              <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
+            </div>
+            <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
+            <div class="um-card-meta">
+              <span><span class="material-icons">apartment</span>${plazaLabel}</span>
+              <span><span class="material-icons">shield</span>${badge.label}</span>
+            </div>
           </div>
-          <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
         </div>`;
   }).join('');
 }
@@ -4803,72 +4914,86 @@ function _umRenderEditForm(user) {
   const container = document.getElementById('um-form-container');
   container.style.display = 'block';
   container.innerHTML = `<div class="um-form-card">
-        <div class="um-form-avatar-row">
+        <div class="um-profile-hero">
           <div class="um-form-avatar" style="${_umAvatarStyle(user.nombre)}">${_umInitials(user.nombre)}</div>
-          <div style="flex:1;min-width:0;">
+          <div class="um-profile-hero-copy">
             <div class="um-form-title">${escapeHtml(user.nombre)}</div>
             <div class="um-form-subtitle">${escapeHtml(user.email || 'Usuario heredado')}</div>
+            <div class="um-profile-tags">
+              <span class="um-info-pill">${escapeHtml(roleBadge.label)}</span>
+              <span class="um-info-pill">${escapeHtml(user.plazaAsignada || 'Sin plaza')}</span>
+              <span class="um-info-pill success">${escapeHtml((user.status || 'ACTIVO').toUpperCase())}</span>
+            </div>
           </div>
         </div>
 
-        <div class="um-form-field">
-          <div class="um-field-label-row">
-            <label>Nombre completo</label>
-            ${lockBtn('um-edit-nombre')}
+        <div class="um-form-grid2">
+          <div class="um-info-panel">
+            <div class="um-form-section">Identidad</div>
+            <div class="um-form-field">
+              <div class="um-field-label-row">
+                <label>Nombre completo</label>
+                ${lockBtn('um-edit-nombre')}
+              </div>
+              <input type="text" id="um-edit-nombre" value="${escapeHtml(user.nombre)}" placeholder="Nombre completo" disabled>
+            </div>
+
+            <div class="um-form-field">
+              <label>Correo electrónico</label>
+              <input type="email" id="um-edit-email" value="${escapeHtml(user.email || '')}" disabled
+                title="Para cambiar el email usa Firebase Console">
+            </div>
+
+            <div class="um-form-field">
+              <div class="um-field-label-row">
+                <label>Teléfono (opcional)</label>
+                ${lockBtn('um-edit-telefono')}
+              </div>
+              <input type="tel" id="um-edit-telefono" value="${escapeHtml(user.telefono || '')}" placeholder="Ej. 6441234567" disabled>
+            </div>
           </div>
-          <input type="text" id="um-edit-nombre" value="${escapeHtml(user.nombre)}" placeholder="Nombre completo" disabled>
-        </div>
 
-        <div class="um-form-field">
-          <label>Correo electrónico</label>
-          <input type="email" id="um-edit-email" value="${escapeHtml(user.email || '')}" disabled
-            title="Para cambiar el email usa Firebase Console">
-        </div>
-
-        <div class="um-form-field">
-          <div class="um-field-label-row">
-            <label>Teléfono (opcional)</label>
-            ${lockBtn('um-edit-telefono')}
-          </div>
-          <input type="tel" id="um-edit-telefono" value="${escapeHtml(user.telefono || '')}" placeholder="Ej. 6441234567" disabled>
-        </div>
-
-        <div class="um-form-section" style="display:flex;align-items:center;justify-content:space-between;">
-          Rol y alcance
-          ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleRolSection()" title="Editar rol">
+          <div class="um-info-panel">
+            <div class="um-form-section" style="display:flex;align-items:center;justify-content:space-between;">
+              Rol y alcance
+              ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleRolSection()" title="Editar rol">
             <span class="material-icons" style="font-size:15px;">edit</span>
           </button>` : ''}
-        </div>
+            </div>
 
-        <div class="um-form-field">
-          <label>ROL</label>
-          <select id="um-edit-role" onchange="_syncRoleScope('um-edit')" disabled>
-            ${_roleOptionsHtml(user.rol)}
-          </select>
-        </div>
+            <div class="um-form-field">
+              <label>Rol</label>
+              <select id="um-edit-role" onchange="_syncRoleScope('um-edit')" disabled>
+                ${_roleOptionsHtml(user.rol)}
+              </select>
+            </div>
 
-        <div class="um-form-field" id="um-edit-plaza-row" style="${_roleNeedsPlaza(user.rol) ? '' : 'display:none;'}">
-          <div class="um-field-label-row">
-            <label>Plaza base ${_roleNeedsPlaza(user.rol) && !_roleNeedsMultiplePlazas(user.rol) ? '' : ''}</label>
-            ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleField('um-edit-plaza')" title="Cambiar plaza">
+            <div class="um-form-field" id="um-edit-plaza-row" style="${_roleNeedsPlaza(user.rol) ? '' : 'display:none;'}">
+              <div class="um-field-label-row">
+                <label>Plaza base</label>
+                ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleField('um-edit-plaza')" title="Cambiar plaza">
               <span class="material-icons" style="font-size:15px;">edit</span>
             </button>` : ''}
+              </div>
+              ${_plazaSelectHtml('um-edit-plaza', user.plazaAsignada || '', 'disabled')}
+            </div>
+
+            <div class="um-form-field" id="um-edit-plazas-multi-row" style="${_roleNeedsMultiplePlazas(user.rol) ? '' : 'display:none;'}">
+              <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
+              ${_plazasMultiHtml('um-edit-plazas-permitidas', user.plazasPermitidas || [])}
+            </div>
           </div>
-          ${_plazaSelectHtml('um-edit-plaza', user.plazaAsignada || '', 'disabled')}
         </div>
 
-        <div class="um-form-field" id="um-edit-plazas-multi-row" style="${_roleNeedsMultiplePlazas(user.rol) ? '' : 'display:none;'}">
-          <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
-          ${_plazasMultiHtml('um-edit-plazas-permitidas', user.plazasPermitidas || [])}
-        </div>
-
-        <div class="um-form-section">Permisos individuales</div>
-        <div class="um-form-field">
-          <label>Overrides del usuario</label>
-          <div style="font-size:11px;color:#64748b;font-weight:700;margin-bottom:8px;">
-            ${_permissionSummaryText(user.permissionOverrides || {})}. Usa esto para bloquear o conceder permisos específicos sin cambiar el rol.
+        <div class="um-info-panel">
+          <div class="um-form-section">Permisos individuales</div>
+          <div class="um-form-field">
+            <label>Overrides del usuario</label>
+            <div class="um-permission-intro">
+              ${_permissionSummaryText(user.permissionOverrides || {})}. Usa esto para bloquear o conceder permisos específicos sin cambiar el rol.
+            </div>
+            ${_permissionOverridesEditorHtml('um-edit-permission-overrides', user.permissionOverrides || {}, !canEdit)}
           </div>
-          ${_permissionOverridesEditorHtml('um-edit-permission-overrides', user.permissionOverrides || {}, !canEdit)}
         </div>
 
         ${roleLockedMsg}
@@ -5203,7 +5328,7 @@ function abrirLogs() {
   document.getElementById('logs-modal').classList.add('active');
 
   const tbody = document.getElementById('logs-table-body');
-  tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Extrayendo historial de la base de datos...</td></tr>`;
+  tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Extrayendo historial de la base de datos...</td></tr>`;
   document.getElementById('logsContador').textContent = '';
 
   api.obtenerHistorialLogs().then(logs => {
@@ -5219,7 +5344,7 @@ function abrirLogs() {
   }).catch(e => {
     console.error(e);
     document.getElementById('logs-table-body').innerHTML =
-      `<tr><td colspan="5" style="text-align:center;padding:20px;color:#ef4444;font-weight:800;">Error al cargar el historial.</td></tr>`;
+      `<tr><td colspan="6" style="text-align:center;padding:20px;color:#ef4444;font-weight:800;">Error al cargar el historial.</td></tr>`;
   });
 }
 
@@ -5257,7 +5382,7 @@ function _renderLogsTabla() {
     `${filtered.length} de ${_logsData.length} registros`;
 
   if (!filtered.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:30px; color:#64748b; font-weight:800;">
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#64748b; font-weight:800;">
       No hay registros que coincidan con los filtros.</td></tr>`;
     return;
   }
@@ -5268,6 +5393,7 @@ function _renderLogsTabla() {
       <td><span class="badge ${l.tipo === 'MOVE' ? 'st-MOVE' : (l.tipo === 'SWAP' ? 'st-SWAP' : 'st-DELETE')}">${l.tipo}</span></td>
       <td style="font-weight:900; color:var(--mex-blue); font-size:14px;">${l.mva}</td>
       <td style="font-size:12px; font-weight:700;">${l.detalles}</td>
+      <td style="font-size:11px; font-weight:800;">${_logExactLocationHtml(l)}</td>
       <td style="font-size:11px; font-weight:800;">${l.usuario}</td>
     </tr>
   `).join('');
@@ -9115,6 +9241,44 @@ function aplicarFiltrosLogs(reiniciarPagina = false) {
   renderizarLogsAuditoria();
 }
 
+function _resolveLogExactLocation(log = {}) {
+  const exactLocation = log.exactLocation || {};
+  const latitude = Number(exactLocation.latitude ?? log.latitude ?? log.geoLatitude);
+  const longitude = Number(exactLocation.longitude ?? log.longitude ?? log.geoLongitude);
+  const accuracy = Number(exactLocation.accuracy ?? log.accuracy ?? log.geoAccuracy);
+  const mapsUrl = String(exactLocation.googleMapsUrl || log.googleMapsUrl || '').trim();
+  const status = String(log.locationStatus || exactLocation.status || '').trim().toLowerCase();
+  return { latitude, longitude, accuracy, mapsUrl, status };
+}
+
+function _logExactLocationHtml(log = {}, compact = false) {
+  if (!canViewExactLocationLogs()) {
+    return compact
+      ? '<span style="color:#94a3b8;font-weight:800;">Ubicación protegida</span>'
+      : '<span style="display:inline-flex;align-items:center;gap:6px;color:#94a3b8;font-weight:800;"><span class="material-icons" style="font-size:14px;">lock</span>Ubicación protegida</span>';
+  }
+
+  const { latitude, longitude, accuracy, mapsUrl, status } = _resolveLogExactLocation(log);
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    const label = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}${Number.isFinite(accuracy) ? ` · ±${Math.round(accuracy)}m` : ''}`;
+    const href = mapsUrl || `https://maps.google.com/?q=${latitude},${longitude}`;
+    return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-weight:900;text-decoration:none;">
+      <span class="material-icons" style="font-size:15px;">map</span>${escapeHtml(label)}
+    </a>`;
+  }
+
+  if (mapsUrl) {
+    return `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-weight:900;text-decoration:none;">
+      <span class="material-icons" style="font-size:15px;">map</span> Abrir Google Maps
+    </a>`;
+  }
+
+  if (status === 'denied') return '<span style="color:#b45309;font-weight:800;">Permiso denegado</span>';
+  if (status === 'unsupported') return '<span style="color:#64748b;font-weight:800;">Sin soporte</span>';
+  if (status === 'error') return '<span style="color:#dc2626;font-weight:800;">Error de ubicación</span>';
+  return '<span style="color:#94a3b8;font-weight:800;">Sin ubicación exacta</span>';
+}
+
 function _visualLogAuditoria(log) {
   const tipo = String(log.tipo || '').toUpperCase();
 
@@ -9159,9 +9323,10 @@ function renderizarLogsAuditoria() {
       log.resultado ? `Resultado: ${escapeHtml(log.resultado)}` : '',
       log.detalles ? escapeHtml(log.detalles) : ''
     ].filter(Boolean);
+    const locationHtml = _logExactLocationHtml(log, true);
     const extraHtml = detalles.length
-      ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #dbe4ee; color:#64748b; font-size:11px; line-height:1.5;">${detalles.join(' · ')}</div>`
-      : '';
+      ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #dbe4ee; color:#64748b; font-size:11px; line-height:1.5;">${detalles.join(' · ')}${locationHtml ? ` · ${locationHtml}` : ''}</div>`
+      : (locationHtml ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #dbe4ee; color:#64748b; font-size:11px; line-height:1.5;">${locationHtml}</div>` : '');
 
     return `
       <div class="log-card" style="animation-delay: ${index * 0.03}s">

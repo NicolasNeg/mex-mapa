@@ -22,15 +22,15 @@ const PROGRAMMER_ROLES = new Set(["PROGRAMADOR", "JEFE_OPERACION", "CORPORATIVO_
 const ADMIN_ROLES = new Set(["VENTAS", "SUPERVISOR", "JEFE_PATIO", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "PROGRAMADOR", "JEFE_OPERACION"]);
 const BOOTSTRAP_PROGRAMMER_EMAILS = new Set(["angelarmentta@icloud.com"]);
 const DEFAULT_ROLE_CAPABILITIES = Object.freeze({
-  AUXILIAR: { use_programmer_console: false, operational_admin: false },
-  VENTAS: { use_programmer_console: false, operational_admin: true },
-  SUPERVISOR: { use_programmer_console: false, operational_admin: true },
-  JEFE_PATIO: { use_programmer_console: false, operational_admin: true },
-  GERENTE_PLAZA: { use_programmer_console: false, operational_admin: true },
-  JEFE_REGIONAL: { use_programmer_console: false, operational_admin: true },
-  CORPORATIVO_USER: { use_programmer_console: true, operational_admin: true },
-  PROGRAMADOR: { use_programmer_console: true, operational_admin: true },
-  JEFE_OPERACION: { use_programmer_console: true, operational_admin: true }
+  AUXILIAR: { use_programmer_console: false, operational_admin: false, view_exact_location_logs: false },
+  VENTAS: { use_programmer_console: false, operational_admin: true, view_exact_location_logs: false },
+  SUPERVISOR: { use_programmer_console: false, operational_admin: true, view_exact_location_logs: false },
+  JEFE_PATIO: { use_programmer_console: false, operational_admin: true, view_exact_location_logs: false },
+  GERENTE_PLAZA: { use_programmer_console: false, operational_admin: true, view_exact_location_logs: false },
+  JEFE_REGIONAL: { use_programmer_console: false, operational_admin: true, view_exact_location_logs: false },
+  CORPORATIVO_USER: { use_programmer_console: true, operational_admin: true, view_exact_location_logs: true },
+  PROGRAMADOR: { use_programmer_console: true, operational_admin: true, view_exact_location_logs: true },
+  JEFE_OPERACION: { use_programmer_console: true, operational_admin: true, view_exact_location_logs: true }
 });
 const DEVICE_PREF_DEFAULTS = Object.freeze({
   muteAll: false,
@@ -349,7 +349,12 @@ function roleCapabilities(role, security = {}) {
       ? true
       : (typeof configuredPermissions.view_admin_cuadre === "boolean"
         ? configuredPermissions.view_admin_cuadre
-        : fallback.operational_admin)
+        : fallback.operational_admin),
+    view_exact_location_logs: configured?.fullAccess === true
+      ? true
+      : (typeof configuredPermissions.view_exact_location_logs === "boolean"
+        ? configuredPermissions.view_exact_location_logs
+        : fallback.view_exact_location_logs)
   };
 }
 
@@ -368,6 +373,10 @@ function canUseProgrammerConsole(role, security = {}, profileData = {}) {
 function isOperationalAdmin(role, security = {}, profileData = {}) {
   if (ADMIN_ROLES.has(normalizeUpper(role))) return true;
   return profileHasPermission(profileData, role, "operational_admin", security);
+}
+
+function canViewExactLocationLogs(role, security = {}, profileData = {}) {
+  return profileHasPermission(profileData, role, "view_exact_location_logs", security);
 }
 
 function defaultSettingsPayload() {
@@ -874,6 +883,10 @@ function buildPatioEvent(data = {}, sourceId) {
     timestamp: timestampToMillis(data.timestamp) || nowMillis(),
     plaza: normalizePlaza(data.plaza),
     actorName: normalizeString(data.autor || "Sistema"),
+    locationStatus: normalizeLocationStatus(data.locationStatus || ""),
+    exactLocation: normalizeExactLocation(data.exactLocation || {}),
+    ipAddress: normalizeString(data.ipAddress || ""),
+    forwardedFor: normalizeString(data.forwardedFor || ""),
     unit: {
       mva: normalizeUpper(data.mva),
       from: normalizeUpper(data.posAnterior),
@@ -882,6 +895,17 @@ function buildPatioEvent(data = {}, sourceId) {
     },
     summary: `${normalizeUpper(data.mva)} ${normalizeUpper(data.posAnterior)} -> ${normalizeUpper(data.posNueva)}`
   };
+}
+
+function stripSensitiveLocationData(value) {
+  if (Array.isArray(value)) return value.map(stripSensitiveLocationData);
+  if (!value || typeof value !== "object") return value;
+  const next = {};
+  Object.entries(value).forEach(([key, entryValue]) => {
+    if (["exactLocation", "googleMapsUrl", "ipAddress", "forwardedFor"].includes(key)) return;
+    next[key] = stripSensitiveLocationData(entryValue);
+  });
+  return next;
 }
 
 function safeParseArray(rawValue) {
@@ -1420,7 +1444,9 @@ exports.queryProgrammerConsole = functions.region(REGION).https.onCall(async (da
   const queryName = normalizeString(data?.query || "overview");
   try {
     const actor = await requireProgrammerAuth(context);
-    const payload = await runNamedQuery(queryName, data || {});
+    const canViewLocation = canViewExactLocationLogs(actor.role, actor.security, actor.data || {});
+    const payloadRaw = await runNamedQuery(queryName, data || {});
+    const payload = canViewLocation ? payloadRaw : stripSensitiveLocationData(payloadRaw);
     await recordProgrammerAudit({
       actor: normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
       actorRole: actor.role,

@@ -39,7 +39,7 @@ const state = {
   testBody: ''
 };
 
-const BUILD_TAG = 'mapa-v72';
+const BUILD_TAG = 'mapa-v73';
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -262,9 +262,9 @@ async function loadProgrammerConfig() {
           JEFE_PATIO: { label: 'JEFE DE PATIO', level: 25, permissions: { view_admin_cuadre: true, edit_admin_cuadre: true } },
           GERENTE_PLAZA: { label: 'GERENTE DE PLAZA', level: 25, permissions: { view_admin_cuadre: true, edit_admin_cuadre: true } },
           JEFE_REGIONAL: { label: 'JEFE REGIONAL', level: 30, permissions: { view_admin_cuadre: true, edit_admin_cuadre: true } },
-          CORPORATIVO_USER: { label: 'CORPORATIVO USER', level: 40, fullAccess: true, permissions: { use_programmer_console: true } },
-          PROGRAMADOR: { label: 'PROGRAMADOR', level: 50, fullAccess: true, permissions: { use_programmer_console: true } },
-          JEFE_OPERACION: { label: 'JEFE DE OPERACION', level: 60, fullAccess: true, permissions: { use_programmer_console: true } }
+          CORPORATIVO_USER: { label: 'CORPORATIVO USER', level: 40, fullAccess: true, permissions: { use_programmer_console: true, view_exact_location_logs: true } },
+          PROGRAMADOR: { label: 'PROGRAMADOR', level: 50, fullAccess: true, permissions: { use_programmer_console: true, view_exact_location_logs: true } },
+          JEFE_OPERACION: { label: 'JEFE DE OPERACION', level: 60, fullAccess: true, permissions: { use_programmer_console: true, view_exact_location_logs: true } }
         },
         permissionsCatalog: {}
       };
@@ -353,10 +353,26 @@ function renderShell() {
   ];
   root.innerHTML = `
     <div class="programmer-page-topbar">
-      <div>
-        <div class="programmer-console-kicker">Ruta dedicada</div>
-        <h1>Consola de programador</h1>
-        <p>Operación global, notificaciones reales, queries seguras, auditoría y mantenimiento de la plataforma.</p>
+      <div class="programmer-page-topbar-main">
+        <div>
+          <div class="programmer-console-kicker">Ruta dedicada</div>
+          <h1>Consola de programador</h1>
+          <p>Operación global, notificaciones reales, queries seguras, auditoría, seguridad y mantenimiento fino de la plataforma.</p>
+        </div>
+        <div class="programmer-hero-stats">
+          <article class="programmer-hero-stat">
+            <span>Usuarios</span>
+            <strong>${escapeHtml(String(state.overview?.usersCount || state.usersRows?.length || 0))}</strong>
+          </article>
+          <article class="programmer-hero-stat">
+            <span>Dispositivos</span>
+            <strong>${escapeHtml(String(state.devicesRows?.length || 0))}</strong>
+          </article>
+          <article class="programmer-hero-stat">
+            <span>Ruta activa</span>
+            <strong>${escapeHtml((state.tab || 'resumen').toUpperCase())}</strong>
+          </article>
+        </div>
       </div>
       <div class="programmer-page-top-actions">
         <button type="button" class="programmer-page-btn" onclick="window.location.href='/mapa'">
@@ -460,13 +476,23 @@ function rowsToTable(rows = [], options = {}) {
         <tbody>
           ${rows.map(row => `
             <tr>
-              ${keys.map(key => `<td>${escapeHtml(typeof row[key] === 'object' ? JSON.stringify(row[key]) : String(row[key] ?? ''))}</td>`).join('')}
+              ${keys.map(key => {
+                const value = row[key];
+                if (value && typeof value === 'object' && typeof value.__html === 'string') {
+                  return `<td>${value.__html}</td>`;
+                }
+                return `<td>${escapeHtml(typeof value === 'object' ? JSON.stringify(value) : String(value ?? ''))}</td>`;
+              }).join('')}
             </tr>
           `).join('')}
         </tbody>
       </table>
     </div>
   `;
+}
+
+function htmlCell(html = '') {
+  return { __html: html };
 }
 
 function renderQueryResultsHtml() {
@@ -502,18 +528,76 @@ function renderNotificationsFeed(rows = []) {
   `;
 }
 
+function devicePermissionHtml(row = {}) {
+  const label = friendlyDevicePermission(row);
+  const permission = lower(row.permission);
+  const css = permission === 'granted'
+    ? 'programmer-soft-pill ok'
+    : (permission === 'denied'
+      ? 'programmer-soft-pill danger'
+      : (permission === 'unsupported' ? 'programmer-soft-pill muted' : 'programmer-soft-pill warn'));
+  return htmlCell(`<span class="${css}">${escapeHtml(label)}</span>`);
+}
+
+function deviceUserHtml(row = {}) {
+  return htmlCell(`
+    <div class="programmer-cell-user">
+      <strong>${escapeHtml(safe(row.userName) || 'Sin usuario')}</strong>
+      <span>${escapeHtml(safe(row.userEmail || row.userDocId) || 'Sin correo')}</span>
+    </div>
+  `);
+}
+
+function deviceGeoHtml(row = {}) {
+  const exactLocation = row.exactLocation || {};
+  const latitude = Number(
+    exactLocation.latitude
+    ?? exactLocation.lat
+    ?? row.geoLatitude
+    ?? row.geoLat
+    ?? row.approxLocation?.latitude
+    ?? row.geo?.latitude
+  );
+  const longitude = Number(
+    exactLocation.longitude
+    ?? exactLocation.lng
+    ?? row.geoLongitude
+    ?? row.geoLng
+    ?? row.approxLocation?.longitude
+    ?? row.geo?.longitude
+  );
+  const accuracy = Number(
+    exactLocation.accuracy
+    ?? row.geoAccuracy
+    ?? row.approxLocation?.accuracy
+  );
+  const mapsUrl = safe(exactLocation.googleMapsUrl || row.googleMapsUrl || '');
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    const href = mapsUrl || `https://maps.google.com/?q=${latitude},${longitude}`;
+    return htmlCell(`
+      <div class="programmer-cell-geo">
+        <a class="programmer-geo-link" href="${escapeHtml(href)}" target="_blank" rel="noopener">
+          <span class="material-icons">location_on</span>
+          <span>${escapeHtml(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`)}</span>
+        </a>
+        <small>${Number.isFinite(accuracy) ? `±${Math.round(accuracy)}m` : 'Ubicación exacta'}</small>
+      </div>
+    `);
+  }
+  return htmlCell(`<span class="programmer-soft-pill muted">${escapeHtml(friendlyDeviceGeo(row))}</span>`);
+}
+
 function renderDevicesTableHtml(rows = []) {
   const mappedRows = rows.map(row => ({
-    usuario: safe(row.userName) || 'Sin usuario',
-    correo: safe(row.userEmail || row.userDocId) || 'Sin correo',
+    usuario: deviceUserHtml(row),
     rol: safe(row.userRole) || 'Sin rol',
     equipo: friendlyDeviceType(row),
     navegador: friendlyDeviceBrowser(row),
-    permiso: friendlyDevicePermission(row),
+    permiso: devicePermissionHtml(row),
     push: row.pushEnabled === false ? 'Pausado' : 'Listo',
     plaza: safe(row.plaza) || 'GLOBAL',
     ip: friendlyDeviceIp(row),
-    ubicacion: friendlyDeviceGeo(row),
+    ubicacion: deviceGeoHtml(row),
     ruta: safe(row.activeRoute) || '/mapa',
     ultimaActividad: dbDocDateLabel(row.updatedAt || row.lastSeenAt)
   }));
@@ -881,11 +965,28 @@ function renderErroresTab() {
 function renderDispositivosTab() {
   const container = document.getElementById('programmerTabContent');
   if (!container) return;
+  const activeDevices = state.devicesRows.filter(row => lower(row.permission) === 'granted').length;
+  const locatedDevices = state.devicesRows.filter(row => row.exactLocation?.latitude && row.exactLocation?.longitude).length;
+  const blockedDevices = state.devicesRows.filter(row => lower(row.permission) === 'denied').length;
   container.innerHTML = `
     <section class="programmer-section">
       <div class="programmer-section-head">
         <h3>Dispositivos y permisos</h3>
         <span>Diagnóstico rápido de tokens, foco y mute</span>
+      </div>
+      <div class="programmer-three-col">
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">devices</span></div>
+          <div><span>Registrados</span><strong>${escapeHtml(String(state.devicesRows.length || 0))}</strong></div>
+        </article>
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">my_location</span></div>
+          <div><span>Con ubicación</span><strong>${escapeHtml(String(locatedDevices))}</strong></div>
+        </article>
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">shield</span></div>
+          <div><span>Bloqueados / activos</span><strong>${escapeHtml(`${blockedDevices} / ${activeDevices}`)}</strong></div>
+        </article>
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
@@ -1454,6 +1555,14 @@ auth.onAuthStateChanged(async user => {
     if (!state.profile || !isAllowed()) {
       window.location.replace('/mapa');
       return;
+    }
+    if (typeof window.__mexRequireLocationAccess === 'function') {
+      await window.__mexRequireLocationAccess({
+        title: 'Ubicacion obligatoria para la consola',
+        copy: 'La consola avanzada solo se abre con ubicación exacta activa para reforzar auditoría, seguridad y rastreo operativo.',
+        allowLogout: true,
+        force: false
+      });
     }
     state.plaza = state.profile.plazaAsignada || '';
     configureNotifications({

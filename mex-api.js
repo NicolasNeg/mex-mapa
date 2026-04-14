@@ -979,17 +979,34 @@ async function _ensureGlobalSettingsDoc() {
   await _setSettings(defaults, 'GLOBAL');
   return defaults;
 }
-async function _registrarLog(tipo, mensaje, autor, plaza) {
+
+function _windowLocationAuditExtra(extra = {}) {
+  const base = (typeof window !== 'undefined' && typeof window.__mexGetLastLocationAuditPayload === 'function')
+    ? (window.__mexGetLastLocationAuditPayload() || {})
+    : {};
+  const incoming = extra && typeof extra === 'object' ? extra : {};
+  return _sanearEventoGestionExtra({
+    ...base,
+    ...incoming
+  });
+}
+
+async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   const ts = _ts();
   const id = `log_${ts}_${Math.floor(Math.random() * 1000)}`;
   const payload = { fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: autor || "Sistema" };
   if (plaza) payload.plaza = (plaza || '').toUpperCase().trim(); // [F1] campo plaza en logs
+  const auditExtra = _windowLocationAuditExtra(extra);
+  if (auditExtra.locationStatus) payload.locationStatus = auditExtra.locationStatus;
+  if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
+  if (auditExtra.ipAddress) payload.ipAddress = auditExtra.ipAddress;
+  if (auditExtra.forwardedFor) payload.forwardedFor = auditExtra.forwardedFor;
   await db.collection(COL.LOGS).doc(id).set(payload);
 }
 async function _registrarEventoGestion(tipo, mensaje, autor, extra = {}) {
   const ts = _ts();
   const id = `gest_${ts}_${Math.floor(Math.random() * 1000)}`;
-  const extraSanitizado = _sanearEventoGestionExtra(extra);
+  const extraSanitizado = _windowLocationAuditExtra(extra);
   await db.collection(COL.ADMIN_AUDIT).doc(id).set({
     fecha: _now(),
     timestamp: ts,
@@ -1409,7 +1426,7 @@ const API_FUNCTIONS = {
     return "EXITO";
   },
 
-  async guardarNuevasPosiciones(reporte, usuarioResponsable, plaza) {
+  async guardarNuevasPosiciones(reporte, usuarioResponsable, plaza, extra = {}) {
     const plazaUp = _normalizePlazaId(plaza);
     const batch = db.batch();
     const histBatch = [];
@@ -1468,6 +1485,7 @@ const API_FUNCTIONS = {
       pairKeys.set(reverseKey, (pairKeys.get(reverseKey) || 0) + 0);
     });
 
+    const auditExtra = _windowLocationAuditExtra(extra);
     const historialWrites = histBatch.map((h, i) => {
       const ts = _ts();
       const origen = String(h.posAnterior || '').toUpperCase();
@@ -1475,7 +1493,7 @@ const API_FUNCTIONS = {
       const isLimboMove = destino === 'LIMBO';
       const isSwap = !isLimboMove && pairKeys.has(`${destino}->${origen}`);
       const tipo = isLimboMove ? 'DEL' : (isSwap ? 'SWAP' : 'MOVE');
-      return db.collection("historial_patio").doc(`${tipo.toLowerCase()}_${i}_${ts}`).set({
+      const payload = {
         timestamp: ts,
         fecha: _now(),
         tipo,
@@ -1485,7 +1503,12 @@ const API_FUNCTIONS = {
         posNueva: h.posNueva,
         autor: usuarioResponsable || "Sistema",
         plaza: plazaUp || ""
-      });
+      };
+      if (auditExtra.locationStatus) payload.locationStatus = auditExtra.locationStatus;
+      if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
+      if (auditExtra.ipAddress) payload.ipAddress = auditExtra.ipAddress;
+      if (auditExtra.forwardedFor) payload.forwardedFor = auditExtra.forwardedFor;
+      return db.collection("historial_patio").doc(`${tipo.toLowerCase()}_${i}_${ts}`).set(payload);
     });
 
     Promise.allSettled(historialWrites).then(results => {
@@ -2009,7 +2032,12 @@ const API_FUNCTIONS = {
         estado:    data.posNueva || "",
         autor:     data.autor || "",
         usuario:   data.autor || "",
-        timestamp: data.timestamp || 0
+        timestamp: data.timestamp || 0,
+        locationStatus: data.locationStatus || '',
+        exactLocation: data.exactLocation || null,
+        googleMapsUrl: data.exactLocation?.googleMapsUrl || '',
+        ipAddress: data.ipAddress || '',
+        forwardedFor: data.forwardedFor || ''
       };
     });
   },
@@ -2033,7 +2061,12 @@ const API_FUNCTIONS = {
         ubicacion: ubiMatch ? ubiMatch[1] : "",
         estado:   estadoMatch ? estadoMatch[1] : (data.tipo || ""),
         autor:    data.autor || "",
-        usuario:  data.autor || ""
+        usuario:  data.autor || "",
+        locationStatus: data.locationStatus || '',
+        exactLocation: data.exactLocation || null,
+        googleMapsUrl: data.exactLocation?.googleMapsUrl || '',
+        ipAddress: data.ipAddress || '',
+        forwardedFor: data.forwardedFor || ''
       };
     });
   },
@@ -2055,7 +2088,12 @@ const API_FUNCTIONS = {
         objetivo: data.objetivo || "",
         rolObjetivo: data.rolObjetivo || "",
         plazaObjetivo: data.plazaObjetivo || "",
-        resultado: data.resultado || ""
+        resultado: data.resultado || "",
+        locationStatus: data.locationStatus || '',
+        exactLocation: data.exactLocation || null,
+        googleMapsUrl: data.exactLocation?.googleMapsUrl || '',
+        ipAddress: data.ipAddress || '',
+        forwardedFor: data.forwardedFor || ''
       };
     });
   },
