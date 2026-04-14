@@ -13,6 +13,14 @@ function buildFleetFrameUrl() {
   return `/mapa?${params.toString()}`;
 }
 
+function routeIsWarm() {
+  try {
+    return sessionStorage.getItem('mex.bootstrap.warm.v1') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
 function markFrameReady() {
   const loader = document.getElementById('cuadreRouteLoader');
   if (loader) loader.classList.add('ready');
@@ -35,6 +43,7 @@ auth.onAuthStateChanged(async (user) => {
 
   const frame = document.getElementById('cuadreRouteFrame');
   if (!frame) return;
+  if (routeIsWarm()) markFrameReady();
   frame.addEventListener('load', markFrameReady, { once: true });
   frame.src = buildFleetFrameUrl();
 });

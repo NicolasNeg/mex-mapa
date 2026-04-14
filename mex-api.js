@@ -497,6 +497,9 @@ function _sanearEventoGestionExtra(extra = {}) {
   const lng = Number(extra?.exactLocation?.longitude);
   const acc = Number(extra?.exactLocation?.accuracy);
   const capturedAt = Number(extra?.exactLocation?.capturedAt);
+  const city = _sanitizeText(extra?.exactLocation?.city || "");
+  const state = _sanitizeText(extra?.exactLocation?.state || "");
+  const addressLabel = _sanitizeText(extra?.exactLocation?.addressLabel || [city, state].filter(Boolean).join(", "));
   return {
     entidad: _sanitizeText(extra.entidad),
     referencia: _sanitizeText(extra.referencia),
@@ -514,6 +517,9 @@ function _sanearEventoGestionExtra(extra = {}) {
       accuracy: Number.isFinite(acc) ? acc : null,
       capturedAt: Number.isFinite(capturedAt) ? capturedAt : Date.now(),
       source: _sanitizeText(extra?.exactLocation?.source || 'browser'),
+      city,
+      state,
+      addressLabel,
       googleMapsUrl: _sanitizeText(extra?.exactLocation?.googleMapsUrl || `https://maps.google.com/?q=${lat},${lng}`)
     } : null
   };

@@ -39,7 +39,7 @@ const state = {
   testBody: ''
 };
 
-const BUILD_TAG = 'mapa-v73';
+const BUILD_TAG = 'mapa-v74';
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -159,6 +159,9 @@ function friendlyDeviceIp(row = {}) {
 
 function friendlyDeviceGeo(row = {}) {
   const exactLocation = row.exactLocation || {};
+  const city = safe(exactLocation.city || row.city || '');
+  const state = safe(exactLocation.state || row.state || '');
+  const addressLabel = safe(exactLocation.addressLabel || row.addressLabel || [city, state].filter(Boolean).join(', '));
   const latitude = Number(
     exactLocation.latitude
     ?? exactLocation.lat
@@ -181,18 +184,14 @@ function friendlyDeviceGeo(row = {}) {
     ?? row.approxLocation?.accuracy
   );
   if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}${Number.isFinite(accuracy) ? ` · ±${Math.round(accuracy)}m` : ''}`;
+    return addressLabel || 'Ubicación disponible';
   }
   const status = lower(row.locationStatus);
   if (status === 'denied') return 'Permiso denegado';
   if (status === 'unsupported') return 'Sin soporte';
   if (status === 'pending') return 'Pendiente';
   if (status === 'error') return 'Error al leer ubicacion';
-  const mapsUrl = safe(exactLocation.googleMapsUrl || row.googleMapsUrl || '');
-  if (mapsUrl) {
-    return mapsUrl;
-  }
-  return safe(row.locationLabel || row.allowedPlaceLabel || row.locationName || '') || 'Pendiente';
+  return addressLabel || safe(row.locationLabel || row.allowedPlaceLabel || row.locationName || '') || 'Pendiente';
 }
 
 function notificationKindLabel(row = {}) {
@@ -550,6 +549,9 @@ function deviceUserHtml(row = {}) {
 
 function deviceGeoHtml(row = {}) {
   const exactLocation = row.exactLocation || {};
+  const city = safe(exactLocation.city || row.city || '');
+  const state = safe(exactLocation.state || row.state || '');
+  const addressLabel = safe(exactLocation.addressLabel || row.addressLabel || [city, state].filter(Boolean).join(', ')) || 'Ubicación disponible';
   const latitude = Number(
     exactLocation.latitude
     ?? exactLocation.lat
@@ -576,11 +578,11 @@ function deviceGeoHtml(row = {}) {
     const href = mapsUrl || `https://maps.google.com/?q=${latitude},${longitude}`;
     return htmlCell(`
       <div class="programmer-cell-geo">
-        <a class="programmer-geo-link" href="${escapeHtml(href)}" target="_blank" rel="noopener">
-          <span class="material-icons">location_on</span>
-          <span>${escapeHtml(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`)}</span>
+        <span class="programmer-geo-label">${escapeHtml(addressLabel)}</span>
+        <a class="programmer-geo-link programmer-geo-link-btn" href="${escapeHtml(href)}" target="_blank" rel="noopener">
+          <span class="material-icons">map</span>
+          <span>Ver ubi</span>
         </a>
-        <small>${Number.isFinite(accuracy) ? `±${Math.round(accuracy)}m` : 'Ubicación exacta'}</small>
       </div>
     `);
   }

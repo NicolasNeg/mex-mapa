@@ -5,6 +5,9 @@
 
   const root = window;
   const DEFAULT_COMPANY_NAME = 'EMPRESA';
+  const SESSION_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.v1';
+  const SESSION_BOOTSTRAP_WARM_KEY = 'mex.bootstrap.warm.v1';
+  const SESSION_REVERSE_GEOCODE_KEY = 'mex.location.reverse.v1';
   const DEFAULT_LISTS = {
     ubicaciones: [],
     estados: [],
@@ -29,6 +32,58 @@
 
   function safeText(value) {
     return String(value || '').trim();
+  }
+
+  function safeJsonParse(raw, fallback = null) {
+    try {
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function readSessionItem(key, fallback = null) {
+    try {
+      return safeJsonParse(sessionStorage.getItem(key), fallback);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function writeSessionItem(key, value) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function markBootstrapWarm() {
+    try {
+      sessionStorage.setItem(SESSION_BOOTSTRAP_WARM_KEY, '1');
+    } catch (_) {}
+  }
+
+  function clearBootstrapWarm() {
+    try {
+      sessionStorage.removeItem(SESSION_BOOTSTRAP_WARM_KEY);
+      sessionStorage.removeItem(SESSION_BOOTSTRAP_CONFIG_KEY);
+    } catch (_) {}
+  }
+
+  function readCachedBaseConfig() {
+    const cached = readSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, null);
+    if (!cached || typeof cached !== 'object') return null;
+    return normalizeConfig(cached);
+  }
+
+  function persistCachedBaseConfig(config = {}) {
+    const normalized = normalizeConfig(config);
+    if (writeSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, normalized)) {
+      markBootstrapWarm();
+    }
+    return normalized;
   }
 
   function upperText(value) {
@@ -182,6 +237,88 @@
     return `https://maps.google.com/?q=${lat},${lng}`;
   }
 
+  function buildLocationLabel(place = {}) {
+    const city = safeText(place.city || place.town || place.village || place.hamlet || place.county || place.locality);
+    const state = safeText(place.state || place.region || place.province || place.principalSubdivision);
+    const country = safeText(place.country || place.countryName);
+    const addressLabel = [city, state].filter(Boolean).join(', ');
+    return {
+      city,
+      state,
+      country,
+      addressLabel: addressLabel || [state, country].filter(Boolean).join(', ')
+    };
+  }
+
+  function reverseGeoCacheKey(exactLocation = null) {
+    const lat = Number(exactLocation?.latitude);
+    const lng = Number(exactLocation?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+    return `${lat.toFixed(4)},${lng.toFixed(4)}`;
+  }
+
+  function readReverseGeoCache() {
+    const cached = readSessionItem(SESSION_REVERSE_GEOCODE_KEY, {});
+    return cached && typeof cached === 'object' ? cached : {};
+  }
+
+  function writeReverseGeoCache(cache = {}) {
+    writeSessionItem(SESSION_REVERSE_GEOCODE_KEY, cache);
+  }
+
+  async function reverseGeocodeLocation(exactLocation = null) {
+    const lat = Number(exactLocation?.latitude);
+    const lng = Number(exactLocation?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || typeof fetch !== 'function') return exactLocation;
+
+    const cacheKey = reverseGeoCacheKey(exactLocation);
+    const reverseCache = readReverseGeoCache();
+    if (cacheKey && reverseCache[cacheKey]) {
+      return {
+        ...exactLocation,
+        ...reverseCache[cacheKey]
+      };
+    }
+
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 2800) : null;
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=10&addressdetails=1&accept-language=es&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lng)}`,
+        {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          signal: controller?.signal
+        }
+      );
+      if (!response.ok) return exactLocation;
+      const payload = await response.json();
+      const locationLabel = buildLocationLabel({
+        ...(payload?.address || {}),
+        locality: payload?.name || '',
+        displayName: payload?.display_name || ''
+      });
+      const next = {
+        city: locationLabel.city,
+        state: locationLabel.state,
+        country: locationLabel.country,
+        addressLabel: locationLabel.addressLabel || safeText(payload?.display_name)
+      };
+      if (cacheKey) {
+        reverseCache[cacheKey] = next;
+        writeReverseGeoCache(reverseCache);
+      }
+      return {
+        ...exactLocation,
+        ...next
+      };
+    } catch (_) {
+      return exactLocation;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
   function buildExactLocation(position) {
     const latitude = Number(position?.coords?.latitude);
     const longitude = Number(position?.coords?.longitude);
@@ -226,8 +363,9 @@
     if (!root.isSecureContext || !navigator.geolocation) return;
     if (Number.isInteger(state.location.watchId)) return;
     state.location.watchId = navigator.geolocation.watchPosition(
-      position => {
-        const exactLocation = buildExactLocation(position);
+      async position => {
+        const baseLocation = buildExactLocation(position);
+        const exactLocation = baseLocation ? await reverseGeocodeLocation(baseLocation) : null;
         applyLocationSnapshot(exactLocation ? 'granted' : 'error', exactLocation, exactLocation ? '' : 'Coordenadas inválidas');
       },
       error => {
@@ -257,8 +395,9 @@
 
     return new Promise(resolve => {
       navigator.geolocation.getCurrentPosition(
-        position => {
-          const exactLocation = buildExactLocation(position);
+        async position => {
+          const baseLocation = buildExactLocation(position);
+          const exactLocation = baseLocation ? await reverseGeocodeLocation(baseLocation) : null;
           const snapshot = applyLocationSnapshot(exactLocation ? 'granted' : 'error', exactLocation, exactLocation ? '' : 'Coordenadas inválidas');
           if (snapshot.status === 'granted') ensureLocationWatch();
           resolve(snapshot);
@@ -652,6 +791,7 @@
           ? await root.api.obtenerConfiguracion('')
           : await fetchBaseConfigDirect());
       const normalized = normalizeConfig(config);
+      if (key === 'GLOBAL') persistCachedBaseConfig(normalized);
       applyPageBranding(normalized);
       return normalized;
     })().catch(error => {
@@ -705,10 +845,12 @@
     const key = safeText(plaza).toUpperCase();
     if (!key) {
       state.cache.clear();
+      clearBootstrapWarm();
       return;
     }
     state.cache.delete(key);
     state.cache.delete('GLOBAL');
+    if (key === 'GLOBAL') clearBootstrapWarm();
   };
 
   root.__mexGetExactLocationSnapshot = async function (options = {}) {
@@ -829,30 +971,43 @@
 
   if (!state.started) {
     state.started = true;
-    root.MEX_CONFIG = normalizeConfig(root.MEX_CONFIG || {});
+    const cachedBaseConfig = readCachedBaseConfig();
+    root.MEX_CONFIG = mergeConfig(normalizeConfig(root.MEX_CONFIG || {}), cachedBaseConfig || {});
     injectBootstrapStyle();
-    document.documentElement.classList.add('mex-app-booting');
-    updateOverlay(
-      'Cargando empresa...',
-      'Estamos preparando la configuración básica antes de mostrar la plataforma.'
-    );
+    if (!cachedBaseConfig) {
+      document.documentElement.classList.add('mex-app-booting');
+      updateOverlay(
+        'Cargando empresa...',
+        'Estamos preparando la configuración básica antes de mostrar la plataforma.'
+      );
+    } else {
+      state.resolved = true;
+      applyPageBranding(root.MEX_CONFIG || {});
+      markBootstrapWarm();
+    }
 
     root.__mexConfigReadyPromise = root.__mexEnsureConfigLoaded('')
       .then(config => {
         state.resolved = true;
         applyPageBranding(config);
+        persistCachedBaseConfig(config);
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', () => {
             applyPageBranding(config);
-            releaseOverlay();
+            if (!cachedBaseConfig) releaseOverlay();
           }, { once: true });
         } else {
-          releaseOverlay();
+          if (!cachedBaseConfig) releaseOverlay();
         }
         return config;
       })
       .catch(error => {
         console.error('[app-bootstrap] init', error);
+        if (cachedBaseConfig) {
+          state.resolved = true;
+          applyPageBranding(cachedBaseConfig);
+          return cachedBaseConfig;
+        }
         updateOverlay(
           'No se pudo cargar la empresa',
           'Revisa tu conexión o la configuración base en Firebase e inténtalo de nuevo.',
@@ -863,8 +1018,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
-    ensureOverlayDom();
+    if (document.documentElement.classList.contains('mex-app-booting')) ensureOverlayDom();
     applyPageBranding(root.MEX_CONFIG || {});
-    if (state.resolved) releaseOverlay();
+    if (state.resolved && document.documentElement.classList.contains('mex-app-booting')) releaseOverlay();
   });
 })();

@@ -12,6 +12,14 @@ function buildGestionFrameUrl() {
   return `/mapa?${params.toString()}`;
 }
 
+function routeIsWarm() {
+  try {
+    return sessionStorage.getItem('mex.bootstrap.warm.v1') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
 function markFrameReady() {
   const loader = document.getElementById('gestionRouteLoader');
   if (loader) loader.classList.add('ready');
@@ -34,6 +42,7 @@ auth.onAuthStateChanged(async (user) => {
 
   const frame = document.getElementById('gestionRouteFrame');
   if (!frame) return;
+  if (routeIsWarm()) markFrameReady();
   frame.addEventListener('load', markFrameReady, { once: true });
   frame.src = buildGestionFrameUrl();
 });

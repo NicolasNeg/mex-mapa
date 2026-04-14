@@ -681,12 +681,18 @@ function normalizeExactLocation(value = {}) {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
   const accuracy = Number(value.accuracy);
   const capturedAt = Number(value.capturedAt);
+  const city = normalizeString(value.city || value.locality || "");
+  const state = normalizeString(value.state || value.region || "");
+  const addressLabel = normalizeString(value.addressLabel || [city, state].filter(Boolean).join(", "));
   return {
     latitude,
     longitude,
     accuracy: Number.isFinite(accuracy) ? accuracy : null,
     capturedAt: Number.isFinite(capturedAt) ? capturedAt : nowMillis(),
     source: normalizeString(value.source || "browser") || "browser",
+    city,
+    state,
+    addressLabel,
     googleMapsUrl: `https://maps.google.com/?q=${latitude},${longitude}`
   };
 }

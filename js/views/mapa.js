@@ -30,7 +30,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v73';
+const APP_BUILD_TAG = 'mapa-v74';
 const ADMIN_LOCATION_CACHE_MS = 90000;
 
 
@@ -1095,11 +1095,16 @@ function _abrirProgrammerConsoleRoute() {
 }
 
 function cerrarPanelConfiguracion() {
-  if (_isGestionAdminMode()) {
+  if (_isDedicatedGestionIframeMode()) {
     _navigateTop('/mapa');
     return;
   }
+  if (/^\/gestion(?:\.html)?$/i.test(window.location.pathname || '')) {
+    _restoreInlineAdminRoute();
+  }
+  _resetGestionAdminChrome();
   document.getElementById('modal-config-global')?.classList.remove('active');
+  sincronizarEstadoSidebars();
 }
 
 function _ensureProgrammerRouteButton() {
@@ -1314,6 +1319,7 @@ const _adminAuditLocationState = {
 };
 let _gestionAdminBooted = false;
 let _cuadreFleetBooted = false;
+let _adminInlineRouteBound = false;
 let _fleetInlineRouteBound = false;
 
 function _safeUpper(value) {
@@ -1334,6 +1340,10 @@ function _isGestionAdminMode() {
 
 function _isCuadreFleetMode() {
   return _qs('fleet') === '1' || /^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '');
+}
+
+function _isDedicatedGestionIframeMode() {
+  return _qs('admin') === '1';
 }
 
 function _isDedicatedCuadreIframeMode() {
@@ -1372,6 +1382,62 @@ function _navigateTop(url) {
     }
   } catch (_) {}
   window.location.href = url;
+}
+
+function _syncInlineAdminRoute(tab = 'usuarios') {
+  if (_isDedicatedGestionIframeMode() || !window.history?.pushState) return;
+  const normalizedTab = String(tab || 'usuarios').trim().toLowerCase() || 'usuarios';
+  const targetUrl = _buildGestionRouteUrl(normalizedTab);
+  try {
+    if (/^\/gestion(?:\.html)?$/i.test(window.location.pathname || '')) {
+      window.history.replaceState({ mexInlineRoute: 'admin', tab: normalizedTab }, '', targetUrl);
+    } else {
+      window.history.pushState({ mexInlineRoute: 'admin', tab: normalizedTab }, '', targetUrl);
+    }
+  } catch (_) {}
+}
+
+function _restoreInlineAdminRoute() {
+  if (_isDedicatedGestionIframeMode() || !window.history?.replaceState) return;
+  try {
+    window.history.replaceState({ mexInlineRoute: 'map' }, '', '/mapa');
+  } catch (_) {}
+}
+
+function _resetGestionAdminChrome() {
+  document.documentElement.classList.remove('gestion-admin-route');
+  document.body?.classList.remove('gestion-admin-route');
+  const footer = document.querySelector('.cfg-v2-footer');
+  if (footer) footer.style.display = '';
+  const closeBtn = document.querySelector('.cfg-v2-close');
+  if (closeBtn) closeBtn.title = 'Cerrar panel';
+}
+
+function _bindInlineAdminRouteState() {
+  if (_adminInlineRouteBound) return;
+  _adminInlineRouteBound = true;
+  window.addEventListener('popstate', () => {
+    if (_isDedicatedGestionIframeMode()) return;
+    const modal = document.getElementById('modal-config-global');
+    if (!modal) return;
+    if (_isGestionAdminMode()) {
+      const targetTab = _gestionInitialTab();
+      if (!modal.classList.contains('active')) {
+        abrirPanelConfiguracion(targetTab);
+      } else {
+        _applyGestionAdminChrome();
+        const targetButton = document.getElementById(`cfg-tab-${targetTab}`) || document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
+        if (targetButton) abrirTabConfig(targetTab, targetButton);
+      }
+      return;
+    }
+    if (modal.classList.contains('active')) {
+      modal.classList.remove('active');
+      _resetGestionAdminChrome();
+      sincronizarEstadoSidebars();
+      refrescarDatos();
+    }
+  });
 }
 
 function _syncInlineFleetRoute(tab = 'NORMAL') {
@@ -9248,7 +9314,10 @@ function _resolveLogExactLocation(log = {}) {
   const accuracy = Number(exactLocation.accuracy ?? log.accuracy ?? log.geoAccuracy);
   const mapsUrl = String(exactLocation.googleMapsUrl || log.googleMapsUrl || '').trim();
   const status = String(log.locationStatus || exactLocation.status || '').trim().toLowerCase();
-  return { latitude, longitude, accuracy, mapsUrl, status };
+  const city = String(exactLocation.city || log.city || '').trim();
+  const state = String(exactLocation.state || log.state || '').trim();
+  const addressLabel = String(exactLocation.addressLabel || log.addressLabel || [city, state].filter(Boolean).join(', ')).trim();
+  return { latitude, longitude, accuracy, mapsUrl, status, city, state, addressLabel };
 }
 
 function _logExactLocationHtml(log = {}, compact = false) {
@@ -9258,19 +9327,34 @@ function _logExactLocationHtml(log = {}, compact = false) {
       : '<span style="display:inline-flex;align-items:center;gap:6px;color:#94a3b8;font-weight:800;"><span class="material-icons" style="font-size:14px;">lock</span>Ubicación protegida</span>';
   }
 
-  const { latitude, longitude, accuracy, mapsUrl, status } = _resolveLogExactLocation(log);
+  const { latitude, longitude, mapsUrl, status, addressLabel, city, state } = _resolveLogExactLocation(log);
+  const summaryLabel = addressLabel || [city, state].filter(Boolean).join(', ') || 'Ubicación disponible';
   if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    const label = `${latitude.toFixed(5)}, ${longitude.toFixed(5)}${Number.isFinite(accuracy) ? ` · ±${Math.round(accuracy)}m` : ''}`;
     const href = mapsUrl || `https://maps.google.com/?q=${latitude},${longitude}`;
-    return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-weight:900;text-decoration:none;">
-      <span class="material-icons" style="font-size:15px;">map</span>${escapeHtml(label)}
+    const buttonHtml = `<a href="${escapeHtml(href)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 12px;border-radius:999px;background:#0f766e;color:#fff;font-weight:900;text-decoration:none;">
+      <span class="material-icons" style="font-size:15px;">map</span>Ver ubi
     </a>`;
+    if (compact) {
+      return `<span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span style="color:#0f172a;font-weight:800;">${escapeHtml(summaryLabel)}</span>
+        ${buttonHtml}
+      </span>`;
+    }
+    return `<span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="display:inline-flex;align-items:center;gap:6px;color:#0f172a;font-weight:800;">
+        <span class="material-icons" style="font-size:15px;color:#0f766e;">location_on</span>${escapeHtml(summaryLabel)}
+      </span>
+      ${buttonHtml}
+    </span>`;
   }
 
   if (mapsUrl) {
-    return `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:6px;color:#0f766e;font-weight:900;text-decoration:none;">
-      <span class="material-icons" style="font-size:15px;">map</span> Abrir Google Maps
-    </a>`;
+    return `<span style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <span style="color:#0f172a;font-weight:800;">${escapeHtml(summaryLabel)}</span>
+      <a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:32px;padding:0 12px;border-radius:999px;background:#0f766e;color:#fff;font-weight:900;text-decoration:none;">
+        <span class="material-icons" style="font-size:15px;">map</span>Ver ubi
+      </a>
+    </span>`;
   }
 
   if (status === 'denied') return '<span style="color:#b45309;font-weight:800;">Permiso denegado</span>';
@@ -14501,7 +14585,10 @@ function abrirPanelConfiguracion(tabInicial) {
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }
-  if (!_isGestionAdminMode()) {
+  if (!_isDedicatedGestionIframeMode()) {
+    _bindInlineAdminRouteState();
+    _syncInlineAdminRoute(tabInicial || _gestionInitialTab());
+  } else if (!_isGestionAdminMode()) {
     _navigateTop(_buildGestionRouteUrl(tabInicial || 'usuarios'));
     return;
   }
@@ -14521,6 +14608,7 @@ function abrirPanelConfiguracion(tabInicial) {
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
   _applyGestionAdminChrome();
   document.getElementById('modal-config-global').classList.add('active');
+  _captureAdminExactLocation({ force: false }).catch(() => {});
   const targetTab = tabInicial || 'usuarios';
   const targetButton = document.getElementById(`cfg-tab-${targetTab}`) || document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
   if (targetTab) {
@@ -14536,6 +14624,9 @@ function abrirTabConfig(tabName, btnElement) {
   if (tabName === 'programador') {
     _abrirProgrammerConsoleRoute();
     return;
+  }
+  if (_isGestionAdminMode() && !_isDedicatedGestionIframeMode()) {
+    _syncInlineAdminRoute(tabName);
   }
   // Si estábamos en el tab de usuarios, desuscribir el listener
   if (TAB_ACTIVA_CFG === 'usuarios' && _unsubUsuarios) {
