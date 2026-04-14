@@ -133,6 +133,11 @@
           <div><span class="material-icons">history</span>HISTORIAL MAPA</div>
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
+
+        <button id="btnConsolaProgramador" onclick="window.location.href='/programador'" class="sb-btn sb-btn-dark" style="display:none;">
+          <div><span class="material-icons" style="color:#a78bfa;">terminal</span> CONSOLA PROGRAMADOR</div>
+          <span class="material-icons sb-chevron">chevron_right</span>
+        </button>
       </div>
 
       <div class="sb-divider" id="panelAdminDivider" style="display:none;"></div>
@@ -140,7 +145,7 @@
       <div class="admin-nav-group" id="navGroupPanelAdmin" style="display:none;">
         <p id="titlePanelAdmin" class="sb-section-label">Panel Admin</p>
 
-        <button id="btnConfigGlobal" onclick="abrirPanelAdministracion()" class="sb-btn sb-btn-dark">
+        <button id="btnConfigGlobal" onclick="abrirPanelConfiguracion()" class="sb-btn sb-btn-dark">
           <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
             <div style="display: flex; align-items: center; gap: 8px;">
               <span class="material-icons" style="color:#f59e0b;">admin_panel_settings</span>
@@ -3524,57 +3529,19 @@
     <div class="cfg-v2-hero">
       <div class="cfg-v2-hero-bg"></div>
       <div class="cfg-v2-hero-content">
-        <div class="cfg-v2-kicker">
-          <span class="material-icons" style="font-size:14px;">settings_suggest</span>
-          ADMINISTRACIÓN
+        <div class="cfg-v2-hero-compact-row">
+          <div class="cfg-v2-kicker">
+            <span class="material-icons" style="font-size:13px;">settings_suggest</span>
+            ADMINISTRACIÓN
+          </div>
+          <h2 class="cfg-v2-title">PANEL ADMINISTRATIVO</h2>
+          <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
         </div>
-        <h2 class="cfg-v2-title">PANEL<br>ADMINISTRATIVO</h2>
-        <p class="cfg-v2-subtitle">Gestiona usuarios, roles, solicitudes, catálogos y configuración operativa de
-          <b id="empresa-cfg-lbl">Cargando empresa...</b>.</p>
-        <div class="cfg-v2-hero-insights" id="cfg-v2-hero-insights">
-          <article class="cfg-v2-insight-card">
-            <div class="cfg-v2-insight-icon"><span class="material-icons">groups</span></div>
-            <div class="cfg-v2-insight-body">
-              <strong id="cfg-insight-users">--</strong>
-              <span>Usuarios</span>
-            </div>
-          </article>
-          <article class="cfg-v2-insight-card">
-            <div class="cfg-v2-insight-icon"><span class="material-icons">location_city</span></div>
-            <div class="cfg-v2-insight-body">
-              <strong id="cfg-insight-plazas">--</strong>
-              <span>Plazas activas</span>
-            </div>
-          </article>
-          <article class="cfg-v2-insight-card">
-            <div class="cfg-v2-insight-icon"><span class="material-icons">inventory_2</span></div>
-            <div class="cfg-v2-insight-body">
-              <strong id="cfg-insight-catalogs">--</strong>
-              <span>Items catálogo</span>
-            </div>
-          </article>
-          <article class="cfg-v2-insight-card">
-            <div class="cfg-v2-insight-icon warn"><span class="material-icons">mark_email_unread</span></div>
-            <div class="cfg-v2-insight-body">
-              <strong id="cfg-insight-pending">--</strong>
-              <span>Solicitudes pendientes</span>
-            </div>
-          </article>
-        </div>
-        <div class="cfg-v2-hero-shortcuts">
-          <button type="button" class="cfg-v2-hero-shortcut" onclick="_cfgJumpTab('usuarios')">
-            <span class="material-icons">manage_accounts</span> Usuarios
-          </button>
-          <button type="button" class="cfg-v2-hero-shortcut" onclick="_cfgJumpTab('plazas')">
-            <span class="material-icons">location_city</span> Plazas
-          </button>
-          <button type="button" class="cfg-v2-hero-shortcut" onclick="_cfgJumpTab('empresa')">
-            <span class="material-icons">business</span> Empresa
-          </button>
-          <button type="button" class="cfg-v2-hero-shortcut" onclick="_cfgQuickAction('refresh')">
-            <span class="material-icons">refresh</span> Refrescar
-          </button>
-        </div>
+        <!-- IDs requeridos por JS — ocultos -->
+        <span id="cfg-insight-users" style="display:none;"></span>
+        <span id="cfg-insight-plazas" style="display:none;"></span>
+        <span id="cfg-insight-catalogs" style="display:none;"></span>
+        <span id="cfg-insight-pending" style="display:none;"></span>
       </div>
       <button class="cfg-v2-close" onclick="cerrarPanelConfiguracion()">
         <span class="material-icons" style="font-size:20px;">close</span>
@@ -3645,29 +3612,6 @@
 
       <!-- MAIN PANEL -->
       <div class="cfg-v2-main">
-
-        <div class="cfg-v2-tools" id="cfg-v2-tools">
-          <button type="button" class="cfg-v2-tool-btn" data-tool="new-user" onclick="_cfgQuickAction('new-user')">
-            <span class="material-icons">person_add</span>
-            <span>Nuevo usuario</span>
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="new-plaza" onclick="_cfgQuickAction('new-plaza')">
-            <span class="material-icons">add_location_alt</span>
-            <span>Nueva plaza</span>
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="new-item" onclick="_cfgQuickAction('new-item')">
-            <span class="material-icons">playlist_add</span>
-            <span>Nuevo ítem</span>
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="open-programmer" onclick="_cfgQuickAction('open-programmer')">
-            <span class="material-icons">terminal</span>
-            <span>Consola programador</span>
-          </button>
-          <button type="button" class="cfg-v2-tool-btn success" data-tool="publish" onclick="_cfgQuickAction('publish')">
-            <span class="material-icons">cloud_upload</span>
-            <span>Guardar y publicar</span>
-          </button>
-        </div>
 
         <!-- ADD BAR -->
         <div class="cfg-v2-add-bar">

@@ -3003,11 +3003,11 @@
     }
 
     .admin-sidebar-head {
-      padding: 18px 16px 14px;
+      padding: 10px 14px 10px;
       border-bottom: 1px solid rgba(111, 117, 134, 0.15);
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 8px;
       flex-shrink: 0;
       min-height: 0;
     }
@@ -3027,9 +3027,9 @@
     }
 
     .admin-sidebar-brand-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 8px;
+      width: 34px;
+      height: 34px;
+      border-radius: 7px;
       background: #28375c86;
       border: 1px solid rgba(111, 117, 134, 0.18);
       display: flex;
@@ -3097,8 +3097,8 @@
       align-items: center;
       justify-content: space-between;
       gap: 10px;
-      padding: 10px 12px;
-      border-radius: 9px;
+      padding: 7px 10px;
+      border-radius: 8px;
       background: rgba(26, 32, 47, 0.65);
       border: 1px solid rgba(111, 117, 134, 0.14);
       box-shadow: -24px 0 60px rgba(44, 37, 87, 0.51);
@@ -4932,6 +4932,24 @@
       .um-edit-col {
         align-items: flex-start;
         padding: 16px;
+      }
+    }
+
+    /* PC — panel de usuarios más amplio */
+    @media (min-width: 1100px) {
+      .um-list-col {
+        width: 400px;
+        min-width: 360px;
+      }
+      .um-edit-col {
+        justify-content: flex-start;
+        padding: 28px 32px;
+      }
+    }
+    @media (min-width: 1440px) {
+      .um-list-col {
+        width: 460px;
+        min-width: 420px;
       }
     }
 
@@ -11937,7 +11955,6 @@
     /* ── HERO ────────────────────────────────────────────────── */
     .cfg-v2-hero {
       position: relative;
-      min-height: 170px;
       overflow: hidden;
       flex-shrink: 0;
     }
@@ -11965,44 +11982,54 @@
     .cfg-v2-hero-content {
       position: relative;
       z-index: 1;
-      padding: 30px 32px 26px;
+      padding: 14px 72px 12px 28px;
+    }
+
+    .cfg-v2-hero-compact-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
     }
 
     .cfg-v2-kicker {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
-      padding: 7px 14px;
+      gap: 6px;
+      padding: 5px 11px;
       border-radius: 999px;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 900;
-      letter-spacing: 1.4px;
+      letter-spacing: 1.2px;
       text-transform: uppercase;
       color: white;
       background: rgba(255, 255, 255, 0.12);
       border: 1px solid rgba(255, 255, 255, 0.14);
       backdrop-filter: blur(8px);
+      flex-shrink: 0;
     }
 
     .cfg-v2-title {
-      margin: 16px 0 10px;
-      font-size: 32px;
-      line-height: 0.96;
+      margin: 0;
+      font-size: 17px;
+      line-height: 1;
       font-weight: 900;
-      letter-spacing: -1.5px;
+      letter-spacing: -0.5px;
       text-transform: uppercase;
       color: white;
       font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+      white-space: nowrap;
     }
 
     .cfg-v2-subtitle {
       margin: 0;
-      max-width: 480px;
-      font-size: 12px;
-      line-height: 1.55;
+      font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.5px;
-      color: rgba(255, 255, 255, 0.75);
+      letter-spacing: 0.3px;
+      color: rgba(255, 255, 255, 0.60);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .cfg-v2-hero-insights {
@@ -13523,12 +13550,25 @@
 .cfg-plaza-section-header .material-icons { font-size: 16px; color: var(--mex-accent); }
 .cfg-plaza-form-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 /* Inputs icon-wrap */
-.cfg-plaza-input-icon-wrap { position: relative; }
-.cfg-plaza-input-icon-wrap .material-icons {
-  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
-  font-size: 16px; color: #94a3b8; pointer-events: none;
+.cfg-plaza-input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.cfg-plaza-input-icon-wrap input { padding-left: 34px; }
+.cfg-plaza-input-icon-wrap > .material-icons:first-child {
+  position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+  font-size: 16px; color: #94a3b8; pointer-events: none; z-index: 1;
+}
+.cfg-plaza-input-icon-wrap input,
+.cfg-plaza-input-icon-wrap select {
+  flex: 1; min-width: 0;
+  padding-left: 34px; padding-right: 10px;
+}
+.cfg-plaza-input-icon-wrap .cfg-copy-inline-btn {
+  position: static; flex-shrink: 0; align-self: center; transform: none;
+}
+.cfg-plaza-input-icon-wrap .cfg-copy-inline-btn:hover { transform: translateY(-1px); }
 /* Maps */
 .cfg-plaza-maps-input-wrap { position: relative; }
 .cfg-plaza-maps-pin {

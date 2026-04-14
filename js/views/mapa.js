@@ -16682,6 +16682,7 @@ function _renderCorreosInternosHtml(correos, filter) {
     const titulo = typeof c === 'object' ? (c.titulo || '') : '';
     const plazaId = typeof c === 'object' ? _safeUpper(c.plazaId) : '';
     const origIdx = correos.indexOf(c);
+    const correoEsc = correo.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `<div style="display:flex; align-items:center; gap:8px; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px;">
           <span class="material-icons" style="font-size:16px; color:#94a3b8; flex-shrink:0;">email</span>
           <div style="flex:1; overflow:hidden;">
@@ -16691,6 +16692,10 @@ function _renderCorreosInternosHtml(correos, filter) {
               ${plazaId ? `Asignado a ${escapeHtml(plazaId)}` : 'Disponible para asignar'}
             </div>
           </div>
+          <button onclick="_copyTextToClipboard('${correoEsc}','Correo')" title="Copiar"
+            style="background:#eff6ff; border:1px solid #93c5fd; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
+            <span class="material-icons" style="font-size:14px; color:#2563eb;">content_copy</span>
+          </button>
           <button onclick="_borrarCorreoInterno(${origIdx})" title="Eliminar"
             style="background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
             <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
@@ -17195,6 +17200,7 @@ function configurarPermisosUI() {
     btnMenuHistorial: hasFullAccess(),
     btnLockAdminSidebar: canLockMap(),
     btnEditorMapa: hasFullAccess(),
+    btnConsolaProgramador: canOpenAdminPanel(),
     panelAdminDivider: canOpenAdminPanel(),
     navGroupPanelAdmin: canOpenAdminPanel()
   };
@@ -17579,6 +17585,7 @@ Object.assign(window, {
   _cfgQuickAction,
   _cfgPreviewModeloImg,
   _copyPlazaCorreo,
+  _copyTextToClipboard,
   _togglePlazaAddRow,
   _umAvatarStyle,
   _umGetPlazasDisponibles,
