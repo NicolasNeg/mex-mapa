@@ -665,6 +665,46 @@ function extractClientRequestMeta(rawRequest) {
   };
 }
 
+function normalizeExactLocation(value = {}) {
+  if (!value || typeof value !== "object") return null;
+  const latitude = Number(value.latitude);
+  const longitude = Number(value.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+  const accuracy = Number(value.accuracy);
+  const capturedAt = Number(value.capturedAt);
+  return {
+    latitude,
+    longitude,
+    accuracy: Number.isFinite(accuracy) ? accuracy : null,
+    capturedAt: Number.isFinite(capturedAt) ? capturedAt : nowMillis(),
+    source: normalizeString(value.source || "browser") || "browser",
+    googleMapsUrl: `https://maps.google.com/?q=${latitude},${longitude}`
+  };
+}
+
+function normalizeLocationStatus(value = "") {
+  const status = normalizeLower(value);
+  return status || "pending";
+}
+
+function sanitizeAdminAuditExtra(extra = {}) {
+  const payload = sanitizePlainObject(extra || {});
+  const exactLocation = normalizeExactLocation(payload.exactLocation || payload.location || {});
+  return {
+    entidad: normalizeString(payload.entidad),
+    referencia: normalizeString(payload.referencia),
+    detalles: normalizeString(payload.detalles),
+    objetivo: normalizeString(payload.objetivo),
+    rolObjetivo: normalizeString(payload.rolObjetivo),
+    plazaObjetivo: normalizePlaza(payload.plazaObjetivo),
+    resultado: normalizeString(payload.resultado),
+    deviceId: normalizeString(payload.deviceId),
+    activeRoute: normalizeString(payload.activeRoute),
+    locationStatus: normalizeLocationStatus(payload.locationStatus || (exactLocation ? "granted" : "")),
+    exactLocation
+  };
+}
+
 function shouldDeviceReceiveEvent(device = {}, eventType = "") {
   const prefs = normalizeNotificationPrefs(device.notificationPrefs || DEVICE_PREF_DEFAULTS);
   if (prefs.muteAll || device.pushEnabled === false) return false;
@@ -1047,6 +1087,8 @@ exports.registerDevice = functions.region(REGION).https.onCall(async (data, cont
     const clientMeta = extractClientRequestMeta(context.rawRequest);
 
     const ref = profile.ref.collection("devices").doc(deviceId);
+    const exactLocation = normalizeExactLocation(payloadIn.exactLocation || payloadIn.location || {});
+    const locationStatus = normalizeLocationStatus(payloadIn.locationStatus || (exactLocation ? "granted" : ""));
     const payload = {
       deviceId,
       token: normalizeString(payloadIn.token),
@@ -1068,6 +1110,8 @@ exports.registerDevice = functions.region(REGION).https.onCall(async (data, cont
       suppressWhileFocused: payloadIn.suppressWhileFocused === true,
       ipAddress: clientMeta.ipAddress,
       forwardedFor: clientMeta.forwardedFor,
+      locationStatus,
+      ...(exactLocation ? { exactLocation } : {}),
       notificationPrefs: {
         ...DEVICE_PREF_DEFAULTS,
         ...normalizeNotificationPrefs(payloadIn.notificationPrefs || {})
@@ -1091,6 +1135,8 @@ exports.syncDeviceContext = functions.region(REGION).https.onCall(async (data, c
 
     const clientMeta = extractClientRequestMeta(context.rawRequest);
     const ref = profile.ref.collection("devices").doc(deviceId);
+    const exactLocation = normalizeExactLocation(payloadIn.exactLocation || payloadIn.location || {});
+    const locationStatus = normalizeLocationStatus(payloadIn.locationStatus || (exactLocation ? "granted" : ""));
     const payload = {
       deviceId,
       permission: normalizeString(payloadIn.permission || "default"),
@@ -1108,6 +1154,8 @@ exports.syncDeviceContext = functions.region(REGION).https.onCall(async (data, c
       suppressWhileFocused: payloadIn.suppressWhileFocused === true,
       ipAddress: clientMeta.ipAddress,
       forwardedFor: clientMeta.forwardedFor,
+      locationStatus,
+      ...(exactLocation ? { exactLocation } : {}),
       notificationPrefs: {
         ...DEVICE_PREF_DEFAULTS,
         ...normalizeNotificationPrefs(payloadIn.notificationPrefs || {})
@@ -1124,6 +1172,48 @@ exports.syncDeviceContext = functions.region(REGION).https.onCall(async (data, c
     };
   } catch (error) {
     await recordProgrammerError("syncDeviceContext", error, { authUid: context.auth?.uid || "" });
+    throw error;
+  }
+});
+
+exports.recordAdminAuditEvent = functions.region(REGION).https.onCall(async (data, context) => {
+  try {
+    const profile = await findUserProfileFromAuth(context.auth);
+    const role = inferRole(profile.data, profile.data?.email || context.auth?.token?.email);
+    const security = await loadSecurityConfig();
+    if (!isOperationalAdmin(role, security, profile.data || {})) {
+      throw new HttpsError("permission-denied", "No autorizado para registrar auditoria administrativa.");
+    }
+
+    const payloadIn = sanitizePlainObject(data || {});
+    const clientMeta = extractClientRequestMeta(context.rawRequest);
+    const extra = sanitizeAdminAuditExtra(payloadIn.extra || {});
+    const eventId = `gest_${nowMillis()}_${Math.floor(Math.random() * 1000)}`;
+    const eventPayload = {
+      fecha: nowIso(),
+      timestamp: nowMillis(),
+      tipo: normalizeUpper(payloadIn.tipo || payloadIn.type || "GESTION") || "GESTION",
+      accion: normalizeString(payloadIn.mensaje || payloadIn.message || "Accion administrativa"),
+      autor: normalizeString(payloadIn.autor || profile.data?.nombre || profile.data?.usuario || profile.data?.email || "Sistema"),
+      userDocId: profile.id,
+      userEmail: normalizeLower(profile.data?.email || context.auth?.token?.email || ""),
+      role,
+      plaza: normalizePlaza(payloadIn.plaza || profile.data?.plazaAsignada || ""),
+      ipAddress: clientMeta.ipAddress,
+      forwardedFor: clientMeta.forwardedFor,
+      userAgent: clientMeta.userAgent,
+      ...extra
+    };
+    await db.collection(ADMIN_AUDIT_COL).doc(eventId).set(eventPayload, { merge: true });
+    return {
+      ok: true,
+      id: eventId,
+      timestamp: eventPayload.timestamp,
+      ipAddress: clientMeta.ipAddress,
+      forwardedFor: clientMeta.forwardedFor
+    };
+  } catch (error) {
+    await recordProgrammerError("recordAdminAuditEvent", error, { authUid: context.auth?.uid || "" });
     throw error;
   }
 });

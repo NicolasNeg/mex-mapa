@@ -1,6 +1,6 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v70';
+const APP_BUILD = 'mapa-v72';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
 const MESSAGING_SW_URL = '/firebase-messaging-sw.js';
 const MESSAGING_SW_SCOPE = '/firebase-cloud-messaging-push-scope';
@@ -630,7 +630,8 @@ async function syncDeviceFocusState(options = {}) {
     userAgent: navigator.userAgent || '',
     appVersion: APP_BUILD,
     swVersion: APP_BUILD,
-    notificationPrefs: _currentDevicePrefs()
+    notificationPrefs: _currentDevicePrefs(),
+    ...(options.extraPayload && typeof options.extraPayload === 'object' ? options.extraPayload : {})
   };
   const signature = _deviceSyncSignature(payload);
   const now = Date.now();
@@ -657,6 +658,14 @@ async function syncDeviceFocusState(options = {}) {
     }
   }
   await _upsertDeviceDirect(payload);
+}
+
+export async function syncCurrentDeviceContext(extraPayload = {}, options = {}) {
+  await syncDeviceFocusState({
+    ...options,
+    force: options.force !== false,
+    extraPayload
+  });
 }
 
 function _updateUnreadFromInbox() {

@@ -23,10 +23,99 @@
     return String(value || '').trim();
   }
 
+  function upperText(value) {
+    return safeText(value).toUpperCase();
+  }
+
+  function lowerText(value) {
+    return safeText(value).toLowerCase();
+  }
+
+  function normalizePlazasDetalle(plazasDetalle = []) {
+    if (!Array.isArray(plazasDetalle)) return [];
+    return plazasDetalle
+      .filter(Boolean)
+      .map(item => ({
+        ...(item || {}),
+        id: upperText(item?.id),
+        correo: lowerText(item?.correo),
+        correoGerente: lowerText(item?.correoGerente)
+      }));
+  }
+
+  function normalizeCorreosInternos(empresa = {}) {
+    const normalized = [];
+    const seen = new Map();
+    const plazasDetalle = normalizePlazasDetalle(empresa?.plazasDetalle || []);
+    const rawList = Array.isArray(empresa?.correosInternos) ? empresa.correosInternos : [];
+
+    function upsert(rawItem, fallback = {}) {
+      const fromObject = rawItem && typeof rawItem === 'object' && !Array.isArray(rawItem);
+      const correo = lowerText(
+        fromObject
+          ? (rawItem.correo || rawItem.email || rawItem.mail)
+          : rawItem
+      );
+      if (!correo) return;
+
+      const next = {
+        titulo: safeText(
+          fromObject
+            ? (rawItem.titulo || rawItem.nombre)
+            : fallback.titulo
+        ) || safeText(fallback.titulo),
+        correo,
+        plazaId: upperText(
+          fromObject
+            ? rawItem.plazaId
+            : fallback.plazaId
+        ) || upperText(fallback.plazaId)
+      };
+
+      if (seen.has(correo)) {
+        const existing = seen.get(correo);
+        if (!existing.titulo && next.titulo) existing.titulo = next.titulo;
+        if (!existing.plazaId && next.plazaId) existing.plazaId = next.plazaId;
+        return;
+      }
+
+      seen.set(correo, next);
+      normalized.push(next);
+    }
+
+    rawList.forEach(item => upsert(item));
+
+    plazasDetalle.forEach(plaza => {
+      if (plaza?.correo) {
+        upsert(
+          { correo: plaza.correo, plazaId: plaza.id },
+          { titulo: `${upperText(plaza.id)} INSTITUCIONAL`, plazaId: plaza.id }
+        );
+      }
+      if (plaza?.correoGerente) {
+        upsert(
+          { correo: plaza.correoGerente, plazaId: plaza.id },
+          { titulo: `${upperText(plaza.id)} GERENCIA`, plazaId: plaza.id }
+        );
+      }
+    });
+
+    return normalized;
+  }
+
+  function normalizeEmpresa(empresa = {}) {
+    return {
+      ...(empresa || {}),
+      plazas: Array.isArray(empresa?.plazas) ? empresa.plazas.map(upperText).filter(Boolean) : [],
+      plazasDetalle: normalizePlazasDetalle(empresa?.plazasDetalle || []),
+      correosInternos: normalizeCorreosInternos(empresa || {})
+    };
+  }
+
   function normalizeConfig(config = {}) {
     return {
       empresa: {
-        ...(config?.empresa || {})
+        ...normalizeEmpresa(config?.empresa || {})
       },
       listas: {
         ...DEFAULT_LISTS,
@@ -57,6 +146,25 @@
       || empresa?.nombreComercial
       || empresa?.razonSocial
     ) || DEFAULT_COMPANY_NAME;
+  }
+
+  function getPlazaEmailFromConfig(plazaId = '', config = root.MEX_CONFIG || {}) {
+    const plazaKey = upperText(plazaId);
+    if (!plazaKey) return '';
+    const plazasDetalle = normalizePlazasDetalle(config?.empresa?.plazasDetalle || []);
+    const plaza = plazasDetalle.find(item => upperText(item?.id) === plazaKey);
+    return lowerText(plaza?.correo);
+  }
+
+  function refreshPlazaEmailGlobals() {
+    root.getPlazaEmail = function (plazaId = '') {
+      return getPlazaEmailFromConfig(plazaId, root.MEX_CONFIG || {});
+    };
+    root.getPlazaActualEmail = function (plazaId = '') {
+      const activePlaza = upperText(plazaId || root.__mexCurrentPlazaId || root.__mexActivePlazaId || '');
+      return getPlazaEmailFromConfig(activePlaza, root.MEX_CONFIG || {});
+    };
+    root.PLAZA_ACTUAL_EMAIL = root.getPlazaActualEmail();
   }
 
   function injectBootstrapStyle() {
@@ -220,6 +328,7 @@
     root.MEX_CONFIG = mergeConfig(root.MEX_CONFIG || {}, config);
     const companyName = companyNameFrom(root.MEX_CONFIG);
     root.__mexCompanyName = companyName;
+    refreshPlazaEmailGlobals();
 
     const pageTitle = safeText(document.documentElement.dataset.pageTitle);
     document.title = pageTitle ? `${pageTitle} — ${companyName}` : companyName;
@@ -333,6 +442,16 @@
         throw error;
       });
     return root.__mexConfigReadyPromise;
+  };
+
+  root.__mexInvalidateConfigCache = function (plaza = '') {
+    const key = safeText(plaza).toUpperCase();
+    if (!key) {
+      state.cache.clear();
+      return;
+    }
+    state.cache.delete(key);
+    state.cache.delete('GLOBAL');
   };
 
   if (!state.started) {

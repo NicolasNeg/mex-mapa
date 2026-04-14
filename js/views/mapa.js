@@ -18,7 +18,8 @@ import {
   closeNotificationCenter,
   requestDeviceNotifications,
   getCurrentDeviceSnapshot,
-  updateCurrentDevicePreferences
+  updateCurrentDevicePreferences,
+  syncCurrentDeviceContext
 } from '/js/core/notifications.js';
 import { installProgrammerErrorReporter, reportProgrammerError } from '/js/core/observability.js';
 
@@ -29,7 +30,8 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v70';
+const APP_BUILD_TAG = 'mapa-v72';
+const ADMIN_LOCATION_CACHE_MS = 90000;
 
 
 // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
@@ -140,6 +142,8 @@ async function inicializarConfiguracion() {
       _aplicarColoresEstados();
       if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
       if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
+      _syncEmpresaCorreosInternosState();
+      _updateGlobalPlazaEmail();
     }
   } catch (error) {
     console.error("❌ Error descargando la configuración:", error);
@@ -924,6 +928,7 @@ function _setSessionProfile(profile) {
   // Inicializar plaza activa del mapa con la plaza del usuario
   PLAZA_ACTIVA_MAPA = profile.plazaAsignada || '';
   window.CURRENT_USER_PROFILE = profile;
+  _updateGlobalPlazaEmail();
 }
 
 function _clearSessionProfile() {
@@ -933,6 +938,8 @@ function _clearSessionProfile() {
   userRole = null;
   isGlobalAdmin = false;
   window.CURRENT_USER_PROFILE = null;
+  window.__mexCurrentPlazaId = '';
+  if (typeof window.getPlazaActualEmail === 'function') window.PLAZA_ACTUAL_EMAIL = window.getPlazaActualEmail('');
 }
 
 function _obtenerInicialesUsuario(nombre = '') {
@@ -1072,7 +1079,15 @@ function _abrirProgrammerConsoleRoute() {
     showToast('Tu rol no puede abrir la consola de programador.', 'error');
     return;
   }
-  window.location.href = '/programador';
+  _navigateTop('/programador');
+}
+
+function cerrarPanelConfiguracion() {
+  if (_isGestionAdminMode()) {
+    _navigateTop('/mapa');
+    return;
+  }
+  document.getElementById('modal-config-global')?.classList.remove('active');
 }
 
 function _ensureProgrammerRouteButton() {
@@ -1279,9 +1294,245 @@ function escapeHtml(value) {
     .replace(/'/g, '&#39;');
 }
 
-async function registrarEventoGestion(tipo, mensaje, extra = {}) {
+const _adminAuditLocationState = {
+  status: 'pending',
+  exactLocation: null,
+  lastUpdated: 0,
+  error: ''
+};
+let _gestionAdminBooted = false;
+let _cuadreFleetBooted = false;
+
+function _safeUpper(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function _safeLower(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function _qs(name) {
+  return new URLSearchParams(window.location.search).get(name);
+}
+
+function _isGestionAdminMode() {
+  return _qs('admin') === '1';
+}
+
+function _isCuadreFleetMode() {
+  return _qs('fleet') === '1';
+}
+
+function _gestionInitialTab() {
+  return String(_qs('tab') || 'usuarios').trim().toLowerCase() || 'usuarios';
+}
+
+function _cuadreInitialTab() {
+  const raw = String(_qs('tab') || 'normal').trim().toLowerCase();
+  return raw === 'admins' ? 'ADMINS' : 'NORMAL';
+}
+
+function _buildGestionRouteUrl(tab = 'usuarios') {
+  const params = new URLSearchParams();
+  const tabName = String(tab || 'usuarios').trim().toLowerCase();
+  if (tabName) params.set('tab', tabName);
+  const query = params.toString();
+  return `/gestion${query ? `?${query}` : ''}`;
+}
+
+function _buildCuadreRouteUrl(tab = 'normal') {
+  const params = new URLSearchParams();
+  params.set('tab', String(tab || 'normal').trim().toLowerCase() === 'admins' ? 'admins' : 'normal');
+  const query = params.toString();
+  return `/cuadre${query ? `?${query}` : ''}`;
+}
+
+function _navigateTop(url) {
   try {
-    await api.registrarEventoGestion(tipo, mensaje, USER_NAME || 'Sistema', extra);
+    if (window.top && window.top !== window) {
+      window.top.location.href = url;
+      return;
+    }
+  } catch (_) {}
+  window.location.href = url;
+}
+
+function _updateGlobalPlazaEmail() {
+  window.__mexCurrentPlazaId = _miPlaza();
+  if (typeof window.getPlazaActualEmail === 'function') {
+    window.PLAZA_ACTUAL_EMAIL = window.getPlazaActualEmail();
+  }
+}
+
+function _normalizeCorreosInternosEmpresa(empresa = window.MEX_CONFIG?.empresa || {}) {
+  const normalized = [];
+  const seen = new Map();
+  const plazasDetalle = Array.isArray(empresa?.plazasDetalle) ? empresa.plazasDetalle : [];
+  const rawList = Array.isArray(empresa?.correosInternos) ? empresa.correosInternos : [];
+
+  function upsert(rawItem, fallback = {}) {
+    const isObject = rawItem && typeof rawItem === 'object' && !Array.isArray(rawItem);
+    const correo = _safeLower(isObject ? (rawItem.correo || rawItem.email || rawItem.mail) : rawItem);
+    if (!correo) return;
+
+    const next = {
+      titulo: String(
+        isObject
+          ? (rawItem.titulo || rawItem.nombre || fallback.titulo || '')
+          : (fallback.titulo || '')
+      ).trim(),
+      correo,
+      plazaId: _safeUpper(isObject ? rawItem.plazaId : fallback.plazaId)
+    };
+
+    if (seen.has(correo)) {
+      const current = seen.get(correo);
+      if (!current.titulo && next.titulo) current.titulo = next.titulo;
+      if (!current.plazaId && next.plazaId) current.plazaId = next.plazaId;
+      return;
+    }
+
+    seen.set(correo, next);
+    normalized.push(next);
+  }
+
+  rawList.forEach(item => upsert(item));
+
+  plazasDetalle.forEach(plaza => {
+    const plazaId = _safeUpper(plaza?.id);
+    if (plaza?.correo) {
+      upsert(
+        { correo: plaza.correo, plazaId },
+        { titulo: `${plazaId} INSTITUCIONAL`, plazaId }
+      );
+    }
+    if (plaza?.correoGerente) {
+      upsert(
+        { correo: plaza.correoGerente, plazaId },
+        { titulo: `${plazaId} GERENCIA`, plazaId }
+      );
+    }
+  });
+
+  return normalized;
+}
+
+function _syncEmpresaCorreosInternosState() {
+  window.MEX_CONFIG = window.MEX_CONFIG || {};
+  window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
+  window.MEX_CONFIG.empresa.correosInternos = _normalizeCorreosInternosEmpresa(window.MEX_CONFIG.empresa);
+  return window.MEX_CONFIG.empresa.correosInternos;
+}
+
+function _getAdminRouteSignature() {
+  return `${window.location.pathname}${window.location.search || ''}`;
+}
+
+function _currentAdminDeviceId() {
+  const snapshot = getCurrentDeviceSnapshot?.() || {};
+  return String(snapshot?.currentDevice?.deviceId || snapshot?.currentDevice?.id || '').trim();
+}
+
+function _locationMapsUrl(exactLocation = null) {
+  const lat = Number(exactLocation?.latitude);
+  const lng = Number(exactLocation?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return '';
+  return `https://maps.google.com/?q=${lat},${lng}`;
+}
+
+async function _pushAdminLocationToDevice(exactLocation = null, locationStatus = 'pending') {
+  try {
+    await syncCurrentDeviceContext({
+      locationStatus,
+      ...(exactLocation ? { exactLocation: { ...exactLocation, googleMapsUrl: _locationMapsUrl(exactLocation) } } : {})
+    }, { force: true });
+  } catch (error) {
+    console.warn('No se pudo sincronizar la ubicación exacta del admin en el dispositivo:', error);
+  }
+}
+
+async function _captureAdminExactLocation(options = {}) {
+  const force = options.force === true;
+  const now = Date.now();
+  if (!force && _adminAuditLocationState.lastUpdated && (now - _adminAuditLocationState.lastUpdated) < ADMIN_LOCATION_CACHE_MS) {
+    return { ..._adminAuditLocationState };
+  }
+
+  if (!window.isSecureContext || !navigator.geolocation) {
+    _adminAuditLocationState.status = 'unsupported';
+    _adminAuditLocationState.exactLocation = null;
+    _adminAuditLocationState.lastUpdated = now;
+    await _pushAdminLocationToDevice(null, 'unsupported');
+    return { ..._adminAuditLocationState };
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const exactLocation = {
+          latitude: Number(position.coords?.latitude || 0),
+          longitude: Number(position.coords?.longitude || 0),
+          accuracy: Number(position.coords?.accuracy || 0),
+          capturedAt: Date.now(),
+          source: 'browser'
+        };
+        _adminAuditLocationState.status = 'granted';
+        _adminAuditLocationState.exactLocation = exactLocation;
+        _adminAuditLocationState.lastUpdated = Date.now();
+        _adminAuditLocationState.error = '';
+        await _pushAdminLocationToDevice(exactLocation, 'granted');
+        resolve({ ..._adminAuditLocationState });
+      },
+      async (error) => {
+        const denied = Number(error?.code) === 1;
+        _adminAuditLocationState.status = denied ? 'denied' : 'error';
+        _adminAuditLocationState.exactLocation = null;
+        _adminAuditLocationState.lastUpdated = Date.now();
+        _adminAuditLocationState.error = String(error?.message || '').trim();
+        await _pushAdminLocationToDevice(null, _adminAuditLocationState.status);
+        resolve({ ..._adminAuditLocationState });
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: force ? 0 : 30000
+      }
+    );
+  });
+}
+
+async function _adminAuditExtra(extra = {}, options = {}) {
+  const snapshot = await _captureAdminExactLocation({ force: options.forceLocation === true });
+  const payload = {
+    ...extra,
+    deviceId: _currentAdminDeviceId(),
+    activeRoute: _getAdminRouteSignature(),
+    locationStatus: snapshot.status || 'pending'
+  };
+  if (snapshot.exactLocation) {
+    payload.exactLocation = {
+      ...snapshot.exactLocation,
+      googleMapsUrl: _locationMapsUrl(snapshot.exactLocation)
+    };
+  }
+  return payload;
+}
+
+async function registrarEventoGestion(tipo, mensaje, extra = {}) {
+  const auditExtra = await _adminAuditExtra(extra, { forceLocation: false });
+  try {
+    const callable = window._functions?.httpsCallable?.('recordAdminAuditEvent');
+    if (callable) {
+      await callable({
+        tipo,
+        mensaje,
+        autor: USER_NAME || 'Sistema',
+        plaza: _miPlaza(),
+        extra: auditExtra
+      });
+      return;
+    }
+    await api.registrarEventoGestion(tipo, mensaje, USER_NAME || 'Sistema', auditExtra);
   } catch (error) {
     console.warn('No se pudo registrar el evento de gestión:', error);
   }
@@ -1538,7 +1789,7 @@ function iniciarApp(esNuevoLogin = true) {
 
   // Re-cargar config después de auth — garantiza que persistence esté lista
   // y que los selects estén poblados con datos frescos de Firestore
-  inicializarConfiguracion();
+  const configReadyPromise = inicializarConfiguracion();
 
   _iniciarSincronizacionUsuarios(); // Poblar dbUsuariosLogin en tiempo real
   init(); // Carga el mapa
@@ -1555,6 +1806,22 @@ function iniciarApp(esNuevoLogin = true) {
         message: error?.message || 'No se pudo inicializar notificaciones',
         stack: error?.stack || ''
       });
+    });
+
+  Promise.resolve(configReadyPromise)
+    .finally(() => {
+      if (_isGestionAdminMode()) {
+        _bootGestionAdminRoute().catch(error => {
+          console.warn('No se pudo abrir el modo gestion dedicado:', error);
+        });
+      }
+      if (_isCuadreFleetMode()) {
+        try {
+          _bootCuadreFleetRoute();
+        } catch (error) {
+          console.warn('No se pudo abrir el modo flota dedicado:', error);
+        }
+      }
     });
 }
 
@@ -2089,6 +2356,7 @@ function startAutoRefresh() {
 function cambiarPlazaMapa(plaza) {
   if (!plaza || PLAZA_ACTIVA_MAPA === plaza) return;
   PLAZA_ACTIVA_MAPA = plaza;
+  _updateGlobalPlazaEmail();
   _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
   _renderPlazaSwitcher();
   inicializarConfiguracion();
@@ -2138,6 +2406,7 @@ function _renderPlazaSwitcher() {
   // Auto-seleccionar primera plaza si aún no hay ninguna activa
   if (!PLAZA_ACTIVA_MAPA && plazas.length > 0) {
     PLAZA_ACTIVA_MAPA = plazas[0];
+    _updateGlobalPlazaEmail();
     // startAutoRefresh se llama desde init() — si ya terminó, forzar reinicio
     if (_subPlaza !== PLAZA_ACTIVA_MAPA) {
       _subPlaza = null;
@@ -3521,6 +3790,14 @@ let currentSwipeIndex = 0; // 🔥 NUEVA GLOBAL PARA RASTREAR EL CARRO ACTUAL
 let CACHE_IMAGENES_AUDIT = {};
 
 function abrirModalFlota() {
+  if (!_isCuadreFleetMode()) {
+    _navigateTop(_buildCuadreRouteUrl(VISTA_ACTUAL_FLOTA === 'ADMINS' ? 'admins' : 'normal'));
+    return;
+  }
+  _openFleetModalInPlace(_cuadreInitialTab());
+}
+
+function _openFleetModalInPlace(initialTab = 'NORMAL') {
   document.getElementById('fleet-modal').classList.add('active');
   toggleAdminSidebar(false);
   // Repoblar selects cada vez que se abre — garantiza que estén al día
@@ -3554,10 +3831,17 @@ function abrirModalFlota() {
   if (btnLock) {
     btnLock.style.display = canLockMap() ? 'flex' : 'none';
   }
+
+  const targetTab = String(initialTab || 'NORMAL').toUpperCase() === 'ADMINS' ? 'ADMINS' : 'NORMAL';
+  setTimeout(() => cambiarTabFlota(targetTab), 0);
 }
 
 function cerrarModalFlota() {
   document.getElementById('fleet-modal').classList.remove('active');
+  if (_isCuadreFleetMode()) {
+    _navigateTop('/mapa');
+    return;
+  }
   sincronizarEstadoSidebars();
   refrescarDatos();
 }
@@ -13838,11 +14122,11 @@ function _cfgRenderRolesTab(container) {
         <div class="cfg-security-role-form">
           <label>
             <span>Nombre visible</span>
-            <input type="text" value="${escapeHtml(selectedTemplate.label || selectedMeta.label)}" oninput="_cfgActualizarRolCampo('${selectedRole}','label', this.value)">
+            <input type="text" value="${escapeHtml(selectedTemplate.label || selectedMeta.label)}" onchange="_cfgActualizarRolCampo('${selectedRole}','label', this.value)">
           </label>
           <label>
             <span>Nivel</span>
-            <input type="number" min="1" max="99" value="${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}" oninput="_cfgActualizarRolCampo('${selectedRole}','level', this.value)">
+            <input type="number" min="1" max="99" value="${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}" onchange="_cfgActualizarRolCampo('${selectedRole}','level', this.value)">
           </label>
           <label class="cfg-security-check">
             <input type="checkbox" ${selectedMeta.isAdmin ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','isAdmin', this.checked)">
@@ -13889,8 +14173,8 @@ function _cfgRenderRolesTab(container) {
           ${_permissionEntries().map(item => `
             <div class="cfg-security-catalog-item">
               <div class="cfg-security-catalog-key">${escapeHtml(item.key)}</div>
-              <input type="text" value="${escapeHtml(item.label)}" oninput="_cfgActualizarPermisoMeta('${item.key}','label', this.value)">
-              <input type="text" value="${escapeHtml(item.description)}" oninput="_cfgActualizarPermisoMeta('${item.key}','description', this.value)">
+              <input type="text" value="${escapeHtml(item.label)}" onchange="_cfgActualizarPermisoMeta('${item.key}','label', this.value)">
+              <input type="text" value="${escapeHtml(item.description)}" onchange="_cfgActualizarPermisoMeta('${item.key}','description', this.value)">
             </div>
           `).join('')}
         </div>
@@ -13904,21 +14188,33 @@ function _cfgSeleccionarRol(role) {
   renderizarListaConfig();
 }
 
-function _cfgActualizarRolCampo(role, field, value) {
+async function _cfgActualizarRolCampo(role, field, value) {
   const roleKey = _cfgSecurityRoleKey(role);
   if (!roleKey) return;
   const normalizedValue = field === 'level' ? Math.max(1, Math.min(99, Number(value) || 1)) : String(value || '').trim();
   _cfgUpsertRole(roleKey, { [field]: normalizedValue });
+  await _persistSecurityAdminAction(
+    'ROL_ACTUALIZADO',
+    `Actualizó el campo ${field} del rol ${roleKey}`,
+    'Rol actualizado.',
+    { referencia: roleKey, campo: field }
+  );
 }
 
-function _cfgActualizarRolBoolean(role, field, value) {
+async function _cfgActualizarRolBoolean(role, field, value) {
   const roleKey = _cfgSecurityRoleKey(role);
   if (!roleKey) return;
   _cfgUpsertRole(roleKey, { [field]: Boolean(value) });
   renderizarListaConfig();
+  await _persistSecurityAdminAction(
+    'ROL_ACTUALIZADO',
+    `Actualizó el indicador ${field} del rol ${roleKey}`,
+    'Rol actualizado.',
+    { referencia: roleKey, campo: field }
+  );
 }
 
-function _cfgToggleRolPermiso(role, permissionKey, enabled) {
+async function _cfgToggleRolPermiso(role, permissionKey, enabled) {
   const roleKey = _cfgSecurityRoleKey(role);
   if (!roleKey) return;
   _cfgUpsertRole(roleKey, {
@@ -13927,13 +14223,25 @@ function _cfgToggleRolPermiso(role, permissionKey, enabled) {
       [permissionKey]: Boolean(enabled)
     }
   });
+  await _persistSecurityAdminAction(
+    'ROL_PERMISO_ACTUALIZADO',
+    `Actualizó el permiso ${permissionKey} del rol ${roleKey}`,
+    'Permiso del rol actualizado.',
+    { referencia: roleKey, permiso: permissionKey, habilitado: Boolean(enabled) }
+  );
 }
 
-function _cfgActualizarPermisoMeta(permissionKey, field, value) {
+async function _cfgActualizarPermisoMeta(permissionKey, field, value) {
   const security = _ensureSecurityConfig();
   security.permissionsCatalog[permissionKey] = security.permissionsCatalog[permissionKey] || {};
   security.permissionsCatalog[permissionKey][field] = String(value || '').trim();
   _refreshSecurityRoleCatalog();
+  await _persistSecurityAdminAction(
+    'CATALOGO_PERMISOS_ACTUALIZADO',
+    `Actualizó el catálogo del permiso ${permissionKey}`,
+    'Catálogo de permisos actualizado.',
+    { referencia: permissionKey, campo: field }
+  );
 }
 
 async function _cfgCrearRolDesdePanel() {
@@ -13964,7 +14272,12 @@ async function _cfgCrearRolDesdePanel() {
   });
   _cfgSecuritySelectedRole = roleKey;
   renderizarListaConfig();
-  showToast(`Rol ${roleKey} creado.`, 'success');
+  await _persistSecurityAdminAction(
+    'ROL_CREADO',
+    `Creó el rol ${roleKey}`,
+    `Rol ${roleKey} creado.`,
+    { referencia: roleKey }
+  );
 }
 
 async function _cfgEliminarRolSeleccionado() {
@@ -13984,11 +14297,47 @@ async function _cfgEliminarRolSeleccionado() {
   _refreshSecurityRoleCatalog();
   _cfgSecuritySelectedRole = 'GERENTE_PLAZA';
   renderizarListaConfig();
+  await _persistSecurityAdminAction(
+    'ROL_ELIMINADO',
+    `Eliminó el rol ${roleKey}`,
+    `Rol ${roleKey} eliminado.`,
+    { referencia: roleKey }
+  );
+}
+
+function _applyGestionAdminChrome() {
+  if (!_isGestionAdminMode()) return;
+  document.documentElement.classList.add('gestion-admin-route');
+  document.body?.classList.add('gestion-admin-route');
+  const modal = document.getElementById('modal-config-global');
+  if (modal) modal.classList.add('active');
+  const footer = document.querySelector('.cfg-v2-footer');
+  if (footer) footer.style.display = 'none';
+  const closeBtn = document.querySelector('.cfg-v2-close');
+  if (closeBtn) closeBtn.title = 'Volver al mapa';
+}
+
+async function _bootGestionAdminRoute() {
+  if (!_isGestionAdminMode() || _gestionAdminBooted) return;
+  _gestionAdminBooted = true;
+  _applyGestionAdminChrome();
+  abrirPanelConfiguracion(_gestionInitialTab());
+  await _captureAdminExactLocation({ force: true });
+}
+
+function _bootCuadreFleetRoute() {
+  if (!_isCuadreFleetMode() || _cuadreFleetBooted) return;
+  _cuadreFleetBooted = true;
+  abrirModalFlota(_cuadreInitialTab());
 }
 
 function abrirPanelConfiguracion(tabInicial) {
   if (!canOpenAdminPanel()) {
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
+    return;
+  }
+  if (!_isGestionAdminMode()) {
+    _navigateTop(_buildGestionRouteUrl(tabInicial || 'usuarios'));
     return;
   }
   const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
@@ -14005,6 +14354,7 @@ function abrirPanelConfiguracion(tabInicial) {
   const tabSolicitudes = document.getElementById('cfg-tab-solicitudes') || document.querySelector(`.cfg-tab[onclick*="'solicitudes'"]`);
   if (tabSolicitudes) tabSolicitudes.style.display = canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig() ? 'inline-flex' : 'none';
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
+  _applyGestionAdminChrome();
   document.getElementById('modal-config-global').classList.add('active');
   const targetTab = tabInicial || 'usuarios';
   const targetButton = document.getElementById(`cfg-tab-${targetTab}`) || document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
@@ -14317,6 +14667,15 @@ function renderizarListaConfig() {
               </button>
             </div>` : ''}
 
+            <div class="cfg-emp-card" style="padding:18px 20px;">
+              <div style="display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap;">
+                <button type="button" class="cfg-save-btn" onclick="guardarEmpresaConfig()">
+                  <span class="material-icons">save</span>
+                  Guardar empresa
+                </button>
+              </div>
+            </div>
+
           </div>
         `;
     return;
@@ -14368,7 +14727,10 @@ function renderizarListaConfig() {
   }
 
   if (TAB_ACTIVA_CFG === 'plazas') {
-    _plazaSeleccionadaCfg = null;
+    const plazasActivas = Array.isArray(window.MEX_CONFIG?.empresa?.plazas) ? window.MEX_CONFIG.empresa.plazas : [];
+    if (_plazaSeleccionadaCfg && !plazasActivas.includes(_plazaSeleccionadaCfg)) {
+      _plazaSeleccionadaCfg = null;
+    }
     renderizarTabConfigPlazas(container);
     return;
   }
@@ -14499,7 +14861,7 @@ function cfgDragOver(event) {
   event.dataTransfer.dropEffect = 'move';
 }
 
-function cfgDrop(event, destOrigIdx) {
+async function cfgDrop(event, destOrigIdx) {
   event.preventDefault();
   if (_cfgDragSrcIdx === null || _cfgDragSrcIdx === destOrigIdx) {
     _cfgDragSrcIdx = null;
@@ -14513,6 +14875,12 @@ function cfgDrop(event, destOrigIdx) {
   lista.splice(adjustedDest, 0, moved);
   _cfgDragSrcIdx = null;
   renderizarListaConfig();
+  await _persistListAdminAction(
+    'CATALOGO_REORDENADO',
+    `Reordenó elementos del catálogo ${TAB_ACTIVA_CFG}`,
+    'Orden actualizado.',
+    { entidad: TAB_ACTIVA_CFG, referencia: TAB_ACTIVA_CFG }
+  );
 }
 
 function cfgToggleModelos(id) {
@@ -14650,7 +15018,7 @@ function editarElementoConfig(index) {
   _cfgShowModal();
 }
 
-function confirmarAgregadoConfig() {
+async function confirmarAgregadoConfig() {
   const val = document.getElementById('cfg-add-name').value.trim().toUpperCase();
   if (!val) { showToast("Escribe un nombre", "error"); return; }
 
@@ -14688,6 +15056,12 @@ function confirmarAgregadoConfig() {
 
   document.getElementById('modal-cfg-add').style.display = 'none';
   renderizarListaConfig();
+  await _persistListAdminAction(
+    editIndex > -1 ? 'CATALOGO_EDITADO' : 'CATALOGO_CREADO',
+    `${editIndex > -1 ? 'Actualizó' : 'Agregó'} ${val} en ${TAB_ACTIVA_CFG}`,
+    editIndex > -1 ? 'Elemento actualizado.' : 'Elemento agregado.',
+    { entidad: TAB_ACTIVA_CFG, referencia: val }
+  );
 }
 
 function moverElementoConfig(index, dir) {
@@ -14697,6 +15071,12 @@ function moverElementoConfig(index, dir) {
   lista[index] = lista[index + dir];
   lista[index + dir] = temp;
   renderizarListaConfig();
+  _persistListAdminAction(
+    'CATALOGO_REORDENADO',
+    `Reordenó elementos del catálogo ${TAB_ACTIVA_CFG}`,
+    'Orden actualizado.',
+    { entidad: TAB_ACTIVA_CFG, referencia: TAB_ACTIVA_CFG }
+  );
 }
 
 function eliminarElementoConfig(index) {
@@ -14706,6 +15086,12 @@ function eliminarElementoConfig(index) {
     if (!ok) return;
     window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);
     renderizarListaConfig();
+    _persistListAdminAction(
+      'CATALOGO_ELIMINADO',
+      `Eliminó ${nombre} del catálogo ${TAB_ACTIVA_CFG}`,
+      'Elemento eliminado.',
+      { entidad: TAB_ACTIVA_CFG, referencia: nombre }
+    );
   });
 }
 
@@ -14767,35 +15153,124 @@ async function ejecutarMigracionLegacy() {
   }
 }
 
+function _persistPlazaForAdminLists() {
+  if (TAB_ACTIVA_CFG === 'ubicaciones') {
+    const selectedPlaza = document.getElementById('cfg-ubi-plaza-filter')?.value || '';
+    return _safeUpper(selectedPlaza || _miPlaza());
+  }
+  return _safeUpper(_miPlaza());
+}
+
+async function _reloadConfigAfterAdminPersist() {
+  try {
+    if (typeof window.__mexInvalidateConfigCache === 'function') {
+      window.__mexInvalidateConfigCache(_miPlaza());
+    }
+    await inicializarConfiguracion();
+    _syncEmpresaCorreosInternosState();
+    _updateGlobalPlazaEmail();
+    _refreshSecurityRoleCatalog();
+  } catch (error) {
+    console.warn('No se pudo refrescar la configuración tras guardar admin:', error);
+  }
+}
+
+async function _persistEmpresaAdminAction(actionType, message, successMessage, extra = {}, options = {}) {
+  const canSave = hasPermission('manage_system_settings')
+    || canUseProgrammerConfig()
+    || (options.allowManageUsers && (canManageUsers() || hasPermission('manage_roles_permissions')));
+  if (!canSave) {
+    showToast("Tu rol no puede publicar esta configuración.", "error");
+    return false;
+  }
+
+  try {
+    _syncEmpresaCorreosInternosState();
+    await _captureAdminExactLocation({ force: true });
+    await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, { merge: true });
+    await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
+    await registrarEventoGestion(actionType, message, extra);
+    await _reloadConfigAfterAdminPersist();
+    if (document.getElementById('modal-config-global')?.classList.contains('active')) {
+      renderizarListaConfig();
+      if (TAB_ACTIVA_CFG === 'plazas' && _plazaSeleccionadaCfg) plazaSeleccionarCfg(_plazaSeleccionadaCfg);
+    }
+    showToast(successMessage, 'success');
+    return true;
+  } catch (error) {
+    await _reloadConfigAfterAdminPersist();
+    showToast(`Error al guardar: ${error.message}`, 'error');
+    return false;
+  }
+}
+
+async function _persistSecurityAdminAction(actionType, message, successMessage, extra = {}) {
+  return _persistEmpresaAdminAction(
+    actionType,
+    message,
+    successMessage,
+    { entidad: 'ROLES', referencia: _cfgEnsureRoleSelection(), ...extra },
+    { allowManageUsers: true }
+  );
+}
+
+async function _persistListAdminAction(actionType, message, successMessage, extra = {}) {
+  if (!hasPermission('manage_system_settings') && !canUseProgrammerConfig()) {
+    showToast("Tu rol no puede publicar esta configuración.", "error");
+    return false;
+  }
+  try {
+    await _captureAdminExactLocation({ force: true });
+    await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _persistPlazaForAdminLists());
+    await registrarEventoGestion(actionType, message, extra);
+    await _reloadConfigAfterAdminPersist();
+    renderizarListaConfig();
+    showToast(successMessage, 'success');
+    return true;
+  } catch (error) {
+    await _reloadConfigAfterAdminPersist();
+    showToast(`Error al guardar: ${error.message}`, 'error');
+    return false;
+  }
+}
+
 async function guardarConfiguracionEnFirebase() {
   const canSaveRoles = TAB_ACTIVA_CFG === 'roles' && (hasPermission('manage_roles_permissions') || canUseProgrammerConfig());
   if (!canSaveRoles && !hasPermission('manage_system_settings') && !canUseProgrammerConfig()) {
     showToast("Tu rol no puede publicar esta configuración.", "error");
     return;
   }
-  const ok = await mexConfirm('Publicar cambios', '¿Aplicar los cambios a toda la app ahora mismo?', 'warning');
-  if (!ok) return;
-  showToast("Subiendo configuración…", "info");
   try {
+    await _captureAdminExactLocation({ force: true });
     _ensureSecurityConfig();
+    _syncEmpresaCorreosInternosState();
     await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, { merge: true });
     await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
-    await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _miPlaza());
-    showToast("Configuración actualizada", "success");
+    await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _persistPlazaForAdminLists());
+    await registrarEventoGestion('CONFIG_GLOBAL', 'Publicó manualmente la configuración administrativa', {
+      entidad: 'CONFIGURACION',
+      referencia: TAB_ACTIVA_CFG || 'GLOBAL'
+    });
+    await _reloadConfigAfterAdminPersist();
     _refreshSecurityRoleCatalog();
-    aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
-    _aplicarColoresEstados();
-    llenarSelectsDinamicos();
-    if (currentUserProfile) {
-      currentUserProfile = _normalizeUserProfile(currentUserProfile);
-      _setSessionProfile(currentUserProfile);
-      configurarPermisosUI();
-    }
-    _renderPlazaSwitcher();
-    document.getElementById('modal-config-global').classList.remove('active');
+    renderizarListaConfig();
+    if (TAB_ACTIVA_CFG === 'plazas' && _plazaSeleccionadaCfg) plazaSeleccionarCfg(_plazaSeleccionadaCfg);
+    showToast("Configuración actualizada", "success");
+    if (!_isGestionAdminMode()) document.getElementById('modal-config-global').classList.remove('active');
   } catch (error) {
+    await _reloadConfigAfterAdminPersist();
     showToast("Error al guardar: " + error.message, "error");
   }
+}
+
+async function guardarEmpresaConfig(actionType = 'EMPRESA_ACTUALIZADA', message = 'Actualizó la configuración de empresa', successMessage = 'Empresa actualizada.', extra = {}) {
+  _syncEmpresaCorreosInternosState();
+  return _persistEmpresaAdminAction(
+    actionType,
+    message,
+    successMessage,
+    { entidad: 'EMPRESA', referencia: 'empresa', ...extra }
+  );
 }
 
 // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
@@ -14986,7 +15461,7 @@ function _cerrarModalNuevaplaza() {
   if (m) m.style.display = 'none';
 }
 
-function _confirmarNuevaplaza() {
+async function _confirmarNuevaplaza() {
   const idInp = document.getElementById('nueva-plaza-id');
   const nomInp = document.getElementById('nueva-plaza-nombre');
   const descInp = document.getElementById('nueva-plaza-descripcion');
@@ -15004,10 +15479,16 @@ function _confirmarNuevaplaza() {
     descripcion: (descInp?.value || '').trim(),
   });
   _cerrarModalNuevaplaza();
+  _plazaSeleccionadaCfg = p;
   _plazaFormLocked = false; // open in edit mode since just created
   renderizarListaConfig();
   setTimeout(() => plazaSeleccionarCfg(p), 50);
-  showToast(`Plaza "${p}" creada. Configura sus detalles y publica para guardar.`, 'success');
+  await _persistEmpresaAdminAction(
+    'PLAZA_CREADA',
+    `Creó la plaza ${p}`,
+    `Plaza "${p}" creada.`,
+    { entidad: 'PLAZAS', referencia: p }
+  );
 }
 
 function _filtrarPlazasCfg() {
@@ -15045,35 +15526,82 @@ function _plazaConfirmMaps() {
   preview.classList.remove('hidden');
 }
 
-function _plazaGetUserEmailOptions(selectedVal, currentPlazaId) {
-  const sources = [
-    (typeof _umUsers !== 'undefined' && Array.isArray(_umUsers)) ? _umUsers : [],
-    Array.isArray(window.MEX_CONFIG?.usuarios) ? window.MEX_CONFIG.usuarios : [],
-    Array.isArray(window.MEX_CONFIG?.empresa?.usuarios) ? window.MEX_CONFIG.empresa.usuarios : [],
-    Array.isArray(window.CATALOGO_USUARIOS) ? window.CATALOGO_USUARIOS : []
-  ];
-  const users = sources.flat().filter(Boolean);
-  const emails = [...new Set(users.map(u => (u?.email || u?.correo || u?.mail || '').trim()).filter(Boolean))].sort();
+function _plazaGetUserEmailOptions(selectedVal, currentPlazaId, fieldName = 'correo', plazaData = {}) {
+  const currentPlaza = _safeUpper(currentPlazaId);
+  const currentValue = _safeLower(selectedVal);
+  const correosInternos = _syncEmpresaCorreosInternosState();
+  const counterpartValue = _safeLower(fieldName === 'correo' ? plazaData?.correoGerente : plazaData?.correo);
 
-  // Correos ya asignados en OTRAS plazas (no en la actual)
-  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
-  const emailsOtrasPlazas = new Set();
-  plazasDetalle.forEach(p => {
-    if (p.id === currentPlazaId) return;
-    if (p.correo) emailsOtrasPlazas.add(p.correo.toLowerCase());
-    if (p.correoGerente) emailsOtrasPlazas.add(p.correoGerente.toLowerCase());
-  });
+  const disponibles = correosInternos
+    .filter(item => {
+      const correo = _safeLower(item?.correo);
+      const plazaId = _safeUpper(item?.plazaId);
+      if (!correo) return false;
+      if (currentValue && correo === currentValue) return true;
+      if (counterpartValue && correo === counterpartValue) return false;
+      return !plazaId || plazaId === currentPlaza;
+    })
+    .sort((a, b) => String(a?.correo || '').localeCompare(String(b?.correo || ''), 'es'));
 
-  const disponibles = emails.filter(e => !emailsOtrasPlazas.has(e.toLowerCase()));
+  const optionItems = [...disponibles];
+  if (currentValue && !optionItems.some(item => _safeLower(item?.correo) === currentValue)) {
+    optionItems.unshift({
+      titulo: fieldName === 'correoGerente' ? `${currentPlaza} GERENCIA` : `${currentPlaza} INSTITUCIONAL`,
+      correo: currentValue,
+      plazaId: currentPlaza
+    });
+  }
 
-  const opciones = [...disponibles];
-  if (selectedVal && !opciones.includes(selectedVal)) opciones.unshift(selectedVal);
-
-  if (opciones.length === 0) {
+  if (optionItems.length === 0) {
     return `<option value="">— Sin correos disponibles —</option>`;
   }
-  return `<option value="">— Sin asignar —</option>` +
-    opciones.map(e => `<option value="${escapeHtml(e)}"${String(e).toLowerCase() === String(selectedVal || '').toLowerCase() ? ' selected' : ''}>${escapeHtml(e)}</option>`).join('');
+
+  return `<option value="">— Sin asignar —</option>` + optionItems.map(item => {
+    const correo = _safeLower(item?.correo);
+    const titulo = String(item?.titulo || '').trim();
+    const assigned = _safeUpper(item?.plazaId);
+    const suffix = assigned && assigned !== currentPlaza ? ` · ${assigned}` : '';
+    const label = titulo ? `${titulo} · ${correo}${suffix}` : `${correo}${suffix}`;
+    return `<option value="${escapeHtml(correo)}"${correo === currentValue ? ' selected' : ''}>${escapeHtml(label)}</option>`;
+  }).join('');
+}
+
+function _reassignCorreoCatalogForPlaza(plazaId, correoInstitucional = '', correoGerente = '') {
+  const currentPlaza = _safeUpper(plazaId);
+  const selected = new Set([_safeLower(correoInstitucional), _safeLower(correoGerente)].filter(Boolean));
+  const catalog = _syncEmpresaCorreosInternosState();
+
+  catalog.forEach(item => {
+    const correo = _safeLower(item?.correo);
+    const assigned = _safeUpper(item?.plazaId);
+    if (!correo) return;
+    if (assigned === currentPlaza && !selected.has(correo)) {
+      item.plazaId = '';
+    }
+    if (selected.has(correo)) {
+      item.plazaId = currentPlaza;
+    }
+  });
+
+  selected.forEach(correo => {
+    if (catalog.some(item => _safeLower(item?.correo) === correo)) return;
+    catalog.push({
+      titulo: correo === _safeLower(correoGerente) ? `${currentPlaza} GERENCIA` : `${currentPlaza} INSTITUCIONAL`,
+      correo,
+      plazaId: currentPlaza
+    });
+  });
+
+  window.MEX_CONFIG.empresa.correosInternos = catalog;
+}
+
+function _releaseCorreoCatalogForPlaza(plazaId = '') {
+  const currentPlaza = _safeUpper(plazaId);
+  const catalog = _syncEmpresaCorreosInternosState();
+  catalog.forEach(item => {
+    if (_safeUpper(item?.plazaId) === currentPlaza) item.plazaId = '';
+  });
+  window.MEX_CONFIG.empresa.correosInternos = catalog;
 }
 
 function _renderPlazaForm(plazaId) {
@@ -15198,7 +15726,7 @@ function _renderPlazaForm(plazaId) {
               <div class="cfg-plaza-input-icon-wrap">
                 <span class="material-icons">alternate_email</span>
                 <select id="plaza-correo" class="cfg-plaza-select-correo">
-                  ${_plazaGetUserEmailOptions(d.correo || '', plazaId)}
+                  ${_plazaGetUserEmailOptions(d.correo || '', plazaId, 'correo', d)}
                 </select>
               </div>
             </div>
@@ -15225,7 +15753,7 @@ function _renderPlazaForm(plazaId) {
               <div class="cfg-plaza-input-icon-wrap">
                 <span class="material-icons">alternate_email</span>
                 <select id="plaza-correo-gerente" class="cfg-plaza-select-correo">
-                  ${_plazaGetUserEmailOptions(d.correoGerente || '', plazaId)}
+                  ${_plazaGetUserEmailOptions(d.correoGerente || '', plazaId, 'correoGerente', d)}
                 </select>
               </div>
             </div>
@@ -15346,7 +15874,7 @@ function plazaSeleccionarCfg(plazaId) {
   if (editCol) editCol.innerHTML = _renderPlazaForm(plazaId);
 }
 
-function plazaGuardarCfg(plazaId) {
+async function plazaGuardarCfg(plazaId) {
   const emp = window.MEX_CONFIG.empresa;
   if (!emp) return showToast('Error: config no cargada', 'error');
   emp.plazasDetalle = emp.plazasDetalle || [];
@@ -15373,11 +15901,27 @@ function plazaGuardarCfg(plazaId) {
     correoGerente: (document.getElementById('plaza-correo-gerente')?.value || '').trim().toLowerCase(),
     contactos
   };
+  if (datos.correo && datos.correoGerente && datos.correo === datos.correoGerente) {
+    showToast('Selecciona correos distintos para la plaza y la gerencia.', 'error');
+    return;
+  }
   if (idx > -1) emp.plazasDetalle[idx] = datos;
   else emp.plazasDetalle.push(datos);
+  _reassignCorreoCatalogForPlaza(plazaId, datos.correo, datos.correoGerente);
+  _plazaSeleccionadaCfg = plazaId;
   _plazaFormLocked = true;
-  showToast(`Plaza ${plazaId} guardada. Publica los cambios para confirmar.`, 'success');
-  plazaSeleccionarCfg(plazaId);
+  const saved = await _persistEmpresaAdminAction(
+    'PLAZA_GUARDADA',
+    `Actualizó la plaza ${plazaId}`,
+    `Plaza ${plazaId} guardada.`,
+    {
+      entidad: 'PLAZAS',
+      referencia: plazaId,
+      correo: datos.correo || '',
+      correoGerente: datos.correoGerente || ''
+    }
+  );
+  if (saved) plazaSeleccionarCfg(plazaId);
 }
 
 function _llenarSelectPlazasUbi(selectId, selected) {
@@ -15400,9 +15944,14 @@ async function eliminarPlazaCatalogo(plazaId) {
   const emp = window.MEX_CONFIG.empresa || {};
   emp.plazas = (emp.plazas || []).filter(p => p !== plazaId);
   emp.plazasDetalle = (emp.plazasDetalle || []).filter(d => d.id !== plazaId);
+  _releaseCorreoCatalogForPlaza(plazaId);
   if (_plazaSeleccionadaCfg === plazaId) _plazaSeleccionadaCfg = null;
-  renderizarListaConfig();
-  showToast(`Plaza "${plazaId}" eliminada.`, 'success');
+  await _persistEmpresaAdminAction(
+    'PLAZA_ELIMINADA',
+    `Eliminó la plaza ${plazaId}`,
+    `Plaza "${plazaId}" eliminada.`,
+    { entidad: 'PLAZAS', referencia: plazaId }
+  );
 }
 
 // ─── HELPERS EMPRESA ─────────────────────────────────────────────
@@ -15426,6 +15975,12 @@ async function _borrarCampoCorreo(inputId, key) {
   const el = document.getElementById(inputId);
   if (el) el.value = '';
   if (window.MEX_CONFIG && window.MEX_CONFIG.empresa) window.MEX_CONFIG.empresa[key] = '';
+  await guardarEmpresaConfig(
+    'CORREO_GLOBAL_ELIMINADO',
+    `Eliminó el correo global ${key}`,
+    'Correo global eliminado.',
+    { entidad: 'EMPRESA', referencia: key }
+  );
 }
 
 function _renderCorreosInternosHtml(correos, filter) {
@@ -15439,12 +15994,16 @@ function _renderCorreosInternosHtml(correos, filter) {
   return lista.map((c, i) => {
     const correo = typeof c === 'object' ? (c.correo || '') : c;
     const titulo = typeof c === 'object' ? (c.titulo || '') : '';
+    const plazaId = typeof c === 'object' ? _safeUpper(c.plazaId) : '';
     const origIdx = correos.indexOf(c);
     return `<div style="display:flex; align-items:center; gap:8px; background:white; border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px;">
           <span class="material-icons" style="font-size:16px; color:#94a3b8; flex-shrink:0;">email</span>
           <div style="flex:1; overflow:hidden;">
             ${titulo ? `<div style="font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase;">${escapeHtml(titulo)}</div>` : ''}
             <div style="font-size:12px; font-weight:700; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(correo)}</div>
+            <div style="font-size:10px; font-weight:800; color:${plazaId ? '#2563eb' : '#94a3b8'}; margin-top:2px;">
+              ${plazaId ? `Asignado a ${escapeHtml(plazaId)}` : 'Disponible para asignar'}
+            </div>
           </div>
           <button onclick="_borrarCorreoInterno(${origIdx})" title="Eliminar"
             style="background:#fee2e2; border:1px solid #fca5a5; border-radius:6px; width:28px; height:28px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;">
@@ -15472,13 +16031,24 @@ async function _borrarCorreoInterno(idx) {
     'danger'
   );
   if (!ok) return;
+  emp.plazasDetalle = (emp.plazasDetalle || []).map(det => {
+    const next = { ...(det || {}) };
+    if (_safeLower(next.correo) === _safeLower(correoStr)) next.correo = '';
+    if (_safeLower(next.correoGerente) === _safeLower(correoStr)) next.correoGerente = '';
+    return next;
+  });
   lista.splice(idx, 1);
   emp.correosInternos = lista;
   _renderCorreosInternosList();
-  showToast('Correo eliminado. Publica para confirmar.', 'success');
+  await guardarEmpresaConfig(
+    'CORREO_INTERNO_ELIMINADO',
+    `Eliminó el correo interno ${correoStr}`,
+    'Correo interno eliminado.',
+    { entidad: 'CORREOS_INTERNOS', referencia: correoStr }
+  );
 }
 
-function agregarCorreoInterno() {
+async function agregarCorreoInterno() {
   const input = document.getElementById('cfg-correo-interno-input');
   const tInput = document.getElementById('cfg-correo-interno-titulo');
   if (!input) return;
@@ -15487,14 +16057,19 @@ function agregarCorreoInterno() {
   if (!correo || !correo.includes('@')) { showToast('Correo inválido', 'error'); return; }
   const emp = window.MEX_CONFIG.empresa || {};
   emp.correosInternos = emp.correosInternos || [];
-  const yaExiste = emp.correosInternos.some(c => (typeof c === 'object' ? c.correo : c) === correo);
+  const yaExiste = emp.correosInternos.some(c => _safeLower(typeof c === 'object' ? c.correo : c) === correo);
   if (yaExiste) { showToast('Ese correo ya existe', 'error'); return; }
-  emp.correosInternos.push(titulo ? { correo, titulo } : correo);
+  emp.correosInternos.push({ correo, titulo, plazaId: '' });
   window.MEX_CONFIG.empresa = emp;
   input.value = '';
   if (tInput) tInput.value = '';
   _renderCorreosInternosList();
-  showToast('Correo añadido. Publica para guardar.', 'success');
+  await guardarEmpresaConfig(
+    'CORREO_INTERNO_CREADO',
+    `Agregó el correo interno ${correo}`,
+    'Correo interno agregado.',
+    { entidad: 'CORREOS_INTERNOS', referencia: correo }
+  );
 }
 
 function renderCorreosInternos() {
@@ -15544,7 +16119,12 @@ async function subirLogoEmpresa(inputEl) {
               <span class="material-icons">delete</span>
             </button>
           </div>`;
-    showToast('Logo subido. Publica los cambios para guardar.', 'success');
+    await guardarEmpresaConfig(
+      'LOGO_EMPRESA_ACTUALIZADO',
+      'Actualizó el logo de la empresa',
+      'Logo actualizado.',
+      { entidad: 'EMPRESA', referencia: 'logoURL' }
+    );
   } catch (e) {
     console.error(e);
     showToast('Error al subir logo: ' + e.message, 'error');
@@ -15561,7 +16141,12 @@ async function eliminarLogoEmpresa() {
     }
     window.MEX_CONFIG.empresa.logoURL = '';
     renderizarListaConfig();
-    showToast('Logo eliminado. Publica los cambios.', 'success');
+    await guardarEmpresaConfig(
+      'LOGO_EMPRESA_ELIMINADO',
+      'Eliminó el logo de la empresa',
+      'Logo eliminado.',
+      { entidad: 'EMPRESA', referencia: 'logoURL' }
+    );
   } catch (e) {
     showToast('Error: ' + e.message, 'error');
   }
@@ -16405,6 +16990,7 @@ Object.assign(window, {
   cargarSolicitudesDeTab,
   cargarSolicitudesPendientes,
   cerrarChat,
+  cerrarPanelConfiguracion,
   cerrarCuadre3V,
   cerrarCustomModal,
   cerrarEmojiPickerReaccion,
@@ -16513,6 +17099,7 @@ Object.assign(window, {
   generarSlugArchivo,
   guardarComoPlantilla,
   guardarConfiguracionEnFirebase,
+  guardarEmpresaConfig,
   guardarEdicionAdmin,
   guardarEdicionGlobal,
   guardarMapaEditor,

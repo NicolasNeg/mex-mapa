@@ -3531,7 +3531,7 @@
         <p class="cfg-v2-subtitle">Gestiona usuarios, roles, solicitudes, catálogos y configuración operativa de
           <b id="empresa-cfg-lbl">Cargando empresa...</b>.</p>
       </div>
-      <button class="cfg-v2-close" onclick="document.getElementById('modal-config-global').classList.remove('active')">
+      <button class="cfg-v2-close" onclick="cerrarPanelConfiguracion()">
         <span class="material-icons" style="font-size:20px;">close</span>
       </button>
     </div>
@@ -3621,7 +3621,7 @@
           <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> · Configuración v3</span>
           <div class="cfg-v2-footer-actions">
             <button class="cfg-v2-btn-cancel"
-              onclick="document.getElementById('modal-config-global').classList.remove('active')">
+              onclick="cerrarPanelConfiguracion()">
               CANCELAR
             </button>
             <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">

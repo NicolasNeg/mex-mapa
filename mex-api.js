@@ -493,6 +493,10 @@ function _sanitizeText(value) {
 }
 
 function _sanearEventoGestionExtra(extra = {}) {
+  const lat = Number(extra?.exactLocation?.latitude);
+  const lng = Number(extra?.exactLocation?.longitude);
+  const acc = Number(extra?.exactLocation?.accuracy);
+  const capturedAt = Number(extra?.exactLocation?.capturedAt);
   return {
     entidad: _sanitizeText(extra.entidad),
     referencia: _sanitizeText(extra.referencia),
@@ -500,7 +504,18 @@ function _sanearEventoGestionExtra(extra = {}) {
     objetivo: _sanitizeText(extra.objetivo),
     rolObjetivo: _sanitizeText(extra.rolObjetivo),
     plazaObjetivo: _sanitizeText(extra.plazaObjetivo),
-    resultado: _sanitizeText(extra.resultado)
+    resultado: _sanitizeText(extra.resultado),
+    deviceId: _sanitizeText(extra.deviceId),
+    activeRoute: _sanitizeText(extra.activeRoute),
+    locationStatus: _sanitizeText(extra.locationStatus),
+    exactLocation: (Number.isFinite(lat) && Number.isFinite(lng)) ? {
+      latitude: lat,
+      longitude: lng,
+      accuracy: Number.isFinite(acc) ? acc : null,
+      capturedAt: Number.isFinite(capturedAt) ? capturedAt : Date.now(),
+      source: _sanitizeText(extra?.exactLocation?.source || 'browser'),
+      googleMapsUrl: _sanitizeText(extra?.exactLocation?.googleMapsUrl || `https://maps.google.com/?q=${lat},${lng}`)
+    } : null
   };
 }
 

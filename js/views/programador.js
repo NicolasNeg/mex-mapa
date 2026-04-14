@@ -39,7 +39,7 @@ const state = {
   testBody: ''
 };
 
-const BUILD_TAG = 'mapa-v70';
+const BUILD_TAG = 'mapa-v72';
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -158,20 +158,39 @@ function friendlyDeviceIp(row = {}) {
 }
 
 function friendlyDeviceGeo(row = {}) {
+  const exactLocation = row.exactLocation || {};
   const latitude = Number(
-    row.geoLatitude
+    exactLocation.latitude
+    ?? exactLocation.lat
+    ?? row.geoLatitude
     ?? row.geoLat
     ?? row.approxLocation?.latitude
     ?? row.geo?.latitude
   );
   const longitude = Number(
-    row.geoLongitude
+    exactLocation.longitude
+    ?? exactLocation.lng
+    ?? row.geoLongitude
     ?? row.geoLng
     ?? row.approxLocation?.longitude
     ?? row.geo?.longitude
   );
+  const accuracy = Number(
+    exactLocation.accuracy
+    ?? row.geoAccuracy
+    ?? row.approxLocation?.accuracy
+  );
   if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
-    return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}${Number.isFinite(accuracy) ? ` · ±${Math.round(accuracy)}m` : ''}`;
+  }
+  const status = lower(row.locationStatus);
+  if (status === 'denied') return 'Permiso denegado';
+  if (status === 'unsupported') return 'Sin soporte';
+  if (status === 'pending') return 'Pendiente';
+  if (status === 'error') return 'Error al leer ubicacion';
+  const mapsUrl = safe(exactLocation.googleMapsUrl || row.googleMapsUrl || '');
+  if (mapsUrl) {
+    return mapsUrl;
   }
   return safe(row.locationLabel || row.allowedPlaceLabel || row.locationName || '') || 'Pendiente';
 }
@@ -430,7 +449,8 @@ function rowsToTable(rows = [], options = {}) {
       <p>No hay datos para mostrar con los filtros actuales.</p>
     </div>`;
   }
-  const keys = [...new Set(rows.flatMap(row => Object.keys(row)))].slice(0, 8);
+  const maxColumns = Number.isFinite(Number(options.maxColumns)) ? Number(options.maxColumns) : 8;
+  const keys = [...new Set(rows.flatMap(row => Object.keys(row)))].slice(0, maxColumns);
   return `
     <div class="${escapeHtml(options.className || 'programmer-table-wrap')}">
       <table class="programmer-table">
@@ -497,7 +517,10 @@ function renderDevicesTableHtml(rows = []) {
     ruta: safe(row.activeRoute) || '/mapa',
     ultimaActividad: dbDocDateLabel(row.updatedAt || row.lastSeenAt)
   }));
-  return rowsToTable(mappedRows, { className: 'programmer-table-wrap programmer-table-wrap-tall' });
+  return rowsToTable(mappedRows, {
+    className: 'programmer-table-wrap programmer-table-wrap-tall',
+    maxColumns: 12
+  });
 }
 
 function renderResumenTab() {

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-page-title="Gestion" data-page-description="Modulo de gestion de %COMPANY%">
+<html lang="es" data-page-title="Gestión" data-page-description="Panel administrativo y configuracion operativa de %COMPANY%">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -8,44 +8,140 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Gestión">
+  <meta name="description" content="Panel administrativo y configuracion operativa">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
 
-  <!-- Firebase compat SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
 
-  <title>Gestion</title>
-</head>
-<body style="margin:0; background:#0b1e3d;">
+  <title>Gestión</title>
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #071224;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
 
-  <div style="
-    display:flex; align-items:center; justify-content:center;
-    min-height:100vh; background:#0b1e3d; color:white;
-    font-family:'Inter',sans-serif; text-align:center; padding:20px;">
-    <div>
-      <span class="material-icons" style="font-size:48px; color:#6366f1; display:block; margin-bottom:16px;">
-        manage_accounts
-      </span>
-      <h2 style="font-size:22px; font-weight:900; margin:0 0 8px;">Gestión — En construcción</h2>
-      <p style="color:#94a3b8; margin:0 0 24px; font-size:14px;">
-        Panel de gestión de usuarios, plazas y configuración.<br>
-        Próximamente disponible.
-      </p>
-      <a href="/mapa"
-        style="background:#6366f1; color:white; padding:12px 28px; border-radius:12px;
-               text-decoration:none; font-weight:800; font-size:14px;">
-        ← VOLVER AL MAPA
-      </a>
+    .gestion-route-shell {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      background:
+        radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 34%),
+        linear-gradient(180deg, #08101f 0%, #0d1731 50%, #08101f 100%);
+    }
+
+    .gestion-route-loader {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(8, 16, 31, 0.78);
+      backdrop-filter: blur(12px);
+      transition: opacity .22s ease;
+    }
+
+    .gestion-route-loader.ready {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .gestion-route-loader-card {
+      width: min(420px, 100%);
+      border-radius: 24px;
+      padding: 28px 24px;
+      text-align: center;
+      color: #f8fafc;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 26px 90px rgba(0,0,0,.45);
+    }
+
+    .gestion-route-spinner {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 18px;
+      border-radius: 999px;
+      border: 4px solid rgba(255,255,255,.14);
+      border-top-color: #22c55e;
+      border-right-color: #38bdf8;
+      animation: gestion-spin .9s linear infinite;
+    }
+
+    .gestion-route-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: rgba(59, 130, 246, 0.14);
+      color: #bfdbfe;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .gestion-route-title {
+      margin: 16px 0 8px;
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1.05;
+    }
+
+    .gestion-route-copy {
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .gestion-route-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: transparent;
+    }
+
+    @keyframes gestion-spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="gestion-route-shell">
+    <div id="gestionRouteLoader" class="gestion-route-loader">
+      <div class="gestion-route-loader-card">
+        <div class="gestion-route-spinner"></div>
+        <div class="gestion-route-kicker">Administración</div>
+        <h1 class="gestion-route-title">Preparando Gestión</h1>
+        <p class="gestion-route-copy">Estamos cargando el panel administrativo dedicado con la configuración más reciente.</p>
+      </div>
     </div>
+
+    <iframe
+      id="gestionRouteFrame"
+      class="gestion-route-frame"
+      title="Panel administrativo"
+      loading="eager"
+      allow="geolocation; clipboard-read; clipboard-write"
+      referrerpolicy="same-origin">
+    </iframe>
   </div>
 
   <script type="module" src="/js/views/gestion.js"></script>
