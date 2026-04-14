@@ -166,7 +166,7 @@ service firebase.storage {
     match /profile_avatars/{userDocId}/{fileName} {
       allow read: if tienePerfilActual();
       allow write: if esDocumentoUsuarioPropio(userDocId)
-        && request.resource.size < 2 * 1024 * 1024
+        && request.resource.size < 12 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }
 

@@ -30,7 +30,7 @@ const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
-const APP_BUILD_TAG = 'mapa-v76';
+const APP_BUILD_TAG = 'mapa-v78';
 const ADMIN_LOCATION_CACHE_MS = 90000;
 
 
@@ -1702,18 +1702,60 @@ function abrirReporteImpresion(htmlContenido) {
   const container = document.getElementById('reporte-pdf-container');
   if (!container) return;
 
+  const originalScrollX = window.scrollX || window.pageXOffset || 0;
+  const originalScrollY = window.scrollY || window.pageYOffset || 0;
+  const originalBodyOverflow = document.body.style.overflow;
+  const originalHtmlOverflow = document.documentElement.style.overflow;
+  let cleaned = false;
+  let fallbackTimer = null;
+  let mediaQueryList = null;
+  let mediaQueryHandler = null;
+
   const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    if (fallbackTimer) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+    if (mediaQueryList && mediaQueryHandler) {
+      if (typeof mediaQueryList.removeEventListener === 'function') {
+        mediaQueryList.removeEventListener('change', mediaQueryHandler);
+      } else if (typeof mediaQueryList.removeListener === 'function') {
+        mediaQueryList.removeListener(mediaQueryHandler);
+      }
+    }
     container.innerHTML = '';
     container.style.display = 'none';
+    document.body.style.overflow = originalBodyOverflow;
+    document.documentElement.style.overflow = originalHtmlOverflow;
+    window.requestAnimationFrame(() => {
+      window.scrollTo(originalScrollX, originalScrollY);
+    });
   };
 
   window.addEventListener('afterprint', cleanup, { once: true });
   container.innerHTML = htmlContenido;
   container.style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden';
+
+  try {
+    mediaQueryList = window.matchMedia('print');
+    mediaQueryHandler = event => {
+      if (!event.matches) cleanup();
+    };
+    if (typeof mediaQueryList.addEventListener === 'function') {
+      mediaQueryList.addEventListener('change', mediaQueryHandler);
+    } else if (typeof mediaQueryList.addListener === 'function') {
+      mediaQueryList.addListener(mediaQueryHandler);
+    }
+  } catch (_) {}
 
   setTimeout(() => {
     try {
       window.print();
+      fallbackTimer = setTimeout(cleanup, 12000);
     } catch (error) {
       cleanup();
       console.error('No se pudo abrir la impresión:', error);
@@ -10170,13 +10212,31 @@ function enviarReporteAuditoriaFinal() {
       "¿Terminaste el escaneo en el patio? Se enviará a Ventas para la revisión final.",
       "send", "#10b981", "ENVIAR REPORTE", "#10b981",
       () => {
+        const auditoriaPayload = Array.isArray(window.AUDIT_LIST) ? window.AUDIT_LIST : [];
+        if (!auditoriaPayload.length) {
+          showToast("No hay datos de auditoría para enviar.", "error");
+          return;
+        }
         btn.disabled = true;
         btn.innerHTML = `<span class="material-icons spinner">sync</span> ENVIANDO REPORTE...`;
 
-        api.enviarAuditoriaAVentas(window.AUDIT_LIST, USER_NAME, _miPlaza()).then(res => {
+        api.enviarAuditoriaAVentas(auditoriaPayload, USER_NAME, _miPlaza()).then(async res => {
           if (res && res.exito) {
+            let confirmacionPersistencia = true;
+            try {
+              const revision = await api.obtenerRevisionAuditoria(_miPlaza());
+              confirmacionPersistencia = Array.isArray(revision) && revision.length > 0;
+            } catch (error) {
+              confirmacionPersistencia = false;
+              console.warn('No se pudo confirmar persistencia de auditoría en revisión:', error);
+            }
             document.getElementById('audit-modal').classList.remove('active');
-            showToast("Auditoría enviada a Ventas. ¡Buen trabajo!", "success");
+            showToast(
+              confirmacionPersistencia
+                ? "Auditoría enviada a Ventas. ¡Buen trabajo!"
+                : "Auditoría enviada, pero sin confirmación inmediata. Revisa en unos segundos.",
+              confirmacionPersistencia ? "success" : "warning"
+            );
             setTimeout(compartirWhatsApp, 1000);
             setTimeout(() => {
               document.getElementById('audit-paso3').style.display = 'none';
@@ -10417,7 +10477,7 @@ function renderHistorialCuadres() {
 let allChatMessages = [];
 let activeChatUser = null;
 let pendingChatFile = null;   // { file, previewUrl, isImg }
-let pendingAudioBlob = null;   // { blob, localUrl }
+let pendingAudioBlob = null;   // { blob, localUrl, mimeType, extension }
 let replyingToMsg = null;   // { id, remitente, mensaje }
 let _chatListenerUnsubs = [];
 let chatMediaRecorder = null;
@@ -10429,6 +10489,53 @@ let emojiPickerTarget = null;  // msgId for reaction picker
 let _chatReplyHoverTimers = new Map();
 let _profileAvatarCropState = null;
 let _globalShortcutsBound = false;
+
+function _chatAudioMimeCandidates() {
+  return [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/mp4',
+    'audio/aac',
+    'audio/ogg;codecs=opus',
+    'audio/ogg'
+  ];
+}
+
+function _chatAudioMimeType() {
+  if (typeof window.MediaRecorder === 'undefined') return '';
+  if (typeof window.MediaRecorder.isTypeSupported !== 'function') return '';
+  return _chatAudioMimeCandidates().find(type => window.MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function _chatAudioExtensionFromMime(mimeType = '') {
+  const value = String(mimeType || '').toLowerCase();
+  if (value.includes('mp4') || value.includes('aac') || value.includes('m4a')) return 'm4a';
+  if (value.includes('ogg')) return 'ogg';
+  if (value.includes('wav')) return 'wav';
+  return 'webm';
+}
+
+async function _chatGetUserMediaAudio() {
+  if (navigator.mediaDevices?.getUserMedia) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+    } catch (_) {
+      return navigator.mediaDevices.getUserMedia({ audio: true });
+    }
+  }
+
+  const legacy = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+  if (!legacy) throw new Error('Tu navegador no soporta micrófono en esta versión.');
+  return new Promise((resolve, reject) => {
+    legacy.call(navigator, { audio: true }, resolve, reject);
+  });
+}
 
 function _chatUserName(value = '') {
   return String(value || '').trim().toUpperCase();
@@ -11015,6 +11122,23 @@ function _abrirRecorteAvatarPerfil(file, inputEl) {
     _profileAvatarCropState.naturalH = img.naturalHeight || 1;
     _resetProfileAvatarCropTransform();
   };
+  img.onerror = () => {
+    console.warn('No se pudo decodificar la imagen seleccionada para avatar.');
+    showToast('Ese formato no permite recorte aquí. Subiremos la imagen original.', 'warning');
+    const fallbackFile = _profileAvatarCropState?.file || file;
+    _cleanupProfileAvatarCropState({ preserveInput: true });
+    (async () => {
+      try {
+        await _subirBlobAvatarPerfil(fallbackFile, fallbackFile?.type || 'image/jpeg');
+      } catch (error) {
+        console.error('No se pudo subir imagen original del avatar:', error);
+        showToast('No se pudo subir la foto seleccionada.', 'error');
+      } finally {
+        if (inputEl) inputEl.value = '';
+      }
+    })();
+  };
+  img.decoding = 'async';
   img.src = objectUrl;
   modal.classList.add('active');
 }
@@ -11034,6 +11158,7 @@ function _cleanupProfileAvatarCropState(options = {}) {
   if (modal) modal.classList.remove('active');
   if (img) {
     img.onload = null;
+    img.onerror = null;
     img.removeAttribute('src');
     img.style.width = '';
     img.style.height = '';
@@ -11068,11 +11193,23 @@ function cancelarRecorteAvatarPerfil() {
   _cleanupProfileAvatarCropState();
 }
 
+function _avatarExtensionFromContentType(contentType = 'image/jpeg') {
+  const normalized = String(contentType || '').toLowerCase();
+  if (normalized.includes('png')) return 'png';
+  if (normalized.includes('webp')) return 'webp';
+  if (normalized.includes('gif')) return 'gif';
+  if (normalized.includes('bmp')) return 'bmp';
+  if (normalized.includes('avif')) return 'avif';
+  if (normalized.includes('heic') || normalized.includes('heif')) return 'heic';
+  return 'jpg';
+}
+
 async function _subirBlobAvatarPerfil(fileBlob, contentType = 'image/jpeg') {
   const docId = _currentUserDocId();
   if (!fileBlob || !docId) return;
 
-  const avatarPath = `profile_avatars/${docId}/avatar`;
+  const ext = _avatarExtensionFromContentType(contentType);
+  const avatarPath = `profile_avatars/${docId}/avatar_${Date.now()}.${ext}`;
   const previousPath = String(currentUserProfile?.avatarPath || '').trim();
   const previousUrl = String(currentUserProfile?.avatarUrl || '').trim();
 
@@ -11131,14 +11268,17 @@ function subirAvatarPerfil(inputEl) {
   const file = inputEl?.files?.[0];
   if (!file || !_currentUserDocId()) return;
 
-  if (!(file.type || '').startsWith('image/')) {
+  const fileType = String(file.type || '').toLowerCase();
+  const fileName = String(file.name || '').toLowerCase();
+  const looksLikeImage = /\.(jpe?g|png|webp|gif|bmp|svg|heic|heif|avif)$/i.test(fileName);
+  if (!fileType.startsWith('image/') && !looksLikeImage) {
     showToast('Selecciona una imagen válida para tu perfil.', 'error');
     inputEl.value = '';
     return;
   }
 
-  if (file.size > 2 * 1024 * 1024) {
-    showToast('La imagen es demasiado grande. Máximo 2MB.', 'error');
+  if (file.size > 12 * 1024 * 1024) {
+    showToast('La imagen es demasiado grande. Máximo 12MB.', 'error');
     inputEl.value = '';
     return;
   }
@@ -11162,10 +11302,15 @@ async function guardarAvatarRecortadoPerfil() {
     canvas.height = 512;
     _drawProfileAvatarCropToCanvas(canvas, { clip: 'square' });
 
-    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+    let blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.92));
+    let contentType = 'image/jpeg';
+    if (!blob) {
+      blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png', 0.95));
+      contentType = 'image/png';
+    }
     if (!blob) throw new Error('No se pudo generar el recorte del avatar');
 
-    await _subirBlobAvatarPerfil(blob, 'image/jpeg');
+    await _subirBlobAvatarPerfil(blob, contentType);
     _cleanupProfileAvatarCropState();
   } catch (error) {
     console.error('No se pudo guardar el avatar recortado:', error);
@@ -11724,10 +11869,12 @@ async function enviarMensajeChat() {
     }
   } else if (pendingAudioBlob) {
     const ts2 = Date.now();
-    const fname = `audio_${ts2}.webm`;
+    const extension = pendingAudioBlob.extension || _chatAudioExtensionFromMime(pendingAudioBlob.mimeType);
+    const contentType = pendingAudioBlob.mimeType || `audio/${extension}`;
+    const fname = `audio_${ts2}.${extension}`;
     try {
       showToast("Subiendo audio...", "info");
-      const snap = await firebase.storage().ref(`mensajes_chat/${ts2}-${fname}`).put(pendingAudioBlob.blob, { contentType: 'audio/webm' });
+      const snap = await firebase.storage().ref(`mensajes_chat/${ts2}-${fname}`).put(pendingAudioBlob.blob, { contentType });
       archivoUrl = await snap.ref.getDownloadURL();
       archivoNombre = fname;
     } catch (e) {
@@ -11976,55 +12123,105 @@ async function toggleReaccionChat(mIdSafe, emoji) {
 // ── Audio recording con espectro ──
 async function toggleGrabacionChat() {
   if (chatMediaRecorder && chatMediaRecorder.state === 'recording') {
+    try {
+      if (typeof chatMediaRecorder.requestData === 'function') chatMediaRecorder.requestData();
+    } catch (_) { }
     chatMediaRecorder.stop();
     if (_chatSpectrumRaf) cancelAnimationFrame(_chatSpectrumRaf);
     return;
   }
-  if (!navigator.mediaDevices) {
+  if (typeof window.MediaRecorder === 'undefined') {
+    showToast("Tu navegador no soporta grabación de audio en tiempo real", "error");
+    return;
+  }
+  if (!navigator.mediaDevices && !navigator.getUserMedia && !navigator.webkitGetUserMedia && !navigator.mozGetUserMedia) {
     showToast("Tu navegador no soporta grabación de audio", "error");
     return;
   }
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const stream = await _chatGetUserMediaAudio();
     chatAudioChunks = [];
 
-    // AudioContext para el espectro
-    _chatAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    _chatAnalyser = _chatAudioCtx.createAnalyser();
-    _chatAnalyser.fftSize = 64;
-    const source = _chatAudioCtx.createMediaStreamSource(stream);
-    source.connect(_chatAnalyser);
+    // AudioContext para el espectro (si no está disponible, grabamos sin visualizador).
+    try {
+      const AudioCtor = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtor) {
+        _chatAudioCtx = new AudioCtor();
+        _chatAnalyser = _chatAudioCtx.createAnalyser();
+        _chatAnalyser.fftSize = 64;
+        const source = _chatAudioCtx.createMediaStreamSource(stream);
+        source.connect(_chatAnalyser);
+      } else {
+        _chatAudioCtx = null;
+        _chatAnalyser = null;
+      }
+    } catch (_) {
+      _chatAudioCtx = null;
+      _chatAnalyser = null;
+    }
 
-    chatMediaRecorder = new MediaRecorder(stream);
+    const mimeType = _chatAudioMimeType();
+    const recorderOptions = mimeType ? { mimeType } : undefined;
+    chatMediaRecorder = new MediaRecorder(stream, recorderOptions);
+    chatMediaRecorder.onerror = event => {
+      const error = event?.error || null;
+      console.error('Error grabando audio de chat:', error || event);
+      showToast('El micrófono falló durante la grabación. Reintenta en unos segundos.', 'error');
+    };
     chatMediaRecorder.ondataavailable = ev => { if (ev.data.size > 0) chatAudioChunks.push(ev.data); };
     chatMediaRecorder.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
       if (_chatAudioCtx) { _chatAudioCtx.close(); _chatAudioCtx = null; }
       if (_chatSpectrumRaf) { cancelAnimationFrame(_chatSpectrumRaf); _chatSpectrumRaf = null; }
-      document.getElementById('chatMicBtn').classList.remove('recording');
-      document.getElementById('chatMicBtn').querySelector('.material-icons').textContent = 'mic';
+      const micBtn = document.getElementById('chatMicBtn');
+      micBtn?.classList.remove('recording');
+      const micIcon = micBtn?.querySelector('.material-icons');
+      if (micIcon) micIcon.textContent = 'mic';
 
-      if (chatAudioChunks.length === 0) return;
-      const blob = new Blob(chatAudioChunks, { type: 'audio/webm' });
+      if (chatAudioChunks.length === 0) {
+        showToast("No se detectó audio. Intenta acercar el micrófono.", "warning");
+        return;
+      }
+      const fallbackMime = /iphone|ipad|ipod|safari/i.test(navigator.userAgent || '') ? 'audio/mp4' : 'audio/webm';
+      const finalMime = chatMediaRecorder?.mimeType || chatAudioChunks?.[0]?.type || mimeType || fallbackMime;
+      const blob = new Blob(chatAudioChunks, { type: finalMime });
       chatAudioChunks = [];
+      if (!blob.size) {
+        showToast("No se pudo capturar audio válido.", "error");
+        return;
+      }
       if (blob.size > 10 * 1024 * 1024) { showToast("Audio demasiado largo (máx 10MB)", "error"); return; }
 
       // Stage el audio (no auto-enviar)
       if (pendingAudioBlob && pendingAudioBlob.localUrl) URL.revokeObjectURL(pendingAudioBlob.localUrl);
-      pendingAudioBlob = { blob, localUrl: URL.createObjectURL(blob) };
+      pendingAudioBlob = {
+        blob,
+        localUrl: URL.createObjectURL(blob),
+        mimeType: finalMime,
+        extension: _chatAudioExtensionFromMime(finalMime)
+      };
       _renderStagingArea();
     };
 
-    chatMediaRecorder.start();
-    document.getElementById('chatMicBtn').classList.add('recording');
-    document.getElementById('chatMicBtn').querySelector('.material-icons').textContent = 'stop';
+    chatMediaRecorder.start(300);
+    const micBtn = document.getElementById('chatMicBtn');
+    micBtn?.classList.add('recording');
+    const micIcon = micBtn?.querySelector('.material-icons');
+    if (micIcon) micIcon.textContent = 'stop';
 
     // Mostrar espectro en staging area
     _renderStagingArea();
     _dibujarEspectroGrabacion();
 
   } catch (err) {
-    showToast("No se pudo acceder al micrófono", "error");
+    const code = Number(err?.code || 0);
+    if (code === 1 || String(err?.name || '').toLowerCase().includes('notallowed')) {
+      showToast("Permiso de micrófono denegado. Actívalo y vuelve a intentar.", "error");
+    } else if (code === 2 || String(err?.name || '').toLowerCase().includes('notfound')) {
+      showToast("No encontramos micrófono disponible en este equipo.", "error");
+    } else {
+      showToast("No se pudo acceder al micrófono", "error");
+    }
     console.error(err);
   }
 }

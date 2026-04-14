@@ -26,7 +26,8 @@
       lastUpdated: 0,
       error: '',
       watchId: null,
-      pendingPromise: null
+      pendingPromise: null,
+      permissionPollTimer: null
     }
   });
 
@@ -370,7 +371,16 @@
       },
       error => {
         const denied = Number(error?.code) === 1;
-        applyLocationSnapshot(denied ? 'denied' : 'error', null, error?.message || '');
+        const lastSnapshot = cloneLocationState();
+        if (denied) {
+          applyLocationSnapshot('denied', null, error?.message || '');
+          return;
+        }
+        if (lastSnapshot.exactLocation) {
+          applyLocationSnapshot('granted', lastSnapshot.exactLocation, error?.message || '');
+          return;
+        }
+        applyLocationSnapshot('error', null, error?.message || '');
       },
       {
         enableHighAccuracy: true,
@@ -404,6 +414,11 @@
         },
         error => {
           const denied = Number(error?.code) === 1;
+          const lastSnapshot = cloneLocationState();
+          if (!denied && lastSnapshot.exactLocation) {
+            resolve(applyLocationSnapshot('granted', lastSnapshot.exactLocation, error?.message || 'Ubicación anterior reutilizada por intermitencia.'));
+            return;
+          }
           resolve(applyLocationSnapshot(denied ? 'denied' : 'error', null, error?.message || 'No se pudo obtener la ubicación.'));
         },
         {
@@ -928,6 +943,7 @@
       let attemptRunning = false;
       let attachedPermissionStatus = null;
       let permissionOnChangeHandler = null;
+      let permissionPollTimer = null;
 
       const addCleanup = fn => {
         if (typeof fn === 'function') cleanupFns.push(fn);
@@ -993,8 +1009,12 @@
             maxAgeMs: Number(options.maxAgeMs || 30000)
           });
 
-          if (snapshot.status === 'granted' && snapshot.exactLocation) {
-            finish(snapshot);
+          const usableSnapshot = snapshot?.exactLocation && snapshot?.status !== 'denied' && snapshot?.status !== 'unsupported';
+          if (usableSnapshot) {
+            finish({
+              ...snapshot,
+              status: 'granted'
+            });
             return;
           }
 
@@ -1078,6 +1098,24 @@
           });
         }
       }).catch(() => {});
+
+      permissionPollTimer = root.setInterval(async () => {
+        if (settled) return;
+        const permission = await queryGeolocationPermission();
+        const permissionState = safeText(permission?.state).toLowerCase();
+        if (permissionState) {
+          showPendingPermissionState(permissionState);
+        }
+        if (permissionState === 'granted') {
+          attempt(true, 'permission-poll').catch(() => {});
+        }
+      }, 1600);
+      addCleanup(() => {
+        if (permissionPollTimer) {
+          clearInterval(permissionPollTimer);
+          permissionPollTimer = null;
+        }
+      });
 
       attempt(options.force === true, 'initial').catch(() => {});
     });

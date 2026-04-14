@@ -1,6 +1,6 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v72';
+const APP_BUILD = 'mapa-v78';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
 const MESSAGING_SW_URL = '/firebase-messaging-sw.js';
 const MESSAGING_SW_SCOPE = '/firebase-cloud-messaging-push-scope';
@@ -77,7 +77,9 @@ function _registerMainServiceWorker() {
   if (!('serviceWorker' in navigator)) return Promise.resolve(null);
   if (window.__mexSwRegistration) return Promise.resolve(window.__mexSwRegistration);
   if (window.__mexSwRegistrationPromise) return window.__mexSwRegistrationPromise;
-  window.__mexSwRegistrationPromise = navigator.serviceWorker.register('/sw.js')
+  window.__mexSwRegistrationPromise = navigator.serviceWorker.register('/sw.js', {
+    updateViaCache: 'none'
+  })
     .then(reg => {
       window.__mexSwRegistration = reg;
       return reg;
@@ -94,7 +96,8 @@ function _registerMessagingServiceWorker() {
   if (window.__mexMessagingSwRegistration) return Promise.resolve(window.__mexMessagingSwRegistration);
   if (window.__mexMessagingSwRegistrationPromise) return window.__mexMessagingSwRegistrationPromise;
   window.__mexMessagingSwRegistrationPromise = navigator.serviceWorker.register(MESSAGING_SW_URL, {
-    scope: MESSAGING_SW_SCOPE
+    scope: MESSAGING_SW_SCOPE,
+    updateViaCache: 'none'
   }).then(reg => {
     window.__mexMessagingSwRegistration = reg;
     return reg;
@@ -127,7 +130,20 @@ function _getMessagingServiceWorkerRegistration() {
       }
       return _registerMessagingServiceWorker();
     })
-    .catch(() => _registerMessagingServiceWorker());
+    .catch(() => _registerMessagingServiceWorker())
+    .then(reg => reg || _getServiceWorkerRegistration());
+}
+
+async function _resetMessagingServiceWorkerRegistration() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations
+      .filter(reg => String(reg?.scope || '').includes(MESSAGING_SW_SCOPE))
+      .map(reg => reg.unregister().catch(() => false)));
+  } catch (_) {}
+  window.__mexMessagingSwRegistration = null;
+  window.__mexMessagingSwRegistrationPromise = null;
 }
 
 function _platformMeta() {
@@ -579,22 +595,40 @@ async function _obtainMessagingToken(forcePrompt = false) {
   }
   if (Notification.permission !== 'granted') return '';
 
-  try {
-    const registration = await _getMessagingServiceWorkerRegistration();
-    if (!registration) return '';
-    const messaging = firebase.messaging();
-    const options = { serviceWorkerRegistration: registration };
-    const vapidKey = _state.profileGetter?.()?.notifications?.vapidKey
-      || window.MEX_CONFIG?.empresa?.notifications?.vapidKey
-      || window.FIREBASE_CONFIG?.vapidKey
-      || '';
-    if (vapidKey) options.vapidKey = vapidKey;
-    return await messaging.getToken(options);
-  } catch (error) {
-    console.warn('No se pudo obtener el token push:', error);
-    _state.toast?.('Push web listo en inbox, pero sin token de dispositivo todavía.', 'warning');
-    return '';
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      let registration = await _getMessagingServiceWorkerRegistration();
+      if (!registration) registration = await _getServiceWorkerRegistration();
+      if (!registration) return '';
+
+      const messaging = firebase.messaging();
+      const options = { serviceWorkerRegistration: registration };
+      const vapidKey = _state.profileGetter?.()?.notifications?.vapidKey
+        || window.MEX_CONFIG?.empresa?.notifications?.vapidKey
+        || window.FIREBASE_CONFIG?.vapidKey
+        || '';
+      if (vapidKey) options.vapidKey = vapidKey;
+
+      return await messaging.getToken(options);
+    } catch (error) {
+      lastError = error;
+      const code = _safeText(error?.code).toLowerCase();
+      const msg = _safeText(error?.message).toLowerCase();
+      const swEvalFailed = code.includes('failed-service-worker-registration')
+        || msg.includes('failed-service-worker-registration')
+        || msg.includes('serviceworker script evaluation failed');
+      if (attempt === 0 && swEvalFailed) {
+        await _resetMessagingServiceWorkerRegistration();
+        continue;
+      }
+      break;
+    }
   }
+
+  console.warn('No se pudo obtener el token push:', lastError);
+  _state.toast?.('Push web listo en inbox, pero sin token de dispositivo todavía.', 'warning');
+  return '';
 }
 
 async function persistCurrentDevicePrefs(changes = {}) {
@@ -685,7 +719,25 @@ export async function requestDeviceNotifications(forcePrompt = false) {
   if (Notification.permission === 'granted') {
     _bindForegroundMessaging();
   }
-  await _registerCurrentDevice(token);
+  try {
+    await _registerCurrentDevice(token);
+  } catch (error) {
+    console.warn('No se pudo registrar el dispositivo para push (fallback a contexto básico):', error);
+    await _upsertDeviceDirect({
+      deviceId: _deviceId(),
+      token: token || '',
+      permission: _supportsPush() ? Notification.permission : 'unsupported',
+      pushEnabled: Boolean(token) && Notification.permission === 'granted',
+      platform: _platformMeta().platform,
+      browser: _platformMeta().browser,
+      userAgent: navigator.userAgent || '',
+      plaza: _state.getCurrentPlaza?.() || '',
+      activeRoute: _currentRoute(),
+      isFocused: document.visibilityState === 'visible' && document.hasFocus(),
+      swVersion: APP_BUILD,
+      appVersion: APP_BUILD
+    });
+  }
   await syncDeviceFocusState({ force: true });
   _state.toast?.(
     Notification.permission === 'granted'
@@ -851,6 +903,12 @@ export async function initNotificationCenter() {
   _bindNotificationLifecycle();
   if (_supportsPush() && Notification.permission === 'granted') {
     _bindForegroundMessaging();
+    try {
+      const token = await _obtainMessagingToken(false);
+      await _registerCurrentDevice(token);
+    } catch (error) {
+      console.warn('No se pudo refrescar el registro push en initNotificationCenter:', error);
+    }
   }
   await resubscribeInbox();
   await syncDeviceFocusState({ force: true });

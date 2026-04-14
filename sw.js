@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v76';
+const CACHE_NAME = 'mapa-v78';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -13,7 +13,6 @@ const SHELL_ASSETS = [
   '/login.html',
   '/mapa.html',
   '/programador.html',
-  '/firebase-messaging-sw.js',
   '/mex-api.js',
   '/config.js',
   '/js/core/app-bootstrap.js',
@@ -73,6 +72,12 @@ self.addEventListener('fetch', event => {
       event.request.destination === 'style' ||
       event.request.destination === 'manifest'
     );
+
+  // Nunca interceptar scripts de Service Worker: evita que quede un SW viejo
+  // de FCM en cache y rompa el registro en movil.
+  if (sameOrigin && (url.pathname === '/sw.js' || url.pathname === '/firebase-messaging-sw.js')) {
+    return;
+  }
 
   // Siempre ir a la red para Firebase (Firestore, Auth, FCM)
   if (
