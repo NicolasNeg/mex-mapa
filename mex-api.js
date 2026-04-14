@@ -1309,7 +1309,17 @@ const API_FUNCTIONS = {
           y:        el.y        ?? 0,        // [F2]
           width:    el.width    ?? 120,      // [F2]
           height:   el.height   ?? 80,       // [F2]
-          rotation: el.rotation ?? 0         // [F2]
+          rotation: el.rotation ?? 0,        // [F2]
+          // [F1.5] Campos extendidos de estructura
+          zone:               el.zone               ?? null,
+          subzone:            el.subzone             ?? null,
+          isReserved:         el.isReserved          === true,
+          isBlocked:          el.isBlocked           === true,
+          isTemporaryHolding: el.isTemporaryHolding  === true,
+          allowedCategories:  Array.isArray(el.allowedCategories) ? el.allowedCategories : [],
+          priority:           el.priority            ?? 0,
+          googleMapsUrl:      el.googleMapsUrl        ?? null,
+          pathType:           el.pathType             ?? null,
         });
       });
       await batch.commit();
@@ -1586,10 +1596,10 @@ const API_FUNCTIONS = {
   // ─── TABLA DE FLOTA ───────────────────────────────────────
   async obtenerUnidadesVeloz(plaza) {
     const plazaUp = _normalizePlazaId(plaza);
-    // [F1] Lee de colecciones planas cuadre + externos + index
+    // [F1.4] Filtrar por plaza en la query cuando sea posible
     const [cuadre, externos, index] = await Promise.all([
-      db.collection(COL.CUADRE).get(),
-      db.collection(COL.EXTERNOS).get(),
+      plazaUp ? db.collection(COL.CUADRE).where('plaza','==',plazaUp).get() : db.collection(COL.CUADRE).get(),
+      plazaUp ? db.collection(COL.EXTERNOS).where('plaza','==',plazaUp).get() : db.collection(COL.EXTERNOS).get(),
       db.collection(COL.INDEX).get()
     ]);
     const lista = [];
@@ -1611,9 +1621,12 @@ const API_FUNCTIONS = {
 
   async obtenerDatosFlotaConsola(plaza) {
     const plazaUp = _normalizePlazaId(plaza);
-    // [F1] Colecciones planas raíz
+    // [F1.4] Filtrar por plaza en la query cuando sea posible
     const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
-    const [cuadre, externos] = await Promise.all([db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()]);
+    const [cuadre, externos] = await Promise.all([
+      plazaUp ? db.collection(COL.CUADRE).where('plaza','==',plazaUp).get() : db.collection(COL.CUADRE).get(),
+      plazaUp ? db.collection(COL.EXTERNOS).where('plaza','==',plazaUp).get() : db.collection(COL.EXTERNOS).get(),
+    ]);
     const lista = [
       ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })).filter(u => u.mva),
       ...externos.docs.map(d => ({ id: d.id, fila: d.id, ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva)
@@ -1627,8 +1640,10 @@ const API_FUNCTIONS = {
     const plazaUp = _normalizePlazaId(plaza);
     // [F1] Colección plana cuadre_admins filtrada por plaza
     let snap;
-    // [F1] Filtro client-side para evitar índice compuesto plaza+_createdAt
-    snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
+    // [F1.4] Filtrar por plaza en la query cuando sea posible
+    snap = plazaUp
+      ? await db.collection(COL.CUADRE_ADM).where('plaza','==',plazaUp).orderBy("_createdAt", "desc").get()
+      : await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
     const allDocs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
     return Promise.all(allDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
   },
@@ -2040,8 +2055,10 @@ const API_FUNCTIONS = {
   // ─── RESUMEN FLOTA ──────────────────────────────────────
   async obtenerResumenFlotaPatio(plaza) {
     const plazaUp = _normalizePlazaId(plaza);
+    // [F1.4] Filtrar por plaza en la query cuando sea posible
     const [cuadreSnap, externosSnap] = await Promise.all([
-      db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
+      plazaUp ? db.collection(COL.CUADRE).where('plaza','==',plazaUp).get() : db.collection(COL.CUADRE).get(),
+      plazaUp ? db.collection(COL.EXTERNOS).where('plaza','==',plazaUp).get() : db.collection(COL.EXTERNOS).get(),
     ]);
     const cuadreUnits = cuadreSnap.docs
       .map(d => ({ ...d.data() }))

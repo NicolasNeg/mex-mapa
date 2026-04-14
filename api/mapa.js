@@ -168,7 +168,17 @@
             y:        el.y        ?? 0,
             width:    el.width    ?? 120,
             height:   el.height   ?? 80,
-            rotation: el.rotation ?? 0
+            rotation: el.rotation ?? 0,
+            // [F1.5] Campos extendidos de estructura
+            zone:               el.zone               ?? null,
+            subzone:            el.subzone             ?? null,
+            isReserved:         el.isReserved          === true,
+            isBlocked:          el.isBlocked           === true,
+            isTemporaryHolding: el.isTemporaryHolding  === true,
+            allowedCategories:  Array.isArray(el.allowedCategories) ? el.allowedCategories : [],
+            priority:           el.priority            ?? 0,
+            googleMapsUrl:      el.googleMapsUrl        ?? null,
+            pathType:           el.pathType             ?? null,
           });
         });
         await batch.commit();
