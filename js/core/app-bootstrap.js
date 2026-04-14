@@ -891,6 +891,19 @@
     return payload;
   };
 
+  async function queryGeolocationPermission() {
+    try {
+      if (!navigator?.permissions?.query) return { state: '', status: null };
+      const status = await navigator.permissions.query({ name: 'geolocation' });
+      return {
+        state: safeText(status?.state).toLowerCase(),
+        status
+      };
+    } catch (_) {
+      return { state: '', status: null };
+    }
+  }
+
   root.__mexRequireLocationAccess = function (options = {}) {
     const currentSnapshot = cloneLocationState();
     if (currentSnapshot.status === 'granted' && currentSnapshot.exactLocation) {
@@ -910,48 +923,104 @@
 
       const retryBtn = overlay.querySelector('#mexLocationGateRetry');
       const logoutBtn = overlay.querySelector('#mexLocationGateLogout');
+      const cleanupFns = [];
+      let settled = false;
+      let attemptRunning = false;
+      let attachedPermissionStatus = null;
+      let permissionOnChangeHandler = null;
+
+      const addCleanup = fn => {
+        if (typeof fn === 'function') cleanupFns.push(fn);
+      };
 
       const finish = snapshot => {
+        if (settled) return;
+        settled = true;
+        cleanupFns.splice(0).forEach(fn => {
+          try { fn(); } catch (_) {}
+        });
         hideLocationGate();
         state.location.pendingPromise = null;
         resolve(snapshot);
       };
 
-      const attempt = async (force = true) => {
+      const showPendingPermissionState = permissionState => {
+        const normalized = safeText(permissionState).toLowerCase();
+        if (normalized === 'granted') {
+          updateLocationGate({
+            title: safeText(options.title) || 'Ubicación detectada',
+            copy: safeText(options.copy) || 'Permiso activo. Estamos confirmando la ubicación exacta para desbloquear la plataforma.',
+            status: 'Permiso concedido. Validando ubicación exacta...',
+            allowLogout: options.allowLogout === true
+          });
+          return;
+        }
+        if (normalized === 'denied') {
+          updateLocationGate({
+            title: safeText(options.title) || 'Ubicación requerida',
+            copy: safeText(options.copy) || 'La plataforma necesita tu ubicación exacta para permitir movimientos, auditorías y acciones administrativas.',
+            status: 'El permiso está bloqueado. Actívalo en tu navegador o ajustes del dispositivo y vuelve a intentar.',
+            allowLogout: options.allowLogout === true
+          });
+          return;
+        }
         updateLocationGate({
           title: safeText(options.title) || 'Activa tu ubicación',
           copy: safeText(options.copy) || `Para entrar a ${companyNameFrom(root.MEX_CONFIG)} debes permitir ubicación exacta. Esto protege auditorías, movimientos y cambios sensibles.`,
-          status: 'Solicitando permiso del navegador...',
-          allowLogout: options.allowLogout === true
-        });
-
-        const snapshot = await root.__mexGetExactLocationSnapshot({
-          force,
-          timeoutMs: Number(options.timeoutMs || 12000),
-          maxAgeMs: Number(options.maxAgeMs || 30000)
-        });
-
-        if (snapshot.status === 'granted' && snapshot.exactLocation) {
-          finish(snapshot);
-          return;
-        }
-
-        const statusText = snapshot.status === 'denied'
-          ? 'El permiso fue denegado. Actívalo en tu navegador o en los ajustes del dispositivo y vuelve a intentar.'
-          : (snapshot.status === 'unsupported'
-            ? 'Este equipo o navegador no expone geolocalización segura, así que no se puede abrir la plataforma.'
-            : (snapshot.error || 'No pudimos leer tu ubicación exacta. Reintenta en unos segundos.'));
-
-        updateLocationGate({
-          title: safeText(options.title) || 'Ubicación requerida',
-          copy: safeText(options.copy) || 'La plataforma necesita tu ubicación exacta para permitir movimientos, auditorías y acciones administrativas.',
-          status: statusText,
+          status: 'Esperando permiso del navegador...',
           allowLogout: options.allowLogout === true
         });
       };
 
+      const attempt = async (force = true, source = 'manual') => {
+        if (settled || attemptRunning) return;
+        attemptRunning = true;
+        if (retryBtn) {
+          retryBtn.disabled = true;
+          retryBtn.textContent = 'Verificando...';
+        }
+        updateLocationGate({
+          title: safeText(options.title) || 'Activa tu ubicación',
+          copy: safeText(options.copy) || `Para entrar a ${companyNameFrom(root.MEX_CONFIG)} debes permitir ubicación exacta. Esto protege auditorías, movimientos y cambios sensibles.`,
+          status: source === 'permission-change' ? 'Permiso actualizado. Validando ubicación exacta...' : 'Solicitando permiso del navegador...',
+          allowLogout: options.allowLogout === true
+        });
+
+        try {
+          const snapshot = await root.__mexGetExactLocationSnapshot({
+            force,
+            timeoutMs: Number(options.timeoutMs || 12000),
+            maxAgeMs: Number(options.maxAgeMs || 30000)
+          });
+
+          if (snapshot.status === 'granted' && snapshot.exactLocation) {
+            finish(snapshot);
+            return;
+          }
+
+          const statusText = snapshot.status === 'denied'
+            ? 'El permiso fue denegado. Actívalo en tu navegador o en los ajustes del dispositivo y vuelve a intentar.'
+            : (snapshot.status === 'unsupported'
+              ? 'Este equipo o navegador no expone geolocalización segura, así que no se puede abrir la plataforma.'
+              : (snapshot.error || 'No pudimos leer tu ubicación exacta. Reintenta en unos segundos.'));
+
+          updateLocationGate({
+            title: safeText(options.title) || 'Ubicación requerida',
+            copy: safeText(options.copy) || 'La plataforma necesita tu ubicación exacta para permitir movimientos, auditorías y acciones administrativas.',
+            status: statusText,
+            allowLogout: options.allowLogout === true
+          });
+        } finally {
+          attemptRunning = false;
+          if (retryBtn) {
+            retryBtn.disabled = false;
+            retryBtn.textContent = 'Permitir ubicación';
+          }
+        }
+      };
+
       if (retryBtn) retryBtn.onclick = () => {
-        attempt(true).catch(() => {});
+        attempt(true, 'manual-click').catch(() => {});
       };
 
       if (logoutBtn) {
@@ -963,7 +1032,54 @@
         };
       }
 
-      attempt(options.force === true).catch(() => {});
+      const onLocationUpdated = event => {
+        const detail = event?.detail || {};
+        if (detail.status === 'granted' && detail.exactLocation) {
+          finish(detail);
+        }
+      };
+      root.addEventListener('mex-location-updated', onLocationUpdated);
+      addCleanup(() => root.removeEventListener('mex-location-updated', onLocationUpdated));
+
+      const onWindowFocus = () => {
+        if (!settled) attempt(true, 'window-focus').catch(() => {});
+      };
+      const onVisibility = () => {
+        if (document.visibilityState === 'visible' && !settled) {
+          attempt(true, 'visibility').catch(() => {});
+        }
+      };
+      root.addEventListener('focus', onWindowFocus);
+      document.addEventListener('visibilitychange', onVisibility);
+      addCleanup(() => root.removeEventListener('focus', onWindowFocus));
+      addCleanup(() => document.removeEventListener('visibilitychange', onVisibility));
+
+      queryGeolocationPermission().then(({ state: permissionState, status }) => {
+        if (settled) return;
+        showPendingPermissionState(permissionState);
+        if (!status) return;
+        attachedPermissionStatus = status;
+        permissionOnChangeHandler = () => {
+          const nextState = safeText(attachedPermissionStatus?.state).toLowerCase();
+          showPendingPermissionState(nextState);
+          if (nextState === 'granted' && !settled) {
+            attempt(true, 'permission-change').catch(() => {});
+          }
+        };
+        if (typeof attachedPermissionStatus.addEventListener === 'function') {
+          attachedPermissionStatus.addEventListener('change', permissionOnChangeHandler);
+          addCleanup(() => attachedPermissionStatus.removeEventListener('change', permissionOnChangeHandler));
+        } else {
+          attachedPermissionStatus.onchange = permissionOnChangeHandler;
+          addCleanup(() => {
+            if (attachedPermissionStatus?.onchange === permissionOnChangeHandler) {
+              attachedPermissionStatus.onchange = null;
+            }
+          });
+        }
+      }).catch(() => {});
+
+      attempt(options.force === true, 'initial').catch(() => {});
     });
 
     return state.location.pendingPromise;
