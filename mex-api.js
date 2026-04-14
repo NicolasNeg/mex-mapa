@@ -1049,6 +1049,62 @@ async function _actualizarFeed(accion, autor, plaza) {
 
 const MAPA_SNAPSHOT_MERGE_MS = 90;
 
+// ─── SHARED NAMESPACE ────────────────────────────────────────
+// Expone todas las utilidades internas para que los módulos /api/*.js
+// puedan acceder a ellas sin duplicar código.
+window._mex = {
+  // Firebase
+  db, auth, firebase, FIREBASE_CONFIG, COL, MAPA_SNAPSHOT_MERGE_MS,
+  // Tiempo y texto
+  _now, _ts, _fecha, _sanitizeText, _sanitizeStorageSegment, _sanitizeRole,
+  // Plaza
+  _normalizePlazaId, _inferPlazaId, _matchesPlaza,
+  _normalizePlazaLocationItem, _buildDefaultPlazaLocations,
+  _buildDefaultPlazaSettings, _buildDefaultPlazaDetalle,
+  _configPlazaRef, _ensurePlazaBootstrap,
+  // Unidades
+  _mvaToDocId, _buscarUnidadEnSubcol, _buscarUnidadLegacy,
+  backfillPlazaEnUnidades,
+  // Alertas
+  _splitAlertCsv, _serializeAlertCsv,
+  _normalizeAlertType, _normalizeAlertMode, _normalizeAlertDestMode,
+  _normalizeAlertCta, _normalizeAlertHexColor, _defaultAlertBannerMeta,
+  _normalizeAlertBanner, _normalizeAlertAuthor,
+  _alertMatchesUser, _alertReadByUser,
+  // Roles / usuarios
+  ACCESS_ROLE_META, ADMIN_FIXED_LOCATIONS, API_PROGRAMADOR_BOOTSTRAP_EMAILS,
+  _runtimeRoleMeta, _profileDocId, _isBootstrapProgrammerEmail,
+  _resolveRoleForEmail, _normalizeUserRoleData, _inferRole,
+  _guardarPerfilUsuarioPorEmail,
+  // Evidencias
+  _normalizeEvidenceItems, _normalizeLegacyEvidence, _dedupeEvidenceItems,
+  _hydrateEvidenceItemsWithUrls, _resolveAdminResponsibleValue,
+  _resolveUploadContentType, _getStorageClient,
+  // Incidencias
+  _normalizeIncidentPriority, _normalizeIncidentStatus, _buildIncidentCode,
+  _normalizeIncidentAttachments, _buildIncidentPayload, _normalizeIncidentRecord,
+  _uploadIncidentAttachments, _uploadAdminEvidenceFiles, _deleteEvidenceFiles,
+  // Cuadre admins
+  _buildCuadreAdminPayload, _normalizeCuadreAdminRecord, _resolveCuadreAdminDocId,
+  subirEvidenciaAdmin,
+  // Settings
+  _settingsDoc, _resolverEstadoBloqueoMapa, _getSettings, _setSettings,
+  _ensureGlobalSettingsDoc, _actualizarFeed,
+  // Logs
+  _windowLocationAuditExtra, _registrarLog, _registrarEventoGestion,
+  _sanearEventoGestionExtra,
+  // Mapa
+  _generarEstructuraPorDefecto,
+};
+window._mexParts = {};
+
+// ─── MÓDULOS API (cargados después vía <script> en el HTML) ──
+// /api/auth.js, /api/mapa.js, /api/cuadre.js, /api/flota.js,
+// /api/alertas.js, /api/notas.js, /api/historial.js,
+// /api/settings.js, /api/users.js, /api/_assemble.js
+
+// Mantener window.api sincronizado para páginas que no cargan los módulos nuevos
+// (compatibilidad hacia atrás — se sobreescribe por _assemble.js si está presente)
 const API_FUNCTIONS = {
 
   // ─── AUTENTICACIÓN ────────────────────────────────────────
