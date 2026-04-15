@@ -312,57 +312,65 @@ function _ensureNotificationCenterDom() {
   wrapper.innerHTML = `
     <div id="notifications-center-modal" class="notif-center-modal">
       <div class="notif-center-shell">
-        <div class="notif-center-hero">
-          <div>
-            <div class="notif-center-kicker">Notificaciones Reales</div>
-            <h3>Centro de notificaciones</h3>
-            <p>Inbox del sistema, estado de tu dispositivo y acceso directo a mensajes, cuadre y alertas críticas.</p>
-          </div>
+
+        <!-- Header -->
+        <div class="notif-center-header">
+          <h2 class="notif-center-title">Notificaciones</h2>
           <button id="notif-center-close" class="notif-center-close" type="button" aria-label="Cerrar">
-            <span class="material-icons">close</span>
+            <span class="material-icons" style="font-size:18px;">close</span>
           </button>
         </div>
-        <div class="notif-center-toolbar">
-          <div class="notif-center-stats">
-            <span id="notif-center-pill-all" class="notif-center-pill">0 eventos</span>
-            <span id="notif-center-pill-unread" class="notif-center-pill unread">0 sin leer</span>
-            <span id="notif-center-device-status" class="notif-center-pill secondary">Dispositivo pendiente</span>
-          </div>
-          <div class="notif-center-actions">
-            <button id="notif-center-permission-btn" type="button" class="notif-center-btn primary">
-              <span class="material-icons">notifications_active</span>
-              Activar dispositivo
-            </button>
-            <button id="notif-center-refresh-btn" type="button" class="notif-center-btn">
-              <span class="material-icons">refresh</span>
-              Refrescar
-            </button>
-          </div>
+
+        <!-- Chips de filtro -->
+        <div class="notif-filter-bar">
+          <button class="notif-filter-chip active" data-filter="all">Todos</button>
+          <button class="notif-filter-chip" data-filter="message">💬 Mensajes</button>
+          <button class="notif-filter-chip" data-filter="cuadre">📋 Inventario</button>
+          <button class="notif-filter-chip" data-filter="alert">🚨 Alertas</button>
+          <button class="notif-filter-chip" data-filter="solicitud">📝 Solicitudes</button>
         </div>
-        <div class="notif-center-grid">
-          <section class="notif-center-panel">
-            <div class="notif-center-panel-head">
-              <h4>Inbox</h4>
-              <span>Tus eventos recientes</span>
-            </div>
-            <div id="notif-center-list" class="notif-center-list"></div>
-          </section>
-          <section class="notif-center-panel">
-            <div class="notif-center-panel-head">
-              <h4>Preferencias del dispositivo</h4>
-              <span>Se aplican a este equipo</span>
-            </div>
+
+        <div class="notif-center-divider"></div>
+
+        <!-- Toolbar: estado dispositivo + acciones -->
+        <div class="notif-center-toolbar">
+          <span id="notif-center-device-status" class="notif-center-device-pill">
+            <span class="material-icons" style="font-size:14px;">devices</span>
+            Dispositivo pendiente
+          </span>
+          <button id="notif-center-permission-btn" type="button" class="notif-center-btn primary">
+            <span class="material-icons" style="font-size:14px;">notifications_active</span>
+            Activar
+          </button>
+          <button id="notif-center-refresh-btn" type="button" class="notif-center-btn">
+            <span class="material-icons" style="font-size:14px;">refresh</span>
+          </button>
+        </div>
+
+        <!-- Lista de notificaciones -->
+        <div id="notif-center-list" class="notif-center-list"></div>
+
+        <!-- Configuración colapsable -->
+        <div class="notif-settings-section">
+          <button class="notif-settings-toggle" id="notif-settings-toggle" type="button">
+            <span style="display:flex;align-items:center;gap:8px;">
+              <span class="material-icons" style="font-size:16px;">tune</span>
+              Configuración de notificaciones
+            </span>
+            <span class="material-icons">expand_more</span>
+          </button>
+          <div class="notif-settings-body" id="notif-settings-body">
             <div class="notif-pref-list">
               <label class="notif-pref-row">
                 <div>
                   <strong>Mensajes directos</strong>
-                  <small>Empuja chats y respuestas importantes.</small>
+                  <small>Avisa cuando alguien te escribe.</small>
                 </div>
                 <input id="notif-pref-messages" type="checkbox">
               </label>
               <label class="notif-pref-row">
                 <div>
-                  <strong>Misión de cuadre</strong>
+                  <strong>Misiones de inventario</strong>
                   <small>Notifica asignaciones y actualizaciones de cuadre.</small>
                 </div>
                 <input id="notif-pref-cuadre" type="checkbox">
@@ -376,15 +384,16 @@ function _ensureNotificationCenterDom() {
               </label>
               <label class="notif-pref-row">
                 <div>
-                  <strong>Silenciar este equipo</strong>
-                  <small>Deja el inbox activo pero pausa el push del SO.</small>
+                  <strong>Silenciar este dispositivo</strong>
+                  <small>Pausa el sonido pero el inbox sigue activo.</small>
                 </div>
                 <input id="notif-pref-mute" type="checkbox">
               </label>
             </div>
             <div id="notif-center-meta" class="notif-center-meta"></div>
-          </section>
+          </div>
         </div>
+
       </div>
     </div>
   `;
@@ -399,6 +408,23 @@ function _ensureNotificationCenterDom() {
   });
   document.getElementById('notif-center-refresh-btn')?.addEventListener('click', () => {
     resubscribeInbox();
+  });
+
+  // Accordion de configuración
+  document.getElementById('notif-settings-toggle')?.addEventListener('click', () => {
+    const toggle = document.getElementById('notif-settings-toggle');
+    const body   = document.getElementById('notif-settings-body');
+    toggle?.classList.toggle('open');
+    body?.classList.toggle('open');
+  });
+
+  // Chips de filtro
+  document.querySelectorAll('#notifications-center-modal .notif-filter-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      document.querySelectorAll('#notifications-center-modal .notif-filter-chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      _renderNotifList();
+    });
   });
 
   [
@@ -450,18 +476,186 @@ function _currentDevicePrefs() {
   return prefs;
 }
 
+// Obtiene el color del avatar según tipo de notificación
+function _notifAvatarColor(type = '') {
+  const t = type.toLowerCase();
+  if (t.includes('message')) return { bg: '#3b82f6', icon: 'forum' };
+  if (t.includes('cuadre.assigned')) return { bg: '#f59e0b', icon: 'assignment' };
+  if (t.includes('cuadre.review_ready')) return { bg: '#10b981', icon: 'fact_check' };
+  if (t.includes('cuadre')) return { bg: '#f97316', icon: 'inventory_2' };
+  if (t.includes('alert')) return { bg: '#ef4444', icon: 'warning' };
+  if (t.includes('solicitud') || t.includes('request')) return { bg: '#8b5cf6', icon: 'how_to_reg' };
+  if (t.includes('test')) return { bg: '#64748b', icon: 'notifications' };
+  return { bg: '#94a3b8', icon: 'notifications' };
+}
+
+// Texto amigable para el usuario según tipo de notificación
+function _notifFriendlyText(item = {}) {
+  const type  = _safeText(item?.type || item?.kindLabel).toLowerCase();
+  const sender = _notificationSender(item);
+  const body   = _safeText(item?.body || item?.payload?.mensaje || '');
+
+  if (type.includes('message')) {
+    const who = sender || 'Alguien';
+    const preview = body ? `: "${body.slice(0, 60)}${body.length > 60 ? '…' : ''}"` : ' te envió un mensaje.';
+    return `<strong>${who}</strong>${preview}`;
+  }
+  if (type.includes('cuadre.assigned')) {
+    return `Tienes una nueva misión de inventario asignada.`;
+  }
+  if (type.includes('cuadre.review_ready')) {
+    return `El inventario ya está listo — revísalo y finaliza el cuadre.`;
+  }
+  if (type.includes('cuadre.updated')) {
+    return `Se actualizó el inventario${sender ? ` por <strong>${sender}</strong>` : ''}.`;
+  }
+  if (type.includes('cuadre')) {
+    return `Actividad de inventario${sender ? ` de <strong>${sender}</strong>` : ''}.`;
+  }
+  if (type.includes('alert.critical')) {
+    const titulo = _safeText(item?.title || '');
+    return `🚨 Alerta operativa${titulo ? `: <strong>${titulo}</strong>` : ' crítica recibida.'}`;
+  }
+  if (type.includes('alert')) {
+    return _safeText(item?.title || 'Nueva alerta del sistema.');
+  }
+  if (type.includes('solicitud') || type.includes('request.user')) {
+    return `Nueva solicitud de registro${sender ? ` de <strong>${sender}</strong>` : ''}.`;
+  }
+  if (type.includes('test')) {
+    return '🔔 Prueba de notificaciones enviada correctamente.';
+  }
+  // Fallback legible
+  const titulo = _safeText(item?.title || '');
+  if (titulo) return titulo;
+  if (body) return body;
+  return 'Nueva notificación del sistema.';
+}
+
+// Tiempo relativo legible
+function _notifRelativeTime(ts = 0) {
+  if (!ts) return 'Reciente';
+  const now  = Date.now();
+  const diff = Math.floor((now - ts) / 1000); // segundos
+  if (diff < 60)   return 'Ahora';
+  if (diff < 3600) return `hace ${Math.floor(diff / 60)} min`;
+  if (diff < 86400)return `hace ${Math.floor(diff / 3600)} h`;
+  if (diff < 172800) return 'Ayer';
+  if (diff < 604800) return `hace ${Math.floor(diff / 86400)} días`;
+  return new Date(ts).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+}
+
+// Método para obtener el label de fecha del grupo
+function _notifGroupLabel(ts = 0) {
+  if (!ts) return 'Antes';
+  const now = Date.now();
+  const diff = now - ts;
+  if (diff < 86400000)  return 'Hoy';
+  if (diff < 172800000) return 'Ayer';
+  if (diff < 604800000) return 'Esta semana';
+  return 'Antes';
+}
+
+// Filtro activo
+function _notifActiveFilter() {
+  const chip = document.querySelector('#notifications-center-modal .notif-filter-chip.active');
+  return chip ? (chip.dataset.filter || 'all') : 'all';
+}
+
+// Filtra los items según el chip activo
+function _notifFilteredInbox() {
+  const filter = _notifActiveFilter();
+  if (filter === 'all') return _state.inbox;
+  return _state.inbox.filter(item => {
+    const t = _safeText(item?.type).toLowerCase();
+    if (filter === 'message')  return t.includes('message');
+    if (filter === 'cuadre')   return t.includes('cuadre');
+    if (filter === 'alert')    return t.includes('alert');
+    if (filter === 'solicitud')return t.includes('solicitud') || t.includes('request');
+    return true;
+  });
+}
+
+// Renderiza solo la lista (llamada desde los chips y desde _renderNotificationCenter)
+function _renderNotifList() {
+  const listEl = document.getElementById('notif-center-list');
+  if (!listEl) return;
+
+  const items = _notifFilteredInbox();
+
+  if (!items.length) {
+    const filter = _notifActiveFilter();
+    const msg = filter === 'all' ? 'aún no tienes notificaciones.' : 'no hay notificaciones de este tipo.';
+    listEl.innerHTML = `<div class="notif-center-empty">
+      <span class="material-icons">notifications_none</span>
+      <strong>Todo tranquilo</strong>
+      <p>Por ahora ${msg}</p>
+    </div>`;
+    return;
+  }
+
+  // Agrupar por fecha
+  const groups = {};
+  const ORDER  = ['Hoy', 'Ayer', 'Esta semana', 'Antes'];
+  items.forEach(item => {
+    const ts    = Number(item.timestamp || item.createdAt || 0);
+    const label = _notifGroupLabel(ts);
+    if (!groups[label]) groups[label] = [];
+    groups[label].push(item);
+  });
+
+  let html = '';
+  ORDER.forEach(label => {
+    if (!groups[label]?.length) return;
+    html += `<div class="notif-date-group"><span class="notif-date-label">${label}</span></div>`;
+    groups[label].forEach(item => {
+      const id       = item.notificationId || item.id;
+      const ts       = Number(item.timestamp || item.createdAt || 0);
+      const timeStr  = _notifRelativeTime(ts);
+      const isUnread = !item.read && item.status !== 'READ';
+      const type     = _safeText(item?.type);
+      const meta     = _notifAvatarColor(type);
+      const sender   = _notificationSender(item);
+      const initials = sender ? sender.slice(0, 2).toUpperCase() : meta.icon.slice(0, 2).toUpperCase();
+      const text     = _notifFriendlyText(item);
+
+      html += `
+        <button class="notif-item${isUnread ? ' unread' : ''}" type="button" data-id="${id}">
+          <div class="notif-item-avatar" style="background:${meta.bg}">
+            ${initials}
+            <div class="notif-avatar-badge" style="background:${meta.bg}">
+              <span class="material-icons" style="color:white;font-size:13px;">${meta.icon}</span>
+            </div>
+          </div>
+          <div class="notif-item-copy">
+            <p class="notif-item-text">${text}</p>
+            <span class="notif-item-time">${timeStr}</span>
+          </div>
+          ${isUnread ? '<div class="notif-unread-dot"></div>' : ''}
+        </button>
+      `;
+    });
+  });
+
+  listEl.innerHTML = html;
+
+  listEl.querySelectorAll('.notif-item').forEach(button => {
+    button.addEventListener('click', () => {
+      const id   = button.dataset.id;
+      const item = _state.inbox.find(entry => (entry.notificationId || entry.id) === id);
+      if (item) handleInboxItemAction(item);
+    });
+  });
+}
+
 function _renderNotificationCenter() {
   _ensureNotificationCenterDom();
-  const listEl = document.getElementById('notif-center-list');
-  const allEl = document.getElementById('notif-center-pill-all');
-  const unreadEl = document.getElementById('notif-center-pill-unread');
-  const metaEl = document.getElementById('notif-center-meta');
-  const deviceEl = document.getElementById('notif-center-device-status');
-  const permissionBtn = document.getElementById('notif-center-permission-btn');
-  const badge = document.getElementById('badgeNotificationCenter');
 
-  if (allEl) allEl.textContent = `${_state.inbox.length} evento${_state.inbox.length === 1 ? '' : 's'}`;
-  if (unreadEl) unreadEl.textContent = `${_state.unread} sin leer`;
+  const metaEl      = document.getElementById('notif-center-meta');
+  const deviceEl    = document.getElementById('notif-center-device-status');
+  const permissionBtn = document.getElementById('notif-center-permission-btn');
+  const badge       = document.getElementById('badgeNotificationCenter');
+
   if (badge) {
     badge.textContent = String(_state.unread);
     badge.style.display = _state.unread > 0 ? 'flex' : 'none';
@@ -470,20 +664,22 @@ function _renderNotificationCenter() {
   const permission = _supportsPush() ? Notification.permission : 'unsupported';
   if (deviceEl) {
     const label = permission === 'granted'
-      ? 'Push activo'
-      : (permission === 'denied' ? 'Push bloqueado' : (permission === 'unsupported' ? 'Sin push web' : 'Permiso pendiente'));
+      ? 'Push activo en este dispositivo'
+      : (permission === 'denied' ? 'Notificaciones bloqueadas' : (permission === 'unsupported' ? 'Push no disponible' : 'Activa las notificaciones'));
     deviceEl.textContent = label;
+    deviceEl.className = 'notif-center-device-pill' + (permission === 'granted' ? ' active' : (permission === 'denied' ? ' blocked' : ''));
   }
   if (permissionBtn) {
     permissionBtn.disabled = permission === 'granted' || permission === 'denied' || !_supportsPush();
+    permissionBtn.style.display = (permission === 'granted' || !_supportsPush()) ? 'none' : 'flex';
   }
 
   const prefs = _currentDevicePrefs();
   const fieldMap = {
     'notif-pref-messages': prefs.directMessages,
-    'notif-pref-cuadre': prefs.cuadreMissions,
+    'notif-pref-cuadre':   prefs.cuadreMissions,
     'notif-pref-critical': prefs.criticalAlerts,
-    'notif-pref-mute': prefs.muteAll
+    'notif-pref-mute':     prefs.muteAll
   };
   Object.entries(fieldMap).forEach(([id, checked]) => {
     const input = document.getElementById(id);
@@ -491,56 +687,16 @@ function _renderNotificationCenter() {
   });
 
   if (metaEl) {
-    const lastSeen = _state.currentDevice?.lastSeenAt
+    const device    = _state.currentDevice || _platformMeta();
+    const lastSeen  = _state.currentDevice?.lastSeenAt
       ? new Date(Number(_state.currentDevice.lastSeenAt)).toLocaleString('es-MX')
       : 'Pendiente';
     metaEl.innerHTML = `
-      <div><strong>Equipo:</strong> ${_friendlyDeviceLabel(_state.currentDevice || _platformMeta())}</div>
-      <div><strong>Última actividad:</strong> ${lastSeen}</div>
-      <div><strong>Build:</strong> ${APP_BUILD}</div>
+      <div>${_friendlyDeviceLabel(device)} · ${lastSeen}</div>
     `;
   }
 
-  if (!listEl) return;
-  if (!_state.inbox.length) {
-    listEl.innerHTML = `<div class="notif-center-empty">
-      <span class="material-icons">notifications_none</span>
-      <strong>Sin notificaciones todavía</strong>
-      <p>Cuando lleguen mensajes, misiones de cuadre o alertas críticas aparecerán aquí.</p>
-    </div>`;
-    return;
-  }
-
-  listEl.innerHTML = _state.inbox.map(item => {
-    const createdAt = Number(item.timestamp || item.createdAt || 0);
-    const dateLabel = createdAt ? new Date(createdAt).toLocaleString('es-MX') : 'Reciente';
-    const unreadClass = item.read ? '' : 'unread';
-    const icon = item.type === 'message.created'
-      ? 'mail'
-      : (item.type?.startsWith('cuadre') ? 'fact_check' : (item.type === 'alert.critical.created' ? 'warning' : 'notifications'));
-    const contextCopy = _notificationContextCopy(item);
-    return `
-      <button class="notif-item ${unreadClass}" type="button" data-id="${item.notificationId || item.id}">
-        <div class="notif-item-icon"><span class="material-icons">${icon}</span></div>
-        <div class="notif-item-copy">
-          <div class="notif-item-top">
-            <strong>${_safeText(item.title || 'Notificación')}</strong>
-            <span>${dateLabel}</span>
-          </div>
-          ${contextCopy ? `<div class="notif-item-meta">${contextCopy}</div>` : ''}
-          <p>${_safeText(item.body || '')}</p>
-        </div>
-      </button>
-    `;
-  }).join('');
-
-  listEl.querySelectorAll('.notif-item').forEach(button => {
-    button.addEventListener('click', () => {
-      const id = button.dataset.id;
-      const item = _state.inbox.find(entry => (entry.notificationId || entry.id) === id);
-      if (item) handleInboxItemAction(item);
-    });
-  });
+  _renderNotifList();
 }
 
 async function _upsertDeviceDirect(payload = {}) {
@@ -826,16 +982,31 @@ export async function handleInboxItemAction(item = {}) {
 export function routeDeepLink(url = '') {
   if (!url) return;
   const target = new URL(url, window.location.origin);
-  const notif = target.searchParams.get('notif') || '';
+  const notif  = target.searchParams.get('notif') || '';
+
   if (notif === 'chat') {
-    _state.routeHandlers?.openChat?.(decodeURIComponent(target.searchParams.get('chatUser') || ''));
+    // ── FIX: cerrar notif center, abrir buzón PRIMERO y luego el chat ──
+    closeNotificationCenter();
+    const chatUser = decodeURIComponent(target.searchParams.get('chatUser') || '');
+    if (chatUser) {
+      if (typeof _state.routeHandlers?.openBuzon === 'function') {
+        _state.routeHandlers.openBuzon();
+        setTimeout(() => _state.routeHandlers?.openChat?.(chatUser), 220);
+      } else {
+        _state.routeHandlers?.openChat?.(chatUser);
+      }
+    } else {
+      _state.routeHandlers?.openBuzon?.();
+    }
     return;
   }
   if (notif === 'cuadre') {
+    closeNotificationCenter();
     _state.routeHandlers?.openCuadre?.();
     return;
   }
   if (notif === 'alerts') {
+    closeNotificationCenter();
     _state.routeHandlers?.openAlerts?.();
     return;
   }

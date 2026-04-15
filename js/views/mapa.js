@@ -1947,7 +1947,8 @@ function iniciarApp(esNuevoLogin = true) {
     getCurrentPlaza: () => _miPlaza(),
     toast: showToast,
     routeHandlers: {
-      openChat: nombre => _abrirChatDesdeNotificacion(nombre),
+      openChat:   nombre => _abrirChatDesdeNotificacion(nombre),
+      openBuzon:  () => abrirBuzon(),
       openCuadre: () => _abrirCuadreDesdeNotificacion(),
       openAlerts: () => abrirSiguienteAlerta()
     }
