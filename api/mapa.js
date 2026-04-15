@@ -187,5 +187,93 @@
       return 'OK';
     },
 
+    // ── F6.1  Duplicar estructura entre plazas ──────────────
+    async duplicarEstructuraMapa(plazaOrigen, plazaDestino) {
+      const pO = _normalizePlazaId(plazaOrigen);
+      const pD = _normalizePlazaId(plazaDestino);
+      if (!pO || !pD) throw new Error('Plazas inválidas para duplicar estructura');
+      if (pO === pD) throw new Error('El origen y destino no pueden ser la misma plaza');
+
+      // Leer estructura origen
+      const snapOrigen = await db.collection('mapa_config').doc(pO).collection('estructura').orderBy('orden').get();
+      if (snapOrigen.empty) throw new Error(`La plaza ${pO} no tiene estructura guardada`);
+      const elementos = snapOrigen.docs.map(d => d.data());
+
+      // Borrar destino existente
+      const refDest = db.collection('mapa_config').doc(pD).collection('estructura');
+      const snapDest = await refDest.get();
+      if (!snapDest.empty) {
+        const delBatch = db.batch();
+        snapDest.docs.forEach(d => delBatch.delete(d.ref));
+        await delBatch.commit();
+      }
+
+      // Copiar en batches de 490
+      for (let i = 0; i < elementos.length; i += 490) {
+        const chunk = elementos.slice(i, i + 490);
+        const batch = db.batch();
+        chunk.forEach((el, j) => {
+          batch.set(refDest.doc(`cel_${el.orden ?? (i + j)}`), el);
+        });
+        await batch.commit();
+      }
+      await _registrarLog('SISTEMA', `🗺️ Estructura duplicada de ${pO} → ${pD} (${elementos.length} celdas)`, 'Sistema', pD);
+      return { ok: true, total: elementos.length };
+    },
+
+    // ── F6.2  Plantillas de mapa ────────────────────────────
+    async guardarPlantillaMapa(nombre, elementos) {
+      if (!nombre) throw new Error('Nombre de plantilla requerido');
+      const id = nombre.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      const ref = db.collection('mapa_plantillas').doc(id).collection('estructura');
+
+      // Borrar anterior
+      const snapAnterior = await ref.get();
+      if (!snapAnterior.empty) {
+        const delBatch = db.batch();
+        snapAnterior.docs.forEach(d => delBatch.delete(d.ref));
+        await delBatch.commit();
+      }
+      // Guardar metadata
+      await db.collection('mapa_plantillas').doc(id).set({
+        nombre: nombre.trim(),
+        id,
+        totalCeldas: elementos.length,
+        _savedAt: Date.now(),
+      });
+      // Guardar celdas
+      for (let i = 0; i < elementos.length; i += 490) {
+        const chunk = elementos.slice(i, i + 490);
+        const batch = db.batch();
+        chunk.forEach((el, j) => batch.set(ref.doc(`cel_${el.orden ?? (i + j)}`), el));
+        await batch.commit();
+      }
+      await _registrarLog('SISTEMA', `📐 Plantilla "${nombre}" guardada (${elementos.length} celdas)`, 'Sistema', '');
+      return { ok: true, id, total: elementos.length };
+    },
+
+    async listarPlantillasMapa() {
+      const snap = await db.collection('mapa_plantillas').orderBy('_savedAt', 'desc').get();
+      return snap.docs.map(d => d.data());
+    },
+
+    async obtenerPlantillaMapa(id) {
+      const snap = await db.collection('mapa_plantillas').doc(id).collection('estructura').orderBy('orden').get();
+      if (snap.empty) throw new Error(`Plantilla "${id}" no encontrada`);
+      return snap.docs.map(d => d.data());
+    },
+
+    async eliminarPlantillaMapa(id) {
+      const ref = db.collection('mapa_plantillas').doc(id).collection('estructura');
+      const snap = await ref.get();
+      if (!snap.empty) {
+        const batch = db.batch();
+        snap.docs.forEach(d => batch.delete(d.ref));
+        await batch.commit();
+      }
+      await db.collection('mapa_plantillas').doc(id).delete();
+      return { ok: true };
+    },
+
   };
 })();

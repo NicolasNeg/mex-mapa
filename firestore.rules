@@ -515,6 +515,16 @@ service cloud.firestore {
       }
     }
 
+    // F6.2 Plantillas de mapa (acceso total para lectura/escritura)
+    match /mapa_plantillas/{plantillaId} {
+      allow read: if tienePerfilActual();
+      allow write: if esAccesoTotal();
+      match /estructura/{cel} {
+        allow read: if tienePerfilActual();
+        allow write: if esAccesoTotal();
+      }
+    }
+
     match /index_unidades/{doc} {
       allow read: if tienePerfilActual();
       allow create: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexNueva());
@@ -666,20 +676,13 @@ service cloud.firestore {
     }
 
     // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
-    // configuracion/empresa, configuracion/listas → global (solo acceso total escribe)
+    // configuracion/empresa, configuracion/listas → lectura pública (branding en login)
     // configuracion/{plaza} → catálogos por plaza (Fase 4: ubicaciones)
     match /configuracion/{document} {
-      allow read: if tienePerfilActual();
+      // "empresa" y "listas" se leen antes de autenticación (login branding)
+      allow read: if document == "empresa" || document == "listas" || tienePerfilActual();
       allow write: if tienePerfilActual()
-        && (
-          tienePermiso(perfilActual(), "manage_system_settings")
-          || (
-            document != "empresa"
-            && document != "listas"
-            && mismaPlaza(document)
-            && tienePermiso(perfilActual(), "manage_system_settings")
-          )
-        );
+        && tienePermiso(perfilActual(), "manage_system_settings");
       match /{subcol=**} {
         allow read: if tienePerfilActual();
         allow write: if tienePerfilActual()

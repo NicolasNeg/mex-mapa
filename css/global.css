@@ -3583,6 +3583,12 @@
     /* F4 — chip Reservas */
     .chip-reservas { border-color: #6366f1; color: #4338ca; background: #eef2ff; }
     .chip-reservas:hover { background: #6366f1; color: white; }
+    /* F5 — búsqueda por voz */
+    #btn-voz-busqueda, #btn-voz-busqueda-mobile { transition: color .2s, background .2s; }
+    @keyframes vozPulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+      50%       { box-shadow: 0 0 0 5px rgba(239,68,68,0.25); }
+    }
 
     .table-container {
       flex: 1;

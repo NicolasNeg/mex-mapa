@@ -16780,6 +16780,28 @@ function _renderPlazaForm(plazaId) {
             Guardar Plaza
           </button>
 
+          <!-- ── F6.1 Herramientas de estructura ── -->
+          <div style="margin-top:14px; padding:12px 14px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:12px;">
+            <div style="font-size:10px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px;">Herramientas de Mapa</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+              <button onclick="abrirDuplicarEstructura('${escapeHtml(plazaId)}')"
+                style="background:#fff; border:1.5px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:11px; font-weight:800; cursor:pointer; color:#334155; display:flex; align-items:center; gap:5px;">
+                <span class="material-icons" style="font-size:15px; color:#0284c7;">content_copy</span>
+                Duplicar hacia...
+              </button>
+              <button onclick="abrirGuardarPlantilla('${escapeHtml(plazaId)}')"
+                style="background:#fff; border:1.5px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:11px; font-weight:800; cursor:pointer; color:#334155; display:flex; align-items:center; gap:5px;">
+                <span class="material-icons" style="font-size:15px; color:#7c3aed;">bookmark_add</span>
+                Guardar plantilla
+              </button>
+              <button onclick="abrirAplicarPlantilla('${escapeHtml(plazaId)}')"
+                style="background:#fff; border:1.5px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:11px; font-weight:800; cursor:pointer; color:#334155; display:flex; align-items:center; gap:5px;">
+                <span class="material-icons" style="font-size:15px; color:#059669;">library_books</span>
+                Aplicar plantilla
+              </button>
+            </div>
+          </div>
+
           <!-- ── Zona de peligro ── -->
           <div class="cfg-plaza-danger-zone">
             <button class="cfg-plaza-danger-btn" onclick="eliminarPlazaCatalogo('${escapeHtml(plazaId)}')">
@@ -18314,6 +18336,10 @@ Object.assign(window, {
   _ejecutarAnalisisPDF,
   // Fase 5
   activarBusquedaVoz,
+  // Fase 6
+  abrirDuplicarEstructura,
+  abrirGuardarPlantilla,
+  abrirAplicarPlantilla,
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -18861,4 +18887,294 @@ function _autoRecomendacionSaturacion(pct) {
   const panel = document.getElementById('panel-recomendacion');
   if (panel) panel.dataset.source = 'auto';
   _actualizarPanelRecomendacion(presionAuto, recsAuto);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FASE 5 — VOZ E INTERACCIÓN
+// ═══════════════════════════════════════════════════════════
+
+// ── F5.1  Tabla fonética NATO (ES + EN) ────────────────────
+const _NATO_MAP = {
+  'ALFA':'A','ALPHA':'A',
+  'BRAVO':'B',
+  'CHARLIE':'C','CHARLI':'C',
+  'DELTA':'D',
+  'ECO':'E','ECHO':'E',
+  'FOXTROT':'F','FOX':'F',
+  'GOLF':'G',
+  'HOTEL':'H',
+  'INDIA':'I',
+  'JULIETT':'J','JULIETA':'J','JULIET':'J',
+  'KILO':'K',
+  'LIMA':'L',
+  'MIKE':'M','MIGUEL':'M',
+  'NOVIEMBRE':'N','NOVEMBER':'N',
+  'OSCAR':'O',
+  'PAPA':'P',
+  'QUEBEC':'Q','KEBEC':'Q',
+  'ROMEO':'R',
+  'SIERRA':'S',
+  'TANGO':'T',
+  'UNIFORME':'U','UNIFORM':'U',
+  'VICTOR':'V',
+  'WHISKEY':'W','WHISKY':'W',
+  'XRAY':'X','EQUIS':'X',
+  'YANKI':'Y','YANKEE':'Y',
+  'ZULU':'Z',
+};
+
+// ── F5.1  Parser NATO → MVA ─────────────────────────────────
+// "Delta 2019" → "D2019"  |  "alfa bravo 1234" → "AB1234"
+function _parsearNATO(texto) {
+  if (!texto) return texto;
+  // Normalizar: mayúsculas, sin acentos
+  const normalizado = texto.trim().toUpperCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const palabras = normalizado.split(/\s+/);
+
+  let letras = '';
+  let numeros = '';
+  let modoNumeros = false;
+
+  for (const palabra of palabras) {
+    if (!modoNumeros && _NATO_MAP[palabra]) {
+      letras += _NATO_MAP[palabra];
+    } else if (/^\d+$/.test(palabra)) {
+      numeros += palabra;
+      modoNumeros = true;
+    } else if (!modoNumeros && /^[A-Z]$/.test(palabra)) {
+      letras += palabra;
+    } else if (modoNumeros) {
+      break; // después de los dígitos, parar
+    }
+  }
+
+  if (letras && numeros) return letras + numeros;
+  if (letras && !numeros) return letras;
+  // No se detectaron palabras NATO, devolver el texto original limpio
+  return normalizado.replace(/\s+/g, '');
+}
+
+// ── F5.1  Motor de voz ─────────────────────────────────────
+let _vozRecognition = null;
+let _vozActiva = false;
+
+function activarBusquedaVoz(esMobile) {
+  esMobile = !!esMobile;
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    showToast('Tu navegador no soporta búsqueda por voz', 'warning');
+    return;
+  }
+
+  // Si ya está activa, detener
+  if (_vozActiva && _vozRecognition) {
+    _vozRecognition.stop();
+    return;
+  }
+
+  const btnDesktop = document.getElementById('btn-voz-busqueda');
+  const btnMobile  = document.getElementById('btn-voz-busqueda-mobile');
+
+  _setVozUI(true, btnDesktop, btnMobile);
+
+  _vozRecognition = new SR();
+  _vozRecognition.lang = 'es-MX';
+  _vozRecognition.interimResults = false;
+  _vozRecognition.maxAlternatives = 3;
+  _vozActiva = true;
+
+  _vozRecognition.onresult = (event) => {
+    // Probar las 3 alternativas, tomar la que produzca un MVA válido primero
+    const alternativas = Array.from(event.results[0]).map(a => a.transcript.trim());
+    let query = _parsearNATO(alternativas[0]);
+    for (const alt of alternativas) {
+      const parsed = _parsearNATO(alt);
+      if (/^[A-Z]{1,3}\d{3,5}$/.test(parsed)) { query = parsed; break; }
+    }
+
+    // Rellenar ambas barras de búsqueda
+    ['searchInput', 'searchInputMobile'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = query;
+    });
+    // Disparar búsqueda
+    if (typeof ejecutarFiltroMasivo === 'function') ejecutarFiltroMasivo();
+    showToast(`\uD83C\uDF99\uFE0F Buscando: "${query}"`, 'info');
+  };
+
+  _vozRecognition.onerror = (event) => {
+    if (event.error !== 'aborted') {
+      const msgs = {
+        'not-allowed': 'Permiso de micrófono denegado',
+        'no-speech':   'No se detectó voz, intenta de nuevo',
+        'network':     'Error de red al procesar voz',
+      };
+      showToast(msgs[event.error] || 'Error de reconocimiento de voz', 'warning');
+    }
+    _setVozUI(false, btnDesktop, btnMobile);
+    _vozActiva = false;
+  };
+
+  _vozRecognition.onend = () => {
+    _setVozUI(false, btnDesktop, btnMobile);
+    _vozActiva = false;
+  };
+
+  _vozRecognition.start();
+}
+
+function _setVozUI(activa, btnDesktop, btnMobile) {
+  [btnDesktop, btnMobile].forEach(btn => {
+    if (!btn) return;
+    if (activa) {
+      btn.style.color = '#ef4444';
+      btn.style.background = 'rgba(239,68,68,0.15)';
+      btn.style.borderRadius = '8px';
+      btn.title = 'Escuchando... (clic para detener)';
+    } else {
+      btn.style.color = '';
+      btn.style.background = '';
+      btn.title = 'Buscar por voz — alfabeto NATO (ej: "Delta 2019")';
+    }
+  });
+  ['searchInput', 'searchInputMobile'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (activa) {
+      el.placeholder = '\uD83C\uDF99\uFE0F Escuchando...';
+      el.style.borderColor = 'rgba(239,68,68,0.5)';
+    } else {
+      el.placeholder = 'MVA, Placas o Modelo...';
+      el.style.borderColor = '';
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FASE 6 — CONFIGURACIÓN Y REUTILIZACIÓN
+// ═══════════════════════════════════════════════════════════
+
+// ── F6.1  Duplicar estructura entre plazas ──────────────────
+async function abrirDuplicarEstructura(plazaOrigen) {
+  const plazas = (window.MEX_CONFIG?.empresa?.plazas || []).filter(p => p !== plazaOrigen);
+  if (plazas.length === 0) {
+    showToast('No hay otras plazas disponibles como destino', 'warning');
+    return;
+  }
+
+  const opciones = plazas.map(p => `<option value="${escapeHtml(p)}">${escapeHtml(p)}</option>`).join('');
+  const html = `
+    <div style="padding:4px 0;">
+      <p style="font-size:13px; color:#475569; margin:0 0 12px; font-weight:600;">
+        Copia la estructura del mapa de <strong>${escapeHtml(plazaOrigen)}</strong> a otra plaza.<br>
+        <span style="color:#ef4444; font-size:11px; font-weight:800;">La estructura destino será reemplazada.</span>
+      </p>
+      <label style="font-size:11px; font-weight:800; color:#64748b; display:block; margin-bottom:5px;">PLAZA DESTINO</label>
+      <select id="dup-plaza-destino" style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-weight:700; color:#0f172a; outline:none;">
+        ${opciones}
+      </select>
+    </div>`;
+
+  mostrarCustomModal(
+    `Duplicar estructura — ${plazaOrigen}`,
+    html,
+    async () => {
+      const destino = document.getElementById('dup-plaza-destino')?.value;
+      if (!destino) return;
+      try {
+        showToast('Duplicando estructura...', 'info');
+        const res = await api.duplicarEstructuraMapa(plazaOrigen, destino);
+        showToast(`✓ Estructura duplicada a ${destino} (${res.total} celdas)`, 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al duplicar estructura', 'error');
+      }
+    },
+    'Duplicar',
+    'Cancelar'
+  );
+}
+
+// ── F6.2  Guardar como plantilla ───────────────────────────
+async function abrirGuardarPlantilla(plazaId) {
+  const html = `
+    <div style="padding:4px 0;">
+      <p style="font-size:13px; color:#475569; margin:0 0 12px; font-weight:600;">
+        Guarda la estructura actual de <strong>${escapeHtml(plazaId)}</strong> como plantilla reutilizable.
+      </p>
+      <label style="font-size:11px; font-weight:800; color:#64748b; display:block; margin-bottom:5px;">NOMBRE DE LA PLANTILLA</label>
+      <input id="plantilla-nombre-input" type="text" placeholder="Ej: Patio estándar 50 cajones"
+        style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-weight:700; color:#0f172a; outline:none; box-sizing:border-box;"
+        onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'">
+    </div>`;
+
+  mostrarCustomModal(
+    `Guardar plantilla — ${plazaId}`,
+    html,
+    async () => {
+      const nombre = document.getElementById('plantilla-nombre-input')?.value?.trim();
+      if (!nombre) { showToast('Escribe un nombre para la plantilla', 'warning'); return; }
+      try {
+        const estructura = await api.obtenerEstructuraMapa(plazaId);
+        showToast('Guardando plantilla...', 'info');
+        const res = await api.guardarPlantillaMapa(nombre, estructura);
+        showToast(`✓ Plantilla "${nombre}" guardada (${res.total} celdas)`, 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al guardar plantilla', 'error');
+      }
+    },
+    'Guardar',
+    'Cancelar'
+  );
+}
+
+// ── F6.2  Aplicar plantilla a una plaza ────────────────────
+async function abrirAplicarPlantilla(plazaId) {
+  // Primero cargar lista de plantillas
+  let plantillas = [];
+  try {
+    plantillas = await api.listarPlantillasMapa();
+  } catch (err) {
+    showToast('Error al cargar plantillas', 'error');
+    return;
+  }
+
+  if (plantillas.length === 0) {
+    showToast('No hay plantillas guardadas aún', 'info');
+    return;
+  }
+
+  const opciones = plantillas.map(p => `
+    <option value="${escapeHtml(p.id)}">${escapeHtml(p.nombre)} — ${p.totalCeldas || '?'} celdas</option>`).join('');
+
+  const html = `
+    <div style="padding:4px 0;">
+      <p style="font-size:13px; color:#475569; margin:0 0 12px; font-weight:600;">
+        Aplica una plantilla a <strong>${escapeHtml(plazaId)}</strong>.<br>
+        <span style="color:#ef4444; font-size:11px; font-weight:800;">Reemplaza la estructura actual de la plaza.</span>
+      </p>
+      <label style="font-size:11px; font-weight:800; color:#64748b; display:block; margin-bottom:5px;">PLANTILLA</label>
+      <select id="plantilla-select" style="width:100%; padding:9px 12px; border:1.5px solid #e2e8f0; border-radius:8px; font-size:13px; font-weight:700; color:#0f172a; outline:none;">
+        ${opciones}
+      </select>
+    </div>`;
+
+  mostrarCustomModal(
+    `Aplicar plantilla — ${plazaId}`,
+    html,
+    async () => {
+      const id = document.getElementById('plantilla-select')?.value;
+      if (!id) return;
+      try {
+        showToast('Aplicando plantilla...', 'info');
+        const elementos = await api.obtenerPlantillaMapa(id);
+        await api.guardarEstructuraMapa(elementos, plazaId);
+        showToast(`✓ Plantilla aplicada a ${plazaId} (${elementos.length} celdas)`, 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al aplicar plantilla', 'error');
+      }
+    },
+    'Aplicar',
+    'Cancelar'
+  );
 }
