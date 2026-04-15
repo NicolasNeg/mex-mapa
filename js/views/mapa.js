@@ -2026,6 +2026,64 @@ function iniciarApp(esNuevoLogin = true) {
         }
       }
     });
+
+  // [F2.7] Qué cambió desde última visita
+  _registrarYMostrarResumenVisita();
+}
+
+function _registrarYMostrarResumenVisita() {
+  const email = auth.currentUser?.email || '';
+  if (!email) return;
+  const clave = `mex_lastVisit_${_profileDocId(email)}`;
+  const plaza = _miPlaza();
+  const ahora = Date.now();
+  const ultimaVisita = Number(localStorage.getItem(clave) || 0);
+
+  // Guardar nueva visita
+  localStorage.setItem(clave, String(ahora));
+
+  // Sólo mostrar resumen si la visita anterior fue hace más de 10 min
+  const MIN_GAP = 10 * 60 * 1000;
+  if (!ultimaVisita || (ahora - ultimaVisita) < MIN_GAP) return;
+
+  // Consultar movimientos recientes desde la última visita (máx 50)
+  setTimeout(async () => {
+    try {
+      const desde = ultimaVisita;
+      let query = db.collection('historial_patio')
+        .where('timestamp', '>', desde)
+        .orderBy('timestamp', 'desc')
+        .limit(50);
+      if (plaza) query = db.collection('historial_patio')
+        .where('plaza', '==', plaza)
+        .where('timestamp', '>', desde)
+        .orderBy('timestamp', 'desc')
+        .limit(50);
+
+      const snap = await query.get();
+      if (snap.empty) return;
+
+      const movimientos = snap.docs.map(d => d.data());
+      const totalMovs    = movimientos.filter(m => m.tipo === 'MOVE' || m.tipo === 'SWAP').length;
+      const totalEntradas = movimientos.filter(m => String(m.posAnterior || '').toUpperCase() === 'LIMBO').length;
+      const totalSalidas  = movimientos.filter(m => String(m.posNueva || '').toUpperCase() === 'LIMBO').length;
+
+      if (totalMovs + totalEntradas + totalSalidas === 0) return;
+
+      const fechaFormato = new Date(ultimaVisita).toLocaleString('es-MX', {
+        day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
+      });
+
+      const partes = [];
+      if (totalMovs > 0)     partes.push(`${totalMovs} movimiento${totalMovs > 1 ? 's' : ''}`);
+      if (totalEntradas > 0) partes.push(`${totalEntradas} entrada${totalEntradas > 1 ? 's' : ''}`);
+      if (totalSalidas > 0)  partes.push(`${totalSalidas} salida${totalSalidas > 1 ? 's' : ''}`);
+
+      showToast(`Desde tu última visita (${fechaFormato}): ${partes.join(', ')} en el patio.`, 'info');
+    } catch (_) {
+      // Silencioso — no es crítico
+    }
+  }, 3500);
 }
 
 function _iniciarSincronizacionUsuarios() {
@@ -2876,19 +2934,40 @@ function ejecutarFiltroMasivo() {
     spot.style.opacity = hasMatch ? "1" : "0.2";
   });
 
-  // 🎯 4. SMART FOCUS (La Magia)
-  // Si después de buscar por modelo o notas, solo queda UNA unidad, el mapa vuela hacia ella.
+  // 🎯 4. SMART FOCUS — 1 resultado: zoom + highlight + auto-panel
   if (coincidencias.length === 1) {
     const target = coincidencias[0];
     const parentSpot = target.parentElement;
 
-    // Solo si está en un cajón (no queremos hacer zoom al menú lateral)
     if (parentSpot && parentSpot.classList.contains('spot')) {
+      // Highlight visual
       target.classList.add('car-focus');
-      if (typeof enfocarCajon === "function") {
-        enfocarCajon(parentSpot);
-      }
+      if (typeof enfocarCajon === "function") enfocarCajon(parentSpot);
+
+      // Auto-abrir panel tras completar el scroll (~500ms)
+      clearTimeout(window._searchPanelTimer);
+      window._searchPanelTimer = setTimeout(() => {
+        if (!document.getElementById('info-panel')?.classList.contains('open')) {
+          _selectCarOnMap(target, { openPanel: true, preserveSwap: false });
+        }
+      }, 520);
+
+      // Quitar highlight temporal a los 4s
+      clearTimeout(window._searchFocusTimer);
+      window._searchFocusTimer = setTimeout(() => {
+        target.classList.remove('car-focus');
+      }, 4000);
+
+    } else if (parentSpot) {
+      // Unidad en limbo/taller: highlight sin zoom
+      target.classList.add('car-focus');
+      clearTimeout(window._searchFocusTimer);
+      window._searchFocusTimer = setTimeout(() => target.classList.remove('car-focus'), 4000);
     }
+  } else {
+    // Limpiar timers si hay múltiples o cero resultados
+    clearTimeout(window._searchPanelTimer);
+    clearTimeout(window._searchFocusTimer);
   }
 }
 
@@ -2937,7 +3016,13 @@ function _normalizarEstructuraMapa(estructura = [], opciones = {}) {
         x += Math.floor(Math.max(0, x) / MAPA_RENDER_BASE_X) * MAPA_RENDER_AIRE_X;
         y += Math.floor(Math.max(0, y) / MAPA_RENDER_BASE_Y) * MAPA_RENDER_AIRE_Y;
       }
-      return { valor, tipo, esLabel, orden, x, y, width, height, rotation };
+      // [F2.2] Campos extendidos — restricciones por categoría y zona
+      const allowedCategories = Array.isArray(celda?.allowedCategories)
+        ? celda.allowedCategories.map(c => String(c).trim().toUpperCase()).filter(Boolean)
+        : [];
+      const zone    = celda?.zone    || null;
+      const subzone = celda?.subzone || null;
+      return { valor, tipo, esLabel, orden, x, y, width, height, rotation, allowedCategories, zone, subzone };
     })
     .sort((a, b) => a.orden - b.orden);
 
@@ -3011,6 +3096,11 @@ function dibujarMapaCompleto(estructura = null) {
     div.id = _spotDomId(celda.valor, _miPlaza());
     div.dataset.spot = _sanitizeSpotToken(celda.valor);
     div.dataset.plaza = _normalizePlaza(_miPlaza());
+    // [F2.2] Restricciones de categoría para validación en drop
+    if (celda.allowedCategories?.length) {
+      div.dataset.allowedCategories = celda.allowedCategories.join(',');
+    }
+    if (celda.zone) div.dataset.zone = celda.zone;
     // [F2] Posicionamiento absoluto
     div.style.left = `${celda.x}px`;
     div.style.top = `${celda.y}px`;
@@ -3322,6 +3412,32 @@ function _selectCarOnMap(car, options = {}) {
 async function _handleMapUnitDrop(unidad, destino, options = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return false;
   const fromDrag = options.fromDrag === true;
+
+  // [F2.2] Validación suave de categoría permitida en el cajón
+  if (destino.classList.contains('spot') && destino.dataset.allowedCategories) {
+    const allowed = destino.dataset.allowedCategories.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+    const unitCat = (unidad.dataset.categoria || '').trim().toUpperCase();
+    if (allowed.length > 0 && unitCat && !allowed.includes(unitCat)) {
+      showToast(`⚠️ Categoría ${unitCat} no está permitida en este cajón (permitidas: ${allowed.join(', ')})`, 'warning');
+      // Validación suave: sólo avisa, no bloquea
+    }
+  }
+
+  // [F2.3] Confirm si el usuario arrastra una unidad DESDE un cajón AL limbo
+  const fromSpot = unidad.parentElement?.classList.contains('spot');
+  const toLimbo  = destino.id === 'unidades-limbo';
+  if (fromDrag && fromSpot && toLimbo) {
+    const mvaLabel = unidad.dataset.mva || 'la unidad';
+    return new Promise(resolve => {
+      mostrarCustomModal(
+        'Mover al limbo',
+        `¿Sacar ${mvaLabel} del cajón? La unidad quedará sin posición asignada en el mapa.`,
+        'outbox', '#f59e0b', 'CONFIRMAR', '#f59e0b',
+        () => { moverUnidadInmediato(unidad, destino); resolve(true); }
+      );
+      // Si el usuario cancela, el modal se cierra y no se mueve nada
+    });
+  }
 
   const occupant = destino.classList.contains('spot') ? destino.querySelector('.car') : null;
   if (occupant && occupant !== unidad) {
@@ -4134,7 +4250,7 @@ function filtrarFlota() {
     const pasaEst = fEst === "" || estado === fEst;
     const pasaUbi = fUbi === "" || (u.ubicacion || "").toUpperCase().includes(fUbi);
 
-    // C) 🔥 FILTROS ESPECIALES (CHIPS DE NOTAS) 🔥
+    // C) 🔥 FILTROS ESPECIALES (CHIPS DE NOTAS + ESTADO + UBICACIÓN) 🔥
     let pasaEspecial = true;
     if (currentFiltroEspecial === 'DOBLE CERO') {
       pasaEspecial = notas.includes('DOBLE CERO');
@@ -4143,8 +4259,20 @@ function filtrarFlota() {
     } else if (currentFiltroEspecial === 'URGENTE') {
       pasaEspecial = notas.includes('URGENTE');
     } else if (currentFiltroEspecial === 'RESGUARDO') {
-      // En resguardo buscamos tanto en el Estado como en las Notas
       pasaEspecial = estado === 'RESGUARDO' || notas.includes('RESGUARDO');
+    // [F2.5] Modo limpieza — filtros por estado operativo
+    } else if (currentFiltroEspecial === 'SUCIO') {
+      pasaEspecial = estado === 'SUCIO';
+    } else if (currentFiltroEspecial === 'LISTO') {
+      pasaEspecial = estado === 'LISTO';
+    } else if (currentFiltroEspecial === 'MANTENIMIENTO') {
+      pasaEspecial = estado === 'MANTENIMIENTO' || estado === 'NO ARRENDABLE' || estado === 'RETENIDA';
+    } else if (currentFiltroEspecial === 'TRASLADO') {
+      pasaEspecial = estado === 'TRASLADO';
+    // [F2.6] Modo taller — ubicación en taller
+    } else if (currentFiltroEspecial === 'TALLER') {
+      const ubi = (u.ubicacion || '').toUpperCase();
+      pasaEspecial = ubi.includes('TALLER') || estado === 'MANTENIMIENTO' || estado === 'RETENIDA' || estado === 'NO ARRENDABLE';
     }
 
     // Solo mostramos el auto si cumple con TODO lo que esté seleccionado

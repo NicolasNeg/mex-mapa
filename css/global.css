@@ -3574,6 +3574,13 @@
       border-color: var(--mex-blue);
     }
 
+    /* [F2.5] Chips de estado — colores específicos cuando activos */
+    .chip-sucio.active  { background: #ef4444; border-color: #ef4444; }
+    .chip-listo.active  { background: #16a34a; border-color: #16a34a; }
+    .chip-mant.active   { background: #f59e0b; border-color: #f59e0b; }
+    .chip-traslado.active { background: #7c3aed; border-color: #7c3aed; }
+    .chip-taller.active { background: #0891b2; border-color: #0891b2; }
+
     .table-container {
       flex: 1;
       overflow-y: auto;
