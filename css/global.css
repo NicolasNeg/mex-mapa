@@ -10186,14 +10186,16 @@
       .main-grid-flota {
         flex-direction: column;
         overflow-y: auto;
+        flex: 1;
+        min-height: 0;
       }
 
       .col-table {
-        flex: 1;
+        flex: none !important;
         height: auto !important;
-        min-height: 50vh;
+        min-height: 0 !important;
         overflow: visible !important;
-        padding-bottom: 90px !important;
+        padding-bottom: 24px !important;
       }
 
       .table-container {
@@ -10204,8 +10206,9 @@
         right: 0; left: 0; top: auto; bottom: -120%;
         width: 100%; height: 85vh; border-radius: 28px 28px 0 0;
         transition: bottom 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        padding: 24px 20px;
+        padding: 20px 16px;
         padding-bottom: 90px;
+        overflow-y: auto;
       }
       .col-form.active {
         bottom: 0; right: auto;
@@ -10213,7 +10216,9 @@
 
       .fleet-wrapper {
         overflow: hidden;
-        padding: 5px;
+        overflow-y: auto;
+        padding: 8px;
+        gap: 8px;
       }
 
       /* --- TARJETAS MÓVILES EN LUGAR DE TABLA (STITCH) --- */
@@ -10460,11 +10465,11 @@
         padding-bottom: 0 !important;
       }
 
-      /* Pestañas más grandes y estiradas a la mitad exacta */
+      /* Pestañas compactas en móvil */
       .toolbar-flota button {
         flex: 1;
-        padding: 14px !important;
-        font-size: 13px !important;
+        padding: 10px 8px !important;
+        font-size: 12px !important;
       }
 
       /* 2. Buscador más amigable */
@@ -10491,8 +10496,7 @@
          ========================================= */
       .col-table {
         height: auto !important;
-        max-height: 48vh !important;
-        /* Limita la altura para no ocultar el botón de Registrar */
+        /* Sin max-height fijo: la tabla crece al tamaño de su contenido */
         background: transparent !important;
         border: none !important;
         padding: 0 !important;

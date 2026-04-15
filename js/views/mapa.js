@@ -10834,6 +10834,19 @@ async function solicitarPermisoNotificacionesDispositivo() {
   _renderNotificationProfileState();
 }
 
+// Prompt obligatorio de notificaciones — llamado desde notifications.js cuando el permiso es 'default'
+window._mexShowPushPrompt = function () {
+  mostrarCustomModal(
+    'Activa las notificaciones',
+    'Para recibir mensajes, misiones de cuadre y alertas críticas en este dispositivo, necesitas permitir las notificaciones del sitio.\n\nEs obligatorio para el correcto funcionamiento del sistema.',
+    'notifications_active',
+    '#2563eb',
+    'ACTIVAR AHORA',
+    '#2563eb',
+    () => { solicitarPermisoNotificacionesDispositivo(); }
+  );
+};
+
 function _abrirChatDesdeNotificacion(nombre = '') {
   const target = _chatUserName(nombre);
   if (!target) return;
@@ -10894,8 +10907,16 @@ function _renderNotificationProfileState() {
         ? 'El permiso está bloqueado. Puedes volver a activarlo desde la configuración del sitio.'
         : 'Activa el permiso para recibir mensajes, cuadre y alertas críticas en este equipo.');
   }
-  if (permissionPill) {
-    permissionPill.innerText = permission === 'granted' ? 'Activar / revisar' : (permission === 'denied' ? 'Bloqueado' : 'Activar');
+  const permissionToggle = document.getElementById('profilePermissionToggle');
+  if (permissionToggle) {
+    const isGranted = permission === 'granted';
+    const isDenied  = permission === 'denied';
+    _toggleProfileSettingVisual('profilePermissionToggle', isGranted);
+    const supPush = typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator;
+    permissionToggle.disabled = isDenied || !supPush;
+    permissionToggle.title = isGranted
+      ? 'Push activo — haz clic para ir a configuración del sitio'
+      : (isDenied ? 'Bloqueado en el navegador — actívalo manualmente desde la configuración del sitio' : 'Toca para activar notificaciones push');
   }
   if (currentDeviceSummary) {
     currentDeviceSummary.innerText = `${_friendlyProfileDeviceLabel(currentDevice)} · ${currentDevice?.activeRoute || '/mapa'} · ${prefs.muteAll ? 'Silenciado' : 'Disponible'}`;
@@ -10914,8 +10935,14 @@ function _bindProfileNotificationButtons() {
   document.getElementById('profileOpenNotificationsCenterBtn')?.addEventListener('click', () => {
     openNotificationCenter();
   });
-  document.getElementById('profilePermissionPill')?.addEventListener('click', () => {
-    solicitarPermisoNotificacionesDispositivo();
+  document.getElementById('profilePermissionToggle')?.addEventListener('click', () => {
+    const perm = ('Notification' in window) ? Notification.permission : 'unsupported';
+    if (perm === 'granted') {
+      // Ya activo — abrir centro de notificaciones
+      openNotificationCenter();
+    } else {
+      solicitarPermisoNotificacionesDispositivo();
+    }
   });
 }
 

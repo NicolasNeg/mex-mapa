@@ -1,6 +1,6 @@
 import { db, auth, functions } from '/js/core/database.js';
 
-const APP_BUILD = 'mapa-v79';
+const APP_BUILD = 'mapa-v86';
 const DEVICE_STORAGE_KEY = 'mex_device_id_v1';
 const MESSAGING_SW_URL = '/firebase-messaging-sw.js';
 const MESSAGING_SW_SCOPE = '/firebase-cloud-messaging-push-scope';
@@ -588,6 +588,27 @@ async function _registerCurrentDevice(token = '') {
   }
 }
 
+/**
+ * Fuerza la regeneración del token FCM eliminando el token en caché primero.
+ * Necesario cuando el backend marca invalidToken: true (el cliente tiene token viejo).
+ */
+async function _forceTokenRefresh() {
+  if (!_supportsPush() || Notification.permission !== 'granted') return;
+  try {
+    const messaging = firebase.messaging();
+    await messaging.deleteToken().catch(() => {});
+  } catch (_) {}
+  try {
+    const token = await _obtainMessagingToken(false);
+    if (token) {
+      await _registerCurrentDevice(token);
+      console.log('[push] Token FCM regenerado correctamente.');
+    }
+  } catch (e) {
+    console.warn('[push] No se pudo regenerar el token FCM:', e);
+  }
+}
+
 async function _obtainMessagingToken(forcePrompt = false) {
   if (!_supportsPush()) return '';
   if (forcePrompt && Notification.permission === 'default') {
@@ -852,8 +873,14 @@ export async function resubscribeInbox() {
     _state.unsubDevice = null;
   }
   _state.unsubDevice = ref.collection('devices').doc(_deviceId()).onSnapshot(snap => {
+    const prev = _state.currentDevice;
     _state.currentDevice = snap.exists ? ({ id: snap.id, ...snap.data() }) : null;
     _renderNotificationCenter();
+    // Auto-refresh cuando el backend marca el token como inválido
+    if (_state.currentDevice?.invalidToken === true && prev?.invalidToken !== true) {
+      console.log('[push] invalidToken detectado → forzando refresh de token FCM');
+      _forceTokenRefresh();
+    }
   }, () => {});
 
   _state.unsubInbox = ref.collection('inbox')
@@ -904,8 +931,14 @@ export async function initNotificationCenter() {
   if (_supportsPush() && Notification.permission === 'granted') {
     _bindForegroundMessaging();
     try {
-      const token = await _obtainMessagingToken(false);
-      await _registerCurrentDevice(token);
+      // Si el token ya estaba marcado como inválido, forzar regeneración desde el inicio
+      const alreadyInvalid = _state.currentDevice?.invalidToken === true;
+      if (alreadyInvalid) {
+        await _forceTokenRefresh();
+      } else {
+        const token = await _obtainMessagingToken(false);
+        await _registerCurrentDevice(token);
+      }
     } catch (error) {
       console.warn('No se pudo refrescar el registro push en initNotificationCenter:', error);
     }
@@ -915,8 +948,13 @@ export async function initNotificationCenter() {
   if (_supportsPush() && Notification.permission === 'default' && !_state.permissionPromptShown) {
     _state.permissionPromptShown = true;
     setTimeout(() => {
-      _state.toast?.('Activa notificaciones del dispositivo para recibir mensajes, cuadre y alertas críticas.', 'warning');
-    }, 1800);
+      // Usar modal obligatorio en lugar de simple toast
+      if (typeof window._mexShowPushPrompt === 'function') {
+        window._mexShowPushPrompt();
+      } else {
+        _state.toast?.('Activa notificaciones para recibir mensajes, cuadre y alertas críticas.', 'warning');
+      }
+    }, 2500);
   }
   _renderNotificationCenter();
 }
