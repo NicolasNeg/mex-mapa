@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="es" class="programmer-route" data-page-title="Programador" data-page-description="Consola de programador de %COMPANY%">
+<html lang="es" class="programmer-route" data-page-title="Centro de Control" data-page-description="Centro de Control Técnico de %COMPANY%">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0b2548">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="description" content="Consola de programador">
+  <meta name="description" content="Centro de Control Técnico">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
@@ -21,7 +21,6 @@
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
   <script src="/mex-api.js"></script>
-  <!-- Módulos API (Fase 1.1 — separación de mex-api.js) -->
   <script src="/api/auth.js"></script>
   <script src="/api/mapa.js"></script>
   <script src="/api/cuadre.js"></script>
@@ -33,13 +32,17 @@
   <script src="/api/users.js"></script>
   <script src="/api/_assemble.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
-  <title>Programador</title>
+  <title>Centro de Control</title>
 </head>
 <body class="programmer-page">
   <div id="programmerApp" class="programmer-page-shell">
     <div class="programmer-page-loading">
-      <span class="material-icons spinner">sync</span>
-      <strong>Cargando consola de programador...</strong>
+      <div class="cc-boot-anim">
+        <div class="cc-boot-ring"></div>
+        <span class="material-icons cc-boot-icon">terminal</span>
+      </div>
+      <strong>Iniciando Centro de Control...</strong>
+      <span class="cc-boot-sub">Validando identidad y cargando entorno</span>
     </div>
   </div>
   <script src="/js/core/sw-register.js"></script>

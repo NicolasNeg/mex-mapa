@@ -36,10 +36,12 @@ const state = {
   sendingTestNotification: false,
   testTarget: '',
   testTitle: '',
-  testBody: ''
+  testBody: '',
+  toolsLog: []
 };
 
-const BUILD_TAG = 'mapa-v79';
+const BUILD_TAG = 'mapa-v90';
+const CC_NAME = 'Centro de Control';
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -305,15 +307,61 @@ async function resolveProfile(user) {
   };
 }
 
-function setLoading(message = 'Cargando...') {
+function setLoading(message = 'Cargando...', sub = '') {
   const root = document.getElementById('programmerApp');
   if (!root) return;
   root.innerHTML = `
     <div class="programmer-page-loading">
-      <span class="material-icons spinner">sync</span>
+      <div class="cc-boot-anim">
+        <div class="cc-boot-ring"></div>
+        <span class="material-icons cc-boot-icon">terminal</span>
+      </div>
       <strong>${escapeHtml(message)}</strong>
+      ${sub ? `<span class="cc-boot-sub">${escapeHtml(sub)}</span>` : ''}
     </div>
   `;
+}
+
+// ── Skeleton loading para paneles ──────────────────────────
+function skeletonRows(count = 5, cols = 4) {
+  const cells = Array(cols).fill('<td><div class="cc-skel cc-skel-cell"></div></td>').join('');
+  const rows = Array(count).fill(`<tr>${cells}</tr>`).join('');
+  const headers = Array(cols).fill('<th><div class="cc-skel cc-skel-th"></div></th>').join('');
+  return `<div class="programmer-table-wrap"><table class="programmer-table"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function skeletonCards(count = 6) {
+  return `<div class="programmer-metrics-grid">${Array(count).fill('<div class="programmer-metric-card cc-skel-card"><div class="programmer-metric-icon"><div class="cc-skel" style="width:28px;height:28px;border-radius:50%;"></div></div><div><div class="cc-skel" style="width:70px;height:10px;margin-bottom:6px;border-radius:4px;"></div><div class="cc-skel" style="width:40px;height:22px;border-radius:6px;"></div></div></div>').join('')}</div>`;
+}
+
+// ── Animación de éxito sobre botón ──────────────────────────
+function showSaveFeedback(btnId, successMsg = 'Guardado') {
+  const btn = typeof btnId === 'string' ? document.getElementById(btnId) : btnId;
+  if (!btn) return;
+  const original = btn.innerHTML;
+  const originalBg = btn.style.background;
+  btn.innerHTML = `<span class="material-icons cc-check-anim">check_circle</span> ${escapeHtml(successMsg)}`;
+  btn.style.background = 'linear-gradient(135deg,#059669,#10b981)';
+  btn.disabled = true;
+  setTimeout(() => {
+    btn.innerHTML = original;
+    btn.style.background = originalBg;
+    btn.disabled = false;
+  }, 1800);
+}
+
+function showLoadingBtn(btn, msg = 'Procesando...') {
+  if (!btn) return;
+  btn._ccOriginal = btn.innerHTML;
+  btn.innerHTML = `<span class="material-icons" style="animation:ccSpin .7s linear infinite;font-size:15px;">sync</span> ${escapeHtml(msg)}`;
+  btn.disabled = true;
+}
+
+function restoreBtn(btn) {
+  if (!btn || !btn._ccOriginal) return;
+  btn.innerHTML = btn._ccOriginal;
+  btn.disabled = false;
+  btn._ccOriginal = null;
 }
 
 function showToast(message, type = 'success') {
@@ -340,78 +388,119 @@ function renderShell() {
   if (!root) return;
   const plazas = availablePlazas();
   const tabButtons = [
-    ['resumen', 'Resumen'],
-    ['database', 'Base de datos'],
-    ['notificaciones', 'Notificaciones'],
-    ['consultas', 'Consultas'],
-    ['jobs', 'Jobs'],
-    ['config', 'Config'],
-    ['seguridad', 'Seguridad'],
-    ['errores', 'Errores'],
-    ['dispositivos', 'Dispositivos']
+    ['resumen',        'dashboard',          'Resumen'],
+    ['herramientas',   'build',              'Herramientas'],
+    ['database',       'storage',            'Base de datos'],
+    ['notificaciones', 'notifications_active','Notificaciones'],
+    ['consultas',      'manage_search',      'Consultas'],
+    ['jobs',           'inventory_2',        'Jobs'],
+    ['config',         'settings',           'Config'],
+    ['seguridad',      'security',           'Seguridad'],
+    ['errores',        'bug_report',         'Errores'],
+    ['dispositivos',   'devices',            'Dispositivos'],
   ];
+
+  const errCount = state.errorsRows?.length || 0;
+  const devsCount = state.devicesRows?.length || 0;
+  const users = state.overview?.usersCount || 0;
+  const plazaLabel = upper(state.plaza) || 'GLOBAL';
+  const now = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+
   root.innerHTML = `
-    <div class="programmer-page-topbar">
-      <div class="programmer-page-topbar-main">
+    <div class="cc-topbar">
+      <div class="cc-topbar-left">
+        <div class="cc-topbar-icon"><span class="material-icons">terminal</span></div>
         <div>
-          <div class="programmer-console-kicker">Ruta dedicada</div>
-          <h1>Consola de programador</h1>
-          <p>Operación global, notificaciones reales, queries seguras, auditoría, seguridad y mantenimiento fino de la plataforma.</p>
+          <div class="cc-topbar-kicker">Sistema técnico · ${escapeHtml(window.FIREBASE_CONFIG?.projectId || 'firebase')}</div>
+          <h1 class="cc-topbar-title">Centro de Control</h1>
+          <p class="cc-topbar-sub">Operación global · Firestore · Seguridad · Notificaciones · Herramientas</p>
         </div>
-        <div class="programmer-hero-stats">
-          <article class="programmer-hero-stat">
-            <span>Usuarios</span>
-            <strong>${escapeHtml(String(state.overview?.usersCount || state.usersRows?.length || 0))}</strong>
-          </article>
-          <article class="programmer-hero-stat">
-            <span>Dispositivos</span>
-            <strong>${escapeHtml(String(state.devicesRows?.length || 0))}</strong>
-          </article>
-          <article class="programmer-hero-stat">
-            <span>Ruta activa</span>
-            <strong>${escapeHtml((state.tab || 'resumen').toUpperCase())}</strong>
-          </article>
+      </div>
+      <div class="cc-hero-stats">
+        <div class="cc-stat-chip">
+          <span class="material-icons">badge</span>
+          <div><small>Usuarios</small><strong>${escapeHtml(String(users || '--'))}</strong></div>
+        </div>
+        <div class="cc-stat-chip">
+          <span class="material-icons">devices</span>
+          <div><small>Devices</small><strong>${escapeHtml(String(devsCount || '--'))}</strong></div>
+        </div>
+        <div class="cc-stat-chip ${errCount > 0 ? 'cc-stat-danger' : ''}">
+          <span class="material-icons">bug_report</span>
+          <div><small>Errores</small><strong>${escapeHtml(String(errCount))}</strong></div>
+        </div>
+        <div class="cc-stat-chip cc-stat-accent">
+          <span class="material-icons">location_city</span>
+          <div><small>Plaza foco</small><strong>${escapeHtml(plazaLabel)}</strong></div>
         </div>
       </div>
       <div class="programmer-page-top-actions">
         <button type="button" class="programmer-page-btn" onclick="window.location.href='/mapa'">
           <span class="material-icons">arrow_back</span>
-          Volver al mapa
+          Al mapa
         </button>
         <button type="button" class="programmer-page-btn primary" id="programmerRefreshAllBtn">
           <span class="material-icons">refresh</span>
-          Refrescar
+          Actualizar
         </button>
       </div>
     </div>
 
-    <div class="programmer-page-statusbar">
-      <span class="programmer-status-pill">${escapeHtml(currentUserLabel())}</span>
-      <span class="programmer-status-pill">${escapeHtml(programmerModeLabel(state.profile || {}))}</span>
-      <span class="programmer-status-pill">${escapeHtml(friendlyScopeLabel(state.profile?.plazaAsignada))}</span>
-      <span class="programmer-status-pill">${escapeHtml(window.FIREBASE_CONFIG?.projectId || '')}</span>
+    <div class="cc-statusbar">
+      <span class="cc-pill cc-pill-user">
+        <span class="material-icons" style="font-size:13px;">person</span>
+        ${escapeHtml(currentUserLabel())}
+      </span>
+      <span class="cc-pill cc-pill-role">
+        <span class="material-icons" style="font-size:13px;">verified_user</span>
+        ${escapeHtml(programmerModeLabel(state.profile || {}))}
+      </span>
+      <span class="cc-pill">
+        <span class="material-icons" style="font-size:13px;">corporate_fare</span>
+        ${escapeHtml(friendlyScopeLabel(state.profile?.plazaAsignada))}
+      </span>
+      <span class="cc-pill cc-pill-build">
+        <span class="material-icons" style="font-size:13px;">tag</span>
+        ${escapeHtml(BUILD_TAG)}
+      </span>
+      <span class="cc-pill cc-pill-time" id="ccLiveClock">
+        <span class="material-icons" style="font-size:13px;">schedule</span>
+        ${now}
+      </span>
     </div>
 
-    <div class="programmer-page-nav">
-      ${tabButtons.map(([key, label]) => `
-        <button type="button" class="programmer-nav-btn ${state.tab === key ? 'active' : ''}" data-tab="${key}">${label}</button>
+    <div class="programmer-page-nav cc-nav">
+      ${tabButtons.map(([key, icon, label]) => `
+        <button type="button" class="programmer-nav-btn ${state.tab === key ? 'active' : ''}" data-tab="${key}">
+          <span class="material-icons cc-tab-icon">${icon}</span>
+          <span class="cc-tab-label">${label}</span>
+          ${key === 'errores' && errCount > 0 ? `<span class="cc-tab-badge">${errCount}</span>` : ''}
+        </button>
       `).join('')}
     </div>
 
     <div id="programmerTabContent" class="programmer-tab-content"></div>
 
-    <div class="programmer-bottom-bar">
-      <label class="programmer-inline-control">
-        <span>Plaza foco</span>
-        <select id="programmerGlobalPlazaSelect">
-          <option value="">GLOBAL</option>
-          ${plazas.map(plaza => `<option value="${escapeHtml(plaza)}" ${plaza === state.plaza ? 'selected' : ''}>${escapeHtml(plaza)}</option>`).join('')}
-        </select>
-      </label>
-      <button type="button" class="programmer-page-btn" id="programmerOpenNotifBtn">
-        <span class="material-icons">notifications_active</span>
-        Centro de notificaciones
-      </button>
+    <div class="programmer-bottom-bar cc-bottom-bar">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="material-icons" style="font-size:16px;color:#64748b;">location_city</span>
+        <label class="programmer-inline-control">
+          <span>Plaza foco</span>
+          <select id="programmerGlobalPlazaSelect">
+            <option value="">GLOBAL</option>
+            ${plazas.map(plaza => `<option value="${escapeHtml(plaza)}" ${plaza === state.plaza ? 'selected' : ''}>${escapeHtml(plaza)}</option>`).join('')}
+          </select>
+        </label>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button type="button" class="programmer-page-btn" id="programmerOpenNotifBtn">
+          <span class="material-icons">notifications_active</span>
+          Notificaciones
+        </button>
+        <button type="button" class="programmer-page-btn" onclick="navigator.clipboard?.writeText(window.location.href).then(()=>showToast('URL copiada','success'))">
+          <span class="material-icons">link</span>
+        </button>
+      </div>
     </div>
   `;
 
@@ -422,7 +511,12 @@ function renderShell() {
       renderCurrentTab();
     });
   });
-  document.getElementById('programmerRefreshAllBtn')?.addEventListener('click', () => refreshCurrentTabData());
+  document.getElementById('programmerRefreshAllBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('programmerRefreshAllBtn');
+    showLoadingBtn(btn, 'Actualizando...');
+    await refreshCurrentTabData();
+    restoreBtn(btn);
+  });
   document.getElementById('programmerGlobalPlazaSelect')?.addEventListener('change', event => {
     state.plaza = upper(event.target.value || '');
     if (state.tab === 'config') loadSettingsPreview();
@@ -432,26 +526,38 @@ function renderShell() {
     window.openNotificationCenter?.();
   });
 
+  // Live clock
+  const clockEl = document.getElementById('ccLiveClock');
+  if (clockEl) {
+    setInterval(() => {
+      const t = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+      clockEl.innerHTML = `<span class="material-icons" style="font-size:13px;">schedule</span> ${t}`;
+    }, 20000);
+  }
+
   renderCurrentTab();
 }
 
 function summaryCardsHtml() {
   const overview = state.overview || {};
   const cards = [
-    ['Usuarios', overview.usersCount || 0, 'badge'],
-    ['Devices', overview.devicesCount || 0, 'devices'],
-    ['Inbox sin leer', overview.unreadInboxCount || 0, 'mark_chat_unread'],
-    ['Ops events', overview.opsEventsCount || 0, 'timeline'],
-    ['Jobs', overview.jobsCount || 0, 'inventory_2'],
-    ['Errores', overview.errorsCount || 0, 'bug_report']
+    { label: 'Usuarios',      value: overview.usersCount || 0,       icon: 'badge',           color: '#3b82f6', bg: '#eff6ff' },
+    { label: 'Devices',       value: overview.devicesCount || 0,      icon: 'devices',         color: '#8b5cf6', bg: '#f5f3ff' },
+    { label: 'Inbox sin leer',value: overview.unreadInboxCount || 0,  icon: 'mark_chat_unread',color: '#0ea5e9', bg: '#f0f9ff', warn: overview.unreadInboxCount > 10 },
+    { label: 'Ops events',    value: overview.opsEventsCount || 0,    icon: 'timeline',        color: '#10b981', bg: '#f0fdf4' },
+    { label: 'Jobs',          value: overview.jobsCount || 0,         icon: 'inventory_2',     color: '#f59e0b', bg: '#fffbeb' },
+    { label: 'Errores',       value: overview.errorsCount || 0,       icon: 'bug_report',      color: '#ef4444', bg: '#fef2f2', warn: overview.errorsCount > 0 },
   ];
-  return cards.map(([label, value, icon]) => `
-    <div class="programmer-metric-card">
-      <div class="programmer-metric-icon"><span class="material-icons">${icon}</span></div>
-      <div>
-        <span>${label}</span>
-        <strong>${escapeHtml(String(value))}</strong>
+  return cards.map(c => `
+    <div class="programmer-metric-card cc-metric-card" style="border-left:3px solid ${c.warn ? '#ef4444' : c.color};">
+      <div class="programmer-metric-icon" style="background:${c.bg};color:${c.color};">
+        <span class="material-icons">${c.icon}</span>
       </div>
+      <div>
+        <span>${c.label}</span>
+        <strong style="color:${c.warn ? '#ef4444' : '#0f172a'};">${escapeHtml(String(c.value))}</strong>
+      </div>
+      ${c.warn ? `<span class="cc-warn-dot"></span>` : ''}
     </div>
   `).join('');
 }
@@ -612,28 +718,67 @@ function renderDevicesTableHtml(rows = []) {
 function renderResumenTab() {
   const container = document.getElementById('programmerTabContent');
   if (!container) return;
+
+  const errCount = state.errorsRows?.length || 0;
+  const devsOk = state.devicesRows?.filter(r => lower(r.permission) === 'granted').length || 0;
+  const devsTotal = state.devicesRows?.length || 0;
+  const devsBlocked = state.devicesRows?.filter(r => lower(r.permission) === 'denied').length || 0;
+  const healthStatus = errCount > 5 ? 'danger' : errCount > 0 ? 'warn' : 'ok';
+  const healthLabel = healthStatus === 'ok' ? 'Todo normal' : healthStatus === 'warn' ? 'Con alertas' : 'Atención requerida';
+  const healthColor = healthStatus === 'ok' ? '#10b981' : healthStatus === 'warn' ? '#f59e0b' : '#ef4444';
+
   container.innerHTML = `
-    <section class="programmer-section">
+    <section class="programmer-section cc-section-fade">
       <div class="programmer-section-head">
-        <h3>Salud general</h3>
-        <span>Resumen de plataforma e indicadores beta</span>
+        <h3>Salud del sistema</h3>
+        <span style="display:flex;align-items:center;gap:6px;">
+          <span style="width:8px;height:8px;border-radius:50%;background:${healthColor};display:inline-block;box-shadow:0 0 6px ${healthColor};"></span>
+          ${escapeHtml(healthLabel)}
+        </span>
       </div>
       <div class="programmer-metrics-grid">${summaryCardsHtml()}</div>
     </section>
-    <section class="programmer-two-col">
+
+    <section class="programmer-section cc-section-fade cc-health-bar-section">
+      <div class="cc-health-row">
+        <div class="cc-health-item">
+          <div class="cc-health-label">Devices activos</div>
+          <div class="cc-progress-track">
+            <div class="cc-progress-fill" style="width:${devsTotal > 0 ? Math.round((devsOk/devsTotal)*100) : 0}%;background:#10b981;"></div>
+          </div>
+          <div class="cc-health-sub">${devsOk}/${devsTotal} con permisos</div>
+        </div>
+        <div class="cc-health-item">
+          <div class="cc-health-label">Devices bloqueados</div>
+          <div class="cc-progress-track">
+            <div class="cc-progress-fill" style="width:${devsTotal > 0 ? Math.round((devsBlocked/devsTotal)*100) : 0}%;background:#ef4444;"></div>
+          </div>
+          <div class="cc-health-sub">${devsBlocked}/${devsTotal} bloqueados</div>
+        </div>
+        <div class="cc-health-item">
+          <div class="cc-health-label">Tasa de errores</div>
+          <div class="cc-progress-track">
+            <div class="cc-progress-fill" style="width:${Math.min(100,errCount*5)}%;background:${healthColor};"></div>
+          </div>
+          <div class="cc-health-sub">${errCount} registros recientes</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="programmer-two-col cc-section-fade">
       <div class="programmer-panel">
         <div class="programmer-panel-head">
           <h4>Últimos ops events</h4>
           <span>Stream unificado</span>
         </div>
-        ${rowsToTable(state.opsRows.slice(0, 12))}
+        ${state.opsRows.length ? rowsToTable(state.opsRows.slice(0, 12)) : skeletonRows(5)}
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
           <h4>Últimos jobs</h4>
           <span>Dry-run y producción</span>
         </div>
-        ${rowsToTable(state.jobsRows.slice(0, 10))}
+        ${state.jobsRows.length ? rowsToTable(state.jobsRows.slice(0, 10)) : skeletonRows(5)}
       </div>
     </section>
   `;
@@ -811,9 +956,12 @@ function renderJobsTab() {
     </section>
   `;
   container.querySelectorAll('[data-job]').forEach(button => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', async () => {
       const dryRun = document.getElementById('programmerDryRun')?.checked !== false;
-      runJob(button.dataset.job, { dryRun });
+      showLoadingBtn(button, 'Ejecutando...');
+      const res = await runJob(button.dataset.job, { dryRun });
+      if (res?.ok) showSaveFeedback(button, 'Listo');
+      else restoreBtn(button);
     });
   });
 }
@@ -1001,8 +1149,247 @@ function renderDispositivosTab() {
   `;
 }
 
+function renderHerramientasTab() {
+  const container = document.getElementById('programmerTabContent');
+  if (!container) return;
+
+  const tools = [
+    {
+      id: 'tool-backfill',
+      icon: 'sync_alt',
+      color: '#10b981',
+      title: 'Backfill de Plaza',
+      desc: 'Inyecta el campo <code>plaza</code> en documentos de cuadre y externos sin plaza asignada. Operación segura, no borra datos.',
+      action: 'ejecutarBackfillPlaza',
+      label: 'Ejecutar backfill',
+      danger: false,
+    },
+    {
+      id: 'tool-migration',
+      icon: 'move_up',
+      color: '#8b5cf6',
+      title: 'Migrar datos legacy',
+      desc: 'Mueve documentos planos de cuadre, externos, admins e historial a la nueva arquitectura de subcollections por plaza.',
+      action: 'ejecutarMigracionCC',
+      label: 'Ejecutar migración',
+      danger: false,
+    },
+    {
+      id: 'tool-tokens',
+      icon: 'phonelink_erase',
+      color: '#f59e0b',
+      title: 'Limpiar tokens FCM inválidos',
+      desc: 'Elimina tokens de dispositivos marcados como inválidos por Firebase. Mejora la entrega de push notifications.',
+      action: 'ejecutarLimpiezaTokens',
+      label: 'Limpiar tokens',
+      danger: false,
+    },
+    {
+      id: 'tool-export',
+      icon: 'download',
+      color: '#0ea5e9',
+      title: 'Exportar configuración',
+      desc: 'Descarga un JSON completo con empresa, listas, plazas y security del sistema. Útil como backup antes de cambios grandes.',
+      action: 'ejecutarExportConfig',
+      label: 'Exportar JSON',
+      danger: false,
+    },
+    {
+      id: 'tool-validate',
+      icon: 'fact_check',
+      color: '#6366f1',
+      title: 'Validar plazas',
+      desc: 'Revisa cada plaza: settings, estructura del mapa, correos y estado de bloqueo. Muestra inconsistencias encontradas.',
+      action: 'ejecutarValidarPlazas',
+      label: 'Validar ahora',
+      danger: false,
+    },
+    {
+      id: 'tool-delete-doc',
+      icon: 'delete_forever',
+      color: '#ef4444',
+      title: 'Eliminar documento Firestore',
+      desc: 'Elimina un documento por ruta exacta. Requiere confirmación. Las subcolecciones no se borran automáticamente.',
+      action: 'ejecutarEliminarDocCC',
+      label: 'Eliminar documento',
+      danger: true,
+    },
+  ];
+
+  container.innerHTML = `
+    <section class="programmer-section cc-section-fade">
+      <div class="programmer-section-head">
+        <h3>Herramientas del sistema</h3>
+        <span>Operaciones seguras con progreso y confirmación</span>
+      </div>
+      <div class="cc-tools-grid">
+        ${tools.map(t => `
+          <div class="cc-tool-card ${t.danger ? 'cc-tool-danger' : ''}">
+            <div class="cc-tool-icon" style="background:${t.color}1a;color:${t.color};">
+              <span class="material-icons">${t.icon}</span>
+            </div>
+            <div class="cc-tool-body">
+              <div class="cc-tool-title">${escapeHtml(t.title)}</div>
+              <div class="cc-tool-desc">${t.desc}</div>
+              <div class="cc-tool-progress-wrap" id="${t.id}-wrap" style="display:none;">
+                <div class="cc-progress-track">
+                  <div class="cc-progress-fill cc-progress-anim" id="${t.id}-bar" style="width:0%;background:${t.color};"></div>
+                </div>
+                <div class="cc-tool-progress-label" id="${t.id}-label">Iniciando...</div>
+              </div>
+            </div>
+            <button type="button" class="cc-tool-btn ${t.danger ? 'cc-tool-btn-danger' : ''}" id="${t.id}-btn"
+              data-action="${t.action}" style="--tool-color:${t.color};">
+              <span class="material-icons">${t.danger ? 'warning' : 'play_arrow'}</span>
+              ${escapeHtml(t.label)}
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <section class="programmer-section cc-section-fade" id="cc-tools-log-section" style="${state.toolsLog?.length ? '' : 'display:none;'}">
+      <div class="programmer-panel-head">
+        <h4>Log de herramientas</h4>
+        <button type="button" class="programmer-page-btn" style="font-size:11px;min-height:30px;" onclick="state.toolsLog=[];renderHerramientasTab()">Limpiar</button>
+      </div>
+      <div class="cc-tools-log" id="cc-tools-log">
+        ${(state.toolsLog || []).map(l => `
+          <div class="cc-log-line cc-log-${l.kind}">
+            <span class="cc-log-time">${l.time}</span>
+            <span class="material-icons cc-log-icon">${l.kind === 'error' ? 'error' : l.kind === 'warn' ? 'warning' : 'check_circle'}</span>
+            <span class="cc-log-msg">${escapeHtml(l.msg)}</span>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+
+    <div id="cc-delete-doc-modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.8);z-index:80000;justify-content:center;align-items:center;backdrop-filter:blur(4px);">
+      <div style="background:#fff;border-radius:18px;padding:24px;max-width:460px;width:90%;box-shadow:0 24px 56px rgba(0,0,0,.3);">
+        <div style="font-size:15px;font-weight:900;color:#0f172a;margin-bottom:8px;">Eliminar documento Firestore</div>
+        <div style="font-size:12px;color:#64748b;margin-bottom:14px;font-weight:600;">Escribe la ruta completa del documento. Esta operación no puede deshacerse.</div>
+        <input type="text" id="cc-delete-doc-path" placeholder="ej: cuadre/BJX/unidades/A1234" class="programmer-input" style="width:100%;margin-bottom:12px;box-sizing:border-box;">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button onclick="document.getElementById('cc-delete-doc-modal').style.display='none'" class="programmer-page-btn">Cancelar</button>
+          <button id="cc-delete-doc-confirm" class="programmer-page-btn" style="background:#ef4444;border-color:#ef4444;color:white;">
+            <span class="material-icons">delete_forever</span> Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (!state.toolsLog) state.toolsLog = [];
+
+  function toolLog(msg, kind = 'info') {
+    const time = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    state.toolsLog = [{ msg, kind, time }, ...(state.toolsLog || [])].slice(0, 100);
+    const sec = document.getElementById('cc-tools-log-section');
+    if (sec) sec.style.display = '';
+    const log = document.getElementById('cc-tools-log');
+    if (log) {
+      log.innerHTML = state.toolsLog.map(l => `
+        <div class="cc-log-line cc-log-${l.kind}">
+          <span class="cc-log-time">${l.time}</span>
+          <span class="material-icons cc-log-icon">${l.kind === 'error' ? 'error' : l.kind === 'warn' ? 'warning' : 'check_circle'}</span>
+          <span class="cc-log-msg">${escapeHtml(l.msg)}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  function setToolProgress(id, pct, label) {
+    const wrap = document.getElementById(`${id}-wrap`);
+    const bar = document.getElementById(`${id}-bar`);
+    const lbl = document.getElementById(`${id}-label`);
+    if (wrap) wrap.style.display = '';
+    if (bar) bar.style.width = `${Math.min(100, pct)}%`;
+    if (lbl) lbl.textContent = label;
+  }
+
+  function resetToolProgress(id) {
+    const wrap = document.getElementById(`${id}-wrap`);
+    if (wrap) wrap.style.display = 'none';
+  }
+
+  // Bind all tool buttons
+  container.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.dataset.action;
+      const toolId = btn.id.replace('-btn', '');
+      showLoadingBtn(btn, 'Procesando...');
+      setToolProgress(toolId, 10, 'Iniciando...');
+      toolLog(`Iniciando: ${action}`, 'info');
+
+      try {
+        if (action === 'ejecutarBackfillPlaza') {
+          setToolProgress(toolId, 30, 'Leyendo documentos...');
+          await new Promise(r => setTimeout(r, 300));
+          if (typeof window.ejecutarBackfillPlaza === 'function') {
+            window.ejecutarBackfillPlaza();
+            setToolProgress(toolId, 100, 'Backfill iniciado en panel admin');
+            toolLog('Backfill iniciado — ver progreso en panel de configuración', 'info');
+          } else {
+            const res = await runJob('backfill-ops-events', { dryRun: false });
+            if (res?.ok) toolLog('Backfill completado', 'info');
+          }
+        } else if (action === 'ejecutarMigracionCC') {
+          setToolProgress(toolId, 20, 'Preparando migración...');
+          const res = await runJob('migrate-legacy', { dryRun: false });
+          setToolProgress(toolId, 100, res?.ok ? 'Migración completada' : 'Error en migración');
+          toolLog(res?.ok ? 'Migración completada sin errores' : `Error: ${describeError(res?.error)}`, res?.ok ? 'info' : 'error');
+        } else if (action === 'ejecutarLimpiezaTokens') {
+          setToolProgress(toolId, 40, 'Buscando tokens inválidos...');
+          const res = await runJob('cleanup-device-tokens', { dryRun: false });
+          setToolProgress(toolId, 100, res?.ok ? 'Tokens limpiados' : 'Error');
+          toolLog(res?.ok ? `Tokens FCM inválidos eliminados` : `Error: ${describeError(res?.error)}`, res?.ok ? 'info' : 'error');
+        } else if (action === 'ejecutarExportConfig') {
+          setToolProgress(toolId, 50, 'Recopilando configuración...');
+          const payload = { empresa: window.MEX_CONFIG?.empresa || {}, listas: window.MEX_CONFIG?.listas || {}, ts: new Date().toISOString() };
+          const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `config_${new Date().toISOString().slice(0, 10)}.json`;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(url), 2000);
+          setToolProgress(toolId, 100, 'Archivo descargado');
+          toolLog('Configuración exportada como JSON', 'info');
+        } else if (action === 'ejecutarValidarPlazas') {
+          setToolProgress(toolId, 20, 'Consultando plazas...');
+          const res = await runJob('validate-plazas', { dryRun: true });
+          setToolProgress(toolId, 100, res?.ok ? 'Validación completada' : 'Error');
+          toolLog(res?.ok ? 'Validación completada — ver resultado en Jobs' : `Error: ${describeError(res?.error)}`, res?.ok ? 'info' : 'error');
+        } else if (action === 'ejecutarEliminarDocCC') {
+          restoreBtn(btn);
+          resetToolProgress(toolId);
+          const modal = document.getElementById('cc-delete-doc-modal');
+          if (modal) modal.style.display = 'flex';
+          return;
+        }
+        showSaveFeedback(btn, 'Completado');
+      } catch (e) {
+        toolLog(`Error inesperado: ${describeError(e)}`, 'error');
+        restoreBtn(btn);
+      }
+      setTimeout(() => resetToolProgress(toolId), 3000);
+    });
+  });
+
+  // Delete doc modal confirm
+  document.getElementById('cc-delete-doc-confirm')?.addEventListener('click', async () => {
+    const path = safe(document.getElementById('cc-delete-doc-path')?.value);
+    if (!path) { showToast('Escribe la ruta del documento', 'error'); return; }
+    document.getElementById('cc-delete-doc-modal').style.display = 'none';
+    const res = await runJob('delete-document', { dryRun: false, docPath: path });
+    toolLog(res?.ok ? `Documento eliminado: ${path}` : `Error eliminando ${path}: ${describeError(res?.error)}`, res?.ok ? 'info' : 'error');
+    if (res?.ok) showToast(`Documento ${path} eliminado.`, 'success');
+  });
+}
+
 function renderCurrentTab() {
   if (state.tab === 'resumen') return renderResumenTab();
+  if (state.tab === 'herramientas') return renderHerramientasTab();
   if (state.tab === 'database') {
     renderDatabaseTab();
     ensureDatabaseTabReady().catch(error => {
@@ -1371,8 +1758,18 @@ function renderDatabaseTab() {
   document.getElementById('programmerDbReloadDocBtn')?.addEventListener('click', () => {
     loadDbDocument(document.getElementById('programmerDbDocPathInput')?.value || state.dbDocPath);
   });
-  document.getElementById('programmerDbSaveMergeBtn')?.addEventListener('click', () => saveDbDocument(true));
-  document.getElementById('programmerDbReplaceBtn')?.addEventListener('click', () => saveDbDocument(false));
+  document.getElementById('programmerDbSaveMergeBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('programmerDbSaveMergeBtn');
+    showLoadingBtn(btn, 'Guardando...');
+    await saveDbDocument(true);
+    showSaveFeedback(btn, 'Guardado');
+  });
+  document.getElementById('programmerDbReplaceBtn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('programmerDbReplaceBtn');
+    showLoadingBtn(btn, 'Reemplazando...');
+    await saveDbDocument(false);
+    showSaveFeedback(btn, 'Reemplazado');
+  });
   document.getElementById('programmerDbDeleteBtn')?.addEventListener('click', () => deleteDbDocument());
 
   container.querySelectorAll('[data-db-collection]').forEach(button => {
@@ -1475,17 +1872,21 @@ async function loadSettingsPreview() {
 }
 
 async function saveSettingsEditor() {
+  const saveBtn = document.getElementById('programmerSaveConfigBtn');
   try {
     const editor = document.getElementById('programmerConfigEditor');
     if (!editor) return;
+    if (saveBtn) showLoadingBtn(saveBtn, 'Guardando...');
     const payload = JSON.parse(editor.value);
     const target = state.configMode === 'global' ? 'GLOBAL' : (state.plaza || 'GLOBAL');
     await db.collection('settings').doc(target).set(payload, { merge: true });
     showToast(`settings/${target} actualizado.`, 'success');
+    if (saveBtn) showSaveFeedback(saveBtn, 'Guardado');
     await loadSettingsPreview();
   } catch (error) {
     console.error('saveSettingsEditor', error);
     showToast(`JSON inválido: ${error.message}`, 'error');
+    if (saveBtn) restoreBtn(saveBtn);
   }
 }
 
@@ -1549,7 +1950,7 @@ auth.onAuthStateChanged(async user => {
     window.location.replace('/login');
     return;
   }
-  setLoading('Validando permisos...');
+  setLoading('Validando permisos...', 'Verificando rol y accesos');
   try {
     await user.getIdToken(true);
     state.profile = await resolveProfile(user);
@@ -1581,6 +1982,6 @@ auth.onAuthStateChanged(async user => {
   } catch (error) {
     console.error('programador:init', error);
     reportProgrammerError({ kind: 'programmer.init', scope: 'programador', message: describeError(error), stack: error.stack });
-    setLoading('No se pudo abrir la consola de programador.');
+    setLoading('No se pudo abrir el Centro de Control.', 'Verifica tu conexión o consulta con el administrador.');
   }
 });

@@ -45,6 +45,9 @@
 
 <body>
 
+  <!-- [F3.4] Banner global discreto -->
+  <div id="global-status-banner" style="display:none;"></div>
+
   <div id="overlayAuditoria" style="display: none;">
 
     <div id="auditViewAdmin" class="audit-card-pill" style="display: none;">
@@ -1366,6 +1369,7 @@
             <div class="chip" onclick="filtrarEspecial('URGENTE', this)">⚡ URGENTE</div>
             <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)">👀 RESGUARDO</div>
             <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)">🏭 TALLER</div>
+            <div class="chip chip-reservas" onclick="abrirModalPDFReservas()" title="Análisis de reservas y proyección operativa">📋 RESERVAS</div>
           </div>
 
           <div class="table-container">
@@ -1673,6 +1677,9 @@
       <input type="text" id="searchInput" placeholder="MVA, Placas o Modelo..." oninput="buscarMasivo()"
         style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:white; border-radius:12px;">
       <button class="clear-btn" onclick="limpiarBusqueda()" style="color:#94a3b8;">✕</button>
+      <button id="btn-voz-busqueda" onclick="activarBusquedaVoz()" title="Buscar por voz (NATO: 'Delta 2019')" style="background:none; border:none; cursor:pointer; padding:4px 6px; border-radius:8px; display:flex; align-items:center; color:#94a3b8; transition:color .2s, background .2s;">
+        <span class="material-icons" style="font-size:18px; vertical-align:middle;">mic</span>
+      </button>
     </div>
 
     <!-- Derecha: acciones + usuario -->
@@ -1732,6 +1739,12 @@
       </div>
     </div>
 
+    <!-- [F3.3] Panel KPI de supervisión (multi-plaza) -->
+    <div id="panel-supervision" style="display:none;"></div>
+
+    <!-- [F4.2] Panel de recomendación operativa -->
+    <div id="panel-recomendacion" style="display:none;"></div>
+
     <div class="zoom-controls">
       <button class="btn-zoom" onclick="adjustZoom(0.1)">+</button>
       <button class="btn-zoom" onclick="adjustZoom(-0.1)">-</button>
@@ -1755,6 +1768,9 @@
           <input type="text" id="searchInputMobile" placeholder="MVA, Placas o Modelo..." oninput="buscarMasivo()"
             style="background:#fff; color:#1e293b; border:1px solid #e2e8f0; border-radius:10px;">
           <button class="clear-btn" onclick="limpiarBusqueda()" style="background:#e2e8f0; color:#64748b;">✕</button>
+          <button id="btn-voz-busqueda-mobile" onclick="activarBusquedaVoz(true)" title="Buscar por voz" style="background:none; border:none; cursor:pointer; padding:4px 5px; border-radius:8px; display:flex; align-items:center; color:#94a3b8;">
+            <span class="material-icons" style="font-size:17px;">mic</span>
+          </button>
         </div>
         <div id="no-results-message"
           style="display:none; text-align:center; padding:12px 0 0; color:#94a3b8; font-size:12px; font-weight:700;">
@@ -2727,35 +2743,9 @@
           style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:14px; text-transform:uppercase; outline:none; transition:0.2s;"
           onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
       </div>
+<div id="buzon-modal" class="fleet-modal chatv2-modal" style="z-index: 8000;">
 
-      <div style="text-align: left; margin-bottom: 20px;">
-        <label style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Placas</label>
-        <input type="text" id="inputExtraPlacas" placeholder="Ej. GVT840F"
-          style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:14px; text-transform:uppercase; outline:none; transition:0.2s;"
-          onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
-      </div>
-
-      <div class="modal-actions">
-        <button class="modal-btn modal-btn-cancel"
-          onclick="document.getElementById('modalAddExtra').classList.remove('active')">CANCELAR</button>
-        <button class="modal-btn" style="background: #d97706; color: white;"
-          onclick="procesarUnidadExtra()">AGREGAR</button>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- ── LIGHTBOX para imágenes del chat ── -->
-  <div id="chatLightbox" onclick="cerrarLightboxChat()">
-    <button id="chatLightboxClose" onclick="cerrarLightboxChat()">
-      <span class="material-icons" style="font-size:22px;">close</span>
-    </button>
-    <img id="chatLightboxImg" src="" alt="preview" onclick="event.stopPropagation()">
-  </div>
-
-  <div id="buzon-modal" class="fleet-modal chatv2-modal" style="z-index: 8000;">
-
-    <!-- Header enterprise navy -->
+    <!-- Header original del modal (oculto por CSS, solo conservamos el botón de close) -->
     <div class="chatv2-header">
       <div class="chatv2-header-bg"></div>
       <div class="chatv2-header-content">
@@ -2772,59 +2762,92 @@
       </div>
     </div>
 
-    <div class="fleet-wrapper"
-      style="padding: 0; background: #f7f9fb; position: relative; overflow: hidden; flex-direction: row;">
+    <div class="fleet-wrapper chatv2-layout">
 
-      <!-- Lista de contactos -->
+      <!-- PANEL IZQUIERDO: Lista de conversaciones -->
       <div id="chat-contacts-view" class="chatv2-contacts">
-        <div class="chatv2-search-bar">
-          <span class="material-icons chatv2-search-icon">search</span>
-          <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar por nombre, correo o plaza..." onkeyup="renderContactos()">
+
+        <!-- Header estilo Instagram: nombre de usuario + botón composar -->
+        <div class="chatv2-panel-header">
+          <div class="chatv2-panel-username">
+            <span id="chatPanelUsername">Mensajes</span>
+            <span class="material-icons">expand_more</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="chatv2-compose-btn" title="Cerrar mensajes"
+              onclick="document.getElementById('buzon-modal').classList.remove('active'); _stopChatListener(); cerrarLightboxChat()">
+              <span class="material-icons">close</span>
+            </button>
+            <button class="chatv2-compose-btn" title="Nuevo mensaje" onclick="" style="color:#0f172a;">
+              <span class="material-icons">edit_square</span>
+            </button>
+          </div>
         </div>
+
+        <!-- Barra de búsqueda ovalada -->
+        <div class="chatv2-search-bar">
+          <div class="chatv2-search-inner">
+            <span class="material-icons chatv2-search-icon">search</span>
+            <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar..." onkeyup="renderContactos()">
+          </div>
+        </div>
+
+        <!-- Tabs: Mensajes / Solicitudes -->
+        <div class="chatv2-tabs">
+          <span class="chatv2-tab-label">Mensajes</span>
+          <button class="chatv2-tab-secondary">Solicitudes</button>
+        </div>
+
+        <!-- Filtros compactos -->
         <div class="chatv2-filter-row">
-          <label class="chat-filter-chip stitch-chip" data-tip="Filtra la bandeja por plaza sin salir del buzón.">
+          <label class="chat-filter-chip">
             <span class="material-icons">apartment</span>
-            <div class="chat-filter-copy">
-              <small>Plaza</small>
-              <select id="chatFilterPlaza" onchange="actualizarFiltrosChat()">
-                <option value="">Todas</option>
-              </select>
-            </div>
+            <select id="chatFilterPlaza" onchange="actualizarFiltrosChat()">
+              <option value="">Todas las plazas</option>
+            </select>
           </label>
-          <label class="chat-filter-chip stitch-chip" data-tip="Reduce la lista por rol para encontrar contactos más rápido.">
+          <label class="chat-filter-chip">
             <span class="material-icons">badge</span>
-            <div class="chat-filter-copy">
-              <small>Rol</small>
-              <select id="chatFilterRol" onchange="actualizarFiltrosChat()">
-                <option value="">Todos</option>
-              </select>
-            </div>
+            <select id="chatFilterRol" onchange="actualizarFiltrosChat()">
+              <option value="">Todos los roles</option>
+            </select>
           </label>
-          <label class="chat-filter-chip stitch-chip" data-tip="Combina activos, bloqueados o estados futuros de cuenta.">
+          <label class="chat-filter-chip">
             <span class="material-icons">tune</span>
-            <div class="chat-filter-copy">
-              <small>Status</small>
-              <select id="chatFilterStatus" onchange="actualizarFiltrosChat()">
-                <option value="">Todos</option>
-              </select>
-            </div>
+            <select id="chatFilterStatus" onchange="actualizarFiltrosChat()">
+              <option value="">Todos</option>
+            </select>
           </label>
-          <button class="chat-filter-reset stitch-reset" onclick="limpiarFiltrosChat()" data-tip="Quita todos los filtros y vuelve al alcance por defecto.">
-            <span class="material-icons" style="font-size:16px;">refresh</span>
-            <span>Limpiar</span>
+          <button class="chat-filter-reset" onclick="limpiarFiltrosChat()">
+            <span class="material-icons" style="font-size:14px;">refresh</span>
+            Limpiar
           </button>
         </div>
-        <div class="chatv2-filter-hint" id="chatContactsHint">Mostrando tu plaza y chats existentes.</div>
-        <div id="listaContactosContainer" style="flex:1; overflow-y:auto;">
+
+        <!-- Lista de contactos / conversaciones -->
+        <div id="listaContactosContainer">
           <div style="text-align:center; padding:40px; color:#94a3b8;"><span class="material-icons spinner">sync</span></div>
         </div>
+
       </div>
 
-      <!-- Ventana de chat individual -->
+      <!-- PANEL DERECHO: Ventana de chat individual -->
       <div id="chat-window-view" class="chatv2-window">
 
+        <!-- Estado vacío (visible cuando no hay chat seleccionado) -->
+        <div id="chat-empty-state" class="chatv2-empty-state">
+          <div class="chatv2-empty-icon">
+            <span class="material-icons">send</span>
+          </div>
+          <h3>Tus mensajes</h3>
+          <p>Envía un mensaje para iniciar una conversación.</p>
+          <button class="chatv2-empty-btn" onclick="document.getElementById('buscadorContactos')?.focus()">
+            Enviar mensaje
+          </button>
+        </div>
+
         <!-- Header del chat activo -->
-        <div class="chatv2-chat-header">
+        <div class="chatv2-chat-header" id="chat-active-header" style="display:none;">
           <button class="chatv2-back" onclick="cerrarChat()">
             <span class="material-icons" style="font-size:20px;">arrow_back</span>
           </button>
@@ -2833,26 +2856,28 @@
             <div id="chat-active-name" class="chatv2-active-name">Nombre</div>
             <div class="chatv2-active-status">Conversación segura</div>
           </div>
-          <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
-            <span class="material-icons" style="font-size:18px;">info</span>
-          </button>
+          <div class="chatv2-header-actions">
+            <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
+              <span class="material-icons" style="font-size:18px;">info</span>
+            </button>
+          </div>
         </div>
 
-        <!-- Área de mensajes limpia -->
-        <div id="chat-messages-container" class="chatv2-messages"></div>
+        <!-- Área de mensajes -->
+        <div id="chat-messages-container" class="chatv2-messages" style="display:none;"></div>
 
-        <!-- Staging area: pending file + reply-to -->
+        <!-- Staging area -->
         <div id="chatStagingArea" class="chatv2-staging-area"></div>
 
-        <!-- Input bar enterprise -->
-        <div class="chatv2-input-bar" style="position:relative;">
+        <!-- Input bar -->
+        <div class="chatv2-input-bar" id="chat-input-bar" style="display:none;">
           <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
             onchange="stagedArchivoChatV2(this)">
           <button class="chatv2-attach-btn" onclick="document.getElementById('chatFileInput').click()" title="Adjuntar archivo">
-            <span class="material-icons" style="font-size:20px;">attach_file</span>
+            <span class="material-icons" style="font-size:20px;">add_circle</span>
           </button>
           <div class="chatv2-input-box">
-            <textarea id="chat-input" rows="1" class="chatv2-textarea" placeholder="Escribe un mensaje..."
+            <textarea id="chat-input" rows="1" class="chatv2-textarea" placeholder="Mensaje..."
               oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"
               onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
           </div>
@@ -2860,9 +2885,9 @@
             <span class="material-icons" style="font-size:20px;">mic</span>
           </button>
           <button class="chatv2-send-btn" onclick="enviarMensajeChat()">
-            <span class="material-icons" style="font-size:20px;">send</span>
+            <span class="material-icons">send</span>
           </button>
-          <!-- Emoji picker panel (positioned relative to input bar) -->
+          <!-- Emoji picker panel -->
           <div id="chatEmojiPickerPanel"></div>
         </div>
 
@@ -3570,56 +3595,56 @@
       <!-- SIDEBAR -->
       <div class="cfg-v2-sidebar">
         <div class="cfg-v2-sidebar-label">
-          <span class="material-icons" style="font-size:14px;">shield_person</span>
-          Administración
+          <span class="material-icons">shield_person</span>
+          <span>Administración</span>
         </div>
         <div class="cfg-v2-sidebar-sublabel">Usuarios, roles, catálogos y configuración</div>
         <nav class="cfg-v2-nav">
-          <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)">
+          <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Empresa">
             <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
             <span>Empresa</span>
           </button>
-          <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)">
+          <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas">
             <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
             <span>Plazas</span>
           </button>
-          <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)">
+          <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)" title="Ubicaciones">
             <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
             <span>Ubicaciones</span>
           </button>
-          <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)">
+          <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados">
             <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
             <span>Estados</span>
           </button>
-          <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)">
+          <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)" title="Categorías">
             <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
             <span>Categorías</span>
           </button>
-          <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)">
+          <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos">
             <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
             <span>Modelos</span>
           </button>
-          <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)">
+          <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Gasolinas">
             <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
             <span>Gasolinas</span>
           </button>
-          
-          <div style="margin: 15px 0 5px 0; padding-left: 10px; font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px;">Gestión y Permisos</div>
-          
-          <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)">
+
+          <div class="cfg-rail-section-label">Gestión y Permisos</div>
+
+          <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
             <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
             <span>Usuarios</span>
           </button>
-          <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)">
+          <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
             <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
             <span>Roles</span>
           </button>
-          <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;">
+          <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;" title="Solicitudes">
             <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
             <span>Solicitudes</span>
-            <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; right:10px; top:12px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
+            <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
           </button>
-          <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)">
+          <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)" title="Programador">
             <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
             <span>Programador</span>
           </button>
@@ -3854,6 +3879,76 @@
      PWA — Service Worker + Instalación
 ════════════════════════════════════════════════════════════ -->
   <script src="/js/core/sw-register.js"></script>
+
+  <!-- [F3.2] Modal comparador de plazas -->
+  <div id="modal-comparador-plazas" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75100; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target===this)cerrarComparadorPlazas()">
+    <div style="background:#fff; border-radius:18px; width:100%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="material-icons" style="color:#004a99; font-size:22px;">compare</span>
+          <div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; letter-spacing:.03em;">Comparador de Plazas</div>
+            <div style="font-size:11px; color:#64748b; font-weight:600;">Vista ejecutiva · KPIs en tiempo real</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button onclick="exportarComparadorCSV()" title="Exportar CSV" style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
+            <span class="material-icons" style="font-size:15px;">download</span> CSV
+          </button>
+          <button onclick="cerrarComparadorPlazas()" style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+            <span class="material-icons" style="font-size:18px; color:#64748b;">close</span>
+          </button>
+        </div>
+      </div>
+      <div id="comparador-content" style="overflow-y:auto; padding:18px 22px; flex:1;">
+        <div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">Cargando datos...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ FASE 4 — Modal PDF Reservas ═══════════════════════ -->
+  <div id="modal-pdf-reservas" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.82); z-index:75200; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target===this)cerrarModalPDFReservas()">
+    <div style="background:#fff; border-radius:18px; width:100%; max-width:620px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.4);">
+      <!-- Header -->
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0; background:linear-gradient(135deg,#0f172a,#1e3a5f);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="material-icons" style="color:#38bdf8; font-size:24px;">analytics</span>
+          <div>
+            <div style="font-size:15px; font-weight:900; color:white; letter-spacing:.03em;">Análisis de Reservas</div>
+            <div style="font-size:11px; color:#94a3b8; font-weight:600;">Carga PDF o pega texto · Motor de proyección operativa</div>
+          </div>
+        </div>
+        <button onclick="cerrarModalPDFReservas()" style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+          <span class="material-icons" style="font-size:18px; color:#94a3b8;">close</span>
+        </button>
+      </div>
+      <!-- Body -->
+      <div style="overflow-y:auto; padding:20px 22px; flex:1; display:flex; flex-direction:column; gap:16px;">
+        <!-- Upload zone -->
+        <div id="pdf-drop-zone" style="border:2px dashed #cbd5e1; border-radius:14px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;" onclick="document.getElementById('pdf-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#0284c7';this.style.background='#f0f9ff'" ondragleave="this.style.borderColor='#cbd5e1';this.style.background=''" ondrop="_onPDFDrop(event)">
+          <span class="material-icons" style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">upload_file</span>
+          <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra tu PDF aquí o haz clic para seleccionar</div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Reportes de reservas, regresos o asignaciones</div>
+          <input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none" onchange="_onPDFFileInput(this)">
+        </div>
+        <!-- OR divider -->
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+          <span style="font-size:11px; font-weight:800; color:#94a3b8; letter-spacing:.06em;">O PEGA EL TEXTO</span>
+          <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+        </div>
+        <!-- Text area -->
+        <textarea id="pdf-texto-bruto" rows="6" placeholder="Pega aquí el contenido del reporte (reservas, regresos, entregas...)" style="border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:12px; font-family:monospace; resize:vertical; outline:none; color:#334155; transition:border-color .2s;" onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+        <!-- Analyze button -->
+        <button id="btn-analizar-pdf" onclick="_ejecutarAnalisisPDF()" style="background:linear-gradient(135deg,#0369a1,#0284c7); color:white; border:none; border-radius:10px; padding:12px 20px; font-size:13px; font-weight:900; cursor:pointer; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .2s;">
+          <span class="material-icons" style="font-size:18px;">auto_graph</span>
+          Analizar y proyectar
+        </button>
+        <!-- Results area -->
+        <div id="pdf-resultados" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
 
 </body>
 

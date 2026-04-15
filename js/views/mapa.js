@@ -436,8 +436,8 @@ const BASE_PERMISSION_CATALOG = Object.freeze({
     group: 'Sistema'
   },
   use_programmer_console: {
-    label: 'Consola de programador',
-    description: 'Entrar a /programador y ejecutar consultas avanzadas.',
+    label: 'Centro de Control',
+    description: 'Acceso a /programador: herramientas, Firestore, jobs, seguridad y monitoreo.',
     group: 'Sistema'
   },
   view_exact_location_logs: {
@@ -1088,7 +1088,7 @@ function abrirPanelAdministracion() {
 
 function _abrirProgrammerConsoleRoute() {
   if (!canUseProgrammerConfig()) {
-    showToast('Tu rol no puede abrir la consola de programador.', 'error');
+    showToast('Tu rol no puede abrir el Centro de Control.', 'error');
     return;
   }
   _navigateTop('/programador');
@@ -3099,6 +3099,7 @@ function dibujarMapaCompleto(estructura = null) {
     // [F2.2] Restricciones de categoría para validación en drop
     if (celda.allowedCategories?.length) {
       div.dataset.allowedCategories = celda.allowedCategories.join(',');
+      div.classList.add('spot-restricted'); // [F2.9] indicador visual
     }
     if (celda.zone) div.dataset.zone = celda.zone;
     // [F2] Posicionamiento absoluto
@@ -3218,6 +3219,7 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   const lockHtml = (textoNotas.includes("RESERVAD") || textoNotas.includes("APARTAD")) ? `<div class="lock-badge">🔒</div>` : '';
   const docHtml = textoNotas.includes("DOBLE CERO") ? `<div class="doc-badge">🍃</div>` : '';
   const mantoHtml = (unit.estado === "MANTENIMIENTO" || unit.estado === "TALLER") ? `<div class="manto-badge">⚙️</div>` : '';
+  const trasladoHtml = unit.estado === "TRASLADO" ? `<div class="traslado-badge" title="En traslado">🚛</div>` : '';
   const termometro = obtenerDisenoCalor(unit.fechaIngreso);
   const calorHtml = `<div class="badge-calor ${termometro.clase}" style="background: ${termometro.bg}; border: 1px solid ${termometro.border}; color: ${termometro.color};"><span class="material-icons" style="font-size: 11px;">${termometro.icon}</span> ${termometro.text}</div>`;
   const gasBarHtml = _renderGasolinaMapa(unit.gasolina);
@@ -3225,7 +3227,7 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
     ? unit.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')
     : "sucio";
 
-  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${urgHtml}<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; pointer-events:none;"><span style="font-size:19px; flex:1; display:flex; align-items:center;">${unit.mva}</span>${gasBarHtml}</div>`;
+  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; pointer-events:none;"><span style="font-size:19px; flex:1; display:flex; align-items:center;">${unit.mva}</span>${gasBarHtml}</div>`;
   car.className = `car ${estadoClase}`;
   if (esGhost) car.classList.add('ghost');
   if (esForgotten) car.classList.add('forgotten');
@@ -3306,6 +3308,10 @@ function _flushMapaSync() {
 
 function sincronizarMapa(nuevas, opciones = {}) {
   _ultimaFlotaMapa = Array.isArray(nuevas) ? nuevas : [];
+  // [F3.3] Actualizar panel de supervisión multi-plaza
+  if (typeof _actualizarSupervisionConUnidades === 'function') {
+    _actualizarSupervisionConUnidades(_ultimaFlotaMapa);
+  }
 
   if (opciones.immediate === true) {
     if (_mapaRenderRAF) cancelAnimationFrame(_mapaRenderRAF);
@@ -3371,11 +3377,30 @@ function _cancelPendingMapTouchDrag() {
 function _finishMapDrag() {
   _cancelPendingMapTouchDrag();
   if (_mapDragState.sourceCar) _mapDragState.sourceCar.classList.remove('drag-origin');
+  // [F2.4] Quitar highlight del spot origen y sugerencias de cajones disponibles
+  if (_mapDragState.sourceSpot) _mapDragState.sourceSpot.classList.remove('spot-drag-origin');
+  document.querySelectorAll('.spot-available-hint').forEach(s => s.classList.remove('spot-available-hint'));
+  _mapDragState.sourceSpot = null;
   _clearMapDropHighlight();
   _removeMapDragGhost();
   _mapDragState.sourceCar = null;
   _mapDragState.activeTouchId = null;
   _mapDragState.active = false;
+}
+
+// [F2.10] Resaltar cajones disponibles y compatibles con la categoría de la unidad
+function _mostrarSugerenciasDisponibles(car) {
+  document.querySelectorAll('.spot-available-hint').forEach(s => s.classList.remove('spot-available-hint'));
+  const unitCat = (car.dataset.categoria || '').trim().toUpperCase();
+  document.querySelectorAll('.spot').forEach(spot => {
+    if (spot.querySelector('.car')) return; // ocupado
+    const allowed = spot.dataset.allowedCategories
+      ? spot.dataset.allowedCategories.split(',').map(c => c.trim().toUpperCase()).filter(Boolean)
+      : [];
+    if (allowed.length === 0 || !unitCat || allowed.includes(unitCat)) {
+      spot.classList.add('spot-available-hint');
+    }
+  });
 }
 
 function _selectCarOnMap(car, options = {}) {
@@ -3462,6 +3487,14 @@ function _handleMapCarDragStart(event) {
   _selectCarOnMap(car, { openPanel: false, preserveSwap: true });
   _mapDragState.sourceCar = car;
   car.classList.add('drag-origin');
+  // [F2.4] Highlight del spot origen
+  const sourceSpot = car.parentElement;
+  if (sourceSpot?.classList.contains('spot')) {
+    sourceSpot.classList.add('spot-drag-origin');
+    _mapDragState.sourceSpot = sourceSpot;
+  }
+  // [F2.10] Mostrar cajones disponibles compatibles
+  _mostrarSugerenciasDisponibles(car);
   if (event.dataTransfer) {
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', car.id);
@@ -3503,6 +3536,14 @@ function _handleMapCarTouchStart(event) {
     _mapDragState.activeTouchId = touch.identifier;
     _selectCarOnMap(car, { openPanel: false, preserveSwap: true });
     car.classList.add('drag-origin');
+    // [F2.4] Highlight del spot origen
+    const sourceSpot = car.parentElement;
+    if (sourceSpot?.classList.contains('spot')) {
+      sourceSpot.classList.add('spot-drag-origin');
+      _mapDragState.sourceSpot = sourceSpot;
+    }
+    // [F2.10] Mostrar cajones disponibles compatibles
+    _mostrarSugerenciasDisponibles(car);
     _createMapDragGhost(car, touch.clientX, touch.clientY);
   }, 220);
 }
@@ -3885,6 +3926,16 @@ function actualizarContadores() {
     document.getElementById('kpi-manto').innerText = manto;
     document.getElementById('kpi-patio').innerText = enPatio;
     document.getElementById('kpi-taller-loc').innerText = enTaller;
+  }
+
+  // [F3.4] Actualizar banner global con niveles de saturación
+  const totalSpots = document.querySelectorAll('.spot').length;
+  _bannerState._totalSpots = totalSpots; // [F4] exponer para proyección
+  _actualizarBannerGlobal({ ocupados: enPatio, totalSpots });
+  // [F4.2] Recomendación automática cuando saturación ≥ 80%
+  if (typeof _autoRecomendacionSaturacion === 'function') {
+    const pctAuto = totalSpots > 0 ? Math.round((enPatio / totalSpots) * 100) : 0;
+    _autoRecomendacionSaturacion(pctAuto);
   }
 }
 
@@ -7140,6 +7191,7 @@ function _procesarPingUI(res) {
     _setMapSyncBadge('locked');
     if (switchLock) switchLock.style.background = "#ef4444";
     if (txtLock) txtLock.innerText = scope === 'GLOBAL' ? 'LIBERAR BLOQUEO GLOBAL' : 'LIBERAR BLOQUEO PLAZA';
+    _actualizarBannerGlobal({ bloqueado: true, bloqueadoScope: scope }); // [F3.4]
 
   } else {
     window.MAPA_LOCKED = false;
@@ -7156,6 +7208,7 @@ function _procesarPingUI(res) {
     if (isSaving) _setMapSyncBadge('saving');
     else if (_mapaSyncState.hasPendingWrite || saveTimeout) _setMapSyncBadge('queued');
     else _setMapSyncBadge('live');
+    _actualizarBannerGlobal({ bloqueado: false }); // [F3.4]
   }
   // 5. 🕒 LÓGICA DE FEED INTELIGENTE (CON BRILLO Y AUTO-CLEAN)
   const currentFeedStr = JSON.stringify(res.liveFeed);
@@ -10980,10 +11033,7 @@ function _abrirChatDesdeNotificacion(nombre = '') {
   if (!target) return;
   abrirBuzon();
   setTimeout(() => {
-    activeChatUser = target;
-    _actualizarHeaderChatActivo();
-    renderChatWindow();
-    document.getElementById('chat-window-view').style.transform = 'translateX(0)';
+    abrirChat(target);
   }, 180);
 }
 
@@ -11529,8 +11579,30 @@ async function eliminarAvatarPerfil() {
 
 function abrirBuzon() {
   document.getElementById('buzon-modal').classList.add('active');
-  document.getElementById('chat-window-view').style.transform = 'translateX(100%)';
+
+  // En mobile: ocultar el panel de chat al abrir (slide-out)
+  const win = document.getElementById('chat-window-view');
+  if (window.innerWidth <= 768) {
+    win.style.transform = 'translateX(100%)';
+    win.classList.remove('open');
+  }
+
   activeChatUser = null;
+
+  // Empty state visible, chat oculto
+  const emptyState = document.getElementById('chat-empty-state');
+  const chatHeader = document.getElementById('chat-active-header');
+  const chatMessages = document.getElementById('chat-messages-container');
+  const chatInputBar = document.getElementById('chat-input-bar');
+  if (emptyState) emptyState.style.display = 'flex';
+  if (chatHeader) chatHeader.style.display = 'none';
+  if (chatMessages) chatMessages.style.display = 'none';
+  if (chatInputBar) chatInputBar.style.display = 'none';
+
+  // Nombre de usuario en el panel header (usa el nombre del usuario actual)
+  const panelUsername = document.getElementById('chatPanelUsername');
+  if (panelUsername) panelUsername.textContent = USER_NAME || 'Mensajes';
+
   const lbl = document.getElementById('chatv2-company-label');
   if (lbl) lbl.innerText = _companyNameFrom(window.MEX_CONFIG?.empresa);
   cerrarInfoContacto();
@@ -11767,11 +11839,37 @@ function renderContactos() {
 function abrirChat(nombre) {
   activeChatUser = _chatUserName(nombre);
   _actualizarHeaderChatActivo();
-  document.getElementById('chat-window-view').style.transform = 'translateX(0)';
+
+  // En mobile: slide-in con transform
+  const win = document.getElementById('chat-window-view');
+  if (window.innerWidth <= 768) {
+    win.style.transform = 'translateX(0)';
+    win.classList.add('open');
+  } else {
+    win.style.transform = '';
+  }
+
+  // Mostrar elementos del chat activo, ocultar empty state
+  const emptyState = document.getElementById('chat-empty-state');
+  const chatHeader = document.getElementById('chat-active-header');
+  const chatMessages = document.getElementById('chat-messages-container');
+  const chatInputBar = document.getElementById('chat-input-bar');
+  if (emptyState) emptyState.style.display = 'none';
+  if (chatHeader) chatHeader.style.display = 'flex';
+  if (chatMessages) chatMessages.style.display = 'block';
+  if (chatInputBar) chatInputBar.style.display = 'flex';
+
+  // Actualizar nombre del usuario en el panel header
+  const panelUsername = document.getElementById('chatPanelUsername');
+  if (panelUsername && window._currentChatProfile?.nombre) {
+    panelUsername.textContent = window._currentChatProfile.nombre;
+  }
 
   const input = document.getElementById('chat-input');
-  input.value = "";
-  input.style.height = "auto";
+  if (input) {
+    input.value = '';
+    input.style.height = 'auto';
+  }
   _clearChatStaging();
 
   let idsToMark = [];
@@ -11794,7 +11892,27 @@ function abrirChat(nombre) {
 
 function cerrarChat() {
   activeChatUser = null;
-  document.getElementById('chat-window-view').style.transform = 'translateX(100%)';
+
+  const win = document.getElementById('chat-window-view');
+  if (window.innerWidth <= 768) {
+    win.style.transform = 'translateX(100%)';
+    win.classList.remove('open');
+  }
+
+  // En desktop: restaurar el empty state
+  const emptyState = document.getElementById('chat-empty-state');
+  const chatHeader = document.getElementById('chat-active-header');
+  const chatMessages = document.getElementById('chat-messages-container');
+  const chatInputBar = document.getElementById('chat-input-bar');
+  if (emptyState) emptyState.style.display = 'flex';
+  if (chatHeader) chatHeader.style.display = 'none';
+  if (chatMessages) chatMessages.style.display = 'none';
+  if (chatInputBar) chatInputBar.style.display = 'none';
+
+  // Restaurar nombre del panel
+  const panelUsername = document.getElementById('chatPanelUsername');
+  if (panelUsername) panelUsername.textContent = 'Mensajes';
+
   _actualizarHeaderChatActivo();
   renderContactos(); // Refresca los snippets
 }
@@ -14759,7 +14877,7 @@ function _programmerConsoleRender() {
     <div class="programmer-console-shell">
       <div class="programmer-console-hero">
         <div>
-          <div class="programmer-console-kicker">Panel de programador</div>
+          <div class="programmer-console-kicker">Centro de Control</div>
           <h3>Control total de la plataforma</h3>
           <p>Consultas, migraciones, reindexado, validación y edición global con seguridad y trazabilidad.</p>
         </div>
@@ -15527,17 +15645,17 @@ function renderizarListaConfig() {
     }
     container.innerHTML = `
       <div style="padding:28px; display:grid; gap:14px; text-align:center;">
-        <div style="font-size:13px; font-weight:800; color:#64748b; letter-spacing:.08em; text-transform:uppercase;">Consola nueva</div>
-        <div style="font-size:28px; font-weight:900; color:#0f172a;">La consola de programador ahora vive en una ruta dedicada</div>
+        <div style="font-size:13px; font-weight:800; color:#64748b; letter-spacing:.08em; text-transform:uppercase;">Ruta dedicada</div>
+        <div style="font-size:28px; font-weight:900; color:#0f172a;">Centro de Control Técnico</div>
         <div style="font-size:14px; color:#475569; max-width:560px; margin:0 auto; line-height:1.7;">
-          Para evitar módulos duplicados y centralizar consultas, jobs, errores y dispositivos, usa la nueva consola en <b>/programador</b>.
+          Panel avanzado con herramientas, Firestore, jobs, seguridad, notificaciones y monitoreo en tiempo real. Ruta: <b>/programador</b>.
         </div>
         <div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap;">
           <button type="button" class="cfg-save-btn" onclick="_abrirProgrammerConsoleRoute()">
             <span class="material-icons">terminal</span>
-            Abrir consola de programador
+            Abrir Centro de Control
           </button>
-          <button type="button" class="cfg-cancel-btn" onclick="abrirTabConfig('usuarios', document.getElementById('cfg-tab-usuarios'))">
+              <button type="button" class="cfg-cancel-btn" onclick="abrirTabConfig('usuarios', document.getElementById('cfg-tab-usuarios'))">
             Volver a usuarios
           </button>
         </div>
@@ -16237,6 +16355,11 @@ function renderizarTabConfigPlazas(container) {
             style="background:var(--mex-blue);color:white;border:none;border-radius:10px;padding:9px 16px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;">
             <span class="material-icons" style="font-size:16px;">add_location_alt</span> NUEVA
           </button>
+          <button onclick="abrirComparadorPlazas()"
+            title="Comparar KPIs entre plazas"
+            style="background:#f1f5f9;color:#334155;border:1px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-weight:800;font-size:12px;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px;">
+            <span class="material-icons" style="font-size:16px;">compare</span> COMPARAR
+          </button>
         </div>
         <div class="cfg-plazas-body">
           <div class="cfg-plazas-list-col">
@@ -16265,12 +16388,16 @@ function _renderPlazaCards(plazas, filter) {
     const detalle = plazasDetalle.find(d => d.id === plazaId) || {};
     const isActive = _plazaSeleccionadaCfg === plazaId ? ' active' : '';
     const sub = escapeHtml(detalle.descripcion || detalle.nombre || detalle.localidad || 'Sin configurar');
+    const tempBadge = detalle.temporal
+      ? `<span style="font-size:9px; background:#f59e0b; color:white; padding:2px 5px; border-radius:4px; font-weight:800; margin-top:2px; display:inline-block;">TEMPORAL</span>`
+      : '';
     return `
           <div class="cfg-plaza-card${isActive}" onclick="plazaSeleccionarCfg('${escapeHtml(plazaId)}')">
-            <div class="cfg-plaza-icon">${escapeHtml(plazaId.slice(0, 3))}</div>
+            <div class="cfg-plaza-icon" style="${detalle.temporal ? 'background:#f59e0b;' : ''}">${escapeHtml(plazaId.slice(0, 3))}</div>
             <div class="cfg-plaza-info">
               <div class="cfg-plaza-name">${escapeHtml(plazaId)}</div>
               <div class="cfg-plaza-local">${sub}</div>
+              ${tempBadge}
             </div>
           </div>
         `;
@@ -16337,6 +16464,19 @@ function _filtrarPlazasCfg() {
 }
 
 let _plazaFormLocked = true;
+
+// [F3.1] Toggle plaza temporal
+function _togglePlazaTemporal() {
+  const hidden = document.getElementById('plaza-temporal-val');
+  const toggle = document.getElementById('plaza-temporal-toggle');
+  if (!hidden || !toggle) return;
+  const isOn = hidden.value === '1';
+  const newVal = !isOn;
+  hidden.value = newVal ? '1' : '0';
+  toggle.style.background = newVal ? '#f59e0b' : '#cbd5e1';
+  const knob = toggle.querySelector('div');
+  if (knob) knob.style.left = newVal ? '19px' : '3px';
+}
 
 function _togglePlazaFormEdit() {
   _plazaFormLocked = !_plazaFormLocked;
@@ -16506,9 +16646,27 @@ function _renderPlazaForm(plazaId) {
             </button>
           </div>
 
+          <!-- ── Tipo de Plaza ── -->
+          <div class="cfg-plaza-section-header">
+            <span class="material-icons">info_outline</span> Tipo de Plaza
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px; padding:12px 14px; background:#f8fafc; border-radius:10px; border:1.5px solid #e2e8f0;">
+            <label class="cfg-toggle-wrap" style="display:flex; align-items:center; gap:10px; cursor:pointer; flex:1;">
+              <div class="cfg-toggle${d.temporal ? ' on' : ''}" id="plaza-temporal-toggle" onclick="_togglePlazaTemporal()" style="width:38px; height:21px; border-radius:11px; background:${d.temporal ? '#f59e0b' : '#cbd5e1'}; position:relative; cursor:pointer; flex-shrink:0; transition:background .2s;">
+                <div style="position:absolute; top:3px; left:${d.temporal ? '19px' : '3px'}; width:15px; height:15px; background:white; border-radius:50%; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.2);"></div>
+              </div>
+              <div>
+                <div style="font-size:13px; font-weight:800; color:#0f172a;">Plaza Temporal</div>
+                <div style="font-size:11px; color:#64748b; font-weight:600;">Resguardo externo, bodega o ubicación provisional</div>
+              </div>
+            </label>
+            ${d.temporal ? `<span style="font-size:10px; background:#f59e0b; color:white; padding:3px 8px; border-radius:6px; font-weight:800; letter-spacing:.04em;">TEMPORAL</span>` : ''}
+          </div>
+          <input type="hidden" id="plaza-temporal-val" value="${d.temporal ? '1' : '0'}">
+
           <!-- ── Información General ── -->
           <div class="cfg-plaza-section-header">
-            <span class="material-icons">info_outline</span> Información General
+            <span class="material-icons">edit_note</span> Información General
           </div>
           <div class="cfg-plaza-form-grid2">
             <div class="cfg-plaza-form-field">
@@ -16736,6 +16894,7 @@ async function plazaGuardarCfg(plazaId) {
     localidad: (document.getElementById('plaza-localidad')?.value || '').trim(),
     direccion: (document.getElementById('plaza-direccion')?.value || '').trim(),
     mapsUrl: (document.getElementById('plaza-maps-url')?.value || '').trim(),
+    temporal: document.getElementById('plaza-temporal-val')?.value === '1', // [F3.1]
     correo: (document.getElementById('plaza-correo')?.value || '').trim().toLowerCase(),
     telefono: (document.getElementById('plaza-telefono')?.value || '').trim(),
     gerente: (document.getElementById('plaza-gerente')?.value || '').trim().toUpperCase(),
@@ -18141,4 +18300,564 @@ Object.assign(window, {
   subirAvatarPerfil,
   ajustarZoomAvatarPerfil,
   _setChatReplyHoverState,
+  // Fase 3
+  _togglePlazaTemporal,
+  abrirComparadorPlazas,
+  cerrarComparadorPlazas,
+  exportarComparadorCSV,
+  // Fase 4
+  abrirModalPDFReservas,
+  cerrarModalPDFReservas,
+  _onPDFDrop,
+  _onPDFFileInput,
+  _ejecutarAnalisisPDF,
+  // Fase 5
+  activarBusquedaVoz,
 });
+
+// ═══════════════════════════════════════════════════════════
+//  FASE 3 — OPERACIÓN INTELIGENTE
+// ═══════════════════════════════════════════════════════════
+
+// ── F3.4 Banner global ──────────────────────────────────────
+const _bannerState = { bloqueado: false, pctOcup: 0, alertasCriticas: 0 };
+
+function _actualizarBannerGlobal({ bloqueado, bloqueadoScope, ocupados, totalSpots, alertasCriticas } = {}) {
+  if (bloqueado !== undefined) _bannerState.bloqueado = bloqueado;
+  if (alertasCriticas !== undefined) _bannerState.alertasCriticas = alertasCriticas;
+  if (ocupados !== undefined && totalSpots !== undefined && totalSpots > 0) {
+    _bannerState.pctOcup = Math.round((ocupados / totalSpots) * 100);
+  }
+
+  const banner = document.getElementById('global-status-banner');
+  if (!banner) return;
+
+  const msgs = [];
+  let severity = 'info';
+
+  if (_bannerState.bloqueado) {
+    const scope = bloqueadoScope || window.MAPA_LOCK_SCOPE || '';
+    msgs.push(`🔒 MAPA BLOQUEADO${scope === 'GLOBAL' ? ' — AUDITORÍA GLOBAL' : ' — AUDITORÍA PLAZA'}`);
+    severity = 'locked';
+  }
+  if (_bannerState.pctOcup >= 90) {
+    msgs.push(`🔴 SATURACIÓN CRÍTICA: ${_bannerState.pctOcup}% cajones ocupados`);
+    severity = severity !== 'locked' ? 'critical' : severity;
+  } else if (_bannerState.pctOcup >= 80) {
+    msgs.push(`🟡 Saturación alta: ${_bannerState.pctOcup}% ocupado`);
+    if (severity === 'info') severity = 'warning';
+  }
+  if (_bannerState.alertasCriticas > 0) {
+    msgs.push(`⚠️ ${_bannerState.alertasCriticas} incidencia${_bannerState.alertasCriticas > 1 ? 's' : ''} pendiente${_bannerState.alertasCriticas > 1 ? 's' : ''}`);
+    if (severity === 'info') severity = 'warning';
+  }
+
+  if (msgs.length === 0) {
+    banner.style.display = 'none';
+    return;
+  }
+
+  const bgMap = { locked: '#1e293b', critical: '#dc2626', warning: '#d97706', info: '#0369a1' };
+  banner.style.cssText = `display:flex; align-items:center; justify-content:center; gap:18px; padding:7px 16px; background:${bgMap[severity]}; color:white; font-size:12px; font-weight:800; letter-spacing:.04em; flex-wrap:wrap; position:relative; z-index:200;`;
+  banner.innerHTML = msgs.map(m => `<span>${m}</span>`).join('<span style="opacity:.4;">·</span>');
+}
+
+// ── F3.3 Panel de supervisión (KPIs multi-plaza) ────────────
+let _supervisionUnsub = null;
+let _supervisionData = {}; // { [plaza]: { total, listos, sucios, manto, taller, traslados } }
+
+function _actualizarPanelSupervision() {
+  const panel = document.getElementById('panel-supervision');
+  if (!panel) return;
+
+  // Solo visible para roles que pueden ver todas las plazas
+  const canSeeAll = _puedeVerTodasPlazas && _puedeVerTodasPlazas();
+  if (!canSeeAll) { panel.style.display = 'none'; return; }
+
+  const plazas = window.MEX_CONFIG?.empresa?.plazas || [];
+  if (plazas.length <= 1) { panel.style.display = 'none'; return; }
+
+  const data = _supervisionData;
+  const plazasConDatos = plazas.filter(p => data[p]);
+  if (plazasConDatos.length === 0) { panel.style.display = 'none'; return; }
+
+  panel.style.cssText = 'display:flex; gap:8px; overflow-x:auto; padding:6px 12px; background:rgba(15,23,42,0.9); backdrop-filter:blur(6px); border-radius:0 0 12px 12px; position:relative; z-index:190; flex-wrap:nowrap; scrollbar-width:none;';
+
+  panel.innerHTML = plazasConDatos.map(plaza => {
+    const d = data[plaza] || {};
+    const pct = d.totalSpots > 0 ? Math.round(((d.total || 0) / d.totalSpots) * 100) : 0;
+    const pctColor = pct >= 90 ? '#ef4444' : pct >= 75 ? '#f59e0b' : '#10b981';
+    const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
+    const detalle = plazasDetalle.find(x => x.id === plaza) || {};
+    const esTemporal = detalle.temporal;
+    return `<div style="display:flex; flex-direction:column; align-items:center; gap:3px; background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:8px 12px; min-width:90px; flex-shrink:0; ${esTemporal ? 'border-color:#f59e0b44;' : ''}">
+      <div style="font-size:11px; font-weight:900; color:white; letter-spacing:.05em;">${escapeHtml(plaza)}${esTemporal ? ' <span style="font-size:8px;color:#f59e0b;">TEMP</span>' : ''}</div>
+      <div style="font-size:9px; color:${pctColor}; font-weight:800;">${pct}% ocupado</div>
+      <div style="display:flex; gap:5px; font-size:10px; font-weight:700; color:rgba(255,255,255,.7);">
+        <span title="Listos" style="color:#4ade80;">✓${d.listos || 0}</span>
+        <span title="Sucios" style="color:#facc15;">⟳${d.sucios || 0}</span>
+        <span title="Manto" style="color:#f87171;">⚙${d.manto || 0}</span>
+        ${(d.traslados || 0) > 0 ? `<span title="Traslados" style="color:#c084fc;">🚛${d.traslados}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  panel.style.display = 'flex';
+}
+
+// Actualizar datos de supervisión cuando se reciben unidades
+function _actualizarSupervisionConUnidades(unidades) {
+  if (!_puedeVerTodasPlazas || !_puedeVerTodasPlazas()) return;
+  const plazas = window.MEX_CONFIG?.empresa?.plazas || [];
+  if (plazas.length <= 1) return;
+
+  const newData = {};
+  unidades.forEach(unit => {
+    const p = _normalizePlaza(unit?.plaza || unit?.plazaId || '');
+    if (!p) return;
+    if (!newData[p]) newData[p] = { total: 0, listos: 0, sucios: 0, manto: 0, traslados: 0 };
+    const estado = (unit?.estado || '').toUpperCase();
+    newData[p].total++;
+    if (estado === 'LISTO') newData[p].listos++;
+    else if (estado === 'SUCIO') newData[p].sucios++;
+    else if (estado === 'MANTENIMIENTO' || estado === 'TALLER') newData[p].manto++;
+    else if (estado === 'TRASLADO') newData[p].traslados++;
+  });
+  _supervisionData = newData;
+  _actualizarPanelSupervision();
+}
+
+// ── F3.2 Comparador de plazas ───────────────────────────────
+let _comparadorCache = null;
+
+async function abrirComparadorPlazas() {
+  const modal = document.getElementById('modal-comparador-plazas');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  _renderComparadorLoading();
+  try {
+    const plazas = window.MEX_CONFIG?.empresa?.plazas || [];
+    if (plazas.length === 0) {
+      document.getElementById('comparador-content').innerHTML =
+        '<div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">No hay plazas configuradas.</div>';
+      return;
+    }
+    const resultados = await Promise.all(plazas.map(async p => {
+      try {
+        const resumen = await api.obtenerResumenFlotaPatio(p);
+        return { plaza: p, ...resumen };
+      } catch {
+        return { plaza: p, error: true };
+      }
+    }));
+    _comparadorCache = resultados;
+    _renderComparadorTabla(resultados);
+  } catch (e) {
+    document.getElementById('comparador-content').innerHTML =
+      `<div style="text-align:center; padding:40px; color:#ef4444; font-weight:700;">Error cargando datos: ${escapeHtml(String(e.message || e))}</div>`;
+  }
+}
+
+function _renderComparadorLoading() {
+  const c = document.getElementById('comparador-content');
+  if (!c) return;
+  c.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px;"><span class="material-icons" style="animation:spin 1s linear infinite; font-size:22px;">sync</span> Cargando datos de todas las plazas...</div>';
+}
+
+function _renderComparadorTabla(resultados) {
+  const c = document.getElementById('comparador-content');
+  if (!c) return;
+  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
+
+  const cols = [
+    { key: 'total', label: 'Total', color: '#0f172a' },
+    { key: 'listos', label: 'Listos', color: '#10b981' },
+    { key: 'sucios', label: 'Sucios', color: '#f59e0b' },
+    { key: 'manto', label: 'Manto.', color: '#ef4444' },
+    { key: 'externos', label: 'Externos', color: '#6366f1' },
+    { key: 'ocupacion', label: '% Ocup.', color: '#0ea5e9' },
+  ];
+
+  const filas = resultados.map(r => {
+    const d = plazasDetalle.find(x => x.id === r.plaza) || {};
+    const total = (r.total || r.totalUnidades || 0);
+    const listos = (r.listos || r.totalListos || 0);
+    const sucios = (r.sucios || r.totalSucios || 0);
+    const manto = (r.manto || r.totalManto || r.totalMantenimiento || 0);
+    const externos = (r.externos || r.totalExternos || 0);
+    const spots = (r.totalSpots || r.cajones || 0);
+    const pctOcup = spots > 0 ? Math.round((total / spots) * 100) : '—';
+    const esTemporal = d.temporal;
+    const badgeTemp = esTemporal ? `<span style="font-size:9px; background:#f59e0b; color:white; padding:1px 5px; border-radius:4px; font-weight:800; margin-left:4px;">TEMP</span>` : '';
+
+    if (r.error) {
+      return `<tr>
+        <td style="font-weight:800; padding:10px 12px;">${escapeHtml(r.plaza)}${badgeTemp}</td>
+        <td colspan="${cols.length}" style="color:#ef4444; font-size:12px; font-weight:700; padding:10px 12px;">Error al cargar datos</td>
+      </tr>`;
+    }
+    const ocupPct = typeof pctOcup === 'number' ? pctOcup : 0;
+    const ocupColor = ocupPct >= 90 ? '#dc2626' : ocupPct >= 80 ? '#d97706' : '#10b981';
+    return `<tr style="border-bottom:1px solid #f1f5f9;">
+      <td style="font-weight:900; padding:11px 12px; color:#0f172a; font-size:13px;">${escapeHtml(r.plaza)}${badgeTemp}<br><span style="font-size:10px; color:#94a3b8; font-weight:600;">${escapeHtml(d.localidad || d.nombre || '')}</span></td>
+      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px;">${total}</td>
+      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#10b981;">${listos}</td>
+      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#f59e0b;">${sucios}</td>
+      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#ef4444;">${manto}</td>
+      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#6366f1;">${externos}</td>
+      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:${ocupColor};">${typeof pctOcup === 'number' ? pctOcup + '%' : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  c.innerHTML = `
+    <div style="overflow-x:auto;">
+      <table style="width:100%; border-collapse:collapse; font-size:13px;">
+        <thead>
+          <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
+            <th style="text-align:left; padding:10px 12px; font-weight:900; color:#475569; font-size:11px; text-transform:uppercase; letter-spacing:.06em;">Plaza</th>
+            ${cols.map(col => `<th style="text-align:center; padding:10px 8px; font-weight:900; color:${col.color}; font-size:11px; text-transform:uppercase; letter-spacing:.06em; min-width:70px;">${col.label}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>${filas}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:10px; font-size:11px; color:#94a3b8; font-weight:600; text-align:right;">
+      Última consulta: ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+      · <button onclick="abrirComparadorPlazas()" style="background:none;border:none;color:#0ea5e9;font-size:11px;font-weight:800;cursor:pointer;">Actualizar</button>
+    </div>`;
+}
+
+function cerrarComparadorPlazas() {
+  const modal = document.getElementById('modal-comparador-plazas');
+  if (modal) modal.style.display = 'none';
+}
+
+function exportarComparadorCSV() {
+  if (!_comparadorCache?.length) { showToast('Abre el comparador primero', 'warning'); return; }
+  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
+  const encabezado = ['Plaza', 'Localidad', 'Temporal', 'Total', 'Listos', 'Sucios', 'Manto', 'Externos', '% Ocup'];
+  const filas = _comparadorCache.map(r => {
+    const d = plazasDetalle.find(x => x.id === r.plaza) || {};
+    const total = r.total || r.totalUnidades || 0;
+    const spots = r.totalSpots || r.cajones || 0;
+    const pct = spots > 0 ? Math.round((total / spots) * 100) : '';
+    return [
+      r.plaza,
+      d.localidad || d.nombre || '',
+      d.temporal ? 'TEMPORAL' : 'FIJA',
+      total,
+      r.listos || r.totalListos || 0,
+      r.sucios || r.totalSucios || 0,
+      r.manto || r.totalManto || r.totalMantenimiento || 0,
+      r.externos || r.totalExternos || 0,
+      pct !== '' ? pct + '%' : '—'
+    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+  });
+  const csv = [encabezado.join(','), ...filas].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `comparador_plazas_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+  showToast('CSV exportado correctamente', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FASE 4 — SATURACIÓN Y PROYECCIÓN OPERATIVA
+// ═══════════════════════════════════════════════════════════
+
+// ── F4.1  Modal de carga ────────────────────────────────────
+function abrirModalPDFReservas() {
+  const modal = document.getElementById('modal-pdf-reservas');
+  if (!modal) return;
+  // Limpiar estado previo
+  const ta = document.getElementById('pdf-texto-bruto');
+  const res = document.getElementById('pdf-resultados');
+  if (ta) ta.value = '';
+  if (res) { res.style.display = 'none'; res.innerHTML = ''; }
+  const dz = document.getElementById('pdf-drop-zone');
+  if (dz) { dz.style.borderColor = '#cbd5e1'; dz.style.background = ''; }
+  modal.style.display = 'flex';
+}
+
+function cerrarModalPDFReservas() {
+  const modal = document.getElementById('modal-pdf-reservas');
+  if (modal) modal.style.display = 'none';
+}
+
+function _onPDFDrop(event) {
+  event.preventDefault();
+  const dz = document.getElementById('pdf-drop-zone');
+  if (dz) { dz.style.borderColor = '#cbd5e1'; dz.style.background = ''; }
+  const file = event.dataTransfer?.files?.[0];
+  if (file) _procesarArchivoReservas(file);
+}
+
+function _onPDFFileInput(input) {
+  const file = input?.files?.[0];
+  if (file) _procesarArchivoReservas(file);
+}
+
+function _procesarArchivoReservas(file) {
+  const dz = document.getElementById('pdf-drop-zone');
+  if (dz) {
+    dz.innerHTML = `<span class="material-icons" style="font-size:28px;color:#0284c7;display:block;margin-bottom:6px;animation:spin 1s linear infinite;">sync</span><div style="font-size:12px;font-weight:800;color:#0369a1;">Leyendo ${escapeHtml(file.name)}...</div>`;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target?.result || '';
+    const ta = document.getElementById('pdf-texto-bruto');
+    if (ta) ta.value = text;
+    if (dz) {
+      dz.innerHTML = `<span class="material-icons" style="font-size:28px;color:#10b981;display:block;margin-bottom:6px;">check_circle</span><div style="font-size:12px;font-weight:800;color:#10b981;">Archivo cargado: ${escapeHtml(file.name)}</div>`;
+    }
+  };
+  reader.onerror = () => {
+    showToast('No se pudo leer el archivo', 'error');
+    if (dz) dz.innerHTML = `<span class="material-icons" style="font-size:38px;color:#94a3b8;display:block;margin-bottom:8px;">upload_file</span><div style="font-size:13px;font-weight:800;color:#475569;">Arrastra tu PDF aquí o haz clic para seleccionar</div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Reportes de reservas, regresos o asignaciones</div><input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none" onchange="_onPDFFileInput(this)">`;
+  };
+  // Leer como texto (funciona para .txt; PDFs se leen como texto con metadata extraíble)
+  reader.readAsText(file, 'UTF-8');
+}
+
+// ── F4.1  Parser de texto (reservas / regresos / entregas) ──
+function _parsearTextoReservas(texto) {
+  const lineas = texto.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  const resultados = [];
+
+  // Patrones: MVA = letra(s) + 3-5 dígitos, flexible a muchos formatos
+  const reMVA = /\b([A-Z]{1,3}\d{3,5})\b/g;
+  // Palabras clave de acción
+  const keywordsEntrada = /\b(reserva|reservado|reservar|ingresa|ingreso|entreg[ao]|llegad[ao]|retorno|regreso)\b/i;
+  const keywordsSalida  = /\b(sale|sali[oó]|salida|retira|retiro|desasign|libera|liberar)\b/i;
+  // Fecha: DD/MM/YY, DD-MM-YY, DD/MM/YYYY
+  const reFecha = /(\d{1,2})[\/\-](\d{1,2})(?:[\/\-](\d{2,4}))?/;
+
+  lineas.forEach(linea => {
+    let mva;
+    reMVA.lastIndex = 0;
+    while ((mva = reMVA.exec(linea)) !== null) {
+      const codigo = mva[1].toUpperCase();
+      let accion = 'DESCONOCIDO';
+      if (keywordsEntrada.test(linea)) accion = 'ENTRADA';
+      else if (keywordsSalida.test(linea)) accion = 'SALIDA';
+
+      let fecha = null;
+      const mf = reFecha.exec(linea);
+      if (mf) {
+        const dia = mf[1].padStart(2, '0');
+        const mes = mf[2].padStart(2, '0');
+        const anio = mf[3] ? (mf[3].length === 2 ? '20' + mf[3] : mf[3]) : new Date().getFullYear();
+        fecha = `${anio}-${mes}-${dia}`;
+      }
+
+      // Evitar duplicados en la misma línea
+      if (!resultados.find(r => r.mva === codigo && r.linea === linea)) {
+        resultados.push({ mva: codigo, accion, fecha, linea: linea.slice(0, 120) });
+      }
+    }
+  });
+
+  return resultados;
+}
+
+// ── F4.2  Motor de proyección operativa ────────────────────
+function _calcularPresionOperativa(reservas) {
+  const enPatio = _ultimaFlotaMapa?.length || 0;
+  const totalSpots = _bannerState._totalSpots || 0;
+  const disponibles = Math.max(0, totalSpots - enPatio);
+
+  const entradas = reservas.filter(r => r.accion === 'ENTRADA').length;
+  const salidas  = reservas.filter(r => r.accion === 'SALIDA').length;
+  const noIdentif = reservas.filter(r => r.accion === 'DESCONOCIDO').length;
+
+  const proyectado = enPatio + entradas - salidas;
+  const pctProyectado = totalSpots > 0 ? Math.round((proyectado / totalSpots) * 100) : null;
+
+  let nivel = 'OK'; // OK | MEDIO | ALTO | CRITICO
+  if (pctProyectado !== null) {
+    if (pctProyectado >= 95) nivel = 'CRITICO';
+    else if (pctProyectado >= 85) nivel = 'ALTO';
+    else if (pctProyectado >= 70) nivel = 'MEDIO';
+  }
+
+  return { enPatio, disponibles, totalSpots, entradas, salidas, noIdentif, proyectado, pctProyectado, nivel };
+}
+
+// ── F4.2  Recomendaciones contextuales ─────────────────────
+function _generarRecomendaciones(presion) {
+  const recs = [];
+  const { nivel, disponibles, entradas, salidas, noIdentif } = presion;
+
+  if (nivel === 'CRITICO') {
+    recs.push({ tipo: 'danger', icono: 'error', titulo: 'Saturación crítica proyectada', texto: `Con ${entradas} entradas y ${salidas} salidas, el patio quedaría al ${presion.pctProyectado}%. Activar resguardo temporal o redistribuir unidades a otra plaza.` });
+    if (disponibles < entradas) {
+      recs.push({ tipo: 'danger', icono: 'block', titulo: `Déficit de ${entradas - disponibles} cajones`, texto: 'No hay suficiente espacio físico para absorber todas las entradas. Gestionar traslados antes del ingreso.' });
+    }
+  } else if (nivel === 'ALTO') {
+    recs.push({ tipo: 'warning', icono: 'warning', titulo: 'Saturación alta', texto: `El patio llegaría al ${presion.pctProyectado}%. Considerar redistribuir unidades LISTAS o en MANTENIMIENTO a patios secundarios.` });
+  } else if (nivel === 'MEDIO') {
+    recs.push({ tipo: 'info', icono: 'info', titulo: 'Presión moderada', texto: `Proyección al ${presion.pctProyectado}%. Monitorear regresos programados y priorizar lavado de unidades SUCIAS.` });
+  } else {
+    recs.push({ tipo: 'success', icono: 'check_circle', titulo: 'Capacidad suficiente', texto: `Patio proyectado al ${presion.pctProyectado !== null ? presion.pctProyectado + '%' : '—'}. No se anticipan conflictos de espacio.` });
+  }
+
+  if (noIdentif > 0) {
+    recs.push({ tipo: 'info', icono: 'help_outline', titulo: `${noIdentif} unidad(es) sin acción identificada`, texto: 'Revisar manualmente las líneas donde no se detectó RESERVA, REGRESO ni SALIDA.' });
+  }
+
+  return recs;
+}
+
+// ── F4  Ejecutar análisis y renderizar resultado ────────────
+function _ejecutarAnalisisPDF() {
+  const ta = document.getElementById('pdf-texto-bruto');
+  const texto = ta?.value?.trim() || '';
+  if (!texto) { showToast('Pega texto o carga un archivo primero', 'warning'); return; }
+
+  const btn = document.getElementById('btn-analizar-pdf');
+  const origHtml = btn?.innerHTML;
+  if (btn) { btn.innerHTML = '<span class="material-icons" style="font-size:18px;animation:spin 1s linear infinite;">sync</span> Analizando...'; btn.disabled = true; }
+
+  // Pequeño delay para que la UI actualice antes del procesamiento sincrónico
+  setTimeout(() => {
+    try {
+      const reservas = _parsearTextoReservas(texto);
+      const presion = _calcularPresionOperativa(reservas);
+      const recs = _generarRecomendaciones(presion);
+      _renderResultadosPDF(reservas, presion, recs);
+      // Actualizar panel de recomendación en el mapa
+      _actualizarPanelRecomendacion(presion, recs);
+    } catch (err) {
+      showToast('Error al analizar el texto', 'error');
+      console.error('[F4] Error análisis PDF:', err);
+    } finally {
+      if (btn) { btn.innerHTML = origHtml; btn.disabled = false; }
+    }
+  }, 80);
+}
+
+function _renderResultadosPDF(reservas, presion, recs) {
+  const container = document.getElementById('pdf-resultados');
+  if (!container) return;
+
+  const colores = { danger: '#dc2626', warning: '#d97706', info: '#0369a1', success: '#059669' };
+  const bg = { danger: '#fef2f2', warning: '#fffbeb', info: '#f0f9ff', success: '#f0fdf4' };
+  const border = { danger: '#fecaca', warning: '#fde68a', info: '#bae6fd', success: '#bbf7d0' };
+
+  const recHtml = recs.map(r => `
+    <div style="background:${bg[r.tipo]}; border:1.5px solid ${border[r.tipo]}; border-radius:10px; padding:12px 14px; display:flex; gap:10px; align-items:flex-start;">
+      <span class="material-icons" style="color:${colores[r.tipo]}; font-size:20px; flex-shrink:0; margin-top:1px;">${r.icono}</span>
+      <div>
+        <div style="font-size:12px; font-weight:900; color:${colores[r.tipo]}; margin-bottom:3px;">${escapeHtml(r.titulo)}</div>
+        <div style="font-size:11px; color:#475569; font-weight:600; line-height:1.5;">${escapeHtml(r.texto)}</div>
+      </div>
+    </div>`).join('');
+
+  const pctColor = presion.pctProyectado !== null
+    ? (presion.pctProyectado >= 90 ? '#dc2626' : presion.pctProyectado >= 75 ? '#d97706' : '#059669')
+    : '#94a3b8';
+
+  const listaUnidades = reservas.slice(0, 60).map(r => {
+    const aColor = r.accion === 'ENTRADA' ? '#059669' : r.accion === 'SALIDA' ? '#dc2626' : '#94a3b8';
+    const aLabel = r.accion === 'ENTRADA' ? '↓ ENT' : r.accion === 'SALIDA' ? '↑ SAL' : '?';
+    return `<div style="display:flex; align-items:center; gap:8px; padding:5px 0; border-bottom:1px solid #f1f5f9; font-size:11px;">
+      <span style="font-weight:900; color:#0f172a; min-width:60px;">${escapeHtml(r.mva)}</span>
+      <span style="font-weight:800; color:${aColor}; min-width:40px;">${aLabel}</span>
+      <span style="color:#94a3b8; font-weight:600;">${r.fecha || '—'}</span>
+      <span style="color:#64748b; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:200px;" title="${escapeHtml(r.linea)}">${escapeHtml(r.linea)}</span>
+    </div>`;
+  }).join('');
+
+  container.style.display = 'block';
+  container.innerHTML = `
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px;">
+      <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:12px; text-align:center;">
+        <div style="font-size:22px; font-weight:900; color:#0f172a;">${reservas.length}</div>
+        <div style="font-size:10px; color:#64748b; font-weight:800; text-transform:uppercase; letter-spacing:.05em;">Unidades detectadas</div>
+      </div>
+      <div style="background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:10px; padding:12px; text-align:center;">
+        <div style="font-size:22px; font-weight:900; color:#059669;">${presion.entradas}</div>
+        <div style="font-size:10px; color:#059669; font-weight:800; text-transform:uppercase; letter-spacing:.05em;">Entradas</div>
+      </div>
+      <div style="background:#fef2f2; border:1.5px solid #fecaca; border-radius:10px; padding:12px; text-align:center;">
+        <div style="font-size:22px; font-weight:900; color:#dc2626;">${presion.salidas}</div>
+        <div style="font-size:10px; color:#dc2626; font-weight:800; text-transform:uppercase; letter-spacing:.05em;">Salidas</div>
+      </div>
+    </div>
+    <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:10px; padding:14px; margin-bottom:14px;">
+      <div style="font-size:11px; font-weight:900; color:#475569; text-transform:uppercase; letter-spacing:.06em; margin-bottom:10px;">Proyección de ocupación</div>
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+        <div style="flex:1; height:10px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
+          <div style="height:100%; width:${Math.min(100, presion.pctProyectado || 0)}%; background:${pctColor}; border-radius:99px; transition:width .6s;"></div>
+        </div>
+        <div style="font-size:18px; font-weight:900; color:${pctColor}; min-width:46px; text-align:right;">${presion.pctProyectado !== null ? presion.pctProyectado + '%' : '—'}</div>
+      </div>
+      <div style="display:flex; gap:16px; font-size:11px; font-weight:700; color:#64748b;">
+        <span>Actual: <strong style="color:#0f172a;">${presion.enPatio}</strong></span>
+        <span>Proyectado: <strong style="color:${pctColor};">${presion.proyectado}</strong></span>
+        <span>Cajones totales: <strong style="color:#0f172a;">${presion.totalSpots || '—'}</strong></span>
+        <span>Disponibles: <strong style="color:#0f172a;">${presion.disponibles}</strong></span>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">${recHtml}</div>
+    ${reservas.length > 0 ? `
+    <details style="border:1.5px solid #e2e8f0; border-radius:10px; overflow:hidden;">
+      <summary style="padding:10px 14px; font-size:11px; font-weight:900; color:#475569; text-transform:uppercase; letter-spacing:.06em; cursor:pointer; background:#f8fafc;">
+        Detalle de unidades detectadas (${reservas.length})
+      </summary>
+      <div style="padding:8px 14px; max-height:220px; overflow-y:auto;">
+        ${listaUnidades}
+        ${reservas.length > 60 ? `<div style="text-align:center; font-size:11px; color:#94a3b8; padding:8px;">... y ${reservas.length - 60} más</div>` : ''}
+      </div>
+    </details>` : ''}`;
+}
+
+// ── F4  Panel de recomendación inline en el mapa ────────────
+function _actualizarPanelRecomendacion(presion, recs) {
+  const panel = document.getElementById('panel-recomendacion');
+  if (!panel) return;
+  if (!presion || recs.length === 0) { panel.style.display = 'none'; return; }
+
+  // Solo mostrar si hay presión media o mayor
+  if (presion.nivel === 'OK' && presion.noIdentif === 0) { panel.style.display = 'none'; return; }
+
+  const top = recs[0];
+  const colores = { danger: '#dc2626', warning: '#d97706', info: '#0369a1', success: '#059669' };
+  const bgMap   = { danger: 'rgba(220,38,38,0.12)', warning: 'rgba(217,119,6,0.12)', info: 'rgba(3,105,161,0.12)', success: 'rgba(5,150,105,0.12)' };
+
+  panel.style.cssText = `display:flex; align-items:center; gap:10px; padding:7px 14px; margin:0 12px 6px; background:${bgMap[top.tipo]}; border:1px solid ${colores[top.tipo]}33; border-radius:10px; font-size:12px; position:relative; z-index:185; animation:bannerSlideIn .3s ease;`;
+  panel.innerHTML = `
+    <span class="material-icons" style="color:${colores[top.tipo]};font-size:18px;flex-shrink:0;">${top.icono}</span>
+    <div style="flex:1;">
+      <span style="font-weight:900; color:${colores[top.tipo]};">${escapeHtml(top.titulo)}</span>
+      <span style="color:#475569; font-weight:600; margin-left:6px;">${escapeHtml(top.texto)}</span>
+    </div>
+    <button onclick="abrirModalPDFReservas()" style="background:none;border:1px solid ${colores[top.tipo]}55;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:900;cursor:pointer;color:${colores[top.tipo]};flex-shrink:0;">Ver detalle</button>
+    <button onclick="document.getElementById('panel-recomendacion').style.display='none'" style="background:none;border:none;cursor:pointer;padding:2px;flex-shrink:0;">
+      <span class="material-icons" style="font-size:14px;color:#94a3b8;">close</span>
+    </button>`;
+}
+
+// Disparar recomendación automática cuando saturación ≥80% (sin PDF)
+function _autoRecomendacionSaturacion(pct) {
+  if (pct < 80) {
+    const p = document.getElementById('panel-recomendacion');
+    if (p && p.dataset.source !== 'pdf') p.style.display = 'none';
+    return;
+  }
+  const nivel = pct >= 95 ? 'CRITICO' : pct >= 85 ? 'ALTO' : 'MEDIO';
+  const presionAuto = {
+    enPatio: _ultimaFlotaMapa?.length || 0,
+    disponibles: 0,
+    totalSpots: 0,
+    entradas: 0, salidas: 0, noIdentif: 0,
+    proyectado: 0, pctProyectado: pct, nivel
+  };
+  const recsAuto = _generarRecomendaciones(presionAuto);
+  const panel = document.getElementById('panel-recomendacion');
+  if (panel) panel.dataset.source = 'auto';
+  _actualizarPanelRecomendacion(presionAuto, recsAuto);
+}
