@@ -515,6 +515,12 @@ service cloud.firestore {
       }
     }
 
+    // F7 Extras de unidad (tags, recordatorios, notas rápidas)
+    match /unit_extras/{docId} {
+      allow read: if tienePerfilActual();
+      allow write: if tienePerfilActual();
+    }
+
     // F6.2 Plantillas de mapa (acceso total para lectura/escritura)
     match /mapa_plantillas/{plantillaId} {
       allow read: if tienePerfilActual();

@@ -3307,11 +3307,19 @@ function _flushMapaSync() {
   }
 }
 
+let _f7ExtrasVerificado = false;
 function sincronizarMapa(nuevas, opciones = {}) {
   _ultimaFlotaMapa = Array.isArray(nuevas) ? nuevas : [];
   // [F3.3] Actualizar panel de supervisión multi-plaza
   if (typeof _actualizarSupervisionConUnidades === 'function') {
     _actualizarSupervisionConUnidades(_ultimaFlotaMapa);
+  }
+  // [F7] Verificar recordatorios una sola vez tras la primera carga
+  if (!_f7ExtrasVerificado && _ultimaFlotaMapa.length > 0) {
+    _f7ExtrasVerificado = true;
+    if (typeof _verificarRecordatoriosVencidos === 'function') {
+      setTimeout(_verificarRecordatoriosVencidos, 2000);
+    }
   }
 
   if (opciones.immediate === true) {
@@ -3759,6 +3767,8 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   _renderSwapStatus();
   const zoomControls = document.querySelector('.zoom-controls');
   if (zoomControls) zoomControls.classList.add('panel-open');
+  // [F7] Panel de utilidades rápidas
+  if (typeof _renderPanelExtrasUnidad === 'function') _renderPanelExtrasUnidad(d.mva);
 }
 
 document.addEventListener('click', (e) => {
@@ -18340,6 +18350,16 @@ Object.assign(window, {
   abrirDuplicarEstructura,
   abrirGuardarPlantilla,
   abrirAplicarPlantilla,
+  // Fase 7
+  exportarMapaPDF,
+  copiarDatosUnidad,
+  toggleTagUnidad,
+  abrirModalRecordatorio,
+  cerrarModalRecordatorio,
+  guardarRecordatorio,
+  borrarRecordatorio,
+  _mostrarPopoverEvidencia,
+  _ocultarPopoverEvidencia,
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -19177,4 +19197,328 @@ async function abrirAplicarPlantilla(plazaId) {
     'Aplicar',
     'Cancelar'
   );
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FASE 7 — UTILIDADES DE UNIDAD
+// ═══════════════════════════════════════════════════════════
+
+// ── F7.1  Export mapa como PDF ──────────────────────────────
+function exportarMapaPDF() {
+  showToast('Preparando PDF...', 'info');
+  const gridMap = document.getElementById('grid-map');
+  if (!gridMap) return;
+  const prevZoom = zoomLevel;
+  zoomLevel = 1;
+  updateZoom();
+  setTimeout(() => {
+    html2canvas(gridMap, {
+      backgroundColor: '#2A3441',
+      scale: 2,
+      useCORS: true,
+      width: gridMap.scrollWidth,
+      height: gridMap.scrollHeight,
+    }).then(canvas => {
+      zoomLevel = prevZoom;
+      updateZoom();
+      const dataUrl = canvas.toDataURL('image/png');
+      const printWin = window.open('', '_blank');
+      if (!printWin) { showToast('Activa ventanas emergentes para exportar PDF', 'warning'); return; }
+      printWin.document.write(`<!DOCTYPE html><html><head><title>Mapa Patio ${new Date().toLocaleDateString('es-MX')}</title><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#fff;}img{max-width:100%;height:auto;display:block;}@media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}</style></head><body><img src="${dataUrl}" style="width:100%;"><script>setTimeout(()=>{window.print();},400);<\/script></body></html>`);
+      printWin.document.close();
+      showToast('PDF listo — usa Ctrl+P para guardar', 'success');
+    }).catch(() => {
+      zoomLevel = prevZoom;
+      updateZoom();
+      showToast('Error al generar PDF', 'error');
+    });
+  }, 400);
+}
+
+// ── F7.2  Copiar datos de unidad al portapapeles ────────────
+function copiarDatosUnidad(mva) {
+  const car = document.getElementById(`auto-${mva}`);
+  if (!car) return;
+  const d = _ultimaFlotaMapa?.find(u => (u.mva || u.id || '').toUpperCase() === mva.toUpperCase()) || {};
+  const parent = car.parentElement;
+  const loc = parent?.classList?.contains('spot')
+    ? _spotValueFromElement(parent)
+    : (parent?.id?.includes('taller') ? 'TALLER' : 'LIMBO');
+  const texto = [
+    `MVA: ${d.mva || mva}`,
+    `Placas: ${d.placas || 'N/A'}`,
+    `Modelo: ${d.modelo || 'S/M'}`,
+    `Estado: ${d.estado || 'N/A'}`,
+    `Ubicacion: ${loc}`,
+    d.notas ? `Notas: ${d.notas}` : null,
+  ].filter(Boolean).join('\n');
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(texto).then(() => showToast('Datos copiados al portapapeles', 'success'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = texto; ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    showToast('Datos copiados', 'success');
+  }
+}
+
+// ── F7.3  Preview evidencia inline ─────────────────────────
+function _mostrarPopoverEvidencia(mva, targetEl) {
+  const unidad = _ultimaFlotaMapa?.find(u => (u.mva || '').toUpperCase() === mva.toUpperCase());
+  const evs = unidad ? _obtenerEvidenciasUnidad(unidad) : [];
+  if (!evs.length) return;
+  const popover = document.getElementById('popover-evidencia');
+  const img     = document.getElementById('popover-evidencia-img');
+  const label   = document.getElementById('popover-evidencia-label');
+  if (!popover || !img) return;
+  img.src = evs[0].url || evs[0];
+  if (label) label.textContent = `${mva} · ${evs.length} foto${evs.length > 1 ? 's' : ''}`;
+  const rect = targetEl.getBoundingClientRect();
+  const top  = Math.max(8, rect.top - 180);
+  const left = Math.min(window.innerWidth - 240, rect.right + 8);
+  popover.style.cssText = `display:block; position:fixed; top:${top}px; left:${left}px; z-index:75400; pointer-events:none;`;
+}
+
+function _ocultarPopoverEvidencia() {
+  const p = document.getElementById('popover-evidencia');
+  if (p) p.style.display = 'none';
+}
+
+function _obtenerEvidenciasUnidad(u) {
+  if (Array.isArray(u.evidencias) && u.evidencias.length) return u.evidencias.filter(e => e && (e.url || typeof e === 'string'));
+  const leg = u.url || u.URL || u.urlArchivo || u.urlEvidencia || u.evidencia || '';
+  return leg ? [{ url: leg }] : [];
+}
+
+// ── F7.4  Nota rápida desde panel ──────────────────────────
+function _renderNotaRapida(mva) {
+  const container = document.getElementById('panel-nota-rapida');
+  if (!container) return;
+  const unidad = _ultimaFlotaMapa?.find(u => (u.mva || '').toUpperCase() === mva.toUpperCase());
+  const notaActual = unidad?.notas || '';
+  container.innerHTML = `
+    <div style="font-size:10px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px;">Nota rápida</div>
+    <div style="display:flex; gap:6px; align-items:flex-start;">
+      <textarea id="nota-rapida-input-${mva}" rows="2"
+        style="flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;resize:none;outline:none;font-family:inherit;transition:border-color .2s;"
+        onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"
+        placeholder="Agregar nota...">${escapeHtml(notaActual)}</textarea>
+      <button onclick="_guardarNotaRapida('${mva}')"
+        style="background:#0284c7;color:white;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;flex-shrink:0;display:flex;align-items:center;">
+        <span class="material-icons" style="font-size:14px;">save</span>
+      </button>
+    </div>`;
+}
+
+async function _guardarNotaRapida(mva) {
+  const ta = document.getElementById(`nota-rapida-input-${mva}`);
+  if (!ta) return;
+  const unidad = _ultimaFlotaMapa?.find(u => (u.mva || '').toUpperCase() === mva.toUpperCase());
+  if (!unidad) { showToast('Unidad no encontrada', 'error'); return; }
+  try {
+    ta.disabled = true;
+    await api.aplicarEstado(mva, unidad.estado, unidad.ubicacion, unidad.gasolina, ta.value.trim(), false, USER_NAME, USER_NAME, _miPlaza());
+    showToast('Nota guardada', 'success');
+  } catch { showToast('Error al guardar nota', 'error'); }
+  finally { ta.disabled = false; }
+}
+
+// ── F7.5  Etiquetas de color ────────────────────────────────
+const _TAG_COLORS = {
+  rojo:    { dot: '#ef4444', border: '#ef4444', label: 'Urgente' },
+  naranja: { dot: '#f97316', border: '#f97316', label: 'Pendiente' },
+  amarillo:{ dot: '#eab308', border: '#eab308', label: 'Atención' },
+  verde:   { dot: '#22c55e', border: '#22c55e', label: 'OK' },
+  azul:    { dot: '#3b82f6', border: '#3b82f6', label: 'Reservado' },
+  morado:  { dot: '#8b5cf6', border: '#8b5cf6', label: 'Externo' },
+};
+
+const _extrasCache = {};
+
+async function _cargarExtrasUnidad(mva) {
+  if (_extrasCache[mva] !== undefined) return _extrasCache[mva];
+  try {
+    _extrasCache[mva] = await api.obtenerExtrasUnidad(mva, _miPlaza()) || {};
+  } catch { _extrasCache[mva] = {}; }
+  return _extrasCache[mva];
+}
+
+function _renderTagsUnidad(mva, extras) {
+  const container = document.getElementById('panel-tags-unidad');
+  if (!container) return;
+  const tags = extras?.tags || [];
+  const chips = Object.entries(_TAG_COLORS).map(([key, c]) => {
+    const activo = tags.includes(key);
+    return `<button onclick="toggleTagUnidad('${mva}','${key}')" title="${c.label}"
+      style="width:20px;height:20px;border-radius:50%;border:2.5px solid ${activo ? c.border : '#d1d5db'};background:${activo ? c.dot : '#fff'};cursor:pointer;transition:all .15s;flex-shrink:0;"></button>`;
+  }).join('');
+  container.innerHTML = `
+    <div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Etiqueta</div>
+    <div style="display:flex;gap:6px;align-items:center;">${chips}</div>`;
+}
+
+async function toggleTagUnidad(mva, tag) {
+  const extras = await _cargarExtrasUnidad(mva);
+  const tags = [...(extras.tags || [])];
+  const idx = tags.indexOf(tag);
+  if (idx >= 0) tags.splice(idx, 1); else tags.push(tag);
+  extras.tags = tags;
+  _extrasCache[mva] = extras;
+  try {
+    await api.actualizarExtrasUnidad(mva, { tags }, _miPlaza());
+  } catch { showToast('Error al guardar etiqueta', 'error'); return; }
+  _renderTagsUnidad(mva, extras);
+  _actualizarTagsBadgeCar(mva, tags);
+}
+
+function _actualizarTagsBadgeCar(mva, tags) {
+  const car = document.getElementById(`auto-${mva}`);
+  if (!car) return;
+  let badge = car.querySelector('.car-tags-badge');
+  if (!badge && tags.length > 0) {
+    badge = document.createElement('div');
+    badge.className = 'car-tags-badge';
+    badge.style.cssText = 'position:absolute;bottom:2px;right:2px;display:flex;gap:2px;z-index:2;';
+    car.style.position = 'relative';
+    car.appendChild(badge);
+  }
+  if (!badge) return;
+  badge.innerHTML = tags.map(t => {
+    const c = _TAG_COLORS[t];
+    return c ? `<span style="width:6px;height:6px;border-radius:50%;background:${c.dot};display:inline-block;"></span>` : '';
+  }).join('');
+  badge.style.display = tags.length > 0 ? 'flex' : 'none';
+}
+
+// ── F7.6  Recordatorios ─────────────────────────────────────
+function abrirModalRecordatorio(mva) {
+  _cargarExtrasUnidad(mva).then(extras => {
+    const rec = extras.recordatorio || {};
+    document.getElementById('recordatorio-mva').value  = mva;
+    document.getElementById('recordatorio-fecha').value  = rec.fecha || '';
+    document.getElementById('recordatorio-mensaje').value = rec.mensaje || '';
+    document.getElementById('modal-recordatorio').style.display = 'flex';
+  });
+}
+
+function cerrarModalRecordatorio() {
+  document.getElementById('modal-recordatorio').style.display = 'none';
+}
+
+async function guardarRecordatorio() {
+  const mva    = document.getElementById('recordatorio-mva').value;
+  const fecha  = document.getElementById('recordatorio-fecha').value;
+  const mensaje = document.getElementById('recordatorio-mensaje').value.trim();
+  if (!fecha) { showToast('Selecciona una fecha', 'warning'); return; }
+  const extras = _extrasCache[mva] || {};
+  extras.recordatorio = { fecha, mensaje };
+  _extrasCache[mva] = extras;
+  try {
+    await api.actualizarExtrasUnidad(mva, { recordatorio: extras.recordatorio }, _miPlaza());
+    showToast('Recordatorio guardado', 'success');
+    cerrarModalRecordatorio();
+    _actualizarRecordatorioBadgeCar(mva, extras.recordatorio);
+    _renderRecordatorioUnidad(mva, extras);
+  } catch { showToast('Error al guardar recordatorio', 'error'); }
+}
+
+async function borrarRecordatorio() {
+  const mva = document.getElementById('recordatorio-mva').value;
+  const extras = _extrasCache[mva] || {};
+  extras.recordatorio = null;
+  _extrasCache[mva] = extras;
+  try {
+    await api.actualizarExtrasUnidad(mva, { recordatorio: null }, _miPlaza());
+    showToast('Recordatorio eliminado', 'success');
+    cerrarModalRecordatorio();
+    _actualizarRecordatorioBadgeCar(mva, null);
+    _renderRecordatorioUnidad(mva, extras);
+  } catch { showToast('Error al eliminar recordatorio', 'error'); }
+}
+
+function _actualizarRecordatorioBadgeCar(mva, recordatorio) {
+  const car = document.getElementById(`auto-${mva}`);
+  if (!car) return;
+  let badge = car.querySelector('.car-reminder-badge');
+  if (recordatorio?.fecha) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'car-reminder-badge material-icons';
+      badge.style.cssText = 'position:absolute;top:2px;right:2px;font-size:11px;z-index:3;text-shadow:0 0 3px rgba(0,0,0,.6);';
+      badge.textContent = 'alarm';
+      car.style.position = 'relative';
+      car.appendChild(badge);
+    }
+    const hoy = new Date().toISOString().slice(0, 10);
+    badge.style.color = recordatorio.fecha <= hoy ? '#ef4444' : '#f59e0b';
+  } else if (badge) {
+    badge.remove();
+  }
+}
+
+function _renderRecordatorioUnidad(mva, extras) {
+  const container = document.getElementById('panel-recordatorio-unidad');
+  if (!container) return;
+  const rec = extras?.recordatorio;
+  if (!rec?.fecha) {
+    container.innerHTML = `
+      <button onclick="abrirModalRecordatorio('${mva}')"
+        style="background:none;border:1px dashed #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;color:#94a3b8;cursor:pointer;display:flex;align-items:center;gap:5px;width:100%;justify-content:center;">
+        <span class="material-icons" style="font-size:14px;">alarm_add</span> Agregar recordatorio
+      </button>`;
+    return;
+  }
+  const hoy = new Date().toISOString().slice(0, 10);
+  const vencido = rec.fecha <= hoy;
+  const color = vencido ? '#ef4444' : '#d97706';
+  container.innerHTML = `
+    <div style="background:${vencido ? '#fef2f2' : '#fffbeb'};border:1.5px solid ${color}33;border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:8px;cursor:pointer;" onclick="abrirModalRecordatorio('${mva}')">
+      <span class="material-icons" style="color:${color};font-size:16px;flex-shrink:0;">alarm</span>
+      <div style="flex:1;">
+        <div style="font-size:11px;font-weight:900;color:${color};">${rec.fecha}${vencido ? ' — VENCIDO' : ''}</div>
+        ${rec.mensaje ? `<div style="font-size:10px;color:#475569;font-weight:600;">${escapeHtml(rec.mensaje)}</div>` : ''}
+      </div>
+      <span class="material-icons" style="font-size:14px;color:#94a3b8;">edit</span>
+    </div>`;
+}
+
+// ── F7  Panel de extras: cargar al abrir detalle ────────────
+async function _renderPanelExtrasUnidad(mva) {
+  const panel = document.getElementById('panel-extras-unidad');
+  if (!panel) return;
+  panel.style.display = 'flex';
+  const unidad = _ultimaFlotaMapa?.find(u => (u.mva || '').toUpperCase() === mva.toUpperCase());
+  const evs = unidad ? _obtenerEvidenciasUnidad(unidad) : [];
+  const accionesEl = document.getElementById('panel-acciones-rapidas');
+  if (accionesEl) {
+    accionesEl.innerHTML = `
+      <button onclick="copiarDatosUnidad('${mva}')"
+        style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;color:#334155;display:flex;align-items:center;gap:4px;">
+        <span class="material-icons" style="font-size:14px;color:#0284c7;">content_copy</span>Copiar datos
+      </button>
+      ${evs.length > 0 ? `
+      <button onmouseenter="_mostrarPopoverEvidencia('${mva}',this)" onmouseleave="_ocultarPopoverEvidencia()"
+        style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;color:#334155;display:flex;align-items:center;gap:4px;">
+        <span class="material-icons" style="font-size:14px;color:#059669;">photo_camera</span>${evs.length} foto${evs.length > 1 ? 's' : ''}
+      </button>` : ''}`;
+  }
+  const extras = await _cargarExtrasUnidad(mva);
+  _renderTagsUnidad(mva, extras);
+  _renderNotaRapida(mva);
+  _renderRecordatorioUnidad(mva, extras);
+}
+
+// ── F7  Verificar recordatorios al iniciar ─────────────────
+async function _verificarRecordatoriosVencidos() {
+  try {
+    const extrasMap = await api.obtenerExtrasPlaza(_miPlaza());
+    const hoy = new Date().toISOString().slice(0, 10);
+    let vencidos = 0;
+    Object.values(extrasMap).forEach(extras => {
+      if (extras.recordatorio?.fecha && extras.recordatorio.fecha <= hoy) vencidos++;
+      if (extras.tags?.length) _actualizarTagsBadgeCar(extras.mva, extras.tags);
+      if (extras.recordatorio?.fecha) _actualizarRecordatorioBadgeCar(extras.mva, extras.recordatorio);
+    });
+    if (vencidos > 0) showToast(`🔔 ${vencidos} recordatorio${vencidos > 1 ? 's' : ''} vencido${vencidos > 1 ? 's' : ''}`, 'warning');
+  } catch { /* silencioso */ }
 }

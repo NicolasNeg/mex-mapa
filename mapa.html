@@ -253,6 +253,7 @@
       </div>
 
       <button id="btnMenuExportar" onclick="exportarMapa()" style="display:flex;"></button>
+      <button id="btnMenuExportarPDF" onclick="exportarMapaPDF()" title="Exportar mapa como PDF" style="display:flex; margin-top:4px;"></button>
     </div>
 
     <div class="admin-sidebar-footer">
@@ -1810,6 +1811,17 @@
     <div id="info-panel" class="info-sidebar">
       <div id="detalle-unidad"></div>
       <div id="swap-container"></div>
+      <!-- F7: Sección de utilidades rápidas -->
+      <div id="panel-extras-unidad" style="display:none; margin:10px 0 0; padding:12px 14px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; display:flex; flex-direction:column; gap:10px;">
+        <!-- Tags de color -->
+        <div id="panel-tags-unidad"></div>
+        <!-- Nota rápida -->
+        <div id="panel-nota-rapida"></div>
+        <!-- Recordatorio -->
+        <div id="panel-recordatorio-unidad"></div>
+        <!-- Botones de acción rápida -->
+        <div id="panel-acciones-rapidas" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
       <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; margin-top:25px;">
         <button id="btnMandarLimbo" onclick="resetUnitToLimbo()"
           style="padding:18px; border-radius:14px; border:none; background:#fee2e2; color:#ef4444; font-weight:900; cursor:pointer; font-size:14px;">MANDAR
@@ -3903,6 +3915,43 @@
       <div id="comparador-content" style="overflow-y:auto; padding:18px 22px; flex:1;">
         <div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">Cargando datos...</div>
       </div>
+    </div>
+  </div>
+
+  <!-- ═══ FASE 7 — Modal Recordatorio por unidad ════════════ -->
+  <div id="modal-recordatorio" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); z-index:75300; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)cerrarModalRecordatorio()">
+    <div style="background:#fff; border-radius:16px; width:100%; max-width:400px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+      <div style="padding:16px 20px 12px; background:linear-gradient(135deg,#1e3a5f,#0f172a); display:flex; align-items:center; gap:10px; justify-content:space-between;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span class="material-icons" style="color:#fbbf24; font-size:20px;">alarm</span>
+          <div style="font-size:14px; font-weight:900; color:white;">Recordatorio</div>
+        </div>
+        <button onclick="cerrarModalRecordatorio()" style="background:rgba(255,255,255,0.1);border:none;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+          <span class="material-icons" style="font-size:16px;color:#94a3b8;">close</span>
+        </button>
+      </div>
+      <div style="padding:18px 20px;">
+        <input type="hidden" id="recordatorio-mva">
+        <label style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Fecha</label>
+        <input type="date" id="recordatorio-fecha" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;margin-bottom:12px;"
+          onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'">
+        <label style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Mensaje</label>
+        <textarea id="recordatorio-mensaje" rows="3" placeholder="Ej: Revisión mecánica pendiente..."
+          style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;resize:none;box-sizing:border-box;font-family:inherit;"
+          onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+        <div style="display:flex;gap:8px;margin-top:14px;">
+          <button onclick="guardarRecordatorio()" style="flex:1;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:900;cursor:pointer;">Guardar</button>
+          <button onclick="borrarRecordatorio()" style="background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:900;cursor:pointer;">Borrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ FASE 7 — Preview evidencia (popover flotante) ══════ -->
+  <div id="popover-evidencia" style="display:none; position:fixed; z-index:75400; pointer-events:none;">
+    <div style="background:#1e293b; border-radius:12px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.5); max-width:220px;">
+      <img id="popover-evidencia-img" src="" alt="" style="width:220px; height:160px; object-fit:cover; display:block;">
+      <div id="popover-evidencia-label" style="padding:6px 10px; font-size:10px; font-weight:800; color:#94a3b8; letter-spacing:.04em;"></div>
     </div>
   </div>
 
