@@ -4,8 +4,10 @@
 // ═══════════════════════════════════════════════════════════
 (function () {
   const parts = window._mexParts || {};
+  // Extend existing window.api (set by mex-api.js) so unmigrated functions survive.
+  // New api/ modules take precedence over legacy mex-api.js for the same function name.
   window.api = Object.assign(
-    {},
+    window.api || {},
     parts.auth     || {},
     parts.mapa     || {},
     parts.cuadre   || {},
