@@ -1799,6 +1799,22 @@ auth.onAuthStateChanged(async (user) => {
         _setSessionProfile(datos);
         configurarPermisosUI();
         perfilValidado = datos;
+      } else if (_isBootstrapProgrammerEmail(emailNormalizado)) {
+        // Programador bootstrap sin documento en Firestore — perfil sintético
+        const datosSinteticos = _normalizeUserProfile({
+          id: emailNormalizado,
+          email: emailNormalizado,
+          nombre: user.displayName || 'PROGRAMADOR',
+          rol: 'PROGRAMADOR',
+          isAdmin: true,
+          isGlobal: true,
+          plazaAsignada: '',
+          telefono: '',
+          status: 'ACTIVO'
+        });
+        _setSessionProfile(datosSinteticos);
+        configurarPermisosUI();
+        perfilValidado = datosSinteticos;
       } else {
         // Email no autorizado — redirigir a login con mensaje
         auth.signOut();

@@ -604,7 +604,7 @@ service cloud.firestore {
 
     // ─── USUARIOS Y PERMISOS ─────────────────────────────────
     match /usuarios/{doc} {
-      allow read: if tienePerfilActual();
+      allow read: if tienePerfilActual() || esProgramadorBootstrap();
       allow create: if puedeCrearUsuario(request.resource.data);
       allow update: if puedeActualizarUsuario(resource.data, request.resource.data)
         || actualizacionSelfServiceUsuarioValida(doc);
