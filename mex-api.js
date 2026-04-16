@@ -1364,7 +1364,7 @@ const API_FUNCTIONS = {
     }
 
     // Si el doc no tiene plaza (legacy), stampearla ahora
-    const updatePayload = { gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor };
+    const updatePayload = { gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor, _version: db.FieldValue.increment(1) }; // [1.6]
     if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
     await docRef.update(updatePayload);
     await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp); // [F1]
@@ -1831,9 +1831,9 @@ const API_FUNCTIONS = {
     const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
       _getSettings(plaza), // [F1] settings por plaza
       _getSettings('GLOBAL'),
-      db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50).get(),
+      (plaza ? db.collection(COL.ALERTAS).where('plaza', '==', _normalizePlazaId(plaza)).orderBy("timestamp", "desc").limit(50) : db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50)).get(), // [1.4]
       db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
-      db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get()
+      (plaza ? db.collection(COL.NOTAS).where('plaza', '==', _normalizePlazaId(plaza)).where("estado", "==", "PENDIENTE") : db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE")).get() // [1.4]
     ]);
     const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       .filter(a => !_alertReadByUser(a, usuarioActivo))
@@ -1964,8 +1964,11 @@ const API_FUNCTIONS = {
     });
     return "EXITO";
   },
-  async obtenerTodasLasAlertas() {
-    const snap = await db.collection(COL.ALERTAS).orderBy("timestamp", "desc").get();
+  async obtenerTodasLasAlertas(plaza) {
+    const plazaUp = _normalizePlazaId(plaza);
+    let q = db.collection(COL.ALERTAS).orderBy("timestamp", "desc");
+    if (plazaUp) q = db.collection(COL.ALERTAS).where('plaza', '==', plazaUp).orderBy("timestamp", "desc"); // [1.4]
+    const snap = await q.get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
   async eliminarAlertaMaestraBackend(idAlerta, actor = "Sistema") {
@@ -2061,13 +2064,17 @@ const API_FUNCTIONS = {
   // ─── NOTAS ───────────────────────────────────────────────
   async obtenerTodasLasNotas(plaza) {
     const plazaUp = _normalizePlazaId(plaza);
-    const snap = await db.collection(COL.NOTAS).orderBy("timestamp", "desc").get();
+    let q = db.collection(COL.NOTAS).orderBy("timestamp", "desc");
+    if (plazaUp) q = db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy("timestamp", "desc"); // [1.4]
+    const snap = await q.get();
     const docs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
     return docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
   },
   suscribirNotasAdmin(callback, plaza) {
     const plazaUp = _normalizePlazaId(plaza);
-    return db.collection(COL.NOTAS).orderBy("timestamp", "desc").onSnapshot(snap => {
+    let q = db.collection(COL.NOTAS).orderBy("timestamp", "desc");
+    if (plazaUp) q = db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy("timestamp", "desc"); // [1.4]
+    return q.onSnapshot(snap => {
       const docs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
       callback(docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
     }, err => console.error("onSnapshot notas_admin:", err));

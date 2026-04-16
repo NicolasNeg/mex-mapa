@@ -3156,7 +3156,8 @@ function _firmaUnidadMapa(unit) {
     unit.placas,
     unit.modelo,
     unit.fechaIngreso,
-    unit.plaza
+    unit.plaza,
+    unit.traslado_destino || '' // [2.8]
   ].join('|');
 }
 
@@ -3220,7 +3221,8 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   const lockHtml = (textoNotas.includes("RESERVAD") || textoNotas.includes("APARTAD")) ? `<div class="lock-badge">🔒</div>` : '';
   const docHtml = textoNotas.includes("DOBLE CERO") ? `<div class="doc-badge">🍃</div>` : '';
   const mantoHtml = (unit.estado === "MANTENIMIENTO" || unit.estado === "TALLER") ? `<div class="manto-badge">⚙️</div>` : '';
-  const trasladoHtml = unit.estado === "TRASLADO" ? `<div class="traslado-badge" title="En traslado">🚛</div>` : '';
+  const trasladoDest = unit.traslado_destino ? ` → ${unit.traslado_destino}` : '';
+  const trasladoHtml = unit.estado === "TRASLADO" ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + unit.traslado_destino : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${unit.traslado_destino}</span>` : ''}</div>` : '';
   const termometro = obtenerDisenoCalor(unit.fechaIngreso);
   const calorHtml = `<div class="badge-calor ${termometro.clase}" style="background: ${termometro.bg}; border: 1px solid ${termometro.border}; color: ${termometro.color};"><span class="material-icons" style="font-size: 11px;">${termometro.icon}</span> ${termometro.text}</div>`;
   const gasBarHtml = _renderGasolinaMapa(unit.gasolina);
@@ -4372,6 +4374,7 @@ function limpiarFiltrosFlota() {
   if (chipTodos) chipTodos.classList.add('active');
 
   filtrarFlota();
+  _actualizarBatchBar(); // [2.5]
 }
 
 
@@ -4438,7 +4441,7 @@ function renderFlota(data) {
       : '';
 
     return `
-    <tr onclick="seleccionarFilaFlota(${i}, this)">
+    <tr onclick="seleccionarFilaFlota(${i}, this)" data-mva="${u.mva}">
       <td class="td-mva"><div style="display:block;">${u.mva}</div>${formBotones}</td>
       <td><span class="td-cat">${u.categoria || u.categ || 'N/A'}</span></td>
       <td>${u.modelo}</td>
@@ -4450,6 +4453,7 @@ function renderFlota(data) {
     </tr>
     `;
   }).join('');
+  _actualizarBatchBar(); // [2.5] refresh count after render
 }
 
 
@@ -9693,6 +9697,60 @@ function filtrarEspecial(tipo, element) {
 
   // Llama al motor principal para que redibuje la tabla
   filtrarFlota();
+  _actualizarBatchBar(); // [2.5]
+}
+
+// [2.5] Batch action bar
+function _actualizarBatchBar() {
+  const bar = document.getElementById('batch-action-bar');
+  const label = document.getElementById('batch-count-label');
+  if (!bar) return;
+  const filas = document.querySelectorAll('#tabla-flota tbody tr[data-mva]');
+  const visible = filas.length;
+  if (currentFiltroEspecial !== 'TODOS' && visible > 0) {
+    bar.style.display = 'flex';
+    if (label) label.textContent = `${visible} unidad${visible !== 1 ? 'es' : ''} filtradas`;
+    const prog = document.getElementById('batch-progress-label');
+    if (prog) prog.textContent = '';
+    const sel = document.getElementById('batch-estado-select');
+    if (sel) sel.value = '';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+async function ejecutarAccionBatch() {
+  const sel = document.getElementById('batch-estado-select');
+  const nuevoEstado = sel ? sel.value : '';
+  if (!nuevoEstado) { showToast('Selecciona un estado para aplicar', 'warn'); return; }
+
+  const filas = Array.from(document.querySelectorAll('#tabla-flota tbody tr[data-mva]'));
+  if (!filas.length) { showToast('No hay unidades filtradas', 'warn'); return; }
+
+  const ok = await showConfirmDialog(`¿Aplicar estado "${nuevoEstado}" a ${filas.length} unidad(es) filtradas?`);
+  if (!ok) return;
+
+  const prog = document.getElementById('batch-progress-label');
+  const usuario = window._mex?.sesionActiva?.nombre || 'Batch';
+  const plaza = _miPlaza();
+  let done = 0, errores = 0;
+
+  for (const fila of filas) {
+    const mva = fila.dataset.mva;
+    if (!mva) continue;
+    // Find current unit data
+    const unit = DB_FLOTA.find(u => u.mva === mva) || DB_ADMINS.find(u => u.mva === mva);
+    if (!unit) { errores++; continue; }
+    try {
+      await window.api.aplicarEstado(mva, nuevoEstado, unit.ubicacion || 'PATIO', unit.gasolina || 'N/A', '', false, usuario, usuario, plaza);
+      done++;
+    } catch (e) {
+      console.error('[batch]', mva, e);
+      errores++;
+    }
+    if (prog) prog.textContent = `${done}/${filas.length}${errores ? ` (${errores} errores)` : ''}`;
+  }
+  showToast(`Batch completado: ${done} ok${errores ? `, ${errores} errores` : ''}`, errores ? 'warn' : 'ok');
 }
 
 
@@ -18390,6 +18448,9 @@ Object.assign(window, {
   // Fase 5
   ejecutarBackfillPlaza,
   ejecutarMigracionLegacy,
+  // [2.5] Batch
+  ejecutarAccionBatch,
+  _actualizarBatchBar,
 });
 
 // ═══════════════════════════════════════════════════════════

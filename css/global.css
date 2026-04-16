@@ -17165,6 +17165,20 @@ body.editor-inspector-dragging .editor-inspector-card {
   z-index: 2;
 }
 
+.traslado-dest {
+  display: block;
+  font-size: 8px;
+  font-weight: 700;
+  color: #c4b5fd;
+  letter-spacing: 0.3px;
+  max-width: 38px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  margin-top: 1px;
+}
+
 .car.traslado {
   border: 2px solid #7c3aed;
   background: linear-gradient(135deg, #1e1b4b 0%, #2e1065 100%) !important;
