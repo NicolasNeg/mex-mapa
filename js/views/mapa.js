@@ -15616,6 +15616,33 @@ function renderizarListaConfig() {
               </button>
             </div>` : ''}
 
+            ${canUseProgrammerConfig() ? `
+            <div class="cfg-emp-card" id="cfg-migration-card">
+              <div class="cfg-emp-section-header">
+                <span class="material-icons">move_up</span>
+                Migración de Datos Legacy → Subcollections
+              </div>
+              <p style="font-size:12px; color:#64748b; line-height:1.6; margin:0 0 12px;">
+                Mueve los documentos de colecciones planas (<b>cuadre</b>, <b>externos</b>, <b>cuadre_admins</b>, <b>historial_cuadres</b>) a su subcollection por plaza correcta.
+                <br><strong style="color:#f59e0b;">Solo copia — no borra el legacy. Seguro de ejecutar.</strong>
+              </p>
+              <div id="cfg-mig-progress" style="display:none; margin-bottom:10px;">
+                <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:700; color:#64748b; margin-bottom:4px;">
+                  <span id="cfg-mig-label">Iniciando...</span>
+                  <span id="cfg-mig-pct">0%</span>
+                </div>
+                <div style="background:#e2e8f0; border-radius:99px; height:7px; overflow:hidden;">
+                  <div id="cfg-mig-bar" style="height:100%; width:0%; background:#6366f1; border-radius:99px; transition:width .3s;"></div>
+                </div>
+              </div>
+              <div id="cfg-mig-log" style="display:none; font-size:11px; color:#475569; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; max-height:120px; overflow-y:auto; margin-bottom:10px; font-family:monospace; white-space:pre-wrap;"></div>
+              <button id="cfg-mig-btn" onclick="ejecutarMigracionLegacy()"
+                style="background:#6366f1; color:white; border:none; border-radius:10px; padding:10px 20px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:8px;">
+                <span class="material-icons" style="font-size:16px;">move_up</span>
+                Migrar datos legacy a subcollections
+              </button>
+            </div>` : ''}
+
             <div class="cfg-emp-card" style="padding:18px 20px;">
               <div style="display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap;">
                 <button type="button" class="cfg-save-btn" onclick="guardarEmpresaConfig()">
@@ -18360,6 +18387,9 @@ Object.assign(window, {
   borrarRecordatorio,
   _mostrarPopoverEvidencia,
   _ocultarPopoverEvidencia,
+  // Fase 5
+  ejecutarBackfillPlaza,
+  ejecutarMigracionLegacy,
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -19521,4 +19551,108 @@ async function _verificarRecordatoriosVencidos() {
     });
     if (vencidos > 0) showToast(`🔔 ${vencidos} recordatorio${vencidos > 1 ? 's' : ''} vencido${vencidos > 1 ? 's' : ''}`, 'warning');
   } catch { /* silencioso */ }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  FASE 5 — MIGRACIÓN LEGACY → SUBCOLLECTIONS
+// ═══════════════════════════════════════════════════════════
+
+// ── UI helper: actualizar barra de progreso en el panel cfg ─
+function _migSetUI(btnId, barId, labelId, pctId, logId, progressId) {
+  return {
+    setLoading(text) {
+      const btn = document.getElementById(btnId);
+      if (btn) { btn.disabled = true; btn.innerHTML = `<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite;">sync</span> ${text}`; }
+      const p = document.getElementById(progressId);
+      if (p) p.style.display = 'block';
+      const l = document.getElementById(logId);
+      if (l) l.style.display = 'block';
+    },
+    setProgress(label, pct) {
+      const lbl = document.getElementById(labelId); if (lbl) lbl.textContent = label;
+      const p = document.getElementById(pctId); if (p) p.textContent = pct + '%';
+      const bar = document.getElementById(barId); if (bar) bar.style.width = pct + '%';
+    },
+    log(msg) {
+      const l = document.getElementById(logId);
+      if (l) { l.textContent += msg + '\n'; l.scrollTop = l.scrollHeight; }
+    },
+    setDone(text, color) {
+      const btn = document.getElementById(btnId);
+      if (btn) { btn.disabled = false; btn.style.background = color || '#10b981'; btn.innerHTML = `<span class="material-icons" style="font-size:16px;">check_circle</span> ${text}`; }
+    },
+    setError(text) {
+      const btn = document.getElementById(btnId);
+      if (btn) { btn.disabled = false; btn.innerHTML = `<span class="material-icons" style="font-size:16px;">error</span> ${text}`; btn.style.background = '#ef4444'; }
+    },
+  };
+}
+
+// ── Backfill de campo plaza en unidades legacy ─────────────
+async function ejecutarBackfillPlaza() {
+  const ok = await mexConfirm(
+    'Backfill de plaza en unidades',
+    '¿Inyectar el campo "plaza" en documentos que no lo tienen? Operación segura, no borra nada.',
+    'warning'
+  );
+  if (!ok) return;
+
+  const ui = _migSetUI('cfg-bf-btn', 'cfg-bf-bar', 'cfg-bf-label', 'cfg-bf-pct', 'cfg-bf-log', 'cfg-bf-progress');
+  ui.setLoading('Inyectando...');
+  ui.log('Iniciando backfill de campo plaza...');
+  try {
+    const res = await api.backfillPlazaEnUnidades(({ col, done, total, errores }) => {
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      ui.setProgress(`${col}: ${done}/${total}`, pct);
+    });
+    ui.log(`Completado: ${res?.ok ?? '?'} docs actualizados, ${res?.errores?.length ?? 0} errores.`);
+    ui.setDone('Backfill completado', '#10b981');
+    showToast(`Backfill completado: ${res?.ok ?? '?'} docs`, 'success');
+  } catch (err) {
+    ui.log(`Error: ${err.message}`);
+    ui.setError('Error en backfill');
+    showToast('Error durante el backfill', 'error');
+  }
+}
+
+// ── Migración legacy → subcollections ─────────────────────
+async function ejecutarMigracionLegacy() {
+  const ok = await mexConfirm(
+    'Migrar datos legacy a subcollections',
+    '¿Copiar los documentos de colecciones planas a sus subcollections por plaza? Esta operación es segura: no borra nada, solo copia donde no existe.',
+    'warning'
+  );
+  if (!ok) return;
+
+  const ui = _migSetUI('cfg-mig-btn', 'cfg-mig-bar', 'cfg-mig-label', 'cfg-mig-pct', 'cfg-mig-log', 'cfg-mig-progress');
+  ui.setLoading('Migrando...');
+  ui.log('Iniciando migración legacy → subcollections...\n');
+
+  const COLS = ['cuadre', 'externos', 'cuadre_admins', 'historial_cuadres'];
+  let colIdx = 0;
+
+  try {
+    const res = await api.migrarDatosLegacyAPlazas(({ col, done, total, errores }) => {
+      const idx = COLS.indexOf(col);
+      if (idx >= 0 && idx > colIdx) { colIdx = idx; ui.log(`✓ ${COLS[idx - 1]} completado`); }
+      const colNum = Math.max(0, colIdx);
+      const pct = Math.round(((colNum / COLS.length) + (total > 0 ? (done / total) / COLS.length : 0)) * 100);
+      ui.setProgress(`${col}: ${done}/${total}  (errores: ${errores})`, Math.min(98, pct));
+    });
+
+    const errCount = res.errores?.length || 0;
+    ui.setProgress('Completado', 100);
+    ui.log(`\n✅ ${res.ok} documentos migrados`);
+    if (errCount > 0) {
+      ui.log(`⚠️ ${errCount} sin plaza detectada (saltados):`);
+      res.errores.slice(0, 20).forEach(e => ui.log('  · ' + e));
+    }
+    ui.setDone(`Migración completa: ${res.ok} docs`, '#6366f1');
+    showToast(`Migración completa: ${res.ok} documentos copiados`, 'success');
+  } catch (err) {
+    ui.log(`\n❌ Error: ${err.message}`);
+    ui.setError('Error en migración');
+    showToast('Error durante la migración', 'error');
+    console.error('[F5] migración error:', err);
+  }
 }

@@ -1416,6 +1416,78 @@ const API_FUNCTIONS = {
     return result;
   },
 
+  // ── Fase 5: Migración legacy → subcollections ──────────────
+  async migrarDatosLegacyAPlazas(onProgress) {
+    const progreso = (col, done, total, errores) => {
+      if (typeof onProgress === 'function') onProgress({ col, done, total, errores });
+    };
+
+    const BATCH_SIZE = 490;
+    let totalOk = 0;
+    const erroresGlobal = [];
+
+    // Helper: copiar docs en batches
+    const copiarDocs = async (snapDocs, destFn, col) => {
+      let done = 0; const total = snapDocs.length;
+      progreso(col, 0, total, 0);
+      for (let i = 0; i < snapDocs.length; i += BATCH_SIZE) {
+        const chunk = snapDocs.slice(i, i + BATCH_SIZE);
+        const batch = db.batch();
+        for (const docSnap of chunk) {
+          try {
+            const data = docSnap.data();
+            const destRef = destFn(data, docSnap.id);
+            if (!destRef) { erroresGlobal.push(`Sin plaza: ${docSnap.id}`); done++; continue; }
+            const destSnap = await destRef.get();
+            if (destSnap.exists) { done++; totalOk++; continue; } // skip — ya migrado
+            batch.set(destRef, data);
+            done++; totalOk++;
+          } catch (e) { erroresGlobal.push(`${docSnap.id}: ${e.message}`); done++; }
+        }
+        await batch.commit();
+        progreso(col, done, total, erroresGlobal.length);
+      }
+    };
+
+    // ── cuadre/{mva} → cuadre/{plaza}/unidades/{mva} ──────────
+    const cuadreSnap = await db.collection('cuadre').get();
+    const cuadreDocs = cuadreSnap.docs.filter(d => !d.ref.path.includes('/unidades/'));
+    await copiarDocs(cuadreDocs, (data, id) => {
+      const p = _normalizePlazaId(data.plaza || data.plazaAsignada || data.sucursal);
+      if (!p) return null;
+      return db.collection('cuadre').doc(p).collection('unidades').doc(id);
+    }, 'cuadre');
+
+    // ── externos/{mva} → externos/{plaza}/unidades/{mva} ──────
+    const externosSnap = await db.collection('externos').get();
+    const externosDocs = externosSnap.docs.filter(d => !d.ref.path.includes('/unidades/'));
+    await copiarDocs(externosDocs, (data, id) => {
+      const p = _normalizePlazaId(data.plaza || data.plazaAsignada || data.sucursal);
+      if (!p) return null;
+      return db.collection('externos').doc(p).collection('unidades').doc(id);
+    }, 'externos');
+
+    // ── cuadre_admins/{id} → cuadre_admins/{plaza}/registros/{id} ─
+    const cadmSnap = await db.collection('cuadre_admins').get();
+    const cadmDocs = cadmSnap.docs.filter(d => !d.ref.path.includes('/registros/'));
+    await copiarDocs(cadmDocs, (data, id) => {
+      const p = _normalizePlazaId(data.plaza || data.ubicacion);
+      if (!p) return null;
+      return db.collection('cuadre_admins').doc(p).collection('registros').doc(id);
+    }, 'cuadre_admins');
+
+    // ── historial_cuadres/{id} → historial_cuadres/{plaza}/registros/{id} ─
+    const histSnap = await db.collection('historial_cuadres').get();
+    const histDocs = histSnap.docs.filter(d => !d.ref.path.includes('/registros/'));
+    await copiarDocs(histDocs, (data, id) => {
+      const p = _normalizePlazaId(data.plaza || data.ubicacion);
+      if (!p) return null;
+      return db.collection('historial_cuadres').doc(p).collection('registros').doc(id);
+    }, 'historial_cuadres');
+
+    return { ok: totalOk, errores: erroresGlobal };
+  },
+
   async insertarUnidadDesdeHTML(objeto) {
     const mvaStr = objeto.mva.toString().trim().toUpperCase();
     const docId  = _mvaToDocId(mvaStr);
