@@ -16144,64 +16144,6 @@ function eliminarElementoConfig(index) {
   });
 }
 
-async function ejecutarMigracionLegacy() {
-  if (!canUseProgrammerConfig()) { showToast("Sin permiso para esta operación.", "error"); return; }
-  const ok = await mexConfirm(
-    'Migrar datos legacy',
-    '¿Migrar todos los datos al nuevo formato por plaza?\n\nEsta operación es segura: copia los datos, NO los borra.',
-    'warning'
-  );
-  if (!ok) return;
-
-  const btn = document.getElementById('cfg-mig-btn');
-  const prog = document.getElementById('cfg-mig-progress');
-  const bar = document.getElementById('cfg-mig-bar');
-  const label = document.getElementById('cfg-mig-label');
-  const pct = document.getElementById('cfg-mig-pct');
-  const log = document.getElementById('cfg-mig-log');
-
-  const COLS = ['cuadre', 'externos', 'cuadre_admins', 'historial_cuadres', 'configuracion/listas'];
-  let colIdx = 0;
-
-  function onProgress({ col, informe }) {
-    colIdx = COLS.indexOf(col);
-    if (colIdx < 0) colIdx = COLS.length - 1;
-    const pctVal = Math.round(((colIdx + 1) / COLS.length) * 100);
-    bar.style.width = pctVal + '%';
-    pct.textContent = pctVal + '%';
-    label.textContent = `Procesando: ${col}`;
-    log.style.display = 'block';
-    log.textContent = `OK: ${informe.ok} | Skip: ${informe.skip} | Errores: ${informe.errores.length}`;
-    if (informe.errores.length) log.textContent += '\n' + informe.errores.slice(-5).join('\n');
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons spinner" style="font-size:16px;">sync</span> Migrando...';
-  prog.style.display = 'block';
-  bar.style.width = '0%';
-  log.style.display = 'none';
-  log.textContent = '';
-
-  try {
-    const result = await api.migrarDatosLegacyAPlazas(onProgress);
-    bar.style.width = '100%';
-    bar.style.background = result.errores.length === 0 ? '#10b981' : '#f59e0b';
-    pct.textContent = '100%';
-    label.textContent = result.errores.length === 0 ? '¡Migración completada!' : 'Completado con advertencias';
-    log.style.display = 'block';
-    log.textContent = `✅ Migrados: ${result.ok} | ⏭ Ya existían: ${result.skip} | ❌ Errores: ${result.errores.length}`;
-    if (result.errores.length) log.textContent += '\n\nSin plaza (no migrados):\n' + result.errores.join('\n');
-    btn.innerHTML = '<span class="material-icons" style="font-size:16px;">check_circle</span> Migración completada';
-    btn.style.background = '#10b981';
-    showToast(`Migración terminada: ${result.ok} docs migrados`, result.errores.length ? 'warning' : 'success');
-  } catch (e) {
-    btn.innerHTML = '<span class="material-icons" style="font-size:16px;">error</span> Error';
-    btn.style.background = '#ef4444';
-    btn.disabled = false;
-    showToast('Error en migración: ' + e.message, 'error');
-  }
-}
-
 function _persistPlazaForAdminLists() {
   if (TAB_ACTIVA_CFG === 'ubicaciones') {
     const selectedPlaza = document.getElementById('cfg-ubi-plaza-filter')?.value || '';
