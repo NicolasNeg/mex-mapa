@@ -964,6 +964,8 @@ function _obtenerInicialesUsuario(nombre = '') {
 }
 
 function _currentUserDocId() {
+  // Prefer the actual Firestore doc ID from the loaded profile (may be UID-keyed)
+  if (currentUserProfile?.id) return currentUserProfile.id;
   return _profileDocId(auth.currentUser?.email || currentUserProfile?.email || '');
 }
 

@@ -657,7 +657,7 @@ service cloud.firestore {
 
     match /settings/{doc} {
       allow read: if tienePerfilActual();
-      allow write: if tienePerfilActual() && tienePermiso(perfilActual(), "manage_system_settings");
+      allow write: if tienePerfilActual() && (tienePermiso(perfilActual(), "manage_system_settings") || tienePermiso(perfilActual(), "lock_map"));
     }
 
     match /ops_events/{doc} {
