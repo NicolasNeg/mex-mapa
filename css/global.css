@@ -460,6 +460,161 @@
       background: rgba(15, 23, 42, 0.9) !important;
     }
 
+    /* ══════════════════════════════════════════════════════════
+       F6.3  MODO NOCHE MEJORADO — WCAG AA (contraste ≥4.5:1)
+       Cubre elementos añadidos en Fases 3–7
+       ══════════════════════════════════════════════════════════ */
+
+    /* Transición suave al cambiar de tema */
+    body { transition: background-color .25s, color .25s; }
+
+    /* Textos muy oscuros en dark → texto claro legible */
+    body.dark-theme [style*="color:#0f172a"],
+    body.dark-theme [style*="color: #0f172a"] { color: #f1f5f9 !important; }
+    body.dark-theme [style*="color:#334155"],
+    body.dark-theme [style*="color: #334155"] { color: #cbd5e1 !important; }
+    body.dark-theme [style*="color:#475569"],
+    body.dark-theme [style*="color: #475569"] { color: #94a3b8 !important; }
+
+    /* Fondo e2e8f0 → superficie oscura */
+    body.dark-theme [style*="background:#e2e8f0"],
+    body.dark-theme [style*="background: #e2e8f0"] { background: #1e3a5f !important; }
+
+    /* ─ Chips de filtro (dark) ─ */
+    body.dark-theme .chip {
+      background: rgba(255,255,255,0.07) !important;
+      border-color: rgba(255,255,255,0.14) !important;
+      color: #cbd5e1 !important;
+    }
+    body.dark-theme .chip.active {
+      background: var(--primary) !important;
+      border-color: var(--primary) !important;
+      color: white !important;
+    }
+    body.dark-theme .chip-reservas {
+      border-color: #8b5cf6 !important;
+      color: #c4b5fd !important;
+      background: rgba(139,92,246,0.12) !important;
+    }
+
+    /* ─ Barra de búsqueda ─ */
+    body.dark-theme .search-wrapper {
+      background: rgba(255,255,255,0.07) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+    }
+    body.dark-theme #btn-voz-busqueda,
+    body.dark-theme #btn-voz-busqueda-mobile { color: #64748b !important; }
+
+    /* ─ Panel extras unidad (F7) ─ */
+    body.dark-theme #panel-extras-unidad {
+      background: rgba(255,255,255,0.05) !important;
+      border-color: #334155 !important;
+    }
+
+    /* ─ Modal PDF reservas (F4) ─ */
+    body.dark-theme #modal-pdf-reservas > div > div:last-child,
+    body.dark-theme #pdf-resultados {
+      background: #1e293b !important;
+      color: #f1f5f9 !important;
+    }
+    body.dark-theme #pdf-drop-zone {
+      border-color: #334155 !important;
+      background: rgba(255,255,255,0.04) !important;
+    }
+    body.dark-theme #pdf-texto-bruto {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+
+    /* ─ Panel supervisión (F3.3) y recomendación (F4) ─ */
+    body.dark-theme #panel-supervision { background: rgba(2,6,23,0.95) !important; }
+
+    /* ─ Banner global (F3.4) — ya tiene colores propios, mantener ─ */
+
+    /* ─ Comparador de plazas (F3.2) ─ */
+    body.dark-theme #modal-comparador-plazas > div {
+      background: #1e293b !important;
+    }
+    body.dark-theme #comparador-content { background: #1e293b !important; color: #f1f5f9 !important; }
+    body.dark-theme #comparador-content th { color: #94a3b8 !important; background: #0f172a !important; }
+    body.dark-theme #comparador-content td { color: #cbd5e1 !important; border-color: #334155 !important; }
+    body.dark-theme #comparador-content tr { background: #1e293b !important; border-color: #334155 !important; }
+
+    /* ─ Modal recordatorio (F7) ─ */
+    body.dark-theme #modal-recordatorio > div {
+      background: #1e293b !important;
+    }
+    body.dark-theme #recordatorio-fecha,
+    body.dark-theme #recordatorio-mensaje {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+
+    /* ─ Panel config empresa (F5/F6) — cards ─ */
+    body.dark-theme .cfg-emp-card {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    body.dark-theme .cfg-emp-section-header {
+      color: #94a3b8 !important;
+      border-color: #334155 !important;
+    }
+    body.dark-theme .cfg-emp-input,
+    body.dark-theme .cfg-emp-field input,
+    body.dark-theme .cfg-emp-field textarea,
+    body.dark-theme .cfg-emp-field select {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+
+    /* ─ Plaza cards (F3.1) ─ */
+    body.dark-theme .cfg-plaza-card {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+    body.dark-theme .cfg-plaza-card.active {
+      border-color: var(--primary) !important;
+      background: #172554 !important;
+    }
+
+    /* ─ Herramientas de mapa (F6) ─ */
+    body.dark-theme #cfg-migration-card,
+    body.dark-theme #cfg-backfill-card {
+      background: rgba(99,102,241,0.08) !important;
+      border-color: #4338ca55 !important;
+    }
+    body.dark-theme #cfg-mig-log,
+    body.dark-theme #cfg-bf-log {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #a5b4fc !important;
+    }
+
+    /* ─ Tags de color (F7.5) — conservar colores semánticos ─ */
+    /* Los dots de colores son intencionales, no cambian */
+
+    /* ─ Scrollbars en dark ─ */
+    body.dark-theme ::-webkit-scrollbar { width: 6px; height: 6px; }
+    body.dark-theme ::-webkit-scrollbar-track { background: #0f172a; }
+    body.dark-theme ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    body.dark-theme ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* ─ Focus visible accesible ─ */
+    body.dark-theme *:focus-visible {
+      outline: 2px solid #60a5fa !important;
+      outline-offset: 2px !important;
+    }
+
+    /* ─ Selección de texto ─ */
+    body.dark-theme ::selection {
+      background: rgba(96, 165, 250, 0.3);
+      color: white;
+    }
+
     /* =========================================
    📱 ESTILOS PARA EL MODO SWIPE (TINDER) - REDISEÑO FULL-IMAGE
    ========================================= */
