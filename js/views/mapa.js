@@ -17574,7 +17574,6 @@ function configurarPermisosUI() {
     btnMenuHistorial: hasFullAccess(),
     btnLockAdminSidebar: canLockMap(),
     btnEditorMapa: hasFullAccess(),
-    btnConsolaProgramador: canOpenAdminPanel(),
     panelAdminDivider: canOpenAdminPanel(),
     navGroupPanelAdmin: canOpenAdminPanel()
   };
@@ -19028,17 +19027,32 @@ function activarBusquedaVoz(esMobile) {
 
   const btnDesktop = document.getElementById('btn-voz-busqueda');
   const btnMobile  = document.getElementById('btn-voz-busqueda-mobile');
+  const transcriptDesktop = document.getElementById('voz-transcript-bar');
+  const transcriptMobile  = document.getElementById('voz-transcript-bar-mobile');
 
-  _setVozUI(true, btnDesktop, btnMobile);
+  _setVozUI(true, btnDesktop, btnMobile, transcriptDesktop, transcriptMobile);
 
   _vozRecognition = new SR();
   _vozRecognition.lang = 'es-MX';
-  _vozRecognition.interimResults = false;
+  _vozRecognition.interimResults = true;
   _vozRecognition.maxAlternatives = 3;
   _vozActiva = true;
 
   _vozRecognition.onresult = (event) => {
-    // Probar las 3 alternativas, tomar la que produzca un MVA válido primero
+    const isFinal = event.results[event.results.length - 1].isFinal;
+    const textoInterim = Array.from(event.results)
+      .map(r => r[0].transcript)
+      .join(' ')
+      .trim();
+
+    // Mostrar transcripción en tiempo real
+    [transcriptDesktop, transcriptMobile].forEach(el => {
+      if (el) el.textContent = '🎙️ ' + (textoInterim || '...');
+    });
+
+    if (!isFinal) return;
+
+    // Resultado final: probar las 3 alternativas, tomar la que produzca un MVA válido primero
     const alternativas = Array.from(event.results[0]).map(a => a.transcript.trim());
     let query = _parsearNATO(alternativas[0]);
     for (const alt of alternativas) {
@@ -19065,37 +19079,46 @@ function activarBusquedaVoz(esMobile) {
       };
       showToast(msgs[event.error] || 'Error de reconocimiento de voz', 'warning');
     }
-    _setVozUI(false, btnDesktop, btnMobile);
+    _setVozUI(false, btnDesktop, btnMobile, transcriptDesktop, transcriptMobile);
     _vozActiva = false;
   };
 
   _vozRecognition.onend = () => {
-    _setVozUI(false, btnDesktop, btnMobile);
+    _setVozUI(false, btnDesktop, btnMobile, transcriptDesktop, transcriptMobile);
     _vozActiva = false;
   };
 
   _vozRecognition.start();
 }
 
-function _setVozUI(activa, btnDesktop, btnMobile) {
+function _setVozUI(activa, btnDesktop, btnMobile, transcriptDesktop, transcriptMobile) {
   [btnDesktop, btnMobile].forEach(btn => {
     if (!btn) return;
     if (activa) {
-      btn.style.color = '#ef4444';
-      btn.style.background = 'rgba(239,68,68,0.15)';
-      btn.style.borderRadius = '8px';
-      btn.title = 'Escuchando... (clic para detener)';
+      btn.classList.add('voz-activa');
+      btn.title = 'Escuchando… (clic para detener)';
     } else {
+      btn.classList.remove('voz-activa');
       btn.style.color = '';
       btn.style.background = '';
       btn.title = 'Buscar por voz — alfabeto NATO (ej: "Delta 2019")';
+    }
+  });
+  [transcriptDesktop, transcriptMobile].forEach(el => {
+    if (!el) return;
+    if (activa) {
+      el.textContent = '🎙️ Escuchando…';
+      el.style.display = 'block';
+    } else {
+      el.style.display = 'none';
+      el.textContent = '';
     }
   });
   ['searchInput', 'searchInputMobile'].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
     if (activa) {
-      el.placeholder = '\uD83C\uDF99\uFE0F Escuchando...';
+      el.placeholder = '🎙️ Escuchando...';
       el.style.borderColor = 'rgba(239,68,68,0.5)';
     } else {
       el.placeholder = 'MVA, Placas o Modelo...';
@@ -19329,17 +19352,34 @@ function _renderNotaRapida(mva) {
   if (!container) return;
   const unidad = _ultimaFlotaMapa?.find(u => (u.mva || '').toUpperCase() === mva.toUpperCase());
   const notaActual = unidad?.notas || '';
+  const tieneNota = notaActual.trim().length > 0;
+  const collapsed = container.dataset.collapsed !== 'false';
   container.innerHTML = `
-    <div style="font-size:10px; font-weight:900; color:#94a3b8; text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px;">Nota rápida</div>
-    <div style="display:flex; gap:6px; align-items:flex-start;">
-      <textarea id="nota-rapida-input-${mva}" rows="2"
-        style="flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;resize:none;outline:none;font-family:inherit;transition:border-color .2s;"
-        onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"
-        placeholder="Agregar nota...">${escapeHtml(notaActual)}</textarea>
-      <button onclick="_guardarNotaRapida('${mva}')"
-        style="background:#0284c7;color:white;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;flex-shrink:0;display:flex;align-items:center;">
-        <span class="material-icons" style="font-size:14px;">save</span>
-      </button>
+    <button onclick="
+      const b=this.closest('[id]');
+      const body=b.querySelector('.panel-collapsible-body');
+      const ic=b.querySelector('.panel-toggle-icon');
+      const isOpen=body.style.display!=='none';
+      body.style.display=isOpen?'none':'flex';
+      ic.textContent=isOpen?'expand_more':'expand_less';
+      b.dataset.collapsed=isOpen?'true':'false';
+    " style="width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:0;gap:6px;">
+      <span style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px;">
+        Nota rápida${tieneNota ? `<span style="background:#10b981;color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;">●</span>` : ''}
+      </span>
+      <span class="material-icons panel-toggle-icon" style="font-size:16px;color:#94a3b8;">${collapsed ? 'expand_more' : 'expand_less'}</span>
+    </button>
+    <div class="panel-collapsible-body" style="display:${collapsed ? 'none' : 'flex'};flex-direction:column;gap:6px;padding-top:6px;">
+      <div style="display:flex;gap:6px;align-items:flex-start;">
+        <textarea id="nota-rapida-input-${mva}" rows="2"
+          style="flex:1;padding:7px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:12px;font-weight:600;color:#334155;resize:none;outline:none;font-family:inherit;transition:border-color .2s;"
+          onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"
+          placeholder="Agregar nota...">${escapeHtml(notaActual)}</textarea>
+        <button onclick="_guardarNotaRapida('${mva}')"
+          style="background:#0284c7;color:white;border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:900;cursor:pointer;flex-shrink:0;display:flex;align-items:center;">
+          <span class="material-icons" style="font-size:14px;">save</span>
+        </button>
+      </div>
     </div>`;
 }
 
@@ -19380,14 +19420,29 @@ function _renderTagsUnidad(mva, extras) {
   const container = document.getElementById('panel-tags-unidad');
   if (!container) return;
   const tags = extras?.tags || [];
+  const activos = tags.length;
   const chips = Object.entries(_TAG_COLORS).map(([key, c]) => {
     const activo = tags.includes(key);
     return `<button onclick="toggleTagUnidad('${mva}','${key}')" title="${c.label}"
-      style="width:20px;height:20px;border-radius:50%;border:2.5px solid ${activo ? c.border : '#d1d5db'};background:${activo ? c.dot : '#fff'};cursor:pointer;transition:all .15s;flex-shrink:0;"></button>`;
+      style="width:22px;height:22px;border-radius:50%;border:2.5px solid ${activo ? c.border : '#d1d5db'};background:${activo ? c.dot : '#fff'};cursor:pointer;transition:all .15s;flex-shrink:0;"></button>`;
   }).join('');
+  const collapsed = container.dataset.collapsed !== 'false';
   container.innerHTML = `
-    <div style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Etiqueta</div>
-    <div style="display:flex;gap:6px;align-items:center;">${chips}</div>`;
+    <button onclick="
+      const b=this.closest('[id]');
+      const body=b.querySelector('.panel-collapsible-body');
+      const ic=b.querySelector('.panel-toggle-icon');
+      const isOpen=body.style.display!=='none';
+      body.style.display=isOpen?'none':'flex';
+      ic.textContent=isOpen?'expand_more':'expand_less';
+      b.dataset.collapsed=isOpen?'true':'false';
+    " style="width:100%;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:0;gap:6px;">
+      <span style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:flex;align-items:center;gap:5px;">
+        Etiqueta${activos > 0 ? `<span style="background:#3b82f6;color:#fff;border-radius:10px;padding:1px 6px;font-size:9px;">${activos}</span>` : ''}
+      </span>
+      <span class="material-icons panel-toggle-icon" style="font-size:16px;color:#94a3b8;">${collapsed ? 'expand_more' : 'expand_less'}</span>
+    </button>
+    <div class="panel-collapsible-body" style="display:${collapsed ? 'none' : 'flex'};gap:6px;align-items:center;padding-top:6px;">${chips}</div>`;
 }
 
 async function toggleTagUnidad(mva, tag) {
@@ -19524,16 +19579,11 @@ async function _renderPanelExtrasUnidad(mva) {
   const evs = unidad ? _obtenerEvidenciasUnidad(unidad) : [];
   const accionesEl = document.getElementById('panel-acciones-rapidas');
   if (accionesEl) {
-    accionesEl.innerHTML = `
-      <button onclick="copiarDatosUnidad('${mva}')"
-        style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;color:#334155;display:flex;align-items:center;gap:4px;">
-        <span class="material-icons" style="font-size:14px;color:#0284c7;">content_copy</span>Copiar datos
-      </button>
-      ${evs.length > 0 ? `
+    accionesEl.innerHTML = evs.length > 0 ? `
       <button onmouseenter="_mostrarPopoverEvidencia('${mva}',this)" onmouseleave="_ocultarPopoverEvidencia()"
         style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;font-size:11px;font-weight:800;cursor:pointer;color:#334155;display:flex;align-items:center;gap:4px;">
         <span class="material-icons" style="font-size:14px;color:#059669;">photo_camera</span>${evs.length} foto${evs.length > 1 ? 's' : ''}
-      </button>` : ''}`;
+      </button>` : '';
   }
   const extras = await _cargarExtrasUnidad(mva);
   _renderTagsUnidad(mva, extras);

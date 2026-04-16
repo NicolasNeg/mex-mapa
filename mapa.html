@@ -148,10 +148,6 @@
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
 
-        <button id="btnConsolaProgramador" onclick="window.location.href='/programador'" class="sb-btn sb-btn-dark" style="display:none;">
-          <div><span class="material-icons" style="color:#a78bfa;">terminal</span> CONSOLA PROGRAMADOR</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
       </div>
 
       <div class="sb-divider" id="panelAdminDivider" style="display:none;"></div>
@@ -1688,16 +1684,17 @@
     </div>
 
     <!-- Centro: buscador -->
-    <div class="search-wrapper" style="flex:1; max-width:380px; margin:0 20px;">
+    <div class="search-wrapper" style="flex:1; max-width:380px; margin:0 20px; position:relative;">
       <span class="search-icon" style="color:#94a3b8;">
         <span class="material-icons" style="font-size:18px; vertical-align:middle;">search</span>
       </span>
       <input type="text" id="searchInput" placeholder="MVA, Placas o Modelo..." oninput="buscarMasivo()"
-        style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:white; border-radius:12px;">
-      <button class="clear-btn" onclick="limpiarBusqueda()" style="color:#94a3b8;">✕</button>
-      <button id="btn-voz-busqueda" onclick="activarBusquedaVoz()" title="Buscar por voz (NATO: 'Delta 2019')" style="background:none; border:none; cursor:pointer; padding:4px 6px; border-radius:8px; display:flex; align-items:center; color:#94a3b8; transition:color .2s, background .2s;">
-        <span class="material-icons" style="font-size:18px; vertical-align:middle;">mic</span>
+        style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:white; border-radius:12px; padding-right:64px;">
+      <button id="btn-voz-busqueda" onclick="activarBusquedaVoz()" title="Buscar por voz (NATO: 'Delta 2019')" class="search-mic-btn">
+        <span class="material-icons" style="font-size:17px;">mic</span>
       </button>
+      <button class="clear-btn" onclick="limpiarBusqueda()" style="color:#94a3b8;">✕</button>
+      <div id="voz-transcript-bar" class="voz-transcript-bar" style="display:none;"></div>
     </div>
 
     <!-- Derecha: acciones + usuario -->
@@ -1784,11 +1781,12 @@
             <span class="material-icons" style="font-size:17px; vertical-align:middle;">search</span>
           </span>
           <input type="text" id="searchInputMobile" placeholder="MVA, Placas o Modelo..." oninput="buscarMasivo()"
-            style="background:#fff; color:#1e293b; border:1px solid #e2e8f0; border-radius:10px;">
-          <button class="clear-btn" onclick="limpiarBusqueda()" style="background:#e2e8f0; color:#64748b;">✕</button>
-          <button id="btn-voz-busqueda-mobile" onclick="activarBusquedaVoz(true)" title="Buscar por voz" style="background:none; border:none; cursor:pointer; padding:4px 5px; border-radius:8px; display:flex; align-items:center; color:#94a3b8;">
+            style="background:#fff; color:#1e293b; border:1px solid #e2e8f0; border-radius:10px; padding-right:64px;">
+          <button id="btn-voz-busqueda-mobile" onclick="activarBusquedaVoz(true)" title="Buscar por voz" class="search-mic-btn" style="color:#64748b;">
             <span class="material-icons" style="font-size:17px;">mic</span>
           </button>
+          <button class="clear-btn" onclick="limpiarBusqueda()" style="background:#e2e8f0; color:#64748b;">✕</button>
+          <div id="voz-transcript-bar-mobile" class="voz-transcript-bar" style="display:none;"></div>
         </div>
         <div id="no-results-message"
           style="display:none; text-align:center; padding:12px 0 0; color:#94a3b8; font-size:12px; font-weight:700;">
