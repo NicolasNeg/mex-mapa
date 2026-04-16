@@ -843,6 +843,8 @@
 
     body.programmer-page {
       display: block;
+      background: #e8edf4 !important;
+      color: #1e293b;
     }
 
     /* --- ANIMACIONES DE ERROR --- */
