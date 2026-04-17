@@ -90,78 +90,34 @@ service cloud.firestore {
     }
 
     function rolTienePermiso(role, permiso) {
+      // 1. Calculamos la configuración del rol UNA sola vez
+      let conf = rolConfig(role);
+
+      // 2. Evaluamos si el permiso específico existe y es true
+      let hasPerm = conf != null
+                 && conf.permissions is map
+                 && conf.permissions.keys().hasAny([permiso])
+                 && conf.permissions[permiso] == true;
+
+      // 3. Ternario limpio y directo
       return role == "PROGRAMADOR" || role == "JEFE_OPERACION" || role == "CORPORATIVO_USER"
         ? true
         : permiso == "view_admin_cuadre"
-          ? (
-            role == "VENTAS"
-            || role == "SUPERVISOR"
-            || role == "JEFE_PATIO"
-            || role == "GERENTE_PLAZA"
-            || role == "JEFE_REGIONAL"
-            || (rolConfig(role) != null
-              && rolConfig(role).permissions is map
-              && rolConfig(role).permissions.keys().hasAny([permiso])
-              && rolConfig(role).permissions[permiso] == true)
-          )
+          ? (role == "VENTAS" || role == "SUPERVISOR" || role == "JEFE_PATIO" || role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : permiso == "edit_admin_cuadre"
-          ? (
-            role == "SUPERVISOR"
-            || role == "JEFE_PATIO"
-            || role == "GERENTE_PLAZA"
-            || role == "JEFE_REGIONAL"
-            || (rolConfig(role) != null
-              && rolConfig(role).permissions is map
-              && rolConfig(role).permissions.keys().hasAny([permiso])
-              && rolConfig(role).permissions[permiso] == true)
-          )
+          ? (role == "SUPERVISOR" || role == "JEFE_PATIO" || role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : permiso == "manage_users"
-          ? (
-            (rolConfig(role) != null
-              && rolConfig(role).permissions is map
-              && rolConfig(role).permissions.keys().hasAny([permiso])
-              && rolConfig(role).permissions[permiso] == true)
-          )
+          ? hasPerm
         : permiso == "process_access_requests"
-          ? (
-            (rolConfig(role) != null
-              && rolConfig(role).permissions is map
-              && rolConfig(role).permissions.keys().hasAny([permiso])
-              && rolConfig(role).permissions[permiso] == true)
-          )
+          ? hasPerm
         : permiso == "manage_global_fleet"
-          ? (
-            role == "GERENTE_PLAZA"
-            || role == "JEFE_REGIONAL"
-            || (rolConfig(role) != null
-              && rolConfig(role).permissions is map
-              && rolConfig(role).permissions.keys().hasAny([permiso])
-              && rolConfig(role).permissions[permiso] == true)
-          )
+          ? (role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : permiso == "manage_system_settings"
-          ? (
-            (rolConfig(role) != null
-              && rolConfig(role).permissions is map
-              && rolConfig(role).permissions.keys().hasAny([permiso])
-              && rolConfig(role).permissions[permiso] == true)
-          )
+          ? hasPerm
         : permiso == "use_programmer_console"
-          ? (
-            (rolConfig(role) != null
-              && rolConfig(role).permissions is map
-              && rolConfig(role).permissions.keys().hasAny([permiso])
-              && rolConfig(role).permissions[permiso] == true)
-          )
+          ? hasPerm
         : permiso == "platform_full_access"
-          ? (
-            rolConfig(role) != null
-            && (
-              (rolConfig(role).fullAccess != null && rolConfig(role).fullAccess == true)
-              || (rolConfig(role).permissions is map
-                && rolConfig(role).permissions.keys().hasAny([permiso])
-                && rolConfig(role).permissions[permiso] == true)
-            )
-          )
+          ? (conf != null && ((conf.fullAccess != null && conf.fullAccess == true) || hasPerm))
         : false;
     }
 
@@ -270,6 +226,9 @@ service cloud.firestore {
     }
 
     function actorPuedeGestionarRol(role) {
+      // Optimizamos también aquí para no llamar a rolConfig múltiples veces
+      let conf = rolConfig(role);
+
       return esJefeOperacionOProgramador()
         || (
           rolActual() == "CORPORATIVO_USER"
@@ -277,12 +236,12 @@ service cloud.firestore {
           && role != "PROGRAMADOR"
           && role != "JEFE_OPERACION"
           && (
-            rolConfig(role) == null
+            conf == null
             || (
-              (rolConfig(role).fullAccess == null || rolConfig(role).fullAccess != true)
+              (conf.fullAccess == null || conf.fullAccess != true)
               && (
-                !(rolConfig(role).permissions is map)
-                || !rolConfig(role).permissions.keys().hasAny(["use_programmer_console", "manage_system_settings"])
+                !(conf.permissions is map)
+                || !conf.permissions.keys().hasAny(["use_programmer_console", "manage_system_settings"])
               )
             )
           )
