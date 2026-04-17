@@ -280,6 +280,7 @@ service cloud.firestore {
           "isOnline",
           "lastSeenAt",
           "lastActiveAt",
+          "lastSeen",
           "avatarUrl",
           "avatarPath",
           "photoURL",
@@ -290,6 +291,7 @@ service cloud.firestore {
         && (!changed.hasAny(["isOnline"]) || request.resource.data.isOnline is bool)
         && (!changed.hasAny(["lastSeenAt"]) || request.resource.data.lastSeenAt is int)
         && (!changed.hasAny(["lastActiveAt"]) || request.resource.data.lastActiveAt is int)
+        && (!changed.hasAny(["lastSeen"]) || request.resource.data.lastSeen is int)
         && (!changed.hasAny(["avatarUrl"]) || request.resource.data.avatarUrl is string)
         && (!changed.hasAny(["avatarPath"]) || request.resource.data.avatarPath is string)
         && (!changed.hasAny(["photoURL"]) || request.resource.data.photoURL is string)

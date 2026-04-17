@@ -970,8 +970,9 @@ function _currentUserDocId() {
 }
 
 async function _actualizarPresenciaUsuario(isOnline = true) {
-  // Si el perfil es sintético (bootstrap programmer sin doc en Firestore), no intentar escribir
+  // Bootstrap programmer no tiene doc real en Firestore — no escribir presencia
   if (currentUserProfile?._syntheticProfile) return;
+  if (_isBootstrapProgrammerEmail(currentUserProfile?.email)) return;
   const docId = _currentUserDocId();
   if (!docId) return;
   const ahora = Date.now();
