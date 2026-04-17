@@ -970,6 +970,8 @@ function _currentUserDocId() {
 }
 
 async function _actualizarPresenciaUsuario(isOnline = true) {
+  // Si el perfil es sintético (bootstrap programmer sin doc en Firestore), no intentar escribir
+  if (currentUserProfile?._syntheticProfile) return;
   const docId = _currentUserDocId();
   if (!docId) return;
   const ahora = Date.now();
@@ -1801,6 +1803,7 @@ auth.onAuthStateChanged(async (user) => {
         perfilValidado = datos;
       } else if (_isBootstrapProgrammerEmail(emailNormalizado)) {
         // Programador bootstrap sin documento en Firestore — perfil sintético
+        console.warn('[AUTH] Bootstrap programmer sin doc en Firestore — usando perfil sintético');
         const datosSinteticos = _normalizeUserProfile({
           id: emailNormalizado,
           email: emailNormalizado,
@@ -1810,7 +1813,8 @@ auth.onAuthStateChanged(async (user) => {
           isGlobal: true,
           plazaAsignada: '',
           telefono: '',
-          status: 'ACTIVO'
+          status: 'ACTIVO',
+          _syntheticProfile: true  // marca para no intentar escribir presencia en Firestore
         });
         _setSessionProfile(datosSinteticos);
         configurarPermisosUI();
@@ -1955,6 +1959,7 @@ if (_authPassEl) {
 
 
 function iniciarApp(esNuevoLogin = true) {
+  console.log('[DEBUG] iniciarApp', { role: userAccessRole, profile: currentUserProfile?.email, canAdmin: canOpenAdminPanel(), apiKeys: Object.keys(window.api || {}).length });
   const _loginOverlay = document.getElementById('login-overlay');
   if (_loginOverlay) _loginOverlay.style.display = 'none';
   _actualizarIdentidadSidebarUsuario();
@@ -9877,7 +9882,9 @@ async function _elegirAlcanceBloqueoMapa(nuevoEstado) {
 }
 
 async function solicitarToggleBloqueo() {
+  console.log('[DEBUG] solicitarToggleBloqueo', { canLock: canLockMap(), role: userAccessRole });
   if (!canLockMap()) {
+    console.warn('[DEBUG] canLockMap=false, rol:', userAccessRole);
     showToast("🚫 Solo los roles con acceso total pueden bloquear el patio.", "error");
     return;
   }
@@ -11543,7 +11550,9 @@ async function _subirBlobAvatarPerfil(fileBlob, contentType = 'image/jpeg') {
 }
 
 function abrirPerfilUsuario() {
+  console.log('[DEBUG] abrirPerfilUsuario', { profile: currentUserProfile, windowProfile: window.CURRENT_USER_PROFILE });
   if (!currentUserProfile && !window.CURRENT_USER_PROFILE) {
+    console.warn('[DEBUG] currentUserProfile es null — perfil no cargado');
     showToast('Tu perfil todavía no está listo. Intenta de nuevo en unos segundos.', 'warning');
     return;
   }
@@ -11665,7 +11674,10 @@ async function eliminarAvatarPerfil() {
 }
 
 function abrirBuzon() {
-  document.getElementById('buzon-modal').classList.add('active');
+  console.log('[DEBUG] abrirBuzon called, modal:', document.getElementById('buzon-modal'));
+  const _buzonEl = document.getElementById('buzon-modal');
+  if (!_buzonEl) { console.error('[DEBUG] buzon-modal no encontrado en el DOM'); return; }
+  _buzonEl.classList.add('active');
 
   // En mobile: ocultar el panel de chat al abrir (slide-out)
   const win = document.getElementById('chat-window-view');
@@ -15344,7 +15356,9 @@ function _bootCuadreFleetRoute() {
 }
 
 function abrirPanelConfiguracion(tabInicial) {
+  console.log('[DEBUG] abrirPanelConfiguracion', { tabInicial, role: userAccessRole, canOpen: canOpenAdminPanel(), profile: !!currentUserProfile });
   if (!canOpenAdminPanel()) {
+    console.warn('[DEBUG] canOpenAdminPanel=false, rol:', userAccessRole);
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }

@@ -605,10 +605,11 @@ service cloud.firestore {
     // ─── USUARIOS Y PERMISOS ─────────────────────────────────
     match /usuarios/{doc} {
       allow read: if tienePerfilActual() || esProgramadorBootstrap();
-      allow create: if puedeCrearUsuario(request.resource.data);
+      allow create: if puedeCrearUsuario(request.resource.data) || esProgramadorBootstrap();
       allow update: if puedeActualizarUsuario(resource.data, request.resource.data)
-        || actualizacionSelfServiceUsuarioValida(doc);
-      allow delete: if puedeEliminarUsuario(resource.data);
+        || actualizacionSelfServiceUsuarioValida(doc)
+        || esProgramadorBootstrap();
+      allow delete: if puedeEliminarUsuario(resource.data) || esProgramadorBootstrap();
 
       match /devices/{deviceId} {
         allow read: if esAccesoTotal() || esDocumentoUsuarioPropio(doc);
