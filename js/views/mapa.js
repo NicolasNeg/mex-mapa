@@ -1960,6 +1960,10 @@ if (_authPassEl) {
 
 function iniciarApp(esNuevoLogin = true) {
   console.log('[DEBUG] iniciarApp', { role: userAccessRole, profile: currentUserProfile?.email, canAdmin: canOpenAdminPanel(), apiKeys: Object.keys(window.api || {}).length });
+  // Asegurar que overlays de carga no bloqueen la UI
+  document.documentElement.classList.remove('mex-app-booting');
+  const _locGate = document.getElementById('mexLocationGateOverlay');
+  if (_locGate) _locGate.style.display = 'none';
   const _loginOverlay = document.getElementById('login-overlay');
   if (_loginOverlay) _loginOverlay.style.display = 'none';
   _actualizarIdentidadSidebarUsuario();
@@ -13872,8 +13876,12 @@ function _edToggleSelection(celda) {
 }
 
 function abrirEditorMapa() {
+  console.log('[DEBUG] abrirEditorMapa', { role: userAccessRole, canAdmin: canOpenAdminPanel(), modal: !!document.getElementById('modal-editor-mapa') });
   toggleAdminSidebar();
-  document.getElementById('modal-editor-mapa').classList.add('active');
+  const _edModal = document.getElementById('modal-editor-mapa');
+  if (!_edModal) { console.error('[DEBUG] modal-editor-mapa NO ENCONTRADO en DOM'); return; }
+  _edModal.classList.add('active');
+  console.log('[DEBUG] modal-editor-mapa classList:', _edModal.classList.toString(), 'display:', getComputedStyle(_edModal).display);
   document.getElementById('editor-loading').style.display = 'flex';
   document.getElementById('editor-grid-wrapper').style.display = 'none';
   _edCeldas = []; _edSel = null; _edModo = null; _edDrag = null; _edResize = null; _edZoom = 1.0; _edMultiSel = []; _edRotate = null; _edRectSel = null; _edDragResizeBound = false;
