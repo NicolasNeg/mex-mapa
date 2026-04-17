@@ -919,13 +919,25 @@
     }
   }
 
-  root.__mexRequireLocationAccess = function (options = {}) {
+  root.__mexRequireLocationAccess = async function (options = {}) {
     const currentSnapshot = cloneLocationState();
+    // Fast path 1: ya tenemos posición exacta en memoria
     if (currentSnapshot.status === 'granted' && currentSnapshot.exactLocation) {
       ensureLocationWatch();
       hideLocationGate();
-      return Promise.resolve(currentSnapshot);
+      return currentSnapshot;
     }
+    // Fast path 2: permiso ya concedido por el navegador — no bloquear con overlay.
+    // Iniciar posición en background y continuar sin esperar.
+    const { state: permState } = await queryGeolocationPermission().catch(() => ({ state: '' }));
+    if (permState === 'granted') {
+      ensureLocationWatch();
+      hideLocationGate();
+      root.__mexGetExactLocationSnapshot({ force: false, timeoutMs: 15000, maxAgeMs: 60000 })
+        .catch(() => {});
+      return cloneLocationState();
+    }
+
     if (state.location.pendingPromise) return state.location.pendingPromise;
 
     state.location.pendingPromise = new Promise(resolve => {

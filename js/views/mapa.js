@@ -15384,7 +15384,11 @@ function abrirPanelConfiguracion(tabInicial) {
   if (tabSolicitudes) tabSolicitudes.style.display = canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig() ? 'inline-flex' : 'none';
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
   _applyGestionAdminChrome();
-  document.getElementById('modal-config-global').classList.add('active');
+  const _cfgModal = document.getElementById('modal-config-global');
+  console.log('[DEBUG] modal-config-global:', _cfgModal, 'gestionMode:', _isGestionAdminMode(), 'pathname:', window.location.pathname);
+  if (!_cfgModal) { console.error('[DEBUG] modal-config-global NO ENCONTRADO en DOM'); return; }
+  _cfgModal.classList.add('active');
+  console.log('[DEBUG] modal-config-global classList after add:', _cfgModal.classList.toString(), 'display:', getComputedStyle(_cfgModal).display);
   _captureAdminExactLocation({ force: false }).catch(() => {});
   _cfgRefreshSearchPlaceholder();
   _cfgRefreshQuickTools();
