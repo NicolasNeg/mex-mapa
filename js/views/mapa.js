@@ -7,6 +7,8 @@
 //   - mex-api.js      (cargado como <script>, expone window.api)
 //   - database.js     (ES6 module, re-exporta auth/db/COL)
 // ═══════════════════════════════════════════════════════════
+let _bannerState = { bloqueado: false, pctOcup: 0, alertasCriticas: 0 };
+let _supervisionData = {}; // { [plaza]: { total, listos, sucios, manto, taller, traslados } }
 
 import { db, auth, COL, ACCESS_ROLE_META } from '/js/core/database.js';
 import {
@@ -18468,7 +18470,6 @@ Object.assign(window, {
 // ═══════════════════════════════════════════════════════════
 
 // ── F3.4 Banner global ──────────────────────────────────────
-const _bannerState = { bloqueado: false, pctOcup: 0, alertasCriticas: 0 };
 
 function _actualizarBannerGlobal({ bloqueado, bloqueadoScope, ocupados, totalSpots, alertasCriticas } = {}) {
   if (bloqueado !== undefined) _bannerState.bloqueado = bloqueado;
@@ -18512,7 +18513,6 @@ function _actualizarBannerGlobal({ bloqueado, bloqueadoScope, ocupados, totalSpo
 
 // ── F3.3 Panel de supervisión (KPIs multi-plaza) ────────────
 let _supervisionUnsub = null;
-let _supervisionData = {}; // { [plaza]: { total, listos, sucios, manto, taller, traslados } }
 
 function _actualizarPanelSupervision() {
   const panel = document.getElementById('panel-supervision');
