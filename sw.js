@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v104';
+const CACHE_NAME = 'mapa-v105';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -42,6 +42,8 @@ const SHELL_ASSETS = [
   '/js/views/cuadre.js',
   '/gestion.html',
   '/cuadre.html',
+  '/mensajes.html',
+  '/js/views/mensajes.js',
   // CSS global
   '/css/global.css',
   // Fuentes de Google — se cachean en runtime la primera vez que se descargan

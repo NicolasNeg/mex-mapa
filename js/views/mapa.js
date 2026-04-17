@@ -1355,6 +1355,14 @@ function _isDedicatedCuadreIframeMode() {
   return _qs('fleet') === '1';
 }
 
+function _isDedicatedMessagesIframeMode() {
+  return _qs('messages') === '1';
+}
+
+function _isMessagesMode() {
+  return _qs('messages') === '1' || /^\/mensajes(?:\.html)?$/i.test(window.location.pathname || '');
+}
+
 function _gestionInitialTab() {
   return String(_qs('tab') || 'usuarios').trim().toLowerCase() || 'usuarios';
 }
@@ -1965,6 +1973,12 @@ function iniciarApp(esNuevoLogin = true) {
   document.documentElement.classList.remove('mex-app-booting');
   const _locGate = document.getElementById('mexLocationGateOverlay');
   if (_locGate) _locGate.style.display = 'none';
+  // Limpiar URLs inline de sesiones anteriores al hacer nuevo login
+  if (esNuevoLogin && !_isDedicatedGestionIframeMode() && !_isDedicatedCuadreIframeMode()) {
+    if (/^\/(gestion|mensajes|cuadre)(?:\.html)?/i.test(window.location.pathname || '')) {
+      try { window.history.replaceState({}, '', '/mapa'); } catch (_) {}
+    }
+  }
   const _loginOverlay = document.getElementById('login-overlay');
   if (_loginOverlay) _loginOverlay.style.display = 'none';
   _actualizarIdentidadSidebarUsuario();
@@ -2046,6 +2060,9 @@ function iniciarApp(esNuevoLogin = true) {
         _bootGestionAdminRoute().catch(error => {
           console.warn('No se pudo abrir el modo gestion dedicado:', error);
         });
+      }
+      if (_isMessagesMode()) {
+        _bootMessagesRoute();
       }
       if (_isCuadreFleetMode()) {
         try {
@@ -4109,12 +4126,12 @@ function activarAlertaOlvidados(checkbox) {
       } else { car.classList.add('ghost'); }
     } else { car.classList.add('ghost'); }
   });
-  toggleAdminSidebar(); // Cerrar para ver el resultado
+  toggleAdminSidebar(false); // Cerrar para ver el resultado
 }
 
 function exportarMapa() {
   showToast("Capturando imagen... (Espera unos segundos)", "success");
-  toggleAdminSidebar(); // Cerramos el menú
+  toggleAdminSidebar(false); // Cerramos el menú
 
   const mapContainer = document.getElementById('map-zoom-container');
   const gridMap = document.getElementById('grid-map');
@@ -4162,7 +4179,7 @@ function exportarMapa() {
 }
 
 function abrirAuditoria() {
-  toggleAdminSidebar();
+  toggleAdminSidebar(false);
   document.getElementById('audit-modal').classList.add('active');
 
   let htmlLimbo = "";
@@ -5661,7 +5678,7 @@ async function umCrearUsuario() {
 let _logsData = [];
 
 function abrirLogs() {
-  toggleAdminSidebar();
+  toggleAdminSidebar(false);
   document.getElementById('logs-modal').classList.add('active');
 
   const tbody = document.getElementById('logs-table-body');
@@ -10549,7 +10566,7 @@ function manejadorFlujoV3() {
   const estadoActual = document.getElementById('txtV3').innerText;
 
   if (userRole === 'admin' && estadoActual === "INICIAR CUADRE (ADMIN)") {
-    toggleAdminSidebar();
+    toggleAdminSidebar(false);
     document.getElementById('audit-modal').classList.add('active');
     document.getElementById('audit-paso1').style.display = 'block';
     document.getElementById('audit-paso2').style.display = 'none';
@@ -10558,7 +10575,7 @@ function manejadorFlujoV3() {
   }
   else if (userRole === 'admin' && estadoActual === "FINALIZAR CUADRE") {
     // 🔥 EL ADMIN DESCARGA LA REVISIÓN DEL AUXILIAR Y LA ABRE EN SU PANTALLA
-    toggleAdminSidebar();
+    toggleAdminSidebar(false);
     showToast("Descargando revisión del patio...", "info");
 
     api.obtenerRevisionAuditoria(_miPlaza()).then(mision => {
@@ -10582,7 +10599,7 @@ function manejadorFlujoV3() {
   }
   else if (userRole !== 'admin' && estadoActual === "VERIFICAR INVENTARIO") {
     // 👷 EL AUXILIAR DESCARGA LA MISIÓN
-    toggleAdminSidebar();
+    toggleAdminSidebar(false);
     showToast("Descargando misión...", "info");
 
     api.obtenerMisionAuditoria(_miPlaza()).then(mision => {
@@ -10617,7 +10634,7 @@ function iniciarMisionAuditoria() {
 let globalHistorialAuditorias = [];
 
 function abrirHistorialCuadres() {
-  toggleAdminSidebar();
+  toggleAdminSidebar(false);
   document.getElementById('historial-cuadres-modal').classList.add('active');
   const container = document.getElementById('lista-historial-cuadres');
   container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner">sync</span> Buscando en los archivos...</div>`;
@@ -13878,7 +13895,7 @@ function _edToggleSelection(celda) {
 
 function abrirEditorMapa() {
   console.log('[DEBUG] abrirEditorMapa', { role: userAccessRole, canAdmin: canOpenAdminPanel(), modal: !!document.getElementById('modal-editor-mapa') });
-  toggleAdminSidebar();
+  toggleAdminSidebar(false);
   const _edModal = document.getElementById('modal-editor-mapa');
   if (!_edModal) { console.error('[DEBUG] modal-editor-mapa NO ENCONTRADO en DOM'); return; }
   _edModal.classList.add('active');
@@ -15358,6 +15375,13 @@ async function _bootGestionAdminRoute() {
   await _captureAdminExactLocation({ force: true });
 }
 
+let _messagesBooted = false;
+function _bootMessagesRoute() {
+  if (!_isMessagesMode() || _messagesBooted) return;
+  _messagesBooted = true;
+  abrirBuzon();
+}
+
 function _bootCuadreFleetRoute() {
   if (!_isCuadreFleetMode() || _cuadreFleetBooted) return;
   _cuadreFleetBooted = true;
@@ -15391,7 +15415,7 @@ function abrirPanelConfiguracion(tabInicial) {
   if (tabRoles) tabRoles.style.display = hasPermission('manage_roles_permissions') || canManageUsers() ? 'inline-flex' : 'none';
   const tabSolicitudes = document.getElementById('cfg-tab-solicitudes') || document.querySelector(`.cfg-tab[onclick*="'solicitudes'"]`);
   if (tabSolicitudes) tabSolicitudes.style.display = canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig() ? 'inline-flex' : 'none';
-  if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar();
+  if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar(false);
   _applyGestionAdminChrome();
   const _cfgModal = document.getElementById('modal-config-global');
   console.log('[DEBUG] modal-config-global:', _cfgModal, 'gestionMode:', _isGestionAdminMode(), 'pathname:', window.location.pathname);
