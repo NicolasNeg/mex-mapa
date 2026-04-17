@@ -222,5 +222,58 @@
       return backfillPlazaEnUnidades(onProgress);
     },
 
+    // ─── MIGRACIÓN LEGACY ────────────────────────────────
+    async migrarDatosLegacyAPlazas(onProgress) {
+      const { _normalizePlazaId } = window._mex;
+      const progreso = (col, done, total, errores) => {
+        if (typeof onProgress === 'function') onProgress({ col, done, total, errores });
+      };
+      const BATCH_SIZE = 490;
+      let totalOk = 0;
+      const erroresGlobal = [];
+      const copiarDocs = async (snapDocs, destFn, col) => {
+        let done = 0; const total = snapDocs.length;
+        progreso(col, 0, total, 0);
+        for (let i = 0; i < snapDocs.length; i += BATCH_SIZE) {
+          const chunk = snapDocs.slice(i, i + BATCH_SIZE);
+          const batch = db.batch();
+          for (const docSnap of chunk) {
+            try {
+              const data = docSnap.data();
+              const destRef = destFn(data, docSnap.id);
+              if (!destRef) { erroresGlobal.push(`Sin plaza: ${docSnap.id}`); done++; continue; }
+              const destSnap = await destRef.get();
+              if (destSnap.exists) { done++; totalOk++; continue; }
+              batch.set(destRef, data);
+              done++; totalOk++;
+            } catch (e) { erroresGlobal.push(`${docSnap.id}: ${e.message}`); done++; }
+          }
+          await batch.commit();
+          progreso(col, done, total, erroresGlobal.length);
+        }
+      };
+      const cuadreSnap = await db.collection('cuadre').get();
+      await copiarDocs(cuadreSnap.docs.filter(d => !d.ref.path.includes('/unidades/')), (data, id) => {
+        const p = _normalizePlazaId(data.plaza || data.plazaAsignada || data.sucursal);
+        return p ? db.collection('cuadre').doc(p).collection('unidades').doc(id) : null;
+      }, 'cuadre');
+      const externosSnap = await db.collection('externos').get();
+      await copiarDocs(externosSnap.docs.filter(d => !d.ref.path.includes('/unidades/')), (data, id) => {
+        const p = _normalizePlazaId(data.plaza || data.plazaAsignada || data.sucursal);
+        return p ? db.collection('externos').doc(p).collection('unidades').doc(id) : null;
+      }, 'externos');
+      const cadmSnap = await db.collection('cuadre_admins').get();
+      await copiarDocs(cadmSnap.docs.filter(d => !d.ref.path.includes('/registros/')), (data, id) => {
+        const p = _normalizePlazaId(data.plaza || data.ubicacion);
+        return p ? db.collection('cuadre_admins').doc(p).collection('registros').doc(id) : null;
+      }, 'cuadre_admins');
+      const histSnap = await db.collection('historial_cuadres').get();
+      await copiarDocs(histSnap.docs.filter(d => !d.ref.path.includes('/registros/')), (data, id) => {
+        const p = _normalizePlazaId(data.plaza || data.ubicacion);
+        return p ? db.collection('historial_cuadres').doc(p).collection('registros').doc(id) : null;
+      }, 'historial_cuadres');
+      return { ok: totalOk, errores: erroresGlobal };
+    },
+
   };
 })();

@@ -135,5 +135,32 @@
       return "EXITO";
     },
 
+    // ─── EXTRAS DE UNIDAD ────────────────────────────────
+    async actualizarExtrasUnidad(mva, extras, plaza) {
+      const mvaStr = mva.toString().trim().toUpperCase();
+      const plazaUp = _normalizePlazaId(plaza);
+      const docId = plazaUp ? `${plazaUp}_${mvaStr}` : mvaStr;
+      const ref = db.collection('unit_extras').doc(docId);
+      await ref.set({ ...extras, mva: mvaStr, plaza: plazaUp, _updatedAt: Date.now() }, { merge: true });
+      return 'OK';
+    },
+
+    async obtenerExtrasUnidad(mva, plaza) {
+      const mvaStr = mva.toString().trim().toUpperCase();
+      const plazaUp = _normalizePlazaId(plaza);
+      const docId = plazaUp ? `${plazaUp}_${mvaStr}` : mvaStr;
+      const snap = await db.collection('unit_extras').doc(docId).get();
+      return snap.exists ? snap.data() : {};
+    },
+
+    async obtenerExtrasPlaza(plaza) {
+      const plazaUp = _normalizePlazaId(plaza);
+      if (!plazaUp) return {};
+      const snap = await db.collection('unit_extras').where('plaza', '==', plazaUp).get();
+      const result = {};
+      snap.docs.forEach(d => { const data = d.data(); if (data.mva) result[data.mva] = data; });
+      return result;
+    },
+
   };
 })();
