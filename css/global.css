@@ -12325,13 +12325,24 @@
        ═══════════════════════════════════════════════════════════ */
 
     .cfg-modal-v2 {
-      border-radius: 28px !important;
-      overflow: auto !important;
+      border-radius: 0 !important;
+      overflow: hidden !important;
     }
 
     .cfg-modal-v2.active {
       display: flex !important;
       flex-direction: column !important;
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      height: 100dvh !important;
+      z-index: 70000 !important;
+      background: var(--bg, #f1f5f9) !important;
+      overflow: hidden !important;
     }
 
     /* ── HERO ────────────────────────────────────────────────── */

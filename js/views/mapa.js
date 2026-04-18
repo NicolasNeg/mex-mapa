@@ -15424,6 +15424,12 @@ function abrirPanelConfiguracion(tabInicial) {
   if (!_cfgModal) { console.error('[DEBUG] modal-config-global NO ENCONTRADO en DOM'); return; }
   _cfgModal.classList.add('active');
   console.log('[DEBUG] modal-config-global classList after add:', _cfgModal.classList.toString(), 'display:', getComputedStyle(_cfgModal).display);
+  // Extra debug: verify dimensions and z-index after repaint
+  requestAnimationFrame(() => {
+    const r = _cfgModal.getBoundingClientRect();
+    const cs = getComputedStyle(_cfgModal);
+    console.log('[DEBUG] modal-config-global rect (after paint):', JSON.stringify({ top: r.top, left: r.left, width: r.width, height: r.height }), 'z-index:', cs.zIndex, 'visibility:', cs.visibility, 'opacity:', cs.opacity, 'bg:', cs.backgroundColor);
+  });
   _captureAdminExactLocation({ force: false }).catch(() => {});
   _cfgRefreshSearchPlaceholder();
   _cfgRefreshQuickTools();
