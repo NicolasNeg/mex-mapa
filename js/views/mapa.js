@@ -15397,11 +15397,9 @@ function abrirPanelConfiguracion(tabInicial) {
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }
+  // Si no estamos dentro del iframe de gestion (mapa?admin=1), navegar a /gestion
   if (!_isDedicatedGestionIframeMode()) {
-    _bindInlineAdminRouteState();
-    _syncInlineAdminRoute(tabInicial || _gestionInitialTab());
-  } else if (!_isGestionAdminMode()) {
-    _navigateTop(_buildGestionRouteUrl(tabInicial || 'usuarios'));
+    window.location.href = _buildGestionRouteUrl(tabInicial || 'usuarios');
     return;
   }
   const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
