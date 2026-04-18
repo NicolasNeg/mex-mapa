@@ -1106,8 +1106,10 @@ function cerrarPanelConfiguracion() {
     _navigateTop('/mapa');
     return;
   }
+  // En la página /gestion standalone, navegar de vuelta al mapa
   if (/^\/gestion(?:\.html)?$/i.test(window.location.pathname || '')) {
-    _restoreInlineAdminRoute();
+    window.location.href = '/mapa';
+    return;
   }
   _resetGestionAdminChrome();
   document.getElementById('modal-config-global')?.classList.remove('active');
@@ -2077,6 +2079,9 @@ function iniciarApp(esNuevoLogin = true) {
 
   // [F2.7] Qué cambió desde última visita
   _registrarYMostrarResumenVisita();
+
+  // Notificar a gestion.html que la app está lista
+  window.dispatchEvent(new CustomEvent('mex-app-ready'));
 }
 
 function _registrarYMostrarResumenVisita() {
@@ -15397,8 +15402,8 @@ function abrirPanelConfiguracion(tabInicial) {
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }
-  // Si no estamos dentro del iframe de gestion (mapa?admin=1), navegar a /gestion
-  if (!_isDedicatedGestionIframeMode()) {
+  // Si estamos en el mapa principal (no en /gestion ni en iframe ?admin=1), navegar a /gestion
+  if (!_isGestionAdminMode() && !_isDedicatedGestionIframeMode()) {
     window.location.href = _buildGestionRouteUrl(tabInicial || 'usuarios');
     return;
   }

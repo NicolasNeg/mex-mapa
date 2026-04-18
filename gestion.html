@@ -12,138 +12,252 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
 
+  <!-- Firebase SDKs -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
+  <script src="/mex-api.js"></script>
+  <!-- Módulos API -->
+  <script src="/api/auth.js"></script>
+  <script src="/api/mapa.js"></script>
+  <script src="/api/cuadre.js"></script>
+  <script src="/api/flota.js"></script>
+  <script src="/api/alertas.js"></script>
+  <script src="/api/notas.js"></script>
+  <script src="/api/historial.js"></script>
+  <script src="/api/settings.js"></script>
+  <script src="/api/users.js"></script>
+  <script src="/api/_assemble.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
 
-  <title>Gestión</title>
+  <title>Gestión — Panel Admin</title>
   <style>
+    /* Override body position:fixed de global.css para que position:fixed funcione correctamente */
     html, body {
-      margin: 0;
-      min-height: 100%;
-      background: #071224;
-      overflow: hidden;
-      font-family: 'Inter', sans-serif;
+      margin: 0 !important;
+      padding: 0 !important;
+      height: 100% !important;
+      overflow: hidden !important;
     }
-
-    .gestion-route-shell {
+    body {
+      position: relative !important;
+    }
+    /* Panel admin ocupa toda la pantalla como página */
+    #modal-config-global {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background: var(--bg, #f1f5f9) !important;
+      z-index: 1 !important;
+    }
+    /* Ocultar el botón de cerrar (en gestion.html se usa el botón de volver) */
+    #modal-config-global .cfg-v2-close {
+      display: none !important;
+    }
+    /* Botón de volver al mapa */
+    .gestion-back-btn {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      color: #f1f5f9;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: background .15s;
+      z-index: 10;
+    }
+    .gestion-back-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    /* Loader de autenticación */
+    #gestion-auth-loader {
       position: fixed;
       inset: 0;
-      display: flex;
-      flex-direction: column;
-      background:
-        radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 34%),
-        linear-gradient(180deg, #08101f 0%, #0d1731 50%, #08101f 100%);
-    }
-
-    .gestion-route-loader {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
+      background: #071224;
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 24px;
-      background: rgba(8, 16, 31, 0.78);
-      backdrop-filter: blur(12px);
-      transition: opacity .22s ease;
+      z-index: 99999;
+      transition: opacity .25s;
     }
-
-    .gestion-route-loader.ready {
+    #gestion-auth-loader.hidden {
       opacity: 0;
       pointer-events: none;
     }
-
-    .gestion-route-loader-card {
-      width: min(420px, 100%);
-      border-radius: 24px;
-      padding: 28px 24px;
-      text-align: center;
-      color: #f8fafc;
-      background: rgba(15, 23, 42, 0.88);
-      border: 1px solid rgba(255,255,255,.08);
-      box-shadow: 0 26px 90px rgba(0,0,0,.45);
-    }
-
-    .gestion-route-spinner {
-      width: 58px;
-      height: 58px;
-      margin: 0 auto 18px;
-      border-radius: 999px;
-      border: 4px solid rgba(255,255,255,.14);
+    .gestion-loader-spinner {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 4px solid rgba(255,255,255,.12);
       border-top-color: #22c55e;
       border-right-color: #38bdf8;
       animation: gestion-spin .9s linear infinite;
     }
-
-    .gestion-route-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(59, 130, 246, 0.14);
-      color: #bfdbfe;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-
-    .gestion-route-title {
-      margin: 16px 0 8px;
-      font-size: 30px;
-      font-weight: 900;
-      line-height: 1.05;
-    }
-
-    .gestion-route-copy {
-      margin: 0;
-      color: #cbd5e1;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-
-    .gestion-route-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: transparent;
-    }
-
-    @keyframes gestion-spin {
-      to { transform: rotate(360deg); }
-    }
+    @keyframes gestion-spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
-  <div class="gestion-route-shell">
-    <div id="gestionRouteLoader" class="gestion-route-loader">
-      <div class="gestion-route-loader-card">
-        <div class="gestion-route-spinner"></div>
-        <div class="gestion-route-kicker">Administración</div>
-        <h1 class="gestion-route-title">Preparando Gestión</h1>
-        <p class="gestion-route-copy">Estamos cargando el panel administrativo dedicado con la configuración más reciente.</p>
-      </div>
-    </div>
 
-    <iframe
-      id="gestionRouteFrame"
-      class="gestion-route-frame"
-      title="Panel administrativo"
-      loading="eager"
-      allow="geolocation; clipboard-read; clipboard-write"
-      referrerpolicy="same-origin">
-    </iframe>
+  <!-- Loader mientras carga auth y perfil -->
+  <div id="gestion-auth-loader">
+    <div class="gestion-loader-spinner"></div>
   </div>
 
-  <script type="module" src="/js/views/gestion.js"></script>
+  <!-- ── PANEL DE CONFIGURACIÓN GLOBAL ── -->
+  <div id="modal-config-global" class="fleet-modal cfg-modal-v2 active">
+
+    <!-- HERO HEADER -->
+    <div class="cfg-v2-hero" style="position:relative;">
+      <div class="cfg-v2-hero-bg"></div>
+      <div class="cfg-v2-hero-content">
+        <div class="cfg-v2-hero-compact-row">
+          <div class="cfg-v2-kicker">
+            <span class="material-icons" style="font-size:13px;">settings_suggest</span>
+            ADMINISTRACIÓN
+          </div>
+          <h2 class="cfg-v2-title">PANEL ADMINISTRATIVO</h2>
+          <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
+        </div>
+        <!-- IDs requeridos por JS -->
+        <span id="cfg-insight-users" style="display:none;"></span>
+        <span id="cfg-insight-plazas" style="display:none;"></span>
+        <span id="cfg-insight-catalogs" style="display:none;"></span>
+        <span id="cfg-insight-pending" style="display:none;"></span>
+      </div>
+      <!-- Botón volver al mapa -->
+      <a href="/mapa" class="gestion-back-btn">
+        <span class="material-icons" style="font-size:16px;">arrow_back</span>
+        Volver al mapa
+      </a>
+    </div>
+
+    <!-- BODY: SIDEBAR + CONTENT -->
+    <div class="cfg-v2-body">
+
+      <!-- SIDEBAR -->
+      <div class="cfg-v2-sidebar">
+        <div class="cfg-v2-sidebar-label">
+          <span class="material-icons">shield_person</span>
+          <span>Administración</span>
+        </div>
+        <div class="cfg-v2-sidebar-sublabel">Usuarios, roles, catálogos y configuración</div>
+        <nav class="cfg-v2-nav">
+          <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Empresa">
+            <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+            <span>Empresa</span>
+          </button>
+          <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas">
+            <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+            <span>Plazas</span>
+          </button>
+          <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)" title="Ubicaciones">
+            <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+            <span>Ubicaciones</span>
+          </button>
+          <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados">
+            <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+            <span>Estados</span>
+          </button>
+          <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)" title="Categorías">
+            <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+            <span>Categorías</span>
+          </button>
+          <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos">
+            <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+            <span>Modelos</span>
+          </button>
+          <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Gasolinas">
+            <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+            <span>Gasolinas</span>
+          </button>
+
+          <div class="cfg-rail-section-label">Gestión y Permisos</div>
+
+          <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
+            <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+            <span>Usuarios</span>
+          </button>
+          <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
+            <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
+            <span>Roles</span>
+          </button>
+          <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;" title="Solicitudes">
+            <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
+            <span>Solicitudes</span>
+            <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
+          </button>
+          <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)" title="Programador">
+            <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
+            <span>Programador</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- MAIN PANEL -->
+      <div class="cfg-v2-main">
+
+        <!-- ADD BAR -->
+        <div class="cfg-v2-add-bar">
+          <div class="cfg-v2-search-box">
+            <span class="material-icons cfg-v2-search-icon">search</span>
+            <input type="text" id="cfg-search-input" placeholder="Buscar catálogo..."
+              oninput="buscarEnListaConfig()">
+          </div>
+          <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
+            <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
+          </button>
+        </div>
+
+        <!-- LIST -->
+        <div id="cfg-lista-items" class="cfg-v2-list"></div>
+
+        <!-- FOOTER -->
+        <div class="cfg-v2-footer">
+          <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> · Configuración v3</span>
+          <div class="cfg-v2-footer-actions">
+            <a href="/mapa" class="cfg-v2-btn-cancel" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-icons" style="font-size:16px;">arrow_back</span> VOLVER
+            </a>
+            <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
+              <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- mapa.js como módulo: contiene toda la lógica del panel admin -->
+  <script type="module" src="/js/views/mapa.js"></script>
+
+  <script>
+    // Ocultar loader cuando mapa.js termina de inicializar
+    window.addEventListener('mex-app-ready', () => {
+      const loader = document.getElementById('gestion-auth-loader');
+      if (loader) loader.classList.add('hidden');
+    });
+    // Fallback: ocultar después de 5s por si el evento no llega
+    setTimeout(() => {
+      const loader = document.getElementById('gestion-auth-loader');
+      if (loader) loader.classList.add('hidden');
+    }, 5000);
+  </script>
 </body>
 </html>
