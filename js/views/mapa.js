@@ -1997,6 +1997,14 @@ function iniciarApp(esNuevoLogin = true) {
   }
   const _loginOverlay = document.getElementById('login-overlay');
   if (_loginOverlay) _loginOverlay.style.display = 'none';
+
+  // Modo mensajes: ocultar UI del mapa inmediatamente, sin esperar configuración
+  if (_isMessagesMode()) {
+    document.body.classList.add('messages-mode');
+    // Abrir buzon de inmediato en vez de esperar configReadyPromise
+    setTimeout(() => { if (!_messagesBooted) { _messagesBooted = true; abrirBuzon(); } }, 150);
+  }
+
   _actualizarIdentidadSidebarUsuario();
   configureNotifications({
     profileGetter: () => currentUserProfile || window.CURRENT_USER_PROFILE || null,
@@ -13933,7 +13941,7 @@ function abrirEditorMapa() {
   _edSyncEditorHud();
   _bindEditorInspectorDrag();
 
-  api.obtenerEstructuraMapa(_miPlaza()).then(estructura => {
+  (window.api || api).obtenerEstructuraMapa(_miPlaza()).then(estructura => {
     document.getElementById('editor-loading').style.display = 'none';
     document.getElementById('editor-grid-wrapper').style.display = 'block';
     // [F2] Normalizar al formato absoluto (también acepta legado grid)

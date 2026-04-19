@@ -1850,6 +1850,31 @@
   <script src="/js/core/dialogs.js"></script>
   <script type="module" src="/js/views/mapa.js"></script>
 
+  <!-- CSS modo mensajes: esconde UI del mapa, muestra solo el buzón -->
+  <style>
+    body.messages-mode header,
+    body.messages-mode #admin-sidebar,
+    body.messages-mode #map-stage,
+    body.messages-mode #info-panel,
+    body.messages-mode .right-sidebar,
+    body.messages-mode #overlay,
+    body.messages-mode #login-overlay,
+    body.messages-mode [id*="sidebar"]:not(#buzon-modal *),
+    body.messages-mode #mobileSearchBar,
+    body.messages-mode #mexLocationGateOverlay,
+    body.messages-mode #global-status-banner {
+      display: none !important;
+    }
+    body.messages-mode #buzon-modal {
+      display: flex !important;
+      z-index: 99999 !important;
+    }
+    body.messages-mode {
+      background: #071224;
+      overflow: hidden;
+    }
+  </style>
+
   <div id="modal-insertar-admin" class="modal-overlay" style="z-index: 6000;">
     <div class="console-card admin-console-card" style="min-height: 580px;">
       <button class="admin-modal-close"
