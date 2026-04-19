@@ -32,6 +32,11 @@ import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
 
+// dialogs.js se carga como <script> antes que este módulo; en ES modules el
+// scope global no se accede por nombre sin prefijo, así que capturamos aquí.
+const mexConfirm = (...a) => (window.mexConfirm || (() => Promise.resolve(true)))(...a);
+const mexDialog  = (...a) => (window.mexDialog  || (() => Promise.resolve(null)))(...a);
+
 const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
 const USER_PRESENCE_STALE_MS = 120000;
@@ -1993,9 +1998,11 @@ function iniciarApp(esNuevoLogin = true) {
   if (_locGate) _locGate.style.display = 'none';
   // Limpiar URLs inline de sesiones anteriores al hacer nuevo login
   if (esNuevoLogin && !_isDedicatedGestionIframeMode() && !_isDedicatedCuadreIframeMode()) {
-    // Solo limpiar URL si estamos en mapa.html con una ruta inline sobrante — NO en páginas standalone dedicadas
+    // Solo limpiar URL si estamos realmente dentro del mapa principal con una ruta inline sobrante.
     const _isGestionStandalone = !!document.getElementById('gestion-auth-loader');
-    if (!_isGestionStandalone && /^\/(gestion|mensajes|cuadre)(?:\.html)?/i.test(window.location.pathname || '')) {
+    const _isMensajesStandalone = /^\/mensajes(?:\.html)?$/i.test(window.location.pathname || '');
+    const _isCuadreStandalone = /^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '');
+    if (!_isGestionStandalone && !_isMensajesStandalone && !_isCuadreStandalone && /^\/(gestion|mensajes|cuadre)(?:\.html)?/i.test(window.location.pathname || '')) {
       try { window.history.replaceState({}, '', '/mapa'); } catch (_) {}
     }
   }
