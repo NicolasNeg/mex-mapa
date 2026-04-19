@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v117';
+const CACHE_NAME = 'mapa-v119';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -15,9 +15,11 @@ const SHELL_ASSETS = [
   '/programador.html',
   '/mex-api.js',
   // Módulos API (Fase 1.1)
+  '/api/helpers.js',
   '/api/auth.js',
   '/api/mapa.js',
   '/api/cuadre.js',
+  '/api/externos.js',
   '/api/flota.js',
   '/api/alertas.js',
   '/api/notas.js',

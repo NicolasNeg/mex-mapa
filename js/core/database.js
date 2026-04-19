@@ -93,12 +93,14 @@ export const guardarEstructuraMapa    = (...a) => _api().guardarEstructuraMapa(.
 // ── Operaciones de flota ──────────────────────────────────
 export const aplicarEstado            = (...a) => _api().aplicarEstado(...a);
 export const insertarUnidadDesdeHTML  = (...a) => _api().insertarUnidadDesdeHTML(...a);
+export const insertarUnidadExterna    = (...a) => _api().insertarUnidadExterna(...a);
 export const ejecutarEliminacion      = (...a) => _api().ejecutarEliminacion(...a);
 export const guardarNuevasPosiciones  = (...a) => _api().guardarNuevasPosiciones(...a);
 
 // ── Tabla de flota ────────────────────────────────────────
 export const obtenerUnidadesVeloz        = (...a) => _api().obtenerUnidadesVeloz(...a);
 export const obtenerDatosFlotaConsola    = (...a) => _api().obtenerDatosFlotaConsola(...a);
+export const obtenerExternosPlaza        = (...a) => _api().obtenerExternosPlaza?.(...a);
 export const obtenerCuadreAdminsData     = (...a) => _api().obtenerCuadreAdminsData(...a);
 export const procesarModificacionMaestra = (...a) => _api().procesarModificacionMaestra(...a);
 
@@ -185,6 +187,7 @@ export const llamarGeminiAI           = (...a) => _api().llamarGeminiAI(...a);
 export const checkEsAdmin             = (...a) => _api().checkEsAdmin(...a);
 export const obtenerUrlImagenModelo   = (...a) => _api().obtenerUrlImagenModelo(...a);
 export const analizarPlacaVisionAPI   = (...a) => _api().analizarPlacaVisionAPI(...a);
+export const obtenerDiagnosticoCompatibilidad = (...a) => _api().obtenerDiagnosticoCompatibilidad?.(...a);
 
 // ── Acceso requests ───────────────────────────────────────
 export const procesarSolicitudAcceso  = (...a) => _api().procesarSolicitudAcceso?.(...a);

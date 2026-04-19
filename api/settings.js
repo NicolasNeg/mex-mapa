@@ -13,7 +13,7 @@
     _alertMatchesUser, _alertReadByUser,
     _matchesPlaza, _normalizePlazaLocationItem,
     _buildDefaultPlazaLocations, _ensurePlazaBootstrap,
-    _configPlazaRef, backfillPlazaEnUnidades
+    _configPlazaRef, backfillPlazaEnUnidades, _buildPlazaScopedQuery
   } = window._mex;
 
   window._mexParts = window._mexParts || {};
@@ -21,12 +21,21 @@
 
     // ─── RADAR ────────────────────────────────────────────
     async checarNotificaciones(usuarioActivo, plaza) {
+      const plazaUp = _normalizePlazaId(plaza);
+      const alertasQuery = plazaUp
+        ? (typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.ALERTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' }, limit: 50 })
+          : db.collection(COL.ALERTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc').limit(50))
+        : db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50);
+      const notasQuery = plazaUp
+        ? db.collection(COL.NOTAS).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE")
+        : db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE");
       const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
         _getSettings(plaza),
         _getSettings('GLOBAL'),
-        db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50).get(),
+        alertasQuery.get(),
         db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
-        db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get()
+        notasQuery.get()
       ]);
       const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
         .filter(a => !_alertReadByUser(a, usuarioActivo))

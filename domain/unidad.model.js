@@ -23,6 +23,10 @@ export function normalizarUnidad(raw = {}) {
     pos:         String(raw.pos         || 'LIMBO').toUpperCase(),
     plaza:       String(raw.plaza       || '').toUpperCase(),
     tipo:        String(raw.tipo        || 'renta'),
+    traslado_destino: String(raw.traslado_destino || raw.trasladoDestino || '').trim().toUpperCase(),
+    version:     Number(raw.version || raw._version || 0) || 0,
+    lastTouchedAt: raw.lastTouchedAt || raw._updatedAt || raw._createdAt || null,
+    lastTouchedBy: String(raw.lastTouchedBy || raw._updatedBy || raw._createdBy || '').trim(),
     fechaIngreso:raw.fechaIngreso || null,
     _createdAt:  raw._createdAt  || null,
     _updatedAt:  raw._updatedAt  || null,
@@ -48,7 +52,10 @@ export function generarSearchTokens(unidad) {
   add(unidad.placas);
   add(unidad.categoria);
   add(unidad.estado);
+  add(unidad.traslado_destino);
+  add(unidad.notas);
   // Modelo sin espacios para búsqueda rápida
   if (unidad.modelo) tokens.add(unidad.modelo.replace(/\s+/g, ''));
+  if (unidad.notas) tokens.add(String(unidad.notas).toUpperCase().replace(/\s+/g, ' '));
   return [...tokens];
 }

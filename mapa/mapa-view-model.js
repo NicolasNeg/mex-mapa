@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { estaEnPatio, estaEnExterno }      from '../domain/estado.model.js';
-import { generarSearchTokens }              from '../domain/unidad.model.js';
+import { normalizarUnidad, generarSearchTokens } from '../domain/unidad.model.js';
 import { normalizarElemento, esCajonOcupable, categoriaPermitida } from '../domain/mapa.model.js';
 
 // ── Estado visual de una UNIDAD ──────────────────────────────
@@ -22,7 +22,8 @@ import { normalizarElemento, esCajonOcupable, categoriaPermitida } from '../doma
  * @returns {object} unitViewModel
  */
 export function buildUnitViewModel(unidad, uiState = {}, options = {}) {
-  const mva = String(unidad?.mva || '').toUpperCase();
+  const base = normalizarUnidad(unidad);
+  const mva = String(base.mva || '').toUpperCase();
 
   // ── Flags de estado de interacción ──
   const isSelected    = uiState.selectedMva    === mva;
@@ -30,8 +31,8 @@ export function buildUnitViewModel(unidad, uiState = {}, options = {}) {
   const isMoving      = uiState.movingMva      === mva;
 
   // ── Flags de estado operativo ──
-  const estado     = String(unidad?.estado    || '').toUpperCase();
-  const ubicacion  = String(unidad?.ubicacion || '').toUpperCase();
+  const estado     = String(base.estado    || '').toUpperCase();
+  const ubicacion  = String(base.ubicacion || '').toUpperCase();
 
   const isInTransit    = estado === 'TRASLADO';
   const isBlocked      = estado === 'NO ARRENDABLE' || estado === 'RETENIDA';
@@ -56,7 +57,7 @@ export function buildUnitViewModel(unidad, uiState = {}, options = {}) {
   else if (isInTransit) movementState = 'transit';
 
   // ── Search tokens ──
-  const searchTokens = generarSearchTokens(unidad);
+  const searchTokens = generarSearchTokens(base);
 
   return {
     mva,
@@ -72,15 +73,24 @@ export function buildUnitViewModel(unidad, uiState = {}, options = {}) {
     hasQuickNotes,
     movementState,
     searchTokens,
+    version: base.version,
+    lastTouchedAt: base.lastTouchedAt,
+    lastTouchedBy: base.lastTouchedBy,
+    traslado_destino: base.traslado_destino,
+    raw: unidad,
     // Datos de la unidad para el render
     estado,
     ubicacion,
-    modelo:   String(unidad?.modelo   || ''),
-    categoria:String(unidad?.categoria|| ''),
-    placas:   String(unidad?.placas   || ''),
-    notas:    String(unidad?.notas    || ''),
-    pos:      String(unidad?.pos      || 'LIMBO').toUpperCase(),
-    tipo:     String(unidad?.tipo     || 'renta'),
+    gasolina: String(base.gasolina || 'N/A'),
+    plaza: String(base.plaza || ''),
+    fechaIngreso: base.fechaIngreso || null,
+    id: String(base.id || mva),
+    modelo:   String(base.modelo   || ''),
+    categoria:String(base.categoria|| ''),
+    placas:   String(base.placas   || ''),
+    notas:    String(base.notas    || ''),
+    pos:      String(base.pos      || 'LIMBO').toUpperCase(),
+    tipo:     String(base.tipo     || 'renta'),
   };
 }
 
@@ -107,6 +117,7 @@ export function buildCajonViewModel(elementoEstructura, unidades = []) {
   const allowedCategories = el.allowedCategories;
   const zone      = el.zone;
   const googleMapsUrl = el.googleMapsUrl;
+  const isOcupable = esCajonOcupable(el);
 
   // ¿La categoría de la unidad actual está permitida en este cajón?
   const categoriaConflict = occupied && allowedCategories.length > 0
@@ -122,6 +133,7 @@ export function buildCajonViewModel(elementoEstructura, unidades = []) {
     occupied,
     reserved,
     blocked,
+    isOcupable,
     allowedCategories,
     zone,
     googleMapsUrl,

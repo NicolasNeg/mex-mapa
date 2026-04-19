@@ -13,14 +13,14 @@
     _buildCuadreAdminPayload, _normalizeCuadreAdminRecord, _resolveCuadreAdminDocId,
     _uploadAdminEvidenceFiles, _deleteEvidenceFiles,
     _windowLocationAuditExtra, _matchesPlaza, _sanitizeText,
-    _getSettings, _setSettings, _ensureGlobalSettingsDoc
+    _getSettings, _setSettings, _ensureGlobalSettingsDoc, _buildPlazaScopedQuery
   } = window._mex;
 
   window._mexParts = window._mexParts || {};
   window._mexParts.cuadre = {
 
     // ─── MODIFICACIONES ──────────────────────────────────
-    async aplicarEstado(mva, estado, ubi, gas, notasFormulario, borrarNotas, nombreAutor, responsableSesion, plaza) {
+    async aplicarEstado(mva, estado, ubi, gas, notasFormulario, borrarNotas, nombreAutor, responsableSesion, plaza, meta = {}) {
       const mvaStr = mva.toString().trim().toUpperCase();
       const plazaUp = _normalizePlazaId(plaza);
 
@@ -44,6 +44,17 @@
       const ahora = _now();
       const sello = `(${ahora}) [${nombreAutor || "?"}]`;
       let notaFinal = actual.notas || "";
+      const expectedVersion = Number(meta?.expectedVersion || meta?.version || 0) || 0;
+      const currentVersion = Number(actual?.version || actual?._version || 0) || 0;
+      if (expectedVersion && currentVersion && expectedVersion !== currentVersion) {
+        return {
+          ok: false,
+          code: 'CONFLICT',
+          mva: mvaStr,
+          expectedVersion,
+          currentVersion
+        };
+      }
       const notaEntrada = notasFormulario ? notasFormulario.trim() : "";
       if (borrarNotas === true || borrarNotas === "true") {
         notaFinal = notaEntrada !== "" ? `${sello} ${notaEntrada}` : "";
@@ -52,7 +63,20 @@
         notaFinal = tieneSello ? notaEntrada : `${sello} ${notaEntrada}`;
       }
 
-      const updatePayload = { gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor };
+      const touchActor = responsableSesion || nombreAutor || "Sistema";
+      const nextVersion = currentVersion > 0 ? currentVersion + 1 : 1;
+      const updatePayload = {
+        gasolina: gas,
+        estado,
+        ubicacion: ubi,
+        notas: notaFinal,
+        _updatedAt: ahora,
+        _updatedBy: touchActor,
+        _version: nextVersion,
+        version: nextVersion,
+        lastTouchedAt: ahora,
+        lastTouchedBy: touchActor
+      };
       if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
       await docRef.update(updatePayload);
       await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp);
@@ -104,7 +128,13 @@
         plaza:        plazaUp || null,
         fechaIngreso: new Date().toISOString(),
         _createdAt:   ahora,
-        _createdBy:   objeto.responsableSesion || "Sistema"
+        _createdBy:   objeto.responsableSesion || "Sistema",
+        _updatedAt:   ahora,
+        _updatedBy:   objeto.responsableSesion || "Sistema",
+        _version:     1,
+        version:      1,
+        lastTouchedAt: ahora,
+        lastTouchedBy: objeto.responsableSesion || "Sistema"
       };
 
       await db.collection(COL.CUADRE).doc(docId).set(unitData);
@@ -140,7 +170,13 @@
         tipo:         "externo",
         fechaIngreso: new Date().toISOString(),
         _createdAt:   ahora,
-        _createdBy:   objeto.responsableSesion || "Sistema"
+        _createdBy:   objeto.responsableSesion || "Sistema",
+        _updatedAt:   ahora,
+        _updatedBy:   objeto.responsableSesion || "Sistema",
+        _version:     1,
+        version:      1,
+        lastTouchedAt: ahora,
+        lastTouchedBy: objeto.responsableSesion || "Sistema"
       };
 
       await db.collection(COL.EXTERNOS).doc(docId).set(unitData);
@@ -179,12 +215,18 @@
       const plazaUp = _normalizePlazaId(plaza);
       const batch = db.batch();
       const histBatch = [];
+      const conflicts = [];
+      const touchActor = usuarioResponsable || "Sistema";
 
       const unitMap = {};
       if (plazaUp) {
         const [cuadreSnap, externosSnap] = await Promise.all([
-          db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(),
-          db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get()
+          (typeof _buildPlazaScopedQuery === 'function'
+            ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
+            : db.collection(COL.CUADRE).where('plaza', '==', plazaUp)).get(),
+          (typeof _buildPlazaScopedQuery === 'function'
+            ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
+            : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp)).get()
         ]);
         cuadreSnap.docs.forEach(d => {
           const mva = (d.data().mva || '').toString().trim().toUpperCase();
@@ -213,12 +255,38 @@
         if (found) {
           const posAnterior = found.data.pos || "LIMBO";
           if (posAnterior !== posNueva) {
-            batch.set(found.ref, { pos: posNueva }, { merge: true });
+            const currentVersion = Number(found.data.version || found.data._version || 0) || 0;
+            const expectedVersion = Number(item.expectedVersion || item.version || 0) || 0;
+            if (expectedVersion && currentVersion && expectedVersion !== currentVersion) {
+              conflicts.push({
+                mva: mvaStr,
+                expectedVersion,
+                currentVersion,
+                posAnterior,
+                posNueva
+              });
+              continue;
+            }
+            const ahora = _now();
+            const nextVersion = currentVersion > 0 ? currentVersion + 1 : 1;
+            batch.set(found.ref, {
+              pos: posNueva,
+              version: nextVersion,
+              _version: nextVersion,
+              lastTouchedAt: ahora,
+              lastTouchedBy: touchActor,
+              _updatedAt: ahora,
+              _updatedBy: touchActor
+            }, { merge: true });
             histBatch.push({ mva: mvaStr, hoja: found.hoja, posAnterior, posNueva });
           }
         }
       }
-      if (!histBatch.length) return true;
+      if (!histBatch.length) {
+        return conflicts.length
+          ? { ok: false, code: 'CONFLICT', conflicts }
+          : true;
+      }
 
       await batch.commit();
 
@@ -256,7 +324,9 @@
         if (errores.length) console.warn(`[guardarNuevasPosiciones] ${errores.length} historial no guardado.`);
       });
 
-      return true;
+      return conflicts.length
+        ? { ok: true, saved: histBatch.length, conflicts }
+        : true;
     },
 
     // ─── CUADRE ADMINS ────────────────────────────────────
@@ -271,9 +341,13 @@
 
     async obtenerCuadreAdminsData(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const snap = await db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc").get();
-      const allDocs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
-      return Promise.all(allDocs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+      const query = plazaUp
+        ? (typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.CUADRE_ADM, plazaUp, { orderBy: { field: '_createdAt', direction: 'desc' } })
+          : db.collection(COL.CUADRE_ADM).where('plaza', '==', plazaUp).orderBy('_createdAt', 'desc'))
+        : db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc");
+      const snap = await query.get();
+      return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
     },
 
     async procesarModificacionMaestra(datos, tipoAccion) {

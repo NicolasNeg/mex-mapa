@@ -7,7 +7,8 @@
     db, COL,
     _normalizePlazaId, _matchesPlaza, _now, _ts, _sanitizeText,
     _buildIncidentPayload, _normalizeIncidentRecord, _normalizeIncidentAttachments,
-    _normalizeEvidenceItems, _uploadIncidentAttachments, _deleteEvidenceFiles
+    _normalizeEvidenceItems, _uploadIncidentAttachments, _deleteEvidenceFiles,
+    _buildPlazaScopedQuery
   } = window._mex;
 
   window._mexParts = window._mexParts || {};
@@ -16,16 +17,24 @@
     // ─── NOTAS ────────────────────────────────────────────
     async obtenerTodasLasNotas(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const snap = await db.collection(COL.NOTAS).orderBy("timestamp", "desc").get();
-      const docs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
-      return docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
+      const query = plazaUp
+        ? (typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.NOTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' } })
+          : db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc'))
+        : db.collection(COL.NOTAS).orderBy("timestamp", "desc");
+      const snap = await query.get();
+      return snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
     },
 
     suscribirNotasAdmin(callback, plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      return db.collection(COL.NOTAS).orderBy("timestamp", "desc").onSnapshot(snap => {
-        const docs = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
-        callback(docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
+      const query = plazaUp
+        ? (typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.NOTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' } })
+          : db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc'))
+        : db.collection(COL.NOTAS).orderBy("timestamp", "desc");
+      return query.onSnapshot(snap => {
+        callback(snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
       }, err => console.error("onSnapshot notas_admin:", err));
     },
 

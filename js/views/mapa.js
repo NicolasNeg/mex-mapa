@@ -25,6 +25,9 @@ import {
   syncCurrentDeviceContext
 } from '/js/core/notifications.js';
 import { installProgrammerErrorReporter, reportProgrammerError } from '/js/core/observability.js';
+import { normalizarUnidad } from '/domain/unidad.model.js';
+import { normalizarElemento } from '/domain/mapa.model.js';
+import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
 
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
@@ -952,6 +955,7 @@ function _setSessionProfile(profile) {
   PLAZA_ACTIVA_MAPA = profile.plazaAsignada || '';
   window.CURRENT_USER_PROFILE = profile;
   _updateGlobalPlazaEmail();
+  console.log('[MEX-INTEG] _setSessionProfile →', { email: profile.email, rol: userAccessRole, plaza: PLAZA_ACTIVA_MAPA || '(sin plaza)', userRole, fullAccess: isGlobalAdmin });
 }
 
 function _clearSessionProfile() {
@@ -2454,8 +2458,48 @@ let _mapaRuntime = {
 };
 let _mapaSyncState = {
   hasPendingWrite: false,
-  lastSavedFingerprint: ''
+  lastSavedFingerprint: '',
+  lastConflicts: []
 };
+let _currentMapViewModel = { cajones: [], unitMap: new Map(), stats: {} };
+
+function _currentMapUiState() {
+  const conflicts = new Set(
+    (Array.isArray(_mapaSyncState.lastConflicts) ? _mapaSyncState.lastConflicts : [])
+      .map(item => String(item?.mva || '').trim().toUpperCase())
+      .filter(Boolean)
+  );
+  return {
+    selectedMva: String(selectedAuto?.dataset?.mva || '').trim().toUpperCase(),
+    highlightedMva: '',
+    conflicts
+  };
+}
+
+function _rebuildCurrentMapViewModel(unidades = _ultimaFlotaMapa, estructura = _ultimaEstructuraMapa) {
+  const normalizedStructure = Array.isArray(estructura)
+    ? estructura.map((item, index) => normalizarElemento(item, index))
+    : [];
+  const normalizedUnits = Array.isArray(unidades)
+    ? unidades.map(_normalizarUnidadMapa).filter(item => item?.mva)
+    : [];
+  _currentMapViewModel = buildMapaViewModel(normalizedStructure, normalizedUnits, _currentMapUiState(), {
+    cuadreAdmins: DB_ADMINS,
+    notasAbiertas: notasGlobales
+  });
+  return _currentMapViewModel;
+}
+
+function _unitViewModelFor(unit = {}) {
+  const mva = String(unit?.mva || '').trim().toUpperCase();
+  if (mva && _currentMapViewModel?.unitMap?.has?.(mva)) {
+    return _currentMapViewModel.unitMap.get(mva);
+  }
+  return buildUnitViewModel(_normalizarUnidadMapa(unit), _currentMapUiState(), {
+    cuadreAdmins: DB_ADMINS,
+    notasAbiertas: notasGlobales
+  });
+}
 
 function _setMapSyncBadge(mode = 'live', text = '') {
   const badge = document.getElementById('mapSyncBadge');
@@ -2487,7 +2531,11 @@ function _obtenerReportePosicionesMapa() {
       pos = _spotValueFromElement(parent);
     }
     if (car.dataset.mva) {
-      reporte.push({ mva: car.dataset.mva, pos });
+      reporte.push({
+        mva: car.dataset.mva,
+        pos,
+        expectedVersion: Number(car.dataset.version || 0) || 0
+      });
     }
   });
   return reporte.sort((a, b) => a.mva.localeCompare(b.mva));
@@ -2649,6 +2697,8 @@ function init() {
 }
 
 function startAutoRefresh() {
+  // Siempre usar window.api fresco — el const api puede ser snapshot anterior al assemble
+  const _api = window.api || api;
   const plazaActiva = _miPlaza();
 
   // Guard: no reiniciar si ya tenemos suscripciones activas para esta misma plaza
@@ -2657,25 +2707,29 @@ function startAutoRefresh() {
   if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
   if (_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
 
-  if (typeof api === 'undefined' || typeof api.suscribirMapa !== 'function') {
+  if (!_api || typeof _api.suscribirMapa !== 'function') {
+    console.warn('[MEX-INTEG] startAutoRefresh: window.api no está listo, reintentando en 500ms', { api: typeof _api, keys: Object.keys(_api || {}).length });
     setTimeout(startAutoRefresh, 500);
     return;
   }
 
+  console.log('[MEX-INTEG] startAutoRefresh →', { plaza: plazaActiva || '(sin plaza)', apiKeys: Object.keys(_api).length });
   _subPlaza = plazaActiva; // Registrar plaza activa ANTES de suscribir
 
-  if (typeof api.suscribirEstructuraMapa === 'function') {
-    _unsubMapaEstructura = api.suscribirEstructuraMapa(estructura => {
+  if (typeof _api.suscribirEstructuraMapa === 'function') {
+    _unsubMapaEstructura = _api.suscribirEstructuraMapa(estructura => {
+      console.log('[MEX-INTEG] estructura recibida →', { celdas: estructura?.length, plaza: plazaActiva });
       _mapaRuntime.estructuraReady = true;
       dibujarMapaCompleto(estructura);
     }, plazaActiva);
   } else {
+    console.warn('[MEX-INTEG] suscribirEstructuraMapa no disponible — usando dibujarMapaCompleto directo');
     dibujarMapaCompleto();
   }
 
-  const suscribir = api.suscribirMapaPlaza
-    ? (cb) => api.suscribirMapaPlaza(plazaActiva, cb)
-    : api.suscribirMapa.bind(api);
+  const suscribir = _api.suscribirMapaPlaza
+    ? (cb) => _api.suscribirMapaPlaza(plazaActiva, cb)
+    : _api.suscribirMapa.bind(_api);
 
   _unsubMapa = suscribir(unidades => {
     _mapaRuntime.unidadesReady = true;
@@ -2692,6 +2746,7 @@ function startAutoRefresh() {
 // Cambia la plaza activa en el mapa y reinicia las suscripciones
 function cambiarPlazaMapa(plaza) {
   if (!plaza || PLAZA_ACTIVA_MAPA === plaza) return;
+  console.log('[MEX-INTEG] cambiarPlazaMapa →', { de: PLAZA_ACTIVA_MAPA || '(sin plaza)', a: plaza });
   PLAZA_ACTIVA_MAPA = plaza;
   _updateGlobalPlazaEmail();
   _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
@@ -2982,12 +3037,14 @@ function ejecutarFiltroMasivo() {
     const placas = (car.dataset.placas || "").toLowerCase();
     const modelo = (car.dataset.modelo || "").toLowerCase();
     const notas = (car.dataset.notas || "").toLowerCase();
+    const searchTokens = (car.dataset.searchTokens || "").toLowerCase();
 
     // 🔥 BUSCADOR TOTAL: MVA, Placa, Modelo o Notas 🔥
     const isMatch = mva.includes(query) ||
       placas.includes(query) ||
       modelo.includes(query) ||
-      notas.includes(query);
+      notas.includes(query) ||
+      searchTokens.includes(query);
 
     car.classList.remove('fade', 'hide');
 
@@ -3062,19 +3119,20 @@ function _normalizarEstructuraMapa(estructura = [], opciones = {}) {
 
   const items = estructura
     .map((celda, index) => {
-      const valor = String(celda?.valor || '').trim();
-      const tipo = celda?.esLabel ? 'label' : (celda?.tipo || 'cajon');
-      const esLabel = Boolean(celda?.esLabel);
-      const orden = Number(celda?.orden ?? index);
+      const base = normalizarElemento(celda, index);
+      const valor = String(base.valor || '').trim();
+      const tipo = base.tipo;
+      const esLabel = Boolean(base.esLabel);
+      const orden = Number(base.orden ?? index);
 
       // [F2] Si ya viene con x,y usar directo; si es legado grid → convertir
       let x, y, width, height, rotation;
       if (celda?.x !== undefined || celda?.y !== undefined) {
-        x = Number(celda.x) || 0;        // [F2]
-        y = Number(celda.y) || 0;        // [F2]
-        width = Number(celda.width) || 120;      // [F2]
-        height = Number(celda.height) || 80;       // [F2]
-        rotation = Number(celda.rotation) || 0;        // [F2]
+        x = Number(base.x) || 0;
+        y = Number(base.y) || 0;
+        width = Number(base.width) || 120;
+        height = Number(base.height) || 80;
+        rotation = Number(base.rotation) || 0;
       } else {
         // Legado: col/row/colspan/rowspan → calcular px con base 120×80 + 4 gap
         const col = Math.max(1, Number(celda?.col) || 1);
@@ -3092,13 +3150,26 @@ function _normalizarEstructuraMapa(estructura = [], opciones = {}) {
         x += Math.floor(Math.max(0, x) / MAPA_RENDER_BASE_X) * MAPA_RENDER_AIRE_X;
         y += Math.floor(Math.max(0, y) / MAPA_RENDER_BASE_Y) * MAPA_RENDER_AIRE_Y;
       }
-      // [F2.2] Campos extendidos — restricciones por categoría y zona
-      const allowedCategories = Array.isArray(celda?.allowedCategories)
-        ? celda.allowedCategories.map(c => String(c).trim().toUpperCase()).filter(Boolean)
-        : [];
-      const zone    = celda?.zone    || null;
-      const subzone = celda?.subzone || null;
-      return { valor, tipo, esLabel, orden, x, y, width, height, rotation, allowedCategories, zone, subzone };
+      return {
+        valor,
+        tipo,
+        esLabel,
+        orden,
+        x,
+        y,
+        width,
+        height,
+        rotation,
+        allowedCategories: base.allowedCategories,
+        zone: base.zone,
+        subzone: base.subzone,
+        isReserved: base.isReserved,
+        isBlocked: base.isBlocked,
+        isTemporaryHolding: base.isTemporaryHolding,
+        priority: base.priority,
+        googleMapsUrl: base.googleMapsUrl,
+        pathType: base.pathType
+      };
     })
     .sort((a, b) => a.orden - b.orden);
 
@@ -3109,7 +3180,7 @@ function _normalizarEstructuraMapa(estructura = [], opciones = {}) {
   });
 
   const signature = items
-    .map(c => `${c.valor}|${c.x}|${c.y}|${c.width}|${c.height}|${c.tipo}`)
+    .map(c => `${c.valor}|${c.x}|${c.y}|${c.width}|${c.height}|${c.tipo}|${c.isBlocked ? 1 : 0}|${c.isReserved ? 1 : 0}|${c.zone || ''}|${c.subzone || ''}`)
     .join('~');
 
   return { items, canvasW: canvasW + 8, canvasH: canvasH + 8, signature };
@@ -3140,12 +3211,14 @@ function dibujarMapaCompleto(estructura = null) {
   if (!grid) return Promise.resolve();
 
   if (!Array.isArray(estructura)) {
-    return api.obtenerEstructuraMapa(_miPlaza())
+    console.log('[MEX-INTEG] dibujarMapaCompleto: sin estructura → obteniendo de Firestore', { plaza: _miPlaza() || '(sin plaza)' });
+    return (window.api || api).obtenerEstructuraMapa(_miPlaza())
       .then(dibujarMapaCompleto)
-      .catch(e => console.error(e));
+      .catch(e => { console.error('[MEX-INTEG] dibujarMapaCompleto fetch error:', e); });
   }
 
   _ultimaEstructuraMapa = estructura;
+  _rebuildCurrentMapViewModel(_ultimaFlotaMapa, estructura);
   const normalizada = _normalizarEstructuraMapa(estructura);
 
   if (normalizada.signature === _mapaRuntime.estructuraSig && grid.children.length) {
@@ -3178,6 +3251,12 @@ function dibujarMapaCompleto(estructura = null) {
       div.classList.add('spot-restricted'); // [F2.9] indicador visual
     }
     if (celda.zone) div.dataset.zone = celda.zone;
+    if (celda.subzone) div.dataset.subzone = celda.subzone;
+    if (celda.isBlocked) div.dataset.blocked = 'true';
+    if (celda.isReserved) div.dataset.reserved = 'true';
+    if (celda.isTemporaryHolding) div.dataset.temporaryHolding = 'true';
+    if (celda.googleMapsUrl) div.dataset.googleMapsUrl = celda.googleMapsUrl;
+    if (celda.pathType) div.dataset.pathType = celda.pathType;
     // [F2] Posicionamiento absoluto
     div.style.left = `${celda.x}px`;
     div.style.top = `${celda.y}px`;
@@ -3207,17 +3286,19 @@ function dibujarMapaCompleto(estructura = null) {
 }
 
 function _normalizarUnidadMapa(unit = {}) {
-  const mva = String(unit?.mva || '').trim().toUpperCase();
-  const placas = String(unit?.placas || '').trim().toUpperCase();
-  const modelo = String(unit?.modelo || '').trim().toUpperCase();
-  const estado = String(unit?.estado || 'SUCIO').trim().toUpperCase();
-  const gasolina = String(unit?.gasolina || 'N/A').trim().toUpperCase() || 'N/A';
-  const ubicacion = String(unit?.ubicacion || 'PATIO').trim().toUpperCase();
-  const pos = String(unit?.pos || 'LIMBO').trim().toUpperCase();
-  const notas = String(unit?.notas || '').replace(/[\r\n]+/g, ' ').trim();
-  const fechaIngreso = String(unit?.fechaIngreso || '').trim();
-  const plaza = _normalizePlaza(unit?.plaza || unit?.plazaId || unit?.sucursal || unit?.plazaAsignada || '');
-  return { ...unit, mva, placas, modelo, estado, gasolina, ubicacion, pos, notas, fechaIngreso, plaza };
+  const base = normalizarUnidad(unit);
+  const plaza = _normalizePlaza(unit?.plaza || unit?.plazaId || unit?.sucursal || unit?.plazaAsignada || base.plaza || '');
+  return {
+    ...unit,
+    ...base,
+    notas: String(base.notas || '').replace(/[\r\n]+/g, ' ').trim(),
+    fechaIngreso: String(base.fechaIngreso || '').trim(),
+    plaza,
+    version: Number(unit?.version || unit?._version || base.version || 0) || 0,
+    lastTouchedAt: unit?.lastTouchedAt || unit?._updatedAt || unit?._createdAt || null,
+    lastTouchedBy: String(unit?.lastTouchedBy || unit?._updatedBy || unit?._createdBy || base.lastTouchedBy || '').trim(),
+    traslado_destino: String(unit?.traslado_destino || unit?.trasladoDestino || base.traslado_destino || '').trim().toUpperCase()
+  };
 }
 
 function _firmaUnidadMapa(unit) {
@@ -3230,9 +3311,13 @@ function _firmaUnidadMapa(unit) {
     unit.notas,
     unit.placas,
     unit.modelo,
+    unit.categoria || '',
     unit.fechaIngreso,
     unit.plaza,
-    unit.traslado_destino || '' // [2.8]
+    unit.traslado_destino || '',
+    unit.version || 0,
+    unit.lastTouchedAt || '',
+    unit.lastTouchedBy || ''
   ].join('|');
 }
 
@@ -3277,39 +3362,50 @@ function _renderGasolinaMapa(gasolina) {
 }
 
 function _actualizarNodoUnidadMapa(car, unit, signature) {
+  const unitVm = _unitViewModelFor(unit);
   const esGhost = car.classList.contains('ghost');
   const esForgotten = car.classList.contains('forgotten');
   const esSelected = car.classList.contains('selected');
 
-  car.dataset.mva = unit.mva;
-  car.dataset.placas = unit.placas || "";
-  car.dataset.modelo = unit.modelo || "";
-  car.dataset.estado = unit.estado || "SUCIO";
-  car.dataset.gasolina = unit.gasolina || "N/A";
-  car.dataset.ubicacion = unit.ubicacion;
-  car.dataset.plaza = unit.plaza || "";
-  car.dataset.ingreso = unit.fechaIngreso || "";
-  car.dataset.notas = unit.notas || "";
+  car.dataset.mva = unitVm.mva;
+  car.dataset.placas = unitVm.placas || "";
+  car.dataset.modelo = unitVm.modelo || "";
+  car.dataset.categoria = unitVm.categoria || "";
+  car.dataset.estado = unitVm.estado || "SUCIO";
+  car.dataset.gasolina = unitVm.gasolina || "N/A";
+  car.dataset.ubicacion = unitVm.ubicacion;
+  car.dataset.plaza = unitVm.plaza || "";
+  car.dataset.ingreso = unitVm.fechaIngreso || "";
+  car.dataset.notas = unitVm.notas || "";
+  car.dataset.version = String(unitVm.version || 0);
+  car.dataset.lastTouchedAt = unitVm.lastTouchedAt ? String(unitVm.lastTouchedAt) : "";
+  car.dataset.lastTouchedBy = unitVm.lastTouchedBy || "";
+  car.dataset.searchTokens = Array.isArray(unitVm.searchTokens) ? unitVm.searchTokens.join('|') : "";
+  car.dataset.hasEvidence = unitVm.hasEvidence ? 'SI' : 'NO';
+  car.dataset.hasQuickNotes = unitVm.hasQuickNotes ? 'SI' : 'NO';
+  car.dataset.conflicted = unitVm.isConflicted ? 'SI' : 'NO';
+  car.dataset.trasladoDestino = unitVm.traslado_destino || "";
 
-  const textoNotas = unit.notas.toUpperCase();
+  const textoNotas = (unitVm.notas || "").toUpperCase();
   const urgHtml = textoNotas.includes("URGENTE") ? `<div class="urgent-badge">⚡</div>` : '';
   const lockHtml = (textoNotas.includes("RESERVAD") || textoNotas.includes("APARTAD")) ? `<div class="lock-badge">🔒</div>` : '';
   const docHtml = textoNotas.includes("DOBLE CERO") ? `<div class="doc-badge">🍃</div>` : '';
-  const mantoHtml = (unit.estado === "MANTENIMIENTO" || unit.estado === "TALLER") ? `<div class="manto-badge">⚙️</div>` : '';
-  const trasladoDest = unit.traslado_destino ? ` → ${unit.traslado_destino}` : '';
-  const trasladoHtml = unit.estado === "TRASLADO" ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + unit.traslado_destino : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${unit.traslado_destino}</span>` : ''}</div>` : '';
-  const termometro = obtenerDisenoCalor(unit.fechaIngreso);
+  const mantoHtml = (unitVm.estado === "MANTENIMIENTO" || unitVm.estado === "TALLER") ? `<div class="manto-badge">⚙️</div>` : '';
+  const trasladoDest = unitVm.traslado_destino ? ` → ${unitVm.traslado_destino}` : '';
+  const trasladoHtml = unitVm.isInTransit ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + unitVm.traslado_destino : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${unitVm.traslado_destino}</span>` : ''}</div>` : '';
+  const termometro = obtenerDisenoCalor(unitVm.fechaIngreso);
   const calorHtml = `<div class="badge-calor ${termometro.clase}" style="background: ${termometro.bg}; border: 1px solid ${termometro.border}; color: ${termometro.color};"><span class="material-icons" style="font-size: 11px;">${termometro.icon}</span> ${termometro.text}</div>`;
-  const gasBarHtml = _renderGasolinaMapa(unit.gasolina);
-  const estadoClase = unit.estado
-    ? unit.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')
+  const gasBarHtml = _renderGasolinaMapa(unitVm.gasolina);
+  const estadoClase = unitVm.estado
+    ? unitVm.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')
     : "sucio";
 
-  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; pointer-events:none;"><span style="font-size:19px; flex:1; display:flex; align-items:center;">${unit.mva}</span>${gasBarHtml}</div>`;
+  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; pointer-events:none;"><span style="font-size:19px; flex:1; display:flex; align-items:center;">${unitVm.mva}</span>${gasBarHtml}</div>`;
   car.className = `car ${estadoClase}`;
   if (esGhost) car.classList.add('ghost');
   if (esForgotten) car.classList.add('forgotten');
   if (esSelected) car.classList.add('selected');
+  if (unitVm.isConflicted) car.classList.add('car-focus');
   car.dataset.renderHash = signature;
 }
 
@@ -3324,8 +3420,8 @@ function _flushMapaSync() {
 
   if (!_mapaRuntime.estructuraReady && !document.getElementById('grid-map')?.children.length) return;
 
-  const nuevas = _ultimaFlotaMapa
-    .map(_normalizarUnidadMapa)
+  const mapaVm = _rebuildCurrentMapViewModel(_ultimaFlotaMapa, _ultimaEstructuraMapa);
+  const nuevas = [...mapaVm.unitMap.values()]
     .filter(unit => {
       if (!unit.mva) return false;
       const plazaActual = _normalizePlaza(_miPlaza());
@@ -3387,6 +3483,7 @@ function _flushMapaSync() {
 let _f7ExtrasVerificado = false;
 function sincronizarMapa(nuevas, opciones = {}) {
   _ultimaFlotaMapa = Array.isArray(nuevas) ? nuevas : [];
+  _rebuildCurrentMapViewModel(_ultimaFlotaMapa, _ultimaEstructuraMapa);
   // [F3.3] Actualizar panel de supervisión multi-plaza
   if (typeof _actualizarSupervisionConUnidades === 'function') {
     _actualizarSupervisionConUnidades(_ultimaFlotaMapa);
@@ -3523,6 +3620,14 @@ function _selectCarOnMap(car, options = {}) {
 async function _handleMapUnitDrop(unidad, destino, options = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return false;
   const fromDrag = options.fromDrag === true;
+
+  if (destino.dataset.blocked === 'true') {
+    showToast('Ese cajón está bloqueado y no acepta movimientos.', 'warning');
+    return false;
+  }
+  if (destino.dataset.reserved === 'true') {
+    showToast('Ese cajón está marcado como reservado. Revisa la operación antes de dejar la unidad ahí.', 'warning');
+  }
 
   // [F2.2] Validación suave de categoría permitida en el cajón
   if (destino.classList.contains('spot') && destino.dataset.allowedCategories) {
@@ -4050,7 +4155,12 @@ function ejecutarAutoGuardado() {
   api.guardarNuevasPosiciones(reporte, USER_NAME, _miPlaza(), locationAuditPayload).then((res) => {
     isSaving = false;
 
-    if (res === true) {
+    if (res === true || res?.ok === true) {
+      _mapaSyncState.lastConflicts = Array.isArray(res?.conflicts) ? res.conflicts : [];
+      if (_mapaSyncState.lastConflicts.length > 0) {
+        showToast(`Se detectaron ${_mapaSyncState.lastConflicts.length} conflicto(s) y el mapa se refrescará para evitar sobrescrituras.`, 'warning');
+        refrescarDatos(true);
+      }
       _mapaSyncState.lastSavedFingerprint = fingerprint;
       const currentFingerprint = _firmaReportePosicionesMapa(_obtenerReportePosicionesMapa());
       if (_mapaSyncState.hasPendingWrite || currentFingerprint !== fingerprint) {
@@ -4060,7 +4170,14 @@ function ejecutarAutoGuardado() {
         return;
       }
       _finalizarCicloGuardadoMapa();
+    } else if (res?.code === 'CONFLICT' || (Array.isArray(res?.conflicts) && res.conflicts.length > 0)) {
+      _mapaSyncState.lastConflicts = Array.isArray(res?.conflicts) ? res.conflicts : [];
+      _setMapSyncBadge('error', 'CONFLICTO');
+      showToast(`Otro usuario actualizó ${_mapaSyncState.lastConflicts.length || 1} unidad(es) antes de guardar. Se recargará el mapa.`, 'warning');
+      refrescarDatos(true);
+      _finalizarCicloGuardadoMapa();
     } else {
+      _mapaSyncState.lastConflicts = [];
       _mapaSyncState.hasPendingWrite = true;
       _setMapSyncBadge('error');
       _programarGuardadoMapa(MAPA_SAVE_RETRY_MS);
@@ -14643,7 +14760,15 @@ function guardarMapaEditor(btn) {
     rotation: Math.round(c.rotation || 0)        // [F2]
   }));
 
-  api.guardarEstructuraMapa(payload, _miPlaza()).then(res => {
+  const _plazaGuardado = _miPlaza();
+  console.log('[MEX-INTEG] guardarMapaEditor →', { plaza: _plazaGuardado || '(sin plaza)', celdas: payload.length });
+  if (!_plazaGuardado) {
+    showToast('⚠️ No hay plaza activa para guardar el mapa. Selecciona una plaza.', 'warning');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
+    return;
+  }
+  (window.api || api).guardarEstructuraMapa(payload, _plazaGuardado).then(res => {
     btn.disabled = false;
     btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
     if (res === 'OK') {

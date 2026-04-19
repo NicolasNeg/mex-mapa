@@ -6,7 +6,7 @@
   const {
     db, COL, MAPA_SNAPSHOT_MERGE_MS,
     _normalizePlazaId, _matchesPlaza, _ensurePlazaBootstrap,
-    _registrarLog, _generarEstructuraPorDefecto
+    _registrarLog, _generarEstructuraPorDefecto, _buildPlazaScopedQuery
   } = window._mex;
 
   window._mexParts = window._mexParts || {};
@@ -74,18 +74,23 @@
         }, immediate ? 0 : MAPA_SNAPSHOT_MERGE_MS);
       }
 
-      const unsubCuadre = db.collection(COL.CUADRE).onSnapshot(snap => {
+      const cuadreQuery = typeof _buildPlazaScopedQuery === 'function'
+        ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
+        : db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+      const externosQuery = typeof _buildPlazaScopedQuery === 'function'
+        ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
+        : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+
+      const unsubCuadre = cuadreQuery.onSnapshot(snap => {
         const bootstrap = !cuadreReady || !externosReady;
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        cuadreDocs = all.filter(u => _matchesPlaza(u, plazaUp));
+        cuadreDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         cuadreReady = true;
         emitir(bootstrap && externosReady);
       }, err => console.error("onSnapshot cuadre:", err));
 
-      const unsubExternos = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      const unsubExternos = externosQuery.onSnapshot(snap => {
         const bootstrap = !cuadreReady || !externosReady;
-        const all = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        externosDocs = all.filter(u => _matchesPlaza(u, plazaUp));
+        externosDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         externosReady = true;
         emitir(bootstrap && cuadreReady);
       }, err => console.error("onSnapshot externos:", err));
@@ -95,13 +100,21 @@
 
     async obtenerDatosParaMapa(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
+      const cuadreQuery = plazaUp
+        ? (typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
+          : db.collection(COL.CUADRE).where('plaza', '==', plazaUp))
+        : db.collection(COL.CUADRE);
+      const externosQuery = plazaUp
+        ? (typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
+          : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp))
+        : db.collection(COL.EXTERNOS);
       const [cuadreSnap, externosSnap] = await Promise.all([
-        db.collection(COL.CUADRE).get(), db.collection(COL.EXTERNOS).get()
+        cuadreQuery.get(), externosQuery.get()
       ]);
-      const cuadreDocs2 = cuadreSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .filter(u => _matchesPlaza(u, plazaUp));
-      const externosDocs2 = externosSnap.docs.map(d => ({ id: d.id, ...d.data() }))
-        .filter(u => _matchesPlaza(u, plazaUp));
+      const cuadreDocs2 = cuadreSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const externosDocs2 = externosSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       return {
         unidades: [
           ...cuadreDocs2
