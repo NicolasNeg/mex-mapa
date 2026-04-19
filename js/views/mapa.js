@@ -2055,6 +2055,11 @@ function iniciarApp(esNuevoLogin = true) {
 
   _iniciarSincronizacionUsuarios(); // Poblar dbUsuariosLogin en tiempo real
   init(); // Carga el mapa
+
+  // [TEST] Abrir editor de mapa directamente si ?editor=1 en la URL
+  if (new URLSearchParams(window.location.search).get('editor') === '1') {
+    setTimeout(() => abrirEditorMapa(), 800);
+  }
   initNotificationCenter()
     .then(() => {
       _renderNotificationProfileState();
