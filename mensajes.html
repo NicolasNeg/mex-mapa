@@ -12,6 +12,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -21,9 +22,21 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
+  <script src="/mex-api.js"></script>
+  <script src="/api/auth.js"></script>
+  <script src="/api/mapa.js"></script>
+  <script src="/api/cuadre.js"></script>
+  <script src="/api/flota.js"></script>
+  <script src="/api/alertas.js"></script>
+  <script src="/api/notas.js"></script>
+  <script src="/api/historial.js"></script>
+  <script src="/api/settings.js"></script>
+  <script src="/api/users.js"></script>
+  <script src="/api/_assemble.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
 
   <title>Mensajes</title>
+
   <style>
     html, body {
       margin: 0;
@@ -33,117 +46,237 @@
       font-family: 'Inter', sans-serif;
     }
 
-    .mensajes-route-shell {
+    /* Ocultar elementos de mapa.js que no existen aquí — no causa errores */
+    #login-overlay, #admin-sidebar, #map-stage, #info-panel,
+    header, .overlay { display: none !important; }
+
+    /* Buzon ocupa toda la pantalla en esta ruta */
+    #buzon-modal {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      z-index: 100 !important;
+    }
+
+    /* Botón volver al mapa */
+    .mensajes-back-btn {
       position: fixed;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      background:
-        radial-gradient(circle at top, rgba(59, 130, 246, 0.16), transparent 34%),
-        linear-gradient(180deg, #08101f 0%, #0d1731 50%, #08101f 100%);
-    }
-
-    .mensajes-route-loader {
-      position: absolute;
-      inset: 0;
-      z-index: 2;
+      top: 14px;
+      left: 14px;
+      z-index: 200;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      color: #e2e8f0;
       display: flex;
       align-items: center;
-      justify-content: center;
-      padding: 24px;
-      background: rgba(8, 16, 31, 0.78);
-      backdrop-filter: blur(12px);
-      transition: opacity .22s ease;
+      gap: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background 0.18s;
     }
-
-    .mensajes-route-loader.ready {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .mensajes-route-loader-card {
-      width: min(420px, 100%);
-      border-radius: 24px;
-      padding: 28px 24px;
-      text-align: center;
-      color: #f8fafc;
-      background: rgba(15, 23, 42, 0.88);
-      border: 1px solid rgba(255,255,255,.08);
-      box-shadow: 0 26px 90px rgba(0,0,0,.45);
-    }
-
-    .mensajes-route-spinner {
-      width: 58px;
-      height: 58px;
-      margin: 0 auto 18px;
-      border-radius: 999px;
-      border: 4px solid rgba(255,255,255,.14);
-      border-top-color: #38bdf8;
-      border-right-color: #818cf8;
-      animation: mensajes-spin .9s linear infinite;
-    }
-
-    .mensajes-route-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      background: rgba(99, 102, 241, 0.14);
-      color: #c7d2fe;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: .12em;
-      text-transform: uppercase;
-    }
-
-    .mensajes-route-title {
-      margin: 16px 0 8px;
-      font-size: 30px;
-      font-weight: 900;
-      line-height: 1.05;
-    }
-
-    .mensajes-route-copy {
-      margin: 0;
-      color: #cbd5e1;
-      font-size: 14px;
-      line-height: 1.6;
-    }
-
-    .mensajes-route-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: transparent;
-    }
-
-    @keyframes mensajes-spin {
-      to { transform: rotate(360deg); }
-    }
+    .mensajes-back-btn:hover { background: rgba(30,41,59,0.95); }
   </style>
 </head>
 <body>
-  <div class="mensajes-route-shell">
-    <div id="mensajesRouteLoader" class="mensajes-route-loader">
-      <div class="mensajes-route-loader-card">
-        <div class="mensajes-route-spinner"></div>
-        <div class="mensajes-route-kicker">Comunicación</div>
-        <h1 class="mensajes-route-title">Cargando Mensajes</h1>
-        <p class="mensajes-route-copy">Preparando el centro de mensajes del equipo.</p>
+
+  <!-- Botón volver al mapa -->
+  <button class="mensajes-back-btn" onclick="window.location.href='/mapa'">
+    <span class="material-icons" style="font-size:18px;">arrow_back</span>
+    Mapa
+  </button>
+
+  <!-- ══════════════════════════════════════════════════════
+       BUZÓN / MENSAJES — UI embebida directo (sin iframe)
+  ══════════════════════════════════════════════════════ -->
+  <div id="buzon-modal" class="fleet-modal chatv2-modal">
+
+    <div class="chatv2-header">
+      <div class="chatv2-header-bg"></div>
+      <div class="chatv2-header-content">
+        <div class="chatv2-header-left">
+          <span class="material-icons" style="font-size:20px; color:rgba(255,255,255,0.7);">forum</span>
+          <div>
+            <h2 class="chatv2-header-title">Mensajes Internos</h2>
+            <p class="chatv2-header-sub" id="chatv2-company-label"></p>
+          </div>
+        </div>
+        <button class="chatv2-close" onclick="window.location.href='/mapa'">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
       </div>
     </div>
 
-    <iframe
-      id="mensajesRouteFrame"
-      class="mensajes-route-frame"
-      title="Centro de mensajes"
-      loading="eager"
-      allow="geolocation; clipboard-read; clipboard-write"
-      referrerpolicy="same-origin">
-    </iframe>
+    <div class="fleet-wrapper chatv2-layout">
+
+      <!-- PANEL IZQUIERDO: Lista de conversaciones -->
+      <div id="chat-contacts-view" class="chatv2-contacts">
+
+        <div class="chatv2-panel-header">
+          <div class="chatv2-panel-username">
+            <span id="chatPanelUsername">Mensajes</span>
+            <span class="material-icons">expand_more</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <button class="chatv2-compose-btn" title="Volver al mapa"
+              onclick="window.location.href='/mapa'">
+              <span class="material-icons">close</span>
+            </button>
+            <button class="chatv2-compose-btn" title="Nuevo mensaje" onclick="" style="color:#0f172a;">
+              <span class="material-icons">edit_square</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="chatv2-search-bar">
+          <div class="chatv2-search-inner">
+            <span class="material-icons chatv2-search-icon">search</span>
+            <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar..." onkeyup="renderContactos()">
+          </div>
+        </div>
+
+        <div class="chatv2-tabs">
+          <span class="chatv2-tab-label">Mensajes</span>
+          <button class="chatv2-tab-secondary">Solicitudes</button>
+        </div>
+
+        <div class="chatv2-filter-row">
+          <label class="chat-filter-chip">
+            <span class="material-icons">apartment</span>
+            <select id="chatFilterPlaza" onchange="actualizarFiltrosChat()">
+              <option value="">Todas las plazas</option>
+            </select>
+          </label>
+          <label class="chat-filter-chip">
+            <span class="material-icons">badge</span>
+            <select id="chatFilterRol" onchange="actualizarFiltrosChat()">
+              <option value="">Todos los roles</option>
+            </select>
+          </label>
+          <label class="chat-filter-chip">
+            <span class="material-icons">tune</span>
+            <select id="chatFilterStatus" onchange="actualizarFiltrosChat()">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <button class="chat-filter-reset" onclick="limpiarFiltrosChat()">
+            <span class="material-icons" style="font-size:14px;">refresh</span>
+            Limpiar
+          </button>
+        </div>
+
+        <div id="listaContactosContainer">
+          <div style="text-align:center; padding:40px; color:#94a3b8;"><span class="material-icons spinner">sync</span></div>
+        </div>
+
+      </div>
+
+      <!-- PANEL DERECHO: Ventana de chat individual -->
+      <div id="chat-window-view" class="chatv2-window">
+
+        <div id="chat-empty-state" class="chatv2-empty-state">
+          <div class="chatv2-empty-icon">
+            <span class="material-icons">send</span>
+          </div>
+          <h3>Tus mensajes</h3>
+          <p>Envía un mensaje para iniciar una conversación.</p>
+          <button class="chatv2-empty-btn" onclick="document.getElementById('buscadorContactos')?.focus()">
+            Enviar mensaje
+          </button>
+        </div>
+
+        <div class="chatv2-chat-header" id="chat-active-header" style="display:none;">
+          <button class="chatv2-back" onclick="cerrarChat()">
+            <span class="material-icons" style="font-size:20px;">arrow_back</span>
+          </button>
+          <button class="chat-avatar chat-avatar-button" id="chat-active-avatar" onclick="abrirInfoContactoActivo()" style="width: 36px; height: 36px; font-size: 14px;">U</button>
+          <div style="flex:1; overflow:hidden;">
+            <div id="chat-active-name" class="chatv2-active-name">Nombre</div>
+            <div class="chatv2-active-status">Conversación segura</div>
+          </div>
+          <div class="chatv2-header-actions">
+            <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
+              <span class="material-icons" style="font-size:18px;">info</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="chat-messages-container" class="chatv2-messages" style="display:none;"></div>
+
+        <div id="chatStagingArea" class="chatv2-staging-area"></div>
+
+        <div class="chatv2-input-bar" id="chat-input-bar" style="display:none;">
+          <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
+            onchange="stagedArchivoChatV2(this)">
+          <button class="chatv2-attach-btn" onclick="document.getElementById('chatFileInput').click()" title="Adjuntar archivo">
+            <span class="material-icons" style="font-size:20px;">add_circle</span>
+          </button>
+          <div class="chatv2-input-box">
+            <textarea id="chat-input" rows="1" class="chatv2-textarea" placeholder="Mensaje..."
+              oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
+          </div>
+          <button id="chatMicBtn" class="chatv2-mic-btn" onclick="toggleGrabacionChat()" title="Grabar audio">
+            <span class="material-icons" style="font-size:20px;">mic</span>
+          </button>
+          <button class="chatv2-send-btn" onclick="enviarMensajeChat()">
+            <span class="material-icons">send</span>
+          </button>
+          <div id="chatEmojiPickerPanel"></div>
+        </div>
+
+      </div>
+
+    </div>
   </div>
 
-  <script type="module" src="/js/views/mensajes.js"></script>
+  <!-- Modal info de contacto -->
+  <div id="chat-user-info-modal" class="modal-overlay chat-user-info-modal" onclick="if(event.target===this) cerrarInfoContacto()">
+    <div class="chat-user-info-card">
+      <button class="chat-user-info-close" onclick="cerrarInfoContacto()">
+        <span class="material-icons" style="font-size:18px;">close</span>
+      </button>
+      <div id="chat-user-info-content"></div>
+    </div>
+  </div>
+
+  <!-- Sistema de diálogos -->
+  <div id="mex-dialog-overlay">
+    <div class="mex-dlg-card">
+      <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
+        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+      </div>
+      <div class="mex-dlg-body">
+        <div id="mex-dlg-title" class="mex-dlg-title"></div>
+        <div id="mex-dlg-text" class="mex-dlg-text"></div>
+        <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap" style="display:none;">
+          <input id="mex-dlg-input" class="mex-dlg-input" type="text">
+        </div>
+      </div>
+      <div class="mex-dlg-actions">
+        <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra" style="display:none;"></button>
+        <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel" style="display:none;">CANCELAR</button>
+        <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm dlg-info">ACEPTAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lightbox de imágenes del chat -->
+  <div id="chatLightboxOverlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:99999; align-items:center; justify-content:center; flex-direction:column;">
+    <button onclick="cerrarLightboxChat()" style="position:absolute; top:16px; right:16px; background:rgba(255,255,255,0.1); border:none; border-radius:50%; width:40px; height:40px; color:white; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+      <span class="material-icons">close</span>
+    </button>
+    <img id="chatLightboxImg" src="" alt="" style="max-width:90vw; max-height:85vh; border-radius:8px; object-fit:contain;">
+    <a id="chatLightboxDownload" href="" download style="margin-top:12px; color:#38bdf8; font-size:13px; font-weight:700; text-decoration:none; display:flex; align-items:center; gap:6px;">
+      <span class="material-icons" style="font-size:16px;">download</span> Descargar
+    </a>
+  </div>
+
+  <script src="/js/core/dialogs.js"></script>
+  <script type="module" src="/js/views/mapa.js"></script>
+
 </body>
 </html>

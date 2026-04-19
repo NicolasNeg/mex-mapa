@@ -1998,11 +1998,9 @@ function iniciarApp(esNuevoLogin = true) {
   const _loginOverlay = document.getElementById('login-overlay');
   if (_loginOverlay) _loginOverlay.style.display = 'none';
 
-  // Modo mensajes: ocultar UI del mapa inmediatamente, sin esperar configuración
+  // Modo mensajes: aplicar clase de inmediato para evitar flash del mapa
   if (_isMessagesMode()) {
     document.body.classList.add('messages-mode');
-    // Abrir buzon de inmediato en vez de esperar configReadyPromise
-    setTimeout(() => { if (!_messagesBooted) { _messagesBooted = true; abrirBuzon(); } }, 150);
   }
 
   _actualizarIdentidadSidebarUsuario();
@@ -15411,6 +15409,7 @@ let _messagesBooted = false;
 function _bootMessagesRoute() {
   if (!_isMessagesMode() || _messagesBooted) return;
   _messagesBooted = true;
+  document.body.classList.add('messages-mode');
   abrirBuzon();
 }
 
