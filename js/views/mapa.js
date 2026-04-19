@@ -7199,6 +7199,8 @@ function hacerPingNotificaciones(force = false) {
 
 function _procesarPingUI(res) {
   if (!res) return;
+  // En /gestion (modo admin standalone) no hay elementos de UI del mapa — salir temprano
+  if (_isGestionAdminMode() && !document.getElementById('btnProtocoloV3')) return;
   if (res.error) console.error("Error en servidor:", res.error);
 
   // 1. ACTUALIZAR RELOJES DE MODIFICACIÓN

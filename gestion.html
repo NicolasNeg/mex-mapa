@@ -37,6 +37,7 @@
   <script src="/api/users.js"></script>
   <script src="/api/_assemble.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
+  <script src="/js/core/dialogs.js"></script>
 
   <title>Gestión — Panel Admin</title>
   <style>
@@ -249,7 +250,10 @@
     (function () {
       const FNS = ['abrirTabConfig','buscarEnListaConfig','abrirModalNuevaConfig',
                    'guardarConfiguracionEnFirebase','cerrarPanelConfiguracion',
-                   'renderizarListaConfig','umFiltrar'];
+                   'renderizarListaConfig','umFiltrar','confirmarAgregadoConfig',
+                   'editarElementoConfig','eliminarElementoConfig',
+                   'abrirPerfilUsuario','cerrarPerfilUsuario',
+                   'solicitarToggleBloqueo','abrirEditorMapa'];
       const queue = [];
       FNS.forEach(fn => {
         window[fn] = (...args) => {
@@ -263,6 +267,372 @@
       };
     })();
   </script>
+
+  <!-- ── DIALOG SYSTEM (mexConfirm / mexAlert / mexPrompt) ── -->
+  <div id="mex-dialog-overlay">
+    <div class="mex-dlg-card">
+      <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
+        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+      </div>
+      <div class="mex-dlg-body">
+        <h3 id="mex-dlg-title" class="mex-dlg-title"></h3>
+        <p id="mex-dlg-text" class="mex-dlg-text"></p>
+        <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap">
+          <input id="mex-dlg-input" class="mex-dlg-input" type="text" autocomplete="off">
+        </div>
+      </div>
+      <div class="mex-dlg-actions">
+        <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra"></button>
+        <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel"></button>
+        <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL AGREGAR / EDITAR CATÁLOGO ── -->
+  <div id="modal-cfg-add" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75000; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div class="cfg-add-card">
+      <div class="cfg-add-header">
+        <div class="cfg-add-header-icon" id="cfg-add-header-icon">
+          <span class="material-icons">add_circle</span>
+        </div>
+        <div class="cfg-add-header-text">
+          <div class="cfg-add-header-title" id="modal-cfg-add-title">Agregar Nuevo</div>
+          <div class="cfg-add-header-sub" id="cfg-add-header-sub">Nueva entrada en la lista</div>
+        </div>
+        <button class="cfg-add-close-btn" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="cfg-add-body">
+        <div class="cfg-add-field">
+          <label class="cfg-add-label">Nombre / Clave</label>
+          <input type="text" id="cfg-add-name" placeholder="Ej: NUEVO ESTADO"
+            class="cfg-add-input" autocomplete="off"
+            onkeydown="if(event.key==='Enter') confirmarAgregadoConfig()">
+        </div>
+        <div id="cfg-add-ubi-options" style="display:none;">
+          <label class="cfg-add-checkbox-row" for="cfg-add-is-plaza">
+            <div class="cfg-add-checkbox-box">
+              <input type="checkbox" id="cfg-add-is-plaza" checked>
+              <div class="cfg-add-checkbox-custom"></div>
+            </div>
+            <div>
+              <div class="cfg-add-checkbox-label">Es Plaza Fija</div>
+              <div class="cfg-add-checkbox-sub">Desmarca si es una persona o responsable externo</div>
+            </div>
+          </label>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Plaza asignada</label>
+            <select id="cfg-add-ubi-plaza" class="cfg-add-select">
+              <option value="">— Todas las plazas —</option>
+            </select>
+          </div>
+        </div>
+        <div id="cfg-add-estado-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Color del estado</label>
+            <div class="cfg-add-color-row">
+              <input type="color" id="cfg-add-color" value="#64748b" oninput="_cfgUpdateColorSwatch(this.value)">
+              <div class="cfg-add-color-swatch" id="cfg-add-color-swatch" style="background:#64748b;">
+                <span id="cfg-add-color-hex">#64748B</span>
+              </div>
+            </div>
+            <div class="cfg-add-color-presets" id="cfg-add-color-presets"></div>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden en tabla (prioridad)</label>
+            <input type="number" id="cfg-add-orden" placeholder="Ej: 1" class="cfg-add-input" min="1" max="99">
+          </div>
+        </div>
+        <div id="cfg-add-modelo-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Categoría del modelo</label>
+            <select id="cfg-add-modelo-cat" class="cfg-add-select"></select>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Imagen del modelo (URL opcional)</label>
+            <input type="url" id="cfg-add-modelo-img" class="cfg-add-input"
+              placeholder="https://dominio.com/modelo.jpg"
+              oninput="_cfgPreviewModeloImg(this.value)">
+            <div id="cfg-add-modelo-preview" class="cfg-add-modelo-preview" style="display:none;">
+              <img id="cfg-add-modelo-preview-img" alt="Preview modelo" loading="lazy">
+              <span id="cfg-add-modelo-preview-label">Vista previa</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="cfg-add-actions">
+        <button class="cfg-add-btn-cancel" onclick="document.getElementById('modal-cfg-add').style.display='none'">Cancelar</button>
+        <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
+          <span class="material-icons">check</span> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL PERFIL DE USUARIO ── -->
+  <div id="perfil-modal" class="fleet-modal profile-modal" style="z-index:8100;">
+    <div class="profile-modal-shell">
+      <div class="profile-modal-hero">
+        <div>
+          <div class="profile-modal-kicker">Tu Cuenta</div>
+          <h2 class="profile-modal-title">Perfil</h2>
+          <p class="profile-modal-sub">Tu avatar ya funciona y el resto del panel queda listo para futuras configuraciones personales.</p>
+        </div>
+        <button class="profile-modal-close" onclick="cerrarPerfilUsuario()">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+      <div class="profile-modal-body">
+        <div class="profile-modal-card">
+          <div id="profileCurrentAvatar" class="profile-avatar-large">U</div>
+          <div class="profile-modal-copy">
+            <div id="profileCurrentName" class="profile-modal-name">Usuario</div>
+            <div id="profileCurrentMeta" class="profile-modal-meta">Sin datos</div>
+            <div id="profileCurrentBadges" class="profile-modal-badges"></div>
+          </div>
+        </div>
+        <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;" onchange="subirAvatarPerfil(this)">
+        <div class="profile-modal-actions">
+          <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
+            <span class="material-icons" style="font-size:18px;">photo_camera</span> Subir y Recortar
+          </button>
+          <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
+            <span class="material-icons" style="font-size:18px;">delete</span> Quitar Foto
+          </button>
+        </div>
+        <div class="profile-modal-note">Usa una imagen cuadrada o vertical ligera para que se vea mejor en el chat y futuras vistas del sistema.</div>
+        <div class="profile-settings-grid">
+          <section class="profile-settings-card">
+            <div class="profile-settings-head">
+              <div class="profile-settings-icon"><span class="material-icons" style="font-size:20px;">notifications_active</span></div>
+              <div>
+                <div class="profile-settings-title">Notificaciones del dispositivo</div>
+                <p class="profile-settings-sub">Controla si este equipo recibe avisos reales.</p>
+              </div>
+              <span class="profile-settings-badge" id="profileNotificationBadge">Preparando</span>
+            </div>
+            <div class="profile-setting-row profile-setting-row-hero">
+              <div><strong>Notificaciones activas</strong><small>Si lo apagas, este equipo deja de sonar.</small></div>
+              <button id="profileNotifMasterToggle" type="button" class="profile-setting-toggle is-on" aria-label="Notificaciones activas"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Mensajes directos</strong><small>Avísame cuando alguien me escriba.</small></div>
+              <button id="profileNotifMessagesToggle" type="button" class="profile-setting-toggle is-on" aria-label="Mensajes directos"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Misión de cuadre</strong><small>Recibe avisos de cuadre.</small></div>
+              <button id="profileNotifCuadreToggle" type="button" class="profile-setting-toggle is-on" aria-label="Misión de cuadre"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Alertas críticas</strong><small>Solo situaciones urgentes de operación.</small></div>
+              <button id="profileNotifCriticalToggle" type="button" class="profile-setting-toggle is-on" aria-label="Alertas críticas"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Silenciar este equipo</strong><small>Pausa los avisos sin perder el historial.</small></div>
+              <button id="profileNotifMuteToggle" type="button" class="profile-setting-toggle is-off" aria-label="Silenciar este equipo"></button>
+            </div>
+            <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
+            <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary" style="width:100%; margin-top:14px;">
+              <span class="material-icons" style="font-size:18px;">notifications</span> Ver historial y detalles
+            </button>
+          </section>
+          <section class="profile-settings-card">
+            <div class="profile-settings-head">
+              <div class="profile-settings-icon"><span class="material-icons" style="font-size:20px;">shield</span></div>
+              <div>
+                <div class="profile-settings-title">Privacidad y sesión</div>
+                <p class="profile-settings-sub">Estado del permiso y este equipo activo.</p>
+              </div>
+              <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
+            </div>
+            <div class="profile-setting-row profile-setting-row-hero">
+              <div><strong>Permiso push del dispositivo</strong><small id="profilePermissionSummary">Revisando soporte…</small></div>
+              <button id="profilePermissionToggle" type="button" class="profile-setting-toggle is-off" aria-label="Activar notificaciones push"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Este equipo</strong><small id="profileCurrentDeviceSummary">Cargando información del dispositivo actual.</small></div>
+              <span class="profile-settings-badge">Este equipo</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL RECORTAR AVATAR ── -->
+  <div id="profile-avatar-crop-modal" class="modal-overlay profile-avatar-crop-modal" onclick="if(event.target===this) cancelarRecorteAvatarPerfil()">
+    <div class="profile-avatar-crop-card">
+      <div class="profile-avatar-crop-head">
+        <div>
+          <div class="profile-modal-kicker" style="margin-bottom:6px; color:#94a3b8;">Tu Avatar</div>
+          <h3 class="profile-avatar-crop-title">Recorta tu foto</h3>
+          <p class="profile-avatar-crop-sub">Arrastra y acerca la imagen para ver exactamente cómo se verá tu perfil.</p>
+        </div>
+        <button class="profile-modal-close" onclick="cancelarRecorteAvatarPerfil()" style="background:#f1f5f9; color:#334155;">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+      <div class="profile-avatar-crop-body">
+        <div class="profile-avatar-crop-stage-wrap">
+          <div id="profileAvatarCropStage" class="profile-avatar-crop-stage">
+            <img id="profileAvatarCropImage" class="profile-avatar-crop-image" alt="Recorte de avatar">
+            <div class="profile-avatar-crop-mask"></div>
+          </div>
+          <div class="profile-avatar-crop-controls">
+            <label for="profileAvatarCropZoom">Zoom</label>
+            <input id="profileAvatarCropZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="ajustarZoomAvatarPerfil(this.value)">
+            <p>Tip: mantén presionado y arrastra la foto. Funciona con mouse y touch.</p>
+          </div>
+        </div>
+        <div class="profile-avatar-preview-panel">
+          <div class="profile-avatar-preview-card">
+            <span class="profile-avatar-preview-label">Vista chat</span>
+            <canvas id="profileAvatarPreviewCircle" width="96" height="96"></canvas>
+          </div>
+          <div class="profile-avatar-preview-card">
+            <span class="profile-avatar-preview-label">Vista perfil</span>
+            <canvas id="profileAvatarPreviewCard" width="112" height="112"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="profile-avatar-crop-actions">
+        <button class="profile-modal-btn" onclick="cancelarRecorteAvatarPerfil()">Cancelar</button>
+        <button id="profileAvatarCropSaveBtn" class="profile-modal-btn primary" onclick="guardarAvatarRecortadoPerfil()">
+          <span class="material-icons" style="font-size:18px;">check</span> Guardar Foto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL EDITOR DE MAPA ── -->
+  <div id="modal-editor-mapa" class="modal-overlay" style="z-index:75000; padding:8px; align-items:center; justify-content:center;">
+    <div class="mapa-editor-shell">
+      <div class="mapa-editor-header">
+        <div class="mapa-editor-header-left">
+          <span class="material-icons" style="color:#38bdf8; font-size:28px; flex-shrink:0;">map</span>
+          <div><h2>EDITOR DE MAPA</h2><p>Edición directa sobre el plano · vista previa en vivo</p></div>
+        </div>
+        <div class="mapa-editor-header-tools">
+          <button onclick="modoAgregarEditor('cajon')" class="mapa-editor-tool-btn cajon" id="btn-tool-cajon" data-tip="Cajón: elige la herramienta y luego haz clic en el mapa para colocarlo.">
+            <span class="material-icons">crop_square</span><span>Cajón</span>
+          </button>
+          <button onclick="modoAgregarEditor('area')" class="mapa-editor-tool-btn area" id="btn-tool-area" data-tip="Área: crea zonas especiales como taller, acceso o recepción.">
+            <span class="material-icons">dashboard_customize</span><span>Área</span>
+          </button>
+          <button onclick="modoAgregarEditor('label')" class="mapa-editor-tool-btn etiqueta" id="btn-tool-label" data-tip="Etiqueta: agrega un rótulo rápido para nombrar secciones del patio.">
+            <span class="material-icons">sell</span><span>Etiqueta</span>
+          </button>
+          <button onclick="editorAgregarForma('fila-3')" class="mapa-editor-tool-btn ghost" data-tip="Fila x3: inserta una base visual de tres cajones.">
+            <span class="material-icons">view_week</span><span>Fila x3</span>
+          </button>
+          <button onclick="editorAgregarForma('rect-h')" class="mapa-editor-tool-btn ghost" data-tip="Rect H: bloque horizontal.">
+            <span class="material-icons">crop_16_9</span><span>Rect H</span>
+          </button>
+        </div>
+        <div class="mapa-editor-header-right">
+          <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="mapa-btn-guardar">
+            <span class="material-icons" style="font-size:18px;">save</span> GUARDAR CAMBIOS
+          </button>
+          <button onclick="document.getElementById('modal-editor-mapa').classList.remove('active')" class="mapa-btn-cerrar">
+            <span class="material-icons" style="font-size:20px;">close</span>
+          </button>
+        </div>
+      </div>
+      <div class="mapa-editor-body">
+        <div class="mapa-editor-canvas">
+          <div id="editor-loading" class="mapa-editor-loading">
+            <span class="material-icons spinner" style="font-size:48px; color:#38bdf8;">sync</span>
+            <p>Cargando estructura del mapa…</p>
+          </div>
+          <div id="editor-grid-wrapper" class="editor-grid-stage" style="display:none;">
+            <div class="editor-help-strip">
+              <button class="editor-help-card" type="button" data-tip="1. Elige una pieza arriba. 2. Haz clic en el mapa para colocarla."><span class="material-icons">add_box</span><span>Agregar</span></button>
+              <button class="editor-help-card" type="button" data-tip="Arrastra una pieza para moverla."><span class="material-icons">open_with</span><span>Mover</span></button>
+              <button class="editor-help-card" type="button" data-tip="Shift o arrastre para multiselección."><span class="material-icons">select_all</span><span>Multi</span></button>
+              <button class="editor-help-card" type="button" data-tip="Click derecho para más opciones."><span class="material-icons">more_horiz</span><span>Más</span></button>
+            </div>
+            <div id="editor-add-hint" class="mapa-add-hint" style="display:none;">
+              <span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span> Toca el mapa para colocar un elemento nuevo
+            </div>
+            <div id="editor-live-badge" class="editor-live-pill">
+              <span class="material-icons" style="font-size:18px;">visibility</span><span>Vista previa en vivo</span>
+            </div>
+            <div id="editor-selection-summary" class="editor-selection-summary">
+              <span class="material-icons" style="font-size:18px;">mouse</span><span>Haz clic o encierra con el mouse para empezar.</span>
+            </div>
+            <div class="editor-floating-card editor-inspector-card">
+              <div class="editor-card-header">
+                <div><div class="editor-card-kicker">Inspector</div><h3>Selección</h3></div>
+                <span class="editor-card-dot"></span>
+              </div>
+              <div id="editor-no-sel" class="mapa-no-sel editor-empty-state">
+                <span class="material-icons" style="font-size:54px; color:#1e3a5f; display:block; margin-bottom:12px;">ads_click</span>
+                <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.</p>
+              </div>
+              <div id="editor-sel-form" style="display:none;">
+                <div class="editor-form-grid two">
+                  <div class="mapa-field-group"><label class="mapa-field-label">Nombre</label><input id="ep-nombre" type="text" maxlength="20" class="mapa-input" placeholder="Ej: A-01" oninput="editorPropChange()"></div>
+                  <div class="mapa-field-group"><label class="mapa-field-label">Tipo</label><select id="ep-tipo" class="mapa-select" onchange="editorPropChange()"><option value="cajon">Cajón</option><option value="area">Área</option><option value="label">Etiqueta</option></select></div>
+                </div>
+                <div class="editor-form-grid two">
+                  <div class="mapa-field-group"><label class="mapa-field-label">Posición X</label><input id="ep-x" type="number" min="0" step="10" class="mapa-input" oninput="editorPropChange()"></div>
+                  <div class="mapa-field-group"><label class="mapa-field-label">Posición Y</label><input id="ep-y" type="number" min="0" step="10" class="mapa-input" oninput="editorPropChange()"></div>
+                </div>
+                <div class="editor-form-grid two">
+                  <div class="mapa-field-group"><label class="mapa-field-label">Ancho</label><div class="mapa-size-ctrl"><button onclick="editorSpanChange('width',-10)">−</button><input id="ep-width" type="number" min="40" step="10" class="mapa-input" style="width:58px; text-align:center;" oninput="editorPropChange()"><button onclick="editorSpanChange('width',10)">+</button></div></div>
+                  <div class="mapa-field-group"><label class="mapa-field-label">Alto</label><div class="mapa-size-ctrl"><button onclick="editorSpanChange('height',-10)">−</button><input id="ep-height" type="number" min="30" step="10" class="mapa-input" style="width:58px; text-align:center;" oninput="editorPropChange()"><button onclick="editorSpanChange('height',10)">+</button></div></div>
+                </div>
+                <div class="mapa-field-group"><label class="mapa-field-label">Rotación</label><input id="ep-rotation" type="number" min="-360" max="360" step="5" class="mapa-input" oninput="editorPropChange()"></div>
+                <div class="mapa-field-group"><label class="mapa-field-label">Ajuste fino</label>
+                  <div class="mapa-arrow-pad">
+                    <div></div><button onclick="editorMoverCelda(0,-1)" class="mapa-arrow-btn" title="Arriba"><span class="material-icons">north</span></button><div></div>
+                    <button onclick="editorMoverCelda(-1,0)" class="mapa-arrow-btn" title="Izquierda"><span class="material-icons">west</span></button><div class="mapa-arrow-center"><span class="material-icons">open_with</span></div><button onclick="editorMoverCelda(1,0)" class="mapa-arrow-btn" title="Derecha"><span class="material-icons">east</span></button>
+                    <div></div><button onclick="editorMoverCelda(0,1)" class="mapa-arrow-btn" title="Abajo"><span class="material-icons">south</span></button><div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div id="editor-selection-actions" class="editor-floating-toolbar editor-selection-actions" style="display:none;">
+              <button type="button" onclick="editorCopiarCelda()" data-tip="Duplica la selección."><span class="material-icons">content_copy</span></button>
+              <button type="button" onclick="editorEliminarCelda()" data-tip="Elimina la pieza."><span class="material-icons">delete_forever</span></button>
+              <button type="button" onclick="editorDuplicarFila()" data-tip="Clona una fila completa."><span class="material-icons">table_rows</span></button>
+              <button type="button" onclick="editorToggleMoreMenu(event)" data-tip="Más opciones."><span class="material-icons">more_horiz</span></button>
+            </div>
+            <div id="editor-group-actions" class="editor-floating-toolbar editor-group-actions" style="display:none;">
+              <button type="button" onclick="editorAlinearGrupo('left')" data-tip="Alinea izquierda."><span class="material-icons">align_horizontal_left</span></button>
+              <button type="button" onclick="editorAlinearGrupo('centerH')" data-tip="Centra horizontal."><span class="material-icons">align_horizontal_center</span></button>
+              <button type="button" onclick="editorAlinearGrupo('right')" data-tip="Alinea derecha."><span class="material-icons">align_horizontal_right</span></button>
+              <button type="button" onclick="editorAlinearGrupo('top')" data-tip="Alinea arriba."><span class="material-icons">align_vertical_top</span></button>
+              <button type="button" onclick="editorAlinearGrupo('centerV')" data-tip="Centra vertical."><span class="material-icons">align_vertical_center</span></button>
+              <button type="button" onclick="editorAlinearGrupo('bottom')" data-tip="Alinea abajo."><span class="material-icons">align_vertical_bottom</span></button>
+              <button type="button" onclick="editorDistribuirGrupo('H')" data-tip="Distribuye horizontal."><span>↔</span></button>
+              <button type="button" onclick="editorDistribuirGrupo('V')" data-tip="Distribuye vertical."><span>↕</span></button>
+            </div>
+            <div class="ed-zoom-bar editor-floating-zoom">
+              <button onclick="editorZoom(-0.1)" title="Zoom -">−</button>
+              <span id="ed-zoom-label">100%</span>
+              <button onclick="editorZoom(+0.1)" title="Zoom +">+</button>
+              <button onclick="editorZoom(0)" title="Reset zoom" style="font-size:11px; width:auto; padding:0 8px;">1:1</button>
+            </div>
+            <div id="ed-more-menu" class="ed-more-menu" style="display:none;">
+              <button onclick="editorCentrarH()"><span class="material-icons" style="font-size:15px;">align_horizontal_center</span><span>Centrar horizontalmente</span></button>
+              <button onclick="editorCentrarV()"><span class="material-icons" style="font-size:15px;">align_vertical_center</span><span>Centrar verticalmente</span></button>
+              <hr>
+              <button onclick="editorTraerFrente()"><span class="material-icons" style="font-size:15px;">flip_to_front</span><span>Traer al frente</span></button>
+              <button onclick="editorEnviarFondo()"><span class="material-icons" style="font-size:15px;">flip_to_back</span><span>Enviar al fondo</span></button>
+              <hr>
+              <button onclick="editorAgregarForma('cuadrado')"><span class="material-icons" style="font-size:15px;">check_box_outline_blank</span><span>Agregar cuadrado</span></button>
+              <button onclick="editorAgregarForma('rect-v')"><span class="material-icons" style="font-size:15px;">crop_portrait</span><span>Agregar rectángulo vertical</span></button>
+              <button onclick="editorAgregarForma('rect-grande')"><span class="material-icons" style="font-size:15px;">crop_32_9</span><span>Agregar rectángulo grande</span></button>
+            </div>
+            <div id="editor-grid" style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- mapa.js como módulo: contiene toda la lógica del panel admin -->
   <script type="module" src="/js/views/mapa.js"></script>
