@@ -242,11 +242,20 @@ function _obtenerPlazaOperativaCuadreAdmin(fallback = '') {
   );
 }
 
+// Retorna true SOLO si la ubicacion está explícitamente marcada como persona (isPlazaFija===false en catálogo)
+function _esPersonaEnCatalogo(nombre) {
+  const locs = window.MEX_CONFIG?.listas?.ubicaciones;
+  if (!locs) return false;
+  const entry = locs.find(u => (typeof u === 'object' ? (u.id || u.nombre) : u) === nombre);
+  return !!(entry && typeof entry === 'object' && entry.isPlazaFija === false);
+}
+
 function _resolverResponsableCuadreAdmin(item = {}) {
   const ubicacionRaw = String(item.ubicacion || '').trim();
   const ubicacion = ubicacionRaw.replace(/^👤\s*/i, '').trim();
-  const ubicacionUpper = ubicacion.toUpperCase();
-  if (ubicacion && !_esPlazaFija(ubicacionUpper)) return ubicacion;
+  // Usar ubicacion como responsable SOLO si está registrada como persona en el catálogo
+  // (no si es un estado o valor suelto que coincide con un nombre)
+  if (ubicacion && _esPersonaEnCatalogo(ubicacion)) return ubicacion;
   return String(
     item.responsable
     || item.responsableVisual
@@ -937,7 +946,7 @@ function _setSessionProfile(profile) {
   currentUserProfile = profile;
   USER_NAME = profile.nombre || profile.usuario || '';
   userAccessRole = profile.rol || 'AUXILIAR';
-  userRole = profile.isAdmin ? 'admin' : 'visitante';
+  userRole = (profile.isAdmin || _roleMeta(userAccessRole).isAdmin) ? 'admin' : 'visitante';
   isGlobalAdmin = _roleMeta(userAccessRole).fullAccess;
   // Inicializar plaza activa del mapa con la plaza del usuario
   PLAZA_ACTIVA_MAPA = profile.plazaAsignada || '';
@@ -15957,6 +15966,13 @@ function renderizarListaConfig() {
               ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700; flex-shrink:0;">ord.${item.orden}</span>` : ''}
             </div>
             <div style="display:flex; gap:4px; flex-shrink:0;">
+              ${usaDrag && lista.length > 1 ? `
+              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === 0 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="moverElementoConfig(${i}, -1)" ${visIndex === 0 ? 'disabled' : ''} title="Mover arriba">
+                <span class="material-icons" style="font-size:14px; color:#475569;">arrow_upward</span>
+              </button>
+              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === lista.length - 1 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="moverElementoConfig(${i}, 1)" ${visIndex === lista.length - 1 ? 'disabled' : ''} title="Mover abajo">
+                <span class="material-icons" style="font-size:14px; color:#475569;">arrow_downward</span>
+              </button>` : ''}
               <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="editarElementoConfig(${i})" title="Editar">
                 <span class="material-icons" style="font-size:14px; color:#0f172a;">edit</span>
               </button>
@@ -16078,7 +16094,9 @@ function _cfgShowModal() {
 }
 
 function abrirModalNuevaConfig() {
-  document.getElementById('cfg-add-name').value = '';
+  const cfgName = document.getElementById('cfg-add-name');
+  if (!cfgName) { console.warn('[cfg] modal-cfg-add no encontrado en el DOM'); return; }
+  cfgName.value = '';
   document.getElementById('cfg-add-ubi-options').style.display = 'none';
   document.getElementById('cfg-add-estado-options').style.display = 'none';
   document.getElementById('cfg-add-modelo-options').style.display = 'none';
@@ -16108,11 +16126,13 @@ function abrirModalNuevaConfig() {
 }
 
 function editarElementoConfig(index) {
+  const cfgName = document.getElementById('cfg-add-name');
+  if (!cfgName) { console.warn('[cfg] modal-cfg-add no encontrado en el DOM'); return; }
   const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
   const item = lista[index];
   const nombre = typeof item === 'object' ? (item.id || item.nombre) : item;
 
-  document.getElementById('cfg-add-name').value = nombre;
+  cfgName.value = nombre;
   document.getElementById('cfg-add-ubi-options').style.display = 'none';
   document.getElementById('cfg-add-estado-options').style.display = 'none';
   document.getElementById('cfg-add-modelo-options').style.display = 'none';
