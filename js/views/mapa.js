@@ -1989,7 +1989,9 @@ function iniciarApp(esNuevoLogin = true) {
   if (_locGate) _locGate.style.display = 'none';
   // Limpiar URLs inline de sesiones anteriores al hacer nuevo login
   if (esNuevoLogin && !_isDedicatedGestionIframeMode() && !_isDedicatedCuadreIframeMode()) {
-    if (/^\/(gestion|mensajes|cuadre)(?:\.html)?/i.test(window.location.pathname || '')) {
+    // Solo limpiar URL si estamos en mapa.html con una ruta inline sobrante — NO en páginas standalone dedicadas
+    const _isGestionStandalone = !!document.getElementById('gestion-auth-loader');
+    if (!_isGestionStandalone && /^\/(gestion|mensajes|cuadre)(?:\.html)?/i.test(window.location.pathname || '')) {
       try { window.history.replaceState({}, '', '/mapa'); } catch (_) {}
     }
   }
@@ -3543,9 +3545,7 @@ async function _handleMapUnitDrop(unidad, destino, options = {}) {
       showToast('Ese cajón ya está ocupado. Activa modo swap para intercambiar.', 'warning');
       return false;
     }
-    if (!MAP_SWAP_MODE_ACTIVE && fromDrag) {
-      showToast('Cajón ocupado detectado: confirma el intercambio para continuar.', 'info');
-    }
+    // Drag a cajón ocupado: confirmar swap directamente (sin toast previo para no bloquear el diálogo)
     return mostrarConfirmacionSwap(unidad, occupant, destino);
   }
 
@@ -17911,6 +17911,7 @@ window._togglePlazaPicker = _togglePlazaPicker;
 // ── Exponer funciones al scope global para onclick/onchange ────────────────
 // (ES6 modules son strict y no exponen al window automáticamente)
 Object.assign(window, {
+  _guardarNotaRapida,
   _actualizarAutorAlertaUI,
   _actualizarBannerAlertaUI,
   _actualizarBloquesAdminSidebar,
