@@ -9,6 +9,7 @@
 // ═══════════════════════════════════════════════════════════
 let _bannerState = { bloqueado: false, pctOcup: 0, alertasCriticas: 0 };
 let _supervisionData = {}; // { [plaza]: { total, listos, sucios, manto, taller, traslados } }
+let PLAZA_ACTIVA_MAPA = ''; // declarada al top para evitar TDZ en inicializarConfiguracion
 
 import { db, auth, COL, ACCESS_ROLE_META } from '/js/core/database.js';
 import {
@@ -186,7 +187,7 @@ function cerrarCustomModal() {
   modalConfirmCallback = null;
 }
 
-document.getElementById('modalConfirmBtn').addEventListener('click', () => {
+document.getElementById('modalConfirmBtn')?.addEventListener('click', () => {
   if (modalConfirmCallback) modalConfirmCallback();
   cerrarCustomModal();
 });
@@ -915,7 +916,7 @@ function _normalizeUserProfile(raw = {}) {
 }
 
 // Plaza activa en el mapa (puede cambiar si JEFE_REGIONAL cambia de vista)
-let PLAZA_ACTIVA_MAPA = '';
+// PLAZA_ACTIVA_MAPA declarada al top del módulo (línea 11)
 
 function _miPlaza() {
   if (PLAZA_ACTIVA_MAPA) return PLAZA_ACTIVA_MAPA;

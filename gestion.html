@@ -244,6 +244,26 @@
     </div>
   </div>
 
+  <!-- Stubs síncronos para onclick antes de que mapa.js (módulo) cargue -->
+  <script>
+    (function () {
+      const FNS = ['abrirTabConfig','buscarEnListaConfig','abrirModalNuevaConfig',
+                   'guardarConfiguracionEnFirebase','cerrarPanelConfiguracion',
+                   'renderizarListaConfig','umFiltrar'];
+      const queue = [];
+      FNS.forEach(fn => {
+        window[fn] = (...args) => {
+          if (typeof window['_real_' + fn] === 'function') return window['_real_' + fn](...args);
+          queue.push({ fn, args });
+        };
+      });
+      window._mexDrainGestionQueue = () => {
+        queue.forEach(({ fn, args }) => { if (typeof window[fn] === 'function') window[fn](...args); });
+        queue.length = 0;
+      };
+    })();
+  </script>
+
   <!-- mapa.js como módulo: contiene toda la lógica del panel admin -->
   <script type="module" src="/js/views/mapa.js"></script>
 
@@ -252,6 +272,8 @@
     window.addEventListener('mex-app-ready', () => {
       const loader = document.getElementById('gestion-auth-loader');
       if (loader) loader.classList.add('hidden');
+      // Drenar la cola de clicks que llegaron antes de que el módulo cargara
+      window._mexDrainGestionQueue?.();
     });
     // Fallback: ocultar después de 5s por si el evento no llega
     setTimeout(() => {
