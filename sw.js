@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v124';
+const CACHE_NAME = 'mapa-v125';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
