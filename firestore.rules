@@ -118,7 +118,7 @@ service cloud.firestore {
           ? hasPerm
         : permiso == "platform_full_access"
           ? (conf != null && ((conf.fullAccess != null && conf.fullAccess == true) || hasPerm))
-        : false;
+        : hasPerm;
     }
 
     function tienePermiso(perfil, permiso) {
@@ -166,6 +166,10 @@ service cloud.firestore {
 
     function puedeGestionarSolicitudes() {
       return tienePerfilActual() && tienePermiso(perfilActual(), "process_access_requests");
+    }
+
+    function puedeEmitirAlertasMaestras() {
+      return tienePerfilActual() && tienePermiso(perfilActual(), "emit_master_alerts");
     }
 
     function puedeEditarCuadreAdmins() {
@@ -362,7 +366,7 @@ service cloud.firestore {
         ])
         && request.resource.data.keys().hasOnly([
           "nombre", "email", "puesto", "telefono", "password",
-          "rolSolicitado", "plazaSolicitada", "fecha", "estado"
+          "rolSolicitado", "plazaSolicitada", "fecha", "estado", "_ts"
         ])
         && request.resource.data.nombre is string
         && request.resource.data.email is string
@@ -370,6 +374,7 @@ service cloud.firestore {
         && request.resource.data.telefono is string
         && request.resource.data.password is string
         && request.resource.data.fecha is string
+        && (request.resource.data._ts == null || request.resource.data._ts is timestamp)
         && docId == request.resource.data.email
         && (
           request.resource.data.rolSolicitado == null
@@ -595,8 +600,12 @@ service cloud.firestore {
     // ─── COMUNICACIÓN Y LOGS ─────────────────────────────────
     match /alertas/{doc} {
       allow read: if tienePerfilActual();
-      allow create, delete: if esAccesoTotal();
-      allow update: if esAccesoTotal() || alertaLecturaValida();
+      allow create, delete: if puedeEmitirAlertasMaestras();
+      allow update: if puedeEmitirAlertasMaestras() || alertaLecturaValida();
+    }
+
+    match /plantillas_alertas/{doc} {
+      allow read, write: if puedeEmitirAlertasMaestras();
     }
 
     match /mensajes/{doc} {

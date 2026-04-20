@@ -354,7 +354,14 @@ function _ensureNotificationCenterDom() {
 
         <!-- Header -->
         <div class="notif-center-header">
-          <h2 class="notif-center-title">Notificaciones</h2>
+          <div class="notif-center-heading">
+            <div class="notif-center-kicker">Centro vivo</div>
+            <div class="notif-center-title-row">
+              <h2 class="notif-center-title">Notificaciones</h2>
+              <span id="notif-center-unread-badge" class="notif-center-unread-badge">Todo al día</span>
+            </div>
+            <p id="notif-center-summary" class="notif-center-summary">Seguimiento de mensajes, inventario, alertas y solicitudes del sistema.</p>
+          </div>
           <button id="notif-center-close" class="notif-center-close" type="button" aria-label="Cerrar">
             <span class="material-icons" style="font-size:18px;">close</span>
           </button>
@@ -362,11 +369,11 @@ function _ensureNotificationCenterDom() {
 
         <!-- Chips de filtro -->
         <div class="notif-filter-bar">
-          <button class="notif-filter-chip active" data-filter="all">Todos</button>
-          <button class="notif-filter-chip" data-filter="message">💬 Mensajes</button>
-          <button class="notif-filter-chip" data-filter="cuadre">📋 Inventario</button>
-          <button class="notif-filter-chip" data-filter="alert">🚨 Alertas</button>
-          <button class="notif-filter-chip" data-filter="solicitud">📝 Solicitudes</button>
+          <button class="notif-filter-chip active" data-filter="all">Todos <span id="notif-chip-badge-all" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="message">💬 Mensajes <span id="notif-chip-badge-message" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="cuadre">📋 Inventario <span id="notif-chip-badge-cuadre" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="alert">🚨 Alertas <span id="notif-chip-badge-alert" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="solicitud">📝 Solicitudes <span id="notif-chip-badge-solicitud" class="notif-chip-badge">0</span></button>
         </div>
 
         <div class="notif-center-divider"></div>
@@ -655,6 +662,7 @@ function _renderNotifList() {
       const type     = _safeText(item?.type);
       const meta     = _notifAvatarColor(type);
       const sender   = _notificationSender(item);
+      const context  = _notificationContextCopy(item);
       const initials = sender ? sender.slice(0, 2).toUpperCase() : meta.icon.slice(0, 2).toUpperCase();
       const text     = _notifFriendlyText(item);
 
@@ -667,8 +675,15 @@ function _renderNotifList() {
             </div>
           </div>
           <div class="notif-item-copy">
+            <div class="notif-item-head">
+              <span class="notif-item-context">${_safeText(context || _friendlyNotificationKind(item) || 'Sistema')}</span>
+              <span class="notif-item-time">${timeStr}</span>
+            </div>
             <p class="notif-item-text">${text}</p>
-            <span class="notif-item-time">${timeStr}</span>
+            <div class="notif-item-meta">
+              ${_safeText(item?.plaza) ? `<span class="notif-item-tag">${_safeText(item.plaza)}</span>` : ''}
+              <span class="notif-item-tag">${isUnread ? 'Pendiente' : 'Leída'}</span>
+            </div>
           </div>
           ${isUnread ? '<div class="notif-unread-dot"></div>' : ''}
         </button>
@@ -694,10 +709,44 @@ function _renderNotificationCenter() {
   const deviceEl    = document.getElementById('notif-center-device-status');
   const permissionBtn = document.getElementById('notif-center-permission-btn');
   const badge       = document.getElementById('badgeNotificationCenter');
+  const unreadBadge = document.getElementById('notif-center-unread-badge');
+  const summaryEl   = document.getElementById('notif-center-summary');
 
   if (badge) {
     badge.textContent = String(_state.unread);
     badge.style.display = _state.unread > 0 ? 'flex' : 'none';
+  }
+
+  const inbox = Array.isArray(_state.inbox) ? _state.inbox : [];
+  const filterCounts = {
+    all: inbox.length,
+    message: inbox.filter(item => _safeText(item?.type).toLowerCase().includes('message')).length,
+    cuadre: inbox.filter(item => _safeText(item?.type).toLowerCase().includes('cuadre')).length,
+    alert: inbox.filter(item => _safeText(item?.type).toLowerCase().includes('alert')).length,
+    solicitud: inbox.filter(item => {
+      const type = _safeText(item?.type).toLowerCase();
+      return type.includes('solicitud') || type.includes('request');
+    }).length
+  };
+
+  Object.entries(filterCounts).forEach(([key, count]) => {
+    const chipBadge = document.getElementById(`notif-chip-badge-${key}`);
+    if (!chipBadge) return;
+    chipBadge.textContent = String(count);
+    chipBadge.style.display = count > 0 ? 'inline-flex' : 'none';
+  });
+
+  if (unreadBadge) {
+    unreadBadge.textContent = _state.unread > 0
+      ? `${_state.unread} nueva${_state.unread === 1 ? '' : 's'}`
+      : 'Todo al día';
+    unreadBadge.classList.toggle('has-unread', _state.unread > 0);
+  }
+
+  if (summaryEl) {
+    summaryEl.textContent = _state.unread > 0
+      ? `Tienes ${_state.unread} pendiente${_state.unread === 1 ? '' : 's'} por revisar en el inbox operativo.`
+      : 'Tu inbox está limpio por ahora. Cuando llegue algo importante, aparecerá aquí.';
   }
 
   const permission = _supportsPush() ? Notification.permission : 'unsupported';

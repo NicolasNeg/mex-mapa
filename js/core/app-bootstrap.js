@@ -19,6 +19,7 @@
     overlayAttached: false,
     started: false,
     resolved: false,
+    shortcutsBound: false,
     cache: new Map(),
     location: {
       status: 'pending',
@@ -94,6 +95,43 @@
   function lowerText(value) {
     return safeText(value).toLowerCase();
   }
+
+  function isShortcutEditableTarget(target) {
+    const el = target && target.nodeType === 1 ? target : target?.parentElement;
+    if (!el) return false;
+    if (el.isContentEditable) return true;
+    const tag = lowerText(el.tagName);
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    return Boolean(el.closest?.('[contenteditable="true"], input, textarea, select'));
+  }
+
+  function handleGlobalRouteShortcuts(event) {
+    if (event.defaultPrevented) return;
+    if (!event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+    if (isShortcutEditableTarget(event.target)) return;
+
+    const pathname = lowerText(root.location.pathname || '/');
+    if (pathname === '/mapa' || pathname === '/mapa.html' || pathname === '/') return;
+
+    const key = lowerText(event.key || '');
+    if (key === 'p') {
+      event.preventDefault();
+      root.location.href = '/profile';
+      return;
+    }
+    if (key === 'm') {
+      event.preventDefault();
+      root.location.href = '/mensajes';
+    }
+  }
+
+  function bindGlobalRouteShortcuts() {
+    if (state.shortcutsBound) return;
+    document.addEventListener('keydown', handleGlobalRouteShortcuts);
+    state.shortcutsBound = true;
+  }
+
+  bindGlobalRouteShortcuts();
 
   function normalizePlazasDetalle(plazasDetalle = []) {
     if (!Array.isArray(plazasDetalle)) return [];

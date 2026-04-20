@@ -351,15 +351,7 @@
     btn.textContent = 'ENVIANDO...';
 
     try {
-      // 1. Verificar si ya existe solicitud
-      const existing = await firebase.firestore()
-        .collection('solicitudes_acceso').doc(email).get();
-      if (existing.exists) {
-        solToast('Ya existe una solicitud con ese correo. Espera a que sea revisada.');
-        return;
-      }
-
-      // 2. Guardar en Firestore
+      // 1. Guardar en Firestore
       await firebase.firestore().collection('solicitudes_acceso').doc(email).set({
         nombre, email, puesto, telefono,
         password: pass,
@@ -367,10 +359,9 @@
         plazaSolicitada: null,
         fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
         estado: 'PENDIENTE',
-        _ts: firebase.firestore.FieldValue.serverTimestamp(),
       });
 
-      // 3. Enviar correo de confirmación via Cloud Function
+      // 2. Enviar correo de confirmación via Cloud Function
       try {
         const fn = firebase.functions().httpsCallable('enviarCorreoSolicitud');
         await fn({ nombre, email, puesto });
@@ -379,7 +370,7 @@
         console.warn('[solicitud] correo no enviado:', mailErr.message);
       }
 
-      // 4. Mostrar estado de éxito
+      // 3. Mostrar estado de éxito
       document.getElementById('sol-form-state').style.display = 'none';
       document.getElementById('sol-success-state').style.display = 'block';
 
@@ -388,7 +379,11 @@
 
     } catch (err) {
       console.error('[solicitud]', err);
-      solToast('Error al enviar la solicitud. Intenta de nuevo.');
+      if (String(err?.code || '').includes('permission-denied')) {
+        solToast('Ese correo ya tiene una solicitud pendiente o no puede registrarse de nuevo.');
+      } else {
+        solToast('Error al enviar la solicitud. Intenta de nuevo.');
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = 'ENVIAR SOLICITUD';

@@ -131,23 +131,23 @@ window.enviarSolicitudAcceso = async function () {
 
   try {
     const docId = email;
-    const existing = await db.collection('solicitudes_acceso').doc(docId).get();
-    if (existing.exists) {
-      alert('Ya existe una solicitud con ese correo. Espera a que sea revisada.'); return;
-    }
     await db.collection('solicitudes_acceso').doc(docId).set({
       nombre, email, puesto, telefono,
       password: pass,
       rolSolicitado: null,
       plazaSolicitada: null,
       fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
-      estado: 'PENDIENTE',
+      estado: 'PENDIENTE'
     });
     cerrarModalSolicitud();
     alert('✅ Solicitud enviada. Un administrador la revisará pronto.');
   } catch (e) {
     console.error('[login.js] enviarSolicitud:', e);
-    alert('Error al enviar. Intenta de nuevo.');
+    if (String(e?.code || '').includes('permission-denied')) {
+      alert('Ese correo ya tiene una solicitud pendiente o no se pudo registrar de nuevo.');
+    } else {
+      alert('Error al enviar. Intenta de nuevo.');
+    }
   } finally {
     btn.disabled = false;
     btn.innerText = 'ENVIAR SOLICITUD';
