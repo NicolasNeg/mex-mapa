@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es" data-page-title="Mi Perfil">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+  <script src="/config.js"></script>
+  <script src="/js/core/firebase-init.js"></script>
+  <script src="/mex-api.js"></script>
+  <script src="/api/helpers.js"></script>
+  <script src="/api/auth.js"></script>
+  <script src="/api/mapa.js"></script>
+  <script src="/api/cuadre.js"></script>
+  <script src="/api/externos.js"></script>
+  <script src="/api/flota.js"></script>
+  <script src="/api/alertas.js"></script>
+  <script src="/api/notas.js"></script>
+  <script src="/api/historial.js"></script>
+  <script src="/api/settings.js"></script>
+  <script src="/api/users.js"></script>
+  <script src="/api/_assemble.js"></script>
+  <script src="/js/core/app-bootstrap.js"></script>
+
+  <title>Mi Perfil</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #071224;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Ocultar todo lo que es exclusivo del mapa */
+    #login-overlay, #admin-sidebar, #map-stage, #buzon-modal,
+    header, .overlay, #modal-editor-mapa { display: none !important; }
+
+    /* El modal de perfil ocupa toda la pantalla */
+    #perfil-modal {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      z-index: 100 !important;
+      background: rgba(7,18,36,0.98) !important;
+    }
+
+    /* Botón volver */
+    .profile-back-btn {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 200;
+      background: rgba(15,23,42,0.85);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 10px;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background 0.18s;
+    }
+    .profile-back-btn:hover { background: rgba(30,41,59,0.95); }
+  </style>
+</head>
+<body>
+
+  <button class="profile-back-btn" onclick="window.history.length > 1 ? window.history.back() : window.location.href='/mapa'">
+    <span class="material-icons" style="font-size:18px;">arrow_back</span>
+    Volver
+  </button>
+
+  <!-- Sistema de diálogos -->
+  <div id="mex-dialog-overlay">
+    <div class="mex-dlg-card">
+      <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
+        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+      </div>
+      <div class="mex-dlg-body">
+        <div id="mex-dlg-title" class="mex-dlg-title"></div>
+        <div id="mex-dlg-text" class="mex-dlg-text"></div>
+        <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap" style="display:none;">
+          <input id="mex-dlg-input" class="mex-dlg-input" type="text">
+        </div>
+      </div>
+      <div class="mex-dlg-actions">
+        <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra" style="display:none;"></button>
+        <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel" style="display:none;">CANCELAR</button>
+        <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm dlg-info">ACEPTAR</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/core/dialogs.js"></script>
+  <script type="module" src="/js/views/mapa.js"></script>
+  <script>
+    // Cuando mapa.js termina de arrancar, abrir el modal de perfil
+    window.addEventListener('mex:appReady', () => {
+      if (typeof abrirPerfilUsuario === 'function') abrirPerfilUsuario();
+    });
+    // Fallback: si el evento no llega, intentar después de 2s
+    setTimeout(() => {
+      if (typeof abrirPerfilUsuario === 'function') abrirPerfilUsuario();
+    }, 2000);
+  </script>
+</body>
+</html>

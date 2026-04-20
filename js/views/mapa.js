@@ -219,8 +219,23 @@ function confirmarBorradoFlotaUI() {
   );
 }
 
+function _ensureToastContainer() {
+  let box = document.getElementById('toastContainer');
+  if (box) return box;
+  if (!document.body) return null;
+  box = document.createElement('div');
+  box.id = 'toastContainer';
+  document.body.appendChild(box);
+  return box;
+}
+
 function showToast(msg, type = 'success') {
-  const box = document.getElementById('toastContainer');
+  const box = _ensureToastContainer();
+  if (!box) {
+    const method = type === 'error' ? 'error' : 'log';
+    console[method]('[toast]', msg);
+    return;
+  }
   const t = document.createElement('div');
   t.className = `toast ${type}`;
   t.innerHTML = `<span class="material-icons">${type === 'success' ? 'check_circle' : 'error'}</span> ${msg}`;
@@ -7246,6 +7261,25 @@ function refrescarDatos(force = false) {
 let _unsubRadar = [];
 let _radarState = { settings: null, globalSettings: null, alertas: null, mensajes: null, incidencias: 0 };
 let _radarReady = { settings: false, globalSettings: false, alertas: false, mensajes: false, incidencias: false };
+let _radarMissingIndexWarned = false;
+
+function _hasOperationalMapChrome() {
+  return Boolean(
+    document.getElementById('btnProtocoloV3')
+    || document.getElementById('overlayAuditoria')
+    || document.getElementById('badgeAlerts')
+    || document.getElementById('badgeIncidencias')
+    || document.getElementById('lastUpdateDesktop')
+  );
+}
+
+function _isMissingIndexRadarError(error) {
+  const runtimeHelper = window._mex?._isMissingIndexError;
+  if (typeof runtimeHelper === 'function') return runtimeHelper(error);
+  const code = String(error?.code || '').trim().toLowerCase();
+  const message = String(error?.message || '').toLowerCase();
+  return code === 'failed-precondition' || message.includes('requires an index');
+}
 
 function _limpiarRadar() {
   if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
@@ -7338,13 +7372,22 @@ function hacerPingNotificaciones(force = false) {
   if (!force && _radarReady.settings && _radarReady.globalSettings && _radarReady.alertas && _radarReady.mensajes && _radarReady.incidencias) return;
   api.checarNotificaciones(USER_NAME, _miPlaza()).then(res => {
     if (res) _procesarPingUI(res);
-  }).catch(err => console.error("❌ RADAR ERROR:", err));
+  }).catch(err => {
+    if (_isMissingIndexRadarError(err)) {
+      if (!_radarMissingIndexWarned) {
+        console.warn("⚠️ RADAR: falta desplegar el índice compuesto de Firestore para alertas; usando actualización por listeners en tiempo real.", err);
+        _radarMissingIndexWarned = true;
+      }
+      return;
+    }
+    console.error("❌ RADAR ERROR:", err);
+  });
 }
 
 function _procesarPingUI(res) {
   if (!res) return;
-  // En /gestion (modo admin standalone) no hay elementos de UI del mapa — salir temprano
-  if (_isGestionAdminMode() && !document.getElementById('btnProtocoloV3')) return;
+  // En rutas standalone sin chrome operativo del mapa, no intentamos pintar UI del mapa.
+  if (!_hasOperationalMapChrome()) return;
   if (res.error) console.error("Error en servidor:", res.error);
 
   // 1. ACTUALIZAR RELOJES DE MODIFICACIÓN
@@ -7472,50 +7515,52 @@ function _procesarPingUI(res) {
 
   const estadoV3 = res.estadoCuadreV3; // Puede ser "LIBRE", "PROCESO" o "REVISION"
 
-  // 🔥 CAMBIADO: Ahora cualquier Admin puede gestionar el cuadre
-  if (userRole === 'admin') {
-    if (estadoV3 === "PROCESO") {
-      // Misión enviada, esperando al auxiliar
-      btn.style.opacity = "0.5";
-      btn.disabled = true;
-      btn.style.background = "#64748b";
-      txt.innerText = "MISIÓN EN PATIO...";
-      ico.innerText = "directions_run";
-    } else if (estadoV3 === "REVISION") {
-      // Auxiliar terminó, te toca a ti
-      btn.style.opacity = "1";
-      btn.disabled = false;
-      btn.style.background = "#f59e0b"; // Naranja urgente
-      txt.innerText = "FINALIZAR CUADRE";
-      ico.innerText = "fact_check";
+  if (btn && txt && ico) {
+    // 🔥 CAMBIADO: Ahora cualquier Admin puede gestionar el cuadre
+    if (userRole === 'admin') {
+      if (estadoV3 === "PROCESO") {
+        // Misión enviada, esperando al auxiliar
+        btn.style.opacity = "0.5";
+        btn.disabled = true;
+        btn.style.background = "#64748b";
+        txt.innerText = "MISIÓN EN PATIO...";
+        ico.innerText = "directions_run";
+      } else if (estadoV3 === "REVISION") {
+        // Auxiliar terminó, te toca a ti
+        btn.style.opacity = "1";
+        btn.disabled = false;
+        btn.style.background = "#f59e0b"; // Naranja urgente
+        txt.innerText = "FINALIZAR CUADRE";
+        ico.innerText = "fact_check";
+      } else {
+        // Sistema Libre
+        btn.style.opacity = "1";
+        btn.disabled = false;
+        btn.style.background = "#0284c7";
+        txt.innerText = "INICIAR CUADRE (ADMIN)";
+        ico.innerText = "play_arrow";
+      }
     } else {
-      // Sistema Libre
-      btn.style.opacity = "1";
-      btn.disabled = false;
-      btn.style.background = "#0284c7";
-      txt.innerText = "INICIAR CUADRE (ADMIN)";
-      ico.innerText = "play_arrow";
-    }
-  } else {
-    // ---------------- AUXILIAR (No es Admin) ----------------
-    if (estadoV3 === "PROCESO") {
-      btn.style.opacity = "1";
-      btn.disabled = false;
-      btn.style.background = "#10b981"; // Verde
-      txt.innerText = "VERIFICAR INVENTARIO";
-      ico.innerText = "fact_check";
-    } else if (estadoV3 === "REVISION") {
-      btn.style.opacity = "0.5";
-      btn.disabled = true;
-      btn.style.background = "#64748b";
-      txt.innerText = "REPORTE ENVIADO";
-      ico.innerText = "check_circle";
-    } else {
-      btn.style.opacity = "0.5";
-      btn.disabled = true;
-      btn.style.background = "#64748b";
-      txt.innerText = "ESPERANDO ADMIN...";
-      ico.innerText = "lock";
+      // ---------------- AUXILIAR (No es Admin) ----------------
+      if (estadoV3 === "PROCESO") {
+        btn.style.opacity = "1";
+        btn.disabled = false;
+        btn.style.background = "#10b981"; // Verde
+        txt.innerText = "VERIFICAR INVENTARIO";
+        ico.innerText = "fact_check";
+      } else if (estadoV3 === "REVISION") {
+        btn.style.opacity = "0.5";
+        btn.disabled = true;
+        btn.style.background = "#64748b";
+        txt.innerText = "REPORTE ENVIADO";
+        ico.innerText = "check_circle";
+      } else {
+        btn.style.opacity = "0.5";
+        btn.disabled = true;
+        btn.style.background = "#64748b";
+        txt.innerText = "ESPERANDO ADMIN...";
+        ico.innerText = "lock";
+      }
     }
   }
 
@@ -7567,6 +7612,20 @@ function abrirSiguienteAlerta() {
     return;
   }
 
+  const modalAlerta = document.getElementById('modalAlertaMaestra');
+  const tituloAlerta = document.getElementById('alertaTitulo');
+  const mensajeAlerta = document.getElementById('alertaMensaje');
+  const fechaAlerta = document.getElementById('alertaFecha');
+  const autorAlerta = document.getElementById('alertaAutor');
+  const tipoAlerta = document.getElementById('alertaTipo');
+  const bannerAlerta = document.getElementById('alertaBannerImg');
+  const btnCerrar = document.getElementById('btnCerrarAlerta');
+  const btnAccion = document.getElementById('btnAccionAlerta');
+  if (!modalAlerta || !tituloAlerta || !mensajeAlerta || !fechaAlerta || !autorAlerta || !tipoAlerta || !bannerAlerta || !btnCerrar || !btnAccion) {
+    showToast('Tienes alertas nuevas. Revísalas desde el mapa operativo.', 'info');
+    return;
+  }
+
   alertaActualMostrandose = filaAlertasPendientes[0];
   const alerta = alertaActualMostrandose;
   const metaTipo = _obtenerMetaTipoAlerta(alerta.tipo);
@@ -7575,29 +7634,25 @@ function abrirSiguienteAlerta() {
   const mensajeHtml = _normalizarMensajeAlertaHtml(alerta.mensaje);
   const accion = _normalizarAccionAlerta(alerta.cta || {});
 
-  document.getElementById('alertaTitulo').innerText = alerta.titulo || 'Sin título';
-  document.getElementById('alertaMensaje').innerHTML = mensajeHtml || `<div style="color:#94a3b8;">Sin contenido disponible.</div>`;
-  document.getElementById('alertaMensaje').scrollTop = 0;
-  document.getElementById('alertaFecha').innerText = alerta.fecha || 'Reciente';
-  document.getElementById('alertaAutor').innerText = autorVisible || '';
+  tituloAlerta.innerText = alerta.titulo || 'Sin título';
+  mensajeAlerta.innerHTML = mensajeHtml || `<div style="color:#94a3b8;">Sin contenido disponible.</div>`;
+  mensajeAlerta.scrollTop = 0;
+  fechaAlerta.innerText = alerta.fecha || 'Reciente';
+  autorAlerta.innerText = autorVisible || '';
   const autorWrap = document.getElementById('alertaFinalAuthorWrap');
   if (autorWrap) autorWrap.style.display = autorVisible ? 'block' : 'none';
 
-  const tipoBadge = document.getElementById('alertaTipo');
-  tipoBadge.innerText = bannerMeta.label;
-  tipoBadge.style.background = bannerMeta.bg;
-  tipoBadge.style.color = bannerMeta.color;
+  tipoAlerta.innerText = bannerMeta.label;
+  tipoAlerta.style.background = bannerMeta.bg;
+  tipoAlerta.style.color = bannerMeta.color;
 
-  const banner = document.getElementById('alertaBannerImg');
   if (alerta.imagen && (String(alerta.imagen).startsWith('http') || String(alerta.imagen).startsWith('data:image'))) {
-    banner.style.backgroundImage = `url('${_safeCssUrl(alerta.imagen)}')`;
-    banner.style.display = 'block';
+    bannerAlerta.style.backgroundImage = `url('${_safeCssUrl(alerta.imagen)}')`;
+    bannerAlerta.style.display = 'block';
   } else {
-    banner.style.backgroundImage = '';
-    banner.style.display = 'none';
+    bannerAlerta.style.backgroundImage = '';
+    bannerAlerta.style.display = 'none';
   }
-
-  const btnCerrar = document.getElementById('btnCerrarAlerta');
 
   // Definimos la variable para el contenido
   let contenidoBoton;
@@ -7617,9 +7672,9 @@ function abrirSiguienteAlerta() {
   btnCerrar.style.background = metaTipo.color;
 
   alertaAccionActualActiva = accion.type === 'NONE' ? null : accion;
-  _renderizarBotonAccionAlerta(document.getElementById('btnAccionAlerta'), accion, metaTipo.color);
+  _renderizarBotonAccionAlerta(btnAccion, accion, metaTipo.color);
 
-  document.getElementById('modalAlertaMaestra').classList.add('active');
+  modalAlerta.classList.add('active');
 }
 
 function procesarAlertaLeida() {
@@ -14047,8 +14102,13 @@ function _edToggleSelection(celda) {
   _renderEditorCanvas();
 }
 
-function abrirEditorMapa() {
-  console.log('[DEBUG] abrirEditorMapa', { role: userAccessRole, canAdmin: canOpenAdminPanel(), modal: !!document.getElementById('modal-editor-mapa') });
+function abrirEditorMapa(plazaOverride) {
+  console.log('[DEBUG] abrirEditorMapa', { role: userAccessRole, canAdmin: canOpenAdminPanel(), modal: !!document.getElementById('modal-editor-mapa'), plazaOverride });
+  // Si se pasa una plaza explícita (desde /editmap/PLAZA), sobreescribir la activa
+  if (plazaOverride) {
+    PLAZA_ACTIVA_MAPA = String(plazaOverride).trim().toUpperCase();
+    window.PLAZA_ACTIVA_MAPA = PLAZA_ACTIVA_MAPA;
+  }
   toggleAdminSidebar(false);
   const _edModal = document.getElementById('modal-editor-mapa');
   if (!_edModal) { console.error('[DEBUG] modal-editor-mapa NO ENCONTRADO en DOM'); return; }

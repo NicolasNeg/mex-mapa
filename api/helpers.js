@@ -50,6 +50,17 @@
     return _buildCollectionQuery(collectionName, { ...options, wheres });
   }
 
+  function _isMissingIndexError(error) {
+    const code = String(error?.code || '').trim().toLowerCase();
+    const message = String(error?.message || '').toLowerCase();
+    return code === 'failed-precondition' || message.includes('requires an index');
+  }
+
+  function _warnQueryFallback(label, error) {
+    if (!_isMissingIndexError(error)) return;
+    console.warn(`[${label}] Falta índice compuesto; usando fallback temporal legacy.`, error);
+  }
+
   const REQUIRED_API_SURFACE = Object.freeze([
     'obtenerCredencialesMapa',
     'obtenerDatosParaMapa',
@@ -89,6 +100,8 @@
     _normalizePositiveInt,
     _buildCollectionQuery,
     _buildPlazaScopedQuery,
+    _isMissingIndexError,
+    _warnQueryFallback,
     _collectApiDiagnostics,
     _requiredApiSurface: REQUIRED_API_SURFACE
   });

@@ -74,12 +74,15 @@
       }
     ],
     "rewrites": [
-      { "source": "/login",   "destination": "/login.html" },
-      { "source": "/mapa",    "destination": "/mapa.html" },
+      { "source": "/login",       "destination": "/login.html" },
+      { "source": "/mapa",        "destination": "/mapa.html" },
       { "source": "/programador", "destination": "/programador.html" },
-      { "source": "/gestion",  "destination": "/gestion.html" },
-      { "source": "/cuadre",   "destination": "/cuadre.html" },
-      { "source": "/mensajes", "destination": "/mensajes.html" }
+      { "source": "/gestion",     "destination": "/gestion.html" },
+      { "source": "/cuadre",      "destination": "/cuadre.html" },
+      { "source": "/mensajes",    "destination": "/mensajes.html" },
+      { "source": "/profile",     "destination": "/profile.html" },
+      { "source": "/editmap",     "destination": "/editmap.html" },
+      { "source": "/editmap/**",  "destination": "/editmap.html" }
     ]
   }
 }

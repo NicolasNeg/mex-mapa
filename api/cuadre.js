@@ -13,7 +13,8 @@
     _buildCuadreAdminPayload, _normalizeCuadreAdminRecord, _resolveCuadreAdminDocId,
     _uploadAdminEvidenceFiles, _deleteEvidenceFiles,
     _windowLocationAuditExtra, _matchesPlaza, _sanitizeText,
-    _getSettings, _setSettings, _ensureGlobalSettingsDoc, _buildPlazaScopedQuery
+    _getSettings, _setSettings, _ensureGlobalSettingsDoc, _buildPlazaScopedQuery,
+    _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
   window._mexParts = window._mexParts || {};
@@ -346,8 +347,13 @@
           ? _buildPlazaScopedQuery(COL.CUADRE_ADM, plazaUp, { orderBy: { field: '_createdAt', direction: 'desc' } })
           : db.collection(COL.CUADRE_ADM).where('plaza', '==', plazaUp).orderBy('_createdAt', 'desc'))
         : db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc");
-      const snap = await query.get();
-      return Promise.all(snap.docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
+      const snap = await query.get().catch(async error => {
+        if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
+        _warnQueryFallback?.('obtenerCuadreAdminsData', error);
+        return db.collection(COL.CUADRE_ADM).orderBy('_createdAt', 'desc').limit(300).get();
+      });
+      const docs = snap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp));
+      return Promise.all(docs.map(d => _normalizeCuadreAdminRecord(d.id, d.data())));
     },
 
     async procesarModificacionMaestra(datos, tipoAccion) {

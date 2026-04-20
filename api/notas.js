@@ -8,7 +8,7 @@
     _normalizePlazaId, _matchesPlaza, _now, _ts, _sanitizeText,
     _buildIncidentPayload, _normalizeIncidentRecord, _normalizeIncidentAttachments,
     _normalizeEvidenceItems, _uploadIncidentAttachments, _deleteEvidenceFiles,
-    _buildPlazaScopedQuery
+    _buildPlazaScopedQuery, _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
   window._mexParts = window._mexParts || {};
@@ -22,8 +22,13 @@
           ? _buildPlazaScopedQuery(COL.NOTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' } })
           : db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc'))
         : db.collection(COL.NOTAS).orderBy("timestamp", "desc");
-      const snap = await query.get();
-      return snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
+      const snap = await query.get().catch(async error => {
+        if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
+        _warnQueryFallback?.('obtenerTodasLasNotas', error);
+        return db.collection(COL.NOTAS).orderBy('timestamp', 'desc').limit(300).get();
+      });
+      const docs = snap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp));
+      return docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
     },
 
     suscribirNotasAdmin(callback, plaza) {
@@ -33,9 +38,27 @@
           ? _buildPlazaScopedQuery(COL.NOTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' } })
           : db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc'))
         : db.collection(COL.NOTAS).orderBy("timestamp", "desc");
-      return query.onSnapshot(snap => {
-        callback(snap.docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
-      }, err => console.error("onSnapshot notas_admin:", err));
+      let fallbackUnsub = null;
+      const primaryUnsub = query.onSnapshot(snap => {
+        const docs = snap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp));
+        callback(docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
+      }, err => {
+        if (_isMissingIndexError?.(err) && plazaUp) {
+          _warnQueryFallback?.('suscribirNotasAdmin', err);
+          if (!fallbackUnsub) {
+            fallbackUnsub = db.collection(COL.NOTAS).orderBy('timestamp', 'desc').limit(300).onSnapshot(fallbackSnap => {
+              const docs = fallbackSnap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
+              callback(docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
+            }, fallbackErr => console.error("onSnapshot notas_admin fallback:", fallbackErr));
+          }
+          return;
+        }
+        console.error("onSnapshot notas_admin:", err);
+      });
+      return () => {
+        primaryUnsub();
+        if (fallbackUnsub) fallbackUnsub();
+      };
     },
 
     async guardarNuevaNotaDirecto(nota, autor) {

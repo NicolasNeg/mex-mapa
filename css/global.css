@@ -2974,6 +2974,53 @@
     }
 
     /* --- SOLICITUD MODAL --- */
+    .solicitud-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    .solicitud-modal-card {
+      background: white;
+      max-width: 470px;
+      width: 92%;
+      border-radius: 24px;
+      padding: 36px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.55);
+      animation: slideUp 0.45s cubic-bezier(0.16,1,0.3,1) forwards;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+
+    .solicitud-modal-header {
+      margin-bottom: 22px;
+    }
+
+    .solicitud-modal-title {
+      color: #0f172a;
+      font-weight: 900;
+      font-size: 20px;
+      margin: 0 0 4px;
+    }
+
+    .solicitud-modal-sub {
+      color: #64748b;
+      font-size: 13px;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .solicitud-form-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
     .sol-card {
       background: white;
       max-width: 470px;

@@ -13,7 +13,8 @@
     _alertMatchesUser, _alertReadByUser,
     _matchesPlaza, _normalizePlazaLocationItem,
     _buildDefaultPlazaLocations, _ensurePlazaBootstrap,
-    _configPlazaRef, backfillPlazaEnUnidades, _buildPlazaScopedQuery
+    _configPlazaRef, backfillPlazaEnUnidades, _buildPlazaScopedQuery,
+    _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
   window._mexParts = window._mexParts || {};
@@ -30,14 +31,26 @@
       const notasQuery = plazaUp
         ? db.collection(COL.NOTAS).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE")
         : db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE");
+      const alertasPromise = alertasQuery.get().catch(async error => {
+        if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
+        _warnQueryFallback?.('checarNotificaciones.alertas', error);
+        return db.collection(COL.ALERTAS).orderBy('timestamp', 'desc').limit(200).get();
+      });
+      const notasPromise = notasQuery.get().catch(async error => {
+        if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
+        _warnQueryFallback?.('checarNotificaciones.notas', error);
+        return db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get();
+      });
+
       const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
         _getSettings(plaza),
         _getSettings('GLOBAL'),
-        alertasQuery.get(),
+        alertasPromise,
         db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
-        notasQuery.get()
+        notasPromise
       ]);
       const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+        .filter(a => !plazaUp || _matchesPlaza(a, plazaUp))
         .filter(a => !_alertReadByUser(a, usuarioActivo))
         .filter(a => _alertMatchesUser(a, usuarioActivo));
       const mensajesSinLeer = msgsSnap.docs.filter(d => d.data().leido !== "SI").length;
@@ -46,7 +59,7 @@
       if (!Array.isArray(liveFeed)) liveFeed = [];
       const lockState = _resolverEstadoBloqueoMapa(settings, globalSettings);
       return {
-        incidenciasPendientes: notasSnap.size, alertas, mensajesSinLeer,
+        incidenciasPendientes: notasSnap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp)).length, alertas, mensajesSinLeer,
         ultimaActualizacion: settings.ultimaModificacion || "--/-- 00:00",
         ultimoCuadre:        settings.ultimoCuadreTexto || "Sin registro",
         mapaBloqueado:       lockState.mapaBloqueado,
