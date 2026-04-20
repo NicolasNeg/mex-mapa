@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="es" data-page-title="Incidencias" data-page-description="Kanban de incidencias operativas">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Incidencias">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/img/logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/incidencias.css">
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="/config.js"></script>
+
+  <title>Incidencias — MEX MAPA</title>
+</head>
+<body>
+
+<div class="inc-shell">
+
+  <!-- ── Top bar ── -->
+  <header class="inc-topbar">
+    <a href="/mapa" class="inc-back-btn">
+      <span class="material-icons">arrow_back</span>
+      MAPA
+    </a>
+    <img src="/img/logo.png" alt="Logo" class="inc-topbar-logo">
+    <div class="inc-topbar-title">KANBAN DE INCIDENCIAS</div>
+    <div class="inc-topbar-plaza" id="inc-plaza">CARGANDO...</div>
+    <div class="inc-topbar-user">
+      <div class="inc-topbar-avatar" id="inc-avatar">--</div>
+      <span id="inc-username" style="display:none;"></span>
+    </div>
+  </header>
+
+  <!-- ── Toolbar filtros ── -->
+  <div class="inc-toolbar">
+    <span class="inc-toolbar-title">FILTRAR:</span>
+    <button class="inc-filter-chip active" data-tipo="TODOS"      onclick="incFiltrar('TODOS')">TODOS</button>
+    <button class="inc-filter-chip"        data-tipo="MECANICA"   onclick="incFiltrar('MECANICA')">MECÁNICA</button>
+    <button class="inc-filter-chip"        data-tipo="LIMPIEZA"   onclick="incFiltrar('LIMPIEZA')">LIMPIEZA</button>
+    <button class="inc-filter-chip"        data-tipo="ACCIDENTE"  onclick="incFiltrar('ACCIDENTE')">ACCIDENTE</button>
+    <button class="inc-filter-chip"        data-tipo="DOCUMENTOS" onclick="incFiltrar('DOCUMENTOS')">DOCUMENTOS</button>
+    <button class="inc-filter-chip"        data-tipo="OTRO"       onclick="incFiltrar('OTRO')">OTRO</button>
+    <button class="inc-btn-nueva" id="btnNuevaIncidencia">
+      <span class="material-icons">add</span>
+      NUEVA INCIDENCIA
+    </button>
+  </div>
+
+  <!-- ── Board ── -->
+  <div class="inc-board">
+
+    <!-- ABIERTA -->
+    <div class="inc-col" data-col="abierta">
+      <div class="inc-col-header">
+        <div class="inc-col-dot"></div>
+        <div class="inc-col-name">ABIERTA</div>
+        <div class="inc-col-count" id="count-abierta">0</div>
+      </div>
+      <div class="inc-col-cards" id="col-abierta"></div>
+    </div>
+
+    <!-- EN PROCESO -->
+    <div class="inc-col" data-col="en_proceso">
+      <div class="inc-col-header">
+        <div class="inc-col-dot"></div>
+        <div class="inc-col-name">EN PROCESO</div>
+        <div class="inc-col-count" id="count-en_proceso">0</div>
+      </div>
+      <div class="inc-col-cards" id="col-en_proceso"></div>
+    </div>
+
+    <!-- RESUELTA -->
+    <div class="inc-col" data-col="resuelta">
+      <div class="inc-col-header">
+        <div class="inc-col-dot"></div>
+        <div class="inc-col-name">RESUELTA</div>
+        <div class="inc-col-count" id="count-resuelta">0</div>
+      </div>
+      <div class="inc-col-cards" id="col-resuelta"></div>
+    </div>
+
+    <!-- CERRADA -->
+    <div class="inc-col" data-col="cerrada">
+      <div class="inc-col-header">
+        <div class="inc-col-dot"></div>
+        <div class="inc-col-name">CERRADA</div>
+        <div class="inc-col-count" id="count-cerrada">0</div>
+      </div>
+      <div class="inc-col-cards" id="col-cerrada"></div>
+    </div>
+
+  </div><!-- /.inc-board -->
+
+</div><!-- /.inc-shell -->
+
+<!-- ── Modal nueva incidencia ── -->
+<div class="inc-modal-overlay" id="inc-modal-nueva">
+  <div class="inc-modal">
+    <div class="inc-modal-header">
+      <span class="material-icons" style="color:#3b82f6;">add_circle</span>
+      <div class="inc-modal-title">NUEVA INCIDENCIA</div>
+      <button class="inc-modal-close" id="inc-modal-close">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <form id="inc-form">
+      <div class="inc-form-row">
+        <div class="inc-form-group">
+          <label class="inc-form-label">NÚMERO DE UNIDAD (MVA)</label>
+          <input type="text" id="inc-f-mva" class="inc-form-input"
+                 placeholder="ej. MVA-1234" required maxlength="20">
+        </div>
+        <div class="inc-form-group">
+          <label class="inc-form-label">TIPO</label>
+          <select id="inc-f-tipo" class="inc-form-select" required>
+            <option value="">Seleccionar...</option>
+            <option value="MECANICA">MECÁNICA</option>
+            <option value="LIMPIEZA">LIMPIEZA</option>
+            <option value="ACCIDENTE">ACCIDENTE</option>
+            <option value="DOCUMENTOS">DOCUMENTOS</option>
+            <option value="OTRO">OTRO</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="inc-form-group">
+        <label class="inc-form-label">TÍTULO BREVE</label>
+        <input type="text" id="inc-f-titulo" class="inc-form-input"
+               placeholder="ej. Falla en frenos delanteros" required maxlength="100">
+      </div>
+
+      <div class="inc-form-group">
+        <label class="inc-form-label">DESCRIPCIÓN</label>
+        <textarea id="inc-f-descripcion" class="inc-form-textarea"
+                  placeholder="Describe el problema con detalle..."></textarea>
+      </div>
+
+      <div class="inc-form-row">
+        <div class="inc-form-group">
+          <label class="inc-form-label">PRIORIDAD</label>
+          <select id="inc-f-prioridad" class="inc-form-select" required>
+            <option value="baja">BAJA</option>
+            <option value="media" selected>MEDIA</option>
+            <option value="alta">ALTA</option>
+          </select>
+        </div>
+        <div class="inc-form-group">
+          <label class="inc-form-label">RESPONSABLE</label>
+          <input type="text" id="inc-f-responsable" class="inc-form-input"
+                 placeholder="Nombre o área" maxlength="60">
+        </div>
+      </div>
+
+      <div class="inc-form-actions">
+        <button type="button" class="inc-btn-cancel" id="inc-btn-cancel">CANCELAR</button>
+        <button type="submit" class="inc-btn-save" id="inc-btn-save">GUARDAR INCIDENCIA</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal detalle ── -->
+<div class="inc-modal-overlay" id="inc-modal-detalle">
+  <div class="inc-modal">
+    <div class="inc-modal-header">
+      <span class="material-icons" style="color:#f59e0b;">report_problem</span>
+      <div class="inc-modal-title" id="inc-det-mva">---</div>
+      <button class="inc-modal-close" onclick="document.getElementById('inc-modal-detalle').classList.remove('active')">
+        <span class="material-icons">close</span>
+      </button>
+    </div>
+
+    <div class="inc-detail-section">
+      <div class="inc-detail-label">TÍTULO</div>
+      <div class="inc-detail-value" id="inc-det-titulo">--</div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div class="inc-detail-section">
+        <div class="inc-detail-label">TIPO</div>
+        <div class="inc-detail-value" id="inc-det-tipo">--</div>
+      </div>
+      <div class="inc-detail-section">
+        <div class="inc-detail-label">PRIORIDAD</div>
+        <div class="inc-detail-value" id="inc-det-prioridad">--</div>
+      </div>
+      <div class="inc-detail-section">
+        <div class="inc-detail-label">ESTADO</div>
+        <div class="inc-detail-value" id="inc-det-estado">--</div>
+      </div>
+      <div class="inc-detail-section">
+        <div class="inc-detail-label">RESPONSABLE</div>
+        <div class="inc-detail-value" id="inc-det-responsable">--</div>
+      </div>
+    </div>
+    <div class="inc-detail-section">
+      <div class="inc-detail-label">DESCRIPCIÓN</div>
+      <div class="inc-detail-value" id="inc-det-descripcion">--</div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+      <div class="inc-detail-section">
+        <div class="inc-detail-label">CREADO</div>
+        <div class="inc-detail-value" id="inc-det-fecha">--</div>
+      </div>
+      <div class="inc-detail-section">
+        <div class="inc-detail-label">POR</div>
+        <div class="inc-detail-value" id="inc-det-por">--</div>
+      </div>
+    </div>
+
+    <div class="inc-detail-actions" id="inc-det-move-btns"></div>
+    <button class="inc-btn-cerrar-inc" id="inc-btn-cerrar">
+      <span class="material-icons" style="font-size:15px; vertical-align:middle;">lock</span>
+      CERRAR INCIDENCIA
+    </button>
+  </div>
+</div>
+
+<!-- ── Toast ── -->
+<div class="inc-toast" id="inc-toast"></div>
+
+<script type="module" src="/js/views/incidencias.js"></script>
+</body>
+</html>

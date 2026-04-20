@@ -83,7 +83,8 @@
       { "source": "/profile",     "destination": "/profile.html" },
       { "source": "/editmap",     "destination": "/editmap.html" },
       { "source": "/editmap/**",  "destination": "/editmap.html" },
-      { "source": "/solicitud",   "destination": "/solicitud.html" }
+      { "source": "/solicitud",     "destination": "/solicitud.html" },
+      { "source": "/incidencias",   "destination": "/incidencias.html" }
     ]
   }
 }
