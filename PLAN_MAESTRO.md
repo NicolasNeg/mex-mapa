@@ -18,7 +18,7 @@
 |---|---|---|---|---|
 | **0 — Fundamentos** | 🤖 Claude Code | ✅ Completo | `sw.js`, `package.json`, `scripts/bump-sw.js`, `.firebaserc`, `js/core/error-tracking.js` | `npm run deploy` ya hace bump automático. Sentry listo, activar con DSN. |
 | **1 — Refactor mapa.js** | 🤖 Claude Code | 🟡 En progreso | `js/views/mapa.js`, `js/features/**` | pdf-reservas.js ✅ prediccion.js ✅ — resto muy acoplado, continuar en barrel final |
-| **2 — Dividir global.css** | 🤖 Claude Code | ⬜ Pendiente | `css/global.css`, `css/**` | Coordinar con Fase 1 para no duplicar trabajo |
+| **2 — Dividir global.css** | 🤖 Claude Code | ✅ Completo | `css/global.css` → manifest, `css/base.css`, `css/mapa.css`, `css/alertas.css`, `css/config.css`, `css/mensajes.css`, `css/notificaciones.css`, `css/programador.css` | global.css ahora es @import manifest |
 | **3 — PWA instalable** | 🤖 Agente externo | ⬜ Pendiente | `js/core/pwa-install.js` (nuevo), `mapa.html` (solo agregar banner) | NO modificar lógica existente de mapa.html |
 | **4 — Dashboard y analítica** | 🤖 Agente externo | ⬜ Pendiente | `js/features/dashboard/` (nuevo), `mapa.html` (agregar strip) | Leer datos de Firestore, no tocar lógica de mapa.js |
 | **5.1 — Cola de preparación** | 🤖 Agente externo | ⬜ Pendiente | `cola-preparacion.html` (nuevo), `js/views/cola-preparacion.js` (nuevo) | Página standalone, no toca mapa.js |
@@ -57,6 +57,12 @@
   La regla más importante: no toques js/views/mapa.js ni api/*.js sin avisarme aquí.
   Cuando termines algo, agrega una línea al log con los archivos que modificaste.
   Cualquier duda sobre la arquitectura existente, pregúntame aquí. Buena suerte. — Claude Code
+[2026-04-20] Claude Code — ✅ FASE 2 COMPLETA — División global.css
+  css/global.css convertido a manifest con @import
+  Nuevos archivos: base.css, mapa.css, alertas.css, config.css,
+                   mensajes.css, notificaciones.css, programador.css
+  SW SHELL_ASSETS actualizado. Bump v137. GitHub actualizado.
+
 [2026-04-20] Claude Code — ✅ FASE 1 PARCIAL — Extracción módulos cuadre
   Archivos creados:
     + js/features/cuadre/pdf-reservas.js  — parsearTablaSucia, generarHtmlActividadDiaria,
