@@ -10995,6 +10995,9 @@ let _chatAnalyser = null;
 let _chatSpectrumRaf = null;
 let emojiPickerTarget = null;  // msgId for reaction picker
 let _chatReplyHoverTimers = new Map();
+const CHAT_ARCHIVE_STORAGE_PREFIX = 'mex_chat_archived_threads_v1';
+let _chatArchivedThreads = {};
+let _chatArchivedMode = false;
 let _profileAvatarCropState = null;
 let _globalShortcutsBound = false;
 
@@ -11104,6 +11107,125 @@ function _chatMessageSnippet(msg = {}) {
   return text;
 }
 
+function _chatArchiveStorageKey() {
+  return `${CHAT_ARCHIVE_STORAGE_PREFIX}:${_chatUserName(USER_NAME || currentUserProfile?.email || auth.currentUser?.email || 'anon')}`;
+}
+
+function _loadChatArchivedThreads() {
+  try {
+    const raw = localStorage.getItem(_chatArchiveStorageKey());
+    const parsed = raw ? JSON.parse(raw) : {};
+    const next = {};
+    Object.entries(parsed || {}).forEach(([name, ts]) => {
+      const normalized = _chatUserName(name);
+      const safeTs = _coerceTimestamp(ts);
+      if (normalized && safeTs) next[normalized] = safeTs;
+    });
+    _chatArchivedThreads = next;
+  } catch (_) {
+    _chatArchivedThreads = {};
+  }
+}
+
+function _saveChatArchivedThreads() {
+  const entries = Object.entries(_chatArchivedThreads)
+    .map(([name, ts]) => [_chatUserName(name), _coerceTimestamp(ts)])
+    .filter(([name, ts]) => name && ts);
+  if (entries.length === 0) {
+    localStorage.removeItem(_chatArchiveStorageKey());
+    return;
+  }
+  localStorage.setItem(_chatArchiveStorageKey(), JSON.stringify(Object.fromEntries(entries)));
+}
+
+function _chatConversationLastTimestamp(name = '') {
+  const target = _chatUserName(name);
+  if (!target) return 0;
+  return allChatMessages.reduce((max, msg) => {
+    const other = _chatUserName(msg.esMio ? msg.destinatario : msg.remitente);
+    if (other !== target) return max;
+    const ts = _chatMessageTimestamp(msg);
+    return ts > max ? ts : max;
+  }, 0);
+}
+
+function _chatIsArchived(name = '', lastTs = null) {
+  const target = _chatUserName(name);
+  if (!target) return false;
+  const archivedAt = _coerceTimestamp(_chatArchivedThreads[target]);
+  const safeLastTs = _coerceTimestamp(lastTs || _chatConversationLastTimestamp(target));
+  return Boolean(archivedAt && safeLastTs && safeLastTs <= archivedAt);
+}
+
+function _archiveChatConversation(name, lastTs = null, options = {}) {
+  const target = _chatUserName(name);
+  const safeTs = _coerceTimestamp(lastTs || _chatConversationLastTimestamp(target));
+  if (!target || !safeTs) return;
+  _chatArchivedThreads[target] = safeTs;
+  _saveChatArchivedThreads();
+  if (activeChatUser === target) cerrarChat();
+  renderContactos();
+  if (!options.silent) showToast(`Conversación con ${target} archivada.`, 'success');
+}
+
+function _restoreChatConversation(name, options = {}) {
+  const target = _chatUserName(name);
+  if (!target || !_chatArchivedThreads[target]) return;
+  delete _chatArchivedThreads[target];
+  _saveChatArchivedThreads();
+  renderContactos();
+  _actualizarHeaderChatActivo();
+  if (!options.silent) showToast(`Conversación con ${target} restaurada.`, 'success');
+}
+
+function _syncChatArchiveUi(summary = {}) {
+  const archivedCount = Number(summary.archivedCount || 0);
+  const archivedToggle = document.getElementById('chatArchivedToggle');
+  if (archivedToggle) {
+    archivedToggle.classList.toggle('active-mode', _chatArchivedMode);
+    archivedToggle.innerText = _chatArchivedMode
+      ? `Ocultar archivados${archivedCount ? ` (${archivedCount})` : ''}`
+      : `Archivados${archivedCount ? ` (${archivedCount})` : ''}`;
+  }
+
+  const archiveBtn = document.getElementById('chatArchiveBtn');
+  const archiveIcon = archiveBtn?.querySelector('.material-icons');
+  if (archiveBtn && archiveIcon) {
+    const target = _chatUserName(activeChatUser);
+    const lastTs = _chatConversationLastTimestamp(target);
+    const canToggle = Boolean(target && lastTs);
+    archiveBtn.style.display = canToggle ? 'inline-flex' : 'none';
+    if (!canToggle) {
+      archiveBtn.classList.remove('is-restore');
+      return;
+    }
+    const archived = _chatIsArchived(target, lastTs);
+    archiveBtn.title = archived ? 'Restaurar conversación' : 'Archivar conversación';
+    archiveBtn.classList.toggle('is-restore', archived);
+    archiveIcon.textContent = archived ? 'unarchive' : 'delete_outline';
+  }
+}
+
+function toggleArchivadosChat() {
+  _chatArchivedMode = !_chatArchivedMode;
+  renderContactos();
+}
+
+function toggleArchivoChatActivo() {
+  if (!activeChatUser) return;
+  const lastTs = _chatConversationLastTimestamp(activeChatUser);
+  if (!lastTs) return;
+  if (_chatIsArchived(activeChatUser, lastTs)) _restoreChatConversation(activeChatUser);
+  else _archiveChatConversation(activeChatUser, lastTs);
+}
+
+function prepararNuevoChat() {
+  _chatArchivedMode = false;
+  limpiarFiltrosChat();
+  cerrarChat();
+  requestAnimationFrame(() => document.getElementById('buscadorContactos')?.focus());
+}
+
 function _setSelectOptions(selectEl, items, placeholder) {
   if (!selectEl) return;
   const current = selectEl.value;
@@ -11184,6 +11306,7 @@ function _actualizarHeaderChatActivo() {
     avatarEl.style.background = _avatarColor('U');
     avatarEl.innerHTML = '<span class="avatar-initial">U</span>';
     statusEl.innerText = 'Conversación segura';
+    _syncChatArchiveUi();
     return;
   }
 
@@ -11198,6 +11321,7 @@ function _actualizarHeaderChatActivo() {
   avatarEl.dataset.userEmail = contact.email || '';
   _paintAvatarElement(avatarEl, contact, activeChatUser);
   statusEl.innerText = pieces.join(' · ');
+  _syncChatArchiveUi();
 }
 
 function _renderChatContactInfo(user = {}) {

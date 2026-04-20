@@ -1,17 +1,16 @@
 <!DOCTYPE html>
-<html lang="es" data-page-title="Mi Perfil">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0b2548">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/profile.css">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -20,107 +19,263 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
-  <script src="/mex-api.js"></script>
-  <script src="/api/helpers.js"></script>
-  <script src="/api/auth.js"></script>
-  <script src="/api/mapa.js"></script>
-  <script src="/api/cuadre.js"></script>
-  <script src="/api/externos.js"></script>
-  <script src="/api/flota.js"></script>
-  <script src="/api/alertas.js"></script>
-  <script src="/api/notas.js"></script>
-  <script src="/api/historial.js"></script>
-  <script src="/api/settings.js"></script>
-  <script src="/api/users.js"></script>
-  <script src="/api/_assemble.js"></script>
-  <script src="/js/core/app-bootstrap.js"></script>
 
   <title>Mi Perfil</title>
-
-  <style>
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      background: #071224;
-      overflow: hidden;
-      font-family: 'Inter', sans-serif;
-    }
-
-    /* Ocultar todo lo que es exclusivo del mapa */
-    #login-overlay, #admin-sidebar, #map-stage, #buzon-modal,
-    header, .overlay, #modal-editor-mapa { display: none !important; }
-
-    /* El modal de perfil ocupa toda la pantalla */
-    #perfil-modal {
-      position: fixed !important;
-      inset: 0 !important;
-      display: flex !important;
-      z-index: 100 !important;
-      background: rgba(7,18,36,0.98) !important;
-    }
-
-    /* Botón volver */
-    .profile-back-btn {
-      position: fixed;
-      top: 14px;
-      left: 14px;
-      z-index: 200;
-      background: rgba(15,23,42,0.85);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      color: #e2e8f0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      backdrop-filter: blur(8px);
-      transition: background 0.18s;
-    }
-    .profile-back-btn:hover { background: rgba(30,41,59,0.95); }
-  </style>
 </head>
 <body>
 
-  <button class="profile-back-btn" onclick="window.history.length > 1 ? window.history.back() : window.location.href='/mapa'">
-    <span class="material-icons" style="font-size:18px;">arrow_back</span>
-    Volver
-  </button>
+<div class="profile-page">
 
-  <!-- Sistema de diálogos -->
-  <div id="mex-dialog-overlay">
-    <div class="mex-dlg-card">
-      <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
-        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
-      </div>
-      <div class="mex-dlg-body">
-        <div id="mex-dlg-title" class="mex-dlg-title"></div>
-        <div id="mex-dlg-text" class="mex-dlg-text"></div>
-        <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap" style="display:none;">
-          <input id="mex-dlg-input" class="mex-dlg-input" type="text">
-        </div>
-      </div>
-      <div class="mex-dlg-actions">
-        <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra" style="display:none;"></button>
-        <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel" style="display:none;">CANCELAR</button>
-        <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm dlg-info">ACEPTAR</button>
-      </div>
-    </div>
+  <!-- Topbar -->
+  <div class="profile-topbar">
+    <a class="profile-topbar-back"
+       href="javascript:window.history.length > 1 ? window.history.back() : window.location.href='/mapa'">
+      <span class="material-icons" style="font-size:18px;">arrow_back</span>
+      Volver
+    </a>
+    <div class="profile-topbar-title">Mi Perfil</div>
   </div>
 
-  <script src="/js/core/dialogs.js"></script>
-  <script type="module" src="/js/views/mapa.js"></script>
-  <script>
-    // Cuando mapa.js termina de arrancar, abrir el modal de perfil
-    window.addEventListener('mex:appReady', () => {
-      if (typeof abrirPerfilUsuario === 'function') abrirPerfilUsuario();
-    });
-    // Fallback: si el evento no llega, intentar después de 2s
-    setTimeout(() => {
-      if (typeof abrirPerfilUsuario === 'function') abrirPerfilUsuario();
-    }, 2000);
-  </script>
+  <!-- Scroll content -->
+  <div class="profile-scroll">
+
+    <!-- Hero card -->
+    <div class="profile-hero-card">
+      <div class="profile-avatar-wrap">
+        <div class="profile-avatar-large" id="profile-avatar">U</div>
+        <button class="profile-avatar-edit-btn"
+                onclick="document.getElementById('profile-avatar-input').click()"
+                title="Cambiar foto">
+          <span class="material-icons" style="font-size:14px;">photo_camera</span>
+        </button>
+      </div>
+      <div class="profile-hero-info">
+        <div class="profile-hero-name" id="profile-hero-name">Cargando…</div>
+        <div class="profile-hero-meta" id="profile-hero-meta"></div>
+        <div class="profile-hero-badges" id="profile-hero-badges"></div>
+        <div class="profile-hero-actions" style="margin-top:12px;">
+          <button class="profile-action-btn primary"
+                  onclick="document.getElementById('profile-avatar-input').click()">
+            <span class="material-icons" style="font-size:16px;">photo_camera</span>
+            Subir foto
+          </button>
+          <button class="profile-action-btn danger" onclick="profile_eliminarAvatar()">
+            <span class="material-icons" style="font-size:16px;">delete</span>
+            Quitar foto
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <input type="file" id="profile-avatar-input" accept="image/*" style="display:none;"
+           onchange="profile_subirAvatar(this)">
+
+    <!-- Grid de config -->
+    <div class="profile-settings-grid">
+
+      <!-- Notificaciones -->
+      <section class="profile-settings-card">
+        <div class="profile-settings-head">
+          <div class="profile-settings-icon">
+            <span class="material-icons" style="font-size:20px;">notifications_active</span>
+          </div>
+          <div>
+            <div class="profile-settings-title">Notificaciones</div>
+            <p class="profile-settings-sub">Controla avisos en este dispositivo.</p>
+          </div>
+          <span class="profile-settings-badge">Activo</span>
+        </div>
+        <div class="profile-setting-row profile-setting-row-hero">
+          <div>
+            <strong>Notificaciones activas</strong>
+            <small>Apagar silencia este equipo sin perder el historial.</small>
+          </div>
+          <button id="profileNotifMasterToggle" class="profile-setting-toggle is-on"></button>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Mensajes directos</strong>
+            <small>Avísame cuando alguien me escriba.</small>
+          </div>
+          <button id="profileNotifMessagesToggle" class="profile-setting-toggle is-on"></button>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Misión de cuadre</strong>
+            <small>Actualizaciones de mi cuadre asignado.</small>
+          </div>
+          <button id="profileNotifCuadreToggle" class="profile-setting-toggle is-on"></button>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Alertas críticas</strong>
+            <small>Solo situaciones urgentes de operación.</small>
+          </div>
+          <button id="profileNotifCriticalToggle" class="profile-setting-toggle is-on"></button>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Silenciar este equipo</strong>
+            <small>Pausa sin perder el historial del inbox.</small>
+          </div>
+          <button id="profileNotifMuteToggle" class="profile-setting-toggle is-off"></button>
+        </div>
+        <div id="profile-notif-meta" class="profile-setting-meta">Cargando dispositivo…</div>
+        <button id="profile-notif-center-btn" class="profile-action-btn primary"
+                style="width:100%; margin-top:14px; justify-content:center;">
+          <span class="material-icons" style="font-size:18px;">notifications</span>
+          Ver historial
+        </button>
+      </section>
+
+      <!-- Privacidad y sesión -->
+      <section class="profile-settings-card">
+        <div class="profile-settings-head">
+          <div class="profile-settings-icon">
+            <span class="material-icons" style="font-size:20px;">shield</span>
+          </div>
+          <div>
+            <div class="profile-settings-title">Privacidad y sesión</div>
+            <p class="profile-settings-sub">Permisos push y estado del dispositivo.</p>
+          </div>
+          <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Permiso push</strong>
+            <small id="profilePermissionSummary">Revisando soporte…</small>
+          </div>
+          <button id="profile-permission-toggle" class="profile-setting-toggle is-off"></button>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Este dispositivo</strong>
+            <small id="profileCurrentDeviceSummary">Cargando…</small>
+          </div>
+          <span class="profile-settings-badge">Activo</span>
+        </div>
+      </section>
+
+      <!-- Preferencias -->
+      <section class="profile-settings-card">
+        <div class="profile-settings-head">
+          <div class="profile-settings-icon">
+            <span class="material-icons" style="font-size:20px;">palette</span>
+          </div>
+          <div>
+            <div class="profile-settings-title">Preferencias</div>
+            <p class="profile-settings-sub">Apariencia y comportamiento del mapa.</p>
+          </div>
+          <span class="profile-settings-badge" style="background:rgba(100,116,139,0.15);color:#94a3b8;border-color:rgba(148,163,184,0.2);">
+            Próximamente
+          </span>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Modo compacto</strong>
+            <small>Listas más densas y navegación rápida.</small>
+          </div>
+          <span class="profile-setting-toggle is-off"></span>
+        </div>
+        <div class="profile-setting-row">
+          <div>
+            <strong>Zoom recordado</strong>
+            <small>Guarda tu escala favorita al volver al mapa.</small>
+          </div>
+          <span class="profile-setting-toggle is-on"></span>
+        </div>
+      </section>
+
+      <!-- Atajos de teclado -->
+      <section class="profile-settings-card">
+        <div class="profile-settings-head">
+          <div class="profile-settings-icon">
+            <span class="material-icons" style="font-size:20px;">keyboard_command_key</span>
+          </div>
+          <div>
+            <div class="profile-settings-title">Accesos rápidos</div>
+            <p class="profile-settings-sub">Atajos en escritorio para moverte más rápido.</p>
+          </div>
+          <span class="profile-settings-badge">Activos</span>
+        </div>
+        <div class="profile-shortcut-list">
+          <div class="profile-shortcut-item">
+            <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>C</kbd></div>
+            <span>Abrir gestión de flota</span>
+          </div>
+          <div class="profile-shortcut-item">
+            <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>M</kbd></div>
+            <span>Abrir mensajes</span>
+          </div>
+          <div class="profile-shortcut-item">
+            <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>P</kbd></div>
+            <span>Abrir perfil</span>
+          </div>
+          <div class="profile-shortcut-item">
+            <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>R</kbd></div>
+            <span>Resumen de flota</span>
+          </div>
+          <div class="profile-shortcut-item">
+            <div class="profile-shortcut-keys"><kbd>/</kbd></div>
+            <span>Enfocar buscador del mapa</span>
+          </div>
+          <div class="profile-shortcut-item">
+            <div class="profile-shortcut-keys"><kbd>Esc</kbd></div>
+            <span>Cerrar panel o modal</span>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Modal de recorte de avatar -->
+<div id="profile-crop-overlay" class="profile-crop-overlay" style="display:none;"
+     onclick="if(event.target===this) profile_cancelarCrop()">
+  <div class="profile-crop-card">
+    <div class="profile-crop-head">
+      <div>
+        <div class="profile-crop-title">Recorta tu foto</div>
+        <p class="profile-crop-sub">Arrastra y ajusta el zoom para encuadrar tu avatar.</p>
+      </div>
+      <button class="profile-crop-close" onclick="profile_cancelarCrop()">
+        <span class="material-icons" style="font-size:18px;">close</span>
+      </button>
+    </div>
+    <div class="profile-crop-stage-wrap">
+      <div class="profile-crop-stage" id="profile-crop-stage">
+        <img id="profile-crop-img" class="profile-crop-image" alt="">
+        <div class="profile-crop-mask"></div>
+      </div>
+      <div class="profile-crop-zoom">
+        <label>Zoom</label>
+        <input type="range" min="1" max="3" step="0.01" value="1"
+               oninput="profile_ajustarZoom(this.value)">
+        <p>Arrastra la imagen para ajustarla.</p>
+      </div>
+    </div>
+    <div class="profile-crop-previews">
+      <div class="profile-crop-preview-item">
+        <canvas id="profile-preview-circle" width="96" height="96"></canvas>
+        <span>Vista chat</span>
+      </div>
+      <div class="profile-crop-preview-item">
+        <canvas id="profile-preview-card" width="112" height="112"></canvas>
+        <span>Vista perfil</span>
+      </div>
+    </div>
+    <div class="profile-crop-actions">
+      <button class="profile-crop-btn cancel" onclick="profile_cancelarCrop()">Cancelar</button>
+      <button class="profile-crop-btn confirm" id="profile-crop-save-btn"
+              onclick="profile_guardarAvatar()">
+        <span class="material-icons" style="font-size:18px;">check</span>
+        Guardar Foto
+      </button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="/js/views/profile.js"></script>
 </body>
 </html>

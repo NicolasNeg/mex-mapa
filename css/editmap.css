@@ -1,0 +1,361 @@
+/* ═══════════════════════════════════════════════════════════
+   /css/editmap.css — Estilos exclusivos de /editmap
+   ═══════════════════════════════════════════════════════════ */
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #071224;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  color: #e2e8f0;
+}
+
+/* ── Topbar ── */
+.editmap-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: rgba(7,18,36,0.95);
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+  backdrop-filter: blur(12px);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  z-index: 500;
+}
+
+.editmap-topbar-back {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s;
+  font-family: inherit;
+  text-decoration: none;
+}
+.editmap-topbar-back:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+
+.editmap-topbar-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #f1f5f9;
+  flex: 1;
+}
+
+.editmap-plaza-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(37,99,235,0.14);
+  border: 1px solid rgba(96,165,250,0.25);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #60a5fa;
+}
+
+/* ── Área de trabajo ── */
+.editmap-workspace {
+  position: fixed;
+  inset: 56px 0 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Barra de herramientas ── */
+.editmap-toolbar {
+  height: 52px;
+  background: rgba(11,26,52,0.98);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.editmap-tool-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.editmap-tool-btn:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; border-color: rgba(255,255,255,0.15); }
+.editmap-tool-btn.active {
+  background: rgba(37,99,235,0.2);
+  border-color: rgba(96,165,250,0.4);
+  color: #60a5fa;
+}
+.editmap-tool-btn.cajon.active  { color: #34d399; border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.1); }
+.editmap-tool-btn.area.active   { color: #a78bfa; border-color: rgba(167,139,250,0.4); background: rgba(167,139,250,0.1); }
+.editmap-tool-btn.label.active  { color: #fbbf24; border-color: rgba(251,191,36,0.4); background: rgba(251,191,36,0.1); }
+
+.editmap-toolbar-sep {
+  width: 1px;
+  height: 28px;
+  background: rgba(255,255,255,0.07);
+  margin: 0 4px;
+}
+
+.editmap-save-btn {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s;
+  box-shadow: 0 2px 10px rgba(29,78,216,0.35);
+}
+.editmap-save-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(29,78,216,0.5); }
+.editmap-save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* ── Canvas central ── */
+.editmap-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 29px,
+    rgba(255,255,255,0.03) 29px,
+    rgba(255,255,255,0.03) 30px
+  ),
+  repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 29px,
+    rgba(255,255,255,0.03) 29px,
+    rgba(255,255,255,0.03) 30px
+  );
+}
+
+/* ── Loading spinner ── */
+.editmap-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #64748b;
+}
+.editmap-loading span { font-size: 14px; font-weight: 600; }
+
+/* ── Inspector flotante ── */
+.editmap-inspector {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 230px;
+  background: rgba(11,26,52,0.97);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+  z-index: 100;
+}
+
+.editmap-inspector-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+.editmap-field { margin-bottom: 10px; }
+.editmap-field label { display: block; font-size: 10px; font-weight: 700; color: #64748b; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+.editmap-input, .editmap-select {
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border 0.18s;
+}
+.editmap-input:focus, .editmap-select:focus { border-color: #3b82f6; }
+.editmap-select option { background: #0d1f3c; }
+
+.editmap-size-row { display: flex; align-items: center; gap: 4px; }
+.editmap-size-row button {
+  width: 26px;
+  height: 26px;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 900;
+}
+.editmap-size-row button:hover { background: rgba(255,255,255,0.14); }
+.editmap-size-row .editmap-input { text-align: center; }
+
+.editmap-arrow-pad {
+  display: grid;
+  grid-template-columns: repeat(3, 30px);
+  grid-template-rows: repeat(3, 30px);
+  gap: 3px;
+  justify-content: center;
+}
+.editmap-arrow-btn {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.editmap-arrow-btn:hover { background: rgba(255,255,255,0.14); color: #e2e8f0; }
+.editmap-arrow-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #334155;
+}
+
+/* ── Zoom bar ── */
+.editmap-zoom-bar {
+  position: absolute;
+  bottom: 16px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(11,26,52,0.95);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 4px 8px;
+  backdrop-filter: blur(8px);
+}
+.editmap-zoom-bar button {
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,0.06);
+  border: none;
+  border-radius: 6px;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.editmap-zoom-bar button:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+.editmap-zoom-label { font-size: 12px; font-weight: 700; color: #64748b; min-width: 38px; text-align: center; }
+
+/* ── Estado vacío del inspector ── */
+.editmap-inspector-empty {
+  text-align: center;
+  padding: 16px 0;
+  color: #334155;
+}
+.editmap-inspector-empty span { font-size: 36px; display: block; margin-bottom: 8px; }
+.editmap-inspector-empty p { font-size: 12px; line-height: 1.5; }
+
+/* ── Add hint strip ── */
+.editmap-add-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(37,99,235,0.18);
+  border: 1px solid rgba(96,165,250,0.3);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #93c5fd;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* ── Toolbar de acciones sobre selección ── */
+.editmap-sel-actions {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  gap: 4px;
+  background: rgba(11,26,52,0.97);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 5px;
+  backdrop-filter: blur(8px);
+}
+.editmap-sel-actions button {
+  width: 32px;
+  height: 32px;
+  background: rgba(255,255,255,0.05);
+  border: none;
+  border-radius: 7px;
+  color: #94a3b8;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+.editmap-sel-actions button:hover { background: rgba(255,255,255,0.12); color: #e2e8f0; }
+.editmap-sel-actions button.danger:hover { background: rgba(248,113,113,0.15); color: #f87171; }
+
+/* ── Spinner animation ── */
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spinner { animation: spin 1s linear infinite; }
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .editmap-inspector { width: 180px; }
+  .editmap-tool-btn span:last-child { display: none; }
+}

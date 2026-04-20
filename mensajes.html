@@ -143,7 +143,7 @@
 
         <div class="chatv2-tabs">
           <span class="chatv2-tab-label">Mensajes</span>
-          <button class="chatv2-tab-secondary">Solicitudes</button>
+          <button id="chatArchivedToggle" class="chatv2-tab-secondary" type="button" onclick="toggleArchivadosChat()">Archivados</button>
         </div>
 
         <div class="chatv2-filter-row">
@@ -170,6 +170,8 @@
             Limpiar
           </button>
         </div>
+
+        <div id="chatContactsHint" class="chatv2-filter-hint">Cargando conversaciones...</div>
 
         <div id="listaContactosContainer">
           <div style="text-align:center; padding:40px; color:#94a3b8;"><span class="material-icons spinner">sync</span></div>
@@ -201,6 +203,9 @@
             <div class="chatv2-active-status">Conversación segura</div>
           </div>
           <div class="chatv2-header-actions">
+            <button class="chatv2-info-btn" id="chatArchiveBtn" onclick="toggleArchivoChatActivo()" title="Archivar conversación" style="display:none;">
+              <span class="material-icons" style="font-size:18px;">delete_outline</span>
+            </button>
             <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
               <span class="material-icons" style="font-size:18px;">info</span>
             </button>

@@ -40,8 +40,8 @@ const FIREBASE_CONFIG = {
       body,
       icon: payload?.notification?.icon || payload?.data?.icon || '/img/logo.png',
       badge: '/img/logo.png',
-      tag: payload?.data?.tag || `fcm:${notificationId}`,
-      renotify: true,
+      tag: payload?.data?.tag || `notif:${notificationId}`,
+      renotify: false,
       data: {
         url: payload?.data?.url || '/mapa?notif=inbox',
         notificationId,

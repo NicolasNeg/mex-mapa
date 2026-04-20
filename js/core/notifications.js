@@ -25,7 +25,8 @@ const _state = {
   lastDeviceSyncAt: 0,
   lastDeviceSyncSignature: '',
   foregroundListenerBound: false,
-  foregroundListenerPending: false
+  foregroundListenerPending: false,
+  recentNotificationIds: new Map()
 };
 
 function _safeText(value) {
@@ -34,6 +35,28 @@ function _safeText(value) {
 
 function _normalizeUpper(value) {
   return _safeText(value).toUpperCase();
+}
+
+function _pruneRecentNotificationIds(now = Date.now()) {
+  for (const [id, ts] of _state.recentNotificationIds.entries()) {
+    if ((now - ts) > 45000) _state.recentNotificationIds.delete(id);
+  }
+}
+
+function _wasNotificationSeenRecently(id, maxAgeMs = 12000) {
+  const safeId = _safeText(id);
+  if (!safeId) return false;
+  const now = Date.now();
+  _pruneRecentNotificationIds(now);
+  const ts = _state.recentNotificationIds.get(safeId) || 0;
+  return ts > 0 && (now - ts) <= maxAgeMs;
+}
+
+function _rememberNotificationSeen(id) {
+  const safeId = _safeText(id);
+  if (!safeId) return;
+  _pruneRecentNotificationIds();
+  _state.recentNotificationIds.set(safeId, Date.now());
 }
 
 function _deviceId() {
@@ -252,14 +275,17 @@ function _deviceSyncSignature(payload = {}) {
   });
 }
 
-async function _showSystemNotification({ title, body, data = {}, tag = 'mex-notif', renotify = false } = {}) {
+async function _showSystemNotification({ title, body, data = {}, tag = 'mex-notif', renotify = false, notificationId = '' } = {}) {
   if (!_supportsPush() || Notification.permission !== 'granted') return;
+  const safeNotificationId = _safeText(notificationId || data?.notificationId || '');
+  if (safeNotificationId && _wasNotificationSeenRecently(safeNotificationId)) return;
+  if (safeNotificationId) _rememberNotificationSeen(safeNotificationId);
   const options = {
     body: _safeText(body),
     icon: _notificationIcon(),
     badge: _notificationIcon(),
-    tag,
-    renotify,
+    tag: safeNotificationId ? `notif:${safeNotificationId}` : tag,
+    renotify: safeNotificationId ? false : renotify,
     data,
     vibrate: [180, 80, 180]
   };
@@ -284,11 +310,24 @@ function _bindForegroundMessaging() {
       const messaging = firebase.messaging();
       messaging.onMessage(payload => {
         const notificationId = _safeText(payload?.data?.notificationId || payload?.messageId || `${Date.now()}`);
+        const title = payload?.notification?.title || payload?.data?.title || _appDisplayName();
+        const body = payload?.notification?.body || payload?.data?.body || '';
+        const isVisible = document.visibilityState === 'visible' && document.hasFocus();
+
+        if (isVisible) {
+          if (!_wasNotificationSeenRecently(notificationId)) {
+            _rememberNotificationSeen(notificationId);
+            _state.toast?.(body ? `${_safeText(title)}: ${_safeText(body)}` : _safeText(title), 'info');
+          }
+          return;
+        }
+
         _showSystemNotification({
-          title: payload?.notification?.title || payload?.data?.title || _appDisplayName(),
-          body: payload?.notification?.body || payload?.data?.body || '',
-          tag: `foreground:${notificationId}`,
-          renotify: true,
+          title,
+          body,
+          tag: `notif:${notificationId}`,
+          renotify: false,
+          notificationId,
           data: {
             url: payload?.data?.url || '/mapa?notif=inbox',
             notificationId,
@@ -1069,7 +1108,9 @@ export async function resubscribeInbox() {
         const itemId = item.notificationId || item.id;
         if (prevIds.has(itemId)) continue;
         if (item.read === true || item.status === 'READ') continue;
+        if (_wasNotificationSeenRecently(itemId)) continue;
         if (isVisible && Notification.permission !== 'granted') {
+          _rememberNotificationSeen(itemId);
           _state.toast?.(`${_safeText(item.title || 'Notificación')}: ${_safeText(item.body || '')}`, 'info');
         }
       }

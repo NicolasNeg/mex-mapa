@@ -1,18 +1,18 @@
 <!DOCTYPE html>
-<html lang="es" data-page-title="Editor de Mapa">
+<html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0b2548">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/editmap.css">
 
+  <!-- API layer — necesario para obtenerEstructuraMapa / guardarEstructuraMapa -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
@@ -24,159 +24,177 @@
   <script src="/api/helpers.js"></script>
   <script src="/api/auth.js"></script>
   <script src="/api/mapa.js"></script>
-  <script src="/api/cuadre.js"></script>
-  <script src="/api/externos.js"></script>
-  <script src="/api/flota.js"></script>
-  <script src="/api/alertas.js"></script>
-  <script src="/api/notas.js"></script>
-  <script src="/api/historial.js"></script>
-  <script src="/api/settings.js"></script>
-  <script src="/api/users.js"></script>
   <script src="/api/_assemble.js"></script>
-  <script src="/js/core/app-bootstrap.js"></script>
-
-  <!-- Leer el ID de plaza desde la URL:
-       /editmap          → usa la plaza del usuario actual
-       /editmap/BJX      → fuerza la plaza BJX
-       /editmap/GDL      → fuerza la plaza GDL
-  -->
-  <script>
-    (function () {
-      const segments = window.location.pathname.replace(/\/+$/, '').split('/');
-      // segments = ['', 'editmap', 'PLAZA_ID?']
-      const plazaFromUrl = (segments[2] || '').trim().toUpperCase() || null;
-      window.__EDITMAP_PLAZA_URL = plazaFromUrl; // null = usar la del usuario
-    })();
-  </script>
 
   <title>Editor de Mapa</title>
-
-  <style>
-    html, body {
-      margin: 0;
-      min-height: 100%;
-      background: #071224;
-      overflow: hidden;
-      font-family: 'Inter', sans-serif;
-    }
-
-    /* Ocultar todo lo del mapa menos el modal editor */
-    #login-overlay, #admin-sidebar, #map-stage, #buzon-modal,
-    header, .overlay, #perfil-modal { display: none !important; }
-
-    /* El modal editor ocupa toda la pantalla */
-    #modal-editor-mapa {
-      position: fixed !important;
-      inset: 0 !important;
-      display: flex !important;
-      z-index: 100 !important;
-      background: rgba(7,18,36,0.98) !important;
-    }
-
-    /* Botón volver */
-    .editmap-back-btn {
-      position: fixed;
-      top: 14px;
-      left: 14px;
-      z-index: 200;
-      background: rgba(15,23,42,0.85);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 10px;
-      color: #e2e8f0;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      backdrop-filter: blur(8px);
-      transition: background 0.18s;
-    }
-    .editmap-back-btn:hover { background: rgba(30,41,59,0.95); }
-
-    /* Badge de plaza activa */
-    .editmap-plaza-badge {
-      position: fixed;
-      top: 14px;
-      right: 14px;
-      z-index: 200;
-      background: rgba(37,99,235,0.18);
-      border: 1px solid rgba(96,165,250,0.3);
-      border-radius: 10px;
-      color: #93c5fd;
-      padding: 8px 14px;
-      font-size: 12px;
-      font-weight: 700;
-      backdrop-filter: blur(8px);
-    }
-  </style>
 </head>
 <body>
 
-  <button class="editmap-back-btn" onclick="window.history.length > 1 ? window.history.back() : window.location.href='/mapa'">
+<!-- Topbar -->
+<div class="editmap-topbar">
+  <a class="editmap-topbar-back"
+     href="javascript:window.history.length > 1 ? window.history.back() : window.location.href='/mapa'">
     <span class="material-icons" style="font-size:18px;">arrow_back</span>
     Volver
-  </button>
+  </a>
+  <div class="editmap-topbar-title">Editor de Mapa</div>
+  <div class="editmap-plaza-pill" id="editmap-plaza-pill" style="display:none;">
+    <span class="material-icons" style="font-size:14px;">location_city</span>
+    <span id="editmap-plaza-label">—</span>
+  </div>
+</div>
 
-  <div class="editmap-plaza-badge" id="editmap-plaza-badge" style="display:none;">
-    <span class="material-icons" style="font-size:14px; vertical-align:middle;">map</span>
-    Plaza: <span id="editmap-plaza-label">—</span>
+<!-- Workspace (toolbar + canvas) -->
+<div class="editmap-workspace">
+
+  <!-- Barra de herramientas -->
+  <div class="editmap-toolbar">
+    <button class="editmap-tool-btn cajon" id="editmap-btn-cajon"
+            onclick="editmap_setMode('cajon')">
+      <span class="material-icons" style="font-size:18px;">crop_square</span>
+      <span>Cajón</span>
+    </button>
+    <button class="editmap-tool-btn area" id="editmap-btn-area"
+            onclick="editmap_setMode('area')">
+      <span class="material-icons" style="font-size:18px;">dashboard_customize</span>
+      <span>Área</span>
+    </button>
+    <button class="editmap-tool-btn label" id="editmap-btn-label"
+            onclick="editmap_setMode('label')">
+      <span class="material-icons" style="font-size:18px;">sell</span>
+      <span>Etiqueta</span>
+    </button>
+    <div class="editmap-toolbar-sep"></div>
+    <button class="editmap-tool-btn" onclick="editmap_agregarForma('cajon')"
+            title="Insertar cajón en el centro">
+      <span class="material-icons" style="font-size:18px;">add_box</span>
+      <span>Insertar</span>
+    </button>
+    <button class="editmap-tool-btn" onclick="editmap_duplicar()"
+            title="Duplicar elemento seleccionado">
+      <span class="material-icons" style="font-size:18px;">content_copy</span>
+      <span>Duplicar</span>
+    </button>
+    <button class="editmap-tool-btn" onclick="editmap_eliminar()"
+            title="Eliminar elemento seleccionado" style="color:#f87171;">
+      <span class="material-icons" style="font-size:18px;">delete_forever</span>
+      <span>Eliminar</span>
+    </button>
+    <button class="editmap-save-btn" id="editmap-save-btn"
+            onclick="editmap_guardar()">
+      <span class="material-icons" style="font-size:18px;">save</span>
+      GUARDAR CAMBIOS
+    </button>
   </div>
 
-  <!-- Sistema de diálogos -->
-  <div id="mex-dialog-overlay">
-    <div class="mex-dlg-card">
-      <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
-        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+  <!-- Canvas principal -->
+  <div class="editmap-canvas" id="editmap-canvas">
+
+    <!-- Loading -->
+    <div class="editmap-loading" id="editmap-loading">
+      <span class="material-icons spinner" style="font-size:48px; color:#38bdf8;">sync</span>
+      <span>Cargando estructura del mapa…</span>
+    </div>
+
+    <!-- Grid donde se renderizan las celdas -->
+    <div id="editmap-grid" style="display:none; position:absolute; inset:0; overflow:auto;"></div>
+
+    <!-- Hint de modo agregar -->
+    <div class="editmap-add-hint" id="editmap-add-hint" style="display:none;">
+      <span class="material-icons" style="font-size:18px;">touch_app</span>
+      Toca el mapa para colocar un elemento
+    </div>
+
+    <!-- Inspector flotante -->
+    <div class="editmap-inspector">
+      <div class="editmap-inspector-title">Inspector</div>
+
+      <div class="editmap-inspector-empty" id="editmap-inspector-empty">
+        <span class="material-icons" style="font-size:36px; color:#1e3a5f; display:block; margin-bottom:8px;">ads_click</span>
+        <p style="font-size:12px; color:#334155; line-height:1.5;">Haz clic en un elemento para editarlo.</p>
       </div>
-      <div class="mex-dlg-body">
-        <div id="mex-dlg-title" class="mex-dlg-title"></div>
-        <div id="mex-dlg-text" class="mex-dlg-text"></div>
-        <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap" style="display:none;">
-          <input id="mex-dlg-input" class="mex-dlg-input" type="text">
+
+      <div id="editmap-inspector-form" style="display:none;">
+        <div class="editmap-field">
+          <label>Nombre</label>
+          <input class="editmap-input" id="ep-nombre" type="text" maxlength="20" placeholder="Ej: A-01">
+        </div>
+        <div class="editmap-field">
+          <label>Tipo</label>
+          <select class="editmap-select" id="ep-tipo">
+            <option value="cajon">Cajón</option>
+            <option value="area">Área</option>
+            <option value="label">Etiqueta</option>
+          </select>
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+          <div class="editmap-field">
+            <label>X</label>
+            <input class="editmap-input" id="ep-x" type="number" step="10">
+          </div>
+          <div class="editmap-field">
+            <label>Y</label>
+            <input class="editmap-input" id="ep-y" type="number" step="10">
+          </div>
+        </div>
+        <div class="editmap-field">
+          <label>Ancho</label>
+          <div class="editmap-size-row">
+            <button onclick="editmap_moverFlecha(0,0); document.getElementById('ep-width').value=Math.max(40,+document.getElementById('ep-width').value-10); document.getElementById('ep-width').dispatchEvent(new Event('input'))">−</button>
+            <input class="editmap-input" id="ep-width" type="number" min="40" step="10" style="text-align:center;">
+            <button onclick="document.getElementById('ep-width').value=+document.getElementById('ep-width').value+10; document.getElementById('ep-width').dispatchEvent(new Event('input'))">+</button>
+          </div>
+        </div>
+        <div class="editmap-field">
+          <label>Alto</label>
+          <div class="editmap-size-row">
+            <button onclick="document.getElementById('ep-height').value=Math.max(30,+document.getElementById('ep-height').value-10); document.getElementById('ep-height').dispatchEvent(new Event('input'))">−</button>
+            <input class="editmap-input" id="ep-height" type="number" min="30" step="10" style="text-align:center;">
+            <button onclick="document.getElementById('ep-height').value=+document.getElementById('ep-height').value+10; document.getElementById('ep-height').dispatchEvent(new Event('input'))">+</button>
+          </div>
+        </div>
+        <div class="editmap-field">
+          <label>Rotación</label>
+          <input class="editmap-input" id="ep-rotation" type="number" min="-360" max="360" step="5">
+        </div>
+        <div class="editmap-field">
+          <label>Ajuste fino</label>
+          <div class="editmap-arrow-pad">
+            <div></div>
+            <button class="editmap-arrow-btn" onclick="editmap_moverFlecha(0,-10)">
+              <span class="material-icons" style="font-size:16px;">north</span>
+            </button>
+            <div></div>
+            <button class="editmap-arrow-btn" onclick="editmap_moverFlecha(-10,0)">
+              <span class="material-icons" style="font-size:16px;">west</span>
+            </button>
+            <div class="editmap-arrow-center">
+              <span class="material-icons" style="font-size:14px; color:#334155;">open_with</span>
+            </div>
+            <button class="editmap-arrow-btn" onclick="editmap_moverFlecha(10,0)">
+              <span class="material-icons" style="font-size:16px;">east</span>
+            </button>
+            <div></div>
+            <button class="editmap-arrow-btn" onclick="editmap_moverFlecha(0,10)">
+              <span class="material-icons" style="font-size:16px;">south</span>
+            </button>
+            <div></div>
+          </div>
         </div>
       </div>
-      <div class="mex-dlg-actions">
-        <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra" style="display:none;"></button>
-        <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel" style="display:none;">CANCELAR</button>
-        <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm dlg-info">ACEPTAR</button>
-      </div>
     </div>
+
+    <!-- Zoom bar -->
+    <div class="editmap-zoom-bar">
+      <button onclick="editmap_zoom(-0.1)" title="Zoom −">−</button>
+      <span class="editmap-zoom-label" id="editmap-zoom-label">100%</span>
+      <button onclick="editmap_zoom(+0.1)" title="Zoom +">+</button>
+      <button onclick="editmap_zoom(0)" title="Reset" style="font-size:11px; width:auto; padding:0 8px;">1:1</button>
+    </div>
+
   </div>
+</div>
 
-  <script src="/js/core/dialogs.js"></script>
-  <script type="module" src="/js/views/mapa.js"></script>
-  <script>
-    // Cuando mapa.js arranque, abrir el editor con la plaza correcta
-    function _bootEditmap() {
-      const plazaUrl = window.__EDITMAP_PLAZA_URL; // null o 'BJX', 'GDL', etc.
-
-      // Si hay una plaza en la URL, forzarla antes de abrir el editor
-      if (plazaUrl) {
-        window.PLAZA_ACTIVA_MAPA = plazaUrl;
-      }
-
-      // Mostrar badge de plaza
-      const plazaFinal = plazaUrl
-        || window.PLAZA_ACTIVA_MAPA
-        || (window.CURRENT_USER_PROFILE?.plazaAsignada || '—');
-
-      const badge = document.getElementById('editmap-plaza-badge');
-      const label = document.getElementById('editmap-plaza-label');
-      if (badge && label) {
-        label.textContent = plazaFinal;
-        badge.style.display = plazaFinal !== '—' ? 'block' : 'none';
-      }
-
-      if (typeof abrirEditorMapa === 'function') {
-        abrirEditorMapa(plazaUrl || undefined);
-      }
-    }
-
-    window.addEventListener('mex:appReady', _bootEditmap);
-    // Fallback
-    setTimeout(_bootEditmap, 2200);
-  </script>
+<script type="module" src="/js/views/editmap.js"></script>
 </body>
 </html>

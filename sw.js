@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v123';
+const CACHE_NAME = 'mapa-v124';
 
 // Recursos que se cachean en la instalación (shell de la app)
 const SHELL_ASSETS = [
@@ -48,6 +48,10 @@ const SHELL_ASSETS = [
   '/js/views/mensajes.js',
   '/profile.html',
   '/editmap.html',
+  '/css/profile.css',
+  '/css/editmap.css',
+  '/js/views/profile.js',
+  '/js/views/editmap.js',
   '/solicitud.html',
   '/404.html',
   // CSS global
@@ -161,23 +165,11 @@ self.addEventListener('fetch', event => {
   );
 });
 
-// ── Push Notifications (preparado para FCM) ─────────────────
-self.addEventListener('push', event => {
-  if (!event.data) return;
-  let payload;
-  try { payload = event.data.json(); } catch { payload = { title: 'Nueva notificacion', body: event.data.text() }; }
-
-  event.waitUntil(
-    self.registration.showNotification(payload.title || 'Nueva notificacion', {
-      body: payload.body || '',
-      icon: payload.icon || '/img/logo.png',
-      badge: '/img/logo.png',
-      tag: payload.tag || 'mex-notif',
-      data: payload.data || {},
-      vibrate: [200, 100, 200]
-    })
-  );
-});
+// ── Push Notifications ──────────────────────────────────────
+// El flujo operativo de FCM vive en /firebase-messaging-sw.js.
+// Dejamos este listener vacío para evitar banners duplicados
+// cuando el SW principal también alcanza a recibir el evento.
+self.addEventListener('push', () => {});
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
