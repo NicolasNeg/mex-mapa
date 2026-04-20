@@ -25,6 +25,7 @@ import {
   syncCurrentDeviceContext
 } from '/js/core/notifications.js';
 import { installProgrammerErrorReporter, reportProgrammerError } from '/js/core/observability.js';
+import { initErrorTracking, setErrorUser, captureError } from '/js/core/error-tracking.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
@@ -855,6 +856,9 @@ const ADMIN_MAESTRA_CACHE_TTL_MS = 15 * 60 * 1000;
 let _presenceTimer = null;
 let _presenceBound = false;
 
+
+// Inicializar error tracking si Sentry está configurado
+if (window.__MEX_SENTRY_DSN) initErrorTracking(window.__MEX_SENTRY_DSN);
 installProgrammerErrorReporter({
   screen: 'mapa',
   getProfile: () => currentUserProfile || window.CURRENT_USER_PROFILE || null,
@@ -1051,6 +1055,7 @@ function _setSessionProfile(profile) {
   _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
   _updateGlobalPlazaEmail();
   console.log('[MEX-INTEG] _setSessionProfile →', { email: profile.email, rol: userAccessRole, plaza: PLAZA_ACTIVA_MAPA || '(sin plaza)', userRole, fullAccess: isGlobalAdmin });
+  setErrorUser({ email: profile.email, role: userAccessRole, plaza: PLAZA_ACTIVA_MAPA });
 }
 
 function _clearSessionProfile() {
@@ -3338,7 +3343,7 @@ function dibujarMapaCompleto(estructura = null) {
     console.log('[MEX-INTEG] dibujarMapaCompleto: sin estructura → obteniendo de Firestore', { plaza: _miPlaza() || '(sin plaza)' });
     return (window.api || api).obtenerEstructuraMapa(_miPlaza())
       .then(dibujarMapaCompleto)
-      .catch(e => { console.error('[MEX-INTEG] dibujarMapaCompleto fetch error:', e); });
+      .catch(e => { console.error('[MEX-INTEG] dibujarMapaCompleto fetch error:', e); captureError(e, { context: 'dibujarMapaCompleto' }); });
   }
 
   _ultimaEstructuraMapa = estructura;

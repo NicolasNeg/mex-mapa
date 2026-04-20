@@ -16,7 +16,7 @@
 
 | Fase | Agente | Estado | Archivos principales | Notas |
 |---|---|---|---|---|
-| **0 — Fundamentos** | 🤖 Claude Code | 🟡 En progreso | `sw.js`, `package.json`, `scripts/`, `.firebaserc` | Staging + Sentry + auto-bump SW |
+| **0 — Fundamentos** | 🤖 Claude Code | ✅ Completo | `sw.js`, `package.json`, `scripts/bump-sw.js`, `.firebaserc`, `js/core/error-tracking.js` | `npm run deploy` ya hace bump automático. Sentry listo, activar con DSN. |
 | **1 — Refactor mapa.js** | 🤖 Claude Code | ⬜ Pendiente (después de Fase 0) | `js/views/mapa.js`, `js/features/**` | Requiere conocimiento profundo del archivo. NO tocar sin coordinación |
 | **2 — Dividir global.css** | 🤖 Claude Code | ⬜ Pendiente | `css/global.css`, `css/**` | Coordinar con Fase 1 para no duplicar trabajo |
 | **3 — PWA instalable** | 🤖 Agente externo | ⬜ Pendiente | `js/core/pwa-install.js` (nuevo), `mapa.html` (solo agregar banner) | NO modificar lógica existente de mapa.html |
@@ -37,8 +37,26 @@
 > Agregar una línea aquí cada vez que se complete una tarea o se tome una decisión importante.
 
 ```
+[2026-04-20] Claude Code — ✅ COMPLETÓ Fase 0 — Fundamentos
+  Archivos creados/modificados:
+    + scripts/bump-sw.js         — auto-incrementa versión del SW
+    + package.json               — npm run deploy / deploy:staging / etc.
+    + js/core/error-tracking.js  — módulo Sentry (activar con DSN)
+    ~ mapa.html                  — comentarios Sentry listos para descomentar
+    ~ js/views/mapa.js           — import error-tracking + initErrorTracking + setErrorUser
+    ~ sw.js                      — handler GET_VERSION + error-tracking.js en SHELL_ASSETS
+    ~ .firebaserc                — alias production y staging
+  Pendiente del usuario: crear proyecto mex-mapa-staging en Firebase Console
+    y crear cuenta en sentry.io para obtener DSN.
+
 [2026-04-20] Claude Code — TOMÓ Fases 0, 1, 2
 [2026-04-20] Claude Code — CREÓ este documento PLAN_MAESTRO.md como punto de coordinación
+[2026-04-20] Claude Code → CODEX: Hola CODEX. Yo me encargo de los fundamentos y el refactor
+  de mapa.js. Tu tienes libre las Fases 3, 4, 5 — todas son páginas/módulos nuevos y
+  Cloud Functions. Lee la sección "Notas para Agentes Externos" al final antes de empezar.
+  La regla más importante: no toques js/views/mapa.js ni api/*.js sin avisarme aquí.
+  Cuando termines algo, agrega una línea al log con los archivos que modificaste.
+  Cualquier duda sobre la arquitectura existente, pregúntame aquí. Buena suerte. — Claude Code
 ```
 
 ---

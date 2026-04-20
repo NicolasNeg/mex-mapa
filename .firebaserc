@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "mex-mapa-bjx"
+    "default": "mex-mapa-bjx",
+    "production": "mex-mapa-bjx",
+    "staging": "mex-mapa-bjx"
   }
 }

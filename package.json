@@ -1,0 +1,18 @@
+{
+  "name": "mex-mapa",
+  "version": "1.0.0",
+  "description": "Sistema operativo de patio para gestión de flota vehicular",
+  "private": true,
+  "scripts": {
+    "bump-sw":               "node scripts/bump-sw.js",
+    "deploy":                "node scripts/bump-sw.js && firebase deploy --only hosting --project production",
+    "deploy:full":           "node scripts/bump-sw.js && firebase deploy --project production",
+    "deploy:staging":        "node scripts/bump-sw.js && firebase deploy --only hosting --project staging",
+    "deploy:staging:full":   "node scripts/bump-sw.js && firebase deploy --project staging",
+    "deploy:functions":      "firebase deploy --only functions --project production",
+    "deploy:rules":          "firebase deploy --only firestore:rules,storage:rules --project production"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
