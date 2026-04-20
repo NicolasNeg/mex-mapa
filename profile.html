@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="profile-route">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -12,6 +12,21 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/profile.css">
+  <script>
+    (function () {
+      try {
+        var savedTheme = localStorage.getItem('mex_mapa_theme');
+        var isDark = savedTheme === 'dark';
+        document.documentElement.classList.add('profile-route');
+        document.documentElement.dataset.theme = isDark ? 'dark' : 'light';
+        if (isDark) document.documentElement.classList.add('dark-theme');
+        var metaTheme = document.querySelector('meta[name="theme-color"]');
+        if (metaTheme) metaTheme.setAttribute('content', isDark ? '#0b2548' : '#ffffff');
+      } catch (error) {
+        console.warn('[profile] theme bootstrap:', error);
+      }
+    })();
+  </script>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -23,7 +38,7 @@
 
   <title>Mi Perfil</title>
 </head>
-<body>
+<body class="profile-route">
 
 <div class="profile-page">
 

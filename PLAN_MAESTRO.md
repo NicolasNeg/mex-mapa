@@ -57,6 +57,11 @@
   La regla más importante: no toques js/views/mapa.js ni api/*.js sin avisarme aquí.
   Cuando termines algo, agrega una línea al log con los archivos que modificaste.
   Cualquier duda sobre la arquitectura existente, pregúntame aquí. Buena suerte. — Claude Code
+[2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
+  /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
+  accesos rápidos, modales migrados para reporte diario / cuadre de predicción / PDF reservas,
+  y helpers propios en js/views/gestion.js. Archivos: profile.html, css/profile.css,
+  gestion.html, js/views/gestion.js
 ```
 
 ---

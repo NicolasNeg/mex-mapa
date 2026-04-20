@@ -26,6 +26,7 @@ import {
 } from '/js/core/notifications.js';
 import { installProgrammerErrorReporter, reportProgrammerError } from '/js/core/observability.js';
 import { initErrorTracking, setErrorUser, captureError } from '/js/core/error-tracking.js';
+import * as _pdfReservas from '/js/features/cuadre/pdf-reservas.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
@@ -18454,6 +18455,7 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
 
 // ── Asignaciones críticas explícitas (evitan ReferenceError si el módulo carga tarde) ──
 window.toggleSidebar = toggleSidebar;
+window.abrirReporteImpresion = abrirReporteImpresion;
 window.toggleAdminSidebar = toggleAdminSidebar;
 window._togglePlazaPicker = _togglePlazaPicker;
 

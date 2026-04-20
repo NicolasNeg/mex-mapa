@@ -2,16 +2,43 @@
    /css/profile.css — Estilos exclusivos de /profile
    ═══════════════════════════════════════════════════════════ */
 
-html, body {
-  margin: 0;
-  min-height: 100%;
-  height: auto;
-  background: #071224;
-  overflow-x: hidden;
-  overflow-y: auto;
+html.profile-route,
+body.profile-route {
+  margin: 0 !important;
+  min-height: 100% !important;
+  height: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: scroll !important;
+  position: static !important;
+  display: block !important;
   -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable both-edges;
   font-family: 'Inter', sans-serif;
-  color: #e2e8f0;
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html.profile-route.dark-theme,
+html.profile-route.dark-theme body.profile-route {
+  background: #071224 !important;
+  color: #e2e8f0 !important;
+}
+
+body.profile-route::-webkit-scrollbar {
+  width: 12px;
+}
+
+body.profile-route::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.14);
+}
+
+body.profile-route::-webkit-scrollbar-thumb {
+  background: rgba(100, 116, 139, 0.46);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
 /* ── Contenedor raíz de la página ── */
@@ -460,3 +487,124 @@ html, body {
 .profile-crop-btn.cancel  { background: #f1f5f9; color: #64748b; }
 .profile-crop-btn.confirm { background: linear-gradient(135deg,#0b2548,#1a53a0); color: #fff; box-shadow: 0 4px 14px rgba(11,37,72,0.3); }
 .profile-crop-btn.confirm:hover { transform: translateY(-1px); }
+
+html.profile-route:not(.dark-theme) .profile-topbar {
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(16px);
+}
+
+html.profile-route:not(.dark-theme) .profile-topbar-back {
+  background: rgba(15, 23, 42, 0.04);
+  border-color: rgba(15, 23, 42, 0.08);
+  color: #334155;
+}
+
+html.profile-route:not(.dark-theme) .profile-topbar-back:hover {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+html.profile-route:not(.dark-theme) .profile-topbar-title {
+  color: #0f172a;
+}
+
+html.profile-route:not(.dark-theme) .profile-hero-card {
+  background: linear-gradient(135deg, #ffffff, #eef4ff);
+  border-color: rgba(37, 99, 235, 0.12);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.08);
+}
+
+html.profile-route:not(.dark-theme) .profile-avatar-edit-btn {
+  border-color: #ffffff;
+}
+
+html.profile-route:not(.dark-theme) .profile-hero-name,
+html.profile-route:not(.dark-theme) .profile-settings-title {
+  color: #0f172a;
+}
+
+html.profile-route:not(.dark-theme) .profile-hero-meta,
+html.profile-route:not(.dark-theme) .profile-setting-row small,
+html.profile-route:not(.dark-theme) .profile-setting-meta,
+html.profile-route:not(.dark-theme) .profile-shortcut-item,
+html.profile-route:not(.dark-theme) .profile-crop-preview-item span {
+  color: #64748b;
+}
+
+html.profile-route:not(.dark-theme) .profile-badge {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.16);
+}
+
+html.profile-route:not(.dark-theme) .profile-action-btn {
+  background: #ffffff;
+  color: #334155;
+  border-color: rgba(148, 163, 184, 0.24);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+}
+
+html.profile-route:not(.dark-theme) .profile-action-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+html.profile-route:not(.dark-theme) .profile-action-btn.primary {
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.16);
+}
+
+html.profile-route:not(.dark-theme) .profile-action-btn.primary:hover {
+  background: rgba(37, 99, 235, 0.16);
+}
+
+html.profile-route:not(.dark-theme) .profile-action-btn.danger {
+  color: #dc2626;
+  border-color: rgba(239, 68, 68, 0.18);
+}
+
+html.profile-route:not(.dark-theme) .profile-action-btn.danger:hover {
+  background: rgba(239, 68, 68, 0.08);
+}
+
+html.profile-route:not(.dark-theme) .profile-settings-card {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.18);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
+}
+
+html.profile-route:not(.dark-theme) .profile-settings-sub {
+  color: #64748b;
+}
+
+html.profile-route:not(.dark-theme) .profile-settings-badge {
+  background: rgba(16, 185, 129, 0.1);
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.18);
+}
+
+html.profile-route:not(.dark-theme) .profile-setting-row {
+  border-top-color: rgba(148, 163, 184, 0.16);
+}
+
+html.profile-route:not(.dark-theme) .profile-setting-row strong {
+  color: #0f172a;
+}
+
+html.profile-route:not(.dark-theme) .profile-setting-toggle.is-off {
+  background: #cbd5e1;
+}
+
+html.profile-route:not(.dark-theme) .profile-setting-meta {
+  border-top-color: rgba(148, 163, 184, 0.16);
+}
+
+html.profile-route:not(.dark-theme) .profile-shortcut-keys kbd {
+  background: #ffffff;
+  border-color: rgba(148, 163, 184, 0.2);
+  color: #334155;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.05);
+}
