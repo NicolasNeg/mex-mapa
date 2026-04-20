@@ -26,6 +26,7 @@ import {
 } from '/js/core/notifications.js';
 import { installProgrammerErrorReporter, reportProgrammerError } from '/js/core/observability.js';
 import { initErrorTracking, setErrorUser, captureError } from '/js/core/error-tracking.js';
+import { initPwaInstall }  from '/js/core/pwa-install.js';
 import * as _pdfReservas   from '/js/features/cuadre/pdf-reservas.js';
 import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
@@ -861,6 +862,9 @@ let _presenceBound = false;
 
 // Inicializar error tracking si Sentry está configurado
 if (window.__MEX_SENTRY_DSN) initErrorTracking(window.__MEX_SENTRY_DSN);
+
+// Inicializar banner de instalación PWA (Fase 3)
+initPwaInstall();
 installProgrammerErrorReporter({
   screen: 'mapa',
   getProfile: () => currentUserProfile || window.CURRENT_USER_PROFILE || null,
@@ -1194,7 +1198,7 @@ function canEditAdminCuadre() { return hasPermission('edit_admin_cuadre'); }
 function canViewAdminCuadre() { return hasPermission('view_admin_cuadre') || canEditAdminCuadre(); }
 function canUseProgrammerConfig() { return hasPermission('use_programmer_console'); }
 function canViewExactLocationLogs() { return hasPermission('view_exact_location_logs'); }
-function canLockMap() { return hasPermission('lock_map'); }
+function canLockMap() { return hasPermission('lock_map') || _roleMeta().fullAccess; }
 function canInsertExternalUnits() { return hasPermission('insert_external_units') || _roleMeta().level >= (_roleMeta('GERENTE_PLAZA').level || 25); }
 function hasFullAccess() { return hasPermission('platform_full_access') || _roleMeta().fullAccess; }
 function canOpenAdminPanel() {
@@ -2181,12 +2185,11 @@ function iniciarApp(esNuevoLogin = true) {
     if (btn) { btn.disabled = false; btn.innerText = "INGRESAR"; }
   }
 
-  // 🔥 SOLUCIÓN AL VACÍO: 
-  // Ejecutamos el ping inmediatamente, y otro 1 segundo después para asegurar
-  hacerPingNotificaciones();
-  setTimeout(hacerPingNotificaciones, 1500);
-
-  iniciarRadarNotificaciones();
+  const isDedicatedCuadreRoute = _isDedicatedCuadreIframeMode();
+  if (!isDedicatedCuadreRoute) {
+    iniciarRadarNotificaciones();
+    _scheduleInitialRadarPing();
+  }
 
   // Re-cargar config después de auth — garantiza que persistence esté lista
   // y que los selects estén poblados con datos frescos de Firestore
@@ -2194,25 +2197,28 @@ function iniciarApp(esNuevoLogin = true) {
 
   _iniciarSincronizacionUsuarios(); // Poblar dbUsuariosLogin en tiempo real
   init(); // Carga el mapa
+  _schedulePrivilegedRoutePrefetch();
 
   // [TEST] Abrir editor de mapa directamente si ?editor=1 en la URL
   if (new URLSearchParams(window.location.search).get('editor') === '1') {
     setTimeout(() => abrirEditorMapa(), 800);
   }
-  initNotificationCenter()
-    .then(() => {
-      _renderNotificationProfileState();
-      setTimeout(() => consumeNotificationDeepLink(), 550);
-    })
-    .catch(error => {
-      console.warn('No se pudo inicializar el centro de notificaciones:', error);
-      reportProgrammerError({
-        kind: 'notifications.init',
-        scope: 'mapa',
-        message: error?.message || 'No se pudo inicializar notificaciones',
-        stack: error?.stack || ''
+  if (!isDedicatedCuadreRoute) {
+    initNotificationCenter()
+      .then(() => {
+        _renderNotificationProfileState();
+        setTimeout(() => consumeNotificationDeepLink(), 550);
+      })
+      .catch(error => {
+        console.warn('No se pudo inicializar el centro de notificaciones:', error);
+        reportProgrammerError({
+          kind: 'notifications.init',
+          scope: 'mapa',
+          message: error?.message || 'No se pudo inicializar notificaciones',
+          stack: error?.stack || ''
+        });
       });
-    });
+  }
 
   Promise.resolve(configReadyPromise)
     .finally(() => {
@@ -2583,7 +2589,8 @@ let _mapaRuntime = {
   gesturesBound: false,
   dragBindingsBound: false,
   pinchState: null,
-  pendingUnits: null
+  pendingUnits: null,
+  rolePrefetchScheduled: false
 };
 let _mapaSyncState = {
   hasPendingWrite: false,
@@ -2591,6 +2598,53 @@ let _mapaSyncState = {
   lastConflicts: []
 };
 let _currentMapViewModel = { cajones: [], unitMap: new Map(), stats: {} };
+let _initialRadarPingHandle = null;
+
+function _scheduleInitialRadarPing() {
+  if (_initialRadarPingHandle) return;
+  const run = () => {
+    _initialRadarPingHandle = null;
+    if (_radarReady.settings && _radarReady.globalSettings && _radarReady.alertas && _radarReady.mensajes && _radarReady.incidencias) return;
+    hacerPingNotificaciones();
+  };
+  if (typeof window.requestIdleCallback === 'function') {
+    _initialRadarPingHandle = window.requestIdleCallback(run, { timeout: 1800 });
+  } else {
+    _initialRadarPingHandle = setTimeout(run, 900);
+  }
+}
+
+function _schedulePrivilegedRoutePrefetch() {
+  if (_mapaRuntime.rolePrefetchScheduled) return;
+  const role = String(userAccessRole || '').trim().toUpperCase();
+  if (!(hasFullAccess() || role === 'PROGRAMADOR' || role === 'JEFE_OPERACION')) return;
+  _mapaRuntime.rolePrefetchScheduled = true;
+
+  const enqueue = () => {
+    [
+      '/gestion?tab=usuarios',
+      '/cuadre',
+      '/mensajes',
+      '/profile',
+      '/programador',
+      '/editmap',
+      '/incidencias'
+    ].forEach(href => {
+      if (document.head.querySelector(`link[rel="prefetch"][href="${href}"]`)) return;
+      const link = document.createElement('link');
+      link.rel = 'prefetch';
+      link.as = 'document';
+      link.href = href;
+      document.head.appendChild(link);
+    });
+  };
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(enqueue, { timeout: 2500 });
+  } else {
+    setTimeout(enqueue, 1200);
+  }
+}
 
 function _currentMapUiState() {
   const conflicts = new Set(
@@ -2761,6 +2815,7 @@ function _cerrarCapasRapidas() {
 }
 
 function _handleGlobalShortcuts(event) {
+  if (event.defaultPrevented) return;
   const key = String(event.key || '').toLowerCase();
 
   if (key === 'escape') {
@@ -2790,12 +2845,12 @@ function _handleGlobalShortcuts(event) {
   }
   if (key === 'm') {
     event.preventDefault();
-    abrirBuzon();
+    _navigateTop('/mensajes');
     return;
   }
   if (key === 'p') {
     event.preventDefault();
-    abrirPerfilUsuario();
+    _navigateTop('/profile');
     return;
   }
   if (key === 'r') {
@@ -2826,6 +2881,7 @@ function init() {
 }
 
 function startAutoRefresh() {
+  if (_isDedicatedCuadreIframeMode()) return;
   // Siempre usar window.api fresco — el const api puede ser snapshot anterior al assemble
   const _api = window.api || api;
   const plazaActiva = _miPlaza();

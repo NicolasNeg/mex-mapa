@@ -4049,6 +4049,61 @@
     </div>
   </div>
 
+  <!-- ── PWA Install Banner (Fase 3) ── -->
+  <div id="pwa-install-banner" style="
+    position:fixed; bottom:0; left:0; right:0; z-index:89000;
+    background:#0d2a54; border-top:1px solid rgba(255,255,255,.12);
+    padding:14px 20px; display:flex; align-items:center; gap:14px;
+    transform:translateY(100%); transition:transform .35s cubic-bezier(.4,0,.2,1);
+    font-family:'Inter',sans-serif;">
+    <img src="/img/logo.png" alt="MEX MAPA" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;">
+    <div style="flex:1; min-width:0;">
+      <div style="font-size:13px;font-weight:900;color:#fff;">Instalar MEX MAPA</div>
+      <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:2px;">Acceso rápido desde tu pantalla de inicio</div>
+    </div>
+    <button id="pwa-install-btn" style="
+      padding:9px 18px;border-radius:10px;border:none;
+      background:#2563eb;color:#fff;font-size:12px;font-weight:800;
+      cursor:pointer;flex-shrink:0;font-family:'Inter',sans-serif;">
+      INSTALAR
+    </button>
+    <button id="pwa-dismiss-btn" style="
+      padding:9px;border-radius:8px;border:1px solid rgba(255,255,255,.15);
+      background:transparent;color:#64748b;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <span class="material-icons" style="font-size:18px;">close</span>
+    </button>
+  </div>
+  <style>
+    #pwa-install-banner.visible { transform: translateY(0); }
+  </style>
+
+  <!-- ── PWA Install Banner iOS ── -->
+  <div id="pwa-install-banner-ios" style="
+    position:fixed; bottom:0; left:0; right:0; z-index:89000;
+    background:#0d2a54; border-top:1px solid rgba(255,255,255,.12);
+    padding:14px 20px; display:flex; align-items:flex-start; gap:14px;
+    transform:translateY(100%); transition:transform .35s cubic-bezier(.4,0,.2,1);
+    font-family:'Inter',sans-serif;">
+    <img src="/img/logo.png" alt="MEX MAPA" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;margin-top:2px;">
+    <div style="flex:1; min-width:0;">
+      <div style="font-size:13px;font-weight:900;color:#fff;">Instalar MEX MAPA</div>
+      <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px;line-height:1.5;">
+        Toca <span style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:4px;">⬆ Compartir</span>
+        y luego <span style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:4px;">Agregar a inicio</span>
+      </div>
+    </div>
+    <button id="pwa-dismiss-ios-btn" style="
+      padding:9px;border-radius:8px;border:1px solid rgba(255,255,255,.15);
+      background:transparent;color:#64748b;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+      <span class="material-icons" style="font-size:18px;">close</span>
+    </button>
+  </div>
+  <style>
+    #pwa-install-banner-ios.visible { transform: translateY(0); }
+  </style>
+
 </body>
 
 </html>
