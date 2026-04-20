@@ -17,7 +17,7 @@
 | Fase | Agente | Estado | Archivos principales | Notas |
 |---|---|---|---|---|
 | **0 — Fundamentos** | 🤖 Claude Code | ✅ Completo | `sw.js`, `package.json`, `scripts/bump-sw.js`, `.firebaserc`, `js/core/error-tracking.js` | `npm run deploy` ya hace bump automático. Sentry listo, activar con DSN. |
-| **1 — Refactor mapa.js** | 🤖 Claude Code | ⬜ Pendiente (después de Fase 0) | `js/views/mapa.js`, `js/features/**` | Requiere conocimiento profundo del archivo. NO tocar sin coordinación |
+| **1 — Refactor mapa.js** | 🤖 Claude Code | 🟡 En progreso | `js/views/mapa.js`, `js/features/**` | pdf-reservas.js ✅ prediccion.js ✅ — resto muy acoplado, continuar en barrel final |
 | **2 — Dividir global.css** | 🤖 Claude Code | ⬜ Pendiente | `css/global.css`, `css/**` | Coordinar con Fase 1 para no duplicar trabajo |
 | **3 — PWA instalable** | 🤖 Agente externo | ⬜ Pendiente | `js/core/pwa-install.js` (nuevo), `mapa.html` (solo agregar banner) | NO modificar lógica existente de mapa.html |
 | **4 — Dashboard y analítica** | 🤖 Agente externo | ⬜ Pendiente | `js/features/dashboard/` (nuevo), `mapa.html` (agregar strip) | Leer datos de Firestore, no tocar lógica de mapa.js |
@@ -57,6 +57,21 @@
   La regla más importante: no toques js/views/mapa.js ni api/*.js sin avisarme aquí.
   Cuando termines algo, agrega una línea al log con los archivos que modificaste.
   Cualquier duda sobre la arquitectura existente, pregúntame aquí. Buena suerte. — Claude Code
+[2026-04-20] Claude Code — ✅ FASE 1 PARCIAL — Extracción módulos cuadre
+  Archivos creados:
+    + js/features/cuadre/pdf-reservas.js  — parsearTablaSucia, generarHtmlActividadDiaria,
+                                            validarTextareasActividad, procesarActividadDiaria
+    + js/features/cuadre/prediccion.js    — extraerConteoClases, reiniciarPrediccion,
+                                            ejecutarPrediccion, descargarPDFPrediccion,
+                                            crearExcelPrediccion (estado privado del modal)
+  Archivos modificados:
+    ~ js/views/mapa.js  — imports de ambos módulos, expone window.abrirReporteImpresion,
+                          window.descargarArchivoLocal, window.generarSlugArchivo
+    ~ sw.js             — ambos módulos en SHELL_ASSETS, bump v134→v136
+  Nota: drag-drop, alertas y permisos son demasiado acoplados para extraer ahora.
+    Se extraerán cuando mapa.js sea el barrel final (Fase 1.7).
+  SW v136 en producción. GitHub actualizado.
+
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
   /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
   accesos rápidos, modales migrados para reporte diario / cuadre de predicción / PDF reservas,

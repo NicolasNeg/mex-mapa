@@ -1,0 +1,943 @@
+    /* --- VARIABLES GLOBALES DEL MAPA --- */
+    :root {
+      --primary: #004a99;
+      --border: #cbd5e1;
+      --text: #1e293b;
+      --color-listo: #10b981;
+      --color-sucio: #f59e0b;
+      --color-manto: #ef4444;
+      --color-no-arrendable: #34fbff;
+      --bg-viewport: #475569;
+      --admin-sidebar-width: 278px;
+      --floating-edge-gap: 30px;
+      --color-retenida: #1e293b;
+      --color-venta-bg: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+      --color-venta-text: #ffffff;
+
+      /* Variables Tabla Flota */
+      --mex-blue: #0d2a54;
+      --mex-accent: #1a73e8;
+      --bg: #f1f5f9;
+      --surface: #ffffff;
+      --st-listo-bg: #dcfce7;
+      --st-listo-txt: #166534;
+      --st-sucio-bg: #fef9c3;
+      --st-sucio-txt: #854d0e;
+      --st-mant-bg: #fee2e2;
+      --st-mant-txt: #991b1b;
+      --st-traslado-bg: #f3e8ff;
+      --st-traslado-txt: #6b21a8;
+      --st-venta-bg: #1e293b;
+      --st-venta-txt: #ffffff;
+      --st-resg-bg: #f5e6d3;
+      --st-resg-txt: #5c4033;
+      /* Tono Café Claro para Resguardo */
+      --mex-red: #ef4444;
+
+      --res-dark: #121212;
+      --res-green: #004a2d;
+      --c-listo: #2e7d32;
+      --c-sucio: #ef6c00;
+      --c-traslado: #1565c0;
+      --c-resguardo: #455a64;
+      --c-manto: #c62828;
+      --c-retenida: #6d4c41;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.3);
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.6);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .badge-calor {
+      display: none;
+    }
+
+    /* Mostrar los globitos SOLO cuando el body tiene la clase activa */
+    body.heatmap-active .badge-calor {
+      display: flex;
+    }
+
+    /* Estilos del Globito Termómetro */
+    /* Estilos del Globito Termómetro (Abajo al Centro) */
+    .badge-calor {
+      position: absolute;
+      bottom: -10px;
+      /* Lo ponemos abajo para no tapar el candado o el engrane */
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      font-weight: 900;
+      padding: 3px 6px;
+      border-radius: 8px;
+      align-items: center;
+      gap: 3px;
+      z-index: 20;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    body.dark-theme {
+      --bg-viewport: #020617;
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --border: #334155;
+      --primary: #3b82f6;
+    }
+
+    /* ── Fondos principales ── */
+    body.dark-theme {
+      background-color: var(--bg-viewport) !important;
+      color: var(--text) !important;
+    }
+
+    body.dark-theme .fleet-header-top,
+    body.dark-theme .admin-sidebar,
+    body.dark-theme .units-sidebar,
+    body.dark-theme .info-sidebar,
+    body.dark-theme .modal-box,
+    body.dark-theme .console-card,
+    body.dark-theme #audit-paso2,
+    body.dark-theme #audit-paso2>div,
+    body.dark-theme .fleet-modal,
+    body.dark-theme .sidebar-modal,
+    body.dark-theme #users-modal,
+    body.dark-theme #logs-modal,
+    body.dark-theme #incidencias-modal,
+    body.dark-theme #gestor-alertas-modal,
+    body.dark-theme #historial-cuadres-modal,
+    body.dark-theme #buzon-modal,
+    body.dark-theme #modal-resumen-flota,
+    body.dark-theme #modal-insertar-admin,
+    body.dark-theme #modal-insertar-global,
+    body.dark-theme #modal-modificador-maestro {
+      background-color: var(--surface) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+
+    body.dark-theme .content,
+    body.dark-theme .scroll-area,
+    body.dark-theme #audit-scroll-area,
+    body.dark-theme .fleet-wrapper,
+    body.dark-theme .col-form,
+    body.dark-theme .main-grid-flota {
+      background-color: var(--bg) !important;
+    }
+
+    /* ── Tablas ── */
+    body.dark-theme .table-container,
+    body.dark-theme table {
+      background-color: var(--surface) !important;
+      color: var(--text) !important;
+    }
+
+    body.dark-theme thead tr {
+      background-color: var(--bg) !important;
+    }
+
+    body.dark-theme thead th {
+      color: var(--text-muted) !important;
+      border-color: var(--border) !important;
+    }
+
+    body.dark-theme tbody tr {
+      background-color: var(--surface) !important;
+      border-color: var(--border) !important;
+    }
+
+    body.dark-theme tbody tr:hover {
+      background-color: rgba(255, 255, 255, 0.04) !important;
+    }
+
+    body.dark-theme td {
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+
+    /* ── Cards / Panels ── */
+    body.dark-theme [style*="background: white"],
+    body.dark-theme [style*="background:white"],
+    body.dark-theme [style*="background:#fff"],
+    body.dark-theme [style*="background: #fff"],
+    body.dark-theme [style*="background:#f8fafc"],
+    body.dark-theme [style*="background: #f8fafc"],
+    body.dark-theme [style*="background:#f1f5f9"],
+    body.dark-theme [style*="background: #f1f5f9"] {
+      background-color: var(--surface) !important;
+    }
+
+    /* ── Inputs ── */
+    body.dark-theme input:not([type="checkbox"]):not([type="radio"]),
+    body.dark-theme select,
+    body.dark-theme textarea,
+    body.dark-theme .search-wrapper input {
+      background-color: var(--bg) !important;
+      color: var(--text) !important;
+      border-color: var(--border) !important;
+    }
+
+    body.dark-theme input::placeholder,
+    body.dark-theme textarea::placeholder {
+      color: var(--text-muted) !important;
+    }
+
+    body.dark-theme .search-wrapper input:focus {
+      border-color: var(--primary) !important;
+    }
+
+    /* ── Textos genéricos ── */
+    body.dark-theme h1,
+    body.dark-theme h2,
+    body.dark-theme h3,
+    body.dark-theme h4,
+    body.dark-theme p,
+    body.dark-theme span,
+    body.dark-theme label,
+    body.dark-theme .form-title,
+    body.dark-theme .log-author,
+    body.dark-theme .td-mva,
+    body.dark-theme .nota-body,
+    body.dark-theme .nota-footer {
+      color: var(--text) !important;
+    }
+
+    body.dark-theme [style*="color:#64748b"],
+    body.dark-theme [style*="color: #64748b"],
+    body.dark-theme [style*="color:#475569"],
+    body.dark-theme [style*="color:#334155"],
+    body.dark-theme [style*="color: #334155"] {
+      color: var(--text-muted) !important;
+    }
+
+    /* ── Botones secundarios ── */
+    body.dark-theme [style*="background:#f1f5f9"],
+    body.dark-theme [style*="background: #f1f5f9"] {
+      background-color: rgba(255, 255, 255, 0.08) !important;
+      color: var(--text) !important;
+    }
+
+    /* ── Notas / Cards ── */
+    body.dark-theme .nota-card {
+      background-color: var(--surface) !important;
+      border-color: var(--border) !important;
+    }
+
+    /* ── Sidebar oscura ── */
+    body.dark-theme .sb-section-label {
+      color: var(--text-muted) !important;
+    }
+
+    body.dark-theme .sb-btn:hover {
+      background: rgba(255, 255, 255, 0.08) !important;
+    }
+
+    body.dark-theme .sb-divider {
+      background: var(--border) !important;
+    }
+
+    body.dark-theme .sb-btn-dark {
+      color: #8f9db5 !important;
+    }
+
+    body.dark-theme .sb-btn-blue {
+      color: #dfe5f8 !important;
+    }
+
+    body.dark-theme .sb-btn-red {
+      color: #ffb1ab !important;
+    }
+
+    body.dark-theme .sb-btn-ghost {
+      color: #9fcbff !important;
+    }
+
+    body.dark-theme .sb-btn-status {
+      color: #dfe5f8 !important;
+    }
+
+    body.dark-theme .admin-sidebar-icon-btn {
+      color: #8f9db5 !important;
+    }
+
+    body.dark-theme .admin-sidebar-icon-btn:hover {
+      color: #dfe5f8 !important;
+    }
+
+    body.dark-theme .admin-user-name {
+      color: #dfe5f8 !important;
+    }
+
+    body.dark-theme .admin-user-meta,
+    body.dark-theme .admin-user-monitor,
+    body.dark-theme .admin-sidebar-brand-copy p {
+      color: #5a6b8c !important;
+    }
+
+    body.dark-theme .admin-sidebar-brand-copy h2,
+    body.dark-theme .admin-sidebar-status-copy strong {
+      color: #dfe5f8 !important;
+    }
+
+    /* ── Bordes ── */
+    body.dark-theme [style*="border: 1px solid #e2e8f0"],
+    body.dark-theme [style*="border:1px solid #e2e8f0"],
+    body.dark-theme [style*="border-bottom: 1px solid"],
+    body.dark-theme [style*="border-top: 1px solid"] {
+      border-color: var(--border) !important;
+    }
+
+    /* ── Search bar del header — mantiene el estilo del header oscuro ── */
+    body.dark-theme header .search-wrapper input {
+      background: rgba(255, 255, 255, 0.08) !important;
+      border-color: rgba(255, 255, 255, 0.12) !important;
+      color: white !important;
+    }
+
+    /* ── Badges de estado en tabla (imagen 2) — mantener colores propios pero con más contraste ── */
+    body.dark-theme .st-LISTO {
+      background: #064e3b !important;
+      color: #6ee7b7 !important;
+    }
+
+    body.dark-theme .st-SUCIO {
+      background: #451a03 !important;
+      color: #fcd34d !important;
+    }
+
+    body.dark-theme .st-MANTENIMIENTO {
+      background: #450a0a !important;
+      color: #fca5a5 !important;
+    }
+
+    body.dark-theme .st-TRASLADO {
+      background: #2e1065 !important;
+      color: #c4b5fd !important;
+    }
+
+    body.dark-theme .st-VENTA {
+      background: #1e293b !important;
+      color: #f8fafc !important;
+    }
+
+    body.dark-theme .st-RESGUARDO,
+    body.dark-theme .st-RETENIDA {
+      background: #1c0a00 !important;
+      color: #fdba74 !important;
+    }
+
+    body.dark-theme .ubi-PATIO {
+      background: #0c1d3b !important;
+      color: #93c5fd !important;
+      border-color: #1e3a5f !important;
+    }
+
+    body.dark-theme .ubi-TALLER {
+      background: #2d1a00 !important;
+      color: #fcd34d !important;
+      border-color: #4d2d00 !important;
+    }
+
+    body.dark-theme .ubi-AGENCIA {
+      background: #1a0533 !important;
+      color: #d8b4fe !important;
+      border-color: #3b0764 !important;
+    }
+
+    body.dark-theme .ubi-EXTERNO {
+      background: #1c0a00 !important;
+      color: #fdba74 !important;
+      border-color: #431407 !important;
+    }
+
+    body.dark-theme .ubi-PERSONA {
+      background: #052e16 !important;
+      color: #86efac !important;
+      border-color: #14532d !important;
+    }
+
+    body.dark-theme .ubi-DEFAULT {
+      background: #1e293b !important;
+      color: #94a3b8 !important;
+      border-color: #334155 !important;
+    }
+
+    /* ── Consola de patio dark (imagen 2) ── */
+    body.dark-theme .console-card,
+    body.dark-theme [id*="fleet-modal"],
+    body.dark-theme .fleet-modal {
+      background: #1e293b !important;
+      color: #f1f5f9 !important;
+    }
+
+    body.dark-theme .fleet-header-top {
+      background: #0f172a !important;
+    }
+
+    body.dark-theme .console-card [style*="color:var(--mex-blue)"],
+    body.dark-theme .console-card [style*="color: var(--mex-blue)"] {
+      color: #60a5fa !important;
+    }
+
+    /* ── Historial actividad (imagen 3) — filas y texto ── */
+    body.dark-theme .table-container tr:nth-child(odd) {
+      background: rgba(255, 255, 255, 0.02) !important;
+    }
+
+    /* ── Historial alertas (imagen 4) — cards de alerta ── */
+    body.dark-theme #listaHistorialAlertas [style*="background: white"],
+    body.dark-theme #listaHistorialAlertas [style*="background:white"] {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+
+    body.dark-theme #listaHistorialAlertas h3 {
+      color: #93c5fd !important;
+    }
+
+    body.dark-theme #listaHistorialAlertas p {
+      color: #cbd5e1 !important;
+    }
+
+    /* ── Botones de acción con fondo claro ── */
+    body.dark-theme [style*="background: #f8fafc"],
+    body.dark-theme [style*="background:#f8fafc"] {
+      background: rgba(255, 255, 255, 0.06) !important;
+    }
+
+    body.dark-theme [style*="color: var(--mex-blue)"],
+    body.dark-theme [style*="color:var(--mex-blue)"] {
+      color: #60a5fa !important;
+    }
+
+    body.dark-theme [style*="color: var(--primary)"],
+    body.dark-theme [style*="color:var(--primary)"] {
+      color: #60a5fa !important;
+    }
+
+    body.dark-theme [style*="color: #0d2a54"],
+    body.dark-theme [style*="color:#0d2a54"] {
+      color: #93c5fd !important;
+    }
+
+    body.dark-theme [style*="color: #1e293b"],
+    body.dark-theme [style*="color:#1e293b"] {
+      color: #f1f5f9 !important;
+    }
+
+    /* ── Inputs de la consola ── */
+    body.dark-theme .search-box-flota {
+      background: #0f172a !important;
+      color: #f1f5f9 !important;
+      border-color: #334155 !important;
+    }
+
+    /* ── KPIs flotantes — ya son oscuros, mantener ── */
+    body.dark-theme .kpi-container {
+      background: rgba(15, 23, 42, 0.9) !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════
+       F6.3  MODO NOCHE MEJORADO — WCAG AA (contraste ≥4.5:1)
+       Cubre elementos añadidos en Fases 3–7
+       ══════════════════════════════════════════════════════════ */
+
+    /* Transición suave al cambiar de tema */
+    body { transition: background-color .25s, color .25s; }
+
+    /* Textos muy oscuros en dark → texto claro legible */
+    body.dark-theme [style*="color:#0f172a"],
+    body.dark-theme [style*="color: #0f172a"] { color: #f1f5f9 !important; }
+    body.dark-theme [style*="color:#334155"],
+    body.dark-theme [style*="color: #334155"] { color: #cbd5e1 !important; }
+    body.dark-theme [style*="color:#475569"],
+    body.dark-theme [style*="color: #475569"] { color: #94a3b8 !important; }
+
+    /* Fondo e2e8f0 → superficie oscura */
+    body.dark-theme [style*="background:#e2e8f0"],
+    body.dark-theme [style*="background: #e2e8f0"] { background: #1e3a5f !important; }
+
+    /* ─ Chips de filtro (dark) ─ */
+    body.dark-theme .chip {
+      background: rgba(255,255,255,0.07) !important;
+      border-color: rgba(255,255,255,0.14) !important;
+      color: #cbd5e1 !important;
+    }
+    body.dark-theme .chip.active {
+      background: var(--primary) !important;
+      border-color: var(--primary) !important;
+      color: white !important;
+    }
+    body.dark-theme .chip-reservas {
+      border-color: #8b5cf6 !important;
+      color: #c4b5fd !important;
+      background: rgba(139,92,246,0.12) !important;
+    }
+
+    /* ─ Barra de búsqueda ─ */
+    body.dark-theme .search-wrapper {
+      background: rgba(255,255,255,0.07) !important;
+      border-color: rgba(255,255,255,0.12) !important;
+    }
+    body.dark-theme #btn-voz-busqueda,
+    body.dark-theme #btn-voz-busqueda-mobile { color: #64748b !important; }
+
+    /* ─ Panel extras unidad (F7) ─ */
+    body.dark-theme #panel-extras-unidad {
+      background: rgba(255,255,255,0.05) !important;
+      border-color: #334155 !important;
+    }
+
+    /* ─ Modal PDF reservas (F4) ─ */
+    body.dark-theme #modal-pdf-reservas > div > div:last-child,
+    body.dark-theme #pdf-resultados {
+      background: #1e293b !important;
+      color: #f1f5f9 !important;
+    }
+    body.dark-theme #pdf-drop-zone {
+      border-color: #334155 !important;
+      background: rgba(255,255,255,0.04) !important;
+    }
+    body.dark-theme #pdf-texto-bruto {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+
+    /* ─ Panel supervisión (F3.3) y recomendación (F4) ─ */
+    body.dark-theme #panel-supervision { background: rgba(2,6,23,0.95) !important; }
+
+    /* ─ Banner global (F3.4) — ya tiene colores propios, mantener ─ */
+
+    /* ─ Comparador de plazas (F3.2) ─ */
+    body.dark-theme #modal-comparador-plazas > div {
+      background: #1e293b !important;
+    }
+    body.dark-theme #comparador-content { background: #1e293b !important; color: #f1f5f9 !important; }
+    body.dark-theme #comparador-content th { color: #94a3b8 !important; background: #0f172a !important; }
+    body.dark-theme #comparador-content td { color: #cbd5e1 !important; border-color: #334155 !important; }
+    body.dark-theme #comparador-content tr { background: #1e293b !important; border-color: #334155 !important; }
+
+    /* ─ Modal recordatorio (F7) ─ */
+    body.dark-theme #modal-recordatorio > div {
+      background: #1e293b !important;
+    }
+    body.dark-theme #recordatorio-fecha,
+    body.dark-theme #recordatorio-mensaje {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+
+    /* ─ Panel config empresa (F5/F6) — cards ─ */
+    body.dark-theme .cfg-emp-card {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+    }
+    body.dark-theme .cfg-emp-section-header {
+      color: #94a3b8 !important;
+      border-color: #334155 !important;
+    }
+    body.dark-theme .cfg-emp-input,
+    body.dark-theme .cfg-emp-field input,
+    body.dark-theme .cfg-emp-field textarea,
+    body.dark-theme .cfg-emp-field select {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+
+    /* ─ Plaza cards (F3.1) ─ */
+    body.dark-theme .cfg-plaza-card {
+      background: #1e293b !important;
+      border-color: #334155 !important;
+      color: #f1f5f9 !important;
+    }
+    body.dark-theme .cfg-plaza-card.active {
+      border-color: var(--primary) !important;
+      background: #172554 !important;
+    }
+
+    /* ─ Herramientas de mapa (F6) ─ */
+    body.dark-theme #cfg-migration-card,
+    body.dark-theme #cfg-backfill-card {
+      background: rgba(99,102,241,0.08) !important;
+      border-color: #4338ca55 !important;
+    }
+    body.dark-theme #cfg-mig-log,
+    body.dark-theme #cfg-bf-log {
+      background: #0f172a !important;
+      border-color: #334155 !important;
+      color: #a5b4fc !important;
+    }
+
+    /* ─ Tags de color (F7.5) — conservar colores semánticos ─ */
+    /* Los dots de colores son intencionales, no cambian */
+
+    /* ─ Scrollbars en dark ─ */
+    body.dark-theme ::-webkit-scrollbar { width: 6px; height: 6px; }
+    body.dark-theme ::-webkit-scrollbar-track { background: #0f172a; }
+    body.dark-theme ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    body.dark-theme ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* ─ Focus visible accesible ─ */
+    body.dark-theme *:focus-visible {
+      outline: 2px solid #60a5fa !important;
+      outline-offset: 2px !important;
+    }
+
+    /* ─ Selección de texto ─ */
+    body.dark-theme ::selection {
+      background: rgba(96, 165, 250, 0.3);
+      color: white;
+    }
+
+    /* =========================================
+   📱 ESTILOS PARA EL MODO SWIPE (TINDER) - REDISEÑO FULL-IMAGE
+   ========================================= */
+
+    #audit-paso2 {
+      display: flex;
+      flex-direction: column;
+      height: 90vh !important;
+      /* Más alto para celulares */
+      background: #f8fafc;
+    }
+
+    /* Área central de contenido (Donde ocurre la magia) */
+    #audit-scroll-area {
+      flex: 1;
+      position: relative;
+      overflow-y: auto !important;
+      /* Habilita el scroll */
+      -webkit-overflow-scrolling: touch;
+      /* Scroll suave en iPhone */
+      background: white;
+    }
+
+    /* Cuando el mapa está bloqueado, apagamos los colores */
+    body.map-locked .car {
+      filter: grayscale(1) !important;
+      opacity: 0.6 !important;
+      pointer-events: none !important;
+      /* Nadie puede hacer clic en los carros */
+      cursor: not-allowed;
+    }
+
+    body.map-locked .spot {
+      border-color: #475569 !important;
+      pointer-events: none !important;
+    }
+
+    /* Banner de bloqueo pantalla completa (opcional, aquí usaremos el superior) */
+    #bannerBloqueo {
+      transition: all 0.3s ease;
+    }
+
+
+    @keyframes pulseBlue {
+      0% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 8px rgba(59, 130, 246, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+      }
+    }
+
+
+    .calor-fuego {
+      animation: latidoFuego 1.5s infinite;
+    }
+
+    @keyframes latidoFuego {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+    /* Estilos del Botón Switch en el Header */
+    .heatmap-switch-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: #1e293b;
+      padding: 8px 12px;
+      border-radius: 12px;
+      border: 1px solid #334155;
+      color: white;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+
+    .heatmap-switch-wrapper:hover {
+      background: #334155;
+    }
+
+    .heatmap-switch {
+      position: relative;
+      width: 34px;
+      height: 18px;
+      background: #64748b;
+      border-radius: 20px;
+      transition: 0.3s;
+    }
+
+    .heatmap-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      background: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+
+    /* Cuando se activa el switch */
+    body.heatmap-active .heatmap-switch {
+      background: #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+    }
+
+    body.heatmap-active .heatmap-switch::after {
+      transform: translateX(16px);
+    }
+
+    body.heatmap-active .heatmap-switch-wrapper {
+      border-color: #ef4444;
+    }
+
+
+    /* Estilo del Switch deslizable */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #cbd5e1;
+      transition: .4s;
+      border-radius: 34px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+    }
+
+    input:checked+.slider {
+      background-color: #10b981;
+    }
+
+    input:checked+.slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Efectos del Mapa de Calor en los carros */
+    .car.ghost {
+      opacity: 0.15 !important;
+      filter: grayscale(100%);
+      pointer-events: none;
+    }
+
+    .car.forgotten {
+      outline: 3px solid #ef4444 !important;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.8) !important;
+      animation: pulseRed 2s infinite;
+    }
+
+    @keyframes pulseRed {
+      0% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      }
+
+      70% {
+        box-shadow: 0 0 0 12px rgba(239, 68, 68, 0);
+      }
+
+      100% {
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+      }
+    }
+
+
+    html,
+    body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      position: fixed;
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-viewport);
+      display: flex;
+      flex-direction: column;
+    }
+
+    html.programmer-route,
+    body.programmer-page {
+      height: auto;
+      min-height: 100%;
+      overflow: auto;
+      position: static;
+    }
+
+    body.programmer-page {
+      display: block;
+      background: #e8edf4 !important;
+      color: #1e293b;
+    }
+
+    /* --- ANIMACIONES DE ERROR --- */
+    @keyframes shake {
+
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      25% {
+        transform: translateX(-5px);
+      }
+
+      75% {
+        transform: translateX(5px);
+      }
+    }
+
+    .input-error {
+      animation: shake 0.3s ease-in-out;
+      border-color: var(--mex-red) !important;
+      background-color: #fef2f2 !important;
+    }
+
+
+    /* Icono de Candado sobre el carro */
+    .lock-badge {
+      position: absolute !important;
+      top: -10px !important;
+      left: -10px !important;
+      background: #1e293b !important;
+      border: 2px solid #fbbf24 !important;
+      border-radius: 50% !important;
+      width: 26px !important;
+      height: 26px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      font-size: 14px !important;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5) !important;
+      z-index: 500 !important;
+    }
+
+    /* Botón de Reserva en el panel inferior */
+    #btnReservar {
+      background: #1e293b;
+      color: white;
+      border: none;
+      border-radius: 14px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 18px;
+    }
+
+    #btnVerReserva {
+      background: #fbbf24;
+      color: #78350f;
+      border: none;
+      border-radius: 14px;
+      font-weight: 900;
+      font-size: 14px;
+      cursor: pointer;
+      padding: 18px;
+    }
+
+    /* SELECT USER INICIAL - ESTILOS DEL BUSCADOR DE USUARIOS */
+    .custom-select-wrapper {
+      position: relative;
+      margin-bottom: 15px;
+      text-align: left;
+    }
+
+    .user-option {
+      padding: 15px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      cursor: pointer;
+      border-bottom: 1px solid #f1f5f9;
+      transition: background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .user-option:hover {
+      background: #e0f2fe;
+      color: var(--mex-accent);
+    }
+
+    .user-option:last-child {
+      border-bottom: none;
+    }
+
