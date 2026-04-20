@@ -853,6 +853,34 @@ function _resolveStoredRoleForEmail(email, role) {
   return _isBootstrapProgrammerEmail(email) ? 'PROGRAMADOR' : normalizedRole;
 }
 
+async function _ensureBootstrapProgrammerProfile(user) {
+  const emailNormalizado = _profileDocId(user?.email || '');
+  if (!emailNormalizado || !_isBootstrapProgrammerEmail(emailNormalizado)) return null;
+
+  const nombre = String(user?.displayName || 'PROGRAMADOR').trim().toUpperCase() || 'PROGRAMADOR';
+  const payload = {
+    email: emailNormalizado,
+    nombre,
+    usuario: nombre,
+    rol: 'PROGRAMADOR',
+    isAdmin: true,
+    isGlobal: true,
+    plazaAsignada: '',
+    telefono: '',
+    status: 'ACTIVO',
+    authUid: String(user?.uid || '').trim(),
+    bootstrapProgrammer: true,
+    lastBootstrapLoginAt: Date.now()
+  };
+
+  await db.collection(COL.USERS).doc(emailNormalizado).set(payload, { merge: true });
+  const persisted = await db.collection(COL.USERS).doc(emailNormalizado).get();
+  if (persisted.exists) {
+    return _normalizeUserProfile({ id: persisted.id, ...persisted.data(), email: emailNormalizado });
+  }
+  return _normalizeUserProfile({ id: emailNormalizado, ...payload });
+}
+
 function _avatarColor(name = '') {
   let h = 0;
   for (let i = 0; i < String(name || '').length; i++) {
@@ -1839,8 +1867,16 @@ auth.onAuthStateChanged(async (user) => {
       const snapshot = await db.collection(COL.USERS).where("email", "==", emailNormalizado).get();
 
       let perfilValidado = null;
-      if (!snapshot.empty) {
-        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      let docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (!docs.length && user.uid) {
+        const uidSnap = await db.collection(COL.USERS).doc(user.uid).get();
+        if (uidSnap.exists) {
+          docs = [{ id: uidSnap.id, email: emailNormalizado, ...uidSnap.data() }];
+        }
+      }
+
+      if (docs.length) {
         const bestMatch = docs.find(d => d.id === emailNormalizado)
           || docs.find(d => d.id === user.uid)
           || docs[0];
@@ -1849,23 +1885,36 @@ auth.onAuthStateChanged(async (user) => {
         configurarPermisosUI();
         perfilValidado = datos;
       } else if (_isBootstrapProgrammerEmail(emailNormalizado)) {
-        // Programador bootstrap sin documento en Firestore — perfil sintético
-        console.warn('[AUTH] Bootstrap programmer sin doc en Firestore — usando perfil sintético');
-        const datosSinteticos = _normalizeUserProfile({
-          id: emailNormalizado,
-          email: emailNormalizado,
-          nombre: user.displayName || 'PROGRAMADOR',
-          rol: 'PROGRAMADOR',
-          isAdmin: true,
-          isGlobal: true,
-          plazaAsignada: '',
-          telefono: '',
-          status: 'ACTIVO',
-          _syntheticProfile: true  // marca para no intentar escribir presencia en Firestore
-        });
-        _setSessionProfile(datosSinteticos);
-        configurarPermisosUI();
-        perfilValidado = datosSinteticos;
+        try {
+          const datosProvisionados = await _ensureBootstrapProgrammerProfile(user);
+          if (datosProvisionados) {
+            console.warn('[AUTH] Bootstrap programmer sin doc en Firestore — perfil autoprovisionado');
+            _setSessionProfile(datosProvisionados);
+            configurarPermisosUI();
+            perfilValidado = datosProvisionados;
+          }
+        } catch (bootstrapError) {
+          console.warn('[AUTH] No se pudo autoprovisionar el perfil PROGRAMADOR:', bootstrapError);
+        }
+
+        if (!perfilValidado) {
+          // Último fallback: mantener acceso visual para no bloquear la sesión
+          const datosSinteticos = _normalizeUserProfile({
+            id: emailNormalizado,
+            email: emailNormalizado,
+            nombre: user.displayName || 'PROGRAMADOR',
+            rol: 'PROGRAMADOR',
+            isAdmin: true,
+            isGlobal: true,
+            plazaAsignada: '',
+            telefono: '',
+            status: 'ACTIVO',
+            _syntheticProfile: true
+          });
+          _setSessionProfile(datosSinteticos);
+          configurarPermisosUI();
+          perfilValidado = datosSinteticos;
+        }
       } else {
         // Email no autorizado — redirigir a login con mensaje
         auth.signOut();
