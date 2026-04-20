@@ -124,6 +124,23 @@
     <div class="gestion-loader-spinner"></div>
   </div>
 
+  <!-- ── OVERLAY AUDITORÍA (bloqueo de mapa) — mismo que en mapa.html ── -->
+  <div id="overlayAuditoria" style="display:none;">
+    <div id="auditViewAdmin" class="audit-card-pill" style="display:none;">
+      <span class="material-icons pulse-icon">admin_panel_settings</span>
+      <h2 style="margin:0; font-size:13px; font-weight:900; letter-spacing:1px;">MODO AUDITORÍA ACTIVO</h2>
+    </div>
+    <div id="auditViewUser" class="audit-card-intrusive" style="display:none;">
+      <span class="material-icons pulse-icon" style="font-size:65px; margin-bottom:15px;">block</span>
+      <h1 style="margin:0; font-size:28px; font-weight:900; letter-spacing:1px; line-height:1.1;">SISTEMA BLOQUEADO</h1>
+      <p style="margin:15px 0 0; font-size:14px; font-weight:800; background:rgba(0,0,0,0.2); padding:10px 20px; border-radius:12px;">AUDITORÍA DE PATIO EN CURSO</p>
+      <p style="margin:20px 0 0; font-size:13px; font-weight:600; opacity:0.9;">Espera a que Administración libere el sistema para continuar.</p>
+      <button onclick="cerrarSesion()" style="margin-top:25px; padding:12px 25px; background:white; color:#ef4444; border:none; border-radius:12px; font-weight:900; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
+        <span class="material-icons">logout</span> CAMBIAR USUARIO / SALIR
+      </button>
+    </div>
+  </div>
+
   <!-- ── PANEL DE CONFIGURACIÓN GLOBAL ── -->
   <div id="modal-config-global" class="fleet-modal cfg-modal-v2 active">
 
@@ -211,6 +228,16 @@
             <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
             <span>Programador</span>
           </button>
+
+          <div class="cfg-rail-section-label">Operaciones</div>
+
+          <button id="btnLockAdminSidebar" class="cfg-tab" onclick="solicitarToggleBloqueo()" title="Bloquear / Liberar patio" style="display:none;">
+            <span class="cfg-tab-icon">
+              <span class="material-icons" id="iconLockAdmin" style="color:#f59e0b;">lock</span>
+            </span>
+            <span id="txtLockAdmin">BLOQUEAR PATIO</span>
+            <div class="heatmap-switch" id="switchLockAdmin" style="margin-left:auto;"></div>
+          </button>
         </nav>
       </div>
 
@@ -256,7 +283,7 @@
                    'renderizarListaConfig','umFiltrar','confirmarAgregadoConfig',
                    'editarElementoConfig','eliminarElementoConfig',
                    'abrirPerfilUsuario','cerrarPerfilUsuario',
-                   'solicitarToggleBloqueo','abrirEditorMapa'];
+                   'solicitarToggleBloqueo','abrirEditorMapa','cerrarSesion'];
       const queue = [];
       FNS.forEach(fn => {
         window[fn] = (...args) => {
