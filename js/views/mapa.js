@@ -2613,7 +2613,7 @@ function _cerrarCapasRapidas() {
     cancelarRecorteAvatarPerfil();
     return true;
   }
-  if (document.getElementById('chatLightbox')?.classList.contains('active')) {
+  if (document.getElementById('chatLightboxOverlay')?.style.display === 'flex') {
     cerrarLightboxChat();
     return true;
   }
@@ -12033,6 +12033,8 @@ function abrirBuzon() {
   const _buzonEl = document.getElementById('buzon-modal');
   if (!_buzonEl) { console.error('[DEBUG] buzon-modal no encontrado en el DOM'); return; }
   _buzonEl.classList.add('active');
+  _loadChatArchivedThreads();
+  _chatArchivedMode = false;
 
   // En mobile: ocultar el panel de chat al abrir (slide-out)
   const win = document.getElementById('chat-window-view');
@@ -12119,17 +12121,20 @@ function renderContactos() {
   const hintEl = document.getElementById('chatContactsHint');
   const { term, plaza, rol, status, hasFilters } = _chatFilterState();
 
-  let ultimosMensajes = {};
-  let noLeidos = {};
+  const ultimosMensajes = {};
+  const noLeidos = {};
+  const lastMessageTs = {};
 
   // Agrupamos los mensajes por conversación
   allChatMessages.forEach(m => {
-    let elOtro = _chatUserName(m.esMio ? m.destinatario : m.remitente);
+    const elOtro = _chatUserName(m.esMio ? m.destinatario : m.remitente);
     if (!elOtro) return;
-    if (!ultimosMensajes[elOtro]) {
+    const ts = _chatMessageTimestamp(m);
+    if (!ultimosMensajes[elOtro] || ts > (lastMessageTs[elOtro] || 0)) {
       ultimosMensajes[elOtro] = m;
-      noLeidos[elOtro] = 0;
+      lastMessageTs[elOtro] = ts;
     }
+    if (typeof noLeidos[elOtro] !== 'number') noLeidos[elOtro] = 0;
     if (!m.esMio && !m.leido) noLeidos[elOtro]++;
   });
 
@@ -12166,6 +12171,7 @@ function renderContactos() {
     const sameRole = rol ? _sanitizeRole(user.rol) === rol : true;
     const sameStatus = status ? String(user.status || 'ACTIVO').trim().toUpperCase() === status : true;
     const hasConversation = Boolean(ultimosMensajes[nombre]);
+    const isArchived = hasConversation && _chatIsArchived(nombre, lastMessageTs[nombre]);
     const inDefaultScope = _normalizePlaza(user.plazaAsignada) === _normalizePlaza(_miPlaza()) || hasConversation || nombre === _chatUserName(activeChatUser);
     const searchable = [
       user.usuario,
@@ -12179,6 +12185,8 @@ function renderContactos() {
 
     if (!samePlaza || !sameRole || !sameStatus) return false;
     if (term && !searchable) return false;
+    if (_chatArchivedMode) return hasConversation && isArchived;
+    if (isArchived) return false;
     return hasFilters ? true : inDefaultScope;
   });
 
@@ -12212,15 +12220,29 @@ function renderContactos() {
     return nameA.localeCompare(nameB);
   });
 
+  const archivedCount = Object.keys(lastMessageTs)
+    .filter(nombre => _chatIsArchived(nombre, lastMessageTs[nombre]))
+    .length;
+  _syncChatArchiveUi({ archivedCount, visibleCount: usuariosMostrar.length });
+
   if (hintEl) {
-    const baseHint = hasFilters
-      ? 'Búsqueda global habilitada.'
-      : 'Mostrando tu plaza y chats existentes.';
-    hintEl.innerText = `${usuariosMostrar.length} contacto${usuariosMostrar.length === 1 ? '' : 's'} · ${baseHint}`;
+    if (_chatArchivedMode) {
+      hintEl.innerText = archivedCount > 0
+        ? `${usuariosMostrar.length} chat${usuariosMostrar.length === 1 ? '' : 's'} archivado${usuariosMostrar.length === 1 ? '' : 's'} listo${usuariosMostrar.length === 1 ? '' : 's'} para restaurar.`
+        : 'No tienes conversaciones archivadas.';
+    } else {
+      const baseHint = hasFilters
+        ? 'Búsqueda global habilitada.'
+        : 'Mostrando tu plaza y chats existentes.';
+      hintEl.innerText = `${usuariosMostrar.length} contacto${usuariosMostrar.length === 1 ? '' : 's'} · ${baseHint}${archivedCount ? ` · ${archivedCount} archivado${archivedCount === 1 ? '' : 's'}` : ''}`;
+    }
   }
 
   if (usuariosMostrar.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b; font-weight:700;">${hasFilters ? 'No hay contactos que coincidan con tu búsqueda.' : 'No hay contactos disponibles en tu plaza todavía.'}</div>`;
+    const emptyCopy = _chatArchivedMode
+      ? 'No hay conversaciones archivadas por ahora.'
+      : (hasFilters ? 'No hay contactos que coincidan con tu búsqueda.' : 'No hay contactos disponibles en tu plaza todavía.');
+    container.innerHTML = `<div style="text-align:center; padding:34px 20px; color:#64748b; font-weight:700; border:1px dashed #dbe4ee; border-radius:20px; background:#f8fbff;">${emptyCopy}</div>`;
     return;
   }
 
@@ -12228,36 +12250,60 @@ function renderContactos() {
     const uName = _chatUserName(u.usuario || u.nombre);
     const unread = noLeidos[uName] || 0;
     const lastMsg = ultimosMensajes[uName];
+    const lastTs = lastMessageTs[uName] || 0;
+    const isArchived = Boolean(lastMsg) && _chatIsArchived(uName, lastTs);
     const avatar = _buildAvatarMarkup(u, uName);
     const online = _userPresenceIsOnline(u);
     const plazaLabel = _normalizePlaza(u.plazaAsignada || '') || 'Sin plaza';
     const roleLabel = u.roleLabel || u.rol || 'Sin rol';
+    const encodedName = encodeURIComponent(uName);
+    const activeClass = _chatUserName(activeChatUser) === uName ? ' active' : '';
+    const unreadClass = unread > 0 ? ' unread' : '';
+    const archivedClass = isArchived ? ' archived' : '';
 
-    let snippet = `${plazaLabel} · ${roleLabel}`;
+    let snippet = lastMsg ? _chatMessageSnippet(lastMsg) : 'Toca para iniciar conversación';
     let dateStr = '';
     let dateClass = 'chat-contact-time';
     let unreadBadge = '';
     let snippetClass = 'chat-contact-snippet';
     const presenceClass = online ? 'online' : 'offline';
-    const presenceLabel = online ? 'En línea' : _chatPresenceLabel(u);
+    const presenceLabel = online ? 'En línea' : 'Sin conexión';
+    const summaryLine = `${roleLabel} · ${plazaLabel}`;
 
     if (lastMsg) {
       const rawText = _chatMessageSnippet(lastMsg);
       const raw = lastMsg.esMio ? `Tú: ${rawText}` : rawText;
-      snippet = raw.length > 35 ? raw.substring(0, 35) + "…" : raw;
-      dateStr = _chatListTimeLabel(_chatMessageTimestamp(lastMsg));
+      snippet = raw.length > 58 ? raw.substring(0, 58) + "…" : raw;
+      dateStr = _chatListTimeLabel(lastTs);
     } else if (online) {
       dateStr = 'En línea';
     }
 
     if (unread > 0) {
-      unreadBadge = `<span class="chat-contact-pill unread"><span class="material-icons">mark_chat_unread</span>${unread}</span>`;
+      unreadBadge = `<span class="chat-contact-badge unread">${unread}</span>`;
       snippetClass += ' unread';
       dateClass += ' has-unread';
     }
 
+    const archivedBadge = isArchived ? `<span class="chat-contact-mini-badge">Archivado</span>` : '';
+    const infoButton = `
+      <button class="chat-contact-action" type="button" data-user-id="${escapeHtml(u.email || uName)}"
+        onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)" title="Ver contacto">
+        <span class="material-icons" style="font-size:16px;">info</span>
+      </button>
+    `;
+    const archiveButton = lastMsg
+      ? `
+        <button class="chat-contact-action${isArchived ? ' restore' : ''}" type="button"
+          onclick="event.stopPropagation(); ${isArchived ? `_restoreChatConversation(decodeURIComponent('${encodedName}'))` : `_archiveChatConversation(decodeURIComponent('${encodedName}'), ${lastTs})`}"
+          title="${isArchived ? 'Restaurar conversación' : 'Archivar conversación'}">
+          <span class="material-icons" style="font-size:16px;">${isArchived ? 'unarchive' : 'delete_outline'}</span>
+        </button>
+      `
+      : '';
+
     return `
-      <div class="chat-contact" data-chat-name="${escapeHtml(uName)}" onclick="abrirChat(this.dataset.chatName)">
+      <div class="chat-contact${activeClass}${unreadClass}${archivedClass}" data-chat-name="${escapeHtml(uName)}" onclick="abrirChat(this.dataset.chatName)">
         <button class="chat-avatar chat-avatar-button" data-user-id="${escapeHtml(u.email || uName)}"
           onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)"
           style="background:${avatar.background}; width:48px; height:48px; font-size:18px; flex-shrink:0;">
@@ -12266,23 +12312,28 @@ function renderContactos() {
         </button>
         <div class="chat-contact-main">
           <div class="chat-contact-top">
-            <div class="chat-contact-name-row">
-              <span class="chat-contact-name">${escapeHtml(uName)}</span>
+            <div class="chat-contact-heading">
+              <div class="chat-contact-name-row">
+                <span class="chat-contact-name">${escapeHtml(uName)}</span>
+                ${archivedBadge}
+              </div>
+              <div class="chat-contact-subline">${escapeHtml(summaryLine)}</div>
             </div>
-            <span class="${dateClass}">${escapeHtml(dateStr || '')}</span>
-          </div>
-          <div class="chat-contact-meta">
-            <span class="chat-contact-pill"><span class="material-icons">apartment</span>${escapeHtml(plazaLabel)}</span>
-            <span class="chat-contact-pill"><span class="material-icons">badge</span>${escapeHtml(roleLabel)}</span>
-            <span class="chat-contact-pill presence ${presenceClass}"><span class="material-icons">${online ? 'circle' : 'schedule'}</span>${escapeHtml(presenceLabel)}</span>
+            <div class="chat-contact-side">
+              <span class="${dateClass}">${escapeHtml(dateStr || '')}</span>
+              ${unreadBadge}
+            </div>
           </div>
           <div class="chat-contact-bottom">
-            <span class="${snippetClass}">${escapeHtml(snippet)}</span>
-            ${unreadBadge}
-            <button class="chat-contact-info-btn" type="button" data-user-id="${escapeHtml(u.email || uName)}"
-              onclick="event.stopPropagation(); abrirInfoContacto(this.dataset.userId)">
-              <span class="material-icons" style="font-size:18px;">more_horiz</span>
-            </button>
+            <span class="${snippetClass}" title="${escapeHtml(snippet)}">${escapeHtml(snippet)}</span>
+            <div class="chat-contact-actions">
+              <span class="chat-contact-presence ${presenceClass}">
+                <span class="material-icons" style="font-size:12px;">${online ? 'circle' : 'schedule'}</span>
+                ${escapeHtml(presenceLabel)}
+              </span>
+              ${infoButton}
+              ${archiveButton}
+            </div>
           </div>
         </div>
       </div>
@@ -12569,6 +12620,7 @@ async function enviarMensajeChat() {
   const txt = input.value.trim();
   if (!txt && !pendingChatFile && !pendingAudioBlob) return;
   if (!activeChatUser) return;
+  _restoreChatConversation(activeChatUser, { silent: true });
 
   input.value = "";
   input.style.height = "auto";
@@ -12766,13 +12818,17 @@ function iniciarRespuestaChat(mIdSafe) {
 
 // ── Lightbox ──
 function abrirLightboxChat(url) {
-  const lb = document.getElementById('chatLightbox');
+  const lb = document.getElementById('chatLightboxOverlay');
   const img = document.getElementById('chatLightboxImg');
+  const dl = document.getElementById('chatLightboxDownload');
+  if (!lb || !img) return;
   img.src = url;
-  lb.classList.add('active');
+  if (dl) dl.href = url;
+  lb.style.display = 'flex';
 }
 function cerrarLightboxChat() {
-  document.getElementById('chatLightbox').classList.remove('active');
+  const lb = document.getElementById('chatLightboxOverlay');
+  if (lb) lb.style.display = 'none';
 }
 
 // ── Emoji Reactions ──
@@ -18779,8 +18835,10 @@ Object.assign(window, {
   _togglePlazaPicker,
   // Chat / perfil
   _actualizarHeaderChatActivo,
+  _archiveChatConversation,
   _renderChatFilterOptions,
   _renderPerfilUsuarioActual,
+  _restoreChatConversation,
   _abrirProgrammerConsoleRoute,
   abrirInfoContacto,
   abrirInfoContactoActivo,
@@ -18792,11 +18850,14 @@ Object.assign(window, {
   eliminarAvatarPerfil,
   limpiarFiltrosChat,
   openNotificationCenter,
+  prepararNuevoChat,
   guardarAvatarRecortadoPerfil,
   solicitarPermisoNotificacionesDispositivo,
   subirAvatarPerfil,
   ajustarZoomAvatarPerfil,
   _setChatReplyHoverState,
+  toggleArchivadosChat,
+  toggleArchivoChatActivo,
   // Fase 3
   _togglePlazaTemporal,
   abrirComparadorPlazas,
