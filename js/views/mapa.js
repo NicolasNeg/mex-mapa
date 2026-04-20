@@ -16031,7 +16031,11 @@ function renderizarListaConfig() {
       || (esGerentePlaza ? myPlaza : '');
     if (activePlazaFilter) {
       const apfUp = activePlazaFilter.toUpperCase();
-      lista = lista.filter(item => !item.plazaId || (item.plazaId || '').toUpperCase() === apfUp);
+      lista = lista.filter(item =>
+        !item.plazaId ||
+        item.plazaId === 'ALL' ||
+        (item.plazaId || '').toUpperCase() === apfUp
+      );
     }
   }
 
@@ -17235,7 +17239,8 @@ function _llenarSelectPlazasUbi(selectId, selected) {
   const sel = document.getElementById(selectId);
   if (!sel) return;
   const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
-  sel.innerHTML = '<option value="">— Todas las plazas —</option>' +
+  sel.innerHTML =
+    `<option value="ALL"${selected === 'ALL' ? ' selected' : ''}>🌐 Todas las plazas (ALL)</option>` +
     plazas.map(p => `<option value="${escapeHtml(p)}"${p === selected ? ' selected' : ''}>${escapeHtml(p)}</option>`).join('');
 }
 
@@ -17762,12 +17767,13 @@ function llenarSelectsDinamicos() {
   ['filter-est', 'f_est', 'a_ins_est', 'a_mod_est'].forEach(id => _setOptions(id, estOpts));
 
   // Filtrar ubicaciones siempre por la plaza activa para evitar mezclar plazas
+  // plazaId='ALL' siempre aparece en todas las plazas
   let ubicFiltradas = ubicaciones;
   const miP = (_miPlaza() || '').toUpperCase();
   if (miP) {
     ubicFiltradas = ubicaciones.filter(u => {
       const plazaId = ((typeof u === 'object' ? u.plazaId : null) || '').toUpperCase();
-      return !plazaId || plazaId === miP;
+      return !plazaId || plazaId === 'ALL' || plazaId === miP;
     });
   }
 
