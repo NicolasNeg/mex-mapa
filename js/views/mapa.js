@@ -3455,6 +3455,7 @@ function dibujarMapaCompleto(estructura = null) {
     fragment.appendChild(div);
   });
   grid.appendChild(fragment);
+  _bindMapDropZones();
 
   _ajustarViewportMapa();
 
@@ -3656,6 +3657,7 @@ function _flushMapaSync() {
   });
 
   _bindMapDragDropEvents();
+  _bindMapDropZones();
 
   if (huboCambios) {
     actualizarContadores();
@@ -3883,6 +3885,7 @@ function _handleMapCarDragEnd() {
 
 function _handleMapDragOver(event) {
   if (!_mapDragState.sourceCar) return;
+  if (event.__mexMapDropHandled === true) return;
   const zone = _resolveMapDropZone(event.target);
   if (!zone) return;
   event.preventDefault();
@@ -3892,9 +3895,32 @@ function _handleMapDragOver(event) {
 
 async function _handleMapDrop(event) {
   if (!_mapDragState.sourceCar) return;
+  if (event.__mexMapDropHandled === true) return;
   const zone = _resolveMapDropZone(event.target) || _mapDragState.currentZone;
   if (!zone) return;
   event.preventDefault();
+  _mapDragSuppressClickUntil = Date.now() + 350;
+  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
+  _finishMapDrag();
+}
+
+function _handleMapZoneDragOver(event) {
+  if (!_mapDragState.sourceCar) return;
+  const zone = _resolveMapDropZone(event.currentTarget) || _resolveMapDropZone(event.target);
+  if (!zone) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  _updateMapDropHighlight(zone, _mapDragState.sourceCar);
+}
+
+async function _handleMapZoneDrop(event) {
+  if (!_mapDragState.sourceCar) return;
+  const zone = _resolveMapDropZone(event.currentTarget) || _resolveMapDropZone(event.target);
+  if (!zone) return;
+  event.preventDefault();
+  event.stopPropagation();
+  event.__mexMapDropHandled = true;
   _mapDragSuppressClickUntil = Date.now() + 350;
   await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
   _finishMapDrag();
@@ -3970,6 +3996,19 @@ function _bindMapDragDropEvents() {
   _mapaRuntime.dragBindingsBound = true;
 }
 
+function _bindMapDropZoneInteractions(zone) {
+  if (!zone || zone.dataset.mapDropBound === '1') return;
+  zone.dataset.mapDropBound = '1';
+  zone.addEventListener('dragover', _handleMapZoneDragOver);
+  zone.addEventListener('drop', _handleMapZoneDrop);
+}
+
+function _bindMapDropZones() {
+  document.querySelectorAll('.spot').forEach(_bindMapDropZoneInteractions);
+  _bindMapDropZoneInteractions(document.getElementById('unidades-limbo'));
+  _bindMapDropZoneInteractions(document.getElementById('unidades-taller'));
+}
+
 function _bindCarMapInteractions(car) {
   if (!car || car.dataset.dragBound === '1') return;
   car.dataset.dragBound = '1';
@@ -4021,12 +4060,14 @@ document.addEventListener('click', (e) => {
 
   if (MAP_SWAP_MODE_ACTIVE && selectedAuto) {
     if (carClicked && carClicked !== selectedAuto) {
-      mostrarConfirmacionSwap(selectedAuto, carClicked, carClicked.parentElement);
+      e.preventDefault();
+      void mostrarConfirmacionSwap(selectedAuto, carClicked, carClicked.parentElement);
       e.stopPropagation();
       return;
     }
     if (spotClicked && !carClicked) {
-      moverUnidadInmediato(selectedAuto, spotClicked);
+      e.preventDefault();
+      void _handleMapUnitDrop(selectedAuto, spotClicked);
       e.stopPropagation();
       return;
     }
@@ -4039,7 +4080,7 @@ document.addEventListener('click', (e) => {
   }
 
   if (spotClicked && selectedAuto) {
-    _handleMapUnitDrop(selectedAuto, spotClicked);
+    void _handleMapUnitDrop(selectedAuto, spotClicked);
   }
 });
 
