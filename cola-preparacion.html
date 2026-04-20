@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="es" class="programmer-route cola-route" data-page-title="Cola de preparacion" data-page-description="Cola operativa de preparacion de %COMPANY%">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Cola operativa de preparacion">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/img/logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="/config.js"></script>
+  <script src="/js/core/firebase-init.js"></script>
+  <script src="/js/core/app-bootstrap.js"></script>
+
+  <title>Cola de preparacion</title>
+</head>
+<body class="programmer-page cola-page">
+  <div class="prep-shell">
+    <header class="prep-topbar">
+      <div class="prep-topbar-main">
+        <a class="prep-back-btn" href="/cuadre">
+          <span class="material-icons" style="font-size:18px;">arrow_back</span>
+          Volver
+        </a>
+        <div class="prep-brand">
+          <div class="prep-kicker">Fase 5.1</div>
+          <h1>Cola de preparacion</h1>
+          <p>Checklist operativo de unidades proximas a salir, con prioridad visual y orden manual.</p>
+        </div>
+      </div>
+      <div class="prep-topbar-side">
+        <div class="prep-user-card">
+          <div id="prepUserAvatar" class="prep-user-avatar">CP</div>
+          <div class="prep-user-copy">
+            <strong id="prepUserName">Cargando...</strong>
+            <span id="prepUserMeta">Validando identidad</span>
+          </div>
+        </div>
+        <a class="prep-link-btn" href="/mapa">
+          <span class="material-icons" style="font-size:18px;">map</span>
+          Mapa
+        </a>
+      </div>
+    </header>
+
+    <main class="prep-main">
+      <section class="prep-command-bar">
+        <div class="prep-command-left">
+          <label class="prep-field prep-plaza-field">
+            <span>Plaza activa</span>
+            <select id="prepPlazaSelect"></select>
+          </label>
+          <label class="prep-field prep-search-field">
+            <span>Buscar</span>
+            <div class="prep-input-shell">
+              <span class="material-icons" style="font-size:18px;">search</span>
+              <input id="prepSearchInput" type="search" placeholder="Buscar por MVA, notas o responsable">
+            </div>
+          </label>
+        </div>
+        <div class="prep-command-right">
+          <div class="prep-filter-row" id="prepFilterRow">
+            <button type="button" class="prep-filter-chip is-active" data-filter="all">Todo</button>
+            <button type="button" class="prep-filter-chip" data-filter="urgent">Urgente</button>
+            <button type="button" class="prep-filter-chip" data-filter="pending">Pendiente</button>
+            <button type="button" class="prep-filter-chip" data-filter="ready">Lista</button>
+            <button type="button" class="prep-filter-chip" data-filter="mine">Asignadas a mi</button>
+          </div>
+          <button id="prepAddBtn" type="button" class="prep-primary-btn">
+            <span class="material-icons" style="font-size:18px;">playlist_add</span>
+            Nueva salida
+          </button>
+        </div>
+      </section>
+
+      <section class="prep-stats-grid" id="prepStatsGrid">
+        <article class="prep-stat-card accent-blue">
+          <span class="prep-stat-label">En cola</span>
+          <strong id="prepStatTotal">0</strong>
+          <small>Unidades activas para preparacion</small>
+        </article>
+        <article class="prep-stat-card accent-amber">
+          <span class="prep-stat-label">Urgentes</span>
+          <strong id="prepStatUrgent">0</strong>
+          <small>Salida en 24 horas o menos</small>
+        </article>
+        <article class="prep-stat-card accent-green">
+          <span class="prep-stat-label">Listas</span>
+          <strong id="prepStatReady">0</strong>
+          <small>Checklist completo y salida validada</small>
+        </article>
+        <article class="prep-stat-card accent-slate">
+          <span class="prep-stat-label">Avance</span>
+          <strong id="prepStatProgress">0%</strong>
+          <small>Promedio general del checklist</small>
+        </article>
+      </section>
+
+      <section class="prep-workspace">
+        <div class="prep-board">
+          <div class="prep-panel-head">
+            <div>
+              <div class="prep-panel-kicker">Orden operativo</div>
+              <h2>Fila de preparacion</h2>
+            </div>
+            <div id="prepBoardMeta" class="prep-panel-meta">Esperando datos...</div>
+          </div>
+          <div id="prepList" class="prep-list" aria-live="polite"></div>
+        </div>
+
+        <aside class="prep-detail">
+          <div class="prep-panel-head">
+            <div>
+              <div class="prep-panel-kicker">Detalle</div>
+              <h2 id="prepDetailTitle">Selecciona una unidad</h2>
+            </div>
+            <button id="prepDeleteBtn" type="button" class="prep-danger-btn" disabled>
+              <span class="material-icons" style="font-size:18px;">delete</span>
+              Eliminar
+            </button>
+          </div>
+
+          <div id="prepEmptyDetail" class="prep-empty-state">
+            <span class="material-icons">task_alt</span>
+            <h3>Sin unidad seleccionada</h3>
+            <p>Elige una tarjeta de la cola para revisar checklist, notas, responsable y fecha de salida.</p>
+          </div>
+
+          <form id="prepDetailForm" class="prep-detail-form" style="display:none;">
+            <div class="prep-detail-hero">
+              <div>
+                <div id="prepDetailMva" class="prep-detail-mva">MVA</div>
+                <div id="prepDetailUnitMeta" class="prep-detail-meta">Sin expediente local</div>
+              </div>
+              <div id="prepDetailEta" class="prep-eta-pill">Sin fecha</div>
+            </div>
+
+            <div class="prep-progress-card">
+              <div class="prep-progress-head">
+                <span>Checklist general</span>
+                <strong id="prepDetailProgressLabel">0%</strong>
+              </div>
+              <div class="prep-progress-bar">
+                <span id="prepDetailProgressFill"></span>
+              </div>
+            </div>
+
+            <div id="prepChecklistGrid" class="prep-checklist-grid"></div>
+
+            <div class="prep-form-grid">
+              <label class="prep-field">
+                <span>Fecha y hora de salida</span>
+                <input id="prepDepartureInput" type="datetime-local">
+              </label>
+              <label class="prep-field">
+                <span>Asignado a</span>
+                <input id="prepAssignedInput" type="text" list="prepUsersDatalist" placeholder="Correo o nombre del operativo">
+                <datalist id="prepUsersDatalist"></datalist>
+              </label>
+            </div>
+
+            <label class="prep-field">
+              <span>Notas operativas</span>
+              <textarea id="prepNotesInput" rows="6" placeholder="Ej: falta lavado interior, tanque a 3/4, validar documentos antes de las 18:00"></textarea>
+            </label>
+
+            <div class="prep-detail-actions">
+              <button type="submit" class="prep-primary-btn">
+                <span class="material-icons" style="font-size:18px;">save</span>
+                Guardar cambios
+              </button>
+              <button id="prepResetDeleteBtn" type="button" class="prep-link-btn" style="display:none;">
+                <span class="material-icons" style="font-size:18px;">undo</span>
+                Cancelar borrado
+              </button>
+            </div>
+          </form>
+        </aside>
+      </section>
+    </main>
+  </div>
+
+  <div id="prepModal" class="prep-modal-overlay" style="display:none;" onclick="if(event.target===this)window.__prepCloseCreateModal?.()">
+    <div class="prep-modal-card">
+      <div class="prep-modal-head">
+        <div>
+          <div class="prep-panel-kicker">Nueva salida</div>
+          <h3>Agregar unidad a la cola</h3>
+          <p>Registra manualmente la siguiente preparacion si aun no existe en la cola.</p>
+        </div>
+        <button type="button" class="prep-icon-btn" onclick="window.__prepCloseCreateModal?.()">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+
+      <form id="prepCreateForm" class="prep-modal-form">
+        <div class="prep-form-grid">
+          <label class="prep-field">
+            <span>MVA</span>
+            <input id="prepCreateMva" type="text" maxlength="12" placeholder="Ej: A5256" autocomplete="off" required>
+          </label>
+          <label class="prep-field">
+            <span>Fecha y hora de salida</span>
+            <input id="prepCreateDeparture" type="datetime-local" required>
+          </label>
+        </div>
+
+        <div class="prep-form-grid">
+          <label class="prep-field">
+            <span>Asignado a</span>
+            <input id="prepCreateAssigned" type="text" list="prepUsersDatalist" placeholder="Correo o nombre del operativo">
+          </label>
+          <label class="prep-field">
+            <span>Plaza</span>
+            <input id="prepCreatePlaza" type="text" readonly>
+          </label>
+        </div>
+
+        <label class="prep-field">
+          <span>Notas iniciales</span>
+          <textarea id="prepCreateNotes" rows="4" placeholder="Checklist especial, prioridad o comentario de patio"></textarea>
+        </label>
+
+        <div class="prep-modal-actions">
+          <button type="button" class="prep-link-btn" onclick="window.__prepCloseCreateModal?.()">Cancelar</button>
+          <button type="submit" class="prep-primary-btn">
+            <span class="material-icons" style="font-size:18px;">add_task</span>
+            Guardar en cola
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="prepToastStack" class="prep-toast-stack" aria-live="polite"></div>
+
+  <script src="/js/core/sw-register.js"></script>
+  <script type="module" src="/js/views/cola-preparacion.js"></script>
+</body>
+</html>

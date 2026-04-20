@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v138';
+const CACHE_NAME = 'mapa-v139';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -76,6 +76,9 @@ const SHELL_ASSETS = [
   '/css/notificaciones.css',
   '/css/programador.css',
   '/css/incidencias.css',
+  '/css/cola-preparacion.css',
+  '/cola-preparacion.html',
+  '/js/views/cola-preparacion.js',
   // Fuentes de Google — se cachean en runtime la primera vez que se descargan
 ];
 

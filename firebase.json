@@ -81,6 +81,7 @@
       { "source": "/cuadre",      "destination": "/cuadre.html" },
       { "source": "/mensajes",    "destination": "/mensajes.html" },
       { "source": "/profile",     "destination": "/profile.html" },
+      { "source": "/cola-preparacion", "destination": "/cola-preparacion.html" },
       { "source": "/editmap",     "destination": "/editmap.html" },
       { "source": "/editmap/**",  "destination": "/editmap.html" },
       { "source": "/solicitud",     "destination": "/solicitud.html" },

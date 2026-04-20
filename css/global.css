@@ -12,7 +12,9 @@
  *   config.css        — Panel config (cfg-*), plazas, empresa, editor de mapa
  *   mensajes.css      — Chat y mensajes
  *   notificaciones.css — Centro de notificaciones, perfil
- *   programador.css   — Centro de Control (programador.html)
+ *   programador.css      — Centro de Control (programador.html)
+ *   cola-preparacion.css — Cola de preparación de unidades (CODEX · Fase 5.1)
+ *   incidencias.css      — Kanban de incidencias (Fase 5.4)
  */
 
 @import url('base.css');
@@ -22,3 +24,5 @@
 @import url('mensajes.css');
 @import url('notificaciones.css');
 @import url('programador.css');
+@import url('cola-preparacion.css');
+@import url('incidencias.css');
