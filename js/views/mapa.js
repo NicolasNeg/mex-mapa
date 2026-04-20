@@ -45,6 +45,46 @@ const APP_BUILD_TAG = 'mapa-v79';
 const ADMIN_LOCATION_CACHE_MS = 90000;
 const STANDALONE_ROUTE_RE = /^\/(?:editmap|profile)(?:\/|$)/i;
 const SHOULD_SKIP_MAIN_MAP_BOOTSTRAP = STANDALONE_ROUTE_RE.test(window.location.pathname || '');
+const EDITMAP_STANDALONE_ROUTE_RE = /^\/(?:editmap)(?:\/|$)/i;
+const EDITMAP_ACTIVE_PLAZA_KEY = 'mex:last-active-plaza';
+const EDITMAP_LAST_ROUTE_PLAZA_KEY = 'mex:last-editmap-plaza';
+
+function _rememberActivePlaza(plaza, options = {}) {
+  const { forEditmap = false } = options;
+  const normalized = _normalizePlaza(plaza || '');
+  window.__mexCurrentPlazaId = normalized;
+  if (normalized) {
+    window.PLAZA_ACTIVA_MAPA = normalized;
+  }
+  try {
+    if (normalized) {
+      sessionStorage.setItem(EDITMAP_ACTIVE_PLAZA_KEY, normalized);
+      if (forEditmap) sessionStorage.setItem(EDITMAP_LAST_ROUTE_PLAZA_KEY, normalized);
+    } else {
+      sessionStorage.removeItem(EDITMAP_ACTIVE_PLAZA_KEY);
+      if (forEditmap) sessionStorage.removeItem(EDITMAP_LAST_ROUTE_PLAZA_KEY);
+    }
+  } catch (_) { /* noop */ }
+  return normalized;
+}
+
+function _clearRememberedPlaza() {
+  window.__mexCurrentPlazaId = '';
+  try {
+    sessionStorage.removeItem(EDITMAP_ACTIVE_PLAZA_KEY);
+    sessionStorage.removeItem(EDITMAP_LAST_ROUTE_PLAZA_KEY);
+  } catch (_) { /* noop */ }
+}
+
+function abrirRutaEditmap(plazaOverride = '') {
+  const targetPlaza = _rememberActivePlaza(
+    plazaOverride || _miPlaza() || currentUserProfile?.plazaAsignada || '',
+    { forEditmap: true }
+  );
+  window.location.href = targetPlaza
+    ? `/editmap/${encodeURIComponent(targetPlaza)}`
+    : '/editmap';
+}
 
 
 // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
@@ -1006,8 +1046,9 @@ function _setSessionProfile(profile) {
   userRole = (profile.isAdmin || _roleMeta(userAccessRole).isAdmin) ? 'admin' : 'visitante';
   isGlobalAdmin = _roleMeta(userAccessRole).fullAccess;
   // Inicializar plaza activa del mapa con la plaza del usuario
-  PLAZA_ACTIVA_MAPA = profile.plazaAsignada || '';
+  PLAZA_ACTIVA_MAPA = _normalizePlaza(profile.plazaAsignada || profile.plaza || '');
   window.CURRENT_USER_PROFILE = profile;
+  _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
   _updateGlobalPlazaEmail();
   console.log('[MEX-INTEG] _setSessionProfile →', { email: profile.email, rol: userAccessRole, plaza: PLAZA_ACTIVA_MAPA || '(sin plaza)', userRole, fullAccess: isGlobalAdmin });
 }
@@ -1019,7 +1060,7 @@ function _clearSessionProfile() {
   userRole = null;
   isGlobalAdmin = false;
   window.CURRENT_USER_PROFILE = null;
-  window.__mexCurrentPlazaId = '';
+  _clearRememberedPlaza();
   if (typeof window.getPlazaActualEmail === 'function') window.PLAZA_ACTUAL_EMAIL = window.getPlazaActualEmail('');
 }
 
@@ -2826,9 +2867,11 @@ function startAutoRefresh() {
 
 // Cambia la plaza activa en el mapa y reinicia las suscripciones
 function cambiarPlazaMapa(plaza) {
-  if (!plaza || PLAZA_ACTIVA_MAPA === plaza) return;
-  console.log('[MEX-INTEG] cambiarPlazaMapa →', { de: PLAZA_ACTIVA_MAPA || '(sin plaza)', a: plaza });
-  PLAZA_ACTIVA_MAPA = plaza;
+  const normalizedPlaza = _normalizePlaza(plaza || '');
+  if (!normalizedPlaza || PLAZA_ACTIVA_MAPA === normalizedPlaza) return;
+  console.log('[MEX-INTEG] cambiarPlazaMapa →', { de: PLAZA_ACTIVA_MAPA || '(sin plaza)', a: normalizedPlaza });
+  PLAZA_ACTIVA_MAPA = normalizedPlaza;
+  _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
   _updateGlobalPlazaEmail();
   _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
   _renderPlazaSwitcher();
@@ -14345,8 +14388,9 @@ function abrirEditorMapa(plazaOverride) {
   console.log('[DEBUG] abrirEditorMapa', { role: userAccessRole, canAdmin: canOpenAdminPanel(), modal: !!document.getElementById('modal-editor-mapa'), plazaOverride });
   // Si se pasa una plaza explícita (desde /editmap/PLAZA), sobreescribir la activa
   if (plazaOverride) {
-    PLAZA_ACTIVA_MAPA = String(plazaOverride).trim().toUpperCase();
-    window.PLAZA_ACTIVA_MAPA = PLAZA_ACTIVA_MAPA;
+    PLAZA_ACTIVA_MAPA = _rememberActivePlaza(plazaOverride, { forEditmap: true });
+  } else {
+    _rememberActivePlaza(_miPlaza(), { forEditmap: true });
   }
   toggleAdminSidebar(false);
   const _edModal = document.getElementById('modal-editor-mapa');
@@ -14377,7 +14421,16 @@ function abrirEditorMapa(plazaOverride) {
       y: c.y ?? 0,       // [F2]
       width: c.width ?? _ED_DEFAULT_W, // [F2]
       height: c.height ?? _ED_DEFAULT_H, // [F2]
-      rotation: c.rotation ?? 0        // [F2]
+      rotation: c.rotation ?? 0,       // [F2]
+      zone: c.zone ?? null,
+      subzone: c.subzone ?? null,
+      isReserved: c.isReserved === true,
+      isBlocked: c.isBlocked === true,
+      isTemporaryHolding: c.isTemporaryHolding === true,
+      allowedCategories: Array.isArray(c.allowedCategories) ? [...c.allowedCategories] : [],
+      priority: Number(c.priority) || 0,
+      googleMapsUrl: c.googleMapsUrl ?? null,
+      pathType: c.pathType ?? null
     }));
     _renderEditorCanvas();
     _edSyncEditorHud();
@@ -14803,7 +14856,16 @@ function _edClickLibre(cx, cy) {
     id: 'ec_new_' + Date.now(), valor: nombre, tipo, esLabel: tipo === 'label',
     orden: _edCeldas.length,
     x: Math.max(0, cx - Math.round(w / 2)), y: Math.max(0, cy - Math.round(h / 2)), // [F2]
-    width: w, height: h, rotation: 0 // [F2]
+    width: w, height: h, rotation: 0, // [F2]
+    zone: null,
+    subzone: null,
+    isReserved: false,
+    isBlocked: false,
+    isTemporaryHolding: false,
+    allowedCategories: [],
+    priority: 0,
+    googleMapsUrl: null,
+    pathType: null
   };
   _edCeldas.push(nueva);
   _edModo = null;
@@ -14901,7 +14963,16 @@ function editorAgregarForma(tipo) {
     [0, 1, 2].forEach(i => {
       const c = {
         id: 'ec_new_' + Date.now() + i, valor: `C${_edCeldas.length + 1}`, tipo: 'cajon', esLabel: false,
-        orden: _edCeldas.length, x: baseX + i * 84, y, width: 80, height: 80, rotation: 0
+        orden: _edCeldas.length, x: baseX + i * 84, y, width: 80, height: 80, rotation: 0,
+        zone: null,
+        subzone: null,
+        isReserved: false,
+        isBlocked: false,
+        isTemporaryHolding: false,
+        allowedCategories: [],
+        priority: 0,
+        googleMapsUrl: null,
+        pathType: null
       };
       _edCeldas.push(c);
       nuevas.push(c);
@@ -14915,7 +14986,16 @@ function editorAgregarForma(tipo) {
   const nueva = {
     id: 'ec_new_' + Date.now(), valor: nombre, tipo: 'cajon', esLabel: false,
     orden: _edCeldas.length, x: baseX, y: baseY + (_edCeldas.length > 0 ? Math.max(..._edCeldas.map(c => c.y + c.height)) + 10 : 0),
-    width: w, height: h, rotation: 0
+    width: w, height: h, rotation: 0,
+    zone: null,
+    subzone: null,
+    isReserved: false,
+    isBlocked: false,
+    isTemporaryHolding: false,
+    allowedCategories: [],
+    priority: 0,
+    googleMapsUrl: null,
+    pathType: null
   };
   _edCeldas.push(nueva);
   _edSelectCelda(nueva);
@@ -15050,8 +15130,10 @@ function editorCambiarGrid(dim, delta) { /* [F2] sin efecto en canvas libre */ }
 
 function guardarMapaEditor(btn) {
   if (_edCeldas.length === 0) { showToast("El mapa está vacío", "error"); return; }
+  const saveLabelHtml = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS';
   btn.disabled = true;
   btn.innerHTML = '<span class="material-icons spinner" style="font-size:16px;">sync</span> Guardando...';
+  const isStandaloneEditmap = EDITMAP_STANDALONE_ROUTE_RE.test(window.location.pathname || '') || window.__MEX_EDITMAP_STANDALONE === true;
 
   // [F2] Payload con campos de posicionamiento absoluto
   const payload = _edCeldas.map((c, i) => ({
@@ -15063,22 +15145,35 @@ function guardarMapaEditor(btn) {
     y: Math.round(c.y || 0),       // [F2]
     width: Math.round(c.width || _ED_DEFAULT_W), // [F2]
     height: Math.round(c.height || _ED_DEFAULT_H), // [F2]
-    rotation: Math.round(c.rotation || 0)        // [F2]
+    rotation: Math.round(c.rotation || 0),       // [F2]
+    zone: c.zone ?? null,
+    subzone: c.subzone ?? null,
+    isReserved: c.isReserved === true,
+    isBlocked: c.isBlocked === true,
+    isTemporaryHolding: c.isTemporaryHolding === true,
+    allowedCategories: Array.isArray(c.allowedCategories) ? [...c.allowedCategories] : [],
+    priority: Number(c.priority) || 0,
+    googleMapsUrl: c.googleMapsUrl ?? null,
+    pathType: c.pathType ?? null
   }));
 
   const _plazaGuardado = _miPlaza();
+  _rememberActivePlaza(_plazaGuardado, { forEditmap: true });
   console.log('[MEX-INTEG] guardarMapaEditor →', { plaza: _plazaGuardado || '(sin plaza)', celdas: payload.length });
   if (!_plazaGuardado) {
     showToast('⚠️ No hay plaza activa para guardar el mapa. Selecciona una plaza.', 'warning');
     btn.disabled = false;
-    btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
+    btn.innerHTML = saveLabelHtml;
     return;
   }
   (window.api || api).guardarEstructuraMapa(payload, _plazaGuardado).then(res => {
     btn.disabled = false;
-    btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
+    btn.innerHTML = saveLabelHtml;
     if (res === 'OK') {
       showToast("✅ Mapa guardado correctamente", "success");
+      if (isStandaloneEditmap) {
+        return;
+      }
       setTimeout(() => {
         document.getElementById('modal-editor-mapa').classList.remove('active');
         dibujarMapaCompleto();
@@ -15086,7 +15181,7 @@ function guardarMapaEditor(btn) {
     }
   }).catch(err => {
     btn.disabled = false;
-    btn.innerHTML = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR';
+    btn.innerHTML = saveLabelHtml;
     showToast("Error: " + err, "error");
   });
 }
@@ -18534,6 +18629,7 @@ Object.assign(window, {
   abrirChat,
   abrirCreadorAlertas,
   abrirEditorMapa,
+  abrirRutaEditmap,
   abrirExpedienteAdmin,
   abrirExpedienteGlobal,
   abrirFormularioFlota,

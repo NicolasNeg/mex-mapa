@@ -25,7 +25,7 @@ html, body {
   align-items: center;
   padding: 0 16px;
   gap: 12px;
-  z-index: 500;
+  z-index: 76010;
 }
 
 .editmap-topbar-back {
@@ -64,6 +64,107 @@ html, body {
   font-size: 12px;
   font-weight: 800;
   color: #60a5fa;
+}
+
+.editmap-route-shell {
+  position: fixed;
+  inset: 56px 0 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at top, rgba(37,99,235,0.14), transparent 42%),
+    linear-gradient(180deg, rgba(7,18,36,0.98) 0%, rgba(7,18,36,1) 100%);
+}
+
+.editmap-route-card {
+  width: min(720px, 100%);
+  background: rgba(11,26,52,0.88);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: 0 28px 80px rgba(2,6,23,0.35);
+  backdrop-filter: blur(18px);
+}
+
+.editmap-route-icon {
+  font-size: 54px;
+  color: #38bdf8;
+  display: inline-flex;
+  margin-bottom: 16px;
+}
+
+.editmap-route-copy h1 {
+  margin: 0 0 10px;
+  font-size: 28px;
+  line-height: 1.1;
+  color: #f8fafc;
+}
+
+.editmap-route-copy p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #94a3b8;
+}
+
+.editmap-route-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.editmap-route-btn,
+.editmap-route-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 156px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(96,165,250,0.28);
+  background: rgba(37,99,235,0.14);
+  color: #dbeafe;
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.18s, background 0.18s, border-color 0.18s;
+}
+
+.editmap-route-btn:hover,
+.editmap-route-link:hover {
+  transform: translateY(-1px);
+  background: rgba(37,99,235,0.22);
+  border-color: rgba(96,165,250,0.42);
+}
+
+.editmap-route-btn.secondary {
+  border-color: rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.06);
+  color: #e2e8f0;
+}
+
+body[data-editmap-standalone="1"] #modal-editor-mapa {
+  position: fixed;
+  inset: 56px 0 0 0;
+  padding: 10px;
+  background: rgba(2, 6, 23, 0.54);
+  align-items: stretch;
+  justify-content: center;
+}
+
+body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-shell {
+  width: min(1780px, 100%);
+  max-height: calc(100svh - 76px);
+}
+
+body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-body {
+  min-height: 0;
 }
 
 /* ── Área de trabajo ── */
@@ -159,6 +260,26 @@ html, body {
     rgba(255,255,255,0.03) 29px,
     rgba(255,255,255,0.03) 30px
   );
+}
+
+@media (max-width: 980px) {
+  .editmap-route-card {
+    padding: 24px;
+    border-radius: 20px;
+  }
+
+  .editmap-route-copy h1 {
+    font-size: 23px;
+  }
+
+  .editmap-route-actions {
+    flex-direction: column;
+  }
+
+  .editmap-route-btn,
+  .editmap-route-link {
+    width: 100%;
+  }
 }
 
 /* ── Loading spinner ── */
