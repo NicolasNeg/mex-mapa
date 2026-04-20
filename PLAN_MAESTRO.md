@@ -1,9 +1,63 @@
 # MEX MAPA — Plan Maestro de Desarrollo
-> Última actualización: 2026-04-19
+> Última actualización: 2026-04-20
 > Para uso colaborativo: Claude Code + agentes externos
 >
 > REGLA GLOBAL: Nunca romper funcionalidad existente.
 > Toda refactorización es incremental. Siempre deployar y verificar antes de continuar.
+
+---
+
+## COORDINACIÓN DE AGENTES
+
+> Este bloque se actualiza cada vez que un agente comienza o termina una tarea.
+> Antes de tocar cualquier archivo, revisar aquí quién lo tiene tomado.
+
+### Asignación de Fases
+
+| Fase | Agente | Estado | Archivos principales | Notas |
+|---|---|---|---|---|
+| **0 — Fundamentos** | 🤖 Claude Code | 🟡 En progreso | `sw.js`, `package.json`, `scripts/`, `.firebaserc` | Staging + Sentry + auto-bump SW |
+| **1 — Refactor mapa.js** | 🤖 Claude Code | ⬜ Pendiente (después de Fase 0) | `js/views/mapa.js`, `js/features/**` | Requiere conocimiento profundo del archivo. NO tocar sin coordinación |
+| **2 — Dividir global.css** | 🤖 Claude Code | ⬜ Pendiente | `css/global.css`, `css/**` | Coordinar con Fase 1 para no duplicar trabajo |
+| **3 — PWA instalable** | 🤖 Agente externo | ⬜ Pendiente | `js/core/pwa-install.js` (nuevo), `mapa.html` (solo agregar banner) | NO modificar lógica existente de mapa.html |
+| **4 — Dashboard y analítica** | 🤖 Agente externo | ⬜ Pendiente | `js/features/dashboard/` (nuevo), `mapa.html` (agregar strip) | Leer datos de Firestore, no tocar lógica de mapa.js |
+| **5.1 — Cola de preparación** | 🤖 Agente externo | ⬜ Pendiente | `cola-preparacion.html` (nuevo), `js/views/cola-preparacion.js` (nuevo) | Página standalone, no toca mapa.js |
+| **5.2 — Semáforo de docs** | 🤖 Agente externo | ⬜ Pendiente | `functions/index.js`, campos en Firestore | Cloud Function cron + campos nuevos en unidades |
+| **5.3 — Comentarios por unidad** | 🤖 Agente externo | ⬜ Pendiente | Subcolección Firestore, panel lateral en mapa.html | Solo agregar HTML al panel de unidad, no tocar lógica |
+| **5.4 — Kanban incidencias** | 🤖 Agente externo | ⬜ Pendiente | `incidencias.html` (nuevo), `js/views/incidencias.js` (nuevo) | Página standalone |
+| **6 — REST API** | ⬜ Sin asignar | ⬜ Pendiente | `functions/api/v1.js` (nuevo) | Solo Cloud Functions, no toca frontend |
+| **7 — Escalabilidad datos** | ⬜ Sin asignar | ⬜ Pendiente | `scripts/migrate-config.js`, `api/*.js` | Requiere coordinación con Claude Code (toca api layer) |
+| **8 — Webhook reservas** | ⬜ Sin asignar | ⬜ Pendiente | `functions/`, `js/views/mapa.js` (modal) | Parte en functions, parte toca mapa.js → coordinar |
+
+---
+
+### Log de cambios por agente
+
+> Formato: `[FECHA] [AGENTE] [ACCIÓN] — descripción breve`
+> Agregar una línea aquí cada vez que se complete una tarea o se tome una decisión importante.
+
+```
+[2026-04-20] Claude Code — TOMÓ Fases 0, 1, 2
+[2026-04-20] Claude Code — CREÓ este documento PLAN_MAESTRO.md como punto de coordinación
+```
+
+---
+
+### Reglas de coordinación
+
+1. **Antes de empezar** una tarea: marcar estado como `🟡 En progreso` y agregar línea al log
+2. **Al terminar**: marcar como `✅ Completo`, agregar log con qué archivos se modificaron
+3. **Si un agente necesita tocar un archivo marcado por otro**: agregar nota en el log y esperar confirmación del usuario
+4. **Archivos EXCLUSIVOS de Claude Code** (no tocar sin coordinación):
+   - `js/views/mapa.js`
+   - `js/features/**` (directorio nuevo que Claude Code creará)
+   - `css/global.css` durante la Fase 2
+   - `api/*.js`
+5. **Archivos LIBRES** para el agente externo:
+   - Cualquier archivo nuevo en `js/views/` que sea página standalone
+   - `functions/index.js` para agregar nuevas Cloud Functions al final
+   - HTML de nuevas páginas standalone
+   - `firebase.json` solo para agregar nuevos rewrites al array existente
 
 ---
 
