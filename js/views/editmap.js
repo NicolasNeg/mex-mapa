@@ -31,18 +31,116 @@ let _dragCell    = null;
 let _dragStartMouse = null;
 let _dragStartPos   = null;
 
+const EDITMAP_BOOTSTRAP_PROGRAMMER_EMAILS = Object.freeze([
+  'angelarmentta@icloud.com'
+]);
+
+function _safeText(value) {
+  return String(value || '').trim();
+}
+
+function _upperText(value) {
+  return _safeText(value).toUpperCase();
+}
+
+function _lowerText(value) {
+  return _safeText(value).toLowerCase();
+}
+
+function _profileDocId(email) {
+  return _lowerText(email);
+}
+
+function _isBootstrapProgrammerEmail(email) {
+  return EDITMAP_BOOTSTRAP_PROGRAMMER_EMAILS.includes(_profileDocId(email));
+}
+
+async function _ensureBootstrapProgrammerProfile(user) {
+  const email = _profileDocId(user?.email || '');
+  if (!email || !_isBootstrapProgrammerEmail(email)) return null;
+
+  const nombre = _upperText(user?.displayName || 'PROGRAMADOR') || 'PROGRAMADOR';
+  const payload = {
+    email,
+    nombre,
+    usuario: nombre,
+    rol: 'PROGRAMADOR',
+    isAdmin: true,
+    isGlobal: true,
+    plazaAsignada: '',
+    telefono: '',
+    status: 'ACTIVO',
+    authUid: _safeText(user?.uid),
+    bootstrapProgrammer: true,
+    lastBootstrapLoginAt: Date.now()
+  };
+
+  await db.collection('usuarios').doc(email).set(payload, { merge: true });
+  return { id: email, ...payload };
+}
+
 // ── Auth guard ───────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
   if (!user) { window.location.replace('/login'); return; }
-  await _loadUserProfile(user.email);
+  await _loadUserProfile(user);
   _boot();
 });
 
-async function _loadUserProfile(email) {
+async function _loadUserProfile(user) {
+  const email = _profileDocId(user?.email || '');
   try {
-    const snap = await db.collection('usuarios').doc(email).get();
-    if (snap.exists) _userProfile = { id: snap.id, ...snap.data() };
-  } catch (e) { console.warn('[editmap] profile load:', e); }
+    const candidates = [];
+
+    if (email) {
+      const byEmailDoc = await db.collection('usuarios').doc(email).get();
+      if (byEmailDoc.exists) candidates.push({ id: byEmailDoc.id, ...byEmailDoc.data(), email });
+
+      const byEmailQuery = await db.collection('usuarios').where('email', '==', email).limit(3).get();
+      byEmailQuery.forEach(doc => {
+        candidates.push({ id: doc.id, ...doc.data(), email });
+      });
+    }
+
+    if ((!candidates.length) && _safeText(user?.uid)) {
+      const byUidDoc = await db.collection('usuarios').doc(user.uid).get();
+      if (byUidDoc.exists) {
+        candidates.push({ id: byUidDoc.id, ...byUidDoc.data(), email });
+      }
+    }
+
+    const bestMatch = candidates.find(item => item.id === email)
+      || candidates.find(item => item.id === _safeText(user?.uid))
+      || candidates[0];
+
+    if (bestMatch) {
+      _userProfile = { ...bestMatch };
+      return;
+    }
+
+    if (_isBootstrapProgrammerEmail(email)) {
+      _userProfile = await _ensureBootstrapProgrammerProfile(user);
+      return;
+    }
+
+    _userProfile = {
+      id: email || _safeText(user?.uid),
+      email,
+      nombre: _upperText(user?.displayName || email || 'USUARIO'),
+      plazaAsignada: '',
+      rol: '',
+      status: 'ACTIVO'
+    };
+  } catch (e) {
+    console.warn('[editmap] profile load:', e);
+    _userProfile = {
+      id: email || _safeText(user?.uid),
+      email,
+      nombre: _upperText(user?.displayName || email || 'USUARIO'),
+      plazaAsignada: '',
+      rol: '',
+      status: 'ACTIVO'
+    };
+  }
 }
 
 // ── Arranque ─────────────────────────────────────────────────
@@ -74,15 +172,26 @@ async function _mostrarSelectorPlaza() {
   // Obtener plazas disponibles de la configuración
   let plazas = [];
   try {
-    const snap = await db.collection('configuracion').get();
-    snap.forEach(doc => { if (doc.id !== 'empresa') plazas.push(doc.id.toUpperCase()); });
+    const empresaSnap = await db.collection('configuracion').doc('empresa').get();
+    const empresaData = empresaSnap.exists ? empresaSnap.data() : {};
+    plazas = Array.isArray(empresaData?.plazas)
+      ? empresaData.plazas.map(_upperText).filter(Boolean)
+      : [];
   } catch (e) {
-    // Fallback: leer de Firestore settings
-    try {
-      const settSnap = await db.collection('settings').doc('empresa').get();
-      plazas = (settSnap.data()?.plazas || []).map(p => p.toUpperCase());
-    } catch { /* ignore */ }
+    console.warn('[editmap] no se pudieron leer plazas desde configuracion/empresa:', e);
   }
+
+  if (!plazas.length) {
+    try {
+      const snap = await db.collection('configuracion').get();
+      snap.forEach(doc => {
+        const id = _upperText(doc.id);
+        if (id && id !== 'EMPRESA' && id !== 'LISTAS') plazas.push(id);
+      });
+    } catch (_) { /* ignore */ }
+  }
+
+  plazas = [...new Set(plazas)].sort();
 
   // Si solo hay una plaza, ir directo
   if (plazas.length === 1) {
@@ -179,6 +288,15 @@ function _normalizar(estructura) {
     height:   Number(c.height) || 60,
     rotation: Number(c.rotation) || 0,
     orden:    c.orden ?? i,
+    zone:               c.zone ?? null,
+    subzone:            c.subzone ?? null,
+    isReserved:         c.isReserved === true,
+    isBlocked:          c.isBlocked === true,
+    isTemporaryHolding: c.isTemporaryHolding === true,
+    allowedCategories:  Array.isArray(c.allowedCategories) ? [...c.allowedCategories] : [],
+    priority:           Number(c.priority) || 0,
+    googleMapsUrl:      c.googleMapsUrl ?? null,
+    pathType:           c.pathType ?? null
   }));
 }
 
@@ -388,6 +506,15 @@ function _agregarCelda(x, y, tipo) {
     height:   tipo === 'label' ? 36  : 60,
     rotation: 0,
     orden:    _cells.length,
+    zone: null,
+    subzone: null,
+    isReserved: false,
+    isBlocked: false,
+    isTemporaryHolding: false,
+    allowedCategories: [],
+    priority: 0,
+    googleMapsUrl: null,
+    pathType: null
   };
   _cells.push(cell);
   _hasPending = true;
@@ -410,6 +537,10 @@ window.editmap_insertar = function(tipo = 'cajon') {
   if (!canvas) return;
   const r = canvas.getBoundingClientRect();
   _agregarCelda(r.width / 2 / _zoom, r.height / 2 / _zoom, tipo);
+};
+
+window.editmap_agregarForma = function(tipo = 'cajon') {
+  window.editmap_insertar(tipo);
 };
 
 window.editmap_eliminar = function() {
@@ -470,7 +601,26 @@ window.editmap_guardar = async function() {
     }
     if (!window.api?.guardarEstructuraMapa) throw new Error('API no disponible');
 
-    const payload = { items: _cells.map(c => ({ ...c })), _version: Date.now() };
+    const payload = _cells.map((c, index) => ({
+      valor: c.valor || '',
+      tipo: c.tipo || 'cajon',
+      esLabel: c.tipo === 'label' || c.esLabel === true,
+      orden: c.orden ?? index,
+      x: Math.round(Number(c.x) || 0),
+      y: Math.round(Number(c.y) || 0),
+      width: Math.round(Number(c.width) || 80),
+      height: Math.round(Number(c.height) || 60),
+      rotation: Math.round(Number(c.rotation) || 0),
+      zone: c.zone ?? null,
+      subzone: c.subzone ?? null,
+      isReserved: c.isReserved === true,
+      isBlocked: c.isBlocked === true,
+      isTemporaryHolding: c.isTemporaryHolding === true,
+      allowedCategories: Array.isArray(c.allowedCategories) ? [...c.allowedCategories] : [],
+      priority: Number(c.priority) || 0,
+      googleMapsUrl: c.googleMapsUrl ?? null,
+      pathType: c.pathType ?? null
+    }));
     await window.api.guardarEstructuraMapa(payload, _plaza);
     _hasPending = false;
     _showSaveToast('✓ Mapa guardado — ' + _plaza);

@@ -43,6 +43,8 @@ const USER_PRESENCE_STALE_MS = 120000;
 const APP_AVATAR_COLORS = ['#e53e3e', '#dd6b20', '#d69e2e', '#38a169', '#3182ce', '#805ad5', '#d53f8c', '#00b5d8', '#e36112', '#2f855a'];
 const APP_BUILD_TAG = 'mapa-v79';
 const ADMIN_LOCATION_CACHE_MS = 90000;
+const STANDALONE_ROUTE_RE = /^\/(?:editmap|profile)(?:\/|$)/i;
+const SHOULD_SKIP_MAIN_MAP_BOOTSTRAP = STANDALONE_ROUTE_RE.test(window.location.pathname || '');
 
 
 // 1. Blindamos la variable para que NUNCA sea undefined y la app no truene
@@ -162,12 +164,14 @@ async function inicializarConfiguracion() {
 }
 
 // 3. Le decimos a la app que descargue esto en cuanto cargue la página
-document.addEventListener("DOMContentLoaded", () => {
-  const ready = window.__mexConfigReadyPromise || Promise.resolve();
-  ready.finally(() => {
-    inicializarConfiguracion();
+if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
+  document.addEventListener("DOMContentLoaded", () => {
+    const ready = window.__mexConfigReadyPromise || Promise.resolve();
+    ready.finally(() => {
+      inicializarConfiguracion();
+    });
   });
-});
+}
 
 
 // ==========================================
@@ -411,7 +415,9 @@ function cambiarTabFlota(tabSeleccionado) {
   actualizarPanelLateralFlota();
 }
 
-setTimeout(actualizarPanelLateralFlota, 0);
+if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
+  setTimeout(actualizarPanelLateralFlota, 0);
+}
 
 // loginConToken eliminado (reemplazado por loginManual en el módulo de autenticación)
 
@@ -1859,6 +1865,10 @@ function formatearFechaDocumento(fechaTexto) {
 
 // Handler único: valida por email (funciona con Google y email/contraseña)
 auth.onAuthStateChanged(async (user) => {
+  if (SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
+    console.info('[MEX-ROUTE] mapa.js bootstrap omitido en ruta standalone:', window.location.pathname);
+    return;
+  }
   if (user) {
     try {
       // Force token refresh so Firestore security rules get the auth context immediately
