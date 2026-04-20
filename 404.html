@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <title>Página no encontrada — Armenta Rent A Car</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100svh;
+      background: linear-gradient(160deg, #060e1c 0%, #0c1e3a 100%);
+      font-family: 'Inter', sans-serif;
+      color: #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 440px;
+      animation: fadeIn 0.5s ease forwards;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .error-code {
+      font-size: clamp(80px, 22vw, 140px);
+      font-weight: 900;
+      line-height: 1;
+      background: linear-gradient(135deg, #1d4ed8, #60a5fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -4px;
+      margin-bottom: 8px;
+      user-select: none;
+    }
+
+    .error-icon {
+      font-size: 48px;
+      color: rgba(96,165,250,0.4);
+      margin-bottom: 20px;
+    }
+
+    .error-title {
+      font-size: 22px;
+      font-weight: 900;
+      color: #f1f5f9;
+      margin-bottom: 10px;
+    }
+
+    .error-sub {
+      font-size: 14px;
+      color: #64748b;
+      line-height: 1.7;
+      margin-bottom: 32px;
+    }
+
+    .error-url {
+      display: inline-block;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 12px;
+      color: #475569;
+      font-family: monospace;
+      margin-bottom: 32px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .btn-home {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #0b2548, #1a53a0);
+      color: #fff;
+      border: none;
+      border-radius: 14px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      transition: all 0.25s;
+      box-shadow: 0 4px 20px rgba(11,37,72,0.5);
+    }
+    .btn-home:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(11,37,72,0.65); }
+
+    .btn-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 12px;
+      padding: 14px 20px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #94a3b8;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-back:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+
+    .divider-dot {
+      display: inline-block;
+      width: 4px;
+      height: 4px;
+      background: #334155;
+      border-radius: 50%;
+      margin: 0 8px;
+      vertical-align: middle;
+    }
+
+    @media (max-width: 480px) {
+      .btn-back { margin-left: 0; margin-top: 10px; }
+      .actions { display: flex; flex-direction: column; align-items: center; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="error-code">404</div>
+  <div class="error-icon">
+    <span class="material-icons" style="font-size:inherit;">explore_off</span>
+  </div>
+  <div class="error-title">Página no encontrada</div>
+  <div class="error-sub">
+    La ruta que buscas no existe o fue movida.<br>
+    Verifica la URL o regresa al mapa.
+  </div>
+  <div class="error-url" id="bad-url"></div>
+  <div class="actions">
+    <a class="btn-home" href="/mapa">
+      <span class="material-icons" style="font-size:18px;">map</span>
+      Ir al Mapa
+    </a>
+    <a class="btn-back" href="javascript:history.back()">
+      <span class="material-icons" style="font-size:16px;">arrow_back</span>
+      Volver
+    </a>
+  </div>
+</div>
+
+<script>
+  document.getElementById('bad-url').textContent = window.location.pathname;
+</script>
+
+</body>
+</html>

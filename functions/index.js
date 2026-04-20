@@ -1,6 +1,7 @@
 const admin = require("firebase-admin");
 const logger = require("firebase-functions/logger");
 const functions = require("firebase-functions/v1");
+const nodemailer = require("nodemailer");
 
 admin.initializeApp();
 
@@ -1687,3 +1688,71 @@ exports.runProgrammerJob = functions.region(REGION).https.onCall(async (data, co
     throw error;
   }
 });
+
+// ══════════════════════════════════════════════════════════════
+//  enviarCorreoSolicitud — HTTPS callable
+//  Envía un correo de confirmación al solicitante de acceso.
+//  Credenciales SMTP via Firebase config:
+//    firebase functions:config:set mail.user="..." mail.pass="..."
+// ══════════════════════════════════════════════════════════════
+exports.enviarCorreoSolicitud = functions
+  .region(REGION)
+  .https.onCall(async (data) => {
+    const { nombre, email, puesto } = data || {};
+    if (!nombre || !email) {
+      throw new HttpsError("invalid-argument", "Nombre y correo son requeridos.");
+    }
+
+    // Credenciales desde Firebase config (firebase functions:config:set mail.user mail.pass)
+    const mailUser = (functions.config().mail || {}).user || "";
+    const mailPass = (functions.config().mail || {}).pass || "";
+
+    if (!mailUser || !mailPass) {
+      // Si no hay config de correo, solo loguear — no bloquear el flujo
+      logger.warn("[enviarCorreoSolicitud] Sin config mail.user/mail.pass — correo omitido.");
+      return { ok: true, sent: false, reason: "no_mail_config" };
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: mailUser, pass: mailPass },
+    });
+
+    const html = `
+      <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;background:#f8fafc;border-radius:16px;overflow:hidden;">
+        <div style="background:linear-gradient(135deg,#0b2548,#1a53a0);padding:32px 36px;">
+          <h1 style="color:#fff;margin:0;font-size:22px;font-weight:900;">Armenta Rent A Car</h1>
+          <p style="color:rgba(255,255,255,0.7);margin:6px 0 0;font-size:13px;">Sistema de Administración de Flota</p>
+        </div>
+        <div style="padding:32px 36px;background:#fff;">
+          <h2 style="color:#0f172a;font-size:18px;font-weight:800;margin:0 0 8px;">Solicitud recibida ✓</h2>
+          <p style="color:#475569;font-size:14px;line-height:1.6;margin:0 0 20px;">
+            Hola <strong>${nombre}</strong>, recibimos tu solicitud de acceso al sistema.<br>
+            Un administrador revisará tu solicitud y te notificará sobre la decisión.
+          </p>
+          <div style="background:#f1f5f9;border-radius:12px;padding:18px 20px;margin-bottom:24px;">
+            <div style="font-size:12px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;">Datos de tu solicitud</div>
+            <div style="font-size:13px;color:#334155;"><strong>Nombre:</strong> ${nombre}</div>
+            <div style="font-size:13px;color:#334155;margin-top:6px;"><strong>Correo:</strong> ${email}</div>
+            <div style="font-size:13px;color:#334155;margin-top:6px;"><strong>Puesto solicitado:</strong> ${puesto || "—"}</div>
+          </div>
+          <p style="color:#94a3b8;font-size:12px;margin:0;">
+            Si no solicitaste acceso, ignora este correo.
+          </p>
+        </div>
+        <div style="padding:16px 36px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="color:#cbd5e1;font-size:11px;margin:0;text-align:center;">Armenta Rent A Car · Sistema MEX Mapa</p>
+        </div>
+      </div>
+    `;
+
+    await transporter.sendMail({
+      from: `"Armenta Rent A Car" <${mailUser}>`,
+      to: email,
+      subject: "Solicitud de acceso recibida — Armenta Rent A Car",
+      html,
+    });
+
+    logger.info("[enviarCorreoSolicitud] Correo enviado a", email);
+    return { ok: true, sent: true };
+  });

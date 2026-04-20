@@ -13,6 +13,7 @@
     "public": ".",
     "cleanUrls": true,
     "trailingSlash": false,
+    "404": "404.html",
     "ignore": [
       "firebase.json",
       "firestore.rules",
@@ -82,7 +83,8 @@
       { "source": "/mensajes",    "destination": "/mensajes.html" },
       { "source": "/profile",     "destination": "/profile.html" },
       { "source": "/editmap",     "destination": "/editmap.html" },
-      { "source": "/editmap/**",  "destination": "/editmap.html" }
+      { "source": "/editmap/**",  "destination": "/editmap.html" },
+      { "source": "/solicitud",   "destination": "/solicitud.html" }
     ]
   }
 }

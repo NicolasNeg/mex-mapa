@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+  <script src="/config.js"></script>
+  <script src="/js/core/firebase-init.js"></script>
+
+  <title>Solicitar Acceso — Armenta Rent A Car</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: linear-gradient(160deg, #060e1c 0%, #0c1e3a 100%);
+      font-family: 'Inter', sans-serif;
+      color: #e2e8f0;
+    }
+
+    .page-wrap {
+      min-height: 100svh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .card {
+      background: #fff;
+      color: #0f172a;
+      border-radius: 24px;
+      padding: 36px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.55);
+      animation: slideUp 0.45s cubic-bezier(0.16,1,0.3,1) forwards;
+    }
+
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 26px;
+    }
+
+    .card-icon {
+      width: 52px;
+      height: 52px;
+      flex-shrink: 0;
+      background: linear-gradient(135deg, #0b2548, #1a53a0);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 18px rgba(11,37,72,0.35);
+    }
+
+    .card-title { font-size: 20px; font-weight: 900; color: #0f172a; margin-bottom: 3px; }
+    .card-sub   { font-size: 13px; color: #64748b; font-weight: 500; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px; }
+
+    .input {
+      width: 100%;
+      padding: 13px 16px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      font-size: 14px;
+      font-family: inherit;
+      color: #0f172a;
+      background: #f8fafc;
+      transition: border 0.18s, box-shadow 0.18s;
+      outline: none;
+    }
+    .input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); background: #fff; }
+    .input::placeholder { color: #cbd5e1; }
+
+    .input-wrap { position: relative; }
+    .input-wrap .input { padding-right: 46px; }
+    .input-wrap .eye-btn {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      padding: 0;
+    }
+
+    .divider {
+      height: 1px;
+      background: #f1f5f9;
+      margin: 20px 0 16px;
+    }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+
+    .btn-row { display: flex; gap: 10px; margin-top: 20px; }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 14px;
+      background: #f1f5f9;
+      color: #64748b;
+      border: none;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: background 0.2s;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-cancel:hover { background: #e2e8f0; }
+
+    .btn-submit {
+      flex: 1.6;
+      padding: 14px;
+      background: linear-gradient(135deg, #0b2548, #1a53a0);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.25s;
+      box-shadow: 0 4px 14px rgba(11,37,72,0.3);
+    }
+    .btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(11,37,72,0.45); }
+    .btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+    /* ── Estado: enviado ── */
+    .success-state { display: none; text-align: center; padding: 12px 0; }
+    .success-icon { font-size: 56px; color: #22c55e; margin-bottom: 16px; }
+    .success-title { font-size: 20px; font-weight: 900; color: #0f172a; margin-bottom: 8px; }
+    .success-sub { font-size: 14px; color: #64748b; line-height: 1.6; margin-bottom: 24px; }
+    .btn-login {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      background: linear-gradient(135deg, #0b2548, #1a53a0);
+      color: #fff;
+      border: none;
+      border-radius: 12px;
+      font-weight: 800;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      transition: all 0.25s;
+      box-shadow: 0 4px 14px rgba(11,37,72,0.3);
+    }
+    .btn-login:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(11,37,72,0.45); }
+
+    /* ── Toast ── */
+    #sol-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #ef4444;
+      color: #fff;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+      z-index: 9999;
+      white-space: nowrap;
+    }
+    #sol-toast.show { transform: translateX(-50%) translateY(0); }
+    #sol-toast.ok { background: #22c55e; }
+
+    @media (max-width: 520px) {
+      .card { padding: 28px 20px; border-radius: 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-wrap">
+  <div class="card" id="sol-card">
+
+    <!-- FORMULARIO -->
+    <div id="sol-form-state">
+      <div class="card-header">
+        <div class="card-icon">
+          <span class="material-icons" style="color:#fff;font-size:26px;">badge</span>
+        </div>
+        <div>
+          <div class="card-title">Solicitar Acceso</div>
+          <div class="card-sub">Completa el formulario y un administrador lo revisará.</div>
+        </div>
+      </div>
+
+      <div class="section-label">Información personal</div>
+
+      <div class="field">
+        <label for="sol_nombre">Nombre completo *</label>
+        <input class="input" id="sol_nombre" type="text" placeholder="Ej: Juan Pérez López" autocomplete="name">
+      </div>
+
+      <div class="field">
+        <label for="sol_email">Correo electrónico *</label>
+        <input class="input" id="sol_email" type="email" placeholder="correo@ejemplo.com" autocomplete="email">
+      </div>
+
+      <div class="field">
+        <label for="sol_puesto">Puesto solicitado *</label>
+        <input class="input" id="sol_puesto" type="text" placeholder="Ej: AUXILIAR, VENTAS, SUPERVISOR...">
+      </div>
+
+      <div class="field">
+        <label for="sol_telefono">Teléfono (opcional)</label>
+        <input class="input" id="sol_telefono" type="tel" placeholder="Ej: 667 123 4567">
+      </div>
+
+      <div class="divider"></div>
+      <div class="section-label">Contraseña de acceso</div>
+
+      <div class="field">
+        <label for="sol_pass">Contraseña *</label>
+        <div class="input-wrap">
+          <input class="input" id="sol_pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          <button type="button" class="eye-btn" onclick="toggleVer('sol_pass', this)">
+            <span class="material-icons" style="font-size:20px;">visibility</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="sol_pass2">Confirmar contraseña *</label>
+        <div class="input-wrap">
+          <input class="input" id="sol_pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password">
+          <button type="button" class="eye-btn" onclick="toggleVer('sol_pass2', this)">
+            <span class="material-icons" style="font-size:20px;">visibility</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <a class="btn-cancel" href="/login">
+          <span class="material-icons" style="font-size:18px;margin-right:4px;">arrow_back</span>
+          Cancelar
+        </a>
+        <button class="btn-submit" id="sol-btn" onclick="enviarSolicitud()">
+          ENVIAR SOLICITUD
+        </button>
+      </div>
+    </div>
+
+    <!-- ÉXITO -->
+    <div class="success-state" id="sol-success-state">
+      <div class="success-icon">
+        <span class="material-icons" style="font-size:inherit;">check_circle</span>
+      </div>
+      <div class="success-title">¡Solicitud enviada!</div>
+      <div class="success-sub">
+        Revisamos tu solicitud y te notificaremos por correo electrónico sobre la decisión.<br><br>
+        <strong>Revisa tu bandeja de entrada</strong> — te enviamos un correo de seguimiento.
+      </div>
+      <a class="btn-login" href="/login">
+        <span class="material-icons" style="font-size:18px;">login</span>
+        Ir al inicio de sesión
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<div id="sol-toast">
+  <span class="material-icons" style="font-size:18px;" id="sol-toast-icon">error</span>
+  <span id="sol-toast-msg">Error</span>
+</div>
+
+<script>
+  // ── Helpers ──────────────────────────────────────────────────
+  function toggleVer(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    const ico = btn.querySelector('.material-icons');
+    if (inp.type === 'password') { inp.type = 'text'; ico.textContent = 'visibility_off'; }
+    else                         { inp.type = 'password'; ico.textContent = 'visibility'; }
+  }
+
+  let _toastTimer;
+  function solToast(msg, ok = false) {
+    const el  = document.getElementById('sol-toast');
+    const ico = document.getElementById('sol-toast-icon');
+    const txt = document.getElementById('sol-toast-msg');
+    txt.textContent = msg;
+    ico.textContent = ok ? 'check_circle' : 'error';
+    el.className = ok ? 'show ok' : 'show';
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { el.className = ok ? 'ok' : ''; }, 3500);
+  }
+
+  // ── Enviar solicitud ─────────────────────────────────────────
+  async function enviarSolicitud() {
+    const nombre   = document.getElementById('sol_nombre').value.trim().toUpperCase();
+    const email    = document.getElementById('sol_email').value.trim().toLowerCase();
+    const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
+    const telefono = document.getElementById('sol_telefono').value.trim();
+    const pass     = document.getElementById('sol_pass').value;
+    const pass2    = document.getElementById('sol_pass2').value;
+    const btn      = document.getElementById('sol-btn');
+
+    if (!nombre || !email || !puesto) { solToast('Completa los campos obligatorios.'); return; }
+    if (!pass || pass.length < 6)     { solToast('La contraseña debe tener mínimo 6 caracteres.'); return; }
+    if (pass !== pass2)               { solToast('Las contraseñas no coinciden.'); return; }
+    const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRx.test(email))         { solToast('Correo electrónico no válido.'); return; }
+
+    btn.disabled = true;
+    btn.textContent = 'ENVIANDO...';
+
+    try {
+      // 1. Verificar si ya existe solicitud
+      const existing = await firebase.firestore()
+        .collection('solicitudes_acceso').doc(email).get();
+      if (existing.exists) {
+        solToast('Ya existe una solicitud con ese correo. Espera a que sea revisada.');
+        return;
+      }
+
+      // 2. Guardar en Firestore
+      await firebase.firestore().collection('solicitudes_acceso').doc(email).set({
+        nombre, email, puesto, telefono,
+        password: pass,
+        rolSolicitado: null,
+        plazaSolicitada: null,
+        fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
+        estado: 'PENDIENTE',
+        _ts: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      // 3. Enviar correo de confirmación via Cloud Function
+      try {
+        const fn = firebase.functions().httpsCallable('enviarCorreoSolicitud');
+        await fn({ nombre, email, puesto });
+      } catch (mailErr) {
+        // Si el correo falla, la solicitud igual quedó guardada — no bloquear
+        console.warn('[solicitud] correo no enviado:', mailErr.message);
+      }
+
+      // 4. Mostrar estado de éxito
+      document.getElementById('sol-form-state').style.display = 'none';
+      document.getElementById('sol-success-state').style.display = 'block';
+
+      // Redirigir al login después de 6 segundos
+      setTimeout(() => { window.location.href = '/login'; }, 6000);
+
+    } catch (err) {
+      console.error('[solicitud]', err);
+      solToast('Error al enviar la solicitud. Intenta de nuevo.');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'ENVIAR SOLICITUD';
+    }
+  }
+
+  // Enter en cualquier campo dispara el envío
+  document.querySelectorAll('.input').forEach(inp => {
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Enter') enviarSolicitud();
+    });
+  });
+</script>
+
+</body>
+</html>
