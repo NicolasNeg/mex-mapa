@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="es" data-page-title="Mapa" data-page-description="Plataforma de control operativo y gestion de flota de %COMPANY%">
+<html lang="es" data-page-title="Mapa"
+  data-page-description="Plataforma de control operativo y gestion de flota de %COMPANY%">
 
 <head>
   <meta charset="UTF-8">
@@ -205,7 +206,8 @@
             style="display:none; position: relative; top: 0; right: 0;">0</span>
         </button>
 
-        <button id="btnBuzon" onclick="window.location.href='/mensajes'" class="sb-btn sb-btn-dark" style="display:none;" title="Mensajes">
+        <button id="btnBuzon" onclick="window.location.href='/mensajes'" class="sb-btn sb-btn-dark"
+          style="display:none;" title="Mensajes">
           <div style="display: flex; align-items: center; gap: 10px;">
             <span class="material-icons" style="font-size:20px;">mail</span>
             <p id="txtMsgs" style="margin: 0;">MENSAJES</p>
@@ -230,55 +232,42 @@
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
 
-        <button id="btnLockAdminSidebar" onclick="solicitarToggleBloqueo()" class="sb-btn sb-btn-dark"
-          style="display:none;">
-          <div>
-            <span class="material-icons" id="iconLockAdmin" style="font-size:18px; color:#f59e0b;">lock</span>
-            <span id="txtLockAdmin">BLOQUEAR PATIO</span>
+        <div class="sb-divider"></div>
+
+        <div class="admin-nav-group">
+          <p class="sb-section-label">Alertas</p>
+
+          <button id="btnMenuAlertasGlobales" onclick="abrirCreadorAlertas()" class="sb-btn sb-btn-red"
+            style="display:none;">
+            <div><span class="material-icons">campaign</span> EMITIR ALERTA</div>
+            <span class="material-icons sb-chevron">chevron_right</span>
+          </button>
+
+          <button id="btnMenuHistorialAlertas" onclick="abrirGestorAlertas()" class="sb-btn sb-btn-dark"
+            style="display:none;">
+            <div><span class="material-icons">notifications_active</span> HISTORIAL ALERTAS</div>
+            <span class="material-icons sb-chevron">chevron_right</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="admin-sidebar-footer">
+        <div class="admin-user-card">
+          <div id="adminSidebarUserAvatar" class="admin-user-avatar">--</div>
+          <div class="admin-user-copy">
+            <div id="adminSidebarUserName" class="admin-user-name">SIN SESIÓN</div>
+            <div id="adminSidebarUserMeta" class="admin-user-meta">Esperando autenticación</div>
           </div>
-          <div class="heatmap-switch" id="switchLockAdmin"></div>
-        </button>
-      </div>
-
-      <div class="sb-divider"></div>
-
-      <div class="admin-nav-group">
-        <p class="sb-section-label">Alertas</p>
-
-        <button id="btnMenuAlertasGlobales" onclick="abrirCreadorAlertas()" class="sb-btn sb-btn-red"
-          style="display:none;">
-          <div><span class="material-icons">campaign</span> EMITIR ALERTA</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-
-        <button id="btnMenuHistorialAlertas" onclick="abrirGestorAlertas()" class="sb-btn sb-btn-dark"
-          style="display:none;">
-          <div><span class="material-icons">notifications_active</span> HISTORIAL ALERTAS</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-      </div>
-
-      <button id="btnMenuExportar" onclick="exportarMapa()" style="display:flex;"></button>
-      <button id="btnMenuExportarPDF" onclick="exportarMapaPDF()" title="Exportar mapa como PDF" style="display:flex; margin-top:4px;"></button>
-    </div>
-
-    <div class="admin-sidebar-footer">
-      <div class="admin-user-card">
-        <div id="adminSidebarUserAvatar" class="admin-user-avatar">--</div>
-        <div class="admin-user-copy">
-          <div id="adminSidebarUserName" class="admin-user-name">SIN SESIÓN</div>
-          <div id="adminSidebarUserMeta" class="admin-user-meta">Esperando autenticación</div>
+          <div class="admin-user-monitor">
+            <span class="admin-status-pip"></span>
+            <span>Activo</span>
+          </div>
         </div>
-        <div class="admin-user-monitor">
-          <span class="admin-status-pip"></span>
-          <span>Activo</span>
-        </div>
-      </div>
 
-      <button id="btnMenuLogout" onclick="confirmarCierreSesion()" class="admin-sidebar-logout">
-        <span class="material-icons" style="font-size:18px;">logout</span> CERRAR SESIÓN
-      </button>
-    </div>
+        <button id="btnMenuLogout" onclick="confirmarCierreSesion()" class="admin-sidebar-logout">
+          <span class="material-icons" style="font-size:18px;">logout</span> CERRAR SESIÓN
+        </button>
+      </div>
   </aside>
   <div id="customModal" class="modal-overlay">
     <div class="modal-box">
@@ -845,7 +834,8 @@
           <div class="incv2-stat-pills">
             <div class="incv2-stat-pill"><span>Activas</span><strong id="incStatPendientes">0</strong></div>
             <div class="incv2-stat-pill"><span>Total</span><strong id="incStatTotal">0</strong></div>
-            <div class="incv2-stat-pill incv2-stat-pill--danger"><span>Críticas</span><strong id="incStatCriticas">0</strong></div>
+            <div class="incv2-stat-pill incv2-stat-pill--danger"><span>Críticas</span><strong
+                id="incStatCriticas">0</strong></div>
           </div>
           <button class="incv2-close" onclick="cerrarIncidencias()">
             <span class="material-icons" style="font-size:18px;">close</span>
@@ -911,8 +901,8 @@
 
               <div class="inc-list-column">
                 <div class="inc-history-toolbar">
-                  <input type="text" id="buscadorNotas" class="search-input-inc"
-                    placeholder="Buscar..." onkeyup="filtrarListaNotas()">
+                  <input type="text" id="buscadorNotas" class="search-input-inc" placeholder="Buscar..."
+                    onkeyup="filtrarListaNotas()">
                   <select id="filtroEstado" class="inc-select-filter" onchange="filtrarListaNotas()">
                     <option value="TODAS">Todas</option>
                     <option value="PENDIENTE">Pendientes</option>
@@ -1306,7 +1296,9 @@
         </div>
 
         <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display: none;">
-          <button class="btn-more-controls btn-icon-mobile" style="background:var(--mex-blue); border-color:var(--mex-blue); color:white;" onclick="toggleAdminControls()">
+          <button class="btn-more-controls btn-icon-mobile"
+            style="background:var(--mex-blue); border-color:var(--mex-blue); color:white;"
+            onclick="toggleAdminControls()">
             <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
             <span class="txt-mobile-hide">GESTIÓN ADMIN</span>
           </button>
@@ -1376,14 +1368,18 @@
             <div class="chip" onclick="filtrarEspecial('URGENTE', this)">⚡ URGENTE</div>
             <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)">👀 RESGUARDO</div>
             <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)">🏭 TALLER</div>
-            <div class="chip chip-reservas" onclick="abrirModalPDFReservas()" title="Análisis de reservas y proyección operativa">📋 RESERVAS</div>
+            <div class="chip chip-reservas" onclick="abrirModalPDFReservas()"
+              title="Análisis de reservas y proyección operativa">📋 RESERVAS</div>
           </div>
 
           <!-- [2.5] Barra de acciones batch — visible cuando hay filtro activo -->
-          <div id="batch-action-bar" style="display:none; align-items:center; gap:8px; padding:6px 10px; background:#fef3c7; border:1px solid #fbbf24; border-radius:10px; margin-bottom:6px; flex-wrap:wrap;">
-            <span id="batch-count-label" style="font-size:12px; font-weight:700; color:#92400e; margin-right:4px;"></span>
+          <div id="batch-action-bar"
+            style="display:none; align-items:center; gap:8px; padding:6px 10px; background:#fef3c7; border:1px solid #fbbf24; border-radius:10px; margin-bottom:6px; flex-wrap:wrap;">
+            <span id="batch-count-label"
+              style="font-size:12px; font-weight:700; color:#92400e; margin-right:4px;"></span>
             <span style="font-size:12px; color:#78350f; margin-right:6px;">Aplicar a todas:</span>
-            <select id="batch-estado-select" style="font-size:12px; border:1px solid #fbbf24; border-radius:6px; padding:3px 6px; background:#fff;">
+            <select id="batch-estado-select"
+              style="font-size:12px; border:1px solid #fbbf24; border-radius:6px; padding:3px 6px; background:#fff;">
               <option value="">— Estado —</option>
               <option value="SUCIO">SUCIO</option>
               <option value="LISTO">LISTO</option>
@@ -1392,7 +1388,8 @@
               <option value="RESGUARDO">RESGUARDO</option>
               <option value="NO ARRENDABLE">NO ARRENDABLE</option>
             </select>
-            <button onclick="ejecutarAccionBatch()" style="font-size:12px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:4px 12px; font-weight:700; cursor:pointer;">Aplicar</button>
+            <button onclick="ejecutarAccionBatch()"
+              style="font-size:12px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:4px 12px; font-weight:700; cursor:pointer;">Aplicar</button>
             <span id="batch-progress-label" style="font-size:11px; color:#78350f;"></span>
           </div>
 
@@ -1497,12 +1494,13 @@
 
         <div class="col-form-overlay" id="form-flota-overlay" onclick="cerrarFormularioFlota()"></div>
         <div class="col-form" id="form-flota-panel">
-          
+
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-             <h3 style="margin:0; color:var(--primary); font-size:18px; font-weight:900;">GESTOR DE UNIDAD</h3>
-             <button onclick="cerrarFormularioFlota()" style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:10px; color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;">
-               <span class="material-icons" style="font-size:20px;">close</span>
-             </button>
+            <h3 style="margin:0; color:var(--primary); font-size:18px; font-weight:900;">GESTOR DE UNIDAD</h3>
+            <button onclick="cerrarFormularioFlota()"
+              style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:10px; color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+              <span class="material-icons" style="font-size:20px;">close</span>
+            </button>
           </div>
 
           <div class="stats-grid">
@@ -1700,7 +1698,8 @@
       </span>
       <input type="text" id="searchInput" placeholder="MVA, Placas o Modelo..." oninput="buscarMasivo()"
         style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); color:white; border-radius:12px; padding-right:64px;">
-      <button id="btn-voz-busqueda" onclick="activarBusquedaVoz()" title="Buscar por voz (NATO: 'Delta 2019')" class="search-mic-btn">
+      <button id="btn-voz-busqueda" onclick="activarBusquedaVoz()" title="Buscar por voz (NATO: 'Delta 2019')"
+        class="search-mic-btn">
         <span class="material-icons" style="font-size:17px;">mic</span>
       </button>
       <button class="clear-btn" onclick="limpiarBusqueda()" style="color:#94a3b8;">✕</button>
@@ -1792,7 +1791,8 @@
           </span>
           <input type="text" id="searchInputMobile" placeholder="MVA, Placas o Modelo..." oninput="buscarMasivo()"
             style="background:#fff; color:#1e293b; border:1px solid #e2e8f0; border-radius:10px; padding-right:64px;">
-          <button id="btn-voz-busqueda-mobile" onclick="activarBusquedaVoz(true)" title="Buscar por voz" class="search-mic-btn" style="color:#64748b;">
+          <button id="btn-voz-busqueda-mobile" onclick="activarBusquedaVoz(true)" title="Buscar por voz"
+            class="search-mic-btn" style="color:#64748b;">
             <span class="material-icons" style="font-size:17px;">mic</span>
           </button>
           <button class="clear-btn" onclick="limpiarBusqueda()" style="background:#e2e8f0; color:#64748b;">✕</button>
@@ -1837,7 +1837,8 @@
       <div id="detalle-unidad"></div>
       <div id="swap-container"></div>
       <!-- F7: Sección de utilidades rápidas -->
-      <div id="panel-extras-unidad" style="display:none; margin:10px 0 0; padding:12px 14px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; display:flex; flex-direction:column; gap:10px;">
+      <div id="panel-extras-unidad"
+        style="display:none; margin:10px 0 0; padding:12px 14px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; display:flex; flex-direction:column; gap:10px;">
         <!-- Tags de color -->
         <div id="panel-tags-unidad"></div>
         <!-- Nota rápida -->
@@ -1875,10 +1876,12 @@
     body.messages-mode #global-status-banner {
       display: none !important;
     }
+
     body.messages-mode #buzon-modal {
       display: flex !important;
       z-index: 99999 !important;
     }
+
     body.messages-mode {
       background: #071224;
       overflow: hidden;
@@ -1898,7 +1901,8 @@
           Control Administrativo
         </div>
         <div class="admin-modal-title">Registro Administrativo</div>
-        <div class="admin-modal-subtitle">Alta rápida al cuadre admins con base global precargada, evidencia flexible y responsable visible.</div>
+        <div class="admin-modal-subtitle">Alta rápida al cuadre admins con base global precargada, evidencia flexible y
+          responsable visible.</div>
 
         <div class="admin-badge-row">
           <div id="a_ins_badgePlaza" class="admin-badge">PLAZA --</div>
@@ -1920,13 +1924,20 @@
             <span class="material-icons" style="font-size:14px;">dataset</span>
             Preparando índice global...
           </div>
-          <div class="admin-search-hint">Busca por MVA, placas, modelo o plaza. La base maestra se precarga desde que abre la app para responder al instante.</div>
+          <div class="admin-search-hint">Busca por MVA, placas, modelo o plaza. La base maestra se precarga desde que
+            abre la app para responder al instante.</div>
         </div>
 
         <div class="admin-stitch-strip">
-          <div class="admin-stitch-pill"><span class="material-icons">hub</span><div><small>Paso 1</small><strong>Vincula la unidad</strong></div></div>
-          <div class="admin-stitch-pill"><span class="material-icons">inventory_2</span><div><small>Paso 2</small><strong>Confirma estado y ubicación</strong></div></div>
-          <div class="admin-stitch-pill"><span class="material-icons">attach_file</span><div><small>Paso 3</small><strong>Sube archivos y notas</strong></div></div>
+          <div class="admin-stitch-pill"><span class="material-icons">hub</span>
+            <div><small>Paso 1</small><strong>Vincula la unidad</strong></div>
+          </div>
+          <div class="admin-stitch-pill"><span class="material-icons">inventory_2</span>
+            <div><small>Paso 2</small><strong>Confirma estado y ubicación</strong></div>
+          </div>
+          <div class="admin-stitch-pill"><span class="material-icons">attach_file</span>
+            <div><small>Paso 3</small><strong>Sube archivos y notas</strong></div>
+          </div>
         </div>
 
         <div id="a_ins_formContainer" class="admin-modal-scroll" style="animation: slideUp 0.5s ease;">
@@ -2037,8 +2048,10 @@
               <input type="file" id="a_ins_file" multiple
                 onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-              <div class="admin-upload-meta">Acepta imágenes, PDF, hojas, documentos, ZIP y archivos de soporte en general.</div>
-              <div id="a_ins_fileStatus" class="admin-file-status"><span class="material-icons">folder_open</span> Sin archivos seleccionados todavía</div>
+              <div class="admin-upload-meta">Acepta imágenes, PDF, hojas, documentos, ZIP y archivos de soporte en
+                general.</div>
+              <div id="a_ins_fileStatus" class="admin-file-status"><span class="material-icons">folder_open</span> Sin
+                archivos seleccionados todavía</div>
             </div>
             <div class="field" style="margin-top:10px">
               <label>Notas Administrativas</label>
@@ -2183,12 +2196,16 @@
           <div class="form-modal-card">
             <span class="section-label-modal" style="margin-top:0;">Identificación</span>
             <div class="grid-2">
-              <div class="field"><label>Económico (MVA)</label><input type="text" id="ext_mva" placeholder="Ej. D5256"></div>
-              <div class="field"><label>Placas</label><input type="text" id="ext_placas" placeholder="Ej. GVT840F"></div>
+              <div class="field"><label>Económico (MVA)</label><input type="text" id="ext_mva" placeholder="Ej. D5256">
+              </div>
+              <div class="field"><label>Placas</label><input type="text" id="ext_placas" placeholder="Ej. GVT840F">
+              </div>
             </div>
             <div class="grid-2" style="margin-top:15px;">
-              <div class="field"><label>Categoría</label><input type="text" id="ext_categoria" placeholder="Ej. EXTERNO"></div>
-              <div class="field"><label>Modelo</label><input type="text" id="ext_modelo" placeholder="Ej. AVEO / SENTRA / SIN MODELO"></div>
+              <div class="field"><label>Categoría</label><input type="text" id="ext_categoria"
+                  placeholder="Ej. EXTERNO"></div>
+              <div class="field"><label>Modelo</label><input type="text" id="ext_modelo"
+                  placeholder="Ej. AVEO / SENTRA / SIN MODELO"></div>
             </div>
           </div>
 
@@ -2452,7 +2469,8 @@
               <input type="file" id="a_mod_file" multiple
                 onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')"
                 style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-              <div class="admin-upload-meta">Puedes subir evidencia visual, PDFs, Excel, Word, ZIP u otros archivos de soporte.</div>
+              <div class="admin-upload-meta">Puedes subir evidencia visual, PDFs, Excel, Word, ZIP u otros archivos de
+                soporte.</div>
               <div id="a_mod_fileStatus" class="admin-file-status"></div>
             </div>
             <div class="field" style="margin-top:10px">
@@ -2539,14 +2557,17 @@
         <!-- HERO -->
         <div class="resv2-hero">
           <div class="resv2-hero-bg"></div>
-          <button class="resv2-close" onclick="document.getElementById('modal-resumen-flota').classList.remove('active')">
+          <button class="resv2-close"
+            onclick="document.getElementById('modal-resumen-flota').classList.remove('active')">
             <span class="material-icons" style="font-size:18px;">close</span>
           </button>
           <div class="resv2-hero-content">
             <div class="resv2-brand-row">
-              <span class="resv2-brand-badge"><span id="resv2-company-name">Cargando empresa...</span> · <span id="resv2-branch" style="color:#38bdf8;">BJX</span></span>
+              <span class="resv2-brand-badge"><span id="resv2-company-name">Cargando empresa...</span> · <span
+                  id="resv2-branch" style="color:#38bdf8;">BJX</span></span>
               <div class="resv2-tab-switch">
-                <button id="btn-patio-res" class="resv2-tab active" onclick="cambiarVistaResumen('patio')">EN PATIO</button>
+                <button id="btn-patio-res" class="resv2-tab active" onclick="cambiarVistaResumen('patio')">EN
+                  PATIO</button>
                 <button id="btn-fuera-res" class="resv2-tab" onclick="cambiarVistaResumen('fuera')">FUERA</button>
               </div>
             </div>
@@ -2725,23 +2746,28 @@
   <div id="reporte-pdf-container" style="display: none;"></div>
 
   <div id="historial-cuadres-modal" class="fleet-modal" style="z-index: 6000;">
-    <div class="fleet-header-top" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
+    <div class="fleet-header-top"
+      style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
       <div style="display:flex; align-items:center; gap: 10px;">
-         <span class="material-icons" style="font-size:24px; color:var(--mex-blue);">folder_special</span>
-         <h2 style="color:var(--primary); font-weight:900; margin:0;">ARCHIVERO DE AUDITORÍAS</h2>
+        <span class="material-icons" style="font-size:24px; color:var(--mex-blue);">folder_special</span>
+        <h2 style="color:var(--primary); font-weight:900; margin:0;">ARCHIVERO DE AUDITORÍAS</h2>
       </div>
       <button onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')"
         style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
     </div>
     <!-- Filtros -->
     <div style="display:flex; gap:10px; padding:0 25px 12px; flex-wrap:wrap; align-items:center;">
-      <div style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:8px 14px; border:1px solid #e2e8f0; flex:1; min-width:180px;">
+      <div
+        style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:8px 14px; border:1px solid #e2e8f0; flex:1; min-width:180px;">
         <span class="material-icons" style="color:#94a3b8; font-size:18px; margin-right:8px;">search</span>
-        <input type="text" id="buscadorArchivero" placeholder="Buscar por nombre..." oninput="renderHistorialCuadres()" style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); width:100%; font-size:13px;">
+        <input type="text" id="buscadorArchivero" placeholder="Buscar por nombre..." oninput="renderHistorialCuadres()"
+          style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); width:100%; font-size:13px;">
       </div>
-      <div style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:6px 12px; border:1px solid #e2e8f0; gap:6px;">
+      <div
+        style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:6px 12px; border:1px solid #e2e8f0; gap:6px;">
         <span class="material-icons" style="color:#94a3b8; font-size:16px;">calendar_today</span>
-        <input type="date" id="filtroFechaArchivero" oninput="renderHistorialCuadres()" style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); font-size:13px; cursor:pointer;">
+        <input type="date" id="filtroFechaArchivero" oninput="renderHistorialCuadres()"
+          style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); font-size:13px; cursor:pointer;">
       </div>
       <select id="filtroAutorArchivero" onchange="renderHistorialCuadres()"
         style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:12px; padding:9px 14px; font-weight:700; font-size:13px; color:var(--text); outline:none; cursor:pointer;">
@@ -2752,7 +2778,8 @@
         <span class="material-icons" style="font-size:15px;">filter_alt_off</span> Limpiar
       </button>
     </div>
-    <div class="fleet-wrapper" style="padding: 0 25px 25px; overflow-y: auto; background: #f8fafc; align-items: center;">
+    <div class="fleet-wrapper"
+      style="padding: 0 25px 25px; overflow-y: auto; background: #f8fafc; align-items: center;">
       <div id="lista-historial-cuadres"
         style="width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px;">
       </div>
@@ -2805,548 +2832,572 @@
           style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:14px; text-transform:uppercase; outline:none; transition:0.2s;"
           onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
       </div>
-<div id="buzon-modal" class="fleet-modal chatv2-modal" style="z-index: 8000;">
+      <div id="buzon-modal" class="fleet-modal chatv2-modal" style="z-index: 8000;">
 
-    <!-- Header original del modal (oculto por CSS, solo conservamos el botón de close) -->
-    <div class="chatv2-header">
-      <div class="chatv2-header-bg"></div>
-      <div class="chatv2-header-content">
-        <div class="chatv2-header-left">
-          <span class="material-icons" style="font-size:20px; color:rgba(255,255,255,0.7);">forum</span>
-          <div>
-            <h2 class="chatv2-header-title">Mensajes Internos</h2>
-            <p class="chatv2-header-sub" id="chatv2-company-label"></p>
-          </div>
-        </div>
-        <button class="chatv2-close" onclick="document.getElementById('buzon-modal').classList.remove('active'); _stopChatListener(); cerrarLightboxChat()">
-          <span class="material-icons" style="font-size:18px;">close</span>
-        </button>
-      </div>
-    </div>
-
-    <div class="fleet-wrapper chatv2-layout">
-
-      <!-- PANEL IZQUIERDO: Lista de conversaciones -->
-      <div id="chat-contacts-view" class="chatv2-contacts">
-
-        <!-- Header estilo Instagram: nombre de usuario + botón composar -->
-        <div class="chatv2-panel-header">
-          <div class="chatv2-panel-username">
-            <span id="chatPanelUsername">Mensajes</span>
-            <span class="material-icons">expand_more</span>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px;">
-            <button class="chatv2-compose-btn" title="Cerrar mensajes"
+        <!-- Header original del modal (oculto por CSS, solo conservamos el botón de close) -->
+        <div class="chatv2-header">
+          <div class="chatv2-header-bg"></div>
+          <div class="chatv2-header-content">
+            <div class="chatv2-header-left">
+              <span class="material-icons" style="font-size:20px; color:rgba(255,255,255,0.7);">forum</span>
+              <div>
+                <h2 class="chatv2-header-title">Mensajes Internos</h2>
+                <p class="chatv2-header-sub" id="chatv2-company-label"></p>
+              </div>
+            </div>
+            <button class="chatv2-close"
               onclick="document.getElementById('buzon-modal').classList.remove('active'); _stopChatListener(); cerrarLightboxChat()">
-              <span class="material-icons">close</span>
-            </button>
-            <button class="chatv2-compose-btn" title="Nuevo mensaje" onclick="" style="color:#0f172a;">
-              <span class="material-icons">edit_square</span>
+              <span class="material-icons" style="font-size:18px;">close</span>
             </button>
           </div>
         </div>
 
-        <!-- Barra de búsqueda ovalada -->
-        <div class="chatv2-search-bar">
-          <div class="chatv2-search-inner">
-            <span class="material-icons chatv2-search-icon">search</span>
-            <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar..." onkeyup="renderContactos()">
+        <div class="fleet-wrapper chatv2-layout">
+
+          <!-- PANEL IZQUIERDO: Lista de conversaciones -->
+          <div id="chat-contacts-view" class="chatv2-contacts">
+
+            <!-- Header estilo Instagram: nombre de usuario + botón composar -->
+            <div class="chatv2-panel-header">
+              <div class="chatv2-panel-username">
+                <span id="chatPanelUsername">Mensajes</span>
+                <span class="material-icons">expand_more</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <button class="chatv2-compose-btn" title="Cerrar mensajes"
+                  onclick="document.getElementById('buzon-modal').classList.remove('active'); _stopChatListener(); cerrarLightboxChat()">
+                  <span class="material-icons">close</span>
+                </button>
+                <button class="chatv2-compose-btn" title="Nuevo mensaje" onclick="" style="color:#0f172a;">
+                  <span class="material-icons">edit_square</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Barra de búsqueda ovalada -->
+            <div class="chatv2-search-bar">
+              <div class="chatv2-search-inner">
+                <span class="material-icons chatv2-search-icon">search</span>
+                <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar..."
+                  onkeyup="renderContactos()">
+              </div>
+            </div>
+
+            <!-- Tabs: Mensajes / Solicitudes -->
+            <div class="chatv2-tabs">
+              <span class="chatv2-tab-label">Mensajes</span>
+              <button class="chatv2-tab-secondary">Solicitudes</button>
+            </div>
+
+            <!-- Filtros compactos -->
+            <div class="chatv2-filter-row">
+              <label class="chat-filter-chip">
+                <span class="material-icons">apartment</span>
+                <select id="chatFilterPlaza" onchange="actualizarFiltrosChat()">
+                  <option value="">Todas las plazas</option>
+                </select>
+              </label>
+              <label class="chat-filter-chip">
+                <span class="material-icons">badge</span>
+                <select id="chatFilterRol" onchange="actualizarFiltrosChat()">
+                  <option value="">Todos los roles</option>
+                </select>
+              </label>
+              <label class="chat-filter-chip">
+                <span class="material-icons">tune</span>
+                <select id="chatFilterStatus" onchange="actualizarFiltrosChat()">
+                  <option value="">Todos</option>
+                </select>
+              </label>
+              <button class="chat-filter-reset" onclick="limpiarFiltrosChat()">
+                <span class="material-icons" style="font-size:14px;">refresh</span>
+                Limpiar
+              </button>
+            </div>
+
+            <!-- Lista de contactos / conversaciones -->
+            <div id="listaContactosContainer">
+              <div style="text-align:center; padding:40px; color:#94a3b8;"><span
+                  class="material-icons spinner">sync</span></div>
+            </div>
+
           </div>
-        </div>
 
-        <!-- Tabs: Mensajes / Solicitudes -->
-        <div class="chatv2-tabs">
-          <span class="chatv2-tab-label">Mensajes</span>
-          <button class="chatv2-tab-secondary">Solicitudes</button>
-        </div>
+          <!-- PANEL DERECHO: Ventana de chat individual -->
+          <div id="chat-window-view" class="chatv2-window">
 
-        <!-- Filtros compactos -->
-        <div class="chatv2-filter-row">
-          <label class="chat-filter-chip">
-            <span class="material-icons">apartment</span>
-            <select id="chatFilterPlaza" onchange="actualizarFiltrosChat()">
-              <option value="">Todas las plazas</option>
-            </select>
-          </label>
-          <label class="chat-filter-chip">
-            <span class="material-icons">badge</span>
-            <select id="chatFilterRol" onchange="actualizarFiltrosChat()">
-              <option value="">Todos los roles</option>
-            </select>
-          </label>
-          <label class="chat-filter-chip">
-            <span class="material-icons">tune</span>
-            <select id="chatFilterStatus" onchange="actualizarFiltrosChat()">
-              <option value="">Todos</option>
-            </select>
-          </label>
-          <button class="chat-filter-reset" onclick="limpiarFiltrosChat()">
-            <span class="material-icons" style="font-size:14px;">refresh</span>
-            Limpiar
-          </button>
-        </div>
+            <!-- Estado vacío (visible cuando no hay chat seleccionado) -->
+            <div id="chat-empty-state" class="chatv2-empty-state">
+              <div class="chatv2-empty-icon">
+                <span class="material-icons">send</span>
+              </div>
+              <h3>Tus mensajes</h3>
+              <p>Envía un mensaje para iniciar una conversación.</p>
+              <button class="chatv2-empty-btn" onclick="document.getElementById('buscadorContactos')?.focus()">
+                Enviar mensaje
+              </button>
+            </div>
 
-        <!-- Lista de contactos / conversaciones -->
-        <div id="listaContactosContainer">
-          <div style="text-align:center; padding:40px; color:#94a3b8;"><span class="material-icons spinner">sync</span></div>
-        </div>
+            <!-- Header del chat activo -->
+            <div class="chatv2-chat-header" id="chat-active-header" style="display:none;">
+              <button class="chatv2-back" onclick="cerrarChat()">
+                <span class="material-icons" style="font-size:20px;">arrow_back</span>
+              </button>
+              <button class="chat-avatar chat-avatar-button" id="chat-active-avatar" onclick="abrirInfoContactoActivo()"
+                style="width: 36px; height: 36px; font-size: 14px;">U</button>
+              <div style="flex:1; overflow:hidden;">
+                <div id="chat-active-name" class="chatv2-active-name">Nombre</div>
+                <div class="chatv2-active-status">Conversación segura</div>
+              </div>
+              <div class="chatv2-header-actions">
+                <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
+                  <span class="material-icons" style="font-size:18px;">info</span>
+                </button>
+              </div>
+            </div>
 
+            <!-- Área de mensajes -->
+            <div id="chat-messages-container" class="chatv2-messages" style="display:none;"></div>
+
+            <!-- Staging area -->
+            <div id="chatStagingArea" class="chatv2-staging-area"></div>
+
+            <!-- Input bar -->
+            <div class="chatv2-input-bar" id="chat-input-bar" style="display:none;">
+              <input type="file" id="chatFileInput" style="display:none;"
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onchange="stagedArchivoChatV2(this)">
+              <button class="chatv2-attach-btn" onclick="document.getElementById('chatFileInput').click()"
+                title="Adjuntar archivo">
+                <span class="material-icons" style="font-size:20px;">add_circle</span>
+              </button>
+              <div class="chatv2-input-box">
+                <textarea id="chat-input" rows="1" class="chatv2-textarea" placeholder="Mensaje..."
+                  oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
+              </div>
+              <button id="chatMicBtn" class="chatv2-mic-btn" onclick="toggleGrabacionChat()" title="Grabar audio">
+                <span class="material-icons" style="font-size:20px;">mic</span>
+              </button>
+              <button class="chatv2-send-btn" onclick="enviarMensajeChat()">
+                <span class="material-icons">send</span>
+              </button>
+              <!-- Emoji picker panel -->
+              <div id="chatEmojiPickerPanel"></div>
+            </div>
+
+          </div>
+
+        </div>
       </div>
 
-      <!-- PANEL DERECHO: Ventana de chat individual -->
-      <div id="chat-window-view" class="chatv2-window">
-
-        <!-- Estado vacío (visible cuando no hay chat seleccionado) -->
-        <div id="chat-empty-state" class="chatv2-empty-state">
-          <div class="chatv2-empty-icon">
-            <span class="material-icons">send</span>
-          </div>
-          <h3>Tus mensajes</h3>
-          <p>Envía un mensaje para iniciar una conversación.</p>
-          <button class="chatv2-empty-btn" onclick="document.getElementById('buscadorContactos')?.focus()">
-            Enviar mensaje
+      <div id="chat-user-info-modal" class="modal-overlay chat-user-info-modal"
+        onclick="if(event.target===this) cerrarInfoContacto()">
+        <div class="chat-user-info-card">
+          <button class="chat-user-info-close" onclick="cerrarInfoContacto()">
+            <span class="material-icons" style="font-size:18px;">close</span>
           </button>
+          <div id="chat-user-info-content"></div>
         </div>
+      </div>
 
-        <!-- Header del chat activo -->
-        <div class="chatv2-chat-header" id="chat-active-header" style="display:none;">
-          <button class="chatv2-back" onclick="cerrarChat()">
-            <span class="material-icons" style="font-size:20px;">arrow_back</span>
-          </button>
-          <button class="chat-avatar chat-avatar-button" id="chat-active-avatar" onclick="abrirInfoContactoActivo()" style="width: 36px; height: 36px; font-size: 14px;">U</button>
-          <div style="flex:1; overflow:hidden;">
-            <div id="chat-active-name" class="chatv2-active-name">Nombre</div>
-            <div class="chatv2-active-status">Conversación segura</div>
+      <div id="perfil-modal" class="fleet-modal profile-modal" style="z-index: 8100;">
+        <div class="profile-modal-shell">
+          <div class="profile-modal-hero">
+            <div>
+              <div class="profile-modal-kicker">Tu Cuenta</div>
+              <h2 class="profile-modal-title">Perfil</h2>
+              <p class="profile-modal-sub">Tu avatar ya funciona y el resto del panel queda listo para futuras
+                configuraciones personales.</p>
+            </div>
+            <button class="profile-modal-close" onclick="cerrarPerfilUsuario()">
+              <span class="material-icons" style="font-size:18px;">close</span>
+            </button>
           </div>
-          <div class="chatv2-header-actions">
-            <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
-              <span class="material-icons" style="font-size:18px;">info</span>
+
+          <div class="profile-modal-body">
+            <div class="profile-modal-card">
+              <div id="profileCurrentAvatar" class="profile-avatar-large">U</div>
+              <div class="profile-modal-copy">
+                <div id="profileCurrentName" class="profile-modal-name">Usuario</div>
+                <div id="profileCurrentMeta" class="profile-modal-meta">Sin datos</div>
+                <div id="profileCurrentBadges" class="profile-modal-badges"></div>
+              </div>
+            </div>
+
+            <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;"
+              onchange="subirAvatarPerfil(this)">
+
+            <div class="profile-modal-actions">
+              <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
+                <span class="material-icons" style="font-size:18px;">photo_camera</span>
+                Subir y Recortar
+              </button>
+              <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
+                <span class="material-icons" style="font-size:18px;">delete</span>
+                Quitar Foto
+              </button>
+            </div>
+
+            <div class="profile-modal-note">
+              Usa una imagen cuadrada o vertical ligera para que se vea mejor en el chat, la barra lateral y futuras
+              vistas del sistema. Las opciones de abajo son visuales por ahora y quedan listas para conectar después.
+            </div>
+
+            <div class="profile-settings-grid">
+              <section class="profile-settings-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">notifications_active</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Notificaciones del dispositivo</div>
+                    <p class="profile-settings-sub">Controla si este equipo recibe avisos reales en el celular o
+                      navegador.</p>
+                  </div>
+                  <span class="profile-settings-badge" id="profileNotificationBadge">Preparando</span>
+                </div>
+                <div class="profile-setting-row profile-setting-row-hero">
+                  <div>
+                    <strong>Notificaciones activas</strong>
+                    <small>Si lo apagas, el historial sigue en el inbox pero este equipo deja de sonar.</small>
+                  </div>
+                  <button id="profileNotifMasterToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Notificaciones activas"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Mensajes directos</strong>
+                    <small>Avísame cuando alguien me escriba o responda.</small>
+                  </div>
+                  <button id="profileNotifMessagesToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Mensajes directos"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Misión de cuadre</strong>
+                    <small>Recibe avisos cuando te asignen o actualicen tu cuadre.</small>
+                  </div>
+                  <button id="profileNotifCuadreToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Misión de cuadre"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Alertas críticas</strong>
+                    <small>Solo las situaciones urgentes de operación y patio.</small>
+                  </div>
+                  <button id="profileNotifCriticalToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Alertas críticas"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Silenciar este equipo</strong>
+                    <small>Pausa los avisos del sistema sin perder el historial dentro del inbox.</small>
+                  </div>
+                  <button id="profileNotifMuteToggle" type="button" class="profile-setting-toggle is-off"
+                    aria-label="Silenciar este equipo"></button>
+                </div>
+                <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
+                <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary"
+                  style="width:100%; margin-top:14px;">
+                  <span class="material-icons" style="font-size:18px;">notifications</span>
+                  Ver historial y detalles
+                </button>
+              </section>
+
+              <section class="profile-settings-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">palette</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Preferencias</div>
+                    <p class="profile-settings-sub">Preparado para apariencia, atajos y comportamiento del mapa.</p>
+                  </div>
+                  <span class="profile-settings-badge">Próximamente</span>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Modo compacto</strong>
+                    <small>Para listas más densas y navegación rápida.</small>
+                  </div>
+                  <span class="profile-setting-toggle is-off"></span>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Zoom recordado</strong>
+                    <small>Guardará tu escala favorita al volver al mapa.</small>
+                  </div>
+                  <span class="profile-setting-toggle is-on"></span>
+                </div>
+              </section>
+
+              <section class="profile-settings-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">shield</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Privacidad y sesión</div>
+                    <p class="profile-settings-sub">Estado del permiso, este equipo activo y forma en que recibes
+                      avisos.</p>
+                  </div>
+                  <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
+                </div>
+                <div class="profile-setting-row profile-setting-row-hero">
+                  <div>
+                    <strong>Permiso push del dispositivo</strong>
+                    <small id="profilePermissionSummary">Revisando soporte de notificaciones…</small>
+                  </div>
+                  <button id="profilePermissionToggle" type="button" class="profile-setting-toggle is-off"
+                    aria-label="Activar notificaciones push"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Este equipo</strong>
+                    <small id="profileCurrentDeviceSummary">Cargando información del dispositivo actual.</small>
+                  </div>
+                  <span class="profile-settings-badge">Este equipo</span>
+                </div>
+              </section>
+
+              <section class="profile-settings-card profile-shortcuts-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">keyboard_command_key</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Accesos rápidos</div>
+                    <p class="profile-settings-sub">Atajos activos para moverte más rápido en escritorio.</p>
+                  </div>
+                  <span class="profile-settings-badge">Activos</span>
+                </div>
+                <div class="profile-shortcut-list">
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>C</kbd></div>
+                    <span>Abrir gestión de flota</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>M</kbd></div>
+                    <span>Abrir mensajes</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>P</kbd></div>
+                    <span>Abrir perfil</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>R</kbd></div>
+                    <span>Resumen de flota</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>/</kbd></div>
+                    <span>Enfocar buscador del mapa</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Esc</kbd></div>
+                    <span>Cerrar panel o modal activo</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="profile-avatar-crop-modal" class="modal-overlay profile-avatar-crop-modal"
+        onclick="if(event.target===this) cancelarRecorteAvatarPerfil()">
+        <div class="profile-avatar-crop-card">
+          <div class="profile-avatar-crop-head">
+            <div>
+              <div class="profile-modal-kicker" style="margin-bottom:6px; color:#94a3b8;">Tu Avatar</div>
+              <h3 class="profile-avatar-crop-title">Recorta tu foto</h3>
+              <p class="profile-avatar-crop-sub">Arrastra y acerca la imagen para ver exactamente cómo se verá tu
+                perfil.</p>
+            </div>
+            <button class="profile-modal-close" onclick="cancelarRecorteAvatarPerfil()"
+              style="background:#f1f5f9; color:#334155;">
+              <span class="material-icons" style="font-size:18px;">close</span>
+            </button>
+          </div>
+
+          <div class="profile-avatar-crop-body">
+            <div class="profile-avatar-crop-stage-wrap">
+              <div id="profileAvatarCropStage" class="profile-avatar-crop-stage">
+                <img id="profileAvatarCropImage" class="profile-avatar-crop-image" alt="Recorte de avatar">
+                <div class="profile-avatar-crop-mask"></div>
+              </div>
+              <div class="profile-avatar-crop-controls">
+                <label for="profileAvatarCropZoom">Zoom</label>
+                <input id="profileAvatarCropZoom" type="range" min="1" max="3" step="0.01" value="1"
+                  oninput="ajustarZoomAvatarPerfil(this.value)">
+                <p>Tip: mantén presionado y arrastra la foto. Funciona con mouse y touch.</p>
+              </div>
+            </div>
+
+            <div class="profile-avatar-preview-panel">
+              <div class="profile-avatar-preview-card">
+                <span class="profile-avatar-preview-label">Vista chat</span>
+                <canvas id="profileAvatarPreviewCircle" width="96" height="96"></canvas>
+              </div>
+              <div class="profile-avatar-preview-card">
+                <span class="profile-avatar-preview-label">Vista perfil</span>
+                <canvas id="profileAvatarPreviewCard" width="112" height="112"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="profile-avatar-crop-actions">
+            <button class="profile-modal-btn" onclick="cancelarRecorteAvatarPerfil()">Cancelar</button>
+            <button id="profileAvatarCropSaveBtn" class="profile-modal-btn primary"
+              onclick="guardarAvatarRecortadoPerfil()">
+              <span class="material-icons" style="font-size:18px;">check</span>
+              Guardar Foto
             </button>
           </div>
         </div>
+      </div>
 
-        <!-- Área de mensajes -->
-        <div id="chat-messages-container" class="chatv2-messages" style="display:none;"></div>
+      <div id="modal-lector-reservas" class="modal-overlay" style="z-index: 76000;">
+        <div class="console-card" style="max-width: 750px; text-align: center; padding: 30px;">
+          <button onclick="document.getElementById('modal-lector-reservas').classList.remove('active')"
+            style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
 
-        <!-- Staging area -->
-        <div id="chatStagingArea" class="chatv2-staging-area"></div>
+          <span class="material-icons" style="font-size: 50px; color: #0284c7; margin-bottom: 10px;">assessment</span>
+          <h2 style="color: var(--primary); font-weight: 900; margin: 0 0 5px 0; font-size: 22px;">REPORTE DE ACTIVIDAD
+            DIARIA</h2>
+          <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 600;">Genera el PDF maestro de
+            Entradas y Salidas.</p>
 
-        <!-- Input bar -->
-        <div class="chatv2-input-bar" id="chat-input-bar" style="display:none;">
-          <input type="file" id="chatFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt"
-            onchange="stagedArchivoChatV2(this)">
-          <button class="chatv2-attach-btn" onclick="document.getElementById('chatFileInput').click()" title="Adjuntar archivo">
-            <span class="material-icons" style="font-size:20px;">add_circle</span>
-          </button>
-          <div class="chatv2-input-box">
-            <textarea id="chat-input" rows="1" class="chatv2-textarea" placeholder="Mensaje..."
-              oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"
-              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin-bottom: 15px;">
+            <div>
+              <label
+                style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                <span class="material-icons" style="font-size: 16px;">flight_takeoff</span> 1. RESERVAS (Salidas)
+              </label>
+              <textarea id="textoBrutoReservas" rows="6" placeholder="Pega aquí las Reservaciones..."
+                style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fcd34d; background:#fffbeb; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
+                oninput="validarTextareasActividad()"></textarea>
+            </div>
+            <div>
+              <label
+                style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                <span class="material-icons" style="font-size: 16px;">flight_land</span> 2. REGRESOS (Llegadas)
+              </label>
+              <textarea id="textoBrutoRegresos" rows="6" placeholder="Pega aquí los Contratos por Cerrar..."
+                style="width:100%; padding:15px; border-radius:12px; border:2px dashed #bae6fd; background:#f0f9ff; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
+                oninput="validarTextareasActividad()"></textarea>
+            </div>
           </div>
-          <button id="chatMicBtn" class="chatv2-mic-btn" onclick="toggleGrabacionChat()" title="Grabar audio">
-            <span class="material-icons" style="font-size:20px;">mic</span>
-          </button>
-          <button class="chatv2-send-btn" onclick="enviarMensajeChat()">
-            <span class="material-icons">send</span>
-          </button>
-          <!-- Emoji picker panel -->
-          <div id="chatEmojiPickerPanel"></div>
-        </div>
 
-      </div>
-
-    </div>
-  </div>
-
-  <div id="chat-user-info-modal" class="modal-overlay chat-user-info-modal" onclick="if(event.target===this) cerrarInfoContacto()">
-    <div class="chat-user-info-card">
-      <button class="chat-user-info-close" onclick="cerrarInfoContacto()">
-        <span class="material-icons" style="font-size:18px;">close</span>
-      </button>
-      <div id="chat-user-info-content"></div>
-    </div>
-  </div>
-
-  <div id="perfil-modal" class="fleet-modal profile-modal" style="z-index: 8100;">
-    <div class="profile-modal-shell">
-      <div class="profile-modal-hero">
-        <div>
-          <div class="profile-modal-kicker">Tu Cuenta</div>
-          <h2 class="profile-modal-title">Perfil</h2>
-          <p class="profile-modal-sub">Tu avatar ya funciona y el resto del panel queda listo para futuras configuraciones personales.</p>
-        </div>
-        <button class="profile-modal-close" onclick="cerrarPerfilUsuario()">
-          <span class="material-icons" style="font-size:18px;">close</span>
-        </button>
-      </div>
-
-      <div class="profile-modal-body">
-        <div class="profile-modal-card">
-          <div id="profileCurrentAvatar" class="profile-avatar-large">U</div>
-          <div class="profile-modal-copy">
-            <div id="profileCurrentName" class="profile-modal-name">Usuario</div>
-            <div id="profileCurrentMeta" class="profile-modal-meta">Sin datos</div>
-            <div id="profileCurrentBadges" class="profile-modal-badges"></div>
-          </div>
-        </div>
-
-        <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;" onchange="subirAvatarPerfil(this)">
-
-        <div class="profile-modal-actions">
-          <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
-            <span class="material-icons" style="font-size:18px;">photo_camera</span>
-            Subir y Recortar
-          </button>
-          <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
-            <span class="material-icons" style="font-size:18px;">delete</span>
-            Quitar Foto
-          </button>
-        </div>
-
-        <div class="profile-modal-note">
-          Usa una imagen cuadrada o vertical ligera para que se vea mejor en el chat, la barra lateral y futuras vistas del sistema. Las opciones de abajo son visuales por ahora y quedan listas para conectar después.
-        </div>
-
-        <div class="profile-settings-grid">
-          <section class="profile-settings-card">
-            <div class="profile-settings-head">
-              <div class="profile-settings-icon">
-                <span class="material-icons" style="font-size:20px;">notifications_active</span>
-              </div>
-              <div>
-                <div class="profile-settings-title">Notificaciones del dispositivo</div>
-                <p class="profile-settings-sub">Controla si este equipo recibe avisos reales en el celular o navegador.</p>
-              </div>
-              <span class="profile-settings-badge" id="profileNotificationBadge">Preparando</span>
-            </div>
-            <div class="profile-setting-row profile-setting-row-hero">
-              <div>
-                <strong>Notificaciones activas</strong>
-                <small>Si lo apagas, el historial sigue en el inbox pero este equipo deja de sonar.</small>
-              </div>
-              <button id="profileNotifMasterToggle" type="button" class="profile-setting-toggle is-on" aria-label="Notificaciones activas"></button>
-            </div>
-            <div class="profile-setting-row">
-              <div>
-                <strong>Mensajes directos</strong>
-                <small>Avísame cuando alguien me escriba o responda.</small>
-              </div>
-              <button id="profileNotifMessagesToggle" type="button" class="profile-setting-toggle is-on" aria-label="Mensajes directos"></button>
-            </div>
-            <div class="profile-setting-row">
-              <div>
-                <strong>Misión de cuadre</strong>
-                <small>Recibe avisos cuando te asignen o actualicen tu cuadre.</small>
-              </div>
-              <button id="profileNotifCuadreToggle" type="button" class="profile-setting-toggle is-on" aria-label="Misión de cuadre"></button>
-            </div>
-            <div class="profile-setting-row">
-              <div>
-                <strong>Alertas críticas</strong>
-                <small>Solo las situaciones urgentes de operación y patio.</small>
-              </div>
-              <button id="profileNotifCriticalToggle" type="button" class="profile-setting-toggle is-on" aria-label="Alertas críticas"></button>
-            </div>
-            <div class="profile-setting-row">
-              <div>
-                <strong>Silenciar este equipo</strong>
-                <small>Pausa los avisos del sistema sin perder el historial dentro del inbox.</small>
-              </div>
-              <button id="profileNotifMuteToggle" type="button" class="profile-setting-toggle is-off" aria-label="Silenciar este equipo"></button>
-            </div>
-            <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
-            <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary" style="width:100%; margin-top:14px;">
-              <span class="material-icons" style="font-size:18px;">notifications</span>
-              Ver historial y detalles
-            </button>
-          </section>
-
-          <section class="profile-settings-card">
-            <div class="profile-settings-head">
-              <div class="profile-settings-icon">
-                <span class="material-icons" style="font-size:20px;">palette</span>
-              </div>
-              <div>
-                <div class="profile-settings-title">Preferencias</div>
-                <p class="profile-settings-sub">Preparado para apariencia, atajos y comportamiento del mapa.</p>
-              </div>
-              <span class="profile-settings-badge">Próximamente</span>
-            </div>
-            <div class="profile-setting-row">
-              <div>
-                <strong>Modo compacto</strong>
-                <small>Para listas más densas y navegación rápida.</small>
-              </div>
-              <span class="profile-setting-toggle is-off"></span>
-            </div>
-            <div class="profile-setting-row">
-              <div>
-                <strong>Zoom recordado</strong>
-                <small>Guardará tu escala favorita al volver al mapa.</small>
-              </div>
-              <span class="profile-setting-toggle is-on"></span>
-            </div>
-          </section>
-
-          <section class="profile-settings-card">
-            <div class="profile-settings-head">
-              <div class="profile-settings-icon">
-                <span class="material-icons" style="font-size:20px;">shield</span>
-              </div>
-              <div>
-                <div class="profile-settings-title">Privacidad y sesión</div>
-                <p class="profile-settings-sub">Estado del permiso, este equipo activo y forma en que recibes avisos.</p>
-              </div>
-              <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
-            </div>
-            <div class="profile-setting-row profile-setting-row-hero">
-              <div>
-                <strong>Permiso push del dispositivo</strong>
-                <small id="profilePermissionSummary">Revisando soporte de notificaciones…</small>
-              </div>
-              <button id="profilePermissionToggle" type="button" class="profile-setting-toggle is-off" aria-label="Activar notificaciones push"></button>
-            </div>
-            <div class="profile-setting-row">
-              <div>
-                <strong>Este equipo</strong>
-                <small id="profileCurrentDeviceSummary">Cargando información del dispositivo actual.</small>
-              </div>
-              <span class="profile-settings-badge">Este equipo</span>
-            </div>
-          </section>
-
-          <section class="profile-settings-card profile-shortcuts-card">
-            <div class="profile-settings-head">
-              <div class="profile-settings-icon">
-                <span class="material-icons" style="font-size:20px;">keyboard_command_key</span>
-              </div>
-              <div>
-                <div class="profile-settings-title">Accesos rápidos</div>
-                <p class="profile-settings-sub">Atajos activos para moverte más rápido en escritorio.</p>
-              </div>
-              <span class="profile-settings-badge">Activos</span>
-            </div>
-            <div class="profile-shortcut-list">
-              <div class="profile-shortcut-item">
-                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>C</kbd></div>
-                <span>Abrir gestión de flota</span>
-              </div>
-              <div class="profile-shortcut-item">
-                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>M</kbd></div>
-                <span>Abrir mensajes</span>
-              </div>
-              <div class="profile-shortcut-item">
-                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>P</kbd></div>
-                <span>Abrir perfil</span>
-              </div>
-              <div class="profile-shortcut-item">
-                <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>R</kbd></div>
-                <span>Resumen de flota</span>
-              </div>
-              <div class="profile-shortcut-item">
-                <div class="profile-shortcut-keys"><kbd>/</kbd></div>
-                <span>Enfocar buscador del mapa</span>
-              </div>
-              <div class="profile-shortcut-item">
-                <div class="profile-shortcut-keys"><kbd>Esc</kbd></div>
-                <span>Cerrar panel o modal activo</span>
-              </div>
-            </div>
-          </section>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="profile-avatar-crop-modal" class="modal-overlay profile-avatar-crop-modal" onclick="if(event.target===this) cancelarRecorteAvatarPerfil()">
-    <div class="profile-avatar-crop-card">
-      <div class="profile-avatar-crop-head">
-        <div>
-          <div class="profile-modal-kicker" style="margin-bottom:6px; color:#94a3b8;">Tu Avatar</div>
-          <h3 class="profile-avatar-crop-title">Recorta tu foto</h3>
-          <p class="profile-avatar-crop-sub">Arrastra y acerca la imagen para ver exactamente cómo se verá tu perfil.</p>
-        </div>
-        <button class="profile-modal-close" onclick="cancelarRecorteAvatarPerfil()" style="background:#f1f5f9; color:#334155;">
-          <span class="material-icons" style="font-size:18px;">close</span>
-        </button>
-      </div>
-
-      <div class="profile-avatar-crop-body">
-        <div class="profile-avatar-crop-stage-wrap">
-          <div id="profileAvatarCropStage" class="profile-avatar-crop-stage">
-            <img id="profileAvatarCropImage" class="profile-avatar-crop-image" alt="Recorte de avatar">
-            <div class="profile-avatar-crop-mask"></div>
-          </div>
-          <div class="profile-avatar-crop-controls">
-            <label for="profileAvatarCropZoom">Zoom</label>
-            <input id="profileAvatarCropZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="ajustarZoomAvatarPerfil(this.value)">
-            <p>Tip: mantén presionado y arrastra la foto. Funciona con mouse y touch.</p>
-          </div>
-        </div>
-
-        <div class="profile-avatar-preview-panel">
-          <div class="profile-avatar-preview-card">
-            <span class="profile-avatar-preview-label">Vista chat</span>
-            <canvas id="profileAvatarPreviewCircle" width="96" height="96"></canvas>
-          </div>
-          <div class="profile-avatar-preview-card">
-            <span class="profile-avatar-preview-label">Vista perfil</span>
-            <canvas id="profileAvatarPreviewCard" width="112" height="112"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="profile-avatar-crop-actions">
-        <button class="profile-modal-btn" onclick="cancelarRecorteAvatarPerfil()">Cancelar</button>
-        <button id="profileAvatarCropSaveBtn" class="profile-modal-btn primary" onclick="guardarAvatarRecortadoPerfil()">
-          <span class="material-icons" style="font-size:18px;">check</span>
-          Guardar Foto
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <div id="modal-lector-reservas" class="modal-overlay" style="z-index: 76000;">
-    <div class="console-card" style="max-width: 750px; text-align: center; padding: 30px;">
-      <button onclick="document.getElementById('modal-lector-reservas').classList.remove('active')"
-        style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
-
-      <span class="material-icons" style="font-size: 50px; color: #0284c7; margin-bottom: 10px;">assessment</span>
-      <h2 style="color: var(--primary); font-weight: 900; margin: 0 0 5px 0; font-size: 22px;">REPORTE DE ACTIVIDAD
-        DIARIA</h2>
-      <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 600;">Genera el PDF maestro de
-        Entradas y Salidas.</p>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin-bottom: 15px;">
-        <div>
-          <label
-            style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-            <span class="material-icons" style="font-size: 16px;">flight_takeoff</span> 1. RESERVAS (Salidas)
-          </label>
-          <textarea id="textoBrutoReservas" rows="6" placeholder="Pega aquí las Reservaciones..."
-            style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fcd34d; background:#fffbeb; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
-            oninput="validarTextareasActividad()"></textarea>
-        </div>
-        <div>
-          <label
-            style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-            <span class="material-icons" style="font-size: 16px;">flight_land</span> 2. REGRESOS (Llegadas)
-          </label>
-          <textarea id="textoBrutoRegresos" rows="6" placeholder="Pega aquí los Contratos por Cerrar..."
-            style="width:100%; padding:15px; border-radius:12px; border:2px dashed #bae6fd; background:#f0f9ff; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
-            oninput="validarTextareasActividad()"></textarea>
-        </div>
-      </div>
-
-      <div style="text-align: left; margin-bottom: 20px;">
-        <label
-          style="font-weight: 900; font-size: 12px; color: #ef4444; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-          <span class="material-icons" style="font-size: 16px;">warning</span> 3. VENCIDOS (Opcional - Posibles
-          Llegadas)
-        </label>
-        <textarea id="textoBrutoVencidos" rows="4" placeholder="Pega aquí los contratos vencidos..."
-          style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fca5a5; background:#fef2f2; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"></textarea>
-      </div>
-
-      <button id="btnGenerarPdfActividad" onclick="procesarActividadDiaria()" disabled
-        style="width: 100%; padding: 18px; background: #e2e8f0; color: #94a3b8; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.3s;">
-        <span class="material-icons">lock</span> ESPERANDO DATOS (PASO 1 Y 2)...
-      </button>
-    </div>
-  </div>
-
-
-  <div id="modal-prediccion" class="modal-overlay" style="z-index: 76000;">
-    <div class="console-card"
-      style="max-width: 800px; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
-
-      <div
-        style="background: var(--mex-blue); padding: 20px 25px; color: white; display: flex; justify-content: space-between; align-items: center;">
-        <div>
-          <h2 style="margin: 0; font-weight: 900; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-            <span class="material-icons" style="color: #38bdf8;">query_stats</span> CUADRE DE PREDICCIONES
-          </h2>
-          <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Compara Reservas vs Regresos vs Patio Actual
-          </p>
-        </div>
-        <button onclick="document.getElementById('modal-prediccion').classList.remove('active')"
-          style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
-      </div>
-
-      <div id="prediccion-paso-1" style="padding: 25px; display: block;">
-
-        <div
-          style="margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1;">
-          <label
-            style="font-weight: 900; font-size: 13px; color: var(--mex-blue); display: flex; align-items: center; gap: 8px;">
-            <span class="material-icons">calendar_month</span> SELECCIONA LA FECHA DEL CUADRE:
-          </label>
-          <input type="date" id="fecha-prediccion"
-            style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid var(--mex-accent); margin-top: 10px; font-family: inherit; font-weight: bold; font-size: 15px; color: #1e293b; outline: none;">
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-          <div>
+          <div style="text-align: left; margin-bottom: 20px;">
             <label
-              style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-              <span class="material-icons" style="font-size: 16px;">event_available</span> PEGAR RESERVAS AQUÍ
+              style="font-weight: 900; font-size: 12px; color: #ef4444; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+              <span class="material-icons" style="font-size: 16px;">warning</span> 3. VENCIDOS (Opcional - Posibles
+              Llegadas)
             </label>
-            <textarea id="txt-pred-reservas" rows="8" placeholder="Pega la tabla de 'Reservaciones'..."
-              style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #fcd34d; background: #fffbeb; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+            <textarea id="textoBrutoVencidos" rows="4" placeholder="Pega aquí los contratos vencidos..."
+              style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fca5a5; background:#fef2f2; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"></textarea>
           </div>
 
-          <div>
-            <label
-              style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-              <span class="material-icons" style="font-size: 16px;">event_busy</span> PEGAR REGRESOS AQUÍ
-            </label>
-            <textarea id="txt-pred-regresos" rows="8" placeholder="Pega la tabla de 'Contratos por Cerrar'..."
-              style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #bae6fd; background: #f0f9ff; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
-          </div>
-        </div>
-
-        <button id="btnProcesarPrediccion" onclick="ejecutarPrediccion()"
-          style="width: 100%; padding: 18px; background: #10b981; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; box-shadow: 0 10px 20px rgba(16,185,129,0.3); transition: 0.2s;">
-          <span class="material-icons">auto_awesome</span> CALCULAR DISPONIBILIDAD
-        </button>
-      </div>
-
-      <div id="prediccion-paso-2" style="padding: 25px; display: none; background: #f8fafc;">
-        <div id="tabla-prediccion-container"
-          style="background: white; border-radius: 12px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto;">
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-          <button onclick="reiniciarPrediccion()"
-            style="flex: 1; padding: 15px; background: #e2e8f0; color: #475569; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;">NUEVO
-            CÁLCULO</button>
-
-          <button id="btnDescargarPrediccionExcel" onclick="crearExcelPrediccion()"
-            style="flex: 2; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(22,163,74,0.3);">
-            <span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE
-          </button>
-          <button id="btnDescargarPrediccionPdf" onclick="descargarPDFPrediccion()"
-            style="flex: 2; padding: 15px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
-            <span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL
+          <button id="btnGenerarPdfActividad" onclick="procesarActividadDiaria()" disabled
+            style="width: 100%; padding: 18px; background: #e2e8f0; color: #94a3b8; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.3s;">
+            <span class="material-icons">lock</span> ESPERANDO DATOS (PASO 1 Y 2)...
           </button>
         </div>
       </div>
 
-    </div>
-  </div>
 
-  <div id="ai-response-panel">
-    <div class="ai-panel-header">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <span class="material-icons" style="font-size: 18px; color: #38bdf8;">smart_toy</span> IA
+      <div id="modal-prediccion" class="modal-overlay" style="z-index: 76000;">
+        <div class="console-card"
+          style="max-width: 800px; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+
+          <div
+            style="background: var(--mex-blue); padding: 20px 25px; color: white; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h2 style="margin: 0; font-weight: 900; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+                <span class="material-icons" style="color: #38bdf8;">query_stats</span> CUADRE DE PREDICCIONES
+              </h2>
+              <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Compara Reservas vs Regresos vs Patio
+                Actual
+              </p>
+            </div>
+            <button onclick="document.getElementById('modal-prediccion').classList.remove('active')"
+              style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+          </div>
+
+          <div id="prediccion-paso-1" style="padding: 25px; display: block;">
+
+            <div
+              style="margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1;">
+              <label
+                style="font-weight: 900; font-size: 13px; color: var(--mex-blue); display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons">calendar_month</span> SELECCIONA LA FECHA DEL CUADRE:
+              </label>
+              <input type="date" id="fecha-prediccion"
+                style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid var(--mex-accent); margin-top: 10px; font-family: inherit; font-weight: bold; font-size: 15px; color: #1e293b; outline: none;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <label
+                  style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                  <span class="material-icons" style="font-size: 16px;">event_available</span> PEGAR RESERVAS AQUÍ
+                </label>
+                <textarea id="txt-pred-reservas" rows="8" placeholder="Pega la tabla de 'Reservaciones'..."
+                  style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #fcd34d; background: #fffbeb; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+              </div>
+
+              <div>
+                <label
+                  style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                  <span class="material-icons" style="font-size: 16px;">event_busy</span> PEGAR REGRESOS AQUÍ
+                </label>
+                <textarea id="txt-pred-regresos" rows="8" placeholder="Pega la tabla de 'Contratos por Cerrar'..."
+                  style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #bae6fd; background: #f0f9ff; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+              </div>
+            </div>
+
+            <button id="btnProcesarPrediccion" onclick="ejecutarPrediccion()"
+              style="width: 100%; padding: 18px; background: #10b981; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; box-shadow: 0 10px 20px rgba(16,185,129,0.3); transition: 0.2s;">
+              <span class="material-icons">auto_awesome</span> CALCULAR DISPONIBILIDAD
+            </button>
+          </div>
+
+          <div id="prediccion-paso-2" style="padding: 25px; display: none; background: #f8fafc;">
+            <div id="tabla-prediccion-container"
+              style="background: white; border-radius: 12px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto;">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+              <button onclick="reiniciarPrediccion()"
+                style="flex: 1; padding: 15px; background: #e2e8f0; color: #475569; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;">NUEVO
+                CÁLCULO</button>
+
+              <button id="btnDescargarPrediccionExcel" onclick="crearExcelPrediccion()"
+                style="flex: 2; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(22,163,74,0.3);">
+                <span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE
+              </button>
+              <button id="btnDescargarPrediccionPdf" onclick="descargarPDFPrediccion()"
+                style="flex: 2; padding: 15px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                <span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL
+              </button>
+            </div>
+          </div>
+
+        </div>
       </div>
-      <button onclick="document.getElementById('ai-response-panel').style.display='none'"
-        style="background: transparent; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 16px;">✕</button>
-    </div>
-    <div class="ai-panel-body" id="ai-response-content">
-    </div>
-  </div>
 
-  <!-- <div id="smartTerminalWrapper" class="smart-terminal-collapsed" onclick="expandirTerminal(event)">
+      <div id="ai-response-panel">
+        <div class="ai-panel-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons" style="font-size: 18px; color: #38bdf8;">smart_toy</span> IA
+          </div>
+          <button onclick="document.getElementById('ai-response-panel').style.display='none'"
+            style="background: transparent; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 16px;">✕</button>
+        </div>
+        <div class="ai-panel-body" id="ai-response-content">
+        </div>
+      </div>
+
+      <!-- <div id="smartTerminalWrapper" class="smart-terminal-collapsed" onclick="expandirTerminal(event)">
   
   <div class="st-icon" style="display: flex; gap: 5px;">
     <div style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%); border-radius: 50%;">
@@ -3365,744 +3416,820 @@
   </button>
 </div> -->
 
-  <!-- ═══════════════════════════════════════════════════════════
+      <!-- ═══════════════════════════════════════════════════════════
      🗺️  EDITOR VISUAL DE MAPA
      ═══════════════════════════════════════════════════════════ -->
-  <div id="modal-editor-mapa" class="modal-overlay"
-    style="z-index:75000; padding:8px; align-items:center; justify-content:center;">
-    <div class="mapa-editor-shell">
+      <div id="modal-editor-mapa" class="modal-overlay"
+        style="z-index:75000; padding:8px; align-items:center; justify-content:center;">
+        <div class="mapa-editor-shell">
 
-      <div class="mapa-editor-header">
-        <div class="mapa-editor-header-left">
-          <span class="material-icons" style="color:#38bdf8; font-size:28px; flex-shrink:0;">map</span>
-          <div>
-            <h2>EDITOR DE MAPA</h2>
-            <p>Edición directa sobre el plano · vista previa en vivo</p>
+          <div class="mapa-editor-header">
+            <div class="mapa-editor-header-left">
+              <span class="material-icons" style="color:#38bdf8; font-size:28px; flex-shrink:0;">map</span>
+              <div>
+                <h2>EDITOR DE MAPA</h2>
+                <p>Edición directa sobre el plano · vista previa en vivo</p>
+              </div>
+            </div>
+            <div class="mapa-editor-header-tools">
+              <button onclick="modoAgregarEditor('cajon')" class="mapa-editor-tool-btn cajon" id="btn-tool-cajon"
+                data-tip="Cajón: elige la herramienta y luego haz clic en el mapa para colocarlo.">
+                <span class="material-icons">crop_square</span>
+                <span>Cajón</span>
+              </button>
+              <button onclick="modoAgregarEditor('area')" class="mapa-editor-tool-btn area" id="btn-tool-area"
+                data-tip="Área: crea zonas especiales como taller, acceso o recepción.">
+                <span class="material-icons">dashboard_customize</span>
+                <span>Área</span>
+              </button>
+              <button onclick="modoAgregarEditor('label')" class="mapa-editor-tool-btn etiqueta" id="btn-tool-label"
+                data-tip="Etiqueta: agrega un rótulo rápido para nombrar secciones del patio.">
+                <span class="material-icons">sell</span>
+                <span>Etiqueta</span>
+              </button>
+              <button onclick="editorAgregarForma('fila-3')" class="mapa-editor-tool-btn ghost"
+                data-tip="Fila x3: inserta una base visual de tres cajones para acelerar el acomodo.">
+                <span class="material-icons">view_week</span>
+                <span>Fila x3</span>
+              </button>
+              <button onclick="editorAgregarForma('rect-h')" class="mapa-editor-tool-btn ghost"
+                data-tip="Rect H: agrega una pieza horizontal para bloques largos o pasillos.">
+                <span class="material-icons">crop_16_9</span>
+                <span>Rect H</span>
+              </button>
+            </div>
+            <div class="mapa-editor-header-right">
+              <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="mapa-btn-guardar">
+                <span class="material-icons" style="font-size:18px;">save</span> GUARDAR CAMBIOS
+              </button>
+              <button onclick="document.getElementById('modal-editor-mapa').classList.remove('active')"
+                class="mapa-btn-cerrar">
+                <span class="material-icons" style="font-size:20px;">close</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="mapa-editor-body">
+            <div class="mapa-editor-canvas">
+              <div id="editor-loading" class="mapa-editor-loading">
+                <span class="material-icons spinner" style="font-size:48px; color:#38bdf8;">sync</span>
+                <p>Cargando estructura del mapa…</p>
+              </div>
+
+              <div id="editor-grid-wrapper" class="editor-grid-stage" style="display:none;">
+                <div class="editor-help-strip">
+                  <button class="editor-help-card" type="button"
+                    data-tip="1. Elige una pieza arriba. 2. Haz clic en el mapa para colocarla.">
+                    <span class="material-icons">add_box</span>
+                    <span>Agregar</span>
+                  </button>
+                  <button class="editor-help-card" type="button"
+                    data-tip="Arrastra una pieza para moverla y usa los nodos dorados para cambiar su tamaño.">
+                    <span class="material-icons">open_with</span>
+                    <span>Mover</span>
+                  </button>
+                  <button class="editor-help-card" type="button"
+                    data-tip="Encierra con el mouse o usa Shift/Ctrl/Cmd para seleccionar varias piezas.">
+                    <span class="material-icons">select_all</span>
+                    <span>Multi</span>
+                  </button>
+                  <button class="editor-help-card" type="button"
+                    data-tip="Click derecho o botón de tres puntos para abrir más opciones sobre un spot.">
+                    <span class="material-icons">more_horiz</span>
+                    <span>Más</span>
+                  </button>
+                </div>
+
+                <div id="editor-add-hint" class="mapa-add-hint" style="display:none;">
+                  <span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span>
+                  Toca el mapa para colocar un elemento nuevo
+                </div>
+
+                <div id="editor-live-badge" class="editor-live-pill">
+                  <span class="material-icons" style="font-size:18px;">visibility</span>
+                  <span>Vista previa en vivo</span>
+                </div>
+
+                <div id="editor-selection-summary" class="editor-selection-summary">
+                  <span class="material-icons" style="font-size:18px;">mouse</span>
+                  <span>Haz clic o encierra con el mouse para empezar.</span>
+                </div>
+
+                <div class="editor-floating-card editor-inspector-card">
+                  <div class="editor-card-header">
+                    <div>
+                      <div class="editor-card-kicker">Inspector</div>
+                      <h3>Selección</h3>
+                    </div>
+                    <span class="editor-card-dot"></span>
+                  </div>
+
+                  <div id="editor-no-sel" class="mapa-no-sel editor-empty-state">
+                    <span class="material-icons"
+                      style="font-size:54px; color:#1e3a5f; display:block; margin-bottom:12px;">ads_click</span>
+                    <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.</p>
+                  </div>
+
+                  <div id="editor-sel-form" style="display:none;">
+                    <div class="editor-form-grid two">
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Nombre</label>
+                        <input id="ep-nombre" type="text" maxlength="20" class="mapa-input" placeholder="Ej: A-01"
+                          oninput="editorPropChange()">
+                      </div>
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Tipo</label>
+                        <select id="ep-tipo" class="mapa-select" onchange="editorPropChange()">
+                          <option value="cajon">Cajón</option>
+                          <option value="area">Área</option>
+                          <option value="label">Etiqueta</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="editor-form-grid two">
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Posición X</label>
+                        <input id="ep-x" type="number" min="0" step="10" class="mapa-input"
+                          oninput="editorPropChange()">
+                      </div>
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Posición Y</label>
+                        <input id="ep-y" type="number" min="0" step="10" class="mapa-input"
+                          oninput="editorPropChange()">
+                      </div>
+                    </div>
+
+                    <div class="editor-form-grid two">
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Ancho</label>
+                        <div class="mapa-size-ctrl">
+                          <button onclick="editorSpanChange('width',-10)">−</button>
+                          <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
+                            style="width:58px; text-align:center;" oninput="editorPropChange()">
+                          <button onclick="editorSpanChange('width',10)">+</button>
+                        </div>
+                      </div>
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Alto</label>
+                        <div class="mapa-size-ctrl">
+                          <button onclick="editorSpanChange('height',-10)">−</button>
+                          <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
+                            style="width:58px; text-align:center;" oninput="editorPropChange()">
+                          <button onclick="editorSpanChange('height',10)">+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mapa-field-group">
+                      <label class="mapa-field-label">Rotación</label>
+                      <input id="ep-rotation" type="number" min="-360" max="360" step="5" class="mapa-input"
+                        oninput="editorPropChange()">
+                    </div>
+
+                    <div class="mapa-field-group">
+                      <label class="mapa-field-label">Ajuste fino</label>
+                      <div class="mapa-arrow-pad">
+                        <div></div>
+                        <button onclick="editorMoverCelda(0,-1)" class="mapa-arrow-btn" title="Arriba"><span
+                            class="material-icons">north</span></button>
+                        <div></div>
+                        <button onclick="editorMoverCelda(-1,0)" class="mapa-arrow-btn" title="Izquierda"><span
+                            class="material-icons">west</span></button>
+                        <div class="mapa-arrow-center"><span class="material-icons">open_with</span></div>
+                        <button onclick="editorMoverCelda(1,0)" class="mapa-arrow-btn" title="Derecha"><span
+                            class="material-icons">east</span></button>
+                        <div></div>
+                        <button onclick="editorMoverCelda(0,1)" class="mapa-arrow-btn" title="Abajo"><span
+                            class="material-icons">south</span></button>
+                        <div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="editor-selection-actions" class="editor-floating-toolbar editor-selection-actions"
+                  style="display:none;">
+                  <button type="button" onclick="editorCopiarCelda()"
+                    data-tip="Duplica la selección con un pequeño desplazamiento.">
+                    <span class="material-icons">content_copy</span>
+                  </button>
+                  <button type="button" onclick="editorEliminarCelda()"
+                    data-tip="Elimina la pieza o el grupo seleccionado.">
+                    <span class="material-icons">delete_forever</span>
+                  </button>
+                  <button type="button" onclick="editorDuplicarFila()"
+                    data-tip="Clona una fila completa a partir del spot seleccionado.">
+                    <span class="material-icons">table_rows</span>
+                  </button>
+                  <button type="button" onclick="editorToggleMoreMenu(event)"
+                    data-tip="Abre más opciones para el spot o grupo activo.">
+                    <span class="material-icons">more_horiz</span>
+                  </button>
+                </div>
+
+                <div id="editor-group-actions" class="editor-floating-toolbar editor-group-actions"
+                  style="display:none;">
+                  <button type="button" onclick="editorAlinearGrupo('left')" data-tip="Alinea los bordes izquierdos.">
+                    <span class="material-icons">align_horizontal_left</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('centerH')"
+                    data-tip="Centra horizontalmente el grupo.">
+                    <span class="material-icons">align_horizontal_center</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('right')" data-tip="Alinea los bordes derechos.">
+                    <span class="material-icons">align_horizontal_right</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('top')"
+                    data-tip="Alinea la parte superior del grupo.">
+                    <span class="material-icons">align_vertical_top</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('centerV')"
+                    data-tip="Centra verticalmente el grupo.">
+                    <span class="material-icons">align_vertical_center</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('bottom')" data-tip="Alinea la base del grupo.">
+                    <span class="material-icons">align_vertical_bottom</span>
+                  </button>
+                  <button type="button" onclick="editorDistribuirGrupo('H')"
+                    data-tip="Distribuye la separación horizontal del grupo.">
+                    <span>↔</span>
+                  </button>
+                  <button type="button" onclick="editorDistribuirGrupo('V')"
+                    data-tip="Distribuye la separación vertical del grupo.">
+                    <span>↕</span>
+                  </button>
+                </div>
+
+                <div class="ed-zoom-bar editor-floating-zoom">
+                  <button onclick="editorZoom(-0.1)" title="Zoom -">−</button>
+                  <span id="ed-zoom-label">100%</span>
+                  <button onclick="editorZoom(+0.1)" title="Zoom +">+</button>
+                  <button onclick="editorZoom(0)" title="Reset zoom"
+                    style="font-size:11px; width:auto; padding:0 8px;">1:1</button>
+                </div>
+
+                <div id="ed-more-menu" class="ed-more-menu" style="display:none;">
+                  <button onclick="editorCentrarH()"><span class="material-icons"
+                      style="font-size:15px;">align_horizontal_center</span><span>Centrar
+                      horizontalmente</span></button>
+                  <button onclick="editorCentrarV()"><span class="material-icons"
+                      style="font-size:15px;">align_vertical_center</span><span>Centrar verticalmente</span></button>
+                  <hr>
+                  <button onclick="editorTraerFrente()"><span class="material-icons"
+                      style="font-size:15px;">flip_to_front</span><span>Traer al frente</span></button>
+                  <button onclick="editorEnviarFondo()"><span class="material-icons"
+                      style="font-size:15px;">flip_to_back</span><span>Enviar al fondo</span></button>
+                  <hr>
+                  <button onclick="editorAgregarForma('cuadrado')"><span class="material-icons"
+                      style="font-size:15px;">check_box_outline_blank</span><span>Agregar cuadrado</span></button>
+                  <button onclick="editorAgregarForma('rect-v')"><span class="material-icons"
+                      style="font-size:15px;">crop_portrait</span><span>Agregar rectángulo vertical</span></button>
+                  <button onclick="editorAgregarForma('rect-grande')"><span class="material-icons"
+                      style="font-size:15px;">crop_32_9</span><span>Agregar rectángulo grande</span></button>
+                </div>
+
+                <div id="editor-grid"
+                  style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;">
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="mapa-editor-header-tools">
-          <button onclick="modoAgregarEditor('cajon')" class="mapa-editor-tool-btn cajon" id="btn-tool-cajon"
-            data-tip="Cajón: elige la herramienta y luego haz clic en el mapa para colocarlo.">
-            <span class="material-icons">crop_square</span>
-            <span>Cajón</span>
-          </button>
-          <button onclick="modoAgregarEditor('area')" class="mapa-editor-tool-btn area" id="btn-tool-area"
-            data-tip="Área: crea zonas especiales como taller, acceso o recepción.">
-            <span class="material-icons">dashboard_customize</span>
-            <span>Área</span>
-          </button>
-          <button onclick="modoAgregarEditor('label')" class="mapa-editor-tool-btn etiqueta" id="btn-tool-label"
-            data-tip="Etiqueta: agrega un rótulo rápido para nombrar secciones del patio.">
-            <span class="material-icons">sell</span>
-            <span>Etiqueta</span>
-          </button>
-          <button onclick="editorAgregarForma('fila-3')" class="mapa-editor-tool-btn ghost"
-            data-tip="Fila x3: inserta una base visual de tres cajones para acelerar el acomodo.">
-            <span class="material-icons">view_week</span>
-            <span>Fila x3</span>
-          </button>
-          <button onclick="editorAgregarForma('rect-h')" class="mapa-editor-tool-btn ghost"
-            data-tip="Rect H: agrega una pieza horizontal para bloques largos o pasillos.">
-            <span class="material-icons">crop_16_9</span>
-            <span>Rect H</span>
-          </button>
-        </div>
-        <div class="mapa-editor-header-right">
-          <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="mapa-btn-guardar">
-            <span class="material-icons" style="font-size:18px;">save</span> GUARDAR CAMBIOS
-          </button>
-          <button onclick="document.getElementById('modal-editor-mapa').classList.remove('active')"
-            class="mapa-btn-cerrar">
+      </div>
+
+      <!-- ── PANEL DE CONFIGURACIÓN GLOBAL (solo Admin Global) ─────────────── -->
+      <div id="modal-config-global" class="fleet-modal cfg-modal-v2" style="z-index: 70000;">
+
+        <!-- HERO HEADER -->
+        <div class="cfg-v2-hero">
+          <div class="cfg-v2-hero-bg"></div>
+          <div class="cfg-v2-hero-content">
+            <div class="cfg-v2-hero-compact-row">
+              <div class="cfg-v2-kicker">
+                <span class="material-icons" style="font-size:13px;">settings_suggest</span>
+                ADMINISTRACIÓN
+              </div>
+              <h2 class="cfg-v2-title">PANEL ADMINISTRATIVO</h2>
+              <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
+            </div>
+            <!-- IDs requeridos por JS — ocultos -->
+            <span id="cfg-insight-users" style="display:none;"></span>
+            <span id="cfg-insight-plazas" style="display:none;"></span>
+            <span id="cfg-insight-catalogs" style="display:none;"></span>
+            <span id="cfg-insight-pending" style="display:none;"></span>
+          </div>
+          <button class="cfg-v2-close" onclick="cerrarPanelConfiguracion()">
             <span class="material-icons" style="font-size:20px;">close</span>
           </button>
         </div>
-      </div>
 
-      <div class="mapa-editor-body">
-        <div class="mapa-editor-canvas">
-          <div id="editor-loading" class="mapa-editor-loading">
-            <span class="material-icons spinner" style="font-size:48px; color:#38bdf8;">sync</span>
-            <p>Cargando estructura del mapa…</p>
+        <!-- BODY: SIDEBAR + CONTENT -->
+        <div class="cfg-v2-body">
+
+          <!-- SIDEBAR -->
+          <div class="cfg-v2-sidebar">
+            <div class="cfg-v2-sidebar-label">
+              <span class="material-icons">shield_person</span>
+              <span>Administración</span>
+            </div>
+            <div class="cfg-v2-sidebar-sublabel">Usuarios, roles, catálogos y configuración</div>
+            <nav class="cfg-v2-nav">
+              <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Empresa">
+                <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+                <span>Empresa</span>
+              </button>
+              <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas">
+                <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+                <span>Plazas</span>
+              </button>
+              <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)"
+                title="Ubicaciones">
+                <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+                <span>Ubicaciones</span>
+              </button>
+              <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados">
+                <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+                <span>Estados</span>
+              </button>
+              <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)"
+                title="Categorías">
+                <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+                <span>Categorías</span>
+              </button>
+              <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos">
+                <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+                <span>Modelos</span>
+              </button>
+              <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)"
+                title="Gasolinas">
+                <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+                <span>Gasolinas</span>
+              </button>
+
+              <div class="cfg-rail-section-label">Gestión y Permisos</div>
+
+              <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)"
+                title="Usuarios">
+                <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+                <span>Usuarios</span>
+              </button>
+              <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
+                <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
+                <span>Roles</span>
+              </button>
+              <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)"
+                style="position:relative;" title="Solicitudes">
+                <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
+                <span>Solicitudes</span>
+                <span id="badge-config-solicitudes" class="badge-pulse"
+                  style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
+              </button>
+              <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)"
+                title="Programador">
+                <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
+                <span>Programador</span>
+              </button>
+            </nav>
           </div>
 
-          <div id="editor-grid-wrapper" class="editor-grid-stage" style="display:none;">
-            <div class="editor-help-strip">
-              <button class="editor-help-card" type="button"
-                data-tip="1. Elige una pieza arriba. 2. Haz clic en el mapa para colocarla.">
-                <span class="material-icons">add_box</span>
-                <span>Agregar</span>
-              </button>
-              <button class="editor-help-card" type="button"
-                data-tip="Arrastra una pieza para moverla y usa los nodos dorados para cambiar su tamaño.">
-                <span class="material-icons">open_with</span>
-                <span>Mover</span>
-              </button>
-              <button class="editor-help-card" type="button"
-                data-tip="Encierra con el mouse o usa Shift/Ctrl/Cmd para seleccionar varias piezas.">
-                <span class="material-icons">select_all</span>
-                <span>Multi</span>
-              </button>
-              <button class="editor-help-card" type="button"
-                data-tip="Click derecho o botón de tres puntos para abrir más opciones sobre un spot.">
-                <span class="material-icons">more_horiz</span>
-                <span>Más</span>
+          <!-- MAIN PANEL -->
+          <div class="cfg-v2-main">
+
+            <!-- ADD BAR -->
+            <div class="cfg-v2-add-bar">
+              <div class="cfg-v2-search-box">
+                <span class="material-icons cfg-v2-search-icon">search</span>
+                <input type="text" id="cfg-search-input" placeholder="Buscar catálogo..."
+                  oninput="buscarEnListaConfig()">
+              </div>
+              <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
+                <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
               </button>
             </div>
 
-            <div id="editor-add-hint" class="mapa-add-hint" style="display:none;">
-              <span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span>
-              Toca el mapa para colocar un elemento nuevo
+            <!-- LIST -->
+            <div id="cfg-lista-items" class="cfg-v2-list"></div>
+
+            <!-- FOOTER -->
+            <div class="cfg-v2-footer">
+              <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> ·
+                Configuración v3</span>
+              <div class="cfg-v2-footer-actions">
+                <button class="cfg-v2-btn-cancel" onclick="cerrarPanelConfiguracion()">
+                  CANCELAR
+                </button>
+                <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
+                  <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE AGREGAR/EDITAR ITEM (DENTRO DEL CONFIG) -->
+      <div id="modal-cfg-add"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75000; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div class="cfg-add-card">
+
+          <!-- Header dinámico -->
+          <div class="cfg-add-header">
+            <div class="cfg-add-header-icon" id="cfg-add-header-icon">
+              <span class="material-icons">add_circle</span>
+            </div>
+            <div class="cfg-add-header-text">
+              <div class="cfg-add-header-title" id="modal-cfg-add-title">Agregar Nuevo</div>
+              <div class="cfg-add-header-sub" id="cfg-add-header-sub">Nueva entrada en la lista</div>
+            </div>
+            <button class="cfg-add-close-btn" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+
+          <!-- Cuerpo -->
+          <div class="cfg-add-body">
+
+            <!-- Nombre/Clave -->
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Nombre / Clave</label>
+              <input type="text" id="cfg-add-name" placeholder="Ej: NUEVO ESTADO" class="cfg-add-input"
+                autocomplete="off" onkeydown="if(event.key==='Enter') confirmarAgregadoConfig()">
             </div>
 
-            <div id="editor-live-badge" class="editor-live-pill">
-              <span class="material-icons" style="font-size:18px;">visibility</span>
-              <span>Vista previa en vivo</span>
-            </div>
-
-            <div id="editor-selection-summary" class="editor-selection-summary">
-              <span class="material-icons" style="font-size:18px;">mouse</span>
-              <span>Haz clic o encierra con el mouse para empezar.</span>
-            </div>
-
-            <div class="editor-floating-card editor-inspector-card">
-              <div class="editor-card-header">
+            <!-- Opciones: Ubicación -->
+            <div id="cfg-add-ubi-options" style="display:none;">
+              <label class="cfg-add-checkbox-row" for="cfg-add-is-plaza">
+                <div class="cfg-add-checkbox-box">
+                  <input type="checkbox" id="cfg-add-is-plaza" checked>
+                  <div class="cfg-add-checkbox-custom"></div>
+                </div>
                 <div>
-                  <div class="editor-card-kicker">Inspector</div>
-                  <h3>Selección</h3>
+                  <div class="cfg-add-checkbox-label">Es Plaza Fija</div>
+                  <div class="cfg-add-checkbox-sub">Desmarca si es una persona o responsable externo</div>
                 </div>
-                <span class="editor-card-dot"></span>
+              </label>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Plaza asignada</label>
+                <select id="cfg-add-ubi-plaza" class="cfg-add-select">
+                  <option value="">— Todas las plazas —</option>
+                </select>
               </div>
+            </div>
 
-              <div id="editor-no-sel" class="mapa-no-sel editor-empty-state">
-                <span class="material-icons"
-                  style="font-size:54px; color:#1e3a5f; display:block; margin-bottom:12px;">ads_click</span>
-                <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.</p>
+            <!-- Opciones: Estado -->
+            <div id="cfg-add-estado-options" style="display:none;">
+              <div class="cfg-add-field">
+                <label class="cfg-add-label">Color del estado</label>
+                <div class="cfg-add-color-row">
+                  <input type="color" id="cfg-add-color" value="#64748b" oninput="_cfgUpdateColorSwatch(this.value)">
+                  <div class="cfg-add-color-swatch" id="cfg-add-color-swatch" style="background:#64748b;">
+                    <span id="cfg-add-color-hex">#64748B</span>
+                  </div>
+                </div>
+                <div class="cfg-add-color-presets" id="cfg-add-color-presets"></div>
               </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Orden en tabla (prioridad)</label>
+                <input type="number" id="cfg-add-orden" placeholder="Ej: 1" class="cfg-add-input" min="1" max="99">
+              </div>
+            </div>
 
-              <div id="editor-sel-form" style="display:none;">
-                <div class="editor-form-grid two">
-                  <div class="mapa-field-group">
-                    <label class="mapa-field-label">Nombre</label>
-                    <input id="ep-nombre" type="text" maxlength="20" class="mapa-input" placeholder="Ej: A-01"
-                      oninput="editorPropChange()">
-                  </div>
-                  <div class="mapa-field-group">
-                    <label class="mapa-field-label">Tipo</label>
-                    <select id="ep-tipo" class="mapa-select" onchange="editorPropChange()">
-                      <option value="cajon">Cajón</option>
-                      <option value="area">Área</option>
-                      <option value="label">Etiqueta</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="editor-form-grid two">
-                  <div class="mapa-field-group">
-                    <label class="mapa-field-label">Posición X</label>
-                    <input id="ep-x" type="number" min="0" step="10" class="mapa-input" oninput="editorPropChange()">
-                  </div>
-                  <div class="mapa-field-group">
-                    <label class="mapa-field-label">Posición Y</label>
-                    <input id="ep-y" type="number" min="0" step="10" class="mapa-input" oninput="editorPropChange()">
-                  </div>
-                </div>
-
-                <div class="editor-form-grid two">
-                  <div class="mapa-field-group">
-                    <label class="mapa-field-label">Ancho</label>
-                    <div class="mapa-size-ctrl">
-                      <button onclick="editorSpanChange('width',-10)">−</button>
-                      <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
-                        style="width:58px; text-align:center;" oninput="editorPropChange()">
-                      <button onclick="editorSpanChange('width',10)">+</button>
-                    </div>
-                  </div>
-                  <div class="mapa-field-group">
-                    <label class="mapa-field-label">Alto</label>
-                    <div class="mapa-size-ctrl">
-                      <button onclick="editorSpanChange('height',-10)">−</button>
-                      <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
-                        style="width:58px; text-align:center;" oninput="editorPropChange()">
-                      <button onclick="editorSpanChange('height',10)">+</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="mapa-field-group">
-                  <label class="mapa-field-label">Rotación</label>
-                  <input id="ep-rotation" type="number" min="-360" max="360" step="5" class="mapa-input"
-                    oninput="editorPropChange()">
-                </div>
-
-                <div class="mapa-field-group">
-                  <label class="mapa-field-label">Ajuste fino</label>
-                  <div class="mapa-arrow-pad">
-                    <div></div>
-                    <button onclick="editorMoverCelda(0,-1)" class="mapa-arrow-btn" title="Arriba"><span
-                        class="material-icons">north</span></button>
-                    <div></div>
-                    <button onclick="editorMoverCelda(-1,0)" class="mapa-arrow-btn" title="Izquierda"><span
-                        class="material-icons">west</span></button>
-                    <div class="mapa-arrow-center"><span class="material-icons">open_with</span></div>
-                    <button onclick="editorMoverCelda(1,0)" class="mapa-arrow-btn" title="Derecha"><span
-                        class="material-icons">east</span></button>
-                    <div></div>
-                    <button onclick="editorMoverCelda(0,1)" class="mapa-arrow-btn" title="Abajo"><span
-                        class="material-icons">south</span></button>
-                    <div></div>
-                  </div>
+            <!-- Opciones: Modelo -->
+            <div id="cfg-add-modelo-options" style="display:none;">
+              <div class="cfg-add-field">
+                <label class="cfg-add-label">Categoría del modelo</label>
+                <select id="cfg-add-modelo-cat" class="cfg-add-select">
+                  <!-- Llenado dinámico en JS -->
+                </select>
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Imagen del modelo (URL opcional)</label>
+                <input type="url" id="cfg-add-modelo-img" class="cfg-add-input"
+                  placeholder="https://dominio.com/modelo.jpg" oninput="_cfgPreviewModeloImg(this.value)">
+                <div id="cfg-add-modelo-preview" class="cfg-add-modelo-preview" style="display:none;">
+                  <img id="cfg-add-modelo-preview-img" alt="Preview modelo" loading="lazy">
+                  <span id="cfg-add-modelo-preview-label">Vista previa</span>
                 </div>
               </div>
             </div>
 
-            <div id="editor-selection-actions" class="editor-floating-toolbar editor-selection-actions" style="display:none;">
-              <button type="button" onclick="editorCopiarCelda()" data-tip="Duplica la selección con un pequeño desplazamiento.">
-                <span class="material-icons">content_copy</span>
-              </button>
-              <button type="button" onclick="editorEliminarCelda()" data-tip="Elimina la pieza o el grupo seleccionado.">
-                <span class="material-icons">delete_forever</span>
-              </button>
-              <button type="button" onclick="editorDuplicarFila()" data-tip="Clona una fila completa a partir del spot seleccionado.">
-                <span class="material-icons">table_rows</span>
-              </button>
-              <button type="button" onclick="editorToggleMoreMenu(event)" data-tip="Abre más opciones para el spot o grupo activo.">
-                <span class="material-icons">more_horiz</span>
-              </button>
-            </div>
+          </div><!-- /cfg-add-body -->
 
-            <div id="editor-group-actions" class="editor-floating-toolbar editor-group-actions" style="display:none;">
-              <button type="button" onclick="editorAlinearGrupo('left')" data-tip="Alinea los bordes izquierdos.">
-                <span class="material-icons">align_horizontal_left</span>
-              </button>
-              <button type="button" onclick="editorAlinearGrupo('centerH')" data-tip="Centra horizontalmente el grupo.">
-                <span class="material-icons">align_horizontal_center</span>
-              </button>
-              <button type="button" onclick="editorAlinearGrupo('right')" data-tip="Alinea los bordes derechos.">
-                <span class="material-icons">align_horizontal_right</span>
-              </button>
-              <button type="button" onclick="editorAlinearGrupo('top')" data-tip="Alinea la parte superior del grupo.">
-                <span class="material-icons">align_vertical_top</span>
-              </button>
-              <button type="button" onclick="editorAlinearGrupo('centerV')" data-tip="Centra verticalmente el grupo.">
-                <span class="material-icons">align_vertical_center</span>
-              </button>
-              <button type="button" onclick="editorAlinearGrupo('bottom')" data-tip="Alinea la base del grupo.">
-                <span class="material-icons">align_vertical_bottom</span>
-              </button>
-              <button type="button" onclick="editorDistribuirGrupo('H')" data-tip="Distribuye la separación horizontal del grupo.">
-                <span>↔</span>
-              </button>
-              <button type="button" onclick="editorDistribuirGrupo('V')" data-tip="Distribuye la separación vertical del grupo.">
-                <span>↕</span>
-              </button>
-            </div>
-
-            <div class="ed-zoom-bar editor-floating-zoom">
-              <button onclick="editorZoom(-0.1)" title="Zoom -">−</button>
-              <span id="ed-zoom-label">100%</span>
-              <button onclick="editorZoom(+0.1)" title="Zoom +">+</button>
-              <button onclick="editorZoom(0)" title="Reset zoom" style="font-size:11px; width:auto; padding:0 8px;">1:1</button>
-            </div>
-
-            <div id="ed-more-menu" class="ed-more-menu" style="display:none;">
-              <button onclick="editorCentrarH()"><span class="material-icons" style="font-size:15px;">align_horizontal_center</span><span>Centrar horizontalmente</span></button>
-              <button onclick="editorCentrarV()"><span class="material-icons" style="font-size:15px;">align_vertical_center</span><span>Centrar verticalmente</span></button>
-              <hr>
-              <button onclick="editorTraerFrente()"><span class="material-icons" style="font-size:15px;">flip_to_front</span><span>Traer al frente</span></button>
-              <button onclick="editorEnviarFondo()"><span class="material-icons" style="font-size:15px;">flip_to_back</span><span>Enviar al fondo</span></button>
-              <hr>
-              <button onclick="editorAgregarForma('cuadrado')"><span class="material-icons" style="font-size:15px;">check_box_outline_blank</span><span>Agregar cuadrado</span></button>
-              <button onclick="editorAgregarForma('rect-v')"><span class="material-icons" style="font-size:15px;">crop_portrait</span><span>Agregar rectángulo vertical</span></button>
-              <button onclick="editorAgregarForma('rect-grande')"><span class="material-icons" style="font-size:15px;">crop_32_9</span><span>Agregar rectángulo grande</span></button>
-            </div>
-
-            <div id="editor-grid"
-              style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;">
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── PANEL DE CONFIGURACIÓN GLOBAL (solo Admin Global) ─────────────── -->
-  <div id="modal-config-global" class="fleet-modal cfg-modal-v2" style="z-index: 70000;">
-
-    <!-- HERO HEADER -->
-    <div class="cfg-v2-hero">
-      <div class="cfg-v2-hero-bg"></div>
-      <div class="cfg-v2-hero-content">
-        <div class="cfg-v2-hero-compact-row">
-          <div class="cfg-v2-kicker">
-            <span class="material-icons" style="font-size:13px;">settings_suggest</span>
-            ADMINISTRACIÓN
-          </div>
-          <h2 class="cfg-v2-title">PANEL ADMINISTRATIVO</h2>
-          <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
-        </div>
-        <!-- IDs requeridos por JS — ocultos -->
-        <span id="cfg-insight-users" style="display:none;"></span>
-        <span id="cfg-insight-plazas" style="display:none;"></span>
-        <span id="cfg-insight-catalogs" style="display:none;"></span>
-        <span id="cfg-insight-pending" style="display:none;"></span>
-      </div>
-      <button class="cfg-v2-close" onclick="cerrarPanelConfiguracion()">
-        <span class="material-icons" style="font-size:20px;">close</span>
-      </button>
-    </div>
-
-    <!-- BODY: SIDEBAR + CONTENT -->
-    <div class="cfg-v2-body">
-
-      <!-- SIDEBAR -->
-      <div class="cfg-v2-sidebar">
-        <div class="cfg-v2-sidebar-label">
-          <span class="material-icons">shield_person</span>
-          <span>Administración</span>
-        </div>
-        <div class="cfg-v2-sidebar-sublabel">Usuarios, roles, catálogos y configuración</div>
-        <nav class="cfg-v2-nav">
-          <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Empresa">
-            <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
-            <span>Empresa</span>
-          </button>
-          <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas">
-            <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
-            <span>Plazas</span>
-          </button>
-          <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)" title="Ubicaciones">
-            <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
-            <span>Ubicaciones</span>
-          </button>
-          <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados">
-            <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
-            <span>Estados</span>
-          </button>
-          <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)" title="Categorías">
-            <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
-            <span>Categorías</span>
-          </button>
-          <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos">
-            <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
-            <span>Modelos</span>
-          </button>
-          <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Gasolinas">
-            <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
-            <span>Gasolinas</span>
-          </button>
-
-          <div class="cfg-rail-section-label">Gestión y Permisos</div>
-
-          <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
-            <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
-            <span>Usuarios</span>
-          </button>
-          <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
-            <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
-            <span>Roles</span>
-          </button>
-          <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;" title="Solicitudes">
-            <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
-            <span>Solicitudes</span>
-            <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
-          </button>
-          <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)" title="Programador">
-            <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
-            <span>Programador</span>
-          </button>
-        </nav>
-      </div>
-
-      <!-- MAIN PANEL -->
-      <div class="cfg-v2-main">
-
-        <!-- ADD BAR -->
-        <div class="cfg-v2-add-bar">
-          <div class="cfg-v2-search-box">
-            <span class="material-icons cfg-v2-search-icon">search</span>
-            <input type="text" id="cfg-search-input" placeholder="Buscar catálogo..."
-              oninput="buscarEnListaConfig()">
-          </div>
-          <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
-            <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
-          </button>
-        </div>
-
-        <!-- LIST -->
-        <div id="cfg-lista-items" class="cfg-v2-list"></div>
-
-        <!-- FOOTER -->
-        <div class="cfg-v2-footer">
-          <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> · Configuración v3</span>
-          <div class="cfg-v2-footer-actions">
-            <button class="cfg-v2-btn-cancel"
-              onclick="cerrarPanelConfiguracion()">
-              CANCELAR
+          <!-- Acciones -->
+          <div class="cfg-add-actions">
+            <button class="cfg-add-btn-cancel" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+              Cancelar
             </button>
-            <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
-              <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
+            <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
+              <span class="material-icons">check</span> Guardar
             </button>
           </div>
+
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- MODAL DE AGREGAR/EDITAR ITEM (DENTRO DEL CONFIG) -->
-  <div id="modal-cfg-add" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75000; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
-    <div class="cfg-add-card">
-
-      <!-- Header dinámico -->
-      <div class="cfg-add-header">
-        <div class="cfg-add-header-icon" id="cfg-add-header-icon">
-          <span class="material-icons">add_circle</span>
-        </div>
-        <div class="cfg-add-header-text">
-          <div class="cfg-add-header-title" id="modal-cfg-add-title">Agregar Nuevo</div>
-          <div class="cfg-add-header-sub" id="cfg-add-header-sub">Nueva entrada en la lista</div>
-        </div>
-        <button class="cfg-add-close-btn" onclick="document.getElementById('modal-cfg-add').style.display='none'">
-          <span class="material-icons">close</span>
-        </button>
-      </div>
-
-      <!-- Cuerpo -->
-      <div class="cfg-add-body">
-
-        <!-- Nombre/Clave -->
-        <div class="cfg-add-field">
-          <label class="cfg-add-label">Nombre / Clave</label>
-          <input type="text" id="cfg-add-name" placeholder="Ej: NUEVO ESTADO"
-            class="cfg-add-input" autocomplete="off"
-            onkeydown="if(event.key==='Enter') confirmarAgregadoConfig()">
-        </div>
-
-        <!-- Opciones: Ubicación -->
-        <div id="cfg-add-ubi-options" style="display:none;">
-          <label class="cfg-add-checkbox-row" for="cfg-add-is-plaza">
-            <div class="cfg-add-checkbox-box">
-              <input type="checkbox" id="cfg-add-is-plaza" checked>
-              <div class="cfg-add-checkbox-custom"></div>
-            </div>
-            <div>
-              <div class="cfg-add-checkbox-label">Es Plaza Fija</div>
-              <div class="cfg-add-checkbox-sub">Desmarca si es una persona o responsable externo</div>
-            </div>
-          </label>
-          <div class="cfg-add-field" style="margin-top:14px;">
-            <label class="cfg-add-label">Plaza asignada</label>
-            <select id="cfg-add-ubi-plaza" class="cfg-add-select">
-              <option value="">— Todas las plazas —</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Opciones: Estado -->
-        <div id="cfg-add-estado-options" style="display:none;">
-          <div class="cfg-add-field">
-            <label class="cfg-add-label">Color del estado</label>
-            <div class="cfg-add-color-row">
-              <input type="color" id="cfg-add-color" value="#64748b" oninput="_cfgUpdateColorSwatch(this.value)">
-              <div class="cfg-add-color-swatch" id="cfg-add-color-swatch" style="background:#64748b;">
-                <span id="cfg-add-color-hex">#64748B</span>
-              </div>
-            </div>
-            <div class="cfg-add-color-presets" id="cfg-add-color-presets"></div>
-          </div>
-          <div class="cfg-add-field" style="margin-top:14px;">
-            <label class="cfg-add-label">Orden en tabla (prioridad)</label>
-            <input type="number" id="cfg-add-orden" placeholder="Ej: 1" class="cfg-add-input" min="1" max="99">
-          </div>
-        </div>
-
-        <!-- Opciones: Modelo -->
-        <div id="cfg-add-modelo-options" style="display:none;">
-          <div class="cfg-add-field">
-            <label class="cfg-add-label">Categoría del modelo</label>
-            <select id="cfg-add-modelo-cat" class="cfg-add-select">
-              <!-- Llenado dinámico en JS -->
-            </select>
-          </div>
-          <div class="cfg-add-field" style="margin-top:14px;">
-            <label class="cfg-add-label">Imagen del modelo (URL opcional)</label>
-            <input type="url" id="cfg-add-modelo-img" class="cfg-add-input"
-              placeholder="https://dominio.com/modelo.jpg"
-              oninput="_cfgPreviewModeloImg(this.value)">
-            <div id="cfg-add-modelo-preview" class="cfg-add-modelo-preview" style="display:none;">
-              <img id="cfg-add-modelo-preview-img" alt="Preview modelo" loading="lazy">
-              <span id="cfg-add-modelo-preview-label">Vista previa</span>
-            </div>
-          </div>
-        </div>
-
-      </div><!-- /cfg-add-body -->
-
-      <!-- Acciones -->
-      <div class="cfg-add-actions">
-        <button class="cfg-add-btn-cancel" onclick="document.getElementById('modal-cfg-add').style.display='none'">
-          Cancelar
-        </button>
-        <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
-          <span class="material-icons">check</span> Guardar
-        </button>
-      </div>
-
-    </div>
-  </div>
-  <!-- Modal Solicitudes Viejo Removido, ahora inyectado en modal ConfigV2 -->
+      <!-- Modal Solicitudes Viejo Removido, ahora inyectado en modal ConfigV2 -->
 
 
-  <!-- ══════════════════════════════════════════════════════
+      <!-- ══════════════════════════════════════════════════════
      MODAL — NUEVA PLAZA
 ══════════════════════════════════════════════════════ -->
-  <div id="modal-nueva-plaza" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75001; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)_cerrarModalNuevaplaza()">
-    <div class="cfg-add-card">
-      <div class="cfg-add-header">
-        <div class="cfg-add-header-icon">
-          <span class="material-icons">add_location_alt</span>
+      <div id="modal-nueva-plaza"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75001; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);"
+        onclick="if(event.target===this)_cerrarModalNuevaplaza()">
+        <div class="cfg-add-card">
+          <div class="cfg-add-header">
+            <div class="cfg-add-header-icon">
+              <span class="material-icons">add_location_alt</span>
+            </div>
+            <div class="cfg-add-header-text">
+              <div class="cfg-add-header-title">Nueva Plaza</div>
+              <div class="cfg-add-header-sub">Configura los datos iniciales de la sucursal</div>
+            </div>
+            <button class="cfg-add-close-btn" onclick="_cerrarModalNuevaplaza()">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <div class="cfg-add-body">
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Clave / ID de la Plaza <span style="color:#ef4444">*</span></label>
+              <input type="text" id="nueva-plaza-id" class="cfg-add-input" maxlength="10"
+                placeholder="Ej: GDL, BJX, MTY" oninput="this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+              <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-top:4px;">Clave corta, única e
+                irreversible. Ej: GDL</div>
+            </div>
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Nombre completo de la plaza</label>
+              <input type="text" id="nueva-plaza-nombre" class="cfg-add-input" placeholder="Ej: Guadalajara Centro"
+                onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+            </div>
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Descripción (subtítulo en el header)</label>
+              <input type="text" id="nueva-plaza-descripcion" class="cfg-add-input"
+                placeholder="Ej: Sucursal principal del Bajío"
+                onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+            </div>
+          </div>
+          <div class="cfg-add-actions">
+            <button class="cfg-add-btn-cancel" onclick="_cerrarModalNuevaplaza()">Cancelar</button>
+            <button class="cfg-add-btn-save" onclick="_confirmarNuevaplaza()">
+              <span class="material-icons">add_location_alt</span> Crear Plaza
+            </button>
+          </div>
         </div>
-        <div class="cfg-add-header-text">
-          <div class="cfg-add-header-title">Nueva Plaza</div>
-          <div class="cfg-add-header-sub">Configura los datos iniciales de la sucursal</div>
-        </div>
-        <button class="cfg-add-close-btn" onclick="_cerrarModalNuevaplaza()">
-          <span class="material-icons">close</span>
-        </button>
       </div>
-      <div class="cfg-add-body">
-        <div class="cfg-add-field">
-          <label class="cfg-add-label">Clave / ID de la Plaza <span style="color:#ef4444">*</span></label>
-          <input type="text" id="nueva-plaza-id" class="cfg-add-input" maxlength="10"
-            placeholder="Ej: GDL, BJX, MTY"
-            oninput="this.value=this.value.toUpperCase()"
-            onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
-          <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-top:4px;">Clave corta, única e irreversible. Ej: GDL</div>
-        </div>
-        <div class="cfg-add-field">
-          <label class="cfg-add-label">Nombre completo de la plaza</label>
-          <input type="text" id="nueva-plaza-nombre" class="cfg-add-input"
-            placeholder="Ej: Guadalajara Centro"
-            onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
-        </div>
-        <div class="cfg-add-field">
-          <label class="cfg-add-label">Descripción (subtítulo en el header)</label>
-          <input type="text" id="nueva-plaza-descripcion" class="cfg-add-input"
-            placeholder="Ej: Sucursal principal del Bajío"
-            onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
-        </div>
-      </div>
-      <div class="cfg-add-actions">
-        <button class="cfg-add-btn-cancel" onclick="_cerrarModalNuevaplaza()">Cancelar</button>
-        <button class="cfg-add-btn-save" onclick="_confirmarNuevaplaza()">
-          <span class="material-icons">add_location_alt</span> Crear Plaza
-        </button>
-      </div>
-    </div>
-  </div>
 
-  <!-- ══════════════════════════════════════════════════════
+      <!-- ══════════════════════════════════════════════════════
      SISTEMA DE DIÁLOGOS — mexDialog (reemplaza alert/confirm/prompt)
 ══════════════════════════════════════════════════════ -->
-  <div id="mex-dialog-overlay">
-    <div class="mex-dlg-card">
-      <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
-        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
-      </div>
-      <div class="mex-dlg-body">
-        <h3 id="mex-dlg-title" class="mex-dlg-title"></h3>
-        <p id="mex-dlg-text" class="mex-dlg-text"></p>
-        <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap">
-          <input id="mex-dlg-input" class="mex-dlg-input" type="text" autocomplete="off">
+      <div id="mex-dialog-overlay">
+        <div class="mex-dlg-card">
+          <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
+            <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+          </div>
+          <div class="mex-dlg-body">
+            <h3 id="mex-dlg-title" class="mex-dlg-title"></h3>
+            <p id="mex-dlg-text" class="mex-dlg-text"></p>
+            <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap">
+              <input id="mex-dlg-input" class="mex-dlg-input" type="text" autocomplete="off">
+            </div>
+          </div>
+          <div class="mex-dlg-actions">
+            <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra"></button>
+            <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel"></button>
+            <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm"></button>
+          </div>
         </div>
       </div>
-      <div class="mex-dlg-actions">
-        <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra"></button>
-        <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel"></button>
-        <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm"></button>
-      </div>
-    </div>
-  </div>
 
-  <!-- ═══════════════════════════════════════════════════════════
+      <!-- ═══════════════════════════════════════════════════════════
      INDICADOR OFFLINE
 ════════════════════════════════════════════════════════════ -->
-  <div id="offline-banner" style="
+      <div id="offline-banner" style="
   display:none; position:fixed; bottom:16px; left:50%; transform:translateX(-50%);
   background:#1e293b; color:white; padding:10px 18px; border-radius:40px;
   font-size:12px; font-weight:700; z-index:999999;
   align-items:center; gap:8px; box-shadow:0 8px 24px rgba(0,0,0,0.4);
   border:1px solid rgba(255,255,255,0.08); letter-spacing:0.3px;
 ">
-    <span class="material-icons" style="font-size:16px; color:#f59e0b;">wifi_off</span>
-    <span id="offline-banner-msg">Sin conexión — mostrando datos guardados</span>
-  </div>
+        <span class="material-icons" style="font-size:16px; color:#f59e0b;">wifi_off</span>
+        <span id="offline-banner-msg">Sin conexión — mostrando datos guardados</span>
+      </div>
 
-  <!-- ═══════════════════════════════════════════════════════════
+      <!-- ═══════════════════════════════════════════════════════════
      PWA — Service Worker + Instalación
 ════════════════════════════════════════════════════════════ -->
-  <script src="/js/core/sw-register.js"></script>
+      <script src="/js/core/sw-register.js"></script>
 
-  <!-- [F3.2] Modal comparador de plazas -->
-  <div id="modal-comparador-plazas" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75100; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target===this)cerrarComparadorPlazas()">
-    <div style="background:#fff; border-radius:18px; width:100%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.35);">
-      <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span class="material-icons" style="color:#004a99; font-size:22px;">compare</span>
-          <div>
-            <div style="font-size:15px; font-weight:900; color:#0f172a; letter-spacing:.03em;">Comparador de Plazas</div>
-            <div style="font-size:11px; color:#64748b; font-weight:600;">Vista ejecutiva · KPIs en tiempo real</div>
+      <!-- [F3.2] Modal comparador de plazas -->
+      <div id="modal-comparador-plazas"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75100; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);"
+        onclick="if(event.target===this)cerrarComparadorPlazas()">
+        <div
+          style="background:#fff; border-radius:18px; width:100%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+          <div
+            style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="material-icons" style="color:#004a99; font-size:22px;">compare</span>
+              <div>
+                <div style="font-size:15px; font-weight:900; color:#0f172a; letter-spacing:.03em;">Comparador de Plazas
+                </div>
+                <div style="font-size:11px; color:#64748b; font-weight:600;">Vista ejecutiva · KPIs en tiempo real</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button onclick="exportarComparadorCSV()" title="Exportar CSV"
+                style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
+                <span class="material-icons" style="font-size:15px;">download</span> CSV
+              </button>
+              <button onclick="cerrarComparadorPlazas()"
+                style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                <span class="material-icons" style="font-size:18px; color:#64748b;">close</span>
+              </button>
+            </div>
+          </div>
+          <div id="comparador-content" style="overflow-y:auto; padding:18px 22px; flex:1;">
+            <div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">Cargando datos...</div>
           </div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button onclick="exportarComparadorCSV()" title="Exportar CSV" style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
-            <span class="material-icons" style="font-size:15px;">download</span> CSV
-          </button>
-          <button onclick="cerrarComparadorPlazas()" style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-            <span class="material-icons" style="font-size:18px; color:#64748b;">close</span>
-          </button>
-        </div>
       </div>
-      <div id="comparador-content" style="overflow-y:auto; padding:18px 22px; flex:1;">
-        <div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">Cargando datos...</div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ═══ FASE 7 — Modal Recordatorio por unidad ════════════ -->
-  <div id="modal-recordatorio" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); z-index:75300; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)cerrarModalRecordatorio()">
-    <div style="background:#fff; border-radius:16px; width:100%; max-width:400px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.35);">
-      <div style="padding:16px 20px 12px; background:linear-gradient(135deg,#1e3a5f,#0f172a); display:flex; align-items:center; gap:10px; justify-content:space-between;">
-        <div style="display:flex; align-items:center; gap:8px;">
-          <span class="material-icons" style="color:#fbbf24; font-size:20px;">alarm</span>
-          <div style="font-size:14px; font-weight:900; color:white;">Recordatorio</div>
-        </div>
-        <button onclick="cerrarModalRecordatorio()" style="background:rgba(255,255,255,0.1);border:none;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
-          <span class="material-icons" style="font-size:16px;color:#94a3b8;">close</span>
-        </button>
-      </div>
-      <div style="padding:18px 20px;">
-        <input type="hidden" id="recordatorio-mva">
-        <label style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Fecha</label>
-        <input type="date" id="recordatorio-fecha" style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;margin-bottom:12px;"
-          onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'">
-        <label style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Mensaje</label>
-        <textarea id="recordatorio-mensaje" rows="3" placeholder="Ej: Revisión mecánica pendiente..."
-          style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;resize:none;box-sizing:border-box;font-family:inherit;"
-          onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
-        <div style="display:flex;gap:8px;margin-top:14px;">
-          <button onclick="guardarRecordatorio()" style="flex:1;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:900;cursor:pointer;">Guardar</button>
-          <button onclick="borrarRecordatorio()" style="background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:900;cursor:pointer;">Borrar</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══ FASE 7 — Preview evidencia (popover flotante) ══════ -->
-  <div id="popover-evidencia" style="display:none; position:fixed; z-index:75400; pointer-events:none;">
-    <div style="background:#1e293b; border-radius:12px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.5); max-width:220px;">
-      <img id="popover-evidencia-img" src="" alt="" style="width:220px; height:160px; object-fit:cover; display:block;">
-      <div id="popover-evidencia-label" style="padding:6px 10px; font-size:10px; font-weight:800; color:#94a3b8; letter-spacing:.04em;"></div>
-    </div>
-  </div>
-
-  <!-- ═══ FASE 4 — Modal PDF Reservas ═══════════════════════ -->
-  <div id="modal-pdf-reservas" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.82); z-index:75200; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target===this)cerrarModalPDFReservas()">
-    <div style="background:#fff; border-radius:18px; width:100%; max-width:620px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.4);">
-      <!-- Header -->
-      <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0; background:linear-gradient(135deg,#0f172a,#1e3a5f);">
-        <div style="display:flex; align-items:center; gap:10px;">
-          <span class="material-icons" style="color:#38bdf8; font-size:24px;">analytics</span>
-          <div>
-            <div style="font-size:15px; font-weight:900; color:white; letter-spacing:.03em;">Análisis de Reservas</div>
-            <div style="font-size:11px; color:#94a3b8; font-weight:600;">Carga PDF o pega texto · Motor de proyección operativa</div>
+      <!-- ═══ FASE 7 — Modal Recordatorio por unidad ════════════ -->
+      <div id="modal-recordatorio"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); z-index:75300; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);"
+        onclick="if(event.target===this)cerrarModalRecordatorio()">
+        <div
+          style="background:#fff; border-radius:16px; width:100%; max-width:400px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+          <div
+            style="padding:16px 20px 12px; background:linear-gradient(135deg,#1e3a5f,#0f172a); display:flex; align-items:center; gap:10px; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="material-icons" style="color:#fbbf24; font-size:20px;">alarm</span>
+              <div style="font-size:14px; font-weight:900; color:white;">Recordatorio</div>
+            </div>
+            <button onclick="cerrarModalRecordatorio()"
+              style="background:rgba(255,255,255,0.1);border:none;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <span class="material-icons" style="font-size:16px;color:#94a3b8;">close</span>
+            </button>
+          </div>
+          <div style="padding:18px 20px;">
+            <input type="hidden" id="recordatorio-mva">
+            <label
+              style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Fecha</label>
+            <input type="date" id="recordatorio-fecha"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;margin-bottom:12px;"
+              onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'">
+            <label
+              style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Mensaje</label>
+            <textarea id="recordatorio-mensaje" rows="3" placeholder="Ej: Revisión mecánica pendiente..."
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;resize:none;box-sizing:border-box;font-family:inherit;"
+              onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+            <div style="display:flex;gap:8px;margin-top:14px;">
+              <button onclick="guardarRecordatorio()"
+                style="flex:1;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:900;cursor:pointer;">Guardar</button>
+              <button onclick="borrarRecordatorio()"
+                style="background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:900;cursor:pointer;">Borrar</button>
+            </div>
           </div>
         </div>
-        <button onclick="cerrarModalPDFReservas()" style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-          <span class="material-icons" style="font-size:18px; color:#94a3b8;">close</span>
-        </button>
       </div>
-      <!-- Body -->
-      <div style="overflow-y:auto; padding:20px 22px; flex:1; display:flex; flex-direction:column; gap:16px;">
-        <!-- Upload zone -->
-        <div id="pdf-drop-zone" style="border:2px dashed #cbd5e1; border-radius:14px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;" onclick="document.getElementById('pdf-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#0284c7';this.style.background='#f0f9ff'" ondragleave="this.style.borderColor='#cbd5e1';this.style.background=''" ondrop="_onPDFDrop(event)">
-          <span class="material-icons" style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">upload_file</span>
-          <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra tu PDF aquí o haz clic para seleccionar</div>
-          <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Reportes de reservas, regresos o asignaciones</div>
-          <input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none" onchange="_onPDFFileInput(this)">
-        </div>
-        <!-- OR divider -->
-        <div style="display:flex; align-items:center; gap:10px;">
-          <div style="flex:1; height:1px; background:#e2e8f0;"></div>
-          <span style="font-size:11px; font-weight:800; color:#94a3b8; letter-spacing:.06em;">O PEGA EL TEXTO</span>
-          <div style="flex:1; height:1px; background:#e2e8f0;"></div>
-        </div>
-        <!-- Text area -->
-        <textarea id="pdf-texto-bruto" rows="6" placeholder="Pega aquí el contenido del reporte (reservas, regresos, entregas...)" style="border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:12px; font-family:monospace; resize:vertical; outline:none; color:#334155; transition:border-color .2s;" onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
-        <!-- Analyze button -->
-        <button id="btn-analizar-pdf" onclick="_ejecutarAnalisisPDF()" style="background:linear-gradient(135deg,#0369a1,#0284c7); color:white; border:none; border-radius:10px; padding:12px 20px; font-size:13px; font-weight:900; cursor:pointer; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .2s;">
-          <span class="material-icons" style="font-size:18px;">auto_graph</span>
-          Analizar y proyectar
-        </button>
-        <!-- Results area -->
-        <div id="pdf-resultados" style="display:none;"></div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ── PWA Install Banner (Fase 3) ── -->
-  <div id="pwa-install-banner" style="
+      <!-- ═══ FASE 7 — Preview evidencia (popover flotante) ══════ -->
+      <div id="popover-evidencia" style="display:none; position:fixed; z-index:75400; pointer-events:none;">
+        <div
+          style="background:#1e293b; border-radius:12px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,0.5); max-width:220px;">
+          <img id="popover-evidencia-img" src="" alt=""
+            style="width:220px; height:160px; object-fit:cover; display:block;">
+          <div id="popover-evidencia-label"
+            style="padding:6px 10px; font-size:10px; font-weight:800; color:#94a3b8; letter-spacing:.04em;"></div>
+        </div>
+      </div>
+
+      <!-- ═══ FASE 4 — Modal PDF Reservas ═══════════════════════ -->
+      <div id="modal-pdf-reservas"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.82); z-index:75200; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);"
+        onclick="if(event.target===this)cerrarModalPDFReservas()">
+        <div
+          style="background:#fff; border-radius:18px; width:100%; max-width:620px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.4);">
+          <!-- Header -->
+          <div
+            style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0; background:linear-gradient(135deg,#0f172a,#1e3a5f);">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="material-icons" style="color:#38bdf8; font-size:24px;">analytics</span>
+              <div>
+                <div style="font-size:15px; font-weight:900; color:white; letter-spacing:.03em;">Análisis de Reservas
+                </div>
+                <div style="font-size:11px; color:#94a3b8; font-weight:600;">Carga PDF o pega texto · Motor de
+                  proyección operativa</div>
+              </div>
+            </div>
+            <button onclick="cerrarModalPDFReservas()"
+              style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+              <span class="material-icons" style="font-size:18px; color:#94a3b8;">close</span>
+            </button>
+          </div>
+          <!-- Body -->
+          <div style="overflow-y:auto; padding:20px 22px; flex:1; display:flex; flex-direction:column; gap:16px;">
+            <!-- Upload zone -->
+            <div id="pdf-drop-zone"
+              style="border:2px dashed #cbd5e1; border-radius:14px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;"
+              onclick="document.getElementById('pdf-file-input').click()"
+              ondragover="event.preventDefault();this.style.borderColor='#0284c7';this.style.background='#f0f9ff'"
+              ondragleave="this.style.borderColor='#cbd5e1';this.style.background=''" ondrop="_onPDFDrop(event)">
+              <span class="material-icons"
+                style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">upload_file</span>
+              <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra tu PDF aquí o haz clic para
+                seleccionar</div>
+              <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Reportes de reservas, regresos o asignaciones
+              </div>
+              <input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none"
+                onchange="_onPDFFileInput(this)">
+            </div>
+            <!-- OR divider -->
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+              <span style="font-size:11px; font-weight:800; color:#94a3b8; letter-spacing:.06em;">O PEGA EL TEXTO</span>
+              <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+            </div>
+            <!-- Text area -->
+            <textarea id="pdf-texto-bruto" rows="6"
+              placeholder="Pega aquí el contenido del reporte (reservas, regresos, entregas...)"
+              style="border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:12px; font-family:monospace; resize:vertical; outline:none; color:#334155; transition:border-color .2s;"
+              onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+            <!-- Analyze button -->
+            <button id="btn-analizar-pdf" onclick="_ejecutarAnalisisPDF()"
+              style="background:linear-gradient(135deg,#0369a1,#0284c7); color:white; border:none; border-radius:10px; padding:12px 20px; font-size:13px; font-weight:900; cursor:pointer; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .2s;">
+              <span class="material-icons" style="font-size:18px;">auto_graph</span>
+              Analizar y proyectar
+            </button>
+            <!-- Results area -->
+            <div id="pdf-resultados" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── PWA Install Banner (Fase 3) ── -->
+      <div id="pwa-install-banner" style="
     position:fixed; bottom:0; left:0; right:0; z-index:89000;
     background:#0d2a54; border-top:1px solid rgba(255,255,255,.12);
     padding:14px 20px; display:flex; align-items:center; gap:14px;
     transform:translateY(100%); transition:transform .35s cubic-bezier(.4,0,.2,1);
     font-family:'Inter',sans-serif;">
-    <img src="/img/logo.png" alt="MEX MAPA" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;">
-    <div style="flex:1; min-width:0;">
-      <div style="font-size:13px;font-weight:900;color:#fff;">Instalar MEX MAPA</div>
-      <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:2px;">Acceso rápido desde tu pantalla de inicio</div>
-    </div>
-    <button id="pwa-install-btn" style="
+        <img src="/img/logo.png" alt="MEX MAPA" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:13px;font-weight:900;color:#fff;">Instalar MEX MAPA</div>
+          <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:2px;">Acceso rápido desde tu pantalla de
+            inicio</div>
+        </div>
+        <button id="pwa-install-btn" style="
       padding:9px 18px;border-radius:10px;border:none;
       background:#2563eb;color:#fff;font-size:12px;font-weight:800;
       cursor:pointer;flex-shrink:0;font-family:'Inter',sans-serif;">
-      INSTALAR
-    </button>
-    <button id="pwa-dismiss-btn" style="
+          INSTALAR
+        </button>
+        <button id="pwa-dismiss-btn" style="
       padding:9px;border-radius:8px;border:1px solid rgba(255,255,255,.15);
       background:transparent;color:#64748b;cursor:pointer;
       display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <span class="material-icons" style="font-size:18px;">close</span>
-    </button>
-  </div>
-  <style>
-    #pwa-install-banner.visible { transform: translateY(0); }
-  </style>
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+      <style>
+        #pwa-install-banner.visible {
+          transform: translateY(0);
+        }
+      </style>
 
-  <!-- ── PWA Install Banner iOS ── -->
-  <div id="pwa-install-banner-ios" style="
+      <!-- ── PWA Install Banner iOS ── -->
+      <div id="pwa-install-banner-ios" style="
     position:fixed; bottom:0; left:0; right:0; z-index:89000;
     background:#0d2a54; border-top:1px solid rgba(255,255,255,.12);
     padding:14px 20px; display:flex; align-items:flex-start; gap:14px;
     transform:translateY(100%); transition:transform .35s cubic-bezier(.4,0,.2,1);
     font-family:'Inter',sans-serif;">
-    <img src="/img/logo.png" alt="MEX MAPA" style="width:36px;height:36px;border-radius:8px;flex-shrink:0;margin-top:2px;">
-    <div style="flex:1; min-width:0;">
-      <div style="font-size:13px;font-weight:900;color:#fff;">Instalar MEX MAPA</div>
-      <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px;line-height:1.5;">
-        Toca <span style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:4px;">⬆ Compartir</span>
-        y luego <span style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:4px;">Agregar a inicio</span>
-      </div>
-    </div>
-    <button id="pwa-dismiss-ios-btn" style="
+        <img src="/img/logo.png" alt="MEX MAPA"
+          style="width:36px;height:36px;border-radius:8px;flex-shrink:0;margin-top:2px;">
+        <div style="flex:1; min-width:0;">
+          <div style="font-size:13px;font-weight:900;color:#fff;">Instalar MEX MAPA</div>
+          <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-top:4px;line-height:1.5;">
+            Toca <span style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:4px;">⬆ Compartir</span>
+            y luego <span style="background:rgba(255,255,255,.1);padding:1px 6px;border-radius:4px;">Agregar a
+              inicio</span>
+          </div>
+        </div>
+        <button id="pwa-dismiss-ios-btn" style="
       padding:9px;border-radius:8px;border:1px solid rgba(255,255,255,.15);
       background:transparent;color:#64748b;cursor:pointer;
       display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <span class="material-icons" style="font-size:18px;">close</span>
-    </button>
-  </div>
-  <style>
-    #pwa-install-banner-ios.visible { transform: translateY(0); }
-  </style>
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+      <style>
+        #pwa-install-banner-ios.visible {
+          transform: translateY(0);
+        }
+      </style>
 
 </body>
 
