@@ -145,7 +145,11 @@ service cloud.firestore {
     }
 
     function esAccesoTotal() {
-      return tienePerfilActual() && tienePermiso(perfilActual(), "platform_full_access");
+      return esProgramadorBootstrap()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "platform_full_access")
+        );
     }
 
     function esJefeOperacionOProgramador() {
@@ -153,34 +157,53 @@ service cloud.firestore {
     }
 
     function esAdminOperativo() {
-      return tienePerfilActual()
-        && (
-          tienePermiso(perfilActual(), "view_admin_cuadre")
-          || tienePermiso(perfilActual(), "edit_admin_cuadre")
+      return esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && (
+            tienePermiso(perfilActual(), "view_admin_cuadre")
+            || tienePermiso(perfilActual(), "edit_admin_cuadre")
+          )
         );
     }
 
     function puedeGestionarUsuarios() {
-      return tienePerfilActual() && tienePermiso(perfilActual(), "manage_users");
+      return esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "manage_users")
+        );
     }
 
     function puedeGestionarSolicitudes() {
-      return tienePerfilActual() && tienePermiso(perfilActual(), "process_access_requests");
+      return esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "process_access_requests")
+        );
     }
 
     function puedeEmitirAlertasMaestras() {
-      return tienePerfilActual() && tienePermiso(perfilActual(), "emit_master_alerts");
+      return esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "emit_master_alerts")
+        );
     }
 
     function puedeEditarCuadreAdmins() {
-      return tienePerfilActual() && tienePermiso(perfilActual(), "edit_admin_cuadre");
+      return esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "edit_admin_cuadre")
+        );
     }
 
     function puedeGestionarFlotaMaestra() {
-      return tienePerfilActual()
-        && (
-          tienePermiso(perfilActual(), "manage_global_fleet")
-          || esAccesoTotal()
+      return esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "manage_global_fleet")
         );
     }
 
@@ -593,13 +616,13 @@ service cloud.firestore {
     }
 
     match /admins/{doc} {
-      allow read: if tienePerfilActual();
+      allow read: if tienePerfilActual() || esAccesoTotal();
       allow write: if esJefeOperacionOProgramador();
     }
 
     // ─── COMUNICACIÓN Y LOGS ─────────────────────────────────
     match /alertas/{doc} {
-      allow read: if tienePerfilActual();
+      allow read: if tienePerfilActual() || esAccesoTotal();
       allow create, delete: if puedeEmitirAlertasMaestras();
       allow update: if puedeEmitirAlertasMaestras() || alertaLecturaValida();
     }
@@ -627,8 +650,15 @@ service cloud.firestore {
     }
 
     match /settings/{doc} {
-      allow read: if tienePerfilActual();
-      allow write: if tienePerfilActual() && (tienePermiso(perfilActual(), "manage_system_settings") || tienePermiso(perfilActual(), "lock_map"));
+      allow read: if tienePerfilActual() || esAccesoTotal();
+      allow write: if esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && (
+            tienePermiso(perfilActual(), "manage_system_settings")
+            || tienePermiso(perfilActual(), "lock_map")
+          )
+        );
     }
 
     match /ops_events/{doc} {
@@ -637,18 +667,34 @@ service cloud.firestore {
     }
 
     match /programmer_jobs/{doc} {
-      allow read: if tienePerfilActual() && tienePermiso(perfilActual(), "use_programmer_console");
+      allow read: if esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "use_programmer_console")
+        );
       allow write: if false;
     }
 
     match /programmer_audit/{doc} {
-      allow read: if tienePerfilActual() && tienePermiso(perfilActual(), "use_programmer_console");
+      allow read: if esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "use_programmer_console")
+        );
       allow write: if false;
     }
 
     match /programmer_errors/{doc} {
-      allow create: if tienePerfilActual() && programmerErrorCreateValido();
-      allow read: if tienePerfilActual() && tienePermiso(perfilActual(), "use_programmer_console");
+      allow create: if programmerErrorCreateValido()
+        && (
+          esAccesoTotal()
+          || tienePerfilActual()
+        );
+      allow read: if esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "use_programmer_console")
+        );
       allow update, delete: if false;
     }
 
@@ -657,14 +703,23 @@ service cloud.firestore {
     // configuracion/{plaza} → catálogos por plaza (Fase 4: ubicaciones)
     match /configuracion/{document} {
       // "empresa" y "listas" se leen antes de autenticación (login branding)
-      allow read: if document == "empresa" || document == "listas" || tienePerfilActual();
-      allow write: if tienePerfilActual()
-        && tienePermiso(perfilActual(), "manage_system_settings");
+      allow read: if document == "empresa"
+        || document == "listas"
+        || tienePerfilActual()
+        || esAccesoTotal();
+      allow write: if esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && tienePermiso(perfilActual(), "manage_system_settings")
+        );
       match /{subcol=**} {
-        allow read: if tienePerfilActual();
-        allow write: if tienePerfilActual()
-          && mismaPlaza(document)
-          && tienePermiso(perfilActual(), "manage_system_settings");
+        allow read: if tienePerfilActual() || esAccesoTotal();
+        allow write: if esAccesoTotal()
+          || (
+            tienePerfilActual()
+            && mismaPlaza(document)
+            && tienePermiso(perfilActual(), "manage_system_settings")
+          );
       }
     }
 
