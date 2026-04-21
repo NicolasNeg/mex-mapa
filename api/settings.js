@@ -202,10 +202,6 @@
 
       await listasRef.set(payload, { merge: true });
 
-      await _registrarLog("SISTEMA", "⚙️ Modificó los catálogos del sistema", autor || "Admin Global");
-      await _registrarEventoGestion("CONFIG_GLOBAL", "Publicó cambios en catálogos globales", autor || "Admin Global", {
-        entidad: "CONFIGURACION", referencia: "listas"
-      });
       return "EXITO";
     },
 

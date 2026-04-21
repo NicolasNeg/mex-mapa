@@ -9,6 +9,28 @@
     _buscarUnidadEnSubcol
   } = window._mex;
 
+  async function _resolverUnidadIndexRef(plaza, idOrToken = '', mva = '') {
+    const plazaUp = _normalizePlazaId(plaza);
+    const directId = String(idOrToken || '').trim();
+    if (directId) {
+      const directRef = db.collection(COL.INDEX).doc(directId);
+      const directSnap = await directRef.get();
+      if (directSnap.exists && (!plazaUp || _matchesPlaza(directSnap.data(), plazaUp))) {
+        return directRef;
+      }
+    }
+
+    const token = String(mva || idOrToken || '').trim().toUpperCase();
+    if (!token) return null;
+    const snaps = await Promise.all([
+      db.collection(COL.INDEX).where("mva", "==", token).limit(10).get(),
+      db.collection(COL.INDEX).where("fila", "==", token).limit(10).get()
+    ]);
+    const docs = snaps.flatMap(snap => snap.docs);
+    const target = docs.find(doc => !plazaUp || _matchesPlaza(doc.data(), plazaUp));
+    return target?.ref || null;
+  }
+
   window._mexParts = window._mexParts || {};
   window._mexParts.flota = {
 
@@ -124,14 +146,17 @@
     },
 
     async actualizarUnidadPlaza(data) {
-      const snap = await db.collection(COL.INDEX).where("mva", "==", data.mva.toString().trim().toUpperCase()).limit(1).get();
-      if (snap.empty) return "ERROR: Unidad no encontrada";
-      await snap.docs[0].ref.update(data);
+      const ref = await _resolverUnidadIndexRef(data?.plaza || data?.sucursal, data?.id || data?.fila || data?.mva, data?.mva);
+      if (!ref) return "ERROR: Unidad no encontrada";
+      const { id, ...payload } = data || {};
+      await ref.update(payload);
       return "EXITO";
     },
 
     async eliminarUnidadPlaza(plaza, id) {
-      await db.collection(COL.INDEX).doc(id).delete();
+      const ref = await _resolverUnidadIndexRef(plaza, id, id);
+      if (!ref) throw new Error("Unidad global no encontrada para eliminar.");
+      await ref.delete();
       return "EXITO";
     },
 

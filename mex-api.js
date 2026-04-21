@@ -2590,11 +2590,6 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
     await listasRef.set(payload, { merge: true });
 
-    await _registrarLog("SISTEMA", "⚙️ Modificó los catálogos del sistema", autor || "Admin Global");
-    await _registrarEventoGestion("CONFIG_GLOBAL", "Publicó cambios en catálogos globales", autor || "Admin Global", {
-      entidad: "CONFIGURACION",
-      referencia: "listas"
-    });
     return "EXITO";
   },
 
@@ -2665,13 +2660,39 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     };
   },
   async actualizarUnidadPlaza(data) {
-    const snap = await db.collection(COL.INDEX).where("mva", "==", data.mva.toString().trim().toUpperCase()).limit(1).get();
-    if (snap.empty) return "ERROR: Unidad no encontrada";
-    await snap.docs[0].ref.update(data);
+    const plazaUp = _normalizePlazaId(data?.plaza || data?.sucursal);
+    const mvaStr = data?.mva?.toString().trim().toUpperCase();
+    const snap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).get();
+    const doc = snap.docs.find(d => !plazaUp || _matchesPlaza(d.data(), plazaUp));
+    if (!doc) return "ERROR: Unidad no encontrada";
+    const { id, ...payload } = data || {};
+    await doc.ref.update(payload);
     return "EXITO";
   },
   async eliminarUnidadPlaza(plaza, id) {
-    await db.collection(COL.INDEX).doc(id).delete();
+    const plazaUp = _normalizePlazaId(plaza);
+    const refDirecta = id ? db.collection(COL.INDEX).doc(String(id).trim()) : null;
+    if (refDirecta) {
+      const snapDirecto = await refDirecta.get();
+      if (snapDirecto.exists && (!plazaUp || _matchesPlaza(snapDirecto.data(), plazaUp))) {
+        await refDirecta.delete();
+        return "EXITO";
+      }
+    }
+
+    const token = String(id || '').trim().toUpperCase();
+    const candidatos = [];
+    if (token) {
+      candidatos.push(
+        db.collection(COL.INDEX).where("mva", "==", token).limit(10).get(),
+        db.collection(COL.INDEX).where("fila", "==", token).limit(10).get()
+      );
+    }
+    const snaps = await Promise.all(candidatos);
+    const docs = snaps.flatMap(snap => snap.docs);
+    const target = docs.find(doc => !plazaUp || _matchesPlaza(doc.data(), plazaUp));
+    if (!target) throw new Error("Unidad global no encontrada para eliminar.");
+    await target.ref.delete();
     return "EXITO";
   },
 

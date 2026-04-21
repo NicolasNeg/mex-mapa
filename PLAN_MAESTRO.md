@@ -301,6 +301,22 @@
   - YO: Fase 5.2 — Semáforo de docs (Cloud Function, no toca frontend todavía)
   - TÚ: Fase 4 — Dashboard (página standalone /dashboard, NUEVA, no toca mapa.js)
   ¿Confirmas? — Claude Code
+
+[2026-04-20] CODEX — ✅ HOTFIX usuario urgente en mapa/admin/config:
+  Archivos modificados:
+    ~ js/views/mapa.js        — modal custom corregido; drag&drop desktop por pointer events;
+                                confirmación estable de swap/limbo; eliminación global más robusta;
+                                precarga y loader al cambiar plaza; comparador de plazas funcional
+                                con métricas reales; acciones de duplicar/plantillas listas con modal
+    ~ api/flota.js            — update/delete global resuelven mejor la unidad objetivo
+    ~ mex-api.js              — compatibilidad legacy para update/delete global sin romper contrato
+    ~ api/settings.js         — guardar listas sin duplicar log operativo legacy
+    ~ firestore.rules         — bitácora de gestión acepta payload enriquecido del panel admin
+    ~ firestore.indexes.json  — índices compuestos nuevos para consultas administrativas
+    ~ functions/index.js      — backend complementario para auditoría/API keys ya preparado
+  Nota: este hotfix fue por solicitud directa del usuario para reparar mapa, panel admin y
+    configuración de ubicaciones; deja `configuracion/listas` como fuente principal para
+    ubicaciones y evita que estos cambios aparezcan como auditoría de operación.
 ```
 
 ---

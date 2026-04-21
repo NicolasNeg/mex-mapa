@@ -433,6 +433,33 @@ service cloud.firestore {
         );
     }
 
+    function exactLocationGestionValida() {
+      return request.resource.data.exactLocation == null
+        || (
+          request.resource.data.exactLocation is map
+          && request.resource.data.exactLocation.keys().hasOnly([
+            "latitude",
+            "longitude",
+            "accuracy",
+            "capturedAt",
+            "source",
+            "city",
+            "state",
+            "addressLabel",
+            "googleMapsUrl"
+          ])
+          && request.resource.data.exactLocation.latitude is number
+          && request.resource.data.exactLocation.longitude is number
+          && (request.resource.data.exactLocation.accuracy == null || request.resource.data.exactLocation.accuracy is number)
+          && (request.resource.data.exactLocation.capturedAt == null || request.resource.data.exactLocation.capturedAt is number)
+          && (request.resource.data.exactLocation.source == null || request.resource.data.exactLocation.source is string)
+          && (request.resource.data.exactLocation.city == null || request.resource.data.exactLocation.city is string)
+          && (request.resource.data.exactLocation.state == null || request.resource.data.exactLocation.state is string)
+          && (request.resource.data.exactLocation.addressLabel == null || request.resource.data.exactLocation.addressLabel is string)
+          && (request.resource.data.exactLocation.googleMapsUrl == null || request.resource.data.exactLocation.googleMapsUrl is string)
+        );
+    }
+
     function eventoGestionValido() {
       return request.resource.data.keys().hasAll([
           "fecha", "timestamp", "tipo", "accion", "autor"
@@ -440,7 +467,10 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly([
           "fecha", "timestamp", "tipo", "accion", "autor",
           "entidad", "referencia", "detalles", "objetivo",
-          "rolObjetivo", "plazaObjetivo", "resultado"
+          "rolObjetivo", "plazaObjetivo", "resultado",
+          "plaza", "deviceId", "activeRoute", "locationStatus",
+          "exactLocation", "ipAddress", "forwardedFor", "userAgent",
+          "userDocId", "userEmail", "role"
         ])
         && request.resource.data.fecha is string
         && request.resource.data.timestamp is int
@@ -453,7 +483,18 @@ service cloud.firestore {
         && (request.resource.data.objetivo == null || request.resource.data.objetivo is string)
         && (request.resource.data.rolObjetivo == null || request.resource.data.rolObjetivo is string)
         && (request.resource.data.plazaObjetivo == null || request.resource.data.plazaObjetivo is string)
-        && (request.resource.data.resultado == null || request.resource.data.resultado is string);
+        && (request.resource.data.resultado == null || request.resource.data.resultado is string)
+        && (request.resource.data.plaza == null || request.resource.data.plaza is string)
+        && (request.resource.data.deviceId == null || request.resource.data.deviceId is string)
+        && (request.resource.data.activeRoute == null || request.resource.data.activeRoute is string)
+        && (request.resource.data.locationStatus == null || request.resource.data.locationStatus is string)
+        && (request.resource.data.ipAddress == null || request.resource.data.ipAddress is string)
+        && (request.resource.data.forwardedFor == null || request.resource.data.forwardedFor is string)
+        && (request.resource.data.userAgent == null || request.resource.data.userAgent is string)
+        && (request.resource.data.userDocId == null || request.resource.data.userDocId is string)
+        && (request.resource.data.userEmail == null || request.resource.data.userEmail is string)
+        && (request.resource.data.role == null || request.resource.data.role is string)
+        && exactLocationGestionValida();
     }
 
     function alertaLecturaValida() {
@@ -728,6 +769,22 @@ service cloud.firestore {
       allow create: if solicitudCreateValida(doc);
       allow read, delete: if puedeGestionarSolicitudes();
       allow update: if solicitudUpdateValida();
+    }
+
+    // ─── API KEYS (MEX API) ──────────────────────────────────
+    // Estas colecciones son exclusivas del backend (Cloud Functions).
+    // Ningún cliente autenticado puede leerlas ni escribirlas directamente.
+    // La gestión se hace via las callables crearApiKey / revocarApiKey / listarApiKeys.
+    match /api_keys/{doc} {
+      allow read, write: if false;
+    }
+
+    match /api_key_usage/{doc} {
+      allow read, write: if false;
+    }
+
+    match /api_key_logs/{doc} {
+      allow read, write: if false;
     }
   }
 }

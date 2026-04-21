@@ -1,4 +1,5 @@
 const admin = require("firebase-admin");
+const crypto = require("crypto");
 const logger = require("firebase-functions/logger");
 const functions = require("firebase-functions/v1");
 const nodemailer = require("nodemailer");
@@ -1756,3 +1757,442 @@ exports.enviarCorreoSolicitud = functions
     logger.info("[enviarCorreoSolicitud] Correo enviado a", email);
     return { ok: true, sent: true };
   });
+
+// ══════════════════════════════════════════════════════════════
+//  MEX API — REST pública con API Keys
+//  Fase 1: gestión de keys + endpoints GET (unidades, historial, mapa)
+//
+//  Flujo:
+//    1. Cliente externo envía header X-API-Key: mex_live_<hex>
+//    2. Se valida la key contra Firestore (por lookupId + hash SHA-256)
+//    3. Se verifica rate limit (por día y por minuto)
+//    4. Se verifica permiso específico del endpoint
+//    5. Se ejecuta la query y se devuelve JSON
+//    6. Se registra la llamada en api_key_logs (async)
+//
+//  Seguridad: la key en texto plano NUNCA se almacena en Firestore,
+//  solo su hash SHA-256. El texto plano solo se muestra al crear la key.
+// ══════════════════════════════════════════════════════════════
+
+const API_KEYS_COL   = "api_keys";
+const API_KEY_USAGE_COL = "api_key_usage";
+const API_KEY_LOGS_COL  = "api_key_logs";
+const MEX_KEY_LIVE_PREFIX = "mex_live_";
+const MEX_KEY_TEST_PREFIX = "mex_test_";
+const MEX_KEY_LOOKUP_LEN  = 10; // chars usados como ID de búsqueda rápida
+
+// ─── Helpers de criptografía ─────────────────────────────────
+
+function sha256hex(str) {
+  return crypto.createHash("sha256").update(String(str), "utf8").digest("hex");
+}
+
+function mexKeyLookupId(rawKey) {
+  if (rawKey.startsWith(MEX_KEY_LIVE_PREFIX)) {
+    return rawKey.slice(MEX_KEY_LIVE_PREFIX.length, MEX_KEY_LIVE_PREFIX.length + MEX_KEY_LOOKUP_LEN);
+  }
+  if (rawKey.startsWith(MEX_KEY_TEST_PREFIX)) {
+    return rawKey.slice(MEX_KEY_TEST_PREFIX.length, MEX_KEY_TEST_PREFIX.length + MEX_KEY_LOOKUP_LEN);
+  }
+  return "";
+}
+
+function generateMexApiKey(isTest = false) {
+  const prefix = isTest ? MEX_KEY_TEST_PREFIX : MEX_KEY_LIVE_PREFIX;
+  return prefix + crypto.randomBytes(24).toString("hex"); // 48 hex chars
+}
+
+// ─── Validación de API key ────────────────────────────────────
+
+async function resolveApiKey(rawKey) {
+  if (!rawKey || typeof rawKey !== "string") return null;
+  const isLive = rawKey.startsWith(MEX_KEY_LIVE_PREFIX);
+  const isTest = rawKey.startsWith(MEX_KEY_TEST_PREFIX);
+  if (!isLive && !isTest) return null;
+
+  const lookupId = mexKeyLookupId(rawKey);
+  if (!lookupId) return null;
+  const hash = sha256hex(rawKey);
+
+  // Búsqueda por lookupId (índice automático de Firestore), luego verificar hash
+  const snap = await db.collection(API_KEYS_COL)
+    .where("lookupId", "==", lookupId)
+    .limit(5)
+    .get();
+
+  if (snap.empty) return null;
+
+  for (const doc of snap.docs) {
+    const d = doc.data();
+    if (d.keyHash === hash) {
+      if (d.status !== "ACTIVA") return null;
+      return { _docId: doc.id, ...d };
+    }
+  }
+  return null;
+}
+
+// ─── Rate limiting ────────────────────────────────────────────
+
+async function checkAndIncrementRateLimit(keyDocId, limites) {
+  const dailyLimit  = Math.max(1, Number(limites?.llamadasPorDia)    || 5000);
+  const minuteLimit = Math.max(1, Number(limites?.llamadasPorMinuto) || 60);
+
+  const now = new Date();
+  // Campos "planos" para evitar subcollections innecesarias
+  const dayField = "d_" + now.toISOString().slice(0, 10).replace(/-/g, ""); // d_20260420
+  const minField = "m_" + now.toISOString().slice(0, 16).replace(/[-T:]/g, ""); // m_202604201030
+
+  const usageRef = db.collection(API_KEY_USAGE_COL).doc(keyDocId);
+
+  return db.runTransaction(async (tx) => {
+    const snap = await tx.get(usageRef);
+    const data = snap.exists ? snap.data() : {};
+    const dayCount = (data[dayField] || 0) + 1;
+    const minCount = (data[minField] || 0) + 1;
+
+    if (dayCount  > dailyLimit)  return { allowed: false, reason: "rate_limit_daily",  limit: dailyLimit };
+    if (minCount  > minuteLimit) return { allowed: false, reason: "rate_limit_minute", limit: minuteLimit };
+
+    tx.set(usageRef, {
+      [dayField]: dayCount,
+      [minField]: minCount,
+      _lastCall: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    return { allowed: true };
+  });
+}
+
+// ─── Errores tipados para routes ──────────────────────────────
+
+class ApiPermissionError extends Error {
+  constructor(msg) { super(msg); this.apiCode = "permission_denied"; }
+}
+class ApiNotFoundError extends Error {
+  constructor(msg) { super(msg); this.apiCode = "not_found"; }
+}
+class ApiInvalidArgError extends Error {
+  constructor(msg) { super(msg); this.apiCode = "invalid_argument"; }
+}
+
+function requireApiPermiso(keyDoc, recurso, accion) {
+  if (!keyDoc?.permisos?.[recurso]?.[accion]) {
+    throw new ApiPermissionError(`Sin permiso: ${recurso}.${accion}`);
+  }
+}
+
+function requireApiPlazaScope(keyDoc, plaza) {
+  if (!plaza) throw new ApiInvalidArgError("Plaza requerida.");
+  const scope = keyDoc?.scope || {};
+  if (scope.global === true) return;
+  const allowed = Array.isArray(scope.plazas)
+    ? scope.plazas.map(normalizePlaza)
+    : [];
+  if (!allowed.includes(normalizePlaza(plaza))) {
+    throw new ApiPermissionError(`Sin acceso a plaza: ${plaza}`);
+  }
+}
+
+// ─── Handlers por endpoint ────────────────────────────────────
+
+async function apiHandleGetUnidades(req, keyDoc) {
+  requireApiPermiso(keyDoc, "unidades", "leer");
+  const plaza = normalizePlaza(req.query.plaza || "");
+  if (!plaza) throw new ApiInvalidArgError("Parámetro 'plaza' requerido.");
+  requireApiPlazaScope(keyDoc, plaza);
+
+  const estado    = normalizeUpper(req.query.estado    || "");
+  const categoria = normalizeUpper(req.query.categoria || "");
+  const limit     = Math.min(Math.max(1, parseInt(req.query.limit) || 100), 500);
+
+  let q = db.collection("cuadre").where("plaza", "==", plaza);
+  if (estado)    q = q.where("estado",    "==", estado);
+  if (categoria) q = q.where("categoria", "==", categoria);
+  q = q.limit(limit);
+
+  const snap = await q.get();
+  const data = snap.docs.map(d => serializeFirestoreValue({ id: d.id, ...d.data() }));
+  return { ok: true, data, meta: { total: data.length, plaza, timestamp: nowIso() } };
+}
+
+async function apiHandleGetUnidad(mva, keyDoc) {
+  requireApiPermiso(keyDoc, "unidades", "leer");
+  const snap = await db.collection("cuadre")
+    .where("mva", "==", normalizeUpper(mva))
+    .limit(1)
+    .get();
+  if (snap.empty) throw new ApiNotFoundError(`Unidad no encontrada: ${mva}`);
+  const doc  = snap.docs[0];
+  const data = serializeFirestoreValue({ id: doc.id, ...doc.data() });
+  requireApiPlazaScope(keyDoc, data.plaza || "");
+  return { ok: true, data, meta: { timestamp: nowIso() } };
+}
+
+async function apiHandleGetHistorial(req, keyDoc) {
+  requireApiPermiso(keyDoc, "historial", "leer");
+  const plaza = normalizePlaza(req.query.plaza || "");
+  if (!plaza) throw new ApiInvalidArgError("Parámetro 'plaza' requerido.");
+  requireApiPlazaScope(keyDoc, plaza);
+  const limit = Math.min(Math.max(1, parseInt(req.query.limit) || 50), 200);
+
+  const snap = await db.collection("historial_patio")
+    .where("plaza", "==", plaza)
+    .orderBy("timestamp", "desc")
+    .limit(limit)
+    .get();
+
+  const data = snap.docs.map(d => serializeFirestoreValue({ id: d.id, ...d.data() }));
+  return { ok: true, data, meta: { total: data.length, plaza, timestamp: nowIso() } };
+}
+
+async function apiHandleGetMapa(plaza, keyDoc) {
+  requireApiPermiso(keyDoc, "mapa", "leer");
+  requireApiPlazaScope(keyDoc, plaza);
+  const plazaKey = normalizePlaza(plaza);
+  const snap = await db.collection("mapa_config").doc(plazaKey)
+    .collection("estructura")
+    .get();
+  if (snap.empty) throw new ApiNotFoundError(`Sin configuración de mapa para: ${plaza}`);
+  const data = snap.docs.map(d => serializeFirestoreValue({ id: d.id, ...d.data() }));
+  return { ok: true, data, meta: { plaza: plazaKey, total: data.length, timestamp: nowIso() } };
+}
+
+// ─── Logger async (fire-and-forget) ──────────────────────────
+
+function apiLogCall(keyDoc, endpoint, statusCode, latencyMs, req) {
+  db.collection(API_KEY_LOGS_COL).add({
+    keyDocId:  normalizeString(keyDoc?._docId  || ""),
+    keyNombre: normalizeString(keyDoc?.nombre  || ""),
+    endpoint,
+    status:    statusCode,
+    latencyMs,
+    ip:        normalizeString(req.headers["x-forwarded-for"] || req.ip || ""),
+    userAgent: normalizeString(req.headers["user-agent"] || ""),
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  }).catch(err => logger.warn("[mexApi] Error escribiendo log:", err.message));
+}
+
+// ─── FUNCIÓN PRINCIPAL HTTP ───────────────────────────────────
+
+exports.mexApi = functions.region(REGION).https.onRequest(async (req, res) => {
+  // CORS — permite llamadas desde cualquier origen
+  res.set("Access-Control-Allow-Origin",  "*");
+  res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.set("Access-Control-Allow-Headers", "X-API-Key, Content-Type");
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  const startMs = Date.now();
+  const method  = normalizeString(req.method);
+
+  function apiErr(status, code, message) {
+    res.status(status).json({ ok: false, error: { code, message } });
+  }
+
+  // 1. Extraer key
+  const rawKey = normalizeString(
+    req.headers["x-api-key"] || req.headers["X-API-Key"] || req.query.api_key || ""
+  );
+  if (!rawKey) {
+    return apiErr(401, "missing_key", "API key requerida. Usa el header X-API-Key.");
+  }
+
+  // 2. Validar key
+  let keyDoc;
+  try {
+    keyDoc = await resolveApiKey(rawKey);
+  } catch (err) {
+    logger.error("[mexApi] Error validando key:", err.message);
+    return apiErr(500, "server_error", "Error interno.");
+  }
+  if (!keyDoc) {
+    return apiErr(401, "invalid_key", "API key inválida o revocada.");
+  }
+
+  // 3. Rate limit
+  let rl;
+  try {
+    rl = await checkAndIncrementRateLimit(keyDoc._docId, keyDoc.limites);
+  } catch (err) {
+    logger.error("[mexApi] Error en rate limit:", err.message);
+    return apiErr(500, "server_error", "Error interno al verificar límite.");
+  }
+  if (!rl.allowed) {
+    res.set("Retry-After", "60");
+    return apiErr(429, rl.reason, `Límite excedido. Máx: ${rl.limit} llamadas.`);
+  }
+
+  // 4. Routing  — /v1/<recurso>[/<id>]
+  const segments   = normalizeString(req.path).replace(/^\//, "").split("/").filter(Boolean);
+  const version    = segments[0] || "";
+  const resource   = segments[1] || "";
+  const resourceId = segments[2] || "";
+  const endpoint   = `${method} /${segments.join("/")}`;
+
+  if (version !== "v1") {
+    return apiErr(404, "not_found", "Versión no soportada. Usa /v1/...");
+  }
+
+  let result;
+  try {
+    if (resource === "ping" && method === "GET") {
+      result = { ok: true, data: { pong: true, keyNombre: keyDoc.nombre, timestamp: nowIso() } };
+
+    } else if (resource === "unidades" && method === "GET" && !resourceId) {
+      result = await apiHandleGetUnidades(req, keyDoc);
+
+    } else if (resource === "unidades" && method === "GET" && resourceId) {
+      result = await apiHandleGetUnidad(resourceId, keyDoc);
+
+    } else if (resource === "historial" && method === "GET") {
+      result = await apiHandleGetHistorial(req, keyDoc);
+
+    } else if (resource === "mapa" && method === "GET" && resourceId) {
+      result = await apiHandleGetMapa(resourceId, keyDoc);
+
+    } else {
+      return apiErr(404, "not_found", `Endpoint no soportado: ${endpoint}`);
+    }
+  } catch (err) {
+    const latency = Date.now() - startMs;
+    if (err instanceof ApiPermissionError) {
+      apiLogCall(keyDoc, endpoint, 403, latency, req);
+      return apiErr(403, "permission_denied", err.message);
+    }
+    if (err instanceof ApiNotFoundError) {
+      apiLogCall(keyDoc, endpoint, 404, latency, req);
+      return apiErr(404, "not_found", err.message);
+    }
+    if (err instanceof ApiInvalidArgError) {
+      apiLogCall(keyDoc, endpoint, 400, latency, req);
+      return apiErr(400, "invalid_argument", err.message);
+    }
+    logger.error(`[mexApi] Error en ${endpoint}:`, err.message);
+    return apiErr(500, "server_error", "Error interno del servidor.");
+  }
+
+  const latency = Date.now() - startMs;
+  apiLogCall(keyDoc, endpoint, 200, latency, req);
+  res.status(200).json(result);
+});
+
+// ══════════════════════════════════════════════════════════════
+//  crearApiKey — HTTPS callable (solo PROGRAMADOR)
+//  Genera y almacena una nueva API key. La key en texto plano
+//  se devuelve UNA SOLA VEZ — después es irrecuperable.
+// ══════════════════════════════════════════════════════════════
+
+exports.crearApiKey = functions.region(REGION).https.onCall(async (data, context) => {
+  const actor = await requireProgrammerAuth(context);
+
+  const nombre      = normalizeString(data?.nombre      || "");
+  const descripcion = normalizeString(data?.descripcion || "");
+  if (!nombre) throw new HttpsError("invalid-argument", "El campo 'nombre' es requerido.");
+
+  const isTest   = data?.test === true;
+  const rawKey   = generateMexApiKey(isTest);
+  const lookupId = mexKeyLookupId(rawKey);
+  const keyHash  = sha256hex(rawKey);
+
+  // Permisos por defecto: solo lectura de unidades y mapa
+  const defaultPermisos = {
+    unidades:  { leer: true,  escribir: false, borrar: false },
+    mapa:      { leer: true,  escribir: false, borrar: false },
+    historial: { leer: false, escribir: false, borrar: false },
+    cuadre:    { leer: false, escribir: false, borrar: false },
+    alertas:   { leer: false, escribir: false, borrar: false }
+  };
+
+  const permisos = (data?.permisos && typeof data.permisos === "object")
+    ? sanitizePlainObject(data.permisos)
+    : defaultPermisos;
+
+  const scope = (data?.scope && typeof data.scope === "object")
+    ? sanitizePlainObject(data.scope)
+    : { plazas: [], global: false };
+
+  const limites = {
+    llamadasPorMinuto: Math.min(Math.max(1, parseInt(data?.limites?.llamadasPorMinuto) || 60), 600),
+    llamadasPorDia:    Math.min(Math.max(1, parseInt(data?.limites?.llamadasPorDia)    || 5000), 100000)
+  };
+
+  const docData = {
+    nombre, descripcion, lookupId, keyHash,
+    status: "ACTIVA",
+    scope, permisos, limites,
+    test: isTest,
+    creadoPor: normalizeString(actor.data?.email || actor.id),
+    creadoEn:  admin.firestore.FieldValue.serverTimestamp()
+  };
+
+  const docRef = await db.collection(API_KEYS_COL).add(docData);
+
+  await recordProgrammerAudit({
+    actor:     normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
+    actorRole: actor.role,
+    action:    "crearApiKey",
+    keyId:     docRef.id,
+    keyNombre: nombre,
+    isTest
+  });
+
+  logger.info("[crearApiKey] Creada key:", docRef.id, "nombre:", nombre);
+  // La key en texto plano se devuelve UNA sola vez aquí
+  return { ok: true, keyId: docRef.id, key: rawKey, nombre, isTest };
+});
+
+// ══════════════════════════════════════════════════════════════
+//  revocarApiKey — HTTPS callable (solo PROGRAMADOR)
+//  Cambia el status de una key a REVOCADA, SUSPENDIDA o ACTIVA.
+// ══════════════════════════════════════════════════════════════
+
+exports.revocarApiKey = functions.region(REGION).https.onCall(async (data, context) => {
+  const actor = await requireProgrammerAuth(context);
+  const keyId = normalizeString(data?.keyId || "");
+  if (!keyId) throw new HttpsError("invalid-argument", "keyId requerido.");
+
+  const nuevoStatus = normalizeUpper(data?.status || "REVOCADA");
+  if (!["REVOCADA", "SUSPENDIDA", "ACTIVA"].includes(nuevoStatus)) {
+    throw new HttpsError("invalid-argument", "status debe ser REVOCADA, SUSPENDIDA o ACTIVA.");
+  }
+
+  const ref  = db.collection(API_KEYS_COL).doc(keyId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new HttpsError("not-found", `API key no encontrada: ${keyId}`);
+
+  await ref.update({
+    status:     nuevoStatus,
+    _updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  await recordProgrammerAudit({
+    actor:       normalizeString(actor.data?.nombre || actor.data?.email || actor.id),
+    actorRole:   actor.role,
+    action:      "revocarApiKey",
+    keyId,
+    nuevoStatus
+  });
+
+  return { ok: true, keyId, status: nuevoStatus };
+});
+
+// ══════════════════════════════════════════════════════════════
+//  listarApiKeys — HTTPS callable (solo PROGRAMADOR)
+//  Lista todas las API keys SIN exponer el keyHash.
+// ══════════════════════════════════════════════════════════════
+
+exports.listarApiKeys = functions.region(REGION).https.onCall(async (_data, context) => {
+  await requireProgrammerAuth(context);
+
+  const snap = await db.collection(API_KEYS_COL)
+    .orderBy("creadoEn", "desc")
+    .limit(200)
+    .get();
+
+  const data = snap.docs.map(doc => {
+    const { keyHash: _omit, ...safe } = doc.data();
+    return { keyId: doc.id, ...serializeFirestoreValue(safe) };
+  });
+
+  return { ok: true, data };
+});

@@ -224,17 +224,40 @@ if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
 let modalConfirmCallback = null;
 
 function mostrarCustomModal(titulo, texto, icono, colorIcono, textConfirm, colorBtn, onConfirm) {
+  let iconName = icono;
+  let iconColor = colorIcono;
+  let confirmText = textConfirm;
+  let confirmColor = colorBtn;
+  let cancelText = 'CANCELAR';
+  let confirmHandler = onConfirm;
+
+  if (typeof icono === 'function') {
+    confirmHandler = icono;
+    iconName = 'tune';
+    iconColor = '#2563eb';
+    confirmText = colorIcono || 'ACEPTAR';
+    cancelText = textConfirm || 'CANCELAR';
+    confirmColor = '#2563eb';
+  }
+
   document.getElementById('modalTitle').innerText = titulo;
-  document.getElementById('modalText').innerText = texto;
+  const textEl = document.getElementById('modalText');
+  if (/<[a-z][\s\S]*>/i.test(String(texto || ''))) {
+    textEl.innerHTML = texto;
+  } else {
+    textEl.innerText = texto;
+  }
   const ic = document.getElementById('modalIcon');
-  ic.innerText = icono;
-  ic.style.color = colorIcono;
+  ic.innerText = iconName || 'warning';
+  ic.style.color = iconColor || '#f59e0b';
 
   const btn = document.getElementById('modalConfirmBtn');
-  btn.innerText = textConfirm;
-  btn.style.background = colorBtn;
+  btn.innerText = confirmText || 'ACEPTAR';
+  btn.style.background = confirmColor || '#2563eb';
+  const cancelBtn = document.querySelector('#customModal .modal-btn-cancel');
+  if (cancelBtn) cancelBtn.innerText = cancelText;
 
-  modalConfirmCallback = onConfirm;
+  modalConfirmCallback = confirmHandler;
   document.getElementById('customModal').classList.add('active');
 }
 
@@ -243,9 +266,19 @@ function cerrarCustomModal() {
   modalConfirmCallback = null;
 }
 
-document.getElementById('modalConfirmBtn')?.addEventListener('click', () => {
-  if (modalConfirmCallback) modalConfirmCallback();
-  cerrarCustomModal();
+document.getElementById('modalConfirmBtn')?.addEventListener('click', async () => {
+  try {
+    if (!modalConfirmCallback) {
+      cerrarCustomModal();
+      return;
+    }
+    const shouldClose = await modalConfirmCallback();
+    if (shouldClose === false) return;
+    cerrarCustomModal();
+  } catch (error) {
+    console.error('[customModal] confirm error:', error);
+    showToast(error?.message || 'No se pudo completar la acción.', 'error');
+  }
 });
 
 function confirmarCierreSesion() {
@@ -1821,14 +1854,18 @@ async function registrarEventoGestion(tipo, mensaje, extra = {}) {
   try {
     const callable = window._functions?.httpsCallable?.('recordAdminAuditEvent');
     if (callable) {
-      await callable({
-        tipo,
-        mensaje,
-        autor: USER_NAME || 'Sistema',
-        plaza: _miPlaza(),
-        extra: auditExtra
-      });
-      return;
+      try {
+        await callable({
+          tipo,
+          mensaje,
+          autor: USER_NAME || 'Sistema',
+          plaza: _miPlaza(),
+          extra: auditExtra
+        });
+        return;
+      } catch (callableError) {
+        console.warn('recordAdminAuditEvent falló; usando fallback cliente:', callableError);
+      }
     }
     await api.registrarEventoGestion(tipo, mensaje, USER_NAME || 'Sistema', auditExtra);
   } catch (error) {
@@ -2594,12 +2631,23 @@ let _mapaRenderRAF = 0;
 let _mapDragSuppressClickUntil = 0;
 let _mapDragState = {
   sourceCar: null,
+  sourceSpot: null,
   currentZone: null,
   ghost: null,
   touchTimer: null,
   pendingTouch: null,
   activeTouchId: null,
+  pendingPointer: null,
+  activePointerId: null,
   active: false
+};
+let _plazaPrefetchPromises = new Map();
+let _plazaSwitchState = {
+  token: 0,
+  plaza: '',
+  structureReady: false,
+  unitsReady: false,
+  hideTimer: null
 };
 let _ultimaFlotaMapa = [];
 let _ultimaEstructuraMapa = [];
@@ -2612,7 +2660,9 @@ let _mapaRuntime = {
   dragBindingsBound: false,
   pinchState: null,
   pendingUnits: null,
-  rolePrefetchScheduled: false
+  rolePrefetchScheduled: false,
+  plazaPrefetchScheduled: false,
+  adminWarmupScheduled: false
 };
 let _mapaSyncState = {
   hasPendingWrite: false,
@@ -2699,31 +2749,225 @@ function _persistMapUnitsCache(unidades = [], plaza = _miPlaza()) {
   );
 }
 
+function _resolveMapCachePresence(plaza = _miPlaza()) {
+  const plazaScope = _mapCacheScope(plaza);
+  return {
+    plaza: plazaScope,
+    structure: Array.isArray(_readMapCache('estructura', plazaScope, MAP_LOCAL_STRUCTURE_TTL_MS)),
+    units: Array.isArray(_readMapCache('unidades', plazaScope, MAP_LOCAL_UNITS_TTL_MS))
+  };
+}
+
 function _hydrateMapFromLocalCache(plaza = _miPlaza()) {
   const plazaScope = _mapCacheScope(plaza);
   const cachedStructure = _readMapCache('estructura', plazaScope, MAP_LOCAL_STRUCTURE_TTL_MS);
   const cachedUnits = _readMapCache('unidades', plazaScope, MAP_LOCAL_UNITS_TTL_MS);
-  let hydrated = false;
+  const result = { hydrated: false, structure: false, units: false, plaza: plazaScope };
 
   if (Array.isArray(cachedStructure) && cachedStructure.length > 0) {
     console.log('[MEX-CACHE] estructura local →', { plaza: plazaScope, celdas: cachedStructure.length });
     _mapaRuntime.estructuraReady = true;
     dibujarMapaCompleto(cachedStructure);
-    hydrated = true;
+    result.hydrated = true;
+    result.structure = true;
   }
 
   if (Array.isArray(cachedUnits) && cachedUnits.length > 0) {
     console.log('[MEX-CACHE] snapshot local →', { plaza: plazaScope, unidades: cachedUnits.length });
     _mapaRuntime.unidadesReady = true;
     sincronizarMapa(cachedUnits, { immediate: true });
-    hydrated = true;
+    result.hydrated = true;
+    result.units = true;
   }
 
-  return hydrated;
+  return result;
 }
 
 function _shouldBootstrapMapFetch() {
   return !_mapaRuntime.unidadesReady && !_mapaRuntime.pendingUnits && !_unsubMapa;
+}
+
+function _getPlazaSwitchOverlay() {
+  let overlay = document.getElementById('plaza-switch-loader');
+  if (overlay) return overlay;
+  overlay = document.createElement('div');
+  overlay.id = 'plaza-switch-loader';
+  overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:76000;background:rgba(15,23,42,0.18);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;';
+  overlay.innerHTML = `
+    <div style="min-width:min(92vw,360px);max-width:360px;background:rgba(15,23,42,0.92);color:white;border:1px solid rgba(148,163,184,0.28);border-radius:22px;padding:20px 22px;box-shadow:0 25px 60px rgba(15,23,42,0.28);display:grid;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="material-icons spinner" style="font-size:24px;color:#38bdf8;">sync</span>
+        <div style="display:grid;gap:2px;">
+          <div id="plaza-switch-loader-title" style="font-size:15px;font-weight:900;letter-spacing:.02em;">Cargando plaza</div>
+          <div id="plaza-switch-loader-sub" style="font-size:12px;color:#cbd5e1;font-weight:600;">Preparando datos operativos...</div>
+        </div>
+      </div>
+      <div id="plaza-switch-loader-meta" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function _setPlazaSwitchLoading(active, { plaza = '', text = '', subtext = '', structure = false, units = false } = {}) {
+  const overlay = _getPlazaSwitchOverlay();
+  const title = overlay.querySelector('#plaza-switch-loader-title');
+  const sub = overlay.querySelector('#plaza-switch-loader-sub');
+  const meta = overlay.querySelector('#plaza-switch-loader-meta');
+  if (title) title.textContent = text || (plaza ? `Cargando ${plaza}` : 'Cargando plaza');
+  if (sub) sub.textContent = subtext || 'Preparando datos operativos...';
+  if (meta) {
+    meta.innerHTML = [
+      plaza ? `<span style="padding:6px 10px;border-radius:999px;background:rgba(14,165,233,0.18);color:#7dd3fc;font-size:11px;font-weight:900;">${escapeHtml(plaza)}</span>` : '',
+      `<span style="padding:6px 10px;border-radius:999px;background:${structure ? 'rgba(16,185,129,0.18)' : 'rgba(148,163,184,0.16)'};color:${structure ? '#6ee7b7' : '#cbd5e1'};font-size:11px;font-weight:800;">${structure ? 'Estructura lista' : 'Estructura...'}</span>`,
+      `<span style="padding:6px 10px;border-radius:999px;background:${units ? 'rgba(59,130,246,0.18)' : 'rgba(148,163,184,0.16)'};color:${units ? '#93c5fd' : '#cbd5e1'};font-size:11px;font-weight:800;">${units ? 'Unidades listas' : 'Unidades...'}</span>`
+    ].filter(Boolean).join('');
+  }
+  overlay.style.display = active ? 'flex' : 'none';
+}
+
+function _beginPlazaSwitchLoading(plaza, cacheState = {}) {
+  if (_plazaSwitchState.hideTimer) {
+    clearTimeout(_plazaSwitchState.hideTimer);
+    _plazaSwitchState.hideTimer = null;
+  }
+  const token = Date.now();
+  _plazaSwitchState = {
+    token,
+    plaza,
+    structureReady: cacheState.structure === true,
+    unitsReady: cacheState.units === true,
+    hideTimer: null
+  };
+  _setPlazaSwitchLoading(true, {
+    plaza,
+    text: `Cambiando a ${plaza}`,
+    subtext: cacheState.hydrated
+      ? 'Mostrando caché local y sincronizando en vivo...'
+      : 'Consultando configuración y mapa operativo...',
+    structure: _plazaSwitchState.structureReady,
+    units: _plazaSwitchState.unitsReady
+  });
+  if (_plazaSwitchState.structureReady && _plazaSwitchState.unitsReady) {
+    _plazaSwitchState.hideTimer = setTimeout(() => {
+      if (_plazaSwitchState.token === token) _setPlazaSwitchLoading(false);
+    }, 220);
+  }
+  return token;
+}
+
+function _markPlazaSwitchReady(plaza, part) {
+  const plazaUp = _normalizePlaza(plaza || '');
+  if (!_plazaSwitchState.token || _plazaSwitchState.plaza !== plazaUp) return;
+  if (part === 'structure') _plazaSwitchState.structureReady = true;
+  if (part === 'units') _plazaSwitchState.unitsReady = true;
+  _setPlazaSwitchLoading(true, {
+    plaza: plazaUp,
+    text: `Cambiando a ${plazaUp}`,
+    subtext: (_plazaSwitchState.structureReady && _plazaSwitchState.unitsReady)
+      ? 'Sincronización completada.'
+      : 'Sincronizando vista operativa...',
+    structure: _plazaSwitchState.structureReady,
+    units: _plazaSwitchState.unitsReady
+  });
+  if (_plazaSwitchState.structureReady && _plazaSwitchState.unitsReady) {
+    if (_plazaSwitchState.hideTimer) clearTimeout(_plazaSwitchState.hideTimer);
+    _plazaSwitchState.hideTimer = setTimeout(() => {
+      if (_plazaSwitchState.plaza === plazaUp) _setPlazaSwitchLoading(false);
+    }, 260);
+  }
+}
+
+async function _warmPlazaCache(plaza, options = {}) {
+  const plazaUp = _normalizePlaza(plaza || '');
+  if (!plazaUp) return { estructura: 0, unidades: 0 };
+  if (_plazaPrefetchPromises.has(plazaUp) && !options.force) return _plazaPrefetchPromises.get(plazaUp);
+
+  const run = (async () => {
+    const _api = window.api || api;
+    const result = { estructura: 0, unidades: 0 };
+    try {
+      if (typeof _api?.obtenerEstructuraMapa === 'function') {
+        const estructura = await _api.obtenerEstructuraMapa(plazaUp);
+        if (Array.isArray(estructura) && estructura.length > 0) {
+          _persistMapStructureCache(estructura, plazaUp);
+          result.estructura = estructura.length;
+        }
+      }
+    } catch (error) {
+      console.warn('[MEX-PREFETCH] No se pudo precalentar estructura:', plazaUp, error);
+    }
+
+    try {
+      if (typeof _api?.obtenerDatosParaMapa === 'function') {
+        const data = await _api.obtenerDatosParaMapa(plazaUp);
+        const unidades = Array.isArray(data?.unidades) ? data.unidades : [];
+        if (unidades.length > 0) {
+          _persistMapUnitsCache(unidades, plazaUp);
+          result.unidades = unidades.length;
+        }
+      }
+    } catch (error) {
+      console.warn('[MEX-PREFETCH] No se pudo precalentar unidades:', plazaUp, error);
+    }
+
+    return result;
+  })().finally(() => {
+    _plazaPrefetchPromises.delete(plazaUp);
+    if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
+  });
+
+  _plazaPrefetchPromises.set(plazaUp, run);
+  return run;
+}
+
+function _schedulePlazaCachePrefetch() {
+  if (_mapaRuntime.plazaPrefetchScheduled) return;
+  const plazas = _puedeVerTodasPlazas()
+    ? (window.MEX_CONFIG?.empresa?.plazas || [])
+    : (_plazasPermitidas() || []);
+  const targets = plazas.filter(p => p && _normalizePlaza(p) !== _normalizePlaza(_miPlaza()));
+  if (targets.length === 0) return;
+  _mapaRuntime.plazaPrefetchScheduled = true;
+
+  const runQueue = () => {
+    targets.reduce((chain, plaza, index) => {
+      return chain.then(() => new Promise(resolve => {
+        const invoke = () => {
+          _warmPlazaCache(plaza).finally(resolve);
+        };
+        if (typeof window.requestIdleCallback === 'function') {
+          window.requestIdleCallback(invoke, { timeout: 1200 + (index * 250) });
+        } else {
+          setTimeout(invoke, 250 * (index + 1));
+        }
+      }));
+    }, Promise.resolve()).catch(error => {
+      console.warn('[MEX-PREFETCH] cola de plazas:', error);
+    });
+  };
+
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(runQueue, { timeout: 2200 });
+  } else {
+    setTimeout(runQueue, 1200);
+  }
+}
+
+function _scheduleAdminWarmup() {
+  if (_mapaRuntime.adminWarmupScheduled || !canOpenAdminPanel()) return;
+  _mapaRuntime.adminWarmupScheduled = true;
+  const warm = () => {
+    cargarMaestra().catch(() => {});
+    if ((canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig()) && typeof actualizarBadgeSolicitudes === 'function') {
+      actualizarBadgeSolicitudes().catch(() => {});
+    }
+  };
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(warm, { timeout: 1800 });
+  } else {
+    setTimeout(warm, 900);
+  }
 }
 
 function _scheduleInitialRadarPing() {
@@ -2770,6 +3014,9 @@ function _schedulePrivilegedRoutePrefetch() {
   } else {
     setTimeout(enqueue, 1200);
   }
+
+  _schedulePlazaCachePrefetch();
+  _scheduleAdminWarmup();
 }
 
 function _currentMapUiState() {
@@ -3011,6 +3258,7 @@ function startAutoRefresh() {
   // Siempre usar window.api fresco — el const api puede ser snapshot anterior al assemble
   const _api = window.api || api;
   const plazaActiva = _miPlaza();
+  const cacheState = _resolveMapCachePresence(plazaActiva);
 
   // Guard: no reiniciar si ya tenemos suscripciones activas para esta misma plaza
   if (_subPlaza === plazaActiva && _unsubMapa !== null && _unsubMapaEstructura !== null) return;
@@ -3027,11 +3275,16 @@ function startAutoRefresh() {
   console.log('[MEX-INTEG] startAutoRefresh →', { plaza: plazaActiva || '(sin plaza)', apiKeys: Object.keys(_api).length });
   _subPlaza = plazaActiva; // Registrar plaza activa ANTES de suscribir
 
+  if (!cacheState.structure || !cacheState.units) {
+    _beginPlazaSwitchLoading(plazaActiva || 'MAPA', { ...cacheState, hydrated: false });
+  }
+
   if (typeof _api.suscribirEstructuraMapa === 'function') {
     _unsubMapaEstructura = _api.suscribirEstructuraMapa(estructura => {
       console.log('[MEX-INTEG] estructura recibida →', { celdas: estructura?.length, plaza: plazaActiva });
       _persistMapStructureCache(estructura, plazaActiva);
       _mapaRuntime.estructuraReady = true;
+      _markPlazaSwitchReady(plazaActiva, 'structure');
       dibujarMapaCompleto(estructura);
     }, plazaActiva);
   } else {
@@ -3046,6 +3299,7 @@ function startAutoRefresh() {
   _unsubMapa = suscribir(unidades => {
     _persistMapUnitsCache(unidades, plazaActiva);
     _mapaRuntime.unidadesReady = true;
+    _markPlazaSwitchReady(plazaActiva, 'units');
     if (window.PAUSA_CONEXIONES) return;
     if (isSaving || isMoving) {
       _mapaRuntime.pendingUnits = unidades;
@@ -3066,10 +3320,20 @@ function cambiarPlazaMapa(plaza) {
   PLAZA_ACTIVA_MAPA = normalizedPlaza;
   _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
   _updateGlobalPlazaEmail();
+  _mapaRuntime.estructuraReady = false;
+  _mapaRuntime.unidadesReady = false;
+  _mapaRuntime.pendingUnits = null;
+  const cacheState = _hydrateMapFromLocalCache(normalizedPlaza);
+  _beginPlazaSwitchLoading(normalizedPlaza, cacheState);
+  _warmPlazaCache(normalizedPlaza).then(result => {
+    if ((_plazaSwitchState.plaza || '') !== normalizedPlaza) return;
+    if (result.estructura > 0) _markPlazaSwitchReady(normalizedPlaza, 'structure');
+    if (result.unidades > 0) _markPlazaSwitchReady(normalizedPlaza, 'units');
+  }).catch(() => {});
   _subPlaza = null; // forzar reinicio aunque la plaza sea la misma string
   _renderPlazaSwitcher();
   inicializarConfiguracion();
-  cargarMaestra();
+  cargarMaestra().catch(() => {});
   startAutoRefresh();
   iniciarRadarNotificaciones();
   hacerPingNotificaciones(true);
@@ -3126,16 +3390,37 @@ function _renderPlazaSwitcher() {
   }
 
   const activa = PLAZA_ACTIVA_MAPA || plazas[0];
+  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
   picker.style.display = 'flex';
   if (pickerLabel) pickerLabel.textContent = activa;
   if (dropdown) {
-    dropdown.innerHTML = plazas.map(p => `
+    dropdown.innerHTML = plazas.map(p => {
+      const cacheState = _resolveMapCachePresence(p);
+      const cachedReady = cacheState.structure && cacheState.units;
+      const warming = _plazaPrefetchPromises.has(_normalizePlaza(p));
+      const detalle = plazasDetalle.find(item => item.id === p) || {};
+      const locality = detalle.localidad || detalle.nombre || 'Plaza operativa';
+      const badgeText = cachedReady ? 'LISTA' : (warming ? 'CARGANDO' : 'WARM');
+      const badgeBg = cachedReady
+        ? 'rgba(16,185,129,0.14)'
+        : (warming ? 'rgba(245,158,11,0.16)' : 'rgba(59,130,246,0.12)');
+      const badgeColor = cachedReady
+        ? '#047857'
+        : (warming ? '#b45309' : '#1d4ed8');
+      return `
           <button class="plaza-picker-option${activa === p ? ' active' : ''}"
             onclick="cambiarPlazaMapa('${escapeHtml(p)}')">
-            <span class="material-icons" style="font-size:13px;margin-right:6px;vertical-align:middle;">${activa === p ? 'check_circle' : 'location_city'}</span>
-            ${escapeHtml(p)}
+            <span class="material-icons" style="font-size:13px;margin-right:8px;vertical-align:middle;">${activa === p ? 'check_circle' : 'location_city'}</span>
+            <span style="display:grid;gap:2px;text-align:left;flex:1;min-width:0;">
+              <span style="font-size:12px;font-weight:900;letter-spacing:.02em;">${escapeHtml(p)}</span>
+              <span style="font-size:10px;color:#64748b;font-weight:700;">${escapeHtml(locality)}</span>
+            </span>
+            <span style="margin-left:auto;padding:4px 8px;border-radius:999px;background:${badgeBg};color:${badgeColor};font-size:10px;font-weight:800;">
+              ${badgeText}
+            </span>
           </button>
-        `).join('');
+        `;
+    }).join('');
   }
 }
 
@@ -3877,8 +4162,14 @@ function _cancelPendingMapTouchDrag() {
   _mapDragState.pendingTouch = null;
 }
 
+function _cancelPendingMapPointerDrag() {
+  _mapDragState.pendingPointer = null;
+  _mapDragState.activePointerId = null;
+}
+
 function _finishMapDrag() {
   _cancelPendingMapTouchDrag();
+  _cancelPendingMapPointerDrag();
   if (_mapDragState.sourceCar) _mapDragState.sourceCar.classList.remove('drag-origin');
   // [F2.4] Quitar highlight del spot origen y sugerencias de cajones disponibles
   if (_mapDragState.sourceSpot) _mapDragState.sourceSpot.classList.remove('spot-drag-origin');
@@ -3964,15 +4255,14 @@ async function _handleMapUnitDrop(unidad, destino, options = {}) {
   const toLimbo  = destino.id === 'unidades-limbo';
   if (fromDrag && fromSpot && toLimbo) {
     const mvaLabel = unidad.dataset.mva || 'la unidad';
-    return new Promise(resolve => {
-      mostrarCustomModal(
-        'Mover al limbo',
-        `¿Sacar ${mvaLabel} del cajón? La unidad quedará sin posición asignada en el mapa.`,
-        'outbox', '#f59e0b', 'CONFIRMAR', '#f59e0b',
-        () => { moverUnidadInmediato(unidad, destino); resolve(true); }
-      );
-      // Si el usuario cancela, el modal se cierra y no se mueve nada
-    });
+    const ok = await mexConfirm(
+      'Mover al limbo',
+      `¿Sacar ${mvaLabel} del cajón? La unidad quedará sin posición asignada en el mapa.`,
+      'warning'
+    );
+    if (!ok) return false;
+    moverUnidadInmediato(unidad, destino);
+    return true;
   }
 
   const occupant = destino.classList.contains('spot') ? destino.querySelector('.car') : null;
@@ -4081,6 +4371,72 @@ function _handleMapCarTouchStart(event) {
   }, 220);
 }
 
+function _startPointerMapDrag(pointerState, clientX, clientY) {
+  const car = pointerState?.car;
+  if (!car) return;
+  _mapDragState.active = true;
+  _mapDragState.activePointerId = pointerState.id;
+  _mapDragState.pendingPointer = null;
+  _mapDragState.sourceCar = car;
+  _selectCarOnMap(car, { openPanel: false, preserveSwap: true });
+  car.classList.add('drag-origin');
+  const sourceSpot = car.parentElement;
+  if (sourceSpot?.classList.contains('spot')) {
+    sourceSpot.classList.add('spot-drag-origin');
+    _mapDragState.sourceSpot = sourceSpot;
+  }
+  _mostrarSugerenciasDisponibles(car);
+  _createMapDragGhost(car, clientX, clientY);
+}
+
+function _handleMapCarPointerDown(event) {
+  if (!window.PointerEvent) return;
+  if (_mapaRuntime.pinchState) return;
+  if (event.pointerType === 'touch') return;
+  if (event.button !== 0) return;
+  const car = event.currentTarget;
+  if (!car) return;
+  _finishMapDrag();
+  _mapDragState.pendingPointer = {
+    id: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    car
+  };
+}
+
+function _handleMapPointerMove(event) {
+  const pending = _mapDragState.pendingPointer;
+  if (pending && !_mapDragState.active) {
+    if (event.pointerId !== pending.id) return;
+    const distance = Math.hypot(event.clientX - pending.startX, event.clientY - pending.startY);
+    if (distance < 8) return;
+    event.preventDefault();
+    _startPointerMapDrag(pending, event.clientX, event.clientY);
+  }
+
+  if (!_mapDragState.active || event.pointerId !== _mapDragState.activePointerId) return;
+  event.preventDefault();
+  _positionMapDragGhost(event.clientX, event.clientY);
+  const zone = _resolveMapDropZone(document.elementFromPoint(event.clientX, event.clientY));
+  _updateMapDropHighlight(zone, _mapDragState.sourceCar);
+}
+
+async function _handleMapPointerUp(event) {
+  if (_mapDragState.pendingPointer && !_mapDragState.active) {
+    if (event.pointerId === _mapDragState.pendingPointer.id) {
+      _cancelPendingMapPointerDrag();
+    }
+    return;
+  }
+  if (!_mapDragState.active || event.pointerId !== _mapDragState.activePointerId) return;
+  event.preventDefault();
+  const zone = _resolveMapDropZone(document.elementFromPoint(event.clientX, event.clientY)) || _mapDragState.currentZone;
+  _mapDragSuppressClickUntil = Date.now() + 450;
+  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
+  _finishMapDrag();
+}
+
 function _handleMapTouchDragMove(event) {
   if (_mapDragState.touchTimer && !_mapDragState.active && _mapDragState.pendingTouch) {
     const touch = Array.from(event.touches).find(t => t.identifier === _mapDragState.pendingTouch.id);
@@ -4121,6 +4477,11 @@ function _bindMapDragDropEvents() {
   if (_mapaRuntime.dragBindingsBound) return;
   document.addEventListener('dragover', _handleMapDragOver);
   document.addEventListener('drop', _handleMapDrop);
+  if (window.PointerEvent) {
+    document.addEventListener('pointermove', _handleMapPointerMove, { passive: false });
+    document.addEventListener('pointerup', _handleMapPointerUp, { passive: false });
+    document.addEventListener('pointercancel', _handleMapPointerUp, { passive: false });
+  }
   document.addEventListener('touchmove', _handleMapTouchDragMove, { passive: false });
   document.addEventListener('touchend', _handleMapTouchDragEnd, { passive: false });
   document.addEventListener('touchcancel', _handleMapTouchDragEnd, { passive: false });
@@ -4143,9 +4504,14 @@ function _bindMapDropZones() {
 function _bindCarMapInteractions(car) {
   if (!car || car.dataset.dragBound === '1') return;
   car.dataset.dragBound = '1';
-  car.setAttribute('draggable', 'true');
-  car.addEventListener('dragstart', _handleMapCarDragStart);
-  car.addEventListener('dragend', _handleMapCarDragEnd);
+  const usePointerDrag = Boolean(window.PointerEvent);
+  car.setAttribute('draggable', usePointerDrag ? 'false' : 'true');
+  if (!usePointerDrag) {
+    car.addEventListener('dragstart', _handleMapCarDragStart);
+    car.addEventListener('dragend', _handleMapCarDragEnd);
+  } else {
+    car.addEventListener('pointerdown', _handleMapCarPointerDown);
+  }
   car.addEventListener('touchstart', _handleMapCarTouchStart, { passive: true });
 }
 
@@ -9480,7 +9846,8 @@ async function guardarEdicionGlobal(tipoAccion) {
   }
 
   const data = {
-    plaza: UNIDAD_GLOBAL_ACTIVA.plaza,
+    id: UNIDAD_GLOBAL_ACTIVA.id || UNIDAD_GLOBAL_ACTIVA.fila || '',
+    plaza: UNIDAD_GLOBAL_ACTIVA.plaza || UNIDAD_GLOBAL_ACTIVA.sucursal || '',
     fila: document.getElementById('g_edit_fila').value,
     vin: document.getElementById('g_edit_vin').value,
     categoria: document.getElementById('g_edit_cat').value,
@@ -9497,9 +9864,12 @@ async function guardarEdicionGlobal(tipoAccion) {
     api.actualizarUnidadPlaza(data).then(res => {
       showToast("Unidad Actualizada", "success");
       cerrarModificadorGlobal();
-    }).catch(e => console.error(e));
+    }).catch(e => {
+      console.error(e);
+      showToast("Error al actualizar: " + (e.message || e), "error");
+    });
   } else {
-    const docIdEliminar = UNIDAD_GLOBAL_ACTIVA.id || UNIDAD_GLOBAL_ACTIVA.fila || data.fila;
+    const docIdEliminar = UNIDAD_GLOBAL_ACTIVA.id || UNIDAD_GLOBAL_ACTIVA.fila || data.fila || data.mva;
     if (!docIdEliminar) {
       showToast("Error: No se pudo identificar el documento a eliminar (ID vacío).", "error");
       return;
@@ -17096,7 +17466,12 @@ async function _persistListAdminAction(actionType, message, successMessage, extr
   try {
     await _captureAdminExactLocation({ force: true });
     await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _persistPlazaForAdminLists());
-    await registrarEventoGestion(actionType, message, extra);
+    await registrarEventoGestion(actionType, message, {
+      entidad: 'CONFIGURACION_LISTAS',
+      referencia: TAB_ACTIVA_CFG || 'GLOBAL',
+      resultado: 'OK',
+      ...extra
+    });
     await _reloadConfigAfterAdminPersist();
     renderizarListaConfig();
     showToast(successMessage, 'success');
@@ -17123,7 +17498,8 @@ async function guardarConfiguracionEnFirebase() {
     await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _persistPlazaForAdminLists());
     await registrarEventoGestion('CONFIG_GLOBAL', 'Publicó manualmente la configuración administrativa', {
       entidad: 'CONFIGURACION',
-      referencia: TAB_ACTIVA_CFG || 'GLOBAL'
+      referencia: TAB_ACTIVA_CFG || 'GLOBAL',
+      resultado: 'OK'
     });
     await _reloadConfigAfterAdminPersist();
     _refreshSecurityRoleCatalog();
@@ -19402,6 +19778,42 @@ function _actualizarSupervisionConUnidades(unidades) {
 // ── F3.2 Comparador de plazas ───────────────────────────────
 let _comparadorCache = null;
 
+async function _obtenerMetricasComparadorPlaza(plaza) {
+  const [lista, estructura] = await Promise.all([
+    api.obtenerDatosFlotaConsola(plaza),
+    api.obtenerEstructuraMapa(plaza)
+  ]);
+
+  const registros = Array.isArray(lista) ? lista : [];
+  const totalSpots = Array.isArray(estructura)
+    ? estructura.filter(item => String(item?.tipo || (item?.esLabel ? 'label' : 'cajon')).trim().toLowerCase() === 'cajon').length
+    : 0;
+
+  const metricas = {
+    plaza,
+    total: registros.length,
+    listos: 0,
+    sucios: 0,
+    manto: 0,
+    externos: 0,
+    traslados: 0,
+    totalSpots,
+    ocupacion: totalSpots > 0 ? Math.round((registros.length / totalSpots) * 100) : null
+  };
+
+  registros.forEach(item => {
+    const estado = String(item?.estado || '').trim().toUpperCase();
+    const ubicacion = String(item?.ubicacion || '').trim().toUpperCase();
+    if (estado === 'LISTO') metricas.listos++;
+    if (estado === 'SUCIO') metricas.sucios++;
+    if (estado === 'MANTENIMIENTO' || estado === 'TALLER' || estado === 'NO ARRENDABLE' || estado === 'RETENIDA') metricas.manto++;
+    if (estado === 'TRASLADO') metricas.traslados++;
+    if (ubicacion === 'EXTERNO') metricas.externos++;
+  });
+
+  return metricas;
+}
+
 async function abrirComparadorPlazas() {
   const modal = document.getElementById('modal-comparador-plazas');
   if (!modal) return;
@@ -19416,8 +19828,7 @@ async function abrirComparadorPlazas() {
     }
     const resultados = await Promise.all(plazas.map(async p => {
       try {
-        const resumen = await api.obtenerResumenFlotaPatio(p);
-        return { plaza: p, ...resumen };
+        return await _obtenerMetricasComparadorPlaza(p);
       } catch {
         return { plaza: p, error: true };
       }
@@ -19440,6 +19851,7 @@ function _renderComparadorTabla(resultados) {
   const c = document.getElementById('comparador-content');
   if (!c) return;
   const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
+  const exitosos = resultados.filter(item => !item.error);
 
   const cols = [
     { key: 'total', label: 'Total', color: '#0f172a' },
@@ -19450,15 +19862,47 @@ function _renderComparadorTabla(resultados) {
     { key: 'ocupacion', label: '% Ocup.', color: '#0ea5e9' },
   ];
 
+  const topOcupacion = exitosos
+    .filter(item => typeof item.ocupacion === 'number')
+    .sort((a, b) => b.ocupacion - a.ocupacion)[0];
+  const topListos = [...exitosos].sort((a, b) => (b.listos || 0) - (a.listos || 0))[0];
+  const totalUnidades = exitosos.reduce((sum, item) => sum + Number(item.total || 0), 0);
+  const totalExternos = exitosos.reduce((sum, item) => sum + Number(item.externos || 0), 0);
+
+  const resumenCards = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
+      <div style="padding:12px 14px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;">
+        <div style="font-size:11px;font-weight:900;color:#1d4ed8;letter-spacing:.06em;text-transform:uppercase;">Unidades consolidadas</div>
+        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${totalUnidades}</div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;">Lectura rápida de todas las plazas</div>
+      </div>
+      <div style="padding:12px 14px;border-radius:14px;background:#fefce8;border:1px solid #fde68a;">
+        <div style="font-size:11px;font-weight:900;color:#b45309;letter-spacing:.06em;text-transform:uppercase;">Mayor ocupación</div>
+        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${topOcupacion ? `${topOcupacion.ocupacion}%` : '—'}</div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;">${escapeHtml(topOcupacion?.plaza || 'Sin datos')}</div>
+      </div>
+      <div style="padding:12px 14px;border-radius:14px;background:#f0fdf4;border:1px solid #bbf7d0;">
+        <div style="font-size:11px;font-weight:900;color:#047857;letter-spacing:.06em;text-transform:uppercase;">Plaza más lista</div>
+        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${topListos ? topListos.listos : 0}</div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;">${escapeHtml(topListos?.plaza || 'Sin datos')}</div>
+      </div>
+      <div style="padding:12px 14px;border-radius:14px;background:#eef2ff;border:1px solid #c7d2fe;">
+        <div style="font-size:11px;font-weight:900;color:#4338ca;letter-spacing:.06em;text-transform:uppercase;">Externos activos</div>
+        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${totalExternos}</div>
+        <div style="font-size:11px;color:#64748b;font-weight:700;">Total detectado en comparativo</div>
+      </div>
+    </div>
+  `;
+
   const filas = resultados.map(r => {
     const d = plazasDetalle.find(x => x.id === r.plaza) || {};
-    const total = (r.total || r.totalUnidades || 0);
-    const listos = (r.listos || r.totalListos || 0);
-    const sucios = (r.sucios || r.totalSucios || 0);
-    const manto = (r.manto || r.totalManto || r.totalMantenimiento || 0);
-    const externos = (r.externos || r.totalExternos || 0);
-    const spots = (r.totalSpots || r.cajones || 0);
-    const pctOcup = spots > 0 ? Math.round((total / spots) * 100) : '—';
+    const total = Number(r.total || r.totalUnidades || 0);
+    const listos = Number(r.listos || r.totalListos || 0);
+    const sucios = Number(r.sucios || r.totalSucios || 0);
+    const manto = Number(r.manto || r.totalManto || r.totalMantenimiento || 0);
+    const externos = Number(r.externos || r.totalExternos || 0);
+    const spots = Number(r.totalSpots || r.cajones || 0);
+    const pctOcup = typeof r.ocupacion === 'number' ? r.ocupacion : (spots > 0 ? Math.round((total / spots) * 100) : '—');
     const esTemporal = d.temporal;
     const badgeTemp = esTemporal ? `<span style="font-size:9px; background:#f59e0b; color:white; padding:1px 5px; border-radius:4px; font-weight:800; margin-left:4px;">TEMP</span>` : '';
 
@@ -19482,6 +19926,7 @@ function _renderComparadorTabla(resultados) {
   }).join('');
 
   c.innerHTML = `
+    ${resumenCards}
     <div style="overflow-x:auto;">
       <table style="width:100%; border-collapse:collapse; font-size:13px;">
         <thead>
@@ -20050,14 +20495,26 @@ async function abrirDuplicarEstructura(plazaOrigen) {
     html,
     async () => {
       const destino = document.getElementById('dup-plaza-destino')?.value;
-      if (!destino) return;
+      if (!destino) {
+        showToast('Selecciona una plaza destino', 'warning');
+        return false;
+      }
       try {
         showToast('Duplicando estructura...', 'info');
         const res = await api.duplicarEstructuraMapa(plazaOrigen, destino);
+        await registrarEventoGestion('MAPA_ESTRUCTURA_DUPLICADA', `Duplicó estructura de ${plazaOrigen} hacia ${destino}`, {
+          entidad: 'MAPA_ESTRUCTURA',
+          referencia: plazaOrigen,
+          objetivo: destino,
+          plazaObjetivo: destino,
+          resultado: `COPIADAS_${res.total || 0}_CELDAS`
+        });
         showToast(`✓ Estructura duplicada a ${destino} (${res.total} celdas)`, 'success');
       } catch (err) {
         showToast(err.message || 'Error al duplicar estructura', 'error');
+        return false;
       }
+      return true;
     },
     'Duplicar',
     'Cancelar'
@@ -20082,15 +20539,27 @@ async function abrirGuardarPlantilla(plazaId) {
     html,
     async () => {
       const nombre = document.getElementById('plantilla-nombre-input')?.value?.trim();
-      if (!nombre) { showToast('Escribe un nombre para la plantilla', 'warning'); return; }
+      if (!nombre) {
+        showToast('Escribe un nombre para la plantilla', 'warning');
+        return false;
+      }
       try {
         const estructura = await api.obtenerEstructuraMapa(plazaId);
         showToast('Guardando plantilla...', 'info');
         const res = await api.guardarPlantillaMapa(nombre, estructura);
+        await registrarEventoGestion('MAPA_PLANTILLA_GUARDADA', `Guardó la plantilla ${nombre} desde ${plazaId}`, {
+          entidad: 'MAPA_PLANTILLA',
+          referencia: nombre,
+          objetivo: plazaId,
+          plazaObjetivo: plazaId,
+          resultado: `GUARDADA_${res.total || 0}_CELDAS`
+        });
         showToast(`✓ Plantilla "${nombre}" guardada (${res.total} celdas)`, 'success');
       } catch (err) {
         showToast(err.message || 'Error al guardar plantilla', 'error');
+        return false;
       }
+      return true;
     },
     'Guardar',
     'Cancelar'
@@ -20133,15 +20602,27 @@ async function abrirAplicarPlantilla(plazaId) {
     html,
     async () => {
       const id = document.getElementById('plantilla-select')?.value;
-      if (!id) return;
+      if (!id) {
+        showToast('Selecciona una plantilla', 'warning');
+        return false;
+      }
       try {
         showToast('Aplicando plantilla...', 'info');
         const elementos = await api.obtenerPlantillaMapa(id);
         await api.guardarEstructuraMapa(elementos, plazaId);
+        await registrarEventoGestion('MAPA_PLANTILLA_APLICADA', `Aplicó la plantilla ${id} sobre ${plazaId}`, {
+          entidad: 'MAPA_PLANTILLA',
+          referencia: id,
+          objetivo: plazaId,
+          plazaObjetivo: plazaId,
+          resultado: `APLICADA_${elementos.length || 0}_CELDAS`
+        });
         showToast(`✓ Plantilla aplicada a ${plazaId} (${elementos.length} celdas)`, 'success');
       } catch (err) {
         showToast(err.message || 'Error al aplicar plantilla', 'error');
+        return false;
       }
+      return true;
     },
     'Aplicar',
     'Cancelar'
