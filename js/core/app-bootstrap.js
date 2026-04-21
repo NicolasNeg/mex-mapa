@@ -6,6 +6,7 @@
   const root = window;
   const DEFAULT_COMPANY_NAME = 'EMPRESA';
   const SESSION_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.v1';
+  const LOCAL_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.local.v1';
   const SESSION_BOOTSTRAP_WARM_KEY = 'mex.bootstrap.warm.v1';
   const SESSION_REVERSE_GEOCODE_KEY = 'mex.location.reverse.v1';
   const DEFAULT_LISTS = {
@@ -61,6 +62,23 @@
     }
   }
 
+  function readLocalItem(key, fallback = null) {
+    try {
+      return safeJsonParse(localStorage.getItem(key), fallback);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function writeLocalItem(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function markBootstrapWarm() {
     try {
       sessionStorage.setItem(SESSION_BOOTSTRAP_WARM_KEY, '1');
@@ -71,18 +89,22 @@
     try {
       sessionStorage.removeItem(SESSION_BOOTSTRAP_WARM_KEY);
       sessionStorage.removeItem(SESSION_BOOTSTRAP_CONFIG_KEY);
+      localStorage.removeItem(LOCAL_BOOTSTRAP_CONFIG_KEY);
     } catch (_) {}
   }
 
   function readCachedBaseConfig() {
-    const cached = readSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, null);
+    const cached = readSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, null)
+      || readLocalItem(LOCAL_BOOTSTRAP_CONFIG_KEY, null);
     if (!cached || typeof cached !== 'object') return null;
     return normalizeConfig(cached);
   }
 
   function persistCachedBaseConfig(config = {}) {
     const normalized = normalizeConfig(config);
-    if (writeSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, normalized)) {
+    const wroteSession = writeSessionItem(SESSION_BOOTSTRAP_CONFIG_KEY, normalized);
+    writeLocalItem(LOCAL_BOOTSTRAP_CONFIG_KEY, normalized);
+    if (wroteSession) {
       markBootstrapWarm();
     }
     return normalized;

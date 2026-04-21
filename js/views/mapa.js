@@ -2599,6 +2599,110 @@ let _mapaSyncState = {
 };
 let _currentMapViewModel = { cajones: [], unitMap: new Map(), stats: {} };
 let _initialRadarPingHandle = null;
+const MAP_LOCAL_CACHE_PREFIX = 'mex:mapa:cache';
+const MAP_LOCAL_CACHE_VERSION = 1;
+const MAP_LOCAL_STRUCTURE_TTL_MS = 12 * 60 * 60 * 1000;
+const MAP_LOCAL_UNITS_TTL_MS = 5 * 60 * 1000;
+
+function _mapCacheScope(plaza = _miPlaza()) {
+  return _normalizePlaza(plaza || 'GLOBAL') || 'GLOBAL';
+}
+
+function _mapCacheKey(kind, plaza = _miPlaza()) {
+  return `${MAP_LOCAL_CACHE_PREFIX}:${MAP_LOCAL_CACHE_VERSION}:${kind}:${_mapCacheScope(plaza)}`;
+}
+
+function _readMapCache(kind, plaza, ttlMs) {
+  try {
+    const raw = localStorage.getItem(_mapCacheKey(kind, plaza));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const savedAt = Number(parsed.savedAt || 0);
+    if (!savedAt) return null;
+    if (ttlMs > 0 && (Date.now() - savedAt) > ttlMs) return null;
+    return parsed.data ?? null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _scheduleMapCacheWrite(kind, plaza, data) {
+  const payload = { savedAt: Date.now(), data };
+  const persist = () => {
+    try {
+      localStorage.setItem(_mapCacheKey(kind, plaza), JSON.stringify(payload));
+    } catch (_) { /* noop */ }
+  };
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(persist, { timeout: 700 });
+  } else {
+    setTimeout(persist, 32);
+  }
+}
+
+function _serializeMapUnitForCache(unit = {}) {
+  const normalized = _normalizarUnidadMapa(unit);
+  return {
+    mva: normalized.mva || '',
+    pos: normalized.pos || 'LIMBO',
+    ubicacion: normalized.ubicacion || '',
+    estado: normalized.estado || '',
+    gasolina: normalized.gasolina || '',
+    notas: normalized.notas || '',
+    placas: normalized.placas || '',
+    modelo: normalized.modelo || '',
+    categoria: normalized.categoria || '',
+    fechaIngreso: normalized.fechaIngreso || '',
+    plaza: normalized.plaza || '',
+    traslado_destino: normalized.traslado_destino || '',
+    version: Number(normalized.version || 0) || 0,
+    lastTouchedAt: normalized.lastTouchedAt || null,
+    lastTouchedBy: normalized.lastTouchedBy || '',
+    tipo: normalized.tipo || ''
+  };
+}
+
+function _persistMapStructureCache(estructura = [], plaza = _miPlaza()) {
+  if (!Array.isArray(estructura) || estructura.length === 0) return;
+  _scheduleMapCacheWrite('estructura', plaza, estructura);
+}
+
+function _persistMapUnitsCache(unidades = [], plaza = _miPlaza()) {
+  if (!Array.isArray(unidades) || unidades.length === 0) return;
+  _scheduleMapCacheWrite(
+    'unidades',
+    plaza,
+    unidades.map(_serializeMapUnitForCache).filter(item => item?.mva)
+  );
+}
+
+function _hydrateMapFromLocalCache(plaza = _miPlaza()) {
+  const plazaScope = _mapCacheScope(plaza);
+  const cachedStructure = _readMapCache('estructura', plazaScope, MAP_LOCAL_STRUCTURE_TTL_MS);
+  const cachedUnits = _readMapCache('unidades', plazaScope, MAP_LOCAL_UNITS_TTL_MS);
+  let hydrated = false;
+
+  if (Array.isArray(cachedStructure) && cachedStructure.length > 0) {
+    console.log('[MEX-CACHE] estructura local →', { plaza: plazaScope, celdas: cachedStructure.length });
+    _mapaRuntime.estructuraReady = true;
+    dibujarMapaCompleto(cachedStructure);
+    hydrated = true;
+  }
+
+  if (Array.isArray(cachedUnits) && cachedUnits.length > 0) {
+    console.log('[MEX-CACHE] snapshot local →', { plaza: plazaScope, unidades: cachedUnits.length });
+    _mapaRuntime.unidadesReady = true;
+    sincronizarMapa(cachedUnits, { immediate: true });
+    hydrated = true;
+  }
+
+  return hydrated;
+}
+
+function _shouldBootstrapMapFetch() {
+  return !_mapaRuntime.unidadesReady && !_mapaRuntime.pendingUnits && !_unsubMapa;
+}
 
 function _scheduleInitialRadarPing() {
   if (_initialRadarPingHandle) return;
@@ -2904,6 +3008,7 @@ function startAutoRefresh() {
   if (typeof _api.suscribirEstructuraMapa === 'function') {
     _unsubMapaEstructura = _api.suscribirEstructuraMapa(estructura => {
       console.log('[MEX-INTEG] estructura recibida →', { celdas: estructura?.length, plaza: plazaActiva });
+      _persistMapStructureCache(estructura, plazaActiva);
       _mapaRuntime.estructuraReady = true;
       dibujarMapaCompleto(estructura);
     }, plazaActiva);
@@ -2917,6 +3022,7 @@ function startAutoRefresh() {
     : _api.suscribirMapa.bind(_api);
 
   _unsubMapa = suscribir(unidades => {
+    _persistMapUnitsCache(unidades, plazaActiva);
     _mapaRuntime.unidadesReady = true;
     if (window.PAUSA_CONEXIONES) return;
     if (isSaving || isMoving) {
@@ -2926,6 +3032,8 @@ function startAutoRefresh() {
     _mapaRuntime.pendingUnits = null;
     sincronizarMapa(unidades);
   });
+
+  _hydrateMapFromLocalCache(plazaActiva);
 }
 
 // Cambia la plaza activa en el mapa y reinicia las suscripciones
@@ -3405,13 +3513,14 @@ function dibujarMapaCompleto(estructura = null) {
   }
 
   _ultimaEstructuraMapa = estructura;
+  _persistMapStructureCache(estructura, _miPlaza());
   _rebuildCurrentMapViewModel(_ultimaFlotaMapa, estructura);
   const normalizada = _normalizarEstructuraMapa(estructura);
 
   if (normalizada.signature === _mapaRuntime.estructuraSig && grid.children.length) {
     _ajustarViewportMapa();
     if (_ultimaFlotaMapa.length) sincronizarMapa(_ultimaFlotaMapa, { immediate: true });
-    else if (!_mapaRuntime.unidadesReady) refrescarDatos(true);
+    else if (_shouldBootstrapMapFetch()) refrescarDatos(true);
     return Promise.resolve();
   }
 
@@ -3460,7 +3569,7 @@ function dibujarMapaCompleto(estructura = null) {
   _ajustarViewportMapa();
 
   if (_ultimaFlotaMapa.length) sincronizarMapa(_ultimaFlotaMapa, { immediate: true });
-  else if (!_mapaRuntime.unidadesReady) refrescarDatos(true);
+  else if (_shouldBootstrapMapFetch()) refrescarDatos(true);
 
   if (prevSelectedMva) {
     const nuevaSeleccion = document.getElementById(`auto-${prevSelectedMva}`);
@@ -7459,7 +7568,10 @@ function refrescarDatos(force = false) {
   if (isSaving || window.PAUSA_CONEXIONES) return; // 🛑 ESCUDO DOBLE: Si estamos guardando o pausados, no hacer nada
   if (!force && _mapaRuntime.unidadesReady) return;
   api.obtenerDatosParaMapa(_miPlaza()).then(data => {
-    if (data && data.unidades) sincronizarMapa(data.unidades);
+    if (data && data.unidades) {
+      _persistMapUnitsCache(data.unidades, _miPlaza());
+      sincronizarMapa(data.unidades);
+    }
   }).catch(e => console.error(e));
 }
 
