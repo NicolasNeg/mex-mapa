@@ -11,7 +11,8 @@
     _resolverEstadoBloqueoMapa, _actualizarFeed,
     _registrarLog, _registrarEventoGestion,
     _alertMatchesUser, _alertReadByUser,
-    _matchesPlaza, _normalizePlazaLocationItem,
+    _matchesPlaza, _normalizeLocationScope, _locationMatchesPlaza,
+    _normalizePlazaLocationItem, _mergeLocationCatalogs,
     _buildDefaultPlazaLocations, _ensurePlazaBootstrap,
     _configPlazaRef, backfillPlazaEnUnidades, _buildPlazaScopedQuery,
     _isMissingIndexError, _warnQueryFallback
@@ -126,6 +127,8 @@
     },
 
     // ─── CONFIGURACIÓN GLOBAL ─────────────────────────────
+    // Ubicaciones viven en configuracion/listas (global) y se segmentan por plazaId.
+    // configuracion/{PLAZA} se mantiene solo como fallback legacy de lectura.
     async obtenerConfiguracion(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
       if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
@@ -143,19 +146,18 @@
         ? snapListas.data()
         : { estados: [], gasolinas: [], categorias: [] };
 
-      let ubicaciones = globalListas.ubicaciones || [];
-      if (snapPlaza && snapPlaza.exists && Array.isArray(snapPlaza.data().ubicaciones)) {
-        ubicaciones = snapPlaza.data().ubicaciones;
-      } else if (plazaUp && Array.isArray(globalListas.ubicaciones)) {
-        const filtradas = globalListas.ubicaciones.filter(u => _matchesPlaza(u, plazaUp));
-        ubicaciones = filtradas.length > 0 ? filtradas : globalListas.ubicaciones;
-      }
+      const globalUbicaciones = _mergeLocationCatalogs(globalListas.ubicaciones || []);
+      const legacyUbicaciones = plazaUp && snapPlaza && snapPlaza.exists && Array.isArray(snapPlaza.data().ubicaciones)
+        ? _mergeLocationCatalogs(
+          snapPlaza.data().ubicaciones
+            .map(item => _normalizePlazaLocationItem(item, plazaUp))
+            .filter(Boolean)
+        )
+        : [];
 
-      if (plazaUp) {
-        ubicaciones = (Array.isArray(ubicaciones) ? ubicaciones : [])
-          .map(item => _normalizePlazaLocationItem(item, plazaUp))
-          .filter(Boolean);
-        if (ubicaciones.length === 0) ubicaciones = _buildDefaultPlazaLocations(plazaUp);
+      let ubicaciones = _mergeLocationCatalogs(globalUbicaciones, legacyUbicaciones);
+      if (plazaUp && !ubicaciones.some(item => _locationMatchesPlaza(item, plazaUp))) {
+        ubicaciones = _mergeLocationCatalogs(ubicaciones, _buildDefaultPlazaLocations(plazaUp));
       }
 
       return {
@@ -167,19 +169,38 @@
     async guardarConfiguracionListas(listasActualizadas, autor = "Admin Global", plaza) {
       const plazaUp = _normalizePlazaId(plaza);
       const { ubicaciones, ...globalRest } = listasActualizadas;
+      const listasRef = db.collection(COL.CONFIG).doc("listas");
+      const listasSnap = await listasRef.get();
+      const listasGuardadas = listasSnap.exists ? (listasSnap.data() || {}) : {};
+      const ubicacionesGuardadas = _mergeLocationCatalogs(listasGuardadas.ubicaciones || []);
 
-      await db.collection(COL.CONFIG).doc("listas").set(globalRest, { merge: true });
+      const payload = { ...globalRest };
+      if (Array.isArray(ubicaciones)) {
+        const ubicacionesNormalizadas = _mergeLocationCatalogs(ubicaciones);
+        let ubicacionesFinales = ubicacionesNormalizadas;
 
-      if (plazaUp && Array.isArray(ubicaciones)) {
-        await _ensurePlazaBootstrap(plazaUp);
-        await _configPlazaRef(plazaUp).set({
-          ubicaciones: ubicaciones
-            .map(item => _normalizePlazaLocationItem(item, plazaUp))
-            .filter(Boolean)
-        }, { merge: true });
-      } else if (Array.isArray(ubicaciones)) {
-        await db.collection(COL.CONFIG).doc("listas").set({ ubicaciones }, { merge: true });
+        if (plazaUp && plazaUp !== 'ALL') {
+          const scopesEntrantes = new Set(
+            ubicacionesNormalizadas.map(item => _normalizeLocationScope(item.plazaId) || 'ALL')
+          );
+          const incluyeScopesAjenos = Array.from(scopesEntrantes).some(
+            scope => scope !== 'ALL' && scope !== plazaUp
+          );
+
+          if (!incluyeScopesAjenos) {
+            const scopesAReemplazar = new Set([plazaUp]);
+            if (scopesEntrantes.has('ALL')) scopesAReemplazar.add('ALL');
+            ubicacionesFinales = _mergeLocationCatalogs(
+              ubicacionesGuardadas.filter(item => !scopesAReemplazar.has(_normalizeLocationScope(item.plazaId) || 'ALL')),
+              ubicacionesNormalizadas
+            );
+          }
+        }
+
+        payload.ubicaciones = ubicacionesFinales;
       }
+
+      await listasRef.set(payload, { merge: true });
 
       await _registrarLog("SISTEMA", "⚙️ Modificó los catálogos del sistema", autor || "Admin Global");
       await _registrarEventoGestion("CONFIG_GLOBAL", "Publicó cambios en catálogos globales", autor || "Admin Global", {

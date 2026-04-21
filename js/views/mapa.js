@@ -296,11 +296,35 @@ function showToast(msg, type = 'success') {
 let VISTA_ACTUAL_FLOTA = 'NORMAL';
 let DB_ADMINS = []; // Aquí guardaremos los autos de los jefes
 let ADMIN_INSERT_UNIT = null;
+function _findUbicacionCatalogEntry(ubiNombre, plaza = _miPlaza()) {
+  const ubicaciones = Array.isArray(window.MEX_CONFIG?.listas?.ubicaciones)
+    ? window.MEX_CONFIG.listas.ubicaciones
+    : [];
+  const target = String(ubiNombre || '').trim().toUpperCase();
+  if (!target) return null;
+
+  const matches = ubicaciones.filter(item => {
+    const nombre = typeof item === 'object' ? (item.id || item.nombre) : item;
+    return String(nombre || '').trim().toUpperCase() === target;
+  });
+  if (matches.length === 0) return null;
+
+  const plazaUp = _normalizePlaza(plaza || '');
+  const exact = matches.find(item => _safeUpper(typeof item === 'object' ? item.plazaId : '') === plazaUp);
+  if (exact) return exact;
+
+  const global = matches.find(item => {
+    const scope = _safeUpper(typeof item === 'object' ? item.plazaId : '');
+    return !scope || scope === 'ALL';
+  });
+  return global || matches[0];
+}
+
 function _esPlazaFija(ubiNombre) {
   if (!window.MEX_CONFIG || !window.MEX_CONFIG.listas || !window.MEX_CONFIG.listas.ubicaciones) {
     return ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(ubiNombre); // Fallback safe
   }
-  const item = window.MEX_CONFIG.listas.ubicaciones.find(u => (typeof u === 'object' ? (u.id || u.nombre) : u) === ubiNombre);
+  const item = _findUbicacionCatalogEntry(ubiNombre);
   if (!item) return ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(ubiNombre);
   return typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
 }
@@ -315,9 +339,7 @@ function _obtenerPlazaOperativaCuadreAdmin(fallback = '') {
 
 // Retorna true SOLO si la ubicacion está explícitamente marcada como persona (isPlazaFija===false en catálogo)
 function _esPersonaEnCatalogo(nombre) {
-  const locs = window.MEX_CONFIG?.listas?.ubicaciones;
-  if (!locs) return false;
-  const entry = locs.find(u => (typeof u === 'object' ? (u.id || u.nombre) : u) === nombre);
+  const entry = _findUbicacionCatalogEntry(nombre);
   return !!(entry && typeof entry === 'object' && entry.isPlazaFija === false);
 }
 
@@ -17008,7 +17030,7 @@ function eliminarElementoConfig(index) {
 function _persistPlazaForAdminLists() {
   if (TAB_ACTIVA_CFG === 'ubicaciones') {
     const selectedPlaza = document.getElementById('cfg-ubi-plaza-filter')?.value || '';
-    return _safeUpper(selectedPlaza || _miPlaza());
+    return _safeUpper(selectedPlaza || 'ALL');
   }
   return _safeUpper(_miPlaza());
 }
@@ -17016,7 +17038,7 @@ function _persistPlazaForAdminLists() {
 async function _reloadConfigAfterAdminPersist() {
   try {
     if (typeof window.__mexInvalidateConfigCache === 'function') {
-      window.__mexInvalidateConfigCache(_miPlaza());
+      window.__mexInvalidateConfigCache();
     }
     await inicializarConfiguracion();
     _syncEmpresaCorreosInternosState();
