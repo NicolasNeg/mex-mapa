@@ -34,9 +34,12 @@
           Volver
         </a>
         <div class="prep-brand">
-          <div class="prep-kicker">Fase 5.1</div>
+          <div class="prep-kicker">
+            <span class="material-icons" style="font-size:13px;">checklist_rtl</span>
+            Modulo operativo
+          </div>
           <h1>Cola de preparacion</h1>
-          <p>Checklist operativo de unidades proximas a salir, con prioridad visual y orden manual.</p>
+          <p>Gestiona el checklist y prioridad de unidades proximas a salir.</p>
         </div>
       </div>
       <div class="prep-topbar-side">
@@ -45,11 +48,16 @@
           <div class="prep-user-copy">
             <strong id="prepUserName">Cargando...</strong>
             <span id="prepUserMeta">Validando identidad</span>
+            <span id="prepUserRole" class="prep-role-badge"></span>
           </div>
         </div>
-        <a class="prep-link-btn" href="/mapa">
-          <span class="material-icons" style="font-size:18px;">map</span>
+        <a class="prep-nav-link" href="/mapa">
+          <span class="material-icons" style="font-size:16px;">map</span>
           Mapa
+        </a>
+        <a class="prep-nav-link" href="/gestion">
+          <span class="material-icons" style="font-size:16px;">manage_accounts</span>
+          Gestion
         </a>
       </div>
     </header>
@@ -81,8 +89,66 @@
             <span class="material-icons" style="font-size:18px;">playlist_add</span>
             Nueva salida
           </button>
+          <button id="prepBulkCompleteBtn" type="button" class="prep-link-btn" style="display:none;" title="Marcar checklist completo en todas las unidades visibles">
+            <span class="material-icons" style="font-size:18px;">done_all</span>
+            <span class="prep-btn-label">Todas listas</span>
+          </button>
         </div>
       </section>
+
+      <details class="prep-instructions">
+        <summary class="prep-instructions-toggle">
+          <span class="material-icons">help_outline</span>
+          <span>Como funciona esta vista</span>
+          <span class="material-icons prep-instructions-chevron">expand_more</span>
+        </summary>
+        <div class="prep-instructions-body">
+          <div class="prep-instructions-grid">
+            <div class="prep-instructions-step">
+              <span class="prep-instructions-num">1</span>
+              <div>
+                <strong>Agrega unidades a la cola</strong>
+                <p>Usa "Nueva salida" para registrar un MVA. El sistema busca automaticamente los datos del expediente (modelo, categoria, estado, ubicacion).</p>
+              </div>
+            </div>
+            <div class="prep-instructions-step">
+              <span class="prep-instructions-num">2</span>
+              <div>
+                <strong>Marca el checklist</strong>
+                <p>Selecciona una unidad y marca los 4 puntos: lavado, gasolina, documentacion y revision mecanica. El avance se refleja en tiempo real.</p>
+              </div>
+            </div>
+            <div class="prep-instructions-step">
+              <span class="prep-instructions-num">3</span>
+              <div>
+                <strong>Asigna responsables</strong>
+                <p>Escribe el nombre o correo del operativo responsable. Usa "Asignarme" para asignarte directamente sin escribir.</p>
+              </div>
+            </div>
+            <div class="prep-instructions-step">
+              <span class="prep-instructions-num">4</span>
+              <div>
+                <strong>Prioridad visual y orden</strong>
+                <p>Rojo = sale en menos de 24h (urgente). Arrastra las tarjetas para reordenar manualmente. El orden se guarda automaticamente.</p>
+              </div>
+            </div>
+          </div>
+          <div class="prep-instructions-roles">
+            <div class="prep-instructions-role-chip">
+              <strong>Auxiliar / Ventas</strong>
+              <span>Ver cola, marcar checklist, asignarse unidades</span>
+            </div>
+            <div class="prep-instructions-role-chip">
+              <strong>Jefe de Patio / Supervisor</strong>
+              <span>Todo lo anterior + eliminar entradas + ver todos los responsables</span>
+            </div>
+            <div class="prep-instructions-role-chip prep-instructions-role-chip--admin">
+              <strong>Gerente / Corporativo / Programador</strong>
+              <span>Acceso completo + cambio de plaza</span>
+            </div>
+          </div>
+        </div>
+      </details>
 
       <section class="prep-stats-grid" id="prepStatsGrid">
         <article class="prep-stat-card accent-blue">
@@ -242,13 +308,15 @@
         <div class="prep-form-grid">
           <label class="prep-field">
             <span>MVA</span>
-            <input id="prepCreateMva" type="text" maxlength="12" placeholder="Ej: A5256" autocomplete="off" required>
+            <input id="prepCreateMva" type="text" maxlength="12" placeholder="Ej: A5256" list="prepMvaDatalist" autocomplete="off" required>
+            <datalist id="prepMvaDatalist"></datalist>
           </label>
           <label class="prep-field">
             <span>Fecha y hora de salida</span>
             <input id="prepCreateDeparture" type="datetime-local" required>
           </label>
         </div>
+        <div id="prepCreateUnitPreview" class="prep-unit-preview" style="display:none;"></div>
 
         <div class="prep-form-grid">
           <label class="prep-field">

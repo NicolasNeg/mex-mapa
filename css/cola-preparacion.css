@@ -867,3 +867,247 @@
     max-width: none;
   }
 }
+
+/* ── Topbar nav links (reemplaza prep-link-btn en topbar) ────── */
+.prep-nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .14s ease, background .14s ease;
+  white-space: nowrap;
+}
+
+.prep-nav-link:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* ── Role badge ──────────────────────────────────────────────── */
+.prep-role-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(226, 232, 240, 0.9);
+  margin-top: 2px;
+}
+
+/* ── Instrucciones ───────────────────────────────────────────── */
+.prep-instructions {
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  overflow: hidden;
+}
+
+.prep-instructions-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+  color: #334155;
+  list-style: none;
+  user-select: none;
+}
+
+.prep-instructions-toggle::-webkit-details-marker { display: none; }
+
+.prep-instructions-toggle .material-icons:first-child {
+  color: #2563eb;
+  font-size: 18px;
+}
+
+.prep-instructions-chevron {
+  margin-left: auto;
+  transition: transform .2s ease;
+  color: #94a3b8;
+}
+
+.prep-instructions[open] .prep-instructions-chevron {
+  transform: rotate(180deg);
+}
+
+.prep-instructions-body {
+  padding: 0 20px 20px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.prep-instructions-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.prep-instructions-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.prep-instructions-num {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.prep-instructions-step strong {
+  display: block;
+  font-size: 13px;
+  color: #0f172a;
+  margin-bottom: 4px;
+}
+
+.prep-instructions-step p {
+  margin: 0;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.prep-instructions-roles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  padding-top: 14px;
+}
+
+.prep-instructions-role-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(241, 245, 249, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  flex: 1 1 200px;
+}
+
+.prep-instructions-role-chip strong {
+  font-size: 12px;
+  color: #0f172a;
+}
+
+.prep-instructions-role-chip span {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.prep-instructions-role-chip--admin {
+  background: rgba(239, 246, 255, 0.9);
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.prep-instructions-role-chip--admin strong {
+  color: #1d4ed8;
+}
+
+/* ── MVA unit preview en create modal ────────────────────────── */
+.prep-unit-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(240, 253, 244, 0.9);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  flex-wrap: wrap;
+}
+
+.prep-preview-found {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #047857;
+}
+
+.prep-preview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #334155;
+}
+
+.prep-preview-chip--state {
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.18);
+}
+
+.prep-preview-chip--loc {
+  background: rgba(245, 158, 11, 0.08);
+  color: #92400e;
+  border-color: rgba(245, 158, 11, 0.18);
+}
+
+/* ── Topbar alignment fix ────────────────────────────────────── */
+.prep-topbar {
+  flex-wrap: wrap;
+}
+
+.prep-topbar-side {
+  flex-wrap: wrap;
+}
+
+.prep-user-copy {
+  min-width: 0;
+}
+
+.prep-user-copy strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
+}
+
+/* ── Instrucciones responsive ────────────────────────────────── */
+@media (max-width: 860px) {
+  .prep-instructions-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .prep-nav-link span:last-child {
+    display: none;
+  }
+  .prep-nav-link {
+    padding: 10px;
+  }
+}

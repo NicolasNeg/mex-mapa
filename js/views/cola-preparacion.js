@@ -17,6 +17,7 @@ const state = {
   canSwitchPlaza: false,
   items: [],
   unitsByMva: new Map(),
+  plazaUnits: new Map(),
   plazaUsers: [],
   selectedId: '',
   filter: 'all',
@@ -57,8 +58,16 @@ function roleMeta(role = '') {
 }
 
 function inferRole(data = {}) {
-  const explicit = upper(data.rol || data.role);
+  // Campo explícito en el documento (probamos variantes de nombre)
+  const explicit = upper(data.rol || data.role || data.perfil || data.cargo || data.tipo);
   if (explicit) return explicit;
+  // Flags específicos de rol (algunos docs los tienen sin campo "rol")
+  if (data.isProgramador === true) return 'PROGRAMADOR';
+  if (data.isJefeOperacion === true) return 'JEFE_OPERACION';
+  if (data.isJefeRegional === true) return 'JEFE_REGIONAL';
+  if (data.isGerentePlaza === true) return 'GERENTE_PLAZA';
+  if (data.isJefePatio === true) return 'JEFE_PATIO';
+  if (data.isSupervisor === true) return 'SUPERVISOR';
   if (data.isGlobal === true) return 'CORPORATIVO_USER';
   if (data.isAdmin === true) return 'VENTAS';
   return 'AUXILIAR';
@@ -265,10 +274,12 @@ function renderUser() {
   const avatar = document.getElementById('prepUserAvatar');
   const name = document.getElementById('prepUserName');
   const meta = document.getElementById('prepUserMeta');
+  const roleBadge = document.getElementById('prepUserRole');
   const plazaInput = document.getElementById('prepCreatePlaza');
   if (avatar) avatar.textContent = (state.profile?.nombre || state.profile?.email || 'CP').split(/\s+/).slice(0, 2).map(chunk => chunk[0]).join('').toUpperCase().slice(0, 2);
   if (name) name.textContent = state.profile?.nombre || state.profile?.email || 'Usuario';
-  if (meta) meta.textContent = [state.profile?.rol || 'Sin rol', state.plaza || 'Sin plaza'].filter(Boolean).join(' · ');
+  if (meta) meta.textContent = state.plaza || 'Sin plaza asignada';
+  if (roleBadge) roleBadge.textContent = state.role || state.profile?.rol || 'Sin rol';
   if (plazaInput) plazaInput.value = state.plaza || '';
 }
 
@@ -479,10 +490,14 @@ function renderDetail() {
   updateSummaryValue('prepSummaryOrigen', unit.origen || (unit.mva ? 'PATIO' : 'Sin expediente'));
 
   if (deleteBtn) {
-    deleteBtn.disabled = false;
-    deleteBtn.innerHTML = deleteArmed
-      ? '<span class="material-icons" style="font-size:18px;">warning</span> Confirmar borrado'
-      : '<span class="material-icons" style="font-size:18px;">delete</span> Eliminar';
+    const allowed = canDelete();
+    deleteBtn.disabled = !allowed;
+    deleteBtn.style.display = allowed ? '' : 'none';
+    if (allowed) {
+      deleteBtn.innerHTML = deleteArmed
+        ? '<span class="material-icons" style="font-size:18px;">warning</span> Confirmar borrado'
+        : '<span class="material-icons" style="font-size:18px;">delete</span> Eliminar';
+    }
   }
   if (resetDeleteBtn) resetDeleteBtn.style.display = deleteArmed ? 'inline-flex' : 'none';
 
@@ -501,11 +516,19 @@ function renderUsersDatalist() {
   datalist.innerHTML = state.plazaUsers.map(user => `<option value="${escapeHtml(user.value)}">${escapeHtml(user.label)}</option>`).join('');
 }
 
+function renderBulkButton() {
+  const btn = document.getElementById('prepBulkCompleteBtn');
+  if (!btn) return;
+  // Solo visible para roles admin
+  btn.style.display = canDelete() ? '' : 'none';
+}
+
 function renderAll() {
   renderUser();
   renderPlazaSelect();
   renderUsersDatalist();
   renderFilters();
+  renderBulkButton();
   renderList();
   renderDetail();
 }
@@ -541,25 +564,114 @@ function fromDatetimeLocal(value) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
+async function fetchClaimsRole(user) {
+  try {
+    const token = await user.getIdTokenResult();
+    return upper(token.claims?.rol || token.claims?.role || '');
+  } catch (_) {
+    return '';
+  }
+}
+
 async function fetchUserProfile(user) {
   const email = lower(user?.email);
   const uid = safe(user?.uid);
   if (!email && !uid) return normalizeProfile(user, {});
 
+  let docData = {};
+
   if (email) {
     const direct = await db.collection('usuarios').doc(email).get();
-    if (direct.exists) return normalizeProfile(user, direct.data());
-
-    const query = await db.collection('usuarios').where('email', '==', email).limit(1).get();
-    if (!query.empty) return normalizeProfile(user, query.docs[0].data());
+    if (direct.exists) {
+      docData = direct.data();
+    } else {
+      const query = await db.collection('usuarios').where('email', '==', email).limit(1).get();
+      if (!query.empty) docData = query.docs[0].data();
+    }
   }
 
-  if (uid) {
+  if (!Object.keys(docData).length && uid) {
     const byUid = await db.collection('usuarios').doc(uid).get();
-    if (byUid.exists) return normalizeProfile(user, byUid.data());
+    if (byUid.exists) docData = byUid.data();
   }
 
-  return normalizeProfile(user, {});
+  // Si el documento no tiene rol explícito, intentamos Firebase Auth custom claims
+  const hasExplicitRole = upper(docData.rol || docData.role || docData.perfil || docData.cargo || docData.tipo);
+  if (!hasExplicitRole) {
+    const claimsRole = await fetchClaimsRole(user);
+    if (claimsRole) docData = { ...docData, rol: claimsRole };
+  }
+
+  return normalizeProfile(user, docData);
+}
+
+// ── Permisos por rol ──────────────────────────────────────────
+function canDelete() {
+  const meta = ACCESS_ROLE_META[state.role] || {};
+  return meta.isAdmin === true;
+}
+
+function canManageAll() {
+  const meta = ACCESS_ROLE_META[state.role] || {};
+  return meta.isGlobal === true || state.profile?.isAdmin === true;
+}
+
+function isGlobalRole() {
+  const meta = ACCESS_ROLE_META[state.role] || {};
+  return meta.isGlobal === true;
+}
+
+// ── MVA autocomplete desde Firestore ─────────────────────────
+async function loadPlazaUnits() {
+  if (!state.plaza) {
+    state.plazaUnits = new Map();
+    renderMvaDatalist();
+    return;
+  }
+  try {
+    const [cuadreSnap, externosSnap] = await Promise.all([
+      db.collection(COL.CUADRE).where('plaza', '==', state.plaza).limit(500).get(),
+      db.collection(COL.EXTERNOS).where('plaza', '==', state.plaza).limit(200).get().catch(() => ({ docs: [] }))
+    ]);
+    const next = new Map();
+    [...cuadreSnap.docs, ...(externosSnap.docs || [])].forEach(doc => {
+      const data = doc.data() || {};
+      const unit = normalizarUnidad({ id: doc.id, ...data });
+      if (unit.mva) next.set(unit.mva, unit);
+    });
+    state.plazaUnits = next;
+    renderMvaDatalist();
+  } catch (e) {
+    console.warn('[cola-preparacion] loadPlazaUnits', e);
+    state.plazaUnits = new Map();
+  }
+}
+
+function renderMvaDatalist() {
+  const dl = document.getElementById('prepMvaDatalist');
+  if (!dl) return;
+  dl.innerHTML = Array.from(state.plazaUnits.values())
+    .map(u => `<option value="${escapeHtml(u.mva)}">${escapeHtml([u.modelo, u.categoria, u.estado].filter(Boolean).join(' · '))}</option>`)
+    .join('');
+}
+
+function showCreateUnitPreview(mva) {
+  const preview = document.getElementById('prepCreateUnitPreview');
+  if (!preview) return;
+  const unit = state.plazaUnits.get(upper(mva));
+  if (!unit || !mva) {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    return;
+  }
+  const chips = [
+    unit.modelo    ? `<span class="prep-preview-chip">${escapeHtml(unit.modelo)}</span>` : '',
+    unit.categoria ? `<span class="prep-preview-chip">${escapeHtml(unit.categoria)}</span>` : '',
+    unit.estado    ? `<span class="prep-preview-chip prep-preview-chip--state">${escapeHtml(unit.estado)}</span>` : '',
+    unit.ubicacion ? `<span class="prep-preview-chip prep-preview-chip--loc"><span class="material-icons" style="font-size:13px;">place</span>${escapeHtml(unit.ubicacion)}</span>` : '',
+  ].filter(Boolean).join('');
+  preview.innerHTML = `<div class="prep-preview-found"><span class="material-icons" style="font-size:15px;color:#047857;">check_circle</span> Unidad encontrada en expediente</div>${chips}`;
+  preview.style.display = 'flex';
 }
 
 async function loadPlazaUsers() {
@@ -642,6 +754,7 @@ function applySelectedPlaza(plaza = '') {
   renderAll();
   subscribeQueue();
   loadPlazaUsers();
+  loadPlazaUnits();
 }
 
 async function subscribeQueue() {
@@ -718,6 +831,27 @@ async function copySelectedMva() {
   showToast(`Copia manualmente el MVA ${item.mva}.`, 'warning');
 }
 
+async function bulkCompleteChecklist() {
+  const visible = visibleItems();
+  if (!visible.length) return;
+  const notReady = visible.filter(item => !isReady(item));
+  if (!notReady.length) {
+    showToast('Todas las unidades visibles ya tienen checklist completo.', 'info');
+    return;
+  }
+  const checklist = CHECKLIST_META.reduce((acc, meta) => { acc[meta.key] = true; return acc; }, {});
+  const batch = db.batch();
+  notReady.forEach(item => {
+    batch.set(queueRef().doc(item.id), {
+      checklist,
+      actualizadoAt: firebase.firestore.FieldValue.serverTimestamp(),
+      actualizadoPor: state.profile?.email || ''
+    }, { merge: true });
+  });
+  await batch.commit();
+  showToast(`${notReady.length} unidad(es) marcadas como listas.`, 'success');
+}
+
 async function deleteItem(id) {
   await queueRef().doc(id).delete();
   state.deleteArmedId = '';
@@ -763,6 +897,7 @@ function bindEvents() {
   });
 
   document.getElementById('prepAddBtn')?.addEventListener('click', openCreateModal);
+  document.getElementById('prepBulkCompleteBtn')?.addEventListener('click', bulkCompleteChecklist);
   document.getElementById('prepDetailForm')?.addEventListener('submit', async event => {
     event.preventDefault();
     const item = state.items.find(entry => entry.id === state.selectedId);
@@ -796,6 +931,10 @@ function bindEvents() {
   document.getElementById('prepResetDeleteBtn')?.addEventListener('click', () => {
     state.deleteArmedId = '';
     renderDetail();
+  });
+
+  document.getElementById('prepCreateMva')?.addEventListener('input', event => {
+    showCreateUnitPreview(event.target.value);
   });
 
   document.getElementById('prepCreateForm')?.addEventListener('submit', async event => {
@@ -910,6 +1049,7 @@ async function boot() {
 
       renderAll();
       await loadPlazaUsers();
+      loadPlazaUnits(); // sin await — carga en paralelo, no bloquea
       await subscribeQueue();
     });
   } catch (error) {
