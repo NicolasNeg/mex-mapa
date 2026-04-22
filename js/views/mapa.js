@@ -6089,26 +6089,17 @@ function _umRenderCards() {
     return;
   }
   _umRenderPlazaChips();
-
-  const q = (document.getElementById('um-search')?.value || '').toLowerCase().trim();
-  let list = _umUsers;
-
-  // Filtro texto: nombre, email, rol label
-  if (q) {
-    list = list.filter(u =>
-      u.nombre.toLowerCase().includes(q) ||
-      (u.email || '').toLowerCase().includes(q) ||
-      (_umRoleBadge(u.rol).label || '').toLowerCase().includes(q)
-    );
-  }
-
-  // Filtro chip plaza
-  if (_umPlazaFiltro) {
-    list = list.filter(u => (u.plazaAsignada || '').toUpperCase() === _umPlazaFiltro);
-  }
+  const list = _umGetFilteredUsers();
+  _umRenderWorkspaceInsights(list);
 
   if (list.length === 0) {
-    container.innerHTML = '<div class="um-loading">No se encontraron usuarios.</div>';
+    container.innerHTML = `
+      <div class="um-loading um-loading-empty">
+        <span class="material-icons">person_search</span>
+        <strong>No encontramos usuarios con ese criterio</strong>
+        <small>Ajusta el buscador o cambia el filtro de plaza para recuperar resultados.</small>
+      </div>
+    `;
     return;
   }
 
@@ -6116,7 +6107,14 @@ function _umRenderCards() {
     const badge = _umRoleBadge(u.rol);
     const active = u.id === _umSelectedId ? ' active' : '';
     const plazaLabel = escapeHtml(u.plazaAsignada || 'Sin plaza');
-    return `<div class="um-card${active}" onclick="umSeleccionar('${u.id}')">
+    const statusLabel = escapeHtml((u.status || 'ACTIVO').toUpperCase());
+    const multiPlazas = Array.isArray(u.plazasPermitidas) ? u.plazasPermitidas.filter(Boolean) : [];
+    const scopeLabel = multiPlazas.length > 0 ? `${multiPlazas.length} plazas extra` : 'Alcance estándar';
+    return `<button type="button" class="um-card${active}" onclick="umSeleccionar('${u.id}')" aria-pressed="${active ? 'true' : 'false'}">
+          <div class="um-card-topline">
+            <span class="um-card-status${statusLabel === 'ACTIVO' ? ' success' : ''}">${statusLabel}</span>
+            <span class="um-card-doc">${escapeHtml((u.id || 'legacy').slice(0, 12))}</span>
+          </div>
           <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
           <div class="um-card-info">
             <div class="um-card-head">
@@ -6126,10 +6124,10 @@ function _umRenderCards() {
             <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
             <div class="um-card-meta">
               <span><span class="material-icons">apartment</span>${plazaLabel}</span>
-              <span><span class="material-icons">shield</span>${badge.label}</span>
+              <span><span class="material-icons">workspace_premium</span>${scopeLabel}</span>
             </div>
           </div>
-        </div>`;
+        </button>`;
   }).join('');
 }
 
@@ -6145,6 +6143,14 @@ function umSeleccionar(id) {
 function _umRenderEditForm(user) {
   const roleBadge = _umRoleBadge(user.rol);
   const canEdit = canManageTargetRole(user.rol);
+  const plazasPermitidas = Array.isArray(user.plazasPermitidas) ? user.plazasPermitidas.filter(Boolean) : [];
+  const accessMeta = ROLE_META[_sanitizeRole(user.rol) || 'AUXILIAR'] || {};
+  const contextCards = [
+    ['Documento', user.id || 'legacy'],
+    ['Cobertura', plazasPermitidas.length > 0 ? `Multi-plaza (${plazasPermitidas.length})` : (user.plazaAsignada || 'Sin plaza base')],
+    ['Acceso', accessMeta.fullAccess ? 'Global' : (accessMeta.isAdmin ? 'Administrativo' : 'Operativo')],
+    ['Autenticación', user.email ? 'Cuenta activa' : 'Perfil heredado']
+  ];
 
   const roleLockedMsg = canEdit ? '' : `
         <div style="margin:14px 0;padding:12px 14px;border-radius:12px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:12px;">
@@ -6173,6 +6179,15 @@ function _umRenderEditForm(user) {
               <span class="um-info-pill success">${escapeHtml((user.status || 'ACTIVO').toUpperCase())}</span>
             </div>
           </div>
+        </div>
+
+        <div class="um-context-grid">
+          ${contextCards.map(([label, value]) => `
+            <div class="um-context-tile">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(value)}</strong>
+            </div>
+          `).join('')}
         </div>
 
         <div class="um-form-grid2">
@@ -6436,48 +6451,70 @@ function umNuevoUsuario() {
   const container = document.getElementById('um-form-container');
   container.style.display = 'block';
   container.innerHTML = `<div class="um-form-card">
-        <div class="um-form-avatar-row">
+        <div class="um-profile-hero">
           <div class="um-form-avatar" style="background:var(--mex-accent);color:white;">
             <span class="material-icons" style="font-size:28px;">person_add</span>
           </div>
-          <div>
-            <div class="um-form-title">Nuevo Usuario</div>
-            <div class="um-form-subtitle">Completa todos los campos para crear la cuenta.</div>
+          <div class="um-profile-hero-copy">
+            <div class="um-form-title">Nuevo usuario</div>
+            <div class="um-form-subtitle">Prepara la cuenta, define su alcance y déjala lista para operar desde la plaza correcta.</div>
+            <div class="um-profile-tags">
+              <span class="um-info-pill">Alta controlada</span>
+              <span class="um-info-pill">${escapeHtml((typeof _miPlaza === 'function' ? _miPlaza() : '') || 'Sin plaza activa')}</span>
+            </div>
           </div>
         </div>
 
-        <div class="um-form-field">
-          <label>Nombre completo <span style="color:#ef4444;">*</span></label>
-          <input type="text" id="um-new-nombre" placeholder="Ej. Juan Pérez" oninput="_umValidarNuevo()">
-        </div>
-        <div class="um-form-field">
-          <label>Correo electrónico <span style="color:#ef4444;">*</span></label>
-          <input type="email" id="um-new-email" placeholder="correo@ejemplo.com" oninput="_umValidarNuevo()">
-        </div>
-        <div class="um-form-field">
-          <label>Contraseña temporal <span style="color:#ef4444;">*</span></label>
-          <input type="password" id="um-new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" oninput="_umValidarNuevo()">
-        </div>
-        <div class="um-form-field">
-          <label>Teléfono (opcional)</label>
-          <input type="tel" id="um-new-tel" placeholder="Ej. 6441234567">
+        <div class="um-form-grid2">
+          <div class="um-info-panel">
+            <div class="um-form-section">Identidad</div>
+            <div class="um-form-field">
+              <label>Nombre completo <span style="color:#ef4444;">*</span></label>
+              <input type="text" id="um-new-nombre" placeholder="Ej. Juan Pérez" oninput="_umValidarNuevo()">
+            </div>
+            <div class="um-form-field">
+              <label>Correo electrónico <span style="color:#ef4444;">*</span></label>
+              <input type="email" id="um-new-email" placeholder="correo@ejemplo.com" oninput="_umValidarNuevo()">
+            </div>
+            <div class="um-form-field">
+              <label>Contraseña temporal <span style="color:#ef4444;">*</span></label>
+              <input type="password" id="um-new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" oninput="_umValidarNuevo()">
+            </div>
+            <div class="um-form-field">
+              <label>Teléfono (opcional)</label>
+              <input type="tel" id="um-new-tel" placeholder="Ej. 6441234567">
+            </div>
+          </div>
+
+          <div class="um-info-panel">
+            <div class="um-form-section">Rol y alcance</div>
+            <div class="um-form-field">
+              <label>Rol <span style="color:#ef4444;">*</span></label>
+              <select id="um-new-role" onchange="_syncRoleScope('um-new'); _umValidarNuevo();">
+                ${_roleOptionsHtml('AUXILIAR')}
+              </select>
+            </div>
+            <div class="um-form-field" id="um-new-plaza-row">
+              <label>Plaza base <span style="color:#ef4444;">*</span></label>
+              ${_plazaSelectHtml('um-new-plaza', '', 'onchange="_umValidarNuevo()"')}
+            </div>
+
+            <div class="um-form-field" id="um-new-plazas-multi-row" style="display:none;">
+              <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
+              ${_plazasMultiHtml('um-new-plazas-permitidas', [])}
+            </div>
+
+            <div class="um-permission-intro">
+              El alcance se define desde el rol. Si el usuario necesita excepciones puntuales, podrás asignarlas después desde su editor contextual.
+            </div>
+          </div>
         </div>
 
-        <div class="um-form-section">Rol y alcance</div>
-        <div class="um-form-field">
-          <label>Rol <span style="color:#ef4444;">*</span></label>
-          <select id="um-new-role" onchange="_syncRoleScope('um-new'); _umValidarNuevo();">
-            ${_roleOptionsHtml('AUXILIAR')}
-          </select>
-        </div>
-        <div class="um-form-field" id="um-new-plaza-row">
-          <label>Plaza base <span style="color:#ef4444;">*</span></label>
-          ${_plazaSelectHtml('um-new-plaza', '', 'onchange="_umValidarNuevo()"')}
-        </div>
-
-        <div class="um-form-field" id="um-new-plazas-multi-row" style="display:none;">
-          <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
-          ${_plazasMultiHtml('um-new-plazas-permitidas', [])}
+        <div class="um-info-panel">
+          <div class="um-form-section">Validación</div>
+          <div id="um-new-hints" class="um-permission-intro">
+            Completa los campos requeridos (<span style="color:#ef4444;">*</span>) antes de crear la cuenta.
+          </div>
         </div>
 
         <div class="um-divider"></div>
@@ -6485,9 +6522,6 @@ function umNuevoUsuario() {
           <button class="um-btn-save" id="um-btn-crear" onclick="umCrearUsuario()" disabled style="opacity:.5;cursor:not-allowed;">
             <span class="material-icons" style="font-size:17px;">person_add</span> CREAR USUARIO
           </button>
-          <div id="um-new-hints" style="font-size:11px;color:#94a3b8;text-align:center;margin-top:4px;">
-            Completa los campos requeridos (<span style="color:#ef4444;">*</span>)
-          </div>
         </div>
       </div>`;
   _syncRoleScope('um-new');
@@ -17952,40 +17986,104 @@ async function guardarEmpresaConfig(actionType = 'EMPRESA_ACTUALIZADA', message 
 
 // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
 function renderizarTabConfigUsuarios(container) {
-  container.innerHTML = `
-        <div style="padding:0 10px 12px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
-          <!-- Buscador + chips -->
-          <div style="display:flex; flex-direction:column; gap:8px; flex:1; min-width:220px;">
-            <div class="um-search-wrap">
-              <span class="material-icons um-search-icon">search</span>
-              <input type="text" id="um-search" placeholder="Buscar por nombre, correo o rol..." oninput="umFiltrar()">
-            </div>
-            <div id="um-plaza-chips" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
-          </div>
-          <!-- Botón nuevo usuario -->
-          <button id="btn-nuevo-usuario" onclick="_umNuevoUsuarioConAnim()"
-            style="background:var(--mex-accent);color:white;border:none;padding:11px 20px;border-radius:12px;
-                   font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:7px;
-                   box-shadow:0 4px 14px rgba(99,102,241,0.3);transition:opacity .15s;white-space:nowrap;">
-            <span class="material-icons" style="font-size:17px;">person_add</span> NUEVO USUARIO
+  const operatorSummary = _umGetOperatorProfileSummary();
+  const rolesAction = (hasPermission('manage_roles_permissions') || canManageUsers())
+    ? `
+          <button type="button" class="um-toolbar-btn" onclick="_umGoToConfigTab('roles')">
+            <span class="material-icons">shield</span>
+            Roles
           </button>
-        </div>
-
-        <div class="um-body" style="height:auto;min-height:55vh;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin:0 10px;">
-          <div class="um-list-col">
-            <div id="um-cards-container">
-              <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando...</div>
+        `
+    : '';
+  const solicitudesAction = (canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig())
+    ? `
+          <button type="button" class="um-toolbar-btn" onclick="_umGoToConfigTab('solicitudes')">
+            <span class="material-icons">mark_email_read</span>
+            Solicitudes
+          </button>
+        `
+    : '';
+  container.innerHTML = `
+        <div class="um-workspace">
+          <div class="um-workspace-header">
+            <div class="um-workspace-copy">
+              <span class="um-workspace-kicker">Accesos y permisos</span>
+              <h3>Usuarios del sistema</h3>
+              <p>Administra cuentas, plaza base, rol operativo y permisos puntuales desde un workspace de escritorio más amplio y contextual.</p>
+            </div>
+            <div class="um-workspace-meta">
+              <span class="cfg-v2-meta-chip">
+                <span class="material-icons">place</span>
+                Plaza activa: ${escapeHtml(operatorSummary.plazaActiva)}
+              </span>
+              <span class="cfg-v2-meta-chip">
+                <span class="material-icons">verified_user</span>
+                ${escapeHtml(operatorSummary.roleLabel)}
+              </span>
+              <span class="cfg-v2-meta-chip">
+                <span class="material-icons">person</span>
+                ${escapeHtml(operatorSummary.operatorName)}
+              </span>
             </div>
           </div>
-          <div class="um-edit-col">
-            <div id="um-placeholder" class="um-placeholder">
-              <span class="material-icons">manage_accounts</span>
-              <p>Selecciona un usuario para editarlo<br>o crea uno nuevo.</p>
+
+          <div id="um-summary-strip" class="um-summary-strip"></div>
+
+          <div class="um-body um-workspace-shell">
+            <div class="um-list-col">
+              <div class="um-column-head">
+                <div>
+                  <span class="um-column-kicker">Directorio</span>
+                  <h4>Cuentas y accesos</h4>
+                  <p>Busca rápido, filtra por plaza y selecciona una cuenta para editarla sin salir de esta vista.</p>
+                </div>
+                <span id="um-directory-count" class="cfg-catalog-count">0 visibles</span>
+              </div>
+
+              <div class="um-list-toolbar">
+                <div class="um-search-wrap">
+                  <span class="material-icons um-search-icon">search</span>
+                  <input type="text" id="um-search" placeholder="Buscar por nombre, correo o rol..." oninput="umFiltrar()">
+                </div>
+                <div id="um-plaza-chips" class="um-filter-row"></div>
+              </div>
+
+              <div id="um-cards-container" class="um-cards-stack">
+                <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>
+              </div>
             </div>
-            <div id="um-form-container" style="display:none;width:100%;max-width:480px;"></div>
+
+            <div class="um-edit-col">
+              <div class="um-column-head">
+                <div>
+                  <span class="um-column-kicker">Editor contextual</span>
+                  <h4>Perfil, alcance y permisos</h4>
+                  <p>El panel derecho aprovecha la pantalla completa en PC para editar sin sentirse como vista móvil comprimida.</p>
+                </div>
+                <div class="um-column-actions">
+                  ${rolesAction}
+                  ${solicitudesAction}
+                  <button id="btn-nuevo-usuario" type="button" class="um-toolbar-btn primary" onclick="_umNuevoUsuarioConAnim()">
+                    <span class="material-icons">person_add</span>
+                    Nuevo usuario
+                  </button>
+                </div>
+              </div>
+
+              <div class="um-editor-stage">
+                <div id="um-placeholder" class="um-placeholder">
+                  <span class="material-icons">manage_accounts</span>
+                  <h5>Selecciona un usuario</h5>
+                  <p>Desde aquí podrás editar identidad, rol, plaza base, alcance multi-plaza y permisos individuales sin perder contexto operativo.</p>
+                </div>
+                <div id="um-form-container" class="um-form-container" style="display:none;"></div>
+              </div>
+            </div>
           </div>
         </div>
       `;
+  _umRenderWorkspaceInsights([]);
+  _umRenderPlazaChips();
   _umIniciar();
 }
 
@@ -17999,12 +18097,7 @@ function _umRenderPlazaChips() {
   if (plazas.length === 0) { wrap.innerHTML = ''; return; }
   wrap.innerHTML = plazas.map(p => {
     const active = _umPlazaFiltro === p;
-    return `<button onclick="_umTogglePlazaChip('${escapeHtml(p)}')" style="
-          padding:4px 11px; border-radius:20px; font-size:11px; font-weight:800; cursor:pointer; border:1.5px solid;
-          ${active
-        ? 'background:var(--mex-accent);color:white;border-color:var(--mex-accent);'
-        : 'background:white;color:#475569;border-color:#e2e8f0;'
-      }transition:all .15s;">${p}</button>`;
+    return `<button type="button" class="um-filter-chip${active ? ' active' : ''}" onclick="_umTogglePlazaChip('${escapeHtml(p)}')">${p}</button>`;
   }).join('');
 }
 
@@ -18012,6 +18105,104 @@ function _umTogglePlazaChip(plaza) {
   _umPlazaFiltro = _umPlazaFiltro === plaza ? null : plaza;
   _umRenderPlazaChips();
   _umRenderCards();
+}
+
+function _umGoToConfigTab(tabName) {
+  const btn = document.getElementById(`cfg-tab-${tabName}`) || document.querySelector(`.cfg-tab[onclick*="'${tabName}'"]`);
+  abrirTabConfig(tabName, btn);
+}
+
+function _umGetOperatorProfileSummary() {
+  const profile = (typeof currentUserProfile !== 'undefined' && currentUserProfile) ? currentUserProfile : {};
+  const operatorName = profile.nombre || profile.email || 'Operador activo';
+  const operatorRole = (typeof userAccessRole !== 'undefined' && userAccessRole) ? userAccessRole : (profile.rol || 'AUXILIAR');
+  const roleBadge = _umRoleBadge(operatorRole);
+  const plazaActiva = (typeof _miPlaza === 'function' ? _normalizePlaza(_miPlaza()) : '')
+    || _normalizePlaza(profile.plazaAsignada || '')
+    || 'GLOBAL';
+  return {
+    operatorName,
+    roleLabel: roleBadge.label,
+    plazaActiva
+  };
+}
+
+function _umGetFilteredUsers() {
+  const q = (document.getElementById('um-search')?.value || '').toLowerCase().trim();
+  let list = _umUsers.slice();
+
+  if (q) {
+    list = list.filter(u =>
+      u.nombre.toLowerCase().includes(q) ||
+      (u.email || '').toLowerCase().includes(q) ||
+      (_umRoleBadge(u.rol).label || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (_umPlazaFiltro) {
+    list = list.filter(u => (u.plazaAsignada || '').toUpperCase() === _umPlazaFiltro);
+  }
+
+  return list;
+}
+
+function _umRenderWorkspaceInsights(list = _umGetFilteredUsers()) {
+  const summary = document.getElementById('um-summary-strip');
+  const countBadge = document.getElementById('um-directory-count');
+  if (countBadge) countBadge.textContent = `${list.length} visibles`;
+  if (!summary) return;
+
+  const total = _umUsers.length;
+  const filtered = Boolean((document.getElementById('um-search')?.value || '').trim() || _umPlazaFiltro);
+  const adminCount = list.filter(u => {
+    const meta = ROLE_META[_sanitizeRole(u.rol) || 'AUXILIAR'] || {};
+    return !!(meta.isAdmin || meta.fullAccess);
+  }).length;
+  const noPlazaCount = list.filter(u => !_normalizePlaza(u.plazaAsignada || '')).length;
+  const plazaCoverage = new Set(list.map(u => _normalizePlaza(u.plazaAsignada || '')).filter(Boolean)).size;
+  const cards = [
+    {
+      label: 'Usuarios visibles',
+      value: list.length,
+      detail: filtered ? `Filtrados desde ${total} registros` : 'Directorio listo para operar',
+      tone: 'primary',
+      icon: 'groups'
+    },
+    {
+      label: 'Acceso sensible',
+      value: adminCount,
+      detail: adminCount > 0 ? 'Perfiles con permisos elevados' : 'Sin perfiles elevados en este filtro',
+      tone: 'info',
+      icon: 'shield'
+    },
+    {
+      label: 'Sin plaza base',
+      value: noPlazaCount,
+      detail: noPlazaCount > 0 ? 'Conviene revisar alcance y asignación' : 'Todas las cuentas visibles tienen plaza',
+      tone: noPlazaCount > 0 ? 'warning' : 'success',
+      icon: 'apartment'
+    },
+    {
+      label: 'Plazas cubiertas',
+      value: plazaCoverage,
+      detail: plazaCoverage > 0 ? 'Cobertura operativa en el directorio visible' : 'Aún sin cobertura por plaza',
+      tone: 'neutral',
+      icon: 'location_city'
+    }
+  ];
+
+  summary.innerHTML = cards.map(card => `
+      <article class="um-stat-card ${card.tone}">
+        <div class="um-stat-icon">
+          <span class="material-icons">${card.icon}</span>
+        </div>
+        <div class="um-stat-copy">
+          <span>${escapeHtml(card.label)}</span>
+          <strong>${escapeHtml(String(card.value))}</strong>
+          <small>${escapeHtml(card.detail)}</small>
+        </div>
+      </article>
+    `).join('');
 }
 
 // Botón "Nuevo Usuario" con animación de carga antes de abrir el form

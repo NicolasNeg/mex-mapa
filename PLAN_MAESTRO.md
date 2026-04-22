@@ -102,6 +102,15 @@
   Objetivo: quitar el `permission-denied` al aceptar solicitudes, permitir que el solicitante
     escoja plaza válida desde el origen y dejar la cola leyendo datos reales del patio.
 
+[2026-04-21] CODEX — ✅ PANEL ADMIN / USUARIOS desktop-first
+  Archivos modificados:
+    ~ js/views/mapa.js             — workspace contextual para `Usuarios`, métricas en vivo,
+                                     quick actions, cards más ricas y editor más amplio
+    ~ css/config.css               — layout master-detail para escritorio, toolbar enterprise,
+                                     placeholders/métricas nuevos, dark-mode y responsive
+  Objetivo: que `Usuarios` deje de sentirse como vista móvil comprimida en PC y se convierta
+    en un centro de acceso/permisos con mejor jerarquía visual, sin romper flujos actuales.
+
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
   /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
   accesos rápidos, modales migrados para reporte diario / cuadre de predicción / PDF reservas,
