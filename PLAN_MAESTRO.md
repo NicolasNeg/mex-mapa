@@ -122,6 +122,21 @@
   Objetivo: corregir `ReferenceError` en `/gestion`, limpiar acciones repetidas y dejar la
     navegación catálogo -> editor contextual más consistente.
 
+[2026-04-22] CODEX — ✅ PERMISOS granulares + compactación Panel Admin
+  Archivos modificados:
+    ~ js/views/mapa.js             — agrega permisos por vista (`Panel Admin`, `Usuarios`,
+                                     `Roles`, `Solicitudes`, etc.), resuelve fallback al primer
+                                     tab visible, habilita `Solicitudes` en modo solo lectura y
+                                     reduce acciones rápidas no autorizadas
+    ~ css/config.css               — compacta rail interno de `/gestion`, vuelve más densa la
+                                     matriz de roles/permisos y reacomoda `Usuarios` para desktop
+    ~ mapa.html                    — elimina botón lateral `Mi Perfil` y mueve el acceso a una
+                                     tuerquita dentro de la tarjeta `Mi sesión`
+    ~ css/mapa.css                 — compacta el sidebar lateral del mapa y estiliza el nuevo
+                                     acceso a `/profile`
+  Objetivo: ocultar Panel Admin por defecto a roles sin vistas explícitas, permitir accesos
+    puntuales por usuario y reducir el largo visual del admin/roles en escritorio.
+
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
   /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
   accesos rápidos, modales migrados para reporte diario / cuadre de predicción / PDF reservas,

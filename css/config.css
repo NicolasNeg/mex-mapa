@@ -1739,8 +1739,8 @@
 
     /* Variables del sidebar rail */
     .cfg-v2-sidebar {
-      --cfg-rail-collapsed: 68px;
-      --cfg-rail-expanded: 210px;
+      --cfg-rail-collapsed: 62px;
+      --cfg-rail-expanded: 194px;
       --cfg-rail-transition: 0.24s cubic-bezier(0.4, 0, 0.2, 1);
 
       width: var(--cfg-rail-collapsed);
@@ -1750,7 +1750,7 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      padding: 14px 8px;
+      padding: 12px 8px;
       gap: 0;
       background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
       border-radius: 20px;
@@ -1772,12 +1772,12 @@
     .cfg-v2-sidebar-label {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 12px;
+      gap: 8px;
+      font-size: 11px;
       font-weight: 900;
       color: rgba(255,255,255,0.9);
       margin-bottom: 2px;
-      padding: 4px 6px 4px 12px;
+      padding: 4px 4px 4px 8px;
       white-space: nowrap;
       overflow: hidden;
     }
@@ -1789,12 +1789,12 @@
     }
 
     .cfg-v2-sidebar-sublabel {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       color: rgba(255,255,255,0.32);
       letter-spacing: 0.3px;
-      margin-bottom: 14px;
-      padding-left: 12px;
+      margin-bottom: 10px;
+      padding-left: 8px;
       white-space: nowrap;
       overflow: hidden;
     }
@@ -2199,8 +2199,8 @@
     .cfg-v2-sidebar {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-      padding: 14px 10px;
+      gap: 8px;
+      padding: 12px 8px;
       border: 1px solid rgba(255, 255, 255, 0.06);
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
@@ -2213,14 +2213,14 @@
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
-      gap: 10px;
-      padding: 0 4px 6px;
+      gap: 8px;
+      padding: 0 2px 4px;
     }
 
     .cfg-v2-sidebar-toggle {
-      width: 36px;
-      height: 36px;
-      border-radius: 12px;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.12);
       background: rgba(255,255,255,0.06);
       color: rgba(255,255,255,0.72);
@@ -2251,8 +2251,8 @@
     .cfg-nav-group {
       display: flex;
       flex-direction: column;
-      gap: 4px;
-      padding-top: 2px;
+      gap: 2px;
+      padding-top: 1px;
       border-top: 1px solid rgba(255,255,255,0.05);
     }
 
@@ -2267,12 +2267,12 @@
       justify-content: space-between;
       gap: 10px;
       width: 100%;
-      padding: 9px 8px 9px 10px;
+      padding: 7px 6px 7px 8px;
       border: none;
       background: transparent;
       color: rgba(255,255,255,0.85);
       cursor: pointer;
-      border-radius: 14px;
+      border-radius: 12px;
       transition: background .18s ease, color .18s ease;
     }
 
@@ -2283,13 +2283,13 @@
     .cfg-nav-group-copy {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       min-width: 0;
       text-align: left;
     }
 
     .cfg-nav-group-copy .material-icons {
-      font-size: 17px;
+      font-size: 16px;
       color: #93c5fd;
       flex-shrink: 0;
     }
@@ -2302,7 +2302,7 @@
     }
 
     .cfg-nav-group-copy small {
-      font-size: 9px;
+      font-size: 8px;
       font-weight: 900;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -2311,7 +2311,7 @@
     }
 
     .cfg-nav-group-copy strong {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       color: rgba(255,255,255,0.92);
       white-space: nowrap;
@@ -2357,19 +2357,19 @@
     }
 
     .cfg-tab {
-      min-height: 40px;
-      border-radius: 14px;
-    }
-
-    .cfg-tab-icon {
-      width: 40px;
-      min-width: 40px;
-      height: 40px;
+      min-height: 36px;
       border-radius: 12px;
     }
 
+    .cfg-tab-icon {
+      width: 36px;
+      min-width: 36px;
+      height: 36px;
+      border-radius: 10px;
+    }
+
     .cfg-tab-icon .material-icons {
-      font-size: 18px;
+      font-size: 16px;
     }
 
     .cfg-tab.active::before {
@@ -2816,9 +2816,9 @@
 
     .cfg-security-shell {
       display: grid;
-      grid-template-columns: 300px minmax(0, 1fr);
-      gap: 16px;
-      height: 100%;
+      grid-template-columns: 290px minmax(0, 1fr);
+      gap: 14px;
+      height: min(100%, calc(100vh - 236px));
       align-items: start;
       min-height: 0;
     }
@@ -2827,8 +2827,8 @@
     .cfg-security-main-panel {
       background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
       border: 1px solid #dbe4ee;
-      border-radius: 22px;
-      padding: 16px;
+      border-radius: 20px;
+      padding: 14px;
       box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
       min-height: 0;
     }
@@ -2843,9 +2843,9 @@
     .cfg-security-main-panel {
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      max-height: calc(100vh - 190px);
-      overflow-y: auto;
+      gap: 12px;
+      max-height: 100%;
+      overflow: hidden;
     }
 
     .cfg-security-panel-head {
@@ -2853,7 +2853,7 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
 
     .cfg-security-panel-head strong {
@@ -2892,21 +2892,23 @@
     }
 
     .cfg-security-role-list {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
       overflow-y: auto;
-      padding-right: 4px;
+      padding-right: 0;
     }
 
     .cfg-security-role-pill {
       width: 100%;
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 12px 14px;
-      border-radius: 16px;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 8px;
+      min-height: 86px;
+      padding: 10px 11px;
+      border-radius: 14px;
       border: 1px solid #dbe4ee;
       background: #f8fafc;
       color: #0f172a;
@@ -2937,11 +2939,11 @@
     .cfg-security-role-pill span:last-child {
       display: inline-flex;
       align-items: center;
-      min-height: 26px;
-      padding: 0 10px;
+      min-height: 22px;
+      padding: 0 8px;
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.12);
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 900;
       letter-spacing: 0.1em;
     }
@@ -2959,7 +2961,7 @@
     }
 
     .cfg-security-insight-chip {
-      padding: 12px 13px;
+      padding: 10px 12px;
       border-radius: 16px;
       border: 1px solid #dbe4ee;
       background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
@@ -2986,14 +2988,16 @@
 
     .cfg-security-main-scroll {
       display: grid;
-      gap: 14px;
+      gap: 12px;
       min-height: 0;
+      overflow-y: auto;
+      padding-right: 4px;
     }
 
     .cfg-security-role-form {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 10px;
+      gap: 8px;
     }
 
     .cfg-security-role-form label {
@@ -3040,7 +3044,7 @@
     }
 
     .cfg-security-compact-note {
-      padding: 12px 14px;
+      padding: 10px 12px;
       border-radius: 15px;
       border: 1px solid #dbeafe;
       background: linear-gradient(135deg, #eff6ff, #f8fbff);
@@ -3054,7 +3058,7 @@
     .cfg-security-permission-editor,
     .cfg-security-permission-groups {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
 
     .cfg-security-permission-matrix {
@@ -3062,55 +3066,105 @@
       align-items: start;
     }
 
+    .cfg-security-permission-groups {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      align-items: start;
+    }
+
     .cfg-security-matrix-group,
     .cfg-security-permission-group {
-      padding: 14px;
-      border-radius: 18px;
+      padding: 12px;
+      border-radius: 16px;
       border: 1px solid #dbe4ee;
       background: #f8fafc;
     }
 
+    .cfg-security-matrix-group {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      align-items: start;
+    }
+
+    .cfg-security-permission-group {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cfg-security-permission-group-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .cfg-security-permission-group-meta {
+      display: inline-flex;
+      align-items: center;
+      min-height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #2563eb;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      border: 1px solid #bfdbfe;
+      flex-shrink: 0;
+    }
+
+    .cfg-security-permission-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
     .cfg-security-matrix-group-title,
     .cfg-security-permission-group-title {
-      margin-bottom: 10px;
+      margin-bottom: 0;
       color: #1d4ed8;
       font-size: 11px;
       font-weight: 900;
       letter-spacing: 0.12em;
       text-transform: uppercase;
+      grid-column: 1 / -1;
     }
 
     .cfg-security-matrix-item,
     .cfg-security-permission-item {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 8px 0;
-      border-top: 1px solid #e8eef5;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 8px;
+      padding: 10px;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      background: #ffffff;
     }
 
     .cfg-security-matrix-item:first-of-type,
     .cfg-security-permission-item:first-of-type {
-      border-top: none;
-      padding-top: 0;
+      border-top: 1px solid #e2e8f0;
+      padding-top: 10px;
     }
 
     .cfg-security-matrix-item strong,
     .cfg-security-permission-item strong {
       display: block;
       color: #0f172a;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     .cfg-security-matrix-item small,
     .cfg-security-permission-item small {
       display: block;
-      margin-top: 4px;
+      margin-top: 2px;
       color: #64748b;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
-      line-height: 1.45;
+      line-height: 1.4;
     }
 
     .cfg-security-matrix-item input,
@@ -3119,15 +3173,21 @@
       accent-color: #1d4ed8;
     }
 
+    .cfg-security-permission-copy {
+      width: 100%;
+      min-width: 0;
+    }
+
     .cfg-security-permission-item select {
-      min-width: 132px;
-      min-height: 36px;
+      width: 100%;
+      min-width: 0;
+      min-height: 34px;
       padding: 0 10px;
       border-radius: 12px;
       border: 1px solid #dbe4ee;
       background: white;
       color: #0f172a;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
     }
 
@@ -3457,9 +3517,15 @@
 
 .um-card-head {
   display: flex;
+  flex-direction: column;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.um-card-copy {
+  width: 100%;
+  min-width: 0;
 }
 
 .um-card-meta {
@@ -3488,7 +3554,8 @@
 }
 
 .um-role-badge {
-  padding: 5px 10px;
+  padding: 4px 9px;
+  font-size: 10px;
 }
 
 .um-form-card {
@@ -3885,7 +3952,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 18px 22px 22px;
+  padding: 14px 16px 18px;
   overflow-y: auto;
   min-height: 0;
 }
@@ -3896,10 +3963,11 @@
   border: 1px solid #dbe4ee;
   font-family: inherit;
   text-align: left;
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: flex-start;
   gap: 12px;
-  padding: 16px;
+  padding: 14px;
 }
 
 .um-card:focus-visible,
@@ -3946,10 +4014,10 @@
 }
 
 .um-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  font-size: 16px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 15px;
   box-shadow: 0 12px 20px rgba(15, 23, 42, 0.12);
 }
 
@@ -3959,19 +4027,22 @@
 }
 
 .um-card-name {
-  font-size: 15px;
-  line-height: 1.3;
+  font-size: 14px;
+  line-height: 1.35;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .um-card-email {
-  margin-top: 4px;
+  margin-top: 3px;
   white-space: normal;
   word-break: break-word;
-  line-height: 1.5;
+  line-height: 1.45;
+  font-size: 12px;
 }
 
 .um-card-meta {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .um-edit-col {
@@ -4009,7 +4080,7 @@
 }
 
     .um-workspace-shell-lite {
-      grid-template-columns: minmax(420px, 500px) minmax(0, 1fr);
+      grid-template-columns: minmax(360px, 400px) minmax(0, 1fr);
     }
 
     .um-column-head-lite {
@@ -4024,8 +4095,9 @@
     .um-card-badges {
       display: flex;
       flex-wrap: wrap;
-      justify-content: flex-end;
+      justify-content: flex-start;
       gap: 6px;
+      width: 100%;
     }
 
     .um-role-badge-muted {
@@ -4252,6 +4324,13 @@ body.dark-theme .um-form-field textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .cfg-security-role-list,
+  .cfg-security-permission-groups,
+  .cfg-security-permission-grid,
+  .cfg-security-matrix-group {
+    grid-template-columns: 1fr;
+  }
+
   .cfg-security-role-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4285,6 +4364,10 @@ body.dark-theme .um-form-field textarea {
   .cfg-security-main-panel {
     position: static;
     max-height: none;
+  }
+
+  .cfg-security-shell {
+    height: auto;
   }
 
   .cfg-detail-card {

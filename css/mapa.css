@@ -2448,10 +2448,10 @@
     }
 
     .admin-sidebar-scroll {
-      padding: 14px 12px calc(18px + env(safe-area-inset-bottom, 0px));
+      padding: 12px 10px calc(16px + env(safe-area-inset-bottom, 0px));
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 12px;
       flex: 1;
       overflow-y: auto;
       min-height: 0;
@@ -2463,32 +2463,32 @@
     .admin-nav-group {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 3px;
     }
 
     .sb-section-label {
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 800;
       color: #64748b;
       text-transform: uppercase;
       letter-spacing: 1.7px;
-      padding: 4px 8px 6px;
+      padding: 3px 8px 5px;
       margin: 0;
     }
 
     .sb-btn {
       width: 100%;
-      padding: 11px 12px;
+      padding: 9px 10px;
       border: 1px solid transparent;
-      border-radius: 8px;
+      border-radius: 10px;
       font-weight: 800;
-      font-size: 12px;
+      font-size: 11px;
       cursor: pointer;
       display: flex;
       justify-content: space-between;
       align-items: center;
       transition: 0.18s;
-      gap: 10px;
+      gap: 8px;
       background: transparent;
       color: #8c97ac;
       box-sizing: border-box;
@@ -2501,14 +2501,14 @@
     .sb-btn>div:first-child {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       min-width: 0;
       flex: 1;
       text-align: left;
     }
 
     .sb-btn .material-icons {
-      font-size: 18px;
+      font-size: 17px;
       color: #929ab0;
       transition: 0.18s;
       flex-shrink: 0;
@@ -2602,20 +2602,20 @@
     }
 
     .admin-sidebar-footer {
-      padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+      padding: 10px 10px calc(12px + env(safe-area-inset-bottom, 0px));
       border-top: 1px solid rgba(111, 117, 134, 0.14);
       background: rgba(8, 10, 14, 0.22);
       flex-shrink: 0;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
     }
 
     .admin-user-card {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 10px 8px 6px;
+      gap: 8px;
+      padding: 8px 6px 4px;
     }
 
     .admin-user-avatar {
@@ -2639,6 +2639,7 @@
       display: flex;
       flex-direction: column;
       gap: 2px;
+      flex: 1;
     }
 
     .admin-user-name {
@@ -2661,8 +2662,40 @@
       text-overflow: ellipsis;
     }
 
-    .admin-user-monitor {
+    .admin-user-actions {
       margin-left: auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .admin-user-settings {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      border: 1px solid rgba(111, 117, 134, 0.18);
+      background: rgba(15, 23, 42, 0.62);
+      color: #cbd5e1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background .18s ease, border-color .18s ease, transform .18s ease;
+    }
+
+    .admin-user-settings:hover {
+      background: rgba(30, 41, 59, 0.94);
+      border-color: rgba(147, 197, 253, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .admin-user-settings .material-icons {
+      font-size: 17px;
+      color: #93c5fd;
+    }
+
+    .admin-user-monitor {
       display: inline-flex;
       align-items: center;
       gap: 6px;
@@ -4581,4 +4614,3 @@
     .inc-content.active {
       display: block;
     }
-

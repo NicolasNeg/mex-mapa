@@ -530,6 +530,51 @@ if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
 // 1. LÓGICA DE LOGIN Y ROLES
 // ==========================================
 const BASE_PERMISSION_CATALOG = Object.freeze({
+  view_admin_panel: {
+    label: 'Abrir Panel Admin',
+    description: 'Mostrar el acceso general al panel administrativo.',
+    group: 'Panel Admin'
+  },
+  view_admin_users: {
+    label: 'Ver vista Usuarios',
+    description: 'Abrir el directorio y editor de usuarios del Panel Admin.',
+    group: 'Panel Admin'
+  },
+  view_admin_roles: {
+    label: 'Ver vista Roles',
+    description: 'Consultar la matriz de roles y permisos del Panel Admin.',
+    group: 'Panel Admin'
+  },
+  view_admin_requests: {
+    label: 'Ver vista Solicitudes',
+    description: 'Entrar al buzón de solicitudes de acceso desde Panel Admin.',
+    group: 'Panel Admin'
+  },
+  view_admin_operation_catalogs: {
+    label: 'Ver catálogos operativos',
+    description: 'Entrar a estados, categorías, modelos y gasolinas del Panel Admin.',
+    group: 'Panel Admin'
+  },
+  view_admin_structure: {
+    label: 'Ver estructura',
+    description: 'Entrar a plazas y ubicaciones dentro del Panel Admin.',
+    group: 'Panel Admin'
+  },
+  view_admin_organization: {
+    label: 'Ver organización',
+    description: 'Consultar empresa y parámetros administrativos del negocio.',
+    group: 'Panel Admin'
+  },
+  view_admin_system: {
+    label: 'Ver sistema',
+    description: 'Abrir acciones globales sensibles como bloqueo de patio.',
+    group: 'Panel Admin'
+  },
+  view_admin_programmer: {
+    label: 'Ver acceso Programador',
+    description: 'Mostrar el acceso hacia la consola técnica desde Panel Admin.',
+    group: 'Panel Admin'
+  },
   manage_users: {
     label: 'Gestionar usuarios',
     description: 'Crear, editar o eliminar cuentas del sistema.',
@@ -671,6 +716,9 @@ const BASE_ROLE_META = Object.freeze({
     needsPlaza: true,
     multiPlaza: true,
     permissions: {
+      view_admin_panel: true,
+      view_admin_requests: true,
+      process_access_requests: true,
       view_admin_cuadre: true,
       edit_admin_cuadre: true,
       insert_external_units: true,
@@ -1271,16 +1319,68 @@ function canViewExactLocationLogs() { return hasPermission('view_exact_location_
 function canLockMap() { return hasPermission('lock_map') || _roleMeta().fullAccess; }
 function canInsertExternalUnits() { return hasPermission('insert_external_units') || _roleMeta().level >= (_roleMeta('GERENTE_PLAZA').level || 25); }
 function hasFullAccess() { return hasPermission('platform_full_access') || _roleMeta().fullAccess; }
-function canOpenAdminPanel() {
-  return canManageUsers()
-    || canProcessAccessRequests()
-    || hasPermission('manage_roles_permissions')
+function canViewAdminUsers() { return hasPermission('view_admin_users') || canManageUsers(); }
+function canViewAdminRoles() { return hasPermission('view_admin_roles') || hasPermission('manage_roles_permissions') || canManageUsers(); }
+function canViewAdminRequests() { return hasPermission('view_admin_requests') || canProcessAccessRequests() || canManageUsers() || canUseProgrammerConfig(); }
+function canViewAdminOperationCatalogs() {
+  return hasPermission('view_admin_operation_catalogs')
     || hasPermission('manage_system_settings')
     || canUseProgrammerConfig();
 }
+function canViewAdminStructure() {
+  return hasPermission('view_admin_structure')
+    || hasPermission('manage_system_settings')
+    || canUseProgrammerConfig();
+}
+function canViewAdminOrganization() {
+  return hasPermission('view_admin_organization')
+    || hasPermission('manage_system_settings')
+    || canUseProgrammerConfig();
+}
+function canViewAdminSystem() {
+  return hasPermission('view_admin_system')
+    || canLockMap()
+    || hasPermission('manage_system_settings')
+    || canUseProgrammerConfig();
+}
+function canViewAdminProgrammer() { return hasPermission('view_admin_programmer') || canUseProgrammerConfig(); }
+function _cfgCanAccessTab(tabName = '') {
+  const normalized = String(tabName || '').trim().toLowerCase();
+  if (normalized === 'usuarios') return canViewAdminUsers();
+  if (normalized === 'roles') return canViewAdminRoles();
+  if (normalized === 'solicitudes') return canViewAdminRequests();
+  if (['estados', 'categorias', 'modelos', 'gasolinas'].includes(normalized)) return canViewAdminOperationCatalogs();
+  if (['plazas', 'ubicaciones'].includes(normalized)) return canViewAdminStructure();
+  if (normalized === 'empresa') return canViewAdminOrganization();
+  if (normalized === 'programador') return canViewAdminProgrammer();
+  return false;
+}
+function _cfgVisibleAdminTabs() {
+  return ['usuarios', 'roles', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'plazas', 'ubicaciones', 'empresa', 'programador']
+    .filter(tabName => _cfgCanAccessTab(tabName));
+}
+function _cfgResolveAllowedTab(preferred = 'usuarios') {
+  const normalized = String(preferred || 'usuarios').trim().toLowerCase() || 'usuarios';
+  const visibleTabs = _cfgVisibleAdminTabs();
+  if (visibleTabs.includes(normalized)) return normalized;
+  return visibleTabs[0] || '';
+}
+function _cfgRefreshSidebarSections() {
+  document.querySelectorAll('#cfg-admin-sidebar .cfg-nav-group').forEach(section => {
+    const buttons = Array.from(section.querySelectorAll('.cfg-nav-group-body .cfg-tab'));
+    const hasVisibleButton = buttons.some(btn => getComputedStyle(btn).display !== 'none');
+    section.style.display = hasVisibleButton ? '' : 'none';
+  });
+}
+function canOpenAdminPanel() {
+  const visibleTabs = _cfgVisibleAdminTabs();
+  const panelOverride = _permissionOverrides()?.view_admin_panel;
+  if (panelOverride === false) return false;
+  return visibleTabs.length > 0;
+}
 
 function abrirPanelAdministracion() {
-  abrirPanelConfiguracion('usuarios');
+  abrirPanelConfiguracion(_cfgResolveAllowedTab('usuarios'));
 }
 
 function _abrirProgrammerConsoleRoute() {
@@ -1462,23 +1562,28 @@ function _permissionOverridesEditorHtml(containerId, overrides = {}, disabled = 
     <div id="${containerId}" class="cfg-security-permission-groups">
       ${Object.entries(groups).map(([group, items]) => `
         <section class="cfg-security-permission-group">
-          <div class="cfg-security-permission-group-title">${escapeHtml(group)}</div>
-          ${items.map(item => {
-            const current = _normalizePermissionOverrides(overrides)[item.key];
-            return `
-              <div class="cfg-security-permission-item">
-                <div>
-                  <strong>${escapeHtml(item.label)}</strong>
-                  <small>${escapeHtml(item.description)}</small>
+          <div class="cfg-security-permission-group-head">
+            <div class="cfg-security-permission-group-title">${escapeHtml(group)}</div>
+            <span class="cfg-security-permission-group-meta">${escapeHtml(String(items.length))} reglas</span>
+          </div>
+          <div class="cfg-security-permission-grid">
+            ${items.map(item => {
+              const current = _normalizePermissionOverrides(overrides)[item.key];
+              return `
+                <div class="cfg-security-permission-item">
+                  <div class="cfg-security-permission-copy">
+                    <strong>${escapeHtml(item.label)}</strong>
+                    <small>${escapeHtml(item.description)}</small>
+                  </div>
+                  <select data-permission-key="${escapeHtml(item.key)}" ${disabledAttr}>
+                    <option value="inherit" ${current === undefined ? 'selected' : ''}>Heredar rol</option>
+                    <option value="allow" ${current === true ? 'selected' : ''}>Permitir</option>
+                    <option value="deny" ${current === false ? 'selected' : ''}>Bloquear</option>
+                  </select>
                 </div>
-                <select data-permission-key="${escapeHtml(item.key)}" ${disabledAttr}>
-                  <option value="inherit" ${current === undefined ? 'selected' : ''}>Heredar rol</option>
-                  <option value="allow" ${current === true ? 'selected' : ''}>Permitir</option>
-                  <option value="deny" ${current === false ? 'selected' : ''}>Bloquear</option>
-                </select>
-              </div>
-            `;
-          }).join('')}
+              `;
+            }).join('')}
+          </div>
         </section>
       `).join('')}
     </div>
@@ -2983,7 +3088,7 @@ function _scheduleAdminWarmup() {
   _mapaRuntime.adminWarmupScheduled = true;
   const warm = () => {
     cargarMaestra().catch(() => {});
-    if ((canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig()) && typeof actualizarBadgeSolicitudes === 'function') {
+    if (canViewAdminRequests() && typeof actualizarBadgeSolicitudes === 'function') {
       actualizarBadgeSolicitudes().catch(() => {});
     }
   };
@@ -6113,9 +6218,9 @@ function _umRenderCards() {
           <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
           <div class="um-card-info">
             <div class="um-card-head">
-              <div>
-                <div class="um-card-name">${u.nombre}</div>
-                <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
+              <div class="um-card-copy">
+                <div class="um-card-name" title="${escapeHtml(u.nombre)}">${u.nombre}</div>
+                <div class="um-card-email" title="${escapeHtml(u.email || '(usuario heredado)')}">${u.email || '(usuario heredado)'}</div>
               </div>
               <div class="um-card-badges">
                 <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
@@ -16125,14 +16230,14 @@ async function _cfgRefreshAdminHeroStats(force = false) {
   _cfgAdminStatsCache.stamp = now;
 
   const jobs = [];
-  if ((canManageUsers() || canUseProgrammerConfig()) && db?.collection) {
+  if ((canViewAdminUsers() || canUseProgrammerConfig()) && db?.collection) {
     jobs.push(
       db.collection(COL.USERS).get().then(snap => {
         _cfgAdminStatsCache.users = snap.size;
       }).catch(() => {})
     );
   }
-  if ((canProcessAccessRequests() || canUseProgrammerConfig() || canManageUsers()) && db?.collection) {
+  if (canViewAdminRequests() && db?.collection) {
     jobs.push(
       _obtenerSolicitudesPorEstado('PENDIENTE').then(solicitudes => {
         _cfgAdminStatsCache.pending = solicitudes.length;
@@ -16151,14 +16256,17 @@ function _cfgRefreshQuickTools() {
 
   const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
   const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(TAB_ACTIVA_CFG);
+  const canPublishCurrentTab = TAB_ACTIVA_CFG === 'roles'
+    ? (hasPermission('manage_roles_permissions') || canUseProgrammerConfig())
+    : canManageAdvancedConfig;
   const matrix = {
     'new-user': canManageUsers(),
     'new-role': hasPermission('manage_roles_permissions') || canManageUsers(),
     'new-plaza': canManageAdvancedConfig,
-    'new-item': isCatalogTab,
+    'new-item': isCatalogTab && canManageAdvancedConfig,
     'go-map': true,
     'open-programmer': canUseProgrammerConfig(),
-    'publish': true
+    'publish': canPublishCurrentTab
   };
 
   tools.querySelectorAll('.cfg-v2-tool-btn[data-tool]').forEach(btn => {
@@ -16169,7 +16277,8 @@ function _cfgRefreshQuickTools() {
     if (key === 'new-user') btn.style.display = canManageUsers() ? '' : 'none';
     if (key === 'new-role') btn.style.display = (hasPermission('manage_roles_permissions') || canManageUsers()) ? '' : 'none';
     if (key === 'new-plaza') btn.style.display = canManageAdvancedConfig ? '' : 'none';
-    if (key === 'new-item') btn.style.display = isCatalogTab ? '' : 'none';
+    if (key === 'new-item') btn.style.display = (isCatalogTab && canManageAdvancedConfig) ? '' : 'none';
+    if (key === 'publish') btn.style.display = canPublishCurrentTab ? '' : 'none';
   });
 
   const lockBtn = document.getElementById('cfg-action-bloqueo-patio');
@@ -16536,6 +16645,8 @@ function _cfgRenderRolesTab(container) {
   const selectedRole = _cfgSecuritySelectedRole;
   const selectedMeta = _roleMeta(selectedRole);
   const selectedTemplate = _cfgRoleTemplate(selectedRole);
+  const canEditRoles = hasPermission('manage_roles_permissions') || canManageUsers() || canUseProgrammerConfig();
+  const disabledAttr = canEditRoles ? '' : 'disabled';
   const permissionEntries = _permissionEntries();
   const permissionGroups = permissionEntries.reduce((acc, item) => {
     acc[item.group] = acc[item.group] || [];
@@ -16558,7 +16669,7 @@ function _cfgRenderRolesTab(container) {
             <strong>Roles activos</strong>
             <small>${ROLE_OPTIONS.length} perfiles configurados</small>
           </div>
-          <button type="button" class="cfg-security-mini-btn" onclick="_cfgCrearRolDesdePanel()">
+          <button type="button" class="cfg-security-mini-btn" onclick="_cfgCrearRolDesdePanel()" ${disabledAttr} style="${canEditRoles ? '' : 'display:none;'}">
             <span class="material-icons">add</span> Nuevo rol
           </button>
         </div>
@@ -16586,11 +16697,11 @@ function _cfgRenderRolesTab(container) {
             <small>${escapeHtml(selectedRole)} · ${isSystem ? 'Rol base del sistema' : 'Rol personalizado'}</small>
           </div>
           <div class="cfg-security-head-actions">
-            ${isSystem ? '' : `
+            ${(!isSystem && canEditRoles) ? `
               <button type="button" class="cfg-security-mini-btn danger" onclick="_cfgEliminarRolSeleccionado()">
                 <span class="material-icons">delete</span> Eliminar
               </button>
-            `}
+            ` : ''}
           </div>
         </div>
 
@@ -16613,30 +16724,36 @@ function _cfgRenderRolesTab(container) {
           </div>
         </div>
 
+        ${canEditRoles ? '' : `
+          <div class="cfg-security-compact-note">
+            Estás viendo esta vista en modo solo lectura. Para editar roles o permisos necesitas un permiso explícito de gestión.
+          </div>
+        `}
+
         <div class="cfg-security-main-scroll">
           <div class="cfg-security-role-form">
             <label>
               <span>Nombre visible</span>
-              <input type="text" value="${escapeHtml(selectedTemplate.label || selectedMeta.label)}" onchange="_cfgActualizarRolCampo('${selectedRole}','label', this.value)">
+              <input type="text" value="${escapeHtml(selectedTemplate.label || selectedMeta.label)}" onchange="_cfgActualizarRolCampo('${selectedRole}','label', this.value)" ${disabledAttr}>
             </label>
             <label>
               <span>Nivel</span>
-              <input type="number" min="1" max="99" value="${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}" onchange="_cfgActualizarRolCampo('${selectedRole}','level', this.value)">
+              <input type="number" min="1" max="99" value="${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}" onchange="_cfgActualizarRolCampo('${selectedRole}','level', this.value)" ${disabledAttr}>
             </label>
             <label class="cfg-security-check">
-              <input type="checkbox" ${selectedMeta.isAdmin ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','isAdmin', this.checked)">
+              <input type="checkbox" ${selectedMeta.isAdmin ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','isAdmin', this.checked)" ${disabledAttr}>
               <span>Es admin</span>
             </label>
             <label class="cfg-security-check">
-              <input type="checkbox" ${selectedMeta.needsPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','needsPlaza', this.checked)">
+              <input type="checkbox" ${selectedMeta.needsPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','needsPlaza', this.checked)" ${disabledAttr}>
               <span>Requiere plaza base</span>
             </label>
             <label class="cfg-security-check">
-              <input type="checkbox" ${selectedMeta.multiPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','multiPlaza', this.checked)">
+              <input type="checkbox" ${selectedMeta.multiPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','multiPlaza', this.checked)" ${disabledAttr}>
               <span>Puede ver varias plazas</span>
             </label>
             <label class="cfg-security-check">
-              <input type="checkbox" ${selectedMeta.fullAccess ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','fullAccess', this.checked)">
+              <input type="checkbox" ${selectedMeta.fullAccess ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','fullAccess', this.checked)" ${disabledAttr}>
               <span>Acceso total</span>
             </label>
           </div>
@@ -16655,7 +16772,7 @@ function _cfgRenderRolesTab(container) {
                       <strong>${escapeHtml(item.label)}</strong>
                       <small>${escapeHtml(item.description)}</small>
                     </div>
-                    <input type="checkbox" ${selectedMeta.permissions?.[item.key] ? 'checked' : ''} ${selectedMeta.fullAccess ? 'disabled' : ''} onchange="_cfgToggleRolPermiso('${selectedRole}','${item.key}', this.checked)">
+                    <input type="checkbox" ${selectedMeta.permissions?.[item.key] ? 'checked' : ''} ${(selectedMeta.fullAccess || !canEditRoles) ? 'disabled' : ''} onchange="_cfgToggleRolPermiso('${selectedRole}','${item.key}', this.checked)">
                   </label>
                 `).join('')}
               </section>
@@ -16674,8 +16791,8 @@ function _cfgRenderRolesTab(container) {
               ${permissionEntries.map(item => `
                 <div class="cfg-security-catalog-item">
                   <div class="cfg-security-catalog-key">${escapeHtml(item.key)}</div>
-                  <input type="text" value="${escapeHtml(item.label)}" onchange="_cfgActualizarPermisoMeta('${item.key}','label', this.value)">
-                  <input type="text" value="${escapeHtml(item.description)}" onchange="_cfgActualizarPermisoMeta('${item.key}','description', this.value)">
+                  <input type="text" value="${escapeHtml(item.label)}" onchange="_cfgActualizarPermisoMeta('${item.key}','label', this.value)" ${disabledAttr}>
+                  <input type="text" value="${escapeHtml(item.description)}" onchange="_cfgActualizarPermisoMeta('${item.key}','description', this.value)" ${disabledAttr}>
                 </div>
               `).join('')}
             </div>
@@ -16849,24 +16966,34 @@ function abrirPanelConfiguracion(tabInicial) {
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }
-  // Si estamos en el mapa principal (no en /gestion ni en iframe ?admin=1), navegar a /gestion
-  if (!_isGestionAdminMode() && !_isDedicatedGestionIframeMode()) {
-    window.location.href = _buildGestionRouteUrl(tabInicial || 'usuarios');
+  const targetTab = _cfgResolveAllowedTab(tabInicial || 'usuarios');
+  if (!targetTab) {
+    showToast("No tienes vistas visibles dentro del panel administrativo.", "error");
     return;
   }
-  const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
-  ['empresa', 'plazas', 'ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].forEach(tab => {
+  // Si estamos en el mapa principal (no en /gestion ni en iframe ?admin=1), navegar a /gestion
+  if (!_isGestionAdminMode() && !_isDedicatedGestionIframeMode()) {
+    window.location.href = _buildGestionRouteUrl(targetTab);
+    return;
+  }
+  const visibilityMap = {
+    usuarios: canViewAdminUsers(),
+    roles: canViewAdminRoles(),
+    solicitudes: canViewAdminRequests(),
+    estados: canViewAdminOperationCatalogs(),
+    categorias: canViewAdminOperationCatalogs(),
+    modelos: canViewAdminOperationCatalogs(),
+    gasolinas: canViewAdminOperationCatalogs(),
+    plazas: canViewAdminStructure(),
+    ubicaciones: canViewAdminStructure(),
+    empresa: canViewAdminOrganization(),
+    programador: canViewAdminProgrammer()
+  };
+  Object.entries(visibilityMap).forEach(([tab, visible]) => {
     const button = document.getElementById(`cfg-tab-${tab}`) || document.querySelector(`.cfg-tab[onclick*="'${tab}'"]`);
-    if (button) button.style.display = canManageAdvancedConfig ? 'inline-flex' : 'none';
+    if (button) button.style.display = visible ? 'inline-flex' : 'none';
   });
-  const tabUsuarios = document.getElementById('cfg-tab-usuarios') || document.querySelector(`.cfg-tab[onclick*="'usuarios'"]`);
-  if (tabUsuarios) tabUsuarios.style.display = 'inline-flex';
-  const tabProg = document.getElementById('cfg-tab-programador');
-  if (tabProg) tabProg.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
-  const tabRoles = document.getElementById('cfg-tab-roles') || document.querySelector(`.cfg-tab[onclick*="'roles'"]`);
-  if (tabRoles) tabRoles.style.display = hasPermission('manage_roles_permissions') || canManageUsers() ? 'inline-flex' : 'none';
-  const tabSolicitudes = document.getElementById('cfg-tab-solicitudes') || document.querySelector(`.cfg-tab[onclick*="'solicitudes'"]`);
-  if (tabSolicitudes) tabSolicitudes.style.display = canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig() ? 'inline-flex' : 'none';
+  _cfgRefreshSidebarSections();
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar(false);
   _applyGestionAdminChrome();
   const _cfgModal = document.getElementById('modal-config-global');
@@ -16880,7 +17007,6 @@ function abrirPanelConfiguracion(tabInicial) {
     const cs = getComputedStyle(_cfgModal);
     console.log('[DEBUG] modal-config-global rect (after paint):', JSON.stringify({ top: r.top, left: r.left, width: r.width, height: r.height }), 'z-index:', cs.zIndex, 'visibility:', cs.visibility, 'opacity:', cs.opacity, 'bg:', cs.backgroundColor);
   });
-  const targetTab = tabInicial || 'usuarios';
   _cfgApplySidebarPinState();
   _captureAdminExactLocation({ force: false }).catch(() => {});
   _cfgRefreshSearchPlaceholder();
@@ -16889,8 +17015,10 @@ function abrirPanelConfiguracion(tabInicial) {
   _cfgRefreshAdminHeroStats(true).catch(() => {});
   const targetButton = document.getElementById(`cfg-tab-${targetTab}`) || document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
   if (targetTab) {
+    const fallbackTab = _cfgResolveAllowedTab(targetTab);
+    const fallbackButton = _cfgResolveTabButton(fallbackTab);
     if (targetButton && targetButton.style.display !== 'none') abrirTabConfig(targetTab, targetButton);
-    else if (tabUsuarios) abrirTabConfig('usuarios', tabUsuarios);
+    else if (fallbackTab && fallbackButton) abrirTabConfig(fallbackTab, fallbackButton);
     else renderizarListaConfig();
   } else {
     renderizarListaConfig();
@@ -16898,12 +17026,17 @@ function abrirPanelConfiguracion(tabInicial) {
 }
 
 function abrirTabConfig(tabName, btnElement) {
-  if (tabName === 'programador') {
+  const normalizedTab = _cfgResolveAllowedTab(tabName);
+  if (!normalizedTab) {
+    showToast("No tienes acceso a esa vista administrativa.", "error");
+    return;
+  }
+  if (normalizedTab === 'programador') {
     _abrirProgrammerConsoleRoute();
     return;
   }
   if (_isGestionAdminMode() && !_isDedicatedGestionIframeMode()) {
-    _syncInlineAdminRoute(tabName);
+    _syncInlineAdminRoute(normalizedTab);
   }
   // Si estábamos en el tab de usuarios, desuscribir el listener
   if (TAB_ACTIVA_CFG === 'usuarios' && _unsubUsuarios) {
@@ -16912,12 +17045,12 @@ function abrirTabConfig(tabName, btnElement) {
   }
 
   if (!btnElement) {
-    btnElement = document.getElementById(`cfg-tab-${tabName}`) || document.querySelector(`.cfg-tab[onclick*="'${tabName}'"]`);
+    btnElement = document.getElementById(`cfg-tab-${normalizedTab}`) || document.querySelector(`.cfg-tab[onclick*="'${normalizedTab}'"]`);
   }
   document.querySelectorAll('.cfg-tab').forEach(btn => btn.classList.remove('active'));
   btnElement?.classList.add('active');
   const previousTab = TAB_ACTIVA_CFG;
-  TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
+  TAB_ACTIVA_CFG = normalizedTab.replace('cfg-', '');
   if (previousTab !== TAB_ACTIVA_CFG) _cfgCatalogSelectedIndex = null;
 
   const searchBox = document.querySelector('.cfg-v2-add-bar');
@@ -17403,7 +17536,7 @@ function renderizarListaConfig() {
   }
 
   if (TAB_ACTIVA_CFG === 'roles') {
-    if (!hasPermission('manage_roles_permissions') && !canManageUsers()) {
+    if (!canViewAdminRoles()) {
       container.innerHTML = '<div style="padding:28px; text-align:center; color:#ef4444; font-weight:800;">Sin permiso para editar roles o permisos.</div>';
       return;
     }
@@ -18055,7 +18188,7 @@ function renderizarTabConfigUsuarios(container) {
                   <p>Todo el cambio importante vive aquí: identidad, rol, plaza y permisos puntuales.</p>
                 </div>
                 <div class="um-column-actions">
-                  <button id="btn-nuevo-usuario" type="button" class="um-toolbar-btn primary" onclick="_umNuevoUsuarioConAnim()">
+                  <button id="btn-nuevo-usuario" type="button" class="um-toolbar-btn primary" onclick="_umNuevoUsuarioConAnim()" ${canManageUsers() ? '' : 'style="display:none;"'}>
                     <span class="material-icons">person_add</span>
                     Nuevo usuario
                   </button>
@@ -18214,6 +18347,15 @@ function _umNuevoUsuarioConAnim() {
 
 // ─── LÓGICA DE SOLICITUDES EN CONFIGURACIÓN ──────────────────────
 function renderizarTabConfigSolicitudes(container) {
+  if (!canViewAdminRequests()) {
+    container.innerHTML = '<div style="padding:28px; text-align:center; color:#ef4444; font-weight:800;">Sin permiso para abrir solicitudes.</div>';
+    return;
+  }
+  const readOnlyNotice = canProcessAccessRequests()
+    ? ''
+    : `<div style="padding:12px 15px;border-bottom:1px solid #e2e8f0;background:#eff6ff;color:#1d4ed8;font-size:11px;font-weight:800;line-height:1.5;">
+         Vista en solo lectura. Puedes revisar solicitudes, pero no aprobar ni rechazar sin un permiso explícito de procesamiento.
+       </div>`;
   container.innerHTML = `
          <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; display:flex; flex-direction:column; height: 100%; min-height: 60vh; margin: 0 10px;">
             <div style="display:flex; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
@@ -18221,6 +18363,7 @@ function renderizarTabConfigSolicitudes(container) {
                <button id="tab-sol-APROBADO" class="sol-tab" onclick="cambiarTabSolicitudes('APROBADO')" style="flex:1; padding:12px; font-weight:800; font-size:12px; color:#64748b; border:none; background:transparent; border-bottom:2px solid transparent; cursor:pointer;">APROBADAS</button>
                <button id="tab-sol-RECHAZADO" class="sol-tab" onclick="cambiarTabSolicitudes('RECHAZADO')" style="flex:1; padding:12px; font-weight:800; font-size:12px; color:#64748b; border:none; background:transparent; border-bottom:2px solid transparent; cursor:pointer;">RECHAZADAS</button>
             </div>
+            ${readOnlyNotice}
             <div style="padding:15px; border-bottom:1px solid #e2e8f0;">
                <div style="position:relative; width:100%;">
                   <span class="material-icons" style="position:absolute; left:12px; top:10px; color:#94a3b8; font-size:18px;">search</span>
@@ -19108,7 +19251,7 @@ function cambiarTabSolicitudes(estado) {
 }
 
 async function cargarSolicitudesDeTab(estado) {
-  if (!canProcessAccessRequests()) return;
+  if (!canViewAdminRequests()) return;
   const contenedor = document.getElementById('contenedor-solicitudes-v2');
   if (!contenedor) return;
   contenedor.innerHTML = `<div style="text-align:center; padding: 30px;"><span class="material-icons spinner" style="font-size:30px; color:var(--mex-blue);">sync</span></div>`;
@@ -19149,6 +19292,7 @@ function filtrarSolicitudesActuales() {
   const query = (document.getElementById('busqueda-solicitudes')?.value || "").toUpperCase().trim();
   const contenedor = document.getElementById('contenedor-solicitudes-v2');
   if (!contenedor) return;
+  const canProcess = canProcessAccessRequests();
 
   const dataList = window._objSolicitudesMemoria.filter(data => {
     if (!query) return true;
@@ -19166,7 +19310,7 @@ function filtrarSolicitudesActuales() {
     const requestedRole = _resolveStoredRoleForEmail(data.email, _sanitizeRole(data.rolSolicitado) || _inferRequestedAccessRole(data.puesto, data.email));
     const roleLabel = ROLE_META[requestedRole] ? ROLE_META[requestedRole].label : requestedRole;
     let actionBtns = "";
-    if (window._filtroSolicitudesEstatus === 'PENDIENTE') {
+    if (window._filtroSolicitudesEstatus === 'PENDIENTE' && canProcess) {
       actionBtns = `
               <button onclick="procesarSolicitud('${data.id}', false, '${data.__collection || ACCESS_REQUEST_PRIMARY_COLLECTION}')" style="background: #fee2e2; color: #ef4444; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
                 <span class="material-icons" style="font-size: 14px;">close</span> RECHAZAR
@@ -19175,7 +19319,7 @@ function filtrarSolicitudesActuales() {
                 <span class="material-icons" style="font-size: 14px;">check</span> APROBAR
               </button>
             `;
-    } else if (window._filtroSolicitudesEstatus === 'RECHAZADO') {
+    } else if (window._filtroSolicitudesEstatus === 'RECHAZADO' && canProcess) {
       const motivoEsc = escapeHtml(data.motivo_rechazo || 'Sin motivo registrado');
       const porEsc = escapeHtml(data.rechazadoPor || 'Desconocido');
       actionBtns = `
@@ -19185,6 +19329,12 @@ function filtrarSolicitudesActuales() {
               <button onclick="procesarSolicitud('${data.id}', true, '${data.__collection || ACCESS_REQUEST_PRIMARY_COLLECTION}')" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
                 <span class="material-icons" style="font-size: 14px;">refresh</span> RE-APROBAR
               </button>
+            `;
+    } else if (!canProcess) {
+      actionBtns = `
+              <span style="display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;background:#eff6ff;color:#1d4ed8;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;border:1px solid #bfdbfe;">
+                Solo lectura
+              </span>
             `;
     }
 
@@ -19555,7 +19705,7 @@ async function _obtenerSolicitudDoc(docId, collectionHint = '') {
 }
 
 function abrirModalSolicitudes() {
-  if (!canProcessAccessRequests()) {
+  if (!canViewAdminRequests()) {
     showToast("Solo los roles superiores pueden revisar solicitudes.", "error");
     return;
   }
@@ -19564,7 +19714,7 @@ function abrirModalSolicitudes() {
 
 // Mantener solo la actualización del badge del sidebar en tiempo de carga
 async function cargarSolicitudesPendientes() {
-  if (!canProcessAccessRequests()) return;
+  if (!canViewAdminRequests()) return;
   try {
     const solicitudes = await _obtenerSolicitudesPorEstado('PENDIENTE');
     const badge = document.getElementById('badge-solicitudes');

@@ -232,11 +232,6 @@
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
 
-        <button id="btnMiPerfil" onclick="window.location.href='/profile'" class="sb-btn sb-btn-dark">
-          <div><span class="material-icons" style="color:#93c5fd;">account_circle</span> MI PERFIL</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-
         <div class="sb-divider"></div>
 
         <div class="admin-nav-group">
@@ -263,9 +258,14 @@
             <div id="adminSidebarUserName" class="admin-user-name">SIN SESIÓN</div>
             <div id="adminSidebarUserMeta" class="admin-user-meta">Esperando autenticación</div>
           </div>
-          <div class="admin-user-monitor">
-            <span class="admin-status-pip"></span>
-            <span>Activo</span>
+          <div class="admin-user-actions">
+            <button id="btnAdminSidebarProfile" type="button" class="admin-user-settings" onclick="window.location.href='/profile'" title="Abrir mi perfil">
+              <span class="material-icons">settings</span>
+            </button>
+            <div class="admin-user-monitor">
+              <span class="admin-status-pip"></span>
+              <span>Activo</span>
+            </div>
           </div>
         </div>
 
