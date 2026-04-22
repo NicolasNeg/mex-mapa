@@ -1,4 +1,5 @@
-import { auth, db, ACCESS_ROLE_META } from '/js/core/database.js';
+import { auth, db, ACCESS_ROLE_META, COL } from '/js/core/database.js';
+import { normalizarUnidad } from '/domain/unidad.model.js';
 
 const CHECKLIST_META = [
   { key: 'lavado', label: 'Lavado', hint: 'Interior y exterior listos para entrega', icon: 'cleaning_services' },
@@ -53,6 +54,14 @@ function unique(values = []) {
 
 function roleMeta(role = '') {
   return ACCESS_ROLE_META[upper(role)] || {};
+}
+
+function inferRole(data = {}) {
+  const explicit = upper(data.rol || data.role);
+  if (explicit) return explicit;
+  if (data.isGlobal === true) return 'CORPORATIVO_USER';
+  if (data.isAdmin === true) return 'VENTAS';
+  return 'AUXILIAR';
 }
 
 function getConfigPlazas() {
@@ -132,7 +141,7 @@ function normalizeItem(doc) {
 
 function normalizeProfile(user, data = {}) {
   const email = lower(data.email || user?.email);
-  const role = upper(data.rol || data.role || '');
+  const role = inferRole(data || {});
   return {
     email,
     nombre: safe(data.nombre || data.usuario || user?.displayName || email || 'USUARIO'),
@@ -141,6 +150,17 @@ function normalizeProfile(user, data = {}) {
     plazasPermitidas: unique(data.plazasPermitidas || []),
     isAdmin: data.isAdmin === true || roleMeta(role).isAdmin === true,
     isGlobal: data.isGlobal === true || roleMeta(role).isGlobal === true
+  };
+}
+
+function normalizeQueueUnit(raw = {}, source = '') {
+  const unit = normalizarUnidad({
+    id: raw.id || raw.mva,
+    ...raw
+  });
+  return {
+    ...unit,
+    origen: source === COL.EXTERNOS ? 'EXTERNO' : 'PATIO'
   };
 }
 
@@ -232,12 +252,13 @@ function compareItems(a, b) {
   return a.mva.localeCompare(b.mva, 'es', { sensitivity: 'base' });
 }
 
-function queueRef(plaza = state.plaza) {
-  return db.collection('cola_preparacion').doc(upper(plaza)).collection('items');
+function updateSummaryValue(id, value, fallback = 'Sin dato') {
+  const node = document.getElementById(id);
+  if (node) node.textContent = safe(value) || fallback;
 }
 
-function unitsRef(plaza = state.plaza) {
-  return db.collection('plazas').doc(upper(plaza)).collection('unidades');
+function queueRef(plaza = state.plaza) {
+  return db.collection('cola_preparacion').doc(upper(plaza)).collection('items');
 }
 
 function renderUser() {
@@ -408,6 +429,9 @@ function renderDetail() {
   const form = document.getElementById('prepDetailForm');
   const deleteBtn = document.getElementById('prepDeleteBtn');
   const resetDeleteBtn = document.getElementById('prepResetDeleteBtn');
+  const assignBtn = document.getElementById('prepAssignMeBtn');
+  const completeBtn = document.getElementById('prepCompleteChecklistBtn');
+  const copyBtn = document.getElementById('prepCopyMvaBtn');
 
   if (!item) {
     if (empty) empty.style.display = 'flex';
@@ -417,6 +441,13 @@ function renderDetail() {
       deleteBtn.innerHTML = '<span class="material-icons" style="font-size:18px;">delete</span> Eliminar';
     }
     if (resetDeleteBtn) resetDeleteBtn.style.display = 'none';
+    if (assignBtn) assignBtn.disabled = true;
+    if (completeBtn) completeBtn.disabled = true;
+    if (copyBtn) copyBtn.disabled = true;
+    updateSummaryValue('prepSummaryModelo', '');
+    updateSummaryValue('prepSummaryCategoria', '');
+    updateSummaryValue('prepSummaryUbicacion', '');
+    updateSummaryValue('prepSummaryOrigen', '');
     return;
   }
 
@@ -426,6 +457,9 @@ function renderDetail() {
 
   if (empty) empty.style.display = 'none';
   if (form) form.style.display = 'flex';
+  if (assignBtn) assignBtn.disabled = false;
+  if (completeBtn) completeBtn.disabled = false;
+  if (copyBtn) copyBtn.disabled = false;
   document.getElementById('prepDetailTitle').textContent = item.mva;
   document.getElementById('prepDetailMva').textContent = item.mva;
   document.getElementById('prepDetailUnitMeta').textContent = [
@@ -439,6 +473,10 @@ function renderDetail() {
   document.getElementById('prepDepartureInput').value = toDatetimeLocal(item.fechaSalida);
   document.getElementById('prepAssignedInput').value = item.asignado || '';
   document.getElementById('prepNotesInput').value = item.notas || '';
+  updateSummaryValue('prepSummaryModelo', unit.modelo || '');
+  updateSummaryValue('prepSummaryCategoria', unit.categoria || '');
+  updateSummaryValue('prepSummaryUbicacion', unit.ubicacion || '');
+  updateSummaryValue('prepSummaryOrigen', unit.origen || (unit.mva ? 'PATIO' : 'Sin expediente'));
 
   if (deleteBtn) {
     deleteBtn.disabled = false;
@@ -505,13 +543,21 @@ function fromDatetimeLocal(value) {
 
 async function fetchUserProfile(user) {
   const email = lower(user?.email);
-  if (!email) return normalizeProfile(user, {});
+  const uid = safe(user?.uid);
+  if (!email && !uid) return normalizeProfile(user, {});
 
-  const direct = await db.collection('usuarios').doc(email).get();
-  if (direct.exists) return normalizeProfile(user, direct.data());
+  if (email) {
+    const direct = await db.collection('usuarios').doc(email).get();
+    if (direct.exists) return normalizeProfile(user, direct.data());
 
-  const query = await db.collection('usuarios').where('email', '==', email).limit(1).get();
-  if (!query.empty) return normalizeProfile(user, query.docs[0].data());
+    const query = await db.collection('usuarios').where('email', '==', email).limit(1).get();
+    if (!query.empty) return normalizeProfile(user, query.docs[0].data());
+  }
+
+  if (uid) {
+    const byUid = await db.collection('usuarios').doc(uid).get();
+    if (byUid.exists) return normalizeProfile(user, byUid.data());
+  }
 
   return normalizeProfile(user, {});
 }
@@ -523,16 +569,23 @@ async function loadPlazaUsers() {
     return;
   }
   try {
-    const snap = await db.collection('usuarios').where('plazaAsignada', '==', state.plaza).limit(100).get();
-    state.plazaUsers = snap.docs.map(doc => {
+    const [byPlaza, byExtraPlaza] = await Promise.all([
+      db.collection('usuarios').where('plazaAsignada', '==', state.plaza).limit(120).get(),
+      db.collection('usuarios').where('plazasPermitidas', 'array-contains', state.plaza).limit(120).get().catch(() => ({ docs: [] }))
+    ]);
+    const merged = new Map();
+    [...byPlaza.docs, ...(byExtraPlaza.docs || [])].forEach(doc => {
       const data = doc.data() || {};
       const email = lower(data.email || doc.id);
       const name = safe(data.nombre || data.usuario);
-      return {
+      const key = email || name || doc.id;
+      if (!key) return;
+      merged.set(key, {
         value: email || name,
         label: [name, email].filter(Boolean).join(' · ')
-      };
-    }).filter(item => safe(item.value));
+      });
+    });
+    state.plazaUsers = Array.from(merged.values()).filter(item => safe(item.value));
   } catch (error) {
     console.warn('[cola-preparacion] plaza users', error);
     state.plazaUsers = [];
@@ -547,30 +600,32 @@ async function hydrateUnits(items = state.items) {
     return;
   }
 
-  const ref = unitsRef();
   const next = new Map();
 
   for (let index = 0; index < mvas.length; index += 10) {
     const chunk = mvas.slice(index, index + 10);
     try {
-      const snap = await ref.where('mva', 'in', chunk).get();
-      snap.forEach(doc => {
+      const [cuadreSnap, externosSnap] = await Promise.all([
+        db.collection(COL.CUADRE).where('plaza', '==', state.plaza).where('mva', 'in', chunk).get(),
+        db.collection(COL.EXTERNOS).where('plaza', '==', state.plaza).where('mva', 'in', chunk).get()
+      ]);
+
+      cuadreSnap.forEach(doc => {
         const data = doc.data() || {};
-        const key = upper(data.mva || doc.id);
-        next.set(key, { id: doc.id, ...data });
+        const unit = normalizeQueueUnit({ id: doc.id, ...data }, COL.CUADRE);
+        if (unit.mva) next.set(unit.mva, unit);
+      });
+
+      externosSnap.forEach(doc => {
+        const data = doc.data() || {};
+        const unit = normalizeQueueUnit({ id: doc.id, ...data }, COL.EXTERNOS);
+        if (!unit.mva || next.has(unit.mva)) return;
+        next.set(unit.mva, unit);
       });
     } catch (error) {
       console.warn('[cola-preparacion] chunk query', error);
     }
   }
-
-  const unresolved = mvas.filter(mva => !next.has(mva));
-  await Promise.all(unresolved.map(async mva => {
-    try {
-      const doc = await ref.doc(mva).get();
-      if (doc.exists) next.set(mva, { id: doc.id, ...doc.data() });
-    } catch (_) {}
-  }));
 
   state.unitsByMva = next;
 }
@@ -583,6 +638,7 @@ function applySelectedPlaza(plaza = '') {
   state.deleteArmedId = '';
   writeGlobalPlaza(normalized);
   writeQueryPlaza(normalized);
+  Promise.resolve(window.__mexEnsureConfigLoaded?.(normalized)).catch(() => null);
   renderAll();
   subscribeQueue();
   loadPlazaUsers();
@@ -620,6 +676,46 @@ async function subscribeQueue() {
 async function patchItem(id, patch, notify = true) {
   await queueRef().doc(id).set(patch, { merge: true });
   if (notify) showToast('Item actualizado.', 'success');
+}
+
+async function assignSelectedToMe() {
+  if (!state.selectedId) return;
+  const assignee = lower(state.profile?.email || '') || safe(state.profile?.nombre);
+  if (!assignee) {
+    showToast('No encontramos tu identidad operativa para asignarte la unidad.', 'warning');
+    return;
+  }
+  await patchItem(state.selectedId, {
+    asignado: assignee,
+    actualizadoAt: firebase.firestore.FieldValue.serverTimestamp(),
+    actualizadoPor: state.profile?.email || ''
+  });
+}
+
+async function completeSelectedChecklist() {
+  if (!state.selectedId) return;
+  const checklist = CHECKLIST_META.reduce((acc, meta) => {
+    acc[meta.key] = true;
+    return acc;
+  }, {});
+  await patchItem(state.selectedId, {
+    checklist,
+    actualizadoAt: firebase.firestore.FieldValue.serverTimestamp(),
+    actualizadoPor: state.profile?.email || ''
+  });
+}
+
+async function copySelectedMva() {
+  const item = state.items.find(entry => entry.id === state.selectedId);
+  if (!item?.mva) return;
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(item.mva);
+      showToast(`MVA ${item.mva} copiado.`, 'success');
+      return;
+    }
+  } catch (_) {}
+  showToast(`Copia manualmente el MVA ${item.mva}.`, 'warning');
 }
 
 async function deleteItem(id) {
@@ -692,6 +788,10 @@ function bindEvents() {
     }
     await deleteItem(state.selectedId);
   });
+
+  document.getElementById('prepAssignMeBtn')?.addEventListener('click', () => assignSelectedToMe());
+  document.getElementById('prepCompleteChecklistBtn')?.addEventListener('click', () => completeSelectedChecklist());
+  document.getElementById('prepCopyMvaBtn')?.addEventListener('click', () => copySelectedMva());
 
   document.getElementById('prepResetDeleteBtn')?.addEventListener('click', () => {
     state.deleteArmedId = '';
@@ -803,6 +903,7 @@ async function boot() {
       ]);
       state.plaza = preferred.find(plaza => !options.length || options.includes(plaza)) || '';
       if (state.plaza) {
+        await Promise.resolve(window.__mexEnsureConfigLoaded?.(state.plaza)).catch(() => null);
         writeGlobalPlaza(state.plaza);
         writeQueryPlaza(state.plaza);
       }

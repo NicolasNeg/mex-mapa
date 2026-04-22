@@ -9,6 +9,7 @@
     _normalizeUserRoleData, _guardarPerfilUsuarioPorEmail,
     _registrarEventoGestion, _now, _ts
   } = window._mex;
+  const functions = window._functions || (typeof firebase?.functions === 'function' ? firebase.app().functions('us-central1') : null);
 
   window._mexParts = window._mexParts || {};
   window._mexParts.users = {
@@ -96,6 +97,15 @@
       const snap = await db.collection(COL.USERS).where("nombre", "==", nombre.trim().toUpperCase()).limit(1).get();
       if (snap.empty) return false;
       return _normalizeUserRoleData(snap.docs[0].data()).isAdmin === true;
+    },
+
+    async procesarSolicitudAcceso(payload = {}) {
+      if (!functions || typeof functions.httpsCallable !== 'function') {
+        throw new Error('Firebase Functions no está disponible en esta ruta.');
+      }
+      const callable = functions.httpsCallable('procesarSolicitudAcceso');
+      const response = await callable(payload || {});
+      return response?.data || response;
     },
 
   };

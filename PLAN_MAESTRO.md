@@ -83,6 +83,23 @@
     ~ js/views/profile.js          — usa plaza global compartida
     ~ js/views/programador.js      — usa plaza global compartida
   Objetivo: eliminar el `permission-denied` en /solicitud, evitar que la navegación
+
+[2026-04-21] CODEX — ✅ SOLICITUDES backend + cola-preparacion operativa
+  Archivos modificados:
+    ~ functions/index.js           — callable `procesarSolicitudAcceso` para aprobar/rechazar en backend
+    ~ api/users.js                 — puente `window.api.procesarSolicitudAcceso()`
+    ~ js/views/mapa.js             — panel de aprobación con rol/plaza y delegación a Cloud Functions
+    ~ solicitud.html               — selector de plaza desde config activa
+    ~ login.html                   — selector de plaza en modal de solicitud
+    ~ js/views/login.js            — valida plaza permitida al enviar solicitud
+    ~ cola-preparacion.html        — acciones rápidas y resumen de unidad
+    ~ css/cola-preparacion.css     — estilos de quick actions y tarjetas de detalle
+    ~ js/views/cola-preparacion.js — perfil por email/UID, config por plaza, usuarios de plaza y unidades desde `cuadre/externos`
+    ~ mapa.html                    — acceso directo a `/cola-preparacion`
+    ~ cuadre.html                  — botón visible de cola de preparación
+    ~ js/views/cuadre.js           — navega a `/cola-preparacion` conservando plaza activa
+  Objetivo: quitar el `permission-denied` al aceptar solicitudes, permitir que el solicitante
+    escoja plaza válida desde el origen y dejar la cola leyendo datos reales del patio.
     regrese a BJX por default y dejar base funcional para /cola-preparacion.
 
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:

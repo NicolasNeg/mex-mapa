@@ -12,6 +12,41 @@
 
 import { auth, db, COL } from '/js/core/database.js';
 
+function upper(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function unique(values = []) {
+  return Array.from(new Set((values || []).map(upper).filter(Boolean)));
+}
+
+function requestPlazas() {
+  const empresa = window.MEX_CONFIG?.empresa || {};
+  const direct = Array.isArray(empresa.plazas) ? empresa.plazas : [];
+  const detailed = Array.isArray(empresa.plazasDetalle)
+    ? empresa.plazasDetalle.map(item => item?.id)
+    : [];
+  return unique([...direct, ...detailed]);
+}
+
+function populateSolicitudPlazas(selectedValue = '') {
+  const select = document.getElementById('sol_plaza');
+  if (!select) return [];
+  const plazas = requestPlazas();
+  if (!plazas.length) {
+    select.innerHTML = '<option value="">No hay plazas disponibles</option>';
+    select.disabled = true;
+    return [];
+  }
+  select.disabled = false;
+  select.innerHTML = '<option value="">Selecciona una plaza</option>' + plazas
+    .map(plaza => `<option value="${plaza}">${plaza}</option>`)
+    .join('');
+  const preferred = upper(selectedValue || window.getMexCurrentPlaza?.() || '');
+  if (preferred && plazas.includes(preferred)) select.value = preferred;
+  return plazas;
+}
+
 // ── Mostrar errores pasados desde /mapa ───────────────────
 const _pendingError = sessionStorage.getItem('login_error');
 if (_pendingError) {
@@ -116,14 +151,17 @@ window.enviarSolicitudAcceso = async function () {
   const nombre   = document.getElementById('sol_nombre').value.trim().toUpperCase();
   const email    = document.getElementById('sol_email').value.trim().toLowerCase();
   const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
+  const plaza    = upper(document.getElementById('sol_plaza')?.value);
   const telefono = document.getElementById('sol_telefono').value.trim();
   const pass     = document.getElementById('sol_pass').value.trim();
   const confirm  = document.getElementById('sol_pass_confirm').value.trim();
   const btn      = document.getElementById('btnEnviarSolicitud');
+  const plazasDisponibles = populateSolicitudPlazas(plaza);
 
-  if (!nombre || !email || !puesto || !pass) {
+  if (!nombre || !email || !puesto || !plaza || !pass) {
     alert('Completa los campos obligatorios.'); return;
   }
+  if (!plazasDisponibles.includes(plaza)) { alert('Selecciona una plaza válida.'); return; }
   if (pass !== confirm) { alert('Las contraseñas no coinciden.'); return; }
   if (pass.length < 6)  { alert('La contraseña debe tener mínimo 6 caracteres.'); return; }
 
@@ -136,7 +174,7 @@ window.enviarSolicitudAcceso = async function () {
       nombre, email, puesto, telefono,
       password: pass,
       rolSolicitado: null,
-      plazaSolicitada: null,
+      plazaSolicitada: plaza,
       fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
       estado: 'PENDIENTE',
       _ts: firebase.firestore.FieldValue.serverTimestamp()
@@ -187,7 +225,7 @@ function _hideError() {
 document.addEventListener('DOMContentLoaded', () => {
   const emailEl = document.getElementById('auth_email');
   const passEl = document.getElementById('auth_pass');
-  const requestFields = ['sol_nombre', 'sol_email', 'sol_puesto', 'sol_telefono', 'sol_pass', 'sol_pass_confirm']
+  const requestFields = ['sol_nombre', 'sol_email', 'sol_puesto', 'sol_plaza', 'sol_telefono', 'sol_pass', 'sol_pass_confirm']
     .map(id => document.getElementById(id))
     .filter(Boolean);
 
@@ -213,5 +251,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (event.key === 'Escape' && document.getElementById('modal-solicitud')?.style.display === 'flex') {
       cerrarModalSolicitud();
     }
+  });
+
+  Promise.resolve(window.__mexConfigReadyPromise).catch(() => null).finally(() => {
+    populateSolicitudPlazas();
   });
 });

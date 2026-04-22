@@ -1402,7 +1402,11 @@ function _syncRoleScope(prefix) {
 
 // Genera el <select> de plazas desde MEX_CONFIG
 function _plazaSelectHtml(id, selectedValue = '', extraAttr = '') {
-  const plazas = (window.MEX_CONFIG?.empresa?.plazas || []);
+  const direct = Array.isArray(window.MEX_CONFIG?.empresa?.plazas) ? window.MEX_CONFIG.empresa.plazas : [];
+  const detailed = Array.isArray(window.MEX_CONFIG?.empresa?.plazasDetalle)
+    ? window.MEX_CONFIG.empresa.plazasDetalle.map(item => _normalizePlaza(item?.id))
+    : [];
+  const plazas = [...new Set([...direct, ...detailed].map(_normalizePlaza).filter(Boolean))];
   const opts = plazas.map(p =>
     `<option value="${escapeHtml(p)}" ${p === selectedValue ? 'selected' : ''}>${escapeHtml(p)}</option>`
   ).join('');
@@ -18988,6 +18992,139 @@ async function cargarSolicitudesPendientes() {
   } catch (e) { console.warn('cargarSolicitudesPendientes badge error', e); }
 }
 
+function _solicitudApprovalFormHtml(data = {}) {
+  const requestedRole = _sanitizeRole(data.requestedRole || data.rolSolicitado) || 'AUXILIAR';
+  const requestedRoleLabel = ROLE_META[requestedRole]?.label || requestedRole;
+  const requestedPlaza = _normalizePlaza(data.requestedPlaza || data.plazaSolicitada || '');
+  return `
+    <div style="display:grid;gap:14px;text-align:left;">
+      <div style="padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#ecfdf5 0%,#eff6ff 100%);border:1px solid #bfdbfe;">
+        <div style="font-size:11px;font-weight:900;letter-spacing:.08em;color:#0f766e;text-transform:uppercase;margin-bottom:8px;">Alta de perfil</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#ffffff;color:#0f172a;font-size:12px;font-weight:800;border:1px solid #dbeafe;">
+            <span class="material-icons" style="font-size:16px;color:#2563eb;">badge</span>
+            ${escapeHtml(requestedRoleLabel)}
+          </span>
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#ffffff;color:#0f172a;font-size:12px;font-weight:800;border:1px solid #dbeafe;">
+            <span class="material-icons" style="font-size:16px;color:#0f766e;">apartment</span>
+            ${escapeHtml(requestedPlaza || 'Sin plaza solicitada')}
+          </span>
+        </div>
+        <p style="margin:10px 0 0;color:#475569;font-size:12px;line-height:1.5;">
+          Puedes ajustar el perfil antes de aprobar. El correo y el puesto quedan como referencia de la solicitud original.
+        </p>
+      </div>
+
+      <div style="display:grid;gap:12px;">
+        <label style="display:grid;gap:6px;">
+          <span style="font-size:12px;font-weight:800;color:#334155;">Nombre</span>
+          <input id="sol-apr-nombre" type="text" value="${escapeHtml(data.nombre || '')}" style="width:100%;padding:12px 14px;border:1.5px solid #dbe2ea;border-radius:12px;font-size:13px;background:#fff;color:#0f172a;">
+        </label>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <label style="display:grid;gap:6px;">
+            <span style="font-size:12px;font-weight:800;color:#334155;">Correo</span>
+            <input id="sol-apr-email" type="email" value="${escapeHtml(data.email || '')}" disabled style="width:100%;padding:12px 14px;border:1.5px solid #dbe2ea;border-radius:12px;font-size:13px;background:#f8fafc;color:#475569;">
+          </label>
+          <label style="display:grid;gap:6px;">
+            <span style="font-size:12px;font-weight:800;color:#334155;">Teléfono</span>
+            <input id="sol-apr-telefono" type="text" value="${escapeHtml(data.telefono || '')}" style="width:100%;padding:12px 14px;border:1.5px solid #dbe2ea;border-radius:12px;font-size:13px;background:#fff;color:#0f172a;">
+          </label>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <label style="display:grid;gap:6px;">
+            <span style="font-size:12px;font-weight:800;color:#334155;">Puesto solicitado</span>
+            <input id="sol-apr-puesto" type="text" value="${escapeHtml(data.puesto || '')}" disabled style="width:100%;padding:12px 14px;border:1.5px solid #dbe2ea;border-radius:12px;font-size:13px;background:#f8fafc;color:#475569;">
+          </label>
+          <label style="display:grid;gap:6px;">
+            <span style="font-size:12px;font-weight:800;color:#334155;">Rol final</span>
+            <select id="sol-apr-role" onchange="_syncSolicitudApprovalScope()" style="width:100%;padding:12px 14px;border:1.5px solid #dbe2ea;border-radius:12px;font-size:13px;background:#fff;color:#0f172a;">
+              ${_roleOptionsHtml(requestedRole)}
+            </select>
+          </label>
+        </div>
+
+        <label id="sol-apr-plaza-row" style="display:grid;gap:6px;">
+          <span style="font-size:12px;font-weight:800;color:#334155;">Plaza asignada</span>
+          ${_plazaSelectHtml('sol-apr-plaza', requestedPlaza)}
+        </label>
+      </div>
+    </div>
+  `;
+}
+
+function _syncSolicitudApprovalScope() {
+  const roleSelect = document.getElementById('sol-apr-role');
+  const plazaRow = document.getElementById('sol-apr-plaza-row');
+  const plazaSelect = document.getElementById('sol-apr-plaza');
+  if (!roleSelect || !plazaRow) return;
+  const role = _sanitizeRole(roleSelect.value) || 'AUXILIAR';
+  const needsPlaza = _roleNeedsPlaza(role);
+  plazaRow.style.display = needsPlaza ? '' : 'none';
+  if (!needsPlaza && plazaSelect) plazaSelect.value = '';
+}
+
+function _readSolicitudApprovalForm() {
+  const nombre = String(document.getElementById('sol-apr-nombre')?.value || '').trim().toUpperCase();
+  const telefono = String(document.getElementById('sol-apr-telefono')?.value || '').trim();
+  const role = _sanitizeRole(document.getElementById('sol-apr-role')?.value) || 'AUXILIAR';
+  const plaza = _normalizePlaza(document.getElementById('sol-apr-plaza')?.value || '');
+  if (!nombre) {
+    showToast('Captura un nombre para el nuevo perfil.', 'error');
+    return null;
+  }
+  if (_roleNeedsPlaza(role) && !plaza) {
+    showToast('Selecciona una plaza para ese rol.', 'error');
+    return null;
+  }
+  return { nombre, telefono, role, plaza };
+}
+
+async function _abrirEditorAprobacionSolicitud(solicitudInfo = {}) {
+  return new Promise(resolve => {
+    const cancelBtn = document.querySelector('#customModal .modal-btn-cancel');
+    const cleanup = () => {
+      cancelBtn?.removeEventListener('click', handleCancel);
+    };
+    const handleCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    mostrarCustomModal(
+      `Aprobar acceso para ${solicitudInfo.nombre || 'solicitante'}`,
+      _solicitudApprovalFormHtml(solicitudInfo),
+      'person_add_alt_1',
+      '#10b981',
+      'APROBAR',
+      '#10b981',
+      async () => {
+        const payload = _readSolicitudApprovalForm();
+        if (!payload) return false;
+        cleanup();
+        resolve(payload);
+        return true;
+      }
+    );
+
+    cancelBtn?.addEventListener('click', handleCancel, { once: true });
+    window.setTimeout(_syncSolicitudApprovalScope, 0);
+  });
+}
+
+async function _procesarSolicitudCallable(payload = {}) {
+  if (typeof api?.procesarSolicitudAcceso === 'function') {
+    return api.procesarSolicitudAcceso(payload);
+  }
+  const functions = window._functions || (typeof firebase?.functions === 'function' ? firebase.app().functions('us-central1') : null);
+  if (!functions || typeof functions.httpsCallable !== 'function') {
+    throw new Error('Firebase Functions no está disponible para procesar solicitudes.');
+  }
+  const response = await functions.httpsCallable('procesarSolicitudAcceso')(payload);
+  return response?.data || response;
+}
+
 async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
   if (!canProcessAccessRequests()) {
     return showToast("No tienes permisos para procesar solicitudes.", "error");
@@ -18995,15 +19132,14 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
   const solicitudInfo = await _obtenerSolicitudDoc(docId, collectionHint);
   if (!solicitudInfo?.docSnap?.exists) return showToast("La solicitud ya no existe", "error");
 
-  const solicitudRef = db.collection(solicitudInfo.collectionName).doc(solicitudInfo.id);
   const { email, nombre, puesto, telefono, password, rolSolicitado, plazaSolicitada } = solicitudInfo.data;
   const requestedRole = _resolveStoredRoleForEmail(
     email,
     _sanitizeRole(rolSolicitado) || _inferRequestedAccessRole(puesto, email)
   );
-  const requestedRoleMeta = ROLE_META[requestedRole] || ROLE_META.AUXILIAR;
   const requestedPlaza = _roleNeedsPlaza(requestedRole) ? _normalizePlaza(plazaSolicitada) : "";
   let motivo = "";
+  let approvalPayload = null;
 
   if (!esAprobado) {
     motivo = await mexPrompt(
@@ -19014,101 +19150,44 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
     if (motivo === null) return;
     if (!motivo.trim()) motivo = "No cumples con los criterios de acceso requeridos en este momento.";
   } else {
-    const ok = await mexConfirm(
-      `Aprobar acceso para ${nombre}`,
-      `Se creará una cuenta para: ${email}. Esta acción no se puede deshacer.`,
-      'success'
-    );
-    if (!ok) return;
+    approvalPayload = await _abrirEditorAprobacionSolicitud({
+      nombre,
+      email,
+      puesto,
+      telefono,
+      requestedRole,
+      requestedPlaza,
+      password
+    });
+    if (!approvalPayload) return;
   }
 
   showToast("Procesando...", "info"); // Aviso visual mientras piensa
 
   try {
-    let detalleGestion = "";
     if (esAprobado) {
-      const appSecundaria = firebase.initializeApp(firebase.app().options, "AppRegistro_" + Date.now());
-      let nuevoUid = null;
-      try {
-        const cred = await appSecundaria.auth().createUserWithEmailAndPassword(email, password);
-        nuevoUid = cred && cred.user ? cred.user.uid : null;
-        detalleGestion = "Cuenta creada en Firebase Auth";
-      } catch (authErr) {
-        console.warn("Aviso de Auth:", authErr.message);
-        if (authErr.code !== 'auth/email-already-in-use') throw authErr;
-        detalleGestion = "El correo ya existía en Auth; se restauró/actualizó solo el perfil de Firestore";
-      }
-      await appSecundaria.auth().signOut();
-      await appSecundaria.delete();
-
-      // Crea el perfil con solo los campos que valida perfilUsuarioValido
-      const userDocId = _profileDocId(email);
-      const perfilData = {
-        nombre: String(nombre || '').trim().toUpperCase(),
-        email: userDocId,
-        telefono: telefono || "",
-        rol: requestedRole,
-        plazaAsignada: requestedPlaza,
-        isAdmin: requestedRoleMeta.isAdmin,
-        isGlobal: requestedRoleMeta.fullAccess
-      };
-      await db.collection("usuarios").doc(userDocId).set(perfilData, { merge: true });
-
-      // Guardar datos extra en un sub-doc separado para no violar el schema estricto
-      if (nuevoUid) {
-        await db.collection("usuarios").doc(userDocId).update({ status: "ACTIVO" }).catch(() => { });
-      }
-
-      if (nuevoUid && nuevoUid !== userDocId) {
-        const legacyRef = db.collection("usuarios").doc(nuevoUid);
-        const legacySnap = await legacyRef.get();
-        if (legacySnap.exists) await legacyRef.delete();
-      }
-
-      // Update solicitud con todos los campos que la regla exige (solicitudUpdateValida)
-      const solDoc = solicitudInfo.data;
-      await solicitudRef.update({
-        nombre: solDoc.nombre,
-        email: solDoc.email,
-        puesto: solDoc.puesto,
-        telefono: solDoc.telefono,
-        fecha: solDoc.fecha,
-        rolSolicitado: solDoc.rolSolicitado ?? null,
-        plazaSolicitada: solDoc.plazaSolicitada ?? null,
-        password: "",
-        estado: "APROBADA"
-      });
-      await registrarEventoGestion('SOLICITUD_APROBADA', `Aprobó la solicitud de acceso de ${nombre}`, {
-        entidad: 'SOLICITUDES',
-        referencia: `${solicitudInfo.collectionName}/${solicitudInfo.id}`,
-        objetivo: email,
-        rolObjetivo: requestedRole,
-        plazaObjetivo: requestedPlaza,
-        detalles: detalleGestion,
-        resultado: 'APROBADA'
+      await _procesarSolicitudCallable({
+        action: 'approve',
+        docId: solicitudInfo.id,
+        collectionName: solicitudInfo.collectionName,
+        email,
+        nombre: approvalPayload ? approvalPayload.nombre : nombre,
+        puesto,
+        telefono: approvalPayload ? approvalPayload.telefono : telefono,
+        role: approvalPayload ? approvalPayload.role : requestedRole,
+        plaza: approvalPayload ? approvalPayload.plaza : requestedPlaza,
+        password
       });
     } else {
-      // Update solicitud con todos los campos que la regla exige (solicitudUpdateValida)
-      const solDocR = solicitudInfo.data;
-      await solicitudRef.update({
-        nombre: solDocR.nombre,
-        email: solDocR.email,
-        puesto: solDocR.puesto,
-        telefono: solDocR.telefono,
-        fecha: solDocR.fecha,
-        rolSolicitado: solDocR.rolSolicitado ?? null,
-        plazaSolicitada: solDocR.plazaSolicitada ?? null,
-        password: "",
-        estado: "RECHAZADA",
-        motivo_rechazo: motivo,
-        rechazadoPor: (currentUserProfile?.nombre) || USER_NAME || "Sistema"
-      });
-      await registrarEventoGestion('SOLICITUD_RECHAZADA', `Rechazó la solicitud de acceso de ${nombre}`, {
-        entidad: 'SOLICITUDES',
-        referencia: `${solicitudInfo.collectionName}/${solicitudInfo.id}`,
-        objetivo: email,
-        detalles: motivo,
-        resultado: 'RECHAZADA'
+      await _procesarSolicitudCallable({
+        action: 'reject',
+        docId: solicitudInfo.id,
+        collectionName: solicitudInfo.collectionName,
+        email,
+        nombre,
+        puesto,
+        telefono,
+        motivo
       });
     }
 
@@ -19121,10 +19200,11 @@ async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
     if (typeof cargarSolicitudesDeTab === 'function' && document.getElementById('contenedor-solicitudes-v2')) {
       cargarSolicitudesDeTab(window._filtroSolicitudesEstatus || 'PENDIENTE');
     }
+    cargarSolicitudesPendientes();
 
   } catch (error) {
     console.error("Error procesando solicitud:", error);
-    showToast("Error en el servidor al procesar", "error");
+    showToast(error?.message || "Error en el servidor al procesar", "error");
   }
 }
 

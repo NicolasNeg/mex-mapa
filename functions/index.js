@@ -20,9 +20,22 @@ const ERRORS_COL = "programmer_errors";
 const JOBS_COL = "programmer_jobs";
 const AUDIT_COL = "programmer_audit";
 const ADMIN_AUDIT_COL = "bitacora_gestion";
+const ACCESS_REQUESTS_PRIMARY_COL = "solicitudes";
+const ACCESS_REQUESTS_LEGACY_COL = "solicitudes_acceso";
 const PROGRAMMER_ROLES = new Set(["PROGRAMADOR", "JEFE_OPERACION", "CORPORATIVO_USER"]);
 const ADMIN_ROLES = new Set(["VENTAS", "SUPERVISOR", "JEFE_PATIO", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "PROGRAMADOR", "JEFE_OPERACION"]);
 const BOOTSTRAP_PROGRAMMER_EMAILS = new Set(["angelarmentta@icloud.com"]);
+const DEFAULT_ROLE_SPECS = Object.freeze({
+  AUXILIAR:         { label: "AUXILIAR", isAdmin: false, fullAccess: false, needsPlaza: true, multiPlaza: false },
+  VENTAS:           { label: "VENTAS", isAdmin: true, fullAccess: false, needsPlaza: true, multiPlaza: false },
+  SUPERVISOR:       { label: "SUPERVISOR", isAdmin: true, fullAccess: false, needsPlaza: true, multiPlaza: false },
+  JEFE_PATIO:       { label: "JEFE DE PATIO", isAdmin: true, fullAccess: false, needsPlaza: true, multiPlaza: false },
+  GERENTE_PLAZA:    { label: "GERENTE DE PLAZA", isAdmin: true, fullAccess: false, needsPlaza: true, multiPlaza: false },
+  JEFE_REGIONAL:    { label: "JEFE REGIONAL", isAdmin: true, fullAccess: false, needsPlaza: true, multiPlaza: true },
+  CORPORATIVO_USER: { label: "CORPORATIVO USER", isAdmin: true, fullAccess: true, needsPlaza: false, multiPlaza: true },
+  PROGRAMADOR:      { label: "PROGRAMADOR", isAdmin: true, fullAccess: true, needsPlaza: false, multiPlaza: true },
+  JEFE_OPERACION:   { label: "JEFE DE OPERACION", isAdmin: true, fullAccess: true, needsPlaza: false, multiPlaza: true }
+});
 const DEFAULT_ROLE_CAPABILITIES = Object.freeze({
   AUXILIAR: { use_programmer_console: false, operational_admin: false, view_exact_location_logs: false },
   VENTAS: { use_programmer_console: false, operational_admin: true, view_exact_location_logs: false },
@@ -334,6 +347,124 @@ async function loadSecurityConfig() {
   } catch (_) {
     return {};
   }
+}
+
+function permissionOverrideValue(profileData = {}, key = "") {
+  const overrides = profileData?.permissionOverrides;
+  if (!overrides || typeof overrides !== "object") return undefined;
+  return typeof overrides[key] === "boolean" ? overrides[key] : undefined;
+}
+
+function rolePermissionValue(role, permissionKey, security = {}) {
+  const normalizedRole = normalizeUpper(role);
+  const configured = security?.roles?.[normalizedRole];
+  const configuredPermissions = configured && typeof configured.permissions === "object" ? configured.permissions : {};
+  if (configured?.fullAccess === true) return true;
+  if (typeof configuredPermissions[permissionKey] === "boolean") return configuredPermissions[permissionKey];
+  if (PROGRAMMER_ROLES.has(normalizedRole)) return true;
+  if (permissionKey === "process_access_requests") return normalizedRole === "CORPORATIVO_USER";
+  if (permissionKey === "manage_users") return normalizedRole === "CORPORATIVO_USER";
+  if (permissionKey === "assign_roles") return normalizedRole === "CORPORATIVO_USER";
+  return false;
+}
+
+function hasRolePermission(profileData = {}, role, permissionKey, security = {}) {
+  const override = permissionOverrideValue(profileData, permissionKey);
+  if (typeof override === "boolean") return override;
+  return rolePermissionValue(role, permissionKey, security);
+}
+
+function roleDefinition(role, security = {}) {
+  const normalizedRole = normalizeUpper(role);
+  const fallback = DEFAULT_ROLE_SPECS[normalizedRole] || DEFAULT_ROLE_SPECS.AUXILIAR;
+  const configured = security?.roles?.[normalizedRole];
+  return {
+    label: normalizeString(configured?.label || fallback.label || normalizedRole) || normalizedRole,
+    isAdmin: typeof configured?.isAdmin === "boolean" ? configured.isAdmin : fallback.isAdmin,
+    fullAccess: typeof configured?.fullAccess === "boolean" ? configured.fullAccess : fallback.fullAccess,
+    needsPlaza: typeof configured?.needsPlaza === "boolean" ? configured.needsPlaza : fallback.needsPlaza,
+    multiPlaza: typeof configured?.multiPlaza === "boolean" ? configured.multiPlaza : fallback.multiPlaza,
+    permissions: configured && typeof configured.permissions === "object" ? configured.permissions : {}
+  };
+}
+
+function canProcessAccessRequestsBackend(role, security = {}, profileData = {}) {
+  return hasRolePermission(profileData, role, "process_access_requests", security);
+}
+
+function canManageUsersBackend(role, security = {}, profileData = {}) {
+  return hasRolePermission(profileData, role, "manage_users", security);
+}
+
+function canAssignRolesBackend(role, security = {}, profileData = {}) {
+  return hasRolePermission(profileData, role, "assign_roles", security);
+}
+
+function canActorManageTargetRole(actorRole, targetRole, security = {}) {
+  const actor = normalizeUpper(actorRole);
+  const target = normalizeUpper(targetRole);
+  if (!target) return false;
+  if (actor === "PROGRAMADOR" || actor === "JEFE_OPERACION") return true;
+  if (actor !== "CORPORATIVO_USER") return false;
+  if (target === "CORPORATIVO_USER" || target === "PROGRAMADOR" || target === "JEFE_OPERACION") return false;
+  const meta = roleDefinition(target, security);
+  if (meta.fullAccess) return false;
+  return !(
+    meta.permissions?.use_programmer_console === true
+    || meta.permissions?.manage_system_settings === true
+  );
+}
+
+function preferredAccessRequestCollections(preferred = "") {
+  return Array.from(new Set(
+    [preferred, ACCESS_REQUESTS_PRIMARY_COL, ACCESS_REQUESTS_LEGACY_COL]
+      .map((entry) => normalizeString(entry))
+      .filter(Boolean)
+  ));
+}
+
+async function resolveAccessRequestDoc(docId, preferredCollection = "") {
+  const normalizedId = normalizeLower(docId);
+  if (!normalizedId) {
+    throw new HttpsError("invalid-argument", "Solicitud inválida.");
+  }
+  for (const collectionName of preferredAccessRequestCollections(preferredCollection)) {
+    const snap = await db.collection(collectionName).doc(normalizedId).get();
+    if (snap.exists) {
+      return {
+        id: snap.id,
+        ref: snap.ref,
+        collectionName,
+        data: snap.data() || {}
+      };
+    }
+  }
+  throw new HttpsError("not-found", "La solicitud ya no existe.");
+}
+
+async function resolveUserProfileDocRefByEmail(email, authUser = null) {
+  const normalizedEmail = normalizeLower(email);
+  if (!normalizedEmail) {
+    throw new HttpsError("invalid-argument", "Correo inválido.");
+  }
+  const direct = await db.collection(USERS_COL).doc(normalizedEmail).get();
+  if (direct.exists) return direct.ref;
+
+  const byEmail = await db.collection(USERS_COL).where("email", "==", normalizedEmail).limit(1).get();
+  if (!byEmail.empty) return byEmail.docs[0].ref;
+
+  if (authUser?.uid) {
+    const byUid = await db.collection(USERS_COL).doc(authUser.uid).get();
+    if (byUid.exists) return byUid.ref;
+  }
+
+  return db.collection(USERS_COL).doc(normalizedEmail);
+}
+
+function normalizeUniquePlazas(values = []) {
+  return Array.from(new Set((Array.isArray(values) ? values : [])
+    .map((entry) => normalizePlaza(entry))
+    .filter(Boolean)));
 }
 
 function roleCapabilities(role, security = {}) {
@@ -1757,6 +1888,200 @@ exports.enviarCorreoSolicitud = functions
     logger.info("[enviarCorreoSolicitud] Correo enviado a", email);
     return { ok: true, sent: true };
   });
+
+exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (data, context) => {
+  try {
+    const profile = await findUserProfileFromAuth(context.auth);
+    const actorRole = inferRole(profile.data, profile.data?.email || context.auth?.token?.email);
+    const security = await loadSecurityConfig();
+    const actorEmail = normalizeLower(profile.data?.email || context.auth?.token?.email || "");
+    const actorName = normalizeString(profile.data?.nombre || profile.data?.usuario || actorEmail || "Sistema");
+
+    if (!canProcessAccessRequestsBackend(actorRole, security, profile.data || {})) {
+      throw new HttpsError("permission-denied", "No autorizado para procesar solicitudes.");
+    }
+
+    const payload = sanitizePlainObject(data || {});
+    const action = normalizeLower(payload.action || payload.accion);
+    if (action !== "approve" && action !== "reject") {
+      throw new HttpsError("invalid-argument", "Acción inválida.");
+    }
+
+    const solicitud = await resolveAccessRequestDoc(
+      payload.docId || payload.email || "",
+      payload.collectionName || payload.collection
+    );
+    const solicitudData = solicitud.data || {};
+    const email = normalizeLower(payload.email || solicitudData.email || solicitud.id);
+    const nombre = normalizeUpper(payload.nombre || solicitudData.nombre || "");
+    const telefono = normalizeString(payload.telefono || solicitudData.telefono || "");
+    const puesto = normalizeUpper(payload.puesto || solicitudData.puesto || "");
+
+    if (!email || !nombre) {
+      throw new HttpsError("invalid-argument", "La solicitud no contiene datos suficientes.");
+    }
+
+    if (action === "approve") {
+      if (!canManageUsersBackend(actorRole, security, profile.data || {})) {
+        throw new HttpsError("permission-denied", "No autorizado para gestionar usuarios.");
+      }
+      if (!canAssignRolesBackend(actorRole, security, profile.data || {})) {
+        throw new HttpsError("permission-denied", "No autorizado para asignar roles.");
+      }
+
+      const role = normalizeUpper(payload.role || payload.rol || solicitudData.rolSolicitado || "AUXILIAR");
+      if (!role) {
+        throw new HttpsError("invalid-argument", "Debes seleccionar un rol.");
+      }
+      if (!canActorManageTargetRole(actorRole, role, security)) {
+        throw new HttpsError("permission-denied", `No puedes asignar el rol ${role}.`);
+      }
+
+      const roleMeta = roleDefinition(role, security);
+      const plazaAsignada = roleMeta.needsPlaza
+        ? normalizePlaza(payload.plaza || payload.plazaAsignada || solicitudData.plazaSolicitada || "")
+        : "";
+      if (roleMeta.needsPlaza && !plazaAsignada) {
+        throw new HttpsError("invalid-argument", "Debes asignar una plaza para ese rol.");
+      }
+
+      const rawPassword = normalizeString(payload.password || solicitudData.password);
+      let authUser = null;
+      try {
+        authUser = await admin.auth().getUserByEmail(email);
+      } catch (error) {
+        if (error?.code !== "auth/user-not-found") throw error;
+      }
+
+      if (!authUser) {
+        if (rawPassword.length < 6) {
+          throw new HttpsError("invalid-argument", "La contraseña de la solicitud ya no es válida.");
+        }
+        authUser = await admin.auth().createUser({
+          email,
+          password: rawPassword,
+          displayName: nombre
+        });
+      } else {
+        await admin.auth().updateUser(authUser.uid, {
+          displayName: nombre
+        }).catch(() => null);
+      }
+
+      const userRef = await resolveUserProfileDocRefByEmail(email, authUser);
+      const plazasPermitidas = roleMeta.multiPlaza
+        ? normalizeUniquePlazas(payload.plazasPermitidas || (plazaAsignada ? [plazaAsignada] : solicitudData.plazasPermitidas || []))
+        : [];
+      const userPayload = {
+        nombre,
+        email,
+        telefono,
+        rol: role,
+        plazaAsignada,
+        isAdmin: roleMeta.isAdmin,
+        isGlobal: roleMeta.fullAccess,
+        status: "ACTIVO",
+        actualizadoAt: nowIso(),
+        actualizadoPor: actorEmail
+      };
+      if (plazasPermitidas.length > 0) {
+        userPayload.plazasPermitidas = plazasPermitidas;
+      }
+      await userRef.set(userPayload, { merge: true });
+
+      await solicitud.ref.set({
+        ...solicitudData,
+        nombre,
+        email,
+        puesto,
+        telefono,
+        rolSolicitado: role,
+        plazaSolicitada: plazaAsignada,
+        password: "",
+        estado: "APROBADA",
+        aprobadoPor: actorName,
+        aprobadoPorEmail: actorEmail,
+        aprobadoAt: nowIso()
+      }, { merge: true });
+
+      const auditId = `gest_${nowMillis()}_${Math.floor(Math.random() * 1000)}`;
+      await db.collection(ADMIN_AUDIT_COL).doc(auditId).set({
+        fecha: nowIso(),
+        timestamp: nowMillis(),
+        tipo: "SOLICITUD_APROBADA",
+        accion: `Aprobó la solicitud de acceso de ${nombre}`,
+        autor: actorName,
+        userDocId: profile.id,
+        userEmail: actorEmail,
+        role: actorRole,
+        plaza: plazaAsignada || normalizePlaza(profile.data?.plazaAsignada || ""),
+        entidad: "SOLICITUDES",
+        referencia: `${solicitud.collectionName}/${solicitud.id}`,
+        objetivo: email,
+        rolObjetivo: role,
+        plazaObjetivo: plazaAsignada,
+        resultado: "APROBADA",
+        detalles: "Cuenta aprovisionada desde Cloud Functions"
+      }, { merge: true });
+
+      return {
+        ok: true,
+        action: "approve",
+        email,
+        role,
+        plazaAsignada,
+        collectionName: solicitud.collectionName
+      };
+    }
+
+    const motivo = normalizeString(payload.motivo || payload.reason);
+    if (!motivo) {
+      throw new HttpsError("invalid-argument", "Debes escribir un motivo de rechazo.");
+    }
+
+    await solicitud.ref.set({
+      ...solicitudData,
+      nombre,
+      email,
+      puesto,
+      telefono,
+      password: "",
+      estado: "RECHAZADA",
+      motivo_rechazo: motivo,
+      rechazadoPor: actorName,
+      rechazadoPorEmail: actorEmail,
+      rechazadoAt: nowIso()
+    }, { merge: true });
+
+    const auditId = `gest_${nowMillis()}_${Math.floor(Math.random() * 1000)}`;
+    await db.collection(ADMIN_AUDIT_COL).doc(auditId).set({
+      fecha: nowIso(),
+      timestamp: nowMillis(),
+      tipo: "SOLICITUD_RECHAZADA",
+      accion: `Rechazó la solicitud de acceso de ${nombre}`,
+      autor: actorName,
+      userDocId: profile.id,
+      userEmail: actorEmail,
+      role: actorRole,
+      plaza: normalizePlaza(profile.data?.plazaAsignada || ""),
+      entidad: "SOLICITUDES",
+      referencia: `${solicitud.collectionName}/${solicitud.id}`,
+      objetivo: email,
+      resultado: "RECHAZADA",
+      detalles: motivo
+    }, { merge: true });
+
+    return {
+      ok: true,
+      action: "reject",
+      email,
+      collectionName: solicitud.collectionName
+    };
+  } catch (error) {
+    await recordProgrammerError("procesarSolicitudAcceso", error, { authUid: context.auth?.uid || "" });
+    throw error;
+  }
+});
 
 // ══════════════════════════════════════════════════════════════
 //  MEX API — REST pública con API Keys

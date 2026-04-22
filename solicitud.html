@@ -15,6 +15,7 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
+  <script src="/js/core/app-bootstrap.js"></script>
 
   <title>Solicitar Acceso — Armenta Rent A Car</title>
 
@@ -248,6 +249,13 @@
       </div>
 
       <div class="field">
+        <label for="sol_plaza">Plaza solicitada *</label>
+        <select class="input" id="sol_plaza">
+          <option value="">Cargando plazas...</option>
+        </select>
+      </div>
+
+      <div class="field">
         <label for="sol_telefono">Teléfono (opcional)</label>
         <input class="input" id="sol_telefono" type="tel" placeholder="Ej: 667 123 4567">
       </div>
@@ -319,6 +327,43 @@
     else                         { inp.type = 'password'; ico.textContent = 'visibility'; }
   }
 
+  function solUpper(value) {
+    return String(value || '').trim().toUpperCase();
+  }
+
+  function solUnique(values = []) {
+    return Array.from(new Set((values || []).map(solUpper).filter(Boolean)));
+  }
+
+  function getRequestPlazas() {
+    const empresa = window.MEX_CONFIG?.empresa || {};
+    const direct = Array.isArray(empresa.plazas) ? empresa.plazas : [];
+    const detailed = Array.isArray(empresa.plazasDetalle)
+      ? empresa.plazasDetalle.map(item => item?.id)
+      : [];
+    return solUnique([...direct, ...detailed]);
+  }
+
+  function fillRequestPlazas(selectedValue = '') {
+    const select = document.getElementById('sol_plaza');
+    if (!select) return [];
+    const plazas = getRequestPlazas();
+    if (!plazas.length) {
+      select.innerHTML = '<option value="">No hay plazas disponibles</option>';
+      select.disabled = true;
+      return [];
+    }
+    select.disabled = false;
+    select.innerHTML = '<option value="">Selecciona una plaza</option>' + plazas
+      .map(plaza => `<option value="${plaza}">${plaza}</option>`)
+      .join('');
+    const preferred = solUpper(selectedValue || window.getMexCurrentPlaza?.() || '');
+    if (preferred && plazas.includes(preferred)) {
+      select.value = preferred;
+    }
+    return plazas;
+  }
+
   let _toastTimer;
   function solToast(msg, ok = false) {
     const el  = document.getElementById('sol-toast');
@@ -337,12 +382,15 @@
     const nombre   = document.getElementById('sol_nombre').value.trim().toUpperCase();
     const email    = document.getElementById('sol_email').value.trim().toLowerCase();
     const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
+    const plaza    = solUpper(document.getElementById('sol_plaza').value);
     const telefono = document.getElementById('sol_telefono').value.trim();
     const pass     = document.getElementById('sol_pass').value;
     const pass2    = document.getElementById('sol_pass2').value;
     const btn      = document.getElementById('sol-btn');
 
-    if (!nombre || !email || !puesto) { solToast('Completa los campos obligatorios.'); return; }
+    const plazasDisponibles = fillRequestPlazas(plaza);
+    if (!nombre || !email || !puesto || !plaza) { solToast('Completa los campos obligatorios.'); return; }
+    if (!plazasDisponibles.includes(plaza))      { solToast('Selecciona una plaza válida.'); return; }
     if (!pass || pass.length < 6)     { solToast('La contraseña debe tener mínimo 6 caracteres.'); return; }
     if (pass !== pass2)               { solToast('Las contraseñas no coinciden.'); return; }
     const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -357,7 +405,7 @@
         nombre, email, puesto, telefono,
         password: pass,
         rolSolicitado: null,
-        plazaSolicitada: null,
+        plazaSolicitada: plaza,
         fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
         estado: 'PENDIENTE',
         _ts: firebase.firestore.FieldValue.serverTimestamp(),
@@ -397,6 +445,10 @@
     inp.addEventListener('keydown', e => {
       if (e.key === 'Enter') enviarSolicitud();
     });
+  });
+
+  Promise.resolve(window.__mexConfigReadyPromise).catch(() => null).finally(() => {
+    fillRequestPlazas();
   });
 </script>
 
