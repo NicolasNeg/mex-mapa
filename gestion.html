@@ -114,54 +114,6 @@
       border-right-color: #38bdf8;
       animation: gestion-spin .9s linear infinite;
     }
-    .gestion-quick-actions {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-left: auto;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    .gestion-quick-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(15,23,42,0.08);
-      background: #ffffff;
-      color: #0f172a;
-      font-size: 12px;
-      font-weight: 900;
-      letter-spacing: .02em;
-      cursor: pointer;
-      box-shadow: 0 12px 28px rgba(15,23,42,0.06);
-      transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
-    }
-    .gestion-quick-btn:hover {
-      transform: translateY(-1px);
-      border-color: rgba(14,165,233,0.35);
-      box-shadow: 0 16px 34px rgba(14,165,233,0.14);
-    }
-    .gestion-quick-btn.report {
-      background: linear-gradient(135deg, #fff7ed, #fffbeb);
-      color: #9a3412;
-    }
-    .gestion-quick-btn.predict {
-      background: linear-gradient(135deg, #eff6ff, #eef2ff);
-      color: #1d4ed8;
-    }
-    .gestion-quick-btn.pdf {
-      background: linear-gradient(135deg, #ecfeff, #f0fdf4);
-      color: #0369a1;
-    }
-    @media (max-width: 1024px) {
-      .gestion-quick-actions {
-        width: 100%;
-        margin-left: 0;
-        justify-content: flex-start;
-      }
-    }
     @keyframes gestion-spin { to { transform: rotate(360deg); } }
   </style>
 </head>
@@ -302,20 +254,6 @@
           <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
             <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
           </button>
-          <div class="gestion-quick-actions">
-            <button class="gestion-quick-btn report" onclick="abrirReporteActividadGestion()">
-              <span class="material-icons" style="font-size:18px;">assessment</span>
-              Reporte diario
-            </button>
-            <button class="gestion-quick-btn predict" onclick="abrirPrediccionGestion()">
-              <span class="material-icons" style="font-size:18px;">query_stats</span>
-              Cuadre predicción
-            </button>
-            <button class="gestion-quick-btn pdf" onclick="abrirAnalisisReservasGestion()">
-              <span class="material-icons" style="font-size:18px;">analytics</span>
-              PDF reservas
-            </button>
-          </div>
         </div>
 
         <!-- LIST -->

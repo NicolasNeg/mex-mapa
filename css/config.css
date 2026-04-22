@@ -3280,32 +3280,30 @@
 /* ─── Visual Refresh: Usuarios + Programador ───────────── */
 .um-list-col {
   background:
-    radial-gradient(circle at top, rgba(99, 102, 241, 0.08), transparent 28%),
-    linear-gradient(180deg, #f8fbff 0%, #f3f7ff 100%);
+    linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
 }
 
 .um-edit-col {
   background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.08), transparent 24%),
-    linear-gradient(180deg, #f8fbff 0%, #eef4ff 100%);
+    linear-gradient(180deg, #fbfdff 0%, #f8fafc 100%);
 }
 
 .um-card {
-  background: rgba(255,255,255,0.94);
-  border-radius: 18px;
+  background: #ffffff;
+  border-radius: 14px;
   transition: .18s ease;
-  box-shadow: 0 12px 28px rgba(148, 163, 184, 0.08);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
 }
 
 .um-card:hover {
   background: #f8fbff;
   transform: translateY(-1px);
-  box-shadow: 0 16px 32px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.10);
 }
 
 .um-card.active {
-  background: linear-gradient(135deg, rgba(239, 246, 255, 0.98), rgba(245, 243, 255, 0.98));
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, .14), 0 18px 34px rgba(99, 102, 241, 0.18);
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, .12), 0 12px 24px rgba(37, 99, 235, 0.10);
 }
 
 .um-card-head {
@@ -3346,9 +3344,9 @@
 
 .um-form-card {
   background: rgba(255,255,255,0.96);
-  border-radius: 24px;
+  border-radius: 18px;
   max-width: 900px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.10);
+  box-shadow: 0 18px 34px rgba(15, 23, 42, 0.08);
 }
 
 .um-profile-hero {
@@ -3466,17 +3464,17 @@
 
 .um-workspace-copy h3 {
   margin: 0;
-  font-size: 30px;
-  line-height: 1.02;
+  font-size: 26px;
+  line-height: 1.05;
   font-weight: 900;
   color: #0f172a;
 }
 
 .um-workspace-copy p {
   margin: 0;
-  max-width: 840px;
-  font-size: 13px;
-  line-height: 1.65;
+  max-width: 760px;
+  font-size: 12px;
+  line-height: 1.6;
   color: #64748b;
   font-weight: 600;
 }
@@ -3589,7 +3587,7 @@
 .um-workspace-shell {
   display: grid;
   grid-template-columns: minmax(360px, 430px) minmax(0, 1fr);
-  min-height: 68vh;
+  min-height: 64vh;
   border: 1px solid #dbe4ee;
 }
 
@@ -3611,8 +3609,7 @@
   gap: 14px;
   padding: 22px 22px 16px;
   border-bottom: 1px solid #e8eef5;
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(10px);
+  background: rgba(255,255,255,0.86);
 }
 
 .um-column-head h4 {
@@ -3655,9 +3652,9 @@
 }
 
 .um-toolbar-btn {
-  min-height: 38px;
-  padding: 0 14px;
-  border-radius: 12px;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 10px;
   border: 1px solid #dbe4ee;
   background: white;
   color: #334155;
@@ -3727,7 +3724,7 @@
 .um-cards-stack {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   padding: 18px 22px 22px;
   overflow-y: auto;
   min-height: 0;
@@ -3739,11 +3736,8 @@
   border: 1px solid #dbe4ee;
   font-family: inherit;
   text-align: left;
-  display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
-  grid-template-areas:
-    "top top"
-    "avatar info";
+  display: flex;
+  align-items: center;
   gap: 12px;
   padding: 16px;
 }
@@ -3792,17 +3786,16 @@
 }
 
 .um-avatar {
-  grid-area: avatar;
   width: 56px;
   height: 56px;
-  border-radius: 18px;
+  border-radius: 50%;
   font-size: 16px;
   box-shadow: 0 12px 20px rgba(15, 23, 42, 0.12);
 }
 
 .um-card-info {
-  grid-area: info;
   min-width: 0;
+  flex: 1;
 }
 
 .um-card-name {
@@ -3849,6 +3842,18 @@
   border-radius: 24px;
   border: 1px dashed #dbe4ee;
   background: linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(244,248,255,0.92) 100%);
+}
+
+.um-workspace-lite .um-summary-strip {
+  display: none;
+}
+
+.um-workspace-shell-lite {
+  grid-template-columns: minmax(380px, 440px) minmax(0, 1fr);
+}
+
+.um-column-head-lite {
+  padding-bottom: 14px;
 }
 
 .um-placeholder h5 {
@@ -4022,7 +4027,8 @@ body.dark-theme .um-form-field textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .um-workspace-shell {
+  .um-workspace-shell,
+  .um-workspace-shell-lite {
     grid-template-columns: minmax(320px, 390px) minmax(0, 1fr);
   }
 
@@ -4044,7 +4050,8 @@ body.dark-theme .um-form-field textarea {
     min-width: 0;
   }
 
-  .um-workspace-shell {
+  .um-workspace-shell,
+  .um-workspace-shell-lite {
     grid-template-columns: 1fr;
     min-height: auto;
   }

@@ -111,6 +111,17 @@
   Objetivo: que `Usuarios` deje de sentirse como vista móvil comprimida en PC y se convierta
     en un centro de acceso/permisos con mejor jerarquía visual, sin romper flujos actuales.
 
+[2026-04-21] CODEX — ✅ AJUSTE GESTIÓN + depuración de catálogo/usuarios
+  Archivos modificados:
+    ~ js/views/mapa.js             — expone `_cfgSelectCatalogItem`, simplifica `Usuarios`,
+                                     elimina botonera redundante en catálogos y deja el panel
+                                     derecho como editor principal
+    ~ gestion.html                 — quita accesos duplicados a reportes/PDFs que ya viven en `/cuadre`
+    ~ css/config.css               — suaviza el look de `Usuarios` para escritorio y lo acerca
+                                     al flujo visual anterior, pero más ancho
+  Objetivo: corregir `ReferenceError` en `/gestion`, limpiar acciones repetidas y dejar la
+    navegación catálogo -> editor contextual más consistente.
+
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
   /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
   accesos rápidos, modales migrados para reporte diario / cuadre de predicción / PDF reservas,

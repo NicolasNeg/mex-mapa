@@ -6111,20 +6111,19 @@ function _umRenderCards() {
     const multiPlazas = Array.isArray(u.plazasPermitidas) ? u.plazasPermitidas.filter(Boolean) : [];
     const scopeLabel = multiPlazas.length > 0 ? `${multiPlazas.length} plazas extra` : 'Alcance estándar';
     return `<button type="button" class="um-card${active}" onclick="umSeleccionar('${u.id}')" aria-pressed="${active ? 'true' : 'false'}">
-          <div class="um-card-topline">
-            <span class="um-card-status${statusLabel === 'ACTIVO' ? ' success' : ''}">${statusLabel}</span>
-            <span class="um-card-doc">${escapeHtml((u.id || 'legacy').slice(0, 12))}</span>
-          </div>
           <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
           <div class="um-card-info">
             <div class="um-card-head">
-              <div class="um-card-name">${u.nombre}</div>
+              <div>
+                <div class="um-card-name">${u.nombre}</div>
+                <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
+              </div>
               <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
             </div>
-            <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
             <div class="um-card-meta">
               <span><span class="material-icons">apartment</span>${plazaLabel}</span>
               <span><span class="material-icons">workspace_premium</span>${scopeLabel}</span>
+              <span class="${statusLabel === 'ACTIVO' ? 'success' : ''}"><span class="material-icons">verified</span>${statusLabel}</span>
             </div>
           </div>
         </button>`;
@@ -17091,10 +17090,6 @@ function _cfgCatalogDetailHtml(tabName, item, index) {
             <span class="material-icons">edit</span>
             Editar elemento
           </button>
-          <button type="button" class="cfg-detail-btn" onclick="abrirModalNuevaConfig()">
-            <span class="material-icons">add_circle</span>
-            Nuevo registro
-          </button>
           <button type="button" class="cfg-detail-btn danger" onclick="eliminarElementoConfig(${index})">
             <span class="material-icons">delete</span>
             Eliminar
@@ -17519,7 +17514,7 @@ function renderizarListaConfig() {
               ${(window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor).map(m => `<span class="cfg-cat-model-chip">${escapeHtml(m.nombre)}</span>`).join('') || '<span style="font-size:11px;color:#94a3b8;">Sin modelos asignados</span>'}
             </div>` : '';
 
-    return `<div class="cfg-item${activeClass}" onclick="_cfgSelectCatalogItem(${i})" ${dragAttrs} data-cfg-idx="${i}" style="padding:10px 12px; display:flex; flex-direction:column; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; transition:opacity 0.15s;">
+    return `<div class="cfg-item${activeClass}" onclick="_cfgSelectCatalogItem(${i})" ${dragAttrs} data-cfg-idx="${i}" style="padding:12px 14px; display:flex; flex-direction:column; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; transition:opacity 0.15s; cursor:pointer;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
               ${dragHandle}
@@ -17529,21 +17524,7 @@ function renderizarListaConfig() {
               ${pText}
               ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700; flex-shrink:0;">ord.${item.orden}</span>` : ''}
             </div>
-            <div style="display:flex; gap:4px; flex-shrink:0;">
-              ${usaDrag && lista.length > 1 ? `
-              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === 0 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="event.stopPropagation(); moverElementoConfig(${i}, -1)" ${visIndex === 0 ? 'disabled' : ''} title="Mover arriba">
-                <span class="material-icons" style="font-size:14px; color:#475569;">arrow_upward</span>
-              </button>
-              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === lista.length - 1 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="event.stopPropagation(); moverElementoConfig(${i}, 1)" ${visIndex === lista.length - 1 ? 'disabled' : ''} title="Mover abajo">
-                <span class="material-icons" style="font-size:14px; color:#475569;">arrow_downward</span>
-              </button>` : ''}
-              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="event.stopPropagation(); editarElementoConfig(${i})" title="Editar">
-                <span class="material-icons" style="font-size:14px; color:#0f172a;">edit</span>
-              </button>
-              <button class="cfg-item-del" style="border:none; background:#fee2e2; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="event.stopPropagation(); eliminarElementoConfig(${i})" title="Eliminar">
-                <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
-              </button>
-            </div>
+            <span class="material-icons" style="font-size:18px; color:${activeClass ? '#2563eb' : '#cbd5e1'};">chevron_right</span>
           </div>
           ${modelosExpandidos}
         </div>`;
@@ -17987,29 +17968,13 @@ async function guardarEmpresaConfig(actionType = 'EMPRESA_ACTUALIZADA', message 
 // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
 function renderizarTabConfigUsuarios(container) {
   const operatorSummary = _umGetOperatorProfileSummary();
-  const rolesAction = (hasPermission('manage_roles_permissions') || canManageUsers())
-    ? `
-          <button type="button" class="um-toolbar-btn" onclick="_umGoToConfigTab('roles')">
-            <span class="material-icons">shield</span>
-            Roles
-          </button>
-        `
-    : '';
-  const solicitudesAction = (canManageUsers() || canProcessAccessRequests() || canUseProgrammerConfig())
-    ? `
-          <button type="button" class="um-toolbar-btn" onclick="_umGoToConfigTab('solicitudes')">
-            <span class="material-icons">mark_email_read</span>
-            Solicitudes
-          </button>
-        `
-    : '';
   container.innerHTML = `
-        <div class="um-workspace">
+        <div class="um-workspace um-workspace-lite">
           <div class="um-workspace-header">
             <div class="um-workspace-copy">
               <span class="um-workspace-kicker">Accesos y permisos</span>
               <h3>Usuarios del sistema</h3>
-              <p>Administra cuentas, plaza base, rol operativo y permisos puntuales desde un workspace de escritorio más amplio y contextual.</p>
+              <p>Selecciona una cuenta y edítala a la derecha. La vista mantiene el flujo conocido, pero aprovecha mejor el ancho en escritorio.</p>
             </div>
             <div class="um-workspace-meta">
               <span class="cfg-v2-meta-chip">
@@ -18027,15 +17992,13 @@ function renderizarTabConfigUsuarios(container) {
             </div>
           </div>
 
-          <div id="um-summary-strip" class="um-summary-strip"></div>
-
-          <div class="um-body um-workspace-shell">
+          <div class="um-body um-workspace-shell um-workspace-shell-lite">
             <div class="um-list-col">
-              <div class="um-column-head">
+              <div class="um-column-head um-column-head-lite">
                 <div>
                   <span class="um-column-kicker">Directorio</span>
                   <h4>Cuentas y accesos</h4>
-                  <p>Busca rápido, filtra por plaza y selecciona una cuenta para editarla sin salir de esta vista.</p>
+                  <p>Busca rápido, filtra por plaza y selecciona una cuenta para abrir su editor contextual.</p>
                 </div>
                 <span id="um-directory-count" class="cfg-catalog-count">0 visibles</span>
               </div>
@@ -18054,15 +18017,13 @@ function renderizarTabConfigUsuarios(container) {
             </div>
 
             <div class="um-edit-col">
-              <div class="um-column-head">
+              <div class="um-column-head um-column-head-lite">
                 <div>
                   <span class="um-column-kicker">Editor contextual</span>
                   <h4>Perfil, alcance y permisos</h4>
-                  <p>El panel derecho aprovecha la pantalla completa en PC para editar sin sentirse como vista móvil comprimida.</p>
+                  <p>El panel derecho concentra la edición y evita botonera repetida dentro del listado.</p>
                 </div>
                 <div class="um-column-actions">
-                  ${rolesAction}
-                  ${solicitudesAction}
                   <button id="btn-nuevo-usuario" type="button" class="um-toolbar-btn primary" onclick="_umNuevoUsuarioConAnim()">
                     <span class="material-icons">person_add</span>
                     Nuevo usuario
@@ -18074,7 +18035,7 @@ function renderizarTabConfigUsuarios(container) {
                 <div id="um-placeholder" class="um-placeholder">
                   <span class="material-icons">manage_accounts</span>
                   <h5>Selecciona un usuario</h5>
-                  <p>Desde aquí podrás editar identidad, rol, plaza base, alcance multi-plaza y permisos individuales sin perder contexto operativo.</p>
+                  <p>Desde aquí podrás editar identidad, rol, plaza base, alcance multi-plaza y permisos individuales sin salir de la misma pantalla.</p>
                 </div>
                 <div id="um-form-container" class="um-form-container" style="display:none;"></div>
               </div>
@@ -18082,7 +18043,6 @@ function renderizarTabConfigUsuarios(container) {
           </div>
         </div>
       `;
-  _umRenderWorkspaceInsights([]);
   _umRenderPlazaChips();
   _umIniciar();
 }
@@ -19989,6 +19949,7 @@ Object.assign(window, {
   _toggleEditCorreo,
   _cfgJumpTab,
   _cfgQuickAction,
+  _cfgSelectCatalogItem,
   _cfgPreviewModeloImg,
   _copyPlazaCorreo,
   _copyTextToClipboard,
@@ -19997,6 +19958,7 @@ Object.assign(window, {
   _umGetPlazasDisponibles,
   _umIniciar,
   _umNuevoUsuarioConAnim,
+  _umGoToConfigTab,
   _umRenderPlazaChips,
   _umToggleField,
   _umTogglePlazaChip,
