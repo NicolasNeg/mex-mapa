@@ -383,37 +383,89 @@ function isAllowed() {
   return roleCanUseProgrammerConsole(state.profile?.rol, state.profile || {});
 }
 
+// ── Tab groups con jerarquía visual ────────────────────────────
+const TAB_GROUPS = [
+  {
+    label: null,
+    tabs: [
+      ['resumen', 'dashboard', 'Resumen'],
+    ]
+  },
+  {
+    label: 'Monitor',
+    tabs: [
+      ['errores',      'bug_report',   'Errores'],
+      ['dispositivos', 'devices',      'Devices'],
+      ['jobs',         'inventory_2',  'Jobs'],
+    ]
+  },
+  {
+    label: 'Datos',
+    tabs: [
+      ['database',  'storage',        'Base de datos'],
+      ['consultas', 'manage_search',  'Consultas'],
+      ['config',    'settings',       'Config'],
+    ]
+  },
+  {
+    label: 'Sistema',
+    tabs: [
+      ['herramientas', 'build',    'Herramientas'],
+      ['seguridad',    'security', 'Seguridad'],
+    ]
+  },
+  {
+    label: 'Comms',
+    tabs: [
+      ['notificaciones', 'notifications_active', 'Notificaciones'],
+    ]
+  },
+];
+
+function _buildTabNavHtml(errCount) {
+  return TAB_GROUPS.map(group => {
+    const divider = group.label
+      ? `<span class="cc-nav-section-label">${group.label}</span>`
+      : '';
+    const buttons = group.tabs.map(([key, icon, label]) => `
+      <button type="button" class="programmer-nav-btn ${state.tab === key ? 'active' : ''}" data-tab="${key}" title="${label}">
+        <span class="material-icons cc-tab-icon">${icon}</span>
+        <span class="cc-tab-label">${label}</span>
+        ${key === 'errores' && errCount > 0 ? `<span class="cc-tab-badge">${errCount}</span>` : ''}
+      </button>
+    `).join('');
+    return divider + buttons;
+  }).join('');
+}
+
 function renderShell() {
   const root = document.getElementById('programmerApp');
   if (!root) return;
   const plazas = availablePlazas();
-  const tabButtons = [
-    ['resumen',        'dashboard',          'Resumen'],
-    ['herramientas',   'build',              'Herramientas'],
-    ['database',       'storage',            'Base de datos'],
-    ['notificaciones', 'notifications_active','Notificaciones'],
-    ['consultas',      'manage_search',      'Consultas'],
-    ['jobs',           'inventory_2',        'Jobs'],
-    ['config',         'settings',           'Config'],
-    ['seguridad',      'security',           'Seguridad'],
-    ['errores',        'bug_report',         'Errores'],
-    ['dispositivos',   'devices',            'Dispositivos'],
-  ];
 
   const errCount = state.errorsRows?.length || 0;
   const devsCount = state.devicesRows?.length || 0;
   const users = state.overview?.usersCount || 0;
   const plazaLabel = upper(state.plaza) || 'GLOBAL';
   const now = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  const swVersion = window.MEX_CACHE_VERSION || BUILD_TAG;
+  const healthStatus = errCount > 5 ? 'danger' : errCount > 0 ? 'warn' : 'ok';
+  const healthColor = { ok: '#10b981', warn: '#f59e0b', danger: '#ef4444' }[healthStatus];
 
   root.innerHTML = `
     <div class="cc-topbar">
       <div class="cc-topbar-left">
         <div class="cc-topbar-icon"><span class="material-icons">terminal</span></div>
         <div>
-          <div class="cc-topbar-kicker">Sistema técnico · ${escapeHtml(window.FIREBASE_CONFIG?.projectId || 'firebase')}</div>
+          <div class="cc-topbar-kicker">
+            <span style="display:inline-flex;align-items:center;gap:5px;">
+              <span style="width:6px;height:6px;border-radius:50%;background:${healthColor};display:inline-block;box-shadow:0 0 5px ${healthColor};"></span>
+              ${errCount > 0 ? `${errCount} ${errCount === 1 ? 'error' : 'errores'} activos` : 'Sistema operando con normalidad'}
+            </span>
+            · ${escapeHtml(window.FIREBASE_CONFIG?.projectId || 'firebase')}
+          </div>
           <h1 class="cc-topbar-title">Centro de Control</h1>
-          <p class="cc-topbar-sub">Operación global · Firestore · Seguridad · Notificaciones · Herramientas</p>
+          <p class="cc-topbar-sub">Observabilidad · Firestore · Seguridad · Herramientas · Notificaciones</p>
         </div>
       </div>
       <div class="cc-hero-stats">
@@ -425,7 +477,7 @@ function renderShell() {
           <span class="material-icons">devices</span>
           <div><small>Devices</small><strong>${escapeHtml(String(devsCount || '--'))}</strong></div>
         </div>
-        <div class="cc-stat-chip ${errCount > 0 ? 'cc-stat-danger' : ''}">
+        <div class="cc-stat-chip ${errCount > 0 ? 'cc-stat-danger' : 'cc-stat-ok'}">
           <span class="material-icons">bug_report</span>
           <div><small>Errores</small><strong>${escapeHtml(String(errCount))}</strong></div>
         </div>
@@ -434,14 +486,18 @@ function renderShell() {
           <div><small>Plaza foco</small><strong>${escapeHtml(plazaLabel)}</strong></div>
         </div>
       </div>
-      <div class="programmer-page-top-actions">
-        <button type="button" class="programmer-page-btn" onclick="window.location.href='/mapa'">
-          <span class="material-icons">arrow_back</span>
-          Al mapa
+      <div class="programmer-page-top-actions cc-topbar-actions">
+        <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/mapa'" title="Ir al mapa operativo">
+          <span class="material-icons">map</span>
+          <span class="cc-btn-label">Mapa</span>
         </button>
-        <button type="button" class="programmer-page-btn primary" id="programmerRefreshAllBtn">
+        <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/gestion'" title="Ir a gestión">
+          <span class="material-icons">analytics</span>
+          <span class="cc-btn-label">Gestión</span>
+        </button>
+        <button type="button" class="programmer-page-btn primary" id="programmerRefreshAllBtn" title="Actualizar todos los datos">
           <span class="material-icons">refresh</span>
-          Actualizar
+          <span class="cc-btn-label">Actualizar</span>
         </button>
       </div>
     </div>
@@ -461,7 +517,7 @@ function renderShell() {
       </span>
       <span class="cc-pill cc-pill-build">
         <span class="material-icons" style="font-size:13px;">tag</span>
-        ${escapeHtml(BUILD_TAG)}
+        ${escapeHtml(swVersion)}
       </span>
       <span class="cc-pill cc-pill-time" id="ccLiveClock">
         <span class="material-icons" style="font-size:13px;">schedule</span>
@@ -470,13 +526,7 @@ function renderShell() {
     </div>
 
     <div class="programmer-page-nav cc-nav">
-      ${tabButtons.map(([key, icon, label]) => `
-        <button type="button" class="programmer-nav-btn ${state.tab === key ? 'active' : ''}" data-tab="${key}">
-          <span class="material-icons cc-tab-icon">${icon}</span>
-          <span class="cc-tab-label">${label}</span>
-          ${key === 'errores' && errCount > 0 ? `<span class="cc-tab-badge">${errCount}</span>` : ''}
-        </button>
-      `).join('')}
+      ${_buildTabNavHtml(errCount)}
     </div>
 
     <div id="programmerTabContent" class="programmer-tab-content"></div>
@@ -497,7 +547,7 @@ function renderShell() {
           <span class="material-icons">notifications_active</span>
           Notificaciones
         </button>
-        <button type="button" class="programmer-page-btn" onclick="navigator.clipboard?.writeText(window.location.href).then(()=>showToast('URL copiada','success'))">
+        <button type="button" class="programmer-page-btn" onclick="navigator.clipboard?.writeText(window.location.href).then(()=>showToast('URL copiada','success'))" title="Copiar URL">
           <span class="material-icons">link</span>
         </button>
       </div>
@@ -723,16 +773,58 @@ function renderResumenTab() {
   const devsOk = state.devicesRows?.filter(r => lower(r.permission) === 'granted').length || 0;
   const devsTotal = state.devicesRows?.length || 0;
   const devsBlocked = state.devicesRows?.filter(r => lower(r.permission) === 'denied').length || 0;
-  const healthStatus = errCount > 5 ? 'danger' : errCount > 0 ? 'warn' : 'ok';
-  const healthLabel = healthStatus === 'ok' ? 'Todo normal' : healthStatus === 'warn' ? 'Con alertas' : 'Atención requerida';
-  const healthColor = healthStatus === 'ok' ? '#10b981' : healthStatus === 'warn' ? '#f59e0b' : '#ef4444';
+  const jobsTotal = state.jobsRows?.length || 0;
+  const jobsFailed = state.jobsRows?.filter(r => lower(r.status) === 'error' || lower(r.status) === 'failed').length || 0;
+  const healthStatus = errCount > 5 ? 'danger' : errCount > 0 || jobsFailed > 0 ? 'warn' : 'ok';
+  const healthLabel = { ok: 'Sistema operando con normalidad', warn: 'Requiere revisión', danger: 'Atención inmediata requerida' }[healthStatus];
+  const healthColor = { ok: '#10b981', warn: '#f59e0b', danger: '#ef4444' }[healthStatus];
+  const healthIcon  = { ok: 'check_circle', warn: 'warning', danger: 'error' }[healthStatus];
+
+  // Puntos de atención prioritarios
+  const attentionItems = [];
+  if (errCount > 0) attentionItems.push({ icon: 'bug_report', color: '#ef4444', text: `${errCount} ${errCount === 1 ? 'error registrado' : 'errores registrados'}`, action: 'errores' });
+  if (devsBlocked > 0) attentionItems.push({ icon: 'block', color: '#f59e0b', text: `${devsBlocked} ${devsBlocked === 1 ? 'dispositivo bloqueado' : 'dispositivos bloqueados'}`, action: 'dispositivos' });
+  if (jobsFailed > 0) attentionItems.push({ icon: 'cancel', color: '#f59e0b', text: `${jobsFailed} ${jobsFailed === 1 ? 'job fallido' : 'jobs fallidos'}`, action: 'jobs' });
+
+  const attentionHtml = attentionItems.length
+    ? attentionItems.map(item => `
+        <button type="button" class="cc-attention-item" data-goto="${item.action}"
+          style="border-left:3px solid ${item.color};">
+          <span class="material-icons" style="color:${item.color};font-size:16px;">${item.icon}</span>
+          <span>${escapeHtml(item.text)}</span>
+          <span class="material-icons" style="font-size:14px;color:#94a3b8;margin-left:auto;">arrow_forward</span>
+        </button>
+      `).join('')
+    : `<div class="cc-attention-ok">
+        <span class="material-icons" style="color:#10b981;">verified</span>
+        <span>Sin elementos que requieran atención inmediata</span>
+      </div>`;
 
   container.innerHTML = `
+    <section class="cc-resumen-hero cc-section-fade">
+      <div class="cc-resumen-hero-left">
+        <div class="cc-health-badge cc-health-badge-${healthStatus}">
+          <span class="material-icons">${healthIcon}</span>
+          <span>${escapeHtml(healthLabel)}</span>
+        </div>
+        <div class="cc-resumen-caption">
+          Actualizado a las ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+          · Scope: ${escapeHtml(upper(state.plaza) || 'GLOBAL')}
+        </div>
+      </div>
+      <div class="cc-resumen-hero-right">
+        <div class="cc-attention-list">
+          <div class="cc-attention-title">Requiere atención</div>
+          ${attentionHtml}
+        </div>
+      </div>
+    </section>
+
     <section class="programmer-section cc-section-fade">
       <div class="programmer-section-head">
-        <h3>Salud del sistema</h3>
+        <h3>Métricas del sistema</h3>
         <span style="display:flex;align-items:center;gap:6px;">
-          <span style="width:8px;height:8px;border-radius:50%;background:${healthColor};display:inline-block;box-shadow:0 0 6px ${healthColor};"></span>
+          <span style="width:7px;height:7px;border-radius:50%;background:${healthColor};display:inline-block;box-shadow:0 0 5px ${healthColor};"></span>
           ${escapeHtml(healthLabel)}
         </span>
       </div>
@@ -746,19 +838,19 @@ function renderResumenTab() {
           <div class="cc-progress-track">
             <div class="cc-progress-fill" style="width:${devsTotal > 0 ? Math.round((devsOk/devsTotal)*100) : 0}%;background:#10b981;"></div>
           </div>
-          <div class="cc-health-sub">${devsOk}/${devsTotal} con permisos</div>
+          <div class="cc-health-sub">${devsOk} / ${devsTotal} con permisos</div>
         </div>
         <div class="cc-health-item">
           <div class="cc-health-label">Devices bloqueados</div>
           <div class="cc-progress-track">
             <div class="cc-progress-fill" style="width:${devsTotal > 0 ? Math.round((devsBlocked/devsTotal)*100) : 0}%;background:#ef4444;"></div>
           </div>
-          <div class="cc-health-sub">${devsBlocked}/${devsTotal} bloqueados</div>
+          <div class="cc-health-sub">${devsBlocked} / ${devsTotal} bloqueados</div>
         </div>
         <div class="cc-health-item">
           <div class="cc-health-label">Tasa de errores</div>
           <div class="cc-progress-track">
-            <div class="cc-progress-fill" style="width:${Math.min(100,errCount*5)}%;background:${healthColor};"></div>
+            <div class="cc-progress-fill" style="width:${Math.min(100, errCount * 5)}%;background:${healthColor};"></div>
           </div>
           <div class="cc-health-sub">${errCount} registros recientes</div>
         </div>
@@ -768,20 +860,29 @@ function renderResumenTab() {
     <section class="programmer-two-col cc-section-fade">
       <div class="programmer-panel">
         <div class="programmer-panel-head">
-          <h4>Últimos ops events</h4>
-          <span>Stream unificado</span>
+          <h4>Actividad reciente</h4>
+          <span>ops_events · últimos 12</span>
         </div>
         ${state.opsRows.length ? rowsToTable(state.opsRows.slice(0, 12)) : skeletonRows(5)}
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
-          <h4>Últimos jobs</h4>
-          <span>Dry-run y producción</span>
+          <h4>Jobs recientes</h4>
+          <span>programmer_jobs · últimos 10</span>
         </div>
         ${state.jobsRows.length ? rowsToTable(state.jobsRows.slice(0, 10)) : skeletonRows(5)}
       </div>
     </section>
   `;
+
+  // Botones "ver en sección" del panel de atención
+  container.querySelectorAll('[data-goto]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.tab = btn.dataset.goto;
+      renderShell();
+      renderCurrentTab();
+    });
+  });
 }
 
 function renderNotificacionesTab() {

@@ -145,11 +145,11 @@
 
         <button id="btnVerCuadres" onclick="abrirHistorialCuadres()" class="sb-btn sb-btn-ghost" style="display:none;">
           <div><span class="material-icons">history_edu</span> HISTORIAL DE CUADRES</div>
+          <span class="material-icons sb-chevron">chevron_right</span>
+        </button>
 
         <button id="btnColaPreparacion" onclick="window.location.href='/cola-preparacion'" class="sb-btn sb-btn-dark">
           <div><span class="material-icons" style="color:#2563eb;">format_list_bulleted</span> COLA PREPARACIÓN</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
           <span class="material-icons sb-chevron">chevron_right</span>
         </button>
       </div>
@@ -3712,17 +3712,35 @@
           <div class="cfg-v2-hero-content">
             <div class="cfg-v2-hero-compact-row">
               <div class="cfg-v2-kicker">
-                <span class="material-icons" style="font-size:13px;">settings_suggest</span>
-                ADMINISTRACIÓN
+                <span class="material-icons" style="font-size:13px;">admin_panel_settings</span>
+                CENTRO DE CONFIGURACIÓN
               </div>
-              <h2 class="cfg-v2-title">PANEL ADMINISTRATIVO</h2>
+              <h2 class="cfg-v2-title">Panel Administrativo</h2>
               <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
             </div>
-            <!-- IDs requeridos por JS — ocultos -->
-            <span id="cfg-insight-users" style="display:none;"></span>
-            <span id="cfg-insight-plazas" style="display:none;"></span>
-            <span id="cfg-insight-catalogs" style="display:none;"></span>
-            <span id="cfg-insight-pending" style="display:none;"></span>
+            <!-- Contexto rápido del sistema -->
+            <div class="cfg-v2-hero-context-row">
+              <span class="cfg-v2-ctx-chip" id="cfg-ctx-users">
+                <span class="material-icons">group</span>
+                <span id="cfg-insight-users">— usuarios</span>
+              </span>
+              <span class="cfg-v2-ctx-chip" id="cfg-ctx-plazas">
+                <span class="material-icons">location_city</span>
+                <span id="cfg-insight-plazas">— plazas</span>
+              </span>
+              <span class="cfg-v2-ctx-chip" id="cfg-ctx-catalogs">
+                <span class="material-icons">list_alt</span>
+                <span id="cfg-insight-catalogs">— catálogos</span>
+              </span>
+              <span class="cfg-v2-ctx-chip cfg-v2-ctx-chip-warn" id="cfg-ctx-pending">
+                <span class="material-icons">pending_actions</span>
+                <span id="cfg-insight-pending">--</span>
+              </span>
+              <a class="cfg-v2-ctx-chip cfg-v2-ctx-chip-link" href="/mapa" title="Volver al mapa operativo">
+                <span class="material-icons">map</span>
+                <span>Ir al mapa</span>
+              </a>
+            </div>
           </div>
           <button class="cfg-v2-close" onclick="cerrarPanelConfiguracion()">
             <span class="material-icons" style="font-size:20px;">close</span>
@@ -3735,44 +3753,14 @@
           <!-- SIDEBAR -->
           <div class="cfg-v2-sidebar">
             <div class="cfg-v2-sidebar-label">
-              <span class="material-icons">shield_person</span>
-              <span>Administración</span>
+              <span class="material-icons">admin_panel_settings</span>
+              <span>Panel Admin</span>
             </div>
-            <div class="cfg-v2-sidebar-sublabel">Usuarios, roles, catálogos y configuración</div>
+            <div class="cfg-v2-sidebar-sublabel">Centro de configuración del negocio</div>
             <nav class="cfg-v2-nav">
-              <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Empresa">
-                <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
-                <span>Empresa</span>
-              </button>
-              <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas">
-                <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
-                <span>Plazas</span>
-              </button>
-              <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)"
-                title="Ubicaciones">
-                <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
-                <span>Ubicaciones</span>
-              </button>
-              <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados">
-                <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
-                <span>Estados</span>
-              </button>
-              <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)"
-                title="Categorías">
-                <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
-                <span>Categorías</span>
-              </button>
-              <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos">
-                <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
-                <span>Modelos</span>
-              </button>
-              <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)"
-                title="Gasolinas">
-                <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
-                <span>Gasolinas</span>
-              </button>
 
-              <div class="cfg-rail-section-label">Gestión y Permisos</div>
+              <!-- ── ACCESOS Y PERMISOS ──────────────────── -->
+              <div class="cfg-rail-section-label">Accesos</div>
 
               <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)"
                 title="Usuarios">
@@ -3780,20 +3768,67 @@
                 <span>Usuarios</span>
               </button>
               <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
-                <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
+                <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
                 <span>Roles</span>
               </button>
               <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)"
-                style="position:relative;" title="Solicitudes">
+                style="position:relative;" title="Solicitudes de acceso">
                 <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
                 <span>Solicitudes</span>
                 <span id="badge-config-solicitudes" class="badge-pulse"
                   style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
               </button>
+
+              <!-- ── OPERACIÓN ───────────────────────────── -->
+              <div class="cfg-rail-section-label">Operación</div>
+
+              <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados de unidades">
+                <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+                <span>Estados</span>
+              </button>
+              <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)"
+                title="Categorías de vehículos">
+                <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+                <span>Categorías</span>
+              </button>
+              <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos registrados">
+                <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+                <span>Modelos</span>
+              </button>
+              <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)"
+                title="Tipos de combustible">
+                <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+                <span>Gasolinas</span>
+              </button>
+
+              <!-- ── ESTRUCTURA ──────────────────────────── -->
+              <div class="cfg-rail-section-label">Estructura</div>
+
+              <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas del sistema">
+                <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+                <span>Plazas</span>
+              </button>
+              <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)"
+                title="Ubicaciones y responsables">
+                <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+                <span>Ubicaciones</span>
+              </button>
+
+              <!-- ── ORGANIZACIÓN ────────────────────────── -->
+              <div class="cfg-rail-section-label">Organización</div>
+
+              <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Configuración de empresa">
+                <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+                <span>Empresa</span>
+              </button>
+
+              <!-- ── SISTEMA ─────────────────────────────── -->
+              <div class="cfg-rail-section-label">Sistema</div>
+
               <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)"
-                title="Programador">
+                title="Consola técnica del sistema">
                 <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
-                <span>Programador</span>
+                <span>Consola técnica</span>
               </button>
             </nav>
           </div>

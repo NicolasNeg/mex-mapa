@@ -1649,6 +1649,55 @@
       transform: translateY(-1px);
     }
 
+    /* ── Context chips row (nuevo) ───────────────────────── */
+    .cfg-v2-hero-context-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      align-items: center;
+    }
+
+    .cfg-v2-ctx-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.14);
+      color: rgba(255,255,255,.85);
+      font-size: 11px;
+      font-weight: 800;
+      white-space: nowrap;
+      transition: background .2s;
+    }
+
+    .cfg-v2-ctx-chip .material-icons {
+      font-size: 14px;
+      opacity: .75;
+    }
+
+    .cfg-v2-ctx-chip-warn {
+      background: rgba(239,68,68,.18);
+      border-color: rgba(239,68,68,.35);
+      color: #fca5a5;
+    }
+
+    .cfg-v2-ctx-chip-link {
+      cursor: pointer;
+      text-decoration: none;
+      background: rgba(59,130,246,.18);
+      border-color: rgba(59,130,246,.35);
+      color: #93c5fd;
+      transition: background .2s, transform .15s;
+    }
+
+    .cfg-v2-ctx-chip-link:hover {
+      background: rgba(59,130,246,.28);
+      transform: translateY(-1px);
+    }
+
     .cfg-v2-close {
       position: absolute;
       right: 20px;

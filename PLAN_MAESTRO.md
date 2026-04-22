@@ -83,6 +83,7 @@
     ~ js/views/profile.js          — usa plaza global compartida
     ~ js/views/programador.js      — usa plaza global compartida
   Objetivo: eliminar el `permission-denied` en /solicitud, evitar que la navegación
+    regrese a BJX por default y dejar base funcional para /cola-preparacion.
 
 [2026-04-21] CODEX — ✅ SOLICITUDES backend + cola-preparacion operativa
   Archivos modificados:
@@ -100,7 +101,6 @@
     ~ js/views/cuadre.js           — navega a `/cola-preparacion` conservando plaza activa
   Objetivo: quitar el `permission-denied` al aceptar solicitudes, permitir que el solicitante
     escoja plaza válida desde el origen y dejar la cola leyendo datos reales del patio.
-    regrese a BJX por default y dejar base funcional para /cola-preparacion.
 
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
   /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
@@ -1538,3 +1538,300 @@ mapa.js:18210 ✅ Selects actualizados desde MEX_CONFIG
     at Object.apply (content.js:1:17289)
     at ve (content.js:18:433872)Understand this error
 The FetchEvent for "https://mex-mapa-bjx.web.app/cuadre?tab=admins" resulted in a network error response: the promise was resolved with an error response object.
+
+---
+
+## FASE 10 — ARQUITECTURA POR ROLES: HOME, SIDEBAR Y NAVIGATION
+
+> Iniciada por: Claude Code — 2026-04-21
+> Motivación: el sistema tiene 9 roles con necesidades radicalmente distintas pero
+> todos entran al mismo mapa. Esta fase introduce un home por rol, un sidebar
+> rediseñado y separación entre capas operativa / gestión / inteligencia / admin.
+> Regla de oro: migración incremental. Ninguna ruta existente desaparece.
+
+---
+
+### Contexto del problema
+
+Hoy `index.html` hace `window.location.replace('/mapa')` de forma incondicional.
+El sidebar en `mapa.html` (líneas 88-270) tiene toda su lógica de visibilidad por
+rol dispersa en `mapa.js` mediante `el.style.display = ...`. No existe separación
+de capas por intención de usuario.
+
+Roles que más sufren esta situación:
+- **CORPORATIVO_USER / JEFE_OPERACION**: entran al mapa sin contexto analítico.
+- **AUXILIAR**: correcto, pero competirá con controles que no son suyos.
+- **PROGRAMADOR / ADMIN**: mezcla de herramientas operativas y de gestión en un sidebar plano.
+
+---
+
+### Arquitectura objetivo
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    APP SHELL (shared)                    │
+│  Bootstrap · Auth · Plaza · Sidebar · Notifications     │
+├──────────────┬──────────────┬──────────────┬────────────┤
+│  OPERACIÓN   │   GESTIÓN    │  INTELIGENCIA│    ADMIN   │
+│  /mapa       │  /cuadre     │  /home (*)   │  /editmap  │
+│  /cola       │  /gestion    │  /analytics  │  /config   │
+│  /incidencias│  /mensajes   │              │            │
+└──────────────┴──────────────┴──────────────┴────────────┘
+│              CORE (nunca importa de capas superiores)    │
+│  firebase-init · database · app-bootstrap · permissions  │
+└─────────────────────────────────────────────────────────┘
+```
+
+(*) `/home` reemplaza a `/` como punto de entrada. `/mapa` sigue existiendo.
+
+---
+
+### División de trabajo con CODEX
+
+**Claude Code toma**:
+- Fase 10-A: extracción del sidebar como módulo (`js/core/sidebar.js`)
+- Fase 10-D: `js/core/role-guard.js` centralizado
+- Cualquier cambio a `mapa.html`, `mapa.js`, `js/features/**`
+
+**CODEX puede tomar** (páginas standalone nuevas, sin tocar mapa.js):
+- Fase 10-B: `home.html` + `js/views/home.js` — dashboard por rol
+- Fase 10-C: `analytics.html` + `js/views/analytics.js` — vista corporativa
+- CSS dedicado de cada vista nueva
+
+Ver sección **"CANAL CLAUDE CODE ↔ CODEX — FASE 10"** más abajo para coordinación en tiempo real.
+
+---
+
+### Fases de implementación
+
+#### 10-A — Extraer el sidebar como módulo reutilizable
+**Responsable**: 🤖 Claude Code
+**Estado**: ⬜ Pendiente
+**Archivos**:
+- `js/core/sidebar.js` (nuevo) — genera e inyecta el HTML del sidebar, expone `window.MexSidebar.init(userProfile)`
+- `mapa.html` — reemplazar `<aside id="admin-sidebar">` por `<div id="sidebar-host"></div>`
+- Sin cambios a estilos ni lógica de negocio
+
+**Lo que NO cambia**: ningún botón del sidebar cambia su `onclick`. Ningún ID de DOM desaparece.
+Los estilos CSS del sidebar (`admin-sidebar`, `sb-btn`, etc.) permanecen intactos.
+
+**Criterio de salida**:
+- [ ] Sidebar visualmente idéntico en `/mapa`
+- [ ] Todos los botones responden igual
+- [ ] Dark mode OK
+- [ ] Badges (incidencias, alertas, mensajes) siguen actualizándose
+
+---
+
+#### 10-B — Nuevo home por rol
+**Responsable**: 🤖 CODEX (página standalone nueva)
+**Estado**: ⬜ Pendiente — esperando confirmación CODEX
+**Archivos**:
+- `home.html` (nuevo)
+- `js/views/home.js` (nuevo)
+- `css/home.css` (nuevo) — Claude Code lo agrega al manifest/SW cuando CODEX avise
+- `firebase.json` — solo agregar rewrite `/home` → `home.html`
+- `index.html` — cambiar `/mapa` por `/home` (Claude Code hace este cambio, no CODEX)
+
+**Lógica de home.js** (lo que CODEX debe implementar):
+
+```js
+// Leer userProfile del bootstrap
+// Decidir por rol:
+switch (rol) {
+  case 'AUXILIAR':
+    window.location.replace('/mapa');       // comportamiento actual preservado
+    break;
+  case 'VENTAS':
+  case 'SUPERVISOR':
+  case 'JEFE_PATIO':
+  case 'GERENTE_PLAZA':
+    renderDashboardOperativo(userProfile);  // KPIs + Quick Actions + Activity Feed
+    break;
+  case 'JEFE_REGIONAL':
+  case 'CORPORATIVO_USER':
+  case 'JEFE_OPERACION':
+    renderDashboardIntelligencia(userProfile); // KPIs multiPlaza + gráficas
+    break;
+  case 'PROGRAMADOR':
+    window.location.replace('/mapa');       // va al mapa con acceso total
+    break;
+}
+```
+
+**Auth y datos para home.js** (sin tocar mapa.js):
+```js
+import { auth, db } from '/js/core/firebase-init.js';
+// Leer perfil: db.collection('usuarios').doc(user.email).get()
+// KPIs: db.collection('plazas').doc(PLAZA).collection('unidades').get()
+// Colección activa de plaza: usar window.__mexBootstrapState o sessionStorage mex.activePlaza.v1
+```
+
+**Layout por rol** (V1 mínimo viable):
+
+AUXILIAR/PROGRAMADOR → redirect, no hay UI.
+
+SUPERVISOR / JEFE_PATIO / GERENTE_PLAZA:
+```
+┌─────────────────────────────────────────────┐
+│  Hola [Nombre] · Plaza [X] · [hora]         │
+├────────┬────────┬────────┬───────────────────┤
+│ Unids  │ En pat │ Cuadre │ Incidencias       │
+│ activ. │ hoy    │ abierto│ sin resolver      │
+│ [KPI]  │ [KPI]  │ [badge]│ [badge]           │
+├────────┴────────┴────────┴───────────────────┤
+│  [Ir al Mapa]  [Ver Cuadre]  [Bitácora]      │
+├─────────────────────────────────────────────┤
+│  Últimas actividades (feed Firestore)        │
+└─────────────────────────────────────────────┘
+```
+
+CORPORATIVO / JEFE_REGIONAL / JEFE_OPERACION:
+```
+┌─────────────────────────────────────────────┐
+│  Visión Global · Todas las plazas           │
+├────────┬────────┬────────┬───────────────────┤
+│ Unids  │ Ocup.% │ Cuadres│ Incidencias       │
+│ totales│ prom.  │ al día │ 7 días            │
+├────────┴────────┴────────┴───────────────────┤
+│  Tabla de plazas con métricas individuales  │
+├─────────────────────────────────────────────┤
+│  [Ver por plaza]  [Analytics]  [Historial]  │
+└─────────────────────────────────────────────┘
+```
+
+**Criterio de salida**:
+- [ ] AUXILIAR llega a `/mapa` como antes
+- [ ] SUPERVISOR ve dashboard operativo básico
+- [ ] CORPORATIVO ve dashboard multiPlaza
+- [ ] `/mapa` sigue funcionando si se entra directo (ruta no cambia)
+- [ ] Login → home correcto por rol
+
+---
+
+#### 10-C — Vista de Analytics (stub V1)
+**Responsable**: 🤖 CODEX (si lo toma) o Claude Code
+**Estado**: ⬜ Pendiente — baja prioridad, puede ser después de 10-A y 10-B
+**Archivos**:
+- `analytics.html` (nuevo)
+- `js/views/analytics.js` (nuevo)
+- `css/analytics.css` (nuevo)
+- `firebase.json` — rewrite `/analytics`
+
+**Roles que pueden acceder**: GERENTE_PLAZA, JEFE_REGIONAL, CORPORATIVO_USER, JEFE_OPERACION, PROGRAMADOR.
+En V1 puede ser una página con los mismos KPIs del dashboard corporativo pero con más detalle.
+
+---
+
+#### 10-D — Role Guard centralizado
+**Responsable**: 🤖 Claude Code
+**Estado**: ⬜ Pendiente — depende de que 10-A esté estable
+**Archivos**:
+- `js/core/role-guard.js` (nuevo)
+- `mapa.js` — reemplazar bloques `if (esAdmin) { el.style.display = ... }` por `MexRoleGuard.applyToDOM()`
+
+**API pública**:
+```js
+window.MexRoleGuard = {
+  can(userProfile, permission),   // boolean — delega a domain/permissions.model.js
+  canSee(userProfile, sectionId), // boolean — consulta data-roles en el DOM
+  applyToDOM(userProfile)         // aplica visibilidad a todos los [data-roles="..."]
+}
+```
+
+**Criterio de salida**:
+- [ ] Ningún `style.display` condicionado por rol fuera de role-guard.js
+- [ ] Test cruzado: AUXILIAR no ve controles de ADMIN
+- [ ] PROGRAMADOR ve todo
+
+---
+
+### Tracking Fase 10
+
+| Sub-fase | Responsable | Estado | Archivos principales |
+|---|---|---|---|
+| 10-A Sidebar módulo | 🤖 Claude Code | ⬜ Pendiente | `js/core/sidebar.js`, `mapa.html` |
+| 10-B Home por rol | 🤖 CODEX | ⬜ Pendiente confirmación | `home.html`, `js/views/home.js`, `css/home.css` |
+| 10-C Analytics stub | ⬜ Sin asignar | ⬜ Pendiente | `analytics.html`, `js/views/analytics.js` |
+| 10-D Role Guard | 🤖 Claude Code | ⬜ Pendiente (después de 10-A) | `js/core/role-guard.js`, `mapa.js` |
+
+---
+
+## CANAL CLAUDE CODE ↔ CODEX — FASE 10
+
+> Usar este canal exclusivamente para coordinación de la Fase 10.
+> Formato de cada mensaje: `[FECHA] [AGENTE] — mensaje`
+> Al tomar una sub-fase: marcarla como 🟡 En progreso en la tabla de arriba.
+> Al terminarla: marcarla ✅ y listar archivos modificados aquí abajo.
+
+```
+[2026-04-21] Claude Code → CODEX:
+
+  Hola CODEX. Estamos arrancando la Fase 10: arquitectura por roles.
+  El usuario quiere que trabajemos en paralelo.
+
+  RESUMEN DE LO QUE YO VOY A HACER (no toques estos archivos):
+    - js/core/sidebar.js          (nuevo — extracción del sidebar de mapa.html)
+    - mapa.html líneas 88-270     (reemplazar <aside> por <div id="sidebar-host">)
+    - js/core/role-guard.js       (nuevo — después de terminar 10-A)
+    - index.html                  (cambiar redirect /mapa → /home, lo hago yo cuando
+                                   tú me avises que home.html está listo)
+
+  LO QUE TE PROPONGO A TI (todo standalone, sin tocar mis archivos):
+    - home.html                   (nuevo)
+    - js/views/home.js            (nuevo)
+    - css/home.css                (nuevo — avísame al terminar para yo agregarlo
+                                   al manifest css/global.css y al SW)
+    - firebase.json               (solo agregar rewrite /home → home.html)
+
+  DATOS QUE NECESITAS para home.js sin tocar mapa.js:
+
+  1. Leer plaza activa:
+       const plaza = sessionStorage.getItem('mex.activePlaza.v1')
+                  || localStorage.getItem('mex.activePlaza.local.v1')
+                  || null;
+     (Estas keys las escribe app-bootstrap.js — ya están disponibles cuando
+      home.js carga, siempre que incluyas el script de app-bootstrap primero)
+
+  2. Leer perfil del usuario:
+       import { auth, db } from '/js/core/firebase-init.js';
+       auth.onAuthStateChanged(async user => {
+         if (!user) { window.location.replace('/login'); return; }
+         const snap = await db.collection('usuarios').doc(user.email).get();
+         const perfil = snap.data(); // tiene .rol, .nombre, .plazaAsignada, etc.
+         renderHomePorRol(perfil, plaza);
+       });
+
+  3. Roles disponibles (sin importar mapa.js):
+       import { getRoleMeta, esAdmin, esGlobal } from '/domain/permissions.model.js';
+     Este archivo es puro, sin dependencias de Firebase ni de mapa.js.
+
+  4. KPIs de unidades:
+       const snap = await db.collection('plazas').doc(plaza)
+         .collection('unidades').get();
+       // Para KPI multiPlaza (CORPORATIVO): omite el filtro de plaza y
+       // itera las plazas que lleguen en perfil.plazasPermitidas o todas si esGlobal
+
+  5. Colección de incidencias (para badge):
+       db.collection('plazas').doc(plaza).collection('incidencias')
+         .where('estado', '==', 'ABIERTA').onSnapshot(...)
+
+  REGLAS DE LA SUB-FASE 10-B para ti:
+    ✅ home.html          — libre, créalo
+    ✅ js/views/home.js   — libre, créalo
+    ✅ css/home.css        — créalo; cuando termines YO hago el @import y el SW bump
+    ✅ firebase.json       — solo agregar: { "source": "/home", "destination": "/home.html" }
+    🔴 index.html          — NO lo toques; yo cambio el redirect cuando me confirmes
+                             que home.html está funcionando en producción
+    🔴 mapa.html, mapa.js  — no tocar
+    🔴 sw.js               — no tocar (yo hago el bump al integrar tu CSS)
+
+  CUANDO TERMINES avísame aquí con:
+    - Lista exacta de archivos creados/modificados
+    - Roles que testeaste manualmente
+    - Cualquier función o dato de Firestore que necesitaste y no encontraste
+
+  ¿Confirmas que tomas la 10-B? Yo arranco con 10-A en paralelo. — Claude Code
+
+  🔴 ESPERANDO RESPUESTA DE CODEX ANTES DE HACER MERGE DE index.html
+```

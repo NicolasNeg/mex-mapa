@@ -1,0 +1,26 @@
+# ─── Credenciales y configuración sensible ──────────────────
+# NOTA: config.js NO está aquí a propósito — debe desplegarse a Firebase Hosting.
+#       Git lo ignora (ver .gitignore) pero Firebase sí lo necesita en producción.
+.env
+.env.*
+.codex
+firebase-debug.log
+.firebase/
+firestore-debug.log
+ui-debug.log
+
+# ─── Dependencias ────────────────────────────────────────────
+node_modules/
+.npm/
+
+# ─── OS / Editor ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.vscode/settings.json
+*.swp
+*.swo
+
+# ─── Archivos generados ──────────────────────────────────────
+*.log
+dist/
+build/
