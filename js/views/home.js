@@ -13,151 +13,191 @@ const ROLE_LABELS = {
   JEFE_OPERACION: 'JEFE DE OPERACION'
 };
 
+const HOME_SIDEBAR_COLLAPSED_KEY = 'mex.home.sidebar.collapsed.v1';
+
 const HOME_VARIANTS = {
   operacion: {
     kicker: 'Operacion diaria',
-    title: 'Tu mapa sigue siendo el centro de trabajo',
-    description: 'Entradas rapidas para ubicar unidades, moverlas, revisar mensajes y cerrar la operacion sin rodeos.',
+    title: 'Tu centro rapido de patio y movimiento',
+    description: 'Entra al modulo correcto sin pasar siempre por el mismo flujo. El mapa sigue siendo clave, pero ahora el sistema arranca con contexto.',
+    ctaTitle: 'Ir al mapa operativo',
     modules: [
       {
+        id: 'mapa',
         title: 'Mapa operativo',
         description: 'Ubicar, mover y validar unidades desde la plaza activa.',
         route: '/mapa',
         icon: 'map',
-        tone: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
-        primary: true
+        badge: 'Principal',
+        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
       },
       {
+        id: 'mensajes',
         title: 'Mensajes',
-        description: 'Abrir conversaciones, revisar evidencias y mantener coordinacion interna.',
+        description: 'Coordinacion interna, evidencias y seguimiento del equipo.',
         route: '/mensajes',
         icon: 'mail',
-        tone: 'linear-gradient(135deg, #0ea5e9, #2563eb)'
+        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
       },
       {
+        id: 'cuadre',
         title: 'Cuadre',
-        description: 'Ir al cierre, prediccion y control del turno desde la misma plaza.',
+        description: 'Ir al cierre, control y prediccion diaria de la plaza foco.',
         route: '/cuadre',
         icon: 'fact_check',
-        tone: 'linear-gradient(135deg, #16a34a, #059669)'
+        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
       },
       {
+        id: 'cola',
         title: 'Cola de preparacion',
-        description: 'Priorizar salidas, checklist y seguimiento rapido de unidades listas.',
+        description: 'Checklist, prioridad de salida y avance de unidades listas.',
         route: '/cola-preparacion',
         icon: 'format_list_bulleted',
-        tone: 'linear-gradient(135deg, #7c3aed, #4f46e5)'
+        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
       }
     ]
   },
   admin: {
-    kicker: 'Administracion y control',
-    title: 'Centro de configuracion y supervision',
-    description: 'Empieza por los modulos administrativos sin perder el acceso operativo cuando necesites bajar al patio.',
+    kicker: 'Centro administrativo',
+    title: 'Configuracion, supervision y acceso al flujo real',
+    description: 'Arranque por rol con accesos agrupados y una shell consistente para entrar al modulo correcto sin perder la plaza activa.',
+    ctaTitle: 'Abrir panel admin',
     modules: [
       {
+        id: 'admin',
         title: 'Panel admin',
         description: 'Usuarios, roles, plazas, ubicaciones y catalogos del negocio.',
         route: '/gestion?tab=usuarios',
         icon: 'admin_panel_settings',
-        tone: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
-        primary: true
+        badge: 'Principal',
+        requires: 'admin',
+        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
       },
       {
+        id: 'mapa',
         title: 'Mapa operativo',
-        description: 'Entrar al patio con la misma plaza foco y revisar acomodo real.',
+        description: 'Revisar acomodo real y bajar al patio solo cuando lo necesites.',
         route: '/mapa',
         icon: 'map',
-        tone: 'linear-gradient(135deg, #0ea5e9, #2563eb)'
+        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
       },
       {
-        title: 'Cuadre',
-        description: 'Revisar cierre, predicciones y flujo de operacion.',
+        id: 'cuadre',
+        title: 'Cuadres y reportes',
+        description: 'Seguimiento diario de cierres, prediccion y validacion operativa.',
         route: '/cuadre',
-        icon: 'fact_check',
-        tone: 'linear-gradient(135deg, #16a34a, #059669)'
+        icon: 'analytics',
+        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
       },
       {
+        id: 'mensajes',
         title: 'Mensajes',
-        description: 'Atender coordinacion interna y seguimiento de equipos.',
+        description: 'Atender coordinacion interna, solicitudes y seguimiento.',
         route: '/mensajes',
-        icon: 'mail',
-        tone: 'linear-gradient(135deg, #7c3aed, #4f46e5)'
+        icon: 'chat',
+        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
       }
     ]
   },
   corporativo: {
     kicker: 'Vision global',
-    title: 'Resumen ejecutivo por plaza y modulo',
-    description: 'Un home ligero para decidir rapido a que parte del sistema entrar, con contexto global y accesos directos.',
+    title: 'Dashboard de acceso ejecutivo por plaza y area',
+    description: 'Un arranque mas limpio para direccion y corporativo, con foco en decisiones, contexto y entrada selectiva al detalle operativo.',
+    ctaTitle: 'Abrir cuadres y reportes',
     modules: [
       {
-        title: 'Cuadre y reportes',
-        description: 'Consultar cierres, prediccion diaria y seguimiento por plaza.',
+        id: 'cuadre',
+        title: 'Cuadres y reportes',
+        description: 'Consultar cierres, presion operativa y seguimiento por plaza.',
         route: '/cuadre',
         icon: 'analytics',
-        tone: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
-        primary: true
+        badge: 'Principal',
+        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
       },
       {
-        title: 'Mapa de referencia',
-        description: 'Abrir el mapa solo cuando necesites detalle operativo puntual.',
-        route: '/mapa',
-        icon: 'map',
-        tone: 'linear-gradient(135deg, #0ea5e9, #2563eb)'
-      },
-      {
+        id: 'admin',
         title: 'Panel admin',
         description: 'Entrar a configuracion, plazas y estructura del sistema.',
         route: '/gestion?tab=usuarios',
         icon: 'admin_panel_settings',
-        tone: 'linear-gradient(135deg, #16a34a, #059669)'
+        requires: 'admin',
+        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
       },
       {
+        id: 'mapa',
+        title: 'Mapa de referencia',
+        description: 'Ir al detalle operativo solo cuando necesites contexto real del patio.',
+        route: '/mapa',
+        icon: 'map',
+        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+      },
+      {
+        id: 'mensajes',
         title: 'Mensajes',
         description: 'Abrir comunicaciones y avisos internos recientes.',
         route: '/mensajes',
         icon: 'mail',
-        tone: 'linear-gradient(135deg, #7c3aed, #4f46e5)'
+        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
       }
     ]
   },
   programador: {
     kicker: 'Plataforma y observabilidad',
-    title: 'Arranque tecnico con acceso al producto real',
-    description: 'Consola, admin y mapa listos desde un home por rol para entrar a la capa correcta sin pasar primero por el patio.',
+    title: 'Shell tecnica con acceso directo a producto real',
+    description: 'Consola, panel admin, mapa y mensajeria agrupados en una misma entrada para dejar atras el mapa como home universal.',
+    ctaTitle: 'Abrir consola tecnica',
     modules: [
       {
+        id: 'programador',
         title: 'Consola tecnica',
-        description: 'Salud del sistema, errores, clientes, cache y herramientas seguras.',
+        description: 'Salud del sistema, clientes, cache, errores y herramientas seguras.',
         route: '/programador',
         icon: 'terminal',
-        tone: 'linear-gradient(135deg, #0f172a, #1d4ed8)',
-        primary: true
+        badge: 'Principal',
+        requires: 'programmer',
+        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
       },
       {
+        id: 'admin',
         title: 'Panel admin',
-        description: 'Gestionar catalogos, usuarios y configuracion administrativa.',
+        description: 'Configuracion administrativa y control de catalogos del sistema.',
         route: '/gestion?tab=usuarios',
         icon: 'admin_panel_settings',
-        tone: 'linear-gradient(135deg, #0ea5e9, #2563eb)'
+        requires: 'admin',
+        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
       },
       {
+        id: 'mapa',
         title: 'Mapa operativo',
-        description: 'Entrar al flujo real de patio con la plaza foco activa.',
+        description: 'Entrar al flujo real del patio con plaza foco compartida.',
         route: '/mapa',
         icon: 'map',
-        tone: 'linear-gradient(135deg, #16a34a, #059669)'
+        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
       },
       {
+        id: 'mensajes',
         title: 'Mensajes',
-        description: 'Depurar UX del chat y revisar actividad del cliente.',
+        description: 'Depurar experiencia del chat y revisar actividad del cliente.',
         route: '/mensajes',
         icon: 'mail',
-        tone: 'linear-gradient(135deg, #7c3aed, #4f46e5)'
+        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
       }
     ]
   }
+};
+
+const _homeState = {
+  query: '',
+  collapsed: (() => {
+    try {
+      return localStorage.getItem(HOME_SIDEBAR_COLLAPSED_KEY) === '1';
+    } catch (_) {
+      return false;
+    }
+  })(),
+  profile: null,
+  config: null,
+  metrics: null
 };
 
 function safe(value) {
@@ -198,6 +238,28 @@ function roleLabel(profile = {}) {
   return ROLE_LABELS[roleKey(profile)] || roleKey(profile) || 'USUARIO';
 }
 
+function permissionOverrides(profile = {}) {
+  return profile?.permissionOverrides && typeof profile.permissionOverrides === 'object'
+    ? profile.permissionOverrides
+    : {};
+}
+
+function canAccessAdminPanel(profile = {}) {
+  const overrides = permissionOverrides(profile);
+  if (overrides.view_admin_panel === false) return false;
+  if (overrides.view_admin_panel === true) return true;
+  const role = roleKey(profile);
+  return role === 'PROGRAMADOR' || role === 'JEFE_OPERACION' || esAdmin(role) || esGlobal(role);
+}
+
+function canAccessProgrammer(profile = {}) {
+  const overrides = permissionOverrides(profile);
+  if (overrides.view_admin_programmer === false) return false;
+  if (overrides.view_admin_programmer === true) return true;
+  const role = roleKey(profile);
+  return role === 'PROGRAMADOR' || role === 'JEFE_OPERACION';
+}
+
 function activePlaza() {
   return upper(
     window.getMexCurrentPlaza?.()
@@ -218,14 +280,14 @@ function homeVariant(profile = {}) {
   const role = roleKey(profile);
   if (role === 'PROGRAMADOR' || role === 'JEFE_OPERACION') return 'programador';
   if (esGlobal(role)) return 'corporativo';
-  if (esAdmin(role)) return 'admin';
+  if (canAccessAdminPanel(profile)) return 'admin';
   return 'operacion';
 }
 
 function availablePlazas(profile = {}, config = {}) {
-  const company = config?.empresa || {};
-  const fromConfig = Array.isArray(company.plazas) ? company.plazas.map(upper).filter(Boolean) : [];
-  const fromDetail = Array.isArray(company.plazasDetalle) ? company.plazasDetalle.map(item => upper(item?.id)).filter(Boolean) : [];
+  const empresa = config?.empresa || {};
+  const fromConfig = Array.isArray(empresa.plazas) ? empresa.plazas.map(upper).filter(Boolean) : [];
+  const fromDetail = Array.isArray(empresa.plazasDetalle) ? empresa.plazasDetalle.map(item => upper(item?.id)).filter(Boolean) : [];
   const fromProfile = [
     upper(profile.plazaAsignada),
     ...(Array.isArray(profile.plazasPermitidas) ? profile.plazasPermitidas.map(upper) : [])
@@ -238,12 +300,15 @@ function availablePlazas(profile = {}, config = {}) {
 async function resolveProfile(user) {
   const email = lower(user?.email || '');
   if (!email) return null;
+
   const [direct, byEmail] = await Promise.all([
     db.collection(COL.USERS).doc(email).get(),
     db.collection(COL.USERS).where('email', '==', email).limit(1).get()
   ]);
+
   const doc = direct.exists ? direct : (!byEmail.empty ? byEmail.docs[0] : null);
   if (!doc) return null;
+
   const data = doc.data() || {};
   return {
     id: doc.id,
@@ -252,7 +317,8 @@ async function resolveProfile(user) {
     nombre: safe(data.nombre || data.usuario || email),
     rol: upper(data.rol || 'AUXILIAR'),
     plazaAsignada: upper(data.plazaAsignada || data.plaza || ''),
-    plazasPermitidas: Array.isArray(data.plazasPermitidas) ? data.plazasPermitidas.map(upper).filter(Boolean) : []
+    plazasPermitidas: Array.isArray(data.plazasPermitidas) ? data.plazasPermitidas.map(upper).filter(Boolean) : [],
+    permissionOverrides: permissionOverrides(data)
   };
 }
 
@@ -291,7 +357,7 @@ async function loadMetrics(profile = {}, plaza = '') {
     focus ? safeCount(db.collection(COL.CUADRE).where('plaza', '==', focus).limit(180).get()) : Promise.resolve(0),
     focus ? safeCount(db.collection(COL.EXTERNOS).where('plaza', '==', focus).limit(180).get()) : Promise.resolve(0),
     focus ? safeCount(db.collection('plazas').doc(focus).collection('incidencias').where('estado', '==', 'ABIERTA').limit(80).get()) : Promise.resolve(0),
-    (esAdmin(role) || esGlobal(role))
+    (canAccessAdminPanel(profile) || esGlobal(role))
       ? safeCount(db.collection('solicitudes').where('estado', '==', 'PENDIENTE').limit(80).get())
       : Promise.resolve(0)
   ]);
@@ -305,58 +371,145 @@ async function loadMetrics(profile = {}, plaza = '') {
   };
 }
 
+function isModuleAvailable(module = {}, profile = {}) {
+  if (module.requires === 'admin') return canAccessAdminPanel(profile);
+  if (module.requires === 'programmer') return canAccessProgrammer(profile);
+  return true;
+}
+
+function availableModules(profile = {}) {
+  const variant = HOME_VARIANTS[homeVariant(profile)];
+  return (variant?.modules || []).filter(module => isModuleAvailable(module, profile));
+}
+
 function moduleMeta(module = {}, metrics = {}) {
-  if (module.route === '/mapa') {
-    return `${metrics.focus || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`;
-  }
-  if (module.route === '/mensajes') {
-    return 'Comunicacion interna';
-  }
-  if (module.route.startsWith('/gestion')) {
-    return `${metrics.solicitudesPendientes || 0} solicitudes pendientes`;
-  }
-  if (module.route === '/programador') {
-    return `${metrics.incidenciasAbiertas || 0} incidencias abiertas`;
-  }
-  if (module.route === '/cuadre') {
-    return `${metrics.externosActivos || 0} externos en foco`;
-  }
+  if (module.route === '/mapa') return `${metrics.focus || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`;
+  if (module.route === '/mensajes') return 'Comunicacion interna';
+  if (module.route === '/cuadre') return `${metrics.externosActivos || 0} externos en foco`;
+  if (module.route.startsWith('/gestion')) return `${metrics.solicitudesPendientes || 0} solicitudes pendientes`;
+  if (module.route === '/programador') return `${metrics.incidenciasAbiertas || 0} incidencias abiertas`;
   return 'Acceso rapido';
 }
 
 function pendingItems(variantKey, metrics = {}) {
   const items = [];
-  if (metrics.focus) {
-    items.push({
-      icon: 'place',
-      text: `Plaza foco actual: ${metrics.focus}`
-    });
-  }
-  if (metrics.unidadesActivas > 0) {
-    items.push({
-      icon: 'directions_car',
-      text: `${metrics.unidadesActivas} unidades visibles en operacion`
-    });
-  }
-  if (metrics.externosActivos > 0) {
-    items.push({
-      icon: 'swap_horiz',
-      text: `${metrics.externosActivos} unidades externas registradas`
-    });
-  }
-  if (metrics.incidenciasAbiertas > 0) {
-    items.push({
-      icon: 'priority_high',
-      text: `${metrics.incidenciasAbiertas} incidencias abiertas en la plaza foco`
-    });
-  }
+  if (metrics.focus) items.push({ icon: 'place', text: `Plaza foco actual: ${metrics.focus}` });
+  if (metrics.unidadesActivas > 0) items.push({ icon: 'directions_car', text: `${metrics.unidadesActivas} unidades visibles en operacion` });
+  if (metrics.externosActivos > 0) items.push({ icon: 'swap_horiz', text: `${metrics.externosActivos} unidades externas registradas` });
+  if (metrics.incidenciasAbiertas > 0) items.push({ icon: 'priority_high', text: `${metrics.incidenciasAbiertas} incidencias abiertas en la plaza foco` });
   if (metrics.solicitudesPendientes > 0 && variantKey !== 'operacion') {
-    items.push({
-      icon: 'mail_lock',
-      text: `${metrics.solicitudesPendientes} solicitudes pendientes de revision`
-    });
+    items.push({ icon: 'mail_lock', text: `${metrics.solicitudesPendientes} solicitudes pendientes de revision` });
   }
   return items;
+}
+
+function companyName(config = {}) {
+  return safe(config?.empresa?.nombre || 'MAPA');
+}
+
+function visiblePlazaLabel(profile = {}, plazas = [], currentPlaza = '') {
+  if (plazas.length > 1) return `${plazas.length} plazas visibles`;
+  if (currentPlaza) return currentPlaza;
+  return upper(profile.plazaAsignada || '') || 'Sin plaza';
+}
+
+function filterModules(modules = [], query = '') {
+  const q = lower(query);
+  if (!q) return modules;
+  return modules.filter(module => {
+    const haystack = lower([module.title, module.description, module.route, module.id].join(' '));
+    return haystack.includes(q);
+  });
+}
+
+function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
+  const groups = [
+    {
+      label: 'Principal',
+      items: [
+        {
+          label: 'Inicio',
+          description: 'Tablero por rol',
+          route: '/home',
+          icon: 'home',
+          active: true
+        }
+      ]
+    },
+    {
+      label: 'Operacion',
+      items: [
+        {
+          label: 'Mapa',
+          description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`,
+          route: '/mapa',
+          icon: 'map'
+        },
+        {
+          label: 'Mensajes',
+          description: 'Coordinacion y chat',
+          route: '/mensajes',
+          icon: 'chat'
+        },
+        {
+          label: 'Cuadre',
+          description: `${metrics.externosActivos || 0} externos en foco`,
+          route: '/cuadre',
+          icon: 'fact_check'
+        },
+        {
+          label: 'Cola prep.',
+          description: 'Salidas y checklist',
+          route: '/cola-preparacion',
+          icon: 'format_list_bulleted'
+        }
+      ]
+    }
+  ];
+
+  const managementItems = [];
+  if (canAccessAdminPanel(profile)) {
+    managementItems.push({
+      label: 'Panel admin',
+      description: `${metrics.solicitudesPendientes || 0} solicitudes pendientes`,
+      route: '/gestion?tab=usuarios',
+      icon: 'admin_panel_settings'
+    });
+  }
+  if (canAccessProgrammer(profile)) {
+    managementItems.push({
+      label: 'Consola',
+      description: `${metrics.incidenciasAbiertas || 0} incidencias abiertas`,
+      route: '/programador',
+      icon: 'terminal'
+    });
+  }
+  if (managementItems.length) {
+    groups.push({
+      label: 'Gestion',
+      items: managementItems
+    });
+  }
+
+  groups.push({
+    label: 'Cuenta',
+    items: [
+      {
+        label: 'Mi perfil',
+        description: roleLabel(profile),
+        route: '/profile',
+        icon: 'person'
+      },
+      {
+        label: 'Cerrar sesion',
+        description: 'Salir de esta cuenta',
+        action: 'logout',
+        icon: 'logout'
+      }
+    ]
+  });
+
+  return groups;
 }
 
 function renderNoAccess(profile = null) {
@@ -385,174 +538,293 @@ function renderNoAccess(profile = null) {
     window.location.href = '/solicitud';
   });
   document.getElementById('homeLogoutBtn')?.addEventListener('click', async () => {
-    await auth.signOut().catch(() => {});
+    await auth.signOut().catch(() => { });
     window.location.replace('/login');
   });
+}
+
+function navigateTo(route = '/mapa') {
+  const target = safe(route) || '/mapa';
+  window.location.href = target;
+}
+
+async function logoutHome() {
+  await auth.signOut().catch(() => { });
+  window.location.replace('/login');
+}
+
+function saveSidebarState(collapsed) {
+  _homeState.collapsed = Boolean(collapsed);
+  try {
+    localStorage.setItem(HOME_SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0');
+  } catch (_) { }
 }
 
 function renderHome(profile, config, metrics) {
   const root = document.getElementById('homeApp');
   if (!root) return;
+
+  _homeState.profile = profile;
+  _homeState.config = config;
+  _homeState.metrics = metrics;
+
   const variantKey = homeVariant(profile);
   const variant = HOME_VARIANTS[variantKey];
   const plazas = availablePlazas(profile, config);
   const currentPlaza = upper(metrics.focus || activePlaza() || plazas[0] || profile.plazaAsignada || '');
+  const modules = filterModules(availableModules(profile), _homeState.query);
+  const navGroups = sidebarGroups(profile, metrics, currentPlaza);
   const pending = pendingItems(variantKey, { ...metrics, focus: currentPlaza });
-  const companyName = safe(config?.empresa?.nombre || document.documentElement?.dataset?.companyName || 'MAPA');
-  const operatorName = safe(profile.nombre || profile.email || 'Usuario');
-  const totalVisiblePlazas = plazas.length || (currentPlaza ? 1 : 0);
+  const userName = safe(profile.nombre || profile.email || 'Usuario');
+  const company = companyName(config);
+  const primaryModule = modules[0] || availableModules(profile)[0] || { route: '/mapa', icon: 'map', title: 'Mapa operativo' };
+  const visiblePlazas = plazas.length || (currentPlaza ? 1 : 0);
 
   root.innerHTML = `
-    <div class="home-page-grid">
-      <section class="home-hero">
-        <div class="home-hero-copy">
-          <span class="home-kicker">${escapeHtml(variant.kicker)}</span>
-          <h1>${escapeHtml(operatorName)}</h1>
-          <p>${escapeHtml(variant.title)} ${escapeHtml(variant.description)}</p>
-          <div class="home-hero-pills">
-            <span class="home-pill"><span class="material-icons" style="font-size:14px;">verified_user</span>${escapeHtml(roleLabel(profile))}</span>
-            <span class="home-pill"><span class="material-icons" style="font-size:14px;">corporate_fare</span>${escapeHtml(companyName)}</span>
-            <span class="home-pill"><span class="material-icons" style="font-size:14px;">location_city</span>${escapeHtml(currentPlaza || 'SIN PLAZA')}</span>
-          </div>
-        </div>
-        <div class="home-hero-side">
-          <div class="home-stat-card">
-            <span>Unidades activas</span>
-            <strong>${escapeHtml(String(metrics.unidadesActivas || 0))}</strong>
-            <small>Lectura ligera para la plaza foco actual.</small>
-          </div>
-          <div class="home-stat-card">
-            <span>Incidencias abiertas</span>
-            <strong>${escapeHtml(String(metrics.incidenciasAbiertas || 0))}</strong>
-            <small>${metrics.incidenciasAbiertas > 0 ? 'Conviene revisar alertas antes de entrar al flujo.' : 'Sin alertas abiertas en la plaza foco.'}</small>
-          </div>
-        </div>
-      </section>
-
-      <div class="home-main-grid">
-        <section class="home-panel">
-          <div class="home-panel-head">
-            <div>
-              <h2>Modulos principales</h2>
-              <p>Accesos pensados por rol para entrar a la capa correcta del producto sin pasar siempre por el mapa.</p>
+    <div class="home-workspace ${_homeState.collapsed ? 'is-collapsed' : ''}">
+      <aside class="home-sidebar">
+        <div class="home-sidebar-head">
+          <div class="home-brand-lockup">
+            <div class="home-brand-icon">M</div>
+            <div class="home-brand-copy">
+              <strong>${escapeHtml(company)}</strong>
+              <span>Centro de trabajo</span>
             </div>
-            <span class="home-panel-badge">${escapeHtml(variantKey)}</span>
           </div>
-          <div class="home-module-grid">
-            ${variant.modules.map(module => `
-              <article class="home-module-card">
-                <div class="home-module-head">
-                  <div class="home-module-icon" style="background:${module.tone};">
-                    <span class="material-icons">${module.icon}</span>
-                  </div>
-                  ${module.primary ? '<span class="home-panel-badge">Principal</span>' : ''}
-                </div>
-                <div class="home-module-copy">
-                  <strong>${escapeHtml(module.title)}</strong>
-                  <p>${escapeHtml(module.description)}</p>
-                </div>
-                <div class="home-module-footer">
-                  <span class="home-module-meta">${escapeHtml(moduleMeta(module, { ...metrics, focus: currentPlaza }))}</span>
-                  <button type="button" class="home-btn ${module.primary ? 'primary' : ''}" data-route="${escapeHtml(module.route)}">
-                    <span class="material-icons">${module.icon}</span>
-                    Abrir
+          <button type="button" id="homeSidebarToggle" class="home-sidebar-toggle" title="${_homeState.collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}">
+            <span class="material-icons">${_homeState.collapsed ? 'menu' : 'menu_open'}</span>
+          </button>
+        </div>
+
+        <div class="home-sidebar-profile">
+          <div class="home-sidebar-avatar">${escapeHtml((userName[0] || 'U').toUpperCase())}</div>
+          <div class="home-sidebar-profile-copy">
+            <strong>${escapeHtml(userName)}</strong>
+            <span>${escapeHtml(roleLabel(profile))}</span>
+            <small>${escapeHtml(visiblePlazaLabel(profile, plazas, currentPlaza))}</small>
+          </div>
+        </div>
+
+        <div class="home-sidebar-groups">
+          ${navGroups.map(group => `
+            <section class="home-nav-group">
+              <p class="home-nav-group-label">${escapeHtml(group.label)}</p>
+              <div class="home-nav-list">
+                ${group.items.map(item => `
+                  <button
+                    type="button"
+                    class="home-nav-item ${item.active ? 'is-active' : ''}"
+                    ${item.route ? `data-route="${escapeHtml(item.route)}"` : ''}
+                    ${item.action ? `data-action="${escapeHtml(item.action)}"` : ''}
+                    title="${escapeHtml(item.label)}">
+                    <span class="material-icons">${escapeHtml(item.icon)}</span>
+                    <span class="home-nav-copy">
+                      <strong>${escapeHtml(item.label)}</strong>
+                      <small>${escapeHtml(item.description || '')}</small>
+                    </span>
                   </button>
-                </div>
-              </article>
-            `).join('')}
-          </div>
-        </section>
-
-        <aside class="home-panel">
-          <div class="home-panel-head">
-            <div>
-              <h3>Contexto actual</h3>
-              <p>Plaza foco, alcance visible y pendientes ligeros del turno.</p>
-            </div>
-            <span class="home-panel-badge">Sesion</span>
-          </div>
-          <div class="home-side-stack">
-            <div class="home-context-grid">
-              <div class="home-context-item">
-                <span>Usuario</span>
-                <strong>${escapeHtml(operatorName)}</strong>
-              </div>
-              <div class="home-context-item">
-                <span>Rol</span>
-                <strong>${escapeHtml(roleLabel(profile))}</strong>
-              </div>
-              <div class="home-context-item">
-                <span>Plaza base</span>
-                <strong>${escapeHtml(upper(profile.plazaAsignada) || 'SIN PLAZA')}</strong>
-              </div>
-              <div class="home-context-item">
-                <span>Plazas visibles</span>
-                <strong>${escapeHtml(String(totalVisiblePlazas || 1))}</strong>
-              </div>
-            </div>
-
-            <div>
-              <div class="home-panel-head" style="padding:0 0 8px;">
-                <div>
-                  <h3 style="font-size:16px;">Plaza foco</h3>
-                  <p>Se comparte con mapa, admin y rutas internas.</p>
-                </div>
-              </div>
-              <select id="homePlazaSelect" class="home-plaza-select" ${plazas.length <= 1 ? 'disabled' : ''}>
-                ${(plazas.length ? plazas : [currentPlaza || '']).filter(Boolean).map(plaza => `
-                  <option value="${escapeHtml(plaza)}" ${plaza === currentPlaza ? 'selected' : ''}>${escapeHtml(plaza)}</option>
                 `).join('')}
-              </select>
+              </div>
+            </section>
+          `).join('')}
+        </div>
+      </aside>
+
+      <section class="home-stage">
+        <header class="home-stage-topbar">
+          <div class="home-stage-copy">
+            <div class="home-stage-kicker">Inicio / ${escapeHtml(variant.kicker)}</div>
+            <h1>${escapeHtml(variant.title)}</h1>
+            <p>${escapeHtml(variant.description)}</p>
+          </div>
+
+          <div class="home-stage-actions">
+            <label class="home-search">
+              <span class="material-icons">search</span>
+              <input id="homeSearchInput" type="text" value="${escapeHtml(_homeState.query)}" placeholder="Buscar módulo, ruta o acción...">
+            </label>
+
+            <select id="homePlazaSelect" class="home-plaza-select" ${plazas.length <= 1 ? 'disabled' : ''}>
+              ${(plazas.length ? plazas : [currentPlaza || '']).filter(Boolean).map(plaza => `
+                <option value="${escapeHtml(plaza)}" ${plaza === currentPlaza ? 'selected' : ''}>${escapeHtml(plaza)}</option>
+              `).join('')}
+            </select>
+
+            <button type="button" class="home-btn primary" data-route="${escapeHtml(primaryModule.route)}">
+              <span class="material-icons">${escapeHtml(primaryModule.icon)}</span>
+              ${escapeHtml(variant.ctaTitle)}
+            </button>
+          </div>
+        </header>
+
+        <div class="home-stage-scroll">
+          <section class="home-hero-panel">
+            <div class="home-hero-copy">
+              <span class="home-kicker">${escapeHtml(variant.kicker)}</span>
+              <h2>${escapeHtml(userName)}</h2>
+              <p>${escapeHtml(roleLabel(profile))} · ${escapeHtml(company)} · ${escapeHtml(currentPlaza || 'SIN PLAZA')}</p>
+              <div class="home-hero-pills">
+                <span class="home-pill"><span class="material-icons">verified_user</span>${escapeHtml(roleLabel(profile))}</span>
+                <span class="home-pill"><span class="material-icons">location_city</span>${escapeHtml(currentPlaza || 'SIN PLAZA')}</span>
+                <span class="home-pill"><span class="material-icons">layers</span>${escapeHtml(String(visiblePlazas || 1))} plazas visibles</span>
+              </div>
             </div>
 
-            <div>
-              <div class="home-panel-head" style="padding:0 0 8px;">
+            <div class="home-hero-metrics">
+              <article class="home-metric-card">
+                <span>Unidades activas</span>
+                <strong>${escapeHtml(String(metrics.unidadesActivas || 0))}</strong>
+                <small>Lectura ligera para la plaza foco actual.</small>
+              </article>
+              <article class="home-metric-card">
+                <span>Externos activos</span>
+                <strong>${escapeHtml(String(metrics.externosActivos || 0))}</strong>
+                <small>Seguimiento visible para la operacion del dia.</small>
+              </article>
+              <article class="home-metric-card">
+                <span>Incidencias abiertas</span>
+                <strong>${escapeHtml(String(metrics.incidenciasAbiertas || 0))}</strong>
+                <small>${metrics.incidenciasAbiertas > 0 ? 'Conviene revisar alertas antes de bajar al patio.' : 'Sin alertas abiertas en la plaza foco.'}</small>
+              </article>
+              <article class="home-metric-card">
+                <span>Solicitudes</span>
+                <strong>${escapeHtml(String(metrics.solicitudesPendientes || 0))}</strong>
+                <small>${canAccessAdminPanel(profile) ? 'Solicitudes pendientes por revisar.' : 'Visible solo para roles administrativos.'}</small>
+              </article>
+            </div>
+          </section>
+
+          <div class="home-body-grid">
+            <section class="home-surface">
+              <div class="home-surface-head">
                 <div>
-                  <h3 style="font-size:16px;">Pendientes y foco</h3>
-                  <p>Resumen corto para decidir el siguiente clic.</p>
+                  <h3>Espacios de trabajo</h3>
+                  <p>La nueva entrada organiza módulos por intención, no por costumbre. Aquí decides a qué capa entrar primero.</p>
                 </div>
+                <span class="home-surface-badge">${escapeHtml(variantKey)}</span>
               </div>
-              ${pending.length ? `
-                <div class="home-mini-list">
-                  ${pending.map(item => `
-                    <div class="home-mini-item">
-                      <span class="material-icons">${item.icon}</span>
-                      <span>${escapeHtml(item.text)}</span>
-                    </div>
+
+              ${modules.length ? `
+                <div class="home-module-grid">
+                  ${modules.map(module => `
+                    <article class="home-module-card">
+                      <div class="home-module-head">
+                        <div class="home-module-icon" style="background:${module.tone};">
+                          <span class="material-icons">${escapeHtml(module.icon)}</span>
+                        </div>
+                        ${module.badge ? `<span class="home-module-badge">${escapeHtml(module.badge)}</span>` : ''}
+                      </div>
+                      <div class="home-module-copy">
+                        <strong>${escapeHtml(module.title)}</strong>
+                        <p>${escapeHtml(module.description)}</p>
+                      </div>
+                      <div class="home-module-footer">
+                        <span class="home-module-meta">${escapeHtml(moduleMeta(module, { ...metrics, focus: currentPlaza }))}</span>
+                        <button type="button" class="home-btn ${module.badge ? 'primary' : ''}" data-route="${escapeHtml(module.route)}">
+                          <span class="material-icons">${escapeHtml(module.icon)}</span>
+                          Abrir
+                        </button>
+                      </div>
+                    </article>
                   `).join('')}
                 </div>
               ` : `
-                <div class="home-empty">
-                  La plaza foco está sin pendientes críticos por ahora. Puedes entrar directo al módulo principal de tu rol.
+                <div class="home-empty-state">
+                  No encontramos módulos que coincidan con "${escapeHtml(_homeState.query)}". Ajusta el buscador o limpia el filtro.
                 </div>
               `}
-            </div>
+            </section>
 
-            <div style="display:flex;gap:10px;flex-wrap:wrap;">
-              <button type="button" class="home-btn primary" data-route="${escapeHtml(variant.modules[0].route)}">
-                <span class="material-icons">${variant.modules[0].icon}</span>
-                Abrir modulo principal
-              </button>
-              <button type="button" class="home-btn" id="homeProfileBtn">
-                <span class="material-icons">person</span>
-                Mi perfil
-              </button>
-            </div>
+            <aside class="home-surface">
+              <div class="home-surface-head">
+                <div>
+                  <h3>Contexto compartido</h3>
+                  <p>Plaza activa, foco del turno y accesos rápidos de cuenta.</p>
+                </div>
+                <span class="home-surface-badge">Sesion</span>
+              </div>
+
+              <div class="home-context-grid">
+                <div class="home-context-item">
+                  <span>Usuario</span>
+                  <strong>${escapeHtml(userName)}</strong>
+                </div>
+                <div class="home-context-item">
+                  <span>Rol</span>
+                  <strong>${escapeHtml(roleLabel(profile))}</strong>
+                </div>
+                <div class="home-context-item">
+                  <span>Plaza base</span>
+                  <strong>${escapeHtml(upper(profile.plazaAsignada) || 'SIN PLAZA')}</strong>
+                </div>
+                <div class="home-context-item">
+                  <span>Plazas visibles</span>
+                  <strong>${escapeHtml(String(visiblePlazas || 1))}</strong>
+                </div>
+              </div>
+
+              <div class="home-inline-actions">
+                <button type="button" class="home-btn" data-route="/profile">
+                  <span class="material-icons">person</span>
+                  Mi perfil
+                </button>
+                <button type="button" class="home-btn" data-action="logout">
+                  <span class="material-icons">logout</span>
+                  Cerrar sesion
+                </button>
+              </div>
+
+              <div class="home-focus-block">
+                <h4>Foco actual</h4>
+                ${pending.length ? `
+                  <div class="home-mini-list">
+                    ${pending.map(item => `
+                      <div class="home-mini-item">
+                        <span class="material-icons">${escapeHtml(item.icon)}</span>
+                        <span>${escapeHtml(item.text)}</span>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : `
+                  <div class="home-empty-state">
+                    No detectamos pendientes criticos por ahora. Puedes abrir tu módulo principal y seguir desde ahí.
+                  </div>
+                `}
+              </div>
+            </aside>
           </div>
-        </aside>
-      </div>
+        </div>
+      </section>
     </div>
   `;
 
   root.querySelectorAll('[data-route]').forEach(button => {
     button.addEventListener('click', () => {
-      const route = button.getAttribute('data-route') || '/mapa';
-      window.location.href = route;
+      setActivePlaza(currentPlaza);
+      navigateTo(button.getAttribute('data-route') || '/mapa');
     });
   });
 
-  document.getElementById('homeProfileBtn')?.addEventListener('click', () => {
-    window.location.href = '/profile';
+  root.querySelectorAll('[data-action="logout"]').forEach(button => {
+    button.addEventListener('click', () => {
+      logoutHome();
+    });
+  });
+
+  document.getElementById('homeSidebarToggle')?.addEventListener('click', () => {
+    saveSidebarState(!_homeState.collapsed);
+    renderHome(_homeState.profile, _homeState.config, _homeState.metrics);
+  });
+
+  document.getElementById('homeSearchInput')?.addEventListener('input', event => {
+    const nextQuery = safe(event.target.value);
+    _homeState.query = nextQuery;
+    renderHome(_homeState.profile, _homeState.config, _homeState.metrics);
+    const nextInput = document.getElementById('homeSearchInput');
+    if (nextInput) {
+      nextInput.focus();
+      nextInput.setSelectionRange(nextQuery.length, nextQuery.length);
+    }
   });
 
   document.getElementById('homePlazaSelect')?.addEventListener('change', event => {
@@ -579,13 +851,14 @@ function renderError(message) {
     </div>
   `;
   root.querySelector('[data-route="/mapa"]')?.addEventListener('click', () => {
-    window.location.href = '/mapa';
+    navigateTo('/mapa');
   });
 }
 
 async function renderBoot() {
   const root = document.getElementById('homeApp');
   if (!root) return;
+
   root.innerHTML = `
     <div class="home-loading-card">
       <div class="home-loading-orb"></div>

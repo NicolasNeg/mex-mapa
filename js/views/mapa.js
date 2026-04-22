@@ -2517,25 +2517,57 @@ function _iniciarSincronizacionUsuarios() {
           if (activeChatUser && typeof _actualizarHeaderChatActivo === 'function') _actualizarHeaderChatActivo();
         }
       }
-      if (myDoc?.data()?._reloadRequired && !sessionStorage.getItem('_reloadGuard')) {
-        // Guard anti-loop: sessionStorage persiste en reloads del mismo tab.
-        // NO se elimina antes del reload — se queda activo para el reload y
-        // se limpia solo cuando el tab se cierra o la app arranca sin _reloadRequired.
-        sessionStorage.setItem('_reloadGuard', '1');
-        // Limpiar flag en Firestore
+      const _reloadFlagStorageKey = email => `mex.reload.handled.${_profileDocId(email)}`;
+      const _reloadFlagMarker = profile => JSON.stringify({
+        rol: _sanitizeRole(profile?.rol || ''),
+        plaza: _normalizePlaza(profile?.plazaAsignada || profile?.plaza || ''),
+        plazasPermitidas: Array.isArray(profile?.plazasPermitidas) ? [...profile.plazasPermitidas].filter(Boolean).sort() : [],
+        status: String(profile?.status || '').trim().toUpperCase(),
+        version: String(profile?._version || profile?.version || ''),
+        updatedAt: String(_coerceTimestamp(profile?._updatedAt || profile?.updatedAt || profile?.lastTouchedAt || 0)),
+        permissionOverrides: Object.entries(_normalizePermissionOverrides(profile?.permissionOverrides || profile?.permisosUsuario || {}))
+          .sort(([a], [b]) => a.localeCompare(b))
+      });
+      const _clearReloadTracking = email => {
+        try {
+          sessionStorage.removeItem('_reloadGuard');
+          localStorage.removeItem(_reloadFlagStorageKey(email));
+        } catch (_) { }
+      };
+
+      const docData = myDoc?.data() || null;
+      const reloadMarker = _reloadFlagMarker({ ...docData, ...(currentUserProfile || {}) });
+      const handledMarker = (() => {
+        try {
+          return localStorage.getItem(_reloadFlagStorageKey(myEmail)) || '';
+        } catch (_) {
+          return '';
+        }
+      })();
+
+      if (docData?._reloadRequired && !sessionStorage.getItem('_reloadGuard') && handledMarker !== reloadMarker) {
+        // Anti-loop real:
+        // 1) Marcamos el cambio como consumido en localStorage por "firma" del perfil
+        // 2) El guard de sessionStorage evita reentradas durante el mismo reload
+        // 3) Si Firestore niega limpiar el flag, no volveremos a recargar por la misma firma
+        try {
+          sessionStorage.setItem('_reloadGuard', '1');
+          localStorage.setItem(_reloadFlagStorageKey(myEmail), reloadMarker);
+        } catch (_) { }
+
         db.collection(COL.USERS).doc(myEmail)
           .update({ _reloadRequired: false })
           .catch(err => {
             console.warn('[_reloadRequired] No se pudo limpiar flag:', err.code);
           });
+
         showToast('Tus permisos fueron actualizados. Recargando...', 'warning');
         setTimeout(() => {
-          // Guard permanece en sessionStorage durante y después del reload
           window.location.reload();
-        }, 2000);
-      } else if (!myDoc?.data()?._reloadRequired && sessionStorage.getItem('_reloadGuard')) {
-        // La app arrancó después de un reload y el flag ya está limpio → limpiar guard
-        sessionStorage.removeItem('_reloadGuard');
+        }, 1400);
+      } else if (!docData?._reloadRequired) {
+        // En cuanto el flag realmente desaparece, liberamos la protección para futuros cambios.
+        _clearReloadTracking(myEmail);
       }
     }
   }, err => console.warn('onSnapshot usuarios live:', err));

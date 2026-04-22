@@ -137,6 +137,20 @@
   Objetivo: ocultar Panel Admin por defecto a roles sin vistas explícitas, permitir accesos
     puntuales por usuario y reducir el largo visual del admin/roles en escritorio.
 
+[2026-04-22] CODEX — ✅ HOTFIX _reloadRequired + fase inicial del nuevo home shell
+  Archivos modificados:
+    ~ js/views/mapa.js             — convierte `_reloadRequired` en anti-loop real usando una
+                                     firma local del perfil; si Firestore niega limpiar el flag
+                                     ya no vuelve a recargar indefinidamente por el mismo cambio
+    ~ js/views/home.js             — reestructura `/home` como shell con sidebar persistente,
+                                     dashboard por rol, plaza compartida, buscador de módulos y
+                                     navegación agrupada
+    ~ css/home.css                 — nuevo layout desktop con rail lateral colapsable e icon-only
+    ~ js/views/login.js            — redirige sesión válida a `/home` en vez de `/mapa`
+    ~ index.html                   — la raíz del sitio ya entra por `/home`
+  Objetivo: sacar al mapa del rol de home universal, preparar la ilusión de navegación por tabs
+    sin romper rutas reales y cortar el loop de recarga por permisos en usuarios afectados.
+
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
   /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
   accesos rápidos, modales migrados para reporte diario / cuadre de predicción / PDF reservas,

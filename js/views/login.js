@@ -3,7 +3,7 @@
 //  Controlador de la vista /login
 //
 //  Responsabilidades:
-//   1. Detectar si ya hay sesión activa → redirigir a /mapa
+//   1. Detectar si ya hay sesión activa → redirigir a /home
 //   2. Manejar login con email/contraseña
 //   3. Manejar login con Google
 //   4. Enviar solicitudes de acceso
@@ -78,8 +78,8 @@ auth.onAuthStateChanged(async (user) => {
           force: true
         });
       }
-      // Sesión válida → ir al mapa
-      window.location.href = '/mapa';
+      // Sesión válida → ir al home por rol
+      window.location.href = '/home';
     } else {
       _showError(`❌ El correo ${user.email} no tiene permisos en el sistema.`);
       await auth.signOut();
