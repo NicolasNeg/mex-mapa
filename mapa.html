@@ -1182,16 +1182,18 @@
         style="display:none; position: relative; width: 100%; max-width: 600px; background: #f8fafc; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid var(--border); flex-direction: column; max-height: 80vh; margin: auto;">
 
         <div style="background: var(--mex-blue); padding: 15px 20px; color: white; flex-shrink: 0; z-index: 10;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3 id="titulo-auditoria"
               style="margin:0; font-weight: 900; font-size: 16px; display: flex; align-items: center; gap: 8px;">
               <span class="material-icons">fact_check</span> PASE DE LISTA
             </h3>
             <span id="audit-progress"
-              style="background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 900;">0
-              / 0</span>
+              style="background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 900;">0 / 0</span>
           </div>
-          <div style="position: relative;">
+          <div class="audit-progress-bar">
+            <span class="audit-progress-fill" id="audit-progress-fill"></span>
+          </div>
+          <div style="position: relative; margin-top: 10px;">
             <span class="material-icons"
               style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;">search</span>
             <input type="text" id="audit-search" placeholder="Buscar MVA o Placa..." oninput="renderizarPaseLista()"
@@ -1227,19 +1229,18 @@
           </p>
         </div>
 
-        <div
-          style="padding: 30px 20px; background: #f8fafc; display: flex; justify-content: space-around; text-align: center;">
-          <div>
-            <div style="font-size: 35px; font-weight: 900; color: #ef4444;" id="res-faltantes-count">0</div>
-            <div style="font-size: 11px; font-weight: 800; color: #64748b;">FALTANTES</div>
+        <div class="audit-stat-grid">
+          <div class="audit-stat-card">
+            <div class="audit-stat-num audit-stat-num--red" id="res-faltantes-count">0</div>
+            <div class="audit-stat-label">FALTANTES</div>
           </div>
-          <div>
-            <div style="font-size: 35px; font-weight: 900; color: #d97706;" id="res-extras-count">0</div>
-            <div style="font-size: 11px; font-weight: 800; color: #64748b;">SOBRANTES</div>
+          <div class="audit-stat-card">
+            <div class="audit-stat-num audit-stat-num--amber" id="res-extras-count">0</div>
+            <div class="audit-stat-label">SOBRANTES</div>
           </div>
-          <div>
-            <div style="font-size: 35px; font-weight: 900; color: #16a34a;" id="res-ok-count">0</div>
-            <div style="font-size: 11px; font-weight: 800; color: #64748b;">CUADRADOS</div>
+          <div class="audit-stat-card">
+            <div class="audit-stat-num audit-stat-num--green" id="res-ok-count">0</div>
+            <div class="audit-stat-label">CUADRADOS</div>
           </div>
         </div>
 

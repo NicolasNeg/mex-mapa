@@ -4614,3 +4614,182 @@
     .inc-content.active {
       display: block;
     }
+
+
+/* ============================================
+   AUDITORÍA — Tarjetas y layout (paso 2 y 3)
+   ============================================ */
+
+/* --- Tarjeta base --- */
+.audit-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 13px 14px;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: opacity 0.18s, border-color 0.18s, background 0.18s;
+  gap: 10px;
+}
+
+/* --- Variantes de estado --- */
+.audit-card--ok {
+  background: #f0fdf4;
+  border: 2px solid #4ade80;
+  opacity: 0.72;
+}
+.audit-card--faltante {
+  background: #fef2f2;
+  border: 2px solid #f87171;
+  opacity: 0.72;
+}
+.audit-card--extra {
+  background: #fffbeb;
+  border: 2px dashed #f59e0b;
+}
+
+/* --- Info izquierda --- */
+.audit-card-info { flex: 1; min-width: 0; }
+
+.audit-card-mva {
+  margin: 0;
+  font-size: 17px;
+  color: var(--mex-blue);
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.audit-card-meta {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 700;
+  display: block;
+  margin-top: 2px;
+}
+.audit-card-extra-badge {
+  display: block;
+  font-size: 10px;
+  color: #d97706;
+  font-weight: 900;
+  margin-top: 4px;
+}
+
+/* --- Botones de acción --- */
+.audit-card-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.audit-btn-action {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: none;
+  background: #f1f5f9;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, transform 0.12s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+.audit-btn-action:active { transform: scale(0.92); }
+
+.audit-btn-action--active-faltante {
+  background: #dc2626;
+  color: white;
+}
+.audit-btn-action--active-ok {
+  background: #16a34a;
+  color: white;
+}
+.audit-btn-action--active-extra-ok {
+  background: #d97706;
+  color: white;
+}
+
+/* --- Dividers de sección --- */
+.audit-section-label {
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  padding: 10px 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.audit-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+/* --- Mensaje vacío --- */
+.audit-empty-msg {
+  text-align: center;
+  padding: 40px 20px;
+  color: #94a3b8;
+  font-weight: 800;
+  font-size: 13px;
+}
+
+/* --- Barra de progreso en header paso 2 --- */
+.audit-progress-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 4px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+.audit-progress-fill {
+  height: 100%;
+  background: #4ade80;
+  border-radius: 4px;
+  transition: width 0.35s ease;
+  width: 0%;
+}
+
+/* --- Paso 3: stat cards --- */
+.audit-stat-grid {
+  display: flex;
+  justify-content: space-around;
+  padding: 24px 16px;
+  background: #f8fafc;
+  gap: 12px;
+}
+.audit-stat-card {
+  flex: 1;
+  text-align: center;
+  background: white;
+  border-radius: 14px;
+  padding: 16px 8px;
+  border: 1px solid #e2e8f0;
+}
+.audit-stat-num {
+  font-size: 32px;
+  font-weight: 900;
+  line-height: 1;
+}
+.audit-stat-num--red   { color: #ef4444; }
+.audit-stat-num--amber { color: #d97706; }
+.audit-stat-num--green { color: #16a34a; }
+.audit-stat-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  margin-top: 4px;
+  letter-spacing: 0.05em;
+}
+.audit-stat-pct {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  margin-top: 2px;
+}

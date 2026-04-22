@@ -11373,6 +11373,36 @@ window.AUDIT_LIST = [];
 // 📋 MOTOR DE AUDITORÍA (LISTA PURA Y ESTABLE)
 // ==========================================
 
+function _renderAuditCard(u) {
+  const statusClass = u.status === 'OK'      ? 'audit-card--ok'
+                    : u.status === 'FALTANTE' ? 'audit-card--faltante'
+                    : u.status === 'EXTRA'    ? 'audit-card--extra'
+                    : '';
+
+  const btnCrossClass = u.status === 'FALTANTE' ? 'audit-btn-action--active-faltante' : '';
+  const btnCheckClass = u.status === 'OK'       ? 'audit-btn-action--active-ok'
+                      : u.status === 'EXTRA'    ? 'audit-btn-action--active-extra-ok'
+                      : '';
+
+  return `
+    <div class="audit-card ${statusClass}">
+      <div class="audit-card-info">
+        <h3 class="audit-card-mva">${u.mva}</h3>
+        <span class="audit-card-meta">${u.modelo} &bull; ${u.placas}</span>
+        ${u.status === 'EXTRA' ? \`<span class="audit-card-extra-badge">&#9888; SOBRANTE</span>\` : ''}
+      </div>
+      <div class="audit-card-actions">
+        <button class="audit-btn-action ${btnCrossClass}" onclick="marcarUnidadAudit('${u.mva}', 'FALTANTE')" title="Marcar faltante">
+          <span class="material-icons">close</span>
+        </button>
+        <button class="audit-btn-action ${btnCheckClass}" onclick="marcarUnidadAudit('${u.mva}', 'OK')" title="Marcar presente">
+          <span class="material-icons">check</span>
+        </button>
+      </div>
+    </div>
+  `;
+}
+
 function renderizarPaseLista() {
   const container = document.getElementById('audit-list-container');
   if (!container) return;
@@ -11380,73 +11410,55 @@ function renderizarPaseLista() {
   const inputSearch = document.getElementById('audit-search');
   const term = inputSearch ? inputSearch.value.toUpperCase().trim() : "";
 
-  // 1. Progreso y Botón Final
-  const pendientes = window.AUDIT_LIST.filter(u => u.status === 'PENDIENTE').length;
+  // 1. Progreso
   const total = window.AUDIT_LIST.length;
-  const progress = document.getElementById('audit-progress');
-  if (progress) progress.innerText = `${total - pendientes} / ${total} REVISADAS`;
+  const pendientes = window.AUDIT_LIST.filter(u => u.status === 'PENDIENTE').length;
+  const revisadas = total - pendientes;
+  const pct = total > 0 ? Math.round((revisadas / total) * 100) : 0;
 
+  const progress = document.getElementById('audit-progress');
+  if (progress) progress.innerText = `${revisadas} / ${total} REVISADAS`;
+
+  const fill = document.getElementById('audit-progress-fill');
+  if (fill) fill.style.width = `${pct}%`;
+
+  // 2. Botón finalizar
   const btnFinalizar = document.getElementById('btnFinalizarAudit');
   if (btnFinalizar) {
-    if (pendientes === 0 && total > 0) {
-      btnFinalizar.disabled = false;
-      btnFinalizar.style.background = "#10b981";
-      btnFinalizar.style.cursor = "pointer";
-    } else {
-      btnFinalizar.disabled = true;
-      btnFinalizar.style.background = "#cbd5e1";
-      btnFinalizar.style.cursor = "not-allowed";
-    }
+    const listo = pendientes === 0 && total > 0;
+    btnFinalizar.disabled = !listo;
+    btnFinalizar.style.background = listo ? "#10b981" : "#cbd5e1";
+    btnFinalizar.style.cursor = listo ? "pointer" : "not-allowed";
   }
 
-  // 2. Filtrar
-  let filtradas = window.AUDIT_LIST.filter(u => {
+  // 3. Filtrar
+  const filtradas = window.AUDIT_LIST.filter(u => {
     if (term === "") return true;
     return u.mva.includes(term) || (u.placas && u.placas.includes(term)) || (u.modelo && u.modelo.includes(term));
   });
 
-  // 3. Ordenar (Solo si no busca, manda los PENDIENTES hasta arriba)
-  filtradas.sort((a, b) => {
-    if (term === "") {
-      if (a.status === 'PENDIENTE' && b.status !== 'PENDIENTE') return -1;
-      if (a.status !== 'PENDIENTE' && b.status === 'PENDIENTE') return 1;
-    }
-    return 0;
-  });
-
-  // 4. Dibujar
   if (filtradas.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding: 40px 20px; color: #94a3b8; font-weight: 800;">No se encontraron coincidencias.</div>`;
+    container.innerHTML = \`<div class="audit-empty-msg">Sin coincidencias para "${term}".</div>\`;
     return;
   }
 
-  container.innerHTML = filtradas.map(u => {
-    let bg = "white", border = "1px solid #e2e8f0", opacity = "1";
-    let btnCheckColor = "#f1f5f9", btnCrossColor = "#f1f5f9";
-    let iconCheckColor = "#94a3b8", iconCrossColor = "#94a3b8";
+  // 4. Separar por sección y renderizar con dividers
+  const pendientesList = filtradas.filter(u => u.status === 'PENDIENTE');
+  const revisadasList  = filtradas.filter(u => u.status !== 'PENDIENTE');
 
-    if (u.status === 'OK') {
-      bg = "#f0fdf4"; border = "2px solid #4ade80"; btnCheckColor = "#16a34a"; iconCheckColor = "white"; opacity = "0.7";
-    } else if (u.status === 'FALTANTE') {
-      bg = "#fef2f2"; border = "2px solid #f87171"; btnCrossColor = "#dc2626"; iconCrossColor = "white"; opacity = "0.7";
-    } else if (u.status === 'EXTRA') {
-      bg = "#fffbeb"; border = "2px dashed #f59e0b"; btnCheckColor = "#d97706"; iconCheckColor = "white";
-    }
+  let html = '';
 
-    return `
-      <div style="background: ${bg}; border: ${border}; border-radius: 16px; padding: 15px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; opacity: ${opacity}; transition: 0.2s;">
-        <div>
-          <h3 style="margin: 0; font-size: 18px; color: var(--mex-blue); font-weight: 900;">${u.mva}</h3>
-          <span style="font-size: 11px; color: #64748b; font-weight: 700;">${u.modelo} • ${u.placas}</span>
-          ${u.status === 'EXTRA' ? `<span style="display:block; font-size:10px; color:#d97706; font-weight:900; margin-top:4px;">⚠️ SOBRANTE FÍSICO</span>` : ''}
-        </div>
-        <div style="display: flex; gap: 10px;">
-          <button onclick="marcarUnidadAudit('${u.mva}', 'FALTANTE')" style="width: 45px; height: 45px; border-radius: 12px; border: none; background: ${btnCrossColor}; color: ${iconCrossColor}; font-weight: 900; cursor: pointer; transition:0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"><span class="material-icons">close</span></button>
-          <button onclick="marcarUnidadAudit('${u.mva}', 'OK')" style="width: 45px; height: 45px; border-radius: 12px; border: none; background: ${btnCheckColor}; color: ${iconCheckColor}; font-weight: 900; cursor: pointer; transition:0.2s; box-shadow: 0 2px 4px rgba(0,0,0,0.05);"><span class="material-icons">check</span></button>
-        </div>
-      </div>
-    `;
-  }).join('');
+  if (pendientesList.length > 0) {
+    if (term === "") html += \`<div class="audit-section-label">Pendientes (${pendientesList.length})</div>\`;
+    html += pendientesList.map(_renderAuditCard).join('');
+  }
+
+  if (revisadasList.length > 0) {
+    if (term === "") html += \`<div class="audit-section-label">Revisadas (${revisadasList.length})</div>\`;
+    html += revisadasList.map(_renderAuditCard).join('');
+  }
+
+  container.innerHTML = html;
 }
 
 function marcarUnidadAudit(mva, status) {
@@ -16035,6 +16047,7 @@ async function migrarConfiguracionAFirestore() {
 
 let TAB_ACTIVA_CFG = 'usuarios';
 let _cfgCatalogSelectedIndex = null;
+let _cfgCatalogEditIndex = null;
 
 const _cfgAdminTabMeta = {
   usuarios: {
@@ -16117,6 +16130,66 @@ const _cfgAdminTabMeta = {
 };
 let _programmerConsoleState = { log: [], selectedPlaza: '', jsonDraft: '' };
 let _cfgAdminStatsCache = { users: null, pending: null, stamp: 0 };
+
+function _cfgCatalogDisplayValue(tabName, item) {
+  if (!item) return '';
+  const tab = String(tabName || '').trim().toLowerCase();
+  if (tab === 'categorias') return String(typeof item === 'object' ? (item.nombre || item.id) : item).trim();
+  if (tab === 'gasolinas') return String(typeof item === 'object' ? (item.nombre || item.id || item.valor) : item).trim();
+  if (tab === 'modelos') return String(item.nombre || item.id || '').trim();
+  if (tab === 'ubicaciones') return String(item.nombre || item.id || item).trim();
+  if (tab === 'estados') return String(item.id || item.nombre || item).trim();
+  return String(item.nombre || item.id || item).trim();
+}
+
+function _cfgCatalogDescriptionValue(tabName, item) {
+  if (!item || typeof item !== 'object') return '';
+  if (String(tabName || '').trim().toLowerCase() === 'categorias') {
+    return String(item.descripcion || item.description || item.desc || '').trim();
+  }
+  return '';
+}
+
+function _cfgCatalogOrderValue(item, index = 0) {
+  const raw = typeof item === 'object' ? Number(item.orden) : 0;
+  return Number.isFinite(raw) && raw > 0 ? raw : (Number(index) + 1);
+}
+
+function _cfgCatalogApplyOrder(list = [], tabName = TAB_ACTIVA_CFG) {
+  const tab = String(tabName || '').trim().toLowerCase();
+  list.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
+    if (tab === 'estados' || tab === 'ubicaciones' || tab === 'categorias' || tab === 'modelos') {
+      item.orden = index + 1;
+    }
+  });
+  return list;
+}
+
+function _cfgNormalizeDesiredOrder(value, fallback = 1, total = 1) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return Math.min(Math.max(Number(fallback) || 1, 1), Math.max(total, 1));
+  return Math.min(Math.max(Math.round(parsed), 1), Math.max(total, 1));
+}
+
+function _cfgMoveCatalogItem(list = [], fromIndex = 0, desiredOrder = 1, tabName = TAB_ACTIVA_CFG) {
+  if (!Array.isArray(list) || fromIndex < 0 || fromIndex >= list.length) return list;
+  const targetIndex = _cfgNormalizeDesiredOrder(desiredOrder, fromIndex + 1, list.length) - 1;
+  if (targetIndex === fromIndex) {
+    _cfgCatalogApplyOrder(list, tabName);
+    return list;
+  }
+  const [moved] = list.splice(fromIndex, 1);
+  list.splice(targetIndex, 0, moved);
+  _cfgCatalogApplyOrder(list, tabName);
+  return list;
+}
+
+function _cfgReadValue(id, fallback = '') {
+  const el = document.getElementById(id);
+  if (!el) return fallback;
+  return String(el.value ?? fallback).trim();
+}
 
 function _cfgSetInsightValue(id, value) {
   const el = document.getElementById(id);
@@ -16377,10 +16450,10 @@ function _cfgModelImageValue(item) {
   return String(item.imagenURL || item.imagen || item.image || item.foto || '').trim();
 }
 
-function _cfgPreviewModeloImg(raw = '') {
-  const wrap = document.getElementById('cfg-add-modelo-preview');
-  const img = document.getElementById('cfg-add-modelo-preview-img');
-  const label = document.getElementById('cfg-add-modelo-preview-label');
+function _cfgPreviewModeloImg(raw = '', prefix = 'cfg-add') {
+  const wrap = document.getElementById(`${prefix}-modelo-preview`);
+  const img = document.getElementById(`${prefix}-modelo-preview-img`);
+  const label = document.getElementById(`${prefix}-modelo-preview-label`);
   const value = String(raw || '').trim();
   if (!wrap || !img) return;
   if (!value) {
@@ -16391,6 +16464,90 @@ function _cfgPreviewModeloImg(raw = '') {
   wrap.style.display = 'flex';
   img.src = value;
   if (label) label.textContent = 'Preview de imagen';
+}
+
+function _cfgReadFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function _cfgRemoveLightBackground(file) {
+  const dataUrl = await _cfgReadFileAsDataUrl(file);
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = dataUrl;
+  await new Promise((resolve, reject) => {
+    img.onload = resolve;
+    img.onerror = () => reject(new Error('No se pudo preparar la imagen.'));
+  });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth || img.width;
+  canvas.height = img.naturalHeight || img.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('No se pudo preparar el editor de imagen.');
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const brightness = (r + g + b) / 3;
+    const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
+    if (brightness >= 242 && maxDiff <= 18) {
+      data[i + 3] = 0;
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (!blob) {
+        reject(new Error('No se pudo generar la imagen PNG.'));
+        return;
+      }
+      resolve(blob);
+    }, 'image/png');
+  });
+}
+
+async function _cfgUploadModelImage(prefix = 'cfg-add') {
+  const fileInput = document.getElementById(`${prefix}-modelo-file`);
+  const urlInput = document.getElementById(`${prefix}-modelo-img`);
+  const statusEl = document.getElementById(`${prefix}-modelo-upload-status`);
+  const removeBg = document.getElementById(`${prefix}-modelo-remove-bg`)?.checked === true;
+  const file = fileInput?.files?.[0];
+  if (!file || !urlInput) return;
+
+  if (typeof firebase === 'undefined' || typeof firebase.storage !== 'function') {
+    showToast('Firebase Storage no está disponible para subir imágenes.', 'error');
+    return;
+  }
+
+  try {
+    if (statusEl) statusEl.textContent = removeBg ? 'Procesando fondo y subiendo...' : 'Subiendo imagen...';
+    const sourceBlob = removeBg ? await _cfgRemoveLightBackground(file) : file;
+    const ext = removeBg ? 'png' : ((_safeText(file.name).split('.').pop() || 'png').toLowerCase());
+    const folder = `catalogo_modelos/${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const ref = firebase.storage().ref(folder);
+    const snapshot = await ref.put(sourceBlob, {
+      contentType: removeBg ? 'image/png' : (file.type || 'image/png')
+    });
+    const url = await snapshot.ref.getDownloadURL();
+    urlInput.value = url;
+    _cfgPreviewModeloImg(url, prefix);
+    if (statusEl) statusEl.textContent = removeBg ? 'PNG generado y cargado.' : 'Imagen cargada correctamente.';
+    showToast('Imagen del modelo cargada.', 'success');
+  } catch (error) {
+    if (statusEl) statusEl.textContent = 'No se pudo procesar la imagen.';
+    showToast(error?.message || 'No se pudo subir la imagen del modelo.', 'error');
+  }
 }
 
 async function _copyTextToClipboard(value = '', label = 'Texto') {
