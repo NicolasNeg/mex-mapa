@@ -112,6 +112,7 @@ window.abrirModalSolicitud  = () => { document.getElementById('modal-solicitud')
 window.cerrarModalSolicitud = () => { document.getElementById('modal-solicitud').style.display = 'none'; };
 
 window.enviarSolicitudAcceso = async function () {
+  const REQUEST_COLLECTION = 'solicitudes';
   const nombre   = document.getElementById('sol_nombre').value.trim().toUpperCase();
   const email    = document.getElementById('sol_email').value.trim().toLowerCase();
   const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
@@ -131,13 +132,14 @@ window.enviarSolicitudAcceso = async function () {
 
   try {
     const docId = email;
-    await db.collection('solicitudes_acceso').doc(docId).set({
+    await db.collection(REQUEST_COLLECTION).doc(docId).set({
       nombre, email, puesto, telefono,
       password: pass,
       rolSolicitado: null,
       plazaSolicitada: null,
       fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
-      estado: 'PENDIENTE'
+      estado: 'PENDIENTE',
+      _ts: firebase.firestore.FieldValue.serverTimestamp()
     });
     cerrarModalSolicitud();
     alert('✅ Solicitud enviada. Un administrador la revisará pronto.');

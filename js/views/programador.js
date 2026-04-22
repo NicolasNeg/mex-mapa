@@ -1967,12 +1967,12 @@ auth.onAuthStateChanged(async user => {
         force: false
       });
     }
-    state.plaza = state.profile.plazaAsignada || '';
+    state.plaza = window.getMexCurrentPlaza?.() || state.profile.plazaAsignada || '';
     configureNotifications({
       profileGetter: () => state.profile,
       getCurrentUserName: () => state.profile?.nombre || '',
       getCurrentUserDocId: () => state.profile?.id || state.profile?.email || '',
-      getCurrentPlaza: () => state.profile?.plazaAsignada || '',
+      getCurrentPlaza: () => window.getMexCurrentPlaza?.() || state.profile?.plazaAsignada || '',
       toast: showToast,
       routeHandlers: {}
     });

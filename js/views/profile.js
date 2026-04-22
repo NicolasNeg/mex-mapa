@@ -377,7 +377,12 @@ async function _bootNotifications() {
     profileGetter: () => _profile,
     getCurrentUserName: () => _upperText(_profile?.nombre || _profile?.usuario || ''),
     getCurrentUserDocId: () => _currentUserDocId(),
-    getCurrentPlaza: () => _upperText(_profile?.plazaAsignada || _profile?.plaza || ''),
+    getCurrentPlaza: () => _upperText(
+      window.getMexCurrentPlaza?.()
+      || _profile?.plazaAsignada
+      || _profile?.plaza
+      || ''
+    ),
     toast: (msg, type = 'info') => _showToast(msg, type),
     routeHandlers: {
       openBuzon: () => { window.location.href = '/mensajes'; },

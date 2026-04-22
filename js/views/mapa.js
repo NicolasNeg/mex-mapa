@@ -55,11 +55,13 @@ const EDITMAP_LAST_ROUTE_PLAZA_KEY = 'mex:last-editmap-plaza';
 
 function _rememberActivePlaza(plaza, options = {}) {
   const { forEditmap = false } = options;
-  const normalized = _normalizePlaza(plaza || '');
+  const normalized = _normalizePlaza(
+    typeof window.setMexCurrentPlaza === 'function'
+      ? window.setMexCurrentPlaza(plaza || '', { source: forEditmap ? 'editmap' : 'mapa' })
+      : (plaza || '')
+  );
   window.__mexCurrentPlazaId = normalized;
-  if (normalized) {
-    window.PLAZA_ACTIVA_MAPA = normalized;
-  }
+  if (normalized) window.PLAZA_ACTIVA_MAPA = normalized;
   try {
     if (normalized) {
       sessionStorage.setItem(EDITMAP_ACTIVE_PLAZA_KEY, normalized);
@@ -73,6 +75,9 @@ function _rememberActivePlaza(plaza, options = {}) {
 }
 
 function _clearRememberedPlaza() {
+  if (typeof window.clearMexCurrentPlaza === 'function') {
+    window.clearMexCurrentPlaza({ source: 'mapa' });
+  }
   window.__mexCurrentPlazaId = '';
   try {
     sessionStorage.removeItem(EDITMAP_ACTIVE_PLAZA_KEY);
@@ -1091,6 +1096,12 @@ function _normalizeUserProfile(raw = {}) {
 
 function _miPlaza() {
   if (PLAZA_ACTIVA_MAPA) return PLAZA_ACTIVA_MAPA;
+  const remembered = _normalizePlaza(
+    typeof window.getMexCurrentPlaza === 'function'
+      ? window.getMexCurrentPlaza()
+      : window.__mexCurrentPlazaId
+  );
+  if (remembered) return remembered;
   if (currentUserProfile?.plazaAsignada) return currentUserProfile.plazaAsignada;
   // Fallback para fullAccess sin plaza asignada: primera plaza configurada
   const plazas = window.MEX_CONFIG?.empresa?.plazas;
@@ -1111,7 +1122,12 @@ function _setSessionProfile(profile) {
   userRole = (profile.isAdmin || _roleMeta(userAccessRole).isAdmin) ? 'admin' : 'visitante';
   isGlobalAdmin = _roleMeta(userAccessRole).fullAccess;
   // Inicializar plaza activa del mapa con la plaza del usuario
-  PLAZA_ACTIVA_MAPA = _normalizePlaza(profile.plazaAsignada || profile.plaza || '');
+  const rememberedPlaza = _normalizePlaza(
+    typeof window.getMexCurrentPlaza === 'function'
+      ? window.getMexCurrentPlaza()
+      : window.__mexCurrentPlazaId
+  );
+  PLAZA_ACTIVA_MAPA = _normalizePlaza(profile.plazaAsignada || profile.plaza || rememberedPlaza || '');
   window.CURRENT_USER_PROFILE = profile;
   _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
   _updateGlobalPlazaEmail();
@@ -2073,6 +2089,7 @@ auth.onAuthStateChanged(async (user) => {
 // (script aislado antes del admin-sidebar)
 
 async function enviarSolicitudAcceso() {
+  const REQUEST_COLLECTION = 'solicitudes';
   const nombre = document.getElementById('sol_nombre').value.trim().toUpperCase();
   const email = document.getElementById('sol_email').value.trim().toLowerCase();
   const puesto = document.getElementById('sol_puesto').value.trim().toUpperCase();
@@ -2100,7 +2117,7 @@ async function enviarSolicitudAcceso() {
   btn.innerHTML = `<span class="material-icons spinner" style="font-size: 18px; vertical-align: middle;">sync</span> ENVIANDO...`;
 
   try {
-    await db.collection("solicitudes_acceso").doc(emailNormalizado).set({
+    await db.collection(REQUEST_COLLECTION).doc(emailNormalizado).set({
       nombre: nombre,
       email: emailNormalizado,
       puesto: puesto,
@@ -2109,7 +2126,8 @@ async function enviarSolicitudAcceso() {
       rolSolicitado: rolSolicitado,
       plazaSolicitada: "",
       fecha: new Date().toISOString(),
-      estado: "PENDIENTE"
+      estado: "PENDIENTE",
+      _ts: firebase.firestore.FieldValue.serverTimestamp()
     });
 
     // Toast de éxito y limpieza
@@ -15902,8 +15920,8 @@ async function _cfgRefreshAdminHeroStats(force = false) {
   }
   if ((canProcessAccessRequests() || canUseProgrammerConfig() || canManageUsers()) && db?.collection) {
     jobs.push(
-      db.collection('solicitudes_acceso').where('estado', '==', 'PENDIENTE').get().then(snap => {
-        _cfgAdminStatsCache.pending = snap.size;
+      _obtenerSolicitudesPorEstado('PENDIENTE').then(solicitudes => {
+        _cfgAdminStatsCache.pending = solicitudes.length;
       }).catch(() => {})
     );
   }
@@ -18506,23 +18524,21 @@ async function cargarSolicitudesDeTab(estado) {
 
   try {
     const estBD = estado === 'RECHAZADO' ? 'RECHAZADA' : estado === 'APROBADO' ? 'APROBADA' : 'PENDIENTE';
-    const snapshot = await db.collection("solicitudes_acceso")
-      .where("estado", "==", estBD)
-      .get();
+    const solicitudes = await _obtenerSolicitudesPorEstado(estBD);
 
     if (estado === 'PENDIENTE') {
       const badgeCfg = document.getElementById('badge-config-solicitudes');
-      if (badgeCfg) badgeCfg.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+      if (badgeCfg) badgeCfg.style.display = solicitudes.length > 0 ? 'inline-block' : 'none';
       const badgeSb = document.getElementById('badge-solicitudes');
       if (badgeSb) {
-        badgeSb.innerText = snapshot.size;
-        badgeSb.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+        badgeSb.innerText = solicitudes.length;
+        badgeSb.style.display = solicitudes.length > 0 ? 'inline-block' : 'none';
       }
-      _cfgAdminStatsCache.pending = snapshot.size;
-      _cfgSetInsightValue('cfg-insight-pending', snapshot.size);
+      _cfgAdminStatsCache.pending = solicitudes.length;
+      _cfgSetInsightValue('cfg-insight-pending', solicitudes.length);
     }
 
-    if (snapshot.empty) {
+    if (!solicitudes.length) {
       contenedor.innerHTML = `
            <div style="text-align: center; color: #64748b; padding: 40px; font-weight: 700;">
              <span class="material-icons" style="font-size: 40px; color: #cbd5e1;">check_circle</span><br>
@@ -18532,7 +18548,7 @@ async function cargarSolicitudesDeTab(estado) {
       return;
     }
 
-    window._objSolicitudesMemoria = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    window._objSolicitudesMemoria = solicitudes;
     filtrarSolicitudesActuales();
 
   } catch (e) { console.error(e); }
@@ -18561,10 +18577,10 @@ function filtrarSolicitudesActuales() {
     let actionBtns = "";
     if (window._filtroSolicitudesEstatus === 'PENDIENTE') {
       actionBtns = `
-              <button onclick="procesarSolicitud('${data.id}', false)" style="background: #fee2e2; color: #ef4444; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
+              <button onclick="procesarSolicitud('${data.id}', false, '${data.__collection || ACCESS_REQUEST_PRIMARY_COLLECTION}')" style="background: #fee2e2; color: #ef4444; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
                 <span class="material-icons" style="font-size: 14px;">close</span> RECHAZAR
               </button>
-              <button onclick="procesarSolicitud('${data.id}', true)" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
+              <button onclick="procesarSolicitud('${data.id}', true, '${data.__collection || ACCESS_REQUEST_PRIMARY_COLLECTION}')" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
                 <span class="material-icons" style="font-size: 14px;">check</span> APROBAR
               </button>
             `;
@@ -18575,7 +18591,7 @@ function filtrarSolicitudesActuales() {
               <button onclick="verInfoRechazo('${data.id}')" style="background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
                 <span class="material-icons" style="font-size: 14px;">info</span> MÁS INFO
               </button>
-              <button onclick="procesarSolicitud('${data.id}', true)" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
+              <button onclick="procesarSolicitud('${data.id}', true, '${data.__collection || ACCESS_REQUEST_PRIMARY_COLLECTION}')" style="background: #10b981; color: white; border: none; padding: 8px 12px; border-radius: 6px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size:11px;">
                 <span class="material-icons" style="font-size: 14px;">refresh</span> RE-APROBAR
               </button>
             `;
@@ -18870,6 +18886,83 @@ function configurarPermisosUI() {
 
 // --- LÓGICA DE SOLICITUDES DE ACCESO ---
 
+const ACCESS_REQUEST_PRIMARY_COLLECTION = 'solicitudes';
+const ACCESS_REQUEST_LEGACY_COLLECTION = 'solicitudes_acceso';
+
+function _accessRequestCollections(preferred = '') {
+  return Array.from(new Set(
+    [preferred, ACCESS_REQUEST_PRIMARY_COLLECTION, ACCESS_REQUEST_LEGACY_COLLECTION]
+      .map(name => String(name || '').trim())
+      .filter(Boolean)
+  ));
+}
+
+function _normalizeAccessRequestDoc(docSnap, collectionName = '') {
+  const data = docSnap?.data ? docSnap.data() : (docSnap || {});
+  const email = _profileDocId(data.email || docSnap?.id || data.id || '');
+  const fechaMs = _coerceTimestamp(data._ts)?.getTime?.() || Date.parse(data.fecha || '') || 0;
+  return {
+    id: email || String(docSnap?.id || data.id || '').trim(),
+    ...data,
+    email,
+    __collection: collectionName || data.__collection || ACCESS_REQUEST_PRIMARY_COLLECTION,
+    __fechaMs: Number.isFinite(fechaMs) ? fechaMs : 0
+  };
+}
+
+async function _obtenerSolicitudesPorEstado(estado = 'PENDIENTE') {
+  const batches = await Promise.all(_accessRequestCollections().map(async collectionName => {
+    try {
+      const snapshot = await db.collection(collectionName)
+        .where('estado', '==', estado)
+        .get();
+      return snapshot.docs.map(doc => _normalizeAccessRequestDoc(doc, collectionName));
+    } catch (error) {
+      if ((error?.code || '') !== 'permission-denied') {
+        console.warn('[solicitudes] read state', collectionName, estado, error);
+      }
+      return [];
+    }
+  }));
+
+  const merged = new Map();
+  batches.flat().forEach(item => {
+    const key = _profileDocId(item.email || item.id || '');
+    if (!key) return;
+    const previous = merged.get(key);
+    if (!previous || item.__collection === ACCESS_REQUEST_PRIMARY_COLLECTION) {
+      merged.set(key, item);
+    }
+  });
+
+  return Array.from(merged.values()).sort((a, b) => {
+    if ((b.__fechaMs || 0) !== (a.__fechaMs || 0)) return (b.__fechaMs || 0) - (a.__fechaMs || 0);
+    return String(a.nombre || '').localeCompare(String(b.nombre || ''), 'es', { sensitivity: 'base' });
+  });
+}
+
+async function _obtenerSolicitudDoc(docId, collectionHint = '') {
+  const normalizedId = _profileDocId(docId);
+  for (const collectionName of _accessRequestCollections(collectionHint)) {
+    try {
+      const docSnap = await db.collection(collectionName).doc(normalizedId).get();
+      if (docSnap.exists) {
+        return {
+          id: normalizedId,
+          collectionName,
+          docSnap,
+          data: _normalizeAccessRequestDoc(docSnap, collectionName)
+        };
+      }
+    } catch (error) {
+      if ((error?.code || '') !== 'permission-denied') {
+        console.warn('[solicitudes] read doc', collectionName, normalizedId, error);
+      }
+    }
+  }
+  return null;
+}
+
 function abrirModalSolicitudes() {
   if (!canProcessAccessRequests()) {
     showToast("Solo los roles superiores pueden revisar solicitudes.", "error");
@@ -18882,29 +18975,28 @@ function abrirModalSolicitudes() {
 async function cargarSolicitudesPendientes() {
   if (!canProcessAccessRequests()) return;
   try {
-    const snapshot = await db.collection("solicitudes_acceso")
-      .where("estado", "==", "PENDIENTE")
-      .get();
+    const solicitudes = await _obtenerSolicitudesPorEstado('PENDIENTE');
     const badge = document.getElementById('badge-solicitudes');
     if (badge) {
-      badge.innerText = snapshot.size;
-      badge.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
+      badge.innerText = solicitudes.length;
+      badge.style.display = solicitudes.length > 0 ? 'inline-block' : 'none';
     }
     const badgeCfg = document.getElementById('badge-config-solicitudes');
-    if (badgeCfg) badgeCfg.style.display = snapshot.size > 0 ? 'inline-block' : 'none';
-    _cfgAdminStatsCache.pending = snapshot.size;
-    _cfgSetInsightValue('cfg-insight-pending', snapshot.size);
+    if (badgeCfg) badgeCfg.style.display = solicitudes.length > 0 ? 'inline-block' : 'none';
+    _cfgAdminStatsCache.pending = solicitudes.length;
+    _cfgSetInsightValue('cfg-insight-pending', solicitudes.length);
   } catch (e) { console.warn('cargarSolicitudesPendientes badge error', e); }
 }
 
-async function procesarSolicitud(docId, esAprobado) {
+async function procesarSolicitud(docId, esAprobado, collectionHint = '') {
   if (!canProcessAccessRequests()) {
     return showToast("No tienes permisos para procesar solicitudes.", "error");
   }
-  const docSnap = await db.collection("solicitudes_acceso").doc(docId).get();
-  if (!docSnap.exists) return showToast("La solicitud ya no existe", "error");
+  const solicitudInfo = await _obtenerSolicitudDoc(docId, collectionHint);
+  if (!solicitudInfo?.docSnap?.exists) return showToast("La solicitud ya no existe", "error");
 
-  const { email, nombre, puesto, telefono, password, rolSolicitado, plazaSolicitada } = docSnap.data();
+  const solicitudRef = db.collection(solicitudInfo.collectionName).doc(solicitudInfo.id);
+  const { email, nombre, puesto, telefono, password, rolSolicitado, plazaSolicitada } = solicitudInfo.data;
   const requestedRole = _resolveStoredRoleForEmail(
     email,
     _sanitizeRole(rolSolicitado) || _inferRequestedAccessRole(puesto, email)
@@ -18974,8 +19066,8 @@ async function procesarSolicitud(docId, esAprobado) {
       }
 
       // Update solicitud con todos los campos que la regla exige (solicitudUpdateValida)
-      const solDoc = docSnap.data();
-      await db.collection("solicitudes_acceso").doc(docId).update({
+      const solDoc = solicitudInfo.data;
+      await solicitudRef.update({
         nombre: solDoc.nombre,
         email: solDoc.email,
         puesto: solDoc.puesto,
@@ -18987,8 +19079,8 @@ async function procesarSolicitud(docId, esAprobado) {
         estado: "APROBADA"
       });
       await registrarEventoGestion('SOLICITUD_APROBADA', `Aprobó la solicitud de acceso de ${nombre}`, {
-        entidad: 'SOLICITUDES_ACCESO',
-        referencia: docId,
+        entidad: 'SOLICITUDES',
+        referencia: `${solicitudInfo.collectionName}/${solicitudInfo.id}`,
         objetivo: email,
         rolObjetivo: requestedRole,
         plazaObjetivo: requestedPlaza,
@@ -18997,8 +19089,8 @@ async function procesarSolicitud(docId, esAprobado) {
       });
     } else {
       // Update solicitud con todos los campos que la regla exige (solicitudUpdateValida)
-      const solDocR = docSnap.data();
-      await db.collection("solicitudes_acceso").doc(docId).update({
+      const solDocR = solicitudInfo.data;
+      await solicitudRef.update({
         nombre: solDocR.nombre,
         email: solDocR.email,
         puesto: solDocR.puesto,
@@ -19012,8 +19104,8 @@ async function procesarSolicitud(docId, esAprobado) {
         rechazadoPor: (currentUserProfile?.nombre) || USER_NAME || "Sistema"
       });
       await registrarEventoGestion('SOLICITUD_RECHAZADA', `Rechazó la solicitud de acceso de ${nombre}`, {
-        entidad: 'SOLICITUDES_ACCESO',
-        referencia: docId,
+        entidad: 'SOLICITUDES',
+        referencia: `${solicitudInfo.collectionName}/${solicitudInfo.id}`,
         objetivo: email,
         detalles: motivo,
         resultado: 'RECHAZADA'

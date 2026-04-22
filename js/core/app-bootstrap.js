@@ -9,6 +9,8 @@
   const LOCAL_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.local.v1';
   const SESSION_BOOTSTRAP_WARM_KEY = 'mex.bootstrap.warm.v1';
   const SESSION_REVERSE_GEOCODE_KEY = 'mex.location.reverse.v1';
+  const SESSION_ACTIVE_PLAZA_KEY = 'mex.activePlaza.v1';
+  const LOCAL_ACTIVE_PLAZA_KEY = 'mex.activePlaza.local.v1';
   const DEFAULT_LISTS = {
     ubicaciones: [],
     estados: [],
@@ -117,6 +119,62 @@
   function lowerText(value) {
     return safeText(value).toLowerCase();
   }
+
+  function readStoredCurrentPlaza() {
+    return upperText(
+      root.__mexCurrentPlazaId
+      || root.__mexActivePlazaId
+      || readSessionItem(SESSION_ACTIVE_PLAZA_KEY, '')
+      || readLocalItem(LOCAL_ACTIVE_PLAZA_KEY, '')
+    );
+  }
+
+  function dispatchCurrentPlazaChange(plaza = '', source = 'app-bootstrap') {
+    try {
+      root.dispatchEvent(new CustomEvent('mex:plaza-change', {
+        detail: { plaza, source }
+      }));
+    } catch (_) {}
+  }
+
+  function syncCurrentPlazaGlobals(plaza = '') {
+    const normalized = upperText(plaza);
+    root.__mexCurrentPlazaId = normalized;
+    root.__mexActivePlazaId = normalized;
+    if (typeof refreshPlazaEmailGlobals === 'function') {
+      refreshPlazaEmailGlobals();
+      root.PLAZA_ACTUAL_EMAIL = root.getPlazaActualEmail(normalized);
+    }
+    return normalized;
+  }
+
+  function setCurrentPlaza(plaza = '', options = {}) {
+    const { persistLocal = true, source = 'app-bootstrap' } = options || {};
+    const normalized = upperText(plaza);
+    syncCurrentPlazaGlobals(normalized);
+    try {
+      if (normalized) {
+        sessionStorage.setItem(SESSION_ACTIVE_PLAZA_KEY, JSON.stringify(normalized));
+        if (persistLocal) localStorage.setItem(LOCAL_ACTIVE_PLAZA_KEY, JSON.stringify(normalized));
+      } else {
+        sessionStorage.removeItem(SESSION_ACTIVE_PLAZA_KEY);
+        if (persistLocal) localStorage.removeItem(LOCAL_ACTIVE_PLAZA_KEY);
+      }
+    } catch (_) {}
+    dispatchCurrentPlazaChange(normalized, source);
+    return normalized;
+  }
+
+  function clearCurrentPlaza(options = {}) {
+    return setCurrentPlaza('', options);
+  }
+
+  root.getMexCurrentPlaza = function (fallback = '') {
+    return readStoredCurrentPlaza() || upperText(fallback);
+  };
+  root.setMexCurrentPlaza = setCurrentPlaza;
+  root.clearMexCurrentPlaza = clearCurrentPlaza;
+  syncCurrentPlazaGlobals(readStoredCurrentPlaza());
 
   function isShortcutEditableTarget(target) {
     const el = target && target.nodeType === 1 ? target : target?.parentElement;

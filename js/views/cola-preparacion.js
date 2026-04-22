@@ -75,6 +75,19 @@ function writeQueryPlaza(plaza = '') {
   window.history.replaceState({}, '', next);
 }
 
+function readGlobalPlaza() {
+  return upper(window.getMexCurrentPlaza?.() || window.__mexCurrentPlazaId || '');
+}
+
+function writeGlobalPlaza(plaza = '') {
+  const normalized = upper(plaza);
+  if (typeof window.setMexCurrentPlaza === 'function') {
+    return upper(window.setMexCurrentPlaza(normalized, { source: 'cola-preparacion' }));
+  }
+  window.__mexCurrentPlazaId = normalized;
+  return normalized;
+}
+
 function toDate(value) {
   if (!value) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -568,6 +581,7 @@ function applySelectedPlaza(plaza = '') {
   state.plaza = normalized;
   state.selectedId = '';
   state.deleteArmedId = '';
+  writeGlobalPlaza(normalized);
   writeQueryPlaza(normalized);
   renderAll();
   subscribeQueue();
@@ -781,7 +795,17 @@ async function boot() {
       ]);
       state.plazaOptions = options;
       state.canSwitchPlaza = state.profile?.isGlobal === true || options.length > 1;
-      state.plaza = unique([readQueryPlaza(), state.profile?.plazaAsignada, options[0]])[0] || '';
+      const preferred = unique([
+        readQueryPlaza(),
+        readGlobalPlaza(),
+        state.profile?.plazaAsignada,
+        options[0]
+      ]);
+      state.plaza = preferred.find(plaza => !options.length || options.includes(plaza)) || '';
+      if (state.plaza) {
+        writeGlobalPlaza(state.plaza);
+        writeQueryPlaza(state.plaza);
+      }
 
       renderAll();
       await loadPlazaUsers();

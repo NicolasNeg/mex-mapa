@@ -225,6 +225,23 @@ service cloud.firestore {
         );
     }
 
+    function plazaAutorizada(plaza) {
+      return esAccesoTotal()
+        || (
+          tienePerfilActual()
+          && plaza != null
+          && plaza != ""
+          && (
+            plaza == plazaActual()
+            || (
+              perfilActual().plazasPermitidas != null
+              && perfilActual().plazasPermitidas is list
+              && perfilActual().plazasPermitidas.hasAny([plaza])
+            )
+          )
+        );
+    }
+
     function rolRequierePlaza(role) {
       return role == "VENTAS"
         || role == "SUPERVISOR"
@@ -764,7 +781,21 @@ service cloud.firestore {
       }
     }
 
+    // ─── COLA DE PREPARACIÓN ────────────────────────────────
+    match /cola_preparacion/{plaza} {
+      allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
+      match /items/{itemId} {
+        allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
+      }
+    }
+
     // ─── SOLICITUDES DE ACCESO ───────────────────────────────
+    match /solicitudes/{doc} {
+      allow create: if solicitudCreateValida(doc);
+      allow read, delete: if puedeGestionarSolicitudes();
+      allow update: if solicitudUpdateValida();
+    }
+
     match /solicitudes_acceso/{doc} {
       allow create: if solicitudCreateValida(doc);
       allow read, delete: if puedeGestionarSolicitudes();

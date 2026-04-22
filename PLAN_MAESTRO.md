@@ -72,6 +72,19 @@
     Se extraerán cuando mapa.js sea el barrel final (Fase 1.7).
   SW v136 en producción. GitHub actualizado.
 
+[2026-04-21] CODEX — ✅ HOTFIX solicitudes + plaza global compartida
+  Archivos modificados:
+    ~ solicitud.html               — envía solicitudes públicas a `solicitudes`
+    ~ js/views/login.js            — modal login envía a `solicitudes`
+    ~ js/views/mapa.js             — panel admin lee/procesa `solicitudes` + fallback `solicitudes_acceso`
+    ~ firestore.rules              — permisos para `solicitudes` y `cola_preparacion`
+    ~ js/core/app-bootstrap.js     — store global reutilizable de plaza actual
+    ~ js/views/cola-preparacion.js — ahora honra plaza global/URL/permisos permitidos
+    ~ js/views/profile.js          — usa plaza global compartida
+    ~ js/views/programador.js      — usa plaza global compartida
+  Objetivo: eliminar el `permission-denied` en /solicitud, evitar que la navegación
+    regrese a BJX por default y dejar base funcional para /cola-preparacion.
+
 [2026-04-20] CODEX — AJUSTÓ rutas standalone sin tocar js/views/mapa.js ni api/*.js:
   /profile con scroll real + tema claro por defecto y dark-theme preservado; /gestion con
   accesos rápidos, modales migrados para reporte diario / cuadre de predicción / PDF reservas,
