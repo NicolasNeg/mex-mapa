@@ -228,6 +228,28 @@ if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
 // ==========================================
 let modalConfirmCallback = null;
 
+function _ensureCustomModalDom() {
+  let modal = document.getElementById('customModal');
+  if (modal) return modal;
+  if (!document.body) return null;
+  modal = document.createElement('div');
+  modal.id = 'customModal';
+  modal.className = 'modal-overlay';
+  modal.innerHTML = `
+    <div class="modal-box">
+      <div class="material-icons modal-icon" id="modalIcon">warning</div>
+      <div class="modal-title" id="modalTitle">Confirmación</div>
+      <div class="modal-text" id="modalText">¿Estás seguro de continuar?</div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" type="button" onclick="cerrarCustomModal()">CANCELAR</button>
+        <button class="modal-btn modal-btn-confirm" type="button" id="modalConfirmBtn">ACEPTAR</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  return modal;
+}
+
 function mostrarCustomModal(titulo, texto, icono, colorIcono, textConfirm, colorBtn, onConfirm) {
   let iconName = icono;
   let iconColor = colorIcono;
@@ -243,6 +265,12 @@ function mostrarCustomModal(titulo, texto, icono, colorIcono, textConfirm, color
     confirmText = colorIcono || 'ACEPTAR';
     cancelText = textConfirm || 'CANCELAR';
     confirmColor = '#2563eb';
+  }
+
+  const modal = _ensureCustomModalDom();
+  if (!modal) {
+    showToast('No se pudo abrir el diálogo de confirmación.', 'error');
+    return;
   }
 
   document.getElementById('modalTitle').innerText = titulo;
@@ -263,15 +291,18 @@ function mostrarCustomModal(titulo, texto, icono, colorIcono, textConfirm, color
   if (cancelBtn) cancelBtn.innerText = cancelText;
 
   modalConfirmCallback = confirmHandler;
-  document.getElementById('customModal').classList.add('active');
+  modal.classList.add('active');
 }
 
 function cerrarCustomModal() {
-  document.getElementById('customModal').classList.remove('active');
+  const modal = document.getElementById('customModal');
+  if (modal) modal.classList.remove('active');
   modalConfirmCallback = null;
 }
 
-document.getElementById('modalConfirmBtn')?.addEventListener('click', async () => {
+document.addEventListener('click', async event => {
+  const button = event.target?.closest?.('#modalConfirmBtn');
+  if (!button) return;
   try {
     if (!modalConfirmCallback) {
       cerrarCustomModal();
@@ -4484,8 +4515,9 @@ async function _handleMapDrop(event) {
   if (!zone) return;
   event.preventDefault();
   _mapDragSuppressClickUntil = Date.now() + 350;
-  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
+  const sourceCar = _mapDragState.sourceCar;
   _finishMapDrag();
+  await _handleMapUnitDrop(sourceCar, zone, { fromDrag: true });
 }
 
 function _handleMapZoneDragOver(event) {
@@ -4506,8 +4538,9 @@ async function _handleMapZoneDrop(event) {
   event.stopPropagation();
   event.__mexMapDropHandled = true;
   _mapDragSuppressClickUntil = Date.now() + 350;
-  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
+  const sourceCar = _mapDragState.sourceCar;
   _finishMapDrag();
+  await _handleMapUnitDrop(sourceCar, zone, { fromDrag: true });
 }
 
 function _handleMapCarTouchStart(event) {
@@ -4596,8 +4629,9 @@ async function _handleMapPointerUp(event) {
   event.preventDefault();
   const zone = _resolveMapDropZone(document.elementFromPoint(event.clientX, event.clientY)) || _mapDragState.currentZone;
   _mapDragSuppressClickUntil = Date.now() + 450;
-  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
+  const sourceCar = _mapDragState.sourceCar;
   _finishMapDrag();
+  await _handleMapUnitDrop(sourceCar, zone, { fromDrag: true });
 }
 
 function _handleMapTouchDragMove(event) {
@@ -4632,8 +4666,9 @@ async function _handleMapTouchDragEnd(event) {
     : _mapDragState.currentZone;
   _mapDragSuppressClickUntil = Date.now() + 450;
   if (touch) event.preventDefault();
-  await _handleMapUnitDrop(_mapDragState.sourceCar, zone, { fromDrag: true });
+  const sourceCar = _mapDragState.sourceCar;
   _finishMapDrag();
+  await _handleMapUnitDrop(sourceCar, zone, { fromDrag: true });
 }
 
 function _bindMapDragDropEvents() {
@@ -6182,8 +6217,18 @@ function _umIniciar() {
     '<div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>';
 
   _unsubUsuarios = db.collection(COL.USERS).onSnapshot(snap => {
+    const currentDocId = String(
+      currentUserProfile?.id
+      || currentUserProfile?.email
+      || auth.currentUser?.email
+      || ''
+    ).trim().toLowerCase();
     _umUsers = snap.docs
       .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
+      .filter(profile => {
+        const candidateId = String(profile?.id || profile?.email || '').trim().toLowerCase();
+        return !currentDocId || candidateId !== currentDocId;
+      })
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
 
     _umRenderCards();
@@ -11389,7 +11434,7 @@ function _renderAuditCard(u) {
       <div class="audit-card-info">
         <h3 class="audit-card-mva">${u.mva}</h3>
         <span class="audit-card-meta">${u.modelo} &bull; ${u.placas}</span>
-        ${u.status === 'EXTRA' ? \`<span class="audit-card-extra-badge">&#9888; SOBRANTE</span>\` : ''}
+        ${u.status === 'EXTRA' ? '<span class="audit-card-extra-badge">&#9888; SOBRANTE</span>' : ''}
       </div>
       <div class="audit-card-actions">
         <button class="audit-btn-action ${btnCrossClass}" onclick="marcarUnidadAudit('${u.mva}', 'FALTANTE')" title="Marcar faltante">
@@ -11438,7 +11483,7 @@ function renderizarPaseLista() {
   });
 
   if (filtradas.length === 0) {
-    container.innerHTML = \`<div class="audit-empty-msg">Sin coincidencias para "${term}".</div>\`;
+    container.innerHTML = `<div class="audit-empty-msg">Sin coincidencias para "${term}".</div>`;
     return;
   }
 
@@ -11449,12 +11494,12 @@ function renderizarPaseLista() {
   let html = '';
 
   if (pendientesList.length > 0) {
-    if (term === "") html += \`<div class="audit-section-label">Pendientes (${pendientesList.length})</div>\`;
+    if (term === "") html += `<div class="audit-section-label">Pendientes (${pendientesList.length})</div>`;
     html += pendientesList.map(_renderAuditCard).join('');
   }
 
   if (revisadasList.length > 0) {
-    if (term === "") html += \`<div class="audit-section-label">Revisadas (${revisadasList.length})</div>\`;
+    if (term === "") html += `<div class="audit-section-label">Revisadas (${revisadasList.length})</div>`;
     html += revisadasList.map(_renderAuditCard).join('');
   }
 
