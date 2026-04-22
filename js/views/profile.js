@@ -15,16 +15,49 @@ const PROFILE_BOOTSTRAP_PROGRAMMER_EMAILS = Object.freeze([
   'angelarmentta@icloud.com'
 ]);
 const PROFILE_PRESENCE_STALE_MS = 120000;
+const PROFILE_PREFS_STORAGE_KEY = 'mex_profile_preferences_v2';
+const PROFILE_DEFAULT_PREFERENCES = Object.freeze({
+  theme: 'light',
+  language: 'es',
+  homeView: 'dashboard',
+  visualDensity: 'compacta',
+  reduceAnimations: false,
+  alertSound: true,
+  defaultPlaza: '',
+  mapView: 'mapa',
+  rememberZoom: true,
+  rememberPosition: true,
+  showLabels: true,
+  defaultHeatmap: false,
+  showBlockedAreas: true,
+  notificationChannel: 'sistema',
+  quietHoursStart: '22:00',
+  quietHoursEnd: '07:00'
+});
 
 let _profile = null;
+let _profilePreferences = { ...PROFILE_DEFAULT_PREFERENCES };
+let _profileDirty = false;
 let _notificationsReady = false;
 let _notificationBindingsReady = false;
 let _cropState = null;
 let _cropDragging = false;
 let _cropLast = null;
+let _profileChromeReady = false;
+let _profileTabsReady = false;
+let _profileSectionObserver = null;
 
 function _safeText(value) {
   return String(value || '').trim();
+}
+
+function _escapeHtml(value) {
+  return _safeText(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
 }
 
 function _upperText(value) {
@@ -48,6 +81,22 @@ function _coerceTimestamp(value) {
   if (value && typeof value.toMillis === 'function') return value.toMillis();
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function _safeArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function _safeObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function _normalizeBoolean(value, fallback = false) {
+  return typeof value === 'boolean' ? value : fallback;
+}
+
+function _normalizePlaza(value) {
+  return _upperText(value || '').replace(/\s+/g, ' ').trim();
 }
 
 function _friendlyRoleLabel(role = '') {
@@ -82,6 +131,155 @@ function _avatarColor(str = '') {
   return colors[Math.abs(hash) % colors.length];
 }
 
+function _formatDateTime(timestamp) {
+  const ts = _coerceTimestamp(timestamp);
+  if (!ts) return 'Sin registro';
+
+  try {
+    const value = new Date(ts);
+    const today = new Date();
+    const sameDay = value.toDateString() === today.toDateString();
+    const time = new Intl.DateTimeFormat('es-MX', { timeStyle: 'short' }).format(value);
+    if (sameDay) return `Hoy, ${time}`;
+    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(value);
+  } catch (_) {
+    return 'Sin registro';
+  }
+}
+
+function _isElevatedRole(role = '') {
+  return [
+    'PROGRAMADOR',
+    'CORPORATIVO',
+    'CORPORATIVO_USER',
+    'JEFE DE OPERACION',
+    'JEFE_OPERACION',
+    'JEFE REGIONAL',
+    'JEFE_REGIONAL',
+    'ADMIN',
+    'ADMINISTRADOR'
+  ].includes(_upperText(role));
+}
+
+function _canAccessAdmin(profile = _profile) {
+  const overrides = _safeObject(profile?.permissionOverrides);
+  if (overrides.view_admin_panel === false) return false;
+  if (overrides.view_admin_panel === true) return true;
+  return Boolean(profile?.isAdmin || profile?.isGlobal || _isElevatedRole(profile?.rol));
+}
+
+function _canAccessProgrammer(profile = _profile) {
+  const overrides = _safeObject(profile?.permissionOverrides);
+  if (overrides.view_admin_programmer === true) return true;
+  if (overrides.view_admin_programmer === false) return false;
+  return _upperText(profile?.rol) === 'PROGRAMADOR';
+}
+
+function _roleLevelLabel(profile = _profile) {
+  const role = _upperText(profile?.rol);
+  if (role === 'PROGRAMADOR') return 'Admin técnico';
+  if (_canAccessAdmin(profile) && profile?.isGlobal) return 'Cobertura global';
+  if (_canAccessAdmin(profile)) return 'Operación administrativa';
+  return 'Operación estándar';
+}
+
+function _roleScopeLabel(profile = _profile) {
+  if (_canAccessProgrammer(profile)) return 'Lectura + edición + configuración';
+  if (_canAccessAdmin(profile)) return 'Lectura + edición operativa';
+  return 'Lectura + operación';
+}
+
+function _availableModules(profile = _profile) {
+  const modules = ['Dashboard', 'Mapa', 'Mensajes', 'Cuadres', 'Perfil'];
+  if (_canAccessAdmin(profile)) modules.push('Panel Admin');
+  if (_canAccessProgrammer(profile)) modules.push('Consola');
+  if (_normalizeBoolean(profile?.isGlobal, false)) modules.push('Global');
+  return [...new Set(modules)];
+}
+
+function _availablePlazas(profile = _profile) {
+  const plazas = new Set();
+  const current = _normalizePlaza(window.getMexCurrentPlaza?.());
+  const main = _normalizePlaza(profile?.plazaAsignada || profile?.plaza);
+  if (main) plazas.add(main);
+  _safeArray(profile?.plazasPermitidas).forEach(item => {
+    const plaza = _normalizePlaza(item);
+    if (plaza) plazas.add(plaza);
+  });
+  if (current) plazas.add(current);
+  if (!plazas.size) plazas.add('GLOBAL');
+  return [...plazas];
+}
+
+function _readStoredPreferences() {
+  try {
+    return _safeObject(JSON.parse(localStorage.getItem(PROFILE_PREFS_STORAGE_KEY) || '{}'));
+  } catch (_) {
+    return {};
+  }
+}
+
+function _normalizedProfilePreferences(raw = {}, profile = _profile) {
+  const themeFromStorage = _safeText(localStorage.getItem('mex_mapa_theme')) || PROFILE_DEFAULT_PREFERENCES.theme;
+  const merged = {
+    ...PROFILE_DEFAULT_PREFERENCES,
+    ..._safeObject(raw)
+  };
+  merged.theme = _safeText(merged.theme || themeFromStorage || 'light').toLowerCase() === 'dark' ? 'dark' : 'light';
+  merged.language = _safeText(merged.language || 'es') || 'es';
+  merged.homeView = _safeText(merged.homeView || (_canAccessAdmin(profile) ? 'dashboard' : 'mapa')) || 'dashboard';
+  merged.visualDensity = _safeText(merged.visualDensity || 'compacta') || 'compacta';
+  merged.defaultPlaza = _normalizePlaza(merged.defaultPlaza || profile?.plazaAsignada || window.getMexCurrentPlaza?.() || '');
+  merged.mapView = _safeText(merged.mapView || 'mapa') || 'mapa';
+  merged.reduceAnimations = _normalizeBoolean(merged.reduceAnimations, false);
+  merged.alertSound = _normalizeBoolean(merged.alertSound, true);
+  merged.rememberZoom = _normalizeBoolean(merged.rememberZoom, true);
+  merged.rememberPosition = _normalizeBoolean(merged.rememberPosition, true);
+  merged.showLabels = _normalizeBoolean(merged.showLabels, true);
+  merged.defaultHeatmap = _normalizeBoolean(merged.defaultHeatmap, false);
+  merged.showBlockedAreas = _normalizeBoolean(merged.showBlockedAreas, true);
+  merged.notificationChannel = _safeText(merged.notificationChannel || 'sistema') || 'sistema';
+  merged.quietHoursStart = _safeText(merged.quietHoursStart || '22:00') || '22:00';
+  merged.quietHoursEnd = _safeText(merged.quietHoursEnd || '07:00') || '07:00';
+  return merged;
+}
+
+function _loadProfilePreferences(profile = _profile) {
+  const fromDoc = _safeObject(profile?.profilePreferences || profile?.uiPreferences);
+  const fromStorage = _readStoredPreferences();
+  return _normalizedProfilePreferences({ ...fromDoc, ...fromStorage }, profile);
+}
+
+function _persistPreferencesToStorage(preferences = _profilePreferences) {
+  try {
+    localStorage.setItem(PROFILE_PREFS_STORAGE_KEY, JSON.stringify(preferences));
+    localStorage.setItem('mex_mapa_theme', preferences.theme === 'dark' ? 'dark' : 'light');
+  } catch (error) {
+    console.warn('[profile] local prefs:', error);
+  }
+}
+
+function _applyTheme(theme = 'light') {
+  const isDark = theme === 'dark';
+  const root = document.documentElement;
+  root.dataset.theme = isDark ? 'dark' : 'light';
+  root.classList.toggle('dark-theme', isDark);
+  document.body.classList.toggle('dark-theme', isDark);
+
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', isDark ? '#0b2548' : '#ffffff');
+}
+
+function _setDirtyState(isDirty) {
+  _profileDirty = Boolean(isDirty);
+  const saveBtn = document.getElementById('profile-save-btn');
+  if (!saveBtn) return;
+  saveBtn.classList.toggle('is-dirty', _profileDirty);
+  saveBtn.innerHTML = _profileDirty
+    ? '<span class="material-icons">save</span> Guardar cambios'
+    : '<span class="material-icons">save</span> Guardar cambios';
+}
+
 function _normalizeProfile(raw = {}, fallbackUser = null) {
   const email = _profileDocId(raw.email || raw.id || fallbackUser?.email || '');
   const displayName = _upperText(raw.nombre || raw.usuario || fallbackUser?.displayName || email || 'USUARIO');
@@ -97,13 +295,18 @@ function _normalizeProfile(raw = {}, fallbackUser = null) {
     usuario: displayName,
     rol: inferredRole,
     roleLabel: _friendlyRoleLabel(raw.roleLabel || inferredRole),
-    plazaAsignada: _upperText(raw.plazaAsignada || raw.plaza || ''),
+    plazaAsignada: _normalizePlaza(raw.plazaAsignada || raw.plaza || ''),
+    plazasPermitidas: _safeArray(raw.plazasPermitidas).map(_normalizePlaza).filter(Boolean),
     telefono: _safeText(raw.telefono),
     status: _upperText(raw.status || 'ACTIVO') || 'ACTIVO',
     isOnline: raw.isOnline === true,
+    isAdmin: raw.isAdmin === true,
+    isGlobal: raw.isGlobal === true,
     lastSeenAt: _coerceTimestamp(raw.lastSeenAt || raw.lastActiveAt),
     avatarUrl: _getProfileAvatarUrl(raw),
-    avatarPath: _safeText(raw.avatarPath)
+    avatarPath: _safeText(raw.avatarPath),
+    permissionOverrides: _safeObject(raw.permissionOverrides || raw.permisosUsuario),
+    profilePreferences: _safeObject(raw.profilePreferences || raw.uiPreferences)
   };
 }
 
@@ -172,7 +375,12 @@ async function _loadProfile(user) {
     _profile = _normalizeProfile({}, user);
   }
 
+  _profilePreferences = _loadProfilePreferences(_profile);
+  _persistPreferencesToStorage(_profilePreferences);
+  _applyTheme(_profilePreferences.theme);
   window.CURRENT_USER_PROFILE = _profile;
+  _bindProfileChrome();
+  _initProfileTabs();
   _renderProfile();
   try {
     await _bootNotifications();
@@ -188,8 +396,15 @@ function _renderProfile() {
   const nombre = _profile.nombre || _profile.usuario || _profile.email || '?';
   const email = _profile.email || _profile.id || '';
   const roleLabel = _profile.roleLabel || _friendlyRoleLabel(_profile.rol);
-  const plaza = _upperText(_profile.plazaAsignada || _profile.plaza || '');
+  const plaza = _normalizePlaza(_profile.plazaAsignada || _profile.plaza || '');
   const avatarUrl = _getProfileAvatarUrl(_profile);
+  const plazasExtra = _safeArray(_profile.plazasPermitidas).filter(Boolean);
+  const heroMeta = [
+    `Rol: ${roleLabel}`,
+    `Plaza principal: ${plaza || 'Sin plaza'}`,
+    `Estado: ${_profile.status || 'ACTIVO'}`,
+    `Ultimo acceso: ${_formatDateTime(_profile.lastSeenAt || _profile.lastActiveAt || Date.now())}`
+  ];
 
   const avatarEl = document.getElementById('profile-avatar');
   if (avatarEl) {
@@ -203,23 +418,340 @@ function _renderProfile() {
   }
 
   const nameEl = document.getElementById('profile-hero-name');
+  const emailEl = document.getElementById('profile-hero-email');
   const metaEl = document.getElementById('profile-hero-meta');
   const badgesEl = document.getElementById('profile-hero-badges');
 
   if (nameEl) nameEl.textContent = nombre;
-  if (metaEl) metaEl.textContent = [email, plaza || 'SIN PLAZA'].filter(Boolean).join(' · ');
+  if (emailEl) emailEl.textContent = email || 'Sin correo';
+  if (metaEl) metaEl.textContent = heroMeta.join(' · ');
   if (badgesEl) {
-    const badges = [roleLabel, plaza || 'SIN PLAZA', _profile.status || 'ACTIVO'];
+    const badges = [
+      roleLabel,
+      _canAccessAdmin(_profile) ? 'ADMIN' : '',
+      plaza || 'SIN PLAZA',
+      _profile.status || 'ACTIVO'
+    ];
     badgesEl.innerHTML = badges
       .filter(Boolean)
-      .map(label => `<span class="profile-badge">${label}</span>`)
+      .map(label => `<span class="profile-badge">${_escapeHtml(label)}</span>`)
       .join('');
   }
 
-  const removeBtn = document.querySelector('.profile-action-btn.danger');
+  const removeBtn = document.querySelector('.profile-avatar-actions .profile-action-btn.danger');
   if (removeBtn) removeBtn.disabled = !avatarUrl;
 
+  _renderHeroStats();
+  _renderGeneralInfo({
+    nombre,
+    email,
+    roleLabel,
+    plaza,
+    plazasExtra
+  });
+  _renderPreferenceControls();
+  _renderAccessSummary();
   _renderNotificationState();
+  _setDirtyState(false);
+}
+
+function _setInputValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = _safeText(value);
+}
+
+function _setSelectValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const resolved = _safeText(value);
+  if (resolved && [...el.options].some(option => option.value === resolved)) {
+    el.value = resolved;
+  }
+}
+
+function _renderGeneralInfo({ nombre, email, roleLabel, plaza, plazasExtra }) {
+  _setInputValue('profile-name-input', nombre);
+  _setInputValue('profile-email-input', email);
+  _setInputValue('profile-phone-input', _profile?.telefono || '');
+  _setInputValue('profile-role-input', roleLabel);
+  _setInputValue('profile-main-plaza-input', plaza || 'Sin plaza');
+  _setInputValue('profile-secondary-plazas-input', plazasExtra.length ? plazasExtra.join(', ') : 'Sin plazas secundarias');
+  _setInputValue('profile-status-input', _profile?.status || 'ACTIVO');
+
+  const lastAccess = document.getElementById('profile-last-access-label');
+  if (lastAccess) lastAccess.textContent = _formatDateTime(_profile?.lastSeenAt || _profile?.lastActiveAt || Date.now());
+}
+
+function _renderHeroStats() {
+  const modules = _availableModules(_profile);
+  const device = getCurrentDeviceSnapshot()?.currentDevice || {};
+  const prefs = _currentNotificationPrefs(device);
+  const activeAlerts = [
+    prefs.directMessages,
+    prefs.cuadreMissions,
+    prefs.criticalAlerts
+  ].filter(Boolean).length;
+
+  const modulesEl = document.getElementById('profile-stat-modules');
+  const notificationsEl = document.getElementById('profile-stat-notifications');
+  const deviceEl = document.getElementById('profile-stat-device');
+  const homeEl = document.getElementById('profile-stat-home');
+
+  if (modulesEl) modulesEl.textContent = String(modules.length);
+  if (notificationsEl) notificationsEl.textContent = String(activeAlerts);
+  if (deviceEl) deviceEl.textContent = _friendlyDeviceLabel(device);
+  if (homeEl) homeEl.textContent = (_profilePreferences.homeView || 'dashboard').replace(/^./, c => c.toUpperCase());
+}
+
+function _populateDefaultPlazaOptions() {
+  const select = document.getElementById('profile-default-plaza-select');
+  if (!select) return;
+
+  const plazas = _availablePlazas(_profile);
+  select.innerHTML = plazas
+    .map(plaza => `<option value="${_escapeHtml(plaza)}">${_escapeHtml(plaza)}</option>`)
+    .join('');
+}
+
+function _renderPreferenceControls() {
+  _populateDefaultPlazaOptions();
+  _setSelectValue('profile-theme-select', _profilePreferences.theme);
+  _setSelectValue('profile-language-select', _profilePreferences.language);
+  _setSelectValue('profile-home-view-select', _profilePreferences.homeView);
+  _setSelectValue('profile-density-select', _profilePreferences.visualDensity);
+  _setSelectValue('profile-default-plaza-select', _profilePreferences.defaultPlaza || _availablePlazas(_profile)[0] || 'GLOBAL');
+  _setSelectValue('profile-map-view-select', _profilePreferences.mapView);
+  _setSelectValue('profile-notif-channel-select', _profilePreferences.notificationChannel);
+
+  _setInputValue('profile-quiet-start', _profilePreferences.quietHoursStart);
+  _setInputValue('profile-quiet-end', _profilePreferences.quietHoursEnd);
+
+  _toggleSettingButton('profile-reduce-motion-toggle', _profilePreferences.reduceAnimations);
+  _toggleSettingButton('profile-alert-sound-toggle', _profilePreferences.alertSound);
+  _toggleSettingButton('profile-remember-zoom-toggle', _profilePreferences.rememberZoom);
+  _toggleSettingButton('profile-remember-position-toggle', _profilePreferences.rememberPosition);
+  _toggleSettingButton('profile-show-labels-toggle', _profilePreferences.showLabels);
+  _toggleSettingButton('profile-heatmap-toggle', _profilePreferences.defaultHeatmap);
+  _toggleSettingButton('profile-show-blocked-toggle', _profilePreferences.showBlockedAreas);
+}
+
+function _renderAccessSummary() {
+  const modules = _availableModules(_profile);
+  const plazas = _availablePlazas(_profile);
+  const roleLabel = _profile?.roleLabel || _friendlyRoleLabel(_profile?.rol);
+
+  const accessRole = document.getElementById('profile-access-role');
+  const accessLevel = document.getElementById('profile-access-level');
+  const accessModules = document.getElementById('profile-access-modules');
+  const accessPlazas = document.getElementById('profile-access-plazas');
+  const accessScope = document.getElementById('profile-access-scope');
+  const adminChip = document.getElementById('profile-admin-chip');
+
+  if (accessRole) accessRole.textContent = roleLabel;
+  if (accessLevel) accessLevel.textContent = _roleLevelLabel(_profile);
+  if (accessModules) accessModules.textContent = modules.join(', ');
+  if (accessPlazas) accessPlazas.textContent = plazas.join(', ');
+  if (accessScope) accessScope.textContent = _roleScopeLabel(_profile);
+  if (adminChip) {
+    adminChip.style.display = _canAccessAdmin(_profile) ? 'inline-flex' : 'none';
+  }
+}
+
+function _collectProfileFormData() {
+  const phone = _safeText(document.getElementById('profile-phone-input')?.value || '');
+  const theme = _safeText(document.getElementById('profile-theme-select')?.value || _profilePreferences.theme) || 'light';
+  const language = _safeText(document.getElementById('profile-language-select')?.value || _profilePreferences.language) || 'es';
+  const homeView = _safeText(document.getElementById('profile-home-view-select')?.value || _profilePreferences.homeView) || 'dashboard';
+  const visualDensity = _safeText(document.getElementById('profile-density-select')?.value || _profilePreferences.visualDensity) || 'compacta';
+  const defaultPlaza = _normalizePlaza(document.getElementById('profile-default-plaza-select')?.value || _profilePreferences.defaultPlaza || '');
+  const mapView = _safeText(document.getElementById('profile-map-view-select')?.value || _profilePreferences.mapView) || 'mapa';
+  const notificationChannel = _safeText(document.getElementById('profile-notif-channel-select')?.value || _profilePreferences.notificationChannel) || 'sistema';
+  const quietHoursStart = _safeText(document.getElementById('profile-quiet-start')?.value || _profilePreferences.quietHoursStart) || '22:00';
+  const quietHoursEnd = _safeText(document.getElementById('profile-quiet-end')?.value || _profilePreferences.quietHoursEnd) || '07:00';
+
+  return {
+    phone,
+    preferences: _normalizedProfilePreferences({
+      ..._profilePreferences,
+      theme,
+      language,
+      homeView,
+      visualDensity,
+      defaultPlaza,
+      mapView,
+      notificationChannel,
+      quietHoursStart,
+      quietHoursEnd
+    }, _profile)
+  };
+}
+
+async function _saveProfileSettings() {
+  if (!_profile) return;
+
+  const saveBtn = document.getElementById('profile-save-btn');
+  if (saveBtn) {
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="material-icons">hourglass_top</span> Guardando...';
+  }
+
+  try {
+    const { phone, preferences } = _collectProfileFormData();
+    const docId = _currentUserDocId();
+    if (!docId) throw new Error('No se pudo resolver el documento del usuario');
+
+    await db.collection('usuarios').doc(docId).set({
+      telefono: phone,
+      profilePreferences: preferences
+    }, { merge: true });
+
+    _profile = {
+      ..._profile,
+      telefono: phone,
+      profilePreferences: preferences
+    };
+    _profilePreferences = preferences;
+    _persistPreferencesToStorage(preferences);
+    _applyTheme(preferences.theme);
+    window.CURRENT_USER_PROFILE = _profile;
+    _renderProfile();
+    _showToast('Perfil actualizado correctamente.', 'success');
+  } catch (error) {
+    console.error('[profile] save:', error);
+    _showToast('No se pudieron guardar los cambios del perfil.', 'error');
+  } finally {
+    if (saveBtn) {
+      saveBtn.disabled = false;
+      _setDirtyState(false);
+    }
+  }
+}
+
+function _togglePreference(field) {
+  _profilePreferences = {
+    ..._profilePreferences,
+    [field]: !_profilePreferences[field]
+  };
+
+  if (field === 'theme') {
+    _applyTheme(_profilePreferences.theme);
+  }
+
+  _renderPreferenceControls();
+  _setDirtyState(true);
+}
+
+function _markProfileDirty() {
+  const collected = _collectProfileFormData();
+  _profilePreferences = collected.preferences;
+  if (collected.preferences.theme) _applyTheme(collected.preferences.theme);
+  _renderHeroStats();
+  _setDirtyState(true);
+}
+
+function _bindProfileChrome() {
+  if (_profileChromeReady) return;
+  _profileChromeReady = true;
+
+  const saveBtn = document.getElementById('profile-save-btn');
+  saveBtn?.addEventListener('click', () => _saveProfileSettings());
+
+  [
+    'profile-phone-input',
+    'profile-theme-select',
+    'profile-language-select',
+    'profile-home-view-select',
+    'profile-density-select',
+    'profile-default-plaza-select',
+    'profile-map-view-select',
+    'profile-notif-channel-select',
+    'profile-quiet-start',
+    'profile-quiet-end'
+  ].forEach(id => {
+    const element = document.getElementById(id);
+    element?.addEventListener('input', _markProfileDirty);
+    element?.addEventListener('change', _markProfileDirty);
+  });
+
+  const preferenceToggleMap = {
+    'profile-reduce-motion-toggle': 'reduceAnimations',
+    'profile-alert-sound-toggle': 'alertSound',
+    'profile-remember-zoom-toggle': 'rememberZoom',
+    'profile-remember-position-toggle': 'rememberPosition',
+    'profile-show-labels-toggle': 'showLabels',
+    'profile-heatmap-toggle': 'defaultHeatmap',
+    'profile-show-blocked-toggle': 'showBlockedAreas'
+  };
+
+  Object.entries(preferenceToggleMap).forEach(([id, field]) => {
+    document.getElementById(id)?.addEventListener('click', () => {
+      _profilePreferences = {
+        ..._profilePreferences,
+        [field]: !_profilePreferences[field]
+      };
+      _renderPreferenceControls();
+      _renderHeroStats();
+      _setDirtyState(true);
+    });
+  });
+
+  document.getElementById('profile-reset-password-btn')?.addEventListener('click', async () => {
+    const email = _safeText(_profile?.email || auth.currentUser?.email);
+    if (!email) return _showToast('No hay correo disponible para enviar el reset.', 'warning');
+    try {
+      await auth.sendPasswordResetEmail(email);
+      _showToast('Te enviamos un correo para cambiar tu contraseña.', 'success');
+    } catch (error) {
+      console.error('[profile] reset password:', error);
+      _showToast('No se pudo enviar el correo de recuperación.', 'error');
+    }
+  });
+
+  document.getElementById('profile-close-sessions-btn')?.addEventListener('click', () => {
+    openNotificationCenter();
+    _showToast('Abrimos el centro del sistema para revisar actividad y dispositivos.', 'warning');
+  });
+}
+
+function _setActiveProfileTab(sectionId) {
+  document.querySelectorAll('.profile-tab').forEach(tab => {
+    tab.classList.toggle('is-active', tab.dataset.target === sectionId);
+  });
+}
+
+function _initProfileTabs() {
+  if (_profileTabsReady) return;
+  _profileTabsReady = true;
+
+  const tabs = [...document.querySelectorAll('.profile-tab[data-target]')];
+  const sections = tabs
+    .map(tab => document.getElementById(tab.dataset.target))
+    .filter(Boolean);
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const target = document.getElementById(tab.dataset.target);
+      if (!target) return;
+      const topOffset = window.innerWidth <= 980 ? 212 : 168;
+      const targetTop = target.getBoundingClientRect().top + window.scrollY - topOffset;
+      window.scrollTo({ top: Math.max(targetTop, 0), behavior: 'smooth' });
+      _setActiveProfileTab(tab.dataset.target);
+    });
+  });
+
+  if ('IntersectionObserver' in window && sections.length > 0) {
+    _profileSectionObserver = new IntersectionObserver(entries => {
+      const current = entries
+        .filter(entry => entry.isIntersecting)
+        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (current?.target?.id) _setActiveProfileTab(current.target.id);
+    }, {
+      rootMargin: '-28% 0px -54% 0px',
+      threshold: [0.15, 0.35, 0.6]
+    });
+
+    sections.forEach(section => _profileSectionObserver.observe(section));
+  }
 }
 
 function _toggleSettingButton(id, enabled) {
@@ -227,6 +759,7 @@ function _toggleSettingButton(id, enabled) {
   if (!btn) return;
   btn.classList.toggle('is-on', Boolean(enabled));
   btn.classList.toggle('is-off', !enabled);
+  btn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
 }
 
 function _friendlyDeviceLabel(device = {}) {
@@ -275,7 +808,6 @@ function _renderNotificationState() {
   _toggleSettingButton('profileNotifCuadreToggle', prefs.cuadreMissions);
   _toggleSettingButton('profileNotifCriticalToggle', prefs.criticalAlerts);
   _toggleSettingButton('profileNotifMuteToggle', prefs.muteAll);
-  _toggleSettingButton('profile-permission-toggle', permission === 'granted');
 
   const metaEl = document.getElementById('profile-notif-meta');
   const sessionBadge = document.getElementById('profileSessionBadge');
@@ -314,12 +846,17 @@ function _renderNotificationState() {
   if (permissionBtn) {
     const blocked = permission === 'denied' || permission === 'unsupported';
     permissionBtn.disabled = blocked;
+    permissionBtn.innerHTML = permission === 'granted'
+      ? '<span class="material-icons">notifications_active</span> Push activo en este dispositivo'
+      : '<span class="material-icons">notifications</span> Activar notificaciones del dispositivo';
     permissionBtn.title = permission === 'granted'
       ? 'Push activo — abre el centro de notificaciones'
       : blocked
         ? 'El permiso está bloqueado o no está soportado en este navegador'
         : 'Toca para activar notificaciones push';
   }
+
+  _renderHeroStats();
 }
 
 async function _toggleNotificationPref(field) {

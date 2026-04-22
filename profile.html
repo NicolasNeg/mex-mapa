@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/img/logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/profile.css">
@@ -41,179 +41,469 @@
 <body class="profile-route">
 
 <div class="profile-page">
-
-  <!-- Topbar -->
-  <div class="profile-topbar">
-    <a class="profile-topbar-back"
-       href="javascript:window.history.length > 1 ? window.history.back() : window.location.href='/mapa'">
-      <span class="material-icons" style="font-size:18px;">arrow_back</span>
-      Volver
-    </a>
-    <div class="profile-topbar-title">Mi Perfil</div>
-  </div>
-
-  <!-- Scroll content -->
-  <div class="profile-scroll">
-
-    <!-- Hero card -->
-    <div class="profile-hero-card">
-      <div class="profile-avatar-wrap">
-        <div class="profile-avatar-large" id="profile-avatar">U</div>
-        <button class="profile-avatar-edit-btn"
-                onclick="document.getElementById('profile-avatar-input').click()"
-                title="Cambiar foto">
-          <span class="material-icons" style="font-size:14px;">photo_camera</span>
-        </button>
-      </div>
-      <div class="profile-hero-info">
-        <div class="profile-hero-name" id="profile-hero-name">Cargando…</div>
-        <div class="profile-hero-meta" id="profile-hero-meta"></div>
-        <div class="profile-hero-badges" id="profile-hero-badges"></div>
-        <div class="profile-hero-actions" style="margin-top:12px;">
-          <button class="profile-action-btn primary"
-                  onclick="document.getElementById('profile-avatar-input').click()">
-            <span class="material-icons" style="font-size:16px;">photo_camera</span>
-            Subir foto
-          </button>
-          <button class="profile-action-btn danger" onclick="profile_eliminarAvatar()">
-            <span class="material-icons" style="font-size:16px;">delete</span>
-            Quitar foto
-          </button>
+  <header class="profile-topbar">
+    <div class="profile-topbar-left">
+      <a class="profile-topbar-back"
+         href="javascript:window.history.length > 1 ? window.history.back() : window.location.href='/mapa'">
+        <span class="material-icons">arrow_back</span>
+        Volver
+      </a>
+      <div class="profile-topbar-copy">
+        <span class="profile-topbar-kicker">Cuenta personal</span>
+        <div class="profile-topbar-title-wrap">
+          <h1 class="profile-topbar-title">Mi Perfil</h1>
+          <p class="profile-topbar-subtitle">Cuenta, preferencias, mapa y seguridad</p>
         </div>
       </div>
     </div>
 
-    <input type="file" id="profile-avatar-input" accept="image/*" style="display:none;"
+    <div class="profile-topbar-actions">
+      <a href="/mapa" class="profile-action-btn ghost">
+        <span class="material-icons">map</span>
+        Volver al mapa
+      </a>
+      <button id="profile-save-btn" class="profile-action-btn primary strong" type="button">
+        <span class="material-icons">save</span>
+        Guardar cambios
+      </button>
+    </div>
+  </header>
+
+  <div class="profile-scroll">
+    <section class="profile-hero-card">
+      <div class="profile-hero-main">
+        <div class="profile-hero-avatar-panel">
+          <div class="profile-avatar-wrap">
+            <div class="profile-avatar-large" id="profile-avatar">U</div>
+            <button class="profile-avatar-edit-btn"
+                    type="button"
+                    onclick="document.getElementById('profile-avatar-input').click()"
+                    title="Cambiar foto">
+              <span class="material-icons">photo_camera</span>
+            </button>
+          </div>
+
+          <div class="profile-avatar-actions">
+            <button class="profile-action-btn ghost"
+                    type="button"
+                    onclick="document.getElementById('profile-avatar-input').click()">
+              <span class="material-icons">photo_camera</span>
+              Cambiar foto
+            </button>
+            <button class="profile-action-btn danger" type="button" onclick="profile_eliminarAvatar()">
+              <span class="material-icons">delete</span>
+              Quitar foto
+            </button>
+          </div>
+        </div>
+
+        <div class="profile-hero-info">
+          <span class="profile-section-kicker">Centro de control personal</span>
+          <div class="profile-hero-name" id="profile-hero-name">Cargando...</div>
+          <div class="profile-hero-email" id="profile-hero-email">Cargando...</div>
+          <div class="profile-hero-meta" id="profile-hero-meta"></div>
+          <div class="profile-hero-badges" id="profile-hero-badges"></div>
+        </div>
+      </div>
+
+      <div class="profile-hero-stats">
+        <article class="profile-stat-card">
+          <span>Módulos habilitados</span>
+          <strong id="profile-stat-modules">0</strong>
+          <small>Acceso operativo disponible</small>
+        </article>
+        <article class="profile-stat-card">
+          <span>Notificaciones activas</span>
+          <strong id="profile-stat-notifications">0</strong>
+          <small>Canales y alertas en este equipo</small>
+        </article>
+        <article class="profile-stat-card">
+          <span>Dispositivo actual</span>
+          <strong id="profile-stat-device">Web</strong>
+          <small>Contexto detectado del navegador</small>
+        </article>
+        <article class="profile-stat-card">
+          <span>Vista inicial</span>
+          <strong id="profile-stat-home">Dashboard</strong>
+          <small>Ruta preferida al entrar</small>
+        </article>
+      </div>
+    </section>
+
+    <input type="file"
+           id="profile-avatar-input"
+           accept="image/*"
+           style="display:none;"
            onchange="profile_subirAvatar(this)">
 
-    <!-- Grid de config -->
-    <div class="profile-settings-grid">
+    <nav class="profile-tabs-shell" aria-label="Secciones del perfil">
+      <div class="profile-tabs" id="profile-tabs">
+        <button type="button" class="profile-tab is-active" data-target="profile-section-general">General</button>
+        <button type="button" class="profile-tab" data-target="profile-section-preferencias">Preferencias</button>
+        <button type="button" class="profile-tab" data-target="profile-section-mapa">Mapa</button>
+        <button type="button" class="profile-tab" data-target="profile-section-notificaciones">Notificaciones</button>
+        <button type="button" class="profile-tab" data-target="profile-section-seguridad">Seguridad</button>
+        <button type="button" class="profile-tab" data-target="profile-section-accesos">Accesos</button>
+        <button type="button" class="profile-tab" data-target="profile-section-atajos">Atajos</button>
+      </div>
+    </nav>
 
-      <!-- Notificaciones -->
-      <section class="profile-settings-card">
-        <div class="profile-settings-head">
-          <div class="profile-settings-icon">
-            <span class="material-icons" style="font-size:20px;">notifications_active</span>
-          </div>
+    <div class="profile-dashboard-grid">
+      <section class="profile-card profile-card-general" id="profile-section-general">
+        <header class="profile-card-head">
           <div>
-            <div class="profile-settings-title">Notificaciones</div>
-            <p class="profile-settings-sub">Controla avisos en este dispositivo.</p>
+            <span class="profile-card-kicker">General</span>
+            <h2>Identidad y cuenta</h2>
+            <p>Resumen claro de tu identidad operativa dentro de MAPA.</p>
           </div>
-          <span class="profile-settings-badge">Activo</span>
-        </div>
-        <div class="profile-setting-row profile-setting-row-hero">
-          <div>
-            <strong>Notificaciones activas</strong>
-            <small>Apagar silencia este equipo sin perder el historial.</small>
-          </div>
-          <button id="profileNotifMasterToggle" class="profile-setting-toggle is-on"></button>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Mensajes directos</strong>
-            <small>Avísame cuando alguien me escriba.</small>
-          </div>
-          <button id="profileNotifMessagesToggle" class="profile-setting-toggle is-on"></button>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Misión de cuadre</strong>
-            <small>Actualizaciones de mi cuadre asignado.</small>
-          </div>
-          <button id="profileNotifCuadreToggle" class="profile-setting-toggle is-on"></button>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Alertas críticas</strong>
-            <small>Solo situaciones urgentes de operación.</small>
-          </div>
-          <button id="profileNotifCriticalToggle" class="profile-setting-toggle is-on"></button>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Silenciar este equipo</strong>
-            <small>Pausa sin perder el historial del inbox.</small>
-          </div>
-          <button id="profileNotifMuteToggle" class="profile-setting-toggle is-off"></button>
-        </div>
-        <div id="profile-notif-meta" class="profile-setting-meta">Cargando dispositivo…</div>
-        <button id="profile-notif-center-btn" class="profile-action-btn primary"
-                style="width:100%; margin-top:14px; justify-content:center;">
-          <span class="material-icons" style="font-size:18px;">notifications</span>
-          Ver historial
-        </button>
-      </section>
+        </header>
 
-      <!-- Privacidad y sesión -->
-      <section class="profile-settings-card">
-        <div class="profile-settings-head">
-          <div class="profile-settings-icon">
-            <span class="material-icons" style="font-size:20px;">shield</span>
-          </div>
-          <div>
-            <div class="profile-settings-title">Privacidad y sesión</div>
-            <p class="profile-settings-sub">Permisos push y estado del dispositivo.</p>
-          </div>
-          <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Permiso push</strong>
-            <small id="profilePermissionSummary">Revisando soporte…</small>
-          </div>
-          <button id="profile-permission-toggle" class="profile-setting-toggle is-off"></button>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Este dispositivo</strong>
-            <small id="profileCurrentDeviceSummary">Cargando…</small>
-          </div>
-          <span class="profile-settings-badge">Activo</span>
+        <div class="profile-field-grid">
+          <label class="profile-field">
+            <span>Nombre completo</span>
+            <input id="profile-name-input" type="text" readonly>
+          </label>
+          <label class="profile-field">
+            <span>Correo</span>
+            <input id="profile-email-input" type="email" readonly>
+          </label>
+          <label class="profile-field">
+            <span>Teléfono</span>
+            <input id="profile-phone-input" type="text" placeholder="Agrega un teléfono de contacto">
+          </label>
+          <label class="profile-field">
+            <span>Rol actual</span>
+            <input id="profile-role-input" type="text" readonly>
+          </label>
+          <label class="profile-field">
+            <span>Plaza principal</span>
+            <input id="profile-main-plaza-input" type="text" readonly>
+          </label>
+          <label class="profile-field">
+            <span>Plazas secundarias</span>
+            <input id="profile-secondary-plazas-input" type="text" readonly>
+          </label>
+          <label class="profile-field">
+            <span>Estado de cuenta</span>
+            <input id="profile-status-input" type="text" readonly>
+          </label>
         </div>
       </section>
 
-      <!-- Preferencias -->
-      <section class="profile-settings-card">
-        <div class="profile-settings-head">
-          <div class="profile-settings-icon">
-            <span class="material-icons" style="font-size:20px;">palette</span>
-          </div>
+      <section class="profile-card" id="profile-section-preferencias">
+        <header class="profile-card-head">
           <div>
-            <div class="profile-settings-title">Preferencias</div>
-            <p class="profile-settings-sub">Apariencia y comportamiento del mapa.</p>
+            <span class="profile-card-kicker">Preferencias</span>
+            <h2>Interfaz y experiencia</h2>
+            <p>Ajustes de visualización y comportamiento general para este usuario.</p>
           </div>
-          <span class="profile-settings-badge" style="background:rgba(100,116,139,0.15);color:#94a3b8;border-color:rgba(148,163,184,0.2);">
-            Próximamente
-          </span>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Modo compacto</strong>
-            <small>Listas más densas y navegación rápida.</small>
+        </header>
+
+        <div class="profile-row-stack">
+          <label class="profile-inline-field">
+            <span>Tema</span>
+            <select id="profile-theme-select">
+              <option value="light">Claro</option>
+              <option value="dark">Oscuro</option>
+            </select>
+          </label>
+          <label class="profile-inline-field">
+            <span>Idioma</span>
+            <select id="profile-language-select">
+              <option value="es">Español</option>
+              <option value="en">English</option>
+            </select>
+          </label>
+          <label class="profile-inline-field">
+            <span>Vista inicial</span>
+            <select id="profile-home-view-select">
+              <option value="dashboard">Dashboard</option>
+              <option value="mapa">Mapa</option>
+              <option value="mensajes">Mensajes</option>
+              <option value="cuadre">Cuadres</option>
+            </select>
+          </label>
+          <label class="profile-inline-field">
+            <span>Densidad visual</span>
+            <select id="profile-density-select">
+              <option value="compacta">Compacta</option>
+              <option value="media">Media</option>
+              <option value="amplia">Amplia</option>
+            </select>
+          </label>
+
+          <div class="profile-setting-row">
+            <div>
+              <strong>Reducir animaciones</strong>
+              <small>Disminuye transiciones para una navegación más sobria.</small>
+            </div>
+            <button id="profile-reduce-motion-toggle" class="profile-setting-toggle is-off" type="button"></button>
           </div>
-          <span class="profile-setting-toggle is-off"></span>
-        </div>
-        <div class="profile-setting-row">
-          <div>
-            <strong>Zoom recordado</strong>
-            <small>Guarda tu escala favorita al volver al mapa.</small>
+
+          <div class="profile-setting-row">
+            <div>
+              <strong>Sonido de alertas</strong>
+              <small>Reproduce avisos del sistema cuando aplique.</small>
+            </div>
+            <button id="profile-alert-sound-toggle" class="profile-setting-toggle is-on" type="button"></button>
           </div>
-          <span class="profile-setting-toggle is-on"></span>
         </div>
       </section>
 
-      <!-- Atajos de teclado -->
-      <section class="profile-settings-card">
-        <div class="profile-settings-head">
-          <div class="profile-settings-icon">
-            <span class="material-icons" style="font-size:20px;">keyboard_command_key</span>
-          </div>
+      <section class="profile-card" id="profile-section-mapa">
+        <header class="profile-card-head">
           <div>
-            <div class="profile-settings-title">Accesos rápidos</div>
-            <p class="profile-settings-sub">Atajos en escritorio para moverte más rápido.</p>
+            <span class="profile-card-kicker">Mapa</span>
+            <h2>Preferencias operativas</h2>
+            <p>Parámetros de inicio rápido para tu flujo dentro del mapa.</p>
           </div>
-          <span class="profile-settings-badge">Activos</span>
+        </header>
+
+        <div class="profile-row-stack">
+          <label class="profile-inline-field">
+            <span>Plaza por defecto</span>
+            <select id="profile-default-plaza-select"></select>
+          </label>
+          <label class="profile-inline-field">
+            <span>Vista inicial del mapa</span>
+            <select id="profile-map-view-select">
+              <option value="mapa">Mapa</option>
+              <option value="dashboard">Dashboard</option>
+              <option value="resumen">Resumen operativo</option>
+            </select>
+          </label>
+
+          <div class="profile-setting-row">
+            <div>
+              <strong>Recordar zoom</strong>
+              <small>Recupera la escala usada en tu última sesión.</small>
+            </div>
+            <button id="profile-remember-zoom-toggle" class="profile-setting-toggle is-on" type="button"></button>
+          </div>
+          <div class="profile-setting-row">
+            <div>
+              <strong>Recordar posición</strong>
+              <small>Vuelve al mismo encuadre del patio cuando regreses.</small>
+            </div>
+            <button id="profile-remember-position-toggle" class="profile-setting-toggle is-on" type="button"></button>
+          </div>
+          <div class="profile-setting-row">
+            <div>
+              <strong>Mostrar etiquetas</strong>
+              <small>Mantiene visibles nombres y señales clave del mapa.</small>
+            </div>
+            <button id="profile-show-labels-toggle" class="profile-setting-toggle is-on" type="button"></button>
+          </div>
+          <div class="profile-setting-row">
+            <div>
+              <strong>Heatmap por defecto</strong>
+              <small>Activa la lectura visual avanzada al abrir la vista.</small>
+            </div>
+            <button id="profile-heatmap-toggle" class="profile-setting-toggle is-off" type="button"></button>
+          </div>
+          <div class="profile-setting-row">
+            <div>
+              <strong>Mostrar áreas bloqueadas</strong>
+              <small>Resalta restricciones operativas y zonas no disponibles.</small>
+            </div>
+            <button id="profile-show-blocked-toggle" class="profile-setting-toggle is-on" type="button"></button>
+          </div>
         </div>
+      </section>
+
+      <section class="profile-card" id="profile-section-seguridad">
+        <header class="profile-card-head">
+          <div>
+            <span class="profile-card-kicker">Seguridad</span>
+            <h2>Sesión, acceso y protección</h2>
+            <p>Estado actual del acceso y acciones seguras disponibles para tu cuenta.</p>
+          </div>
+          <span class="profile-state-badge" id="profileSessionBadge">En línea</span>
+        </header>
+
+        <div class="profile-security-grid">
+          <article class="profile-security-tile">
+            <span>Permiso push</span>
+            <strong id="profilePermissionSummary">Revisando soporte...</strong>
+          </article>
+          <article class="profile-security-tile">
+            <span>Dispositivo actual</span>
+            <strong id="profileCurrentDeviceSummary">Cargando...</strong>
+          </article>
+          <article class="profile-security-tile">
+            <span>2FA / verificación</span>
+            <strong>Próximamente</strong>
+          </article>
+          <article class="profile-security-tile">
+            <span>Historial de acceso</span>
+            <strong id="profile-last-access-label">Hoy</strong>
+          </article>
+        </div>
+
+        <div class="profile-actions-stack">
+          <button id="profile-permission-toggle" class="profile-action-btn ghost" type="button">
+            <span class="material-icons">notifications_active</span>
+            Activar notificaciones del dispositivo
+          </button>
+          <button id="profile-reset-password-btn" class="profile-action-btn ghost" type="button">
+            <span class="material-icons">lock_reset</span>
+            Enviar correo para cambiar contraseña
+          </button>
+          <button id="profile-close-sessions-btn" class="profile-action-btn ghost" type="button">
+            <span class="material-icons">devices</span>
+            Revisar sesiones y dispositivos
+          </button>
+        </div>
+      </section>
+
+      <section class="profile-card profile-card-wide" id="profile-section-notificaciones">
+        <header class="profile-card-head">
+          <div>
+            <span class="profile-card-kicker">Notificaciones</span>
+            <h2>Canales y horario silencioso</h2>
+            <p>Controla mensajes, cuadres, alertas críticas y este equipo actual.</p>
+          </div>
+          <span class="profile-state-badge">Activo</span>
+        </header>
+
+        <div class="profile-notification-shell">
+          <div class="profile-notification-stack">
+            <div class="profile-setting-row profile-setting-row-hero">
+              <div>
+                <strong>Notificaciones activas</strong>
+                <small>Apagar silencia este equipo sin perder el historial.</small>
+              </div>
+              <button id="profileNotifMasterToggle" class="profile-setting-toggle is-on" type="button"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div>
+                <strong>Mensajes directos</strong>
+                <small>Avísame cuando alguien me escriba.</small>
+              </div>
+              <button id="profileNotifMessagesToggle" class="profile-setting-toggle is-on" type="button"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div>
+                <strong>Cuadres</strong>
+                <small>Actualizaciones relacionadas con mi cuadre asignado.</small>
+              </div>
+              <button id="profileNotifCuadreToggle" class="profile-setting-toggle is-on" type="button"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div>
+                <strong>Alertas críticas</strong>
+                <small>Solo situaciones urgentes de operación.</small>
+              </div>
+              <button id="profileNotifCriticalToggle" class="profile-setting-toggle is-on" type="button"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div>
+                <strong>Silenciar este equipo</strong>
+                <small>Pausa avisos sin perder el historial del inbox.</small>
+              </div>
+              <button id="profileNotifMuteToggle" class="profile-setting-toggle is-off" type="button"></button>
+            </div>
+          </div>
+
+          <aside class="profile-notification-side">
+            <label class="profile-inline-field">
+              <span>Canal preferido</span>
+              <select id="profile-notif-channel-select">
+                <option value="sistema">Sistema</option>
+                <option value="email">Email</option>
+                <option value="ambos">Ambos</option>
+              </select>
+            </label>
+
+            <div class="profile-time-grid">
+              <label class="profile-inline-field">
+                <span>Horario silencioso desde</span>
+                <input id="profile-quiet-start" type="time" value="22:00">
+              </label>
+              <label class="profile-inline-field">
+                <span>Hasta</span>
+                <input id="profile-quiet-end" type="time" value="07:00">
+              </label>
+            </div>
+
+            <div id="profile-notif-meta" class="profile-setting-meta">Cargando dispositivo...</div>
+
+            <button id="profile-notif-center-btn"
+                    class="profile-action-btn primary"
+                    type="button"
+                    style="width:100%;justify-content:center;">
+              <span class="material-icons">history</span>
+              Ver historial
+            </button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="profile-card" id="profile-section-accesos">
+        <header class="profile-card-head">
+          <div>
+            <span class="profile-card-kicker">Accesos</span>
+            <h2>Permisos y alcance</h2>
+            <p>Resumen del nivel de acceso, plazas y módulos disponibles para tu cuenta.</p>
+          </div>
+        </header>
+
+        <div class="profile-summary-list">
+          <div class="profile-summary-row">
+            <span>Rol</span>
+            <strong id="profile-access-role">Programador</strong>
+          </div>
+          <div class="profile-summary-row">
+            <span>Nivel</span>
+            <strong id="profile-access-level">Admin técnico</strong>
+          </div>
+          <div class="profile-summary-row">
+            <span>Módulos habilitados</span>
+            <strong id="profile-access-modules">Mapa, Admin, Consola, Mensajes, Cuadres</strong>
+          </div>
+          <div class="profile-summary-row">
+            <span>Plazas asignadas</span>
+            <strong id="profile-access-plazas">BJX, Global</strong>
+          </div>
+          <div class="profile-summary-row">
+            <span>Alcance</span>
+            <strong id="profile-access-scope">Lectura + edición + configuración</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="profile-card" id="profile-section-atajos">
+        <header class="profile-card-head">
+          <div>
+            <span class="profile-card-kicker">Atajos</span>
+            <h2>Accesos rápidos y favoritos</h2>
+            <p>Puertas directas a los módulos que usas más seguido.</p>
+          </div>
+        </header>
+
+        <div class="profile-quick-actions">
+          <a class="profile-quick-chip" href="/mapa">
+            <span class="material-icons">map</span>
+            Abrir mapa
+          </a>
+          <a class="profile-quick-chip" href="/mapa">
+            <span class="material-icons">search</span>
+            Buscar vehículo
+          </a>
+          <a class="profile-quick-chip" href="/mensajes">
+            <span class="material-icons">chat</span>
+            Mensajes
+          </a>
+          <a class="profile-quick-chip" href="/cuadre">
+            <span class="material-icons">analytics</span>
+            Cuadres
+          </a>
+          <a class="profile-quick-chip" id="profile-admin-chip" href="/gestion">
+            <span class="material-icons">admin_panel_settings</span>
+            Panel admin
+          </a>
+        </div>
+
         <div class="profile-shortcut-list">
           <div class="profile-shortcut-item">
             <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>C</kbd></div>
@@ -241,13 +531,13 @@
           </div>
         </div>
       </section>
-
     </div>
   </div>
 </div>
 
-<!-- Modal de recorte de avatar -->
-<div id="profile-crop-overlay" class="profile-crop-overlay" style="display:none;"
+<div id="profile-crop-overlay"
+     class="profile-crop-overlay"
+     style="display:none;"
      onclick="if(event.target===this) profile_cancelarCrop()">
   <div class="profile-crop-card">
     <div class="profile-crop-head">
@@ -255,8 +545,8 @@
         <div class="profile-crop-title">Recorta tu foto</div>
         <p class="profile-crop-sub">Arrastra y ajusta el zoom para encuadrar tu avatar.</p>
       </div>
-      <button class="profile-crop-close" onclick="profile_cancelarCrop()">
-        <span class="material-icons" style="font-size:18px;">close</span>
+      <button class="profile-crop-close" type="button" onclick="profile_cancelarCrop()">
+        <span class="material-icons">close</span>
       </button>
     </div>
     <div class="profile-crop-stage-wrap">
@@ -266,8 +556,7 @@
       </div>
       <div class="profile-crop-zoom">
         <label>Zoom</label>
-        <input type="range" min="1" max="3" step="0.01" value="1"
-               oninput="profile_ajustarZoom(this.value)">
+        <input type="range" min="1" max="3" step="0.01" value="1" oninput="profile_ajustarZoom(this.value)">
         <p>Arrastra la imagen para ajustarla.</p>
       </div>
     </div>
@@ -282,11 +571,10 @@
       </div>
     </div>
     <div class="profile-crop-actions">
-      <button class="profile-crop-btn cancel" onclick="profile_cancelarCrop()">Cancelar</button>
-      <button class="profile-crop-btn confirm" id="profile-crop-save-btn"
-              onclick="profile_guardarAvatar()">
-        <span class="material-icons" style="font-size:18px;">check</span>
-        Guardar Foto
+      <button class="profile-crop-btn cancel" type="button" onclick="profile_cancelarCrop()">Cancelar</button>
+      <button class="profile-crop-btn confirm" id="profile-crop-save-btn" type="button" onclick="profile_guardarAvatar()">
+        <span class="material-icons">check</span>
+        Guardar foto
       </button>
     </div>
   </div>
