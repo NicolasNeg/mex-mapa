@@ -153,9 +153,12 @@ async function _ensureBootstrapProgrammerProfile(user) {
 async function _loadUserProfile(user) {
   const email = _profileDocId(user?.email || '');
   try {
-    const candidates = [];
+    const cached = typeof window.__mexLoadCurrentUserRecord === 'function'
+      ? await window.__mexLoadCurrentUserRecord(user).catch(() => null)
+      : null;
+    const candidates = cached ? [{ ...cached }] : [];
 
-    if (email) {
+    if (!candidates.length && email) {
       const byEmailDoc = await db.collection('usuarios').doc(email).get();
       if (byEmailDoc.exists) candidates.push({ id: byEmailDoc.id, ...byEmailDoc.data(), email });
 

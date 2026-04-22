@@ -67,8 +67,14 @@ async function _cargarPerfilUsuario(user) {
   }
 
   try {
-    const snap = await _db.collection('usuarios').doc(email).get();
-    const data = snap.exists ? snap.data() : {};
+    const cached = typeof window.__mexLoadCurrentUserRecord === 'function'
+      ? await window.__mexLoadCurrentUserRecord(user).catch(() => null)
+      : null;
+    let data = cached || {};
+    if (!Object.keys(data).length) {
+      const snap = await _db.collection('usuarios').doc(email).get();
+      data = snap.exists ? snap.data() : {};
+    }
     _currentPlaza = (data.plazaAsignada || data.plaza || '').toUpperCase().trim();
 
     const plazaEl = document.getElementById('inc-plaza');

@@ -1177,6 +1177,7 @@ function _setSessionProfile(profile) {
   );
   PLAZA_ACTIVA_MAPA = _normalizePlaza(profile.plazaAsignada || profile.plaza || rememberedPlaza || '');
   window.CURRENT_USER_PROFILE = profile;
+  window.__mexSeedCurrentUserRecordCache?.(profile, auth.currentUser);
   _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
   _updateGlobalPlazaEmail();
   console.log('[MEX-INTEG] _setSessionProfile →', { email: profile.email, rol: userAccessRole, plaza: PLAZA_ACTIVA_MAPA || '(sin plaza)', userRole, fullAccess: isGlobalAdmin });
@@ -2109,10 +2110,11 @@ auth.onAuthStateChanged(async (user) => {
       // Force token refresh so Firestore security rules get the auth context immediately
       await user.getIdToken(true);
       const emailNormalizado = _profileDocId(user.email);
-      const snapshot = await db.collection(COL.USERS).where("email", "==", emailNormalizado).get();
-
       let perfilValidado = null;
-      let docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const cachedProfile = typeof window.__mexLoadCurrentUserRecord === 'function'
+        ? await window.__mexLoadCurrentUserRecord(user).catch(() => null)
+        : null;
+      let docs = cachedProfile ? [cachedProfile] : [];
 
       if (!docs.length && user.uid) {
         const uidSnap = await db.collection(COL.USERS).doc(user.uid).get();

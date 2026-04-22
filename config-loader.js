@@ -2,7 +2,12 @@ window.MEX_CONFIG = { empresa: {}, listas: {} };
 
 async function inicializarConfiguracion() {
   try {
-    const config = await api.obtenerConfiguracion();
+    const plazaActual = typeof window.getMexCurrentPlaza === 'function'
+      ? window.getMexCurrentPlaza()
+      : '';
+    const config = typeof window.__mexEnsureConfigLoaded === 'function'
+      ? await window.__mexEnsureConfigLoaded(plazaActual || '')
+      : await api.obtenerConfiguracion(plazaActual || '');
     window.MEX_CONFIG = {
       empresa: {
         nombre: "EMPRESA",

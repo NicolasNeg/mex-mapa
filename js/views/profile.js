@@ -338,33 +338,12 @@ async function _loadProfile(user) {
   const email = _profileDocId(user?.email || '');
 
   try {
-    const candidates = [];
+    const cachedProfile = typeof window.__mexLoadCurrentUserRecord === 'function'
+      ? await window.__mexLoadCurrentUserRecord(user).catch(() => null)
+      : null;
 
-    if (email) {
-      const docByEmail = await db.collection('usuarios').doc(email).get();
-      if (docByEmail.exists) {
-        candidates.push(_normalizeProfile({ id: docByEmail.id, ...docByEmail.data(), email }, user));
-      }
-
-      const queryByEmail = await db.collection('usuarios').where('email', '==', email).limit(3).get();
-      queryByEmail.forEach(doc => {
-        candidates.push(_normalizeProfile({ id: doc.id, ...doc.data(), email }, user));
-      });
-    }
-
-    if ((!candidates.length) && _safeText(user?.uid)) {
-      const docByUid = await db.collection('usuarios').doc(user.uid).get();
-      if (docByUid.exists) {
-        candidates.push(_normalizeProfile({ id: docByUid.id, ...docByUid.data(), email }, user));
-      }
-    }
-
-    const profileFound = candidates.find(item => item.id === email)
-      || candidates.find(item => item.id === _safeText(user?.uid))
-      || candidates[0];
-
-    if (profileFound) {
-      _profile = profileFound;
+    if (cachedProfile) {
+      _profile = _normalizeProfile(cachedProfile, user);
     } else if (_isBootstrapProgrammerEmail(email)) {
       _profile = await _ensureBootstrapProgrammerProfile(user);
     } else {
@@ -379,6 +358,7 @@ async function _loadProfile(user) {
   _persistPreferencesToStorage(_profilePreferences);
   _applyTheme(_profilePreferences.theme);
   window.CURRENT_USER_PROFILE = _profile;
+  window.__mexSeedCurrentUserRecordCache?.(_profile, user);
   _bindProfileChrome();
   _initProfileTabs();
   _renderProfile();

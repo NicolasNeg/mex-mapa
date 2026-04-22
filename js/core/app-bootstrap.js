@@ -8,9 +8,15 @@
   const SESSION_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.v1';
   const LOCAL_BOOTSTRAP_CONFIG_KEY = 'mex.bootstrap.baseConfig.local.v1';
   const SESSION_BOOTSTRAP_WARM_KEY = 'mex.bootstrap.warm.v1';
+  const SESSION_PROFILE_CACHE_PREFIX = 'mex.bootstrap.profile.v1.';
+  const LOCAL_PROFILE_CACHE_PREFIX = 'mex.bootstrap.profile.local.v1.';
+  const PROFILE_CACHE_TTL_MS = 120000;
   const SESSION_REVERSE_GEOCODE_KEY = 'mex.location.reverse.v1';
   const SESSION_ACTIVE_PLAZA_KEY = 'mex.activePlaza.v1';
   const LOCAL_ACTIVE_PLAZA_KEY = 'mex.activePlaza.local.v1';
+  const BOOTSTRAP_PROGRAMMER_EMAILS = Object.freeze([
+    'angelarmentta@icloud.com'
+  ]);
   const DEFAULT_LISTS = {
     ubicaciones: [],
     estados: [],
@@ -118,6 +124,183 @@
 
   function lowerText(value) {
     return safeText(value).toLowerCase();
+  }
+
+  function safeObject(value) {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+
+  function safeArray(value) {
+    return Array.isArray(value) ? value : [];
+  }
+
+  function coerceTimestamp(value) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (value && typeof value.toMillis === 'function') return value.toMillis();
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function isBootstrapProgrammerEmail(email = '') {
+    return BOOTSTRAP_PROGRAMMER_EMAILS.includes(lowerText(email));
+  }
+
+  function inferProfileRole(raw = {}, email = '') {
+    if (isBootstrapProgrammerEmail(email)) return 'PROGRAMADOR';
+    const explicit = upperText(raw.rol || raw.role || raw.perfil || raw.cargo || raw.tipo);
+    if (explicit) return explicit;
+    if (raw.isGlobal === true) return 'CORPORATIVO_USER';
+    if (raw.isAdmin === true) return 'VENTAS';
+    return 'AUXILIAR';
+  }
+
+  function getProfileAvatarUrl(raw = {}) {
+    return safeText(
+      raw.avatarUrl
+      || raw.avatarURL
+      || raw.fotoURL
+      || raw.photoURL
+      || raw.profilePhotoUrl
+    );
+  }
+
+  function normalizeCurrentUserRecord(raw = {}, fallbackUser = null) {
+    const email = lowerText(raw.email || raw.id || fallbackUser?.email || '');
+    const nombre = upperText(raw.nombre || raw.usuario || fallbackUser?.displayName || email || 'USUARIO');
+    return {
+      ...safeObject(raw),
+      id: safeText(raw.id || email || fallbackUser?.uid),
+      email,
+      nombre,
+      usuario: nombre,
+      rol: inferProfileRole(raw, email),
+      plazaAsignada: upperText(raw.plazaAsignada || raw.plaza || raw.sucursalAsignada || raw.sucursal || ''),
+      plazasPermitidas: safeArray(raw.plazasPermitidas).map(upperText).filter(Boolean),
+      telefono: safeText(raw.telefono),
+      status: upperText(raw.status || 'ACTIVO') || 'ACTIVO',
+      isAdmin: raw.isAdmin === true,
+      isGlobal: raw.isGlobal === true,
+      isOnline: raw.isOnline === true,
+      lastSeenAt: coerceTimestamp(raw.lastSeenAt || raw.lastActiveAt || raw.ultimaConexionTs),
+      avatarUrl: getProfileAvatarUrl(raw),
+      avatarPath: safeText(raw.avatarPath),
+      permissionOverrides: safeObject(raw.permissionOverrides || raw.permisosUsuario),
+      profilePreferences: safeObject(raw.profilePreferences || raw.uiPreferences)
+    };
+  }
+
+  function profileCacheMapKey(emailOrUid = '') {
+    return `PROFILE:${lowerText(emailOrUid || '')}`;
+  }
+
+  function sessionProfileCacheKey(email = '') {
+    return `${SESSION_PROFILE_CACHE_PREFIX}${lowerText(email)}`;
+  }
+
+  function localProfileCacheKey(email = '') {
+    return `${LOCAL_PROFILE_CACHE_PREFIX}${lowerText(email)}`;
+  }
+
+  function readCachedCurrentUserRecord(email = '', options = {}) {
+    const key = lowerText(email);
+    if (!key) return null;
+    const maxAgeMs = Number.isFinite(options.maxAgeMs) ? Number(options.maxAgeMs) : PROFILE_CACHE_TTL_MS;
+    const cached = readSessionItem(sessionProfileCacheKey(key), null)
+      || readLocalItem(localProfileCacheKey(key), null);
+    if (!cached || typeof cached !== 'object') return null;
+    const ts = Number(cached.ts || 0);
+    if (!Number.isFinite(ts) || (maxAgeMs > 0 && (Date.now() - ts) > maxAgeMs)) return null;
+    const data = safeObject(cached.data);
+    if (!Object.keys(data).length) return null;
+    return normalizeCurrentUserRecord(data);
+  }
+
+  function persistCachedCurrentUserRecord(record = {}, fallbackUser = null) {
+    const normalized = normalizeCurrentUserRecord(record, fallbackUser);
+    const email = lowerText(normalized.email || fallbackUser?.email || '');
+    if (!email) return normalized;
+    const payload = {
+      ts: Date.now(),
+      data: normalized
+    };
+    writeSessionItem(sessionProfileCacheKey(email), payload);
+    writeLocalItem(localProfileCacheKey(email), payload);
+    state.cache.set(profileCacheMapKey(email), Promise.resolve(normalized));
+    return normalized;
+  }
+
+  function clearCachedCurrentUserRecord(email = '') {
+    const key = lowerText(email);
+    if (!key) return;
+    try {
+      sessionStorage.removeItem(sessionProfileCacheKey(key));
+      localStorage.removeItem(localProfileCacheKey(key));
+    } catch (_) {}
+    state.cache.delete(profileCacheMapKey(key));
+  }
+
+  async function ensureBootstrapProgrammerRecord(user = null) {
+    const email = lowerText(user?.email || '');
+    if (!email || !isBootstrapProgrammerEmail(email) || !root._db) return null;
+
+    const nombre = upperText(user?.displayName || 'PROGRAMADOR') || 'PROGRAMADOR';
+    const payload = {
+      email,
+      nombre,
+      usuario: nombre,
+      rol: 'PROGRAMADOR',
+      isAdmin: true,
+      isGlobal: true,
+      plazaAsignada: '',
+      telefono: '',
+      status: 'ACTIVO',
+      authUid: safeText(user?.uid),
+      bootstrapProgrammer: true,
+      lastBootstrapLoginAt: Date.now()
+    };
+
+    await root._db.collection('usuarios').doc(email).set(payload, { merge: true });
+    const persisted = await root._db.collection('usuarios').doc(email).get().catch(() => null);
+    if (persisted?.exists) {
+      return normalizeCurrentUserRecord({ id: persisted.id, ...persisted.data(), email }, user);
+    }
+    return normalizeCurrentUserRecord({ id: email, ...payload }, user);
+  }
+
+  async function fetchCurrentUserRecordDirect(user = null) {
+    if (!root._db) throw new Error('Firebase no está listo para cargar el perfil.');
+    const email = lowerText(user?.email || '');
+    const uid = safeText(user?.uid);
+    if (!email && !uid) return null;
+
+    if (email) {
+      const [docByEmail, queryByEmail] = await Promise.all([
+        root._db.collection('usuarios').doc(email).get().catch(() => null),
+        root._db.collection('usuarios').where('email', '==', email).limit(1).get().catch(() => null)
+      ]);
+
+      if (docByEmail?.exists) {
+        return normalizeCurrentUserRecord({ id: docByEmail.id, ...docByEmail.data(), email }, user);
+      }
+
+      if (queryByEmail && !queryByEmail.empty) {
+        const doc = queryByEmail.docs[0];
+        return normalizeCurrentUserRecord({ id: doc.id, ...doc.data(), email }, user);
+      }
+    }
+
+    if (uid) {
+      const docByUid = await root._db.collection('usuarios').doc(uid).get().catch(() => null);
+      if (docByUid?.exists) {
+        return normalizeCurrentUserRecord({ id: docByUid.id, ...docByUid.data(), email }, user);
+      }
+    }
+
+    if (isBootstrapProgrammerEmail(email)) {
+      return ensureBootstrapProgrammerRecord(user);
+    }
+
+    return null;
   }
 
   function readStoredCurrentPlaza() {
@@ -1009,6 +1192,56 @@
     state.cache.delete(key);
     state.cache.delete('GLOBAL');
     if (key === 'GLOBAL') clearBootstrapWarm();
+  };
+
+  root.__mexLoadCurrentUserRecord = async function (user = root._auth?.currentUser || root.auth?.currentUser || null, options = {}) {
+    const activeUser = user || root._auth?.currentUser || root.auth?.currentUser || null;
+    const email = lowerText(activeUser?.email || '');
+    const uid = safeText(activeUser?.uid);
+    const cacheKey = profileCacheMapKey(email || uid);
+    const force = options?.force === true;
+    const maxAgeMs = Number.isFinite(options?.maxAgeMs) ? Number(options.maxAgeMs) : PROFILE_CACHE_TTL_MS;
+
+    if (!activeUser || (!email && !uid)) return null;
+
+    if (!force) {
+      const cached = readCachedCurrentUserRecord(email, { maxAgeMs });
+      if (cached) {
+        state.cache.set(cacheKey, Promise.resolve(cached));
+        return cached;
+      }
+      if (state.cache.has(cacheKey)) return state.cache.get(cacheKey);
+    }
+
+    const task = fetchCurrentUserRecordDirect(activeUser)
+      .then(record => {
+        if (!record) {
+          clearCachedCurrentUserRecord(email);
+          state.cache.delete(cacheKey);
+          return null;
+        }
+        return persistCachedCurrentUserRecord(record, activeUser);
+      })
+      .catch(error => {
+        state.cache.delete(cacheKey);
+        throw error;
+      });
+
+    state.cache.set(cacheKey, task);
+    return task;
+  };
+
+  root.__mexSeedCurrentUserRecordCache = function (record = {}, user = root._auth?.currentUser || root.auth?.currentUser || null) {
+    return persistCachedCurrentUserRecord(record, user);
+  };
+
+  root.__mexInvalidateCurrentUserRecordCache = function (userOrEmail = '') {
+    const email = lowerText(
+      typeof userOrEmail === 'string'
+        ? userOrEmail
+        : (userOrEmail?.email || userOrEmail?.id || '')
+    );
+    clearCachedCurrentUserRecord(email);
   };
 
   root.__mexGetExactLocationSnapshot = async function (options = {}) {

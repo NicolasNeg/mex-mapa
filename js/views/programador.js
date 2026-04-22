@@ -291,6 +291,20 @@ async function callConsoleQuery(query, extra = {}) {
 async function resolveProfile(user) {
   const email = lower(user?.email || '');
   if (!email) return null;
+
+  if (typeof window.__mexLoadCurrentUserRecord === 'function') {
+    const cached = await window.__mexLoadCurrentUserRecord(user).catch(() => null);
+    if (cached) {
+      return {
+        ...cached,
+        email,
+        nombre: upper(cached.nombre || cached.usuario || email),
+        rol: inferRole(cached),
+        plazaAsignada: upper(cached.plazaAsignada || cached.plaza || '')
+      };
+    }
+  }
+
   const [direct, byEmail] = await Promise.all([
     db.collection(COL.USERS).doc(email).get(),
     db.collection(COL.USERS).where('email', '==', email).limit(1).get()

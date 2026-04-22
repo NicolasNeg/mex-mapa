@@ -580,7 +580,12 @@ async function fetchUserProfile(user) {
 
   let docData = {};
 
-  if (email) {
+  if (typeof window.__mexLoadCurrentUserRecord === 'function') {
+    const cached = await window.__mexLoadCurrentUserRecord(user).catch(() => null);
+    if (cached) docData = { ...cached };
+  }
+
+  if (!Object.keys(docData).length && email) {
     const direct = await db.collection('usuarios').doc(email).get();
     if (direct.exists) {
       docData = direct.data();

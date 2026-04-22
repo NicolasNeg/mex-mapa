@@ -14,6 +14,9 @@ const ROLE_LABELS = {
 };
 
 const HOME_SIDEBAR_COLLAPSED_KEY = 'mex.home.sidebar.collapsed.v1';
+const HOME_METRICS_SESSION_PREFIX = 'mex.home.metrics.v1.';
+const HOME_METRICS_LOCAL_PREFIX = 'mex.home.metrics.local.v1.';
+const HOME_METRICS_CACHE_TTL_MS = 120000;
 
 const HOME_VARIANTS = {
   operacion: {
@@ -230,6 +233,15 @@ function readJsonStorage(storage, key) {
   }
 }
 
+function writeJsonStorage(storage, key, value) {
+  try {
+    storage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
 function roleKey(profile = {}) {
   return upper(profile.rol || 'AUXILIAR');
 }
@@ -301,6 +313,21 @@ async function resolveProfile(user) {
   const email = lower(user?.email || '');
   if (!email) return null;
 
+  if (typeof window.__mexLoadCurrentUserRecord === 'function') {
+    const cached = await window.__mexLoadCurrentUserRecord(user).catch(() => null);
+    if (cached) {
+      return {
+        ...cached,
+        email,
+        nombre: safe(cached.nombre || cached.usuario || email),
+        rol: upper(cached.rol || 'AUXILIAR'),
+        plazaAsignada: upper(cached.plazaAsignada || cached.plaza || ''),
+        plazasPermitidas: Array.isArray(cached.plazasPermitidas) ? cached.plazasPermitidas.map(upper).filter(Boolean) : [],
+        permissionOverrides: permissionOverrides(cached)
+      };
+    }
+  }
+
   const [direct, byEmail] = await Promise.all([
     db.collection(COL.USERS).doc(email).get(),
     db.collection(COL.USERS).where('email', '==', email).limit(1).get()
@@ -336,6 +363,33 @@ async function loadConfig(plaza = '') {
   return window.MEX_CONFIG || { empresa: {}, listas: {} };
 }
 
+function homeMetricsCacheKey(profile = {}, plaza = '') {
+  const email = lower(profile?.email || auth.currentUser?.email || 'anon');
+  const focus = upper(plaza || profile?.plazaAsignada || 'GLOBAL') || 'GLOBAL';
+  return `${email}::${focus}`;
+}
+
+function readCachedMetrics(profile = {}, plaza = '') {
+  const key = homeMetricsCacheKey(profile, plaza);
+  const payload = readJsonStorage(sessionStorage, `${HOME_METRICS_SESSION_PREFIX}${key}`)
+    || readJsonStorage(localStorage, `${HOME_METRICS_LOCAL_PREFIX}${key}`);
+  if (!payload || typeof payload !== 'object') return null;
+  const ts = Number(payload.ts || 0);
+  if (!Number.isFinite(ts) || (Date.now() - ts) > HOME_METRICS_CACHE_TTL_MS) return null;
+  return payload.data && typeof payload.data === 'object' ? payload.data : null;
+}
+
+function persistCachedMetrics(profile = {}, plaza = '', metrics = {}) {
+  const key = homeMetricsCacheKey(profile, plaza);
+  const payload = {
+    ts: Date.now(),
+    data: metrics
+  };
+  writeJsonStorage(sessionStorage, `${HOME_METRICS_SESSION_PREFIX}${key}`, payload);
+  writeJsonStorage(localStorage, `${HOME_METRICS_LOCAL_PREFIX}${key}`, payload);
+  return metrics;
+}
+
 async function safeCount(queryPromise) {
   try {
     const snapshot = await queryPromise;
@@ -362,13 +416,13 @@ async function loadMetrics(profile = {}, plaza = '') {
       : Promise.resolve(0)
   ]);
 
-  return {
+  return persistCachedMetrics(profile, focus, {
     focus,
     unidadesActivas: cuadreCount,
     externosActivos: externosCount,
     incidenciasAbiertas,
     solicitudesPendientes
-  };
+  });
 }
 
 function isModuleAvailable(module = {}, profile = {}) {
@@ -882,7 +936,24 @@ async function renderBoot() {
 
     const plaza = activePlaza() || upper(profile.plazaAsignada || '');
     if (plaza) setActivePlaza(plaza);
-    const config = await loadConfig(plaza);
+    const configPromise = loadConfig(plaza);
+    const cachedMetrics = readCachedMetrics(profile, plaza);
+    const config = await configPromise;
+
+    if (cachedMetrics) {
+      renderHome(profile, config, cachedMetrics);
+      loadMetrics(profile, plaza)
+        .then(freshMetrics => {
+          if (JSON.stringify(freshMetrics) !== JSON.stringify(cachedMetrics)) {
+            renderHome(profile, config, freshMetrics);
+          }
+        })
+        .catch(error => {
+          console.warn('[home] metrics refresh:', error);
+        });
+      return;
+    }
+
     const metrics = await loadMetrics(profile, plaza);
     renderHome(profile, config, metrics);
   } catch (error) {

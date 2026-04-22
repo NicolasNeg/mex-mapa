@@ -1908,3 +1908,30 @@ window.MexRoleGuard = {
     - Si tú haces el cambio de redirect más adelante, /home ya está lista como base
     - En paralelo también ajusté UX de gestión/programador para el pedido actual del usuario
 ```
+
+```
+[2026-04-22] CODEX — ✅ capa compartida de cache para perfil + arranque más ligero
+
+  Archivos tocados:
+    - js/core/app-bootstrap.js
+    - config-loader.js
+    - js/views/home.js
+    - js/views/profile.js
+    - js/views/programador.js
+    - js/views/mapa.js
+    - js/views/cola-preparacion.js
+    - js/views/incidencias.js
+    - js/views/editmap.js
+
+  Cambios:
+    - Nuevo helper global __mexLoadCurrentUserRecord() con cache en memoria + sessionStorage + localStorage.
+    - TTL corto para perfil actual, evitando reler usuarios en cada ruta cuando el mismo usuario navega entre módulos.
+    - Bootstrap del perfil programador integrado al helper compartido para no duplicar lecturas ni lógica.
+    - config-loader ahora consume __mexEnsureConfigLoaded() en lugar de saltarse el cache base.
+    - /home ahora reutiliza perfil cacheado y arranca con métricas cacheadas mientras revalida en segundo plano.
+    - /mapa, /profile, /programador, /cola-preparacion, /incidencias y /editmap ya consumen el helper compartido.
+
+  Objetivo cubierto:
+    - Reducir lecturas redundantes a Firestore en el arranque de rutas clave.
+    - Aprovechar el cache ya existente en bootstrap en vez de abrir otra capa paralela.
+```
