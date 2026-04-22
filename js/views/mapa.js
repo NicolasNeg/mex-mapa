@@ -1175,20 +1175,19 @@ async function _actualizarPresenciaUsuario(isOnline = true) {
     lastActiveAt: ahora
   };
   try {
-    await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+    // Usamos .update() en vez de .set({merge:true}) para que las reglas Firestore
+    // evalúen correctamente solo los campos que cambian (self-service presencia).
+    await db.collection(COL.USERS).doc(docId).update(payload);
     if (currentUserProfile && docId === currentUserProfile.email) {
       currentUserProfile = { ...currentUserProfile, ...payload };
       window.CURRENT_USER_PROFILE = currentUserProfile;
     }
   } catch (error) {
-    console.warn('No se pudo actualizar presencia del usuario:', error);
-    reportProgrammerError({
-      kind: 'presence.update',
-      scope: 'mapa',
-      message: error?.message || 'No se pudo actualizar presencia',
-      stack: error?.stack || '',
-      code: error?.code || ''
-    });
+    // Presencia no es crítica — fallo silencioso para no saturar la consola
+    // (puede fallar por permisos en roles sin perfil o conexión intermitente)
+    if (error?.code !== 'permission-denied') {
+      console.warn('No se pudo actualizar presencia del usuario:', error?.code || error);
+    }
   }
 }
 
@@ -2414,21 +2413,24 @@ function _iniciarSincronizacionUsuarios() {
         }
       }
       if (myDoc?.data()?._reloadRequired && !sessionStorage.getItem('_reloadGuard')) {
-        // Guard anti-loop: sessionStorage persiste en reloads del mismo tab
+        // Guard anti-loop: sessionStorage persiste en reloads del mismo tab.
+        // NO se elimina antes del reload — se queda activo para el reload y
+        // se limpia solo cuando el tab se cierra o la app arranca sin _reloadRequired.
         sessionStorage.setItem('_reloadGuard', '1');
-        // Limpiar flag — las reglas Firestore ahora permiten que el usuario
-        // escriba sólo este campo en su propio doc
+        // Limpiar flag en Firestore
         db.collection(COL.USERS).doc(myEmail)
           .update({ _reloadRequired: false })
           .catch(err => {
             console.warn('[_reloadRequired] No se pudo limpiar flag:', err.code);
-            // sessionStorage guard ya impide el loop aunque Firestore falle
           });
         showToast('Tus permisos fueron actualizados. Recargando...', 'warning');
         setTimeout(() => {
-          sessionStorage.removeItem('_reloadGuard');
+          // Guard permanece en sessionStorage durante y después del reload
           window.location.reload();
         }, 2000);
+      } else if (!myDoc?.data()?._reloadRequired && sessionStorage.getItem('_reloadGuard')) {
+        // La app arrancó después de un reload y el flag ya está limpio → limpiar guard
+        sessionStorage.removeItem('_reloadGuard');
       }
     }
   }, err => console.warn('onSnapshot usuarios live:', err));
@@ -11460,7 +11462,19 @@ function enviarReporteAuditoriaFinal() {
         btn.disabled = true;
         btn.innerHTML = `<span class="material-icons spinner">sync</span> ENVIANDO REPORTE...`;
 
+        const _resetEnviarBtn = () => {
+          btn.disabled = false;
+          btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
+        };
+
+        // Timeout de 30s para no dejar el botón congelado si la Cloud Function falla
+        const _enviarTimeout = setTimeout(() => {
+          _resetEnviarBtn();
+          showToast("Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.", "error");
+        }, 30000);
+
         api.enviarAuditoriaAVentas(auditoriaPayload, USER_NAME, _miPlaza()).then(async res => {
+          clearTimeout(_enviarTimeout);
           if (res && res.exito) {
             let confirmacionPersistencia = true;
             try {
@@ -11481,19 +11495,18 @@ function enviarReporteAuditoriaFinal() {
             setTimeout(() => {
               document.getElementById('audit-paso3').style.display = 'none';
               document.getElementById('audit-paso1').style.display = 'block';
-              btn.disabled = false;
-              btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
+              _resetEnviarBtn();
               hacerPingNotificaciones();
             }, 1000);
           } else {
-            btn.disabled = false;
-            btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
+            clearTimeout(_enviarTimeout);
+            _resetEnviarBtn();
             showToast("Error al enviar. Intenta de nuevo.", "error");
           }
         }).catch(err => {
-          btn.disabled = false;
-          btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
-          showToast("Error: " + err, "error");
+          clearTimeout(_enviarTimeout);
+          _resetEnviarBtn();
+          showToast("Error de red: " + (err?.message || err), "error");
         });
       }
     );
@@ -11526,7 +11539,7 @@ function manejadorFlujoV3() {
 
         document.getElementById('audit-modal').classList.add('active');
         document.getElementById('audit-paso1').style.display = 'none';
-        document.getElementById('audit-paso2').style.display = 'block';
+        document.getElementById('audit-paso2').style.display = 'flex';
         document.getElementById('audit-paso3').style.display = 'none';
 
         // Le avisa visualmente al Admin que está en modo revisión
@@ -11551,7 +11564,7 @@ function manejadorFlujoV3() {
 
         document.getElementById('audit-modal').classList.add('active');
         document.getElementById('audit-paso1').style.display = 'none';
-        document.getElementById('audit-paso2').style.display = 'block';
+        document.getElementById('audit-paso2').style.display = 'flex';
         document.getElementById('audit-paso3').style.display = 'none';
         renderizarPaseLista();
       } else showToast("La misión está vacía.", "error");
