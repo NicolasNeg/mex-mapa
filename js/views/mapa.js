@@ -15862,6 +15862,87 @@ async function migrarConfiguracionAFirestore() {
 
 
 let TAB_ACTIVA_CFG = 'usuarios';
+let _cfgCatalogSelectedIndex = null;
+
+const _cfgAdminTabMeta = {
+  usuarios: {
+    group: 'accesos',
+    groupLabel: 'Accesos y permisos',
+    label: 'Usuarios',
+    badge: 'Usuarios',
+    description: 'Administra cuentas, plazas base, permisos individuales y acciones operativas del equipo.'
+  },
+  roles: {
+    group: 'accesos',
+    groupLabel: 'Accesos y permisos',
+    label: 'Roles',
+    badge: 'Seguridad',
+    description: 'Define alcances, jerarquías y permisos por rol para la operación y administración del sistema.'
+  },
+  solicitudes: {
+    group: 'accesos',
+    groupLabel: 'Accesos y permisos',
+    label: 'Solicitudes',
+    badge: 'Onboarding',
+    description: 'Revisa solicitudes pendientes, aprueba accesos y convierte formularios en perfiles listos para operar.'
+  },
+  estados: {
+    group: 'operacion',
+    groupLabel: 'Operación',
+    label: 'Estados',
+    badge: 'Catálogo',
+    description: 'Organiza los estados visibles de las unidades y su impacto en filtros, alertas y lectura operativa.'
+  },
+  categorias: {
+    group: 'operacion',
+    groupLabel: 'Operación',
+    label: 'Categorías',
+    badge: 'Catálogo',
+    description: 'Agrupa unidades por familia operativa y prepara la base para reglas visuales y acomodo.'
+  },
+  modelos: {
+    group: 'operacion',
+    groupLabel: 'Operación',
+    label: 'Modelos',
+    badge: 'Inventario',
+    description: 'Mantén el catálogo de modelos y su relación con categorías, imagen y formularios internos.'
+  },
+  gasolinas: {
+    group: 'operacion',
+    groupLabel: 'Operación',
+    label: 'Gasolinas',
+    badge: 'Catálogo',
+    description: 'Configura los niveles de combustible disponibles para reporte, estado y seguimiento operativo.'
+  },
+  plazas: {
+    group: 'estructura',
+    groupLabel: 'Estructura',
+    label: 'Plazas',
+    badge: 'Estructura',
+    description: 'Gestiona plazas, contactos, direcciones, correos y herramientas asociadas al mapa operativo.'
+  },
+  ubicaciones: {
+    group: 'estructura',
+    groupLabel: 'Estructura',
+    label: 'Ubicaciones',
+    badge: 'Layout',
+    description: 'Define responsables, plazas fijas y puntos del patio visibles para operación, asignación y control.'
+  },
+  empresa: {
+    group: 'organizacion',
+    groupLabel: 'Organización',
+    label: 'Empresa',
+    badge: 'Negocio',
+    description: 'Centraliza identidad visual, correos globales, parámetros base y configuración administrativa global.'
+  },
+  programador: {
+    group: 'programador',
+    groupLabel: 'Programador',
+    label: 'Consola técnica',
+    badge: 'Control',
+    description: 'Accede al Centro de Control técnico para observabilidad, jobs, seguridad y herramientas avanzadas.'
+  }
+};
 let _programmerConsoleState = { log: [], selectedPlaza: '', jsonDraft: '' };
 let _cfgAdminStatsCache = { users: null, pending: null, stamp: 0 };
 
@@ -15887,6 +15968,89 @@ function _cfgCatalogItemsTotal() {
 function _cfgResolveTabButton(tabName = '') {
   const tab = String(tabName || '').trim().toLowerCase();
   return document.getElementById(`cfg-tab-${tab}`) || document.querySelector(`.cfg-tab[onclick*="'${tab}'"]`);
+}
+
+function _cfgMetaForTab(tabName = TAB_ACTIVA_CFG) {
+  return _cfgAdminTabMeta[String(tabName || '').trim().toLowerCase()] || {
+    group: 'organizacion',
+    groupLabel: 'Centro admin',
+    label: 'Configuración',
+    badge: 'Config',
+    description: 'Ajusta catálogos, estructura y parámetros del sistema sin salir del flujo actual.'
+  };
+}
+
+function _cfgApplySidebarPinState(forcePinned = null) {
+  const sidebar = document.getElementById('cfg-admin-sidebar');
+  const toggle = document.getElementById('cfg-sidebar-pin');
+  if (!sidebar) return;
+  const pinned = forcePinned === null
+    ? localStorage.getItem('mex.admin.sidebar.pinned') === '1'
+    : Boolean(forcePinned);
+  sidebar.classList.toggle('is-pinned', pinned);
+  if (toggle) {
+    toggle.title = pinned ? 'Desfijar sidebar' : 'Fijar sidebar expandido';
+    toggle.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+  }
+}
+
+function _cfgToggleSidebarPin() {
+  const sidebar = document.getElementById('cfg-admin-sidebar');
+  const nextPinned = !(sidebar?.classList.contains('is-pinned'));
+  localStorage.setItem('mex.admin.sidebar.pinned', nextPinned ? '1' : '0');
+  _cfgApplySidebarPinState(nextPinned);
+}
+
+function _cfgOpenNavGroup(groupKey = '', keepOthers = false) {
+  const target = String(groupKey || '').trim().toLowerCase();
+  document.querySelectorAll('.cfg-nav-group').forEach(section => {
+    if (!keepOthers) section.classList.remove('open');
+    if (section.getAttribute('data-group') === target) section.classList.add('open');
+  });
+}
+
+function _cfgToggleNavGroup(groupKey = '') {
+  const target = document.querySelector(`.cfg-nav-group[data-group="${String(groupKey || '').trim().toLowerCase()}"]`);
+  if (!target) return;
+  const shouldOpen = !target.classList.contains('open');
+  target.classList.toggle('open', shouldOpen);
+}
+
+function _cfgSyncNavState(tabName = TAB_ACTIVA_CFG) {
+  const meta = _cfgMetaForTab(tabName);
+  _cfgOpenNavGroup(meta.group, true);
+}
+
+function _cfgRoleContextLabel() {
+  const normalizedRole = String(userAccessRole || currentUserProfile?.rol || '').trim().toUpperCase();
+  return ROLE_META?.[normalizedRole]?.label || normalizedRole || 'Sin rol';
+}
+
+function _cfgSetMetaChip(id, icon, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.innerHTML = `
+    <span class="material-icons">${escapeHtml(icon)}</span>
+    <span>${escapeHtml(text)}</span>
+  `;
+}
+
+function _cfgUpdateWorkspaceHeader(tabName = TAB_ACTIVA_CFG) {
+  const meta = _cfgMetaForTab(tabName);
+  const breadcrumb = document.getElementById('cfg-module-breadcrumb');
+  const title = document.getElementById('cfg-module-title');
+  const subtitle = document.getElementById('cfg-module-subtitle');
+  const badge = document.getElementById('cfg-module-badge');
+  if (breadcrumb) breadcrumb.textContent = `${meta.groupLabel.toUpperCase()} · CENTRO ADMIN`;
+  if (title) title.textContent = meta.label;
+  if (subtitle) subtitle.textContent = meta.description;
+  if (badge) badge.textContent = meta.badge;
+
+  const activeUser = currentUserProfile?.nombre || currentUserProfile?.email || 'Sin sesión';
+  const activePlaza = _miPlaza() || currentUserProfile?.plazaAsignada || 'GLOBAL';
+  _cfgSetMetaChip('cfg-meta-user', 'person', `Usuario: ${activeUser}`);
+  _cfgSetMetaChip('cfg-meta-plaza', 'location_city', `Plaza foco: ${activePlaza}`);
+  _cfgSetMetaChip('cfg-meta-scope', 'verified_user', `Rol: ${_cfgRoleContextLabel()}`);
 }
 
 function _cfgSearchPlaceholderForTab(tabName = TAB_ACTIVA_CFG) {
@@ -15956,8 +16120,10 @@ function _cfgRefreshQuickTools() {
   const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(TAB_ACTIVA_CFG);
   const matrix = {
     'new-user': canManageUsers(),
+    'new-role': hasPermission('manage_roles_permissions') || canManageUsers(),
     'new-plaza': canManageAdvancedConfig,
     'new-item': isCatalogTab,
+    'go-map': true,
     'open-programmer': canUseProgrammerConfig(),
     'publish': true
   };
@@ -15968,9 +16134,13 @@ function _cfgRefreshQuickTools() {
     btn.disabled = !enabled;
     if (key === 'open-programmer') btn.style.display = canUseProgrammerConfig() ? '' : 'none';
     if (key === 'new-user') btn.style.display = canManageUsers() ? '' : 'none';
+    if (key === 'new-role') btn.style.display = (hasPermission('manage_roles_permissions') || canManageUsers()) ? '' : 'none';
     if (key === 'new-plaza') btn.style.display = canManageAdvancedConfig ? '' : 'none';
     if (key === 'new-item') btn.style.display = isCatalogTab ? '' : 'none';
   });
+
+  const lockBtn = document.getElementById('cfg-action-bloqueo-patio');
+  if (lockBtn) lockBtn.style.display = canLockMap() ? '' : 'none';
 }
 
 async function _cfgQuickAction(action = '') {
@@ -15989,10 +16159,26 @@ async function _cfgQuickAction(action = '') {
     setTimeout(() => { if (typeof _abrirModalNuevaplaza === 'function') _abrirModalNuevaplaza(); }, 120);
     return;
   }
+  if (mode === 'new-role') {
+    if (!hasPermission('manage_roles_permissions') && !canManageUsers()) {
+      return showToast('No tienes permisos para crear roles.', 'error');
+    }
+    _cfgJumpTab('roles');
+    setTimeout(() => { if (typeof _cfgCrearRolDesdePanel === 'function') _cfgCrearRolDesdePanel(); }, 120);
+    return;
+  }
   if (mode === 'new-item') {
     const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(TAB_ACTIVA_CFG);
     if (!isCatalogTab) _cfgJumpTab('ubicaciones');
     setTimeout(() => abrirModalNuevaConfig(), 100);
+    return;
+  }
+  if (mode === 'go-map') {
+    cerrarPanelConfiguracion();
+    return;
+  }
+  if (mode === 'toggle-lock') {
+    await solicitarToggleBloqueo();
     return;
   }
   if (mode === 'open-programmer') {
@@ -16626,11 +16812,13 @@ function abrirPanelConfiguracion(tabInicial) {
     const cs = getComputedStyle(_cfgModal);
     console.log('[DEBUG] modal-config-global rect (after paint):', JSON.stringify({ top: r.top, left: r.left, width: r.width, height: r.height }), 'z-index:', cs.zIndex, 'visibility:', cs.visibility, 'opacity:', cs.opacity, 'bg:', cs.backgroundColor);
   });
+  const targetTab = tabInicial || 'usuarios';
+  _cfgApplySidebarPinState();
   _captureAdminExactLocation({ force: false }).catch(() => {});
   _cfgRefreshSearchPlaceholder();
+  _cfgUpdateWorkspaceHeader(targetTab);
   _cfgRefreshQuickTools();
   _cfgRefreshAdminHeroStats(true).catch(() => {});
-  const targetTab = tabInicial || 'usuarios';
   const targetButton = document.getElementById(`cfg-tab-${targetTab}`) || document.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
   if (targetTab) {
     if (targetButton && targetButton.style.display !== 'none') abrirTabConfig(targetTab, targetButton);
@@ -16660,7 +16848,9 @@ function abrirTabConfig(tabName, btnElement) {
   }
   document.querySelectorAll('.cfg-tab').forEach(btn => btn.classList.remove('active'));
   btnElement?.classList.add('active');
+  const previousTab = TAB_ACTIVA_CFG;
   TAB_ACTIVA_CFG = tabName.replace('cfg-', '');
+  if (previousTab !== TAB_ACTIVA_CFG) _cfgCatalogSelectedIndex = null;
 
   const searchBox = document.querySelector('.cfg-v2-add-bar');
   const tabsSinBarra = ['empresa', 'usuarios', 'roles', 'solicitudes', 'plazas'];
@@ -16670,6 +16860,8 @@ function abrirTabConfig(tabName, btnElement) {
     if (searchBox) searchBox.style.display = 'flex';
   }
   _cfgRefreshSearchPlaceholder();
+  _cfgSyncNavState(TAB_ACTIVA_CFG);
+  _cfgUpdateWorkspaceHeader(TAB_ACTIVA_CFG);
   const progTab = document.getElementById('cfg-tab-programador');
   if (progTab) progTab.style.display = canUseProgrammerConfig() ? 'inline-flex' : 'none';
 
@@ -16724,6 +16916,159 @@ function abrirTabConfig(tabName, btnElement) {
   _cfgRefreshQuickTools();
   _cfgRefreshAdminHeroStats(false).catch(() => {});
   renderizarListaConfig();
+}
+
+function _cfgIsCatalogDetailTab(tabName = TAB_ACTIVA_CFG) {
+  return ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(String(tabName || '').trim().toLowerCase());
+}
+
+function _cfgSelectCatalogItem(index) {
+  _cfgCatalogSelectedIndex = Number(index);
+  renderizarListaConfig();
+}
+
+function _cfgCatalogIcon(tabName = TAB_ACTIVA_CFG) {
+  const map = {
+    ubicaciones: 'place',
+    estados: 'tune',
+    categorias: 'directions_car',
+    modelos: 'no_crash',
+    gasolinas: 'local_gas_station'
+  };
+  return map[String(tabName || '').trim().toLowerCase()] || 'list_alt';
+}
+
+function _cfgCatalogPrimaryLabel(tabName, item) {
+  if (!item) return 'Sin selección';
+  if (tabName === 'estados') return String(item.id || item.nombre || item).trim();
+  return String(item.nombre || item.id || item).trim();
+}
+
+function _cfgCatalogMetaRows(tabName, item, index) {
+  const title = _cfgCatalogPrimaryLabel(tabName, item);
+  if (!item) return [];
+  if (tabName === 'ubicaciones') {
+    const isFixed = typeof item === 'object' ? item.isPlazaFija === true : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(title);
+    return [
+      ['Tipo', isFixed ? 'Plaza fija' : 'Responsable / referencia'],
+      ['Plaza visible', item.plazaId || 'ALL'],
+      ['Impacto', isFixed ? 'Referencia de operación global' : 'Persona o punto operativo'],
+      ['Registro', `Elemento ${index + 1}`]
+    ];
+  }
+  if (tabName === 'estados') {
+    return [
+      ['Clave', title],
+      ['Color', item.color || 'Sin color'],
+      ['Orden', String(item.orden || 99)],
+      ['Impacto', 'Filtros, badges y lectura visual']
+    ];
+  }
+  if (tabName === 'categorias') {
+    const models = (window.MEX_CONFIG?.listas?.modelos || []).filter(model => (typeof model === 'object' ? model.categoria : '') === title);
+    return [
+      ['Categoría', title],
+      ['Modelos ligados', String(models.length)],
+      ['Vista operativa', models.slice(0, 3).map(model => model.nombre).join(', ') || 'Sin modelos'],
+      ['Impacto', 'Ordena unidades y sugerencias']
+    ];
+  }
+  if (tabName === 'modelos') {
+    return [
+      ['Modelo', title],
+      ['Categoría', item.categoria || 'Sin categoría'],
+      ['Imagen', _cfgModelImageValue(item) ? 'Configurada' : 'Sin imagen'],
+      ['Impacto', 'Formularios, detalle y catálogo']
+    ];
+  }
+  if (tabName === 'gasolinas') {
+    return [
+      ['Nivel', title],
+      ['Porcentaje', `${_gasToPercent(title)}%`],
+      ['Uso', 'Indicador operativo y revisión'],
+      ['Registro', `Elemento ${index + 1}`]
+    ];
+  }
+  return [];
+}
+
+function _cfgCatalogCallout(tabName, item) {
+  const title = _cfgCatalogPrimaryLabel(tabName, item);
+  const map = {
+    ubicaciones: `Esta ubicación define alcance operativo por plaza. Usa ALL solo cuando de verdad deba verse en todas las plazas.`,
+    estados: `Los estados afectan color, lectura del mapa y filtros operativos. Cambiarlos impacta la interpretación diaria del patio.`,
+    categorias: `La categoría ${title} sirve como capa de orden para modelos, reglas blandas y futuras restricciones de acomodo.`,
+    modelos: `Mantén la categoría e imagen consistentes para que el inventario administrativo y el operativo no se descuadren.`,
+    gasolinas: `Este nivel se refleja en reportes y visualizaciones rápidas. Conviene mantenerlo corto y entendible para operación.`
+  };
+  return map[tabName] || 'Este catálogo impacta la operación del sistema.';
+}
+
+function _cfgCatalogDetailHtml(tabName, item, index) {
+  if (!item || index < 0) {
+    return `
+      <div class="cfg-detail-card">
+        <div class="cfg-detail-empty">
+          <span class="material-icons">list_alt</span>
+          <strong>Selecciona un elemento</strong>
+          <span>El editor contextual aparecerá aquí con metadata, impacto operativo y acciones disponibles.</span>
+        </div>
+      </div>
+    `;
+  }
+
+  const title = _cfgCatalogPrimaryLabel(tabName, item);
+  const metaRows = _cfgCatalogMetaRows(tabName, item, index);
+  const preview = tabName === 'modelos' && _cfgModelImageValue(item)
+    ? `<img src="${escapeHtml(_cfgModelImageValue(item))}" alt="${escapeHtml(title)}" class="cfg-detail-preview-img" loading="lazy">`
+    : '';
+
+  return `
+    <div class="cfg-detail-card">
+      <div class="cfg-detail-card-head">
+        <div>
+          <h4>Editor contextual</h4>
+          <p>Resumen operativo, metadata útil y acciones rápidas del catálogo activo.</p>
+        </div>
+        <span class="cfg-catalog-count">${escapeHtml(_cfgMetaForTab(tabName).badge)}</span>
+      </div>
+      <div class="cfg-detail-card-body">
+        <div class="cfg-detail-hero">
+          <div class="cfg-detail-icon">
+            <span class="material-icons">${_cfgCatalogIcon(tabName)}</span>
+          </div>
+          <div>
+            <h5>${escapeHtml(title)}</h5>
+            <p>${escapeHtml(_cfgMetaForTab(tabName).description)}</p>
+          </div>
+        </div>
+        ${preview}
+        <div class="cfg-detail-meta-grid">
+          ${metaRows.map(([label, value]) => `
+            <div class="cfg-detail-meta-item">
+              <span>${escapeHtml(label)}</span>
+              <strong>${escapeHtml(value)}</strong>
+            </div>
+          `).join('')}
+        </div>
+        <div class="cfg-detail-callout">${escapeHtml(_cfgCatalogCallout(tabName, item))}</div>
+        <div class="cfg-detail-actions">
+          <button type="button" class="cfg-detail-btn primary" onclick="editarElementoConfig(${index})">
+            <span class="material-icons">edit</span>
+            Editar elemento
+          </button>
+          <button type="button" class="cfg-detail-btn" onclick="abrirModalNuevaConfig()">
+            <span class="material-icons">add_circle</span>
+            Nuevo registro
+          </button>
+          <button type="button" class="cfg-detail-btn danger" onclick="eliminarElementoConfig(${index})">
+            <span class="material-icons">delete</span>
+            Eliminar
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function renderizarListaConfig() {
@@ -17076,15 +17421,14 @@ function renderizarListaConfig() {
     }
   }
 
-  if (!lista || lista.length === 0) {
-    container.innerHTML = '<div style="text-align:center; padding:30px; color:#94a3b8; font-weight:700; font-size:13px;">Sin elementos. Agrega el primero arriba.</div>';
-    return;
-  }
-
   const tabsSinDrag = ['gasolinas'];
   const usaDrag = !tabsSinDrag.includes(TAB_ACTIVA_CFG) && !query && !plazaFilter;
+  const visibleIndices = lista.map(itemObj => itemObj._origIndex);
+  if (_cfgIsCatalogDetailTab(TAB_ACTIVA_CFG) && !visibleIndices.includes(_cfgCatalogSelectedIndex)) {
+    _cfgCatalogSelectedIndex = visibleIndices[0] ?? null;
+  }
 
-  container.innerHTML = lista.map((itemObj, visIndex) => {
+  const rowsHtml = lista.map((itemObj, visIndex) => {
     const i = itemObj._origIndex;
     const item = rawLista[i];
     const esEstado = typeof item === 'object' && item.color !== undefined;
@@ -17134,13 +17478,14 @@ function renderizarListaConfig() {
 
     const dragAttrs = usaDrag ? `draggable="true" ondragstart="cfgDragStart(event,${i})" ondragover="cfgDragOver(event)" ondrop="cfgDrop(event,${i})"` : '';
     const dragHandle = usaDrag ? `<span class="cfg-drag-handle" title="Arrastrar para reordenar"><span class="material-icons">drag_indicator</span></span>` : '';
+    const activeClass = _cfgCatalogSelectedIndex === i ? ' active' : '';
 
     const modelosExpandidos = TAB_ACTIVA_CFG === 'categorias'
       ? `<div id="catmod-${i}" class="cfg-cat-models-expand" style="display:none;">
               ${(window.MEX_CONFIG.listas.modelos || []).filter(m => (typeof m === 'object' ? m.categoria : '') === valor).map(m => `<span class="cfg-cat-model-chip">${escapeHtml(m.nombre)}</span>`).join('') || '<span style="font-size:11px;color:#94a3b8;">Sin modelos asignados</span>'}
             </div>` : '';
 
-    return `<div class="cfg-item" ${dragAttrs} data-cfg-idx="${i}" style="padding:10px 12px; display:flex; flex-direction:column; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; transition:opacity 0.15s;">
+    return `<div class="cfg-item${activeClass}" onclick="_cfgSelectCatalogItem(${i})" ${dragAttrs} data-cfg-idx="${i}" style="padding:10px 12px; display:flex; flex-direction:column; background:white; border:1px solid #e2e8f0; border-radius:12px; margin-bottom:8px; transition:opacity 0.15s;">
           <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
             <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
               ${dragHandle}
@@ -17152,16 +17497,16 @@ function renderizarListaConfig() {
             </div>
             <div style="display:flex; gap:4px; flex-shrink:0;">
               ${usaDrag && lista.length > 1 ? `
-              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === 0 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="moverElementoConfig(${i}, -1)" ${visIndex === 0 ? 'disabled' : ''} title="Mover arriba">
+              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === 0 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="event.stopPropagation(); moverElementoConfig(${i}, -1)" ${visIndex === 0 ? 'disabled' : ''} title="Mover arriba">
                 <span class="material-icons" style="font-size:14px; color:#475569;">arrow_upward</span>
               </button>
-              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === lista.length - 1 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="moverElementoConfig(${i}, 1)" ${visIndex === lista.length - 1 ? 'disabled' : ''} title="Mover abajo">
+              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; display:flex; align-items:center; ${visIndex === lista.length - 1 ? 'opacity:.3; cursor:not-allowed;' : 'cursor:pointer;'}" onclick="event.stopPropagation(); moverElementoConfig(${i}, 1)" ${visIndex === lista.length - 1 ? 'disabled' : ''} title="Mover abajo">
                 <span class="material-icons" style="font-size:14px; color:#475569;">arrow_downward</span>
               </button>` : ''}
-              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="editarElementoConfig(${i})" title="Editar">
+              <button style="border:none; background:#f1f5f9; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="event.stopPropagation(); editarElementoConfig(${i})" title="Editar">
                 <span class="material-icons" style="font-size:14px; color:#0f172a;">edit</span>
               </button>
-              <button class="cfg-item-del" style="border:none; background:#fee2e2; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="eliminarElementoConfig(${i})" title="Eliminar">
+              <button class="cfg-item-del" style="border:none; background:#fee2e2; padding:5px; border-radius:6px; cursor:pointer; display:flex; align-items:center;" onclick="event.stopPropagation(); eliminarElementoConfig(${i})" title="Eliminar">
                 <span class="material-icons" style="font-size:14px; color:#ef4444;">delete</span>
               </button>
             </div>
@@ -17169,6 +17514,53 @@ function renderizarListaConfig() {
           ${modelosExpandidos}
         </div>`;
   }).join('');
+
+  if (!lista || lista.length === 0) {
+    container.innerHTML = `
+      <div class="cfg-catalog-shell">
+        <div class="cfg-catalog-list-col">
+          <div class="cfg-catalog-panel">
+            <div class="cfg-catalog-panel-head">
+              <div>
+                <h4>${escapeHtml(_cfgMetaForTab(TAB_ACTIVA_CFG).label)}</h4>
+                <p>${escapeHtml(_cfgMetaForTab(TAB_ACTIVA_CFG).description)}</p>
+              </div>
+              <span class="cfg-catalog-count">0 registros</span>
+            </div>
+            <div class="cfg-catalog-list-stack">
+              <div style="text-align:center; padding:30px; color:#94a3b8; font-weight:700; font-size:13px;">Sin elementos. Agrega el primero desde la barra superior.</div>
+            </div>
+          </div>
+        </div>
+        <div class="cfg-catalog-detail-col">
+          ${_cfgCatalogDetailHtml(TAB_ACTIVA_CFG, null, -1)}
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="cfg-catalog-shell">
+      <div class="cfg-catalog-list-col">
+        <div class="cfg-catalog-panel">
+          <div class="cfg-catalog-panel-head">
+            <div>
+              <h4>${escapeHtml(_cfgMetaForTab(TAB_ACTIVA_CFG).label)}</h4>
+              <p>${escapeHtml(_cfgMetaForTab(TAB_ACTIVA_CFG).description)}</p>
+            </div>
+            <span class="cfg-catalog-count">${escapeHtml(String(lista.length))} registros</span>
+          </div>
+          <div class="cfg-catalog-list-stack">
+            ${rowsHtml}
+          </div>
+        </div>
+      </div>
+      <div class="cfg-catalog-detail-col">
+        ${_cfgCatalogDetailHtml(TAB_ACTIVA_CFG, rawLista[_cfgCatalogSelectedIndex], _cfgCatalogSelectedIndex)}
+      </div>
+    </div>
+  `;
 }
 
 // ── Drag-and-drop para listas de configuración ──────────────────────

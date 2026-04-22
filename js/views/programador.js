@@ -42,6 +42,7 @@ const state = {
 
 const BUILD_TAG = 'mapa-v90';
 const CC_NAME = 'Centro de Control';
+let programmerClockTimer = null;
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -383,58 +384,169 @@ function isAllowed() {
   return roleCanUseProgrammerConsole(state.profile?.rol, state.profile || {});
 }
 
-// ── Tab groups con jerarquía visual ────────────────────────────
-const TAB_GROUPS = [
-  {
-    label: null,
-    tabs: [
-      ['resumen', 'dashboard', 'Resumen'],
-    ]
+const PROGRAMMER_TAB_META = {
+  resumen: {
+    section: 'resumen',
+    icon: 'monitor_heart',
+    label: 'Salud general',
+    short: 'Resumen',
+    description: 'Estado del sistema, atención prioritaria, actividad reciente y salud operativa en un solo vistazo.'
   },
-  {
-    label: 'Monitor',
-    tabs: [
-      ['errores',      'bug_report',   'Errores'],
-      ['dispositivos', 'devices',      'Devices'],
-      ['jobs',         'inventory_2',  'Jobs'],
-    ]
+  jobs: {
+    section: 'operaciones',
+    icon: 'inventory_2',
+    label: 'Jobs y procesos',
+    short: 'Jobs',
+    description: 'Supervisa procesos manuales, jobs fallidos, backfills y tareas técnicas con feedback seguro.'
   },
-  {
-    label: 'Datos',
-    tabs: [
-      ['database',  'storage',        'Base de datos'],
-      ['consultas', 'manage_search',  'Consultas'],
-      ['config',    'settings',       'Config'],
-    ]
+  consultas: {
+    section: 'operaciones',
+    icon: 'timeline',
+    label: 'Eventos y flujos',
+    short: 'Eventos',
+    description: 'Consulta actividad reciente, flujos seguros y resultados operativos sin salir del centro de control.'
   },
-  {
-    label: 'Sistema',
-    tabs: [
-      ['herramientas', 'build',    'Herramientas'],
-      ['seguridad',    'security', 'Seguridad'],
-    ]
+  database: {
+    section: 'datos',
+    icon: 'storage',
+    label: 'Base de datos',
+    short: 'Base de datos',
+    description: 'Navega colecciones, documentos y subcolecciones con foco técnico y edición controlada.'
   },
-  {
-    label: 'Comms',
-    tabs: [
-      ['notificaciones', 'notifications_active', 'Notificaciones'],
-    ]
+  config: {
+    section: 'datos',
+    icon: 'settings',
+    label: 'Configuración y cache',
+    short: 'Config',
+    description: 'Revisa overlays, cache efectivo y configuración por plaza sin perder trazabilidad.'
   },
-];
+  errores: {
+    section: 'errores',
+    icon: 'bug_report',
+    label: 'Errores y alertas',
+    short: 'Errores',
+    description: 'Detecta fallas críticas, eventos degradados y señales que requieren atención inmediata.'
+  },
+  seguridad: {
+    section: 'seguridad',
+    icon: 'security',
+    label: 'Seguridad',
+    short: 'Seguridad',
+    description: 'Visualiza roles, catálogo de permisos y actividad relevante de control de acceso.'
+  },
+  herramientas: {
+    section: 'herramientas',
+    icon: 'build',
+    label: 'Herramientas técnicas',
+    short: 'Herramientas',
+    description: 'Ejecuta utilidades seguras, mantenimiento y acciones globales con confirmación y log.'
+  },
+  dispositivos: {
+    section: 'clientes',
+    icon: 'devices',
+    label: 'Dispositivos',
+    short: 'Dispositivos',
+    description: 'Diagnostica permisos, sesiones, geolocalización, foco activo y estado de clientes conectados.'
+  },
+  notificaciones: {
+    section: 'clientes',
+    icon: 'notifications_active',
+    label: 'Notificaciones',
+    short: 'Notificaciones',
+    description: 'Revisa inbox, entrega de push y pruebas controladas sobre clientes reales.'
+  }
+};
 
-function _buildTabNavHtml(errCount) {
-  return TAB_GROUPS.map(group => {
-    const divider = group.label
-      ? `<span class="cc-nav-section-label">${group.label}</span>`
+const PROGRAMMER_SECTION_META = {
+  resumen: {
+    icon: 'dashboard_customize',
+    label: 'Resumen',
+    description: 'Salud general del sistema, KPIs técnicos y puntos de atención inmediata.'
+  },
+  operaciones: {
+    icon: 'lan',
+    label: 'Operaciones',
+    description: 'Jobs, eventos, flujos recientes y actividad técnica accionable.'
+  },
+  datos: {
+    icon: 'database',
+    label: 'Datos',
+    description: 'Firestore, sincronización, configuración efectiva y cache.'
+  },
+  errores: {
+    icon: 'crisis_alert',
+    label: 'Errores y alertas',
+    description: 'Incidencias técnicas, módulos degradados y observabilidad relevante.'
+  },
+  seguridad: {
+    icon: 'shield',
+    label: 'Seguridad',
+    description: 'Roles, permisos, validaciones y señales de acceso con contexto técnico.'
+  },
+  herramientas: {
+    icon: 'engineering',
+    label: 'Herramientas',
+    description: 'Acciones manuales, utilidades y operaciones globales con control seguro.'
+  },
+  clientes: {
+    icon: 'devices',
+    label: 'Dispositivos y clientes',
+    description: 'Sesiones activas, dispositivos conectados, push y comportamiento del cliente.'
+  }
+};
+
+const PROGRAMMER_SECTION_TABS = {
+  resumen: ['resumen'],
+  operaciones: ['jobs', 'consultas'],
+  datos: ['database', 'config'],
+  errores: ['errores'],
+  seguridad: ['seguridad'],
+  herramientas: ['herramientas'],
+  clientes: ['dispositivos', 'notificaciones']
+};
+
+function programmerSectionKey(tab = state.tab) {
+  return PROGRAMMER_TAB_META[tab]?.section || 'resumen';
+}
+
+function programmerSectionMeta(sectionKey = programmerSectionKey()) {
+  return PROGRAMMER_SECTION_META[sectionKey] || PROGRAMMER_SECTION_META.resumen;
+}
+
+function programmerSectionTabs(sectionKey = programmerSectionKey()) {
+  return PROGRAMMER_SECTION_TABS[sectionKey] || ['resumen'];
+}
+
+function programmerTabMeta(tab = state.tab) {
+  return PROGRAMMER_TAB_META[tab] || PROGRAMMER_TAB_META.resumen;
+}
+
+function _buildSectionNavHtml(errCount) {
+  return Object.entries(PROGRAMMER_SECTION_META).map(([key, meta]) => {
+    const active = programmerSectionKey() === key ? 'active' : '';
+    const badge = key === 'errores' && errCount > 0
+      ? `<span class="cc-tab-badge">${errCount}</span>`
       : '';
-    const buttons = group.tabs.map(([key, icon, label]) => `
-      <button type="button" class="programmer-nav-btn ${state.tab === key ? 'active' : ''}" data-tab="${key}" title="${label}">
-        <span class="material-icons cc-tab-icon">${icon}</span>
-        <span class="cc-tab-label">${label}</span>
+    return `
+      <button type="button" class="cc-section-nav-btn ${active}" data-section="${key}" title="${meta.label}">
+        <span class="material-icons">${meta.icon}</span>
+        <span>${meta.label}</span>
+        ${badge}
+      </button>
+    `;
+  }).join('');
+}
+
+function _buildSectionTabsHtml(sectionKey, errCount) {
+  return programmerSectionTabs(sectionKey).map(key => {
+    const meta = programmerTabMeta(key);
+    return `
+      <button type="button" class="programmer-nav-btn ${state.tab === key ? 'active' : ''}" data-tab="${key}" title="${meta.label}">
+        <span class="material-icons cc-tab-icon">${meta.icon}</span>
+        <span class="cc-tab-label">${meta.short}</span>
         ${key === 'errores' && errCount > 0 ? `<span class="cc-tab-badge">${errCount}</span>` : ''}
       </button>
-    `).join('');
-    return divider + buttons;
+    `;
   }).join('');
 }
 
@@ -451,6 +563,11 @@ function renderShell() {
   const swVersion = window.MEX_CACHE_VERSION || BUILD_TAG;
   const healthStatus = errCount > 5 ? 'danger' : errCount > 0 ? 'warn' : 'ok';
   const healthColor = { ok: '#10b981', warn: '#f59e0b', danger: '#ef4444' }[healthStatus];
+  const sectionKey = programmerSectionKey();
+  const sectionMeta = programmerSectionMeta(sectionKey);
+  const tabMeta = programmerTabMeta(state.tab);
+  const failedJobs = state.jobsRows?.filter(row => lower(row.status) === 'error' || lower(row.status) === 'failed').length || 0;
+  const blockedDevices = state.devicesRows?.filter(row => lower(row.permission) === 'denied').length || 0;
 
   root.innerHTML = `
     <div class="cc-topbar">
@@ -465,40 +582,46 @@ function renderShell() {
             · ${escapeHtml(window.FIREBASE_CONFIG?.projectId || 'firebase')}
           </div>
           <h1 class="cc-topbar-title">Centro de Control</h1>
-          <p class="cc-topbar-sub">Observabilidad · Firestore · Seguridad · Herramientas · Notificaciones</p>
+          <p class="cc-topbar-sub">Observabilidad, control técnico y acciones seguras conectadas al producto real.</p>
         </div>
       </div>
-      <div class="cc-hero-stats">
-        <div class="cc-stat-chip">
-          <span class="material-icons">badge</span>
-          <div><small>Usuarios</small><strong>${escapeHtml(String(users || '--'))}</strong></div>
+      <div class="cc-topbar-right">
+        <div class="cc-hero-stats">
+          <div class="cc-stat-chip">
+            <span class="material-icons">badge</span>
+            <div><small>Usuarios</small><strong>${escapeHtml(String(users || '--'))}</strong></div>
+          </div>
+          <div class="cc-stat-chip">
+            <span class="material-icons">devices</span>
+            <div><small>Clientes</small><strong>${escapeHtml(String(devsCount || '--'))}</strong></div>
+          </div>
+          <div class="cc-stat-chip ${errCount > 0 ? 'cc-stat-danger' : 'cc-stat-ok'}">
+            <span class="material-icons">bug_report</span>
+            <div><small>Errores</small><strong>${escapeHtml(String(errCount))}</strong></div>
+          </div>
+          <div class="cc-stat-chip ${failedJobs > 0 ? 'cc-stat-danger' : 'cc-stat-accent'}">
+            <span class="material-icons">inventory_2</span>
+            <div><small>Jobs fallidos</small><strong>${escapeHtml(String(failedJobs || 0))}</strong></div>
+          </div>
         </div>
-        <div class="cc-stat-chip">
-          <span class="material-icons">devices</span>
-          <div><small>Devices</small><strong>${escapeHtml(String(devsCount || '--'))}</strong></div>
+        <div class="programmer-page-top-actions cc-topbar-actions">
+          <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/mapa'" title="Ir al mapa operativo">
+            <span class="material-icons">map</span>
+            <span class="cc-btn-label">Mapa</span>
+          </button>
+          <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/gestion?tab=usuarios'" title="Ir al panel admin">
+            <span class="material-icons">admin_panel_settings</span>
+            <span class="cc-btn-label">Admin</span>
+          </button>
+          <button type="button" class="programmer-page-btn cc-nav-link" id="programmerOpenErrorsBtn" title="Ir a errores y alertas">
+            <span class="material-icons">crisis_alert</span>
+            <span class="cc-btn-label">Alertas</span>
+          </button>
+          <button type="button" class="programmer-page-btn primary" id="programmerRefreshAllBtn" title="Actualizar todos los datos">
+            <span class="material-icons">refresh</span>
+            <span class="cc-btn-label">Actualizar</span>
+          </button>
         </div>
-        <div class="cc-stat-chip ${errCount > 0 ? 'cc-stat-danger' : 'cc-stat-ok'}">
-          <span class="material-icons">bug_report</span>
-          <div><small>Errores</small><strong>${escapeHtml(String(errCount))}</strong></div>
-        </div>
-        <div class="cc-stat-chip cc-stat-accent">
-          <span class="material-icons">location_city</span>
-          <div><small>Plaza foco</small><strong>${escapeHtml(plazaLabel)}</strong></div>
-        </div>
-      </div>
-      <div class="programmer-page-top-actions cc-topbar-actions">
-        <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/mapa'" title="Ir al mapa operativo">
-          <span class="material-icons">map</span>
-          <span class="cc-btn-label">Mapa</span>
-        </button>
-        <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/gestion'" title="Ir a gestión">
-          <span class="material-icons">analytics</span>
-          <span class="cc-btn-label">Gestión</span>
-        </button>
-        <button type="button" class="programmer-page-btn primary" id="programmerRefreshAllBtn" title="Actualizar todos los datos">
-          <span class="material-icons">refresh</span>
-          <span class="cc-btn-label">Actualizar</span>
-        </button>
       </div>
     </div>
 
@@ -515,6 +638,14 @@ function renderShell() {
         <span class="material-icons" style="font-size:13px;">corporate_fare</span>
         ${escapeHtml(friendlyScopeLabel(state.profile?.plazaAsignada))}
       </span>
+      <span class="cc-pill">
+        <span class="material-icons" style="font-size:13px;">location_city</span>
+        Plaza foco ${escapeHtml(plazaLabel)}
+      </span>
+      <span class="cc-pill">
+        <span class="material-icons" style="font-size:13px;">dashboard_customize</span>
+        ${escapeHtml(sectionMeta.label)}
+      </span>
       <span class="cc-pill cc-pill-build">
         <span class="material-icons" style="font-size:13px;">tag</span>
         ${escapeHtml(swVersion)}
@@ -525,8 +656,48 @@ function renderShell() {
       </span>
     </div>
 
-    <div class="programmer-page-nav cc-nav">
-      ${_buildTabNavHtml(errCount)}
+    <div class="cc-console-nav">
+      <div class="cc-console-sections">
+        ${_buildSectionNavHtml(errCount)}
+      </div>
+      <div class="programmer-page-nav cc-nav cc-console-subnav">
+        ${_buildSectionTabsHtml(sectionKey, errCount)}
+      </div>
+    </div>
+
+    <div class="cc-section-hero">
+      <div class="cc-section-hero-copy">
+        <div class="cc-section-hero-kicker">
+          <span class="material-icons">${sectionMeta.icon}</span>
+          ${escapeHtml(sectionMeta.label)}
+        </div>
+        <h2>${escapeHtml(tabMeta.label)}</h2>
+        <p>${escapeHtml(tabMeta.description)}</p>
+      </div>
+      <div class="cc-section-hero-stats">
+        <div class="cc-section-glance">
+          <small>Errores críticos</small>
+          <strong>${escapeHtml(String(errCount || 0))}</strong>
+        </div>
+        <div class="cc-section-glance">
+          <small>Jobs fallidos</small>
+          <strong>${escapeHtml(String(failedJobs || 0))}</strong>
+        </div>
+        <div class="cc-section-glance">
+          <small>Clientes bloqueados</small>
+          <strong>${escapeHtml(String(blockedDevices || 0))}</strong>
+        </div>
+      </div>
+      <div class="cc-section-hero-actions">
+        <button type="button" class="programmer-page-btn" onclick="window.location.href='/mapa'">
+          <span class="material-icons">map</span>
+          Ver en mapa
+        </button>
+        <button type="button" class="programmer-page-btn" onclick="window.location.href='/gestion?tab=usuarios'">
+          <span class="material-icons">admin_panel_settings</span>
+          Ver en admin
+        </button>
+      </div>
     </div>
 
     <div id="programmerTabContent" class="programmer-tab-content"></div>
@@ -554,12 +725,25 @@ function renderShell() {
     </div>
   `;
 
+  root.querySelectorAll('.cc-section-nav-btn').forEach(button => {
+    button.addEventListener('click', () => {
+      const nextSection = button.dataset.section;
+      state.tab = programmerSectionTabs(nextSection)[0] || 'resumen';
+      renderShell();
+      renderCurrentTab();
+    });
+  });
   root.querySelectorAll('.programmer-nav-btn').forEach(button => {
     button.addEventListener('click', () => {
       state.tab = button.dataset.tab;
       renderShell();
       renderCurrentTab();
     });
+  });
+  document.getElementById('programmerOpenErrorsBtn')?.addEventListener('click', () => {
+    state.tab = 'errores';
+    renderShell();
+    renderCurrentTab();
   });
   document.getElementById('programmerRefreshAllBtn')?.addEventListener('click', async () => {
     const btn = document.getElementById('programmerRefreshAllBtn');
@@ -576,14 +760,13 @@ function renderShell() {
     window.openNotificationCenter?.();
   });
 
-  // Live clock
-  const clockEl = document.getElementById('ccLiveClock');
-  if (clockEl) {
-    setInterval(() => {
-      const t = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-      clockEl.innerHTML = `<span class="material-icons" style="font-size:13px;">schedule</span> ${t}`;
-    }, 20000);
-  }
+  clearInterval(programmerClockTimer);
+  programmerClockTimer = setInterval(() => {
+    const clockEl = document.getElementById('ccLiveClock');
+    if (!clockEl) return;
+    const t = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    clockEl.innerHTML = `<span class="material-icons" style="font-size:13px;">schedule</span> ${t}`;
+  }, 20000);
 
   renderCurrentTab();
 }
@@ -592,7 +775,7 @@ function summaryCardsHtml() {
   const overview = state.overview || {};
   const cards = [
     { label: 'Usuarios',      value: overview.usersCount || 0,       icon: 'badge',           color: '#3b82f6', bg: '#eff6ff' },
-    { label: 'Devices',       value: overview.devicesCount || 0,      icon: 'devices',         color: '#8b5cf6', bg: '#f5f3ff' },
+    { label: 'Clientes',      value: overview.devicesCount || 0,      icon: 'devices',         color: '#8b5cf6', bg: '#f5f3ff' },
     { label: 'Inbox sin leer',value: overview.unreadInboxCount || 0,  icon: 'mark_chat_unread',color: '#0ea5e9', bg: '#f0f9ff', warn: overview.unreadInboxCount > 10 },
     { label: 'Ops events',    value: overview.opsEventsCount || 0,    icon: 'timeline',        color: '#10b981', bg: '#f0fdf4' },
     { label: 'Jobs',          value: overview.jobsCount || 0,         icon: 'inventory_2',     color: '#f59e0b', bg: '#fffbeb' },
@@ -891,8 +1074,8 @@ function renderNotificacionesTab() {
   container.innerHTML = `
     <section class="programmer-section">
       <div class="programmer-section-head">
-        <h3>Notificaciones reales</h3>
-        <span>Inbox, delivery y prueba manual</span>
+        <h3>Notificaciones e inbox</h3>
+        <span>Entrega, pruebas controladas y lectura del cliente</span>
       </div>
       <div class="programmer-notification-actions programmer-notification-actions-rich">
         <input id="programmerTestTarget" class="programmer-input" type="text" placeholder="Correo o nombre del usuario" value="${escapeHtml(state.testTarget)}">
@@ -969,8 +1152,8 @@ function renderConsultasTab() {
   container.innerHTML = `
     <section class="programmer-section">
       <div class="programmer-section-head">
-        <h3>Consultas seguras</h3>
-        <span>Consulta predefinida con filtro cliente</span>
+        <h3>Eventos y flujos seguros</h3>
+        <span>Consultas predefinidas, filtros locales y navegación técnica cruzada</span>
       </div>
       <div class="programmer-query-bar">
         <select id="programmerQueryName" class="programmer-input">
@@ -988,6 +1171,16 @@ function renderConsultasTab() {
         <button id="programmerRunQueryBtn" type="button" class="programmer-page-btn primary">
           <span class="material-icons">manage_search</span>
           Ejecutar
+        </button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button type="button" class="programmer-page-btn" data-go-tab="jobs">
+          <span class="material-icons">inventory_2</span>
+          Ver jobs
+        </button>
+        <button type="button" class="programmer-page-btn" data-go-tab="errores">
+          <span class="material-icons">crisis_alert</span>
+          Ver alertas
         </button>
       </div>
       <div class="programmer-panel">
@@ -1011,19 +1204,42 @@ function renderConsultasTab() {
     state.queryLimit = Math.min(150, Math.max(10, Number(event.target.value) || 50));
   });
   document.getElementById('programmerRunQueryBtn')?.addEventListener('click', () => runQuery(state.queryName));
+  container.querySelectorAll('[data-go-tab]').forEach(button => {
+    button.addEventListener('click', () => {
+      state.tab = button.dataset.goTab;
+      renderShell();
+      renderCurrentTab();
+    });
+  });
 }
 
 function renderJobsTab() {
   const container = document.getElementById('programmerTabContent');
   if (!container) return;
+  const jobsFailed = state.jobsRows?.filter(row => lower(row.status) === 'error' || lower(row.status) === 'failed').length || 0;
+  const jobsOk = Math.max(0, (state.jobsRows?.length || 0) - jobsFailed);
   const resultHtml = state.jobResult
     ? `<pre class="programmer-code-block">${escapeHtml(JSON.stringify(state.jobResult, null, 2))}</pre>`
     : `<div class="programmer-empty-state"><span class="material-icons">build_circle</span><strong>Sin ejecución reciente</strong><p>Corre un job para ver el resultado aquí.</p></div>`;
   container.innerHTML = `
     <section class="programmer-section">
       <div class="programmer-section-head">
-        <h3>Jobs operativos</h3>
-        <span>Migraciones, validación y mantenimiento</span>
+        <h3>Jobs y procesos técnicos</h3>
+        <span>Migraciones, validación, mantenimiento y acciones con dry-run seguro</span>
+      </div>
+      <div class="programmer-three-col">
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">inventory_2</span></div>
+          <div><span>Jobs recientes</span><strong>${escapeHtml(String(state.jobsRows.length || 0))}</strong></div>
+        </article>
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">check_circle</span></div>
+          <div><span>Completados</span><strong>${escapeHtml(String(jobsOk))}</strong></div>
+        </article>
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">error</span></div>
+          <div><span>Fallidos</span><strong>${escapeHtml(String(jobsFailed))}</strong></div>
+        </article>
       </div>
       <div class="programmer-job-grid">
         <label class="programmer-job-card">
@@ -1079,8 +1295,8 @@ function renderConfigTab() {
   container.innerHTML = `
     <section class="programmer-section">
       <div class="programmer-section-head">
-        <h3>Config diff</h3>
-        <span>GLOBAL + plaza con preview efectivo y editor JSON</span>
+        <h3>Datos, configuración y cache</h3>
+        <span>Overlay GLOBAL + plaza, preview efectivo y edición JSON controlada</span>
       </div>
       <div class="programmer-query-bar">
         <select id="programmerConfigPlaza" class="programmer-input">
@@ -1156,7 +1372,17 @@ function renderSeguridadTab() {
     <section class="programmer-section">
       <div class="programmer-section-head">
         <h3>Seguridad y permisos</h3>
-        <span>Resumen rápido del catálogo activo, roles configurados y auditoría reciente</span>
+        <span>Roles activos, permisos disponibles y auditoría técnica con lectura ejecutiva</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button type="button" class="programmer-page-btn" onclick="window.location.href='/gestion?tab=usuarios'">
+          <span class="material-icons">admin_panel_settings</span>
+          Ir a admin
+        </button>
+        <button type="button" class="programmer-page-btn" onclick="window.location.href='/mapa'">
+          <span class="material-icons">map</span>
+          Ver en mapa
+        </button>
       </div>
     </section>
     <section class="programmer-two-col">
@@ -1196,11 +1422,39 @@ function renderSeguridadTab() {
 function renderErroresTab() {
   const container = document.getElementById('programmerTabContent');
   if (!container) return;
+  const critical = state.errorsRows.filter(row => {
+    const level = lower(row.level || row.severity || row.kind || '');
+    return level.includes('critical') || level.includes('fatal') || level.includes('error');
+  }).length;
   container.innerHTML = `
     <section class="programmer-section">
       <div class="programmer-section-head">
         <h3>Errores y observabilidad</h3>
-        <span>Frontend y backend reunidos en la misma consola</span>
+        <span>Frontend y backend reunidos con contexto técnico y accesos al producto</span>
+      </div>
+      <div class="programmer-three-col">
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">bug_report</span></div>
+          <div><span>Registros</span><strong>${escapeHtml(String(state.errorsRows.length || 0))}</strong></div>
+        </article>
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">crisis_alert</span></div>
+          <div><span>Críticos</span><strong>${escapeHtml(String(critical || 0))}</strong></div>
+        </article>
+        <article class="programmer-metric-card programmer-metric-card-inline">
+          <div class="programmer-metric-icon"><span class="material-icons">travel_explore</span></div>
+          <div><span>Módulos</span><strong>${escapeHtml(String(new Set(state.errorsRows.map(row => safe(row.scope || row.screen || 'general'))).size || 0))}</strong></div>
+        </article>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button type="button" class="programmer-page-btn" onclick="window.location.href='/mapa'">
+          <span class="material-icons">map</span>
+          Ver en mapa
+        </button>
+        <button type="button" class="programmer-page-btn" onclick="window.location.href='/gestion?tab=usuarios'">
+          <span class="material-icons">admin_panel_settings</span>
+          Ver en admin
+        </button>
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
@@ -1222,8 +1476,8 @@ function renderDispositivosTab() {
   container.innerHTML = `
     <section class="programmer-section">
       <div class="programmer-section-head">
-        <h3>Dispositivos y permisos</h3>
-        <span>Diagnóstico rápido de tokens, foco y mute</span>
+        <h3>Dispositivos y clientes activos</h3>
+        <span>Tokens, permisos, ubicación, foco y contexto real de las sesiones del cliente</span>
       </div>
       <div class="programmer-three-col">
         <article class="programmer-metric-card programmer-metric-card-inline">
@@ -1321,7 +1575,7 @@ function renderHerramientasTab() {
     <section class="programmer-section cc-section-fade">
       <div class="programmer-section-head">
         <h3>Herramientas del sistema</h3>
-        <span>Operaciones seguras con progreso y confirmación</span>
+        <span>Operaciones seguras, progreso visible, confirmación y log técnico centralizado</span>
       </div>
       <div class="cc-tools-grid">
         ${tools.map(t => `
