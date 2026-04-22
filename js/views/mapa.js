@@ -6109,7 +6109,6 @@ function _umRenderCards() {
     const plazaLabel = escapeHtml(u.plazaAsignada || 'Sin plaza');
     const statusLabel = escapeHtml((u.status || 'ACTIVO').toUpperCase());
     const multiPlazas = Array.isArray(u.plazasPermitidas) ? u.plazasPermitidas.filter(Boolean) : [];
-    const scopeLabel = multiPlazas.length > 0 ? `${multiPlazas.length} plazas extra` : 'Alcance estándar';
     return `<button type="button" class="um-card${active}" onclick="umSeleccionar('${u.id}')" aria-pressed="${active ? 'true' : 'false'}">
           <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
           <div class="um-card-info">
@@ -6118,11 +6117,13 @@ function _umRenderCards() {
                 <div class="um-card-name">${u.nombre}</div>
                 <div class="um-card-email">${u.email || '(usuario heredado)'}</div>
               </div>
-              <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
+              <div class="um-card-badges">
+                <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
+                ${multiPlazas.length > 0 ? `<span class="um-role-badge um-role-badge-muted">+${escapeHtml(String(multiPlazas.length))} plazas</span>` : ''}
+              </div>
             </div>
             <div class="um-card-meta">
               <span><span class="material-icons">apartment</span>${plazaLabel}</span>
-              <span><span class="material-icons">workspace_premium</span>${scopeLabel}</span>
               <span class="${statusLabel === 'ACTIVO' ? 'success' : ''}"><span class="material-icons">verified</span>${statusLabel}</span>
             </div>
           </div>
@@ -6145,10 +6146,9 @@ function _umRenderEditForm(user) {
   const plazasPermitidas = Array.isArray(user.plazasPermitidas) ? user.plazasPermitidas.filter(Boolean) : [];
   const accessMeta = ROLE_META[_sanitizeRole(user.rol) || 'AUXILIAR'] || {};
   const contextCards = [
-    ['Documento', user.id || 'legacy'],
     ['Cobertura', plazasPermitidas.length > 0 ? `Multi-plaza (${plazasPermitidas.length})` : (user.plazaAsignada || 'Sin plaza base')],
-    ['Acceso', accessMeta.fullAccess ? 'Global' : (accessMeta.isAdmin ? 'Administrativo' : 'Operativo')],
-    ['Autenticación', user.email ? 'Cuenta activa' : 'Perfil heredado']
+    ['Nivel', accessMeta.fullAccess ? 'Global' : (accessMeta.isAdmin ? 'Administrativo' : 'Operativo')],
+    ['Cuenta', user.email ? 'Cuenta activa' : 'Perfil heredado']
   ];
 
   const roleLockedMsg = canEdit ? '' : `
@@ -6175,7 +6175,7 @@ function _umRenderEditForm(user) {
             <div class="um-profile-tags">
               <span class="um-info-pill">${escapeHtml(roleBadge.label)}</span>
               <span class="um-info-pill">${escapeHtml(user.plazaAsignada || 'Sin plaza')}</span>
-              <span class="um-info-pill success">${escapeHtml((user.status || 'ACTIVO').toUpperCase())}</span>
+              ${plazasPermitidas.length > 0 ? `<span class="um-info-pill neutral">+${escapeHtml(String(plazasPermitidas.length))} plazas extra</span>` : ''}
             </div>
           </div>
         </div>
@@ -16536,12 +16536,19 @@ function _cfgRenderRolesTab(container) {
   const selectedRole = _cfgSecuritySelectedRole;
   const selectedMeta = _roleMeta(selectedRole);
   const selectedTemplate = _cfgRoleTemplate(selectedRole);
-  const permissionGroups = _permissionEntries().reduce((acc, item) => {
+  const permissionEntries = _permissionEntries();
+  const permissionGroups = permissionEntries.reduce((acc, item) => {
     acc[item.group] = acc[item.group] || [];
     acc[item.group].push(item);
     return acc;
   }, {});
   const isSystem = _isSystemRole(selectedRole);
+  const scopeLabel = selectedMeta.fullAccess
+    ? 'Global'
+    : (selectedMeta.multiPlaza ? 'Multi-plaza' : (selectedMeta.needsPlaza ? 'Por plaza' : 'Libre'));
+  const accessLabel = selectedMeta.fullAccess
+    ? 'Acceso total'
+    : (selectedMeta.isAdmin ? 'Administrativo' : 'Operativo');
 
   container.innerHTML = `
     <div class="cfg-security-shell">
@@ -16587,64 +16594,92 @@ function _cfgRenderRolesTab(container) {
           </div>
         </div>
 
-        <div class="cfg-security-role-form">
-          <label>
-            <span>Nombre visible</span>
-            <input type="text" value="${escapeHtml(selectedTemplate.label || selectedMeta.label)}" onchange="_cfgActualizarRolCampo('${selectedRole}','label', this.value)">
-          </label>
-          <label>
-            <span>Nivel</span>
-            <input type="number" min="1" max="99" value="${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}" onchange="_cfgActualizarRolCampo('${selectedRole}','level', this.value)">
-          </label>
-          <label class="cfg-security-check">
-            <input type="checkbox" ${selectedMeta.isAdmin ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','isAdmin', this.checked)">
-            <span>Es admin</span>
-          </label>
-          <label class="cfg-security-check">
-            <input type="checkbox" ${selectedMeta.needsPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','needsPlaza', this.checked)">
-            <span>Requiere plaza base</span>
-          </label>
-          <label class="cfg-security-check">
-            <input type="checkbox" ${selectedMeta.multiPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','multiPlaza', this.checked)">
-            <span>Puede ver varias plazas</span>
-          </label>
-          <label class="cfg-security-check">
-            <input type="checkbox" ${selectedMeta.fullAccess ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','fullAccess', this.checked)">
-            <span>Acceso total</span>
-          </label>
-        </div>
-
-        <div class="cfg-security-permission-matrix">
-          ${Object.entries(permissionGroups).map(([group, items]) => `
-            <section class="cfg-security-matrix-group">
-              <div class="cfg-security-matrix-group-title">${escapeHtml(group)}</div>
-              ${items.map(item => `
-                <label class="cfg-security-matrix-item">
-                  <div>
-                    <strong>${escapeHtml(item.label)}</strong>
-                    <small>${escapeHtml(item.description)}</small>
-                  </div>
-                  <input type="checkbox" ${selectedMeta.permissions?.[item.key] ? 'checked' : ''} ${selectedMeta.fullAccess ? 'disabled' : ''} onchange="_cfgToggleRolPermiso('${selectedRole}','${item.key}', this.checked)">
-                </label>
-              `).join('')}
-            </section>
-          `).join('')}
-        </div>
-
-        <div class="cfg-security-permission-editor">
-          <div class="cfg-security-panel-head">
-            <div>
-              <strong>Catálogo de permisos</strong>
-              <small>Cambia solo el nombre visible y la descripción para el panel administrativo.</small>
-            </div>
+        <div class="cfg-security-role-insights">
+          <div class="cfg-security-insight-chip">
+            <span>Alcance</span>
+            <strong>${escapeHtml(scopeLabel)}</strong>
           </div>
-          ${_permissionEntries().map(item => `
-            <div class="cfg-security-catalog-item">
-              <div class="cfg-security-catalog-key">${escapeHtml(item.key)}</div>
-              <input type="text" value="${escapeHtml(item.label)}" onchange="_cfgActualizarPermisoMeta('${item.key}','label', this.value)">
-              <input type="text" value="${escapeHtml(item.description)}" onchange="_cfgActualizarPermisoMeta('${item.key}','description', this.value)">
+          <div class="cfg-security-insight-chip">
+            <span>Nivel</span>
+            <strong>${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}</strong>
+          </div>
+          <div class="cfg-security-insight-chip">
+            <span>Modo</span>
+            <strong>${escapeHtml(accessLabel)}</strong>
+          </div>
+          <div class="cfg-security-insight-chip">
+            <span>Permisos</span>
+            <strong>${escapeHtml(String(permissionEntries.length))} activos</strong>
+          </div>
+        </div>
+
+        <div class="cfg-security-main-scroll">
+          <div class="cfg-security-role-form">
+            <label>
+              <span>Nombre visible</span>
+              <input type="text" value="${escapeHtml(selectedTemplate.label || selectedMeta.label)}" onchange="_cfgActualizarRolCampo('${selectedRole}','label', this.value)">
+            </label>
+            <label>
+              <span>Nivel</span>
+              <input type="number" min="1" max="99" value="${escapeHtml(String(selectedTemplate.level ?? selectedMeta.level ?? 10))}" onchange="_cfgActualizarRolCampo('${selectedRole}','level', this.value)">
+            </label>
+            <label class="cfg-security-check">
+              <input type="checkbox" ${selectedMeta.isAdmin ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','isAdmin', this.checked)">
+              <span>Es admin</span>
+            </label>
+            <label class="cfg-security-check">
+              <input type="checkbox" ${selectedMeta.needsPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','needsPlaza', this.checked)">
+              <span>Requiere plaza base</span>
+            </label>
+            <label class="cfg-security-check">
+              <input type="checkbox" ${selectedMeta.multiPlaza ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','multiPlaza', this.checked)">
+              <span>Puede ver varias plazas</span>
+            </label>
+            <label class="cfg-security-check">
+              <input type="checkbox" ${selectedMeta.fullAccess ? 'checked' : ''} onchange="_cfgActualizarRolBoolean('${selectedRole}','fullAccess', this.checked)">
+              <span>Acceso total</span>
+            </label>
+          </div>
+
+          <div class="cfg-security-compact-note">
+            Ajusta el rol aquí y deja el catálogo avanzado cerrado salvo que realmente necesites cambiar etiquetas o descripciones del panel.
+          </div>
+
+          <div class="cfg-security-permission-matrix">
+            ${Object.entries(permissionGroups).map(([group, items]) => `
+              <section class="cfg-security-matrix-group">
+                <div class="cfg-security-matrix-group-title">${escapeHtml(group)}</div>
+                ${items.map(item => `
+                  <label class="cfg-security-matrix-item">
+                    <div>
+                      <strong>${escapeHtml(item.label)}</strong>
+                      <small>${escapeHtml(item.description)}</small>
+                    </div>
+                    <input type="checkbox" ${selectedMeta.permissions?.[item.key] ? 'checked' : ''} ${selectedMeta.fullAccess ? 'disabled' : ''} onchange="_cfgToggleRolPermiso('${selectedRole}','${item.key}', this.checked)">
+                  </label>
+                `).join('')}
+              </section>
+            `).join('')}
+          </div>
+
+          <details class="cfg-security-permission-library">
+            <summary>
+              <div>
+                <strong>Catálogo de permisos</strong>
+                <small>Editar solo cuando cambie el lenguaje del panel o la taxonomía interna.</small>
+              </div>
+              <span class="material-icons">expand_more</span>
+            </summary>
+            <div class="cfg-security-permission-editor">
+              ${permissionEntries.map(item => `
+                <div class="cfg-security-catalog-item">
+                  <div class="cfg-security-catalog-key">${escapeHtml(item.key)}</div>
+                  <input type="text" value="${escapeHtml(item.label)}" onchange="_cfgActualizarPermisoMeta('${item.key}','label', this.value)">
+                  <input type="text" value="${escapeHtml(item.description)}" onchange="_cfgActualizarPermisoMeta('${item.key}','description', this.value)">
+                </div>
+              `).join('')}
             </div>
-          `).join('')}
+          </details>
         </div>
       </section>
     </div>
@@ -17974,20 +18009,16 @@ function renderizarTabConfigUsuarios(container) {
             <div class="um-workspace-copy">
               <span class="um-workspace-kicker">Accesos y permisos</span>
               <h3>Usuarios del sistema</h3>
-              <p>Selecciona una cuenta y edítala a la derecha. La vista mantiene el flujo conocido, pero aprovecha mejor el ancho en escritorio.</p>
+              <p>Directorio operativo y editor contextual para cuentas, roles y alcance por plaza.</p>
             </div>
-            <div class="um-workspace-meta">
+            <div class="um-workspace-meta um-workspace-meta-compact">
               <span class="cfg-v2-meta-chip">
-                <span class="material-icons">place</span>
-                Plaza activa: ${escapeHtml(operatorSummary.plazaActiva)}
+                <span class="material-icons">badge</span>
+                ${escapeHtml(operatorSummary.operatorName)}
               </span>
               <span class="cfg-v2-meta-chip">
                 <span class="material-icons">verified_user</span>
-                ${escapeHtml(operatorSummary.roleLabel)}
-              </span>
-              <span class="cfg-v2-meta-chip">
-                <span class="material-icons">person</span>
-                ${escapeHtml(operatorSummary.operatorName)}
+                ${escapeHtml(operatorSummary.roleLabel)} · ${escapeHtml(operatorSummary.plazaActiva)}
               </span>
             </div>
           </div>
@@ -17998,7 +18029,7 @@ function renderizarTabConfigUsuarios(container) {
                 <div>
                   <span class="um-column-kicker">Directorio</span>
                   <h4>Cuentas y accesos</h4>
-                  <p>Busca rápido, filtra por plaza y selecciona una cuenta para abrir su editor contextual.</p>
+                  <p>Busca, filtra y abre el editor sin llenar la vista de acciones repetidas.</p>
                 </div>
                 <span id="um-directory-count" class="cfg-catalog-count">0 visibles</span>
               </div>
@@ -18021,7 +18052,7 @@ function renderizarTabConfigUsuarios(container) {
                 <div>
                   <span class="um-column-kicker">Editor contextual</span>
                   <h4>Perfil, alcance y permisos</h4>
-                  <p>El panel derecho concentra la edición y evita botonera repetida dentro del listado.</p>
+                  <p>Todo el cambio importante vive aquí: identidad, rol, plaza y permisos puntuales.</p>
                 </div>
                 <div class="um-column-actions">
                   <button id="btn-nuevo-usuario" type="button" class="um-toolbar-btn primary" onclick="_umNuevoUsuarioConAnim()">

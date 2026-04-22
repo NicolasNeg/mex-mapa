@@ -572,17 +572,17 @@ function renderShell() {
   root.innerHTML = `
     <div class="cc-topbar">
       <div class="cc-topbar-left">
-        <div class="cc-topbar-icon"><span class="material-icons">terminal</span></div>
+        <div class="cc-topbar-icon"><span class="material-icons">monitoring</span></div>
         <div>
           <div class="cc-topbar-kicker">
             <span style="display:inline-flex;align-items:center;gap:5px;">
               <span style="width:6px;height:6px;border-radius:50%;background:${healthColor};display:inline-block;box-shadow:0 0 5px ${healthColor};"></span>
-              ${errCount > 0 ? `${errCount} ${errCount === 1 ? 'error' : 'errores'} activos` : 'Sistema operando con normalidad'}
+              ${errCount > 0 ? `${errCount} ${errCount === 1 ? 'incidencia activa' : 'incidencias activas'}` : 'Sistema estable'}
             </span>
-            · ${escapeHtml(window.FIREBASE_CONFIG?.projectId || 'firebase')}
+            · Entorno ${escapeHtml(window.FIREBASE_CONFIG?.projectId || 'productivo')}
           </div>
-          <h1 class="cc-topbar-title">Centro de Control</h1>
-          <p class="cc-topbar-sub">Observabilidad, control técnico y acciones seguras conectadas al producto real.</p>
+          <h1 class="cc-topbar-title">Consola Técnica MAPA</h1>
+          <p class="cc-topbar-sub">Salud de plataforma, clientes conectados, datos y acciones seguras con narrativa de producto.</p>
         </div>
       </div>
       <div class="cc-topbar-right">
@@ -1044,14 +1044,14 @@ function renderResumenTab() {
       <div class="programmer-panel">
         <div class="programmer-panel-head">
           <h4>Actividad reciente</h4>
-          <span>ops_events · últimos 12</span>
+          <span>Flujo operativo del sistema · últimos 12 eventos</span>
         </div>
         ${state.opsRows.length ? rowsToTable(state.opsRows.slice(0, 12)) : skeletonRows(5)}
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
           <h4>Jobs recientes</h4>
-          <span>programmer_jobs · últimos 10</span>
+          <span>Ejecuciones técnicas y tareas de mantenimiento</span>
         </div>
         ${state.jobsRows.length ? rowsToTable(state.jobsRows.slice(0, 10)) : skeletonRows(5)}
       </div>
@@ -1092,14 +1092,14 @@ function renderNotificacionesTab() {
       <div class="programmer-panel">
         <div class="programmer-panel-head">
           <h4>Inbox reciente</h4>
-          <span>collectionGroup(inbox)</span>
+          <span>Notificaciones registradas en clientes y usuarios</span>
         </div>
         ${renderNotificationsFeed(state.notificationsRows.slice(0, 16))}
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
           <h4>Dispositivos recientes</h4>
-          <span>Tokens, permisos y foco</span>
+          <span>Tokens, permisos, foco activo y contexto del cliente</span>
         </div>
         ${renderDevicesTableHtml(state.devicesRows.slice(0, 16))}
       </div>
@@ -1458,8 +1458,8 @@ function renderErroresTab() {
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
-          <h4>programmer_errors</h4>
-          <span>${escapeHtml(String(state.errorsRows.length))} registros</span>
+          <h4>Registro técnico unificado</h4>
+          <span>${escapeHtml(String(state.errorsRows.length))} eventos con contexto operativo</span>
         </div>
         ${rowsToTable(state.errorsRows)}
       </div>
@@ -1495,8 +1495,8 @@ function renderDispositivosTab() {
       </div>
       <div class="programmer-panel">
         <div class="programmer-panel-head">
-          <h4>collectionGroup(devices)</h4>
-          <span>Últimos dispositivos registrados</span>
+          <h4>Clientes activos y diagnóstico</h4>
+          <span>Permisos, ubicación, foco y salud del dispositivo</span>
         </div>
         ${renderDevicesTableHtml(state.devicesRows)}
       </div>

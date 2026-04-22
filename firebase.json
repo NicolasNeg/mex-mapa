@@ -79,6 +79,7 @@
       { "source": "/login",       "destination": "/login.html" },
       { "source": "/mapa",        "destination": "/mapa.html" },
       { "source": "/programador", "destination": "/programador.html" },
+      { "source": "/home",        "destination": "/home.html" },
       { "source": "/gestion",     "destination": "/gestion.html" },
       { "source": "/cuadre",      "destination": "/cuadre.html" },
       { "source": "/mensajes",    "destination": "/mensajes.html" },
