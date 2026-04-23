@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es" class="programmer-route cola-route" data-page-title="Cola de preparacion" data-page-description="Cola operativa de preparacion de %COMPANY%">
+<html lang="es" class="programmer-route cola-route" data-page-title="Cola de preparación" data-page-description="Cola operativa de preparación de %COMPANY%">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#064e3b">
+  <meta name="theme-color" content="#0f172a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -11,9 +11,40 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/cola-preparacion.css">
+  <script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            background: "#f1f5f9",
+            surface: "#ffffff",
+            "surface-2": "#f8fafc",
+            primary: "#0f172a",
+            accent: "#0f766e",
+            "accent-2": "#2563eb",
+            border: "#e2e8f0",
+            muted: "#64748b",
+            success: "#059669",
+            warning: "#d97706",
+            danger: "#dc2626"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"]
+          },
+          borderRadius: {
+            card: "28px"
+          }
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
@@ -25,25 +56,21 @@
 
   <title>Cola de preparación</title>
 </head>
-<body class="programmer-page cola-page">
-  <div class="prep-shell">
-    <header class="prep-topbar">
-      <div class="prep-topbar-main">
-        <a class="prep-back-btn" href="/cuadre">
-          <span class="material-icons" style="font-size:18px;">arrow_back</span>
-          Volver
-        </a>
-        <div class="prep-brand">
-          <div class="prep-kicker">
-            <span class="material-icons" style="font-size:13px;">checklist_rtl</span>
-            Seguimiento mecánico
-          </div>
-          <h1>Cola de preparación</h1>
-          <p>Seguimiento detallado de cada unidad, su checklist y prioridad antes de salida.</p>
-        </div>
+<body class="cola-page bg-[#f1f5f9] text-[#0f172a] font-sans antialiased min-h-screen flex flex-col">
+  <header class="prep-topbar sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+    <div class="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4 px-6">
+      <div class="flex h-full min-w-0 items-center gap-8">
+        <a class="text-xl font-black tracking-tighter text-slate-900 uppercase" href="/home">MAPA</a>
+        <nav class="hidden md:flex h-full items-end gap-6 text-sm font-medium tracking-tight">
+          <a class="pb-4 mt-1 text-slate-500 transition-colors duration-200 hover:text-slate-900" href="/home">Inicio</a>
+          <a class="pb-4 mt-1 text-slate-500 transition-colors duration-200 hover:text-slate-900" href="/mapa">Mapa</a>
+          <a class="pb-4 mt-1 border-b-2 border-slate-900 text-slate-900 transition-colors duration-200" href="/cola-preparacion">Queue</a>
+          <a class="pb-4 mt-1 text-slate-500 transition-colors duration-200 hover:text-slate-900" href="/gestion">Gestión</a>
+        </nav>
       </div>
-      <div class="prep-topbar-side">
-        <div class="prep-user-card">
+
+      <div class="flex items-center gap-3">
+        <div class="hidden xl:flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2">
           <div id="prepUserAvatar" class="prep-user-avatar">CP</div>
           <div class="prep-user-copy">
             <strong id="prepUserName">Cargando...</strong>
@@ -51,245 +78,192 @@
             <span id="prepUserRole" class="prep-role-badge"></span>
           </div>
         </div>
-        <a class="prep-nav-link" href="/mapa">
-          <span class="material-icons" style="font-size:16px;">map</span>
-          Mapa
-        </a>
-        <a class="prep-nav-link" href="/gestion">
-          <span class="material-icons" style="font-size:16px;">manage_accounts</span>
-          Gestion
-        </a>
+        <button class="prep-icon-btn" type="button" aria-label="Notificaciones">
+          <span class="material-icons" style="font-size:18px;">notifications</span>
+        </button>
+        <button class="prep-icon-btn" type="button" aria-label="Configuración">
+          <span class="material-icons" style="font-size:18px;">settings</span>
+        </button>
+        <button class="prep-icon-btn" type="button" aria-label="Ayuda">
+          <span class="material-icons" style="font-size:18px;">help</span>
+        </button>
       </div>
-    </header>
+    </div>
+  </header>
 
-    <main class="prep-main">
-      <section class="prep-command-bar">
-        <div class="prep-command-left">
+  <main class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 px-6 py-5 lg:flex-row">
+    <section class="prep-shell-left flex w-full flex-col gap-4 lg:w-[420px] lg:flex-shrink-0 lg:h-[calc(100vh-96px)] lg:overflow-hidden">
+      <div class="prep-command-bar rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">MÓDULO OPERATIVO</div>
+            <h1 class="mt-1 text-4xl font-black tracking-[-0.05em] text-slate-900">Cola de preparación</h1>
+            <p class="mt-2 max-w-[34rem] text-sm leading-6 text-slate-500">Gestiona el checklist y la prioridad de las unidades próximas a salir.</p>
+          </div>
+          <div class="hidden sm:flex items-center gap-2">
+            <a class="prep-nav-link" href="/mapa">
+              <span class="material-icons" style="font-size:16px;">map</span>
+              Mapa
+            </a>
+            <a class="prep-nav-link" href="/gestion">
+              <span class="material-icons" style="font-size:16px;">manage_accounts</span>
+              Gestión
+            </a>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap items-end gap-3">
           <label class="prep-field prep-plaza-field">
             <span>Plaza activa</span>
             <select id="prepPlazaSelect"></select>
           </label>
-          <label class="prep-field prep-search-field">
-            <span>Buscar</span>
-            <div class="prep-input-shell">
-              <span class="material-icons" style="font-size:18px;">search</span>
-              <input id="prepSearchInput" type="search" placeholder="Buscar por MVA, notas o responsable">
-            </div>
-          </label>
-        </div>
-        <div class="prep-command-right">
-          <div class="prep-filter-row" id="prepFilterRow">
-            <button type="button" class="prep-filter-chip is-active" data-filter="all">Todo</button>
-            <button type="button" class="prep-filter-chip" data-filter="urgent">Urgente</button>
-            <button type="button" class="prep-filter-chip" data-filter="pending">Pendiente</button>
-            <button type="button" class="prep-filter-chip" data-filter="ready">Lista</button>
-            <button type="button" class="prep-filter-chip" data-filter="mine">Asignadas a mi</button>
-          </div>
+
           <button id="prepAddBtn" type="button" class="prep-primary-btn">
             <span class="material-icons" style="font-size:18px;">playlist_add</span>
             Nueva salida
           </button>
+
           <button id="prepBulkCompleteBtn" type="button" class="prep-link-btn" style="display:none;" title="Marcar checklist completo en todas las unidades visibles">
             <span class="material-icons" style="font-size:18px;">done_all</span>
             <span class="prep-btn-label">Todas listas</span>
           </button>
         </div>
-      </section>
 
-      <details class="prep-instructions">
-        <summary class="prep-instructions-toggle">
-          <span class="material-icons">help_outline</span>
-          <span>Cómo funciona esta vista</span>
-          <span class="material-icons prep-instructions-chevron">expand_more</span>
-        </summary>
-        <div class="prep-instructions-body">
-          <div class="prep-instructions-grid">
-            <div class="prep-instructions-step">
-              <span class="prep-instructions-num">1</span>
-              <div>
-                <strong>Registra unidades a preparar</strong>
-                <p>Usa "Nueva salida" para capturar un MVA. La vista intenta recuperar modelo, categoría, estado y ubicación del expediente.</p>
-              </div>
-            </div>
-            <div class="prep-instructions-step">
-              <span class="prep-instructions-num">2</span>
-              <div>
-                <strong>Completa el checklist</strong>
-                <p>Marca lavado, gasolina, documentación y revisión mecánica. El avance se sincroniza en tiempo real.</p>
-              </div>
-            </div>
-            <div class="prep-instructions-step">
-              <span class="prep-instructions-num">3</span>
-              <div>
-                <strong>Asigna responsables</strong>
-                <p>Escribe el nombre o correo del operativo. Usa "Asignarme" si quieres tomar la unidad al instante.</p>
-              </div>
-            </div>
-            <div class="prep-instructions-step">
-              <span class="prep-instructions-num">4</span>
-              <div>
-                <strong>Prioriza y reordena</strong>
-                <p>Las salidas urgentes se marcan en rojo. Arrastra las tarjetas para ajustar el orden y guardar la secuencia operativa.</p>
-              </div>
-            </div>
+        <label class="prep-field prep-search-field mt-4">
+          <span>Buscar</span>
+          <div class="prep-input-shell">
+            <span class="material-icons" style="font-size:18px;">search</span>
+            <input id="prepSearchInput" type="search" placeholder="Buscar por MVA, notas o responsable">
           </div>
-          <div class="prep-instructions-roles">
-            <div class="prep-instructions-role-chip">
-              <strong>Auxiliar / Ventas</strong>
-              <span>Ver cola, marcar checklist y asignarse unidades</span>
-            </div>
-            <div class="prep-instructions-role-chip">
-              <strong>Jefe de Patio / Supervisor</strong>
-              <span>Todo lo anterior + eliminar entradas y revisar responsables</span>
-            </div>
-            <div class="prep-instructions-role-chip prep-instructions-role-chip--admin">
-              <strong>Gerente / Corporativo / Programador</strong>
-              <span>Acceso completo + cambio de plaza y control global</span>
-            </div>
-          </div>
+        </label>
+
+        <div id="prepFilterRow" class="prep-filter-row mt-4">
+          <button type="button" class="prep-filter-chip is-active" data-filter="all">Todo</button>
+          <button type="button" class="prep-filter-chip" data-filter="urgent">Urgente</button>
+          <button type="button" class="prep-filter-chip" data-filter="pending">Pendiente</button>
+          <button type="button" class="prep-filter-chip" data-filter="ready">Lista</button>
+          <button type="button" class="prep-filter-chip" data-filter="mine">Asignadas a mi</button>
         </div>
-      </details>
+      </div>
 
-      <section class="prep-stats-grid" id="prepStatsGrid">
-        <article class="prep-stat-card accent-blue">
-          <span class="prep-stat-label">En cola</span>
-          <strong id="prepStatTotal">0</strong>
-          <small>Unidades activas para preparacion</small>
-        </article>
-        <article class="prep-stat-card accent-amber">
-          <span class="prep-stat-label">Urgentes</span>
-          <strong id="prepStatUrgent">0</strong>
-          <small>Salida en 24 horas o menos</small>
-        </article>
-        <article class="prep-stat-card accent-green">
-          <span class="prep-stat-label">Listas</span>
-          <strong id="prepStatReady">0</strong>
-          <small>Checklist completo y salida validada</small>
-        </article>
-        <article class="prep-stat-card accent-slate">
-          <span class="prep-stat-label">Avance</span>
-          <strong id="prepStatProgress">0%</strong>
-          <small>Promedio general del checklist</small>
-        </article>
-      </section>
-
-      <section class="prep-workspace">
-        <div class="prep-board">
-          <div class="prep-panel-head">
-            <div>
-              <div class="prep-panel-kicker">Orden operativo</div>
-              <h2>Fila de preparacion</h2>
-            </div>
-            <div id="prepBoardMeta" class="prep-panel-meta">Esperando datos...</div>
+      <div class="prep-board flex min-h-0 flex-1 flex-col rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="prep-panel-head mb-4 flex items-start justify-between gap-4">
+          <div>
+            <div class="prep-panel-kicker">Orden operativo</div>
+            <h2 class="mt-2 text-2xl font-black tracking-[-0.04em] text-slate-900">Fila de preparación</h2>
           </div>
-          <div id="prepList" class="prep-list" aria-live="polite"></div>
+          <div id="prepBoardMeta" class="pt-1 text-sm font-medium text-slate-500">Esperando datos...</div>
+        </div>
+        <div id="prepList" class="prep-list custom-scrollbar flex-1 overflow-y-auto pr-2" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <section class="prep-detail flex-1 lg:h-[calc(100vh-96px)] lg:overflow-y-auto pr-2 custom-scrollbar">
+      <div class="rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="prep-panel-head mb-4 flex flex-col gap-4 border-b border-slate-200 pb-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <div class="prep-panel-kicker">Detalle contextual</div>
+            <h2 id="prepDetailTitle" class="mt-2 text-3xl font-black tracking-[-0.05em] text-slate-900">Selecciona una unidad</h2>
+            <p class="mt-2 text-sm text-slate-500">Resumen operativo, checklist y acciones rápidas para la salida.</p>
+          </div>
+          <button id="prepDeleteBtn" type="button" class="prep-danger-btn self-start" disabled>
+            <span class="material-icons" style="font-size:18px;">delete</span>
+            Eliminar
+          </button>
         </div>
 
-        <aside class="prep-detail">
-          <div class="prep-panel-head">
+        <div id="prepEmptyDetail" class="prep-empty-state">
+          <span class="material-icons">task_alt</span>
+          <h3>Sin unidad seleccionada</h3>
+          <p>Elige una tarjeta de la cola para revisar checklist, notas, responsable y fecha de salida.</p>
+        </div>
+
+        <form id="prepDetailForm" class="prep-detail-form" style="display:none;">
+          <div class="prep-detail-hero rounded-[24px] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-5">
             <div>
-              <div class="prep-panel-kicker">Detalle</div>
-              <h2 id="prepDetailTitle">Selecciona una unidad</h2>
+              <div id="prepDetailMva" class="prep-detail-mva">MVA</div>
+              <div id="prepDetailUnitMeta" class="prep-detail-meta">Sin expediente local</div>
             </div>
-            <button id="prepDeleteBtn" type="button" class="prep-danger-btn" disabled>
-              <span class="material-icons" style="font-size:18px;">delete</span>
-              Eliminar
+            <div id="prepDetailEta" class="prep-eta-pill">Sin fecha</div>
+          </div>
+
+          <div class="prep-detail-quick-actions">
+            <button id="prepAssignMeBtn" type="button" class="prep-link-btn">
+              <span class="material-icons" style="font-size:18px;">person_pin</span>
+              Asignarme
+            </button>
+            <button id="prepCompleteChecklistBtn" type="button" class="prep-link-btn">
+              <span class="material-icons" style="font-size:18px;">task_alt</span>
+              Checklist completo
+            </button>
+            <button id="prepCopyMvaBtn" type="button" class="prep-link-btn">
+              <span class="material-icons" style="font-size:18px;">content_copy</span>
+              Copiar MVA
             </button>
           </div>
 
-          <div id="prepEmptyDetail" class="prep-empty-state">
-            <span class="material-icons">task_alt</span>
-            <h3>Sin unidad seleccionada</h3>
-            <p>Elige una tarjeta de la cola para revisar checklist, notas, responsable y fecha de salida.</p>
+          <div class="prep-unit-summary-grid">
+            <article class="prep-unit-summary-card">
+              <span class="prep-unit-summary-label">Modelo</span>
+              <strong id="prepSummaryModelo">Sin dato</strong>
+            </article>
+            <article class="prep-unit-summary-card">
+              <span class="prep-unit-summary-label">Categoría</span>
+              <strong id="prepSummaryCategoria">Sin dato</strong>
+            </article>
+            <article class="prep-unit-summary-card">
+              <span class="prep-unit-summary-label">Ubicación</span>
+              <strong id="prepSummaryUbicacion">Sin dato</strong>
+            </article>
+            <article class="prep-unit-summary-card">
+              <span class="prep-unit-summary-label">Fuente</span>
+              <strong id="prepSummaryOrigen">Sin dato</strong>
+            </article>
           </div>
 
-          <form id="prepDetailForm" class="prep-detail-form" style="display:none;">
-            <div class="prep-detail-hero">
-              <div>
-                <div id="prepDetailMva" class="prep-detail-mva">MVA</div>
-                <div id="prepDetailUnitMeta" class="prep-detail-meta">Sin expediente local</div>
-              </div>
-              <div id="prepDetailEta" class="prep-eta-pill">Sin fecha</div>
+          <div class="prep-progress-card">
+            <div class="prep-progress-head">
+              <span>Checklist general</span>
+              <strong id="prepDetailProgressLabel">0%</strong>
             </div>
-
-            <div class="prep-detail-quick-actions">
-              <button id="prepAssignMeBtn" type="button" class="prep-link-btn">
-                <span class="material-icons" style="font-size:18px;">person_pin</span>
-                Asignarme
-              </button>
-              <button id="prepCompleteChecklistBtn" type="button" class="prep-link-btn">
-                <span class="material-icons" style="font-size:18px;">task_alt</span>
-                Checklist completo
-              </button>
-              <button id="prepCopyMvaBtn" type="button" class="prep-link-btn">
-                <span class="material-icons" style="font-size:18px;">content_copy</span>
-                Copiar MVA
-              </button>
+            <div class="prep-progress-bar">
+              <span id="prepDetailProgressFill"></span>
             </div>
+          </div>
 
-            <div class="prep-unit-summary-grid">
-              <article class="prep-unit-summary-card">
-                <span class="prep-unit-summary-label">Modelo</span>
-                <strong id="prepSummaryModelo">Sin dato</strong>
-              </article>
-              <article class="prep-unit-summary-card">
-                <span class="prep-unit-summary-label">Categoria</span>
-                <strong id="prepSummaryCategoria">Sin dato</strong>
-              </article>
-              <article class="prep-unit-summary-card">
-                <span class="prep-unit-summary-label">Ubicacion</span>
-                <strong id="prepSummaryUbicacion">Sin dato</strong>
-              </article>
-              <article class="prep-unit-summary-card">
-                <span class="prep-unit-summary-label">Fuente</span>
-                <strong id="prepSummaryOrigen">Sin dato</strong>
-              </article>
-            </div>
+          <div id="prepChecklistGrid" class="prep-checklist-grid"></div>
 
-            <div class="prep-progress-card">
-              <div class="prep-progress-head">
-                <span>Checklist general</span>
-                <strong id="prepDetailProgressLabel">0%</strong>
-              </div>
-              <div class="prep-progress-bar">
-                <span id="prepDetailProgressFill"></span>
-              </div>
-            </div>
-
-            <div id="prepChecklistGrid" class="prep-checklist-grid"></div>
-
-            <div class="prep-form-grid">
-              <label class="prep-field">
-                <span>Fecha y hora de salida</span>
-                <input id="prepDepartureInput" type="datetime-local">
-              </label>
-              <label class="prep-field">
-                <span>Asignado a</span>
-                <input id="prepAssignedInput" type="text" list="prepUsersDatalist" placeholder="Correo o nombre del operativo">
-                <datalist id="prepUsersDatalist"></datalist>
-              </label>
-            </div>
-
+          <div class="prep-form-grid">
             <label class="prep-field">
-              <span>Notas operativas</span>
-              <textarea id="prepNotesInput" rows="6" placeholder="Ej: falta lavado interior, tanque a 3/4, validar documentos antes de las 18:00"></textarea>
+              <span>Fecha y hora de salida</span>
+              <input id="prepDepartureInput" type="datetime-local">
             </label>
+            <label class="prep-field">
+              <span>Asignado a</span>
+              <input id="prepAssignedInput" type="text" list="prepUsersDatalist" placeholder="Correo o nombre del operativo">
+              <datalist id="prepUsersDatalist"></datalist>
+            </label>
+          </div>
 
-            <div class="prep-detail-actions">
-              <button type="submit" class="prep-primary-btn">
-                <span class="material-icons" style="font-size:18px;">save</span>
-                Guardar cambios
-              </button>
-              <button id="prepResetDeleteBtn" type="button" class="prep-link-btn" style="display:none;">
-                <span class="material-icons" style="font-size:18px;">undo</span>
-                Cancelar borrado
-              </button>
-            </div>
-          </form>
-        </aside>
-      </section>
-    </main>
-  </div>
+          <label class="prep-field">
+            <span>Notas operativas</span>
+            <textarea id="prepNotesInput" rows="6" placeholder="Ej: falta lavado interior, tanque a 3/4, validar documentos antes de las 18:00"></textarea>
+          </label>
+
+          <div class="prep-detail-actions">
+            <button type="submit" class="prep-primary-btn">
+              <span class="material-icons" style="font-size:18px;">save</span>
+              Guardar cambios
+            </button>
+            <button id="prepResetDeleteBtn" type="button" class="prep-link-btn" style="display:none;">
+              <span class="material-icons" style="font-size:18px;">undo</span>
+              Cancelar borrado
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
 
   <div id="prepModal" class="prep-modal-overlay" style="display:none;" onclick="if(event.target===this)window.__prepCloseCreateModal?.()">
     <div class="prep-modal-card">
@@ -297,7 +271,7 @@
         <div>
           <div class="prep-panel-kicker">Nueva salida</div>
           <h3>Agregar unidad a la cola</h3>
-          <p>Registra manualmente la siguiente preparacion si aun no existe en la cola.</p>
+          <p>Registra manualmente la siguiente preparación si aún no existe en la cola.</p>
         </div>
         <button type="button" class="prep-icon-btn" onclick="window.__prepCloseCreateModal?.()">
           <span class="material-icons" style="font-size:18px;">close</span>
@@ -316,6 +290,7 @@
             <input id="prepCreateDeparture" type="datetime-local" required>
           </label>
         </div>
+
         <div id="prepCreateUnitPreview" class="prep-unit-preview" style="display:none;"></div>
 
         <div class="prep-form-grid">
