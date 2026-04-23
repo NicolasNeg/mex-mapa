@@ -717,14 +717,11 @@ service cloud.firestore {
             || tienePermiso(perfilActual(), "lock_map")
           )
         )
-        // Auxiliar enviando auditoría al patio: PROCESO → REVISION
-        // Solo permite cambiar los campos necesarios, solo en esa transición de estado
+        // Auxiliar enviando auditoría: transición PROCESO → REVISION
         || (
           tienePerfilActual()
-          && resource.data.get("estadoCuadreV3", "LIBRE") == "PROCESO"
+          && resource.data.estadoCuadreV3 == "PROCESO"
           && request.resource.data.estadoCuadreV3 == "REVISION"
-          && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(["estadoCuadreV3", "datosAuditoria", "ultimaModificacion", "ultimoEditor"])
         );
     }
 

@@ -4108,13 +4108,47 @@
                 </select>
               </div>
               <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Orden sugerido</label>
+                <input type="number" id="cfg-add-modelo-orden" placeholder="Ej: 4" class="cfg-add-input" min="1" max="999">
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
                 <label class="cfg-add-label">Imagen del modelo (URL opcional)</label>
                 <input type="url" id="cfg-add-modelo-img" class="cfg-add-input"
                   placeholder="https://dominio.com/modelo.jpg" oninput="_cfgPreviewModeloImg(this.value)">
+                <div style="display:grid; gap:10px; margin-top:10px;">
+                  <input type="file" id="cfg-add-modelo-file" class="cfg-add-input" accept="image/*">
+                  <label class="cfg-add-checkbox-row" for="cfg-add-modelo-remove-bg">
+                    <div class="cfg-add-checkbox-box">
+                      <input type="checkbox" id="cfg-add-modelo-remove-bg">
+                      <div class="cfg-add-checkbox-custom"></div>
+                    </div>
+                    <div>
+                      <div class="cfg-add-checkbox-label">Eliminar fondo claro</div>
+                      <div class="cfg-add-checkbox-sub">Genera PNG transparente para futuras vistas del sistema</div>
+                    </div>
+                  </label>
+                  <button type="button" class="cfg-add-btn-cancel" style="width:fit-content;" onclick="_cfgUploadModelImage('cfg-add')">
+                    <span class="material-icons" style="font-size:16px;">upload</span>
+                    Subir desde este equipo
+                  </button>
+                  <div id="cfg-add-modelo-upload-status" style="font-size:11px; font-weight:700; color:#64748b;"></div>
+                </div>
                 <div id="cfg-add-modelo-preview" class="cfg-add-modelo-preview" style="display:none;">
                   <img id="cfg-add-modelo-preview-img" alt="Preview modelo" loading="lazy">
                   <span id="cfg-add-modelo-preview-label">Vista previa</span>
                 </div>
+              </div>
+            </div>
+
+            <div id="cfg-add-categoria-options" style="display:none;">
+              <div class="cfg-add-field">
+                <label class="cfg-add-label">Descripción de la categoría</label>
+                <textarea id="cfg-add-categoria-desc" class="cfg-add-input" rows="4"
+                  placeholder="Describe cuándo usar esta categoría, su familia operativa o relación con los modelos."></textarea>
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Orden sugerido</label>
+                <input type="number" id="cfg-add-categoria-orden" placeholder="Ej: 3" class="cfg-add-input" min="1" max="999">
               </div>
             </div>
 

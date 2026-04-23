@@ -1196,7 +1196,10 @@ function _plazasPermitidas() {
 
 function _setSessionProfile(profile) {
   currentUserProfile = profile;
-  USER_NAME = profile.nombre || profile.usuario || '';
+  USER_NAME = profile.nombre || profile.nombreCompleto || profile.displayName
+    || auth.currentUser?.displayName
+    || profile.email
+    || '';
   userAccessRole = profile.rol || 'AUXILIAR';
   userRole = (profile.isAdmin || _roleMeta(userAccessRole).isAdmin) ? 'admin' : 'visitante';
   isGlobalAdmin = _roleMeta(userAccessRole).fullAccess;
@@ -18517,6 +18520,8 @@ function eliminarElementoConfig(index) {
     _cfgCatalogEditIndex = null;
     if (_cfgCatalogSelectedIndex === index) {
       _cfgCatalogSelectedIndex = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG][index] ? index : Math.max(0, index - 1);
+    } else if (_cfgCatalogSelectedIndex > index) {
+      _cfgCatalogSelectedIndex -= 1;
     }
     renderizarListaConfig();
     _persistListAdminAction(

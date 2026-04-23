@@ -965,12 +965,31 @@ window.profile_subirAvatar = function (inputEl) {
 function _openCrop(src) {
   const overlay = document.getElementById('profile-crop-overlay');
   const img = document.getElementById('profile-crop-img');
+  const zoom = document.getElementById('profile-crop-zoom-input');
+  const stage = document.getElementById('profile-crop-stage');
   if (!overlay || !img || !src) return;
 
   overlay.style.display = 'flex';
   img.src = src;
   img.onload = () => {
-    _cropState = { img, scale: 1, offsetX: 0, offsetY: 0 };
+    const stageWidth = stage?.clientWidth || 320;
+    const stageHeight = stage?.clientHeight || 320;
+    const safeNaturalWidth = img.naturalWidth || stageWidth;
+    const safeNaturalHeight = img.naturalHeight || stageHeight;
+    const fitScale = Math.max(
+      1,
+      Math.max(
+        stageWidth / safeNaturalWidth,
+        stageHeight / safeNaturalHeight
+      )
+    );
+
+    _cropState = { img, scale: fitScale, offsetX: 0, offsetY: 0 };
+    if (zoom) {
+      const normalized = Math.max(1, Math.min(3, Number(fitScale.toFixed(2))));
+      zoom.value = String(normalized);
+      _cropState.scale = normalized;
+    }
     _positionCrop();
     _renderPreview();
   };

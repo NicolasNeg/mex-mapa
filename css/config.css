@@ -2703,6 +2703,172 @@
       font-weight: 700;
     }
 
+    .cfg-detail-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .cfg-detail-grid-two {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .cfg-detail-field {
+      display: grid;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .cfg-detail-field label {
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #64748b;
+    }
+
+    .cfg-detail-field input,
+    .cfg-detail-field select,
+    .cfg-detail-field textarea,
+    .cfg-detail-upload-grid input[type="file"] {
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      padding: 11px 13px;
+      border-radius: 12px;
+      border: 1.5px solid #dbe4ee;
+      background: #fff;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: inherit;
+      transition: border-color .16s ease, box-shadow .16s ease, background .16s ease;
+    }
+
+    .cfg-detail-field textarea {
+      min-height: 108px;
+      resize: vertical;
+      line-height: 1.55;
+    }
+
+    .cfg-detail-field input:focus,
+    .cfg-detail-field select:focus,
+    .cfg-detail-field textarea:focus,
+    .cfg-detail-upload-grid input[type="file"]:focus {
+      outline: none;
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 4px rgba(96,165,250,0.15);
+    }
+
+    .cfg-detail-toggle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 46px;
+      padding: 0 14px;
+      border-radius: 12px;
+      border: 1.5px solid #dbe4ee;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 800;
+      color: #334155;
+      cursor: pointer;
+    }
+
+    .cfg-detail-toggle input {
+      width: 16px;
+      height: 16px;
+      accent-color: #2563eb;
+    }
+
+    .cfg-detail-color-row {
+      display: grid;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 10px;
+      align-items: center;
+    }
+
+    .cfg-detail-color-row input[type="color"] {
+      padding: 0;
+      min-height: 44px;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .cfg-detail-related-block {
+      display: grid;
+      gap: 10px;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid #e2e8f0;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    }
+
+    .cfg-detail-related-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .cfg-detail-related-head strong {
+      font-size: 12px;
+      font-weight: 900;
+      color: #0f172a;
+    }
+
+    .cfg-detail-related-head span {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 0 10px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .cfg-detail-related-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .cfg-detail-chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 0 12px;
+      border-radius: 999px;
+      background: #f8fafc;
+      border: 1px solid #dbe4ee;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .cfg-detail-chip.muted {
+      color: #64748b;
+      border-style: dashed;
+    }
+
+    .cfg-detail-upload-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .cfg-detail-upload-status {
+      min-height: 16px;
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 700;
+    }
+
     .cfg-detail-preview-img {
       width: 100%;
       max-height: 190px;
@@ -2810,6 +2976,15 @@
       }
 
       .cfg-detail-card {
+        max-height: none;
+      }
+
+      .cfg-detail-grid-two {
+        grid-template-columns: 1fr;
+      }
+
+      .um-edit-col .um-form-card {
+        position: static;
         max-height: none;
       }
     }
@@ -4080,7 +4255,7 @@
 }
 
     .um-workspace-shell-lite {
-      grid-template-columns: minmax(360px, 400px) minmax(0, 1fr);
+      grid-template-columns: minmax(330px, 380px) minmax(0, 1fr);
     }
 
     .um-column-head-lite {
@@ -4131,6 +4306,13 @@
 
     .um-editor-stage {
       padding-top: 18px;
+    }
+
+    .um-edit-col .um-form-card {
+      position: sticky;
+      top: 18px;
+      max-height: calc(100vh - 210px);
+      overflow-y: auto;
     }
 
     .um-context-grid {

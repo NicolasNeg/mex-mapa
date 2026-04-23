@@ -173,76 +173,224 @@
     <div class="cfg-v2-body">
 
       <!-- SIDEBAR -->
-      <div class="cfg-v2-sidebar">
-        <div class="cfg-v2-sidebar-label">
-          <span class="material-icons">shield_person</span>
-          <span>Administración</span>
+      <div class="cfg-v2-sidebar" id="cfg-admin-sidebar">
+        <div class="cfg-v2-sidebar-top">
+          <div>
+            <div class="cfg-v2-sidebar-label">
+              <span class="material-icons">admin_panel_settings</span>
+              <span>Panel Admin</span>
+            </div>
+            <div class="cfg-v2-sidebar-sublabel">Centro de configuración del negocio</div>
+          </div>
+          <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Fijar sidebar expandido">
+            <span class="material-icons">push_pin</span>
+          </button>
         </div>
-        <div class="cfg-v2-sidebar-sublabel">Usuarios, roles, catálogos y configuración</div>
         <nav class="cfg-v2-nav">
-          <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Empresa">
-            <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
-            <span>Empresa</span>
-          </button>
-          <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas">
-            <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
-            <span>Plazas</span>
-          </button>
-          <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)" title="Ubicaciones">
-            <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
-            <span>Ubicaciones</span>
-          </button>
-          <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados">
-            <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
-            <span>Estados</span>
-          </button>
-          <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)" title="Categorías">
-            <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
-            <span>Categorías</span>
-          </button>
-          <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos">
-            <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
-            <span>Modelos</span>
-          </button>
-          <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Gasolinas">
-            <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
-            <span>Gasolinas</span>
-          </button>
 
-          <div class="cfg-rail-section-label">Gestión y Permisos</div>
+          <section class="cfg-nav-group open" data-group="accesos">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('accesos')" title="Accesos y permisos">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">key</span>
+                <span>
+                  <small>Accesos y permisos</small>
+                  <strong>Usuarios, roles y solicitudes</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
+                <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+                <span>Usuarios</span>
+              </button>
+              <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
+                <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
+                <span>Roles</span>
+              </button>
+              <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;" title="Solicitudes de acceso">
+                <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
+                <span>Solicitudes</span>
+                <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
+              </button>
+            </div>
+          </section>
 
-          <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
-            <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
-            <span>Usuarios</span>
-          </button>
-          <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
-            <span class="cfg-tab-icon"><span class="material-icons">admin_panel_settings</span></span>
-            <span>Roles</span>
-          </button>
-          <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;" title="Solicitudes">
-            <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
-            <span>Solicitudes</span>
-            <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
-          </button>
-          <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)" title="Programador">
-            <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
-            <span>Programador</span>
-          </button>
+          <section class="cfg-nav-group open" data-group="operacion">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('operacion')" title="Operación">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">tune</span>
+                <span>
+                  <small>Operación</small>
+                  <strong>Catálogos del patio y reglas</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados de unidades">
+                <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+                <span>Estados</span>
+              </button>
+              <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)" title="Categorías de vehículos">
+                <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+                <span>Categorías</span>
+              </button>
+              <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos registrados">
+                <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+                <span>Modelos</span>
+              </button>
+              <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Tipos de combustible">
+                <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+                <span>Gasolinas</span>
+              </button>
+            </div>
+          </section>
 
-          <div class="cfg-rail-section-label">Operaciones</div>
+          <section class="cfg-nav-group open" data-group="estructura">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('estructura')" title="Estructura">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">schema</span>
+                <span>
+                  <small>Estructura</small>
+                  <strong>Plazas, ubicaciones y mapa</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas del sistema">
+                <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+                <span>Plazas</span>
+              </button>
+              <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)" title="Ubicaciones y responsables">
+                <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+                <span>Ubicaciones</span>
+              </button>
+            </div>
+          </section>
 
-          <button id="btnLockAdminSidebar" class="cfg-tab" onclick="solicitarToggleBloqueo()" title="Bloquear / Liberar patio" style="display:none;">
-            <span class="cfg-tab-icon">
-              <span class="material-icons" id="iconLockAdmin" style="color:#f59e0b;">lock</span>
-            </span>
-            <span id="txtLockAdmin">BLOQUEAR PATIO</span>
-            <div class="heatmap-switch" id="switchLockAdmin" style="margin-left:auto;"></div>
-          </button>
+          <section class="cfg-nav-group open" data-group="organizacion">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('organizacion')" title="Organización">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">business</span>
+                <span>
+                  <small>Organización</small>
+                  <strong>Empresa y parámetros del negocio</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Configuración de empresa">
+                <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+                <span>Empresa</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-nav-group open" data-group="sistema">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('sistema')" title="Sistema">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">settings_suggest</span>
+                <span>
+                  <small>Sistema</small>
+                  <strong>Acciones globales y entorno</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-action-bloqueo-patio" class="cfg-tab cfg-tab-action" onclick="_cfgQuickAction('toggle-lock')" title="Bloquear patio">
+                <span class="cfg-tab-icon"><span class="material-icons">lock</span></span>
+                <span>Bloquear patio</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-nav-group open" data-group="programador">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('programador')" title="Programador">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">terminal</span>
+                <span>
+                  <small>Programador</small>
+                  <strong>Observabilidad y control técnico</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)" title="Consola técnica del sistema">
+                <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
+                <span>Consola técnica</span>
+              </button>
+            </div>
+          </section>
         </nav>
       </div>
 
       <!-- MAIN PANEL -->
       <div class="cfg-v2-main">
+
+        <div class="cfg-v2-workspace-header">
+          <div class="cfg-v2-workspace-copy">
+            <div class="cfg-v2-workspace-kicker" id="cfg-module-breadcrumb">ACCESOS · CENTRO ADMIN</div>
+            <div class="cfg-v2-workspace-title-row">
+              <h3 id="cfg-module-title">Usuarios</h3>
+              <span class="cfg-v2-module-badge" id="cfg-module-badge">CONFIG</span>
+            </div>
+            <p id="cfg-module-subtitle">Gestiona cuentas, alcances y relaciones operativas del sistema.</p>
+          </div>
+          <div class="cfg-v2-workspace-meta">
+            <span class="cfg-v2-meta-chip" id="cfg-meta-user">
+              <span class="material-icons">person</span>
+              <span>Usuario activo</span>
+            </span>
+            <span class="cfg-v2-meta-chip" id="cfg-meta-plaza">
+              <span class="material-icons">location_city</span>
+              <span>Plaza foco</span>
+            </span>
+            <span class="cfg-v2-meta-chip" id="cfg-meta-scope">
+              <span class="material-icons">verified_user</span>
+              <span>Alcance</span>
+            </span>
+          </div>
+        </div>
+
+        <div class="cfg-v2-tools" id="cfg-v2-tools">
+          <button type="button" class="cfg-v2-tool-btn" data-tool="refresh" onclick="_cfgQuickAction('refresh')">
+            <span class="material-icons">refresh</span>
+            Actualizar contexto
+          </button>
+          <button type="button" class="cfg-v2-tool-btn" data-tool="new-user" onclick="_cfgQuickAction('new-user')">
+            <span class="material-icons">person_add</span>
+            Nuevo usuario
+          </button>
+          <button type="button" class="cfg-v2-tool-btn" data-tool="new-role" onclick="_cfgQuickAction('new-role')">
+            <span class="material-icons">verified_user</span>
+            Nuevo rol
+          </button>
+          <button type="button" class="cfg-v2-tool-btn" data-tool="new-plaza" onclick="_cfgQuickAction('new-plaza')">
+            <span class="material-icons">location_city</span>
+            Nueva plaza
+          </button>
+          <button type="button" class="cfg-v2-tool-btn" data-tool="new-item" onclick="_cfgQuickAction('new-item')">
+            <span class="material-icons">add_circle</span>
+            Nuevo catálogo
+          </button>
+          <button type="button" class="cfg-v2-tool-btn" data-tool="go-map" onclick="_cfgQuickAction('go-map')">
+            <span class="material-icons">map</span>
+            Volver al mapa
+          </button>
+          <button type="button" class="cfg-v2-tool-btn" data-tool="open-programmer" onclick="_cfgQuickAction('open-programmer')">
+            <span class="material-icons">terminal</span>
+            Consola programador
+          </button>
+          <button type="button" class="cfg-v2-tool-btn success" data-tool="publish" onclick="_cfgQuickAction('publish')">
+            <span class="material-icons">cloud_upload</span>
+            Guardar cambios
+          </button>
+        </div>
 
         <!-- ADD BAR -->
         <div class="cfg-v2-add-bar">
@@ -283,7 +431,12 @@
                    'renderizarListaConfig','umFiltrar','confirmarAgregadoConfig',
                    'editarElementoConfig','eliminarElementoConfig',
                    'abrirPerfilUsuario','cerrarPerfilUsuario',
-                   'solicitarToggleBloqueo','abrirEditorMapa','cerrarSesion'];
+                   'solicitarToggleBloqueo','abrirEditorMapa','cerrarSesion',
+                   '_cfgToggleSidebarPin','_cfgToggleNavGroup','_cfgQuickAction',
+                   '_cfgSaveInlineEdit','_cfgCancelInlineEdit',
+                   '_cfgUploadModelImage','cerrarCustomModal','abrirComparadorPlazas',
+                   'cerrarComparadorPlazas','exportarComparadorCSV',
+                   '_abrirModalNuevaplaza','_cerrarModalNuevaplaza','_confirmarNuevaplaza'];
       const queue = [];
       FNS.forEach(fn => {
         window[fn] = (...args) => {
@@ -315,6 +468,18 @@
         <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra"></button>
         <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel"></button>
         <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="customModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="material-icons modal-icon" id="modalIcon">warning</div>
+      <div class="modal-title" id="modalTitle">Confirmación</div>
+      <div class="modal-text" id="modalText">¿Estás seguro de continuar?</div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" type="button" onclick="cerrarCustomModal()">CANCELAR</button>
+        <button class="modal-btn modal-btn-confirm" type="button" id="modalConfirmBtn">ACEPTAR</button>
       </div>
     </div>
   </div>
@@ -381,14 +546,47 @@
             <select id="cfg-add-modelo-cat" class="cfg-add-select"></select>
           </div>
           <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden sugerido</label>
+            <input type="number" id="cfg-add-modelo-orden" class="cfg-add-input" min="1" max="999" placeholder="Ej: 4">
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
             <label class="cfg-add-label">Imagen del modelo (URL opcional)</label>
             <input type="url" id="cfg-add-modelo-img" class="cfg-add-input"
               placeholder="https://dominio.com/modelo.jpg"
               oninput="_cfgPreviewModeloImg(this.value)">
+            <div style="display:grid; gap:10px; margin-top:10px;">
+              <input type="file" id="cfg-add-modelo-file" class="cfg-add-input" accept="image/*">
+              <label class="cfg-add-checkbox-row" for="cfg-add-modelo-remove-bg">
+                <div class="cfg-add-checkbox-box">
+                  <input type="checkbox" id="cfg-add-modelo-remove-bg">
+                  <div class="cfg-add-checkbox-custom"></div>
+                </div>
+                <div>
+                  <div class="cfg-add-checkbox-label">Eliminar fondo claro</div>
+                  <div class="cfg-add-checkbox-sub">Genera PNG transparente para futuras vistas del sistema</div>
+                </div>
+              </label>
+              <button type="button" class="cfg-add-btn-cancel" style="width:fit-content;" onclick="_cfgUploadModelImage('cfg-add')">
+                <span class="material-icons" style="font-size:16px;">upload</span>
+                Subir desde este equipo
+              </button>
+              <div id="cfg-add-modelo-upload-status" style="font-size:11px; font-weight:700; color:#64748b;"></div>
+            </div>
             <div id="cfg-add-modelo-preview" class="cfg-add-modelo-preview" style="display:none;">
               <img id="cfg-add-modelo-preview-img" alt="Preview modelo" loading="lazy">
               <span id="cfg-add-modelo-preview-label">Vista previa</span>
             </div>
+          </div>
+        </div>
+        <div id="cfg-add-categoria-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Descripción de la categoría</label>
+            <textarea id="cfg-add-categoria-desc" class="cfg-add-input" rows="4"
+              placeholder="Describe cuándo usar esta categoría, su familia operativa o relación con los modelos."></textarea>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden sugerido</label>
+            <input type="number" id="cfg-add-categoria-orden" class="cfg-add-input" min="1" max="999" placeholder="Ej: 3">
           </div>
         </div>
       </div>
@@ -397,6 +595,37 @@
         <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
           <span class="material-icons">check</span> Guardar
         </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-comparador-plazas"
+    style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75100; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);"
+    onclick="if(event.target===this)cerrarComparadorPlazas()">
+    <div
+      style="background:#fff; border-radius:18px; width:100%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+      <div
+        style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="material-icons" style="color:#004a99; font-size:22px;">compare</span>
+          <div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; letter-spacing:.03em;">Comparador de Plazas</div>
+            <div style="font-size:11px; color:#64748b; font-weight:600;">Vista ejecutiva · KPIs en tiempo real</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button onclick="exportarComparadorCSV()" title="Exportar CSV"
+            style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
+            <span class="material-icons" style="font-size:15px;">download</span> CSV
+          </button>
+          <button onclick="cerrarComparadorPlazas()"
+            style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+            <span class="material-icons" style="font-size:18px; color:#64748b;">close</span>
+          </button>
+        </div>
+      </div>
+      <div id="comparador-content" style="overflow-y:auto; padding:18px 22px; flex:1;">
+        <div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">Cargando datos...</div>
       </div>
     </div>
   </div>

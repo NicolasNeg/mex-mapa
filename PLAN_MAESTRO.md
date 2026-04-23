@@ -1935,3 +1935,31 @@ window.MexRoleGuard = {
     - Reducir lecturas redundantes a Firestore en el arranque de rutas clave.
     - Aprovechar el cache ya existente en bootstrap en vez de abrir otra capa paralela.
 ```
+
+```
+[2026-04-22] CODEX — ✅ pendientes PDF MAPA: Panel Admin, catálogos, swap y Perfil
+
+  Archivos tocados:
+    - gestion.html
+    - mapa.html
+    - js/views/mapa.js
+    - js/views/profile.js
+    - profile.html
+    - css/config.css
+    - css/notificaciones.css
+    - sw.js
+
+  Cambios:
+    - /gestion ahora incluye los modales base que faltaban para comparador de plazas y herramientas de mapa.
+    - El editor contextual de ubicaciones, estados, categorías, modelos y gasolinas ya edita inline con guardar/cancelar.
+    - Reordenamiento de catálogos normaliza `orden` después de drag/drop, edición, eliminación e inserción manual.
+    - Categorías aceptan descripción y muestran desglose de modelos ligados.
+    - Modelos aceptan imagen desde archivo, URL y herramienta ligera para fondo claro -> PNG transparente.
+    - Usuarios del Panel Admin ya no muestran al usuario actualmente logueado en el directorio.
+    - Drag/swap del mapa limpia el estado visual antes de abrir confirmación para evitar modal atorado en mobile.
+    - Perfil inicia el crop del avatar ajustado al contenedor en vez de abrir excesivamente zoom.
+    - Estado TRASLADO recibió badge y trail animado para diferenciar unidades en movimiento.
+
+  Pendiente coordinable:
+    - Si Claude toca después mapa.js, revisar especialmente los bloques de catálogos y drag/drop antes de mergear.
+```
