@@ -59,13 +59,14 @@
 
 <body class="bg-surface overflow-hidden">
 
-  <!-- =============================== -->
-  <!-- Left Sidebar (Injected via JS)  -->
-  <!-- =============================== -->
-  <div id="mapaLeftSidebarContainer"></div>
+  <div class="mapa-shell relative w-full min-h-screen lg:flex lg:items-stretch">
+    <!-- =============================== -->
+    <!-- Left Sidebar (Injected via JS)  -->
+    <!-- =============================== -->
+    <div id="mapaLeftSidebarContainer" class="lg:flex-shrink-0 lg:w-[280px] lg:h-screen"></div>
 
-  <!-- Main Map Container -->
-  <main class="w-full h-screen lg:ml-[280px] relative transition-all duration-300 overflow-hidden" id="mapaMainStage">
+    <!-- Main Map Container -->
+    <main class="w-full h-screen flex-1 min-w-0 relative transition-all duration-300 overflow-hidden" id="mapaMainStage">
 
     <!-- [F3.4] Banner global discreto -->
     <div id="global-status-banner" style="display:none;"></div>
@@ -4290,7 +4291,8 @@
         }
       </style>
 
-  </main>
+    </main>
+  </div>
 </body>
 
 </html>

@@ -619,6 +619,10 @@ function saveSidebarState(collapsed) {
 
 export function renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute = '/home') {
   const variantKey = homeVariant(profile);
+  const isMapRoute = String(currentRoute || '').toLowerCase() === '/mapa';
+  const sidebarLayoutClass = isMapRoute
+    ? 'shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 w-[280px] h-screen overflow-y-auto transform -translate-x-full lg:translate-x-0 lg:relative lg:inset-auto lg:w-full lg:h-full lg:self-stretch'
+    : 'shell-sidebar-surface fixed h-full w-[280px] left-0 top-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out';
   const navGroups = sidebarGroups(profile, metrics, currentPlaza);
   let navHtml = '';
   navGroups.forEach(group => {
@@ -647,7 +651,7 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
     <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 bg-slate-900/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
 
     <!-- Persistent SideNavBar -->
-    <aside id="homeSidebar" class="shell-sidebar-surface fixed h-full w-[280px] left-0 top-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out bg-[#07111f]" style="position:fixed; z-index:900001; border-right:1px solid #1a2538;">
+    <aside id="homeSidebar" class="${sidebarLayoutClass} bg-[#07111f]" style="z-index:900001; border-right:1px solid #1a2538;">
       <div>
         <!-- Brand Header -->
         <div class="shell-sidebar-brand px-8 mb-10">
@@ -755,13 +759,13 @@ function renderHome(profile, config, metrics) {
     </header>
 
     <!-- Main Content Stage -->
-    <main class="shell-main-stage w-full lg:ml-[280px] pt-16 min-h-screen pb-12">
-      <div class="p-8">
+    <main class="shell-main-stage w-full lg:ml-[280px] pt-16 h-screen overflow-y-auto pb-12 relative">
+      <div class="p-4 md:p-8">
         <!-- Welcome Header -->
-        <div class="flex justify-between items-end mb-8">
+        <div class="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
           <div>
-            <h2 class="font-h1 text-h1 text-on-primary-fixed mb-1">Bienvenido de nuevo, ${escapeHtml(userName.split(' ')[0] || userName)}</h2>
-            <p class="font-body-base text-on-surface-variant flex items-center gap-2 capitalize">
+            <h2 class="font-h1 text-h1 text-on-primary-fixed mb-1 text-2xl md:text-3xl">Bienvenido de nuevo, ${escapeHtml(userName.split(' ')[0] || userName)}</h2>
+            <p class="font-body-base text-on-surface-variant flex items-center gap-2 capitalize text-sm md:text-base">
               <span class="material-symbols-outlined text-sm" data-icon="calendar_today">calendar_today</span>
               ${escapeHtml(dateString)}
             </p>
@@ -779,10 +783,10 @@ function renderHome(profile, config, metrics) {
         </div>
 
         <!-- Bento Layout Content -->
-        <div class="grid grid-cols-12 gap-6">
+        <div class="grid grid-cols-12 gap-4 md:gap-6">
 
           <!-- Hero Section: Immersive Map -->
-          <div class="shell-section-card shell-stagger-1 col-span-12 lg:col-span-9 h-[540px] relative rounded-3xl overflow-hidden shadow-2xl border border-outline-variant/30 group">
+          <div class="shell-section-card shell-stagger-1 col-span-12 lg:col-span-9 h-[400px] md:h-[540px] relative rounded-3xl overflow-hidden shadow-2xl border border-outline-variant/30 group">
             <div class="absolute inset-0 z-0 bg-slate-900 border border-slate-200" id="homeMapPreview">
               <div class="flex items-center justify-center w-full h-full"><div class="animate-spin w-8 h-8 rounded-full border-t-2 border-l-2 border-emerald-500"></div></div>
             </div>
@@ -805,18 +809,18 @@ function renderHome(profile, config, metrics) {
               </div>
 
               <!-- Simulated Vehicle Markers Overlay panel -->
-              <div class="flex justify-center pointer-events-none">
-                <div class="bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-t-3xl flex gap-8 items-center pointer-events-auto translate-y-6 group-hover:translate-y-0 transition-transform duration-500 shadow-2xl">
+              <div class="flex justify-center pointer-events-none px-4 md:px-0">
+                <div class="bg-white/10 backdrop-blur-xl border border-white/20 px-6 py-3 md:px-8 md:py-4 rounded-t-3xl flex gap-4 md:gap-8 flex-wrap justify-center items-center pointer-events-auto translate-y-4 md:translate-y-6 group-hover:translate-y-0 transition-transform duration-500 shadow-2xl w-full">
                   <div class="text-center">
                     <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Activas</p>
                     <p class="text-2xl font-black text-white">${escapeHtml(String(metrics.unidadesActivas || 0))}</p>
                   </div>
-                  <div class="w-[1px] h-8 bg-white/20"></div>
+                  <div class="w-[1px] h-8 bg-white/20 hidden md:block"></div>
                   <div class="text-center">
                     <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Externos</p>
                     <p class="text-2xl font-black text-white">${escapeHtml(String(metrics.externosActivos || 0))}</p>
                   </div>
-                  <div class="w-[1px] h-8 bg-white/20"></div>
+                  <div class="w-[1px] h-8 bg-white/20 hidden md:block"></div>
                   <div class="text-center">
                     <p class="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Alertas</p>
                     <p class="text-2xl font-black ${metrics.incidenciasAbiertas > 0 ? "text-red-400" : "text-white"}">${escapeHtml(String(metrics.incidenciasAbiertas || 0))}</p>
@@ -1103,29 +1107,32 @@ async function _renderMiniMapPreview(plaza) {
        maxX = Math.max(...vm.cajones.map(c => c.x + c.width));
        maxY = Math.max(...vm.cajones.map(c => c.y + c.height));
     }
+    const rect = container.getBoundingClientRect();
+    const targetW = rect.width || 800;
+    const targetH = rect.height || 400;
     const mapW = maxX - minX + 100;
     const mapH = maxY - minY + 100;
-    const scaleX = 900 / mapW;
-    const scaleY = 540 / mapH;
-    let scale = Math.min(scaleX, scaleY) * 0.8;
-    if (scale > 1) scale = 1;
+    const scaleX = targetW / mapW;
+    const scaleY = targetH / mapH;
+    let scale = Math.min(scaleX, scaleY) * 0.85;
+    if (scale > 1.2) scale = 1.2;
     if (scale < 0.1) scale = 0.1;
 
     const colors = {
       'LISTO': '#10b981', 'SUCIO': '#f59e0b', 'MANTENIMIENTO': '#ef4444',
-      'RESGUARDO': '#64748b', 'TRASLADO': '#c084fc', 'EN RENTA': '#38bdf8',
-      'RETENIDA': '#78350f', 'VENTA': '#1e293b', 'HYP': '#ef4444'
+      'RESGUARDO': '#92400e', 'TRASLADO': '#7c3aed', 'EN RENTA': '#38bdf8',
+      'RETENIDA': '#1d4ed8', 'VENTA': '#f59e0b', 'HYP': '#ef4444'
     };
 
-    let html = `<div style="position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) scale(${scale}); width:${mapW}px; height:${mapH}px; pointer-events:none; transition: all 0.3s; opacity:0.65;">`;
+    let html = `<div style="position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) scale(${scale}); width:${mapW}px; height:${mapH}px; pointer-events:none; transition: transform 0.4s cubic-bezier(0.16,1,0.3,1); opacity:0.9;">`;
 
     for (const c of vm.cajones) {
       if(c.tipo === 'pilar') continue;
-      const bg = c.esLabel ? 'transparent' : 'rgba(255,255,255,0.03)';
-      const color = c.esLabel ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+      const spotStyle = c.esLabel
+        ? `background:transparent; border:none; color:rgba(255,255,255,0.4); font-size:32px; font-weight:bold;`
+        : `background:rgba(255,255,255,0.02); border-left:2px solid rgba(255,255,255,0.1); border-right:2px solid rgba(255,255,255,0.1); border-top:2px solid rgba(255,255,255,0.1); border-bottom:none; border-radius:6px 6px 0 0;`;
       const text = c.esLabel ? c.pos : '';
-      const border = c.esLabel ? 'none' : '1px solid rgba(255,255,255,0.05)';
-      html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); background:${bg}; border:${border}; color:${color}; font-size:${c.esLabel ? '32px' : '12px'}; font-weight:bold; display:flex; align-items:center; justify-content:center; border-radius:6px;">${text}</div>`;
+      html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); ${spotStyle} display:flex; align-items:center; justify-content:center; box-sizing:border-box;">${text}</div>`;
     }
 
     for (const [mva, u] of vm.unitMap.entries()) {
@@ -1133,7 +1140,8 @@ async function _renderMiniMapPreview(plaza) {
       const c = vm.cajones.find(c => c.pos === u.pos);
       if (!c) continue;
       const bg = colors[u.estado] || '#64748b';
-      html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); background:linear-gradient(135deg, ${bg}, #000); color:white; font-size:14px; font-weight:900; display:flex; align-items:center; justify-content:center; border-radius:6px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.5);">${mva}</div>`;
+      const carStyle = `border-radius:16px 16px 10px 10px; background:linear-gradient(160deg, ${bg} 0%, #000 120%); box-shadow:0 8px 15px -4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.25); border:1px solid rgba(0,0,0,0.15); color:white; font-size:16px; font-weight:900; text-shadow:0 1px 3px rgba(0,0,0,0.4);`;
+      html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); ${carStyle} display:flex; align-items:center; justify-content:center; box-sizing:border-box;">${mva}</div>`;
     }
     html += `</div>`;
     container.innerHTML = html;
