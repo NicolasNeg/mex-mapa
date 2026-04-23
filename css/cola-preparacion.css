@@ -35,10 +35,10 @@
 
 .prep-topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  padding: 22px 24px;
+  padding: 18px 20px;
   border-radius: 28px;
   background: rgba(255, 255, 255, 0.92);
   backdrop-filter: blur(20px);
@@ -73,9 +73,17 @@
   gap: 16px;
 }
 
+.prep-topbar-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: flex-start;
+}
+
 .prep-topbar-side {
   gap: 12px;
   margin-left: auto;
+  flex-wrap: nowrap;
+  align-self: flex-start;
 }
 
 .prep-back-btn,
@@ -193,7 +201,7 @@
 }
 
 .prep-brand h1 {
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: clamp(26px, 3.4vw, 38px);
 }
 
 .prep-brand p,
@@ -211,7 +219,7 @@
 .prep-user-card {
   gap: 12px;
   padding: 10px 12px;
-  min-width: 260px;
+  min-width: 248px;
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(6, 24, 44, 0.98), rgba(6, 78, 59, 0.92));
   color: #f8fafc;
@@ -254,8 +262,9 @@
 
 .prep-command-bar {
   justify-content: space-between;
+  align-items: flex-end;
   gap: 16px;
-  padding: 18px 20px;
+  padding: 16px 18px;
   border-radius: 24px;
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(16px);
@@ -264,20 +273,26 @@
 .prep-command-left,
 .prep-command-right {
   flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.prep-command-right {
+  justify-content: flex-end;
 }
 
 .prep-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .prep-field span {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 900;
   color: #78715f;
   letter-spacing: .06em;
   text-transform: uppercase;
+  line-height: 1;
 }
 
 .prep-field input,
@@ -307,12 +322,12 @@
 }
 
 .prep-plaza-field {
-  min-width: 200px;
+  min-width: 185px;
 }
 
 .prep-search-field {
-  min-width: min(460px, 100%);
-  flex: 1 1 360px;
+  min-width: min(420px, 100%);
+  flex: 1 1 340px;
 }
 
 .prep-input-shell {
@@ -336,6 +351,7 @@
 .prep-filter-row {
   flex-wrap: wrap;
   gap: 8px;
+  align-items: center;
 }
 
 .prep-filter-chip {
@@ -1087,11 +1103,12 @@
 
 /* ── Topbar alignment fix ────────────────────────────────────── */
 .prep-topbar {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .prep-topbar-side {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: flex-start;
 }
 
 .prep-user-copy {
