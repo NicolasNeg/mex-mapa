@@ -10,7 +10,7 @@ const ROLE_LABELS = {
   JEFE_REGIONAL: 'JEFE REGIONAL',
   CORPORATIVO_USER: 'CORPORATIVO',
   PROGRAMADOR: 'PROGRAMADOR',
-  JEFE_OPERACION: 'JEFE DE OPERACION'
+  JEFE_OPERACION: 'JEFE DE OPERACIÓN'
 };
 
 const HOME_SIDEBAR_COLLAPSED_KEY = 'mex.home.sidebar.collapsed.v1';
@@ -20,9 +20,9 @@ const HOME_METRICS_CACHE_TTL_MS = 120000;
 
 const HOME_VARIANTS = {
   operacion: {
-    kicker: 'Operacion diaria',
-    title: 'Tu centro rapido de patio y movimiento',
-    description: 'Entra al modulo correcto sin pasar siempre por el mismo flujo. El mapa sigue siendo clave, pero ahora el sistema arranca con contexto.',
+    kicker: 'Operación diaria',
+    title: 'Tu centro rápido de patio y movimiento',
+    description: 'Entra al módulo correcto sin pasar siempre por el mismo flujo. El mapa sigue siendo clave, pero ahora el sistema arranca con contexto.',
     ctaTitle: 'Ir al mapa operativo',
     modules: [
       {
@@ -32,49 +32,49 @@ const HOME_VARIANTS = {
         route: '/mapa',
         icon: 'map',
         badge: 'Principal',
-        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
         id: 'mensajes',
         title: 'Mensajes',
-        description: 'Coordinacion interna, evidencias y seguimiento del equipo.',
+        description: 'Coordinación interna, evidencias y seguimiento del equipo.',
         route: '/mensajes',
         icon: 'mail',
-        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
         id: 'cuadre',
         title: 'Cuadre',
-        description: 'Ir al cierre, control y prediccion diaria de la plaza foco.',
+        description: 'Ir al cierre, control y predicción diaria de la plaza foco.',
         route: '/cuadre',
         icon: 'fact_check',
-        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
+        tone: 'linear-gradient(135deg, #064e3b 0%, #16a34a 100%)'
       },
       {
         id: 'cola',
-        title: 'Cola de preparacion',
+        title: 'Cola de preparación',
         description: 'Checklist, prioridad de salida y avance de unidades listas.',
         route: '/cola-preparacion',
         icon: 'format_list_bulleted',
-        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
+        tone: 'linear-gradient(135deg, #7c2d12 0%, #b49a5e 100%)'
       }
     ]
   },
   admin: {
     kicker: 'Centro administrativo',
-    title: 'Configuracion, supervision y acceso al flujo real',
-    description: 'Arranque por rol con accesos agrupados y una shell consistente para entrar al modulo correcto sin perder la plaza activa.',
+    title: 'Configuración, supervisión y acceso al flujo real',
+    description: 'Arranque por rol con accesos agrupados y una shell consistente para entrar al módulo correcto sin perder la plaza activa.',
     ctaTitle: 'Abrir panel admin',
     modules: [
       {
         id: 'admin',
         title: 'Panel admin',
-        description: 'Usuarios, roles, plazas, ubicaciones y catalogos del negocio.',
+        description: 'Usuarios, roles, plazas, ubicaciones y catálogos del negocio.',
         route: '/gestion?tab=usuarios',
         icon: 'admin_panel_settings',
         badge: 'Principal',
         requires: 'admin',
-        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #064e3b 100%)'
       },
       {
         id: 'mapa',
@@ -82,49 +82,49 @@ const HOME_VARIANTS = {
         description: 'Revisar acomodo real y bajar al patio solo cuando lo necesites.',
         route: '/mapa',
         icon: 'map',
-        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
         id: 'cuadre',
         title: 'Cuadres y reportes',
-        description: 'Seguimiento diario de cierres, prediccion y validacion operativa.',
+        description: 'Seguimiento diario de cierres, predicción y validación operativa.',
         route: '/cuadre',
         icon: 'analytics',
-        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
+        tone: 'linear-gradient(135deg, #064e3b 0%, #b49a5e 100%)'
       },
       {
         id: 'mensajes',
         title: 'Mensajes',
-        description: 'Atender coordinacion interna, solicitudes y seguimiento.',
+        description: 'Atender coordinación interna, solicitudes y seguimiento.',
         route: '/mensajes',
         icon: 'chat',
-        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
+        tone: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)'
       }
     ]
   },
   corporativo: {
-    kicker: 'Vision global',
-    title: 'Dashboard de acceso ejecutivo por plaza y area',
-    description: 'Un arranque mas limpio para direccion y corporativo, con foco en decisiones, contexto y entrada selectiva al detalle operativo.',
+    kicker: 'Visión global',
+    title: 'Dashboard de acceso ejecutivo por plaza y área',
+    description: 'Un arranque más limpio para dirección y corporativo, con foco en decisiones, contexto y entrada selectiva al detalle operativo.',
     ctaTitle: 'Abrir cuadres y reportes',
     modules: [
       {
         id: 'cuadre',
         title: 'Cuadres y reportes',
-        description: 'Consultar cierres, presion operativa y seguimiento por plaza.',
+        description: 'Consultar cierres, presión operativa y seguimiento por plaza.',
         route: '/cuadre',
         icon: 'analytics',
         badge: 'Principal',
-        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
         id: 'admin',
         title: 'Panel admin',
-        description: 'Entrar a configuracion, plazas y estructura del sistema.',
+        description: 'Entrar a configuración, plazas y estructura del sistema.',
         route: '/gestion?tab=usuarios',
         icon: 'admin_panel_settings',
         requires: 'admin',
-        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
+        tone: 'linear-gradient(135deg, #064e3b 0%, #0f766e 100%)'
       },
       {
         id: 'mapa',
@@ -132,7 +132,7 @@ const HOME_VARIANTS = {
         description: 'Ir al detalle operativo solo cuando necesites contexto real del patio.',
         route: '/mapa',
         icon: 'map',
-        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
         id: 'mensajes',
@@ -140,34 +140,34 @@ const HOME_VARIANTS = {
         description: 'Abrir comunicaciones y avisos internos recientes.',
         route: '/mensajes',
         icon: 'mail',
-        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
+        tone: 'linear-gradient(135deg, #1e293b 0%, #64748b 100%)'
       }
     ]
   },
   programador: {
     kicker: 'Plataforma y observabilidad',
-    title: 'Shell tecnica con acceso directo a producto real',
-    description: 'Consola, panel admin, mapa y mensajeria agrupados en una misma entrada para dejar atras el mapa como home universal.',
+    title: 'Shell técnica con acceso directo a producto real',
+    description: 'Consola, panel admin, mapa y mensajería agrupados en una misma entrada para dejar atrás el mapa como home universal.',
     ctaTitle: 'Abrir consola tecnica',
     modules: [
       {
         id: 'programador',
-        title: 'Consola tecnica',
+        title: 'Consola técnica',
         description: 'Salud del sistema, clientes, cache, errores y herramientas seguras.',
         route: '/programador',
         icon: 'terminal',
         badge: 'Principal',
         requires: 'programmer',
-        tone: 'linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
         id: 'admin',
         title: 'Panel admin',
-        description: 'Configuracion administrativa y control de catalogos del sistema.',
+        description: 'Configuración administrativa y control de catálogos del sistema.',
         route: '/gestion?tab=usuarios',
         icon: 'admin_panel_settings',
         requires: 'admin',
-        tone: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)'
+        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
         id: 'mapa',
@@ -175,7 +175,7 @@ const HOME_VARIANTS = {
         description: 'Entrar al flujo real del patio con plaza foco compartida.',
         route: '/mapa',
         icon: 'map',
-        tone: 'linear-gradient(135deg, #059669 0%, #16a34a 100%)'
+        tone: 'linear-gradient(135deg, #064e3b 0%, #16a34a 100%)'
       },
       {
         id: 'mensajes',
@@ -183,7 +183,7 @@ const HOME_VARIANTS = {
         description: 'Depurar experiencia del chat y revisar actividad del cliente.',
         route: '/mensajes',
         icon: 'mail',
-        tone: 'linear-gradient(135deg, #6d28d9 0%, #7c3aed 100%)'
+        tone: 'linear-gradient(135deg, #1e293b 0%, #475569 100%)'
       }
     ]
   }
@@ -442,7 +442,7 @@ function moduleMeta(module = {}, metrics = {}) {
   if (module.route === '/cuadre') return `${metrics.externosActivos || 0} externos en foco`;
   if (module.route.startsWith('/gestion')) return `${metrics.solicitudesPendientes || 0} solicitudes pendientes`;
   if (module.route === '/programador') return `${metrics.incidenciasAbiertas || 0} incidencias abiertas`;
-  return 'Acceso rapido';
+  return 'Acceso rápido';
 }
 
 function pendingItems(variantKey, metrics = {}) {
@@ -491,7 +491,7 @@ function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
       ]
     },
     {
-      label: 'Operacion',
+      label: 'Operación',
       items: [
         {
           label: 'Mapa',
@@ -501,7 +501,7 @@ function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
         },
         {
           label: 'Mensajes',
-          description: 'Coordinacion y chat',
+          description: 'Coordinación y chat',
           route: '/mensajes',
           icon: 'chat'
         },
@@ -546,7 +546,7 @@ function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
   }
 
   groups.push({
-    label: 'Cuenta',
+      label: 'Cuenta',
     items: [
       {
         label: 'Mi perfil',
@@ -556,7 +556,7 @@ function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
       },
       {
         label: 'Cerrar sesion',
-        description: 'Salir de esta cuenta',
+          description: 'Salir de esta cuenta',
         action: 'logout',
         icon: 'logout'
       }
@@ -659,6 +659,21 @@ function renderHome(profile, config, metrics) {
           </div>
         </div>
 
+        <div class="home-sidebar-stats">
+          <div class="home-sidebar-stat">
+            <span>Rol</span>
+            <strong>${escapeHtml(roleLabel(profile))}</strong>
+          </div>
+          <div class="home-sidebar-stat">
+            <span>Plaza</span>
+            <strong>${escapeHtml(currentPlaza || upper(profile.plazaAsignada) || 'Sin plaza')}</strong>
+          </div>
+          <div class="home-sidebar-stat">
+            <span>Módulos</span>
+            <strong>${escapeHtml(String(modules.length || availableModules(profile).length || 0))}</strong>
+          </div>
+        </div>
+
         <div class="home-sidebar-groups">
           ${navGroups.map(group => `
             <section class="home-nav-group">
@@ -687,7 +702,7 @@ function renderHome(profile, config, metrics) {
       <section class="home-stage">
         <header class="home-stage-topbar">
           <div class="home-stage-copy">
-            <div class="home-stage-kicker">Inicio / ${escapeHtml(variant.kicker)}</div>
+            <div class="home-stage-kicker">Inicio · ${escapeHtml(variant.kicker)}</div>
             <h1>${escapeHtml(variant.title)}</h1>
             <p>${escapeHtml(variant.description)}</p>
           </div>
@@ -795,7 +810,7 @@ function renderHome(profile, config, metrics) {
                   <h3>Contexto compartido</h3>
                   <p>Plaza activa, foco del turno y accesos rápidos de cuenta.</p>
                 </div>
-                <span class="home-surface-badge">Sesion</span>
+                <span class="home-surface-badge">Sesión</span>
               </div>
 
               <div class="home-context-grid">
@@ -824,7 +839,7 @@ function renderHome(profile, config, metrics) {
                 </button>
                 <button type="button" class="home-btn" data-action="logout">
                   <span class="material-icons">logout</span>
-                  Cerrar sesion
+                  Cerrar sesión
                 </button>
               </div>
 
