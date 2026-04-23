@@ -32,6 +32,7 @@ import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
+import { renderSidebarHTML } from '/js/views/home.js';
 
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
@@ -1216,6 +1217,27 @@ function _setSessionProfile(profile) {
   _updateGlobalPlazaEmail();
   console.log('[MEX-INTEG] _setSessionProfile →', { email: profile.email, rol: userAccessRole, plaza: PLAZA_ACTIVA_MAPA || '(sin plaza)', userRole, fullAccess: isGlobalAdmin });
   setErrorUser({ email: profile.email, role: userAccessRole, plaza: PLAZA_ACTIVA_MAPA });
+  _inyectarSidebar();
+}
+
+function _inyectarSidebar() {
+  const container = document.getElementById('mapaLeftSidebarContainer');
+  if (!container || !currentUserProfile) return;
+  const companyName = window.MEX_CONFIG?.empresa?.nombre || APP_DEFAULT_COMPANY_NAME;
+  const activeMetrics = window._supervisionData[PLAZA_ACTIVA_MAPA] || {};
+  const html = renderSidebarHTML(currentUserProfile, activeMetrics, PLAZA_ACTIVA_MAPA, companyName, USER_NAME, '/mapa');
+  container.innerHTML = html;
+
+  // Simple mobile toggle
+  const overlay = document.getElementById('mobileOverlay');
+  const sidebar = document.getElementById('homeSidebar');
+  if(overlay && sidebar) {
+    overlay.addEventListener('click', () => {
+      sidebar.classList.add('-translate-x-full');
+      overlay.classList.add('opacity-0');
+      setTimeout(() => overlay.classList.add('hidden'), 300);
+    });
+  }
 }
 
 function _clearSessionProfile() {
@@ -3792,7 +3814,7 @@ function updateZoom() {
 let searchTimeout;
 
 // 1. EL DISPARADOR (Anti-Lag)
-// Se ejecuta cada vez que tecleas, pero reinicia el contador. 
+// Se ejecuta cada vez que tecleas, pero reinicia el contador.
 // Solo ejecuta la búsqueda pesada cuando dejas de teclear por 300ms.
 function buscarMasivo() {
   clearTimeout(searchTimeout);
@@ -4854,7 +4876,7 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
 
   btnGrid.innerHTML = `
     <button id="btnMandarLimbo" onclick="resetUnitToLimbo()" style="padding:15px; border-radius:14px; border:none; background:#fee2e2; color:#ef4444; font-weight:900; font-size:13px; ${btnLimboStyle}">LIMBO 🗑️</button>
-    
+
     <div style="position: relative;">
       <button onclick="document.getElementById('moreActionsMenu').classList.toggle('show')" style="width:100%; padding:15px; border-radius:14px; border:none; background:#e0f2fe; color:#0284c7; font-weight:900; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow: 0 4px 6px rgba(2, 132, 199, 0.2);">
         <span class="material-icons" style="font-size:18px">bolt</span> ACCIONES
@@ -4991,14 +5013,7 @@ function toggleSidebar(forceState = null) {
 }
 
 function toggleAdminSidebar(forceState = null) {
-  const sidebar = document.getElementById('sidebar');
-  const adminSidebar = document.getElementById('admin-sidebar');
-  if (!adminSidebar) return;
-
-  const abrir = typeof forceState === 'boolean' ? forceState : !adminSidebar.classList.contains('open');
-  if (abrir) sidebar?.classList.remove('open');
-  adminSidebar.classList.toggle('open', abrir);
-  sincronizarEstadoSidebars();
+  toggleSidebar(forceState);
 }
 
 function closeMainSidebars() {
@@ -5124,7 +5139,7 @@ function enfocarCajon(elemento) {
   zoomLevel = (window.innerWidth <= 768) ? 0.95 : 1.1;
   updateZoom();
 
-  // 2. EL TRUCO DEL CENTRADO: Esperamos 50ms para que el mapa termine de "inflarse" 
+  // 2. EL TRUCO DEL CENTRADO: Esperamos 50ms para que el mapa termine de "inflarse"
   // antes de calcular dónde quedó el auto, así no falla la puntería.
   setTimeout(() => {
     const container = document.querySelector('.content');
@@ -5607,7 +5622,7 @@ function seleccionarFilaFlota(index, rowElement) {
   document.querySelectorAll('#tablaCuerpoFlota tr').forEach(tr => tr.classList.remove('selected'));
   rowElement.classList.add('selected');
 
-  // Obtener la unidad desde la memoria de la tabla actual 
+  // Obtener la unidad desde la memoria de la tabla actual
   SELECT_REF_FLOTA = DATOS_TABLA_ACTUAL[index];
 
   if (!SELECT_REF_FLOTA) return;
@@ -11406,7 +11421,7 @@ window.ejecutarLectorCSV = function (file) {
             let cell = cells[j];
             let normalCell = cell.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-            // 🔥 CORRECCIÓN: Agregamos "=== -1" para que SOLO tome la PRIMERA 
+            // 🔥 CORRECCIÓN: Agregamos "=== -1" para que SOLO tome la PRIMERA
             // coincidencia y no la sobreescriba con "Entidad Federativa de la Placa"
             if (mvaCol === -1 && (normalCell.includes('MVA') || normalCell.includes('ECONOMICO') || normalCell.includes('ECO'))) mvaCol = j;
             if (placaCol === -1 && normalCell.includes('PLACA')) placaCol = j;
@@ -14740,7 +14755,7 @@ function notificarUrgenciaWhatsApp(mva, modelo, placas, ubicacion) {
   const select = document.getElementById('wa-select-user');
   select.innerHTML = '<option value="">Selecciona un contacto...</option>';
 
-  // Filtramos la base de datos de usuarios (que ya cargó al iniciar sesión) 
+  // Filtramos la base de datos de usuarios (que ya cargó al iniciar sesión)
   // para mostrar SOLO a los que tienen un teléfono válido guardado
   const contactosValidos = dbUsuariosLogin.filter(u => u.telefono && u.telefono.length >= 10);
 

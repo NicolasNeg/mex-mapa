@@ -1,5 +1,8 @@
 import { auth, db, COL } from '/js/core/database.js';
 import { esAdmin, esGlobal } from '/domain/permissions.model.js';
+import { buildMapaViewModel } from '/mapa/mapa-view-model.js';
+import { normalizarUnidad } from '/domain/unidad.model.js';
+import { normalizarElemento } from '/domain/mapa.model.js';
 
 const ROLE_LABELS = {
   AUXILIAR: 'AUXILIAR',
@@ -476,7 +479,7 @@ function filterModules(modules = [], query = '') {
   });
 }
 
-function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
+export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
   const groups = [
     {
       label: 'Principal',
@@ -614,36 +617,23 @@ function saveSidebarState(collapsed) {
   } catch (_) { }
 }
 
-function renderHome(profile, config, metrics) {
-  const root = document.getElementById('homeApp');
-  if (!root) return;
-
-  _homeState.profile = profile;
-  _homeState.config = config;
-  _homeState.metrics = metrics;
-
+export function renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute = '/home') {
   const variantKey = homeVariant(profile);
-  const variant = HOME_VARIANTS[variantKey];
-  const plazas = availablePlazas(profile, config);
-  const currentPlaza = upper(metrics.focus || activePlaza() || plazas[0] || profile.plazaAsignada || '');
-  const userName = safe(profile.nombre || profile.email || 'Usuario');
-  const company = companyName(config);
-  
-  // Create navigation links from sidebarGroups logic
   const navGroups = sidebarGroups(profile, metrics, currentPlaza);
   let navHtml = '';
   navGroups.forEach(group => {
-    if(group.label === 'Cuenta') return; // We handle logout separately
+    if(group.label === 'Cuenta') return;
     navHtml += `<div class="px-6 mb-2 mt-4"><p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">${escapeHtml(group.label)}</p></div>`;
     group.items.forEach(item => {
-      const activeClass = item.active 
-        ? "bg-amber-500/10 text-amber-500 border-l-4 border-amber-500" 
+      const isActive = item.route === currentRoute;
+      const activeClass = isActive
+        ? "bg-amber-500/10 text-amber-500 border-l-4 border-amber-500"
         : "text-slate-400 hover:text-slate-100 hover:bg-secondary/5 border-l-4 border-transparent";
-      
-      const fillStyle = item.active ? `style="font-variation-settings: 'FILL' 1;"` : '';
-      
+
+      const fillStyle = isActive ? `style="font-variation-settings: 'FILL' 1;"` : '';
+
       navHtml += `
-        <a class="flex items-center gap-3 px-6 py-4 transition-all duration-300 active:scale-[0.98] cursor-pointer ${activeClass}" 
+        <a class="shell-nav-link flex items-center gap-3 px-6 py-4 transition-all duration-300 active:scale-[0.98] cursor-pointer ${isActive ? 'is-active' : ''} ${activeClass}"
            ${item.route ? `data-route="${escapeHtml(item.route)}"` : ''}>
           <span class="material-symbols-outlined" data-icon="${escapeHtml(item.icon)}" ${fillStyle}>${escapeHtml(item.icon)}</span>
           <span class="font-sans text-sm font-medium tracking-wide">${escapeHtml(item.label)}</span>
@@ -652,16 +642,15 @@ function renderHome(profile, config, metrics) {
     });
   });
 
-  const now = new Date();
-  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
-  const dateString = now.toLocaleDateString('es-MX', dateOptions);
+  return `
+    <!-- Mobile Overlay -->
+    <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 bg-slate-900/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
 
-  root.innerHTML = `
     <!-- Persistent SideNavBar -->
-    <aside class="fixed h-full w-[280px] left-0 top-0 border-r border-slate-800/50 bg-[#07111f] shadow-2xl shadow-black/50 z-50 flex flex-col justify-between py-8 overflow-y-auto">
+    <aside id="homeSidebar" class="shell-sidebar-surface fixed h-full w-[280px] left-0 top-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out bg-[#07111f]" style="position:fixed; z-index:900001; border-right:1px solid #1a2538;">
       <div>
         <!-- Brand Header -->
-        <div class="px-8 mb-10">
+        <div class="shell-sidebar-brand px-8 mb-10">
           <div class="flex items-center gap-3 mb-2">
             <div class="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
               <span class="material-symbols-outlined text-white" data-icon="rocket_launch">rocket_launch</span>
@@ -674,9 +663,9 @@ function renderHome(profile, config, metrics) {
         </div>
 
         <!-- User Info Section -->
-        <div class="px-6 mb-8">
-          <div class="bg-slate-800/40 rounded-xl p-4 flex items-center gap-3 border border-slate-700/50">
-            <div class="w-10 h-10 rounded-full border-2 border-secondary bg-slate-700 flex items-center justify-center text-white font-bold uppercase overflow-hidden">
+        <div class="shell-sidebar-user px-6 mb-8">
+          <div class="rounded-xl p-4 flex items-center gap-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+            <div class="w-10 h-10 rounded-full border-2 border-secondary bg-slate-700 flex items-center justify-center text-white font-bold uppercase overflow-hidden shrink-0">
               ${escapeHtml((userName[0] || 'U').toUpperCase())}
             </div>
             <div class="overflow-hidden">
@@ -693,7 +682,7 @@ function renderHome(profile, config, metrics) {
       </div>
 
       <!-- Footer Actions -->
-      <div class="px-6 mt-8">
+      <div class="shell-sidebar-footer px-6 mt-8">
         <button class="w-full bg-secondary text-white py-3 px-4 rounded-xl font-bold text-sm mb-4 flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-secondary/20" data-route="/cola-preparacion">
           <span class="material-symbols-outlined text-sm" data-icon="add">add</span>
           Nuevo Despacho
@@ -704,23 +693,48 @@ function renderHome(profile, config, metrics) {
         </a>
       </div>
     </aside>
+  `;
+}
 
+function renderHome(profile, config, metrics) {
+  const root = document.getElementById('homeApp');
+  if (!root) return;
+
+  _homeState.profile = profile;
+  _homeState.config = config;
+  _homeState.metrics = metrics;
+
+  const variantKey = homeVariant(profile);
+  const variant = HOME_VARIANTS[variantKey];
+  const plazas = availablePlazas(profile, config);
+  const currentPlaza = upper(metrics.focus || activePlaza() || plazas[0] || profile.plazaAsignada || '');
+  const userName = safe(profile.nombre || profile.email || 'Usuario');
+  const company = companyName(config);
+
+  const now = new Date();
+  const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+  const dateString = now.toLocaleDateString('es-MX', dateOptions);
+
+  root.innerHTML = renderSidebarHTML(profile, metrics, currentPlaza, company, userName, '/home') + `
     <!-- TopAppBar -->
-    <header class="fixed top-0 right-0 w-[calc(100%-280px)] h-16 z-40 bg-surface-bright/90 backdrop-blur-md border-b border-outline-variant/30 flex justify-between items-center px-8 shadow-sm">
-      <div class="flex items-center gap-4">
+    <header class="shell-topbar-surface fixed top-0 right-0 w-full lg:w-[calc(100%-280px)] h-16 z-30 flex justify-between items-center px-4 lg:px-8 shadow-sm">
+      <div class="flex items-center gap-2 lg:gap-4">
+        <button id="mobileMenuBtn" class="lg:hidden p-2 text-slate-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-all border border-transparent">
+          <span class="material-symbols-outlined" data-icon="menu">menu</span>
+        </button>
         <div class="relative hidden md:block">
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="search">search</span>
           <input class="bg-slate-100 border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm text-slate-700 w-80 focus:ring-1 focus:ring-secondary/50 placeholder:text-slate-400 outline-none" placeholder="Buscar vehículo, ruta..." type="text"/>
         </div>
       </div>
-      
+
       <div class="flex items-center gap-6">
         <select id="homePlazaSelect" class="bg-slate-100 border border-slate-200 rounded-full py-2 px-4 text-sm text-slate-700 font-semibold focus:ring-1 focus:ring-secondary/50 outline-none cursor-pointer" ${plazas.length <= 1 ? 'disabled' : ''}>
           ${(plazas.length ? plazas : [currentPlaza || '']).filter(Boolean).map(plaza => `
             <option value="${escapeHtml(plaza)}" ${plaza === currentPlaza ? 'selected' : ''}>📍 ${escapeHtml(plaza)}</option>
           `).join('')}
         </select>
-        
+
         <div class="flex items-center gap-2">
           <button class="relative hover:text-secondary hover:bg-slate-100 rounded-full p-2 text-slate-400 transition-all border border-transparent">
             <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
@@ -741,7 +755,7 @@ function renderHome(profile, config, metrics) {
     </header>
 
     <!-- Main Content Stage -->
-    <main class="ml-[280px] pt-16 min-h-screen pb-12">
+    <main class="shell-main-stage w-full lg:ml-[280px] pt-16 min-h-screen pb-12">
       <div class="p-8">
         <!-- Welcome Header -->
         <div class="flex justify-between items-end mb-8">
@@ -766,13 +780,13 @@ function renderHome(profile, config, metrics) {
 
         <!-- Bento Layout Content -->
         <div class="grid grid-cols-12 gap-6">
-          
+
           <!-- Hero Section: Immersive Map -->
-          <div class="col-span-12 lg:col-span-9 h-[540px] relative rounded-3xl overflow-hidden shadow-2xl border border-outline-variant/30 group">
-            <div class="absolute inset-0 z-0 bg-slate-900 border border-slate-200">
-              <img alt="Live Map Dashboard" class="w-full h-full object-cover opacity-60" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA2M6dl0Se0qDF3ouuYdDIJ64IBFxD-fTf97NwE-9Kyo_aUdPS5xfGuL9Ad8gl5ejSpF7nbZzDMN1p_qXN-RQHLnU_zUlgu8Sa-KfKJThbjHa155KKJEIBFNX0WUlKv5h70G_UpxzoojxHkuSa_fFN0ZvHP4IPjhxmXl-TFRfCfMkeLT1ll_42T83QsFfNgFp2SWdmaOo7-Vb9ssFKe-0d5K9sGDcqZLym1Jishdyzamcei2y8LqTsiOLlgusfkaUf7gxpAxuJEn7wH"/>
+          <div class="shell-section-card shell-stagger-1 col-span-12 lg:col-span-9 h-[540px] relative rounded-3xl overflow-hidden shadow-2xl border border-outline-variant/30 group">
+            <div class="absolute inset-0 z-0 bg-slate-900 border border-slate-200" id="homeMapPreview">
+              <div class="flex items-center justify-center w-full h-full"><div class="animate-spin w-8 h-8 rounded-full border-t-2 border-l-2 border-emerald-500"></div></div>
             </div>
-            
+
             <div class="absolute inset-0 z-10 p-6 flex flex-col justify-between pointer-events-none">
               <div class="flex justify-between items-start">
                 <div class="bg-[#07111f]/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-full flex items-center gap-3 pointer-events-auto shadow-lg shadow-black/20">
@@ -789,7 +803,7 @@ function renderHome(profile, config, metrics) {
                   </button>
                 </div>
               </div>
-              
+
               <!-- Simulated Vehicle Markers Overlay panel -->
               <div class="flex justify-center pointer-events-none">
                 <div class="bg-white/10 backdrop-blur-xl border border-white/20 px-8 py-4 rounded-t-3xl flex gap-8 items-center pointer-events-auto translate-y-6 group-hover:translate-y-0 transition-transform duration-500 shadow-2xl">
@@ -813,9 +827,9 @@ function renderHome(profile, config, metrics) {
           </div>
 
           <!-- Operational Metrics Sidebar -->
-          <div class="col-span-12 lg:col-span-3 flex flex-col gap-6">
-            
-            <div class="bg-white p-6 rounded-3xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+          <div class="shell-stagger-2 col-span-12 lg:col-span-3 flex flex-col gap-6">
+
+            <div class="shell-section-card bg-white p-6 rounded-3xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
               <div class="relative z-10">
                 <div class="flex justify-between items-start mb-4">
                   <div class="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center text-secondary">
@@ -830,13 +844,13 @@ function renderHome(profile, config, metrics) {
               </div>
             </div>
 
-            <div class="bg-white p-6 rounded-3xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div class="shell-section-card shell-stagger-3 bg-white p-6 rounded-3xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
               <div class="relative z-10">
                 <div class="flex justify-between items-start mb-4">
                   <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center text-amber-600">
                     <span class="material-symbols-outlined" data-icon="warning">warning</span>
                   </div>
-                  ${metrics.incidenciasAbiertas > 0 ? 
+                  ${metrics.incidenciasAbiertas > 0 ?
                     `<span class="text-error bg-error-container px-2 py-1 rounded text-[10px] font-bold flex items-center gap-1">
                       <span class="material-symbols-outlined text-[12px]" data-icon="report">report</span>
                       Acción
@@ -850,7 +864,7 @@ function renderHome(profile, config, metrics) {
               </div>
             </div>
 
-            <div class="bg-white p-6 rounded-3xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+            <div class="shell-section-card shell-stagger-4 bg-white p-6 rounded-3xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
               <div class="relative z-10">
                 <div class="flex justify-between items-start mb-4">
                   <div class="w-12 h-12 bg-primary-container rounded-xl flex items-center justify-center text-primary-fixed">
@@ -864,12 +878,12 @@ function renderHome(profile, config, metrics) {
                 <span class="material-symbols-outlined text-[100px]" data-icon="local_shipping">local_shipping</span>
               </div>
             </div>
-            
+
           </div>
 
           <!-- Secondary Row -->
           <div class="col-span-12 grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             <div class="md:col-span-2 glass-panel rounded-3xl p-8 border border-white flex items-center justify-between shadow-sm overflow-hidden relative">
               <div class="relative z-10 w-full max-w-lg">
                 <h3 class="text-h3 text-on-primary-fixed mb-2">Resumen de Operaciones Globales</h3>
@@ -893,7 +907,7 @@ function renderHome(profile, config, metrics) {
                 <h3 class="text-label-caps text-on-surface-variant">Actividad Reciente</h3>
                 <span class="material-symbols-outlined text-slate-400 cursor-pointer" data-icon="more_horiz">more_horiz</span>
               </div>
-              
+
               <div class="space-y-4 flex-1">
                 ${metrics.incidenciasAbiertas > 0 ? `
                   <div class="flex items-center gap-3">
@@ -938,6 +952,9 @@ function renderHome(profile, config, metrics) {
     </main>
   `;
 
+  // Launch live mini map
+  _renderMiniMapPreview(currentPlaza);
+
   root.querySelectorAll('[data-route]').forEach(button => {
     button.addEventListener('click', () => {
       setActivePlaza(currentPlaza);
@@ -960,6 +977,27 @@ function renderHome(profile, config, metrics) {
     setActivePlaza(plaza);
     renderBoot();
   });
+
+  const sidebar = document.getElementById('homeSidebar');
+  const mobileOverlay = document.getElementById('mobileOverlay');
+  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+
+  function toggleMobileMenu() {
+    if (!sidebar || !mobileOverlay) return;
+    const isOpen = !sidebar.classList.contains('-translate-x-full');
+    if (!isOpen) { // Open
+      sidebar.classList.remove('-translate-x-full');
+      mobileOverlay.classList.remove('hidden');
+      setTimeout(() => mobileOverlay.classList.remove('opacity-0'), 10);
+    } else { // Close
+      sidebar.classList.add('-translate-x-full');
+      mobileOverlay.classList.add('opacity-0');
+      setTimeout(() => mobileOverlay.classList.add('hidden'), 300);
+    }
+  }
+
+  mobileMenuBtn?.addEventListener('click', toggleMobileMenu);
+  mobileOverlay?.addEventListener('click', toggleMobileMenu);
 }
 
 function renderError(message) {
@@ -1043,3 +1081,64 @@ auth.onAuthStateChanged(user => {
   }
   renderBoot();
 });
+
+// ============================================
+// Mini-Map Preview Renderer (Hero Section)
+// ============================================
+async function _renderMiniMapPreview(plaza) {
+  const container = document.getElementById('homeMapPreview');
+  if (!container) return;
+  try {
+    const estructura = await window._mexParts?.mapa?.obtenerEstructuraMapa(plaza) || [];
+    const { unidades } = await window._mexParts?.mapa?.obtenerDatosParaMapa(plaza) || { unidades: [] };
+
+    const normEstructura = estructura.map((item, i) => normalizarElemento(item, i));
+    const normUnidades = unidades.map(u => normalizarUnidad(u)).filter(u => u.mva);
+    const vm = buildMapaViewModel(normEstructura, normUnidades, {}, {});
+
+    let minX = 0, minY = 0, maxX = 800, maxY = 600;
+    if (vm.cajones && vm.cajones.length > 0) {
+       minX = Math.min(...vm.cajones.map(c => c.x));
+       minY = Math.min(...vm.cajones.map(c => c.y));
+       maxX = Math.max(...vm.cajones.map(c => c.x + c.width));
+       maxY = Math.max(...vm.cajones.map(c => c.y + c.height));
+    }
+    const mapW = maxX - minX + 100;
+    const mapH = maxY - minY + 100;
+    const scaleX = 900 / mapW;
+    const scaleY = 540 / mapH;
+    let scale = Math.min(scaleX, scaleY) * 0.8;
+    if (scale > 1) scale = 1;
+    if (scale < 0.1) scale = 0.1;
+
+    const colors = {
+      'LISTO': '#10b981', 'SUCIO': '#f59e0b', 'MANTENIMIENTO': '#ef4444',
+      'RESGUARDO': '#64748b', 'TRASLADO': '#c084fc', 'EN RENTA': '#38bdf8',
+      'RETENIDA': '#78350f', 'VENTA': '#1e293b', 'HYP': '#ef4444'
+    };
+
+    let html = `<div style="position:absolute; left:50%; top:50%; transform: translate(-50%, -50%) scale(${scale}); width:${mapW}px; height:${mapH}px; pointer-events:none; transition: all 0.3s; opacity:0.65;">`;
+
+    for (const c of vm.cajones) {
+      if(c.tipo === 'pilar') continue;
+      const bg = c.esLabel ? 'transparent' : 'rgba(255,255,255,0.03)';
+      const color = c.esLabel ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)';
+      const text = c.esLabel ? c.pos : '';
+      const border = c.esLabel ? 'none' : '1px solid rgba(255,255,255,0.05)';
+      html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); background:${bg}; border:${border}; color:${color}; font-size:${c.esLabel ? '32px' : '12px'}; font-weight:bold; display:flex; align-items:center; justify-content:center; border-radius:6px;">${text}</div>`;
+    }
+
+    for (const [mva, u] of vm.unitMap.entries()) {
+      if (u.pos === 'LIMBO') continue;
+      const c = vm.cajones.find(c => c.pos === u.pos);
+      if (!c) continue;
+      const bg = colors[u.estado] || '#64748b';
+      html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); background:linear-gradient(135deg, ${bg}, #000); color:white; font-size:14px; font-weight:900; display:flex; align-items:center; justify-content:center; border-radius:6px; box-shadow:0 10px 15px -3px rgba(0,0,0,0.5);">${mva}</div>`;
+    }
+    html += `</div>`;
+    container.innerHTML = html;
+  } catch (e) {
+    console.error("[Live Preview error]", e);
+    container.innerHTML = `<div class="flex flex-col items-center justify-center w-full h-full text-slate-500 font-bold gap-3"><span class="material-symbols-outlined text-4xl">map_off</span><span>Vista en vivo no disponible (${plaza})</span></div>`;
+  }
+}

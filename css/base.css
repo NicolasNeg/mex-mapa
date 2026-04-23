@@ -259,6 +259,175 @@
       background: var(--border) !important;
     }
 
+    /* ── Shell compartido para home / admin / vistas operativas ── */
+    @keyframes shellFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes shellFloatIn {
+      from {
+        opacity: 0;
+        transform: translateY(14px) scale(0.985);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    @keyframes shellSheen {
+      0% {
+        transform: translateX(-12%);
+        opacity: 0.35;
+      }
+      50% {
+        opacity: 0.7;
+      }
+      100% {
+        transform: translateX(12%);
+        opacity: 0.35;
+      }
+    }
+
+    .shell-sidebar-surface {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      border-radius: 28px;
+      border: 1px solid rgba(148, 163, 184, 0.12);
+      background: linear-gradient(180deg, #07111f 0%, #0b1324 42%, #101a31 100%);
+      box-shadow: 0 24px 72px rgba(2, 6, 23, 0.46);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transform: translateZ(0);
+      transition: transform 0.28s ease, box-shadow 0.28s ease, border-color 0.28s ease;
+    }
+
+    .shell-sidebar-surface::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at top, rgba(96, 165, 250, 0.18), transparent 34%),
+        radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.08), transparent 30%);
+      pointer-events: none;
+      opacity: 0.9;
+      z-index: 0;
+    }
+
+    .shell-sidebar-surface::after {
+      content: "";
+      position: absolute;
+      top: 18px;
+      right: -28px;
+      width: 120px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(148, 163, 184, 0.28), transparent);
+      transform: rotate(12deg);
+      animation: shellSheen 8s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .shell-sidebar-surface > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .shell-sidebar-surface:hover {
+      box-shadow: 0 28px 82px rgba(2, 6, 23, 0.54);
+      border-color: rgba(96, 165, 250, 0.22);
+    }
+
+    .shell-sidebar-brand,
+    .shell-sidebar-user,
+    .shell-sidebar-footer,
+    .shell-sidebar-section {
+      animation: shellFloatIn 0.35s ease both;
+    }
+
+    .shell-sidebar-user {
+      background: rgba(15, 23, 42, 0.42);
+      border: 1px solid rgba(148, 163, 184, 0.16);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+    }
+
+    .shell-topbar-surface {
+      background: rgba(248, 250, 252, 0.92);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
+    }
+
+    .shell-main-stage {
+      animation: shellFadeIn 0.35s ease both;
+    }
+
+    .shell-nav-link {
+      border-left: 4px solid transparent;
+      border-radius: 0 18px 18px 0;
+      transition: transform 0.22s ease, background 0.22s ease, color 0.22s ease, border-color 0.22s ease;
+    }
+
+    .shell-nav-link:hover {
+      transform: translateX(3px);
+      background: rgba(148, 163, 184, 0.08);
+    }
+
+    .shell-nav-link.is-active,
+    .shell-nav-link[aria-current="page"] {
+      background: rgba(245, 158, 11, 0.12);
+      color: #f59e0b;
+      border-left-color: #f59e0b;
+    }
+
+    .shell-nav-link .material-symbols-outlined {
+      transition: transform 0.2s ease, color 0.2s ease;
+    }
+
+    .shell-nav-link:hover .material-symbols-outlined {
+      transform: scale(1.05);
+    }
+
+    .shell-mobile-overlay,
+    #mobileOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.56);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: opacity 0.25s ease, visibility 0.25s ease;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    .shell-mobile-overlay.is-open,
+    #mobileOverlay:not(.hidden) {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+
+    .shell-section-card {
+      animation: shellFloatIn 0.38s ease both;
+    }
+
+    .shell-stagger-1 { animation-delay: 0.04s; }
+    .shell-stagger-2 { animation-delay: 0.08s; }
+    .shell-stagger-3 { animation-delay: 0.12s; }
+    .shell-stagger-4 { animation-delay: 0.16s; }
+
     body.dark-theme .sb-btn-dark {
       color: #8f9db5 !important;
     }
@@ -940,4 +1109,3 @@
     .user-option:last-child {
       border-bottom: none;
     }
-

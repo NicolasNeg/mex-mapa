@@ -16,6 +16,9 @@
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script src="/js/tailwind-config.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -54,10 +57,18 @@
   <!-- MEX API — Firebase Client SDK directo -->
 </head>
 
-<body>
+<body class="bg-surface overflow-hidden">
 
-  <!-- [F3.4] Banner global discreto -->
-  <div id="global-status-banner" style="display:none;"></div>
+  <!-- =============================== -->
+  <!-- Left Sidebar (Injected via JS)  -->
+  <!-- =============================== -->
+  <div id="mapaLeftSidebarContainer"></div>
+
+  <!-- Main Map Container -->
+  <main class="w-full h-screen lg:ml-[280px] relative transition-all duration-300 overflow-hidden" id="mapaMainStage">
+
+    <!-- [F3.4] Banner global discreto -->
+    <div id="global-status-banner" style="display:none;"></div>
 
   <div id="overlayAuditoria" style="display: none;">
 
@@ -85,195 +96,6 @@
 
 
 
-  <aside id="admin-sidebar" class="admin-sidebar">
-    <div class="admin-sidebar-head">
-      <div class="admin-sidebar-brand">
-        <div class="admin-sidebar-brand-main">
-          <div class="admin-sidebar-brand-icon">
-            <span class="material-icons" style="font-size:20px;">terminal</span>
-          </div>
-          <div class="admin-sidebar-brand-copy">
-            <h2>CONSOLA DE PATIO</h2>
-            <p>Configuraciones</p>
-          </div>
-        </div>
-        <div class="admin-sidebar-actions">
-          <button id="btnThemeToggle" onclick="toggleDarkMode()" title="Modo oscuro" class="admin-sidebar-icon-btn"
-            style="font-size:18px;">
-            <span class="material-icons" id="iconTheme" style="font-size:18px;">dark_mode</span>
-          </button>
-          <button id="btnCloseAdminSidebar" onclick="toggleAdminSidebar()" title="Cerrar panel"
-            class="admin-sidebar-icon-btn">
-            <span class="material-icons" style="font-size:18px;">close</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="admin-sidebar-status">
-        <div class="admin-sidebar-status-copy">
-          <span class="admin-status-pip"></span>
-          <span>En Vivo</span>
-        </div>
-        <p id="lastUpdateAdmin">--/-- 00:00</p>
-      </div>
-    </div>
-
-    <div id="adminSidebarNav" class="admin-sidebar-scroll alerta-scroll-thin">
-      <div class="admin-nav-group">
-        <p id="titleOperacion" class="sb-section-label">Operación y Mapa</p>
-
-        <button id="btnMenuFlota" onclick="abrirModalFlota()" class="sb-btn sb-btn-blue">
-          <div><span class="material-icons">sensors</span> GESTIÓN DE FLOTA</div>
-          <span class="sb-btn-right"><span class="sb-dot"></span></span>
-        </button>
-
-        <button id="btnMenuMapaCalor" onclick="toggleMapaCalor()" class="sb-btn sb-btn-dark">
-          <div><span class="material-icons" style="color:#fca5a5;">local_fire_department</span> MAPA DE CALOR</div>
-          <div class="heatmap-switch"></div>
-        </button>
-      </div>
-
-      <div class="sb-divider"></div>
-
-      <div class="admin-nav-group">
-        <p id="titleCuadre" class="sb-section-label">Cuadre</p>
-
-        <button id="btnProtocoloV3" onclick="manejadorFlujoV3()" class="sb-btn sb-btn-status">
-          <span class="material-icons" id="icoV3" style="font-size:18px;">lock</span>
-          <span id="txtV3">CUADRE CERRADO</span>
-        </button>
-
-        <button id="btnVerCuadres" onclick="abrirHistorialCuadres()" class="sb-btn sb-btn-ghost" style="display:none;">
-          <div><span class="material-icons">history_edu</span> HISTORIAL DE CUADRES</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-
-        <button id="btnColaPreparacion" onclick="window.location.href='/cola-preparacion'" class="sb-btn sb-btn-dark">
-          <div><span class="material-icons" style="color:#2563eb;">format_list_bulleted</span> COLA PREPARACIÓN</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-      </div>
-
-      <div class="sb-divider"></div>
-
-      <div class="admin-nav-group">
-        <p id="titleHerramientas" class="sb-section-label">Herramientas</p>
-
-        <button id="btnMenuHistorial" onclick="abrirLogs()" class="sb-btn sb-btn-dark">
-          <div><span class="material-icons">history</span>HISTORIAL MAPA</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-
-      </div>
-
-      <div class="sb-divider" id="panelAdminDivider" style="display:none;"></div>
-
-      <div class="admin-nav-group" id="navGroupPanelAdmin" style="display:none;">
-        <p id="titlePanelAdmin" class="sb-section-label">Panel Admin</p>
-
-        <button id="btnConfigGlobal" onclick="abrirPanelConfiguracion()" class="sb-btn sb-btn-dark">
-          <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span class="material-icons" style="color:#f59e0b;">admin_panel_settings</span>
-              <span style="font-weight: 800; font-size: 11px;">PANEL ADMIN</span>
-            </div>
-            <div style="display: flex; align-items: center;">
-              <span id="badge-solicitudes" class="badge-pulse"
-                style="display:none; position:relative; top:0; right:0; margin-right: 5px; width:18px; height:18px; background:#ef4444; color:white; border-radius:50%; text-align:center; line-height:18px; font-size:10px;">0</span>
-              <span class="material-icons sb-chevron">chevron_right</span>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      <div class="sb-divider"></div>
-
-      <div class="nav-group-general" style="display: flex; flex-direction: column; gap: 8px;">
-        <p class="sb-section-label">Comunicaciones</p>
-
-        <button id="btnMenuBitacora" onclick="abrirIncidencias()" class="sb-btn sb-btn-dark">
-          <div>
-            <span class="material-icons">content_paste</span>
-            <span>BITÁCORA</span>
-            <span id="menuBadgeIncidencias" class="badge-pulse"
-              style="display:none; position:relative; top:0; right:0; margin-left:6px; width:18px; height:18px;">0</span>
-          </div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-
-        <button id="btnAlerts" onclick="abrirSiguienteAlerta()" class="sb-btn sb-btn-dark" style="display:none;"
-          title="Alertas">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span class="material-icons" style="font-size:20px;">notifications</span>
-            <p id="txtAlerts" style="margin: 0;">ALERTAS</p>
-          </div>
-          <span id="badgeAlerts" class="badge-pulse"
-            style="display:none; position: relative; top: 0; right: 0;">0</span>
-        </button>
-
-        <button id="btnBuzon" onclick="window.location.href='/mensajes'" class="sb-btn sb-btn-dark"
-          style="display:none;" title="Mensajes">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span class="material-icons" style="font-size:20px;">mail</span>
-            <p id="txtMsgs" style="margin: 0;">MENSAJES</p>
-          </div>
-          <span id="badgeBuzon" class="badge-pulse"
-            style="display:none; position: relative; top: 0; right: 0; background:#3b82f6; box-shadow:0 0 0 0 rgba(59,130,246,0.7); animation:pulseBlue 2s infinite;">0</span>
-        </button>
-      </div>
-
-      <div class="sb-divider"></div>
-
-      <div class="admin-nav-group">
-        <p class="sb-section-label">Sistema</p>
-
-        <button id="btnEditorMapa" onclick="abrirRutaEditmap()" class="sb-btn sb-btn-dark" style="display:none;">
-          <div><span class="material-icons" style="color:#67c7ff;">map</span> EDITOR DE MAPA</div>
-          <span class="material-icons sb-chevron">chevron_right</span>
-        </button>
-
-        <div class="sb-divider"></div>
-
-        <div class="admin-nav-group">
-          <p class="sb-section-label">Alertas</p>
-
-          <button id="btnMenuAlertasGlobales" onclick="abrirCreadorAlertas()" class="sb-btn sb-btn-red"
-            style="display:none;">
-            <div><span class="material-icons">campaign</span> EMITIR ALERTA</div>
-            <span class="material-icons sb-chevron">chevron_right</span>
-          </button>
-
-          <button id="btnMenuHistorialAlertas" onclick="abrirGestorAlertas()" class="sb-btn sb-btn-dark"
-            style="display:none;">
-            <div><span class="material-icons">notifications_active</span> HISTORIAL ALERTAS</div>
-            <span class="material-icons sb-chevron">chevron_right</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="admin-sidebar-footer">
-        <div class="admin-user-card">
-          <div id="adminSidebarUserAvatar" class="admin-user-avatar">--</div>
-          <div class="admin-user-copy">
-            <div id="adminSidebarUserName" class="admin-user-name">SIN SESIÓN</div>
-            <div id="adminSidebarUserMeta" class="admin-user-meta">Esperando autenticación</div>
-          </div>
-          <div class="admin-user-actions">
-            <button id="btnAdminSidebarProfile" type="button" class="admin-user-settings" onclick="window.location.href='/profile'" title="Abrir mi perfil">
-              <span class="material-icons">settings</span>
-            </button>
-            <div class="admin-user-monitor">
-              <span class="admin-status-pip"></span>
-              <span>Activo</span>
-            </div>
-          </div>
-        </div>
-
-        <button id="btnMenuLogout" onclick="confirmarCierreSesion()" class="admin-sidebar-logout">
-          <span class="material-icons" style="font-size:18px;">logout</span> CERRAR SESIÓN
-        </button>
-      </div>
-  </aside>
   <div id="customModal" class="modal-overlay">
     <div class="modal-box">
       <div class="material-icons modal-icon" id="modalIcon">warning</div>
@@ -1725,9 +1547,9 @@
         <div id="plaza-picker-dropdown" class="plaza-picker-dropdown" style="display:none;"></div>
       </div>
 
-      <button id="btnAdmin" onclick="toggleAdminSidebar()" class="header-icon-btn" style="display:none;"
-        title="Panel Admin">
-        <span class="material-icons" style="font-size:20px;">settings</span>
+      <button id="btnAdmin" onclick="toggleSidebar()" class="header-icon-btn" style="display:none;"
+        title="Gestión de Unidades">
+        <span class="material-icons" style="font-size:20px;">directions_car</span>
         <span id="badgeIncidencias" class="badge-pulse yellow" style="display:none;">0</span>
       </button>
 
@@ -4468,6 +4290,7 @@
         }
       </style>
 
+  </main>
 </body>
 
 </html>
