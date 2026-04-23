@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#0b2548">
+  <meta name="theme-color" content="#064e3b">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="description" content="Cola operativa de preparacion">
+  <meta name="description" content="Cola operativa de preparación para seguimiento detallado de unidades">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/logo.png">
@@ -23,7 +23,7 @@
   <script src="/js/core/firebase-init.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
 
-  <title>Cola de preparacion</title>
+  <title>Cola de preparación</title>
 </head>
 <body class="programmer-page cola-page">
   <div class="prep-shell">
@@ -36,10 +36,10 @@
         <div class="prep-brand">
           <div class="prep-kicker">
             <span class="material-icons" style="font-size:13px;">checklist_rtl</span>
-            Modulo operativo
+            Seguimiento mecánico
           </div>
-          <h1>Cola de preparacion</h1>
-          <p>Gestiona el checklist y prioridad de unidades proximas a salir.</p>
+          <h1>Cola de preparación</h1>
+          <p>Seguimiento detallado de cada unidad, su checklist y prioridad antes de salida.</p>
         </div>
       </div>
       <div class="prep-topbar-side">
@@ -99,7 +99,7 @@
       <details class="prep-instructions">
         <summary class="prep-instructions-toggle">
           <span class="material-icons">help_outline</span>
-          <span>Como funciona esta vista</span>
+          <span>Cómo funciona esta vista</span>
           <span class="material-icons prep-instructions-chevron">expand_more</span>
         </summary>
         <div class="prep-instructions-body">
@@ -107,44 +107,44 @@
             <div class="prep-instructions-step">
               <span class="prep-instructions-num">1</span>
               <div>
-                <strong>Agrega unidades a la cola</strong>
-                <p>Usa "Nueva salida" para registrar un MVA. El sistema busca automaticamente los datos del expediente (modelo, categoria, estado, ubicacion).</p>
+                <strong>Registra unidades a preparar</strong>
+                <p>Usa "Nueva salida" para capturar un MVA. La vista intenta recuperar modelo, categoría, estado y ubicación del expediente.</p>
               </div>
             </div>
             <div class="prep-instructions-step">
               <span class="prep-instructions-num">2</span>
               <div>
-                <strong>Marca el checklist</strong>
-                <p>Selecciona una unidad y marca los 4 puntos: lavado, gasolina, documentacion y revision mecanica. El avance se refleja en tiempo real.</p>
+                <strong>Completa el checklist</strong>
+                <p>Marca lavado, gasolina, documentación y revisión mecánica. El avance se sincroniza en tiempo real.</p>
               </div>
             </div>
             <div class="prep-instructions-step">
               <span class="prep-instructions-num">3</span>
               <div>
                 <strong>Asigna responsables</strong>
-                <p>Escribe el nombre o correo del operativo responsable. Usa "Asignarme" para asignarte directamente sin escribir.</p>
+                <p>Escribe el nombre o correo del operativo. Usa "Asignarme" si quieres tomar la unidad al instante.</p>
               </div>
             </div>
             <div class="prep-instructions-step">
               <span class="prep-instructions-num">4</span>
               <div>
-                <strong>Prioridad visual y orden</strong>
-                <p>Rojo = sale en menos de 24h (urgente). Arrastra las tarjetas para reordenar manualmente. El orden se guarda automaticamente.</p>
+                <strong>Prioriza y reordena</strong>
+                <p>Las salidas urgentes se marcan en rojo. Arrastra las tarjetas para ajustar el orden y guardar la secuencia operativa.</p>
               </div>
             </div>
           </div>
           <div class="prep-instructions-roles">
             <div class="prep-instructions-role-chip">
               <strong>Auxiliar / Ventas</strong>
-              <span>Ver cola, marcar checklist, asignarse unidades</span>
+              <span>Ver cola, marcar checklist y asignarse unidades</span>
             </div>
             <div class="prep-instructions-role-chip">
               <strong>Jefe de Patio / Supervisor</strong>
-              <span>Todo lo anterior + eliminar entradas + ver todos los responsables</span>
+              <span>Todo lo anterior + eliminar entradas y revisar responsables</span>
             </div>
             <div class="prep-instructions-role-chip prep-instructions-role-chip--admin">
               <strong>Gerente / Corporativo / Programador</strong>
-              <span>Acceso completo + cambio de plaza</span>
+              <span>Acceso completo + cambio de plaza y control global</span>
             </div>
           </div>
         </div>
