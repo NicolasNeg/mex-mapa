@@ -369,8 +369,32 @@
       box-shadow: 0 8px 24px rgba(15, 23, 42, 0.04);
     }
 
+    :root {
+      --shell-sidebar-width: 280px;
+    }
+
+    .shell-topbar-offset {
+      left: var(--shell-sidebar-width);
+      width: calc(100% - var(--shell-sidebar-width));
+      right: auto;
+    }
+
     .shell-main-stage {
       animation: shellFadeIn 0.35s ease both;
+    }
+
+    .shell-main-offset {
+      margin-left: var(--shell-sidebar-width);
+      width: calc(100% - var(--shell-sidebar-width));
+    }
+
+    @media (max-width: 1023px) {
+      .shell-topbar-offset,
+      .shell-main-offset {
+        left: 0 !important;
+        margin-left: 0 !important;
+        width: 100% !important;
+      }
     }
 
     .shell-nav-link {

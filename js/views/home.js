@@ -569,6 +569,77 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
   return groups;
 }
 
+function getSidebarShellWidth(collapsed = _homeState.collapsed) {
+  return collapsed ? '84px' : '280px';
+}
+
+function applySidebarShellState(sidebar) {
+  if (!sidebar) return;
+  const collapsed = Boolean(_homeState.collapsed);
+  document.documentElement.style.setProperty('--shell-sidebar-width', getSidebarShellWidth(collapsed));
+  sidebar.classList.toggle('is-pinned', !collapsed);
+
+  const toggle = sidebar.querySelector('[data-sidebar-toggle]');
+  if (toggle) {
+    const icon = toggle.querySelector('.material-symbols-outlined');
+    const title = collapsed ? 'Expandir menú' : 'Colapsar menú';
+    toggle.title = title;
+    toggle.setAttribute('aria-label', title);
+    if (icon) icon.textContent = collapsed ? 'menu' : 'menu_open';
+  }
+}
+
+export function bindSidebarShell(root = document, options = {}) {
+  const sidebar = root?.getElementById ? root.getElementById('homeSidebar') : document.getElementById('homeSidebar');
+  if (!sidebar) return;
+  const currentPlaza = safe(options.currentPlaza || '');
+
+  applySidebarShellState(sidebar);
+
+  sidebar.querySelectorAll('[data-sidebar-group-toggle]').forEach(button => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      const group = button.closest('.cfg-nav-group');
+      if (!group) return;
+      group.classList.toggle('open');
+    });
+  });
+
+  const toggleBtn = sidebar.querySelector('[data-sidebar-toggle]');
+  if (toggleBtn && toggleBtn.dataset.bound !== '1') {
+    toggleBtn.dataset.bound = '1';
+    toggleBtn.addEventListener('click', event => {
+      event.preventDefault();
+      saveSidebarState(!_homeState.collapsed);
+      applySidebarShellState(sidebar);
+    });
+  }
+
+  sidebar.querySelectorAll('[data-route]').forEach(button => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      const target = button.getAttribute('data-route') || '/mapa';
+      if (currentPlaza && typeof setActivePlaza === 'function') {
+        setActivePlaza(currentPlaza);
+      }
+      window.location.href = target;
+    });
+  });
+
+  sidebar.querySelectorAll('[data-action="logout"]').forEach(button => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      logoutHome();
+    });
+  });
+}
+
 function renderNoAccess(profile = null) {
   const root = document.getElementById('homeApp');
   if (!root) return;
@@ -619,15 +690,39 @@ function saveSidebarState(collapsed) {
 
 export function renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute = '/home') {
   const variantKey = homeVariant(profile);
-  const isMapRoute = String(currentRoute || '').toLowerCase() === '/mapa';
-  const sidebarLayoutClass = isMapRoute
-    ? 'shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 w-[280px] h-screen overflow-y-auto transform -translate-x-full lg:translate-x-0 lg:relative lg:inset-auto lg:w-full lg:h-full lg:self-stretch'
-    : 'shell-sidebar-surface fixed h-full w-[280px] left-0 top-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out';
   const navGroups = sidebarGroups(profile, metrics, currentPlaza);
+  const shellCollapsed = Boolean(_homeState.collapsed);
   let navHtml = '';
   navGroups.forEach(group => {
-    if(group.label === 'Cuenta') return;
-    navHtml += `<div class="px-6 mb-2 mt-4"><p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-2">${escapeHtml(group.label)}</p></div>`;
+    const groupLabel = escapeHtml(group.label);
+    const groupMeta = group.label === 'Principal'
+      ? { small: 'Inicio', strong: 'Principal' }
+      : group.label === 'Operación'
+        ? { small: 'Flujo', strong: 'Operación' }
+        : group.label === 'Gestion'
+          ? { small: 'Control', strong: 'Gestión' }
+          : { small: 'Cuenta', strong: 'Perfil' };
+    const groupIcon = group.label === 'Principal'
+      ? 'dashboard'
+      : group.label === 'Operación'
+        ? 'route'
+        : group.label === 'Gestion'
+          ? 'admin_panel_settings'
+          : 'person';
+    navHtml += `
+      <div class="cfg-nav-group open shell-sidebar-section" data-nav-group="${groupLabel}">
+        <button type="button" class="cfg-nav-group-toggle shell-sidebar-group-toggle" data-sidebar-group-toggle>
+          <span class="cfg-nav-group-copy">
+            <span class="material-icons">${groupIcon}</span>
+            <span>
+              <small>${groupMeta.small}</small>
+              <strong>${groupMeta.strong}</strong>
+            </span>
+          </span>
+          <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
+        </button>
+        <div class="cfg-nav-group-body shell-sidebar-group-body">
+    `;
     group.items.forEach(item => {
       const isActive = item.route === currentRoute;
       const activeClass = isActive
@@ -635,15 +730,27 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
         : "text-slate-400 hover:text-slate-100 hover:bg-secondary/5 border-l-4 border-transparent";
 
       const fillStyle = isActive ? `style="font-variation-settings: 'FILL' 1;"` : '';
+      const routeAttr = item.route ? `data-route="${escapeHtml(item.route)}"` : '';
+      const actionAttr = item.action ? `data-action="${escapeHtml(item.action)}"` : '';
 
       navHtml += `
-        <a class="shell-nav-link flex items-center gap-3 px-6 py-4 transition-all duration-300 active:scale-[0.98] cursor-pointer ${isActive ? 'is-active' : ''} ${activeClass}"
-           ${item.route ? `data-route="${escapeHtml(item.route)}"` : ''}>
-          <span class="material-symbols-outlined" data-icon="${escapeHtml(item.icon)}" ${fillStyle}>${escapeHtml(item.icon)}</span>
-          <span class="font-sans text-sm font-medium tracking-wide">${escapeHtml(item.label)}</span>
+        <a class="cfg-tab shell-nav-link flex items-center gap-3 px-4 py-3 transition-all duration-300 active:scale-[0.98] cursor-pointer ${isActive ? 'is-active' : ''} ${activeClass}"
+           ${routeAttr}
+           ${actionAttr}>
+          <span class="cfg-tab-icon flex items-center justify-center">
+            <span class="material-symbols-outlined" data-icon="${escapeHtml(item.icon)}" ${fillStyle}>${escapeHtml(item.icon)}</span>
+          </span>
+          <span class="min-w-0 flex-1">
+            <span class="block font-sans text-sm font-semibold tracking-wide">${escapeHtml(item.label)}</span>
+            <span class="block text-[10px] leading-tight text-slate-400 truncate">${escapeHtml(item.description || '')}</span>
+          </span>
         </a>
       `;
     });
+    navHtml += `
+        </div>
+      </div>
+    `;
   });
 
   return `
@@ -651,24 +758,28 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
     <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 bg-slate-900/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
 
     <!-- Persistent SideNavBar -->
-    <aside id="homeSidebar" class="${sidebarLayoutClass} bg-[#07111f]" style="z-index:900001; border-right:1px solid #1a2538;">
+    <aside id="homeSidebar" class="cfg-v2-sidebar shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out ${shellCollapsed ? '' : 'is-pinned'}" style="--cfg-rail-collapsed:84px; --cfg-rail-expanded:280px; z-index:900001; border-right:1px solid #1a2538;">
       <div>
         <!-- Brand Header -->
-        <div class="shell-sidebar-brand px-8 mb-10">
-          <div class="flex items-center gap-3 mb-2">
-            <div class="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center">
-              <span class="material-symbols-outlined text-white" data-icon="rocket_launch">rocket_launch</span>
-            </div>
-            <div>
-              <h1 class="text-white font-black tracking-tighter text-xl uppercase">${escapeHtml(company)}</h1>
-              <p class="text-on-primary-container text-[10px] uppercase tracking-widest font-bold">Operational HQ</p>
+        <div class="shell-sidebar-brand px-3 mb-6">
+          <div class="cfg-v2-sidebar-top">
+            <button type="button" class="cfg-v2-sidebar-toggle" data-sidebar-toggle title="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}" aria-label="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}">
+              <span class="material-icons">${shellCollapsed ? 'menu' : 'menu_open'}</span>
+            </button>
+            <div class="cfg-v2-sidebar-label">
+              <span class="material-icons">rocket_launch</span>
+              <span>
+                <small>MAPA</small>
+                <strong>${escapeHtml(company)}</strong>
+              </span>
             </div>
           </div>
+          <div class="cfg-v2-sidebar-sublabel">Operational HQ · ${escapeHtml(roleLabel(profile))}</div>
         </div>
 
         <!-- User Info Section -->
-        <div class="shell-sidebar-user px-6 mb-8">
-          <div class="rounded-xl p-4 flex items-center gap-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+        <div class="shell-sidebar-user px-3 mb-6">
+          <div class="rounded-xl p-3 flex items-center gap-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
             <div class="w-10 h-10 rounded-full border-2 border-secondary bg-slate-700 flex items-center justify-center text-white font-bold uppercase overflow-hidden shrink-0">
               ${escapeHtml((userName[0] || 'U').toUpperCase())}
             </div>
@@ -680,13 +791,13 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
         </div>
 
         <!-- Navigation Links -->
-        <nav class="space-y-1">
+        <nav class="space-y-2 px-2">
           ${navHtml}
         </nav>
       </div>
 
       <!-- Footer Actions -->
-      <div class="shell-sidebar-footer px-6 mt-8">
+      <div class="shell-sidebar-footer px-3 mt-8">
         <button class="w-full bg-secondary text-white py-3 px-4 rounded-xl font-bold text-sm mb-4 flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-secondary/20" data-route="/cola-preparacion">
           <span class="material-symbols-outlined text-sm" data-icon="add">add</span>
           Nuevo Despacho
@@ -721,7 +832,7 @@ function renderHome(profile, config, metrics) {
 
   root.innerHTML = renderSidebarHTML(profile, metrics, currentPlaza, company, userName, '/home') + `
     <!-- TopAppBar -->
-    <header class="shell-topbar-surface fixed top-0 right-0 w-full lg:w-[calc(100%-280px)] h-16 z-30 flex justify-between items-center px-4 lg:px-8 shadow-sm">
+    <header class="shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex justify-between items-center px-4 lg:px-8 shadow-sm">
       <div class="flex items-center gap-2 lg:gap-4">
         <button id="mobileMenuBtn" class="lg:hidden p-2 text-slate-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-all border border-transparent">
           <span class="material-symbols-outlined" data-icon="menu">menu</span>
@@ -759,7 +870,7 @@ function renderHome(profile, config, metrics) {
     </header>
 
     <!-- Main Content Stage -->
-    <main class="shell-main-stage w-full lg:ml-[280px] pt-16 h-screen overflow-y-auto pb-12 relative">
+    <main class="shell-main-stage shell-main-offset pt-16 h-screen overflow-y-auto pb-12 relative">
       <div class="p-4 md:p-8">
         <!-- Welcome Header -->
         <div class="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
@@ -799,11 +910,9 @@ function renderHome(profile, config, metrics) {
                     <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                   </span>
                   <span class="text-white text-xs font-bold uppercase tracking-widest">Monitoreo en Vivo: ${escapeHtml(currentPlaza || "GLOBAL")}</span>
-                </div>
-                <!-- Tools -->
-                <div class="flex flex-col gap-2 pointer-events-auto">
-                  <button class="w-10 h-10 bg-white/10 backdrop-blur-md border border-white/20 rounded-lg flex items-center justify-center text-white hover:bg-white/20 transition-all" data-route="/mapa">
-                    <span class="material-symbols-outlined" data-icon="map">map</span>
+                  <button class="ml-2 inline-flex items-center gap-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-full px-3 py-2 text-white hover:bg-white/20 transition-all" data-route="/mapa" title="Vehículos en el mapa">
+                    <span class="material-symbols-outlined text-sm" data-icon="directions_car">directions_car</span>
+                    <span class="text-[11px] font-bold uppercase tracking-widest">Vehículos</span>
                   </button>
                 </div>
               </div>
@@ -956,10 +1065,13 @@ function renderHome(profile, config, metrics) {
     </main>
   `;
 
+  bindSidebarShell(document, { currentPlaza });
+
   // Launch live mini map
   _renderMiniMapPreview(currentPlaza);
 
   root.querySelectorAll('[data-route]').forEach(button => {
+    if (button.closest('#homeSidebar')) return;
     button.addEventListener('click', () => {
       setActivePlaza(currentPlaza);
       navigateTo(button.getAttribute('data-route') || '/mapa');
@@ -967,6 +1079,7 @@ function renderHome(profile, config, metrics) {
   });
 
   root.querySelectorAll('[data-action="logout"]').forEach(button => {
+    if (button.closest('#homeSidebar')) return;
     button.addEventListener('click', () => {
       logoutHome();
     });

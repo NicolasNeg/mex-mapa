@@ -32,7 +32,7 @@ import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
-import { renderSidebarHTML } from '/js/views/home.js';
+import { renderSidebarHTML, bindSidebarShell } from '/js/views/home.js';
 
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
@@ -1227,6 +1227,7 @@ function _inyectarSidebar() {
   const activeMetrics = window._supervisionData[PLAZA_ACTIVA_MAPA] || {};
   const html = renderSidebarHTML(currentUserProfile, activeMetrics, PLAZA_ACTIVA_MAPA, companyName, USER_NAME, '/mapa');
   container.innerHTML = html;
+  bindSidebarShell(document, { currentPlaza: PLAZA_ACTIVA_MAPA });
 
   // Simple mobile toggle
   const overlay = document.getElementById('mobileOverlay');
