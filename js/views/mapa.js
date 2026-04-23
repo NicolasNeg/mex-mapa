@@ -20748,6 +20748,8 @@ Object.assign(window, {
   _cfgJumpTab,
   _cfgQuickAction,
   _cfgSelectCatalogItem,
+  _cfgSaveInlineEdit,
+  _cfgCancelInlineEdit,
   _cfgPreviewModeloImg,
   _copyPlazaCorreo,
   _copyTextToClipboard,
