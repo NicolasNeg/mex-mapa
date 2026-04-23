@@ -11735,7 +11735,11 @@ function enviarReporteAuditoriaFinal() {
         }).catch(err => {
           clearTimeout(_enviarTimeout);
           _resetEnviarBtn();
-          showToast("Error de red: " + (err?.message || err), "error");
+          const msg = err?.code === 'permission-denied'
+            ? "Sin permisos para enviar. Contacta al administrador."
+            : "Error de red: " + (err?.message || err);
+          showToast(msg, "error");
+          console.error("[enviarAuditoria]", err);
         });
       }
     );
@@ -17287,7 +17291,10 @@ function abrirTabConfig(tabName, btnElement) {
   btnElement?.classList.add('active');
   const previousTab = TAB_ACTIVA_CFG;
   TAB_ACTIVA_CFG = normalizedTab.replace('cfg-', '');
-  if (previousTab !== TAB_ACTIVA_CFG) _cfgCatalogSelectedIndex = null;
+  if (previousTab !== TAB_ACTIVA_CFG) {
+    _cfgCatalogSelectedIndex = null;
+    _cfgCatalogEditIndex = null;
+  }
 
   const searchBox = document.querySelector('.cfg-v2-add-bar');
   const tabsSinBarra = ['empresa', 'usuarios', 'roles', 'solicitudes', 'plazas'];
@@ -17360,6 +17367,9 @@ function _cfgIsCatalogDetailTab(tabName = TAB_ACTIVA_CFG) {
 }
 
 function _cfgSelectCatalogItem(index) {
+  if (_cfgCatalogEditIndex !== null && Number(index) !== Number(_cfgCatalogEditIndex)) {
+    _cfgCatalogEditIndex = null;
+  }
   _cfgCatalogSelectedIndex = Number(index);
   renderizarListaConfig();
 }
@@ -17376,9 +17386,190 @@ function _cfgCatalogIcon(tabName = TAB_ACTIVA_CFG) {
 }
 
 function _cfgCatalogPrimaryLabel(tabName, item) {
-  if (!item) return 'Sin selección';
-  if (tabName === 'estados') return String(item.id || item.nombre || item).trim();
-  return String(item.nombre || item.id || item).trim();
+  return _cfgCatalogDisplayValue(tabName, item) || 'Sin selección';
+}
+
+function _cfgCatalogRelatedModels(tabName, item) {
+  if (String(tabName || '').trim().toLowerCase() !== 'categorias') return [];
+  const title = _cfgCatalogPrimaryLabel(tabName, item);
+  return (window.MEX_CONFIG?.listas?.modelos || []).filter(model => {
+    const category = typeof model === 'object' ? String(model.categoria || '').trim() : '';
+    return category === title;
+  });
+}
+
+function _cfgCatalogPlazaOptions(selected = 'ALL') {
+  const normalized = String(selected || 'ALL').trim().toUpperCase() || 'ALL';
+  const plazas = window.MEX_CONFIG?.empresa?.plazas || [];
+  return `
+    <option value="ALL"${normalized === 'ALL' ? ' selected' : ''}>ALL · Todas las plazas</option>
+    ${plazas.map(plaza => {
+      const value = String(plaza || '').trim().toUpperCase();
+      return `<option value="${escapeHtml(value)}"${value === normalized ? ' selected' : ''}>${escapeHtml(value)}</option>`;
+    }).join('')}
+  `;
+}
+
+function _cfgCatalogCategoryOptions(selected = '') {
+  const normalized = String(selected || '').trim().toUpperCase();
+  const categories = window.MEX_CONFIG?.listas?.categorias || [];
+  return `
+    <option value="">Sin categoría</option>
+    ${categories.map(category => {
+      const value = String(typeof category === 'object' ? (category.nombre || category.id) : category).trim().toUpperCase();
+      return `<option value="${escapeHtml(value)}"${value === normalized ? ' selected' : ''}>${escapeHtml(value)}</option>`;
+    }).join('')}
+  `;
+}
+
+function _cfgCatalogInlineEditorHtml(tabName, item, index) {
+  const title = _cfgCatalogPrimaryLabel(tabName, item);
+  const description = _cfgCatalogDescriptionValue(tabName, item);
+  const orderValue = _cfgCatalogOrderValue(item, index);
+  const itemType = typeof item === 'object' ? item : {};
+  const relatedModels = _cfgCatalogRelatedModels(tabName, item);
+
+  if (tabName === 'ubicaciones') {
+    const isFixed = typeof item === 'object'
+      ? item.isPlazaFija === true
+      : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(title);
+    const plazaId = typeof item === 'object' ? (item.plazaId || 'ALL') : 'ALL';
+    return `
+      <div class="cfg-detail-form">
+        <div class="cfg-detail-field">
+          <label>Nombre visible</label>
+          <input id="cfg-inline-name" type="text" value="${escapeHtml(title)}" placeholder="Ej: PATIO">
+        </div>
+        <div class="cfg-detail-grid-two">
+          <label class="cfg-detail-toggle">
+            <input id="cfg-inline-is-plaza" type="checkbox" ${isFixed ? 'checked' : ''}>
+            <span>Es plaza fija</span>
+          </label>
+          <div class="cfg-detail-field">
+            <label>Orden</label>
+            <input id="cfg-inline-order" type="number" value="${escapeHtml(String(orderValue))}" min="1" max="999">
+          </div>
+        </div>
+        <div class="cfg-detail-field">
+          <label>Plaza visible</label>
+          <select id="cfg-inline-plaza">${_cfgCatalogPlazaOptions(plazaId || 'ALL')}</select>
+        </div>
+      </div>
+    `;
+  }
+
+  if (tabName === 'estados') {
+    const color = itemType.color || '#64748b';
+    return `
+      <div class="cfg-detail-form">
+        <div class="cfg-detail-field">
+          <label>Clave del estado</label>
+          <input id="cfg-inline-name" type="text" value="${escapeHtml(title)}" placeholder="Ej: LISTO">
+        </div>
+        <div class="cfg-detail-grid-two">
+          <div class="cfg-detail-field">
+            <label>Color</label>
+            <div class="cfg-detail-color-row">
+              <input id="cfg-inline-color" type="color" value="${escapeHtml(color)}">
+              <input id="cfg-inline-color-text" type="text" value="${escapeHtml(color)}" placeholder="#64748B" oninput="document.getElementById('cfg-inline-color').value=this.value">
+            </div>
+          </div>
+          <div class="cfg-detail-field">
+            <label>Orden</label>
+            <input id="cfg-inline-order" type="number" value="${escapeHtml(String(orderValue))}" min="1" max="999">
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (tabName === 'categorias') {
+    return `
+      <div class="cfg-detail-form">
+        <div class="cfg-detail-grid-two">
+          <div class="cfg-detail-field">
+            <label>Categoría</label>
+            <input id="cfg-inline-name" type="text" value="${escapeHtml(title)}" placeholder="Ej: ICAR">
+          </div>
+          <div class="cfg-detail-field">
+            <label>Orden</label>
+            <input id="cfg-inline-order" type="number" value="${escapeHtml(String(orderValue))}" min="1" max="999">
+          </div>
+        </div>
+        <div class="cfg-detail-field">
+          <label>Descripción</label>
+          <textarea id="cfg-inline-description" rows="4" placeholder="Explica para qué se usa esta categoría.">${escapeHtml(description)}</textarea>
+        </div>
+        <div class="cfg-detail-related-block">
+          <div class="cfg-detail-related-head">
+            <strong>Modelos ligados</strong>
+            <span>${relatedModels.length}</span>
+          </div>
+          <div class="cfg-detail-related-chips">
+            ${relatedModels.length > 0
+              ? relatedModels.map(model => `<span class="cfg-detail-chip">${escapeHtml(_cfgCatalogDisplayValue('modelos', model))}</span>`).join('')
+              : '<span class="cfg-detail-chip muted">Sin modelos asignados</span>'}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (tabName === 'modelos') {
+    const imageUrl = _cfgModelImageValue(item);
+    return `
+      <div class="cfg-detail-form">
+        <div class="cfg-detail-grid-two">
+          <div class="cfg-detail-field">
+            <label>Modelo</label>
+            <input id="cfg-inline-name" type="text" value="${escapeHtml(title)}" placeholder="Ej: AVEO">
+          </div>
+          <div class="cfg-detail-field">
+            <label>Orden</label>
+            <input id="cfg-inline-order" type="number" value="${escapeHtml(String(orderValue))}" min="1" max="999">
+          </div>
+        </div>
+        <div class="cfg-detail-field">
+          <label>Categoría</label>
+          <select id="cfg-inline-modelo-cat">${_cfgCatalogCategoryOptions(itemType.categoria || '')}</select>
+        </div>
+        <div class="cfg-detail-field">
+          <label>Imagen del modelo</label>
+          <input id="cfg-inline-modelo-img" type="url" value="${escapeHtml(imageUrl)}" placeholder="https://..." oninput="_cfgPreviewModeloImg(this.value, 'cfg-inline')">
+        </div>
+        <div class="cfg-detail-upload-grid">
+          <input id="cfg-inline-modelo-file" type="file" accept="image/*">
+          <label class="cfg-detail-toggle">
+            <input id="cfg-inline-modelo-remove-bg" type="checkbox">
+            <span>Eliminar fondo claro</span>
+          </label>
+          <button type="button" class="cfg-detail-btn" onclick="_cfgUploadModelImage('cfg-inline')">
+            <span class="material-icons">upload</span>
+            Subir desde equipo
+          </button>
+        </div>
+        <div id="cfg-inline-modelo-upload-status" class="cfg-detail-upload-status"></div>
+        <div id="cfg-inline-modelo-preview" class="cfg-add-modelo-preview"${imageUrl ? '' : ' style="display:none;"'}>
+          <img id="cfg-inline-modelo-preview-img" alt="Preview modelo" loading="lazy"${imageUrl ? ` src="${escapeHtml(imageUrl)}"` : ''}>
+          <span id="cfg-inline-modelo-preview-label">Vista previa</span>
+        </div>
+      </div>
+    `;
+  }
+
+  if (tabName === 'gasolinas') {
+    return `
+      <div class="cfg-detail-form">
+        <div class="cfg-detail-field">
+          <label>Nivel visible</label>
+          <input id="cfg-inline-name" type="text" value="${escapeHtml(title)}" placeholder="Ej: 3/4">
+        </div>
+        <div class="cfg-detail-callout">Mantén nombres cortos para que el indicador de gasolina siga siendo claro dentro del mapa y los formularios.</div>
+      </div>
+    `;
+  }
+
+  return '';
 }
 
 function _cfgCatalogMetaRows(tabName, item, index) {
@@ -17388,26 +17579,27 @@ function _cfgCatalogMetaRows(tabName, item, index) {
     const isFixed = typeof item === 'object' ? item.isPlazaFija === true : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(title);
     return [
       ['Tipo', isFixed ? 'Plaza fija' : 'Responsable / referencia'],
-      ['Plaza visible', item.plazaId || 'ALL'],
-      ['Impacto', isFixed ? 'Referencia de operación global' : 'Persona o punto operativo'],
-      ['Registro', `Elemento ${index + 1}`]
+      ['Plaza visible', (item.plazaId || 'ALL').toUpperCase()],
+      ['Orden', String(_cfgCatalogOrderValue(item, index))],
+      ['Impacto', isFixed ? 'Referencia de operación global' : 'Persona o punto operativo']
     ];
   }
   if (tabName === 'estados') {
     return [
       ['Clave', title],
       ['Color', item.color || 'Sin color'],
-      ['Orden', String(item.orden || 99)],
+      ['Orden', String(_cfgCatalogOrderValue(item, index))],
       ['Impacto', 'Filtros, badges y lectura visual']
     ];
   }
   if (tabName === 'categorias') {
-    const models = (window.MEX_CONFIG?.listas?.modelos || []).filter(model => (typeof model === 'object' ? model.categoria : '') === title);
+    const models = _cfgCatalogRelatedModels(tabName, item);
+    const description = _cfgCatalogDescriptionValue(tabName, item);
     return [
       ['Categoría', title],
       ['Modelos ligados', String(models.length)],
-      ['Vista operativa', models.slice(0, 3).map(model => model.nombre).join(', ') || 'Sin modelos'],
-      ['Impacto', 'Ordena unidades y sugerencias']
+      ['Descripción', description ? description : 'Sin descripción'],
+      ['Orden', String(_cfgCatalogOrderValue(item, index))]
     ];
   }
   if (tabName === 'modelos') {
@@ -17415,7 +17607,7 @@ function _cfgCatalogMetaRows(tabName, item, index) {
       ['Modelo', title],
       ['Categoría', item.categoria || 'Sin categoría'],
       ['Imagen', _cfgModelImageValue(item) ? 'Configurada' : 'Sin imagen'],
-      ['Impacto', 'Formularios, detalle y catálogo']
+      ['Orden', String(_cfgCatalogOrderValue(item, index))]
     ];
   }
   if (tabName === 'gasolinas') {
@@ -17431,10 +17623,13 @@ function _cfgCatalogMetaRows(tabName, item, index) {
 
 function _cfgCatalogCallout(tabName, item) {
   const title = _cfgCatalogPrimaryLabel(tabName, item);
+  const description = _cfgCatalogDescriptionValue(tabName, item);
   const map = {
     ubicaciones: `Esta ubicación define alcance operativo por plaza. Usa ALL solo cuando de verdad deba verse en todas las plazas.`,
     estados: `Los estados afectan color, lectura del mapa y filtros operativos. Cambiarlos impacta la interpretación diaria del patio.`,
-    categorias: `La categoría ${title} sirve como capa de orden para modelos, reglas blandas y futuras restricciones de acomodo.`,
+    categorias: description
+      ? description
+      : `La categoría ${title} sirve como capa de orden para modelos, reglas blandas y futuras restricciones de acomodo.`,
     modelos: `Mantén la categoría e imagen consistentes para que el inventario administrativo y el operativo no se descuadren.`,
     gasolinas: `Este nivel se refleja en reportes y visualizaciones rápidas. Conviene mantenerlo corto y entendible para operación.`
   };
@@ -17456,9 +17651,11 @@ function _cfgCatalogDetailHtml(tabName, item, index) {
 
   const title = _cfgCatalogPrimaryLabel(tabName, item);
   const metaRows = _cfgCatalogMetaRows(tabName, item, index);
+  const isEditing = _cfgCatalogEditIndex === index;
   const preview = tabName === 'modelos' && _cfgModelImageValue(item)
     ? `<img src="${escapeHtml(_cfgModelImageValue(item))}" alt="${escapeHtml(title)}" class="cfg-detail-preview-img" loading="lazy">`
     : '';
+  const relatedModels = _cfgCatalogRelatedModels(tabName, item);
 
   return `
     <div class="cfg-detail-card">
@@ -17480,20 +17677,46 @@ function _cfgCatalogDetailHtml(tabName, item, index) {
           </div>
         </div>
         ${preview}
-        <div class="cfg-detail-meta-grid">
-          ${metaRows.map(([label, value]) => `
-            <div class="cfg-detail-meta-item">
-              <span>${escapeHtml(label)}</span>
-              <strong>${escapeHtml(value)}</strong>
+        ${isEditing ? _cfgCatalogInlineEditorHtml(tabName, item, index) : `
+          <div class="cfg-detail-meta-grid">
+            ${metaRows.map(([label, value]) => `
+              <div class="cfg-detail-meta-item">
+                <span>${escapeHtml(label)}</span>
+                <strong>${escapeHtml(value)}</strong>
+              </div>
+            `).join('')}
+          </div>
+          ${tabName === 'categorias' ? `
+            <div class="cfg-detail-related-block">
+              <div class="cfg-detail-related-head">
+                <strong>Modelos de esta categoría</strong>
+                <span>${relatedModels.length}</span>
+              </div>
+              <div class="cfg-detail-related-chips">
+                ${relatedModels.length > 0
+                  ? relatedModels.map(model => `<span class="cfg-detail-chip">${escapeHtml(_cfgCatalogDisplayValue('modelos', model))}</span>`).join('')
+                  : '<span class="cfg-detail-chip muted">Aún no hay modelos ligados</span>'}
+              </div>
             </div>
-          `).join('')}
-        </div>
-        <div class="cfg-detail-callout">${escapeHtml(_cfgCatalogCallout(tabName, item))}</div>
+          ` : ''}
+          <div class="cfg-detail-callout">${escapeHtml(_cfgCatalogCallout(tabName, item))}</div>
+        `}
         <div class="cfg-detail-actions">
-          <button type="button" class="cfg-detail-btn primary" onclick="editarElementoConfig(${index})">
-            <span class="material-icons">edit</span>
-            Editar elemento
-          </button>
+          ${isEditing ? `
+            <button type="button" class="cfg-detail-btn primary" onclick="_cfgSaveInlineEdit()">
+              <span class="material-icons">save</span>
+              Guardar cambios
+            </button>
+            <button type="button" class="cfg-detail-btn" onclick="_cfgCancelInlineEdit()">
+              <span class="material-icons">close</span>
+              Cancelar
+            </button>
+          ` : `
+            <button type="button" class="cfg-detail-btn primary" onclick="editarElementoConfig(${index})">
+              <span class="material-icons">edit</span>
+              Editar elemento
+            </button>
+          `}
           <button type="button" class="cfg-detail-btn danger" onclick="eliminarElementoConfig(${index})">
             <span class="material-icons">delete</span>
             Eliminar
@@ -17912,6 +18135,9 @@ function renderizarListaConfig() {
     const dragAttrs = usaDrag ? `draggable="true" ondragstart="cfgDragStart(event,${i})" ondragover="cfgDragOver(event)" ondrop="cfgDrop(event,${i})"` : '';
     const dragHandle = usaDrag ? `<span class="cfg-drag-handle" title="Arrastrar para reordenar"><span class="material-icons">drag_indicator</span></span>` : '';
     const activeClass = _cfgCatalogSelectedIndex === i ? ' active' : '';
+    const orderBadge = typeof item === 'object' && ['ubicaciones', 'estados', 'categorias', 'modelos'].includes(TAB_ACTIVA_CFG)
+      ? `<span style="font-size:10px; color:#94a3b8; font-weight:800; flex-shrink:0;">#${_cfgCatalogOrderValue(item, visIndex)}</span>`
+      : '';
 
     const modelosExpandidos = TAB_ACTIVA_CFG === 'categorias'
       ? `<div id="catmod-${i}" class="cfg-cat-models-expand" style="display:none;">
@@ -17926,7 +18152,7 @@ function renderizarListaConfig() {
               ${modelThumb}
               <strong style="white-space:nowrap; text-overflow:ellipsis; overflow:hidden; font-size:13px;">${escapeHtml(valor)}</strong>
               ${pText}
-              ${esEstado && item.orden ? `<span style="font-size:10px; color:#94a3b8; font-weight:700; flex-shrink:0;">ord.${item.orden}</span>` : ''}
+              ${orderBadge}
             </div>
             <span class="material-icons" style="font-size:18px; color:${activeClass ? '#2563eb' : '#cbd5e1'};">chevron_right</span>
           </div>
@@ -18008,6 +18234,9 @@ async function cfgDrop(event, destOrigIdx) {
   // Adjust dest index if we removed an element before it
   const adjustedDest = destOrigIdx > _cfgDragSrcIdx ? destOrigIdx - 1 : destOrigIdx;
   lista.splice(adjustedDest, 0, moved);
+  _cfgCatalogApplyOrder(lista, TAB_ACTIVA_CFG);
+  _cfgCatalogSelectedIndex = adjustedDest;
+  _cfgCatalogEditIndex = null;
   _cfgDragSrcIdx = null;
   renderizarListaConfig();
   await _persistListAdminAction(
@@ -18092,10 +18321,12 @@ function _cfgShowModal() {
 function abrirModalNuevaConfig() {
   const cfgName = document.getElementById('cfg-add-name');
   if (!cfgName) { console.warn('[cfg] modal-cfg-add no encontrado en el DOM'); return; }
+  _cfgCatalogEditIndex = null;
   cfgName.value = '';
   document.getElementById('cfg-add-ubi-options').style.display = 'none';
   document.getElementById('cfg-add-estado-options').style.display = 'none';
   document.getElementById('cfg-add-modelo-options').style.display = 'none';
+  document.getElementById('cfg-add-categoria-options').style.display = 'none';
 
   if (TAB_ACTIVA_CFG === 'ubicaciones') {
     document.getElementById('cfg-add-ubi-options').style.display = 'block';
@@ -18113,7 +18344,19 @@ function abrirModalNuevaConfig() {
     document.getElementById('cfg-add-modelo-cat').innerHTML = '<option value="">(Ninguna)</option>' + cats.map(c => `<option value="${escapeHtml(typeof c === 'object' ? c.nombre || c.id : c)}">${escapeHtml(typeof c === 'object' ? c.nombre || c.id : c)}</option>`).join('');
     const imgInput = document.getElementById('cfg-add-modelo-img');
     if (imgInput) imgInput.value = '';
+    const fileInput = document.getElementById('cfg-add-modelo-file');
+    if (fileInput) fileInput.value = '';
+    const uploadStatus = document.getElementById('cfg-add-modelo-upload-status');
+    if (uploadStatus) uploadStatus.textContent = '';
+    const orderInput = document.getElementById('cfg-add-modelo-orden');
+    if (orderInput) orderInput.value = String((window.MEX_CONFIG?.listas?.modelos || []).length + 1);
     _cfgPreviewModeloImg('');
+  } else if (TAB_ACTIVA_CFG === 'categorias') {
+    document.getElementById('cfg-add-categoria-options').style.display = 'block';
+    const descInput = document.getElementById('cfg-add-categoria-desc');
+    const orderInput = document.getElementById('cfg-add-categoria-orden');
+    if (descInput) descInput.value = '';
+    if (orderInput) orderInput.value = String((window.MEX_CONFIG?.listas?.categorias || []).length + 1);
   }
 
   document.getElementById('cfg-add-name').dataset.editIndex = -1;
@@ -18121,94 +18364,128 @@ function abrirModalNuevaConfig() {
   _cfgShowModal();
 }
 
-function editarElementoConfig(index) {
-  const cfgName = document.getElementById('cfg-add-name');
-  if (!cfgName) { console.warn('[cfg] modal-cfg-add no encontrado en el DOM'); return; }
-  const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
-  const item = lista[index];
-  const nombre = typeof item === 'object' ? (item.id || item.nombre) : item;
+function _cfgStartInlineEdit(index) {
+  _cfgCatalogSelectedIndex = Number(index);
+  _cfgCatalogEditIndex = Number(index);
+  renderizarListaConfig();
+}
 
-  cfgName.value = nombre;
-  document.getElementById('cfg-add-ubi-options').style.display = 'none';
-  document.getElementById('cfg-add-estado-options').style.display = 'none';
-  document.getElementById('cfg-add-modelo-options').style.display = 'none';
+function _cfgCancelInlineEdit() {
+  _cfgCatalogEditIndex = null;
+  renderizarListaConfig();
+}
 
-  if (TAB_ACTIVA_CFG === 'ubicaciones') {
-    document.getElementById('cfg-add-ubi-options').style.display = 'block';
-    document.getElementById('cfg-add-is-plaza').checked = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
-    const currentPlaza = typeof item === 'object' ? (item.plazaId || '') : '';
-    _llenarSelectPlazasUbi('cfg-add-ubi-plaza', currentPlaza);
-  } else if (TAB_ACTIVA_CFG === 'estados') {
-    document.getElementById('cfg-add-estado-options').style.display = 'block';
-    const color = (typeof item === 'object' ? item.color : null) || '#64748b';
-    document.getElementById('cfg-add-color').value = color;
-    document.getElementById('cfg-add-orden').value = (typeof item === 'object' ? item.orden : null) || '99';
-    _cfgUpdateColorSwatch(color);
-    _cfgFillColorPresets();
-  } else if (TAB_ACTIVA_CFG === 'modelos') {
-    document.getElementById('cfg-add-modelo-options').style.display = 'block';
-    const cats = window.MEX_CONFIG.listas.categorias || [];
-    document.getElementById('cfg-add-modelo-cat').innerHTML = '<option value="">(Ninguna)</option>' + cats.map(c => {
-      const cName = typeof c === 'object' ? c.nombre || c.id : c;
-      return `<option value="${escapeHtml(cName)}">${escapeHtml(cName)}</option>`;
-    }).join('');
-    document.getElementById('cfg-add-modelo-cat').value = typeof item === 'object' ? item.categoria : '';
-    const imgInput = document.getElementById('cfg-add-modelo-img');
-    if (imgInput) imgInput.value = _cfgModelImageValue(item);
-    _cfgPreviewModeloImg(_cfgModelImageValue(item));
+function _cfgBuildCatalogPayload(prefix = 'cfg-add', tabName = TAB_ACTIVA_CFG, listLength = 0, fallbackIndex = 0) {
+  const rawName = _cfgReadValue(`${prefix}-name`);
+  const normalizedName = rawName.toUpperCase();
+  if (!normalizedName) {
+    showToast('Escribe un nombre.', 'error');
+    return null;
   }
 
-  document.getElementById('cfg-add-name').dataset.editIndex = index;
-  _cfgSetModalMeta(TAB_ACTIVA_CFG, true);
-  _cfgShowModal();
+  let newItem;
+  let desiredOrder = fallbackIndex + 1;
+
+  if (tabName === 'estados') {
+    desiredOrder = _cfgNormalizeDesiredOrder(_cfgReadValue(`${prefix}-order`, String(fallbackIndex + 1)), fallbackIndex + 1, Math.max(listLength, 1));
+    newItem = {
+      id: normalizedName,
+      color: _cfgReadValue(`${prefix}-color`, '#64748b') || '#64748b',
+      orden: desiredOrder
+    };
+  } else if (tabName === 'ubicaciones') {
+    desiredOrder = _cfgNormalizeDesiredOrder(_cfgReadValue(`${prefix}-order`, String(fallbackIndex + 1)), fallbackIndex + 1, Math.max(listLength, 1));
+    newItem = {
+      nombre: normalizedName,
+      isPlazaFija: document.getElementById(`${prefix}-is-plaza`)?.checked === true,
+      plazaId: _cfgReadValue(`${prefix}-plaza`, 'ALL').toUpperCase() || 'ALL',
+      orden: desiredOrder
+    };
+  } else if (tabName === 'categorias') {
+    desiredOrder = _cfgNormalizeDesiredOrder(_cfgReadValue(`${prefix}-order`, String(fallbackIndex + 1)), fallbackIndex + 1, Math.max(listLength, 1));
+    newItem = {
+      nombre: normalizedName,
+      descripcion: _cfgReadValue(`${prefix}-description`),
+      orden: desiredOrder
+    };
+  } else if (tabName === 'modelos') {
+    desiredOrder = _cfgNormalizeDesiredOrder(_cfgReadValue(`${prefix}-order`, String(fallbackIndex + 1)), fallbackIndex + 1, Math.max(listLength, 1));
+    newItem = {
+      nombre: normalizedName,
+      categoria: _cfgReadValue(`${prefix}-modelo-cat`).toUpperCase(),
+      orden: desiredOrder
+    };
+    const imageUrl = _cfgReadValue(`${prefix}-modelo-img`);
+    if (imageUrl) newItem.imagenURL = imageUrl;
+  } else {
+    newItem = normalizedName;
+  }
+
+  return { normalizedName, desiredOrder, newItem };
+}
+
+async function _cfgSaveInlineEdit() {
+  if (_cfgCatalogEditIndex === null || _cfgCatalogEditIndex < 0) return;
+  const lista = window.MEX_CONFIG?.listas?.[TAB_ACTIVA_CFG];
+  if (!Array.isArray(lista)) return;
+  const payload = _cfgBuildCatalogPayload('cfg-inline', TAB_ACTIVA_CFG, lista.length, _cfgCatalogEditIndex);
+  if (!payload) return;
+
+  const duplicated = lista.some((entry, idx) => {
+    if (idx === _cfgCatalogEditIndex) return false;
+    return _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry) === payload.normalizedName;
+  });
+  if (duplicated) {
+    showToast(`"${payload.normalizedName}" ya existe.`, 'error');
+    return;
+  }
+
+  lista[_cfgCatalogEditIndex] = payload.newItem;
+  _cfgMoveCatalogItem(lista, _cfgCatalogEditIndex, payload.desiredOrder, TAB_ACTIVA_CFG);
+  _cfgCatalogSelectedIndex = Math.max(0, lista.findIndex(entry => _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry) === payload.normalizedName));
+  _cfgCatalogEditIndex = null;
+  renderizarListaConfig();
+  await _persistListAdminAction(
+    'CATALOGO_EDITADO',
+    `Actualizó ${payload.normalizedName} en ${TAB_ACTIVA_CFG}`,
+    'Elemento actualizado.',
+    { entidad: TAB_ACTIVA_CFG, referencia: payload.normalizedName }
+  );
+}
+
+function editarElementoConfig(index) {
+  _cfgStartInlineEdit(index);
 }
 
 async function confirmarAgregadoConfig() {
-  const val = document.getElementById('cfg-add-name').value.trim().toUpperCase();
-  if (!val) { showToast("Escribe un nombre", "error"); return; }
-
   window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG] || [];
   const lista = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG];
-
   const editIndex = parseInt(document.getElementById('cfg-add-name').dataset.editIndex, 10);
+  const payload = _cfgBuildCatalogPayload('cfg-add', TAB_ACTIVA_CFG, lista.length + (editIndex > -1 ? 0 : 1), editIndex > -1 ? editIndex : lista.length);
+  if (!payload) return;
+
   const existe = lista.some((i, idx) => {
     if (idx === editIndex) return false; // ignore self
-    return (typeof i === 'object' ? (i.id || i.nombre) : i) === val;
+    return _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, i) === payload.normalizedName;
   });
-  if (existe) { showToast(`"${val}" ya existe`, "error"); return; }
-
-  let newItem;
-  if (TAB_ACTIVA_CFG === 'estados') {
-    newItem = {
-      id: val,
-      color: document.getElementById('cfg-add-color').value,
-      orden: parseInt(document.getElementById('cfg-add-orden').value || 99)
-    };
-  } else if (TAB_ACTIVA_CFG === 'ubicaciones') {
-    const plazaSel = document.getElementById('cfg-add-ubi-plaza')?.value || '';
-    newItem = { nombre: val, isPlazaFija: document.getElementById('cfg-add-is-plaza').checked, plazaId: plazaSel };
-  } else if (TAB_ACTIVA_CFG === 'modelos') {
-    const imgInput = document.getElementById('cfg-add-modelo-img');
-    const imagenURL = String(imgInput?.value || '').trim();
-    newItem = { nombre: val, categoria: document.getElementById('cfg-add-modelo-cat').value };
-    if (imagenURL) newItem.imagenURL = imagenURL;
-  } else {
-    newItem = val;
-  }
+  if (existe) { showToast(`"${payload.normalizedName}" ya existe`, "error"); return; }
 
   if (editIndex > -1) {
-    lista[editIndex] = newItem; // Edit
+    lista[editIndex] = payload.newItem;
+    _cfgMoveCatalogItem(lista, editIndex, payload.desiredOrder, TAB_ACTIVA_CFG);
   } else {
-    lista.push(newItem); // Add
+    lista.push(payload.newItem);
+    _cfgMoveCatalogItem(lista, lista.length - 1, payload.desiredOrder, TAB_ACTIVA_CFG);
   }
 
+  _cfgCatalogSelectedIndex = Math.max(0, lista.findIndex(entry => _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry) === payload.normalizedName));
   document.getElementById('modal-cfg-add').style.display = 'none';
   renderizarListaConfig();
   await _persistListAdminAction(
     editIndex > -1 ? 'CATALOGO_EDITADO' : 'CATALOGO_CREADO',
-    `${editIndex > -1 ? 'Actualizó' : 'Agregó'} ${val} en ${TAB_ACTIVA_CFG}`,
+    `${editIndex > -1 ? 'Actualizó' : 'Agregó'} ${payload.normalizedName} en ${TAB_ACTIVA_CFG}`,
     editIndex > -1 ? 'Elemento actualizado.' : 'Elemento agregado.',
-    { entidad: TAB_ACTIVA_CFG, referencia: val }
+    { entidad: TAB_ACTIVA_CFG, referencia: payload.normalizedName }
   );
 }
 
@@ -18218,6 +18495,9 @@ function moverElementoConfig(index, dir) {
   const temp = lista[index];
   lista[index] = lista[index + dir];
   lista[index + dir] = temp;
+  _cfgCatalogApplyOrder(lista, TAB_ACTIVA_CFG);
+  _cfgCatalogSelectedIndex = index + dir;
+  _cfgCatalogEditIndex = null;
   renderizarListaConfig();
   _persistListAdminAction(
     'CATALOGO_REORDENADO',
@@ -18233,6 +18513,11 @@ function eliminarElementoConfig(index) {
   mexConfirm(`Eliminar "${nombre}"`, '¿Estás seguro? Esta acción no se puede deshacer.', 'danger').then(ok => {
     if (!ok) return;
     window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);
+    _cfgCatalogApplyOrder(window.MEX_CONFIG.listas[TAB_ACTIVA_CFG], TAB_ACTIVA_CFG);
+    _cfgCatalogEditIndex = null;
+    if (_cfgCatalogSelectedIndex === index) {
+      _cfgCatalogSelectedIndex = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG][index] ? index : Math.max(0, index - 1);
+    }
     renderizarListaConfig();
     _persistListAdminAction(
       'CATALOGO_ELIMINADO',
