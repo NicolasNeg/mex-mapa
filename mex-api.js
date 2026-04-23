@@ -1387,7 +1387,7 @@ const API_FUNCTIONS = {
     const updatePayload = { gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor, _version: db.FieldValue.increment(1) }; // [1.6]
     if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
     await docRef.update(updatePayload);
-    await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp); // [F1]
+    await _actualizarFeed(`${mvaStr} · ${actual.estado || "SIN ESTADO"} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp); // [F1]
 
     // Registrar SOLO los cambios reales (no mostrar campos sin cambio)
     const cambiosReales = [];

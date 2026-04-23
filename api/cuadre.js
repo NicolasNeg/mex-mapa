@@ -80,7 +80,7 @@
       };
       if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
       await docRef.update(updatePayload);
-      await _actualizarFeed(`${mvaStr} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp);
+      await _actualizarFeed(`${mvaStr} · ${actual.estado || "SIN ESTADO"} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp);
 
       const cambiosReales = [];
       if ((actual.estado || '') !== estado) cambiosReales.push(`Estado ${actual.estado || '?'} → ${estado}`);

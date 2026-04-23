@@ -516,13 +516,7 @@ service cloud.firestore {
 
     function alertaLecturaValida() {
       return tienePerfilActual()
-        && request.resource.data.timestamp == resource.data.timestamp
-        && request.resource.data.fecha == resource.data.fecha
-        && request.resource.data.autor == resource.data.autor
-        && request.resource.data.tipo == resource.data.tipo
-        && request.resource.data.titulo == resource.data.titulo
-        && request.resource.data.mensaje == resource.data.mensaje
-        && request.resource.data.imagen == resource.data.imagen
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["leidoPor"])
         && request.resource.data.leidoPor is string;
     }
 

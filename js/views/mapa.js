@@ -8334,6 +8334,115 @@ function hacerPingNotificaciones(force = false) {
   });
 }
 
+function _feedStateSlug(value) {
+  return String(value || 'sin-estado')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'sin-estado';
+}
+
+function _feedUnitLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return 'MVA';
+  const clean = raw.replace(/^MVA[-\s:]*/i, '').replace(/\s+/g, '');
+  return `MVA-${clean || raw}`;
+}
+
+function _parseLiveFeedLog(log = {}) {
+  const accion = String(log.accion || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
+  const autor = String(log.autor || 'Sistema').trim();
+  const fecha = String(log.fecha || '').trim();
+  const base = {
+    title: autor || 'Sistema',
+    subtitle: accion || 'Actualización del sistema',
+    from: '',
+    to: '',
+    time: 'Ahora',
+    fullTime: fecha
+  };
+
+  const detailed = accion.match(/^(.+?)\s*[·•]\s*(.+?)\s*(?:➜|→|->)\s*([^(|]+?)(?:\s*\(([^)]*)\))?\s*$/i);
+  if (detailed) {
+    const ubicacion = String(detailed[4] || '').trim();
+    return {
+      ...base,
+      title: _feedUnitLabel(detailed[1]),
+      subtitle: `Actualización automática${ubicacion ? ` · ${ubicacion}` : ''}`,
+      from: String(detailed[2] || '').trim(),
+      to: String(detailed[3] || '').trim()
+    };
+  }
+
+  const simple = accion.match(/^(.+?)\s*(?:➜|→|->)\s*([^(|]+?)(?:\s*\(([^)]*)\))?\s*$/i);
+  if (simple) {
+    const ubicacion = String(simple[3] || '').trim();
+    return {
+      ...base,
+      title: _feedUnitLabel(simple[1]),
+      subtitle: `Actualización automática${ubicacion ? ` · ${ubicacion}` : ''}`,
+      to: String(simple[2] || '').trim()
+    };
+  }
+
+  if (/CUADRE VALIDADO/i.test(accion)) {
+    return {
+      ...base,
+      title: 'Cuadre validado',
+      subtitle: accion.replace(/^CUADRE VALIDADO\s*-?\s*/i, '') || 'Checklist operativo actualizado',
+      to: 'VALIDADO'
+    };
+  }
+
+  return base;
+}
+
+function _renderFeedChip(value) {
+  const text = String(value || '').trim().toUpperCase();
+  if (!text) return '';
+  return `<span class="feed-state-chip feed-state--${_feedStateSlug(text)}">${escapeHtml(text)}</span>`;
+}
+
+function _renderLiveFeedItem(log, index) {
+  const item = _parseLiveFeedLog(log);
+  const flow = item.from || item.to
+    ? `<div class="feed-change-flow">
+        ${_renderFeedChip(item.from)}
+        ${item.from && item.to ? '<span class="feed-change-arrow">→</span>' : ''}
+        ${_renderFeedChip(item.to)}
+      </div>`
+    : `<p class="feed-change-message">${escapeHtml(item.subtitle)}</p>`;
+
+  return `
+    <article class="feed-item feed-change-card ${index === 0 ? 'new-item-glow' : ''}">
+      <div class="feed-change-top">
+        <div class="feed-change-copy">
+          <strong class="feed-change-title">${escapeHtml(item.title)}</strong>
+          <span class="feed-change-subtitle">${escapeHtml(item.subtitle)}</span>
+        </div>
+        <time title="${escapeHtml(item.fullTime || item.time)}">${escapeHtml(item.time)}</time>
+      </div>
+      ${flow}
+    </article>
+  `;
+}
+
+function _renderLiveActivityFeed(feed = []) {
+  const items = (Array.isArray(feed) ? feed : []).map((log, index) => _renderLiveFeedItem(log, index)).join('');
+  return `
+    <section class="feed-history-panel" aria-label="Historial de cambios">
+      <header class="feed-history-header">
+        <span>Historial de cambios</span>
+        <button type="button" class="feed-history-close" aria-label="Ocultar historial" onclick="this.closest('#liveActivityFeed').innerHTML = '';">×</button>
+      </header>
+      <div class="feed-history-list">
+        ${items}
+      </div>
+    </section>
+  `;
+}
+
 function _procesarPingUI(res) {
   if (!res) return;
   // En rutas standalone sin chrome operativo del mapa, no intentamos pintar UI del mapa.
@@ -8425,25 +8534,7 @@ function _procesarPingUI(res) {
     const feedContainer = document.getElementById('liveActivityFeed');
 
     if (feedContainer && res.liveFeed && res.liveFeed.length > 0) {
-      feedContainer.innerHTML = res.liveFeed.map((log, index) => {
-        const esValidacion = log.accion.includes("CUADRE VALIDADO");
-        const colorTexto = esValidacion ? "#10b981" : "#1e293b";
-        const prefijo = esValidacion ? "⭐ " : "";
-        const autorEstilo = esValidacion ? "color:#059669; font-weight:900;" : "";
-
-        // 🔥 Brillo solo al más reciente (índice 0)
-        const claseAnimacion = (index === 0) ? "feed-item new-item-glow" : "feed-item";
-
-        return `
-              <div class="${claseAnimacion}">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                  <b style="${autorEstilo} font-size:10px;">${log.autor}</b>
-                  <span style="font-size:9px; color:#64748b;">${log.fecha}</span>
-                </div>
-                <p style="color: ${colorTexto}; font-size:11px; font-weight:700; margin-top:2px;">${prefijo}${log.accion}</p>
-              </div>
-            `;
-      }).join('');
+      feedContainer.innerHTML = _renderLiveActivityFeed(res.liveFeed);
 
       // 🕒 AUTO-LIMPIADOR: Después de 15 segundos de inactividad, vaciamos el feed visualmente
       clearTimeout(window.feedTimer);
