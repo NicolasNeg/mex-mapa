@@ -20594,6 +20594,12 @@ window.descargarArchivoLocal  = descargarArchivoLocal;
 window.generarSlugArchivo     = generarSlugArchivo;
 window.toggleAdminSidebar = toggleAdminSidebar;
 window._togglePlazaPicker = _togglePlazaPicker;
+window._cfgApplySidebarPinState = _cfgApplySidebarPinState;
+window._cfgToggleSidebarPin = _cfgToggleSidebarPin;
+window._cfgOpenNavGroup = _cfgOpenNavGroup;
+window._cfgToggleNavGroup = _cfgToggleNavGroup;
+window._cfgSyncNavState = _cfgSyncNavState;
+window._cfgQuickAction = _cfgQuickAction;
 
 // ── Exponer funciones al scope global para onclick/onchange ────────────────
 // (ES6 modules son strict y no exponen al window automáticamente)

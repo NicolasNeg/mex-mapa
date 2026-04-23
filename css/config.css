@@ -6241,3 +6241,100 @@ body.editor-inspector-dragging .editor-inspector-card {
     transform: translateX(-50%) translateY(0);
   }
 }
+
+/* ── Overrides finales del Panel Admin ───────────────────────── */
+.cfg-v2-workspace-header {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 12px 24px 10px;
+  background: linear-gradient(180deg, #fdfefe 0%, #f8fbff 100%);
+}
+
+.cfg-v2-workspace-copy {
+  gap: 4px;
+}
+
+.cfg-v2-workspace-title-row {
+  gap: 8px;
+}
+
+.cfg-v2-workspace-title-row h3 {
+  font-size: 24px;
+}
+
+.cfg-v2-module-badge {
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  letter-spacing: 0.12em;
+}
+
+#cfg-module-subtitle {
+  max-width: 920px;
+  line-height: 1.55;
+}
+
+.cfg-v2-workspace-meta,
+.cfg-v2-meta-chip,
+.cfg-v2-tools {
+  display: none !important;
+}
+
+.cfg-nav-group-toggle {
+  padding: 6px 6px 6px 8px;
+  border-radius: 12px;
+}
+
+.cfg-nav-group-copy small {
+  font-size: 8px;
+}
+
+.cfg-nav-group-copy strong {
+  font-size: 10px;
+}
+
+.cfg-nav-group-chevron {
+  font-size: 16px !important;
+}
+
+.cfg-tab {
+  min-height: 38px;
+  font-size: 11px;
+}
+
+.cfg-tab-icon {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.cfg-tab-icon .material-icons {
+  font-size: 18px;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-body {
+  display: none;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-chevron {
+  display: none;
+}
+
+.cfg-nav-group-toggle:focus-visible,
+.cfg-tab:focus-visible,
+.cfg-v2-sidebar-toggle:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.65);
+  outline-offset: 2px;
+}

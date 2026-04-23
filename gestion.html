@@ -341,56 +341,9 @@
             </div>
             <p id="cfg-module-subtitle">Gestiona cuentas, alcances y relaciones operativas del sistema.</p>
           </div>
-          <div class="cfg-v2-workspace-meta">
-            <span class="cfg-v2-meta-chip" id="cfg-meta-user">
-              <span class="material-icons">person</span>
-              <span>Usuario activo</span>
-            </span>
-            <span class="cfg-v2-meta-chip" id="cfg-meta-plaza">
-              <span class="material-icons">location_city</span>
-              <span>Plaza foco</span>
-            </span>
-            <span class="cfg-v2-meta-chip" id="cfg-meta-scope">
-              <span class="material-icons">verified_user</span>
-              <span>Alcance</span>
-            </span>
-          </div>
         </div>
 
-        <div class="cfg-v2-tools" id="cfg-v2-tools">
-          <button type="button" class="cfg-v2-tool-btn" data-tool="refresh" onclick="_cfgQuickAction('refresh')">
-            <span class="material-icons">refresh</span>
-            Actualizar contexto
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="new-user" onclick="_cfgQuickAction('new-user')">
-            <span class="material-icons">person_add</span>
-            Nuevo usuario
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="new-role" onclick="_cfgQuickAction('new-role')">
-            <span class="material-icons">verified_user</span>
-            Nuevo rol
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="new-plaza" onclick="_cfgQuickAction('new-plaza')">
-            <span class="material-icons">location_city</span>
-            Nueva plaza
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="new-item" onclick="_cfgQuickAction('new-item')">
-            <span class="material-icons">add_circle</span>
-            Nuevo catálogo
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="go-map" onclick="_cfgQuickAction('go-map')">
-            <span class="material-icons">map</span>
-            Volver al mapa
-          </button>
-          <button type="button" class="cfg-v2-tool-btn" data-tool="open-programmer" onclick="_cfgQuickAction('open-programmer')">
-            <span class="material-icons">terminal</span>
-            Consola programador
-          </button>
-          <button type="button" class="cfg-v2-tool-btn success" data-tool="publish" onclick="_cfgQuickAction('publish')">
-            <span class="material-icons">cloud_upload</span>
-            Guardar cambios
-          </button>
-        </div>
+        <div id="cfg-v2-tools" class="cfg-v2-tools" style="display:none;"></div>
 
         <!-- ADD BAR -->
         <div class="cfg-v2-add-bar">
