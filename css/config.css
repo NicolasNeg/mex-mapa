@@ -2352,18 +2352,18 @@
       pointer-events: none;
     }
 
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-chevron {
+    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
+    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron {
       display: none;
     }
 
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle {
+    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle {
       justify-content: center;
       padding-left: 0;
       padding-right: 0;
     }
 
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-body {
+    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-body {
       display: none;
     }
 
@@ -6346,17 +6346,17 @@ body.editor-inspector-dragging .editor-inspector-card {
   pointer-events: none;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-body {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-body {
   display: none;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group.open .cfg-nav-group-body {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group.open .cfg-nav-group-body {
   display: flex;
 }
 
@@ -6369,8 +6369,8 @@ body.editor-inspector-dragging .editor-inspector-card {
   transform: translateX(2px);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-chevron {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron {
   display: none;
 }
 
@@ -6493,8 +6493,8 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   background: linear-gradient(180deg, #93c5fd, #dbeafe);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle:hover {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle:hover {
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
@@ -6503,18 +6503,18 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   padding-right: 0;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-copy > span:last-child,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-chevron,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-body,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group.open .cfg-nav-group-body {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-copy > span:last-child,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-body,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group.open .cfg-nav-group-body {
   display: none !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group {
   border-top-color: rgba(255, 255, 255, 0.04);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab {
   justify-content: center;
   background: transparent !important;
   box-shadow: none !important;
@@ -6522,26 +6522,47 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   color: rgba(255, 255, 255, 0.76);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab:hover {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab:hover {
   background: transparent !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.active,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.is-active {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.active,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.is-active {
   background: transparent !important;
   box-shadow: none !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.active::before,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.is-active::before {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.active::before,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.is-active::before {
   display: none;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
   display: none !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab-icon {
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab-icon {
   background: transparent !important;
   color: rgba(255, 255, 255, 0.72);
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-brand-copy,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-v2-sidebar-sublabel,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-user-copy,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-btn-copy,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-link-copy {
+  display: none !important;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-user,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-footer {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-footer button,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-footer a {
+  justify-content: center !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }

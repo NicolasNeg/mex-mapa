@@ -20,6 +20,7 @@ const HOME_SIDEBAR_COLLAPSED_KEY = 'mex.home.sidebar.collapsed.v1';
 const HOME_METRICS_SESSION_PREFIX = 'mex.home.metrics.v1.';
 const HOME_METRICS_LOCAL_PREFIX = 'mex.home.metrics.local.v1.';
 const HOME_METRICS_CACHE_TTL_MS = 120000;
+const HOME_PENDING_SEARCH_KEY = 'mex.shell.pending.search.v1';
 
 const HOME_VARIANTS = {
   operacion: {
@@ -224,7 +225,7 @@ function roleKey(profile = {}) {
   return upper(profile.rol || 'AUXILIAR');
 }
 
-function roleLabel(profile = {}) {
+export function roleLabel(profile = {}) {
   return ROLE_LABELS[roleKey(profile)] || roleKey(profile) || 'USUARIO';
 }
 
@@ -249,7 +250,7 @@ function isRoleLikeUserLabel(value = '', profile = {}) {
   return roleNames.has(normalized);
 }
 
-function displayUserName(profile = {}) {
+export function displayUserName(profile = {}) {
   const candidates = [
     profile.nombreCompleto,
     profile.displayName,
@@ -275,6 +276,30 @@ function displayUserName(profile = {}) {
     || auth.currentUser?.email
     || 'Usuario';
   return prettyUserName(isRoleLikeUserLabel(fallback, profile) ? 'Usuario' : fallback);
+}
+
+export function queueShellSearch(query = '', plaza = '') {
+  const normalizedQuery = safe(query);
+  if (!normalizedQuery) return false;
+  return writeJsonStorage(sessionStorage, HOME_PENDING_SEARCH_KEY, {
+    query: normalizedQuery,
+    plaza: upper(plaza || ''),
+    ts: Date.now()
+  });
+}
+
+export function consumeShellSearch() {
+  const payload = readJsonStorage(sessionStorage, HOME_PENDING_SEARCH_KEY);
+  try {
+    sessionStorage.removeItem(HOME_PENDING_SEARCH_KEY);
+  } catch (_) { }
+  if (!payload || typeof payload !== 'object') return null;
+  const query = safe(payload.query);
+  if (!query) return null;
+  return {
+    query,
+    plaza: upper(payload.plaza || '')
+  };
 }
 
 function permissionOverrides(profile = {}) {
@@ -518,7 +543,7 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
 
   const operacionItems = onMapa
     ? [
-        { label: 'Inicio',       description: 'Tablero por rol',                                         route: '/home',            icon: 'home' },
+        { label: 'Mapa',         description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa',            icon: 'map' },
         { label: 'Mensajes',     description: 'Coordinación y chat',                                     route: '/mensajes',        icon: 'chat' },
         { label: 'Cola prep.',   description: 'Salidas y checklist',                                     route: '/cola-preparacion', icon: 'format_list_bulleted' }
       ]
@@ -529,12 +554,6 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
       ];
 
   const groups = [
-    {
-      label: onMapa ? 'Mapa' : 'Principal',
-      items: onMapa
-        ? [{ label: 'Mapa operativo', description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa', icon: 'map' }]
-        : [{ label: 'Inicio',         description: 'Tablero por rol', route: '/home', icon: 'home', active: true }]
-    },
     {
       label: onMapa ? 'Navegación' : 'Operación',
       items: operacionItems
@@ -566,19 +585,13 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
   }
 
   groups.push({
-      label: 'Cuenta',
+    label: 'Cuenta',
     items: [
       {
         label: 'Mi perfil',
         description: roleLabel(profile),
         route: '/profile',
         icon: 'person'
-      },
-      {
-        label: 'Cerrar sesion',
-          description: 'Salir de esta cuenta',
-        action: 'logout',
-        icon: 'logout'
       }
     ]
   });
@@ -590,11 +603,34 @@ function getSidebarShellWidth(collapsed = _homeState.collapsed) {
   return collapsed ? '84px' : '280px';
 }
 
+function isDesktopShell() {
+  return window.matchMedia('(min-width: 1024px)').matches;
+}
+
+function openMobileSidebar(sidebar, overlay) {
+  if (!sidebar || !overlay) return;
+  sidebar.classList.remove('-translate-x-full');
+  sidebar.classList.add('mobile-open');
+  overlay.classList.remove('hidden');
+  requestAnimationFrame(() => overlay.classList.remove('opacity-0'));
+}
+
+function closeMobileSidebar(sidebar, overlay) {
+  if (!sidebar || !overlay) return;
+  sidebar.classList.add('-translate-x-full');
+  sidebar.classList.remove('mobile-open');
+  overlay.classList.add('opacity-0');
+  window.setTimeout(() => {
+    if (!sidebar.classList.contains('mobile-open')) overlay.classList.add('hidden');
+  }, 300);
+}
+
 function applySidebarShellState(sidebar) {
   if (!sidebar) return;
   const collapsed = Boolean(_homeState.collapsed);
   document.documentElement.style.setProperty('--shell-sidebar-width', getSidebarShellWidth(collapsed));
   sidebar.classList.toggle('is-pinned', !collapsed);
+  sidebar.classList.toggle('shell-collapsed', collapsed);
 
   if (collapsed) {
     sidebar.querySelectorAll('.cfg-nav-group.open').forEach(group => {
@@ -610,20 +646,21 @@ function applySidebarShellState(sidebar) {
     }
   }
 
-  const toggle = document.querySelector('[data-sidebar-toggle]') || sidebar.querySelector('[data-sidebar-toggle]');
-  if (toggle) {
+  document.querySelectorAll('[data-sidebar-toggle]').forEach(toggle => {
     const icon = toggle.querySelector('.material-symbols-outlined');
     const title = collapsed ? 'Expandir menú' : 'Colapsar menú';
     toggle.title = title;
     toggle.setAttribute('aria-label', title);
-    if (icon) icon.textContent = collapsed ? 'menu' : 'menu_open';
-  }
+    if (icon && isDesktopShell()) icon.textContent = collapsed ? 'menu' : 'menu_open';
+    else if (icon) icon.textContent = 'menu';
+  });
 }
 
 export function bindSidebarShell(root = document, options = {}) {
   const sidebar = root?.getElementById ? root.getElementById('homeSidebar') : document.getElementById('homeSidebar');
   if (!sidebar) return;
   const currentPlaza = safe(options.currentPlaza || '');
+  const overlay = root?.getElementById ? root.getElementById('mobileOverlay') : document.getElementById('mobileOverlay');
 
   applySidebarShellState(sidebar);
 
@@ -634,19 +671,50 @@ export function bindSidebarShell(root = document, options = {}) {
       event.preventDefault();
       const group = button.closest('.cfg-nav-group');
       if (!group) return;
-      group.classList.toggle('open');
+      if (!isDesktopShell() || !sidebar.classList.contains('shell-collapsed')) {
+        group.classList.toggle('open');
+      }
     });
   });
 
-  const toggleBtn = root?.querySelector ? root.querySelector('[data-sidebar-toggle]') : document.querySelector('[data-sidebar-toggle]');
-  if (toggleBtn && toggleBtn.dataset.bound !== '1') {
+  if (overlay && overlay.dataset.bound !== '1') {
+    overlay.dataset.bound = '1';
+    overlay.addEventListener('click', () => closeMobileSidebar(sidebar, overlay));
+  }
+
+  if (!window.__mexSidebarShellResizeBound) {
+    window.__mexSidebarShellResizeBound = true;
+    window.addEventListener('resize', () => {
+      const liveSidebar = document.getElementById('homeSidebar');
+      const liveOverlay = document.getElementById('mobileOverlay');
+      if (!liveSidebar) return;
+      if (isDesktopShell()) {
+        liveSidebar.classList.remove('mobile-open');
+        liveSidebar.classList.remove('-translate-x-full');
+        liveOverlay?.classList.add('hidden');
+        liveOverlay?.classList.add('opacity-0');
+        applySidebarShellState(liveSidebar);
+      } else if (!liveSidebar.classList.contains('mobile-open')) {
+        liveSidebar.classList.add('-translate-x-full');
+      }
+    });
+  }
+
+  (root?.querySelectorAll ? root.querySelectorAll('[data-sidebar-toggle]') : document.querySelectorAll('[data-sidebar-toggle]')).forEach(toggleBtn => {
+    if (toggleBtn.dataset.bound === '1') return;
     toggleBtn.dataset.bound = '1';
     toggleBtn.addEventListener('click', event => {
       event.preventDefault();
-      saveSidebarState(!_homeState.collapsed);
-      applySidebarShellState(sidebar);
+      if (isDesktopShell()) {
+        saveSidebarState(!_homeState.collapsed);
+        applySidebarShellState(sidebar);
+        return;
+      }
+      const isOpen = sidebar.classList.contains('mobile-open');
+      if (isOpen) closeMobileSidebar(sidebar, overlay);
+      else openMobileSidebar(sidebar, overlay);
     });
-  }
+  });
 
   sidebar.querySelectorAll('[data-route]').forEach(button => {
     if (button.dataset.bound === '1') return;
@@ -657,6 +725,7 @@ export function bindSidebarShell(root = document, options = {}) {
       if (currentPlaza && typeof setActivePlaza === 'function') {
         setActivePlaza(currentPlaza);
       }
+      if (!isDesktopShell()) closeMobileSidebar(sidebar, overlay);
       window.location.href = target;
     });
   });
@@ -666,7 +735,28 @@ export function bindSidebarShell(root = document, options = {}) {
     button.dataset.bound = '1';
     button.addEventListener('click', event => {
       event.preventDefault();
+      if (!isDesktopShell()) closeMobileSidebar(sidebar, overlay);
       logoutHome();
+    });
+  });
+
+  (root?.querySelectorAll ? root.querySelectorAll('[data-shell-bell]') : document.querySelectorAll('[data-shell-bell]')).forEach(button => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      if (typeof window._openAlertsOrNotifications === 'function') {
+        window._openAlertsOrNotifications();
+        return;
+      }
+      if (typeof window.openNotificationCenter === 'function') {
+        window.openNotificationCenter();
+        return;
+      }
+      if (currentPlaza && typeof setActivePlaza === 'function') {
+        setActivePlaza(currentPlaza);
+      }
+      window.location.href = '/mapa?notif=inbox';
     });
   });
 }
@@ -727,30 +817,24 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
   let navHtml = '';
   navGroups.forEach((group, index) => {
     const groupLabel = escapeHtml(group.label);
-    const isGroupOpen = group.items.some(item => item.route === currentRoute)
-      || (group.label === 'Principal' && currentRoute === '/home')
-      || (group.label === 'Mapa' && currentRoute === '/mapa');
+    const isGroupOpen = group.items.some(item => item.route === currentRoute);
     if (isGroupOpen) activeGroupIndex = index;
-    const groupMeta = group.label === 'Principal'
-      ? { small: 'Inicio', strong: 'Principal' }
-      : group.label === 'Mapa'
-        ? { small: 'Actual', strong: 'Mapa' }
-        : group.label === 'Operación'
-          ? { small: 'Flujo', strong: 'Operación' }
-          : group.label === 'Navegación'
-            ? { small: 'Ir a', strong: 'Navegación' }
-            : group.label === 'Programador'
-              ? { small: 'Control', strong: 'Programador' }
-              : { small: 'Cuenta', strong: 'Perfil' };
-    const groupIcon = group.label === 'Principal'
-      ? 'dashboard'
-      : group.label === 'Mapa'
-        ? 'map'
-        : group.label === 'Operación' || group.label === 'Navegación'
-          ? 'route'
+    const groupMeta = group.label === 'Operación'
+      ? { small: 'Flujo', strong: 'Operación' }
+      : group.label === 'Navegación'
+        ? { small: 'Ir a', strong: 'Navegación' }
+        : group.label === 'Gestion'
+          ? { small: 'Control', strong: 'Gestión' }
           : group.label === 'Programador'
-            ? 'admin_panel_settings'
-            : 'person';
+            ? { small: 'Control', strong: 'Programador' }
+            : { small: 'Cuenta', strong: 'Perfil' };
+    const groupIcon = group.label === 'Operación' || group.label === 'Navegación'
+      ? 'route'
+      : group.label === 'Gestion'
+        ? 'admin_panel_settings'
+        : group.label === 'Programador'
+          ? 'terminal'
+          : 'person';
     navHtml += `
       <div class="cfg-nav-group shell-sidebar-section ${isGroupOpen ? 'open' : ''}" data-nav-group="${groupLabel}" data-nav-group-index="${index}">
         <button type="button" class="cfg-nav-group-toggle shell-sidebar-group-toggle" data-sidebar-group-toggle>
@@ -797,14 +881,6 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
     <!-- Mobile Overlay -->
     <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 bg-slate-900/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
 
-    <button type="button"
-            class="shell-sidebar-toggle hidden lg:inline-flex"
-            data-sidebar-toggle
-            title="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}"
-            aria-label="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}">
-      <span class="material-symbols-outlined">${shellCollapsed ? 'menu' : 'menu_open'}</span>
-    </button>
-
     <!-- Persistent SideNavBar -->
     <aside id="homeSidebar" class="cfg-v2-sidebar shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out ${shellCollapsed ? '' : 'is-pinned'}" data-active-nav-group-index="${activeGroupIndex}" style="--cfg-rail-collapsed:84px; --cfg-rail-expanded:280px; z-index:900001; border-right:1px solid #1a2538;">
       <div>
@@ -813,7 +889,7 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
           <div class="cfg-v2-sidebar-top">
             <div class="cfg-v2-sidebar-label">
               <span class="material-symbols-outlined">rocket_launch</span>
-              <span>
+              <span class="shell-sidebar-brand-copy">
                 <small>MAPA</small>
                 <strong>${escapeHtml(company)}</strong>
               </span>
@@ -828,7 +904,7 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
             <div class="w-10 h-10 rounded-full border-2 border-secondary bg-slate-700 flex items-center justify-center text-white font-bold uppercase overflow-hidden shrink-0">
               ${escapeHtml((userName[0] || 'U').toUpperCase())}
             </div>
-            <div class="overflow-hidden">
+            <div class="overflow-hidden shell-sidebar-user-copy">
               <p class="text-white font-semibold text-sm truncate">${escapeHtml(userName)}</p>
               <p class="text-slate-400 text-xs truncate">${escapeHtml(roleLabel(profile))}</p>
             </div>
@@ -845,11 +921,11 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
       <div class="shell-sidebar-footer px-3 mt-8">
         <button class="w-full bg-secondary text-white py-3 px-4 rounded-xl font-bold text-sm mb-4 flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-secondary/20" data-route="/cola-preparacion">
           <span class="material-symbols-outlined text-sm" data-icon="add">add</span>
-          Nuevo Despacho
+          <span class="shell-sidebar-btn-copy">Nuevo Despacho</span>
         </button>
         <a class="flex items-center gap-3 px-6 py-4 text-slate-400 hover:text-error transition-all duration-300 border-t border-slate-800/50 pt-6 cursor-pointer" data-action="logout">
           <span class="material-symbols-outlined" data-icon="logout">logout</span>
-          <span class="font-sans text-sm font-medium tracking-wide">Cerrar Sesión</span>
+          <span class="shell-sidebar-link-copy font-sans text-sm font-medium tracking-wide">Cerrar Sesión</span>
         </a>
       </div>
     </aside>
@@ -877,18 +953,21 @@ function renderHome(profile, config, metrics) {
 
   root.innerHTML = renderSidebarHTML(profile, metrics, currentPlaza, company, userName, '/home') + `
     <!-- TopAppBar -->
-    <header class="shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex justify-between items-center px-4 lg:px-8 shadow-sm">
-      <div class="flex items-center gap-2 lg:gap-4">
-        <button id="mobileMenuBtn" class="lg:hidden p-2 text-slate-500 hover:text-secondary hover:bg-slate-100 rounded-lg transition-all border border-transparent">
+    <header class="shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex justify-between items-center px-3 md:px-6 shadow-sm">
+      <div class="flex items-center gap-2 md:gap-3 min-w-0">
+        <button type="button" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" data-sidebar-toggle title="Mostrar menú" aria-label="Mostrar menú">
           <span class="material-symbols-outlined" data-icon="menu">menu</span>
         </button>
-        <div class="relative hidden md:block">
+        <a class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" href="/home" title="Volver al inicio" aria-label="Volver al inicio">
+          <span class="material-symbols-outlined" data-icon="home">home</span>
+        </a>
+        <div class="relative min-w-0 flex-1 max-w-[220px] md:max-w-[360px]">
           <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="search">search</span>
-          <input class="bg-slate-100 border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm text-slate-700 w-80 focus:ring-1 focus:ring-secondary/50 placeholder:text-slate-400 outline-none" placeholder="Buscar vehículo, ruta..." type="text"/>
+          <input id="homeSearchInput" class="bg-slate-100 border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm text-slate-700 w-full focus:ring-1 focus:ring-secondary/50 placeholder:text-slate-400 outline-none" placeholder="Buscar unidad, ruta..." type="text"/>
         </div>
       </div>
 
-      <div class="flex items-center gap-6">
+      <div class="flex items-center gap-2 md:gap-4 shrink-0">
         <select id="homePlazaSelect" class="bg-slate-100 border border-slate-200 rounded-full py-2 px-4 text-sm text-slate-700 font-semibold focus:ring-1 focus:ring-secondary/50 outline-none cursor-pointer" ${plazas.length <= 1 ? 'disabled' : ''}>
           ${(plazas.length ? plazas : [currentPlaza || '']).filter(Boolean).map(plaza => `
             <option value="${escapeHtml(plaza)}" ${plaza === currentPlaza ? 'selected' : ''}>📍 ${escapeHtml(plaza)}</option>
@@ -896,7 +975,7 @@ function renderHome(profile, config, metrics) {
         </select>
 
         <div class="flex items-center gap-2">
-          <button class="relative hover:text-secondary hover:bg-slate-100 rounded-full p-2 text-slate-400 transition-all border border-transparent">
+          <button type="button" data-shell-bell class="relative hover:text-secondary hover:bg-slate-100 rounded-full p-2 text-slate-400 transition-all border border-transparent" title="Alertas y notificaciones">
             <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
             ${metrics.incidenciasAbiertas > 0 ? '<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full."></span>' : ''}
           </button>
@@ -1124,8 +1203,14 @@ function renderHome(profile, config, metrics) {
     });
   });
 
-  document.getElementById('homeSearchInput')?.addEventListener('input', event => {
-    // Basic frontend search could be implemented, but leaving existing bindings.
+  document.getElementById('homeSearchInput')?.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    const query = safe(event.currentTarget?.value || '');
+    if (!query) return;
+    queueShellSearch(query, currentPlaza);
+    setActivePlaza(currentPlaza);
+    navigateTo('/mapa');
   });
 
   document.getElementById('homePlazaSelect')?.addEventListener('change', event => {
@@ -1134,26 +1219,6 @@ function renderHome(profile, config, metrics) {
     renderBoot();
   });
 
-  const sidebar = document.getElementById('homeSidebar');
-  const mobileOverlay = document.getElementById('mobileOverlay');
-  const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-
-  function toggleMobileMenu() {
-    if (!sidebar || !mobileOverlay) return;
-    const isOpen = !sidebar.classList.contains('-translate-x-full');
-    if (!isOpen) { // Open
-      sidebar.classList.remove('-translate-x-full');
-      mobileOverlay.classList.remove('hidden');
-      setTimeout(() => mobileOverlay.classList.remove('opacity-0'), 10);
-    } else { // Close
-      sidebar.classList.add('-translate-x-full');
-      mobileOverlay.classList.add('opacity-0');
-      setTimeout(() => mobileOverlay.classList.add('hidden'), 300);
-    }
-  }
-
-  mobileMenuBtn?.addEventListener('click', toggleMobileMenu);
-  mobileOverlay?.addEventListener('click', toggleMobileMenu);
 }
 
 function renderError(message) {

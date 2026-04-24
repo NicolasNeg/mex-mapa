@@ -32,7 +32,7 @@ import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
-import { renderSidebarHTML, bindSidebarShell } from '/js/views/home.js';
+import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consumeShellSearch } from '/js/views/home.js';
 
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
@@ -1225,20 +1225,54 @@ function _inyectarSidebar() {
   if (!container || !currentUserProfile) return;
   const companyName = window.MEX_CONFIG?.empresa?.nombre || APP_DEFAULT_COMPANY_NAME;
   const activeMetrics = ((window._supervisionData || _supervisionData || {})[PLAZA_ACTIVA_MAPA]) || {};
-  const html = renderSidebarHTML(currentUserProfile, activeMetrics, PLAZA_ACTIVA_MAPA, companyName, USER_NAME, '/mapa');
+  const shellUserName = displayUserName(currentUserProfile);
+  const html = renderSidebarHTML(currentUserProfile, activeMetrics, PLAZA_ACTIVA_MAPA, companyName, shellUserName, '/mapa');
   container.innerHTML = html;
   bindSidebarShell(document, { currentPlaza: PLAZA_ACTIVA_MAPA });
+  _syncMapShellHeader();
+}
 
-  // Simple mobile toggle
-  const overlay = document.getElementById('mobileOverlay');
-  const sidebar = document.getElementById('homeSidebar');
-  if(overlay && sidebar) {
-    overlay.addEventListener('click', () => {
-      sidebar.classList.add('-translate-x-full');
-      overlay.classList.add('opacity-0');
-      setTimeout(() => overlay.classList.add('hidden'), 300);
-    });
+function _syncMapShellHeader() {
+  if (!currentUserProfile) return;
+  const shellUserName = displayUserName(currentUserProfile);
+  const shellRole = roleLabel(currentUserProfile);
+  const shellAvatar = _obtenerInicialesUsuario(shellUserName || USER_NAME || currentUserProfile?.email || 'U');
+
+  const topbarName = document.getElementById('shellUserName');
+  const topbarMeta = document.getElementById('shellUserMeta');
+  const topbarAvatar = document.getElementById('shellUserAvatar');
+  if (topbarName) topbarName.textContent = shellUserName;
+  if (topbarMeta) topbarMeta.textContent = `${shellRole} · En línea`;
+  if (topbarAvatar) topbarAvatar.textContent = shellAvatar;
+}
+
+function _openAlertsOrNotifications() {
+  const hasAlerts = Array.isArray(filaAlertasPendientes) && filaAlertasPendientes.length > 0;
+  if (hasAlerts) {
+    abrirSiguienteAlerta();
+    return;
   }
+  openNotificationCenter();
+}
+
+function _applyPendingShellSearch(attempt = 0) {
+  const pending = attempt === 0 ? consumeShellSearch() : window.__mexPendingShellSearch;
+  if (!pending?.query) return;
+
+  const inputDesktop = document.getElementById('searchInput');
+  const inputMobile = document.getElementById('searchInputMobile');
+  if (!inputDesktop || !inputMobile || document.querySelectorAll('.car').length === 0) {
+    if (attempt < 12) {
+      window.__mexPendingShellSearch = pending;
+      setTimeout(() => _applyPendingShellSearch(attempt + 1), 250);
+    }
+    return;
+  }
+
+  window.__mexPendingShellSearch = null;
+  inputDesktop.value = pending.query;
+  inputMobile.value = pending.query;
+  if (typeof buscarMasivo === 'function') buscarMasivo();
 }
 
 function _clearSessionProfile() {
@@ -2424,6 +2458,7 @@ function iniciarApp(esNuevoLogin = true) {
   }
 
   _actualizarIdentidadSidebarUsuario();
+  window._openAlertsOrNotifications = _openAlertsOrNotifications;
   configureNotifications({
     profileGetter: () => currentUserProfile || window.CURRENT_USER_PROFILE || null,
     getCurrentUserName: () => USER_NAME,
@@ -2480,6 +2515,7 @@ function iniciarApp(esNuevoLogin = true) {
 
   _iniciarSincronizacionUsuarios(); // Poblar dbUsuariosLogin en tiempo real
   init(); // Carga el mapa
+  setTimeout(() => _applyPendingShellSearch(), 900);
   _schedulePrivilegedRoutePrefetch();
 
   // [TEST] Abrir editor de mapa directamente si ?editor=1 en la URL
@@ -5202,8 +5238,10 @@ function enfocarCajon(elemento) {
 }
 
 function limpiarBusqueda(resetearZoom = true) {
-  document.getElementById('searchInput').value = "";
-  document.getElementById('searchInputMobile').value = "";
+  const desktopInput = document.getElementById('searchInput');
+  const mobileInput = document.getElementById('searchInputMobile');
+  if (desktopInput) desktopInput.value = "";
+  if (mobileInput) mobileInput.value = "";
 
   if (resetearZoom) {
     // ZOOM DE SALIDA INTELIGENTE: 0.5 para celular (más lejos), 0.8 para PC
@@ -8664,6 +8702,7 @@ function _procesarPingUI(res) {
 
   // 6. GESTIÓN DE ALERTAS (CAMPANA)
   const badgeAlt = document.getElementById('badgeAlerts');
+  const shellBellBadge = document.getElementById('shellBellBadge');
   const alertasPendientes = _ordenarAlertasPendientes((res.alertas || []).filter(a =>
     !_alertaYaLeidaPor(a, USER_NAME) && _alertaAplicaAUsuario(a, USER_NAME)
   ));
@@ -8671,6 +8710,10 @@ function _procesarPingUI(res) {
     if (badgeAlt) {
       badgeAlt.innerText = alertasPendientes.length;
       badgeAlt.style.display = 'flex';
+    }
+    if (shellBellBadge) {
+      shellBellBadge.innerText = alertasPendientes.length;
+      shellBellBadge.style.display = 'flex';
     }
     filaAlertasPendientes = alertasPendientes;
 
@@ -8683,6 +8726,7 @@ function _procesarPingUI(res) {
     }
   } else {
     if (badgeAlt) badgeAlt.style.display = 'none';
+    if (shellBellBadge) shellBellBadge.style.display = 'none';
     filaAlertasPendientes = [];
   }
 
@@ -8693,8 +8737,13 @@ function _procesarPingUI(res) {
       badgeBuzon.innerText = res.mensajesSinLeer;
       badgeBuzon.style.display = 'flex';
     }
+    if (shellBellBadge && alertasPendientes.length === 0) {
+      shellBellBadge.innerText = res.mensajesSinLeer;
+      shellBellBadge.style.display = 'flex';
+    }
   } else {
     if (badgeBuzon) badgeBuzon.style.display = 'none';
+    if (shellBellBadge && alertasPendientes.length === 0) shellBellBadge.style.display = 'none';
   }
 }
 
