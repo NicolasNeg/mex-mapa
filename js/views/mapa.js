@@ -3252,7 +3252,6 @@ function _schedulePrivilegedRoutePrefetch() {
   const enqueue = () => {
     [
       '/gestion?tab=usuarios',
-      '/cuadre',
       '/mensajes',
       '/profile',
       '/programador',
@@ -4097,7 +4096,7 @@ function dibujarMapaCompleto(estructura = null) {
 
   // [F2] Canvas libre: contenedor position:relative con tamaño calculado
   grid.innerHTML = "";
-  grid.className = "mapa-canvas-libre"; // [F2]
+  grid.className = "map-grid mapa-canvas-libre"; // [F2]
   grid.style.width = `${normalizada.canvasW}px`; // [F2]
   grid.style.height = `${normalizada.canvasH}px`; // [F2]
   grid.style.removeProperty('--map-cols'); // ya no usa CSS grid
@@ -4122,6 +4121,7 @@ function dibujarMapaCompleto(estructura = null) {
     if (celda.googleMapsUrl) div.dataset.googleMapsUrl = celda.googleMapsUrl;
     if (celda.pathType) div.dataset.pathType = celda.pathType;
     // [F2] Posicionamiento absoluto
+    div.style.position = 'absolute';
     div.style.left = `${celda.x}px`;
     div.style.top = `${celda.y}px`;
     div.style.width = `${celda.width}px`;
@@ -16430,7 +16430,7 @@ function _cfgApplySidebarPinState(forcePinned = null) {
   const toggle = document.getElementById('cfg-sidebar-pin');
   if (!sidebar) return;
   const pinned = forcePinned === null
-    ? localStorage.getItem('mex.admin.sidebar.pinned') === '1'
+    ? localStorage.getItem('mex.admin.sidebar.pinned') !== '0'
     : Boolean(forcePinned);
   sidebar.classList.toggle('is-pinned', pinned);
   if (toggle) {

@@ -909,7 +909,6 @@ async function _bootNotifications() {
           ? `/mensajes?notif=chat&chatUser=${encodeURIComponent(safeUser)}`
           : '/mensajes';
       },
-      openCuadre: () => { window.location.href = '/cuadre'; },
       openAlerts: () => { window.location.href = '/mapa?notif=alerts'; }
     }
   });

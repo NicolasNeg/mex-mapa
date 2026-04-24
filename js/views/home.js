@@ -46,14 +46,6 @@ const HOME_VARIANTS = {
         tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
-        id: 'cuadre',
-        title: 'Cuadre',
-        description: 'Ir al cierre, control y predicción diaria de la plaza foco.',
-        route: '/cuadre',
-        icon: 'fact_check',
-        tone: 'linear-gradient(135deg, #064e3b 0%, #16a34a 100%)'
-      },
-      {
         id: 'cola',
         title: 'Cola de preparación',
         description: 'Checklist, prioridad de salida y avance de unidades listas.',
@@ -88,14 +80,6 @@ const HOME_VARIANTS = {
         tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
       },
       {
-        id: 'cuadre',
-        title: 'Cuadres y reportes',
-        description: 'Seguimiento diario de cierres, predicción y validación operativa.',
-        route: '/cuadre',
-        icon: 'analytics',
-        tone: 'linear-gradient(135deg, #064e3b 0%, #b49a5e 100%)'
-      },
-      {
         id: 'mensajes',
         title: 'Mensajes',
         description: 'Atender coordinación interna, solicitudes y seguimiento.',
@@ -111,15 +95,6 @@ const HOME_VARIANTS = {
     description: 'Un arranque más limpio para dirección y corporativo, con foco en decisiones, contexto y entrada selectiva al detalle operativo.',
     ctaTitle: 'Abrir cuadres y reportes',
     modules: [
-      {
-        id: 'cuadre',
-        title: 'Cuadres y reportes',
-        description: 'Consultar cierres, presión operativa y seguimiento por plaza.',
-        route: '/cuadre',
-        icon: 'analytics',
-        badge: 'Principal',
-        tone: 'linear-gradient(135deg, #07111f 0%, #0f766e 100%)'
-      },
       {
         id: 'admin',
         title: 'Panel admin',
@@ -502,7 +477,6 @@ function availableModules(profile = {}) {
 function moduleMeta(module = {}, metrics = {}) {
   if (module.route === '/mapa') return `${metrics.focus || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`;
   if (module.route === '/mensajes') return 'Comunicacion interna';
-  if (module.route === '/cuadre') return `${metrics.externosActivos || 0} externos en foco`;
   if (module.route.startsWith('/gestion')) return `${metrics.solicitudesPendientes || 0} solicitudes pendientes`;
   if (module.route === '/programador') return `${metrics.incidenciasAbiertas || 0} incidencias abiertas`;
   return 'Acceso rápido';
@@ -546,13 +520,11 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
     ? [
         { label: 'Inicio',       description: 'Tablero por rol',                                         route: '/home',            icon: 'home' },
         { label: 'Mensajes',     description: 'Coordinación y chat',                                     route: '/mensajes',        icon: 'chat' },
-        { label: 'Cuadre',       description: `${metrics.externosActivos || 0} externos en foco`,        route: '/cuadre',          icon: 'fact_check' },
         { label: 'Cola prep.',   description: 'Salidas y checklist',                                     route: '/cola-preparacion', icon: 'format_list_bulleted' }
       ]
     : [
         { label: 'Mapa',         description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa',  icon: 'map' },
         { label: 'Mensajes',     description: 'Coordinación y chat',                                     route: '/mensajes',        icon: 'chat' },
-        { label: 'Cuadre',       description: `${metrics.externosActivos || 0} externos en foco`,        route: '/cuadre',          icon: 'fact_check' },
         { label: 'Cola prep.',   description: 'Salidas y checklist',                                     route: '/cola-preparacion', icon: 'format_list_bulleted' }
       ];
 
@@ -1078,12 +1050,6 @@ function renderHome(profile, config, metrics) {
                   <span class="text-xs font-bold text-slate-500 bg-white/50 px-3 py-1 rounded-full border border-slate-200 shadow-sm">📍 ${escapeHtml(currentPlaza || 'Global')}</span>
                   <span class="text-xs font-bold text-slate-500 bg-white/50 px-3 py-1 rounded-full border border-slate-200 shadow-sm">👤 ${escapeHtml(roleLabel(profile))}</span>
                 </div>
-              </div>
-              <div class="hidden md:block relative z-10 shrink-0">
-                <button class="bg-[#07111f] text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-lg" data-route="/cuadre">
-                  Ver Cuadre
-                  <span class="material-symbols-outlined" data-icon="chevron_right">chevron_right</span>
-                </button>
               </div>
               <div class="absolute right-0 top-0 w-64 h-full bg-gradient-to-l from-secondary/10 to-transparent"></div>
             </div>
