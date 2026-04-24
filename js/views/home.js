@@ -539,48 +539,33 @@ function filterModules(modules = [], query = '') {
   });
 }
 
-export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '') {
+export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', currentRoute = '/home') {
+  const onMapa = currentRoute === '/mapa';
+
+  const operacionItems = onMapa
+    ? [
+        { label: 'Inicio',       description: 'Tablero por rol',                                         route: '/home',            icon: 'home' },
+        { label: 'Mensajes',     description: 'Coordinación y chat',                                     route: '/mensajes',        icon: 'chat' },
+        { label: 'Cuadre',       description: `${metrics.externosActivos || 0} externos en foco`,        route: '/cuadre',          icon: 'fact_check' },
+        { label: 'Cola prep.',   description: 'Salidas y checklist',                                     route: '/cola-preparacion', icon: 'format_list_bulleted' }
+      ]
+    : [
+        { label: 'Mapa',         description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa',  icon: 'map' },
+        { label: 'Mensajes',     description: 'Coordinación y chat',                                     route: '/mensajes',        icon: 'chat' },
+        { label: 'Cuadre',       description: `${metrics.externosActivos || 0} externos en foco`,        route: '/cuadre',          icon: 'fact_check' },
+        { label: 'Cola prep.',   description: 'Salidas y checklist',                                     route: '/cola-preparacion', icon: 'format_list_bulleted' }
+      ];
+
   const groups = [
     {
-      label: 'Principal',
-      items: [
-        {
-          label: 'Inicio',
-          description: 'Tablero por rol',
-          route: '/home',
-          icon: 'home',
-          active: true
-        }
-      ]
+      label: onMapa ? 'Mapa' : 'Principal',
+      items: onMapa
+        ? [{ label: 'Mapa operativo', description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`, route: '/mapa', icon: 'map' }]
+        : [{ label: 'Inicio',         description: 'Tablero por rol', route: '/home', icon: 'home', active: true }]
     },
     {
-      label: 'Operación',
-      items: [
-        {
-          label: 'Mapa',
-          description: `${currentPlaza || 'Sin plaza'} · ${metrics.unidadesActivas || 0} unidades`,
-          route: '/mapa',
-          icon: 'map'
-        },
-        {
-          label: 'Mensajes',
-          description: 'Coordinación y chat',
-          route: '/mensajes',
-          icon: 'chat'
-        },
-        {
-          label: 'Cuadre',
-          description: `${metrics.externosActivos || 0} externos en foco`,
-          route: '/cuadre',
-          icon: 'fact_check'
-        },
-        {
-          label: 'Cola prep.',
-          description: 'Salidas y checklist',
-          route: '/cola-preparacion',
-          icon: 'format_list_bulleted'
-        }
-      ]
+      label: onMapa ? 'Navegación' : 'Operación',
+      items: operacionItems
     }
   ];
 
@@ -639,7 +624,21 @@ function applySidebarShellState(sidebar) {
   document.documentElement.style.setProperty('--shell-sidebar-width', getSidebarShellWidth(collapsed));
   sidebar.classList.toggle('is-pinned', !collapsed);
 
-  const toggle = sidebar.querySelector('[data-sidebar-toggle]');
+  if (collapsed) {
+    sidebar.querySelectorAll('.cfg-nav-group.open').forEach(group => {
+      group.classList.remove('open');
+    });
+  } else {
+    const activeGroupIndex = sidebar.getAttribute('data-active-nav-group-index');
+    if (activeGroupIndex !== null) {
+      const activeGroup = sidebar.querySelector(`[data-nav-group-index="${activeGroupIndex}"]`);
+      if (activeGroup) {
+        activeGroup.classList.add('open');
+      }
+    }
+  }
+
+  const toggle = document.querySelector('[data-sidebar-toggle]') || sidebar.querySelector('[data-sidebar-toggle]');
   if (toggle) {
     const icon = toggle.querySelector('.material-symbols-outlined');
     const title = collapsed ? 'Expandir menú' : 'Colapsar menú';
@@ -667,7 +666,7 @@ export function bindSidebarShell(root = document, options = {}) {
     });
   });
 
-  const toggleBtn = sidebar.querySelector('[data-sidebar-toggle]');
+  const toggleBtn = root?.querySelector ? root.querySelector('[data-sidebar-toggle]') : document.querySelector('[data-sidebar-toggle]');
   if (toggleBtn && toggleBtn.dataset.bound !== '1') {
     toggleBtn.dataset.bound = '1';
     toggleBtn.addEventListener('click', event => {
@@ -750,27 +749,38 @@ function saveSidebarState(collapsed) {
 
 export function renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute = '/home') {
   const variantKey = homeVariant(profile);
-  const navGroups = sidebarGroups(profile, metrics, currentPlaza);
+  const navGroups = sidebarGroups(profile, metrics, currentPlaza, currentRoute);
   const shellCollapsed = Boolean(_homeState.collapsed);
+  let activeGroupIndex = 0;
   let navHtml = '';
-  navGroups.forEach(group => {
+  navGroups.forEach((group, index) => {
     const groupLabel = escapeHtml(group.label);
+    const isGroupOpen = group.items.some(item => item.route === currentRoute)
+      || (group.label === 'Principal' && currentRoute === '/home')
+      || (group.label === 'Mapa' && currentRoute === '/mapa');
+    if (isGroupOpen) activeGroupIndex = index;
     const groupMeta = group.label === 'Principal'
       ? { small: 'Inicio', strong: 'Principal' }
-      : group.label === 'Operación'
-        ? { small: 'Flujo', strong: 'Operación' }
-        : group.label === 'Programador'
-          ? { small: 'Control', strong: 'Programador' }
-          : { small: 'Cuenta', strong: 'Perfil' };
+      : group.label === 'Mapa'
+        ? { small: 'Actual', strong: 'Mapa' }
+        : group.label === 'Operación'
+          ? { small: 'Flujo', strong: 'Operación' }
+          : group.label === 'Navegación'
+            ? { small: 'Ir a', strong: 'Navegación' }
+            : group.label === 'Programador'
+              ? { small: 'Control', strong: 'Programador' }
+              : { small: 'Cuenta', strong: 'Perfil' };
     const groupIcon = group.label === 'Principal'
       ? 'dashboard'
-      : group.label === 'Operación'
-        ? 'route'
-        : group.label === 'Programador'
-          ? 'admin_panel_settings'
-          : 'person';
+      : group.label === 'Mapa'
+        ? 'map'
+        : group.label === 'Operación' || group.label === 'Navegación'
+          ? 'route'
+          : group.label === 'Programador'
+            ? 'admin_panel_settings'
+            : 'person';
     navHtml += `
-      <div class="cfg-nav-group open shell-sidebar-section" data-nav-group="${groupLabel}">
+      <div class="cfg-nav-group shell-sidebar-section ${isGroupOpen ? 'open' : ''}" data-nav-group="${groupLabel}" data-nav-group-index="${index}">
         <button type="button" class="cfg-nav-group-toggle shell-sidebar-group-toggle" data-sidebar-group-toggle>
           <span class="cfg-nav-group-copy">
             <span class="material-symbols-outlined">${groupIcon}</span>
@@ -785,16 +795,14 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
     `;
     group.items.forEach(item => {
       const isActive = item.route === currentRoute;
-      const activeClass = isActive
-        ? "bg-amber-500/10 text-amber-500 border-l-4 border-amber-500"
-        : "text-slate-400 hover:text-slate-100 hover:bg-secondary/5 border-l-4 border-transparent";
+      const activeClass = isActive ? 'is-active' : '';
 
       const fillStyle = isActive ? `style="font-variation-settings: 'FILL' 1;"` : '';
       const routeAttr = item.route ? `data-route="${escapeHtml(item.route)}"` : '';
       const actionAttr = item.action ? `data-action="${escapeHtml(item.action)}"` : '';
 
       navHtml += `
-        <a class="cfg-tab shell-nav-link flex items-center gap-3 px-4 py-3 transition-all duration-300 active:scale-[0.98] cursor-pointer ${isActive ? 'is-active' : ''} ${activeClass}"
+        <a class="cfg-tab shell-nav-link flex items-center gap-3 px-4 py-3 transition-all duration-300 active:scale-[0.98] cursor-pointer ${activeClass}"
            ${routeAttr}
            ${actionAttr}>
           <span class="cfg-tab-icon flex items-center justify-center">
@@ -817,15 +825,20 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
     <!-- Mobile Overlay -->
     <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 bg-slate-900/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
 
+    <button type="button"
+            class="shell-sidebar-toggle hidden lg:inline-flex"
+            data-sidebar-toggle
+            title="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}"
+            aria-label="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}">
+      <span class="material-symbols-outlined">${shellCollapsed ? 'menu' : 'menu_open'}</span>
+    </button>
+
     <!-- Persistent SideNavBar -->
-    <aside id="homeSidebar" class="cfg-v2-sidebar shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out ${shellCollapsed ? '' : 'is-pinned'}" style="--cfg-rail-collapsed:84px; --cfg-rail-expanded:280px; z-index:900001; border-right:1px solid #1a2538;">
+    <aside id="homeSidebar" class="cfg-v2-sidebar shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out ${shellCollapsed ? '' : 'is-pinned'}" data-active-nav-group-index="${activeGroupIndex}" style="--cfg-rail-collapsed:84px; --cfg-rail-expanded:280px; z-index:900001; border-right:1px solid #1a2538;">
       <div>
         <!-- Brand Header -->
         <div class="shell-sidebar-brand px-3 mb-6">
           <div class="cfg-v2-sidebar-top">
-            <button type="button" class="cfg-v2-sidebar-toggle" data-sidebar-toggle title="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}" aria-label="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}">
-              <span class="material-symbols-outlined">${shellCollapsed ? 'menu' : 'menu_open'}</span>
-            </button>
             <div class="cfg-v2-sidebar-label">
               <span class="material-symbols-outlined">rocket_launch</span>
               <span>

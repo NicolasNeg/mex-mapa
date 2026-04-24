@@ -6427,3 +6427,121 @@ body.editor-inspector-dragging .editor-inspector-card {
   box-shadow: 0 28px 82px rgba(2, 6, 23, 0.54);
   border-color: rgba(96, 165, 250, 0.22);
 }
+
+html.light .cfg-v2-sidebar.shell-sidebar-surface {
+  background: linear-gradient(180deg, #0f1a37 0%, #162b5b 48%, #1468a4 100%);
+  border-color: rgba(191, 219, 254, 0.14);
+}
+
+html.light .cfg-v2-sidebar.shell-sidebar-surface::before {
+  background:
+    radial-gradient(circle at top, rgba(96, 165, 250, 0.20), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(255, 255, 255, 0.12), transparent 30%);
+}
+
+html.light .cfg-nav-group-toggle,
+html.light .cfg-nav-group-copy strong,
+html.light .cfg-nav-group-copy small,
+html.light .cfg-nav-group-body .cfg-tab,
+html.light .cfg-nav-group-body .cfg-tab span,
+html.light .cfg-v2-sidebar-label,
+html.light .cfg-v2-sidebar-sublabel {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+html.light .cfg-nav-group-toggle {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(148, 163, 184, 0.10);
+}
+
+html.light .cfg-nav-group-toggle:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+}
+
+html.light .cfg-nav-group-body .cfg-tab {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+html.light .cfg-nav-group-body .cfg-tab:hover {
+  background: linear-gradient(180deg, rgba(96, 165, 250, 0.10), rgba(59, 130, 246, 0.06));
+}
+
+.cfg-tab.active,
+.cfg-tab.is-active {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.14));
+  color: #ffffff;
+  font-weight: 900;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.18);
+}
+
+.cfg-tab.active .cfg-tab-icon,
+.cfg-tab.is-active .cfg-tab-icon {
+  background: rgba(96, 165, 250, 0.22);
+  color: #dbeafe;
+}
+
+.cfg-tab.active::before,
+.cfg-tab.is-active::before {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #93c5fd, #dbeafe);
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-toggle:hover {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-copy > span:last-child,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-chevron,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group-body,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group.open .cfg-nav-group-body {
+  display: none !important;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-nav-group {
+  border-top-color: rgba(255, 255, 255, 0.04);
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab {
+  justify-content: center;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-left-color: transparent !important;
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab:hover {
+  background: transparent !important;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.active,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.is-active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.active::before,
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab.is-active::before {
+  display: none;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+  display: none !important;
+}
+
+.cfg-v2-sidebar:not(:hover):not(.is-pinned) .cfg-tab-icon {
+  background: transparent !important;
+  color: rgba(255, 255, 255, 0.72);
+}
