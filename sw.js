@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v180';
+const CACHE_NAME = 'mapa-v181';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -46,6 +46,7 @@ const SHELL_ASSETS = [
   '/js/core/observability.js',
   '/js/core/error-tracking.js',
   '/js/core/pwa-install.js',
+  '/js/layouts/app-shell.js',
   '/js/features/cuadre/pdf-reservas.js',
   '/js/features/cuadre/prediccion.js',
   '/js/views/login.js',

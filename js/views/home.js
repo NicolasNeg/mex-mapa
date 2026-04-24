@@ -3,6 +3,7 @@ import { esAdmin, esGlobal } from '/domain/permissions.model.js';
 import { buildMapaViewModel } from '/mapa/mapa-view-model.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
+import { mountAppShell } from '/js/layouts/app-shell.js';
 
 const ROLE_LABELS = {
   AUXILIAR: 'AUXILIAR',
@@ -1178,12 +1179,18 @@ function renderHome(profile, config, metrics) {
     showVehicleShortcut: false
   });
 
-  root.innerHTML = renderSidebarHTML(profile, metrics, currentPlaza, company, userName, '/home') + `
-    <!-- TopAppBar -->
-    ${topbarHtml}
+  mountAppShell({
+    appRoot: root,
+    layoutId: 'homeMainLayout',
+    sidebarHostId: 'homeSidebarHost',
+    topbarHostId: 'homeTopbarHost',
+    mainId: 'homeMainStage',
+    sidebarHtml: renderSidebarHTML(profile, metrics, currentPlaza, company, userName, '/home'),
+    topbarHtml,
+    mainClass: 'shell-main-stage shell-main-offset pt-16 h-screen overflow-y-auto pb-12 relative app-shell-main'
+  });
 
-    <!-- Main Content Stage -->
-    <main class="shell-main-stage shell-main-offset pt-16 h-screen overflow-y-auto pb-12 relative">
+  root.innerHTML = `
       <div class="p-4 md:p-8">
         <!-- Welcome Header -->
         <div class="flex flex-col md:flex-row justify-between md:items-end mb-8 gap-4">
@@ -1369,7 +1376,6 @@ function renderHome(profile, config, metrics) {
           </div>
         </div>
       </div>
-    </main>
   `;
 
   bindSidebarShell(document, { currentPlaza });

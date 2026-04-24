@@ -451,6 +451,26 @@
       --shell-sidebar-width: 280px;
     }
 
+    .app-shell-layout {
+      position: relative;
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    .app-shell-topbar-host,
+    .app-shell-sidebar-host {
+      position: relative;
+      z-index: 20;
+    }
+
+    .app-shell-main {
+      position: relative;
+    }
+
+    .app-shell-content {
+      min-height: calc(100vh - 64px);
+    }
+
     .shell-topbar-offset {
       left: var(--shell-sidebar-width);
       width: calc(100% - var(--shell-sidebar-width));
