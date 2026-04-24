@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v181';
+const CACHE_NAME = 'mapa-v185';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -192,7 +192,7 @@ self.addEventListener('fetch', event => {
 // El flujo operativo de FCM vive en /firebase-messaging-sw.js.
 // Dejamos este listener vacío para evitar banners duplicados
 // cuando el SW principal también alcanza a recibir el evento.
-self.addEventListener('push', () => {});
+self.addEventListener('push', () => { });
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();

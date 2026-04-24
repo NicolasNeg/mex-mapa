@@ -891,18 +891,15 @@ body.programmer-page {
 }
 
 .programmer-page-loading {
-  min-height: calc(100vh - 90px);
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
   display: grid;
   place-items: center;
   justify-items: center;
   gap: 8px;
-  padding: 28px;
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at top, rgba(14,165,233,.20), transparent 30%),
-    linear-gradient(135deg, #06111f 0%, #0d2340 55%, #13263d 100%);
+  background: #07111f;
   color: white;
-  box-shadow: 0 26px 60px rgba(15,23,42,.22);
 }
 
 .cc-topbar {
