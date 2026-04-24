@@ -1,6 +1,7 @@
 import { auth, db, COL, functions } from '/js/core/database.js';
 import { configureNotifications, initNotificationCenter } from '/js/core/notifications.js';
 import { installProgrammerErrorReporter, reportProgrammerError } from '/js/core/observability.js';
+import { ensureRouteShellLayout } from '/js/views/home.js';
 
 const PROGRAMMER_ROLES = new Set(['PROGRAMADOR', 'JEFE_OPERACION', 'CORPORATIVO_USER']);
 const state = {
@@ -573,9 +574,36 @@ function _buildSectionTabsHtml(sectionKey, errCount) {
   }).join('');
 }
 
+function _mountProgrammerShell() {
+  return ensureRouteShellLayout({
+    appRootId: 'programmerApp',
+    layoutId: 'programmerShellLayout',
+    sidebarHostId: 'programmerSidebarHost',
+    topbarHostId: 'programmerTopbarHost',
+    mainId: 'programmerMainStage',
+    currentRoute: '/programador',
+    profile: state.profile || {},
+    config: window.MEX_CONFIG || {},
+    currentPlaza: state.plaza || state.profile?.plazaAsignada || '',
+    metrics: {
+      focus: state.plaza || state.profile?.plazaAsignada || '',
+      incidenciasAbiertas: state.errorsRows?.length || 0,
+      solicitudesPendientes: state.notificationsRows?.length || 0
+    },
+    searchId: 'programmerRouteSearchInput',
+    plazaSelectId: 'programmerRoutePlazaSelect',
+    searchPlaceholder: 'Buscar unidad, evento o modulo...',
+    onPlazaChange: plaza => {
+      state.plaza = upper(plaza || '');
+      refreshAll();
+    }
+  });
+}
+
 function renderShell() {
   const root = document.getElementById('programmerApp');
   if (!root) return;
+  _mountProgrammerShell();
   const plazas = availablePlazas();
 
   const errCount = state.errorsRows?.length || 0;
@@ -598,82 +626,52 @@ function renderShell() {
   const netLat = Math.min(999, 12 + blockedDevices * 15);
 
   root.innerHTML = `
-<!-- Sidebar Navigation -->
-<aside class="fixed left-0 top-0 h-full w-[280px] border-r border-white/10 bg-slate-950/90 dark:bg-slate-950/95 backdrop-blur-xl shadow-2xl shadow-black/50 flex flex-col z-50 overflow-y-auto">
-  <div class="p-8 pb-4">
-    <h1 class="text-xl font-black tracking-tighter text-emerald-500 uppercase">FleetCommand</h1>
-    <p class="font-sans text-sm tracking-wide text-slate-400 mt-1">Centro de Control Técnico</p>
-  </div>
-  
-  <!-- Global Plaza Selector -->
-  <div class="px-6 pb-4">
-    <div class="bg-slate-900/50 border border-white/10 rounded-lg p-3">
-      <div class="flex items-center gap-2 mb-2">
-        <span class="material-symbols-outlined text-[14px] text-slate-400">location_city</span>
-        <span class="text-[10px] font-mono tracking-widest text-slate-400 uppercase">Plaza Foco</span>
+  <section class="p-4 md:p-8 max-w-[1600px] mx-auto space-y-8">
+    <div class="bg-slate-950 text-white rounded-[28px] border border-slate-800 shadow-2xl shadow-slate-900/20 p-6 md:p-8">
+      <div class="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-6">
+        <div class="space-y-3">
+          <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px] font-black uppercase tracking-[0.24em]">
+            <span class="material-symbols-outlined text-[16px]">terminal</span>
+            Centro de control técnico
+          </div>
+          <div>
+            <h1 class="text-3xl md:text-4xl font-black tracking-tight text-white">Consola Programador</h1>
+            <p class="text-sm md:text-base text-slate-300 mt-2 max-w-3xl">
+              Observabilidad, salud del sistema, clientes, cache, consultas y acciones seguras en una misma superficie.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 min-w-0 xl:min-w-[540px]">
+          <label class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 flex flex-col gap-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Plaza foco</span>
+            <select id="programmerGlobalPlazaSelect" class="w-full bg-transparent text-sm font-semibold text-white outline-none border-none p-0">
+              <option value="">GLOBAL (Todas)</option>
+              ${plazas.map(p => `<option value="${escapeHtml(p)}" ${p === state.plaza ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+            </select>
+          </label>
+          <div class="rounded-2xl border border-slate-700 bg-slate-900/70 px-4 py-3 flex flex-col justify-between">
+            <span class="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Estado actual</span>
+            <strong class="${errCount > 0 ? 'text-red-400' : 'text-emerald-400'} text-sm font-black uppercase tracking-[0.18em]">
+              ${errCount > 0 ? `${errCount} alertas técnicas` : 'Sistema estable'}
+            </strong>
+            <span class="text-xs text-slate-400">${escapeHtml(sectionMeta.label)} · ${escapeHtml(tabMeta.label)}</span>
+          </div>
+          <button class="rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-white font-black text-sm uppercase tracking-[0.18em] px-4 py-3 shadow-lg shadow-emerald-500/20 transition-all" id="programmerRefreshAllBtn">
+            Actualizar consola
+          </button>
+        </div>
       </div>
-      <select id="programmerGlobalPlazaSelect" class="w-full bg-slate-950 border border-white/10 text-xs font-mono text-white p-1 rounded focus:border-emerald-500 focus:ring-0 outline-none">
-        <option value="">GLOBAL (Todas)</option>
-        ${plazas.map(p => `<option value="${escapeHtml(p)}" ${p === state.plaza ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
-      </select>
     </div>
-  </div>
 
-  <nav class="flex-1 px-0 overflow-y-auto cc-console-sections">
-    ${_buildSectionNavHtml(errCount)}
-  </nav>
-
-  <div class="p-6">
-    <button class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded transition-colors uppercase text-xs tracking-widest shadow-lg shadow-emerald-500/20" id="programmerRefreshAllBtn">
-      DEPLOY PATCH (Actualizar)
-    </button>
-  </div>
-  <div class="border-t border-white/5 p-4 space-y-2">
-    <div class="text-slate-400 hover:text-emerald-400 py-2 px-4 hover:bg-white/5 transition-all duration-200 cursor-pointer flex items-center gap-3" onclick="window.location.href='/mapa'">
-      <span class="material-symbols-outlined text-sm">map</span>
-      <span class="font-sans text-xs tracking-wide">Mapa Operativo</span>
+    <div class="w-full bg-slate-950 rounded-2xl border border-slate-800 overflow-x-auto cc-console-sections flex gap-1 p-2 shadow-xl shadow-slate-900/10">
+      ${_buildSectionNavHtml(errCount)}
     </div>
-    <div class="text-slate-400 hover:text-emerald-400 py-2 px-4 hover:bg-white/5 transition-all duration-200 cursor-pointer flex items-center gap-3" onclick="window.location.href='/gestion?tab=usuarios'">
-      <span class="material-symbols-outlined text-sm">admin_panel_settings</span>
-      <span class="font-sans text-xs tracking-wide">Admin Settings</span>
-    </div>
-  </div>
-</aside>
 
-<!-- Top App Bar -->
-<header class="fixed top-0 right-0 w-[calc(100%-280px)] z-40 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md border-b border-white/5 flex justify-between items-center px-8 py-3">
-  <div class="flex items-center gap-4">
-    <span class="font-bold text-slate-100 font-mono text-xs uppercase tracking-widest">Command Terminal v4.0</span>
-    <div class="h-4 w-[1px] bg-white/10"></div>
-    <span class="${errCount > 0 ? 'text-red-500' : 'text-emerald-500'} text-[10px] font-mono animate-pulse uppercase">
-      ● ${errCount > 0 ? errCount + ' CRITICAL INCIDENTS' : 'SYSTEM LIVE'}
-    </span>
-  </div>
-  <div class="flex items-center gap-6">
-    <div class="relative hidden lg:block">
-      <input class="bg-slate-950/50 border border-white/10 text-[10px] font-mono tracking-widest text-white px-4 py-1.5 w-64 focus:outline-none focus:border-emerald-500/50" placeholder="QUERY DATABASE..." type="text"/>
+    <div class="w-full bg-white border border-outline-variant rounded-2xl overflow-x-auto programmer-page-nav cc-nav cc-console-subnav flex gap-1 p-2 shadow-sm">
+      ${_buildSectionTabsHtml(sectionKey, errCount)}
     </div>
-    <div class="flex items-center gap-4 text-slate-400">
-      <span class="material-symbols-outlined cursor-pointer hover:text-emerald-400 transition-colors" title="Notifications Center" id="programmerOpenNotifBtn">notifications_active</span>
-      <span class="material-symbols-outlined cursor-pointer hover:text-emerald-400 transition-colors" title="Roles & Session">verified_user</span>
-    </div>
-    <button class="bg-red-950/40 border border-red-500/30 text-red-500 font-mono text-[10px] uppercase tracking-widest px-4 py-1.5 hover:bg-red-500 hover:text-white transition-all shadow-sm">
-      EMERGENCY STOP
-    </button>
-    <img alt="User profile" class="w-8 h-8 rounded-full border border-white/10" src="${escapeHtml(state.profile?.avatarUrl || 'https://ui-avatars.com/api/?name=Admin&background=0284c7&color=fff')}" />
-  </div>
-</header>
 
-<!-- Main Content Stage -->
-<main class="ml-[280px] pt-[64px] min-h-screen bg-slate-950/30">
-  <!-- Tabs Navigation Bar -->
-  <div class="w-full bg-slate-900/40 border-b border-white/5 px-8 pt-4 flex gap-2 overflow-x-auto programmer-page-nav cc-nav cc-console-subnav">
-    ${_buildSectionTabsHtml(sectionKey, errCount)}
-  </div>
-
-  <div class="p-8 max-w-[1600px] mx-auto space-y-8">
-    
-    <!-- Bento Grid Header: Status Overview -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       
       <!-- System Health Gauge Cards -->
@@ -721,11 +719,9 @@ function renderShell() {
       
     </div>
 
-    <!-- Active Content Injected Here -->
     <div id="programmerTabContent" class="programmer-tab-content bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm min-h-[400px]"></div>
 
-  </div>
-</main>
+  </section>
   `;
 
   root.querySelectorAll('.cc-section-nav-btn').forEach(button => {
@@ -758,9 +754,6 @@ function renderShell() {
     state.plaza = upper(event.target.value || '');
     if (state.tab === 'config') loadSettingsPreview();
     else refreshAll();
-  });
-  document.getElementById('programmerOpenNotifBtn')?.addEventListener('click', () => {
-    window.openNotificationCenter?.();
   });
 
   clearInterval(programmerClockTimer);

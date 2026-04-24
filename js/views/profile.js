@@ -10,6 +10,7 @@ import {
   updateCurrentDevicePreferences,
   syncCurrentDeviceContext
 } from '/js/core/notifications.js';
+import { ensureRouteShellLayout } from '/js/views/home.js';
 
 const PROFILE_BOOTSTRAP_PROGRAMMER_EMAILS = Object.freeze([
   'angelarmentta@icloud.com'
@@ -46,6 +47,27 @@ let _cropLast = null;
 let _profileChromeReady = false;
 let _profileTabsReady = false;
 let _profileSectionObserver = null;
+
+function _mountProfileShell() {
+  if (!_profile) return null;
+  return ensureRouteShellLayout({
+    appRootId: 'profileApp',
+    layoutId: 'profileShellLayout',
+    sidebarHostId: 'profileSidebarHost',
+    topbarHostId: 'profileTopbarHost',
+    mainId: 'profileMainStage',
+    currentRoute: '/profile',
+    profile: _profile,
+    config: window.MEX_CONFIG || {},
+    currentPlaza: _normalizePlaza(window.getMexCurrentPlaza?.() || _profile.plazaAsignada || _profile.plaza || ''),
+    metrics: {
+      focus: _normalizePlaza(window.getMexCurrentPlaza?.() || _profile.plazaAsignada || _profile.plaza || '')
+    },
+    searchId: 'profileRouteSearchInput',
+    plazaSelectId: 'profileRoutePlazaSelect',
+    searchPlaceholder: 'Buscar unidad, ruta o modulo...'
+  });
+}
 
 function _safeText(value) {
   return String(value || '').trim();
@@ -362,6 +384,7 @@ async function _loadProfile(user) {
   _bindProfileChrome();
   _initProfileTabs();
   _renderProfile();
+  _mountProfileShell();
   try {
     await _bootNotifications();
   } catch (error) {

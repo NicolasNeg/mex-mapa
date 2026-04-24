@@ -32,7 +32,7 @@ import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
-import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consumeShellSearch } from '/js/views/home.js';
+import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consumeShellSearch, ensureRouteShellLayout, queueShellSearch } from '/js/views/home.js';
 
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
@@ -17386,10 +17386,51 @@ async function _bootGestionAdminRoute() {
 }
 
 let _messagesBooted = false;
+function _mountMessagesShell() {
+  if (!_isMessagesMode()) return;
+  const buzon = document.getElementById('buzon-modal');
+  if (!buzon) return;
+  const currentPlaza = _normalizePlaza(
+    typeof window.getMexCurrentPlaza === 'function'
+      ? window.getMexCurrentPlaza()
+      : (PLAZA_ACTIVA_MAPA || currentUserProfile?.plazaAsignada || '')
+  );
+  ensureRouteShellLayout({
+    appRoot: buzon,
+    layoutId: 'messagesShellLayout',
+    sidebarHostId: 'messagesSidebarHost',
+    topbarHostId: 'messagesTopbarHost',
+    mainId: 'messagesMainStage',
+    currentRoute: '/mensajes',
+    profile: currentUserProfile || {},
+    config: window.MEX_CONFIG || {},
+    currentPlaza,
+    metrics: {
+      focus: currentPlaza,
+      incidenciasAbiertas: Array.isArray(filaAlertasPendientes) ? filaAlertasPendientes.length : 0
+    },
+    mainClass: 'overflow-hidden h-screen pb-0 bg-slate-50',
+    searchId: 'messagesRouteSearchInput',
+    plazaSelectId: 'messagesRoutePlazaSelect',
+    searchPlaceholder: 'Buscar unidad, ruta o conversación...',
+    onSearch: (query, plaza) => {
+      const targetPlaza = _normalizePlaza(plaza || currentPlaza || PLAZA_ACTIVA_MAPA);
+      if (targetPlaza) _rememberActivePlaza(targetPlaza);
+      if (typeof window.setMexCurrentPlaza === 'function' && targetPlaza) {
+        window.setMexCurrentPlaza(targetPlaza);
+      }
+      queueShellSearch(query, targetPlaza);
+      window.location.href = '/mapa';
+    }
+  });
+  _syncMapShellHeader();
+}
+
 function _bootMessagesRoute() {
   if (!_isMessagesMode() || _messagesBooted) return;
   _messagesBooted = true;
   document.body.classList.add('messages-mode');
+  _mountMessagesShell();
   abrirBuzon();
 }
 

@@ -302,6 +302,221 @@ export function consumeShellSearch() {
   };
 }
 
+export function renderShellTopbarHTML(options = {}) {
+  const profile = options.profile || {};
+  const config = options.config || window.MEX_CONFIG || {};
+  const currentRoute = safe(options.currentRoute || window.location.pathname || '/home') || '/home';
+  const currentPlaza = upper(options.currentPlaza || activePlaza() || profile.plazaAsignada || profile.plaza || '');
+  const userName = safe(options.userName || displayUserName(profile)) || 'Usuario';
+  const plazas = (Array.isArray(options.plazas) && options.plazas.length
+    ? options.plazas
+    : availablePlazas(profile, config)
+  ).filter(Boolean);
+  const searchId = safe(options.searchId || 'shellRouteSearchInput') || 'shellRouteSearchInput';
+  const plazaSelectId = safe(options.plazaSelectId || 'shellRoutePlazaSelect') || 'shellRoutePlazaSelect';
+  const searchPlaceholder = escapeHtml(options.searchPlaceholder || 'Buscar unidad, ruta...');
+  const searchValue = escapeHtml(options.searchValue || '');
+  const roleText = escapeHtml(options.roleText || roleLabel(profile));
+  const preBellHtml = options.preBellHtml || '';
+  const plazaHtml = typeof options.plazaHtml === 'string'
+    ? options.plazaHtml
+    : `
+      <select id="${escapeHtml(plazaSelectId)}" class="bg-slate-100 border border-slate-200 rounded-full py-2 px-4 text-sm text-slate-700 font-semibold focus:ring-1 focus:ring-secondary/50 outline-none cursor-pointer" ${(plazas.length <= 1 && !currentPlaza) ? 'disabled' : ''}>
+        ${((plazas.length ? plazas : [currentPlaza || 'GLOBAL']))
+          .filter(Boolean)
+          .map(plaza => `<option value="${escapeHtml(plaza)}" ${upper(plaza) === currentPlaza ? 'selected' : ''}>📍 ${escapeHtml(plaza)}</option>`)
+          .join('')}
+      </select>
+    `;
+
+  const defaultVehicleHtml = options.showVehicleShortcut === false
+    ? ''
+    : `
+      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-700 hover:border-secondary/30 hover:text-secondary transition-all shadow-sm" data-route="/mapa" title="Ir a vehículos">
+        <span class="material-symbols-outlined text-[18px]" data-icon="directions_car">directions_car</span>
+        <span class="hidden md:inline">Vehículos</span>
+      </button>
+    `;
+
+  const vehicleHtml = typeof options.vehicleHtml === 'string' ? options.vehicleHtml : defaultVehicleHtml;
+  const searchHtml = typeof options.searchHtml === 'string'
+    ? options.searchHtml
+    : `
+      <div class="relative min-w-0 flex-1 max-w-[220px] md:max-w-[420px]">
+        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="search">search</span>
+        <input id="${escapeHtml(searchId)}" class="bg-slate-100 border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm text-slate-700 w-full focus:ring-1 focus:ring-secondary/50 placeholder:text-slate-400 outline-none" placeholder="${searchPlaceholder}" type="text" value="${searchValue}"/>
+      </div>
+    `;
+
+  return `
+    <header class="shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex justify-between items-center px-3 md:px-6 shadow-sm">
+      <div class="flex items-center gap-2 md:gap-3 min-w-0">
+        <button type="button" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" data-sidebar-toggle title="Mostrar menú" aria-label="Mostrar menú">
+          <span class="material-symbols-outlined" data-icon="menu">menu</span>
+        </button>
+        <a class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" href="/home" title="Volver al inicio" aria-label="Volver al inicio">
+          <span class="material-symbols-outlined" data-icon="home">home</span>
+        </a>
+        ${searchHtml}
+      </div>
+
+      <div class="flex items-center gap-2 md:gap-4 shrink-0">
+        ${vehicleHtml}
+        ${plazaHtml}
+        ${preBellHtml}
+        <button type="button" data-shell-bell class="relative hover:text-secondary hover:bg-slate-100 rounded-full p-2 text-slate-400 transition-all border border-transparent" title="Alertas y notificaciones">
+          <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+          <span id="shellBellBadge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center" style="display:none;">0</span>
+        </button>
+        <div class="h-8 w-[1px] bg-slate-200"></div>
+        <div class="flex items-center gap-3">
+          <div class="text-right hidden lg:block">
+            <p class="text-xs font-bold text-slate-700 leading-none" id="shellUserName">${escapeHtml(userName)}</p>
+            <p class="text-[10px] text-secondary font-semibold" id="shellUserMeta">${roleText} · En línea</p>
+          </div>
+          <div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/20" id="shellUserAvatar">
+            <span class="material-symbols-outlined text-secondary text-sm" data-icon="shield_person">shield_person</span>
+          </div>
+        </div>
+      </div>
+    </header>
+  `;
+}
+
+export function bindShellTopbar(root = document, options = {}) {
+  const currentPlaza = upper(options.currentPlaza || activePlaza() || '');
+  const currentRoute = safe(options.currentRoute || `${window.location.pathname}${window.location.search}` || '/home') || '/home';
+  const searchId = safe(options.searchId || 'shellRouteSearchInput') || 'shellRouteSearchInput';
+  const plazaSelectId = safe(options.plazaSelectId || 'shellRoutePlazaSelect') || 'shellRoutePlazaSelect';
+
+  (root?.querySelectorAll ? root.querySelectorAll('.shell-topbar-surface [data-route]') : document.querySelectorAll('.shell-topbar-surface [data-route]')).forEach(button => {
+    if (button.dataset.bound === '1') return;
+    button.dataset.bound = '1';
+    button.addEventListener('click', event => {
+      event.preventDefault();
+      const target = safe(button.getAttribute('data-route') || '/mapa') || '/mapa';
+      if (currentPlaza) setActivePlaza(currentPlaza);
+      navigateTo(target);
+    });
+  });
+
+  const searchInput = root?.getElementById ? root.getElementById(searchId) : document.getElementById(searchId);
+  if (searchInput && searchInput.dataset.bound !== '1') {
+    searchInput.dataset.bound = '1';
+    searchInput.addEventListener('keydown', event => {
+      if (event.key !== 'Enter') return;
+      event.preventDefault();
+      const query = safe(event.currentTarget?.value || '');
+      if (!query) return;
+      if (typeof options.onSearch === 'function') {
+        options.onSearch(query, currentPlaza);
+        return;
+      }
+      queueShellSearch(query, currentPlaza);
+      if (currentPlaza) setActivePlaza(currentPlaza);
+      navigateTo('/mapa');
+    });
+  }
+
+  const plazaSelect = root?.getElementById ? root.getElementById(plazaSelectId) : document.getElementById(plazaSelectId);
+  if (plazaSelect && plazaSelect.dataset.bound !== '1') {
+    plazaSelect.dataset.bound = '1';
+    plazaSelect.addEventListener('change', event => {
+      const nextPlaza = upper(event.target?.value || '');
+      if (!nextPlaza || nextPlaza === currentPlaza) return;
+      setActivePlaza(nextPlaza);
+      if (typeof options.onPlazaChange === 'function') {
+        options.onPlazaChange(nextPlaza);
+        return;
+      }
+      window.location.href = currentRoute;
+    });
+  }
+}
+
+export function ensureRouteShellLayout(options = {}) {
+  const appRoot = options.appRoot
+    || (options.appRootId ? document.getElementById(options.appRootId) : null);
+  if (!appRoot) return null;
+
+  const layoutId = safe(options.layoutId || 'routeShellLayout') || 'routeShellLayout';
+  const sidebarHostId = safe(options.sidebarHostId || 'routeSidebarHost') || 'routeSidebarHost';
+  const topbarHostId = safe(options.topbarHostId || 'routeTopbarHost') || 'routeTopbarHost';
+  const mainId = safe(options.mainId || 'routeMainStage') || 'routeMainStage';
+
+  let layout = document.getElementById(layoutId);
+  let sidebarHost = document.getElementById(sidebarHostId);
+  let topbarHost = document.getElementById(topbarHostId);
+  let mainStage = document.getElementById(mainId);
+
+  if (!layout || !sidebarHost || !topbarHost || !mainStage) {
+    layout = document.createElement('div');
+    layout.id = layoutId;
+    layout.className = 'w-full min-h-screen relative';
+
+    sidebarHost = document.createElement('div');
+    sidebarHost.id = sidebarHostId;
+
+    topbarHost = document.createElement('div');
+    topbarHost.id = topbarHostId;
+
+    mainStage = document.createElement('main');
+    mainStage.id = mainId;
+    mainStage.className = 'shell-main-stage shell-main-offset pt-16 min-h-screen overflow-y-auto pb-12 relative';
+
+    const parent = appRoot.parentNode;
+    if (!parent) return null;
+    parent.insertBefore(layout, appRoot);
+    layout.appendChild(sidebarHost);
+    layout.appendChild(topbarHost);
+    layout.appendChild(mainStage);
+    mainStage.appendChild(appRoot);
+  }
+
+  const profile = options.profile || {};
+  const config = options.config || window.MEX_CONFIG || {};
+  const currentPlaza = upper(options.currentPlaza || activePlaza() || profile.plazaAsignada || profile.plaza || '');
+  const metrics = options.metrics || { focus: currentPlaza };
+  const userName = safe(options.userName || displayUserName(profile)) || 'Usuario';
+  const company = safe(options.company || companyName(config)) || 'MAPA';
+  const currentRoute = safe(options.currentRoute || window.location.pathname || '/home') || '/home';
+
+  sidebarHost.innerHTML = renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute);
+  topbarHost.innerHTML = renderShellTopbarHTML({
+    profile,
+    config,
+    currentRoute,
+    currentPlaza,
+    userName,
+    plazas: options.plazas,
+    searchId: options.searchId,
+    plazaSelectId: options.plazaSelectId,
+    searchPlaceholder: options.searchPlaceholder,
+    searchValue: options.searchValue,
+    searchHtml: options.searchHtml,
+    plazaHtml: options.plazaHtml,
+    vehicleHtml: options.vehicleHtml,
+    preBellHtml: options.preBellHtml,
+    showVehicleShortcut: options.showVehicleShortcut
+  });
+
+  if (options.mainClass) {
+    mainStage.className = `shell-main-stage shell-main-offset pt-16 min-h-screen overflow-y-auto pb-12 relative ${options.mainClass}`.trim();
+  }
+
+  bindSidebarShell(document, { currentPlaza });
+  bindShellTopbar(document, {
+    currentPlaza,
+    currentRoute,
+    searchId: options.searchId,
+    plazaSelectId: options.plazaSelectId,
+    onSearch: options.onSearch,
+    onPlazaChange: options.onPlazaChange
+  });
+
+  return { layout, sidebarHost, topbarHost, mainStage, appRoot };
+}
+
 function permissionOverrides(profile = {}) {
   return profile?.permissionOverrides && typeof profile.permissionOverrides === 'object'
     ? profile.permissionOverrides
@@ -950,48 +1165,22 @@ function renderHome(profile, config, metrics) {
   const now = new Date();
   const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
   const dateString = now.toLocaleDateString('es-MX', dateOptions);
+  const topbarHtml = renderShellTopbarHTML({
+    profile,
+    config,
+    currentRoute: '/home',
+    currentPlaza,
+    plazas,
+    userName,
+    searchId: 'homeSearchInput',
+    plazaSelectId: 'homePlazaSelect',
+    searchPlaceholder: 'Buscar unidad, ruta...',
+    showVehicleShortcut: false
+  });
 
   root.innerHTML = renderSidebarHTML(profile, metrics, currentPlaza, company, userName, '/home') + `
     <!-- TopAppBar -->
-    <header class="shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex justify-between items-center px-3 md:px-6 shadow-sm">
-      <div class="flex items-center gap-2 md:gap-3 min-w-0">
-        <button type="button" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" data-sidebar-toggle title="Mostrar menú" aria-label="Mostrar menú">
-          <span class="material-symbols-outlined" data-icon="menu">menu</span>
-        </button>
-        <a class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" href="/home" title="Volver al inicio" aria-label="Volver al inicio">
-          <span class="material-symbols-outlined" data-icon="home">home</span>
-        </a>
-        <div class="relative min-w-0 flex-1 max-w-[220px] md:max-w-[360px]">
-          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="search">search</span>
-          <input id="homeSearchInput" class="bg-slate-100 border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm text-slate-700 w-full focus:ring-1 focus:ring-secondary/50 placeholder:text-slate-400 outline-none" placeholder="Buscar unidad, ruta..." type="text"/>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-2 md:gap-4 shrink-0">
-        <select id="homePlazaSelect" class="bg-slate-100 border border-slate-200 rounded-full py-2 px-4 text-sm text-slate-700 font-semibold focus:ring-1 focus:ring-secondary/50 outline-none cursor-pointer" ${plazas.length <= 1 ? 'disabled' : ''}>
-          ${(plazas.length ? plazas : [currentPlaza || '']).filter(Boolean).map(plaza => `
-            <option value="${escapeHtml(plaza)}" ${plaza === currentPlaza ? 'selected' : ''}>📍 ${escapeHtml(plaza)}</option>
-          `).join('')}
-        </select>
-
-        <div class="flex items-center gap-2">
-          <button type="button" data-shell-bell class="relative hover:text-secondary hover:bg-slate-100 rounded-full p-2 text-slate-400 transition-all border border-transparent" title="Alertas y notificaciones">
-            <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
-            ${metrics.incidenciasAbiertas > 0 ? '<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full."></span>' : ''}
-          </button>
-        </div>
-        <div class="h-8 w-[1px] bg-slate-200"></div>
-        <div class="flex items-center gap-3">
-          <div class="text-right hidden lg:block">
-            <p class="text-xs font-bold text-slate-700 leading-none">${escapeHtml(userName)}</p>
-            <p class="text-[10px] text-secondary font-semibold">${escapeHtml(roleLabel(profile))} · En línea</p>
-          </div>
-          <div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/20">
-            <span class="material-symbols-outlined text-secondary text-sm" data-icon="shield_person">shield_person</span>
-          </div>
-        </div>
-      </div>
-    </header>
+    ${topbarHtml}
 
     <!-- Main Content Stage -->
     <main class="shell-main-stage shell-main-offset pt-16 h-screen overflow-y-auto pb-12 relative">
@@ -1184,6 +1373,21 @@ function renderHome(profile, config, metrics) {
   `;
 
   bindSidebarShell(document, { currentPlaza });
+  bindShellTopbar(document, {
+    currentPlaza,
+    currentRoute: '/home',
+    searchId: 'homeSearchInput',
+    plazaSelectId: 'homePlazaSelect',
+    onSearch: query => {
+      queueShellSearch(query, currentPlaza);
+      setActivePlaza(currentPlaza);
+      navigateTo('/mapa');
+    },
+    onPlazaChange: plaza => {
+      setActivePlaza(plaza);
+      renderBoot();
+    }
+  });
 
   // Launch live mini map
   _renderMiniMapPreview(currentPlaza);
@@ -1201,22 +1405,6 @@ function renderHome(profile, config, metrics) {
     button.addEventListener('click', () => {
       logoutHome();
     });
-  });
-
-  document.getElementById('homeSearchInput')?.addEventListener('keydown', event => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    const query = safe(event.currentTarget?.value || '');
-    if (!query) return;
-    queueShellSearch(query, currentPlaza);
-    setActivePlaza(currentPlaza);
-    navigateTo('/mapa');
-  });
-
-  document.getElementById('homePlazaSelect')?.addEventListener('change', event => {
-    const plaza = upper(event.target.value || '');
-    setActivePlaza(plaza);
-    renderBoot();
   });
 
 }
