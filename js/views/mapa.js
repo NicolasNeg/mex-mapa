@@ -18809,34 +18809,13 @@ async function guardarEmpresaConfig(actionType = 'EMPRESA_ACTUALIZADA', message 
 
 // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
 function renderizarTabConfigUsuarios(container) {
-  const operatorSummary = _umGetOperatorProfileSummary();
   container.innerHTML = `
         <div class="um-workspace um-workspace-lite">
-          <div class="um-workspace-header">
-            <div class="um-workspace-copy">
-              <span class="um-workspace-kicker">Accesos y permisos</span>
-              <h3>Usuarios del sistema</h3>
-              <p>Directorio operativo y editor contextual para cuentas, roles y alcance por plaza.</p>
-            </div>
-            <div class="um-workspace-meta um-workspace-meta-compact">
-              <span class="cfg-v2-meta-chip">
-                <span class="material-icons">badge</span>
-                ${escapeHtml(operatorSummary.operatorName)}
-              </span>
-              <span class="cfg-v2-meta-chip">
-                <span class="material-icons">verified_user</span>
-                ${escapeHtml(operatorSummary.roleLabel)} · ${escapeHtml(operatorSummary.plazaActiva)}
-              </span>
-            </div>
-          </div>
-
           <div class="um-body um-workspace-shell um-workspace-shell-lite">
             <div class="um-list-col">
               <div class="um-column-head um-column-head-lite">
                 <div>
                   <span class="um-column-kicker">Directorio</span>
-                  <h4>Cuentas y accesos</h4>
-                  <p>Busca, filtra y abre el editor sin llenar la vista de acciones repetidas.</p>
                 </div>
                 <span id="um-directory-count" class="cfg-catalog-count">0 visibles</span>
               </div>
