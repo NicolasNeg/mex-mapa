@@ -253,6 +253,55 @@ function roleLabel(profile = {}) {
   return ROLE_LABELS[roleKey(profile)] || roleKey(profile) || 'USUARIO';
 }
 
+function prettyUserName(value = '') {
+  const text = safe(value);
+  if (!text) return '';
+  if (/\s/.test(text)) return text;
+  return text
+    .replace(/[._-]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function isRoleLikeUserLabel(value = '', profile = {}) {
+  const normalized = upper(safe(value));
+  if (!normalized) return true;
+  const role = roleKey(profile);
+  const roleLabelText = upper(roleLabel(profile));
+  const roleNames = new Set([...Object.keys(ROLE_LABELS), role, roleLabelText].filter(Boolean));
+  return roleNames.has(normalized);
+}
+
+function displayUserName(profile = {}) {
+  const candidates = [
+    profile.nombreCompleto,
+    profile.displayName,
+    profile.nombre,
+    profile.usuario,
+    profile.nombreUsuario,
+    auth.currentUser?.displayName,
+    profile.email ? String(profile.email).split('@')[0] : '',
+    auth.currentUser?.email ? String(auth.currentUser.email).split('@')[0] : '',
+    profile.email,
+    auth.currentUser?.email
+  ].map(safe).filter(Boolean);
+
+  const usable = candidates.find(value => !isRoleLikeUserLabel(value, profile));
+  if (usable) return prettyUserName(usable);
+
+  const fallback = profile.nombreCompleto
+    || profile.displayName
+    || profile.usuario
+    || profile.nombre
+    || auth.currentUser?.displayName
+    || profile.email
+    || auth.currentUser?.email
+    || 'Usuario';
+  return prettyUserName(isRoleLikeUserLabel(fallback, profile) ? 'Usuario' : fallback);
+}
+
 function permissionOverrides(profile = {}) {
   return profile?.permissionOverrides && typeof profile.permissionOverrides === 'object'
     ? profile.permissionOverrides
@@ -285,6 +334,7 @@ function activePlaza() {
 
 function setActivePlaza(plaza = '') {
   const normalized = upper(plaza);
+  if (!normalized || normalized === activePlaza()) return normalized;
   if (typeof window.setMexCurrentPlaza === 'function') {
     window.setMexCurrentPlaza(normalized, { persistLocal: true, source: 'home' });
   }
@@ -319,10 +369,15 @@ async function resolveProfile(user) {
   if (typeof window.__mexLoadCurrentUserRecord === 'function') {
     const cached = await window.__mexLoadCurrentUserRecord(user).catch(() => null);
     if (cached) {
+      const nombreCompleto = safe(cached.nombreCompleto || cached.displayName || cached.nombre || cached.usuario || email);
       return {
         ...cached,
         email,
-        nombre: safe(cached.nombre || cached.usuario || email),
+        nombre: nombreCompleto,
+        nombreCompleto,
+        displayName: nombreCompleto,
+        usuario: safe(cached.usuario || cached.nombreUsuario || nombreCompleto),
+        nombreUsuario: safe(cached.nombreUsuario || cached.usuario || nombreCompleto),
         rol: upper(cached.rol || 'AUXILIAR'),
         plazaAsignada: upper(cached.plazaAsignada || cached.plaza || ''),
         plazasPermitidas: Array.isArray(cached.plazasPermitidas) ? cached.plazasPermitidas.map(upper).filter(Boolean) : [],
@@ -340,11 +395,16 @@ async function resolveProfile(user) {
   if (!doc) return null;
 
   const data = doc.data() || {};
+  const nombreCompleto = safe(data.nombreCompleto || data.displayName || data.nombre || data.usuario || email);
   return {
     id: doc.id,
     ...data,
     email,
-    nombre: safe(data.nombre || data.usuario || email),
+    nombre: nombreCompleto,
+    nombreCompleto,
+    displayName: nombreCompleto,
+    usuario: safe(data.usuario || data.nombreUsuario || nombreCompleto),
+    nombreUsuario: safe(data.nombreUsuario || data.usuario || nombreCompleto),
     rol: upper(data.rol || 'AUXILIAR'),
     plazaAsignada: upper(data.plazaAsignada || data.plaza || ''),
     plazasPermitidas: Array.isArray(data.plazasPermitidas) ? data.plazasPermitidas.map(upper).filter(Boolean) : [],
@@ -651,11 +711,11 @@ function renderNoAccess(profile = null) {
         <span>La cuenta inició sesión, pero todavía no existe un perfil operativo dentro del sistema.</span>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
           <button type="button" class="home-btn primary" data-route="/solicitud">
-            <span class="material-icons">how_to_reg</span>
+            <span class="material-symbols-outlined">how_to_reg</span>
             Solicitar acceso
           </button>
           <button type="button" class="home-btn" id="homeLogoutBtn">
-            <span class="material-icons">logout</span>
+            <span class="material-symbols-outlined">logout</span>
             Cerrar sesion
           </button>
         </div>
@@ -699,21 +759,21 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
       ? { small: 'Inicio', strong: 'Principal' }
       : group.label === 'Operación'
         ? { small: 'Flujo', strong: 'Operación' }
-        : group.label === 'Gestion'
-          ? { small: 'Control', strong: 'Gestión' }
+        : group.label === 'Programador'
+          ? { small: 'Control', strong: 'Programador' }
           : { small: 'Cuenta', strong: 'Perfil' };
     const groupIcon = group.label === 'Principal'
       ? 'dashboard'
       : group.label === 'Operación'
         ? 'route'
-        : group.label === 'Gestion'
+        : group.label === 'Programador'
           ? 'admin_panel_settings'
           : 'person';
     navHtml += `
       <div class="cfg-nav-group open shell-sidebar-section" data-nav-group="${groupLabel}">
         <button type="button" class="cfg-nav-group-toggle shell-sidebar-group-toggle" data-sidebar-group-toggle>
           <span class="cfg-nav-group-copy">
-            <span class="material-icons">${groupIcon}</span>
+            <span class="material-symbols-outlined">${groupIcon}</span>
             <span>
               <small>${groupMeta.small}</small>
               <strong>${groupMeta.strong}</strong>
@@ -764,10 +824,10 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
         <div class="shell-sidebar-brand px-3 mb-6">
           <div class="cfg-v2-sidebar-top">
             <button type="button" class="cfg-v2-sidebar-toggle" data-sidebar-toggle title="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}" aria-label="${shellCollapsed ? 'Expandir menú' : 'Colapsar menú'}">
-              <span class="material-icons">${shellCollapsed ? 'menu' : 'menu_open'}</span>
+              <span class="material-symbols-outlined">${shellCollapsed ? 'menu' : 'menu_open'}</span>
             </button>
             <div class="cfg-v2-sidebar-label">
-              <span class="material-icons">rocket_launch</span>
+              <span class="material-symbols-outlined">rocket_launch</span>
               <span>
                 <small>MAPA</small>
                 <strong>${escapeHtml(company)}</strong>
@@ -823,7 +883,7 @@ function renderHome(profile, config, metrics) {
   const variant = HOME_VARIANTS[variantKey];
   const plazas = availablePlazas(profile, config);
   const currentPlaza = upper(metrics.focus || activePlaza() || plazas[0] || profile.plazaAsignada || '');
-  const userName = safe(profile.nombre || profile.email || 'Usuario');
+  const userName = displayUserName(profile);
   const company = companyName(config);
 
   const now = new Date();
@@ -859,8 +919,8 @@ function renderHome(profile, config, metrics) {
         <div class="h-8 w-[1px] bg-slate-200"></div>
         <div class="flex items-center gap-3">
           <div class="text-right hidden lg:block">
-            <p class="text-xs font-bold text-slate-700 leading-none">${escapeHtml(variantKey.toUpperCase())}</p>
-            <p class="text-[10px] text-secondary font-semibold">En línea</p>
+            <p class="text-xs font-bold text-slate-700 leading-none">${escapeHtml(userName)}</p>
+            <p class="text-[10px] text-secondary font-semibold">${escapeHtml(roleLabel(profile))} · En línea</p>
           </div>
           <div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/20">
             <span class="material-symbols-outlined text-secondary text-sm" data-icon="shield_person">shield_person</span>
@@ -1126,8 +1186,8 @@ function renderError(message) {
         <div class="home-kicker">Home no disponible</div>
         <strong>${escapeHtml(message)}</strong>
         <span>Puedes entrar directo al mapa mientras terminamos de estabilizar este nuevo entry point.</span>
-        <button type="button" class="home-btn primary" data-route="/mapa">
-          <span class="material-icons">map</span>
+      <button type="button" class="home-btn primary" data-route="/mapa">
+          <span class="material-symbols-outlined">map</span>
           Ir al mapa
         </button>
       </div>
@@ -1143,10 +1203,10 @@ async function renderBoot() {
   if (!root) return;
 
   root.innerHTML = `
-    <div class="home-loading-card">
+    <div class="home-loading-card" aria-live="polite" aria-busy="true">
       <div class="home-loading-orb"></div>
       <strong>Preparando tu panel principal...</strong>
-      <span>Sincronizando perfil, plaza y modulos visibles</span>
+      <span>Sincronizando perfil, plaza y módulos visibles</span>
     </div>
   `;
 

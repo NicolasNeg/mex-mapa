@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="es" data-page-title="Gestión" data-page-description="Panel administrativo y configuracion operativa de %COMPANY%">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#0b2548">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Gestión">
+  <meta name="description" content="Panel administrativo y configuracion operativa">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/img/logo.png" type="image/png">
+  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
+  <script src="/config.js"></script>
+  <script src="/js/core/firebase-init.js"></script>
+  <script src="/mex-api.js"></script>
+  <!-- Módulos API -->
+  <script src="/api/helpers.js"></script>
+  <script src="/api/auth.js"></script>
+  <script src="/api/mapa.js"></script>
+  <script src="/api/cuadre.js"></script>
+  <script src="/api/externos.js"></script>
+  <script src="/api/flota.js"></script>
+  <script src="/api/alertas.js"></script>
+  <script src="/api/notas.js"></script>
+  <script src="/api/historial.js"></script>
+  <script src="/api/settings.js"></script>
+  <script src="/api/users.js"></script>
+  <script src="/api/_assemble.js"></script>
+  <script src="/js/core/app-bootstrap.js"></script>
+  <script src="/js/core/dialogs.js"></script>
+
+  <title>Gestión — Panel Admin</title>
+  <style>
+    /* Override body position:fixed de global.css para que position:fixed funcione correctamente */
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      height: 100% !important;
+      overflow: hidden !important;
+    }
+    body {
+      position: relative !important;
+    }
+    /* Panel admin ocupa toda la pantalla como página */
+    #modal-config-global {
+      position: fixed !important;
+      inset: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+      background: var(--bg, #f1f5f9) !important;
+      z-index: 1 !important;
+    }
+    /* Ocultar el botón de cerrar (en gestion.html se usa el botón de volver) */
+    #modal-config-global .cfg-v2-close {
+      display: none !important;
+    }
+    /* Botón de volver al mapa */
+    .gestion-back-btn {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 10px;
+      color: #f1f5f9;
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+      letter-spacing: .04em;
+      text-decoration: none;
+      transition: background .15s;
+      z-index: 10;
+    }
+    .gestion-back-btn:hover {
+      background: rgba(255,255,255,0.2);
+    }
+    /* Loader de autenticación */
+    #gestion-auth-loader {
+      position: fixed;
+      inset: 0;
+      background: #071224;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      transition: opacity .25s;
+    }
+    #gestion-auth-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .gestion-loader-spinner {
+      width: 48px; height: 48px;
+      border-radius: 50%;
+      border: 4px solid rgba(255,255,255,.12);
+      border-top-color: #22c55e;
+      border-right-color: #38bdf8;
+      animation: gestion-spin .9s linear infinite;
+    }
+    @keyframes gestion-spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+  <!-- Loader mientras carga auth y perfil -->
+  <div id="gestion-auth-loader">
+    <div class="gestion-loader-spinner"></div>
+  </div>
+
+  <!-- ── OVERLAY AUDITORÍA (bloqueo de mapa) — mismo que en mapa.html ── -->
+  <div id="overlayAuditoria" style="display:none;">
+    <div id="auditViewAdmin" class="audit-card-pill" style="display:none;">
+      <span class="material-icons pulse-icon">admin_panel_settings</span>
+      <h2 style="margin:0; font-size:13px; font-weight:900; letter-spacing:1px;">MODO AUDITORÍA ACTIVO</h2>
+    </div>
+    <div id="auditViewUser" class="audit-card-intrusive" style="display:none;">
+      <span class="material-icons pulse-icon" style="font-size:65px; margin-bottom:15px;">block</span>
+      <h1 style="margin:0; font-size:28px; font-weight:900; letter-spacing:1px; line-height:1.1;">SISTEMA BLOQUEADO</h1>
+      <p style="margin:15px 0 0; font-size:14px; font-weight:800; background:rgba(0,0,0,0.2); padding:10px 20px; border-radius:12px;">AUDITORÍA DE PATIO EN CURSO</p>
+      <p style="margin:20px 0 0; font-size:13px; font-weight:600; opacity:0.9;">Espera a que Administración libere el sistema para continuar.</p>
+      <button onclick="cerrarSesion()" style="margin-top:25px; padding:12px 25px; background:white; color:#ef4444; border:none; border-radius:12px; font-weight:900; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
+        <span class="material-icons">logout</span> CAMBIAR USUARIO / SALIR
+      </button>
+    </div>
+  </div>
+
+  <!-- ── PANEL DE CONFIGURACIÓN GLOBAL ── -->
+  <div id="modal-config-global" class="fleet-modal cfg-modal-v2 active">
+
+    <!-- HERO HEADER -->
+    <div class="cfg-v2-hero" style="position:relative;">
+      <div class="cfg-v2-hero-bg"></div>
+      <div class="cfg-v2-hero-content">
+        <div class="cfg-v2-hero-compact-row">
+          <div class="cfg-v2-kicker">
+            <span class="material-icons" style="font-size:13px;">settings_suggest</span>
+            ADMINISTRACIÓN
+          </div>
+          <h2 class="cfg-v2-title">PANEL ADMINISTRATIVO</h2>
+          <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
+        </div>
+        <!-- IDs requeridos por JS -->
+        <span id="cfg-insight-users" style="display:none;"></span>
+        <span id="cfg-insight-plazas" style="display:none;"></span>
+        <span id="cfg-insight-catalogs" style="display:none;"></span>
+        <span id="cfg-insight-pending" style="display:none;"></span>
+      </div>
+      <!-- Botón volver al mapa -->
+      <a href="/mapa" class="gestion-back-btn">
+        <span class="material-icons" style="font-size:16px;">arrow_back</span>
+        Volver al mapa
+      </a>
+    </div>
+
+    <!-- BODY: SIDEBAR + CONTENT -->
+    <div class="cfg-v2-body">
+
+      <!-- SIDEBAR -->
+      <div class="cfg-v2-sidebar shell-sidebar-surface" id="cfg-admin-sidebar">
+        <div class="cfg-v2-sidebar-top shell-sidebar-brand">
+          <div>
+            <div class="cfg-v2-sidebar-label">
+              <span class="material-icons">admin_panel_settings</span>
+              <span>Panel Admin</span>
+            </div>
+            <div class="cfg-v2-sidebar-sublabel">Centro de configuración del negocio</div>
+          </div>
+          <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Fijar sidebar expandido">
+            <span class="material-icons">push_pin</span>
+          </button>
+        </div>
+        <nav class="cfg-v2-nav">
+
+          <section class="cfg-nav-group open" data-group="accesos">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('accesos')" title="Accesos y permisos">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">key</span>
+                <span>
+                  <small>Accesos y permisos</small>
+                  <strong>Usuarios, roles y solicitudes</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
+                <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+                <span>Usuarios</span>
+              </button>
+              <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
+                <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
+                <span>Roles</span>
+              </button>
+              <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;" title="Solicitudes de acceso">
+                <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
+                <span>Solicitudes</span>
+                <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-nav-group open" data-group="operacion">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('operacion')" title="Operación">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">tune</span>
+                <span>
+                  <small>Operación</small>
+                  <strong>Catálogos del patio y reglas</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados de unidades">
+                <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+                <span>Estados</span>
+              </button>
+              <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)" title="Categorías de vehículos">
+                <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+                <span>Categorías</span>
+              </button>
+              <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos registrados">
+                <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+                <span>Modelos</span>
+              </button>
+              <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Tipos de combustible">
+                <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+                <span>Gasolinas</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-nav-group open" data-group="estructura">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('estructura')" title="Estructura">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">schema</span>
+                <span>
+                  <small>Estructura</small>
+                  <strong>Plazas, ubicaciones y mapa</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas del sistema">
+                <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+                <span>Plazas</span>
+              </button>
+              <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)" title="Ubicaciones y responsables">
+                <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+                <span>Ubicaciones</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-nav-group open" data-group="organizacion">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('organizacion')" title="Organización">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">business</span>
+                <span>
+                  <small>Organización</small>
+                  <strong>Empresa y parámetros del negocio</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Configuración de empresa">
+                <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+                <span>Empresa</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-nav-group open" data-group="sistema">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('sistema')" title="Sistema">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">settings_suggest</span>
+                <span>
+                  <small>Sistema</small>
+                  <strong>Acciones globales y entorno</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-action-bloqueo-patio" class="cfg-tab cfg-tab-action" onclick="_cfgQuickAction('toggle-lock')" title="Bloquear patio">
+                <span class="cfg-tab-icon"><span class="material-icons">lock</span></span>
+                <span>Bloquear patio</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="cfg-nav-group open" data-group="programador">
+            <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('programador')" title="Programador">
+              <span class="cfg-nav-group-copy">
+                <span class="material-icons">terminal</span>
+                <span>
+                  <small>Programador</small>
+                  <strong>Observabilidad y control técnico</strong>
+                </span>
+              </span>
+              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+            </button>
+            <div class="cfg-nav-group-body">
+              <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)" title="Consola técnica del sistema">
+                <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
+                <span>Consola técnica</span>
+              </button>
+            </div>
+          </section>
+        </nav>
+      </div>
+
+      <!-- MAIN PANEL -->
+      <div class="cfg-v2-main shell-main-stage">
+
+        <div class="cfg-v2-workspace-header">
+          <div class="cfg-v2-workspace-copy">
+            <div class="cfg-v2-workspace-kicker" id="cfg-module-breadcrumb">ACCESOS · CENTRO ADMIN</div>
+            <div class="cfg-v2-workspace-title-row">
+              <h3 id="cfg-module-title">Usuarios</h3>
+              <span class="cfg-v2-module-badge" id="cfg-module-badge">CONFIG</span>
+            </div>
+            <p id="cfg-module-subtitle">Gestiona cuentas, alcances y relaciones operativas del sistema.</p>
+          </div>
+        </div>
+
+        <div id="cfg-v2-tools" class="cfg-v2-tools" style="display:none;"></div>
+
+        <!-- ADD BAR -->
+        <div class="cfg-v2-add-bar">
+          <div class="cfg-v2-search-box">
+            <span class="material-icons cfg-v2-search-icon">search</span>
+            <input type="text" id="cfg-search-input" placeholder="Buscar catálogo..."
+              oninput="buscarEnListaConfig()">
+          </div>
+          <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
+            <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
+          </button>
+        </div>
+
+        <!-- LIST -->
+        <div id="cfg-lista-items" class="cfg-v2-list"></div>
+
+        <!-- FOOTER -->
+        <div class="cfg-v2-footer">
+          <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> · Configuración v3</span>
+          <div class="cfg-v2-footer-actions">
+            <a href="/mapa" class="cfg-v2-btn-cancel" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+              <span class="material-icons" style="font-size:16px;">arrow_back</span> VOLVER
+            </a>
+            <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
+              <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stubs síncronos para onclick antes de que mapa.js (módulo) cargue -->
+  <script>
+    (function () {
+      const FNS = ['abrirTabConfig','buscarEnListaConfig','abrirModalNuevaConfig',
+                   'guardarConfiguracionEnFirebase','cerrarPanelConfiguracion',
+                   'renderizarListaConfig','umFiltrar','confirmarAgregadoConfig',
+                   'editarElementoConfig','eliminarElementoConfig',
+                   'abrirPerfilUsuario','cerrarPerfilUsuario',
+                   'solicitarToggleBloqueo','abrirEditorMapa','cerrarSesion',
+                   '_cfgToggleSidebarPin','_cfgToggleNavGroup','_cfgQuickAction',
+                   '_cfgSaveInlineEdit','_cfgCancelInlineEdit',
+                   '_cfgUploadModelImage','cerrarCustomModal','abrirComparadorPlazas',
+                   'cerrarComparadorPlazas','exportarComparadorCSV',
+                   '_abrirModalNuevaplaza','_cerrarModalNuevaplaza','_confirmarNuevaplaza'];
+      const queue = [];
+      FNS.forEach(fn => {
+        window[fn] = (...args) => {
+          if (typeof window['_real_' + fn] === 'function') return window['_real_' + fn](...args);
+          queue.push({ fn, args });
+        };
+      });
+      window._mexDrainGestionQueue = () => {
+        queue.forEach(({ fn, args }) => { if (typeof window[fn] === 'function') window[fn](...args); });
+        queue.length = 0;
+      };
+    })();
+  </script>
+
+  <!-- ── DIALOG SYSTEM (mexConfirm / mexAlert / mexPrompt) ── -->
+  <div id="mex-dialog-overlay">
+    <div class="mex-dlg-card">
+      <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
+        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+      </div>
+      <div class="mex-dlg-body">
+        <h3 id="mex-dlg-title" class="mex-dlg-title"></h3>
+        <p id="mex-dlg-text" class="mex-dlg-text"></p>
+        <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap">
+          <input id="mex-dlg-input" class="mex-dlg-input" type="text" autocomplete="off">
+        </div>
+      </div>
+      <div class="mex-dlg-actions">
+        <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra"></button>
+        <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel"></button>
+        <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm"></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="customModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="material-icons modal-icon" id="modalIcon">warning</div>
+      <div class="modal-title" id="modalTitle">Confirmación</div>
+      <div class="modal-text" id="modalText">¿Estás seguro de continuar?</div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" type="button" onclick="cerrarCustomModal()">CANCELAR</button>
+        <button class="modal-btn modal-btn-confirm" type="button" id="modalConfirmBtn">ACEPTAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL AGREGAR / EDITAR CATÁLOGO ── -->
+  <div id="modal-cfg-add" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75000; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);" onclick="if(event.target===this)this.style.display='none'">
+    <div class="cfg-add-card">
+      <div class="cfg-add-header">
+        <div class="cfg-add-header-icon" id="cfg-add-header-icon">
+          <span class="material-icons">add_circle</span>
+        </div>
+        <div class="cfg-add-header-text">
+          <div class="cfg-add-header-title" id="modal-cfg-add-title">Agregar Nuevo</div>
+          <div class="cfg-add-header-sub" id="cfg-add-header-sub">Nueva entrada en la lista</div>
+        </div>
+        <button class="cfg-add-close-btn" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+      <div class="cfg-add-body">
+        <div class="cfg-add-field">
+          <label class="cfg-add-label">Nombre / Clave</label>
+          <input type="text" id="cfg-add-name" placeholder="Ej: NUEVO ESTADO"
+            class="cfg-add-input" autocomplete="off"
+            onkeydown="if(event.key==='Enter') confirmarAgregadoConfig()">
+        </div>
+        <div id="cfg-add-ubi-options" style="display:none;">
+          <label class="cfg-add-checkbox-row" for="cfg-add-is-plaza">
+            <div class="cfg-add-checkbox-box">
+              <input type="checkbox" id="cfg-add-is-plaza" checked>
+              <div class="cfg-add-checkbox-custom"></div>
+            </div>
+            <div>
+              <div class="cfg-add-checkbox-label">Es Plaza Fija</div>
+              <div class="cfg-add-checkbox-sub">Desmarca si es una persona o responsable externo</div>
+            </div>
+          </label>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Plaza asignada</label>
+            <select id="cfg-add-ubi-plaza" class="cfg-add-select">
+              <option value="">— Todas las plazas —</option>
+            </select>
+          </div>
+        </div>
+        <div id="cfg-add-estado-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Color del estado</label>
+            <div class="cfg-add-color-row">
+              <input type="color" id="cfg-add-color" value="#64748b" oninput="_cfgUpdateColorSwatch(this.value)">
+              <div class="cfg-add-color-swatch" id="cfg-add-color-swatch" style="background:#64748b;">
+                <span id="cfg-add-color-hex">#64748B</span>
+              </div>
+            </div>
+            <div class="cfg-add-color-presets" id="cfg-add-color-presets"></div>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden en tabla (prioridad)</label>
+            <input type="number" id="cfg-add-orden" placeholder="Ej: 1" class="cfg-add-input" min="1" max="99">
+          </div>
+        </div>
+        <div id="cfg-add-modelo-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Categoría del modelo</label>
+            <select id="cfg-add-modelo-cat" class="cfg-add-select"></select>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden sugerido</label>
+            <input type="number" id="cfg-add-modelo-orden" class="cfg-add-input" min="1" max="999" placeholder="Ej: 4">
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Imagen del modelo (URL opcional)</label>
+            <input type="url" id="cfg-add-modelo-img" class="cfg-add-input"
+              placeholder="https://dominio.com/modelo.jpg"
+              oninput="_cfgPreviewModeloImg(this.value)">
+            <div style="display:grid; gap:10px; margin-top:10px;">
+              <input type="file" id="cfg-add-modelo-file" class="cfg-add-input" accept="image/*">
+              <label class="cfg-add-checkbox-row" for="cfg-add-modelo-remove-bg">
+                <div class="cfg-add-checkbox-box">
+                  <input type="checkbox" id="cfg-add-modelo-remove-bg">
+                  <div class="cfg-add-checkbox-custom"></div>
+                </div>
+                <div>
+                  <div class="cfg-add-checkbox-label">Eliminar fondo claro</div>
+                  <div class="cfg-add-checkbox-sub">Genera PNG transparente para futuras vistas del sistema</div>
+                </div>
+              </label>
+              <button type="button" class="cfg-add-btn-cancel" style="width:fit-content;" onclick="_cfgUploadModelImage('cfg-add')">
+                <span class="material-icons" style="font-size:16px;">upload</span>
+                Subir desde este equipo
+              </button>
+              <div id="cfg-add-modelo-upload-status" style="font-size:11px; font-weight:700; color:#64748b;"></div>
+            </div>
+            <div id="cfg-add-modelo-preview" class="cfg-add-modelo-preview" style="display:none;">
+              <img id="cfg-add-modelo-preview-img" alt="Preview modelo" loading="lazy">
+              <span id="cfg-add-modelo-preview-label">Vista previa</span>
+            </div>
+          </div>
+        </div>
+        <div id="cfg-add-categoria-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Descripción de la categoría</label>
+            <textarea id="cfg-add-categoria-desc" class="cfg-add-input" rows="4"
+              placeholder="Describe cuándo usar esta categoría, su familia operativa o relación con los modelos."></textarea>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden sugerido</label>
+            <input type="number" id="cfg-add-categoria-orden" class="cfg-add-input" min="1" max="999" placeholder="Ej: 3">
+          </div>
+        </div>
+      </div>
+      <div class="cfg-add-actions">
+        <button class="cfg-add-btn-cancel" onclick="document.getElementById('modal-cfg-add').style.display='none'">Cancelar</button>
+        <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
+          <span class="material-icons">check</span> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-comparador-plazas"
+    style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75100; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);"
+    onclick="if(event.target===this)cerrarComparadorPlazas()">
+    <div
+      style="background:#fff; border-radius:18px; width:100%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+      <div
+        style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="material-icons" style="color:#004a99; font-size:22px;">compare</span>
+          <div>
+            <div style="font-size:15px; font-weight:900; color:#0f172a; letter-spacing:.03em;">Comparador de Plazas</div>
+            <div style="font-size:11px; color:#64748b; font-weight:600;">Vista ejecutiva · KPIs en tiempo real</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button onclick="exportarComparadorCSV()" title="Exportar CSV"
+            style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
+            <span class="material-icons" style="font-size:15px;">download</span> CSV
+          </button>
+          <button onclick="cerrarComparadorPlazas()"
+            style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+            <span class="material-icons" style="font-size:18px; color:#64748b;">close</span>
+          </button>
+        </div>
+      </div>
+      <div id="comparador-content" style="overflow-y:auto; padding:18px 22px; flex:1;">
+        <div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">Cargando datos...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL PERFIL DE USUARIO ── -->
+  <div id="perfil-modal" class="fleet-modal profile-modal" style="z-index:8100;">
+    <div class="profile-modal-shell">
+      <div class="profile-modal-hero">
+        <div>
+          <div class="profile-modal-kicker">Tu Cuenta</div>
+          <h2 class="profile-modal-title">Perfil</h2>
+          <p class="profile-modal-sub">Tu avatar ya funciona y el resto del panel queda listo para futuras configuraciones personales.</p>
+        </div>
+        <button class="profile-modal-close" onclick="cerrarPerfilUsuario()">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+      <div class="profile-modal-body">
+        <div class="profile-modal-card">
+          <div id="profileCurrentAvatar" class="profile-avatar-large">U</div>
+          <div class="profile-modal-copy">
+            <div id="profileCurrentName" class="profile-modal-name">Usuario</div>
+            <div id="profileCurrentMeta" class="profile-modal-meta">Sin datos</div>
+            <div id="profileCurrentBadges" class="profile-modal-badges"></div>
+          </div>
+        </div>
+        <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;" onchange="subirAvatarPerfil(this)">
+        <div class="profile-modal-actions">
+          <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
+            <span class="material-icons" style="font-size:18px;">photo_camera</span> Subir y Recortar
+          </button>
+          <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
+            <span class="material-icons" style="font-size:18px;">delete</span> Quitar Foto
+          </button>
+        </div>
+        <div class="profile-modal-note">Usa una imagen cuadrada o vertical ligera para que se vea mejor en el chat y futuras vistas del sistema.</div>
+        <div class="profile-settings-grid">
+          <section class="profile-settings-card">
+            <div class="profile-settings-head">
+              <div class="profile-settings-icon"><span class="material-icons" style="font-size:20px;">notifications_active</span></div>
+              <div>
+                <div class="profile-settings-title">Notificaciones del dispositivo</div>
+                <p class="profile-settings-sub">Controla si este equipo recibe avisos reales.</p>
+              </div>
+              <span class="profile-settings-badge" id="profileNotificationBadge">Preparando</span>
+            </div>
+            <div class="profile-setting-row profile-setting-row-hero">
+              <div><strong>Notificaciones activas</strong><small>Si lo apagas, este equipo deja de sonar.</small></div>
+              <button id="profileNotifMasterToggle" type="button" class="profile-setting-toggle is-on" aria-label="Notificaciones activas"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Mensajes directos</strong><small>Avísame cuando alguien me escriba.</small></div>
+              <button id="profileNotifMessagesToggle" type="button" class="profile-setting-toggle is-on" aria-label="Mensajes directos"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Misión de cuadre</strong><small>Recibe avisos de cuadre.</small></div>
+              <button id="profileNotifCuadreToggle" type="button" class="profile-setting-toggle is-on" aria-label="Misión de cuadre"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Alertas críticas</strong><small>Solo situaciones urgentes de operación.</small></div>
+              <button id="profileNotifCriticalToggle" type="button" class="profile-setting-toggle is-on" aria-label="Alertas críticas"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Silenciar este equipo</strong><small>Pausa los avisos sin perder el historial.</small></div>
+              <button id="profileNotifMuteToggle" type="button" class="profile-setting-toggle is-off" aria-label="Silenciar este equipo"></button>
+            </div>
+            <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
+            <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary" style="width:100%; margin-top:14px;">
+              <span class="material-icons" style="font-size:18px;">notifications</span> Ver historial y detalles
+            </button>
+          </section>
+          <section class="profile-settings-card">
+            <div class="profile-settings-head">
+              <div class="profile-settings-icon"><span class="material-icons" style="font-size:20px;">shield</span></div>
+              <div>
+                <div class="profile-settings-title">Privacidad y sesión</div>
+                <p class="profile-settings-sub">Estado del permiso y este equipo activo.</p>
+              </div>
+              <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
+            </div>
+            <div class="profile-setting-row profile-setting-row-hero">
+              <div><strong>Permiso push del dispositivo</strong><small id="profilePermissionSummary">Revisando soporte…</small></div>
+              <button id="profilePermissionToggle" type="button" class="profile-setting-toggle is-off" aria-label="Activar notificaciones push"></button>
+            </div>
+            <div class="profile-setting-row">
+              <div><strong>Este equipo</strong><small id="profileCurrentDeviceSummary">Cargando información del dispositivo actual.</small></div>
+              <span class="profile-settings-badge">Este equipo</span>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL RECORTAR AVATAR ── -->
+  <div id="profile-avatar-crop-modal" class="modal-overlay profile-avatar-crop-modal" onclick="if(event.target===this) cancelarRecorteAvatarPerfil()">
+    <div class="profile-avatar-crop-card">
+      <div class="profile-avatar-crop-head">
+        <div>
+          <div class="profile-modal-kicker" style="margin-bottom:6px; color:#94a3b8;">Tu Avatar</div>
+          <h3 class="profile-avatar-crop-title">Recorta tu foto</h3>
+          <p class="profile-avatar-crop-sub">Arrastra y acerca la imagen para ver exactamente cómo se verá tu perfil.</p>
+        </div>
+        <button class="profile-modal-close" onclick="cancelarRecorteAvatarPerfil()" style="background:#f1f5f9; color:#334155;">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
+      </div>
+      <div class="profile-avatar-crop-body">
+        <div class="profile-avatar-crop-stage-wrap">
+          <div id="profileAvatarCropStage" class="profile-avatar-crop-stage">
+            <img id="profileAvatarCropImage" class="profile-avatar-crop-image" alt="Recorte de avatar">
+            <div class="profile-avatar-crop-mask"></div>
+          </div>
+          <div class="profile-avatar-crop-controls">
+            <label for="profileAvatarCropZoom">Zoom</label>
+            <input id="profileAvatarCropZoom" type="range" min="1" max="3" step="0.01" value="1" oninput="ajustarZoomAvatarPerfil(this.value)">
+            <p>Tip: mantén presionado y arrastra la foto. Funciona con mouse y touch.</p>
+          </div>
+        </div>
+        <div class="profile-avatar-preview-panel">
+          <div class="profile-avatar-preview-card">
+            <span class="profile-avatar-preview-label">Vista chat</span>
+            <canvas id="profileAvatarPreviewCircle" width="96" height="96"></canvas>
+          </div>
+          <div class="profile-avatar-preview-card">
+            <span class="profile-avatar-preview-label">Vista perfil</span>
+            <canvas id="profileAvatarPreviewCard" width="112" height="112"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="profile-avatar-crop-actions">
+        <button class="profile-modal-btn" onclick="cancelarRecorteAvatarPerfil()">Cancelar</button>
+        <button id="profileAvatarCropSaveBtn" class="profile-modal-btn primary" onclick="guardarAvatarRecortadoPerfil()">
+          <span class="material-icons" style="font-size:18px;">check</span> Guardar Foto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-lector-reservas" class="modal-overlay" style="z-index: 76000;">
+    <div class="console-card" style="max-width: 750px; text-align: center; padding: 30px;">
+      <button onclick="document.getElementById('modal-lector-reservas').classList.remove('active')"
+        style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
+
+      <span class="material-icons" style="font-size: 50px; color: #0284c7; margin-bottom: 10px;">assessment</span>
+      <h2 style="color: var(--primary); font-weight: 900; margin: 0 0 5px 0; font-size: 22px;">REPORTE DE ACTIVIDAD DIARIA</h2>
+      <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 600;">Genera el PDF maestro de Entradas y Salidas.</p>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin-bottom: 15px;">
+        <div>
+          <label
+            style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+            <span class="material-icons" style="font-size: 16px;">flight_takeoff</span> 1. RESERVAS (Salidas)
+          </label>
+          <textarea id="textoBrutoReservas" rows="6" placeholder="Pega aquí las Reservaciones..."
+            style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fcd34d; background:#fffbeb; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
+            oninput="validarTextareasActividad()"></textarea>
+        </div>
+        <div>
+          <label
+            style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+            <span class="material-icons" style="font-size: 16px;">flight_land</span> 2. REGRESOS (Llegadas)
+          </label>
+          <textarea id="textoBrutoRegresos" rows="6" placeholder="Pega aquí los Contratos por Cerrar..."
+            style="width:100%; padding:15px; border-radius:12px; border:2px dashed #bae6fd; background:#f0f9ff; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
+            oninput="validarTextareasActividad()"></textarea>
+        </div>
+      </div>
+
+      <div style="text-align: left; margin-bottom: 20px;">
+        <label
+          style="font-weight: 900; font-size: 12px; color: #ef4444; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+          <span class="material-icons" style="font-size: 16px;">warning</span> 3. VENCIDOS (Opcional - Posibles Llegadas)
+        </label>
+        <textarea id="textoBrutoVencidos" rows="4" placeholder="Pega aquí los contratos vencidos..."
+          style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fca5a5; background:#fef2f2; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"></textarea>
+      </div>
+
+      <button id="btnGenerarPdfActividad" onclick="procesarActividadDiaria()" disabled
+        style="width: 100%; padding: 18px; background: #e2e8f0; color: #94a3b8; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.3s;">
+        <span class="material-icons">lock</span> ESPERANDO DATOS (PASO 1 Y 2)...
+      </button>
+    </div>
+  </div>
+
+  <div id="modal-prediccion" class="modal-overlay" style="z-index: 76000;">
+    <div class="console-card"
+      style="max-width: 800px; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+
+      <div
+        style="background: var(--mex-blue); padding: 20px 25px; color: white; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2 style="margin: 0; font-weight: 900; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+            <span class="material-icons" style="color: #38bdf8;">query_stats</span> CUADRE DE PREDICCIONES
+          </h2>
+          <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Compara Reservas vs Regresos vs Patio Actual</p>
+        </div>
+        <button onclick="document.getElementById('modal-prediccion').classList.remove('active')"
+          style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+      </div>
+
+      <div id="prediccion-paso-1" style="padding: 25px; display: block;">
+
+        <div
+          style="margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1;">
+          <label
+            style="font-weight: 900; font-size: 13px; color: var(--mex-blue); display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons">calendar_month</span> SELECCIONA LA FECHA DEL CUADRE:
+          </label>
+          <input type="date" id="fecha-prediccion"
+            style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid var(--mex-accent); margin-top: 10px; font-family: inherit; font-weight: bold; font-size: 15px; color: #1e293b; outline: none;">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+          <div>
+            <label
+              style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+              <span class="material-icons" style="font-size: 16px;">event_available</span> PEGAR RESERVAS AQUÍ
+            </label>
+            <textarea id="txt-pred-reservas" rows="8" placeholder="Pega la tabla de 'Reservaciones'..."
+              style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #fcd34d; background: #fffbeb; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+          </div>
+
+          <div>
+            <label
+              style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+              <span class="material-icons" style="font-size: 16px;">event_busy</span> PEGAR REGRESOS AQUÍ
+            </label>
+            <textarea id="txt-pred-regresos" rows="8" placeholder="Pega la tabla de 'Contratos por Cerrar'..."
+              style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #bae6fd; background: #f0f9ff; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+          </div>
+        </div>
+
+        <button id="btnProcesarPrediccion" onclick="ejecutarPrediccion()"
+          style="width: 100%; padding: 18px; background: #10b981; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; box-shadow: 0 10px 20px rgba(16,185,129,0.3); transition: 0.2s;">
+          <span class="material-icons">auto_awesome</span> CALCULAR DISPONIBILIDAD
+        </button>
+      </div>
+
+      <div id="prediccion-paso-2" style="padding: 25px; display: none; background: #f8fafc;">
+        <div id="tabla-prediccion-container"
+          style="background: white; border-radius: 12px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto;">
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+          <button onclick="reiniciarPrediccion()"
+            style="flex: 1; padding: 15px; background: #e2e8f0; color: #475569; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;">NUEVO CÁLCULO</button>
+
+          <button id="btnDescargarPrediccionExcel" onclick="crearExcelPrediccion()"
+            style="flex: 2; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(22,163,74,0.3);">
+            <span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE
+          </button>
+          <button id="btnDescargarPrediccionPdf" onclick="descargarPDFPrediccion()"
+            style="flex: 2; padding: 15px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
+            <span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-pdf-reservas" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.82); z-index:75200; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);" onclick="if(event.target===this)cerrarModalPDFReservas()">
+    <div style="background:#fff; border-radius:18px; width:100%; max-width:620px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.4);">
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0; background:linear-gradient(135deg,#0f172a,#1e3a5f);">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="material-icons" style="color:#38bdf8; font-size:24px;">analytics</span>
+          <div>
+            <div style="font-size:15px; font-weight:900; color:white; letter-spacing:.03em;">Análisis de Reservas</div>
+            <div style="font-size:11px; color:#94a3b8; font-weight:600;">Carga PDF o pega texto · Motor de proyección operativa</div>
+          </div>
+        </div>
+        <button onclick="cerrarModalPDFReservas()" style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+          <span class="material-icons" style="font-size:18px; color:#94a3b8;">close</span>
+        </button>
+      </div>
+      <div style="overflow-y:auto; padding:20px 22px; flex:1; display:flex; flex-direction:column; gap:16px;">
+        <div id="pdf-drop-zone" style="border:2px dashed #cbd5e1; border-radius:14px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;" onclick="document.getElementById('pdf-file-input').click()" ondragover="event.preventDefault();this.style.borderColor='#0284c7';this.style.background='#f0f9ff'" ondragleave="this.style.borderColor='#cbd5e1';this.style.background=''" ondrop="_onPDFDrop(event)">
+          <span class="material-icons" style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">upload_file</span>
+          <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra tu PDF aquí o haz clic para seleccionar</div>
+          <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Reportes de reservas, regresos o asignaciones</div>
+          <input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none" onchange="_onPDFFileInput(this)">
+        </div>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+          <span style="font-size:11px; font-weight:800; color:#94a3b8; letter-spacing:.06em;">O PEGA EL TEXTO</span>
+          <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+        </div>
+        <textarea id="pdf-texto-bruto" rows="6" placeholder="Pega aquí el contenido del reporte (reservas, regresos, entregas...)" style="border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:12px; font-family:monospace; resize:vertical; outline:none; color:#334155; transition:border-color .2s;" onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+        <button id="btn-analizar-pdf" onclick="_ejecutarAnalisisPDF()" style="background:linear-gradient(135deg,#0369a1,#0284c7); color:white; border:none; border-radius:10px; padding:12px 20px; font-size:13px; font-weight:900; cursor:pointer; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .2s;">
+          <span class="material-icons" style="font-size:18px;">auto_graph</span>
+          Analizar y proyectar
+        </button>
+        <div id="pdf-resultados" style="display:none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/views/gestion.js"></script>
+  <!-- mapa.js como módulo: contiene toda la lógica del panel admin -->
+  <script type="module" src="/js/views/mapa.js"></script>
+
+  <script>
+    // Ocultar loader cuando mapa.js termina de inicializar
+    window.addEventListener('mex-app-ready', () => {
+      const loader = document.getElementById('gestion-auth-loader');
+      if (loader) loader.classList.add('hidden');
+      // Drenar la cola de clicks que llegaron antes de que el módulo cargara
+      window._mexDrainGestionQueue?.();
+    });
+    // Fallback: ocultar después de 5s por si el evento no llega
+    setTimeout(() => {
+      const loader = document.getElementById('gestion-auth-loader');
+      if (loader) loader.classList.add('hidden');
+    }, 5000);
+  </script>
+</body>
+</html>

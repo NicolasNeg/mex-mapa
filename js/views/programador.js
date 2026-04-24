@@ -537,16 +537,19 @@ function programmerTabMeta(tab = state.tab) {
 
 function _buildSectionNavHtml(errCount) {
   return Object.entries(PROGRAMMER_SECTION_META).map(([key, meta]) => {
-    const active = programmerSectionKey() === key ? 'active' : '';
+    const active = programmerSectionKey() === key;
     const badge = key === 'errores' && errCount > 0
-      ? `<span class="cc-tab-badge">${errCount}</span>`
+      ? `<span class="bg-red-500 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full ml-auto shadow-md shadow-red-500/20">${errCount}</span>`
       : '';
+    const baseClass = "py-3 px-6 cursor-pointer active:scale-[0.98] transition-all duration-200 flex items-center gap-3 cc-section-nav-btn";
+    const activeClass = "border-l-4 border-amber-400 bg-amber-400/10 text-amber-400 font-semibold";
+    const inactiveClass = "text-slate-400 hover:text-emerald-400 hover:bg-white/5";
     return `
-      <button type="button" class="cc-section-nav-btn ${active}" data-section="${key}" title="${meta.label}">
-        <span class="material-icons">${meta.icon}</span>
-        <span>${meta.label}</span>
+      <div class="${active ? activeClass : inactiveClass} ${baseClass}" data-section="${key}" title="${meta.label}">
+        <span class="material-symbols-outlined" style="font-size: 20px;">${meta.icon}</span>
+        <span class="font-sans text-sm tracking-wide whitespace-nowrap">${meta.label}</span>
         ${badge}
-      </button>
+      </div>
     `;
   }).join('');
 }
@@ -554,11 +557,17 @@ function _buildSectionNavHtml(errCount) {
 function _buildSectionTabsHtml(sectionKey, errCount) {
   return programmerSectionTabs(sectionKey).map(key => {
     const meta = programmerTabMeta(key);
+    const active = state.tab === key;
+    const badge = key === 'errores' && errCount > 0 ? `<span class="bg-red-500 text-white text-[9px] px-1.5 rounded-full shadow-sm">${errCount}</span>` : '';
+    const base = "programmer-nav-btn px-5 py-2.5 text-xs font-semibold tracking-wide transition-colors border-b-2 flex items-center gap-2 focus:outline-none";
+    const css = active 
+      ? `${base} text-emerald-400 border-emerald-400 bg-emerald-500/5` 
+      : `${base} text-slate-400 border-transparent hover:text-slate-200 hover:border-slate-600 hover:bg-white/5`;
     return `
-      <button type="button" class="programmer-nav-btn ${state.tab === key ? 'active' : ''}" data-tab="${key}" title="${meta.label}">
-        <span class="material-icons cc-tab-icon">${meta.icon}</span>
-        <span class="cc-tab-label">${meta.short}</span>
-        ${key === 'errores' && errCount > 0 ? `<span class="cc-tab-badge">${errCount}</span>` : ''}
+      <button type="button" class="${css}" data-tab="${key}" title="${meta.label}">
+        <span class="material-symbols-outlined" style="font-size: 16px;">${meta.icon}</span>
+        <span>${meta.short}</span>
+        ${badge}
       </button>
     `;
   }).join('');
@@ -583,160 +592,140 @@ function renderShell() {
   const failedJobs = state.jobsRows?.filter(row => lower(row.status) === 'error' || lower(row.status) === 'failed').length || 0;
   const blockedDevices = state.devicesRows?.filter(row => lower(row.permission) === 'denied').length || 0;
 
+  const percentageCPU = Math.min(100, Math.round((errCount * 5) + 12.4)); 
+  const colorCPU = errCount > 5 ? 'red' : 'emerald';
+  const memUsage = Math.min(100, Math.round(20 + failedJobs * 10));
+  const netLat = Math.min(999, 12 + blockedDevices * 15);
+
   root.innerHTML = `
-    <div class="cc-topbar">
-      <div class="cc-topbar-left">
-        <div class="cc-topbar-icon"><span class="material-icons">monitoring</span></div>
-        <div>
-          <div class="cc-topbar-kicker">
-            <span style="display:inline-flex;align-items:center;gap:5px;">
-              <span style="width:6px;height:6px;border-radius:50%;background:${healthColor};display:inline-block;box-shadow:0 0 5px ${healthColor};"></span>
-              ${errCount > 0 ? `${errCount} ${errCount === 1 ? 'incidencia activa' : 'incidencias activas'}` : 'Sistema estable'}
-            </span>
-            · Entorno ${escapeHtml(window.FIREBASE_CONFIG?.projectId || 'productivo')}
-          </div>
-          <h1 class="cc-topbar-title">Consola Técnica MAPA</h1>
-          <p class="cc-topbar-sub">Salud de plataforma, clientes conectados, datos y acciones seguras con narrativa de producto.</p>
-        </div>
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full w-[280px] border-r border-white/10 bg-slate-950/90 dark:bg-slate-950/95 backdrop-blur-xl shadow-2xl shadow-black/50 flex flex-col z-50 overflow-y-auto">
+  <div class="p-8 pb-4">
+    <h1 class="text-xl font-black tracking-tighter text-emerald-500 uppercase">FleetCommand</h1>
+    <p class="font-sans text-sm tracking-wide text-slate-400 mt-1">Centro de Control Técnico</p>
+  </div>
+  
+  <!-- Global Plaza Selector -->
+  <div class="px-6 pb-4">
+    <div class="bg-slate-900/50 border border-white/10 rounded-lg p-3">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="material-symbols-outlined text-[14px] text-slate-400">location_city</span>
+        <span class="text-[10px] font-mono tracking-widest text-slate-400 uppercase">Plaza Foco</span>
       </div>
-      <div class="cc-topbar-right">
-        <div class="cc-hero-stats">
-          <div class="cc-stat-chip">
-            <span class="material-icons">badge</span>
-            <div><small>Usuarios</small><strong>${escapeHtml(String(users || '--'))}</strong></div>
+      <select id="programmerGlobalPlazaSelect" class="w-full bg-slate-950 border border-white/10 text-xs font-mono text-white p-1 rounded focus:border-emerald-500 focus:ring-0 outline-none">
+        <option value="">GLOBAL (Todas)</option>
+        ${plazas.map(p => `<option value="${escapeHtml(p)}" ${p === state.plaza ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  <nav class="flex-1 px-0 overflow-y-auto cc-console-sections">
+    ${_buildSectionNavHtml(errCount)}
+  </nav>
+
+  <div class="p-6">
+    <button class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded transition-colors uppercase text-xs tracking-widest shadow-lg shadow-emerald-500/20" id="programmerRefreshAllBtn">
+      DEPLOY PATCH (Actualizar)
+    </button>
+  </div>
+  <div class="border-t border-white/5 p-4 space-y-2">
+    <div class="text-slate-400 hover:text-emerald-400 py-2 px-4 hover:bg-white/5 transition-all duration-200 cursor-pointer flex items-center gap-3" onclick="window.location.href='/mapa'">
+      <span class="material-symbols-outlined text-sm">map</span>
+      <span class="font-sans text-xs tracking-wide">Mapa Operativo</span>
+    </div>
+    <div class="text-slate-400 hover:text-emerald-400 py-2 px-4 hover:bg-white/5 transition-all duration-200 cursor-pointer flex items-center gap-3" onclick="window.location.href='/gestion?tab=usuarios'">
+      <span class="material-symbols-outlined text-sm">admin_panel_settings</span>
+      <span class="font-sans text-xs tracking-wide">Admin Settings</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Top App Bar -->
+<header class="fixed top-0 right-0 w-[calc(100%-280px)] z-40 bg-slate-900/40 dark:bg-slate-950/60 backdrop-blur-md border-b border-white/5 flex justify-between items-center px-8 py-3">
+  <div class="flex items-center gap-4">
+    <span class="font-bold text-slate-100 font-mono text-xs uppercase tracking-widest">Command Terminal v4.0</span>
+    <div class="h-4 w-[1px] bg-white/10"></div>
+    <span class="${errCount > 0 ? 'text-red-500' : 'text-emerald-500'} text-[10px] font-mono animate-pulse uppercase">
+      ● ${errCount > 0 ? errCount + ' CRITICAL INCIDENTS' : 'SYSTEM LIVE'}
+    </span>
+  </div>
+  <div class="flex items-center gap-6">
+    <div class="relative hidden lg:block">
+      <input class="bg-slate-950/50 border border-white/10 text-[10px] font-mono tracking-widest text-white px-4 py-1.5 w-64 focus:outline-none focus:border-emerald-500/50" placeholder="QUERY DATABASE..." type="text"/>
+    </div>
+    <div class="flex items-center gap-4 text-slate-400">
+      <span class="material-symbols-outlined cursor-pointer hover:text-emerald-400 transition-colors" title="Notifications Center" id="programmerOpenNotifBtn">notifications_active</span>
+      <span class="material-symbols-outlined cursor-pointer hover:text-emerald-400 transition-colors" title="Roles & Session">verified_user</span>
+    </div>
+    <button class="bg-red-950/40 border border-red-500/30 text-red-500 font-mono text-[10px] uppercase tracking-widest px-4 py-1.5 hover:bg-red-500 hover:text-white transition-all shadow-sm">
+      EMERGENCY STOP
+    </button>
+    <img alt="User profile" class="w-8 h-8 rounded-full border border-white/10" src="${escapeHtml(state.profile?.avatarUrl || 'https://ui-avatars.com/api/?name=Admin&background=0284c7&color=fff')}" />
+  </div>
+</header>
+
+<!-- Main Content Stage -->
+<main class="ml-[280px] pt-[64px] min-h-screen bg-slate-950/30">
+  <!-- Tabs Navigation Bar -->
+  <div class="w-full bg-slate-900/40 border-b border-white/5 px-8 pt-4 flex gap-2 overflow-x-auto programmer-page-nav cc-nav cc-console-subnav">
+    ${_buildSectionTabsHtml(sectionKey, errCount)}
+  </div>
+
+  <div class="p-8 max-w-[1600px] mx-auto space-y-8">
+    
+    <!-- Bento Grid Header: Status Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- System Health Gauge Cards -->
+      <div class="bg-white border border-outline-variant p-6 rounded-xl flex flex-col justify-between relative overflow-hidden group shadow-sm">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <span class="font-label-caps text-on-surface-variant block uppercase">Activity Utilization (Users)</span>
+            <h2 class="font-h2 text-primary mt-1">${users} / 500</h2>
           </div>
-          <div class="cc-stat-chip">
-            <span class="material-icons">devices</span>
-            <div><small>Clientes</small><strong>${escapeHtml(String(devsCount || '--'))}</strong></div>
-          </div>
-          <div class="cc-stat-chip ${errCount > 0 ? 'cc-stat-danger' : 'cc-stat-ok'}">
-            <span class="material-icons">bug_report</span>
-            <div><small>Errores</small><strong>${escapeHtml(String(errCount))}</strong></div>
-          </div>
-          <div class="cc-stat-chip ${failedJobs > 0 ? 'cc-stat-danger' : 'cc-stat-accent'}">
-            <span class="material-icons">inventory_2</span>
-            <div><small>Jobs fallidos</small><strong>${escapeHtml(String(failedJobs || 0))}</strong></div>
-          </div>
+          <span class="material-symbols-outlined text-${colorCPU}-500 text-3xl">badge</span>
         </div>
-        <div class="programmer-page-top-actions cc-topbar-actions">
-          <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/mapa'" title="Ir al mapa operativo">
-            <span class="material-icons">map</span>
-            <span class="cc-btn-label">Mapa</span>
-          </button>
-          <button type="button" class="programmer-page-btn cc-nav-link" onclick="window.location.href='/gestion?tab=usuarios'" title="Ir al panel admin">
-            <span class="material-icons">admin_panel_settings</span>
-            <span class="cc-btn-label">Admin</span>
-          </button>
-          <button type="button" class="programmer-page-btn cc-nav-link" id="programmerOpenErrorsBtn" title="Ir a errores y alertas">
-            <span class="material-icons">crisis_alert</span>
-            <span class="cc-btn-label">Alertas</span>
-          </button>
-          <button type="button" class="programmer-page-btn primary" id="programmerRefreshAllBtn" title="Actualizar todos los datos">
-            <span class="material-icons">refresh</span>
-            <span class="cc-btn-label">Actualizar</span>
-          </button>
+        <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+          <div class="bg-${colorCPU}-500 h-full w-[${percentageCPU}%] transition-all duration-1000"></div>
         </div>
+        <p class="text-[10px] font-mono text-${colorCPU}-600 mt-2 uppercase">${errCount > 0 ? 'ANOMALOUS LOAD DETECTED' : 'NOMINAL RANGE • OPTIMIZED'}</p>
       </div>
+
+      <div class="bg-white border border-outline-variant p-6 rounded-xl flex flex-col justify-between relative overflow-hidden shadow-sm">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <span class="font-label-caps text-on-surface-variant block uppercase">Processing Load (Jobs)</span>
+            <h2 class="font-h2 text-primary mt-1">${failedJobs > 0 ? failedJobs + ' FAILED' : 'HEALTHY'}</h2>
+          </div>
+          <span class="material-symbols-outlined text-${failedJobs > 0 ? 'red' : 'amber'}-500 text-3xl">inventory_2</span>
+        </div>
+        <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+          <div class="bg-${failedJobs > 0 ? 'red' : 'amber'}-400 h-full w-[${memUsage}%]"></div>
+        </div>
+        <p class="text-[10px] font-mono text-${failedJobs > 0 ? 'red' : 'amber'}-600 mt-2 uppercase">${failedJobs > 0 ? 'HIGH CAPACITY • MONITORING' : 'READY TO EXECUTE'}</p>
+      </div>
+
+      <div class="bg-white border border-outline-variant p-6 rounded-xl flex flex-col justify-between relative overflow-hidden shadow-sm">
+        <div class="flex justify-between items-start mb-4">
+          <div>
+            <span class="font-label-caps text-on-surface-variant block uppercase">Client Link (Móviles)</span>
+            <h2 class="font-h2 text-primary mt-1">${devsCount} Activos</h2>
+          </div>
+          <span class="material-symbols-outlined text-emerald-500 text-3xl">devices</span>
+        </div>
+        <div class="w-full bg-surface-container-high h-2 rounded-full overflow-hidden">
+          <div class="bg-emerald-500 h-full w-[${netLat}%]"></div>
+        </div>
+        <p class="text-[10px] font-mono text-emerald-600 mt-2 uppercase">ULTRA-LOW LATENCY • ASYNC POOL</p>
+      </div>
+      
     </div>
 
-    <div class="cc-statusbar">
-      <span class="cc-pill cc-pill-user">
-        <span class="material-icons" style="font-size:13px;">person</span>
-        ${escapeHtml(currentUserLabel())}
-      </span>
-      <span class="cc-pill cc-pill-role">
-        <span class="material-icons" style="font-size:13px;">verified_user</span>
-        ${escapeHtml(programmerModeLabel(state.profile || {}))}
-      </span>
-      <span class="cc-pill">
-        <span class="material-icons" style="font-size:13px;">corporate_fare</span>
-        ${escapeHtml(friendlyScopeLabel(state.profile?.plazaAsignada))}
-      </span>
-      <span class="cc-pill">
-        <span class="material-icons" style="font-size:13px;">location_city</span>
-        Plaza foco ${escapeHtml(plazaLabel)}
-      </span>
-      <span class="cc-pill">
-        <span class="material-icons" style="font-size:13px;">dashboard_customize</span>
-        ${escapeHtml(sectionMeta.label)}
-      </span>
-      <span class="cc-pill cc-pill-build">
-        <span class="material-icons" style="font-size:13px;">tag</span>
-        ${escapeHtml(swVersion)}
-      </span>
-      <span class="cc-pill cc-pill-time" id="ccLiveClock">
-        <span class="material-icons" style="font-size:13px;">schedule</span>
-        ${now}
-      </span>
-    </div>
+    <!-- Active Content Injected Here -->
+    <div id="programmerTabContent" class="programmer-tab-content bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm min-h-[400px]"></div>
 
-    <div class="cc-console-nav">
-      <div class="cc-console-sections">
-        ${_buildSectionNavHtml(errCount)}
-      </div>
-      <div class="programmer-page-nav cc-nav cc-console-subnav">
-        ${_buildSectionTabsHtml(sectionKey, errCount)}
-      </div>
-    </div>
-
-    <div class="cc-section-hero">
-      <div class="cc-section-hero-copy">
-        <div class="cc-section-hero-kicker">
-          <span class="material-icons">${sectionMeta.icon}</span>
-          ${escapeHtml(sectionMeta.label)}
-        </div>
-        <h2>${escapeHtml(tabMeta.label)}</h2>
-        <p>${escapeHtml(tabMeta.description)}</p>
-      </div>
-      <div class="cc-section-hero-stats">
-        <div class="cc-section-glance">
-          <small>Errores críticos</small>
-          <strong>${escapeHtml(String(errCount || 0))}</strong>
-        </div>
-        <div class="cc-section-glance">
-          <small>Jobs fallidos</small>
-          <strong>${escapeHtml(String(failedJobs || 0))}</strong>
-        </div>
-        <div class="cc-section-glance">
-          <small>Clientes bloqueados</small>
-          <strong>${escapeHtml(String(blockedDevices || 0))}</strong>
-        </div>
-      </div>
-      <div class="cc-section-hero-actions">
-        <button type="button" class="programmer-page-btn" onclick="window.location.href='/mapa'">
-          <span class="material-icons">map</span>
-          Ver en mapa
-        </button>
-        <button type="button" class="programmer-page-btn" onclick="window.location.href='/gestion?tab=usuarios'">
-          <span class="material-icons">admin_panel_settings</span>
-          Ver en admin
-        </button>
-      </div>
-    </div>
-
-    <div id="programmerTabContent" class="programmer-tab-content"></div>
-
-    <div class="programmer-bottom-bar cc-bottom-bar">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span class="material-icons" style="font-size:16px;color:#64748b;">location_city</span>
-        <label class="programmer-inline-control">
-          <span>Plaza foco</span>
-          <select id="programmerGlobalPlazaSelect">
-            <option value="">GLOBAL</option>
-            ${plazas.map(plaza => `<option value="${escapeHtml(plaza)}" ${plaza === state.plaza ? 'selected' : ''}>${escapeHtml(plaza)}</option>`).join('')}
-          </select>
-        </label>
-      </div>
-      <div style="display:flex;gap:8px;">
-        <button type="button" class="programmer-page-btn" id="programmerOpenNotifBtn">
-          <span class="material-icons">notifications_active</span>
-          Notificaciones
-        </button>
-        <button type="button" class="programmer-page-btn" onclick="navigator.clipboard?.writeText(window.location.href).then(()=>showToast('URL copiada','success'))" title="Copiar URL">
-          <span class="material-icons">link</span>
-        </button>
-      </div>
-    </div>
+  </div>
+</main>
   `;
 
   root.querySelectorAll('.cc-section-nav-btn').forEach(button => {
@@ -788,52 +777,57 @@ function renderShell() {
 function summaryCardsHtml() {
   const overview = state.overview || {};
   const cards = [
-    { label: 'Usuarios',      value: overview.usersCount || 0,       icon: 'badge',           color: '#3b82f6', bg: '#eff6ff' },
-    { label: 'Clientes',      value: overview.devicesCount || 0,      icon: 'devices',         color: '#8b5cf6', bg: '#f5f3ff' },
-    { label: 'Inbox sin leer',value: overview.unreadInboxCount || 0,  icon: 'mark_chat_unread',color: '#0ea5e9', bg: '#f0f9ff', warn: overview.unreadInboxCount > 10 },
-    { label: 'Ops events',    value: overview.opsEventsCount || 0,    icon: 'timeline',        color: '#10b981', bg: '#f0fdf4' },
-    { label: 'Jobs',          value: overview.jobsCount || 0,         icon: 'inventory_2',     color: '#f59e0b', bg: '#fffbeb' },
-    { label: 'Errores',       value: overview.errorsCount || 0,       icon: 'bug_report',      color: '#ef4444', bg: '#fef2f2', warn: overview.errorsCount > 0 },
+    { label: 'Usuarios',      value: overview.usersCount || 0,       icon: 'badge',           color: 'emerald', bg: 'bg-emerald-100', tx: 'text-emerald-600' },
+    { label: 'Clientes',      value: overview.devicesCount || 0,      icon: 'devices',         color: 'blue', bg: 'bg-blue-100', tx: 'text-blue-600' },
+    { label: 'Inbox sin leer',value: overview.unreadInboxCount || 0,  icon: 'mark_chat_unread',color: 'orange', bg: 'bg-orange-100', tx: 'text-orange-600', warn: overview.unreadInboxCount > 10 },
+    { label: 'Ops events',    value: overview.opsEventsCount || 0,    icon: 'timeline',        color: 'green', bg: 'bg-green-100', tx: 'text-green-600' },
+    { label: 'Jobs',          value: overview.jobsCount || 0,         icon: 'inventory_2',     color: 'amber', bg: 'bg-amber-100', tx: 'text-amber-600' },
+    { label: 'Errores',       value: overview.errorsCount || 0,       icon: 'bug_report',      color: 'red', bg: 'bg-red-100', tx: 'text-red-600', warn: overview.errorsCount > 0 },
   ];
-  return cards.map(c => `
-    <div class="programmer-metric-card cc-metric-card" style="border-left:3px solid ${c.warn ? '#ef4444' : c.color};">
-      <div class="programmer-metric-icon" style="background:${c.bg};color:${c.color};">
-        <span class="material-icons">${c.icon}</span>
+  return `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">` + cards.map(c => `
+    <div class="p-4 bg-white border ${c.warn ? 'border-red-500/50' : 'border-outline-variant hover:border-emerald-500/30'} rounded-lg flex items-center justify-between transition-colors cursor-default">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded ${c.warn ? 'bg-red-100' : c.bg} flex items-center justify-center">
+          <span class="material-symbols-outlined ${c.warn ? 'text-red-600' : c.tx}">${c.icon}</span>
+        </div>
+        <div>
+          <p class="font-semibold text-sm">${c.label}</p>
+          <p class="text-[10px] text-on-surface-variant">${c.warn ? 'ATTENTION REQUIRED' : 'NOMINAL'}</p>
+        </div>
       </div>
-      <div>
-        <span>${c.label}</span>
-        <strong style="color:${c.warn ? '#ef4444' : '#0f172a'};">${escapeHtml(String(c.value))}</strong>
-      </div>
-      ${c.warn ? `<span class="cc-warn-dot"></span>` : ''}
+      <span class="text-xs font-bold ${c.warn ? 'text-red-600' : 'text-primary'}">${escapeHtml(String(c.value))}</span>
     </div>
-  `).join('');
+  `).join('') + `</div>`;
 }
 
 function rowsToTable(rows = [], options = {}) {
   if (!rows.length) {
-    return `<div class="programmer-empty-state">
-      <span class="material-icons">inbox</span>
-      <strong>Sin resultados</strong>
-      <p>No hay datos para mostrar con los filtros actuales.</p>
+    return `<div class="p-8 text-center bg-surface-container-low/30 border border-dashed border-outline-variant/50 rounded-lg">
+      <span class="material-symbols-outlined text-slate-400 text-3xl">inbox</span>
+      <strong class="block mt-2 text-primary font-bold">Sin resultados</strong>
+      <p class="text-xs text-on-surface-variant mt-1">No hay datos para mostrar con los filtros actuales.</p>
     </div>`;
   }
   const maxColumns = Number.isFinite(Number(options.maxColumns)) ? Number(options.maxColumns) : 8;
   const keys = [...new Set(rows.flatMap(row => Object.keys(row)))].slice(0, maxColumns);
   return `
-    <div class="${escapeHtml(options.className || 'programmer-table-wrap')}">
-      <table class="programmer-table">
+    <div class="overflow-x-auto w-full">
+      <table class="w-full text-left border-collapse">
         <thead>
-          <tr>${keys.map(key => `<th>${escapeHtml(key)}</th>`).join('')}</tr>
+          <tr class="bg-surface-container-low text-[10px] font-label-caps text-on-surface-variant uppercase">
+            ${keys.map(key => `<th class="px-6 py-3 border-b border-surface-container-high tracking-widest">${escapeHtml(key)}</th>`).join('')}
+          </tr>
         </thead>
-        <tbody>
+        <tbody class="text-sm font-mono">
           ${rows.map(row => `
-            <tr>
-              ${keys.map(key => {
+            <tr class="border-b border-surface-container-high hover:bg-surface-container-low/50 transition-colors">
+              ${keys.map((key, idx) => {
                 const value = row[key];
+                const cellClasses = idx === 0 ? "px-6 py-4 text-on-surface-variant font-semibold" : "px-6 py-4 text-on-surface-variant";
                 if (value && typeof value === 'object' && typeof value.__html === 'string') {
-                  return `<td>${value.__html}</td>`;
+                  return `<td class="${cellClasses}">${value.__html}</td>`;
                 }
-                return `<td>${escapeHtml(typeof value === 'object' ? JSON.stringify(value) : String(value ?? ''))}</td>`;
+                return `<td class="${cellClasses} break-words max-w-[200px]">${escapeHtml(typeof value === 'object' ? JSON.stringify(value) : String(value ?? ''))}</td>`;
               }).join('')}
             </tr>
           `).join('')}

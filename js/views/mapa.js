@@ -2228,9 +2228,48 @@ auth.onAuthStateChanged(async (user) => {
       }
     } catch (e) {
       console.error("Error validando usuario:", e);
-      sessionStorage.setItem('login_error', '❌ Error de conexión. Intenta de nuevo.');
-      window.location.replace('/login');
-      return;
+      const fallbackDisplayName = String(
+        user?.displayName
+        || currentUserProfile?.nombreCompleto
+        || currentUserProfile?.displayName
+        || currentUserProfile?.nombre
+        || currentUserProfile?.usuario
+        || (user?.email ? user.email.split('@')[0] : '')
+        || 'USUARIO'
+      ).trim();
+      const fallbackRole = String(
+        currentUserProfile?.rol
+        || (typeof userAccessRole !== 'undefined' ? userAccessRole : '')
+        || (typeof _isBootstrapProgrammerEmail === 'function' && _isBootstrapProgrammerEmail(emailNormalizado) ? 'PROGRAMADOR' : 'AUXILIAR')
+        || 'AUXILIAR'
+      ).trim().toUpperCase();
+      if (user?.email) {
+        const datosSinteticos = _normalizeUserProfile({
+          id: emailNormalizado,
+          email: emailNormalizado,
+          nombre: fallbackDisplayName,
+          nombreCompleto: fallbackDisplayName,
+          displayName: fallbackDisplayName,
+          usuario: fallbackDisplayName,
+          nombreUsuario: fallbackDisplayName,
+          rol: fallbackRole,
+          plazaAsignada: currentUserProfile?.plazaAsignada || _miPlaza() || '',
+          telefono: currentUserProfile?.telefono || '',
+          status: 'ACTIVO',
+          isAdmin: currentUserProfile?.isAdmin === true || fallbackRole === 'PROGRAMADOR',
+          isGlobal: currentUserProfile?.isGlobal === true,
+          permissionOverrides: currentUserProfile?.permissionOverrides || {},
+          _syntheticProfile: true
+        });
+        _setSessionProfile(datosSinteticos);
+        configurarPermisosUI();
+        perfilValidado = datosSinteticos;
+        console.warn('[AUTH] Fallback de perfil activado tras error de conexión:', { email: emailNormalizado, rol: fallbackRole });
+      } else {
+        sessionStorage.setItem('login_error', '❌ Error de conexión. Intenta de nuevo.');
+        window.location.replace('/login');
+        return;
+      }
     }
     if (typeof window.__mexRequireLocationAccess === 'function') {
       await window.__mexRequireLocationAccess({
@@ -3012,14 +3051,14 @@ function _getPlazaSwitchOverlay() {
   if (overlay) return overlay;
   overlay = document.createElement('div');
   overlay.id = 'plaza-switch-loader';
-  overlay.style.cssText = 'display:none;position:fixed;inset:0;z-index:76000;background:rgba(15,23,42,0.18);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px;';
+  overlay.style.cssText = 'display:none;position:fixed;right:16px;top:84px;z-index:76000;pointer-events:none;padding:0;';
   overlay.innerHTML = `
-    <div style="min-width:min(92vw,360px);max-width:360px;background:rgba(15,23,42,0.92);color:white;border:1px solid rgba(148,163,184,0.28);border-radius:22px;padding:20px 22px;box-shadow:0 25px 60px rgba(15,23,42,0.28);display:grid;gap:10px;">
+    <div style="min-width:min(92vw,320px);max-width:340px;background:rgba(15,23,42,0.96);color:white;border:1px solid rgba(148,163,184,0.22);border-radius:18px;padding:14px 16px;box-shadow:0 16px 40px rgba(15,23,42,0.28);display:grid;gap:8px;">
       <div style="display:flex;align-items:center;gap:12px;">
-        <span class="material-icons spinner" style="font-size:24px;color:#38bdf8;">sync</span>
+        <span class="material-icons spinner" style="font-size:20px;color:#38bdf8;">sync</span>
         <div style="display:grid;gap:2px;">
-          <div id="plaza-switch-loader-title" style="font-size:15px;font-weight:900;letter-spacing:.02em;">Cargando plaza</div>
-          <div id="plaza-switch-loader-sub" style="font-size:12px;color:#cbd5e1;font-weight:600;">Preparando datos operativos...</div>
+          <div id="plaza-switch-loader-title" style="font-size:14px;font-weight:900;letter-spacing:.02em;">Cargando plaza</div>
+          <div id="plaza-switch-loader-sub" style="font-size:11px;color:#cbd5e1;font-weight:600;">Preparando datos operativos...</div>
         </div>
       </div>
       <div id="plaza-switch-loader-meta" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
@@ -3495,7 +3534,9 @@ function startAutoRefresh() {
   console.log('[MEX-INTEG] startAutoRefresh →', { plaza: plazaActiva || '(sin plaza)', apiKeys: Object.keys(_api).length });
   _subPlaza = plazaActiva; // Registrar plaza activa ANTES de suscribir
 
-  if (!cacheState.structure || !cacheState.units) {
+  const plazaYaCargada = cacheState.structure === true && cacheState.units === true;
+  const plazaCambioVisible = !_subPlaza || _subPlaza !== plazaActiva;
+  if (!plazaYaCargada && (plazaCambioVisible || !cacheState.hydrated)) {
     _beginPlazaSwitchLoading(plazaActiva || 'MAPA', { ...cacheState, hydrated: false });
   }
 

@@ -1782,7 +1782,8 @@
       overflow: hidden;
     }
 
-    .cfg-v2-sidebar-label .material-icons {
+    .cfg-v2-sidebar-label .material-icons,
+    .cfg-v2-sidebar-label .material-symbols-outlined {
       font-size: 15px;
       color: #60a5fa;
       flex-shrink: 0;
@@ -1800,7 +1801,7 @@
     }
 
     /* Texto y sublabel: ocultos en collapse, visibles en hover */
-    .cfg-v2-sidebar:not(:hover) .cfg-v2-sidebar-label span:not(.material-icons),
+    .cfg-v2-sidebar:not(:hover) .cfg-v2-sidebar-label span:not(.material-icons):not(.material-symbols-outlined),
     .cfg-v2-sidebar:not(:hover) .cfg-v2-sidebar-sublabel,
     .cfg-v2-sidebar:not(:hover) .cfg-rail-section-label,
     .cfg-v2-sidebar:not(:hover) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
@@ -2238,7 +2239,8 @@
       transform: translateY(-1px);
     }
 
-    .cfg-v2-sidebar-toggle .material-icons {
+    .cfg-v2-sidebar-toggle .material-icons,
+    .cfg-v2-sidebar-toggle .material-symbols-outlined {
       font-size: 17px;
     }
 
@@ -2288,7 +2290,8 @@
       text-align: left;
     }
 
-    .cfg-nav-group-copy .material-icons {
+    .cfg-nav-group-copy .material-icons,
+    .cfg-nav-group-copy .material-symbols-outlined {
       font-size: 16px;
       color: #93c5fd;
       flex-shrink: 0;

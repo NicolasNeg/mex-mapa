@@ -166,13 +166,26 @@
 
   function normalizeCurrentUserRecord(raw = {}, fallbackUser = null) {
     const email = lowerText(raw.email || raw.id || fallbackUser?.email || '');
-    const nombre = upperText(raw.nombre || raw.usuario || fallbackUser?.displayName || email || 'USUARIO');
+    const nombreCompleto = upperText(
+      raw.nombreCompleto
+      || raw.displayName
+      || raw.nombre
+      || raw.usuario
+      || raw.nombreUsuario
+      || fallbackUser?.displayName
+      || email
+      || 'USUARIO'
+    );
+    const usuario = upperText(raw.usuario || raw.nombreUsuario || raw.userName || raw.username || nombreCompleto);
     return {
       ...safeObject(raw),
       id: safeText(raw.id || email || fallbackUser?.uid),
       email,
-      nombre,
-      usuario: nombre,
+      nombre: nombreCompleto,
+      nombreCompleto,
+      displayName: nombreCompleto,
+      usuario,
+      nombreUsuario: usuario,
       rol: inferProfileRole(raw, email),
       plazaAsignada: upperText(raw.plazaAsignada || raw.plaza || raw.sucursalAsignada || raw.sucursal || ''),
       plazasPermitidas: safeArray(raw.plazasPermitidas).map(upperText).filter(Boolean),

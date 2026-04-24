@@ -15,7 +15,7 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
-  <link rel="stylesheet" href="/css/cola-preparacion.css">
+  <!-- Legacy CSS removed -->
   <script id="tailwind-config">
     tailwind.config = {
       darkMode: "class",
@@ -57,7 +57,7 @@
   <title>Cola de preparación</title>
 </head>
 <body class="cola-page bg-[#f1f5f9] text-[#0f172a] font-sans antialiased min-h-screen flex flex-col">
-  <header class="prep-topbar sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+  <header class="prep-topbar sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur flex items-center justify-between px-4 py-2">
     <div class="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4 px-6">
       <div class="flex h-full min-w-0 items-center gap-8">
         <a class="text-xl font-black tracking-tighter text-slate-900 uppercase" href="/home">MAPA</a>
@@ -79,13 +79,13 @@
           </div>
         </div>
         <button class="prep-icon-btn" type="button" aria-label="Notificaciones">
-          <span class="material-icons" style="font-size:18px;">notifications</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">notifications</span>
         </button>
         <button class="prep-icon-btn" type="button" aria-label="Configuración">
-          <span class="material-icons" style="font-size:18px;">settings</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">settings</span>
         </button>
         <button class="prep-icon-btn" type="button" aria-label="Ayuda">
-          <span class="material-icons" style="font-size:18px;">help</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">help</span>
         </button>
       </div>
     </div>
@@ -93,7 +93,7 @@
 
   <main class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 px-6 py-5 lg:flex-row">
     <section class="prep-shell-left flex w-full flex-col gap-4 lg:w-[420px] lg:flex-shrink-0 lg:h-[calc(100vh-96px)] lg:overflow-hidden">
-      <div class="prep-command-bar rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="prep-command-bar rounded-xl border border-slate-200 bg-white/70 backdrop-blur-md p-5 shadow-sm">
         <div class="mb-4 flex items-start justify-between gap-4">
           <div>
             <div class="text-[11px] font-extrabold uppercase tracking-[0.18em] text-emerald-700">MÓDULO OPERATIVO</div>
@@ -102,11 +102,11 @@
           </div>
           <div class="hidden sm:flex items-center gap-2">
             <a class="prep-nav-link" href="/mapa">
-              <span class="material-icons" style="font-size:16px;">map</span>
+              <span class="material-symbols-outlined" style="font-size:16px;">map</span>
               Mapa
             </a>
             <a class="prep-nav-link" href="/gestion">
-              <span class="material-icons" style="font-size:16px;">manage_accounts</span>
+              <span class="material-symbols-outlined" style="font-size:16px;">manage_accounts</span>
               Gestión
             </a>
           </div>
@@ -119,12 +119,12 @@
           </label>
 
           <button id="prepAddBtn" type="button" class="prep-primary-btn">
-            <span class="material-icons" style="font-size:18px;">playlist_add</span>
+            <span class="material-symbols-outlined" style="font-size:18px;">playlist_add</span>
             Nueva salida
           </button>
 
           <button id="prepBulkCompleteBtn" type="button" class="prep-link-btn" style="display:none;" title="Marcar checklist completo en todas las unidades visibles">
-            <span class="material-icons" style="font-size:18px;">done_all</span>
+            <span class="material-symbols-outlined" style="font-size:18px;">done_all</span>
             <span class="prep-btn-label">Todas listas</span>
           </button>
         </div>
@@ -132,7 +132,7 @@
         <label class="prep-field prep-search-field mt-4">
           <span>Buscar</span>
           <div class="prep-input-shell">
-            <span class="material-icons" style="font-size:18px;">search</span>
+            <span class="material-symbols-outlined" style="font-size:18px;">search</span>
             <input id="prepSearchInput" type="search" placeholder="Buscar por MVA, notas o responsable">
           </div>
         </label>
@@ -146,7 +146,7 @@
         </div>
       </div>
 
-      <div class="prep-board flex min-h-0 flex-1 flex-col rounded-card border border-slate-200 bg-white p-5 shadow-sm">
+      <div class="prep-board flex min-h-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white/70 backdrop-blur-md p-5 shadow-sm">
         <div class="prep-panel-head mb-4 flex items-start justify-between gap-4">
           <div>
             <div class="prep-panel-kicker">Orden operativo</div>
@@ -167,13 +167,13 @@
             <p class="mt-2 text-sm text-slate-500">Resumen operativo, checklist y acciones rápidas para la salida.</p>
           </div>
           <button id="prepDeleteBtn" type="button" class="prep-danger-btn self-start" disabled>
-            <span class="material-icons" style="font-size:18px;">delete</span>
+            <span class="material-symbols-outlined" style="font-size:18px;">delete</span>
             Eliminar
           </button>
         </div>
 
         <div id="prepEmptyDetail" class="prep-empty-state">
-          <span class="material-icons">task_alt</span>
+          <span class="material-symbols-outlined">task_alt</span>
           <h3>Sin unidad seleccionada</h3>
           <p>Elige una tarjeta de la cola para revisar checklist, notas, responsable y fecha de salida.</p>
         </div>
@@ -189,15 +189,15 @@
 
           <div class="prep-detail-quick-actions">
             <button id="prepAssignMeBtn" type="button" class="prep-link-btn">
-              <span class="material-icons" style="font-size:18px;">person_pin</span>
+              <span class="material-symbols-outlined" style="font-size:18px;">person_pin</span>
               Asignarme
             </button>
             <button id="prepCompleteChecklistBtn" type="button" class="prep-link-btn">
-              <span class="material-icons" style="font-size:18px;">task_alt</span>
+              <span class="material-symbols-outlined" style="font-size:18px;">task_alt</span>
               Checklist completo
             </button>
             <button id="prepCopyMvaBtn" type="button" class="prep-link-btn">
-              <span class="material-icons" style="font-size:18px;">content_copy</span>
+              <span class="material-symbols-outlined" style="font-size:18px;">content_copy</span>
               Copiar MVA
             </button>
           </div>
@@ -252,11 +252,11 @@
 
           <div class="prep-detail-actions">
             <button type="submit" class="prep-primary-btn">
-              <span class="material-icons" style="font-size:18px;">save</span>
+              <span class="material-symbols-outlined" style="font-size:18px;">save</span>
               Guardar cambios
             </button>
             <button id="prepResetDeleteBtn" type="button" class="prep-link-btn" style="display:none;">
-              <span class="material-icons" style="font-size:18px;">undo</span>
+              <span class="material-symbols-outlined" style="font-size:18px;">undo</span>
               Cancelar borrado
             </button>
           </div>
@@ -274,7 +274,7 @@
           <p>Registra manualmente la siguiente preparación si aún no existe en la cola.</p>
         </div>
         <button type="button" class="prep-icon-btn" onclick="window.__prepCloseCreateModal?.()">
-          <span class="material-icons" style="font-size:18px;">close</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
         </button>
       </div>
 
@@ -312,7 +312,7 @@
         <div class="prep-modal-actions">
           <button type="button" class="prep-link-btn" onclick="window.__prepCloseCreateModal?.()">Cancelar</button>
           <button type="submit" class="prep-primary-btn">
-            <span class="material-icons" style="font-size:18px;">add_task</span>
+            <span class="material-symbols-outlined" style="font-size:18px;">add_task</span>
             Guardar en cola
           </button>
         </div>

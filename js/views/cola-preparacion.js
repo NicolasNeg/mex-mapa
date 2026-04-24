@@ -335,7 +335,7 @@ function renderList() {
   if (!items.length) {
     root.innerHTML = `
       <div class="prep-empty-state">
-        <span class="material-icons">playlist_remove</span>
+        <span class="material-symbols-outlined">playlist_remove</span>
         <h3>Sin unidades en cola</h3>
         <p>No encontramos salidas pendientes con el filtro actual. Puedes crear una manualmente desde el boton "Nueva salida".</p>
       </div>
@@ -357,7 +357,7 @@ function renderList() {
       <article class="prep-list-card ${isSelected ? 'is-selected' : ''}" data-id="${escapeHtml(item.id)}" draggable="true">
         <div class="prep-list-card-head">
           <div class="prep-list-card-meta">
-            <div class="prep-drag-handle"><span class="material-icons">drag_indicator</span></div>
+            <div class="prep-drag-handle"><span class="material-symbols-outlined">drag_indicator</span></div>
             <div>
               <div class="prep-mva">${escapeHtml(item.mva)}</div>
               <div class="prep-list-card-submeta">${escapeHtml(unit.modelo || unit.categoria || 'Sin expediente local')}</div>
@@ -449,7 +449,7 @@ function renderDetail() {
     if (form) form.style.display = 'none';
     if (deleteBtn) {
       deleteBtn.disabled = true;
-      deleteBtn.innerHTML = '<span class="material-icons" style="font-size:18px;">delete</span> Eliminar';
+      deleteBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:18px;">delete</span> Eliminar';
     }
     if (resetDeleteBtn) resetDeleteBtn.style.display = 'none';
     if (assignBtn) assignBtn.disabled = true;
@@ -495,8 +495,8 @@ function renderDetail() {
     deleteBtn.style.display = allowed ? '' : 'none';
     if (allowed) {
       deleteBtn.innerHTML = deleteArmed
-        ? '<span class="material-icons" style="font-size:18px;">warning</span> Confirmar borrado'
-        : '<span class="material-icons" style="font-size:18px;">delete</span> Eliminar';
+        ? '<span class="material-symbols-outlined" style="font-size:18px;">warning</span> Confirmar borrado'
+        : '<span class="material-symbols-outlined" style="font-size:18px;">delete</span> Eliminar';
     }
   }
   if (resetDeleteBtn) resetDeleteBtn.style.display = deleteArmed ? 'inline-flex' : 'none';
@@ -540,7 +540,7 @@ function showToast(message, type = 'info') {
   const toast = document.createElement('div');
   toast.className = `prep-toast ${type}`;
   toast.innerHTML = `
-    <div class="prep-toast-icon"><span class="material-icons">${icon}</span></div>
+    <div class="prep-toast-icon"><span class="material-symbols-outlined">${icon}</span></div>
     <div>
       <strong>${escapeHtml(message)}</strong>
     </div>
@@ -673,9 +673,9 @@ function showCreateUnitPreview(mva) {
     unit.modelo    ? `<span class="prep-preview-chip">${escapeHtml(unit.modelo)}</span>` : '',
     unit.categoria ? `<span class="prep-preview-chip">${escapeHtml(unit.categoria)}</span>` : '',
     unit.estado    ? `<span class="prep-preview-chip prep-preview-chip--state">${escapeHtml(unit.estado)}</span>` : '',
-    unit.ubicacion ? `<span class="prep-preview-chip prep-preview-chip--loc"><span class="material-icons" style="font-size:13px;">place</span>${escapeHtml(unit.ubicacion)}</span>` : '',
+    unit.ubicacion ? `<span class="prep-preview-chip prep-preview-chip--loc"><span class="material-symbols-outlined" style="font-size:13px;">place</span>${escapeHtml(unit.ubicacion)}</span>` : '',
   ].filter(Boolean).join('');
-  preview.innerHTML = `<div class="prep-preview-found"><span class="material-icons" style="font-size:15px;color:#047857;">check_circle</span> Unidad encontrada en expediente</div>${chips}`;
+  preview.innerHTML = `<div class="prep-preview-found"><span class="material-symbols-outlined" style="font-size:15px;color:#047857;">check_circle</span> Unidad encontrada en expediente</div>${chips}`;
   preview.style.display = 'flex';
 }
 
