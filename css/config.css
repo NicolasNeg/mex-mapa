@@ -6382,12 +6382,13 @@ body.editor-inspector-dragging .editor-inspector-card {
 }
 
 .cfg-v2-sidebar.shell-sidebar-surface {
-  --cfg-rail-collapsed: 84px;
-  --cfg-rail-expanded: 280px;
-  background: linear-gradient(180deg, #07111f 0%, #0b1324 42%, #101a31 100%);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  --cfg-rail-collapsed: 80px;
+  --cfg-rail-expanded: 260px;
+  width: var(--shell-sidebar-width);
+  background: linear-gradient(180deg, #1b2438 0%, #1d273c 50%, #202a41 100%);
+  border: 1px solid rgba(148, 163, 184, 0.10);
   border-radius: 28px;
-  box-shadow: 0 24px 72px rgba(2, 6, 23, 0.46);
+  box-shadow: 18px 0 48px rgba(2, 6, 23, 0.18);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
 }
@@ -6424,13 +6425,13 @@ body.editor-inspector-dragging .editor-inspector-card {
 }
 
 .cfg-v2-sidebar.shell-sidebar-surface:hover {
-  box-shadow: 0 28px 82px rgba(2, 6, 23, 0.54);
-  border-color: rgba(96, 165, 250, 0.22);
+  box-shadow: 22px 0 56px rgba(2, 6, 23, 0.22);
+  border-color: rgba(16, 185, 129, 0.20);
 }
 
 html.light .cfg-v2-sidebar.shell-sidebar-surface {
-  background: linear-gradient(180deg, #0f1a37 0%, #162b5b 48%, #1468a4 100%);
-  border-color: rgba(191, 219, 254, 0.14);
+  background: linear-gradient(180deg, #1b2438 0%, #1d273c 50%, #202a41 100%);
+  border-color: rgba(148, 163, 184, 0.12);
 }
 
 html.light .cfg-v2-sidebar.shell-sidebar-surface::before {
@@ -6469,16 +6470,16 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
 
 .cfg-tab.active,
 .cfg-tab.is-active {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22), rgba(37, 99, 235, 0.14));
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(16, 185, 129, 0.10));
   color: #ffffff;
   font-weight: 900;
-  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.18);
 }
 
 .cfg-tab.active .cfg-tab-icon,
 .cfg-tab.is-active .cfg-tab-icon {
-  background: rgba(96, 165, 250, 0.22);
-  color: #dbeafe;
+  background: rgba(16, 185, 129, 0.18);
+  color: #d1fae5;
 }
 
 .cfg-tab.active::before,
@@ -6490,7 +6491,7 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   bottom: 8px;
   width: 3px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #93c5fd, #dbeafe);
+  background: linear-gradient(180deg, #6ee7b7, #d1fae5);
 }
 
 .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle,
@@ -6565,4 +6566,44 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   justify-content: center !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
+}
+
+@media (max-width: 1023px) {
+  .cfg-v2-sidebar.shell-sidebar-surface {
+    width: var(--shell-sidebar-width) !important;
+    max-width: min(50vw, 260px) !important;
+    min-width: 80px !important;
+    height: 100vh !important;
+    min-height: 100vh !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 20px 8px 14px !important;
+    border-radius: 0 24px 24px 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+
+  .cfg-v2-sidebar.shell-sidebar-surface .cfg-v2-nav {
+    flex-direction: column !important;
+    overflow: visible !important;
+    padding-bottom: 12px;
+  }
+
+  .cfg-v2-sidebar.shell-sidebar-surface .cfg-v2-sidebar-label,
+  .cfg-v2-sidebar.shell-sidebar-surface .cfg-v2-sidebar-sublabel,
+  .cfg-v2-sidebar.shell-sidebar-surface .cfg-rail-section-label {
+    display: flex !important;
+  }
+
+  .cfg-v2-sidebar.shell-sidebar-surface .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+    display: block !important;
+  }
+
+  .cfg-v2-sidebar.shell-sidebar-surface:not(.mobile-open):not(.is-pinned) .cfg-v2-sidebar-label span:not(.material-icons):not(.material-symbols-outlined),
+  .cfg-v2-sidebar.shell-sidebar-surface:not(.mobile-open):not(.is-pinned) .cfg-v2-sidebar-sublabel,
+  .cfg-v2-sidebar.shell-sidebar-surface:not(.mobile-open):not(.is-pinned) .cfg-rail-section-label,
+  .cfg-v2-sidebar.shell-sidebar-surface:not(.mobile-open):not(.is-pinned) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+    display: none !important;
+  }
 }

@@ -1,9 +1,9 @@
     /* --- MAPA Y HEADER --- */
     .map-shell-topbar {
-      background: rgba(248, 250, 252, 0.94);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(187, 202, 191, 0.64);
       box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
       gap: 12px;
     }
@@ -24,7 +24,7 @@
       width: 40px;
       min-width: 40px;
       height: 40px;
-      border-radius: 14px;
+      border-radius: 999px;
       border: 1px solid #dbe4f0;
       background: #ffffff;
       color: #64748b;
@@ -38,10 +38,10 @@
 
     .map-shell-header-btn:hover {
       transform: translateY(-1px);
-      color: var(--mex-accent);
-      border-color: rgba(37, 99, 235, 0.25);
-      background: #f8fbff;
-      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.12);
+      color: #059669;
+      border-color: rgba(16, 185, 129, 0.25);
+      background: #f4fbf4;
+      box-shadow: 0 12px 24px rgba(16, 185, 129, 0.12);
     }
 
     .map-shell-search {
@@ -59,15 +59,15 @@
       width: 100%;
       padding: 10px 64px 10px 38px;
       border: 1px solid #dbe4f0;
-      border-radius: 14px;
-      background: #f8fafc;
+      border-radius: 999px;
+      background: #eef6ee;
       color: #0f172a;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
     }
 
     #searchInput:focus {
-      border-color: rgba(37, 99, 235, 0.35) !important;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
+      border-color: rgba(16, 185, 129, 0.35) !important;
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12) !important;
       background: white !important;
       color: #0f172a !important;
       transform: translateY(-1px);
@@ -146,8 +146,8 @@
       line-height: 1;
     }
     .search-mic-btn:hover {
-      background: rgba(37,99,235,0.08);
-      color: #2563eb;
+      background: rgba(16,185,129,0.08);
+      color: #059669;
     }
     .search-mic-btn.voz-activa {
       color: #ef4444;
@@ -202,6 +202,14 @@
       align-items: center;
       gap: 12px;
       min-width: 0;
+      text-decoration: none;
+      color: inherit;
+      transition: transform .2s ease, opacity .2s ease;
+    }
+
+    .map-shell-user:hover {
+      transform: translateY(-1px);
+      opacity: 0.92;
     }
 
     .map-shell-user-copy {
@@ -245,7 +253,7 @@
 
     .plaza-picker-btn {
       min-height: 40px;
-      border-radius: 14px;
+      border-radius: 999px;
       border: 1px solid #dbe4f0;
       background: #ffffff;
       color: #334155;
@@ -260,10 +268,10 @@
     }
 
     .plaza-picker-btn:hover {
-      color: var(--mex-accent);
-      border-color: rgba(37, 99, 235, 0.25);
+      color: #059669;
+      border-color: rgba(16, 185, 129, 0.25);
       transform: translateY(-1px);
-      box-shadow: 0 12px 24px rgba(37, 99, 235, 0.10);
+      box-shadow: 0 12px 24px rgba(16, 185, 129, 0.10);
     }
 
     .plaza-picker-dropdown {

@@ -17413,8 +17413,8 @@ function _mountMessagesShell() {
     searchId: 'messagesRouteSearchInput',
     plazaSelectId: 'messagesRoutePlazaSelect',
     searchPlaceholder: 'Buscar unidad, ruta o conversación...',
-    onSearch: (query, plaza) => {
-      const targetPlaza = _normalizePlaza(plaza || currentPlaza || PLAZA_ACTIVA_MAPA);
+    onSearch: (query) => {
+      const targetPlaza = _normalizePlaza(currentPlaza || PLAZA_ACTIVA_MAPA);
       if (targetPlaza) _rememberActivePlaza(targetPlaza);
       if (typeof window.setMexCurrentPlaza === 'function' && targetPlaza) {
         window.setMexCurrentPlaza(targetPlaza);

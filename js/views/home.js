@@ -195,6 +195,37 @@ function lower(value) {
   return safe(value).toLowerCase();
 }
 
+function normalizeRoutePath(route = '') {
+  const [rawPath] = safe(route).split('?');
+  const normalized = safe(rawPath)
+    .replace(/\.html$/i, '')
+    .replace(/\/+$/, '');
+  return normalized || '/';
+}
+
+function routeSearch(route = '') {
+  const text = safe(route);
+  const index = text.indexOf('?');
+  return index >= 0 ? text.slice(index + 1) : '';
+}
+
+function isRouteActive(targetRoute = '', currentRoute = '') {
+  const targetPath = normalizeRoutePath(targetRoute);
+  const currentPath = normalizeRoutePath(currentRoute);
+  if (!targetPath || !currentPath || targetPath !== currentPath) return false;
+  if (targetPath === '/gestion') return true;
+
+  const targetQuery = routeSearch(targetRoute);
+  if (!targetQuery) return true;
+
+  const targetParams = new URLSearchParams(targetQuery);
+  const currentParams = new URLSearchParams(routeSearch(currentRoute));
+  for (const [key, value] of targetParams.entries()) {
+    if (currentParams.get(key) !== value) return false;
+  }
+  return true;
+}
+
 function escapeHtml(value) {
   return safe(value)
     .replace(/&/g, '&amp;')
@@ -370,7 +401,7 @@ export function renderShellTopbarHTML(options = {}) {
           <span id="shellBellBadge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center" style="display:none;">0</span>
         </button>
         <div class="h-8 w-[1px] bg-slate-200"></div>
-        <div class="flex items-center gap-3">
+        <button type="button" class="shell-user-trigger flex items-center gap-3 text-left" data-route="/profile" title="Abrir perfil" aria-label="Abrir perfil">
           <div class="text-right hidden lg:block">
             <p class="text-xs font-bold text-slate-700 leading-none" id="shellUserName">${escapeHtml(userName)}</p>
             <p class="text-[10px] text-secondary font-semibold" id="shellUserMeta">${roleText} · En línea</p>
@@ -378,7 +409,7 @@ export function renderShellTopbarHTML(options = {}) {
           <div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/20" id="shellUserAvatar">
             <span class="material-symbols-outlined text-secondary text-sm" data-icon="shield_person">shield_person</span>
           </div>
-        </div>
+        </button>
       </div>
     </header>
   `;
@@ -410,7 +441,7 @@ export function bindShellTopbar(root = document, options = {}) {
       const query = safe(event.currentTarget?.value || '');
       if (!query) return;
       if (typeof options.onSearch === 'function') {
-        options.onSearch(query, currentPlaza);
+        options.onSearch(query, currentRoute);
         return;
       }
       queueShellSearch(query, currentPlaza);
@@ -755,7 +786,7 @@ function filterModules(modules = [], query = '') {
 }
 
 export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', currentRoute = '/home') {
-  const onMapa = currentRoute === '/mapa';
+  const onMapa = normalizeRoutePath(currentRoute) === '/mapa';
 
   const operacionItems = onMapa
     ? [
@@ -816,7 +847,12 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
 }
 
 function getSidebarShellWidth(collapsed = _homeState.collapsed) {
-  return collapsed ? '84px' : '280px';
+  if (!isDesktopShell()) return '80px';
+  return collapsed ? '80px' : '260px';
+}
+
+function getOpenMobileSidebarWidth() {
+  return 'min(50vw, 260px)';
 }
 
 function isDesktopShell() {
@@ -825,16 +861,16 @@ function isDesktopShell() {
 
 function openMobileSidebar(sidebar, overlay) {
   if (!sidebar || !overlay) return;
-  sidebar.classList.remove('-translate-x-full');
   sidebar.classList.add('mobile-open');
+  applySidebarShellState(sidebar);
   overlay.classList.remove('hidden');
   requestAnimationFrame(() => overlay.classList.remove('opacity-0'));
 }
 
 function closeMobileSidebar(sidebar, overlay) {
   if (!sidebar || !overlay) return;
-  sidebar.classList.add('-translate-x-full');
   sidebar.classList.remove('mobile-open');
+  applySidebarShellState(sidebar);
   overlay.classList.add('opacity-0');
   window.setTimeout(() => {
     if (!sidebar.classList.contains('mobile-open')) overlay.classList.add('hidden');
@@ -844,15 +880,23 @@ function closeMobileSidebar(sidebar, overlay) {
 function applySidebarShellState(sidebar) {
   if (!sidebar) return;
   const collapsed = Boolean(_homeState.collapsed);
-  document.documentElement.style.setProperty('--shell-sidebar-width', getSidebarShellWidth(collapsed));
-  sidebar.classList.toggle('is-pinned', !collapsed);
-  sidebar.classList.toggle('shell-collapsed', collapsed);
+  const desktop = isDesktopShell();
+  const mobileOpen = !desktop && sidebar.classList.contains('mobile-open');
+  const sidebarWidth = desktop
+    ? getSidebarShellWidth(collapsed)
+    : (mobileOpen ? getOpenMobileSidebarWidth() : getSidebarShellWidth(true));
 
-  if (collapsed) {
+  document.documentElement.style.setProperty('--shell-sidebar-width', sidebarWidth);
+  sidebar.classList.toggle('is-pinned', desktop && !collapsed);
+  sidebar.classList.toggle('shell-collapsed', desktop ? collapsed : !mobileOpen);
+
+  if (!desktop || collapsed) {
     sidebar.querySelectorAll('.cfg-nav-group.open').forEach(group => {
       group.classList.remove('open');
     });
-  } else {
+  }
+
+  if (desktop && !collapsed) {
     const activeGroupIndex = sidebar.getAttribute('data-active-nav-group-index');
     if (activeGroupIndex !== null) {
       const activeGroup = sidebar.querySelector(`[data-nav-group-index="${activeGroupIndex}"]`);
@@ -860,15 +904,26 @@ function applySidebarShellState(sidebar) {
         activeGroup.classList.add('open');
       }
     }
+  } else if (mobileOpen) {
+    const activeGroupIndex = sidebar.getAttribute('data-active-nav-group-index');
+    if (activeGroupIndex !== null) {
+      const activeGroup = sidebar.querySelector(`[data-nav-group-index="${activeGroupIndex}"]`);
+      if (activeGroup) activeGroup.classList.add('open');
+    }
   }
 
   document.querySelectorAll('[data-sidebar-toggle]').forEach(toggle => {
     const icon = toggle.querySelector('.material-symbols-outlined');
-    const title = collapsed ? 'Expandir menú' : 'Colapsar menú';
+    const title = desktop
+      ? (collapsed ? 'Expandir menú' : 'Colapsar menú')
+      : (mobileOpen ? 'Compactar menú' : 'Expandir menú');
     toggle.title = title;
     toggle.setAttribute('aria-label', title);
-    if (icon && isDesktopShell()) icon.textContent = collapsed ? 'menu' : 'menu_open';
-    else if (icon) icon.textContent = 'menu';
+    if (icon && desktop) {
+      icon.textContent = collapsed ? 'menu' : 'menu_open';
+    } else if (icon) {
+      icon.textContent = mobileOpen ? 'menu_open' : 'menu';
+    }
   });
 }
 
@@ -906,12 +961,14 @@ export function bindSidebarShell(root = document, options = {}) {
       if (!liveSidebar) return;
       if (isDesktopShell()) {
         liveSidebar.classList.remove('mobile-open');
-        liveSidebar.classList.remove('-translate-x-full');
         liveOverlay?.classList.add('hidden');
         liveOverlay?.classList.add('opacity-0');
         applySidebarShellState(liveSidebar);
-      } else if (!liveSidebar.classList.contains('mobile-open')) {
-        liveSidebar.classList.add('-translate-x-full');
+      } else {
+        if (!liveSidebar.classList.contains('mobile-open')) {
+          document.documentElement.style.setProperty('--shell-sidebar-width', getSidebarShellWidth(true));
+        }
+        applySidebarShellState(liveSidebar);
       }
     });
   }
@@ -1028,12 +1085,12 @@ function saveSidebarState(collapsed) {
 export function renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute = '/home') {
   const variantKey = homeVariant(profile);
   const navGroups = sidebarGroups(profile, metrics, currentPlaza, currentRoute);
-  const shellCollapsed = Boolean(_homeState.collapsed);
+  const shellCollapsed = isDesktopShell() ? Boolean(_homeState.collapsed) : true;
   let activeGroupIndex = 0;
   let navHtml = '';
   navGroups.forEach((group, index) => {
     const groupLabel = escapeHtml(group.label);
-    const isGroupOpen = group.items.some(item => item.route === currentRoute);
+    const isGroupOpen = group.items.some(item => isRouteActive(item.route, currentRoute));
     if (isGroupOpen) activeGroupIndex = index;
     const groupMeta = group.label === 'Operación'
       ? { small: 'Flujo', strong: 'Operación' }
@@ -1066,7 +1123,7 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
         <div class="cfg-nav-group-body shell-sidebar-group-body">
     `;
     group.items.forEach(item => {
-      const isActive = item.route === currentRoute;
+      const isActive = isRouteActive(item.route, currentRoute);
       const activeClass = isActive ? 'is-active' : '';
 
       const fillStyle = isActive ? `style="font-variation-settings: 'FILL' 1;"` : '';
@@ -1098,7 +1155,7 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
     <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 bg-slate-900/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
 
     <!-- Persistent SideNavBar -->
-    <aside id="homeSidebar" class="cfg-v2-sidebar shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transform -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-in-out ${shellCollapsed ? '' : 'is-pinned'}" data-active-nav-group-index="${activeGroupIndex}" style="--cfg-rail-collapsed:84px; --cfg-rail-expanded:280px; z-index:900001; border-right:1px solid #1a2538;">
+    <aside id="homeSidebar" class="cfg-v2-sidebar shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transition-all duration-300 ease-in-out ${shellCollapsed ? '' : 'is-pinned'}" data-active-nav-group-index="${activeGroupIndex}" style="--cfg-rail-collapsed:80px; --cfg-rail-expanded:260px; width:var(--shell-sidebar-width); z-index:900001; border-right:1px solid rgba(255,255,255,0.06);">
       <div>
         <!-- Brand Header -->
         <div class="shell-sidebar-brand px-3 mb-6">
