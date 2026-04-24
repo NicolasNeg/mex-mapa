@@ -1224,7 +1224,7 @@ function _inyectarSidebar() {
   const container = document.getElementById('mapaLeftSidebarContainer');
   if (!container || !currentUserProfile) return;
   const companyName = window.MEX_CONFIG?.empresa?.nombre || APP_DEFAULT_COMPANY_NAME;
-  const activeMetrics = window._supervisionData[PLAZA_ACTIVA_MAPA] || {};
+  const activeMetrics = ((window._supervisionData || _supervisionData || {})[PLAZA_ACTIVA_MAPA]) || {};
   const html = renderSidebarHTML(currentUserProfile, activeMetrics, PLAZA_ACTIVA_MAPA, companyName, USER_NAME, '/mapa');
   container.innerHTML = html;
   bindSidebarShell(document, { currentPlaza: PLAZA_ACTIVA_MAPA });
@@ -2163,10 +2163,10 @@ auth.onAuthStateChanged(async (user) => {
     return;
   }
   if (user) {
+    const emailNormalizado = _profileDocId(user?.email || '');
     try {
       // Force token refresh so Firestore security rules get the auth context immediately
       await user.getIdToken(true);
-      const emailNormalizado = _profileDocId(user.email);
       let perfilValidado = null;
       const cachedProfile = typeof window.__mexLoadCurrentUserRecord === 'function'
         ? await window.__mexLoadCurrentUserRecord(user).catch(() => null)
@@ -21365,6 +21365,7 @@ function _actualizarSupervisionConUnidades(unidades) {
     else if (estado === 'TRASLADO') newData[p].traslados++;
   });
   _supervisionData = newData;
+  window._supervisionData = _supervisionData;
   _actualizarPanelSupervision();
 }
 
