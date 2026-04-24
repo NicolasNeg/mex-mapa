@@ -350,64 +350,57 @@ export function renderShellTopbarHTML(options = {}) {
   const searchValue = escapeHtml(options.searchValue || '');
   const roleText = escapeHtml(options.roleText || roleLabel(profile));
   const preBellHtml = options.preBellHtml || '';
+
   const plazaHtml = typeof options.plazaHtml === 'string'
     ? options.plazaHtml
-    : `
-      <select id="${escapeHtml(plazaSelectId)}" class="bg-slate-100 border border-slate-200 rounded-full py-2 px-4 text-sm text-slate-700 font-semibold focus:ring-1 focus:ring-secondary/50 outline-none cursor-pointer" ${(plazas.length <= 1 && !currentPlaza) ? 'disabled' : ''}>
-        ${((plazas.length ? plazas : [currentPlaza || 'GLOBAL']))
-          .filter(Boolean)
-          .map(plaza => `<option value="${escapeHtml(plaza)}" ${upper(plaza) === currentPlaza ? 'selected' : ''}>📍 ${escapeHtml(plaza)}</option>`)
-          .join('')}
-      </select>
-    `;
+    : `<select id="${escapeHtml(plazaSelectId)}" class="hidden md:block bg-surface-container-low border border-outline-variant rounded-full py-1.5 px-3 text-sm text-on-surface font-semibold focus:ring-1 focus:ring-secondary/30 outline-none cursor-pointer" ${(plazas.length <= 1 && !currentPlaza) ? 'disabled' : ''}>
+        ${((plazas.length ? plazas : [currentPlaza || 'GLOBAL'])).filter(Boolean).map(plaza => `<option value="${escapeHtml(plaza)}" ${upper(plaza) === currentPlaza ? 'selected' : ''}>📍 ${escapeHtml(plaza)}</option>`).join('')}
+      </select>`;
 
-  const defaultVehicleHtml = options.showVehicleShortcut === false
-    ? ''
-    : `
-      <button type="button" class="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-700 hover:border-secondary/30 hover:text-secondary transition-all shadow-sm" data-route="/mapa" title="Ir a vehículos">
-        <span class="material-symbols-outlined text-[18px]" data-icon="directions_car">directions_car</span>
-        <span class="hidden md:inline">Vehículos</span>
+  const vehicleHtml = typeof options.vehicleHtml === 'string'
+    ? options.vehicleHtml
+    : (options.showVehicleShortcut === false ? '' : `
+      <button type="button" class="hidden md:inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-full text-sm font-semibold text-slate-700 hover:border-secondary/30 hover:text-secondary transition-all shadow-sm" data-route="/mapa" title="Ir a vehículos">
+        <span class="material-symbols-outlined" data-icon="directions_car" style="font-size:16px;">directions_car</span>
+        <span>Vehículos</span>
       </button>
-    `;
+    `);
 
-  const vehicleHtml = typeof options.vehicleHtml === 'string' ? options.vehicleHtml : defaultVehicleHtml;
   const searchHtml = typeof options.searchHtml === 'string'
     ? options.searchHtml
-    : `
-      <div class="relative min-w-0 flex-1 max-w-[220px] md:max-w-[420px]">
-        <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" data-icon="search">search</span>
-        <input id="${escapeHtml(searchId)}" class="bg-slate-100 border border-slate-200 rounded-full py-2 pl-10 pr-4 text-sm text-slate-700 w-full focus:ring-1 focus:ring-secondary/50 placeholder:text-slate-400 outline-none" placeholder="${searchPlaceholder}" type="text" value="${searchValue}"/>
-      </div>
-    `;
+    : `<div class="flex-1 max-w-md relative flex items-center">
+        <span class="material-symbols-outlined absolute left-3 text-on-surface-variant pointer-events-none" data-icon="search" style="font-size:18px;">search</span>
+        <input id="${escapeHtml(searchId)}" class="w-full bg-surface-container-low border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-secondary/20 focus:bg-surface-container-lowest transition-all text-on-surface placeholder:text-outline-variant shadow-inner outline-none" placeholder="${searchPlaceholder}" type="text" value="${searchValue}"/>
+      </div>`;
 
   return `
-    <header class="shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex justify-between items-center px-3 md:px-6 shadow-sm">
-      <div class="flex items-center gap-2 md:gap-3 min-w-0">
-        <button type="button" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" data-sidebar-toggle title="Mostrar menú" aria-label="Mostrar menú">
-          <span class="material-symbols-outlined" data-icon="menu">menu</span>
+    <header class="shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex items-center justify-between px-4 md:px-6 transition-all duration-300">
+      <div class="flex items-center gap-2 min-w-0 flex-1">
+        <button type="button" class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm shrink-0" data-sidebar-toggle title="Mostrar menú" aria-label="Mostrar menú">
+          <span class="material-symbols-outlined" data-icon="menu" style="font-size:20px;">menu</span>
         </button>
-        <a class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm" href="/home" title="Volver al inicio" aria-label="Volver al inicio">
-          <span class="material-symbols-outlined" data-icon="home">home</span>
+        <a class="inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200 bg-white text-slate-600 hover:text-secondary hover:border-secondary/25 transition-all shadow-sm shrink-0" href="/home" title="Volver al inicio" aria-label="Volver al inicio">
+          <span class="material-symbols-outlined" data-icon="home" style="font-size:20px;">home</span>
         </a>
         ${searchHtml}
       </div>
 
-      <div class="flex items-center gap-2 md:gap-4 shrink-0">
+      <div class="flex items-center gap-2 md:gap-3 shrink-0 ml-3">
         ${vehicleHtml}
         ${plazaHtml}
         ${preBellHtml}
-        <button type="button" data-shell-bell class="relative hover:text-secondary hover:bg-slate-100 rounded-full p-2 text-slate-400 transition-all border border-transparent" title="Alertas y notificaciones">
-          <span class="material-symbols-outlined" data-icon="notifications">notifications</span>
-          <span id="shellBellBadge" class="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center" style="display:none;">0</span>
+        <button type="button" data-shell-bell class="relative p-2 text-slate-500 hover:bg-slate-100/70 rounded-full transition-colors active:scale-95 flex items-center justify-center" title="Alertas y notificaciones">
+          <span class="material-symbols-outlined" data-icon="notifications" style="font-size:22px;">notifications</span>
+          <span id="shellBellBadge" class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full" style="display:none;"></span>
         </button>
         <div class="h-8 w-[1px] bg-slate-200"></div>
-        <button type="button" class="shell-user-trigger flex items-center gap-3 text-left" data-route="/profile" title="Abrir perfil" aria-label="Abrir perfil">
+        <button type="button" class="shell-user-trigger flex items-center gap-2 text-left" data-route="/profile" title="Abrir perfil" aria-label="Abrir perfil">
           <div class="text-right hidden lg:block">
             <p class="text-xs font-bold text-slate-700 leading-none" id="shellUserName">${escapeHtml(userName)}</p>
             <p class="text-[10px] text-secondary font-semibold" id="shellUserMeta">${roleText} · En línea</p>
           </div>
-          <div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/20" id="shellUserAvatar">
-            <span class="material-symbols-outlined text-secondary text-sm" data-icon="shield_person">shield_person</span>
+          <div class="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center border border-secondary/20 shrink-0" id="shellUserAvatar">
+            <span class="material-symbols-outlined text-secondary" data-icon="shield_person" style="font-size:16px;">shield_person</span>
           </div>
         </button>
       </div>
@@ -1083,122 +1076,67 @@ function saveSidebarState(collapsed) {
 }
 
 export function renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute = '/home') {
-  const variantKey = homeVariant(profile);
   const navGroups = sidebarGroups(profile, metrics, currentPlaza, currentRoute);
   const shellCollapsed = isDesktopShell() ? Boolean(_homeState.collapsed) : true;
   let activeGroupIndex = 0;
   let navHtml = '';
-  navGroups.forEach((group, index) => {
-    const groupLabel = escapeHtml(group.label);
-    const isGroupOpen = group.items.some(item => isRouteActive(item.route, currentRoute));
-    if (isGroupOpen) activeGroupIndex = index;
-    const groupMeta = group.label === 'Operación'
-      ? { small: 'Flujo', strong: 'Operación' }
-      : group.label === 'Navegación'
-        ? { small: 'Ir a', strong: 'Navegación' }
-        : group.label === 'Gestion'
-          ? { small: 'Control', strong: 'Gestión' }
-          : group.label === 'Programador'
-            ? { small: 'Control', strong: 'Programador' }
-            : { small: 'Cuenta', strong: 'Perfil' };
-    const groupIcon = group.label === 'Operación' || group.label === 'Navegación'
-      ? 'route'
-      : group.label === 'Gestion'
-        ? 'admin_panel_settings'
-        : group.label === 'Programador'
-          ? 'terminal'
-          : 'person';
-    navHtml += `
-      <div class="cfg-nav-group shell-sidebar-section ${isGroupOpen ? 'open' : ''}" data-nav-group="${groupLabel}" data-nav-group-index="${index}">
-        <button type="button" class="cfg-nav-group-toggle shell-sidebar-group-toggle" data-sidebar-group-toggle>
-          <span class="cfg-nav-group-copy">
-            <span class="material-symbols-outlined">${groupIcon}</span>
-            <span>
-              <small>${groupMeta.small}</small>
-              <strong>${groupMeta.strong}</strong>
-            </span>
-          </span>
-          <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
-        </button>
-        <div class="cfg-nav-group-body shell-sidebar-group-body">
-    `;
+
+  navGroups.forEach((group, gIndex) => {
+    const isGroupActive = group.items.some(item => isRouteActive(item.route, currentRoute));
+    if (isGroupActive) activeGroupIndex = gIndex;
+
     group.items.forEach(item => {
       const isActive = isRouteActive(item.route, currentRoute);
-      const activeClass = isActive ? 'is-active' : '';
-
+      const activeClasses = isActive
+        ? 'bg-emerald-500/10 text-emerald-400 border-r-4 border-emerald-500 is-active'
+        : 'text-slate-400 hover:bg-white/5 hover:text-white border-r-4 border-transparent';
       const fillStyle = isActive ? `style="font-variation-settings: 'FILL' 1;"` : '';
       const routeAttr = item.route ? `data-route="${escapeHtml(item.route)}"` : '';
       const actionAttr = item.action ? `data-action="${escapeHtml(item.action)}"` : '';
 
       navHtml += `
-        <a class="cfg-tab shell-nav-link flex items-center gap-3 px-4 py-3 transition-all duration-300 active:scale-[0.98] cursor-pointer ${activeClass}"
-           ${routeAttr}
-           ${actionAttr}>
-          <span class="cfg-tab-icon flex items-center justify-center">
-            <span class="material-symbols-outlined" data-icon="${escapeHtml(item.icon)}" ${fillStyle}>${escapeHtml(item.icon)}</span>
-          </span>
-          <span class="min-w-0 flex-1">
-            <span class="block font-sans text-sm font-semibold tracking-wide">${escapeHtml(item.label)}</span>
-            <span class="block text-[10px] leading-tight text-slate-400 truncate">${escapeHtml(item.description || '')}</span>
-          </span>
+        <a class="nav-item shell-nav-link ${activeClasses} rounded-lg py-3 px-4 flex items-center gap-3 transition-all duration-300 cursor-pointer"
+           ${routeAttr} ${actionAttr}>
+          <span class="material-symbols-outlined shrink-0" data-icon="${escapeHtml(item.icon)}" ${fillStyle}>${escapeHtml(item.icon)}</span>
+          <span class="sidebar-text font-sans text-sm font-medium tracking-wide">${escapeHtml(item.label)}</span>
         </a>
       `;
     });
-    navHtml += `
-        </div>
-      </div>
-    `;
   });
+
+  const userInitial = escapeHtml((userName[0] || 'U').toUpperCase());
 
   return `
     <!-- Mobile Overlay -->
-    <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 bg-slate-900/50 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
+    <div id="mobileOverlay" class="shell-mobile-overlay fixed inset-0 z-40 hidden opacity-0 transition-opacity duration-300 lg:hidden" style="position:fixed; z-index:900000;"></div>
 
     <!-- Persistent SideNavBar -->
-    <aside id="homeSidebar" class="cfg-v2-sidebar shell-sidebar-surface fixed inset-y-0 left-0 z-50 flex flex-col justify-between py-8 overflow-y-auto transition-all duration-300 ease-in-out ${shellCollapsed ? '' : 'is-pinned'}" data-active-nav-group-index="${activeGroupIndex}" style="--cfg-rail-collapsed:80px; --cfg-rail-expanded:260px; width:var(--shell-sidebar-width); z-index:900001; border-right:1px solid rgba(255,255,255,0.06);">
-      <div>
-        <!-- Brand Header -->
-        <div class="shell-sidebar-brand px-3 mb-6">
-          <div class="cfg-v2-sidebar-top">
-            <div class="cfg-v2-sidebar-label">
-              <span class="material-symbols-outlined">rocket_launch</span>
-              <span class="shell-sidebar-brand-copy">
-                <small>MAPA</small>
-                <strong>${escapeHtml(company)}</strong>
-              </span>
-            </div>
-          </div>
-          <div class="cfg-v2-sidebar-sublabel">Operational HQ · ${escapeHtml(roleLabel(profile))}</div>
-        </div>
+    <aside id="homeSidebar" class="glass-panel-dark text-slate-300 fixed inset-y-0 left-0 flex flex-col py-6 border-r border-slate-800 shadow-2xl transition-all duration-300 ease-in-out ${shellCollapsed ? 'shell-collapsed' : 'is-pinned'}" data-active-nav-group-index="${activeGroupIndex}" style="--cfg-rail-collapsed:80px; --cfg-rail-expanded:260px; width:var(--shell-sidebar-width); z-index:900001;">
 
-        <!-- User Info Section -->
-        <div class="shell-sidebar-user px-3 mb-6">
-          <div class="rounded-xl p-3 flex items-center gap-3" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
-            <div class="w-10 h-10 rounded-full border-2 border-secondary bg-slate-700 flex items-center justify-center text-white font-bold uppercase overflow-hidden shrink-0">
-              ${escapeHtml((userName[0] || 'U').toUpperCase())}
-            </div>
-            <div class="overflow-hidden shell-sidebar-user-copy">
-              <p class="text-white font-semibold text-sm truncate">${escapeHtml(userName)}</p>
-              <p class="text-slate-400 text-xs truncate">${escapeHtml(roleLabel(profile))}</p>
-            </div>
-          </div>
+      <!-- Brand + User Header -->
+      <div class="px-4 pb-5 flex flex-col items-center border-b border-slate-800/50 shrink-0">
+        <h1 class="sidebar-text text-base font-black text-white uppercase tracking-wider w-full text-center mb-1">${escapeHtml(company)}</h1>
+        <p class="sidebar-text text-[10px] text-slate-400 uppercase tracking-widest mb-4">${escapeHtml(roleLabel(profile))}</p>
+        <div class="w-12 h-12 rounded-full border-2 border-slate-700 bg-slate-800 flex items-center justify-center text-white font-bold uppercase overflow-hidden shrink-0 mb-2">
+          ${userInitial}
         </div>
-
-        <!-- Navigation Links -->
-        <nav class="space-y-2 px-2">
-          ${navHtml}
-        </nav>
+        <p class="sidebar-text font-medium text-white text-sm truncate max-w-full px-2 text-center">${escapeHtml(userName)}</p>
       </div>
 
+      <!-- Navigation Links -->
+      <nav class="flex-1 px-2 overflow-y-auto pt-4 space-y-1">
+        ${navHtml}
+      </nav>
+
       <!-- Footer Actions -->
-      <div class="shell-sidebar-footer px-3 mt-8">
-        <button class="w-full bg-secondary text-white py-3 px-4 rounded-xl font-bold text-sm mb-4 flex items-center justify-center gap-2 hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-secondary/20" data-route="/cola-preparacion">
-          <span class="material-symbols-outlined text-sm" data-icon="add">add</span>
-          <span class="shell-sidebar-btn-copy">Nuevo Despacho</span>
+      <div class="px-3 pt-4 border-t border-slate-800/50 pb-2 space-y-1 shrink-0">
+        <button type="button" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg font-medium shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 active:scale-95" data-route="/cola-preparacion">
+          <span class="material-symbols-outlined shrink-0" data-icon="add" style="font-size:20px;">add</span>
+          <span class="sidebar-text shell-sidebar-btn-copy text-sm">Nuevo Despacho</span>
         </button>
-        <a class="flex items-center gap-3 px-6 py-4 text-slate-400 hover:text-error transition-all duration-300 border-t border-slate-800/50 pt-6 cursor-pointer" data-action="logout">
-          <span class="material-symbols-outlined" data-icon="logout">logout</span>
-          <span class="shell-sidebar-link-copy font-sans text-sm font-medium tracking-wide">Cerrar Sesión</span>
+        <a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all duration-300 cursor-pointer" data-action="logout">
+          <span class="material-symbols-outlined shrink-0" data-icon="logout" style="font-size:20px;">logout</span>
+          <span class="sidebar-text shell-sidebar-link-copy text-sm">Cerrar Sesión</span>
         </a>
       </div>
     </aside>

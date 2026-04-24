@@ -10,7 +10,16 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: #f7f9fb;
+    background-color: #f4fbf4;
+}
+
+/* Neutralize base shell active-link styles so Tailwind classes handle visual state */
+#homeSidebar .shell-nav-link.is-active,
+#homeSidebar .shell-nav-link[aria-current="page"] {
+    background: transparent !important;
+    color: inherit !important;
+    border-left-color: transparent !important;
+    box-shadow: none !important;
 }
 
 /* Base loading resets for Tailwind */

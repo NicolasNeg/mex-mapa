@@ -576,6 +576,44 @@
     .shell-stagger-3 { animation-delay: 0.12s; }
     .shell-stagger-4 { animation-delay: 0.16s; }
 
+    /* ── New shell design ── */
+    .glass-panel-dark {
+      background: rgba(15, 23, 42, 0.97);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Hide sidebar text labels in rail (collapsed) mode */
+    #homeSidebar.shell-collapsed .sidebar-text,
+    #homeSidebar.shell-collapsed .shell-sidebar-btn-copy,
+    #homeSidebar.shell-collapsed .shell-sidebar-link-copy {
+      display: none !important;
+    }
+
+    /* Center icon-only nav items when sidebar is collapsed */
+    #homeSidebar.shell-collapsed .nav-item {
+      justify-content: center;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+      border-right-width: 0 !important;
+    }
+
+    /* Center footer buttons when collapsed */
+    #homeSidebar.shell-collapsed button[data-route],
+    #homeSidebar.shell-collapsed a[data-action] {
+      justify-content: center;
+      padding-left: 0.75rem;
+      padding-right: 0.75rem;
+    }
+
     body.dark-theme .sb-btn-dark {
       color: #8f9db5 !important;
     }
