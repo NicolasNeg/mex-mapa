@@ -1021,8 +1021,10 @@ export function bindSidebarShell(root = document, options = {}) {
       }
       try {
         const notificationsModule = await import('/js/core/notifications.js');
-        if (typeof notificationsModule?.initNotificationCenter === 'function') {
-          notificationsModule.initNotificationCenter().catch(() => {});
+        if (typeof notificationsModule?.ensureNotificationCenterReady === 'function') {
+          await notificationsModule.ensureNotificationCenterReady();
+        } else if (typeof notificationsModule?.initNotificationCenter === 'function') {
+          await notificationsModule.initNotificationCenter();
         }
         if (typeof notificationsModule?.openNotificationCenter === 'function') {
           notificationsModule.openNotificationCenter();

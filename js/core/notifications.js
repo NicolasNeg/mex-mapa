@@ -26,11 +26,96 @@ const _state = {
   lastDeviceSyncSignature: '',
   foregroundListenerBound: false,
   foregroundListenerPending: false,
-  recentNotificationIds: new Map()
+  recentNotificationIds: new Map(),
+  initialized: false,
+  autoConfigured: false
 };
 
 function _safeText(value) {
   return String(value || '').trim();
+}
+
+function _ensureNotificationAssets() {
+  if (typeof document === 'undefined') return;
+  const head = document.head || document.querySelector('head');
+  if (!head) return;
+
+  const ensureStylesheet = (id, href) => {
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = href;
+    head.appendChild(link);
+  };
+
+  ensureStylesheet('mex-notif-icons-material', 'https://fonts.googleapis.com/icon?family=Material+Icons');
+  ensureStylesheet('mex-notif-icons-symbols', 'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined');
+  ensureStylesheet('mex-notif-center-css', '/css/notificaciones.css');
+}
+
+function _fallbackCurrentUserDocId() {
+  const fromState = _safeText(_state.getCurrentUserDocId?.());
+  if (fromState) return fromState;
+  const fromProfile = _safeText(window.CURRENT_USER_PROFILE?.id || window.CURRENT_USER_PROFILE?.email);
+  if (fromProfile) return fromProfile;
+  const fromAuthEmail = _safeText(auth?.currentUser?.email || '').toLowerCase();
+  if (fromAuthEmail) return fromAuthEmail;
+  return _safeText(auth?.currentUser?.uid || '');
+}
+
+function _fallbackCurrentUserName() {
+  const fromState = _safeText(_state.getCurrentUserName?.());
+  if (fromState) return fromState;
+  return _safeText(
+    window.CURRENT_USER_PROFILE?.nombre
+    || window.CURRENT_USER_PROFILE?.usuario
+    || auth?.currentUser?.displayName
+    || auth?.currentUser?.email
+    || 'Usuario'
+  );
+}
+
+function _fallbackCurrentPlaza() {
+  const fromState = _safeText(_state.getCurrentPlaza?.());
+  if (fromState) return fromState;
+  return _safeText(
+    window.getMexCurrentPlaza?.()
+    || window.CURRENT_USER_PROFILE?.plazaAsignada
+    || window.CURRENT_USER_PROFILE?.plaza
+    || ''
+  );
+}
+
+function _ensureAutoConfiguration() {
+  if (_state.autoConfigured) return;
+  configureNotifications({
+    profileGetter: () => window.CURRENT_USER_PROFILE || null,
+    getCurrentUserName: () => _fallbackCurrentUserName(),
+    getCurrentUserDocId: () => _fallbackCurrentUserDocId(),
+    getCurrentPlaza: () => _fallbackCurrentPlaza(),
+    toast: (msg) => {
+      const text = _safeText(msg);
+      if (!text) return;
+      if (typeof window.showToast === 'function') {
+        window.showToast(text);
+        return;
+      }
+      console.log(text);
+    },
+    routeHandlers: {
+      openBuzon: () => { window.location.href = '/mensajes'; },
+      openChat: (chatUser = '') => {
+        const safeUser = _safeText(chatUser);
+        window.location.href = safeUser
+          ? `/mensajes?notif=chat&chatUser=${encodeURIComponent(safeUser)}`
+          : '/mensajes';
+      },
+      openCuadre: () => { window.location.href = '/cuadre'; },
+      openAlerts: () => { window.location.href = '/mapa?notif=alerts'; }
+    }
+  });
+  _state.autoConfigured = true;
 }
 
 function _normalizeUpper(value) {
@@ -346,6 +431,7 @@ function _bindForegroundMessaging() {
 }
 
 function _ensureNotificationCenterDom() {
+  _ensureNotificationAssets();
   if (document.getElementById('notifications-center-modal')) return;
   const wrapper = document.createElement('div');
   wrapper.innerHTML = `
@@ -1186,6 +1272,7 @@ function _bindNotificationLifecycle() {
 }
 
 export async function initNotificationCenter() {
+  _ensureAutoConfiguration();
   _ensureNotificationCenterDom();
   _ensureSidebarButton();
   _bindNotificationLifecycle();
@@ -1218,6 +1305,18 @@ export async function initNotificationCenter() {
     }, 2500);
   }
   _renderNotificationCenter();
+  _state.initialized = true;
+}
+
+export async function ensureNotificationCenterReady() {
+  _ensureAutoConfiguration();
+  if (!_state.initialized) {
+    await initNotificationCenter();
+    return;
+  }
+  _ensureNotificationCenterDom();
+  _ensureSidebarButton();
+  await syncDeviceFocusState({ force: true }).catch(() => {});
 }
 
 export function teardownNotificationCenter() {
