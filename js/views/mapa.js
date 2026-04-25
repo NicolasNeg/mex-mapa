@@ -4176,6 +4176,29 @@ function dibujarMapaCompleto(estructura = null) {
   grid.appendChild(fragment);
   _bindMapDropZones();
 
+  // ── DIAGNÓSTICO CSS ──────────────────────────────────────────
+  setTimeout(() => {
+    const content = document.querySelector('.content');
+    const mainStage = document.getElementById('mapaMainStage');
+    const g = document.getElementById('grid-map');
+    const stage = document.getElementById('map-stage');
+    const cs = content ? getComputedStyle(content) : null;
+    const ms = mainStage ? getComputedStyle(mainStage) : null;
+    console.log('[MAPA-CSS] mainStage:', {
+      h: mainStage?.offsetHeight, w: mainStage?.offsetWidth,
+      display: ms?.display, overflow: ms?.overflow, visibility: ms?.visibility
+    });
+    console.log('[MAPA-CSS] content:', {
+      h: content?.offsetHeight, w: content?.offsetWidth,
+      display: cs?.display, overflow: cs?.overflow, visibility: cs?.visibility,
+      paddingTop: cs?.paddingTop
+    });
+    console.log('[MAPA-CSS] grid cells:', g?.children.length, '| grid h:', g?.offsetHeight, 'w:', g?.offsetWidth);
+    console.log('[MAPA-CSS] stage:', { h: stage?.offsetHeight, w: stage?.offsetWidth });
+    console.log('[MAPA-CSS] --shell-sidebar-width:', getComputedStyle(document.documentElement).getPropertyValue('--shell-sidebar-width'));
+    console.log('[MAPA-CSS] html classes:', document.documentElement.className);
+  }, 500);
+
   _ajustarViewportMapa();
 
   if (_ultimaFlotaMapa.length) sincronizarMapa(_ultimaFlotaMapa, { immediate: true });
