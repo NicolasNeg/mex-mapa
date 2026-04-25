@@ -1025,6 +1025,7 @@
   }
 
   function releaseOverlay() {
+    console.log('[BOOTSTRAP-DEBUG] releaseOverlay() fired — removiendo mex-app-booting');
     document.documentElement.classList.remove('mex-app-booting');
     const overlay = document.getElementById('mexAppBootstrapOverlay');
     if (!overlay) return;

@@ -1222,6 +1222,7 @@ function _setSessionProfile(profile) {
 
 function _inyectarSidebar() {
   const container = document.getElementById('mapaLeftSidebarContainer');
+  console.log('[MAPA-DEBUG] _inyectarSidebar →', { container: !!container, profile: !!currentUserProfile });
   if (!container || !currentUserProfile) return;
   const companyName = window.MEX_CONFIG?.empresa?.nombre || APP_DEFAULT_COMPANY_NAME;
   const activeMetrics = ((window._supervisionData || _supervisionData || {})[PLAZA_ACTIVA_MAPA]) || {};
@@ -2192,6 +2193,7 @@ function formatearFechaDocumento(fechaTexto) {
 
 // Handler único: valida por email (funciona con Google y email/contraseña)
 auth.onAuthStateChanged(async (user) => {
+  console.log('[MAPA-DEBUG] onAuthStateChanged →', user ? `user=${user.email}` : 'null (no sesión)', { path: window.location.pathname });
   if (SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
     console.info('[MEX-ROUTE] mapa.js bootstrap omitido en ruta standalone:', window.location.pathname);
     return;
@@ -2314,6 +2316,7 @@ auth.onAuthStateChanged(async (user) => {
       });
     }
     // iniciarApp fuera del try/catch: errores de UI no deben redirigir a /login
+    console.log('[MAPA-DEBUG] Llamando iniciarApp() →', { profile: currentUserProfile?.email, plaza: PLAZA_ACTIVA_MAPA });
     iniciarApp(true);
   } else {
     // Sin sesión — redirigir a /login
@@ -3533,6 +3536,7 @@ function _bindGlobalShortcuts() {
 }
 
 function init() {
+  console.log('[MAPA-DEBUG] init() →', { map_stage: !!document.getElementById('map-stage'), grid_map: !!document.getElementById('grid-map'), content: !!document.querySelector('.content') });
   startAutoRefresh();
   updateZoom();
   _ajustarViewportMapa();
@@ -3576,6 +3580,7 @@ function startAutoRefresh() {
   }
 
   if (typeof _api.suscribirEstructuraMapa === 'function') {
+    console.log('[MAPA-DEBUG] suscribirEstructuraMapa disponible — iniciando suscripción', { plaza: plazaActiva || '(sin plaza)' });
     _unsubMapaEstructura = _api.suscribirEstructuraMapa(estructura => {
       console.log('[MEX-INTEG] estructura recibida →', { celdas: estructura?.length, plaza: plazaActiva });
       _persistMapStructureCache(estructura, plazaActiva);
@@ -4105,6 +4110,7 @@ function _spotValueFromElement(el) {
 }
 
 function dibujarMapaCompleto(estructura = null) {
+  console.log('[MAPA-DEBUG] dibujarMapaCompleto →', { estructuraLen: Array.isArray(estructura) ? estructura.length : 'null/no-array', plaza: _miPlaza() || '(sin plaza)', grid: !!document.getElementById('grid-map') });
   const grid = document.getElementById("grid-map");
   if (!grid) return Promise.resolve();
 
