@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="es" data-page-title="Gestión de Flota" data-page-description="Consola dedicada de gestion de flota de %COMPANY%">
+<html lang="es" data-page-title="Cuadre de Flota"
+  data-page-description="Consola dedicada de gestión de flota de %COMPANY%">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,109 +9,147 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Gestión de flota">
+  <meta name="apple-mobile-web-app-title" content="Cuadre">
   <meta name="description" content="Consola dedicada de gestión de flota">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/logo.png">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/css/global.css">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
-  <script src="/js/core/app-bootstrap.js"></script>
 
-  <title>Gestión de flota</title><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        colors: {
-          primary: "#182442",
-          "primary-container": "#2e3a59",
-          surface: "#faf8ff",
-          "surface-container": "#eaedff",
-          "surface-container-high": "#e2e7ff",
-          "surface-container-low": "#f2f3ff",
-          "surface-container-lowest": "#ffffff",
-          "surface-variant": "#dae2fd",
-          secondary: "#3c55bf",
-          "on-primary": "#ffffff",
-          "on-surface": "#131b2e",
-          "on-surface-variant": "#45464e",
-          "on-primary-fixed-variant": "#3a4666",
-          "on-secondary": "#ffffff",
-          "on-secondary-fixed": "#001356",
-          "on-secondary-fixed-variant": "#1f3ba6",
-          "on-error": "#ffffff",
-          error: "#ba1a1a",
-          "error-container": "#ffdad6",
-          "on-error-container": "#93000a"
-        },
-        fontFamily: {
-          sans: ["Inter", "sans-serif"],
-          body: ["Inter", "sans-serif"],
-          display: ["Inter", "sans-serif"]
-        }
-      }
+  <title>Cuadre · Flota</title>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #f8fafc;
     }
-  };
-</script>
+
+    /* ── Loader ── */
+    #cuadreLoader {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #060e1c 0%, #0c1e3a 55%, #07152b 100%);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+      transition: opacity 0.4s ease;
+    }
+    #cuadreLoader.ready {
+      opacity: 0;
+      pointer-events: none;
+    }
+    #cuadreLoader.hidden {
+      display: none;
+    }
+    .cuadre-loader-logo {
+      width: 56px;
+      height: 56px;
+      border-radius: 16px;
+      background: rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .cuadre-loader-logo img {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+      opacity: 0.9;
+    }
+    .cuadre-loader-text {
+      color: rgba(255,255,255,0.75);
+      font-family: 'Inter', system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .cuadre-loader-spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(255,255,255,0.12);
+      border-top-color: rgba(255,255,255,0.75);
+      border-radius: 50%;
+      animation: cuadreSpin 0.85s linear infinite;
+    }
+    @keyframes cuadreSpin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ── Iframe ── */
+    #cuadreFrame {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: none;
+      background: #f8fafc;
+    }
+  </style>
 </head>
-<body class="flex flex-col min-h-screen">
-  <div class="cuadre-route-shell flex-1 overflow-auto">
-    <div class="cuadre-route-toolbar absolute top-4 left-4 right-4 z-10 flex flex-col md:flex-row items-start justify-between gap-4 pointer-events-none">
-      <div class="cuadre-route-toolbar-card bg-black/70 backdrop-blur-md border border-gray-300/20 rounded-2xl p-4 md:p-5 text-white">
-        <strong>Consola rápida de cuadre</strong>
-        <p id="cuadreRouteHint">Abrimos la misma flota operativa de `/mapa`, pero con accesos directos para resumen, reporte diario y predicción sin andar buscando dentro del modal.</p>
-      </div>
-      <div class="cuadre-route-actions flex flex-wrap gap-2 pointer-events-auto">
-        <button id="cuadreActionResumen" class="cuadre-route-action is-primary rounded-full border border-white/20 bg-indigo-600 text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-wait" type="button" disabled>
-            <span class="material-icons">summarize</span>
-            Resumen
-          </button>
-        <button id="cuadreActionActividad" class="cuadre-route-action rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-wait" type="button" disabled>
-            <span class="material-icons">receipt_long</span>
-            Reporte diario
-          </button>
-        <button id="cuadreActionPrediccion" class="cuadre-route-action is-accent rounded-full border border-white/20 bg-green-600 text-white hover:bg-green-500 disabled:opacity-50 disabled:cursor-wait" type="button" disabled>
-            <span class="material-icons">query_stats</span>
-            Predicción
-          </button>
-        <button id="cuadreActionCola" class="cuadre-route-action rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/20" type="button">
-            <span class="material-icons">format_list_bulleted</span>
-            Cola preparación
-          </button>
-        <button id="cuadreActionMapa" class="cuadre-route-action rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/20" type="button">
-            <span class="material-icons">map</span>
-            Mapa
-          </button>
-      </div>
-    </div>
 
-    <div id="cuadreRouteLoader" class="cuadre-route-loader">
-      <div class="cuadre-route-loader-card">
-        <div class="cuadre-route-spinner"></div>
-        <div class="cuadre-route-kicker">Gestión de flota</div>
-        <h1 class="cuadre-route-title">Preparando patio</h1>
-        <p class="cuadre-route-copy">Estamos cargando la consola dedicada de flota con la información operativa más reciente.</p>
-      </div>
-    </div>
+<body>
 
-    <iframe
-        id="cuadreRouteFrame"
-        class="cuadre-route-frame flex-1 w-full h-full"
-        title="Gestión de flota"
-        loading="eager"
-        allow="geolocation; clipboard-read; clipboard-write"
-        referrerpolicy="same-origin"></iframe>
+  <!-- Loader mientras carga el frame -->
+  <div id="cuadreLoader">
+    <div class="cuadre-loader-logo">
+      <img src="/img/logo.png" alt="MEX">
+    </div>
+    <div class="cuadre-loader-text">Cargando consola de flota…</div>
+    <div class="cuadre-loader-spinner"></div>
   </div>
 
-  <script type="module" src="/js/views/cuadre.js"></script>
+  <iframe
+    id="cuadreFrame"
+    title="Consola de flota"
+    loading="eager"
+    allow="geolocation; clipboard-read; clipboard-write"
+    referrerpolicy="same-origin">
+  </iframe>
+
+  <script src="/js/core/database.js" type="module"></script>
+  <script type="module">
+    import { auth } from '/js/core/database.js';
+
+    const loader  = document.getElementById('cuadreLoader');
+    const frame   = document.getElementById('cuadreFrame');
+
+    function buildFrameUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab') || 'normal';
+      return `/mapa?fleet=1&tab=${encodeURIComponent(tab)}`;
+    }
+
+    function hideLoader() {
+      if (!loader) return;
+      loader.classList.add('ready');
+      setTimeout(() => loader.classList.add('hidden'), 420);
+    }
+
+    frame.addEventListener('load', hideLoader, { once: true });
+
+    // Fallback: si el frame tarda más de 12s, ocultamos el loader de todas formas
+    setTimeout(hideLoader, 12000);
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.replace('/login');
+        return;
+      }
+      frame.src = buildFrameUrl();
+    });
+  </script>
+
 </body>
 </html>
