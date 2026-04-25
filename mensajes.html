@@ -56,14 +56,15 @@
     #login-overlay, #admin-sidebar, #map-stage, #info-panel,
     .overlay { display: none !important; }
 
-    /* El buzón vive dentro del shell global — ocupa todo el main stage */
+    /* El buzón ocupa el main stage: descontar los 64px del topbar (pt-16) */
     #buzon-modal {
       position: relative !important;
       inset: auto !important;
       display: flex !important;
+      flex-direction: column !important;
       z-index: 1 !important;
-      height: 100vh !important;
-      min-height: 100vh !important;
+      height: calc(100vh - 64px) !important;
+      min-height: calc(100vh - 64px) !important;
       border-radius: 0 !important;
     }
   </style>

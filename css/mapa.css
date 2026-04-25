@@ -332,11 +332,11 @@
 
     .content {
       flex: 1;
+      min-height: 0; /* Allow flex child to scroll instead of overflow parent */
       width: 100%;
       background: var(--bg-viewport);
       position: relative;
       overflow: auto;
-      height: auto;
       box-sizing: border-box;
       padding: clamp(10px, 1.8vw, 24px);
       padding-top: 84px;
