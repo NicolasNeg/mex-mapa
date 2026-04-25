@@ -3086,36 +3086,26 @@ function _getPlazaSwitchOverlay() {
   if (overlay) return overlay;
   overlay = document.createElement('div');
   overlay.id = 'plaza-switch-loader';
-  overlay.style.cssText = 'display:none;position:fixed;right:16px;top:84px;z-index:76000;pointer-events:none;padding:0;';
+  overlay.style.cssText = 'display:none;position:fixed;right:14px;top:82px;z-index:76000;pointer-events:none;padding:0;';
   overlay.innerHTML = `
-    <div style="min-width:min(92vw,320px);max-width:340px;background:rgba(15,23,42,0.96);color:white;border:1px solid rgba(148,163,184,0.22);border-radius:18px;padding:14px 16px;box-shadow:0 16px 40px rgba(15,23,42,0.28);display:grid;gap:8px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span class="material-icons spinner" style="font-size:20px;color:#38bdf8;">sync</span>
-        <div style="display:grid;gap:2px;">
-          <div id="plaza-switch-loader-title" style="font-size:14px;font-weight:900;letter-spacing:.02em;">Cargando plaza</div>
-          <div id="plaza-switch-loader-sub" style="font-size:11px;color:#cbd5e1;font-weight:600;">Preparando datos operativos...</div>
-        </div>
-      </div>
-      <div id="plaza-switch-loader-meta" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+    <div style="min-width:190px;max-width:min(90vw,260px);background:rgba(15,23,42,0.9);color:#e2e8f0;border:1px solid rgba(148,163,184,0.28);border-radius:999px;padding:8px 12px;box-shadow:0 10px 26px rgba(15,23,42,0.22);display:flex;align-items:center;gap:8px;">
+      <span class="material-icons spinner" style="font-size:17px;color:#38bdf8;">sync</span>
+      <div id="plaza-switch-loader-title" style="font-size:12px;font-weight:800;letter-spacing:.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Sincronizando plaza...</div>
+      <div id="plaza-switch-loader-meta" style="margin-left:auto;padding:2px 7px;border-radius:999px;background:rgba(30,41,59,0.65);font-size:10px;font-weight:800;color:#cbd5e1;">0%</div>
     </div>
   `;
   document.body.appendChild(overlay);
   return overlay;
 }
 
-function _setPlazaSwitchLoading(active, { plaza = '', text = '', subtext = '', structure = false, units = false } = {}) {
+function _setPlazaSwitchLoading(active, { plaza = '', text = '', structure = false, units = false } = {}) {
   const overlay = _getPlazaSwitchOverlay();
   const title = overlay.querySelector('#plaza-switch-loader-title');
-  const sub = overlay.querySelector('#plaza-switch-loader-sub');
   const meta = overlay.querySelector('#plaza-switch-loader-meta');
-  if (title) title.textContent = text || (plaza ? `Cargando ${plaza}` : 'Cargando plaza');
-  if (sub) sub.textContent = subtext || 'Preparando datos operativos...';
+  if (title) title.textContent = text || (plaza ? `Sincronizando ${plaza}...` : 'Sincronizando plaza...');
   if (meta) {
-    meta.innerHTML = [
-      plaza ? `<span style="padding:6px 10px;border-radius:999px;background:rgba(14,165,233,0.18);color:#7dd3fc;font-size:11px;font-weight:900;">${escapeHtml(plaza)}</span>` : '',
-      `<span style="padding:6px 10px;border-radius:999px;background:${structure ? 'rgba(16,185,129,0.18)' : 'rgba(148,163,184,0.16)'};color:${structure ? '#6ee7b7' : '#cbd5e1'};font-size:11px;font-weight:800;">${structure ? 'Estructura lista' : 'Estructura...'}</span>`,
-      `<span style="padding:6px 10px;border-radius:999px;background:${units ? 'rgba(59,130,246,0.18)' : 'rgba(148,163,184,0.16)'};color:${units ? '#93c5fd' : '#cbd5e1'};font-size:11px;font-weight:800;">${units ? 'Unidades listas' : 'Unidades...'}</span>`
-    ].filter(Boolean).join('');
+    const progress = (structure ? 50 : 0) + (units ? 50 : 0);
+    meta.textContent = `${progress}%`;
   }
   overlay.style.display = active ? 'flex' : 'none';
 }
@@ -3135,17 +3125,14 @@ function _beginPlazaSwitchLoading(plaza, cacheState = {}) {
   };
   _setPlazaSwitchLoading(true, {
     plaza,
-    text: `Cambiando a ${plaza}`,
-    subtext: cacheState.hydrated
-      ? 'Mostrando caché local y sincronizando en vivo...'
-      : 'Consultando configuración y mapa operativo...',
+    text: `Sincronizando ${plaza}...`,
     structure: _plazaSwitchState.structureReady,
     units: _plazaSwitchState.unitsReady
   });
   if (_plazaSwitchState.structureReady && _plazaSwitchState.unitsReady) {
     _plazaSwitchState.hideTimer = setTimeout(() => {
       if (_plazaSwitchState.token === token) _setPlazaSwitchLoading(false);
-    }, 220);
+    }, 180);
   }
   return token;
 }
@@ -3157,10 +3144,9 @@ function _markPlazaSwitchReady(plaza, part) {
   if (part === 'units') _plazaSwitchState.unitsReady = true;
   _setPlazaSwitchLoading(true, {
     plaza: plazaUp,
-    text: `Cambiando a ${plazaUp}`,
-    subtext: (_plazaSwitchState.structureReady && _plazaSwitchState.unitsReady)
-      ? 'Sincronización completada.'
-      : 'Sincronizando vista operativa...',
+    text: (_plazaSwitchState.structureReady && _plazaSwitchState.unitsReady)
+      ? `${plazaUp} lista`
+      : `Sincronizando ${plazaUp}...`,
     structure: _plazaSwitchState.structureReady,
     units: _plazaSwitchState.unitsReady
   });
@@ -3168,7 +3154,7 @@ function _markPlazaSwitchReady(plaza, part) {
     if (_plazaSwitchState.hideTimer) clearTimeout(_plazaSwitchState.hideTimer);
     _plazaSwitchState.hideTimer = setTimeout(() => {
       if (_plazaSwitchState.plaza === plazaUp) _setPlazaSwitchLoading(false);
-    }, 260);
+    }, 220);
   }
 }
 
