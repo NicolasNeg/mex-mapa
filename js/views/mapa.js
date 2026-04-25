@@ -1222,7 +1222,6 @@ function _setSessionProfile(profile) {
 
 function _inyectarSidebar() {
   const container = document.getElementById('mapaLeftSidebarContainer');
-  console.log('[MAPA-DEBUG] _inyectarSidebar →', { container: !!container, profile: !!currentUserProfile });
   if (!container || !currentUserProfile) return;
   const companyName = window.MEX_CONFIG?.empresa?.nombre || APP_DEFAULT_COMPANY_NAME;
   const activeMetrics = ((window._supervisionData || _supervisionData || {})[PLAZA_ACTIVA_MAPA]) || {};
@@ -2193,7 +2192,6 @@ function formatearFechaDocumento(fechaTexto) {
 
 // Handler único: valida por email (funciona con Google y email/contraseña)
 auth.onAuthStateChanged(async (user) => {
-  console.log('[MAPA-DEBUG] onAuthStateChanged →', user ? `user=${user.email}` : 'null (no sesión)', { path: window.location.pathname });
   if (SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
     console.info('[MEX-ROUTE] mapa.js bootstrap omitido en ruta standalone:', window.location.pathname);
     return;
@@ -2316,7 +2314,6 @@ auth.onAuthStateChanged(async (user) => {
       });
     }
     // iniciarApp fuera del try/catch: errores de UI no deben redirigir a /login
-    console.log('[MAPA-DEBUG] Llamando iniciarApp() →', { profile: currentUserProfile?.email, plaza: PLAZA_ACTIVA_MAPA });
     iniciarApp(true);
   } else {
     // Sin sesión — redirigir a /login
@@ -2437,7 +2434,6 @@ if (_authPassEl) {
 
 
 function iniciarApp(esNuevoLogin = true) {
-  console.log('[DEBUG] iniciarApp', { role: userAccessRole, profile: currentUserProfile?.email, canAdmin: canOpenAdminPanel(), apiKeys: Object.keys(window.api || {}).length });
   // Asegurar que overlays de carga no bloqueen la UI
   document.documentElement.classList.remove('mex-app-booting');
   const _locGate = document.getElementById('mexLocationGateOverlay');
@@ -3536,7 +3532,6 @@ function _bindGlobalShortcuts() {
 }
 
 function init() {
-  console.log('[MAPA-DEBUG] init() →', { map_stage: !!document.getElementById('map-stage'), grid_map: !!document.getElementById('grid-map'), content: !!document.querySelector('.content') });
   startAutoRefresh();
   updateZoom();
   _ajustarViewportMapa();
@@ -3580,9 +3575,7 @@ function startAutoRefresh() {
   }
 
   if (typeof _api.suscribirEstructuraMapa === 'function') {
-    console.log('[MAPA-DEBUG] suscribirEstructuraMapa disponible — iniciando suscripción', { plaza: plazaActiva || '(sin plaza)' });
     _unsubMapaEstructura = _api.suscribirEstructuraMapa(estructura => {
-      console.log('[MEX-INTEG] estructura recibida →', { celdas: estructura?.length, plaza: plazaActiva });
       _persistMapStructureCache(estructura, plazaActiva);
       _mapaRuntime.estructuraReady = true;
       _markPlazaSwitchReady(plazaActiva, 'structure');
@@ -4110,7 +4103,6 @@ function _spotValueFromElement(el) {
 }
 
 function dibujarMapaCompleto(estructura = null) {
-  console.log('[MAPA-DEBUG] dibujarMapaCompleto →', { estructuraLen: Array.isArray(estructura) ? estructura.length : 'null/no-array', plaza: _miPlaza() || '(sin plaza)', grid: !!document.getElementById('grid-map') });
   const grid = document.getElementById("grid-map");
   if (!grid) return Promise.resolve();
 
@@ -4175,29 +4167,6 @@ function dibujarMapaCompleto(estructura = null) {
   });
   grid.appendChild(fragment);
   _bindMapDropZones();
-
-  // ── DIAGNÓSTICO CSS ──────────────────────────────────────────
-  setTimeout(() => {
-    const content = document.querySelector('.content');
-    const mainStage = document.getElementById('mapaMainStage');
-    const g = document.getElementById('grid-map');
-    const stage = document.getElementById('map-stage');
-    const cs = content ? getComputedStyle(content) : null;
-    const ms = mainStage ? getComputedStyle(mainStage) : null;
-    console.log('[MAPA-CSS] mainStage:', {
-      h: mainStage?.offsetHeight, w: mainStage?.offsetWidth,
-      display: ms?.display, overflow: ms?.overflow, visibility: ms?.visibility
-    });
-    console.log('[MAPA-CSS] content:', {
-      h: content?.offsetHeight, w: content?.offsetWidth,
-      display: cs?.display, overflow: cs?.overflow, visibility: cs?.visibility,
-      paddingTop: cs?.paddingTop
-    });
-    console.log('[MAPA-CSS] grid cells:', g?.children.length, '| grid h:', g?.offsetHeight, 'w:', g?.offsetWidth);
-    console.log('[MAPA-CSS] stage:', { h: stage?.offsetHeight, w: stage?.offsetWidth });
-    console.log('[MAPA-CSS] --shell-sidebar-width:', getComputedStyle(document.documentElement).getPropertyValue('--shell-sidebar-width'));
-    console.log('[MAPA-CSS] html classes:', document.documentElement.className);
-  }, 500);
 
   _ajustarViewportMapa();
 
@@ -4330,7 +4299,12 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
     ? unitVm.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')
     : "sucio";
 
-  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}<div style="display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; pointer-events:none;"><span style="font-size:19px; flex:1; display:flex; align-items:center;">${unitVm.mva}</span>${gasBarHtml}</div>`;
+  const estadoSidebar = unitVm.isInTransit ? 'EN TRASLADO' : (unitVm.estado || 'DISPONIBLE');
+  const placasSide = unitVm.placas ? `<span class="car-sb-chip"><span class="material-icons" style="font-size:11px;vertical-align:middle;">pin</span> ${unitVm.placas}</span>` : '';
+  const modeloSide = unitVm.modelo ? `<span class="car-sb-chip"><span class="material-icons" style="font-size:11px;vertical-align:middle;">directions_car</span> ${unitVm.modelo}</span>` : '';
+  const metaSide = (placasSide || modeloSide) ? `<div class="car-sb-meta">${placasSide}${modeloSide}</div>` : '';
+  const sidebarBody = `<div class="car-sidebar-body"><div class="car-sb-main"><span class="car-sb-mva">${unitVm.mva}</span><span class="car-sb-badge car-sb-badge--${estadoClase}">${estadoSidebar}</span></div>${metaSide}</div>`;
+  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}<div class="car-map-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;"><span style="font-size:19px;flex:1;display:flex;align-items:center;">${unitVm.mva}</span>${gasBarHtml}</div>${sidebarBody}`;
   car.className = `car ${estadoClase}`;
   if (esGhost) car.classList.add('ghost');
   if (esForgotten) car.classList.add('forgotten');
@@ -4977,7 +4951,8 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   let divider = removeActions !== "" ? `<div style="height:1px; background:#e2e8f0; margin:5px 0;"></div>` : "";
 
   // DIBUJAR BOTONES
-  const btnGrid = document.querySelector('#info-panel div[style*="grid-template-columns"]');
+  const btnGrid = document.getElementById('infoPanelBtnGrid');
+  if (!btnGrid) return;
   btnGrid.style.gridTemplateColumns = "1fr 1fr 1fr";
   let btnLimboStyle = (loc === "unidades-limbo" || loc === "unidades-taller") ? "opacity: 0.5; pointer-events: none;" : "cursor:pointer;";
 
@@ -15097,7 +15072,7 @@ function mostrarDetalleGlobal(d) {
             ${d.notas ? `<div class="nota-display" style="display:block; margin-top:15px; background:#fffbeb; border-left:4px solid #fbbf24;">📝 ${d.notas}</div>` : ''}
         </div>
     `;
-  const btnGrid = document.querySelector('#info-panel div[style*="grid-template-columns"]');
+  const btnGrid = document.getElementById('infoPanelBtnGrid');
   if (btnGrid) btnGrid.innerHTML = `<button onclick="cerrarPanel()" style="grid-column: span 3; padding:18px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer;">ENTENDIDO</button>`;
   panel.classList.add('open');
 }
