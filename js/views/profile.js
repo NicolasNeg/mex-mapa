@@ -50,6 +50,12 @@ let _profileSectionObserver = null;
 
 function _mountProfileShell() {
   if (!_profile) return null;
+  const appRoot = document.getElementById('profileApp');
+  if (appRoot) {
+    // La ruta profile vive dentro del shell global: en móvil priorizamos ancho completo.
+    appRoot.classList.remove('max-w-7xl', 'mx-auto');
+    appRoot.classList.add('w-full', 'px-3', 'sm:px-6', 'lg:px-8', 'py-6', 'md:py-8');
+  }
   return ensureRouteShellLayout({
     appRootId: 'profileApp',
     layoutId: 'profileShellLayout',
@@ -63,6 +69,7 @@ function _mountProfileShell() {
     metrics: {
       focus: _normalizePlaza(window.getMexCurrentPlaza?.() || _profile.plazaAsignada || _profile.plaza || '')
     },
+    mainClass: 'pb-24 md:pb-12',
     searchId: 'profileRouteSearchInput',
     plazaSelectId: 'profileRoutePlazaSelect',
     searchPlaceholder: 'Buscar unidad, ruta o modulo...'

@@ -482,4 +482,127 @@
                     <input id="profile-quiet-end" class="w-full bg-slate-50 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-white rounded-lg text-sm px-3 py-2" type="time" value="07:00"/>
                   </div>
                 </div>
-                <p id="profile-notif-meta" class="text-xs text-slate-4... (truncated)
+                <p id="profile-notif-meta" class="text-xs text-slate-400 dark:text-slate-500">Push activo · Sin eventos recientes</p>
+                <button id="profile-notif-center-btn" class="mt-2 inline-flex items-center gap-2 text-secondary dark:text-indigo-400 text-sm font-semibold hover:underline" type="button">
+                  <span class="material-symbols-outlined text-[18px]">notifications</span>
+                  Abrir centro de notificaciones
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="bg-surface-container-lowest dark:bg-slate-900 rounded-2xl overflow-hidden shadow-[0px_10px_15px_-3px_rgba(46,58,89,0.05)] border border-slate-100 dark:border-slate-800" id="profile-section-accesos">
+          <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+            <h2 class="font-h2 text-h2 text-slate-900 dark:text-white">Resumen de Accesos</h2>
+            <span class="text-label-sm text-indigo-700 bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 px-2 py-1 rounded hidden" id="profile-admin-chip">Admin</span>
+          </div>
+          <div class="p-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-1">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Rol operativo</p>
+              <p id="profile-access-role" class="text-sm font-semibold text-slate-900 dark:text-white">-</p>
+            </div>
+            <div class="space-y-1">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Nivel</p>
+              <p id="profile-access-level" class="text-sm font-semibold text-slate-900 dark:text-white">-</p>
+            </div>
+            <div class="space-y-1 md:col-span-2">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Módulos habilitados</p>
+              <p id="profile-access-modules" class="text-sm text-slate-700 dark:text-slate-300">-</p>
+            </div>
+            <div class="space-y-1 md:col-span-2">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Cobertura de plazas</p>
+              <p id="profile-access-plazas" class="text-sm text-slate-700 dark:text-slate-300">-</p>
+            </div>
+            <div class="space-y-1 md:col-span-2">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Alcance</p>
+              <p id="profile-access-scope" class="text-sm text-slate-700 dark:text-slate-300">-</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="bg-surface-container-lowest dark:bg-slate-900 rounded-2xl overflow-hidden shadow-[0px_10px_15px_-3px_rgba(46,58,89,0.05)] border border-slate-100 dark:border-slate-800" id="profile-section-atajos">
+          <div class="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+            <h2 class="font-h2 text-h2 text-slate-900 dark:text-white">Atajos de Navegación</h2>
+          </div>
+          <div class="p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <a href="/home" class="profile-shortcut-card rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-secondary/40 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Inicio</p>
+              <p class="font-semibold text-slate-900 dark:text-white mt-1">Dashboard</p>
+            </a>
+            <a href="/mapa" class="profile-shortcut-card rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-secondary/40 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Operación</p>
+              <p class="font-semibold text-slate-900 dark:text-white mt-1">Mapa</p>
+            </a>
+            <a href="/mensajes" class="profile-shortcut-card rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-secondary/40 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Comunicación</p>
+              <p class="font-semibold text-slate-900 dark:text-white mt-1">Mensajes</p>
+            </a>
+            <a href="/cuadre" class="profile-shortcut-card rounded-xl border border-slate-200 dark:border-slate-700 p-4 hover:border-secondary/40 hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all">
+              <p class="text-xs uppercase tracking-wide text-slate-500">Inventario</p>
+              <p class="font-semibold text-slate-900 dark:text-white mt-1">Cuadres</p>
+            </a>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div class="fixed bottom-5 right-5 z-40">
+    <button id="profile-save-btn" type="button" class="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-white font-bold px-5 py-3 rounded-xl shadow-lg transition-all">
+      <span class="material-icons">save</span>
+      Guardar cambios
+    </button>
+  </div>
+
+  <input id="profile-avatar-input" type="file" accept="image/*" class="hidden" onchange="profile_subirAvatar(this)">
+
+  <div id="profile-crop-overlay" class="profile-crop-overlay" style="display:none;">
+    <div class="profile-crop-card">
+      <div class="profile-crop-head">
+        <div>
+          <h3 class="profile-crop-title">Ajustar foto de perfil</h3>
+          <p class="profile-crop-sub">Arrastra la imagen y usa el zoom para centrar tu avatar.</p>
+        </div>
+        <button type="button" class="profile-crop-close" onclick="profile_cancelarCrop()" aria-label="Cerrar recorte">
+          <span class="material-icons">close</span>
+        </button>
+      </div>
+
+      <div class="profile-crop-stage-wrap">
+        <div id="profile-crop-stage" class="profile-crop-stage">
+          <img id="profile-crop-img" class="profile-crop-image" alt="Recorte de avatar">
+          <div class="profile-crop-mask"></div>
+        </div>
+      </div>
+
+      <div class="profile-crop-zoom">
+        <label for="profile-crop-zoom-input">Zoom</label>
+        <input id="profile-crop-zoom-input" type="range" min="1" max="3" step="0.01" value="1" oninput="profile_ajustarZoom(this.value)">
+        <p>1x - 3x</p>
+      </div>
+
+      <div class="profile-crop-previews">
+        <div class="profile-crop-preview-item">
+          <canvas id="profile-preview-circle"></canvas>
+          <span>Avatar</span>
+        </div>
+        <div class="profile-crop-preview-item">
+          <canvas id="profile-preview-card"></canvas>
+          <span>Vista previa</span>
+        </div>
+      </div>
+
+      <div class="profile-crop-actions">
+        <button type="button" class="profile-crop-btn cancel" onclick="profile_cancelarCrop()">Cancelar</button>
+        <button id="profile-crop-save-btn" type="button" class="profile-crop-btn confirm" onclick="profile_guardarAvatar()">
+          <span class="material-icons" style="font-size:18px;">check</span>
+          Guardar Foto
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/views/profile.js"></script>
+</body>
+</html>

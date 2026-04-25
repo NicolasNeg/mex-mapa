@@ -1009,7 +1009,7 @@ export function bindSidebarShell(root = document, options = {}) {
   (root?.querySelectorAll ? root.querySelectorAll('[data-shell-bell]') : document.querySelectorAll('[data-shell-bell]')).forEach(button => {
     if (button.dataset.bound === '1') return;
     button.dataset.bound = '1';
-    button.addEventListener('click', event => {
+    button.addEventListener('click', async event => {
       event.preventDefault();
       if (typeof window._openAlertsOrNotifications === 'function') {
         window._openAlertsOrNotifications();
@@ -1019,6 +1019,16 @@ export function bindSidebarShell(root = document, options = {}) {
         window.openNotificationCenter();
         return;
       }
+      try {
+        const notificationsModule = await import('/js/core/notifications.js');
+        if (typeof notificationsModule?.initNotificationCenter === 'function') {
+          notificationsModule.initNotificationCenter().catch(() => {});
+        }
+        if (typeof notificationsModule?.openNotificationCenter === 'function') {
+          notificationsModule.openNotificationCenter();
+          return;
+        }
+      } catch (_) {}
       if (currentPlaza && typeof setActivePlaza === 'function') {
         setActivePlaza(currentPlaza);
       }
@@ -1131,7 +1141,9 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
         <div class="w-12 h-12 rounded-full border-2 border-slate-700 bg-slate-800 flex items-center justify-center text-white font-bold uppercase overflow-hidden shrink-0 mb-2">
           ${userInitial}
         </div>
-        <p class="sidebar-text font-medium text-white text-sm truncate max-w-full px-2 text-center">${escapeHtml(userName)}</p>
+        <button type="button" class="sidebar-text font-medium text-white text-sm truncate max-w-full px-2 text-center hover:text-emerald-300 transition-colors" data-route="/profile" title="Ir a mi perfil">
+          ${escapeHtml(userName)}
+        </button>
       </div>
 
       <!-- Navigation Links -->
