@@ -1022,7 +1022,7 @@ export function bindSidebarShell(root = document, options = {}) {
       if (currentPlaza && typeof setActivePlaza === 'function') {
         setActivePlaza(currentPlaza);
       }
-      window.location.href = '/mapa?notif=inbox';
+      window.location.href = buildCurrentRouteWithNotifInbox();
     });
   });
 }
@@ -1061,6 +1061,17 @@ function renderNoAccess(profile = null) {
 function navigateTo(route = '/mapa') {
   const target = safe(route) || '/mapa';
   window.location.href = target;
+}
+
+function buildCurrentRouteWithNotifInbox() {
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('notif', 'inbox');
+    return `${url.pathname}${url.search}${url.hash || ''}`;
+  } catch (_) {
+    const currentPath = window.location.pathname || '/mapa';
+    return `${currentPath}?notif=inbox`;
+  }
 }
 
 async function logoutHome() {
@@ -1130,10 +1141,6 @@ export function renderSidebarHTML(profile, metrics, currentPlaza, company, userN
 
       <!-- Footer Actions -->
       <div class="px-3 pt-4 border-t border-slate-800/50 pb-2 space-y-1 shrink-0">
-        <button type="button" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-lg font-medium shadow-lg shadow-emerald-900/20 transition-all flex items-center justify-center gap-2 active:scale-95" data-route="/cola-preparacion">
-          <span class="material-symbols-outlined shrink-0" data-icon="add" style="font-size:20px;">add</span>
-          <span class="sidebar-text shell-sidebar-btn-copy text-sm">Nuevo Despacho</span>
-        </button>
         <a class="flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all duration-300 cursor-pointer" data-action="logout">
           <span class="material-symbols-outlined shrink-0" data-icon="logout" style="font-size:20px;">logout</span>
           <span class="sidebar-text shell-sidebar-link-copy text-sm">Cerrar Sesión</span>
@@ -1197,10 +1204,6 @@ function renderHome(profile, config, metrics) {
             </p>
           </div>
           <div class="flex gap-3">
-            <button class="px-4 py-2 bg-white border border-outline-variant rounded-xl text-sm font-semibold text-on-surface flex items-center gap-2 hover:bg-surface-container transition-all" data-route="/profile">
-              <span class="material-symbols-outlined text-sm" data-icon="person">person</span>
-              Mi Perfil
-            </button>
             <button class="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold flex items-center gap-2 hover:bg-slate-800 transition-all shadow-md" onclick="window.location.reload()">
               <span class="material-symbols-outlined text-sm" data-icon="refresh">refresh</span>
               Actualizar

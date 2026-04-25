@@ -527,9 +527,7 @@ function cambiarTabFlota(tabSeleccionado) {
     btnNormal.style.color = 'white';
     btnAdmins.style.background = '#f1f5f9';
     btnAdmins.style.color = '#64748b';
-    renderFlota(DB_FLOTA);
-    document.getElementById('statTotal').innerText = DB_FLOTA.length;
-    document.getElementById('statListos').innerText = DB_FLOTA.filter(d => d.estado === 'LISTO').length;
+    cargarFlota();
   } else {
     btnAdmins.style.background = '#d97706';
     btnAdmins.style.color = 'white';
@@ -1739,7 +1737,11 @@ function _isGestionAdminMode() {
 }
 
 function _isCuadreFleetMode() {
-  return _qs('fleet') === '1' || /^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '');
+  const tab = (_qs('tab') || '').toLowerCase();
+  return _qs('fleet') === '1'
+    || /^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '')
+    || tab === 'cuadre'
+    || tab === 'cuadreadmins';
 }
 
 function _isDedicatedGestionIframeMode() {
@@ -1764,7 +1766,7 @@ function _gestionInitialTab() {
 
 function _cuadreInitialTab() {
   const raw = String(_qs('tab') || 'normal').trim().toLowerCase();
-  return raw === 'admins' ? 'ADMINS' : 'NORMAL';
+  return (raw === 'admins' || raw === 'cuadreadmins') ? 'ADMINS' : 'NORMAL';
 }
 
 function _buildGestionRouteUrl(tab = 'usuarios') {
@@ -1776,10 +1778,8 @@ function _buildGestionRouteUrl(tab = 'usuarios') {
 }
 
 function _buildCuadreRouteUrl(tab = 'normal') {
-  const params = new URLSearchParams();
-  params.set('tab', String(tab || 'normal').trim().toLowerCase() === 'admins' ? 'admins' : 'normal');
-  const query = params.toString();
-  return `/cuadre${query ? `?${query}` : ''}`;
+  const isAdmins = String(tab || 'normal').trim().toLowerCase() === 'admins';
+  return `/mapa?tab=${isAdmins ? 'cuadreadmins' : 'cuadre'}`;
 }
 
 function _navigateTop(url) {
