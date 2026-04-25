@@ -1501,13 +1501,15 @@ async function renderBoot() {
   }
 }
 
-auth.onAuthStateChanged(user => {
-  if (!user) {
-    window.location.replace('/login');
-    return;
-  }
-  renderBoot();
-});
+if ((window.location.pathname || '').replace(/\/+$/, '') === '/home') {
+  auth.onAuthStateChanged(user => {
+    if (!user) {
+      window.location.replace('/login');
+      return;
+    }
+    renderBoot();
+  });
+}
 
 // ============================================
 // Mini-Map Preview Renderer (Hero Section)

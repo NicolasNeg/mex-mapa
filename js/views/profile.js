@@ -48,6 +48,16 @@ let _profileChromeReady = false;
 let _profileTabsReady = false;
 let _profileSectionObserver = null;
 
+function _authInstance() {
+  if (auth && typeof auth.onAuthStateChanged === 'function') return auth;
+  if (window._auth && typeof window._auth.onAuthStateChanged === 'function') return window._auth;
+  try {
+    const fallback = window.firebase?.auth?.();
+    if (fallback && typeof fallback.onAuthStateChanged === 'function') return fallback;
+  } catch (_) {}
+  return null;
+}
+
 function _mountProfileShell() {
   if (!_profile) return null;
   const appRoot = document.getElementById('profileApp');
@@ -145,7 +155,8 @@ function _getProfileAvatarUrl(profile = {}) {
 }
 
 function _currentUserDocId() {
-  return _safeText(_profile?.id || _profile?.email || auth.currentUser?.uid || auth.currentUser?.email);
+  const currentAuth = _authInstance();
+  return _safeText(_profile?.id || _profile?.email || currentAuth?.currentUser?.uid || currentAuth?.currentUser?.email);
 }
 
 function _isProfileOnline(profile = _profile) {
@@ -388,6 +399,9 @@ async function _loadProfile(user) {
   _applyTheme(_profilePreferences.theme);
   window.CURRENT_USER_PROFILE = _profile;
   window.__mexSeedCurrentUserRecordCache?.(_profile, user);
+  if (typeof window.setMexCurrentUserProfile === 'function') {
+    window.setMexCurrentUserProfile(_profile);
+  }
   _bindProfileChrome();
   _initProfileTabs();
   _renderProfile();
@@ -706,10 +720,11 @@ function _bindProfileChrome() {
   });
 
   document.getElementById('profile-reset-password-btn')?.addEventListener('click', async () => {
-    const email = _safeText(_profile?.email || auth.currentUser?.email);
+    const currentAuth = _authInstance();
+    const email = _safeText(_profile?.email || currentAuth?.currentUser?.email);
     if (!email) return _showToast('No hay correo disponible para enviar el reset.', 'warning');
     try {
-      await auth.sendPasswordResetEmail(email);
+      await currentAuth?.sendPasswordResetEmail?.(email);
       _showToast('Te enviamos un correo para cambiar tu contraseña.', 'success');
     } catch (error) {
       console.error('[profile] reset password:', error);
@@ -1255,10 +1270,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-auth.onAuthStateChanged(async user => {
-  if (!user) {
-    window.location.replace('/login');
+function _bootProfileAuth(attempt = 0) {
+  const currentAuth = _authInstance();
+  if (!currentAuth) {
+    if (attempt < 20) {
+      setTimeout(() => _bootProfileAuth(attempt + 1), 150);
+      return;
+    }
+    _showToast('No se pudo inicializar la sesión para cargar el perfil.', 'error');
     return;
   }
-  await _loadProfile(user);
-});
+  currentAuth.onAuthStateChanged(async user => {
+    if (!user) {
+      window.location.replace('/login');
+      return;
+    }
+    await _loadProfile(user);
+  });
+}
+
+_bootProfileAuth();
