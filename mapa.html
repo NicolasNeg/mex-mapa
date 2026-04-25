@@ -1530,10 +1530,15 @@
     </div>
 
     <div class="map-shell-topbar-right">
-      <div id="mapSyncBadge" class="map-sync-badge sync-live" aria-live="polite">
+      <div id="mapSyncBadge" class="map-sync-badge sync-live" aria-live="polite" style="display:none;">
         <span id="mapSyncIcon" class="material-icons">cloud_done</span>
         <span id="mapSyncText">EN VIVO</span>
       </div>
+
+      <a href="/cuadre" class="map-shell-header-btn" title="Ir a Cuadre" aria-label="Ir a Cuadre" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:0 14px; min-width:auto; width:auto; font-size:12px; font-weight:700; color:#059669; letter-spacing:0.3px; border-color:rgba(16,185,129,0.3); background:#f4fbf4;">
+        <span class="material-symbols-outlined" style="font-size:18px;">calculate</span>
+        <span style="white-space:nowrap;">CUADRE</span>
+      </a>
 
       <button id="btnAdmin" onclick="toggleSidebar()" class="map-shell-header-btn map-shell-vehicle-btn" style="display:none;" title="Vehículos y unidades">
         <span class="material-icons" style="font-size:20px;">directions_car</span>
@@ -1644,7 +1649,7 @@
           Patio — Sin asignar (<span id="count-limbo">0</span>)
         </p>
         <div id="unidades-limbo"
-          style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:10px; margin-bottom:24px; min-height:50px;">
+          style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px; min-height:50px;">
         </div>
 
         <p class="sidebar-section-label taller">
@@ -1653,7 +1658,7 @@
         </p>
         <div class="sidebar-taller-box">
           <div id="unidades-taller"
-            style="display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:10px; min-height:44px;">
+            style="display:flex; flex-direction:column; gap:8px; min-height:44px;">
           </div>
         </div>
       </div>
