@@ -332,7 +332,7 @@
 
     .content {
       flex: 1;
-      min-height: 0; /* Allow flex child to scroll instead of overflow parent */
+      height: auto;
       width: 100%;
       background: var(--bg-viewport);
       position: relative;
