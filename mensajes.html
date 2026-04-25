@@ -14,6 +14,7 @@
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
@@ -53,14 +54,14 @@
     #login-overlay, #admin-sidebar, #map-stage, #info-panel,
     .overlay { display: none !important; }
 
-    /* El buzón vive dentro del shell global */
+    /* El buzón vive dentro del shell global — ocupa todo el main stage */
     #buzon-modal {
       position: relative !important;
       inset: auto !important;
       display: flex !important;
       z-index: 1 !important;
-      height: calc(100vh - 64px) !important;
-      min-height: calc(100vh - 64px) !important;
+      height: 100vh !important;
+      min-height: 100vh !important;
       border-radius: 0 !important;
     }
   </style>
@@ -259,6 +260,7 @@
   </div>
 
   <script src="/js/core/dialogs.js"></script>
+  <script type="module" src="/js/views/mensajes.js"></script>
   <script type="module" src="/js/views/mapa.js"></script>
 
 </body>

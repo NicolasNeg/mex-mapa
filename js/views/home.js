@@ -840,7 +840,7 @@ export function sidebarGroups(profile = {}, metrics = {}, currentPlaza = '', cur
 }
 
 function getSidebarShellWidth(collapsed = _homeState.collapsed) {
-  if (!isDesktopShell()) return '80px';
+  if (!isDesktopShell()) return '0px'; // mobile: sidebar never pushes content
   return collapsed ? '80px' : '260px';
 }
 
@@ -875,11 +875,13 @@ function applySidebarShellState(sidebar) {
   const collapsed = Boolean(_homeState.collapsed);
   const desktop = isDesktopShell();
   const mobileOpen = !desktop && sidebar.classList.contains('mobile-open');
-  const sidebarWidth = desktop
-    ? getSidebarShellWidth(collapsed)
-    : (mobileOpen ? getOpenMobileSidebarWidth() : getSidebarShellWidth(true));
 
-  document.documentElement.style.setProperty('--shell-sidebar-width', sidebarWidth);
+  // On desktop, --shell-sidebar-width drives content offset.
+  // On mobile, content always fills 100% (CSS hardcodes 0 offset); sidebar slides via transform.
+  if (desktop) {
+    document.documentElement.style.setProperty('--shell-sidebar-width', getSidebarShellWidth(collapsed));
+  }
+
   sidebar.classList.toggle('is-pinned', desktop && !collapsed);
   sidebar.classList.toggle('shell-collapsed', desktop ? collapsed : !mobileOpen);
 
@@ -958,9 +960,7 @@ export function bindSidebarShell(root = document, options = {}) {
         liveOverlay?.classList.add('opacity-0');
         applySidebarShellState(liveSidebar);
       } else {
-        if (!liveSidebar.classList.contains('mobile-open')) {
-          document.documentElement.style.setProperty('--shell-sidebar-width', getSidebarShellWidth(true));
-        }
+        // Mobile: no CSS var update needed; sidebar uses transform
         applySidebarShellState(liveSidebar);
       }
     });

@@ -9,6 +9,8 @@
 
 'use strict';
 
+import { ensureRouteShellLayout } from '/js/views/home.js';
+
 // ── Config ────────────────────────────────────────────────────
 
 const COLS = [
@@ -76,6 +78,12 @@ async function _cargarPerfilUsuario(user) {
       data = snap.exists ? snap.data() : {};
     }
     _currentPlaza = (data.plazaAsignada || data.plaza || '').toUpperCase().trim();
+
+    ensureRouteShellLayout({
+      appRoot: document.getElementById('incidenciasApp'),
+      profile: data,
+      currentRoute: '/incidencias'
+    });
 
     const plazaEl = document.getElementById('inc-plaza');
     if (plazaEl) plazaEl.textContent = _currentPlaza || 'GLOBAL';

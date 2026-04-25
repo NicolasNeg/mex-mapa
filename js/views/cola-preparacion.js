@@ -1,5 +1,6 @@
 import { auth, db, ACCESS_ROLE_META, COL } from '/js/core/database.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
+import { ensureRouteShellLayout } from '/js/views/home.js';
 
 const CHECKLIST_META = [
   { key: 'lavado', label: 'Lavado', hint: 'Interior y exterior listos para entrega', icon: 'cleaning_services' },
@@ -1026,6 +1027,12 @@ async function boot() {
       state.user = user;
       state.profile = await fetchUserProfile(user);
       state.role = upper(state.profile?.rol);
+
+      ensureRouteShellLayout({
+        appRoot: document.getElementById('colaApp'),
+        profile: state.profile,
+        currentRoute: '/cola-preparacion'
+      });
 
       if (!state.role) {
         showToast('Tu perfil aun no tiene rol asignado para esta vista.', 'warning');

@@ -13,6 +13,7 @@
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/incidencias.css">
 
@@ -25,22 +26,8 @@
 </head>
 <body>
 
+<div id="incidenciasApp">
 <div class="inc-shell">
-
-  <!-- ── Top bar ── -->
-  <header class="inc-topbar">
-    <a href="/mapa" class="inc-back-btn">
-      <span class="material-icons">arrow_back</span>
-      MAPA
-    </a>
-    <img src="/img/logo.png" alt="Logo" class="inc-topbar-logo">
-    <div class="inc-topbar-title">KANBAN DE INCIDENCIAS</div>
-    <div class="inc-topbar-plaza" id="inc-plaza">CARGANDO...</div>
-    <div class="inc-topbar-user">
-      <div class="inc-topbar-avatar" id="inc-avatar">--</div>
-      <span id="inc-username" style="display:none;"></span>
-    </div>
-  </header>
 
   <!-- ── Toolbar filtros ── -->
   <div class="inc-toolbar">
@@ -103,6 +90,7 @@
   </div><!-- /.inc-board -->
 
 </div><!-- /.inc-shell -->
+</div><!-- /#incidenciasApp -->
 
 <!-- ── Modal nueva incidencia ── -->
 <div class="inc-modal-overlay" id="inc-modal-nueva">

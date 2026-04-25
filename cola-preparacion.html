@@ -56,41 +56,8 @@
 
   <title>Cola de preparación</title>
 </head>
-<body class="cola-page bg-[#f1f5f9] text-[#0f172a] font-sans antialiased min-h-screen flex flex-col">
-  <header class="prep-topbar sticky top-0 z-50 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur flex items-center justify-between px-4 py-2">
-    <div class="mx-auto flex h-16 w-full max-w-[1600px] items-center justify-between gap-4 px-6">
-      <div class="flex h-full min-w-0 items-center gap-8">
-        <a class="text-xl font-black tracking-tighter text-slate-900 uppercase" href="/home">MAPA</a>
-        <nav class="hidden md:flex h-full items-end gap-6 text-sm font-medium tracking-tight">
-          <a class="pb-4 mt-1 text-slate-500 transition-colors duration-200 hover:text-slate-900" href="/home">Inicio</a>
-          <a class="pb-4 mt-1 text-slate-500 transition-colors duration-200 hover:text-slate-900" href="/mapa">Mapa</a>
-          <a class="pb-4 mt-1 border-b-2 border-slate-900 text-slate-900 transition-colors duration-200" href="/cola-preparacion">Queue</a>
-          <a class="pb-4 mt-1 text-slate-500 transition-colors duration-200 hover:text-slate-900" href="/gestion">Gestión</a>
-        </nav>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <div class="hidden xl:flex items-center gap-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2">
-          <div id="prepUserAvatar" class="prep-user-avatar">CP</div>
-          <div class="prep-user-copy">
-            <strong id="prepUserName">Cargando...</strong>
-            <span id="prepUserMeta">Validando identidad</span>
-            <span id="prepUserRole" class="prep-role-badge"></span>
-          </div>
-        </div>
-        <button class="prep-icon-btn" type="button" aria-label="Notificaciones">
-          <span class="material-symbols-outlined" style="font-size:18px;">notifications</span>
-        </button>
-        <button class="prep-icon-btn" type="button" aria-label="Configuración">
-          <span class="material-symbols-outlined" style="font-size:18px;">settings</span>
-        </button>
-        <button class="prep-icon-btn" type="button" aria-label="Ayuda">
-          <span class="material-symbols-outlined" style="font-size:18px;">help</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
+<body class="cola-page bg-[#f1f5f9] text-[#0f172a] font-sans antialiased min-h-screen">
+  <div id="colaApp">
   <main class="mx-auto flex w-full max-w-[1600px] flex-1 flex-col gap-5 px-6 py-5 lg:flex-row">
     <section class="prep-shell-left flex w-full flex-col gap-4 lg:w-[420px] lg:flex-shrink-0 lg:h-[calc(100vh-96px)] lg:overflow-hidden">
       <div class="prep-command-bar rounded-xl border border-slate-200 bg-white/70 backdrop-blur-md p-5 shadow-sm">
@@ -321,6 +288,7 @@
   </div>
 
   <div id="prepToastStack" class="prep-toast-stack" aria-live="polite"></div>
+  </div><!-- /#colaApp -->
 
   <script src="/js/core/sw-register.js"></script>
   <script type="module" src="/js/views/cola-preparacion.js"></script>
