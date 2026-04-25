@@ -321,28 +321,31 @@
         display: none !important;
       }
 
-      .content {
-        margin-top: 56px;
-        height: calc(100vh - 56px);
-        padding-top: 16px;
-      }
-
       #map-stage {
         margin-top: 8px;
       }
     }
 
     .content {
-      display: block;
-      margin-top: 64px;
-      height: calc(100vh - 64px);
-      width: 100%;
+      position: absolute;
+      top: 64px;
+      left: 0;
+      right: 0;
+      bottom: 0;
       background: var(--bg-viewport);
-      overflow: auto;
+      overflow-x: hidden;
+      overflow-y: auto;
       box-sizing: border-box;
       padding: clamp(10px, 1.8vw, 24px);
       padding-top: 20px;
       scroll-behavior: smooth;
+    }
+
+    @media (max-width: 1023px) {
+      .content {
+        top: 56px;
+        padding-top: 16px;
+      }
     }
 
     /* --- NUEVO SELECTOR DE USUARIOS MODERNIZADO --- */
