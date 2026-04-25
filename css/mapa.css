@@ -322,7 +322,8 @@
       }
 
       .content {
-        padding-top: 76px;
+        top: 56px;
+        padding-top: 16px;
       }
 
       #map-stage {
@@ -331,15 +332,16 @@
     }
 
     .content {
-      flex: 1;
-      height: auto;
-      width: 100%;
+      position: absolute;
+      top: 64px;
+      left: 0;
+      right: 0;
+      bottom: 0;
       background: var(--bg-viewport);
-      position: relative;
       overflow: auto;
       box-sizing: border-box;
       padding: clamp(10px, 1.8vw, 24px);
-      padding-top: 84px;
+      padding-top: 20px;
       scroll-behavior: smooth;
     }
 
