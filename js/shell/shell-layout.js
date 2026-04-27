@@ -49,6 +49,7 @@ export class ShellLayout {
     onLogout     = null,
     onBellClick  = null,
     onPlazaChange = null,
+    onSearchInput = null,
     mainClass    = ''
   } = {}) {
     this._containerEl = container;
@@ -99,9 +100,8 @@ export class ShellLayout {
       onPlazaChange: plaza => {
         if (typeof onPlazaChange === 'function') onPlazaChange(plaza);
       },
-      onProfileClick: () => {
-        if (typeof onNavigate === 'function') onNavigate('/profile');
-        else window.location.href = '/profile';
+      onSearchInput: payload => {
+        if (typeof onSearchInput === 'function') onSearchInput(payload);
       }
     });
     this._header.mount(headerWrap);
@@ -136,6 +136,7 @@ export class ShellLayout {
   setRoute(route) {
     this._sidebar?.setRoute(route);
     this._header?.setRoute(route);
+    this._header?.setSearchPlaceholder();
   }
 
   /**
@@ -154,6 +155,10 @@ export class ShellLayout {
 
   setPlaza(currentPlaza = '', availablePlazas = [], canSwitchPlaza = false) {
     this._header?.setPlaza(currentPlaza, availablePlazas, canSwitchPlaza);
+  }
+
+  setSearchValue(value = '') {
+    this._header?.setSearchValue(value);
   }
 
   /** Destruye el shell y libera listeners. */

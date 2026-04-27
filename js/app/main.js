@@ -95,6 +95,15 @@ async function boot() {
     onBellClick:  ()      => handleBellClick(),
     onPlazaChange: (nextPlaza) => {
       setCurrentPlaza(nextPlaza, { source: 'app-shell-header' });
+    },
+    onSearchInput: payload => {
+      window.dispatchEvent(new CustomEvent('mex:global-search', {
+        detail: {
+          query: String(payload?.query || ''),
+          route: String(payload?.route || getState().currentRoute || ''),
+          source: 'shell-header'
+        }
+      }));
     }
   });
 

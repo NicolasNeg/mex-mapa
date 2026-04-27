@@ -149,6 +149,12 @@ export class ShellSidebar {
           <h2>${esc(this._company)}</h2>
           <p>${esc(roleLabel)}</p>
         </div>
+        <button class="mex-collapse-btn mex-collapse-btn--top"
+                data-action="collapse"
+                title="${this._collapsed ? 'Expandir menú' : 'Colapsar menú'}"
+                aria-label="${this._collapsed ? 'Expandir menú' : 'Colapsar menú'}">
+          chevron_left
+        </button>
       </div>
 
       <nav class="mex-sidebar-nav" role="menu" aria-label="Navegación principal">
@@ -176,15 +182,6 @@ export class ShellSidebar {
           <span class="mex-logout-icon">logout</span>
           <span class="mex-logout-label">Cerrar sesión</span>
         </div>
-      </div>
-
-      <div class="mex-sidebar-collapse-row">
-        <button class="mex-collapse-btn"
-                data-action="collapse"
-                title="${this._collapsed ? 'Expandir menú' : 'Colapsar menú'}"
-                aria-label="${this._collapsed ? 'Expandir menú' : 'Colapsar menú'}">
-          chevron_left
-        </button>
       </div>
     `;
   }

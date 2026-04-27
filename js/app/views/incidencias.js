@@ -10,6 +10,7 @@ let _container = null;
 let _state = null;
 let _unsubIncidencias = null;
 let _unsubPlaza = null;
+let _offGlobalSearch = null;
 
 const q = id => _container?.querySelector(`#${id}`) ?? null;
 const qs = selector => _container?.querySelector(selector) ?? null;
@@ -90,6 +91,7 @@ export async function mount(ctx) {
   _bindSearch();
   _bindSort();
   _bindFilters();
+  _bindGlobalSearch();
 
   _unsubPlaza = onPlazaChange(nextPlaza => {
     _reloadForPlaza(nextPlaza);
@@ -113,10 +115,32 @@ function _cleanup() {
   if (typeof _unsubPlaza === 'function') {
     try { _unsubPlaza(); } catch (_) {}
   }
+  if (typeof _offGlobalSearch === 'function') {
+    try { _offGlobalSearch(); } catch (_) {}
+  }
   _unsubIncidencias = null;
   _unsubPlaza = null;
+  _offGlobalSearch = null;
   _container = null;
   _state = null;
+}
+
+function _bindGlobalSearch() {
+  const handler = event => {
+    if (!_state || !_container) return;
+    const detailRoute = String(event?.detail?.route || '');
+    if (!(detailRoute.startsWith('/app/incidencias') || detailRoute === '/incidencias')) return;
+    const query = String(event?.detail?.query || '');
+    _state.query = query;
+    const input = q('incAppSearch');
+    if (input && input.value !== query) input.value = query;
+    _applyFiltersAndSort();
+    _renderSummary();
+    _renderList();
+    _syncDetailSelection();
+  };
+  window.addEventListener('mex:global-search', handler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
 }
 
 function _stopIncidenciasListener() {

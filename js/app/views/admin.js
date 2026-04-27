@@ -7,6 +7,7 @@ let _ctx = null;
 let _state = null;
 let _unsubUsers = null;
 let _unsubRequests = null;
+let _offGlobalSearch = null;
 let _metaLoaded = false;
 
 export function mount(ctx) {
@@ -34,6 +35,7 @@ export function mount(ctx) {
   const gs = getState();
   ctx.container.innerHTML = _html(gs.profile);
   _bind();
+  _bindGlobalSearch();
   _renderTab();
   _subscribeUsers();
   _loadMeta();
@@ -42,11 +44,51 @@ export function mount(ctx) {
 export function unmount() {
   if (typeof _unsubUsers === 'function') { try { _unsubUsers(); } catch (_) {} }
   if (typeof _unsubRequests === 'function') { try { _unsubRequests(); } catch (_) {} }
+  if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   _unsubUsers = null;
   _unsubRequests = null;
+  _offGlobalSearch = null;
   _ctx = null;
   _state = null;
   _metaLoaded = false;
+}
+
+function _bindGlobalSearch() {
+  const handler = event => {
+    if (!_ctx || !_state) return;
+    const detailRoute = String(event?.detail?.route || '');
+    if (!(detailRoute.startsWith('/app/admin') || detailRoute === '/gestion')) return;
+    const query = String(event?.detail?.query || '');
+    if (_state.tab === 'usuarios') {
+      _state.query = query;
+      const el = _ctx.container.querySelector('#appAdminSearch');
+      if (el && el.value !== query) el.value = query;
+      _applyFilters();
+      return;
+    }
+    if (_state.tab === 'roles') {
+      _state.roleQuery = query;
+      const el = _ctx.container.querySelector('#appAdminRoleSearch');
+      if (el && el.value !== query) el.value = query;
+      _renderRoles();
+      return;
+    }
+    if (_state.tab === 'catalogos') {
+      _state.catalogQuery = query;
+      const el = _ctx.container.querySelector('#appAdminCatalogSearch');
+      if (el && el.value !== query) el.value = query;
+      _renderCatalogs();
+      return;
+    }
+    if (_state.tab === 'solicitudes') {
+      _state.requestsQuery = query;
+      const el = _ctx.container.querySelector('#appAdminReqSearch');
+      if (el && el.value !== query) el.value = query;
+      _applyRequestFilters();
+    }
+  };
+  window.addEventListener('mex:global-search', handler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
 }
 
 function _tabFromUrl() {

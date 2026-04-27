@@ -22,7 +22,6 @@ export class ShellHeader {
    * @param {string}   options.currentRoute    - Ruta activa al montar
    * @param {function} options.onMenuToggle    - Callback al tocar el botón de menú (mobile)
    * @param {function} options.onBellClick     - Callback al tocar la campana
-   * @param {function} options.onProfileClick  - Callback al tocar el área de perfil
    */
   constructor(options = {}) {
     this._profile      = options.profile      || {};
@@ -35,12 +34,16 @@ export class ShellHeader {
 
     this._onMenuToggle   = options.onMenuToggle   || null;
     this._onBellClick    = options.onBellClick    || null;
-    this._onProfileClick = options.onProfileClick || null;
     this._onPlazaChange  = options.onPlazaChange  || null;
+    this._onSearchInput  = options.onSearchInput  || null;
 
     this._bellHasBadge = false;
     this._el = null;
     this._mobilePlazaOpen = false;
+    this._mobileSearchOpen = false;
+    this._searchValue = '';
+    this._searchDebounceMs = 250;
+    this._searchTimer = null;
     this._onDocPointerDown = null;
     this._onDocKeyDown = null;
   }
@@ -57,23 +60,26 @@ export class ShellHeader {
   }
 
   _buildHTML() {
-    const userName  = this._userName();
-    const avatarUrl = this._profile.avatarUrl || this._profile.photoURL || this._profile.fotoURL || '';
-
     const plazaHtml = this._plazaControlHTML();
+    const searchHtml = this._searchControlHTML();
 
-    // El perfil completo (nombre + rol + logout) vive en el footer del sidebar.
-    // El header solo muestra el avatar como acceso rápido a /app/profile.
     return `
       <div class="mex-header-left">
         <button class="mex-header-menu-btn" id="mexHdrMenuBtn" aria-label="Abrir menú de navegación">
           <span class="mex-header-menu-btn-icon">menu</span>
         </button>
         <h1 class="mex-header-title" id="mexHdrTitle">${esc(this._title)}</h1>
+        ${searchHtml}
       </div>
 
       <div class="mex-header-right">
         ${plazaHtml}
+        <button class="mex-header-icon-btn mex-header-search-toggle" id="mexHdrSearchToggle"
+                title="Buscar"
+                aria-label="Abrir búsqueda"
+                aria-expanded="${this._mobileSearchOpen ? 'true' : 'false'}">
+          <span class="mex-hdr-icon">search</span>
+        </button>
         <button class="mex-header-icon-btn" id="mexHdrBell"
                 title="Alertas y notificaciones"
                 aria-label="Alertas y notificaciones">
@@ -81,14 +87,34 @@ export class ShellHeader {
           <span class="mex-header-bell-badge" id="mexHdrBellBadge"
                 style="display:${this._bellHasBadge ? 'block' : 'none'}"></span>
         </button>
-        <button class="mex-header-user mex-header-user--compact" id="mexHdrUser"
-                title="${esc(userName)} — Mi perfil" aria-label="Mi perfil">
-          <div class="mex-header-avatar" id="mexHdrAvatar">
-            ${avatarUrl
-              ? `<img src="${esc(avatarUrl)}" alt="${esc(userName)}" loading="lazy">`
-              : `<span class="mex-header-avatar-icon">shield_person</span>`}
-          </div>
-        </button>
+      </div>
+    `;
+  }
+
+  _searchPlaceholder() {
+    const route = String(this._currentRoute || '');
+    if (route === '/app/dashboard' || route === '/home') return 'Buscar modulo, unidad o accion...';
+    if (route === '/app/cuadre' || route === '/cuadre') return 'Buscar MVA, modelo, placas o ubicacion...';
+    if (route === '/app/incidencias' || route === '/incidencias') return 'Buscar incidencia, MVA, autor...';
+    if (route === '/app/cola-preparacion' || route === '/cola-preparacion') return 'Buscar unidad en cola...';
+    if (route === '/app/admin' || route.startsWith('/app/admin/') || route === '/gestion') return 'Buscar usuarios, roles, plazas...';
+    if (route === '/app/programador' || route === '/programador') return 'Buscar diagnostico, API, cache...';
+    if (route === '/app/profile' || route === '/profile') return 'Buscar configuracion de perfil...';
+    if (route === '/app/mensajes' || route === '/mensajes') return 'Buscar conversacion o remitente...';
+    return 'Buscar en la vista actual...';
+  }
+
+  _searchControlHTML() {
+    const placeholder = this._searchPlaceholder();
+    return `
+      <div class="mex-header-search ${this._mobileSearchOpen ? 'is-mobile-open' : ''}">
+        <span class="mex-header-search-icon">search</span>
+        <input id="mexHdrSearchInput"
+               class="mex-header-search-input"
+               type="search"
+               value="${esc(this._searchValue)}"
+               placeholder="${esc(placeholder)}"
+               aria-label="Busqueda global contextual">
       </div>
     `;
   }
@@ -154,17 +180,6 @@ export class ShellHeader {
       if (typeof this._onBellClick === 'function') this._onBellClick();
     });
 
-    const userEl = this._el.querySelector('#mexHdrUser');
-    if (userEl) {
-      userEl.addEventListener('click', () => {
-        if (typeof this._onProfileClick === 'function') this._onProfileClick();
-        else window.location.href = '/profile';
-      });
-      userEl.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); userEl.click(); }
-      });
-    }
-
     this._el.querySelector('#mexHdrPlazaSelect')?.addEventListener('change', event => {
       const plaza = String(event.target?.value || '').toUpperCase().trim();
       if (!plaza) return;
@@ -202,13 +217,43 @@ export class ShellHeader {
       }
     };
     this._onDocKeyDown = event => {
-      if (event.key !== 'Escape' || !this._mobilePlazaOpen) return;
-      this._mobilePlazaOpen = false;
-      mobileMenu?.classList.remove('open');
-      mobileBtn?.setAttribute('aria-expanded', 'false');
+      if (event.key !== 'Escape') return;
+      if (this._mobilePlazaOpen) {
+        this._mobilePlazaOpen = false;
+        mobileMenu?.classList.remove('open');
+        mobileBtn?.setAttribute('aria-expanded', 'false');
+      }
+      if (this._mobileSearchOpen) {
+        this._mobileSearchOpen = false;
+        this._el.querySelector('.mex-header-search')?.classList.remove('is-mobile-open');
+        this._el.querySelector('#mexHdrSearchToggle')?.setAttribute('aria-expanded', 'false');
+      }
     };
     document.addEventListener('pointerdown', this._onDocPointerDown);
     document.addEventListener('keydown', this._onDocKeyDown);
+
+    const searchInput = this._el.querySelector('#mexHdrSearchInput');
+    const searchToggle = this._el.querySelector('#mexHdrSearchToggle');
+    searchInput?.addEventListener('input', event => {
+      this._searchValue = String(event.target?.value || '');
+      if (this._searchTimer) clearTimeout(this._searchTimer);
+      this._searchTimer = setTimeout(() => {
+        if (typeof this._onSearchInput === 'function') {
+          this._onSearchInput({
+            query: this._searchValue,
+            route: this._currentRoute,
+            source: 'shell-header'
+          });
+        }
+      }, this._searchDebounceMs);
+    });
+    searchToggle?.addEventListener('click', event => {
+      event.stopPropagation();
+      this._mobileSearchOpen = !this._mobileSearchOpen;
+      this._el.querySelector('.mex-header-search')?.classList.toggle('is-mobile-open', this._mobileSearchOpen);
+      searchToggle.setAttribute('aria-expanded', this._mobileSearchOpen ? 'true' : 'false');
+      if (this._mobileSearchOpen) searchInput?.focus();
+    });
   }
 
   // ── Public API ──────────────────────────────────────────
@@ -244,24 +289,14 @@ export class ShellHeader {
   setRoute(route) {
     this._currentRoute = route;
     this.setTitle(routeTitle(route));
+    this.setSearchValue('');
+    this._emitSearchNow();
   }
 
   /** Actualiza el avatar en el header. Nombre/rol viven en el sidebar footer. */
   setProfile(profile, role) {
     this._profile = profile || {};
     if (role) this._role = role;
-
-    const userName  = this._userName();
-    const avatarUrl = this._profile.avatarUrl || this._profile.photoURL || this._profile.fotoURL || '';
-    const avatarEl  = this._el?.querySelector('#mexHdrAvatar');
-    const userBtn   = this._el?.querySelector('#mexHdrUser');
-
-    if (userBtn) userBtn.title = `${userName} — Mi perfil`;
-    if (avatarEl) {
-      avatarEl.innerHTML = avatarUrl
-        ? `<img src="${esc(avatarUrl)}" alt="${esc(userName)}" loading="lazy">`
-        : `<span class="mex-header-avatar-icon">shield_person</span>`;
-    }
   }
 
   /** Muestra u oculta el badge rojo de la campana. */
@@ -283,7 +318,28 @@ export class ShellHeader {
     this._bind();
   }
 
+  setSearchPlaceholder() {
+    const input = this._el?.querySelector('#mexHdrSearchInput');
+    if (input) input.setAttribute('placeholder', this._searchPlaceholder());
+  }
+
+  setSearchValue(value = '') {
+    this._searchValue = String(value || '');
+    const input = this._el?.querySelector('#mexHdrSearchInput');
+    if (input) input.value = this._searchValue;
+  }
+
+  _emitSearchNow() {
+    if (typeof this._onSearchInput !== 'function') return;
+    this._onSearchInput({
+      query: this._searchValue,
+      route: this._currentRoute,
+      source: 'shell-header'
+    });
+  }
+
   destroy() {
+    if (this._searchTimer) clearTimeout(this._searchTimer);
     if (this._onDocPointerDown) document.removeEventListener('pointerdown', this._onDocPointerDown);
     if (this._onDocKeyDown) document.removeEventListener('keydown', this._onDocKeyDown);
     this._onDocPointerDown = null;

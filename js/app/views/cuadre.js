@@ -5,6 +5,7 @@ let _container = null;
 let _state = null;
 let _unsubData = null;
 let _unsubPlaza = null;
+let _offGlobalSearch = null;
 let _cssLink = null;
 
 const q = selector => _container?.querySelector(selector) ?? null;
@@ -37,6 +38,7 @@ export async function mount(ctx) {
     user: gs.profile?.nombreCompleto || gs.profile?.nombre || gs.profile?.email || 'Usuario'
   });
   _bindEvents();
+  _bindGlobalSearch();
   _unsubPlaza = onPlazaChange(next => _reloadForPlaza(next));
   if (!_state.plaza) return _renderNoPlaza();
   _startListener(_state.plaza);
@@ -47,12 +49,32 @@ export function unmount() { _cleanup(); }
 function _cleanup() {
   if (typeof _unsubData === 'function') { try { _unsubData(); } catch (_) {} }
   if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} }
+  if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   _unsubData = null;
   _unsubPlaza = null;
+  _offGlobalSearch = null;
   if (_cssLink?.parentNode) _cssLink.parentNode.removeChild(_cssLink);
   _cssLink = null;
   _container = null;
   _state = null;
+}
+
+function _bindGlobalSearch() {
+  const handler = event => {
+    if (!_state || !_container) return;
+    const detailRoute = String(event?.detail?.route || '');
+    if (!(detailRoute.startsWith('/app/cuadre') || detailRoute === '/cuadre')) return;
+    const query = String(event?.detail?.query || '');
+    _state.query = query;
+    const input = q('#cqvSearch');
+    if (input && input.value !== query) input.value = query;
+    _applyFiltersAndSort();
+    _renderSummary();
+    _renderTable();
+    _syncDetail();
+  };
+  window.addEventListener('mex:global-search', handler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
 }
 
 function _ensureCss() {

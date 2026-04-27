@@ -16,6 +16,7 @@ let _unsub     = null;   // listener Firestore activo
 let _container = null;   // nodo DOM activo
 let _state     = null;   // estado local de esta vista
 let _unsubPlaza = null;  // listener de plaza global
+let _offGlobalSearch = null;
 let _cssInjected = false;
 
 // ── Helpers privados ─────────────────────────────────────────
@@ -62,6 +63,7 @@ export async function mount({ container, navigate, shell }) {
   _bindSearch();
   _bindFilters();
   _bindSort();
+  _bindGlobalSearch();
 
   if (!plaza) {
     _renderEmpty('Selecciona una plaza para ver la cola de preparación.');
@@ -83,8 +85,10 @@ export function unmount() {
 function _doCleanup() {
   if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} }
   if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} }
+  if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   _unsub     = null;
   _unsubPlaza = null;
+  _offGlobalSearch = null;
   _container = null;
   _state     = null;
 }
@@ -229,6 +233,23 @@ function _bindSearch() {
     _renderList();
     _renderStats();
   });
+}
+
+function _bindGlobalSearch() {
+  const handler = event => {
+    if (!_state || !_container) return;
+    const detailRoute = String(event?.detail?.route || '');
+    if (!(detailRoute.startsWith('/app/cola-preparacion') || detailRoute === '/cola-preparacion')) return;
+    const query = String(event?.detail?.query || '');
+    _state.searchQuery = query;
+    const input = q('prepSearchInput');
+    if (input && input.value !== query) input.value = query;
+    _applyFilters();
+    _renderList();
+    _renderStats();
+  };
+  window.addEventListener('mex:global-search', handler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
 }
 
 function _bindFilters() {

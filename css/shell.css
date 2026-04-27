@@ -86,6 +86,11 @@
   overflow: hidden;
 }
 
+.mex-collapse-btn--top {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .mex-sidebar-logo-mark {
   width: 36px;
   height: 36px;
@@ -482,6 +487,7 @@
 }
 @media (max-width: 767px) {
   .mex-sidebar-collapse-row { display: none; }
+  .mex-collapse-btn--top { display: none; }
 }
 
 .mex-collapse-btn {
@@ -508,6 +514,10 @@
 }
 .mex-sidebar.compact .mex-collapse-btn {
   transform: scaleX(-1);
+}
+
+.mex-sidebar.compact .mex-collapse-btn--top {
+  margin-left: 0;
 }
 
 /* ── Mobile drawer overlay ─────────────────────────────────── */
@@ -558,6 +568,45 @@
   gap: 10px;
   flex: 1;
   min-width: 0;
+}
+
+.mex-header-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  min-width: 260px;
+  max-width: 420px;
+  padding: 0 10px;
+  margin-left: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.mex-header-search-icon {
+  font-size: 18px !important;
+  color: #94a3b8;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mex-header-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Inter', sans-serif;
+}
+
+.mex-header-search-toggle {
+  display: none;
 }
 
 .mex-header-menu-btn {
@@ -729,6 +778,24 @@
 }
 
 @media (max-width: 767px) {
+  .mex-header-search {
+    display: none;
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: calc(100% + 6px);
+    margin-left: 0;
+    min-width: 0;
+    max-width: none;
+    z-index: 130;
+    box-shadow: 0 8px 24px rgba(2, 6, 23, 0.16);
+  }
+  .mex-header-search.is-mobile-open {
+    display: inline-flex;
+  }
+  .mex-header-search-toggle {
+    display: inline-flex;
+  }
   .mex-header-plaza-desktop {
     display: none;
   }
@@ -742,6 +809,9 @@
     text-overflow: ellipsis;
     white-space: nowrap;
     padding: 0 9px;
+  }
+  .mex-header-user {
+    display: none;
   }
 }
 
