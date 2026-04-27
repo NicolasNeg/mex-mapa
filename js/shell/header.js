@@ -208,12 +208,26 @@ export class ShellHeader {
     });
 
     this._onDocPointerDown = event => {
-      if (!this._mobilePlazaOpen || !this._el) return;
-      const zone = this._el.querySelector('.mex-header-plaza-mobile');
-      if (zone && !zone.contains(event.target)) {
-        this._mobilePlazaOpen = false;
-        mobileMenu?.classList.remove('open');
-        mobileBtn?.setAttribute('aria-expanded', 'false');
+      if (!this._el) return;
+      if (this._mobilePlazaOpen) {
+        const zone = this._el.querySelector('.mex-header-plaza-mobile');
+        if (zone && !zone.contains(event.target)) {
+          this._mobilePlazaOpen = false;
+          mobileMenu?.classList.remove('open');
+          mobileBtn?.setAttribute('aria-expanded', 'false');
+        }
+      }
+      if (this._mobileSearchOpen) {
+        const searchWrap = this._el.querySelector('.mex-header-search');
+        const searchBtn = this._el.querySelector('#mexHdrSearchToggle');
+        if (
+          searchWrap && !searchWrap.contains(event.target) &&
+          searchBtn && !searchBtn.contains(event.target)
+        ) {
+          this._mobileSearchOpen = false;
+          this._el.querySelector('.mex-header-search')?.classList.remove('is-mobile-open');
+          this._el.querySelector('#mexHdrSearchToggle')?.setAttribute('aria-expanded', 'false');
+        }
       }
     };
     this._onDocKeyDown = event => {
@@ -244,6 +258,11 @@ export class ShellHeader {
             route: this._currentRoute,
             source: 'shell-header'
           });
+        }
+        if (!this._searchValue && this._mobileSearchOpen) {
+          this._mobileSearchOpen = false;
+          this._el.querySelector('.mex-header-search')?.classList.remove('is-mobile-open');
+          this._el.querySelector('#mexHdrSearchToggle')?.setAttribute('aria-expanded', 'false');
         }
       }, this._searchDebounceMs);
     });
@@ -290,6 +309,9 @@ export class ShellHeader {
     this._currentRoute = route;
     this.setTitle(routeTitle(route));
     this.setSearchValue('');
+    this._mobileSearchOpen = false;
+    this._el?.querySelector('.mex-header-search')?.classList.remove('is-mobile-open');
+    this._el?.querySelector('#mexHdrSearchToggle')?.setAttribute('aria-expanded', 'false');
     this._emitSearchNow();
   }
 

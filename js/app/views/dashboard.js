@@ -7,21 +7,55 @@
 //  /mapa siempre con href normal — NO migrado.
 // ═══════════════════════════════════════════════════════════
 
-import { getState } from '/js/app/app-state.js';
+import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
+import { db, COL } from '/js/core/database.js';
 
 let _cleanup = null;
+let _container = null;
+let _state = null;
+let _offSearch = null;
+let _offPlaza = null;
+let _cssRef = null;
 
-export function mount({ container }) {
-  const { profile, role, company } = getState();
+export async function mount({ container }) {
+  unmount();
+  _container = container;
+  _ensureCss();
+  const gs = getState();
+  const role = String(gs.role || 'AUXILIAR').toUpperCase();
+  const plaza = String(getCurrentPlaza() || gs.profile?.plazaAsignada || '').toUpperCase().trim();
+  _state = {
+    role,
+    profile: gs.profile || {},
+    company: gs.company || 'MAPA',
+    plaza,
+    query: '',
+    metrics: { unidades: 0, externos: 0, incidencias: 0, solicitudes: 0 },
+    modules: _modulesForRole(role)
+  };
 
-  const name      = profile?.nombreCompleto || profile?.nombre || profile?.email || 'Usuario';
-  const roleLabel = ROLE_LABELS[role] || role;
-  const plaza     = profile?.plazaAsignada || '—';
-  const hora      = _greeting();
-
-  container.innerHTML = _html({ name, roleLabel, plaza, company, hora, role });
-  _cleanup = null;
+  _container.innerHTML = _layout(_state);
+  _bindGlobalSearch();
+  _offPlaza = onPlazaChange(async nextPlaza => {
+    if (!_state || !_container) return;
+    _state.plaza = String(nextPlaza || '').toUpperCase().trim();
+    _setText('#appDashPlaza', _state.plaza || '—');
+    await _loadMetrics();
+    _render();
+  });
+  await _loadMetrics();
+  _render();
+  _cleanup = () => {
+    if (typeof _offSearch === 'function') _offSearch();
+    if (typeof _offPlaza === 'function') _offPlaza();
+    _offSearch = null;
+    _offPlaza = null;
+    if (_cssRef?.parentNode) _cssRef.parentNode.removeChild(_cssRef);
+    _cssRef = null;
+    _container = null;
+    _state = null;
+  };
 }
 
 export function unmount() {
@@ -29,134 +63,156 @@ export function unmount() {
   _cleanup = null;
 }
 
-// ── HTML ─────────────────────────────────────────────────────
-function _html({ name, roleLabel, plaza, company, hora, role }) {
-  const firstName = name.split(' ')[0];
+function _ensureCss() {
+  const existing = document.querySelector('link[data-app-dashboard-css="1"]');
+  if (existing) { _cssRef = existing; return; }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/app-dashboard.css';
+  link.dataset.appDashboardCss = '1';
+  document.head.appendChild(link);
+  _cssRef = link;
+}
 
-  const ADMIN_ROLES = ['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL',
-                       'CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR'];
-  const isAdmin      = ADMIN_ROLES.includes(role);
-  const isProgrammer = role === 'PROGRAMADOR';
-
-  // ── Módulos integrados en App Shell (sin recarga) ──────────
-  const SHELL_MODULES = [
-    { appRoute: '/app/mapa',             label: 'Mapa operativo',     icon: 'map',                  color: '#2b6954', bg: '#dcfce7' },
-    { appRoute: '/app/profile',          label: 'Mi perfil',          icon: 'person',               color: '#64748b', bg: '#f1f5f9' },
-    { appRoute: '/app/mensajes',         label: 'Mensajes',           icon: 'chat',                 color: '#8b5cf6', bg: '#ede9fe' },
-    { appRoute: '/app/cola-preparacion', label: 'Cola de preparación',icon: 'fact_check',           color: '#2b6954', bg: '#dcfce7' },
-    { appRoute: '/app/incidencias',      label: 'Incidencias',        icon: 'warning',              color: '#f97316', bg: '#fff7ed' },
-    { appRoute: '/app/cuadre',           label: 'Cuadre',             icon: 'calculate',            color: '#ef4444', bg: '#fef2f2',
-      roles: ['VENTAS','SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR'] },
-    ...(isAdmin      ? [{ appRoute: '/app/admin',      label: 'Panel admin',   icon: 'admin_panel_settings', color: '#8b5cf6', bg: '#ede9fe' }] : []),
-    ...(isProgrammer ? [{ appRoute: '/app/programador', label: 'Consola técnica', icon: 'terminal',          color: '#0ea5e9', bg: '#e0f2fe' }] : []),
-  ].filter(m => !m.roles || m.roles.includes(role));
-
-  // ── Módulos legacy (solo los que NO tienen vista en App Shell aún) ─
-  const LEGACY_MODULES = [
-    { route: '/home', label: 'Home legacy', icon: 'home', color: '#0ea5e9', bg: '#e0f2fe', note: 'Vista anterior' },
+function _modulesForRole(role) {
+  const base = [
+    { appRoute: '/app/mapa', label: 'Mapa operativo', icon: 'map', keywords: 'mapa unidades mva ubicacion' },
+    { appRoute: '/app/cuadre', label: 'Cuadre', icon: 'calculate', keywords: 'cuadre inventario flotilla' },
+    { appRoute: '/app/incidencias', label: 'Incidencias', icon: 'warning', keywords: 'incidencias notas admin' },
+    { appRoute: '/app/cola-preparacion', label: 'Cola preparación', icon: 'format_list_bulleted', keywords: 'cola preparacion salida checklist' },
+    { appRoute: '/app/mensajes', label: 'Mensajes', icon: 'chat', keywords: 'mensajes chat conversaciones' },
+    { appRoute: '/app/profile', label: 'Perfil', icon: 'person', keywords: 'perfil usuario cuenta' },
   ];
+  const adminRoles = new Set(['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR']);
+  if (adminRoles.has(role)) base.push({ appRoute: '/app/admin', label: 'Admin', icon: 'admin_panel_settings', keywords: 'admin usuarios roles plazas' });
+  if (role === 'PROGRAMADOR' || role === 'JEFE_OPERACION') base.push({ appRoute: '/app/programador', label: 'Programador', icon: 'terminal', keywords: 'debug consola tecnica observabilidad' });
+  return base;
+}
 
-  // ── Debug / roadmap: solo PROGRAMADOR o modo debug ─────────
-  const showRoadmap = role === 'PROGRAMADOR' ||
-    (() => { try { return localStorage.getItem('mex.debug.mode') === '1'; } catch { return false; } })();
-
+function _layout(state) {
+  const name = state.profile?.nombreCompleto || state.profile?.nombre || state.profile?.email || 'Usuario';
+  const roleLabel = ROLE_LABELS[state.role] || state.role;
+  const showDebug = state.role === 'PROGRAMADOR' || _debugMode();
   return `
-<div style="padding:28px 24px 56px;max-width:800px;margin:0 auto;font-family:'Inter',sans-serif;">
-
-  <!-- Saludo -->
-  <div style="margin-bottom:28px;">
-    <p style="font-size:13px;color:#64748b;margin:0 0 4px;font-weight:500;">${esc(hora)}</p>
-    <h1 style="font-size:26px;font-weight:900;color:#0f172a;margin:0 0 4px;line-height:1.2;">
-      Hola, ${esc(firstName)} 👋
-    </h1>
-    <p style="font-size:14px;color:#64748b;margin:0;">
-      ${esc(roleLabel)} · ${esc(plaza)} · ${esc(company)}
-    </p>
-  </div>
-
-  <!-- ── Módulos integrados en App Shell ── -->
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-    <h2 style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.08em;margin:0;">
-      Módulos integrados en App Shell
-    </h2>
-    <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
-                 border-radius:100px;background:#dcfce7;color:#16a34a;font-size:10.5px;font-weight:700;">
-      <span style="width:5px;height:5px;border-radius:50%;background:#22c55e;"></span>
-      Sin recarga
-    </span>
-  </div>
-  <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:28px;">
-    ${SHELL_MODULES.map(({ appRoute, label, icon, color, bg }) => `
-      <a data-app-route="${esc(appRoute)}" href="${esc(appRoute)}"
-         style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;
-                border:1px solid #f1f5f9;border-radius:14px;text-decoration:none;
-                transition:box-shadow 0.12s,border-color 0.12s;"
-         onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.06)';this.style.borderColor='#e2e8f0';"
-         onmouseout="this.style.boxShadow='none';this.style.borderColor='#f1f5f9';">
-        <div style="width:38px;height:38px;border-radius:11px;background:${bg};
-                    display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span class="material-symbols-outlined" style="font-size:20px;color:${color};">${icon}</span>
-        </div>
-        <span style="font-size:13px;font-weight:600;color:#1e293b;">${esc(label)}</span>
-      </a>
-    `).join('')}
-  </div>
-
-  <!-- ── Módulos legacy seguros ── -->
-  <h2 style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;
-             letter-spacing:0.08em;margin:0 0 12px;">
-    Módulos operativos legacy
-  </h2>
-  <div style="display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin-bottom:28px;">
-    ${LEGACY_MODULES.map(({ route, label, icon, color, bg, note }) => `
-      <a href="${esc(route)}"
-         style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:#fff;
-                border:1px dashed #e2e8f0;border-radius:14px;text-decoration:none;
-                transition:box-shadow 0.12s,border-color 0.12s;"
-         onmouseover="this.style.boxShadow='0 4px 16px rgba(0,0,0,0.04)';this.style.borderColor='#cbd5e1';"
-         onmouseout="this.style.boxShadow='none';this.style.borderColor='#e2e8f0';">
-        <div style="width:38px;height:38px;border-radius:11px;background:${bg};
-                    display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span class="material-symbols-outlined" style="font-size:20px;color:${color};">${icon}</span>
-        </div>
-        <div>
-          <div style="font-size:13px;font-weight:600;color:#1e293b;">${esc(label)}</div>
-          <div style="font-size:10.5px;color:#94a3b8;margin-top:1px;">${esc(note)}</div>
-        </div>
-      </a>
-    `).join('')}
-  </div>
-
-  <!-- ── Estado de migración (solo PROGRAMADOR o debug) ── -->
-  ${showRoadmap ? `
-  <div style="background:linear-gradient(135deg,#07111f,#0f2042);border-radius:16px;padding:20px;">
-    <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);
-                text-transform:uppercase;letter-spacing:0.07em;margin-bottom:14px;">
-      Progreso de migración al App Shell
-    </div>
-    ${[
-      ['✅', 'Fase 1', 'Componentes shell standalone'],
-      ['✅', 'Fase 2', 'App Shell experimental en /app'],
-      ['✅', 'Fase 3', 'Router interno + History API'],
-      ['✅', 'Fase 4', 'Profile como primera vista real'],
-      ['✅', 'Fase 5', 'Mensajes — bridge hacia chat completo'],
-      ['✅', 'Fase 6', 'App Shell como destino post-login + bridges secundarios'],
-      ['✅', 'Fase 7', 'Bridge /app/mapa — sidebar sin recarga (mapa real sigue en /mapa)'],
-      ['✅', 'Fase 8A', '/app/cola-preparacion — vista real con Firestore onSnapshot'],
-    ].map(([status, phase, desc]) => `
-      <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;
-                  border-bottom:1px solid rgba(255,255,255,0.05);">
-        <span style="font-size:13px;flex-shrink:0;margin-top:1px;">${status}</span>
-        <div>
-          <span style="font-size:12px;font-weight:700;color:#2ecc71;">${esc(phase)}</span>
-          <span style="font-size:12px;color:rgba(255,255,255,0.45);margin-left:6px;">${esc(desc)}</span>
-        </div>
+<section class="appdash">
+  <div class="appdash__hero">
+    <div class="appdash__card">
+      <p style="font-size:12px;color:#64748b;margin:0 0 4px;">${esc(_greeting())}</p>
+      <h1 style="font-size:26px;margin:0;color:#0f172a;">Hola, ${esc(name.split(' ')[0])}</h1>
+      <p class="appdash__meta" style="margin-top:6px;">${esc(roleLabel)} · <span id="appDashPlaza">${esc(state.plaza || '—')}</span> · ${esc(state.company)}</p>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <a data-app-route="/app/mapa" href="/app/mapa" style="font-size:12px;padding:6px 10px;border-radius:999px;background:#dcfce7;color:#166534;text-decoration:none;">Ir a mapa</a>
+        <a data-app-route="/app/profile" href="/app/profile" style="font-size:12px;padding:6px 10px;border-radius:999px;background:#e2e8f0;color:#334155;text-decoration:none;">Ver perfil</a>
       </div>
-    `).join('')}
-  </div>` : ''}
+    </div>
+    <div class="appdash__card">
+      <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;">Foco de plaza</div>
+      <div style="margin-top:8px;font-size:13px;color:#334155;">Cambia la plaza desde el header para refrescar resumen operativo sin recargar página.</div>
+      <a href="/home" style="display:inline-block;margin-top:12px;font-size:12px;color:#0f172a;">Abrir home legacy (fallback)</a>
+    </div>
+  </div>
 
-</div>
+  <div class="appdash__kpis">
+    ${_kpi('appDashKpiUnidades', 'Unidades activas')}
+    ${_kpi('appDashKpiExternos', 'Externos')}
+    ${_kpi('appDashKpiInc', 'Incidencias abiertas')}
+    ${_kpi('appDashKpiSol', 'Solicitudes pendientes')}
+  </div>
+
+  <h2 style="font-size:12px;font-weight:800;color:#64748b;margin:0 0 8px;">Módulos disponibles</h2>
+  <div class="appdash__modules" id="appDashModules">
+    ${state.modules.map(mod => `
+      <a class="appdash__module" data-app-route="${esc(mod.appRoute)}" href="${esc(mod.appRoute)}" data-module-text="${esc((mod.label + ' ' + mod.keywords).toLowerCase())}">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="material-symbols-outlined" style="font-size:18px;color:#2b6954;">${esc(mod.icon)}</span>
+          <strong style="font-size:13px;color:#0f172a;">${esc(mod.label)}</strong>
+        </div>
+      </a>
+    `).join('')}
+  </div>
+
+  ${showDebug ? `
+    <div class="appdash__card" style="margin-top:14px;background:#0b1220;border-color:#1e293b;">
+      <div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;">Debug / roadmap</div>
+      <div style="margin-top:8px;font-size:12px;color:#cbd5e1;">Visible solo para PROGRAMADOR o mex.debug.mode=1.</div>
+    </div>
+  ` : ''}
+
+</section>
   `;
+}
+
+async function _loadMetrics() {
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  const isAdmin = _isAdminRole(_state.role);
+  const [cuadre, externos, solicitudes, notasSnap] = await Promise.all([
+    plaza ? _safeCount(db.collection(COL.CUADRE).where('plaza', '==', plaza).limit(180).get()) : 0,
+    plaza ? _safeCount(db.collection(COL.EXTERNOS).where('plaza', '==', plaza).limit(180).get()) : 0,
+    isAdmin ? _safeCount(db.collection('solicitudes').where('estado', '==', 'PENDIENTE').limit(80).get()) : 0,
+    plaza ? db.collection(COL.NOTAS).where('plaza', '==', plaza).limit(120).get() : null
+  ]);
+  const notas = notasSnap?.docs
+    ? notasSnap.docs.filter(doc => {
+      const estado = String(doc.data()?.estado || '').toUpperCase();
+      return estado !== 'RESUELTA' && estado !== 'CERRADA';
+    }).length
+    : 0;
+  _state.metrics = { unidades: cuadre, externos, incidencias: notas, solicitudes };
+}
+
+function _render() {
+  _setText('#appDashKpiUnidades', _state.metrics.unidades);
+  _setText('#appDashKpiExternos', _state.metrics.externos);
+  _setText('#appDashKpiInc', _state.metrics.incidencias);
+  _setText('#appDashKpiSol', _state.metrics.solicitudes);
+  _applyQuery();
+}
+
+function _bindGlobalSearch() {
+  const handler = event => {
+    if (!_state || !_container) return;
+    const route = String(event?.detail?.route || '');
+    if (!(route.startsWith('/app/dashboard') || route === '/home')) return;
+    _state.query = String(event?.detail?.query || '').toLowerCase().trim();
+    _applyQuery();
+  };
+  window.addEventListener('mex:global-search', handler);
+  _offSearch = () => window.removeEventListener('mex:global-search', handler);
+}
+
+function _applyQuery() {
+  const cards = Array.from(_container?.querySelectorAll('[data-module-text]') || []);
+  cards.forEach(card => {
+    const txt = String(card.getAttribute('data-module-text') || '');
+    const visible = !_state.query || txt.includes(_state.query);
+    card.hidden = !visible;
+  });
+}
+
+function _kpi(id, label) {
+  return `<div class="appdash__card"><div id="${id}" class="appdash__kpi-v">0</div><div class="appdash__kpi-l">${esc(label)}</div></div>`;
+}
+
+function _isAdminRole(role) {
+  return ['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR'].includes(String(role || ''));
+}
+
+async function _safeCount(promise) {
+  try {
+    const snap = await promise;
+    return snap?.size || 0;
+  } catch (_) {
+    return 0;
+  }
+}
+
+function _debugMode() {
+  try { return localStorage.getItem('mex.debug.mode') === '1'; } catch { return false; }
+}
+
+function _setText(selector, value) {
+  const el = _container?.querySelector(selector);
+  if (el) el.textContent = String(value ?? '');
 }
 
 // ── Utilidades ───────────────────────────────────────────────
