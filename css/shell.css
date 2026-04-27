@@ -651,9 +651,112 @@
   min-width: 100px;
 }
 
+.mex-header-plaza-mobile {
+  display: none;
+  position: relative;
+}
+
+.mex-header-plaza-mobile-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  color: #1e293b;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  max-width: 110px;
+}
+
+.mex-header-plaza-mobile-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mex-header-plaza-mobile-icon,
+.mex-header-plaza-mobile-caret {
+  font-size: 16px !important;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mex-header-plaza-mobile-icon { color: #2b6954; }
+.mex-header-plaza-mobile-caret { color: #64748b; }
+
+.mex-header-plaza-mobile-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 140px;
+  max-height: min(60vh, 280px);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.18);
+  z-index: 140;
+  padding: 6px;
+}
+
+.mex-header-plaza-mobile-menu.open { display: block; }
+
+.mex-header-plaza-mobile-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: #1e293b;
+  padding: 8px 9px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mex-header-plaza-mobile-item:hover { background: #f1f5f9; }
+.mex-header-plaza-mobile-item.active {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
 @media (max-width: 767px) {
-  .mex-header-plaza-select-wrap,
-  .mex-header-plaza-badge {
+  .mex-header-plaza-desktop {
+    display: none;
+  }
+  .mex-header-plaza-mobile {
+    display: inline-flex;
+  }
+  .mex-header-plaza-mobile-badge {
+    display: inline-flex;
+    max-width: 72px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 9px;
+  }
+}
+
+@media (max-width: 390px) {
+  .mex-header {
+    padding: 0 10px;
+  }
+  .mex-header-right {
+    gap: 4px;
+  }
+  .mex-header-plaza-mobile-btn {
+    max-width: 92px;
+    padding: 0 6px;
+  }
+  .mex-header-title {
     display: none;
   }
 }

@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v217';
+const CACHE_NAME = 'mapa-v218';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -84,6 +84,7 @@ const CRITICAL_ASSETS = [
   '/js/views/cola-preparacion.js',
   '/cuadre.html',
   '/js/views/cuadre.js',
+  '/js/views/legacy-shell-bridge.js',
   // Shell global (Fase 1)
   '/css/shell.css',
   '/js/shell/navigation.config.js',

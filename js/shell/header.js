@@ -40,6 +40,9 @@ export class ShellHeader {
 
     this._bellHasBadge = false;
     this._el = null;
+    this._mobilePlazaOpen = false;
+    this._onDocPointerDown = null;
+    this._onDocKeyDown = null;
   }
 
   // ── Private helpers ─────────────────────────────────────
@@ -99,16 +102,44 @@ export class ShellHeader {
     if (!selected) return '';
 
     if (!this._canSwitchPlaza || plazas.length <= 1) {
-      return `<span class="mex-header-plaza-badge" title="Plaza activa">${esc(selected)}</span>`;
+      return `
+        <span class="mex-header-plaza-badge mex-header-plaza-desktop" title="Plaza activa">${esc(selected)}</span>
+        <span class="mex-header-plaza-badge mex-header-plaza-mobile-badge" title="Plaza activa">${esc(selected)}</span>
+      `;
     }
 
     return `
-      <label class="mex-header-plaza-select-wrap" for="mexHdrPlazaSelect" title="Cambiar plaza">
+      <label class="mex-header-plaza-select-wrap mex-header-plaza-desktop" for="mexHdrPlazaSelect" title="Cambiar plaza">
         <span class="mex-header-plaza-select-icon">location_on</span>
         <select id="mexHdrPlazaSelect" class="mex-header-plaza-select" aria-label="Seleccionar plaza activa">
           ${plazas.map(plaza => `<option value="${esc(plaza)}" ${plaza === selected ? 'selected' : ''}>${esc(plaza)}</option>`).join('')}
         </select>
       </label>
+      <div class="mex-header-plaza-mobile">
+        <button id="mexHdrPlazaMobileBtn"
+                class="mex-header-plaza-mobile-btn"
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded="${this._mobilePlazaOpen ? 'true' : 'false'}"
+                aria-label="Cambiar plaza activa">
+          <span class="mex-header-plaza-mobile-icon">location_on</span>
+          <span class="mex-header-plaza-mobile-text">${esc(selected)}</span>
+          <span class="mex-header-plaza-mobile-caret">expand_more</span>
+        </button>
+        <div id="mexHdrPlazaMobileMenu"
+             class="mex-header-plaza-mobile-menu ${this._mobilePlazaOpen ? 'open' : ''}"
+             role="menu"
+             aria-label="Opciones de plaza">
+          ${plazas.map(plaza => `
+            <button type="button"
+                    class="mex-header-plaza-mobile-item ${plaza === selected ? 'active' : ''}"
+                    data-plaza-mobile="${esc(plaza)}"
+                    role="menuitem">
+              ${esc(plaza)}
+            </button>
+          `).join('')}
+        </div>
+      </div>
     `;
   }
 
@@ -140,6 +171,44 @@ export class ShellHeader {
       this._currentPlaza = plaza;
       if (typeof this._onPlazaChange === 'function') this._onPlazaChange(plaza);
     });
+
+    const mobileBtn = this._el.querySelector('#mexHdrPlazaMobileBtn');
+    const mobileMenu = this._el.querySelector('#mexHdrPlazaMobileMenu');
+    mobileBtn?.addEventListener('click', event => {
+      event.stopPropagation();
+      this._mobilePlazaOpen = !this._mobilePlazaOpen;
+      mobileMenu?.classList.toggle('open', this._mobilePlazaOpen);
+      mobileBtn.setAttribute('aria-expanded', this._mobilePlazaOpen ? 'true' : 'false');
+    });
+    this._el.querySelectorAll('[data-plaza-mobile]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const plaza = String(btn.getAttribute('data-plaza-mobile') || '').toUpperCase().trim();
+        if (!plaza) return;
+        this._currentPlaza = plaza;
+        this._mobilePlazaOpen = false;
+        mobileMenu?.classList.remove('open');
+        mobileBtn?.setAttribute('aria-expanded', 'false');
+        if (typeof this._onPlazaChange === 'function') this._onPlazaChange(plaza);
+      });
+    });
+
+    this._onDocPointerDown = event => {
+      if (!this._mobilePlazaOpen || !this._el) return;
+      const zone = this._el.querySelector('.mex-header-plaza-mobile');
+      if (zone && !zone.contains(event.target)) {
+        this._mobilePlazaOpen = false;
+        mobileMenu?.classList.remove('open');
+        mobileBtn?.setAttribute('aria-expanded', 'false');
+      }
+    };
+    this._onDocKeyDown = event => {
+      if (event.key !== 'Escape' || !this._mobilePlazaOpen) return;
+      this._mobilePlazaOpen = false;
+      mobileMenu?.classList.remove('open');
+      mobileBtn?.setAttribute('aria-expanded', 'false');
+    };
+    document.addEventListener('pointerdown', this._onDocPointerDown);
+    document.addEventListener('keydown', this._onDocKeyDown);
   }
 
   // ── Public API ──────────────────────────────────────────
@@ -209,11 +278,16 @@ export class ShellHeader {
       : [];
     this._canSwitchPlaza = canSwitchPlaza === true;
     if (!this._el) return;
+    this._mobilePlazaOpen = false;
     this._el.innerHTML = this._buildHTML();
     this._bind();
   }
 
   destroy() {
+    if (this._onDocPointerDown) document.removeEventListener('pointerdown', this._onDocPointerDown);
+    if (this._onDocKeyDown) document.removeEventListener('keydown', this._onDocKeyDown);
+    this._onDocPointerDown = null;
+    this._onDocKeyDown = null;
     this._el?.remove();
   }
 
