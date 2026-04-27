@@ -2,11 +2,24 @@
 //  /js/app/route-resolver.js
 //  Fuente única de verdad para el mapeo legacy ↔ App Shell.
 //
+//  Campos de estado por módulo:
+//    shellIntegrated    — true si tiene vista propia en /app/*
+//                         (sidebar navega dentro del shell, sin recarga)
+//    fullModuleMigrated — true si la lógica completa del módulo
+//                         (Firestore, UI operativa, etc.) vive en el shell.
+//                         false si el módulo real sigue en el legacy
+//                         y /app/* solo muestra una vista bridge/delegada.
+//
+//  Ejemplo: /app/mapa es shellIntegrated:true pero fullModuleMigrated:false
+//  porque el motor de mapa (drag-and-drop, listeners, alertas) sigue en /mapa.
+//
 //  Reglas:
-//  - migrated: true  → navegar a appRoute dentro del shell
-//  - migrated: false → navegar a fallbackRoute (legacy, recarga)
-//  - Los query params se preservan en todas las funciones
-//  - normalizePath: quita .html, quita trailing slash, deja query
+//    shellIntegrated:true  → isMigratedRoute devuelve true
+//                          → toAppRoute devuelve appRoute
+//    shellIntegrated:false → isMigratedRoute devuelve false
+//                          → toAppRoute devuelve fallbackRoute (legacy)
+//  Los query params se preservan en todas las funciones.
+//  normalizePath: quita .html, quita trailing slash, conserva query.
 // ═══════════════════════════════════════════════════════════
 
 /** Tabla maestra: una entrada por módulo. */
@@ -17,7 +30,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/dashboard',
     navRoute:     '/home',
     fallbackRoute:'/home',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   profile: {
     id: 'profile', label: 'Mi perfil',
@@ -25,7 +39,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/profile',
     navRoute:     '/profile',
     fallbackRoute:'/profile',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   mensajes: {
     id: 'mensajes', label: 'Mensajes',
@@ -33,7 +48,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/mensajes',
     navRoute:     '/mensajes',
     fallbackRoute:'/mensajes',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   cola: {
     id: 'cola', label: 'Cola de preparación',
@@ -41,7 +57,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/cola-preparacion',
     navRoute:     '/cola-preparacion',
     fallbackRoute:'/cola-preparacion',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   incidencias: {
     id: 'incidencias', label: 'Incidencias',
@@ -49,7 +66,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/incidencias',
     navRoute:     '/incidencias',
     fallbackRoute:'/incidencias',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   cuadre: {
     id: 'cuadre', label: 'Cuadre',
@@ -57,7 +75,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/cuadre',
     navRoute:     '/cuadre',
     fallbackRoute:'/cuadre',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   admin: {
     id: 'admin', label: 'Panel admin',
@@ -65,7 +84,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/admin',
     navRoute:     '/gestion',
     fallbackRoute:'/gestion',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   programador: {
     id: 'programador', label: 'Consola técnica',
@@ -73,7 +93,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/programador',
     navRoute:     '/programador',
     fallbackRoute:'/programador',
-    migrated: true,
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
   },
   mapa: {
     id: 'mapa', label: 'Mapa operativo',
@@ -81,7 +102,10 @@ export const ROUTE_MAP = {
     appRoute:     '/app/mapa',
     navRoute:     '/mapa',
     fallbackRoute:'/mapa',
-    migrated: false, // Módulo crítico — permanece en legacy
+    // El sidebar ya navega a /app/mapa sin recargar (bridge integrado).
+    // El motor completo (drag-and-drop, Firestore, alertas) sigue en /mapa.
+    shellIntegrated:    true,
+    fullModuleMigrated: false,
   },
 };
 
@@ -119,7 +143,7 @@ export function resolveRoute(path) {
 
 /**
  * Convierte cualquier ruta (legacy o /app/*) a su equivalente /app/*.
- * Si migrated:false devuelve el fallbackRoute (legacy).
+ * Si shellIntegrated:false devuelve el fallbackRoute (legacy, con recarga).
  * Preserva query string.
  */
 export function toAppRoute(path) {
@@ -127,7 +151,7 @@ export function toAppRoute(path) {
   const tail       = _tail(normalized);
   const entry      = resolveRoute(path);
   if (!entry) return normalized;
-  return (entry.migrated ? entry.appRoute : entry.fallbackRoute) + tail;
+  return (entry.shellIntegrated ? entry.appRoute : entry.fallbackRoute) + tail;
 }
 
 /**
@@ -141,9 +165,12 @@ export function toLegacyRoute(path) {
   return entry ? entry.legacyRoute + tail : normalized;
 }
 
-/** ¿Es esta ruta conocida y migrada al App Shell? */
+/**
+ * ¿Tiene esta ruta vista propia dentro del App Shell?
+ * (Equivale a shellIntegrated:true — no implica que el módulo completo esté migrado.)
+ */
 export function isMigratedRoute(path) {
-  return resolveRoute(path)?.migrated === true;
+  return resolveRoute(path)?.shellIntegrated === true;
 }
 
 /** ¿Es esta ruta una ruta /app/*? */

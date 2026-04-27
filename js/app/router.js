@@ -50,8 +50,11 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/programador.js'),
     navRoute: '/programador'
   },
-  // /app/mapa — reservado; mapa NO migrado. Placeholder de seguridad.
-  '/app/mapa':              { redirect: '/mapa' },
+  // /app/mapa — vista bridge (Fase 7). El mapa completo sigue en /mapa legacy.
+  '/app/mapa': {
+    loader:   () => import('/js/app/views/mapa.js'),
+    navRoute: '/mapa',
+  },
 };
 
 // ── Factory ──────────────────────────────────────────────────

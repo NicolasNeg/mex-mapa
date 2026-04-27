@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v208';
+const CACHE_NAME = 'mapa-v209';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -103,6 +103,7 @@ const CRITICAL_ASSETS = [
 // Aquí van los módulos de vistas del App Shell que pueden
 // añadirse en cualquier fase sin riesgo de romper el install.
 const OPTIONAL_ASSETS = [
+  '/js/app/views/mapa.js',
   '/js/app/views/dashboard.js',
   '/js/app/views/profile.js',
   '/js/app/views/mensajes.js',

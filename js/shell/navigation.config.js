@@ -187,6 +187,7 @@ export const ROUTE_TITLES = {
   '/app/cuadre':           'Cuadre',
   '/app/admin':            'Panel admin',
   '/app/programador':      'Consola técnica',
+  '/app/mapa':             'Mapa operativo',
 };
 
 export function routeTitle(route = '') {

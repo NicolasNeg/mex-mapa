@@ -40,6 +40,7 @@ function _html({ name, roleLabel, plaza, company, hora, role }) {
 
   // ── Módulos integrados en App Shell (sin recarga) ──────────
   const SHELL_MODULES = [
+    { appRoute: '/app/mapa',             label: 'Mapa operativo',     icon: 'map',                  color: '#2b6954', bg: '#dcfce7' },
     { appRoute: '/app/profile',          label: 'Mi perfil',          icon: 'person',               color: '#64748b', bg: '#f1f5f9' },
     { appRoute: '/app/mensajes',         label: 'Mensajes',           icon: 'chat',                 color: '#8b5cf6', bg: '#ede9fe' },
     { appRoute: '/app/cola-preparacion', label: 'Cola de preparación',icon: 'fact_check',           color: '#2b6954', bg: '#dcfce7' },
@@ -50,10 +51,9 @@ function _html({ name, roleLabel, plaza, company, hora, role }) {
     ...(isProgrammer ? [{ appRoute: '/app/programador', label: 'Consola técnica', icon: 'terminal',          color: '#0ea5e9', bg: '#e0f2fe' }] : []),
   ].filter(m => !m.roles || m.roles.includes(role));
 
-  // ── Módulos legacy seguros (recarga completa) ──────────────
+  // ── Módulos legacy (solo los que NO tienen vista en App Shell aún) ─
   const LEGACY_MODULES = [
-    { route: '/mapa',    label: 'Mapa operativo',  icon: 'map',   color: '#2b6954', bg: '#dcfce7', note: 'Módulo principal' },
-    { route: '/home',    label: 'Home legacy',     icon: 'home',  color: '#0ea5e9', bg: '#e0f2fe', note: 'Vista anterior' },
+    { route: '/home', label: 'Home legacy', icon: 'home', color: '#0ea5e9', bg: '#e0f2fe', note: 'Vista anterior' },
   ];
 
   // ── Debug / roadmap: solo PROGRAMADOR o modo debug ─────────
@@ -141,7 +141,7 @@ function _html({ name, roleLabel, plaza, company, hora, role }) {
       ['✅', 'Fase 4', 'Profile como primera vista real'],
       ['✅', 'Fase 5', 'Mensajes — bridge hacia chat completo'],
       ['✅', 'Fase 6', 'App Shell como destino post-login + bridges secundarios'],
-      ['⏳', 'Fase 7', 'Migrar mapa (módulo crítico, al final)'],
+      ['✅', 'Fase 7', 'Bridge /app/mapa — sidebar sin recarga (mapa real sigue en /mapa)'],
     ].map(([status, phase, desc]) => `
       <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;
                   border-bottom:1px solid rgba(255,255,255,0.05);">
