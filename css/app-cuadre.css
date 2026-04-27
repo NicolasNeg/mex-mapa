@@ -1,0 +1,267 @@
+.cqv {
+  --cq-bg: #f1f5f9;
+  --cq-card: #ffffff;
+  --cq-border: #dbe3ef;
+  --cq-text: #0f172a;
+  --cq-muted: #64748b;
+  --cq-primary: #0b2548;
+  --cq-accent: #0ea5e9;
+  --cq-danger: #dc2626;
+  --cq-radius: 14px;
+  padding: 20px;
+  background: var(--cq-bg);
+  font-family: "Inter", sans-serif;
+}
+
+.cqv__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.cqv__title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cqv__title {
+  margin: 0;
+  color: var(--cq-primary);
+  font-size: 28px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.cqv__beta {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.cqv__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cqv__btn {
+  border: 1px solid var(--cq-border);
+  background: #fff;
+  color: #334155;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cqv__btn--primary {
+  background: #e0f2fe;
+  color: var(--cq-primary);
+  border-color: #bae6fd;
+}
+
+.cqv__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--cq-muted);
+  margin-bottom: 12px;
+}
+
+.cqv__plaza {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 4px 10px;
+  font-weight: 800;
+}
+
+.cqv__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 310px;
+  gap: 12px;
+  align-items: start;
+}
+
+.cqv__panel {
+  background: var(--cq-card);
+  border: 1px solid var(--cq-border);
+  border-radius: var(--cq-radius);
+}
+
+.cqv__panel--left {
+  padding: 12px;
+}
+
+.cqv__tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+}
+
+.cqv__tab {
+  border: none;
+  border-radius: 9px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 900;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.cqv__tab.is-active {
+  background: #0b2548;
+  color: #fff;
+}
+
+.cqv__search-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.cqv__search {
+  flex: 1;
+  border: 1px solid #d6deea;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.cqv__chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.cqv__chip {
+  border: 1px solid #d7e0ec;
+  border-radius: 999px;
+  background: #fff;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 5px 11px;
+  cursor: pointer;
+}
+
+.cqv__chip.is-active {
+  border-color: #0b2548;
+  background: #0b2548;
+  color: #fff;
+}
+
+.cqv__table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: auto;
+  max-height: 62vh;
+}
+
+.cqv__table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 880px;
+}
+
+.cqv__table th,
+.cqv__table td {
+  padding: 9px 10px;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 12px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cqv__table th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  color: #64748b;
+  z-index: 1;
+}
+
+.cqv__row {
+  cursor: pointer;
+}
+
+.cqv__row:hover {
+  background: #f8fafc;
+}
+
+.cqv__row.is-selected {
+  background: #eff6ff;
+}
+
+.cqv__badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cqv__side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: sticky;
+  top: 12px;
+}
+
+.cqv__kpi {
+  padding: 12px;
+}
+
+.cqv__kpi-title {
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.cqv__kpi-value {
+  color: #0f172a;
+  font-size: 26px;
+  font-weight: 900;
+}
+
+.cqv__detail {
+  padding: 12px;
+}
+
+.cqv__empty {
+  padding: 40px 18px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .cqv__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cqv__side {
+    position: static;
+  }
+}
