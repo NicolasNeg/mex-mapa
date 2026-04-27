@@ -1,7 +1,15 @@
 import { getState } from '/js/app/app-state.js';
-import { subscribeAdminUsers } from '/js/app/features/admin/admin-users-data.js';
+import { subscribeAdminUsers, mergeAdminUserBasics } from '/js/app/features/admin/admin-users-data.js';
 import { getAdminMetaSnapshot } from '/js/app/features/admin/admin-catalogs-data.js';
-import { subscribeAdminRequests } from '/js/app/features/admin/admin-requests-data.js';
+import { subscribeAdminRequests, fetchAccessRequestDocDeep } from '/js/app/features/admin/admin-requests-data.js';
+import {
+  canApproveAccessRequest,
+  canRejectAccessRequest,
+  canEditUsersBasics,
+  canAssignPlazaAsGlobal,
+  roleNeedsAssignedPlaza,
+  canAssignTargetRole
+} from '/js/app/features/admin/admin-permissions.js';
 
 let _ctx = null;
 let _state = null;
@@ -9,6 +17,279 @@ let _unsubUsers = null;
 let _unsubRequests = null;
 let _offGlobalSearch = null;
 let _metaLoaded = false;
+
+function _toast(message, type = 'info') {
+  let el = document.getElementById('app-admin-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'app-admin-toast';
+    el.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);z-index:100002;max-width:92vw;padding:12px 18px;border-radius:12px;font-size:13px;font-weight:700;box-shadow:0 12px 32px rgba(15,23,42,.25);transition:opacity .2s;color:#fff';
+    document.body.appendChild(el);
+  }
+  const bg = type === 'success' ? '#059669' : type === 'error' ? '#b91c1c' : '#0f172a';
+  el.style.background = bg;
+  el.textContent = message;
+  el.style.opacity = '1';
+  clearTimeout(_toast._t);
+  _toast._t = setTimeout(() => { el.style.opacity = '0'; }, 4200);
+}
+
+function _closeOverlay(id) {
+  document.getElementById(id)?.remove();
+}
+
+function _openConfirmOverlay({ id = 'app-admin-overlay', title, bodyHtml, confirmLabel = 'Confirmar', danger = false, onConfirm }) {
+  const wrap = document.createElement('div');
+  wrap.id = id;
+  wrap.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(15,23,42,.45);display:flex;align-items:center;justify-content:center;padding:16px;';
+  wrap.innerHTML = `
+    <div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 24px 48px rgba(15,23,42,.2);padding:18px;">
+      <h2 style="margin:0 0 10px;font-size:18px;color:#0f172a;">${esc(title)}</h2>
+      <div style="font-size:13px;color:#334155;line-height:1.45;">${bodyHtml}</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap;">
+        <button type="button" data-act="cancel" style="border:1px solid #cbd5e1;border-radius:10px;padding:8px 14px;background:#fff;color:#475569;font-weight:700;cursor:pointer;">Cancelar</button>
+        <button type="button" data-act="ok" style="border:none;border-radius:10px;padding:8px 14px;font-weight:700;cursor:pointer;color:#fff;background:${danger ? '#b91c1c' : '#0f172a'};">${esc(confirmLabel)}</button>
+      </div>
+    </div>`;
+  wrap.querySelector('[data-act="cancel"]').addEventListener('click', () => _closeOverlay(id));
+  wrap.addEventListener('click', e => { if (e.target === wrap) _closeOverlay(id); });
+  wrap.querySelector('[data-act="ok"]').addEventListener('click', async () => {
+    try {
+      await onConfirm();
+    } catch (e) {
+      if (String(e?.message || e) !== 'abort') console.error(e);
+      return;
+    }
+    _closeOverlay(id);
+  });
+  document.body.appendChild(wrap);
+  return wrap;
+}
+
+function _sanitizeRolePick(r) {
+  const x = String(r || '').trim().toUpperCase();
+  return x || 'AUXILIAR';
+}
+
+function _roleOptionsForActor(actorRole, selectedRole, roleKeys = []) {
+  const sel = _sanitizeRolePick(selectedRole);
+  return roleKeys.map(role => {
+    const ok = canAssignTargetRole(actorRole, role);
+    const dis = ok ? '' : ' disabled';
+    const lab = role.replace(/_/g, ' ');
+    return `<option value="${escAttr(role)}"${role === sel ? ' selected' : ''}${dis}>${esc(lab)}</option>`;
+  }).join('');
+}
+
+function _openEditUserModal(user, { actorEmail, allowPlaza }) {
+  const plazaOpts = (Array.isArray(_state.plazas) ? _state.plazas : []).map(p => `<option value="${escAttr(p.id)}">${esc(p.name || p.id)}</option>`).join('');
+  const statusVal = String(user.status || 'ACTIVO').toUpperCase();
+  const bodyHtml = `
+    <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Nombre</label>
+    <input id="adm-u-nombre" type="text" value="${escAttr(user.nombre || '')}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />
+    <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Teléfono</label>
+    <input id="adm-u-tel" type="text" value="${escAttr(user.telefono || '')}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />
+    ${allowPlaza ? `<label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Plaza asignada</label>
+    <select id="adm-u-plaza" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font:inherit;"><option value="">—</option>${plazaOpts}</select>` : '<p style="font-size:11px;color:#64748b;margin:0 0 10px;">Plaza: solo usuarios admin global pueden reasignarla aquí. Otros cambios en <a href="/gestion?tab=usuarios">legacy</a>.</p>'}
+    <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Estado cuenta</label>
+    <select id="adm-u-status" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font:inherit;">
+      <option value="ACTIVO"${statusVal === 'ACTIVO' ? ' selected' : ''}>ACTIVO</option>
+      <option value="INACTIVO"${statusVal === 'INACTIVO' ? ' selected' : ''}>INACTIVO</option>
+    </select>
+    <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Notas internas</label>
+    <textarea id="adm-u-notas" rows="3" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit;">${esc(user.notasInternas || '')}</textarea>
+    <p style="font-size:11px;color:#64748b;margin-top:8px;">Correo, UID, rol, permisos y contraseña no se modifican desde App Shell.</p>`;
+
+  const wrap = _openConfirmOverlay({
+    title: 'Editar datos básicos',
+    bodyHtml,
+    confirmLabel: 'Guardar cambios',
+    onConfirm: async () => {
+      const nombre = String(document.getElementById('adm-u-nombre')?.value || '').trim();
+      const telefono = String(document.getElementById('adm-u-tel')?.value || '').trim();
+      const status = String(document.getElementById('adm-u-status')?.value || 'ACTIVO').trim().toUpperCase();
+      const notasInternas = String(document.getElementById('adm-u-notas')?.value || '');
+      if (!nombre) {
+        _toast('El nombre es obligatorio.', 'error');
+        throw new Error('abort');
+      }
+      const patch = { nombre, telefono, status, notasInternas };
+      if (allowPlaza) patch.plazaAsignada = String(document.getElementById('adm-u-plaza')?.value || '').trim().toUpperCase();
+      try {
+        await mergeAdminUserBasics(user.id, patch, actorEmail, { allowPlaza });
+        _toast('Usuario actualizado.', 'success');
+      } catch (e) {
+        _toast(e?.message || 'No se pudo guardar.', 'error');
+        throw new Error('abort');
+      }
+    }
+  });
+  requestAnimationFrame(() => {
+    const sel = wrap?.querySelector('#adm-u-plaza');
+    if (sel && user.plaza) sel.value = user.plaza;
+  });
+}
+
+function _openRejectRequestModal(req) {
+  const bodyHtml = `
+    <p style="margin:0 0 10px;"><strong>${esc(req.nombre || '—')}</strong> · ${esc(req.email || '')}</p>
+    <p style="font-size:12px;color:#64748b;margin:0 0 10px;">Plaza solicitada: ${esc(req.plazaSolicitada || '—')} · Rol solicitado: ${esc(req.rolSolicitado || '—')}</p>
+    <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Motivo de rechazo</label>
+    <textarea id="adm-sol-motivo" rows="4" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit;">No cumples con los criterios de acceso requeridos en este momento.</textarea>
+    <p style="font-size:11px;color:#64748b;margin-top:8px;">Se guarda como en legacy (motivo_rechazo, rechazadoPor…). La bitácora la escribe Cloud Functions.</p>`;
+  _openConfirmOverlay({
+    title: 'Rechazar solicitud',
+    bodyHtml,
+    confirmLabel: 'Rechazar',
+    danger: true,
+    onConfirm: async () => {
+      const motivo = String(document.getElementById('adm-sol-motivo')?.value || '').trim();
+      if (!motivo) {
+        _toast('Escribe un motivo.', 'error');
+        throw new Error('abort');
+      }
+      const api = window.api;
+      if (typeof api?.procesarSolicitudAcceso !== 'function') {
+        _toast('No hay función de servidor disponible.', 'error');
+        throw new Error('abort');
+      }
+      try {
+        await api.procesarSolicitudAcceso({
+          action: 'reject',
+          docId: req.id,
+          collectionName: req.collectionName,
+          email: req.email,
+          nombre: req.nombre,
+          puesto: req.puesto,
+          telefono: req.telefono,
+          motivo
+        });
+        _toast('Solicitud rechazada.', 'success');
+      } catch (e) {
+        const msg = e?.message || String(e);
+        _toast(msg, 'error');
+        throw new Error('abort');
+      }
+    }
+  });
+}
+
+function _openApproveRequestModal(req, { actorRole }) {
+  const rm = window._mex?.ACCESS_ROLE_META || {};
+  const roleKeys = (Array.isArray(_state.roles) && _state.roles.length)
+    ? _state.roles.map(r => r.key)
+    : Object.keys(rm).length ? Object.keys(rm) : ['AUXILIAR', 'VENTAS', 'SUPERVISOR'];
+  const plazaOpts = (Array.isArray(_state.plazas) ? _state.plazas : []).map(p => `<option value="${escAttr(p.id)}">${esc(p.name || p.id)}</option>`).join('');
+
+  const loadAndShow = async () => {
+    const deep = await fetchAccessRequestDocDeep(req.id, req.collectionName);
+    if (!deep?.data) {
+      _toast('No se encontró la solicitud o sin permiso de lectura.', 'error');
+      return;
+    }
+    const d = deep.data;
+    const nombre0 = String(d.nombre || req.nombre || '').trim();
+    const telefono0 = String(d.telefono || req.telefono || '').trim();
+    const puesto0 = String(d.puesto || req.puesto || '').trim();
+    const rol0 = _sanitizeRolePick(d.rolSolicitado || d.requestedRole || req.rolSolicitado);
+    const plaza0 = String(d.plazaSolicitada || d.requestedPlaza || req.plazaSolicitada || '').trim().toUpperCase();
+    const pwd = String(d.password || '').trim();
+    const passOk = pwd.length >= 6;
+    const warn = passOk ? '' : '<p style="color:#b45309;font-size:12px;font-weight:700;margin:8px 0;">La contraseña temporal de la solicitud ya no es válida o falta: la aprobación con alta de cuenta debe hacerse en <a href="/gestion?tab=solicitudes">admin legacy</a>.</p>';
+
+    const bodyHtml = `
+      ${warn}
+      <div style="padding:10px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;font-size:12px;color:#334155;">
+        <div><strong>Resumen</strong></div>
+        <div>Nombre: ${esc(nombre0 || '—')}</div>
+        <div>Email: ${esc(String(d.email || req.email || '').toLowerCase())}</div>
+        <div>Plaza solicitada: ${esc(plaza0 || '—')}</div>
+        <div>Rol solicitado: ${esc(rol0)}</div>
+        <div>Acción: <strong>aprobar acceso</strong> (Cloud Function + bitácora)</div>
+      </div>
+      <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Nombre final</label>
+      <input id="adm-apr-nombre" type="text" value="${escAttr(nombre0)}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px;box-sizing:border-box;font:inherit;" />
+      <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Teléfono</label>
+      <input id="adm-apr-tel" type="text" value="${escAttr(telefono0)}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px;box-sizing:border-box;font:inherit;" />
+      <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Rol asignado</label>
+      <select id="adm-apr-role" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px;font:inherit;">
+        ${_roleOptionsForActor(actorRole, rol0, roleKeys)}
+      </select>
+      <div id="adm-apr-plaza-wrap">
+        <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Plaza asignada</label>
+        <select id="adm-apr-plaza" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:10px;font:inherit;"><option value="">—</option>${plazaOpts}</select>
+      </div>
+      <p style="font-size:11px;color:#64748b;">Correo no se cambia. La contraseña temporal no se muestra ni se regenera aquí.</p>`;
+
+    const wrap = _openConfirmOverlay({
+      title: 'Aprobar solicitud',
+      bodyHtml,
+      confirmLabel: 'Aprobar',
+      onConfirm: async () => {
+        if (!passOk) {
+          _toast('Completa la aprobación en admin legacy (contraseña inválida).', 'error');
+          throw new Error('abort');
+        }
+        const nombre = String(document.getElementById('adm-apr-nombre')?.value || '').trim().toUpperCase();
+        const telefono = String(document.getElementById('adm-apr-tel')?.value || '').trim();
+        const role = _sanitizeRolePick(document.getElementById('adm-apr-role')?.value);
+        const plaza = String(document.getElementById('adm-apr-plaza')?.value || '').trim().toUpperCase();
+        if (!nombre) {
+          _toast('El nombre es obligatorio.', 'error');
+          throw new Error('abort');
+        }
+        if (roleNeedsAssignedPlaza(role) && !plaza) {
+          _toast('Selecciona plaza para ese rol.', 'error');
+          throw new Error('abort');
+        }
+        const api = window.api;
+        if (typeof api?.procesarSolicitudAcceso !== 'function') {
+          _toast('No hay función de servidor disponible.', 'error');
+          throw new Error('abort');
+        }
+        try {
+          await api.procesarSolicitudAcceso({
+            action: 'approve',
+            docId: req.id,
+            collectionName: deep.collectionName,
+            email: String(d.email || req.email || '').toLowerCase(),
+            nombre,
+            puesto: puesto0,
+            telefono,
+            role,
+            plaza: roleNeedsAssignedPlaza(role) ? plaza : '',
+            password: pwd
+          });
+          _toast('Solicitud aprobada.', 'success');
+        } catch (e) {
+          let msg = e?.message || String(e);
+          if (/contraseña|password|válida/i.test(msg)) {
+            msg += ' Usa admin legacy.';
+          }
+          _toast(msg, 'error');
+          throw new Error('abort');
+        }
+      }
+    });
+    const syncPlazaRow = () => {
+      const roleEl = wrap?.querySelector('#adm-apr-role');
+      const plazaWrap = wrap?.querySelector('#adm-apr-plaza-wrap');
+      const plazaSel = wrap?.querySelector('#adm-apr-plaza');
+      const rk = _sanitizeRolePick(roleEl?.value);
+      const need = roleNeedsAssignedPlaza(rk);
+      if (plazaWrap) plazaWrap.style.display = need ? '' : 'none';
+      if (!need && plazaSel) plazaSel.value = '';
+    };
+    wrap?.querySelector('#adm-apr-role')?.addEventListener('change', syncPlazaRow);
+    requestAnimationFrame(() => {
+      const plazaSel = wrap?.querySelector('#adm-apr-plaza');
+      if (plazaSel && plaza0) plazaSel.value = plaza0;
+      syncPlazaRow();
+    });
+  };
+
+  loadAndShow();
+}
 
 export function mount(ctx) {
   _ctx = ctx;
@@ -182,7 +463,7 @@ function _renderTab() {
   c.querySelector('#adminCatalogosPane').style.display = _state.tab === 'catalogos' ? 'grid' : 'none';
   c.querySelector('#adminSolicitudesPane').style.display = _state.tab === 'solicitudes' ? 'grid' : 'none';
   c.querySelector('#adminPlaceholderPane').style.display = ['usuarios', 'roles', 'plazas', 'catalogos', 'solicitudes'].includes(_state.tab) ? 'none' : 'block';
-  c.querySelector('#adminPlaceholderPane').textContent = `Tab "${_state.tab}" queda como placeholder en esta fase.`;
+  c.querySelector('#adminPlaceholderPane').textContent = '';
   if (_state.tab === 'solicitudes') {
     _subscribeRequestsForCurrentStatus();
   } else {
@@ -211,7 +492,14 @@ function _renderUsersTable() {
 function _syncDetail() {
   const box = _ctx?.container?.querySelector('#appAdminDetail');
   if (!box) return;
-  const user = _state.filtered.find(u => u.id === _state.selectedId) || _state.users[0];
+  const gs = getState();
+  const profile = gs.profile || {};
+  const actorRole = String(gs.role || profile.rol || '').toUpperCase();
+  const actorEmail = String(profile.email || gs.user?.email || '').trim().toLowerCase();
+  const canEdit = canEditUsersBasics(profile, actorRole);
+  const allowPlaza = canAssignPlazaAsGlobal(profile, actorRole) && Array.isArray(_state.plazas) && _state.plazas.length > 0;
+
+  const user = _state.filtered.find(u => u.id === _state.selectedId) || _state.filtered[0];
   if (!user) return box.innerHTML = `<div style="padding:12px;color:#94a3b8;">Selecciona un usuario para ver detalle.</div>`;
   box.innerHTML = `
     <div style="padding:12px;">
@@ -223,8 +511,12 @@ function _syncDetail() {
       ${_detail('Estado', user.status || 'ACTIVO')}
       ${_detail('Admin', user.isAdmin ? 'Sí' : 'No')}
       ${_detail('Global', user.isGlobal ? 'Sí' : 'No')}
-      <a href="/gestion?tab=usuarios" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir panel admin completo</a>
+      ${user.notasInternas ? _detail('Notas internas', user.notasInternas) : ''}
+      ${canEdit ? `<button type="button" id="appAdminEditUserBtn" style="margin-top:12px;width:100%;border:none;border-radius:10px;padding:10px 12px;background:#0f172a;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Editar datos básicos</button>` : ''}
+      <a href="/gestion?tab=usuarios" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir admin legacy (completo)</a>
     </div>`;
+  const btn = box.querySelector('#appAdminEditUserBtn');
+  if (btn) btn.addEventListener('click', () => _openEditUserModal(user, { actorEmail, allowPlaza }));
 }
 
 function _renderRoles() {
@@ -394,8 +686,25 @@ function _renderRequestsTable() {
 function _syncRequestDetail() {
   const box = _ctx?.container?.querySelector('#appAdminRequestDetail');
   if (!box) return;
+  const gs = getState();
+  const profile = gs.profile || {};
+  const actorRole = String(gs.role || profile.rol || '').toUpperCase();
+
   const req = _state.requestsFiltered.find(r => r.id === _state.selectedRequestId) || _state.requestsFiltered[0] || _state.requests[0];
   if (!req) return box.innerHTML = `<div style="padding:12px;color:#94a3b8;">Selecciona una solicitud para ver detalle.</div>`;
+
+  const pend = String(req.estado || '').toUpperCase() === 'PENDIENTE';
+  const canApr = pend && canApproveAccessRequest(profile, actorRole);
+  const canRej = pend && canRejectAccessRequest(profile, actorRole);
+
+  const actions = pend
+    ? `<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
+        ${canApr ? `<button type="button" id="appAdminReqApprove" style="border:none;border-radius:10px;padding:10px 12px;background:#059669;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Aprobar</button>` : ''}
+        ${canRej ? `<button type="button" id="appAdminReqReject" style="border:none;border-radius:10px;padding:10px 12px;background:#b91c1c;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Rechazar</button>` : ''}
+        ${(!canApr && !canRej) ? '<p style="font-size:11px;color:#64748b;margin:0;">Sin permiso para procesar solicitudes. Usa legacy si aplica.</p>' : ''}
+      </div>`
+    : `<p style="font-size:11px;color:#64748b;margin-top:8px;">Esta solicitud ya fue resuelta en Firestore.</p>`;
+
   box.innerHTML = `<div style="padding:12px;">
     <h3 style="margin:0 0 8px;color:#0f172a;">${esc(req.nombre || 'Solicitante')}</h3>
     ${_detail('Email', req.email || '—')}
@@ -406,9 +715,12 @@ function _syncRequestDetail() {
     ${_detail('Estado', req.estado || '—')}
     ${_detail('Fecha', req.fecha || '—')}
     ${_detail('Colección', req.collectionName || 'solicitudes')}
-    <div style="margin-top:8px;font-size:11px;color:#64748b;">Vista parcial en modo lectura (sin aprobar/rechazar en esta fase).</div>
-    <a href="/gestion?tab=solicitudes" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir admin completo</a>
+    ${actions}
+    <a href="/gestion?tab=solicitudes" style="display:inline-block;margin-top:12px;font-size:12px;color:#0f172a;font-weight:700;">Abrir admin legacy (completo)</a>
   </div>`;
+
+  box.querySelector('#appAdminReqApprove')?.addEventListener('click', () => _openApproveRequestModal(req, { actorRole }));
+  box.querySelector('#appAdminReqReject')?.addEventListener('click', () => _openRejectRequestModal(req));
 }
 
 function _html(profile = {}) {
@@ -416,7 +728,7 @@ function _html(profile = {}) {
 <div style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
   <h1 style="margin:0 0 10px;color:#0f172a;font-size:26px;">Panel admin</h1>
   <p style="margin:0 0 14px;padding:11px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#475569;line-height:1.45;">
-    <strong>Modo consulta:</strong> Solo lectura y navegación. Para alta/baja de usuarios, cambio de roles o flujos de aprobación usa el panel completo enlazado abajo.
+    <strong>Beta App Shell:</strong> Solicitudes y usuarios permiten acciones acotadas con confirmación (según tu rol). Roles, plazas y catálogos siguen en <strong>solo consulta</strong>; cambios sensibles siguen en admin legacy.
   </p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
     ${['usuarios','roles','plazas','catalogos','solicitudes'].map(t => `<button data-admin-tab="${t}" style="border:1px solid #dbe3ef;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;background:${t==='usuarios'?'#0f172a':'#fff'};color:${t==='usuarios'?'#fff':'#475569'};cursor:pointer;text-transform:capitalize;">${t}</button>`).join('')}
@@ -439,6 +751,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminRolesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Solo consulta en beta. Para editar permisos o definiciones usa <a href="/gestion?tab=roles" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th></tr></thead>
@@ -450,6 +763,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminPlazasPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Solo consulta en beta. Alta/edición de plazas en <a href="/gestion?tab=plazas" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">ID</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th></tr></thead>
@@ -461,6 +775,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminCatalogosPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Solo consulta en beta. Catálogos globales se editan en <a href="/gestion?tab=catalogos" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Catálogo</th><th style="padding:8px;text-align:left;background:#f8fafc;">Clave</th><th style="padding:8px;text-align:left;background:#f8fafc;">Elementos</th><th style="padding:8px;text-align:left;background:#f8fafc;">Acción</th></tr></thead>
@@ -472,6 +787,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminSolicitudesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Aprobar/rechazar usa la misma Cloud Function que legacy. Si falta contraseña válida en la solicitud, completa el flujo en legacy.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <select id="appAdminReqStatus" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
           <option value="PENDIENTE">Pendientes</option>

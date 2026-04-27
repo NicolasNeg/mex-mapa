@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v237';
+const CACHE_NAME = 'mapa-v238';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -117,6 +117,7 @@ const OPTIONAL_ASSETS = [
   '/js/app/features/cuadre/cuadre-data.js',
   '/js/app/features/admin/admin-users-data.js',
   '/js/app/features/admin/admin-catalogs-data.js',
+  '/js/app/features/admin/admin-permissions.js',
   '/js/app/features/admin/admin-requests-data.js',
   '/css/app-cuadre.css',
   '/js/app/views/admin.js',

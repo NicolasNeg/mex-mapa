@@ -12,8 +12,39 @@ export function normalizeUserRecord(id, data = {}) {
     telefono: String(data.telefono || '').trim(),
     status: String(data.status || 'ACTIVO').toUpperCase().trim(),
     isAdmin: data.isAdmin === true,
-    isGlobal: data.isGlobal === true
+    isGlobal: data.isGlobal === true,
+    notasInternas: String(data.notasInternas || data.notasAdmin || '').trim()
   };
+}
+
+function _fieldValue() {
+  return window.firebase?.firestore?.FieldValue || null;
+}
+
+/**
+ * Merge acotado para beta App Shell (sin email/rol/permisos/password).
+ */
+export async function mergeAdminUserBasics(userDocId, patch = {}, actorEmail = '', options = {}) {
+  const { allowPlaza = false } = options;
+  const merge = {};
+  if (patch.nombre != null) {
+    const n = String(patch.nombre).trim().toUpperCase();
+    merge.nombre = n;
+    merge.nombreCompleto = n;
+  }
+  if (patch.telefono != null) merge.telefono = String(patch.telefono).trim();
+  if (patch.status != null) merge.status = String(patch.status).trim().toUpperCase();
+  if (patch.notasInternas != null) merge.notasInternas = String(patch.notasInternas).trim();
+  if (allowPlaza && patch.plazaAsignada !== undefined) {
+    const p = String(patch.plazaAsignada).trim().toUpperCase();
+    merge.plazaAsignada = p;
+    merge.plaza = p;
+  }
+  const fv = _fieldValue();
+  merge.actualizadoAt = fv ? fv.serverTimestamp() : new Date().toISOString();
+  merge.actualizadoPor = String(actorEmail || '').trim().toLowerCase();
+  merge.updatedFrom = 'app_admin_beta';
+  await db.collection(COL.USERS).doc(userDocId).set(merge, { merge: true });
 }
 
 export function subscribeAdminUsers({ onData, onError }) {

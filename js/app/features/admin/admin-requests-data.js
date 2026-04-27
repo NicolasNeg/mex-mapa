@@ -3,6 +3,31 @@ import { db } from '/js/core/database.js';
 const PRIMARY = 'solicitudes';
 const LEGACY = 'solicitudes_acceso';
 
+function _collectionsOrder(preferred = '') {
+  return Array.from(new Set(
+    [preferred, PRIMARY, LEGACY].map(v => String(v || '').trim()).filter(Boolean)
+  ));
+}
+
+/** Lectura puntual para aprobar (password en doc, colección correcta). */
+export async function fetchAccessRequestDocDeep(docId, collectionHint = '') {
+  const normalizedId = String(docId || '').trim().toLowerCase();
+  if (!normalizedId) return null;
+  for (const col of _collectionsOrder(collectionHint)) {
+    try {
+      const snap = await db.collection(col).doc(normalizedId).get();
+      if (snap.exists) {
+        return {
+          collectionName: col,
+          id: normalizedId,
+          data: snap.data() || {}
+        };
+      }
+    } catch (_) { /* permisos */ }
+  }
+  return null;
+}
+
 function _norm(v) {
   return String(v || '').trim();
 }
