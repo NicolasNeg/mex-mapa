@@ -44,6 +44,7 @@ function _getStorageClient() {
 }
 
 // ── Persistencia offline — solo si firebase-init.js no lo hizo ya ────────
+// SDK compat: synchronizeTabs puede advertir deprecación hasta migración modular; no bloquea beta.
 if (!window._firestorePersistenceEnabled) {
   window._firestorePersistenceEnabled = true;
   db.enablePersistence({ synchronizeTabs: true })

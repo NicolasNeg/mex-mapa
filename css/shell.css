@@ -588,6 +588,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   font-family: 'Inter', sans-serif;
+  /* Flex item: permite truncar sin empujar plaza/campana en 1366px */
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: min(44vw, 420px);
 }
 
 /* ── Header right ──────────────────────────────────────────── */
@@ -898,6 +902,8 @@
   margin-left: var(--sh-sidebar-w);
   margin-top: var(--sh-header-h);
   min-height: calc(100vh - var(--sh-header-h));
+  min-width: 0;
+  overflow-x: clip;
   transition: margin-left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 }

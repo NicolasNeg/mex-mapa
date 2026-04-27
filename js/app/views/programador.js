@@ -10,16 +10,23 @@ let _navigate = null;
 let _cleanupFlags = null;
 let _cleanupBeta = null;
 
+/** Smoke mismo-origen (HEAD/GET): App Shell, perfil y rutas legacy pedidas en handoff beta. */
 const _BETA_ROUTES = [
   '/app/dashboard',
   '/app/mapa',
-  '/app/cuadre',
   '/app/mensajes',
-  '/app/admin',
   '/app/cola-preparacion',
   '/app/incidencias',
+  '/app/cuadre',
+  '/app/admin',
   '/app/programador',
-  '/mapa'
+  '/app/profile',
+  '/home',
+  '/mapa',
+  '/gestion',
+  '/mensajes',
+  '/cuadre',
+  '/cola-preparacion'
 ];
 
 const _BETA_ASSETS = [
@@ -237,7 +244,8 @@ function _summaryText(info) {
     `Ruta actual: ${flags.route}`,
     `Flags: dnd=${flags.dndLs ? '1' : '0'} persist=${flags.dndPersistLs ? '1' : '0'} debug=${flags.debugLs ? '1' : '0'}`,
     `Script /config.js (legacy) en documento: ${cfg.legacyConfigJs ? 'SÍ (no esperado)' : 'no'}`,
-    `FIREBASE_CONFIG (js/core/firebase-config.js): ${cfg.firebaseConfigOk ? `ok · ${cfg.firebaseProjectId || '—'}` : 'NO'}`,
+    `Config cliente (archivo esperado): /js/core/firebase-config.js`,
+    `FIREBASE_CONFIG: ${cfg.firebaseConfigOk ? `ok · ${cfg.firebaseProjectId || '—'}` : 'NO'}`,
     `Host: ${info.host} (${info.env})`,
     `SW: ${info.sw.swVersion} | estado: ${info.sw.swState} | control: ${info.sw.swControlled ? 'si' : 'no'}`,
     `Firebase: auth=${info.firebase.hasAuth} firestore=${info.firebase.hasDb} storage=${info.firebase.hasStorage}`,
@@ -379,6 +387,7 @@ function _bindBetaReadiness() {
         `Plaza: ${flags.plaza}`,
         `SW: ${info.sw.swVersion}`,
         `Script /config.js legacy en documento: ${cfg.legacyConfigJs ? 'SÍ (no esperado)' : 'no'}`,
+        `Config cliente: /js/core/firebase-config.js`,
         `FIREBASE_CONFIG: ${cfg.firebaseConfigOk ? `ok · ${cfg.firebaseProjectId || ''}` : 'NO'}`,
         `window.api: ${info.api.count} funciones`,
         `Flags dnd/dndPersist/debug: ${flags.dndLs}/${flags.dndPersistLs}/${flags.debugLs}`,
@@ -438,6 +447,7 @@ function _betaReadinessHtml(info, flags) {
         ${_row('SW registrado', info.sw.swState)}
         ${_row('SW controla página', info.sw.swControlled ? 'sí' : 'no')}
         ${_row('Script /config.js (legacy)', info.config?.legacyConfigJs ? '⚠ cargado' : 'no (ok)')}
+        ${_row('Origen FIREBASE_CONFIG', '/js/core/firebase-config.js')}
         ${_row('FIREBASE_CONFIG', info.config?.firebaseConfigOk ? `ok · ${esc(info.config.firebaseProjectId || '')}` : 'NO')}
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px;">
@@ -445,7 +455,7 @@ function _betaReadinessHtml(info, flags) {
         ${routeLabels}
       </div>
     </div>
-    <pre id="progBetaSmokeResults" style="margin:0 0 10px;padding:10px;background:#0f172a;color:#e2e8f0;border-radius:8px;font-size:11px;overflow:auto;max-height:160px;">Pulsa «Ejecutar smoke check local» para resultados.</pre>
+    <pre id="progBetaSmokeResults" style="margin:0 0 10px;padding:10px;background:#0f172a;color:#e2e8f0;border-radius:8px;font-size:11px;overflow:auto;max-height:260px;">Pulsa «Ejecutar smoke check local» para resultados.</pre>
     <div style="display:flex;flex-wrap:wrap;gap:8px;">
       <button type="button" data-beta-act="smoke" style="border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Ejecutar smoke check local</button>
       <button type="button" data-beta-act="copy-beta" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar reporte beta</button>
