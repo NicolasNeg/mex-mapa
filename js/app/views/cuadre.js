@@ -53,8 +53,8 @@ function _cleanup() {
   _unsubData = null;
   _unsubPlaza = null;
   _offGlobalSearch = null;
-  if (_cssLink?.parentNode) _cssLink.parentNode.removeChild(_cssLink);
-  _cssLink = null;
+  // Mantener CSS ya inyectado evita FOUC al volver a /app/cuadre.
+  _cssLink = document.querySelector('link[data-cqv-css="1"]');
   _container = null;
   _state = null;
 }

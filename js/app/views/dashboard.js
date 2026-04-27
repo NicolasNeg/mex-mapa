@@ -60,8 +60,8 @@ export async function mount({ container }) {
     if (typeof _offPlaza === 'function') _offPlaza();
     _offSearch = null;
     _offPlaza = null;
-    if (_cssRef?.parentNode) _cssRef.parentNode.removeChild(_cssRef);
-    _cssRef = null;
+    // Mantener CSS en cache DOM evita flicker al navegar entre vistas.
+    _cssRef = document.querySelector('link[data-app-dashboard-css="1"]');
     _container = null;
     _state = null;
   };

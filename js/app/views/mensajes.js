@@ -13,8 +13,10 @@ export async function mount({ container }) {
   const gs = getState();
   const profile = gs.profile || {};
   const me = _resolveIdentity(profile);
+  const meCandidates = _resolveIdentityCandidates(profile);
   _state = {
     me,
+    meCandidates,
     allMessages: [],
     conversations: [],
     filtered: [],
@@ -46,6 +48,18 @@ function _cleanup() {
 function _resolveIdentity(profile) {
   const raw = profile?.nombre || profile?.usuario || profile?.nombreCompleto || profile?.email || 'USUARIO';
   return String(raw).trim().toUpperCase();
+}
+
+function _resolveIdentityCandidates(profile) {
+  const candidates = [
+    profile?.nombre,
+    profile?.usuario,
+    profile?.nombreCompleto,
+    profile?.email
+  ]
+    .map(v => String(v || '').trim().toUpperCase())
+    .filter(Boolean);
+  return [...new Set(candidates)];
 }
 
 function _bindActions() {
@@ -84,7 +98,7 @@ async function _loadMessages() {
   _disableComposer(true);
   _setBodyLoading('Cargando conversaciones...');
   try {
-    const rows = await obtenerMensajesPrivados(_state.me);
+    const rows = await _fetchMessagesForAllKnownIdentities(_state.meCandidates);
     if (!_state || !_container) return;
     _state.allMessages = Array.isArray(rows) ? rows : [];
     _rebuildConversations();
@@ -98,6 +112,29 @@ async function _loadMessages() {
     _state.loading = false;
     _disableComposer(false);
   }
+}
+
+async function _fetchMessagesForAllKnownIdentities(identities = []) {
+  const ids = Array.isArray(identities) && identities.length
+    ? identities
+    : [_state?.me || ''];
+  const uniqueRows = new Map();
+  await Promise.all(ids.map(async identity => {
+    const safeIdentity = String(identity || '').trim().toUpperCase();
+    if (!safeIdentity) return;
+    try {
+      const rows = await obtenerMensajesPrivados(safeIdentity);
+      (Array.isArray(rows) ? rows : []).forEach(row => {
+        const rowId = String(row?.id || '');
+        if (!rowId) return;
+        const normalized = { ...row, esMio: String(row.remitente || '').toUpperCase().trim() === safeIdentity };
+        if (!uniqueRows.has(rowId) || _msgTs(normalized) > _msgTs(uniqueRows.get(rowId))) {
+          uniqueRows.set(rowId, normalized);
+        }
+      });
+    } catch (_) {}
+  }));
+  return Array.from(uniqueRows.values()).sort((a, b) => _msgTs(b) - _msgTs(a));
 }
 
 async function _sendMessage() {

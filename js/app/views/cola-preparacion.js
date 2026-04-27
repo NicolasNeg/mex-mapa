@@ -18,6 +18,7 @@ let _state     = null;   // estado local de esta vista
 let _unsubPlaza = null;  // listener de plaza global
 let _offGlobalSearch = null;
 let _cssInjected = false;
+let _queueSubSeq = 0;
 
 // ── Helpers privados ─────────────────────────────────────────
 const q   = id  => _container?.querySelector('#' + id) ?? null;
@@ -136,12 +137,16 @@ function _ensureCss() {
 function _subscribeQueue(plaza) {
   _renderLoading();
   _closeQueueListener();
+  const subscriptionId = ++_queueSubSeq;
+  const expectedPlaza = String(plaza || '').toUpperCase().trim();
 
   try {
     _unsub = db.collection('cola_preparacion').doc(plaza).collection('items')
       .onSnapshot(
         snap => {
-          if (!_container) return;          // desmontado mientras cargaba
+          if (!_container || !_state) return;          // desmontado mientras cargaba
+          if (subscriptionId !== _queueSubSeq) return; // listener viejo (race condition)
+          if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
           _state.items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           _applyFilters();
           _renderList();
@@ -149,7 +154,9 @@ function _subscribeQueue(plaza) {
         },
         err => {
           console.error('[cola-prep] Firestore error:', err);
-          if (!_container) return;
+          if (!_container || !_state) return;
+          if (subscriptionId !== _queueSubSeq) return; // listener viejo (race condition)
+          if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
           if (String(err?.code || '').toLowerCase() === 'permission-denied') {
             _renderError('No tienes permisos para ver la cola de esta plaza.');
             return;
