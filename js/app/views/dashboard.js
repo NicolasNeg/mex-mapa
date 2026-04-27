@@ -9,7 +9,7 @@
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
-import { db, COL } from '/js/core/database.js';
+import { db, COL, obtenerDatosParaMapa, obtenerEstructuraMapa, obtenerDatosFlotaConsola } from '/js/core/database.js';
 
 let _cleanup = null;
 let _container = null;
@@ -17,6 +17,7 @@ let _state = null;
 let _offSearch = null;
 let _offPlaza = null;
 let _cssRef = null;
+let _mapPreviewRequestId = 0;
 
 export async function mount({ container }) {
   unmount();
@@ -32,7 +33,15 @@ export async function mount({ container }) {
     plaza,
     query: '',
     metrics: { unidades: 0, externos: 0, incidencias: 0, solicitudes: 0 },
-    modules: _modulesForRole(role)
+    modules: _modulesForRole(role),
+    mapPreview: {
+      loading: true,
+      error: '',
+      unitCount: 0,
+      zoneCount: 0,
+      zoneItems: [],
+      stateItems: []
+    }
   };
 
   _container.innerHTML = _layout(_state);
@@ -41,10 +50,10 @@ export async function mount({ container }) {
     if (!_state || !_container) return;
     _state.plaza = String(nextPlaza || '').toUpperCase().trim();
     _setText('#appDashPlaza', _state.plaza || '—');
-    await _loadMetrics();
+    await Promise.all([_loadMetrics(), _loadMapPreview()]);
     _render();
   });
-  await _loadMetrics();
+  await Promise.all([_loadMetrics(), _loadMapPreview()]);
   _render();
   _cleanup = () => {
     if (typeof _offSearch === 'function') _offSearch();
@@ -119,6 +128,22 @@ function _layout(state) {
     ${_kpi('appDashKpiSol', 'Solicitudes pendientes')}
   </div>
 
+  <div class="appdash__card appdash__map-preview">
+    <div class="appdash__map-header">
+      <div>
+        <div class="appdash__eyebrow">Vista rápida del mapa operativo</div>
+        <strong class="appdash__map-title">Plaza <span id="appDashMapPlaza">${esc(state.plaza || '—')}</span></strong>
+      </div>
+      <div class="appdash__map-actions">
+        <a data-app-route="/app/mapa" href="/app/mapa" class="appdash__chip-link">Abrir mapa en App Shell</a>
+        <a href="/mapa" class="appdash__chip-link appdash__chip-link--alt">Abrir mapa completo</a>
+      </div>
+    </div>
+    <div id="appDashMapPreviewBody" class="appdash__map-body">
+      <div class="appdash__map-loading">Cargando vista rápida...</div>
+    </div>
+  </div>
+
   <h2 style="font-size:12px;font-weight:800;color:#64748b;margin:0 0 8px;">Módulos disponibles</h2>
   <div class="appdash__modules" id="appDashModules">
     ${state.modules.map(mod => `
@@ -160,11 +185,63 @@ async function _loadMetrics() {
   _state.metrics = { unidades: cuadre, externos, incidencias: notas, solicitudes };
 }
 
+async function _loadMapPreview() {
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  const requestId = ++_mapPreviewRequestId;
+  _state.mapPreview = {
+    loading: true,
+    error: '',
+    unitCount: 0,
+    zoneCount: 0,
+    zoneItems: [],
+    stateItems: []
+  };
+  _renderMapPreview();
+  if (!plaza) {
+    _state.mapPreview.loading = false;
+    _state.mapPreview.error = 'Selecciona una plaza para cargar el preview del mapa.';
+    _renderMapPreview();
+    return;
+  }
+  try {
+    const [estructura, datosMapa, flota] = await Promise.all([
+      obtenerEstructuraMapa(plaza),
+      obtenerDatosParaMapa(plaza),
+      obtenerDatosFlotaConsola(plaza).catch(() => [])
+    ]);
+    if (!_state || requestId !== _mapPreviewRequestId) return;
+    const units = Array.isArray(datosMapa?.unidades) ? datosMapa.unidades : [];
+    const zones = _buildZonePreviewItems(estructura, units);
+    const states = _buildStatePreviewItems(flota, units);
+    _state.mapPreview = {
+      loading: false,
+      error: '',
+      unitCount: units.length,
+      zoneCount: zones.length,
+      zoneItems: zones,
+      stateItems: states
+    };
+  } catch (error) {
+    if (!_state || requestId !== _mapPreviewRequestId) return;
+    _state.mapPreview = {
+      loading: false,
+      error: error?.message || 'No se pudo cargar la vista rápida del mapa.',
+      unitCount: 0,
+      zoneCount: 0,
+      zoneItems: [],
+      stateItems: []
+    };
+  }
+  _renderMapPreview();
+}
+
 function _render() {
   _setText('#appDashKpiUnidades', _state.metrics.unidades);
   _setText('#appDashKpiExternos', _state.metrics.externos);
   _setText('#appDashKpiInc', _state.metrics.incidencias);
   _setText('#appDashKpiSol', _state.metrics.solicitudes);
+  _setText('#appDashMapPlaza', _state.plaza || '—');
+  _renderMapPreview();
   _applyQuery();
 }
 
@@ -187,6 +264,15 @@ function _applyQuery() {
     const visible = !_state.query || txt.includes(_state.query);
     card.hidden = !visible;
   });
+  const action = _container?.querySelector('#appDashSearchMapAction');
+  if (action) {
+    const hasQuery = Boolean(_state.query);
+    const looksLikeUnit = /^[a-z0-9-]{2,}$/i.test(_state.query || '');
+    action.hidden = !(hasQuery && looksLikeUnit);
+    if (!action.hidden) {
+      action.setAttribute('href', `/app/mapa?q=${encodeURIComponent(_state.query)}`);
+    }
+  }
 }
 
 function _kpi(id, label) {
@@ -226,4 +312,79 @@ function _greeting() {
   if (h < 12) return 'Buenos días';
   if (h < 19) return 'Buenas tardes';
   return 'Buenas noches';
+}
+
+function _renderMapPreview() {
+  const body = _container?.querySelector('#appDashMapPreviewBody');
+  if (!body) return;
+  const preview = _state?.mapPreview || {};
+  if (preview.loading) {
+    body.innerHTML = `<div class="appdash__map-loading">Cargando vista rápida...</div>`;
+    return;
+  }
+  if (preview.error) {
+    body.innerHTML = `
+      <div class="appdash__map-fallback">
+        <p>No se pudo cargar la vista rápida del mapa.</p>
+        <small>${esc(preview.error)}</small>
+        <a href="/mapa" class="appdash__fallback-link">Abrir mapa completo</a>
+      </div>
+    `;
+    return;
+  }
+  body.innerHTML = `
+    <div class="appdash__map-kpis">
+      <div><strong>${esc(preview.unitCount)}</strong><span>Unidades visibles</span></div>
+      <div><strong>${esc(preview.zoneCount)}</strong><span>Zonas con actividad</span></div>
+      <div><strong>${esc(preview.stateItems.reduce((acc, item) => acc + item.count, 0))}</strong><span>Estados clasificados</span></div>
+    </div>
+    <div class="appdash__map-grid">
+      <div>
+        <h3>Zonas principales</h3>
+        ${preview.zoneItems.length ? `
+          <ul>${preview.zoneItems.map(item => `<li><span>${esc(item.label)}</span><b>${esc(item.count)}</b></li>`).join('')}</ul>
+        ` : `<p class="appdash__map-empty">Sin zonas detectadas en esta plaza.</p>`}
+      </div>
+      <div>
+        <h3>Estados operativos</h3>
+        ${preview.stateItems.length ? `
+          <ul>${preview.stateItems.map(item => `<li><span>${esc(item.label)}</span><b>${esc(item.count)}</b></li>`).join('')}</ul>
+        ` : `<p class="appdash__map-empty">Sin estados disponibles.</p>`}
+      </div>
+    </div>
+    <a id="appDashSearchMapAction" hidden href="/app/mapa" class="appdash__map-search-action">Buscar en mapa operativo</a>
+  `;
+}
+
+function _buildZonePreviewItems(estructura, units) {
+  const known = new Set(
+    (Array.isArray(estructura) ? estructura : [])
+      .map(item => String(item?.pos || item?.id || '').trim().toUpperCase())
+      .filter(Boolean)
+  );
+  const counts = new Map();
+  (Array.isArray(units) ? units : []).forEach(unit => {
+    const zone = String(unit?.pos || unit?.ubicacion || '').trim().toUpperCase();
+    if (!zone) return;
+    const key = known.has(zone) ? zone : zone;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([label, count]) => ({ label, count }));
+}
+
+function _buildStatePreviewItems(flota, units) {
+  const src = Array.isArray(flota) && flota.length ? flota : (Array.isArray(units) ? units : []);
+  const counts = new Map();
+  src.forEach(unit => {
+    const raw = String(unit?.estado || '').trim().toUpperCase();
+    const state = raw || 'SIN ESTADO';
+    counts.set(state, (counts.get(state) || 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([label, count]) => ({ label, count }));
 }

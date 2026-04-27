@@ -15,13 +15,15 @@ import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 
 export function mount({ container }) {
   const { profile, role, company } = getState();
+  const params = new URLSearchParams(window.location.search);
+  const q = String(params.get('q') || '').trim();
 
   const name      = profile?.nombreCompleto || profile?.nombre || profile?.email || 'Usuario';
   const firstName = name.split(' ')[0];
   const roleLabel = ROLE_LABELS[role] || role;
-  const plaza     = profile?.plazaAsignada || '—';
+  const plaza     = getState().currentPlaza || profile?.plazaAsignada || '—';
 
-  container.innerHTML = _html({ firstName, roleLabel, plaza, company, role });
+  container.innerHTML = _html({ firstName, roleLabel, plaza, company, role, q });
 }
 
 export function unmount() {
@@ -29,7 +31,7 @@ export function unmount() {
 }
 
 // ── HTML ─────────────────────────────────────────────────────
-function _html({ firstName, roleLabel, plaza, company, role }) {
+function _html({ firstName, roleLabel, plaza, company, role, q }) {
   const isOperativo = [
     'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL',
     'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR', 'VENTAS', 'AUXILIAR'
@@ -76,6 +78,7 @@ function _html({ firstName, roleLabel, plaza, company, role }) {
         Esta vista integra la ruta <code style="background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:12px;">/app/mapa</code> al shell sin modificar
         el motor de mapa, Firestore ni la lógica operativa. La migración completa del mapa se hará en una fase posterior.
       </p>
+      ${q ? `<p style="font-size:12px;color:#0f172a;margin:8px 0 0;">Búsqueda recibida desde dashboard: <strong>${esc(q)}</strong></p>` : ''}
     </div>
   </div>
 

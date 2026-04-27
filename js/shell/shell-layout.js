@@ -135,6 +135,7 @@ export class ShellLayout {
    */
   setRoute(route) {
     this._sidebar?.setRoute(route);
+    this._sidebar?.closeMobileDrawer();
     this._header?.setRoute(route);
     this._header?.setSearchPlaceholder();
   }

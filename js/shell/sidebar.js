@@ -149,12 +149,6 @@ export class ShellSidebar {
           <h2>${esc(this._company)}</h2>
           <p>${esc(roleLabel)}</p>
         </div>
-        <button class="mex-collapse-btn mex-collapse-btn--top"
-                data-action="collapse"
-                title="${this._collapsed ? 'Expandir menú' : 'Colapsar menú'}"
-                aria-label="${this._collapsed ? 'Expandir menú' : 'Colapsar menú'}">
-          chevron_left
-        </button>
       </div>
 
       <nav class="mex-sidebar-nav" role="menu" aria-label="Navegación principal">
@@ -217,12 +211,6 @@ export class ShellSidebar {
     if (submenuId) {
       event.preventDefault();
       this._toggleSubmenu(submenuId);
-      return;
-    }
-
-    if (action === 'collapse') {
-      event.preventDefault();
-      this.toggleCollapse();
       return;
     }
 
