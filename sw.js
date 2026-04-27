@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v233';
+const CACHE_NAME = 'mapa-v234';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -36,7 +36,7 @@ const CRITICAL_ASSETS = [
   '/api/settings.js',
   '/api/users.js',
   '/api/_assemble.js',
-  '/config.js',
+  '/js/core/firebase-config.js',
   '/js/core/app-bootstrap.js',
   '/manifest.json',
   '/img/logo.png',

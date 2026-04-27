@@ -1,6 +1,6 @@
 # ─── Credenciales y configuración sensible ──────────────────
-# NOTA: config.js NO está aquí a propósito — debe desplegarse a Firebase Hosting.
-#       Git lo ignora (ver .gitignore) pero Firebase sí lo necesita en producción.
+# NOTA: js/core/firebase-config.js se versiona (config pública Firebase Web).
+#       Un config.js en raíz legado puede existir localmente y está en .gitignore.
 .env
 .env.*
 .codex

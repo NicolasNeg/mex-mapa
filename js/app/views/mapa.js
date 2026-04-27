@@ -22,6 +22,8 @@ let _toolbarHandler = null;
 let _cssRef = null;
 let _dndHintEl = null;
 let _lastDndEligibility = null;
+/** @type {{ mva: string, originKey: string, destKey: string, at: number, user: string } | null} */
+let _lastPersistSummary = null;
 let _viewState = {
   query: '',
   selectedId: '',
@@ -140,10 +142,47 @@ function _snapshotShowsMove(mva, destKey) {
 
 function _betaModeLabel(state, snapshot) {
   const ro = !_dndFullyEnabled(state, snapshot);
-  if (ro) return 'Read-only';
-  if (!_readAppMapaDndPersistFlag()) return 'DnD preview (no guarda)';
-  if (_dndPersistFullyEnabled(state, snapshot)) return 'DnD persistencia experimental';
-  return 'DnD preview';
+  if (ro) return 'Solo lectura';
+  if (!_readAppMapaDndPersistFlag()) return 'DnD vista previa';
+  if (_dndPersistFullyEnabled(state, snapshot)) return 'DnD persistente (experimental)';
+  return 'DnD vista previa';
+}
+
+function _fmtShort(ts) {
+  if (!ts) return '—';
+  try {
+    return new Date(ts).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'medium' });
+  } catch (_) {
+    return '—';
+  }
+}
+
+function _updateMetaLines() {
+  const syncEl = _container?.querySelector('#app-mapa-sync-line');
+  const moveEl = _container?.querySelector('#app-mapa-last-move');
+  const snap = _viewState.snapshot;
+  const lu = snap?.lastUpdated;
+  if (syncEl) {
+    syncEl.textContent = lu
+      ? `Última sincronización de datos: ${_fmtShort(lu)}`
+      : 'Última sincronización de datos: —';
+  }
+  if (moveEl) {
+    if (_lastPersistSummary) {
+      const s = _lastPersistSummary;
+      moveEl.textContent = `Último guardado: ${s.mva} · ${s.originKey}→${s.destKey} · ${_fmtShort(s.at)} · ${s.user}`;
+      moveEl.hidden = false;
+    } else {
+      moveEl.textContent = '';
+      moveEl.hidden = true;
+    }
+  }
+}
+
+function _updateExperimentalResetBtn() {
+  const btn = _container?.querySelector('[data-app-mapa-action="clear-experimental"]');
+  if (!btn) return;
+  btn.style.display = _canRolePreviewDnd(getState()) ? 'inline-flex' : 'none';
 }
 
 function _updateBetaBanner() {
@@ -203,6 +242,10 @@ export function mount({ container }) {
       <div class="app-mapa-beta-banner" id="app-mapa-beta-banner">
         <span class="app-mapa-beta-banner-title">Mapa App Shell · Beta</span>
         <span class="app-mapa-beta-banner-state" id="app-mapa-beta-state">${esc(_betaModeLabel(state, null))}</span>
+        <div class="app-mapa-meta-lines" aria-live="polite">
+          <div id="app-mapa-sync-line" class="app-mapa-meta-line"></div>
+          <div id="app-mapa-last-move" class="app-mapa-meta-line app-mapa-meta-line--persist" hidden></div>
+        </div>
       </div>
       <header class="app-mapa-head">
         <div>
@@ -219,6 +262,7 @@ export function mount({ container }) {
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="copy-diag">Copiar diagnóstico</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-unplaced">Ver sin ubicación / huérfanos</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-occupancy">Ver ocupación</button>
+        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--danger" data-app-mapa-action="clear-experimental" style="display:none;">Desactivar modo experimental</button>
       </div>
       <div class="app-mapa-note">
         Vista beta en App Shell; el mapa legacy conserva todas las herramientas operativas.
@@ -360,8 +404,18 @@ export function mount({ container }) {
         };
       }
 
+      _lastPersistSummary = {
+        mva: String(fromCtx?.mva || ''),
+        originKey: String(originKey || ''),
+        destKey: String(destKey || ''),
+        at: Date.now(),
+        user: _actorName()
+      };
+      _updateMetaLines();
+
       if (_dndHintEl) {
-        _dndHintEl.textContent = 'Guardado, esperando actualización…';
+        _dndHintEl.textContent =
+          `Guardado: ${_lastPersistSummary.mva} ${_lastPersistSummary.originKey}→${_lastPersistSummary.destKey} · ${_fmtShort(_lastPersistSummary.at)} · ${_lastPersistSummary.user}. Esperando actualización…`;
         _dndHintEl.hidden = false;
       }
 
@@ -476,6 +530,21 @@ export function mount({ container }) {
     }
     if (act === 'scroll-occupancy') {
       document.querySelector('.app-mapa-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (act === 'clear-experimental') {
+      try {
+        localStorage.removeItem('mex.appMapa.dnd');
+        localStorage.removeItem('mex.appMapa.dndPersist');
+      } catch (_) {}
+      _lastPersistSummary = null;
+      if (_dndHintEl) {
+        _dndHintEl.textContent = 'Modo experimental desactivado en este navegador.';
+        _dndHintEl.hidden = false;
+      }
+      _syncDndController();
+      _render();
+      return;
     }
   };
   _container.addEventListener('click', _toolbarHandler);
@@ -483,6 +552,8 @@ export function mount({ container }) {
   _lastDndEligibility = _dndFullyEnabled(getState(), null);
   _syncDndController();
   _updateBetaBanner();
+  _updateMetaLines();
+  _updateExperimentalResetBtn();
 
   _offState = subscribe(() => {
     _syncDndController();
@@ -515,6 +586,7 @@ export function unmount() {
   _onClick = null;
   _dndHintEl = null;
   _lastDndEligibility = null;
+  _lastPersistSummary = null;
 }
 
 function _syncDndController() {
@@ -541,6 +613,7 @@ function _syncDndController() {
     }
   }
   _updateBetaBanner();
+  _updateExperimentalResetBtn();
 }
 
 function _render() {
@@ -548,6 +621,7 @@ function _render() {
   const snapshot = _viewState.snapshot;
   if (!snapshot || snapshot.loading) {
     _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Cargando mapa read-only...</div>';
+    _updateMetaLines();
     return;
   }
   if (snapshot.permissionDenied) {
@@ -571,6 +645,8 @@ function _render() {
   });
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateBetaBanner();
+  _updateMetaLines();
+  _updateExperimentalResetBtn();
 }
 
 function _bindGlobalSearch() {

@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  js/core/firebase-init.js
 //  Script REGULAR (no module) — debe cargarse como <script src>
-//  DESPUÉS de los CDN de Firebase y de /config.js.
+//  DESPUÉS de los CDN de Firebase y de /js/core/firebase-config.js.
 //  Inicializa la app de Firebase y expone las instancias en
 //  window._db / window._auth / window._storage para que
 //  database.js (ES6 module) pueda consumirlas.
@@ -11,7 +11,7 @@
   'use strict';
 
   if (!window.FIREBASE_CONFIG) {
-    console.error('[firebase-init] window.FIREBASE_CONFIG no está definido. Asegúrate de cargar /config.js antes.');
+    console.error('[firebase-init] window.FIREBASE_CONFIG no está definido. Carga /js/core/firebase-config.js antes.');
     return;
   }
 

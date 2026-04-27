@@ -20,6 +20,18 @@ function _canonicalFrom(raw, explicitEmail = '') {
   return { key: `LEGACY:${norm}`, email: '', label: norm || 'USUARIO', raw: norm };
 }
 
+/** Identidad canónica para agrupar mensajes y conversaciones (prioriza email en metadatos). */
+function getCanonicalMessageIdentity(raw, explicitEmail = '') {
+  return _canonicalFrom(raw, explicitEmail);
+}
+
+/** Etiqueta para UI a partir de un lado canónico (`_canonicalFrom`). */
+function getDisplayIdentity(side) {
+  if (!side) return '—';
+  if (side.email) return side.email.toUpperCase();
+  return side.label || side.raw || '—';
+}
+
 function _buildMyIdentity(profile) {
   const aliases = new Set(
     [profile?.nombre, profile?.usuario, profile?.nombreCompleto, profile?.email]
@@ -275,7 +287,7 @@ function _applyFilters() {
     return;
   }
   _state.filtered = _state.conversations.filter(c => {
-    const hay = `${c.displayLabel} ${c.peerEmail} ${c.last?.mensaje || ''} ${c.last?.remitente || ''} ${c.last?.destinatario || ''} ${_when(c.last)}`.toLowerCase();
+    const hay = `${c.peerKey} ${c.displayLabel} ${c.peerEmail} ${c.last?.mensaje || ''} ${c.last?.remitente || ''} ${c.last?.destinatario || ''} ${_when(c.last)}`.toLowerCase();
     return hay.includes(qx);
   });
 }

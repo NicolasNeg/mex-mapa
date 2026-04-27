@@ -45,7 +45,7 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {
-        "source": "/config.js",
+        "source": "/js/core/firebase-config.js",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {

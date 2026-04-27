@@ -1,65 +1,50 @@
-# Auditoría seguridad cliente — `config.js` y frontend
+# Auditoría seguridad cliente — Firebase Web y frontend
 
 Fecha: 2026-04-27  
 Alcance: beta actual en Firebase Hosting.
 
-## Hallazgos en `config.js`
+## Principios
 
-Se revisó el archivo servido al cliente (`/config.js`) y contiene únicamente parámetros del SDK cliente de Firebase:
+- El **Firebase Web `apiKey`** es **pública por diseño** del modelo Firebase; **no** es un secreto de servidor.
+- **No** deben existir en el frontend: service accounts, private keys, tokens de servidor, client secrets OAuth ni credenciales SMTP/API privadas.
+- El control de acceso real a datos sigue siendo **Firestore Rules** y **Storage Rules** (y backend donde aplique).
 
-- `apiKey` (Firebase client)
-- `authDomain`
-- `projectId`
-- `storageBucket`
-- `messagingSenderId`
-- `appId`
+## Dónde vive la configuración cliente
 
-Valores reportados (enmascarados):
+La app carga **`/js/core/firebase-config.js`**, que define `window.FIREBASE_CONFIG` con solo parámetros del SDK cliente (`apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`). El archivo **`/config.js` en raíz ya no forma parte del flujo** de las páginas HTML principales.
 
-- `apiKey`: `AIza...NmVc`
-- `authDomain`: `mex-...app.com`
-- `projectId`: `mex-...-bjx`
-- `storageBucket`: `mex-...app`
-- `messagingSenderId`: `3591...4070`
-- `appId`: `1:35...8a7`
+Valores revisados (enmascarados en auditorías previas):
+
+- `apiKey`: `AIza...`
+- `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`: coherentes con proyecto Firebase Hosting.
 
 ## Clasificación
 
-- **Público permitido**: configuración cliente Firebase (`apiKey`, `authDomain`, `projectId`, `storageBucket`, `messagingSenderId`, `appId`).
-- **Público pero restringible**: no se encontró una key de Maps browser separada en `config.js`. Si se usa una key browser adicional, debe ir con restricción por dominio/referrer.
-- **Secreto real (NO permitido en frontend)**: no se detectaron secretos reales en `config.js` (sin bearer tokens, sin private keys, sin service account JSON, sin client secrets).
+- **Público permitido**: configuración cliente Firebase listada arriba.
+- **Público pero restringible**: cualquier API key adicional usada en navegador (p. ej. Maps) debe ir con restricciones de dominio/referrer en Google Cloud.
+- **Secreto real (no permitido en frontend)**: no se detectaron en la revisión orientada a `firebase-config` y patrones típicos en JS/HTML expuestos al navegador.
 
-## Qué se deja en frontend
+## Recomendaciones para la beta actual
 
-- Solo configuración pública del cliente Firebase, necesaria para inicializar Auth/Firestore/Storage/Messaging en navegador.
+1. **Google Cloud — API key (Firebase Web)**  
+   Revisar restricciones en Google Cloud Console → Credenciales → la key usada por Firebase Web:
+   - Limitar a **APIs necesarias** (Firebase-related).
+   - **Restricción HTTP referrer** para el sitio desplegado, por ejemplo:
+     - `https://mex-mapa-bjx.web.app/*`
+     - `https://mex-mapa-bjx.firebaseapp.com/*`
+     - El dominio final cuando exista y esté enlazado al mismo proyecto.
 
-## Qué se elimina o mueve
+2. **Firestore / Storage**  
+   Mantener reglas revisadas como barrera principal; el `apiKey` visible no sustituye reglas.
 
-- En esta auditoría no se encontraron secretos reales en `config.js` para mover.
-- Se actualizó el encabezado de `config.js` para dejar explícito que **solo** debe contener configuración pública.
+3. **App Check**  
+   Considerar activación cuando convenga endurecer el uso del SDK ante abusos; **no** es requisito para cerrar esta beta si las reglas y restricciones de key están bien aplicadas.
 
-## Qué debe rotarse
+## Riesgos residuales
 
-- No se detectaron secretos privados expuestos en `config.js` que requieran rotación inmediata.
-- Si alguna credencial privada estuvo anteriormente en frontend (histórico fuera de esta revisión), debe tratarse como comprometida y rotarse.
+- Todo JS servido al navegador es inspeccionable; la política correcta es **no colocar secretos reales** en cliente.
+- El `apiKey` seguirá visible donde el SDK la use; la seguridad no depende de ocultarla frente a DevTools.
 
-## Restricciones recomendadas (actuales)
+## Mensajes / identidad
 
-- Mantener reglas de Firestore/Storage como control principal de acceso.
-- En servicios externos que usen browser keys (si aplica), restringir por dominio/referrer permitido.
-- Mantener secretos reales únicamente en backend (Cloud Functions config/entorno), nunca en JS cliente.
-
-## Revisión de repo por patrones sensibles
-
-Se ejecutó búsqueda por patrones (`apiKey`, `token`, `secret`, `client_secret`, `serviceAccount`, `x-api-key`, `authorization`, etc.) en JS/HTML/API/functions.
-
-Resultado de riesgo:
-
-- Se observaron referencias funcionales y nombres de campos esperados (por ejemplo `apiKey` de Firebase y lógica de API keys del backend en `functions/index.js`).
-- No se detectó evidencia de claves privadas embebidas en frontend equivalentes a service account o secretos backend.
-- Credenciales SMTP (`mail.user`, `mail.pass`) aparecen solo en Cloud Functions vía `functions.config()`, no en cliente.
-
-## Riesgos restantes de seguridad (beta)
-
-- Todo JS servido al navegador es inspeccionable en DevTools; por eso la regla es **no poner secretos reales** en frontend.
-- El `apiKey` de Firebase cliente seguirá visible por diseño; la protección depende de reglas y control de acceso backend, no de ocultar ese valor.
+Los mensajes en App Shell priorizan **email** como identidad canónica cuando existe en datos o metadatos; los nombres pueden cambiar sin duplicar conversaciones si el email es estable.

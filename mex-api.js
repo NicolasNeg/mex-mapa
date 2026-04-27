@@ -1,12 +1,12 @@
 // ─── CONFIGURACIÓN FIREBASE ─────────────────────────────────
-// Los valores vienen de /config.js (no está en git — se genera en CI o localmente)
+// Los valores llegan desde /js/core/firebase-config.js antes de firebase-init.js y este script.
 if (!window.FIREBASE_CONFIG) {
   document.body.innerHTML = '<div style="font-family:sans-serif;padding:40px;text-align:center;color:#ef4444;">'
     + '<h2>⚠️ Error de configuración</h2>'
-    + '<p>No se encontró <code>config.js</code>. '
-    + 'Si eres desarrollador, crea el archivo /config.js con <code>window.FIREBASE_CONFIG = {...}</code>.<br>'
+    + '<p>No está definido <code>window.FIREBASE_CONFIG</code>. '
+    + 'La app debe cargar <code>/js/core/firebase-config.js</code> antes de Firebase.<br>'
     + 'Si ves esto en producción, contacta al administrador.</p></div>';
-  throw new Error('config.js no encontrado — window.FIREBASE_CONFIG no definido');
+  throw new Error('FIREBASE_CONFIG no definido — revisa js/core/firebase-config.js');
 }
 function _normalizeFirebaseConfig(config = {}) {
   const next = { ...config };

@@ -33,6 +33,25 @@
   border: 1px solid #cbd5e1;
 }
 
+.app-mapa-meta-lines {
+  width: 100%;
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.app-mapa-meta-line {
+  font-size: 11px;
+  color: #475569;
+  line-height: 1.35;
+}
+
+.app-mapa-meta-line--persist:not([hidden]) {
+  color: #047857;
+  font-weight: 600;
+}
+
 .app-mapa-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -54,6 +73,17 @@
 .app-mapa-tool-btn:hover {
   border-color: #94a3b8;
   background: #f8fafc;
+}
+
+.app-mapa-tool-btn--danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.app-mapa-tool-btn--danger:hover {
+  border-color: #f87171;
+  background: #fee2e2;
 }
 
 .app-mapa-mini-cta {

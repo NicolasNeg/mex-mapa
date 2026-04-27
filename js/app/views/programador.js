@@ -18,10 +18,17 @@ const _BETA_ROUTES = [
   '/app/admin',
   '/app/cola-preparacion',
   '/app/incidencias',
+  '/app/programador',
   '/mapa'
 ];
 
-const _BETA_ASSETS = ['/js/app/main.js', '/css/shell.css', '/app.html', '/sw.js'];
+const _BETA_ASSETS = [
+  '/js/app/main.js',
+  '/css/shell.css',
+  '/app.html',
+  '/sw.js',
+  '/js/core/firebase-config.js'
+];
 
 /** Misma política que `/app/mapa`: solo PROGRAMADOR o admin global real; excluye roles operativos denegados. */
 const _EXPERIMENTAL_DENIED = new Set([
@@ -39,7 +46,10 @@ export async function mount({ container, navigate }) {
   container.innerHTML = _html(info, flags);
   _bindGlobalSearch();
   const btn = container.querySelector('#progCopySummary');
-  _copyHandler = () => _copySummary(info);
+  _copyHandler = async () => {
+    const fresh = await _collectDiagnostics();
+    await _copySummary(fresh);
+  };
   btn?.addEventListener('click', _copyHandler);
   _cleanupFlags = _bindExperimentalSection(flags.canEditControls);
   _cleanupBeta = _bindBetaReadiness();
@@ -86,6 +96,25 @@ function _applySearchFilter() {
     const visible = !_globalQuery || text.includes(_globalQuery);
     card.hidden = !visible;
   });
+}
+
+/** Script legado `/config.js` no debe estar en el documento; config en `firebase-config.js`. */
+function _legacyConfigJsInDocument() {
+  try {
+    return Array.from(document.scripts || []).some(s =>
+      /\/config\.js(\?|$)/.test(String(s.src || ''))
+    );
+  } catch (_) {
+    return false;
+  }
+}
+
+function _firebaseConfigReady() {
+  try {
+    return Boolean(window.FIREBASE_CONFIG && String(window.FIREBASE_CONFIG.projectId || '').trim());
+  } catch (_) {
+    return false;
+  }
 }
 
 function _canExperimentalControls(state) {
@@ -159,6 +188,8 @@ async function _collectDiagnostics() {
       ? 'production'
       : 'custom';
   const programmerErrorsAvailable = Boolean(window._db);
+  const legacyConfigJs = _legacyConfigJsInDocument();
+  const firebaseConfigOk = _firebaseConfigReady();
   return {
     user: profile.nombreCompleto || profile.nombre || profile.usuario || profile.email || 'Usuario',
     roleLabel,
@@ -169,7 +200,12 @@ async function _collectDiagnostics() {
     firebase: { hasDb, hasAuth, hasStorage },
     api: { available: Boolean(window.api), count: apiKeys.length },
     appShell,
-    errors: { source: programmerErrorsAvailable ? 'programmer_errors (disponible)' : 'no disponible en runtime' }
+    errors: { source: programmerErrorsAvailable ? 'programmer_errors (disponible)' : 'no disponible en runtime' },
+    config: {
+      legacyConfigJs,
+      firebaseConfigOk,
+      firebaseProjectId: firebaseConfigOk ? String(window.FIREBASE_CONFIG.projectId || '').trim() : ''
+    }
   };
 }
 
@@ -192,10 +228,16 @@ async function _resolveSwVersion() {
 }
 
 function _summaryText(info) {
+  const cfg = info.config || {};
+  const flags = _readShellFlags(getState());
   return [
     `Usuario: ${info.user}`,
     `Rol: ${info.roleLabel}`,
     `Plaza activa: ${info.plaza}`,
+    `Ruta actual: ${flags.route}`,
+    `Flags: dnd=${flags.dndLs ? '1' : '0'} persist=${flags.dndPersistLs ? '1' : '0'} debug=${flags.debugLs ? '1' : '0'}`,
+    `Script /config.js (legacy) en documento: ${cfg.legacyConfigJs ? 'SÍ (no esperado)' : 'no'}`,
+    `FIREBASE_CONFIG (js/core/firebase-config.js): ${cfg.firebaseConfigOk ? `ok · ${cfg.firebaseProjectId || '—'}` : 'NO'}`,
     `Host: ${info.host} (${info.env})`,
     `SW: ${info.sw.swVersion} | estado: ${info.sw.swState} | control: ${info.sw.swControlled ? 'si' : 'no'}`,
     `Firebase: auth=${info.firebase.hasAuth} firestore=${info.firebase.hasDb} storage=${info.firebase.hasStorage}`,
@@ -328,12 +370,16 @@ function _bindBetaReadiness() {
       const st = getState();
       const flags = _readShellFlags(st);
       const smoke = root.querySelector('#progBetaSmokeResults')?.textContent || '(ejecuta smoke antes)';
+      const cfg = info.config || {};
       const report = [
         `Host: ${info.host}`,
         `Usuario: ${info.user}`,
         `Rol: ${info.roleLabel}`,
+        `Ruta: ${flags.route}`,
         `Plaza: ${flags.plaza}`,
         `SW: ${info.sw.swVersion}`,
+        `Script /config.js legacy en documento: ${cfg.legacyConfigJs ? 'SÍ (no esperado)' : 'no'}`,
+        `FIREBASE_CONFIG: ${cfg.firebaseConfigOk ? `ok · ${cfg.firebaseProjectId || ''}` : 'NO'}`,
         `window.api: ${info.api.count} funciones`,
         `Flags dnd/dndPersist/debug: ${flags.dndLs}/${flags.dndPersistLs}/${flags.debugLs}`,
         '',
@@ -391,6 +437,8 @@ function _betaReadinessHtml(info, flags) {
         ${_row('Storage', info.firebase.hasStorage ? 'ok' : 'no')}
         ${_row('SW registrado', info.sw.swState)}
         ${_row('SW controla página', info.sw.swControlled ? 'sí' : 'no')}
+        ${_row('Script /config.js (legacy)', info.config?.legacyConfigJs ? '⚠ cargado' : 'no (ok)')}
+        ${_row('FIREBASE_CONFIG', info.config?.firebaseConfigOk ? `ok · ${esc(info.config.firebaseProjectId || '')}` : 'NO')}
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px;">
         <div style="font-weight:800;color:#64748b;margin-bottom:6px;">Rutas App Shell / legacy</div>
