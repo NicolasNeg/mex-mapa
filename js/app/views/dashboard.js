@@ -142,6 +142,7 @@ function _html({ name, roleLabel, plaza, company, hora, role }) {
       ['✅', 'Fase 5', 'Mensajes — bridge hacia chat completo'],
       ['✅', 'Fase 6', 'App Shell como destino post-login + bridges secundarios'],
       ['✅', 'Fase 7', 'Bridge /app/mapa — sidebar sin recarga (mapa real sigue en /mapa)'],
+      ['✅', 'Fase 8A', '/app/cola-preparacion — vista real con Firestore onSnapshot'],
     ].map(([status, phase, desc]) => `
       <div style="display:flex;align-items:flex-start;gap:12px;padding:8px 0;
                   border-bottom:1px solid rgba(255,255,255,0.05);">
