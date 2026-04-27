@@ -1,6 +1,6 @@
 /**
- * DnD preview para /app/mapa (App Shell).
- * No Firestore. No guardarNuevasPosiciones.
+ * DnD preview/persist para /app/mapa (App Shell).
+ * Preview: sin escritura. Persistencia opcional vía callbacks (usa API legacy).
  *
  * Listeners en window solo durante un arrastre activo (o gesto pendiente).
  * Preview opcional solo pointer (sin touch) para reducir riesgo de scroll/bloqueos.
@@ -24,6 +24,12 @@ export function createMapaDndController({
   onMovePreview = null,
   onMoveCommit = null,
   canMove = () => false,
+  /** Persistencia activa (flag + rol); si false solo preview simulado. */
+  getPersistAllowed = () => false,
+  /**
+   * Persistencia controlada (confirmación + API). Debe resolver con { message, outcome }.
+   */
+  onPersistDrop = null,
   /** Si true (defecto), no se registran listeners touch en el root — solo mouse/pen vía PointerEvent. */
   pointerOnlyPreview = true,
   debug = false
@@ -206,7 +212,7 @@ export function createMapaDndController({
     _highlightZone(zone);
   }
 
-  function _completeDrag(clientX, clientY) {
+  async function _completeDrag(clientX, clientY) {
     const fromCtx = _readUnitContext(_unitEl);
     const rawZone = _resolveDropZoneFromPoint(clientX, clientY);
     const cls = _classifyZone(rawZone);
@@ -258,16 +264,59 @@ export function createMapaDndController({
     const originKey = fromCtx.positionKey || _normalizeToken(fromCtx.pos);
     const sameCell = Boolean(destKey && originKey && destKey === originKey);
 
-    const message = sameCell
-      ? 'Misma celda — preview sin cambios. No se guardó en producción.'
-      : 'Movimiento simulado. No se guardó en producción.';
+    if (sameCell) {
+      _emitPreview({
+        from: fromCtx,
+        to: toCtx,
+        snapshot: typeof getSnapshot === 'function' ? getSnapshot() : null,
+        message: 'Misma celda — preview sin cambios. No se guardó en producción.',
+        outcome: 'same-cell'
+      });
+      _finishInteraction(true);
+      return;
+    }
+
+    const persistOn =
+      typeof getPersistAllowed === 'function' &&
+      getPersistAllowed() &&
+      typeof onPersistDrop === 'function';
+
+    if (persistOn) {
+      _removeWindowPointerListeners();
+      _removeWindowTouchListeners();
+      _cleanupDragVisuals();
+      _pending = null;
+      try {
+        const result = await onPersistDrop({
+          fromCtx,
+          toCtx,
+          originKey,
+          destKey,
+          snapshot: typeof getSnapshot === 'function' ? getSnapshot() : null
+        });
+        _emitPreview({
+          from: fromCtx,
+          to: toCtx,
+          snapshot: typeof getSnapshot === 'function' ? getSnapshot() : null,
+          message: result?.message || '',
+          outcome: result?.outcome || 'persist'
+        });
+      } catch (err) {
+        _emitPreview({
+          message: String(err?.message || err || 'Error al persistir.'),
+          outcome: 'error'
+        });
+      }
+      _suppressClickUntil = _now() + 450;
+      return;
+    }
 
     _emitPreview({
       from: fromCtx,
       to: toCtx,
       snapshot: typeof getSnapshot === 'function' ? getSnapshot() : null,
-      message,
-      outcome: sameCell ? 'same-cell' : 'simulated'
+      message: 'Movimiento simulado. No se guardó en producción.',
+      outcome: 'simulated'
     });
     _finishInteraction(true);
   }
@@ -278,7 +327,7 @@ export function createMapaDndController({
 
     if (_dragging) {
       event.preventDefault();
-      _completeDrag(event.clientX, event.clientY);
+      void _completeDrag(event.clientX, event.clientY);
       return;
     }
 
@@ -327,7 +376,7 @@ export function createMapaDndController({
 
     if (_dragging) {
       event.preventDefault();
-      _completeDrag(touch.clientX, touch.clientY);
+      void _completeDrag(touch.clientX, touch.clientY);
       return;
     }
 

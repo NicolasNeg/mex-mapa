@@ -1,22 +1,40 @@
 import { getState } from '/js/app/app-state.js';
+import { esGlobal } from '/domain/permissions.model.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 
 let _container = null;
 let _copyHandler = null;
 let _offGlobalSearch = null;
 let _globalQuery = '';
+let _navigate = null;
+let _cleanupFlags = null;
 
-export async function mount({ container }) {
+/** Misma política que `/app/mapa`: solo PROGRAMADOR o admin global real; excluye roles operativos denegados. */
+const _EXPERIMENTAL_DENIED = new Set([
+  'CORPORATIVO_USER',
+  'JEFE_OPERACION',
+  'AUXILIAR',
+  'OPERACION'
+]);
+
+export async function mount({ container, navigate }) {
   _container = container;
+  _navigate = typeof navigate === 'function' ? navigate : null;
   const info = await _collectDiagnostics();
-  container.innerHTML = _html(info);
+  const flags = _readShellFlags(getState());
+  container.innerHTML = _html(info, flags);
   _bindGlobalSearch();
   const btn = container.querySelector('#progCopySummary');
   _copyHandler = () => _copySummary(info);
   btn?.addEventListener('click', _copyHandler);
+  _cleanupFlags = _bindExperimentalSection(flags.canEditControls);
 }
 
 export function unmount() {
+  if (_cleanupFlags) {
+    try { _cleanupFlags(); } catch (_) {}
+    _cleanupFlags = null;
+  }
   if (_container && _copyHandler) {
     _container.querySelector('#progCopySummary')?.removeEventListener('click', _copyHandler);
   }
@@ -26,6 +44,7 @@ export function unmount() {
   _copyHandler = null;
   _offGlobalSearch = null;
   _globalQuery = '';
+  _navigate = null;
   _container = null;
 }
 
@@ -50,6 +69,51 @@ function _applySearchFilter() {
   });
 }
 
+function _canExperimentalControls(state) {
+  const r = String(state?.role || '').toUpperCase();
+  if (_EXPERIMENTAL_DENIED.has(r)) return false;
+  if (r === 'PROGRAMADOR') return true;
+  const p = state?.profile || {};
+  return Boolean(p.isAdmin === true && esGlobal(r));
+}
+
+function _readLsBool(key) {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function _readShellFlags(state) {
+  const profile = state.profile || {};
+  const role = String(state.role || '').toUpperCase();
+  const canRole = _canExperimentalControls(state);
+  const isAdm = profile.isAdmin === true;
+  const eg = Boolean(esGlobal(role));
+
+  const dndLs = _readLsBool('mex.appMapa.dnd');
+  const dndPersistLs = _readLsBool('mex.appMapa.dndPersist');
+  const debugLs = _readLsBool('mex.debug.mode');
+
+  const canUseDndPreview = canRole;
+  const canUseDndPersist = canRole;
+
+  return {
+    dndLs,
+    dndPersistLs,
+    debugLs,
+    roleRaw: role,
+    isAdmin: isAdm,
+    esGlobal: eg,
+    canUseDndPreview,
+    canUseDndPersist,
+    plaza: state.currentPlaza || profile.plazaAsignada || profile.plaza || '—',
+    route: state.currentRoute || window.location.pathname,
+    canEditControls: canRole
+  };
+}
+
 async function _collectDiagnostics() {
   const st = getState();
   const profile = st.profile || {};
@@ -70,7 +134,11 @@ async function _collectDiagnostics() {
     canSwitchPlaza: Boolean(st.canSwitchPlaza)
   };
   const host = window.location.host;
-  const env = host.includes('localhost') ? 'local' : (host.includes('web.app') || host.includes('firebaseapp.com') ? 'production' : 'custom');
+  const env = host.includes('localhost')
+    ? 'local'
+    : host.includes('web.app') || host.includes('firebaseapp.com')
+      ? 'production'
+      : 'custom';
   const programmerErrorsAvailable = Boolean(window._db);
   return {
     user: profile.nombreCompleto || profile.nombre || profile.usuario || profile.email || 'Usuario',
@@ -129,7 +197,83 @@ async function _copySummary(info) {
   }
 }
 
-function _html(info) {
+function _bindExperimentalSection(canEdit) {
+  const root = _container?.querySelector('[data-prog-flags-root]');
+  if (!root) return () => {};
+
+  const refreshLabels = () => {
+    const f = _readShellFlags(getState());
+    const d = _container.querySelector('#progValDnd');
+    const p = _container.querySelector('#progValPersist');
+    const b = _container.querySelector('#progValDebug');
+    const txt = on => (on ? '1' : '0 / vacío');
+    if (d) d.textContent = txt(f.dndLs);
+    if (p) p.textContent = txt(f.dndPersistLs);
+    if (b) b.textContent = txt(f.debugLs);
+  };
+
+  const onChange = e => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) || !t.dataset.lsKey) return;
+    const key = t.dataset.lsKey;
+    try {
+      if (t.checked) localStorage.setItem(key, '1');
+      else localStorage.removeItem(key);
+    } catch (_) {}
+    refreshLabels();
+  };
+
+  if (canEdit) {
+    root.addEventListener('change', onChange);
+  }
+
+  const onClick = e => {
+    const act = e.target?.closest?.('[data-prog-action]');
+    if (!act || !root.contains(act)) return;
+    const a = act.getAttribute('data-prog-action');
+    if (a === 'reload') {
+      window.location.reload();
+      return;
+    }
+    if (a === 'open-app-mapa') {
+      if (_navigate) _navigate('/app/mapa');
+      else window.location.href = '/app/mapa';
+      return;
+    }
+    if (a === 'open-legacy-mapa') {
+      window.location.href = '/mapa';
+    }
+  };
+  root.addEventListener('click', onClick);
+
+  return () => {
+    root.removeEventListener('click', onClick);
+    if (canEdit) root.removeEventListener('change', onChange);
+  };
+}
+
+function _html(info, flags) {
+  const f = flags;
+  const edit = f.canEditControls;
+
+  const diagRow = (k, v, searchExtra = '') => {
+    const searchText = `${k} ${v} ${searchExtra}`.toLowerCase();
+    return `<div data-prog-search-text="${esc(searchText)}" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+    <strong style="color:#64748b;">${esc(k)}</strong><span style="color:#0f172a;text-align:right;">${esc(v)}</span>
+  </div>`;
+  };
+
+  const toggleRow = (label, lsKey, checked) => {
+    const meta = `${label} ${lsKey}`;
+    return `<div data-prog-search-text="${esc(`${meta} toggle`.toLowerCase())}" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:#0f172a;font-weight:600;">
+        <input type="checkbox" data-ls-key="${esc(lsKey)}" ${checked ? 'checked' : ''} />
+        <span>${esc(label)}</span>
+      </label>
+      <code style="font-size:11px;color:#64748b;">${esc(lsKey)}</code>
+    </div>`;
+  };
+
   return `
 <div style="padding:22px;max-width:1060px;margin:0 auto;font-family:Inter,sans-serif;">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
@@ -147,6 +291,52 @@ function _html(info) {
     ${_card('Firebase', `auth:${info.firebase.hasAuth ? 'ok' : 'no'} · db:${info.firebase.hasDb ? 'ok' : 'no'} · storage:${info.firebase.hasStorage ? 'ok' : 'no'}`)}
     ${_card('window.api', `${info.api.available ? 'disponible' : 'no disponible'} · ${info.api.count} funciones`)}
   </div>
+
+  <div data-prog-flags-root style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:14px;margin-bottom:12px;">
+    <h3 style="margin:0 0 10px;font-size:15px;color:#0f172a;">Flags experimentales App Shell</h3>
+    <p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.45;">
+      Solo modifica <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">localStorage</code> en este navegador.
+      ${edit ? '' : 'Tu rol no permite cambiar flags; solo lectura.'}
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;">
+      <div style="border:1px solid #f1f5f9;border-radius:10px;padding:10px;">
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Estado actual</div>
+        <div data-prog-search-text="${esc(`valor mex.appmapa.dnd ${f.dndLs ? '1' : '0'}`.toLowerCase())}" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+          <strong style="color:#64748b;">Valor mex.appMapa.dnd</strong>
+          <span id="progValDnd" style="color:#0f172a;text-align:right;">${f.dndLs ? '1' : '0 / vacío'}</span>
+        </div>
+        <div data-prog-search-text="${esc(`valor mex.appmapa.dndpersist ${f.dndPersistLs ? '1' : '0'}`.toLowerCase())}" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+          <strong style="color:#64748b;">Valor mex.appMapa.dndPersist</strong>
+          <span id="progValPersist" style="color:#0f172a;text-align:right;">${f.dndPersistLs ? '1' : '0 / vacío'}</span>
+        </div>
+        <div data-prog-search-text="${esc(`valor mex.debug.mode ${f.debugLs ? '1' : '0'}`.toLowerCase())}" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+          <strong style="color:#64748b;">Valor mex.debug.mode</strong>
+          <span id="progValDebug" style="color:#0f172a;text-align:right;">${f.debugLs ? '1' : '0 / vacío'}</span>
+        </div>
+        ${diagRow('Rol actual', f.roleRaw)}
+        ${diagRow('isAdmin', String(f.isAdmin))}
+        ${diagRow('esGlobal(role)', String(f.esGlobal))}
+        ${diagRow('canUseDndPreview', String(f.canUseDndPreview))}
+        ${diagRow('canUseDndPersist', String(f.canUseDndPersist))}
+        ${diagRow('Plaza activa', f.plaza)}
+        ${diagRow('Ruta actual', f.route)}
+      </div>
+      <div style="border:1px solid #f1f5f9;border-radius:10px;padding:10px;">
+        <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">${edit ? 'Controles locales' : 'Acciones de navegación'}</div>
+        ${edit ? `
+        ${toggleRow('DnD preview App Mapa', 'mex.appMapa.dnd', f.dndLs)}
+        ${toggleRow('DnD persistencia (experimental)', 'mex.appMapa.dndPersist', f.dndPersistLs)}
+        ${toggleRow('Debug mex', 'mex.debug.mode', f.debugLs)}
+        ` : `<p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.45;">Los valores están en la columna izquierda; tu rol no permite cambiar flags.</p>`}
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+          <button type="button" data-prog-action="reload" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Recargar vista actual</button>
+          <button type="button" data-prog-action="open-app-mapa" style="border:1px solid #0f766e;background:#0f766e;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/mapa</button>
+          <button type="button" data-prog-action="open-legacy-mapa" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /mapa legacy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:12px;">
       <h3 style="margin:0 0 8px;font-size:15px;color:#0f172a;">Estado App Shell</h3>
@@ -182,7 +372,8 @@ function _card(label, value) {
 }
 
 function _row(k, v) {
-  return `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+  const searchText = `${k} ${v}`.toLowerCase();
+  return `<div data-prog-search-text="${esc(searchText)}" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
     <strong style="color:#64748b;">${esc(k)}</strong><span style="color:#0f172a;text-align:right;">${esc(v)}</span>
   </div>`;
 }

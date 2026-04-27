@@ -2,6 +2,10 @@ import { getState, onPlazaChange, subscribe } from '/js/app/app-state.js';
 import { esGlobal } from '/domain/permissions.model.js';
 import { createMapaLifecycleController } from '/js/app/features/mapa/mapa-lifecycle.js';
 import { createMapaDndController } from '/js/app/features/mapa/mapa-dnd.js';
+import {
+  persistUnitMove,
+  validatePersistMove
+} from '/js/app/features/mapa/mapa-mutations.js';
 import { renderMapaReadOnly, renderErrorState } from '/js/app/features/mapa/mapa-renderer.js';
 
 let _container = null;
@@ -39,8 +43,21 @@ function _readAppMapaDndFlag() {
   }
 }
 
-/** Roles globales que no deben tener preview DnD (operativos / corporativo). */
-const _DND_PREVIEW_DENIED = new Set(['CORPORATIVO_USER', 'JEFE_OPERACION']);
+function _readAppMapaDndPersistFlag() {
+  try {
+    return localStorage.getItem('mex.appMapa.dndPersist') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+/** Roles que no deben tener preview ni persistencia DnD App Shell (incl. operación y auxiliares). */
+const _DND_PREVIEW_DENIED = new Set([
+  'CORPORATIVO_USER',
+  'JEFE_OPERACION',
+  'AUXILIAR',
+  'OPERACION'
+]);
 
 /**
  * Quién puede usar DnD preview: PROGRAMADOR, o cuenta admin global (Firestore isAdmin + esGlobal),
@@ -72,6 +89,55 @@ function _dndFullyEnabled(state, snapshot) {
   return _readAppMapaDndFlag() && _canRolePreviewDnd(state) && _hasCajonStructure(snapshot);
 }
 
+/** Persistencia: además del preview, flag localStorage + mismo gate de rol + estructura. */
+function _dndPersistFullyEnabled(state, snapshot) {
+  return (
+    _dndFullyEnabled(state, snapshot) &&
+    _readAppMapaDndPersistFlag() &&
+    _canRolePreviewDnd(state)
+  );
+}
+
+function _actorName() {
+  const p = getState().profile || {};
+  return String(p.nombreCompleto || p.nombre || p.email || p.usuario || 'AppShell').trim() || 'AppShell';
+}
+
+function _removeMapaModals() {
+  _container?.querySelectorAll?.('.app-mapa-modal-overlay')?.forEach(el => el.remove());
+}
+
+function _showPersistConfirm({ mva, fromKey, toKey }) {
+  return new Promise(resolve => {
+    if (!_container) {
+      resolve(false);
+      return;
+    }
+    const wrap = document.createElement('div');
+    wrap.className = 'app-mapa-modal-overlay';
+    wrap.setAttribute('role', 'dialog');
+    wrap.innerHTML = `
+      <div class="app-mapa-modal">
+        <p class="app-mapa-modal-title">Confirmar movimiento</p>
+        <p class="app-mapa-modal-body">¿Mover unidad <strong>${esc(mva)}</strong> de <strong>${esc(fromKey)}</strong> a <strong>${esc(toKey)}</strong>?</p>
+        <div class="app-mapa-modal-actions">
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--ghost" data-act="cancel">Cancelar</button>
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">Confirmar movimiento</button>
+        </div>
+      </div>`;
+    const done = ok => {
+      wrap.remove();
+      resolve(ok);
+    };
+    wrap.addEventListener('click', e => {
+      if (e.target === wrap) done(false);
+    });
+    wrap.querySelector('[data-act="cancel"]')?.addEventListener('click', () => done(false));
+    wrap.querySelector('[data-act="ok"]')?.addEventListener('click', () => done(true));
+    _container.appendChild(wrap);
+  });
+}
+
 export function mount({ container }) {
   _container = container;
   _ensureCss();
@@ -85,6 +151,7 @@ export function mount({ container }) {
         <div>
           <span class="app-mapa-badge">Vista App Shell experimental</span>
           <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD experimental (preview)</span>
+          <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD persistencia (experimental)</span>
           <h1>Mapa operativo</h1>
           <p>Plaza activa: <strong>${esc(plaza || '—')}</strong></p>
         </div>
@@ -116,6 +183,60 @@ export function mount({ container }) {
   _dndController = createMapaDndController({
     getSnapshot: () => _lifecycle?.getSnapshot?.()?.data || null,
     canMove: () => _dndFullyEnabled(getState(), _viewState.snapshot),
+    getPersistAllowed: () => _dndPersistFullyEnabled(getState(), _viewState.snapshot),
+    onPersistDrop: async ({ fromCtx, toCtx, originKey, destKey, snapshot }) => {
+      const st = getState();
+      const plaza = String(
+        snapshot?.plaza || st.currentPlaza || st.profile?.plazaAsignada || ''
+      ).toUpperCase();
+      const snap = snapshot || _viewState.snapshot;
+      if (_dndHintEl) {
+        _dndHintEl.textContent = 'Validando movimiento…';
+        _dndHintEl.hidden = false;
+      }
+      const v = validatePersistMove({
+        snapshot: snap,
+        mva: fromCtx?.mva,
+        originKey,
+        destKey,
+        plaza
+      });
+      if (!v.ok) {
+        return {
+          message: v.message,
+          outcome: v.code === 'OCCUPIED' ? 'occupied' : 'invalid'
+        };
+      }
+      const okModal = await _showPersistConfirm({
+        mva: fromCtx.mva,
+        fromKey: originKey,
+        toKey: destKey
+      });
+      if (!okModal) {
+        return { message: 'Movimiento cancelado. No se guardó nada.', outcome: 'cancelled' };
+      }
+      if (_dndHintEl) {
+        _dndHintEl.textContent = 'Guardando…';
+        _dndHintEl.hidden = false;
+      }
+      const res = await persistUnitMove({
+        api: window.api,
+        plaza,
+        usuario: _actorName(),
+        mva: fromCtx.mva,
+        posNueva: destKey
+      });
+      if (!res.success) {
+        return {
+          message: `No se pudo guardar: ${res.error || 'error'}`,
+          outcome: 'error'
+        };
+      }
+      return {
+        message: 'Movimiento guardado.',
+        outcome: 'saved'
+      };
+    },
     pointerOnlyPreview: true,
     onMovePreview: payload => {
       if (_dndHintEl) {
@@ -159,15 +280,16 @@ export function mount({ container }) {
   _syncDndController();
 
   _offState = subscribe(() => {
+    _syncDndController();
     const cur = _dndFullyEnabled(getState(), _viewState.snapshot);
     if (cur === _lastDndEligibility) return;
     _lastDndEligibility = cur;
-    _syncDndController();
     _render();
   });
 }
 
 export function unmount() {
+  _removeMapaModals();
   if (_offPopstate) window.removeEventListener('popstate', _offPopstate);
   _offPopstate = null;
   if (_container && _onClick) _container.removeEventListener('click', _onClick);
@@ -191,9 +313,14 @@ export function unmount() {
 function _syncDndController() {
   if (!_dndController || !_container) return;
   const badge = _container.querySelector('#app-mapa-dnd-badge');
+  const pb = _container.querySelector('#app-mapa-persist-badge');
   const on = _dndFullyEnabled(getState(), _viewState.snapshot);
+  const persistOn = _dndPersistFullyEnabled(getState(), _viewState.snapshot);
   if (badge) {
     badge.style.display = on ? 'inline-flex' : 'none';
+  }
+  if (pb) {
+    pb.style.display = persistOn ? 'inline-flex' : 'none';
   }
   if (on) {
     _dndController.enable();
