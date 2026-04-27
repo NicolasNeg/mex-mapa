@@ -1021,20 +1021,19 @@ export function bindSidebarShell(root = document, options = {}) {
       }
       try {
         const notificationsModule = await import('/js/core/notifications.js');
-        if (typeof notificationsModule?.ensureNotificationCenterReady === 'function') {
-          await notificationsModule.ensureNotificationCenterReady();
-        } else if (typeof notificationsModule?.initNotificationCenter === 'function') {
-          await notificationsModule.initNotificationCenter();
-        }
         if (typeof notificationsModule?.openNotificationCenter === 'function') {
+          // Expose on window so next click is instant
+          window.openNotificationCenter = notificationsModule.openNotificationCenter;
           notificationsModule.openNotificationCenter();
           return;
         }
       } catch (_) {}
-      if (currentPlaza && typeof setActivePlaza === 'function') {
-        setActivePlaza(currentPlaza);
+      // Last resort: open modal by DOM class if it already exists in page
+      const existingModal = document.getElementById('notifications-center-modal');
+      if (existingModal) {
+        existingModal.classList.add('active');
+        return;
       }
-      window.location.href = buildCurrentRouteWithNotifInbox();
     });
   });
 }
@@ -1455,8 +1454,6 @@ async function renderBoot() {
   root.innerHTML = `
     <div class="home-loading-card" aria-live="polite" aria-busy="true">
       <div class="home-loading-orb"></div>
-      <strong>Preparando tu panel principal...</strong>
-      <span>Sincronizando perfil, plaza y módulos visibles</span>
     </div>
   `;
 

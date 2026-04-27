@@ -336,6 +336,7 @@
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
+      touch-action: pan-x pan-y;
       box-sizing: border-box;
       padding: clamp(10px, 1.8vw, 24px);
       padding-top: 20px;
@@ -461,6 +462,7 @@
       width: max-content;
       height: max-content;
       margin: 16px auto 48px;
+      overflow: hidden;
     }
 
     #map-zoom-container {

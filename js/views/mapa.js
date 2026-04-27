@@ -3809,6 +3809,7 @@ function _applyMapZoom(nextZoom, anchorPoint = null) {
 function _handleMapWheelZoom(event) {
   if (window.innerWidth <= 768) return;
   if (!_isMapZoomTarget(event.target)) return;
+  if (!event.ctrlKey && !event.metaKey) return; // plain scroll → native pan
   event.preventDefault();
   const deltaMultiplier = event.deltaMode === 1 ? 16 : 1;
   const normalizedDelta = event.deltaY * deltaMultiplier;

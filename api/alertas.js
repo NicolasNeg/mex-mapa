@@ -47,7 +47,15 @@
       const snap = await ref.get();
       if (!snap.exists) return "ERROR";
       const lectores = _splitAlertCsv(snap.data().leidoPor);
-      const usuario = String(usuarioActivo || "").trim().toUpperCase();
+      // Fallback al usuario de Firebase Auth cuando usuarioActivo llega vacío
+      const currentUser = firebase.auth().currentUser;
+      const usuario = String(
+        usuarioActivo ||
+        currentUser?.displayName ||
+        currentUser?.email ||
+        currentUser?.uid ||
+        ""
+      ).trim().toUpperCase();
       if (!usuario) return "ERROR";
       if (!lectores.includes(usuario)) lectores.push(usuario);
       await ref.update({ leidoPor: lectores.join(", ") });

@@ -89,7 +89,9 @@
       { "source": "/solicitud",     "destination": "/solicitud.html" },
       { "source": "/incidencias",   "destination": "/incidencias.html" },
       { "source": "/cuadre",        "destination": "/cuadre.html" },
-      { "source": "/cuadre/**",     "destination": "/cuadre.html" }
+      { "source": "/cuadre/**",     "destination": "/cuadre.html" },
+      { "source": "/app",           "destination": "/app.html" },
+      { "source": "/app/**",        "destination": "/app.html" }
     ]
   }
 }

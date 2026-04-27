@@ -1924,7 +1924,14 @@ const API_FUNCTIONS = {
     const snap = await ref.get();
     if (!snap.exists) return "ERROR";
     const lectores = _splitAlertCsv(snap.data().leidoPor);
-    const usuario = String(usuarioActivo || "").trim().toUpperCase();
+    // Fallback al usuario de Firebase Auth cuando usuarioActivo llega vacío
+    const usuario = String(
+      usuarioActivo ||
+      auth.currentUser?.displayName ||
+      auth.currentUser?.email ||
+      auth.currentUser?.uid ||
+      ""
+    ).trim().toUpperCase();
     if (!usuario) return "ERROR";
     if (!lectores.includes(usuario)) lectores.push(usuario);
     await ref.update({ leidoPor: lectores.join(", ") });

@@ -515,7 +515,13 @@ service cloud.firestore {
     }
 
     function alertaLecturaValida() {
-      return tienePerfilActual()
+      // Cualquier usuario autenticado puede marcar una alerta como leída.
+      // Usar estaAutenticado() en lugar de tienePerfilActual() reduce las
+      // llamadas exists() en esta evaluación y evita conflictos de cuota de
+      // lecturas cuando puedeEmitirAlertasMaestras() ya consumió el presupuesto.
+      // La seguridad se mantiene: solo usuarios autenticados pueden actualizar,
+      // y solo el campo leidoPor puede cambiar.
+      return estaAutenticado()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["leidoPor"])
         && request.resource.data.leidoPor is string;
     }

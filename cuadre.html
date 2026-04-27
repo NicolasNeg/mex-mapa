@@ -1,7 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-page-title="Cuadre de Flota"
-  data-page-description="Consola dedicada de gestión de flota de %COMPANY%">
-
+<html lang="es" data-page-title="Cuadre de Flota" data-page-description="Consola de gestión de flota de %COMPANY%">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -10,144 +8,547 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Cuadre">
-  <meta name="description" content="Consola dedicada de gestión de flota">
+  <meta name="description" content="Consola de gestión de flota">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/logo.png">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/global.css">
+  <link rel="stylesheet" href="/css/mapa.css">
 
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js"></script>
   <script src="/config.js"></script>
   <script src="/js/core/firebase-init.js"></script>
+  <script src="/mex-api.js"></script>
+  <script src="/api/helpers.js"></script>
+  <script src="/api/auth.js"></script>
+  <script src="/api/mapa.js"></script>
+  <script src="/api/cuadre.js"></script>
+  <script src="/api/externos.js"></script>
+  <script src="/api/flota.js"></script>
+  <script src="/api/alertas.js"></script>
+  <script src="/api/notas.js"></script>
+  <script src="/api/historial.js"></script>
+  <script src="/api/settings.js"></script>
+  <script src="/api/users.js"></script>
+  <script src="/api/_assemble.js"></script>
+  <script src="/js/core/app-bootstrap.js"></script>
 
   <title>Cuadre · Flota</title>
 
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     html, body {
-      width: 100%;
+      margin: 0;
       height: 100%;
       overflow: hidden;
-      background: #f8fafc;
+      background: var(--bg, #f1f5f9);
+      font-family: 'Inter', sans-serif;
     }
 
-    /* ── Loader ── */
-    #cuadreLoader {
-      position: fixed;
-      inset: 0;
-      background: linear-gradient(135deg, #060e1c 0%, #0c1e3a 55%, #07152b 100%);
-      z-index: 9999;
+    /* Ocultar elementos de mapa.js que no son parte del cuadre */
+    #login-overlay, #admin-sidebar, #map-stage, #info-panel,
+    .overlay, #toastContainerMapa { display: none !important; }
+
+    /* El main stage del shell no debe scrollear — el fleet panel maneja su propio scroll */
+    #routeMainStage {
+      overflow: hidden !important;
+      padding: 0 !important;
+      display: flex !important;
+      flex-direction: column !important;
+    }
+
+    /* cuadreApp llena el espacio disponible del main stage */
+    #cuadreApp {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
-      transition: opacity 0.4s ease;
-    }
-    #cuadreLoader.ready {
-      opacity: 0;
-      pointer-events: none;
-    }
-    #cuadreLoader.hidden {
-      display: none;
-    }
-    .cuadre-loader-logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 16px;
-      background: rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .cuadre-loader-logo img {
-      width: 36px;
-      height: 36px;
-      object-fit: contain;
-      filter: brightness(0) invert(1);
-      opacity: 0.9;
-    }
-    .cuadre-loader-text {
-      color: rgba(255,255,255,0.75);
-      font-family: 'Inter', system-ui, sans-serif;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-    }
-    .cuadre-loader-spinner {
-      width: 28px;
-      height: 28px;
-      border: 3px solid rgba(255,255,255,0.12);
-      border-top-color: rgba(255,255,255,0.75);
-      border-radius: 50%;
-      animation: cuadreSpin 0.85s linear infinite;
-    }
-    @keyframes cuadreSpin {
-      to { transform: rotate(360deg); }
+      min-height: 0;
+      overflow: hidden;
     }
 
-    /* ── Iframe ── */
-    #cuadreFrame {
-      display: block;
-      width: 100%;
-      height: 100%;
-      border: none;
-      background: #f8fafc;
+    /* El fleet-modal en /cuadre es inline, no fixed */
+    #fleet-modal {
+      position: relative !important;
+      inset: auto !important;
+      z-index: 1 !important;
+      display: flex !important; /* siempre visible en esta ruta */
+      flex: 1;
+      min-height: 0;
+      background: var(--bg, #f1f5f9);
+      border-radius: 0 !important;
     }
+
+    /* El botón "VER MAPA" del fleet-header redirige al mapa */
+    .fleet-header-top .txt-mobile-hide { display: inline !important; }
   </style>
 </head>
-
 <body>
 
-  <!-- Loader mientras carga el frame -->
-  <div id="cuadreLoader">
-    <div class="cuadre-loader-logo">
-      <img src="/img/logo.png" alt="MEX">
+  <!-- Contenido del cuadre — el shell (sidebar+topbar) se inyecta al autenticar -->
+  <div id="cuadreApp">
+
+    <!-- ── Panel de Flota (inline, no fixed) ─────────────────── -->
+    <div id="fleet-modal" class="fleet-modal active">
+      <div class="fleet-header-top">
+        <div style="display:flex; align-items:center; gap: 10px;">
+          <h2 class="title-consola" style="color:var(--primary); font-weight:900; margin:0;">GESTIÓN DE FLOTA</h2>
+          <span class="badge-pro"
+            style="background: #e2e8f0; color:#475569; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 800;">BETA</span>
+
+          <div id="btnMasControlesWrapper" class="more-controls-wrapper">
+            <button class="btn-more-controls btn-icon-mobile" onclick="toggleMoreControls()">
+              <span class="material-icons" style="font-size: 18px;">tune</span>
+              <span class="txt-mobile-hide">MÁS CONTROLES</span>
+            </button>
+
+            <div id="moreControlsDropdown" class="more-controls-dropdown">
+              <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span>
+                Registros / Movimientos</div>
+
+              <div id="mcValidarCuadre" class="mc-item" onclick="abrirUltimoCuadre()"
+                style="display: flex; flex-direction: column; align-items: flex-start;">
+                <div><span class="material-icons">history</span> Validar Cuadre Actual</div>
+                <small id="lblUltimoCuadre"
+                  style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">✅ --/-- 00:00
+                  (Nadie)</small>
+              </div>
+
+              <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen
+                Flota</div>
+
+              <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno()">
+                <span class="material-icons" style="color:#8b5cf6;">directions_car</span>
+                Insertar Unidad Externa
+              </div>
+
+              <div id="mcPdfReservas" class="mc-item"
+                onclick="document.getElementById('modal-lector-reservas').classList.add('active'); toggleMoreControls();">
+                <span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas
+              </div>
+
+              <div id="mcPredicciones" class="mc-item"
+                onclick="reiniciarPrediccion(); document.getElementById('modal-prediccion').classList.add('active'); toggleMoreControls(); document.getElementById('fecha-prediccion').valueAsDate = new Date();">
+                <span class="material-icons" style="color: #10b981;">query_stats</span> Cuadre de Predicciones
+              </div>
+            </div>
+          </div>
+
+          <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display: none;">
+            <button class="btn-more-controls btn-icon-mobile"
+              style="background:var(--mex-blue); border-color:var(--mex-blue); color:white;"
+              onclick="toggleAdminControls()">
+              <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
+              <span class="txt-mobile-hide">GESTIÓN ADMIN</span>
+            </button>
+
+            <div id="adminControlsDropdown" class="more-controls-dropdown">
+              <div class="mc-header">ADMINISTRACIÓN GLOBAL</div>
+              <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span>
+                Insertar Unidad Global</div>
+              <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span>
+                Editar Unidad Global</div>
+              <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span
+                  class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
+            </div>
+          </div>
+
+        </div>
+
+        <button onclick="window.location.href='/mapa'" class="btn-icon-mobile"
+          style="background:#e0f2fe; color:var(--primary); border:none; padding: 10px 20px; border-radius:10px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap: 8px;">
+          <span class="material-icons" style="font-size: 18px;">map</span>
+          <span class="txt-mobile-hide">VER MAPA</span>
+        </button>
+      </div>
+
+      <div id="toastContainer"></div>
+
+      <div class="fleet-wrapper">
+        <div class="main-grid-flota">
+
+          <div class="col-table">
+            <div class="toolbar-flota">
+
+              <div class="flota-tabs-slider"
+                style="display: flex; gap: 10px; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; flex-wrap: wrap; justify-content: flex-start;">
+                <button id="tabFlotaNormal" onclick="cambiarTabFlota('NORMAL')"
+                  style="background: var(--mex-blue); color: white; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
+                  🚗 FLOTA REGULAR
+                </button>
+                <button id="tabFlotaAdmins" onclick="cambiarTabFlota('ADMINS')"
+                  style="background: #f1f5f9; color: #64748b; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; flex: 1 1 140px; text-align: center;">
+                  👑 CUADRE ADMINS
+                </button>
+              </div>
+            </div>
+            <div style="display: flex; gap: 10px; width: 100%;">
+              <div class="search-wrapper-flota" style="flex: 1;">
+                <span class="material-icons">search</span>
+                <input type="text" id="searchFlota" class="search-box-flota"
+                  placeholder="Buscar MVA, Notas, Placas o Modelo..." onkeyup="filtrarFlota()">
+              </div>
+
+              <button onclick="limpiarFiltrosFlota()"
+                style="background:#fee2e2; color:#ef4444; border:none; padding:0 15px; border-radius:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; transition:0.2s;"
+                title="Limpiar Filtros">
+                <span class="material-icons" style="font-size:18px;">filter_alt_off</span>
+              </button>
+            </div>
+
+            <div class="chips-filter" id="chipContainer">
+              <div class="chip active" onclick="filtrarEspecial('TODOS', this)">Todos</div>
+              <div class="chip chip-estado chip-sucio" onclick="filtrarEspecial('SUCIO', this)">🧹 SUCIO</div>
+              <div class="chip chip-estado chip-listo" onclick="filtrarEspecial('LISTO', this)">✅ LISTO</div>
+              <div class="chip chip-estado chip-mant" onclick="filtrarEspecial('MANTENIMIENTO', this)">🔧 MANT.</div>
+              <div class="chip chip-estado chip-traslado" onclick="filtrarEspecial('TRASLADO', this)">🚛 TRASLADO</div>
+              <div class="chip" onclick="filtrarEspecial('DOBLE CERO', this)">🍃 DOBLE CERO</div>
+              <div class="chip" onclick="filtrarEspecial('APARTADO', this)">🔒 APARTADOS</div>
+              <div class="chip" onclick="filtrarEspecial('URGENTE', this)">⚡ URGENTE</div>
+              <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)">👀 RESGUARDO</div>
+              <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)">🏭 TALLER</div>
+              <div class="chip chip-reservas" onclick="abrirModalPDFReservas()"
+                title="Análisis de reservas y proyección operativa">📋 RESERVAS</div>
+            </div>
+
+            <!-- Barra de acciones batch -->
+            <div id="batch-action-bar"
+              style="display:none; align-items:center; gap:8px; padding:6px 10px; background:#fef3c7; border:1px solid #fbbf24; border-radius:10px; margin-bottom:6px; flex-wrap:wrap;">
+              <span id="batch-count-label"
+                style="font-size:12px; font-weight:700; color:#92400e; margin-right:4px;"></span>
+              <span style="font-size:12px; color:#78350f; margin-right:6px;">Aplicar a todas:</span>
+              <select id="batch-estado-select"
+                style="font-size:12px; border:1px solid #fbbf24; border-radius:6px; padding:3px 6px; background:#fff;">
+                <option value="">— Estado —</option>
+                <option value="SUCIO">SUCIO</option>
+                <option value="LISTO">LISTO</option>
+                <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                <option value="TRASLADO">TRASLADO</option>
+                <option value="RESGUARDO">RESGUARDO</option>
+                <option value="NO ARRENDABLE">NO ARRENDABLE</option>
+              </select>
+              <button onclick="ejecutarAccionBatch()"
+                style="font-size:12px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:4px 12px; font-weight:700; cursor:pointer;">Aplicar</button>
+              <span id="batch-progress-label" style="font-size:11px; color:#78350f;"></span>
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th onclick="sortFlota('mva')" class="sortable">MVA ↕</th>
+                    <th>
+                      <select id="filter-cat" class="excel-filter" onchange="filtrarFlota()">
+                        <option value="">CATEGORIA (ALL)</option>
+                        <option value="ECAR">ECAR</option>
+                        <option value="CCAR">CCAR</option>
+                        <option value="ICAR">ICAR</option>
+                        <option value="FCAR">FCAR</option>
+                        <option value="SCAR">SCAR</option>
+                        <option value="CFAR">CFAR</option>
+                        <option value="SFAR">SFAR</option>
+                        <option value="FWAR">FWAR</option>
+                        <option value="MVAR">MVAR</option>
+                        <option value="IVAH">IVAH</option>
+                        <option value="MVAH">MVAH</option>
+                        <option value="FFBH">FFBH</option>
+                        <option value="CKMR">CKMR</option>
+                        <option value="MPMN">MPMN</option>
+                        <option value="PFAR">PFAR</option>
+                        <option value="GVMD">GVMD</option>
+                      </select>
+                    <th>
+                      <select id="filter-modelo" class="excel-filter" onchange="filtrarFlota()">
+                        <option value="">MODELO (ALL)</option>
+                      </select>
+                    </th>
+                    <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
+                    <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
+                    <th>
+                      <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
+                        <option value="">ESTADO (ALL)</option>
+                        <option value="LISTO">🟢 LISTO</option>
+                        <option value="SUCIO">🟡 SUCIO</option>
+                        <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
+                        <option value="RESGUARDO">🔘 RESGUARDO</option>
+                        <option value="TRASLADO">🟣 TRASLADO.</option>
+                        <option value="VENTA">⚫ VENTA</option>
+                        <option value="RETENIDA">🟤 RETENIDA.</option>
+                        <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
+                        <option value="HYP">🚚 HYP</option>
+                      </select>
+                    </th>
+                    <th>
+                      <select id="filter-ubi" class="excel-filter" onchange="filtrarFlota()">
+                        <option value="">UBICACION (ALL)</option>
+                        <optgroup label="PLAZAS FIJAS">
+                          <option value="PATIO">🏠 PATIO</option>
+                          <option value="TALLER">🔧 TALLER</option>
+                          <option value="AGENCIA">🏢 AGENCIA</option>
+                          <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
+                          <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                        </optgroup>
+                        <optgroup label="PERSONA RESPONSABLE">
+                          <option value="JORGE">👤 JORGE</option>
+                          <option value="GERARDO">👤 GERARDO</option>
+                          <option value="OSVALDO">👤 OSVALDO</option>
+                          <option value="BALANDRAN">👤 BALANDRAN</option>
+                          <option value="ULISES">👤 ULISES</option>
+                          <option value="JOSUE">👤 JOSUE</option>
+                          <option value="ISRAEL">👤 ISRAEL</option>
+                          <option value="ISAAC">👤 ISAAC</option>
+                          <option value="ANGEL">👤 ANGEL</option>
+                          <option value="LEO">👤 LEO</option>
+                          <option value="BRAULIO">👤 BRAULIO</option>
+                          <option value="MARTHA">👤 MARTHA</option>
+                          <option value="FERNANDA">👤 FERNANDA</option>
+                          <option value="ZALLO">👤 ZALLO</option>
+                          <option value="UBALDO">👤 UBALDO</option>
+                          <option value="JOSE LUIS">👤 JOSE LUIS</option>
+                          <option value="PASCUAL">👤 PASCUAL</option>
+                          <option value="LALO">👤 LALO</option>
+                          <option value="EDGAR">👤 EDGAR</option>
+                        </optgroup>
+                      </select>
+                    </th>
+                    <th id="th-autor" style="display:none;">Notas / Responsable</th>
+                  </tr>
+                </thead>
+                <tbody id="tablaCuerpoFlota">
+                  <tr>
+                    <td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span
+                        class="material-icons spinner"
+                        style="vertical-align:middle; margin-right:8px;">sync</span>Cargando...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- Botón flotante agregar -->
+            <button class="btn-flotante-agregar-cuadre" onclick="manejarBotonAgregarFlotante()" title="Agregar Unidad">
+              <span class="material-icons">add</span>
+            </button>
+
+          </div>
+
+          <div class="col-form-overlay" id="form-flota-overlay" onclick="cerrarFormularioFlota()"></div>
+          <div class="col-form" id="form-flota-panel">
+
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+              <h3 style="margin:0; color:var(--primary); font-size:18px; font-weight:900;">GESTOR DE UNIDAD</h3>
+              <button onclick="cerrarFormularioFlota()"
+                style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:10px; color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;">
+                <span class="material-icons" style="font-size:20px;">close</span>
+              </button>
+            </div>
+
+            <div class="stats-grid">
+              <div class="stat-box">
+                <div class="num" id="statTotal">--</div>
+                <div class="lbl">Total Flota</div>
+              </div>
+              <div class="stat-box" style="background: #f0fdf4; border-color: #bbf7d0;">
+                <div class="num" id="statListos" style="color: #16a34a;">--</div>
+                <div class="lbl">Listos Renta</div>
+              </div>
+            </div>
+
+            <div class="form-panel">
+              <div class="form-header" style="margin-bottom: 15px;">
+                <div class="form-title" id="formTitleFlota" style="font-size: 15px;">NUEVO REGISTRO</div>
+              </div>
+
+              <div id="admin-flota-panel-hint"
+                style="display:none; margin-bottom:15px; padding:14px 16px; border-radius:14px; border:1px solid #fed7aa; background:linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);">
+                <div style="display:flex; align-items:flex-start; gap:10px;">
+                  <span class="material-icons" style="color:#d97706; font-size:20px;">inventory_2</span>
+                  <div style="display:flex; flex-direction:column; gap:5px;">
+                    <strong style="color:#9a3412; font-size:13px; letter-spacing:0.3px;">Modo Cuadre Admins</strong>
+                    <span style="font-size:12px; color:#7c2d12; line-height:1.45;">En esta vista el registro se hace solo
+                      desde el modal administrativo. El buscador del cuadre normal queda oculto para no mezclar
+                      procesos.</span>
+                  </div>
+                </div>
+              </div>
+
+              <div id="autofill-section" class="field"
+                style="background:#f8fafc; padding:12px; border-radius:12px; border:1px dashed var(--mex-accent); position:relative; margin-bottom: 15px;">
+                <label style="color:var(--mex-accent); margin-bottom: 8px;">BUSCAR EN BASE MAESTRA 🔍</label>
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <input type="text" id="autofill-input" placeholder="Escribe MVA, Placas o Modelo..."
+                    oninput="debouncedAutofill(this.value)"
+                    style="border-color:var(--mex-accent); flex:1; background:white;">
+                  <button id="btnResetAutofill" onclick="resetAutofill()"
+                    style="display:none; background:#fee2e2; border:none; color:var(--mex-red); cursor:pointer; padding: 12px; border-radius: 8px; transition: 0.2s;"
+                    title="Cambiar Unidad">
+                    <span class="material-icons" style="font-size: 18px;">close</span>
+                  </button>
+                </div>
+                <div id="autofill-results"
+                  style="display:none; position:absolute; top:95%; left:0; right:0; max-height:220px; overflow-y:auto; background:white; border:1px solid var(--border); border-radius:12px; margin-top:5px; box-shadow:0 10px 25px rgba(0,0,0,0.2); z-index:100;">
+                </div>
+              </div>
+
+              <div id="form-fields-container" style="display:none; flex-direction:column;">
+
+                <div class="grid-2">
+                  <div class="field"><label>MVA</label><input type="text" id="f_mva" class="locked-input" disabled></div>
+                  <div class="field"><label>Categoría</label><input type="text" id="f_cat" class="locked-input" disabled
+                      placeholder="Ej: ECAR"></div>
+                </div>
+
+                <div class="grid-2">
+                  <div class="field"><label>Modelo</label><input type="text" id="f_mod" class="locked-input" disabled>
+                  </div>
+                  <div class="field"><label>Placas</label><input type="text" id="f_pla" class="locked-input" disabled>
+                  </div>
+                </div>
+
+                <div class="grid-2">
+                  <div class="field">
+                    <label>ESTADO 🛠️</label>
+                    <select id="f_est" onchange="validarBotonGuardar()">
+                      <option value="">Seleccionar...</option>
+                      <option value="LISTO">🟢 LISTO</option>
+                      <option value="SUCIO">🟡 SUCIO</option>
+                      <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
+                      <option value="RESGUARDO">🔘 RESGUARDO</option>
+                      <option value="TRASLADO">🟣 TRASLADO</option>
+                      <option value="VENTA">⚫ VENTA</option>
+                      <option value="RETENIDA">🟤 RETENIDA</option>
+                      <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
+                      <option value="HYP">🚚 HYP</option>
+                      <option value="EN RENTA">✈️ EN RENTA</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label>GASOLINA ⛽</label>
+                    <select id="f_gas" onchange="validarBotonGuardar()">
+                      <option value="N/A">Seleccionar...</option>
+                      <option value="F">F (Lleno Total)</option>
+                      <optgroup label="MEDIO">
+                        <option value="15/16">15/16</option>
+                        <option value="7/8">7/8</option>
+                        <option value="13/16">13/16</option>
+                        <option value="3/4">3/4</option>
+                        <option value="11/16">11/16</option>
+                        <option value="5/8">5/8</option>
+                        <option value="9/16">9/16</option>
+                        <option value="H">H (Medio)</option>
+                      </optgroup>
+                      <optgroup label="BAJO">
+                        <option value="7/16">7/16</option>
+                        <option value="3/8">3/8</option>
+                        <option value="5/16">5/16</option>
+                        <option value="1/4">1/4</option>
+                        <option value="3/16">3/16</option>
+                        <option value="1/8">1/8</option>
+                        <option value="1/16">1/16</option>
+                        <option value="E">E (Vacío)</option>
+                      </optgroup>
+                      <option value="N/A"> N/A </option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="field">
+                  <label>UBICACIÓN ACTUAL 📍</label>
+                  <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
+                    <option value="">Seleccionar...</option>
+                    <optgroup label="PLAZAS FIJAS">
+                      <option value="PATIO">🏠 PATIO</option>
+                      <option value="TALLER">🔧 TALLER</option>
+                      <option value="AGENCIA">🏢 AGENCIA</option>
+                      <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
+                      <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                    </optgroup>
+                    <optgroup label="PERSONA RESPONSABLE">
+                      <option value="JORGE">👤 JORGE</option>
+                      <option value="GERARDO">👤 GERARDO</option>
+                      <option value="OSVALDO">👤 OSVALDO</option>
+                      <option value="BALANDRAN">👤 BALANDRAN</option>
+                      <option value="ULISES">👤 ULISES</option>
+                      <option value="JOSUE">👤 JOSUE</option>
+                      <option value="ISRAEL">👤 ISRAEL</option>
+                      <option value="ISAAC">👤 ISAAC</option>
+                      <option value="ANGEL">👤 ANGEL</option>
+                      <option value="LEO">👤 LEO</option>
+                      <option value="BRAULIO">👤 BRAULIO</option>
+                      <option value="MARTHA">👤 MARTHA</option>
+                      <option value="FERNANDA">👤 FERNANDA</option>
+                      <option value="ZALLO">👤 ZALLO</option>
+                      <option value="UBALDO">👤 UBALDO</option>
+                      <option value="JOSE LUIS">👤 JOSE LUIS</option>
+                      <option value="PASCUAL">👤 PASCUAL</option>
+                      <option value="LALO">👤 LALO</option>
+                      <option value="EDGAR">👤 EDGAR</option>
+                    </optgroup>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label>Notas / Observaciones</label>
+                  <textarea id="f_not" rows="2" placeholder="Escribe aquí..." oninput="validarBotonGuardar()"></textarea>
+
+                  <div id="del-note-wrapper"
+                    style="display:none; align-items:center; gap:8px; margin-top: 8px; background: #fee2e2; padding: 10px 12px; border-radius: 8px; border: 1px solid #f87171;">
+                    <input type="checkbox" id="f_del_note" style="width: 16px; height: 16px;"
+                      onchange="validarBotonGuardar()">
+                    <label for="f_del_note"
+                      style="margin:0; font-weight:800; text-transform:none; font-size:12px; color: var(--mex-red); cursor:pointer;">Borrar
+                      historial de notas actual</label>
+                  </div>
+                </div>
+
+                <div class="btn-group">
+                  <button id="btnDelFlota" class="btn btn-del" onclick="confirmarBorradoFlotaUI()" style="display:none;"
+                    title="Eliminar Unidad">
+                    <span class="material-icons">delete</span>
+                  </button>
+                  <button id="btnSaveFlota" class="btn btn-save" onclick="ejecutarGuardadoFlota()">
+                    <span class="material-icons" style="font-size:18px">save</span> GUARDAR CAMBIOS
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="cuadre-loader-text">Cargando consola de flota…</div>
-    <div class="cuadre-loader-spinner"></div>
-  </div>
+    <!-- ── /fleet-modal ─────────────────────────────────────── -->
 
-  <iframe
-    id="cuadreFrame"
-    title="Consola de flota"
-    loading="eager"
-    allow="geolocation; clipboard-read; clipboard-write"
-    referrerpolicy="same-origin">
-  </iframe>
+  </div><!-- /#cuadreApp -->
 
-  <script src="/js/core/database.js" type="module"></script>
+  <script type="module" src="/js/views/mapa.js"></script>
   <script type="module">
     import { auth } from '/js/core/database.js';
+    import { ensureRouteShellLayout } from '/js/views/home.js';
 
-    const loader  = document.getElementById('cuadreLoader');
-    const frame   = document.getElementById('cuadreFrame');
-
-    function buildFrameUrl() {
-      const params = new URLSearchParams(window.location.search);
-      const tab = params.get('tab') || 'normal';
-      return `/mapa?fleet=1&tab=${encodeURIComponent(tab)}`;
-    }
-
-    function hideLoader() {
-      if (!loader) return;
-      loader.classList.add('ready');
-      setTimeout(() => loader.classList.add('hidden'), 420);
-    }
-
-    frame.addEventListener('load', hideLoader, { once: true });
-
-    // Fallback: si el frame tarda más de 12s, ocultamos el loader de todas formas
-    setTimeout(hideLoader, 12000);
-
-    auth.onAuthStateChanged(user => {
+    auth.onAuthStateChanged(async (user) => {
       if (!user) {
         window.location.replace('/login');
         return;
       }
-      frame.src = buildFrameUrl();
+
+      const profile = await window.__mexLoadCurrentUserRecord?.(user) || {};
+      const config  = window.MEX_CONFIG || {};
+
+      ensureRouteShellLayout({
+        appRoot:         document.getElementById('cuadreApp'),
+        currentRoute:    '/cuadre',
+        profile,
+        config,
+        currentPlaza:    window.getMexCurrentPlaza?.() || profile.plazaAsignada || '',
+        searchId:        null,
+        plazaSelectId:   null,
+        showVehicleShortcut: false
+      });
     });
   </script>
 

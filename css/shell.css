@@ -1,0 +1,735 @@
+/* ═══════════════════════════════════════════════════════════
+   css/shell.css — App Shell global persistente
+   Sidebar + Header + Main layout.
+   Importado solo por páginas que usen ShellLayout (/app.html, etc.)
+   Las páginas legacy usan los estilos dentro de global.css.
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── CSS Custom properties ────────────────────────────────── */
+:root {
+  --sh-sidebar-w:         280px;
+  --sh-sidebar-compact-w: 72px;
+  --sh-header-h:          64px;
+  --sh-sidebar-bg:        #07111f;
+  --sh-sidebar-text:      rgba(255, 255, 255, 0.82);
+  --sh-sidebar-accent:    #2ecc71;
+  --sh-sidebar-active-bg: rgba(255, 255, 255, 0.1);
+  --sh-sidebar-hover-bg:  rgba(255, 255, 255, 0.06);
+  --sh-sidebar-border:    rgba(255, 255, 255, 0.08);
+  --sh-header-bg:         rgba(255, 255, 255, 0.92);
+  --sh-header-border:     rgba(0, 0, 0, 0.06);
+  --sh-body-bg:           #f4fbf4;
+}
+
+/* TV / pantallas grandes */
+@media (min-width: 1920px) {
+  :root {
+    --sh-sidebar-w:    300px;
+    --sh-header-h:     72px;
+  }
+}
+
+/* ── Shell wrapper ─────────────────────────────────────────── */
+.mex-shell {
+  display: block;
+  min-height: 100vh;
+  background: var(--sh-body-bg);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════════════════════ */
+.mex-sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  width: var(--sh-sidebar-w);
+  background: var(--sh-sidebar-bg);
+  display: flex;
+  flex-direction: column;
+  z-index: 50;
+  overflow: hidden;
+  border-right: 1px solid var(--sh-sidebar-border);
+  transition:
+    width  0.26s cubic-bezier(0.4, 0, 0.2, 1),
+    transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.mex-sidebar.compact {
+  width: var(--sh-sidebar-compact-w);
+}
+
+/* Mobile: drawer overlay */
+@media (max-width: 767px) {
+  .mex-sidebar {
+    width: var(--sh-sidebar-w) !important;
+    transform: translateX(-100%);
+    box-shadow: 0 0 48px rgba(0, 0, 0, 0.45);
+  }
+  .mex-sidebar.drawer-open {
+    transform: translateX(0);
+  }
+}
+
+/* Tablet: default compact on mount (handled in JS) */
+
+/* ── Sidebar — logo/brand ──────────────────────────────────── */
+.mex-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 18px 14px 16px;
+  border-bottom: 1px solid var(--sh-sidebar-border);
+  min-height: 70px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.mex-sidebar-logo-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--sh-sidebar-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 16px;
+  letter-spacing: -0.5px;
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+}
+
+.mex-sidebar-logo-text {
+  overflow: hidden;
+  transition: opacity 0.2s ease, width 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+}
+.mex-sidebar-logo-text h2 {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+  font-family: 'Inter', sans-serif;
+}
+.mex-sidebar-logo-text p {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+  font-family: 'Inter', sans-serif;
+}
+.mex-sidebar.compact .mex-sidebar-logo-text {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+/* ── Sidebar — nav body ────────────────────────────────────── */
+.mex-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.mex-sidebar-nav::-webkit-scrollbar { width: 4px; }
+.mex-sidebar-nav::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+}
+
+/* ── Nav group ─────────────────────────────────────────────── */
+.mex-nav-group + .mex-nav-group {
+  margin-top: 2px;
+  border-top: 1px solid var(--sh-sidebar-border);
+  padding-top: 2px;
+}
+
+.mex-nav-group-label {
+  padding: 10px 16px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.28);
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.15s, max-height 0.26s, padding 0.26s;
+  font-family: 'Inter', sans-serif;
+}
+.mex-sidebar.compact .mex-nav-group-label {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+}
+
+/* ── Nav item ──────────────────────────────────────────────── */
+.mex-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 1px 7px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  color: var(--sh-sidebar-text);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.14s, color 0.14s;
+  white-space: nowrap;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.mex-nav-item:hover {
+  background: var(--sh-sidebar-hover-bg);
+  color: #fff;
+}
+.mex-nav-item.active {
+  background: var(--sh-sidebar-active-bg);
+  color: #fff;
+}
+.mex-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 22px;
+  background: var(--sh-sidebar-accent);
+  border-radius: 0 3px 3px 0;
+}
+
+.mex-nav-item-icon {
+  font-size: 20px !important;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.55);
+  transition: color 0.14s;
+}
+.mex-nav-item:hover .mex-nav-item-icon,
+.mex-nav-item.active .mex-nav-item-icon {
+  color: var(--sh-sidebar-accent);
+}
+
+.mex-nav-item-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: opacity 0.18s;
+  font-family: 'Inter', sans-serif;
+}
+.mex-sidebar.compact .mex-nav-item-label {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+.mex-nav-item-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 100px;
+  background: var(--sh-sidebar-accent);
+  color: #fff;
+  flex-shrink: 0;
+  transition: opacity 0.18s;
+  font-family: 'Inter', sans-serif;
+}
+.mex-sidebar.compact .mex-nav-item-badge {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Submenu arrow ─────────────────────────────────────────── */
+.mex-nav-item-arrow {
+  font-size: 16px !important;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.35);
+  transition: transform 0.22s ease, opacity 0.18s;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+  line-height: 1;
+}
+.mex-nav-item.submenu-open .mex-nav-item-arrow {
+  transform: rotate(90deg);
+}
+.mex-sidebar.compact .mex-nav-item-arrow {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Submenu ───────────────────────────────────────────────── */
+.mex-submenu {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mex-submenu.open { max-height: 600px; }
+.mex-sidebar.compact .mex-submenu { display: none; }
+
+.mex-submenu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 1px 7px 1px 30px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: background 0.13s, color 0.13s;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+  user-select: none;
+  font-family: 'Inter', sans-serif;
+}
+.mex-submenu-item::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+  transition: background 0.13s;
+}
+.mex-submenu-item:hover {
+  background: var(--sh-sidebar-hover-bg);
+  color: #fff;
+}
+.mex-submenu-item:hover::before,
+.mex-submenu-item.active::before {
+  background: var(--sh-sidebar-accent);
+}
+.mex-submenu-item.active {
+  background: var(--sh-sidebar-active-bg);
+  color: #fff;
+}
+
+/* ── Compact tooltip ───────────────────────────────────────── */
+.mex-sidebar.compact .mex-nav-item {
+  justify-content: center;
+}
+.mex-sidebar.compact .mex-nav-item::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(var(--sh-sidebar-compact-w) - 2px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(7, 17, 31, 0.95);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 200;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 0.12s;
+  font-family: 'Inter', sans-serif;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.mex-sidebar.compact .mex-nav-item:hover::after {
+  opacity: 1;
+}
+
+/* ── Profile footer ────────────────────────────────────────── */
+.mex-sidebar-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--sh-sidebar-border);
+  padding: 8px 7px;
+}
+
+.mex-profile-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.13s;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+.mex-profile-item:hover { background: var(--sh-sidebar-hover-bg); }
+
+.mex-sidebar.compact .mex-profile-item {
+  justify-content: center;
+  padding: 8px 6px;
+}
+
+.mex-profile-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: rgba(46, 204, 113, 0.15);
+  border: 1px solid rgba(46, 204, 113, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.mex-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 9px;
+}
+.mex-profile-avatar-icon {
+  font-size: 18px !important;
+  color: var(--sh-sidebar-accent);
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+}
+
+.mex-profile-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  transition: opacity 0.18s, width 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.mex-profile-info-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Inter', sans-serif;
+}
+.mex-profile-info-role {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.38);
+  white-space: nowrap;
+  margin-top: 1px;
+  font-family: 'Inter', sans-serif;
+}
+.mex-sidebar.compact .mex-profile-info {
+  opacity: 0;
+  width: 0;
+  pointer-events: none;
+}
+
+.mex-logout-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  color: rgba(239, 68, 68, 0.65);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: background 0.13s, color 0.13s;
+  overflow: hidden;
+  user-select: none;
+  font-family: 'Inter', sans-serif;
+}
+.mex-logout-item:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+}
+.mex-logout-item .mex-logout-icon {
+  font-size: 18px !important;
+  flex-shrink: 0;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+}
+.mex-sidebar.compact .mex-logout-item {
+  justify-content: center;
+  padding: 7px 6px;
+}
+.mex-sidebar.compact .mex-logout-label {
+  display: none;
+}
+
+/* ── Collapse toggle ───────────────────────────────────────── */
+.mex-sidebar-collapse-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--sh-sidebar-border);
+  flex-shrink: 0;
+}
+.mex-sidebar.compact .mex-sidebar-collapse-row {
+  justify-content: center;
+}
+@media (max-width: 767px) {
+  .mex-sidebar-collapse-row { display: none; }
+}
+
+.mex-collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--sh-sidebar-border);
+  color: rgba(255, 255, 255, 0.38);
+  cursor: pointer;
+  background: transparent;
+  transition: background 0.13s, color 0.13s, transform 0.26s;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+  font-size: 16px !important;
+  line-height: 1;
+}
+.mex-collapse-btn:hover {
+  background: var(--sh-sidebar-hover-bg);
+  color: #fff;
+}
+.mex-sidebar.compact .mex-collapse-btn {
+  transform: scaleX(-1);
+}
+
+/* ── Mobile drawer overlay ─────────────────────────────────── */
+.mex-drawer-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  z-index: 49;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+.mex-drawer-overlay.visible { display: block; }
+
+/* ═══════════════════════════════════════════════════════════
+   HEADER
+   ═══════════════════════════════════════════════════════════ */
+.mex-header {
+  position: fixed;
+  top: 0;
+  left: var(--sh-sidebar-w);
+  right: 0;
+  height: var(--sh-header-h);
+  background: var(--sh-header-bg);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--sh-header-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  z-index: 40;
+  transition: left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+.mex-shell.sidebar-compact .mex-header {
+  left: var(--sh-sidebar-compact-w);
+}
+@media (max-width: 767px) {
+  .mex-header { left: 0 !important; }
+}
+
+/* ── Header left ───────────────────────────────────────────── */
+.mex-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mex-header-menu-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: transparent;
+  color: #475569;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.13s;
+}
+.mex-header-menu-btn:hover { background: rgba(0, 0, 0, 0.04); }
+@media (max-width: 767px) {
+  .mex-header-menu-btn { display: flex; }
+}
+
+.mex-header-menu-btn-icon {
+  font-size: 20px !important;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+}
+
+.mex-header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Header right ──────────────────────────────────────────── */
+.mex-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.mex-header-icon-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: background 0.13s, color 0.13s;
+  flex-shrink: 0;
+}
+.mex-header-icon-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1e293b;
+}
+.mex-header-icon-btn .mex-hdr-icon {
+  font-size: 22px !important;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+}
+
+.mex-header-bell-badge {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 9px;
+  height: 9px;
+  background: #ef4444;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+.mex-header-divider {
+  width: 1px;
+  height: 22px;
+  background: rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.mex-header-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 10px;
+  transition: background 0.13s;
+  flex-shrink: 0;
+}
+.mex-header-user:hover { background: rgba(0, 0, 0, 0.04); }
+
+.mex-header-user-text {
+  text-align: right;
+}
+@media (max-width: 640px) {
+  .mex-header-user-text { display: none; }
+}
+
+.mex-header-user-name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+}
+.mex-header-user-role {
+  font-size: 10.5px;
+  color: #2b6954;
+  font-weight: 600;
+  white-space: nowrap;
+  font-family: 'Inter', sans-serif;
+}
+
+.mex-header-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: rgba(43, 105, 84, 0.1);
+  border: 1px solid rgba(43, 105, 84, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.mex-header-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 9px;
+}
+.mex-header-avatar-icon {
+  font-size: 16px !important;
+  color: #2b6954;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAIN CONTENT AREA
+   ═══════════════════════════════════════════════════════════ */
+.mex-main {
+  margin-left: var(--sh-sidebar-w);
+  margin-top: var(--sh-header-h);
+  min-height: calc(100vh - var(--sh-header-h));
+  transition: margin-left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+.mex-shell.sidebar-compact .mex-main {
+  margin-left: var(--sh-sidebar-compact-w);
+}
+@media (max-width: 767px) {
+  .mex-main { margin-left: 0 !important; }
+}
+
+/* TV spacing */
+@media (min-width: 1920px) {
+  .mex-nav-item { padding: 11px 12px; }
+  .mex-nav-item-label { font-size: 14px; }
+  .mex-nav-item-icon { font-size: 22px !important; }
+  .mex-header-title { font-size: 16px; }
+}
