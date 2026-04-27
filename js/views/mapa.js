@@ -2970,6 +2970,29 @@ const MAP_LOCAL_CACHE_VERSION = 1;
 const MAP_LOCAL_STRUCTURE_TTL_MS = 12 * 60 * 60 * 1000;
 const MAP_LOCAL_UNITS_TTL_MS = 5 * 60 * 1000;
 
+function _getMapaDiagnosticsSnapshot() {
+  return {
+    plaza: _normalizePlaza(_miPlaza?.() || window.__mexCurrentPlazaId || ''),
+    listeners: {
+      mapa: Boolean(_unsubMapa),
+      estructura: Boolean(_unsubMapaEstructura),
+      usersLive: Boolean(_unsubUsersLive)
+    },
+    runtime: {
+      unidadesReady: Boolean(_mapaRuntime?.unidadesReady),
+      estructuraReady: Boolean(_mapaRuntime?.estructuraReady),
+      hasPendingWrite: Boolean(_mapaSyncState?.hasPendingWrite)
+    },
+    timestamps: {
+      emittedAt: Date.now()
+    }
+  };
+}
+
+window.__mexMapaDiagnostics = Object.assign(window.__mexMapaDiagnostics || {}, {
+  getSnapshot: _getMapaDiagnosticsSnapshot
+});
+
 function _mapCacheScope(plaza = _miPlaza()) {
   return _normalizePlaza(plaza || 'GLOBAL') || 'GLOBAL';
 }
