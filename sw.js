@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v204';
+const CACHE_NAME = 'mapa-v207';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -13,15 +13,17 @@ self.addEventListener('message', event => {
   }
 });
 
-// Recursos que se cachean en la instalación (shell de la app)
-const SHELL_ASSETS = [
+// ── Assets críticos ──────────────────────────────────────────
+// Si alguno falla → instalación falla (comportamiento esperado:
+// el SW no se activa con assets rotos).
+const CRITICAL_ASSETS = [
   '/',
   '/index.html',
   '/login.html',
   '/mapa.html',
   '/programador.html',
   '/mex-api.js',
-  // Módulos API (Fase 1.1)
+  // Módulos API
   '/api/helpers.js',
   '/api/auth.js',
   '/api/mapa.js',
@@ -39,7 +41,7 @@ const SHELL_ASSETS = [
   '/manifest.json',
   '/img/logo.png',
   '/img/no-model.svg',
-  // Módulos JS (nueva arquitectura)
+  // Core JS
   '/js/core/firebase-init.js',
   '/js/core/database.js',
   '/js/core/notifications.js',
@@ -49,6 +51,7 @@ const SHELL_ASSETS = [
   '/js/layouts/app-shell.js',
   '/js/features/cuadre/pdf-reservas.js',
   '/js/features/cuadre/prediccion.js',
+  // Vistas legacy
   '/js/views/login.js',
   '/js/views/mapa.js',
   '/js/views/programador.js',
@@ -66,7 +69,7 @@ const SHELL_ASSETS = [
   '/404.html',
   '/incidencias.html',
   '/js/views/incidencias.js',
-  // CSS (Fase 2 — dividido por sección semántica)
+  // CSS
   '/css/global.css',
   '/css/base.css',
   '/css/mapa.css',
@@ -81,30 +84,53 @@ const SHELL_ASSETS = [
   '/js/views/cola-preparacion.js',
   '/cuadre.html',
   '/js/views/cuadre.js',
-  // Shell global (Fase 1 — componentes de navegación persistente)
+  // Shell global (Fase 1)
   '/css/shell.css',
   '/js/shell/navigation.config.js',
   '/js/shell/sidebar.js',
   '/js/shell/header.js',
   '/js/shell/shell-layout.js',
-  // App Shell experimental (Fase 2)
+  // App Shell core (Fase 2–3) — crítico: sin estos el shell no arranca
   '/app.html',
   '/js/app/main.js',
-  // Router y vistas (Fase 3)
   '/js/app/app-state.js',
   '/js/app/router.js',
-  '/js/app/views/dashboard.js',
-  // Vistas migradas (Fase 4)
-  '/js/app/views/profile.js',
-  // Fuentes de Google — se cachean en runtime la primera vez que se descargan
 ];
 
-// ── Instalación: precachear el shell ────────────────────────
+// ── Assets opcionales ────────────────────────────────────────
+// Fallos se loggean pero NO bloquean la instalación.
+// Aquí van los módulos de vistas del App Shell que pueden
+// añadirse en cualquier fase sin riesgo de romper el install.
+const OPTIONAL_ASSETS = [
+  '/js/app/views/dashboard.js',
+  '/js/app/views/profile.js',
+  '/js/app/views/mensajes.js',
+  '/js/app/views/cola-preparacion.js',
+  '/js/app/views/incidencias.js',
+  '/js/app/views/cuadre.js',
+  '/js/app/views/admin.js',
+  '/js/app/views/programador.js',
+  // Fuentes de Google — se cachean en runtime la primera vez
+];
+
+// ── Instalación ──────────────────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(SHELL_ASSETS))
-      .then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(async cache => {
+      // 1. Cachear assets críticos — fallo aquí aborta la instalación
+      await cache.addAll(CRITICAL_ASSETS);
+
+      // 2. Cachear assets opcionales — fallo se loggea, no aborta
+      await Promise.allSettled(
+        OPTIONAL_ASSETS.map(url =>
+          cache.add(url).catch(err => {
+            console.warn('[sw] Asset opcional no cacheado:', url, err?.message || err);
+          })
+        )
+      );
+
+      return self.skipWaiting();
+    })
   );
 });
 
@@ -136,8 +162,7 @@ self.addEventListener('fetch', event => {
       event.request.destination === 'manifest'
     );
 
-  // Nunca interceptar scripts de Service Worker: evita que quede un SW viejo
-  // de FCM en cache y rompa el registro en movil.
+  // Nunca interceptar scripts de Service Worker
   if (sameOrigin && (url.pathname === '/sw.js' || url.pathname === '/firebase-messaging-sw.js')) {
     return;
   }
@@ -152,11 +177,10 @@ self.addEventListener('fetch', event => {
     url.hostname.includes('fonts.google') ||
     event.request.method !== 'GET'
   ) {
-    return; // deja que el browser lo maneje normalmente
+    return;
   }
 
-  // Para el shell principal de la app, priorizar la red para no quedar
-  // atrapados con una version vieja tras un deploy.
+  // Para el shell principal: network-first para no quedar atrapados con versión vieja
   if (isAppShellRequest) {
     event.respondWith(
       fetch(event.request)
@@ -186,7 +210,6 @@ self.addEventListener('fetch', event => {
 
       return fetch(event.request)
         .then(response => {
-          // Solo cachear respuestas válidas
           if (!response || response.status !== 200 || response.type === 'opaque') {
             return response;
           }
@@ -195,7 +218,6 @@ self.addEventListener('fetch', event => {
           return response;
         })
         .catch(() => {
-          // Sin red y sin cache — devolver el shell (index.html) para rutas HTML
           if (event.request.destination === 'document') {
             return caches.match('/index.html').then(match => match || Response.error());
           }
@@ -206,9 +228,6 @@ self.addEventListener('fetch', event => {
 });
 
 // ── Push Notifications ──────────────────────────────────────
-// El flujo operativo de FCM vive en /firebase-messaging-sw.js.
-// Dejamos este listener vacío para evitar banners duplicados
-// cuando el SW principal también alcanza a recibir el evento.
 self.addEventListener('push', () => { });
 
 self.addEventListener('notificationclick', event => {

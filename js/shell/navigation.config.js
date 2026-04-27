@@ -179,8 +179,14 @@ export const ROUTE_TITLES = {
   '/editmap':           'Editor de mapa',
   '/solicitud':         'Solicitud de acceso',
   // App Shell — rutas /app/*
-  '/app/dashboard':     'Dashboard',
-  '/app/profile':       'Mi perfil',
+  '/app/dashboard':        'Dashboard',
+  '/app/profile':          'Mi perfil',
+  '/app/mensajes':         'Mensajes',
+  '/app/cola-preparacion': 'Cola de preparación',
+  '/app/incidencias':      'Incidencias',
+  '/app/cuadre':           'Cuadre',
+  '/app/admin':            'Panel admin',
+  '/app/programador':      'Consola técnica',
 };
 
 export function routeTitle(route = '') {

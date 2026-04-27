@@ -26,6 +26,32 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/profile.js'),
     navRoute: '/profile'     // el sidebar resalta "Mi perfil"
   },
+  '/app/mensajes':          {
+    loader:   () => import('/js/app/views/mensajes.js'),
+    navRoute: '/mensajes'
+  },
+  '/app/cola-preparacion':  {
+    loader:   () => import('/js/app/views/cola-preparacion.js'),
+    navRoute: '/cola-preparacion'
+  },
+  '/app/incidencias':       {
+    loader:   () => import('/js/app/views/incidencias.js'),
+    navRoute: '/incidencias'
+  },
+  '/app/cuadre':            {
+    loader:   () => import('/js/app/views/cuadre.js'),
+    navRoute: '/cuadre'
+  },
+  '/app/admin':             {
+    loader:   () => import('/js/app/views/admin.js'),
+    navRoute: '/gestion'    // el sidebar resalta "Gestión" / "Panel admin"
+  },
+  '/app/programador':       {
+    loader:   () => import('/js/app/views/programador.js'),
+    navRoute: '/programador'
+  },
+  // /app/mapa — reservado; mapa NO migrado. Placeholder de seguridad.
+  '/app/mapa':              { redirect: '/mapa' },
 };
 
 // ── Factory ──────────────────────────────────────────────────

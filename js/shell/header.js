@@ -51,9 +51,10 @@ export class ShellHeader {
 
   _buildHTML() {
     const userName  = this._userName();
-    const roleLabel = this._roleLabel();
     const avatarUrl = this._profile.avatarUrl || this._profile.photoURL || this._profile.fotoURL || '';
 
+    // El perfil completo (nombre + rol + logout) vive en el footer del sidebar.
+    // El header solo muestra el avatar como acceso rápido a /app/profile.
     return `
       <div class="mex-header-left">
         <button class="mex-header-menu-btn" id="mexHdrMenuBtn" aria-label="Abrir menú de navegación">
@@ -70,20 +71,14 @@ export class ShellHeader {
           <span class="mex-header-bell-badge" id="mexHdrBellBadge"
                 style="display:${this._bellHasBadge ? 'block' : 'none'}"></span>
         </button>
-        <div class="mex-header-divider"></div>
-        <div class="mex-header-user" id="mexHdrUser"
-             role="button" tabindex="0"
-             title="Mi perfil" aria-label="Mi perfil">
-          <div class="mex-header-user-text">
-            <div class="mex-header-user-name" id="mexHdrUserName">${esc(userName)}</div>
-            <div class="mex-header-user-role" id="mexHdrUserRole">${esc(roleLabel)}</div>
-          </div>
+        <button class="mex-header-user mex-header-user--compact" id="mexHdrUser"
+                title="${esc(userName)} — Mi perfil" aria-label="Mi perfil">
           <div class="mex-header-avatar" id="mexHdrAvatar">
             ${avatarUrl
               ? `<img src="${esc(avatarUrl)}" alt="${esc(userName)}" loading="lazy">`
               : `<span class="mex-header-avatar-icon">shield_person</span>`}
           </div>
-        </div>
+        </button>
       </div>
     `;
   }
@@ -146,21 +141,17 @@ export class ShellHeader {
     this.setTitle(routeTitle(route));
   }
 
-  /** Actualiza los datos de perfil y rol en el header. */
+  /** Actualiza el avatar en el header. Nombre/rol viven en el sidebar footer. */
   setProfile(profile, role) {
     this._profile = profile || {};
     if (role) this._role = role;
 
     const userName  = this._userName();
-    const roleLabel = this._roleLabel();
     const avatarUrl = this._profile.avatarUrl || this._profile.photoURL || this._profile.fotoURL || '';
+    const avatarEl  = this._el?.querySelector('#mexHdrAvatar');
+    const userBtn   = this._el?.querySelector('#mexHdrUser');
 
-    const nameEl   = this._el?.querySelector('#mexHdrUserName');
-    const roleEl   = this._el?.querySelector('#mexHdrUserRole');
-    const avatarEl = this._el?.querySelector('#mexHdrAvatar');
-
-    if (nameEl) nameEl.textContent = userName;
-    if (roleEl) roleEl.textContent = roleLabel;
+    if (userBtn) userBtn.title = `${userName} — Mi perfil`;
     if (avatarEl) {
       avatarEl.innerHTML = avatarUrl
         ? `<img src="${esc(avatarUrl)}" alt="${esc(userName)}" loading="lazy">`

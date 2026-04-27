@@ -78,8 +78,9 @@ auth.onAuthStateChanged(async (user) => {
           force: true
         });
       }
-      // Sesión válida → ir al home por rol
-      window.location.href = '/home';
+      // Sesión válida → App Shell como destino principal post-login (Fase 6)
+      // Fallback: si /app falla por alguna razón, el usuario puede ir a /home manualmente.
+      window.location.href = '/app/dashboard';
     } else {
       _showError(`❌ El correo ${user.email} no tiene permisos en el sistema.`);
       await auth.signOut();

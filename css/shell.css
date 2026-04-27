@@ -657,15 +657,20 @@
   border-radius: 10px;
   transition: background 0.13s;
   flex-shrink: 0;
+  /* Reset <button> styles */
+  background: transparent;
+  border: none;
+  font: inherit;
 }
 .mex-header-user:hover { background: rgba(0, 0, 0, 0.04); }
 
-.mex-header-user-text {
-  text-align: right;
+/* Variante compacta: solo avatar, sin texto. */
+.mex-header-user--compact {
+  padding: 4px;
 }
-@media (max-width: 640px) {
-  .mex-header-user-text { display: none; }
-}
+
+/* El texto de nombre/rol se ocultó del header — vive en el sidebar footer. */
+.mex-header-user-text { display: none; }
 
 .mex-header-user-name {
   font-size: 12.5px;

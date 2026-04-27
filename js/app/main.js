@@ -26,7 +26,14 @@ import { createRouter } from '/js/app/router.js';
 // para que cargue dentro del shell sin recargar la página.
 // Añadir aquí cada ruta a medida que se migre.
 const MIGRATED_ROUTES = {
-  '/profile': '/app/profile',
+  '/profile':           '/app/profile',
+  '/mensajes':          '/app/mensajes',
+  '/cola-preparacion':  '/app/cola-preparacion',
+  '/incidencias':       '/app/incidencias',
+  '/cuadre':            '/app/cuadre',
+  '/gestion':           '/app/admin',
+  '/programador':       '/app/programador',
+  // /mapa NO migrado — sigue en legacy
 };
 
 // ── Boot ────────────────────────────────────────────────────

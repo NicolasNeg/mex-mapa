@@ -75,6 +75,9 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ],
+    "redirects": [
+      { "source": "/", "destination": "/app", "type": 302 }
+    ],
     "rewrites": [
       { "source": "/login",       "destination": "/login.html" },
       { "source": "/mapa",        "destination": "/mapa.html" },
