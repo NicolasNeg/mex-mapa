@@ -75,23 +75,35 @@ export function createRouter({ shell }) {
     return typeof path === 'string' && path.startsWith('/app');
   }
 
+  /** Pathname sin query ni trailing slash (clave ROUTE_TABLE). */
+  function _routePathOnly(rawPath) {
+    const raw = String(rawPath || '');
+    const cut = raw.indexOf('?');
+    const pathname = cut === -1 ? raw : raw.slice(0, cut);
+    return pathname.replace(/\/$/, '') || '/app/dashboard';
+  }
+
   // ── Navegar ───────────────────────────────────────────────
   function navigate(path, { replace = false } = {}) {
-    if (!isInternalAppRoute(path)) {
-      window.location.href = path;
+    const raw = String(path || '');
+    const pathOnly = _routePathOnly(raw);
+    if (!isInternalAppRoute(pathOnly)) {
+      window.location.href = raw;
       return;
     }
+    const searchIdx = raw.indexOf('?');
+    const urlForBar = searchIdx === -1 ? pathOnly : `${pathOnly}${raw.slice(searchIdx)}`;
     if (replace) {
-      history.replaceState({}, '', path);
+      history.replaceState({}, '', urlForBar);
     } else {
-      history.pushState({}, '', path);
+      history.pushState({}, '', urlForBar);
     }
-    _renderRoute(path);
+    _renderRoute(raw);
   }
 
   // ── Renderizar ruta ───────────────────────────────────────
   async function _renderRoute(rawPath) {
-    const path = rawPath.replace(/\/$/, '') || '/app/dashboard';
+    const path = _routePathOnly(rawPath);
     const route = ROUTE_TABLE[path];
 
     // Redirect alias (ej. /app → /app/dashboard)
@@ -100,13 +112,16 @@ export function createRouter({ shell }) {
       return;
     }
 
+    const searchIdx = String(rawPath || '').indexOf('?');
+    const currentRoute = searchIdx === -1 ? path : `${path}${String(rawPath).slice(searchIdx)}`;
+
     // Actualizar estado global
-    setState({ currentRoute: path });
+    setState({ currentRoute });
 
     // Sincronizar header y sidebar.
     // navRoute permite resaltar un item legacy cuando la URL vive en /app/*
     // (ej. /app/profile → resalta nav item "/profile")
-    shell.setRoute(route?.navRoute || path);
+    shell.setRoute(route?.navRoute || path || '/app/dashboard');
 
     // Cerrar drawer mobile si está abierto
     shell.sidebar?.closeMobileDrawer?.();
@@ -130,8 +145,8 @@ export function createRouter({ shell }) {
           _currentUnmount = mod.unmount ?? null;
         }
       } catch (err) {
-        console.error('[router] Error cargando vista:', path, err);
-        _renderError(contentEl, path, err);
+        console.error('[router] Error cargando vista:', currentRoute, err);
+        _renderError(contentEl, currentRoute, err);
       }
       return;
     }
@@ -191,19 +206,24 @@ export function createRouter({ shell }) {
     const route = anchor.dataset.appRoute;
     if (!route) return;
     event.preventDefault();
-    navigate(route);
+    const href = anchor.getAttribute('href') || '';
+    const raw =
+      href.startsWith('/app') && (href.includes('?') || href.includes('#'))
+        ? href.split('#')[0]
+        : route;
+    navigate(raw);
   }, { capture: false });
 
   // ── Popstate (back/forward del navegador) ─────────────────
   window.addEventListener('popstate', () => {
     const path = window.location.pathname;
     if (isInternalAppRoute(path)) {
-      _renderRoute(path);
+      _renderRoute(window.location.pathname + window.location.search);
     }
   });
 
   // ── Renderizar la ruta inicial ────────────────────────────
-  _renderRoute(window.location.pathname);
+  _renderRoute(window.location.pathname + window.location.search);
 
   return { navigate, isInternalAppRoute };
 }

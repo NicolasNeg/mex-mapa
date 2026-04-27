@@ -10,6 +10,7 @@
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 import { db, COL, obtenerDatosParaMapa, obtenerEstructuraMapa, obtenerDatosFlotaConsola } from '/js/core/database.js';
+import { buildMapaReadOnlyViewModel, buildMapaPreviewSummary } from '/js/app/features/mapa/mapa-view-model.js';
 
 let _cleanup = null;
 let _container = null;
@@ -38,8 +39,8 @@ export async function mount({ container }) {
       loading: true,
       error: '',
       unitCount: 0,
-      zoneCount: 0,
-      zoneItems: [],
+      previewSummary: null,
+      mvKeys: [],
       stateItems: []
     }
   };
@@ -192,8 +193,8 @@ async function _loadMapPreview() {
     loading: true,
     error: '',
     unitCount: 0,
-    zoneCount: 0,
-    zoneItems: [],
+    previewSummary: null,
+    mvKeys: [],
     stateItems: []
   };
   _renderMapPreview();
@@ -211,14 +212,23 @@ async function _loadMapPreview() {
     ]);
     if (!_state || requestId !== _mapPreviewRequestId) return;
     const units = Array.isArray(datosMapa?.unidades) ? datosMapa.unidades : [];
-    const zones = _buildZonePreviewItems(estructura, units);
+    const vm = buildMapaReadOnlyViewModel({
+      estructura,
+      unidades: units,
+      plaza,
+      query: ''
+    });
+    const previewSummary = buildMapaPreviewSummary(vm);
     const states = _buildStatePreviewItems(flota, units);
     _state.mapPreview = {
       loading: false,
       error: '',
       unitCount: units.length,
-      zoneCount: zones.length,
-      zoneItems: zones,
+      previewSummary,
+      mvKeys: units
+        .slice(0, 160)
+        .map(u => String(u.mva || '').trim().toUpperCase())
+        .filter(Boolean),
       stateItems: states
     };
   } catch (error) {
@@ -227,8 +237,8 @@ async function _loadMapPreview() {
       loading: false,
       error: error?.message || 'No se pudo cargar la vista rápida del mapa.',
       unitCount: 0,
-      zoneCount: 0,
-      zoneItems: [],
+      previewSummary: null,
+      mvKeys: [],
       stateItems: []
     };
   }
@@ -272,6 +282,18 @@ function _applyQuery() {
     if (!action.hidden) {
       action.setAttribute('href', `/app/mapa?q=${encodeURIComponent(_state.query)}`);
     }
+  }
+  const hitEl = _container?.querySelector('#appDashMapSearchHit');
+  if (hitEl) {
+    const q = String(_state.query || '').trim().toUpperCase();
+    const keys = _state.mapPreview?.mvKeys || [];
+    const hit =
+      q.length >= 2 &&
+      keys.some(m => m.includes(q) || q.includes(m));
+    hitEl.hidden = !hit;
+    hitEl.textContent = hit
+      ? `Coincidencia posible en plaza (${q}) — abre el mapa para ubicarla.`
+      : '';
   }
 }
 
@@ -332,47 +354,65 @@ function _renderMapPreview() {
     `;
     return;
   }
+  const s = preview.previewSummary || {};
+  const sampleCells = s.sampleCells || [];
+  const zoneTotals = s.zoneTotals || [];
+  const stList = Array.isArray(preview.stateItems) ? preview.stateItems : [];
+  const statesTotal = stList.reduce((acc, item) => acc + item.count, 0);
+
   body.innerHTML = `
     <div class="appdash__map-kpis">
-      <div><strong>${esc(preview.unitCount)}</strong><span>Unidades visibles</span></div>
-      <div><strong>${esc(preview.zoneCount)}</strong><span>Zonas con actividad</span></div>
-      <div><strong>${esc(preview.stateItems.reduce((acc, item) => acc + item.count, 0))}</strong><span>Estados clasificados</span></div>
+      <div><strong>${esc(preview.unitCount)}</strong><span>Unidades en mapa</span></div>
+      <div><strong>${esc(s.slotsTotal ?? 0)}</strong><span>Celdas (estructura)</span></div>
+      <div><strong>${esc(s.occupiedSlots ?? 0)}</strong><span>Celdas ocupadas</span></div>
     </div>
-    <div class="appdash__map-grid">
+    <p id="appDashMapSearchHit" class="appdash__map-hit" hidden></p>
+    <div class="appdash__map-mini-wrap">
+      <div class="appdash__map-mini-label">Celdas con unidad (muestra)</div>
+      <div class="appdash__map-mini-grid" role="list">
+        ${
+          sampleCells.length
+            ? sampleCells
+                .map(
+                  c => `
+          <div class="appdash__map-mini-cell" role="listitem">
+            <span class="appdash__map-mini-code">${esc(c.label)}</span>
+            <span class="appdash__map-mini-zone">${esc(c.zone || '—')}</span>
+            <strong>${esc(c.count)}</strong>
+          </div>`
+                )
+                .join('')
+            : `<p class="appdash__map-empty">Sin ocupación en celdas o sin estructura cargada.</p>`
+        }
+      </div>
+    </div>
+    <div class="appdash__map-grid appdash__map-grid--balanced">
       <div>
-        <h3>Zonas principales</h3>
-        ${preview.zoneItems.length ? `
-          <ul>${preview.zoneItems.map(item => `<li><span>${esc(item.label)}</span><b>${esc(item.count)}</b></li>`).join('')}</ul>
-        ` : `<p class="appdash__map-empty">Sin zonas detectadas en esta plaza.</p>`}
+        <h3>Unidades por zona (mapa)</h3>
+        ${
+          zoneTotals.length
+            ? `<ul class="appdash__map-zone-list">${zoneTotals
+                .map(z => `<li><span>${esc(z.label)}</span><b>${esc(z.count)}</b></li>`)
+                .join('')}</ul>`
+            : `<p class="appdash__map-empty">Sin datos de zona.</p>`
+        }
+        <div class="appdash__map-bucket-hint">
+          Limbo: <strong>${esc(s.limboCount ?? 0)}</strong> · Taller: <strong>${esc(s.tallerCount ?? 0)}</strong> · Sin celda: <strong>${esc(s.orphanCount ?? 0)}</strong>
+        </div>
       </div>
       <div>
         <h3>Estados operativos</h3>
-        ${preview.stateItems.length ? `
-          <ul>${preview.stateItems.map(item => `<li><span>${esc(item.label)}</span><b>${esc(item.count)}</b></li>`).join('')}</ul>
-        ` : `<p class="appdash__map-empty">Sin estados disponibles.</p>`}
+        ${
+          stList.length
+            ? `<ul>${stList.map(item => `<li><span>${esc(item.label)}</span><b>${esc(item.count)}</b></li>`).join('')}</ul>`
+            : `<p class="appdash__map-empty">Sin estados disponibles.</p>`
+        }
+        <div class="appdash__map-bucket-hint">Total clasificados: <strong>${esc(statesTotal)}</strong></div>
       </div>
     </div>
     <a id="appDashSearchMapAction" hidden href="/app/mapa" class="appdash__map-search-action">Buscar en mapa operativo</a>
   `;
-}
-
-function _buildZonePreviewItems(estructura, units) {
-  const known = new Set(
-    (Array.isArray(estructura) ? estructura : [])
-      .map(item => String(item?.pos || item?.id || '').trim().toUpperCase())
-      .filter(Boolean)
-  );
-  const counts = new Map();
-  (Array.isArray(units) ? units : []).forEach(unit => {
-    const zone = String(unit?.pos || unit?.ubicacion || '').trim().toUpperCase();
-    if (!zone) return;
-    const key = known.has(zone) ? zone : zone;
-    counts.set(key, (counts.get(key) || 0) + 1);
-  });
-  return Array.from(counts.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 8)
-    .map(([label, count]) => ({ label, count }));
+  _applyQuery();
 }
 
 function _buildStatePreviewItems(flota, units) {
