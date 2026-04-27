@@ -18,7 +18,7 @@
 
 import { auth }                     from '/js/core/database.js';
 import { ShellLayout }              from '/js/shell/shell-layout.js';
-import { initState }                from '/js/app/app-state.js';
+import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas } from '/js/app/app-state.js';
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
 
@@ -52,7 +52,14 @@ async function boot() {
 
   const role    = String(profile.rol || 'AUXILIAR').toUpperCase();
   const company = String(window.__mexCompanyName || window.MEX_CONFIG?.empresa?.nombre || 'MAPA').trim();
-  const plaza   = String(profile.plazaAsignada || '').toUpperCase();
+  const availablePlazas = resolveAvailablePlazas(profile, role);
+  const plaza = String(
+    window.getMexCurrentPlaza?.()
+    || profile.plazaAsignada
+    || profile.plaza
+    || availablePlazas[0]
+    || ''
+  ).toUpperCase().trim();
 
   // 4. Inicializar estado global
   initState({
@@ -61,6 +68,8 @@ async function boot() {
     role,
     currentRoute: window.location.pathname,
     currentPlaza: plaza,
+    availablePlazas,
+    canSwitchPlaza: availablePlazas.length > 1,
     company,
   });
 
@@ -78,15 +87,31 @@ async function boot() {
     role,
     currentRoute: window.location.pathname,
     company,
+    currentPlaza: getState().currentPlaza,
+    availablePlazas: getState().availablePlazas,
+    canSwitchPlaza: getState().canSwitchPlaza,
     onNavigate:   (route) => router.navigate(isMigratedRoute(route) ? toAppRoute(route) : route),
     onLogout:     ()      => handleLogout(),
     onBellClick:  ()      => handleBellClick(),
+    onPlazaChange: (nextPlaza) => {
+      setCurrentPlaza(nextPlaza, { source: 'app-shell-header' });
+    }
   });
 
   loadSpinner?.remove();
 
   // 6. Crear router — renderiza la vista inicial automáticamente
   const router = createRouter({ shell });
+
+  subscribe(state => {
+    shell.setPlaza(state.currentPlaza, state.availablePlazas, state.canSwitchPlaza);
+  });
+
+  window.addEventListener('mex:plaza-change', event => {
+    const nextPlaza = String(event?.detail?.plaza || '').toUpperCase().trim();
+    if (!nextPlaza || nextPlaza === getState().currentPlaza) return;
+    setCurrentPlaza(nextPlaza, { source: event?.detail?.source || 'legacy-sync' });
+  });
 }
 
 // ── Handlers ────────────────────────────────────────────────

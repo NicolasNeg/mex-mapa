@@ -8,13 +8,14 @@
 //  DOM scoped via q(id) → container.querySelector('#'+id)
 // ═══════════════════════════════════════════════════════════
 
-import { getState }   from '/js/app/app-state.js';
-import { db, COL }    from '/js/core/database.js';
+import { getState, onPlazaChange } from '/js/app/app-state.js';
+import { db }         from '/js/core/database.js';
 
 // ── Módulo-level refs (una instancia a la vez) ───────────────
 let _unsub     = null;   // listener Firestore activo
 let _container = null;   // nodo DOM activo
 let _state     = null;   // estado local de esta vista
+let _unsubPlaza = null;  // listener de plaza global
 let _cssInjected = false;
 
 // ── Helpers privados ─────────────────────────────────────────
@@ -49,10 +50,8 @@ export async function mount({ container, navigate, shell }) {
 
   _ensureCss();
 
-  const { profile, role, company } = getState();
-  const plaza = String(
-    profile?.plazaAsignada || profile?.plaza || ''
-  ).toUpperCase().trim();
+  const { profile, role, company, currentPlaza } = getState();
+  const plaza = String(currentPlaza || '').toUpperCase().trim();
 
   _state = _makeState(plaza);
   _state._navigate = navigate;
@@ -65,11 +64,14 @@ export async function mount({ container, navigate, shell }) {
   _bindSort();
 
   if (!plaza) {
-    _renderEmpty('Sin plaza asignada. Contacta a tu administrador.');
-    return;
+    _renderEmpty('Selecciona una plaza para ver la cola de preparación.');
+  } else {
+    _subscribeQueue(plaza);
   }
 
-  _subscribeQueue(plaza);
+  _unsubPlaza = onPlazaChange((nextPlaza) => {
+    _reloadForPlaza(nextPlaza);
+  });
 }
 
 export function unmount() {
@@ -80,9 +82,37 @@ export function unmount() {
 
 function _doCleanup() {
   if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} }
+  if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} }
   _unsub     = null;
+  _unsubPlaza = null;
   _container = null;
   _state     = null;
+}
+
+function _closeQueueListener() {
+  if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} }
+  _unsub = null;
+}
+
+function _reloadForPlaza(nextPlaza) {
+  if (!_container || !_state) return;
+  const normalized = String(nextPlaza || '').toUpperCase().trim();
+  if (normalized === _state.plaza) return;
+
+  _closeQueueListener();
+  _state.plaza = normalized;
+  _state.items = [];
+  _state.filteredItems = [];
+  _state.selectedId = null;
+  _setTopbarPlaza(normalized);
+  _renderLoading();
+  _renderStats();
+
+  if (!normalized) {
+    _renderEmpty('Selecciona una plaza para ver la cola de preparación.');
+    return;
+  }
+  _subscribeQueue(normalized);
 }
 
 // ── CSS injection ────────────────────────────────────────────
@@ -102,11 +132,10 @@ function _ensureCss() {
 
 function _subscribeQueue(plaza) {
   _renderLoading();
-
-  const colPath = `cola_preparacion/${plaza}/items`;
+  _closeQueueListener();
 
   try {
-    _unsub = db.collection(colPath)
+    _unsub = db.collection('cola_preparacion').doc(plaza).collection('items')
       .onSnapshot(
         snap => {
           if (!_container) return;          // desmontado mientras cargaba
@@ -117,7 +146,12 @@ function _subscribeQueue(plaza) {
         },
         err => {
           console.error('[cola-prep] Firestore error:', err);
-          if (_container) _renderError(err.message);
+          if (!_container) return;
+          if (String(err?.code || '').toLowerCase() === 'permission-denied') {
+            _renderError('No tienes permisos para ver la cola de esta plaza.');
+            return;
+          }
+          _renderError(err.message || 'No se pudo cargar la cola de preparación.');
         }
       );
   } catch (err) {
@@ -255,6 +289,18 @@ function _renderEmpty(msg = 'Sin unidades para mostrar.') {
       <span class="material-symbols-outlined" style="font-size:36px;">fact_check</span>
       <div style="margin-top:10px;font-size:13px;">${esc(msg)}</div>
     </div>`;
+}
+
+function _setTopbarPlaza(plaza = '') {
+  const badge = q('prepTopbarPlaza');
+  if (!badge) return;
+  if (!plaza) {
+    badge.textContent = '';
+    badge.style.display = 'none';
+    return;
+  }
+  badge.textContent = plaza;
+  badge.style.display = 'inline-flex';
 }
 
 function _renderStats() {
@@ -495,8 +541,8 @@ function _skeleton({ profile, role, company, plaza }) {
     </a>
     <span style="color:#cbd5e1;font-size:12px;">·</span>
     <span style="font-size:12px;font-weight:700;color:#0f172a;">Cola de preparación</span>
-    ${plaza ? `<span style="margin-left:auto;font-size:11px;font-weight:700;color:#2b6954;
-                            padding:3px 10px;background:#dcfce7;border-radius:100px;">${esc(plaza)}</span>` : ''}
+    <span id="prepTopbarPlaza" style="margin-left:auto;font-size:11px;font-weight:700;color:#2b6954;
+                            padding:3px 10px;background:#dcfce7;border-radius:100px;display:${plaza ? 'inline-flex' : 'none'};">${esc(plaza)}</span>
     <a href="/cola-preparacion"
        style="display:flex;align-items:center;gap:4px;font-size:11px;color:#64748b;
               text-decoration:none;padding:4px 10px;border:1px solid #e2e8f0;border-radius:8px;

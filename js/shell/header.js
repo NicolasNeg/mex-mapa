@@ -29,10 +29,14 @@ export class ShellHeader {
     this._role         = options.role         || 'AUXILIAR';
     this._currentRoute = options.currentRoute || '/home';
     this._title        = options.title        || routeTitle(this._currentRoute);
+    this._currentPlaza = String(options.currentPlaza || '').toUpperCase().trim();
+    this._availablePlazas = Array.isArray(options.availablePlazas) ? options.availablePlazas : [];
+    this._canSwitchPlaza = options.canSwitchPlaza === true;
 
     this._onMenuToggle   = options.onMenuToggle   || null;
     this._onBellClick    = options.onBellClick    || null;
     this._onProfileClick = options.onProfileClick || null;
+    this._onPlazaChange  = options.onPlazaChange  || null;
 
     this._bellHasBadge = false;
     this._el = null;
@@ -53,6 +57,8 @@ export class ShellHeader {
     const userName  = this._userName();
     const avatarUrl = this._profile.avatarUrl || this._profile.photoURL || this._profile.fotoURL || '';
 
+    const plazaHtml = this._plazaControlHTML();
+
     // El perfil completo (nombre + rol + logout) vive en el footer del sidebar.
     // El header solo muestra el avatar como acceso rápido a /app/profile.
     return `
@@ -64,6 +70,7 @@ export class ShellHeader {
       </div>
 
       <div class="mex-header-right">
+        ${plazaHtml}
         <button class="mex-header-icon-btn" id="mexHdrBell"
                 title="Alertas y notificaciones"
                 aria-label="Alertas y notificaciones">
@@ -80,6 +87,28 @@ export class ShellHeader {
           </div>
         </button>
       </div>
+    `;
+  }
+
+  _plazaControlHTML() {
+    const plazas = (Array.isArray(this._availablePlazas) ? this._availablePlazas : [])
+      .map(p => String(p || '').toUpperCase().trim())
+      .filter(Boolean);
+    const current = String(this._currentPlaza || '').toUpperCase().trim();
+    const selected = plazas.includes(current) ? current : (plazas[0] || '');
+    if (!selected) return '';
+
+    if (!this._canSwitchPlaza || plazas.length <= 1) {
+      return `<span class="mex-header-plaza-badge" title="Plaza activa">${esc(selected)}</span>`;
+    }
+
+    return `
+      <label class="mex-header-plaza-select-wrap" for="mexHdrPlazaSelect" title="Cambiar plaza">
+        <span class="mex-header-plaza-select-icon">location_on</span>
+        <select id="mexHdrPlazaSelect" class="mex-header-plaza-select" aria-label="Seleccionar plaza activa">
+          ${plazas.map(plaza => `<option value="${esc(plaza)}" ${plaza === selected ? 'selected' : ''}>${esc(plaza)}</option>`).join('')}
+        </select>
+      </label>
     `;
   }
 
@@ -104,6 +133,13 @@ export class ShellHeader {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); userEl.click(); }
       });
     }
+
+    this._el.querySelector('#mexHdrPlazaSelect')?.addEventListener('change', event => {
+      const plaza = String(event.target?.value || '').toUpperCase().trim();
+      if (!plaza) return;
+      this._currentPlaza = plaza;
+      if (typeof this._onPlazaChange === 'function') this._onPlazaChange(plaza);
+    });
   }
 
   // ── Public API ──────────────────────────────────────────
@@ -164,6 +200,17 @@ export class ShellHeader {
     this._bellHasBadge = visible;
     const badge = this._el?.querySelector('#mexHdrBellBadge');
     if (badge) badge.style.display = visible ? 'block' : 'none';
+  }
+
+  setPlaza(currentPlaza = '', availablePlazas = [], canSwitchPlaza = false) {
+    this._currentPlaza = String(currentPlaza || '').toUpperCase().trim();
+    this._availablePlazas = Array.isArray(availablePlazas)
+      ? [...new Set(availablePlazas.map(p => String(p || '').toUpperCase().trim()).filter(Boolean))]
+      : [];
+    this._canSwitchPlaza = canSwitchPlaza === true;
+    if (!this._el) return;
+    this._el.innerHTML = this._buildHTML();
+    this._bind();
   }
 
   destroy() {

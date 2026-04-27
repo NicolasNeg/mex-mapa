@@ -42,9 +42,13 @@ export class ShellLayout {
     role         = 'AUXILIAR',
     currentRoute = '/home',
     company      = 'MAPA',
+    currentPlaza = '',
+    availablePlazas = [],
+    canSwitchPlaza = false,
     onNavigate   = null,
     onLogout     = null,
     onBellClick  = null,
+    onPlazaChange = null,
     mainClass    = ''
   } = {}) {
     this._containerEl = container;
@@ -79,6 +83,9 @@ export class ShellLayout {
       profile,
       role,
       currentRoute,
+      currentPlaza,
+      availablePlazas,
+      canSwitchPlaza,
       onMenuToggle: () => {
         if (window.innerWidth < 768) {
           this._sidebar.isMobileOpen
@@ -89,6 +96,9 @@ export class ShellLayout {
         }
       },
       onBellClick,
+      onPlazaChange: plaza => {
+        if (typeof onPlazaChange === 'function') onPlazaChange(plaza);
+      },
       onProfileClick: () => {
         if (typeof onNavigate === 'function') onNavigate('/profile');
         else window.location.href = '/profile';
@@ -140,6 +150,10 @@ export class ShellLayout {
   /** Muestra/oculta el badge de notificaciones. */
   setBellBadge(visible) {
     this._header?.setBellBadge(visible);
+  }
+
+  setPlaza(currentPlaza = '', availablePlazas = [], canSwitchPlaza = false) {
+    this._header?.setPlaza(currentPlaza, availablePlazas, canSwitchPlaza);
   }
 
   /** Destruye el shell y libera listeners. */

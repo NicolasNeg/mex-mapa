@@ -604,6 +604,60 @@
   flex-shrink: 0;
 }
 
+.mex-header-plaza-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(43, 105, 84, 0.18);
+  background: rgba(43, 105, 84, 0.08);
+  color: #2b6954;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-family: 'Inter', sans-serif;
+}
+
+.mex-header-plaza-select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.9);
+  color: #475569;
+}
+
+.mex-header-plaza-select-icon {
+  font-size: 16px !important;
+  font-family: 'Material Symbols Outlined' !important;
+  font-style: normal;
+  font-weight: normal;
+  color: #2b6954;
+}
+
+.mex-header-plaza-select {
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  min-width: 100px;
+}
+
+@media (max-width: 767px) {
+  .mex-header-plaza-select-wrap,
+  .mex-header-plaza-badge {
+    display: none;
+  }
+}
+
 .mex-header-icon-btn {
   position: relative;
   display: flex;

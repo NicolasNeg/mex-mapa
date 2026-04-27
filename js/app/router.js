@@ -13,7 +13,7 @@
 //  El router llama unmount() en la vista anterior antes de montar.
 // ═══════════════════════════════════════════════════════════
 
-import { setState } from '/js/app/app-state.js';
+import { setState, getState } from '/js/app/app-state.js';
 
 // ── Tabla de rutas ───────────────────────────────────────────
 // loader:    () => Promise<{ mount, unmount }>
@@ -122,7 +122,7 @@ export function createRouter({ shell }) {
       try {
         const mod = await route.loader();
         if (typeof mod.mount === 'function') {
-          mod.mount({ container: contentEl, navigate, shell });
+          mod.mount({ container: contentEl, navigate, shell, state: getState() });
           _currentUnmount = mod.unmount ?? null;
         }
       } catch (err) {
