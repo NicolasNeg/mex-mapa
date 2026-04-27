@@ -149,7 +149,8 @@ export function createRouter({ shell }) {
         <p style="font-size:13px;color:#94a3b8;margin:0 0 28px;">
           Usa el menú lateral para acceder a las rutas productivas.
         </p>
-        <a href="/home" style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none;font-size:13px;font-weight:600;">
+        <a data-app-route="/app/dashboard" href="/app/dashboard"
+           style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none;font-size:13px;font-weight:600;">
           <span class="material-symbols-outlined" style="font-size:16px;">home</span>
           Ir al Dashboard
         </a>

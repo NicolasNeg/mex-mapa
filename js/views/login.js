@@ -12,6 +12,10 @@
 
 import { auth, db, COL } from '/js/core/database.js';
 
+// Destino post-login — fuente única de verdad.
+// Cambiar aquí si se mueve el entry point del App Shell.
+const POST_LOGIN_ROUTE = '/app/dashboard';
+
 function upper(value) {
   return String(value || '').trim().toUpperCase();
 }
@@ -79,8 +83,8 @@ auth.onAuthStateChanged(async (user) => {
         });
       }
       // Sesión válida → App Shell como destino principal post-login (Fase 6)
-      // Fallback: si /app falla por alguna razón, el usuario puede ir a /home manualmente.
-      window.location.href = '/app/dashboard';
+      console.log('[login] post-login redirect:', POST_LOGIN_ROUTE);
+      window.location.href = POST_LOGIN_ROUTE;
     } else {
       _showError(`❌ El correo ${user.email} no tiene permisos en el sistema.`);
       await auth.signOut();

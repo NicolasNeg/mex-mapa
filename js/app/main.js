@@ -16,25 +16,11 @@
 //  - Rutas fuera de /app/* → window.location.href.
 // ═══════════════════════════════════════════════════════════
 
-import { auth }         from '/js/core/database.js';
-import { ShellLayout }  from '/js/shell/shell-layout.js';
-import { initState }    from '/js/app/app-state.js';
-import { createRouter } from '/js/app/router.js';
-
-// Rutas legacy que ya tienen vista dentro de App Shell.
-// Cuando el sidebar emite onNavigate('/profile'), redirigimos a /app/profile
-// para que cargue dentro del shell sin recargar la página.
-// Añadir aquí cada ruta a medida que se migre.
-const MIGRATED_ROUTES = {
-  '/profile':           '/app/profile',
-  '/mensajes':          '/app/mensajes',
-  '/cola-preparacion':  '/app/cola-preparacion',
-  '/incidencias':       '/app/incidencias',
-  '/cuadre':            '/app/cuadre',
-  '/gestion':           '/app/admin',
-  '/programador':       '/app/programador',
-  // /mapa NO migrado — sigue en legacy
-};
+import { auth }                     from '/js/core/database.js';
+import { ShellLayout }              from '/js/shell/shell-layout.js';
+import { initState }                from '/js/app/app-state.js';
+import { createRouter }             from '/js/app/router.js';
+import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
 
 // ── Boot ────────────────────────────────────────────────────
 async function boot() {
@@ -92,7 +78,7 @@ async function boot() {
     role,
     currentRoute: window.location.pathname,
     company,
-    onNavigate:   (route) => router.navigate(MIGRATED_ROUTES[route] ?? route),
+    onNavigate:   (route) => router.navigate(isMigratedRoute(route) ? toAppRoute(route) : route),
     onLogout:     ()      => handleLogout(),
     onBellClick:  ()      => handleBellClick(),
   });
@@ -151,7 +137,7 @@ boot().catch(err => {
       <div style="text-align:center;padding:32px;color:rgba(255,255,255,0.7);font-family:sans-serif;">
         <div style="font-size:32px;margin-bottom:12px;">⚠️</div>
         <div style="font-size:14px;margin-bottom:16px;">Error al cargar la app</div>
-        <a href="/home" style="color:#2ecc71;text-decoration:none;font-size:13px;">Volver al inicio</a>
+        <a href="/app/dashboard" style="color:#2ecc71;text-decoration:none;font-size:13px;">Volver al inicio</a>
       </div>
     `;
   }
