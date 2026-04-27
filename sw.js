@@ -112,6 +112,7 @@ const OPTIONAL_ASSETS = [
   '/js/app/views/incidencias.js',
   '/js/app/features/incidencias/incidencias-data.js',
   '/js/app/views/cuadre.js',
+  '/js/app/features/cuadre/cuadre-data.js',
   '/js/app/views/admin.js',
   '/js/app/views/programador.js',
   // Fuentes de Google — se cachean en runtime la primera vez
