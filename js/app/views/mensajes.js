@@ -24,7 +24,6 @@ export async function mount({ container }) {
 
   _container.innerHTML = _layout(me);
   _bindGlobalSearch();
-  _bindLocalSearch();
   _setBodyLoading('Cargando conversaciones...');
 
   try {
@@ -65,24 +64,12 @@ function _bindGlobalSearch() {
     if (!(route.startsWith('/app/mensajes') || route === '/mensajes')) return;
     const query = String(event?.detail?.query || '');
     _state.query = query;
-    const input = q('#appMsgSearch');
-    if (input && input.value !== query) input.value = query;
     _applyFilters();
     _renderConversations();
     _renderDetail();
   };
   window.addEventListener('mex:global-search', handler);
   _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
-}
-
-function _bindLocalSearch() {
-  q('#appMsgSearch')?.addEventListener('input', event => {
-    if (!_state) return;
-    _state.query = String(event.target.value || '');
-    _applyFilters();
-    _renderConversations();
-    _renderDetail();
-  });
 }
 
 function _rebuildConversations() {
@@ -211,15 +198,17 @@ function _setBodyError(text) {
 function _layout(me) {
   return `
     <div style="padding:20px;max-width:1080px;margin:0 auto;font-family:Inter,sans-serif;">
+      <style>
+        @media (max-width: 767px) {
+          #appMsgGrid { grid-template-columns: minmax(0, 1fr); }
+        }
+      </style>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
         <h1 style="margin:0;font-size:24px;color:#0f172a;">Mensajes</h1>
         <span style="font-size:11px;color:#64748b;background:#e2e8f0;border-radius:999px;padding:3px 9px;">${esc(me)}</span>
         <a href="/mensajes" style="margin-left:auto;font-size:12px;color:#0f172a;">Abrir mensajes completos</a>
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;">
-        <input id="appMsgSearch" type="search" placeholder="Buscar conversación o mensaje..." style="flex:1;border:1px solid #dbe3ef;border-radius:8px;padding:8px 10px;">
-      </div>
-      <div style="display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:12px;">
+      <div id="appMsgGrid" style="display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:12px;">
         <aside id="appMsgList" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;max-height:70vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;"></aside>
         <section id="appMsgDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;min-height:200px;"></section>
       </div>

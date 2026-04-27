@@ -5,6 +5,7 @@ import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 let _ctx = null;
 let _mounted = false;
 let _formState = null;
+let _offGlobalSearch = null;
 
 export function mount(ctx) {
   _ctx = ctx;
@@ -16,13 +17,34 @@ export function mount(ctx) {
   }
   _formState = _makeFormState(profile);
   ctx.container.innerHTML = _html(profile, role, _formState);
+  _bindGlobalSearch();
   _bind();
 }
 
 export function unmount() {
+  if (typeof _offGlobalSearch === 'function') {
+    try { _offGlobalSearch(); } catch (_) {}
+  }
+  _offGlobalSearch = null;
   _mounted = false;
   _ctx = null;
   _formState = null;
+}
+
+function _bindGlobalSearch() {
+  const handler = event => {
+    if (!_mounted || !_ctx?.container) return;
+    const route = String(event?.detail?.route || '');
+    if (!(route.startsWith('/app/profile') || route === '/profile')) return;
+    const query = String(event?.detail?.query || '').toLowerCase().trim();
+    const blocks = Array.from(_ctx.container.querySelectorAll('[data-profile-search-text]'));
+    blocks.forEach(block => {
+      const text = String(block.getAttribute('data-profile-search-text') || '');
+      block.hidden = !!query && !text.includes(query);
+    });
+  };
+  window.addEventListener('mex:global-search', handler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
 }
 
 function _bind() {
@@ -138,31 +160,31 @@ function _html(profile, role, form) {
   </div>
   <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;background:#fff;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Nombre / Nombre completo
+      <label data-profile-search-text="nombre nombre completo" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Nombre / Nombre completo
         <input id="appProfileName" value="${escAttr(form.nombreCompleto)}" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Teléfono
+      <label data-profile-search-text="telefono móvil celular" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Teléfono
         <input id="appProfilePhone" value="${escAttr(form.telefono)}" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Avatar URL
+      <label data-profile-search-text="avatar foto imagen url" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Avatar URL
         <input id="appProfileAvatarUrl" value="${escAttr(form.avatarUrl)}" placeholder="https://..." style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Email (solo lectura)
+      <label data-profile-search-text="email correo" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Email (solo lectura)
         <input value="${escAttr(email)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Rol (solo lectura)
+      <label data-profile-search-text="rol permisos" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Rol (solo lectura)
         <input value="${escAttr(roleLabel)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Plaza (solo lectura)
+      <label data-profile-search-text="plaza asignada" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Plaza (solo lectura)
         <input value="${escAttr(plaza)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Tema
+      <label data-profile-search-text="tema apariencia claro oscuro" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Tema
         <select id="appProfileTheme" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
           <option value="light" ${form.theme === 'light' ? 'selected' : ''}>Claro</option>
           <option value="dark" ${form.theme === 'dark' ? 'selected' : ''}>Oscuro</option>
         </select>
       </label>
-      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Densidad visual
+      <label data-profile-search-text="densidad visual compacta media amplia" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Densidad visual
         <select id="appProfileDensity" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
           <option value="compacta" ${form.visualDensity === 'compacta' ? 'selected' : ''}>Compacta</option>
           <option value="media" ${form.visualDensity === 'media' ? 'selected' : ''}>Media</option>

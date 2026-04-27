@@ -135,6 +135,7 @@
 .cqv__search-row {
   display: flex;
   gap: 8px;
+  justify-content: flex-end;
   margin-bottom: 10px;
 }
 

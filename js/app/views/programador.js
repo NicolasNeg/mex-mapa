@@ -3,11 +3,14 @@ import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 
 let _container = null;
 let _copyHandler = null;
+let _offGlobalSearch = null;
+let _globalQuery = '';
 
 export async function mount({ container }) {
   _container = container;
   const info = await _collectDiagnostics();
   container.innerHTML = _html(info);
+  _bindGlobalSearch();
   const btn = container.querySelector('#progCopySummary');
   _copyHandler = () => _copySummary(info);
   btn?.addEventListener('click', _copyHandler);
@@ -17,8 +20,34 @@ export function unmount() {
   if (_container && _copyHandler) {
     _container.querySelector('#progCopySummary')?.removeEventListener('click', _copyHandler);
   }
+  if (typeof _offGlobalSearch === 'function') {
+    try { _offGlobalSearch(); } catch (_) {}
+  }
   _copyHandler = null;
+  _offGlobalSearch = null;
+  _globalQuery = '';
   _container = null;
+}
+
+function _bindGlobalSearch() {
+  const handler = event => {
+    if (!_container) return;
+    const route = String(event?.detail?.route || '');
+    if (!(route.startsWith('/app/programador') || route === '/programador')) return;
+    _globalQuery = String(event?.detail?.query || '').toLowerCase().trim();
+    _applySearchFilter();
+  };
+  window.addEventListener('mex:global-search', handler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
+}
+
+function _applySearchFilter() {
+  const cards = Array.from(_container?.querySelectorAll('[data-prog-search-text]') || []);
+  cards.forEach(card => {
+    const text = String(card.getAttribute('data-prog-search-text') || '');
+    const visible = !_globalQuery || text.includes(_globalQuery);
+    card.hidden = !visible;
+  });
 }
 
 async function _collectDiagnostics() {
@@ -145,7 +174,8 @@ function _html(info) {
 }
 
 function _card(label, value) {
-  return `<div style="border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px;">
+  const searchText = `${label} ${value}`.toLowerCase();
+  return `<div data-prog-search-text="${esc(searchText)}" style="border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:10px;">
     <div style="font-size:10px;color:#94a3b8;text-transform:uppercase;font-weight:800;">${esc(label)}</div>
     <div style="font-size:13px;color:#0f172a;font-weight:700;word-break:break-word;">${esc(value)}</div>
   </div>`;

@@ -66,8 +66,6 @@ function _bindGlobalSearch() {
     if (!(detailRoute.startsWith('/app/cuadre') || detailRoute === '/cuadre')) return;
     const query = String(event?.detail?.query || '');
     _state.query = query;
-    const input = q('#cqvSearch');
-    if (input && input.value !== query) input.value = query;
     _applyFiltersAndSort();
     _renderSummary();
     _renderTable();
@@ -138,13 +136,6 @@ function _bindEvents() {
       e.preventDefault();
       _state.navigate(route.dataset.appRoute);
     }
-  });
-  q('#cqvSearch')?.addEventListener('input', e => {
-    _state.query = String(e.target.value || '');
-    _applyFiltersAndSort();
-    _renderSummary();
-    _renderTable();
-    _syncDetail();
   });
   q('#cqvSort')?.addEventListener('change', e => {
     const [field, dir] = String(e.target.value || 'estado:asc').split(':');
@@ -321,7 +312,6 @@ function _layout({ plaza, role, user }) {
             <button class="cqv__tab" data-cqv-tab="admins" type="button">CUADRE ADMINS</button>
           </div>
           <div class="cqv__search-row">
-            <input id="cqvSearch" class="cqv__search" type="search" placeholder="Buscar MVA, notas, placas o modelo...">
             <select id="cqvSort" class="cqv__search" style="max-width:220px;">
               <option value="estado:asc">Estado</option>
               <option value="mva:asc">MVA (A-Z)</option>

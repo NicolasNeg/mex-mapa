@@ -88,7 +88,6 @@ export async function mount(ctx) {
   });
 
   _bindTopActions();
-  _bindSearch();
   _bindSort();
   _bindFilters();
   _bindGlobalSearch();
@@ -132,8 +131,6 @@ function _bindGlobalSearch() {
     if (!(detailRoute.startsWith('/app/incidencias') || detailRoute === '/incidencias')) return;
     const query = String(event?.detail?.query || '');
     _state.query = query;
-    const input = q('incAppSearch');
-    if (input && input.value !== query) input.value = query;
     _applyFiltersAndSort();
     _renderSummary();
     _renderList();
@@ -246,17 +243,6 @@ function _bindTopActions() {
       event.preventDefault();
       _state.navigate(appRoute.dataset.appRoute);
     }
-  });
-}
-
-function _bindSearch() {
-  q('incAppSearch')?.addEventListener('input', event => {
-    if (!_state) return;
-    _state.query = event.target.value || '';
-    _applyFiltersAndSort();
-    _renderSummary();
-    _renderList();
-    _syncDetailSelection();
   });
 }
 
@@ -483,8 +469,7 @@ function _skeleton({ plaza, role, user }) {
         ${_summaryCard('incAppSummaryResolved', 'Resueltas')}
       </div>
 
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
-        <input id="incAppSearch" type="search" placeholder="Buscar por MVA, título, descripción o autor..." style="flex:1;min-width:260px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center;margin-bottom:10px;">
         <select id="incAppSort" style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;">
           <option value="fecha:desc">Fecha (más recientes)</option>
           <option value="fecha:asc">Fecha (más antiguas)</option>

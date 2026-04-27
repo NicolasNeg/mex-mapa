@@ -61,29 +61,21 @@ function _bindGlobalSearch() {
     const query = String(event?.detail?.query || '');
     if (_state.tab === 'usuarios') {
       _state.query = query;
-      const el = _ctx.container.querySelector('#appAdminSearch');
-      if (el && el.value !== query) el.value = query;
       _applyFilters();
       return;
     }
     if (_state.tab === 'roles') {
       _state.roleQuery = query;
-      const el = _ctx.container.querySelector('#appAdminRoleSearch');
-      if (el && el.value !== query) el.value = query;
       _renderRoles();
       return;
     }
     if (_state.tab === 'catalogos') {
       _state.catalogQuery = query;
-      const el = _ctx.container.querySelector('#appAdminCatalogSearch');
-      if (el && el.value !== query) el.value = query;
       _renderCatalogs();
       return;
     }
     if (_state.tab === 'solicitudes') {
       _state.requestsQuery = query;
-      const el = _ctx.container.querySelector('#appAdminReqSearch');
-      if (el && el.value !== query) el.value = query;
       _applyRequestFilters();
     }
   };
@@ -105,12 +97,8 @@ function _bind() {
     history.replaceState({}, '', `/app/admin?tab=${encodeURIComponent(nextTab)}`);
     _renderTab();
   }));
-  c.querySelector('#appAdminSearch')?.addEventListener('input', e => { _state.query = String(e.target.value || ''); _applyFilters(); });
   c.querySelector('#appAdminRoleFilter')?.addEventListener('change', e => { _state.roleFilter = String(e.target.value || ''); _applyFilters(); });
   c.querySelector('#appAdminPlazaFilter')?.addEventListener('change', e => { _state.plazaFilter = String(e.target.value || ''); _applyFilters(); });
-  c.querySelector('#appAdminRoleSearch')?.addEventListener('input', e => { _state.roleQuery = String(e.target.value || ''); _renderRoles(); });
-  c.querySelector('#appAdminCatalogSearch')?.addEventListener('input', e => { _state.catalogQuery = String(e.target.value || ''); _renderCatalogs(); });
-  c.querySelector('#appAdminReqSearch')?.addEventListener('input', e => { _state.requestsQuery = String(e.target.value || ''); _applyRequestFilters(); });
   c.querySelector('#appAdminReqStatus')?.addEventListener('change', e => {
     _state.requestsStatus = String(e.target.value || 'PENDIENTE');
     _subscribeRequestsForCurrentStatus();
@@ -434,7 +422,6 @@ function _html(profile = {}) {
   <div id="adminUsuariosPane" style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <input id="appAdminSearch" placeholder="Buscar por nombre, email, rol o plaza" style="flex:1;min-width:240px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
         <select id="appAdminRoleFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
         <select id="appAdminPlazaFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
       </div>
@@ -449,9 +436,6 @@ function _html(profile = {}) {
   </div>
   <div id="adminRolesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <input id="appAdminRoleSearch" placeholder="Buscar roles" style="flex:1;min-width:240px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-      </div>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th></tr></thead>
@@ -474,9 +458,6 @@ function _html(profile = {}) {
   </div>
   <div id="adminCatalogosPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <input id="appAdminCatalogSearch" placeholder="Buscar catálogos" style="flex:1;min-width:240px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-      </div>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Catálogo</th><th style="padding:8px;text-align:left;background:#f8fafc;">Clave</th><th style="padding:8px;text-align:left;background:#f8fafc;">Elementos</th><th style="padding:8px;text-align:left;background:#f8fafc;">Acción</th></tr></thead>
@@ -489,7 +470,6 @@ function _html(profile = {}) {
   <div id="adminSolicitudesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-        <input id="appAdminReqSearch" placeholder="Buscar nombre/email/puesto/plaza/rol..." style="flex:1;min-width:230px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
         <select id="appAdminReqStatus" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
           <option value="PENDIENTE">Pendientes</option>
           <option value="APROBADA">Aprobadas</option>

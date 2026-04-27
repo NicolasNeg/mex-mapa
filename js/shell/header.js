@@ -93,14 +93,15 @@ export class ShellHeader {
 
   _searchPlaceholder() {
     const route = String(this._currentRoute || '');
-    if (route === '/app/dashboard' || route === '/home') return 'Buscar modulo, unidad o accion...';
-    if (route === '/app/cuadre' || route === '/cuadre') return 'Buscar MVA, modelo, placas o ubicacion...';
+    if (route === '/app/dashboard' || route === '/home') return 'Buscar módulo, unidad o acción...';
+    if (route === '/app/cuadre' || route === '/cuadre') return 'Buscar MVA, modelo, placas o ubicación...';
     if (route === '/app/incidencias' || route === '/incidencias') return 'Buscar incidencia, MVA, autor...';
     if (route === '/app/cola-preparacion' || route === '/cola-preparacion') return 'Buscar unidad en cola...';
     if (route === '/app/admin' || route.startsWith('/app/admin/') || route === '/gestion') return 'Buscar usuarios, roles, plazas...';
-    if (route === '/app/programador' || route === '/programador') return 'Buscar diagnostico, API, cache...';
-    if (route === '/app/profile' || route === '/profile') return 'Buscar configuracion de perfil...';
-    if (route === '/app/mensajes' || route === '/mensajes') return 'Buscar conversacion o remitente...';
+    if (route === '/app/programador' || route === '/programador') return 'Buscar diagnóstico, API, cache...';
+    if (route === '/app/profile' || route === '/profile') return 'Buscar configuración de perfil...';
+    if (route === '/app/mensajes' || route === '/mensajes') return 'Buscar conversaciones o mensajes...';
+    if (route === '/app/mapa' || route === '/mapa') return 'Buscar unidad o acción del mapa...';
     return 'Buscar en la vista actual...';
   }
 

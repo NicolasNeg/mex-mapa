@@ -60,7 +60,6 @@ export async function mount({ container, navigate, shell }) {
   container.innerHTML = _skeleton({ profile, role, company, plaza });
 
   _bindTopBar();
-  _bindSearch();
   _bindFilters();
   _bindSort();
   _bindGlobalSearch();
@@ -223,18 +222,6 @@ function _bindTopBar() {
   });
 }
 
-function _bindSearch() {
-  const el = q('prepSearchInput');
-  if (!el) return;
-  el.addEventListener('input', () => {
-    if (!_state) return;
-    _state.searchQuery = el.value;
-    _applyFilters();
-    _renderList();
-    _renderStats();
-  });
-}
-
 function _bindGlobalSearch() {
   const handler = event => {
     if (!_state || !_container) return;
@@ -242,8 +229,6 @@ function _bindGlobalSearch() {
     if (!(detailRoute.startsWith('/app/cola-preparacion') || detailRoute === '/cola-preparacion')) return;
     const query = String(event?.detail?.query || '');
     _state.searchQuery = query;
-    const input = q('prepSearchInput');
-    if (input && input.value !== query) input.value = query;
     _applyFilters();
     _renderList();
     _renderStats();
@@ -586,20 +571,11 @@ function _skeleton({ profile, role, company, plaza }) {
     <div id="prepProgressBar" style="height:100%;width:0%;background:#22c55e;transition:width .5s;"></div>
   </div>
 
-  <!-- Controles: búsqueda + filtros + sort -->
+  <!-- Controles: filtros + sort -->
   <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa;
               flex-shrink:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-    <!-- Búsqueda -->
-    <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e2e8f0;
-                border-radius:10px;padding:6px 12px;flex:1;min-width:180px;">
-      <span class="material-symbols-outlined" style="font-size:16px;color:#94a3b8;">search</span>
-      <input id="prepSearchInput" type="text" placeholder="Buscar MVA, modelo…"
-             style="border:none;outline:none;font-size:12px;font-family:inherit;
-                    color:#334155;background:transparent;width:100%;">
-    </div>
-
     <!-- Filtros -->
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:180px;">
       ${_filterBtn('all',        'Todos',      true)}
       ${_filterBtn('urgente',    'Urgentes',   false)}
       ${_filterBtn('en_proceso', 'En proceso', false)}
