@@ -1,10 +1,12 @@
 import { getState } from '/js/app/app-state.js';
 import { subscribeAdminUsers } from '/js/app/features/admin/admin-users-data.js';
 import { getAdminMetaSnapshot } from '/js/app/features/admin/admin-catalogs-data.js';
+import { subscribeAdminRequests } from '/js/app/features/admin/admin-requests-data.js';
 
 let _ctx = null;
 let _state = null;
 let _unsubUsers = null;
+let _unsubRequests = null;
 let _metaLoaded = false;
 
 export function mount(ctx) {
@@ -21,18 +23,27 @@ export function mount(ctx) {
     plazas: [],
     catalogs: [],
     roleQuery: '',
-    catalogQuery: ''
+    catalogQuery: '',
+    requests: [],
+    requestsFiltered: [],
+    requestsStatus: 'PENDIENTE',
+    requestsPlazaFilter: '',
+    requestsQuery: '',
+    selectedRequestId: null
   };
   const gs = getState();
   ctx.container.innerHTML = _html(gs.profile);
   _bind();
+  _renderTab();
   _subscribeUsers();
   _loadMeta();
 }
 
 export function unmount() {
   if (typeof _unsubUsers === 'function') { try { _unsubUsers(); } catch (_) {} }
+  if (typeof _unsubRequests === 'function') { try { _unsubRequests(); } catch (_) {} }
   _unsubUsers = null;
+  _unsubRequests = null;
   _ctx = null;
   _state = null;
   _metaLoaded = false;
@@ -57,6 +68,15 @@ function _bind() {
   c.querySelector('#appAdminPlazaFilter')?.addEventListener('change', e => { _state.plazaFilter = String(e.target.value || ''); _applyFilters(); });
   c.querySelector('#appAdminRoleSearch')?.addEventListener('input', e => { _state.roleQuery = String(e.target.value || ''); _renderRoles(); });
   c.querySelector('#appAdminCatalogSearch')?.addEventListener('input', e => { _state.catalogQuery = String(e.target.value || ''); _renderCatalogs(); });
+  c.querySelector('#appAdminReqSearch')?.addEventListener('input', e => { _state.requestsQuery = String(e.target.value || ''); _applyRequestFilters(); });
+  c.querySelector('#appAdminReqStatus')?.addEventListener('change', e => {
+    _state.requestsStatus = String(e.target.value || 'PENDIENTE');
+    _subscribeRequestsForCurrentStatus();
+  });
+  c.querySelector('#appAdminReqPlazaFilter')?.addEventListener('change', e => {
+    _state.requestsPlazaFilter = String(e.target.value || '');
+    _applyRequestFilters();
+  });
 }
 
 function _subscribeUsers() {
@@ -130,8 +150,14 @@ function _renderTab() {
   c.querySelector('#adminRolesPane').style.display = _state.tab === 'roles' ? 'grid' : 'none';
   c.querySelector('#adminPlazasPane').style.display = _state.tab === 'plazas' ? 'grid' : 'none';
   c.querySelector('#adminCatalogosPane').style.display = _state.tab === 'catalogos' ? 'grid' : 'none';
-  c.querySelector('#adminPlaceholderPane').style.display = ['usuarios', 'roles', 'plazas', 'catalogos'].includes(_state.tab) ? 'none' : 'block';
+  c.querySelector('#adminSolicitudesPane').style.display = _state.tab === 'solicitudes' ? 'grid' : 'none';
+  c.querySelector('#adminPlaceholderPane').style.display = ['usuarios', 'roles', 'plazas', 'catalogos', 'solicitudes'].includes(_state.tab) ? 'none' : 'block';
   c.querySelector('#adminPlaceholderPane').textContent = `Tab "${_state.tab}" queda como placeholder en esta fase.`;
+  if (_state.tab === 'solicitudes') {
+    _subscribeRequestsForCurrentStatus();
+  } else {
+    _cleanupRequestsSub();
+  }
 }
 
 function _renderUsersTable() {
@@ -267,6 +293,94 @@ function _setTableBody(html) {
   if (el) el.innerHTML = html;
 }
 
+function _cleanupRequestsSub() {
+  if (typeof _unsubRequests === 'function') { try { _unsubRequests(); } catch (_) {} }
+  _unsubRequests = null;
+}
+
+function _subscribeRequestsForCurrentStatus() {
+  if (_state.tab !== 'solicitudes') return;
+  _cleanupRequestsSub();
+  const body = _ctx?.container?.querySelector('#appAdminRequestsBody');
+  if (body) body.innerHTML = `<tr><td colspan="7" style="padding:20px;color:#64748b;">Cargando solicitudes...</td></tr>`;
+  _unsubRequests = subscribeAdminRequests({
+    status: _state.requestsStatus,
+    onData: rows => {
+      if (!_ctx || !_state) return;
+      _state.requests = Array.isArray(rows) ? rows : [];
+      _hydrateRequestPlazaFilter();
+      _applyRequestFilters();
+    },
+    onError: err => {
+      const msg = esc(err?.message || 'Error cargando solicitudes');
+      const el = _ctx?.container?.querySelector('#appAdminRequestsBody');
+      if (el) el.innerHTML = `<tr><td colspan="7" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
+    }
+  });
+}
+
+function _hydrateRequestPlazaFilter() {
+  const sel = _ctx?.container?.querySelector('#appAdminReqPlazaFilter');
+  if (!sel) return;
+  const plazas = [...new Set(_state.requests.map(r => r.plazaSolicitada).filter(Boolean))].sort();
+  sel.innerHTML = `<option value="">Todas las plazas</option>${plazas.map(p => `<option value="${escAttr(p)}">${esc(p)}</option>`).join('')}`;
+  if (_state.requestsPlazaFilter) sel.value = _state.requestsPlazaFilter;
+}
+
+function _applyRequestFilters() {
+  const q = _state.requestsQuery.toUpperCase().trim();
+  _state.requestsFiltered = _state.requests.filter(r => {
+    if (_state.requestsPlazaFilter && r.plazaSolicitada !== _state.requestsPlazaFilter) return false;
+    if (!q) return true;
+    const text = `${r.nombre} ${r.email} ${r.puesto} ${r.rolSolicitado} ${r.plazaSolicitada} ${r.telefono}`.toUpperCase();
+    return text.includes(q);
+  });
+  _renderRequestsTable();
+  _syncRequestDetail();
+}
+
+function _renderRequestsTable() {
+  const body = _ctx?.container?.querySelector('#appAdminRequestsBody');
+  if (!body) return;
+  if (!_state.requestsFiltered.length) {
+    body.innerHTML = `<tr><td colspan="7" style="padding:20px;color:#64748b;">Sin solicitudes para el filtro actual.</td></tr>`;
+    return;
+  }
+  body.innerHTML = _state.requestsFiltered.map(r => `<tr data-admin-req="${escAttr(r.id)}" style="cursor:pointer;">
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.nombre || '—')}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.email || '—')}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.puesto || '—')}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.plazaSolicitada || '—')}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.rolSolicitado || '—')}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.estado || '—')}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.fecha || '—')}</td>
+  </tr>`).join('');
+  _ctx.container.querySelectorAll('[data-admin-req]').forEach(row => row.addEventListener('click', () => {
+    _state.selectedRequestId = row.dataset.adminReq;
+    _syncRequestDetail();
+  }));
+}
+
+function _syncRequestDetail() {
+  const box = _ctx?.container?.querySelector('#appAdminRequestDetail');
+  if (!box) return;
+  const req = _state.requestsFiltered.find(r => r.id === _state.selectedRequestId) || _state.requestsFiltered[0] || _state.requests[0];
+  if (!req) return box.innerHTML = `<div style="padding:12px;color:#94a3b8;">Selecciona una solicitud para ver detalle.</div>`;
+  box.innerHTML = `<div style="padding:12px;">
+    <h3 style="margin:0 0 8px;color:#0f172a;">${esc(req.nombre || 'Solicitante')}</h3>
+    ${_detail('Email', req.email || '—')}
+    ${_detail('Puesto', req.puesto || '—')}
+    ${_detail('Plaza solicitada', req.plazaSolicitada || '—')}
+    ${_detail('Rol solicitado', req.rolSolicitado || '—')}
+    ${_detail('Teléfono', req.telefono || '—')}
+    ${_detail('Estado', req.estado || '—')}
+    ${_detail('Fecha', req.fecha || '—')}
+    ${_detail('Colección', req.collectionName || 'solicitudes')}
+    <div style="margin-top:8px;font-size:11px;color:#64748b;">Vista parcial en modo lectura (sin aprobar/rechazar en esta fase).</div>
+    <a href="/gestion?tab=solicitudes" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir admin completo</a>
+  </div>`;
+}
+
 function _html(profile = {}) {
   return `
 <div style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
@@ -329,6 +443,26 @@ function _html(profile = {}) {
       </div>
     </div>
     <aside id="appAdminCatalogDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;"></aside>
+  </div>
+  <div id="adminSolicitudesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
+    <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="appAdminReqSearch" placeholder="Buscar nombre/email/puesto/plaza/rol..." style="flex:1;min-width:230px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+        <select id="appAdminReqStatus" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+          <option value="PENDIENTE">Pendientes</option>
+          <option value="APROBADA">Aprobadas</option>
+          <option value="RECHAZADA">Rechazadas</option>
+        </select>
+        <select id="appAdminReqPlazaFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
+      </div>
+      <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;min-width:980px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Email</th><th style="padding:8px;text-align:left;background:#f8fafc;">Puesto</th><th style="padding:8px;text-align:left;background:#f8fafc;">Plaza</th><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th><th style="padding:8px;text-align:left;background:#f8fafc;">Fecha</th></tr></thead>
+          <tbody id="appAdminRequestsBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <aside id="appAdminRequestDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;"></aside>
   </div>
   <div id="adminPlaceholderPane" style="display:none;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:16px;color:#64748b;"></div>
   <div style="margin-top:10px;font-size:12px;color:#64748b;">Sesión actual: ${esc(profile?.nombreCompleto || profile?.nombre || profile?.email || 'Usuario')}</div>
