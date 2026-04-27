@@ -87,6 +87,19 @@ export function createMapaLifecycleController(ctx = {}) {
     };
   }
 
+  function resyncData() {
+    try {
+      _data?.resync?.();
+    } catch (_) {}
+    _log('resyncData', { plaza: _plaza });
+  }
+
+  function fetchFreshUnitsForValidation() {
+    return typeof _data?.fetchFreshUnitsForValidation === 'function'
+      ? _data.fetchFreshUnitsForValidation()
+      : Promise.resolve(null);
+  }
+
   return {
     mount,
     unmount,
@@ -94,6 +107,8 @@ export function createMapaLifecycleController(ctx = {}) {
     pause,
     resume,
     addManagedListener,
-    getSnapshot
+    getSnapshot,
+    resyncData,
+    fetchFreshUnitsForValidation
   };
 }

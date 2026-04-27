@@ -71,6 +71,7 @@ function _renderSlotRow(row, options) {
   const { selectedId, dndActive, query } = options;
   const dim = row.emptyByFilter || (query && row.mutedByFilter);
   const mod = dim ? ' is-filter-dim' : '';
+  const cellQ = query && row.matchesCellQuery ? ' is-cell-query-match' : '';
   const blocked = row.blocked ? ' is-blocked' : '';
   const reserved = row.reserved ? ' is-reserved' : '';
   const cards = (row.units || [])
@@ -87,7 +88,7 @@ function _renderSlotRow(row, options) {
     : '';
 
   return `
-    <div class="app-mapa-slot${mod}${blocked}${reserved}"
+    <div class="app-mapa-slot${mod}${cellQ}${blocked}${reserved}"
       role="group"
       aria-label="Celda ${esc(row.label)}"
       data-drop-cell="1"
@@ -133,14 +134,23 @@ function _renderDecorRow(row) {
 
 function _bucketCurrentCell(title) {
   const t = String(title || '').toUpperCase();
+  if (t.includes('HUÉRFANO') || t.includes('HUERFANO')) return 'ORPHAN';
   if (t.includes('TALLER')) return 'TALLER';
-  if (t.includes('SIN UBICACIÓN') || t.includes('SIN UBICACION')) return 'UNPLACED';
+  if (t.includes('LIMBO') || t.includes('SIN UBICAC')) return 'LIMBO';
   return 'LIMBO';
+}
+
+function _bucketAnchorId(title) {
+  const tok = _bucketCurrentCell(title);
+  if (tok === 'ORPHAN') return 'app-mapa-orphan-bucket';
+  if (tok === 'TALLER') return 'app-mapa-taller-bucket';
+  return 'app-mapa-limbo-bucket';
 }
 
 function _renderBucket(title, units, options) {
   if (!units || units.length === 0) return '';
   const cellToken = _bucketCurrentCell(title);
+  const anchor = _bucketAnchorId(title);
   const cards = units
     .map(u =>
       renderUnit(
@@ -150,7 +160,7 @@ function _renderBucket(title, units, options) {
     )
     .join('');
   return `
-    <section class="app-mapa-bucket" aria-label="${esc(title)}">
+    <section class="app-mapa-bucket app-mapa-bucket--${esc(cellToken.toLowerCase())}" id="${esc(anchor)}" aria-label="${esc(title)}">
       <header class="app-mapa-bucket-head">${esc(title)} <span class="app-mapa-bucket-count">${units.length}</span></header>
       <div class="app-mapa-bucket-grid">${cards}</div>
     </section>
@@ -173,6 +183,14 @@ function _findSelected(vm, selectedId) {
     }
   }
   return null;
+}
+
+function _inferOrigenDatos(unit = {}) {
+  const u = String(unit.ubicacion || '')
+    .trim()
+    .toUpperCase();
+  if (u.includes('EXTERNO')) return 'Externos';
+  return 'Cuadre / patio';
 }
 
 export function renderEmptyState(label = 'No hay unidades para mostrar.') {
@@ -214,15 +232,19 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     })
     .join('');
 
-  const orphanTitle = 'Sin ubicación en mapa (pos no coincide con estructura)';
+  const orphanTitle = 'Huérfanos · posición no encontrada en estructura';
   const buckets =
-    _renderBucket('Limbo / sin posición en mapa', vm.limboFiltered, renderOpts) +
+    _renderBucket('Sin ubicación asignada (Limbo)', vm.limboFiltered, renderOpts) +
     _renderBucket('Taller', vm.tallerFiltered, renderOpts) +
     _renderBucket(orphanTitle, vm.orphanFiltered, renderOpts);
 
   const filterLine = vm.query
     ? `<article class="app-mapa-summary-filter"><span>Coincidencias</span><strong>${vm.filteredCount}</strong> de ${vm.totalUnits}</article>`
     : '';
+
+  const queryUpper = String(vm.query || '').trim().toUpperCase();
+  const noResults =
+    Boolean(queryUpper) && vm.totalUnits > 0 && (vm.filteredCount || 0) === 0;
 
   container.innerHTML = `
     <section class="app-mapa-summary">
@@ -232,6 +254,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
       <article><span>Plaza</span><strong>${esc(vm.plaza || '—')}</strong></article>
       ${filterLine}
     </section>
+    ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
     <p class="app-mapa-results-hint" ${vm.query ? '' : 'hidden'}>Filtro activo: mostrando coincidencias y atenuando celdas sin resultados.</p>
     <section class="app-mapa-layout app-mapa-layout--grid">
       <div class="app-mapa-main">
@@ -242,22 +265,25 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
               : `<div class="app-mapa-canvas-inner">${mainRows}</div>`
           }
         </div>
-        ${buckets ? `<div class="app-mapa-buckets">${buckets}</div>` : ''}
+        ${buckets ? `<div class="app-mapa-buckets" id="app-mapa-buckets">${buckets}</div>` : ''}
       </div>
       <aside class="app-mapa-detail">
         ${
           selected
             ? `
               <h3>${esc(selected.mva)}</h3>
-              <p><strong>Pos (mapa):</strong> ${esc(selected.pos || '—')}</p>
+              <p><strong>MVA:</strong> ${esc(selected.mva)}</p>
+              <p><strong>Posición actual:</strong> ${esc(selected.pos || '—')}</p>
               <p><strong>Ubicación:</strong> ${esc(selected.ubicacion || '—')}</p>
               <p><strong>Estado:</strong> ${esc(selected.estado)}</p>
               <p><strong>Modelo:</strong> ${esc(selected.modelo)}</p>
               <p><strong>Placas:</strong> ${esc(selected.placas)}</p>
-              <p><strong>Tipo:</strong> ${esc(selected.tipo || '—')}</p>
-              <p><strong>Categoría:</strong> ${esc(selected.categoria || '—')}</p>
+              <p><strong>Tipo / categoría:</strong> ${esc(selected.tipo || '—')} · ${esc(selected.categoria || '—')}</p>
               <p><strong>Notas:</strong> ${esc(selected.notas || '—')}</p>
-              <small>Vista solo lectura. Cambios operativos en mapa legacy.</small>
+              <p><strong>Plaza:</strong> ${esc(selected.plaza || plaza || '—')}</p>
+              <p><strong>Origen datos:</strong> ${esc(_inferOrigenDatos(selected))}</p>
+              <p><a class="app-mapa-mini-cta" href="/mapa">Abrir mapa completo</a></p>
+              <small>Vista solo lectura en App Shell beta. Operación completa en mapa legacy.</small>
             `
             : '<p class="app-mapa-detail-placeholder">Selecciona una unidad para ver detalle.</p>'
         }

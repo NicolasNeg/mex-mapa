@@ -8,6 +8,20 @@ let _offGlobalSearch = null;
 let _globalQuery = '';
 let _navigate = null;
 let _cleanupFlags = null;
+let _cleanupBeta = null;
+
+const _BETA_ROUTES = [
+  '/app/dashboard',
+  '/app/mapa',
+  '/app/cuadre',
+  '/app/mensajes',
+  '/app/admin',
+  '/app/cola-preparacion',
+  '/app/incidencias',
+  '/mapa'
+];
+
+const _BETA_ASSETS = ['/js/app/main.js', '/css/shell.css', '/app.html', '/sw.js'];
 
 /** Misma política que `/app/mapa`: solo PROGRAMADOR o admin global real; excluye roles operativos denegados. */
 const _EXPERIMENTAL_DENIED = new Set([
@@ -28,9 +42,14 @@ export async function mount({ container, navigate }) {
   _copyHandler = () => _copySummary(info);
   btn?.addEventListener('click', _copyHandler);
   _cleanupFlags = _bindExperimentalSection(flags.canEditControls);
+  _cleanupBeta = _bindBetaReadiness();
 }
 
 export function unmount() {
+  if (_cleanupBeta) {
+    try { _cleanupBeta(); } catch (_) {}
+    _cleanupBeta = null;
+  }
   if (_cleanupFlags) {
     try { _cleanupFlags(); } catch (_) {}
     _cleanupFlags = null;
@@ -252,6 +271,144 @@ function _bindExperimentalSection(canEdit) {
   };
 }
 
+async function _probeUrl(path) {
+  try {
+    let r = await fetch(path, { method: 'HEAD', credentials: 'same-origin', cache: 'no-store' });
+    if (!r.ok && r.status !== 304 && r.status !== 0) {
+      r = await fetch(path, { method: 'GET', credentials: 'same-origin', cache: 'no-store' });
+    }
+    return r.ok || r.status === 304;
+  } catch (_) {
+    return false;
+  }
+}
+
+function _bindBetaReadiness() {
+  const root = _container?.querySelector('[data-beta-root]');
+  if (!root) return () => {};
+
+  const setStatus = (id, ok) => {
+    const el = root.querySelector(`#${id}`);
+    if (!el) return;
+    el.textContent = ok ? '✓' : '✗';
+    el.style.color = ok ? '#047857' : '#b91c1c';
+    el.style.fontWeight = '800';
+  };
+
+  const onClick = async e => {
+    const btn = e.target?.closest?.('[data-beta-act]');
+    if (!btn || !root.contains(btn)) return;
+    const act = btn.getAttribute('data-beta-act');
+    const pre = root.querySelector('#progBetaSmokeResults');
+
+    if (act === 'smoke') {
+      if (pre) pre.textContent = 'Ejecutando comprobaciones (solo GET/HEAD mismo origen)…';
+      const lines = [];
+      for (const path of _BETA_ROUTES) {
+        const ok = await _probeUrl(path);
+        lines.push(`${ok ? 'OK ' : 'FAIL'} ${path}`);
+      }
+      lines.push('');
+      lines.push('Assets:');
+      for (const path of _BETA_ASSETS) {
+        const ok = await _probeUrl(path);
+        lines.push(`${ok ? 'OK ' : 'FAIL'} ${path}`);
+      }
+      const text = lines.join('\n');
+      if (pre) pre.textContent = text;
+      _BETA_ROUTES.forEach((path, i) => {
+        const ok = lines[i].startsWith('OK');
+        setStatus(`beta-chk-${i}`, ok);
+      });
+      return;
+    }
+
+    if (act === 'copy-beta') {
+      const info = await _collectDiagnostics();
+      const st = getState();
+      const flags = _readShellFlags(st);
+      const smoke = root.querySelector('#progBetaSmokeResults')?.textContent || '(ejecuta smoke antes)';
+      const report = [
+        `Host: ${info.host}`,
+        `Usuario: ${info.user}`,
+        `Rol: ${info.roleLabel}`,
+        `Plaza: ${flags.plaza}`,
+        `SW: ${info.sw.swVersion}`,
+        `window.api: ${info.api.count} funciones`,
+        `Flags dnd/dndPersist/debug: ${flags.dndLs}/${flags.dndPersistLs}/${flags.debugLs}`,
+        '',
+        'Smoke / rutas:',
+        smoke
+      ].join('\n');
+      try {
+        await navigator.clipboard.writeText(report);
+        if (pre) pre.textContent = `${pre.textContent}\n\n(reporte copiado al portapapeles)`;
+      } catch (_) {}
+      return;
+    }
+
+    if (act === 'open-dashboard' && _navigate) _navigate('/app/dashboard');
+    else if (act === 'open-dashboard') window.location.href = '/app/dashboard';
+
+    if (act === 'open-app-mapa' && _navigate) _navigate('/app/mapa');
+    else if (act === 'open-app-mapa') window.location.href = '/app/mapa';
+
+    if (act === 'open-legacy') window.location.href = '/mapa';
+    if (act === 'reload-app') window.location.reload();
+  };
+
+  root.addEventListener('click', onClick);
+  return () => root.removeEventListener('click', onClick);
+}
+
+function _betaReadinessHtml(info, flags) {
+  const routeLabels = _BETA_ROUTES.map((p, i) => {
+    const short = p.replace('/app/', '');
+    return `<div data-prog-search-text="${esc(`beta ruta ${p}`.toLowerCase())}" style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:4px 0;border-bottom:1px solid #f1f5f9;">
+      <span style="color:#64748b;">${esc(p)}</span>
+      <span id="beta-chk-${i}" style="color:#94a3b8;">—</span>
+    </div>`;
+  }).join('');
+
+  return `
+  <div data-beta-root data-prog-search-text="beta readiness smoke" style="border:1px solid #dbeafe;border-radius:12px;background:#f8fafc;padding:14px;margin-bottom:12px;">
+    <h3 style="margin:0 0 8px;font-size:15px;color:#0f172a;">Beta Readiness</h3>
+    <p style="margin:0 0 10px;font-size:12px;color:#475569;line-height:1.45;">
+      Validación rápida para despliegue Firebase. El smoke check solo hace peticiones <code>HEAD/GET</code> al mismo origen; no escribe Firestore ni borra cache.
+    </p>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px;">
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px;">
+        <div style="font-weight:800;color:#64748b;margin-bottom:6px;">Estado</div>
+        ${_row('Versión SW / cache', info.sw.swVersion)}
+        ${_row('Host', info.host)}
+        ${_row('Usuario', info.user)}
+        ${_row('Rol', info.roleLabel)}
+        ${_row('Plaza activa', flags.plaza)}
+        ${_row('Flags mapa', `dnd=${flags.dndLs ? '1' : '0'} · persist=${flags.dndPersistLs ? '1' : '0'} · debug=${flags.debugLs ? '1' : '0'}`)}
+        ${_row('window.api', `${info.api.count} funciones`)}
+        ${_row('Firebase Auth', info.firebase.hasAuth ? 'ok' : 'no')}
+        ${_row('Firestore', info.firebase.hasDb ? 'ok' : 'no')}
+        ${_row('Storage', info.firebase.hasStorage ? 'ok' : 'no')}
+        ${_row('SW registrado', info.sw.swState)}
+        ${_row('SW controla página', info.sw.swControlled ? 'sí' : 'no')}
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px;">
+        <div style="font-weight:800;color:#64748b;margin-bottom:6px;">Rutas App Shell / legacy</div>
+        ${routeLabels}
+      </div>
+    </div>
+    <pre id="progBetaSmokeResults" style="margin:0 0 10px;padding:10px;background:#0f172a;color:#e2e8f0;border-radius:8px;font-size:11px;overflow:auto;max-height:160px;">Pulsa «Ejecutar smoke check local» para resultados.</pre>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+      <button type="button" data-beta-act="smoke" style="border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Ejecutar smoke check local</button>
+      <button type="button" data-beta-act="copy-beta" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar reporte beta</button>
+      <button type="button" data-beta-act="open-dashboard" style="border:1px solid #0f766e;background:#0f766e;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/dashboard</button>
+      <button type="button" data-beta-act="open-app-mapa" style="border:1px solid #0f766e;background:#ecfdf5;color:#065f46;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/mapa</button>
+      <button type="button" data-beta-act="open-legacy" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /mapa legacy</button>
+      <button type="button" data-beta-act="reload-app" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Recargar app</button>
+    </div>
+  </div>`;
+}
+
 function _html(info, flags) {
   const f = flags;
   const edit = f.canEditControls;
@@ -336,6 +493,8 @@ function _html(info, flags) {
       </div>
     </div>
   </div>
+
+  ${_betaReadinessHtml(info, flags)}
 
   <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:12px;">

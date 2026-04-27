@@ -205,11 +205,38 @@ export function createMapaDataController({
     return _active;
   }
 
+  /** Reinicia listeners (útil si el snapshot parece desactualizado tras persistencia). */
+  function resync() {
+    const p = _safeUp(_snapshot.plaza);
+    _log(_debug, 'resync', { plaza: p });
+    cleanup();
+    _resetRuntimeState(p);
+    subscribe();
+  }
+
+  /**
+   * Una lectura puntual de flota para revalidar ocupación antes de persistir (evita snapshot obsoleto).
+   */
+  async function fetchFreshUnitsForValidation() {
+    const plazaUp = _safeUp(_snapshot.plaza);
+    if (!plazaUp) return null;
+    if (typeof api?.obtenerDatosFlotaConsola !== 'function') return null;
+    try {
+      const list = await api.obtenerDatosFlotaConsola(plazaUp);
+      return Array.isArray(list) ? list : null;
+    } catch (err) {
+      _log(_debug, 'fetchFreshUnitsForValidation:error', err?.message || err);
+      return null;
+    }
+  }
+
   return {
     subscribe,
     cleanup,
     setPlaza,
     getSnapshot,
-    isActive
+    isActive,
+    resync,
+    fetchFreshUnitsForValidation
   };
 }

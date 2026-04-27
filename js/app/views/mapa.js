@@ -3,9 +3,11 @@ import { esGlobal } from '/domain/permissions.model.js';
 import { createMapaLifecycleController } from '/js/app/features/mapa/mapa-lifecycle.js';
 import { createMapaDndController } from '/js/app/features/mapa/mapa-dnd.js';
 import {
+  persistDebug,
   persistUnitMove,
   validatePersistMove
 } from '/js/app/features/mapa/mapa-mutations.js';
+import { sanitizeSpotToken } from '/js/app/features/mapa/mapa-view-model.js';
 import { renderMapaReadOnly, renderErrorState } from '/js/app/features/mapa/mapa-renderer.js';
 
 let _container = null;
@@ -16,6 +18,7 @@ let _offPlaza = null;
 let _offGlobalSearch = null;
 let _offState = null;
 let _onClick = null;
+let _toolbarHandler = null;
 let _cssRef = null;
 let _dndHintEl = null;
 let _lastDndEligibility = null;
@@ -103,8 +106,51 @@ function _actorName() {
   return String(p.nombreCompleto || p.nombre || p.email || p.usuario || 'AppShell').trim() || 'AppShell';
 }
 
+function _spotTok(v) {
+  return sanitizeSpotToken(String(v || ''));
+}
+
 function _removeMapaModals() {
   _container?.querySelectorAll?.('.app-mapa-modal-overlay')?.forEach(el => el.remove());
+}
+
+function _sleep(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+async function _waitSnapshotReflectsMove(mva, destKey, timeoutMs = 4800) {
+  const want = _spotTok(destKey);
+  const mv = String(mva || '').toUpperCase();
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeoutMs) {
+    const data = _lifecycle?.getSnapshot?.()?.data;
+    const u = data?.units?.find(x => String(x?.mva || '').toUpperCase() === mv);
+    if (u && _spotTok(u.pos || 'LIMBO') === want) return true;
+    await _sleep(260);
+  }
+  return false;
+}
+
+function _snapshotShowsMove(mva, destKey) {
+  const data = _lifecycle?.getSnapshot?.()?.data;
+  const mv = String(mva || '').toUpperCase();
+  const u = data?.units?.find(x => String(x?.mva || '').toUpperCase() === mv);
+  return Boolean(u && _spotTok(u.pos || 'LIMBO') === _spotTok(destKey));
+}
+
+function _betaModeLabel(state, snapshot) {
+  const ro = !_dndFullyEnabled(state, snapshot);
+  if (ro) return 'Read-only';
+  if (!_readAppMapaDndPersistFlag()) return 'DnD preview (no guarda)';
+  if (_dndPersistFullyEnabled(state, snapshot)) return 'DnD persistencia experimental';
+  return 'DnD preview';
+}
+
+function _updateBetaBanner() {
+  const el = _container?.querySelector('#app-mapa-beta-state');
+  if (!el) return;
+  const snap = _viewState.snapshot;
+  el.textContent = _betaModeLabel(getState(), snap);
 }
 
 function _showPersistConfirm({ mva, fromKey, toKey }) {
@@ -147,6 +193,10 @@ export function mount({ container }) {
 
   _container.innerHTML = `
     <section class="app-mapa-view">
+      <div class="app-mapa-beta-banner" id="app-mapa-beta-banner">
+        <span class="app-mapa-beta-banner-title">Mapa App Shell · Beta</span>
+        <span class="app-mapa-beta-banner-state" id="app-mapa-beta-state">${esc(_betaModeLabel(state, null))}</span>
+      </div>
       <header class="app-mapa-head">
         <div>
           <span class="app-mapa-badge">Vista App Shell experimental</span>
@@ -155,10 +205,16 @@ export function mount({ container }) {
           <h1>Mapa operativo</h1>
           <p>Plaza activa: <strong>${esc(plaza || '—')}</strong></p>
         </div>
-        <a class="app-mapa-cta" href="/mapa">Abrir mapa completo</a>
+        <a class="app-mapa-cta" href="/mapa">Abrir mapa completo (legacy)</a>
       </header>
+      <div class="app-mapa-toolbar" role="toolbar" aria-label="Acciones mapa beta">
+        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Refrescar mapa</button>
+        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="copy-diag">Copiar diagnóstico</button>
+        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-unplaced">Ver sin ubicación / huérfanos</button>
+        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-occupancy">Ver ocupación</button>
+      </div>
       <div class="app-mapa-note">
-        Vista read-only experimental. Para operación completa usa mapa completo legacy.
+        Vista beta en App Shell; el mapa legacy conserva todas las herramientas operativas.
       </div>
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
       <div id="app-mapa-content" class="app-mapa-status is-loading">Cargando mapa read-only...</div>
@@ -184,35 +240,90 @@ export function mount({ container }) {
     getSnapshot: () => _lifecycle?.getSnapshot?.()?.data || null,
     canMove: () => _dndFullyEnabled(getState(), _viewState.snapshot),
     getPersistAllowed: () => _dndPersistFullyEnabled(getState(), _viewState.snapshot),
-    onPersistDrop: async ({ fromCtx, toCtx, originKey, destKey, snapshot }) => {
+    onPersistDrop: async ({ fromCtx, originKey, destKey, snapshot }) => {
       const st = getState();
       const plaza = String(
         snapshot?.plaza || st.currentPlaza || st.profile?.plazaAsignada || ''
       ).toUpperCase();
-      const snap = snapshot || _viewState.snapshot;
+      let snap = snapshot || _viewState.snapshot;
+      const baseOpts = {
+        roleAllowed: _canRolePreviewDnd(st),
+        persistFlagsOk: _readAppMapaDndFlag() && _readAppMapaDndPersistFlag()
+      };
+
       if (_dndHintEl) {
         _dndHintEl.textContent = 'Validando movimiento…';
         _dndHintEl.hidden = false;
       }
-      const v = validatePersistMove({
-        snapshot: snap,
+
+      persistDebug('validate:start', {
+        plaza,
         mva: fromCtx?.mva,
         originKey,
         destKey,
-        plaza
+        units: snap?.units?.length,
+        structure: snap?.structure?.length
       });
+
+      let v = validatePersistMove(
+        {
+          snapshot: snap,
+          mva: fromCtx?.mva,
+          originKey,
+          destKey,
+          plaza
+        },
+        baseOpts
+      );
       if (!v.ok) {
+        persistDebug('validate:fail', v);
+        _render();
         return {
           message: v.message,
           outcome: v.code === 'OCCUPIED' ? 'occupied' : 'invalid'
         };
       }
+
+      const canFresh = typeof window.api?.obtenerDatosFlotaConsola === 'function';
+      if (canFresh) {
+        const freshUnits = await _lifecycle?.fetchFreshUnitsForValidation?.();
+        if (freshUnits == null) {
+          persistDebug('fresh:null');
+          _render();
+          return {
+            message:
+              'No se pudo verificar el estado actual en el servidor. Reintenta o usa Refrescar mapa.',
+            outcome: 'stale'
+          };
+        }
+        snap = { ...snap, units: freshUnits, plaza: snap?.plaza || plaza };
+        v = validatePersistMove(
+          {
+            snapshot: snap,
+            mva: fromCtx?.mva,
+            originKey,
+            destKey,
+            plaza
+          },
+          baseOpts
+        );
+        persistDebug('validate:after-server', { ok: v.ok, code: v.code });
+        if (!v.ok) {
+          _render();
+          return {
+            message: v.message,
+            outcome: v.code === 'OCCUPIED' ? 'occupied' : 'invalid'
+          };
+        }
+      }
+
       const okModal = await _showPersistConfirm({
         mva: fromCtx.mva,
         fromKey: originKey,
         toKey: destKey
       });
       if (!okModal) {
+        _render();
         return { message: 'Movimiento cancelado. No se guardó nada.', outcome: 'cancelled' };
       }
       if (_dndHintEl) {
@@ -226,14 +337,51 @@ export function mount({ container }) {
         mva: fromCtx.mva,
         posNueva: destKey
       });
+      persistDebug('persist:api', {
+        ok: res.success,
+        error: res.error || null,
+        mva: fromCtx.mva,
+        dest: destKey,
+        plaza,
+        actor: _actorName()
+      });
       if (!res.success) {
+        _render();
         return {
           message: `No se pudo guardar: ${res.error || 'error'}`,
           outcome: 'error'
         };
       }
+
+      if (_dndHintEl) {
+        _dndHintEl.textContent = 'Guardado, esperando actualización…';
+        _dndHintEl.hidden = false;
+      }
+
+      const reflected = await _waitSnapshotReflectsMove(fromCtx.mva, destKey, 4800);
+      if (reflected) {
+        _render();
+        return {
+          message: 'Movimiento guardado y visible en el mapa.',
+          outcome: 'saved'
+        };
+      }
+
+      persistDebug('reflect:timeout-resync');
+      await _lifecycle?.resyncData?.();
+      await _sleep(850);
+      if (_snapshotShowsMove(fromCtx.mva, destKey)) {
+        _render();
+        return {
+          message: 'Movimiento guardado (sincronizado tras refresco de datos).',
+          outcome: 'saved'
+        };
+      }
+
+      _render();
       return {
-        message: 'Movimiento guardado.',
+        message:
+          'Guardado en servidor. Si no ves el cambio, pulsa «Refrescar mapa» o abre el mapa legacy.',
         outcome: 'saved'
       };
     },
@@ -242,6 +390,10 @@ export function mount({ container }) {
       if (_dndHintEl) {
         _dndHintEl.textContent = payload?.message || '';
         _dndHintEl.hidden = false;
+      }
+      const oc = payload?.outcome;
+      if (oc === 'error' || oc === 'invalid' || oc === 'stale' || oc === 'cancelled') {
+        _render();
       }
     },
     debug: (() => {
@@ -276,8 +428,53 @@ export function mount({ container }) {
   };
   _container.addEventListener('click', _onClick);
 
+  _toolbarHandler = ev => {
+    const btn = ev.target?.closest?.('[data-app-mapa-action]');
+    if (!btn || !_container.contains(btn)) return;
+    const act = btn.getAttribute('data-app-mapa-action');
+    if (act === 'refresh') {
+      _lifecycle?.resyncData?.();
+      if (_dndHintEl) {
+        _dndHintEl.textContent = 'Actualizando datos del mapa…';
+        _dndHintEl.hidden = false;
+      }
+      return;
+    }
+    if (act === 'copy-diag') {
+      const d = _lifecycle?.getSnapshot?.()?.data;
+      const text = JSON.stringify(
+        {
+          route: window.location.pathname,
+          plaza: d?.plaza,
+          units: d?.units?.length,
+          structureCells: d?.structure?.length,
+          lastUpdated: d?.lastUpdated,
+          loading: d?.loading,
+          error: d?.error || null
+        },
+        null,
+        2
+      );
+      navigator.clipboard?.writeText?.(text).catch(() => {});
+      if (_dndHintEl) {
+        _dndHintEl.textContent = 'Diagnóstico copiado al portapapeles.';
+        _dndHintEl.hidden = false;
+      }
+      return;
+    }
+    if (act === 'scroll-unplaced') {
+      document.getElementById('app-mapa-buckets')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (act === 'scroll-occupancy') {
+      document.querySelector('.app-mapa-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+  _container.addEventListener('click', _toolbarHandler);
+
   _lastDndEligibility = _dndFullyEnabled(getState(), null);
   _syncDndController();
+  _updateBetaBanner();
 
   _offState = subscribe(() => {
     _syncDndController();
@@ -292,6 +489,8 @@ export function unmount() {
   _removeMapaModals();
   if (_offPopstate) window.removeEventListener('popstate', _offPopstate);
   _offPopstate = null;
+  if (_container && _toolbarHandler) _container.removeEventListener('click', _toolbarHandler);
+  _toolbarHandler = null;
   if (_container && _onClick) _container.removeEventListener('click', _onClick);
   if (typeof _offGlobalSearch === 'function') _offGlobalSearch();
   if (typeof _offPlaza === 'function') _offPlaza();
@@ -333,6 +532,7 @@ function _syncDndController() {
       _dndHintEl.hidden = true;
     }
   }
+  _updateBetaBanner();
 }
 
 function _render() {
@@ -361,6 +561,7 @@ function _render() {
     dndActive: eligible,
     plaza: snapshot.plaza || String(getState().currentPlaza || '').toUpperCase()
   });
+  _updateBetaBanner();
 }
 
 function _bindGlobalSearch() {

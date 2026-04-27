@@ -206,6 +206,17 @@ export function buildMapaReadOnlyViewModel({
     const hasOccupant = occupiedCount > 0;
     const emptyByFilter = Boolean(queryUpper && hasOccupant && displayUnits.length === 0);
 
+    const labelUp = String(el.valor || '')
+      .trim()
+      .toUpperCase();
+    const matchesCellQuery = Boolean(
+      queryUpper &&
+        (spotKey === queryUpper ||
+          (spotKey && queryUpper.includes(spotKey)) ||
+          (spotKey && spotKey.includes(queryUpper)) ||
+          labelUp.includes(queryUpper))
+    );
+
     return {
       kind: 'slot',
       positionKey: spotKey,
@@ -225,7 +236,8 @@ export function buildMapaReadOnlyViewModel({
       empty: !hasOccupant,
       emptyByFilter,
       mutedByFilter: emptyByFilter || (Boolean(queryUpper) && !hasOccupant),
-      tipo: el.tipo
+      tipo: el.tipo,
+      matchesCellQuery
     };
   });
 
