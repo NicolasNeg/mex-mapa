@@ -1,109 +1,172 @@
-// ═══════════════════════════════════════════════════════════
-//  /js/app/views/admin.js — Bridge view
-//  El panel completo vive en js/views/gestion.js / gestion.html.
-// ═══════════════════════════════════════════════════════════
-
 import { getState } from '/js/app/app-state.js';
-import { ROLE_LABELS } from '/js/shell/navigation.config.js';
+import { subscribeAdminUsers } from '/js/app/features/admin/admin-users-data.js';
 
-export function mount({ container }) {
-  const { profile, role } = getState();
-  container.innerHTML = _html(profile, role);
+let _ctx = null;
+let _state = null;
+let _unsubUsers = null;
+
+export function mount(ctx) {
+  _ctx = ctx;
+  _state = {
+    tab: _tabFromUrl(),
+    query: '',
+    roleFilter: '',
+    plazaFilter: '',
+    users: [],
+    filtered: [],
+    selectedId: null
+  };
+  const gs = getState();
+  ctx.container.innerHTML = _html(gs.profile);
+  _bind();
+  _subscribeUsers();
 }
 
-export function unmount() { /* sin listeners */ }
+export function unmount() {
+  if (typeof _unsubUsers === 'function') { try { _unsubUsers(); } catch (_) {} }
+  _unsubUsers = null;
+  _ctx = null;
+  _state = null;
+}
 
-function _html(profile, role) {
-  const name      = _name(profile);
-  const roleLabel = ROLE_LABELS[role] || role;
-  const plaza     = _plaza(profile);
+function _tabFromUrl() {
+  const tab = String(new URLSearchParams(window.location.search).get('tab') || 'usuarios').toLowerCase().trim();
+  return ['usuarios', 'roles', 'plazas', 'catalogos', 'solicitudes'].includes(tab) ? tab : 'usuarios';
+}
 
-  // Admin tabs que el panel completo tiene
-  const adminTabs = [
-    { tab: 'usuarios',    label: 'Usuarios',    route: '/gestion?tab=usuarios',    icon: 'group' },
-    { tab: 'roles',       label: 'Roles',       route: '/gestion?tab=roles',       icon: 'shield' },
-    { tab: 'plazas',      label: 'Plazas',      route: '/gestion?tab=plazas',      icon: 'location_city' },
-    { tab: 'catalogos',   label: 'Catálogos',   route: '/gestion?tab=catalogos',   icon: 'list_alt' },
-    { tab: 'solicitudes', label: 'Solicitudes', route: '/gestion?tab=solicitudes', icon: 'assignment' },
-  ];
+function _bind() {
+  const c = _ctx?.container;
+  if (!c) return;
+  c.querySelectorAll('[data-admin-tab]').forEach(btn => btn.addEventListener('click', () => {
+    const nextTab = btn.dataset.adminTab || 'usuarios';
+    _state.tab = nextTab;
+    history.replaceState({}, '', `/app/admin?tab=${encodeURIComponent(nextTab)}`);
+    _renderTab();
+  }));
+  c.querySelector('#appAdminSearch')?.addEventListener('input', e => { _state.query = String(e.target.value || ''); _applyFilters(); });
+  c.querySelector('#appAdminRoleFilter')?.addEventListener('change', e => { _state.roleFilter = String(e.target.value || ''); _applyFilters(); });
+  c.querySelector('#appAdminPlazaFilter')?.addEventListener('change', e => { _state.plazaFilter = String(e.target.value || ''); _applyFilters(); });
+}
 
+function _subscribeUsers() {
+  _setTableBody(`<tr><td colspan="5" style="padding:20px;color:#64748b;">Cargando usuarios...</td></tr>`);
+  _unsubUsers = subscribeAdminUsers({
+    onData: rows => {
+      if (!_ctx || !_state) return;
+      _state.users = Array.isArray(rows) ? rows : [];
+      _hydrateFilters();
+      _applyFilters();
+    },
+    onError: err => _setTableBody(`<tr><td colspan="5" style="padding:20px;color:#b91c1c;">${esc(err?.message || 'Error cargando usuarios')}</td></tr>`)
+  });
+}
+
+function _hydrateFilters() {
+  const c = _ctx?.container;
+  if (!c) return;
+  const roleSel = c.querySelector('#appAdminRoleFilter');
+  const plazaSel = c.querySelector('#appAdminPlazaFilter');
+  const roles = [...new Set(_state.users.map(u => u.rol).filter(Boolean))].sort();
+  const plazas = [...new Set(_state.users.map(u => u.plaza).filter(Boolean))].sort();
+  roleSel.innerHTML = `<option value="">Todos los roles</option>${roles.map(r => `<option value="${escAttr(r)}">${esc(r)}</option>`).join('')}`;
+  plazaSel.innerHTML = `<option value="">Todas las plazas</option>${plazas.map(p => `<option value="${escAttr(p)}">${esc(p)}</option>`).join('')}`;
+  if (_state.roleFilter) roleSel.value = _state.roleFilter;
+  if (_state.plazaFilter) plazaSel.value = _state.plazaFilter;
+}
+
+function _applyFilters() {
+  const q = _state.query.toLowerCase().trim();
+  _state.filtered = _state.users.filter(u => {
+    if (_state.roleFilter && u.rol !== _state.roleFilter) return false;
+    if (_state.plazaFilter && u.plaza !== _state.plazaFilter) return false;
+    if (!q) return true;
+    return u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.rol.toLowerCase().includes(q) || u.plaza.toLowerCase().includes(q);
+  });
+  _renderUsersTable();
+  _syncDetail();
+}
+
+function _renderTab() {
+  const c = _ctx?.container;
+  if (!c) return;
+  c.querySelectorAll('[data-admin-tab]').forEach(btn => btn.style.background = btn.dataset.adminTab === _state.tab ? '#0f172a' : '#fff');
+  c.querySelectorAll('[data-admin-tab]').forEach(btn => btn.style.color = btn.dataset.adminTab === _state.tab ? '#fff' : '#475569');
+  c.querySelector('#adminUsuariosPane').style.display = _state.tab === 'usuarios' ? 'grid' : 'none';
+  c.querySelector('#adminPlaceholderPane').style.display = _state.tab === 'usuarios' ? 'none' : 'block';
+  c.querySelector('#adminPlaceholderPane').textContent = `Tab "${_state.tab}" queda como placeholder en esta fase.`;
+}
+
+function _renderUsersTable() {
+  if (_state.tab !== 'usuarios') return _renderTab();
+  _renderTab();
+  if (!_state.filtered.length) return _setTableBody(`<tr><td colspan="5" style="padding:20px;color:#64748b;">Sin usuarios para el filtro actual.</td></tr>`);
+  _setTableBody(_state.filtered.map(u => `
+    <tr data-admin-user="${escAttr(u.id)}" style="cursor:pointer;">
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.nombre || '—')}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.email || '—')}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;"><span style="padding:2px 8px;background:#e2e8f0;border-radius:999px;font-size:11px;">${esc(u.rol || '—')}</span></td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.plaza || '—')}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.status || 'ACTIVO')}</td>
+    </tr>`).join(''));
+  _ctx.container.querySelectorAll('[data-admin-user]').forEach(row => row.addEventListener('click', () => {
+    _state.selectedId = row.dataset.adminUser;
+    _syncDetail();
+  }));
+}
+
+function _syncDetail() {
+  const box = _ctx?.container?.querySelector('#appAdminDetail');
+  if (!box) return;
+  const user = _state.filtered.find(u => u.id === _state.selectedId) || _state.users[0];
+  if (!user) return box.innerHTML = `<div style="padding:12px;color:#94a3b8;">Selecciona un usuario para ver detalle.</div>`;
+  box.innerHTML = `
+    <div style="padding:12px;">
+      <h3 style="margin:0 0 8px;font-size:18px;color:#0f172a;">${esc(user.nombre || '—')}</h3>
+      ${_detail('Email', user.email || '—')}
+      ${_detail('Rol', user.rol || '—')}
+      ${_detail('Plaza', user.plaza || '—')}
+      ${_detail('Teléfono', user.telefono || '—')}
+      ${_detail('Estado', user.status || 'ACTIVO')}
+      ${_detail('Admin', user.isAdmin ? 'Sí' : 'No')}
+      ${_detail('Global', user.isGlobal ? 'Sí' : 'No')}
+      <a href="/gestion?tab=usuarios" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir panel admin completo</a>
+    </div>`;
+}
+
+function _setTableBody(html) {
+  const el = _ctx?.container?.querySelector('#appAdminUsersBody');
+  if (el) el.innerHTML = html;
+}
+
+function _html(profile = {}) {
   return `
-<div style="padding:28px 24px 56px;max-width:640px;margin:0 auto;font-family:'Inter',sans-serif;">
-
-  <!-- Cabecera -->
-  <div style="display:flex;align-items:center;gap:16px;margin-bottom:28px;">
-    <div style="width:52px;height:52px;border-radius:16px;background:#ede9fe;
-                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <span class="material-symbols-outlined" style="font-size:28px;color:#8b5cf6;">admin_panel_settings</span>
-    </div>
-    <div>
-      <h1 style="font-size:22px;font-weight:900;color:#0f172a;margin:0 0 3px;">Panel de administración</h1>
-      <p style="font-size:13px;color:#64748b;margin:0;">Gestión de usuarios, roles y configuración</p>
-    </div>
+<div style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
+  <h1 style="margin:0 0 10px;color:#0f172a;font-size:26px;">Panel admin</h1>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+    ${['usuarios','roles','plazas','catalogos','solicitudes'].map(t => `<button data-admin-tab="${t}" style="border:1px solid #dbe3ef;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;background:${t==='usuarios'?'#0f172a':'#fff'};color:${t==='usuarios'?'#fff':'#475569'};cursor:pointer;text-transform:capitalize;">${t}</button>`).join('')}
+    <a href="/gestion" style="margin-left:auto;font-size:12px;color:#0f172a;">Abrir panel admin completo</a>
   </div>
-
-  <!-- Sesión -->
-  ${name ? `
-  <div style="display:flex;align-items:center;gap:10px;padding:12px 14px;background:#fff;
-              border:1px solid #f1f5f9;border-radius:12px;margin-bottom:20px;">
-    <div style="width:32px;height:32px;border-radius:50%;background:${_avatarColor(name)};display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;">${esc(name.slice(0,1).toUpperCase())}</div>
-    <div style="flex:1;min-width:0;">
-      <div style="font-size:13px;font-weight:700;color:#0f172a;">${esc(name)}</div>
-      <div style="font-size:11px;color:#64748b;">${esc(roleLabel)}${plaza?' · '+esc(plaza):''}</div>
+  <div id="adminUsuariosPane" style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
+    <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="appAdminSearch" placeholder="Buscar por nombre, email, rol o plaza" style="flex:1;min-width:240px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+        <select id="appAdminRoleFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
+        <select id="appAdminPlazaFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
+      </div>
+      <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;min-width:760px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Email</th><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Plaza</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th></tr></thead>
+          <tbody id="appAdminUsersBody"></tbody>
+        </table>
+      </div>
     </div>
-    <span style="padding:3px 10px;border-radius:100px;background:#ede9fe;color:#8b5cf6;font-size:11px;font-weight:700;">ADMIN</span>
-  </div>` : ''}
-
-  <!-- CTA principal -->
-  <div style="background:linear-gradient(135deg,#2e1065,#4c1d95 60%,#5b21b6);
-              border-radius:20px;padding:28px;margin-bottom:20px;">
-    <h2 style="font-size:17px;font-weight:800;color:#fff;margin:0 0 8px;">Panel administrativo completo</h2>
-    <p style="font-size:13px;color:rgba(255,255,255,0.65);margin:0 0 20px;line-height:1.6;">
-      Administra usuarios, roles, plazas y catálogos del sistema operativo.
-    </p>
-    <a href="/gestion"
-       style="display:inline-flex;align-items:center;gap:8px;padding:12px 24px;
-              background:#fff;color:#4c1d95;border-radius:12px;text-decoration:none;
-              font-size:14px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,0.2);">
-      <span class="material-symbols-outlined" style="font-size:18px;">open_in_new</span>
-      Abrir panel completo
-    </a>
+    <aside id="appAdminDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;"></aside>
   </div>
-
-  <!-- Acceso rápido a secciones -->
-  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:20px;margin-bottom:16px;">
-    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;
-                letter-spacing:0.07em;margin-bottom:14px;">Acceso directo por sección</div>
-    <div style="display:grid;gap:8px;">
-      ${adminTabs.map(({ route, label, icon }) => `
-        <a href="${esc(route)}"
-           style="display:flex;align-items:center;gap:12px;padding:10px 14px;
-                  background:#fff;border:1px solid #f1f5f9;border-radius:12px;
-                  text-decoration:none;transition:border-color 0.12s;"
-           onmouseover="this.style.borderColor='#e2e8f0';" onmouseout="this.style.borderColor='#f1f5f9';">
-          <span class="material-symbols-outlined" style="font-size:18px;color:#8b5cf6;">${icon}</span>
-          <span style="font-size:13px;font-weight:600;color:#1e293b;flex:1;">${esc(label)}</span>
-          <span style="font-size:12px;color:#94a3b8;">↗</span>
-        </a>`).join('')}
-    </div>
-  </div>
-
-  <!-- Nota -->
-  <div style="display:flex;align-items:flex-start;gap:12px;padding:14px 16px;
-              background:#fefce8;border:1px solid #fef08a;border-radius:12px;">
-    <span class="material-symbols-outlined" style="font-size:18px;color:#ca8a04;flex-shrink:0;margin-top:1px;">info</span>
-    <div style="font-size:12px;color:#78350f;line-height:1.55;">
-      El panel de administración completo con gestión en tiempo real está en la ruta legacy /gestion.
-    </div>
-  </div>
+  <div id="adminPlaceholderPane" style="display:none;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:16px;color:#64748b;"></div>
+  <div style="margin-top:10px;font-size:12px;color:#64748b;">Sesión actual: ${esc(profile?.nombreCompleto || profile?.nombre || profile?.email || 'Usuario')}</div>
 </div>`;
 }
 
-function _name(p)  { return p?.nombreCompleto || p?.nombre || p?.usuario || p?.email || ''; }
-function _plaza(p) { return String(p?.plazaAsignada || p?.plaza || '').toUpperCase().trim(); }
-function esc(v) { return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function _avatarColor(s='') {
-  const c=['#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce','#805ad5','#d53f8c','#00b5d8'];
-  let h=0; for(const ch of String(s||'')) h=(h*31+ch.charCodeAt(0))|0;
-  return c[Math.abs(h)%c.length];
-}
+function _detail(k, v) { return `<div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:12px;"><strong style="color:#64748b;">${esc(k)}</strong><span style="color:#0f172a;">${esc(v)}</span></div>`; }
+function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function escAttr(v) { return esc(v).replace(/'/g, '&#39;'); }

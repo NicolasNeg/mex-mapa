@@ -46,6 +46,10 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/admin.js'),
     navRoute: '/gestion'    // el sidebar resalta "Gestión" / "Panel admin"
   },
+  '/app/admin/usuarios':    {
+    loader:   () => import('/js/app/views/admin.js'),
+    navRoute: '/gestion'
+  },
   '/app/programador':       {
     loader:   () => import('/js/app/views/programador.js'),
     navRoute: '/programador'

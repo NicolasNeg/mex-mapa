@@ -1,273 +1,184 @@
-// ═══════════════════════════════════════════════════════════
-//  /js/app/views/profile.js
-//  Vista /app/profile — Perfil de usuario (solo lectura).
-//
-//  Datos: tomados de app-state (perfil ya cargado en boot).
-//  Sin auth listeners nuevos. Sin imports del profile legacy.
-//  Sin escrituras a Firestore en esta fase.
-//
-//  "Abrir perfil completo" → /profile (legacy, con edición).
-// ═══════════════════════════════════════════════════════════
-
-import { getState } from '/js/app/app-state.js';
+import { db, COL } from '/js/core/database.js';
+import { getState, setState } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 
-// ── Estado de la vista ───────────────────────────────────────
-let _cleanupFns = [];
+let _ctx = null;
+let _mounted = false;
+let _formState = null;
 
-// ── API pública ──────────────────────────────────────────────
-
-/**
- * @param {{ container: HTMLElement, navigate: (path: string) => void, shell?: any }} ctx
- */
-export function mount({ container, navigate }) {
-  const { profile, role, company } = getState();
-
+export function mount(ctx) {
+  _ctx = ctx;
+  _mounted = true;
+  const { profile, role } = getState();
   if (!profile) {
-    _renderFallback(container);
+    ctx.container.innerHTML = `<div style="padding:30px;color:#ef4444;">No se pudo cargar el perfil.</div>`;
     return;
   }
-
-  container.innerHTML = _html(profile, role, company);
-  _bindEvents(container, navigate);
+  _formState = _makeFormState(profile);
+  ctx.container.innerHTML = _html(profile, role, _formState);
+  _bind();
 }
 
 export function unmount() {
-  _cleanupFns.forEach(fn => fn());
-  _cleanupFns = [];
+  _mounted = false;
+  _ctx = null;
+  _formState = null;
 }
 
-// ── Render ────────────────────────────────────────────────────
-function _html(profile, role, company) {
-  const name       = profile.nombreCompleto || profile.nombre || profile.usuario || profile.email || 'Usuario';
-  const email      = profile.email || profile.id || '';
-  const roleLabel  = ROLE_LABELS[role] || profile.roleLabel || role;
-  const plaza      = _normalizePlaza(profile.plazaAsignada || profile.plaza || '');
-  const plazasExtra = _safeArray(profile.plazasPermitidas).map(_normalizePlaza).filter(Boolean);
-  const avatarUrl  = _avatarUrl(profile);
-  const isOnline   = _isOnline(profile);
-  const lastSeen   = _formatRelativeTime(profile.lastSeenAt || profile.lastActiveAt);
-  const status     = String(profile.status || 'ACTIVO').toUpperCase();
-  const isAdmin    = Boolean(profile.isAdmin || profile.isGlobal);
-  const modules    = _availableModules(profile, role);
-  const allPlazas  = [plaza, ...plazasExtra].filter(Boolean);
+function _bind() {
+  const c = _ctx?.container;
+  if (!c) return;
+  const name = c.querySelector('#appProfileName');
+  const phone = c.querySelector('#appProfilePhone');
+  const avatar = c.querySelector('#appProfileAvatarUrl');
+  const theme = c.querySelector('#appProfileTheme');
+  const density = c.querySelector('#appProfileDensity');
+  const save = c.querySelector('#appProfileSave');
+  const cancel = c.querySelector('#appProfileCancel');
 
-  const avatarContent = avatarUrl
-    ? `<img src="${esc(avatarUrl)}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"
-            onerror="this.style.display='none';this.parentElement.textContent='${esc(name.slice(0, 1).toUpperCase())}';">`
-    : esc(name.slice(0, 1).toUpperCase() || 'U');
-
-  const avatarBg = avatarUrl ? '#0f172a' : _avatarColor(name);
-
-  return `
-<div style="padding:28px 24px 56px;max-width:680px;margin:0 auto;font-family:'Inter',sans-serif;">
-
-  <!-- Hero -->
-  <div style="display:flex;align-items:center;gap:20px;margin-bottom:28px;flex-wrap:wrap;">
-    <!-- Avatar -->
-    <div style="width:80px;height:80px;border-radius:50%;background:${avatarBg};
-                display:flex;align-items:center;justify-content:center;
-                font-size:32px;font-weight:800;color:#fff;flex-shrink:0;overflow:hidden;
-                border:3px solid rgba(255,255,255,0.1);">
-      ${avatarContent}
-    </div>
-
-    <!-- Info -->
-    <div style="flex:1;min-width:0;">
-      <h1 style="font-size:22px;font-weight:900;color:#0f172a;margin:0 0 4px;
-                 white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-        ${esc(name)}
-      </h1>
-      <p style="font-size:13px;color:#64748b;margin:0 0 8px;
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-        ${esc(email)}
-      </p>
-      <!-- Badges -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${_badge(roleLabel, '#2b6954', '#dcfce7')}
-        ${plaza ? _badge(plaza, '#0ea5e9', '#e0f2fe') : ''}
-        ${_badge(
-          isOnline ? 'En línea' : `Visto ${lastSeen}`,
-          isOnline ? '#16a34a' : '#64748b',
-          isOnline ? '#f0fdf4' : '#f8fafc',
-          isOnline ? '●&nbsp;' : ''
-        )}
-        ${status !== 'ACTIVO' ? _badge(status, '#ef4444', '#fef2f2') : ''}
-        ${isAdmin ? _badge('Admin', '#8b5cf6', '#ede9fe') : ''}
-      </div>
-    </div>
-  </div>
-
-  <!-- Grid de datos -->
-  <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));margin-bottom:24px;">
-    ${_infoCard('shield', 'Rol', roleLabel, '#8b5cf6', '#ede9fe')}
-    ${_infoCard('location_on', 'Plaza principal', plaza || '—', '#0ea5e9', '#e0f2fe')}
-    ${_infoCard('business', 'Empresa', company || 'MAPA', '#f59e0b', '#fef9c3')}
-    ${_infoCard('schedule', 'Último acceso', lastSeen, '#64748b', '#f8fafc')}
-  </div>
-
-  <!-- Plazas permitidas -->
-  ${allPlazas.length > 1 ? `
-  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:16px;">
-    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">
-      Plazas con acceso
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      ${allPlazas.map(p => _badge(p, '#0ea5e9', '#e0f2fe')).join('')}
-    </div>
-  </div>
-  ` : ''}
-
-  <!-- Módulos disponibles -->
-  <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:14px;padding:16px;margin-bottom:24px;">
-    <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:10px;">
-      Módulos disponibles
-    </div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;">
-      ${modules.map(m => _badge(m, '#2b6954', '#dcfce7')).join('')}
-    </div>
-  </div>
-
-  <!-- CTA — perfil completo -->
-  <div style="background:linear-gradient(135deg,#07111f,#0f2042);border-radius:16px;padding:20px;
-              display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;">
-    <div>
-      <div style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.9);margin-bottom:4px;">
-        ¿Necesitas editar tu perfil?
-      </div>
-      <div style="font-size:12px;color:rgba(255,255,255,0.45);line-height:1.5;">
-        Cambiar foto, teléfono, preferencias y notificaciones.
-      </div>
-    </div>
-    <a href="/profile"
-       style="display:inline-flex;align-items:center;gap:8px;padding:10px 18px;
-              background:#2ecc71;color:#07111f;border-radius:10px;text-decoration:none;
-              font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0;">
-      <span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span>
-      Abrir perfil completo
-    </a>
-  </div>
-
-</div>
-  `;
+  [name, phone, avatar, theme, density].forEach(el => {
+    el?.addEventListener('input', () => _syncFormFromDom());
+    el?.addEventListener('change', () => _syncFormFromDom());
+  });
+  save?.addEventListener('click', () => _saveProfile());
+  cancel?.addEventListener('click', () => _resetForm());
 }
 
-function _renderFallback(container) {
-  container.innerHTML = `
-    <div style="padding:48px 24px;max-width:480px;margin:0 auto;text-align:center;font-family:'Inter',sans-serif;">
-      <div style="width:64px;height:64px;border-radius:20px;background:#fef2f2;display:flex;
-                  align-items:center;justify-content:center;margin:0 auto 20px;">
-        <span class="material-symbols-outlined" style="font-size:32px;color:#ef4444;">person_off</span>
-      </div>
-      <h2 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 8px;">
-        No se pudo cargar el perfil
-      </h2>
-      <p style="font-size:13px;color:#64748b;margin:0 0 24px;line-height:1.6;">
-        El perfil no está disponible dentro de App Shell en este momento.
-      </p>
-      <a href="/profile"
-         style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;
-                border-radius:10px;background:#0f172a;color:#fff;text-decoration:none;
-                font-size:13px;font-weight:600;">
-        <span class="material-symbols-outlined" style="font-size:16px;">open_in_new</span>
-        Abrir perfil completo
-      </a>
-    </div>
-  `;
+function _syncFormFromDom() {
+  const c = _ctx?.container;
+  if (!c || !_formState) return;
+  _formState.nombreCompleto = String(c.querySelector('#appProfileName')?.value || '').trim();
+  _formState.telefono = String(c.querySelector('#appProfilePhone')?.value || '').trim();
+  _formState.avatarUrl = String(c.querySelector('#appProfileAvatarUrl')?.value || '').trim();
+  _formState.theme = String(c.querySelector('#appProfileTheme')?.value || 'light').trim();
+  _formState.visualDensity = String(c.querySelector('#appProfileDensity')?.value || 'compacta').trim();
 }
 
-function _bindEvents(_container, _navigate) {
-  // Vista read-only: sin listeners adicionales.
-  // Links usan <a href> normales → navegación real al hacer click.
+function _resetForm() {
+  if (!_mounted) return;
+  const { profile } = getState();
+  _formState = _makeFormState(profile || {});
+  const c = _ctx?.container;
+  if (!c) return;
+  c.querySelector('#appProfileName').value = _formState.nombreCompleto;
+  c.querySelector('#appProfilePhone').value = _formState.telefono;
+  c.querySelector('#appProfileAvatarUrl').value = _formState.avatarUrl;
+  c.querySelector('#appProfileTheme').value = _formState.theme;
+  c.querySelector('#appProfileDensity').value = _formState.visualDensity;
+  _setStatus('Cambios restaurados.', 'info');
 }
 
-// ── Componentes HTML ─────────────────────────────────────────
-function _badge(text, color, bg, prefix = '') {
-  return `<span style="display:inline-flex;align-items:center;padding:3px 10px;border-radius:100px;
-                        background:${bg};color:${color};font-size:11.5px;font-weight:700;
-                        white-space:nowrap;">${prefix}${esc(text)}</span>`;
-}
+async function _saveProfile() {
+  if (!_mounted || !_formState) return;
+  _setStatus('Guardando cambios...', 'info');
+  const current = getState().profile || {};
+  const docId = String(current.id || current.email || '').toLowerCase().trim();
+  if (!docId) return _setStatus('No se pudo resolver el usuario actual.', 'error');
 
-function _infoCard(icon, label, value, iconColor, iconBg) {
-  return `
-    <div style="background:#fff;border:1px solid #f1f5f9;border-radius:14px;padding:14px;">
-      <div style="width:32px;height:32px;border-radius:9px;background:${iconBg};
-                  display:flex;align-items:center;justify-content:center;margin-bottom:8px;">
-        <span class="material-symbols-outlined" style="font-size:17px;color:${iconColor};">${icon}</span>
-      </div>
-      <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;
-                  letter-spacing:0.07em;margin-bottom:3px;">${esc(label)}</div>
-      <div style="font-size:13px;color:#1e293b;font-weight:700;
-                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"
-           title="${esc(value)}">${esc(value)}</div>
-    </div>
-  `;
-}
+  const payload = {
+    nombreCompleto: _formState.nombreCompleto || current.nombreCompleto || current.nombre || '',
+    nombre: _formState.nombreCompleto || current.nombre || '',
+    usuario: _formState.nombreCompleto || current.usuario || '',
+    telefono: _formState.telefono || '',
+    avatarUrl: _formState.avatarUrl || '',
+    photoURL: _formState.avatarUrl || '',
+    fotoURL: _formState.avatarUrl || '',
+    profilePhotoUrl: _formState.avatarUrl || '',
+    profilePreferences: {
+      ...(current.profilePreferences || {}),
+      theme: _formState.theme,
+      visualDensity: _formState.visualDensity
+    }
+  };
 
-// ── Utilidades ───────────────────────────────────────────────
-function esc(v) {
-  return String(v ?? '')
-    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function _normalizePlaza(v) {
-  return String(v || '').toUpperCase().replace(/\s+/g, ' ').trim();
-}
-
-function _safeArray(v) {
-  return Array.isArray(v) ? v : [];
-}
-
-function _avatarUrl(profile) {
-  return String(
-    profile.avatarUrl || profile.avatarURL || profile.photoURL ||
-    profile.fotoURL   || profile.profilePhotoUrl || ''
-  ).trim();
-}
-
-function _isOnline(profile) {
-  const lastSeen = _coerceTs(profile?.lastSeenAt || profile?.lastActiveAt);
-  return profile?.isOnline === true && lastSeen > 0 && (Date.now() - lastSeen) < 120_000;
-}
-
-function _coerceTs(v) {
-  if (typeof v === 'number' && Number.isFinite(v)) return v;
-  if (v && typeof v.toMillis === 'function') return v.toMillis();
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function _formatRelativeTime(raw) {
-  const ts = _coerceTs(raw);
-  if (!ts) return 'sin registro';
-  const diff = Date.now() - ts;
-  const min  = Math.floor(diff / 60_000);
-  const hr   = Math.floor(diff / 3_600_000);
-  const day  = Math.floor(diff / 86_400_000);
-  if (diff < 60_000)   return 'ahora mismo';
-  if (min < 60)        return `hace ${min} min`;
-  if (hr < 24)         return `hace ${hr} h`;
-  if (day === 1)       return 'ayer';
-  if (day < 7)         return `hace ${day} días`;
   try {
-    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(ts));
-  } catch (_) {
-    return 'hace tiempo';
+    await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+    if (!_mounted) return;
+    const nextProfile = { ...current, ...payload };
+    setState({ profile: nextProfile });
+    _ctx?.shell?.setProfile?.(nextProfile, getState().role);
+    _setStatus('Perfil actualizado correctamente.', 'ok');
+  } catch (err) {
+    _setStatus(err?.message || 'No se pudieron guardar los cambios.', 'error');
   }
 }
 
-function _avatarColor(str = '') {
-  const colors = ['#e53e3e','#dd6b20','#d69e2e','#38a169','#3182ce','#805ad5','#d53f8c','#00b5d8'];
-  let hash = 0;
-  for (const ch of String(str || '')) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-  return colors[Math.abs(hash) % colors.length];
+function _setStatus(msg, type) {
+  const el = _ctx?.container?.querySelector('#appProfileStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = type === 'error' ? '#b91c1c' : (type === 'ok' ? '#15803d' : '#475569');
 }
 
-function _availableModules(profile, role) {
-  const modules = ['Dashboard', 'Mapa', 'Mensajes', 'Cuadres', 'Perfil'];
-  const adminRoles = ['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR'];
-  if (adminRoles.includes(role) || profile.isAdmin || profile.isGlobal) modules.push('Panel Admin');
-  if (role === 'PROGRAMADOR') modules.push('Consola');
-  if (profile.isGlobal) modules.push('Global');
-  return [...new Set(modules)];
+function _makeFormState(profile = {}) {
+  return {
+    nombreCompleto: String(profile.nombreCompleto || profile.nombre || profile.usuario || '').trim(),
+    telefono: String(profile.telefono || '').trim(),
+    avatarUrl: String(profile.avatarUrl || profile.photoURL || profile.fotoURL || profile.profilePhotoUrl || '').trim(),
+    theme: String(profile?.profilePreferences?.theme || 'light').trim(),
+    visualDensity: String(profile?.profilePreferences?.visualDensity || 'compacta').trim()
+  };
 }
+
+function _html(profile, role, form) {
+  const name = form.nombreCompleto || profile.email || 'Usuario';
+  const email = profile.email || profile.id || '';
+  const roleLabel = ROLE_LABELS[role] || profile.roleLabel || role || 'AUXILIAR';
+  const plaza = String(profile.plazaAsignada || profile.plaza || '').toUpperCase().trim() || '—';
+  return `
+<div style="padding:24px;max-width:760px;margin:0 auto;font-family:Inter,sans-serif;">
+  <h1 style="margin:0 0 12px;font-size:26px;color:#0f172a;">Mi perfil</h1>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;">
+      <div style="font-size:11px;color:#94a3b8;">Usuario</div><div style="font-weight:800;color:#0f172a;">${esc(name)}</div>
+    </div>
+    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;">
+      <div style="font-size:11px;color:#94a3b8;">Rol · Plaza</div><div style="font-weight:700;color:#334155;">${esc(roleLabel)} · ${esc(plaza)}</div>
+    </div>
+  </div>
+  <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;background:#fff;">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Nombre / Nombre completo
+        <input id="appProfileName" value="${escAttr(form.nombreCompleto)}" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Teléfono
+        <input id="appProfilePhone" value="${escAttr(form.telefono)}" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Avatar URL
+        <input id="appProfileAvatarUrl" value="${escAttr(form.avatarUrl)}" placeholder="https://..." style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Email (solo lectura)
+        <input value="${escAttr(email)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Rol (solo lectura)
+        <input value="${escAttr(roleLabel)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Plaza (solo lectura)
+        <input value="${escAttr(plaza)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Tema
+        <select id="appProfileTheme" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+          <option value="light" ${form.theme === 'light' ? 'selected' : ''}>Claro</option>
+          <option value="dark" ${form.theme === 'dark' ? 'selected' : ''}>Oscuro</option>
+        </select>
+      </label>
+      <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Densidad visual
+        <select id="appProfileDensity" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+          <option value="compacta" ${form.visualDensity === 'compacta' ? 'selected' : ''}>Compacta</option>
+          <option value="media" ${form.visualDensity === 'media' ? 'selected' : ''}>Media</option>
+          <option value="amplia" ${form.visualDensity === 'amplia' ? 'selected' : ''}>Amplia</option>
+        </select>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
+      <button id="appProfileSave" type="button" style="border:none;background:#0f172a;color:#fff;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer;">Guardar cambios</button>
+      <button id="appProfileCancel" type="button" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer;">Cancelar</button>
+      <a href="/profile" style="margin-left:auto;font-size:12px;color:#0f172a;">Abrir perfil completo</a>
+    </div>
+    <div id="appProfileStatus" style="margin-top:8px;font-size:12px;color:#64748b;"></div>
+  </div>
+</div>`;
+}
+
+function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function escAttr(v) { return esc(v).replace(/'/g, '&#39;'); }
