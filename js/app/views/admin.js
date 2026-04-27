@@ -1,9 +1,11 @@
 import { getState } from '/js/app/app-state.js';
 import { subscribeAdminUsers } from '/js/app/features/admin/admin-users-data.js';
+import { getAdminMetaSnapshot } from '/js/app/features/admin/admin-catalogs-data.js';
 
 let _ctx = null;
 let _state = null;
 let _unsubUsers = null;
+let _metaLoaded = false;
 
 export function mount(ctx) {
   _ctx = ctx;
@@ -14,12 +16,18 @@ export function mount(ctx) {
     plazaFilter: '',
     users: [],
     filtered: [],
-    selectedId: null
+    selectedId: null,
+    roles: [],
+    plazas: [],
+    catalogs: [],
+    roleQuery: '',
+    catalogQuery: ''
   };
   const gs = getState();
   ctx.container.innerHTML = _html(gs.profile);
   _bind();
   _subscribeUsers();
+  _loadMeta();
 }
 
 export function unmount() {
@@ -27,6 +35,7 @@ export function unmount() {
   _unsubUsers = null;
   _ctx = null;
   _state = null;
+  _metaLoaded = false;
 }
 
 function _tabFromUrl() {
@@ -46,6 +55,8 @@ function _bind() {
   c.querySelector('#appAdminSearch')?.addEventListener('input', e => { _state.query = String(e.target.value || ''); _applyFilters(); });
   c.querySelector('#appAdminRoleFilter')?.addEventListener('change', e => { _state.roleFilter = String(e.target.value || ''); _applyFilters(); });
   c.querySelector('#appAdminPlazaFilter')?.addEventListener('change', e => { _state.plazaFilter = String(e.target.value || ''); _applyFilters(); });
+  c.querySelector('#appAdminRoleSearch')?.addEventListener('input', e => { _state.roleQuery = String(e.target.value || ''); _renderRoles(); });
+  c.querySelector('#appAdminCatalogSearch')?.addEventListener('input', e => { _state.catalogQuery = String(e.target.value || ''); _renderCatalogs(); });
 }
 
 function _subscribeUsers() {
@@ -59,6 +70,30 @@ function _subscribeUsers() {
     },
     onError: err => _setTableBody(`<tr><td colspan="5" style="padding:20px;color:#b91c1c;">${esc(err?.message || 'Error cargando usuarios')}</td></tr>`)
   });
+}
+
+async function _loadMeta() {
+  const c = _ctx?.container;
+  if (!c || _metaLoaded) return;
+  _metaLoaded = true;
+  c.querySelector('#appAdminRolesBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Cargando roles...</td></tr>`;
+  c.querySelector('#appAdminPlazasBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Cargando plazas...</td></tr>`;
+  c.querySelector('#appAdminCatalogsBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Cargando catálogos...</td></tr>`;
+  try {
+    const meta = await getAdminMetaSnapshot();
+    if (!_ctx || !_state) return;
+    _state.roles = Array.isArray(meta.roles) ? meta.roles : [];
+    _state.plazas = Array.isArray(meta.plazas) ? meta.plazas : [];
+    _state.catalogs = Array.isArray(meta.catalogs) ? meta.catalogs : [];
+    _renderRoles();
+    _renderPlazas();
+    _renderCatalogs();
+  } catch (err) {
+    const msg = esc(err?.message || 'Error cargando metadatos admin.');
+    c.querySelector('#appAdminRolesBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
+    c.querySelector('#appAdminPlazasBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
+    c.querySelector('#appAdminCatalogsBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
+  }
 }
 
 function _hydrateFilters() {
@@ -92,7 +127,10 @@ function _renderTab() {
   c.querySelectorAll('[data-admin-tab]').forEach(btn => btn.style.background = btn.dataset.adminTab === _state.tab ? '#0f172a' : '#fff');
   c.querySelectorAll('[data-admin-tab]').forEach(btn => btn.style.color = btn.dataset.adminTab === _state.tab ? '#fff' : '#475569');
   c.querySelector('#adminUsuariosPane').style.display = _state.tab === 'usuarios' ? 'grid' : 'none';
-  c.querySelector('#adminPlaceholderPane').style.display = _state.tab === 'usuarios' ? 'none' : 'block';
+  c.querySelector('#adminRolesPane').style.display = _state.tab === 'roles' ? 'grid' : 'none';
+  c.querySelector('#adminPlazasPane').style.display = _state.tab === 'plazas' ? 'grid' : 'none';
+  c.querySelector('#adminCatalogosPane').style.display = _state.tab === 'catalogos' ? 'grid' : 'none';
+  c.querySelector('#adminPlaceholderPane').style.display = ['usuarios', 'roles', 'plazas', 'catalogos'].includes(_state.tab) ? 'none' : 'block';
   c.querySelector('#adminPlaceholderPane').textContent = `Tab "${_state.tab}" queda como placeholder en esta fase.`;
 }
 
@@ -133,6 +171,97 @@ function _syncDetail() {
     </div>`;
 }
 
+function _renderRoles() {
+  const tbody = _ctx?.container?.querySelector('#appAdminRolesBody');
+  if (!tbody) return;
+  const q = (_state.roleQuery || '').toLowerCase().trim();
+  const rows = _state.roles.filter(r => !q || r.name.toLowerCase().includes(q) || r.key.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Sin roles para el filtro actual.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(r => `<tr data-admin-role="${escAttr(r.key)}" style="cursor:pointer;">
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.name)}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(String(r.level || '—'))}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.description || '—')}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(String(_state.users.filter(u => u.rol === r.key).length))}</td>
+  </tr>`).join('');
+  _ctx.container.querySelectorAll('[data-admin-role]').forEach(el => el.addEventListener('click', () => {
+    const role = _state.roles.find(r => r.key === el.dataset.adminRole);
+    const box = _ctx.container.querySelector('#appAdminRoleDetail');
+    if (!box || !role) return;
+    box.innerHTML = `<div style="padding:12px;">
+      <h3 style="margin:0 0 8px;color:#0f172a;">${esc(role.name)}</h3>
+      ${_detail('Clave', role.key)}
+      ${_detail('Nivel', role.level || '—')}
+      ${_detail('Usuarios', _state.users.filter(u => u.rol === role.key).length)}
+      ${_detail('Permisos', role.permissions?.length || 0)}
+      <div style="margin:8px 0;font-size:12px;color:#334155;">${esc(role.description || 'Sin descripción')}</div>
+      <a href="/gestion?tab=roles" style="font-size:12px;color:#0f172a;">Abrir admin completo</a>
+    </div>`;
+  }));
+}
+
+function _renderPlazas() {
+  const tbody = _ctx?.container?.querySelector('#appAdminPlazasBody');
+  if (!tbody) return;
+  if (!_state.plazas.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">No hay plazas configuradas.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = _state.plazas.map(p => `<tr data-admin-plaza="${escAttr(p.id)}" style="cursor:pointer;">
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(p.id)}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(p.name || p.id)}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${_state.users.filter(u => u.plaza === p.id).length}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${p.active ? 'Activa' : 'Inactiva'}</td>
+  </tr>`).join('');
+  _ctx.container.querySelectorAll('[data-admin-plaza]').forEach(el => el.addEventListener('click', () => {
+    const p = _state.plazas.find(x => x.id === el.dataset.adminPlaza);
+    const box = _ctx.container.querySelector('#appAdminPlazaDetail');
+    if (!box || !p) return;
+    box.innerHTML = `<div style="padding:12px;">
+      <h3 style="margin:0 0 8px;color:#0f172a;">${esc(p.name || p.id)}</h3>
+      ${_detail('ID', p.id)}
+      ${_detail('Estado', p.active ? 'Activa' : 'Inactiva')}
+      ${_detail('Usuarios', _state.users.filter(u => u.plaza === p.id).length)}
+      <div style="margin:8px 0;font-size:12px;color:#334155;">${esc(p.description || 'Sin descripción')}</div>
+      <a href="/gestion?tab=plazas" style="font-size:12px;color:#0f172a;">Abrir admin completo</a>
+    </div>`;
+  }));
+}
+
+function _renderCatalogs() {
+  const tbody = _ctx?.container?.querySelector('#appAdminCatalogsBody');
+  if (!tbody) return;
+  const q = (_state.catalogQuery || '').toLowerCase().trim();
+  const rows = _state.catalogs
+    .map(c => ({ ...c, count: Array.isArray(c.items) ? c.items.length : 0 }))
+    .filter(c => !q || c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Sin catálogos para el filtro actual.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(c => `<tr data-admin-catalog="${escAttr(c.id)}" style="cursor:pointer;">
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(c.label)}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(c.id)}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${c.count}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">Ver detalle</td>
+  </tr>`).join('');
+  _ctx.container.querySelectorAll('[data-admin-catalog]').forEach(el => el.addEventListener('click', () => {
+    const c = _state.catalogs.find(x => x.id === el.dataset.adminCatalog);
+    const box = _ctx.container.querySelector('#appAdminCatalogDetail');
+    if (!box || !c) return;
+    const preview = (c.items || []).slice(0, 15).map(i => `<li style="font-size:12px;color:#334155;margin-bottom:4px;">${esc(i.name)} ${i.extra ? `<span style="color:#94a3b8;">· ${esc(i.extra)}</span>` : ''}</li>`).join('');
+    box.innerHTML = `<div style="padding:12px;">
+      <h3 style="margin:0 0 8px;color:#0f172a;">${esc(c.label)}</h3>
+      ${_detail('Clave', c.id)}
+      ${_detail('Elementos', (c.items || []).length)}
+      <ul style="margin:8px 0 0;padding-left:18px;max-height:280px;overflow:auto;">${preview || '<li style="font-size:12px;color:#94a3b8;">Sin elementos</li>'}</ul>
+      <a href="/gestion?tab=catalogos" style="font-size:12px;color:#0f172a;">Abrir admin completo</a>
+    </div>`;
+  }));
+}
+
 function _setTableBody(html) {
   const el = _ctx?.container?.querySelector('#appAdminUsersBody');
   if (el) el.innerHTML = html;
@@ -161,6 +290,45 @@ function _html(profile = {}) {
       </div>
     </div>
     <aside id="appAdminDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;"></aside>
+  </div>
+  <div id="adminRolesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
+    <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="appAdminRoleSearch" placeholder="Buscar roles" style="flex:1;min-width:240px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+      </div>
+      <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;min-width:760px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th></tr></thead>
+          <tbody id="appAdminRolesBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <aside id="appAdminRoleDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;"></aside>
+  </div>
+  <div id="adminPlazasPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
+    <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;min-width:760px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">ID</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th></tr></thead>
+          <tbody id="appAdminPlazasBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <aside id="appAdminPlazaDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;"></aside>
+  </div>
+  <div id="adminCatalogosPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
+    <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+        <input id="appAdminCatalogSearch" placeholder="Buscar catálogos" style="flex:1;min-width:240px;border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+      </div>
+      <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
+        <table style="width:100%;border-collapse:collapse;min-width:760px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Catálogo</th><th style="padding:8px;text-align:left;background:#f8fafc;">Clave</th><th style="padding:8px;text-align:left;background:#f8fafc;">Elementos</th><th style="padding:8px;text-align:left;background:#f8fafc;">Acción</th></tr></thead>
+          <tbody id="appAdminCatalogsBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <aside id="appAdminCatalogDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;"></aside>
   </div>
   <div id="adminPlaceholderPane" style="display:none;border:1px solid #e2e8f0;border-radius:10px;background:#fff;padding:16px;color:#64748b;"></div>
   <div style="margin-top:10px;font-size:12px;color:#64748b;">Sesión actual: ${esc(profile?.nombreCompleto || profile?.nombre || profile?.email || 'Usuario')}</div>
