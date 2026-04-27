@@ -41,7 +41,18 @@ function _makeState(plaza) {
     sortField:   'creadoEn',
     sortDir:     'desc',
     selectedId:  null,
+    loading: false,
+    permissionDenied: false,
+    errorMessage: '',
+    hasSnapshot: false
   };
+}
+
+function _debugLog(...args) {
+  try {
+    if (localStorage.getItem('mex.debug.mode') !== '1') return;
+    console.log('[prep-app]', ...args);
+  } catch (_) {}
 }
 
 // ── Ciclo de vida ────────────────────────────────────────────
@@ -108,8 +119,12 @@ function _reloadForPlaza(nextPlaza) {
   _state.items = [];
   _state.filteredItems = [];
   _state.selectedId = null;
+  _state.loading = false;
+  _state.permissionDenied = false;
+  _state.errorMessage = '';
+  _state.hasSnapshot = false;
   _setTopbarPlaza(normalized);
-  _renderLoading();
+  _setViewLoading();
   _renderStats();
 
   if (!normalized) {
@@ -135,7 +150,7 @@ function _ensureCss() {
 // ── Firestore subscription ───────────────────────────────────
 
 function _subscribeQueue(plaza) {
-  _renderLoading();
+  _setViewLoading();
   _closeQueueListener();
   const subscriptionId = ++_queueSubSeq;
   const expectedPlaza = String(plaza || '').toUpperCase().trim();
@@ -148,8 +163,12 @@ function _subscribeQueue(plaza) {
           if (subscriptionId !== _queueSubSeq) return; // listener viejo (race condition)
           if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
           _state.items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          _state.loading = false;
+          _state.hasSnapshot = true;
+          _state.permissionDenied = false;
+          _state.errorMessage = '';
           _applyFilters();
-          _renderList();
+          _renderListByState();
           _renderStats();
         },
         err => {
@@ -157,16 +176,30 @@ function _subscribeQueue(plaza) {
           if (!_container || !_state) return;
           if (subscriptionId !== _queueSubSeq) return; // listener viejo (race condition)
           if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
-          if (String(err?.code || '').toLowerCase() === 'permission-denied') {
-            _renderError('No tienes permisos para ver la cola de esta plaza.');
+          // Si ya tenemos datos válidos, ignoramos errores tardíos/stale.
+          if ((_state.items || []).length > 0 || _state.hasSnapshot) {
+            _debugLog('Ignoring stale error after data', { code: err?.code, message: err?.message, plaza: expectedPlaza });
             return;
           }
-          _renderError(err.message || 'No se pudo cargar la cola de preparación.');
+          _state.loading = false;
+          _state.hasSnapshot = false;
+          if (String(err?.code || '').toLowerCase() === 'permission-denied') {
+            _state.permissionDenied = true;
+            _state.errorMessage = 'No tienes permisos para ver la cola de esta plaza.';
+            _renderListByState();
+            return;
+          }
+          _state.permissionDenied = false;
+          _state.errorMessage = err.message || 'No se pudo cargar la cola de preparación.';
+          _renderListByState();
         }
       );
   } catch (err) {
     console.error('[cola-prep] No se pudo suscribir:', err);
-    _renderError(err.message);
+    _state.loading = false;
+    _state.permissionDenied = false;
+    _state.errorMessage = err.message || 'No se pudo cargar la cola de preparación.';
+    _renderListByState();
   }
 }
 
@@ -237,7 +270,7 @@ function _bindGlobalSearch() {
     const query = String(event?.detail?.query || '');
     _state.searchQuery = query;
     _applyFilters();
-    _renderList();
+    _renderListByState();
     _renderStats();
   };
   window.addEventListener('mex:global-search', handler);
@@ -251,7 +284,7 @@ function _bindFilters() {
       _state.filterStatus = btn.dataset.prepFilter;
       qsa('[data-prep-filter]').forEach(b => b.classList.toggle('active', b === btn));
       _applyFilters();
-      _renderList();
+      _renderListByState();
       _renderStats();
     });
   });
@@ -266,7 +299,7 @@ function _bindSort() {
     _state.sortField = field;
     _state.sortDir   = dir;
     _applyFilters();
-    _renderList();
+    _renderListByState();
   });
 }
 
@@ -292,6 +325,15 @@ function _renderError(msg) {
       <a href="/cola-preparacion" style="display:inline-block;margin-top:16px;font-size:12px;
          color:#2b6954;text-decoration:underline;">Abrir módulo completo</a>
     </div>`;
+}
+
+function _setViewLoading() {
+  if (!_state) return;
+  _state.loading = true;
+  _state.permissionDenied = false;
+  _state.errorMessage = '';
+  _state.hasSnapshot = false;
+  _renderLoading();
 }
 
 function _renderEmpty(msg = 'Sin unidades para mostrar.') {
@@ -340,10 +382,7 @@ function _renderList() {
   if (!listEl) return;
 
   const items = _state.filteredItems;
-  if (!items.length) {
-    _renderEmpty('Sin resultados para los filtros aplicados.');
-    return;
-  }
+  if (!items.length) return;
 
   listEl.innerHTML = items.map(it => _itemCard(it)).join('');
 
@@ -354,6 +393,33 @@ function _renderList() {
       _showDetail(_state.items.find(i => i.id === _state.selectedId));
     });
   });
+}
+
+function _renderListByState() {
+  if (!_state || !_container) return;
+  if (_state.loading) {
+    _renderLoading();
+    return;
+  }
+  if (_state.permissionDenied) {
+    _renderError(_state.errorMessage || 'No tienes permisos para ver la cola de esta plaza.');
+    return;
+  }
+  if (_state.errorMessage) {
+    _renderError(_state.errorMessage);
+    return;
+  }
+  const totalItems = Array.isArray(_state.items) ? _state.items.length : 0;
+  const visibleItems = Array.isArray(_state.filteredItems) ? _state.filteredItems.length : 0;
+  if (totalItems === 0) {
+    _renderEmpty('Sin unidades para mostrar.');
+    return;
+  }
+  if (visibleItems === 0) {
+    _renderEmpty('Sin resultados para los filtros aplicados.');
+    return;
+  }
+  _renderList();
 }
 
 // ── Tarjeta de item ──────────────────────────────────────────
