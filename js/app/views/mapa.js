@@ -27,7 +27,9 @@ let _lastPersistSummary = null;
 let _viewState = {
   query: '',
   selectedId: '',
-  snapshot: null
+  snapshot: null,
+  quickFilter: 'all',
+  viewMode: 'grid'
 };
 
 function _readUrlQuery() {
@@ -235,7 +237,13 @@ export function mount({ container }) {
   _ensureCss();
   const state = getState();
   const plaza = String(state.currentPlaza || state.profile?.plazaAsignada || '').toUpperCase();
-  _viewState = { query: _readUrlQuery(), selectedId: '', snapshot: null };
+  _viewState = {
+    query: _readUrlQuery(),
+    selectedId: '',
+    snapshot: null,
+    quickFilter: 'all',
+    viewMode: 'grid'
+  };
 
   _container.innerHTML = `
     <section class="app-mapa-view">
@@ -265,7 +273,22 @@ export function mount({ container }) {
         <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--danger" data-app-mapa-action="clear-experimental" style="display:none;">Desactivar modo experimental</button>
       </div>
       <div class="app-mapa-note">
-        Vista beta en App Shell; el mapa legacy conserva todas las herramientas operativas.
+        Herramientas completas de patio siguen en el mapa classic. Aquí: consulta, búsqueda y filtros rápidos.
+      </div>
+      <div class="app-mapa-controls">
+        <div class="app-mapa-quick" role="toolbar" aria-label="Filtros rápidos">
+          <span class="app-mapa-quick-label">Filtrar unidades</span>
+          <button type="button" class="app-mapa-qf is-active" data-mapa-qf="all">Todos</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="disponibles">Listos</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="no-arrendable">No arrendable</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="mantenimiento">Mtto / sucio</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="sin-ubicacion">Sin ubicación</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="externos">Externos</button>
+        </div>
+        <div class="app-mapa-view-toggle" role="toolbar" aria-label="Modo de vista">
+          <button type="button" class="app-mapa-view is-active" data-mapa-view="grid">Por celdas</button>
+          <button type="button" class="app-mapa-view" data-mapa-view="list">Lista</button>
+        </div>
       </div>
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
       <div id="app-mapa-content" class="app-mapa-status is-loading">Cargando mapa read-only...</div>
@@ -483,6 +506,12 @@ export function mount({ container }) {
 
   _onClick = event => {
     if (_dndController?.shouldSuppressClick?.()) return;
+    const copyBtn = event.target?.closest?.('[data-copy-mva]');
+    if (copyBtn) {
+      const v = copyBtn.getAttribute('data-copy-mva') || '';
+      navigator.clipboard?.writeText?.(v).catch(() => {});
+      return;
+    }
     const btn = event.target?.closest?.('[data-unit-id]');
     if (!btn) return;
     _viewState.selectedId = String(btn.getAttribute('data-unit-id') || '');
@@ -491,6 +520,20 @@ export function mount({ container }) {
   _container.addEventListener('click', _onClick);
 
   _toolbarHandler = ev => {
+    const qfBtn = ev.target?.closest?.('[data-mapa-qf]');
+    if (qfBtn && _container.contains(qfBtn)) {
+      _viewState.quickFilter = qfBtn.getAttribute('data-mapa-qf') || 'all';
+      _syncFilterChips();
+      _render();
+      return;
+    }
+    const vwBtn = ev.target?.closest?.('[data-mapa-view]');
+    if (vwBtn && _container.contains(vwBtn)) {
+      _viewState.viewMode = vwBtn.getAttribute('data-mapa-view') || 'grid';
+      _syncFilterChips();
+      _render();
+      return;
+    }
     const btn = ev.target?.closest?.('[data-app-mapa-action]');
     if (!btn || !_container.contains(btn)) return;
     const act = btn.getAttribute('data-app-mapa-action');
@@ -554,6 +597,7 @@ export function mount({ container }) {
   _updateBetaBanner();
   _updateMetaLines();
   _updateExperimentalResetBtn();
+  _syncFilterChips();
 
   _offState = subscribe(() => {
     _syncDndController();
@@ -616,6 +660,18 @@ function _syncDndController() {
   _updateExperimentalResetBtn();
 }
 
+function _syncFilterChips() {
+  if (!_container) return;
+  const qf = _viewState.quickFilter || 'all';
+  _container.querySelectorAll('[data-mapa-qf]').forEach(b => {
+    b.classList.toggle('is-active', (b.getAttribute('data-mapa-qf') || '') === qf);
+  });
+  const vm = _viewState.viewMode || 'grid';
+  _container.querySelectorAll('[data-mapa-view]').forEach(b => {
+    b.classList.toggle('is-active', (b.getAttribute('data-mapa-view') || '') === vm);
+  });
+}
+
 function _render() {
   if (!_contentEl) return;
   const snapshot = _viewState.snapshot;
@@ -641,16 +697,21 @@ function _render() {
     query: _viewState.query,
     selectedId: _viewState.selectedId,
     dndActive: eligible,
-    plaza: snapshot.plaza || String(getState().currentPlaza || '').toUpperCase()
+    plaza: snapshot.plaza || String(getState().currentPlaza || '').toUpperCase(),
+    quickFilter: _viewState.quickFilter,
+    viewMode: _viewState.viewMode
   });
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateBetaBanner();
   _updateMetaLines();
   _updateExperimentalResetBtn();
+  _syncFilterChips();
 }
 
 function _bindGlobalSearch() {
   const handler = event => {
+    const route = String(event?.detail?.route || '');
+    if (route && !route.startsWith('/app/mapa') && route !== '/mapa') return;
     _viewState.query = String(event?.detail?.query || '').trim();
     _render();
   };

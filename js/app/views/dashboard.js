@@ -9,7 +9,7 @@
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
-import { db, COL, obtenerDatosParaMapa, obtenerEstructuraMapa, obtenerDatosFlotaConsola } from '/js/core/database.js';
+import { db, COL, obtenerDatosParaMapa, obtenerEstructuraMapa, obtenerDatosFlotaConsola, obtenerMensajesPrivados } from '/js/core/database.js';
 import { buildMapaReadOnlyViewModel, buildMapaPreviewSummary } from '/js/app/features/mapa/mapa-view-model.js';
 
 let _cleanup = null;
@@ -34,7 +34,8 @@ export async function mount({ container }) {
     plaza,
     query: '',
     metrics: { unidades: 0, externos: 0, incidencias: 0, solicitudes: 0 },
-    modules: _modulesForRole(role),
+    pending: { colaNotReady: null, colaTotal: null, msgUnread: null },
+    modules: _orderedModules(role),
     mapPreview: {
       loading: true,
       error: '',
@@ -51,10 +52,10 @@ export async function mount({ container }) {
     if (!_state || !_container) return;
     _state.plaza = String(nextPlaza || '').toUpperCase().trim();
     _setText('#appDashPlaza', _state.plaza || '—');
-    await Promise.all([_loadMetrics(), _loadMapPreview()]);
+    await Promise.all([_loadMetrics(), _loadMapPreview(), _loadPending()]);
     _render();
   });
-  await Promise.all([_loadMetrics(), _loadMapPreview()]);
+  await Promise.all([_loadMetrics(), _loadMapPreview(), _loadPending()]);
   _render();
   _cleanup = () => {
     if (typeof _offSearch === 'function') _offSearch();
@@ -93,32 +94,84 @@ function _modulesForRole(role) {
     { appRoute: '/app/mensajes', label: 'Mensajes', icon: 'chat', keywords: 'mensajes chat conversaciones' },
     { appRoute: '/app/profile', label: 'Perfil', icon: 'person', keywords: 'perfil usuario cuenta' },
   ];
-  const adminRoles = new Set(['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR']);
+  const adminRoles = new Set(['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR','VENTAS']);
   if (adminRoles.has(role)) base.push({ appRoute: '/app/admin', label: 'Admin', icon: 'admin_panel_settings', keywords: 'admin usuarios roles plazas' });
-  if (role === 'PROGRAMADOR' || role === 'JEFE_OPERACION') base.push({ appRoute: '/app/programador', label: 'Programador', icon: 'terminal', keywords: 'debug consola tecnica observabilidad' });
+  if (role === 'PROGRAMADOR' || role === 'JEFE_OPERACION') base.push({ appRoute: '/app/programador', label: 'Programador', icon: 'terminal', keywords: 'diagnostico qa flags smoke' });
   return base;
+}
+
+function _modulePriorityOrder(role) {
+  const r = String(role || '').toUpperCase();
+  if (r === 'PROGRAMADOR') {
+    return ['/app/programador', '/app/mapa', '/app/admin', '/app/incidencias', '/app/cola-preparacion', '/app/cuadre', '/app/mensajes', '/app/profile'];
+  }
+  const adminish = new Set(['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'VENTAS']);
+  if (adminish.has(r)) {
+    return ['/app/cuadre', '/app/incidencias', '/app/cola-preparacion', '/app/mapa', '/app/mensajes', '/app/admin', '/app/profile'];
+  }
+  return ['/app/mapa', '/app/cola-preparacion', '/app/incidencias', '/app/mensajes', '/app/cuadre', '/app/profile'];
+}
+
+function _orderedModules(role) {
+  const list = _modulesForRole(role);
+  const pri = _modulePriorityOrder(role);
+  return [...list].sort((a, b) => {
+    const ia = pri.indexOf(a.appRoute);
+    const ib = pri.indexOf(b.appRoute);
+    const va = ia === -1 ? 800 : ia;
+    const vb = ib === -1 ? 800 : ib;
+    if (va !== vb) return va - vb;
+    return String(a.label).localeCompare(String(b.label));
+  });
 }
 
 function _layout(state) {
   const name = state.profile?.nombreCompleto || state.profile?.nombre || state.profile?.email || 'Usuario';
   const roleLabel = ROLE_LABELS[state.role] || state.role;
-  const showDebug = state.role === 'PROGRAMADOR' || _debugMode();
+  const showDebug = _debugMode();
+  const showAdminPending = _isAdminRole(state.role);
   return `
 <section class="appdash">
   <div class="appdash__hero">
     <div class="appdash__card">
-      <p style="font-size:12px;color:#64748b;margin:0 0 4px;">${esc(_greeting())}</p>
-      <h1 style="font-size:26px;margin:0;color:#0f172a;">Hola, ${esc(name.split(' ')[0])}</h1>
-      <p class="appdash__meta" style="margin-top:6px;">${esc(roleLabel)} · <span id="appDashPlaza">${esc(state.plaza || '—')}</span> · ${esc(state.company)}</p>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        <a data-app-route="/app/mapa" href="/app/mapa" style="font-size:12px;padding:6px 10px;border-radius:999px;background:#dcfce7;color:#166534;text-decoration:none;">Ir a mapa</a>
-        <a data-app-route="/app/profile" href="/app/profile" style="font-size:12px;padding:6px 10px;border-radius:999px;background:#e2e8f0;color:#334155;text-decoration:none;">Ver perfil</a>
+      <p class="appdash__hello">${esc(_greeting())}</p>
+      <h1 class="appdash__h1">Hola, ${esc(name.split(' ')[0])}</h1>
+      <p class="appdash__meta">${esc(roleLabel)} · <span id="appDashPlaza">${esc(state.plaza || '—')}</span> · ${esc(state.company)}</p>
+      <div class="appdash__quick-actions">
+        <a data-app-route="/app/mapa" href="/app/mapa" class="appdash__pill appdash__pill--primary">Mapa</a>
+        <a data-app-route="/app/profile" href="/app/profile" class="appdash__pill">Perfil</a>
       </div>
     </div>
-    <div class="appdash__card">
-      <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;">Foco de plaza</div>
-      <div style="margin-top:8px;font-size:13px;color:#334155;">Cambia la plaza desde el header para refrescar resumen operativo sin recargar página.</div>
-      <a href="/home" style="display:inline-block;margin-top:12px;font-size:12px;color:#0f172a;">Abrir home legacy (fallback)</a>
+    <div class="appdash__card appdash__card--muted">
+      <div class="appdash__eyebrow">Plaza activa</div>
+      <p class="appdash__lede">Los números y el mapa rápido siguen la plaza del header. Cambia plaza ahí para actualizar todo el tablero.</p>
+      <a href="/home" class="appdash__subtle-link">Ir al inicio classic</a>
+    </div>
+  </div>
+
+  <div class="appdash__pend-wrap">
+    <h2 class="appdash__section-title">Pendientes y seguimiento</h2>
+    <div class="appdash__pend-grid">
+      <a data-app-route="/app/cola-preparacion" href="/app/cola-preparacion" class="appdash__pend-card">
+        <span id="appDashPendCola" class="appdash__pend-n">—</span>
+        <span class="appdash__pend-l">Salidas sin checklist completo</span>
+        <span class="appdash__pend-hint">Cola de preparación</span>
+      </a>
+      <a data-app-route="/app/incidencias" href="/app/incidencias" class="appdash__pend-card">
+        <span id="appDashPendInc" class="appdash__pend-n">—</span>
+        <span class="appdash__pend-l">Incidencias abiertas</span>
+        <span class="appdash__pend-hint">notas_admin · plaza</span>
+      </a>
+      <a data-app-route="/app/mensajes" href="/app/mensajes" class="appdash__pend-card">
+        <span id="appDashPendMsg" class="appdash__pend-n">—</span>
+        <span class="appdash__pend-l">Mensajes sin leer</span>
+        <span class="appdash__pend-hint">Bandeja</span>
+      </a>
+      <a data-app-route="/app/admin" href="/app/admin?tab=solicitudes" class="appdash__pend-card" ${showAdminPending ? '' : 'hidden'} id="appDashPendSolCard">
+        <span id="appDashPendSol" class="appdash__pend-n">—</span>
+        <span class="appdash__pend-l">Solicitudes pendientes</span>
+        <span class="appdash__pend-hint">Admin</span>
+      </a>
     </div>
   </div>
 
@@ -132,12 +185,12 @@ function _layout(state) {
   <div class="appdash__card appdash__map-preview">
     <div class="appdash__map-header">
       <div>
-        <div class="appdash__eyebrow">Vista rápida del mapa operativo</div>
+        <div class="appdash__eyebrow">Mapa · vista rápida</div>
         <strong class="appdash__map-title">Plaza <span id="appDashMapPlaza">${esc(state.plaza || '—')}</span></strong>
       </div>
       <div class="appdash__map-actions">
-        <a data-app-route="/app/mapa" href="/app/mapa" class="appdash__chip-link">Abrir mapa en App Shell</a>
-        <a href="/mapa" class="appdash__chip-link appdash__chip-link--alt">Abrir mapa completo</a>
+        <a data-app-route="/app/mapa" href="/app/mapa" class="appdash__chip-link">Abrir en App</a>
+        <a href="/mapa" class="appdash__chip-link appdash__chip-link--alt">Mapa classic</a>
       </div>
     </div>
     <div id="appDashMapPreviewBody" class="appdash__map-body">
@@ -145,7 +198,7 @@ function _layout(state) {
     </div>
   </div>
 
-  <h2 style="font-size:12px;font-weight:800;color:#64748b;margin:0 0 8px;">Módulos disponibles</h2>
+  <h2 class="appdash__section-title">Accesos</h2>
   <div class="appdash__modules" id="appDashModules">
     ${state.modules.map(mod => `
       <a class="appdash__module" data-app-route="${esc(mod.appRoute)}" href="${esc(mod.appRoute)}" data-module-text="${esc((mod.label + ' ' + mod.keywords).toLowerCase())}">
@@ -158,9 +211,9 @@ function _layout(state) {
   </div>
 
   ${showDebug ? `
-    <div class="appdash__card" style="margin-top:14px;background:#0b1220;border-color:#1e293b;">
-      <div style="font-size:11px;color:#94a3b8;font-weight:800;text-transform:uppercase;">Debug / roadmap</div>
-      <div style="margin-top:8px;font-size:12px;color:#cbd5e1;">Visible solo para PROGRAMADOR o mex.debug.mode=1.</div>
+    <div class="appdash__card appdash__dev-only">
+      <div class="appdash__eyebrow">Solo diagnóstico (mex.debug.mode)</div>
+      <p class="appdash__dev-text">Herramientas internas; no uses en operación.</p>
     </div>
   ` : ''}
 
@@ -184,6 +237,40 @@ async function _loadMetrics() {
     }).length
     : 0;
   _state.metrics = { unidades: cuadre, externos, incidencias: notas, solicitudes };
+}
+
+async function _loadPending() {
+  if (!_state) return;
+  const plaza = String(_state.plaza || '').toUpperCase().trim();
+  const pending = { colaNotReady: null, colaTotal: null, msgUnread: null };
+  if (plaza) {
+    try {
+      const snap = await db.collection('cola_preparacion').doc(plaza).collection('items').limit(150).get();
+      let notReady = 0;
+      snap.forEach(doc => {
+        const x = doc.data() || {};
+        const c = typeof x.checklist === 'object' ? x.checklist : x;
+        const ok = ['lavado', 'gasolina', 'docs', 'revision'].every(k => c[k] === true);
+        if (!ok) notReady += 1;
+      });
+      pending.colaNotReady = notReady;
+      pending.colaTotal = snap.size;
+    } catch (_) {
+      pending.colaNotReady = null;
+    }
+  }
+  try {
+    const p = _state.profile || {};
+    const handle = String(p.email || p.nombre || p.nombreCompleto || '').trim();
+    if (handle) {
+      const rows = await obtenerMensajesPrivados(handle.toUpperCase()).catch(() => []);
+      const unread = (Array.isArray(rows) ? rows : []).filter(m => !m.leido && !m.esMio).length;
+      pending.msgUnread = unread;
+    }
+  } catch (_) {
+    pending.msgUnread = null;
+  }
+  _state.pending = pending;
 }
 
 async function _loadMapPreview() {
@@ -251,6 +338,13 @@ function _render() {
   _setText('#appDashKpiInc', _state.metrics.incidencias);
   _setText('#appDashKpiSol', _state.metrics.solicitudes);
   _setText('#appDashMapPlaza', _state.plaza || '—');
+  const pen = _state.pending || {};
+  _setText('#appDashPendCola', pen.colaNotReady != null ? String(pen.colaNotReady) : '—');
+  _setText('#appDashPendInc', String(_state.metrics.incidencias ?? '—'));
+  _setText('#appDashPendMsg', pen.msgUnread != null ? String(pen.msgUnread) : '—');
+  _setText('#appDashPendSol', String(_state.metrics.solicitudes ?? '—'));
+  const solCard = _container?.querySelector('#appDashPendSolCard');
+  if (solCard) solCard.hidden = !_isAdminRole(_state.role);
   _renderMapPreview();
   _applyQuery();
 }
@@ -280,7 +374,10 @@ function _applyQuery() {
     const looksLikeUnit = /^[a-z0-9-]{2,}$/i.test(_state.query || '');
     action.hidden = !(hasQuery && looksLikeUnit);
     if (!action.hidden) {
-      action.setAttribute('href', `/app/mapa?q=${encodeURIComponent(_state.query)}`);
+      const qe = encodeURIComponent(_state.query);
+      const full = `/app/mapa?q=${qe}`;
+      action.setAttribute('href', full);
+      action.setAttribute('data-app-route', full);
     }
   }
   const hitEl = _container?.querySelector('#appDashMapSearchHit');
@@ -302,7 +399,7 @@ function _kpi(id, label) {
 }
 
 function _isAdminRole(role) {
-  return ['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR'].includes(String(role || ''));
+  return ['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR','VENTAS'].includes(String(role || ''));
 }
 
 async function _safeCount(promise) {
@@ -362,9 +459,10 @@ function _renderMapPreview() {
 
   body.innerHTML = `
     <div class="appdash__map-kpis">
-      <div><strong>${esc(preview.unitCount)}</strong><span>Unidades en mapa</span></div>
-      <div><strong>${esc(s.slotsTotal ?? 0)}</strong><span>Celdas (estructura)</span></div>
-      <div><strong>${esc(s.occupiedSlots ?? 0)}</strong><span>Celdas ocupadas</span></div>
+      <div><strong>${esc(preview.unitCount)}</strong><span>Unidades</span></div>
+      <div><strong>${esc(s.slotsTotal ?? 0)}</strong><span>Celdas mapa</span></div>
+      <div><strong>${esc(s.occupiedSlots ?? 0)}</strong><span>Ocupadas</span></div>
+      <div><strong>${esc(Math.max(0, (s.slotsTotal ?? 0) - (s.occupiedSlots ?? 0)))}</strong><span>Libres</span></div>
     </div>
     <p id="appDashMapSearchHit" class="appdash__map-hit" hidden></p>
     <div class="appdash__map-mini-wrap">
@@ -410,7 +508,7 @@ function _renderMapPreview() {
         <div class="appdash__map-bucket-hint">Total clasificados: <strong>${esc(statesTotal)}</strong></div>
       </div>
     </div>
-    <a id="appDashSearchMapAction" hidden href="/app/mapa" class="appdash__map-search-action">Buscar en mapa operativo</a>
+    <a id="appDashSearchMapAction" hidden href="/app/mapa" data-app-route="/app/mapa" class="appdash__map-search-action appdash__pill-link">Ir al mapa con esta búsqueda</a>
   `;
   _applyQuery();
 }

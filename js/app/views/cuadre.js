@@ -18,7 +18,11 @@ const FILTERS = [
   { id: 'doble-cero', label: 'Doble cero' },
   { id: 'apartado', label: 'Apartados' },
   { id: 'urgente', label: 'Urgente' },
-  { id: 'resguardo', label: 'Resguardo' }
+  { id: 'resguardo', label: 'Resguardo' },
+  { id: 'listo', label: 'Listos' },
+  { id: 'no-arrendable', label: 'No arrendable' },
+  { id: 'mantenimiento', label: 'Mtto / sucio' },
+  { id: 'externos', label: 'Externos' }
 ];
 
 function _makeState(plaza) {
@@ -148,7 +152,14 @@ function _bindEvents() {
   qsa('[data-cqv-tab]').forEach(btn => btn.addEventListener('click', () => {
     _state.tab = btn.dataset.cqvTab || 'regular';
     qsa('[data-cqv-tab]').forEach(x => x.classList.toggle('is-active', x === btn));
+    _applyFiltersAndSort();
+    _renderSummary();
+    _renderTable();
+    _syncDetail();
   }));
+  q('#cqvRefresh')?.addEventListener('click', () => {
+    if (_state?.plaza) _startListener(_state.plaza);
+  });
   qsa('[data-cqv-filter]').forEach(btn => btn.addEventListener('click', () => {
     _state.filter = btn.dataset.cqvFilter || 'all';
     qsa('[data-cqv-filter]').forEach(x => x.classList.toggle('is-active', x === btn));
@@ -161,11 +172,16 @@ function _bindEvents() {
 
 function _matchFilter(item) {
   const f = _state.filter;
+  const est = String(item.estado || '').toUpperCase();
   if (f === 'all') return true;
-  if (f === 'resguardo') return item.estado === 'RESGUARDO';
+  if (f === 'resguardo') return est === 'RESGUARDO';
   if (f === 'doble-cero') return /doble\s*cero|00/i.test(item.notas || '');
   if (f === 'apartado') return /apartad/i.test(item.notas || '');
   if (f === 'urgente') return /urgent|⚠|prior/i.test(item.notas || '');
+  if (f === 'listo') return est === 'LISTO';
+  if (f === 'no-arrendable') return est.includes('NO ARREND');
+  if (f === 'mantenimiento') return est === 'MANTENIMIENTO' || est === 'SUCIO';
+  if (f === 'externos') return String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO');
   return true;
 }
 
@@ -202,29 +218,58 @@ function _applyFiltersAndSort() {
 function _renderNoPlaza() {
   _renderSummary();
   _renderDetail(null);
-  _setHTML('#cqvTableBody', `<tr><td colspan="7"><div class="cqv__empty">Selecciona una plaza para ver el cuadre.</div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="8"><div class="cqv__empty">Selecciona una plaza para ver el cuadre.</div></td></tr>`);
 }
 
 function _renderTableSkeleton() {
-  _setHTML('#cqvTableBody', `<tr><td colspan="7"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="8"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
 }
 
 function _renderTableError(msg) {
-  _setHTML('#cqvTableBody', `<tr><td colspan="7"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__btn" href="/cuadre" style="margin-top:10px;">Abrir módulo completo</a></div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="8"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir cuadre classic</a></div></td></tr>`);
 }
 
 function _renderSummary() {
   const src = _state?.allItems || [];
   _setText('#cqvSummaryTotal', src.length);
   _setText('#cqvSummaryListo', src.filter(x => x.estado === 'LISTO').length);
+  _setText('#cqvSummaryExternos', src.filter(x => String(x.tipo || '').toLowerCase() === 'externo').length);
   _setText('#cqvSummaryResguardo', src.filter(x => x.estado === 'RESGUARDO').length);
+  const byEst = {};
+  src.forEach(x => {
+    const e = String(x.estado || 'SIN ESTADO').trim() || 'SIN ESTADO';
+    byEst[e] = (byEst[e] || 0) + 1;
+  });
+  const topEst = Object.entries(byEst).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const el = q('#cqvSummaryEstados');
+  if (el) {
+    el.innerHTML = topEst.length
+      ? topEst.map(([k, v]) => `<span class="cqv__stat-pill">${esc(k)} <b>${v}</b></span>`).join('')
+      : '<span class="cqv__stat-muted">—</span>';
+  }
+  const ub = {};
+  src.forEach(x => {
+    const u = String(x.ubicacion || '—').trim() || '—';
+    ub[u] = (ub[u] || 0) + 1;
+  });
+  const topUb = Object.entries(ub).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const ubEl = q('#cqvSummaryUbic');
+  if (ubEl) {
+    ubEl.innerHTML = topUb.length
+      ? topUb.map(([k, v]) => `<span class="cqv__stat-pill">${esc(k)} <b>${v}</b></span>`).join('')
+      : '<span class="cqv__stat-muted">—</span>';
+  }
 }
 
 function _renderTable() {
   const tbody = q('#cqvTableBody');
   if (!tbody) return;
+  if ((_state.tab || 'regular') === 'admins') {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="cqv__empty">Cuadre administrativo y reportes completos están en la <a class="cqv__link" href="/cuadre">consola classic</a>.</div></td></tr>`;
+    return;
+  }
   if (!_state.items.length) {
-    tbody.innerHTML = `<tr><td colspan="7"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
     return;
   }
   tbody.innerHTML = _state.items.map(item => {
@@ -236,6 +281,7 @@ function _renderTable() {
       <td>${esc(item.placas || '—')}</td>
       <td>${_badge(item.gasolina || 'N/A', '#334155', '#e2e8f0')}</td>
       <td>${_estadoBadge(item.estado || 'SIN ESTADO')}</td>
+      <td>${_badge(String(item.tipo || 'renta').toUpperCase(), '#6d28d9', '#ede9fe')}</td>
       <td>${_badge(item.ubicacion || '—', '#4338ca', '#e0e7ff')}</td>
     </tr>`;
   }).join('');
@@ -265,23 +311,33 @@ function _renderDetail(item) {
   }
   panel.innerHTML = `
     <div class="cqv__detail">
-      <h3 style="margin:0 0 8px;font-size:18px;">${esc(item.mva || '—')}</h3>
+      <h3 class="cqv__detail-title">${esc(item.mva || '—')}</h3>
       <div style="margin-bottom:8px;">${_estadoBadge(item.estado || 'SIN ESTADO')}</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:8px;">${esc(item.modelo || '')}</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+      <p class="cqv__detail-model">${esc(item.modelo || '')}</p>
+      <div class="cqv__detail-grid">
         ${_detailCell('Categoría', item.categoria || '—')}
+        ${_detailCell('Tipo', String(item.tipo || 'renta').toUpperCase())}
         ${_detailCell('Placas', item.placas || '—')}
         ${_detailCell('Gasolina', item.gasolina || '—')}
         ${_detailCell('Ubicación', item.ubicacion || '—')}
+        ${_detailCell('Posición', item.pos || '—')}
         ${_detailCell('Plaza', item.plaza || _state.plaza || '—')}
-        ${_detailCell('Responsable', item.updatedBy || '—')}
+        ${_detailCell('Última actualización', item.updatedAt ? esc(String(item.updatedAt)) : '—')}
       </div>
-      ${item.notas ? `<div style="margin-top:10px;font-size:12px;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;padding:8px;border-radius:8px;">${esc(item.notas)}</div>` : ''}
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
-        <a class="cqv__btn" href="/cuadre">Abrir módulo completo</a>
-        <a class="cqv__btn" href="/mapa">Ver mapa</a>
+      ${item.notas ? `<div class="cqv__notes"><strong>Notas</strong><p>${esc(item.notas)}</p></div>` : ''}
+      <div class="cqv__detail-actions">
+        <button type="button" class="cqv__btn" data-cqv-copy="${esc(item.mva || '')}">Copiar MVA</button>
+        <a class="cqv__btn cqv__btn--primary" href="/cuadre">Consola classic</a>
+        <a class="cqv__btn" href="/mapa">Mapa classic</a>
       </div>
+      <p class="cqv__hint">Solo consulta en App · cambios operativos en classic.</p>
     </div>`;
+  panel.querySelector('[data-cqv-copy]')?.addEventListener('click', async ev => {
+    const mva = ev.target?.getAttribute('data-cqv-copy') || item.mva;
+    try {
+      await navigator.clipboard?.writeText?.(mva);
+    } catch (_) {}
+  });
 }
 
 function _layout({ plaza, role, user }) {
@@ -293,10 +349,10 @@ function _layout({ plaza, role, user }) {
           <span class="cqv__beta">BETA</span>
         </div>
         <div class="cqv__actions">
-          <button class="cqv__btn" type="button">MÁS CONTROLES</button>
-          <a class="cqv__btn cqv__btn--primary" href="/mapa">VER MAPA</a>
-          <a class="cqv__btn" href="/cuadre">Abrir módulo completo</a>
-          <a class="cqv__btn" data-app-route="/app/dashboard" href="/app/dashboard">Volver al dashboard</a>
+          <button class="cqv__btn" type="button" id="cqvRefresh" title="Re-sincronizar datos">Refrescar</button>
+          <a class="cqv__btn cqv__btn--primary" href="/mapa">Mapa classic</a>
+          <a class="cqv__btn" href="/cuadre">Cuadre completo</a>
+          <a class="cqv__btn" data-app-route="/app/dashboard" href="/app/dashboard">Dashboard</a>
         </div>
       </div>
       <div class="cqv__meta">
@@ -308,9 +364,10 @@ function _layout({ plaza, role, user }) {
       <div class="cqv__grid">
         <div class="cqv__panel cqv__panel--left">
           <div class="cqv__tabs">
-            <button class="cqv__tab is-active" data-cqv-tab="regular" type="button">FLOTA REGULAR</button>
-            <button class="cqv__tab" data-cqv-tab="admins" type="button">CUADRE ADMINS</button>
+            <button class="cqv__tab is-active" data-cqv-tab="regular" type="button">Flota patio</button>
+            <button class="cqv__tab" data-cqv-tab="admins" type="button">Admin / classic</button>
           </div>
+          <p class="cqv__toolbar-hint">Busca desde el buscador global del header.</p>
           <div class="cqv__search-row">
             <select id="cqvSort" class="cqv__search" style="max-width:220px;">
               <option value="estado:asc">Estado</option>
@@ -319,24 +376,33 @@ function _layout({ plaza, role, user }) {
               <option value="fecha:desc">Fecha reciente</option>
             </select>
           </div>
-          <div class="cqv__chips">${FILTERS.map((f, i) => `<button class="cqv__chip ${i === 0 ? 'is-active' : ''}" data-cqv-filter="${f.id}" type="button">${esc(f.label)}</button>`).join('')}</div>
+          <div class="cqv__chips cqv__chips--scroll">${FILTERS.map((f, i) => `<button class="cqv__chip ${i === 0 ? 'is-active' : ''}" data-cqv-filter="${f.id}" type="button">${esc(f.label)}</button>`).join('')}</div>
           <div class="cqv__table-wrap">
             <table class="cqv__table">
-              <thead><tr><th>MVA</th><th>Categoría</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Ubicación</th></tr></thead>
+              <thead><tr><th>MVA</th><th>Cat.</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Tipo</th><th>Ubic.</th></tr></thead>
               <tbody id="cqvTableBody"></tbody>
             </table>
           </div>
         </div>
         <aside class="cqv__side">
-          <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Total flota</div><div id="cqvSummaryTotal" class="cqv__kpi-value">0</div></div>
-          <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Listos renta</div><div id="cqvSummaryListo" class="cqv__kpi-value" style="color:#16a34a;">0</div></div>
-          <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Resguardo</div><div id="cqvSummaryResguardo" class="cqv__kpi-value" style="color:#475569;">0</div></div>
-          <div class="cqv__panel cqv__detail">
-            <a class="cqv__btn" href="/cuadre" style="width:100%;justify-content:center;">Registrar nueva unidad</a>
-            <div style="margin-top:8px;font-size:12px;color:#64748b;">Nuevo registro</div>
-            <input class="cqv__search" placeholder="Buscar en base maestra" disabled>
+          <div class="cqv__kpi-grid">
+            <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Total flota</div><div id="cqvSummaryTotal" class="cqv__kpi-value">0</div></div>
+            <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Listos</div><div id="cqvSummaryListo" class="cqv__kpi-value" style="color:#16a34a;">0</div></div>
+            <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Externos</div><div id="cqvSummaryExternos" class="cqv__kpi-value" style="color:#6d28d9;">0</div></div>
+            <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Resguardo</div><div id="cqvSummaryResguardo" class="cqv__kpi-value" style="color:#475569;">0</div></div>
           </div>
-          <div id="cqvDetail" class="cqv__panel"></div>
+          <div class="cqv__panel cqv__notice">
+            <strong>Modo consulta</strong>
+            <p>Altas, bajas y cambios de estado se gestionan en la consola classic.</p>
+            <a class="cqv__btn cqv__btn--primary" href="/cuadre" style="width:100%;justify-content:center;margin-top:8px;">Abrir cuadre classic</a>
+          </div>
+          <div class="cqv__panel cqv__mini-stats">
+            <div class="cqv__mini-title">Por estado (top)</div>
+            <div id="cqvSummaryEstados" class="cqv__mini-body"></div>
+            <div class="cqv__mini-title">Por ubicación</div>
+            <div id="cqvSummaryUbic" class="cqv__mini-body"></div>
+          </div>
+          <div id="cqvDetail" class="cqv__panel cqv__detail-wrap"></div>
         </aside>
       </div>
     </section>`;
@@ -350,6 +416,16 @@ function _badge(text, color, bg) { return `<span class="cqv__badge" style="color
 function _estadoBadge(estado) { return _badge(estado, ESTADO_COLOR[estado] || '#475569', (ESTADO_COLOR[estado] || '#475569') + '22'); }
 function _setText(selector, value) { const el = q(selector); if (el) el.textContent = String(value ?? ''); }
 function _setHTML(selector, html) { const el = q(selector); if (el) el.innerHTML = html; }
+
+function _fmtUpdated(v) {
+  if (!v) return '—';
+  try {
+    if (typeof v.toDate === 'function') {
+      return v.toDate().toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+  } catch (_) {}
+  return esc(String(v));
+}
 
 function _parseDate(value) {
   if (!value) return 0;

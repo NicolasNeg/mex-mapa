@@ -181,7 +181,7 @@
 .cqv__table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 880px;
+  min-width: 920px;
 }
 
 .cqv__table th,
@@ -258,11 +258,142 @@
   font-size: 13px;
 }
 
+.cqv__toolbar-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 0 0 8px;
+}
+
+.cqv__chips--scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cqv__kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.cqv__notice {
+  padding: 12px;
+  font-size: 12px;
+  color: #475569;
+  line-height: 1.45;
+}
+
+.cqv__notice strong {
+  display: block;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.cqv__mini-stats {
+  padding: 12px;
+}
+
+.cqv__mini-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: #94a3b8;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.cqv__mini-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.cqv__stat-pill {
+  font-size: 10px;
+  font-weight: 700;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #475569;
+}
+
+.cqv__stat-pill b {
+  color: #0f172a;
+  margin-left: 4px;
+}
+
+.cqv__stat-muted {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.cqv__detail-wrap {
+  padding: 0;
+  min-height: 120px;
+}
+
+.cqv__detail-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: var(--cq-primary);
+}
+
+.cqv__detail-model {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0 0 8px;
+}
+
+.cqv__detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.cqv__notes {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  border-radius: 8px;
+}
+
+.cqv__notes p {
+  margin: 6px 0 0;
+}
+
+.cqv__detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cqv__hint {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.cqv__link {
+  color: #0b2548;
+  font-weight: 700;
+}
+
 @media (max-width: 1100px) {
   .cqv__grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .cqv__side {
     position: static;
+  }
+}
+
+@media (max-width: 480px) {
+  .cqv__title {
+    font-size: 22px;
   }
 }
