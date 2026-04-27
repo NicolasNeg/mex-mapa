@@ -4,6 +4,8 @@ import { obtenerMensajesPrivados, enviarMensajePrivado, marcarMensajesLeidosArra
 let _container = null;
 let _state = null;
 let _offGlobalSearch = null;
+let _refreshTimer = null;
+const _REFRESH_MS = 45000;
 
 function q(sel) { return _container?.querySelector(sel) || null; }
 function _up(v) { return String(v || '').trim().toUpperCase(); }
@@ -94,6 +96,14 @@ export async function mount({ container }) {
   _bindGlobalSearch();
   _bindActions();
   _loadMessages();
+  if (_refreshTimer) {
+    try { clearInterval(_refreshTimer); } catch (_) {}
+    _refreshTimer = null;
+  }
+  _refreshTimer = setInterval(() => {
+    if (document.hidden || !_state || !_container) return;
+    _loadMessages();
+  }, _REFRESH_MS);
 }
 
 export function unmount() { _cleanup(); }
@@ -103,6 +113,10 @@ function _cleanup() {
     try { _offGlobalSearch(); } catch (_) {}
   }
   _offGlobalSearch = null;
+  if (_refreshTimer) {
+    try { clearInterval(_refreshTimer); } catch (_) {}
+    _refreshTimer = null;
+  }
   _state = null;
   _container = null;
 }
@@ -351,7 +365,7 @@ function _renderDetail() {
     <div style="padding:12px;border-bottom:1px solid #eef2f7;">
       <strong style="font-size:13px;color:#0f172a;">${esc(display)}</strong>
       ${convo.peerEmail ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${esc(convo.peerEmail.toUpperCase())}</div>` : ''}
-      <div style="font-size:11px;color:#64748b;margin-top:2px;">Conversación real · envío simple</div>
+      <div style="font-size:11px;color:#64748b;margin-top:2px;">Últimos mensajes sincronizados</div>
     </div>
     <div style="max-height:54vh;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
       ${msgs.length ? msgs.map(m => {
@@ -362,8 +376,8 @@ function _renderDetail() {
         </div>`;
       }).join('') : `<div style="font-size:12px;color:#94a3b8;">Sin mensajes en esta conversación.</div>`}
     </div>
-    <div style="padding:12px;border-top:1px solid #eef2f7;">
-      <a href="/mensajes" style="font-size:12px;color:#0f172a;text-decoration:underline;">Abrir mensajes completos</a>
+      <div style="padding:12px;border-top:1px solid #eef2f7;">
+      <a href="/mensajes" style="font-size:11px;color:#64748b;">Versión completa en classic</a>
     </div>
   `;
   _disableComposer(false);
@@ -412,7 +426,7 @@ function _layout(me) {
         <span style="font-size:11px;color:#64748b;background:#e2e8f0;border-radius:999px;padding:3px 9px;">${esc(me)}</span>
         <span id="appMsgUnread" style="font-size:11px;color:#334155;background:#e2e8f0;border-radius:999px;padding:3px 9px;">Sin no leídos</span>
         <button id="appMsgRefresh" type="button" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 10px;font-size:12px;cursor:pointer;">Refrescar</button>
-        <a href="/mensajes" style="margin-left:auto;font-size:12px;color:#0f172a;">Abrir mensajes completos</a>
+        <a href="/mensajes" style="margin-left:auto;font-size:11px;color:#64748b;text-decoration:underline;">Classic</a>
       </div>
       <div id="appMsgGrid" style="display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:12px;">
         <aside id="appMsgList" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;max-height:70vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;"></aside>

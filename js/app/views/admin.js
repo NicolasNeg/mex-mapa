@@ -415,6 +415,9 @@ function _html(profile = {}) {
   return `
 <div style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
   <h1 style="margin:0 0 10px;color:#0f172a;font-size:26px;">Panel admin</h1>
+  <p style="margin:0 0 14px;padding:11px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#475569;line-height:1.45;">
+    <strong>Modo consulta:</strong> Solo lectura y navegación. Para alta/baja de usuarios, cambio de roles o flujos de aprobación usa el panel completo enlazado abajo.
+  </p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
     ${['usuarios','roles','plazas','catalogos','solicitudes'].map(t => `<button data-admin-tab="${t}" style="border:1px solid #dbe3ef;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;background:${t==='usuarios'?'#0f172a':'#fff'};color:${t==='usuarios'?'#fff':'#475569'};cursor:pointer;text-transform:capitalize;">${t}</button>`).join('')}
     <a href="/gestion" style="margin-left:auto;font-size:12px;color:#0f172a;">Abrir panel admin completo</a>

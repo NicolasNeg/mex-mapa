@@ -681,6 +681,11 @@ function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampVa
   const archivos = _dedupeEvidenceItems(_normalizeEvidenceItems(adjuntos));
   const fecha = _sanitizeText(data.fecha) || _now();
 
+  const plazaField = _sanitizeText(data.plaza || data.plazaID || data.plazaId || '');
+  const mvaField = _sanitizeText(data.mva || data.unidad || '');
+  const tipoField = _sanitizeText(data.tipo || '');
+  const sourceField = _sanitizeText(data.source || '');
+
   return {
     timestamp,
     fecha,
@@ -695,7 +700,11 @@ function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampVa
     resueltaEn: _sanitizeText(data.resueltaEn || ""),
     codigo: _sanitizeText(data.codigo || "") || _buildIncidentCode(timestamp),
     adjuntos: archivos,
-    version: Number(data.version || 1) || 1
+    version: Number(data.version || 1) || 1,
+    ...(plazaField ? { plaza: plazaField.toUpperCase().trim() } : {}),
+    ...(mvaField ? { mva: mvaField.toUpperCase().trim() } : {}),
+    ...(tipoField ? { tipo: tipoField } : {}),
+    ...(sourceField ? { source: sourceField } : {})
   };
 }
 

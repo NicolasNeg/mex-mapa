@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
-import { subscribeIncidencias } from '/js/app/features/incidencias/incidencias-data.js';
+import { subscribeIncidencias, createIncidencia, resolveIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
 
 let _container = null;
 let _state = null;
@@ -91,6 +91,7 @@ export async function mount(ctx) {
   _bindSort();
   _bindFilters();
   _bindGlobalSearch();
+  _bindIncComposer();
 
   _unsubPlaza = onPlazaChange(nextPlaza => {
     _reloadForPlaza(nextPlaza);
@@ -272,6 +273,49 @@ function _bindFilters() {
   });
 }
 
+function _bindIncComposer() {
+  const btn = q('incAppCreateBtn');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (!_state?.plaza) {
+      alert('Selecciona una plaza antes de crear una incidencia.');
+      return;
+    }
+    const titulo = String(q('incNewTitle')?.value || '').trim();
+    const descripcion = String(q('incNewDesc')?.value || '').trim();
+    const prioridad = String(q('incNewPri')?.value || 'media').toLowerCase();
+    const mva = String(q('incNewMva')?.value || '').trim().toUpperCase();
+    if (!titulo || !descripcion) {
+      alert('Completa título y descripción.');
+      return;
+    }
+    const gs = getState();
+    const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
+    btn.disabled = true;
+    try {
+      await createIncidencia({
+        titulo,
+        descripcion,
+        nota: descripcion,
+        prioridad,
+        plazaID: _state.plaza,
+        plaza: _state.plaza,
+        mva: mva || undefined,
+        autor,
+        creadoPor: autor,
+        source: 'app_shell'
+      });
+      q('incNewTitle').value = '';
+      q('incNewDesc').value = '';
+      q('incNewMva').value = '';
+    } catch (e) {
+      alert(e?.message || 'No se pudo crear la incidencia.');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
 function _renderNoPlaza() {
   _renderSummary();
   _renderDetail(null);
@@ -377,6 +421,8 @@ function _renderDetail(item) {
   const evidencias = Array.isArray(item.evidencias)
     ? item.evidencias
     : (Array.isArray(item.evidenciaUrls) ? item.evidenciaUrls : []);
+  const hrefs = evidencias.map(_evidenceHref).filter(Boolean);
+  const open = _isOpen(item);
 
   detail.innerHTML = `
     <div style="padding:16px;">
@@ -389,17 +435,57 @@ function _renderDetail(item) {
         ${_detailField('MVA', item.mva || item.unidad || '—')}
         ${_detailField('Plaza', item.plaza || _state.plaza || '—')}
       </div>
+      ${item.solucion ? _detailBlock('Solución registrada', item.solucion) : ''}
+      ${(item.resueltoPor || item.quienResolvio) ? _detailField('Resuelto por', item.resueltoPor || item.quienResolvio || '—') : ''}
       <div style="margin-top:14px;">
         <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Evidencias</div>
-        ${evidencias.length ? `
+        ${hrefs.length ? `
           <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px;">
-            ${evidencias.map(url => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#2b6954;word-break:break-all;">${esc(url)}</a>`).join('')}
+            ${hrefs.map(url => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#2b6954;word-break:break-all;">${esc(url)}</a>`).join('')}
           </div>
         ` : `<div style="margin-top:6px;font-size:12px;color:#64748b;">Sin evidencias adjuntas.</div>`}
       </div>
-      <a href="/incidencias" style="display:inline-flex;margin-top:16px;color:#2b6954;font-size:12px;text-decoration:underline;">Abrir módulo completo</a>
+      ${open ? `
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #f1f5f9;">
+        <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Resolver (notas_admin)</div>
+        <textarea id="incResolveSol" rows="3" placeholder="Describe la solución aplicada..."
+          style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>
+        <button type="button" id="incAppResolveBtn"
+          style="margin-top:8px;width:100%;border:none;border-radius:8px;background:#0f172a;color:#fff;padding:10px 12px;font-size:12px;font-weight:800;cursor:pointer;">
+          Marcar como resuelta
+        </button>
+      </div>` : ''}
+      <a href="/incidencias" style="display:inline-flex;margin-top:16px;color:#64748b;font-size:11px;text-decoration:underline;">Historial / vista legacy</a>
     </div>
   `;
+
+  const rb = detail.querySelector('#incAppResolveBtn');
+  rb?.addEventListener('click', async () => {
+    const sol = String(detail.querySelector('#incResolveSol')?.value || '').trim();
+    if (!sol) {
+      alert('Escribe una breve solución antes de resolver.');
+      return;
+    }
+    if (!confirm('¿Marcar esta incidencia como resuelta en notas_admin? Esta acción queda registrada.')) return;
+    const gs = getState();
+    const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
+    rb.disabled = true;
+    try {
+      await resolveIncidencia(item.legacyNotaId || item.id, sol, autor);
+    } catch (e) {
+      alert(e?.message || 'No se pudo resolver la incidencia.');
+    } finally {
+      rb.disabled = false;
+    }
+  });
+}
+
+function _detailBlock(label, body) {
+  return `
+    <div style="margin-top:12px;background:#f8fafc;border-radius:8px;padding:10px;">
+      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">${esc(label)}</div>
+      <div style="margin-top:6px;font-size:12px;color:#334155;line-height:1.55;">${esc(body)}</div>
+    </div>`;
 }
 
 function _detailField(label, value) {
@@ -462,6 +548,30 @@ function _skeleton({ plaza, role, user }) {
         <p style="margin:4px 0 0;font-size:13px;color:#64748b;">${esc(user)} · ${esc(role || 'AUXILIAR')}</p>
       </div>
 
+      <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;background:#fafafa;">
+        <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:10px;">Registrar incidencia · misma base que el mapa y la vista legacy</div>
+        <div style="display:grid;gap:8px;">
+          <input id="incNewTitle" type="text" placeholder="Título"
+            style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;" />
+          <textarea id="incNewDesc" rows="2" placeholder="Describe el incidente..."
+            style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;font-family:inherit;resize:vertical;"></textarea>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <select id="incNewPri" style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;">
+              <option value="alta">Prioridad alta</option>
+              <option value="media" selected>Prioridad media</option>
+              <option value="baja">Prioridad baja</option>
+            </select>
+            <input id="incNewMva" type="text" placeholder="MVA (opcional)"
+              style="flex:1;min-width:140px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;" />
+          </div>
+          <button type="button" id="incAppCreateBtn"
+            style="justify-self:start;border:none;border-radius:8px;background:#2b6954;color:#fff;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;">
+            Guardar incidencia
+          </button>
+          <div style="font-size:11px;color:#64748b;">La incidencia queda ligada a la plaza global actual. Para adjuntos usa el módulo legacy.</div>
+        </div>
+      </div>
+
       <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;">
         ${_summaryCard('incAppSummaryTotal', 'Total')}
         ${_summaryCard('incAppSummaryOpen', 'Abiertas')}
@@ -507,4 +617,10 @@ function esc(value) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
+}
+
+function _evidenceHref(ev) {
+  if (!ev) return '';
+  if (typeof ev === 'string') return ev.trim();
+  return String(ev.url || ev.href || ev.path || '').trim();
 }
