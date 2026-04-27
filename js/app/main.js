@@ -21,6 +21,7 @@ import { ShellLayout }              from '/js/shell/shell-layout.js';
 import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas } from '/js/app/app-state.js';
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
+import { getNotificationsSummary } from '/js/app/features/notifications/notifications-summary.js';
 
 // ── Boot ────────────────────────────────────────────────────
 async function boot() {
@@ -81,6 +82,73 @@ async function boot() {
   appRoot.style.display = '';
 
   const shell = new ShellLayout();
+  let notifSummary = { total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 };
+  let notifTimer = null;
+  let notifMenuEl = null;
+  let notifMenuOutsideHandler = null;
+  let router = null;
+  const closeNotifMenu = () => {
+    if (notifMenuEl?.parentNode) notifMenuEl.parentNode.removeChild(notifMenuEl);
+    notifMenuEl = null;
+    if (notifMenuOutsideHandler) {
+      document.removeEventListener('pointerdown', notifMenuOutsideHandler);
+      notifMenuOutsideHandler = null;
+    }
+  };
+  const openNotifMenu = () => {
+    closeNotifMenu();
+    const bellBtn = shell?.header?.element?.querySelector('#mexHdrBell');
+    if (!bellBtn) {
+      shell?.sidebar?.closeMobileDrawer?.();
+      return;
+    }
+    const menu = document.createElement('div');
+    menu.id = 'mexHdrNotifMenu';
+    menu.style.position = 'fixed';
+    menu.style.zIndex = '240';
+    menu.style.width = 'min(290px, calc(100vw - 16px))';
+    menu.style.background = '#fff';
+    menu.style.border = '1px solid #e2e8f0';
+    menu.style.borderRadius = '10px';
+    menu.style.boxShadow = '0 14px 30px rgba(2,6,23,.18)';
+    menu.style.padding = '8px';
+    const rect = bellBtn.getBoundingClientRect();
+    const left = Math.max(8, Math.min(window.innerWidth - 300, rect.right - 280));
+    menu.style.left = `${left}px`;
+    menu.style.top = `${rect.bottom + 8}px`;
+    const includeAdmin = Number(notifSummary.solicitudes || 0) > 0;
+    menu.innerHTML = `
+      <div style="padding:6px 8px 8px;border-bottom:1px solid #f1f5f9;">
+        <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;">Pendientes</div>
+        <div style="font-size:12px;color:#0f172a;font-weight:700;">${notifSummary.total || 0} totales</div>
+      </div>
+      ${_notifMenuRow('/app/mensajes', 'Mensajes', notifSummary.mensajes)}
+      ${_notifMenuRow('/app/incidencias', 'Incidencias', notifSummary.incidencias)}
+      ${_notifMenuRow('/app/admin?tab=solicitudes', 'Solicitudes', notifSummary.solicitudes, !includeAdmin)}
+    `;
+    document.body.appendChild(menu);
+    menu.querySelectorAll('[data-app-route]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        closeNotifMenu();
+        if (router?.navigate) router.navigate(btn.dataset.appRoute);
+        else window.location.href = btn.dataset.appRoute;
+      });
+    });
+    notifMenuOutsideHandler = event => {
+      if (!menu.contains(event.target) && !bellBtn.contains(event.target)) closeNotifMenu();
+    };
+    document.addEventListener('pointerdown', notifMenuOutsideHandler);
+    notifMenuEl = menu;
+  };
+  const refreshNotifSummary = async () => {
+    const state = getState();
+    notifSummary = await getNotificationsSummary({
+      profile: state.profile || {},
+      role: state.role || '',
+      plaza: state.currentPlaza || ''
+    }).catch(() => ({ total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 }));
+    shell.setBellBadge(Number(notifSummary.total || 0) > 0);
+  };
   shell.mount({
     container:    appRoot,
     profile,
@@ -92,7 +160,7 @@ async function boot() {
     canSwitchPlaza: getState().canSwitchPlaza,
     onNavigate:   (route) => router.navigate(isMigratedRoute(route) ? toAppRoute(route) : route),
     onLogout:     ()      => handleLogout(),
-    onBellClick:  ()      => handleBellClick(),
+    onBellClick:  ()      => openNotifMenu(),
     onPlazaChange: (nextPlaza) => {
       setCurrentPlaza(nextPlaza, { source: 'app-shell-header' });
     },
@@ -110,10 +178,15 @@ async function boot() {
   loadSpinner?.remove();
 
   // 6. Crear router — renderiza la vista inicial automáticamente
-  const router = createRouter({ shell });
+  router = createRouter({ shell });
+  await refreshNotifSummary();
+  notifTimer = window.setInterval(() => {
+    refreshNotifSummary();
+  }, 60000);
 
   subscribe(state => {
     shell.setPlaza(state.currentPlaza, state.availablePlazas, state.canSwitchPlaza);
+    refreshNotifSummary();
   });
 
   window.addEventListener('mex:plaza-change', event => {
@@ -121,6 +194,10 @@ async function boot() {
     if (!nextPlaza || nextPlaza === getState().currentPlaza) return;
     setCurrentPlaza(nextPlaza, { source: event?.detail?.source || 'legacy-sync' });
   });
+  window.addEventListener('beforeunload', () => {
+    if (notifTimer) clearInterval(notifTimer);
+    closeNotifMenu();
+  }, { once: true });
 }
 
 // ── Handlers ────────────────────────────────────────────────
@@ -133,26 +210,18 @@ async function handleLogout() {
   window.location.replace('/login');
 }
 
-function handleBellClick() {
-  if (typeof window._openAlertsOrNotifications === 'function') {
-    window._openAlertsOrNotifications();
-    return;
-  }
-  if (typeof window.openNotificationCenter === 'function') {
-    window.openNotificationCenter();
-    return;
-  }
-  import('/js/core/notifications.js')
-    .then(mod => {
-      if (typeof mod?.openNotificationCenter === 'function') {
-        window.openNotificationCenter = mod.openNotificationCenter;
-        mod.openNotificationCenter();
-      }
-    })
-    .catch(() => {});
+// ── Helpers ─────────────────────────────────────────────────
+function _notifMenuRow(route, label, count, hidden = false) {
+  if (hidden) return '';
+  const safeCount = Number(count || 0);
+  return `
+    <button data-app-route="${route}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:none;background:#fff;color:#1e293b;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">
+      <span>${label}</span>
+      <span style="font-size:11px;color:${safeCount ? '#b91c1c' : '#64748b'};font-weight:800;">${safeCount || 0}</span>
+    </button>
+  `;
 }
 
-// ── Helpers ─────────────────────────────────────────────────
 function waitForAuth() {
   return new Promise(resolve => {
     const unsubscribe = auth.onAuthStateChanged(user => {
