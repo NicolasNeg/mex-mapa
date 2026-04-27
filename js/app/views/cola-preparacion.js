@@ -156,7 +156,7 @@ function _subscribeQueue(plaza) {
   const expectedPlaza = String(plaza || '').toUpperCase().trim();
 
   try {
-    _unsub = db.collection('cola_preparacion').doc(plaza).collection('items')
+    _unsub = db.collection('cola_preparacion').doc(expectedPlaza).collection('items')
       .onSnapshot(
         snap => {
           if (!_container || !_state) return;          // desmontado mientras cargaba
@@ -172,18 +172,28 @@ function _subscribeQueue(plaza) {
           _renderStats();
         },
         err => {
-          console.error('[cola-prep] Firestore error:', err);
           if (!_container || !_state) return;
           if (subscriptionId !== _queueSubSeq) return; // listener viejo (race condition)
           if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
+          const code = String(err?.code || '').toLowerCase();
+          // En cambios de plaza rápidos pueden llegar errores tardíos de listeners cerrados.
+          if (code === 'permission-denied' && _state.hasSnapshot) {
+            _debugLog('Ignoring late permission-denied after snapshot', { plaza: expectedPlaza });
+            return;
+          }
           // Si ya tenemos datos válidos, ignoramos errores tardíos/stale.
           if ((_state.items || []).length > 0 || _state.hasSnapshot) {
             _debugLog('Ignoring stale error after data', { code: err?.code, message: err?.message, plaza: expectedPlaza });
             return;
           }
+          if (code === 'permission-denied') {
+            _debugLog('Permission denied in active listener', { plaza: expectedPlaza, message: err?.message });
+          } else {
+            console.error('[cola-prep] Firestore error:', err);
+          }
           _state.loading = false;
           _state.hasSnapshot = false;
-          if (String(err?.code || '').toLowerCase() === 'permission-denied') {
+          if (code === 'permission-denied') {
             _state.permissionDenied = true;
             _state.errorMessage = 'No tienes permisos para ver la cola de esta plaza.';
             _renderListByState();

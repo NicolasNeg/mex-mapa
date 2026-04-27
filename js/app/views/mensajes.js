@@ -6,17 +6,69 @@ let _state = null;
 let _offGlobalSearch = null;
 
 function q(sel) { return _container?.querySelector(sel) || null; }
+function _up(v) { return String(v || '').trim().toUpperCase(); }
+function _norm(v) { return String(v || '').trim(); }
+function _normEmail(v) {
+  const x = String(v || '').trim().toLowerCase();
+  return x && x.includes('@') ? x : '';
+}
+
+function _canonicalFrom(raw, explicitEmail = '') {
+  const email = _normEmail(explicitEmail) || _normEmail(raw);
+  if (email) return { key: `EMAIL:${email}`, email, label: email.toUpperCase(), raw: _up(raw) };
+  const norm = _up(raw);
+  return { key: `LEGACY:${norm}`, email: '', label: norm || 'USUARIO', raw: norm };
+}
+
+function _buildMyIdentity(profile) {
+  const aliases = new Set(
+    [profile?.nombre, profile?.usuario, profile?.nombreCompleto, profile?.email]
+      .map(_up)
+      .filter(Boolean)
+  );
+  const email = _normEmail(profile?.email);
+  const emailUpper = email ? email.toUpperCase() : '';
+  if (emailUpper) aliases.add(emailUpper);
+  const display = _up(profile?.nombre || profile?.nombreCompleto || profile?.usuario || emailUpper || 'USUARIO');
+  return {
+    email,
+    display,
+    aliases,
+    queryIdentities: [...aliases]
+  };
+}
+
+function _isMineSide(side) {
+  if (!_state?.me) return false;
+  if (side.email && _state.me.email && side.email === _state.me.email) return true;
+  return _state.me.aliases.has(side.raw);
+}
+
+function _messageSides(msg) {
+  const remitente = _canonicalFrom(msg?.remitente, msg?.remitenteEmail || msg?.remitente_email);
+  const destinatario = _canonicalFrom(msg?.destinatario, msg?.destinatarioEmail || msg?.destinatario_email);
+  return { remitente, destinatario };
+}
+
+function _messageMineAndPeer(msg) {
+  const { remitente, destinatario } = _messageSides(msg);
+  const remitIsMine = _isMineSide(remitente);
+  const destIsMine = _isMineSide(destinatario);
+  let mine = remitIsMine && !destIsMine;
+  if (!remitIsMine && !destIsMine) mine = msg?.esMio === true;
+  if (remitIsMine && destIsMine) mine = msg?.esMio === true;
+  const peerSide = mine ? destinatario : remitente;
+  return { mine, peerSide, remitente, destinatario };
+}
 
 export async function mount({ container }) {
   _cleanup();
   _container = container;
   const gs = getState();
   const profile = gs.profile || {};
-  const me = _resolveIdentity(profile);
-  const meCandidates = _resolveIdentityCandidates(profile);
+  const me = _buildMyIdentity(profile);
   _state = {
     me,
-    meCandidates,
     allMessages: [],
     conversations: [],
     filtered: [],
@@ -26,15 +78,13 @@ export async function mount({ container }) {
     sending: false
   };
 
-  _container.innerHTML = _layout(me);
+  _container.innerHTML = _layout(me.display);
   _bindGlobalSearch();
   _bindActions();
   _loadMessages();
 }
 
-export function unmount() {
-  _cleanup();
-}
+export function unmount() { _cleanup(); }
 
 function _cleanup() {
   if (typeof _offGlobalSearch === 'function') {
@@ -45,30 +95,9 @@ function _cleanup() {
   _container = null;
 }
 
-function _resolveIdentity(profile) {
-  const raw = profile?.nombre || profile?.usuario || profile?.nombreCompleto || profile?.email || 'USUARIO';
-  return String(raw).trim().toUpperCase();
-}
-
-function _resolveIdentityCandidates(profile) {
-  const candidates = [
-    profile?.nombre,
-    profile?.usuario,
-    profile?.nombreCompleto,
-    profile?.email
-  ]
-    .map(v => String(v || '').trim().toUpperCase())
-    .filter(Boolean);
-  return [...new Set(candidates)];
-}
-
 function _bindActions() {
-  q('#appMsgRefresh')?.addEventListener('click', () => {
-    _loadMessages();
-  });
-  q('#appMsgSendBtn')?.addEventListener('click', () => {
-    _sendMessage();
-  });
+  q('#appMsgRefresh')?.addEventListener('click', () => _loadMessages());
+  q('#appMsgSendBtn')?.addEventListener('click', () => _sendMessage());
   q('#appMsgInput')?.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
@@ -82,8 +111,7 @@ function _bindGlobalSearch() {
     if (!_state || !_container) return;
     const route = String(event?.detail?.route || '');
     if (!(route.startsWith('/app/mensajes') || route === '/mensajes')) return;
-    const query = String(event?.detail?.query || '');
-    _state.query = query;
+    _state.query = String(event?.detail?.query || '');
     _applyFilters();
     _renderConversations();
     _renderDetail();
@@ -98,7 +126,7 @@ async function _loadMessages() {
   _disableComposer(true);
   _setBodyLoading('Cargando conversaciones...');
   try {
-    const rows = await _fetchMessagesForAllKnownIdentities(_state.meCandidates);
+    const rows = await _fetchMessagesForAllKnownIdentities(_state.me.queryIdentities);
     if (!_state || !_container) return;
     _state.allMessages = Array.isArray(rows) ? rows : [];
     _rebuildConversations();
@@ -115,42 +143,53 @@ async function _loadMessages() {
 }
 
 async function _fetchMessagesForAllKnownIdentities(identities = []) {
-  const ids = Array.isArray(identities) && identities.length
-    ? identities
-    : [_state?.me || ''];
+  const ids = Array.isArray(identities) && identities.length ? identities : [_state?.me?.display || ''];
   const uniqueRows = new Map();
   await Promise.all(ids.map(async identity => {
-    const safeIdentity = String(identity || '').trim().toUpperCase();
+    const safeIdentity = _up(identity);
     if (!safeIdentity) return;
     try {
       const rows = await obtenerMensajesPrivados(safeIdentity);
       (Array.isArray(rows) ? rows : []).forEach(row => {
         const rowId = String(row?.id || '');
         if (!rowId) return;
-        const normalized = { ...row, esMio: String(row.remitente || '').toUpperCase().trim() === safeIdentity };
-        if (!uniqueRows.has(rowId) || _msgTs(normalized) > _msgTs(uniqueRows.get(rowId))) {
-          uniqueRows.set(rowId, normalized);
-        }
+        const current = uniqueRows.get(rowId);
+        if (!current || _msgTs(row) > _msgTs(current)) uniqueRows.set(rowId, { ...row });
       });
     } catch (_) {}
   }));
   return Array.from(uniqueRows.values()).sort((a, b) => _msgTs(b) - _msgTs(a));
 }
 
+function _conversationByKey(key) {
+  return (_state?.conversations || []).find(c => c.peerKey === key) || null;
+}
+
 async function _sendMessage() {
   if (!_state || _state.sending) return;
-  const peer = String(_state.selectedPeer || '').trim().toUpperCase();
+  const peerKey = String(_state.selectedPeer || '').trim();
+  const convo = _conversationByKey(peerKey);
   const input = q('#appMsgInput');
-  const text = String(input?.value || '').trim();
-  if (!peer || !text) return;
+  const text = _norm(input?.value || '');
+  if (!peerKey || !text || !convo) return;
+
+  const remitenteId = _state.me.email ? _state.me.email.toUpperCase() : _state.me.display;
+  const destinatarioId = convo.preferredHandle || convo.peerEmail?.toUpperCase() || convo.displayLabel;
+  if (!destinatarioId) return;
+
   _state.sending = true;
   _disableComposer(true);
   _setText('#appMsgSendError', '');
   try {
-    await enviarMensajePrivado(_state.me, peer, text);
+    await enviarMensajePrivado(remitenteId, destinatarioId, text, null, null, null, {
+      remitenteEmail: _state.me.email || '',
+      destinatarioEmail: convo.peerEmail || '',
+      remitenteNombre: _state.me.display,
+      destinatarioNombre: convo.displayLabel
+    });
     if (input) input.value = '';
     await _loadMessages();
-    _state.selectedPeer = peer;
+    _state.selectedPeer = peerKey;
     _renderConversations();
     _renderDetail();
   } catch (error) {
@@ -169,15 +208,18 @@ function _disableComposer(disabled) {
   if (btn) btn.disabled = !canWrite;
 }
 
+function _messagePeerKey(msg) {
+  return _messageMineAndPeer(msg).peerSide.key;
+}
+
 async function _markSelectedConversationRead() {
-  const peer = String(_state?.selectedPeer || '').trim().toUpperCase();
-  if (!peer) return;
+  const peerKey = String(_state?.selectedPeer || '').trim();
+  if (!peerKey) return;
   const unreadIncomingIds = _state.allMessages
+    .filter(msg => _messagePeerKey(msg) === peerKey)
     .filter(msg => {
-      const remitente = String(msg.remitente || '').trim().toUpperCase();
-      const destinatario = String(msg.destinatario || '').trim().toUpperCase();
-      const isPeerThread = remitente === peer || destinatario === peer;
-      return isPeerThread && !msg.esMio && !msg.leido && msg.id;
+      const s = _messageMineAndPeer(msg);
+      return !s.mine && !msg.leido && msg.id;
     })
     .map(msg => msg.id);
   if (!unreadIncomingIds.length) return;
@@ -190,23 +232,39 @@ async function _markSelectedConversationRead() {
 function _rebuildConversations() {
   const byPeer = new Map();
   _state.allMessages.forEach(msg => {
-    const remitente = String(msg.remitente || '').toUpperCase().trim();
-    const destinatario = String(msg.destinatario || '').toUpperCase().trim();
-    const peer = msg.esMio ? destinatario : remitente;
-    if (!peer) return;
-    const prev = byPeer.get(peer);
+    const { mine, peerSide } = _messageMineAndPeer(msg);
+    const key = peerSide.key;
+    if (!key) return;
+    const displayLabel = _up(
+      (peerSide.raw && !peerSide.raw.includes('@')) ? peerSide.raw : (peerSide.email || peerSide.raw)
+    ) || peerSide.label;
+    const preferredHandle = peerSide.raw || (peerSide.email ? peerSide.email.toUpperCase() : '');
+    const prev = byPeer.get(key);
     if (!prev) {
-      byPeer.set(peer, { peer, last: msg, total: 1, unread: msg.esMio || msg.leido ? 0 : 1 });
+      byPeer.set(key, {
+        peerKey: key,
+        peerEmail: peerSide.email || '',
+        displayLabel,
+        preferredHandle,
+        last: { ...msg, esMio: mine },
+        total: 1,
+        unread: mine || msg.leido ? 0 : 1
+      });
       return;
     }
     prev.total += 1;
-    if (!msg.esMio && !msg.leido) prev.unread += 1;
-    if (_msgTs(msg) > _msgTs(prev.last)) prev.last = msg;
+    if (!mine && !msg.leido) prev.unread += 1;
+    if (_msgTs(msg) >= _msgTs(prev.last)) {
+      prev.last = { ...msg, esMio: mine };
+      prev.displayLabel = displayLabel || prev.displayLabel;
+      prev.preferredHandle = preferredHandle || prev.preferredHandle;
+      prev.peerEmail = peerSide.email || prev.peerEmail;
+    }
   });
   _state.conversations = Array.from(byPeer.values()).sort((a, b) => _msgTs(b.last) - _msgTs(a.last));
-  if (!_state.selectedPeer && _state.conversations.length) _state.selectedPeer = _state.conversations[0].peer;
-  if (_state.selectedPeer && !_state.conversations.some(c => c.peer === _state.selectedPeer)) {
-    _state.selectedPeer = _state.conversations[0]?.peer || '';
+  if (!_state.selectedPeer && _state.conversations.length) _state.selectedPeer = _state.conversations[0].peerKey;
+  if (_state.selectedPeer && !_state.conversations.some(c => c.peerKey === _state.selectedPeer)) {
+    _state.selectedPeer = _state.conversations[0]?.peerKey || '';
   }
 }
 
@@ -217,7 +275,7 @@ function _applyFilters() {
     return;
   }
   _state.filtered = _state.conversations.filter(c => {
-    const hay = `${c.peer} ${c.last?.mensaje || ''} ${c.last?.remitente || ''} ${c.last?.destinatario || ''} ${_when(c.last)}`.toLowerCase();
+    const hay = `${c.displayLabel} ${c.peerEmail} ${c.last?.mensaje || ''} ${c.last?.remitente || ''} ${c.last?.destinatario || ''} ${_when(c.last)}`.toLowerCase();
     return hay.includes(qx);
   });
 }
@@ -232,9 +290,10 @@ function _renderConversations() {
     return;
   }
   el.innerHTML = _state.filtered.map(c => `
-    <button data-msg-peer="${esc(c.peer)}" style="width:100%;text-align:left;border:1px solid ${c.peer === _state.selectedPeer ? '#cbd5e1' : '#e2e8f0'};background:${c.peer === _state.selectedPeer ? '#f8fafc' : '#fff'};border-radius:10px;padding:10px;cursor:pointer;">
+    <button data-msg-peer="${esc(c.peerKey)}" style="width:100%;text-align:left;border:1px solid ${c.peerKey === _state.selectedPeer ? '#cbd5e1' : '#e2e8f0'};background:${c.peerKey === _state.selectedPeer ? '#f8fafc' : '#fff'};border-radius:10px;padding:10px;cursor:pointer;">
       <div style="display:flex;align-items:center;gap:8px;">
-        <strong style="font-size:12px;color:#0f172a;">${esc(c.peer)}</strong>
+        <strong style="font-size:12px;color:#0f172a;">${esc(c.displayLabel)}</strong>
+        ${c.peerEmail ? `<span style="font-size:10px;color:#64748b;">${esc(c.peerEmail.toUpperCase())}</span>` : ''}
         <span style="margin-left:auto;font-size:10px;color:#94a3b8;">${esc(_when(c.last))}</span>
       </div>
       <div style="margin-top:4px;font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.last?.mensaje || '[Sin texto]')}</div>
@@ -260,26 +319,26 @@ function _renderConversations() {
 function _renderDetail() {
   const box = q('#appMsgDetail');
   if (!box) return;
-  const peer = _state.selectedPeer;
+  const peerKey = _state.selectedPeer;
+  const convo = _conversationByKey(peerKey);
+  const display = convo?.displayLabel || '';
   const input = q('#appMsgInput');
-  if (input) input.placeholder = peer ? `Responder a ${peer}...` : 'Selecciona una conversación para responder...';
-  if (!peer) {
+  if (input) input.placeholder = display ? `Responder a ${display}...` : 'Selecciona una conversación para responder...';
+  if (!peerKey || !convo) {
     box.innerHTML = `<div style="padding:14px;color:#94a3b8;font-size:12px;">Selecciona una conversación.</div>`;
     _disableComposer(false);
     return;
   }
   const msgs = _state.allMessages
-    .filter(m => {
-      const r = String(m.remitente || '').toUpperCase().trim();
-      const d = String(m.destinatario || '').toUpperCase().trim();
-      return (r === peer || d === peer);
-    })
+    .filter(m => _messagePeerKey(m) === peerKey)
+    .map(m => ({ ...m, esMio: _messageMineAndPeer(m).mine }))
     .sort((a, b) => _msgTs(a) - _msgTs(b))
     .slice(-60);
 
   box.innerHTML = `
     <div style="padding:12px;border-bottom:1px solid #eef2f7;">
-      <strong style="font-size:13px;color:#0f172a;">${esc(peer)}</strong>
+      <strong style="font-size:13px;color:#0f172a;">${esc(display)}</strong>
+      ${convo.peerEmail ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${esc(convo.peerEmail.toUpperCase())}</div>` : ''}
       <div style="font-size:11px;color:#64748b;margin-top:2px;">Conversación real · envío simple</div>
     </div>
     <div style="max-height:54vh;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">

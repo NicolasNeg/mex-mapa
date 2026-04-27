@@ -153,6 +153,13 @@ function _updateBetaBanner() {
   el.textContent = _betaModeLabel(getState(), snap);
 }
 
+function _updatePlazaHeader(plazaValue = '') {
+  const el = _container?.querySelector('#app-mapa-plaza-active');
+  if (!el) return;
+  const safe = String(plazaValue || '').trim().toUpperCase();
+  el.textContent = safe || '—';
+}
+
 function _showPersistConfirm({ mva, fromKey, toKey }) {
   return new Promise(resolve => {
     if (!_container) {
@@ -203,7 +210,7 @@ export function mount({ container }) {
           <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD experimental (preview)</span>
           <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD persistencia (experimental)</span>
           <h1>Mapa operativo</h1>
-          <p>Plaza activa: <strong>${esc(plaza || '—')}</strong></p>
+          <p>Plaza activa: <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></p>
         </div>
         <a class="app-mapa-cta" href="/mapa">Abrir mapa completo (legacy)</a>
       </header>
@@ -406,6 +413,7 @@ export function mount({ container }) {
   });
 
   _offPlaza = onPlazaChange(nextPlaza => {
+    _updatePlazaHeader(nextPlaza);
     _viewState.selectedId = '';
     _viewState.snapshot = null;
     if (_contentEl) _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Actualizando plaza...</div>';
@@ -561,6 +569,7 @@ function _render() {
     dndActive: eligible,
     plaza: snapshot.plaza || String(getState().currentPlaza || '').toUpperCase()
   });
+  _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateBetaBanner();
 }
 
