@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 11C · **Fecha:** 2026-04-28  
+**Versión:** FASE 11D · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -67,9 +67,10 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **CSS** | Inline + `fleet-modal`/`chatv2-*` |
 | **`api`** | `obtenerMensajesPrivados`, `enviarMensajePrivado`, lecturas desde `window.api` |
 | **Firestore** | Colección mensajes privados (contrato mex-api) |
-| **Migrado App** | **Parcial**: lista conversaciones, envío, marca leído, refresco ~45s |
-| **Falta** | Paridad visual chatv2 1:1 (layout lateral + header degrade) |
-| **Esta fase** | CSS/layout acercamiento + misma semántica de datos |
+| **Migrado App** | **Parcial fuerte 11D**: lista conversaciones, envío, marca leído, refresco ~45s |
+| **Migrado App 11D** | Identidad canónica por email, dedupe robusto conversación, filtros plaza/rol/estado con metadata de usuario, validaciones de composer y fallback adjuntos a legacy |
+| **Falta** | Paridad visual chatv2 1:1 total y adjuntos completos en App |
+| **Esta fase** | Refuerzo operativo sin romper `/mensajes` legacy |
 
 ---
 
@@ -121,6 +122,12 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 **App Shell usa `notas_admin`** (`subscribeIncidencias`, `createIncidencia`, `resolveIncidencia`) — mismo criterio que documentación previa.
 
 **Migrado App**: lista + detalle + crear + resolver + evidencias URL.
+
+**Migrado App 11D**:
+
+- Prefill de MVA vía query (`/app/incidencias?mva=XXXX`).
+- Evidencias robustas para string y objetos (`url/path/nombre`) con apertura segura cuando hay URL.
+- Confirmación de resolver y mensajes de estado más claros.
 
 **Falta Kanban**: no duplicado en App por decisión de datos únicos (`notas_admin`). Legacy Kanban permanece en `/incidencias`.
 

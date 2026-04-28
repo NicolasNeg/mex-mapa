@@ -62,6 +62,8 @@ function _safeText(v) {
 }
 
 function _makeState(plaza) {
+  const url = new URL(window.location.href);
+  const mvaFromQuery = String(url.searchParams.get('mva') || '').trim().toUpperCase();
   return {
     plaza,
     allItems: [],
@@ -72,6 +74,7 @@ function _makeState(plaza) {
     sortDir: 'desc',
     selectedId: null,
     navigate: null,
+    mvaFromQuery,
   };
 }
 
@@ -94,6 +97,7 @@ export async function mount(ctx) {
   _bindFilters();
   _bindGlobalSearch();
   _bindIncComposer();
+  _prefillMvaFromQuery();
 
   _unsubPlaza = onPlazaChange(nextPlaza => {
     _reloadForPlaza(nextPlaza);
@@ -170,6 +174,7 @@ function _reloadForPlaza(nextPlaza) {
   _state.items = [];
   _state.selectedId = null;
   _setPlazaBadge(normalized);
+  _prefillMvaFromQuery();
   _renderSummary();
   _renderListSkeleton();
   _renderDetail(null);
@@ -179,6 +184,12 @@ function _reloadForPlaza(nextPlaza) {
     return;
   }
   _startIncidenciasListener(normalized);
+}
+
+function _prefillMvaFromQuery() {
+  const input = q('incNewMva');
+  if (!input) return;
+  if (_state?.mvaFromQuery) input.value = _state.mvaFromQuery;
 }
 
 function _startIncidenciasListener(plaza) {
@@ -299,7 +310,7 @@ function _bindIncComposer() {
     const prioridad = String(q('incNewPri')?.value || 'media').toLowerCase();
     const mva = String(q('incNewMva')?.value || '').trim().toUpperCase();
     if (!titulo || !descripcion) {
-      alert('Completa título y descripción.');
+      _showNotice('Completa título y descripción.', 'error');
       return;
     }
     const gs = getState();
@@ -318,11 +329,12 @@ function _bindIncComposer() {
         creadoPor: autor,
         source: 'app_shell'
       });
+      _showNotice('Incidencia registrada.', 'ok');
       q('incNewTitle').value = '';
       q('incNewDesc').value = '';
-      q('incNewMva').value = '';
+      q('incNewMva').value = _state?.mvaFromQuery || '';
     } catch (e) {
-      alert(e?.message || 'No se pudo crear la incidencia.');
+      _showNotice(e?.message || 'No se pudo crear la incidencia.', 'error');
     } finally {
       btn.disabled = false;
     }
@@ -434,7 +446,7 @@ function _renderDetail(item) {
   const evidencias = Array.isArray(item.evidencias)
     ? item.evidencias
     : (Array.isArray(item.evidenciaUrls) ? item.evidenciaUrls : []);
-  const hrefs = evidencias.map(_evidenceHref).filter(Boolean);
+  const evidenceRows = evidencias.map(_evidenceRow).filter(Boolean);
   const open = _isOpen(item);
 
   detail.innerHTML = `
@@ -452,9 +464,12 @@ function _renderDetail(item) {
       ${(item.resueltoPor || item.quienResolvio) ? _detailField('Resuelto por', item.resueltoPor || item.quienResolvio || '—') : ''}
       <div style="margin-top:14px;">
         <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Evidencias</div>
-        ${hrefs.length ? `
+        ${evidenceRows.length ? `
           <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px;">
-            ${hrefs.map(url => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#2b6954;word-break:break-all;">${esc(url)}</a>`).join('')}
+            ${evidenceRows.map(ev => ev.href
+              ? `<a href="${esc(ev.href)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#2b6954;word-break:break-all;">${esc(ev.label)}</a>`
+              : `<div style="font-size:12px;color:#64748b;">${esc(ev.label)} <span style="color:#94a3b8;">(abrir en legacy)</span></div>`
+            ).join('')}
           </div>
         ` : `<div style="margin-top:6px;font-size:12px;color:#64748b;">Sin evidencias adjuntas.</div>`}
       </div>
@@ -468,6 +483,7 @@ function _renderDetail(item) {
           Marcar como resuelta
         </button>
       </div>` : ''}
+      <div style="margin-top:10px;font-size:11px;color:#64748b;">Carga y eliminación de adjuntos se mantiene en la vista legacy para conservar el flujo completo de Storage.</div>
       <a href="/incidencias" style="display:inline-flex;margin-top:16px;color:#64748b;font-size:11px;text-decoration:underline;">Historial / vista legacy</a>
     </div>
   `;
@@ -476,7 +492,7 @@ function _renderDetail(item) {
   rb?.addEventListener('click', async () => {
     const sol = String(detail.querySelector('#incResolveSol')?.value || '').trim();
     if (!sol) {
-      alert('Escribe una breve solución antes de resolver.');
+      _showNotice('Escribe una breve solución antes de resolver.', 'error');
       return;
     }
     if (!confirm('¿Marcar esta incidencia como resuelta en notas_admin? Esta acción queda registrada.')) return;
@@ -485,8 +501,9 @@ function _renderDetail(item) {
     rb.disabled = true;
     try {
       await resolveIncidencia(item.legacyNotaId || item.id, sol, autor);
+      _showNotice('Incidencia resuelta.', 'ok');
     } catch (e) {
-      alert(e?.message || 'No se pudo resolver la incidencia.');
+      _showNotice(e?.message || 'No se pudo resolver la incidencia.', 'error');
     } finally {
       rb.disabled = false;
     }
@@ -636,4 +653,31 @@ function _evidenceHref(ev) {
   if (!ev) return '';
   if (typeof ev === 'string') return ev.trim();
   return String(ev.url || ev.href || ev.path || '').trim();
+}
+
+function _evidenceRow(ev) {
+  if (!ev) return null;
+  if (typeof ev === 'string') {
+    const href = ev.trim();
+    return href ? { href, label: href } : null;
+  }
+  const href = String(ev.url || ev.href || '').trim();
+  const path = String(ev.path || '').trim();
+  const label = String(ev.nombre || ev.name || ev.fileName || href || path || 'Evidencia');
+  return { href: href || '', label: label || 'Evidencia' };
+}
+
+function _showNotice(message, type = 'ok') {
+  let el = document.getElementById('app-inc-notice');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'app-inc-notice';
+    el.style.cssText = 'position:fixed;right:16px;bottom:18px;z-index:100001;padding:10px 12px;border-radius:10px;color:#fff;font:700 12px Inter,sans-serif;box-shadow:0 10px 26px rgba(15,23,42,.24);max-width:92vw;';
+    document.body.appendChild(el);
+  }
+  el.style.background = type === 'error' ? '#b91c1c' : '#166534';
+  el.textContent = String(message || '');
+  el.style.opacity = '1';
+  clearTimeout(_showNotice._t);
+  _showNotice._t = setTimeout(() => { el.style.opacity = '0'; }, 3400);
 }

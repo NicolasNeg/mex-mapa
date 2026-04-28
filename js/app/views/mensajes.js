@@ -1,5 +1,6 @@
 import { getState } from '/js/app/app-state.js';
 import { obtenerMensajesPrivados, enviarMensajePrivado, marcarMensajesLeidosArray } from '/js/core/database.js';
+import { db, COL } from '/js/core/database.js';
 
 let _container = null;
 let _state = null;
@@ -99,7 +100,11 @@ export async function mount({ container }) {
     allMessages: [],
     conversations: [],
     filtered: [],
+    peerMeta: new Map(),
     query: '',
+    plazaFilter: '',
+    roleFilter: '',
+    statusFilter: '',
     selectedPeer: '',
     loading: false,
     sending: false
@@ -136,6 +141,21 @@ function _cleanup() {
 
 function _bindActions() {
   q('#appMsgRefresh')?.addEventListener('click', () => _loadMessages());
+  q('#appMsgPlazaFilter')?.addEventListener('change', e => {
+    _state.plazaFilter = String(e.target.value || '').trim().toUpperCase();
+    _applyFilters();
+    _renderConversations();
+  });
+  q('#appMsgRoleFilter')?.addEventListener('change', e => {
+    _state.roleFilter = String(e.target.value || '').trim().toUpperCase();
+    _applyFilters();
+    _renderConversations();
+  });
+  q('#appMsgStatusFilter')?.addEventListener('change', e => {
+    _state.statusFilter = String(e.target.value || '').trim().toUpperCase();
+    _applyFilters();
+    _renderConversations();
+  });
   q('#appMsgSendBtn')?.addEventListener('click', () => _sendMessage());
   q('#appMsgInput')?.addEventListener('keydown', event => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -169,7 +189,9 @@ async function _loadMessages() {
     if (!_state || !_container) return;
     _state.allMessages = Array.isArray(rows) ? rows : [];
     _rebuildConversations();
+    await _hydratePeerMeta();
     _applyFilters();
+    _renderFilterOptions();
     _renderConversations();
     _renderDetail();
     _setText('#appMsgSendError', '');
@@ -210,11 +232,25 @@ async function _sendMessage() {
   const convo = _conversationByKey(peerKey);
   const input = q('#appMsgInput');
   const text = _norm(input?.value || '');
-  if (!peerKey || !text || !convo) return;
+  if (!_state.me?.display && !_state.me?.email) {
+    _setText('#appMsgSendError', 'No se pudo identificar tu usuario para enviar.');
+    return;
+  }
+  if (!peerKey || !convo) {
+    _setText('#appMsgSendError', 'Selecciona una conversación válida.');
+    return;
+  }
+  if (!text) {
+    _setText('#appMsgSendError', 'Escribe un mensaje antes de enviar.');
+    return;
+  }
 
   const remitenteId = _state.me.email ? _state.me.email.toUpperCase() : _state.me.display;
   const destinatarioId = convo.preferredHandle || convo.peerEmail?.toUpperCase() || convo.displayLabel;
-  if (!destinatarioId) return;
+  if (!destinatarioId) {
+    _setText('#appMsgSendError', 'Destinatario inválido. Abre la versión completa para corregir el contacto.');
+    return;
+  }
 
   _state.sending = true;
   _disableComposer(true);
@@ -309,14 +345,55 @@ function _rebuildConversations() {
 
 function _applyFilters() {
   const qx = _state.query.toLowerCase().trim();
-  if (!qx) {
-    _state.filtered = [..._state.conversations];
-    return;
-  }
   _state.filtered = _state.conversations.filter(c => {
-    const hay = `${c.peerKey} ${c.displayLabel} ${c.peerEmail} ${c.last?.mensaje || ''} ${c.last?.remitente || ''} ${c.last?.destinatario || ''} ${_when(c.last)}`.toLowerCase();
+    const meta = _state.peerMeta.get(c.peerEmail || '') || {};
+    if (_state.plazaFilter && String(meta.plaza || '').toUpperCase() !== _state.plazaFilter) return false;
+    if (_state.roleFilter && String(meta.rol || '').toUpperCase() !== _state.roleFilter) return false;
+    if (_state.statusFilter) {
+      if (_state.statusFilter === 'UNREAD' && !c.unread) return false;
+      if (_state.statusFilter === 'ACTIVE' && String(meta.status || '').toUpperCase() && String(meta.status || '').toUpperCase() !== 'ACTIVO') return false;
+      if (_state.statusFilter === 'INACTIVE' && String(meta.status || '').toUpperCase() !== 'INACTIVO') return false;
+    }
+    if (!qx) return true;
+    const hay = `${c.peerKey} ${c.displayLabel} ${c.peerEmail} ${c.last?.mensaje || ''} ${c.last?.remitente || ''} ${c.last?.destinatario || ''} ${meta.plaza || ''} ${meta.rol || ''} ${meta.status || ''} ${_when(c.last)}`.toLowerCase();
     return hay.includes(qx);
   });
+}
+
+async function _hydratePeerMeta() {
+  const emails = [...new Set((_state.conversations || []).map(c => String(c.peerEmail || '').trim().toLowerCase()).filter(Boolean))];
+  if (!emails.length) {
+    _state.peerMeta = new Map();
+    return;
+  }
+  const next = new Map();
+  for (const email of emails) {
+    try {
+      const snap = await db.collection(COL.USERS).doc(email).get();
+      if (!snap.exists) continue;
+      const d = snap.data() || {};
+      next.set(email, {
+        plaza: String(d.plazaAsignada || d.plaza || '').toUpperCase(),
+        rol: String(d.rol || '').toUpperCase(),
+        status: String(d.status || '').toUpperCase(),
+        nombre: String(d.nombre || d.nombreCompleto || '')
+      });
+    } catch (_) {}
+  }
+  _state.peerMeta = next;
+}
+
+function _renderFilterOptions() {
+  const plazaSel = q('#appMsgPlazaFilter');
+  const roleSel = q('#appMsgRoleFilter');
+  if (!plazaSel || !roleSel) return;
+  const metas = [..._state.peerMeta.values()];
+  const plazas = [...new Set(metas.map(m => m.plaza).filter(Boolean))].sort();
+  const roles = [...new Set(metas.map(m => m.rol).filter(Boolean))].sort();
+  plazaSel.innerHTML = `<option value="">Todas las plazas</option>${plazas.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}`;
+  roleSel.innerHTML = `<option value="">Todos los roles</option>${roles.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('')}`;
+  if (_state.plazaFilter) plazaSel.value = _state.plazaFilter;
+  if (_state.roleFilter) roleSel.value = _state.roleFilter;
 }
 
 function _renderConversations() {
@@ -334,6 +411,13 @@ function _renderConversations() {
         <strong style="font-size:12px;color:#0f172a;">${esc(c.displayLabel)}</strong>
         ${c.peerEmail ? `<span style="font-size:10px;color:#64748b;">${esc(c.peerEmail.toUpperCase())}</span>` : ''}
         <span style="margin-left:auto;font-size:10px;color:#94a3b8;">${esc(_when(c.last))}</span>
+      </div>
+      <div style="margin-top:3px;font-size:10px;color:#64748b;">
+        ${(() => {
+          const m = _state.peerMeta.get(c.peerEmail || '') || {};
+          const badge = [m.plaza, m.rol, m.status].filter(Boolean).join(' · ');
+          return esc(badge || 'Sin metadata de perfil');
+        })()}
       </div>
       <div style="margin-top:4px;font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.last?.mensaje || '[Sin texto]')}</div>
       <div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
@@ -378,6 +462,13 @@ function _renderDetail() {
     <div style="padding:12px;border-bottom:1px solid #eef2f7;">
       <strong style="font-size:13px;color:#0f172a;">${esc(display)}</strong>
       ${convo.peerEmail ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${esc(convo.peerEmail.toUpperCase())}</div>` : ''}
+      <div style="font-size:11px;color:#64748b;margin-top:2px;">
+        ${(() => {
+          const m = _state.peerMeta.get(convo.peerEmail || '') || {};
+          const parts = [m.plaza, m.rol, m.status].filter(Boolean);
+          return esc(parts.join(' · ') || 'Sin metadata de perfil');
+        })()}
+      </div>
       <div style="font-size:11px;color:#64748b;margin-top:2px;">Últimos mensajes sincronizados</div>
     </div>
     <div style="max-height:54vh;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
@@ -390,6 +481,8 @@ function _renderDetail() {
       }).join('') : `<div style="font-size:12px;color:#94a3b8;">Sin mensajes en esta conversación.</div>`}
     </div>
       <div style="padding:12px;border-top:1px solid #eef2f7;">
+      <button type="button" disabled style="border:1px solid #e2e8f0;background:#f8fafc;color:#94a3b8;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:not-allowed;">Adjuntos disponibles en versión completa</button>
+      <br />
       <a href="/mensajes" style="font-size:11px;color:#64748b;">Versión completa en classic</a>
     </div>
   `;
@@ -439,6 +532,18 @@ function _layout(me) {
         <span style="font-size:11px;color:#64748b;background:#e2e8f0;border-radius:999px;padding:3px 9px;">${esc(me)}</span>
         <span id="appMsgUnread" style="font-size:11px;color:#334155;background:#e2e8f0;border-radius:999px;padding:3px 9px;">Sin no leídos</span>
         <button id="appMsgRefresh" type="button" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 10px;font-size:12px;cursor:pointer;">Refrescar</button>
+        <select id="appMsgPlazaFilter" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 8px;font-size:11px;">
+          <option value="">Todas las plazas</option>
+        </select>
+        <select id="appMsgRoleFilter" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 8px;font-size:11px;">
+          <option value="">Todos los roles</option>
+        </select>
+        <select id="appMsgStatusFilter" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 8px;font-size:11px;">
+          <option value="">Todos</option>
+          <option value="UNREAD">No leídos</option>
+          <option value="ACTIVE">Activos</option>
+          <option value="INACTIVE">Inactivos</option>
+        </select>
         <a href="/mensajes" style="margin-left:auto;font-size:11px;color:#64748b;text-decoration:underline;">Classic</a>
       </div>
       <div id="appMsgGrid" class="fleet-wrapper chatv2-layout" style="display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:0;min-height:60vh;align-items:stretch;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
