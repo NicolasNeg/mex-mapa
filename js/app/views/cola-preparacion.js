@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, onPlazaChange } from '/js/app/app-state.js';
-import { db, COL, ACCESS_ROLE_META } from '/js/core/database.js';
+import { db, COL } from '/js/core/database.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 
 // ── Módulo-level refs (una instancia a la vez) ───────────────
@@ -145,9 +145,7 @@ function _queueColl(plaza) {
 }
 
 function _canPrepDelete() {
-  const r = String(getState()?.role || _state?.profileRoleCached || '').toUpperCase().trim();
-  const meta = ACCESS_ROLE_META[r] || {};
-  return meta.isAdmin === true;
+  return false;
 }
 
 async function _loadPlazaUsersForApp() {
@@ -266,85 +264,17 @@ function _closePrepCreateModal() {
 }
 
 async function _persistReorderPrep(sourceId, targetId) {
-  const plaza = String(_state?.plaza || '').toUpperCase().trim();
-  if (!plaza || !sourceId || !targetId || sourceId === targetId) return;
-  const ordered = _state.items.slice().sort(_comparePrepItems).map(item => item.id);
-  const sourceIndex = ordered.indexOf(sourceId);
-  const targetIndex = ordered.indexOf(targetId);
-  if (sourceIndex < 0 || targetIndex < 0) return;
-  ordered.splice(targetIndex, 0, ordered.splice(sourceIndex, 1)[0]);
-  const batch = db.batch();
-  const fv = _fv();
-  const actor = _state.profileEmail || '';
-  ordered.forEach((id, index) => {
-    const ref = _queueColl(plaza).doc(id);
-    const payload = { orden: index + 1 };
-    if (fv) {
-      payload.actualizadoAt = fv.serverTimestamp();
-      payload.actualizadoPor = actor;
-    }
-    batch.set(ref, payload, { merge: true });
-  });
-  try {
-    await batch.commit();
-    _toast('Orden actualizado.', 'success');
-  } catch (e) {
-    console.error(e);
-    _toast(e?.message || 'No se pudo reordenar.', 'error');
-  }
+  if (!sourceId || !targetId || sourceId === targetId) return;
+  _toast('El reordenamiento se mantiene en legacy por seguridad operativa.', 'info');
 }
 
 async function _runBulkComplete() {
-  if (!_canPrepDelete()) {
-    _toast('Sin permiso para esta acción.', 'warning');
-    return;
-  }
-  const visible = (_state.filteredItems || []).filter(it => !_isItemReady(it));
-  if (!visible.length) {
-    _toast('Todas las unidades visibles ya tienen checklist completo.', 'info');
-    return;
-  }
-  if (!confirm(`¿Marcar checklist completo en ${visible.length} unidad(es) visible(s) que aún no están listas?`)) return;
-  const checklist = CHECKLIST_META.reduce((acc, meta) => {
-    acc[meta.key] = true;
-    return acc;
-  }, {});
-  const batch = db.batch();
-  const fv = _fv();
-  const actor = _state.profileEmail || '';
-  visible.forEach(item => {
-    const ref = _queueColl(_state.plaza).doc(item.id);
-    const payload = { checklist };
-    if (fv) {
-      payload.actualizadoAt = fv.serverTimestamp();
-      payload.actualizadoPor = actor;
-    }
-    batch.set(ref, payload, { merge: true });
-  });
-  try {
-    await batch.commit();
-    _toast(`${visible.length} unidad(es) marcadas como listas.`, 'success');
-  } catch (e) {
-    console.error(e);
-    _toast(e?.message || 'No se pudo completar.', 'error');
-  }
+  _toast('La acción masiva se mantiene en legacy para evitar cambios accidentales.', 'info');
 }
 
 async function _deletePrepItem(id) {
-  const plaza = String(_state?.plaza || '').toUpperCase().trim();
-  if (!plaza || !id) return;
-  try {
-    await _queueColl(plaza).doc(id).delete();
-    _deleteArmedPrepId = '';
-    if (_state.selectedId === id) _state.selectedId = null;
-    _toast('Unidad eliminada de la cola.', 'success');
-    const panel = q('prepDetailPanel');
-    if (panel) panel.style.display = 'none';
-    _renderListByState();
-  } catch (e) {
-    console.error(e);
-    _toast(e?.message || 'No se pudo eliminar.', 'error');
-  }
+  if (!id) return;
+  _toast('Eliminar entradas de cola se mantiene en legacy por seguridad.', 'warning');
 }
 
 function _syncBulkButtonVisibility() {
@@ -357,6 +287,7 @@ function _attachDragPrepCards() {
   const root = q('prepList');
   if (!root) return;
   root.querySelectorAll('[data-item-id]').forEach(card => {
+    card.draggable = false;
     card.addEventListener('dragstart', e => {
       _dragPrepId = card.dataset.itemId || '';
       card.classList.add('is-dragging');
@@ -784,6 +715,7 @@ function _matchesPrepFilter(it) {
       ((mine && assigned.includes(mine)) || (nick && assigned.includes(nick)))
     );
   }
+  if (f === 'with-date') return Boolean(it?.fechaSalida);
   return true;
 }
 
@@ -1361,6 +1293,7 @@ function _skeleton({ profile, role, company, plaza }) {
       ${_filterBtn('pending',  'Pendientes',  false)}
       ${_filterBtn('ready',    'Listos',      false)}
       ${_filterBtn('mine',     'Míos',        false)}
+      ${_filterBtn('with-date','Con salida',  false)}
     </div>
 
     <!-- Sort -->

@@ -1,6 +1,6 @@
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { subscribeCuadre } from '/js/app/features/cuadre/cuadre-data.js';
-import { obtenerCuadreAdminsData, obtenerHistorialCuadres } from '/js/core/database.js';
+import { obtenerCuadreAdminsData, obtenerHistorialCuadres, obtenerUnidadesVeloz } from '/js/core/database.js';
 
 let _container = null;
 let _state = null;
@@ -44,7 +44,10 @@ function _makeState(plaza) {
     sortDir: 'asc',
     selectedId: null,
     navigate: null,
-    tab: 'regular'
+    tab: 'regular',
+    historyDate: '',
+    masterSearchQuery: '',
+    masterSearchResults: []
   };
 }
 
@@ -63,6 +66,8 @@ export async function mount(ctx) {
   });
   _bindEvents();
   _bindGlobalSearch();
+  _toggleHistoryDateFilter();
+  _renderMasterSearchResults();
   _unsubPlaza = onPlazaChange(next => _reloadForPlaza(next));
   _trackListener('create', 'plaza-sub');
   if (!_state.plaza) return _renderNoPlaza();
@@ -176,13 +181,25 @@ function _bindEvents() {
   });
   qsa('[data-cqv-tab]').forEach(btn => btn.addEventListener('click', () => {
     _state.tab = btn.dataset.cqvTab || 'regular';
+    if (_state.tab !== 'historial') _state.historyDate = '';
     qsa('[data-cqv-tab]').forEach(x => x.classList.toggle('is-active', x === btn));
+    _toggleHistoryDateFilter();
     void _loadSecondaryTabData();
     _applyFiltersAndSort();
     _renderSummary();
     _renderTable();
     _syncDetail();
   }));
+  q('#cqvHistoryDate')?.addEventListener('change', e => {
+    _state.historyDate = String(e.target?.value || '');
+    _applyFiltersAndSort();
+    _renderTable();
+    _syncDetail();
+  });
+  q('#cqvMasterSearchInput')?.addEventListener('input', async e => {
+    _state.masterSearchQuery = String(e.target?.value || '').trim();
+    await _runMasterSearch();
+  });
   q('#cqvRefresh')?.addEventListener('click', () => {
     if (_state?.plaza) _startListener(_state.plaza);
   });
@@ -222,6 +239,15 @@ function _applyFiltersAndSort() {
     base = _state.adminsItems;
   } else if (_state.tab === 'historial') {
     base = _state.historyItems;
+    const date = String(_state.historyDate || '');
+    if (date) {
+      base = base.filter(item => {
+        const parsed = _parseDate(item.updatedAt || item.fechaIngreso || item.fecha);
+        if (!parsed) return false;
+        const iso = new Date(parsed).toISOString().slice(0, 10);
+        return iso === date;
+      });
+    }
   }
   let items = base.filter(_matchFilter);
   if (query) {
@@ -300,15 +326,15 @@ async function _loadSecondaryTabData() {
 function _renderNoPlaza() {
   _renderSummary();
   _renderDetail(null);
-  _setHTML('#cqvTableBody', `<tr><td colspan="8"><div class="cqv__empty">Selecciona una plaza para ver el cuadre.</div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="9"><div class="cqv__empty">Selecciona una plaza para ver el cuadre.</div></td></tr>`);
 }
 
 function _renderTableSkeleton() {
-  _setHTML('#cqvTableBody', `<tr><td colspan="8"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="9"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
 }
 
 function _renderTableError(msg) {
-  _setHTML('#cqvTableBody', `<tr><td colspan="8"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir cuadre classic</a></div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="9"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir cuadre classic</a></div></td></tr>`);
 }
 
 function _renderSummary() {
@@ -359,7 +385,7 @@ function _renderTable() {
   const tbody = q('#cqvTableBody');
   if (!tbody) return;
   if (!_state.items.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
     return;
   }
   tbody.innerHTML = _state.items.map(item => {
@@ -373,6 +399,7 @@ function _renderTable() {
       <td>${_estadoBadge(item.estado || 'SIN ESTADO')}</td>
       <td>${_badge(String(item.tipo || 'renta').toUpperCase(), '#6d28d9', '#ede9fe')}</td>
       <td>${_badge(item.ubicacion || '—', '#4338ca', '#e0e7ff')}</td>
+      <td title="${esc(item.notas || '')}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">${esc(item.notas || '—')}</td>
     </tr>`;
   }).join('');
   qsa('[data-cqv-row]').forEach(row => row.addEventListener('click', () => {
@@ -380,6 +407,63 @@ function _renderTable() {
     _renderTable();
     _syncDetail();
   }));
+}
+
+async function _runMasterSearch() {
+  const query = _state?.masterSearchQuery || '';
+  if (!query || query.length < 2) {
+    _state.masterSearchResults = [];
+    _renderMasterSearchResults();
+    return;
+  }
+  try {
+    const rows = await obtenerUnidadesVeloz(_state.plaza);
+    const term = query.toLowerCase();
+    _state.masterSearchResults = (Array.isArray(rows) ? rows : [])
+      .filter(row => {
+        const hay = [
+          row?.mva,
+          row?.placas,
+          row?.modelo,
+          row?.categoria
+        ].map(x => String(x || '').toLowerCase()).join(' ');
+        return hay.includes(term);
+      })
+      .slice(0, 8);
+  } catch (_) {
+    _state.masterSearchResults = [];
+  }
+  _renderMasterSearchResults();
+}
+
+function _renderMasterSearchResults() {
+  const host = q('#cqvMasterSearchResults');
+  if (!host) return;
+  const rows = Array.isArray(_state.masterSearchResults) ? _state.masterSearchResults : [];
+  if (!rows.length) {
+    host.innerHTML = `<div class="cqv__stat-muted">Sin resultados para búsqueda base maestra.</div>`;
+    return;
+  }
+  host.innerHTML = rows.map(row => `
+    <button type="button" class="cqv__btn" data-cqv-master-mva="${esc(row?.mva || '')}" style="width:100%;justify-content:space-between;">
+      <span>${esc(row?.mva || '—')}</span>
+      <span style="font-size:10px;color:#64748b;">${esc([row?.modelo, row?.placas].filter(Boolean).join(' · ') || 'sin meta')}</span>
+    </button>
+  `).join('');
+  host.querySelectorAll('[data-cqv-master-mva]').forEach(btn => btn.addEventListener('click', () => {
+    const mva = String(btn.dataset.cqvMasterMva || '').toUpperCase();
+    const found = _state.allItems.find(item => String(item.mva || '').toUpperCase() === mva);
+    if (!found) return;
+    _state.selectedId = found.id;
+    _renderTable();
+    _syncDetail();
+  }));
+}
+
+function _toggleHistoryDateFilter() {
+  const wrap = q('#cqvHistoryDateWrap');
+  if (!wrap) return;
+  wrap.style.display = _state?.tab === 'historial' ? 'inline-flex' : 'none';
 }
 
 function _syncDetail() {
@@ -478,11 +562,15 @@ function _layout({ plaza, role, user }) {
               <option value="mva:desc">MVA (Z-A)</option>
               <option value="fecha:desc">Fecha reciente</option>
             </select>
+            <label id="cqvHistoryDateWrap" style="display:none;align-items:center;gap:6px;font-size:11px;color:#64748b;">
+              Fecha:
+              <input id="cqvHistoryDate" type="date" class="cqv__search" style="max-width:160px;padding:7px 8px;" />
+            </label>
           </div>
           <div class="cqv__chips cqv__chips--scroll">${FILTERS.map((f, i) => `<button class="cqv__chip ${i === 0 ? 'is-active' : ''}" data-cqv-filter="${f.id}" type="button">${esc(f.label)}</button>`).join('')}</div>
           <div class="cqv__table-wrap">
             <table class="cqv__table">
-              <thead><tr><th>MVA</th><th>Cat.</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Tipo</th><th>Ubic.</th></tr></thead>
+              <thead><tr><th>MVA</th><th>Cat.</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Tipo</th><th>Ubic.</th><th>Notas</th></tr></thead>
               <tbody id="cqvTableBody"></tbody>
             </table>
           </div>
@@ -498,6 +586,11 @@ function _layout({ plaza, role, user }) {
             <strong>Consola operativa App</strong>
             <p>Lectura con KPIs, filtros, detalle y acciones seguras. Altas/bajas/ediciones masivas/reportes críticos se mantienen en legacy.</p>
             <a class="cqv__btn cqv__btn--primary" href="/cuadre" style="width:100%;justify-content:center;margin-top:8px;">Abrir cuadre classic</a>
+          </div>
+          <div class="cqv__panel cqv__mini-stats">
+            <div class="cqv__mini-title">Búsqueda base maestra (solo lectura)</div>
+            <input id="cqvMasterSearchInput" class="cqv__search" placeholder="Buscar MVA, placas o modelo..." />
+            <div id="cqvMasterSearchResults" class="cqv__mini-body" style="margin-top:8px;flex-direction:column;"></div>
           </div>
           <div class="cqv__panel cqv__mini-stats">
             <div class="cqv__mini-title">Por estado (top)</div>

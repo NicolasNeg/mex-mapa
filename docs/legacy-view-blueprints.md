@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 11D · **Fecha:** 2026-04-28  
+**Versión:** FASE 11G · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -100,13 +100,15 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | Checklist toggle | ✓ | merge campo anidado |
 | Asignarme / notas / salida | ✓ | |
 | Crear salida (modal) | ✓ | doc id = MVA típico |
-| Reordenar DnD | ✓ | batch `orden` |
-| Todas listas (bulk checklist) | ✓ | rol admin legacy |
-| Eliminar | ⚠️ | Dos toques + `canDelete()` (meta admin) |
+| Reordenar DnD | ⚠️ | se mantiene en legacy en 11G por seguridad |
+| Todas listas (bulk checklist) | ⚠️ | se mantiene en legacy en 11G |
+| Eliminar | ⚠️ | se mantiene en legacy en 11G |
 
-**Migrado App (11A)**
+**Migrado App (11G)**
 
-- Layout + tarjetas con clases legacy (`prep-list-card`), modal crear, bulk, DnD, borrado condicionado, datalists usuarios/MVA.
+- Layout + tarjetas con clases legacy (`prep-list-card`), modal crear, checklist/nota/salida/asignación, datalists usuarios/MVA y enriquecimiento desde `cuadre/externos`.
+- Estados de vista reales: loading, vacío general, sin resultados por filtro, permission denied y error operativo.
+- Instrumentación debug de listeners (`__mexTrackListener`) en mount/subscription/cleanup.
 
 ---
 
@@ -141,7 +143,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/cuadre.js` |
 | **CSS** | `css/cuadre.css` |
 | **Migrado App** | Consola patio parcial (`js/app/views/cuadre.js`) |
-| **Migrado App 11B** | Tabs `flota/externos/admins/historial`, KPIs top estado/ubicación/categoría, detalle más cercano y acciones seguras |
+| **Migrado App 11B/11G** | Tabs `flota/externos/admins/historial`, KPIs top estado/ubicación/categoría, detalle más cercano, notas en tabla, filtro por fecha en historial, búsqueda base maestra read-only y acciones seguras |
 | **Falta** | Controles avanzados legacy (PDF/insertar/eliminar/edición masiva/cierre formal) |
 | **Peligrosas bloqueadas** | Eliminar unidad, cierre formal, PDF masivos |
 
@@ -195,7 +197,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 
 ## Próximos pasos (roadmap técnico)
 
-1. Paridad fuerte Cola App ↔ `cola-preparacion.js` legacy.
+1. Cerrar brecha visual móvil en Cola/Cuadre sin reintroducir acciones peligrosas.
 2. Incidencias App: skin + copy claros como bitácora `notas_admin`; link a Kanban legacy.
 3. Mensajes App: layout chatv2 + mismas llamadas API.
 4. Cerrar huecos de paridad visual restante en Cuadre/Admin/Profile.
