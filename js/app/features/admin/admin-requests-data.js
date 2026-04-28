@@ -123,3 +123,50 @@ export function subscribeAdminRequests({ status = 'PENDIENTE', onData, onError }
     try { unsubLegacy(); } catch (_) {}
   };
 }
+
+function _fieldValue() {
+  return window.firebase?.firestore?.FieldValue || null;
+}
+
+async function _findRequestRef(email = '', preferredCollection = '') {
+  const normalized = _normEmail(email);
+  if (!normalized) return null;
+  for (const col of _collectionsOrder(preferredCollection)) {
+    try {
+      const ref = db.collection(col).doc(normalized);
+      const snap = await ref.get();
+      if (snap.exists) return { ref, collectionName: col };
+    } catch (_) { /* ignore */ }
+  }
+  const fallbackCollection = _collectionsOrder(preferredCollection)[0] || PRIMARY;
+  return { ref: db.collection(fallbackCollection).doc(normalized), collectionName: fallbackCollection };
+}
+
+/**
+ * Rechazo seguro: actualiza estado y auditoría sin crear usuarios ni jobs.
+ */
+export async function rejectAccessRequestSafely({
+  email = '',
+  actorEmail = '',
+  comment = '',
+  collectionHint = ''
+} = {}) {
+  const target = await _findRequestRef(email, collectionHint);
+  if (!target?.ref) throw new Error('No se encontró la solicitud.');
+  const fv = _fieldValue();
+  const reviewedBy = _normEmail(actorEmail);
+  const payload = {
+    estado: 'RECHAZADA',
+    comentarioRevision: _norm(comment),
+    motivo_rechazo: _norm(comment),
+    revisadoPor: reviewedBy,
+    rechazadoPor: reviewedBy,
+    updatedFrom: 'app_admin',
+    updatedBy: reviewedBy,
+    revisadoEn: fv ? fv.serverTimestamp() : new Date().toISOString(),
+    rechazadoEn: fv ? fv.serverTimestamp() : new Date().toISOString(),
+    updatedAt: fv ? fv.serverTimestamp() : new Date().toISOString()
+  };
+  await target.ref.set(payload, { merge: true });
+  return { collectionName: target.collectionName, email: _normEmail(email) };
+}

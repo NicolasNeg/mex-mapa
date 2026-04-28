@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 11G · **Fecha:** 2026-04-28  
+**Versión:** FASE 12A · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -157,7 +157,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/gestion.js`, panel en `js/views/mapa.js` para solicitudes |
 | **Migrado App** | `admin.js` + `admin-*.js` (solicitudes/usuarios con reglas 10C) |
 | **Migrado App 11B** | Tabla usuarios extendida (teléfono/admin/global), tabs operativos mantienen fallback discreto |
-| **Migrado App 11C** | Roles con agrupación real de permisos + conteo usuarios; Plazas con detalle operativo y métricas de unidades aproximadas; Catálogos con preview por sección; Solicitudes con detalle de revisión y flujo seguro mantenido |
+| **Migrado App 11C/12A** | Roles con agrupación real de permisos + conteo usuarios; Plazas con detalle operativo y métricas de unidades aproximadas; Catálogos con preview por sección; Solicitudes con detalle de revisión + rechazo seguro con comentario/fallback; Usuarios con edición segura de básicos (sin email/rol/permisos) |
 | **Solicitudes** | Callable `procesarSolicitudAcceso` (Functions) cuando permisos |
 | **Peligrosas** | Alta masiva usuarios, permisos finos, edición de roles/plazas/catálogos — mantener en legacy |
 
@@ -171,7 +171,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/programador.js`, App: `js/app/views/programador.js` |
 | **Migrado App** | Diagnósticos, flags, smoke, enlaces SW |
 | **Migrado App 11B** | Beta readiness + smoke local + copia reporte + estado SW/Firebase/API + flags LS seguras |
-| **Migrado App 11C** | Inventario buscable de funciones `window.api`, limpieza de flags locales y CTA de rutas clave QA |
+| **Migrado App 11C/12A** | Inventario buscable de funciones `window.api`, limpieza de flags locales y CTA de rutas clave QA, agrupación API por dominio y copia de diagnóstico completo |
 | **Peligrosas** | Mutar prod Firestore desde App — bloqueado |
 
 ---
@@ -183,7 +183,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **HTML** | `profile.html` |
 | **JS** | `js/views/profile.js`, App: `profile.js` |
 | **Migrado App** | Parcial |
-| **Migrado App 11B** | Hero visual + edición segura (nombre/teléfono/avatar/preferencias) + sync App Shell |
+| **Migrado App 11B/12A** | Hero visual + edición segura (nombre/teléfono/avatar/preferencias) + sync App Shell; secciones contexto/seguridad read-only y preferencias extendidas |
 | **Bloqueado** | Email/rol/password sin flujo Firebase dedicado |
 
 ---
@@ -197,7 +197,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 
 ## Próximos pasos (roadmap técnico)
 
-1. Cerrar brecha visual móvil en Cola/Cuadre sin reintroducir acciones peligrosas.
+1. Consolidar `/solicitud` público como flujo canónico pre-login y validar duplicados/errores con QA.
 2. Incidencias App: skin + copy claros como bitácora `notas_admin`; link a Kanban legacy.
 3. Mensajes App: layout chatv2 + mismas llamadas API.
 4. Cerrar huecos de paridad visual restante en Cuadre/Admin/Profile.

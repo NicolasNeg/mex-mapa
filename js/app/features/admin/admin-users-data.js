@@ -10,6 +10,7 @@ export function normalizeUserRecord(id, data = {}) {
     plaza: String(data.plazaAsignada || data.plaza || '').toUpperCase().trim(),
     plazasPermitidas: Array.isArray(data.plazasPermitidas) ? data.plazasPermitidas.map(p => String(p || '').toUpperCase().trim()).filter(Boolean) : [],
     telefono: String(data.telefono || '').trim(),
+    avatarUrl: String(data.avatarUrl || data.photoURL || data.fotoURL || data.profilePhotoUrl || '').trim(),
     status: String(data.status || 'ACTIVO').toUpperCase().trim(),
     isAdmin: data.isAdmin === true,
     isGlobal: data.isGlobal === true,
@@ -33,6 +34,13 @@ export async function mergeAdminUserBasics(userDocId, patch = {}, actorEmail = '
     merge.nombreCompleto = n;
   }
   if (patch.telefono != null) merge.telefono = String(patch.telefono).trim();
+  if (patch.avatarUrl != null) {
+    const avatar = String(patch.avatarUrl).trim();
+    merge.avatarUrl = avatar;
+    merge.photoURL = avatar;
+    merge.fotoURL = avatar;
+    merge.profilePhotoUrl = avatar;
+  }
   if (patch.status != null) merge.status = String(patch.status).trim().toUpperCase();
   if (patch.notasInternas != null) merge.notasInternas = String(patch.notasInternas).trim();
   if (allowPlaza && patch.plazaAsignada !== undefined) {
@@ -43,7 +51,7 @@ export async function mergeAdminUserBasics(userDocId, patch = {}, actorEmail = '
   const fv = _fieldValue();
   merge.actualizadoAt = fv ? fv.serverTimestamp() : new Date().toISOString();
   merge.actualizadoPor = String(actorEmail || '').trim().toLowerCase();
-  merge.updatedFrom = 'app_admin_beta';
+  merge.updatedFrom = 'app_admin';
   await db.collection(COL.USERS).doc(userDocId).set(merge, { merge: true });
 }
 

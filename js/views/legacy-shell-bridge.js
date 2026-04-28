@@ -18,10 +18,27 @@
   };
 
   var appRoute = routeMap[path] || '';
+  var query = window.location.search || '';
+  var hash = window.location.hash || '';
 
   if (path === '/gestion') {
     var tab = new URLSearchParams(window.location.search).get('tab');
     if (tab) appRoute = '/app/admin?tab=' + encodeURIComponent(tab);
+  }
+
+  function shouldForceLegacy() {
+    try {
+      return localStorage.getItem('mex.legacy.force') === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function shouldAutoRedirect() {
+    if (shouldForceLegacy()) return false;
+    if (path === '/home') return true;
+    if (path === '/profile') return true;
+    return false;
   }
 
   document.body.classList.add('legacy-fallback-view', 'app-shell-ready', 'legacy-content-only', 'legacy-fallback-view');
@@ -69,6 +86,10 @@
   document.head.appendChild(style);
 
   if (!appRoute) return;
+  if (shouldAutoRedirect()) {
+    window.location.replace(appRoute + query + hash);
+    return;
+  }
   var banner = document.createElement('a');
   banner.id = 'legacyAppShellBanner';
   banner.href = appRoute;

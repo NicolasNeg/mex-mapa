@@ -76,6 +76,9 @@ function _syncFormFromDom() {
   _formState.avatarUrl = String(c.querySelector('#appProfileAvatarUrl')?.value || '').trim();
   _formState.theme = String(c.querySelector('#appProfileTheme')?.value || 'light').trim();
   _formState.visualDensity = String(c.querySelector('#appProfileDensity')?.value || 'compacta').trim();
+  _formState.language = String(c.querySelector('#appProfileLanguage')?.value || 'es').trim();
+  _formState.homeView = String(c.querySelector('#appProfileHomeView')?.value || 'dashboard').trim();
+  _formState.defaultPlaza = String(c.querySelector('#appProfileDefaultPlaza')?.value || '').trim().toUpperCase();
 }
 
 function _resetForm() {
@@ -89,6 +92,9 @@ function _resetForm() {
   c.querySelector('#appProfileAvatarUrl').value = _formState.avatarUrl;
   c.querySelector('#appProfileTheme').value = _formState.theme;
   c.querySelector('#appProfileDensity').value = _formState.visualDensity;
+  c.querySelector('#appProfileLanguage').value = _formState.language;
+  c.querySelector('#appProfileHomeView').value = _formState.homeView;
+  c.querySelector('#appProfileDefaultPlaza').value = _formState.defaultPlaza;
   _renderAvatarPreview();
   _setStatus('Cambios restaurados.', 'info');
 }
@@ -112,9 +118,16 @@ async function _saveProfile() {
     profilePreferences: {
       ...(current.profilePreferences || {}),
       theme: _formState.theme,
-      visualDensity: _formState.visualDensity
+      visualDensity: _formState.visualDensity,
+      language: _formState.language,
+      homeView: _formState.homeView,
+      defaultPlaza: _formState.defaultPlaza || String(current.plazaAsignada || current.plaza || '').toUpperCase()
     }
   };
+  if (_formState.avatarUrl && !/^https?:\/\//i.test(_formState.avatarUrl)) {
+    _setStatus('Avatar URL debe iniciar con http:// o https://', 'error');
+    return;
+  }
 
   try {
     await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
@@ -163,7 +176,10 @@ function _makeFormState(profile = {}) {
     telefono: String(profile.telefono || '').trim(),
     avatarUrl: String(profile.avatarUrl || profile.photoURL || profile.fotoURL || profile.profilePhotoUrl || '').trim(),
     theme: String(profile?.profilePreferences?.theme || 'light').trim(),
-    visualDensity: String(profile?.profilePreferences?.visualDensity || 'compacta').trim()
+    visualDensity: String(profile?.profilePreferences?.visualDensity || 'compacta').trim(),
+    language: String(profile?.profilePreferences?.language || 'es').trim(),
+    homeView: String(profile?.profilePreferences?.homeView || 'dashboard').trim(),
+    defaultPlaza: String(profile?.profilePreferences?.defaultPlaza || profile.plazaAsignada || profile.plaza || '').trim().toUpperCase()
   };
 }
 
@@ -218,6 +234,31 @@ function _html(profile, role, form) {
           <option value="amplia" ${form.visualDensity === 'amplia' ? 'selected' : ''}>Amplia</option>
         </select>
       </label>
+      <label data-profile-search-text="idioma language" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Idioma
+        <select id="appProfileLanguage" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+          <option value="es" ${form.language === 'es' ? 'selected' : ''}>Español</option>
+          <option value="en" ${form.language === 'en' ? 'selected' : ''}>Inglés</option>
+        </select>
+      </label>
+      <label data-profile-search-text="vista inicial home dashboard mapa" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Vista inicial
+        <select id="appProfileHomeView" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+          <option value="dashboard" ${form.homeView === 'dashboard' ? 'selected' : ''}>Dashboard</option>
+          <option value="mapa" ${form.homeView === 'mapa' ? 'selected' : ''}>Mapa</option>
+          <option value="mensajes" ${form.homeView === 'mensajes' ? 'selected' : ''}>Mensajes</option>
+        </select>
+      </label>
+      <label data-profile-search-text="plaza por defecto default plaza" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Plaza por defecto
+        <input id="appProfileDefaultPlaza" value="${escAttr(form.defaultPlaza)}" placeholder="Ej: CULIACAN" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+      </label>
+    </div>
+    <div style="margin-top:12px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
+      <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">Contexto operativo y seguridad (solo lectura)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
+        <div style="font-size:12px;color:#334155;"><strong>Plaza actual:</strong> ${esc(plaza)}</div>
+        <div style="font-size:12px;color:#334155;"><strong>Rol:</strong> ${esc(roleLabel)}</div>
+        <div style="font-size:12px;color:#334155;"><strong>Email:</strong> ${esc(email)}</div>
+        <div style="font-size:12px;color:#334155;"><strong>Permisos sensibles:</strong> gestionados en legacy/admin</div>
+      </div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
       <button id="appProfileSave" type="button" style="border:none;background:#0f172a;color:#fff;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer;">Guardar cambios</button>

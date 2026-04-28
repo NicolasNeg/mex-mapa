@@ -4,6 +4,7 @@ import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 
 let _container = null;
 let _copyHandler = null;
+let _copyFullHandler = null;
 let _offGlobalSearch = null;
 let _globalQuery = '';
 let _navigate = null;
@@ -53,11 +54,17 @@ export async function mount({ container, navigate }) {
   container.innerHTML = _html(info, flags);
   _bindGlobalSearch();
   const btn = container.querySelector('#progCopySummary');
+  const fullBtn = container.querySelector('#progCopyFull');
   _copyHandler = async () => {
     const fresh = await _collectDiagnostics();
     await _copySummary(fresh);
   };
+  _copyFullHandler = async () => {
+    const fresh = await _collectDiagnostics();
+    await _copyFullDiagnostics(fresh);
+  };
   btn?.addEventListener('click', _copyHandler);
+  fullBtn?.addEventListener('click', _copyFullHandler);
   _cleanupFlags = _bindExperimentalSection(flags.canEditControls);
   _cleanupBeta = _bindBetaReadiness();
 }
@@ -74,12 +81,16 @@ export function unmount() {
   if (_container && _copyHandler) {
     _container.querySelector('#progCopySummary')?.removeEventListener('click', _copyHandler);
   }
+  if (_container && _copyFullHandler) {
+    _container.querySelector('#progCopyFull')?.removeEventListener('click', _copyFullHandler);
+  }
   if (typeof _offGlobalSearch === 'function') {
     try { _offGlobalSearch(); } catch (_) {}
   }
   _copyHandler = null;
   _offGlobalSearch = null;
   _globalQuery = '';
+  _copyFullHandler = null;
   _navigate = null;
   _container = null;
 }
@@ -275,6 +286,48 @@ async function _copySummary(info) {
     if (status) status.textContent = 'Resumen copiado al portapapeles.';
   } catch (_) {
     if (status) status.textContent = 'No se pudo copiar automáticamente.';
+  }
+}
+
+function _groupApiFunctions(keys = []) {
+  const groups = {
+    usuarios: [],
+    mapa: [],
+    mensajes: [],
+    incidencias: [],
+    cuadre: [],
+    admin: [],
+    config: [],
+    otros: []
+  };
+  (keys || []).forEach(name => {
+    const key = String(name || '').toLowerCase();
+    if (/user|usuario|perfil|auth/.test(key)) groups.usuarios.push(name);
+    else if (/map|ruta|geo|marker|fleet/.test(key)) groups.mapa.push(name);
+    else if (/mensaje|chat|mail|inbox/.test(key)) groups.mensajes.push(name);
+    else if (/incid|nota|alert/.test(key)) groups.incidencias.push(name);
+    else if (/cuadre|unidad|patio/.test(key)) groups.cuadre.push(name);
+    else if (/admin|solicitud|request|role|permiso/.test(key)) groups.admin.push(name);
+    else if (/config|flag|firebase|cache|sw|setting/.test(key)) groups.config.push(name);
+    else groups.otros.push(name);
+  });
+  return groups;
+}
+
+async function _copyFullDiagnostics(info) {
+  const status = _container?.querySelector('#progCopyStatus');
+  const groupedApi = _groupApiFunctions(info.api?.keys || []);
+  const payload = {
+    generatedAt: new Date().toISOString(),
+    diagnostics: info,
+    groupedApi,
+    appState: getState()
+  };
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+    if (status) status.textContent = 'Diagnóstico completo copiado (JSON).';
+  } catch (_) {
+    if (status) status.textContent = 'No se pudo copiar diagnóstico completo.';
   }
 }
 
@@ -623,6 +676,7 @@ function _html(info, flags) {
       </div>
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
         <button id="progCopySummary" type="button" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar resumen técnico</button>
+        <button id="progCopyFull" type="button" style="border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar diagnóstico completo</button>
         <a href="/programador" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;text-decoration:none;">Abrir legacy</a>
       </div>
       <div id="progCopyStatus" style="margin-top:8px;font-size:11px;color:#64748b;"></div>
@@ -635,6 +689,15 @@ function _html(info, flags) {
       ${(info.api.keys || []).length
         ? (info.api.keys || []).map(name => `<div data-prog-search-text="${esc(`window.api ${name}`.toLowerCase())}" style="font:12px ui-monospace, SFMono-Regular, Menlo, monospace;color:#0f172a;padding:4px 0;border-bottom:1px solid #e2e8f0;">${esc(name)}</div>`).join('')
         : '<div style="font-size:12px;color:#94a3b8;">window.api no está disponible en este runtime.</div>'}
+    </div>
+  </div>
+  <div data-prog-search-text="api grupos dominio usuarios mapa mensajes incidencias cuadre admin config" style="margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:12px;">
+    <h3 style="margin:0 0 8px;font-size:15px;color:#0f172a;">window.api agrupado por dominio</h3>
+    <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+      ${Object.entries(_groupApiFunctions(info.api.keys || [])).map(([group, list]) => `<div style="border:1px solid #eef2f7;border-radius:8px;padding:8px;background:#f8fafc;">
+        <div style="font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;">${esc(group)} · ${list.length}</div>
+        <div style="margin-top:6px;font-size:11px;color:#334155;line-height:1.35;">${list.length ? esc(list.join(', ')) : 'Sin funciones detectadas'}</div>
+      </div>`).join('')}
     </div>
   </div>
 </div>`;

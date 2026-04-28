@@ -400,8 +400,18 @@
     btn.textContent = 'ENVIANDO...';
 
     try {
+      const reqRef = firebase.firestore().collection(REQUEST_COLLECTION).doc(email);
+      const existing = await reqRef.get();
+      if (existing.exists) {
+        const prev = existing.data() || {};
+        const estado = String(prev.estado || '').toUpperCase();
+        if (estado === 'PENDIENTE' || estado === 'APROBADA') {
+          solToast('Ya existe una solicitud para este correo. Si necesitas ayuda, contacta a un administrador.');
+          return;
+        }
+      }
       // 1. Guardar en Firestore
-      await firebase.firestore().collection(REQUEST_COLLECTION).doc(email).set({
+      await reqRef.set({
         nombre, email, puesto, telefono,
         password: pass,
         rolSolicitado: null,
@@ -409,6 +419,7 @@
         fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
         estado: 'PENDIENTE',
         _ts: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedFrom: 'public_solicitud',
       });
 
       // 2. Enviar correo de confirmación via Cloud Function

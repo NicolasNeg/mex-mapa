@@ -1,6 +1,6 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-28 · **FASE 11G**
+**Última actualización:** 2026-04-28 · **FASE 12A**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
@@ -10,9 +10,9 @@
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_PARCIAL fuerte (11G)** | `cola_preparacion/{plaza}/items` | Tarjetas `prep-list-card`, checklist/nota/salida/asignación, modal crear, datalists por plaza, estados reales y listeners con cleanup |
 | `/incidencias` | `/app/incidencias` | REAL_PARCIAL fuerte (11D) · **`notas_admin`** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | UI bitácora operativa, crear/resolver con confirmación, evidencias URL/objeto, prefill `?mva=` |
 | `/cuadre` | `/app/cuadre` | REAL_PARCIAL fuerte (11G) | Cuadre + externos + admins/historial (read) | Tabs reales (`regular/externos/admins/historial`), KPIs por estado/ubicación/categoría, notas en tabla, filtro fecha historial, búsqueda base maestra read-only y acciones seguras |
-| `/gestion` | `/app/admin` | REAL_PARCIAL fuerte (11C) | usuarios/solicitudes/roles/plazas/catálogos | Roles con permisos agrupados, plazas con detalle + unidades aprox, catálogos por secciones, solicitudes con detalle revisado |
-| `/programador` | `/app/programador` | REAL_COMPLETA QA (11C) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, SW/Firebase/config status y lista buscable `window.api` |
-| `/profile` | `/app/profile` | REAL_PARCIAL (sube paridad) | `usuarios/{id}` + app-state | Hero + preview avatar + edición segura merge + sync sidebar |
+| `/gestion` | `/app/admin` | REAL_PARCIAL fuerte (12A) | usuarios/solicitudes/roles/plazas/catálogos | Usuarios: edición segura (nombre/teléfono/avatar/estado/notas) + auditoría; Solicitudes: rechazo seguro con comentario y fallback controlado |
+| `/programador` | `/app/programador` | REAL_COMPLETA QA (12A) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, estado Firestore transport y copia diagnóstico corto/completo + agrupación `window.api` por dominio |
+| `/profile` | `/app/profile` | REAL_PARCIAL fuerte (12A) | `usuarios/{id}` + app-state | Secciones operativas/read-only, preferencias extendidas (tema/densidad/idioma/vista inicial/plaza default), validación avatar URL, sync sidebar |
 
 ## Clasificación
 
@@ -66,4 +66,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v245` (11G).
+- **`CACHE_NAME`** `mapa-v247` (12A).

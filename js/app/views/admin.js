@@ -2,7 +2,7 @@ import { getState } from '/js/app/app-state.js';
 import { db, COL } from '/js/core/database.js';
 import { subscribeAdminUsers, mergeAdminUserBasics } from '/js/app/features/admin/admin-users-data.js';
 import { getAdminMetaSnapshot } from '/js/app/features/admin/admin-catalogs-data.js';
-import { subscribeAdminRequests, fetchAccessRequestDocDeep } from '/js/app/features/admin/admin-requests-data.js';
+import { subscribeAdminRequests, fetchAccessRequestDocDeep, rejectAccessRequestSafely } from '/js/app/features/admin/admin-requests-data.js';
 import {
   canApproveAccessRequest,
   canRejectAccessRequest,
@@ -140,6 +140,8 @@ function _openEditUserModal(user, { actorEmail, allowPlaza }) {
     <input id="adm-u-nombre" type="text" value="${escAttr(user.nombre || '')}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />
     <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Teléfono</label>
     <input id="adm-u-tel" type="text" value="${escAttr(user.telefono || '')}" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />
+    <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Avatar URL</label>
+    <input id="adm-u-avatar" type="url" value="${escAttr(user.avatarUrl || '')}" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />
     ${allowPlaza ? `<label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Plaza asignada</label>
     <select id="adm-u-plaza" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font:inherit;"><option value="">—</option>${plazaOpts}</select>` : '<p style="font-size:11px;color:#64748b;margin:0 0 10px;">Plaza: solo usuarios admin global pueden reasignarla aquí. Otros cambios en <a href="/gestion?tab=usuarios">legacy</a>.</p>'}
     <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Estado cuenta</label>
@@ -158,13 +160,18 @@ function _openEditUserModal(user, { actorEmail, allowPlaza }) {
     onConfirm: async () => {
       const nombre = String(document.getElementById('adm-u-nombre')?.value || '').trim();
       const telefono = String(document.getElementById('adm-u-tel')?.value || '').trim();
+      const avatarUrl = String(document.getElementById('adm-u-avatar')?.value || '').trim();
       const status = String(document.getElementById('adm-u-status')?.value || 'ACTIVO').trim().toUpperCase();
       const notasInternas = String(document.getElementById('adm-u-notas')?.value || '');
       if (!nombre) {
         _toast('El nombre es obligatorio.', 'error');
         throw new Error('abort');
       }
-      const patch = { nombre, telefono, status, notasInternas };
+      if (avatarUrl && !/^https?:\/\//i.test(avatarUrl)) {
+        _toast('Avatar URL debe iniciar con http:// o https://', 'error');
+        throw new Error('abort');
+      }
+      const patch = { nombre, telefono, avatarUrl, status, notasInternas };
       if (allowPlaza) patch.plazaAsignada = String(document.getElementById('adm-u-plaza')?.value || '').trim().toUpperCase();
       try {
         await mergeAdminUserBasics(user.id, patch, actorEmail, { allowPlaza });
@@ -181,7 +188,7 @@ function _openEditUserModal(user, { actorEmail, allowPlaza }) {
   });
 }
 
-function _openRejectRequestModal(req) {
+function _openRejectRequestModal(req, { actorEmail }) {
   const bodyHtml = `
     <p style="margin:0 0 10px;"><strong>${esc(req.nombre || '—')}</strong> · ${esc(req.email || '')}</p>
     <p style="font-size:12px;color:#64748b;margin:0 0 10px;">Plaza solicitada: ${esc(req.plazaSolicitada || '—')} · Rol solicitado: ${esc(req.rolSolicitado || '—')}</p>
@@ -199,22 +206,27 @@ function _openRejectRequestModal(req) {
         _toast('Escribe un motivo.', 'error');
         throw new Error('abort');
       }
-      const api = window.api;
-      if (typeof api?.procesarSolicitudAcceso !== 'function') {
-        _toast('No hay función de servidor disponible.', 'error');
-        throw new Error('abort');
-      }
       try {
-        await api.procesarSolicitudAcceso({
-          action: 'reject',
-          docId: req.id,
-          collectionName: req.collectionName,
-          email: req.email,
-          nombre: req.nombre,
-          puesto: req.puesto,
-          telefono: req.telefono,
-          motivo
-        });
+        const api = window.api;
+        if (typeof api?.procesarSolicitudAcceso === 'function') {
+          await api.procesarSolicitudAcceso({
+            action: 'reject',
+            docId: req.id,
+            collectionName: req.collectionName,
+            email: req.email,
+            nombre: req.nombre,
+            puesto: req.puesto,
+            telefono: req.telefono,
+            motivo
+          });
+        } else {
+          await rejectAccessRequestSafely({
+            email: req.email,
+            actorEmail,
+            comment: motivo,
+            collectionHint: req.collectionName
+          });
+        }
         _toast('Solicitud rechazada.', 'success');
       } catch (e) {
         const msg = e?.message || String(e);
@@ -763,6 +775,7 @@ function _syncRequestDetail() {
   const gs = getState();
   const profile = gs.profile || {};
   const actorRole = String(gs.role || profile.rol || '').toUpperCase();
+  const actorEmail = String(profile.email || gs.user?.email || '').trim().toLowerCase();
 
   const req = _state.requestsFiltered.find(r => r.id === _state.selectedRequestId) || _state.requestsFiltered[0] || _state.requests[0];
   if (!req) return box.innerHTML = `<div style="padding:12px;color:#94a3b8;">Selecciona una solicitud para ver detalle.</div>`;
@@ -793,11 +806,12 @@ function _syncRequestDetail() {
     ${req.comentarioRevision ? _detail('Comentario', req.comentarioRevision) : ''}
     ${_detail('Colección', req.collectionName || 'solicitudes')}
     ${actions}
+    <a href="/solicitud" style="display:inline-block;margin-top:8px;font-size:12px;color:#0369a1;font-weight:700;">Abrir formulario público de solicitud</a><br/>
     <a href="/gestion?tab=solicitudes" style="display:inline-block;margin-top:12px;font-size:12px;color:#0f172a;font-weight:700;">Abrir admin legacy (completo)</a>
   </div>`;
 
   box.querySelector('#appAdminReqApprove')?.addEventListener('click', () => _openApproveRequestModal(req, { actorRole }));
-  box.querySelector('#appAdminReqReject')?.addEventListener('click', () => _openRejectRequestModal(req));
+  box.querySelector('#appAdminReqReject')?.addEventListener('click', () => _openRejectRequestModal(req, { actorEmail }));
 }
 
 function _html(profile = {}) {
