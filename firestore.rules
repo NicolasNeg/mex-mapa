@@ -402,11 +402,11 @@ service cloud.firestore {
     function solicitudCreateValida(docId) {
       return request.auth == null
         && request.resource.data.keys().hasAll([
-          "nombre", "email", "puesto", "telefono",
+          "nombre", "email", "puesto", "telefono", "password",
           "fecha", "estado", "updatedFrom", "source"
         ])
         && request.resource.data.keys().hasOnly([
-          "nombre", "email", "puesto", "telefono",
+          "nombre", "email", "puesto", "telefono", "password",
           "rolSolicitado", "plazaSolicitada", "fecha", "estado", "_ts",
           "createdAt", "updatedAt", "updatedFrom", "source"
         ])
@@ -414,6 +414,7 @@ service cloud.firestore {
         && request.resource.data.email is string
         && request.resource.data.puesto is string
         && request.resource.data.telefono is string
+        && request.resource.data.password is string
         && request.resource.data.fecha is string
         && (request.resource.data._ts == null || request.resource.data._ts is timestamp)
         && (request.resource.data.createdAt == null || request.resource.data.createdAt is timestamp)
@@ -442,6 +443,8 @@ service cloud.firestore {
         && request.resource.data.puesto.size() >= 2
         && request.resource.data.puesto.size() <= 80
         && request.resource.data.telefono.size() <= 24
+        && request.resource.data.password.size() >= 6
+        && request.resource.data.password.size() <= 120
         && (request.resource.data.plazaSolicitada == null || request.resource.data.plazaSolicitada.size() <= 40);
     }
 

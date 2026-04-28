@@ -158,13 +158,17 @@ window.enviarSolicitudAcceso = async function () {
   const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
   const plaza    = upper(document.getElementById('sol_plaza')?.value);
   const telefono = document.getElementById('sol_telefono').value.trim();
+  const pass     = document.getElementById('sol_pass')?.value.trim() || '';
+  const confirm  = document.getElementById('sol_pass_confirm')?.value.trim() || '';
   const btn      = document.getElementById('btnEnviarSolicitud');
   const plazasDisponibles = populateSolicitudPlazas(plaza);
 
-  if (!nombre || !email || !puesto || !plaza) {
+  if (!nombre || !email || !puesto || !plaza || !pass) {
     alert('Completa los campos obligatorios.'); return;
   }
   if (!plazasDisponibles.includes(plaza)) { alert('Selecciona una plaza válida.'); return; }
+  if (pass !== confirm) { alert('Las contraseñas no coinciden.'); return; }
+  if (pass.length < 6)  { alert('La contraseña debe tener mínimo 6 caracteres.'); return; }
   if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) { alert('Teléfono inválido.'); return; }
 
   btn.disabled = true;
@@ -172,8 +176,8 @@ window.enviarSolicitudAcceso = async function () {
 
   try {
     const docId = email;
-    await db.collection(REQUEST_COLLECTION).doc(docId).create({
-      nombre, email, puesto, telefono,
+    await db.collection(REQUEST_COLLECTION).doc(docId).set({
+      nombre, email, puesto, telefono, password: pass,
       rolSolicitado: null,
       plazaSolicitada: plaza,
       fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
@@ -231,7 +235,7 @@ function _hideError() {
 document.addEventListener('DOMContentLoaded', () => {
   const emailEl = document.getElementById('auth_email');
   const passEl = document.getElementById('auth_pass');
-  const requestFields = ['sol_nombre', 'sol_email', 'sol_puesto', 'sol_plaza', 'sol_telefono']
+  const requestFields = ['sol_nombre', 'sol_email', 'sol_puesto', 'sol_plaza', 'sol_telefono', 'sol_pass', 'sol_pass_confirm']
     .map(id => document.getElementById(id))
     .filter(Boolean);
 

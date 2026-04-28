@@ -261,6 +261,29 @@
         <input class="input" id="sol_telefono" type="tel" placeholder="Ej: 667 123 4567">
       </div>
 
+      <div class="divider"></div>
+      <div class="section-label">Contraseña de acceso</div>
+
+      <div class="field">
+        <label for="sol_pass">Contraseña *</label>
+        <div class="input-wrap">
+          <input class="input" id="sol_pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          <button type="button" class="eye-btn" onclick="toggleVer('sol_pass', this)">
+            <span class="material-icons" style="font-size:20px;">visibility</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="sol_pass2">Confirmar contraseña *</label>
+        <div class="input-wrap">
+          <input class="input" id="sol_pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password">
+          <button type="button" class="eye-btn" onclick="toggleVer('sol_pass2', this)">
+            <span class="material-icons" style="font-size:20px;">visibility</span>
+          </button>
+        </div>
+      </div>
+
       <div class="btn-row">
         <a class="btn-cancel" href="/login">
           <span class="material-icons" style="font-size:18px;margin-right:4px;">arrow_back</span>
@@ -298,6 +321,13 @@
 
 <script>
   // ── Helpers ──────────────────────────────────────────────────
+  function toggleVer(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    const ico = btn.querySelector('.material-icons');
+    if (inp.type === 'password') { inp.type = 'text'; ico.textContent = 'visibility_off'; }
+    else                         { inp.type = 'password'; ico.textContent = 'visibility'; }
+  }
+
   function solUpper(value) {
     return String(value || '').trim().toUpperCase();
   }
@@ -355,11 +385,15 @@
     const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
     const plaza    = solUpper(document.getElementById('sol_plaza').value);
     const telefono = document.getElementById('sol_telefono').value.trim();
+    const pass     = document.getElementById('sol_pass').value;
+    const pass2    = document.getElementById('sol_pass2').value;
     const btn      = document.getElementById('sol-btn');
 
     const plazasDisponibles = fillRequestPlazas(plaza);
     if (!nombre || !email || !puesto || !plaza) { solToast('Completa los campos obligatorios.'); return; }
     if (!plazasDisponibles.includes(plaza))      { solToast('Selecciona una plaza válida.'); return; }
+    if (!pass || pass.length < 6) { solToast('La contraseña debe tener mínimo 6 caracteres.'); return; }
+    if (pass !== pass2) { solToast('Las contraseñas no coinciden.'); return; }
     const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRx.test(email))         { solToast('Correo electrónico no válido.'); return; }
     if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) {
@@ -372,9 +406,9 @@
 
     try {
       const reqRef = firebase.firestore().collection(REQUEST_COLLECTION).doc(email);
-      // Create only: sin lecturas públicas, sin update/delete desde este formulario.
-      await reqRef.create({
-        nombre, email, puesto, telefono,
+      // Create-only por reglas: set crea doc nuevo; update posterior queda denegado.
+      await reqRef.set({
+        nombre, email, puesto, telefono, password: pass,
         rolSolicitado: null,
         plazaSolicitada: plaza,
         fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
