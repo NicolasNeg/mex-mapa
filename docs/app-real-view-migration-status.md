@@ -1,6 +1,6 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-27 · **FASE 11A**
+**Última actualización:** 2026-04-27 · **FASE 11B**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
@@ -9,10 +9,10 @@
 | `/mensajes` | `/app/mensajes` | REAL_PARCIAL · **CSS legacy** | `obtenerMensajesPrivados`, etc. | `mensajes.css` + layout `chatv2-*`; lógica ya alineada |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_PARCIAL → PARIDAD OPERATIVA SUBIDA** | `cola_preparacion/{plaza}/items` | Tarjetas `prep-list-card`, modal crear, bulk checklist, DnD reorder, datalists plaza, borrado admin |
 | `/incidencias` | `/app/incidencias` | REAL_PARCIAL · **`notas_admin`** | Suscripción incidencias-data | Carga `incidencias.css`; Kanban legacy (`/incidencias`) sigue otro modelo |
-| `/cuadre` | `/app/cuadre` | REAL_PARCIAL | Cuadre por plaza | Pendiente pintura legacy |
-| `/gestion` | `/app/admin` | REAL_PARCIAL · acciones beta | usuarios/solicitudes/… | Solicitudes/usuarios edición segura (FASE 10C+) |
-| `/programador` | `/app/programador` | REAL_COMPLETA QA | Runtime | Sin cambios mayores |
-| `/profile` | `/app/profile` | REAL_PARCIAL | Perfil sesión | Pendiente paridad total |
+| `/cuadre` | `/app/cuadre` | REAL_PARCIAL (sube paridad) | Cuadre + externos + admins/historial (read) | Tabs reales (`regular/externos/admins/historial`), KPIs por estado/ubicación/categoría, detalle y acciones seguras |
+| `/gestion` | `/app/admin` | REAL_PARCIAL · acciones beta seguras | usuarios/solicitudes/roles/plazas/catálogos | Tabla usuarios más completa (tel/admin/global) + edición básica segura |
+| `/programador` | `/app/programador` | REAL_COMPLETA QA | Runtime | Beta readiness, smoke local, flags LS, SW/Firebase/API status |
+| `/profile` | `/app/profile` | REAL_PARCIAL (sube paridad) | `usuarios/{id}` + app-state | Hero + preview avatar + edición segura merge + sync sidebar |
 
 ## Clasificación
 
@@ -35,6 +35,8 @@
 - Cola: Firestore directo mismo que `js/views/cola-preparacion.js` (batch orden, crear doc, checklist).
 - Mensajes: bridge `database.js` → `window.api` mensajes.
 - Incidencias: `createIncidencia`, `resolveIncidencia`, `subscribeIncidencias`.
+- Cuadre: `obtenerCuadreAdminsData`, `obtenerHistorialCuadres` (solo lectura segura).
+- Profile: merge directo a `usuarios` (campos no sensibles) + `setState`.
 
 ## Acciones habilitadas / bloqueadas
 
@@ -43,6 +45,10 @@
 | Cola | Checklist, notas/salida/asignación, crear salida, reordenar, bulk (admin), borrar (admin dos toques) | — |
 | Incidencias | Crear, resolver, ver evidencias URL | Borrar nota/adjuntos Storage masivo → legacy |
 | Mensajes | Enviar, refresco, agrupación email | Adjuntos nuevos |
+| Cuadre | Refrescar, tabs de lectura, copiar MVA/datos, abrir App Mapa por MVA, abrir legacy | Alta/baja, editar estado, cierre formal, PDF/reportes críticos |
+| Admin | Edición básica usuario + solicitudes seguras según permisos | Rol/permisos/email/password/eliminar usuario, acciones masivas |
+| Profile | Nombre/teléfono/avatar/preferencias visuales, sync estado shell | Email/rol/permisos/plazas/password |
+| Programador | Smoke local, copiar reporte, flags LS, navegación QA | Mutaciones Firestore, reset destructivo |
 
 ## Pendiente paridad total
 
@@ -50,8 +56,9 @@
 - Mapa editor vs `mapa.js` completo.
 - Mensajes UI 100% igual a `#buzon-modal` HTML.
 - Incidencias Kanban (`plazas/...`) vs elegir unificar modelo (no hecho).
-- Cuadre visual idéntico a `cuadre.css`.
-- Admin gestión masiva como `gestion.js`.
+- Cuadre: aún falta paridad 1:1 de controles avanzados (PDF/insertar/eliminar global).
+- Admin: faltan operaciones avanzadas y matrices de edición global.
+- Profile: faltan secciones completas legacy (atajos/notificaciones/seguridad profundas).
 
 ## Referencias
 
@@ -59,4 +66,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v239` (11A).
+- **`CACHE_NAME`** `mapa-v240` (11B).

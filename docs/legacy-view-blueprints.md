@@ -134,7 +134,8 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/cuadre.js` |
 | **CSS** | `css/cuadre.css` |
 | **Migrado App** | Consola patio parcial (`js/app/views/cuadre.js`) |
-| **Falta** | Paridad visual tabla/tabs/KPI legacy |
+| **Migrado App 11B** | Tabs `flota/externos/admins/historial`, KPIs top estado/ubicación/categoría, detalle más cercano y acciones seguras |
+| **Falta** | Controles avanzados legacy (PDF/insertar/eliminar/edición masiva/cierre formal) |
 | **Peligrosas bloqueadas** | Eliminar unidad, cierre formal, PDF masivos |
 
 ---
@@ -146,6 +147,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **HTML** | Incrustado en flujo gestión |
 | **JS** | `js/views/gestion.js`, panel en `js/views/mapa.js` para solicitudes |
 | **Migrado App** | `admin.js` + `admin-*.js` (solicitudes/usuarios con reglas 10C) |
+| **Migrado App 11B** | Tabla usuarios extendida (teléfono/admin/global), tabs operativos mantienen fallback discreto |
 | **Solicitudes** | Callable `procesarSolicitudAcceso` (Functions) cuando permisos |
 | **Peligrosas** | Alta masiva usuarios, permisos finos — preferir legacy |
 
@@ -158,6 +160,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **HTML** | `programador.html` |
 | **JS** | `js/views/programador.js`, App: `js/app/views/programador.js` |
 | **Migrado App** | Diagnósticos, flags, smoke, enlaces SW |
+| **Migrado App 11B** | Beta readiness + smoke local + copia reporte + estado SW/Firebase/API + flags LS seguras |
 | **Peligrosas** | Mutar prod Firestore desde App — bloqueado |
 
 ---
@@ -169,6 +172,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **HTML** | `profile.html` |
 | **JS** | `js/views/profile.js`, App: `profile.js` |
 | **Migrado App** | Parcial |
+| **Migrado App 11B** | Hero visual + edición segura (nombre/teléfono/avatar/preferencias) + sync App Shell |
 | **Bloqueado** | Email/rol/password sin flujo Firebase dedicado |
 
 ---
@@ -185,4 +189,4 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 1. Paridad fuerte Cola App ↔ `cola-preparacion.js` legacy.
 2. Incidencias App: skin + copy claros como bitácora `notas_admin`; link a Kanban legacy.
 3. Mensajes App: layout chatv2 + mismas llamadas API.
-4. Cuadre / Admin / Profile: iteración por snapshots en fases siguientes.
+4. Cerrar huecos de paridad visual restante en Cuadre/Admin/Profile.

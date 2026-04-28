@@ -474,14 +474,17 @@ function _renderTab() {
 function _renderUsersTable() {
   if (_state.tab !== 'usuarios') return _renderTab();
   _renderTab();
-  if (!_state.filtered.length) return _setTableBody(`<tr><td colspan="5" style="padding:20px;color:#64748b;">Sin usuarios para el filtro actual.</td></tr>`);
+  if (!_state.filtered.length) return _setTableBody(`<tr><td colspan="8" style="padding:20px;color:#64748b;">Sin usuarios para el filtro actual.</td></tr>`);
   _setTableBody(_state.filtered.map(u => `
     <tr data-admin-user="${escAttr(u.id)}" style="cursor:pointer;">
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.nombre || '—')}</td>
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.email || '—')}</td>
       <td style="padding:8px;border-bottom:1px solid #eef2f7;"><span style="padding:2px 8px;background:#e2e8f0;border-radius:999px;font-size:11px;">${esc(u.rol || '—')}</span></td>
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.plaza || '—')}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.telefono || '—')}</td>
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.status || 'ACTIVO')}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${u.isAdmin ? 'Sí' : 'No'}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${u.isGlobal ? 'Sí' : 'No'}</td>
     </tr>`).join(''));
   _ctx.container.querySelectorAll('[data-admin-user]').forEach(row => row.addEventListener('click', () => {
     _state.selectedId = row.dataset.adminUser;
@@ -741,8 +744,8 @@ function _html(profile = {}) {
         <select id="appAdminPlazaFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
       </div>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
-        <table style="width:100%;border-collapse:collapse;min-width:760px;">
-          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Email</th><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Plaza</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th></tr></thead>
+        <table style="width:100%;border-collapse:collapse;min-width:980px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Email</th><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Plaza</th><th style="padding:8px;text-align:left;background:#f8fafc;">Teléfono</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th><th style="padding:8px;text-align:left;background:#f8fafc;">Admin</th><th style="padding:8px;text-align:left;background:#f8fafc;">Global</th></tr></thead>
           <tbody id="appAdminUsersBody"></tbody>
         </table>
       </div>

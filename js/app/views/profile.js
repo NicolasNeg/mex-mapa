@@ -62,8 +62,10 @@ function _bind() {
     el?.addEventListener('input', () => _syncFormFromDom());
     el?.addEventListener('change', () => _syncFormFromDom());
   });
+  avatar?.addEventListener('input', () => _renderAvatarPreview());
   save?.addEventListener('click', () => _saveProfile());
   cancel?.addEventListener('click', () => _resetForm());
+  _renderAvatarPreview();
 }
 
 function _syncFormFromDom() {
@@ -87,6 +89,7 @@ function _resetForm() {
   c.querySelector('#appProfileAvatarUrl').value = _formState.avatarUrl;
   c.querySelector('#appProfileTheme').value = _formState.theme;
   c.querySelector('#appProfileDensity').value = _formState.visualDensity;
+  _renderAvatarPreview();
   _setStatus('Cambios restaurados.', 'info');
 }
 
@@ -119,6 +122,7 @@ async function _saveProfile() {
     const nextProfile = { ...current, ...payload };
     setState({ profile: nextProfile });
     _ctx?.shell?.setProfile?.(nextProfile, getState().role);
+    _renderAvatarPreview();
     _setStatus('Perfil actualizado correctamente.', 'ok');
   } catch (err) {
     _setStatus(err?.message || 'No se pudieron guardar los cambios.', 'error');
@@ -130,6 +134,27 @@ function _setStatus(msg, type) {
   if (!el) return;
   el.textContent = msg;
   el.style.color = type === 'error' ? '#b91c1c' : (type === 'ok' ? '#15803d' : '#475569');
+}
+
+function _renderAvatarPreview() {
+  const c = _ctx?.container;
+  if (!c) return;
+  const url = String(c.querySelector('#appProfileAvatarUrl')?.value || '').trim();
+  const holder = c.querySelector('#appProfileAvatarPreview');
+  const initials = c.querySelector('#appProfileAvatarInitials');
+  if (!holder || !initials) return;
+  const fallbackName = String(c.querySelector('#appProfileName')?.value || '').trim() || 'USUARIO';
+  const ini = fallbackName.split(/\s+/).slice(0, 2).map(x => x[0]).join('').toUpperCase() || 'U';
+  initials.textContent = ini;
+  if (url) {
+    const safeUrl = url.replace(/"/g, '%22');
+    holder.style.backgroundImage = `url("${safeUrl}")`;
+    holder.style.backgroundSize = 'cover';
+    holder.style.backgroundPosition = 'center';
+  } else {
+    holder.style.backgroundImage = 'none';
+    holder.style.background = '#0f172a';
+  }
 }
 
 function _makeFormState(profile = {}) {
@@ -148,15 +173,17 @@ function _html(profile, role, form) {
   const roleLabel = ROLE_LABELS[role] || profile.roleLabel || role || 'AUXILIAR';
   const plaza = String(profile.plazaAsignada || profile.plaza || '').toUpperCase().trim() || '—';
   return `
-<div style="padding:24px;max-width:760px;margin:0 auto;font-family:Inter,sans-serif;">
-  <h1 style="margin:0 0 12px;font-size:26px;color:#0f172a;">Mi perfil</h1>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;">
-      <div style="font-size:11px;color:#94a3b8;">Usuario</div><div style="font-weight:800;color:#0f172a;">${esc(name)}</div>
+<div style="padding:24px;max-width:980px;margin:0 auto;font-family:Inter,sans-serif;">
+  <div style="border:1px solid #e2e8f0;border-radius:14px;padding:18px;background:#fff;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <div id="appProfileAvatarPreview" style="width:76px;height:76px;border-radius:16px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;">
+      <span id="appProfileAvatarInitials">${esc((name || 'U').slice(0,1).toUpperCase())}</span>
     </div>
-    <div style="border:1px solid #e2e8f0;border-radius:10px;padding:10px;background:#fff;">
-      <div style="font-size:11px;color:#94a3b8;">Rol · Plaza</div><div style="font-weight:700;color:#334155;">${esc(roleLabel)} · ${esc(plaza)}</div>
+    <div style="flex:1;min-width:220px;">
+      <h1 style="margin:0;font-size:24px;color:#0f172a;">${esc(name)}</h1>
+      <div style="font-size:12px;color:#64748b;margin-top:2px;">${esc(email)}</div>
+      <div style="font-size:12px;color:#334155;margin-top:4px;font-weight:700;">${esc(roleLabel)} · ${esc(plaza)}</div>
     </div>
+    <a href="/profile" style="font-size:12px;color:#0f172a;text-decoration:underline;">Abrir perfil legacy</a>
   </div>
   <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;background:#fff;">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">

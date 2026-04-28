@@ -1,5 +1,6 @@
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { subscribeCuadre } from '/js/app/features/cuadre/cuadre-data.js';
+import { obtenerCuadreAdminsData, obtenerHistorialCuadres } from '/js/core/database.js';
 
 let _container = null;
 let _state = null;
@@ -26,7 +27,20 @@ const FILTERS = [
 ];
 
 function _makeState(plaza) {
-  return { plaza, allItems: [], items: [], filter: 'all', query: '', sortField: 'estado', sortDir: 'asc', selectedId: null, navigate: null, tab: 'regular' };
+  return {
+    plaza,
+    allItems: [],
+    adminsItems: [],
+    historyItems: [],
+    items: [],
+    filter: 'all',
+    query: '',
+    sortField: 'estado',
+    sortDir: 'asc',
+    selectedId: null,
+    navigate: null,
+    tab: 'regular'
+  };
 }
 
 export async function mount(ctx) {
@@ -97,6 +111,8 @@ function _reloadForPlaza(nextPlaza) {
   if (normalized === _state.plaza) return;
   _state.plaza = normalized;
   _state.allItems = [];
+  _state.adminsItems = [];
+  _state.historyItems = [];
   _state.items = [];
   _state.selectedId = null;
   _setText('#cqvPlaza', normalized || '—');
@@ -152,6 +168,7 @@ function _bindEvents() {
   qsa('[data-cqv-tab]').forEach(btn => btn.addEventListener('click', () => {
     _state.tab = btn.dataset.cqvTab || 'regular';
     qsa('[data-cqv-tab]').forEach(x => x.classList.toggle('is-active', x === btn));
+    void _loadSecondaryTabData();
     _applyFiltersAndSort();
     _renderSummary();
     _renderTable();
@@ -171,6 +188,7 @@ function _bindEvents() {
 }
 
 function _matchFilter(item) {
+  if (_state.tab === 'admins' || _state.tab === 'historial') return true;
   const f = _state.filter;
   const est = String(item.estado || '').toUpperCase();
   if (f === 'all') return true;
@@ -182,12 +200,21 @@ function _matchFilter(item) {
   if (f === 'no-arrendable') return est.includes('NO ARREND');
   if (f === 'mantenimiento') return est === 'MANTENIMIENTO' || est === 'SUCIO';
   if (f === 'externos') return String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO');
+  if (_state.tab === 'externos') return String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO');
   return true;
 }
 
 function _applyFiltersAndSort() {
   const query = _state.query.toLowerCase().trim();
-  let items = _state.allItems.filter(_matchFilter);
+  let base = _state.allItems;
+  if (_state.tab === 'externos') {
+    base = _state.allItems.filter(item => String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO'));
+  } else if (_state.tab === 'admins') {
+    base = _state.adminsItems;
+  } else if (_state.tab === 'historial') {
+    base = _state.historyItems;
+  }
+  let items = base.filter(_matchFilter);
   if (query) {
     items = items.filter(it =>
       String(it.mva || '').toLowerCase().includes(query) ||
@@ -213,6 +240,52 @@ function _applyFiltersAndSort() {
     return String(a.mva || '').localeCompare(String(b.mva || ''));
   });
   _state.items = items;
+}
+
+async function _loadSecondaryTabData() {
+  if (!_state?.plaza) return;
+  if (_state.tab === 'admins' && !_state.adminsItems.length) {
+    try {
+      const rows = await obtenerCuadreAdminsData(_state.plaza);
+      if (!_state) return;
+      _state.adminsItems = (Array.isArray(rows) ? rows : []).map((x, idx) => ({
+        id: String(x.id || x.fila || x.mva || `adm_${idx}`),
+        mva: String(x.mva || '').toUpperCase().trim(),
+        modelo: String(x.modelo || x.unidad || '').trim(),
+        categoria: String(x.categoria || '').trim(),
+        placas: String(x.placas || '').trim(),
+        gasolina: String(x.gasolina || '').trim(),
+        estado: String(x.estado || '').toUpperCase().trim(),
+        ubicacion: String(x.ubicacion || '').trim(),
+        notas: String(x.notas || x.descripcion || '').trim(),
+        plaza: String(x.plaza || _state.plaza || '').toUpperCase().trim(),
+        tipo: 'admin',
+        pos: String(x.pos || '').trim(),
+        updatedAt: x._updatedAt || x._createdAt || x.fecha || ''
+      }));
+    } catch (_) {}
+  }
+  if (_state.tab === 'historial' && !_state.historyItems.length) {
+    try {
+      const rows = await obtenerHistorialCuadres(_state.plaza);
+      if (!_state) return;
+      _state.historyItems = (Array.isArray(rows) ? rows : []).map((x, idx) => ({
+        id: String(x.id || x.fila || x.mva || `hist_${idx}`),
+        mva: String(x.mva || '').toUpperCase().trim(),
+        modelo: String(x.modelo || '').trim(),
+        categoria: String(x.categoria || '').trim(),
+        placas: String(x.placas || '').trim(),
+        gasolina: String(x.gasolina || '').trim(),
+        estado: String(x.estado || '').toUpperCase().trim(),
+        ubicacion: String(x.ubicacion || '').trim(),
+        notas: String(x.notas || x.descripcion || x.accion || '').trim(),
+        plaza: String(x.plaza || _state.plaza || '').toUpperCase().trim(),
+        tipo: 'historial',
+        pos: String(x.pos || '').trim(),
+        updatedAt: x._updatedAt || x._createdAt || x.fecha || ''
+      }));
+    } catch (_) {}
+  }
 }
 
 function _renderNoPlaza() {
@@ -259,15 +332,23 @@ function _renderSummary() {
       ? topUb.map(([k, v]) => `<span class="cqv__stat-pill">${esc(k)} <b>${v}</b></span>`).join('')
       : '<span class="cqv__stat-muted">—</span>';
   }
+  const cat = {};
+  src.forEach(x => {
+    const c = String(x.categoria || '—').trim() || '—';
+    cat[c] = (cat[c] || 0) + 1;
+  });
+  const topCat = Object.entries(cat).sort((a, b) => b[1] - a[1]).slice(0, 4);
+  const catEl = q('#cqvSummaryCat');
+  if (catEl) {
+    catEl.innerHTML = topCat.length
+      ? topCat.map(([k, v]) => `<span class="cqv__stat-pill">${esc(k)} <b>${v}</b></span>`).join('')
+      : '<span class="cqv__stat-muted">—</span>';
+  }
 }
 
 function _renderTable() {
   const tbody = q('#cqvTableBody');
   if (!tbody) return;
-  if ((_state.tab || 'regular') === 'admins') {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="cqv__empty">Cuadre administrativo y reportes completos están en la <a class="cqv__link" href="/cuadre">consola classic</a>.</div></td></tr>`;
-    return;
-  }
   if (!_state.items.length) {
     tbody.innerHTML = `<tr><td colspan="8"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
     return;
@@ -294,7 +375,10 @@ function _renderTable() {
 
 function _syncDetail() {
   if (!_state.selectedId) return _renderDetail(null);
-  const item = _state.allItems.find(x => x.id === _state.selectedId);
+  const item = _state.items.find(x => x.id === _state.selectedId)
+    || _state.allItems.find(x => x.id === _state.selectedId)
+    || _state.adminsItems.find(x => x.id === _state.selectedId)
+    || _state.historyItems.find(x => x.id === _state.selectedId);
   if (!item) {
     _state.selectedId = null;
     return _renderDetail(null);
@@ -322,20 +406,28 @@ function _renderDetail(item) {
         ${_detailCell('Ubicación', item.ubicacion || '—')}
         ${_detailCell('Posición', item.pos || '—')}
         ${_detailCell('Plaza', item.plaza || _state.plaza || '—')}
-        ${_detailCell('Última actualización', item.updatedAt ? esc(String(item.updatedAt)) : '—')}
+        ${_detailCell('Última actualización', _fmtUpdated(item.updatedAt || item.fechaIngreso))}
       </div>
       ${item.notas ? `<div class="cqv__notes"><strong>Notas</strong><p>${esc(item.notas)}</p></div>` : ''}
       <div class="cqv__detail-actions">
         <button type="button" class="cqv__btn" data-cqv-copy="${esc(item.mva || '')}">Copiar MVA</button>
+        <button type="button" class="cqv__btn" data-cqv-copy-json>Copiar datos</button>
+        <a class="cqv__btn" href="/app/mapa?q=${encodeURIComponent(item.mva || '')}">Abrir en mapa App</a>
         <a class="cqv__btn cqv__btn--primary" href="/cuadre">Consola classic</a>
-        <a class="cqv__btn" href="/mapa">Mapa classic</a>
+        <a class="cqv__btn" href="/mapa">Mapa legacy</a>
       </div>
-      <p class="cqv__hint">Solo consulta en App · cambios operativos en classic.</p>
+      <p class="cqv__hint">Acciones seguras en App: refrescar/copiar/abrir mapa. Edición operativa y reportes oficiales siguen en legacy.</p>
     </div>`;
   panel.querySelector('[data-cqv-copy]')?.addEventListener('click', async ev => {
     const mva = ev.target?.getAttribute('data-cqv-copy') || item.mva;
     try {
       await navigator.clipboard?.writeText?.(mva);
+    } catch (_) {}
+  });
+  panel.querySelector('[data-cqv-copy-json]')?.addEventListener('click', async () => {
+    const text = JSON.stringify(item || {}, null, 2);
+    try {
+      await navigator.clipboard?.writeText?.(text);
     } catch (_) {}
   });
 }
@@ -365,9 +457,11 @@ function _layout({ plaza, role, user }) {
         <div class="cqv__panel cqv__panel--left">
           <div class="cqv__tabs">
             <button class="cqv__tab is-active" data-cqv-tab="regular" type="button">Flota patio</button>
-            <button class="cqv__tab" data-cqv-tab="admins" type="button">Admin / classic</button>
+            <button class="cqv__tab" data-cqv-tab="externos" type="button">Externos</button>
+            <button class="cqv__tab" data-cqv-tab="admins" type="button">Cuadre admins</button>
+            <button class="cqv__tab" data-cqv-tab="historial" type="button">Historial</button>
           </div>
-          <p class="cqv__toolbar-hint">Busca desde el buscador global del header.</p>
+          <p class="cqv__toolbar-hint">La búsqueda principal vive en el header App Shell (paridad migrada).</p>
           <div class="cqv__search-row">
             <select id="cqvSort" class="cqv__search" style="max-width:220px;">
               <option value="estado:asc">Estado</option>
@@ -392,8 +486,8 @@ function _layout({ plaza, role, user }) {
             <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Resguardo</div><div id="cqvSummaryResguardo" class="cqv__kpi-value" style="color:#475569;">0</div></div>
           </div>
           <div class="cqv__panel cqv__notice">
-            <strong>Modo consulta</strong>
-            <p>Altas, bajas y cambios de estado se gestionan en la consola classic.</p>
+            <strong>Consola operativa App</strong>
+            <p>Lectura con KPIs, filtros, detalle y acciones seguras. Altas/bajas/ediciones masivas/reportes críticos se mantienen en legacy.</p>
             <a class="cqv__btn cqv__btn--primary" href="/cuadre" style="width:100%;justify-content:center;margin-top:8px;">Abrir cuadre classic</a>
           </div>
           <div class="cqv__panel cqv__mini-stats">
@@ -401,6 +495,8 @@ function _layout({ plaza, role, user }) {
             <div id="cqvSummaryEstados" class="cqv__mini-body"></div>
             <div class="cqv__mini-title">Por ubicación</div>
             <div id="cqvSummaryUbic" class="cqv__mini-body"></div>
+            <div class="cqv__mini-title">Por categoría</div>
+            <div id="cqvSummaryCat" class="cqv__mini-body"></div>
           </div>
           <div id="cqvDetail" class="cqv__panel cqv__detail-wrap"></div>
         </aside>
