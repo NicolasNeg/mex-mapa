@@ -181,7 +181,7 @@ async function _collectDiagnostics() {
   const hasDb = Boolean(window._db);
   const hasAuth = Boolean(window._auth);
   const hasStorage = Boolean(window._storage);
-  const apiKeys = Object.keys(window.api || {});
+  const apiKeys = Object.keys(window.api || {}).sort((a, b) => a.localeCompare(b));
   const appShell = {
     route: st.currentRoute || window.location.pathname,
     currentPlaza: st.currentPlaza || '',
@@ -205,7 +205,7 @@ async function _collectDiagnostics() {
     env,
     sw: { swControlled, swScope, swState, swVersion },
     firebase: { hasDb, hasAuth, hasStorage },
-    api: { available: Boolean(window.api), count: apiKeys.length },
+    api: { available: Boolean(window.api), count: apiKeys.length, keys: apiKeys },
     appShell,
     errors: { source: programmerErrorsAvailable ? 'programmer_errors (disponible)' : 'no disponible en runtime' },
     config: {
@@ -311,6 +311,17 @@ function _bindExperimentalSection(canEdit) {
     }
     if (a === 'open-legacy-mapa') {
       window.location.href = '/mapa';
+      return;
+    }
+    if (a === 'clear-local-flags') {
+      if (!canEdit) return;
+      try {
+        localStorage.removeItem('mex.appMapa.dnd');
+        localStorage.removeItem('mex.appMapa.dndPersist');
+        localStorage.removeItem('mex.debug.mode');
+      } catch (_) {}
+      root.querySelectorAll('input[data-ls-key]').forEach(el => { el.checked = false; });
+      refreshLabels();
     }
   };
   root.addEventListener('click', onClick);
@@ -547,6 +558,7 @@ function _html(info, flags) {
           <button type="button" data-prog-action="reload" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Recargar vista actual</button>
           <button type="button" data-prog-action="open-app-mapa" style="border:1px solid #0f766e;background:#0f766e;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/mapa</button>
           <button type="button" data-prog-action="open-legacy-mapa" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /mapa legacy</button>
+          ${edit ? '<button type="button" data-prog-action="clear-local-flags" style="border:1px solid #f59e0b;background:#fff7ed;color:#9a3412;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Limpiar flags locales</button>' : ''}
         </div>
       </div>
     </div>
@@ -575,6 +587,15 @@ function _html(info, flags) {
         <a href="/programador" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;text-decoration:none;">Abrir legacy</a>
       </div>
       <div id="progCopyStatus" style="margin-top:8px;font-size:11px;color:#64748b;"></div>
+    </div>
+  </div>
+  <div data-prog-search-text="window api funciones lista buscable" style="margin-top:10px;border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:12px;">
+    <h3 style="margin:0 0 8px;font-size:15px;color:#0f172a;">Funciones disponibles en window.api</h3>
+    <p style="margin:0 0 8px;font-size:12px;color:#64748b;">Usa búsqueda global para filtrar este bloque por nombre de función.</p>
+    <div style="max-height:220px;overflow:auto;border:1px solid #eef2f7;border-radius:8px;padding:8px;background:#f8fafc;">
+      ${(info.api.keys || []).length
+        ? (info.api.keys || []).map(name => `<div data-prog-search-text="${esc(`window.api ${name}`.toLowerCase())}" style="font:12px ui-monospace, SFMono-Regular, Menlo, monospace;color:#0f172a;padding:4px 0;border-bottom:1px solid #e2e8f0;">${esc(name)}</div>`).join('')
+        : '<div style="font-size:12px;color:#94a3b8;">window.api no está disponible en este runtime.</div>'}
     </div>
   </div>
 </div>`;

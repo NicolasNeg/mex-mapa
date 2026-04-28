@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 11A · **Fecha:** 2026-04-27  
+**Versión:** FASE 11C · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -148,8 +148,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/gestion.js`, panel en `js/views/mapa.js` para solicitudes |
 | **Migrado App** | `admin.js` + `admin-*.js` (solicitudes/usuarios con reglas 10C) |
 | **Migrado App 11B** | Tabla usuarios extendida (teléfono/admin/global), tabs operativos mantienen fallback discreto |
+| **Migrado App 11C** | Roles con agrupación real de permisos + conteo usuarios; Plazas con detalle operativo y métricas de unidades aproximadas; Catálogos con preview por sección; Solicitudes con detalle de revisión y flujo seguro mantenido |
 | **Solicitudes** | Callable `procesarSolicitudAcceso` (Functions) cuando permisos |
-| **Peligrosas** | Alta masiva usuarios, permisos finos — preferir legacy |
+| **Peligrosas** | Alta masiva usuarios, permisos finos, edición de roles/plazas/catálogos — mantener en legacy |
 
 ---
 
@@ -161,6 +162,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/programador.js`, App: `js/app/views/programador.js` |
 | **Migrado App** | Diagnósticos, flags, smoke, enlaces SW |
 | **Migrado App 11B** | Beta readiness + smoke local + copia reporte + estado SW/Firebase/API + flags LS seguras |
+| **Migrado App 11C** | Inventario buscable de funciones `window.api`, limpieza de flags locales y CTA de rutas clave QA |
 | **Peligrosas** | Mutar prod Firestore desde App — bloqueado |
 
 ---
@@ -190,3 +192,4 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 2. Incidencias App: skin + copy claros como bitácora `notas_admin`; link a Kanban legacy.
 3. Mensajes App: layout chatv2 + mismas llamadas API.
 4. Cerrar huecos de paridad visual restante en Cuadre/Admin/Profile.
+5. Mantener Admin escritura sensible en legacy hasta auditar edición segura de roles/plazas/catálogos.

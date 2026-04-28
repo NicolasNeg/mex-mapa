@@ -1,4 +1,5 @@
 import { getState } from '/js/app/app-state.js';
+import { db, COL } from '/js/core/database.js';
 import { subscribeAdminUsers, mergeAdminUserBasics } from '/js/app/features/admin/admin-users-data.js';
 import { getAdminMetaSnapshot } from '/js/app/features/admin/admin-catalogs-data.js';
 import { subscribeAdminRequests, fetchAccessRequestDocDeep } from '/js/app/features/admin/admin-requests-data.js';
@@ -17,6 +18,7 @@ let _unsubUsers = null;
 let _unsubRequests = null;
 let _offGlobalSearch = null;
 let _metaLoaded = false;
+let _plazaUnitsCache = new Map();
 
 function _toast(message, type = 'info') {
   let el = document.getElementById('app-admin-toast');
@@ -69,6 +71,50 @@ function _openConfirmOverlay({ id = 'app-admin-overlay', title, bodyHtml, confir
 function _sanitizeRolePick(r) {
   const x = String(r || '').trim().toUpperCase();
   return x || 'AUXILIAR';
+}
+
+function _permissionGroups(role = {}) {
+  const list = Array.isArray(role.permissions) ? role.permissions : [];
+  const groups = {
+    usuarios: list.filter(p => /user|usuario|role|assign/i.test(p)),
+    solicitudes: list.filter(p => /access|request|solicitud/i.test(p)),
+    operacion: list.filter(p => /cuadre|map|flota|alert|incid|message|nota/i.test(p)),
+    sistema: list.filter(p => /system|config|programmer|api|lock/i.test(p))
+  };
+  return groups;
+}
+
+function _permissionGroupChips(role = {}) {
+  const g = _permissionGroups(role);
+  const parts = [
+    ['Usuarios', g.usuarios.length],
+    ['Solicitudes', g.solicitudes.length],
+    ['Operación', g.operacion.length],
+    ['Sistema', g.sistema.length]
+  ].filter(([, n]) => n > 0);
+  if (!parts.length) return '<span style="font-size:11px;color:#94a3b8;">Sin permisos explícitos</span>';
+  return parts.map(([label, n]) => `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:700;">${esc(label)} · ${n}</span>`).join('');
+}
+
+async function _fetchPlazaUnitsApprox(plazaId = '') {
+  const key = String(plazaId || '').toUpperCase().trim();
+  if (!key) return { cuadre: 0, externos: 0, total: 0 };
+  if (_plazaUnitsCache.has(key)) return _plazaUnitsCache.get(key);
+  try {
+    const [cuadre, externos] = await Promise.all([
+      db.collection(COL.CUADRE).where('plaza', '==', key).limit(350).get(),
+      db.collection(COL.EXTERNOS).where('plaza', '==', key).limit(350).get()
+    ]);
+    const data = {
+      cuadre: cuadre.size || 0,
+      externos: externos.size || 0,
+      total: (cuadre.size || 0) + (externos.size || 0)
+    };
+    _plazaUnitsCache.set(key, data);
+    return data;
+  } catch (_) {
+    return { cuadre: 0, externos: 0, total: 0 };
+  }
 }
 
 function _roleOptionsForActor(actorRole, selectedRole, roleKeys = []) {
@@ -332,6 +378,7 @@ export function unmount() {
   _ctx = null;
   _state = null;
   _metaLoaded = false;
+  _plazaUnitsCache = new Map();
 }
 
 function _bindGlobalSearch() {
@@ -407,8 +454,8 @@ async function _loadMeta() {
   const c = _ctx?.container;
   if (!c || _metaLoaded) return;
   _metaLoaded = true;
-  c.querySelector('#appAdminRolesBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Cargando roles...</td></tr>`;
-  c.querySelector('#appAdminPlazasBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Cargando plazas...</td></tr>`;
+  c.querySelector('#appAdminRolesBody').innerHTML = `<tr><td colspan="5" style="padding:20px;color:#64748b;">Cargando roles...</td></tr>`;
+  c.querySelector('#appAdminPlazasBody').innerHTML = `<tr><td colspan="5" style="padding:20px;color:#64748b;">Cargando plazas...</td></tr>`;
   c.querySelector('#appAdminCatalogsBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Cargando catálogos...</td></tr>`;
   try {
     const meta = await getAdminMetaSnapshot();
@@ -421,8 +468,8 @@ async function _loadMeta() {
     _renderCatalogs();
   } catch (err) {
     const msg = esc(err?.message || 'Error cargando metadatos admin.');
-    c.querySelector('#appAdminRolesBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
-    c.querySelector('#appAdminPlazasBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
+    c.querySelector('#appAdminRolesBody').innerHTML = `<tr><td colspan="5" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
+    c.querySelector('#appAdminPlazasBody').innerHTML = `<tr><td colspan="5" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
     c.querySelector('#appAdminCatalogsBody').innerHTML = `<tr><td colspan="4" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
   }
 }
@@ -528,7 +575,7 @@ function _renderRoles() {
   const q = (_state.roleQuery || '').toLowerCase().trim();
   const rows = _state.roles.filter(r => !q || r.name.toLowerCase().includes(q) || r.key.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">Sin roles para el filtro actual.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:20px;color:#64748b;">Sin roles para el filtro actual.</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(r => `<tr data-admin-role="${escAttr(r.key)}" style="cursor:pointer;">
@@ -536,11 +583,13 @@ function _renderRoles() {
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(String(r.level || '—'))}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.description || '—')}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(String(_state.users.filter(u => u.rol === r.key).length))}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">${_permissionGroupChips(r)}</td>
   </tr>`).join('');
   _ctx.container.querySelectorAll('[data-admin-role]').forEach(el => el.addEventListener('click', () => {
     const role = _state.roles.find(r => r.key === el.dataset.adminRole);
     const box = _ctx.container.querySelector('#appAdminRoleDetail');
     if (!box || !role) return;
+    const groups = _permissionGroups(role);
     box.innerHTML = `<div style="padding:12px;">
       <h3 style="margin:0 0 8px;color:#0f172a;">${esc(role.name)}</h3>
       ${_detail('Clave', role.key)}
@@ -548,7 +597,13 @@ function _renderRoles() {
       ${_detail('Usuarios', _state.users.filter(u => u.rol === role.key).length)}
       ${_detail('Permisos', role.permissions?.length || 0)}
       <div style="margin:8px 0;font-size:12px;color:#334155;">${esc(role.description || 'Sin descripción')}</div>
-      <a href="/gestion?tab=roles" style="font-size:12px;color:#0f172a;">Abrir admin completo</a>
+      <div style="margin:10px 0 0;display:grid;gap:6px;">
+        ${Object.entries(groups).map(([k, arr]) => `<div style="padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fafafa;">
+          <div style="font-size:11px;font-weight:800;color:#334155;text-transform:capitalize;">${esc(k)} · ${arr.length}</div>
+          <div style="margin-top:4px;font-size:11px;color:#64748b;line-height:1.35;">${arr.length ? esc(arr.join(', ')) : 'Sin permisos del grupo'}</div>
+        </div>`).join('')}
+      </div>
+      <a href="/gestion?tab=roles" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Editar matriz/jerarquía en legacy</a>
     </div>`;
   }));
 }
@@ -557,7 +612,7 @@ function _renderPlazas() {
   const tbody = _ctx?.container?.querySelector('#appAdminPlazasBody');
   if (!tbody) return;
   if (!_state.plazas.length) {
-    tbody.innerHTML = `<tr><td colspan="4" style="padding:20px;color:#64748b;">No hay plazas configuradas.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" style="padding:20px;color:#64748b;">No hay plazas configuradas.</td></tr>`;
     return;
   }
   tbody.innerHTML = _state.plazas.map(p => `<tr data-admin-plaza="${escAttr(p.id)}" style="cursor:pointer;">
@@ -565,18 +620,24 @@ function _renderPlazas() {
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(p.name || p.id)}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${_state.users.filter(u => u.plaza === p.id).length}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${p.active ? 'Activa' : 'Inactiva'}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;color:#64748b;font-size:11px;">${esc(p.description || '—')}</td>
   </tr>`).join('');
-  _ctx.container.querySelectorAll('[data-admin-plaza]').forEach(el => el.addEventListener('click', () => {
+  _ctx.container.querySelectorAll('[data-admin-plaza]').forEach(el => el.addEventListener('click', async () => {
     const p = _state.plazas.find(x => x.id === el.dataset.adminPlaza);
     const box = _ctx.container.querySelector('#appAdminPlazaDetail');
     if (!box || !p) return;
+    box.innerHTML = `<div style="padding:12px;color:#64748b;">Calculando métricas de plaza...</div>`;
+    const units = await _fetchPlazaUnitsApprox(p.id);
     box.innerHTML = `<div style="padding:12px;">
       <h3 style="margin:0 0 8px;color:#0f172a;">${esc(p.name || p.id)}</h3>
       ${_detail('ID', p.id)}
       ${_detail('Estado', p.active ? 'Activa' : 'Inactiva')}
       ${_detail('Usuarios', _state.users.filter(u => u.plaza === p.id).length)}
+      ${_detail('Unidades patio (aprox.)', units.cuadre)}
+      ${_detail('Unidades externas (aprox.)', units.externos)}
+      ${_detail('Total unidades (aprox.)', units.total)}
       <div style="margin:8px 0;font-size:12px;color:#334155;">${esc(p.description || 'Sin descripción')}</div>
-      <a href="/gestion?tab=plazas" style="font-size:12px;color:#0f172a;">Abrir admin completo</a>
+      <a href="/gestion?tab=plazas" style="font-size:12px;color:#0f172a;">Editar plazas en legacy</a>
     </div>`;
   }));
 }
@@ -596,19 +657,20 @@ function _renderCatalogs() {
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(c.label)}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(c.id)}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${c.count}</td>
-    <td style="padding:8px;border-bottom:1px solid #eef2f7;">Ver detalle</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;">Preview</td>
   </tr>`).join('');
   _ctx.container.querySelectorAll('[data-admin-catalog]').forEach(el => el.addEventListener('click', () => {
     const c = _state.catalogs.find(x => x.id === el.dataset.adminCatalog);
     const box = _ctx.container.querySelector('#appAdminCatalogDetail');
     if (!box || !c) return;
-    const preview = (c.items || []).slice(0, 15).map(i => `<li style="font-size:12px;color:#334155;margin-bottom:4px;">${esc(i.name)} ${i.extra ? `<span style="color:#94a3b8;">· ${esc(i.extra)}</span>` : ''}</li>`).join('');
+    const preview = (c.items || []).slice(0, 20).map(i => `<li style="font-size:12px;color:#334155;margin-bottom:4px;">${esc(i.name)} ${i.extra ? `<span style="color:#94a3b8;">· ${esc(i.extra)}</span>` : ''}</li>`).join('');
     box.innerHTML = `<div style="padding:12px;">
       <h3 style="margin:0 0 8px;color:#0f172a;">${esc(c.label)}</h3>
       ${_detail('Clave', c.id)}
       ${_detail('Elementos', (c.items || []).length)}
+      ${_detail('Sección', c.section || 'general')}
       <ul style="margin:8px 0 0;padding-left:18px;max-height:280px;overflow:auto;">${preview || '<li style="font-size:12px;color:#94a3b8;">Sin elementos</li>'}</ul>
-      <a href="/gestion?tab=catalogos" style="font-size:12px;color:#0f172a;">Abrir admin completo</a>
+      <a href="/gestion?tab=catalogos" style="font-size:12px;color:#0f172a;">Editar catálogos en legacy</a>
     </div>`;
   }));
 }
@@ -717,6 +779,9 @@ function _syncRequestDetail() {
     ${_detail('Teléfono', req.telefono || '—')}
     ${_detail('Estado', req.estado || '—')}
     ${_detail('Fecha', req.fecha || '—')}
+    ${req.revisadoPor ? _detail('Revisado por', req.revisadoPor) : ''}
+    ${req.revisadoEn ? _detail('Revisado en', req.revisadoEn) : ''}
+    ${req.comentarioRevision ? _detail('Comentario', req.comentarioRevision) : ''}
     ${_detail('Colección', req.collectionName || 'solicitudes')}
     ${actions}
     <a href="/gestion?tab=solicitudes" style="display:inline-block;margin-top:12px;font-size:12px;color:#0f172a;font-weight:700;">Abrir admin legacy (completo)</a>
@@ -731,7 +796,7 @@ function _html(profile = {}) {
 <div style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
   <h1 style="margin:0 0 10px;color:#0f172a;font-size:26px;">Panel admin</h1>
   <p style="margin:0 0 14px;padding:11px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#475569;line-height:1.45;">
-    <strong>Beta App Shell:</strong> Solicitudes y usuarios permiten acciones acotadas con confirmación (según tu rol). Roles, plazas y catálogos siguen en <strong>solo consulta</strong>; cambios sensibles siguen en admin legacy.
+    Solicitudes y usuarios tienen flujo operativo seguro con confirmación por permisos. Roles, plazas y catálogos muestran datos reales y mantienen edición en legacy para evitar cambios sensibles en esta fase.
   </p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
     ${['usuarios','roles','plazas','catalogos','solicitudes'].map(t => `<button data-admin-tab="${t}" style="border:1px solid #dbe3ef;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;background:${t==='usuarios'?'#0f172a':'#fff'};color:${t==='usuarios'?'#fff':'#475569'};cursor:pointer;text-transform:capitalize;">${t}</button>`).join('')}
@@ -754,10 +819,10 @@ function _html(profile = {}) {
   </div>
   <div id="adminRolesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Solo consulta en beta. Para editar permisos o definiciones usa <a href="/gestion?tab=roles" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Vista de roles y permisos agrupados para auditoría operativa. Edición de matriz, jerarquía y asignaciones permanece en <a href="/gestion?tab=roles" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
-        <table style="width:100%;border-collapse:collapse;min-width:760px;">
-          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th></tr></thead>
+        <table style="width:100%;border-collapse:collapse;min-width:980px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Permisos principales</th></tr></thead>
           <tbody id="appAdminRolesBody"></tbody>
         </table>
       </div>
@@ -766,10 +831,10 @@ function _html(profile = {}) {
   </div>
   <div id="adminPlazasPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Solo consulta en beta. Alta/edición de plazas en <a href="/gestion?tab=plazas" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Resumen real de plazas (estado, usuarios y conteos de unidades aproximados para contexto). Altas y cambios estructurales siguen en <a href="/gestion?tab=plazas" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
-        <table style="width:100%;border-collapse:collapse;min-width:760px;">
-          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">ID</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th></tr></thead>
+        <table style="width:100%;border-collapse:collapse;min-width:940px;">
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">ID</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th><th style="padding:8px;text-align:left;background:#f8fafc;">Referencia</th></tr></thead>
           <tbody id="appAdminPlazasBody"></tbody>
         </table>
       </div>
@@ -778,7 +843,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminCatalogosPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Solo consulta en beta. Catálogos globales se editan en <a href="/gestion?tab=catalogos" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Catálogos reales cargados desde configuración activa (estados, ubicaciones, categorías, modelos, gasolinas y extras). Cambios globales se mantienen en <a href="/gestion?tab=catalogos" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Catálogo</th><th style="padding:8px;text-align:left;background:#f8fafc;">Clave</th><th style="padding:8px;text-align:left;background:#f8fafc;">Elementos</th><th style="padding:8px;text-align:left;background:#f8fafc;">Acción</th></tr></thead>

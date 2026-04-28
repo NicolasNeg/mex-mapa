@@ -1,6 +1,6 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-27 · **FASE 11B**
+**Última actualización:** 2026-04-28 · **FASE 11C**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
@@ -10,8 +10,8 @@
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_PARCIAL → PARIDAD OPERATIVA SUBIDA** | `cola_preparacion/{plaza}/items` | Tarjetas `prep-list-card`, modal crear, bulk checklist, DnD reorder, datalists plaza, borrado admin |
 | `/incidencias` | `/app/incidencias` | REAL_PARCIAL · **`notas_admin`** | Suscripción incidencias-data | Carga `incidencias.css`; Kanban legacy (`/incidencias`) sigue otro modelo |
 | `/cuadre` | `/app/cuadre` | REAL_PARCIAL (sube paridad) | Cuadre + externos + admins/historial (read) | Tabs reales (`regular/externos/admins/historial`), KPIs por estado/ubicación/categoría, detalle y acciones seguras |
-| `/gestion` | `/app/admin` | REAL_PARCIAL · acciones beta seguras | usuarios/solicitudes/roles/plazas/catálogos | Tabla usuarios más completa (tel/admin/global) + edición básica segura |
-| `/programador` | `/app/programador` | REAL_COMPLETA QA | Runtime | Beta readiness, smoke local, flags LS, SW/Firebase/API status |
+| `/gestion` | `/app/admin` | REAL_PARCIAL fuerte (11C) | usuarios/solicitudes/roles/plazas/catálogos | Roles con permisos agrupados, plazas con detalle + unidades aprox, catálogos por secciones, solicitudes con detalle revisado |
+| `/programador` | `/app/programador` | REAL_COMPLETA QA (11C) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, SW/Firebase/config status y lista buscable `window.api` |
 | `/profile` | `/app/profile` | REAL_PARCIAL (sube paridad) | `usuarios/{id}` + app-state | Hero + preview avatar + edición segura merge + sync sidebar |
 
 ## Clasificación
@@ -46,9 +46,9 @@
 | Incidencias | Crear, resolver, ver evidencias URL | Borrar nota/adjuntos Storage masivo → legacy |
 | Mensajes | Enviar, refresco, agrupación email | Adjuntos nuevos |
 | Cuadre | Refrescar, tabs de lectura, copiar MVA/datos, abrir App Mapa por MVA, abrir legacy | Alta/baja, editar estado, cierre formal, PDF/reportes críticos |
-| Admin | Edición básica usuario + solicitudes seguras según permisos | Rol/permisos/email/password/eliminar usuario, acciones masivas |
+| Admin | Edición básica usuario + solicitudes seguras según permisos + detalle real de roles/plazas/catálogos | Crear/editar rol, jerarquía, editar plaza, editar catálogos, email/password/permisos sensibles, acciones masivas |
 | Profile | Nombre/teléfono/avatar/preferencias visuales, sync estado shell | Email/rol/permisos/plazas/password |
-| Programador | Smoke local, copiar reporte, flags LS, navegación QA | Mutaciones Firestore, reset destructivo |
+| Programador | Smoke local, copiar reporte, flags LS, limpieza flags locales, navegación QA, inventario `window.api` | Mutaciones Firestore, reset SW automático, borrar cache destructivo |
 
 ## Pendiente paridad total
 
@@ -57,7 +57,7 @@
 - Mensajes UI 100% igual a `#buzon-modal` HTML.
 - Incidencias Kanban (`plazas/...`) vs elegir unificar modelo (no hecho).
 - Cuadre: aún falta paridad 1:1 de controles avanzados (PDF/insertar/eliminar global).
-- Admin: faltan operaciones avanzadas y matrices de edición global.
+- Admin: faltan operaciones avanzadas de escritura global (roles/plazas/catálogos) que permanecen en legacy.
 - Profile: faltan secciones completas legacy (atajos/notificaciones/seguridad profundas).
 
 ## Referencias
@@ -66,4 +66,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v240` (11B).
+- **`CACHE_NAME`** `mapa-v241` (11C).
