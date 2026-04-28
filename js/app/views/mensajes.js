@@ -6,6 +6,18 @@ let _state = null;
 let _offGlobalSearch = null;
 let _refreshTimer = null;
 const _REFRESH_MS = 45000;
+let _msgCssInjected = false;
+
+function _ensureMensajesCss() {
+  if (_msgCssInjected) return;
+  if (document.querySelector('link[data-msg-app-css]')) { _msgCssInjected = true; return; }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/mensajes.css';
+  link.setAttribute('data-msg-app-css', '1');
+  document.head.appendChild(link);
+  _msgCssInjected = true;
+}
 
 function q(sel) { return _container?.querySelector(sel) || null; }
 function _up(v) { return String(v || '').trim().toUpperCase(); }
@@ -78,6 +90,7 @@ function _messageMineAndPeer(msg) {
 export async function mount({ container }) {
   _cleanup();
   _container = container;
+  _ensureMensajesCss();
   const gs = getState();
   const profile = gs.profile || {};
   const me = _buildMyIdentity(profile);
@@ -428,9 +441,9 @@ function _layout(me) {
         <button id="appMsgRefresh" type="button" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 10px;font-size:12px;cursor:pointer;">Refrescar</button>
         <a href="/mensajes" style="margin-left:auto;font-size:11px;color:#64748b;text-decoration:underline;">Classic</a>
       </div>
-      <div id="appMsgGrid" style="display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:12px;">
-        <aside id="appMsgList" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;max-height:70vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;"></aside>
-        <section id="appMsgDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;min-height:200px;"></section>
+      <div id="appMsgGrid" class="fleet-wrapper chatv2-layout" style="display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:0;min-height:60vh;align-items:stretch;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
+        <aside id="appMsgList" class="chatv2-contacts" style="border-right:1px solid #e8eef5;max-height:70vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;"></aside>
+        <section id="appMsgDetail" style="background:#fff;min-height:200px;overflow:hidden;"></section>
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;align-items:flex-start;">
         <textarea id="appMsgInput" rows="2" placeholder="Selecciona una conversación para responder..." style="flex:1;border:1px solid #dbe3ef;border-radius:10px;padding:8px 10px;resize:vertical;min-height:42px;font-family:Inter,sans-serif;font-size:12px;"></textarea>

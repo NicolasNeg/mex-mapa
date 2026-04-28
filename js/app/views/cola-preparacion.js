@@ -9,7 +9,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, onPlazaChange } from '/js/app/app-state.js';
-import { db, COL } from '/js/core/database.js';
+import { db, COL, ACCESS_ROLE_META } from '/js/core/database.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 
 // ── Módulo-level refs (una instancia a la vez) ───────────────
@@ -23,6 +23,12 @@ let _queueSubSeq = 0;
 /** @type {Map<string, object>} */
 let _unitsByMva = new Map();
 let _hydrateSeq = 0;
+/** @type {{ value: string, label: string }[]} */
+let _plazaUsersApp = [];
+/** @type {Map<string, object>} */
+let _plazaUnitsApp = new Map();
+let _dragPrepId = '';
+let _deleteArmedPrepId = '';
 
 const CHECKLIST_KEYS = ['lavado', 'gasolina', 'docs', 'revision'];
 
@@ -43,6 +49,7 @@ function esc(v) {
     .replace(/&/g,'&amp;').replace(/</g,'&lt;')
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+function escAttr(v) { return esc(v).replace(/'/g, '&#39;'); }
 
 function _toDate(v) {
   if (!v) return null;
@@ -130,6 +137,317 @@ function _lower(v) {
 function _queueColl(plaza) {
   const p = String(plaza || _state?.plaza || '').toUpperCase().trim();
   return db.collection('cola_preparacion').doc(p).collection('items');
+}
+
+function _canPrepDelete() {
+  const r = String(getState()?.role || _state?.profileRoleCached || '').toUpperCase().trim();
+  const meta = ACCESS_ROLE_META[r] || {};
+  return meta.isAdmin === true;
+}
+
+async function _loadPlazaUsersForApp() {
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  if (!plaza || !_container) {
+    _plazaUsersApp = [];
+    _renderDatalistsApp();
+    return;
+  }
+  try {
+    const [byPlaza, byExtraPlaza] = await Promise.all([
+      db.collection(COL.USERS).where('plazaAsignada', '==', plaza).limit(120).get(),
+      db.collection(COL.USERS).where('plazasPermitidas', 'array-contains', plaza).limit(120).get().catch(() => ({ docs: [] }))
+    ]);
+    const merged = new Map();
+    [...byPlaza.docs, ...(byExtraPlaza.docs || [])].forEach(doc => {
+      const data = doc.data() || {};
+      const email = _lower(data.email || doc.id);
+      const name = String(data.nombre || data.usuario || '').trim();
+      const key = email || name || doc.id;
+      if (!key) return;
+      merged.set(key, {
+        value: email || name,
+        label: [name, email].filter(Boolean).join(' · ')
+      });
+    });
+    _plazaUsersApp = Array.from(merged.values()).filter(item => String(item.value || '').trim());
+  } catch (e) {
+    console.warn('[prep-app] plaza users', e);
+    _plazaUsersApp = [];
+  }
+  _renderDatalistsApp();
+}
+
+async function _loadPlazaUnitsForApp() {
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  if (!plaza || !_container) {
+    _plazaUnitsApp = new Map();
+    _renderDatalistsApp();
+    return;
+  }
+  try {
+    const [cuadreSnap, externosSnap] = await Promise.all([
+      db.collection(COL.CUADRE).where('plaza', '==', plaza).limit(500).get(),
+      db.collection(COL.EXTERNOS).where('plaza', '==', plaza).limit(200).get().catch(() => ({ docs: [] }))
+    ]);
+    const next = new Map();
+    [...cuadreSnap.docs, ...(externosSnap.docs || [])].forEach(doc => {
+      const data = doc.data() || {};
+      const unit = normalizarUnidad({ id: doc.id, ...data });
+      if (unit.mva) next.set(String(unit.mva).toUpperCase(), unit);
+    });
+    _plazaUnitsApp = next;
+  } catch (e) {
+    console.warn('[prep-app] plaza units', e);
+    _plazaUnitsApp = new Map();
+  }
+  _renderDatalistsApp();
+}
+
+function _renderDatalistsApp() {
+  const udl = _container?.querySelector('#prepUsersAppDatalist');
+  if (udl) {
+    udl.innerHTML = _plazaUsersApp.map(u => `<option value="${escAttr(u.value)}">${esc(u.label)}</option>`).join('');
+  }
+  const mdl = _container?.querySelector('#prepMvaAppDatalist');
+  if (mdl) {
+    mdl.innerHTML = Array.from(_plazaUnitsApp.values())
+      .map(unit => `<option value="${escAttr(unit.mva)}">${esc([unit.modelo, unit.categoria, unit.estado].filter(Boolean).join(' · '))}</option>`)
+      .join('');
+  }
+}
+
+function _showCreateUnitPreviewApp(mvaRaw) {
+  const preview = _container?.querySelector('#prepCreateUnitPreviewApp');
+  if (!preview) return;
+  const mva = String(mvaRaw || '').trim().toUpperCase();
+  const unit = _plazaUnitsApp.get(mva);
+  if (!unit || !mva) {
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+    return;
+  }
+  const chips = [
+    unit.modelo ? `<span class="prep-preview-chip">${esc(unit.modelo)}</span>` : '',
+    unit.categoria ? `<span class="prep-preview-chip">${esc(unit.categoria)}</span>` : '',
+    unit.estado ? `<span class="prep-preview-chip prep-preview-chip--state">${esc(unit.estado)}</span>` : '',
+    unit.ubicacion ? `<span class="prep-preview-chip prep-preview-chip--loc"><span class="material-symbols-outlined" style="font-size:13px;">place</span>${esc(unit.ubicacion)}</span>` : ''
+  ].filter(Boolean).join('');
+  preview.innerHTML = `<div class="prep-preview-found"><span class="material-symbols-outlined" style="font-size:15px;color:#047857;">check_circle</span> Unidad encontrada en expediente</div>${chips}`;
+  preview.style.display = 'flex';
+}
+
+function _openPrepCreateModal() {
+  if (!_state?.plaza) {
+    _toast('Selecciona una plaza antes de crear una salida.', 'warning');
+    return;
+  }
+  const modal = _container?.querySelector('#prepModalApp');
+  if (!modal) return;
+  const form = _container?.querySelector('#prepCreateFormApp');
+  form?.reset();
+  const dep = new Date(Date.now() + 24 * 3600000);
+  const depIn = _container?.querySelector('#prepCreateDepartureApp');
+  if (depIn) depIn.value = _toDatetimeLocal(dep);
+  const plIn = _container?.querySelector('#prepCreatePlazaApp');
+  if (plIn) plIn.value = _state.plaza || '';
+  const pv = _container?.querySelector('#prepCreateUnitPreviewApp');
+  if (pv) { pv.style.display = 'none'; pv.innerHTML = ''; }
+  modal.style.display = 'flex';
+}
+
+function _closePrepCreateModal() {
+  const modal = _container?.querySelector('#prepModalApp');
+  if (modal) modal.style.display = 'none';
+}
+
+async function _persistReorderPrep(sourceId, targetId) {
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  if (!plaza || !sourceId || !targetId || sourceId === targetId) return;
+  const ordered = _state.items.slice().sort(_comparePrepItems).map(item => item.id);
+  const sourceIndex = ordered.indexOf(sourceId);
+  const targetIndex = ordered.indexOf(targetId);
+  if (sourceIndex < 0 || targetIndex < 0) return;
+  ordered.splice(targetIndex, 0, ordered.splice(sourceIndex, 1)[0]);
+  const batch = db.batch();
+  const fv = _fv();
+  const actor = _state.profileEmail || '';
+  ordered.forEach((id, index) => {
+    const ref = _queueColl(plaza).doc(id);
+    const payload = { orden: index + 1 };
+    if (fv) {
+      payload.actualizadoAt = fv.serverTimestamp();
+      payload.actualizadoPor = actor;
+    }
+    batch.set(ref, payload, { merge: true });
+  });
+  try {
+    await batch.commit();
+    _toast('Orden actualizado.', 'success');
+  } catch (e) {
+    console.error(e);
+    _toast(e?.message || 'No se pudo reordenar.', 'error');
+  }
+}
+
+async function _runBulkComplete() {
+  if (!_canPrepDelete()) {
+    _toast('Sin permiso para esta acción.', 'warning');
+    return;
+  }
+  const visible = (_state.filteredItems || []).filter(it => !_isItemReady(it));
+  if (!visible.length) {
+    _toast('Todas las unidades visibles ya tienen checklist completo.', 'info');
+    return;
+  }
+  if (!confirm(`¿Marcar checklist completo en ${visible.length} unidad(es) visible(s) que aún no están listas?`)) return;
+  const checklist = CHECKLIST_META.reduce((acc, meta) => {
+    acc[meta.key] = true;
+    return acc;
+  }, {});
+  const batch = db.batch();
+  const fv = _fv();
+  const actor = _state.profileEmail || '';
+  visible.forEach(item => {
+    const ref = _queueColl(_state.plaza).doc(item.id);
+    const payload = { checklist };
+    if (fv) {
+      payload.actualizadoAt = fv.serverTimestamp();
+      payload.actualizadoPor = actor;
+    }
+    batch.set(ref, payload, { merge: true });
+  });
+  try {
+    await batch.commit();
+    _toast(`${visible.length} unidad(es) marcadas como listas.`, 'success');
+  } catch (e) {
+    console.error(e);
+    _toast(e?.message || 'No se pudo completar.', 'error');
+  }
+}
+
+async function _deletePrepItem(id) {
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  if (!plaza || !id) return;
+  try {
+    await _queueColl(plaza).doc(id).delete();
+    _deleteArmedPrepId = '';
+    if (_state.selectedId === id) _state.selectedId = null;
+    _toast('Unidad eliminada de la cola.', 'success');
+    const panel = q('prepDetailPanel');
+    if (panel) panel.style.display = 'none';
+    _renderListByState();
+  } catch (e) {
+    console.error(e);
+    _toast(e?.message || 'No se pudo eliminar.', 'error');
+  }
+}
+
+function _syncBulkButtonVisibility() {
+  const btn = _container?.querySelector('#prepBulkCompleteBtnApp');
+  if (!btn) return;
+  btn.style.display = _canPrepDelete() ? 'inline-flex' : 'none';
+}
+
+function _attachDragPrepCards() {
+  const root = q('prepList');
+  if (!root) return;
+  root.querySelectorAll('[data-item-id]').forEach(card => {
+    card.addEventListener('dragstart', e => {
+      _dragPrepId = card.dataset.itemId || '';
+      card.classList.add('is-dragging');
+      try {
+        e.dataTransfer.effectAllowed = 'move';
+      } catch (_) {}
+    });
+    card.addEventListener('dragend', () => {
+      _dragPrepId = '';
+      card.classList.remove('is-dragging');
+    });
+    card.addEventListener('dragover', e => {
+      e.preventDefault();
+      try {
+        e.dataTransfer.dropEffect = 'move';
+      } catch (_) {}
+    });
+    card.addEventListener('drop', async e => {
+      e.preventDefault();
+      const targetId = card.dataset.itemId || '';
+      if (!_dragPrepId || !targetId || _dragPrepId === targetId) return;
+      await _persistReorderPrep(_dragPrepId, targetId);
+    });
+  });
+}
+
+function _bindPrepExtendedUi() {
+  const c = _container;
+  if (!c) return;
+  c.querySelector('#prepAddBtnApp')?.addEventListener('click', () => _openPrepCreateModal());
+  c.querySelector('#prepBulkCompleteBtnApp')?.addEventListener('click', () => void _runBulkComplete());
+  c.querySelector('#prepCreateFormApp')?.addEventListener('submit', async e => {
+    e.preventDefault();
+    const plaza = String(_state?.plaza || '').toUpperCase().trim();
+    const mva = String(c.querySelector('#prepCreateMvaApp')?.value || '').trim().toUpperCase();
+    const departure = _fromDatetimeLocal(String(c.querySelector('#prepCreateDepartureApp')?.value || ''));
+    const assigned = String(c.querySelector('#prepCreateAssignedApp')?.value || '').trim();
+    const notes = String(c.querySelector('#prepCreateNotesApp')?.value || '').trim();
+    if (!plaza) {
+      _toast('Selecciona una plaza.', 'warning');
+      return;
+    }
+    if (!mva) {
+      _toast('Captura un MVA válido.', 'warning');
+      return;
+    }
+    if (!departure) {
+      _toast('Selecciona la salida programada.', 'warning');
+      return;
+    }
+    const existing = _state.items.find(item => item.id === mva || item.mva === mva);
+    if (existing) {
+      _closePrepCreateModal();
+      _state.selectedId = existing.id;
+      _toast('Ese MVA ya está en la cola; abriendo detalle.', 'warning');
+      _showDetail(_state.items.find(i => i.id === existing.id));
+      _renderListByState();
+      return;
+    }
+    const maxOrder = _state.items.reduce((acc, item) => Math.max(acc, Number(item.orden) || 0), 0);
+    const TS = window.firebase?.firestore?.Timestamp;
+    const fv = _fv();
+    const actor = _state.profileEmail || '';
+    const payload = {
+      mva,
+      fechaSalida: TS ? TS.fromDate(departure) : departure,
+      checklist: { lavado: false, gasolina: false, docs: false, revision: false },
+      asignado: assigned,
+      notas: notes,
+      orden: maxOrder + 1
+    };
+    if (fv) {
+      payload.creadoAt = fv.serverTimestamp();
+      payload.creadoPor = actor;
+      payload.actualizadoAt = fv.serverTimestamp();
+      payload.actualizadoPor = actor;
+    }
+    try {
+      await _queueColl(plaza).doc(mva).set(payload, { merge: true });
+      _closePrepCreateModal();
+      _state.selectedId = mva;
+      _toast('Unidad agregada a la cola.', 'success');
+    } catch (err) {
+      console.error(err);
+      _toast(err?.message || 'No se pudo crear.', 'error');
+    }
+  });
+  c.querySelector('#prepCreateMvaApp')?.addEventListener('input', ev => _showCreateUnitPreviewApp(ev.target?.value));
+  c.querySelector('#prepModalApp')?.addEventListener('click', ev => {
+    if (ev.target?.id === 'prepModalApp') _closePrepCreateModal();
+  });
+  c.querySelector('#prepModalCloseBtnApp')?.addEventListener('click', () => _closePrepCreateModal());
+  c.querySelector('#prepModalCancelBtnApp')?.addEventListener('click', e => {
+    e.preventDefault();
+    _closePrepCreateModal();
+  });
 }
 
 function _fromDatetimeLocal(value) {
@@ -293,6 +611,11 @@ export async function mount({ container, navigate, shell }) {
     _subscribeQueue(plaza);
   }
 
+  void _loadPlazaUsersForApp();
+  void _loadPlazaUnitsForApp();
+  _bindPrepExtendedUi();
+  _syncBulkButtonVisibility();
+
   _unsubPlaza = onPlazaChange((nextPlaza) => {
     _reloadForPlaza(nextPlaza);
   });
@@ -315,6 +638,8 @@ function _doCleanup() {
   _state     = null;
   _unitsByMva = new Map();
   _hydrateSeq += 1;
+  _dragPrepId = '';
+  _deleteArmedPrepId = '';
 }
 
 function _closeQueueListener() {
@@ -347,6 +672,8 @@ function _reloadForPlaza(nextPlaza) {
     return;
   }
   _subscribeQueue(normalized);
+  void _loadPlazaUsersForApp();
+  void _loadPlazaUnitsForApp();
 }
 
 // ── CSS injection ────────────────────────────────────────────
@@ -660,9 +987,13 @@ function _renderList() {
   listEl.querySelectorAll('[data-item-id]').forEach(card => {
     card.addEventListener('click', () => {
       _state.selectedId = card.dataset.itemId;
+      _deleteArmedPrepId = '';
       _showDetail(_state.items.find(i => i.id === _state.selectedId));
     });
+    card.querySelector('.prep-drag-handle')?.addEventListener('click', e => e.stopPropagation());
   });
+  _attachDragPrepCards();
+  _syncBulkButtonVisibility();
 }
 
 function _renderListByState() {
@@ -705,45 +1036,28 @@ function _itemCard(it) {
   const selected = _state.selectedId === it.id;
 
   return `
-<div data-item-id="${esc(it.id)}"
-     class="prep-card${urgentChip ? ' prep-card--urgent' : ''}${selected ? ' prep-card--selected' : ''}"
-     style="background:#fff;border:1px solid ${selected ? '#94a3b8' : urgentChip ? '#fed7aa' : '#f1f5f9'};
-            border-radius:12px;padding:14px 16px;cursor:pointer;
-            transition:box-shadow .1s,border-color .1s;margin-bottom:8px;"
-     onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.06)';this.style.borderColor='#e2e8f0';"
-     onmouseout="this.style.boxShadow='none';this.style.borderColor='${selected ? '#94a3b8' : urgentChip ? '#fed7aa' : '#f1f5f9'}';">
-  <div style="display:flex;align-items:center;gap:12px;">
-    <div style="width:36px;height:36px;border-radius:10px;background:${urgentChip ? '#fff7ed' : '#f0fdf4'};
-                display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-      <span class="material-symbols-outlined" style="font-size:18px;color:${urgentChip ? '#f97316' : '#2b6954'};">
-        ${urgentChip ? 'priority_high' : 'directions_bus'}
-      </span>
-    </div>
-    <div style="flex:1;min-width:0;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap;">
-        <span style="font-size:13px;font-weight:700;color:#0f172a;">${esc(mva)}</span>
-        <span style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:100px;background:${urgentChip ? '#fff7ed' : '#f8fafc'};
-                     color:${urgentChip ? '#ea580c' : '#64748b'};font-size:10px;font-weight:700;">${esc(chipLabel)}</span>
-      </div>
-      <div style="font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-        ${esc(modelo)}
-      </div>
-      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;">
-        <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#f1f5f9;color:#475569;">${esc(unit.estado || 'Sin estado')}</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#f1f5f9;color:#475569;">${esc(unit.ubicacion || 'Sin ubicación')}</span>
-        <span style="font-size:10px;padding:2px 7px;border-radius:6px;background:#ecfdf5;color:#047857;font-weight:700;">${progress.done}/${progress.total} checks</span>
-      </div>
-      <div style="height:3px;background:#e2e8f0;border-radius:2px;margin-top:8px;overflow:hidden;">
-        <div style="height:100%;width:${progress.percent}%;background:#22c55e;transition:width .2s;"></div>
-      </div>
-      <div style="margin-top:8px;font-size:10px;color:#94a3b8;display:flex;justify-content:space-between;gap:8px;">
-        <span>${esc(it.asignado || 'Sin responsable')}</span>
-        <span>${esc(_departureLabel(it.fechaSalida))}</span>
+<article class="prep-list-card ${selected ? 'is-selected' : ''}" data-item-id="${esc(it.id)}" draggable="true">
+  <div class="prep-list-card-head">
+    <div class="prep-list-card-meta">
+      <div class="prep-drag-handle"><span class="material-symbols-outlined">drag_indicator</span></div>
+      <div>
+        <div class="prep-mva">${esc(mva)}</div>
+        <div class="prep-list-card-submeta">${esc(modelo)}</div>
       </div>
     </div>
-    <span class="material-symbols-outlined" style="font-size:16px;color:#cbd5e1;flex-shrink:0;">chevron_right</span>
+    <div class="prep-status-chip ${urgentChip ? 'urgent' : urgency}">${esc(chipLabel)}</div>
   </div>
-</div>`;
+  <div class="prep-list-card-meta">
+    <span class="prep-inline-badge">${esc(unit.estado || 'Sin estado')}</span>
+    <span class="prep-inline-badge">${esc(unit.ubicacion || 'Sin ubicacion')}</span>
+    <span class="prep-inline-badge">${progress.done}/${progress.total} checks</span>
+  </div>
+  <div class="prep-mini-progress"><span style="width:${progress.percent}%;"></span></div>
+  <div class="prep-list-card-footer">
+    <span class="prep-list-card-submeta">${esc(it.asignado || 'Sin responsable')}</span>
+    <span class="prep-list-card-submeta">${esc(_departureLabel(it.fechaSalida))}</span>
+  </div>
+</article>`;
 }
 
 // ── Panel de detalle ─────────────────────────────────────────
@@ -754,6 +1068,9 @@ function _showDetail(it) {
 
   const unit = _unitsByMva.get(String(it.mva || '').toUpperCase()) || {};
   const prog = _cpProgress(it);
+
+  const deleteArmed = _deleteArmedPrepId === it.id;
+  const showDel = _canPrepDelete();
 
   panel.innerHTML = `
 <div style="padding:18px;">
@@ -768,10 +1085,21 @@ function _showDetail(it) {
         ].join(' · '))}
       </div>
     </div>
-    <button type="button" id="prepCloseDetail"
-            style="border:none;background:none;cursor:pointer;color:#94a3b8;padding:4px;">
-      <span class="material-symbols-outlined" style="font-size:20px;">close</span>
-    </button>
+    <div style="display:flex;align-items:center;gap:6px;">
+      ${showDel ? `<button type="button" id="prepDetailDeleteBtn"
+        style="border:1px solid ${deleteArmed ? '#dc2626' : '#fecaca'};border-radius:8px;background:${deleteArmed ? '#fef2f2' : '#fff'};
+        color:#b91c1c;padding:6px 10px;font-size:11px;font-weight:800;cursor:pointer;">
+        ${deleteArmed ? 'Confirmar borrado' : 'Eliminar'}
+      </button>` : ''}
+      ${showDel && deleteArmed ? `<button type="button" id="prepDetailCancelDelBtn"
+        style="border:1px solid #e2e8f0;border-radius:8px;background:#fff;color:#64748b;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;">
+        Cancelar
+      </button>` : ''}
+      <button type="button" id="prepCloseDetail"
+              style="border:none;background:none;cursor:pointer;color:#94a3b8;padding:4px;">
+        <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+      </button>
+    </div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
@@ -789,7 +1117,7 @@ function _showDetail(it) {
   <div style="margin-bottom:12px;">
     <label style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:4px;">Asignado a</label>
     <input id="prepDetailAssigned" type="text" value="${esc(it.asignado || '')}"
-           placeholder="Correo o nombre"
+           placeholder="Correo o nombre" list="prepUsersAppDatalist"
            style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;box-sizing:border-box;" />
   </div>
   <div style="margin-bottom:12px;">
@@ -829,7 +1157,23 @@ function _showDetail(it) {
   panel.querySelector('#prepCloseDetail')?.addEventListener('click', () => {
     panel.style.display = 'none';
     if (_state) _state.selectedId = null;
+    _deleteArmedPrepId = '';
     _renderListByState();
+  });
+
+  panel.querySelector('#prepDetailDeleteBtn')?.addEventListener('click', async () => {
+    if (!it?.id) return;
+    if (_deleteArmedPrepId !== it.id) {
+      _deleteArmedPrepId = it.id;
+      _showDetail(_state.items.find(x => x.id === it.id) || it);
+      return;
+    }
+    if (!confirm('¿Eliminar esta entrada de la cola? No borra la unidad del cuadre ni externos.')) return;
+    await _deletePrepItem(it.id);
+  });
+  panel.querySelector('#prepDetailCancelDelBtn')?.addEventListener('click', () => {
+    _deleteArmedPrepId = '';
+    _showDetail(_state.items.find(x => x.id === it.id) || it);
   });
 
   panel.querySelector('#prepDetailSaveBtn')?.addEventListener('click', async () => {
@@ -982,6 +1326,8 @@ function _skeleton({ profile, role, company, plaza }) {
     </a>
   </div>
   <div data-prep-toast-host style="position:fixed;bottom:20px;right:20px;z-index:50;pointer-events:none;max-width:min(320px,92vw);"></div>
+  <datalist id="prepUsersAppDatalist"></datalist>
+  <datalist id="prepMvaAppDatalist"></datalist>
 
   <!-- Stats -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#f1f5f9;
@@ -1021,6 +1367,17 @@ function _skeleton({ profile, role, company, plaza }) {
     </select>
   </div>
 
+  <div style="padding:8px 16px 12px;border-bottom:1px solid #f1f5f9;background:#fafafa;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+    <button type="button" id="prepAddBtnApp" class="prep-primary-btn">
+      <span class="material-symbols-outlined" style="font-size:18px;">playlist_add</span>
+      Nueva salida
+    </button>
+    <button type="button" id="prepBulkCompleteBtnApp" style="display:none;" class="prep-link-btn" title="Marcar checklist completo en todas las unidades visibles">
+      <span class="material-symbols-outlined" style="font-size:18px;">done_all</span>
+      <span class="prep-btn-label">Todas listas</span>
+    </button>
+  </div>
+
   <!-- Layout: lista + detalle -->
   <div style="display:flex;flex:1;overflow:hidden;">
 
@@ -1036,6 +1393,60 @@ function _skeleton({ profile, role, company, plaza }) {
     </div>
   </div>
 
+</div>
+
+<div id="prepModalApp" class="prep-modal-overlay" style="display:none;">
+  <div class="prep-modal-card" onclick="event.stopPropagation();">
+    <div class="prep-modal-head">
+      <div>
+        <div class="prep-panel-kicker">Nueva salida</div>
+        <h3>Agregar unidad a la cola</h3>
+        <p style="margin:6px 0 0;font-size:12px;color:#64748b;">Registra manualmente la preparación si aún no existe en la cola (misma lógica que legacy).</p>
+      </div>
+      <button type="button" class="prep-icon-btn" id="prepModalCloseBtnApp" aria-label="Cerrar">
+        <span class="material-symbols-outlined" style="font-size:18px;">close</span>
+      </button>
+    </div>
+
+    <form id="prepCreateFormApp" class="prep-modal-form">
+      <div class="prep-form-grid">
+        <label class="prep-field">
+          <span>MVA</span>
+          <input id="prepCreateMvaApp" type="text" maxlength="12" placeholder="Ej: A5256" list="prepMvaAppDatalist" autocomplete="off" required />
+        </label>
+        <label class="prep-field">
+          <span>Fecha y hora de salida</span>
+          <input id="prepCreateDepartureApp" type="datetime-local" required />
+        </label>
+      </div>
+
+      <div id="prepCreateUnitPreviewApp" class="prep-unit-preview" style="display:none;"></div>
+
+      <div class="prep-form-grid">
+        <label class="prep-field">
+          <span>Asignado a</span>
+          <input id="prepCreateAssignedApp" type="text" list="prepUsersAppDatalist" placeholder="Correo o nombre del operativo" />
+        </label>
+        <label class="prep-field">
+          <span>Plaza</span>
+          <input id="prepCreatePlazaApp" type="text" readonly />
+        </label>
+      </div>
+
+      <label class="prep-field">
+        <span>Notas iniciales</span>
+        <textarea id="prepCreateNotesApp" rows="4" placeholder="Prioridad o comentario de patio"></textarea>
+      </label>
+
+      <div class="prep-modal-actions">
+        <button type="button" class="prep-link-btn" id="prepModalCancelBtnApp">Cancelar</button>
+        <button type="submit" class="prep-primary-btn">
+          <span class="material-symbols-outlined" style="font-size:18px;">add_task</span>
+          Guardar en cola
+        </button>
+      </div>
+    </form>
+  </div>
 </div>
 
 <style>

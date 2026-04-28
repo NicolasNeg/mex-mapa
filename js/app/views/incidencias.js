@@ -11,6 +11,7 @@ let _state = null;
 let _unsubIncidencias = null;
 let _unsubPlaza = null;
 let _offGlobalSearch = null;
+let _incCssInjected = false;
 
 const q = id => _container?.querySelector(`#${id}`) ?? null;
 const qs = selector => _container?.querySelector(selector) ?? null;
@@ -77,6 +78,7 @@ function _makeState(plaza) {
 export async function mount(ctx) {
   _cleanup();
   _container = ctx.container;
+  _ensureIncidenciasCss();
   _state = _makeState(String(getCurrentPlaza() || ctx?.state?.currentPlaza || '').toUpperCase().trim());
   _state.navigate = ctx.navigate;
 
@@ -106,6 +108,17 @@ export async function mount(ctx) {
 
 export function unmount() {
   _cleanup();
+}
+
+function _ensureIncidenciasCss() {
+  if (_incCssInjected) return;
+  if (document.querySelector('link[data-inc-app-css]')) { _incCssInjected = true; return; }
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/incidencias.css';
+  link.setAttribute('data-inc-app-css', '1');
+  document.head.appendChild(link);
+  _incCssInjected = true;
 }
 
 function _cleanup() {

@@ -1,46 +1,62 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Fecha:** 2026-04-27 · FASE 10A (actualizado en la misma fase)  
-Fuente de verdad operativa sigue en **rutas legacy** donde el motor completo aún vive ahí. Sin roadmap.
+**Última actualización:** 2026-04-27 · **FASE 11A**
 
-| Vista legacy | Vista App Shell | Estado actual | Datos reales | Acciones migradas | Pendiente | Dependencias legacy | Riesgo | Prioridad |
-|--------------|-----------------|---------------|--------------|-------------------|-----------|---------------------|--------|-----------|
-| `/home` | `/app/dashboard` | **REAL_PARCIAL** | KPIs/resúmenes desde estado/API donde existan | Navegación, búsqueda | Más widgets al nivel de home legacy | `window.api`, cuadre/mapa shortcuts | Medio | Alta |
-| `/mapa` | `/app/mapa` | **REAL_PARCIAL** | Firestore mapa_config + unidades vía API | Read-only, DnD preview/persist (flags, rol) | Paridad herramientas/edición con legacy | `guardarNuevasPosiciones`, legacy mapa motor | Alto si se fuerza paridad UI | Alta |
-| `/mensajes` | `/app/mensajes` | **REAL_PARCIAL** | Firestore mensajes, email canónico | Igual + refresco ligero (~45s, pestaña visible), CTAs legacy menos prominentes | Adjuntos avanzados, UI 1:1 legacy | `mex-api` mensajes | Medio | Alta |
-| `/cola-preparacion` | `/app/cola-preparacion` | **REAL_PARCIAL** (10A más cercano al legacy) | `cola_preparacion/{plaza}/items` + enriquecimiento CUADRE/EXTERNOS | Filtros tipo legacy (urgente/pendiente/listo/míos), orden legacy o por salida, checklist editable, salida/notas/asignación, checklist “marcar todo” con confirmación | DnD reorden masivo y borrado siguen solo en legacy / roles admin legacy | Cuadre/EXTERNOS hidratación por chunks | Medio | Alta |
-| `/incidencias` | `/app/incidencias` | **REAL_PARCIAL** fuerte en **notas_admin** | `notas_admin` | Listado/filtros/detalle; crear vía `createIncidencia`/`guardarNuevaNotaDirecto`; resolver vía `resolveIncidencia`; evidencias como URLs | Kanban legacy (`plazas/.../incidencias`) otro modelo; adjuntos nuevos desde App fuera de alcance | `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Medio | Alta |
-| `/cuadre` | `/app/cuadre` | **REAL_PARCIAL** | Cuadre por plaza | Consulta principal según implementación actual | Paridad total con cuadre legacy | APIs cuadre, PDF | Medio | Media |
-| `/gestion` | `/app/admin` | **REAL_PARCIAL** · **READ_ONLY / consulta** | Usuarios, roles meta, plazas, catálogos, solicitudes (lectura) | Tablas + detalle + banner “modo consulta” | Crear/editar/aprobar en App (bloqueado explícito) | Admin legacy completo | Bajo lectura | Media |
-| `/programador` | `/app/programador` | **REAL_COMPLETA** (alcance QA) | Diagnósticos runtime, flags, smoke | Flags locales, Beta Readiness | — | SW, Firebase cliente | Bajo | Baja |
-| `/profile` | `/app/profile` | **REAL_PARCIAL** | Perfil sesión | Ver/editar según vista | Paridad total con profile legacy | Auth, Firestore usuarios | Bajo | Media |
+| Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
+|--------------|-----------------|--------|------------------|---------------------------|
+| `/home` | `/app/dashboard` | REAL_PARCIAL | KPIs/API | Inventario blueprint; sin cambios mayores |
+| `/mapa` | `/app/mapa` | REAL_PARCIAL | Firestore/API mapa | Sin redirección legacy |
+| `/mensajes` | `/app/mensajes` | REAL_PARCIAL · **CSS legacy** | `obtenerMensajesPrivados`, etc. | `mensajes.css` + layout `chatv2-*`; lógica ya alineada |
+| `/cola-preparacion` | `/app/cola-preparacion` | **REAL_PARCIAL → PARIDAD OPERATIVA SUBIDA** | `cola_preparacion/{plaza}/items` | Tarjetas `prep-list-card`, modal crear, bulk checklist, DnD reorder, datalists plaza, borrado admin |
+| `/incidencias` | `/app/incidencias` | REAL_PARCIAL · **`notas_admin`** | Suscripción incidencias-data | Carga `incidencias.css`; Kanban legacy (`/incidencias`) sigue otro modelo |
+| `/cuadre` | `/app/cuadre` | REAL_PARCIAL | Cuadre por plaza | Pendiente pintura legacy |
+| `/gestion` | `/app/admin` | REAL_PARCIAL · acciones beta | usuarios/solicitudes/… | Solicitudes/usuarios edición segura (FASE 10C+) |
+| `/programador` | `/app/programador` | REAL_COMPLETA QA | Runtime | Sin cambios mayores |
+| `/profile` | `/app/profile` | REAL_PARCIAL | Perfil sesión | Pendiente paridad total |
 
-## Clasificación rápida
+## Clasificación
 
-| Clave | Vistas |
+| Clave | Vista |
 |-------|--------|
-| **REAL_COMPLETA** | Ninguna a nivel producto 1:1 con todo el legacy; **programador** completo para su rol QA. |
-| **REAL_PARCIAL** | Dashboard, mapa App, mensajes, cola, incidencias, cuadre, admin, profile. |
-| **READ_ONLY** | Admin (sin mutaciones destructivas); solicitudes sin aprobar desde App. |
-| **PLACEHOLDER** | Sin pantallas “vacías” globales tras 10A; restos marcados en UI como “consulta” o CTA legacy. |
-| **LEGACY_FALLBACK** | Rutas legacy intactas; banner “Abrir en App Shell” vía `legacy-shell-bridge.js` (excepto `/mapa` según página). |
-| **REQUIERE_MIGRACION_FUERTE** | Mapa editor completo, cuadre PDF avanzado, mensajes adjuntos, admin mutaciones. |
+| REAL_COMPLETA (QA) | Programador |
+| PARIDAD OPERATIVA ALT (11A Cola) | Cola preparación App |
+| REAL_PARCIAL | Dashboard, Mapa App, Mensajes, Incidencias (`notas_admin`), Cuadre, Admin, Profile |
 
-## Notas de incidencias
+## Diseño legacy migrado (11A)
 
-- **Fuente operativa actual:** `notas_admin` (API `suscribirNotasAdmin`, mismos registros que modal/bitácota del mapa cuando usa las mismas funciones).
-- **Incidencias Kanban legacy** (`js/views/incidencias.js`) usa otro esquema (`plazas/.../incidencias`); **no** es la fuente única en App Shell.
+| Vista | Qué se acercó al legacy |
+|-------|-------------------------|
+| **Cola App** | `cola-preparacion.css`, clases `prep-list-card`, `prep-modal-*`, mismo modelo Firestore + batch orden/bulk/checklist/modal alta |
+| **Mensajes App** | `mensajes.css` + grid `fleet-wrapper chatv2-layout` / `chatv2-contacts` |
+| **Incidencias App** | Link a `incidencias.css` (uso futuro Kanban/skin; datos siguen siendo bitácora `notas_admin`) |
 
-## Cola preparación
+## Funciones legacy reutilizadas
 
-- Legacy y App comparten colección **`cola_preparacion/{plaza}/items`**.
-- Modelo real legacy: checklist objeto (`lavado`, `gasolina`, `docs`, `revision`), `fechaSalida`, `orden`, `asignado`, `notas`.
-- **10A:** App hidrata MVA desde `cuadre`/`externos`; estadísticas sobre el conjunto **filtrado** como en legacy; escrituras merge con metadatos `actualizadoAt`; sin borrado ni reorder DnD en App.
+- Cola: Firestore directo mismo que `js/views/cola-preparacion.js` (batch orden, crear doc, checklist).
+- Mensajes: bridge `database.js` → `window.api` mensajes.
+- Incidencias: `createIncidencia`, `resolveIncidencia`, `subscribeIncidencias`.
 
-## Mensajes App
+## Acciones habilitadas / bloqueadas
 
-- Refresco automático conservador cuando la pestaña está visible (no aumenta listeners Firestore; reuso de la misma carga por API).
+| Vista | Habilitadas (App) | Bloqueadas / Legacy |
+|-------|-------------------|---------------------|
+| Cola | Checklist, notas/salida/asignación, crear salida, reordenar, bulk (admin), borrar (admin dos toques) | — |
+| Incidencias | Crear, resolver, ver evidencias URL | Borrar nota/adjuntos Storage masivo → legacy |
+| Mensajes | Enviar, refresco, agrupación email | Adjuntos nuevos |
+
+## Pendiente paridad total
+
+- Dashboard vs `home.js` widgets.
+- Mapa editor vs `mapa.js` completo.
+- Mensajes UI 100% igual a `#buzon-modal` HTML.
+- Incidencias Kanban (`plazas/...`) vs elegir unificar modelo (no hecho).
+- Cuadre visual idéntico a `cuadre.css`.
+- Admin gestión masiva como `gestion.js`.
+
+## Referencias
+
+- **`docs/legacy-view-blueprints.md`** — blueprint por vista (16 campos).
 
 ## Service Worker
 
-- Tras cambios en vistas App: **`CACHE_NAME`** bump (p. ej. `mapa-v236`).
+- **`CACHE_NAME`** `mapa-v239` (11A).
