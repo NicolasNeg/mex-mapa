@@ -1,8 +1,8 @@
 import { getState } from '/js/app/app-state.js';
 import { db, COL } from '/js/core/database.js';
-import { subscribeAdminUsers, mergeAdminUserBasics } from '/js/app/features/admin/admin-users-data.js';
+import { subscribeAdminUsers, mergeAdminUserBasics, fetchAdminUserByEmail } from '/js/app/features/admin/admin-users-data.js';
 import { getAdminMetaSnapshot } from '/js/app/features/admin/admin-catalogs-data.js';
-import { subscribeAdminRequests, fetchAccessRequestDocDeep, rejectAccessRequestSafely } from '/js/app/features/admin/admin-requests-data.js';
+import { subscribeAdminRequests, fetchAccessRequestDocDeep } from '/js/app/features/admin/admin-requests-data.js';
 import {
   canApproveAccessRequest,
   canRejectAccessRequest,
@@ -132,7 +132,7 @@ function _roleOptionsForActor(actorRole, selectedRole, roleKeys = []) {
   }).join('');
 }
 
-function _openEditUserModal(user, { actorEmail, allowPlaza }) {
+function _openEditUserModal(user, { actorEmail, allowPlaza, allowPlazasMulti }) {
   const plazaOpts = (Array.isArray(_state.plazas) ? _state.plazas : []).map(p => `<option value="${escAttr(p.id)}">${esc(p.name || p.id)}</option>`).join('');
   const statusVal = String(user.status || 'ACTIVO').toUpperCase();
   const bodyHtml = `
@@ -144,6 +144,8 @@ function _openEditUserModal(user, { actorEmail, allowPlaza }) {
     <input id="adm-u-avatar" type="url" value="${escAttr(user.avatarUrl || '')}" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />
     ${allowPlaza ? `<label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Plaza asignada</label>
     <select id="adm-u-plaza" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font:inherit;"><option value="">—</option>${plazaOpts}</select>` : '<p style="font-size:11px;color:#64748b;margin:0 0 10px;">Plaza: solo usuarios admin global pueden reasignarla aquí. Otros cambios en <a href="/gestion?tab=usuarios">legacy</a>.</p>'}
+    ${allowPlazasMulti ? `<label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Plazas permitidas (coma separada)</label>
+    <input id="adm-u-plazas" type="text" value="${escAttr((user.plazasPermitidas || []).join(', '))}" placeholder="CULIACAN, MAZATLAN" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />` : ''}
     <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Estado cuenta</label>
     <select id="adm-u-status" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font:inherit;">
       <option value="ACTIVO"${statusVal === 'ACTIVO' ? ' selected' : ''}>ACTIVO</option>
@@ -171,10 +173,16 @@ function _openEditUserModal(user, { actorEmail, allowPlaza }) {
         _toast('Avatar URL debe iniciar con http:// o https://', 'error');
         throw new Error('abort');
       }
-      const patch = { nombre, telefono, avatarUrl, status, notasInternas };
+      const patch = { nombre, telefono, avatarUrl, status, activo: status === 'ACTIVO', notasInternas };
       if (allowPlaza) patch.plazaAsignada = String(document.getElementById('adm-u-plaza')?.value || '').trim().toUpperCase();
+      if (allowPlazasMulti) {
+        patch.plazasPermitidas = String(document.getElementById('adm-u-plazas')?.value || '')
+          .split(',')
+          .map(x => x.trim().toUpperCase())
+          .filter(Boolean);
+      }
       try {
-        await mergeAdminUserBasics(user.id, patch, actorEmail, { allowPlaza });
+        await mergeAdminUserBasics(user.id, patch, actorEmail, { allowPlaza: allowPlaza || allowPlazasMulti });
         _toast('Usuario actualizado.', 'success');
       } catch (e) {
         _toast(e?.message || 'No se pudo guardar.', 'error');
@@ -220,12 +228,8 @@ function _openRejectRequestModal(req, { actorEmail }) {
             motivo
           });
         } else {
-          await rejectAccessRequestSafely({
-            email: req.email,
-            actorEmail,
-            comment: motivo,
-            collectionHint: req.collectionName
-          });
+          _toast('Para rechazo seguro usa admin legacy (falta callable).', 'error');
+          throw new Error('abort');
         }
         _toast('Solicitud rechazada.', 'success');
       } catch (e) {
@@ -361,6 +365,7 @@ export function mount(ctx) {
     query: '',
     roleFilter: '',
     plazaFilter: '',
+    statusFilter: '',
     users: [],
     filtered: [],
     selectedId: null,
@@ -446,6 +451,7 @@ function _bind() {
   }));
   c.querySelector('#appAdminRoleFilter')?.addEventListener('change', e => { _state.roleFilter = String(e.target.value || ''); _applyFilters(); });
   c.querySelector('#appAdminPlazaFilter')?.addEventListener('change', e => { _state.plazaFilter = String(e.target.value || ''); _applyFilters(); });
+  c.querySelector('#appAdminStatusFilter')?.addEventListener('change', e => { _state.statusFilter = String(e.target.value || ''); _applyFilters(); });
   c.querySelector('#appAdminReqStatus')?.addEventListener('change', e => {
     _state.requestsStatus = String(e.target.value || 'PENDIENTE');
     _subscribeRequestsForCurrentStatus();
@@ -512,6 +518,11 @@ function _applyFilters() {
   _state.filtered = _state.users.filter(u => {
     if (_state.roleFilter && u.rol !== _state.roleFilter) return false;
     if (_state.plazaFilter && u.plaza !== _state.plazaFilter) return false;
+    if (_state.statusFilter) {
+      const status = String(u.status || 'ACTIVO').toUpperCase();
+      if (_state.statusFilter === 'SIN_PLAZA' && String(u.plaza || '').trim()) return false;
+      if (_state.statusFilter !== 'SIN_PLAZA' && status !== _state.statusFilter) return false;
+    }
     if (!q) return true;
     return u.nombre.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.rol.toLowerCase().includes(q) || u.plaza.toLowerCase().includes(q);
   });
@@ -568,6 +579,7 @@ function _syncDetail() {
   const actorEmail = String(profile.email || gs.user?.email || '').trim().toLowerCase();
   const canEdit = canEditUsersBasics(profile, actorRole);
   const allowPlaza = canAssignPlazaAsGlobal(profile, actorRole) && Array.isArray(_state.plazas) && _state.plazas.length > 0;
+  const allowPlazasMulti = profile?.isGlobal === true || actorRole === 'PROGRAMADOR' || actorRole === 'JEFE_OPERACION';
 
   const user = _state.filtered.find(u => u.id === _state.selectedId) || _state.filtered[0];
   if (!user) return box.innerHTML = `<div style="padding:12px;color:#94a3b8;">Selecciona un usuario para ver detalle.</div>`;
@@ -579,14 +591,17 @@ function _syncDetail() {
       ${_detail('Plaza', user.plaza || '—')}
       ${_detail('Teléfono', user.telefono || '—')}
       ${_detail('Estado', user.status || 'ACTIVO')}
+      ${_detail('Activo', user.activo === false ? 'No' : 'Sí')}
       ${_detail('Admin', user.isAdmin ? 'Sí' : 'No')}
       ${_detail('Global', user.isGlobal ? 'Sí' : 'No')}
+      ${_detail('Plazas permitidas', (user.plazasPermitidas || []).join(', ') || '—')}
+      ${_detail('Puede cambiar plaza', (user.plazasPermitidas || []).length > 1 ? 'Sí' : 'No')}
       ${user.notasInternas ? _detail('Notas internas', user.notasInternas) : ''}
       ${canEdit ? `<button type="button" id="appAdminEditUserBtn" style="margin-top:12px;width:100%;border:none;border-radius:10px;padding:10px 12px;background:#0f172a;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Editar datos básicos</button>` : ''}
       <a href="/gestion?tab=usuarios" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir admin legacy (completo)</a>
     </div>`;
   const btn = box.querySelector('#appAdminEditUserBtn');
-  if (btn) btn.addEventListener('click', () => _openEditUserModal(user, { actorEmail, allowPlaza }));
+  if (btn) btn.addEventListener('click', () => _openEditUserModal(user, { actorEmail, allowPlaza, allowPlazasMulti }));
 }
 
 function _renderRoles() {
@@ -805,6 +820,9 @@ function _syncRequestDetail() {
     ${req.revisadoEn ? _detail('Revisado en', req.revisadoEn) : ''}
     ${req.comentarioRevision ? _detail('Comentario', req.comentarioRevision) : ''}
     ${_detail('Colección', req.collectionName || 'solicitudes')}
+    <div id="appAdminRequestOnboardState" style="margin-top:8px;padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc;font-size:11px;color:#475569;">
+      Verificando usuario relacionado en Firestore...
+    </div>
     ${actions}
     <a href="/solicitud" style="display:inline-block;margin-top:8px;font-size:12px;color:#0369a1;font-weight:700;">Abrir formulario público de solicitud</a><br/>
     <a href="/gestion?tab=solicitudes" style="display:inline-block;margin-top:12px;font-size:12px;color:#0f172a;font-weight:700;">Abrir admin legacy (completo)</a>
@@ -812,6 +830,17 @@ function _syncRequestDetail() {
 
   box.querySelector('#appAdminReqApprove')?.addEventListener('click', () => _openApproveRequestModal(req, { actorRole }));
   box.querySelector('#appAdminReqReject')?.addEventListener('click', () => _openRejectRequestModal(req, { actorEmail }));
+  const relBox = box.querySelector('#appAdminRequestOnboardState');
+  fetchAdminUserByEmail(req.email).then(user => {
+    if (!relBox || !_state) return;
+    if (!user) {
+      relBox.innerHTML = 'Perfil relacionado: <strong>no existe</strong><br/>Auth user: verificar en legacy/Functions.';
+      return;
+    }
+    relBox.innerHTML = `Perfil relacionado: <strong>existe</strong> · Estado: <strong>${esc(user.status || 'ACTIVO')}</strong> · Plaza: <strong>${esc(user.plaza || '—')}</strong><br/><a href="/app/admin?tab=usuarios" style="color:#0f172a;font-weight:700;">Abrir usuarios</a>`;
+  }).catch(() => {
+    if (relBox) relBox.textContent = 'No se pudo verificar el perfil relacionado.';
+  });
 }
 
 function _html(profile = {}) {
@@ -830,6 +859,13 @@ function _html(profile = {}) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <select id="appAdminRoleFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
         <select id="appAdminPlazaFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;"></select>
+        <select id="appAdminStatusFilter" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
+          <option value="">Todos los estados</option>
+          <option value="ACTIVO">Activos</option>
+          <option value="INACTIVO">Inactivos</option>
+          <option value="RECHAZADO">Rechazados</option>
+          <option value="SIN_PLAZA">Sin plaza</option>
+        </select>
       </div>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:980px;">

@@ -74,7 +74,7 @@ function _resolveAvailablePlazas({ profile = null, role = '' } = {}) {
   const all = _uniquePlazas([...fromConfig, ...fromDetail, ...fromProfile]);
   if (esGlobal(_getRole(profile, role))) return all;
   const allowedProfile = _uniquePlazas(fromProfile);
-  if (!allowedProfile.length) return all;
+  if (!allowedProfile.length) return [];
   return all.filter(plaza => allowedProfile.includes(plaza));
 }
 

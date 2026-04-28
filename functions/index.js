@@ -1969,21 +1969,43 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
       }
 
       const userRef = await resolveUserProfileDocRefByEmail(email, authUser);
-      const plazasPermitidas = roleMeta.multiPlaza
-        ? normalizeUniquePlazas(payload.plazasPermitidas || (plazaAsignada ? [plazaAsignada] : solicitudData.plazasPermitidas || []))
-        : [];
+      const userSnap = await userRef.get().catch(() => null);
+      const requestedPlazas = normalizeUniquePlazas(
+        payload.plazasPermitidas || solicitudData.plazasPermitidas || []
+      );
+      const plazasPermitidas = roleMeta.fullAccess
+        ? requestedPlazas
+        : normalizeUniquePlazas([
+            ...(plazaAsignada ? [plazaAsignada] : []),
+            ...(roleMeta.multiPlaza ? requestedPlazas : [])
+          ]);
       const userPayload = {
         nombre,
         email,
         telefono,
+        puesto,
         rol: role,
         plazaAsignada,
+        plaza: plazaAsignada,
         isAdmin: roleMeta.isAdmin,
         isGlobal: roleMeta.fullAccess,
         status: "ACTIVO",
+        activo: true,
+        autorizado: true,
+        accesoSistema: true,
+        solicitudId: solicitud.id,
+        aprobadoPor: actorName,
+        aprobadoPorEmail: actorEmail,
+        approvedAt: nowIso(),
+        updatedFrom: "app_admin_approve",
+        canSwitchPlaza: plazasPermitidas.length > 1,
         actualizadoAt: nowIso(),
         actualizadoPor: actorEmail
       };
+      if (!userSnap?.exists) {
+        userPayload.creadoAt = nowIso();
+        userPayload.creadoPor = actorEmail;
+      }
       if (plazasPermitidas.length > 0) {
         userPayload.plazasPermitidas = plazasPermitidas;
       }
@@ -2050,8 +2072,38 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
       motivo_rechazo: motivo,
       rechazadoPor: actorName,
       rechazadoPorEmail: actorEmail,
-      rechazadoAt: nowIso()
+      rechazadoAt: nowIso(),
+      updatedFrom: "app_admin_reject"
     }, { merge: true });
+
+    let authDisabled = false;
+    try {
+      const authUser = await admin.auth().getUserByEmail(email);
+      await admin.auth().updateUser(authUser.uid, { disabled: true });
+      authDisabled = true;
+    } catch (error) {
+      if (error?.code !== "auth/user-not-found") throw error;
+    }
+
+    let profileBlocked = false;
+    try {
+      const userRef = await resolveUserProfileDocRefByEmail(email, null);
+      const userSnap = await userRef.get().catch(() => null);
+      if (userSnap?.exists) {
+        await userRef.set({
+          status: "RECHAZADO",
+          activo: false,
+          autorizado: false,
+          accesoSistema: false,
+          solicitudId: solicitud.id,
+          motivoRechazo: motivo,
+          actualizadoAt: nowIso(),
+          actualizadoPor: actorEmail,
+          updatedFrom: "app_admin_reject"
+        }, { merge: true });
+        profileBlocked = true;
+      }
+    } catch (_) { /* noop */ }
 
     const auditId = `gest_${nowMillis()}_${Math.floor(Math.random() * 1000)}`;
     await db.collection(ADMIN_AUDIT_COL).doc(auditId).set({
@@ -2075,7 +2127,9 @@ exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (d
       ok: true,
       action: "reject",
       email,
-      collectionName: solicitud.collectionName
+      collectionName: solicitud.collectionName,
+      authDisabled,
+      profileBlocked
     };
   } catch (error) {
     await recordProgrammerError("procesarSolicitudAcceso", error, { authUid: context.auth?.uid || "" });

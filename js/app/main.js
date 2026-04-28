@@ -42,6 +42,16 @@ async function boot() {
   }
 
   if (!profile) {
+    try { await auth.signOut(); } catch (_) {}
+    window.location.replace('/login');
+    return;
+  }
+
+  const profileStatus = String(profile.status || '').toUpperCase();
+  const profileActive = profile.activo !== false && profile.autorizado !== false && profile.accesoSistema !== false
+    && profileStatus !== 'INACTIVO' && profileStatus !== 'RECHAZADO' && profileStatus !== 'BLOQUEADO';
+  if (!profileActive) {
+    try { await auth.signOut(); } catch (_) {}
     window.location.replace('/login');
     return;
   }
@@ -61,6 +71,12 @@ async function boot() {
     || availablePlazas[0]
     || ''
   ).toUpperCase().trim();
+
+  if (!availablePlazas.length && profile.isGlobal !== true && role !== 'PROGRAMADOR' && role !== 'JEFE_OPERACION' && role !== 'CORPORATIVO_USER') {
+    try { await auth.signOut(); } catch (_) {}
+    window.location.replace('/login');
+    return;
+  }
 
   // 4. Inicializar estado global
   initState({

@@ -74,6 +74,17 @@ auth.onAuthStateChanged(async (user) => {
       .where('email', '==', emailNorm).get();
 
     if (!snap.empty) {
+      const record = snap.docs[0]?.data?.() || {};
+      const status = String(record.status || '').toUpperCase();
+      const isActive = record.activo !== false && status !== 'INACTIVO' && status !== 'RECHAZADO' && status !== 'BLOQUEADO';
+      const isAuthorized = record.autorizado !== false && record.accesoSistema !== false;
+      if (!isActive || !isAuthorized) {
+        _showError(status === 'RECHAZADO'
+          ? 'Tu solicitud fue rechazada. Contacta a administración si necesitas aclaración.'
+          : 'Tu cuenta no está activa. Contacta a un administrador.');
+        await auth.signOut();
+        return;
+      }
       if (typeof window.__mexRequireLocationAccess === 'function') {
         await window.__mexRequireLocationAccess({
           title: 'Ubicacion obligatoria para entrar',
@@ -86,7 +97,7 @@ auth.onAuthStateChanged(async (user) => {
       console.log('[login] post-login redirect:', POST_LOGIN_ROUTE);
       window.location.href = POST_LOGIN_ROUTE;
     } else {
-      _showError(`❌ El correo ${user.email} no tiene permisos en el sistema.`);
+      _showError('Tu cuenta de acceso aún no está habilitada en el sistema.');
       await auth.signOut();
     }
   } catch (e) {
@@ -118,13 +129,15 @@ window.loginManual = async function () {
   } catch (err) {
     btn.disabled = false;
     btn.innerText = 'INICIAR SESIÓN';
+    const genericAuthMsg = 'No pudimos iniciar sesión. Verifica tus datos o confirma que tu cuenta ya fue autorizada.';
     const MSGS = {
-      'auth/wrong-password':     'Contraseña incorrecta.',
-      'auth/invalid-credential': 'Contraseña incorrecta.',
-      'auth/user-not-found':     'Correo no registrado.',
-      'auth/invalid-email':      'Formato de correo inválido.',
-      'auth/too-many-requests':  'Demasiados intentos. Espera un poco.',
-      'auth/user-disabled':      'Esta cuenta ha sido deshabilitada.',
+      'auth/wrong-password': genericAuthMsg,
+      'auth/invalid-credential': genericAuthMsg,
+      'auth/invalid-login-credentials': genericAuthMsg,
+      'auth/user-not-found': genericAuthMsg,
+      'auth/invalid-email': 'Formato de correo inválido.',
+      'auth/too-many-requests': 'Demasiados intentos. Espera un poco.',
+      'auth/user-disabled': 'Tu cuenta no está activa. Contacta a un administrador.',
     };
     _showError(MSGS[err.code] || 'Error al iniciar sesión.');
   }

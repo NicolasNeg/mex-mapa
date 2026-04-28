@@ -58,6 +58,9 @@ Después de mover una unidad en `/app/mapa` con persistencia: comprobar mensaje 
 18. **Service Worker** — versión coherente en Programador; sin 404 críticos en assets del shell.
 19. **Firestore transport (sin flag)** — revisar consola; app funcional con `autoDetectLongPolling`.
 20. **Firestore transport (con flag)** — activar `mex.firestore.forceLongPolling`, recargar y comparar estabilidad de canales.
+21. **Login no habilitado** — usuario Auth sin perfil `usuarios` debe cerrarse sesión y mostrar “cuenta aún no habilitada”.
+22. **Login inactivo/rechazado** — perfil con `status=INACTIVO/RECHAZADO` o `activo=false` no debe entrar a `/app/*`.
+23. **Onboarding jefe de plaza** — usuario aprobado con rol de plaza debe tener `plazaAsignada` y `plazasPermitidas` coherentes en header/dashboard.
 
 ## Smoke automático local
 

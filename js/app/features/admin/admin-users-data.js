@@ -12,6 +12,7 @@ export function normalizeUserRecord(id, data = {}) {
     telefono: String(data.telefono || '').trim(),
     avatarUrl: String(data.avatarUrl || data.photoURL || data.fotoURL || data.profilePhotoUrl || '').trim(),
     status: String(data.status || 'ACTIVO').toUpperCase().trim(),
+    activo: data.activo !== false,
     isAdmin: data.isAdmin === true,
     isGlobal: data.isGlobal === true,
     notasInternas: String(data.notasInternas || data.notasAdmin || '').trim()
@@ -42,11 +43,18 @@ export async function mergeAdminUserBasics(userDocId, patch = {}, actorEmail = '
     merge.profilePhotoUrl = avatar;
   }
   if (patch.status != null) merge.status = String(patch.status).trim().toUpperCase();
+  if (patch.activo != null) merge.activo = patch.activo === true;
   if (patch.notasInternas != null) merge.notasInternas = String(patch.notasInternas).trim();
   if (allowPlaza && patch.plazaAsignada !== undefined) {
     const p = String(patch.plazaAsignada).trim().toUpperCase();
     merge.plazaAsignada = p;
     merge.plaza = p;
+  }
+  if (allowPlaza && Array.isArray(patch.plazasPermitidas)) {
+    merge.plazasPermitidas = patch.plazasPermitidas
+      .map(p => String(p || '').trim().toUpperCase())
+      .filter(Boolean);
+    merge.canSwitchPlaza = merge.plazasPermitidas.length > 1;
   }
   const fv = _fieldValue();
   merge.actualizadoAt = fv ? fv.serverTimestamp() : new Date().toISOString();
@@ -63,4 +71,17 @@ export function subscribeAdminUsers({ onData, onError }) {
     err => fail(err)
   );
   return () => { try { unsub(); } catch (_) {} };
+}
+
+export async function fetchAdminUserByEmail(email = '') {
+  const normalized = String(email || '').toLowerCase().trim();
+  if (!normalized) return null;
+  const direct = await db.collection(COL.USERS).doc(normalized).get().catch(() => null);
+  if (direct?.exists) return normalizeUserRecord(direct.id, direct.data());
+  const byEmail = await db.collection(COL.USERS).where('email', '==', normalized).limit(1).get().catch(() => null);
+  if (byEmail && !byEmail.empty) {
+    const doc = byEmail.docs[0];
+    return normalizeUserRecord(doc.id, doc.data());
+  }
+  return null;
 }
