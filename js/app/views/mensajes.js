@@ -8,6 +8,8 @@ let _offGlobalSearch = null;
 let _refreshTimer = null;
 const _REFRESH_MS = 45000;
 let _msgCssInjected = false;
+let _mounted = false;
+let _loadSeq = 0;
 
 function _ensureMensajesCss() {
   if (_msgCssInjected) return;
@@ -18,6 +20,17 @@ function _ensureMensajesCss() {
   link.setAttribute('data-msg-app-css', '1');
   document.head.appendChild(link);
   _msgCssInjected = true;
+}
+
+function _debugMsg(...args) {
+  try {
+    if (localStorage.getItem('mex.debug.mode') !== '1') return;
+    console.log('[app/mensajes]', ...args);
+  } catch (_) {}
+}
+
+function _isAlive(seq) {
+  return _mounted && !!_state && !!_container && seq === _loadSeq;
 }
 
 function q(sel) { return _container?.querySelector(sel) || null; }
@@ -90,6 +103,8 @@ function _messageMineAndPeer(msg) {
 
 export async function mount({ container }) {
   _cleanup();
+  _mounted = true;
+  _loadSeq += 1;
   _container = container;
   _ensureMensajesCss();
   const gs = getState();
@@ -119,14 +134,18 @@ export async function mount({ container }) {
     _refreshTimer = null;
   }
   _refreshTimer = setInterval(() => {
-    if (document.hidden || !_state || !_container) return;
+    if (document.hidden || !_mounted || !_state || !_container) return;
     _loadMessages();
   }, _REFRESH_MS);
+  _debugMsg('mount', { loadSeq: _loadSeq });
 }
 
 export function unmount() { _cleanup(); }
 
 function _cleanup() {
+  const wasMounted = _mounted;
+  _mounted = false;
+  _loadSeq += 1;
   if (typeof _offGlobalSearch === 'function') {
     try { _offGlobalSearch(); } catch (_) {}
   }
@@ -137,6 +156,7 @@ function _cleanup() {
   }
   _state = null;
   _container = null;
+  if (wasMounted) _debugMsg('unmount', { loadSeq: _loadSeq });
 }
 
 function _bindActions() {
@@ -180,26 +200,32 @@ function _bindGlobalSearch() {
 }
 
 async function _loadMessages() {
-  if (!_state || !_container) return;
+  const seq = ++_loadSeq;
+  if (!_isAlive(seq)) return;
+  _debugMsg('load:start', { seq });
   _state.loading = true;
   _disableComposer(true);
   _setBodyLoading('Cargando conversaciones...');
   try {
     const rows = await _fetchMessagesForAllKnownIdentities(_state.me.queryIdentities);
-    if (!_state || !_container) return;
+    if (!_isAlive(seq)) return;
     _state.allMessages = Array.isArray(rows) ? rows : [];
     _rebuildConversations();
-    await _hydratePeerMeta();
+    await _hydratePeerMeta(seq);
+    if (!_isAlive(seq)) return;
     _applyFilters();
     _renderFilterOptions();
     _renderConversations();
     _renderDetail();
     _setText('#appMsgSendError', '');
   } catch (err) {
+    if (!_isAlive(seq)) return;
     _setBodyError(err?.message || 'No se pudieron cargar los mensajes.');
   } finally {
+    if (!_isAlive(seq)) return;
     _state.loading = false;
     _disableComposer(false);
+    _debugMsg('load:done', { seq });
   }
 }
 
@@ -264,12 +290,14 @@ async function _sendMessage() {
     });
     if (input) input.value = '';
     await _loadMessages();
+    if (!_mounted || !_state || !_container) return;
     _state.selectedPeer = peerKey;
     _renderConversations();
     _renderDetail();
   } catch (error) {
     _setText('#appMsgSendError', error?.message || 'No se pudo enviar el mensaje.');
   } finally {
+    if (!_mounted || !_state || !_container) return;
     _state.sending = false;
     _disableComposer(false);
   }
@@ -360,14 +388,16 @@ function _applyFilters() {
   });
 }
 
-async function _hydratePeerMeta() {
+async function _hydratePeerMeta(seq = _loadSeq) {
   const emails = [...new Set((_state.conversations || []).map(c => String(c.peerEmail || '').trim().toLowerCase()).filter(Boolean))];
   if (!emails.length) {
+    if (!_isAlive(seq)) return;
     _state.peerMeta = new Map();
     return;
   }
   const next = new Map();
   for (const email of emails) {
+    if (!_isAlive(seq)) return;
     try {
       const snap = await db.collection(COL.USERS).doc(email).get();
       if (!snap.exists) continue;
@@ -380,6 +410,7 @@ async function _hydratePeerMeta() {
       });
     } catch (_) {}
   }
+  if (!_isAlive(seq)) return;
   _state.peerMeta = next;
 }
 
