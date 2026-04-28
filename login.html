@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-title" content="Login">
   <meta name="description" content="Iniciar sesion en la plataforma operativa">
   <link rel="manifest" href="/manifest.json">
-  <link rel="icon" href="/img/logo.png" type="image/png">
-  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link rel="icon" href="/img/no-model.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/img/no-model.svg">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
@@ -123,14 +123,6 @@
           <option value="">Cargando plazas...</option>
         </select>
         <input type="tel"   id="sol_telefono" class="sol-input" placeholder="Teléfono (opcional)">
-        <div class="mex-input-wrap">
-          <input type="password" id="sol_pass"         class="sol-input" placeholder="Contraseña" style="padding-right:46px;">
-          <span class="material-icons input-icon" onclick="togglePassword('sol_pass', this)">visibility</span>
-        </div>
-        <div class="mex-input-wrap">
-          <input type="password" id="sol_pass_confirm" class="sol-input" placeholder="Confirmar contraseña" style="padding-right:46px;">
-          <span class="material-icons input-icon" onclick="togglePassword('sol_pass_confirm', this)">visibility</span>
-        </div>
         <div style="display:flex; gap:12px;">
           <button onclick="cerrarModalSolicitud()" class="sol-btn-cancel">CANCELAR</button>
           <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" class="sol-btn-submit">ENVIAR SOLICITUD</button>

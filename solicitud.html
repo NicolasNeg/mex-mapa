@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0b2548">
   <link rel="manifest" href="/manifest.json">
-  <link rel="apple-touch-icon" href="/img/logo.png">
+  <link rel="icon" href="/img/no-model.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/img/no-model.svg">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
@@ -260,29 +261,6 @@
         <input class="input" id="sol_telefono" type="tel" placeholder="Ej: 667 123 4567">
       </div>
 
-      <div class="divider"></div>
-      <div class="section-label">Contraseña de acceso</div>
-
-      <div class="field">
-        <label for="sol_pass">Contraseña *</label>
-        <div class="input-wrap">
-          <input class="input" id="sol_pass" type="password" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
-          <button type="button" class="eye-btn" onclick="toggleVer('sol_pass', this)">
-            <span class="material-icons" style="font-size:20px;">visibility</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="field">
-        <label for="sol_pass2">Confirmar contraseña *</label>
-        <div class="input-wrap">
-          <input class="input" id="sol_pass2" type="password" placeholder="Repite la contraseña" autocomplete="new-password">
-          <button type="button" class="eye-btn" onclick="toggleVer('sol_pass2', this)">
-            <span class="material-icons" style="font-size:20px;">visibility</span>
-          </button>
-        </div>
-      </div>
-
       <div class="btn-row">
         <a class="btn-cancel" href="/login">
           <span class="material-icons" style="font-size:18px;margin-right:4px;">arrow_back</span>
@@ -320,13 +298,6 @@
 
 <script>
   // ── Helpers ──────────────────────────────────────────────────
-  function toggleVer(inputId, btn) {
-    const inp = document.getElementById(inputId);
-    const ico = btn.querySelector('.material-icons');
-    if (inp.type === 'password') { inp.type = 'text'; ico.textContent = 'visibility_off'; }
-    else                         { inp.type = 'password'; ico.textContent = 'visibility'; }
-  }
-
   function solUpper(value) {
     return String(value || '').trim().toUpperCase();
   }
@@ -384,42 +355,35 @@
     const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
     const plaza    = solUpper(document.getElementById('sol_plaza').value);
     const telefono = document.getElementById('sol_telefono').value.trim();
-    const pass     = document.getElementById('sol_pass').value;
-    const pass2    = document.getElementById('sol_pass2').value;
     const btn      = document.getElementById('sol-btn');
 
     const plazasDisponibles = fillRequestPlazas(plaza);
     if (!nombre || !email || !puesto || !plaza) { solToast('Completa los campos obligatorios.'); return; }
     if (!plazasDisponibles.includes(plaza))      { solToast('Selecciona una plaza válida.'); return; }
-    if (!pass || pass.length < 6)     { solToast('La contraseña debe tener mínimo 6 caracteres.'); return; }
-    if (pass !== pass2)               { solToast('Las contraseñas no coinciden.'); return; }
     const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRx.test(email))         { solToast('Correo electrónico no válido.'); return; }
+    if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) {
+      solToast('Teléfono inválido.');
+      return;
+    }
 
     btn.disabled = true;
     btn.textContent = 'ENVIANDO...';
 
     try {
       const reqRef = firebase.firestore().collection(REQUEST_COLLECTION).doc(email);
-      const existing = await reqRef.get();
-      if (existing.exists) {
-        const prev = existing.data() || {};
-        const estado = String(prev.estado || '').toUpperCase();
-        if (estado === 'PENDIENTE' || estado === 'APROBADA') {
-          solToast('Ya existe una solicitud para este correo. Si necesitas ayuda, contacta a un administrador.');
-          return;
-        }
-      }
-      // 1. Guardar en Firestore
-      await reqRef.set({
+      // Create only: sin lecturas públicas, sin update/delete desde este formulario.
+      await reqRef.create({
         nombre, email, puesto, telefono,
-        password: pass,
         rolSolicitado: null,
         plazaSolicitada: plaza,
         fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
         estado: 'PENDIENTE',
         _ts: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
         updatedFrom: 'public_solicitud',
+        source: 'solicitud_publica'
       });
 
       // 2. Enviar correo de confirmación via Cloud Function
@@ -440,8 +404,9 @@
 
     } catch (err) {
       console.error('[solicitud]', err);
-      if (String(err?.code || '').includes('permission-denied')) {
-        solToast('Ese correo ya tiene una solicitud pendiente o no puede registrarse de nuevo.');
+      const code = String(err?.code || '');
+      if (code.includes('already-exists') || code.includes('permission-denied')) {
+        solToast('Ya existe una solicitud para este correo o no es posible modificarla desde este formulario.');
       } else {
         solToast('Error al enviar la solicitud. Intenta de nuevo.');
       }
