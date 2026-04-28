@@ -2192,6 +2192,7 @@ function formatearFechaDocumento(fechaTexto) {
 
 // Handler único: valida por email (funciona con Google y email/contraseña)
 auth.onAuthStateChanged(async (user) => {
+  _trackLegacyListener('create', 'auth-state');
   if (SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
     console.info('[MEX-ROUTE] mapa.js bootstrap omitido en ruta standalone:', window.location.pathname);
     return;
@@ -2620,7 +2621,7 @@ function _registrarYMostrarResumenVisita() {
 }
 
 function _iniciarSincronizacionUsuarios() {
-  if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
+  if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; _trackLegacyListener('cleanup', 'users-live'); }
 
   _unsubUsersLive = db.collection(COL.USERS).onSnapshot(snap => {
     dbUsuariosLogin = snap.docs
@@ -2704,6 +2705,7 @@ function _iniciarSincronizacionUsuarios() {
       }
     }
   }, err => console.warn('onSnapshot usuarios live:', err));
+  _trackLegacyListener('create', 'users-live');
 }
 
 function cerrarSesion() {
@@ -2711,9 +2713,9 @@ function cerrarSesion() {
   teardownNotificationCenter();
   if (autoRefreshInterval) clearInterval(autoRefreshInterval);
   _limpiarRadar();
-  if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
+  if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; _trackLegacyListener('cleanup', 'mapa-sub'); }
   if (_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
-  if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; }
+  if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; _trackLegacyListener('cleanup', 'users-live'); }
   if (saveTimeout) { clearTimeout(saveTimeout); saveTimeout = null; }
   dbUsuariosLogin = [];
   _mapaRuntime.pendingUnits = null;
@@ -2917,6 +2919,10 @@ let _unsubMapa = null;          // función para cancelar onSnapshot del mapa
 let _unsubMapaEstructura = null;
 let _subPlaza = null;           // plaza actualmente suscrita (guard para evitar reinicios duplicados)
 let _unsubUsersLive = null;     // función para cancelar onSnapshot de usuarios (chat/dropdown)
+function _trackLegacyListener(action, name, extra = {}) {
+  if (typeof window.__mexTrackListener !== 'function') return;
+  window.__mexTrackListener(window.location.pathname, `legacy/mapa:${name}`, action, extra);
+}
 let saveTimeout = null;
 let lastMoveTime = 0;
 const MAPA_SAVE_DEBOUNCE_MS = 120;
@@ -3565,7 +3571,7 @@ function startAutoRefresh() {
   // Guard: no reiniciar si ya tenemos suscripciones activas para esta misma plaza
   if (_subPlaza === plazaActiva && _unsubMapa !== null && _unsubMapaEstructura !== null) return;
 
-  if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; }
+  if (_unsubMapa) { _unsubMapa(); _unsubMapa = null; _trackLegacyListener('cleanup', 'mapa-sub'); }
   if (_unsubMapaEstructura) { _unsubMapaEstructura(); _unsubMapaEstructura = null; }
 
   if (!_api || typeof _api.suscribirMapa !== 'function') {
@@ -3611,6 +3617,7 @@ function startAutoRefresh() {
     _mapaRuntime.pendingUnits = null;
     sincronizarMapa(unidades);
   });
+  _trackLegacyListener('create', 'mapa-sub', { plaza: plazaActiva });
 
   _hydrateMapFromLocalCache(plazaActiva);
 }

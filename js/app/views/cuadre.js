@@ -9,6 +9,11 @@ let _unsubPlaza = null;
 let _offGlobalSearch = null;
 let _cssLink = null;
 
+function _trackListener(action, name, extra = {}) {
+  if (typeof window.__mexTrackListener !== 'function') return;
+  window.__mexTrackListener(window.location.pathname, `app/cuadre:${name}`, action, extra);
+}
+
 const q = selector => _container?.querySelector(selector) ?? null;
 const qsa = selector => Array.from(_container?.querySelectorAll(selector) ?? []);
 
@@ -47,6 +52,7 @@ export async function mount(ctx) {
   _cleanup();
   _container = ctx.container;
   _state = _makeState(String(getCurrentPlaza() || ctx?.state?.currentPlaza || '').toUpperCase().trim());
+  _trackListener('create', 'view', { plaza: _state.plaza });
   _state.navigate = ctx.navigate;
   _ensureCss();
   const gs = getState();
@@ -58,6 +64,7 @@ export async function mount(ctx) {
   _bindEvents();
   _bindGlobalSearch();
   _unsubPlaza = onPlazaChange(next => _reloadForPlaza(next));
+  _trackListener('create', 'plaza-sub');
   if (!_state.plaza) return _renderNoPlaza();
   _startListener(_state.plaza);
 }
@@ -65,8 +72,8 @@ export async function mount(ctx) {
 export function unmount() { _cleanup(); }
 
 function _cleanup() {
-  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (_) {} }
-  if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} }
+  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (_) {} _trackListener('cleanup', 'data-sub'); }
+  if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} _trackListener('cleanup', 'plaza-sub'); }
   if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   _unsubData = null;
   _unsubPlaza = null;
@@ -75,6 +82,7 @@ function _cleanup() {
   _cssLink = document.querySelector('link[data-cqv-css="1"]');
   _container = null;
   _state = null;
+  _trackListener('cleanup', 'view');
 }
 
 function _bindGlobalSearch() {
@@ -128,7 +136,7 @@ function _reloadForPlaza(nextPlaza) {
 }
 
 function _stopListener() {
-  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (_) {} }
+  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (_) {} _trackListener('cleanup', 'data-sub'); }
   _unsubData = null;
 }
 
@@ -147,6 +155,7 @@ function _startListener(plaza) {
     },
     onError: err => _renderTableError(String(err?.code || '').includes('permission') ? 'Sin permisos para ver cuadre de esta plaza.' : (err?.message || 'Error al cargar cuadre.'))
   });
+  _trackListener('create', 'data-sub', { plaza });
 }
 
 function _bindEvents() {

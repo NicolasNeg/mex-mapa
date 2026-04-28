@@ -30,6 +30,11 @@ let _plazaUnitsApp = new Map();
 let _dragPrepId = '';
 let _deleteArmedPrepId = '';
 
+function _trackListener(action, name, extra = {}) {
+  if (typeof window.__mexTrackListener !== 'function') return;
+  window.__mexTrackListener(window.location.pathname, `app/cola:${name}`, action, extra);
+}
+
 const CHECKLIST_KEYS = ['lavado', 'gasolina', 'docs', 'revision'];
 
 const CHECKLIST_META = [
@@ -596,6 +601,7 @@ export async function mount({ container, navigate, shell }) {
   const plaza = String(currentPlaza || '').toUpperCase().trim();
 
   _state = _makeState(plaza, profile);
+  _trackListener('create', 'view', { plaza });
   _state._navigate = navigate;
 
   container.innerHTML = _skeleton({ profile, role, company, plaza });
@@ -619,6 +625,7 @@ export async function mount({ container, navigate, shell }) {
   _unsubPlaza = onPlazaChange((nextPlaza) => {
     _reloadForPlaza(nextPlaza);
   });
+  _trackListener('create', 'plaza-sub');
 }
 
 export function unmount() {
@@ -628,8 +635,8 @@ export function unmount() {
 // ── Cleanup ──────────────────────────────────────────────────
 
 function _doCleanup() {
-  if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} }
-  if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} }
+  if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} _trackListener('cleanup', 'data-sub'); }
+  if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} _trackListener('cleanup', 'plaza-sub'); }
   if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   _unsub     = null;
   _unsubPlaza = null;
@@ -640,10 +647,11 @@ function _doCleanup() {
   _hydrateSeq += 1;
   _dragPrepId = '';
   _deleteArmedPrepId = '';
+  _trackListener('cleanup', 'view');
 }
 
 function _closeQueueListener() {
-  if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} }
+  if (typeof _unsub === 'function') { try { _unsub(); } catch (_) {} _trackListener('cleanup', 'data-sub'); }
   _unsub = null;
 }
 
@@ -749,6 +757,7 @@ function _subscribeQueue(plaza) {
           _renderListByState();
         }
       );
+    _trackListener('create', 'data-sub', { plaza: expectedPlaza });
   } catch (err) {
     console.error('[cola-prep] No se pudo suscribir:', err);
     _state.loading = false;

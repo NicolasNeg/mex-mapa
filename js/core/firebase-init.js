@@ -25,13 +25,71 @@
   }
   window.FIREBASE_CONFIG = cfg;
 
+  function _lsGet(key) {
+    try { return localStorage.getItem(key); } catch (_) { return null; }
+  }
+
+  function _isDebugMode() {
+    return _lsGet('mex.debug.mode') === '1';
+  }
+
+  function _configureFirestoreTransport(dbInstance) {
+    if (!dbInstance || window.__mexFirestoreSettingsApplied) return dbInstance;
+    const forceLongPolling = _lsGet('mex.firestore.forceLongPolling') === '1';
+    const settings = forceLongPolling
+      ? {
+          ignoreUndefinedProperties: true,
+          experimentalForceLongPolling: true
+        }
+      : {
+          ignoreUndefinedProperties: true,
+          experimentalAutoDetectLongPolling: true
+        };
+    try {
+      dbInstance.settings(settings);
+      window.__mexFirestoreSettingsApplied = true;
+      window.__mexFirestoreTransport = {
+        forceLongPolling,
+        autoDetectLongPolling: !forceLongPolling,
+        ignoreUndefinedProperties: true
+      };
+      if (_isDebugMode()) {
+        console.info('[firebase-init] Firestore transport:', window.__mexFirestoreTransport);
+      }
+    } catch (err) {
+      // No ocultar errores reales: registrar explícitamente si settings se aplicó tarde.
+      console.error('[firebase-init] No se pudo aplicar settings de Firestore antes de uso:', err);
+    }
+    return dbInstance;
+  }
+
+  function _listenerDebug(route, view, action, extra) {
+    if (_lsGet('mex.debug.mode') !== '1') return;
+    const key = String(view || 'unknown');
+    window.__mexListenerCounters = window.__mexListenerCounters || {};
+    const current = Number(window.__mexListenerCounters[key] || 0);
+    const next = action === 'create' ? current + 1 : Math.max(0, current - 1);
+    window.__mexListenerCounters[key] = next;
+    console.info('[listener-debug]', {
+      route: String(route || window.location.pathname),
+      view: key,
+      action: String(action || 'create'),
+      active: next,
+      plaza: String(window.__mexCurrentPlazaId || window.__mexActivePlazaId || ''),
+      ...(extra && typeof extra === 'object' ? extra : {})
+    });
+  }
+
+  window.__mexConfigureFirestoreTransport = _configureFirestoreTransport;
+  window.__mexTrackListener = _listenerDebug;
+
   // ── Inicializar (sólo una vez) ────────────────────────────
   if (!firebase.apps.length) {
     firebase.initializeApp(cfg);
   }
 
   // ── Instancias globales ───────────────────────────────────
-  const db        = firebase.firestore();
+  const db        = _configureFirestoreTransport(firebase.firestore());
   const auth      = firebase.auth();
   const storage   = (typeof firebase.storage === 'function') ? firebase.storage() : null;
   const functions = (typeof firebase.functions === 'function') ? firebase.app().functions('us-central1') : null;

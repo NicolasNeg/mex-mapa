@@ -13,6 +13,11 @@ let _unsubPlaza = null;
 let _offGlobalSearch = null;
 let _incCssInjected = false;
 
+function _trackListener(action, name, extra = {}) {
+  if (typeof window.__mexTrackListener !== 'function') return;
+  window.__mexTrackListener(window.location.pathname, `app/incidencias:${name}`, action, extra);
+}
+
 const q = id => _container?.querySelector(`#${id}`) ?? null;
 const qs = selector => _container?.querySelector(selector) ?? null;
 const qsa = selector => Array.from(_container?.querySelectorAll(selector) ?? []);
@@ -83,6 +88,7 @@ export async function mount(ctx) {
   _container = ctx.container;
   _ensureIncidenciasCss();
   _state = _makeState(String(getCurrentPlaza() || ctx?.state?.currentPlaza || '').toUpperCase().trim());
+  _trackListener('create', 'view', { plaza: _state.plaza });
   _state.navigate = ctx.navigate;
 
   const baseState = getState();
@@ -102,6 +108,7 @@ export async function mount(ctx) {
   _unsubPlaza = onPlazaChange(nextPlaza => {
     _reloadForPlaza(nextPlaza);
   });
+  _trackListener('create', 'plaza-sub');
 
   if (!_state.plaza) {
     _renderNoPlaza();
@@ -128,9 +135,11 @@ function _ensureIncidenciasCss() {
 function _cleanup() {
   if (typeof _unsubIncidencias === 'function') {
     try { _unsubIncidencias(); } catch (_) {}
+    _trackListener('cleanup', 'incidencias-sub');
   }
   if (typeof _unsubPlaza === 'function') {
     try { _unsubPlaza(); } catch (_) {}
+    _trackListener('cleanup', 'plaza-sub');
   }
   if (typeof _offGlobalSearch === 'function') {
     try { _offGlobalSearch(); } catch (_) {}
@@ -140,6 +149,7 @@ function _cleanup() {
   _offGlobalSearch = null;
   _container = null;
   _state = null;
+  _trackListener('cleanup', 'view');
 }
 
 function _bindGlobalSearch() {
@@ -161,6 +171,7 @@ function _bindGlobalSearch() {
 function _stopIncidenciasListener() {
   if (typeof _unsubIncidencias === 'function') {
     try { _unsubIncidencias(); } catch (_) {}
+    _trackListener('cleanup', 'incidencias-sub');
   }
   _unsubIncidencias = null;
 }
@@ -216,6 +227,7 @@ function _startIncidenciasListener(plaza) {
         _renderListError(error?.message || 'Error al cargar incidencias desde notas_admin.');
       }
     });
+    _trackListener('create', 'incidencias-sub', { plaza });
   } catch (error) {
     _renderListError(error?.message || 'Error al iniciar lectura de incidencias.');
   }

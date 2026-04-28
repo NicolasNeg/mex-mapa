@@ -13,6 +13,7 @@ Las pruebas cubren el **App Shell**, las **vistas `/app/*`** relevantes y la coe
 | DnD preview App Mapa | `localStorage.setItem('mex.appMapa.dnd','1')` | `localStorage.removeItem('mex.appMapa.dnd')` |
 | DnD persistencia | `localStorage.setItem('mex.appMapa.dndPersist','1')` | `localStorage.removeItem('mex.appMapa.dndPersist')` |
 | Logs de depuración mapa | `localStorage.setItem('mex.debug.mode','1')` | `localStorage.removeItem('mex.debug.mode')` |
+| Firestore forceLongPolling | `localStorage.setItem('mex.firestore.forceLongPolling','1')` | `localStorage.removeItem('mex.firestore.forceLongPolling')` |
 
 También puedes usar **Programador → Flags experimentales App Shell** (solo roles autorizados).
 
@@ -24,6 +25,7 @@ Después de mover una unidad en `/app/mapa` con persistencia: comprobar mensaje 
 
 - DnD preview y persistencia en `/app/mapa` según flags.
 - Beta Readiness y smoke HTTP en Programador.
+- Firestore transport `forceLongPolling` (solo si hay errores WebChannel/QUIC repetidos).
 
 ## Qué queda en legacy durante estas pruebas
 
@@ -54,6 +56,8 @@ Después de mover una unidad en `/app/mapa` con persistencia: comprobar mensaje 
 16. **Viewport ~1366px** — layout estable.
 17. **Clear site data + reload** — login de nuevo; sin inicialización duplicada de Firebase.
 18. **Service Worker** — versión coherente en Programador; sin 404 críticos en assets del shell.
+19. **Firestore transport (sin flag)** — revisar consola; app funcional con `autoDetectLongPolling`.
+20. **Firestore transport (con flag)** — activar `mex.firestore.forceLongPolling`, recargar y comparar estabilidad de canales.
 
 ## Smoke automático local
 

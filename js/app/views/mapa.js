@@ -32,6 +32,11 @@ let _viewState = {
   viewMode: 'grid'
 };
 
+function _trackListener(action, name, extra = {}) {
+  if (typeof window.__mexTrackListener !== 'function') return;
+  window.__mexTrackListener(window.location.pathname, `app/mapa:${name}`, action, extra);
+}
+
 function _readUrlQuery() {
   try {
     return String(new URLSearchParams(window.location.search).get('q') || '').trim();
@@ -234,6 +239,7 @@ function _showPersistConfirm({ mva, fromKey, toKey }) {
 
 export function mount({ container }) {
   _container = container;
+  _trackListener('create', 'view', { plaza: getState().currentPlaza || '' });
   _ensureCss();
   const state = getState();
   const plaza = String(state.currentPlaza || state.profile?.plazaAsignada || '').toUpperCase();
@@ -309,6 +315,7 @@ export function mount({ container }) {
     }
   });
   _lifecycle.mount();
+  _trackListener('create', 'lifecycle');
 
   _dndController = createMapaDndController({
     getSnapshot: () => _lifecycle?.getSnapshot?.()?.data || null,
@@ -496,8 +503,10 @@ export function mount({ container }) {
     if (_contentEl) _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Actualizando plaza...</div>';
     _lifecycle?.setPlaza(nextPlaza);
   });
+  _trackListener('create', 'plaza-sub');
 
   _offGlobalSearch = _bindGlobalSearch();
+  _trackListener('create', 'global-search');
   _offPopstate = () => {
     _viewState.query = _readUrlQuery();
     _render();
@@ -606,6 +615,7 @@ export function mount({ container }) {
     _lastDndEligibility = cur;
     _render();
   });
+  _trackListener('create', 'state-sub');
 }
 
 export function unmount() {
@@ -615,12 +625,13 @@ export function unmount() {
   if (_container && _toolbarHandler) _container.removeEventListener('click', _toolbarHandler);
   _toolbarHandler = null;
   if (_container && _onClick) _container.removeEventListener('click', _onClick);
-  if (typeof _offGlobalSearch === 'function') _offGlobalSearch();
-  if (typeof _offPlaza === 'function') _offPlaza();
-  if (typeof _offState === 'function') _offState();
+  if (typeof _offGlobalSearch === 'function') { _offGlobalSearch(); _trackListener('cleanup', 'global-search'); }
+  if (typeof _offPlaza === 'function') { _offPlaza(); _trackListener('cleanup', 'plaza-sub'); }
+  if (typeof _offState === 'function') { _offState(); _trackListener('cleanup', 'state-sub'); }
   _dndController?.unmount?.();
   _dndController = null;
   _lifecycle?.unmount?.();
+  _trackListener('cleanup', 'lifecycle');
   _container = null;
   _contentEl = null;
   _lifecycle = null;
@@ -631,6 +642,7 @@ export function unmount() {
   _dndHintEl = null;
   _lastDndEligibility = null;
   _lastPersistSummary = null;
+  _trackListener('cleanup', 'view');
 }
 
 function _syncDndController() {

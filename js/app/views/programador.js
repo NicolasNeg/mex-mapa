@@ -150,6 +150,7 @@ function _readShellFlags(state) {
   const dndLs = _readLsBool('mex.appMapa.dnd');
   const dndPersistLs = _readLsBool('mex.appMapa.dndPersist');
   const debugLs = _readLsBool('mex.debug.mode');
+  const fsForceLp = _readLsBool('mex.firestore.forceLongPolling');
 
   const canUseDndPreview = canRole;
   const canUseDndPersist = canRole;
@@ -158,6 +159,7 @@ function _readShellFlags(state) {
     dndLs,
     dndPersistLs,
     debugLs,
+    fsForceLp,
     roleRaw: role,
     isAdmin: isAdm,
     esGlobal: eg,
@@ -182,6 +184,9 @@ async function _collectDiagnostics() {
   const hasAuth = Boolean(window._auth);
   const hasStorage = Boolean(window._storage);
   const apiKeys = Object.keys(window.api || {}).sort((a, b) => a.localeCompare(b));
+  const transport = window.__mexFirestoreTransport || {};
+  const persistenceEnabled = window._firestorePersistenceEnabled === true;
+  const persistenceMode = String(window._firestorePersistenceMode || (persistenceEnabled ? 'enabled' : 'disabled'));
   const appShell = {
     route: st.currentRoute || window.location.pathname,
     currentPlaza: st.currentPlaza || '',
@@ -205,6 +210,13 @@ async function _collectDiagnostics() {
     env,
     sw: { swControlled, swScope, swState, swVersion },
     firebase: { hasDb, hasAuth, hasStorage },
+    firestoreTransport: {
+      forceLongPolling: Boolean(transport.forceLongPolling),
+      autoDetectLongPolling: Boolean(transport.autoDetectLongPolling),
+      ignoreUndefinedProperties: transport.ignoreUndefinedProperties !== false,
+      persistenceEnabled,
+      persistenceMode
+    },
     api: { available: Boolean(window.api), count: apiKeys.length, keys: apiKeys },
     appShell,
     errors: { source: programmerErrorsAvailable ? 'programmer_errors (disponible)' : 'no disponible en runtime' },
@@ -322,6 +334,18 @@ function _bindExperimentalSection(canEdit) {
       } catch (_) {}
       root.querySelectorAll('input[data-ls-key]').forEach(el => { el.checked = false; });
       refreshLabels();
+      return;
+    }
+    if (a === 'toggle-firestore-lp') {
+      if (!canEdit) return;
+      try {
+        if (localStorage.getItem('mex.firestore.forceLongPolling') === '1') {
+          localStorage.removeItem('mex.firestore.forceLongPolling');
+        } else {
+          localStorage.setItem('mex.firestore.forceLongPolling', '1');
+        }
+      } catch (_) {}
+      window.location.reload();
     }
   };
   root.addEventListener('click', onClick);
@@ -539,6 +563,14 @@ function _html(info, flags) {
           <strong style="color:#64748b;">Valor mex.debug.mode</strong>
           <span id="progValDebug" style="color:#0f172a;text-align:right;">${f.debugLs ? '1' : '0 / vacío'}</span>
         </div>
+        <div data-prog-search-text="${esc(`valor mex.firestore.forcelongpolling ${f.fsForceLp ? '1' : '0'}`.toLowerCase())}" style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+          <strong style="color:#64748b;">Valor mex.firestore.forceLongPolling</strong>
+          <span style="color:#0f172a;text-align:right;">${f.fsForceLp ? '1' : '0 / vacío'}</span>
+        </div>
+        ${diagRow('Firestore forceLongPolling', info.firestoreTransport.forceLongPolling ? 'activo' : 'inactivo')}
+        ${diagRow('Firestore autoDetectLongPolling', info.firestoreTransport.autoDetectLongPolling ? 'activo' : 'inactivo')}
+        ${diagRow('Firestore ignoreUndefinedProperties', info.firestoreTransport.ignoreUndefinedProperties ? 'activo' : 'inactivo')}
+        ${diagRow('Persistence', `${info.firestoreTransport.persistenceEnabled ? 'sí' : 'no'} (${info.firestoreTransport.persistenceMode})`)}
         ${diagRow('Rol actual', f.roleRaw)}
         ${diagRow('isAdmin', String(f.isAdmin))}
         ${diagRow('esGlobal(role)', String(f.esGlobal))}
@@ -553,6 +585,13 @@ function _html(info, flags) {
         ${toggleRow('DnD preview App Mapa', 'mex.appMapa.dnd', f.dndLs)}
         ${toggleRow('DnD persistencia (experimental)', 'mex.appMapa.dndPersist', f.dndPersistLs)}
         ${toggleRow('Debug mex', 'mex.debug.mode', f.debugLs)}
+        <div data-prog-search-text="firestore transport long polling toggle" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+          <div style="color:#0f172a;font-weight:600;">Firestore transport</div>
+          <button type="button" data-prog-action="toggle-firestore-lp" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:6px 8px;font-size:11px;font-weight:700;cursor:pointer;">
+            ${f.fsForceLp ? 'Desactivar forceLongPolling' : 'Activar forceLongPolling'}
+          </button>
+        </div>
+        <p style="margin:8px 0 0;font-size:11px;color:#64748b;line-height:1.4;">Usa forceLongPolling solo si WebChannel/QUIC falla repetidamente. Puede degradar rendimiento.</p>
         ` : `<p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.45;">Los valores están en la columna izquierda; tu rol no permite cambiar flags.</p>`}
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
           <button type="button" data-prog-action="reload" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Recargar vista actual</button>

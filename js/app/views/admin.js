@@ -20,6 +20,11 @@ let _offGlobalSearch = null;
 let _metaLoaded = false;
 let _plazaUnitsCache = new Map();
 
+function _trackListener(action, name, extra = {}) {
+  if (typeof window.__mexTrackListener !== 'function') return;
+  window.__mexTrackListener(window.location.pathname, `app/admin:${name}`, action, extra);
+}
+
 function _toast(message, type = 'info') {
   let el = document.getElementById('app-admin-toast');
   if (!el) {
@@ -359,6 +364,7 @@ export function mount(ctx) {
     requestsQuery: '',
     selectedRequestId: null
   };
+  _trackListener('create', 'view', { tab: _state.tab });
   const gs = getState();
   ctx.container.innerHTML = _html(gs.profile);
   _bind();
@@ -369,8 +375,8 @@ export function mount(ctx) {
 }
 
 export function unmount() {
-  if (typeof _unsubUsers === 'function') { try { _unsubUsers(); } catch (_) {} }
-  if (typeof _unsubRequests === 'function') { try { _unsubRequests(); } catch (_) {} }
+  if (typeof _unsubUsers === 'function') { try { _unsubUsers(); } catch (_) {} _trackListener('cleanup', 'users-sub'); }
+  if (typeof _unsubRequests === 'function') { try { _unsubRequests(); } catch (_) {} _trackListener('cleanup', 'requests-sub'); }
   if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   _unsubUsers = null;
   _unsubRequests = null;
@@ -379,6 +385,7 @@ export function unmount() {
   _state = null;
   _metaLoaded = false;
   _plazaUnitsCache = new Map();
+  _trackListener('cleanup', 'view');
 }
 
 function _bindGlobalSearch() {
@@ -448,6 +455,7 @@ function _subscribeUsers() {
     },
     onError: err => _setTableBody(`<tr><td colspan="5" style="padding:20px;color:#b91c1c;">${esc(err?.message || 'Error cargando usuarios')}</td></tr>`)
   });
+  _trackListener('create', 'users-sub');
 }
 
 async function _loadMeta() {
@@ -681,7 +689,7 @@ function _setTableBody(html) {
 }
 
 function _cleanupRequestsSub() {
-  if (typeof _unsubRequests === 'function') { try { _unsubRequests(); } catch (_) {} }
+  if (typeof _unsubRequests === 'function') { try { _unsubRequests(); } catch (_) {} _trackListener('cleanup', 'requests-sub'); }
   _unsubRequests = null;
 }
 
@@ -704,6 +712,7 @@ function _subscribeRequestsForCurrentStatus() {
       if (el) el.innerHTML = `<tr><td colspan="7" style="padding:20px;color:#b91c1c;">${msg}</td></tr>`;
     }
   });
+  _trackListener('create', 'requests-sub', { status: _state.requestsStatus });
 }
 
 function _hydrateRequestPlazaFilter() {

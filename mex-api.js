@@ -35,7 +35,27 @@ const app = firebase.apps.length
   ? firebase.apps[0]
   : firebase.initializeApp(FIREBASE_CONFIG);
 const auth = firebase.auth();
-const db = firebase.firestore();
+const db = window._db || firebase.firestore();
+if (typeof window.__mexConfigureFirestoreTransport === 'function') {
+  window.__mexConfigureFirestoreTransport(db);
+} else if (!window.__mexFirestoreSettingsApplied) {
+  const shouldForceLongPolling = (() => {
+    try { return localStorage.getItem('mex.firestore.forceLongPolling') === '1'; } catch (_) { return false; }
+  })();
+  try {
+    db.settings(shouldForceLongPolling
+      ? { ignoreUndefinedProperties: true, experimentalForceLongPolling: true }
+      : { ignoreUndefinedProperties: true, experimentalAutoDetectLongPolling: true });
+    window.__mexFirestoreSettingsApplied = true;
+    window.__mexFirestoreTransport = {
+      forceLongPolling: shouldForceLongPolling,
+      autoDetectLongPolling: !shouldForceLongPolling,
+      ignoreUndefinedProperties: true
+    };
+  } catch (err) {
+    console.error('[mex-api] No se pudo aplicar Firestore settings al inicializar:', err);
+  }
+}
 
 function _getStorageClient() {
   return (typeof firebase !== "undefined" && typeof firebase.storage === "function")
@@ -47,12 +67,23 @@ function _getStorageClient() {
 // SDK compat: synchronizeTabs puede advertir deprecación hasta migración modular; no bloquea beta.
 if (!window._firestorePersistenceEnabled) {
   window._firestorePersistenceEnabled = true;
+  window._firestorePersistenceMode = 'pending';
   db.enablePersistence({ synchronizeTabs: true })
+    .then(() => {
+      window._firestorePersistenceMode = 'multi-tab';
+      if (localStorage.getItem('mex.debug.mode') === '1') {
+        console.info('[mex-api] Firestore persistence activada (multi-tab)');
+      }
+    })
     .catch(err => {
       if (err.code === 'failed-precondition') {
+        window._firestorePersistenceMode = 'single-tab-fallback';
         console.warn('Offline persistence: múltiples pestañas, solo una activa.');
       } else if (err.code === 'unimplemented') {
+        window._firestorePersistenceMode = 'unsupported';
         console.warn('Offline persistence: navegador no compatible.');
+      } else {
+        window._firestorePersistenceMode = `error:${String(err.code || 'unknown')}`;
       }
     });
 }
