@@ -1,19 +1,19 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-28 · **FASE 12C**
+**Última actualización:** 2026-04-28 · **FASE 12D**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
 | `/home` | `/app/dashboard` | REAL_PARCIAL | KPIs/API | Inventario blueprint; sin cambios mayores |
 | `/mapa` | `/app/mapa` | REAL_PARCIAL | Firestore/API mapa | Sin redirección legacy |
-| `/mensajes` | `/app/mensajes` | REAL_PARCIAL fuerte (11D) · **CSS legacy** | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Email canónico, dedupe por identidad, filtros plaza/rol/estado, leído al abrir, validaciones composer |
-| `/cola-preparacion` | `/app/cola-preparacion` | **REAL_PARCIAL fuerte (11G)** | `cola_preparacion/{plaza}/items` | Tarjetas `prep-list-card`, checklist/nota/salida/asignación, modal crear, datalists por plaza, estados reales y listeners con cleanup |
-| `/incidencias` | `/app/incidencias` | REAL_PARCIAL fuerte (11D) · **`notas_admin`** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | UI bitácora operativa, crear/resolver con confirmación, evidencias URL/objeto, prefill `?mva=` |
+| `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
+| `/cola-preparacion` | `/app/cola-preparacion` | **APP_FIRST (12D)** · fallback legacy discreto | `cola_preparacion/{plaza}/items` | Listado/filtros reales, checklist, asignarme, notas/salida, crear salida, bulk/reorder/delete conservados en legacy |
+| `/incidencias` | `/app/incidencias` | **APP_FIRST (12D)** · fallback legacy discreto | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | `notas_admin` reales, crear/resolver, evidencias URL/objeto/path, prefill `?mva=`, acciones complejas de adjuntos/borrado en legacy |
 | `/cuadre` | `/app/cuadre` | REAL_PARCIAL fuerte (11G) | Cuadre + externos + admins/historial (read) | Tabs reales (`regular/externos/admins/historial`), KPIs por estado/ubicación/categoría, notas en tabla, filtro fecha historial, búsqueda base maestra read-only y acciones seguras |
 | `/gestion` | `/app/admin` | REAL_PARCIAL fuerte (12C) | usuarios/solicitudes/roles/plazas/catálogos | Usuarios: edición segura + plaza/plazasPermitidas/status/activo; Solicitudes: onboarding con estado de perfil relacionado y rechazo/aprobación reforzados |
 | `/programador` | `/app/programador` | REAL_COMPLETA QA (12A) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, estado Firestore transport y copia diagnóstico corto/completo + agrupación `window.api` por dominio |
 | `/profile` | `/app/profile` | REAL_PARCIAL fuerte (12A) | `usuarios/{id}` + app-state | Secciones operativas/read-only, preferencias extendidas (tema/densidad/idioma/vista inicial/plaza default), validación avatar URL, sync sidebar |
-| `/login` + `/solicitud` | N/A | HARDENED (12C) | Auth + `solicitudes` + `usuarios` | Auth = identidad; acceso operativo depende de perfil Firestore activo/autorizado. Mensajería de login robusta para no habilitados/rechazados |
+| `/login` + `/solicitud` | N/A | HARDENED (12C) · **PUBLIC_FORM / DO_NOT_REDIRECT** | Auth + `solicitudes` + `usuarios` | Auth = identidad; acceso operativo depende de perfil Firestore activo/autorizado. `/solicitud` se mantiene pública y sin redirect |
 
 ## Clasificación
 
@@ -61,10 +61,18 @@
 - Admin: faltan operaciones avanzadas de escritura global (roles/plazas/catálogos) que permanecen en legacy.
 - Profile: faltan secciones completas legacy (atajos/notificaciones/seguridad profundas).
 
+## Política de rutas (12D)
+
+- `APP_FIRST`: `/home`, `/profile`, `/mensajes`, `/cola-preparacion`, `/incidencias`.
+- `PUBLIC_FORM / DO_NOT_REDIRECT`: `/solicitud`.
+- `DO_NOT_REDIRECT`: `/mapa`, `/editmap`.
+- `KEEP_LEGACY_BACKUP`: `/cuadre`, `/gestion`, `/programador`.
+- Escape global: si `localStorage["mex.legacy.force"] === "1"`, las rutas con redirect App-first permanecen en legacy y muestran CTA discreto para abrir App Shell.
+
 ## Referencias
 
 - **`docs/legacy-view-blueprints.md`** — blueprint por vista (16 campos).
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v250` (12C).
+- **`CACHE_NAME`** `mapa-v251` (12D).

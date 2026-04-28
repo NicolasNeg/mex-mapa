@@ -38,6 +38,9 @@
     if (shouldForceLegacy()) return false;
     if (path === '/home') return true;
     if (path === '/profile') return true;
+    if (path === '/mensajes') return true;
+    if (path === '/cola-preparacion') return true;
+    if (path === '/incidencias') return true;
     return false;
   }
 
@@ -93,6 +96,10 @@
   var banner = document.createElement('a');
   banner.id = 'legacyAppShellBanner';
   banner.href = appRoute;
-  banner.innerHTML = '<span class="mat">open_in_new</span><span>Abrir en App Shell</span>';
+  if (shouldForceLegacy() && (path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias')) {
+    banner.innerHTML = '<span class="mat">info</span><span>Estás en legacy · Abrir App Shell</span>';
+  } else {
+    banner.innerHTML = '<span class="mat">open_in_new</span><span>Abrir en App Shell</span>';
+  }
   document.body.appendChild(banner);
 })();
