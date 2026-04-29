@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13C · **Fecha:** 2026-04-28  
+**Versión:** FASE 13D · **Fecha:** 2026-04-29  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -104,11 +104,14 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | Todas listas (bulk checklist) | ⚠️ | se mantiene en legacy en 11G |
 | Eliminar | ⚠️ | se mantiene en legacy en 11G |
 
-**Migrado App (11G)**
+**Migrado App (13D)**
 
-- Layout + tarjetas con clases legacy (`prep-list-card`), modal crear, checklist/nota/salida/asignación, datalists usuarios/MVA y enriquecimiento desde `cuadre/externos`.
-- Estados de vista reales: loading, vacío general, sin resultados por filtro, permission denied y error operativo.
-- Instrumentación debug de listeners (`__mexTrackListener`) en mount/subscription/cleanup.
+- Port visual fuerte del layout legacy dentro de App Shell (`command bar`, filtros/chips, board/lista, detalle contextual y modal de alta).
+- Datos y flujo operativo mantenidos desde App: `cola_preparacion/{plaza}/items`, enriquecimiento de unidades, datalists de usuarios/MVA.
+- Estados reales: loading, vacío total, sin resultados por filtro, permission denied y error operativo.
+- Lifecycle seguro App Shell: `mount/unmount` con cleanup explícito de snapshot + `onPlazaChange` + `mex:global-search`.
+- Acciones seguras conservadas: checklist toggle, marcar checklist completo con confirmación, asignarme, guardar notas/salida, crear salida.
+- Acciones peligrosas se mantienen bloqueadas/fallback legacy: eliminar, bulk masivo y reorder DnD.
 
 ---
 

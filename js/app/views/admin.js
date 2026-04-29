@@ -984,6 +984,13 @@ function _fmtDate(v) {
   try {
     if (typeof v.toDate === 'function') return v.toDate().toLocaleString('es-MX');
   } catch (_) {}
+  // Soporta epoch en ms/seg (número o string), usado por algunos perfiles legacy/bootstrap.
+  const numeric = Number(v);
+  if (Number.isFinite(numeric)) {
+    const ms = numeric < 1e12 ? numeric * 1000 : numeric;
+    const d = new Date(ms);
+    if (!Number.isNaN(d.getTime())) return d.toLocaleString('es-MX');
+  }
   const parsed = Date.parse(String(v));
   if (Number.isFinite(parsed)) return new Date(parsed).toLocaleString('es-MX');
   return String(v);

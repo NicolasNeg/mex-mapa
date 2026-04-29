@@ -1,4 +1,4 @@
-# Legacy Route Redirect Plan (FASE 13C, profile visual port desde /profile)
+# Legacy Route Redirect Plan (FASE 13D, cola visual port desde /cola-preparacion)
 
 Fecha: 2026-04-28  
 Nota: esta fase activa redirects App-first en rutas operativas ya migradas y mantiene escape con `mex.legacy.force`.
@@ -17,7 +17,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 | `/home` | `/app/dashboard` | Redirect App-first + UI equivalente a `renderHome` legacy (13B) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Se respeta flag `mex.legacy.force=1`; en force se muestra CTA `Estás en legacy · Abrir App Shell` |
 | `/profile` | `/app/profile` | Redirección App-first activa + visual parity completa (13C) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Se respeta flag `mex.legacy.force=1`; en force muestra CTA `Estás en legacy · Abrir App Shell` preservando query/hash |
 | `/mensajes` | `/app/mensajes` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos avanzados |
-| `/cola-preparacion` | `/app/cola-preparacion` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder |
+| `/cola-preparacion` | `/app/cola-preparacion` | Redirect App-first activo + visual parity completa (13D) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder/delete |
 | `/incidencias` | `/app/incidencias` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos complejos |
 | `/cuadre` | `/app/cuadre` | Paridad operativa fuerte (12F/12G) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |

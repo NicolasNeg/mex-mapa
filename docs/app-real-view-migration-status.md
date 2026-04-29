@@ -1,13 +1,13 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-28 · **FASE 13C**
+**Última actualización:** 2026-04-29 · **FASE 13D**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
 | `/home` | `/app/dashboard` | **REAL_COMPLETA_VISUAL_PORT (13B)** · **APP_FIRST** | Igual que 13A (KPIs Firestore + mini mapa `buildMapaViewModel`) | UI copiada desde `renderHome` (grid bento, hero mapa, KPI columna, resumen + actividad); sin chrome legacy; búsqueda global vía hooks ocultos |
 | `/mapa` | `/app/mapa` | REAL_PARCIAL | Firestore/API mapa | Sin redirección legacy |
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
-| `/cola-preparacion` | `/app/cola-preparacion` | **APP_FIRST (12D)** · fallback legacy discreto | `cola_preparacion/{plaza}/items` | Listado/filtros reales, checklist, asignarme, notas/salida, crear salida, bulk/reorder/delete conservados en legacy |
+| `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
 | `/incidencias` | `/app/incidencias` | **APP_FIRST (12D)** · fallback legacy discreto | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | `notas_admin` reales, crear/resolver, evidencias URL/objeto/path, prefill `?mva=`, acciones complejas de adjuntos/borrado en legacy |
 | `/cuadre` | `/app/cuadre` | **REAL_PARCIAL_FUERTE (12F/12G)** · `KEEP_LEGACY_BACKUP` | `obtenerDatosFlotaConsola` + `cuadre/externos` + admins/historial (read) | Consola de patio reforzada (tabla amplia + detalle lateral), tabs `regular/externos/admins/historial`, filtros operativos/chips + filtros por estado/categoría/ubicación, export CSV local, copiar resumen, copiar MVA/JSON, abrir App Mapa por MVA y fallback legacy |
 | `/gestion` | `/app/admin` | **REAL_PARCIAL_FUERTE (12H)** · `KEEP_LEGACY_BACKUP` | usuarios/solicitudes/roles/plazas/catálogos | Usuarios reforzado (tabla ampliada, timestamps, alertas onboarding, edición segura), Solicitudes con estado onboarding y acciones seguras, Roles/Plazas/Catálogos con detalle operativo real y fallback de edición en legacy |
@@ -19,9 +19,9 @@
 
 | Clave | Vista |
 |-------|--------|
-| REAL_COMPLETA_VISUAL_PORT | Dashboard (`/home` DOM portado), Profile (`/profile` DOM portado sin chrome legacy) |
+| REAL_COMPLETA_VISUAL_PORT | Dashboard (`/home` DOM portado), Profile (`/profile` DOM portado sin chrome legacy), Cola preparación (`/cola-preparacion` visual legacy en App Shell) |
 | REAL_COMPLETA | Programador |
-| PARIDAD OPERATIVA ALT (11G Cola reforzada) | Cola preparación App |
+| PARIDAD OPERATIVA ALT (11G Cola reforzada) | — (elevado a REAL_COMPLETA_VISUAL_PORT en 13D) |
 | REAL_PARCIAL | Mapa App, Mensajes (fuerte 11D), Incidencias (`notas_admin`, fuerte 11D), Cuadre, Admin, Profile |
 
 ## Diseño legacy migrado (11A)
@@ -64,7 +64,7 @@
 
 ## Política de rutas (12D)
 
-- `APP_FIRST`: `/home` (REAL_COMPLETA_VISUAL_PORT), `/profile` (REAL_COMPLETA_VISUAL_PORT), `/mensajes`, `/cola-preparacion`, `/incidencias`.
+- `APP_FIRST`: `/home` (REAL_COMPLETA_VISUAL_PORT), `/profile` (REAL_COMPLETA_VISUAL_PORT), `/cola-preparacion` (REAL_COMPLETA_VISUAL_PORT), `/mensajes`, `/incidencias`.
 - `PUBLIC_FORM / DO_NOT_REDIRECT`: `/solicitud`.
 - `DO_NOT_REDIRECT`: `/mapa`, `/editmap`.
 - `KEEP_LEGACY_BACKUP`: `/cuadre`, `/gestion`, `/programador`.
@@ -78,4 +78,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v263` (13C).
+- **`CACHE_NAME`** `mapa-v264` (13D).

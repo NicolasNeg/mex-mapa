@@ -24,9 +24,9 @@ let _queueSubSeq = 0;
 let _unitsByMva = new Map();
 let _hydrateSeq = 0;
 /** @type {{ value: string, label: string }[]} */
-let _plazaUsersApp = [];
+let _plazaUsers = [];
 /** @type {Map<string, object>} */
-let _plazaUnitsApp = new Map();
+let _plazaUnits = new Map();
 let _dragPrepId = '';
 let _deleteArmedPrepId = '';
 
@@ -148,11 +148,11 @@ function _canPrepDelete() {
   return false;
 }
 
-async function _loadPlazaUsersForApp() {
+async function _loadPlazaUsers() {
   const plaza = String(_state?.plaza || '').toUpperCase().trim();
   if (!plaza || !_container) {
-    _plazaUsersApp = [];
-    _renderDatalistsApp();
+    _plazaUsers = [];
+    _renderDatalists();
     return;
   }
   try {
@@ -172,19 +172,19 @@ async function _loadPlazaUsersForApp() {
         label: [name, email].filter(Boolean).join(' · ')
       });
     });
-    _plazaUsersApp = Array.from(merged.values()).filter(item => String(item.value || '').trim());
+    _plazaUsers = Array.from(merged.values()).filter(item => String(item.value || '').trim());
   } catch (e) {
     console.warn('[prep-app] plaza users', e);
-    _plazaUsersApp = [];
+    _plazaUsers = [];
   }
-  _renderDatalistsApp();
+  _renderDatalists();
 }
 
-async function _loadPlazaUnitsForApp() {
+async function _loadPlazaUnits() {
   const plaza = String(_state?.plaza || '').toUpperCase().trim();
   if (!plaza || !_container) {
-    _plazaUnitsApp = new Map();
-    _renderDatalistsApp();
+    _plazaUnits = new Map();
+    _renderDatalists();
     return;
   }
   try {
@@ -198,32 +198,32 @@ async function _loadPlazaUnitsForApp() {
       const unit = normalizarUnidad({ id: doc.id, ...data });
       if (unit.mva) next.set(String(unit.mva).toUpperCase(), unit);
     });
-    _plazaUnitsApp = next;
+    _plazaUnits = next;
   } catch (e) {
     console.warn('[prep-app] plaza units', e);
-    _plazaUnitsApp = new Map();
+    _plazaUnits = new Map();
   }
-  _renderDatalistsApp();
+  _renderDatalists();
 }
 
-function _renderDatalistsApp() {
-  const udl = _container?.querySelector('#prepUsersAppDatalist');
+function _renderDatalists() {
+  const udl = _container?.querySelector('#prepUsersDatalist');
   if (udl) {
-    udl.innerHTML = _plazaUsersApp.map(u => `<option value="${escAttr(u.value)}">${esc(u.label)}</option>`).join('');
+    udl.innerHTML = _plazaUsers.map(u => `<option value="${escAttr(u.value)}">${esc(u.label)}</option>`).join('');
   }
-  const mdl = _container?.querySelector('#prepMvaAppDatalist');
+  const mdl = _container?.querySelector('#prepMvaDatalist');
   if (mdl) {
-    mdl.innerHTML = Array.from(_plazaUnitsApp.values())
+    mdl.innerHTML = Array.from(_plazaUnits.values())
       .map(unit => `<option value="${escAttr(unit.mva)}">${esc([unit.modelo, unit.categoria, unit.estado].filter(Boolean).join(' · '))}</option>`)
       .join('');
   }
 }
 
-function _showCreateUnitPreviewApp(mvaRaw) {
-  const preview = _container?.querySelector('#prepCreateUnitPreviewApp');
+function _showCreateUnitPreview(mvaRaw) {
+  const preview = _container?.querySelector('#prepCreateUnitPreview');
   if (!preview) return;
   const mva = String(mvaRaw || '').trim().toUpperCase();
-  const unit = _plazaUnitsApp.get(mva);
+  const unit = _plazaUnits.get(mva);
   if (!unit || !mva) {
     preview.style.display = 'none';
     preview.innerHTML = '';
@@ -244,22 +244,22 @@ function _openPrepCreateModal() {
     _toast('Selecciona una plaza antes de crear una salida.', 'warning');
     return;
   }
-  const modal = _container?.querySelector('#prepModalApp');
+  const modal = _container?.querySelector('#prepModal');
   if (!modal) return;
-  const form = _container?.querySelector('#prepCreateFormApp');
+  const form = _container?.querySelector('#prepCreateForm');
   form?.reset();
   const dep = new Date(Date.now() + 24 * 3600000);
-  const depIn = _container?.querySelector('#prepCreateDepartureApp');
+  const depIn = _container?.querySelector('#prepCreateDeparture');
   if (depIn) depIn.value = _toDatetimeLocal(dep);
-  const plIn = _container?.querySelector('#prepCreatePlazaApp');
+  const plIn = _container?.querySelector('#prepCreatePlaza');
   if (plIn) plIn.value = _state.plaza || '';
-  const pv = _container?.querySelector('#prepCreateUnitPreviewApp');
+  const pv = _container?.querySelector('#prepCreateUnitPreview');
   if (pv) { pv.style.display = 'none'; pv.innerHTML = ''; }
   modal.style.display = 'flex';
 }
 
 function _closePrepCreateModal() {
-  const modal = _container?.querySelector('#prepModalApp');
+  const modal = _container?.querySelector('#prepModal');
   if (modal) modal.style.display = 'none';
 }
 
@@ -278,7 +278,7 @@ async function _deletePrepItem(id) {
 }
 
 function _syncBulkButtonVisibility() {
-  const btn = _container?.querySelector('#prepBulkCompleteBtnApp');
+  const btn = _container?.querySelector('#prepBulkCompleteBtn');
   if (!btn) return;
   btn.style.display = _canPrepDelete() ? 'inline-flex' : 'none';
 }
@@ -317,15 +317,15 @@ function _attachDragPrepCards() {
 function _bindPrepExtendedUi() {
   const c = _container;
   if (!c) return;
-  c.querySelector('#prepAddBtnApp')?.addEventListener('click', () => _openPrepCreateModal());
-  c.querySelector('#prepBulkCompleteBtnApp')?.addEventListener('click', () => void _runBulkComplete());
-  c.querySelector('#prepCreateFormApp')?.addEventListener('submit', async e => {
+  c.querySelector('#prepAddBtn')?.addEventListener('click', () => _openPrepCreateModal());
+  c.querySelector('#prepBulkCompleteBtn')?.addEventListener('click', () => void _runBulkComplete());
+  c.querySelector('#prepCreateForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const plaza = String(_state?.plaza || '').toUpperCase().trim();
-    const mva = String(c.querySelector('#prepCreateMvaApp')?.value || '').trim().toUpperCase();
-    const departure = _fromDatetimeLocal(String(c.querySelector('#prepCreateDepartureApp')?.value || ''));
-    const assigned = String(c.querySelector('#prepCreateAssignedApp')?.value || '').trim();
-    const notes = String(c.querySelector('#prepCreateNotesApp')?.value || '').trim();
+    const mva = String(c.querySelector('#prepCreateMva')?.value || '').trim().toUpperCase();
+    const departure = _fromDatetimeLocal(String(c.querySelector('#prepCreateDeparture')?.value || ''));
+    const assigned = String(c.querySelector('#prepCreateAssigned')?.value || '').trim();
+    const notes = String(c.querySelector('#prepCreateNotes')?.value || '').trim();
     if (!plaza) {
       _toast('Selecciona una plaza.', 'warning');
       return;
@@ -375,12 +375,12 @@ function _bindPrepExtendedUi() {
       _toast(err?.message || 'No se pudo crear.', 'error');
     }
   });
-  c.querySelector('#prepCreateMvaApp')?.addEventListener('input', ev => _showCreateUnitPreviewApp(ev.target?.value));
-  c.querySelector('#prepModalApp')?.addEventListener('click', ev => {
-    if (ev.target?.id === 'prepModalApp') _closePrepCreateModal();
+  c.querySelector('#prepCreateMva')?.addEventListener('input', ev => _showCreateUnitPreview(ev.target?.value));
+  c.querySelector('#prepModal')?.addEventListener('click', ev => {
+    if (ev.target?.id === 'prepModal') _closePrepCreateModal();
   });
-  c.querySelector('#prepModalCloseBtnApp')?.addEventListener('click', () => _closePrepCreateModal());
-  c.querySelector('#prepModalCancelBtnApp')?.addEventListener('click', e => {
+  c.querySelector('#prepModalCloseBtn')?.addEventListener('click', () => _closePrepCreateModal());
+  c.querySelector('#prepModalCancelBtn')?.addEventListener('click', e => {
     e.preventDefault();
     _closePrepCreateModal();
   });
@@ -548,8 +548,8 @@ export async function mount({ container, navigate, shell }) {
     _subscribeQueue(plaza);
   }
 
-  void _loadPlazaUsersForApp();
-  void _loadPlazaUnitsForApp();
+  void _loadPlazaUsers();
+  void _loadPlazaUnits();
   _bindPrepExtendedUi();
   _syncBulkButtonVisibility();
 
@@ -611,8 +611,8 @@ function _reloadForPlaza(nextPlaza) {
     return;
   }
   _subscribeQueue(normalized);
-  void _loadPlazaUsersForApp();
-  void _loadPlazaUnitsForApp();
+  void _loadPlazaUsers();
+  void _loadPlazaUnits();
 }
 
 // ── CSS injection ────────────────────────────────────────────
@@ -1058,7 +1058,7 @@ function _showDetail(it) {
   <div style="margin-bottom:12px;">
     <label style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;display:block;margin-bottom:4px;">Asignado a</label>
     <input id="prepDetailAssigned" type="text" value="${esc(it.asignado || '')}"
-           placeholder="Correo o nombre" list="prepUsersAppDatalist"
+           placeholder="Correo o nombre" list="prepUsersDatalist"
            style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;box-sizing:border-box;" />
   </div>
   <div style="margin-bottom:12px;">
@@ -1267,8 +1267,8 @@ function _skeleton({ profile, role, company, plaza }) {
     </a>
   </div>
   <div data-prep-toast-host style="position:fixed;bottom:20px;right:20px;z-index:50;pointer-events:none;max-width:min(320px,92vw);"></div>
-  <datalist id="prepUsersAppDatalist"></datalist>
-  <datalist id="prepMvaAppDatalist"></datalist>
+  <datalist id="prepUsersDatalist"></datalist>
+  <datalist id="prepMvaDatalist"></datalist>
 
   <!-- Stats -->
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#f1f5f9;
@@ -1310,11 +1310,11 @@ function _skeleton({ profile, role, company, plaza }) {
   </div>
 
   <div style="padding:8px 16px 12px;border-bottom:1px solid #f1f5f9;background:#fafafa;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-    <button type="button" id="prepAddBtnApp" class="prep-primary-btn">
+    <button type="button" id="prepAddBtn" class="prep-primary-btn">
       <span class="material-symbols-outlined" style="font-size:18px;">playlist_add</span>
       Nueva salida
     </button>
-    <button type="button" id="prepBulkCompleteBtnApp" style="display:none;" class="prep-link-btn" title="Marcar checklist completo en todas las unidades visibles">
+    <button type="button" id="prepBulkCompleteBtn" style="display:none;" class="prep-link-btn" title="Marcar checklist completo en todas las unidades visibles">
       <span class="material-symbols-outlined" style="font-size:18px;">done_all</span>
       <span class="prep-btn-label">Todas listas</span>
     </button>
@@ -1337,7 +1337,7 @@ function _skeleton({ profile, role, company, plaza }) {
 
 </div>
 
-<div id="prepModalApp" class="prep-modal-overlay" style="display:none;">
+<div id="prepModal" class="prep-modal-overlay" style="display:none;">
   <div class="prep-modal-card" onclick="event.stopPropagation();">
     <div class="prep-modal-head">
       <div>
@@ -1345,43 +1345,43 @@ function _skeleton({ profile, role, company, plaza }) {
         <h3>Agregar unidad a la cola</h3>
         <p style="margin:6px 0 0;font-size:12px;color:#64748b;">Registra manualmente la preparación si aún no existe en la cola (misma lógica que legacy).</p>
       </div>
-      <button type="button" class="prep-icon-btn" id="prepModalCloseBtnApp" aria-label="Cerrar">
+      <button type="button" class="prep-icon-btn" id="prepModalCloseBtn" aria-label="Cerrar">
         <span class="material-symbols-outlined" style="font-size:18px;">close</span>
       </button>
     </div>
 
-    <form id="prepCreateFormApp" class="prep-modal-form">
+    <form id="prepCreateForm" class="prep-modal-form">
       <div class="prep-form-grid">
         <label class="prep-field">
           <span>MVA</span>
-          <input id="prepCreateMvaApp" type="text" maxlength="12" placeholder="Ej: A5256" list="prepMvaAppDatalist" autocomplete="off" required />
+          <input id="prepCreateMva" type="text" maxlength="12" placeholder="Ej: A5256" list="prepMvaDatalist" autocomplete="off" required />
         </label>
         <label class="prep-field">
           <span>Fecha y hora de salida</span>
-          <input id="prepCreateDepartureApp" type="datetime-local" required />
+          <input id="prepCreateDeparture" type="datetime-local" required />
         </label>
       </div>
 
-      <div id="prepCreateUnitPreviewApp" class="prep-unit-preview" style="display:none;"></div>
+      <div id="prepCreateUnitPreview" class="prep-unit-preview" style="display:none;"></div>
 
       <div class="prep-form-grid">
         <label class="prep-field">
           <span>Asignado a</span>
-          <input id="prepCreateAssignedApp" type="text" list="prepUsersAppDatalist" placeholder="Correo o nombre del operativo" />
+          <input id="prepCreateAssigned" type="text" list="prepUsersDatalist" placeholder="Correo o nombre del operativo" />
         </label>
         <label class="prep-field">
           <span>Plaza</span>
-          <input id="prepCreatePlazaApp" type="text" readonly />
+          <input id="prepCreatePlaza" type="text" readonly />
         </label>
       </div>
 
       <label class="prep-field">
         <span>Notas iniciales</span>
-        <textarea id="prepCreateNotesApp" rows="4" placeholder="Prioridad o comentario de patio"></textarea>
+        <textarea id="prepCreateNotes" rows="4" placeholder="Prioridad o comentario de patio"></textarea>
       </label>
 
       <div class="prep-modal-actions">
-        <button type="button" class="prep-link-btn" id="prepModalCancelBtnApp">Cancelar</button>
+        <button type="button" class="prep-link-btn" id="prepModalCancelBtn">Cancelar</button>
         <button type="submit" class="prep-primary-btn">
           <span class="material-symbols-outlined" style="font-size:18px;">add_task</span>
           Guardar en cola
