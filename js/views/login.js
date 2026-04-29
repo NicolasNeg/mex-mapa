@@ -3,7 +3,7 @@
 //  Controlador de la vista /login
 //
 //  Responsabilidades:
-//   1. Detectar si ya hay sesión activa → redirigir a /home
+//   1. Detectar si ya hay sesión activa → redirigir a /app/dashboard
 //   2. Manejar login con email/contraseña
 //   3. Manejar login con Google
 //   4. Enviar solicitudes de acceso
@@ -15,6 +15,14 @@ import { auth, db, COL, functions } from '/js/core/database.js';
 const RECAPTCHA_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
 const RECAPTCHA_ACTION_EMAIL = 'LOGIN_EMAIL';
 const RECAPTCHA_ACTION_GOOGLE = 'LOGIN_GOOGLE';
+
+/** Respuestas que no deben bloquear el inicio de sesión si el servicio está mal configurado o caído. */
+const SOFT_RECAPTCHA_CODES = new Set([
+  'recaptcha_config_missing',
+  'recaptcha_unavailable',
+  'recaptcha_api_error',
+  'unexpected_error',
+]);
 
 // Destino post-login — fuente única de verdad.
 // Cambiar aquí si se mueve el entry point del App Shell.
@@ -75,17 +83,45 @@ async function _getRecaptchaToken(action) {
   });
 }
 
-async function _verifyRecaptchaToken(token, action) {
+/**
+ * Intenta validar el token en servidor. Si el servicio falla de forma recuperable,
+ * devuelve blocked:false para no bloquear el login. Si la validación rechaza el token,
+ * devuelve blocked:true con mensaje de seguridad (no confundir con credenciales).
+ */
+async function tryVerifyRecaptchaForLogin(action) {
   if (!functions || typeof functions.httpsCallable !== 'function') {
-    throw new Error('Firebase Functions no está disponible. Recarga la página.');
+    console.warn('[login] Firebase Functions no disponible; se omite verificación reCAPTCHA.');
+    return { blocked: false };
+  }
+  let token;
+  try {
+    token = await _getRecaptchaToken(action);
+  } catch (e) {
+    console.warn('[login] reCAPTCHA Enterprise no devolvió token (no bloquea login):', e?.message || e);
+    return { blocked: false };
   }
   const callable = functions.httpsCallable('verifyRecaptchaLogin');
-  const res = await callable({ token, action });
-  const data = res?.data || {};
-  if (!data.ok) {
-    throw new Error(data.message || 'Verificación de seguridad rechazada.');
+  let data;
+  try {
+    const res = await callable({ token, action });
+    data = res?.data || {};
+  } catch (err) {
+    const code = err?.code || '';
+    const details = err?.details;
+    console.warn('[login] verifyRecaptchaLogin callable error (no bloquea login):', code, details || err?.message || err);
+    return { blocked: false };
   }
-  return data;
+  if (data.ok) {
+    return { blocked: false };
+  }
+  if (data.code && SOFT_RECAPTCHA_CODES.has(data.code)) {
+    console.warn('[login] reCAPTCHA soft-fail:', data.code);
+    return { blocked: false };
+  }
+  return {
+    blocked: true,
+    message: data.message || 'No pudimos validar seguridad, intenta de nuevo.',
+  };
 }
 
 function populateSolicitudPlazas(selectedValue = '') {
@@ -175,12 +211,19 @@ window.loginManual = async function () {
   _hideError();
 
   try {
-    const token = await _getRecaptchaToken(RECAPTCHA_ACTION_EMAIL);
-    await _verifyRecaptchaToken(token, RECAPTCHA_ACTION_EMAIL);
     const persistence = remember
       ? firebase.auth.Auth.Persistence.LOCAL
       : firebase.auth.Auth.Persistence.SESSION;
     await firebase.auth().setPersistence(persistence);
+
+    const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_EMAIL);
+    if (gate.blocked) {
+      btn.disabled = false;
+      btn.innerText = 'INICIAR SESIÓN';
+      _showError(gate.message || 'No pudimos validar seguridad, intenta de nuevo.');
+      return;
+    }
+
     await firebase.auth().signInWithEmailAndPassword(email, pass);
     // onAuthStateChanged redirige automáticamente
   } catch (err) {
@@ -214,8 +257,20 @@ window.loginConGoogle = async function () {
   _hideError();
 
   try {
-    const token = await _getRecaptchaToken(RECAPTCHA_ACTION_GOOGLE);
-    await _verifyRecaptchaToken(token, RECAPTCHA_ACTION_GOOGLE);
+    const remember = document.getElementById('auth_remember')?.checked ?? true;
+    const persistence = remember
+      ? firebase.auth.Auth.Persistence.LOCAL
+      : firebase.auth.Auth.Persistence.SESSION;
+    await firebase.auth().setPersistence(persistence);
+
+    const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_GOOGLE);
+    if (gate.blocked) {
+      btn.disabled = false;
+      btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE';
+      _showError(gate.message || 'No pudimos validar seguridad, intenta de nuevo.');
+      return;
+    }
+
     btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> CONECTANDO...';
     await firebase.auth().signInWithPopup(provider);
   } catch (err) {
@@ -226,7 +281,7 @@ window.loginConGoogle = async function () {
     if (String(code).startsWith('auth/')) {
       _showError('Error con Google. Intenta de nuevo.');
     } else {
-      _showError(err?.message || 'Error con Google. Intenta de nuevo.');
+      _showError(err?.message || 'No pudimos validar seguridad, intenta de nuevo.');
     }
   }
 };

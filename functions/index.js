@@ -1898,75 +1898,106 @@ exports.enviarCorreoSolicitud = functions
 //    firebase functions:config:set recaptcha.min_score="0.35"
 // ══════════════════════════════════════════════════════════════
 exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data) => {
-  const token = normalizeString(data?.token);
-  const expectedAction = normalizeString(data?.action || "LOGIN_EMAIL");
-  const siteKey = "6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j";
-  const projectId = "mex-mapa-bjx";
-
-  if (!token) {
-    throw new HttpsError("invalid-argument", "Token reCAPTCHA requerido.");
-  }
-
-  const cfg = functions.config().recaptcha || {};
-  const apiKey = normalizeString(cfg.api_key || process.env.RECAPTCHA_ENTERPRISE_API_KEY);
-  if (!apiKey) {
-    logger.error("[verifyRecaptchaLogin] Falta recaptcha.api_key en functions config");
-    throw new HttpsError(
-      "failed-precondition",
-      "Servidor sin clave reCAPTCHA Enterprise. Un administrador debe configurar recaptcha.api_key."
-    );
-  }
-
-  const url = `https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments?key=${encodeURIComponent(apiKey)}`;
-  const body = {
-    event: {
-      token,
-      expectedAction,
-      siteKey,
-    },
-  };
-
-  let res;
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    const token = normalizeString(data?.token);
+    const expectedAction = normalizeString(data?.action || "LOGIN_EMAIL");
+    const siteKey = "6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j";
+    const projectId = "mex-mapa-bjx";
+
+    if (!token) {
+      return { ok: false, code: "token_required", message: "Token reCAPTCHA requerido." };
+    }
+
+    const cfg = functions.config().recaptcha || {};
+    const apiKey = normalizeString(cfg.api_key || process.env.RECAPTCHA_ENTERPRISE_API_KEY);
+    if (!apiKey) {
+      logger.error("[verifyRecaptchaLogin] Falta recaptcha.api_key en functions config");
+      return {
+        ok: false,
+        code: "recaptcha_config_missing",
+        message: "Servidor sin clave reCAPTCHA Enterprise. Un administrador debe configurar recaptcha.api_key.",
+      };
+    }
+
+    const url = `https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments?key=${encodeURIComponent(apiKey)}`;
+    const body = {
+      event: {
+        token,
+        expectedAction,
+        siteKey,
+      },
+    };
+
+    let res;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      logger.error("[verifyRecaptchaLogin] fetch error", e);
+      return {
+        ok: false,
+        code: "recaptcha_unavailable",
+        message: "No se pudo contactar reCAPTCHA Enterprise.",
+      };
+    }
+
+    const assessment = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      logger.warn("[verifyRecaptchaLogin] API error", res.status, assessment);
+      return {
+        ok: false,
+        code: "recaptcha_api_error",
+        message: "Verificación de seguridad no disponible.",
+        status: res.status,
+      };
+    }
+
+    const tp = assessment.tokenProperties || {};
+    const risk = assessment.riskAnalysis || {};
+
+    if (!tp.valid) {
+      logger.info("[verifyRecaptchaLogin] token inválido", tp.invalidReason);
+      return {
+        ok: false,
+        code: "token_invalid",
+        message: "Verificación de seguridad fallida. Intenta de nuevo.",
+      };
+    }
+
+    if (expectedAction && tp.action && normalizeString(tp.action) !== normalizeString(expectedAction)) {
+      logger.info("[verifyRecaptchaLogin] acción no coincide", tp.action, expectedAction);
+      return {
+        ok: false,
+        code: "action_mismatch",
+        message: "Verificación de seguridad no coincide.",
+      };
+    }
+
+    const score = Number(risk.score);
+    const minScoreRaw = cfg.min_score ?? process.env.RECAPTCHA_MIN_SCORE;
+    const minScore = Math.min(1, Math.max(0, Number(minScoreRaw != null && minScoreRaw !== "" ? minScoreRaw : 0.35)));
+
+    if (Number.isFinite(score) && score < minScore) {
+      logger.info("[verifyRecaptchaLogin] score bajo", score, "min", minScore);
+      return {
+        ok: false,
+        code: "score_low",
+        message: "No se pudo validar el acceso automático. Intenta de nuevo.",
+      };
+    }
+
+    return { ok: true, score: Number.isFinite(score) ? score : null };
   } catch (e) {
-    logger.error("[verifyRecaptchaLogin] fetch error", e);
-    throw new HttpsError("internal", "No se pudo contactar reCAPTCHA Enterprise.");
+    logger.error("[verifyRecaptchaLogin] unexpected", e);
+    return {
+      ok: false,
+      code: "unexpected_error",
+      message: "Error en verificación de seguridad.",
+    };
   }
-
-  const assessment = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    logger.warn("[verifyRecaptchaLogin] API error", res.status, assessment);
-    throw new HttpsError("internal", "Verificación de seguridad no disponible.");
-  }
-
-  const tp = assessment.tokenProperties || {};
-  const risk = assessment.riskAnalysis || {};
-
-  if (!tp.valid) {
-    logger.info("[verifyRecaptchaLogin] token inválido", tp.invalidReason);
-    throw new HttpsError("permission-denied", "Verificación de seguridad fallida. Intenta de nuevo.");
-  }
-
-  if (expectedAction && tp.action && normalizeString(tp.action) !== normalizeString(expectedAction)) {
-    logger.info("[verifyRecaptchaLogin] acción no coincide", tp.action, expectedAction);
-    throw new HttpsError("permission-denied", "Verificación de seguridad no coincide.");
-  }
-
-  const score = Number(risk.score);
-  const minScoreRaw = cfg.min_score ?? process.env.RECAPTCHA_MIN_SCORE;
-  const minScore = Math.min(1, Math.max(0, Number(minScoreRaw != null && minScoreRaw !== "" ? minScoreRaw : 0.35)));
-
-  if (Number.isFinite(score) && score < minScore) {
-    logger.info("[verifyRecaptchaLogin] score bajo", score, "min", minScore);
-    throw new HttpsError("permission-denied", "No se pudo validar el acceso automático. Intenta de nuevo.");
-  }
-
-  return { ok: true, score: Number.isFinite(score) ? score : null };
 });
 
 exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (data, context) => {
