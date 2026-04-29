@@ -2,6 +2,8 @@ import { db, COL } from '/js/core/database.js';
 import { getState, setState } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 
+const APP_PROFILE_CSS_SELECTOR = 'link[data-app-profile-css="1"]';
+
 let _ctx = null;
 let _mounted = false;
 let _formState = null;
@@ -10,6 +12,7 @@ let _offGlobalSearch = null;
 export function mount(ctx) {
   _ctx = ctx;
   _mounted = true;
+  _ensureCss();
   const { profile, role } = getState();
   if (!profile) {
     ctx.container.innerHTML = `<div style="padding:30px;color:#ef4444;">No se pudo cargar el perfil.</div>`;
@@ -19,6 +22,8 @@ export function mount(ctx) {
   ctx.container.innerHTML = _html(profile, role, _formState);
   _bindGlobalSearch();
   _bind();
+  _renderAvatarPreview();
+  _setDirty(false);
 }
 
 export function unmount() {
@@ -29,6 +34,16 @@ export function unmount() {
   _mounted = false;
   _ctx = null;
   _formState = null;
+}
+
+function _ensureCss() {
+  const existing = document.querySelector(APP_PROFILE_CSS_SELECTOR);
+  if (existing) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/app-profile.css';
+  link.dataset.appProfileCss = '1';
+  document.head.appendChild(link);
 }
 
 function _bindGlobalSearch() {
@@ -50,22 +65,43 @@ function _bindGlobalSearch() {
 function _bind() {
   const c = _ctx?.container;
   if (!c) return;
-  const name = c.querySelector('#appProfileName');
-  const phone = c.querySelector('#appProfilePhone');
-  const avatar = c.querySelector('#appProfileAvatarUrl');
-  const theme = c.querySelector('#appProfileTheme');
-  const density = c.querySelector('#appProfileDensity');
   const save = c.querySelector('#appProfileSave');
   const cancel = c.querySelector('#appProfileCancel');
+  const avatar = c.querySelector('#appProfileAvatarUrl');
 
-  [name, phone, avatar, theme, density].forEach(el => {
-    el?.addEventListener('input', () => _syncFormFromDom());
-    el?.addEventListener('change', () => _syncFormFromDom());
+  [
+    '#appProfileName',
+    '#appProfilePhone',
+    '#appProfileAvatarUrl',
+    '#appProfileTheme',
+    '#appProfileDensity',
+    '#appProfileLanguage',
+    '#appProfileHomeView',
+    '#appProfileDefaultPlaza',
+  ].forEach(selector => {
+    const el = c.querySelector(selector);
+    el?.addEventListener('input', _onFormChange);
+    el?.addEventListener('change', _onFormChange);
   });
-  avatar?.addEventListener('input', () => _renderAvatarPreview());
-  save?.addEventListener('click', () => _saveProfile());
-  cancel?.addEventListener('click', () => _resetForm());
-  _renderAvatarPreview();
+
+  c.querySelectorAll('.app-profile-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetId = tab.dataset.target || '';
+      const target = c.querySelector(`#${targetId}`);
+      if (!target) return;
+      const top = target.getBoundingClientRect().top + window.scrollY - 120;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    });
+  });
+
+  avatar?.addEventListener('input', _renderAvatarPreview);
+  save?.addEventListener('click', _saveProfile);
+  cancel?.addEventListener('click', _resetForm);
+}
+
+function _onFormChange() {
+  _syncFormFromDom();
+  _setDirty(true);
 }
 
 function _syncFormFromDom() {
@@ -96,6 +132,7 @@ function _resetForm() {
   c.querySelector('#appProfileHomeView').value = _formState.homeView;
   c.querySelector('#appProfileDefaultPlaza').value = _formState.defaultPlaza;
   _renderAvatarPreview();
+  _setDirty(false);
   _setStatus('Cambios restaurados.', 'info');
 }
 
@@ -105,6 +142,10 @@ async function _saveProfile() {
   const current = getState().profile || {};
   const docId = String(current.id || current.email || '').toLowerCase().trim();
   if (!docId) return _setStatus('No se pudo resolver el usuario actual.', 'error');
+  if (_formState.avatarUrl && !/^https?:\/\//i.test(_formState.avatarUrl)) {
+    _setStatus('Avatar URL debe iniciar con http:// o https://', 'error');
+    return;
+  }
 
   const payload = {
     nombreCompleto: _formState.nombreCompleto || current.nombreCompleto || current.nombre || '',
@@ -122,20 +163,19 @@ async function _saveProfile() {
       language: _formState.language,
       homeView: _formState.homeView,
       defaultPlaza: _formState.defaultPlaza || String(current.plazaAsignada || current.plaza || '').toUpperCase()
-    }
+    },
+    updatedAt: Date.now(),
+    actualizadoAt: Date.now(),
+    updatedFrom: 'app_profile',
   };
-  if (_formState.avatarUrl && !/^https?:\/\//i.test(_formState.avatarUrl)) {
-    _setStatus('Avatar URL debe iniciar con http:// o https://', 'error');
-    return;
-  }
 
   try {
-    await db.collection(COL.USERS).doc(docId).set(payload, { merge: true });
+    await db.collection(COL.USERS).doc(docId).set(_cleanUndefined(payload), { merge: true });
     if (!_mounted) return;
     const nextProfile = { ...current, ...payload };
     setState({ profile: nextProfile });
     _ctx?.shell?.setProfile?.(nextProfile, getState().role);
-    _renderAvatarPreview();
+    _setDirty(false);
     _setStatus('Perfil actualizado correctamente.', 'ok');
   } catch (err) {
     _setStatus(err?.message || 'No se pudieron guardar los cambios.', 'error');
@@ -146,7 +186,13 @@ function _setStatus(msg, type) {
   const el = _ctx?.container?.querySelector('#appProfileStatus');
   if (!el) return;
   el.textContent = msg;
-  el.style.color = type === 'error' ? '#b91c1c' : (type === 'ok' ? '#15803d' : '#475569');
+  el.className = `app-profile-status is-${type}`;
+}
+
+function _setDirty(isDirty) {
+  const c = _ctx?.container;
+  if (!c) return;
+  c.querySelector('#appProfileSave')?.classList.toggle('is-dirty', Boolean(isDirty));
 }
 
 function _renderAvatarPreview() {
@@ -183,91 +229,157 @@ function _makeFormState(profile = {}) {
   };
 }
 
+function _availablePlazas(profile = {}) {
+  const fromState = Array.isArray(getState().availablePlazas) ? getState().availablePlazas : [];
+  const out = new Set(fromState.map(v => String(v || '').trim().toUpperCase()).filter(Boolean));
+  [profile.plazaAsignada, profile.plaza].forEach(v => {
+    const val = String(v || '').trim().toUpperCase();
+    if (val) out.add(val);
+  });
+  (Array.isArray(profile.plazasPermitidas) ? profile.plazasPermitidas : []).forEach(v => {
+    const val = String(v || '').trim().toUpperCase();
+    if (val) out.add(val);
+  });
+  return [...out];
+}
+
 function _html(profile, role, form) {
   const name = form.nombreCompleto || profile.email || 'Usuario';
   const email = profile.email || profile.id || '';
   const roleLabel = ROLE_LABELS[role] || profile.roleLabel || role || 'AUXILIAR';
   const plaza = String(profile.plazaAsignada || profile.plaza || '').toUpperCase().trim() || '—';
+  const secondaryPlazas = (Array.isArray(profile.plazasPermitidas) ? profile.plazasPermitidas : [])
+    .map(v => String(v || '').toUpperCase().trim())
+    .filter(Boolean)
+    .join(', ') || 'Sin plazas secundarias';
+  const isAdmin = Boolean(profile.isAdmin || profile.isGlobal);
+  const plazas = _availablePlazas(profile);
+  const plazaOptions = plazas.length
+    ? plazas.map(item => `<option value="${escAttr(item)}" ${item === form.defaultPlaza ? 'selected' : ''}>${esc(item)}</option>`).join('')
+    : `<option value="${escAttr(form.defaultPlaza)}">${esc(form.defaultPlaza || 'GLOBAL')}</option>`;
+
   return `
-<div style="padding:24px;max-width:980px;margin:0 auto;font-family:Inter,sans-serif;">
-  <div style="border:1px solid #e2e8f0;border-radius:14px;padding:18px;background:#fff;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-    <div id="appProfileAvatarPreview" style="width:76px;height:76px;border-radius:16px;background:#0f172a;color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;">
-      <span id="appProfileAvatarInitials">${esc((name || 'U').slice(0,1).toUpperCase())}</span>
+<div class="app-profile">
+  <section class="app-profile-hero">
+    <div id="appProfileAvatarPreview" class="app-profile-avatar">
+      <span id="appProfileAvatarInitials">${esc((name || 'U').slice(0, 1).toUpperCase())}</span>
     </div>
-    <div style="flex:1;min-width:220px;">
-      <h1 style="margin:0;font-size:24px;color:#0f172a;">${esc(name)}</h1>
-      <div style="font-size:12px;color:#64748b;margin-top:2px;">${esc(email)}</div>
-      <div style="font-size:12px;color:#334155;margin-top:4px;font-weight:700;">${esc(roleLabel)} · ${esc(plaza)}</div>
-    </div>
-    <a href="/profile" style="font-size:12px;color:#0f172a;text-decoration:underline;">Abrir perfil legacy</a>
-  </div>
-  <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;background:#fff;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <label data-profile-search-text="nombre nombre completo" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Nombre / Nombre completo
-        <input id="appProfileName" value="${escAttr(form.nombreCompleto)}" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-      </label>
-      <label data-profile-search-text="telefono móvil celular" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Teléfono
-        <input id="appProfilePhone" value="${escAttr(form.telefono)}" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-      </label>
-      <label data-profile-search-text="avatar foto imagen url" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Avatar URL
-        <input id="appProfileAvatarUrl" value="${escAttr(form.avatarUrl)}" placeholder="https://..." style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-      </label>
-      <label data-profile-search-text="email correo" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Email (solo lectura)
-        <input value="${escAttr(email)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
-      </label>
-      <label data-profile-search-text="rol permisos" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Rol (solo lectura)
-        <input value="${escAttr(roleLabel)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
-      </label>
-      <label data-profile-search-text="plaza asignada" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Plaza (solo lectura)
-        <input value="${escAttr(plaza)}" readonly style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px;">
-      </label>
-      <label data-profile-search-text="tema apariencia claro oscuro" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Tema
-        <select id="appProfileTheme" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-          <option value="light" ${form.theme === 'light' ? 'selected' : ''}>Claro</option>
-          <option value="dark" ${form.theme === 'dark' ? 'selected' : ''}>Oscuro</option>
-        </select>
-      </label>
-      <label data-profile-search-text="densidad visual compacta media amplia" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Densidad visual
-        <select id="appProfileDensity" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-          <option value="compacta" ${form.visualDensity === 'compacta' ? 'selected' : ''}>Compacta</option>
-          <option value="media" ${form.visualDensity === 'media' ? 'selected' : ''}>Media</option>
-          <option value="amplia" ${form.visualDensity === 'amplia' ? 'selected' : ''}>Amplia</option>
-        </select>
-      </label>
-      <label data-profile-search-text="idioma language" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Idioma
-        <select id="appProfileLanguage" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-          <option value="es" ${form.language === 'es' ? 'selected' : ''}>Español</option>
-          <option value="en" ${form.language === 'en' ? 'selected' : ''}>Inglés</option>
-        </select>
-      </label>
-      <label data-profile-search-text="vista inicial home dashboard mapa" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Vista inicial
-        <select id="appProfileHomeView" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-          <option value="dashboard" ${form.homeView === 'dashboard' ? 'selected' : ''}>Dashboard</option>
-          <option value="mapa" ${form.homeView === 'mapa' ? 'selected' : ''}>Mapa</option>
-          <option value="mensajes" ${form.homeView === 'mensajes' ? 'selected' : ''}>Mensajes</option>
-        </select>
-      </label>
-      <label data-profile-search-text="plaza por defecto default plaza" style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:#475569;">Plaza por defecto
-        <input id="appProfileDefaultPlaza" value="${escAttr(form.defaultPlaza)}" placeholder="Ej: CULIACAN" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
-      </label>
-    </div>
-    <div style="margin-top:12px;padding:10px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
-      <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;letter-spacing:.04em;">Contexto operativo y seguridad (solo lectura)</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">
-        <div style="font-size:12px;color:#334155;"><strong>Plaza actual:</strong> ${esc(plaza)}</div>
-        <div style="font-size:12px;color:#334155;"><strong>Rol:</strong> ${esc(roleLabel)}</div>
-        <div style="font-size:12px;color:#334155;"><strong>Email:</strong> ${esc(email)}</div>
-        <div style="font-size:12px;color:#334155;"><strong>Permisos sensibles:</strong> gestionados en legacy/admin</div>
+    <div class="app-profile-hero-main">
+      <h1>${esc(name)}</h1>
+      <p>${esc(email || 'Sin correo')}</p>
+      <div class="app-profile-badges">
+        <span>${esc(roleLabel)}</span>
+        <span>${esc(plaza)}</span>
+        <span>${esc(String(profile.status || 'ACTIVO').toUpperCase())}</span>
       </div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap;">
-      <button id="appProfileSave" type="button" style="border:none;background:#0f172a;color:#fff;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer;">Guardar cambios</button>
-      <button id="appProfileCancel" type="button" style="border:1px solid #cbd5e1;background:#fff;color:#475569;border-radius:8px;padding:9px 12px;font-weight:700;cursor:pointer;">Cancelar</button>
-      <a href="/profile" style="margin-left:auto;font-size:12px;color:#0f172a;">Abrir perfil completo</a>
+    <div class="app-profile-stats">
+      <div><strong>${isAdmin ? 'Admin' : 'Operativo'}</strong><small>Nivel</small></div>
+      <div><strong>${esc(String(plazas.length || 1))}</strong><small>Plazas</small></div>
+      <div><strong>${esc(form.homeView || 'dashboard')}</strong><small>Vista</small></div>
     </div>
-    <div id="appProfileStatus" style="margin-top:8px;font-size:12px;color:#64748b;"></div>
+  </section>
+
+  <div class="app-profile-body">
+    <aside class="app-profile-nav">
+      <button class="app-profile-tab" data-target="appProfileGeneral">General</button>
+      <button class="app-profile-tab" data-target="appProfilePrefs">Preferencias</button>
+      <button class="app-profile-tab" data-target="appProfileAccess">Accesos</button>
+    </aside>
+    <div class="app-profile-main">
+      <section class="app-profile-card" id="appProfileGeneral" data-profile-search-text="general nombre telefono avatar email rol plaza perfil">
+        <h2>General</h2>
+        <div class="app-profile-grid">
+          <label>Nombre completo
+            <input id="appProfileName" value="${escAttr(form.nombreCompleto)}" />
+          </label>
+          <label>Correo
+            <input value="${escAttr(email)}" readonly />
+          </label>
+          <label>Telefono
+            <input id="appProfilePhone" value="${escAttr(form.telefono)}" />
+          </label>
+          <label>Rol actual
+            <input value="${escAttr(roleLabel)}" readonly />
+          </label>
+          <label>Plaza principal
+            <input value="${escAttr(plaza)}" readonly />
+          </label>
+          <label>Plazas secundarias
+            <input value="${escAttr(secondaryPlazas)}" readonly />
+          </label>
+          <label class="app-profile-wide">Avatar URL
+            <input id="appProfileAvatarUrl" value="${escAttr(form.avatarUrl)}" placeholder="https://..." />
+          </label>
+        </div>
+      </section>
+
+      <section class="app-profile-card" id="appProfilePrefs" data-profile-search-text="preferencias tema densidad idioma vista plaza defecto interfaz">
+        <h2>Preferencias de Interfaz</h2>
+        <div class="app-profile-grid">
+          <label>Tema
+            <select id="appProfileTheme">
+              <option value="light" ${form.theme === 'light' ? 'selected' : ''}>Claro</option>
+              <option value="dark" ${form.theme === 'dark' ? 'selected' : ''}>Oscuro</option>
+            </select>
+          </label>
+          <label>Idioma
+            <select id="appProfileLanguage">
+              <option value="es" ${form.language === 'es' ? 'selected' : ''}>Espanol</option>
+              <option value="en" ${form.language === 'en' ? 'selected' : ''}>English</option>
+            </select>
+          </label>
+          <label>Vista inicial
+            <select id="appProfileHomeView">
+              <option value="dashboard" ${form.homeView === 'dashboard' ? 'selected' : ''}>Dashboard</option>
+              <option value="mapa" ${form.homeView === 'mapa' ? 'selected' : ''}>Mapa</option>
+              <option value="mensajes" ${form.homeView === 'mensajes' ? 'selected' : ''}>Mensajes</option>
+              <option value="cuadre" ${form.homeView === 'cuadre' ? 'selected' : ''}>Cuadre</option>
+            </select>
+          </label>
+          <label>Densidad visual
+            <select id="appProfileDensity">
+              <option value="compacta" ${form.visualDensity === 'compacta' ? 'selected' : ''}>Compacta</option>
+              <option value="media" ${form.visualDensity === 'media' ? 'selected' : ''}>Media</option>
+              <option value="amplia" ${form.visualDensity === 'amplia' ? 'selected' : ''}>Amplia</option>
+            </select>
+          </label>
+          <label>Plaza por defecto
+            <select id="appProfileDefaultPlaza">${plazaOptions}</select>
+          </label>
+        </div>
+      </section>
+
+      <section class="app-profile-card" id="appProfileAccess" data-profile-search-text="accesos seguridad permisos bloqueados lectura">
+        <h2>Resumen de Accesos</h2>
+        <div class="app-profile-readonly-grid">
+          <p><strong>Rol operativo:</strong> ${esc(roleLabel)}</p>
+          <p><strong>Nivel:</strong> ${isAdmin ? 'Administrativo' : 'Operativo'}</p>
+          <p><strong>Email:</strong> ${esc(email || '-')}</p>
+          <p><strong>Plaza:</strong> ${esc(plaza)}</p>
+          <p><strong>Campos bloqueados:</strong> email, uid, rol, permisos, isAdmin/isGlobal, plazasPermitidas, plazaAsignada, password, status.</p>
+        </div>
+      </section>
+
+      <div class="app-profile-actions">
+        <button id="appProfileSave" type="button">Guardar cambios</button>
+        <button id="appProfileCancel" type="button">Cancelar</button>
+        <a href="/profile">Abrir perfil legacy</a>
+      </div>
+      <div id="appProfileStatus" class="app-profile-status"></div>
+    </div>
   </div>
 </div>`;
+}
+
+function _cleanUndefined(value) {
+  if (Array.isArray(value)) return value.map(_cleanUndefined);
+  if (!value || typeof value !== 'object') return value;
+  return Object.entries(value).reduce((acc, [key, val]) => {
+    if (val === undefined) return acc;
+    acc[key] = _cleanUndefined(val);
+    return acc;
+  }, {});
 }
 
 function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }

@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13B · **Fecha:** 2026-04-28  
+**Versión:** FASE 13C · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -184,8 +184,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 |-------|--------|
 | **HTML** | `profile.html` |
 | **JS** | `js/views/profile.js`, App: `profile.js` |
-| **Migrado App** | Parcial |
-| **Migrado App 11B/12A** | Hero visual + edición segura (nombre/teléfono/avatar/preferencias) + sync App Shell; secciones contexto/seguridad read-only y preferencias extendidas |
+| **Migrado App** | **REAL_COMPLETA_VISUAL_PORT (13C)** |
+| **Migrado App 13C** | Port visual de estructura legacy (hero, tabs, cards de General/Preferencias/Accesos, copy y acciones guardar/cancelar) dentro de `contentEl` App Shell; sin sidebar/header legacy duplicados |
+| **Lógica conservada App Shell** | Guardado seguro con `merge` a `usuarios`, `updatedFrom: "app_profile"`, sync `app-state` + `shell.setProfile`, restaurar/cancelar, validación avatar URL |
 | **Bloqueado** | Email/rol/password sin flujo Firebase dedicado |
 
 ---

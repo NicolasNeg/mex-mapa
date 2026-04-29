@@ -95,7 +95,7 @@
   }
   var banner = document.createElement('a');
   banner.id = 'legacyAppShellBanner';
-  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias');
+  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias');
   banner.href = isForcedOperationalLegacy ? (appRoute + query + hash) : appRoute;
   if (isForcedOperationalLegacy) {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en legacy · Abrir App Shell</span>';
