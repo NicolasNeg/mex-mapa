@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 12H · **Fecha:** 2026-04-28  
+**Versión:** FASE 13A · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -32,9 +32,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Listeners** | Snapshot puntual / promesas — **no listeners globales nuevos sin cleanup** |
 | **Seguras** | Navegación, lecturas |
 | **Peligrosas** | Mutación masiva datos — solo en legacy |
-| **Migrado App** | **Parcial**: KPIs/resúmenes (`dashboard.js`) |
-| **Falta paridad** | Widgets al nivel visual home legacy |
-| **Esta fase** | Inventario; mejoras opcionales si tiempo |
+| **Migrado App** | **REAL_COMPLETA (13A)**: hero/saludo, KPIs reales, pendientes por rol, módulos por permisos, preview mapa real, búsqueda global y estados |
+| **Falta paridad** | Sin brechas críticas para operación diaria; legacy queda como fallback controlado |
+| **Esta fase** | `/home` se mantiene App-first; legacy solo con `mex.legacy.force` + CTA discreto |
 
 ---
 

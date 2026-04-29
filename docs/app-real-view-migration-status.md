@@ -1,10 +1,10 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-28 · **FASE 12H**
+**Última actualización:** 2026-04-28 · **FASE 13A**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
-| `/home` | `/app/dashboard` | REAL_PARCIAL | KPIs/API | Inventario blueprint; sin cambios mayores |
+| `/home` | `/app/dashboard` | **REAL_COMPLETA (13A)** · **APP_FIRST** | KPIs/API + preview mapa real + pendientes por rol | Full parity operativa del home en App Shell; legacy solo fallback con `mex.legacy.force` |
 | `/mapa` | `/app/mapa` | REAL_PARCIAL | Firestore/API mapa | Sin redirección legacy |
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
 | `/cola-preparacion` | `/app/cola-preparacion` | **APP_FIRST (12D)** · fallback legacy discreto | `cola_preparacion/{plaza}/items` | Listado/filtros reales, checklist, asignarme, notas/salida, crear salida, bulk/reorder/delete conservados en legacy |
@@ -19,9 +19,9 @@
 
 | Clave | Vista |
 |-------|--------|
-| REAL_COMPLETA (QA) | Programador |
+| REAL_COMPLETA | Dashboard, Programador |
 | PARIDAD OPERATIVA ALT (11G Cola reforzada) | Cola preparación App |
-| REAL_PARCIAL | Dashboard, Mapa App, Mensajes (fuerte 11D), Incidencias (`notas_admin`, fuerte 11D), Cuadre, Admin, Profile |
+| REAL_PARCIAL | Mapa App, Mensajes (fuerte 11D), Incidencias (`notas_admin`, fuerte 11D), Cuadre, Admin, Profile |
 
 ## Diseño legacy migrado (11A)
 
@@ -53,7 +53,7 @@
 
 ## Pendiente paridad total
 
-- Dashboard vs `home.js` widgets.
+- Dashboard: paridad completa declarada en 13A (legacy queda fallback).
 - Mapa editor vs `mapa.js` completo.
 - Mensajes: faltan adjuntos completos y panel de info/archivo igual a legacy.
 - Incidencias Kanban (`plazas/...`) vs mantener modelo único `notas_admin` (legacy Kanban sigue separado).
@@ -63,7 +63,7 @@
 
 ## Política de rutas (12D)
 
-- `APP_FIRST`: `/home`, `/profile`, `/mensajes`, `/cola-preparacion`, `/incidencias`.
+- `APP_FIRST`: `/home` (REAL_COMPLETA), `/profile`, `/mensajes`, `/cola-preparacion`, `/incidencias`.
 - `PUBLIC_FORM / DO_NOT_REDIRECT`: `/solicitud`.
 - `DO_NOT_REDIRECT`: `/mapa`, `/editmap`.
 - `KEEP_LEGACY_BACKUP`: `/cuadre`, `/gestion`, `/programador`.
@@ -77,4 +77,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v257` (12H).
+- **`CACHE_NAME`** `mapa-v258` (13A).

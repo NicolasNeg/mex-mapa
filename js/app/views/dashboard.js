@@ -86,18 +86,38 @@ function _ensureCss() {
 }
 
 function _modulesForRole(role) {
-  const base = [
-    { appRoute: '/app/mapa', label: 'Mapa operativo', icon: 'map', keywords: 'mapa unidades mva ubicacion' },
-    { appRoute: '/app/cuadre', label: 'Cuadre', icon: 'calculate', keywords: 'cuadre inventario flotilla' },
-    { appRoute: '/app/incidencias', label: 'Incidencias', icon: 'warning', keywords: 'incidencias notas admin' },
-    { appRoute: '/app/cola-preparacion', label: 'Cola preparación', icon: 'format_list_bulleted', keywords: 'cola preparacion salida checklist' },
-    { appRoute: '/app/mensajes', label: 'Mensajes', icon: 'chat', keywords: 'mensajes chat conversaciones' },
-    { appRoute: '/app/profile', label: 'Perfil', icon: 'person', keywords: 'perfil usuario cuenta' },
+  const r = String(role || '').toUpperCase();
+  const common = [
+    { appRoute: '/app/mapa', label: 'Mapa operativo', icon: 'map', keywords: 'mapa unidades mva ubicacion patio celdas' },
+    { appRoute: '/app/incidencias', label: 'Incidencias', icon: 'warning', keywords: 'incidencias notas admin pendientes alertas' },
+    { appRoute: '/app/mensajes', label: 'Mensajes', icon: 'chat', keywords: 'mensajes chat conversaciones no leidos' },
+    { appRoute: '/app/profile', label: 'Perfil', icon: 'person', keywords: 'perfil usuario cuenta ajustes' },
   ];
-  const adminRoles = new Set(['SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA','JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR','VENTAS']);
-  if (adminRoles.has(role)) base.push({ appRoute: '/app/admin', label: 'Admin', icon: 'admin_panel_settings', keywords: 'admin usuarios roles plazas' });
-  if (role === 'PROGRAMADOR' || role === 'JEFE_OPERACION') base.push({ appRoute: '/app/programador', label: 'Programador', icon: 'terminal', keywords: 'diagnostico qa flags smoke' });
-  return base;
+  if (r === 'PROGRAMADOR' || r === 'JEFE_OPERACION') {
+    return [
+      { appRoute: '/app/programador', label: 'Programador', icon: 'terminal', keywords: 'diagnostico qa flags smoke consola' },
+      { appRoute: '/app/admin', label: 'Admin', icon: 'admin_panel_settings', keywords: 'admin usuarios roles plazas solicitudes' },
+      { appRoute: '/app/mapa', label: 'Mapa operativo', icon: 'map', keywords: 'mapa unidades mva ubicacion patio celdas' },
+      { appRoute: '/app/incidencias', label: 'Incidencias', icon: 'warning', keywords: 'incidencias notas admin pendientes alertas' },
+      { appRoute: '/app/cola-preparacion', label: 'Cola preparación', icon: 'format_list_bulleted', keywords: 'cola preparacion salida checklist pendientes' },
+      { appRoute: '/app/mensajes', label: 'Mensajes', icon: 'chat', keywords: 'mensajes chat conversaciones no leidos' },
+      { appRoute: '/app/cuadre', label: 'Cuadre', icon: 'calculate', keywords: 'cuadre inventario flotilla resumen patio' },
+      { appRoute: '/app/profile', label: 'Perfil', icon: 'person', keywords: 'perfil usuario cuenta ajustes' },
+    ];
+  }
+  if (_isAdminRole(r)) {
+    return [
+      { appRoute: '/app/cuadre', label: 'Cuadre', icon: 'calculate', keywords: 'cuadre inventario flotilla resumen patio' },
+      { appRoute: '/app/admin', label: 'Admin', icon: 'admin_panel_settings', keywords: 'admin usuarios roles plazas solicitudes' },
+      { appRoute: '/app/cola-preparacion', label: 'Cola preparación', icon: 'format_list_bulleted', keywords: 'cola preparacion salida checklist pendientes' },
+      ...common
+    ];
+  }
+  return [
+    { appRoute: '/app/mapa', label: 'Mapa operativo', icon: 'map', keywords: 'mapa unidades mva ubicacion patio celdas' },
+    { appRoute: '/app/cola-preparacion', label: 'Cola preparación', icon: 'format_list_bulleted', keywords: 'cola preparacion salida checklist pendientes' },
+    ...common
+  ];
 }
 
 function _modulePriorityOrder(role) {
@@ -109,7 +129,7 @@ function _modulePriorityOrder(role) {
   if (adminish.has(r)) {
     return ['/app/cuadre', '/app/incidencias', '/app/cola-preparacion', '/app/mapa', '/app/mensajes', '/app/admin', '/app/profile'];
   }
-  return ['/app/mapa', '/app/cola-preparacion', '/app/incidencias', '/app/mensajes', '/app/cuadre', '/app/profile'];
+  return ['/app/mapa', '/app/cola-preparacion', '/app/incidencias', '/app/mensajes', '/app/profile'];
 }
 
 function _orderedModules(role) {
@@ -130,6 +150,8 @@ function _layout(state) {
   const roleLabel = ROLE_LABELS[state.role] || state.role;
   const showDebug = _debugMode();
   const showAdminPending = _isAdminRole(state.role);
+  const plazaMissing = !state.plaza;
+  const roleTone = _roleIntro(state.role);
   return `
 <section class="appdash">
   <div class="appdash__hero">
@@ -137,37 +159,40 @@ function _layout(state) {
       <p class="appdash__hello">${esc(_greeting())}</p>
       <h1 class="appdash__h1">Hola, ${esc(name.split(' ')[0])}</h1>
       <p class="appdash__meta">${esc(roleLabel)} · <span id="appDashPlaza">${esc(state.plaza || '—')}</span> · ${esc(state.company)}</p>
+      <p class="appdash__lede">${esc(roleTone)}</p>
       <div class="appdash__quick-actions">
         <a data-app-route="/app/mapa" href="/app/mapa" class="appdash__pill appdash__pill--primary">Mapa</a>
+        <a data-app-route="/app/cola-preparacion" href="/app/cola-preparacion" class="appdash__pill">Cola</a>
         <a data-app-route="/app/profile" href="/app/profile" class="appdash__pill">Perfil</a>
       </div>
     </div>
     <div class="appdash__card appdash__card--muted">
       <div class="appdash__eyebrow">Plaza activa</div>
-      <p class="appdash__lede">Los números y el mapa rápido siguen la plaza del header. Cambia plaza ahí para actualizar todo el tablero.</p>
-      <a href="/home" class="appdash__subtle-link">Ir al inicio classic</a>
+      <p class="appdash__lede">Los indicadores y el preview se actualizan con la plaza global del header.</p>
+      ${plazaMissing ? '<p class="appdash__warning">Tu perfil no tiene plaza válida asignada. Solicita ajuste en Admin para operar.</p>' : ''}
+      <a href="/home" class="appdash__subtle-link">Abrir fallback legacy</a>
     </div>
   </div>
 
   <div class="appdash__pend-wrap">
     <h2 class="appdash__section-title">Pendientes y seguimiento</h2>
     <div class="appdash__pend-grid">
-      <a data-app-route="/app/cola-preparacion" href="/app/cola-preparacion" class="appdash__pend-card">
+      <a data-app-route="/app/cola-preparacion" href="/app/cola-preparacion" class="appdash__pend-card" data-pending-text="cola preparacion checklist salidas pendientes">
         <span id="appDashPendCola" class="appdash__pend-n">—</span>
         <span class="appdash__pend-l">Salidas sin checklist completo</span>
         <span class="appdash__pend-hint">Cola de preparación</span>
       </a>
-      <a data-app-route="/app/incidencias" href="/app/incidencias" class="appdash__pend-card">
+      <a data-app-route="/app/incidencias" href="/app/incidencias" class="appdash__pend-card" data-pending-text="incidencias abiertas alertas pendientes">
         <span id="appDashPendInc" class="appdash__pend-n">—</span>
         <span class="appdash__pend-l">Incidencias abiertas</span>
         <span class="appdash__pend-hint">notas_admin · plaza</span>
       </a>
-      <a data-app-route="/app/mensajes" href="/app/mensajes" class="appdash__pend-card">
+      <a data-app-route="/app/mensajes" href="/app/mensajes" class="appdash__pend-card" data-pending-text="mensajes no leidos chat bandeja">
         <span id="appDashPendMsg" class="appdash__pend-n">—</span>
         <span class="appdash__pend-l">Mensajes sin leer</span>
         <span class="appdash__pend-hint">Bandeja</span>
       </a>
-      <a data-app-route="/app/admin" href="/app/admin?tab=solicitudes" class="appdash__pend-card" ${showAdminPending ? '' : 'hidden'} id="appDashPendSolCard">
+      <a data-app-route="/app/admin" href="/app/admin?tab=solicitudes" class="appdash__pend-card" data-pending-text="solicitudes pendientes admin" ${showAdminPending ? '' : 'hidden'} id="appDashPendSolCard">
         <span id="appDashPendSol" class="appdash__pend-n">—</span>
         <span class="appdash__pend-l">Solicitudes pendientes</span>
         <span class="appdash__pend-hint">Admin</span>
@@ -368,6 +393,12 @@ function _applyQuery() {
     const visible = !_state.query || txt.includes(_state.query);
     card.hidden = !visible;
   });
+  const pendingCards = Array.from(_container?.querySelectorAll('[data-pending-text]') || []);
+  pendingCards.forEach(card => {
+    const txt = String(card.getAttribute('data-pending-text') || '');
+    const visible = !_state.query || txt.includes(_state.query);
+    card.hidden = !visible || (card.id === 'appDashPendSolCard' && !_isAdminRole(_state.role));
+  });
   const action = _container?.querySelector('#appDashSearchMapAction');
   if (action) {
     const hasQuery = Boolean(_state.query);
@@ -431,6 +462,13 @@ function _greeting() {
   if (h < 12) return 'Buenos días';
   if (h < 19) return 'Buenas tardes';
   return 'Buenas noches';
+}
+
+function _roleIntro(role) {
+  const r = String(role || '').toUpperCase();
+  if (r === 'PROGRAMADOR' || r === 'JEFE_OPERACION') return 'Consola completa para monitoreo, diagnóstico y operación segura.';
+  if (_isAdminRole(r)) return 'Resumen ejecutivo por plaza: métricas, pendientes y accesos de administración.';
+  return 'Vista operativa diaria para mapa, cola, incidencias y mensajes.';
 }
 
 function _renderMapPreview() {
@@ -508,7 +546,7 @@ function _renderMapPreview() {
         <div class="appdash__map-bucket-hint">Total clasificados: <strong>${esc(statesTotal)}</strong></div>
       </div>
     </div>
-    <a id="appDashSearchMapAction" hidden href="/app/mapa" data-app-route="/app/mapa" class="appdash__map-search-action appdash__pill-link">Ir al mapa con esta búsqueda</a>
+    <a id="appDashSearchMapAction" hidden href="/app/mapa" data-app-route="/app/mapa" class="appdash__map-search-action appdash__pill-link">Buscar en mapa</a>
   `;
   _applyQuery();
 }
