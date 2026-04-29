@@ -1,6 +1,6 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-29 · **FASE 13D**
+**Última actualización:** 2026-04-29 · **FASE 13E**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
@@ -8,7 +8,7 @@
 | `/mapa` | `/app/mapa` | REAL_PARCIAL | Firestore/API mapa | Sin redirección legacy |
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
-| `/incidencias` | `/app/incidencias` | **APP_FIRST (12D)** · fallback legacy discreto | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | `notas_admin` reales, crear/resolver, evidencias URL/objeto/path, prefill `?mva=`, acciones complejas de adjuntos/borrado en legacy |
+| `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy |
 | `/cuadre` | `/app/cuadre` | **REAL_PARCIAL_FUERTE (12F/12G)** · `KEEP_LEGACY_BACKUP` | `obtenerDatosFlotaConsola` + `cuadre/externos` + admins/historial (read) | Consola de patio reforzada (tabla amplia + detalle lateral), tabs `regular/externos/admins/historial`, filtros operativos/chips + filtros por estado/categoría/ubicación, export CSV local, copiar resumen, copiar MVA/JSON, abrir App Mapa por MVA y fallback legacy |
 | `/gestion` | `/app/admin` | **REAL_PARCIAL_FUERTE (12H)** · `KEEP_LEGACY_BACKUP` | usuarios/solicitudes/roles/plazas/catálogos | Usuarios reforzado (tabla ampliada, timestamps, alertas onboarding, edición segura), Solicitudes con estado onboarding y acciones seguras, Roles/Plazas/Catálogos con detalle operativo real y fallback de edición en legacy |
 | `/programador` | `/app/programador` | REAL_COMPLETA QA (12A) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, estado Firestore transport y copia diagnóstico corto/completo + agrupación `window.api` por dominio |
@@ -19,10 +19,10 @@
 
 | Clave | Vista |
 |-------|--------|
-| REAL_COMPLETA_VISUAL_PORT | Dashboard (`/home` DOM portado), Profile (`/profile` DOM portado sin chrome legacy), Cola preparación (`/cola-preparacion` visual legacy en App Shell) |
+| REAL_COMPLETA_VISUAL_PORT | Dashboard (`/home` DOM portado), Profile (`/profile` DOM portado sin chrome legacy), Cola preparación (`/cola-preparacion` visual legacy en App Shell), Incidencias (`/incidencias` bitácora legacy en App Shell) |
 | REAL_COMPLETA | Programador |
 | PARIDAD OPERATIVA ALT (11G Cola reforzada) | — (elevado a REAL_COMPLETA_VISUAL_PORT en 13D) |
-| REAL_PARCIAL | Mapa App, Mensajes (fuerte 11D), Incidencias (`notas_admin`, fuerte 11D), Cuadre, Admin, Profile |
+| REAL_PARCIAL | Mapa App, Mensajes (fuerte 11D), Cuadre, Admin |
 
 ## Diseño legacy migrado (11A)
 
@@ -30,7 +30,7 @@
 |-------|-------------------------|
 | **Cola App** | `cola-preparacion.css`, clases `prep-list-card`, `prep-modal-*`, mismo modelo Firestore con checklist/nota/salida/asignación y modal de alta segura |
 | **Mensajes App** | `mensajes.css` + grid `fleet-wrapper chatv2-layout` / `chatv2-contacts` |
-| **Incidencias App** | Link a `incidencias.css` (uso futuro Kanban/skin; datos siguen siendo bitácora `notas_admin`) |
+| **Incidencias App** | Port visual de bitácora legacy `/mapa` (`incv2-*`, filtros prioridad/estado, cards `nota-*`, resolver modal y compose lateral) con estilos scopeados `css/app-incidencias.css` y datos `notas_admin` |
 
 ## Funciones legacy reutilizadas
 
@@ -64,7 +64,7 @@
 
 ## Política de rutas (12D)
 
-- `APP_FIRST`: `/home` (REAL_COMPLETA_VISUAL_PORT), `/profile` (REAL_COMPLETA_VISUAL_PORT), `/cola-preparacion` (REAL_COMPLETA_VISUAL_PORT), `/mensajes`, `/incidencias`.
+- `APP_FIRST`: `/home` (REAL_COMPLETA_VISUAL_PORT), `/profile` (REAL_COMPLETA_VISUAL_PORT), `/cola-preparacion` (REAL_COMPLETA_VISUAL_PORT), `/incidencias` (REAL_COMPLETA_VISUAL_PORT), `/mensajes`.
 - `PUBLIC_FORM / DO_NOT_REDIRECT`: `/solicitud`.
 - `DO_NOT_REDIRECT`: `/mapa`, `/editmap`.
 - `KEEP_LEGACY_BACKUP`: `/cuadre`, `/gestion`, `/programador`.
@@ -78,4 +78,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v264` (13D).
+- **`CACHE_NAME`** `mapa-v265` (13E).

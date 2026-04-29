@@ -1,6 +1,6 @@
-# Legacy Route Redirect Plan (FASE 13D, cola visual port desde /cola-preparacion)
+# Legacy Route Redirect Plan (FASE 13E, incidencias visual port desde /incidencias)
 
-Fecha: 2026-04-28  
+Fecha: 2026-04-29  
 Nota: esta fase activa redirects App-first en rutas operativas ya migradas y mantiene escape con `mex.legacy.force`.
 
 ## Criterios
@@ -18,7 +18,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 | `/profile` | `/app/profile` | Redirección App-first activa + visual parity completa (13C) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Se respeta flag `mex.legacy.force=1`; en force muestra CTA `Estás en legacy · Abrir App Shell` preservando query/hash |
 | `/mensajes` | `/app/mensajes` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos avanzados |
 | `/cola-preparacion` | `/app/cola-preparacion` | Redirect App-first activo + visual parity completa (13D) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder/delete |
-| `/incidencias` | `/app/incidencias` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos complejos |
+| `/incidencias` | `/app/incidencias` | Redirect JS App-first activo + visual parity completa (13E) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Escape `mex.legacy.force=1`; fallback legacy para adjuntos complejos y eliminación |
 | `/cuadre` | `/app/cuadre` | Paridad operativa fuerte (12F/12G) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
@@ -31,7 +31,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 - Redirección prematura de `/mapa` puede romper operación central.
 - `/gestion` aún contiene acciones que usuarios esperan en legacy.
 - `/app/admin` cubre operación diaria segura, pero edición global avanzada se mantiene en legacy.
-- `/mensajes` e `/incidencias` ya avanzaron, pero aún no 1:1 en adjuntos/kanban.
+- `/mensajes` sigue con brecha de paridad en adjuntos avanzados; `/incidencias` queda App-first con fallback legacy para acciones destructivas/adjuntos complejos.
 - `/cuadre` App está listo para futura activación, pero se mantiene legacy-first para minimizar riesgo operativo.
 
 ## Siguiente fase sugerida (solo planificación)

@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13D · **Fecha:** 2026-04-29  
+**Versión:** FASE 13E · **Fecha:** 2026-04-29  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -126,15 +126,16 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 
 **App Shell usa `notas_admin`** (`subscribeIncidencias`, `createIncidencia`, `resolveIncidencia`) — mismo criterio que documentación previa.
 
-**Migrado App**: lista + detalle + crear + resolver + evidencias URL.
+**Migrado App (13E)**: port visual completo de la bitácora legacy real (`/mapa` modal incidencias) dentro de App Shell: header KPI, tabs Historial/+Nueva, filtros de prioridad/estado, cards de historial, formulario de creación y modal de resolución.
 
-**Migrado App 11D**:
+**Migrado App 13E**:
 
-- Prefill de MVA vía query (`/app/incidencias?mva=XXXX`).
-- Evidencias robustas para string y objetos (`url/path/nombre`) con apertura segura cuando hay URL.
-- Confirmación de resolver y mensajes de estado más claros.
+- Prefill de MVA vía query (`/app/incidencias?mva=XXXX`) en formulario real.
+- Evidencias robustas para string y objetos (`url/path/nombre`) con apertura segura cuando hay URL y fallback visual cuando solo existe path.
+- Resolución con comentario obligatorio + confirmación explícita (compat `resolverNotaDirecto`).
+- Se mantiene CTA a legacy para acciones avanzadas de adjuntos/eliminación.
 
-**Falta Kanban**: no duplicado en App por decisión de datos únicos (`notas_admin`). Legacy Kanban permanece en `/incidencias`.
+**Falta Kanban standalone**: se mantiene en `/incidencias` legacy por decisión de fuente única App en `notas_admin`; no se migra el modelo `plazas/{plaza}/incidencias` en esta fase.
 
 ---
 
@@ -216,7 +217,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 ## Próximos pasos (roadmap técnico)
 
 1. Consolidar `/solicitud` público como flujo canónico pre-login y validar duplicados/errores con QA.
-2. Incidencias App: skin + copy claros como bitácora `notas_admin`; link a Kanban legacy.
+2. Incidencias App: mantener hardening funcional (sin operaciones destructivas ni subida compleja de adjuntos), y conservar fallback legacy para flujo avanzado.
 3. Mensajes App: layout chatv2 + mismas llamadas API.
 4. Cerrar huecos de paridad visual restante en Cuadre/Admin/Profile.
 5. Mantener Admin escritura sensible en legacy hasta auditar edición segura de roles/plazas/catálogos.

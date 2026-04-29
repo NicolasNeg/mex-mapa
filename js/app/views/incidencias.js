@@ -11,125 +11,73 @@ let _state = null;
 let _unsubIncidencias = null;
 let _unsubPlaza = null;
 let _offGlobalSearch = null;
-let _incCssInjected = false;
+let _cssInjected = false;
+
+const q = id => _container?.querySelector(`#${id}`) || null;
+const qsa = sel => Array.from(_container?.querySelectorAll(sel) || []);
 
 function _trackListener(action, name, extra = {}) {
   if (typeof window.__mexTrackListener !== 'function') return;
   window.__mexTrackListener(window.location.pathname, `app/incidencias:${name}`, action, extra);
 }
 
-const q = id => _container?.querySelector(`#${id}`) ?? null;
-const qs = selector => _container?.querySelector(selector) ?? null;
-const qsa = selector => Array.from(_container?.querySelectorAll(selector) ?? []);
-
-const FILTERS = [
-  { id: 'all', label: 'Todas' },
-  { id: 'abiertas', label: 'Abiertas' },
-  { id: 'criticas', label: 'Críticas' },
-  { id: 'resueltas', label: 'Resueltas' },
-];
-
-const STATE_ORDER = { abierta: 0, en_proceso: 1, resuelta: 2, cerrada: 3 };
-const PRIORITY_ORDER = { alta: 0, media: 1, baja: 2 };
-const PRIORITY_COLOR = { alta: '#dc2626', media: '#d97706', baja: '#16a34a' };
-
-function _normalizeState(value) {
-  return String(value || '').toLowerCase().trim();
-}
-
-function _isOpen(item) {
-  const s = _normalizeState(item.estado);
-  return s === 'abierta' || s === 'en_proceso';
-}
-
-function _isResolved(item) {
-  const s = _normalizeState(item.estado);
-  return s === 'resuelta' || s === 'cerrada';
-}
-
-function _isCritical(item) {
-  const priority = String(item.prioridad || '').toLowerCase();
-  const state = _normalizeState(item.estado);
-  return priority === 'alta' && state !== 'resuelta' && state !== 'cerrada';
-}
-
-function _dateMs(value) {
-  if (!value) return 0;
-  if (typeof value.toMillis === 'function') return value.toMillis();
-  if (typeof value.toDate === 'function') return value.toDate().getTime();
-  if (typeof value.seconds === 'number') return value.seconds * 1000;
-  const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function _safeText(v) {
-  return String(v || '').trim();
-}
-
 function _makeState(plaza) {
   const url = new URL(window.location.href);
-  const mvaFromQuery = String(url.searchParams.get('mva') || '').trim().toUpperCase();
   return {
     plaza,
     allItems: [],
     items: [],
-    filter: 'all',
+    tab: 'viewTab',
     query: '',
-    sortField: 'fecha',
-    sortDir: 'desc',
-    selectedId: null,
-    navigate: null,
-    mvaFromQuery,
+    statusFilter: 'TODAS',
+    priorityFilter: { CRITICA: true, ALTA: true, MEDIA: true, BAJA: true },
+    selectedId: '',
+    mvaFromQuery: String(url.searchParams.get('mva') || '').trim().toUpperCase(),
+    loading: true,
+    errorMessage: '',
+    hasPermissionDenied: false,
   };
 }
 
 export async function mount(ctx) {
   _cleanup();
   _container = ctx.container;
-  _ensureIncidenciasCss();
+  _ensureCss();
   _state = _makeState(String(getCurrentPlaza() || ctx?.state?.currentPlaza || '').toUpperCase().trim());
-  _trackListener('create', 'view', { plaza: _state.plaza });
-  _state.navigate = ctx.navigate;
-
-  const baseState = getState();
-  _container.innerHTML = _skeleton({
-    plaza: _state.plaza,
-    role: baseState.role,
-    user: baseState.profile?.nombreCompleto || baseState.profile?.nombre || baseState.profile?.email || 'Usuario',
-  });
-
-  _bindTopActions();
-  _bindSort();
-  _bindFilters();
-  _bindGlobalSearch();
-  _bindIncComposer();
+  _container.innerHTML = _renderLayout();
+  _bindUi();
+  _applyDraftMeta();
   _prefillMvaFromQuery();
+  _bindGlobalSearch();
+  _render();
 
-  _unsubPlaza = onPlazaChange(nextPlaza => {
-    _reloadForPlaza(nextPlaza);
-  });
+  _unsubPlaza = onPlazaChange(nextPlaza => _reloadForPlaza(nextPlaza));
   _trackListener('create', 'plaza-sub');
 
   if (!_state.plaza) {
-    _renderNoPlaza();
+    _state.loading = false;
+    _render();
     return;
   }
-  _startIncidenciasListener(_state.plaza);
+  _startListener();
 }
 
 export function unmount() {
   _cleanup();
 }
 
-function _ensureIncidenciasCss() {
-  if (_incCssInjected) return;
-  if (document.querySelector('link[data-inc-app-css]')) { _incCssInjected = true; return; }
+function _ensureCss() {
+  if (_cssInjected) return;
+  if (document.querySelector('link[data-app-incidencias-css]')) {
+    _cssInjected = true;
+    return;
+  }
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/css/incidencias.css';
-  link.setAttribute('data-inc-app-css', '1');
+  link.href = '/css/app-incidencias.css';
+  link.setAttribute('data-app-incidencias-css', '1');
   document.head.appendChild(link);
-  _incCssInjected = true;
+  _cssInjected = true;
 }
 
 function _cleanup() {
@@ -149,534 +97,437 @@ function _cleanup() {
   _offGlobalSearch = null;
   _container = null;
   _state = null;
-  _trackListener('cleanup', 'view');
+}
+
+function _reloadForPlaza(nextPlaza) {
+  if (!_state) return;
+  const plaza = String(nextPlaza || '').toUpperCase().trim();
+  if (plaza === _state.plaza) return;
+  _state.plaza = plaza;
+  _state.allItems = [];
+  _state.items = [];
+  _state.selectedId = '';
+  _state.errorMessage = '';
+  _state.hasPermissionDenied = false;
+  _state.loading = !plaza;
+  _prefillMvaFromQuery();
+  _render();
+  if (!plaza) return;
+  _startListener();
 }
 
 function _bindGlobalSearch() {
   const handler = event => {
     if (!_state || !_container) return;
-    const detailRoute = String(event?.detail?.route || '');
-    if (!(detailRoute.startsWith('/app/incidencias') || detailRoute === '/incidencias')) return;
-    const query = String(event?.detail?.query || '');
-    _state.query = query;
-    _applyFiltersAndSort();
-    _renderSummary();
-    _renderList();
-    _syncDetailSelection();
+    const route = String(event?.detail?.route || '');
+    if (!(route.startsWith('/app/incidencias') || route === '/incidencias')) return;
+    _state.query = String(event?.detail?.query || '').trim().toLowerCase();
+    _applyFilters();
+    _render();
   };
   window.addEventListener('mex:global-search', handler);
   _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
 }
 
-function _stopIncidenciasListener() {
+function _startListener() {
   if (typeof _unsubIncidencias === 'function') {
     try { _unsubIncidencias(); } catch (_) {}
-    _trackListener('cleanup', 'incidencias-sub');
   }
-  _unsubIncidencias = null;
-}
+  _state.loading = true;
+  _state.errorMessage = '';
+  _state.hasPermissionDenied = false;
+  _render();
 
-function _reloadForPlaza(nextPlaza) {
-  if (!_state || !_container) return;
-  const normalized = String(nextPlaza || '').toUpperCase().trim();
-  if (normalized === _state.plaza) return;
-  _state.plaza = normalized;
-  _state.allItems = [];
-  _state.items = [];
-  _state.selectedId = null;
-  _setPlazaBadge(normalized);
-  _prefillMvaFromQuery();
-  _renderSummary();
-  _renderListSkeleton();
-  _renderDetail(null);
-  if (!normalized) {
-    _stopIncidenciasListener();
-    _renderNoPlaza();
-    return;
-  }
-  _startIncidenciasListener(normalized);
-}
-
-function _prefillMvaFromQuery() {
-  const input = q('incNewMva');
-  if (!input) return;
-  if (_state?.mvaFromQuery) input.value = _state.mvaFromQuery;
-}
-
-function _startIncidenciasListener(plaza) {
-  _stopIncidenciasListener();
-  _renderListSkeleton();
-
-  try {
-    _unsubIncidencias = subscribeIncidencias({
-      plaza,
-      onData: rows => {
-        if (!_state || !_container) return;
-        _state.allItems = Array.isArray(rows) ? rows : [];
-        _applyFiltersAndSort();
-        _renderSummary();
-        _renderList();
-        _syncDetailSelection();
-      },
-      onError: error => {
-        if (!_container) return;
-        if (String(error?.code || '').toLowerCase() === 'permission-denied') {
-          _renderListError('No tienes permisos para ver incidencias de esta plaza.');
-          return;
-        }
-        _renderListError(error?.message || 'Error al cargar incidencias desde notas_admin.');
-      }
-    });
-    _trackListener('create', 'incidencias-sub', { plaza });
-  } catch (error) {
-    _renderListError(error?.message || 'Error al iniciar lectura de incidencias.');
-  }
-}
-
-function _applyFiltersAndSort() {
-  if (!_state) return;
-  const query = _state.query.toLowerCase().trim();
-  let items = [..._state.allItems];
-
-  if (_state.filter === 'abiertas') items = items.filter(_isOpen);
-  if (_state.filter === 'criticas') items = items.filter(_isCritical);
-  if (_state.filter === 'resueltas') items = items.filter(_isResolved);
-
-  if (query) {
-    items = items.filter(it =>
-      _safeText(it.mva).toLowerCase().includes(query) ||
-      _safeText(it.titulo).toLowerCase().includes(query) ||
-      _safeText(it.descripcion).toLowerCase().includes(query) ||
-      _safeText(it.creadoPor || it.autor || it.responsable).toLowerCase().includes(query)
-    );
-  }
-
-  items.sort((a, b) => {
-    const dir = _state.sortDir === 'asc' ? 1 : -1;
-    let av = 0;
-    let bv = 0;
-    if (_state.sortField === 'fecha') {
-      av = _dateMs(a.creadoEn || a.actualizadoEn || a.fecha);
-      bv = _dateMs(b.creadoEn || b.actualizadoEn || b.fecha);
-    } else if (_state.sortField === 'prioridad') {
-      av = PRIORITY_ORDER[String(a.prioridad || '').toLowerCase()] ?? 99;
-      bv = PRIORITY_ORDER[String(b.prioridad || '').toLowerCase()] ?? 99;
-    } else {
-      av = STATE_ORDER[_normalizeState(a.estado)] ?? 99;
-      bv = STATE_ORDER[_normalizeState(b.estado)] ?? 99;
-    }
-    if (av < bv) return -1 * dir;
-    if (av > bv) return 1 * dir;
-    return 0;
-  });
-
-  _state.items = items;
-}
-
-function _bindTopActions() {
-  qs('[data-inc-top]')?.addEventListener('click', event => {
-    const appRoute = event.target.closest('[data-app-route]');
-    if (appRoute && _state?.navigate) {
-      event.preventDefault();
-      _state.navigate(appRoute.dataset.appRoute);
-    }
-  });
-}
-
-function _bindSort() {
-  q('incAppSort')?.addEventListener('change', event => {
-    if (!_state) return;
-    const [field, dir] = String(event.target.value || 'fecha:desc').split(':');
-    _state.sortField = field || 'fecha';
-    _state.sortDir = dir || 'desc';
-    _applyFiltersAndSort();
-    _renderList();
-    _syncDetailSelection();
-  });
-}
-
-function _bindFilters() {
-  qsa('[data-inc-filter]').forEach(btn => {
-    btn.addEventListener('click', () => {
+  _unsubIncidencias = subscribeIncidencias({
+    plaza: _state.plaza,
+    onData: rows => {
       if (!_state) return;
-      _state.filter = btn.dataset.incFilter || 'all';
-      qsa('[data-inc-filter]').forEach(chip => chip.classList.toggle('inc-app-chip--active', chip === btn));
-      _applyFiltersAndSort();
-      _renderSummary();
-      _renderList();
-      _syncDetailSelection();
+      _state.loading = false;
+      _state.allItems = Array.isArray(rows) ? rows : [];
+      _applyFilters();
+      _render();
+    },
+    onError: err => {
+      if (!_state) return;
+      _state.loading = false;
+      _state.errorMessage = err?.message || 'Error al cargar incidencias.';
+      _state.hasPermissionDenied = String(err?.code || '').toLowerCase() === 'permission-denied';
+      _render();
+    }
+  });
+  _trackListener('create', 'incidencias-sub', { plaza: _state.plaza });
+}
+
+function _bindUi() {
+  qsa('[data-inc-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _state.tab = btn.dataset.incTab;
+      _render();
     });
   });
-}
 
-function _bindIncComposer() {
-  const btn = q('incAppCreateBtn');
-  if (!btn) return;
-  btn.addEventListener('click', async () => {
-    if (!_state?.plaza) {
-      alert('Selecciona una plaza antes de crear una incidencia.');
-      return;
-    }
-    const titulo = String(q('incNewTitle')?.value || '').trim();
-    const descripcion = String(q('incNewDesc')?.value || '').trim();
-    const prioridad = String(q('incNewPri')?.value || 'media').toLowerCase();
-    const mva = String(q('incNewMva')?.value || '').trim().toUpperCase();
-    if (!titulo || !descripcion) {
-      _showNotice('Completa título y descripción.', 'error');
-      return;
-    }
-    const gs = getState();
-    const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
-    btn.disabled = true;
-    try {
-      await createIncidencia({
-        titulo,
-        descripcion,
-        nota: descripcion,
-        prioridad,
-        plazaID: _state.plaza,
-        plaza: _state.plaza,
-        mva: mva || undefined,
-        autor,
-        creadoPor: autor,
-        source: 'app_shell'
-      });
-      _showNotice('Incidencia registrada.', 'ok');
-      q('incNewTitle').value = '';
-      q('incNewDesc').value = '';
-      q('incNewMva').value = _state?.mvaFromQuery || '';
-    } catch (e) {
-      _showNotice(e?.message || 'No se pudo crear la incidencia.', 'error');
-    } finally {
-      btn.disabled = false;
-    }
+  q('filtroEstado')?.addEventListener('change', event => {
+    _state.statusFilter = String(event.target.value || 'TODAS').toUpperCase();
+    _applyFilters();
+    _render();
   });
+
+  ['Critica', 'Alta', 'Media', 'Baja'].forEach(name => {
+    q(`incFilter${name}`)?.addEventListener('change', () => {
+      _state.priorityFilter[name.toUpperCase()] = !!q(`incFilter${name}`)?.checked;
+      _applyFilters();
+      _render();
+    });
+  });
+
+  q('incRefreshBtn')?.addEventListener('click', () => {
+    if (_state?.plaza) _startListener();
+  });
+
+  q('incGoToAdd')?.addEventListener('click', () => {
+    _state.tab = 'addTab';
+    _render();
+  });
+
+  q('btnPublicarInc')?.addEventListener('click', _onCreateIncidencia);
+  q('incDiscardBtn')?.addEventListener('click', _resetComposer);
+
+  q('nuevaNotaPrioridad')?.addEventListener('change', _updatePreview);
+  q('nuevaNotaTitulo')?.addEventListener('input', _updatePreview);
+  q('nuevaNotaTxt')?.addEventListener('input', _updatePreview);
+
+  q('incResolverCancelar')?.addEventListener('click', () => _toggleResolverModal(false));
+  q('btnConfirmarResInc')?.addEventListener('click', _confirmResolve);
 }
 
-function _renderNoPlaza() {
-  _renderSummary();
-  _renderDetail(null);
-  const list = q('incAppList');
-  if (!list) return;
-  list.innerHTML = `<div style="padding:38px;text-align:center;color:#94a3b8;font-size:13px;">Selecciona una plaza para ver las incidencias.</div>`;
+function _applyFilters() {
+  const query = _state.query;
+  _state.items = (_state.allItems || []).filter(item => {
+    const p = _priority(item);
+    if (!_state.priorityFilter[p]) return false;
+    const status = _legacyStatus(item);
+    if (_state.statusFilter !== 'TODAS' && status !== _state.statusFilter) return false;
+    if (!query) return true;
+    const hay = `${item.titulo || ''} ${item.descripcion || ''} ${item.autor || ''} ${item.codigo || ''} ${item.mva || ''}`.toLowerCase();
+    return hay.includes(query);
+  }).sort((a, b) => _dateMs(b.creadoEn || b.fecha) - _dateMs(a.creadoEn || a.fecha));
 }
 
-function _renderListSkeleton() {
-  const list = q('incAppList');
-  if (!list) return;
-  list.innerHTML = `
-    <div style="padding:32px;text-align:center;color:#94a3b8;">
-      <span class="material-symbols-outlined" style="font-size:30px;animation:incAppSpin 1s linear infinite;">sync</span>
-      <div style="margin-top:10px;font-size:13px;">Cargando incidencias…</div>
-    </div>`;
+function _render() {
+  if (!_state) return;
+  _setText('incPlazaBadge', _state.plaza || '—');
+  _setText('incMetaUbicacion', _state.plaza || 'GLOBAL');
+  _setText('incGlobalSearchHint', _state.query ? `Filtro global activo: "${_state.query}"` : 'Búsqueda principal desde header App Shell');
+  _renderStats();
+  _renderTabs();
+  _renderList();
+  _renderPreview();
 }
 
-function _renderListError(msg) {
-  const list = q('incAppList');
-  if (!list) return;
-  list.innerHTML = `
-    <div style="padding:30px;text-align:center;color:#ef4444;">
-      <span class="material-symbols-outlined" style="font-size:30px;">error_outline</span>
-      <div style="margin-top:8px;font-size:13px;">${esc(msg)}</div>
-      <a href="/incidencias" style="display:inline-flex;margin-top:14px;color:#2b6954;font-size:12px;text-decoration:underline;">Abrir módulo completo</a>
-    </div>`;
+function _renderStats() {
+  const total = _state.allItems.length;
+  const pend = _state.allItems.filter(i => _legacyStatus(i) === 'PENDIENTE').length;
+  const crit = _state.allItems.filter(i => _priority(i) === 'CRITICA' && _legacyStatus(i) === 'PENDIENTE').length;
+  const res = _state.allItems.filter(i => _legacyStatus(i) === 'RESUELTA').length;
+  const adj = _state.allItems.reduce((acc, it) => acc + _evidenceRows(it).length, 0);
+  _setText('incStatTotal', total);
+  _setText('incStatPendientes', pend);
+  _setText('incStatCriticas', crit);
+  _setText('incCountPendientes', pend);
+  _setText('incCountResueltas', res);
+  _setText('incCountAdjuntos', adj);
 }
 
-function _renderSummary() {
-  const source = _state?.allItems || [];
-  const total = source.length;
-  const abiertas = source.filter(_isOpen).length;
-  const criticas = source.filter(_isCritical).length;
-  const resueltas = source.filter(_isResolved).length;
-  _setText('incAppSummaryTotal', total);
-  _setText('incAppSummaryOpen', abiertas);
-  _setText('incAppSummaryCritical', criticas);
-  _setText('incAppSummaryResolved', resueltas);
+function _renderTabs() {
+  qsa('[data-inc-tab]').forEach(tab => tab.classList.toggle('active', tab.dataset.incTab === _state.tab));
+  qsa('.inc-content').forEach(p => p.classList.toggle('active', p.id === _state.tab));
 }
 
 function _renderList() {
-  const list = q('incAppList');
-  if (!list || !_state) return;
+  const list = q('listaNotas');
+  if (!list) return;
+
+  if (!_state.plaza) {
+    list.innerHTML = _empty('Selecciona una plaza para ver incidencias.');
+    return;
+  }
+  if (_state.loading) {
+    list.innerHTML = _empty('Cargando registros...', true);
+    return;
+  }
+  if (_state.hasPermissionDenied) {
+    list.innerHTML = _empty('No tienes permisos para ver incidencias de esta plaza.');
+    return;
+  }
+  if (_state.errorMessage) {
+    list.innerHTML = _empty(_state.errorMessage);
+    return;
+  }
+  if (!_state.allItems.length) {
+    list.innerHTML = _empty('No hay incidencias registradas.');
+    return;
+  }
   if (!_state.items.length) {
-    list.innerHTML = `<div style="padding:38px;text-align:center;color:#94a3b8;font-size:13px;">Sin incidencias para los filtros aplicados.</div>`;
+    list.innerHTML = _empty('No se encontraron incidencias con los filtros actuales.');
     return;
   }
 
   list.innerHTML = _state.items.map(item => {
-    const state = _normalizeState(item.estado);
-    const priority = String(item.prioridad || '').toLowerCase();
+    const pr = _priorityMeta(item);
+    const st = _stateMeta(item);
+    const open = _legacyStatus(item) === 'PENDIENTE';
+    const evidencias = _evidenceRows(item);
     return `
-      <button data-inc-row="${esc(item.id)}" style="width:100%;text-align:left;border:1px solid #e2e8f0;background:#fff;border-radius:12px;padding:12px 14px;cursor:pointer;">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="width:8px;height:8px;border-radius:999px;background:${PRIORITY_COLOR[priority] || '#94a3b8'};"></span>
-          <span style="font-size:12px;font-weight:800;color:#0f172a;">${esc(item.mva || 'SIN UNIDAD')}</span>
-          <span style="margin-left:auto;font-size:10px;font-weight:700;color:#64748b;">${esc(_labelState(state))}</span>
+      <article class="nota-card" data-prioridad="${esc(pr.key)}">
+        <div class="nota-top">
+          <div class="nota-main">
+            <div class="nota-icon"><span class="material-icons">${esc(pr.icon)}</span></div>
+            <div class="nota-main-copy">
+              <div class="nota-title-row">
+                <h4 class="nota-title">${esc(item.titulo || 'Incidencia sin titulo')}</h4>
+                <div class="nota-badges">
+                  <span class="nota-priority-badge ${esc(pr.className)}">${esc(pr.label)}</span>
+                  <span class="nota-state-badge ${esc(st.className)}">${esc(st.label)}</span>
+                </div>
+              </div>
+              <div class="nota-meta">
+                <strong>${esc(item.autor || item.creadoPor || 'Sistema')}</strong>
+                <span class="nota-meta-separator"></span>
+                <span>${esc(_longDate(item.creadoEn || item.fecha))}</span>
+                <span class="nota-meta-separator"></span>
+                <span>${esc(item.mva || 'SIN MVA')}</span>
+              </div>
+            </div>
+          </div>
         </div>
-        <div style="margin-top:6px;font-size:13px;font-weight:700;color:#1e293b;">${esc(item.titulo || 'Sin título')}</div>
-        <div style="margin-top:3px;font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-          ${esc(item.descripcion || 'Sin descripción')}
+        <div class="nota-body">${esc(item.descripcion || 'Sin descripción').replace(/\n/g, '<br>')}</div>
+        ${_renderEvidenceBlock(evidencias)}
+        <div class="nota-footer">
+          <div class="nota-footer-left">
+            <span class="nota-chip">${esc(item.plaza || _state.plaza || '—')}</span>
+            <span class="nota-chip">${esc(pr.label)}</span>
+            ${evidencias.length ? `<span class="nota-chip">${evidencias.length} adjunto${evidencias.length === 1 ? '' : 's'}</span>` : ''}
+          </div>
         </div>
-        <div style="margin-top:6px;font-size:10px;color:#94a3b8;">
-          ${esc(String(priority || 'baja').toUpperCase())} · ${esc(_shortDate(item.creadoEn || item.fecha))} · ${esc(item.creadoPor || item.autor || item.responsable || '—')}
-        </div>
-      </button>
+        ${open
+          ? `<button class="btn-res-inc" data-resolve-id="${esc(item.legacyNotaId || item.id)}">Marcar como resuelta</button>`
+          : `<div class="nota-resolution">
+              <div class="nota-resolution-head">
+                <span>Resuelta por ${esc(item.resueltoPor || 'Sistema')}</span>
+                <span>${esc(_longDate(item.resueltoEn || item.fecha))}</span>
+              </div>
+              <div class="nota-resolution-body">${esc(item.solucion || 'Sin detalle de solucion.').replace(/\n/g, '<br>')}</div>
+            </div>`}
+      </article>
     `;
   }).join('');
 
-  list.querySelectorAll('[data-inc-row]').forEach(el => {
-    el.addEventListener('click', () => {
-      _state.selectedId = el.dataset.incRow;
-      _syncDetailSelection();
+  qsa('[data-resolve-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _state.selectedId = btn.dataset.resolveId || '';
+      _toggleResolverModal(true);
     });
   });
 }
 
-function _syncDetailSelection() {
-  if (!_state) return;
-  if (!_state.selectedId) {
-    _renderDetail(null);
-    return;
+function _renderEvidenceBlock(items) {
+  if (!items.length) {
+    return '<div class="nota-attachments-empty">Sin evidencias adjuntas.</div>';
   }
-  const item = _state.allItems.find(it => it.id === _state.selectedId);
-  if (!item) {
-    _state.selectedId = null;
-    _renderDetail(null);
-    return;
-  }
-  _renderDetail(item);
-}
-
-function _renderDetail(item) {
-  const detail = q('incAppDetail');
-  if (!detail) return;
-  if (!item) {
-    detail.innerHTML = `<div style="padding:20px;color:#94a3b8;font-size:12px;">Selecciona una incidencia para ver detalle.</div>`;
-    return;
-  }
-  const state = _normalizeState(item.estado);
-  const priority = String(item.prioridad || '').toLowerCase();
-  const evidencias = Array.isArray(item.evidencias)
-    ? item.evidencias
-    : (Array.isArray(item.evidenciaUrls) ? item.evidenciaUrls : []);
-  const evidenceRows = evidencias.map(_evidenceRow).filter(Boolean);
-  const open = _isOpen(item);
-
-  detail.innerHTML = `
-    <div style="padding:16px;">
-      <div style="font-size:16px;font-weight:800;color:#0f172a;">${esc(item.titulo || 'Sin título')}</div>
-      <div style="margin-top:6px;font-size:11px;color:#64748b;">${esc(_labelState(state))} · PRIORIDAD ${esc(String(priority || 'baja').toUpperCase())}</div>
-      <div style="margin-top:14px;font-size:12px;color:#334155;line-height:1.6;">${esc(item.descripcion || 'Sin descripción')}</div>
-      <div style="margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-        ${_detailField('Autor', item.creadoPor || item.autor || item.responsable || '—')}
-        ${_detailField('Fecha', _longDate(item.creadoEn || item.fecha))}
-        ${_detailField('MVA', item.mva || item.unidad || '—')}
-        ${_detailField('Plaza', item.plaza || _state.plaza || '—')}
-      </div>
-      ${item.solucion ? _detailBlock('Solución registrada', item.solucion) : ''}
-      ${(item.resueltoPor || item.quienResolvio) ? _detailField('Resuelto por', item.resueltoPor || item.quienResolvio || '—') : ''}
-      <div style="margin-top:14px;">
-        <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">Evidencias</div>
-        ${evidenceRows.length ? `
-          <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px;">
-            ${evidenceRows.map(ev => ev.href
-              ? `<a href="${esc(ev.href)}" target="_blank" rel="noopener noreferrer" style="font-size:12px;color:#2b6954;word-break:break-all;">${esc(ev.label)}</a>`
-              : `<div style="font-size:12px;color:#64748b;">${esc(ev.label)} <span style="color:#94a3b8;">(abrir en legacy)</span></div>`
-            ).join('')}
-          </div>
-        ` : `<div style="margin-top:6px;font-size:12px;color:#64748b;">Sin evidencias adjuntas.</div>`}
-      </div>
-      ${open ? `
-      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #f1f5f9;">
-        <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;margin-bottom:6px;">Resolver (notas_admin)</div>
-        <textarea id="incResolveSol" rows="3" placeholder="Describe la solución aplicada..."
-          style="width:100%;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px;font-family:inherit;resize:vertical;box-sizing:border-box;"></textarea>
-        <button type="button" id="incAppResolveBtn"
-          style="margin-top:8px;width:100%;border:none;border-radius:8px;background:#0f172a;color:#fff;padding:10px 12px;font-size:12px;font-weight:800;cursor:pointer;">
-          Marcar como resuelta
-        </button>
-      </div>` : ''}
-      <div style="margin-top:10px;font-size:11px;color:#64748b;">Carga y eliminación de adjuntos se mantiene en la vista legacy para conservar el flujo completo de Storage.</div>
-      <a href="/incidencias" style="display:inline-flex;margin-top:16px;color:#64748b;font-size:11px;text-decoration:underline;">Historial / vista legacy</a>
+  return `
+    <div class="nota-attachments">
+      ${items.map(item => item.url
+        ? `<a class="nota-attachment-file" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><span class="material-icons">attach_file</span><span class="nota-attachment-copy"><strong>${esc(item.label)}</strong><span>Abrir evidencia</span></span></a>`
+        : `<div class="nota-attachment-file nota-attachment-file--no-url"><span class="material-icons">folder</span><span class="nota-attachment-copy"><strong>${esc(item.label)}</strong><span>Disponible en legacy (sin URL directa)</span></span></div>`
+      ).join('')}
     </div>
   `;
+}
 
-  const rb = detail.querySelector('#incAppResolveBtn');
-  rb?.addEventListener('click', async () => {
-    const sol = String(detail.querySelector('#incResolveSol')?.value || '').trim();
-    if (!sol) {
-      _showNotice('Escribe una breve solución antes de resolver.', 'error');
-      return;
+function _toggleResolverModal(show) {
+  q('modalAuthIncidencia')?.classList.toggle('active', !!show);
+  if (show) q('authComentario')?.focus();
+}
+
+async function _confirmResolve() {
+  const id = String(_state?.selectedId || '').trim();
+  const comentario = String(q('authComentario')?.value || '').trim();
+  if (!id) return _showNotice('No se pudo identificar la incidencia a resolver.', 'error');
+  if (!comentario) return _showNotice('Describe cómo se solucionó.', 'error');
+  const btn = q('btnConfirmarResInc');
+  const gs = getState();
+  const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
+  btn.disabled = true;
+  try {
+    await resolveIncidencia(id, comentario, autor);
+    _showNotice('Incidencia resuelta.', 'ok');
+    _toggleResolverModal(false);
+    q('authComentario').value = '';
+  } catch (error) {
+    _showNotice(error?.message || 'No se pudo resolver la incidencia.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function _onCreateIncidencia() {
+  if (!_state?.plaza) return _showNotice('Selecciona una plaza para registrar incidencias.', 'error');
+  const titulo = String(q('nuevaNotaTitulo')?.value || '').trim();
+  const descripcion = String(q('nuevaNotaTxt')?.value || '').trim();
+  const prioridad = String(q('nuevaNotaPrioridad')?.value || 'MEDIA').toUpperCase();
+  const mva = String(q('incMvaInput')?.value || '').trim().toUpperCase();
+  if (!titulo) return _showNotice('Escribe el titulo de la incidencia.', 'error');
+  if (!descripcion) return _showNotice('Escribe la descripción.', 'error');
+
+  const btn = q('btnPublicarInc');
+  const gs = getState();
+  const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
+  btn.disabled = true;
+  try {
+    await createIncidencia({
+      titulo,
+      descripcion,
+      nota: descripcion,
+      prioridad,
+      mva,
+      plaza: _state.plaza,
+      plazaID: _state.plaza,
+      autor,
+      creadoPor: autor,
+      estado: 'PENDIENTE',
+      source: 'app_shell'
+    });
+    _showNotice('Nota publicada.', 'ok');
+    _resetComposer();
+    _state.tab = 'viewTab';
+    _render();
+  } catch (error) {
+    _showNotice(error?.message || 'Error al publicar.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function _resetComposer() {
+  q('nuevaNotaTitulo').value = '';
+  q('nuevaNotaTxt').value = '';
+  q('nuevaNotaPrioridad').value = 'ALTA';
+  _prefillMvaFromQuery();
+  _applyDraftMeta();
+  _updatePreview();
+}
+
+function _prefillMvaFromQuery() {
+  const input = q('incMvaInput');
+  if (!input) return;
+  input.value = _state?.mvaFromQuery || '';
+}
+
+function _applyDraftMeta() {
+  const gs = getState();
+  const autor = gs.profile?.nombreCompleto || gs.profile?.nombre || gs.profile?.email || 'Sistema';
+  q('autorNuevaNota').value = autor;
+  _setText('incMetaTimestamp', _longDate(new Date()));
+  _setText('incMetaId', `INC-${String(Date.now()).slice(-6)}`);
+  _updatePreview();
+}
+
+function _updatePreview() {
+  const prioridad = String(q('nuevaNotaPrioridad')?.value || 'ALTA').toUpperCase();
+  const meta = _priorityMeta({ prioridad });
+  _setText('incPreviewTitulo', String(q('nuevaNotaTitulo')?.value || '').trim() || 'Nueva incidencia');
+  _setText('incPreviewBody', String(q('nuevaNotaTxt')?.value || '').trim() || 'Documenta el evento con precision tecnica para que el historial operativo conserve contexto e impacto.');
+  _setText('incPreviewAutor', `Emitido por: ${String(q('autorNuevaNota')?.value || '--')}`);
+  _setText('incPreviewEstado', 'Pendiente');
+  const badge = q('incPreviewPrioridad');
+  if (badge) {
+    badge.className = `inc-preview-priority ${meta.className}`;
+    badge.innerHTML = `<span class="material-icons" style="font-size:15px;">${meta.icon}</span><span>${esc(meta.label)}</span>`;
+  }
+}
+
+function _legacyStatus(item) {
+  const value = String(item?.estado || '').toUpperCase().trim();
+  if (value === 'RESUELTA' || value === 'CERRADA') return 'RESUELTA';
+  return 'PENDIENTE';
+}
+
+function _priority(item) {
+  const p = String(item?.prioridad || '').toUpperCase().trim();
+  if (p === 'CRITICA' || p === 'CRÍTICA') return 'CRITICA';
+  if (p === 'ALTA') return 'ALTA';
+  if (p === 'BAJA') return 'BAJA';
+  return 'MEDIA';
+}
+
+function _priorityMeta(item) {
+  const p = _priority(item);
+  if (p === 'CRITICA') return { key: 'CRITICA', icon: 'error', label: 'Crítica', className: 'is-critica' };
+  if (p === 'ALTA') return { key: 'ALTA', icon: 'priority_high', label: 'Alta', className: 'is-alta' };
+  if (p === 'BAJA') return { key: 'BAJA', icon: 'low_priority', label: 'Baja', className: 'is-baja' };
+  return { key: 'MEDIA', icon: 'report_problem', label: 'Media', className: 'is-media' };
+}
+
+function _stateMeta(item) {
+  if (_legacyStatus(item) === 'RESUELTA') return { className: 'is-resuelta', label: 'Resuelta' };
+  return { className: 'is-pendiente', label: 'Pendiente' };
+}
+
+function _evidenceRows(item) {
+  const list = [];
+  const fromArray = value => {
+    if (!Array.isArray(value)) return;
+    value.forEach(v => list.push(v));
+  };
+  fromArray(item?.evidencias);
+  fromArray(item?.adjuntos);
+  fromArray(item?.evidenciaUrls);
+  if (item?.url) list.push(item.url);
+  if (item?.evidencia) list.push(item.evidencia);
+  const out = [];
+  const seen = new Set();
+  list.forEach(entry => {
+    let url = '';
+    let path = '';
+    let label = '';
+    if (typeof entry === 'string') {
+      url = entry.trim();
+      label = url || 'Evidencia';
+    } else if (entry && typeof entry === 'object') {
+      url = String(entry.url || entry.href || '').trim();
+      path = String(entry.path || '').trim();
+      label = String(entry.nombre || entry.name || entry.filename || entry.fileName || '').trim();
     }
-    if (!confirm('¿Marcar esta incidencia como resuelta en notas_admin? Esta acción queda registrada.')) return;
-    const gs = getState();
-    const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
-    rb.disabled = true;
-    try {
-      await resolveIncidencia(item.legacyNotaId || item.id, sol, autor);
-      _showNotice('Incidencia resuelta.', 'ok');
-    } catch (e) {
-      _showNotice(e?.message || 'No se pudo resolver la incidencia.', 'error');
-    } finally {
-      rb.disabled = false;
-    }
+    const key = `${url}|${path}|${label}`;
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    out.push({ url, path, label: label || (url || path || 'Evidencia') });
   });
+  return out;
 }
 
-function _detailBlock(label, body) {
-  return `
-    <div style="margin-top:12px;background:#f8fafc;border-radius:8px;padding:10px;">
-      <div style="font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;">${esc(label)}</div>
-      <div style="margin-top:6px;font-size:12px;color:#334155;line-height:1.55;">${esc(body)}</div>
-    </div>`;
+function _dateMs(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value.toDate === 'function') return value.toDate().getTime();
+  if (typeof value.seconds === 'number') return value.seconds * 1000;
+  const t = new Date(value).getTime();
+  return Number.isFinite(t) ? t : 0;
 }
 
-function _detailField(label, value) {
-  return `
-    <div style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:8px 10px;">
-      <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;">${esc(label)}</div>
-      <div style="font-size:12px;color:#1e293b;font-weight:600;">${esc(value)}</div>
-    </div>`;
+function _longDate(value) {
+  const t = _dateMs(value);
+  if (!t) return '—';
+  return new Date(t).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-function _setPlazaBadge(plaza) {
-  const badge = q('incAppPlaza');
-  if (badge) badge.textContent = plaza || '—';
+function _empty(message, loading = false) {
+  return `<div class="inc-empty-state"><span class="material-icons ${loading ? 'spinner' : ''}">${loading ? 'sync' : 'search_off'}</span><div>${esc(message)}</div></div>`;
 }
 
 function _setText(id, value) {
   const el = q(id);
-  if (el) el.textContent = String(value);
-}
-
-function _labelState(state) {
-  if (state === 'abierta') return 'ABIERTA';
-  if (state === 'en_proceso') return 'EN PROCESO';
-  if (state === 'resuelta') return 'RESUELTA';
-  if (state === 'cerrada') return 'CERRADA';
-  return 'SIN ESTADO';
-}
-
-function _shortDate(value) {
-  const ms = _dateMs(value);
-  if (!ms) return '—';
-  return new Date(ms).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
-}
-
-function _longDate(value) {
-  const ms = _dateMs(value);
-  if (!ms) return '—';
-  return new Date(ms).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
-
-function _skeleton({ plaza, role, user }) {
-  return `
-    <style>
-      @keyframes incAppSpin { to { transform: rotate(360deg); } }
-      .inc-app-chip--active { background:#2b6954 !important;color:#fff !important;border-color:#2b6954 !important; }
-    </style>
-    <div style="padding:20px 20px 48px;max-width:980px;margin:0 auto;font-family:'Inter',sans-serif;">
-      <div data-inc-top style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-        <a data-app-route="/app/dashboard" href="/app/dashboard" style="font-size:12px;color:#64748b;text-decoration:none;display:inline-flex;align-items:center;gap:5px;">
-          <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span> Volver al dashboard
-        </a>
-        <span style="color:#cbd5e1;">·</span>
-        <span style="font-size:12px;color:#0f172a;font-weight:700;">Incidencias</span>
-        <span id="incAppPlaza" style="margin-left:auto;font-size:11px;font-weight:700;color:#2b6954;background:#dcfce7;padding:3px 10px;border-radius:100px;">${esc(plaza || '—')}</span>
-        <a href="/incidencias" style="font-size:11px;color:#64748b;text-decoration:none;border:1px solid #e2e8f0;border-radius:8px;padding:5px 10px;">Abrir módulo completo</a>
-      </div>
-
-      <div style="margin-bottom:14px;">
-        <h1 style="margin:0;font-size:24px;font-weight:900;color:#0f172a;">Incidencias</h1>
-        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">${esc(user)} · ${esc(role || 'AUXILIAR')}</p>
-      </div>
-
-      <div style="border:1px solid #e2e8f0;border-radius:12px;padding:14px;margin-bottom:14px;background:#fafafa;">
-        <div style="font-size:11px;font-weight:800;color:#475569;margin-bottom:10px;">Registrar incidencia · misma base que el mapa y la vista legacy</div>
-        <div style="display:grid;gap:8px;">
-          <input id="incNewTitle" type="text" placeholder="Título"
-            style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;" />
-          <textarea id="incNewDesc" rows="2" placeholder="Describe el incidente..."
-            style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;font-family:inherit;resize:vertical;"></textarea>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-            <select id="incNewPri" style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;">
-              <option value="alta">Prioridad alta</option>
-              <option value="media" selected>Prioridad media</option>
-              <option value="baja">Prioridad baja</option>
-            </select>
-            <input id="incNewMva" type="text" placeholder="MVA (opcional)"
-              style="flex:1;min-width:140px;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;" />
-          </div>
-          <button type="button" id="incAppCreateBtn"
-            style="justify-self:start;border:none;border-radius:8px;background:#2b6954;color:#fff;padding:8px 14px;font-size:12px;font-weight:800;cursor:pointer;">
-            Guardar incidencia
-          </button>
-          <div style="font-size:11px;color:#64748b;">La incidencia queda ligada a la plaza global actual. Para adjuntos usa el módulo legacy.</div>
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:14px;">
-        ${_summaryCard('incAppSummaryTotal', 'Total')}
-        ${_summaryCard('incAppSummaryOpen', 'Abiertas')}
-        ${_summaryCard('incAppSummaryCritical', 'Críticas')}
-        ${_summaryCard('incAppSummaryResolved', 'Resueltas')}
-      </div>
-
-      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;align-items:center;margin-bottom:10px;">
-        <select id="incAppSort" style="border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12px;">
-          <option value="fecha:desc">Fecha (más recientes)</option>
-          <option value="fecha:asc">Fecha (más antiguas)</option>
-          <option value="prioridad:asc">Prioridad</option>
-          <option value="estado:asc">Estado</option>
-        </select>
-      </div>
-
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;">
-        ${FILTERS.map((filter, idx) => `
-          <button data-inc-filter="${filter.id}" class="${idx === 0 ? 'inc-app-chip--active' : ''}" style="border:1px solid #e2e8f0;border-radius:100px;padding:4px 12px;background:#fff;font-size:11px;font-weight:700;color:#64748b;cursor:pointer;">
-            ${esc(filter.label)}
-          </button>`).join('')}
-      </div>
-
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;align-items:start;">
-        <div id="incAppList" style="display:flex;flex-direction:column;gap:8px;"></div>
-        <aside id="incAppDetail" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;min-height:140px;"></aside>
-      </div>
-    </div>
-  `;
-}
-
-function _summaryCard(id, label) {
-  return `
-    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:12px;">
-      <div id="${id}" style="font-size:22px;font-weight:900;color:#0f172a;">0</div>
-      <div style="font-size:10px;color:#94a3b8;font-weight:700;text-transform:uppercase;letter-spacing:.05em;">${label}</div>
-    </div>`;
-}
-
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-function _evidenceHref(ev) {
-  if (!ev) return '';
-  if (typeof ev === 'string') return ev.trim();
-  return String(ev.url || ev.href || ev.path || '').trim();
-}
-
-function _evidenceRow(ev) {
-  if (!ev) return null;
-  if (typeof ev === 'string') {
-    const href = ev.trim();
-    return href ? { href, label: href } : null;
-  }
-  const href = String(ev.url || ev.href || '').trim();
-  const path = String(ev.path || '').trim();
-  const label = String(ev.nombre || ev.name || ev.fileName || href || path || 'Evidencia');
-  return { href: href || '', label: label || 'Evidencia' };
+  if (el) el.textContent = String(value || '');
 }
 
 function _showNotice(message, type = 'ok') {
@@ -691,5 +542,156 @@ function _showNotice(message, type = 'ok') {
   el.textContent = String(message || '');
   el.style.opacity = '1';
   clearTimeout(_showNotice._t);
-  _showNotice._t = setTimeout(() => { el.style.opacity = '0'; }, 3400);
+  _showNotice._t = setTimeout(() => { el.style.opacity = '0'; }, 3200);
+}
+
+function esc(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function _renderLayout() {
+  return `
+    <div class="app-incidencias">
+      <div class="incv2-header">
+        <div class="incv2-header-bg"></div>
+        <div class="incv2-header-content">
+          <div class="incv2-header-left">
+            <span class="material-icons">description</span>
+            <div>
+              <h2 class="incv2-header-title">BITÁCORA</h2>
+              <p class="incv2-header-sub">Incidencias operativas</p>
+            </div>
+          </div>
+          <div class="incv2-header-right">
+            <div class="incv2-stat-pills">
+              <div class="incv2-stat-pill"><span>Activas</span><strong id="incStatPendientes">0</strong></div>
+              <div class="incv2-stat-pill"><span>Total</span><strong id="incStatTotal">0</strong></div>
+              <div class="incv2-stat-pill incv2-stat-pill--danger"><span>Críticas</span><strong id="incStatCriticas">0</strong></div>
+            </div>
+            <span id="incPlazaBadge" class="inc-plaza-badge">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="incidencias-shell">
+        <div class="inc-tabs">
+          <div class="inc-tab active" data-inc-tab="viewTab">Historial</div>
+          <div class="inc-tab" data-inc-tab="addTab">+ Nueva</div>
+        </div>
+
+        <div id="viewTab" class="inc-content active">
+          <div class="inc-history-grid">
+            <aside class="inc-filter-column">
+              <div class="inc-filter-card">
+                <h3 class="inc-filter-title">Prioridad</h3>
+                <div class="inc-filter-stack">
+                  <label class="inc-filter-item"><span><span class="inc-filter-dot is-critica"></span> Crítica</span><input type="checkbox" id="incFilterCritica" checked></label>
+                  <label class="inc-filter-item"><span><span class="inc-filter-dot is-alta"></span> Alta</span><input type="checkbox" id="incFilterAlta" checked></label>
+                  <label class="inc-filter-item"><span><span class="inc-filter-dot is-media"></span> Media</span><input type="checkbox" id="incFilterMedia" checked></label>
+                  <label class="inc-filter-item"><span><span class="inc-filter-dot is-baja"></span> Baja</span><input type="checkbox" id="incFilterBaja" checked></label>
+                </div>
+              </div>
+              <div class="inc-filter-card">
+                <h3 class="inc-filter-title">Estado</h3>
+                <div class="inc-state-pills">
+                  <span class="inc-filter-pill"><span class="inc-filter-dot is-pendiente"></span><span id="incCountPendientes">0</span></span>
+                  <span class="inc-filter-pill"><span class="inc-filter-dot is-resuelta"></span><span id="incCountResueltas">0</span></span>
+                  <span class="inc-filter-pill"><span class="material-icons">attach_file</span><span id="incCountAdjuntos">0</span></span>
+                </div>
+              </div>
+              <button id="incGoToAdd" class="incv2-btn-new"><span class="material-icons">add</span> Nueva nota</button>
+            </aside>
+
+            <div class="inc-list-column">
+              <div class="inc-history-toolbar">
+                <div id="incGlobalSearchHint" class="inc-global-hint">Búsqueda principal desde header App Shell</div>
+                <select id="filtroEstado" class="inc-select-filter">
+                  <option value="TODAS">Todas</option>
+                  <option value="PENDIENTE">Pendientes</option>
+                  <option value="RESUELTA">Resueltas</option>
+                </select>
+                <button id="incRefreshBtn" class="btn-inline-inc"><span class="material-icons">refresh</span></button>
+              </div>
+              <div id="listaNotas" class="inc-history-list"></div>
+              <div class="inc-history-footer"><a class="inc-load-more" href="/incidencias">Abrir legacy para eliminación/adjuntos avanzados</a></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="addTab" class="inc-content">
+          <div class="inc-compose-grid">
+            <div class="inc-form-panel">
+              <div class="inc-form-card">
+                <div class="inc-field-grid">
+                  <div class="inc-field">
+                    <label class="inc-field-label">Reportado por</label>
+                    <input type="text" id="autorNuevaNota" class="inc-input inc-input-readonly" disabled>
+                  </div>
+                  <div class="inc-field">
+                    <label class="inc-field-label">Nivel de importancia</label>
+                    <select id="nuevaNotaPrioridad" class="inc-select">
+                      <option value="BAJA">Baja</option>
+                      <option value="MEDIA">Media</option>
+                      <option value="ALTA" selected>Alta</option>
+                      <option value="CRITICA">Critica</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="inc-field">
+                  <label class="inc-field-label">Número de unidad (MVA)</label>
+                  <input type="text" id="incMvaInput" class="inc-input" placeholder="Ej: MVA-1234">
+                </div>
+                <div class="inc-field">
+                  <label class="inc-field-label">Titulo de la incidencia</label>
+                  <input type="text" id="nuevaNotaTitulo" class="inc-input" placeholder="Ej: Disrupcion operativa en unidad">
+                </div>
+                <div class="inc-field">
+                  <label class="inc-field-label">Descripcion de la incidencia</label>
+                  <textarea id="nuevaNotaTxt" class="inc-editor-textarea" placeholder="Describe causas, impacto y contexto operativo"></textarea>
+                </div>
+                <div class="inc-form-actions">
+                  <button type="button" id="incDiscardBtn" class="inc-btn-ghost">Descartar</button>
+                  <button type="button" id="btnPublicarInc" class="inc-btn-primary"><span>Publicar Nota</span><span class="material-icons">send</span></button>
+                </div>
+              </div>
+            </div>
+            <aside class="inc-side-panel">
+              <div class="inc-side-kicker">Protocolo operativo v4.2</div>
+              <div class="inc-system-card">
+                <h3 class="inc-side-title">Detalles del sistema</h3>
+                <div class="inc-system-rows">
+                  <div class="inc-system-row"><span>Timestamp</span><strong id="incMetaTimestamp">--</strong></div>
+                  <div class="inc-system-row"><span>Ubicacion</span><strong id="incMetaUbicacion">--</strong></div>
+                  <div class="inc-system-row"><span>ID registro</span><strong id="incMetaId">INC-000000</strong></div>
+                </div>
+              </div>
+              <div class="inc-warning-card"><span class="material-icons">warning</span><p>Adjuntos avanzados y eliminación se mantienen en legacy para seguridad de Storage.</p></div>
+              <div class="inc-preview-card">
+                <div class="inc-preview-top"><span id="incPreviewPrioridad" class="inc-preview-priority is-alta">Alta</span><span id="incPreviewStamp" class="inc-preview-stamp">Sin adjuntos</span></div>
+                <h3 id="incPreviewTitulo" class="inc-preview-title">Nueva incidencia</h3>
+                <div id="incPreviewBody" class="inc-preview-body">Documenta el evento operativo con claridad.</div>
+                <div class="inc-preview-meta"><span id="incPreviewAutor">Emitido por: --</span><span id="incPreviewEstado">Pendiente</span></div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+
+      <div id="modalAuthIncidencia" class="modal-overlay">
+        <div class="modal-box">
+          <div class="modal-title">Resolver Incidencia</div>
+          <div class="modal-text">Describe brevemente cómo se solucionó:</div>
+          <textarea id="authComentario" rows="3"></textarea>
+          <div class="modal-actions">
+            <button id="incResolverCancelar" class="modal-btn modal-btn-cancel">CANCELAR</button>
+            <button id="btnConfirmarResInc" class="modal-btn modal-btn-confirm">CONFIRMAR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
 }
