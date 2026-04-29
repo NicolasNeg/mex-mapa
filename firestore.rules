@@ -316,6 +316,26 @@ service cloud.firestore {
         );
     }
 
+    // Lectura del propio perfil cuando el docId es uid/correo (sin depender de tienePerfilActual).
+    function esDocumentoUsuarioLegiblePorAuth(docId) {
+      return estaAutenticado()
+        && (
+          docId == request.auth.uid
+          || (
+            request.auth.token.email != null
+            && docId == request.auth.token.email
+          )
+        );
+    }
+
+    // Perfil con ID arbitrario pero campo email = correo del token (evita deadlock en login).
+    function leePropioUsuarioPorCampoEmail() {
+      return estaAutenticado()
+        && request.auth.token.email != null
+        && resource.data.keys().hasAny(['email'])
+        && resource.data.email == request.auth.token.email;
+    }
+
     function actualizacionSelfServiceUsuarioValida(docId) {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return esDocumentoUsuarioPropio(docId)
@@ -673,7 +693,10 @@ service cloud.firestore {
 
     // ─── USUARIOS Y PERMISOS ─────────────────────────────────
     match /usuarios/{doc} {
-      allow read: if tienePerfilActual() || esProgramadorBootstrap();
+      allow read: if tienePerfilActual()
+        || esProgramadorBootstrap()
+        || esDocumentoUsuarioLegiblePorAuth(doc)
+        || leePropioUsuarioPorCampoEmail();
       allow create: if puedeCrearUsuario(request.resource.data) || esProgramadorBootstrap();
       allow update: if puedeActualizarUsuario(resource.data, request.resource.data)
         || actualizacionSelfServiceUsuarioValida(doc)
