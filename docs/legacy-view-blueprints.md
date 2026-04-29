@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 12F · **Fecha:** 2026-04-28  
+**Versión:** FASE 12G · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -146,6 +146,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Migrado App 11B/11G/12F** | Tabs `flota/externos/admins/historial`, KPIs top estado/ubicación/categoría, tabla amplia con columna de última actualización, panel detalle lateral (copiar MVA/JSON, abrir mapa App y legacy), filtro por fecha historial, búsqueda base maestra read-only, filtros avanzados por estado/categoría/ubicación, export CSV local y copiar resumen filtrado |
 | **Falta** | Controles avanzados legacy (PDF/insertar/eliminar/edición masiva/cierre formal) |
 | **Peligrosas bloqueadas** | Eliminar unidad, editar estado global, insertar unidad, cierre formal, PDF/reportes oficiales, edición masiva |
+| **Redirect** | **NO ACTIVADO** en 12G: `/cuadre` permanece legacy-first (`KEEP_LEGACY_BACKUP`) |
 
 ---
 

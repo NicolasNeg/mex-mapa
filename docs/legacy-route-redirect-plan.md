@@ -1,4 +1,4 @@
-# Legacy Route Redirect Plan (FASE 12G)
+# Legacy Route Redirect Plan (FASE 12G, sin redirect de cuadre)
 
 Fecha: 2026-04-28  
 Nota: esta fase activa redirects App-first en rutas operativas ya migradas y mantiene escape con `mex.legacy.force`.
@@ -19,7 +19,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 | `/mensajes` | `/app/mensajes` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos avanzados |
 | `/cola-preparacion` | `/app/cola-preparacion` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder |
 | `/incidencias` | `/app/incidencias` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos complejos |
-| `/cuadre` | `/app/cuadre` | Redirect JS App-first activo (12G) | APP_FIRST_WITH_LEGACY_ESCAPE | Escape `mex.legacy.force=1`; fallback legacy para cierre formal/PDF/reportes oficiales/escritura global |
+| `/cuadre` | `/app/cuadre` | Paridad operativa fuerte (12F/12G) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad parcial fuerte | KEEP_LEGACY_BACKUP | Completar edición segura pendiente de roles/plazas/catálogos |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
 | `/mapa` | `/app/mapa` | App en progreso; legacy crítico | DO_NOT_REDIRECT | Paridad total de operación y DnD persistente segura |
@@ -31,11 +31,11 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 - Redirección prematura de `/mapa` puede romper operación central.
 - `/gestion` aún contiene acciones que usuarios esperan en legacy.
 - `/mensajes` e `/incidencias` ya avanzaron, pero aún no 1:1 en adjuntos/kanban.
-- `/cuadre` App es App-first con escape; cierre oficial y reportes críticos siguen disponibles en legacy.
+- `/cuadre` App está listo para futura activación, pero se mantiene legacy-first para minimizar riesgo operativo.
 
 ## Siguiente fase sugerida (solo planificación)
 
-1. Monitorear métricas y errores de `/cuadre` App-first con escape activo en producción.
+1. Ejecutar smoke E2E final de `/app/cuadre` por rol/plaza y validar cero regresiones sobre `/cuadre` legacy.
 2. Evaluar redirect condicionado por rol para `/programador`.
-3. Mantener sin redirección: `/mapa`, `/gestion`, `/solicitud`, `/editmap`.
+3. Mantener sin redirección: `/mapa`, `/cuadre`, `/gestion`, `/solicitud`, `/editmap`.
 

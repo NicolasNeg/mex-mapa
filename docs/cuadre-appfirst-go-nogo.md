@@ -1,11 +1,11 @@
-# Cuadre App-first Go/No-Go (FASE 12G)
+# Cuadre App-first Go/No-Go (FASE 12G, sin redirect)
 
 Fecha: 2026-04-28  
-Alcance: decisión formal para `/cuadre -> /app/cuadre` con escape legacy.
+Alcance: decisión formal para readiness de `/app/cuadre` **sin activar redirect** desde `/cuadre` en esta fase.
 
 ## Matriz Go/No-Go
 
-| Criterio | Resultado | Evidencia breve | Bloquea redirect | Acción requerida |
+| Criterio | Resultado | Evidencia breve | Bloquea redirect futuro | Acción requerida |
 |---|---|---|---|---|
 | 1. `/app/cuadre` carga con PROGRAMADOR/admin | PASS | Vista App operativa con `mount` y fuentes de datos activas en `js/app/views/cuadre.js` | No | Smoke manual continuo |
 | 2. `/app/cuadre` carga con jefe de plaza | WARNING | Requiere validación con usuario real de rol específico en entorno productivo | No | Verificar en QA por rol |
@@ -37,22 +37,26 @@ Alcance: decisión formal para `/cuadre -> /app/cuadre` con escape legacy.
 | 28. No hay Firebase duplicate app | PASS | No se añadió init adicional; se mantiene `firebase-init.js` único | No | Ninguna |
 | 29. No hay permission-denied falso | PASS | Manejo explícito de error de permisos en `_renderTableError` | No | Ninguna |
 | 30. No hay listeners duplicados navegando 5 veces | PASS | Cleanup en `unmount` + `_stopListener` + unsubs trazables | No | Ninguna |
-| 31. `/cuadre` legacy sigue funcionando | PASS | No se altera lógica legacy; solo redirect con escape | No | Ninguna |
+| 31. `/cuadre` legacy sigue funcionando | PASS | Se mantiene entrada principal legacy; no se activa redirect en 12G | No | Ninguna |
 | 32. Acciones destructivas siguen bloqueadas | PASS | App sigue solo con lectura/acciones seguras; sin altas/bajas/edición | No | Ninguna |
 | 33. `/mapa` legacy sigue funcionando | PASS | `/mapa` sin redirect y sin cambios destructivos | No | Ninguna |
 | 34. `/mapa` NO redirige | PASS | `shouldAutoRedirect` no incluye `/mapa` | No | Ninguna |
+| 35. `/cuadre` NO redirige | PASS | `shouldAutoRedirect` no incluye `/cuadre` en 12G sin redirect | No | Ninguna |
 
 ## Clasificación final
 
-**READY_TO_REDIRECT_WITH_LEGACY_ESCAPE**
+**READY_FOR_FUTURE_REDIRECT**
 
 Justificación:
 - Operación diaria de `/app/cuadre` está cubierta (datos, filtros, detalle, acciones seguras y responsive).
-- Las capacidades que permanecen en legacy son oficialmente de alto riesgo/destructivas y no bloquean App-first mientras exista escape legacy.
-- Se activa redirect con `mex.legacy.force=1` como válvula operativa.
+- Las capacidades que permanecen en legacy son de alto riesgo/destructivas y siguen fuera de App por diseño.
+- Se decide **no activar redirect** en esta fase para mantener `/cuadre` legacy como entrada principal.
 
-## Decisión 12G
+## Decisión 12G (sin redirect)
 
-- Activar `/cuadre -> /app/cuadre` (App-first).
-- Mantener escape `localStorage["mex.legacy.force"] === "1"`.
-- Mantener fallback legacy visible y operativo para funciones oficiales no migradas.
+- Mantener `/cuadre` en `KEEP_LEGACY_BACKUP` (legacy-first).
+- Mantener `/app/cuadre` como vista App avanzada para operación segura.
+- Condiciones para activar redirect en fase futura:
+  - smoke E2E por rol/plaza en producción sin errores críticos,
+  - validación responsive final (390/430/768/1366),
+  - cero regresiones en `/cuadre` legacy y `/mapa`.
