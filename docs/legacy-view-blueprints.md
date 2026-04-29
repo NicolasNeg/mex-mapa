@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13E · **Fecha:** 2026-04-29  
+**Versión:** FASE 13E.1 · **Fecha:** 2026-04-29  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -126,7 +126,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 
 **App Shell usa `notas_admin`** (`subscribeIncidencias`, `createIncidencia`, `resolveIncidencia`) — mismo criterio que documentación previa.
 
-**Migrado App (13E)**: port visual completo de la bitácora legacy real (`/mapa` modal incidencias) dentro de App Shell: header KPI, tabs Historial/+Nueva, filtros de prioridad/estado, cards de historial, formulario de creación y modal de resolución.
+**Migrado App (13E/13E.1)**: port visual completo de la bitácora legacy real (`/mapa` modal incidencias) dentro de App Shell: header KPI, tabs Historial/+Nueva, filtros de prioridad/estado, cards de historial, formulario de creación y modal de resolución.
 
 **Migrado App 13E**:
 
@@ -134,6 +134,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 - Evidencias robustas para string y objetos (`url/path/nombre`) con apertura segura cuando hay URL y fallback visual cuando solo existe path.
 - Resolución con comentario obligatorio + confirmación explícita (compat `resolverNotaDirecto`).
 - Se mantiene CTA a legacy para acciones avanzadas de adjuntos/eliminación.
+- Hotfix 13E.1: se restauró el renderer de preview en `/app/incidencias` para eliminar `ReferenceError: _renderPreview is not defined` en carga e interacción.
 
 **Falta Kanban standalone**: se mantiene en `/incidencias` legacy por decisión de fuente única App en `notas_admin`; no se migra el modelo `plazas/{plaza}/incidencias` en esta fase.
 

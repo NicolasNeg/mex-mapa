@@ -1,6 +1,6 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-29 · **FASE 13E**
+**Última actualización:** 2026-04-29 · **FASE 13E.1**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
@@ -8,7 +8,7 @@
 | `/mapa` | `/app/mapa` | REAL_PARCIAL | Firestore/API mapa | Sin redirección legacy |
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
-| `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy |
+| `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E/13E.1)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy. **13E.1:** hotfix runtime para restaurar `_renderPreview` y eliminar `ReferenceError` en mount/interacción. |
 | `/cuadre` | `/app/cuadre` | **REAL_PARCIAL_FUERTE (12F/12G)** · `KEEP_LEGACY_BACKUP` | `obtenerDatosFlotaConsola` + `cuadre/externos` + admins/historial (read) | Consola de patio reforzada (tabla amplia + detalle lateral), tabs `regular/externos/admins/historial`, filtros operativos/chips + filtros por estado/categoría/ubicación, export CSV local, copiar resumen, copiar MVA/JSON, abrir App Mapa por MVA y fallback legacy |
 | `/gestion` | `/app/admin` | **REAL_PARCIAL_FUERTE (12H)** · `KEEP_LEGACY_BACKUP` | usuarios/solicitudes/roles/plazas/catálogos | Usuarios reforzado (tabla ampliada, timestamps, alertas onboarding, edición segura), Solicitudes con estado onboarding y acciones seguras, Roles/Plazas/Catálogos con detalle operativo real y fallback de edición en legacy |
 | `/programador` | `/app/programador` | REAL_COMPLETA QA (12A) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, estado Firestore transport y copia diagnóstico corto/completo + agrupación `window.api` por dominio |
