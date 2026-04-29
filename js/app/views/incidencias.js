@@ -224,6 +224,15 @@ function _render() {
   _renderPreview();
 }
 
+function _renderPreview() {
+  if (!_state) return;
+  _updatePreview();
+  const stamp = q('incPreviewStamp');
+  if (!stamp) return;
+  // En App la carga/edición avanzada de adjuntos se mantiene en legacy.
+  stamp.textContent = 'Adjuntos avanzados en legacy';
+}
+
 function _renderStats() {
   const total = _state.allItems.length;
   const pend = _state.allItems.filter(i => _legacyStatus(i) === 'PENDIENTE').length;
