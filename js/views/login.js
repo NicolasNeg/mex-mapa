@@ -28,16 +28,48 @@ const SOFT_RECAPTCHA_CODES = new Set([
 // Cambiar aquí si se mueve el entry point del App Shell.
 const POST_LOGIN_ROUTE = '/app/dashboard';
 
-/** Resuelve el documento de usuario como en home/programador (uid → email → query por email). */
+/**
+ * Resuelve el documento del usuario SOLO por docId (sin query/list).
+ * Contrato esperado (Cloud Functions): usuarios/{emailLowercase} y fallback usuarios/{uid}.
+ */
 async function resolveUsuarioRecordForAuthUser(user) {
-  const emailNorm = String(user.email || '').trim().toLowerCase();
-  if (!emailNorm) return null;
-  const byUid = await db.collection(COL.USERS).doc(user.uid).get();
-  if (byUid.exists) return byUid;
-  const byEmail = await db.collection(COL.USERS).doc(emailNorm).get();
-  if (byEmail.exists) return byEmail;
-  const q = await db.collection(COL.USERS).where('email', '==', emailNorm).limit(1).get();
-  return q.empty ? null : q.docs[0];
+  const emailRaw = String(user?.email || '').trim();
+  const emailNorm = emailRaw.toLowerCase();
+  if (!emailRaw && !user?.uid) return null;
+
+  const docIds = Array.from(new Set([emailRaw, emailNorm].filter(Boolean)));
+  let lastPermissionDenied = null;
+
+  for (const docId of docIds) {
+    try {
+      const snap = await db.collection(COL.USERS).doc(docId).get();
+      if (snap?.exists) return snap;
+    } catch (e) {
+      const code = String(e?.code || '');
+      if (code === 'permission-denied') {
+        lastPermissionDenied = e;
+        continue; // probar siguiente formato de docId
+      }
+      throw e;
+    }
+  }
+
+  if (user?.uid) {
+    try {
+      const snap = await db.collection(COL.USERS).doc(user.uid).get();
+      if (snap?.exists) return snap;
+    } catch (e) {
+      const code = String(e?.code || '');
+      if (code === 'permission-denied') {
+        lastPermissionDenied = e;
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  if (lastPermissionDenied) throw lastPermissionDenied;
+  return null;
 }
 
 function _resetManualLoginButton() {
