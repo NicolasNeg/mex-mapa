@@ -2,6 +2,9 @@ import { db, COL } from '/js/core/database.js';
 
 export function normalizeUserRecord(id, data = {}) {
   const email = String(data.email || id || '').toLowerCase().trim();
+  const lastAccess = data.lastLoginAt || data.ultimoAcceso || data.lastSeenAt || data.ultimaSesion || null;
+  const createdAt = data.createdAt || data.creadoAt || data._createdAt || null;
+  const updatedAt = data.updatedAt || data.actualizadoAt || data._updatedAt || null;
   return {
     id: String(id || email),
     email,
@@ -15,7 +18,10 @@ export function normalizeUserRecord(id, data = {}) {
     activo: data.activo !== false,
     isAdmin: data.isAdmin === true,
     isGlobal: data.isGlobal === true,
-    notasInternas: String(data.notasInternas || data.notasAdmin || '').trim()
+    notasInternas: String(data.notasInternas || data.notasAdmin || '').trim(),
+    lastAccess,
+    createdAt,
+    updatedAt
   };
 }
 

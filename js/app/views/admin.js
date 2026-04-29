@@ -101,6 +101,17 @@ function _permissionGroupChips(role = {}) {
   return parts.map(([label, n]) => `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;background:#f1f5f9;color:#334155;font-size:11px;font-weight:700;">${esc(label)} · ${n}</span>`).join('');
 }
 
+function _roleTraits(roleKey = '') {
+  const r = String(roleKey || '').trim().toUpperCase();
+  const isGlobalRole = ['PROGRAMADOR', 'JEFE_OPERACION', 'CORPORATIVO_USER'].includes(r);
+  const isAdminRole = ['VENTAS', 'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'PROGRAMADOR', 'JEFE_OPERACION'].includes(r);
+  return {
+    isGlobalRole,
+    isAdminRole,
+    isOperational: !isGlobalRole
+  };
+}
+
 async function _fetchPlazaUnitsApprox(plazaId = '') {
   const key = String(plazaId || '').toUpperCase().trim();
   if (!key) return { cuadre: 0, externos: 0, total: 0 };
@@ -460,6 +471,9 @@ function _bind() {
     _state.requestsPlazaFilter = String(e.target.value || '');
     _applyRequestFilters();
   });
+  c.querySelector('#appAdminCatalogLocalSearch')?.addEventListener('input', () => {
+    _renderCatalogs();
+  });
 }
 
 function _subscribeUsers() {
@@ -552,7 +566,7 @@ function _renderTab() {
 function _renderUsersTable() {
   if (_state.tab !== 'usuarios') return _renderTab();
   _renderTab();
-  if (!_state.filtered.length) return _setTableBody(`<tr><td colspan="8" style="padding:20px;color:#64748b;">Sin usuarios para el filtro actual.</td></tr>`);
+  if (!_state.filtered.length) return _setTableBody(`<tr><td colspan="11" style="padding:20px;color:#64748b;">Sin usuarios para el filtro actual.</td></tr>`);
   _setTableBody(_state.filtered.map(u => `
     <tr data-admin-user="${escAttr(u.id)}" style="cursor:pointer;">
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.nombre || '—')}</td>
@@ -563,6 +577,9 @@ function _renderUsersTable() {
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(u.status || 'ACTIVO')}</td>
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${u.isAdmin ? 'Sí' : 'No'}</td>
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${u.isGlobal ? 'Sí' : 'No'}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc((u.plazasPermitidas || []).join(', ') || '—')}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(_fmtDate(u.lastAccess))}</td>
+      <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(_fmtDate(u.updatedAt || u.createdAt))}</td>
     </tr>`).join(''));
   _ctx.container.querySelectorAll('[data-admin-user]').forEach(row => row.addEventListener('click', () => {
     _state.selectedId = row.dataset.adminUser;
@@ -583,6 +600,10 @@ function _syncDetail() {
 
   const user = _state.filtered.find(u => u.id === _state.selectedId) || _state.filtered[0];
   if (!user) return box.innerHTML = `<div style="padding:12px;color:#94a3b8;">Selecciona un usuario para ver detalle.</div>`;
+  const needsPlaza = roleNeedsAssignedPlaza(user.rol);
+  const alerts = [];
+  if (needsPlaza && !String(user.plaza || '').trim()) alerts.push('Falta plazaAsignada para rol operativo.');
+  if (needsPlaza && !(user.plazasPermitidas || []).length) alerts.push('Falta plazasPermitidas (mínimo una).');
   box.innerHTML = `
     <div style="padding:12px;">
       <h3 style="margin:0 0 8px;font-size:18px;color:#0f172a;">${esc(user.nombre || '—')}</h3>
@@ -596,6 +617,10 @@ function _syncDetail() {
       ${_detail('Global', user.isGlobal ? 'Sí' : 'No')}
       ${_detail('Plazas permitidas', (user.plazasPermitidas || []).join(', ') || '—')}
       ${_detail('Puede cambiar plaza', (user.plazasPermitidas || []).length > 1 ? 'Sí' : 'No')}
+      ${_detail('Último acceso', _fmtDate(user.lastAccess))}
+      ${_detail('Creado', _fmtDate(user.createdAt))}
+      ${_detail('Actualizado', _fmtDate(user.updatedAt))}
+      ${alerts.length ? `<div style="margin:8px 0;padding:8px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;font-size:11px;color:#92400e;"><strong>Alertas de configuración</strong><ul style="margin:6px 0 0 16px;padding:0;">${alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
       ${user.notasInternas ? _detail('Notas internas', user.notasInternas) : ''}
       ${canEdit ? `<button type="button" id="appAdminEditUserBtn" style="margin-top:12px;width:100%;border:none;border-radius:10px;padding:10px 12px;background:#0f172a;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Editar datos básicos</button>` : ''}
       <a href="/gestion?tab=usuarios" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir admin legacy (completo)</a>
@@ -610,7 +635,7 @@ function _renderRoles() {
   const q = (_state.roleQuery || '').toLowerCase().trim();
   const rows = _state.roles.filter(r => !q || r.name.toLowerCase().includes(q) || r.key.toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5" style="padding:20px;color:#64748b;">Sin roles para el filtro actual.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="padding:20px;color:#64748b;">Sin roles para el filtro actual.</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(r => `<tr data-admin-role="${escAttr(r.key)}" style="cursor:pointer;">
@@ -619,6 +644,7 @@ function _renderRoles() {
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(r.description || '—')}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(String(_state.users.filter(u => u.rol === r.key).length))}</td>
     <td style="padding:8px;border-bottom:1px solid #eef2f7;">${_permissionGroupChips(r)}</td>
+    <td style="padding:8px;border-bottom:1px solid #eef2f7;font-size:11px;color:#334155;">${_roleTraits(r.key).isGlobalRole ? 'Global' : 'Plaza'} · ${_roleTraits(r.key).isAdminRole ? 'Admin' : 'Operativo'}</td>
   </tr>`).join('');
   _ctx.container.querySelectorAll('[data-admin-role]').forEach(el => el.addEventListener('click', () => {
     const role = _state.roles.find(r => r.key === el.dataset.adminRole);
@@ -631,6 +657,8 @@ function _renderRoles() {
       ${_detail('Nivel', role.level || '—')}
       ${_detail('Usuarios', _state.users.filter(u => u.rol === role.key).length)}
       ${_detail('Permisos', role.permissions?.length || 0)}
+      ${_detail('Alcance', _roleTraits(role.key).isGlobalRole ? 'Global' : 'Por plaza')}
+      ${_detail('Tipo', _roleTraits(role.key).isAdminRole ? 'Admin' : 'Operativo')}
       <div style="margin:8px 0;font-size:12px;color:#334155;">${esc(role.description || 'Sin descripción')}</div>
       <div style="margin:10px 0 0;display:grid;gap:6px;">
         ${Object.entries(groups).map(([k, arr]) => `<div style="padding:8px;border:1px solid #e2e8f0;border-radius:8px;background:#fafafa;">
@@ -663,6 +691,13 @@ function _renderPlazas() {
     if (!box || !p) return;
     box.innerHTML = `<div style="padding:12px;color:#64748b;">Calculando métricas de plaza...</div>`;
     const units = await _fetchPlazaUnitsApprox(p.id);
+    const assignedUsers = _state.users.filter(u => u.plaza === p.id);
+    const roleCounts = {};
+    assignedUsers.forEach(u => {
+      const rk = String(u.rol || 'SIN_ROL').toUpperCase();
+      roleCounts[rk] = (roleCounts[rk] || 0) + 1;
+    });
+    const topRoles = Object.entries(roleCounts).sort((a, b) => b[1] - a[1]).slice(0, 6);
     box.innerHTML = `<div style="padding:12px;">
       <h3 style="margin:0 0 8px;color:#0f172a;">${esc(p.name || p.id)}</h3>
       ${_detail('ID', p.id)}
@@ -671,6 +706,10 @@ function _renderPlazas() {
       ${_detail('Unidades patio (aprox.)', units.cuadre)}
       ${_detail('Unidades externas (aprox.)', units.externos)}
       ${_detail('Total unidades (aprox.)', units.total)}
+      <div style="margin-top:8px;font-size:11px;color:#334155;"><strong>Roles por plaza</strong></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;">
+        ${topRoles.length ? topRoles.map(([rk, n]) => `<span style="font-size:11px;padding:3px 8px;border-radius:999px;background:#f1f5f9;color:#334155;">${esc(rk)} · ${n}</span>`).join('') : '<span style="font-size:11px;color:#94a3b8;">Sin usuarios asignados</span>'}
+      </div>
       <div style="margin:8px 0;font-size:12px;color:#334155;">${esc(p.description || 'Sin descripción')}</div>
       <a href="/gestion?tab=plazas" style="font-size:12px;color:#0f172a;">Editar plazas en legacy</a>
     </div>`;
@@ -680,7 +719,8 @@ function _renderPlazas() {
 function _renderCatalogs() {
   const tbody = _ctx?.container?.querySelector('#appAdminCatalogsBody');
   if (!tbody) return;
-  const q = (_state.catalogQuery || '').toLowerCase().trim();
+  const localQ = String(_ctx?.container?.querySelector('#appAdminCatalogLocalSearch')?.value || '').toLowerCase().trim();
+  const q = (_state.catalogQuery || '').toLowerCase().trim() || localQ;
   const rows = _state.catalogs
     .map(c => ({ ...c, count: Array.isArray(c.items) ? c.items.length : 0 }))
     .filter(c => !q || c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q));
@@ -869,7 +909,7 @@ function _html(profile = {}) {
       </div>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:980px;">
-          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Email</th><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Plaza</th><th style="padding:8px;text-align:left;background:#f8fafc;">Teléfono</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th><th style="padding:8px;text-align:left;background:#f8fafc;">Admin</th><th style="padding:8px;text-align:left;background:#f8fafc;">Global</th></tr></thead>
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Email</th><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Plaza</th><th style="padding:8px;text-align:left;background:#f8fafc;">Teléfono</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th><th style="padding:8px;text-align:left;background:#f8fafc;">Admin</th><th style="padding:8px;text-align:left;background:#f8fafc;">Global</th><th style="padding:8px;text-align:left;background:#f8fafc;">Plazas permitidas</th><th style="padding:8px;text-align:left;background:#f8fafc;">Último acceso</th><th style="padding:8px;text-align:left;background:#f8fafc;">Actualizado</th></tr></thead>
           <tbody id="appAdminUsersBody"></tbody>
         </table>
       </div>
@@ -881,7 +921,7 @@ function _html(profile = {}) {
       <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Vista de roles y permisos agrupados para auditoría operativa. Edición de matriz, jerarquía y asignaciones permanece en <a href="/gestion?tab=roles" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:980px;">
-          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Permisos principales</th></tr></thead>
+          <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Permisos principales</th><th style="padding:8px;text-align:left;background:#f8fafc;">Tipo</th></tr></thead>
           <tbody id="appAdminRolesBody"></tbody>
         </table>
       </div>
@@ -903,6 +943,7 @@ function _html(profile = {}) {
   <div id="adminCatalogosPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
       <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Catálogos reales cargados desde configuración activa (estados, ubicaciones, categorías, modelos, gasolinas y extras). Cambios globales se mantienen en <a href="/gestion?tab=catalogos" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
+      <input id="appAdminCatalogLocalSearch" placeholder="Buscar catálogo..." style="width:100%;box-sizing:border-box;border:1px solid #dbe3ef;border-radius:8px;padding:8px;margin-bottom:8px;" />
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Catálogo</th><th style="padding:8px;text-align:left;background:#f8fafc;">Clave</th><th style="padding:8px;text-align:left;background:#f8fafc;">Elementos</th><th style="padding:8px;text-align:left;background:#f8fafc;">Acción</th></tr></thead>
@@ -938,5 +979,14 @@ function _html(profile = {}) {
 }
 
 function _detail(k, v) { return `<div style="display:flex;justify-content:space-between;gap:10px;margin-bottom:6px;font-size:12px;"><strong style="color:#64748b;">${esc(k)}</strong><span style="color:#0f172a;">${esc(v)}</span></div>`; }
+function _fmtDate(v) {
+  if (!v) return '—';
+  try {
+    if (typeof v.toDate === 'function') return v.toDate().toLocaleString('es-MX');
+  } catch (_) {}
+  const parsed = Date.parse(String(v));
+  if (Number.isFinite(parsed)) return new Date(parsed).toLocaleString('es-MX');
+  return String(v);
+}
 function esc(v) { return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 function escAttr(v) { return esc(v).replace(/'/g, '&#39;'); }

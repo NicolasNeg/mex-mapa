@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 12G · **Fecha:** 2026-04-28  
+**Versión:** FASE 12H · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -158,9 +158,10 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/gestion.js`, panel en `js/views/mapa.js` para solicitudes |
 | **Migrado App** | `admin.js` + `admin-*.js` (solicitudes/usuarios con reglas 10C) |
 | **Migrado App 11B** | Tabla usuarios extendida (teléfono/admin/global), tabs operativos mantienen fallback discreto |
-| **Migrado App 11C/12A/12C** | Roles con agrupación real de permisos + conteo usuarios; Plazas con detalle operativo y métricas de unidades aproximadas; Catálogos con preview por sección; Solicitudes con estado de perfil relacionado y rechazo/aprobación endurecidos; Usuarios con edición segura de básicos + plaza/plazasPermitidas/status/activo |
+| **Migrado App 11C/12A/12C/12H** | Roles con agrupación real de permisos + rasgos global/admin/operativo; Plazas con detalle operativo y métricas (usuarios, unidades aprox, roles por plaza); Catálogos con conteo, preview y búsqueda local; Solicitudes con estado de perfil relacionado y rechazo/aprobación endurecidos; Usuarios con tabla reforzada (plazasPermitidas, último acceso, actualizado), alertas onboarding y edición segura |
 | **Solicitudes** | Callable `procesarSolicitudAcceso` (Functions) cuando permisos |
 | **Peligrosas** | Alta masiva usuarios, permisos finos, edición de roles/plazas/catálogos — mantener en legacy |
+| **Redirect** | **NO ACTIVADO** en 12H: `/gestion` permanece legacy-first (`KEEP_LEGACY_BACKUP`) |
 
 ---
 
