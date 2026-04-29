@@ -1889,6 +1889,86 @@ exports.enviarCorreoSolicitud = functions
     return { ok: true, sent: true };
   });
 
+// ══════════════════════════════════════════════════════════════
+//  verifyRecaptchaLogin — HTTPS callable (sin auth)
+//  Valida token reCAPTCHA Enterprise antes de login en cliente.
+//  Configuración (API key de Google Cloud con "reCAPTCHA Enterprise API"):
+//    firebase functions:config:set recaptcha.api_key="TU_API_KEY"
+//  Opcional umbral de riesgo (0–1, por defecto 0.35):
+//    firebase functions:config:set recaptcha.min_score="0.35"
+// ══════════════════════════════════════════════════════════════
+exports.verifyRecaptchaLogin = functions.region(REGION).https.onCall(async (data) => {
+  const token = normalizeString(data?.token);
+  const expectedAction = normalizeString(data?.action || "LOGIN_EMAIL");
+  const siteKey = "6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j";
+  const projectId = "mex-mapa-bjx";
+
+  if (!token) {
+    throw new HttpsError("invalid-argument", "Token reCAPTCHA requerido.");
+  }
+
+  const cfg = functions.config().recaptcha || {};
+  const apiKey = normalizeString(cfg.api_key || process.env.RECAPTCHA_ENTERPRISE_API_KEY);
+  if (!apiKey) {
+    logger.error("[verifyRecaptchaLogin] Falta recaptcha.api_key en functions config");
+    throw new HttpsError(
+      "failed-precondition",
+      "Servidor sin clave reCAPTCHA Enterprise. Un administrador debe configurar recaptcha.api_key."
+    );
+  }
+
+  const url = `https://recaptchaenterprise.googleapis.com/v1/projects/${projectId}/assessments?key=${encodeURIComponent(apiKey)}`;
+  const body = {
+    event: {
+      token,
+      expectedAction,
+      siteKey,
+    },
+  };
+
+  let res;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch (e) {
+    logger.error("[verifyRecaptchaLogin] fetch error", e);
+    throw new HttpsError("internal", "No se pudo contactar reCAPTCHA Enterprise.");
+  }
+
+  const assessment = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    logger.warn("[verifyRecaptchaLogin] API error", res.status, assessment);
+    throw new HttpsError("internal", "Verificación de seguridad no disponible.");
+  }
+
+  const tp = assessment.tokenProperties || {};
+  const risk = assessment.riskAnalysis || {};
+
+  if (!tp.valid) {
+    logger.info("[verifyRecaptchaLogin] token inválido", tp.invalidReason);
+    throw new HttpsError("permission-denied", "Verificación de seguridad fallida. Intenta de nuevo.");
+  }
+
+  if (expectedAction && tp.action && normalizeString(tp.action) !== normalizeString(expectedAction)) {
+    logger.info("[verifyRecaptchaLogin] acción no coincide", tp.action, expectedAction);
+    throw new HttpsError("permission-denied", "Verificación de seguridad no coincide.");
+  }
+
+  const score = Number(risk.score);
+  const minScoreRaw = cfg.min_score ?? process.env.RECAPTCHA_MIN_SCORE;
+  const minScore = Math.min(1, Math.max(0, Number(minScoreRaw != null && minScoreRaw !== "" ? minScoreRaw : 0.35)));
+
+  if (Number.isFinite(score) && score < minScore) {
+    logger.info("[verifyRecaptchaLogin] score bajo", score, "min", minScore);
+    throw new HttpsError("permission-denied", "No se pudo validar el acceso automático. Intenta de nuevo.");
+  }
+
+  return { ok: true, score: Number.isFinite(score) ? score : null };
+});
+
 exports.procesarSolicitudAcceso = functions.region(REGION).https.onCall(async (data, context) => {
   try {
     const profile = await findUserProfileFromAuth(context.auth);

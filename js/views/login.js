@@ -10,7 +10,11 @@
 //   5. Toggle de contraseña visible/oculta
 // ═══════════════════════════════════════════════════════════
 
-import { auth, db, COL } from '/js/core/database.js';
+import { auth, db, COL, functions } from '/js/core/database.js';
+
+const RECAPTCHA_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
+const RECAPTCHA_ACTION_EMAIL = 'LOGIN_EMAIL';
+const RECAPTCHA_ACTION_GOOGLE = 'LOGIN_GOOGLE';
 
 // Destino post-login — fuente única de verdad.
 // Cambiar aquí si se mueve el entry point del App Shell.
@@ -31,6 +35,57 @@ function requestPlazas() {
     ? empresa.plazasDetalle.map(item => item?.id)
     : [];
   return unique([...direct, ...detailed]);
+}
+
+function _waitForRecaptchaEnterprise(timeoutMs = 15000) {
+  return new Promise((resolve, reject) => {
+    const done = () => {
+      if (window.grecaptcha?.enterprise?.execute) return resolve();
+    };
+    done();
+    const start = Date.now();
+    const id = setInterval(() => {
+      done();
+      if (window.grecaptcha?.enterprise?.execute) {
+        clearInterval(id);
+        resolve();
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(id);
+        reject(new Error('reCAPTCHA Enterprise no está disponible.'));
+      }
+    }, 50);
+  });
+}
+
+async function _getRecaptchaToken(action) {
+  await _waitForRecaptchaEnterprise();
+  return new Promise((resolve, reject) => {
+    try {
+      window.grecaptcha.enterprise.ready(async () => {
+        try {
+          const token = await window.grecaptcha.enterprise.execute(RECAPTCHA_SITE_KEY, { action });
+          resolve(token);
+        } catch (e) {
+          reject(e);
+        }
+      });
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
+async function _verifyRecaptchaToken(token, action) {
+  if (!functions || typeof functions.httpsCallable !== 'function') {
+    throw new Error('Firebase Functions no está disponible. Recarga la página.');
+  }
+  const callable = functions.httpsCallable('verifyRecaptchaLogin');
+  const res = await callable({ token, action });
+  const data = res?.data || {};
+  if (!data.ok) {
+    throw new Error(data.message || 'Verificación de seguridad rechazada.');
+  }
+  return data;
 }
 
 function populateSolicitudPlazas(selectedValue = '') {
@@ -120,6 +175,8 @@ window.loginManual = async function () {
   _hideError();
 
   try {
+    const token = await _getRecaptchaToken(RECAPTCHA_ACTION_EMAIL);
+    await _verifyRecaptchaToken(token, RECAPTCHA_ACTION_EMAIL);
     const persistence = remember
       ? firebase.auth.Auth.Persistence.LOCAL
       : firebase.auth.Auth.Persistence.SESSION;
@@ -139,25 +196,39 @@ window.loginManual = async function () {
       'auth/too-many-requests': 'Demasiados intentos. Espera un poco.',
       'auth/user-disabled': 'Tu cuenta no está activa. Contacta a un administrador.',
     };
-    _showError(MSGS[err.code] || 'Error al iniciar sesión.');
+    const code = err?.code || '';
+    if (String(code).startsWith('auth/')) {
+      _showError(MSGS[code] || 'Error al iniciar sesión.');
+    } else {
+      _showError(err?.message || 'Verificación de seguridad fallida.');
+    }
   }
 };
 
 // ── Login con Google ──────────────────────────────────────
-window.loginConGoogle = function () {
+window.loginConGoogle = async function () {
   const provider = new firebase.auth.GoogleAuthProvider();
   const btn = document.getElementById('btnGoogleLogin');
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> CONECTANDO...';
+  btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> VERIFICANDO...';
   _hideError();
 
-  firebase.auth().signInWithPopup(provider).catch((err) => {
+  try {
+    const token = await _getRecaptchaToken(RECAPTCHA_ACTION_GOOGLE);
+    await _verifyRecaptchaToken(token, RECAPTCHA_ACTION_GOOGLE);
+    btn.innerHTML = '<span class="material-icons" style="font-size:16px;animation:spin 1s linear infinite">sync</span> CONECTANDO...';
+    await firebase.auth().signInWithPopup(provider);
+  } catch (err) {
     btn.disabled = false;
     btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE';
-    if (err.code !== 'auth/popup-closed-by-user') {
+    if (err.code === 'auth/popup-closed-by-user') return;
+    const code = err?.code || '';
+    if (String(code).startsWith('auth/')) {
       _showError('Error con Google. Intenta de nuevo.');
+    } else {
+      _showError(err?.message || 'Error con Google. Intenta de nuevo.');
     }
-  });
+  }
 };
 
 // ── Modal de solicitud de acceso ──────────────────────────
