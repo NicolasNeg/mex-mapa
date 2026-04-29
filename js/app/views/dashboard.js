@@ -291,7 +291,6 @@ function _layout(state) {
             <div class="appdash__chips">
               <span class="appdash__chip">📍 <span id="appDashChipPlaza">${esc(plazaLabel === 'GLOBAL' ? 'Global' : plazaLabel)}</span></span>
               <span class="appdash__chip">👤 ${esc(roleLabel)}</span>
-              <span class="appdash__chip appdash__chip--muted">${esc(state.company)}</span>
             </div>
           </div>
           <div class="appdash__resumen-gradient"></div>
