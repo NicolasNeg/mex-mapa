@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v259';
+const CACHE_NAME = 'mapa-v260';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {

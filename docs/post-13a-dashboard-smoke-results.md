@@ -47,3 +47,9 @@ Alcance: QA final de `/home -> /app/dashboard` como primera vista `REAL_COMPLETA
 - `mex.legacy.force`: mantiene fallback legacy para `/home` con CTA discreto a App Shell.
 - `/app/dashboard`: se mantiene como **REAL_COMPLETA** (13A), sin exponer debug a usuario normal.
 - QA 13A.1 documentado con evidencia técnica y pendientes de validación visual en navegador.
+
+---
+
+## Actualización FASE 13B (visual port desde `/home`)
+
+La vista App del dashboard se reemplazó por la misma estructura visual que `js/views/home.js` → `renderHome` (grid bento, hero mapa, KPI columna, resumen + actividad). Estado documentado en inventario: **REAL_COMPLETA_VISUAL_PORT**. Las pruebas de esta tabla siguen siendo válidas salvo que la UI ya no usa el layout reinterpretado de fases anteriores.

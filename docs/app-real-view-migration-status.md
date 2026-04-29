@@ -1,10 +1,10 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-04-28 · **FASE 13A**
+**Última actualización:** 2026-04-28 · **FASE 13B**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
-| `/home` | `/app/dashboard` | **REAL_COMPLETA (13A)** · **APP_FIRST** | KPIs/API + preview mapa real + pendientes por rol | Full parity operativa del home en App Shell; legacy solo fallback con `mex.legacy.force` |
+| `/home` | `/app/dashboard` | **REAL_COMPLETA_VISUAL_PORT (13B)** · **APP_FIRST** | Igual que 13A (KPIs Firestore + mini mapa `buildMapaViewModel`) | UI copiada desde `renderHome` (grid bento, hero mapa, KPI columna, resumen + actividad); sin chrome legacy; búsqueda global vía hooks ocultos |
 | `/mapa` | `/app/mapa` | REAL_PARCIAL | Firestore/API mapa | Sin redirección legacy |
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
 | `/cola-preparacion` | `/app/cola-preparacion` | **APP_FIRST (12D)** · fallback legacy discreto | `cola_preparacion/{plaza}/items` | Listado/filtros reales, checklist, asignarme, notas/salida, crear salida, bulk/reorder/delete conservados en legacy |
@@ -19,7 +19,8 @@
 
 | Clave | Vista |
 |-------|--------|
-| REAL_COMPLETA | Dashboard, Programador |
+| REAL_COMPLETA_VISUAL_PORT | Dashboard (`/home` DOM portado) |
+| REAL_COMPLETA | Programador |
 | PARIDAD OPERATIVA ALT (11G Cola reforzada) | Cola preparación App |
 | REAL_PARCIAL | Mapa App, Mensajes (fuerte 11D), Incidencias (`notas_admin`, fuerte 11D), Cuadre, Admin, Profile |
 
@@ -63,7 +64,7 @@
 
 ## Política de rutas (12D)
 
-- `APP_FIRST`: `/home` (REAL_COMPLETA), `/profile`, `/mensajes`, `/cola-preparacion`, `/incidencias`.
+- `APP_FIRST`: `/home` (REAL_COMPLETA_VISUAL_PORT), `/profile`, `/mensajes`, `/cola-preparacion`, `/incidencias`.
 - `PUBLIC_FORM / DO_NOT_REDIRECT`: `/solicitud`.
 - `DO_NOT_REDIRECT`: `/mapa`, `/editmap`.
 - `KEEP_LEGACY_BACKUP`: `/cuadre`, `/gestion`, `/programador`.
@@ -77,4 +78,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v258` (13A).
+- **`CACHE_NAME`** `mapa-v260` (13B).

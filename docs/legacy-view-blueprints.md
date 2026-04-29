@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13A · **Fecha:** 2026-04-28  
+**Versión:** FASE 13B · **Fecha:** 2026-04-28  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -23,18 +23,18 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Ruta App Shell** | `/app/dashboard` |
 | **HTML principal** | `home.html` |
 | **JS principal** | `js/views/home.js` |
-| **CSS principal** | `css/global.css`, shells |
-| **Diseño visual** | Dashboard de métricas, módulos por rol |
-| **Componentes** | KPIs, tarjetas módulo, enlaces cortos |
+| **CSS principal** | Legacy: Tailwind + `css/global.css`; App: `css/app-dashboard.css` (equiv. visual scope `.appdash`) |
+| **Diseño visual** | Grid 12: hero mapa inmersivo + 3 KPI lateral + fila resumen glass + actividad (igual `renderHome`) |
+| **Componentes** | Saludo/fecha/Actualizar; overlay Activas/Externos/Alertas; tarjetas Vehículos/Incidencias/Solicitudes; bloques actividad |
 | **Acciones reales** | Navegar a `/app/*`, shortcuts |
 | **`window.api` / mex-api** | Conteos vía Firestore donde aplica (`notas_admin`, solicitudes pendientes), `obtenerConfiguracion`-style |
 | **Firestore** | `usuarios`, `settings`, métricas agregadas por vista |
 | **Listeners** | Snapshot puntual / promesas — **no listeners globales nuevos sin cleanup** |
 | **Seguras** | Navegación, lecturas |
 | **Peligrosas** | Mutación masiva datos — solo en legacy |
-| **Migrado App** | **REAL_COMPLETA (13A)**: hero/saludo, KPIs reales, pendientes por rol, módulos por permisos, preview mapa real, búsqueda global y estados |
-| **Falta paridad** | Sin brechas críticas para operación diaria; legacy queda como fallback controlado |
-| **Esta fase** | `/home` se mantiene App-first; legacy solo con `mex.legacy.force` + CTA discreto |
+| **Migrado App** | **REAL_COMPLETA_VISUAL_PORT (13B)**: mismo layout DOM que `home.js` `renderHome` (sin sidebar/topbar legacy); mini mapa con `buildMapaViewModel` como legacy; KPIs y métricas iguales; chips plaza/rol + empresa en resumen |
+| **Falta paridad** | Diferencia solo por contenedor App Shell (padding/ancho); sin lista de módulos en el cuerpo (legacy tampoco la pintaba en main — navegación en sidebar App) |
+| **Esta fase** | Búsqueda global: hooks ocultos con `data-module-text` para filtrar sin cambiar la vista |
 
 ---
 

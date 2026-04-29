@@ -1,4 +1,4 @@
-# Legacy Route Redirect Plan (FASE 13A, dashboard full parity)
+# Legacy Route Redirect Plan (FASE 13B, dashboard visual port desde /home)
 
 Fecha: 2026-04-28  
 Nota: esta fase activa redirects App-first en rutas operativas ya migradas y mantiene escape con `mex.legacy.force`.
@@ -14,7 +14,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 
 | Legacy | App equivalente | Estado actual | Clasificación | Condiciones antes de redirigir |
 |---|---|---|---|---|
-| `/home` | `/app/dashboard` | Redirect App-first activo + dashboard real completo (13A) | APP_FIRST · REAL_COMPLETA | Se respeta flag `mex.legacy.force=1`; en force se muestra CTA `Estás en legacy · Abrir App Shell` |
+| `/home` | `/app/dashboard` | Redirect App-first + UI equivalente a `renderHome` legacy (13B) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Se respeta flag `mex.legacy.force=1`; en force se muestra CTA `Estás en legacy · Abrir App Shell` |
 | `/profile` | `/app/profile` | Redirección JS ligera activa (12A) | READY_TO_REDIRECT | Se respeta flag `mex.legacy.force=1` para permanecer en legacy |
 | `/mensajes` | `/app/mensajes` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos avanzados |
 | `/cola-preparacion` | `/app/cola-preparacion` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder |
