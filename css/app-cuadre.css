@@ -139,6 +139,16 @@
   margin-bottom: 10px;
 }
 
+.cqv__search-row--filters {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.cqv__search-row--filters .cqv__search {
+  min-width: 180px;
+  max-width: 260px;
+}
+
 .cqv__search {
   flex: 1;
   border: 1px solid #d6deea;
@@ -395,5 +405,13 @@
 @media (max-width: 480px) {
   .cqv__title {
     font-size: 22px;
+  }
+  .cqv__search-row {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .cqv__search-row--filters .cqv__search {
+    min-width: 100%;
+    max-width: 100%;
   }
 }

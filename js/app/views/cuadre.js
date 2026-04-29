@@ -28,7 +28,8 @@ const FILTERS = [
   { id: 'listo', label: 'Listos' },
   { id: 'no-arrendable', label: 'No arrendable' },
   { id: 'mantenimiento', label: 'Mtto / sucio' },
-  { id: 'externos', label: 'Externos' }
+  { id: 'externos', label: 'Externos' },
+  { id: 'sin-ubicacion', label: 'Sin ubicación' }
 ];
 
 function _makeState(plaza) {
@@ -46,6 +47,9 @@ function _makeState(plaza) {
     navigate: null,
     tab: 'regular',
     historyDate: '',
+    categoryFilter: '',
+    locationFilter: '',
+    statusFilter: '',
     masterSearchQuery: '',
     masterSearchResults: []
   };
@@ -203,6 +207,26 @@ function _bindEvents() {
   q('#cqvRefresh')?.addEventListener('click', () => {
     if (_state?.plaza) _startListener(_state.plaza);
   });
+  q('#cqvExportCsv')?.addEventListener('click', _exportFilteredCsv);
+  q('#cqvCopySummary')?.addEventListener('click', _copyFilteredSummary);
+  q('#cqvFilterCategoria')?.addEventListener('change', e => {
+    _state.categoryFilter = String(e.target?.value || '').trim();
+    _applyFiltersAndSort();
+    _renderTable();
+    _syncDetail();
+  });
+  q('#cqvFilterUbicacion')?.addEventListener('change', e => {
+    _state.locationFilter = String(e.target?.value || '').trim();
+    _applyFiltersAndSort();
+    _renderTable();
+    _syncDetail();
+  });
+  q('#cqvFilterEstado')?.addEventListener('change', e => {
+    _state.statusFilter = String(e.target?.value || '').trim().toUpperCase();
+    _applyFiltersAndSort();
+    _renderTable();
+    _syncDetail();
+  });
   qsa('[data-cqv-filter]').forEach(btn => btn.addEventListener('click', () => {
     _state.filter = btn.dataset.cqvFilter || 'all';
     qsa('[data-cqv-filter]').forEach(x => x.classList.toggle('is-active', x === btn));
@@ -226,6 +250,7 @@ function _matchFilter(item) {
   if (f === 'no-arrendable') return est.includes('NO ARREND');
   if (f === 'mantenimiento') return est === 'MANTENIMIENTO' || est === 'SUCIO';
   if (f === 'externos') return String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO');
+  if (f === 'sin-ubicacion') return !String(item.ubicacion || '').trim();
   if (_state.tab === 'externos') return String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO');
   return true;
 }
@@ -250,6 +275,15 @@ function _applyFiltersAndSort() {
     }
   }
   let items = base.filter(_matchFilter);
+  if (_state.statusFilter) {
+    items = items.filter(it => String(it.estado || '').toUpperCase() === _state.statusFilter);
+  }
+  if (_state.categoryFilter) {
+    items = items.filter(it => String(it.categoria || '').toUpperCase() === _state.categoryFilter.toUpperCase());
+  }
+  if (_state.locationFilter) {
+    items = items.filter(it => String(it.ubicacion || '').toUpperCase() === _state.locationFilter.toUpperCase());
+  }
   if (query) {
     items = items.filter(it =>
       String(it.mva || '').toLowerCase().includes(query) ||
@@ -275,6 +309,7 @@ function _applyFiltersAndSort() {
     return String(a.mva || '').localeCompare(String(b.mva || ''));
   });
   _state.items = items;
+  _renderDynamicFilters(base);
 }
 
 async function _loadSecondaryTabData() {
@@ -330,11 +365,11 @@ function _renderNoPlaza() {
 }
 
 function _renderTableSkeleton() {
-  _setHTML('#cqvTableBody', `<tr><td colspan="9"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="10"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
 }
 
 function _renderTableError(msg) {
-  _setHTML('#cqvTableBody', `<tr><td colspan="9"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir cuadre classic</a></div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="10"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir cuadre classic</a></div></td></tr>`);
 }
 
 function _renderSummary() {
@@ -385,7 +420,7 @@ function _renderTable() {
   const tbody = q('#cqvTableBody');
   if (!tbody) return;
   if (!_state.items.length) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
     return;
   }
   tbody.innerHTML = _state.items.map(item => {
@@ -400,6 +435,7 @@ function _renderTable() {
       <td>${_badge(String(item.tipo || 'renta').toUpperCase(), '#6d28d9', '#ede9fe')}</td>
       <td>${_badge(item.ubicacion || '—', '#4338ca', '#e0e7ff')}</td>
       <td title="${esc(item.notas || '')}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">${esc(item.notas || '—')}</td>
+      <td>${esc(_fmtUpdatedCompact(item.updatedAt || item.fechaIngreso))}</td>
     </tr>`;
   }).join('');
   qsa('[data-cqv-row]').forEach(row => row.addEventListener('click', () => {
@@ -499,6 +535,7 @@ function _renderDetail(item) {
         ${_detailCell('Ubicación', item.ubicacion || '—')}
         ${_detailCell('Posición', item.pos || '—')}
         ${_detailCell('Plaza', item.plaza || _state.plaza || '—')}
+        ${_detailCell('Origen operativo', String(item.tipo || '').toLowerCase() === 'externo' ? 'EXTERNO' : 'PATIO')}
         ${_detailCell('Última actualización', _fmtUpdated(item.updatedAt || item.fechaIngreso))}
       </div>
       ${item.notas ? `<div class="cqv__notes"><strong>Notas</strong><p>${esc(item.notas)}</p></div>` : ''}
@@ -535,6 +572,8 @@ function _layout({ plaza, role, user }) {
         </div>
         <div class="cqv__actions">
           <button class="cqv__btn" type="button" id="cqvRefresh" title="Re-sincronizar datos">Refrescar</button>
+          <button class="cqv__btn" type="button" id="cqvExportCsv" title="Exportar tabla filtrada localmente">Exportar CSV</button>
+          <button class="cqv__btn" type="button" id="cqvCopySummary" title="Copiar resumen de tabla filtrada">Copiar resumen</button>
           <a class="cqv__btn cqv__btn--primary" href="/mapa">Mapa classic</a>
           <a class="cqv__btn" href="/cuadre">Cuadre completo</a>
           <a class="cqv__btn" data-app-route="/app/dashboard" href="/app/dashboard">Dashboard</a>
@@ -567,10 +606,21 @@ function _layout({ plaza, role, user }) {
               <input id="cqvHistoryDate" type="date" class="cqv__search" style="max-width:160px;padding:7px 8px;" />
             </label>
           </div>
+          <div class="cqv__search-row cqv__search-row--filters">
+            <select id="cqvFilterCategoria" class="cqv__search">
+              <option value="">Categoría (todas)</option>
+            </select>
+            <select id="cqvFilterUbicacion" class="cqv__search">
+              <option value="">Ubicación (todas)</option>
+            </select>
+            <select id="cqvFilterEstado" class="cqv__search">
+              <option value="">Estado (todos)</option>
+            </select>
+          </div>
           <div class="cqv__chips cqv__chips--scroll">${FILTERS.map((f, i) => `<button class="cqv__chip ${i === 0 ? 'is-active' : ''}" data-cqv-filter="${f.id}" type="button">${esc(f.label)}</button>`).join('')}</div>
           <div class="cqv__table-wrap">
             <table class="cqv__table">
-              <thead><tr><th>MVA</th><th>Cat.</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Tipo</th><th>Ubic.</th><th>Notas</th></tr></thead>
+              <thead><tr><th>MVA</th><th>Cat.</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Tipo</th><th>Ubic.</th><th>Notas</th><th>Act.</th></tr></thead>
               <tbody id="cqvTableBody"></tbody>
             </table>
           </div>
@@ -623,6 +673,69 @@ function _fmtUpdated(v) {
     }
   } catch (_) {}
   return esc(String(v));
+}
+
+function _fmtUpdatedCompact(v) {
+  if (!v) return '—';
+  try {
+    if (typeof v.toDate === 'function') {
+      return v.toDate().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+  } catch (_) {}
+  const parsed = _parseDate(v);
+  if (!parsed) return String(v).slice(0, 16) || '—';
+  return new Date(parsed).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+}
+
+function _renderDynamicFilters(baseRows) {
+  const rows = Array.isArray(baseRows) ? baseRows : [];
+  _fillSelect('#cqvFilterCategoria', rows.map(x => x.categoria), _state.categoryFilter);
+  _fillSelect('#cqvFilterUbicacion', rows.map(x => x.ubicacion), _state.locationFilter);
+  _fillSelect('#cqvFilterEstado', rows.map(x => String(x.estado || '').toUpperCase()), _state.statusFilter);
+}
+
+function _fillSelect(selector, values, selected) {
+  const el = q(selector);
+  if (!el) return;
+  const defaultOption = el.options[0] ? `<option value="">${esc(el.options[0].textContent || '')}</option>` : '<option value="">Todos</option>';
+  const unique = Array.from(new Set((values || []).map(v => String(v || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  el.innerHTML = defaultOption + unique.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  el.value = unique.includes(selected) ? selected : '';
+}
+
+function _exportFilteredCsv() {
+  if (!_state?.items?.length) return;
+  const headers = ['MVA', 'Categoria', 'Modelo', 'Placas', 'Gasolina', 'Estado', 'Ubicacion', 'Tipo', 'Notas', 'UltimaActualizacion'];
+  const rows = _state.items.map(item => [
+    item.mva, item.categoria, item.modelo, item.placas, item.gasolina, item.estado, item.ubicacion, item.tipo, item.notas,
+    _fmtUpdatedCompact(item.updatedAt || item.fechaIngreso)
+  ]);
+  const escapeCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const csv = [headers, ...rows].map(line => line.map(escapeCsv).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `cuadre-${String(_state.plaza || 'plaza').toLowerCase()}-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+async function _copyFilteredSummary() {
+  const rows = _state?.items || [];
+  const byEstado = {};
+  rows.forEach(item => {
+    const e = String(item.estado || 'SIN ESTADO');
+    byEstado[e] = (byEstado[e] || 0) + 1;
+  });
+  const top = Object.entries(byEstado).sort((a, b) => b[1] - a[1]).slice(0, 6).map(([k, v]) => `${k}: ${v}`).join(' | ');
+  const text = `Resumen cuadre ${_state?.plaza || '—'} · tab=${_state?.tab || 'regular'} · total filtrado=${rows.length}${top ? ` · ${top}` : ''}`;
+  try {
+    await navigator.clipboard?.writeText?.(text);
+  } catch (_) {}
 }
 
 function _parseDate(value) {

@@ -1,4 +1,4 @@
-# Legacy Route Redirect Plan (FASE 12D)
+# Legacy Route Redirect Plan (FASE 12F)
 
 Fecha: 2026-04-28  
 Nota: esta fase activa redirects App-first en rutas operativas ya migradas y mantiene escape con `mex.legacy.force`.
@@ -19,7 +19,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 | `/mensajes` | `/app/mensajes` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos avanzados |
 | `/cola-preparacion` | `/app/cola-preparacion` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder |
 | `/incidencias` | `/app/incidencias` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos complejos |
-| `/cuadre` | `/app/cuadre` | Paridad parcial | KEEP_LEGACY_BACKUP | Cerrar huecos de acciones avanzadas/reportes |
+| `/cuadre` | `/app/cuadre` | Paridad fuerte operativa reforzada (12F) | KEEP_LEGACY_BACKUP | Mantener fallback legacy para cierre formal, PDF/reportes oficiales y escritura global; evaluar `READY_TO_REDIRECT` en 12G con smoke E2E por rol |
 | `/gestion` | `/app/admin` | Paridad parcial fuerte | KEEP_LEGACY_BACKUP | Completar edición segura pendiente de roles/plazas/catálogos |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
 | `/mapa` | `/app/mapa` | App en progreso; legacy crítico | DO_NOT_REDIRECT | Paridad total de operación y DnD persistente segura |
@@ -31,10 +31,11 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 - Redirección prematura de `/mapa` puede romper operación central.
 - `/gestion` y `/cuadre` aún contienen acciones que usuarios esperan en legacy.
 - `/mensajes` e `/incidencias` ya avanzaron, pero aún no 1:1 en adjuntos/kanban.
+- `/cuadre` App ya cubre operación diaria read-only/acciones seguras, pero el cierre oficial y reportes siguen siendo críticos en legacy.
 
 ## Siguiente fase sugerida (solo planificación)
 
-1. Monitorear métricas QA de `/app/mensajes`, `/app/cola-preparacion` y `/app/incidencias` con escape legacy.
+1. Ejecutar smoke E2E de `/app/cuadre` por rol (programador/jefe/auxiliar) y responsive (390/430/768/1366).
 2. Evaluar redirect condicionado por rol para `/programador`.
 3. Mantener sin redirección: `/mapa`, `/cuadre`, `/gestion`, `/solicitud`, `/editmap`.
 
