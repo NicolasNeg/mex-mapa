@@ -24,6 +24,16 @@ let _dndHintEl = null;
 let _lastDndEligibility = null;
 /** @type {{ mva: string, originKey: string, destKey: string, at: number, user: string } | null} */
 let _lastPersistSummary = null;
+/** @type {{ cleanup?: Function, setPlaza?: Function } | null} */
+let _incCtrl = null;
+let _incSummaryState = {
+  byMva: {},
+  plaza: '',
+  ready: false,
+  failed: false
+};
+let _incSyncGen = 0;
+
 let _viewState = {
   query: '',
   selectedId: '',
@@ -35,6 +45,78 @@ let _viewState = {
 function _trackListener(action, name, extra = {}) {
   if (typeof window.__mexTrackListener !== 'function') return;
   window.__mexTrackListener(window.location.pathname, `app/mapa:${name}`, action, extra);
+}
+
+function _debugInc(label, extra) {
+  try {
+    if (localStorage.getItem('mex.debug.mode') !== '1') return;
+    console.warn(`[app/mapa/inc] ${label}`, extra || '');
+  } catch (_) {}
+}
+
+async function _syncIncSummaryPlaza(plazaRaw) {
+  const gen = ++_incSyncGen;
+  const p = String(plazaRaw || '')
+    .toUpperCase()
+    .trim();
+  _incSummaryState = { byMva: {}, plaza: p, ready: false, failed: false };
+  try {
+    const mod = await import('/js/app/features/mapa/mapa-incidencias-summary.js');
+    if (gen !== _incSyncGen || !_container) return;
+    if (typeof mod.createMapaIncidenciasSummaryController !== 'function') {
+      throw new Error('createMapaIncidenciasSummaryController missing');
+    }
+    if (!_incCtrl) {
+      _incCtrl = mod.createMapaIncidenciasSummaryController({
+        plaza: p,
+        onSummary: snap => {
+          if (!_container) return;
+          const expect = String(getState().currentPlaza || '')
+            .toUpperCase()
+            .trim();
+          const sp = String(snap?.plaza || '')
+            .toUpperCase()
+            .trim();
+          if (expect && sp && sp !== expect) return;
+          const loading = Boolean(snap?.loading);
+          _incSummaryState = {
+            byMva: snap?.byMva || {},
+            plaza: sp,
+            ready: !loading,
+            failed: Boolean(!loading && snap?.error)
+          };
+          _render();
+        },
+        onError: err => {
+          _debugInc('notas summary', err);
+          if (!_container) return;
+          const pNow = String(getState().currentPlaza || '')
+            .toUpperCase()
+            .trim();
+          _incSummaryState = {
+            byMva: {},
+            plaza: pNow,
+            ready: true,
+            failed: true
+          };
+          _render();
+        }
+      });
+      _incCtrl.subscribe?.();
+    } else {
+      _incCtrl.setPlaza?.(p);
+    }
+  } catch (e) {
+    _debugInc('module load', e);
+    if (gen !== _incSyncGen || !_container) return;
+    _incSummaryState = {
+      byMva: {},
+      plaza: p,
+      ready: true,
+      failed: true
+    };
+    _render();
+  }
 }
 
 function _readUrlQuery() {
@@ -292,6 +374,8 @@ export function mount({ container }) {
           <button type="button" class="app-mapa-qf" data-mapa-qf="limbo">Limbo</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="taller">Taller</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="con-ubicacion">En cajón</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="con-incidencias">Con incidencias</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="criticas">Críticas</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="externos">Externos</button>
         </div>
         <div class="app-mapa-view-toggle" role="toolbar" aria-label="Modo de vista">
@@ -325,6 +409,7 @@ export function mount({ container }) {
   });
   _lifecycle.mount();
   _trackListener('create', 'lifecycle');
+  void _syncIncSummaryPlaza(plaza);
 
   _dndController = createMapaDndController({
     getSnapshot: () => _lifecycle?.getSnapshot?.()?.data || null,
@@ -512,6 +597,7 @@ export function mount({ container }) {
     _viewState.selectedId = '';
     _viewState.snapshot = null;
     if (_contentEl) _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Actualizando plaza…</div>';
+    void _syncIncSummaryPlaza(nextPlaza);
     _lifecycle?.setPlaza(nextPlaza);
   });
   _trackListener('create', 'plaza-sub');
@@ -646,6 +732,12 @@ export function mount({ container }) {
 
 export function unmount() {
   _removeMapaModals();
+  _incSyncGen++;
+  try {
+    _incCtrl?.cleanup?.();
+  } catch (_) {}
+  _incCtrl = null;
+  _incSummaryState = { byMva: {}, plaza: '', ready: false, failed: false };
   if (_offPopstate) window.removeEventListener('popstate', _offPopstate);
   _offPopstate = null;
   if (_container && _toolbarHandler) _container.removeEventListener('click', _toolbarHandler);
@@ -777,7 +869,10 @@ function _render() {
     dndActive: eligible,
     plaza: snapshot.plaza || String(getState().currentPlaza || '').toUpperCase(),
     quickFilter: _viewState.quickFilter,
-    viewMode: _viewState.viewMode
+    viewMode: _viewState.viewMode,
+    incidentsByMva: _incSummaryState.byMva,
+    incidentsReady: _incSummaryState.ready,
+    incidentsFailed: _incSummaryState.failed
   });
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateBetaBanner();

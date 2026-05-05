@@ -72,9 +72,14 @@ function _searchTokens(unitNorm, raw = {}) {
     .join(' ');
 }
 
-function _buildUiUnit(unitNorm, raw, queryUpper) {
+function _buildUiUnit(unitNorm, raw, queryUpper, incidentSearchUpper = '') {
   const estado = String(unitNorm.estado || 'SIN ESTADO').toUpperCase();
-  const matchesQuery = !queryUpper || _searchTokens(unitNorm, raw).includes(queryUpper);
+  const inc = String(incidentSearchUpper || '').toUpperCase();
+  const qu = String(queryUpper || '').trim().toUpperCase();
+  const matchesQuery =
+    !qu ||
+    _searchTokens(unitNorm, raw).includes(qu) ||
+    (inc && qu && inc.includes(qu));
   return {
     id: _coalesce(unitNorm.id, unitNorm.mva),
     mva: unitNorm.mva || '—',
@@ -123,8 +128,7 @@ export function classifyUnitsForStructure(unitsRaw = [], cellBySpotKey) {
     const nu = normalizeMapUnit(raw);
     if (!nu.mva) continue;
     const res = resolveUnitCell(nu, cellBySpotKey);
-    const queryUpper = '';
-    const ui = _buildUiUnit(nu, raw, queryUpper);
+    const ui = _buildUiUnit(nu, raw, '', '');
     out.push({
       bucket: res.bucket,
       spotKey: res.spotKey,
@@ -136,10 +140,15 @@ export function classifyUnitsForStructure(unitsRaw = [], cellBySpotKey) {
   return out;
 }
 
-function _reapplyQuery(classified, queryUpper) {
+function _reapplyQuery(classified, queryUpper, incidentSearchByMva = {}) {
+  const qu = String(queryUpper || '').trim().toUpperCase();
   return classified.map(row => {
     const nu = row.nu;
-    const ui = _buildUiUnit(nu, row.raw, queryUpper);
+    const mva = String(nu.mva || '')
+      .toUpperCase()
+      .trim();
+    const inc = incidentSearchByMva[mva] || '';
+    const ui = _buildUiUnit(nu, row.raw, qu, inc);
     return { ...row, ui };
   });
 }
@@ -151,7 +160,9 @@ export function buildMapaReadOnlyViewModel({
   estructura = [],
   unidades = [],
   plaza = '',
-  query = ''
+  query = '',
+  /** @type {Record<string, string>} texto de búsqueda de incidencias por MVA (mayúsculas) */
+  incidentSearchByMva = {}
 } = {}) {
   const queryUpper = String(query || '').trim().toUpperCase();
   const structureSorted = Array.isArray(estructura)
@@ -168,7 +179,7 @@ export function buildMapaReadOnlyViewModel({
   }
 
   let classified = classifyUnitsForStructure(unidades, cellBySpotKey);
-  classified = _reapplyQuery(classified, queryUpper);
+  classified = _reapplyQuery(classified, queryUpper, incidentSearchByMva);
 
   const byCell = groupUnitsByRealCell(classified);
   const limboUnits = classified.filter(r => r.bucket === 'limbo').map(r => r.ui);

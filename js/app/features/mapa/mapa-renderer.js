@@ -5,8 +5,11 @@ function _up(v) {
   return String(v || '').trim().toUpperCase();
 }
 
-/** Filtro rápido cliente (sin queries nuevas): reduce unidades antes del VM. */
-export function applyMapaQuickFilter(units, quickFilter) {
+/**
+ * Filtro rápido cliente (sin queries nuevas): reduce unidades antes del VM.
+ * @param {object} [ctx] — `incidentsByMva`, `incidentsReady`, `incidentsFailed` para filtros de incidencias
+ */
+export function applyMapaQuickFilter(units, quickFilter, ctx = {}) {
   const qf = String(quickFilter || 'all').toLowerCase();
   const list = Array.isArray(units) ? [...units] : [];
   if (qf === 'all') return list;
@@ -38,7 +41,30 @@ export function applyMapaQuickFilter(units, quickFilter) {
       return Boolean(p && p !== 'LIMBO');
     });
   }
+  if (qf === 'con-incidencias') {
+    if (!ctx.incidentsReady || ctx.incidentsFailed) return list;
+    const by = ctx.incidentsByMva || {};
+    return list.filter(u => (by[_up(u.mva)]?.total || 0) > 0);
+  }
+  if (qf === 'criticas') {
+    if (!ctx.incidentsReady || ctx.incidentsFailed) return list;
+    const by = ctx.incidentsByMva || {};
+    return list.filter(u => (by[_up(u.mva)]?.criticas || 0) > 0);
+  }
   return list;
+}
+
+function _incidentSearchMap(byMva) {
+  const o = {};
+  if (!byMva || typeof byMva !== 'object') return o;
+  for (const [k, v] of Object.entries(byMva)) {
+    const mva = String(k || '')
+      .toUpperCase()
+      .trim();
+    const st = String(v?.searchText || '').toUpperCase();
+    if (mva && st) o[mva] = st;
+  }
+  return o;
 }
 
 function esc(value) {
@@ -95,11 +121,24 @@ export function renderUnit(unit, options = {}) {
   const dndAttrs = dndActive && allowUnitDrag ? ' data-dnd-unit="1"' : '';
   const dim = unit.matchesQuery === false ? ' app-mapa-unit--dim' : '';
   const matchClass = query && unit.matchesQuery ? ' is-query-match' : '';
+  const mvaK = up(unit.mva);
+  const inc = options.incidentsByMva?.[mvaK];
+  const ir = options.incidentsReady === true;
+  const showInc = ir && inc && inc.total > 0;
+  const showCrit = ir && inc && inc.criticas > 0;
+  const incHtml =
+    showInc || showCrit
+      ? `<span class="app-mapa-unit-inc" aria-label="Incidencias">
+        ${showCrit ? '<span class="app-mapa-inc-crit" title="Incluye prioridad alta/crítica">!</span>' : ''}
+        ${showInc ? `<span class="app-mapa-inc-badge">${inc.total}</span>` : ''}
+      </span>`
+      : '';
   return `
     <button type="button" class="app-mapa-unit ${selected ? 'is-selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
       data-unit-id="${esc(unit.id)}"${baseAttrs}${dndAttrs}>
       <div class="app-mapa-unit-top">
         <strong>${esc(unit.mva)}</strong>
+        ${incHtml}
         <span class="app-mapa-unit-state ${_stateClass(unit.estado)}">${esc(unit.estado)}</span>
       </div>
       <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}${unit.gasolina && unit.gasolina !== '—' ? ` · ⛽ ${esc(unit.gasolina)}` : ''}</div>
@@ -109,7 +148,7 @@ export function renderUnit(unit, options = {}) {
 }
 
 function _renderSlotRow(row, options) {
-  const { selectedId, dndActive, query } = options;
+  const { selectedId, dndActive, query, incidentsByMva, incidentsReady } = options;
   const dim = row.emptyByFilter || (query && row.mutedByFilter);
   const mod = dim ? ' is-filter-dim' : '';
   const cellQ = query && row.matchesCellQuery ? ' is-cell-query-match' : '';
@@ -119,7 +158,15 @@ function _renderSlotRow(row, options) {
     .map(u =>
       renderUnit(
         { ...u, cellZone: row.zoneLabel, positionKey: row.positionKey, currentCell: row.cellId },
-        { selectedId, dndActive, query, currentCellOverride: row.cellId, currentPositionOverride: u.pos }
+        {
+          selectedId,
+          dndActive,
+          query,
+          currentCellOverride: row.cellId,
+          currentPositionOverride: u.pos,
+          incidentsByMva,
+          incidentsReady
+        }
       )
     )
     .join('');
@@ -262,18 +309,62 @@ function _rawAuthor(raw) {
   ).trim() || '—';
 }
 
-function _detailPanel(selected, plaza) {
+function _fmtLastAtMs(t) {
+  if (!t) return '';
+  try {
+    return new Date(t).toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+  } catch (_) {
+    return '';
+  }
+}
+
+function _detailIncBlock(mva, byMva, ready, failed) {
+  if (!ready && !failed) {
+    return `<div class="app-mapa-inc-summary app-mapa-inc-summary--pending"><p class="app-mapa-inc-muted">Resumen de incidencias: cargando…</p></div>`;
+  }
+  if (failed) {
+    return `<div class="app-mapa-inc-summary"><p class="app-mapa-inc-muted">Resumen de incidencias no disponible en este momento.</p></div>`;
+  }
+  const s = byMva?.[mva];
+  if (!s || !s.total) {
+    return `<div class="app-mapa-inc-summary"><p class="app-mapa-inc-muted">Sin incidencias registradas para este MVA en esta plaza.</p></div>`;
+  }
+  const lastTit = s.latestTitle || s.lastTitulo || '';
+  const lastAt = s.latestAt || s.lastAt || 0;
+  const lastLine = lastTit
+    ? `${esc(lastTit)}${lastAt ? ` · ${_fmtLastAtMs(lastAt)}` : ''}`
+    : '—';
+  return `
+    <div class="app-mapa-inc-summary">
+      <h4 class="app-mapa-inc-summary-title">Incidencias / notas (notas_admin)</h4>
+      <ul class="app-mapa-inc-stats">
+        <li><span>Total</span><strong>${s.total}</strong></li>
+        <li><span>Abiertas</span><strong>${s.abiertas}</strong></li>
+        <li><span>Críticas / alta (abiertas)</span><strong>${s.criticas}</strong></li>
+        <li class="app-mapa-inc-last"><span>Última</span><span>${lastLine}</span></li>
+      </ul>
+      <a class="app-mapa-mini-cta app-mapa-mini-cta--block" href="/app/incidencias?mva=${encodeURIComponent(mva)}">Ver incidencias</a>
+    </div>
+  `;
+}
+
+function _detailPanel(selected, plaza, incOpts = {}) {
   if (!selected) {
     return '<p class="app-mapa-detail-placeholder">Selecciona una unidad para ver detalle.</p>';
   }
   const raw = selected._raw || {};
   const mvaEnc = encodeURIComponent(String(selected.mva || '').trim());
+  const mvaK = String(selected.mva || '')
+    .toUpperCase()
+    .trim();
+  const { incidentsByMva = {}, incidentsReady = false, incidentsFailed = false } = incOpts;
   return `
     <h3>${esc(selected.mva)}</h3>
     <p class="app-mapa-detail-actions-top">
       <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(selected.mva)}">Copiar MVA</button>
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
     </p>
+    ${_detailIncBlock(mvaK, incidentsByMva, incidentsReady, incidentsFailed)}
     <p><strong>MVA:</strong> ${esc(selected.mva)}</p>
     <p><strong>Posición / celda:</strong> ${esc(selected.pos || '—')}</p>
     <p><strong>Ubicación:</strong> ${esc(selected.ubicacion || '—')}</p>
@@ -310,17 +401,30 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
   const dndActive = options.dndActive === true;
   const query = String(options.query || '');
   const plaza = snapshot.plaza || options.plaza || '';
-  const unitsFiltered = applyMapaQuickFilter(snapshot.units, options.quickFilter);
+  const qfCtx = {
+    incidentsByMva: options.incidentsByMva || {},
+    incidentsReady: options.incidentsReady === true,
+    incidentsFailed: options.incidentsFailed === true
+  };
+  const unitsFiltered = applyMapaQuickFilter(snapshot.units, options.quickFilter, qfCtx);
+  const incidentSearchByMva = _incidentSearchMap(options.incidentsByMva);
 
   const vm = buildMapaReadOnlyViewModel({
     estructura: snapshot.structure,
     unidades: unitsFiltered,
     plaza,
-    query
+    query,
+    incidentSearchByMva
   });
 
   const selectedId = String(options.selectedId || '');
   const selected = _findSelected(vm, selectedId);
+
+  const incOpts = {
+    incidentsByMva: options.incidentsByMva || {},
+    incidentsReady: options.incidentsReady === true,
+    incidentsFailed: options.incidentsFailed === true
+  };
 
   if (options.viewMode === 'list') {
     const filterLine = vm.query
@@ -337,9 +441,14 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
       const nu = normalizeMapUnit(raw);
       const id = String(nu.id || nu.mva || '');
       const sel = selectedId && id === selectedId ? ' is-selected' : '';
+      const mvaUp = String(nu.mva || '')
+        .toUpperCase()
+        .trim();
+      const incTxt = String(incOpts.incidentsByMva?.[mvaUp]?.searchText || '').toUpperCase();
       const tokMatch =
         !queryUpper ||
-        generarSearchTokens(nu).some(t => String(t).toUpperCase().includes(queryUpper));
+        generarSearchTokens(nu).some(t => String(t).toUpperCase().includes(queryUpper)) ||
+        (incTxt && incTxt.includes(queryUpper));
       const qm = queryUpper && tokMatch ? ' is-query-match' : '';
       return `<tr class="app-mapa-list-row${sel}${qm}" data-unit-id="${esc(id)}">
         <td><strong>${esc(nu.mva)}</strong></td>
@@ -365,7 +474,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
           <tbody>${rows || `<tr><td colspan="5" class="app-mapa-list-empty">Sin unidades para este filtro.</td></tr>`}</tbody>
         </table>
       </div>
-      <aside class="app-mapa-detail">${_detailPanel(selected, plaza)}</aside>
+      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts)}</aside>
     </section>`;
     return;
   }
@@ -374,7 +483,13 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
       ? `${vm.occupiedSlots}/${vm.slotRows.length} celdas con unidad`
       : 'Sin estructura';
 
-  const renderOpts = { selectedId, dndActive, query };
+  const renderOpts = {
+    selectedId,
+    dndActive,
+    query,
+    incidentsByMva: options.incidentsByMva || {},
+    incidentsReady: options.incidentsReady === true
+  };
 
   const mainRows = (vm.rows || [])
     .map(row => {
@@ -420,7 +535,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         </div>
         ${buckets ? `<div class="app-mapa-buckets" id="app-mapa-buckets">${buckets}</div>` : ''}
       </div>
-      <aside class="app-mapa-detail">${_detailPanel(selected, plaza)}</aside>
+      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts)}</aside>
     </section>
   `;
 

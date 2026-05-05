@@ -202,3 +202,20 @@ Objetivo: inventariar listeners/suscripciones y preparar cleanup centralizado si
 - DnD (`mapa-dnd.js`) registra listeners en `window` **solo durante** arrastre activo; root usa `pointerdown` capture; plaza change llama `disable`/`unmount` del controller antes de recargar datos.
 - Guard de plaza en callbacks `onData`: no renderiza snapshot si `snapshot.plaza` no coincide con `getState().currentPlaza` (evita texto stale).
 - No se añadieron `onSnapshot` extra (p. ej. notas) para no duplicar carga; enlaces a `/app/incidencias?mva=` cubren P1 sin listener adicional.
+
+### FASE 14B-B (summary por MVA)
+
+- `js/app/features/mapa/mapa-incidencias-summary.js` usa **`subscribeIncidencias`** (`incidencias-data.js`) → **una** suscripción Firestore a `notas_admin` por plaza, compartiendo el mismo patrón que `/app/incidencias`.
+- Agregación en memoria por MVA (`aggregateIncidentsByMva`); **sin listeners por unidad**.
+- `cleanup()` del controller al `unmount` de `/app/mapa`; al cambiar plaza se usa `setPlaza` sobre el mismo controller (tras `import()` dinámico único) o primer `create` si aún no existía.
+- Si el módulo falla al cargar o Firestore error: UI del mapa sigue; badges/resumen se omiten o muestran estado degradado.
+
+## Actualización FASE 14B-A (`mapa-incidencias-summary`)
+
+- Nuevo módulo `js/app/features/mapa/mapa-incidencias-summary.js` añade UNA sola suscripción de `notas_admin` por plaza para obtener conteo/resumen de incidencias agrupado por MVA.
+- Estrategia: prefiere `window.api.suscribirNotasAdmin(cb, plaza)` → fallback Firestore directo con `where('plaza','==',X).orderBy('timestamp','desc')` → fallback sin where + limit 300 + filtro client-side si falta índice.
+- Token guard: cada `subscribe()` / `setPlaza()` incrementa token; callbacks de token anterior son ignorados silenciosamente.
+- `setPlaza(nueva)` llama `cleanup()` antes de re-suscribir → garantiza 0 listeners huérfanos.
+- `cleanup()` es idempotente (safe con N llamadas).
+- Firestore client SDK comparte cache de snapshots internamente; si `/app/incidencias` ya tiene su listener a `notas_admin` con el mismo query, no se generan lecturas duplicadas del backend.
+- Contrato completo: `docs/mapa-incidencias-summary-contract.md`.

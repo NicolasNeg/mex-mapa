@@ -1,7 +1,7 @@
-# Legacy Route Redirect Plan (FASE 14A — mapa beta operativa, sin redirect legacy)
+# Legacy Route Redirect Plan (FASE 14B — mapa + incidencias por MVA, sin redirect legacy)
 
 Fecha: 2026-05-04  
-Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`).
+Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`). `/app/mapa` incorpora resumen de incidencias (`notas_admin`) sin escritura.
 
 ## Criterios
 
