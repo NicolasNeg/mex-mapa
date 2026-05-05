@@ -49,10 +49,10 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **CSS** | `css/mapa.css`, `css/config.css` |
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
-| **Listeners** | Muchos en legacy; App usa bridge + lifecycle (`mapa-lifecycle.js`) |
-| **Migrado App** | **Parcial**: grid/lista, filtros, read-only fuerte |
-| **Falta** | Paridad editor completa con legacy |
-| **Esta fase** | Sin redirección; mejoras opcionales solo |
+| **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
+| **Migrado App** | **BETA_OPERATIVA_FUERTE (14A)**: grid/celdas reales, filtros (limbo/taller/en cajón/externos/etc.), detalle con enlaces `/app/incidencias`, `/app/cuadre`, legacy; `?q=` + scroll a coincidencia; DnD preview/persist (flags `mex.appMapa.dnd` / `mex.appMapa.dndPersist` + rol) |
+| **Falta (P2)** | Editor `editmap`, radar/chat legacy, PDF, altas masivas → `/mapa` |
+| **Esta fase** | `/mapa` **sin redirect**; legacy intacto |
 
 ---
 

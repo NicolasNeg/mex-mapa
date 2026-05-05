@@ -1,4 +1,5 @@
 import { buildMapaReadOnlyViewModel, normalizeMapUnit } from '/js/app/features/mapa/mapa-view-model.js';
+import { generarSearchTokens } from '/domain/unidad.model.js';
 
 function _up(v) {
   return String(v || '').trim().toUpperCase();
@@ -20,6 +21,22 @@ export function applyMapaQuickFilter(units, quickFilter) {
         _up(u.tipo) === 'EXTERNO' ||
         _up(String(u.origen || '')).includes('EXTERNO')
     );
+  }
+  if (qf === 'limbo') {
+    return list.filter(u => {
+      const p = _up(u.pos);
+      const ubi = _up(u.ubicacion);
+      return ubi !== 'TALLER' && (!p || p === 'LIMBO');
+    });
+  }
+  if (qf === 'taller') {
+    return list.filter(u => _up(u.ubicacion) === 'TALLER');
+  }
+  if (qf === 'con-ubicacion') {
+    return list.filter(u => {
+      const p = _up(u.pos);
+      return Boolean(p && p !== 'LIMBO');
+    });
   }
   return list;
 }
@@ -85,7 +102,7 @@ export function renderUnit(unit, options = {}) {
         <strong>${esc(unit.mva)}</strong>
         <span class="app-mapa-unit-state ${_stateClass(unit.estado)}">${esc(unit.estado)}</span>
       </div>
-      <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}</div>
+      <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}${unit.gasolina && unit.gasolina !== '—' ? ` · ⛽ ${esc(unit.gasolina)}` : ''}</div>
       <div class="app-mapa-unit-zona">${esc(position || '—')}${zoneHint ? ` · <span class="app-mapa-unit-zone-hint">${esc(zoneHint)}</span>` : ''}</div>
     </button>
   `;
@@ -217,27 +234,66 @@ function _inferOrigenDatos(unit = {}) {
   return 'Cuadre / patio';
 }
 
+function _fmtRawDate(raw) {
+  const r = raw || {};
+  const cand =
+    r.lastTouchedAt ||
+    r.lastModified ||
+    r.ultimaModificacion ||
+    r.updatedAt ||
+    r._updatedAt ||
+    r._createdAt ||
+    r.fechaIngreso ||
+    null;
+  if (!cand) return '—';
+  try {
+    const d = cand?.toDate ? cand.toDate() : new Date(cand);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('es-MX', { dateStyle: 'short', timeStyle: 'short' });
+  } catch (_) {
+    return '—';
+  }
+}
+
+function _rawAuthor(raw) {
+  const r = raw || {};
+  return String(
+    r.lastTouchedBy || r.actualizadoPor || r._updatedBy || r.autor || r.responsable || ''
+  ).trim() || '—';
+}
+
 function _detailPanel(selected, plaza) {
   if (!selected) {
     return '<p class="app-mapa-detail-placeholder">Selecciona una unidad para ver detalle.</p>';
   }
+  const raw = selected._raw || {};
+  const mvaEnc = encodeURIComponent(String(selected.mva || '').trim());
   return `
     <h3>${esc(selected.mva)}</h3>
     <p class="app-mapa-detail-actions-top">
       <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(selected.mva)}">Copiar MVA</button>
+      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
     </p>
     <p><strong>MVA:</strong> ${esc(selected.mva)}</p>
-    <p><strong>Posición:</strong> ${esc(selected.pos || '—')}</p>
+    <p><strong>Posición / celda:</strong> ${esc(selected.pos || '—')}</p>
     <p><strong>Ubicación:</strong> ${esc(selected.ubicacion || '—')}</p>
     <p><strong>Estado:</strong> ${esc(selected.estado)}</p>
     <p><strong>Modelo:</strong> ${esc(selected.modelo)}</p>
     <p><strong>Placas:</strong> ${esc(selected.placas)}</p>
+    <p><strong>Gas:</strong> ${esc(selected.gasolina || raw.gasolina || '—')}</p>
     <p><strong>Tipo / categoría:</strong> ${esc(selected.tipo || '—')} · ${esc(selected.categoria || '—')}</p>
     <p><strong>Notas:</strong> ${esc(selected.notas || '—')}</p>
     <p><strong>Plaza:</strong> ${esc(selected.plaza || plaza || '—')}</p>
-    <p><strong>Origen datos:</strong> ${esc(_inferOrigenDatos(selected))}</p>
-    <p><a class="app-mapa-mini-cta" href="/mapa">Abrir mapa classic (legacy)</a></p>
-    <small class="app-mapa-detail-foot">Solo lectura en App Shell. Edición en mapa legacy.</small>
+    <p><strong>Fuente datos:</strong> ${esc(_inferOrigenDatos(selected))}</p>
+    <p><strong>Actualizado:</strong> ${_fmtRawDate(raw)}</p>
+    <p><strong>Por:</strong> ${esc(_rawAuthor(raw))}</p>
+    <nav class="app-mapa-detail-nav" aria-label="Enlaces rápidos">
+      <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Incidencias / bitácora</a>
+      <a class="app-mapa-detail-link" href="/app/cuadre">Cuadre App</a>
+      <a class="app-mapa-detail-link" href="/mapa?q=${mvaEnc}">Mapa legacy</a>
+    </nav>
+    <p><a class="app-mapa-mini-cta" href="/mapa">Abrir mapa classic completo</a></p>
+    <small class="app-mapa-detail-foot">Acciones de edición masiva y configuración del patio siguen en mapa legacy.</small>
   `;
 }
 
@@ -281,7 +337,11 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
       const nu = normalizeMapUnit(raw);
       const id = String(nu.id || nu.mva || '');
       const sel = selectedId && id === selectedId ? ' is-selected' : '';
-      return `<tr class="app-mapa-list-row${sel}" data-unit-id="${esc(id)}">
+      const tokMatch =
+        !queryUpper ||
+        generarSearchTokens(nu).some(t => String(t).toUpperCase().includes(queryUpper));
+      const qm = queryUpper && tokMatch ? ' is-query-match' : '';
+      return `<tr class="app-mapa-list-row${sel}${qm}" data-unit-id="${esc(id)}">
         <td><strong>${esc(nu.mva)}</strong></td>
         <td>${esc(String(nu.estado || '—'))}</td>
         <td>${esc(String(nu.modelo || '—'))}</td>
@@ -355,7 +415,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
           ${
             vm.slotRows.length === 0 && !(vm.rows || []).length
               ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa completo para revisar configuración.')
-              : `<div class="app-mapa-canvas-inner">${mainRows}</div>`
+              : `<div class="app-mapa-canvas-viewport"><div class="app-mapa-canvas-inner">${mainRows}</div></div>`
           }
         </div>
         ${buckets ? `<div class="app-mapa-buckets" id="app-mapa-buckets">${buckets}</div>` : ''}

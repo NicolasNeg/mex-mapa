@@ -32,3 +32,7 @@ Cuadre vs externos: ambos exponen los mismos campos de posición (`pos`); la uni
 ## Pendiente (9E sugerido)
 
 Swap explícito, persistencia táctil, refresco explícito post-commit si listeners no llegan a tiempo.
+
+## FASE 14A
+
+- Flujo App `/app/mapa` sin cambiar contrato: mismo `guardarNuevasPosiciones(reporte, usuario, plaza, extra)` tras confirmación y validación de cajón ocupado sin swap.

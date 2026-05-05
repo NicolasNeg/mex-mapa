@@ -164,3 +164,8 @@ Validaciones mezcladas:
 - Reutilizar validaciones de cajón (`blocked`, categorías) del legacy
 - Llamar `guardarNuevasPosiciones` solo tras confirmación y permisos operativos
 - No usar listeners globales permanentes en `document` como el legacy
+
+### FASE 14A (beta operativa)
+
+- Persistencia sigue detrás de confirmación modal (`_showPersistConfirm`), validación `validatePersistMove`, refresco `obtenerDatosFlotaConsola` opcional y flags `mex.appMapa.dnd` + `mex.appMapa.dndPersist` + rol autorizado.
+- Al cambiar plaza en App Shell se llama `disable`/`unmount` del controller DnD antes de recargar datos.

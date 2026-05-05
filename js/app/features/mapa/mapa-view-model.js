@@ -80,6 +80,7 @@ function _buildUiUnit(unitNorm, raw, queryUpper) {
     mva: unitNorm.mva || '—',
     modelo: unitNorm.modelo || '—',
     placas: unitNorm.placas || '—',
+    gasolina: String(unitNorm.gasolina || raw?.gasolina || '—'),
     estado,
     ubicacion: String(unitNorm.ubicacion || '').toUpperCase(),
     pos: String(unitNorm.pos || 'LIMBO').toUpperCase(),

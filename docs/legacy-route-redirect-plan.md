@@ -1,7 +1,7 @@
-# Legacy Route Redirect Plan (FASE 13F, cuadre paridad fuerte sin redirect)
+# Legacy Route Redirect Plan (FASE 14A — mapa beta operativa, sin redirect legacy)
 
-Fecha: 2026-04-29  
-Nota: esta fase activa redirects App-first en rutas operativas ya migradas y mantiene escape con `mex.legacy.force`.
+Fecha: 2026-05-04  
+Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`).
 
 ## Criterios
 
@@ -22,7 +22,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 | `/cuadre` | `/app/cuadre` | Paridad visual/operativa fuerte (12F/12G/13F) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
-| `/mapa` | `/app/mapa` | App en progreso; legacy crítico | DO_NOT_REDIRECT | Paridad total de operación y DnD persistente segura |
+| `/mapa` | `/app/mapa` | **Beta operativa fuerte (14A)** — centro operativo en App Shell | KEEP_LEGACY_BACKUP · DO_NOT_REDIRECT | Redirect **no activado**: legacy sigue siendo entrada válida para editor, radar y herramientas completas |
 | `/solicitud` | N/A | Flujo público de acceso | PUBLIC_FORM / DO_NOT_REDIRECT | Mantener ruta independiente de login/alta |
 | `/editmap` | `/app/mapa` (editor futuro) | Editor legacy acoplado | DO_NOT_REDIRECT | Extraer editor plenamente al App Shell |
 

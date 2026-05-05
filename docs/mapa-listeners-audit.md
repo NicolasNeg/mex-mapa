@@ -193,3 +193,12 @@ Objetivo: inventariar listeners/suscripciones y preparar cleanup centralizado si
 1. Integrar DnD y document listeners bajo cleanup central sin romper touch.
 2. Consolidar listeners legacy dispersos (`_unsubUsuarios`, `_unsubNotasAdmin`, popstate/click globales).
 3. Introducir `unmount()` real de mapa con teardown total verificable.
+
+---
+
+## Actualización FASE 14A (`/app/mapa`)
+
+- App Shell `/app/mapa` usa solo los listeners definidos en `mapa-data.js` (cuadre/map `suscribirMapaPlaza` + estructura); teardown vía `cleanup()` al `unmount` de la vista.
+- DnD (`mapa-dnd.js`) registra listeners en `window` **solo durante** arrastre activo; root usa `pointerdown` capture; plaza change llama `disable`/`unmount` del controller antes de recargar datos.
+- Guard de plaza en callbacks `onData`: no renderiza snapshot si `snapshot.plaza` no coincide con `getState().currentPlaza` (evita texto stale).
+- No se añadieron `onSnapshot` extra (p. ej. notas) para no duplicar carga; enlaces a `/app/incidencias?mva=` cubren P1 sin listener adicional.

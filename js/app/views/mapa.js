@@ -254,7 +254,7 @@ export function mount({ container }) {
   _container.innerHTML = `
     <section class="app-mapa-view">
       <div class="app-mapa-beta-banner" id="app-mapa-beta-banner">
-        <span class="app-mapa-beta-banner-title">Mapa App Shell · Beta</span>
+        <span class="app-mapa-beta-banner-title">Mapa · Centro operativo (App Shell)</span>
         <span class="app-mapa-beta-banner-state" id="app-mapa-beta-state">${esc(_betaModeLabel(state, null))}</span>
         <div class="app-mapa-meta-lines" aria-live="polite">
           <div id="app-mapa-sync-line" class="app-mapa-meta-line"></div>
@@ -263,9 +263,9 @@ export function mount({ container }) {
       </div>
       <header class="app-mapa-head">
         <div>
-          <span class="app-mapa-badge">Vista App Shell experimental</span>
-          <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD experimental (preview)</span>
-          <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD persistencia (experimental)</span>
+          <span class="app-mapa-badge app-mapa-badge--beta">Beta operativa · FASE 14A</span>
+          <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD (vista / persistencia según rol y flags)</span>
+          <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Persistencia lista</span>
           <h1>Mapa operativo</h1>
           <p>Plaza activa: <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></p>
         </div>
@@ -279,7 +279,7 @@ export function mount({ container }) {
         <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--danger" data-app-mapa-action="clear-experimental" style="display:none;">Desactivar modo experimental</button>
       </div>
       <div class="app-mapa-note">
-        Herramientas completas de patio siguen en el mapa classic. Aquí: consulta, búsqueda y filtros rápidos.
+        Flota en tiempo real con estructura <code>mapa_config</code>. Editor de layout, altas masivas y PDF siguen en mapa legacy.
       </div>
       <div class="app-mapa-controls">
         <div class="app-mapa-quick" role="toolbar" aria-label="Filtros rápidos">
@@ -289,6 +289,9 @@ export function mount({ container }) {
           <button type="button" class="app-mapa-qf" data-mapa-qf="no-arrendable">No arrendable</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="mantenimiento">Mtto / sucio</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="sin-ubicacion">Sin ubicación</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="limbo">Limbo</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="taller">Taller</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="con-ubicacion">En cajón</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="externos">Externos</button>
         </div>
         <div class="app-mapa-view-toggle" role="toolbar" aria-label="Modo de vista">
@@ -297,7 +300,7 @@ export function mount({ container }) {
         </div>
       </div>
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
-      <div id="app-mapa-content" class="app-mapa-status is-loading">Cargando mapa read-only...</div>
+      <div id="app-mapa-content" class="app-mapa-status is-loading">Cargando mapa…</div>
     </section>
   `;
   _contentEl = _container.querySelector('#app-mapa-content');
@@ -306,12 +309,18 @@ export function mount({ container }) {
   _lifecycle = createMapaLifecycleController({
     plaza,
     onData: snapshot => {
+      const expect = String(getState().currentPlaza || '')
+        .toUpperCase()
+        .trim();
+      const snapPlaza = String(snapshot?.plaza || '')
+        .toUpperCase()
+        .trim();
+      if (expect && snapPlaza && snapPlaza !== expect) return;
       _viewState.snapshot = snapshot;
       _render();
     },
-    onError: () => {
-      _viewState.snapshot = _lifecycle?.getSnapshot?.()?.data || null;
-      _render();
+    onError: err => {
+      _trackListener('error', 'data', { code: String(err?.code || '') });
     }
   });
   _lifecycle.mount();
@@ -497,10 +506,12 @@ export function mount({ container }) {
   });
 
   _offPlaza = onPlazaChange(nextPlaza => {
+    _dndController?.disable?.();
+    _dndController?.unmount?.();
     _updatePlazaHeader(nextPlaza);
     _viewState.selectedId = '';
     _viewState.snapshot = null;
-    if (_contentEl) _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Actualizando plaza...</div>';
+    if (_contentEl) _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Actualizando plaza…</div>';
     _lifecycle?.setPlaza(nextPlaza);
   });
   _trackListener('create', 'plaza-sub');
@@ -515,6 +526,21 @@ export function mount({ container }) {
 
   _onClick = event => {
     if (_dndController?.shouldSuppressClick?.()) return;
+    const jsonBtn = event.target?.closest?.('[data-app-mapa-detail="copy-json"]');
+    if (jsonBtn && _container?.contains(jsonBtn)) {
+      const sid = String(_viewState.selectedId || '').trim();
+      const units = Array.isArray(_viewState.snapshot?.units) ? _viewState.snapshot.units : [];
+      const u =
+        units.find(x => String(x?.id || '') === sid) ||
+        units.find(x => String(x?.mva || '').toUpperCase() === sid.toUpperCase());
+      if (u) {
+        try {
+          const payload = JSON.stringify(u, null, 2);
+          navigator.clipboard?.writeText?.(payload).catch(() => {});
+        } catch (_) {}
+      }
+      return;
+    }
     const copyBtn = event.target?.closest?.('[data-copy-mva]');
     if (copyBtn) {
       const v = copyBtn.getAttribute('data-copy-mva') || '';
@@ -684,20 +710,60 @@ function _syncFilterChips() {
   });
 }
 
+function _syncMapaUrlQuery() {
+  try {
+    if (window.location.pathname !== '/app/mapa') return;
+    const url = new URL(window.location.href);
+    const q = String(_viewState.query || '').trim();
+    if (q) url.searchParams.set('q', q);
+    else url.searchParams.delete('q');
+    const next = url.pathname + url.search + url.hash;
+    const cur = window.location.pathname + window.location.search + window.location.hash;
+    if (next !== cur) history.replaceState(null, '', next);
+  } catch (_) {}
+}
+
+function _scrollToSearchMatch() {
+  const q = String(_viewState.query || '').trim().toUpperCase();
+  if (!q || !_contentEl) return;
+  let el = null;
+  try {
+    const escFn =
+      window.CSS && typeof window.CSS.escape === 'function'
+        ? window.CSS.escape
+        : s => String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    el = _contentEl.querySelector(`[data-mva="${escFn(q)}"]`);
+  } catch (_) {}
+  if (!el) el = _contentEl.querySelector('.app-mapa-unit.is-query-match');
+  if (!el) el = _contentEl.querySelector('tr.app-mapa-list-row.is-query-match');
+  try {
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } catch (_) {}
+}
+
 function _render() {
   if (!_contentEl) return;
   const snapshot = _viewState.snapshot;
   if (!snapshot || snapshot.loading) {
-    _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Cargando mapa read-only...</div>';
+    _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Cargando mapa…</div>';
     _updateMetaLines();
     return;
   }
   if (snapshot.permissionDenied) {
     _contentEl.innerHTML = renderErrorState('No tienes permisos para ver mapa en esta plaza.');
+    _syncMapaUrlQuery();
+    return;
+  }
+  if (snapshot.missingIndex) {
+    _contentEl.innerHTML = renderErrorState(
+      'Falta un índice de Firestore para esta consulta. Un administrador debe crearlo, o usa el mapa legacy mientras tanto.'
+    );
+    _syncMapaUrlQuery();
     return;
   }
   if (snapshot.error) {
     _contentEl.innerHTML = renderErrorState(snapshot.error);
+    _syncMapaUrlQuery();
     return;
   }
   const eligible = _dndFullyEnabled(getState(), snapshot);
@@ -718,6 +784,10 @@ function _render() {
   _updateMetaLines();
   _updateExperimentalResetBtn();
   _syncFilterChips();
+  _syncMapaUrlQuery();
+  requestAnimationFrame(() => {
+    _scrollToSearchMatch();
+  });
 }
 
 function _bindGlobalSearch() {
