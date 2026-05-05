@@ -1,7 +1,7 @@
 # Legacy Route Redirect Plan (FASE 14C — mapa App hardened beta, sin redirect legacy)
 
-Fecha: 2026-05-04  
-Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`). `/app/mapa` es **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA**: incidencias por MVA (solo lectura), CTA legacy visible, sin migración de editor/PDF.
+Fecha: 2026-05-04 · **14C.1-B** sincroniza auditorías `mapa-*-audit.md` + checklist.  
+Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`). `/app/mapa` es **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA**: incidencias por MVA (solo lectura), CTA legacy visible, sin migración de editor/PDF. **P0 bloqueantes (auditoría estática): 0**; QA manual E2E en checklist = **WARNING**.
 
 ## Criterios
 

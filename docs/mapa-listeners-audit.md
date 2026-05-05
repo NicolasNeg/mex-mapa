@@ -219,3 +219,12 @@ Objetivo: inventariar listeners/suscripciones y preparar cleanup centralizado si
 - `cleanup()` es idempotente (safe con N llamadas).
 - Firestore client SDK comparte cache de snapshots internamente; si `/app/incidencias` ya tiene su listener a `notas_admin` con el mismo query, no se generan lecturas duplicadas del backend.
 - Contrato completo: `docs/mapa-incidencias-summary-contract.md`.
+
+## Actualización FASE 14C-A (hardening audit)
+
+- Auditoría completa read-only de `js/app/views/mapa.js` (918 líneas) + 7 módulos features (2464 líneas).
+- **Todos los listeners tienen cleanup en `unmount()`**: popstate, click handlers, plaza sub, state sub, global search, DnD controller, lifecycle controller, incidencias controller.
+- **DnD listeners en window son temporales**: solo durante gesto activo, removidos en `_finishInteraction`.
+- **P1 menor:** `_cssRef` (ref al `<link>` CSS) no se nullifica en unmount; el link persiste en `<head>` pero tiene guard de duplicación.
+- **P0 bloqueantes: 0.**
+- Checklist completo: `docs/mapa-beta-hardening-checklist.md`.

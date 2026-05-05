@@ -36,3 +36,12 @@ Swap explícito, persistencia táctil, refresco explícito post-commit si listen
 ## FASE 14A
 
 - Flujo App `/app/mapa` sin cambiar contrato: mismo `guardarNuevasPosiciones(reporte, usuario, plaza, extra)` tras confirmación y validación de cajón ocupado sin swap.
+
+## FASE 14C-A (hardening audit)
+
+- Flujo persist auditado end-to-end: `_onPersistDrop` (mapa.js L418-571) → `validatePersistMove` (mapa-mutations.js) → `_showPersistConfirm` modal → `persistUnitMove` → `_waitSnapshotReflectsMove` → resync fallback.
+- **Double validation**: primero contra snapshot local, luego contra `obtenerDatosFlotaConsola` fresh si disponible.
+- **Sin swap**: destino ocupado → rechazo claro con `OCCUPIED`.
+- **Post-persist**: espera hasta 4.8s que snapshot refleje el cambio; si no, resync + 850ms; si no, mensaje "pulsa Refrescar".
+- Checklist completo: `docs/mapa-beta-hardening-checklist.md`.
+

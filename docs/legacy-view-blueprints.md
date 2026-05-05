@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13F · **Fecha:** 2026-04-29  
+**Versión:** FASE 13F + actualización mapa **14C.1-B** · **Fecha inventario:** 2026-04-29 · **Mapa `/app/mapa`:** 2026-05-04 (`mapa-beta-hardening-checklist.md`, `mapa-*-audit.md`)  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 

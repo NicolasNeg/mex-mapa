@@ -1,8 +1,19 @@
 # Checklist de Hardening Beta — `/app/mapa`
 
-**FASE 14C-A** · Fecha: 2026-05-04  
-**Estado actual:** BETA_OPERATIVA_FUERTE (14A) + Incidencias summary (14B)  
-**Código total:** ~3381 líneas JS (features 2464 + view 917) + 962 CSS
+**Fases:** 14C-A (auditoría estática) + **14C-B** (hardening UI) + **14C.1** (reconciliación docs)  
+**Fecha:** 2026-05-04  
+**Estado actual:** **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA (14C)** + Incidencias summary (14B)  
+**Código (referencia auditoría):** ~3381 líneas JS (features 2464 + view 917) + 962 CSS  
+
+**Política documentada**
+
+| Ruta | Clasificación |
+|------|----------------|
+| `/app/mapa` | **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA** |
+| `/mapa` (legacy) | **KEEP_LEGACY_BACKUP** — motor completo (editor, PDF, altas, etc.) |
+| Redirect `/mapa` → `/app/mapa` | **NO ACTIVADO** (hasta decisión explícita) |
+
+**Auditorías relacionadas (14C-A):** [`mapa-dnd-audit.md`](mapa-dnd-audit.md) · [`mapa-listeners-audit.md`](mapa-listeners-audit.md) · [`mapa-persist-audit.md`](mapa-persist-audit.md)
 
 ---
 
@@ -194,6 +205,8 @@ Editor de estructura, PDF/reportes, altas masivas, swap, radar/chat/presencia, v
 
 ## 10. QA Manual
 
+**Estado global:** **WARNING** — la lista siguiente es **guía de verificación en entorno real**; no sustituye ejecución manual ni CI. Hasta completar smoke por plaza/rol, no marcar esta sección como PASS.
+
 ### 10.1 Mapa básico
 1. Login → `/app/mapa` → verificar grid celdas, plaza header, contadores, buckets, link legacy.
 
@@ -229,26 +242,28 @@ Editor de estructura, PDF/reportes, altas masivas, swap, radar/chat/presencia, v
 
 | Criterio | Estado | Go? |
 |----------|--------|-----|
-| Grid renderiza | ✅ | Go |
-| Datos tiempo real | ✅ | Go |
-| Cleanup unmount | ✅ | Go |
-| DnD preview sin escritura | ✅ | Go |
-| DnD persist con confirmación | ✅ | Go |
-| Incidencias summary | ✅ | Go |
-| Legacy intacto | ✅ | Go |
-| Sin redirect | ✅ | Go |
-| Auth/rules no tocados | ✅ | Go |
+| Grid renderiza | ✅ (código) | Go |
+| Datos tiempo real | ✅ (código) | Go |
+| Cleanup unmount | ✅ (código) | Go |
+| DnD preview sin escritura | ✅ (código) | Go |
+| DnD persist con confirmación | ✅ (código) | Go |
+| Incidencias summary | ✅ (código) | Go |
+| Legacy intacto | ✅ (política) | Go |
+| Sin redirect `/mapa` | ✅ (política) | Go |
+| Auth/rules no tocados | ✅ (política fases mapa) | Go |
 | Performance plaza mediana | ⚠️ Verificar | Condicional |
+| **QA manual sección 10** | **⚠️ WARNING (pendiente)** | **No PASS hasta smoke** |
 
-**Veredicto: GO para beta controlada** con flags DnD OFF por defecto.
+**Veredicto:** **GO condicional para beta controlada** (flags DnD OFF por defecto) mientras la **QA manual permanezca en WARNING**; **P0 bloqueantes: 0** (revisión estática + auditorías 14C-A). P1/P2: ver §5.
 
 ---
 
-## 12. Recomendaciones para Cursor 14C-B
+## 12. Backlog post–14C.1 (seguimiento)
 
-1. **P1** — `_cssRef = null` en unmount (1 línea).
+1. **P1** — `_cssRef = null` en unmount (ver §1.2).
 2. **P1** — Throttle renders si plaza grande causa jank.
 3. **P2** — Badge incidencias en vista lista (columna "Inc").
-4. **P2** — Verificar filtros 390px — `overflow-x: auto` en `.app-mapa-quick`.
-5. **P2** — Lock de re-drag durante persist.
-6. **P2** — Memoizar `_incidentSearchMap`.
+4. **P2** — Lock de re-drag durante persist.
+5. **P2** — Memoizar `_incidentSearchMap`.
+
+*14C-B UI ya abordó banner/toolbar legacy, selección vs filtros, CTA error a legacy y responsive de filtros; ver `app-real-view-migration-status.md`.*

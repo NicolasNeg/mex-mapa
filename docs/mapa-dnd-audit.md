@@ -169,3 +169,14 @@ Validaciones mezcladas:
 
 - Persistencia sigue detrás de confirmación modal (`_showPersistConfirm`), validación `validatePersistMove`, refresco `obtenerDatosFlotaConsola` opcional y flags `mex.appMapa.dnd` + `mex.appMapa.dndPersist` + rol autorizado.
 - Al cambiar plaza en App Shell se llama `disable`/`unmount` del controller DnD antes de recargar datos.
+
+## FASE 14C-A (hardening audit)
+
+- Auditoría completa del flujo DnD (preview + persist) en `mapa-dnd.js` (488 líneas) + `mapa-mutations.js` (217 líneas) + `mapa.js` view (918 líneas).
+- **14 validaciones de `validatePersistMove`** auditadas: AUTH, FLAGS, NO_PLAZA, SNAPSHOT_PLAZA, NO_STRUCTURE, NO_MVA, NO_DEST, SAME, UNIT_NOT_FOUND, ORIGIN_MISMATCH, INVALID_CELL, CELL_PLAZA, BLOCKED, OCCUPIED — todas implementadas.
+- **Window listeners temporales**: `pointermove/pointerup/pointercancel` solo durante gesto activo, cleanup en `_finishInteraction` y `unmount`.
+- **Touch deshabilitado by design**: `pointerOnlyPreview: true` — touch no registra listeners en root.
+- **P1 menor**: sin lock de re-drag durante persist — usuario podría iniciar nuevo drag mientras modal/API en progreso.
+- **P2**: swap no soportado — mensaje "cajón ocupado" claro.
+- Checklist completo: `docs/mapa-beta-hardening-checklist.md`.
+
