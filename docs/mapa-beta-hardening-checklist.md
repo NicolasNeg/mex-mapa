@@ -17,6 +17,31 @@
 
 ---
 
+## Reconciliación 14C-A / 14C-B
+
+| Criterio | Estado | Nota |
+|----------|--------|------|
+| P0 bloqueantes | **0** | Ninguno en auditoría estática 14C-A (ver `mapa-*-audit.md`) |
+| Beta controlada | **GO CONTROLADO** | DnD OFF por defecto y legacy disponible |
+| QA manual E2E (sección 10) | **WARNING** | No equivale a PASS hasta smoke en entorno real |
+| Runtime / SW / UI en 14C.1-B | **Sin cambios** | Solo documentación |
+| Login/auth/functions/rules en 14C.1-B | **Sin cambios** | — |
+
+### Fixes 14C-B (revisión estática; no sustituyen QA manual)
+
+| Fix 14C-B | Estado |
+|-----------|--------|
+| Selección alineada con filtros | OK (código) |
+| Error state con CTA legacy | OK (código) |
+| Banner HARDENED / beta operativa | OK (código) |
+| Toolbar con acceso explícito a legacy | OK (código) |
+| Detalle de unidad reforzado | OK (código) |
+| Responsive toolbar/filtros | OK (código); QA 390px sigue en WARNING |
+
+**Veredicto reconciliado:** **GO CONTROLADO para beta**. `/app/mapa` queda como centro operativo beta hardened; `/mapa` sigue siendo backup legacy completo y **no redirige**.
+
+---
+
 ## Resumen de estado
 
 | Componente | Estado | Fuente |
@@ -263,7 +288,7 @@ Editor de estructura, PDF/reportes, altas masivas, swap, radar/chat/presencia, v
 1. **P1** — `_cssRef = null` en unmount (ver §1.2).
 2. **P1** — Throttle renders si plaza grande causa jank.
 3. **P2** — Badge incidencias en vista lista (columna "Inc").
-4. **P2** — Lock de re-drag durante persist.
+4. **P1** — Lock de re-drag durante persist.
 5. **P2** — Memoizar `_incidentSearchMap`.
 
 *14C-B UI ya abordó banner/toolbar legacy, selección vs filtros, CTA error a legacy y responsive de filtros; ver `app-real-view-migration-status.md`.*
