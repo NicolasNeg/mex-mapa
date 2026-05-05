@@ -50,7 +50,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **BETA_OPERATIVA_FUERTE (14A/14B)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + bloque resumen en detalle + CTA incidencias; `?q=` incluye texto de incidencias; DnD sin cambios de flags |
+| **Migrado App** | **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA (14C)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + bloque resumen en detalle + CTA incidencias; `?q=` incluye texto de incidencias; **14C-B** banner «Mapa App Shell · Beta operativa», barra con «Abrir mapa legacy», errores con enlace legacy, detalle con MVA destacado; DnD sin cambios de flags por defecto |
 | **Falta (P2)** | Editor `editmap`, radar/chat legacy, PDF, altas masivas → `/mapa` |
 | **Esta fase** | `/mapa` **sin redirect**; legacy intacto |
 

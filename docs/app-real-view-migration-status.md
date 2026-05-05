@@ -1,11 +1,11 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-05-04 · **FASE 14B-B**
+**Última actualización:** 2026-05-04 · **FASE 14C-B**
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
 | `/home` | `/app/dashboard` | **REAL_COMPLETA_VISUAL_PORT (13B)** · **APP_FIRST** | Igual que 13A (KPIs Firestore + mini mapa `buildMapaViewModel`) | UI copiada desde `renderHome` (grid bento, hero mapa, KPI columna, resumen + actividad); sin chrome legacy; búsqueda global vía hooks ocultos |
-| `/mapa` | `/app/mapa` | **BETA_OPERATIVA_FUERTE (14A/14B)** · `KEEP_LEGACY_BACKUP` | Mapa + **`mapa-incidencias-summary.js`**: una suscripción `notas_admin` por plaza (vía `subscribeIncidencias`) agregada por MVA; sin escritura | **14B-B:** badges incidencias/críticas en tarjetas, bloque resumen en detalle, filtros «Con incidencias» / «Críticas», búsqueda global incluye texto de notas; fallo de summary degrada sin romper mapa |
+| `/mapa` | `/app/mapa` | **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA (14C)** · `KEEP_LEGACY_BACKUP` | Mapa + **`mapa-incidencias-summary.js`**: una suscripción agregada por plaza sobre `notas_admin` (sin escritura) | **14C-B:** hardening UI/lifecycle (banner/toolbar legacy explícito, selección coherente con filtros, errores con CTA legacy, responsive filtros/toolbar); incidencias sin cambio de contrato; fallo de summary degrada sin romper mapa |
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
 | `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E/13E.1)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy. **13E.1:** hotfix runtime para restaurar `_renderPreview` y eliminar `ReferenceError` en mount/interacción. |
@@ -23,7 +23,7 @@
 | REAL_COMPLETA | Programador |
 | PARIDAD OPERATIVA ALT (11G Cola reforzada) | — (elevado a REAL_COMPLETA_VISUAL_PORT en 13D) |
 | REAL_PARCIAL | Mensajes (fuerte 11D), Cuadre, Admin |
-| BETA_OPERATIVA_FUERTE | Mapa App (`/app/mapa` — 14A; legacy sigue siendo motor completo para editor/PDF/altas) |
+| BETA_OPERATIVA_FUERTE | Mapa App (`/app/mapa` — 14A–14C; legacy sigue siendo motor completo para editor/PDF/altas) |
 
 ## Diseño legacy migrado (11A)
 
@@ -62,7 +62,7 @@
 - Mensajes: faltan adjuntos completos y panel de info/archivo igual a legacy.
 - Incidencias Kanban (`plazas/...`) vs mantener modelo único `notas_admin` (legacy Kanban sigue separado).
 - Cuadre: aún falta paridad 1:1 de controles avanzados (PDF/insertar/eliminar global/cierre oficial), por eso se mantiene en `KEEP_LEGACY_BACKUP`.
-- Mapa App: centro operativo beta (14A); editor/layout masivo y herramientas legacy exclusivas permanecen en `/mapa`. **14B-A:** capa de datos `mapa-incidencias-summary.js` lista para integración (conteo/resumen incidencias por MVA, single-sub por plaza).
+- Mapa App: centro operativo beta (14A); editor/layout masivo y herramientas legacy exclusivas permanecen en `/mapa`. **14B-A:** capa de datos `mapa-incidencias-summary.js` lista para integración (conteo/resumen incidencias por MVA, single-sub por plaza). **14C-A:** hardening audit completo — 0 P0, 3 P1, 5 P2 — **GO para beta controlada** con flags DnD OFF por defecto.
 - Admin: faltan operaciones avanzadas de escritura global (roles/plazas/catálogos) que permanecen en legacy.
 - Profile: migrado a visual real en 13C; diferencias menores aceptadas por contenedor App Shell y bloques operativos de solo lectura.
 
@@ -83,4 +83,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v270` (14B-B).
+- **`CACHE_NAME`** `mapa-v271` (14C-B).
