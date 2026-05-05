@@ -8,7 +8,7 @@ import {
   validatePersistMove
 } from '/js/app/features/mapa/mapa-mutations.js';
 import { sanitizeSpotToken } from '/js/app/features/mapa/mapa-view-model.js';
-import { renderMapaReadOnly, renderErrorState } from '/js/app/features/mapa/mapa-renderer.js';
+import { renderMapaReadOnly, renderErrorState, getResolvedMapaSelection } from '/js/app/features/mapa/mapa-renderer.js';
 
 let _container = null;
 let _contentEl = null;
@@ -233,7 +233,7 @@ function _betaModeLabel(state, snapshot) {
   const ro = !_dndFullyEnabled(state, snapshot);
   if (ro) return 'Solo lectura';
   if (!_readAppMapaDndPersistFlag()) return 'DnD vista previa';
-  if (_dndPersistFullyEnabled(state, snapshot)) return 'DnD persistente (experimental)';
+  if (_dndPersistFullyEnabled(state, snapshot)) return 'DnD persistente experimental';
   return 'DnD vista previa';
 }
 
@@ -345,23 +345,24 @@ export function mount({ container }) {
       </div>
       <header class="app-mapa-head">
         <div>
-          <span class="app-mapa-badge app-mapa-badge--beta">Beta operativa · FASE 14A</span>
+          <span class="app-mapa-badge app-mapa-badge--beta">BETA · HARDENED (14C)</span>
           <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD (vista / persistencia según rol y flags)</span>
           <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Persistencia lista</span>
           <h1>Mapa operativo</h1>
           <p>Plaza activa: <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></p>
         </div>
-        <a class="app-mapa-cta" href="/mapa">Abrir mapa completo (legacy)</a>
+        <a class="app-mapa-cta" href="/mapa">Mapa legacy completo</a>
       </header>
       <div class="app-mapa-toolbar" role="toolbar" aria-label="Acciones mapa beta">
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Refrescar mapa</button>
+        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--legacy" data-app-mapa-action="open-legacy" title="Editor, PDF, radar y herramientas completas">Abrir mapa legacy</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="copy-diag">Copiar diagnóstico</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-unplaced">Ver sin ubicación / huérfanos</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-occupancy">Ver ocupación</button>
         <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--danger" data-app-mapa-action="clear-experimental" style="display:none;">Desactivar modo experimental</button>
       </div>
-      <div class="app-mapa-note">
-        Flota en tiempo real con estructura <code>mapa_config</code>. Editor de layout, altas masivas y PDF siguen en mapa legacy.
+      <div class="app-mapa-note" role="note">
+        Solo lectura operativa: flota y <code>mapa_config</code> en vivo. Editor de patio, PDF y altas masivas están en <strong>mapa legacy</strong> (botón arriba o barra de herramientas).
       </div>
       <div class="app-mapa-controls">
         <div class="app-mapa-quick" role="toolbar" aria-label="Filtros rápidos">
@@ -666,6 +667,14 @@ export function mount({ container }) {
       }
       return;
     }
+    if (act === 'open-legacy') {
+      try {
+        window.location.assign('/mapa');
+      } catch (err) {
+        console.warn('[app/mapa] open legacy', err);
+      }
+      return;
+    }
     if (act === 'copy-diag') {
       const d = _lifecycle?.getSnapshot?.()?.data;
       const text = JSON.stringify(
@@ -863,7 +872,7 @@ function _render() {
     _lastDndEligibility = eligible;
     _syncDndController();
   }
-  renderMapaReadOnly(_contentEl, snapshot, {
+  const readOpts = {
     query: _viewState.query,
     selectedId: _viewState.selectedId,
     dndActive: eligible,
@@ -873,7 +882,12 @@ function _render() {
     incidentsByMva: _incSummaryState.byMva,
     incidentsReady: _incSummaryState.ready,
     incidentsFailed: _incSummaryState.failed
-  });
+  };
+  if (_viewState.selectedId && !getResolvedMapaSelection(snapshot, readOpts)) {
+    _viewState.selectedId = '';
+    readOpts.selectedId = '';
+  }
+  renderMapaReadOnly(_contentEl, snapshot, readOpts);
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateBetaBanner();
   _updateMetaLines();

@@ -261,16 +261,40 @@ function _findSelected(vm, selectedId) {
   const scan = [...(vm.limboUnits || []), ...(vm.tallerUnits || []), ...(vm.orphanUnits || [])];
   for (const u of scan) {
     if (String(u.id) === sid) return u;
+    if (String(u.mva || '').toUpperCase() === sid.toUpperCase()) return u;
   }
   for (const row of vm.rows || []) {
     if (row.kind !== 'slot') continue;
     for (const u of row.unitsAll || []) {
-      if (String(u.id) === sid) {
+      if (String(u.id) === sid || String(u.mva || '').toUpperCase() === sid.toUpperCase()) {
         return { ...u, cellZone: row.zoneLabel, positionKey: row.positionKey };
       }
     }
   }
   return null;
+}
+
+/**
+ * Resuelve la unidad seleccionada con el mismo VM que el render (filtros rápidos + búsqueda).
+ * Sirve para limpiar `selectedId` cuando el filtro oculta la unidad (evita detalle “fantasma”).
+ */
+export function getResolvedMapaSelection(snapshot = {}, options = {}) {
+  const plaza = snapshot.plaza || options.plaza || '';
+  const qfCtx = {
+    incidentsByMva: options.incidentsByMva || {},
+    incidentsReady: options.incidentsReady === true,
+    incidentsFailed: options.incidentsFailed === true
+  };
+  const unitsFiltered = applyMapaQuickFilter(snapshot.units, options.quickFilter, qfCtx);
+  const incidentSearchByMva = _incidentSearchMap(options.incidentsByMva);
+  const vm = buildMapaReadOnlyViewModel({
+    estructura: snapshot.structure,
+    unidades: unitsFiltered,
+    plaza,
+    query: options.query || '',
+    incidentSearchByMva
+  });
+  return _findSelected(vm, String(options.selectedId || ''));
 }
 
 function _inferOrigenDatos(unit = {}) {
@@ -359,15 +383,17 @@ function _detailPanel(selected, plaza, incOpts = {}) {
     .trim();
   const { incidentsByMva = {}, incidentsReady = false, incidentsFailed = false } = incOpts;
   return `
-    <h3>${esc(selected.mva)}</h3>
+    <div class="app-mapa-detail-hero">
+      <h2 class="app-mapa-detail-mva-title">${esc(selected.mva)}</h2>
+      <p class="app-mapa-detail-posline"><span class="app-mapa-detail-k">Posición / celda</span> <span class="app-mapa-detail-v">${esc(selected.pos || '—')}</span></p>
+      <p class="app-mapa-detail-subline"><span class="app-mapa-detail-k">Ubicación</span> <span class="app-mapa-detail-v">${esc(selected.ubicacion || '—')}</span></p>
+    </div>
     <p class="app-mapa-detail-actions-top">
       <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(selected.mva)}">Copiar MVA</button>
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
     </p>
     ${_detailIncBlock(mvaK, incidentsByMva, incidentsReady, incidentsFailed)}
-    <p><strong>MVA:</strong> ${esc(selected.mva)}</p>
-    <p><strong>Posición / celda:</strong> ${esc(selected.pos || '—')}</p>
-    <p><strong>Ubicación:</strong> ${esc(selected.ubicacion || '—')}</p>
+    <div class="app-mapa-detail-fields">
     <p><strong>Estado:</strong> ${esc(selected.estado)}</p>
     <p><strong>Modelo:</strong> ${esc(selected.modelo)}</p>
     <p><strong>Placas:</strong> ${esc(selected.placas)}</p>
@@ -378,13 +404,14 @@ function _detailPanel(selected, plaza, incOpts = {}) {
     <p><strong>Fuente datos:</strong> ${esc(_inferOrigenDatos(selected))}</p>
     <p><strong>Actualizado:</strong> ${_fmtRawDate(raw)}</p>
     <p><strong>Por:</strong> ${esc(_rawAuthor(raw))}</p>
+    </div>
     <nav class="app-mapa-detail-nav" aria-label="Enlaces rápidos">
       <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Incidencias / bitácora</a>
       <a class="app-mapa-detail-link" href="/app/cuadre">Cuadre App</a>
-      <a class="app-mapa-detail-link" href="/mapa?q=${mvaEnc}">Mapa legacy</a>
+      <a class="app-mapa-detail-link" href="/mapa?q=${mvaEnc}">Mapa legacy (completo)</a>
     </nav>
     <p><a class="app-mapa-mini-cta" href="/mapa">Abrir mapa classic completo</a></p>
-    <small class="app-mapa-detail-foot">Acciones de edición masiva y configuración del patio siguen en mapa legacy.</small>
+    <small class="app-mapa-detail-foot">Editor de layout, PDF y altas masivas siguen en mapa legacy.</small>
   `;
 }
 
@@ -392,8 +419,16 @@ export function renderEmptyState(label = 'No hay unidades para mostrar.') {
   return `<div class="app-mapa-state app-mapa-state-empty">${esc(label)}</div>`;
 }
 
-export function renderErrorState(label = 'No se pudo cargar el mapa.') {
-  return `<div class="app-mapa-state app-mapa-state-error">${esc(label)}</div>`;
+export function renderErrorState(label = 'No se pudo cargar el mapa.', opts = {}) {
+  const legacy = opts.legacyCta !== false;
+  return `<div class="app-mapa-state app-mapa-state-error" role="alert">
+    <div class="app-mapa-state-error-msg">${esc(label)}</div>
+    ${
+      legacy
+        ? `<p class="app-mapa-legacy-fallback">¿Funciones avanzadas? <a class="app-mapa-legacy-fallback-link" href="/mapa">Abrir mapa completo (legacy)</a> · editor, PDF y altas masivas.</p>`
+        : ''
+    }
+  </div>`;
 }
 
 export function renderMapaReadOnly(container, snapshot = {}, options = {}) {

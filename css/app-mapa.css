@@ -3,6 +3,9 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .app-mapa-beta-banner {
@@ -84,6 +87,17 @@
 .app-mapa-tool-btn--danger:hover {
   border-color: #f87171;
   background: #fee2e2;
+}
+
+.app-mapa-tool-btn--legacy {
+  border-color: #2b6954;
+  color: #14532d;
+  background: #ecfdf5;
+}
+
+.app-mapa-tool-btn--legacy:hover {
+  border-color: #166534;
+  background: #d1fae5;
 }
 
 .app-mapa-mini-cta {
@@ -782,6 +796,44 @@
   top: 8px;
 }
 
+.app-mapa-detail-hero {
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.app-mapa-detail-mva-title {
+  margin: 0 0 8px;
+  font-size: clamp(1.35rem, 4vw, 1.75rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #0f172a;
+  word-break: break-word;
+}
+
+.app-mapa-detail-posline,
+.app-mapa-detail-subline {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.app-mapa-detail-k {
+  font-weight: 700;
+  color: #64748b;
+  margin-right: 6px;
+}
+
+.app-mapa-detail-v {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.app-mapa-detail-fields {
+  margin-top: 4px;
+}
+
 .app-mapa-detail h3 {
   margin: 0 0 10px;
   color: #0f172a;
@@ -811,6 +863,26 @@
   color: #991b1b;
 }
 
+.app-mapa-state-error-msg {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.app-mapa-legacy-fallback {
+  margin: 10px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid #fecaca;
+  font-size: 12px;
+  color: #7f1d1d;
+  line-height: 1.4;
+}
+
+.app-mapa-legacy-fallback-link {
+  font-weight: 800;
+  color: #991b1b;
+}
+
 .app-mapa-controls {
   display: flex;
   flex-wrap: wrap;
@@ -825,6 +897,24 @@
   gap: 6px;
   align-items: center;
   max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  .app-mapa-quick {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    scrollbar-width: thin;
+    gap: 8px;
+  }
+  .app-mapa-quick-label {
+    flex: 0 0 auto;
+  }
+  .app-mapa-qf {
+    flex: 0 0 auto;
+  }
 }
 
 .app-mapa-quick-label {
@@ -955,8 +1045,26 @@
 }
 
 @media (max-width: 640px) {
-  .app-mapa-view { padding: 14px; }
+  .app-mapa-view { padding: 12px; }
   .app-mapa-zone-grid {
     grid-template-columns: 1fr;
+  }
+  .app-mapa-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    gap: 6px;
+  }
+  .app-mapa-tool-btn {
+    flex: 0 0 auto;
+  }
+  .app-mapa-head .app-mapa-cta {
+    width: 100%;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  .app-mapa-canvas-viewport {
+    max-height: min(62vh, 720px);
   }
 }
