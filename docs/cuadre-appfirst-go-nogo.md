@@ -1,6 +1,6 @@
-# Cuadre App-first Go/No-Go (FASE 12G, sin redirect)
+# Cuadre App-first Go/No-Go (FASE 13F, sin redirect)
 
-Fecha: 2026-04-28  
+Fecha: 2026-04-29  
 Alcance: decisión formal para readiness de `/app/cuadre` **sin activar redirect** desde `/cuadre` en esta fase.
 
 ## Matriz Go/No-Go
@@ -42,6 +42,9 @@ Alcance: decisión formal para readiness de `/app/cuadre` **sin activar redirect
 | 33. `/mapa` legacy sigue funcionando | PASS | `/mapa` sin redirect y sin cambios destructivos | No | Ninguna |
 | 34. `/mapa` NO redirige | PASS | `shouldAutoRedirect` no incluye `/mapa` | No | Ninguna |
 | 35. `/cuadre` NO redirige | PASS | `shouldAutoRedirect` no incluye `/cuadre` en 12G sin redirect | No | Ninguna |
+| 36. Filtro por origen (patio/externo) | PASS | Select `Origen` en `/app/cuadre` conectado a `_applyFiltersAndSort` (13F) | No | Ninguna |
+| 37. Tab Classic dentro de App | PASS | Tab `Classic` abre `/cuadre` sin activar redirect global (13F) | No | Ninguna |
+| 38. Stale protection listeners | PASS | Guarda `staleVersion` para ignorar callbacks viejos al cambiar plaza/ruta (13F) | No | Ninguna |
 
 ## Clasificación final
 

@@ -50,8 +50,10 @@ function _makeState(plaza) {
     categoryFilter: '',
     locationFilter: '',
     statusFilter: '',
+    originFilter: '',
     masterSearchQuery: '',
-    masterSearchResults: []
+    masterSearchResults: [],
+    staleVersion: 0
   };
 }
 
@@ -151,18 +153,23 @@ function _stopListener() {
 
 function _startListener(plaza) {
   _stopListener();
+  const version = (_state.staleVersion || 0) + 1;
+  _state.staleVersion = version;
   _renderTableSkeleton();
   _unsubData = subscribeCuadre({
     plaza,
     onData: rows => {
-      if (!_state || !_container) return;
+      if (!_state || !_container || _state.staleVersion !== version) return;
       _state.allItems = Array.isArray(rows) ? rows : [];
       _applyFiltersAndSort();
       _renderSummary();
       _renderTable();
       _syncDetail();
     },
-    onError: err => _renderTableError(String(err?.code || '').includes('permission') ? 'Sin permisos para ver cuadre de esta plaza.' : (err?.message || 'Error al cargar cuadre.'))
+    onError: err => {
+      if (!_state || !_container || _state.staleVersion !== version) return;
+      _renderTableError(String(err?.code || '').includes('permission') ? 'Sin permisos para ver cuadre de esta plaza.' : (err?.message || 'Error al cargar cuadre.'));
+    }
   });
   _trackListener('create', 'data-sub', { plaza });
 }
@@ -184,6 +191,10 @@ function _bindEvents() {
     _syncDetail();
   });
   qsa('[data-cqv-tab]').forEach(btn => btn.addEventListener('click', () => {
+    if ((btn.dataset.cqvTab || '') === 'classic') {
+      window.location.href = '/cuadre';
+      return;
+    }
     _state.tab = btn.dataset.cqvTab || 'regular';
     if (_state.tab !== 'historial') _state.historyDate = '';
     qsa('[data-cqv-tab]').forEach(x => x.classList.toggle('is-active', x === btn));
@@ -223,6 +234,12 @@ function _bindEvents() {
   });
   q('#cqvFilterEstado')?.addEventListener('change', e => {
     _state.statusFilter = String(e.target?.value || '').trim().toUpperCase();
+    _applyFiltersAndSort();
+    _renderTable();
+    _syncDetail();
+  });
+  q('#cqvFilterOrigen')?.addEventListener('change', e => {
+    _state.originFilter = String(e.target?.value || '').trim().toUpperCase();
     _applyFiltersAndSort();
     _renderTable();
     _syncDetail();
@@ -277,6 +294,14 @@ function _applyFiltersAndSort() {
   let items = base.filter(_matchFilter);
   if (_state.statusFilter) {
     items = items.filter(it => String(it.estado || '').toUpperCase() === _state.statusFilter);
+  }
+  if (_state.originFilter) {
+    items = items.filter(it => {
+      const origin = String(it.tipo || '').toUpperCase();
+      const ubic = String(it.ubicacion || '').toUpperCase();
+      const normalized = (origin === 'EXTERNO' || ubic.includes('EXTERNO')) ? 'EXTERNO' : 'PATIO';
+      return normalized === _state.originFilter;
+    });
   }
   if (_state.categoryFilter) {
     items = items.filter(it => String(it.categoria || '').toUpperCase() === _state.categoryFilter.toUpperCase());
@@ -420,7 +445,10 @@ function _renderTable() {
   const tbody = q('#cqvTableBody');
   if (!tbody) return;
   if (!_state.items.length) {
-    tbody.innerHTML = `<tr><td colspan="10"><div class="cqv__empty">Sin unidades para los filtros aplicados.</div></td></tr>`;
+    const message = _state.allItems.length
+      ? 'Sin resultados para los filtros aplicados.'
+      : 'No hay unidades para esta plaza.';
+    tbody.innerHTML = `<tr><td colspan="10"><div class="cqv__empty">${message}</div></td></tr>`;
     return;
   }
   tbody.innerHTML = _state.items.map(item => {
@@ -536,6 +564,8 @@ function _renderDetail(item) {
         ${_detailCell('Posición', item.pos || '—')}
         ${_detailCell('Plaza', item.plaza || _state.plaza || '—')}
         ${_detailCell('Origen operativo', String(item.tipo || '').toLowerCase() === 'externo' ? 'EXTERNO' : 'PATIO')}
+        ${_detailCell('Actualizado por', item.updatedBy || item.autor || '—')}
+        ${_detailCell('Fuente', item.tipo === 'admin' ? 'CUADRE_ADMINS' : (item.tipo === 'historial' ? 'HISTORIAL_CUADRES' : 'CUADRE/EXTERNOS'))}
         ${_detailCell('Última actualización', _fmtUpdated(item.updatedAt || item.fechaIngreso))}
       </div>
       ${item.notas ? `<div class="cqv__notes"><strong>Notas</strong><p>${esc(item.notas)}</p></div>` : ''}
@@ -592,6 +622,7 @@ function _layout({ plaza, role, user }) {
             <button class="cqv__tab" data-cqv-tab="externos" type="button">Externos</button>
             <button class="cqv__tab" data-cqv-tab="admins" type="button">Cuadre admins</button>
             <button class="cqv__tab" data-cqv-tab="historial" type="button">Historial</button>
+            <button class="cqv__tab" data-cqv-tab="classic" type="button">Classic</button>
           </div>
           <p class="cqv__toolbar-hint">La búsqueda principal vive en el header App Shell (paridad migrada).</p>
           <div class="cqv__search-row">
@@ -615,6 +646,9 @@ function _layout({ plaza, role, user }) {
             </select>
             <select id="cqvFilterEstado" class="cqv__search">
               <option value="">Estado (todos)</option>
+            </select>
+            <select id="cqvFilterOrigen" class="cqv__search">
+              <option value="">Origen (todos)</option>
             </select>
           </div>
           <div class="cqv__chips cqv__chips--scroll">${FILTERS.map((f, i) => `<button class="cqv__chip ${i === 0 ? 'is-active' : ''}" data-cqv-filter="${f.id}" type="button">${esc(f.label)}</button>`).join('')}</div>
@@ -692,6 +726,11 @@ function _renderDynamicFilters(baseRows) {
   _fillSelect('#cqvFilterCategoria', rows.map(x => x.categoria), _state.categoryFilter);
   _fillSelect('#cqvFilterUbicacion', rows.map(x => x.ubicacion), _state.locationFilter);
   _fillSelect('#cqvFilterEstado', rows.map(x => String(x.estado || '').toUpperCase()), _state.statusFilter);
+  _fillSelect(
+    '#cqvFilterOrigen',
+    rows.map(x => (String(x.tipo || '').toLowerCase() === 'externo' || String(x.ubicacion || '').toUpperCase().includes('EXTERNO')) ? 'EXTERNO' : 'PATIO'),
+    _state.originFilter
+  );
 }
 
 function _fillSelect(selector, values, selected) {

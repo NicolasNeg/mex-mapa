@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13E.1 · **Fecha:** 2026-04-29  
+**Versión:** FASE 13F · **Fecha:** 2026-04-29  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -148,8 +148,8 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **JS** | `js/views/cuadre.js` |
 | **CSS** | Legacy: estilos de `mapa.css` embebidos en `cuadre.html`; App: `css/app-cuadre.css` |
 | **Migrado App** | Consola patio operativa fuerte (`js/app/views/cuadre.js`) |
-| **Migrado App 11B/11G/12F** | Tabs `flota/externos/admins/historial`, KPIs top estado/ubicación/categoría, tabla amplia con columna de última actualización, panel detalle lateral (copiar MVA/JSON, abrir mapa App y legacy), filtro por fecha historial, búsqueda base maestra read-only, filtros avanzados por estado/categoría/ubicación, export CSV local y copiar resumen filtrado |
-| **Falta** | Controles avanzados legacy (PDF/insertar/eliminar/edición masiva/cierre formal) |
+| **Migrado App 11B/11G/12F/13F** | Tabs `flota/externos/admins/historial/classic`, KPIs top estado/ubicación/categoría, tabla amplia con columna de última actualización, panel detalle lateral (copiar MVA/JSON, abrir mapa App y legacy), filtro por fecha historial, búsqueda base maestra read-only, filtros avanzados por estado/categoría/ubicación/origen, export CSV local y copiar resumen filtrado |
+| **Falta** | Controles avanzados legacy (PDF/insertar/eliminar/edición masiva/cierre formal) y acciones de escritura total |
 | **Peligrosas bloqueadas** | Eliminar unidad, editar estado global, insertar unidad, cierre formal, PDF/reportes oficiales, edición masiva |
 | **Redirect** | **NO ACTIVADO** en 12G: `/cuadre` permanece legacy-first (`KEEP_LEGACY_BACKUP`) |
 

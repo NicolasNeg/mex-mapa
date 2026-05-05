@@ -1,4 +1,4 @@
-# Legacy Route Redirect Plan (FASE 13E.1, incidencias hotfix runtime + paridad)
+# Legacy Route Redirect Plan (FASE 13F, cuadre paridad fuerte sin redirect)
 
 Fecha: 2026-04-29  
 Nota: esta fase activa redirects App-first en rutas operativas ya migradas y mantiene escape con `mex.legacy.force`.
@@ -19,7 +19,7 @@ Nota: esta fase activa redirects App-first en rutas operativas ya migradas y man
 | `/mensajes` | `/app/mensajes` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos avanzados |
 | `/cola-preparacion` | `/app/cola-preparacion` | Redirect App-first activo + visual parity completa (13D) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder/delete |
 | `/incidencias` | `/app/incidencias` | Redirect JS App-first activo + visual parity completa (13E) + hotfix runtime (13E.1) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Escape `mex.legacy.force=1`; fallback legacy para adjuntos complejos y eliminación |
-| `/cuadre` | `/app/cuadre` | Paridad operativa fuerte (12F/12G) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
+| `/cuadre` | `/app/cuadre` | Paridad visual/operativa fuerte (12F/12G/13F) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
 | `/mapa` | `/app/mapa` | App en progreso; legacy crítico | DO_NOT_REDIRECT | Paridad total de operación y DnD persistente segura |
