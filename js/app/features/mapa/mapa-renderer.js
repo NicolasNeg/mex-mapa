@@ -88,6 +88,41 @@ function _stateClass(state = '') {
   return normalized ? `is-${normalized.toLowerCase()}` : 'is-sin-estado';
 }
 
+function _gasPct(gas = '') {
+  const raw = String(gas == null ? '' : gas).trim().toUpperCase();
+  if (!raw || raw === 'N/A' || raw === '—') return 0;
+  if (raw === 'F' || raw === 'FULL') return 100;
+  if (raw === 'E') return 8;
+  const fractions = {
+    '15/16': 94,
+    '7/8': 88,
+    '13/16': 81,
+    '3/4': 75,
+    '11/16': 69,
+    '5/8': 63,
+    '9/16': 56,
+    '1/2': 50,
+    'H': 50,
+    '7/16': 44,
+    '3/8': 38,
+    '5/16': 31,
+    '1/4': 25,
+    '3/16': 19,
+    '1/8': 13,
+    '1/16': 6
+  };
+  if (fractions[raw] != null) return fractions[raw];
+  const num = Number(raw.replace('%', ''));
+  return Number.isFinite(num) ? Math.max(0, Math.min(100, num)) : 0;
+}
+
+function _gasClass(pct) {
+  if (pct >= 70) return 'is-high';
+  if (pct >= 35) return 'is-mid';
+  if (pct > 0) return 'is-low';
+  return 'is-empty';
+}
+
 /** @deprecated Usar buildMapaReadOnlyViewModel; se mantiene alias por si hay imports externos. */
 export function normalizeMapaViewModel(data = {}) {
   return buildMapaReadOnlyViewModel({
@@ -126,6 +161,9 @@ export function renderUnit(unit, options = {}) {
   const ir = options.incidentsReady === true;
   const showInc = ir && inc && inc.total > 0;
   const showCrit = ir && inc && inc.criticas > 0;
+  const stateClass = _stateClass(unit.estado);
+  const gasPct = _gasPct(unit.gasolina);
+  const gasLabel = unit.gasolina != null && unit.gasolina !== '' && unit.gasolina !== '—' ? String(unit.gasolina) : 'N/A';
   const incHtml =
     showInc || showCrit
       ? `<span class="app-mapa-unit-inc" aria-label="Incidencias">
@@ -134,14 +172,18 @@ export function renderUnit(unit, options = {}) {
       </span>`
       : '';
   return `
-    <button type="button" class="app-mapa-unit ${selected ? 'is-selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
+    <button type="button" class="app-mapa-unit ${stateClass} ${selected ? 'is-selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
       data-unit-id="${esc(unit.id)}"${baseAttrs}${dndAttrs}>
       <div class="app-mapa-unit-top">
         <strong>${esc(unit.mva)}</strong>
         ${incHtml}
-        <span class="app-mapa-unit-state ${_stateClass(unit.estado)}">${esc(unit.estado)}</span>
+        <span class="app-mapa-unit-state ${stateClass}">${esc(unit.estado)}</span>
       </div>
-      <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}${unit.gasolina && unit.gasolina !== '—' ? ` · ⛽ ${esc(unit.gasolina)}` : ''}</div>
+      <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}</div>
+      <div class="app-mapa-gas ${_gasClass(gasPct)}" aria-label="Gasolina ${esc(gasLabel)}">
+        <span class="app-mapa-gas-fill" style="width:${gasPct}%"></span>
+        <span class="app-mapa-gas-text">${esc(gasLabel)}</span>
+      </div>
       <div class="app-mapa-unit-zona">${esc(position || '—')}${zoneHint ? ` · <span class="app-mapa-unit-zone-hint">${esc(zoneHint)}</span>` : ''}</div>
     </button>
   `;

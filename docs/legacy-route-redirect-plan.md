@@ -1,7 +1,7 @@
-# Legacy Route Redirect Plan (FASE 14F — mapa App hardened + acciones seguras beta, sin redirect legacy)
+# Legacy Route Redirect Plan (FASE 14G — mapa App visual P0 legacy, sin redirect legacy)
 
-Fecha: 2026-05-05 · **14F-B** integra UI de acciones seguras en panel de unidad.  
-Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`). `/app/mapa` es **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA + ACCIONES_SEGURAS_BETA**: incidencias por MVA + acciones rápidas operativas; mutaciones quedan condicionadas al módulo opcional `mapa-unit-actions.js`. Sin ese módulo, no hay mutaciones activas y se mantiene fallback legacy.
+Fecha: 2026-05-06 · **14G** agrega port visual P0 del `/mapa` legacy real dentro de `/app/mapa`.
+Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`). `/app/mapa` es **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA + ACCIONES_SEGURAS_BETA + LEGACY_VISUAL_PORT_P0**: incidencias por MVA + acciones rápidas operativas + canvas/cajones/unidades/panel detalle más cercanos al legacy. Mutaciones siguen condicionadas al módulo opcional `mapa-unit-actions.js`; sin ese módulo no hay mutaciones activas y se mantiene fallback legacy.
 
 ## Criterios
 
@@ -22,7 +22,7 @@ Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect autom
 | `/cuadre` | `/app/cuadre` | Paridad visual/operativa fuerte (12F/12G/13F) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
-| `/mapa` | `/app/mapa` | **Beta operativa fuerte + hardened + acciones seguras (14F)** — centro operativo en App Shell | KEEP_LEGACY_BACKUP · DO_NOT_REDIRECT | Redirect **no activado**: legacy sigue siendo entrada válida para editor, radar y herramientas completas |
+| `/mapa` | `/app/mapa` | **Beta operativa fuerte + hardened + acciones seguras + visual P0 legacy (14G)** — centro operativo en App Shell | KEEP_LEGACY_BACKUP · DO_NOT_REDIRECT | Redirect **no activado**: legacy sigue siendo entrada válida para editor, radar y herramientas completas |
 | `/solicitud` | N/A | Flujo público de acceso | PUBLIC_FORM / DO_NOT_REDIRECT | Mantener ruta independiente de login/alta |
 | `/editmap` | `/app/mapa` (editor futuro) | Editor legacy acoplado | DO_NOT_REDIRECT | Extraer editor plenamente al App Shell |
 
@@ -39,4 +39,3 @@ Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect autom
 1. Ejecutar smoke E2E final de `/app/cuadre` por rol/plaza y validar cero regresiones sobre `/cuadre` legacy.
 2. Evaluar redirect condicionado por rol para `/programador`.
 3. Mantener sin redirección: `/mapa`, `/cuadre`, `/gestion`, `/solicitud`, `/editmap`.
-
