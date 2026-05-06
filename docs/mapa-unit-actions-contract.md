@@ -33,6 +33,8 @@ Métodos esperados del controller:
 - `executeUnitAction(action, unit, payload, context)`
 - `cleanup()`
 
+La reconciliación 14F.1-A confirma que el módulo exporta los tres aliases de factory anteriores, mantiene `createMapaUnitActionsController` como API principal y añade `resolveAvailableActions` como alias seguro de `getAvailableActions` para no romper integraciones tolerantes.
+
 ## `ActionDef` esperado
 
 ```js
@@ -59,3 +61,20 @@ Métodos esperados del controller:
 - No se tocó login/auth/functions/rules.
 - `/mapa` legacy intacto y sin redirect a `/app/mapa`.
 - Sin cambios en permisos DnD ni activación persistente por defecto.
+
+## Auditoría de acciones 14F.1-A
+
+| Acción | API legacy | Estado |
+|--------|------------|--------|
+| `update_status` | `api.aplicarEstado` | Disponible si hay plaza, MVA, usuario, rol autorizado, API y confirmación |
+| `update_notes` | `api.aplicarEstado` | Disponible con las mismas validaciones |
+| `update_gas` | `api.aplicarEstado` | Disponible con las mismas validaciones |
+| `mark_ready` | `api.aplicarEstado` con estado `LISTO` | Disponible con las mismas validaciones |
+| `refresh_unit` | `api.obtenerDatosFlotaConsola` | Lectura puntual, sin listener |
+| `persist_position` | `persistUnitMove` / `api.guardarNuevasPosiciones` | Delegado al contrato DnD/persist existente |
+| `create_incident_link_only` | Link a `/app/incidencias?mva=` | Link-only, sin escritura |
+| `open_legacy` | Link a `/mapa` | Fallback legacy |
+| `copy_json` | Local | Sin escritura |
+| `send_to_preparacion` | Sin API legacy segura detectada | Unavailable / `NO_SAFE_LEGACY_API` |
+
+Bloqueadas por contrato: eliminar unidad, altas, masivos, cierre formal, reportes/PDF, editar estructura y editar `mapa_config`.

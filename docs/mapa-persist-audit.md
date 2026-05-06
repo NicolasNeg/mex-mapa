@@ -62,3 +62,10 @@ Estado final documentado: persistencia en `/app/mapa` queda **GO CONTROLADO** pa
 | QA manual persist real + verificación legacy | WARNING pendiente |
 
 No se marcaron pruebas manuales como PASS. Esta reconciliación no tocó runtime, login/auth, Functions ni reglas.
+
+## FASE 14F.1-A (reconciliación controller acciones)
+
+- Se conserva el controller integrado por Cursor en 14F-B y se agregan solo mejoras compatibles: aliases `createUnitActionsController`/`createController`, `resolveAvailableActions` y `cleanup()` no-op.
+- La API pública usada por `/app/mapa` se mantiene: `getAvailableActions`, `validateUnitAction`, `executeUnitAction`.
+- Mutaciones siguen delegando en `api.aplicarEstado` o `persistUnitMove`; no se agregan escrituras nuevas ni cambios al DnD existente.
+- Acciones bloqueadas/no migradas siguen sin ejecutar nada.

@@ -246,3 +246,9 @@ Estado final documentado: `/app/mapa` = **BETA_OPERATIVA_FUERTE + HARDENED_FOR_B
 | QA manual lifecycle/remount | WARNING pendiente |
 
 No se marcaron validaciones manuales como PASS. Esta auditoría no tocó runtime, login/auth, Functions ni reglas.
+
+## FASE 14F.1-A (reconciliación controller acciones)
+
+- `mapa-unit-actions.js` mantiene comportamiento data-only: sin `onSnapshot`, sin listeners DOM/window/document, sin timers y sin efectos al importarse.
+- `cleanup()` agregado es no-op para cumplir contrato de integración tolerante; no registra ni remueve recursos porque el módulo no crea recursos persistentes.
+- `refresh_unit` sigue siendo lectura puntual via `obtenerDatosFlotaConsola(plaza)`.

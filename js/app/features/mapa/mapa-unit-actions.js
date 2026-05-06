@@ -353,6 +353,7 @@ export function createMapaUnitActionsController({
   getState = () => ({}),
   getCurrentPlaza = null,
   getCurrentUser = null,
+  profile = null,
   debug = false
 } = {}) {
   const getApi = () => _safeApi(api);
@@ -360,6 +361,7 @@ export function createMapaUnitActionsController({
     const state = context.state || getState() || {};
     const built = buildUnitActionContext(state, unit);
     const currentUser = context.user || (_isFn(getCurrentUser) ? getCurrentUser() : null);
+    const currentProfile = context.profile || (_isFn(profile) ? profile() : null);
     const currentPlaza = context.plaza || (_isFn(getCurrentPlaza) ? getCurrentPlaza() : '');
     return {
       ...built,
@@ -368,6 +370,7 @@ export function createMapaUnitActionsController({
       unit,
       db,
       user: currentUser || context.user || built.user,
+      profile: currentProfile || context.profile || built.profile,
       plaza: _upper(currentPlaza || context.plaza || built.plaza)
     };
   };
@@ -439,12 +442,16 @@ export function createMapaUnitActionsController({
 
   return {
     getAvailableActions,
+    resolveAvailableActions: getAvailableActions,
     validateUnitAction,
     executeUnitAction,
     normalizeActionResult,
-    buildUnitActionContext
+    buildUnitActionContext,
+    cleanup() {}
   };
 }
 
+export const createUnitActionsController = createMapaUnitActionsController;
+export const createController = createMapaUnitActionsController;
 export const MAPA_UNIT_ACTIONS = ACTION_DEFS;
 export const MAPA_UNIT_BLOCKED_ACTIONS = BLOCKED_ACTIONS;
