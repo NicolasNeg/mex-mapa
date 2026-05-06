@@ -80,8 +80,8 @@
 | **`/mapa` NO redirige** | Sí (política sin cambio) |
 | **login / auth / functions / rules** | No tocados |
 | **CACHE_NAME final** | `mapa-v271` (sin bump) |
-| **Commit hash** | `69d9f7e` |
-| **Push / deploy** | Push `main` OK (`69d9f7e`); sin deploy hosting (solo docs) |
+| **Commit hash** | `a748b50` |
+| **Push / deploy** | Push `main` OK; sin deploy hosting (solo docs) |
 
 ---
 
