@@ -228,3 +228,21 @@ Objetivo: inventariar listeners/suscripciones y preparar cleanup centralizado si
 - **P1 menor:** `_cssRef` (ref al `<link>` CSS) no se nullifica en unmount; el link persiste en `<head>` pero tiene guard de duplicación.
 - **P0 bloqueantes: 0.**
 - Checklist completo: `docs/mapa-beta-hardening-checklist.md`.
+
+## Reconciliación FASE 14C-A / 14C-B
+
+Estado final documentado: `/app/mapa` = **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA**; `/mapa` = **KEEP_LEGACY_BACKUP** y **no redirige**.
+
+| Punto | Estado reconciliado |
+|-------|---------------------|
+| Cleanup listeners App Shell | PASS por revisión de código |
+| Listeners DnD en `window` | PASS por revisión de código; temporales durante gesto activo |
+| Incidencias summary | PASS por revisión de código; una suscripción agregada por plaza, sin listener por unidad |
+| `_cssRef` | **P1 pendiente**: no nullificado en `unmount()` |
+| Fix 14C-B selección alineada con filtros | PASS por revisión de código |
+| Fix 14C-B error state con CTA legacy | PASS por revisión de código |
+| Fix 14C-B banner HARDENED / toolbar legacy / detalle reforzado | PASS por revisión de código |
+| Toolbar/filtros responsive | PASS por revisión de código; WARNING QA 390px pendiente |
+| QA manual lifecycle/remount | WARNING pendiente |
+
+No se marcaron validaciones manuales como PASS. Esta auditoría no tocó runtime, login/auth, Functions ni reglas.

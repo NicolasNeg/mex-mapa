@@ -180,3 +180,21 @@ Validaciones mezcladas:
 - **P2**: swap no soportado — mensaje "cajón ocupado" claro.
 - Checklist completo: `docs/mapa-beta-hardening-checklist.md`.
 
+## Reconciliación FASE 14C-A / 14C-B
+
+Estado final documentado: DnD sigue protegido por flags y rol en `/app/mapa` **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA**. `/mapa` legacy permanece como backup completo y no redirige.
+
+| Punto | Estado reconciliado |
+|-------|---------------------|
+| Preview DnD | PASS por revisión de código con `mex.appMapa.dnd=1` |
+| Persistencia DnD | PASS por revisión de código con `mex.appMapa.dnd=1` + `mex.appMapa.dndPersist=1` + rol autorizado |
+| Escritura accidental con flags OFF | PASS por revisión de código: default beta OFF |
+| Validaciones `validatePersistMove` | PASS por revisión de código |
+| Re-drag durante persist | **P1 pendiente**: falta lock explícito |
+| Touch DnD | **P2 aceptado**: off by design |
+| Swap | **P2 aceptado**: no soportado; destino ocupado se rechaza |
+| Fix 14C-B selección/filtros | PASS por revisión de código; evita selección incoherente al filtrar |
+| Fix 14C-B CTA legacy/banner/toolbar | PASS por revisión de código; mantiene escape visible |
+| QA manual DnD preview/persist | WARNING pendiente |
+
+No se documenta PASS manual. Esta reconciliación no tocó JS, CSS, `sw.js`, `mapa.html`, legacy `js/views/mapa.js`, login/auth, Functions ni reglas.

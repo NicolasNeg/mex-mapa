@@ -21,22 +21,22 @@
 
 | Criterio | Estado | Nota |
 |----------|--------|------|
-| P0 bloqueantes | **0** | Ninguno en auditoría estática 14C-A (ver `mapa-*-audit.md`) |
+| P0 bloqueantes | **0** | PASS por revisión de código 14C-A (ver `mapa-*-audit.md`) |
 | Beta controlada | **GO CONTROLADO** | DnD OFF por defecto y legacy disponible |
 | QA manual E2E (sección 10) | **WARNING** | No equivale a PASS hasta smoke en entorno real |
-| Runtime / SW / UI en 14C.1-B | **Sin cambios** | Solo documentación |
-| Login/auth/functions/rules en 14C.1-B | **Sin cambios** | — |
+| Runtime / SW / UI en 14C.1 | **Sin cambios** | Solo documentación |
+| Login/auth/functions/rules en 14C.1 | **Sin cambios** | — |
 
 ### Fixes 14C-B (revisión estática; no sustituyen QA manual)
 
 | Fix 14C-B | Estado |
 |-----------|--------|
-| Selección alineada con filtros | OK (código) |
-| Error state con CTA legacy | OK (código) |
-| Banner HARDENED / beta operativa | OK (código) |
-| Toolbar con acceso explícito a legacy | OK (código) |
-| Detalle de unidad reforzado | OK (código) |
-| Responsive toolbar/filtros | OK (código); QA 390px sigue en WARNING |
+| Selección alineada con filtros | PASS por revisión de código |
+| Error state con CTA legacy | PASS por revisión de código |
+| Banner HARDENED / beta operativa | PASS por revisión de código |
+| Toolbar con acceso explícito a legacy | PASS por revisión de código |
+| Detalle de unidad reforzado | PASS por revisión de código |
+| Responsive toolbar/filtros | PASS por revisión de código; QA 390px sigue en WARNING |
 
 **Veredicto reconciliado:** **GO CONTROLADO para beta**. `/app/mapa` queda como centro operativo beta hardened; `/mapa` sigue siendo backup legacy completo y **no redirige**.
 

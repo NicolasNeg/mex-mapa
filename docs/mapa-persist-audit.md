@@ -45,3 +45,20 @@ Swap explícito, persistencia táctil, refresco explícito post-commit si listen
 - **Post-persist**: espera hasta 4.8s que snapshot refleje el cambio; si no, resync + 850ms; si no, mensaje "pulsa Refrescar".
 - Checklist completo: `docs/mapa-beta-hardening-checklist.md`.
 
+## Reconciliación FASE 14C-A / 14C-B
+
+Estado final documentado: persistencia en `/app/mapa` queda **GO CONTROLADO** para beta, detrás de flags, rol autorizado y confirmación. `/mapa` sigue disponible como backup legacy y no redirige.
+
+| Punto | Estado reconciliado |
+|-------|---------------------|
+| Contrato `guardarNuevasPosiciones` | PASS por revisión de código; sin cambio de contrato |
+| Doble validación snapshot/fresh | PASS por revisión de código |
+| Confirmación antes de persistir | PASS por revisión de código |
+| Espera/resync post-persist | PASS por revisión de código |
+| Destino ocupado | PASS por revisión de código: rechazo `OCCUPIED`, sin swap |
+| Lock re-drag mientras persiste | **P1 pendiente** |
+| Error state con CTA legacy 14C-B | PASS por revisión de código |
+| Toolbar legacy visible 14C-B | PASS por revisión de código |
+| QA manual persist real + verificación legacy | WARNING pendiente |
+
+No se marcaron pruebas manuales como PASS. Esta reconciliación no tocó runtime, login/auth, Functions ni reglas.
