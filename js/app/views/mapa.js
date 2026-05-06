@@ -33,6 +33,11 @@ let _incSummaryState = {
   failed: false
 };
 let _incSyncGen = 0;
+let _unitActionsCtrl = null;
+let _unitActionDefs = [];
+let _unitActionStatus = 'idle';
+let _unitActionMsg = '';
+let _unitActionLastError = '';
 
 let _viewState = {
   query: '',
@@ -52,6 +57,145 @@ function _debugInc(label, extra) {
     if (localStorage.getItem('mex.debug.mode') !== '1') return;
     console.warn(`[app/mapa/inc] ${label}`, extra || '');
   } catch (_) {}
+}
+
+function _debugUnitActions(label, extra) {
+  try {
+    if (localStorage.getItem('mex.debug.mode') !== '1') return;
+    console.warn(`[app/mapa/unit-actions] ${label}`, extra || '');
+  } catch (_) {}
+}
+
+function _defaultUnitActionDefs() {
+  return [
+    { id: 'update_status', label: 'Cambiar estado', available: false, blocked: true, reason: 'Disponible en legacy' },
+    { id: 'update_notes', label: 'Actualizar notas', available: false, blocked: true, reason: 'Disponible en legacy' },
+    { id: 'update_gas', label: 'Actualizar gasolina', available: false, blocked: true, reason: 'Disponible en legacy' },
+    { id: 'mark_ready', label: 'Marcar lista / no lista', available: false, blocked: true, reason: 'Disponible en legacy' },
+    { id: 'send_to_preparacion', label: 'Enviar a cola preparación', available: false, blocked: true, reason: 'Disponible en legacy' },
+    { id: 'delete_unit', label: 'Eliminar unidad', available: false, blocked: true, reason: 'Bloqueado en App beta' },
+    { id: 'create_unit', label: 'Alta de unidad', available: false, blocked: true, reason: 'Bloqueado en App beta' },
+    { id: 'bulk_actions', label: 'Acciones masivas', available: false, blocked: true, reason: 'Bloqueado en App beta' },
+    { id: 'close_formal', label: 'Cierre formal', available: false, blocked: true, reason: 'Bloqueado en App beta' },
+    { id: 'pdf_reports', label: 'Reportes / PDF', available: false, blocked: true, reason: 'Bloqueado en App beta' },
+    { id: 'edit_map_structure', label: 'Editar estructura de mapa', available: false, blocked: true, reason: 'Bloqueado en App beta' }
+  ];
+}
+
+function _unitActionContext() {
+  const st = getState();
+  const profile = st?.profile || {};
+  return {
+    state: st,
+    profile,
+    role: String(st?.role || '').toUpperCase(),
+    plaza: String(st?.currentPlaza || profile?.plazaAsignada || '').toUpperCase(),
+    user: {
+      uid: String(profile.uid || profile.id || st?.user?.uid || ''),
+      email: String(profile.email || st?.user?.email || ''),
+      nombre: _actorName()
+    },
+    debug: (() => {
+      try {
+        return localStorage.getItem('mex.debug.mode') === '1';
+      } catch (_) {
+        return false;
+      }
+    })()
+  };
+}
+
+async function _loadUnitActionsController() {
+  _unitActionStatus = 'loading';
+  _unitActionMsg = 'Preparando acciones operativas seguras…';
+  _unitActionLastError = '';
+  try {
+    const mod = await import('/js/app/features/mapa/mapa-unit-actions.js');
+    const factory =
+      mod?.createMapaUnitActionsController ||
+      mod?.createUnitActionsController ||
+      mod?.createController ||
+      null;
+    if (typeof factory !== 'function') {
+      throw new Error('factory_missing');
+    }
+    const dbRef = window._db || window.firebase?.firestore?.() || null;
+    _unitActionsCtrl = factory({
+      api: window.api,
+      db: dbRef,
+      getState,
+      getCurrentPlaza: () => String(getState()?.currentPlaza || '').toUpperCase(),
+      getCurrentUser: () => getState()?.profile || {},
+      profile: () => getState()?.profile || {},
+      debug: _unitActionContext().debug
+    });
+    _unitActionStatus = 'ready';
+    _unitActionMsg = '';
+    _unitActionDefs = _defaultUnitActionDefs();
+  } catch (err) {
+    _unitActionsCtrl = null;
+    _unitActionStatus = 'missing';
+    _unitActionDefs = _defaultUnitActionDefs();
+    _unitActionLastError = String(err?.message || err || 'module_load_error');
+    _unitActionMsg = 'Acciones mutantes no disponibles en esta versión. Puedes usar acciones rápidas y mapa legacy.';
+    _debugUnitActions('module load failed', err);
+  } finally {
+    _render();
+  }
+}
+
+function _selectedUnit() {
+  const snap = _viewState.snapshot;
+  const selectedId = String(_viewState.selectedId || '');
+  if (!snap || !selectedId) return null;
+  const opts = {
+    query: _viewState.query,
+    selectedId,
+    dndActive: _dndFullyEnabled(getState(), snap),
+    plaza: snap.plaza || String(getState().currentPlaza || '').toUpperCase(),
+    quickFilter: _viewState.quickFilter,
+    viewMode: _viewState.viewMode,
+    incidentsByMva: _incSummaryState.byMva,
+    incidentsReady: _incSummaryState.ready,
+    incidentsFailed: _incSummaryState.failed
+  };
+  return getResolvedMapaSelection(snap, opts);
+}
+
+async function _readAvailableUnitActions(selected) {
+  if (!selected) return _defaultUnitActionDefs();
+  if (!_unitActionsCtrl || _unitActionStatus !== 'ready') return _defaultUnitActionDefs();
+  try {
+    const ctx = _unitActionContext();
+    const fn = _unitActionsCtrl.getAvailableActions || _unitActionsCtrl.resolveAvailableActions;
+    if (typeof fn !== 'function') return _defaultUnitActionDefs();
+    const out = await fn.call(_unitActionsCtrl, selected, ctx);
+    if (!Array.isArray(out) || !out.length) return _defaultUnitActionDefs();
+    return out.map(item => ({
+      id: String(item?.id || item?.action || ''),
+      label: String(item?.label || item?.action || 'Acción'),
+      available: item?.available === true,
+      blocked: item?.blocked === true,
+      reason: String(item?.reason || ''),
+      mutates: item?.mutates === true,
+      requiresConfirm: item?.requiresConfirm === true || item?.requiresConfirmation === true
+    })).map(item => {
+      if (!item.id) return item;
+      if (['open_legacy', 'create_incident_link_only', 'copy_json', 'refresh_unit'].includes(item.id)) {
+        return { ...item, available: false, blocked: true, reason: 'Acción rápida disponible arriba' };
+      }
+      return item;
+    });
+  } catch (err) {
+    _debugUnitActions('getAvailableActions failed', err);
+    return _defaultUnitActionDefs();
+  }
+}
+
+async function _refreshSelectedUnitActions() {
+  const selected = _selectedUnit();
+  _unitActionDefs = await _readAvailableUnitActions(selected);
+  _render();
 }
 
 async function _syncIncSummaryPlaza(plazaRaw) {
@@ -319,6 +463,162 @@ function _showPersistConfirm({ mva, fromKey, toKey }) {
   });
 }
 
+function _payloadTemplateForAction(actionId) {
+  const id = String(actionId || '').toLowerCase();
+  if (id === 'update_status' || id.includes('estado')) {
+    return {
+      estado: '',
+      options: ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'TRASLADO', 'RESGUARDO', 'NO ARRENDABLE']
+    };
+  }
+  if (id === 'update_notes' || id.includes('nota')) {
+    return { notas: '' };
+  }
+  if (id === 'update_gas' || id.includes('gas')) {
+    return { gasolina: '' };
+  }
+  if (id === 'mark_ready' || id.includes('lista') || id.includes('ready')) {
+    return { listo: true };
+  }
+  if (id === 'send_to_preparacion' || id.includes('cola') || id.includes('prep')) {
+    return { destino: 'cola-preparacion' };
+  }
+  return {};
+}
+
+async function _showUnitActionModal({ action, selected, context }) {
+  return new Promise(resolve => {
+    if (!_container) return resolve({ cancelled: true });
+    const aid = String(action?.id || '').trim();
+    const payload = _payloadTemplateForAction(aid);
+    const hasEstado = Object.prototype.hasOwnProperty.call(payload, 'estado');
+    const hasNotas = Object.prototype.hasOwnProperty.call(payload, 'notas');
+    const hasGas = Object.prototype.hasOwnProperty.call(payload, 'gasolina');
+    const hasListo = Object.prototype.hasOwnProperty.call(payload, 'listo');
+    const hasDestino = Object.prototype.hasOwnProperty.call(payload, 'destino');
+    const wrap = document.createElement('div');
+    wrap.className = 'app-mapa-modal-overlay';
+    wrap.setAttribute('role', 'dialog');
+    const estadoOptions = (payload.options || [])
+      .map(v => `<option value="${esc(v)}">${esc(v)}</option>`)
+      .join('');
+    wrap.innerHTML = `
+      <div class="app-mapa-modal app-mapa-modal--unit-action">
+        <p class="app-mapa-modal-title">${esc(action?.label || 'Acción operativa')}</p>
+        <p class="app-mapa-modal-body">Esta acción modificará la unidad <strong>${esc(selected?.mva || '—')}</strong> en plaza <strong>${esc(context?.plaza || '—')}</strong>.</p>
+        <div class="app-mapa-form-grid">
+          ${hasEstado ? `<label class="app-mapa-form-field"><span>Estado</span><select data-fld="estado"><option value="">Seleccionar...</option>${estadoOptions}</select></label>` : ''}
+          ${hasGas ? `<label class="app-mapa-form-field"><span>Gasolina</span><input data-fld="gasolina" type="text" value="${esc(String(payload.gasolina || ''))}" placeholder="Ej. 3/4, F, H"/></label>` : ''}
+          ${hasNotas ? `<label class="app-mapa-form-field"><span>Notas</span><textarea data-fld="notas" rows="3" placeholder="Detalle operativo"></textarea></label>` : ''}
+          ${hasListo ? `<label class="app-mapa-form-field app-mapa-form-field--check"><input data-fld="listo" type="checkbox" ${payload.listo ? 'checked' : ''}/> <span>Marcar como lista</span></label>` : ''}
+          ${hasDestino ? `<label class="app-mapa-form-field"><span>Destino</span><input data-fld="destino" type="text" value="${esc(String(payload.destino || 'cola-preparacion'))}" /></label>` : ''}
+        </div>
+        <p class="app-mapa-form-msg" data-msg></p>
+        <div class="app-mapa-modal-actions">
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--ghost" data-act="cancel">Cancelar</button>
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">Confirmar</button>
+        </div>
+      </div>`;
+    const msgEl = wrap.querySelector('[data-msg]');
+    const done = result => {
+      wrap.remove();
+      resolve(result);
+    };
+    const collectPayload = () => {
+      const next = {};
+      wrap.querySelectorAll('[data-fld]').forEach(el => {
+        const k = String(el.getAttribute('data-fld') || '');
+        if (!k) return;
+        if (el.type === 'checkbox') next[k] = Boolean(el.checked);
+        else next[k] = String(el.value || '').trim();
+      });
+      return next;
+    };
+    wrap.addEventListener('click', e => {
+      if (e.target === wrap) done({ cancelled: true });
+    });
+    wrap.querySelector('[data-act="cancel"]')?.addEventListener('click', () => done({ cancelled: true }));
+    wrap.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
+      const out = collectPayload();
+      if (msgEl) msgEl.textContent = '';
+      done({ cancelled: false, payload: out });
+    });
+    _container.appendChild(wrap);
+  });
+}
+
+async function _runUnitAction(actionId) {
+  const selected = _selectedUnit();
+  if (!selected) {
+    if (_dndHintEl) {
+      _dndHintEl.textContent = 'Selecciona una unidad para ejecutar acciones operativas.';
+      _dndHintEl.hidden = false;
+    }
+    return;
+  }
+  const defs = await _readAvailableUnitActions(selected);
+  const action = defs.find(a => String(a.id || '') === String(actionId || ''));
+  if (!action || action.available !== true || action.blocked === true) {
+    if (_dndHintEl) {
+      _dndHintEl.textContent = `${action?.label || actionId}: disponible en legacy o sin permisos.`;
+      _dndHintEl.hidden = false;
+    }
+    return;
+  }
+  if (!_unitActionsCtrl) return;
+  const ctx = _unitActionContext();
+  const prepared = await _showUnitActionModal({ action, selected, context: ctx });
+  if (prepared.cancelled) {
+    if (_dndHintEl) {
+      _dndHintEl.textContent = 'Acción cancelada. No se realizaron cambios.';
+      _dndHintEl.hidden = false;
+    }
+    return;
+  }
+  const payload = prepared.payload || {};
+  payload.confirmed = true;
+  try {
+    const validateFn = _unitActionsCtrl.validateUnitAction;
+    if (typeof validateFn === 'function') {
+      const v = await validateFn.call(_unitActionsCtrl, action.id, selected, payload, ctx);
+      if (v && v.ok === false) {
+        if (_dndHintEl) {
+          _dndHintEl.textContent = v.message || 'La validación de la acción falló.';
+          _dndHintEl.hidden = false;
+        }
+        return;
+      }
+    }
+    const execFn = _unitActionsCtrl.executeUnitAction;
+    if (typeof execFn !== 'function') {
+      throw new Error('executeUnitAction no disponible');
+    }
+    const res = await execFn.call(_unitActionsCtrl, action.id, selected, payload, ctx);
+    const ok = Boolean(res?.ok ?? res?.success ?? false);
+    if (!ok) {
+      if (_dndHintEl) {
+        _dndHintEl.textContent = `No se pudo ejecutar la acción: ${res?.message || res?.error || 'error'}`;
+        _dndHintEl.hidden = false;
+      }
+      return;
+    }
+    if (_dndHintEl) {
+      _dndHintEl.textContent = res?.message || 'Acción operativa completada.';
+      _dndHintEl.hidden = false;
+    }
+    if (res?.requiresResync || res?.resync || res?.refresh) {
+      await _lifecycle?.resyncData?.();
+    }
+    _render();
+  } catch (err) {
+    _debugUnitActions('run action failed', err);
+    if (_dndHintEl) {
+      _dndHintEl.textContent = `Error ejecutando acción: ${String(err?.message || err || 'desconocido')}`;
+      _dndHintEl.hidden = false;
+    }
+  }
+}
+
 export function mount({ container }) {
   _container = container;
   _trackListener('create', 'view', { plaza: getState().currentPlaza || '' });
@@ -411,6 +711,7 @@ export function mount({ container }) {
   _lifecycle.mount();
   _trackListener('create', 'lifecycle');
   void _syncIncSummaryPlaza(plaza);
+  void _loadUnitActionsController();
 
   _dndController = createMapaDndController({
     getSnapshot: () => _lifecycle?.getSnapshot?.()?.data || null,
@@ -597,6 +898,7 @@ export function mount({ container }) {
     _updatePlazaHeader(nextPlaza);
     _viewState.selectedId = '';
     _viewState.snapshot = null;
+    _unitActionDefs = _defaultUnitActionDefs();
     if (_contentEl) _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Actualizando plaza…</div>';
     void _syncIncSummaryPlaza(nextPlaza);
     _lifecycle?.setPlaza(nextPlaza);
@@ -634,10 +936,26 @@ export function mount({ container }) {
       navigator.clipboard?.writeText?.(v).catch(() => {});
       return;
     }
+    const refreshBtn = event.target?.closest?.('[data-app-mapa-detail="refresh"]');
+    if (refreshBtn) {
+      _lifecycle?.resyncData?.();
+      if (_dndHintEl) {
+        _dndHintEl.textContent = 'Actualizando datos del mapa…';
+        _dndHintEl.hidden = false;
+      }
+      return;
+    }
+    const unitActionBtn = event.target?.closest?.('[data-app-mapa-unit-action]');
+    if (unitActionBtn) {
+      const actionId = String(unitActionBtn.getAttribute('data-app-mapa-unit-action') || '');
+      if (actionId) void _runUnitAction(actionId);
+      return;
+    }
     const btn = event.target?.closest?.('[data-unit-id]');
     if (!btn) return;
     _viewState.selectedId = String(btn.getAttribute('data-unit-id') || '');
     _render();
+    void _refreshSelectedUnitActions();
   };
   _container.addEventListener('click', _onClick);
 
@@ -741,6 +1059,16 @@ export function mount({ container }) {
 
 export function unmount() {
   _removeMapaModals();
+  try {
+    _unitActionsCtrl?.cleanup?.();
+  } catch (err) {
+    _debugUnitActions('cleanup', err);
+  }
+  _unitActionsCtrl = null;
+  _unitActionDefs = [];
+  _unitActionStatus = 'idle';
+  _unitActionMsg = '';
+  _unitActionLastError = '';
   _incSyncGen++;
   try {
     _incCtrl?.cleanup?.();
@@ -886,7 +1214,15 @@ function _render() {
   if (_viewState.selectedId && !getResolvedMapaSelection(snapshot, readOpts)) {
     _viewState.selectedId = '';
     readOpts.selectedId = '';
+    _unitActionDefs = _defaultUnitActionDefs();
   }
+  readOpts.unitActions = {
+    secureActions: _unitActionDefs,
+    message:
+      _unitActionStatus === 'ready'
+        ? ''
+        : (_unitActionMsg || (_unitActionLastError ? `Acciones mutantes no disponibles (${_unitActionLastError}).` : 'Acciones mutantes no disponibles.'))
+  };
   renderMapaReadOnly(_contentEl, snapshot, readOpts);
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateBetaBanner();

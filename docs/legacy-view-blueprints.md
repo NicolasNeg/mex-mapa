@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13F + actualización mapa **14C.1-B** · **Fecha inventario:** 2026-04-29 · **Mapa `/app/mapa`:** 2026-05-04 (`mapa-beta-hardening-checklist.md`, `mapa-*-audit.md`)  
+**Versión:** FASE 13F + actualización mapa **14F-B** · **Fecha inventario:** 2026-04-29 · **Mapa `/app/mapa`:** 2026-05-05 (`mapa-beta-hardening-checklist.md`, `mapa-*-audit.md`)  
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -50,8 +50,8 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA (14C)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + bloque resumen en detalle + CTA incidencias; `?q=` incluye texto de incidencias; **14C-B** banner «Mapa App Shell · Beta operativa», barra con «Abrir mapa legacy», errores con enlace legacy, detalle con MVA destacado; DnD sin cambios de flags por defecto |
-| **Falta (P2)** | Editor `editmap`, radar/chat legacy, PDF, altas masivas → `/mapa` |
+| **Migrado App** | **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA + ACCIONES_SEGURAS_BETA (14F)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + bloque resumen en detalle + CTA incidencias; `?q=` incluye texto de incidencias; **14C-B** banner «Mapa App Shell · Beta operativa», barra con «Abrir mapa legacy», errores con enlace legacy, detalle con MVA destacado; **14F-B** añade bloque “Acciones operativas” (rápidas activas y mutaciones solo si módulo `mapa-unit-actions.js` existe y autoriza); DnD sin cambios de flags por defecto |
+| **Falta (P2)** | Editor `editmap`, radar/chat legacy, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa` |
 | **Esta fase** | `/mapa` **sin redirect**; legacy intacto |
 
 ---

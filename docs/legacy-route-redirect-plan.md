@@ -1,7 +1,7 @@
-# Legacy Route Redirect Plan (FASE 14C — mapa App hardened beta, sin redirect legacy)
+# Legacy Route Redirect Plan (FASE 14F — mapa App hardened + acciones seguras beta, sin redirect legacy)
 
-Fecha: 2026-05-04 · **14C.1-B** sincroniza auditorías `mapa-*-audit.md` + checklist.  
-Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`). `/app/mapa` es **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA**: incidencias por MVA (solo lectura), CTA legacy visible, sin migración de editor/PDF. **P0 bloqueantes (auditoría estática): 0**; QA manual E2E en checklist = **WARNING**.
+Fecha: 2026-05-05 · **14F-B** integra UI de acciones seguras en panel de unidad.  
+Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect automático (`legacy-shell-bridge` no incluye `/mapa` en `shouldAutoRedirect`). `/app/mapa` es **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA + ACCIONES_SEGURAS_BETA**: incidencias por MVA + acciones rápidas operativas; mutaciones quedan condicionadas al módulo opcional `mapa-unit-actions.js`. Sin ese módulo, no hay mutaciones activas y se mantiene fallback legacy.
 
 ## Criterios
 
@@ -22,7 +22,7 @@ Nota: redirects App-first donde aplica; `/mapa` permanece **sin** redirect autom
 | `/cuadre` | `/app/cuadre` | Paridad visual/operativa fuerte (12F/12G/13F) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
-| `/mapa` | `/app/mapa` | **Beta operativa fuerte + hardened (14C)** — centro operativo en App Shell | KEEP_LEGACY_BACKUP · DO_NOT_REDIRECT | Redirect **no activado**: legacy sigue siendo entrada válida para editor, radar y herramientas completas |
+| `/mapa` | `/app/mapa` | **Beta operativa fuerte + hardened + acciones seguras (14F)** — centro operativo en App Shell | KEEP_LEGACY_BACKUP · DO_NOT_REDIRECT | Redirect **no activado**: legacy sigue siendo entrada válida para editor, radar y herramientas completas |
 | `/solicitud` | N/A | Flujo público de acceso | PUBLIC_FORM / DO_NOT_REDIRECT | Mantener ruta independiente de login/alta |
 | `/editmap` | `/app/mapa` (editor futuro) | Editor legacy acoplado | DO_NOT_REDIRECT | Extraer editor plenamente al App Shell |
 

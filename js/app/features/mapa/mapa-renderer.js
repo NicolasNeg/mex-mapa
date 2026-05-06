@@ -372,7 +372,75 @@ function _detailIncBlock(mva, byMva, ready, failed) {
   `;
 }
 
-function _detailPanel(selected, plaza, incOpts = {}) {
+function _renderUnitActionsBlock(selected, plaza, actions = {}) {
+  if (!selected) return '';
+  const mva = String(selected.mva || '').trim();
+  const mvaEnc = encodeURIComponent(mva);
+  const quick = `
+    <div class="app-mapa-actions-grid app-mapa-actions-grid--quick">
+      <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(mva)}">Copiar MVA</button>
+      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
+      <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Ver incidencias</a>
+      <a class="app-mapa-detail-link" href="/app/cuadre">Abrir en cuadre</a>
+      <a class="app-mapa-detail-link" href="/mapa?q=${mvaEnc}">Abrir mapa legacy</a>
+      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="refresh">Refrescar</button>
+    </div>
+  `;
+
+  const secureActions = Array.isArray(actions.secureActions) ? actions.secureActions : [];
+  const actionable = secureActions.filter(a => a?.available && !a?.blocked);
+  const blocked = secureActions.filter(a => !a?.available || a?.blocked);
+
+  const secureHtml = actionable.length
+    ? `<div class="app-mapa-actions-grid">
+      ${actionable
+        .map(action => {
+          const aid = String(action.id || '').trim();
+          const lbl = String(action.label || aid || 'Acción');
+          const confirmText = action.requiresConfirm ? ' data-app-mapa-requires-confirm="1"' : '';
+          return `<button type="button" class="app-mapa-action-btn app-mapa-action-btn--primary" data-app-mapa-unit-action="${esc(aid)}"${confirmText}>${esc(lbl)}</button>`;
+        })
+        .join('')}
+    </div>`
+    : `<p class="app-mapa-actions-muted">Sin acciones mutantes habilitadas para tu rol/plaza en esta versión.</p>`;
+
+  const blockedHtml = blocked.length
+    ? `<ul class="app-mapa-actions-legacy-list">
+      ${blocked
+        .map(action => {
+          const lbl = String(action?.label || action?.id || 'Acción');
+          const reason = String(action?.reason || 'Disponible en legacy');
+          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Disponible en legacy')}</small></li>`;
+        })
+        .join('')}
+    </ul>`
+    : '';
+
+  const globalMsg = actions.message
+    ? `<p class="app-mapa-actions-muted">${esc(actions.message)}</p>`
+    : '';
+
+  return `
+    <section class="app-mapa-actions">
+      <h3>Acciones operativas</h3>
+      ${globalMsg}
+      <div class="app-mapa-actions-group">
+        <p class="app-mapa-actions-title">Acciones rápidas</p>
+        ${quick}
+      </div>
+      <div class="app-mapa-actions-group">
+        <p class="app-mapa-actions-title">Acciones seguras</p>
+        ${secureHtml}
+      </div>
+      <div class="app-mapa-actions-group">
+        <p class="app-mapa-actions-title">Disponible en legacy</p>
+        ${blockedHtml || '<p class="app-mapa-actions-muted">Sin bloqueos adicionales en esta unidad.</p>'}
+      </div>
+    </section>
+  `;
+}
+
+function _detailPanel(selected, plaza, incOpts = {}, actionsOpts = {}) {
   if (!selected) {
     return '<p class="app-mapa-detail-placeholder">Selecciona una unidad para ver detalle.</p>';
   }
@@ -388,10 +456,7 @@ function _detailPanel(selected, plaza, incOpts = {}) {
       <p class="app-mapa-detail-posline"><span class="app-mapa-detail-k">Posición / celda</span> <span class="app-mapa-detail-v">${esc(selected.pos || '—')}</span></p>
       <p class="app-mapa-detail-subline"><span class="app-mapa-detail-k">Ubicación</span> <span class="app-mapa-detail-v">${esc(selected.ubicacion || '—')}</span></p>
     </div>
-    <p class="app-mapa-detail-actions-top">
-      <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(selected.mva)}">Copiar MVA</button>
-      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
-    </p>
+    ${_renderUnitActionsBlock(selected, plaza, actionsOpts)}
     ${_detailIncBlock(mvaK, incidentsByMva, incidentsReady, incidentsFailed)}
     <div class="app-mapa-detail-fields">
     <p><strong>Estado:</strong> ${esc(selected.estado)}</p>
@@ -405,11 +470,6 @@ function _detailPanel(selected, plaza, incOpts = {}) {
     <p><strong>Actualizado:</strong> ${_fmtRawDate(raw)}</p>
     <p><strong>Por:</strong> ${esc(_rawAuthor(raw))}</p>
     </div>
-    <nav class="app-mapa-detail-nav" aria-label="Enlaces rápidos">
-      <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Incidencias / bitácora</a>
-      <a class="app-mapa-detail-link" href="/app/cuadre">Cuadre App</a>
-      <a class="app-mapa-detail-link" href="/mapa?q=${mvaEnc}">Mapa legacy (completo)</a>
-    </nav>
     <p><a class="app-mapa-mini-cta" href="/mapa">Abrir mapa classic completo</a></p>
     <small class="app-mapa-detail-foot">Editor de layout, PDF y altas masivas siguen en mapa legacy.</small>
   `;
@@ -460,6 +520,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     incidentsReady: options.incidentsReady === true,
     incidentsFailed: options.incidentsFailed === true
   };
+  const actionsOpts = options.unitActions || {};
 
   if (options.viewMode === 'list') {
     const filterLine = vm.query
@@ -509,7 +570,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
           <tbody>${rows || `<tr><td colspan="5" class="app-mapa-list-empty">Sin unidades para este filtro.</td></tr>`}</tbody>
         </table>
       </div>
-      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts)}</aside>
+      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
     </section>`;
     return;
   }
@@ -570,7 +631,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         </div>
         ${buckets ? `<div class="app-mapa-buckets" id="app-mapa-buckets">${buckets}</div>` : ''}
       </div>
-      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts)}</aside>
+      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
     </section>
   `;
 
