@@ -50,9 +50,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **BETA_OPERATIVA_FUERTE + HARDENED_FOR_BETA + ACCIONES_SEGURAS_BETA + LEGACY_VISUAL_PORT_P0 (14G)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + bloque resumen en detalle + CTA incidencias; `?q=` incluye texto de incidencias; **14F-B** bloque “Acciones operativas” (rápidas activas y mutaciones solo si módulo `mapa-unit-actions.js` existe y autoriza); **14G** porta visual P0 del legacy real: canvas oscuro, cajones tipo patio, unidades por estado con gas/badges, toolbar y panel detalle; DnD sin cambios de flags por defecto |
-| **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan, editor `editmap`, radar/chat legacy, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa` |
-| **Esta fase** | 14G port visual P0; `/mapa` **sin redirect**; legacy intacto |
+| **Migrado App** | **OFICIAL_OPERATIVA (15A)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + bloque resumen en detalle + CTA incidencias; `?q=` incluye texto de incidencias; **14F-B** bloque “Acciones operativas” (rápidas activas y mutaciones solo si módulo `mapa-unit-actions.js` existe y autoriza); **14G** porta visual P0 del mapa clásico real; **15A** activa `/mapa → /app/mapa` con escape `mex.legacy.force=1`; DnD sigue con flags por defecto |
+| **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan, editor `editmap`, radar/chat completo, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa?legacy=1` |
+| **Esta fase** | 15A oficializa `/app/mapa`; `/mapa` redirige App-first; mapa clásico intacto con escape |
 
 ---
 
@@ -218,7 +218,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 ## Próximos pasos (roadmap técnico)
 
 1. Consolidar `/solicitud` público como flujo canónico pre-login y validar duplicados/errores con QA.
-2. Incidencias App: mantener hardening funcional (sin operaciones destructivas ni subida compleja de adjuntos), y conservar fallback legacy para flujo avanzado.
+2. Incidencias App: mantener hardening funcional (sin operaciones destructivas ni subida compleja de adjuntos), y conservar mapa clásico para flujo avanzado.
 3. Mensajes App: layout chatv2 + mismas llamadas API.
 4. Cerrar huecos de paridad visual restante en Cuadre/Admin/Profile.
 5. Mantener Admin escritura sensible en legacy hasta auditar edición segura de roles/plazas/catálogos.

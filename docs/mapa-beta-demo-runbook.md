@@ -1,8 +1,8 @@
-# Runbook demo beta - `/app/mapa`
+# Runbook demo beta - `/app/mapa` (histórico)
 
 **Fase:** 14D-A
 **Fecha:** 2026-05-04
-**Estado:** demo beta controlada, docs-only
+**Estado:** histórico / obsoleto desde FASE 15A. `/app/mapa` ya es **OFICIAL_OPERATIVA**; usar `docs/mapa-vista-oficial.md` como guía vigente.
 
 ---
 

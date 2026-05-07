@@ -20,6 +20,15 @@
   var appRoute = routeMap[path] || '';
   var query = window.location.search || '';
   var hash = window.location.hash || '';
+  var params = new URLSearchParams(query || '');
+  var legacyParam = params.get('legacy') === '1';
+  if (legacyParam && path === '/mapa') {
+    try {
+      localStorage.setItem('mex.legacy.force', '1');
+    } catch (_) {}
+  }
+  params.delete('legacy');
+  var cleanQuery = params.toString() ? '?' + params.toString() : '';
 
   if (path === '/gestion') {
     var tab = new URLSearchParams(window.location.search).get('tab');
@@ -35,12 +44,14 @@
   }
 
   function shouldAutoRedirect() {
+    if (legacyParam && path === '/mapa') return false;
     if (shouldForceLegacy()) return false;
     if (path === '/home') return true;
     if (path === '/profile') return true;
     if (path === '/mensajes') return true;
     if (path === '/cola-preparacion') return true;
     if (path === '/incidencias') return true;
+    if (path === '/mapa') return true;
     return false;
   }
 
@@ -95,10 +106,12 @@
   }
   var banner = document.createElement('a');
   banner.id = 'legacyAppShellBanner';
-  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias');
-  banner.href = isForcedOperationalLegacy ? (appRoute + query + hash) : appRoute;
-  if (isForcedOperationalLegacy) {
-    banner.innerHTML = '<span class="mat">info</span><span>Estás en legacy · Abrir App Shell</span>';
+  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias' || path === '/mapa');
+  banner.href = isForcedOperationalLegacy ? (appRoute + cleanQuery + hash) : appRoute;
+  if (isForcedOperationalLegacy && path === '/mapa') {
+    banner.innerHTML = '<span class="mat">info</span><span>Estás en mapa clásico · Abrir mapa operativo</span>';
+  } else if (isForcedOperationalLegacy) {
+    banner.innerHTML = '<span class="mat">info</span><span>Estás en vista clásica · Abrir App Shell</span>';
   } else {
     banner.innerHTML = '<span class="mat">open_in_new</span><span>Abrir en App Shell</span>';
   }

@@ -68,17 +68,17 @@ function _debugUnitActions(label, extra) {
 
 function _defaultUnitActionDefs() {
   return [
-    { id: 'update_status', label: 'Cambiar estado', available: false, blocked: true, reason: 'Disponible en legacy' },
-    { id: 'update_notes', label: 'Actualizar notas', available: false, blocked: true, reason: 'Disponible en legacy' },
-    { id: 'update_gas', label: 'Actualizar gasolina', available: false, blocked: true, reason: 'Disponible en legacy' },
-    { id: 'mark_ready', label: 'Marcar lista / no lista', available: false, blocked: true, reason: 'Disponible en legacy' },
-    { id: 'send_to_preparacion', label: 'Enviar a cola preparación', available: false, blocked: true, reason: 'Disponible en legacy' },
-    { id: 'delete_unit', label: 'Eliminar unidad', available: false, blocked: true, reason: 'Bloqueado en App beta' },
-    { id: 'create_unit', label: 'Alta de unidad', available: false, blocked: true, reason: 'Bloqueado en App beta' },
-    { id: 'bulk_actions', label: 'Acciones masivas', available: false, blocked: true, reason: 'Bloqueado en App beta' },
-    { id: 'close_formal', label: 'Cierre formal', available: false, blocked: true, reason: 'Bloqueado en App beta' },
-    { id: 'pdf_reports', label: 'Reportes / PDF', available: false, blocked: true, reason: 'Bloqueado en App beta' },
-    { id: 'edit_map_structure', label: 'Editar estructura de mapa', available: false, blocked: true, reason: 'Bloqueado en App beta' }
+    { id: 'update_status', label: 'Cambiar estado', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
+    { id: 'update_notes', label: 'Actualizar notas', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
+    { id: 'update_gas', label: 'Actualizar gasolina', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
+    { id: 'mark_ready', label: 'Marcar lista / no lista', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
+    { id: 'send_to_preparacion', label: 'Enviar a cola preparación', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
+    { id: 'delete_unit', label: 'Eliminar unidad', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
+    { id: 'create_unit', label: 'Alta de unidad', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
+    { id: 'bulk_actions', label: 'Acciones masivas', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
+    { id: 'close_formal', label: 'Cierre formal', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
+    { id: 'pdf_reports', label: 'Reportes / PDF', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
+    { id: 'edit_map_structure', label: 'Editar estructura de mapa', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' }
   ];
 }
 
@@ -137,7 +137,7 @@ async function _loadUnitActionsController() {
     _unitActionStatus = 'missing';
     _unitActionDefs = _defaultUnitActionDefs();
     _unitActionLastError = String(err?.message || err || 'module_load_error');
-    _unitActionMsg = 'Acciones mutantes no disponibles en esta versión. Puedes usar acciones rápidas y mapa legacy.';
+    _unitActionMsg = 'Acciones mutantes no disponibles para esta unidad. Puedes usar acciones rápidas o abrir el mapa clásico.';
     _debugUnitActions('module load failed', err);
   } finally {
     _render();
@@ -289,7 +289,7 @@ function _readAppMapaDndPersistFlag() {
   }
 }
 
-/** Roles que no deben tener preview ni persistencia DnD App Shell (incl. operación y auxiliares). */
+/** Roles que no deben tener movimiento ni guardado DnD App Shell (incl. operación y auxiliares). */
 const _DND_PREVIEW_DENIED = new Set([
   'CORPORATIVO_USER',
   'JEFE_OPERACION',
@@ -298,7 +298,7 @@ const _DND_PREVIEW_DENIED = new Set([
 ]);
 
 /**
- * Quién puede usar DnD preview: PROGRAMADOR, o cuenta admin global (Firestore isAdmin + esGlobal),
+ * Quién puede usar movimiento DnD: PROGRAMADOR, o cuenta admin global (Firestore isAdmin + esGlobal),
  * excluyendo CORPORATIVO_USER y JEFE_OPERACION explícitamente.
  */
 function _canRolePreviewDnd(state) {
@@ -327,7 +327,7 @@ function _dndFullyEnabled(state, snapshot) {
   return _readAppMapaDndFlag() && _canRolePreviewDnd(state) && _hasCajonStructure(snapshot);
 }
 
-/** Persistencia: además del preview, flag localStorage + mismo gate de rol + estructura. */
+/** Guardado: además del movimiento, flag localStorage + mismo gate de rol + estructura. */
 function _dndPersistFullyEnabled(state, snapshot) {
   return (
     _dndFullyEnabled(state, snapshot) &&
@@ -373,12 +373,12 @@ function _snapshotShowsMove(mva, destKey) {
   return Boolean(u && _spotTok(u.pos || 'LIMBO') === _spotTok(destKey));
 }
 
-function _betaModeLabel(state, snapshot) {
+function _mapModeLabel(state, snapshot) {
   const ro = !_dndFullyEnabled(state, snapshot);
-  if (ro) return 'Solo lectura';
-  if (!_readAppMapaDndPersistFlag()) return 'DnD vista previa';
-  if (_dndPersistFullyEnabled(state, snapshot)) return 'DnD persistente experimental';
-  return 'DnD vista previa';
+  if (ro) return 'Consulta';
+  if (!_readAppMapaDndPersistFlag()) return 'Movimiento sin guardado';
+  if (_dndPersistFullyEnabled(state, snapshot)) return 'Movimiento con guardado';
+  return 'Movimiento sin guardado';
 }
 
 function _fmtShort(ts) {
@@ -412,17 +412,17 @@ function _updateMetaLines() {
   }
 }
 
-function _updateExperimentalResetBtn() {
-  const btn = _container?.querySelector('[data-app-mapa-action="clear-experimental"]');
+function _updateMovementResetBtn() {
+  const btn = _container?.querySelector('[data-app-mapa-action="clear-movement"]');
   if (!btn) return;
   btn.style.display = _canRolePreviewDnd(getState()) ? 'inline-flex' : 'none';
 }
 
-function _updateBetaBanner() {
-  const el = _container?.querySelector('#app-mapa-beta-state');
+function _updateMapModeBanner() {
+  const el = _container?.querySelector('#app-mapa-mode-state');
   if (!el) return;
   const snap = _viewState.snapshot;
-  el.textContent = _betaModeLabel(getState(), snap);
+  el.textContent = _mapModeLabel(getState(), snap);
 }
 
 function _updatePlazaHeader(plazaValue = '') {
@@ -560,7 +560,7 @@ async function _runUnitAction(actionId) {
   const action = defs.find(a => String(a.id || '') === String(actionId || ''));
   if (!action || action.available !== true || action.blocked === true) {
     if (_dndHintEl) {
-      _dndHintEl.textContent = `${action?.label || actionId}: disponible en legacy o sin permisos.`;
+      _dndHintEl.textContent = `${action?.label || actionId}: disponible en mapa clásico o sin permisos.`;
       _dndHintEl.hidden = false;
     }
     return;
@@ -635,9 +635,9 @@ export function mount({ container }) {
 
   _container.innerHTML = `
     <section class="app-mapa-view">
-      <div class="app-mapa-beta-banner" id="app-mapa-beta-banner">
-        <span class="app-mapa-beta-banner-title">Mapa · Centro operativo (App Shell)</span>
-        <span class="app-mapa-beta-banner-state" id="app-mapa-beta-state">${esc(_betaModeLabel(state, null))}</span>
+      <div class="app-mapa-status-banner" id="app-mapa-status-banner">
+        <span class="app-mapa-status-banner-title">Mapa operativo</span>
+        <span class="app-mapa-status-banner-state" id="app-mapa-mode-state">${esc(_mapModeLabel(state, null))}</span>
         <div class="app-mapa-meta-lines" aria-live="polite">
           <div id="app-mapa-sync-line" class="app-mapa-meta-line"></div>
           <div id="app-mapa-last-move" class="app-mapa-meta-line app-mapa-meta-line--persist" hidden></div>
@@ -645,24 +645,24 @@ export function mount({ container }) {
       </div>
       <header class="app-mapa-head">
         <div>
-          <span class="app-mapa-badge app-mapa-badge--beta">BETA · HARDENED (14C)</span>
-          <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">DnD (vista / persistencia según rol y flags)</span>
-          <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Persistencia lista</span>
+          <span class="app-mapa-badge app-mapa-badge--official">OFICIAL · OPERATIVO</span>
+          <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento habilitado</span>
+          <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento con guardado</span>
           <h1>Mapa operativo</h1>
           <p>Plaza activa: <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></p>
         </div>
-        <a class="app-mapa-cta" href="/mapa">Mapa legacy completo</a>
+        <a class="app-mapa-cta" href="/mapa?legacy=1">Abrir mapa clásico</a>
       </header>
-      <div class="app-mapa-toolbar" role="toolbar" aria-label="Acciones mapa beta">
+      <div class="app-mapa-toolbar" role="toolbar" aria-label="Acciones mapa operativo">
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Refrescar mapa</button>
-        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--legacy" data-app-mapa-action="open-legacy" title="Editor, PDF, radar y herramientas completas">Abrir mapa legacy</button>
-        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="copy-diag">Copiar diagnóstico</button>
+        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--legacy" data-app-mapa-action="open-legacy" title="Editor, PDF, radar y herramientas completas">Abrir mapa clásico</button>
+        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="copy-diag" style="display:${_canRolePreviewDnd(state) ? 'inline-flex' : 'none'}">Copiar diagnóstico</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-unplaced">Ver sin ubicación / huérfanos</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-occupancy">Ver ocupación</button>
-        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--danger" data-app-mapa-action="clear-experimental" style="display:none;">Desactivar modo experimental</button>
+        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--danger" data-app-mapa-action="clear-movement" style="display:none;">Desactivar movimiento</button>
       </div>
       <div class="app-mapa-note" role="note">
-        Solo lectura operativa: flota y <code>mapa_config</code> en vivo. Editor de patio, PDF y altas masivas están en <strong>mapa legacy</strong> (botón arriba o barra de herramientas).
+        Vista operativa oficial: flota y <code>mapa_config</code> en vivo. Editor de patio, PDF, radar y altas masivas están en <strong>mapa clásico</strong>.
       </div>
       <div class="app-mapa-controls">
         <div class="app-mapa-quick" role="toolbar" aria-label="Filtros rápidos">
@@ -868,7 +868,7 @@ export function mount({ container }) {
       _render();
       return {
         message:
-          'Guardado en servidor. Si no ves el cambio, pulsa «Refrescar mapa» o abre el mapa legacy.',
+          'Guardado en servidor. Si no ves el cambio, pulsa «Refrescar mapa» o abre el mapa clásico.',
         outcome: 'saved'
       };
     },
@@ -987,9 +987,10 @@ export function mount({ container }) {
     }
     if (act === 'open-legacy') {
       try {
-        window.location.assign('/mapa');
+        localStorage.setItem('mex.legacy.force', '1');
+        window.location.assign('/mapa?legacy=1');
       } catch (err) {
-        console.warn('[app/mapa] open legacy', err);
+        console.warn('[app/mapa] open classic map', err);
       }
       return;
     }
@@ -1023,14 +1024,14 @@ export function mount({ container }) {
       document.querySelector('.app-mapa-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
-    if (act === 'clear-experimental') {
+    if (act === 'clear-movement') {
       try {
         localStorage.removeItem('mex.appMapa.dnd');
         localStorage.removeItem('mex.appMapa.dndPersist');
       } catch (_) {}
       _lastPersistSummary = null;
       if (_dndHintEl) {
-        _dndHintEl.textContent = 'Modo experimental desactivado en este navegador.';
+        _dndHintEl.textContent = 'Movimiento desactivado en este navegador.';
         _dndHintEl.hidden = false;
       }
       _syncDndController();
@@ -1042,9 +1043,9 @@ export function mount({ container }) {
 
   _lastDndEligibility = _dndFullyEnabled(getState(), null);
   _syncDndController();
-  _updateBetaBanner();
+  _updateMapModeBanner();
   _updateMetaLines();
-  _updateExperimentalResetBtn();
+  _updateMovementResetBtn();
   _syncFilterChips();
 
   _offState = subscribe(() => {
@@ -1123,8 +1124,8 @@ function _syncDndController() {
       _dndHintEl.hidden = true;
     }
   }
-  _updateBetaBanner();
-  _updateExperimentalResetBtn();
+  _updateMapModeBanner();
+  _updateMovementResetBtn();
 }
 
 function _syncFilterChips() {
@@ -1185,7 +1186,7 @@ function _render() {
   }
   if (snapshot.missingIndex) {
     _contentEl.innerHTML = renderErrorState(
-      'Falta un índice de Firestore para esta consulta. Un administrador debe crearlo, o usa el mapa legacy mientras tanto.'
+      'Falta un índice de Firestore para esta consulta. Un administrador debe crearlo, o usa el mapa clásico mientras tanto.'
     );
     _syncMapaUrlQuery();
     return;
@@ -1225,9 +1226,9 @@ function _render() {
   };
   renderMapaReadOnly(_contentEl, snapshot, readOpts);
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
-  _updateBetaBanner();
+  _updateMapModeBanner();
   _updateMetaLines();
-  _updateExperimentalResetBtn();
+  _updateMovementResetBtn();
   _syncFilterChips();
   _syncMapaUrlQuery();
   requestAnimationFrame(() => {

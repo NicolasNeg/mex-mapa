@@ -1,6 +1,6 @@
 # Blueprint visual legacy `/mapa` → App Shell `/app/mapa`
 
-Fecha: 2026-05-06 · FASE 14G · Estado: **P0 visual implementado en App Shell**
+Fecha: 2026-05-06 · FASE 14G/15A · Estado: **P0 visual implementado y oficializado en App Shell**
 
 ## 1. Resumen visual del `/mapa` legacy
 
@@ -132,4 +132,4 @@ P2 visual pendiente:
 
 ## Estado final 14G
 
-`/app/mapa` queda como **BETA_OPERATIVA_FUERTE + LEGACY_VISUAL_PORT_P0**. `/mapa` queda como **KEEP_LEGACY_BACKUP** y **NO redirige**.
+`/app/mapa` queda como **OFICIAL_OPERATIVA** desde 15A. `/mapa` queda como **CLASSIC_FALLBACK** y redirige App-first a `/app/mapa` salvo `mex.legacy.force=1` o `?legacy=1`.

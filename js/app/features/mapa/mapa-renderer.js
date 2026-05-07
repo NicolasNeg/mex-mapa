@@ -424,7 +424,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
       <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Ver incidencias</a>
       <a class="app-mapa-detail-link" href="/app/cuadre">Abrir en cuadre</a>
-      <a class="app-mapa-detail-link" href="/mapa?q=${mvaEnc}">Abrir mapa legacy</a>
+      <a class="app-mapa-detail-link" href="/mapa?legacy=1&q=${mvaEnc}">Abrir mapa clásico</a>
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="refresh">Refrescar</button>
     </div>
   `;
@@ -451,8 +451,8 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
       ${blocked
         .map(action => {
           const lbl = String(action?.label || action?.id || 'Acción');
-          const reason = String(action?.reason || 'Disponible en legacy');
-          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Disponible en legacy')}</small></li>`;
+          const reason = String(action?.reason || 'Disponible en mapa clásico');
+          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Disponible en mapa clásico')}</small></li>`;
         })
         .join('')}
     </ul>`
@@ -475,7 +475,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
         ${secureHtml}
       </div>
       <div class="app-mapa-actions-group">
-        <p class="app-mapa-actions-title">Disponible en legacy</p>
+        <p class="app-mapa-actions-title">Disponible en mapa clásico</p>
         ${blockedHtml || '<p class="app-mapa-actions-muted">Sin bloqueos adicionales en esta unidad.</p>'}
       </div>
     </section>
@@ -512,8 +512,8 @@ function _detailPanel(selected, plaza, incOpts = {}, actionsOpts = {}) {
     <p><strong>Actualizado:</strong> ${_fmtRawDate(raw)}</p>
     <p><strong>Por:</strong> ${esc(_rawAuthor(raw))}</p>
     </div>
-    <p><a class="app-mapa-mini-cta" href="/mapa">Abrir mapa classic completo</a></p>
-    <small class="app-mapa-detail-foot">Editor de layout, PDF y altas masivas siguen en mapa legacy.</small>
+    <p><a class="app-mapa-mini-cta" href="/mapa?legacy=1">Abrir mapa clásico completo</a></p>
+    <small class="app-mapa-detail-foot">Editor de layout, PDF y altas masivas siguen en mapa clásico.</small>
   `;
 }
 
@@ -527,7 +527,7 @@ export function renderErrorState(label = 'No se pudo cargar el mapa.', opts = {}
     <div class="app-mapa-state-error-msg">${esc(label)}</div>
     ${
       legacy
-        ? `<p class="app-mapa-legacy-fallback">¿Funciones avanzadas? <a class="app-mapa-legacy-fallback-link" href="/mapa">Abrir mapa completo (legacy)</a> · editor, PDF y altas masivas.</p>`
+        ? `<p class="app-mapa-legacy-fallback">¿Funciones avanzadas? <a class="app-mapa-legacy-fallback-link" href="/mapa?legacy=1">Abrir mapa clásico</a> · editor, PDF y altas masivas.</p>`
         : ''
     }
   </div>`;
@@ -667,7 +667,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         <div class="app-mapa-canvas">
           ${
             vm.slotRows.length === 0 && !(vm.rows || []).length
-              ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa completo para revisar configuración.')
+              ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa clásico para revisar configuración.')
               : `<div class="app-mapa-canvas-viewport"><div class="app-mapa-canvas-inner">${mainRows}</div></div>`
           }
         </div>
