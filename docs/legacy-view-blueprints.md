@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13F + actualización mapa **15B** · **Fecha inventario:** 2026-04-29 · **Mapa `/app/mapa`:** 2026-05-06 (`mapa-vista-completa-oficial.md`)
+**Versión:** FASE 15C · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** `mapa-visual-port-15c.md`
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -50,9 +50,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **OFICIAL_OPERATIVA_COMPLETA_P1 (15B)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + mini bitácora en detalle; **14F-B** bloque “Acciones operativas”; **15B** modales oficiales para estado/notas/gas/lista, incidencia rápida y lista operativa; **15A** activa `/mapa → /app/mapa` con escape `mex.legacy.force=1`; DnD sigue con flags por defecto |
+| **Migrado App** | **OFICIAL_OPERATIVA_COMPLETA_P1_VISUAL_15C**: grid/celdas reales, filtros, summary incidencias, acciones, DnD con flags, y corrección visual: patio oscuro, canvas dominante, cajones compactos, unidades compactas y sin óvalo/curva gigante |
 | **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan, editor `editmap`, radar/chat completo, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa?legacy=1` |
-| **Esta fase** | 15B completa flujos operativos principales; `/mapa` sigue App-first; mapa clásico intacto con escape |
+| **Esta fase** | 15C corrige port visual real; `/mapa` sigue App-first; mapa clásico intacto con escape |
 
 ---
 
@@ -147,7 +147,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **HTML** | `cuadre.html` |
 | **JS** | `js/views/cuadre.js` |
 | **CSS** | Legacy: estilos de `mapa.css` embebidos en `cuadre.html`; App: `css/app-cuadre.css` |
-| **Migrado App** | Consola patio operativa fuerte (`js/app/views/cuadre.js`) |
+| **Migrado App** | **OFICIAL_OPERATIVA_VISUAL_15C**: consola de patio oscura y densa en `js/app/views/cuadre.js` + `css/app-cuadre.css` |
 | **Migrado App 11B/11G/12F/13F** | Tabs `flota/externos/admins/historial/classic`, KPIs top estado/ubicación/categoría, tabla amplia con columna de última actualización, panel detalle lateral (copiar MVA/JSON, abrir mapa App y legacy), filtro por fecha historial, búsqueda base maestra read-only, filtros avanzados por estado/categoría/ubicación/origen, export CSV local y copiar resumen filtrado |
 | **Falta** | Controles avanzados legacy (PDF/insertar/eliminar/edición masiva/cierre formal) y acciones de escritura total |
 | **Peligrosas bloqueadas** | Eliminar unidad, editar estado global, insertar unidad, cierre formal, PDF/reportes oficiales, edición masiva |

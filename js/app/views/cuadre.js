@@ -394,7 +394,7 @@ function _renderTableSkeleton() {
 }
 
 function _renderTableError(msg) {
-  _setHTML('#cqvTableBody', `<tr><td colspan="10"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir cuadre classic</a></div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="10"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir módulo clásico</a></div></td></tr>`);
 }
 
 function _renderSummary() {
@@ -573,8 +573,8 @@ function _renderDetail(item) {
         <button type="button" class="cqv__btn" data-cqv-copy="${esc(item.mva || '')}">Copiar MVA</button>
         <button type="button" class="cqv__btn" data-cqv-copy-json>Copiar datos</button>
         <a class="cqv__btn" href="/app/mapa?q=${encodeURIComponent(item.mva || '')}">Abrir en mapa App</a>
-        <a class="cqv__btn cqv__btn--primary" href="/cuadre">Consola classic</a>
-        <a class="cqv__btn" href="/mapa">Mapa legacy</a>
+        <a class="cqv__btn cqv__btn--primary" href="/cuadre">Módulo clásico</a>
+        <a class="cqv__btn" href="/mapa?legacy=1&tab=cuadre">Mapa clásico</a>
       </div>
       <p class="cqv__hint">Acciones seguras en App: refrescar/copiar/abrir mapa. Edición operativa y reportes oficiales siguen en legacy.</p>
     </div>`;
@@ -597,15 +597,15 @@ function _layout({ plaza, role, user }) {
     <section class="cqv">
       <div class="cqv__top" data-cqv-top>
         <div class="cqv__title-wrap">
-          <h1 class="cqv__title">CONSOLA DE PATIO</h1>
-          <span class="cqv__beta">BETA</span>
+          <span class="cqv__phase">CUADRE OPERATIVO</span>
+          <h1 class="cqv__title">Consola de patio</h1>
         </div>
         <div class="cqv__actions">
           <button class="cqv__btn" type="button" id="cqvRefresh" title="Re-sincronizar datos">Refrescar</button>
           <button class="cqv__btn" type="button" id="cqvExportCsv" title="Exportar tabla filtrada localmente">Exportar CSV</button>
           <button class="cqv__btn" type="button" id="cqvCopySummary" title="Copiar resumen de tabla filtrada">Copiar resumen</button>
-          <a class="cqv__btn cqv__btn--primary" href="/mapa">Mapa classic</a>
-          <a class="cqv__btn" href="/cuadre">Cuadre completo</a>
+          <a class="cqv__btn cqv__btn--primary" href="/mapa?legacy=1&tab=cuadre">Mapa clásico</a>
+          <a class="cqv__btn" href="/cuadre">Módulo clásico</a>
           <a class="cqv__btn" data-app-route="/app/dashboard" href="/app/dashboard">Dashboard</a>
         </div>
       </div>
@@ -622,9 +622,9 @@ function _layout({ plaza, role, user }) {
             <button class="cqv__tab" data-cqv-tab="externos" type="button">Externos</button>
             <button class="cqv__tab" data-cqv-tab="admins" type="button">Cuadre admins</button>
             <button class="cqv__tab" data-cqv-tab="historial" type="button">Historial</button>
-            <button class="cqv__tab" data-cqv-tab="classic" type="button">Classic</button>
+            <button class="cqv__tab" data-cqv-tab="classic" type="button">Clásico</button>
           </div>
-          <p class="cqv__toolbar-hint">La búsqueda principal vive en el header App Shell (paridad migrada).</p>
+          <p class="cqv__toolbar-hint">Consola App de lectura operativa. La búsqueda principal vive en el header App Shell.</p>
           <div class="cqv__search-row">
             <select id="cqvSort" class="cqv__search" style="max-width:220px;">
               <option value="estado:asc">Estado</option>
@@ -669,7 +669,7 @@ function _layout({ plaza, role, user }) {
           <div class="cqv__panel cqv__notice">
             <strong>Consola operativa App</strong>
             <p>Lectura con KPIs, filtros, detalle y acciones seguras. Altas/bajas/ediciones masivas/reportes críticos se mantienen en legacy.</p>
-            <a class="cqv__btn cqv__btn--primary" href="/cuadre" style="width:100%;justify-content:center;margin-top:8px;">Abrir cuadre classic</a>
+            <a class="cqv__btn cqv__btn--primary" href="/cuadre" style="width:100%;justify-content:center;margin-top:8px;">Abrir módulo clásico</a>
           </div>
           <div class="cqv__panel cqv__mini-stats">
             <div class="cqv__mini-title">Búsqueda base maestra (solo lectura)</div>
