@@ -16,7 +16,7 @@ function _ensureMensajesCss() {
   if (document.querySelector('link[data-msg-app-css]')) { _msgCssInjected = true; return; }
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/css/mensajes.css';
+  link.href = '/css/app-mensajes.css';
   link.setAttribute('data-msg-app-css', '1');
   document.head.appendChild(link);
   _msgCssInjected = true;
@@ -26,7 +26,9 @@ function _debugMsg(...args) {
   try {
     if (localStorage.getItem('mex.debug.mode') !== '1') return;
     console.log('[app/mensajes]', ...args);
-  } catch (_) {}
+  } catch (err) {
+    console.warn('[app/mensajes] debug unavailable', err);
+  }
 }
 
 function _isAlive(seq) {
@@ -121,6 +123,8 @@ export async function mount({ container }) {
     roleFilter: '',
     statusFilter: '',
     selectedPeer: '',
+    lastUpdated: 0,
+    statusMessage: '',
     loading: false,
     sending: false
   };
@@ -130,7 +134,7 @@ export async function mount({ container }) {
   _bindActions();
   _loadMessages();
   if (_refreshTimer) {
-    try { clearInterval(_refreshTimer); } catch (_) {}
+    try { clearInterval(_refreshTimer); } catch (err) { console.warn('[app/mensajes] refresh cleanup', err); }
     _refreshTimer = null;
   }
   _refreshTimer = setInterval(() => {
@@ -147,11 +151,11 @@ function _cleanup() {
   _mounted = false;
   _loadSeq += 1;
   if (typeof _offGlobalSearch === 'function') {
-    try { _offGlobalSearch(); } catch (_) {}
+    try { _offGlobalSearch(); } catch (err) { console.warn('[app/mensajes] search cleanup', err); }
   }
   _offGlobalSearch = null;
   if (_refreshTimer) {
-    try { clearInterval(_refreshTimer); } catch (_) {}
+    try { clearInterval(_refreshTimer); } catch (err) { console.warn('[app/mensajes] refresh cleanup', err); }
     _refreshTimer = null;
   }
   _state = null;
@@ -210,6 +214,7 @@ async function _loadMessages() {
     const rows = await _fetchMessagesForAllKnownIdentities(_state.me.queryIdentities);
     if (!_isAlive(seq)) return;
     _state.allMessages = Array.isArray(rows) ? rows : [];
+    _state.lastUpdated = Date.now();
     _rebuildConversations();
     await _hydratePeerMeta(seq);
     if (!_isAlive(seq)) return;
@@ -217,7 +222,9 @@ async function _loadMessages() {
     _renderFilterOptions();
     _renderConversations();
     _renderDetail();
+    _renderLastSync();
     _setText('#appMsgSendError', '');
+    _setStatus('', '');
   } catch (err) {
     if (!_isAlive(seq)) return;
     _setBodyError(err?.message || 'No se pudieron cargar los mensajes.');
@@ -243,7 +250,9 @@ async function _fetchMessagesForAllKnownIdentities(identities = []) {
         const current = uniqueRows.get(rowId);
         if (!current || _msgTs(row) > _msgTs(current)) uniqueRows.set(rowId, { ...row });
       });
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[app/mensajes] no se pudo cargar identidad', safeIdentity, err);
+    }
   }));
   return Array.from(uniqueRows.values()).sort((a, b) => _msgTs(b) - _msgTs(a));
 }
@@ -294,6 +303,7 @@ async function _sendMessage() {
     _state.selectedPeer = peerKey;
     _renderConversations();
     _renderDetail();
+    _setStatus('Mensaje enviado.', 'success');
   } catch (error) {
     _setText('#appMsgSendError', error?.message || 'No se pudo enviar el mensaje.');
   } finally {
@@ -326,7 +336,12 @@ async function _markSelectedConversationRead() {
     })
     .map(msg => msg.id);
   if (!unreadIncomingIds.length) return;
-  await marcarMensajesLeidosArray(unreadIncomingIds).catch(() => {});
+  try {
+    await marcarMensajesLeidosArray(unreadIncomingIds);
+  } catch (err) {
+    _setStatus(err?.message || 'No se pudo marcar como leído.', 'error');
+    return;
+  }
   _state.allMessages = _state.allMessages.map(msg => (
     unreadIncomingIds.includes(msg.id) ? { ...msg, leido: true } : msg
   ));
@@ -408,7 +423,9 @@ async function _hydratePeerMeta(seq = _loadSeq) {
         status: String(d.status || '').toUpperCase(),
         nombre: String(d.nombre || d.nombreCompleto || '')
       });
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[app/mensajes] metadata usuario', email, err);
+    }
   }
   if (!_isAlive(seq)) return;
   _state.peerMeta = next;

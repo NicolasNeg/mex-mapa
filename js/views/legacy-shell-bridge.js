@@ -22,7 +22,7 @@
   var hash = window.location.hash || '';
   var params = new URLSearchParams(query || '');
   var legacyParam = params.get('legacy') === '1';
-  if (legacyParam && (path === '/mapa' || path === '/cuadre')) {
+  if (legacyParam && (path === '/mapa' || path === '/cuadre' || path === '/mensajes')) {
     try {
       localStorage.setItem('mex.legacy.force', '1');
     } catch (err) {
@@ -47,7 +47,7 @@
   }
 
   function shouldAutoRedirect() {
-    if (legacyParam && (path === '/mapa' || path === '/cuadre')) return false;
+    if (legacyParam && (path === '/mapa' || path === '/cuadre' || path === '/mensajes')) return false;
     if (shouldForceLegacy()) return false;
     if (path === '/home') return true;
     if (path === '/profile') return true;
@@ -123,6 +123,8 @@
     banner.innerHTML = '<span class="mat">info</span><span>Estás en mapa clásico · Abrir mapa operativo</span>';
   } else if (isForcedOperationalLegacy && path === '/cuadre') {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en cuadre clásico · Abrir cuadre operativo</span>';
+  } else if (isForcedOperationalLegacy && path === '/mensajes') {
+    banner.innerHTML = '<span class="mat">info</span><span>Estás en mensajes clásico · Abrir mensajes operativo</span>';
   } else if (isForcedOperationalLegacy) {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en vista clásica · Abrir App Shell</span>';
   } else {
