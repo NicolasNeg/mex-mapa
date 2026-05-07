@@ -20,6 +20,7 @@ let _offGlobalSearch = null;
 let _offState = null;
 let _onClick = null;
 let _toolbarHandler = null;
+let _searchInputHandler = null;
 let _cssRef = null;
 let _dndHintEl = null;
 let _lastDndEligibility = null;
@@ -424,17 +425,20 @@ function _updateMetaLines() {
   }
 }
 
-function _updateMovementResetBtn() {
-  const btn = _container?.querySelector('[data-app-mapa-action="clear-movement"]');
-  if (!btn) return;
-  btn.style.display = _canRolePreviewDnd(getState()) ? 'inline-flex' : 'none';
-}
-
 function _updateMapModeBanner() {
   const el = _container?.querySelector('#app-mapa-mode-state');
   if (!el) return;
   const snap = _viewState.snapshot;
   el.textContent = _mapModeLabel(getState(), snap);
+}
+
+function _syncLocalSearchInput() {
+  const input = _container?.querySelector('#app-mapa-search');
+  const clearBtn = _container?.querySelector('[data-app-mapa-action="clear-search"]');
+  if (!input) return;
+  const q = String(_viewState.query || '');
+  if (input.value !== q) input.value = q;
+  if (clearBtn) clearBtn.hidden = q.length === 0;
 }
 
 function _updatePlazaHeader(plazaValue = '') {
@@ -755,36 +759,32 @@ export function mount({ container }) {
 
   _container.innerHTML = `
     <section class="app-mapa-view">
-      <div class="app-mapa-status-banner" id="app-mapa-status-banner">
-        <span class="app-mapa-status-banner-title">Mapa operativo</span>
-        <span class="app-mapa-status-banner-state" id="app-mapa-mode-state">${esc(_mapModeLabel(state, null))}</span>
-        <div class="app-mapa-meta-lines" aria-live="polite">
-          <div id="app-mapa-sync-line" class="app-mapa-meta-line"></div>
-          <div id="app-mapa-last-move" class="app-mapa-meta-line app-mapa-meta-line--persist" hidden></div>
-        </div>
-      </div>
       <header class="app-mapa-head">
         <div>
           <span class="app-mapa-badge app-mapa-badge--official">OFICIAL · OPERATIVO</span>
           <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento habilitado</span>
           <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento con guardado</span>
           <h1>Mapa operativo</h1>
-          <p>Plaza activa: <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></p>
+          <p>Plaza: <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong> · <strong id="app-mapa-mode-state">${esc(_mapModeLabel(state, null))}</strong></p>
         </div>
         <a class="app-mapa-cta" href="/mapa?legacy=1">Abrir mapa clásico</a>
       </header>
+      <div class="app-mapa-meta-lines" aria-live="polite">
+        <div id="app-mapa-sync-line" class="app-mapa-meta-line"></div>
+        <div id="app-mapa-last-move" class="app-mapa-meta-line app-mapa-meta-line--persist" hidden></div>
+      </div>
       <div class="app-mapa-toolbar" role="toolbar" aria-label="Acciones mapa operativo">
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Refrescar mapa</button>
         <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--legacy" data-app-mapa-action="open-legacy" title="Editor, PDF, radar y herramientas completas">Abrir mapa clásico</button>
-        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="copy-diag" style="display:${_canRolePreviewDnd(state) ? 'inline-flex' : 'none'}">Copiar diagnóstico</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-unplaced">Ver sin ubicación / huérfanos</button>
         <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-occupancy">Ver ocupación</button>
-        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--danger" data-app-mapa-action="clear-movement" style="display:none;">Desactivar movimiento</button>
-      </div>
-      <div class="app-mapa-note" role="note">
-        Vista operativa oficial: flota y <code>mapa_config</code> en vivo. Editor de patio, PDF, radar y altas masivas están en <strong>mapa clásico</strong>.
       </div>
       <div class="app-mapa-controls">
+        <label class="app-mapa-search-wrap" aria-label="Buscar unidad en mapa">
+          <span class="app-mapa-search-ic">search</span>
+          <input id="app-mapa-search" class="app-mapa-search-input" type="search" placeholder="Buscar MVA, placas, modelo, notas o incidencias" value="${esc(_viewState.query)}" autocomplete="off" />
+          <button type="button" class="app-mapa-search-clear" data-app-mapa-action="clear-search" ${_viewState.query ? '' : 'hidden'}>×</button>
+        </label>
         <div class="app-mapa-quick" role="toolbar" aria-label="Filtros rápidos">
           <span class="app-mapa-quick-label">Filtrar unidades</span>
           <button type="button" class="app-mapa-qf is-active" data-mapa-qf="all">Todos</button>
@@ -810,6 +810,14 @@ export function mount({ container }) {
   `;
   _contentEl = _container.querySelector('#app-mapa-content');
   _dndHintEl = _container.querySelector('#app-mapa-dnd-hint');
+  const _searchEl = _container.querySelector('#app-mapa-search');
+  if (_searchEl) {
+    _searchInputHandler = event => {
+      _viewState.query = String(event?.target?.value || '').trim();
+      _render();
+    };
+    _searchEl.addEventListener('input', _searchInputHandler);
+  }
 
   _lifecycle = createMapaLifecycleController({
     plaza,
@@ -1120,28 +1128,6 @@ export function mount({ container }) {
       }
       return;
     }
-    if (act === 'copy-diag') {
-      const d = _lifecycle?.getSnapshot?.()?.data;
-      const text = JSON.stringify(
-        {
-          route: window.location.pathname,
-          plaza: d?.plaza,
-          units: d?.units?.length,
-          structureCells: d?.structure?.length,
-          lastUpdated: d?.lastUpdated,
-          loading: d?.loading,
-          error: d?.error || null
-        },
-        null,
-        2
-      );
-      navigator.clipboard?.writeText?.(text).catch(() => {});
-      if (_dndHintEl) {
-        _dndHintEl.textContent = 'Diagnóstico copiado al portapapeles.';
-        _dndHintEl.hidden = false;
-      }
-      return;
-    }
     if (act === 'scroll-unplaced') {
       document.getElementById('app-mapa-buckets')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
@@ -1150,17 +1136,8 @@ export function mount({ container }) {
       document.querySelector('.app-mapa-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       return;
     }
-    if (act === 'clear-movement') {
-      try {
-        localStorage.removeItem('mex.appMapa.dnd');
-        localStorage.removeItem('mex.appMapa.dndPersist');
-      } catch (_) {}
-      _lastPersistSummary = null;
-      if (_dndHintEl) {
-        _dndHintEl.textContent = 'Movimiento desactivado en este navegador.';
-        _dndHintEl.hidden = false;
-      }
-      _syncDndController();
+    if (act === 'clear-search') {
+      _viewState.query = '';
       _render();
       return;
     }
@@ -1171,7 +1148,7 @@ export function mount({ container }) {
   _syncDndController();
   _updateMapModeBanner();
   _updateMetaLines();
-  _updateMovementResetBtn();
+  _syncLocalSearchInput();
   _syncFilterChips();
 
   _offState = subscribe(() => {
@@ -1204,6 +1181,9 @@ export function unmount() {
   _incSummaryState = { byMva: {}, plaza: '', ready: false, failed: false };
   if (_offPopstate) window.removeEventListener('popstate', _offPopstate);
   _offPopstate = null;
+  const _searchEl = _container?.querySelector('#app-mapa-search');
+  if (_searchEl && _searchInputHandler) _searchEl.removeEventListener('input', _searchInputHandler);
+  _searchInputHandler = null;
   if (_container && _toolbarHandler) _container.removeEventListener('click', _toolbarHandler);
   _toolbarHandler = null;
   if (_container && _onClick) _container.removeEventListener('click', _onClick);
@@ -1251,7 +1231,7 @@ function _syncDndController() {
     }
   }
   _updateMapModeBanner();
-  _updateMovementResetBtn();
+  _syncLocalSearchInput();
 }
 
 function _syncFilterChips() {
@@ -1354,7 +1334,7 @@ function _render() {
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateMapModeBanner();
   _updateMetaLines();
-  _updateMovementResetBtn();
+  _syncLocalSearchInput();
   _syncFilterChips();
   _syncMapaUrlQuery();
   requestAnimationFrame(() => {
@@ -1367,6 +1347,7 @@ function _bindGlobalSearch() {
     const route = String(event?.detail?.route || '');
     if (route && !route.startsWith('/app/mapa') && route !== '/mapa') return;
     _viewState.query = String(event?.detail?.query || '').trim();
+    _syncLocalSearchInput();
     _render();
   };
   window.addEventListener('mex:global-search', handler);

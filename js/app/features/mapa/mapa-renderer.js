@@ -594,6 +594,10 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     const queryUpper = String(vm.query || '').trim().toUpperCase();
     const noResults =
       Boolean(queryUpper) && vm.totalUnits > 0 && (vm.filteredCount || 0) === 0;
+    const limboCount = Array.isArray(vm.limboFiltered) ? vm.limboFiltered.length : 0;
+    const tallerCount = Array.isArray(vm.tallerFiltered) ? vm.tallerFiltered.length : 0;
+    const orphanCount = Array.isArray(vm.orphanFiltered) ? vm.orphanFiltered.length : 0;
+    const abiertasInc = Object.values(incOpts.incidentsByMva || {}).reduce((acc, item) => acc + Number(item?.abiertas || 0), 0);
     const rows = unitsFiltered.slice(0, 420).map(raw => {
       const nu = normalizeMapUnit(raw);
       const id = String(nu.id || nu.mva || '');
@@ -629,9 +633,13 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     }).join('');
     container.innerHTML = `
     <section class="app-mapa-summary">
-      <article><span>Unidades (filtro)</span><strong>${vm.totalUnits}</strong></article>
+      <article><span>Unidades visibles</span><strong>${vm.totalUnits}</strong></article>
       <article><span>Celdas</span><strong>${vm.slotRows.length}</strong></article>
       <article><span>Ocupación</span><strong>${esc(stateLabel)}</strong></article>
+      <article><span>Limbo</span><strong>${limboCount}</strong></article>
+      <article><span>Taller</span><strong>${tallerCount}</strong></article>
+      <article><span>Huérfanos</span><strong>${orphanCount}</strong></article>
+      <article><span>Incidencias abiertas</span><strong>${abiertasInc}</strong></article>
       <article><span>Plaza</span><strong>${esc(vm.plaza || '—')}</strong></article>
       ${filterLine}
     </section>
@@ -682,12 +690,20 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
   const queryUpper = String(vm.query || '').trim().toUpperCase();
   const noResults =
     Boolean(queryUpper) && vm.totalUnits > 0 && (vm.filteredCount || 0) === 0;
+  const limboCount = Array.isArray(vm.limboFiltered) ? vm.limboFiltered.length : 0;
+  const tallerCount = Array.isArray(vm.tallerFiltered) ? vm.tallerFiltered.length : 0;
+  const orphanCount = Array.isArray(vm.orphanFiltered) ? vm.orphanFiltered.length : 0;
+  const abiertasInc = Object.values(incOpts.incidentsByMva || {}).reduce((acc, item) => acc + Number(item?.abiertas || 0), 0);
 
   container.innerHTML = `
     <section class="app-mapa-summary">
-      <article><span>Unidades</span><strong>${vm.totalUnits}</strong></article>
-      <article><span>Celdas en estructura</span><strong>${vm.slotRows.length}</strong></article>
-      <article><span>Ocupación cajones</span><strong>${esc(stateLabel)}</strong></article>
+      <article><span>Unidades visibles</span><strong>${vm.totalUnits}</strong></article>
+      <article><span>Celdas</span><strong>${vm.slotRows.length}</strong></article>
+      <article><span>Ocupación</span><strong>${esc(stateLabel)}</strong></article>
+      <article><span>Limbo</span><strong>${limboCount}</strong></article>
+      <article><span>Taller</span><strong>${tallerCount}</strong></article>
+      <article><span>Huérfanos</span><strong>${orphanCount}</strong></article>
+      <article><span>Incidencias abiertas</span><strong>${abiertasInc}</strong></article>
       <article><span>Plaza</span><strong>${esc(vm.plaza || '—')}</strong></article>
       ${filterLine}
     </section>
