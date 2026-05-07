@@ -8,6 +8,8 @@ let _unsubData = null;
 let _unsubPlaza = null;
 let _offGlobalSearch = null;
 let _cssLink = null;
+let _unitActionsController = null;
+let _unitActionsLoadPromise = null;
 
 function _trackListener(action, name, extra = {}) {
   if (typeof window.__mexTrackListener !== 'function') return;
@@ -19,6 +21,9 @@ const qsa = selector => Array.from(_container?.querySelectorAll(selector) ?? [])
 
 const ESTADO_ORDER = { LISTO: 1, SUCIO: 2, MANTENIMIENTO: 3, RESGUARDO: 4, TRASLADO: 5, 'NO ARRENDABLE': 6, RETENIDA: 7, VENTA: 8, HYP: 9, 'EN RENTA': 10, EXTERNO: 11 };
 const ESTADO_COLOR = { LISTO: '#16a34a', SUCIO: '#d97706', MANTENIMIENTO: '#dc2626', TRASLADO: '#7c3aed', RESGUARDO: '#475569', EXTERNO: '#6d28d9' };
+const SAFE_ESTADOS = ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'RESGUARDO', 'TRASLADO', 'NO ARRENDABLE', 'RETENIDA', 'VENTA', 'HYP', 'EN RENTA'];
+const GAS_OPTIONS = ['N/A', 'VACIO', '1/4', '1/2', '3/4', 'LLENO'];
+const TABLE_COLSPAN = 12;
 const FILTERS = [
   { id: 'all', label: 'Todos' },
   { id: 'doble-cero', label: 'Doble cero' },
@@ -53,6 +58,9 @@ function _makeState(plaza) {
     originFilter: '',
     masterSearchQuery: '',
     masterSearchResults: [],
+    lastUpdated: 0,
+    actionStatus: null,
+    pendingAction: null,
     staleVersion: 0
   };
 }
@@ -72,6 +80,7 @@ export async function mount(ctx) {
   });
   _bindEvents();
   _bindGlobalSearch();
+  void _loadUnitActionsController();
   _toggleHistoryDateFilter();
   _renderMasterSearchResults();
   _unsubPlaza = onPlazaChange(next => _reloadForPlaza(next));
@@ -83,12 +92,16 @@ export async function mount(ctx) {
 export function unmount() { _cleanup(); }
 
 function _cleanup() {
-  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (_) {} _trackListener('cleanup', 'data-sub'); }
-  if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (_) {} _trackListener('cleanup', 'plaza-sub'); }
-  if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
+  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (err) { console.warn('[app/cuadre] cleanup data', err); } _trackListener('cleanup', 'data-sub'); }
+  if (typeof _unsubPlaza === 'function') { try { _unsubPlaza(); } catch (err) { console.warn('[app/cuadre] cleanup plaza', err); } _trackListener('cleanup', 'plaza-sub'); }
+  if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (err) { console.warn('[app/cuadre] cleanup search', err); } }
+  _removeCuadreModals();
+  try { _unitActionsController?.cleanup?.(); } catch (err) { console.warn('[app/cuadre] cleanup actions', err); }
   _unsubData = null;
   _unsubPlaza = null;
   _offGlobalSearch = null;
+  _unitActionsController = null;
+  _unitActionsLoadPromise = null;
   // Mantener CSS ya inyectado evita FOUC al volver a /app/cuadre.
   _cssLink = document.querySelector('link[data-cqv-css="1"]');
   _container = null;
@@ -124,17 +137,47 @@ function _ensureCss() {
   _cssLink = link;
 }
 
+async function _loadUnitActionsController() {
+  if (_unitActionsController) return _unitActionsController;
+  if (_unitActionsLoadPromise) return _unitActionsLoadPromise;
+  _unitActionsLoadPromise = import('/js/app/features/mapa/mapa-unit-actions.js')
+    .then(mod => {
+      const factory = mod.createMapaUnitActionsController || mod.createUnitActionsController || mod.createController;
+      if (typeof factory !== 'function') throw new Error('Controller de acciones no disponible.');
+      _unitActionsController = factory({
+        api: window.api || {},
+        getState,
+        getCurrentPlaza: () => _state?.plaza || getCurrentPlaza(),
+        getCurrentUser: () => getState()?.profile || getState()?.user || null,
+        profile: () => getState()?.profile || {}
+      });
+      return _unitActionsController;
+    })
+    .catch(err => {
+      _unitActionsController = null;
+      _showActionMessage(err?.message || 'No se pudo cargar el controlador de acciones.', 'error');
+      return null;
+    });
+  return _unitActionsLoadPromise;
+}
+
 function _reloadForPlaza(nextPlaza) {
   if (!_state || !_container) return;
   const normalized = String(nextPlaza || '').toUpperCase().trim();
   if (normalized === _state.plaza) return;
+  _removeCuadreModals();
   _state.plaza = normalized;
   _state.allItems = [];
   _state.adminsItems = [];
   _state.historyItems = [];
   _state.items = [];
   _state.selectedId = null;
+  _state.pendingAction = null;
+  _state.actionStatus = null;
+  _state.lastUpdated = 0;
   _setText('#cqvPlaza', normalized || '—');
+  _renderLastSync();
+  _showActionMessage('', '');
   _renderSummary();
   _renderTableSkeleton();
   _renderDetail(null);
@@ -147,7 +190,7 @@ function _reloadForPlaza(nextPlaza) {
 }
 
 function _stopListener() {
-  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (_) {} _trackListener('cleanup', 'data-sub'); }
+  if (typeof _unsubData === 'function') { try { _unsubData(); } catch (err) { console.warn('[app/cuadre] cleanup data', err); } _trackListener('cleanup', 'data-sub'); }
   _unsubData = null;
 }
 
@@ -161,8 +204,10 @@ function _startListener(plaza) {
     onData: rows => {
       if (!_state || !_container || _state.staleVersion !== version) return;
       _state.allItems = Array.isArray(rows) ? rows : [];
+      _state.lastUpdated = Date.now();
       _applyFiltersAndSort();
       _renderSummary();
+      _renderLastSync();
       _renderTable();
       _syncDetail();
     },
@@ -192,7 +237,7 @@ function _bindEvents() {
   });
   qsa('[data-cqv-tab]').forEach(btn => btn.addEventListener('click', () => {
     if ((btn.dataset.cqvTab || '') === 'classic') {
-      window.location.href = '/cuadre';
+      window.location.href = '/cuadre?legacy=1';
       return;
     }
     _state.tab = btn.dataset.cqvTab || 'regular';
@@ -220,6 +265,14 @@ function _bindEvents() {
   });
   q('#cqvExportCsv')?.addEventListener('click', _exportFilteredCsv);
   q('#cqvCopySummary')?.addEventListener('click', _copyFilteredSummary);
+  q('#cqvDetail')?.addEventListener('click', e => {
+    const actionBtn = e.target.closest('[data-cqv-action]');
+    if (!actionBtn) return;
+    const unit = _selectedUnit();
+    if (!unit) return;
+    e.preventDefault();
+    void _openActionModal(String(actionBtn.dataset.cqvAction || ''), unit);
+  });
   q('#cqvFilterCategoria')?.addEventListener('change', e => {
     _state.categoryFilter = String(e.target?.value || '').trim();
     _applyFiltersAndSort();
@@ -358,7 +411,9 @@ async function _loadSecondaryTabData() {
         pos: String(x.pos || '').trim(),
         updatedAt: x._updatedAt || x._createdAt || x.fecha || ''
       }));
-    } catch (_) {}
+    } catch (err) {
+      _showActionMessage(err?.message || 'No se pudo cargar cuadre admins.', 'error');
+    }
   }
   if (_state.tab === 'historial' && !_state.historyItems.length) {
     try {
@@ -379,30 +434,34 @@ async function _loadSecondaryTabData() {
         pos: String(x.pos || '').trim(),
         updatedAt: x._updatedAt || x._createdAt || x.fecha || ''
       }));
-    } catch (_) {}
+    } catch (err) {
+      _showActionMessage(err?.message || 'No se pudo cargar historial de cuadre.', 'error');
+    }
   }
 }
 
 function _renderNoPlaza() {
   _renderSummary();
   _renderDetail(null);
-  _setHTML('#cqvTableBody', `<tr><td colspan="9"><div class="cqv__empty">Selecciona una plaza para ver el cuadre.</div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="${TABLE_COLSPAN}"><div class="cqv__empty">Selecciona una plaza para ver el cuadre.</div></td></tr>`);
 }
 
 function _renderTableSkeleton() {
-  _setHTML('#cqvTableBody', `<tr><td colspan="10"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="${TABLE_COLSPAN}"><div class="cqv__empty">Cargando unidades...</div></td></tr>`);
 }
 
 function _renderTableError(msg) {
-  _setHTML('#cqvTableBody', `<tr><td colspan="10"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre" style="margin-top:10px;">Abrir módulo clásico</a></div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="${TABLE_COLSPAN}"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre?legacy=1" style="margin-top:10px;">Abrir cuadre clásico</a></div></td></tr>`);
 }
 
 function _renderSummary() {
   const src = _state?.allItems || [];
   _setText('#cqvSummaryTotal', src.length);
   _setText('#cqvSummaryListo', src.filter(x => x.estado === 'LISTO').length);
+  _setText('#cqvSummarySucios', src.filter(x => x.estado === 'SUCIO' || x.estado === 'MANTENIMIENTO').length);
   _setText('#cqvSummaryExternos', src.filter(x => String(x.tipo || '').toLowerCase() === 'externo').length);
   _setText('#cqvSummaryResguardo', src.filter(x => x.estado === 'RESGUARDO').length);
+  _setText('#cqvSummarySinUbicacion', src.filter(x => !String(x.ubicacion || '').trim()).length);
   const byEst = {};
   src.forEach(x => {
     const e = String(x.estado || 'SIN ESTADO').trim() || 'SIN ESTADO';
@@ -448,25 +507,39 @@ function _renderTable() {
     const message = _state.allItems.length
       ? 'Sin resultados para los filtros aplicados.'
       : 'No hay unidades para esta plaza.';
-    tbody.innerHTML = `<tr><td colspan="10"><div class="cqv__empty">${message}</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="${TABLE_COLSPAN}"><div class="cqv__empty">${message}</div></td></tr>`;
     return;
   }
   tbody.innerHTML = _state.items.map(item => {
     const selected = item.id === _state.selectedId ? 'is-selected' : '';
     return `<tr class="cqv__row ${selected}" data-cqv-row="${esc(item.id)}">
       <td><strong>${esc(item.mva || '—')}</strong></td>
-      <td>${_badge(item.categoria || 'S/C', '#0ea5e9', '#e0f2fe')}</td>
       <td>${esc(item.modelo || '—')}</td>
       <td>${esc(item.placas || '—')}</td>
+      <td>${_badge(item.categoria || 'S/C', '#0ea5e9', '#e0f2fe')}</td>
       <td>${_badge(item.gasolina || 'N/A', '#334155', '#e2e8f0')}</td>
       <td>${_estadoBadge(item.estado || 'SIN ESTADO')}</td>
-      <td>${_badge(String(item.tipo || 'renta').toUpperCase(), '#6d28d9', '#ede9fe')}</td>
       <td>${_badge(item.ubicacion || '—', '#4338ca', '#e0e7ff')}</td>
+      <td>${esc(item.pos || '—')}</td>
+      <td>${_badge(String(item.tipo || 'renta').toUpperCase(), '#6d28d9', '#ede9fe')}</td>
       <td title="${esc(item.notas || '')}" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;">${esc(item.notas || '—')}</td>
       <td>${esc(_fmtUpdatedCompact(item.updatedAt || item.fechaIngreso))}</td>
+      <td class="cqv__row-actions">
+        <button type="button" class="cqv__row-btn" data-cqv-row-action="detail" data-cqv-row-id="${esc(item.id)}">Detalle</button>
+        <button type="button" class="cqv__row-btn" data-cqv-row-action="copy" data-cqv-row-id="${esc(item.id)}">Copiar</button>
+      </td>
     </tr>`;
   }).join('');
-  qsa('[data-cqv-row]').forEach(row => row.addEventListener('click', () => {
+  qsa('[data-cqv-row]').forEach(row => row.addEventListener('click', async event => {
+    const rowButton = event.target.closest('[data-cqv-row-action]');
+    if (rowButton) {
+      event.stopPropagation();
+      const item = _findUnitById(rowButton.dataset.cqvRowId);
+      if (rowButton.dataset.cqvRowAction === 'copy' && item?.mva) {
+        await _writeClipboard(item.mva, 'MVA copiado.', 'No se pudo copiar MVA.');
+        return;
+      }
+    }
     _state.selectedId = row.dataset.cqvRow;
     _renderTable();
     _syncDetail();
@@ -494,8 +567,9 @@ async function _runMasterSearch() {
         return hay.includes(term);
       })
       .slice(0, 8);
-  } catch (_) {
+  } catch (err) {
     _state.masterSearchResults = [];
+    _showActionMessage(err?.message || 'No se pudo consultar la base maestra.', 'error');
   }
   _renderMasterSearchResults();
 }
@@ -572,24 +646,45 @@ function _renderDetail(item) {
       <div class="cqv__detail-actions">
         <button type="button" class="cqv__btn" data-cqv-copy="${esc(item.mva || '')}">Copiar MVA</button>
         <button type="button" class="cqv__btn" data-cqv-copy-json>Copiar datos</button>
-        <a class="cqv__btn" href="/app/mapa?q=${encodeURIComponent(item.mva || '')}">Abrir en mapa App</a>
-        <a class="cqv__btn cqv__btn--primary" href="/cuadre">Módulo clásico</a>
+        <button type="button" class="cqv__btn" data-cqv-action="refresh_unit">Refrescar unidad</button>
+        <a class="cqv__btn" href="/app/mapa?q=${encodeURIComponent(item.mva || '')}">Abrir en mapa</a>
+        <a class="cqv__btn cqv__btn--primary" href="/cuadre?legacy=1">Cuadre clásico</a>
         <a class="cqv__btn" href="/mapa?legacy=1&tab=cuadre">Mapa clásico</a>
       </div>
-      <p class="cqv__hint">Acciones seguras en App: refrescar/copiar/abrir mapa. Edición operativa y reportes oficiales siguen en legacy.</p>
+      ${_renderOperationalActions(item)}
+      <p class="cqv__hint">Eliminar, altas, masivos, cierre formal y reportes oficiales permanecen disponibles en cuadre clásico.</p>
     </div>`;
   panel.querySelector('[data-cqv-copy]')?.addEventListener('click', async ev => {
     const mva = ev.target?.getAttribute('data-cqv-copy') || item.mva;
-    try {
-      await navigator.clipboard?.writeText?.(mva);
-    } catch (_) {}
+    await _writeClipboard(mva, 'MVA copiado.', 'No se pudo copiar MVA.');
   });
   panel.querySelector('[data-cqv-copy-json]')?.addEventListener('click', async () => {
     const text = JSON.stringify(item || {}, null, 2);
-    try {
-      await navigator.clipboard?.writeText?.(text);
-    } catch (_) {}
+    await _writeClipboard(text, 'Datos copiados.', 'No se pudo copiar datos.');
   });
+}
+
+function _renderOperationalActions(item) {
+  if (!item || item.tipo === 'admin' || item.tipo === 'historial') {
+    return `<div class="cqv__blocked-actions"><strong>Acciones oficiales</strong><span>Solo lectura en esta pestaña.</span></div>`;
+  }
+  if (!_canOfferMutations(item)) {
+    return `<div class="cqv__blocked-actions"><strong>Acciones oficiales</strong><span>No disponibles para esta sesión, rol o plaza. Usa cuadre clásico.</span></div>`;
+  }
+  return `
+    <div class="cqv__ops">
+      <div class="cqv__ops-title">Acciones oficiales</div>
+      <div class="cqv__detail-actions">
+        <button type="button" class="cqv__btn cqv__btn--primary" data-cqv-action="update_status">Cambiar estado</button>
+        <button type="button" class="cqv__btn" data-cqv-action="update_notes">Actualizar notas</button>
+        <button type="button" class="cqv__btn" data-cqv-action="update_gas">Actualizar gasolina</button>
+        <button type="button" class="cqv__btn" data-cqv-action="mark_ready">Marcar listo</button>
+      </div>
+      <div class="cqv__blocked-actions">
+        <strong>Acciones avanzadas en cuadre clásico</strong>
+        <span>Alta, baja, masivos, cierre formal, PDF/reportes oficiales y cambios globales.</span>
+      </div>
+    </div>`;
 }
 
 function _layout({ plaza, role, user }) {
@@ -597,24 +692,27 @@ function _layout({ plaza, role, user }) {
     <section class="cqv">
       <div class="cqv__top" data-cqv-top>
         <div class="cqv__title-wrap">
-          <span class="cqv__phase">CUADRE OPERATIVO</span>
-          <h1 class="cqv__title">Consola de patio</h1>
+          <span class="cqv__phase">CONSOLA DE FLOTA</span>
+          <h1 class="cqv__title">Cuadre operativo</h1>
         </div>
         <div class="cqv__actions">
           <button class="cqv__btn" type="button" id="cqvRefresh" title="Re-sincronizar datos">Refrescar</button>
           <button class="cqv__btn" type="button" id="cqvExportCsv" title="Exportar tabla filtrada localmente">Exportar CSV</button>
           <button class="cqv__btn" type="button" id="cqvCopySummary" title="Copiar resumen de tabla filtrada">Copiar resumen</button>
           <a class="cqv__btn cqv__btn--primary" href="/mapa?legacy=1&tab=cuadre">Mapa clásico</a>
-          <a class="cqv__btn" href="/cuadre">Módulo clásico</a>
+          <a class="cqv__btn" href="/cuadre?legacy=1">Cuadre clásico</a>
           <a class="cqv__btn" data-app-route="/app/dashboard" href="/app/dashboard">Dashboard</a>
         </div>
       </div>
       <div class="cqv__meta">
         <span id="cqvPlaza" class="cqv__plaza">${esc(plaza || '—')}</span>
+        <span id="cqvLastSync">Sin sincronizar</span>
+        <span>·</span>
         <span>${esc(user)}</span>
         <span>·</span>
         <span>${esc(role || 'AUXILIAR')}</span>
       </div>
+      <div id="cqvActionMsg" class="cqv__action-msg" hidden></div>
       <div class="cqv__grid">
         <div class="cqv__panel cqv__panel--left">
           <div class="cqv__tabs">
@@ -654,7 +752,7 @@ function _layout({ plaza, role, user }) {
           <div class="cqv__chips cqv__chips--scroll">${FILTERS.map((f, i) => `<button class="cqv__chip ${i === 0 ? 'is-active' : ''}" data-cqv-filter="${f.id}" type="button">${esc(f.label)}</button>`).join('')}</div>
           <div class="cqv__table-wrap">
             <table class="cqv__table">
-              <thead><tr><th>MVA</th><th>Cat.</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Tipo</th><th>Ubic.</th><th>Notas</th><th>Act.</th></tr></thead>
+              <thead><tr><th>MVA</th><th>Modelo</th><th>Placas</th><th>Categoría</th><th>Gas</th><th>Estado</th><th>Ubicación</th><th>Posición</th><th>Tipo</th><th>Notas</th><th>Última act.</th><th>Acciones</th></tr></thead>
               <tbody id="cqvTableBody"></tbody>
             </table>
           </div>
@@ -663,13 +761,15 @@ function _layout({ plaza, role, user }) {
           <div class="cqv__kpi-grid">
             <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Total flota</div><div id="cqvSummaryTotal" class="cqv__kpi-value">0</div></div>
             <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Listos</div><div id="cqvSummaryListo" class="cqv__kpi-value" style="color:#16a34a;">0</div></div>
+            <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Sucio / mtto</div><div id="cqvSummarySucios" class="cqv__kpi-value" style="color:#f59e0b;">0</div></div>
             <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Externos</div><div id="cqvSummaryExternos" class="cqv__kpi-value" style="color:#6d28d9;">0</div></div>
             <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Resguardo</div><div id="cqvSummaryResguardo" class="cqv__kpi-value" style="color:#475569;">0</div></div>
+            <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Sin ubicación</div><div id="cqvSummarySinUbicacion" class="cqv__kpi-value" style="color:#ef4444;">0</div></div>
           </div>
           <div class="cqv__panel cqv__notice">
             <strong>Consola operativa App</strong>
-            <p>Lectura con KPIs, filtros, detalle y acciones seguras. Altas/bajas/ediciones masivas/reportes críticos se mantienen en legacy.</p>
-            <a class="cqv__btn cqv__btn--primary" href="/cuadre" style="width:100%;justify-content:center;margin-top:8px;">Abrir módulo clásico</a>
+            <p>KPIs, filtros, detalle, exportación y acciones oficiales con validación. Altas, bajas, masivos, cierre formal y reportes críticos permanecen en cuadre clásico.</p>
+            <a class="cqv__btn cqv__btn--primary" href="/cuadre?legacy=1" style="width:100%;justify-content:center;margin-top:8px;">Abrir cuadre clásico</a>
           </div>
           <div class="cqv__panel cqv__mini-stats">
             <div class="cqv__mini-title">Búsqueda base maestra (solo lectura)</div>
@@ -690,6 +790,207 @@ function _layout({ plaza, role, user }) {
     </section>`;
 }
 
+function _selectedUnit() {
+  return _findUnitById(_state?.selectedId);
+}
+
+function _findUnitById(id) {
+  if (!id || !_state) return null;
+  return [...(_state.items || []), ...(_state.allItems || []), ...(_state.adminsItems || []), ...(_state.historyItems || [])]
+    .find(item => String(item.id || '') === String(id)) || null;
+}
+
+function _canOfferMutations(item) {
+  if (!item || item.tipo === 'admin' || item.tipo === 'historial') return false;
+  if (typeof window.api?.aplicarEstado !== 'function') return false;
+  const gs = getState() || {};
+  const role = String(gs.role || gs.profile?.rol || gs.profile?.role || '').toUpperCase();
+  return role === 'PROGRAMADOR' || gs.profile?.isAdmin === true;
+}
+
+function _unitActionContext() {
+  const gs = getState() || {};
+  return {
+    state: {
+      ...gs,
+      plaza: _state?.plaza || getCurrentPlaza()
+    },
+    plaza: _state?.plaza || getCurrentPlaza(),
+    profile: gs.profile || {},
+    user: gs.profile || gs.user || null,
+    role: gs.role || gs.profile?.rol || gs.profile?.role || ''
+  };
+}
+
+async function _openActionModal(action, item) {
+  if (!_state || !item) return;
+  if (action === 'refresh_unit') {
+    _showActionMessage('Re-sincronizando unidad...', 'info');
+    if (_state.plaza) _startListener(_state.plaza);
+    return;
+  }
+  if (!_canOfferMutations(item)) {
+    _showActionMessage('Esta acción no tiene API segura disponible. Usa cuadre clásico.', 'error');
+    return;
+  }
+  const controller = await _loadUnitActionsController();
+  if (!controller) {
+    _showActionMessage('No se pudo preparar la acción. Usa cuadre clásico.', 'error');
+    return;
+  }
+  const available = controller.getAvailableActions?.(item, _unitActionContext()) || [];
+  const definition = available.find(x => x.action === action);
+  if (!definition?.available) {
+    _showActionMessage(definition?.reason || 'Acción no disponible para tu rol o plaza.', 'error');
+    return;
+  }
+  _showCuadreActionModal(action, item);
+}
+
+function _showCuadreActionModal(action, item) {
+  _removeCuadreModals();
+  _state.pendingAction = { action, unitId: item.id };
+  const title = {
+    update_status: 'Cambiar estado',
+    update_notes: 'Actualizar notas',
+    update_gas: 'Actualizar gasolina',
+    mark_ready: 'Marcar listo'
+  }[action] || 'Confirmar acción';
+  const form = _actionForm(action, item);
+  const overlay = document.createElement('div');
+  overlay.className = 'cqv__modal-overlay';
+  overlay.dataset.cqvModal = '1';
+  overlay.innerHTML = `
+    <div class="cqv__modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <div class="cqv__modal-head">
+        <div>
+          <strong>${esc(title)}</strong>
+          <span>${esc(item.mva || '—')} · ${esc(_state.plaza || '—')}</span>
+        </div>
+        <button type="button" class="cqv__icon-btn" data-cqv-modal-close aria-label="Cerrar">×</button>
+      </div>
+      <div class="cqv__modal-body">${form}</div>
+      <div class="cqv__modal-actions">
+        <button type="button" class="cqv__btn" data-cqv-modal-close>Cancelar</button>
+        <button type="button" class="cqv__btn cqv__btn--primary" data-cqv-modal-confirm>Confirmar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll('[data-cqv-modal-close]').forEach(btn => btn.addEventListener('click', () => {
+    _removeCuadreModals();
+    _showActionMessage('Acción cancelada. No se aplicaron cambios.', 'info');
+  }));
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) {
+      _removeCuadreModals();
+      _showActionMessage('Acción cancelada. No se aplicaron cambios.', 'info');
+    }
+  });
+  overlay.querySelector('[data-cqv-modal-confirm]')?.addEventListener('click', () => {
+    void _confirmUnitAction(action, item, overlay);
+  });
+  overlay.querySelector('select, textarea, input')?.focus?.();
+}
+
+function _actionForm(action, item) {
+  if (action === 'update_status') {
+    return `<label class="cqv__form-label">Estado<select class="cqv__form-control" data-cqv-field="estado">${SAFE_ESTADOS.map(v => `<option value="${esc(v)}" ${v === String(item.estado || '').toUpperCase() ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
+  }
+  if (action === 'update_notes') {
+    return `<label class="cqv__form-label">Notas<textarea class="cqv__form-control" data-cqv-field="notas" rows="5">${esc(item.notas || '')}</textarea></label>`;
+  }
+  if (action === 'update_gas') {
+    const current = String(item.gasolina || item.gas || 'N/A').toUpperCase();
+    return `<label class="cqv__form-label">Gasolina<select class="cqv__form-control" data-cqv-field="gasolina">${GAS_OPTIONS.map(v => `<option value="${esc(v)}" ${v === current ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
+  }
+  if (action === 'mark_ready') {
+    return `<p class="cqv__confirm-copy">La unidad quedará marcada como LISTO. Se conserva ubicación, gasolina y notas actuales.</p>`;
+  }
+  return `<p class="cqv__confirm-copy">Confirma la acción operativa.</p>`;
+}
+
+async function _confirmUnitAction(action, item, overlay) {
+  const controller = await _loadUnitActionsController();
+  if (!controller) {
+    _showActionMessage('No se pudo preparar la acción. Usa cuadre clásico.', 'error');
+    return;
+  }
+  const payload = _payloadFromModal(action, overlay);
+  payload.confirmed = true;
+  const ctx = { ..._unitActionContext(), confirmed: true };
+  const validation = controller.validateUnitAction?.(action, item, payload, ctx);
+  if (!validation?.ok) {
+    _showActionMessage(validation?.message || 'No se pudo validar la acción.', 'error');
+    return;
+  }
+  const confirmBtn = overlay.querySelector('[data-cqv-modal-confirm]');
+  if (confirmBtn) {
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Aplicando...';
+  }
+  try {
+    const result = await controller.executeUnitAction(action, item, payload, ctx);
+    if (!result?.ok) {
+      _showActionMessage(result?.message || 'No se pudo aplicar el cambio. Usa cuadre clásico.', 'error');
+      return;
+    }
+    _removeCuadreModals();
+    _showActionMessage(result.message || 'Cambio aplicado. Re-sincronizando datos...', 'success');
+    if (_state?.plaza) _startListener(_state.plaza);
+  } catch (err) {
+    _showActionMessage(err?.message || 'No se pudo aplicar el cambio. Usa cuadre clásico.', 'error');
+  } finally {
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Confirmar';
+    }
+  }
+}
+
+function _payloadFromModal(action, overlay) {
+  const valueOf = name => String(overlay.querySelector(`[data-cqv-field="${name}"]`)?.value || '').trim();
+  if (action === 'update_status') return { estado: valueOf('estado') };
+  if (action === 'update_notes') return { notas: valueOf('notas') };
+  if (action === 'update_gas') return { gasolina: valueOf('gasolina') };
+  if (action === 'mark_ready') return { estado: 'LISTO' };
+  return {};
+}
+
+function _removeCuadreModals() {
+  document.querySelectorAll('[data-cqv-modal="1"]').forEach(node => node.remove());
+  if (_state) _state.pendingAction = null;
+}
+
+function _renderLastSync() {
+  const text = _state?.lastUpdated
+    ? `Última actualización ${new Date(_state.lastUpdated).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`
+    : 'Sin sincronizar';
+  _setText('#cqvLastSync', text);
+}
+
+function _showActionMessage(message, type = 'info') {
+  const el = q('#cqvActionMsg');
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = '';
+    el.className = 'cqv__action-msg';
+    return;
+  }
+  el.hidden = false;
+  el.textContent = String(message);
+  el.className = `cqv__action-msg cqv__action-msg--${type || 'info'}`;
+}
+
+async function _writeClipboard(text, okMessage, errorMessage) {
+  try {
+    await navigator.clipboard?.writeText?.(String(text ?? ''));
+    _showActionMessage(okMessage, 'success');
+  } catch (err) {
+    _showActionMessage(errorMessage || err?.message || 'No se pudo copiar.', 'error');
+  }
+}
+
 function _detailCell(label, value) {
   return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff;"><div style="font-size:10px;text-transform:uppercase;color:#94a3b8;">${esc(label)}</div><div style="font-size:12px;color:#1e293b;font-weight:700;">${esc(value)}</div></div>`;
 }
@@ -705,7 +1006,9 @@ function _fmtUpdated(v) {
     if (typeof v.toDate === 'function') {
       return v.toDate().toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
     }
-  } catch (_) {}
+  } catch (err) {
+    return String(v || err?.message || '—');
+  }
   return esc(String(v));
 }
 
@@ -715,7 +1018,9 @@ function _fmtUpdatedCompact(v) {
     if (typeof v.toDate === 'function') {
       return v.toDate().toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     }
-  } catch (_) {}
+  } catch (err) {
+    return String(v || err?.message || '—').slice(0, 16) || '—';
+  }
   const parsed = _parseDate(v);
   if (!parsed) return String(v).slice(0, 16) || '—';
   return new Date(parsed).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -743,10 +1048,13 @@ function _fillSelect(selector, values, selected) {
 }
 
 function _exportFilteredCsv() {
-  if (!_state?.items?.length) return;
-  const headers = ['MVA', 'Categoria', 'Modelo', 'Placas', 'Gasolina', 'Estado', 'Ubicacion', 'Tipo', 'Notas', 'UltimaActualizacion'];
+  if (!_state?.items?.length) {
+    _showActionMessage('No hay filas filtradas para exportar.', 'info');
+    return;
+  }
+  const headers = ['MVA', 'Modelo', 'Placas', 'Categoria', 'Gasolina', 'Estado', 'Ubicacion', 'Posicion', 'Tipo', 'Notas', 'UltimaActualizacion'];
   const rows = _state.items.map(item => [
-    item.mva, item.categoria, item.modelo, item.placas, item.gasolina, item.estado, item.ubicacion, item.tipo, item.notas,
+    item.mva, item.modelo, item.placas, item.categoria, item.gasolina, item.estado, item.ubicacion, item.pos, item.tipo, item.notas,
     _fmtUpdatedCompact(item.updatedAt || item.fechaIngreso)
   ]);
   const escapeCsv = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -761,6 +1069,7 @@ function _exportFilteredCsv() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+  _showActionMessage('CSV exportado.', 'success');
 }
 
 async function _copyFilteredSummary() {
@@ -774,7 +1083,10 @@ async function _copyFilteredSummary() {
   const text = `Resumen cuadre ${_state?.plaza || '—'} · tab=${_state?.tab || 'regular'} · total filtrado=${rows.length}${top ? ` · ${top}` : ''}`;
   try {
     await navigator.clipboard?.writeText?.(text);
-  } catch (_) {}
+    _showActionMessage('Resumen copiado.', 'success');
+  } catch (err) {
+    _showActionMessage(err?.message || 'No se pudo copiar el resumen.', 'error');
+  }
 }
 
 function _parseDate(value) {

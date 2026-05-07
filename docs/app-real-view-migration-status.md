@@ -1,6 +1,6 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-05-07 · **FASE 15C** (corrección visual mapa/cuadre)
+**Última actualización:** 2026-05-07 · **FASE 15D** (Cuadre oficial App-first)
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
@@ -9,7 +9,7 @@
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
 | `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E/13E.1)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy. **13E.1:** hotfix runtime para restaurar `_renderPreview` y eliminar `ReferenceError` en mount/interacción. |
-| `/cuadre` | `/app/cuadre` | **OFICIAL_OPERATIVA_VISUAL_15C** · `KEEP_LEGACY_BACKUP` | `obtenerDatosFlotaConsola` + `cuadre/externos` + admins/historial (read) | 15C corrige carga/percepción visual: consola oscura operativa, KPIs, toolbar, filtros, tabla real, detalle, admins/historial read-only, export CSV/copia resumen/copia MVA-JSON y enlaces App/clásico |
+| `/cuadre` | `/app/cuadre` | **OFICIAL_OPERATIVA** · `/cuadre` = `CLASSIC_FALLBACK` | `obtenerDatosFlotaConsola` + `cuadre/externos` + admins/historial (read) + `mapa-unit-actions.js` para mutaciones seguras si API/rol lo permiten | 15D oficializa Cuadre: redirect `/cuadre -> /app/cuadre`, escape `mex.legacy.force=1` o `?legacy=1`, header “Cuadre operativo”, KPIs ampliados, filtros, tabla 12 columnas, detalle, modales seguros de estado/notas/gas/listo, export CSV, copiar resumen y admins/historial read-only |
 | `/gestion` | `/app/admin` | **REAL_PARCIAL_FUERTE (12H)** · `KEEP_LEGACY_BACKUP` | usuarios/solicitudes/roles/plazas/catálogos | Usuarios reforzado (tabla ampliada, timestamps, alertas onboarding, edición segura), Solicitudes con estado onboarding y acciones seguras, Roles/Plazas/Catálogos con detalle operativo real y fallback de edición en legacy |
 | `/programador` | `/app/programador` | REAL_COMPLETA QA (12A) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, estado Firestore transport y copia diagnóstico corto/completo + agrupación `window.api` por dominio |
 | `/profile` | `/app/profile` | **REAL_COMPLETA_VISUAL_PORT (13C)** · **APP_FIRST** | `usuarios/{id}` + app-state | Port visual real de cards/tabs/hero/acciones del legacy dentro de App Shell, edición segura (nombre/teléfono/avatar/preferencias) y sync inmediato de sidebar |
@@ -49,7 +49,7 @@
 | Cola | Checklist, notas/salida/asignación, crear salida, filtros operativos + global search | Reordenar DnD, bulk masivo y eliminar (se mantienen en legacy) |
 | Incidencias | Crear, resolver, ver evidencias URL/objeto/path, prefill MVA por query | Borrar nota y subir/eliminar adjuntos en Storage → legacy |
 | Mensajes | Enviar, refresco, agrupación email canónica, leído por conversación, filtros plaza/rol/estado | Adjuntos/subida, editar/eliminar/reacciones/push complejo |
-| Cuadre | Refrescar, tabs de lectura, filtros avanzados (estado/categoría/ubicación), copiar MVA/datos, export CSV local, copiar resumen filtrado, abrir App Mapa por MVA, abrir legacy, filtro fecha historial, búsqueda base maestra read-only | Alta/baja, editar estado, cierre formal, PDF/reportes críticos, edición masiva |
+| Cuadre | Refrescar, tabs, filtros avanzados (estado/categoría/ubicación/origen), copiar MVA/datos, export CSV local, copiar resumen filtrado, abrir App Mapa por MVA, abrir cuadre clásico, filtro fecha historial, búsqueda base maestra read-only, modales seguros de estado/notas/gas/listo cuando `aplicarEstado` + rol autorizado están disponibles | Alta/baja, masivos, cierre formal, PDF/reportes críticos, edición estructura/global y acciones destructivas |
 | Mapa App | Ver flota + `mapa_config`, filtros rápidos (incl. incidencias), resumen `notas_admin` por MVA con mini bitácora, búsqueda global + `?q=`, lista/grid, detalle, **acciones operativas rápidas**, modales seguros de estado/notas/gas/lista, incidencia rápida si API existe, movimiento DnD con confirmación y guardado según rol/flags | Editor de estructura, editmap, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes y mutaciones no disponibles del módulo de acciones → `/mapa?legacy=1` |
 | Admin | Edición básica usuario + solicitudes seguras según permisos + detalle real de roles/plazas/catálogos | Crear/editar rol, jerarquía, editar plaza, editar catálogos, email/password/permisos sensibles, acciones masivas |
 | Profile | Nombre/teléfono/avatar/preferencias visuales, sync estado shell | Email/rol/permisos/plazas/password |
@@ -61,7 +61,7 @@
 - Mapa editor vs `mapa.js` completo.
 - Mensajes: faltan adjuntos completos y panel de info/archivo igual a legacy.
 - Incidencias Kanban (`plazas/...`) vs mantener modelo único `notas_admin` (legacy Kanban sigue separado).
-- Cuadre: aún falta paridad 1:1 de controles avanzados (PDF/insertar/eliminar global/cierre oficial), por eso se mantiene en `KEEP_LEGACY_BACKUP`.
+- Cuadre: oficial operativo desde 15D; PDF/insertar/eliminar global/cierre formal/masivos permanecen en cuadre clásico.
 - Mapa App: vista oficial operativa completa P1 desde 15B; editor/layout masivo y herramientas clásicas avanzadas permanecen en `/mapa?legacy=1`. **14B-A:** capa de datos `mapa-incidencias-summary.js` integrada. **14F-B:** UI de acciones operativas seguras integrada. **14G:** port visual P0 implementado. **15A:** redirect `/mapa → /app/mapa` activado con escape `mex.legacy.force=1`. **15B:** modales, incidencia rápida, mini bitácora y lista operativa reforzada.
 - Admin: faltan operaciones avanzadas de escritura global (roles/plazas/catálogos) que permanecen en legacy.
 - Profile: migrado a visual real en 13C; diferencias menores aceptadas por contenedor App Shell y bloques operativos de solo lectura.
@@ -72,10 +72,10 @@
 - `PUBLIC_FORM / DO_NOT_REDIRECT`: `/solicitud`.
 - `APP_FIRST`: `/mapa` → `/app/mapa` desde 15A.
 - `DO_NOT_REDIRECT`: `/editmap`.
-- `KEEP_LEGACY_BACKUP`: `/cuadre`, `/gestion`, `/programador`.
+- `KEEP_LEGACY_BACKUP`: `/gestion`, `/programador`.
 - Escape global: si `localStorage["mex.legacy.force"] === "1"`, las rutas con redirect App-first permanecen en vista clásica y muestran CTA discreto para abrir App Shell. En `/mapa`, el CTA dice “Estás en mapa clásico · Abrir mapa operativo”.
 - Redirect `/mapa -> /app/mapa`: **ACTIVADO** (15A; `/mapa` = `CLASSIC_FALLBACK` con `mex.legacy.force=1` o `?legacy=1`).
-- Redirect `/cuadre -> /app/cuadre`: **NO ACTIVADO** en 12G.
+- Redirect `/cuadre -> /app/cuadre`: **ACTIVADO** en 15D (`/cuadre` = `CLASSIC_FALLBACK` con `mex.legacy.force=1` o `?legacy=1`; CTA “Estás en cuadre clásico · Abrir cuadre operativo”).
 - Redirect `/gestion -> /app/admin`: **NO ACTIVADO** en 12H.
 
 ## Referencias
@@ -84,4 +84,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v277` (15C; corrección visual mapa/cuadre).
+- **`CACHE_NAME`** `mapa-v278` (15D; Cuadre oficial App-first).

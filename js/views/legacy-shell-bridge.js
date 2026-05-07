@@ -22,10 +22,12 @@
   var hash = window.location.hash || '';
   var params = new URLSearchParams(query || '');
   var legacyParam = params.get('legacy') === '1';
-  if (legacyParam && path === '/mapa') {
+  if (legacyParam && (path === '/mapa' || path === '/cuadre')) {
     try {
       localStorage.setItem('mex.legacy.force', '1');
-    } catch (_) {}
+    } catch (err) {
+      console.warn('[legacy-shell-bridge] no se pudo activar escape clásico', err);
+    }
   }
   params.delete('legacy');
   var cleanQuery = params.toString() ? '?' + params.toString() : '';
@@ -38,19 +40,21 @@
   function shouldForceLegacy() {
     try {
       return localStorage.getItem('mex.legacy.force') === '1';
-    } catch (_) {
+    } catch (err) {
+      console.warn('[legacy-shell-bridge] no se pudo leer escape clásico', err);
       return false;
     }
   }
 
   function shouldAutoRedirect() {
-    if (legacyParam && path === '/mapa') return false;
+    if (legacyParam && (path === '/mapa' || path === '/cuadre')) return false;
     if (shouldForceLegacy()) return false;
     if (path === '/home') return true;
     if (path === '/profile') return true;
     if (path === '/mensajes') return true;
     if (path === '/cola-preparacion') return true;
     if (path === '/incidencias') return true;
+    if (path === '/cuadre') return true;
     if (path === '/mapa') return true;
     return false;
   }
@@ -113,10 +117,12 @@
   }
   var banner = document.createElement('a');
   banner.id = 'legacyAppShellBanner';
-  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias' || path === '/mapa');
+  var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias' || path === '/cuadre' || path === '/mapa');
   banner.href = isForcedOperationalLegacy ? (appRoute + cleanQuery + hash) : appRoute;
   if (isForcedOperationalLegacy && path === '/mapa') {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en mapa clásico · Abrir mapa operativo</span>';
+  } else if (isForcedOperationalLegacy && path === '/cuadre') {
+    banner.innerHTML = '<span class="mat">info</span><span>Estás en cuadre clásico · Abrir cuadre operativo</span>';
   } else if (isForcedOperationalLegacy) {
     banner.innerHTML = '<span class="mat">info</span><span>Estás en vista clásica · Abrir App Shell</span>';
   } else {

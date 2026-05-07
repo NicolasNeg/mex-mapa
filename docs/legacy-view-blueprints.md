@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 15C · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** `mapa-visual-port-15c.md`
+**Versión:** FASE 15D · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** `mapa-visual-port-15c.md`
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -147,11 +147,11 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **HTML** | `cuadre.html` |
 | **JS** | `js/views/cuadre.js` |
 | **CSS** | Legacy: estilos de `mapa.css` embebidos en `cuadre.html`; App: `css/app-cuadre.css` |
-| **Migrado App** | **OFICIAL_OPERATIVA_VISUAL_15C**: consola de patio oscura y densa en `js/app/views/cuadre.js` + `css/app-cuadre.css` |
-| **Migrado App 11B/11G/12F/13F** | Tabs `flota/externos/admins/historial/classic`, KPIs top estado/ubicación/categoría, tabla amplia con columna de última actualización, panel detalle lateral (copiar MVA/JSON, abrir mapa App y legacy), filtro por fecha historial, búsqueda base maestra read-only, filtros avanzados por estado/categoría/ubicación/origen, export CSV local y copiar resumen filtrado |
-| **Falta** | Controles avanzados legacy (PDF/insertar/eliminar/edición masiva/cierre formal) y acciones de escritura total |
-| **Peligrosas bloqueadas** | Eliminar unidad, editar estado global, insertar unidad, cierre formal, PDF/reportes oficiales, edición masiva |
-| **Redirect** | **NO ACTIVADO** en 12G: `/cuadre` permanece legacy-first (`KEEP_LEGACY_BACKUP`) |
+| **Migrado App** | **OFICIAL_OPERATIVA (15D)**: consola oscura densa en `js/app/views/cuadre.js` + `css/app-cuadre.css`, ahora ruta principal App-first |
+| **Migrado App 15D** | Header “Cuadre operativo”, KPIs total/listos/sucio-mtto/externos/resguardo/sin ubicación, tabs `flota/externos/admins/historial/classic`, tabla 12 columnas, panel detalle, copiar MVA/JSON, abrir mapa App, filtros avanzados, export CSV, copiar resumen, búsqueda base maestra read-only y modales oficiales para estado/notas/gas/listo cuando la API segura + rol autorizado existen |
+| **Falta** | Controles avanzados clásicos (PDF/insertar/eliminar/edición masiva/cierre formal) y acciones destructivas/globales |
+| **Peligrosas bloqueadas** | Eliminar unidad, alta, masivos, cierre formal, PDF/reportes oficiales, edición estructura/global |
+| **Redirect** | **ACTIVADO 15D**: `/cuadre -> /app/cuadre`; clásico queda con `mex.legacy.force=1` o `?legacy=1` |
 
 ---
 
