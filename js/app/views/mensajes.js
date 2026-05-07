@@ -283,7 +283,7 @@ async function _sendMessage() {
   const remitenteId = _state.me.email ? _state.me.email.toUpperCase() : _state.me.display;
   const destinatarioId = convo.preferredHandle || convo.peerEmail?.toUpperCase() || convo.displayLabel;
   if (!destinatarioId) {
-    _setText('#appMsgSendError', 'Destinatario inválido. Abre la versión completa para corregir el contacto.');
+    _setText('#appMsgSendError', 'Destinatario inválido. Abre mensajes clásico para corregir el contacto.');
     return;
   }
 
@@ -450,27 +450,30 @@ function _renderConversations() {
   const unreadTotal = _state.conversations.reduce((acc, c) => acc + Number(c.unread || 0), 0);
   _setText('#appMsgUnread', unreadTotal ? `${unreadTotal} no leídos` : 'Sin no leídos');
   if (!_state.filtered.length) {
-    el.innerHTML = `<div style="padding:20px;color:#94a3b8;font-size:12px;">Sin conversaciones para ese filtro.</div>`;
+    el.innerHTML = `<div class="msgop__empty">Sin conversaciones para ese filtro.</div>`;
     return;
   }
   el.innerHTML = _state.filtered.map(c => `
-    <button data-msg-peer="${esc(c.peerKey)}" style="width:100%;text-align:left;border:1px solid ${c.peerKey === _state.selectedPeer ? '#cbd5e1' : '#e2e8f0'};background:${c.peerKey === _state.selectedPeer ? '#f8fafc' : '#fff'};border-radius:10px;padding:10px;cursor:pointer;">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <strong style="font-size:12px;color:#0f172a;">${esc(c.displayLabel)}</strong>
-        ${c.peerEmail ? `<span style="font-size:10px;color:#64748b;">${esc(c.peerEmail.toUpperCase())}</span>` : ''}
-        <span style="margin-left:auto;font-size:10px;color:#94a3b8;">${esc(_when(c.last))}</span>
-      </div>
-      <div style="margin-top:3px;font-size:10px;color:#64748b;">
-        ${(() => {
-          const m = _state.peerMeta.get(c.peerEmail || '') || {};
-          const badge = [m.plaza, m.rol, m.status].filter(Boolean).join(' · ');
-          return esc(badge || 'Sin metadata de perfil');
-        })()}
-      </div>
-      <div style="margin-top:4px;font-size:11px;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.last?.mensaje || '[Sin texto]')}</div>
-      <div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center;gap:8px;">
-        <span style="font-size:10px;color:#94a3b8;">${esc(c.total)} mensaje(s)</span>
-        ${c.unread ? `<span style="font-size:10px;background:#fee2e2;color:#b91c1c;padding:2px 7px;border-radius:999px;font-weight:800;">${c.unread}</span>` : ''}
+    <button class="msgop__conversation ${c.peerKey === _state.selectedPeer ? 'is-active' : ''}" data-msg-peer="${esc(c.peerKey)}">
+      <span class="msgop__avatar">${esc(_initials(c.displayLabel || c.peerEmail))}</span>
+      <div class="msgop__conversation-main">
+        <div class="msgop__conversation-top">
+          <strong>${esc(c.displayLabel)}</strong>
+          <span>${esc(_when(c.last))}</span>
+        </div>
+        ${c.peerEmail ? `<div class="msgop__email">${esc(c.peerEmail.toUpperCase())}</div>` : ''}
+        <div class="msgop__meta">
+          ${(() => {
+            const m = _state.peerMeta.get(c.peerEmail || '') || {};
+            const badge = [m.plaza, m.rol, m.status].filter(Boolean).join(' · ');
+            return esc(badge || 'Sin metadata de perfil');
+          })()}
+        </div>
+        <div class="msgop__last">${esc(c.last?.mensaje || '[Sin texto]')}</div>
+        <div class="msgop__conversation-bottom">
+          <span>${esc(c.total)} mensaje(s)</span>
+          ${c.unread ? `<b class="msgop__unread">${c.unread}</b>` : '<span>Leído</span>'}
+        </div>
       </div>
     </button>
   `).join('');
@@ -496,7 +499,7 @@ function _renderDetail() {
   const input = q('#appMsgInput');
   if (input) input.placeholder = display ? `Responder a ${display}...` : 'Selecciona una conversación para responder...';
   if (!peerKey || !convo) {
-    box.innerHTML = `<div style="padding:14px;color:#94a3b8;font-size:12px;">Selecciona una conversación.</div>`;
+    box.innerHTML = `<div class="msgop__chat-empty"><strong>Selecciona una conversación</strong><span>La bandeja mantiene identidad canónica por email para no duplicar hilos cuando cambia el nombre visible.</span></div>`;
     _disableComposer(false);
     return;
   }
@@ -507,33 +510,34 @@ function _renderDetail() {
     .slice(-60);
 
   box.innerHTML = `
-    <div style="padding:12px;border-bottom:1px solid #eef2f7;">
-      <strong style="font-size:13px;color:#0f172a;">${esc(display)}</strong>
-      ${convo.peerEmail ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">${esc(convo.peerEmail.toUpperCase())}</div>` : ''}
-      <div style="font-size:11px;color:#64748b;margin-top:2px;">
-        ${(() => {
+    <div class="msgop__chat-head">
+      <span class="msgop__avatar msgop__avatar--large">${esc(_initials(display || convo.peerEmail))}</span>
+      <div>
+        <strong>${esc(display)}</strong>
+        ${convo.peerEmail ? `<div>${esc(convo.peerEmail.toUpperCase())}</div>` : ''}
+        <div>${(() => {
           const m = _state.peerMeta.get(convo.peerEmail || '') || {};
           const parts = [m.plaza, m.rol, m.status].filter(Boolean);
           return esc(parts.join(' · ') || 'Sin metadata de perfil');
-        })()}
+        })()}</div>
       </div>
-      <div style="font-size:11px;color:#64748b;margin-top:2px;">Últimos mensajes sincronizados</div>
     </div>
-    <div style="max-height:54vh;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
+    <div id="appMsgThread" class="msgop__thread">
       ${msgs.length ? msgs.map(m => {
         const mine = !!m.esMio;
-        return `<div style="align-self:${mine ? 'flex-end' : 'flex-start'};max-width:85%;background:${mine ? '#dcfce7' : '#f1f5f9'};border:1px solid ${mine ? '#bbf7d0' : '#e2e8f0'};border-radius:10px;padding:8px 10px;">
-          <div style="font-size:12px;color:#1e293b;line-height:1.45;">${esc(m.mensaje || '[Adjunto]')}</div>
-          <div style="margin-top:4px;font-size:10px;color:#64748b;">${esc(_when(m))}</div>
+        return `<div class="msgop__bubble ${mine ? 'is-mine' : 'is-other'}">
+          <div>${esc(m.mensaje || '[Adjunto]')}</div>
+          <span>${esc(_when(m))}${mine ? ` · ${m.leido ? 'Leído' : 'Enviado'}` : ''}</span>
         </div>`;
-      }).join('') : `<div style="font-size:12px;color:#94a3b8;">Sin mensajes en esta conversación.</div>`}
+      }).join('') : `<div class="msgop__empty">Sin mensajes en esta conversación.</div>`}
     </div>
-      <div style="padding:12px;border-top:1px solid #eef2f7;">
-      <button type="button" disabled style="border:1px solid #e2e8f0;background:#f8fafc;color:#94a3b8;border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:not-allowed;">Adjuntos disponibles en versión completa</button>
-      <br />
-      <a href="/mensajes" style="font-size:11px;color:#64748b;">Versión completa en classic</a>
+    <div class="msgop__blocked">
+      <button type="button" disabled>Adjuntos disponibles en mensajes clásico</button>
+      <a href="/mensajes?legacy=1">Abrir mensajes clásico</a>
     </div>
   `;
+  const thread = q('#appMsgThread');
+  if (thread) thread.scrollTop = thread.scrollHeight;
   _disableComposer(false);
 }
 
@@ -554,12 +558,12 @@ function _when(msg) {
 
 function _setBodyLoading(text) {
   const el = q('#appMsgList');
-  if (el) el.innerHTML = `<div style="padding:20px;color:#64748b;font-size:12px;">${esc(text)}</div>`;
+  if (el) el.innerHTML = `<div class="msgop__empty">${esc(text)}</div>`;
 }
 
 function _setBodyError(text) {
   const el = q('#appMsgList');
-  if (el) el.innerHTML = `<div style="padding:20px;color:#b91c1c;font-size:12px;">${esc(text)}</div>`;
+  if (el) el.innerHTML = `<div class="msgop__error">${esc(text)}</div>`;
 }
 
 function _setText(sel, text) {
@@ -569,42 +573,72 @@ function _setText(sel, text) {
 
 function _layout(me) {
   return `
-    <div style="padding:20px;max-width:1080px;margin:0 auto;font-family:Inter,sans-serif;">
-      <style>
-        @media (max-width: 767px) {
-          #appMsgGrid { grid-template-columns: minmax(0, 1fr); }
-        }
-      </style>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
-        <h1 style="margin:0;font-size:24px;color:#0f172a;">Mensajes</h1>
-        <span style="font-size:11px;color:#64748b;background:#e2e8f0;border-radius:999px;padding:3px 9px;">${esc(me)}</span>
-        <span id="appMsgUnread" style="font-size:11px;color:#334155;background:#e2e8f0;border-radius:999px;padding:3px 9px;">Sin no leídos</span>
-        <button id="appMsgRefresh" type="button" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 10px;font-size:12px;cursor:pointer;">Refrescar</button>
-        <select id="appMsgPlazaFilter" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 8px;font-size:11px;">
+    <section class="msgop">
+      <header class="msgop__top">
+        <div>
+          <span class="msgop__eyebrow">BANDEJA</span>
+          <h1>Mensajes operativo</h1>
+        </div>
+        <div class="msgop__actions">
+          <span class="msgop__pill">${esc(me)}</span>
+          <span id="appMsgUnread" class="msgop__pill">Sin no leídos</span>
+          <span id="appMsgLastSync" class="msgop__pill">Sin sincronizar</span>
+          <button id="appMsgRefresh" type="button" class="msgop__btn">Refrescar</button>
+          <a href="/mensajes?legacy=1" class="msgop__btn msgop__btn--primary">Mensajes clásico</a>
+        </div>
+      </header>
+      <div id="appMsgStatus" class="msgop__status" hidden></div>
+      <div class="msgop__filters">
+        <select id="appMsgPlazaFilter" class="msgop__select">
           <option value="">Todas las plazas</option>
         </select>
-        <select id="appMsgRoleFilter" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 8px;font-size:11px;">
+        <select id="appMsgRoleFilter" class="msgop__select">
           <option value="">Todos los roles</option>
         </select>
-        <select id="appMsgStatusFilter" style="border:1px solid #dbe3ef;border-radius:8px;background:#fff;color:#334155;padding:6px 8px;font-size:11px;">
+        <select id="appMsgStatusFilter" class="msgop__select">
           <option value="">Todos</option>
           <option value="UNREAD">No leídos</option>
           <option value="ACTIVE">Activos</option>
           <option value="INACTIVE">Inactivos</option>
         </select>
-        <a href="/mensajes" style="margin-left:auto;font-size:11px;color:#64748b;text-decoration:underline;">Classic</a>
       </div>
-      <div id="appMsgGrid" class="fleet-wrapper chatv2-layout" style="display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:0;min-height:60vh;align-items:stretch;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-        <aside id="appMsgList" class="chatv2-contacts" style="border-right:1px solid #e8eef5;max-height:70vh;overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;"></aside>
-        <section id="appMsgDetail" style="background:#fff;min-height:200px;overflow:hidden;"></section>
+      <div id="appMsgGrid" class="msgop__grid">
+        <aside id="appMsgList" class="msgop__list"></aside>
+        <section id="appMsgDetail" class="msgop__chat"></section>
       </div>
-      <div style="margin-top:10px;display:flex;gap:8px;align-items:flex-start;">
-        <textarea id="appMsgInput" rows="2" placeholder="Selecciona una conversación para responder..." style="flex:1;border:1px solid #dbe3ef;border-radius:10px;padding:8px 10px;resize:vertical;min-height:42px;font-family:Inter,sans-serif;font-size:12px;"></textarea>
-        <button id="appMsgSendBtn" type="button" style="border:none;border-radius:10px;background:#0f172a;color:#fff;padding:10px 12px;font-size:12px;font-weight:700;cursor:pointer;">Enviar</button>
+      <div class="msgop__composer">
+        <textarea id="appMsgInput" rows="2" placeholder="Selecciona una conversación para responder..."></textarea>
+        <button id="appMsgSendBtn" type="button">Enviar</button>
       </div>
-      <div id="appMsgSendError" style="margin-top:6px;font-size:11px;color:#b91c1c;"></div>
-    </div>
+      <div id="appMsgSendError" class="msgop__send-error"></div>
+    </section>
   `;
+}
+
+function _renderLastSync() {
+  const text = _state?.lastUpdated
+    ? `Última actualización ${new Date(_state.lastUpdated).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`
+    : 'Sin sincronizar';
+  _setText('#appMsgLastSync', text);
+}
+
+function _setStatus(message, type = 'info') {
+  const el = q('#appMsgStatus');
+  if (!el) return;
+  if (!message) {
+    el.hidden = true;
+    el.textContent = '';
+    el.className = 'msgop__status';
+    return;
+  }
+  el.hidden = false;
+  el.textContent = message;
+  el.className = `msgop__status msgop__status--${type}`;
+}
+
+function _initials(value) {
+  const parts = String(value || 'U').replace(/@.*/, '').split(/\s+|[._-]+/).filter(Boolean);
+  return (parts[0]?.[0] || 'U').toUpperCase() + (parts[1]?.[0] || '').toUpperCase();
 }
 
 function esc(v) {

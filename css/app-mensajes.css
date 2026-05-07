@@ -1,0 +1,386 @@
+/* 15E official Mensajes App */
+.msgop {
+  min-height: calc(100vh - 74px);
+  padding: 14px;
+  background: linear-gradient(180deg, #0b1220 0%, #111827 48%, #0f172a 100%);
+  color: #e5eefb;
+  font-family: "Inter", sans-serif;
+}
+
+.msgop__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border: 1px solid rgba(148, 163, 184, .22);
+  background: #111827;
+}
+
+.msgop__eyebrow {
+  color: #38bdf8;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.msgop h1 {
+  margin: 2px 0 0;
+  font-size: clamp(24px, 2.2vw, 34px);
+  color: #f8fafc;
+}
+
+.msgop__actions,
+.msgop__filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.msgop__pill,
+.msgop__btn,
+.msgop__select {
+  border: 1px solid rgba(148, 163, 184, .3);
+  border-radius: 7px;
+  background: #172033;
+  color: #dbeafe;
+  min-height: 32px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.msgop__pill {
+  color: #9aa8bc;
+}
+
+.msgop__btn {
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.msgop__btn--primary {
+  background: #0f766e;
+  border-color: #14b8a6;
+  color: #ecfeff;
+}
+
+.msgop__filters {
+  margin: 10px 0;
+}
+
+.msgop__select {
+  background: #0f172a;
+}
+
+.msgop__status {
+  margin: 10px 0 0;
+  padding: 9px 12px;
+  border: 1px solid rgba(56, 189, 248, .34);
+  border-radius: 8px;
+  background: rgba(12, 74, 110, .24);
+  color: #bae6fd;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.msgop__status--success {
+  border-color: rgba(34, 197, 94, .4);
+  background: rgba(22, 101, 52, .22);
+  color: #bbf7d0;
+}
+
+.msgop__status--error,
+.msgop__error {
+  border-color: rgba(248, 113, 113, .45);
+  background: rgba(127, 29, 29, .28);
+  color: #fecaca;
+}
+
+.msgop__grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  min-height: calc(100vh - 250px);
+  border: 1px solid rgba(148, 163, 184, .22);
+  background: #0f172a;
+}
+
+.msgop__list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow: auto;
+  border-right: 1px solid rgba(148, 163, 184, .18);
+  max-height: calc(100vh - 250px);
+}
+
+.msgop__conversation {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  text-align: left;
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 9px;
+  background: #111827;
+  color: #dbeafe;
+  padding: 10px;
+  cursor: pointer;
+}
+
+.msgop__conversation:hover,
+.msgop__conversation.is-active {
+  border-color: #38bdf8;
+  background: #172033;
+}
+
+.msgop__avatar {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #0f766e;
+  color: #ecfeff;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.msgop__avatar--large {
+  width: 44px;
+  height: 44px;
+}
+
+.msgop__conversation-main {
+  min-width: 0;
+}
+
+.msgop__conversation-top,
+.msgop__conversation-bottom {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.msgop__conversation-top strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #f8fafc;
+  font-size: 12px;
+}
+
+.msgop__conversation-top span,
+.msgop__conversation-bottom,
+.msgop__email,
+.msgop__meta {
+  color: #8ea1ba;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.msgop__last {
+  margin: 5px 0;
+  color: #b7c4d7;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.msgop__unread {
+  min-width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #22c55e;
+  color: #052e16;
+  font-size: 11px;
+}
+
+.msgop__chat {
+  min-width: 0;
+  background: #101a2c;
+}
+
+.msgop__chat-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, .18);
+  color: #f8fafc;
+}
+
+.msgop__chat-head div div {
+  color: #9aa8bc;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.msgop__thread {
+  height: calc(100vh - 385px);
+  min-height: 300px;
+  overflow: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.msgop__bubble {
+  max-width: min(78%, 640px);
+  border: 1px solid rgba(148, 163, 184, .2);
+  border-radius: 10px;
+  padding: 9px 11px;
+  color: #e5eefb;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.msgop__bubble.is-mine {
+  align-self: flex-end;
+  background: #0f766e;
+  border-color: rgba(45, 212, 191, .32);
+}
+
+.msgop__bubble.is-other {
+  align-self: flex-start;
+  background: #172033;
+}
+
+.msgop__bubble span {
+  display: block;
+  margin-top: 5px;
+  color: #b7c4d7;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.msgop__blocked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(148, 163, 184, .18);
+}
+
+.msgop__blocked button {
+  border: 1px dashed rgba(148, 163, 184, .32);
+  border-radius: 7px;
+  background: #0f172a;
+  color: #8ea1ba;
+  padding: 7px 10px;
+  font-weight: 800;
+}
+
+.msgop__blocked a {
+  color: #bae6fd;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.msgop__composer {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.msgop__composer textarea {
+  flex: 1;
+  min-height: 46px;
+  border: 1px solid rgba(148, 163, 184, .28);
+  border-radius: 8px;
+  background: #0f172a;
+  color: #e5eefb;
+  padding: 10px;
+  resize: vertical;
+  font: inherit;
+}
+
+.msgop__composer button {
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #eff6ff;
+  padding: 0 16px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.msgop__composer button:disabled,
+.msgop__composer textarea:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.msgop__send-error,
+.msgop__empty,
+.msgop__error {
+  padding: 14px;
+  color: #9aa8bc;
+  font-size: 12px;
+}
+
+.msgop__chat-empty {
+  min-height: 360px;
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+  color: #9aa8bc;
+}
+
+.msgop__chat-empty strong {
+  color: #f8fafc;
+}
+
+@media (max-width: 900px) {
+  .msgop__top {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .msgop__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .msgop__list {
+    max-height: 38vh;
+    border-right: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, .18);
+  }
+  .msgop__thread {
+    height: 42vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .msgop {
+    padding: 10px;
+  }
+  .msgop__actions,
+  .msgop__filters,
+  .msgop__composer {
+    align-items: stretch;
+  }
+  .msgop__pill,
+  .msgop__btn,
+  .msgop__select {
+    width: 100%;
+  }
+  .msgop__composer {
+    flex-direction: column;
+  }
+  .msgop__composer button {
+    min-height: 42px;
+  }
+  .msgop__bubble {
+    max-width: 92%;
+  }
+}
