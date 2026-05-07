@@ -1,11 +1,11 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-05-06 · **FASE 15A** (mapa App oficial operativo)
+**Última actualización:** 2026-05-06 · **FASE 15B** (mapa App oficial operativo completo P1)
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
 | `/home` | `/app/dashboard` | **REAL_COMPLETA_VISUAL_PORT (13B)** · **APP_FIRST** | Igual que 13A (KPIs Firestore + mini mapa `buildMapaViewModel`) | UI copiada desde `renderHome` (grid bento, hero mapa, KPI columna, resumen + actividad); sin chrome legacy; búsqueda global vía hooks ocultos |
-| `/mapa` | `/app/mapa` | **OFICIAL_OPERATIVA (15A)** · `/mapa` = `CLASSIC_FALLBACK` | Mapa + **`mapa-incidencias-summary.js`** + integración dinámica opcional `mapa-unit-actions.js` (si existe) | **15A:** `/app/mapa` es la vista principal del mapa. `/mapa` redirige App-first a `/app/mapa` salvo `localStorage["mex.legacy.force"] === "1"` o `?legacy=1`. UI sin lenguaje beta visible; funciones avanzadas no migradas se nombran como mapa clásico |
+| `/mapa` | `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1 (15B)** · `/mapa` = `CLASSIC_FALLBACK` | Mapa + **`mapa-incidencias-summary.js`** + `mapa-unit-actions.js` + quick incident seguro | **15B:** mantiene App-first y agrega modales oficiales de acciones unitarias, incidencia rápida, mini bitácora y lista operativa reforzada. Funciones avanzadas no migradas siguen en mapa clásico |
 | `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
 | `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E/13E.1)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy. **13E.1:** hotfix runtime para restaurar `_renderPreview` y eliminar `ReferenceError` en mount/interacción. |
@@ -23,7 +23,7 @@
 | REAL_COMPLETA | Programador |
 | PARIDAD OPERATIVA ALT (11G Cola reforzada) | — (elevado a REAL_COMPLETA_VISUAL_PORT en 13D) |
 | REAL_PARCIAL | Mensajes (fuerte 11D), Cuadre, Admin |
-| OFICIAL_OPERATIVA | Mapa App (`/app/mapa` — oficial desde 15A; mapa clásico conserva editor/PDF/altas/radar/reportes y funciones peligrosas no migradas) |
+| OFICIAL_OPERATIVA_COMPLETA_P1 | Mapa App (`/app/mapa` — oficial desde 15A, flujos P1 operativos desde 15B; mapa clásico conserva editor/PDF/altas/radar/reportes y funciones peligrosas no migradas) |
 
 ## Diseño legacy migrado (11A)
 
@@ -32,7 +32,7 @@
 | **Cola App** | `cola-preparacion.css`, clases `prep-list-card`, `prep-modal-*`, mismo modelo Firestore con checklist/nota/salida/asignación y modal de alta segura |
 | **Mensajes App** | `mensajes.css` + grid `fleet-wrapper chatv2-layout` / `chatv2-contacts` |
 | **Incidencias App** | Port visual de bitácora legacy `/mapa` (`incv2-*`, filtros prioridad/estado, cards `nota-*`, resolver modal y compose lateral) con estilos scopeados `css/app-incidencias.css` y datos `notas_admin` |
-| **Mapa App (14A–15A)** | Misma normalización de celdas/unidades que el dominio (`mapa.model` / `unidad.model`), estructura `mapa_config` vía `suscribirEstructuraMapa`, flota vía `suscribirMapaPlaza`, grid de cajones + buckets limbo/taller/huérfanos, DnD con `mapa-dnd` + `guardarNuevasPosiciones`. **15A:** vista oficial operativa con redirect App-first desde `/mapa` y escape a mapa clásico |
+| **Mapa App (14A–15B)** | Misma normalización de celdas/unidades que el dominio (`mapa.model` / `unidad.model`), estructura `mapa_config` vía `suscribirEstructuraMapa`, flota vía `suscribirMapaPlaza`, grid de cajones + buckets limbo/taller/huérfanos, DnD con `mapa-dnd` + `guardarNuevasPosiciones`. **15B:** modales de acciones unitarias, incidencia rápida, mini bitácora y lista operativa |
 
 ## Funciones legacy reutilizadas
 
@@ -50,7 +50,7 @@
 | Incidencias | Crear, resolver, ver evidencias URL/objeto/path, prefill MVA por query | Borrar nota y subir/eliminar adjuntos en Storage → legacy |
 | Mensajes | Enviar, refresco, agrupación email canónica, leído por conversación, filtros plaza/rol/estado | Adjuntos/subida, editar/eliminar/reacciones/push complejo |
 | Cuadre | Refrescar, tabs de lectura, filtros avanzados (estado/categoría/ubicación), copiar MVA/datos, export CSV local, copiar resumen filtrado, abrir App Mapa por MVA, abrir legacy, filtro fecha historial, búsqueda base maestra read-only | Alta/baja, editar estado, cierre formal, PDF/reportes críticos, edición masiva |
-| Mapa App | Ver flota + `mapa_config`, filtros rápidos (incl. incidencias), resumen `notas_admin` por MVA (solo lectura), búsqueda global + `?q=`, lista/grid, detalle, **acciones operativas rápidas** (copiar MVA/JSON, incidencias, cuadre, mapa clásico, refrescar), movimiento DnD con confirmación y guardado según rol/flags | Editor de estructura, editmap, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes y mutaciones no disponibles del módulo de acciones → `/mapa?legacy=1` |
+| Mapa App | Ver flota + `mapa_config`, filtros rápidos (incl. incidencias), resumen `notas_admin` por MVA con mini bitácora, búsqueda global + `?q=`, lista/grid, detalle, **acciones operativas rápidas**, modales seguros de estado/notas/gas/lista, incidencia rápida si API existe, movimiento DnD con confirmación y guardado según rol/flags | Editor de estructura, editmap, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes y mutaciones no disponibles del módulo de acciones → `/mapa?legacy=1` |
 | Admin | Edición básica usuario + solicitudes seguras según permisos + detalle real de roles/plazas/catálogos | Crear/editar rol, jerarquía, editar plaza, editar catálogos, email/password/permisos sensibles, acciones masivas |
 | Profile | Nombre/teléfono/avatar/preferencias visuales, sync estado shell | Email/rol/permisos/plazas/password |
 | Programador | Smoke local, copiar reporte, flags LS, limpieza flags locales, navegación QA, inventario `window.api` | Mutaciones Firestore, reset SW automático, borrar cache destructivo |
@@ -62,7 +62,7 @@
 - Mensajes: faltan adjuntos completos y panel de info/archivo igual a legacy.
 - Incidencias Kanban (`plazas/...`) vs mantener modelo único `notas_admin` (legacy Kanban sigue separado).
 - Cuadre: aún falta paridad 1:1 de controles avanzados (PDF/insertar/eliminar global/cierre oficial), por eso se mantiene en `KEEP_LEGACY_BACKUP`.
-- Mapa App: vista oficial operativa desde 15A; editor/layout masivo y herramientas clásicas avanzadas permanecen en `/mapa?legacy=1`. **14B-A:** capa de datos `mapa-incidencias-summary.js` integrada. **14F-B:** UI de acciones operativas seguras integrada con import dinámico opcional del módulo `mapa-unit-actions.js`; si el módulo no existe/falla, no hay mutaciones y se mantiene apertura a mapa clásico. **14G:** port visual P0 implementado. **15A:** redirect `/mapa → /app/mapa` activado con escape `mex.legacy.force=1`.
+- Mapa App: vista oficial operativa completa P1 desde 15B; editor/layout masivo y herramientas clásicas avanzadas permanecen en `/mapa?legacy=1`. **14B-A:** capa de datos `mapa-incidencias-summary.js` integrada. **14F-B:** UI de acciones operativas seguras integrada. **14G:** port visual P0 implementado. **15A:** redirect `/mapa → /app/mapa` activado con escape `mex.legacy.force=1`. **15B:** modales, incidencia rápida, mini bitácora y lista operativa reforzada.
 - Admin: faltan operaciones avanzadas de escritura global (roles/plazas/catálogos) que permanecen en legacy.
 - Profile: migrado a visual real en 13C; diferencias menores aceptadas por contenedor App Shell y bloques operativos de solo lectura.
 
@@ -84,4 +84,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v274` (15A; oficialización mapa App + redirect App-first).
+- **`CACHE_NAME`** `mapa-v275` (15B; flujos operativos principales mapa App).

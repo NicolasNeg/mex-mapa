@@ -9,6 +9,7 @@ import {
 } from '/js/app/features/mapa/mapa-mutations.js';
 import { sanitizeSpotToken } from '/js/app/features/mapa/mapa-view-model.js';
 import { renderMapaReadOnly, renderErrorState, getResolvedMapaSelection } from '/js/app/features/mapa/mapa-renderer.js';
+import { createQuickIncident, hasQuickIncidentApi } from '/js/app/features/mapa/mapa-unit-quick-incident.js';
 
 let _container = null;
 let _contentEl = null;
@@ -349,6 +350,17 @@ function _removeMapaModals() {
   _container?.querySelectorAll?.('.app-mapa-modal-overlay')?.forEach(el => el.remove());
 }
 
+function _currentAuditUser() {
+  const st = getState();
+  const p = st?.profile || {};
+  return {
+    uid: String(p.uid || p.id || st?.user?.uid || ''),
+    email: String(p.email || st?.user?.email || ''),
+    nombre: _actorName(),
+    nombreCompleto: String(p.nombreCompleto || p.nombre || '')
+  };
+}
+
 function _sleep(ms) {
   return new Promise(r => setTimeout(r, ms));
 }
@@ -547,6 +559,105 @@ async function _showUnitActionModal({ action, selected, context }) {
   });
 }
 
+async function _showQuickIncidentModal(selected) {
+  return new Promise(resolve => {
+    if (!_container) return resolve({ cancelled: true });
+    const plaza = String(getState()?.currentPlaza || selected?.plaza || '').toUpperCase();
+    const wrap = document.createElement('div');
+    wrap.className = 'app-mapa-modal-overlay';
+    wrap.setAttribute('role', 'dialog');
+    wrap.innerHTML = `
+      <div class="app-mapa-modal app-mapa-modal--unit-action">
+        <p class="app-mapa-modal-title">Crear incidencia</p>
+        <p class="app-mapa-modal-body">Se registrará una incidencia para <strong>${esc(selected?.mva || '—')}</strong> en plaza <strong>${esc(plaza || '—')}</strong>.</p>
+        <div class="app-mapa-form-grid">
+          <label class="app-mapa-form-field"><span>Título</span><input data-fld="titulo" type="text" maxlength="90" placeholder="Ej. Daño detectado"/></label>
+          <label class="app-mapa-form-field"><span>Prioridad</span><select data-fld="prioridad">
+            <option value="MEDIA">Media</option>
+            <option value="ALTA">Alta</option>
+            <option value="CRITICA">Crítica</option>
+            <option value="BAJA">Baja</option>
+          </select></label>
+          <label class="app-mapa-form-field"><span>Descripción</span><textarea data-fld="descripcion" rows="4" maxlength="800" placeholder="Describe lo que debe revisar operación"></textarea></label>
+        </div>
+        <p class="app-mapa-form-msg" data-msg></p>
+        <div class="app-mapa-modal-actions">
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--ghost" data-act="cancel">Cancelar</button>
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">Crear incidencia</button>
+        </div>
+      </div>`;
+    const msgEl = wrap.querySelector('[data-msg]');
+    const done = result => {
+      wrap.remove();
+      resolve(result);
+    };
+    const collectPayload = () => {
+      const out = {};
+      wrap.querySelectorAll('[data-fld]').forEach(el => {
+        const k = String(el.getAttribute('data-fld') || '');
+        if (k) out[k] = String(el.value || '').trim();
+      });
+      return out;
+    };
+    wrap.addEventListener('click', e => {
+      if (e.target === wrap) done({ cancelled: true });
+    });
+    wrap.querySelector('[data-act="cancel"]')?.addEventListener('click', () => done({ cancelled: true }));
+    wrap.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
+      const payload = collectPayload();
+      if (!payload.titulo || !payload.descripcion) {
+        if (msgEl) msgEl.textContent = 'Título y descripción son obligatorios.';
+        return;
+      }
+      done({ cancelled: false, payload });
+    });
+    _container.appendChild(wrap);
+    wrap.querySelector('[data-fld="titulo"]')?.focus?.();
+  });
+}
+
+async function _createQuickIncidentForSelected() {
+  const selected = _selectedUnit();
+  if (!selected) {
+    if (_dndHintEl) {
+      _dndHintEl.textContent = 'Selecciona una unidad para crear incidencia.';
+      _dndHintEl.hidden = false;
+    }
+    return;
+  }
+  const mva = String(selected.mva || '').trim();
+  if (!hasQuickIncidentApi(window.api)) {
+    window.location.assign(`/app/incidencias?mva=${encodeURIComponent(mva)}`);
+    return;
+  }
+  const prepared = await _showQuickIncidentModal(selected);
+  if (prepared.cancelled) {
+    if (_dndHintEl) {
+      _dndHintEl.textContent = 'Incidencia cancelada. No se realizaron cambios.';
+      _dndHintEl.hidden = false;
+    }
+    return;
+  }
+  const plaza = String(getState()?.currentPlaza || selected?.plaza || '').toUpperCase();
+  const res = await createQuickIncident({
+    api: window.api,
+    unit: selected,
+    plaza,
+    user: _currentAuditUser(),
+    payload: prepared.payload
+  });
+  if (_dndHintEl) {
+    _dndHintEl.textContent = res.ok
+      ? (res.message || 'Incidencia creada. Actualizando bitácora…')
+      : (res.message || 'No se pudo crear la incidencia. Usa bitácora completa.');
+    _dndHintEl.hidden = false;
+  }
+  if (!res.ok) return;
+  void _syncIncSummaryPlaza(plaza);
+  await _lifecycle?.resyncData?.();
+  _render();
+}
+
 async function _runUnitAction(actionId) {
   const selected = _selectedUnit();
   if (!selected) {
@@ -606,8 +717,17 @@ async function _runUnitAction(actionId) {
       _dndHintEl.textContent = res?.message || 'Acción operativa completada.';
       _dndHintEl.hidden = false;
     }
+    let didResync = false;
     if (res?.requiresResync || res?.resync || res?.refresh) {
       await _lifecycle?.resyncData?.();
+      didResync = true;
+    }
+    if (['update_status', 'update_notes', 'update_gas', 'mark_ready'].includes(String(action.id || ''))) {
+      if (!didResync) await _lifecycle?.resyncData?.();
+      if (_dndHintEl) {
+        _dndHintEl.textContent = `${res?.message || 'Cambio aplicado.'} Mapa sincronizado.`;
+        _dndHintEl.hidden = false;
+      }
     }
     _render();
   } catch (err) {
@@ -895,6 +1015,7 @@ export function mount({ container }) {
   _offPlaza = onPlazaChange(nextPlaza => {
     _dndController?.disable?.();
     _dndController?.unmount?.();
+    _removeMapaModals();
     _updatePlazaHeader(nextPlaza);
     _viewState.selectedId = '';
     _viewState.snapshot = null;
@@ -943,6 +1064,11 @@ export function mount({ container }) {
         _dndHintEl.textContent = 'Actualizando datos del mapa…';
         _dndHintEl.hidden = false;
       }
+      return;
+    }
+    const incidentBtn = event.target?.closest?.('[data-app-mapa-detail="create-incident"]');
+    if (incidentBtn) {
+      void _createQuickIncidentForSelected();
       return;
     }
     const unitActionBtn = event.target?.closest?.('[data-app-mapa-unit-action]');

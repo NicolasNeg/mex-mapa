@@ -218,6 +218,13 @@ Objetivo: inventariar listeners/suscripciones y preparar cleanup centralizado si
 - `setPlaza(nueva)` llama `cleanup()` antes de re-suscribir → garantiza 0 listeners huérfanos.
 - `cleanup()` es idempotente (safe con N llamadas).
 - Firestore client SDK comparte cache de snapshots internamente; si `/app/incidencias` ya tiene su listener a `notas_admin` con el mismo query, no se generan lecturas duplicadas del backend.
+
+## Actualización FASE 15B (flujos operativos principales)
+
+- La mini bitácora del panel unidad reutiliza `items[]` ya entregado por `mapa-incidencias-summary`; **no** crea listeners por unidad.
+- La incidencia rápida usa `api.guardarNuevaNotaDirecto` bajo acción explícita del usuario; no crea suscripciones nuevas.
+- Al cambiar plaza se cierran modales App (`.app-mapa-modal-overlay`), se limpia selección y se reutiliza `setPlaza` del controller de incidencias.
+- Diagnóstico técnico sigue visible solo para rol autorizado/programador; no se agregaron auth listeners.
 - Contrato completo: `docs/mapa-incidencias-summary-contract.md`.
 
 ## Actualización FASE 14C-A (hardening audit)

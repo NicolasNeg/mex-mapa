@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 13F + actualización mapa **14G** · **Fecha inventario:** 2026-04-29 · **Mapa `/app/mapa`:** 2026-05-06 (`mapa-legacy-visual-blueprint.md`)
+**Versión:** FASE 13F + actualización mapa **15B** · **Fecha inventario:** 2026-04-29 · **Mapa `/app/mapa`:** 2026-05-06 (`mapa-vista-completa-oficial.md`)
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -50,9 +50,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **OFICIAL_OPERATIVA (15A)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + bloque resumen en detalle + CTA incidencias; `?q=` incluye texto de incidencias; **14F-B** bloque “Acciones operativas” (rápidas activas y mutaciones solo si módulo `mapa-unit-actions.js` existe y autoriza); **14G** porta visual P0 del mapa clásico real; **15A** activa `/mapa → /app/mapa` con escape `mex.legacy.force=1`; DnD sigue con flags por defecto |
+| **Migrado App** | **OFICIAL_OPERATIVA_COMPLETA_P1 (15B)**: grid/celdas reales, filtros (limbo/taller/en cajón/**con incidencias**/**críticas**/externos/etc.), **`mapa-incidencias-summary.js`** (una suscripción `notas_admin`/plaza, agregado por MVA), badges en tarjetas + mini bitácora en detalle; **14F-B** bloque “Acciones operativas”; **15B** modales oficiales para estado/notas/gas/lista, incidencia rápida y lista operativa; **15A** activa `/mapa → /app/mapa` con escape `mex.legacy.force=1`; DnD sigue con flags por defecto |
 | **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan, editor `editmap`, radar/chat completo, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa?legacy=1` |
-| **Esta fase** | 15A oficializa `/app/mapa`; `/mapa` redirige App-first; mapa clásico intacto con escape |
+| **Esta fase** | 15B completa flujos operativos principales; `/mapa` sigue App-first; mapa clásico intacto con escape |
 
 ---
 

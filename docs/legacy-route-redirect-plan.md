@@ -1,6 +1,6 @@
-# Legacy Route Redirect Plan (FASE 15A — mapa App oficial App-first)
+# Legacy Route Redirect Plan (FASE 15B — mapa App oficial App-first)
 
-Fecha: 2026-05-06 · **15A** oficializa `/app/mapa` como mapa principal del sistema.
+Fecha: 2026-05-06 · **15B** mantiene `/app/mapa` como mapa principal y completa flujos operativos P1.
 Nota: `/mapa` redirige App-first a `/app/mapa` salvo escape `localStorage["mex.legacy.force"] === "1"` o apertura explícita con `?legacy=1`. `/mapa` queda como **CLASSIC_FALLBACK** para editor, PDF, radar/chat completo, altas masivas, eliminación, estructura `mapa_config`, cierre formal y acciones globales peligrosas.
 
 ## Criterios
@@ -22,7 +22,7 @@ Nota: `/mapa` redirige App-first a `/app/mapa` salvo escape `localStorage["mex.l
 | `/cuadre` | `/app/cuadre` | Paridad visual/operativa fuerte (12F/12G/13F) | KEEP_LEGACY_BACKUP | Redirect **no activado** en esta fase; mantener `/cuadre` legacy como entrada principal y `/app/cuadre` como opción avanzada |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
-| `/mapa` | `/app/mapa` | **OFICIAL_OPERATIVA (15A)** — mapa principal en App Shell | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico sigue disponible para editor, radar y herramientas completas |
+| `/mapa` | `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1 (15B)** — mapa principal en App Shell | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico sigue disponible para editor, radar y herramientas completas |
 | `/solicitud` | N/A | Flujo público de acceso | PUBLIC_FORM / DO_NOT_REDIRECT | Mantener ruta independiente de login/alta |
 | `/editmap` | `/app/mapa` (editor futuro) | Editor legacy acoplado | DO_NOT_REDIRECT | Extraer editor plenamente al App Shell |
 

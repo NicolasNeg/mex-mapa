@@ -1,4 +1,5 @@
 import { buildMapaReadOnlyViewModel, normalizeMapUnit } from '/js/app/features/mapa/mapa-view-model.js';
+import { getMiniBitacoraItems } from '/js/app/features/mapa/mapa-unit-history.js';
 import { generarSearchTokens } from '/domain/unidad.model.js';
 
 function _up(v) {
@@ -400,6 +401,22 @@ function _detailIncBlock(mva, byMva, ready, failed) {
   const lastLine = lastTit
     ? `${esc(lastTit)}${lastAt ? ` · ${_fmtLastAtMs(lastAt)}` : ''}`
     : '—';
+  const miniItems = getMiniBitacoraItems(byMva, mva, 3);
+  const miniHtml = miniItems.length
+    ? `<ol class="app-mapa-mini-history">
+      ${miniItems
+        .map(item => {
+          const when = item.timestamp ? _fmtLastAtMs(item.timestamp) : '';
+          const meta = [item.prioridad, item.estado, when].filter(Boolean).join(' · ');
+          return `<li>
+            <strong>${esc(item.titulo)}</strong>
+            ${meta ? `<span>${esc(meta)}</span>` : ''}
+            ${item.descripcion ? `<small>${esc(item.descripcion)}</small>` : ''}
+          </li>`;
+        })
+        .join('')}
+    </ol>`
+    : '';
   return `
     <div class="app-mapa-inc-summary">
       <h4 class="app-mapa-inc-summary-title">Incidencias / notas (notas_admin)</h4>
@@ -409,7 +426,8 @@ function _detailIncBlock(mva, byMva, ready, failed) {
         <li><span>Críticas / alta (abiertas)</span><strong>${s.criticas}</strong></li>
         <li class="app-mapa-inc-last"><span>Última</span><span>${lastLine}</span></li>
       </ul>
-      <a class="app-mapa-mini-cta app-mapa-mini-cta--block" href="/app/incidencias?mva=${encodeURIComponent(mva)}">Ver incidencias</a>
+      ${miniHtml}
+      <a class="app-mapa-mini-cta app-mapa-mini-cta--block" href="/app/incidencias?mva=${encodeURIComponent(mva)}">Ver bitácora completa</a>
     </div>
   `;
 }
@@ -422,6 +440,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
     <div class="app-mapa-actions-grid app-mapa-actions-grid--quick">
       <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(mva)}">Copiar MVA</button>
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
+      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="create-incident">Crear incidencia</button>
       <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Ver incidencias</a>
       <a class="app-mapa-detail-link" href="/app/cuadre">Abrir en cuadre</a>
       <a class="app-mapa-detail-link" href="/mapa?legacy=1&q=${mvaEnc}">Abrir mapa clásico</a>
@@ -588,12 +607,24 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         generarSearchTokens(nu).some(t => String(t).toUpperCase().includes(queryUpper)) ||
         (incTxt && incTxt.includes(queryUpper));
       const qm = queryUpper && tokMatch ? ' is-query-match' : '';
+      const inc = incOpts.incidentsByMva?.[mvaUp];
+      const incLabel = inc && inc.total ? `${inc.abiertas || 0}/${inc.total}` : '—';
+      const pos = String(nu.pos || 'LIMBO');
+      const mvaEnc = encodeURIComponent(String(nu.mva || ''));
       return `<tr class="app-mapa-list-row${sel}${qm}" data-unit-id="${esc(id)}">
         <td><strong>${esc(nu.mva)}</strong></td>
-        <td>${esc(String(nu.estado || '—'))}</td>
         <td>${esc(String(nu.modelo || '—'))}</td>
-        <td>${esc(String(nu.pos || 'LIMBO'))}</td>
+        <td>${esc(String(nu.placas || '—'))}</td>
+        <td>${esc(String(nu.estado || '—'))}</td>
+        <td>${esc(String(nu.gasolina || '—'))}</td>
         <td>${esc(String(nu.ubicacion || '—'))}</td>
+        <td>${esc(pos)}</td>
+        <td>${esc(incLabel)}</td>
+        <td class="app-mapa-list-actions">
+          <button type="button" class="app-mapa-list-action" data-copy-mva="${esc(nu.mva)}">Copiar MVA</button>
+          <a class="app-mapa-list-action" href="/app/incidencias?mva=${mvaEnc}">Bitácora</a>
+          <a class="app-mapa-list-action" href="/mapa?legacy=1&q=${mvaEnc}">Clásico</a>
+        </td>
       </tr>`;
     }).join('');
     container.innerHTML = `
@@ -608,8 +639,8 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     <section class="app-mapa-layout app-mapa-layout--list">
       <div class="app-mapa-list-scroll">
         <table class="app-mapa-list-table">
-          <thead><tr><th>MVA</th><th>Estado</th><th>Modelo</th><th>Pos</th><th>Ubicación</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="5" class="app-mapa-list-empty">Sin unidades para este filtro.</td></tr>`}</tbody>
+          <thead><tr><th>MVA</th><th>Modelo</th><th>Placas</th><th>Estado</th><th>Gas</th><th>Ubicación</th><th>Pos</th><th>Inc.</th><th>Acciones</th></tr></thead>
+          <tbody>${rows || `<tr><td colspan="9" class="app-mapa-list-empty">Sin unidades para este filtro.</td></tr>`}</tbody>
         </table>
       </div>
       <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>

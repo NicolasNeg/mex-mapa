@@ -1,12 +1,12 @@
 # Mapa oficial operativo
 
-Fecha: 2026-05-06 · FASE 15A
+Fecha: 2026-05-06 · FASE 15B
 
 ## 1. Estado
 
 | Ruta | Estado |
 |---|---|
-| `/app/mapa` | **OFICIAL_OPERATIVA** |
+| `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1** |
 | `/mapa` | **CLASSIC_FALLBACK** |
 | Redirect `/mapa` → `/app/mapa` | **ACTIVADO** |
 | Escape clásico | `localStorage["mex.legacy.force"] = "1"` o `/mapa?legacy=1` |
@@ -22,8 +22,10 @@ Fecha: 2026-05-06 · FASE 15A
 - Filtros rápidos.
 - Vista por celdas y vista lista.
 - Panel detalle por unidad.
-- Incidencias/notas por MVA.
+- Incidencias/notas por MVA con mini bitácora.
 - Acciones operativas seguras por unidad cuando el módulo/API/rol lo permiten.
+- Modales oficiales para estado, notas, gasolina y lista/no lista.
+- Incidencia rápida desde unidad si `guardarNuevaNotaDirecto` está disponible; si no, apertura de bitácora completa.
 - Movimiento DnD según permisos y flags.
 - Movimiento con guardado solo con `mex.appMapa.dnd=1`, `mex.appMapa.dndPersist=1` y rol autorizado.
 - Botón permanente para abrir mapa clásico.
@@ -64,6 +66,7 @@ Checklist mínimo:
 - Confirmar que las funciones no migradas dicen “mapa clásico”.
 - Confirmar que DnD con guardado sigue OFF por defecto.
 - Confirmar que acciones 14F, incidencias 14B, filtros, búsqueda y detalle siguen operativos.
+- Confirmar que modales 15B cancelan sin ejecutar y sincronizan después de éxito.
 
 ## 6. Cómo abrir clásico y volver
 

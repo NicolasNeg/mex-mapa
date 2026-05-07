@@ -170,6 +170,12 @@ Validaciones mezcladas:
 - Persistencia sigue detrás de confirmación modal (`_showPersistConfirm`), validación `validatePersistMove`, refresco `obtenerDatosFlotaConsola` opcional y flags `mex.appMapa.dnd` + `mex.appMapa.dndPersist` + rol autorizado.
 - Al cambiar plaza en App Shell se llama `disable`/`unmount` del controller DnD antes de recargar datos.
 
+### FASE 15B (oficial operativo completo P1)
+
+- DnD se conserva sin activar persistencia por defecto: requiere `mex.appMapa.dnd=1`, `mex.appMapa.dndPersist=1` y rol autorizado.
+- Los modales 15B de acciones unitarias no modifican targets ni data attributes DnD.
+- Cambio de plaza cierra modales y desmonta DnD antes de re-suscribir datos, manteniendo cleanup existente.
+
 ## FASE 14C-A (hardening audit)
 
 - Auditoría completa del flujo DnD (preview + persist) en `mapa-dnd.js` (488 líneas) + `mapa-mutations.js` (217 líneas) + `mapa.js` view (918 líneas).
