@@ -88,6 +88,41 @@ function _stateClass(state = '') {
   return normalized ? `is-${normalized.toLowerCase()}` : 'is-sin-estado';
 }
 
+function _gasPct(gas = '') {
+  const raw = String(gas == null ? '' : gas).trim().toUpperCase();
+  if (!raw || raw === 'N/A' || raw === '—') return 0;
+  if (raw === 'F' || raw === 'FULL') return 100;
+  if (raw === 'E') return 8;
+  const fractions = {
+    '15/16': 94,
+    '7/8': 88,
+    '13/16': 81,
+    '3/4': 75,
+    '11/16': 69,
+    '5/8': 63,
+    '9/16': 56,
+    '1/2': 50,
+    'H': 50,
+    '7/16': 44,
+    '3/8': 38,
+    '5/16': 31,
+    '1/4': 25,
+    '3/16': 19,
+    '1/8': 13,
+    '1/16': 6
+  };
+  if (fractions[raw] != null) return fractions[raw];
+  const num = Number(raw.replace('%', ''));
+  return Number.isFinite(num) ? Math.max(0, Math.min(100, num)) : 0;
+}
+
+function _gasClass(pct) {
+  if (pct >= 70) return 'is-high';
+  if (pct >= 35) return 'is-mid';
+  if (pct > 0) return 'is-low';
+  return 'is-empty';
+}
+
 /** @deprecated Usar buildMapaReadOnlyViewModel; se mantiene alias por si hay imports externos. */
 export function normalizeMapaViewModel(data = {}) {
   return buildMapaReadOnlyViewModel({
@@ -126,6 +161,9 @@ export function renderUnit(unit, options = {}) {
   const ir = options.incidentsReady === true;
   const showInc = ir && inc && inc.total > 0;
   const showCrit = ir && inc && inc.criticas > 0;
+  const stateClass = _stateClass(unit.estado);
+  const gasPct = _gasPct(unit.gasolina);
+  const gasLabel = unit.gasolina != null && unit.gasolina !== '' && unit.gasolina !== '—' ? String(unit.gasolina) : 'N/A';
   const incHtml =
     showInc || showCrit
       ? `<span class="app-mapa-unit-inc" aria-label="Incidencias">
@@ -134,14 +172,18 @@ export function renderUnit(unit, options = {}) {
       </span>`
       : '';
   return `
-    <button type="button" class="app-mapa-unit ${selected ? 'is-selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
+    <button type="button" class="app-mapa-unit ${stateClass} ${selected ? 'is-selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
       data-unit-id="${esc(unit.id)}"${baseAttrs}${dndAttrs}>
       <div class="app-mapa-unit-top">
         <strong>${esc(unit.mva)}</strong>
         ${incHtml}
-        <span class="app-mapa-unit-state ${_stateClass(unit.estado)}">${esc(unit.estado)}</span>
+        <span class="app-mapa-unit-state ${stateClass}">${esc(unit.estado)}</span>
       </div>
-      <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}${unit.gasolina && unit.gasolina !== '—' ? ` · ⛽ ${esc(unit.gasolina)}` : ''}</div>
+      <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}</div>
+      <div class="app-mapa-gas ${_gasClass(gasPct)}" aria-label="Gasolina ${esc(gasLabel)}">
+        <span class="app-mapa-gas-fill" style="width:${gasPct}%"></span>
+        <span class="app-mapa-gas-text">${esc(gasLabel)}</span>
+      </div>
       <div class="app-mapa-unit-zona">${esc(position || '—')}${zoneHint ? ` · <span class="app-mapa-unit-zone-hint">${esc(zoneHint)}</span>` : ''}</div>
     </button>
   `;
@@ -382,7 +424,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
       <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Ver incidencias</a>
       <a class="app-mapa-detail-link" href="/app/cuadre">Abrir en cuadre</a>
-      <a class="app-mapa-detail-link" href="/mapa?q=${mvaEnc}">Abrir mapa legacy</a>
+      <a class="app-mapa-detail-link" href="/mapa?legacy=1&q=${mvaEnc}">Abrir mapa clásico</a>
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="refresh">Refrescar</button>
     </div>
   `;
@@ -409,8 +451,8 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
       ${blocked
         .map(action => {
           const lbl = String(action?.label || action?.id || 'Acción');
-          const reason = String(action?.reason || 'Disponible en legacy');
-          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Disponible en legacy')}</small></li>`;
+          const reason = String(action?.reason || 'Disponible en mapa clásico');
+          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Disponible en mapa clásico')}</small></li>`;
         })
         .join('')}
     </ul>`
@@ -433,7 +475,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
         ${secureHtml}
       </div>
       <div class="app-mapa-actions-group">
-        <p class="app-mapa-actions-title">Disponible en legacy</p>
+        <p class="app-mapa-actions-title">Disponible en mapa clásico</p>
         ${blockedHtml || '<p class="app-mapa-actions-muted">Sin bloqueos adicionales en esta unidad.</p>'}
       </div>
     </section>
@@ -470,8 +512,8 @@ function _detailPanel(selected, plaza, incOpts = {}, actionsOpts = {}) {
     <p><strong>Actualizado:</strong> ${_fmtRawDate(raw)}</p>
     <p><strong>Por:</strong> ${esc(_rawAuthor(raw))}</p>
     </div>
-    <p><a class="app-mapa-mini-cta" href="/mapa">Abrir mapa classic completo</a></p>
-    <small class="app-mapa-detail-foot">Editor de layout, PDF y altas masivas siguen en mapa legacy.</small>
+    <p><a class="app-mapa-mini-cta" href="/mapa?legacy=1">Abrir mapa clásico completo</a></p>
+    <small class="app-mapa-detail-foot">Editor de layout, PDF y altas masivas siguen en mapa clásico.</small>
   `;
 }
 
@@ -485,7 +527,7 @@ export function renderErrorState(label = 'No se pudo cargar el mapa.', opts = {}
     <div class="app-mapa-state-error-msg">${esc(label)}</div>
     ${
       legacy
-        ? `<p class="app-mapa-legacy-fallback">¿Funciones avanzadas? <a class="app-mapa-legacy-fallback-link" href="/mapa">Abrir mapa completo (legacy)</a> · editor, PDF y altas masivas.</p>`
+        ? `<p class="app-mapa-legacy-fallback">¿Funciones avanzadas? <a class="app-mapa-legacy-fallback-link" href="/mapa?legacy=1">Abrir mapa clásico</a> · editor, PDF y altas masivas.</p>`
         : ''
     }
   </div>`;
@@ -625,7 +667,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         <div class="app-mapa-canvas">
           ${
             vm.slotRows.length === 0 && !(vm.rows || []).length
-              ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa completo para revisar configuración.')
+              ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa clásico para revisar configuración.')
               : `<div class="app-mapa-canvas-viewport"><div class="app-mapa-canvas-inner">${mainRows}</div></div>`
           }
         </div>

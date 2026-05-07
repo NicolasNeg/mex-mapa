@@ -98,7 +98,7 @@ export function validatePersistMove(
     return {
       ok: false,
       code: 'AUTH',
-      message: 'Tu rol no permite persistir movimientos en el mapa beta.'
+      message: 'Tu rol no permite guardar movimientos en el mapa operativo.'
     };
   }
   if (!persistFlagsOk) {

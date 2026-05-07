@@ -1,9 +1,9 @@
 /**
- * DnD preview/persist para /app/mapa (App Shell).
- * Preview: sin escritura. Persistencia opcional vía callbacks (usa API legacy).
+ * Movimiento DnD para /app/mapa (App Shell).
+ * Movimiento sin guardado por defecto. Guardado opcional vía callbacks.
  *
  * Listeners en window solo durante un arrastre activo (o gesto pendiente).
- * Preview opcional solo pointer (sin touch) para reducir riesgo de scroll/bloqueos.
+ * Movimiento opcional solo pointer (sin touch) para reducir riesgo de scroll/bloqueos.
  */
 
 import { sanitizeSpotToken } from '/js/app/features/mapa/mapa-view-model.js';
@@ -24,7 +24,7 @@ export function createMapaDndController({
   onMovePreview = null,
   onMoveCommit = null,
   canMove = () => false,
-  /** Persistencia activa (flag + rol); si false solo preview simulado. */
+  /** Guardado activo (flag + rol); si false solo movimiento sin guardado. */
   getPersistAllowed = () => false,
   /**
    * Persistencia controlada (confirmación + API). Debe resolver con { message, outcome }.
@@ -165,7 +165,7 @@ export function createMapaDndController({
     if (typeof onMoveCommit === 'function') {
       try { onMoveCommit(payload); } catch (_) { /* noop */ }
     }
-    _log('preview', payload);
+    _log('move', payload);
   }
 
   function _finishInteraction(commitPreview) {
@@ -269,7 +269,7 @@ export function createMapaDndController({
         from: fromCtx,
         to: toCtx,
         snapshot: typeof getSnapshot === 'function' ? getSnapshot() : null,
-        message: 'Misma celda — preview sin cambios. No se guardó en producción.',
+        message: 'Misma celda — movimiento sin cambios. No se guardó en producción.',
         outcome: 'same-cell'
       });
       _finishInteraction(true);

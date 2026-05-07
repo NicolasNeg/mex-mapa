@@ -70,7 +70,7 @@ const ACTION_DEFS = Object.freeze({
   },
   open_legacy: {
     id: 'open_legacy',
-    label: 'Abrir legacy',
+    label: 'Abrir mapa clásico',
     mutates: false,
     requiresConfirmation: false
   },
@@ -207,6 +207,7 @@ function _buildLegacyUrl(unit, context = {}) {
   const params = new URLSearchParams();
   const plaza = _upper(context.plaza || '');
   const mva = _unitMva(unit);
+  params.set('legacy', '1');
   if (plaza) params.set('plaza', plaza);
   if (mva) params.set('q', mva);
   const qs = params.toString();
@@ -237,7 +238,7 @@ function _validateCommon(action, unit, payload = {}, context = {}) {
 
   if (def.mutates) {
     if (!_actorName(context)) return { ok: false, code: 'NO_USER', message: 'Usuario requerido.' };
-    if (!_canMutate(context)) return { ok: false, code: 'AUTH', message: 'Rol no autorizado para mutaciones App beta.' };
+    if (!_canMutate(context)) return { ok: false, code: 'AUTH', message: 'Rol no autorizado para mutaciones en mapa operativo.' };
     if (def.requiresConfirmation && payload.confirmed !== true && context.confirmed !== true) {
       return { ok: false, code: 'CONFIRMATION', message: 'Confirmacion explicita requerida.' };
     }
@@ -383,10 +384,10 @@ export function createMapaUnitActionsController({
       const common = _validateCommon(action, unit, { confirmed: def?.requiresConfirmation ? true : undefined }, ctx);
       if (!common.ok && !['CONFIRMATION'].includes(common.code)) return _unavailable(action, common.message, { code: common.code });
       if (action === 'send_to_preparacion') {
-        return _unavailable(action, 'No hay API legacy segura detectada', { code: 'NO_SAFE_LEGACY_API' });
+        return _unavailable(action, 'No hay API clásica segura detectada', { code: 'NO_SAFE_LEGACY_API' });
       }
       if (!_hasApiForAction(apiRef, action)) {
-        return _unavailable(action, 'No hay API legacy segura detectada', { code: 'NO_API' });
+        return _unavailable(action, 'No hay API clásica segura detectada', { code: 'NO_API' });
       }
       return _available(action, {
         href:
@@ -409,7 +410,7 @@ export function createMapaUnitActionsController({
     if (!common.ok) return common;
     const apiRef = getApi();
     if (!_hasApiForAction(apiRef, normalized)) {
-      return { ok: false, code: 'NO_API', message: 'No hay API legacy segura detectada.' };
+      return { ok: false, code: 'NO_API', message: 'No hay API clásica segura detectada.' };
     }
     return _validatePayload(normalized, unit, payload);
   }
@@ -432,7 +433,7 @@ export function createMapaUnitActionsController({
       return { ok: true, code: 'LINK_ONLY', message: 'Abrir flujo de incidencia.', href: _buildIncidentUrl(unit, ctx) };
     }
     if (normalized === 'open_legacy') {
-      return { ok: true, code: 'LINK_ONLY', message: 'Abrir mapa legacy.', href: _buildLegacyUrl(unit, ctx) };
+      return { ok: true, code: 'LINK_ONLY', message: 'Abrir mapa clásico.', href: _buildLegacyUrl(unit, ctx) };
     }
     if (normalized === 'copy_json') {
       return { ok: true, code: 'OK', message: 'JSON preparado.', data: { ...unit } };

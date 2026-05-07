@@ -102,8 +102,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/mapa',
     navRoute:     '/mapa',
     fallbackRoute:'/mapa',
-    // El sidebar ya navega a /app/mapa sin recargar (bridge integrado).
-    // El motor completo (drag-and-drop, Firestore, alertas) sigue en /mapa.
+    // 15A: /app/mapa es la vista oficial operativa.
+    // Funciones avanzadas no migradas siguen en /mapa clásico.
     shellIntegrated:    true,
     fullModuleMigrated: false,
   },

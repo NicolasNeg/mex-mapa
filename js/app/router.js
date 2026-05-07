@@ -54,7 +54,7 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/programador.js'),
     navRoute: '/programador'
   },
-  // /app/mapa — vista bridge (Fase 7). El mapa completo sigue en /mapa legacy.
+  // /app/mapa — vista oficial operativa. Funciones avanzadas siguen en mapa clásico.
   '/app/mapa': {
     loader:   () => import('/js/app/views/mapa.js'),
     navRoute: '/mapa',
