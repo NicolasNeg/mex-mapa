@@ -1,7 +1,7 @@
-# Legacy Route Redirect Plan (FASE 15D — cuadre oficial App-first)
+# Legacy Route Redirect Plan (FASE 15E — mensajes oficial App-first)
 
-Fecha: 2026-05-07 · **15D** mantiene `/app/mapa` como mapa principal y oficializa `/app/cuadre` como consola operativa.
-Nota: `/mapa` y `/cuadre` redirigen App-first salvo escape `localStorage["mex.legacy.force"] === "1"` o apertura explícita con `?legacy=1`. Las rutas clásicas quedan como **CLASSIC_FALLBACK** para editor, PDF, altas masivas, eliminación, cierre formal, reportes y acciones globales peligrosas.
+Fecha: 2026-05-07 · **15E** mantiene `/app/mapa` y `/app/cuadre` como vistas principales y oficializa `/app/mensajes`.
+Nota: `/mapa`, `/cuadre` y `/mensajes` redirigen App-first salvo escape `localStorage["mex.legacy.force"] === "1"` o apertura explícita con `?legacy=1`. Las rutas clásicas quedan como **CLASSIC_FALLBACK** para editor, adjuntos complejos, PDF, altas masivas, eliminación, cierre formal, reportes y acciones globales peligrosas.
 
 ## Criterios
 
@@ -16,7 +16,7 @@ Nota: `/mapa` y `/cuadre` redirigen App-first salvo escape `localStorage["mex.le
 |---|---|---|---|---|
 | `/home` | `/app/dashboard` | Redirect App-first + UI equivalente a `renderHome` legacy (13B) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Se respeta flag `mex.legacy.force=1`; en force se muestra CTA `Estás en legacy · Abrir App Shell` |
 | `/profile` | `/app/profile` | Redirección App-first activa + visual parity completa (13C) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Se respeta flag `mex.legacy.force=1`; en force muestra CTA `Estás en legacy · Abrir App Shell` preservando query/hash |
-| `/mensajes` | `/app/mensajes` | Redirect JS App-first activo (12D) | APP_FIRST | Escape `mex.legacy.force=1`; fallback legacy para adjuntos avanzados |
+| `/mensajes` | `/app/mensajes` | **OFICIAL_OPERATIVA** con chat App real | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico conserva adjuntos, edición, borrado y reacciones complejas |
 | `/cola-preparacion` | `/app/cola-preparacion` | Redirect App-first activo + visual parity completa (13D) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Escape `mex.legacy.force=1`; fallback legacy para bulk/reorder/delete |
 | `/incidencias` | `/app/incidencias` | Redirect JS App-first activo + visual parity completa (13E) + hotfix runtime (13E.1) | APP_FIRST · REAL_COMPLETA_VISUAL_PORT | Escape `mex.legacy.force=1`; fallback legacy para adjuntos complejos y eliminación |
 | `/cuadre` | `/app/cuadre` | **OFICIAL_OPERATIVA** con consola App real + modales seguros | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico conserva altas/bajas/masivos/cierre formal/PDF/reportes |
@@ -31,11 +31,11 @@ Nota: `/mapa` y `/cuadre` redirigen App-first salvo escape `localStorage["mex.le
 - `/mapa` App-first exige mantener escape clásico claro para funciones avanzadas no migradas.
 - `/gestion` aún contiene acciones que usuarios esperan en legacy.
 - `/app/admin` cubre operación diaria segura, pero edición global avanzada se mantiene en legacy.
-- `/mensajes` sigue con brecha de paridad en adjuntos avanzados; `/incidencias` queda App-first con fallback legacy para acciones destructivas/adjuntos complejos.
+- `/mensajes` queda App-first; el clásico se conserva para adjuntos, edición, borrado y reacciones complejas.
 - `/cuadre` App queda App-first; el clásico se conserva para acciones avanzadas/destructivas y auditoría operacional.
 
 ## Siguiente fase sugerida (solo planificación)
 
 1. Ejecutar smoke E2E final de `/app/cuadre` por rol/plaza y validar cero regresiones sobre `/cuadre?legacy=1`.
 2. Evaluar redirect condicionado por rol para `/programador`.
-3. Mantener sin redirección: `/gestion`, `/solicitud`, `/editmap`. `/mapa` y `/cuadre` son App-first.
+3. Mantener sin redirección: `/gestion`, `/solicitud`, `/editmap`. `/mapa`, `/cuadre` y `/mensajes` son App-first.

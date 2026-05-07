@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 15D · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** `mapa-visual-port-15c.md`
+**Versión:** FASE 15E · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** `mapa-visual-port-15c.md`
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -64,13 +64,14 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Ruta App** | `/app/mensajes` |
 | **HTML** | Chat `chatv2-*`, `#buzon-modal`, `mensajes.html` |
 | **JS** | `js/views/mensajes.js` |
-| **CSS** | Inline + `fleet-modal`/`chatv2-*` |
-| **`api`** | `obtenerMensajesPrivados`, `enviarMensajePrivado`, lecturas desde `window.api` |
+| **CSS** | Legacy: Inline + `fleet-modal`/`chatv2-*`; App: `css/app-mensajes.css` |
+| **`api`** | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray`, lecturas metadata de `usuarios/{email}` |
 | **Firestore** | Colección mensajes privados (contrato mex-api) |
-| **Migrado App** | **Parcial fuerte 11D**: lista conversaciones, envío, marca leído, refresco ~45s |
-| **Migrado App 11D** | Identidad canónica por email, dedupe robusto conversación, filtros plaza/rol/estado con metadata de usuario, validaciones de composer y fallback adjuntos a legacy |
-| **Falta** | Paridad visual chatv2 1:1 total y adjuntos completos en App |
-| **Esta fase** | Refuerzo operativo sin romper `/mensajes` legacy |
+| **Migrado App** | **OFICIAL_OPERATIVA (15E)**: bandeja/conversaciones + chat oficial, bubbles mío/otro, composer, refresh, no leídos, búsqueda global, filtros plaza/rol/estado y última sincronización |
+| **Identidad** | Canónica por email (`remitenteEmail`/`destinatarioEmail`) con fallback a nombre legacy; display name no define la clave de conversación |
+| **Falta** | Adjuntos completos, edición, borrado, reacciones complejas y push avanzado |
+| **Redirect** | **ACTIVADO 15E**: `/mensajes -> /app/mensajes`; clásico con `mex.legacy.force=1` o `?legacy=1` |
+| **Esta fase** | Oficialización App-first sin romper `/mensajes?legacy=1` |
 
 ---
 

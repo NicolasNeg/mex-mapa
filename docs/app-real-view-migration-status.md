@@ -1,12 +1,12 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-05-07 · **FASE 15D** (Cuadre oficial App-first)
+**Última actualización:** 2026-05-07 · **FASE 15E** (Mensajes oficial App-first)
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
 | `/home` | `/app/dashboard` | **REAL_COMPLETA_VISUAL_PORT (13B)** · **APP_FIRST** | Igual que 13A (KPIs Firestore + mini mapa `buildMapaViewModel`) | UI copiada desde `renderHome` (grid bento, hero mapa, KPI columna, resumen + actividad); sin chrome legacy; búsqueda global vía hooks ocultos |
 | `/mapa` | `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1_VISUAL_15C** · `/mapa` = `CLASSIC_FALLBACK` | Mapa + **`mapa-incidencias-summary.js`** + `mapa-unit-actions.js` + quick incident seguro | **15C:** corrige visual real: elimina óvalo/curva, canvas oscuro dominante, celdas/unidades compactas y panel integrado. Funciones avanzadas no migradas siguen en mapa clásico |
-| `/mensajes` | `/app/mensajes` | **APP_FIRST (12D)** · fallback legacy discreto | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray` | Conversaciones reales, email canónico, envío simple, leído al abrir, refresh, fallback para adjuntos/funciones avanzadas |
+| `/mensajes` | `/app/mensajes` | **OFICIAL_OPERATIVA** · `/mensajes` = `CLASSIC_FALLBACK` | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray`, metadata `usuarios/{email}` read-only | 15E oficializa Mensajes: redirect `/mensajes -> /app/mensajes`, escape `mex.legacy.force=1` o `?legacy=1`, chat operativo con bandeja/conversaciones, bubbles mío/otro, filtros plaza/rol/no leídos/activos, identidad canónica por email, envío real, marca leído y adjuntos bloqueados al clásico |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
 | `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E/13E.1)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy. **13E.1:** hotfix runtime para restaurar `_renderPreview` y eliminar `ReferenceError` en mount/interacción. |
 | `/cuadre` | `/app/cuadre` | **OFICIAL_OPERATIVA** · `/cuadre` = `CLASSIC_FALLBACK` | `obtenerDatosFlotaConsola` + `cuadre/externos` + admins/historial (read) + `mapa-unit-actions.js` para mutaciones seguras si API/rol lo permiten | 15D oficializa Cuadre: redirect `/cuadre -> /app/cuadre`, escape `mex.legacy.force=1` o `?legacy=1`, header “Cuadre operativo”, KPIs ampliados, filtros, tabla 12 columnas, detalle, modales seguros de estado/notas/gas/listo, export CSV, copiar resumen y admins/historial read-only |
@@ -48,7 +48,7 @@
 |-------|-------------------|---------------------|
 | Cola | Checklist, notas/salida/asignación, crear salida, filtros operativos + global search | Reordenar DnD, bulk masivo y eliminar (se mantienen en legacy) |
 | Incidencias | Crear, resolver, ver evidencias URL/objeto/path, prefill MVA por query | Borrar nota y subir/eliminar adjuntos en Storage → legacy |
-| Mensajes | Enviar, refresco, agrupación email canónica, leído por conversación, filtros plaza/rol/estado | Adjuntos/subida, editar/eliminar/reacciones/push complejo |
+| Mensajes | Enviar, refresco, agrupación email canónica, leído por conversación, filtros plaza/rol/estado/no leídos, búsqueda global, bubbles mío/otro, abrir clásico | Adjuntos/subida, editar/eliminar/reacciones/push complejo |
 | Cuadre | Refrescar, tabs, filtros avanzados (estado/categoría/ubicación/origen), copiar MVA/datos, export CSV local, copiar resumen filtrado, abrir App Mapa por MVA, abrir cuadre clásico, filtro fecha historial, búsqueda base maestra read-only, modales seguros de estado/notas/gas/listo cuando `aplicarEstado` + rol autorizado están disponibles | Alta/baja, masivos, cierre formal, PDF/reportes críticos, edición estructura/global y acciones destructivas |
 | Mapa App | Ver flota + `mapa_config`, filtros rápidos (incl. incidencias), resumen `notas_admin` por MVA con mini bitácora, búsqueda global + `?q=`, lista/grid, detalle, **acciones operativas rápidas**, modales seguros de estado/notas/gas/lista, incidencia rápida si API existe, movimiento DnD con confirmación y guardado según rol/flags | Editor de estructura, editmap, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes y mutaciones no disponibles del módulo de acciones → `/mapa?legacy=1` |
 | Admin | Edición básica usuario + solicitudes seguras según permisos + detalle real de roles/plazas/catálogos | Crear/editar rol, jerarquía, editar plaza, editar catálogos, email/password/permisos sensibles, acciones masivas |
@@ -59,7 +59,7 @@
 
 - Dashboard: paridad completa declarada en 13A (legacy queda fallback).
 - Mapa editor vs `mapa.js` completo.
-- Mensajes: faltan adjuntos completos y panel de info/archivo igual a legacy.
+- Mensajes: oficial operativo desde 15E; adjuntos completos, edición, borrado, reacciones complejas y archivo avanzado permanecen en mensajes clásico.
 - Incidencias Kanban (`plazas/...`) vs mantener modelo único `notas_admin` (legacy Kanban sigue separado).
 - Cuadre: oficial operativo desde 15D; PDF/insertar/eliminar global/cierre formal/masivos permanecen en cuadre clásico.
 - Mapa App: vista oficial operativa completa P1 desde 15B; editor/layout masivo y herramientas clásicas avanzadas permanecen en `/mapa?legacy=1`. **14B-A:** capa de datos `mapa-incidencias-summary.js` integrada. **14F-B:** UI de acciones operativas seguras integrada. **14G:** port visual P0 implementado. **15A:** redirect `/mapa → /app/mapa` activado con escape `mex.legacy.force=1`. **15B:** modales, incidencia rápida, mini bitácora y lista operativa reforzada.
@@ -76,6 +76,7 @@
 - Escape global: si `localStorage["mex.legacy.force"] === "1"`, las rutas con redirect App-first permanecen en vista clásica y muestran CTA discreto para abrir App Shell. En `/mapa`, el CTA dice “Estás en mapa clásico · Abrir mapa operativo”.
 - Redirect `/mapa -> /app/mapa`: **ACTIVADO** (15A; `/mapa` = `CLASSIC_FALLBACK` con `mex.legacy.force=1` o `?legacy=1`).
 - Redirect `/cuadre -> /app/cuadre`: **ACTIVADO** en 15D (`/cuadre` = `CLASSIC_FALLBACK` con `mex.legacy.force=1` o `?legacy=1`; CTA “Estás en cuadre clásico · Abrir cuadre operativo”).
+- Redirect `/mensajes -> /app/mensajes`: **ACTIVADO** en 15E (`/mensajes` = `CLASSIC_FALLBACK` con `mex.legacy.force=1` o `?legacy=1`; CTA “Estás en mensajes clásico · Abrir mensajes operativo”).
 - Redirect `/gestion -> /app/admin`: **NO ACTIVADO** en 12H.
 
 ## Referencias
@@ -84,4 +85,4 @@
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v278` (15D; Cuadre oficial App-first).
+- **`CACHE_NAME`** `mapa-v279` (15E; Mensajes oficial App-first).
