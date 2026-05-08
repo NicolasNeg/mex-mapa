@@ -1,5 +1,5 @@
 /**
- * View-model read-only compartido: /app/mapa + dashboard preview.
+ * View-model read-only compartido: `/app/mapa` y dashboard (mini mapa).
  * Alineado conceptualmente con legacy: celda = normalizarElemento.valor,
  * unidad en mapa ↔ normalizarUnidad.pos sanitizado igual que dataset.spot.
  *

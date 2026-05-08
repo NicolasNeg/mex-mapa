@@ -50,7 +50,7 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **OFICIAL_REAL_VISUAL_PORT (15F)**: DOM/canvas alineados a `mapa.html` (`.content`, KPIs, `map-stage` / `map-grid`, celdas `spot`, unidades `car`); estilos equivalentes scoped en `css/app-mapa.css`; datos y DnD vía `mapa-lifecycle`, `mapa-renderer`, `mapa-dnd`, etc. |
+| **Migrado App** | **OFICIAL_REAL_LEGACY_PORT (15G)**: DOM/canvas alineados a `mapa.html` (`.content`, KPIs, `map-stage` / `map-grid`, celdas `spot`, unidades `car`); estilos en `css/app-mapa.css` sin capa clara competidora ni toolbar de prueba; datos y DnD vía `mapa-lifecycle`, `mapa-renderer`, `mapa-dnd`, etc. |
 | **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan nativo como clásico, editor `editmap`, radar/chat completo, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa?legacy=1` |
 | **Esta fase** | 15F = port visual literal; `/mapa` App-first; clásico intacto con escape |
 

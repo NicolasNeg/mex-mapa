@@ -338,7 +338,7 @@ function _dndPersistFullyEnabled(state, snapshot) {
   );
 }
 
-/** JSON / diagnóstico avanzado: solo PROGRAMADOR o admin global (misma política que acciones técnicas). */
+/** JSON técnico de unidad: solo PROGRAMADOR o admin global (misma política que acciones técnicas). */
 function _showMapaDiagnostics() {
   const st = getState();
   const r = String(st?.role || '').toUpperCase();
@@ -768,47 +768,45 @@ export function mount({ container }) {
 
   _container.innerHTML = `
     <section class="app-mapa-view app-mapa-operativo">
-      <header class="app-mapa-head">
-        <div>
+      <div class="app-mapa-chrome-bar">
+        <div class="app-mapa-chrome-main">
+          <span class="app-mapa-plaza-label">Plaza <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></span>
+          <span id="app-mapa-sync-line" class="app-mapa-chrome-sync"></span>
+        </div>
+        <div class="app-mapa-chrome-actions">
+          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Actualizar</button>
+          <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--legacy" data-app-mapa-action="open-legacy" title="Herramientas completas del mapa clásico">Mapa clásico</button>
+        </div>
+        <div class="app-mapa-chrome-sub">
+          <span id="app-mapa-last-move" class="app-mapa-meta-line--persist" hidden></span>
+        </div>
+      </div>
+      <details class="app-mapa-tech" id="app-mapa-tech"${_showMapaDiagnostics() ? '' : ' hidden'}>
+        <summary>Estado técnico</summary>
+        <div class="app-mapa-tech-body">
           <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento habilitado</span>
           <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento con guardado</span>
-          <h1>Mapa operativo</h1>
-          <p>Plaza: <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong> · <strong id="app-mapa-mode-state">${esc(_mapModeLabel(state, null))}</strong></p>
+          <span>Modo <strong id="app-mapa-mode-state">${esc(_mapModeLabel(state, null))}</strong></span>
         </div>
-        <a class="app-mapa-cta" href="/mapa?legacy=1">Abrir mapa clásico</a>
-      </header>
-      <div class="app-mapa-meta-lines" aria-live="polite">
-        <div id="app-mapa-sync-line" class="app-mapa-meta-line"></div>
-        <div id="app-mapa-last-move" class="app-mapa-meta-line app-mapa-meta-line--persist" hidden></div>
-      </div>
-      <div class="app-mapa-toolbar" role="toolbar" aria-label="Acciones mapa operativo">
-        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Refrescar mapa</button>
-        <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--legacy" data-app-mapa-action="open-legacy" title="Editor, PDF, radar y herramientas completas">Abrir mapa clásico</button>
-        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-unplaced">Ver sin ubicación / huérfanos</button>
-        <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="scroll-occupancy">Ver ocupación</button>
-      </div>
+      </details>
       <div class="app-mapa-controls">
         <label class="app-mapa-search-wrap" aria-label="Buscar unidad en mapa">
           <span class="app-mapa-search-ic">search</span>
-          <input id="app-mapa-search" class="app-mapa-search-input" type="search" placeholder="Buscar MVA, placas, modelo, notas o incidencias" value="${esc(_viewState.query)}" autocomplete="off" />
+          <input id="app-mapa-search" class="app-mapa-search-input" type="search" placeholder="MVA, placas, modelo…" value="${esc(_viewState.query)}" autocomplete="off" />
           <button type="button" class="app-mapa-search-clear" data-app-mapa-action="clear-search" ${_viewState.query ? '' : 'hidden'}>×</button>
         </label>
         <div class="app-mapa-quick" role="toolbar" aria-label="Filtros rápidos">
-          <span class="app-mapa-quick-label">Filtrar unidades</span>
+          <span class="app-mapa-quick-label">Unidades</span>
           <button type="button" class="app-mapa-qf is-active" data-mapa-qf="all">Todos</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="disponibles">Listos</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="no-arrendable">No arrendable</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="mantenimiento">Mtto / sucio</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="sin-ubicacion">Sin ubicación</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="limbo">Limbo</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="taller">Taller</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="con-ubicacion">En cajón</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="con-incidencias">Con incidencias</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="criticas">Críticas</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="externos">Externos</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="con-incidencias">Incidencias</button>
         </div>
         <div class="app-mapa-view-toggle" role="toolbar" aria-label="Modo de vista">
-          <button type="button" class="app-mapa-view is-active" data-mapa-view="grid">Por celdas</button>
+          <button type="button" class="app-mapa-view is-active" data-mapa-view="grid">Celdas</button>
           <button type="button" class="app-mapa-view" data-mapa-view="list">Lista</button>
         </div>
       </div>
@@ -1134,17 +1132,6 @@ export function mount({ container }) {
       } catch (err) {
         console.warn('[app/mapa] open classic map', err);
       }
-      return;
-    }
-    if (act === 'scroll-unplaced') {
-      document.getElementById('app-mapa-buckets')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      return;
-    }
-    if (act === 'scroll-occupancy') {
-      (_contentEl?.querySelector('#app-mapa-metrics-anchor') || document.getElementById('app-mapa-metrics-anchor'))?.scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-      });
       return;
     }
     if (act === 'clear-search') {

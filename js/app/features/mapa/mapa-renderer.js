@@ -206,8 +206,8 @@ function _renderLegacyKpiBar(snapshotUnits) {
 function _legacySearchStrip(vm) {
   if (!vm.query) return '';
   return `<div class="app-mapa-legacy-filter-strip" role="status">
-    <span class="app-mapa-legacy-filter-strip__label">Búsqueda activa</span>
-    <span class="app-mapa-legacy-filter-strip__meta"><strong>${vm.filteredCount}</strong> de ${vm.totalUnits} unidades visibles con el filtro actual</span>
+    <span class="app-mapa-legacy-filter-strip__label">Búsqueda</span>
+    <span class="app-mapa-legacy-filter-strip__meta"><strong>${vm.filteredCount}</strong> / ${vm.totalUnits} unidades visibles</span>
     <button type="button" class="app-mapa-legacy-filter-strip__clear" data-app-mapa-action="clear-search">Limpiar</button>
   </div>`;
 }
@@ -528,7 +528,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
   const mvaEnc = encodeURIComponent(mva);
   const showDiag = actions.showDiagnostics === true;
   const jsonBtn = showDiag
-    ? `<button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>`
+    ? `<button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON técnico</button>`
     : '';
   const quick = `
     <div class="app-mapa-actions-grid app-mapa-actions-grid--quick">
@@ -560,7 +560,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
     : `<p class="app-mapa-actions-muted">Sin acciones mutantes habilitadas para tu rol/plaza en esta versión.</p>`;
 
   const blockedHtml = blocked.length
-    ? `<ul class="app-mapa-actions-legacy-list">
+    ? `<details class="app-mapa-actions-classic"><summary>En mapa clásico</summary><ul class="app-mapa-actions-legacy-list">
       ${blocked
         .map(action => {
           const lbl = String(action?.label || action?.id || 'Acción');
@@ -568,7 +568,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
           return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Disponible en mapa clásico')}</small></li>`;
         })
         .join('')}
-    </ul>`
+    </ul></details>`
     : '';
 
   const globalMsg = actions.message
@@ -587,10 +587,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
         <p class="app-mapa-actions-title">Acciones seguras</p>
         ${secureHtml}
       </div>
-      <div class="app-mapa-actions-group">
-        <p class="app-mapa-actions-title">Disponible en mapa clásico</p>
-        ${blockedHtml || '<p class="app-mapa-actions-muted">Sin bloqueos adicionales en esta unidad.</p>'}
-      </div>
+      ${blockedHtml ? `<div class="app-mapa-actions-group">${blockedHtml}</div>` : ''}
     </section>
   `;
 }
@@ -625,8 +622,7 @@ function _detailPanel(selected, plaza, incOpts = {}, actionsOpts = {}) {
     <p><strong>Actualizado:</strong> ${_fmtRawDate(raw)}</p>
     <p><strong>Por:</strong> ${esc(_rawAuthor(raw))}</p>
     </div>
-    <p><a class="app-mapa-mini-cta" href="/mapa?legacy=1">Abrir mapa clásico completo</a></p>
-    <small class="app-mapa-detail-foot">Editor de layout, PDF y altas masivas siguen en mapa clásico.</small>
+    <p><a class="app-mapa-mini-cta" href="/mapa?legacy=1">Abrir mapa clásico</a></p>
   `;
 }
 
@@ -640,7 +636,7 @@ export function renderErrorState(label = 'No se pudo cargar el mapa.', opts = {}
     <div class="app-mapa-state-error-msg">${esc(label)}</div>
     ${
       legacy
-        ? `<p class="app-mapa-legacy-fallback">¿Funciones avanzadas? <a class="app-mapa-legacy-fallback-link" href="/mapa?legacy=1">Abrir mapa clásico</a> · editor, PDF y altas masivas.</p>`
+        ? `<p class="app-mapa-legacy-fallback"><a class="app-mapa-legacy-fallback-link" href="/mapa?legacy=1">Abrir mapa clásico</a></p>`
         : ''
     }
   </div>`;
@@ -773,7 +769,6 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         ${kpiHtml}
         ${filterStrip}
         ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
-        <p class="app-mapa-results-hint app-mapa-legacy-results-hint" ${vm.query ? '' : 'hidden'}>Filtro activo: coincidencias resaltadas; celdas sin resultado se atenúan.</p>
         <div class="app-mapa-legacy-mapdetail-row">
           <div class="app-mapa-legacy-main-column">
             <div id="app-mapa-legacy-map-stage" class="map-stage app-mapa-map-stage">
