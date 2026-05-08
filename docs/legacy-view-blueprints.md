@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 15F · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** port literal legacy (ver `docs/mapa-vista-real-oficial.md`)
+**Versión:** FASE 15G · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** port literal legacy (ver `docs/mapa-vista-real-oficial.md`)
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -206,6 +206,22 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Regla clave** | público: create-only; sin read/list/update/delete |
 | **Autorización operativa** | no depende solo de Auth; requiere perfil Firestore `/usuarios` activo/autorizado |
 | **Migrado App 12C** | login bloquea sesiones sin perfil o perfil inactivo/rechazado y muestra mensajes claros de cuenta no habilitada |
+
+---
+
+### Centro vivo — notificaciones (App Shell + legacy mapa)
+
+| Campo | Valor |
+|-------|--------|
+| **Superficie** | Campana header App (`ShellLayout`) y sidebar legacy `btnNotificationCenter` cuando existe |
+| **HTML / DOM** | `#notifications-center-modal` inyectado por `js/core/notifications.js` (`_ensureNotificationCenterDom`) |
+| **CSS** | `css/notificaciones.css` (modal, chips, lista, settings); App: `css/app-notifications.css` (complemento responsive / kicker) |
+| **App Shell** | `js/app/features/notifications/notification-center.js` — `configureNotifications` con `getState()` y rutas `/app/*`; `js/app/main.js` abre `openNotificationCenter` |
+| **Legacy mapa** | `js/views/mapa.js` — `configureNotifications` + `initNotificationCenter` sin cambios destructivos en esta fase |
+| **Firestore** | `usuarios/{docId}/inbox` (80 últimas por `timestamp`), `usuarios/{docId}/devices/{deviceId}` (prefs push + meta) |
+| **Datos por tab** | Misma colección inbox; chips filtran por `type` (mensajes / cuadre=inventario / alert / solicitud+request). Sin fuentes extra por tab fuera del inbox |
+| **Badge header App** | `getNotificationsSummary` + `getCurrentDeviceSnapshot().unread` |
+| **15G RangeError** | Causa típica: `init` concurrente o `configure` que pisaba estado; mitigación: `autoConfigured` al `configureNotifications`, mutex en `initNotificationCenter`, `prefChangeGuard` en sync de checkboxes |
 
 ---
 

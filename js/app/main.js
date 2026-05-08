@@ -22,6 +22,12 @@ import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
 import { getNotificationsSummary } from '/js/app/features/notifications/notifications-summary.js';
+import {
+  setupAppNotificationCenter,
+  openAppNotificationCenter,
+  teardownAppNotificationShell,
+  getCurrentDeviceSnapshot
+} from '/js/app/features/notifications/notification-center.js';
 
 // ── Boot ────────────────────────────────────────────────────
 async function boot() {
@@ -100,62 +106,32 @@ async function boot() {
   const shell = new ShellLayout();
   let notifSummary = { total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 };
   let notifTimer = null;
-  let notifMenuEl = null;
-  let notifMenuOutsideHandler = null;
   let router = null;
-  const closeNotifMenu = () => {
-    if (notifMenuEl?.parentNode) notifMenuEl.parentNode.removeChild(notifMenuEl);
-    notifMenuEl = null;
-    if (notifMenuOutsideHandler) {
-      document.removeEventListener('pointerdown', notifMenuOutsideHandler);
-      notifMenuOutsideHandler = null;
+
+  const shellToast = (message, type = 'info') => {
+    const text = String(message || '').trim();
+    if (!text) return;
+    const root = document.getElementById('appRoot');
+    if (!root) return;
+    let host = document.getElementById('mexAppToastHost');
+    if (!host) {
+      host = document.createElement('div');
+      host.id = 'mexAppToastHost';
+      host.style.cssText = 'position:fixed;bottom:20px;right:16px;z-index:260;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+      root.appendChild(host);
     }
+    const el = document.createElement('div');
+    const tone = type === 'error'
+      ? 'background:#fee2e2;border:1px solid #fecaca;'
+      : type === 'warning'
+        ? 'background:#fef9c3;border:1px solid #fde047;'
+        : 'background:#ecfccb;border:1px solid #bef264;';
+    el.style.cssText = `pointer-events:auto;padding:11px 14px;border-radius:10px;font-size:13px;font-weight:600;max-width:min(360px,calc(100vw - 32px));box-shadow:0 10px 30px rgba(2,6,23,.18);color:#0f172a;${tone}`;
+    el.textContent = text;
+    host.appendChild(el);
+    setTimeout(() => { try { el.remove(); } catch (_) {} }, 4200);
   };
-  const openNotifMenu = () => {
-    closeNotifMenu();
-    const bellBtn = shell?.header?.element?.querySelector('#mexHdrBell');
-    if (!bellBtn) {
-      shell?.sidebar?.closeMobileDrawer?.();
-      return;
-    }
-    const menu = document.createElement('div');
-    menu.id = 'mexHdrNotifMenu';
-    menu.style.position = 'fixed';
-    menu.style.zIndex = '240';
-    menu.style.width = 'min(290px, calc(100vw - 16px))';
-    menu.style.background = '#fff';
-    menu.style.border = '1px solid #e2e8f0';
-    menu.style.borderRadius = '10px';
-    menu.style.boxShadow = '0 14px 30px rgba(2,6,23,.18)';
-    menu.style.padding = '8px';
-    const rect = bellBtn.getBoundingClientRect();
-    const left = Math.max(8, Math.min(window.innerWidth - 300, rect.right - 280));
-    menu.style.left = `${left}px`;
-    menu.style.top = `${rect.bottom + 8}px`;
-    const includeAdmin = Number(notifSummary.solicitudes || 0) > 0;
-    menu.innerHTML = `
-      <div style="padding:6px 8px 8px;border-bottom:1px solid #f1f5f9;">
-        <div style="font-size:11px;color:#64748b;font-weight:800;text-transform:uppercase;">Pendientes</div>
-        <div style="font-size:12px;color:#0f172a;font-weight:700;">${notifSummary.total || 0} totales</div>
-      </div>
-      ${_notifMenuRow('/app/mensajes', 'Mensajes', notifSummary.mensajes)}
-      ${_notifMenuRow('/app/incidencias', 'Incidencias', notifSummary.incidencias)}
-      ${_notifMenuRow('/app/admin?tab=solicitudes', 'Solicitudes', notifSummary.solicitudes, !includeAdmin)}
-    `;
-    document.body.appendChild(menu);
-    menu.querySelectorAll('[data-app-route]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        closeNotifMenu();
-        if (router?.navigate) router.navigate(btn.dataset.appRoute);
-        else window.location.href = btn.dataset.appRoute;
-      });
-    });
-    notifMenuOutsideHandler = event => {
-      if (!menu.contains(event.target) && !bellBtn.contains(event.target)) closeNotifMenu();
-    };
-    document.addEventListener('pointerdown', notifMenuOutsideHandler);
-    notifMenuEl = menu;
-  };
+
   const refreshNotifSummary = async () => {
     const state = getState();
     notifSummary = await getNotificationsSummary({
@@ -163,7 +139,13 @@ async function boot() {
       role: state.role || '',
       plaza: state.currentPlaza || ''
     }).catch(() => ({ total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 }));
-    shell.setBellBadge(Number(notifSummary.total || 0) > 0);
+    let inboxUnread = 0;
+    try {
+      inboxUnread = Number(getCurrentDeviceSnapshot()?.unread || 0);
+    } catch (_) {
+      inboxUnread = 0;
+    }
+    shell.setBellBadge(Number(notifSummary.total || 0) > 0 || inboxUnread > 0);
   };
   shell.mount({
     container:    appRoot,
@@ -176,7 +158,14 @@ async function boot() {
     canSwitchPlaza: getState().canSwitchPlaza,
     onNavigate:   (route) => router.navigate(isMigratedRoute(route) ? toAppRoute(route) : route),
     onLogout:     ()      => handleLogout(),
-    onBellClick:  ()      => openNotifMenu(),
+    onBellClick:  ()      => {
+      setupAppNotificationCenter({ router, toast: shellToast })
+        .then(() => openAppNotificationCenter())
+        .catch(err => {
+          console.warn('[app/main] Centro de notificaciones:', err);
+          shellToast('No se pudo abrir el centro de notificaciones.', 'error');
+        });
+    },
     onPlazaChange: (nextPlaza) => {
       setCurrentPlaza(nextPlaza, { source: 'app-shell-header' });
     },
@@ -195,6 +184,11 @@ async function boot() {
 
   // 6. Crear router — renderiza la vista inicial automáticamente
   router = createRouter({ shell });
+  try {
+    await setupAppNotificationCenter({ router, toast: shellToast });
+  } catch (err) {
+    console.warn('[app/main] No se pudo inicializar notificaciones al arrancar:', err);
+  }
   await refreshNotifSummary();
   notifTimer = window.setInterval(() => {
     refreshNotifSummary();
@@ -212,12 +206,13 @@ async function boot() {
   });
   window.addEventListener('beforeunload', () => {
     if (notifTimer) clearInterval(notifTimer);
-    closeNotifMenu();
+    try { teardownAppNotificationShell(); } catch (_) {}
   }, { once: true });
 }
 
 // ── Handlers ────────────────────────────────────────────────
 async function handleLogout() {
+  try { teardownAppNotificationShell(); } catch (_) {}
   try {
     await auth.signOut();
   } catch (err) {
@@ -227,17 +222,6 @@ async function handleLogout() {
 }
 
 // ── Helpers ─────────────────────────────────────────────────
-function _notifMenuRow(route, label, count, hidden = false) {
-  if (hidden) return '';
-  const safeCount = Number(count || 0);
-  return `
-    <button data-app-route="${route}" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;border:none;background:#fff;color:#1e293b;padding:9px 8px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;">
-      <span>${label}</span>
-      <span style="font-size:11px;color:${safeCount ? '#b91c1c' : '#64748b'};font-weight:800;">${safeCount || 0}</span>
-    </button>
-  `;
-}
-
 function waitForAuth() {
   return new Promise(resolve => {
     const unsubscribe = auth.onAuthStateChanged(user => {

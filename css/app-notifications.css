@@ -1,0 +1,19 @@
+/* FASE 15G — Complemento Centro vivo (modal base: /css/notificaciones.css).
+   Solo #notifications-center-modal; sin body/html global. */
+
+#notifications-center-modal .notif-center-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 10px;
+}
+
+@media (max-width: 720px) {
+  #notifications-center-modal .notif-center-shell {
+    width: min(100%, 520px);
+    max-height: min(92vh, 760px);
+  }
+
+  #notifications-center-modal .notif-center-list {
+    min-height: 120px;
+  }
+}

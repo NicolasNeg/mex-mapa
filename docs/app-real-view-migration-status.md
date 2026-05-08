@@ -1,6 +1,6 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-05-07 · **FASE 15F** (Mapa — port visual literal legacy → App)
+**Última actualización:** 2026-05-07 · **FASE 15G** (Centro de Notificaciones — Centro vivo en App Shell + fix stack overflow core)
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
@@ -13,6 +13,7 @@
 | `/gestion` | `/app/admin` | **REAL_PARCIAL_FUERTE (12H)** · `KEEP_LEGACY_BACKUP` | usuarios/solicitudes/roles/plazas/catálogos | Usuarios reforzado (tabla ampliada, timestamps, alertas onboarding, edición segura), Solicitudes con estado onboarding y acciones seguras, Roles/Plazas/Catálogos con detalle operativo real y fallback de edición en legacy |
 | `/programador` | `/app/programador` | REAL_COMPLETA QA (12A) | Runtime | Beta readiness, smoke local, flags LS + limpieza local, estado Firestore transport y copia diagnóstico corto/completo + agrupación `window.api` por dominio |
 | `/profile` | `/app/profile` | **REAL_COMPLETA_VISUAL_PORT (13C)** · **APP_FIRST** | `usuarios/{id}` + app-state | Port visual real de cards/tabs/hero/acciones del legacy dentro de App Shell, edición segura (nombre/teléfono/avatar/preferencias) y sync inmediato de sidebar |
+| **Centro vivo (campana header)** | App Shell global | **OFICIAL_OPERATIVO (15G)** | Mismo núcleo `js/core/notifications.js` + DOM modal en `notificaciones.css`: inbox Firestore `usuarios/{doc}/inbox` (límite 80), prefs en `devices/{deviceId}`, badge shell mezcla `getNotificationsSummary` + `unread` del inbox; rutas deep-link a `/app/mensajes`, `/app/cuadre`, `/app/mapa?notif=alerts` vía `notification-center.js` |
 | `/login` + `/solicitud` | N/A | HARDENED (12C) · **PUBLIC_FORM / DO_NOT_REDIRECT** | Auth + `solicitudes` + `usuarios` | Auth = identidad; acceso operativo depende de perfil Firestore activo/autorizado. `/solicitud` se mantiene pública y sin redirect |
 
 ## Clasificación
@@ -82,7 +83,8 @@
 ## Referencias
 
 - **`docs/legacy-view-blueprints.md`** — blueprint por vista (16 campos).
+- **`docs/notificaciones-vista-oficial.md`** — Centro vivo: datos, tabs, fix RangeError 15G.
 
 ## Service Worker
 
-- **`CACHE_NAME`** `mapa-v279` (15E; Mensajes oficial App-first).
+- **`CACHE_NAME`** `mapa-v282` (15G; Centro vivo App Shell + `notification-center.js` + `app-notifications.css`).

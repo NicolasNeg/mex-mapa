@@ -28,8 +28,13 @@ const _state = {
   foregroundListenerPending: false,
   recentNotificationIds: new Map(),
   initialized: false,
-  autoConfigured: false
+  autoConfigured: false,
+  /** Evita bucle change → persist → render → change al sincronizar checkboxes del centro */
+  prefChangeGuard: false
 };
+
+/** Evita inits concurrentes o recursivos (p. ej. profile + mapa en el mismo tick). */
+let _initNotificationCenterPromise = null;
 
 function _safeText(value) {
   return String(value || '').trim();
@@ -115,7 +120,6 @@ function _ensureAutoConfiguration() {
       openAlerts: () => { window.location.href = '/mapa?notif=alerts'; }
     }
   });
-  _state.autoConfigured = true;
 }
 
 function _normalizeUpper(value) {
@@ -456,10 +460,10 @@ function _ensureNotificationCenterDom() {
         <!-- Chips de filtro -->
         <div class="notif-filter-bar">
           <button class="notif-filter-chip active" data-filter="all">Todos <span id="notif-chip-badge-all" class="notif-chip-badge">0</span></button>
-          <button class="notif-filter-chip" data-filter="message">💬 Mensajes <span id="notif-chip-badge-message" class="notif-chip-badge">0</span></button>
-          <button class="notif-filter-chip" data-filter="cuadre">📋 Inventario <span id="notif-chip-badge-cuadre" class="notif-chip-badge">0</span></button>
-          <button class="notif-filter-chip" data-filter="alert">🚨 Alertas <span id="notif-chip-badge-alert" class="notif-chip-badge">0</span></button>
-          <button class="notif-filter-chip" data-filter="solicitud">📝 Solicitudes <span id="notif-chip-badge-solicitud" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="message">Mensajes <span id="notif-chip-badge-message" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="cuadre">Inventario <span id="notif-chip-badge-cuadre" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="alert">Alertas <span id="notif-chip-badge-alert" class="notif-chip-badge">0</span></button>
+          <button class="notif-filter-chip" data-filter="solicitud">Solicitudes <span id="notif-chip-badge-solicitud" class="notif-chip-badge">0</span></button>
         </div>
 
         <div class="notif-center-divider"></div>
@@ -538,8 +542,22 @@ function _ensureNotificationCenterDom() {
   document.getElementById('notif-center-permission-btn')?.addEventListener('click', () => {
     requestDeviceNotifications(true);
   });
-  document.getElementById('notif-center-refresh-btn')?.addEventListener('click', () => {
-    resubscribeInbox();
+  document.getElementById('notif-center-refresh-btn')?.addEventListener('click', async () => {
+    const btn = document.getElementById('notif-center-refresh-btn');
+    if (!btn || btn.dataset.busy === '1') return;
+    btn.dataset.busy = '1';
+    btn.setAttribute('aria-busy', 'true');
+    try {
+      await resubscribeInbox();
+      await syncDeviceFocusState({ force: true }).catch(() => {});
+      _renderNotificationCenter();
+    } catch (err) {
+      console.warn('[notificaciones] Error al refrescar inbox:', err);
+      _state.toast?.('No se pudo refrescar el centro. Intenta de nuevo.', 'error');
+    } finally {
+      btn.dataset.busy = '0';
+      btn.removeAttribute('aria-busy');
+    }
   });
 
   // Accordion de configuración
@@ -566,9 +584,19 @@ function _ensureNotificationCenterDom() {
     ['notif-pref-mute', 'muteAll']
   ].forEach(([id, field]) => {
     document.getElementById(id)?.addEventListener('change', event => {
+      if (_state.prefChangeGuard) return;
       persistCurrentDevicePrefs({ [field]: event.target.checked });
     });
   });
+
+  if (!window.__mexNotifCenterEscapeBound) {
+    window.__mexNotifCenterEscapeBound = true;
+    document.addEventListener('keydown', event => {
+      if (event.key !== 'Escape') return;
+      const modal = document.getElementById('notifications-center-modal');
+      if (modal?.classList.contains('active')) closeNotificationCenter();
+    });
+  }
 }
 
 function _ensureSidebarButton() {
@@ -855,10 +883,15 @@ function _renderNotificationCenter() {
     'notif-pref-critical': prefs.criticalAlerts,
     'notif-pref-mute':     prefs.muteAll
   };
-  Object.entries(fieldMap).forEach(([id, checked]) => {
-    const input = document.getElementById(id);
-    if (input) input.checked = checked;
-  });
+  _state.prefChangeGuard = true;
+  try {
+    Object.entries(fieldMap).forEach(([id, checked]) => {
+      const input = document.getElementById(id);
+      if (input) input.checked = checked;
+    });
+  } finally {
+    _state.prefChangeGuard = false;
+  }
 
   if (metaEl) {
     const device    = _state.currentDevice || _platformMeta();
@@ -1059,6 +1092,9 @@ function _updateUnreadFromInbox() {
 
 export function configureNotifications(options = {}) {
   Object.assign(_state, options);
+  // Marca configuración explícita o por defecto: evita que initNotificationCenter()
+  // vuelva a llamar configureNotifications y pise routeHandlers/toast del host (p. ej. mapa.js).
+  _state.autoConfigured = true;
   _ensureNotificationCenterDom();
   _ensureSidebarButton();
   _renderNotificationCenter();
@@ -1272,40 +1308,56 @@ function _bindNotificationLifecycle() {
 }
 
 export async function initNotificationCenter() {
-  _ensureAutoConfiguration();
-  _ensureNotificationCenterDom();
-  _ensureSidebarButton();
-  _bindNotificationLifecycle();
-  if (_supportsPush() && Notification.permission === 'granted') {
-    _bindForegroundMessaging();
-    try {
-      // Si el token ya estaba marcado como inválido, forzar regeneración desde el inicio
-      const alreadyInvalid = _state.currentDevice?.invalidToken === true;
-      if (alreadyInvalid) {
-        await _forceTokenRefresh();
-      } else {
-        const token = await _obtainMessagingToken(false);
-        await _registerCurrentDevice(token);
+  if (_state.initialized) return;
+  if (_initNotificationCenterPromise) {
+    await _initNotificationCenterPromise;
+    return;
+  }
+
+  _initNotificationCenterPromise = (async () => {
+    _ensureAutoConfiguration();
+    _ensureNotificationCenterDom();
+    _ensureSidebarButton();
+    _bindNotificationLifecycle();
+    if (_supportsPush() && Notification.permission === 'granted') {
+      _bindForegroundMessaging();
+      try {
+        // Si el token ya estaba marcado como inválido, forzar regeneración desde el inicio
+        const alreadyInvalid = _state.currentDevice?.invalidToken === true;
+        if (alreadyInvalid) {
+          await _forceTokenRefresh();
+        } else {
+          const token = await _obtainMessagingToken(false);
+          await _registerCurrentDevice(token);
+        }
+      } catch (error) {
+        console.warn('No se pudo refrescar el registro push en initNotificationCenter:', error);
       }
-    } catch (error) {
-      console.warn('No se pudo refrescar el registro push en initNotificationCenter:', error);
     }
+    await resubscribeInbox();
+    await syncDeviceFocusState({ force: true });
+    if (_supportsPush() && Notification.permission === 'default' && !_state.permissionPromptShown) {
+      _state.permissionPromptShown = true;
+      setTimeout(() => {
+        // Usar modal obligatorio en lugar de simple toast
+        if (typeof window._mexShowPushPrompt === 'function') {
+          window._mexShowPushPrompt();
+        } else {
+          _state.toast?.('Activa notificaciones para recibir mensajes, cuadre y alertas críticas.', 'warning');
+        }
+      }, 2500);
+    }
+    _renderNotificationCenter();
+    _state.initialized = true;
+  })();
+
+  try {
+    await _initNotificationCenterPromise;
+  } catch (err) {
+    throw err;
+  } finally {
+    _initNotificationCenterPromise = null;
   }
-  await resubscribeInbox();
-  await syncDeviceFocusState({ force: true });
-  if (_supportsPush() && Notification.permission === 'default' && !_state.permissionPromptShown) {
-    _state.permissionPromptShown = true;
-    setTimeout(() => {
-      // Usar modal obligatorio en lugar de simple toast
-      if (typeof window._mexShowPushPrompt === 'function') {
-        window._mexShowPushPrompt();
-      } else {
-        _state.toast?.('Activa notificaciones para recibir mensajes, cuadre y alertas críticas.', 'warning');
-      }
-    }, 2500);
-  }
-  _renderNotificationCenter();
-  _state.initialized = true;
 }
 
 export async function ensureNotificationCenterReady() {
@@ -1328,6 +1380,11 @@ export function teardownNotificationCenter() {
     _state.unsubDevice();
     _state.unsubDevice = null;
   }
+  _state.initialized = false;
+  _state.autoConfigured = false;
+  _state.inbox = [];
+  _state.unread = 0;
+  _state.currentDevice = null;
 }
 
 export function getCurrentDeviceSnapshot() {
