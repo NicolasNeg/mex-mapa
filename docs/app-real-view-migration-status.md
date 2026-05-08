@@ -1,11 +1,11 @@
 # Inventario paridad vistas — Legacy vs App Shell (`/app/*`)
 
-**Última actualización:** 2026-05-07 · **FASE 15E** (Mensajes oficial App-first)
+**Última actualización:** 2026-05-07 · **FASE 15F** (Mapa — port visual literal legacy → App)
 
 | Vista legacy | Vista App Shell | Estado | Fuente datos App | Paridad fuerte esta fase |
 |--------------|-----------------|--------|------------------|---------------------------|
 | `/home` | `/app/dashboard` | **REAL_COMPLETA_VISUAL_PORT (13B)** · **APP_FIRST** | Igual que 13A (KPIs Firestore + mini mapa `buildMapaViewModel`) | UI copiada desde `renderHome` (grid bento, hero mapa, KPI columna, resumen + actividad); sin chrome legacy; búsqueda global vía hooks ocultos |
-| `/mapa` | `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1_VISUAL_15C** · `/mapa` = `CLASSIC_FALLBACK` | Mapa + **`mapa-incidencias-summary.js`** + `mapa-unit-actions.js` + quick incident seguro | **15C:** corrige visual real: elimina óvalo/curva, canvas oscuro dominante, celdas/unidades compactas y panel integrado. Funciones avanzadas no migradas siguen en mapa clásico |
+| `/mapa` | `/app/mapa` | **OFICIAL_REAL_VISUAL_PORT (15F)** · `/mapa` = `CLASSIC_FALLBACK` | Mapa + **`mapa-incidencias-summary.js`** + `mapa-unit-actions.js` + quick incident seguro | **15F:** port literal del layout legacy (`mapa.html` / KPIs `actualizarContadores` / `.content` + canvas tipo `#map-stage` + `.map-grid` + celdas `.spot` + unidades `.car` + panel estilo `info-sidebar`), scoped en `css/app-mapa.css`; sin pseudo óvalo; JSON/diagnóstico solo rol técnico; chrome scoped en `legacy-shell-bridge` para `/mapa?tab=cuadre` |
 | `/mensajes` | `/app/mensajes` | **OFICIAL_OPERATIVA** · `/mensajes` = `CLASSIC_FALLBACK` | `obtenerMensajesPrivados`, `enviarMensajePrivado`, `marcarMensajesLeidosArray`, metadata `usuarios/{email}` read-only | 15E oficializa Mensajes: redirect `/mensajes -> /app/mensajes`, escape `mex.legacy.force=1` o `?legacy=1`, chat operativo con bandeja/conversaciones, bubbles mío/otro, filtros plaza/rol/no leídos/activos, identidad canónica por email, envío real, marca leído y adjuntos bloqueados al clásico |
 | `/cola-preparacion` | `/app/cola-preparacion` | **REAL_COMPLETA_VISUAL_PORT (13D)** · **APP_FIRST** | `cola_preparacion/{plaza}/items` | Port visual fuerte del layout legacy (command bar, board, cards, panel detalle y modal), con lógica App Shell segura: checklist/notas/salida/asignación/crear; acciones destructivas siguen en legacy |
 | `/incidencias` | `/app/incidencias` | **REAL_COMPLETA_VISUAL_PORT (13E/13E.1)** · **APP_FIRST** | `suscribirNotasAdmin`, `guardarNuevaNotaDirecto`, `resolverNotaDirecto` | Port visual de bitácora legacy real (header KPI, tabs, filtros, historial/cards, formulario y bloque resolver); mantiene `notas_admin`, acciones seguras crear/resolver y evidencias solo lectura; adjuntos avanzados/borrado en legacy. **13E.1:** hotfix runtime para restaurar `_renderPreview` y eliminar `ReferenceError` en mount/interacción. |
@@ -23,7 +23,7 @@
 | REAL_COMPLETA | Programador |
 | PARIDAD OPERATIVA ALT (11G Cola reforzada) | — (elevado a REAL_COMPLETA_VISUAL_PORT en 13D) |
 | REAL_PARCIAL | Mensajes (fuerte 11D), Cuadre, Admin |
-| OFICIAL_OPERATIVA_COMPLETA_P1 | Mapa App (`/app/mapa` — oficial desde 15A, flujos P1 operativos desde 15B; mapa clásico conserva editor/PDF/altas/radar/reportes y funciones peligrosas no migradas) |
+| OFICIAL_OPERATIVA_COMPLETA_P1 | Mapa App — elevado a **OFICIAL_REAL_VISUAL_PORT (15F)** |
 
 ## Diseño legacy migrado (11A)
 
@@ -62,7 +62,7 @@
 - Mensajes: oficial operativo desde 15E; adjuntos completos, edición, borrado, reacciones complejas y archivo avanzado permanecen en mensajes clásico.
 - Incidencias Kanban (`plazas/...`) vs mantener modelo único `notas_admin` (legacy Kanban sigue separado).
 - Cuadre: oficial operativo desde 15D; PDF/insertar/eliminar global/cierre formal/masivos permanecen en cuadre clásico.
-- Mapa App: vista oficial operativa completa P1 desde 15B; editor/layout masivo y herramientas clásicas avanzadas permanecen en `/mapa?legacy=1`. **14B-A:** capa de datos `mapa-incidencias-summary.js` integrada. **14F-B:** UI de acciones operativas seguras integrada. **14G:** port visual P0 implementado. **15A:** redirect `/mapa → /app/mapa` activado con escape `mex.legacy.force=1`. **15B:** modales, incidencia rápida, mini bitácora y lista operativa reforzada.
+- Mapa App: **15F** port visual literal desde `mapa.html` + estilos equivalentes a `css/mapa.css` bajo `.app-mapa-legacy-port`; lógica App intacta (`mapa-renderer`, DnD, filtros, `?q=`, incidencias, acciones). Editor/layout masivo y herramientas clásicas avanzadas permanecen en `/mapa?legacy=1`.
 - Admin: faltan operaciones avanzadas de escritura global (roles/plazas/catálogos) que permanecen en legacy.
 - Profile: migrado a visual real en 13C; diferencias menores aceptadas por contenedor App Shell y bloques operativos de solo lectura.
 

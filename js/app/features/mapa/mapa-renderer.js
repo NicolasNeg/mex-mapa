@@ -124,6 +124,94 @@ function _gasClass(pct) {
   return 'is-empty';
 }
 
+/** Replica de `actualizarContadores()` en `js/views/mapa.js` (KPIs legacy). */
+function _legacyKpiCountsFromUnits(units) {
+  let total = 0;
+  let listos = 0;
+  let sucios = 0;
+  let manto = 0;
+  let enPatio = 0;
+  let enTaller = 0;
+  for (const raw of units || []) {
+    const nu = normalizeMapUnit(raw || {});
+    const estado = up(nu.estado);
+    const ubicacion = up(nu.ubicacion);
+    if (estado === 'LISTO') listos++;
+    else if (estado === 'SUCIO') sucios++;
+    else if (estado === 'MANTENIMIENTO' || estado === 'TALLER') manto++;
+    if (ubicacion === 'PATIO') {
+      enPatio++;
+      total++;
+    } else if (ubicacion === 'TALLER') {
+      enTaller++;
+    }
+  }
+  return { total, listos, sucios, manto, enPatio, enTaller };
+}
+
+/** Clases de gradiente legacy (css/mapa.css `.listo`, `.sucio`, …) para port visual. */
+function _legacyCarPaintClass(estado = '', tipo = '', ubicacion = '') {
+  const s = up(estado);
+  const t = up(tipo);
+  const u = up(ubicacion);
+  if (s === 'LISTO') return 'listo';
+  if (s === 'SUCIO') return 'sucio';
+  if (s === 'MANTENIMIENTO' || s === 'TALLER' || s === 'HYP') return 'mantenimiento';
+  if (s.includes('TRASLADO')) return 'traslado';
+  if (s.includes('VENTA')) return 'venta';
+  if (s.includes('NO ARREND') || s.includes('NO-ARREND')) return 'no-arrendable';
+  if (s === 'RESGUARDO') return 'resguardo';
+  if (s.includes('RENTA')) return 'traslado';
+  if (s === 'RETENIDA') return 'retenida';
+  if (t === 'EXTERNO' || u.includes('EXTERNO')) return 'externo';
+  return '';
+}
+
+/** Barra KPI como `mapa.html` + `actualizarContadores` (totales = unidades con ubicación PATIO). */
+function _renderLegacyKpiBar(snapshotUnits) {
+  const k = _legacyKpiCountsFromUnits(snapshotUnits);
+  const v = n => esc(String(n));
+  return `
+    <div class="kpi-container" id="app-mapa-metrics-anchor" role="region" aria-label="Indicadores de flota">
+      <div class="kpi-item">
+        <span class="kpi-value" id="app-mapa-kpi-total">${v(k.total)}</span>
+        <span class="kpi-label">TOTALES</span>
+      </div>
+      <div class="kpi-divider"></div>
+      <div class="kpi-item">
+        <span class="kpi-value text-green" id="app-mapa-kpi-listos">${v(k.listos)}</span>
+        <span class="kpi-label">LISTOS</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-value text-yellow" id="app-mapa-kpi-sucios">${v(k.sucios)}</span>
+        <span class="kpi-label">SUCIOS</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-value text-red" id="app-mapa-kpi-manto">${v(k.manto)}</span>
+        <span class="kpi-label">MANTENIMIENTO</span>
+      </div>
+      <div class="kpi-divider"></div>
+      <div class="kpi-item">
+        <span class="kpi-value text-blue" id="app-mapa-kpi-patio">${v(k.enPatio)}</span>
+        <span class="kpi-label">EN PATIO</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-value text-orange" id="app-mapa-kpi-taller">${v(k.enTaller)}</span>
+        <span class="kpi-label">EN TALLER</span>
+      </div>
+    </div>
+  `;
+}
+
+function _legacySearchStrip(vm) {
+  if (!vm.query) return '';
+  return `<div class="app-mapa-legacy-filter-strip" role="status">
+    <span class="app-mapa-legacy-filter-strip__label">Búsqueda activa</span>
+    <span class="app-mapa-legacy-filter-strip__meta"><strong>${vm.filteredCount}</strong> de ${vm.totalUnits} unidades visibles con el filtro actual</span>
+    <button type="button" class="app-mapa-legacy-filter-strip__clear" data-app-mapa-action="clear-search">Limpiar</button>
+  </div>`;
+}
+
 /** @deprecated Usar buildMapaReadOnlyViewModel; se mantiene alias por si hay imports externos. */
 export function normalizeMapaViewModel(data = {}) {
   return buildMapaReadOnlyViewModel({
@@ -163,6 +251,8 @@ export function renderUnit(unit, options = {}) {
   const showInc = ir && inc && inc.total > 0;
   const showCrit = ir && inc && inc.criticas > 0;
   const stateClass = _stateClass(unit.estado);
+  const legacyCar = _legacyCarPaintClass(unit.estado, unit.tipo, unit.ubicacion);
+  const legacyCarCls = legacyCar ? ` ${legacyCar}` : '';
   const gasPct = _gasPct(unit.gasolina);
   const gasLabel = unit.gasolina != null && unit.gasolina !== '' && unit.gasolina !== '—' ? String(unit.gasolina) : 'N/A';
   const incHtml =
@@ -173,7 +263,7 @@ export function renderUnit(unit, options = {}) {
       </span>`
       : '';
   return `
-    <button type="button" class="app-mapa-unit ${stateClass} ${selected ? 'is-selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
+    <button type="button" class="app-mapa-unit car${legacyCarCls} ${stateClass} ${selected ? 'is-selected selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
       data-unit-id="${esc(unit.id)}"${baseAttrs}${dndAttrs}>
       <div class="app-mapa-unit-top">
         <strong>${esc(unit.mva)}</strong>
@@ -219,7 +309,7 @@ function _renderSlotRow(row, options) {
     : '';
 
   return `
-    <div class="app-mapa-slot${mod}${cellQ}${blocked}${reserved}"
+    <div class="app-mapa-slot spot${mod}${cellQ}${blocked}${reserved}"
       role="group"
       aria-label="Celda ${esc(row.label)}"
       data-drop-cell="1"
@@ -436,10 +526,14 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
   if (!selected) return '';
   const mva = String(selected.mva || '').trim();
   const mvaEnc = encodeURIComponent(mva);
+  const showDiag = actions.showDiagnostics === true;
+  const jsonBtn = showDiag
+    ? `<button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>`
+    : '';
   const quick = `
     <div class="app-mapa-actions-grid app-mapa-actions-grid--quick">
       <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(mva)}">Copiar MVA</button>
-      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON</button>
+      ${jsonBtn}
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="create-incident">Crear incidencia</button>
       <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Ver incidencias</a>
       <a class="app-mapa-detail-link" href="/app/cuadre">Abrir en cuadre</a>
@@ -581,23 +675,14 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     incidentsReady: options.incidentsReady === true,
     incidentsFailed: options.incidentsFailed === true
   };
-  const actionsOpts = options.unitActions || {};
+  const actionsOpts = { ...(options.unitActions || {}), showDiagnostics: options.showDiagnostics === true };
 
   if (options.viewMode === 'list') {
-    const filterLine = vm.query
-      ? `<article class="app-mapa-summary-filter"><span>Coincidencias</span><strong>${vm.filteredCount}</strong> de ${vm.totalUnits}</article>`
-      : '';
-    const stateLabel =
-      vm.slotRows && vm.slotRows.length
-        ? `${vm.occupiedSlots}/${vm.slotRows.length} celdas con unidad`
-        : 'Sin estructura';
     const queryUpper = String(vm.query || '').trim().toUpperCase();
     const noResults =
       Boolean(queryUpper) && vm.totalUnits > 0 && (vm.filteredCount || 0) === 0;
-    const limboCount = Array.isArray(vm.limboFiltered) ? vm.limboFiltered.length : 0;
-    const tallerCount = Array.isArray(vm.tallerFiltered) ? vm.tallerFiltered.length : 0;
-    const orphanCount = Array.isArray(vm.orphanFiltered) ? vm.orphanFiltered.length : 0;
-    const abiertasInc = Object.values(incOpts.incidentsByMva || {}).reduce((acc, item) => acc + Number(item?.abiertas || 0), 0);
+    const kpiHtml = _renderLegacyKpiBar(snapshot.units || []);
+    const filterStrip = _legacySearchStrip(vm);
     const rows = unitsFiltered.slice(0, 420).map(raw => {
       const nu = normalizeMapUnit(raw);
       const id = String(nu.id || nu.mva || '');
@@ -632,33 +717,26 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
       </tr>`;
     }).join('');
     container.innerHTML = `
-    <section class="app-mapa-summary">
-      <article><span>Unidades visibles</span><strong>${vm.totalUnits}</strong></article>
-      <article><span>Celdas</span><strong>${vm.slotRows.length}</strong></article>
-      <article><span>Ocupación</span><strong>${esc(stateLabel)}</strong></article>
-      <article><span>Limbo</span><strong>${limboCount}</strong></article>
-      <article><span>Taller</span><strong>${tallerCount}</strong></article>
-      <article><span>Huérfanos</span><strong>${orphanCount}</strong></article>
-      <article><span>Incidencias abiertas</span><strong>${abiertasInc}</strong></article>
-      <article><span>Plaza</span><strong>${esc(vm.plaza || '—')}</strong></article>
-      ${filterLine}
-    </section>
-    ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
-    <section class="app-mapa-layout app-mapa-layout--list">
-      <div class="app-mapa-list-scroll">
-        <table class="app-mapa-list-table">
-          <thead><tr><th>MVA</th><th>Modelo</th><th>Placas</th><th>Estado</th><th>Gas</th><th>Ubicación</th><th>Pos</th><th>Inc.</th><th>Acciones</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="9" class="app-mapa-list-empty">Sin unidades para este filtro.</td></tr>`}</tbody>
-        </table>
+    <div class="app-mapa app-mapa-legacy-port app-mapa-operativo">
+      <div class="content app-mapa-legacy-content">
+        ${kpiHtml}
+        ${filterStrip}
+        ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
+        <div class="app-mapa-legacy-mapdetail-row app-mapa-legacy-mapdetail-row--list">
+          <div class="app-mapa-legacy-list-stage">
+            <div class="app-mapa-list-scroll">
+              <table class="app-mapa-list-table">
+                <thead><tr><th>MVA</th><th>Modelo</th><th>Placas</th><th>Estado</th><th>Gas</th><th>Ubicación</th><th>Pos</th><th>Inc.</th><th>Acciones</th></tr></thead>
+                <tbody>${rows || `<tr><td colspan="9" class="app-mapa-list-empty">Sin unidades para este filtro.</td></tr>`}</tbody>
+              </table>
+            </div>
+          </div>
+          <aside class="info-sidebar app-mapa-detail app-mapa-info-aside open">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
+        </div>
       </div>
-      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
-    </section>`;
+    </div>`;
     return;
   }
-  const stateLabel =
-    vm.slotRows && vm.slotRows.length
-      ? `${vm.occupiedSlots}/${vm.slotRows.length} celdas con unidad`
-      : 'Sin estructura';
 
   const renderOpts = {
     selectedId,
@@ -683,45 +761,35 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     _renderBucket('Taller', vm.tallerFiltered, renderOpts) +
     _renderBucket(orphanTitle, vm.orphanFiltered, renderOpts);
 
-  const filterLine = vm.query
-    ? `<article class="app-mapa-summary-filter"><span>Coincidencias</span><strong>${vm.filteredCount}</strong> de ${vm.totalUnits}</article>`
-    : '';
-
   const queryUpper = String(vm.query || '').trim().toUpperCase();
   const noResults =
     Boolean(queryUpper) && vm.totalUnits > 0 && (vm.filteredCount || 0) === 0;
-  const limboCount = Array.isArray(vm.limboFiltered) ? vm.limboFiltered.length : 0;
-  const tallerCount = Array.isArray(vm.tallerFiltered) ? vm.tallerFiltered.length : 0;
-  const orphanCount = Array.isArray(vm.orphanFiltered) ? vm.orphanFiltered.length : 0;
-  const abiertasInc = Object.values(incOpts.incidentsByMva || {}).reduce((acc, item) => acc + Number(item?.abiertas || 0), 0);
+  const kpiHtml = _renderLegacyKpiBar(snapshot.units || []);
+  const filterStrip = _legacySearchStrip(vm);
 
   container.innerHTML = `
-    <section class="app-mapa-summary">
-      <article><span>Unidades visibles</span><strong>${vm.totalUnits}</strong></article>
-      <article><span>Celdas</span><strong>${vm.slotRows.length}</strong></article>
-      <article><span>Ocupación</span><strong>${esc(stateLabel)}</strong></article>
-      <article><span>Limbo</span><strong>${limboCount}</strong></article>
-      <article><span>Taller</span><strong>${tallerCount}</strong></article>
-      <article><span>Huérfanos</span><strong>${orphanCount}</strong></article>
-      <article><span>Incidencias abiertas</span><strong>${abiertasInc}</strong></article>
-      <article><span>Plaza</span><strong>${esc(vm.plaza || '—')}</strong></article>
-      ${filterLine}
-    </section>
-    ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
-    <p class="app-mapa-results-hint" ${vm.query ? '' : 'hidden'}>Filtro activo: mostrando coincidencias y atenuando celdas sin resultados.</p>
-    <section class="app-mapa-layout app-mapa-layout--grid">
-      <div class="app-mapa-main">
-        <div class="app-mapa-canvas">
-          ${
-            vm.slotRows.length === 0 && !(vm.rows || []).length
-              ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa clásico para revisar configuración.')
-              : `<div class="app-mapa-canvas-viewport"><div class="app-mapa-canvas-inner">${mainRows}</div></div>`
-          }
+    <div class="app-mapa app-mapa-legacy-port app-mapa-operativo">
+      <div class="content app-mapa-legacy-content">
+        ${kpiHtml}
+        ${filterStrip}
+        ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
+        <p class="app-mapa-results-hint app-mapa-legacy-results-hint" ${vm.query ? '' : 'hidden'}>Filtro activo: coincidencias resaltadas; celdas sin resultado se atenúan.</p>
+        <div class="app-mapa-legacy-mapdetail-row">
+          <div class="app-mapa-legacy-main-column">
+            <div id="app-mapa-legacy-map-stage" class="map-stage app-mapa-map-stage">
+              <div id="app-mapa-legacy-map-zoom" class="map-zoom-container app-mapa-canvas-viewport">
+                ${
+                  vm.slotRows.length === 0 && !(vm.rows || []).length
+                    ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa clásico para revisar configuración.')
+                    : `<div id="app-mapa-legacy-grid" class="map-grid app-mapa-canvas-inner">${mainRows}</div>`
+                }
+              </div>
+            </div>
+            ${buckets ? `<div class="app-mapa-buckets" id="app-mapa-buckets">${buckets}</div>` : ''}
+          </div>
+          <aside class="info-sidebar app-mapa-detail app-mapa-info-aside open">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
         </div>
-        ${buckets ? `<div class="app-mapa-buckets" id="app-mapa-buckets">${buckets}</div>` : ''}
       </div>
-      <aside class="app-mapa-detail">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
-    </section>
+    </div>
   `;
-
 }

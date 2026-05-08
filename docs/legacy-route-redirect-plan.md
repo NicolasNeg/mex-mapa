@@ -1,6 +1,6 @@
-# Legacy Route Redirect Plan (FASE 15E — mensajes oficial App-first)
+# Legacy Route Redirect Plan (FASE 15F — mapa port visual literal)
 
-Fecha: 2026-05-07 · **15E** mantiene `/app/mapa` y `/app/cuadre` como vistas principales y oficializa `/app/mensajes`.
+Fecha: 2026-05-07 · **15F** refuerza `/app/mapa` como vista principal con paridad visual frente a `mapa.html`; mantiene `/mapa` como **CLASSIC_FALLBACK**.
 Nota: `/mapa`, `/cuadre` y `/mensajes` redirigen App-first salvo escape `localStorage["mex.legacy.force"] === "1"` o apertura explícita con `?legacy=1`. Las rutas clásicas quedan como **CLASSIC_FALLBACK** para editor, adjuntos complejos, PDF, altas masivas, eliminación, cierre formal, reportes y acciones globales peligrosas.
 
 ## Criterios
@@ -22,7 +22,7 @@ Nota: `/mapa`, `/cuadre` y `/mensajes` redirigen App-first salvo escape `localSt
 | `/cuadre` | `/app/cuadre` | **OFICIAL_OPERATIVA** con consola App real + modales seguros | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico conserva altas/bajas/masivos/cierre formal/PDF/reportes |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
-| `/mapa` | `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1_VISUAL_15C** — mapa principal en App Shell | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico sigue disponible para editor, radar y herramientas completas |
+| `/mapa` | `/app/mapa` | **OFICIAL_REAL_VISUAL_PORT (15F)** — layout legacy portado al shell | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico sigue disponible para editor, radar y herramientas completas |
 | `/solicitud` | N/A | Flujo público de acceso | PUBLIC_FORM / DO_NOT_REDIRECT | Mantener ruta independiente de login/alta |
 | `/editmap` | `/app/mapa` (editor futuro) | Editor legacy acoplado | DO_NOT_REDIRECT | Extraer editor plenamente al App Shell |
 

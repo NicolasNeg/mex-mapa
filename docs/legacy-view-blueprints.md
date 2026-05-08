@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 15E · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** `mapa-visual-port-15c.md`
+**Versión:** FASE 15F · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** port literal legacy (ver `docs/mapa-vista-real-oficial.md`)
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -50,9 +50,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **OFICIAL_OPERATIVA_COMPLETA_P1_VISUAL_15C**: grid/celdas reales, filtros, summary incidencias, acciones, DnD con flags, y corrección visual: patio oscuro, canvas dominante, cajones compactos, unidades compactas y sin óvalo/curva gigante |
-| **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan, editor `editmap`, radar/chat completo, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa?legacy=1` |
-| **Esta fase** | 15C corrige port visual real; `/mapa` sigue App-first; mapa clásico intacto con escape |
+| **Migrado App** | **OFICIAL_REAL_VISUAL_PORT (15F)**: DOM/canvas alineados a `mapa.html` (`.content`, KPIs, `map-stage` / `map-grid`, celdas `spot`, unidades `car`); estilos equivalentes scoped en `css/app-mapa.css`; datos y DnD vía `mapa-lifecycle`, `mapa-renderer`, `mapa-dnd`, etc. |
+| **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan nativo como clásico, editor `editmap`, radar/chat completo, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa?legacy=1` |
+| **Esta fase** | 15F = port visual literal; `/mapa` App-first; clásico intacto con escape |
 
 ---
 

@@ -338,6 +338,15 @@ function _dndPersistFullyEnabled(state, snapshot) {
   );
 }
 
+/** JSON / diagnóstico avanzado: solo PROGRAMADOR o admin global (misma política que acciones técnicas). */
+function _showMapaDiagnostics() {
+  const st = getState();
+  const r = String(st?.role || '').toUpperCase();
+  if (r === 'PROGRAMADOR') return true;
+  const p = st?.profile || {};
+  return Boolean(p.isAdmin === true && esGlobal(r));
+}
+
 function _actorName() {
   const p = getState().profile || {};
   return String(p.nombreCompleto || p.nombre || p.email || p.usuario || 'AppShell').trim() || 'AppShell';
@@ -758,10 +767,9 @@ export function mount({ container }) {
   };
 
   _container.innerHTML = `
-    <section class="app-mapa-view">
+    <section class="app-mapa-view app-mapa-operativo">
       <header class="app-mapa-head">
         <div>
-          <span class="app-mapa-badge app-mapa-badge--official">OFICIAL · OPERATIVO</span>
           <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento habilitado</span>
           <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento con guardado</span>
           <h1>Mapa operativo</h1>
@@ -1133,7 +1141,10 @@ export function mount({ container }) {
       return;
     }
     if (act === 'scroll-occupancy') {
-      document.querySelector('.app-mapa-summary')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      (_contentEl?.querySelector('#app-mapa-metrics-anchor') || document.getElementById('app-mapa-metrics-anchor'))?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+      });
       return;
     }
     if (act === 'clear-search') {
@@ -1316,7 +1327,8 @@ function _render() {
     viewMode: _viewState.viewMode,
     incidentsByMva: _incSummaryState.byMva,
     incidentsReady: _incSummaryState.ready,
-    incidentsFailed: _incSummaryState.failed
+    incidentsFailed: _incSummaryState.failed,
+    showDiagnostics: _showMapaDiagnostics()
   };
   if (_viewState.selectedId && !getResolvedMapaSelection(snapshot, readOpts)) {
     _viewState.selectedId = '';

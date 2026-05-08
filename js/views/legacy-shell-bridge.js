@@ -77,7 +77,7 @@
   var current = routeProfile[path] || { hideChrome: true, hideSelectors: [] };
   var mapaCuadreTab = path === '/mapa' && params.get('tab') === 'cuadre';
   if (mapaCuadreTab) {
-    document.body.classList.add('legacy-mapa-cuadre-tab');
+    document.body.classList.add('legacy-mapa-cuadre-tab', 'legacy-map-content-only', 'legacy-cuadre-content-only');
   }
 
   if (current.hideChrome) {
@@ -102,6 +102,8 @@
     'body.legacy-content-only.legacy-chrome-disabled .cfg-v2-body{grid-template-columns:minmax(0,1fr) !important;}',
     'body.legacy-content-only.legacy-chrome-disabled .cfg-v2-hero{padding-right:12px !important;}',
     'body.legacy-mapa-cuadre-tab #admin-sidebar, body.legacy-mapa-cuadre-tab #topbar, body.legacy-mapa-cuadre-tab #legacySidebar, body.legacy-mapa-cuadre-tab #legacyHeader, body.legacy-mapa-cuadre-tab .legacy-sidebar, body.legacy-mapa-cuadre-tab .legacy-topbar{display:none !important;}',
+    'body.legacy-map-content-only #admin-sidebar, body.legacy-map-content-only #topbar, body.legacy-map-content-only #legacySidebar, body.legacy-map-content-only #legacyHeader, body.legacy-map-content-only .legacy-sidebar, body.legacy-map-content-only .legacy-topbar{display:none !important;}',
+    'body.legacy-map-content-only, body.legacy-map-content-only #routeMainStage, body.legacy-map-content-only .shell-main-stage{margin-left:0 !important;padding-left:0 !important;max-width:none !important;}',
     'body.legacy-mapa-cuadre-tab, body.legacy-mapa-cuadre-tab #routeMainStage, body.legacy-mapa-cuadre-tab .shell-main-stage{margin-left:0 !important;padding-left:0 !important;max-width:none !important;}',
     'body.legacy-mapa-cuadre-tab .main-content, body.legacy-mapa-cuadre-tab main{margin-left:0 !important;padding-left:0 !important;}',
     '#legacyAppShellBanner{position:fixed;right:12px;bottom:12px;z-index:9999;display:inline-flex;align-items:center;gap:8px;background:#0f172a;color:#fff;border:1px solid rgba(255,255,255,.18);padding:9px 12px;border-radius:10px;font:700 12px Inter,sans-serif;text-decoration:none;box-shadow:0 8px 24px rgba(2,6,23,.32);max-width:calc(100vw - 24px);}',
