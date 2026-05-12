@@ -8,6 +8,7 @@
 
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento, esCajonOcupable } from '/domain/mapa.model.js';
+import { isElementVisibleInView } from '/js/app/features/mapa/mapViewVisibility.js';
 
 /** Igual que legacy `_sanitizeSpotToken` en js/views/mapa.js */
 export function sanitizeSpotToken(value = '') {
@@ -165,8 +166,13 @@ export function buildMapaReadOnlyViewModel({
   incidentSearchByMva = {}
 } = {}) {
   const queryUpper = String(query || '').trim().toUpperCase();
+  /** Mapa operativo /app/mapa: solo filas visibles en vista estacionamiento (y no ocultas). */
+  const OPERATIONAL_EDITOR_VIEW = 'estacionamiento';
   const structureSorted = Array.isArray(estructura)
-    ? estructura.map((item, i) => normalizeMapCell(item, i)).sort((a, b) => a.orden - b.orden)
+    ? estructura
+        .map((item, i) => normalizeMapCell(item, i))
+        .filter(el => el.hidden !== true && isElementVisibleInView(el, OPERATIONAL_EDITOR_VIEW))
+        .sort((a, b) => a.orden - b.orden)
     : [];
 
   const cellBySpotKey = new Map();

@@ -65,6 +65,7 @@
     'obtenerCredencialesMapa',
     'obtenerDatosParaMapa',
     'obtenerEstructuraMapa',
+    'obtenerMapaConfigPlaza',
     'guardarEstructuraMapa',
     'guardarNuevasPosiciones',
     'aplicarEstado',

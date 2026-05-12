@@ -157,7 +157,15 @@
       }, err => console.error('onSnapshot mapa_cfg (legacy):', err));
     },
 
-    async guardarEstructuraMapa(elementos, plaza) {
+    async obtenerMapaConfigPlaza(plaza) {
+      const p = _normalizePlazaId(plaza);
+      if (!p) return {};
+      await _ensurePlazaBootstrap(p);
+      const snap = await db.collection('mapa_config').doc(p).get();
+      return snap.exists ? snap.data() : {};
+    },
+
+    async guardarEstructuraMapa(elementos, plaza, options = {}) {
       if (!plaza) throw new Error('Plaza requerida para guardar estructura del mapa');
       const p = plaza.toUpperCase().trim();
       const ref = db.collection('mapa_config').doc(p).collection('estructura');
@@ -172,29 +180,51 @@
         const batch = db.batch();
         chunk.forEach((el, j) => {
           const docRef = ref.doc(`cel_${el.orden ?? (i + j)}`);
-          batch.set(docRef, {
-            valor:    el.valor    ?? '',
-            tipo:     el.tipo     ?? 'cajon',
-            esLabel:  el.esLabel  ?? false,
-            orden:    el.orden    ?? (i + j),
-            x:        el.x        ?? 0,
-            y:        el.y        ?? 0,
-            width:    el.width    ?? 120,
-            height:   el.height   ?? 80,
+          const row = {
+            valor: el.valor ?? '',
+            tipo: el.tipo ?? 'cajon',
+            esLabel: el.esLabel === true,
+            orden: el.orden ?? (i + j),
+            x: el.x ?? 0,
+            y: el.y ?? 0,
+            width: el.width ?? 120,
+            height: el.height ?? 80,
             rotation: el.rotation ?? 0,
-            // [F1.5] Campos extendidos de estructura
-            zone:               el.zone               ?? null,
-            subzone:            el.subzone             ?? null,
-            isReserved:         el.isReserved          === true,
-            isBlocked:          el.isBlocked           === true,
-            isTemporaryHolding: el.isTemporaryHolding  === true,
-            allowedCategories:  Array.isArray(el.allowedCategories) ? el.allowedCategories : [],
-            priority:           el.priority            ?? 0,
-            googleMapsUrl:      el.googleMapsUrl        ?? null,
-            pathType:           el.pathType             ?? null,
-          });
+            zone: el.zone ?? null,
+            subzone: el.subzone ?? null,
+            isReserved: el.isReserved === true,
+            isBlocked: el.isBlocked === true,
+            isTemporaryHolding: el.isTemporaryHolding === true,
+            allowedCategories: Array.isArray(el.allowedCategories) ? el.allowedCategories : [],
+            priority: el.priority ?? 0,
+            googleMapsUrl: el.googleMapsUrl ?? null,
+            pathType: el.pathType ?? null,
+            id: el.id ?? null,
+            metadata: el.metadata && typeof el.metadata === 'object' ? el.metadata : null,
+            nombrePublico: el.nombrePublico ?? null,
+            descripcionPublica: el.descripcionPublica ?? null,
+            capacidad: el.capacidad ?? null,
+            precioBase: el.precioBase ?? null,
+            vip: el.vip === true,
+            reservable: el.reservable === false ? false : true,
+            poolTipo: el.poolTipo ?? null,
+            spotEstado: el.spotEstado ?? null,
+            fill: el.fill ?? null,
+            stroke: el.stroke ?? null,
+            hidden: el.hidden === true,
+            locked: el.locked === true
+          };
+          const cleaned = {};
+          for (const [k, v] of Object.entries(row)) {
+            if (v !== undefined) cleaned[k] = v;
+          }
+          batch.set(docRef, cleaned);
         });
         await batch.commit();
+      }
+      const extras = options?.mapEditorExtras;
+      if (extras && typeof extras === 'object' && Object.keys(extras).length) {
+        await db.collection('mapa_config').doc(p).set({ mapEditorExtras: extras }, { merge: true });
       }
       await _registrarLog('SISTEMA', `🗺️ Estructura del mapa (${p}) actualizada`, 'Sistema', p);
       return 'OK';
