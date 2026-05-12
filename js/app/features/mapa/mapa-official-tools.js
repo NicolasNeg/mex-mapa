@@ -263,26 +263,14 @@ export async function openReports({ container, snapshot = {}, ctx = {} }) {
 
 export async function openEditor({ container, api, snapshot = {}, ctx = {}, resync = null }) {
   if (!canUseMapaOfficialTools(ctx)) return { ok: false, message: 'Rol no autorizado para editar layout.' };
-  const structure = (Array.isArray(snapshot.structure) ? snapshot.structure : []).map((el, i) => ({ ...el, orden: el.orden ?? i }));
-  const prepared = await modal(container, 'Editor de patio', `
-    <p class="app-mapa-modal-body">Edita la estructura como JSON controlado. Se guarda con la misma API legacy <code>guardarEstructuraMapa</code> sobre <strong>${esc(ctx.plaza || snapshot.plaza || '')}</strong>.</p>
-    <label class="app-mapa-form-field app-mapa-form-field--wide"><span>Estructura mapa_config</span><textarea data-fld="json" rows="16">${esc(JSON.stringify(structure, null, 2))}</textarea></label>
-  `, `
-    <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--ghost" data-act="cancel">Cancelar</button>
-    <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">Guardar layout</button>
-  `);
-  if (prepared.cancelled) return { ok: false, cancelled: true };
-  const fields = readFields(prepared.root);
   try {
-    const payload = JSON.parse(fields.json || '[]');
-    if (!Array.isArray(payload)) return { ok: false, message: 'La estructura debe ser un arreglo JSON.' };
-    const confirm = await modal(container, 'Confirmar guardado de layout', `<p class="app-mapa-modal-body">Se reemplazará la estructura de ${esc(ctx.plaza || snapshot.plaza || '')} con <strong>${payload.length}</strong> elementos.</p>`);
-    if (confirm.cancelled) return { ok: false, cancelled: true };
-    const res = await api.guardarEstructuraMapa(payload, up(ctx.plaza || snapshot.plaza));
-    if (!isOk(res)) return { ok: false, message: String(res?.message || res || 'No se pudo guardar layout.') };
-    await resync?.();
-    return { ok: true, message: 'Layout guardado.' };
-  } catch (error) {
-    return { ok: false, message: String(error?.message || error || 'JSON inválido.') };
+    const mod = await import('/js/app/features/mapa/mapa-visual-editor.js');
+    if (typeof mod.openVisualMapEditor !== 'function') {
+      throw new Error('openVisualMapEditor no disponible');
+    }
+    await mod.openVisualMapEditor({ container, api, snapshot, ctx, resync });
+    return { ok: true, message: 'Editor cerrado.' };
+  } catch (e) {
+    return { ok: false, message: String(e?.message || e || 'Error abriendo editor visual.') };
   }
 }

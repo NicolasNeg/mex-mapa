@@ -40,6 +40,9 @@ export function inferVisibilityByView(el) {
   if (t === 'area' || t === 'servicio' || t === 'entrada' || t === 'palapa' || t === 'camino' || t === 'marker') {
     return { global: true, mesas: true, estacionamiento: true, albercas: true };
   }
+  if (t === 'forma_rect' || t === 'forma_line') {
+    return { global: true, mesas: true, estacionamiento: true, albercas: true };
+  }
   return { global: true, mesas: false, estacionamiento: false, albercas: false };
 }
 

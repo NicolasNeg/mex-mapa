@@ -1213,6 +1213,20 @@ export function mount({ container }) {
     _render();
   });
   _trackListener('create', 'state-sub');
+
+  try {
+    const qs = new URLSearchParams(window.location.search);
+    if (qs.get('mapfocus') === '1' && canUseMapaOfficialTools(_officialToolsContext())) {
+      setTimeout(() => {
+        void _runOfficialTool('editor');
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.delete('mapfocus');
+          window.history.replaceState({}, '', u.pathname + u.search + u.hash);
+        } catch (_) {}
+      }, 500);
+    }
+  } catch (_) {}
 }
 
 export function unmount() {
