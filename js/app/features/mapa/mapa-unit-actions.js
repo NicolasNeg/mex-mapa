@@ -16,7 +16,6 @@ const MUTATING_ACTIONS = new Set([
 ]);
 
 const BLOCKED_ACTIONS = new Set([
-  'delete_unit',
   'insert_unit',
   'bulk_insert',
   'bulk_update',
@@ -70,7 +69,7 @@ const ACTION_DEFS = Object.freeze({
   },
   open_legacy: {
     id: 'open_legacy',
-    label: 'Abrir mapa clásico',
+    label: 'Fallback técnico',
     mutates: false,
     requiresConfirmation: false
   },
@@ -384,10 +383,10 @@ export function createMapaUnitActionsController({
       const common = _validateCommon(action, unit, { confirmed: def?.requiresConfirmation ? true : undefined }, ctx);
       if (!common.ok && !['CONFIRMATION'].includes(common.code)) return _unavailable(action, common.message, { code: common.code });
       if (action === 'send_to_preparacion') {
-        return _unavailable(action, 'No hay API clásica segura detectada', { code: 'NO_SAFE_LEGACY_API' });
+      return _unavailable(action, 'No hay API operativa segura detectada', { code: 'NO_SAFE_API' });
       }
       if (!_hasApiForAction(apiRef, action)) {
-        return _unavailable(action, 'No hay API clásica segura detectada', { code: 'NO_API' });
+        return _unavailable(action, 'No hay API operativa segura detectada', { code: 'NO_API' });
       }
       return _available(action, {
         href:
@@ -410,7 +409,7 @@ export function createMapaUnitActionsController({
     if (!common.ok) return common;
     const apiRef = getApi();
     if (!_hasApiForAction(apiRef, normalized)) {
-      return { ok: false, code: 'NO_API', message: 'No hay API clásica segura detectada.' };
+      return { ok: false, code: 'NO_API', message: 'No hay API operativa segura detectada.' };
     }
     return _validatePayload(normalized, unit, payload);
   }
@@ -433,7 +432,7 @@ export function createMapaUnitActionsController({
       return { ok: true, code: 'LINK_ONLY', message: 'Abrir flujo de incidencia.', href: _buildIncidentUrl(unit, ctx) };
     }
     if (normalized === 'open_legacy') {
-      return { ok: true, code: 'LINK_ONLY', message: 'Abrir mapa clásico.', href: _buildLegacyUrl(unit, ctx) };
+      return { ok: true, code: 'LINK_ONLY', message: 'Abrir fallback técnico.', href: _buildLegacyUrl(unit, ctx) };
     }
     if (normalized === 'copy_json') {
       return { ok: true, code: 'OK', message: 'JSON preparado.', data: { ...unit } };

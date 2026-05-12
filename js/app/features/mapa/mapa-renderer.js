@@ -535,9 +535,10 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
       <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(mva)}">Copiar MVA</button>
       ${jsonBtn}
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="create-incident">Crear incidencia</button>
+      <button type="button" class="app-mapa-copy-mva" data-app-mapa-official-unit="edit-unit">Editar unidad</button>
+      <button type="button" class="app-mapa-copy-mva" data-app-mapa-official-unit="delete-unit">Eliminar unidad</button>
       <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Ver incidencias</a>
       <a class="app-mapa-detail-link" href="/app/cuadre">Abrir en cuadre</a>
-      <a class="app-mapa-detail-link" href="/mapa?legacy=1&q=${mvaEnc}">Abrir mapa clásico</a>
       <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="refresh">Refrescar</button>
     </div>
   `;
@@ -560,12 +561,12 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
     : `<p class="app-mapa-actions-muted">Sin acciones mutantes habilitadas para tu rol/plaza en esta versión.</p>`;
 
   const blockedHtml = blocked.length
-    ? `<details class="app-mapa-actions-classic"><summary>En mapa clásico</summary><ul class="app-mapa-actions-legacy-list">
+    ? `<details class="app-mapa-actions-classic"><summary>No disponibles para esta sesión</summary><ul class="app-mapa-actions-legacy-list">
       ${blocked
         .map(action => {
           const lbl = String(action?.label || action?.id || 'Acción');
-          const reason = String(action?.reason || 'Disponible en mapa clásico');
-          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Disponible en mapa clásico')}</small></li>`;
+          const reason = String(action?.reason || 'Requiere permisos o API operativa.');
+          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Requiere permisos o API operativa.')}</small></li>`;
         })
         .join('')}
     </ul></details>`
@@ -622,7 +623,6 @@ function _detailPanel(selected, plaza, incOpts = {}, actionsOpts = {}) {
     <p><strong>Actualizado:</strong> ${_fmtRawDate(raw)}</p>
     <p><strong>Por:</strong> ${esc(_rawAuthor(raw))}</p>
     </div>
-    <p><a class="app-mapa-mini-cta" href="/mapa?legacy=1">Abrir mapa clásico</a></p>
   `;
 }
 
@@ -636,7 +636,7 @@ export function renderErrorState(label = 'No se pudo cargar el mapa.', opts = {}
     <div class="app-mapa-state-error-msg">${esc(label)}</div>
     ${
       legacy
-        ? `<p class="app-mapa-legacy-fallback"><a class="app-mapa-legacy-fallback-link" href="/mapa?legacy=1">Abrir mapa clásico</a></p>`
+        ? `<p class="app-mapa-legacy-fallback"><a class="app-mapa-legacy-fallback-link" href="/mapa?legacy=1">Fallback técnico</a></p>`
         : ''
     }
   </div>`;
@@ -708,7 +708,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         <td class="app-mapa-list-actions">
           <button type="button" class="app-mapa-list-action" data-copy-mva="${esc(nu.mva)}">Copiar MVA</button>
           <a class="app-mapa-list-action" href="/app/incidencias?mva=${mvaEnc}">Bitácora</a>
-          <a class="app-mapa-list-action" href="/mapa?legacy=1&q=${mvaEnc}">Clásico</a>
+          <button type="button" class="app-mapa-list-action" data-app-mapa-official-unit="edit-unit">Editar</button>
         </td>
       </tr>`;
     }).join('');
@@ -775,7 +775,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
               <div id="app-mapa-legacy-map-zoom" class="map-zoom-container app-mapa-canvas-viewport">
                 ${
                   vm.slotRows.length === 0 && !(vm.rows || []).length
-                    ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa el mapa clásico para revisar configuración.')
+                    ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa Editar patio para crear o revisar configuración.')
                     : `<div id="app-mapa-legacy-grid" class="map-grid app-mapa-canvas-inner">${mainRows}</div>`
                 }
               </div>

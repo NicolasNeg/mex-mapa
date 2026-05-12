@@ -10,6 +10,14 @@ import {
 import { sanitizeSpotToken } from '/js/app/features/mapa/mapa-view-model.js';
 import { renderMapaReadOnly, renderErrorState, getResolvedMapaSelection } from '/js/app/features/mapa/mapa-renderer.js';
 import { createQuickIncident, hasQuickIncidentApi } from '/js/app/features/mapa/mapa-unit-quick-incident.js';
+import {
+  canUseMapaOfficialTools,
+  openBulkUnits,
+  openEditor,
+  openRadar,
+  openReports,
+  openUnitCrud
+} from '/js/app/features/mapa/mapa-official-tools.js';
 
 let _container = null;
 let _contentEl = null;
@@ -70,17 +78,10 @@ function _debugUnitActions(label, extra) {
 
 function _defaultUnitActionDefs() {
   return [
-    { id: 'update_status', label: 'Cambiar estado', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
-    { id: 'update_notes', label: 'Actualizar notas', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
-    { id: 'update_gas', label: 'Actualizar gasolina', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
-    { id: 'mark_ready', label: 'Marcar lista / no lista', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
-    { id: 'send_to_preparacion', label: 'Enviar a cola preparación', available: false, blocked: true, reason: 'Disponible en mapa clásico' },
-    { id: 'delete_unit', label: 'Eliminar unidad', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
-    { id: 'create_unit', label: 'Alta de unidad', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
-    { id: 'bulk_actions', label: 'Acciones masivas', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
-    { id: 'close_formal', label: 'Cierre formal', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
-    { id: 'pdf_reports', label: 'Reportes / PDF', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' },
-    { id: 'edit_map_structure', label: 'Editar estructura de mapa', available: false, blocked: true, reason: 'Función avanzada en mapa clásico' }
+    { id: 'update_status', label: 'Cambiar estado', available: false, blocked: true, reason: 'Requiere API aplicarEstado y rol autorizado' },
+    { id: 'update_notes', label: 'Actualizar notas', available: false, blocked: true, reason: 'Requiere API aplicarEstado y rol autorizado' },
+    { id: 'update_gas', label: 'Actualizar gasolina', available: false, blocked: true, reason: 'Requiere API aplicarEstado y rol autorizado' },
+    { id: 'mark_ready', label: 'Marcar lista / no lista', available: false, blocked: true, reason: 'Requiere API aplicarEstado y rol autorizado' }
   ];
 }
 
@@ -139,11 +140,59 @@ async function _loadUnitActionsController() {
     _unitActionStatus = 'missing';
     _unitActionDefs = _defaultUnitActionDefs();
     _unitActionLastError = String(err?.message || err || 'module_load_error');
-    _unitActionMsg = 'Acciones mutantes no disponibles para esta unidad. Puedes usar acciones rápidas o abrir el mapa clásico.';
+    _unitActionMsg = 'Acciones mutantes no disponibles para esta unidad. Revisa permisos, plaza activa o API del mapa.';
     _debugUnitActions('module load failed', err);
   } finally {
     _render();
   }
+}
+
+function _officialToolsContext() {
+  const st = getState();
+  const p = st?.profile || {};
+  return {
+    state: st,
+    profile: p,
+    user: st?.user || {},
+    role: String(st?.role || p?.rol || '').toUpperCase(),
+    plaza: String(st?.currentPlaza || p?.plazaAsignada || '').toUpperCase(),
+    userName: _actorName()
+  };
+}
+
+function _setMapaMessage(result, fallback = '') {
+  if (!_dndHintEl) return;
+  const msg = String(result?.message || fallback || '').trim();
+  if (!msg) return;
+  _dndHintEl.textContent = msg;
+  _dndHintEl.hidden = false;
+}
+
+async function _runOfficialTool(action) {
+  const snapshot = _viewState.snapshot || _lifecycle?.getSnapshot?.()?.data || {};
+  const ctx = _officialToolsContext();
+  const resync = () => _lifecycle?.resyncData?.();
+  let result = null;
+  if (action === 'radar') result = await openRadar({ container: _container, snapshot, incSummary: _incSummaryState, ctx });
+  if (action === 'reports') result = await openReports({ container: _container, snapshot, ctx });
+  if (action === 'editor') result = await openEditor({ container: _container, api: window.api, snapshot, ctx, resync });
+  if (action === 'create-unit') result = await openUnitCrud({ container: _container, api: window.api, ctx, mode: 'create', resync });
+  if (action === 'bulk-units') result = await openBulkUnits({ container: _container, api: window.api, ctx, resync });
+  _setMapaMessage(result, result?.ok ? 'Acción completada.' : '');
+}
+
+async function _runSelectedUnitOfficialAction(action) {
+  const selected = _selectedUnit();
+  if (!selected) {
+    _setMapaMessage({ message: 'Selecciona una unidad para continuar.' });
+    return;
+  }
+  const ctx = _officialToolsContext();
+  const resync = () => _lifecycle?.resyncData?.();
+  let result = null;
+  if (action === 'edit-unit') result = await openUnitCrud({ container: _container, api: window.api, unit: selected, ctx, mode: 'edit', resync });
+  if (action === 'delete-unit') result = await openUnitCrud({ container: _container, api: window.api, unit: selected, ctx, mode: 'delete', resync });
+  _setMapaMessage(result, result?.ok ? 'Acción completada.' : '');
 }
 
 function _selectedUnit() {
@@ -684,7 +733,7 @@ async function _runUnitAction(actionId) {
   const action = defs.find(a => String(a.id || '') === String(actionId || ''));
   if (!action || action.available !== true || action.blocked === true) {
     if (_dndHintEl) {
-      _dndHintEl.textContent = `${action?.label || actionId}: disponible en mapa clásico o sin permisos.`;
+      _dndHintEl.textContent = `${action?.label || actionId}: sin permisos o API requerida no disponible.`;
       _dndHintEl.hidden = false;
     }
     return;
@@ -775,7 +824,11 @@ export function mount({ container }) {
         </div>
         <div class="app-mapa-chrome-actions">
           <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Actualizar</button>
-          <button type="button" class="app-mapa-tool-btn app-mapa-tool-btn--legacy" data-app-mapa-action="open-legacy" title="Herramientas completas del mapa clásico">Mapa clásico</button>
+          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="radar">Radar</button>
+          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="reports">Reportes</button>
+          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="create-unit"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta unidad</button>
+          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="bulk-units"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta masiva</button>
+          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="editor"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Editar patio</button>
         </div>
         <div class="app-mapa-chrome-sub">
           <span id="app-mapa-last-move" class="app-mapa-meta-line--persist" hidden></span>
@@ -1002,7 +1055,7 @@ export function mount({ container }) {
       _render();
       return {
         message:
-          'Guardado en servidor. Si no ves el cambio, pulsa «Refrescar mapa» o abre el mapa clásico.',
+          'Guardado en servidor. Si no ves el cambio, pulsa «Refrescar mapa».',
         outcome: 'saved'
       };
     },
@@ -1091,6 +1144,14 @@ export function mount({ container }) {
       if (actionId) void _runUnitAction(actionId);
       return;
     }
+    const officialUnitBtn = event.target?.closest?.('[data-app-mapa-official-unit]');
+    if (officialUnitBtn) {
+      const row = officialUnitBtn.closest?.('[data-unit-id]');
+      if (row) _viewState.selectedId = String(row.getAttribute('data-unit-id') || _viewState.selectedId || '');
+      const actionId = String(officialUnitBtn.getAttribute('data-app-mapa-official-unit') || '');
+      if (actionId) void _runSelectedUnitOfficialAction(actionId);
+      return;
+    }
     const btn = event.target?.closest?.('[data-unit-id]');
     if (!btn) return;
     _viewState.selectedId = String(btn.getAttribute('data-unit-id') || '');
@@ -1125,13 +1186,8 @@ export function mount({ container }) {
       }
       return;
     }
-    if (act === 'open-legacy') {
-      try {
-        localStorage.setItem('mex.legacy.force', '1');
-        window.location.assign('/mapa?legacy=1');
-      } catch (err) {
-        console.warn('[app/mapa] open classic map', err);
-      }
+    if (['radar', 'reports', 'editor', 'create-unit', 'bulk-units'].includes(act)) {
+      void _runOfficialTool(act);
       return;
     }
     if (act === 'clear-search') {
@@ -1290,7 +1346,7 @@ function _render() {
   }
   if (snapshot.missingIndex) {
     _contentEl.innerHTML = renderErrorState(
-      'Falta un índice de Firestore para esta consulta. Un administrador debe crearlo, o usa el mapa clásico mientras tanto.'
+      'Falta un índice de Firestore para esta consulta. Un administrador debe crearlo para completar la carga.'
     );
     _syncMapaUrlQuery();
     return;

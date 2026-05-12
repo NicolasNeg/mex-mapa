@@ -1,17 +1,17 @@
 # Mapa oficial completo P1
 
-Fecha: 2026-05-06 · FASE 15B
+Fecha: 2026-05-07 · FASE 15H
 
 ## Estado
 
 | Ruta | Estado |
 |---|---|
-| `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1** |
-| `/mapa` | **CLASSIC_FALLBACK** |
+| `/app/mapa` | **MAPA_COMPLETO_OFICIAL** |
+| `/mapa` | **FALLBACK_TECNICO** |
 | Redirect `/mapa` → `/app/mapa` | **ACTIVO** |
-| Escape clásico | `localStorage["mex.legacy.force"] = "1"` o `/mapa?legacy=1` |
+| Escape técnico | `localStorage["mex.legacy.force"] = "1"` o `/mapa?legacy=1` |
 
-15B completa los flujos operativos principales dentro del App Shell sin migrar funciones peligrosas. El mapa clásico sigue disponible para editor, PDF, reportes, radar/chat completo, altas, eliminación, acciones masivas, cierre formal y edición de `mapa_config`.
+15H completa las funciones principales dentro del App Shell: mapa/celdas/unidades, filtros, búsqueda, KPIs, plaza, detalle, DnD, acciones de unidad, incidencias, Radar, Reportes/PDF, Alta individual, Alta masiva, Editar unidad, Eliminar unidad y Editor de patio/layout.
 
 ## Matriz de flujos
 
@@ -23,13 +23,13 @@ Fecha: 2026-05-06 · FASE 15B
 | Marcar lista/no lista | Controller `mapa-unit-actions` | QA manual autenticado | `api.aplicarEstado` | Medio | Sí | Implementado con modal oficial |
 | Crear incidencia rápida desde unidad | Link a incidencias | Adjuntos/resolución desde mapa | `api.guardarNuevaNotaDirecto` | Bajo/Medio | Sí | Modal mínimo implementado |
 | Ver mini bitácora por MVA | Resumen `notas_admin` | Detalle completo | `mapa-incidencias-summary` | Bajo | Sí | Implementado hasta 3 items |
-| Ver historial básico unidad | No hay API específica clara | Historial profundo | No clara | Medio | No | Mapa clásico / futuro |
+| Ver historial básico unidad | Mini bitácora y resumen incidencias | Historial profundo | Incidencias App | Medio | Sí | Implementado operativo |
 | Refrescar unidad | Refrescar mapa | Refresh unitario fino | `resyncData` | Bajo | Sí | Resync claro post-mutación |
 | Resync después de mutación | Parcial | QA manual | `resyncData` | Bajo | Sí | Implementado |
 | Movimiento DnD | Flags + rol | Touch/swap | `guardarNuevasPosiciones` | Medio | Mantener | Conservado |
 | Vista lista operativa | Lista simple | Columnas/acciones | N/A | Bajo | Sí | Reforzada |
 | Filtros avanzados | Filtros rápidos | Más combinaciones | N/A | Bajo | P1 futuro | Conservado |
-| Mapa clásico para avanzadas | CTA existente | N/A | N/A | Bajo | Sí | Conservado |
+| Fallback técnico | Ruta `?legacy=1` | N/A | N/A | Bajo | Sí | Conservado como rollback |
 | Diagnóstico técnico | Programador/admin | N/A | N/A | Bajo | Sí | Sigue oculto a usuarios normales |
 | Permisos por rol | Controller + DnD gates | QA por roles reales | Contrato 14F | Medio | Sí | Conservado |
 
@@ -42,16 +42,9 @@ Fecha: 2026-05-06 · FASE 15B
 - Vista lista operativa con columnas MVA, modelo, placas, estado, gas, ubicación, posición, incidencias y acciones no mutantes.
 - Cleanup: al cambiar plaza se cierran modales y se limpia selección; en unmount ya se remueven modales y controllers.
 
-## Mantener en mapa clásico
+## 15H
 
-- Eliminar unidad.
-- Alta nueva y altas masivas.
-- Cambio masivo.
-- PDF/reportes.
-- Editor y estructura `mapa_config`.
-- Cierre formal.
-- Radar/chat completo.
-- Historial profundo si no hay API App segura.
+La matriz completa de paridad vive en `docs/mapa-paridad-total-15h.md`.
 
 ## QA pendiente
 

@@ -1,6 +1,6 @@
 # Legacy → App Shell — Blueprint real por vista
 
-**Versión:** FASE 15G · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** port literal legacy (ver `docs/mapa-vista-real-oficial.md`)
+**Versión:** FASE 15H · **Fecha inventario:** 2026-05-07 · **Mapa `/app/mapa`:** mapa completo oficial (ver `docs/mapa-vista-real-oficial.md` y `docs/mapa-paridad-total-15h.md`)
 
 Este documento es la **fuente del inventario técnico** para migración por paridad. La App Shell solo sustituye shell (header/sidebar), navegación SPA en `/app/*`, plaza global y búsqueda global; **no inventa modelo de datos.**
 
@@ -50,9 +50,9 @@ Este documento es la **fuente del inventario técnico** para migración por pari
 | **Diseño** | Vista mapa patio, sidebar config, overlays |
 | **Datos** | `mapa_config`, `cuadre`/`externos`/índices vía API |
 | **Listeners** | Muchos en legacy; App usa `mapa-lifecycle` + `mapa-data` con cleanup al salir de `/app/mapa` |
-| **Migrado App** | **OFICIAL_REAL_LEGACY_PORT (15G)**: DOM/canvas alineados a `mapa.html` (`.content`, KPIs, `map-stage` / `map-grid`, celdas `spot`, unidades `car`); estilos en `css/app-mapa.css` sin capa clara competidora ni toolbar de prueba; datos y DnD vía `mapa-lifecycle`, `mapa-renderer`, `mapa-dnd`, etc. |
-| **Falta (P1/P2)** | Overlays finos, responsive real por dispositivo, zoom/pan nativo como clásico, editor `editmap`, radar/chat completo, PDF, altas masivas, eliminación/alta/masivo/cierre formal/reportes operativos avanzados → `/mapa?legacy=1` |
-| **Esta fase** | 15F = port visual literal; `/mapa` App-first; clásico intacto con escape |
+| **Migrado App** | **MAPA_COMPLETO_OFICIAL (15H)**: DOM/canvas alineados a `mapa.html` (`.content`, KPIs, `map-stage` / `map-grid`, celdas `spot`, unidades `car`); datos, DnD, acciones de unidad, Radar, Reportes/PDF, Alta unidad, Alta masiva, Editar unidad, Eliminar unidad y Editar patio/layout vía módulos App. |
+| **Falta (P1/P2)** | Validación visual autenticada por usuario, zoom/pan fino por dispositivo y hardening futuro de editor visual drag nativo. |
+| **Esta fase** | 15H = funciones principales portadas al Shell; `/mapa` App-first y clásico como fallback técnico |
 
 ---
 

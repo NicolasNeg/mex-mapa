@@ -1,17 +1,17 @@
 # Mapa oficial operativo
 
-Fecha: 2026-05-06 · FASE 15B
+Fecha: 2026-05-07 · FASE 15H
 
 ## 1. Estado
 
 | Ruta | Estado |
 |---|---|
-| `/app/mapa` | **OFICIAL_OPERATIVA_COMPLETA_P1** |
-| `/mapa` | **CLASSIC_FALLBACK** |
+| `/app/mapa` | **MAPA_COMPLETO_OFICIAL** |
+| `/mapa` | **FALLBACK_TECNICO** |
 | Redirect `/mapa` → `/app/mapa` | **ACTIVADO** |
-| Escape clásico | `localStorage["mex.legacy.force"] = "1"` o `/mapa?legacy=1` |
+| Escape técnico | `localStorage["mex.legacy.force"] = "1"` o `/mapa?legacy=1` |
 
-`/app/mapa` es la ruta principal del mapa dentro del App Shell. `/mapa` se mantiene intacto como mapa clásico para funciones avanzadas no migradas.
+`/app/mapa` es la ruta principal del mapa dentro del App Shell. La matriz completa está en `docs/mapa-paridad-total-15h.md`; `/mapa` queda como rollback técnico.
 
 ## 2. Funciones oficiales en `/app/mapa`
 
@@ -28,30 +28,23 @@ Fecha: 2026-05-06 · FASE 15B
 - Incidencia rápida desde unidad si `guardarNuevaNotaDirecto` está disponible; si no, apertura de bitácora completa.
 - Movimiento DnD según permisos y flags.
 - Movimiento con guardado solo con `mex.appMapa.dnd=1`, `mex.appMapa.dndPersist=1` y rol autorizado.
-- Botón permanente para abrir mapa clásico.
+- Radar operativo dentro del Shell.
+- Reportes/PDF desde los datos actuales del mapa.
+- Alta individual, alta masiva con preview, editar unidad y eliminar unidad con confirmación fuerte.
+- Editor de patio/layout con `guardarEstructuraMapa`.
 
-## 3. Funciones que siguen en mapa clásico
+## 3. Funciones 15H
 
-- Editor de estructura/layout.
-- Reportes.
-- PDF.
-- Radar/chat completo.
-- Altas masivas.
-- Eliminación de unidad.
-- Edición directa de estructura `mapa_config`.
-- Cierre formal.
-- Acciones globales peligrosas o masivas.
-
-Estas funciones no se presentan como activas en `/app/mapa`; se nombran como funciones avanzadas en mapa clásico.
+La paridad total auditada está en `docs/mapa-paridad-total-15h.md`.
 
 ## 4. Reglas operativas
 
 - No tocar login/auth/rules/functions para operar el mapa.
-- No borrar ni degradar `/mapa` clásico.
+- No borrar ni degradar `/mapa`; queda como rollback técnico.
 - No activar movimiento con guardado por defecto.
 - No cambiar permisos DnD sin auditoría.
-- No habilitar eliminación, altas masivas, reportes/PDF, editor o cierre formal dentro de App si no tienen contrato seguro.
-- Usar `mex.legacy.force=1` para permanecer en mapa clásico.
+- Mutaciones y editor requieren rol autorizado.
+- Usar `mex.legacy.force=1` solo para rollback técnico.
 
 ## 5. QA oficial
 
@@ -60,17 +53,16 @@ Checklist mínimo:
 - Abrir `/app/mapa` y confirmar título “Mapa operativo”.
 - Confirmar que `/mapa` redirige a `/app/mapa` sin `mex.legacy.force`.
 - Activar `localStorage.setItem("mex.legacy.force", "1")` y abrir `/mapa`.
-- Confirmar CTA “Estás en mapa clásico · Abrir mapa operativo”.
-- Confirmar que `/mapa?legacy=1` abre mapa clásico.
+- Confirmar que `/mapa?legacy=1` abre fallback técnico.
 - Confirmar que `/editmap`, `/solicitud`, `/cuadre`, login y App Shell no se afectan.
-- Confirmar que las funciones no migradas dicen “mapa clásico”.
+- Confirmar Radar, Reportes/PDF, altas, edición, eliminación y editor dentro de `/app/mapa`.
 - Confirmar que DnD con guardado sigue OFF por defecto.
 - Confirmar que acciones 14F, incidencias 14B, filtros, búsqueda y detalle siguen operativos.
 - Confirmar que modales 15B cancelan sin ejecutar y sincronizan después de éxito.
 
-## 6. Cómo abrir clásico y volver
+## 6. Rollback técnico
 
-Abrir clásico:
+Abrir fallback técnico:
 
 ```js
 localStorage.setItem("mex.legacy.force", "1");

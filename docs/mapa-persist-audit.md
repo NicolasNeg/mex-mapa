@@ -68,11 +68,11 @@ No se marcaron pruebas manuales como PASS. Esta reconciliación no tocó runtime
 - Se conserva el controller integrado por Cursor en 14F-B y se agregan solo mejoras compatibles: aliases `createUnitActionsController`/`createController`, `resolveAvailableActions` y `cleanup()` no-op.
 - La API pública usada por `/app/mapa` se mantiene: `getAvailableActions`, `validateUnitAction`, `executeUnitAction`.
 - Mutaciones siguen delegando en `api.aplicarEstado` o `persistUnitMove`; no se agregan escrituras nuevas ni cambios al DnD existente.
-- Acciones bloqueadas/no migradas siguen sin ejecutar nada.
+- Acciones sin rol autorizado o sin API segura siguen sin ejecutar nada.
 
 ## FASE 15B (acciones unitarias oficiales)
 
 - `/app/mapa` agrega modales oficiales para `update_status`, `update_notes`, `update_gas` y `mark_ready`, siempre delegando validación/ejecución en `mapa-unit-actions.js`.
-- Después de mutaciones seguras se llama `resyncData()` para evitar UI falsa; error muestra mensaje claro y recomienda mapa clásico si aplica.
+- Después de mutaciones seguras se llama `resyncData()` para evitar UI falsa; error muestra mensaje claro.
 - Incidencia rápida usa `guardarNuevaNotaDirecto` sobre `notas_admin`; es escritura pequeña auditada y no toca DnD ni `guardarNuevasPosiciones`.
-- Acciones peligrosas (eliminar, alta, masivos, PDF/reportes, editor, cierre formal) siguen bloqueadas y derivadas a mapa clásico.
+- En 15H, eliminar, alta, masivos, PDF/reportes y editor tienen entrada operativa en `/app/mapa` con permisos y confirmaciones.

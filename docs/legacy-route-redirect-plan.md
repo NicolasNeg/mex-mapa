@@ -1,7 +1,7 @@
-# Legacy Route Redirect Plan (FASE 15F–15G — mapa port literal legacy en App Shell)
+# Legacy Route Redirect Plan (FASE 15H — mapa completo oficial en App Shell)
 
-Fecha: 2026-05-07 · **15G** refuerza `/app/mapa` como **OFICIAL_REAL_LEGACY_PORT** (DOM + patio oscuro, sin toolbar de prueba); **15F** mantiene redirect y fallback clásico.
-Nota: `/mapa`, `/cuadre` y `/mensajes` redirigen App-first salvo escape `localStorage["mex.legacy.force"] === "1"` o apertura explícita con `?legacy=1`. Las rutas clásicas quedan como **CLASSIC_FALLBACK** para editor, adjuntos complejos, PDF, altas masivas, eliminación, cierre formal, reportes y acciones globales peligrosas.
+Fecha: 2026-05-07 · **15H** declara `/app/mapa` como **MAPA_COMPLETO_OFICIAL**: patio, acciones, radar, reportes/PDF, altas, edición/eliminación y editor de layout en Shell.
+Nota: `/mapa`, `/cuadre` y `/mensajes` redirigen App-first salvo escape `localStorage["mex.legacy.force"] === "1"` o apertura explícita con `?legacy=1`. En mapa, la ruta clásica queda como **FALLBACK_TECNICO** / rollback.
 
 ## Criterios
 
@@ -22,13 +22,13 @@ Nota: `/mapa`, `/cuadre` y `/mensajes` redirigen App-first salvo escape `localSt
 | `/cuadre` | `/app/cuadre` | **OFICIAL_OPERATIVA** con consola App real + modales seguros | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico conserva altas/bajas/masivos/cierre formal/PDF/reportes |
 | `/gestion` | `/app/admin` | Paridad operativa reforzada (12H) | KEEP_LEGACY_BACKUP | Redirect **no activado**; mantener `/gestion` como entrada principal para acciones avanzadas (roles/permisos/catálogos globales) |
 | `/programador` | `/app/programador` | QA completo | KEEP_LEGACY_BACKUP | Mantener acceso legacy visible; evaluar redirect solo para roles autorizados |
-| `/mapa` | `/app/mapa` | **OFICIAL_REAL_LEGACY_PORT (15G)** — layout legacy portado al shell | APP_FIRST_ACTIVO · CLASSIC_FALLBACK | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1`; clásico sigue disponible para editor, radar y herramientas completas |
+| `/mapa` | `/app/mapa` | **MAPA_COMPLETO_OFICIAL (15H)** — funciones principales portadas al Shell | APP_FIRST_ACTIVO · FALLBACK_TECNICO | Redirect **activado**; escape `mex.legacy.force=1` o `?legacy=1` solo para rollback técnico |
 | `/solicitud` | N/A | Flujo público de acceso | PUBLIC_FORM / DO_NOT_REDIRECT | Mantener ruta independiente de login/alta |
-| `/editmap` | `/app/mapa` (editor futuro) | Editor legacy acoplado | DO_NOT_REDIRECT | Extraer editor plenamente al App Shell |
+| `/editmap` | `/app/mapa` | Editor layout integrado en Shell | APP_FIRST_FUNCIONAL · FALLBACK_TECNICO | Mantener `/editmap` como ruta técnica mientras el usuario valida visualmente el editor Shell |
 
 ## Riesgos clave
 
-- `/mapa` App-first exige mantener escape clásico claro para funciones avanzadas no migradas.
+- `/mapa` App-first conserva escape técnico para rollback mientras el usuario valida visualmente sesión real.
 - `/gestion` aún contiene acciones que usuarios esperan en legacy.
 - `/app/admin` cubre operación diaria segura, pero edición global avanzada se mantiene en legacy.
 - `/mensajes` queda App-first; el clásico se conserva para adjuntos, edición, borrado y reacciones complejas.

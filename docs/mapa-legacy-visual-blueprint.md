@@ -47,11 +47,11 @@ Se mantienen badges de incidencias 14B, indicador crítico y chip de estado. No 
 
 ## 10. Toolbar/controles superiores legacy
 
-La toolbar App se acerca al legacy con superficie blanca, sombra suave y botones compactos. Se conservan filtros actuales, refrescar y abrir legacy. No se crea buscador local duplicado; la búsqueda global App sigue siendo la fuente.
+La toolbar App se acerca al mapa operativo con botones compactos. Se conservan filtros actuales, refrescar, Radar, Reportes, Alta unidad, Alta masiva y Editar patio según permisos. No se crea buscador local duplicado; la búsqueda global App sigue siendo la fuente.
 
 ## 11. Paneles/overlays legacy
 
-El panel detalle App adopta encabezado oscuro con MVA grande, posición/celda, ubicación, estado, gas/notas, incidencias, acciones operativas 14F y CTAs a incidencias, cuadre y mapa legacy. Modales complejos legacy quedan fuera de P0.
+El panel detalle App adopta encabezado oscuro con MVA grande, posición/celda, ubicación, estado, gas/notas, incidencias, acciones operativas, editar unidad, eliminar unidad y CTAs a incidencias/cuadre.
 
 ## 12. Estados limbo/taller/sin ubicación
 
@@ -85,7 +85,7 @@ El canvas mantiene scroll horizontal controlado en móvil, filtros/toolbar compa
 | Limbo/taller | `#unidades-limbo`, `#unidades-taller` | `.app-mapa-bucket--limbo`, `.app-mapa-bucket--taller` | PORTAR |
 | Toolbar legacy | controles superiores mapa | `.app-mapa-toolbar`, `.app-mapa-controls` | ADAPTAR |
 | Panel info | panel/modal unidad legacy | `.app-mapa-detail` | ADAPTAR |
-| Radar/chat/editor/PDF | módulos legacy acoplados | Sin equivalente App P0 | QUEDA LEGACY |
+| Radar/chat/editor/PDF | módulos mapa | Herramientas App / rutas App | PORTADO OPERATIVO |
 | Header/sidebar/topbar | shell legacy | App Shell existente | OMITIR |
 
 ## 16. CSS extraction plan
@@ -132,4 +132,4 @@ P2 visual pendiente:
 
 ## Estado final 14G
 
-`/app/mapa` queda como **OFICIAL_OPERATIVA** desde 15A. `/mapa` queda como **CLASSIC_FALLBACK** y redirige App-first a `/app/mapa` salvo `mex.legacy.force=1` o `?legacy=1`.
+`/app/mapa` queda como **MAPA_COMPLETO_OFICIAL** desde 15H. `/mapa` queda como **FALLBACK_TECNICO** y redirige App-first a `/app/mapa` salvo `mex.legacy.force=1` o `?legacy=1`.
