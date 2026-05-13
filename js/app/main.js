@@ -160,6 +160,12 @@ async function boot() {
   const shellToast = (message, type = 'info') => {
     const text = String(message || '').trim();
     if (!text) return;
+    if (
+      window.location.pathname === '/app/mapa' &&
+      text === 'Activa notificaciones para recibir mensajes, cuadre y alertas críticas.'
+    ) {
+      return;
+    }
     const root = document.getElementById('appRoot');
     if (!root) return;
     let host = document.getElementById('mexAppToastHost');

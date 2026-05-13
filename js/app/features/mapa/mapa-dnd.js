@@ -1,9 +1,6 @@
 /**
- * Movimiento DnD para /app/mapa (App Shell).
- * Movimiento sin guardado por defecto. Guardado opcional vía callbacks.
- *
- * Listeners en window solo durante un arrastre activo (o gesto pendiente).
- * Movimiento opcional solo pointer (sin touch) para reducir riesgo de scroll/bloqueos.
+ * Movimiento DnD para /app/mapa (App Shell), alineado con legacy:
+ * mouse/pen por PointerEvent, touch por long-press, guardado vía callbacks.
  */
 
 import { sanitizeSpotToken } from '/js/app/features/mapa/mapa-view-model.js';
@@ -30,8 +27,7 @@ export function createMapaDndController({
    * Persistencia controlada (confirmación + API). Debe resolver con { message, outcome }.
    */
   onPersistDrop = null,
-  /** Si true (defecto), no se registran listeners touch en el root — solo mouse/pen vía PointerEvent. */
-  pointerOnlyPreview = true,
+  pointerOnlyPreview = false,
   debug = false
 } = {}) {
   let _root = root;
@@ -155,7 +151,11 @@ export function createMapaDndController({
     const cellId = String(zoneEl.getAttribute('data-cell-id') || '').trim();
     const positionKey = String(zoneEl.getAttribute('data-position') || '').trim();
     const label = String(zoneEl.getAttribute('data-zone-label') || zone || '').trim();
-    return { zone, label, cellId, positionKey: _normalizeToken(positionKey) };
+    const occupant = zoneEl.querySelector?.('[data-mva]');
+    const occupantMva = occupant && occupant !== _unitEl
+      ? String(occupant.getAttribute('data-mva') || '').trim()
+      : '';
+    return { zone, label, cellId, positionKey: _normalizeToken(positionKey), occupantMva };
   }
 
   function _emitPreview(payload) {
@@ -171,6 +171,9 @@ export function createMapaDndController({
   function _finishInteraction(commitPreview) {
     _removeWindowPointerListeners();
     _removeWindowTouchListeners();
+    if (_pending?.touchTimer) {
+      clearTimeout(_pending.touchTimer);
+    }
     _cleanupDragVisuals();
     _pending = null;
     if (commitPreview) {
@@ -348,6 +351,11 @@ export function createMapaDndController({
     if (!touch) return;
 
     if (_pending && !_dragging) {
+      if (!_pending.touchReady) {
+        const drift = Math.hypot(touch.clientX - _pending.startX, touch.clientY - _pending.startY);
+        if (drift > 12) _finishInteraction(false);
+        return;
+      }
       const dx = touch.clientX - _pending.startX;
       const dy = touch.clientY - _pending.startY;
       if (Math.hypot(dx, dy) < MOVE_THRESHOLD_PX) return;
@@ -386,6 +394,7 @@ export function createMapaDndController({
   function _onRootPointerDown(event) {
     if (!_mounted || !_enabled || !canMove()) return;
     if (event.button !== 0 && event.pointerType === 'mouse') return;
+    if (!pointerOnlyPreview && event.pointerType === 'touch') return;
 
     const unit = event.target?.closest?.('[data-dnd-unit="1"]');
     if (!unit || !_root?.contains?.(unit)) return;
@@ -405,9 +414,7 @@ export function createMapaDndController({
   }
 
   function _onRootTouchStart(event) {
-    if (pointerOnlyPreview) return;
     if (!_mounted || !_enabled || !canMove()) return;
-    if (window.PointerEvent) return;
     if (event.touches?.length !== 1) return;
 
     const touch = event.touches[0];
@@ -420,7 +427,11 @@ export function createMapaDndController({
       unit,
       startX: touch.clientX,
       startY: touch.clientY,
-      isTouch: true
+      isTouch: true,
+      touchReady: false,
+      touchTimer: window.setTimeout(() => {
+        if (_pending?.touchId === touch.identifier) _pending.touchReady = true;
+      }, 220)
     };
 
     window.addEventListener('touchmove', _onWindowTouchMove, { capture: true, passive: false });
@@ -434,7 +445,7 @@ export function createMapaDndController({
     if (!_root) return;
     _mounted = true;
     _root.addEventListener('pointerdown', _onRootPointerDown, true);
-    if (!pointerOnlyPreview && !window.PointerEvent) {
+    if (!pointerOnlyPreview) {
       _root.addEventListener('touchstart', _onRootTouchStart, { passive: false, capture: true });
     }
     _log('mount', { pointerOnlyPreview });
@@ -444,7 +455,7 @@ export function createMapaDndController({
     _finishInteraction(false);
     if (_root) {
       _root.removeEventListener('pointerdown', _onRootPointerDown, true);
-      if (!pointerOnlyPreview && !window.PointerEvent) {
+      if (!pointerOnlyPreview) {
         _root.removeEventListener('touchstart', _onRootTouchStart, {
           capture: true,
           passive: false

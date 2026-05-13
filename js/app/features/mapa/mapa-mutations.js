@@ -92,7 +92,7 @@ export function validatePersistMove(
   } = {},
   opts = {}
 ) {
-  const { roleAllowed = true, persistFlagsOk = true } = opts;
+  const { roleAllowed = true, persistFlagsOk = true, allowOccupied = false } = opts;
 
   if (!roleAllowed) {
     return {
@@ -177,15 +177,50 @@ export function validatePersistMove(
     };
   }
 
-  if (isDestinationOccupied(units, destKey, mv)) {
+  if (!allowOccupied && isDestinationOccupied(units, destKey, mv)) {
     return {
       ok: false,
       code: 'OCCUPIED',
-      message: 'El cajón ya está ocupado. Swap pendiente para fase posterior.'
+      message: 'El cajón ya está ocupado.'
     };
   }
 
   return { ok: true, code: 'OK', message: '', unit };
+}
+
+export async function persistUnitSwap({
+  api = window.api || null,
+  plaza = '',
+  usuario = 'Sistema',
+  movingMva = '',
+  movingPos = '',
+  occupantMva = '',
+  occupantPos = '',
+  extra = {}
+} = {}) {
+  if (!api || typeof api.guardarNuevasPosiciones !== 'function') {
+    return { success: false, error: 'API guardarNuevasPosiciones no disponible.' };
+  }
+  const plazaUp = String(plaza || '').trim().toUpperCase();
+  const reporte = [
+    buildMoveReportItem(movingMva, movingPos),
+    buildMoveReportItem(occupantMva, occupantPos)
+  ].filter(item => item.mva && item.pos);
+  if (reporte.length !== 2) {
+    return { success: false, error: 'Intercambio inválido.' };
+  }
+  try {
+    const audit =
+      typeof window.__mexGetLastLocationAuditPayload === 'function'
+        ? window.__mexGetLastLocationAuditPayload()
+        : {};
+    const merged = { ...audit, ...(extra || {}), tipoMovimiento: 'swap' };
+    const res = await api.guardarNuevasPosiciones(reporte, usuario, plazaUp, merged);
+    const ok = res === true || res?.ok === true;
+    return ok ? { success: true } : { success: false, error: String(res?.message || 'Respuesta no exitosa.') };
+  } catch (err) {
+    return { success: false, error: String(err?.message || err || 'Error de red.') };
+  }
 }
 
 export async function persistUnitMove({

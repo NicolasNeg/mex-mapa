@@ -5,6 +5,7 @@ import { createMapaDndController } from '/js/app/features/mapa/mapa-dnd.js';
 import {
   persistDebug,
   persistUnitMove,
+  persistUnitSwap,
   validatePersistMove
 } from '/js/app/features/mapa/mapa-mutations.js';
 import { sanitizeSpotToken } from '/js/app/features/mapa/mapa-view-model.js';
@@ -324,22 +325,6 @@ function _readUrlQuery() {
 
 let _offPopstate = null;
 
-function _readAppMapaDndFlag() {
-  try {
-    return localStorage.getItem('mex.appMapa.dnd') === '1';
-  } catch (_) {
-    return false;
-  }
-}
-
-function _readAppMapaDndPersistFlag() {
-  try {
-    return localStorage.getItem('mex.appMapa.dndPersist') === '1';
-  } catch (_) {
-    return false;
-  }
-}
-
 /** Roles que no deben tener movimiento ni guardado DnD App Shell (incl. operación y auxiliares). */
 const _DND_PREVIEW_DENIED = new Set([
   'CORPORATIVO_USER',
@@ -371,20 +356,16 @@ function _hasCajonStructure(snapshot) {
 }
 
 /**
- * Flag localStorage + rol + estructura real; decide badge, data-dnd y montaje del controller.
- * Sin estructura de cajones → sin DnD aunque el flag esté en "1".
+ * Legacy parity: movimiento activo por rol + estructura real, sin flags experimentales.
+ * Sin estructura de cajones → sin DnD.
  */
 function _dndFullyEnabled(state, snapshot) {
-  return _readAppMapaDndFlag() && _canRolePreviewDnd(state) && _hasCajonStructure(snapshot);
+  return _canRolePreviewDnd(state) && _hasCajonStructure(snapshot);
 }
 
-/** Guardado: además del movimiento, flag localStorage + mismo gate de rol + estructura. */
+/** Legacy parity: guardado activo con el mismo gate de rol + estructura. */
 function _dndPersistFullyEnabled(state, snapshot) {
-  return (
-    _dndFullyEnabled(state, snapshot) &&
-    _readAppMapaDndPersistFlag() &&
-    _canRolePreviewDnd(state)
-  );
+  return _dndFullyEnabled(state, snapshot) && _canRolePreviewDnd(state);
 }
 
 /** JSON técnico de unidad: solo PROGRAMADOR o admin global (misma política que acciones técnicas). */
@@ -444,14 +425,6 @@ function _snapshotShowsMove(mva, destKey) {
   return Boolean(u && _spotTok(u.pos || 'LIMBO') === _spotTok(destKey));
 }
 
-function _mapModeLabel(state, snapshot) {
-  const ro = !_dndFullyEnabled(state, snapshot);
-  if (ro) return 'Consulta';
-  if (!_readAppMapaDndPersistFlag()) return 'Movimiento sin guardado';
-  if (_dndPersistFullyEnabled(state, snapshot)) return 'Movimiento con guardado';
-  return 'Movimiento sin guardado';
-}
-
 function _fmtShort(ts) {
   if (!ts) return '—';
   try {
@@ -483,12 +456,7 @@ function _updateMetaLines() {
   }
 }
 
-function _updateMapModeBanner() {
-  const el = _container?.querySelector('#app-mapa-mode-state');
-  if (!el) return;
-  const snap = _viewState.snapshot;
-  el.textContent = _mapModeLabel(getState(), snap);
-}
+function _updateMapModeBanner() {}
 
 function _syncLocalSearchInput() {
   const input = _container?.querySelector('#app-mapa-search');
@@ -506,7 +474,7 @@ function _updatePlazaHeader(plazaValue = '') {
   el.textContent = safe || '—';
 }
 
-function _showPersistConfirm({ mva, fromKey, toKey }) {
+function _showPersistConfirm({ mva, fromKey, toKey, occupantMva = '' }) {
   return new Promise(resolve => {
     if (!_container) {
       resolve(false);
@@ -515,13 +483,18 @@ function _showPersistConfirm({ mva, fromKey, toKey }) {
     const wrap = document.createElement('div');
     wrap.className = 'app-mapa-modal-overlay';
     wrap.setAttribute('role', 'dialog');
+    const isSwap = Boolean(String(occupantMva || '').trim());
     wrap.innerHTML = `
       <div class="app-mapa-modal">
-        <p class="app-mapa-modal-title">Confirmar movimiento</p>
-        <p class="app-mapa-modal-body">¿Mover unidad <strong>${esc(mva)}</strong> de <strong>${esc(fromKey)}</strong> a <strong>${esc(toKey)}</strong>?</p>
+        <p class="app-mapa-modal-title">${isSwap ? 'Confirmar intercambio' : 'Confirmar movimiento'}</p>
+        <p class="app-mapa-modal-body">${
+          isSwap
+            ? `El cajón <strong>${esc(toKey)}</strong> ya está ocupado por <strong>${esc(occupantMva)}</strong>. ¿Intercambiar <strong>${esc(mva)}</strong> por <strong>${esc(occupantMva)}</strong>?`
+            : `¿Mover unidad <strong>${esc(mva)}</strong> de <strong>${esc(fromKey)}</strong> a <strong>${esc(toKey)}</strong>?`
+        }</p>
         <div class="app-mapa-modal-actions">
           <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--ghost" data-act="cancel">Cancelar</button>
-          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">Confirmar movimiento</button>
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">${isSwap ? 'Confirmar intercambio' : 'Confirmar movimiento'}</button>
         </div>
       </div>`;
     const done = ok => {
@@ -834,14 +807,6 @@ export function mount({ container }) {
           <span id="app-mapa-last-move" class="app-mapa-meta-line--persist" hidden></span>
         </div>
       </div>
-      <details class="app-mapa-tech" id="app-mapa-tech"${_showMapaDiagnostics() ? '' : ' hidden'}>
-        <summary>Estado técnico</summary>
-        <div class="app-mapa-tech-body">
-          <span id="app-mapa-dnd-badge" class="app-mapa-badge app-mapa-badge-dnd" style="display:${_dndFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento habilitado</span>
-          <span id="app-mapa-persist-badge" class="app-mapa-badge app-mapa-badge-persist" style="display:${_dndPersistFullyEnabled(state, null) ? 'inline-flex' : 'none'}">Movimiento con guardado</span>
-          <span>Modo <strong id="app-mapa-mode-state">${esc(_mapModeLabel(state, null))}</strong></span>
-        </div>
-      </details>
       <div class="app-mapa-controls">
         <label class="app-mapa-search-wrap" aria-label="Buscar unidad en mapa">
           <span class="app-mapa-search-ic">search</span>
@@ -857,10 +822,6 @@ export function mount({ container }) {
           <button type="button" class="app-mapa-qf" data-mapa-qf="limbo">Limbo</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="taller">Taller</button>
           <button type="button" class="app-mapa-qf" data-mapa-qf="con-incidencias">Incidencias</button>
-        </div>
-        <div class="app-mapa-view-toggle" role="toolbar" aria-label="Modo de vista">
-          <button type="button" class="app-mapa-view is-active" data-mapa-view="grid">Celdas</button>
-          <button type="button" class="app-mapa-view" data-mapa-view="list">Lista</button>
         </div>
       </div>
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
@@ -912,7 +873,8 @@ export function mount({ container }) {
       let snap = snapshot || _viewState.snapshot;
       const baseOpts = {
         roleAllowed: _canRolePreviewDnd(st),
-        persistFlagsOk: _readAppMapaDndFlag() && _readAppMapaDndPersistFlag()
+        persistFlagsOk: true,
+        allowOccupied: Boolean(destKey && toCtx?.occupantMva)
       };
 
       if (_dndHintEl) {
@@ -984,7 +946,8 @@ export function mount({ container }) {
       const okModal = await _showPersistConfirm({
         mva: fromCtx.mva,
         fromKey: originKey,
-        toKey: destKey
+        toKey: destKey,
+        occupantMva: toCtx?.occupantMva || ''
       });
       if (!okModal) {
         _render();
@@ -994,13 +957,23 @@ export function mount({ container }) {
         _dndHintEl.textContent = 'Guardando…';
         _dndHintEl.hidden = false;
       }
-      const res = await persistUnitMove({
-        api: window.api,
-        plaza,
-        usuario: _actorName(),
-        mva: fromCtx.mva,
-        posNueva: destKey
-      });
+      const res = toCtx?.occupantMva
+        ? await persistUnitSwap({
+            api: window.api,
+            plaza,
+            usuario: _actorName(),
+            movingMva: fromCtx.mva,
+            movingPos: destKey,
+            occupantMva: toCtx.occupantMva,
+            occupantPos: originKey
+          })
+        : await persistUnitMove({
+            api: window.api,
+            plaza,
+            usuario: _actorName(),
+            mva: fromCtx.mva,
+            posNueva: destKey
+          });
       persistDebug('persist:api', {
         ok: res.success,
         error: res.error || null,
@@ -1059,7 +1032,7 @@ export function mount({ container }) {
         outcome: 'saved'
       };
     },
-    pointerOnlyPreview: true,
+    pointerOnlyPreview: false,
     onMovePreview: payload => {
       if (_dndHintEl) {
         _dndHintEl.textContent = payload?.message || '';
@@ -1168,13 +1141,6 @@ export function mount({ container }) {
       _render();
       return;
     }
-    const vwBtn = ev.target?.closest?.('[data-mapa-view]');
-    if (vwBtn && _container.contains(vwBtn)) {
-      _viewState.viewMode = vwBtn.getAttribute('data-mapa-view') || 'grid';
-      _syncFilterChips();
-      _render();
-      return;
-    }
     const btn = ev.target?.closest?.('[data-app-mapa-action]');
     if (!btn || !_container.contains(btn)) return;
     const act = btn.getAttribute('data-app-mapa-action');
@@ -1277,16 +1243,7 @@ export function unmount() {
 
 function _syncDndController() {
   if (!_dndController || !_container) return;
-  const badge = _container.querySelector('#app-mapa-dnd-badge');
-  const pb = _container.querySelector('#app-mapa-persist-badge');
   const on = _dndFullyEnabled(getState(), _viewState.snapshot);
-  const persistOn = _dndPersistFullyEnabled(getState(), _viewState.snapshot);
-  if (badge) {
-    badge.style.display = on ? 'inline-flex' : 'none';
-  }
-  if (pb) {
-    pb.style.display = persistOn ? 'inline-flex' : 'none';
-  }
   if (on) {
     _dndController.enable();
     _dndController.mount(_container);
@@ -1389,7 +1346,7 @@ function _render() {
     incidentsByMva: _incSummaryState.byMva,
     incidentsReady: _incSummaryState.ready,
     incidentsFailed: _incSummaryState.failed,
-    showDiagnostics: _showMapaDiagnostics()
+    showDiagnostics: false
   };
   if (_viewState.selectedId && !getResolvedMapaSelection(snapshot, readOpts)) {
     _viewState.selectedId = '';
