@@ -302,12 +302,16 @@
   opacity: 0.65;
 }
 
-.app-mapa-drop-zone.app-mapa-drop-hover {
+.app-mapa-drop-zone.app-mapa-drop-hover,
+.app-mapa-slot.app-mapa-drop-hover,
+.spot.app-mapa-drop-hover {
   outline: 2px dashed rgba(43, 105, 84, 0.55);
   background: rgba(236, 253, 245, 0.65);
 }
 
-.app-mapa-drop-zone.app-mapa-drop-invalid {
+.app-mapa-drop-zone.app-mapa-drop-invalid,
+.app-mapa-slot.app-mapa-drop-invalid,
+.spot.app-mapa-drop-invalid {
   outline: 2px dashed rgba(220, 38, 38, 0.45);
   background: rgba(254, 242, 242, 0.55);
 }
@@ -1449,13 +1453,17 @@ button.app-mapa-view,
   border-color: rgba(251, 191, 36, 0.62);
 }
 
-.app-mapa-drop-zone.app-mapa-drop-hover {
+.app-mapa-drop-zone.app-mapa-drop-hover,
+.app-mapa-slot.app-mapa-drop-hover,
+.spot.app-mapa-drop-hover {
   outline: 4px solid rgba(34, 197, 94, 0.88);
   outline-offset: 3px;
   box-shadow: 0 0 22px rgba(34, 197, 94, 0.36);
 }
 
-.app-mapa-drop-zone.app-mapa-drop-invalid {
+.app-mapa-drop-zone.app-mapa-drop-invalid,
+.app-mapa-slot.app-mapa-drop-invalid,
+.spot.app-mapa-drop-invalid {
   outline: 4px solid rgba(239, 68, 68, 0.9);
   outline-offset: 3px;
   box-shadow: 0 0 22px rgba(239, 68, 68, 0.34);
@@ -2560,6 +2568,84 @@ button.app-mapa-view.is-active {
 .app-mapa-legacy-port .app-mapa-actions-title,
 .app-mapa-legacy-port .app-mapa-actions h3 {
   color: #e2e8f0;
+}
+
+.app-mapa-legacy-panel-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+
+.app-mapa-legacy-panel-btn,
+.app-mapa-legacy-actions-dropdown summary {
+  display: inline-flex;
+  min-height: 38px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.82);
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  text-align: center;
+}
+
+.app-mapa-legacy-panel-btn--danger {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(127, 29, 29, 0.82);
+}
+
+.app-mapa-legacy-actions-dropdown {
+  position: relative;
+}
+
+.app-mapa-legacy-actions-dropdown summary {
+  width: 100%;
+  list-style: none;
+}
+
+.app-mapa-legacy-actions-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.app-mapa-legacy-actions-dropdown__body {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 180px;
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.98);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38);
+}
+
+.app-mapa-legacy-actions-dropdown__body button,
+.app-mapa-legacy-actions-dropdown__body .app-mapa-action-btn {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 6px;
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  text-align: center;
+}
+
+.app-mapa-slot.spot-available-hint,
+.app-mapa-slot.app-mapa-drop-available,
+.spot.spot-available-hint,
+.spot.app-mapa-drop-available {
+  box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.58);
 }
 
 .app-mapa-legacy-port .app-mapa-inc-summary {

@@ -608,30 +608,12 @@ function _detailIncBlock(mva, byMva, ready, failed) {
 function _renderUnitActionsBlock(selected, plaza, actions = {}) {
   if (!selected) return '';
   const mva = String(selected.mva || '').trim();
-  const mvaEnc = encodeURIComponent(mva);
-  const showDiag = actions.showDiagnostics === true;
-  const jsonBtn = showDiag
-    ? `<button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="copy-json">Copiar JSON técnico</button>`
-    : '';
-  const quick = `
-    <div class="app-mapa-actions-grid app-mapa-actions-grid--quick">
-      <button type="button" class="app-mapa-copy-mva" data-copy-mva="${esc(mva)}">Copiar MVA</button>
-      ${jsonBtn}
-      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="create-incident">Crear incidencia</button>
-      <button type="button" class="app-mapa-copy-mva" data-app-mapa-official-unit="edit-unit">Editar unidad</button>
-      <button type="button" class="app-mapa-copy-mva" data-app-mapa-official-unit="delete-unit">Eliminar unidad</button>
-      <a class="app-mapa-detail-link" href="/app/incidencias?mva=${mvaEnc}">Ver incidencias</a>
-      <a class="app-mapa-detail-link" href="/app/cuadre">Abrir en cuadre</a>
-      <button type="button" class="app-mapa-copy-mva" data-app-mapa-detail="refresh">Refrescar</button>
-    </div>
-  `;
 
   const secureActions = Array.isArray(actions.secureActions) ? actions.secureActions : [];
   const actionable = secureActions.filter(a => a?.available && !a?.blocked);
-  const blocked = secureActions.filter(a => !a?.available || a?.blocked);
 
   const secureHtml = actionable.length
-    ? `<div class="app-mapa-actions-grid">
+    ? `<div class="app-mapa-actions-menu">
       ${actionable
         .map(action => {
           const aid = String(action.id || '').trim();
@@ -641,37 +623,23 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
         })
         .join('')}
     </div>`
-    : `<p class="app-mapa-actions-muted">Sin acciones mutantes habilitadas para tu rol/plaza en esta versión.</p>`;
-
-  const blockedHtml = blocked.length
-    ? `<details class="app-mapa-actions-classic"><summary>No disponibles para esta sesión</summary><ul class="app-mapa-actions-legacy-list">
-      ${blocked
-        .map(action => {
-          const lbl = String(action?.label || action?.id || 'Acción');
-          const reason = String(action?.reason || 'Requiere permisos o API operativa.');
-          return `<li><span>${esc(lbl)}</span><small>${esc(reason || 'Requiere permisos o API operativa.')}</small></li>`;
-        })
-        .join('')}
-    </ul></details>`
-    : '';
-
-  const globalMsg = actions.message
-    ? `<p class="app-mapa-actions-muted">${esc(actions.message)}</p>`
     : '';
 
   return `
     <section class="app-mapa-actions">
-      <h3>Acciones operativas</h3>
-      ${globalMsg}
-      <div class="app-mapa-actions-group">
-        <p class="app-mapa-actions-title">Acciones rápidas</p>
-        ${quick}
+      <div class="app-mapa-legacy-panel-actions">
+        <button type="button" class="app-mapa-legacy-panel-btn app-mapa-legacy-panel-btn--danger" data-app-mapa-detail="limbo">LIMBO</button>
+        <details class="app-mapa-legacy-actions-dropdown">
+          <summary>ACCIONES</summary>
+          <div class="app-mapa-legacy-actions-dropdown__body">
+            <button type="button" data-app-mapa-detail="create-incident">CREAR INCIDENCIA</button>
+            <button type="button" data-app-mapa-official-unit="edit-unit">EDITAR UNIDAD</button>
+            <button type="button" data-copy-mva="${esc(mva)}">COPIAR MVA</button>
+            ${secureHtml}
+          </div>
+        </details>
+        <button type="button" class="app-mapa-legacy-panel-btn" data-app-mapa-detail="close-panel">CERRAR</button>
       </div>
-      <div class="app-mapa-actions-group">
-        <p class="app-mapa-actions-title">Acciones seguras</p>
-        ${secureHtml}
-      </div>
-      ${blockedHtml ? `<div class="app-mapa-actions-group">${blockedHtml}</div>` : ''}
     </section>
   `;
 }

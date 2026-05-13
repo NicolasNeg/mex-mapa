@@ -54,6 +54,22 @@ export function createMapaDndController({
     _activeZoneEl = null;
   }
 
+  function _clearAvailableHints() {
+    _root
+      ?.querySelectorAll?.('.spot-available-hint, .app-mapa-drop-available')
+      ?.forEach(el => el.classList.remove('spot-available-hint', 'app-mapa-drop-available'));
+  }
+
+  function _markAvailableHints() {
+    _clearAvailableHints();
+    _root
+      ?.querySelectorAll?.('[data-drop-cell="1"][data-cell-type="cajon"]')
+      ?.forEach(zone => {
+        if (_classifyZone(zone) !== 'ok') return;
+        zone.classList.add('spot-available-hint', 'app-mapa-drop-available');
+      });
+  }
+
   /**
    * Solo celdas reales: [data-drop-cell="1"][data-cell-type="cajon"] dentro del root.
    */
@@ -122,6 +138,7 @@ export function createMapaDndController({
 
   function _cleanupDragVisuals() {
     _clearZoneHighlight();
+    _clearAvailableHints();
     _removeGhost();
     if (_unitEl) _unitEl.classList.remove('is-drag-origin');
     _unitEl = null;
@@ -186,6 +203,7 @@ export function createMapaDndController({
     _unitEl = unitEl;
     _unitEl.classList.add('is-drag-origin');
     const ctx = _readUnitContext(_unitEl);
+    _markAvailableHints();
     _createGhost(ctx?.mva || 'UNIDAD');
     _positionGhost(clientX, clientY);
     _highlightZone(_resolveDropZoneFromPoint(clientX, clientY));

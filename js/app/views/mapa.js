@@ -510,6 +510,155 @@ function _showPersistConfirm({ mva, fromKey, toKey, occupantMva = '' }) {
   });
 }
 
+function _selectedRawUnit() {
+  const sid = String(_viewState.selectedId || '').trim();
+  if (!sid) return null;
+  const units = Array.isArray(_viewState.snapshot?.units) ? _viewState.snapshot.units : [];
+  return (
+    units.find(x => String(x?.id || '') === sid) ||
+    units.find(x => String(x?.mva || '').toUpperCase() === sid.toUpperCase()) ||
+    null
+  );
+}
+
+function _unitCtxFromRaw(raw = {}) {
+  const mva = String(raw?.mva || '').trim().toUpperCase();
+  const pos = String(raw?.pos || 'LIMBO').trim().toUpperCase();
+  return {
+    mva,
+    unitId: String(raw?.id || mva || '').trim(),
+    currentCell: _spotTok(pos),
+    pos,
+    positionKey: _spotTok(pos)
+  };
+}
+
+function _zoneCtxFromEl(zoneEl) {
+  if (!zoneEl) return null;
+  const positionKey = _spotTok(zoneEl.getAttribute('data-position') || zoneEl.getAttribute('data-cell-id') || '');
+  if (!positionKey) return null;
+  const occupant = zoneEl.querySelector?.('[data-mva]');
+  const selected = String(_selectedRawUnit()?.mva || '').toUpperCase();
+  const occupantMva = occupant && String(occupant.getAttribute('data-mva') || '').toUpperCase() !== selected
+    ? String(occupant.getAttribute('data-mva') || '').trim().toUpperCase()
+    : '';
+  return {
+    zone: String(zoneEl.getAttribute('data-zone') || '').trim(),
+    label: String(zoneEl.getAttribute('data-zone-label') || '').trim(),
+    cellId: String(zoneEl.getAttribute('data-cell-id') || positionKey).trim(),
+    positionKey,
+    occupantMva
+  };
+}
+
+async function _persistSelectedToZone(zoneEl, { source = 'click' } = {}) {
+  const raw = _selectedRawUnit();
+  const fromCtx = _unitCtxFromRaw(raw);
+  const toCtx = _zoneCtxFromEl(zoneEl);
+  if (!fromCtx?.mva || !toCtx?.positionKey) return;
+  const originKey = fromCtx.positionKey || _spotTok(fromCtx.pos);
+  const destKey = toCtx.positionKey;
+  if (originKey && destKey && originKey === destKey) return;
+  const st = getState();
+  const snapshot = _viewState.snapshot;
+  const plaza = String(snapshot?.plaza || st.currentPlaza || st.profile?.plazaAsignada || '').toUpperCase();
+  let v = validatePersistMove(
+    { snapshot, mva: fromCtx.mva, originKey, destKey, plaza },
+    { roleAllowed: _canRolePreviewDnd(st), persistFlagsOk: true, allowOccupied: Boolean(toCtx.occupantMva) }
+  );
+  if (!v.ok) {
+    _announceMapa(v.message || 'Movimiento no válido.');
+    _render();
+    return;
+  }
+  const ok = await _showPersistConfirm({
+    mva: fromCtx.mva,
+    fromKey: originKey,
+    toKey: destKey,
+    occupantMva: toCtx.occupantMva || ''
+  });
+  if (!ok) {
+    _announceMapa('Movimiento cancelado. No se realizaron cambios.');
+    return;
+  }
+  _announceMapa(toCtx.occupantMva ? 'Guardando intercambio…' : 'Guardando movimiento…');
+  const res = toCtx.occupantMva
+    ? await persistUnitSwap({
+        api: window.api,
+        plaza,
+        usuario: _actorName(),
+        movingMva: fromCtx.mva,
+        movingPos: destKey,
+        occupantMva: toCtx.occupantMva,
+        occupantPos: originKey,
+        extra: { source }
+      })
+    : await persistUnitMove({
+        api: window.api,
+        plaza,
+        usuario: _actorName(),
+        mva: fromCtx.mva,
+        posNueva: destKey,
+        extra: { source }
+      });
+  if (!res.success) {
+    _announceMapa(`No se pudo guardar: ${res.error || 'error'}`);
+    _render();
+    return;
+  }
+  _lastPersistSummary = { mva: fromCtx.mva, originKey, destKey, at: Date.now(), user: _actorName() };
+  _updateMetaLines();
+  await _lifecycle?.resyncData?.();
+  _announceMapa(toCtx.occupantMva ? 'Intercambio guardado.' : 'Movimiento guardado.');
+}
+
+async function _persistSelectedToLimbo() {
+  const raw = _selectedRawUnit();
+  const fromCtx = _unitCtxFromRaw(raw);
+  if (!fromCtx?.mva || fromCtx.positionKey === 'LIMBO') return;
+  const st = getState();
+  const snapshot = _viewState.snapshot;
+  const plaza = String(snapshot?.plaza || st.currentPlaza || st.profile?.plazaAsignada || '').toUpperCase();
+  if (!_dndPersistFullyEnabled(st, snapshot)) {
+    _announceMapa('Tu rol no permite guardar movimientos en el mapa operativo.');
+    return;
+  }
+  const ok = await _showPersistConfirm({
+    mva: fromCtx.mva,
+    fromKey: fromCtx.positionKey,
+    toKey: 'LIMBO'
+  });
+  if (!ok) {
+    _announceMapa('Movimiento cancelado. No se realizaron cambios.');
+    return;
+  }
+  _announceMapa('Guardando movimiento a LIMBO…');
+  const res = await persistUnitMove({
+    api: window.api,
+    plaza,
+    usuario: _actorName(),
+    mva: fromCtx.mva,
+    posNueva: 'LIMBO',
+    extra: { source: 'panel-limbo' }
+  });
+  if (!res.success) {
+    _announceMapa(`No se pudo guardar: ${res.error || 'error'}`);
+    _render();
+    return;
+  }
+  _lastPersistSummary = {
+    mva: fromCtx.mva,
+    originKey: fromCtx.positionKey,
+    destKey: 'LIMBO',
+    at: Date.now(),
+    user: _actorName()
+  };
+  _viewState.selectedId = '';
+  _updateMetaLines();
+  await _lifecycle?.resyncData?.();
+  _announceMapa('Movimiento a LIMBO guardado.');
+}
+
 function _payloadTemplateForAction(actionId) {
   const id = String(actionId || '').toLowerCase();
   if (id === 'update_status' || id.includes('estado')) {
@@ -1106,6 +1255,17 @@ export function mount({ container }) {
       }
       return;
     }
+    const closePanelBtn = event.target?.closest?.('[data-app-mapa-detail="close-panel"]');
+    if (closePanelBtn) {
+      _viewState.selectedId = '';
+      _render();
+      return;
+    }
+    const limboBtn = event.target?.closest?.('[data-app-mapa-detail="limbo"]');
+    if (limboBtn) {
+      void _persistSelectedToLimbo();
+      return;
+    }
     const incidentBtn = event.target?.closest?.('[data-app-mapa-detail="create-incident"]');
     if (incidentBtn) {
       void _createQuickIncidentForSelected();
@@ -1126,10 +1286,16 @@ export function mount({ container }) {
       return;
     }
     const btn = event.target?.closest?.('[data-unit-id]');
-    if (!btn) return;
-    _viewState.selectedId = String(btn.getAttribute('data-unit-id') || '');
-    _render();
-    void _refreshSelectedUnitActions();
+    if (btn) {
+      _viewState.selectedId = String(btn.getAttribute('data-unit-id') || '');
+      _render();
+      void _refreshSelectedUnitActions();
+      return;
+    }
+    const zone = event.target?.closest?.('[data-drop-cell="1"][data-cell-type="cajon"]');
+    if (zone && _container?.contains(zone) && _viewState.selectedId && _dndFullyEnabled(getState(), _viewState.snapshot)) {
+      void _persistSelectedToZone(zone, { source: 'click-cell' });
+    }
   };
   _container.addEventListener('click', _onClick);
 
