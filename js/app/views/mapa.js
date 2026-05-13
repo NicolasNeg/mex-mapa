@@ -55,7 +55,8 @@ let _viewState = {
   selectedId: '',
   snapshot: null,
   quickFilter: 'all',
-  viewMode: 'grid'
+  viewMode: 'grid',
+  zoom: 1
 };
 
 function _trackListener(action, name, extra = {}) {
@@ -469,6 +470,15 @@ function _syncLocalSearchInput() {
   const q = String(_viewState.query || '');
   if (input.value !== q) input.value = q;
   if (clearBtn) clearBtn.hidden = q.length === 0;
+}
+
+function _applyMapZoom() {
+  const z = Math.max(0.6, Math.min(1.4, Number(_viewState.zoom) || 1));
+  _viewState.zoom = z;
+  const grid = _container?.querySelector('#app-mapa-legacy-grid');
+  if (!grid) return;
+  grid.style.transformOrigin = '0 0';
+  grid.style.transform = z === 1 ? '' : `scale(${z})`;
 }
 
 function _updatePlazaHeader(plazaValue = '') {
@@ -929,6 +939,7 @@ async function _runUnitAction(actionId) {
 
 export function mount({ container }) {
   _container = container;
+  document.body?.classList?.add('app-map-legacy-shell');
   _trackListener('create', 'view', { plaza: getState().currentPlaza || '' });
   _ensureCss();
   const state = getState();
@@ -938,7 +949,8 @@ export function mount({ container }) {
     selectedId: '',
     snapshot: null,
     quickFilter: 'all',
-    viewMode: 'grid'
+    viewMode: 'grid',
+    zoom: 1
   };
 
   _container.innerHTML = `
@@ -1306,6 +1318,14 @@ export function mount({ container }) {
       _render();
       return;
     }
+    const zoomBtn = ev.target?.closest?.('[data-app-mapa-zoom]');
+    if (zoomBtn && _container.contains(zoomBtn)) {
+      const dir = zoomBtn.getAttribute('data-app-mapa-zoom');
+      const delta = dir === 'in' ? 0.1 : -0.1;
+      _viewState.zoom = Math.round(Math.max(0.6, Math.min(1.4, (_viewState.zoom || 1) + delta)) * 10) / 10;
+      _applyMapZoom();
+      return;
+    }
     const btn = ev.target?.closest?.('[data-app-mapa-action]');
     if (!btn || !_container.contains(btn)) return;
     const act = btn.getAttribute('data-app-mapa-action');
@@ -1361,6 +1381,7 @@ export function mount({ container }) {
 }
 
 export function unmount() {
+  document.body?.classList?.remove('app-map-legacy-shell');
   _removeMapaModals();
   try {
     _unitActionsCtrl?.cleanup?.();
@@ -1532,6 +1553,7 @@ function _render() {
   _updateMetaLines();
   _syncLocalSearchInput();
   _syncFilterChips();
+  _applyMapZoom();
   _syncMapaUrlQuery();
   requestAnimationFrame(() => {
     _scrollToSearchMatch();

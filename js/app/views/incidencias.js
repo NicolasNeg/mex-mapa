@@ -36,6 +36,7 @@ function _makeState(plaza) {
     loading: true,
     errorMessage: '',
     hasPermissionDenied: false,
+    archivosNuevaNota: [], // para guardar los adjuntos temporales
   };
 }
 
@@ -198,7 +199,46 @@ function _bindUi() {
 
   q('incResolverCancelar')?.addEventListener('click', () => _toggleResolverModal(false));
   q('btnConfirmarResInc')?.addEventListener('click', _confirmResolve);
+
+  q('incAdjuntosInput')?.addEventListener('change', _onFilesSelected);
 }
+
+function _onFilesSelected(e) {
+  if (!e.target.files?.length) return;
+  const files = Array.from(e.target.files);
+  files.forEach(f => {
+    _state.archivosNuevaNota.push({
+      file: f,
+      previewUrl: f.type.startsWith('image/') ? URL.createObjectURL(f) : null,
+    });
+  });
+  e.target.value = '';
+  _renderAdjuntosNuevos();
+}
+
+function _eliminarArchivoNuevos(index) {
+  const item = _state.archivosNuevaNota[index];
+  if (item && item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  _state.archivosNuevaNota.splice(index, 1);
+  _renderAdjuntosNuevos();
+}
+
+function _renderAdjuntosNuevos() {
+  const cont = q('incAdjuntosNuevosCont');
+  if (!cont) return;
+  if (!_state.archivosNuevaNota.length) {
+    cont.innerHTML = '';
+    return;
+  }
+  cont.innerHTML = _state.archivosNuevaNota.map((item, i) => `
+    <div class="inc-upload-chip" style="display:flex;align-items:center;background:#f1f5f9;border-radius:6px;padding:6px;margin-top:6px;">
+      ${item.previewUrl ? `<img src="${item.previewUrl}" style="width:24px;height:24px;border-radius:4px;object-fit:cover;margin-right:8px;">` : `<span class="material-icons" style="margin-right:8px;font-size:20px;color:#64748b;">insert_drive_file</span>`}
+      <div style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#334155;">${esc(item.file.name)}</div>
+      <button type="button" style="background:transparent;border:none;color:#ef4444;cursor:pointer;display:flex;" onclick="window._incEliminarArchivoNuevos(${i})"><span class="material-icons" style="font-size:16px;">close</span></button>
+    </div>
+  `).join('');
+}
+window._incEliminarArchivoNuevos = _eliminarArchivoNuevos;
 
 function _applyFilters() {
   const query = _state.query;
@@ -229,8 +269,12 @@ function _renderPreview() {
   _updatePreview();
   const stamp = q('incPreviewStamp');
   if (!stamp) return;
-  // En App la carga/edición avanzada de adjuntos se mantiene en legacy.
-  stamp.textContent = 'Adjuntos avanzados en legacy';
+  
+  if (_state.archivosNuevaNota.length) {
+    stamp.textContent = `${_state.archivosNuevaNota.length} adjunto${_state.archivosNuevaNota.length === 1 ? '' : 's'}`;
+  } else {
+    stamp.textContent = 'Sin adjuntos';
+  }
 }
 
 function _renderStats() {
@@ -317,6 +361,7 @@ function _renderList() {
             <span class="nota-chip">${esc(pr.label)}</span>
             ${evidencias.length ? `<span class="nota-chip">${evidencias.length} adjunto${evidencias.length === 1 ? '' : 's'}</span>` : ''}
           </div>
+          <button class="btn-res-inc" style="background:transparent;color:#ef4444;border-color:transparent;padding:0;" data-delete-id="${esc(item.legacyNotaId || item.id)}" title="Eliminar registro"><span class="material-icons" style="font-size:18px;">delete</span></button>
         </div>
         ${open
           ? `<button class="btn-res-inc" data-resolve-id="${esc(item.legacyNotaId || item.id)}">Marcar como resuelta</button>`
@@ -337,6 +382,27 @@ function _renderList() {
       _toggleResolverModal(true);
     });
   });
+
+  qsa('[data-delete-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.deleteId;
+      if (confirm('¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.')) {
+        _onDeleteIncidencia(id);
+      }
+    });
+  });
+}
+
+import { deleteIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
+
+async function _onDeleteIncidencia(id) {
+  try {
+    await deleteIncidencia(id);
+    _showNotice('Incidencia eliminada', 'success');
+    if (_state?.plaza) _startListener(); // Refresh
+  } catch (err) {
+    _showNotice('Error al eliminar: ' + (err.message || ''), 'error');
+  }
 }
 
 function _renderEvidenceBlock(items) {
@@ -388,12 +454,12 @@ async function _onCreateIncidencia() {
   if (!titulo) return _showNotice('Escribe el titulo de la incidencia.', 'error');
   if (!descripcion) return _showNotice('Escribe la descripción.', 'error');
 
-  const btn = q('btnPublicarInc');
+    const btn = q('btnPublicarInc');
   const gs = getState();
   const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
   btn.disabled = true;
   try {
-    await createIncidencia({
+    const payload = {
       titulo,
       descripcion,
       nota: descripcion,
@@ -405,7 +471,14 @@ async function _onCreateIncidencia() {
       creadoPor: autor,
       estado: 'PENDIENTE',
       source: 'app_shell'
-    });
+    };
+    
+    if (_state.archivosNuevaNota.length) {
+       payload.evidencias = _state.archivosNuevaNota.map(item => item.file);
+       payload.archivos = _state.archivosNuevaNota.map(item => item.file);
+    }
+
+    await createIncidencia(payload);
     _showNotice('Nota publicada.', 'ok');
     _resetComposer();
     _state.tab = 'viewTab';
@@ -421,6 +494,13 @@ function _resetComposer() {
   q('nuevaNotaTitulo').value = '';
   q('nuevaNotaTxt').value = '';
   q('nuevaNotaPrioridad').value = 'ALTA';
+  if (_state.archivosNuevaNota) {
+    _state.archivosNuevaNota.forEach(item => {
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    });
+    _state.archivosNuevaNota = [];
+  }
+  _renderAdjuntosNuevos();
   _prefillMvaFromQuery();
   _applyDraftMeta();
   _updatePreview();
@@ -626,7 +706,6 @@ function _renderLayout() {
                 <button id="incRefreshBtn" class="btn-inline-inc"><span class="material-icons">refresh</span></button>
               </div>
               <div id="listaNotas" class="inc-history-list"></div>
-              <div class="inc-history-footer"><a class="inc-load-more" href="/incidencias">Abrir legacy para eliminación/adjuntos avanzados</a></div>
             </div>
           </div>
         </div>
@@ -662,6 +741,16 @@ function _renderLayout() {
                   <label class="inc-field-label">Descripcion de la incidencia</label>
                   <textarea id="nuevaNotaTxt" class="inc-editor-textarea" placeholder="Describe causas, impacto y contexto operativo"></textarea>
                 </div>
+                <div class="inc-field">
+                  <label class="inc-field-label">Adjuntar Evidencias</label>
+                  <div style="display:flex;align-items:center;gap:8px;">
+                    <label class="inc-btn-ghost" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+                      <span class="material-icons" style="font-size:18px;">cloud_upload</span> Seleccionar archivos...
+                      <input type="file" id="incAdjuntosInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;">
+                    </label>
+                  </div>
+                  <div id="incAdjuntosNuevosCont" style="margin-top:8px;"></div>
+                </div>
                 <div class="inc-form-actions">
                   <button type="button" id="incDiscardBtn" class="inc-btn-ghost">Descartar</button>
                   <button type="button" id="btnPublicarInc" class="inc-btn-primary"><span>Publicar Nota</span><span class="material-icons">send</span></button>
@@ -678,7 +767,6 @@ function _renderLayout() {
                   <div class="inc-system-row"><span>ID registro</span><strong id="incMetaId">INC-000000</strong></div>
                 </div>
               </div>
-              <div class="inc-warning-card"><span class="material-icons">warning</span><p>Adjuntos avanzados y eliminación se mantienen en legacy para seguridad de Storage.</p></div>
               <div class="inc-preview-card">
                 <div class="inc-preview-top"><span id="incPreviewPrioridad" class="inc-preview-priority is-alta">Alta</span><span id="incPreviewStamp" class="inc-preview-stamp">Sin adjuntos</span></div>
                 <h3 id="incPreviewTitulo" class="inc-preview-title">Nueva incidencia</h3>

@@ -885,8 +885,8 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
           ${selected ? `<aside class="info-sidebar app-mapa-detail app-mapa-info-aside open">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>` : ''}
         </div>
         <div class="zoom-controls app-mapa-zoom-controls" aria-hidden="true">
-          <button type="button" class="btn-zoom">+</button>
-          <button type="button" class="btn-zoom">-</button>
+          <button type="button" class="btn-zoom" data-app-mapa-zoom="in">+</button>
+          <button type="button" class="btn-zoom" data-app-mapa-zoom="out">-</button>
         </div>
       </div>
     </div>
