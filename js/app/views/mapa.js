@@ -169,6 +169,10 @@ function _setMapaMessage(result, fallback = '') {
   _dndHintEl.hidden = false;
 }
 
+function _announceMapa(message) {
+  _setMapaMessage({ message }, '');
+}
+
 async function _runOfficialTool(action) {
   const snapshot = _viewState.snapshot || _lifecycle?.getSnapshot?.()?.data || {};
   const ctx = _officialToolsContext();
@@ -962,16 +966,6 @@ export function mount({ container }) {
           <input id="app-mapa-search" class="app-mapa-search-input" type="search" placeholder="MVA, placas, modelo…" value="${esc(_viewState.query)}" autocomplete="off" />
           <button type="button" class="app-mapa-search-clear" data-app-mapa-action="clear-search" ${_viewState.query ? '' : 'hidden'}>×</button>
         </label>
-        <div class="app-mapa-quick" role="toolbar" aria-label="Filtros rápidos">
-          <span class="app-mapa-quick-label">Unidades</span>
-          <button type="button" class="app-mapa-qf is-active" data-mapa-qf="all">Todos</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="disponibles">Listos</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="no-arrendable">No arrendable</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="mantenimiento">Mtto / sucio</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="limbo">Limbo</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="taller">Taller</button>
-          <button type="button" class="app-mapa-qf" data-mapa-qf="con-incidencias">Incidencias</button>
-        </div>
       </div>
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
       <div id="app-mapa-content" class="app-mapa-status is-loading">Cargando mapa…</div>
@@ -1014,7 +1008,7 @@ export function mount({ container }) {
     getSnapshot: () => _lifecycle?.getSnapshot?.()?.data || null,
     canMove: () => _dndFullyEnabled(getState(), _viewState.snapshot),
     getPersistAllowed: () => _dndPersistFullyEnabled(getState(), _viewState.snapshot),
-    onPersistDrop: async ({ fromCtx, originKey, destKey, snapshot }) => {
+    onPersistDrop: async ({ fromCtx, toCtx, originKey, destKey, snapshot }) => {
       const st = getState();
       const plaza = String(
         snapshot?.plaza || st.currentPlaza || st.profile?.plazaAsignada || ''

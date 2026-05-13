@@ -471,6 +471,53 @@ function _renderBucket(title, units, options) {
   `;
 }
 
+function _renderCompactUnitsSection(title, icon, units, options, cellToken) {
+  const list = Array.isArray(units) ? units : [];
+  const cards = list
+    .map(u => renderUnit({ ...u, currentCell: cellToken }, { ...options, allowUnitDrag: false }))
+    .join('');
+  return `
+    <section class="app-mapa-units-menu-section app-mapa-units-menu-section--${esc(String(cellToken || '').toLowerCase())}">
+      <p class="app-mapa-units-menu-label">
+        <span class="material-icons">${esc(icon)}</span>
+        ${esc(title)} <strong>${list.length}</strong>
+      </p>
+      <div class="app-mapa-units-menu-list">
+        ${cards || '<p class="app-mapa-units-menu-empty">Sin unidades.</p>'}
+      </div>
+    </section>
+  `;
+}
+
+function _renderCompactUnitsMenu(vm, options) {
+  const limbo = Array.isArray(vm.limboFiltered) ? vm.limboFiltered : [];
+  const taller = Array.isArray(vm.tallerFiltered) ? vm.tallerFiltered : [];
+  const orphan = Array.isArray(vm.orphanFiltered) ? vm.orphanFiltered : [];
+  const total = limbo.length + taller.length + orphan.length;
+  const sections =
+    _renderCompactUnitsSection('Patio · Sin asignar', 'local_parking', limbo, options, 'LIMBO') +
+    _renderCompactUnitsSection('Taller · Sin asignar', 'build', taller, options, 'TALLER') +
+    (orphan.length
+      ? _renderCompactUnitsSection('Posición no encontrada', 'help_outline', orphan, options, 'ORPHAN')
+      : '');
+  return `
+    <details class="app-mapa-units-menu" id="app-mapa-units-menu">
+      <summary class="app-mapa-units-menu-toggle" title="Vehículos y unidades">
+        <span class="material-icons">directions_car</span>
+        <span>UNIDADES</span>
+        <strong>${total}</strong>
+      </summary>
+      <div class="app-mapa-units-menu-panel">
+        <div class="app-mapa-units-menu-head">
+          <h2>UNIDADES</h2>
+          <span>${total} sin cajón activo</span>
+        </div>
+        ${sections || '<p class="app-mapa-units-menu-empty">No hay unidades sin cajón.</p>'}
+      </div>
+    </details>
+  `;
+}
+
 function _findSelected(vm, selectedId) {
   const sid = String(selectedId || '');
   if (!sid) return null;
@@ -809,22 +856,18 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     })
     .join('');
 
-  const orphanTitle = 'Huérfanos · posición no encontrada en estructura';
-  const buckets =
-    _renderBucket('Sin ubicación asignada (Limbo)', vm.limboFiltered, renderOpts) +
-    _renderBucket('Taller', vm.tallerFiltered, renderOpts) +
-    _renderBucket(orphanTitle, vm.orphanFiltered, renderOpts);
-
   const queryUpper = String(vm.query || '').trim().toUpperCase();
   const noResults =
     Boolean(queryUpper) && vm.totalUnits > 0 && (vm.filteredCount || 0) === 0;
   const kpiHtml = _renderLegacyKpiBar(snapshot.units || []);
   const filterStrip = _legacySearchStrip(vm);
+  const compactUnitsMenu = _renderCompactUnitsMenu(vm, renderOpts);
 
   container.innerHTML = `
     <div class="app-mapa app-mapa-legacy-port app-mapa-operativo">
       <div class="content app-mapa-legacy-content">
         ${kpiHtml}
+        ${compactUnitsMenu}
         ${filterStrip}
         ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
         <div class="app-mapa-legacy-mapdetail-row">
@@ -838,7 +881,6 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
                 }
               </div>
             </div>
-            ${buckets ? `<div class="app-mapa-buckets" id="app-mapa-buckets">${buckets}</div>` : ''}
           </div>
           <aside class="info-sidebar app-mapa-detail app-mapa-info-aside open">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
         </div>

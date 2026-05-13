@@ -1,646 +1,436 @@
+// js/app/views/mensajes.js — Full App Shell mensajes view
 import { getState } from '/js/app/app-state.js';
-import { obtenerMensajesPrivados, enviarMensajePrivado, marcarMensajesLeidosArray } from '/js/core/database.js';
-import { db, COL } from '/js/core/database.js';
+import * as D from '/js/app/features/mensajes/mensajes-data.js';
+import * as A from '/js/app/features/mensajes/mensajes-attachments.js';
+import * as R from '/js/app/features/mensajes/mensajes-renderer.js';
 
-let _container = null;
-let _state = null;
-let _offGlobalSearch = null;
-let _refreshTimer = null;
-const _REFRESH_MS = 45000;
-let _msgCssInjected = false;
-let _mounted = false;
-let _loadSeq = 0;
+let _unsub = null, _me = null, _all = [], _convs = [], _meta = new Map();
+let _activePeer = null, _archivedMode = false, _archived = {};
+let _pendingFile = null, _pendingAudio = null, _replyTo = null;
+let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recTimer = null;
 
-function _ensureMensajesCss() {
-  if (_msgCssInjected) return;
-  if (document.querySelector('link[data-msg-app-css]')) { _msgCssInjected = true; return; }
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = '/css/app-mensajes.css';
-  link.setAttribute('data-msg-app-css', '1');
-  document.head.appendChild(link);
-  _msgCssInjected = true;
+const EMOJI_LIST = ["😀","😂","😍","😎","😢","😡","👍","👎","❤️","🔥","🎉","✅","🙏","😮","🤔","💯","🚀","💪","😴","😅","🤣","🤩","😇","😏","🥳","😤","🤯","👏","🙌","🤝","💔","💥","⭐","✨","🎁","💡","📌","📎","🔒","📢","💬","📱","💻","📊","📈","🌍","☕","🌈","☀️","⚡","👀","🫡","💀","🤖","🏆","🎯","🎮","📚","🔎","🧠"];
+
+export async function mount(container) {
+  const { profile } = getState();
+  _me = D.buildMyIdentity(profile);
+  _archived = D.loadArchived(_me.email);
+  container.innerHTML = R.shellLayout(_me.display);
+  _bindEvents(container);
+  _unsub = D.startRealtimeListener(_me, msgs => { _all = msgs; _refresh(); });
 }
 
-function _debugMsg(...args) {
-  try {
-    if (localStorage.getItem('mex.debug.mode') !== '1') return;
-    console.log('[app/mensajes]', ...args);
-  } catch (err) {
-    console.warn('[app/mensajes] debug unavailable', err);
-  }
+export function unmount() {
+  _unsub?.(); _unsub = null; _stopRecording(true);
+  if (_pendingFile?.previewUrl) URL.revokeObjectURL(_pendingFile.previewUrl);
+  if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
+  _all = []; _convs = []; _meta = new Map();
+  _activePeer = null; _pendingFile = null; _pendingAudio = null; _replyTo = null;
 }
 
-function _isAlive(seq) {
-  return _mounted && !!_state && !!_container && seq === _loadSeq;
+function _bindEvents(root) {
+  const $ = id => root.querySelector('#' + id);
+  $('amSearch')?.addEventListener('input', () => _renderContacts());
+  $('amArchiveToggle')?.addEventListener('click', () => { _archivedMode = !_archivedMode; _renderContacts(); });
+  $('amFilterPlaza')?.addEventListener('change', () => _renderContacts());
+  $('amFilterRol')?.addEventListener('change', () => _renderContacts());
+  $('amFilterStatus')?.addEventListener('change', () => _renderContacts());
+  $('amFilterClear')?.addEventListener('click', () => { [$('amSearch'),$('amFilterPlaza'),$('amFilterRol'),$('amFilterStatus')].forEach(e=>{if(e)e.value='';}); _renderContacts(); });
+  $('amNewChat')?.addEventListener('click', _openNewChat);
+  $('amEmptyBtn')?.addEventListener('click', _openNewChat);
+  $('amRefresh')?.addEventListener('click', () => { if(_unsub){_unsub();_unsub=D.startRealtimeListener(_me,msgs=>{_all=msgs;_refresh();})} });
+  $('amBackBtn')?.addEventListener('click', _closeChat);
+  $('amArchiveBtn')?.addEventListener('click', _toggleArchive);
+  $('amInfoBtn')?.addEventListener('click', _showPeerInfo);
+  $('amSendBtn')?.addEventListener('click', _send);
+  $('amAttachBtn')?.addEventListener('click', () => $('amFileInput')?.click());
+  $('amFileInput')?.addEventListener('change', e => _stageFile(e.target));
+  $('amMicBtn')?.addEventListener('click', _toggleRecording);
+  $('amInput')?.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();_send();} });
+  $('amInput')?.addEventListener('input', e => { e.target.style.height='auto'; e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'; });
+  $('amLightboxClose')?.addEventListener('click', () => { const lb=$('amLightbox'); if(lb)lb.style.display='none'; });
+  $('amInfoClose')?.addEventListener('click', _hideInfo);
+  $('amContactsList')?.addEventListener('click', e => { const c = e.target.closest('.am-contact'); if(c) _openChat(c.dataset.peer); });
+  $('amMessages')?.addEventListener('click', _handleMsgClick);
+  $('amStaging')?.addEventListener('click', e => { const b=e.target.closest('[data-cancel]'); if(b){const t=b.dataset.cancel; if(t==='file')_cancelFile(); if(t==='reply'){_replyTo=null;_renderStaging();} if(t==='audio')_cancelAudio(); if(t==='recording')_stopRecording();} });
+  $('amUserInfoModal')?.addEventListener('click', e => { if(e.target.id==='amUserInfoModal')_hideInfo(); const ab=e.target.closest('[data-chat-name]'); if(ab){_hideInfo();} const cb=e.target.closest('#amInfoCloseBtn'); if(cb)_hideInfo(); });
 }
 
-function q(sel) { return _container?.querySelector(sel) || null; }
-function _up(v) { return String(v || '').trim().toUpperCase(); }
-function _norm(v) { return String(v || '').trim(); }
-function _normEmail(v) {
-  const x = String(v || '').trim().toLowerCase();
-  return x && x.includes('@') ? x : '';
+async function _refresh() {
+  _convs = D.buildConversations(_all, _me);
+  const newMeta = await D.hydratePeerMeta(_convs);
+  newMeta.forEach((v,k) => _meta.set(k,v));
+  _populateFilters();
+  _renderContacts();
+  if (_activePeer) _renderMessages();
 }
 
-function _canonicalFrom(raw, explicitEmail = '') {
-  const email = _normEmail(explicitEmail) || _normEmail(raw);
-  if (email) return { key: `EMAIL:${email}`, email, label: email.toUpperCase(), raw: _up(raw) };
-  const norm = _up(raw);
-  return { key: `LEGACY:${norm}`, email: '', label: norm || 'USUARIO', raw: norm };
+function _populateFilters() {
+  const plazas = new Set(), roles = new Set();
+  _meta.forEach(m => { if(m.plaza) plazas.add(m.plaza); if(m.rol) roles.add(m.rol); });
+  const pSel = document.getElementById('amFilterPlaza');
+  const rSel = document.getElementById('amFilterRol');
+  if (pSel) { const v=pSel.value; pSel.innerHTML='<option value="">Todas plazas</option>'+[...plazas].sort().map(p=>`<option value="${R.esc(p)}">${R.esc(p)}</option>`).join(''); pSel.value=v; }
+  if (rSel) { const v=rSel.value; rSel.innerHTML='<option value="">Todos roles</option>'+[...roles].sort().map(r=>`<option value="${R.esc(r)}">${R.esc(r)}</option>`).join(''); rSel.value=v; }
 }
 
-/** Identidad canónica para agrupar mensajes y conversaciones (prioriza email en metadatos). */
-function getCanonicalMessageIdentity(raw, explicitEmail = '') {
-  return _canonicalFrom(raw, explicitEmail);
-}
-
-/** Etiqueta para UI a partir de un lado canónico (`_canonicalFrom`). */
-function getDisplayIdentity(side) {
-  if (!side) return '—';
-  if (side.email) return side.email.toUpperCase();
-  return side.label || side.raw || '—';
-}
-
-function _buildMyIdentity(profile) {
-  const aliases = new Set(
-    [profile?.nombre, profile?.usuario, profile?.nombreCompleto, profile?.email]
-      .map(_up)
-      .filter(Boolean)
-  );
-  const email = _normEmail(profile?.email);
-  const emailUpper = email ? email.toUpperCase() : '';
-  if (emailUpper) aliases.add(emailUpper);
-  const display = _up(profile?.nombre || profile?.nombreCompleto || profile?.usuario || emailUpper || 'USUARIO');
-  return {
-    email,
-    display,
-    aliases,
-    queryIdentities: [...aliases]
-  };
-}
-
-function _isMineSide(side) {
-  if (!_state?.me) return false;
-  if (side.email && _state.me.email && side.email === _state.me.email) return true;
-  return _state.me.aliases.has(side.raw);
-}
-
-function _messageSides(msg) {
-  const remitente = _canonicalFrom(msg?.remitente, msg?.remitenteEmail || msg?.remitente_email);
-  const destinatario = _canonicalFrom(msg?.destinatario, msg?.destinatarioEmail || msg?.destinatario_email);
-  return { remitente, destinatario };
-}
-
-function _messageMineAndPeer(msg) {
-  const { remitente, destinatario } = _messageSides(msg);
-  const remitIsMine = _isMineSide(remitente);
-  const destIsMine = _isMineSide(destinatario);
-  let mine = remitIsMine && !destIsMine;
-  if (!remitIsMine && !destIsMine) mine = msg?.esMio === true;
-  if (remitIsMine && destIsMine) mine = msg?.esMio === true;
-  const peerSide = mine ? destinatario : remitente;
-  return { mine, peerSide, remitente, destinatario };
-}
-
-export async function mount({ container }) {
-  _cleanup();
-  _mounted = true;
-  _loadSeq += 1;
-  _container = container;
-  _ensureMensajesCss();
-  const gs = getState();
-  const profile = gs.profile || {};
-  const me = _buildMyIdentity(profile);
-  _state = {
-    me,
-    allMessages: [],
-    conversations: [],
-    filtered: [],
-    peerMeta: new Map(),
-    query: '',
-    plazaFilter: '',
-    roleFilter: '',
-    statusFilter: '',
-    selectedPeer: '',
-    lastUpdated: 0,
-    statusMessage: '',
-    loading: false,
-    sending: false
-  };
-
-  _container.innerHTML = _layout(me.display);
-  _bindGlobalSearch();
-  _bindActions();
-  _loadMessages();
-  if (_refreshTimer) {
-    try { clearInterval(_refreshTimer); } catch (err) { console.warn('[app/mensajes] refresh cleanup', err); }
-    _refreshTimer = null;
-  }
-  _refreshTimer = setInterval(() => {
-    if (document.hidden || !_mounted || !_state || !_container) return;
-    _loadMessages();
-  }, _REFRESH_MS);
-  _debugMsg('mount', { loadSeq: _loadSeq });
-}
-
-export function unmount() { _cleanup(); }
-
-function _cleanup() {
-  const wasMounted = _mounted;
-  _mounted = false;
-  _loadSeq += 1;
-  if (typeof _offGlobalSearch === 'function') {
-    try { _offGlobalSearch(); } catch (err) { console.warn('[app/mensajes] search cleanup', err); }
-  }
-  _offGlobalSearch = null;
-  if (_refreshTimer) {
-    try { clearInterval(_refreshTimer); } catch (err) { console.warn('[app/mensajes] refresh cleanup', err); }
-    _refreshTimer = null;
-  }
-  _state = null;
-  _container = null;
-  if (wasMounted) _debugMsg('unmount', { loadSeq: _loadSeq });
-}
-
-function _bindActions() {
-  q('#appMsgRefresh')?.addEventListener('click', () => _loadMessages());
-  q('#appMsgPlazaFilter')?.addEventListener('change', e => {
-    _state.plazaFilter = String(e.target.value || '').trim().toUpperCase();
-    _applyFilters();
-    _renderConversations();
+function _renderContacts() {
+  const list = document.getElementById('amContactsList');
+  const hint = document.getElementById('amContactsHint');
+  const toggle = document.getElementById('amArchiveToggle');
+  if (!list) return;
+  const term = (document.getElementById('amSearch')?.value || '').trim().toLowerCase();
+  const plaza = (document.getElementById('amFilterPlaza')?.value || '').toUpperCase();
+  const rol = (document.getElementById('amFilterRol')?.value || '').toUpperCase();
+  const statusF = (document.getElementById('amFilterStatus')?.value || '');
+  const hasFilters = !!(term || plaza || rol || statusF);
+  if (toggle) toggle.textContent = _archivedMode ? '← Buzón' : 'Archivados';
+  let filtered = _convs.filter(c => {
+    const m = _meta.get(c.peerEmail) || {};
+    const isArch = D.isConversationArchived(_archived, c.peerKey, D.msgTs(c.last));
+    if (_archivedMode) return isArch;
+    if (isArch) return false;
+    if (plaza && (m.plaza||'') !== plaza) return false;
+    if (rol && (m.rol||'') !== rol) return false;
+    if (statusF === 'UNREAD' && !c.unread) return false;
+    if (term) {
+      const searchable = [c.displayLabel, c.peerEmail, m.plaza, m.rol, m.nombre].join(' ').toLowerCase();
+      if (!searchable.includes(term)) return false;
+    }
+    return true;
   });
-  q('#appMsgRoleFilter')?.addEventListener('change', e => {
-    _state.roleFilter = String(e.target.value || '').trim().toUpperCase();
-    _applyFilters();
-    _renderConversations();
-  });
-  q('#appMsgStatusFilter')?.addEventListener('change', e => {
-    _state.statusFilter = String(e.target.value || '').trim().toUpperCase();
-    _applyFilters();
-    _renderConversations();
-  });
-  q('#appMsgSendBtn')?.addEventListener('click', () => _sendMessage());
-  q('#appMsgInput')?.addEventListener('keydown', event => {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      _sendMessage();
+  const archCount = _convs.filter(c => D.isConversationArchived(_archived, c.peerKey, D.msgTs(c.last))).length;
+  if (hint) {
+    if (_archivedMode) hint.textContent = `${filtered.length} archivado${filtered.length===1?'':'s'}`;
+    else hint.textContent = `${filtered.length} conversación${filtered.length===1?'':'es'}${archCount?' · '+archCount+' archivado'+(archCount===1?'':'s'):''}`;
+  }
+  if (!filtered.length) { list.innerHTML = R.renderEmptyContacts(_archivedMode, hasFilters); return; }
+  list.innerHTML = filtered.map(c => {
+    const m = _meta.get(c.peerEmail);
+    const isArch = D.isConversationArchived(_archived, c.peerKey, D.msgTs(c.last));
+    return R.renderContactItem(c, m, c.peerKey === _activePeer, isArch);
+  }).join('');
+}
+
+function _openChat(peerKey) {
+  _activePeer = peerKey;
+  _replyTo = null; _cancelFile(); _cancelAudio();
+  const conv = _convs.find(c => c.peerKey === peerKey);
+  const header = document.getElementById('amChatHeader');
+  const msgs = document.getElementById('amMessages');
+  const input = document.getElementById('amInputBar');
+  const empty = document.getElementById('amEmptyState');
+  const archBtn = document.getElementById('amArchiveBtn');
+  if (empty) empty.style.display = 'none';
+  if (header) header.style.display = 'flex';
+  if (msgs) msgs.style.display = 'flex';
+  if (input) input.style.display = 'flex';
+  if (archBtn) archBtn.style.display = 'flex';
+  // Mobile: slide in
+  const chat = document.getElementById('amChat');
+  if (window.innerWidth <= 768 && chat) chat.classList.add('open');
+  // Update header
+  const name = conv?.displayLabel || peerKey.replace(/^(EMAIL|LEGACY):/,'');
+  document.getElementById('amChatName').textContent = name;
+  document.getElementById('amChatAvatar').textContent = R.initials(name);
+  const m = _meta.get(conv?.peerEmail);
+  document.getElementById('amChatStatus').textContent = m ? `${m.rol||''} · ${m.plaza||''}` : 'Conversación segura';
+  // Mark read
+  const idsToMark = [];
+  _all.forEach(msg => {
+    if (!msg.esMio && !msg.leido) {
+      const pk = D.getPeerKey(msg, _me);
+      if (pk === peerKey) { msg.leido = true; idsToMark.push(msg.id); }
     }
   });
+  if (idsToMark.length) D.marcarMensajesLeidosArray(idsToMark).catch(e => console.error(e));
+  _renderMessages();
+  _renderContacts();
+  const inp = document.getElementById('amInput');
+  if (inp) { inp.value = ''; inp.style.height = 'auto'; inp.focus(); }
 }
 
-function _bindGlobalSearch() {
-  const handler = event => {
-    if (!_state || !_container) return;
-    const route = String(event?.detail?.route || '');
-    if (!(route.startsWith('/app/mensajes') || route === '/mensajes')) return;
-    _state.query = String(event?.detail?.query || '');
-    _applyFilters();
-    _renderConversations();
-    _renderDetail();
-  };
-  window.addEventListener('mex:global-search', handler);
-  _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
+function _closeChat() {
+  _activePeer = null;
+  const header = document.getElementById('amChatHeader');
+  const msgs = document.getElementById('amMessages');
+  const input = document.getElementById('amInputBar');
+  const empty = document.getElementById('amEmptyState');
+  const archBtn = document.getElementById('amArchiveBtn');
+  if (empty) empty.style.display = 'flex';
+  if (header) header.style.display = 'none';
+  if (msgs) msgs.style.display = 'none';
+  if (input) input.style.display = 'none';
+  if (archBtn) archBtn.style.display = 'none';
+  const chat = document.getElementById('amChat');
+  if (chat) chat.classList.remove('open');
+  _renderContacts();
 }
 
-async function _loadMessages() {
-  const seq = ++_loadSeq;
-  if (!_isAlive(seq)) return;
-  _debugMsg('load:start', { seq });
-  _state.loading = true;
-  _disableComposer(true);
-  _setBodyLoading('Cargando conversaciones...');
-  try {
-    const rows = await _fetchMessagesForAllKnownIdentities(_state.me.queryIdentities);
-    if (!_isAlive(seq)) return;
-    _state.allMessages = Array.isArray(rows) ? rows : [];
-    _state.lastUpdated = Date.now();
-    _rebuildConversations();
-    await _hydratePeerMeta(seq);
-    if (!_isAlive(seq)) return;
-    _applyFilters();
-    _renderFilterOptions();
-    _renderConversations();
-    _renderDetail();
-    _renderLastSync();
-    _setText('#appMsgSendError', '');
-    _setStatus('', '');
-  } catch (err) {
-    if (!_isAlive(seq)) return;
-    _setBodyError(err?.message || 'No se pudieron cargar los mensajes.');
-  } finally {
-    if (!_isAlive(seq)) return;
-    _state.loading = false;
-    _disableComposer(false);
-    _debugMsg('load:done', { seq });
+function _renderMessages() {
+  const container = document.getElementById('amMessages');
+  if (!container || !_activePeer) return;
+  const history = _all.filter(m => D.getPeerKey(m, _me) === _activePeer).reverse();
+  if (!history.length) {
+    const name = _activePeer.replace(/^(EMAIL|LEGACY):/,'');
+    container.innerHTML = `<div class="am-chat-start"><span class="material-icons">chat_bubble_outline</span>Inicio de la conversación con ${R.esc(name)}<br><br>Escribe un mensaje.</div>`;
+    return;
+  }
+  container.innerHTML = history.map(m => R.renderMessage(m, _me.display)).join('');
+  setTimeout(() => { container.scrollTop = container.scrollHeight; }, 40);
+}
+
+function _handleMsgClick(e) {
+  // Lightbox
+  const img = e.target.closest('[data-lightbox]');
+  if (img) { const lb=document.getElementById('amLightbox'); const lbi=document.getElementById('amLightboxImg'); const dl=document.getElementById('amLightboxDl'); if(lb&&lbi){lbi.src=img.dataset.lightbox; if(dl)dl.href=img.dataset.lightbox; lb.style.display='flex';} return; }
+  // Reply
+  const reply = e.target.closest('.am-reply-btn');
+  if (reply) { _startReply(reply.dataset.mid); return; }
+  // Reaction add
+  const addR = e.target.closest('.am-add-react');
+  if (addR) { _showEmojiPicker(addR); return; }
+  // Reaction toggle
+  const reactBtn = e.target.closest('.am-react-btn');
+  if (reactBtn) { _toggleReaction(reactBtn.dataset.mid, reactBtn.dataset.emoji); return; }
+  // Edit/Delete
+  const opt = e.target.closest('.am-opt-btn');
+  if (opt) { if(opt.dataset.action==='edit') _editMsg(opt.dataset.mid); else if(opt.dataset.action==='delete') _deleteMsg(opt.dataset.mid); }
+}
+
+function _startReply(mIdSafe) {
+  const msg = _all.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
+  if (!msg) return;
+  _replyTo = { id: msg.id, remitente: msg.remitente, mensaje: msg.mensaje };
+  _renderStaging();
+  document.getElementById('amInput')?.focus();
+}
+
+async function _editMsg(mIdSafe) {
+  const msg = _all.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
+  if (!msg) return;
+  const newText = prompt('Edita tu mensaje:', msg.mensaje);
+  if (newText && newText !== msg.mensaje) {
+    msg.mensaje = newText; _renderMessages();
+    try { await D.editarMensajeChatDb(String(msg.id), newText); } catch(e) { console.error(e); }
   }
 }
 
-async function _fetchMessagesForAllKnownIdentities(identities = []) {
-  const ids = Array.isArray(identities) && identities.length ? identities : [_state?.me?.display || ''];
-  const uniqueRows = new Map();
-  await Promise.all(ids.map(async identity => {
-    const safeIdentity = _up(identity);
-    if (!safeIdentity) return;
+async function _deleteMsg(mIdSafe) {
+  const msg = _all.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
+  if (!msg) return;
+  if (!confirm('¿Borrar este mensaje para todos?')) return;
+  _all = _all.filter(m => m.id !== msg.id); _renderMessages();
+  try { await D.eliminarMensajeChatDb(String(msg.id)); } catch(e) { console.error(e); }
+}
+
+function _showEmojiPicker(btn) {
+  const mId = btn.dataset.mid;
+  let panel = document.getElementById('amEmojiPanel');
+  if (panel) { panel.remove(); }
+  panel = document.createElement('div');
+  panel.id = 'amEmojiPanel';
+  panel.className = 'am-emoji-panel';
+  panel.innerHTML = EMOJI_LIST.map(em => `<button class="am-emoji-btn" data-emoji="${em}" data-mid="${mId}">${em}</button>`).join('');
+  panel.addEventListener('click', e => { const b = e.target.closest('.am-emoji-btn'); if(b){_toggleReaction(b.dataset.mid,b.dataset.emoji); panel.remove();} });
+  btn.closest('.am-bubble')?.appendChild(panel);
+  setTimeout(() => { document.addEventListener('click', function _dismiss(ev) { if(!panel.contains(ev.target)){panel.remove();document.removeEventListener('click',_dismiss);} }, {once:false}); },10);
+}
+
+async function _toggleReaction(mIdSafe, emoji) {
+  const msg = _all.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
+  if (!msg) return;
+  if (!msg.reacciones) msg.reacciones = {};
+  if (!msg.reacciones[emoji]) msg.reacciones[emoji] = [];
+  const idx = msg.reacciones[emoji].indexOf(_me.display);
+  if (idx === -1) msg.reacciones[emoji].push(_me.display);
+  else { msg.reacciones[emoji].splice(idx, 1); if(!msg.reacciones[emoji].length) delete msg.reacciones[emoji]; }
+  _renderMessages();
+  try { await D.actualizarReaccionesChatDb(String(msg.id), msg.reacciones); } catch(e) { console.warn(e); }
+}
+
+function _toggleArchive() {
+  if (!_activePeer) return;
+  const conv = _convs.find(c => c.peerKey === _activePeer);
+  if (!conv) return;
+  const ts = D.msgTs(conv.last);
+  if (D.isConversationArchived(_archived, _activePeer, ts)) {
+    delete _archived[_activePeer];
+  } else {
+    _archived[_activePeer] = ts;
+  }
+  D.saveArchived(_me.email, _archived);
+  _closeChat();
+}
+
+function _showPeerInfo() {
+  const conv = _convs.find(c => c.peerKey === _activePeer);
+  const m = _meta.get(conv?.peerEmail) || { nombre: conv?.displayLabel, email: conv?.peerEmail };
+  const modal = document.getElementById('amUserInfoModal');
+  const content = document.getElementById('amInfoContent');
+  if (content) content.innerHTML = R.renderContactInfo(m);
+  if (modal) modal.classList.add('active');
+}
+
+function _hideInfo() { document.getElementById('amUserInfoModal')?.classList.remove('active'); }
+
+async function _openNewChat() {
+  const name = prompt('Escribe el nombre o correo del usuario:');
+  if (!name?.trim()) return;
+  const identity = D.getCanonicalMessageIdentity(name.trim());
+  _activePeer = identity.key;
+  const fakeConv = { peerKey: identity.key, peerEmail: identity.email, displayLabel: identity.label, preferredHandle: identity.raw, last: null, total: 0, unread: 0 };
+  if (!_convs.find(c => c.peerKey === identity.key)) _convs.unshift(fakeConv);
+  _openChat(identity.key);
+}
+
+// ── Send ──────────────────────────────────────────────────
+async function _send() {
+  const input = document.getElementById('amInput');
+  const txt = (input?.value || '').trim();
+  if (!txt && !_pendingFile && !_pendingAudio) return;
+  if (!_activePeer) return;
+  // Resolve peer handle
+  const conv = _convs.find(c => c.peerKey === _activePeer);
+  const dest = conv?.preferredHandle || _activePeer.replace(/^(EMAIL|LEGACY):/,'');
+  if (input) { input.value = ''; input.style.height = 'auto'; }
+  const capturedReply = _replyTo ? { ..._replyTo } : null;
+  // Unarchive if needed
+  if (_archived[_activePeer]) { delete _archived[_activePeer]; D.saveArchived(_me.email, _archived); }
+  // Upload file/audio
+  let archivoUrl = null, archivoNombre = null;
+  try {
+    if (_pendingFile) {
+      const r = await D.uploadChatFile(_pendingFile.file);
+      archivoUrl = r.url; archivoNombre = r.name;
+    } else if (_pendingAudio) {
+      const r = await D.uploadChatAudio(_pendingAudio.blob, _pendingAudio.mimeType, _pendingAudio.extension);
+      archivoUrl = r.url; archivoNombre = r.name;
+    }
+  } catch(e) { console.error('Upload error:', e); return; }
+  _clearStaging();
+  // Optimistic local message
+  const now = new Date();
+  const tempDate = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const local = { id: Date.now(), fecha: tempDate, timestamp: Date.now(), remitente: _me.display, destinatario: dest, mensaje: txt, leido: false, esMio: true, replyTo: capturedReply || undefined };
+  if (archivoUrl) { local.archivoUrl = archivoUrl; local.archivoNombre = archivoNombre; }
+  _all.unshift(local);
+  _refresh();
+  D.enviarMensajePrivado(_me.display, dest, txt, archivoUrl, archivoNombre, capturedReply).catch(e => console.error(e));
+}
+
+// ── File staging ──────────────────────────────────────────
+function _stageFile(inputEl) {
+  const file = inputEl?.files?.[0];
+  if (!file) return;
+  const err = A.validateFile(file);
+  if (err) { alert(err); inputEl.value = ''; return; }
+  const isImg = A.isImageFile(file.name);
+  _pendingFile = { file, isImg, previewUrl: isImg ? URL.createObjectURL(file) : null };
+  _renderStaging();
+  inputEl.value = '';
+}
+
+function _cancelFile() {
+  if (_pendingFile?.previewUrl) URL.revokeObjectURL(_pendingFile.previewUrl);
+  _pendingFile = null; _renderStaging();
+}
+
+function _cancelAudio() {
+  if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
+  _pendingAudio = null; _renderStaging();
+}
+
+function _clearStaging() {
+  _cancelFile(); _cancelAudio(); _replyTo = null; _renderStaging();
+}
+
+function _renderStaging() {
+  const area = document.getElementById('amStaging');
+  if (!area) return;
+  const chips = [];
+  const isRec = _recorder?.state === 'recording';
+  if (isRec) chips.push(R.renderStagingChip('recording'));
+  if (_replyTo) chips.push(R.renderStagingChip('reply', _replyTo));
+  if (_pendingFile) chips.push(R.renderStagingChip('file', _pendingFile));
+  if (_pendingAudio) chips.push(R.renderStagingChip('audio', _pendingAudio));
+  area.innerHTML = chips.join('');
+  area.classList.toggle('active', chips.length > 0);
+  if (isRec) { _drawSpectrum(); _startRecTimer(); }
+}
+
+// ── Audio recording ───────────────────────────────────────
+async function _toggleRecording() {
+  if (_recorder?.state === 'recording') { _stopRecording(); return; }
+  if (typeof window.MediaRecorder === 'undefined') { alert('Tu navegador no soporta grabación de audio.'); return; }
+  try {
+    const stream = await A.getUserMediaAudio();
+    const mimeType = A.audioMimeType();
+    const chunks = [];
     try {
-      const rows = await obtenerMensajesPrivados(safeIdentity);
-      (Array.isArray(rows) ? rows : []).forEach(row => {
-        const rowId = String(row?.id || '');
-        if (!rowId) return;
-        const current = uniqueRows.get(rowId);
-        if (!current || _msgTs(row) > _msgTs(current)) uniqueRows.set(rowId, { ...row });
-      });
-    } catch (err) {
-      console.warn('[app/mensajes] no se pudo cargar identidad', safeIdentity, err);
-    }
-  }));
-  return Array.from(uniqueRows.values()).sort((a, b) => _msgTs(b) - _msgTs(a));
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { _audioCtx = new AC(); _analyser = _audioCtx.createAnalyser(); _analyser.fftSize = 64; _audioCtx.createMediaStreamSource(stream).connect(_analyser); }
+    } catch(_) { _audioCtx = null; _analyser = null; }
+    _recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+    _recorder.ondataavailable = ev => { if (ev.data.size > 0) chunks.push(ev.data); };
+    _recorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      if (_audioCtx) { _audioCtx.close(); _audioCtx = null; }
+      if (_specRaf) { cancelAnimationFrame(_specRaf); _specRaf = null; }
+      if (_recTimer) { clearInterval(_recTimer); _recTimer = null; }
+      const micBtn = document.getElementById('amMicBtn');
+      if (micBtn) micBtn.classList.remove('recording');
+      if (!chunks.length) return;
+      const fallback = /iphone|ipad|safari/i.test(navigator.userAgent) ? 'audio/mp4' : 'audio/webm';
+      const finalMime = _recorder?.mimeType || chunks[0]?.type || mimeType || fallback;
+      const blob = new Blob(chunks, { type: finalMime });
+      if (!blob.size || blob.size > 10*1024*1024) return;
+      if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
+      _pendingAudio = { blob, localUrl: URL.createObjectURL(blob), mimeType: finalMime, extension: A.audioExtFromMime(finalMime) };
+      _renderStaging();
+    };
+    _recorder.start(300);
+    document.getElementById('amMicBtn')?.classList.add('recording');
+    _renderStaging();
+  } catch(err) { console.error(err); alert('No se pudo acceder al micrófono.'); }
 }
 
-function _conversationByKey(key) {
-  return (_state?.conversations || []).find(c => c.peerKey === key) || null;
+function _stopRecording(silent) {
+  if (_recorder?.state === 'recording') {
+    try { _recorder.requestData?.(); } catch(_) {}
+    _recorder.stop();
+  }
+  if (_specRaf) { cancelAnimationFrame(_specRaf); _specRaf = null; }
+  if (_recTimer) { clearInterval(_recTimer); _recTimer = null; }
 }
 
-async function _sendMessage() {
-  if (!_state || _state.sending) return;
-  const peerKey = String(_state.selectedPeer || '').trim();
-  const convo = _conversationByKey(peerKey);
-  const input = q('#appMsgInput');
-  const text = _norm(input?.value || '');
-  if (!_state.me?.display && !_state.me?.email) {
-    _setText('#appMsgSendError', 'No se pudo identificar tu usuario para enviar.');
-    return;
-  }
-  if (!peerKey || !convo) {
-    _setText('#appMsgSendError', 'Selecciona una conversación válida.');
-    return;
-  }
-  if (!text) {
-    _setText('#appMsgSendError', 'Escribe un mensaje antes de enviar.');
-    return;
-  }
-
-  const remitenteId = _state.me.email ? _state.me.email.toUpperCase() : _state.me.display;
-  const destinatarioId = convo.preferredHandle || convo.peerEmail?.toUpperCase() || convo.displayLabel;
-  if (!destinatarioId) {
-    _setText('#appMsgSendError', 'Destinatario inválido. Abre mensajes clásico para corregir el contacto.');
-    return;
-  }
-
-  _state.sending = true;
-  _disableComposer(true);
-  _setText('#appMsgSendError', '');
-  try {
-    await enviarMensajePrivado(remitenteId, destinatarioId, text, null, null, null, {
-      remitenteEmail: _state.me.email || '',
-      destinatarioEmail: convo.peerEmail || '',
-      remitenteNombre: _state.me.display,
-      destinatarioNombre: convo.displayLabel
-    });
-    if (input) input.value = '';
-    await _loadMessages();
-    if (!_mounted || !_state || !_container) return;
-    _state.selectedPeer = peerKey;
-    _renderConversations();
-    _renderDetail();
-    _setStatus('Mensaje enviado.', 'success');
-  } catch (error) {
-    _setText('#appMsgSendError', error?.message || 'No se pudo enviar el mensaje.');
-  } finally {
-    if (!_mounted || !_state || !_container) return;
-    _state.sending = false;
-    _disableComposer(false);
-  }
-}
-
-function _disableComposer(disabled) {
-  const canWrite = !disabled && !!_state?.selectedPeer;
-  const input = q('#appMsgInput');
-  const btn = q('#appMsgSendBtn');
-  if (input) input.disabled = !canWrite;
-  if (btn) btn.disabled = !canWrite;
-}
-
-function _messagePeerKey(msg) {
-  return _messageMineAndPeer(msg).peerSide.key;
-}
-
-async function _markSelectedConversationRead() {
-  const peerKey = String(_state?.selectedPeer || '').trim();
-  if (!peerKey) return;
-  const unreadIncomingIds = _state.allMessages
-    .filter(msg => _messagePeerKey(msg) === peerKey)
-    .filter(msg => {
-      const s = _messageMineAndPeer(msg);
-      return !s.mine && !msg.leido && msg.id;
-    })
-    .map(msg => msg.id);
-  if (!unreadIncomingIds.length) return;
-  try {
-    await marcarMensajesLeidosArray(unreadIncomingIds);
-  } catch (err) {
-    _setStatus(err?.message || 'No se pudo marcar como leído.', 'error');
-    return;
-  }
-  _state.allMessages = _state.allMessages.map(msg => (
-    unreadIncomingIds.includes(msg.id) ? { ...msg, leido: true } : msg
-  ));
-}
-
-function _rebuildConversations() {
-  const byPeer = new Map();
-  _state.allMessages.forEach(msg => {
-    const { mine, peerSide } = _messageMineAndPeer(msg);
-    const key = peerSide.key;
-    if (!key) return;
-    const displayLabel = _up(
-      (peerSide.raw && !peerSide.raw.includes('@')) ? peerSide.raw : (peerSide.email || peerSide.raw)
-    ) || peerSide.label;
-    const preferredHandle = peerSide.raw || (peerSide.email ? peerSide.email.toUpperCase() : '');
-    const prev = byPeer.get(key);
-    if (!prev) {
-      byPeer.set(key, {
-        peerKey: key,
-        peerEmail: peerSide.email || '',
-        displayLabel,
-        preferredHandle,
-        last: { ...msg, esMio: mine },
-        total: 1,
-        unread: mine || msg.leido ? 0 : 1
-      });
-      return;
-    }
-    prev.total += 1;
-    if (!mine && !msg.leido) prev.unread += 1;
-    if (_msgTs(msg) >= _msgTs(prev.last)) {
-      prev.last = { ...msg, esMio: mine };
-      prev.displayLabel = displayLabel || prev.displayLabel;
-      prev.preferredHandle = preferredHandle || prev.preferredHandle;
-      prev.peerEmail = peerSide.email || prev.peerEmail;
-    }
-  });
-  _state.conversations = Array.from(byPeer.values()).sort((a, b) => _msgTs(b.last) - _msgTs(a.last));
-  if (!_state.selectedPeer && _state.conversations.length) _state.selectedPeer = _state.conversations[0].peerKey;
-  if (_state.selectedPeer && !_state.conversations.some(c => c.peerKey === _state.selectedPeer)) {
-    _state.selectedPeer = _state.conversations[0]?.peerKey || '';
-  }
-}
-
-function _applyFilters() {
-  const qx = _state.query.toLowerCase().trim();
-  _state.filtered = _state.conversations.filter(c => {
-    const meta = _state.peerMeta.get(c.peerEmail || '') || {};
-    if (_state.plazaFilter && String(meta.plaza || '').toUpperCase() !== _state.plazaFilter) return false;
-    if (_state.roleFilter && String(meta.rol || '').toUpperCase() !== _state.roleFilter) return false;
-    if (_state.statusFilter) {
-      if (_state.statusFilter === 'UNREAD' && !c.unread) return false;
-      if (_state.statusFilter === 'ACTIVE' && String(meta.status || '').toUpperCase() && String(meta.status || '').toUpperCase() !== 'ACTIVO') return false;
-      if (_state.statusFilter === 'INACTIVE' && String(meta.status || '').toUpperCase() !== 'INACTIVO') return false;
-    }
-    if (!qx) return true;
-    const hay = `${c.peerKey} ${c.displayLabel} ${c.peerEmail} ${c.last?.mensaje || ''} ${c.last?.remitente || ''} ${c.last?.destinatario || ''} ${meta.plaza || ''} ${meta.rol || ''} ${meta.status || ''} ${_when(c.last)}`.toLowerCase();
-    return hay.includes(qx);
-  });
-}
-
-async function _hydratePeerMeta(seq = _loadSeq) {
-  const emails = [...new Set((_state.conversations || []).map(c => String(c.peerEmail || '').trim().toLowerCase()).filter(Boolean))];
-  if (!emails.length) {
-    if (!_isAlive(seq)) return;
-    _state.peerMeta = new Map();
-    return;
-  }
-  const next = new Map();
-  for (const email of emails) {
-    if (!_isAlive(seq)) return;
-    try {
-      const snap = await db.collection(COL.USERS).doc(email).get();
-      if (!snap.exists) continue;
-      const d = snap.data() || {};
-      next.set(email, {
-        plaza: String(d.plazaAsignada || d.plaza || '').toUpperCase(),
-        rol: String(d.rol || '').toUpperCase(),
-        status: String(d.status || '').toUpperCase(),
-        nombre: String(d.nombre || d.nombreCompleto || '')
-      });
-    } catch (err) {
-      console.warn('[app/mensajes] metadata usuario', email, err);
+function _drawSpectrum() {
+  const canvas = document.getElementById('amSpectrum');
+  if (!canvas || !_analyser) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const buf = new Uint8Array(_analyser.frequencyBinCount);
+  function draw() {
+    _specRaf = requestAnimationFrame(draw);
+    _analyser.getByteFrequencyData(buf);
+    ctx.clearRect(0, 0, W, H);
+    const bw = Math.floor(W / buf.length);
+    for (let i = 0; i < buf.length; i++) {
+      const v = buf[i] / 255; const h = v * H;
+      ctx.fillStyle = `rgb(${Math.round(239-v*80)},${Math.round(68+v*50)},68)`;
+      ctx.fillRect(i * bw, H - h, bw - 1, h);
     }
   }
-  if (!_isAlive(seq)) return;
-  _state.peerMeta = next;
+  draw();
 }
 
-function _renderFilterOptions() {
-  const plazaSel = q('#appMsgPlazaFilter');
-  const roleSel = q('#appMsgRoleFilter');
-  if (!plazaSel || !roleSel) return;
-  const metas = [..._state.peerMeta.values()];
-  const plazas = [...new Set(metas.map(m => m.plaza).filter(Boolean))].sort();
-  const roles = [...new Set(metas.map(m => m.rol).filter(Boolean))].sort();
-  plazaSel.innerHTML = `<option value="">Todas las plazas</option>${plazas.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('')}`;
-  roleSel.innerHTML = `<option value="">Todos los roles</option>${roles.map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('')}`;
-  if (_state.plazaFilter) plazaSel.value = _state.plazaFilter;
-  if (_state.roleFilter) roleSel.value = _state.roleFilter;
-}
-
-function _renderConversations() {
-  const el = q('#appMsgList');
-  if (!el) return;
-  const unreadTotal = _state.conversations.reduce((acc, c) => acc + Number(c.unread || 0), 0);
-  _setText('#appMsgUnread', unreadTotal ? `${unreadTotal} no leídos` : 'Sin no leídos');
-  if (!_state.filtered.length) {
-    el.innerHTML = `<div class="msgop__empty">Sin conversaciones para ese filtro.</div>`;
-    return;
-  }
-  el.innerHTML = _state.filtered.map(c => `
-    <button class="msgop__conversation ${c.peerKey === _state.selectedPeer ? 'is-active' : ''}" data-msg-peer="${esc(c.peerKey)}">
-      <span class="msgop__avatar">${esc(_initials(c.displayLabel || c.peerEmail))}</span>
-      <div class="msgop__conversation-main">
-        <div class="msgop__conversation-top">
-          <strong>${esc(c.displayLabel)}</strong>
-          <span>${esc(_when(c.last))}</span>
-        </div>
-        ${c.peerEmail ? `<div class="msgop__email">${esc(c.peerEmail.toUpperCase())}</div>` : ''}
-        <div class="msgop__meta">
-          ${(() => {
-            const m = _state.peerMeta.get(c.peerEmail || '') || {};
-            const badge = [m.plaza, m.rol, m.status].filter(Boolean).join(' · ');
-            return esc(badge || 'Sin metadata de perfil');
-          })()}
-        </div>
-        <div class="msgop__last">${esc(c.last?.mensaje || '[Sin texto]')}</div>
-        <div class="msgop__conversation-bottom">
-          <span>${esc(c.total)} mensaje(s)</span>
-          ${c.unread ? `<b class="msgop__unread">${c.unread}</b>` : '<span>Leído</span>'}
-        </div>
-      </div>
-    </button>
-  `).join('');
-
-  el.querySelectorAll('[data-msg-peer]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      _state.selectedPeer = String(btn.dataset.msgPeer || '');
-      await _markSelectedConversationRead();
-      _rebuildConversations();
-      _applyFilters();
-      _renderConversations();
-      _renderDetail();
-    });
-  });
-}
-
-function _renderDetail() {
-  const box = q('#appMsgDetail');
-  if (!box) return;
-  const peerKey = _state.selectedPeer;
-  const convo = _conversationByKey(peerKey);
-  const display = convo?.displayLabel || '';
-  const input = q('#appMsgInput');
-  if (input) input.placeholder = display ? `Responder a ${display}...` : 'Selecciona una conversación para responder...';
-  if (!peerKey || !convo) {
-    box.innerHTML = `<div class="msgop__chat-empty"><strong>Selecciona una conversación</strong><span>La bandeja mantiene identidad canónica por email para no duplicar hilos cuando cambia el nombre visible.</span></div>`;
-    _disableComposer(false);
-    return;
-  }
-  const msgs = _state.allMessages
-    .filter(m => _messagePeerKey(m) === peerKey)
-    .map(m => ({ ...m, esMio: _messageMineAndPeer(m).mine }))
-    .sort((a, b) => _msgTs(a) - _msgTs(b))
-    .slice(-60);
-
-  box.innerHTML = `
-    <div class="msgop__chat-head">
-      <span class="msgop__avatar msgop__avatar--large">${esc(_initials(display || convo.peerEmail))}</span>
-      <div>
-        <strong>${esc(display)}</strong>
-        ${convo.peerEmail ? `<div>${esc(convo.peerEmail.toUpperCase())}</div>` : ''}
-        <div>${(() => {
-          const m = _state.peerMeta.get(convo.peerEmail || '') || {};
-          const parts = [m.plaza, m.rol, m.status].filter(Boolean);
-          return esc(parts.join(' · ') || 'Sin metadata de perfil');
-        })()}</div>
-      </div>
-    </div>
-    <div id="appMsgThread" class="msgop__thread">
-      ${msgs.length ? msgs.map(m => {
-        const mine = !!m.esMio;
-        return `<div class="msgop__bubble ${mine ? 'is-mine' : 'is-other'}">
-          <div>${esc(m.mensaje || '[Adjunto]')}</div>
-          <span>${esc(_when(m))}${mine ? ` · ${m.leido ? 'Leído' : 'Enviado'}` : ''}</span>
-        </div>`;
-      }).join('') : `<div class="msgop__empty">Sin mensajes en esta conversación.</div>`}
-    </div>
-    <div class="msgop__blocked">
-      <button type="button" disabled>Adjuntos disponibles en mensajes clásico</button>
-      <a href="/mensajes?legacy=1">Abrir mensajes clásico</a>
-    </div>
-  `;
-  const thread = q('#appMsgThread');
-  if (thread) thread.scrollTop = thread.scrollHeight;
-  _disableComposer(false);
-}
-
-function _msgTs(msg) {
-  if (!msg) return 0;
-  if (typeof msg.timestamp === 'number') return msg.timestamp;
-  if (msg.timestamp?.seconds) return msg.timestamp.seconds * 1000;
-  if (typeof msg.timestamp?.toMillis === 'function') return msg.timestamp.toMillis();
-  const raw = new Date(msg.fecha || 0).getTime();
-  return Number.isFinite(raw) ? raw : 0;
-}
-
-function _when(msg) {
-  const ts = _msgTs(msg);
-  if (!ts) return '—';
-  return new Date(ts).toLocaleString('es-MX', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-function _setBodyLoading(text) {
-  const el = q('#appMsgList');
-  if (el) el.innerHTML = `<div class="msgop__empty">${esc(text)}</div>`;
-}
-
-function _setBodyError(text) {
-  const el = q('#appMsgList');
-  if (el) el.innerHTML = `<div class="msgop__error">${esc(text)}</div>`;
-}
-
-function _setText(sel, text) {
-  const el = q(sel);
-  if (el) el.textContent = String(text || '');
-}
-
-function _layout(me) {
-  return `
-    <section class="msgop">
-      <header class="msgop__top">
-        <div>
-          <span class="msgop__eyebrow">BANDEJA</span>
-          <h1>Mensajes operativo</h1>
-        </div>
-        <div class="msgop__actions">
-          <span class="msgop__pill">${esc(me)}</span>
-          <span id="appMsgUnread" class="msgop__pill">Sin no leídos</span>
-          <span id="appMsgLastSync" class="msgop__pill">Sin sincronizar</span>
-          <button id="appMsgRefresh" type="button" class="msgop__btn">Refrescar</button>
-          <a href="/mensajes?legacy=1" class="msgop__btn msgop__btn--primary">Mensajes clásico</a>
-        </div>
-      </header>
-      <div id="appMsgStatus" class="msgop__status" hidden></div>
-      <div class="msgop__filters">
-        <select id="appMsgPlazaFilter" class="msgop__select">
-          <option value="">Todas las plazas</option>
-        </select>
-        <select id="appMsgRoleFilter" class="msgop__select">
-          <option value="">Todos los roles</option>
-        </select>
-        <select id="appMsgStatusFilter" class="msgop__select">
-          <option value="">Todos</option>
-          <option value="UNREAD">No leídos</option>
-          <option value="ACTIVE">Activos</option>
-          <option value="INACTIVE">Inactivos</option>
-        </select>
-      </div>
-      <div id="appMsgGrid" class="msgop__grid">
-        <aside id="appMsgList" class="msgop__list"></aside>
-        <section id="appMsgDetail" class="msgop__chat"></section>
-      </div>
-      <div class="msgop__composer">
-        <textarea id="appMsgInput" rows="2" placeholder="Selecciona una conversación para responder..."></textarea>
-        <button id="appMsgSendBtn" type="button">Enviar</button>
-      </div>
-      <div id="appMsgSendError" class="msgop__send-error"></div>
-    </section>
-  `;
-}
-
-function _renderLastSync() {
-  const text = _state?.lastUpdated
-    ? `Última actualización ${new Date(_state.lastUpdated).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`
-    : 'Sin sincronizar';
-  _setText('#appMsgLastSync', text);
-}
-
-function _setStatus(message, type = 'info') {
-  const el = q('#appMsgStatus');
-  if (!el) return;
-  if (!message) {
-    el.hidden = true;
-    el.textContent = '';
-    el.className = 'msgop__status';
-    return;
-  }
-  el.hidden = false;
-  el.textContent = message;
-  el.className = `msgop__status msgop__status--${type}`;
-}
-
-function _initials(value) {
-  const parts = String(value || 'U').replace(/@.*/, '').split(/\s+|[._-]+/).filter(Boolean);
-  return (parts[0]?.[0] || 'U').toUpperCase() + (parts[1]?.[0] || '').toUpperCase();
-}
-
-function esc(v) {
-  return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+function _startRecTimer() {
+  if (_recTimer) clearInterval(_recTimer);
+  const start = Date.now();
+  _recTimer = setInterval(() => {
+    const el = document.getElementById('amRecTimer');
+    if (!el) { clearInterval(_recTimer); return; }
+    const s = Math.floor((Date.now() - start) / 1000);
+    el.textContent = `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+  }, 500);
 }
