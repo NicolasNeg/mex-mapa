@@ -57,6 +57,60 @@ function _coalesce(...values) {
   return '';
 }
 
+const MAPA_RENDER_AIRE_X = 6;
+const MAPA_RENDER_AIRE_Y = 8;
+const MAPA_RENDER_BASE_X = 120;
+const MAPA_RENDER_BASE_Y = 84;
+
+function _hasAbsolutePosition(raw = {}) {
+  return raw && (raw.x !== undefined || raw.y !== undefined);
+}
+
+function _hasLegacyGridPosition(raw = {}) {
+  return raw && (raw.row !== undefined || raw.col !== undefined);
+}
+
+function _withLayoutPosition(raw = {}, index = 0) {
+  const base = normalizeMapCell(raw, index);
+  const hasAbsolute = _hasAbsolutePosition(raw);
+  const hasLegacyGrid = _hasLegacyGridPosition(raw);
+  let x = Number(base.x) || 0;
+  let y = Number(base.y) || 0;
+  let width = Number(base.width) || 120;
+  let height = Number(base.height) || 80;
+  let rotation = Number(base.rotation) || 0;
+
+  if (!hasAbsolute && hasLegacyGrid) {
+    const col = Math.max(1, Number(raw.col) || 1);
+    const row = Math.max(1, Number(raw.row) || 1);
+    const colspan = Math.max(1, Number(raw.colspan) || 1);
+    const rowspan = Math.max(1, Number(raw.rowspan) || 1);
+    const cellW = 120;
+    const cellH = 80;
+    const gap = 4;
+    x = (col - 1) * (cellW + gap);
+    y = (row - 1) * (cellH + gap);
+    width = colspan * cellW + (colspan - 1) * gap;
+    height = rowspan * cellH + (rowspan - 1) * gap;
+    rotation = 0;
+  }
+
+  if (hasAbsolute || hasLegacyGrid) {
+    x += Math.floor(Math.max(0, x) / MAPA_RENDER_BASE_X) * MAPA_RENDER_AIRE_X;
+    y += Math.floor(Math.max(0, y) / MAPA_RENDER_BASE_Y) * MAPA_RENDER_AIRE_Y;
+  }
+
+  return {
+    ...base,
+    x,
+    y,
+    width,
+    height,
+    rotation,
+    _hasLayoutPosition: hasAbsolute || hasLegacyGrid
+  };
+}
+
 function _searchTokens(unitNorm, raw = {}) {
   return [
     unitNorm.id,
@@ -170,10 +224,11 @@ export function buildMapaReadOnlyViewModel({
   const OPERATIONAL_EDITOR_VIEW = 'estacionamiento';
   const structureSorted = Array.isArray(estructura)
     ? estructura
-        .map((item, i) => normalizeMapCell(item, i))
+        .map((item, i) => _withLayoutPosition(item, i))
         .filter(el => el.hidden !== true && isElementVisibleInView(el, OPERATIONAL_EDITOR_VIEW))
         .sort((a, b) => a.orden - b.orden)
     : [];
+  const layoutMode = structureSorted.some(el => el._hasLayoutPosition) ? 'absolute' : 'flow';
 
   const cellBySpotKey = new Map();
   for (const el of structureSorted) {
@@ -203,7 +258,12 @@ export function buildMapaReadOnlyViewModel({
         label: String(el.valor || '').trim() || '—',
         zoneId: el.zone || '',
         subzoneId: el.subzone || '',
-        orden: el.orden
+        orden: el.orden,
+        x: el.x,
+        y: el.y,
+        width: el.width,
+        height: el.height,
+        rotation: el.rotation
       };
     }
 
@@ -214,7 +274,14 @@ export function buildMapaReadOnlyViewModel({
         tipo: el.tipo,
         zoneId: el.zone || '',
         orden: el.orden,
-        muted: true
+        muted: true,
+        x: el.x,
+        y: el.y,
+        width: el.width,
+        height: el.height,
+        rotation: el.rotation,
+        fill: el.fill,
+        stroke: el.stroke
       };
     }
 
@@ -255,7 +322,12 @@ export function buildMapaReadOnlyViewModel({
       emptyByFilter,
       mutedByFilter: emptyByFilter || (Boolean(queryUpper) && !hasOccupant),
       tipo: el.tipo,
-      matchesCellQuery
+      matchesCellQuery,
+      x: el.x,
+      y: el.y,
+      width: el.width,
+      height: el.height,
+      rotation: el.rotation
     };
   });
 
@@ -267,11 +339,24 @@ export function buildMapaReadOnlyViewModel({
 
   const slotRows = rows.filter(r => r.kind === 'slot');
   const occupiedSlots = slotRows.filter(r => (r.occupiedCount || 0) > 0).length;
+  let canvasW = 0;
+  let canvasH = 0;
+  if (layoutMode === 'absolute') {
+    for (const row of rows) {
+      canvasW = Math.max(canvasW, (Number(row.x) || 0) + (Number(row.width) || 0));
+      canvasH = Math.max(canvasH, (Number(row.y) || 0) + (Number(row.height) || 0));
+    }
+    canvasW += 8;
+    canvasH += 8;
+  }
 
   return {
     plaza: String(plaza || '').toUpperCase(),
     query: queryUpper,
     structureCount: structureSorted.length,
+    layoutMode,
+    canvasW,
+    canvasH,
     slotRows,
     occupiedSlots,
     rows,

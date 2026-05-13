@@ -335,6 +335,66 @@ function _renderSlotRow(row, options) {
   `;
 }
 
+function _layoutStyle(row = {}) {
+  const x = Number(row.x) || 0;
+  const y = Number(row.y) || 0;
+  const w = Math.max(8, Number(row.width) || 120);
+  const h = Math.max(8, Number(row.height) || 80);
+  const rot = Number(row.rotation) || 0;
+  return `left:${x}px;top:${y}px;width:${w}px;height:${h}px;${rot ? `transform:rotate(${rot}deg);` : ''}`;
+}
+
+function _renderAbsoluteSlot(row, options) {
+  const { selectedId, dndActive, query, incidentsByMva, incidentsReady } = options;
+  const dim = row.emptyByFilter || (query && row.mutedByFilter);
+  const mod = dim ? ' is-filter-dim' : '';
+  const cellQ = query && row.matchesCellQuery ? ' is-cell-query-match' : '';
+  const blocked = row.blocked ? ' is-blocked' : '';
+  const reserved = row.reserved ? ' is-reserved' : '';
+  const cards = (row.units || [])
+    .map(u =>
+      renderUnit(
+        { ...u, cellZone: row.zoneLabel, positionKey: row.positionKey, currentCell: row.cellId },
+        {
+          selectedId,
+          dndActive,
+          query,
+          currentCellOverride: row.cellId,
+          currentPositionOverride: u.pos,
+          incidentsByMva,
+          incidentsReady
+        }
+      )
+    )
+    .join('');
+  const stateEmpty = !row.occupiedCount;
+
+  return `
+    <div class="app-mapa-slot app-mapa-slot--absolute spot mapa-celda-libre${mod}${cellQ}${blocked}${reserved}"
+      role="group"
+      aria-label="Celda ${esc(row.label)}"
+      data-drop-cell="1"
+      data-cell-type="cajon"
+      data-cell-id="${esc(row.cellId)}"
+      data-zone="${esc(row.zoneLabel)}"
+      data-zone-label="${esc(row.zoneLabel)}"
+      data-position="${esc(row.positionKey)}"
+      data-spot="${esc(row.positionKey)}"
+      style="${_layoutStyle(row)}">
+      <div class="app-mapa-slot-head">
+        <span class="app-mapa-slot-label">${esc(row.label)}</span>
+      </div>
+      <div class="app-mapa-slot-body">
+        ${
+          cards
+            ? `<div class="app-mapa-slot-units">${cards}</div>`
+            : `<div class="app-mapa-slot-empty">${stateEmpty ? 'Vacío' : 'Sin coincidencias en filtro'}</div>`
+        }
+      </div>
+    </div>
+  `;
+}
+
 function _renderLabelRow(row) {
   return `
     <div class="app-mapa-row-label" role="presentation">
@@ -344,9 +404,32 @@ function _renderLabelRow(row) {
   `;
 }
 
+function _renderAbsoluteLabel(row) {
+  return `
+    <div class="app-mapa-row-label app-mapa-row-label--absolute mapa-celda-libre"
+      role="presentation"
+      style="${_layoutStyle(row)}">
+      <span>${esc(row.label)}</span>
+      ${row.zoneId ? `<small>${esc(row.zoneId)}</small>` : ''}
+    </div>
+  `;
+}
+
 function _renderDecorRow(row) {
   return `
     <div class="app-mapa-row-decor">
+      <span class="app-mapa-decor-type">${esc(row.tipo)}</span>
+      <span>${esc(row.label)}</span>
+    </div>
+  `;
+}
+
+function _renderAbsoluteDecor(row) {
+  const fill = row.fill ? `background:${esc(row.fill)};` : '';
+  const stroke = row.stroke ? `border-color:${esc(row.stroke)};` : '';
+  return `
+    <div class="app-mapa-row-decor app-mapa-row-decor--absolute mapa-celda-libre is-${esc(String(row.tipo || 'decor').toLowerCase())}"
+      style="${_layoutStyle(row)}${fill}${stroke}">
       <span class="app-mapa-decor-type">${esc(row.tipo)}</span>
       <span>${esc(row.label)}</span>
     </div>
@@ -742,8 +825,15 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     incidentsReady: options.incidentsReady === true
   };
 
+  const absoluteLayout = vm.layoutMode === 'absolute';
   const mainRows = (vm.rows || [])
     .map(row => {
+      if (absoluteLayout) {
+        if (row.kind === 'label') return _renderAbsoluteLabel(row);
+        if (row.kind === 'decor') return _renderAbsoluteDecor(row);
+        if (row.kind === 'slot') return _renderAbsoluteSlot(row, renderOpts);
+        return '';
+      }
       if (row.kind === 'label') return _renderLabelRow(row);
       if (row.kind === 'decor') return _renderDecorRow(row);
       if (row.kind === 'slot') return _renderSlotRow(row, renderOpts);
@@ -776,7 +866,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
                 ${
                   vm.slotRows.length === 0 && !(vm.rows || []).length
                     ? renderEmptyState('No hay estructura de mapa para esta plaza. Usa Editar patio para crear o revisar configuración.')
-                    : `<div id="app-mapa-legacy-grid" class="map-grid app-mapa-canvas-inner">${mainRows}</div>`
+                    : `<div id="app-mapa-legacy-grid" class="map-grid app-mapa-canvas-inner${absoluteLayout ? ' mapa-canvas-libre app-mapa-canvas-inner--absolute' : ''}"${absoluteLayout ? ` style="width:${Math.max(1, Number(vm.canvasW) || 1)}px;height:${Math.max(1, Number(vm.canvasH) || 1)}px;"` : ''}>${mainRows}</div>`
                 }
               </div>
             </div>

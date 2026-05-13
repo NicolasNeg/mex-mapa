@@ -34,6 +34,44 @@ function _toRows(payload) {
   return [];
 }
 
+function _isLocalQaAuthBypassEnabled() {
+  try {
+    const host = window.location.hostname;
+    const localHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    return localHost && (window.__MEX_QA_AUTH_BYPASS === true || localStorage.getItem('mex.qa.authBypass') === '1');
+  } catch (_) {
+    return false;
+  }
+}
+
+function _qaDemoStructure() {
+  const spots = [];
+  for (let i = 1; i <= 12; i += 1) {
+    spots.push({
+      valor: `A-${String(i).padStart(2, '0')}`,
+      tipo: 'cajon',
+      orden: i,
+      zone: 'PATIO A',
+      width: 120,
+      height: 80
+    });
+  }
+  return [
+    { valor: 'PATIO A', tipo: 'label', esLabel: true, orden: 0 },
+    ...spots,
+    { valor: 'TALLER', tipo: 'label', esLabel: true, orden: 90 }
+  ];
+}
+
+function _qaDemoUnits(plaza) {
+  return [
+    { id: 'qa-001', mva: 'QA001', modelo: 'VERSA', placas: 'QA-001', estado: 'LISTO', gasolina: '3/4', ubicacion: 'PATIO', pos: 'A-01', plaza, categoria: 'COMPACTO', notas: 'Unidad demo para revisar layout App Shell.' },
+    { id: 'qa-002', mva: 'QA002', modelo: 'AVEO', placas: 'QA-002', estado: 'SUCIO', gasolina: '1/2', ubicacion: 'PATIO', pos: 'A-02', plaza, categoria: 'COMPACTO', notas: 'Requiere lavado.' },
+    { id: 'qa-003', mva: 'QA003', modelo: 'RIO', placas: 'QA-003', estado: 'MANTENIMIENTO', gasolina: '1/4', ubicacion: 'TALLER', pos: 'LIMBO', plaza, categoria: 'COMPACTO', notas: 'Demo taller.' },
+    { id: 'qa-004', mva: 'QA004', modelo: 'EXTERNO', placas: 'QA-004', estado: 'EXTERNO', gasolina: 'N/A', ubicacion: 'EXTERNO', pos: 'LIMBO', plaza, tipo: 'externo', categoria: 'EXTERNO', notas: 'Demo externo.' }
+  ];
+}
+
 export function createMapaDataController({
   plaza = '',
   api = window.api || null,
@@ -111,6 +149,21 @@ export function createMapaDataController({
       _snapshot.loading = false;
       _snapshot.error = 'No hay plaza activa para suscribir datos de mapa.';
       _emitData();
+      return;
+    }
+
+    if (_isLocalQaAuthBypassEnabled()) {
+      window.setTimeout(() => {
+        const ok = _guardedUpdate(token, () => {
+          _snapshot.loading = false;
+          _snapshot.error = '';
+          _snapshot.permissionDenied = false;
+          _snapshot.missingIndex = false;
+          _snapshot.units = _qaDemoUnits(activePlaza);
+          _snapshot.structure = _qaDemoStructure();
+        });
+        if (ok) _emitData();
+      }, 120);
       return;
     }
 

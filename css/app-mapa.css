@@ -926,7 +926,7 @@
 }
 
 .app-mapa-qf,
-.app-mapa-view {
+button.app-mapa-view {
   border: 1px solid #cbd5e1;
   background: #fff;
   color: #475569;
@@ -938,7 +938,7 @@
 }
 
 .app-mapa-qf.is-active,
-.app-mapa-view.is-active {
+button.app-mapa-view.is-active {
   border-color: #2b6954;
   background: #ecfdf5;
   color: #14532d;
@@ -1836,7 +1836,7 @@ button.app-mapa-view,
 }
 
 .app-mapa-qf.is-active,
-.app-mapa-view.is-active {
+button.app-mapa-view.is-active {
   border-color: #7dd3fc;
   background: #38bdf8;
   color: #082f49;
@@ -2439,6 +2439,83 @@ button.app-mapa-view,
   background-image: radial-gradient(#3f4d5e 1px, transparent 1px);
   background-size: 20px 20px;
   box-sizing: border-box;
+}
+
+.app-mapa-legacy-port .app-mapa-canvas-inner.map-grid.mapa-canvas-libre,
+.app-mapa-legacy-port .app-mapa-canvas-inner.map-grid.app-mapa-canvas-inner--absolute {
+  position: relative;
+  display: block;
+  grid-template-columns: none;
+  gap: 0;
+  min-width: 0;
+  max-width: none;
+}
+
+.app-mapa-legacy-port .mapa-celda-libre {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: visible;
+  transform-origin: center center;
+}
+
+.app-mapa-legacy-port .app-mapa-slot--absolute {
+  min-height: 0;
+  display: block;
+}
+
+.app-mapa-legacy-port .app-mapa-slot--absolute .app-mapa-slot-head {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  right: 0;
+  min-height: 18px;
+  transform: none;
+  z-index: 10;
+}
+
+.app-mapa-legacy-port .app-mapa-slot--absolute .app-mapa-slot-body {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.app-mapa-legacy-port .app-mapa-slot--absolute .app-mapa-slot-units,
+.app-mapa-legacy-port .app-mapa-slot--absolute .app-mapa-slot-units .app-mapa-unit {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.app-mapa-legacy-port .app-mapa-row-label--absolute,
+.app-mapa-legacy-port .app-mapa-row-decor--absolute {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.app-mapa-legacy-port .app-mapa-row-label--absolute {
+  border: 0;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+}
+
+.app-mapa-legacy-port .app-mapa-row-decor--absolute {
+  border: 2px dashed #64748b;
+  border-radius: 12px;
+  background: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05) 10px, rgba(0, 0, 0, 0.1) 10px, rgba(0, 0, 0, 0.1) 20px);
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.app-mapa-legacy-port .app-mapa-row-decor--absolute .app-mapa-decor-type {
+  display: none;
 }
 
 .app-mapa-legacy-port .info-sidebar.app-mapa-info-aside {

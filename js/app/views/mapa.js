@@ -1349,16 +1349,19 @@ function _render() {
   if (!_contentEl) return;
   const snapshot = _viewState.snapshot;
   if (!snapshot || snapshot.loading) {
+    _contentEl.className = 'app-mapa-status is-loading';
     _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Cargando mapa…</div>';
     _updateMetaLines();
     return;
   }
   if (snapshot.permissionDenied) {
+    _contentEl.className = 'app-mapa-status is-error';
     _contentEl.innerHTML = renderErrorState('No tienes permisos para ver mapa en esta plaza.');
     _syncMapaUrlQuery();
     return;
   }
   if (snapshot.missingIndex) {
+    _contentEl.className = 'app-mapa-status is-error';
     _contentEl.innerHTML = renderErrorState(
       'Falta un índice de Firestore para esta consulta. Un administrador debe crearlo para completar la carga.'
     );
@@ -1366,6 +1369,7 @@ function _render() {
     return;
   }
   if (snapshot.error) {
+    _contentEl.className = 'app-mapa-status is-error';
     _contentEl.innerHTML = renderErrorState(snapshot.error);
     _syncMapaUrlQuery();
     return;
@@ -1399,6 +1403,7 @@ function _render() {
         ? ''
         : (_unitActionMsg || (_unitActionLastError ? `Acciones mutantes no disponibles (${_unitActionLastError}).` : 'Acciones mutantes no disponibles.'))
   };
+  _contentEl.className = 'app-mapa-content';
   renderMapaReadOnly(_contentEl, snapshot, readOpts);
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateMapModeBanner();

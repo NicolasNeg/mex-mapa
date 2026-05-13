@@ -29,10 +29,57 @@ import {
   getCurrentDeviceSnapshot
 } from '/js/app/features/notifications/notification-center.js';
 
+function _isLocalQaAuthBypassEnabled() {
+  try {
+    const host = window.location.hostname;
+    const localHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    if (!localHost) return false;
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('qaAuth') === '1') {
+      localStorage.setItem('mex.qa.authBypass', '1');
+      return true;
+    }
+    return localStorage.getItem('mex.qa.authBypass') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+function _qaBypassUser() {
+  return {
+    uid: 'qa-local-auth-bypass',
+    email: 'qa-local@app.local',
+    displayName: 'QA LOCAL'
+  };
+}
+
+function _qaBypassProfile() {
+  return {
+    id: 'qa-local@app.local',
+    uid: 'qa-local-auth-bypass',
+    email: 'qa-local@app.local',
+    nombre: 'QA LOCAL',
+    nombreCompleto: 'QA LOCAL',
+    displayName: 'QA LOCAL',
+    usuario: 'QA LOCAL',
+    rol: 'PROGRAMADOR',
+    isAdmin: true,
+    isGlobal: true,
+    status: 'ACTIVO',
+    activo: true,
+    autorizado: true,
+    accesoSistema: true,
+    plazaAsignada: 'DEFAULT',
+    plazasPermitidas: ['DEFAULT']
+  };
+}
+
 // ── Boot ────────────────────────────────────────────────────
 async function boot() {
+  const qaAuthBypass = _isLocalQaAuthBypassEnabled();
+  window.__MEX_QA_AUTH_BYPASS = qaAuthBypass;
   // 1. Esperar estado de auth
-  const user = await waitForAuth();
+  const user = qaAuthBypass ? _qaBypassUser() : await waitForAuth();
 
   if (!user) {
     window.location.replace('/login');
@@ -42,7 +89,9 @@ async function boot() {
   // 2. Cargar perfil
   let profile = null;
   try {
-    profile = await window.__mexLoadCurrentUserRecord?.(user) ?? null;
+    profile = qaAuthBypass
+      ? _qaBypassProfile()
+      : await window.__mexLoadCurrentUserRecord?.(user) ?? null;
   } catch (err) {
     console.warn('[app/main] Error cargando perfil:', err);
   }
