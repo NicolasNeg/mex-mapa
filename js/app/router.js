@@ -6,7 +6,7 @@
 //    /app           → redirect a /app/dashboard
 //    /app/dashboard → views/dashboard.js
 //
-//  Todas las demás /app/* → placeholder con enlace legacy.
+//  Todas las demás /app/* → placeholder de ruta no registrada.
 //  Rutas fuera de /app/* → window.location.href (navegación real).
 //
 //  Patrón de vista: cada módulo exporta mount() y unmount().
@@ -21,7 +21,9 @@ import { setState, getState } from '/js/app/app-state.js';
 // navRoute:  string  — ruta que se activa en el sidebar (cuando difiere del path)
 const ROUTE_TABLE = {
   '/app':            { redirect: '/app/dashboard' },
+  '/app/home':       { redirect: '/app/dashboard' },
   '/app/dashboard':  { loader: () => import('/js/app/views/dashboard.js') },
+  '/app/perfil':     { redirect: '/app/profile' },
   '/app/profile':    {
     loader:   () => import('/js/app/views/profile.js'),
     navRoute: '/profile'     // el sidebar resalta "Mi perfil"
@@ -34,6 +36,7 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/cola-preparacion.js'),
     navRoute: '/cola-preparacion'
   },
+  '/app/cola':              { redirect: '/app/cola-preparacion' },
   '/app/incidencias':       {
     loader:   () => import('/js/app/views/incidencias.js'),
     navRoute: '/incidencias'
@@ -46,6 +49,7 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/admin.js'),
     navRoute: '/gestion'    // el sidebar resalta "Gestión" / "Panel admin"
   },
+  '/app/gestion':           { redirect: '/app/admin' },
   '/app/admin/usuarios':    {
     loader:   () => import('/js/app/views/admin.js'),
     navRoute: '/gestion'
@@ -54,7 +58,7 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/programador.js'),
     navRoute: '/programador'
   },
-  // /app/mapa — vista oficial operativa. Funciones avanzadas siguen en mapa clásico.
+  // /app/mapa — vista oficial operativa.
   '/app/mapa': {
     loader:   () => import('/js/app/views/mapa.js'),
     navRoute: '/mapa',
@@ -119,7 +123,7 @@ export function createRouter({ shell }) {
     setState({ currentRoute });
 
     // Sincronizar header y sidebar.
-    // navRoute permite resaltar un item legacy cuando la URL vive en /app/*
+    // navRoute permite resaltar el item operativo cuando la URL vive en /app/*
     // (ej. /app/profile → resalta nav item "/profile")
     shell.setRoute(route?.navRoute || path || '/app/dashboard');
 
@@ -163,10 +167,10 @@ export function createRouter({ shell }) {
         <div style="width:64px;height:64px;border-radius:20px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
           <span class="material-symbols-outlined" style="font-size:32px;color:#94a3b8;">construction</span>
         </div>
-        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Vista en construcción</h2>
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Ruta no registrada</h2>
         <p style="font-size:14px;color:#64748b;margin:0 0 6px;line-height:1.6;">
           La ruta <code style="background:#f1f5f9;padding:2px 6px;border-radius:5px;font-size:12.5px;">${esc(path)}</code>
-          aún no está migrada al router interno.
+          no está en el menú operativo del App Shell.
         </p>
         <p style="font-size:13px;color:#94a3b8;margin:0 0 28px;">
           Usa el menú lateral para acceder a las rutas productivas.

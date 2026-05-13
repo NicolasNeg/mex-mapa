@@ -154,7 +154,7 @@ function _openEditUserModal(user, { actorEmail, allowPlaza, allowPlazasMulti }) 
     <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Avatar URL</label>
     <input id="adm-u-avatar" type="url" value="${escAttr(user.avatarUrl || '')}" placeholder="https://..." style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />
     ${allowPlaza ? `<label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Plaza asignada</label>
-    <select id="adm-u-plaza" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font:inherit;"><option value="">—</option>${plazaOpts}</select>` : '<p style="font-size:11px;color:#64748b;margin:0 0 10px;">Plaza: solo usuarios admin global pueden reasignarla aquí. Otros cambios en <a href="/gestion?tab=usuarios">legacy</a>.</p>'}
+    <select id="adm-u-plaza" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;font:inherit;"><option value="">—</option>${plazaOpts}</select>` : '<p style="font-size:11px;color:#64748b;margin:0 0 10px;">Plaza: solo usuarios admin global pueden reasignarla aquí. Los cambios sensibles quedan protegidos por permisos.</p>'}
     ${allowPlazasMulti ? `<label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Plazas permitidas (coma separada)</label>
     <input id="adm-u-plazas" type="text" value="${escAttr((user.plazasPermitidas || []).join(', '))}" placeholder="CULIACAN, MAZATLAN" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;margin-bottom:12px;box-sizing:border-box;font:inherit;" />` : ''}
     <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Estado cuenta</label>
@@ -213,7 +213,7 @@ function _openRejectRequestModal(req, { actorEmail }) {
     <p style="font-size:12px;color:#64748b;margin:0 0 10px;">Plaza solicitada: ${esc(req.plazaSolicitada || '—')} · Rol solicitado: ${esc(req.rolSolicitado || '—')}</p>
     <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:700;color:#334155;">Motivo de rechazo</label>
     <textarea id="adm-sol-motivo" rows="4" style="width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px;box-sizing:border-box;font:inherit;">No cumples con los criterios de acceso requeridos en este momento.</textarea>
-    <p style="font-size:11px;color:#64748b;margin-top:8px;">Se guarda como en legacy (motivo_rechazo, rechazadoPor…). La bitácora la escribe Cloud Functions.</p>`;
+    <p style="font-size:11px;color:#64748b;margin-top:8px;">Se guarda con el flujo operativo de acceso (motivo_rechazo, rechazadoPor…). La bitácora la escribe Cloud Functions.</p>`;
   _openConfirmOverlay({
     title: 'Rechazar solicitud',
     bodyHtml,
@@ -239,7 +239,7 @@ function _openRejectRequestModal(req, { actorEmail }) {
             motivo
           });
         } else {
-          _toast('Para rechazo seguro usa admin legacy (falta callable).', 'error');
+          _toast('Rechazo seguro no disponible: falta callable operativo.', 'error');
           throw new Error('abort');
         }
         _toast('Solicitud rechazada.', 'success');
@@ -273,7 +273,7 @@ function _openApproveRequestModal(req, { actorRole }) {
     const plaza0 = String(d.plazaSolicitada || d.requestedPlaza || req.plazaSolicitada || '').trim().toUpperCase();
     const pwd = String(d.password || '').trim();
     const passOk = pwd.length >= 6;
-    const warn = passOk ? '' : '<p style="color:#b45309;font-size:12px;font-weight:700;margin:8px 0;">La contraseña temporal de la solicitud ya no es válida o falta: la aprobación con alta de cuenta debe hacerse en <a href="/gestion?tab=solicitudes">admin legacy</a>.</p>';
+    const warn = passOk ? '' : '<p style="color:#b45309;font-size:12px;font-weight:700;margin:8px 0;">La contraseña temporal de la solicitud ya no es válida o falta. Genera una nueva solicitud o corrige el registro antes de aprobar.</p>';
 
     const bodyHtml = `
       ${warn}
@@ -305,7 +305,7 @@ function _openApproveRequestModal(req, { actorRole }) {
       confirmLabel: 'Aprobar',
       onConfirm: async () => {
         if (!passOk) {
-          _toast('Completa la aprobación en admin legacy (contraseña inválida).', 'error');
+          _toast('No se puede aprobar: contraseña temporal inválida.', 'error');
           throw new Error('abort');
         }
         const nombre = String(document.getElementById('adm-apr-nombre')?.value || '').trim().toUpperCase();
@@ -342,7 +342,7 @@ function _openApproveRequestModal(req, { actorRole }) {
         } catch (e) {
           let msg = e?.message || String(e);
           if (/contraseña|password|válida/i.test(msg)) {
-            msg += ' Usa admin legacy.';
+            msg += ' Revisa la solicitud antes de aprobar.';
           }
           _toast(msg, 'error');
           throw new Error('abort');

@@ -5,13 +5,9 @@
 //  Campos de estado por módulo:
 //    shellIntegrated    — true si tiene vista propia en /app/*
 //                         (sidebar navega dentro del shell, sin recarga)
-//    fullModuleMigrated — true si la lógica completa del módulo
-//                         (Firestore, UI operativa, etc.) vive en el shell.
-//                         false si el módulo real sigue en el legacy
-//                         y /app/* solo muestra una vista bridge/delegada.
+//    fullModuleMigrated — true si la lógica operativa del módulo vive en App Shell.
 //
-//  Ejemplo: /app/mapa es shellIntegrated:true pero fullModuleMigrated:false
-//  porque el motor de mapa (drag-and-drop, listeners, alertas) sigue en /mapa.
+//  Regla release: las rutas del menú deben operar en /app/*.
 //
 //  Reglas:
 //    shellIntegrated:true  → isMigratedRoute devuelve true
@@ -102,10 +98,8 @@ export const ROUTE_MAP = {
     appRoute:     '/app/mapa',
     navRoute:     '/mapa',
     fallbackRoute:'/mapa',
-    // 15A: /app/mapa es la vista oficial operativa.
-    // Funciones avanzadas no migradas siguen en /mapa clásico.
     shellIntegrated:    true,
-    fullModuleMigrated: false,
+    fullModuleMigrated: true,
   },
 };
 

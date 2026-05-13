@@ -11,7 +11,8 @@ let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recT
 
 const EMOJI_LIST = ["😀","😂","😍","😎","😢","😡","👍","👎","❤️","🔥","🎉","✅","🙏","😮","🤔","💯","🚀","💪","😴","😅","🤣","🤩","😇","😏","🥳","😤","🤯","👏","🙌","🤝","💔","💥","⭐","✨","🎁","💡","📌","📎","🔒","📢","💬","📱","💻","📊","📈","🌍","☕","🌈","☀️","⚡","👀","🫡","💀","🤖","🏆","🎯","🎮","📚","🔎","🧠"];
 
-export async function mount(container) {
+export async function mount(ctx) {
+  const container = ctx.container || document.querySelector('#routeMainStage') || document.body;
   const { profile } = getState();
   _me = D.buildMyIdentity(profile);
   _archived = D.loadArchived(_me.email);
