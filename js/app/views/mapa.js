@@ -948,14 +948,19 @@ export function mount({ container }) {
           <span class="app-mapa-plaza-label">Plaza <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></span>
           <span id="app-mapa-sync-line" class="app-mapa-chrome-sync"></span>
         </div>
-        <div class="app-mapa-chrome-actions">
-          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Actualizar</button>
-          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="radar">Radar</button>
-          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="reports">Reportes</button>
-          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="create-unit"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta unidad</button>
-          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="bulk-units"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta masiva</button>
-          <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="editor"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Editar patio</button>
-        </div>
+        <details class="app-mapa-tools-menu">
+          <summary title="Herramientas del mapa">
+            <span class="material-icons">tune</span>
+          </summary>
+          <div class="app-mapa-chrome-actions">
+            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Actualizar</button>
+            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="radar">Radar</button>
+            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="reports">Reportes</button>
+            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="create-unit"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta unidad</button>
+            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="bulk-units"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta masiva</button>
+            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="editor"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Editar patio</button>
+          </div>
+        </details>
         <div class="app-mapa-chrome-sub">
           <span id="app-mapa-last-move" class="app-mapa-meta-line--persist" hidden></span>
         </div>

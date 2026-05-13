@@ -851,6 +851,19 @@
   line-height: 1.45;
 }
 
+.cqv__btn--danger {
+  background: rgba(220, 38, 38, .2);
+  border-color: rgba(248, 113, 113, .45);
+  color: #fecaca;
+}
+.cqv__btn--danger:hover {
+  background: rgba(220, 38, 38, .35);
+}
+
+.cqv__form-label + .cqv__form-label {
+  margin-top: 10px;
+}
+
 @media (max-width: 1220px) {
   .cqv__grid {
     grid-template-columns: minmax(0, 1fr);

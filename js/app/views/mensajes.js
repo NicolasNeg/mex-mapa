@@ -28,7 +28,8 @@ export function unmount() {
   _activePeer = null; _pendingFile = null; _pendingAudio = null; _replyTo = null;
 }
 
-function _bindEvents(root) {
+function _bindEvents(rootNode) {
+  const root = typeof rootNode === 'string' ? document.querySelector(rootNode) : (rootNode || document);
   const $ = id => root.querySelector('#' + id);
   $('amSearch')?.addEventListener('input', () => _renderContacts());
   $('amArchiveToggle')?.addEventListener('click', () => { _archivedMode = !_archivedMode; _renderContacts(); });

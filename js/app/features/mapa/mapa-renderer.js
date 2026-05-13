@@ -870,7 +870,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
         ${compactUnitsMenu}
         ${filterStrip}
         ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
-        <div class="app-mapa-legacy-mapdetail-row">
+        <div class="app-mapa-legacy-mapdetail-row${selected ? '' : ' app-mapa-legacy-mapdetail-row--no-detail'}">
           <div class="app-mapa-legacy-main-column">
             <div id="app-mapa-legacy-map-stage" class="map-stage app-mapa-map-stage">
               <div id="app-mapa-legacy-map-zoom" class="map-zoom-container app-mapa-canvas-viewport">
@@ -882,7 +882,11 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
               </div>
             </div>
           </div>
-          <aside class="info-sidebar app-mapa-detail app-mapa-info-aside open">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>
+          ${selected ? `<aside class="info-sidebar app-mapa-detail app-mapa-info-aside open">${_detailPanel(selected, plaza, incOpts, actionsOpts)}</aside>` : ''}
+        </div>
+        <div class="zoom-controls app-mapa-zoom-controls" aria-hidden="true">
+          <button type="button" class="btn-zoom">+</button>
+          <button type="button" class="btn-zoom">-</button>
         </div>
       </div>
     </div>

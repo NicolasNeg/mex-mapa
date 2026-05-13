@@ -22,17 +22,19 @@ const qsa = selector => Array.from(_container?.querySelectorAll(selector) ?? [])
 const ESTADO_ORDER = { LISTO: 1, SUCIO: 2, MANTENIMIENTO: 3, RESGUARDO: 4, TRASLADO: 5, 'NO ARRENDABLE': 6, RETENIDA: 7, VENTA: 8, HYP: 9, 'EN RENTA': 10, EXTERNO: 11 };
 const ESTADO_COLOR = { LISTO: '#16a34a', SUCIO: '#d97706', MANTENIMIENTO: '#dc2626', TRASLADO: '#7c3aed', RESGUARDO: '#475569', EXTERNO: '#6d28d9' };
 const SAFE_ESTADOS = ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'RESGUARDO', 'TRASLADO', 'NO ARRENDABLE', 'RETENIDA', 'VENTA', 'HYP', 'EN RENTA'];
-const GAS_OPTIONS = ['N/A', 'VACIO', '1/4', '1/2', '3/4', 'LLENO'];
+const GAS_OPTIONS = ['N/A','F','15/16','7/8','13/16','3/4','11/16','5/8','9/16','H','7/16','3/8','5/16','1/4','3/16','1/8','1/16','E'];
 const TABLE_COLSPAN = 12;
 const FILTERS = [
   { id: 'all', label: 'Todos' },
-  { id: 'doble-cero', label: 'Doble cero' },
-  { id: 'apartado', label: 'Apartados' },
-  { id: 'urgente', label: 'Urgente' },
-  { id: 'resguardo', label: 'Resguardo' },
-  { id: 'listo', label: 'Listos' },
-  { id: 'no-arrendable', label: 'No arrendable' },
-  { id: 'mantenimiento', label: 'Mtto / sucio' },
+  { id: 'sucio', label: '🧹 SUCIO' },
+  { id: 'listo', label: '✅ LISTO' },
+  { id: 'mantenimiento', label: '🔧 MANT.' },
+  { id: 'traslado', label: '🚛 TRASLADO' },
+  { id: 'doble-cero', label: '🌿 DOBLE CERO' },
+  { id: 'apartado', label: '🔒 APARTADOS' },
+  { id: 'urgente', label: '⚡ URGENTE' },
+  { id: 'resguardo', label: '👀 RESGUARDO' },
+  { id: 'taller', label: '🏭 TALLER' },
   { id: 'externos', label: 'Externos' },
   { id: 'sin-ubicacion', label: 'Sin ubicación' }
 ];
@@ -265,6 +267,8 @@ function _bindEvents() {
   });
   q('#cqvExportCsv')?.addEventListener('click', _exportFilteredCsv);
   q('#cqvCopySummary')?.addEventListener('click', _copyFilteredSummary);
+  q('#cqvInsertUnit')?.addEventListener('click', _showInsertUnitModal);
+  q('#cqvInsertExterno')?.addEventListener('click', _showInsertExternoModal);
   q('#cqvDetail')?.addEventListener('click', e => {
     const actionBtn = e.target.closest('[data-cqv-action]');
     if (!actionBtn) return;
@@ -318,7 +322,10 @@ function _matchFilter(item) {
   if (f === 'urgente') return /urgent|⚠|prior/i.test(item.notas || '');
   if (f === 'listo') return est === 'LISTO';
   if (f === 'no-arrendable') return est.includes('NO ARREND');
-  if (f === 'mantenimiento') return est === 'MANTENIMIENTO' || est === 'SUCIO';
+  if (f === 'mantenimiento') return est === 'MANTENIMIENTO';
+  if (f === 'sucio') return est === 'SUCIO';
+  if (f === 'traslado') return est === 'TRASLADO';
+  if (f === 'taller') return String(item.ubicacion || '').toUpperCase().includes('TALLER');
   if (f === 'externos') return String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO');
   if (f === 'sin-ubicacion') return !String(item.ubicacion || '').trim();
   if (_state.tab === 'externos') return String(item.tipo || '').toLowerCase() === 'externo' || String(item.ubicacion || '').toUpperCase().includes('EXTERNO');
@@ -451,7 +458,7 @@ function _renderTableSkeleton() {
 }
 
 function _renderTableError(msg) {
-  _setHTML('#cqvTableBody', `<tr><td colspan="${TABLE_COLSPAN}"><div class="cqv__empty">${esc(msg)}<br><a class="cqv__link" href="/cuadre?legacy=1" style="margin-top:10px;">Abrir cuadre clásico</a></div></td></tr>`);
+  _setHTML('#cqvTableBody', `<tr><td colspan="${TABLE_COLSPAN}"><div class="cqv__empty">${esc(msg)}</div></td></tr>`);
 }
 
 function _renderSummary() {
@@ -648,11 +655,8 @@ function _renderDetail(item) {
         <button type="button" class="cqv__btn" data-cqv-copy-json>Copiar datos</button>
         <button type="button" class="cqv__btn" data-cqv-action="refresh_unit">Refrescar unidad</button>
         <a class="cqv__btn" href="/app/mapa?q=${encodeURIComponent(item.mva || '')}">Abrir en mapa</a>
-        <a class="cqv__btn cqv__btn--primary" href="/cuadre?legacy=1">Cuadre clásico</a>
-        <a class="cqv__btn" href="/mapa?legacy=1&tab=cuadre">Mapa clásico</a>
       </div>
       ${_renderOperationalActions(item)}
-      <p class="cqv__hint">Eliminar, altas, masivos, cierre formal y reportes oficiales permanecen disponibles en cuadre clásico.</p>
     </div>`;
   panel.querySelector('[data-cqv-copy]')?.addEventListener('click', async ev => {
     const mva = ev.target?.getAttribute('data-cqv-copy') || item.mva;
@@ -669,20 +673,18 @@ function _renderOperationalActions(item) {
     return `<div class="cqv__blocked-actions"><strong>Acciones oficiales</strong><span>Solo lectura en esta pestaña.</span></div>`;
   }
   if (!_canOfferMutations(item)) {
-    return `<div class="cqv__blocked-actions"><strong>Acciones oficiales</strong><span>No disponibles para esta sesión, rol o plaza. Usa cuadre clásico.</span></div>`;
+    return `<div class="cqv__blocked-actions"><strong>Acciones oficiales</strong><span>No disponibles para esta sesión, rol o plaza.</span></div>`;
   }
   return `
     <div class="cqv__ops">
-      <div class="cqv__ops-title">Acciones oficiales</div>
+      <div class="cqv__ops-title">Acciones operativas</div>
       <div class="cqv__detail-actions">
         <button type="button" class="cqv__btn cqv__btn--primary" data-cqv-action="update_status">Cambiar estado</button>
         <button type="button" class="cqv__btn" data-cqv-action="update_notes">Actualizar notas</button>
         <button type="button" class="cqv__btn" data-cqv-action="update_gas">Actualizar gasolina</button>
         <button type="button" class="cqv__btn" data-cqv-action="mark_ready">Marcar listo</button>
-      </div>
-      <div class="cqv__blocked-actions">
-        <strong>Acciones avanzadas en cuadre clásico</strong>
-        <span>Alta, baja, masivos, cierre formal, PDF/reportes oficiales y cambios globales.</span>
+        <button type="button" class="cqv__btn" data-cqv-action="update_location">Cambiar ubicación</button>
+        <button type="button" class="cqv__btn cqv__btn--danger" data-cqv-action="delete_unit">Eliminar unidad</button>
       </div>
     </div>`;
 }
@@ -692,15 +694,13 @@ function _layout({ plaza, role, user }) {
     <section class="cqv">
       <div class="cqv__top" data-cqv-top>
         <div class="cqv__title-wrap">
-          <span class="cqv__phase">CONSOLA DE FLOTA</span>
+          <span class="cqv__phase">GESTIÓN DE FLOTA</span>
           <h1 class="cqv__title">Cuadre operativo</h1>
         </div>
         <div class="cqv__actions">
           <button class="cqv__btn" type="button" id="cqvRefresh" title="Re-sincronizar datos">Refrescar</button>
-          <button class="cqv__btn" type="button" id="cqvExportCsv" title="Exportar tabla filtrada localmente">Exportar CSV</button>
-          <button class="cqv__btn" type="button" id="cqvCopySummary" title="Copiar resumen de tabla filtrada">Copiar resumen</button>
-          <a class="cqv__btn cqv__btn--primary" href="/mapa?legacy=1&tab=cuadre">Mapa clásico</a>
-          <a class="cqv__btn" href="/cuadre?legacy=1">Cuadre clásico</a>
+          <button class="cqv__btn" type="button" id="cqvExportCsv" title="Exportar tabla filtrada">Exportar CSV</button>
+          <button class="cqv__btn" type="button" id="cqvCopySummary" title="Copiar resumen">Copiar resumen</button>
           <a class="cqv__btn" data-app-route="/app/dashboard" href="/app/dashboard">Dashboard</a>
         </div>
       </div>
@@ -720,9 +720,7 @@ function _layout({ plaza, role, user }) {
             <button class="cqv__tab" data-cqv-tab="externos" type="button">Externos</button>
             <button class="cqv__tab" data-cqv-tab="admins" type="button">Cuadre admins</button>
             <button class="cqv__tab" data-cqv-tab="historial" type="button">Historial</button>
-            <button class="cqv__tab" data-cqv-tab="classic" type="button">Clásico</button>
           </div>
-          <p class="cqv__toolbar-hint">Consola App de lectura operativa. La búsqueda principal vive en el header App Shell.</p>
           <div class="cqv__search-row">
             <select id="cqvSort" class="cqv__search" style="max-width:220px;">
               <option value="estado:asc">Estado</option>
@@ -767,9 +765,10 @@ function _layout({ plaza, role, user }) {
             <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Sin ubicación</div><div id="cqvSummarySinUbicacion" class="cqv__kpi-value" style="color:#ef4444;">0</div></div>
           </div>
           <div class="cqv__panel cqv__notice">
-            <strong>Consola operativa App</strong>
-            <p>KPIs, filtros, detalle, exportación y acciones oficiales con validación. Altas, bajas, masivos, cierre formal y reportes críticos permanecen en cuadre clásico.</p>
-            <a class="cqv__btn cqv__btn--primary" href="/cuadre?legacy=1" style="width:100%;justify-content:center;margin-top:8px;">Abrir cuadre clásico</a>
+            <strong>Consola operativa</strong>
+            <p>KPIs, filtros, detalle, exportación y acciones operativas con validación completa.</p>
+            <button type="button" class="cqv__btn cqv__btn--primary" id="cqvInsertUnit" style="width:100%;justify-content:center;margin-top:8px;">+ Alta de unidad</button>
+            <button type="button" class="cqv__btn" id="cqvInsertExterno" style="width:100%;justify-content:center;margin-top:4px;">+ Insertar externo</button>
           </div>
           <div class="cqv__panel cqv__mini-stats">
             <div class="cqv__mini-title">Búsqueda base maestra (solo lectura)</div>
@@ -802,10 +801,10 @@ function _findUnitById(id) {
 
 function _canOfferMutations(item) {
   if (!item || item.tipo === 'admin' || item.tipo === 'historial') return false;
-  if (typeof window.api?.aplicarEstado !== 'function') return false;
   const gs = getState() || {};
   const role = String(gs.role || gs.profile?.rol || gs.profile?.role || '').toUpperCase();
-  return role === 'PROGRAMADOR' || gs.profile?.isAdmin === true;
+  // Allow mutations for operational roles (matching legacy permissions)
+  return ['PROGRAMADOR','SUPERVISOR','COORDINADOR','ADMINISTRADOR','ADMIN'].includes(role) || gs.profile?.isAdmin === true;
 }
 
 function _unitActionContext() {
@@ -830,12 +829,12 @@ async function _openActionModal(action, item) {
     return;
   }
   if (!_canOfferMutations(item)) {
-    _showActionMessage('Esta acción no tiene API segura disponible. Usa cuadre clásico.', 'error');
+    _showActionMessage('Esta acción no tiene API segura disponible. Intenta de nuevo.', 'error');
     return;
   }
   const controller = await _loadUnitActionsController();
   if (!controller) {
-    _showActionMessage('No se pudo preparar la acción. Usa cuadre clásico.', 'error');
+    _showActionMessage('No se pudo preparar la acción. Intenta de nuevo.', 'error');
     return;
   }
   const available = controller.getAvailableActions?.(item, _unitActionContext()) || [];
@@ -854,7 +853,9 @@ function _showCuadreActionModal(action, item) {
     update_status: 'Cambiar estado',
     update_notes: 'Actualizar notas',
     update_gas: 'Actualizar gasolina',
-    mark_ready: 'Marcar listo'
+    mark_ready: 'Marcar listo',
+    update_location: 'Cambiar ubicación',
+    delete_unit: 'Eliminar unidad'
   }[action] || 'Confirmar acción';
   const form = _actionForm(action, item);
   const overlay = document.createElement('div');
@@ -906,13 +907,21 @@ function _actionForm(action, item) {
   if (action === 'mark_ready') {
     return `<p class="cqv__confirm-copy">La unidad quedará marcada como LISTO. Se conserva ubicación, gasolina y notas actuales.</p>`;
   }
+  if (action === 'update_location') {
+    const UBI_OPTIONS = ['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN','JORGE','GERARDO','OSVALDO','BALANDRAN','ULISES','JOSUE','ISRAEL','ISAAC','ANGEL','LEO','BRAULIO','MARTHA','FERNANDA','ZALLO','UBALDO','JOSE LUIS','PASCUAL','LALO','EDGAR'];
+    const current = String(item.ubicacion || '').toUpperCase();
+    return `<label class="cqv__form-label">Ubicación<select class="cqv__form-control" data-cqv-field="ubicacion">${UBI_OPTIONS.map(v => `<option value="${esc(v)}" ${v === current ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></label>`;
+  }
+  if (action === 'delete_unit') {
+    return `<p class="cqv__confirm-copy" style="color:#ef4444;font-weight:700;">Se eliminará permanentemente la unidad ${esc(item.mva || '')} del cuadre de ${esc(_state?.plaza || '')}. Esta acción no se puede deshacer.</p>`;
+  }
   return `<p class="cqv__confirm-copy">Confirma la acción operativa.</p>`;
 }
 
 async function _confirmUnitAction(action, item, overlay) {
   const controller = await _loadUnitActionsController();
   if (!controller) {
-    _showActionMessage('No se pudo preparar la acción. Usa cuadre clásico.', 'error');
+    _showActionMessage('No se pudo preparar la acción. Intenta de nuevo.', 'error');
     return;
   }
   const payload = _payloadFromModal(action, overlay);
@@ -931,14 +940,14 @@ async function _confirmUnitAction(action, item, overlay) {
   try {
     const result = await controller.executeUnitAction(action, item, payload, ctx);
     if (!result?.ok) {
-      _showActionMessage(result?.message || 'No se pudo aplicar el cambio. Usa cuadre clásico.', 'error');
+      _showActionMessage(result?.message || 'No se pudo aplicar el cambio. Intenta de nuevo.', 'error');
       return;
     }
     _removeCuadreModals();
     _showActionMessage(result.message || 'Cambio aplicado. Re-sincronizando datos...', 'success');
     if (_state?.plaza) _startListener(_state.plaza);
   } catch (err) {
-    _showActionMessage(err?.message || 'No se pudo aplicar el cambio. Usa cuadre clásico.', 'error');
+    _showActionMessage(err?.message || 'No se pudo aplicar el cambio. Intenta de nuevo.', 'error');
   } finally {
     if (confirmBtn) {
       confirmBtn.disabled = false;
@@ -953,7 +962,95 @@ function _payloadFromModal(action, overlay) {
   if (action === 'update_notes') return { notas: valueOf('notas') };
   if (action === 'update_gas') return { gasolina: valueOf('gasolina') };
   if (action === 'mark_ready') return { estado: 'LISTO' };
+  if (action === 'update_location') return { ubicacion: valueOf('ubicacion') };
+  if (action === 'delete_unit') return { _delete: true };
   return {};
+}
+
+
+function _showInsertUnitModal() {
+  if (!_canOfferMutations({ tipo: 'renta' })) {
+    _showActionMessage('No tienes permisos para dar de alta unidades.', 'error');
+    return;
+  }
+  _removeCuadreModals();
+  const overlay = document.createElement('div');
+  overlay.className = 'cqv__modal-overlay';
+  overlay.dataset.cqvModal = '1';
+  overlay.innerHTML = `
+    <div class="cqv__modal" role="dialog" aria-modal="true" aria-label="Alta de unidad">
+      <div class="cqv__modal-head"><div><strong>Alta de unidad</strong><span>${esc(_state?.plaza || '')}</span></div><button type="button" class="cqv__icon-btn" data-cqv-modal-close aria-label="Cerrar">×</button></div>
+      <div class="cqv__modal-body">
+        <label class="cqv__form-label">MVA<input class="cqv__form-control" data-cqv-field="mva" placeholder="Ej: ABC123"></label>
+        <label class="cqv__form-label">Categoría<input class="cqv__form-control" data-cqv-field="categoria" placeholder="Ej: ECAR"></label>
+        <label class="cqv__form-label">Modelo<input class="cqv__form-control" data-cqv-field="modelo" placeholder="Ej: AVEO 2024"></label>
+        <label class="cqv__form-label">Placas<input class="cqv__form-control" data-cqv-field="placas" placeholder="Ej: ABC-123"></label>
+        <label class="cqv__form-label">Estado<select class="cqv__form-control" data-cqv-field="estado">${SAFE_ESTADOS.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></label>
+        <label class="cqv__form-label">Gasolina<select class="cqv__form-control" data-cqv-field="gasolina">${GAS_OPTIONS.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></label>
+        <label class="cqv__form-label">Ubicación<input class="cqv__form-control" data-cqv-field="ubicacion" placeholder="Ej: PATIO"></label>
+        <label class="cqv__form-label">Notas<textarea class="cqv__form-control" data-cqv-field="notas" rows="2"></textarea></label>
+      </div>
+      <div class="cqv__modal-actions"><button type="button" class="cqv__btn" data-cqv-modal-close>Cancelar</button><button type="button" class="cqv__btn cqv__btn--primary" data-cqv-modal-confirm>Guardar</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll('[data-cqv-modal-close]').forEach(b => b.addEventListener('click', () => _removeCuadreModals()));
+  overlay.addEventListener('click', e => { if (e.target === overlay) _removeCuadreModals(); });
+  overlay.querySelector('[data-cqv-modal-confirm]')?.addEventListener('click', async () => {
+    const val = name => String(overlay.querySelector(`[data-cqv-field="${name}"]`)?.value || '').trim();
+    const mva = val('mva').toUpperCase();
+    if (!mva) { _showActionMessage('MVA es obligatorio.', 'error'); return; }
+    const payload = { mva, categoria: val('categoria'), modelo: val('modelo'), placas: val('placas'), estado: val('estado') || 'SUCIO', gasolina: val('gasolina') || 'N/A', ubicacion: val('ubicacion') || 'PATIO', notas: val('notas'), plaza: _state?.plaza || '', tipo: 'renta' };
+    const btn = overlay.querySelector('[data-cqv-modal-confirm]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+    try {
+      if (window.api?.insertarUnidadFlota) { await window.api.insertarUnidadFlota(payload); }
+      else { const { db: _db, COL: _C } = await import('/js/core/database.js'); await _db.collection(_C.CUADRE).add({ ...payload, _updatedAt: new Date(), _updatedBy: getState()?.profile?.nombre || 'APP' }); }
+      _removeCuadreModals();
+      _showActionMessage(`Unidad ${mva} dada de alta.`, 'success');
+      if (_state?.plaza) _startListener(_state.plaza);
+    } catch (err) { _showActionMessage(err?.message || 'Error al dar de alta.', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Guardar'; } }
+  });
+}
+
+function _showInsertExternoModal() {
+  if (!_canOfferMutations({ tipo: 'renta' })) {
+    _showActionMessage('No tienes permisos para insertar externos.', 'error');
+    return;
+  }
+  _removeCuadreModals();
+  const overlay = document.createElement('div');
+  overlay.className = 'cqv__modal-overlay';
+  overlay.dataset.cqvModal = '1';
+  overlay.innerHTML = `
+    <div class="cqv__modal" role="dialog" aria-modal="true" aria-label="Insertar externo">
+      <div class="cqv__modal-head"><div><strong>Insertar unidad externa</strong><span>${esc(_state?.plaza || '')}</span></div><button type="button" class="cqv__icon-btn" data-cqv-modal-close aria-label="Cerrar">×</button></div>
+      <div class="cqv__modal-body">
+        <label class="cqv__form-label">MVA<input class="cqv__form-control" data-cqv-field="mva" placeholder="Ej: EXT001"></label>
+        <label class="cqv__form-label">Modelo<input class="cqv__form-control" data-cqv-field="modelo"></label>
+        <label class="cqv__form-label">Placas<input class="cqv__form-control" data-cqv-field="placas"></label>
+        <label class="cqv__form-label">Estado<select class="cqv__form-control" data-cqv-field="estado">${SAFE_ESTADOS.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select></label>
+        <label class="cqv__form-label">Notas<textarea class="cqv__form-control" data-cqv-field="notas" rows="2"></textarea></label>
+      </div>
+      <div class="cqv__modal-actions"><button type="button" class="cqv__btn" data-cqv-modal-close>Cancelar</button><button type="button" class="cqv__btn cqv__btn--primary" data-cqv-modal-confirm>Insertar</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelectorAll('[data-cqv-modal-close]').forEach(b => b.addEventListener('click', () => _removeCuadreModals()));
+  overlay.addEventListener('click', e => { if (e.target === overlay) _removeCuadreModals(); });
+  overlay.querySelector('[data-cqv-modal-confirm]')?.addEventListener('click', async () => {
+    const val = name => String(overlay.querySelector(`[data-cqv-field="${name}"]`)?.value || '').trim();
+    const mva = val('mva').toUpperCase();
+    if (!mva) { _showActionMessage('MVA es obligatorio.', 'error'); return; }
+    const payload = { mva, modelo: val('modelo'), placas: val('placas'), estado: val('estado') || 'SUCIO', notas: val('notas'), plaza: _state?.plaza || '', tipo: 'externo', ubicacion: 'EXTERNO' };
+    const btn = overlay.querySelector('[data-cqv-modal-confirm]');
+    if (btn) { btn.disabled = true; btn.textContent = 'Insertando...'; }
+    try {
+      if (window.api?.insertarUnidadExterna) { await window.api.insertarUnidadExterna(payload); }
+      else { const { db: _db, COL: _C } = await import('/js/core/database.js'); await _db.collection(_C.EXTERNOS).add({ ...payload, _updatedAt: new Date(), _updatedBy: getState()?.profile?.nombre || 'APP' }); }
+      _removeCuadreModals();
+      _showActionMessage(`Externo ${mva} insertado.`, 'success');
+      if (_state?.plaza) _startListener(_state.plaza);
+    } catch (err) { _showActionMessage(err?.message || 'Error al insertar externo.', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Insertar'; } }
+  });
 }
 
 function _removeCuadreModals() {
