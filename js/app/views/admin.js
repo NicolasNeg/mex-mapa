@@ -623,7 +623,6 @@ function _syncDetail() {
       ${alerts.length ? `<div style="margin:8px 0;padding:8px;border:1px solid #f59e0b;border-radius:8px;background:#fffbeb;font-size:11px;color:#92400e;"><strong>Alertas de configuración</strong><ul style="margin:6px 0 0 16px;padding:0;">${alerts.map(a => `<li>${esc(a)}</li>`).join('')}</ul></div>` : ''}
       ${user.notasInternas ? _detail('Notas internas', user.notasInternas) : ''}
       ${canEdit ? `<button type="button" id="appAdminEditUserBtn" style="margin-top:12px;width:100%;border:none;border-radius:10px;padding:10px 12px;background:#0f172a;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Editar datos básicos</button>` : ''}
-      <a href="/gestion?tab=usuarios" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Abrir admin legacy (completo)</a>
     </div>`;
   const btn = box.querySelector('#appAdminEditUserBtn');
   if (btn) btn.addEventListener('click', () => _openEditUserModal(user, { actorEmail, allowPlaza, allowPlazasMulti }));
@@ -666,7 +665,7 @@ function _renderRoles() {
           <div style="margin-top:4px;font-size:11px;color:#64748b;line-height:1.35;">${arr.length ? esc(arr.join(', ')) : 'Sin permisos del grupo'}</div>
         </div>`).join('')}
       </div>
-      <a href="/gestion?tab=roles" style="display:inline-block;margin-top:10px;font-size:12px;color:#0f172a;">Editar matriz/jerarquía en legacy</a>
+      <p style="margin:10px 0 0;font-size:11px;color:#64748b;">La edición de matriz y jerarquía requiere permiso de configuración.</p>
     </div>`;
   }));
 }
@@ -711,7 +710,7 @@ function _renderPlazas() {
         ${topRoles.length ? topRoles.map(([rk, n]) => `<span style="font-size:11px;padding:3px 8px;border-radius:999px;background:#f1f5f9;color:#334155;">${esc(rk)} · ${n}</span>`).join('') : '<span style="font-size:11px;color:#94a3b8;">Sin usuarios asignados</span>'}
       </div>
       <div style="margin:8px 0;font-size:12px;color:#334155;">${esc(p.description || 'Sin descripción')}</div>
-      <a href="/gestion?tab=plazas" style="font-size:12px;color:#0f172a;">Editar plazas en legacy</a>
+      <p style="margin:8px 0 0;font-size:11px;color:#64748b;">Los cambios estructurales de plaza requieren permiso de configuración.</p>
     </div>`;
   }));
 }
@@ -745,7 +744,7 @@ function _renderCatalogs() {
       ${_detail('Elementos', (c.items || []).length)}
       ${_detail('Sección', c.section || 'general')}
       <ul style="margin:8px 0 0;padding-left:18px;max-height:280px;overflow:auto;">${preview || '<li style="font-size:12px;color:#94a3b8;">Sin elementos</li>'}</ul>
-      <a href="/gestion?tab=catalogos" style="font-size:12px;color:#0f172a;">Editar catálogos en legacy</a>
+      <p style="margin:8px 0 0;font-size:11px;color:#64748b;">Los cambios globales de catálogos requieren permiso de configuración.</p>
     </div>`;
   }));
 }
@@ -843,7 +842,7 @@ function _syncRequestDetail() {
     ? `<div style="display:flex;flex-direction:column;gap:8px;margin-top:12px;">
         ${canApr ? `<button type="button" id="appAdminReqApprove" style="border:none;border-radius:10px;padding:10px 12px;background:#059669;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Aprobar</button>` : ''}
         ${canRej ? `<button type="button" id="appAdminReqReject" style="border:none;border-radius:10px;padding:10px 12px;background:#b91c1c;color:#fff;font-weight:800;font-size:12px;cursor:pointer;">Rechazar</button>` : ''}
-        ${(!canApr && !canRej) ? '<p style="font-size:11px;color:#64748b;margin:0;">Sin permiso para procesar solicitudes. Usa legacy si aplica.</p>' : ''}
+        ${(!canApr && !canRej) ? '<p style="font-size:11px;color:#64748b;margin:0;">Sin permiso para procesar solicitudes.</p>' : ''}
       </div>`
     : `<p style="font-size:11px;color:#64748b;margin-top:8px;">Esta solicitud ya fue resuelta en Firestore.</p>`;
 
@@ -864,8 +863,7 @@ function _syncRequestDetail() {
       Verificando usuario relacionado en Firestore...
     </div>
     ${actions}
-    <a href="/solicitud" style="display:inline-block;margin-top:8px;font-size:12px;color:#0369a1;font-weight:700;">Abrir formulario público de solicitud</a><br/>
-    <a href="/gestion?tab=solicitudes" style="display:inline-block;margin-top:12px;font-size:12px;color:#0f172a;font-weight:700;">Abrir admin legacy (completo)</a>
+    <a href="/solicitud" style="display:inline-block;margin-top:8px;font-size:12px;color:#0369a1;font-weight:700;">Abrir formulario público de solicitud</a>
   </div>`;
 
   box.querySelector('#appAdminReqApprove')?.addEventListener('click', () => _openApproveRequestModal(req, { actorRole }));
@@ -874,7 +872,7 @@ function _syncRequestDetail() {
   fetchAdminUserByEmail(req.email).then(user => {
     if (!relBox || !_state) return;
     if (!user) {
-      relBox.innerHTML = 'Perfil relacionado: <strong>no existe</strong><br/>Auth user: verificar en legacy/Functions.';
+      relBox.innerHTML = 'Perfil relacionado: <strong>no existe</strong><br/>Auth user: verificar en Cloud Functions.';
       return;
     }
     relBox.innerHTML = `Perfil relacionado: <strong>existe</strong> · Estado: <strong>${esc(user.status || 'ACTIVO')}</strong> · Plaza: <strong>${esc(user.plaza || '—')}</strong><br/><a href="/app/admin?tab=usuarios" style="color:#0f172a;font-weight:700;">Abrir usuarios</a>`;
@@ -888,11 +886,10 @@ function _html(profile = {}) {
 <div style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
   <h1 style="margin:0 0 10px;color:#0f172a;font-size:26px;">Panel admin</h1>
   <p style="margin:0 0 14px;padding:11px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#475569;line-height:1.45;">
-    Solicitudes y usuarios tienen flujo operativo seguro con confirmación por permisos. Roles, plazas y catálogos muestran datos reales y mantienen edición en legacy para evitar cambios sensibles en esta fase.
+    Solicitudes y usuarios tienen flujo operativo seguro con confirmación por permisos. Roles, plazas y catálogos muestran datos reales dentro del App Shell.
   </p>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
     ${['usuarios','roles','plazas','catalogos','solicitudes'].map(t => `<button data-admin-tab="${t}" style="border:1px solid #dbe3ef;border-radius:999px;padding:6px 12px;font-size:12px;font-weight:700;background:${t==='usuarios'?'#0f172a':'#fff'};color:${t==='usuarios'?'#fff':'#475569'};cursor:pointer;text-transform:capitalize;">${t}</button>`).join('')}
-    <a href="/gestion" style="margin-left:auto;font-size:12px;color:#0f172a;">Abrir panel admin completo</a>
   </div>
   <div id="adminUsuariosPane" style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
@@ -918,7 +915,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminRolesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Vista de roles y permisos agrupados para auditoría operativa. Edición de matriz, jerarquía y asignaciones permanece en <a href="/gestion?tab=roles" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Vista de roles y permisos agrupados para auditoría operativa.</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:980px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">Rol</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nivel</th><th style="padding:8px;text-align:left;background:#f8fafc;">Descripción</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Permisos principales</th><th style="padding:8px;text-align:left;background:#f8fafc;">Tipo</th></tr></thead>
@@ -930,7 +927,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminPlazasPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Resumen real de plazas (estado, usuarios y conteos de unidades aproximados para contexto). Altas y cambios estructurales siguen en <a href="/gestion?tab=plazas" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Resumen real de plazas (estado, usuarios y conteos de unidades aproximados para contexto).</p>
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:940px;">
           <thead><tr><th style="padding:8px;text-align:left;background:#f8fafc;">ID</th><th style="padding:8px;text-align:left;background:#f8fafc;">Nombre</th><th style="padding:8px;text-align:left;background:#f8fafc;">Usuarios</th><th style="padding:8px;text-align:left;background:#f8fafc;">Estado</th><th style="padding:8px;text-align:left;background:#f8fafc;">Referencia</th></tr></thead>
@@ -942,7 +939,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminCatalogosPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Catálogos reales cargados desde configuración activa (estados, ubicaciones, categorías, modelos, gasolinas y extras). Cambios globales se mantienen en <a href="/gestion?tab=catalogos" style="color:#0f172a;font-weight:700;">legacy</a>.</p>
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Catálogos reales cargados desde configuración activa (estados, ubicaciones, categorías, modelos, gasolinas y extras).</p>
       <input id="appAdminCatalogLocalSearch" placeholder="Buscar catálogo..." style="width:100%;box-sizing:border-box;border:1px solid #dbe3ef;border-radius:8px;padding:8px;margin-bottom:8px;" />
       <div style="overflow:auto;max-height:64vh;border:1px solid #eef2f7;border-radius:8px;">
         <table style="width:100%;border-collapse:collapse;min-width:760px;">
@@ -955,7 +952,7 @@ function _html(profile = {}) {
   </div>
   <div id="adminSolicitudesPane" style="display:none;grid-template-columns:minmax(0,1fr) 320px;gap:12px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:10px;">
-      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Aprobar/rechazar usa la misma Cloud Function que legacy. Si falta contraseña válida en la solicitud, completa el flujo en legacy.</p>
+      <p style="margin:0 0 10px;font-size:11px;color:#64748b;">Aprobar/rechazar usa la Cloud Function operativa. Si falta contraseña válida, corrige la solicitud antes de aprobar.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
         <select id="appAdminReqStatus" style="border:1px solid #dbe3ef;border-radius:8px;padding:8px;">
           <option value="PENDIENTE">Pendientes</option>
@@ -984,7 +981,7 @@ function _fmtDate(v) {
   try {
     if (typeof v.toDate === 'function') return v.toDate().toLocaleString('es-MX');
   } catch (_) {}
-  // Soporta epoch en ms/seg (número o string), usado por algunos perfiles legacy/bootstrap.
+  // Soporta epoch en ms/seg (número o string), usado por algunos perfiles antiguos/bootstrap.
   const numeric = Number(v);
   if (Number.isFinite(numeric)) {
     const ms = numeric < 1e12 ? numeric * 1000 : numeric;

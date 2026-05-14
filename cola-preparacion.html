@@ -17,7 +17,8 @@
   <link rel="stylesheet" href="/css/global.css">
   <!-- Legacy CSS removed -->
   <script id="tailwind-config">
-    tailwind.config = {
+    window.tailwind = window.tailwind || {};
+    window.tailwind.config = {
       darkMode: "class",
       theme: {
         extend: {

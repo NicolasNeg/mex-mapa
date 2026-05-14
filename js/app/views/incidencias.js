@@ -245,7 +245,7 @@ function _applyFilters() {
   _state.items = (_state.allItems || []).filter(item => {
     const p = _priority(item);
     if (!_state.priorityFilter[p]) return false;
-    const status = _legacyStatus(item);
+    const status = _statusFromNota(item);
     if (_state.statusFilter !== 'TODAS' && status !== _state.statusFilter) return false;
     if (!query) return true;
     const hay = `${item.titulo || ''} ${item.descripcion || ''} ${item.autor || ''} ${item.codigo || ''} ${item.mva || ''}`.toLowerCase();
@@ -279,9 +279,9 @@ function _renderPreview() {
 
 function _renderStats() {
   const total = _state.allItems.length;
-  const pend = _state.allItems.filter(i => _legacyStatus(i) === 'PENDIENTE').length;
-  const crit = _state.allItems.filter(i => _priority(i) === 'CRITICA' && _legacyStatus(i) === 'PENDIENTE').length;
-  const res = _state.allItems.filter(i => _legacyStatus(i) === 'RESUELTA').length;
+  const pend = _state.allItems.filter(i => _statusFromNota(i) === 'PENDIENTE').length;
+  const crit = _state.allItems.filter(i => _priority(i) === 'CRITICA' && _statusFromNota(i) === 'PENDIENTE').length;
+  const res = _state.allItems.filter(i => _statusFromNota(i) === 'RESUELTA').length;
   const adj = _state.allItems.reduce((acc, it) => acc + _evidenceRows(it).length, 0);
   _setText('incStatTotal', total);
   _setText('incStatPendientes', pend);
@@ -328,7 +328,7 @@ function _renderList() {
   list.innerHTML = _state.items.map(item => {
     const pr = _priorityMeta(item);
     const st = _stateMeta(item);
-    const open = _legacyStatus(item) === 'PENDIENTE';
+    const open = _statusFromNota(item) === 'PENDIENTE';
     const evidencias = _evidenceRows(item);
     return `
       <article class="nota-card" data-prioridad="${esc(pr.key)}">
@@ -413,7 +413,7 @@ function _renderEvidenceBlock(items) {
     <div class="nota-attachments">
       ${items.map(item => item.url
         ? `<a class="nota-attachment-file" href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><span class="material-icons">attach_file</span><span class="nota-attachment-copy"><strong>${esc(item.label)}</strong><span>Abrir evidencia</span></span></a>`
-        : `<div class="nota-attachment-file nota-attachment-file--no-url"><span class="material-icons">folder</span><span class="nota-attachment-copy"><strong>${esc(item.label)}</strong><span>Disponible en legacy (sin URL directa)</span></span></div>`
+        : `<div class="nota-attachment-file nota-attachment-file--no-url"><span class="material-icons">folder</span><span class="nota-attachment-copy"><strong>${esc(item.label)}</strong><span>Adjunto registrado sin URL directa</span></span></div>`
       ).join('')}
     </div>
   `;
@@ -535,7 +535,7 @@ function _updatePreview() {
   }
 }
 
-function _legacyStatus(item) {
+function _statusFromNota(item) {
   const value = String(item?.estado || '').toUpperCase().trim();
   if (value === 'RESUELTA' || value === 'CERRADA') return 'RESUELTA';
   return 'PENDIENTE';
@@ -558,7 +558,7 @@ function _priorityMeta(item) {
 }
 
 function _stateMeta(item) {
-  if (_legacyStatus(item) === 'RESUELTA') return { className: 'is-resuelta', label: 'Resuelta' };
+  if (_statusFromNota(item) === 'RESUELTA') return { className: 'is-resuelta', label: 'Resuelta' };
   return { className: 'is-pendiente', label: 'Pendiente' };
 }
 

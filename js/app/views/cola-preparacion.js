@@ -144,8 +144,24 @@ function _queueColl(plaza) {
   return db.collection('cola_preparacion').doc(p).collection('items');
 }
 
+function _canPrepManage() {
+  const st = getState() || {};
+  const profile = st.profile || {};
+  const role = String(st.role || profile.rol || profile.role || '').toUpperCase();
+  return profile.isAdmin === true || [
+    'PROGRAMADOR',
+    'JEFE_OPERACION',
+    'GERENTE_PLAZA',
+    'SUPERVISOR',
+    'JEFE_PATIO',
+    'COORDINADOR',
+    'ADMINISTRADOR',
+    'ADMIN'
+  ].includes(role);
+}
+
 function _canPrepDelete() {
-  return false;
+  return _canPrepManage();
 }
 
 async function _loadPlazaUsers() {
@@ -265,16 +281,112 @@ function _closePrepCreateModal() {
 
 async function _persistReorderPrep(sourceId, targetId) {
   if (!sourceId || !targetId || sourceId === targetId) return;
-  _toast('El reordenamiento se mantiene en legacy por seguridad operativa.', 'info');
+  if (!_canPrepManage()) {
+    _toast('No tienes permiso para reordenar la cola.', 'error');
+    return;
+  }
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  if (!plaza) {
+    _toast('Selecciona una plaza para reordenar.', 'warning');
+    return;
+  }
+  const base = [...(_state?.items || [])].sort(_comparePrepItems);
+  const from = base.findIndex(item => item.id === sourceId);
+  const to = base.findIndex(item => item.id === targetId);
+  if (from < 0 || to < 0) return;
+  const [moved] = base.splice(from, 1);
+  const insertAt = from < to ? Math.max(0, to - 1) : to;
+  base.splice(insertAt, 0, moved);
+  const fv = _fv();
+  const actor = _state.profileEmail || '';
+  try {
+    const batch = typeof db.batch === 'function' ? db.batch() : null;
+    await Promise.all(base.map((item, index) => {
+      const payload = { orden: (index + 1) * 10 };
+      if (fv) {
+        payload.actualizadoAt = fv.serverTimestamp();
+        payload.actualizadoPor = actor;
+      }
+      const ref = _queueColl(plaza).doc(item.id);
+      if (batch) {
+        batch.set(ref, payload, { merge: true });
+        return Promise.resolve();
+      }
+      return ref.set(payload, { merge: true });
+    }));
+    if (batch) await batch.commit();
+    _toast('Orden actualizado.', 'success');
+  } catch (err) {
+    console.error('[prep-app] reorder', err);
+    _toast(err?.message || 'No se pudo reordenar.', 'error');
+  }
 }
 
 async function _runBulkComplete() {
-  _toast('La acción masiva se mantiene en legacy para evitar cambios accidentales.', 'info');
+  if (!_canPrepManage()) {
+    _toast('No tienes permiso para acciones masivas.', 'error');
+    return;
+  }
+  const items = (_state?.filteredItems || []).filter(item => !_isItemReady(item));
+  if (!items.length) {
+    _toast('No hay unidades pendientes visibles.', 'info');
+    return;
+  }
+  if (!confirm(`¿Marcar checklist completo en ${items.length} unidad(es) visibles?`)) return;
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  const fv = _fv();
+  const actor = _state.profileEmail || '';
+  const checklist = CHECKLIST_KEYS.reduce((acc, key) => {
+    acc[key] = true;
+    return acc;
+  }, {});
+  try {
+    const batch = typeof db.batch === 'function' ? db.batch() : null;
+    await Promise.all(items.map(item => {
+      const payload = { checklist };
+      if (fv) {
+        payload.actualizadoAt = fv.serverTimestamp();
+        payload.actualizadoPor = actor;
+      }
+      const ref = _queueColl(plaza).doc(item.id);
+      if (batch) {
+        batch.set(ref, payload, { merge: true });
+        return Promise.resolve();
+      }
+      return ref.set(payload, { merge: true });
+    }));
+    if (batch) await batch.commit();
+    _toast('Checklist completado para las unidades visibles.', 'success');
+  } catch (err) {
+    console.error('[prep-app] bulk complete', err);
+    _toast(err?.message || 'No se pudo completar la acción masiva.', 'error');
+  }
 }
 
 async function _deletePrepItem(id) {
   if (!id) return;
-  _toast('Eliminar entradas de cola se mantiene en legacy por seguridad.', 'warning');
+  if (!_canPrepDelete()) {
+    _toast('No tienes permiso para eliminar entradas de cola.', 'error');
+    return;
+  }
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  if (!plaza) {
+    _toast('Selecciona una plaza.', 'warning');
+    return;
+  }
+  try {
+    await _queueColl(plaza).doc(id).delete();
+    if (_state) {
+      _state.selectedId = null;
+      _deleteArmedPrepId = '';
+    }
+    const panel = q('prepDetailPanel');
+    if (panel) panel.style.display = 'none';
+    _toast('Entrada eliminada de la cola.', 'success');
+  } catch (err) {
+    console.error('[prep-app] delete', err);
+    _toast(err?.message || 'No se pudo eliminar.', 'error');
+  }
 }
 
 function _syncBulkButtonVisibility() {
@@ -287,7 +399,7 @@ function _attachDragPrepCards() {
   const root = q('prepList');
   if (!root) return;
   root.querySelectorAll('[data-item-id]').forEach(card => {
-    card.draggable = false;
+    card.draggable = _canPrepManage();
     card.addEventListener('dragstart', e => {
       _dragPrepId = card.dataset.itemId || '';
       card.classList.add('is-dragging');
@@ -503,7 +615,7 @@ function _makeState(plaza, profile = {}) {
     searchQuery: '',
     /** @type {'all'|'urgent'|'pending'|'ready'|'mine'} */
     filterStatus: 'all',
-    sortField:   '__legacy',
+    sortField:   '__operational',
     sortDir:     'asc',
     selectedId:  null,
     loading: false,
@@ -742,7 +854,7 @@ function _applyFilters() {
 
   const field = _state.sortField;
   const dir = _state.sortDir === 'asc' ? 1 : -1;
-  if (field === '__legacy') {
+  if (field === '__operational') {
     items.sort((a, b) => _comparePrepItems(a, b));
   } else {
     items.sort((a, b) => {
@@ -781,7 +893,7 @@ function _sortVal(item, field) {
 // ── Bind eventos ─────────────────────────────────────────────
 
 function _bindTopBar() {
-  // Delegación en la barra superior (data-app-route y data-legacy-route)
+  // Delegación en la barra superior.
   const bar = qs('[data-prep-topbar]');
   if (!bar) return;
   bar.addEventListener('click', e => {
@@ -827,8 +939,8 @@ function _bindSort() {
   sel.addEventListener('change', () => {
     if (!_state) return;
     const raw = String(sel.value || '');
-    if (raw === '__legacy') {
-      _state.sortField = '__legacy';
+    if (raw === '__operational') {
+      _state.sortField = '__operational';
       _state.sortDir = 'asc';
     } else {
       const [field, dir] = raw.split(':');
@@ -1082,13 +1194,6 @@ function _showDetail(it) {
 
   ${_checklistSection(it)}
 
-  <div style="margin-top:14px;padding-top:12px;border-top:1px solid #f1f5f9;">
-    <a href="/cola-preparacion?plaza=${esc(_state?.plaza || '')}&mva=${esc(it.mva || it.id)}"
-       style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#64748b;text-decoration:underline;font-weight:600;">
-      <span class="material-symbols-outlined" style="font-size:15px;">open_in_new</span>
-      Abrir en módulo legacy (funciones avanzadas)
-    </a>
-  </div>
 </div>`;
 
   panel.style.display = 'block';
@@ -1258,13 +1363,6 @@ function _skeleton({ profile, role, company, plaza }) {
     <span style="font-size:12px;font-weight:700;color:#0f172a;">Cola de preparación</span>
     <span id="prepTopbarPlaza" style="margin-left:auto;font-size:11px;font-weight:700;color:#2b6954;
                             padding:3px 10px;background:#dcfce7;border-radius:100px;display:${plaza ? 'inline-flex' : 'none'};">${esc(plaza)}</span>
-    <a href="/cola-preparacion"
-       style="display:flex;align-items:center;gap:4px;font-size:11px;color:#64748b;
-              text-decoration:none;padding:4px 10px;border:1px solid #e2e8f0;border-radius:8px;
-              ${plaza ? '' : 'margin-left:auto;'}">
-      <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>
-      Vista legacy
-    </a>
   </div>
   <div data-prep-toast-host style="position:fixed;bottom:20px;right:20px;z-index:50;pointer-events:none;max-width:min(320px,92vw);"></div>
   <datalist id="prepUsersDatalist"></datalist>
@@ -1286,7 +1384,7 @@ function _skeleton({ profile, role, company, plaza }) {
   <!-- Controles: filtros + sort -->
   <div style="padding:12px 16px;border-bottom:1px solid #f1f5f9;background:#fafafa;
               flex-shrink:0;display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-    <!-- Filtros (alineados al modelo legacy: urgencia / pendiente / listo / míos) -->
+    <!-- Filtros operativos: urgencia / pendiente / listo / míos -->
     <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:180px;">
       ${_filterBtn('all',      'Todos',       true)}
       ${_filterBtn('urgent',   'Urgentes',    false)}
@@ -1300,7 +1398,7 @@ function _skeleton({ profile, role, company, plaza }) {
     <select id="prepSortSelect"
             style="border:1px solid #e2e8f0;border-radius:8px;padding:6px 10px;
                    font-size:12px;font-family:inherit;color:#334155;background:#fff;outline:none;">
-      <option value="__legacy">Orden legacy (prioridad + salida)</option>
+      <option value="__operational">Orden operativo (prioridad + salida)</option>
       <option value="fechaSalida:asc">Salida más próxima</option>
       <option value="orden:asc">Campo orden</option>
       <option value="mva:asc">MVA A→Z</option>
@@ -1343,7 +1441,7 @@ function _skeleton({ profile, role, company, plaza }) {
       <div>
         <div class="prep-panel-kicker">Nueva salida</div>
         <h3>Agregar unidad a la cola</h3>
-        <p style="margin:6px 0 0;font-size:12px;color:#64748b;">Registra manualmente la preparación si aún no existe en la cola (misma lógica que legacy).</p>
+        <p style="margin:6px 0 0;font-size:12px;color:#64748b;">Registra manualmente la preparación si aún no existe en la cola.</p>
       </div>
       <button type="button" class="prep-icon-btn" id="prepModalCloseBtn" aria-label="Cerrar">
         <span class="material-symbols-outlined" style="font-size:18px;">close</span>

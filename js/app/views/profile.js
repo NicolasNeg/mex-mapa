@@ -364,7 +364,6 @@ function _html(profile, role, form) {
       <div class="app-profile-actions">
         <button id="appProfileSave" type="button">Guardar cambios</button>
         <button id="appProfileCancel" type="button">Cancelar</button>
-        <a href="/profile">Abrir perfil legacy</a>
       </div>
       <div id="appProfileStatus" class="app-profile-status"></div>
     </div>

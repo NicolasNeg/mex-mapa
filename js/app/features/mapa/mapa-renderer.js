@@ -500,22 +500,24 @@ function _renderCompactUnitsMenu(vm, options) {
     (orphan.length
       ? _renderCompactUnitsSection('Posición no encontrada', 'help_outline', orphan, options, 'ORPHAN')
       : '');
-  return `
-    <details class="app-mapa-units-menu" id="app-mapa-units-menu">
-      <summary class="app-mapa-units-menu-toggle" title="Vehículos y unidades">
-        <span class="material-icons">directions_car</span>
-        <span>UNIDADES</span>
-        <strong>${total}</strong>
-      </summary>
-      <div class="app-mapa-units-menu-panel">
-        <div class="app-mapa-units-menu-head">
-          <h2>UNIDADES</h2>
+  return {
+    total,
+    html: `
+    <div class="app-mapa-units-drawer" id="app-mapa-units-drawer" hidden>
+      <div class="app-mapa-units-drawer-overlay" data-mapa-drawer-close></div>
+      <div class="app-mapa-units-drawer-panel">
+        <div class="app-mapa-units-drawer-head">
+          <h2>UNIDADES EN EL LIMBO</h2>
           <span>${total} sin cajón activo</span>
+          <button type="button" class="app-mapa-units-drawer-close" data-mapa-drawer-close>&times;</button>
         </div>
-        ${sections || '<p class="app-mapa-units-menu-empty">No hay unidades sin cajón.</p>'}
+        <div class="app-mapa-units-drawer-body">
+          ${sections || '<p class="app-mapa-units-menu-empty">No hay unidades sin cajón.</p>'}
+        </div>
       </div>
-    </details>
-  `;
+    </div>
+  `
+  };
 }
 
 function _findSelected(vm, selectedId) {
@@ -867,7 +869,6 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
     <div class="app-mapa app-mapa-legacy-port app-mapa-operativo">
       <div class="content app-mapa-legacy-content">
         ${kpiHtml}
-        ${compactUnitsMenu}
         ${filterStrip}
         ${noResults ? `<p class="app-mapa-noresults" role="status">Sin resultados para la búsqueda actual.</p>` : ''}
         <div class="app-mapa-legacy-mapdetail-row${selected ? '' : ' app-mapa-legacy-mapdetail-row--no-detail'}">
@@ -891,4 +892,7 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
       </div>
     </div>
   `;
+  return {
+    unidadesData: compactUnitsMenu
+  };
 }

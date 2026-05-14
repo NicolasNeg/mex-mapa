@@ -9,10 +9,10 @@ let _offGlobalSearch = null;
 let _globalQuery = '';
 let _navigate = null;
 let _cleanupFlags = null;
-let _cleanupBeta = null;
+let _cleanupRelease = null;
 
-/** Smoke mismo-origen (HEAD/GET): App Shell, perfil y rutas legacy pedidas en handoff beta. */
-const _BETA_ROUTES = [
+/** Smoke mismo-origen (HEAD/GET): rutas App Shell del release. */
+const _RELEASE_ROUTES = [
   '/app/dashboard',
   '/app/mapa',
   '/app/mensajes',
@@ -21,16 +21,10 @@ const _BETA_ROUTES = [
   '/app/cuadre',
   '/app/admin',
   '/app/programador',
-  '/app/profile',
-  '/home',
-  '/mapa',
-  '/gestion',
-  '/mensajes',
-  '/cuadre',
-  '/cola-preparacion'
+  '/app/profile'
 ];
 
-const _BETA_ASSETS = [
+const _RELEASE_ASSETS = [
   '/js/app/main.js',
   '/css/shell.css',
   '/app.html',
@@ -39,7 +33,7 @@ const _BETA_ASSETS = [
 ];
 
 /** Misma política que `/app/mapa`: solo PROGRAMADOR o admin global real; excluye roles operativos denegados. */
-const _EXPERIMENTAL_DENIED = new Set([
+const _LOCAL_FLAG_DENIED = new Set([
   'CORPORATIVO_USER',
   'JEFE_OPERACION',
   'AUXILIAR',
@@ -65,14 +59,14 @@ export async function mount({ container, navigate }) {
   };
   btn?.addEventListener('click', _copyHandler);
   fullBtn?.addEventListener('click', _copyFullHandler);
-  _cleanupFlags = _bindExperimentalSection(flags.canEditControls);
-  _cleanupBeta = _bindBetaReadiness();
+  _cleanupFlags = _bindLocalFlagsSection(flags.canEditControls);
+  _cleanupRelease = _bindReleaseReadiness();
 }
 
 export function unmount() {
-  if (_cleanupBeta) {
-    try { _cleanupBeta(); } catch (_) {}
-    _cleanupBeta = null;
+  if (_cleanupRelease) {
+    try { _cleanupRelease(); } catch (_) {}
+    _cleanupRelease = null;
   }
   if (_cleanupFlags) {
     try { _cleanupFlags(); } catch (_) {}
@@ -116,8 +110,8 @@ function _applySearchFilter() {
   });
 }
 
-/** Script legado `/config.js` no debe estar en el documento; config en `firebase-config.js`. */
-function _legacyConfigJsInDocument() {
+/** Script `/config.js` externo no debe estar en el documento; config en `firebase-config.js`. */
+function _externalConfigJsInDocument() {
   try {
     return Array.from(document.scripts || []).some(s =>
       /\/config\.js(\?|$)/.test(String(s.src || ''))
@@ -135,9 +129,9 @@ function _firebaseConfigReady() {
   }
 }
 
-function _canExperimentalControls(state) {
+function _canLocalFlagControls(state) {
   const r = String(state?.role || '').toUpperCase();
-  if (_EXPERIMENTAL_DENIED.has(r)) return false;
+  if (_LOCAL_FLAG_DENIED.has(r)) return false;
   if (r === 'PROGRAMADOR') return true;
   const p = state?.profile || {};
   return Boolean(p.isAdmin === true && esGlobal(r));
@@ -154,7 +148,7 @@ function _readLsBool(key) {
 function _readShellFlags(state) {
   const profile = state.profile || {};
   const role = String(state.role || '').toUpperCase();
-  const canRole = _canExperimentalControls(state);
+  const canRole = _canLocalFlagControls(state);
   const isAdm = profile.isAdmin === true;
   const eg = Boolean(esGlobal(role));
 
@@ -211,7 +205,7 @@ async function _collectDiagnostics() {
       ? 'production'
       : 'custom';
   const programmerErrorsAvailable = Boolean(window._db);
-  const legacyConfigJs = _legacyConfigJsInDocument();
+  const externalConfigJs = _externalConfigJsInDocument();
   const firebaseConfigOk = _firebaseConfigReady();
   return {
     user: profile.nombreCompleto || profile.nombre || profile.usuario || profile.email || 'Usuario',
@@ -232,7 +226,7 @@ async function _collectDiagnostics() {
     appShell,
     errors: { source: programmerErrorsAvailable ? 'programmer_errors (disponible)' : 'no disponible en runtime' },
     config: {
-      legacyConfigJs,
+      externalConfigJs,
       firebaseConfigOk,
       firebaseProjectId: firebaseConfigOk ? String(window.FIREBASE_CONFIG.projectId || '').trim() : ''
     }
@@ -266,7 +260,7 @@ function _summaryText(info) {
     `Plaza activa: ${info.plaza}`,
     `Ruta actual: ${flags.route}`,
     `Flags: dnd=${flags.dndLs ? '1' : '0'} persist=${flags.dndPersistLs ? '1' : '0'} debug=${flags.debugLs ? '1' : '0'}`,
-    `Script /config.js (legacy) en documento: ${cfg.legacyConfigJs ? 'SÍ (no esperado)' : 'no'}`,
+    `Script /config.js externo en documento: ${cfg.externalConfigJs ? 'SÍ (no esperado)' : 'no'}`,
     `Config cliente (archivo esperado): /js/core/firebase-config.js`,
     `FIREBASE_CONFIG: ${cfg.firebaseConfigOk ? `ok · ${cfg.firebaseProjectId || '—'}` : 'NO'}`,
     `Host: ${info.host} (${info.env})`,
@@ -331,7 +325,7 @@ async function _copyFullDiagnostics(info) {
   }
 }
 
-function _bindExperimentalSection(canEdit) {
+function _bindLocalFlagsSection(canEdit) {
   const root = _container?.querySelector('[data-prog-flags-root]');
   if (!root) return () => {};
 
@@ -372,10 +366,6 @@ function _bindExperimentalSection(canEdit) {
     if (a === 'open-app-mapa') {
       if (_navigate) _navigate('/app/mapa');
       else window.location.href = '/app/mapa';
-      return;
-    }
-    if (a === 'open-legacy-mapa') {
-      window.location.href = '/mapa';
       return;
     }
     if (a === 'clear-local-flags') {
@@ -421,8 +411,8 @@ async function _probeUrl(path) {
   }
 }
 
-function _bindBetaReadiness() {
-  const root = _container?.querySelector('[data-beta-root]');
+function _bindReleaseReadiness() {
+  const root = _container?.querySelector('[data-release-root]');
   if (!root) return () => {};
 
   const setStatus = (id, ok) => {
@@ -434,38 +424,38 @@ function _bindBetaReadiness() {
   };
 
   const onClick = async e => {
-    const btn = e.target?.closest?.('[data-beta-act]');
+    const btn = e.target?.closest?.('[data-release-act]');
     if (!btn || !root.contains(btn)) return;
-    const act = btn.getAttribute('data-beta-act');
-    const pre = root.querySelector('#progBetaSmokeResults');
+    const act = btn.getAttribute('data-release-act');
+    const pre = root.querySelector('#progReleaseSmokeResults');
 
     if (act === 'smoke') {
       if (pre) pre.textContent = 'Ejecutando comprobaciones (solo GET/HEAD mismo origen)…';
       const lines = [];
-      for (const path of _BETA_ROUTES) {
+      for (const path of _RELEASE_ROUTES) {
         const ok = await _probeUrl(path);
         lines.push(`${ok ? 'OK ' : 'FAIL'} ${path}`);
       }
       lines.push('');
       lines.push('Assets:');
-      for (const path of _BETA_ASSETS) {
+      for (const path of _RELEASE_ASSETS) {
         const ok = await _probeUrl(path);
         lines.push(`${ok ? 'OK ' : 'FAIL'} ${path}`);
       }
       const text = lines.join('\n');
       if (pre) pre.textContent = text;
-      _BETA_ROUTES.forEach((path, i) => {
+      _RELEASE_ROUTES.forEach((path, i) => {
         const ok = lines[i].startsWith('OK');
-        setStatus(`beta-chk-${i}`, ok);
+        setStatus(`release-chk-${i}`, ok);
       });
       return;
     }
 
-    if (act === 'copy-beta') {
+    if (act === 'copy-release') {
       const info = await _collectDiagnostics();
       const st = getState();
       const flags = _readShellFlags(st);
-      const smoke = root.querySelector('#progBetaSmokeResults')?.textContent || '(ejecuta smoke antes)';
+      const smoke = root.querySelector('#progReleaseSmokeResults')?.textContent || '(ejecuta smoke antes)';
       const cfg = info.config || {};
       const report = [
         `Host: ${info.host}`,
@@ -474,7 +464,7 @@ function _bindBetaReadiness() {
         `Ruta: ${flags.route}`,
         `Plaza: ${flags.plaza}`,
         `SW: ${info.sw.swVersion}`,
-        `Script /config.js legacy en documento: ${cfg.legacyConfigJs ? 'SÍ (no esperado)' : 'no'}`,
+        `Script /config.js externo en documento: ${cfg.externalConfigJs ? 'SÍ (no esperado)' : 'no'}`,
         `Config cliente: /js/core/firebase-config.js`,
         `FIREBASE_CONFIG: ${cfg.firebaseConfigOk ? `ok · ${cfg.firebaseProjectId || ''}` : 'NO'}`,
         `window.api: ${info.api.count} funciones`,
@@ -496,7 +486,6 @@ function _bindBetaReadiness() {
     if (act === 'open-app-mapa' && _navigate) _navigate('/app/mapa');
     else if (act === 'open-app-mapa') window.location.href = '/app/mapa';
 
-    if (act === 'open-legacy') window.location.href = '/mapa';
     if (act === 'reload-app') window.location.reload();
   };
 
@@ -504,18 +493,18 @@ function _bindBetaReadiness() {
   return () => root.removeEventListener('click', onClick);
 }
 
-function _betaReadinessHtml(info, flags) {
-  const routeLabels = _BETA_ROUTES.map((p, i) => {
+function _releaseReadinessHtml(info, flags) {
+  const routeLabels = _RELEASE_ROUTES.map((p, i) => {
     const short = p.replace('/app/', '');
-    return `<div data-prog-search-text="${esc(`beta ruta ${p}`.toLowerCase())}" style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:4px 0;border-bottom:1px solid #f1f5f9;">
+    return `<div data-prog-search-text="${esc(`release ruta ${p}`.toLowerCase())}" style="display:flex;justify-content:space-between;align-items:center;font-size:11px;padding:4px 0;border-bottom:1px solid #f1f5f9;">
       <span style="color:#64748b;">${esc(p)}</span>
-      <span id="beta-chk-${i}" style="color:#94a3b8;">—</span>
+      <span id="release-chk-${i}" style="color:#94a3b8;">—</span>
     </div>`;
   }).join('');
 
   return `
-  <div data-beta-root data-prog-search-text="beta readiness smoke" style="border:1px solid #dbeafe;border-radius:12px;background:#f8fafc;padding:14px;margin-bottom:12px;">
-    <h3 style="margin:0 0 8px;font-size:15px;color:#0f172a;">Beta Readiness</h3>
+  <div data-release-root data-prog-search-text="release readiness smoke" style="border:1px solid #dbeafe;border-radius:12px;background:#f8fafc;padding:14px;margin-bottom:12px;">
+    <h3 style="margin:0 0 8px;font-size:15px;color:#0f172a;">Release readiness</h3>
     <p style="margin:0 0 10px;font-size:12px;color:#475569;line-height:1.45;">
       Validación rápida para despliegue Firebase. El smoke check solo hace peticiones <code>HEAD/GET</code> al mismo origen; no escribe Firestore ni borra cache.
     </p>
@@ -534,23 +523,22 @@ function _betaReadinessHtml(info, flags) {
         ${_row('Storage', info.firebase.hasStorage ? 'ok' : 'no')}
         ${_row('SW registrado', info.sw.swState)}
         ${_row('SW controla página', info.sw.swControlled ? 'sí' : 'no')}
-        ${_row('Script /config.js (legacy)', info.config?.legacyConfigJs ? '⚠ cargado' : 'no (ok)')}
+        ${_row('Script /config.js externo', info.config?.externalConfigJs ? '⚠ cargado' : 'no (ok)')}
         ${_row('Origen FIREBASE_CONFIG', '/js/core/firebase-config.js')}
         ${_row('FIREBASE_CONFIG', info.config?.firebaseConfigOk ? `ok · ${esc(info.config.firebaseProjectId || '')}` : 'NO')}
       </div>
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;padding:10px;font-size:12px;">
-        <div style="font-weight:800;color:#64748b;margin-bottom:6px;">Rutas App Shell / legacy</div>
+        <div style="font-weight:800;color:#64748b;margin-bottom:6px;">Rutas App Shell</div>
         ${routeLabels}
       </div>
     </div>
-    <pre id="progBetaSmokeResults" style="margin:0 0 10px;padding:10px;background:#0f172a;color:#e2e8f0;border-radius:8px;font-size:11px;overflow:auto;max-height:260px;">Pulsa «Ejecutar smoke check local» para resultados.</pre>
+    <pre id="progReleaseSmokeResults" style="margin:0 0 10px;padding:10px;background:#0f172a;color:#e2e8f0;border-radius:8px;font-size:11px;overflow:auto;max-height:260px;">Pulsa «Ejecutar smoke check local» para resultados.</pre>
     <div style="display:flex;flex-wrap:wrap;gap:8px;">
-      <button type="button" data-beta-act="smoke" style="border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Ejecutar smoke check local</button>
-      <button type="button" data-beta-act="copy-beta" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar reporte beta</button>
-      <button type="button" data-beta-act="open-dashboard" style="border:1px solid #0f766e;background:#0f766e;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/dashboard</button>
-      <button type="button" data-beta-act="open-app-mapa" style="border:1px solid #0f766e;background:#ecfdf5;color:#065f46;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/mapa</button>
-      <button type="button" data-beta-act="open-legacy" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /mapa legacy</button>
-      <button type="button" data-beta-act="reload-app" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Recargar app</button>
+      <button type="button" data-release-act="smoke" style="border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Ejecutar smoke check local</button>
+      <button type="button" data-release-act="copy-release" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar reporte release</button>
+      <button type="button" data-release-act="open-dashboard" style="border:1px solid #0f766e;background:#0f766e;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/dashboard</button>
+      <button type="button" data-release-act="open-app-mapa" style="border:1px solid #0f766e;background:#ecfdf5;color:#065f46;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/mapa</button>
+      <button type="button" data-release-act="reload-app" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Recargar app</button>
     </div>
   </div>`;
 }
@@ -581,7 +569,6 @@ function _html(info, flags) {
 <div style="padding:22px;max-width:1060px;margin:0 auto;font-family:Inter,sans-serif;">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;">
     <h1 style="margin:0;font-size:26px;color:#0f172a;">Consola técnica (read-only)</h1>
-    <a href="/programador" style="font-size:12px;color:#0f172a;">Abrir consola completa</a>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:12px;">
     ${_card('Usuario', info.user)}
@@ -596,7 +583,7 @@ function _html(info, flags) {
   </div>
 
   <div data-prog-flags-root style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:14px;margin-bottom:12px;">
-    <h3 style="margin:0 0 10px;font-size:15px;color:#0f172a;">Flags experimentales App Shell</h3>
+    <h3 style="margin:0 0 10px;font-size:15px;color:#0f172a;">Flags locales App Shell</h3>
     <p style="margin:0 0 12px;font-size:12px;color:#64748b;line-height:1.45;">
       Solo modifica <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">localStorage</code> en este navegador.
       ${edit ? '' : 'Tu rol no permite cambiar flags; solo lectura.'}
@@ -636,7 +623,7 @@ function _html(info, flags) {
         <div style="font-size:11px;font-weight:800;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">${edit ? 'Controles locales' : 'Acciones de navegación'}</div>
         ${edit ? `
         ${toggleRow('DnD preview App Mapa', 'mex.appMapa.dnd', f.dndLs)}
-        ${toggleRow('DnD persistencia (experimental)', 'mex.appMapa.dndPersist', f.dndPersistLs)}
+        ${toggleRow('DnD persistencia', 'mex.appMapa.dndPersist', f.dndPersistLs)}
         ${toggleRow('Debug mex', 'mex.debug.mode', f.debugLs)}
         <div data-prog-search-text="firestore transport long polling toggle" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
           <div style="color:#0f172a;font-weight:600;">Firestore transport</div>
@@ -649,14 +636,13 @@ function _html(info, flags) {
         <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
           <button type="button" data-prog-action="reload" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Recargar vista actual</button>
           <button type="button" data-prog-action="open-app-mapa" style="border:1px solid #0f766e;background:#0f766e;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /app/mapa</button>
-          <button type="button" data-prog-action="open-legacy-mapa" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Abrir /mapa legacy</button>
           ${edit ? '<button type="button" data-prog-action="clear-local-flags" style="border:1px solid #f59e0b;background:#fff7ed;color:#9a3412;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Limpiar flags locales</button>' : ''}
         </div>
       </div>
     </div>
   </div>
 
-  ${_betaReadinessHtml(info, flags)}
+  ${_releaseReadinessHtml(info, flags)}
 
   <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;">
     <div style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;padding:12px;">
@@ -677,7 +663,6 @@ function _html(info, flags) {
       <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
         <button id="progCopySummary" type="button" style="border:1px solid #cbd5e1;background:#fff;color:#0f172a;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar resumen técnico</button>
         <button id="progCopyFull" type="button" style="border:1px solid #2563eb;background:#2563eb;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;cursor:pointer;">Copiar diagnóstico completo</button>
-        <a href="/programador" style="border:1px solid #0f172a;background:#0f172a;color:#fff;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:700;text-decoration:none;">Abrir legacy</a>
       </div>
       <div id="progCopyStatus" style="margin-top:8px;font-size:11px;color:#64748b;"></div>
     </div>

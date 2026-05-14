@@ -15,6 +15,16 @@
 
 import { setState, getState } from '/js/app/app-state.js';
 
+function legacyStage(legacyId, navRoute) {
+  return {
+    loader: () => import('/js/app/views/legacy-stage.js').then(mod => ({
+      mount: ctx => mod.mount({ ...ctx, legacyId }),
+      unmount: mod.unmount,
+    })),
+    navRoute,
+  };
+}
+
 // ── Tabla de rutas ───────────────────────────────────────────
 // loader:    () => Promise<{ mount, unmount }>
 // redirect:  string  — alias, redirige sin render
@@ -22,47 +32,43 @@ import { setState, getState } from '/js/app/app-state.js';
 const ROUTE_TABLE = {
   '/app':            { redirect: '/app/dashboard' },
   '/app/home':       { redirect: '/app/dashboard' },
-  '/app/dashboard':  { loader: () => import('/js/app/views/dashboard.js') },
+  '/app/dashboard':  legacyStage('dashboard', '/home'),
   '/app/perfil':     { redirect: '/app/profile' },
-  '/app/profile':    {
-    loader:   () => import('/js/app/views/profile.js'),
-    navRoute: '/profile'     // el sidebar resalta "Mi perfil"
-  },
-  '/app/mensajes':          {
-    loader:   () => import('/js/app/views/mensajes.js'),
-    navRoute: '/mensajes'
-  },
-  '/app/cola-preparacion':  {
-    loader:   () => import('/js/app/views/cola-preparacion.js'),
-    navRoute: '/cola-preparacion'
-  },
+  '/app/profile':    legacyStage('profile', '/profile'),
+  '/app/mensajes':          legacyStage('mensajes', '/mensajes'),
+  '/app/cola-preparacion':  legacyStage('cola', '/cola-preparacion'),
   '/app/cola':              { redirect: '/app/cola-preparacion' },
-  '/app/incidencias':       {
-    loader:   () => import('/js/app/views/incidencias.js'),
-    navRoute: '/incidencias'
-  },
-  '/app/cuadre':            {
-    loader:   () => import('/js/app/views/cuadre.js'),
-    navRoute: '/cuadre'
-  },
-  '/app/admin':             {
-    loader:   () => import('/js/app/views/admin.js'),
-    navRoute: '/gestion'    // el sidebar resalta "Gestión" / "Panel admin"
-  },
+  '/app/incidencias':       legacyStage('incidencias', '/incidencias'),
+  '/app/cuadre':            legacyStage('cuadre', '/cuadre'),
+  '/app/admin':             legacyStage('admin', '/gestion'),
   '/app/gestion':           { redirect: '/app/admin' },
-  '/app/admin/usuarios':    {
-    loader:   () => import('/js/app/views/admin.js'),
-    navRoute: '/gestion'
-  },
-  '/app/programador':       {
-    loader:   () => import('/js/app/views/programador.js'),
-    navRoute: '/programador'
-  },
-  // /app/mapa — vista oficial operativa.
-  '/app/mapa': {
-    loader:   () => import('/js/app/views/mapa.js'),
-    navRoute: '/mapa',
-  },
+  '/app/usuarios':          { redirect: '/app/admin?tab=usuarios' },
+  '/app/admin/usuarios':    { redirect: '/app/admin?tab=usuarios' },
+  '/app/gestion/usuarios':  { redirect: '/app/admin?tab=usuarios' },
+  '/app/admin/roles':       { redirect: '/app/admin?tab=roles' },
+  '/app/gestion/roles':     { redirect: '/app/admin?tab=roles' },
+  '/app/admin/plazas':      { redirect: '/app/admin?tab=plazas' },
+  '/app/gestion/plazas':    { redirect: '/app/admin?tab=plazas' },
+  '/app/admin/catalogos':   { redirect: '/app/admin?tab=catalogos' },
+  '/app/gestion/catalogos': { redirect: '/app/admin?tab=catalogos' },
+  '/app/admin/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
+  '/app/gestion/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
+  '/app/admin/estados':     { redirect: '/app/admin?tab=estados' },
+  '/app/gestion/estados':   { redirect: '/app/admin?tab=estados' },
+  '/app/admin/categorias':  { redirect: '/app/admin?tab=categorias' },
+  '/app/gestion/categorias': { redirect: '/app/admin?tab=categorias' },
+  '/app/admin/modelos':     { redirect: '/app/admin?tab=modelos' },
+  '/app/gestion/modelos':   { redirect: '/app/admin?tab=modelos' },
+  '/app/admin/gasolinas':   { redirect: '/app/admin?tab=gasolinas' },
+  '/app/gestion/gasolinas': { redirect: '/app/admin?tab=gasolinas' },
+  '/app/admin/ubicaciones': { redirect: '/app/admin?tab=ubicaciones' },
+  '/app/gestion/ubicaciones': { redirect: '/app/admin?tab=ubicaciones' },
+  '/app/admin/empresa':     { redirect: '/app/admin?tab=empresa' },
+  '/app/gestion/empresa':   { redirect: '/app/admin?tab=empresa' },
+  '/app/programador':       legacyStage('programador', '/programador'),
+  '/app/mapa':              legacyStage('mapa', '/mapa'),
+  '/app/editmap':           legacyStage('editmap', '/editmap'),
+  '/app/mapa/editor':       legacyStage('editmap', '/editmap'),
 };
 
 // ── Factory ──────────────────────────────────────────────────
@@ -112,7 +118,11 @@ export function createRouter({ shell }) {
 
     // Redirect alias (ej. /app → /app/dashboard)
     if (route?.redirect) {
-      navigate(route.redirect, { replace: true });
+      const raw = String(rawPath || '');
+      const tail = raw.includes('?') && !route.redirect.includes('?')
+        ? raw.slice(raw.indexOf('?'))
+        : '';
+      navigate(route.redirect + tail, { replace: true });
       return;
     }
 
@@ -125,7 +135,12 @@ export function createRouter({ shell }) {
     // Sincronizar header y sidebar.
     // navRoute permite resaltar el item operativo cuando la URL vive en /app/*
     // (ej. /app/profile → resalta nav item "/profile")
-    shell.setRoute(route?.navRoute || path || '/app/dashboard');
+    let navRoute = route?.navRoute || path || '/app/dashboard';
+    if (navRoute === '/gestion') {
+      const tab = new URLSearchParams(searchIdx === -1 ? '' : String(rawPath).slice(searchIdx)).get('tab');
+      if (tab) navRoute = `/gestion?tab=${encodeURIComponent(tab)}`;
+    }
+    shell.setRoute(navRoute);
 
     // Cerrar drawer mobile si está abierto
     shell.sidebar?.closeMobileDrawer?.();

@@ -73,6 +73,7 @@ export class ShellHeader {
       </div>
 
       <div class="mex-header-right">
+        <div id="mexHdrCustomActions" class="mex-header-custom-actions"></div>
         ${plazaHtml}
         <button class="mex-header-icon-btn mex-header-search-toggle" id="mexHdrSearchToggle"
                 title="Buscar"
@@ -359,6 +360,19 @@ export class ShellHeader {
       route: this._currentRoute,
       source: 'shell-header'
     });
+  }
+
+  setCustomActions(htmlOrElement) {
+    const container = this._el?.querySelector('#mexHdrCustomActions');
+    if (!container) return;
+    if (typeof htmlOrElement === 'string') {
+      container.innerHTML = htmlOrElement;
+    } else if (htmlOrElement instanceof HTMLElement) {
+      container.innerHTML = '';
+      container.appendChild(htmlOrElement);
+    } else {
+      container.innerHTML = '';
+    }
   }
 
   destroy() {

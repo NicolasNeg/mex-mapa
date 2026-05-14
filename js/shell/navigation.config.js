@@ -124,11 +124,17 @@ export const NAV_GROUPS = [
         route: '/gestion',
         roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
         children: [
-          { id: 'usuarios',   label: 'Usuarios',   route: '/gestion?tab=usuarios',   icon: 'group' },
-          { id: 'roles',      label: 'Roles',      route: '/gestion?tab=roles',      icon: 'shield' },
-          { id: 'plazas',     label: 'Plazas',     route: '/gestion?tab=plazas',     icon: 'location_city' },
-          { id: 'catalogos',  label: 'Catálogos',  route: '/gestion?tab=catalogos',  icon: 'list_alt' },
-          { id: 'solicitudes',label: 'Solicitudes',route: '/gestion?tab=solicitudes',icon: 'assignment' }
+          { id: 'usuarios',    label: 'Usuarios',    route: '/gestion?tab=usuarios',    icon: 'group' },
+          { id: 'roles',       label: 'Roles',       route: '/gestion?tab=roles',       icon: 'shield' },
+          { id: 'solicitudes', label: 'Solicitudes', route: '/gestion?tab=solicitudes', icon: 'assignment' },
+          { id: 'estados',     label: 'Estados',     route: '/gestion?tab=estados',     icon: 'tune' },
+          { id: 'categorias',  label: 'Categorías',  route: '/gestion?tab=categorias',  icon: 'directions_car' },
+          { id: 'modelos',     label: 'Modelos',     route: '/gestion?tab=modelos',     icon: 'no_crash' },
+          { id: 'gasolinas',   label: 'Gasolinas',   route: '/gestion?tab=gasolinas',   icon: 'local_gas_station' },
+          { id: 'plazas',      label: 'Plazas',      route: '/gestion?tab=plazas',      icon: 'location_city' },
+          { id: 'ubicaciones', label: 'Ubicaciones', route: '/gestion?tab=ubicaciones', icon: 'place' },
+          { id: 'empresa',     label: 'Empresa',     route: '/gestion?tab=empresa',     icon: 'business' },
+          { id: 'catalogos',   label: 'Catálogos',   route: '/gestion?tab=catalogos',   icon: 'list_alt' }
         ]
       }
     ]

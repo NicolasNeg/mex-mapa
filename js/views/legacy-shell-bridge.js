@@ -22,6 +22,7 @@
   var hash = window.location.hash || '';
   var params = new URLSearchParams(query || '');
   var legacyParam = params.get('legacy') === '1';
+  var embeddedParam = params.get('shell') === '1' || params.get('appStage') === '1';
   if (legacyParam && (path === '/mapa' || path === '/cuadre' || path === '/mensajes')) {
     try {
       localStorage.setItem('mex.legacy.force', '1');
@@ -30,6 +31,8 @@
     }
   }
   params.delete('legacy');
+  params.delete('shell');
+  params.delete('appStage');
   var cleanQuery = params.toString() ? '?' + params.toString() : '';
 
   if (path === '/gestion') {
@@ -47,6 +50,7 @@
   }
 
   function shouldAutoRedirect() {
+    if (embeddedParam) return false;
     if (legacyParam && (path === '/mapa' || path === '/cuadre' || path === '/mensajes')) return false;
     if (shouldForceLegacy()) return false;
     if (path === '/home') return true;
@@ -60,6 +64,7 @@
   }
 
   document.body.classList.add('legacy-fallback-view', 'app-shell-ready', 'legacy-content-only', 'legacy-fallback-view');
+  if (embeddedParam) document.body.classList.add('legacy-embedded-stage');
 
   var routeProfile = {
     '/home': { hideChrome: true, hideSelectors: [] },
@@ -68,10 +73,10 @@
     '/cola-preparacion': { hideChrome: true, hideSelectors: ['.prep-nav-link[href="/mapa"]', '.prep-nav-link[href="/gestion"]'] },
     '/incidencias': { hideChrome: true, hideSelectors: [] },
     '/cuadre': { hideChrome: true, hideSelectors: [] },
-    '/gestion': { hideChrome: false, hideSelectors: [] }, // requiere sidebar interna para navegación funcional
+    '/gestion': { hideChrome: true, hideSelectors: [] },
     '/programador': { hideChrome: true, hideSelectors: [] },
-    '/mapa': { hideChrome: false, hideSelectors: [] }, // no tocar chrome operativo del mapa legacy
-    '/editmap': { hideChrome: false, hideSelectors: [] },
+    '/mapa': { hideChrome: true, hideSelectors: [] },
+    '/editmap': { hideChrome: true, hideSelectors: [] },
     '/solicitud': { hideChrome: true, hideSelectors: [] }
   };
   var current = routeProfile[path] || { hideChrome: true, hideSelectors: [] };
@@ -101,6 +106,21 @@
     'body.legacy-content-only.legacy-chrome-disabled .cfg-v2-sidebar, body.legacy-content-only.legacy-chrome-disabled .shell-sidebar-surface{display:none !important;}',
     'body.legacy-content-only.legacy-chrome-disabled .cfg-v2-body{grid-template-columns:minmax(0,1fr) !important;}',
     'body.legacy-content-only.legacy-chrome-disabled .cfg-v2-hero{padding-right:12px !important;}',
+    'body.legacy-embedded-stage{overflow:hidden !important;}',
+    'body.legacy-embedded-stage #legacyAppShellBanner{display:none !important;}',
+    'body.legacy-embedded-stage #routeSidebarHost, body.legacy-embedded-stage #routeTopbarHost, body.legacy-embedded-stage #homeSidebar, body.legacy-embedded-stage .shell-topbar-surface{display:none !important;}',
+    'body.legacy-embedded-stage #routeShellLayout{min-height:100vh !important;}',
+    'body.legacy-embedded-stage #routeMainStage, body.legacy-embedded-stage .shell-main-stage, body.legacy-embedded-stage .shell-main-offset{margin-left:0 !important;width:100% !important;max-width:none !important;padding-top:0 !important;min-height:100vh !important;}',
+    'body.legacy-embedded-stage #homeApp, body.legacy-embedded-stage #cuadreApp, body.legacy-embedded-stage #colaApp, body.legacy-embedded-stage #programmerApp, body.legacy-embedded-stage #incidenciasApp{min-height:100vh !important;}',
+    'body.legacy-embedded-stage .gestion-back-btn, body.legacy-embedded-stage #cfg-sidebar-pin{display:none !important;}',
+    'body.legacy-embedded-stage .cfg-v2-sidebar{display:none !important;}',
+    'body.legacy-embedded-stage .cfg-v2-body{grid-template-columns:minmax(0,1fr) !important;}',
+    'body.legacy-embedded-stage .cfg-v2-hero{display:none !important;}',
+    'body.legacy-embedded-stage .chatv2-header{display:none !important;}',
+    'body.legacy-embedded-stage #buzon-modal{height:100vh !important;min-height:100vh !important;}',
+    'body.legacy-embedded-stage .chatv2-close, body.legacy-embedded-stage button[title="Volver al mapa"]{display:none !important;}',
+    'body.legacy-embedded-stage .badge-pro{display:none !important;}',
+    'body.legacy-embedded-stage .fleet-header-top button[onclick*="/mapa"]{display:none !important;}',
     'body.legacy-mapa-cuadre-tab #admin-sidebar, body.legacy-mapa-cuadre-tab #topbar, body.legacy-mapa-cuadre-tab #legacySidebar, body.legacy-mapa-cuadre-tab #legacyHeader, body.legacy-mapa-cuadre-tab .legacy-sidebar, body.legacy-mapa-cuadre-tab .legacy-topbar{display:none !important;}',
     'body.legacy-map-content-only #admin-sidebar, body.legacy-map-content-only #topbar, body.legacy-map-content-only #legacySidebar, body.legacy-map-content-only #legacyHeader, body.legacy-map-content-only .legacy-sidebar, body.legacy-map-content-only .legacy-topbar{display:none !important;}',
     'body.legacy-map-content-only, body.legacy-map-content-only #routeMainStage, body.legacy-map-content-only .shell-main-stage{margin-left:0 !important;padding-left:0 !important;max-width:none !important;}',
@@ -117,6 +137,7 @@
     window.location.replace(appRoute + query + hash);
     return;
   }
+  if (embeddedParam) return;
   var banner = document.createElement('a');
   banner.id = 'legacyAppShellBanner';
   var isForcedOperationalLegacy = shouldForceLegacy() && (path === '/home' || path === '/profile' || path === '/mensajes' || path === '/cola-preparacion' || path === '/incidencias' || path === '/cuadre' || path === '/mapa');

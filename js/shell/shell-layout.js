@@ -162,6 +162,11 @@ export class ShellLayout {
     this._header?.setSearchValue(value);
   }
 
+  /** Inyecta controles específicos de la vista activa en el header */
+  setHeaderActions(htmlOrElement) {
+    this._header?.setCustomActions(htmlOrElement);
+  }
+
   /** Destruye el shell y libera listeners. */
   destroy() {
     this._sidebar?.destroy();

@@ -21,6 +21,13 @@ function normalizeRoutePath(route = '') {
   return path.replace(/\.html$/, '').replace(/\/+$/, '') || '/';
 }
 
+function normalizeRouteFull(route = '') {
+  const raw = String(route || '');
+  const [path, query = ''] = raw.split('?');
+  const normalizedPath = path.replace(/\.html$/, '').replace(/\/+$/, '') || '/';
+  return query ? `${normalizedPath}?${query}` : normalizedPath;
+}
+
 export class ShellSidebar {
   /**
    * @param {object} options
@@ -83,6 +90,9 @@ export class ShellSidebar {
   }
 
   _isItemActive(route) {
+    const targetFull = normalizeRouteFull(route);
+    const currentFull = normalizeRouteFull(this._currentRoute);
+    if (targetFull.includes('?')) return targetFull === currentFull;
     return normalizeRoutePath(route) === normalizeRoutePath(this._currentRoute);
   }
 

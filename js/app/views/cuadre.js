@@ -238,10 +238,6 @@ function _bindEvents() {
     _syncDetail();
   });
   qsa('[data-cqv-tab]').forEach(btn => btn.addEventListener('click', () => {
-    if ((btn.dataset.cqvTab || '') === 'classic') {
-      window.location.href = '/cuadre?legacy=1';
-      return;
-    }
     _state.tab = btn.dataset.cqvTab || 'regular';
     if (_state.tab !== 'historial') _state.historyDate = '';
     qsa('[data-cqv-tab]').forEach(x => x.classList.toggle('is-active', x === btn));

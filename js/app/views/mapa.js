@@ -49,6 +49,7 @@ let _unitActionDefs = [];
 let _unitActionStatus = 'idle';
 let _unitActionMsg = '';
 let _unitActionLastError = '';
+let _shell = null;
 
 let _viewState = {
   query: '',
@@ -937,8 +938,9 @@ async function _runUnitAction(actionId) {
   }
 }
 
-export function mount({ container }) {
+export function mount({ container, shell }) {
   _container = container;
+  _shell = shell;
   document.body?.classList?.add('app-map-legacy-shell');
   _trackListener('create', 'view', { plaza: getState().currentPlaza || '' });
   _ensureCss();
@@ -1413,6 +1415,8 @@ export function unmount() {
   _dndController?.unmount?.();
   _dndController = null;
   _lifecycle?.unmount?.();
+  if (_shell) _shell.setHeaderActions?.('');
+  _shell = null;
   _trackListener('cleanup', 'lifecycle');
   _container = null;
   _contentEl = null;
@@ -1546,8 +1550,48 @@ function _render() {
         ? ''
         : (_unitActionMsg || (_unitActionLastError ? `Acciones mutantes no disponibles (${_unitActionLastError}).` : 'Acciones mutantes no disponibles.'))
   };
+
   _contentEl.className = 'app-mapa-content';
-  renderMapaReadOnly(_contentEl, snapshot, readOpts);
+  const renderResult = renderMapaReadOnly(_contentEl, snapshot, readOpts);
+  if (renderResult && renderResult.unidadesData && _shell) {
+    const data = renderResult.unidadesData;
+    if (!_contentEl.querySelector('#app-mapa-units-drawer')) {
+      _contentEl.insertAdjacentHTML('beforeend', data.html);
+    }
+    const btnHtml = `<button type="button" class="mex-hdr-limbo-btn" id="mexHdrLimboBtn" title="Unidades en el limbo">
+      <span class="material-icons">directions_car</span>
+      <span>UNIDADES</span>
+      <strong class="mex-hdr-limbo-count">${data.total}</strong>
+    </button>`;
+    _shell.setHeaderActions?.(btnHtml);
+
+    const drawer = _contentEl.querySelector('#app-mapa-units-drawer');
+    const headerBtn = document.getElementById('mexHdrLimboBtn');
+    if (headerBtn && drawer) {
+      headerBtn.addEventListener('click', () => {
+        if (drawer.hidden) {
+          drawer.hidden = false;
+          // Force reflow before applying open class to trigger transition
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              drawer.classList.add('open');
+            });
+          });
+        } else {
+          drawer.classList.remove('open');
+          setTimeout(() => { drawer.hidden = true; }, 350);
+        }
+      });
+    }
+    const closers = _contentEl.querySelectorAll('[data-mapa-drawer-close]');
+    closers.forEach(c => c.addEventListener('click', () => {
+      if (drawer && !drawer.hidden) {
+        drawer.classList.remove('open');
+        setTimeout(() => { drawer.hidden = true; }, 350);
+      }
+    }));
+  }
+
   _updatePlazaHeader(snapshot.plaza || getState().currentPlaza || '');
   _updateMapModeBanner();
   _updateMetaLines();
