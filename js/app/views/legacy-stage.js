@@ -13,6 +13,8 @@ let _shell = null;
 let _iframe = null;
 let _offGlobalSearch = null;
 let _offPlazaChange = null;
+let _unitsHeaderTimer = null;
+let _unitsHeaderSig = '';
 
 const LEGACY_BY_ID = {
   dashboard:   { src: '/home',              title: 'Dashboard' },
@@ -43,6 +45,19 @@ const LEGACY_BY_APP_PATH = {
   '/app/mapa': 'mapa',
   '/app/editmap': 'editmap',
   '/app/mapa/editor': 'editmap',
+};
+
+const LEGACY_ROUTE_TO_APP = {
+  '/home': '/app/dashboard',
+  '/profile': '/app/profile',
+  '/mensajes': '/app/mensajes',
+  '/cola-preparacion': '/app/cola-preparacion',
+  '/incidencias': '/app/incidencias',
+  '/cuadre': '/app/cuadre',
+  '/gestion': '/app/admin',
+  '/programador': '/app/programador',
+  '/mapa': '/app/mapa',
+  '/editmap': '/app/editmap'
 };
 
 function esc(v) {
@@ -141,12 +156,77 @@ function _injectFrameOverrides(frame, id) {
       body.legacy-embedded-stage button[title="Volver al mapa"]{display:none!important;}
       body.legacy-embedded-stage .fleet-header-top button[onclick*="/mapa"]{display:none!important;}
       body.legacy-embedded-stage .fleet-header-top .badge-pro{display:none!important;}
+      body.legacy-embedded-profile{height:auto!important;min-height:100vh!important;overflow-y:auto!important;}
+      body.legacy-embedded-profile #profileApp,
+      body.legacy-embedded-profile #profileMainStage,
+      body.legacy-embedded-profile .shell-main-stage,
+      body.legacy-embedded-profile .shell-main-offset{height:auto!important;min-height:100vh!important;overflow:visible!important;}
+      body.legacy-embedded-profile #profileApp{padding-bottom:112px!important;}
     `;
     doc.head.appendChild(style);
     doc.body?.classList?.add('legacy-embedded-stage', `legacy-embedded-${id}`);
   } catch (_) {
     // Same-origin expected. If it is not available yet, bridge CSS still handles chrome removal.
   }
+}
+
+function _appRouteFromLegacyValue(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw || raw.startsWith('#') || raw.startsWith('javascript:') || raw.startsWith('mailto:') || raw.startsWith('tel:')) return '';
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (url.origin !== window.location.origin) return '';
+    const path = url.pathname.replace(/\/+$/, '') || '/';
+    const appPath = LEGACY_ROUTE_TO_APP[path];
+    if (!appPath) return '';
+    ['shell', 'appStage', 'legacy'].forEach(key => url.searchParams.delete(key));
+    const qs = url.searchParams.toString();
+    return `${appPath}${qs ? `?${qs}` : ''}${url.hash || ''}`;
+  } catch (_) {
+    return '';
+  }
+}
+
+function _bindFrameRouteBridge(frame, id, ctx = {}) {
+  try {
+    const doc = frame?.contentDocument;
+    const win = frame?.contentWindow;
+    if (!doc || !win || doc.documentElement?.dataset?.appRouteBridge === '1') return;
+    doc.documentElement.dataset.appRouteBridge = '1';
+    doc.addEventListener('click', event => {
+      const target = event.target?.closest?.('[data-app-route],[data-route],a[href],button[onclick]');
+      if (!target) return;
+      const onclick = String(target.getAttribute?.('onclick') || '');
+      const routeValue =
+        target.getAttribute?.('data-app-route') ||
+        target.getAttribute?.('data-route') ||
+        target.getAttribute?.('href') ||
+        (onclick.match(/['"]((?:\/home|\/profile|\/mensajes|\/cola-preparacion|\/incidencias|\/cuadre|\/gestion|\/programador|\/mapa|\/editmap)(?:[?#][^'"]*)?)['"]/) || [])[1] ||
+        '';
+      const appRoute = _appRouteFromLegacyValue(routeValue);
+      if (!appRoute) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      if (typeof ctx.navigate === 'function') ctx.navigate(appRoute);
+      else window.location.href = appRoute;
+    }, true);
+    _maybeNavigateFromFrameLocation(frame, id, ctx);
+  } catch (_) {}
+}
+
+function _maybeNavigateFromFrameLocation(frame, id, ctx = {}) {
+  try {
+    const href = frame?.contentWindow?.location?.href || '';
+    const framePath = new URL(href, window.location.origin).pathname.replace(/\/+$/, '') || '/';
+    if (id === 'cuadre' && framePath === '/mapa') return;
+    const appRoute = _appRouteFromLegacyValue(href);
+    if (!appRoute) return;
+    const appPath = appRoute.split('?')[0].replace(/\/+$/, '') || '/app/dashboard';
+    const desiredId = LEGACY_BY_APP_PATH[appPath] || '';
+    if (!desiredId || desiredId === id) return;
+    if (typeof ctx.navigate === 'function') ctx.navigate(appRoute, { replace: true });
+  } catch (_) {}
 }
 
 function _requestedAdminTab(ctx = {}) {
@@ -301,6 +381,63 @@ function _bindShellSignals(id, ctx = {}) {
   _offPlazaChange = onPlazaChange(nextPlaza => _syncPlaza(nextPlaza, id, ctx));
 }
 
+function _clearUnitsHeader() {
+  if (_unitsHeaderTimer) {
+    window.clearInterval(_unitsHeaderTimer);
+    _unitsHeaderTimer = null;
+  }
+  _unitsHeaderSig = '';
+}
+
+function _legacyMapUnitsCounts() {
+  const doc = _iframe?.contentDocument;
+  if (!doc) return { limbo: 0, taller: 0, total: 0 };
+  const limboEl = doc.getElementById('unidades-limbo');
+  const tallerEl = doc.getElementById('unidades-taller');
+  const limboLabel = Number(doc.getElementById('count-limbo')?.textContent || NaN);
+  const tallerLabel = Number(doc.getElementById('count-taller')?.textContent || NaN);
+  const limbo = Number.isFinite(limboLabel) ? limboLabel : (limboEl?.children?.length || 0);
+  const taller = Number.isFinite(tallerLabel) ? tallerLabel : (tallerEl?.children?.length || 0);
+  return { limbo, taller, total: limbo + taller };
+}
+
+function _toggleLegacyUnitsSidebar() {
+  try {
+    const win = _iframe?.contentWindow;
+    const doc = _iframe?.contentDocument;
+    if (typeof win?.toggleSidebar === 'function') {
+      win.toggleSidebar();
+      return;
+    }
+    const sidebar = doc?.getElementById('sidebar');
+    sidebar?.classList?.toggle('open');
+  } catch (_) {}
+}
+
+function _syncLegacyMapUnitsHeader(id) {
+  if (!['mapa', 'cuadre'].includes(id) || !_shell || !_iframe) return;
+  const counts = _legacyMapUnitsCounts();
+  const sig = `${id}:${counts.limbo}:${counts.taller}:${counts.total}`;
+  const existing = document.getElementById('mexHdrLegacyUnitsBtn');
+  if (sig === _unitsHeaderSig && existing) return;
+  _unitsHeaderSig = sig;
+  _shell.setHeaderActions?.(`
+    <button type="button" class="mex-hdr-limbo-btn mex-hdr-limbo-btn--legacy" id="mexHdrLegacyUnitsBtn" title="Unidades en limbo y taller">
+      <span class="material-icons">directions_car</span>
+      <span>UNIDADES</span>
+      <strong class="mex-hdr-limbo-count">${counts.total}</strong>
+    </button>
+  `);
+  document.getElementById('mexHdrLegacyUnitsBtn')?.addEventListener('click', _toggleLegacyUnitsSidebar);
+}
+
+function _startLegacyMapUnitsHeader(id) {
+  _clearUnitsHeader();
+  if (!['mapa', 'cuadre'].includes(id)) return;
+  _syncLegacyMapUnitsHeader(id);
+  _unitsHeaderTimer = window.setInterval(() => _syncLegacyMapUnitsHeader(id), 1000);
+}
+
 export function mount(ctx = {}) {
   _container = ctx.container;
   _shell = ctx.shell || null;
@@ -330,13 +467,16 @@ export function mount(ctx = {}) {
   _bindShellSignals(id, ctx);
   _iframe?.addEventListener('load', () => {
     _injectFrameOverrides(_iframe, id);
+    _bindFrameRouteBridge(_iframe, id, ctx);
     _scheduleFrameSync(_iframe, id, ctx);
     _syncPlaza(getState().currentPlaza, id, ctx);
+    _startLegacyMapUnitsHeader(id);
   });
 }
 
 export function unmount() {
   try { _shell?.setHeaderActions?.(''); } catch (_) {}
+  _clearUnitsHeader();
   if (typeof _offGlobalSearch === 'function') {
     try { _offGlobalSearch(); } catch (_) {}
   }

@@ -148,9 +148,17 @@ function _getProfileAvatarUrl(profile = {}) {
   return _safeText(
     profile.avatarUrl
     || profile.avatarURL
+    || profile.avatar
+    || profile.foto
+    || profile.fotoPerfil
     || profile.photoURL
+    || profile.photoUrl
     || profile.fotoURL
     || profile.profilePhotoUrl
+    || profile.profilePhotoURL
+    || profile.profileImageUrl
+    || profile.profileImageURL
+    || _authInstance()?.currentUser?.photoURL
   );
 }
 
@@ -432,11 +440,13 @@ function _renderProfile() {
 
   const avatarEl = document.getElementById('profile-avatar');
   if (avatarEl) {
+    const initial = nombre.slice(0, 1).toUpperCase() || 'U';
     if (avatarUrl) {
-      avatarEl.innerHTML = `<img src="${avatarUrl}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;">`;
+      avatarEl.dataset.initial = initial;
+      avatarEl.innerHTML = `<img src="${_escapeHtml(avatarUrl)}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;" referrerpolicy="no-referrer" onerror="this.parentElement.textContent=this.parentElement.dataset.initial||'U';">`;
       avatarEl.style.background = '#0f172a';
     } else {
-      avatarEl.textContent = nombre.slice(0, 1).toUpperCase() || 'U';
+      avatarEl.textContent = initial;
       avatarEl.style.background = _avatarColor(nombre);
     }
   }
@@ -462,8 +472,11 @@ function _renderProfile() {
       .join('');
   }
 
-  const removeBtn = document.querySelector('.profile-avatar-actions .profile-action-btn.danger');
-  if (removeBtn) removeBtn.disabled = !avatarUrl;
+  const removeBtn = document.getElementById('profile-btn-quitar-foto');
+  if (removeBtn) {
+    removeBtn.disabled = !avatarUrl;
+    removeBtn.style.display = avatarUrl ? 'flex' : 'none';
+  }
 
   _renderHeroStats();
   _renderGeneralInfo({
@@ -1020,38 +1033,88 @@ function _openCrop(src) {
     const stageHeight = stage?.clientHeight || 320;
     const safeNaturalWidth = img.naturalWidth || stageWidth;
     const safeNaturalHeight = img.naturalHeight || stageHeight;
+    const cropDiameter = Math.min(stageWidth, stageHeight) * 0.8;
     const fitScale = Math.max(
-      1,
-      Math.max(
-        stageWidth / safeNaturalWidth,
-        stageHeight / safeNaturalHeight
-      )
+      cropDiameter / safeNaturalWidth,
+      cropDiameter / safeNaturalHeight
     );
 
-    _cropState = { img, scale: fitScale, offsetX: 0, offsetY: 0 };
+    img.style.width = `${safeNaturalWidth}px`;
+    img.style.height = `${safeNaturalHeight}px`;
+    _cropState = {
+      img,
+      baseScale: Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 1,
+      zoom: 1,
+      scale: Number.isFinite(fitScale) && fitScale > 0 ? fitScale : 1,
+      offsetX: 0,
+      offsetY: 0
+    };
     if (zoom) {
-      const normalized = Math.max(1, Math.min(3, Number(fitScale.toFixed(2))));
-      zoom.value = String(normalized);
-      _cropState.scale = normalized;
+      zoom.min = '1';
+      zoom.max = '4';
+      zoom.value = '1';
     }
     _positionCrop();
     _renderPreview();
   };
 }
 
+function _cropScale() {
+  if (!_cropState) return 1;
+  const base = Number(_cropState.baseScale || _cropState.scale || 1);
+  const zoom = Number(_cropState.zoom || 1);
+  return Math.max(0.01, base * zoom);
+}
+
+function _clampCropOffsets() {
+  if (!_cropState) return;
+  const stage = document.getElementById('profile-crop-stage');
+  if (!stage) return;
+  const rect = stage.getBoundingClientRect();
+  const img = _cropState.img;
+  const scale = _cropScale();
+  const cropDiameter = Math.min(rect.width, rect.height) * 0.8;
+  const maxX = Math.max(0, ((img.naturalWidth || rect.width) * scale - cropDiameter) / 2);
+  const maxY = Math.max(0, ((img.naturalHeight || rect.height) * scale - cropDiameter) / 2);
+  _cropState.offsetX = Math.max(-maxX, Math.min(maxX, Number(_cropState.offsetX || 0)));
+  _cropState.offsetY = Math.max(-maxY, Math.min(maxY, Number(_cropState.offsetY || 0)));
+}
+
 function _positionCrop() {
   if (!_cropState) return;
+  _cropState.scale = _cropScale();
+  _clampCropOffsets();
   const { img, scale, offsetX, offsetY } = _cropState;
+  img.style.left = '50%';
+  img.style.top = '50%';
   img.style.transformOrigin = 'center center';
-  img.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+  img.style.transform = `translate(-50%, -50%) translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
 }
 
 window.profile_ajustarZoom = function (value) {
   if (!_cropState) return;
-  _cropState.scale = Math.max(1, Math.min(3, parseFloat(value) || 1));
+  _cropState.zoom = Math.max(1, Math.min(4, parseFloat(value) || 1));
+  _cropState.scale = _cropScale();
   _positionCrop();
   _renderPreview();
 };
+
+function _cropSourceRect(stage) {
+  if (!_cropState || !stage) return null;
+  _clampCropOffsets();
+  const stageRect = stage.getBoundingClientRect();
+  const img = _cropState.img;
+  const scale = _cropScale();
+  const scaledW = (img.naturalWidth || stageRect.width) * scale;
+  const scaledH = (img.naturalHeight || stageRect.height) * scale;
+  const drawLeft = stageRect.width / 2 - scaledW / 2 + _cropState.offsetX;
+  const drawTop = stageRect.height / 2 - scaledH / 2 + _cropState.offsetY;
+  const cropDiameter = Math.min(stageRect.width, stageRect.height) * 0.8;
+  const sx = ((stageRect.width - cropDiameter) / 2 - drawLeft) / scale;
+  const sy = ((stageRect.height - cropDiameter) / 2 - drawTop) / scale;
+  const sw = cropDiameter / scale;
+  return { img, sx, sy, sw };
+}
 
 window.profile_cancelarCrop = function () {
   const overlay = document.getElementById('profile-crop-overlay');
@@ -1083,19 +1146,10 @@ window.profile_guardarAvatar = async function () {
     ctx.arc(256, 256, 256, 0, Math.PI * 2);
     ctx.clip();
 
-    const stageRect = stage.getBoundingClientRect();
-    const img = _cropState.img;
-    const scale = _cropState.scale;
-    const scaledW = img.naturalWidth * scale;
-    const scaledH = img.naturalHeight * scale;
-    const drawLeft = (stageRect.width - scaledW) / 2 + _cropState.offsetX;
-    const drawTop = (stageRect.height - scaledH) / 2 + _cropState.offsetY;
-    const cropDiameter = Math.min(stageRect.width, stageRect.height) * 0.8;
-    const sx = ((stageRect.width - cropDiameter) / 2 - drawLeft) / scale;
-    const sy = ((stageRect.height - cropDiameter) / 2 - drawTop) / scale;
-    const sw = cropDiameter / scale;
+    const source = _cropSourceRect(stage);
+    if (!source) throw new Error('No se pudo calcular el recorte');
 
-    ctx.drawImage(img, sx, sy, sw, sw, 0, 0, 512, 512);
+    ctx.drawImage(source.img, source.sx, source.sy, source.sw, source.sw, 0, 0, 512, 512);
 
     const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.9));
     if (!blob) throw new Error('No se pudo generar la imagen final');
@@ -1210,19 +1264,10 @@ function _renderPreview() {
     ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
     ctx.clip();
 
-    const stageRect = stage.getBoundingClientRect();
-    const img = _cropState.img;
-    const scale = _cropState.scale;
-    const scaledW = img.naturalWidth * scale;
-    const scaledH = img.naturalHeight * scale;
-    const drawLeft = (stageRect.width - scaledW) / 2 + _cropState.offsetX;
-    const drawTop = (stageRect.height - scaledH) / 2 + _cropState.offsetY;
-    const cropDiameter = Math.min(stageRect.width, stageRect.height) * 0.8;
-    const sx = ((stageRect.width - cropDiameter) / 2 - drawLeft) / scale;
-    const sy = ((stageRect.height - cropDiameter) / 2 - drawTop) / scale;
-    const sw = cropDiameter / scale;
+    const source = _cropSourceRect(stage);
+    if (!source) return;
 
-    ctx.drawImage(img, sx, sy, sw, sw, 0, 0, size, size);
+    ctx.drawImage(source.img, source.sx, source.sy, source.sw, source.sw, 0, 0, size, size);
   });
 }
 

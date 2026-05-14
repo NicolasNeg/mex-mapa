@@ -197,3 +197,34 @@
 .dark .profile-crop-btn.confirm {
   background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
 }
+
+html.profile-route,
+body.profile-route {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.legacy-embedded-profile {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow-y: auto !important;
+}
+
+body.legacy-embedded-profile #profileApp,
+body.legacy-embedded-profile #profileMainStage,
+body.legacy-embedded-profile .shell-main-stage,
+body.legacy-embedded-profile .shell-main-offset {
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
+}
+
+body.legacy-embedded-profile #profileApp {
+  padding-bottom: 112px !important;
+}
+
+body.legacy-embedded-profile .profile-crop-overlay {
+  position: fixed !important;
+  z-index: 200000 !important;
+}

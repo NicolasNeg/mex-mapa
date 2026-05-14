@@ -26,6 +26,40 @@ body.app-legacy-stage-active #mexShellContent {
   background: #f8fafc;
 }
 
+.mex-hdr-limbo-btn--legacy {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 4px 10px 4px 7px;
+  border: 1px solid #dbe2ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #172033;
+  font: 800 12px/1 "Inter", system-ui, sans-serif;
+  letter-spacing: .02em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .06);
+}
+
+.mex-hdr-limbo-btn--legacy .material-icons {
+  font-size: 17px;
+  color: #1d4ed8;
+}
+
+.mex-hdr-limbo-btn--legacy .mex-hdr-limbo-count {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ffd400;
+  color: #111827;
+  font-size: 11px;
+}
+
 @media (max-width: 767px) {
   .app-legacy-stage,
   body.app-legacy-stage-active #mexShellContent {

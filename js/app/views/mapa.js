@@ -33,7 +33,7 @@ let _searchInputHandler = null;
 let _cssRef = null;
 let _dndHintEl = null;
 let _lastDndEligibility = null;
-/** @type {{ mva: string, originKey: string, destKey: string, at: number, user: string } | null} */
+/** @type {{ mva: string, originKey?: string, destKey?: string, actionText?: string, at: number, user: string } | null} */
 let _lastPersistSummary = null;
 /** @type {{ cleanup?: Function, setPlaza?: Function } | null} */
 let _incCtrl = null;
@@ -453,7 +453,9 @@ function _updateMetaLines() {
   if (moveEl) {
     if (_lastPersistSummary) {
       const s = _lastPersistSummary;
-      moveEl.textContent = `Último guardado: ${s.mva} · ${s.originKey}→${s.destKey} · ${_fmtShort(s.at)} · ${s.user}`;
+      moveEl.textContent = s.actionText
+        ? `Última actualización: ${s.actionText} · ${_fmtShort(s.at)} · ${s.user}`
+        : `Último guardado: ${s.mva} · ${s.originKey}→${s.destKey} · ${_fmtShort(s.at)} · ${s.user}`;
       moveEl.hidden = false;
     } else {
       moveEl.textContent = '';
@@ -813,6 +815,129 @@ async function _showQuickIncidentModal(selected) {
     _container.appendChild(wrap);
     wrap.querySelector('[data-fld="titulo"]')?.focus?.();
   });
+}
+
+async function _showQuickNoteActionModal({ title, body, label, placeholder = '' } = {}) {
+  return new Promise(resolve => {
+    if (!_container) return resolve({ cancelled: true });
+    const wrap = document.createElement('div');
+    wrap.className = 'app-mapa-modal-overlay';
+    wrap.setAttribute('role', 'dialog');
+    wrap.innerHTML = `
+      <div class="app-mapa-modal app-mapa-modal--unit-action">
+        <p class="app-mapa-modal-title">${esc(title || 'Acción rápida')}</p>
+        <p class="app-mapa-modal-body">${body || ''}</p>
+        <div class="app-mapa-form-grid">
+          <label class="app-mapa-form-field">
+            <span>Nota</span>
+            <textarea data-fld="nota" rows="3" maxlength="220" placeholder="${esc(placeholder || 'Cliente, motivo o comentario operativo')}"></textarea>
+          </label>
+        </div>
+        <p class="app-mapa-form-msg" data-msg></p>
+        <div class="app-mapa-modal-actions">
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--ghost" data-act="cancel">Cancelar</button>
+          <button type="button" class="app-mapa-modal-btn app-mapa-modal-btn--primary" data-act="ok">${esc(label || 'Guardar')}</button>
+        </div>
+      </div>`;
+    const msgEl = wrap.querySelector('[data-msg]');
+    const done = result => {
+      wrap.remove();
+      resolve(result);
+    };
+    wrap.addEventListener('click', e => {
+      if (e.target === wrap) done({ cancelled: true });
+    });
+    wrap.querySelector('[data-act="cancel"]')?.addEventListener('click', () => done({ cancelled: true }));
+    wrap.querySelector('[data-act="ok"]')?.addEventListener('click', () => {
+      const nota = String(wrap.querySelector('[data-fld="nota"]')?.value || '').trim();
+      if (!nota) {
+        if (msgEl) msgEl.textContent = 'Debes ingresar una nota.';
+        return;
+      }
+      done({ cancelled: false, nota });
+    });
+    _container.appendChild(wrap);
+    wrap.querySelector('[data-fld="nota"]')?.focus?.();
+  });
+}
+
+function _quickActionNotes(currentNotes, action, note = '') {
+  const base = String(currentNotes || '').trim();
+  if (action === 'APARTAR') return { notas: `APARTADO: ${String(note || '').trim().toUpperCase()}`, borrarNotas: false };
+  if (action === 'DOBLE_CERO') return { notas: base ? `${base} | DOBLE CERO` : 'DOBLE CERO', borrarNotas: false };
+  if (action === 'QUITAR_DOBLE_CERO' || action === 'QUITAR_APARTADO') return { notas: '', borrarNotas: true };
+  return { notas: base, borrarNotas: false };
+}
+
+function _quickActionText(action, mva) {
+  const unit = String(mva || '').trim().toUpperCase();
+  if (action === 'APARTAR') return `Se apartó la unidad ${unit}`;
+  if (action === 'DOBLE_CERO') return `Se marcó como "doble cero" el ${unit}`;
+  if (action === 'QUITAR_DOBLE_CERO') return `Se retiró "doble cero" del ${unit}`;
+  if (action === 'QUITAR_APARTADO') return `Se retiró el apartado del ${unit}`;
+  return `Se actualizó la unidad ${unit}`;
+}
+
+async function _runQuickLegacyUnitAction(action) {
+  const selected = _selectedUnit();
+  const actionId = String(action || '').trim().toUpperCase();
+  if (!selected) {
+    _announceMapa('Selecciona una unidad para ejecutar acciones rápidas.');
+    return;
+  }
+  if (typeof window.api?.aplicarEstado !== 'function') {
+    _announceMapa('No está disponible la API para actualizar la unidad.');
+    return;
+  }
+  if (actionId === 'APARTAR' && !canUseMapaOfficialTools(_officialToolsContext())) {
+    _announceMapa('Tu rol no permite apartar unidades.');
+    return;
+  }
+
+  const mva = String(selected.mva || '').trim().toUpperCase();
+  let userNote = '';
+  if (actionId === 'APARTAR') {
+    const prepared = await _showQuickNoteActionModal({
+      title: 'Apartar unidad',
+      body: `Se guardará una nota de apartado para <strong>${esc(mva || '—')}</strong>.`,
+      label: 'Guardar apartado',
+      placeholder: 'Cliente o motivo del apartado'
+    });
+    if (prepared.cancelled) {
+      _announceMapa('Apartado cancelado. No se realizaron cambios.');
+      return;
+    }
+    userNote = prepared.nota;
+  }
+
+  const st = getState();
+  const plaza = String(_viewState.snapshot?.plaza || st.currentPlaza || st.profile?.plazaAsignada || selected.plaza || '').toUpperCase();
+  const estado = String(selected.estado || '').toUpperCase();
+  const ubicacion = String(selected.ubicacion || selected.location || 'PATIO').toUpperCase();
+  const gasolina = String(selected.gasolina || selected.gas || 'N/A').toUpperCase();
+  const nextNotes = _quickActionNotes(selected.notas || selected.notes || '', actionId, userNote);
+  const actor = _actorName();
+  const actionText = _quickActionText(actionId, mva);
+
+  _announceMapa(`${actionText}. Guardando…`);
+  try {
+    const res = await window.api.aplicarEstado(mva, estado, ubicacion, gasolina, nextNotes.notas, nextNotes.borrarNotas, actor, actor, plaza, {
+      source: 'app_mapa_quick_actions',
+      action: actionId
+    });
+    const ok = res === 'EXITO' || res?.ok === true || res?.success === true;
+    if (!ok) {
+      _announceMapa(`No se pudo guardar: ${String(res?.message || res?.error || res || 'error')}`);
+      return;
+    }
+    _lastPersistSummary = { mva, actionText, at: Date.now(), user: actor };
+    _updateMetaLines();
+    await _lifecycle?.resyncData?.();
+    _announceMapa(`${actionText}.`);
+    _render();
+  } catch (err) {
+    _announceMapa(`Error guardando acción rápida: ${String(err?.message || err || 'desconocido')}`);
+  }
 }
 
 async function _createQuickIncidentForSelected() {
@@ -1282,6 +1407,12 @@ export function mount({ container, shell }) {
     const incidentBtn = event.target?.closest?.('[data-app-mapa-detail="create-incident"]');
     if (incidentBtn) {
       void _createQuickIncidentForSelected();
+      return;
+    }
+    const quickActionBtn = event.target?.closest?.('[data-app-mapa-quick-action]');
+    if (quickActionBtn) {
+      const actionId = String(quickActionBtn.getAttribute('data-app-mapa-quick-action') || '');
+      if (actionId) void _runQuickLegacyUnitAction(actionId);
       return;
     }
     const unitActionBtn = event.target?.closest?.('[data-app-mapa-unit-action]');

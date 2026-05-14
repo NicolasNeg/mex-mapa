@@ -1107,6 +1107,23 @@ async function _actualizarFeed(accion, autor, plaza) {
   await _setSettings({ liveFeed: JSON.stringify(feed), ultimaModificacion: _now(), ultimoEditor: autor }, plaza); // [F1]
 }
 
+function _feedAccionUnidad(mvaStr, actual = {}, estado = '', ubi = '', gas = '', notaFinal = '', notaEntrada = '', borrarNotas = false) {
+  const oldNotes = String(actual.notas || '').toUpperCase();
+  const newNotes = String(notaFinal || notaEntrada || '').toUpperCase();
+  const entered = String(notaEntrada || '').toUpperCase();
+  const isErase = borrarNotas === true || borrarNotas === 'true';
+  if (isErase && oldNotes.includes('DOBLE CERO') && !newNotes.includes('DOBLE CERO')) return `QUITAR_DOBLE_CERO: ${mvaStr}`;
+  if (isErase && (oldNotes.includes('APARTAD') || oldNotes.includes('RESERVAD')) && !(newNotes.includes('APARTAD') || newNotes.includes('RESERVAD'))) return `QUITAR_APARTADO: ${mvaStr}`;
+  if (isErase && oldNotes.includes('URGENTE') && !newNotes.includes('URGENTE')) return `QUITAR_URGENTE: ${mvaStr}`;
+  if ((entered.includes('DOBLE CERO') || newNotes.includes('DOBLE CERO')) && !oldNotes.includes('DOBLE CERO')) return `DOBLE_CERO: ${mvaStr}`;
+  if ((entered.includes('APARTAD') || entered.includes('RESERVAD') || newNotes.includes('APARTAD') || newNotes.includes('RESERVAD')) && !(oldNotes.includes('APARTAD') || oldNotes.includes('RESERVAD'))) return `APARTADO: ${mvaStr}`;
+  if ((entered.includes('URGENTE') || newNotes.includes('URGENTE')) && !oldNotes.includes('URGENTE')) return `URGENTE: ${mvaStr}`;
+  if (String(actual.estado || '') !== estado) return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} ➜ ${estado} (${ubi})`;
+  if (String(actual.gasolina || '') !== gas) return `GAS: ${mvaStr} · ${actual.gasolina || '?'} ➜ ${gas} (${ubi})`;
+  if (String(notaFinal || '').trim() !== String(actual.notas || '').trim() && String(notaEntrada || '').trim()) return `NOTA: ${mvaStr}`;
+  return `${mvaStr} · ${actual.estado || 'SIN ESTADO'} ➜ ${estado} (${ubi})`;
+}
+
 const MAPA_SNAPSHOT_MERGE_MS = 90;
 
 // ─── SHARED NAMESPACE ────────────────────────────────────────
@@ -1457,7 +1474,7 @@ const API_FUNCTIONS = {
     const updatePayload = { gasolina: gas, estado, ubicacion: ubi, notas: notaFinal, _updatedAt: ahora, _updatedBy: responsableSesion || nombreAutor, _version: db.FieldValue.increment(1) }; // [1.6]
     if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
     await docRef.update(updatePayload);
-    await _actualizarFeed(`${mvaStr} · ${actual.estado || "SIN ESTADO"} ➜ ${estado} (${ubi})`, responsableSesion, plazaUp); // [F1]
+    await _actualizarFeed(_feedAccionUnidad(mvaStr, actual, estado, ubi, gas, notaFinal, notaEntrada, borrarNotas), responsableSesion, plazaUp); // [F1]
 
     // Registrar SOLO los cambios reales (no mostrar campos sin cambio)
     const cambiosReales = [];

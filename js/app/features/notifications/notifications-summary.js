@@ -60,8 +60,9 @@ export async function getNotificationsSummary({ profile = {}, role = '', plaza =
   const incidencias = Number(notif?.incidenciasPendientes || 0);
   const alertas = Array.isArray(notif?.alertas) ? notif.alertas.length : 0;
   const solicitudes = _isAdminRole(role) ? await _countPendingRequests() : 0;
+  const activeTotal = mensajes + alertas + solicitudes;
   return {
-    total: mensajes + incidencias + alertas + solicitudes,
+    total: activeTotal,
     mensajes,
     incidencias,
     alertas,

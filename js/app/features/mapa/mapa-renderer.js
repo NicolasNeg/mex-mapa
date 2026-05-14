@@ -657,6 +657,9 @@ function _detailIncBlock(mva, byMva, ready, failed) {
 function _renderUnitActionsBlock(selected, plaza, actions = {}) {
   if (!selected) return '';
   const mva = String(selected.mva || '').trim();
+  const notes = String(selected.notas || selected.notes || '').toUpperCase();
+  const isApartado = notes.includes('APARTAD') || notes.includes('RESERVAD');
+  const isDobleCero = notes.includes('DOBLE CERO');
 
   const secureActions = Array.isArray(actions.secureActions) ? actions.secureActions : [];
   const actionable = secureActions.filter(a => a?.available && !a?.blocked);
@@ -681,6 +684,12 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
         <details class="app-mapa-legacy-actions-dropdown">
           <summary>ACCIONES</summary>
           <div class="app-mapa-legacy-actions-dropdown__body">
+            ${isApartado
+              ? '<button type="button" data-app-mapa-quick-action="QUITAR_APARTADO">QUITAR APARTADO</button>'
+              : '<button type="button" data-app-mapa-quick-action="APARTAR">APARTAR UNIDAD</button>'}
+            ${isDobleCero
+              ? '<button type="button" data-app-mapa-quick-action="QUITAR_DOBLE_CERO">QUITAR DOBLE CERO</button>'
+              : '<button type="button" data-app-mapa-quick-action="DOBLE_CERO">AÑADIR DOBLE CERO</button>'}
             <button type="button" data-app-mapa-detail="create-incident">CREAR INCIDENCIA</button>
             <button type="button" data-app-mapa-official-unit="edit-unit">EDITAR UNIDAD</button>
             <button type="button" data-copy-mva="${esc(mva)}">COPIAR MVA</button>

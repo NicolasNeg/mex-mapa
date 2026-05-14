@@ -6067,7 +6067,7 @@ let accionPendiente = null;
 let mvaPendiente = null;
 
 function ejecutarAccionRapida(mva, accion) {
-  document.getElementById('moreActionsMenu').classList.remove('show');
+  document.getElementById('moreActionsMenu')?.classList.remove('show');
   let car = document.getElementById(`auto-${mva}`);
   if (!car) return;
 
@@ -8466,6 +8466,16 @@ function _feedUnitLabel(value) {
   return `MVA-${clean || raw}`;
 }
 
+function _feedUnitPlain(value) {
+  return _feedUnitLabel(value).replace(/^MVA-/, '') || 'MVA';
+}
+
+function _feedAuthorLine(autor, suffix = '') {
+  const author = String(autor || 'Sistema').trim() || 'Sistema';
+  const tail = String(suffix || '').trim();
+  return tail ? `Por ${author} · ${tail}` : `Por ${author}`;
+}
+
 function _parseLiveFeedLog(log = {}) {
   const accion = String(log.accion || '').replace(/^[^\p{L}\p{N}]+/u, '').trim();
   const autor = String(log.autor || 'Sistema').trim();
@@ -8479,13 +8489,37 @@ function _parseLiveFeedLog(log = {}) {
     fullTime: fecha
   };
 
+  const quick = accion.match(/^(DOBLE_CERO|QUITAR_DOBLE_CERO|APARTADO|QUITAR_APARTADO|URGENTE|QUITAR_URGENTE|NOTA|GAS):\s*(.+)$/i);
+  if (quick) {
+    const kind = String(quick[1] || '').toUpperCase();
+    const rest = String(quick[2] || '').trim();
+    const mva = rest.split(/[·•]/)[0].trim();
+    const unit = _feedUnitPlain(mva);
+    const copy = {
+      DOBLE_CERO: [`Se marcó como "doble cero" el ${unit}`, 'DOBLE CERO'],
+      QUITAR_DOBLE_CERO: [`Se retiró "doble cero" del ${unit}`, 'RETIRADO'],
+      APARTADO: [`Se apartó la unidad ${unit}`, 'APARTADO'],
+      QUITAR_APARTADO: [`Se retiró el apartado del ${unit}`, 'RETIRADO'],
+      URGENTE: [`Se marcó como urgente el ${unit}`, 'URGENTE'],
+      QUITAR_URGENTE: [`Se retiró urgente del ${unit}`, 'RETIRADO'],
+      NOTA: [`Se actualizó la nota del ${unit}`, 'NOTA'],
+      GAS: [`Se actualizó gasolina del ${unit}`, 'GAS']
+    }[kind] || [`Actualización del ${unit}`, 'ACTUALIZADO'];
+    return {
+      ...base,
+      title: copy[0],
+      subtitle: _feedAuthorLine(autor, fecha || 'Ahora'),
+      to: copy[1]
+    };
+  }
+
   const detailed = accion.match(/^(.+?)\s*[·•]\s*(.+?)\s*(?:➜|→|->)\s*([^(|]+?)(?:\s*\(([^)]*)\))?\s*$/i);
   if (detailed) {
     const ubicacion = String(detailed[4] || '').trim();
     return {
       ...base,
       title: _feedUnitLabel(detailed[1]),
-      subtitle: `Actualización automática${ubicacion ? ` · ${ubicacion}` : ''}`,
+      subtitle: _feedAuthorLine(autor, ubicacion || 'Actualización automática'),
       from: String(detailed[2] || '').trim(),
       to: String(detailed[3] || '').trim()
     };
@@ -8497,7 +8531,7 @@ function _parseLiveFeedLog(log = {}) {
     return {
       ...base,
       title: _feedUnitLabel(simple[1]),
-      subtitle: `Actualización automática${ubicacion ? ` · ${ubicacion}` : ''}`,
+      subtitle: _feedAuthorLine(autor, ubicacion || 'Actualización automática'),
       to: String(simple[2] || '').trim()
     };
   }
