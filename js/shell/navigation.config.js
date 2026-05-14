@@ -99,7 +99,7 @@ export const NAV_GROUPS = [
       },
       {
         id: 'incidencias',
-        label: 'Incidencias',
+        label: 'Notas e incidencias',
         icon: 'warning',
         route: '/incidencias',
         roles: '*'
@@ -178,7 +178,7 @@ export const ROUTE_TITLES = {
   '/mensajes':          'Mensajes',
   '/cola-preparacion':  'Cola de preparación',
   '/cuadre':            'Cuadre',
-  '/incidencias':       'Incidencias',
+  '/incidencias':       'Notas e incidencias',
   '/gestion':           'Panel administrativo',
   '/profile':           'Mi perfil',
   '/programador':       'Consola técnica',
@@ -189,7 +189,7 @@ export const ROUTE_TITLES = {
   '/app/profile':          'Mi perfil',
   '/app/mensajes':         'Mensajes',
   '/app/cola-preparacion': 'Cola de preparación',
-  '/app/incidencias':      'Incidencias',
+  '/app/incidencias':      'Notas e incidencias',
   '/app/cuadre':           'Cuadre',
   '/app/admin':            'Panel admin',
   '/app/programador':      'Consola técnica',

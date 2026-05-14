@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
-import { subscribeIncidencias, createIncidencia, resolveIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
+import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
 
 let _container = null;
 let _state = null;
@@ -23,16 +23,18 @@ function _trackListener(action, name, extra = {}) {
 
 function _makeState(plaza) {
   const url = new URL(window.location.href);
+  const mvaFromQuery = String(url.searchParams.get('mva') || '').trim().toUpperCase();
+  const queryFromUrl = String(url.searchParams.get('q') || '').trim();
   return {
     plaza,
     allItems: [],
     items: [],
     tab: 'viewTab',
-    query: '',
+    query: (queryFromUrl || mvaFromQuery).toLowerCase(),
     statusFilter: 'TODAS',
     priorityFilter: { CRITICA: true, ALTA: true, MEDIA: true, BAJA: true },
     selectedId: '',
-    mvaFromQuery: String(url.searchParams.get('mva') || '').trim().toUpperCase(),
+    mvaFromQuery,
     loading: true,
     errorMessage: '',
     hasPermissionDenied: false,
@@ -151,7 +153,7 @@ function _startListener() {
     onError: err => {
       if (!_state) return;
       _state.loading = false;
-      _state.errorMessage = err?.message || 'Error al cargar incidencias.';
+      _state.errorMessage = err?.message || 'Error al cargar notas e incidencias.';
       _state.hasPermissionDenied = String(err?.code || '').toLowerCase() === 'permission-denied';
       _render();
     }
@@ -248,7 +250,18 @@ function _applyFilters() {
     const status = _statusFromNota(item);
     if (_state.statusFilter !== 'TODAS' && status !== _state.statusFilter) return false;
     if (!query) return true;
-    const hay = `${item.titulo || ''} ${item.descripcion || ''} ${item.autor || ''} ${item.codigo || ''} ${item.mva || ''}`.toLowerCase();
+    const hay = [
+      item.titulo,
+      item.descripcion,
+      item.nota,
+      item.autor,
+      item.creadoPor,
+      item.codigo,
+      item.mva,
+      item.plaza,
+      item.prioridad,
+      item.source
+    ].join(' ').toLowerCase();
     return hay.includes(query);
   }).sort((a, b) => _dateMs(b.creadoEn || b.fecha) - _dateMs(a.creadoEn || a.fecha));
 }
@@ -301,7 +314,7 @@ function _renderList() {
   if (!list) return;
 
   if (!_state.plaza) {
-    list.innerHTML = _empty('Selecciona una plaza para ver incidencias.');
+    list.innerHTML = _empty('Selecciona una plaza para ver notas e incidencias.');
     return;
   }
   if (_state.loading) {
@@ -309,7 +322,7 @@ function _renderList() {
     return;
   }
   if (_state.hasPermissionDenied) {
-    list.innerHTML = _empty('No tienes permisos para ver incidencias de esta plaza.');
+    list.innerHTML = _empty('No tienes permisos para ver notas e incidencias de esta plaza.');
     return;
   }
   if (_state.errorMessage) {
@@ -317,11 +330,11 @@ function _renderList() {
     return;
   }
   if (!_state.allItems.length) {
-    list.innerHTML = _empty('No hay incidencias registradas.');
+    list.innerHTML = _empty('No hay notas e incidencias registradas.');
     return;
   }
   if (!_state.items.length) {
-    list.innerHTML = _empty('No se encontraron incidencias con los filtros actuales.');
+    list.innerHTML = _empty('No se encontraron notas e incidencias con los filtros actuales.');
     return;
   }
 
@@ -330,6 +343,8 @@ function _renderList() {
     const st = _stateMeta(item);
     const open = _statusFromNota(item) === 'PENDIENTE';
     const evidencias = _evidenceRows(item);
+    const codigo = item.codigo || item.legacyNotaId || item.id || '';
+    const canDelete = _canDelete(item);
     return `
       <article class="nota-card" data-prioridad="${esc(pr.key)}">
         <div class="nota-top">
@@ -337,7 +352,7 @@ function _renderList() {
             <div class="nota-icon"><span class="material-icons">${esc(pr.icon)}</span></div>
             <div class="nota-main-copy">
               <div class="nota-title-row">
-                <h4 class="nota-title">${esc(item.titulo || 'Incidencia sin titulo')}</h4>
+                <h4 class="nota-title">${esc(item.titulo || 'Nota sin titulo')}</h4>
                 <div class="nota-badges">
                   <span class="nota-priority-badge ${esc(pr.className)}">${esc(pr.label)}</span>
                   <span class="nota-state-badge ${esc(st.className)}">${esc(st.label)}</span>
@@ -348,7 +363,7 @@ function _renderList() {
                 <span class="nota-meta-separator"></span>
                 <span>${esc(_longDate(item.creadoEn || item.fecha))}</span>
                 <span class="nota-meta-separator"></span>
-                <span>${esc(item.mva || 'SIN MVA')}</span>
+                <span>${esc(item.mva || codigo || 'SIN MVA')}</span>
               </div>
             </div>
           </div>
@@ -357,11 +372,11 @@ function _renderList() {
         ${_renderEvidenceBlock(evidencias)}
         <div class="nota-footer">
           <div class="nota-footer-left">
-            <span class="nota-chip">${esc(item.plaza || _state.plaza || '—')}</span>
+            <span class="nota-chip">${esc(codigo || item.plaza || _state.plaza || '—')}</span>
             <span class="nota-chip">${esc(pr.label)}</span>
             ${evidencias.length ? `<span class="nota-chip">${evidencias.length} adjunto${evidencias.length === 1 ? '' : 's'}</span>` : ''}
           </div>
-          <button class="btn-res-inc" style="background:transparent;color:#ef4444;border-color:transparent;padding:0;" data-delete-id="${esc(item.legacyNotaId || item.id)}" title="Eliminar registro"><span class="material-icons" style="font-size:18px;">delete</span></button>
+          ${canDelete ? `<button class="btn-res-inc" style="background:transparent;color:#ef4444;border-color:transparent;padding:0;" data-delete-id="${esc(item.legacyNotaId || item.id)}" title="Eliminar registro"><span class="material-icons" style="font-size:18px;">delete</span></button>` : ''}
         </div>
         ${open
           ? `<button class="btn-res-inc" data-resolve-id="${esc(item.legacyNotaId || item.id)}">Marcar como resuelta</button>`
@@ -393,12 +408,10 @@ function _renderList() {
   });
 }
 
-import { deleteIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
-
 async function _onDeleteIncidencia(id) {
   try {
     await deleteIncidencia(id);
-    _showNotice('Incidencia eliminada', 'success');
+    _showNotice('Nota eliminada', 'success');
     if (_state?.plaza) _startListener(); // Refresh
   } catch (err) {
     _showNotice('Error al eliminar: ' + (err.message || ''), 'error');
@@ -427,7 +440,7 @@ function _toggleResolverModal(show) {
 async function _confirmResolve() {
   const id = String(_state?.selectedId || '').trim();
   const comentario = String(q('authComentario')?.value || '').trim();
-  if (!id) return _showNotice('No se pudo identificar la incidencia a resolver.', 'error');
+  if (!id) return _showNotice('No se pudo identificar la nota a resolver.', 'error');
   if (!comentario) return _showNotice('Describe cómo se solucionó.', 'error');
   const btn = q('btnConfirmarResInc');
   const gs = getState();
@@ -435,23 +448,23 @@ async function _confirmResolve() {
   btn.disabled = true;
   try {
     await resolveIncidencia(id, comentario, autor);
-    _showNotice('Incidencia resuelta.', 'ok');
+    _showNotice('Nota resuelta.', 'ok');
     _toggleResolverModal(false);
     q('authComentario').value = '';
   } catch (error) {
-    _showNotice(error?.message || 'No se pudo resolver la incidencia.', 'error');
+    _showNotice(error?.message || 'No se pudo resolver la nota.', 'error');
   } finally {
     btn.disabled = false;
   }
 }
 
 async function _onCreateIncidencia() {
-  if (!_state?.plaza) return _showNotice('Selecciona una plaza para registrar incidencias.', 'error');
+  if (!_state?.plaza) return _showNotice('Selecciona una plaza para registrar notas e incidencias.', 'error');
   const titulo = String(q('nuevaNotaTitulo')?.value || '').trim();
   const descripcion = String(q('nuevaNotaTxt')?.value || '').trim();
   const prioridad = String(q('nuevaNotaPrioridad')?.value || 'MEDIA').toUpperCase();
   const mva = String(q('incMvaInput')?.value || '').trim().toUpperCase();
-  if (!titulo) return _showNotice('Escribe el titulo de la incidencia.', 'error');
+  if (!titulo) return _showNotice('Escribe el titulo de la nota.', 'error');
   if (!descripcion) return _showNotice('Escribe la descripción.', 'error');
 
     const btn = q('btnPublicarInc');
@@ -463,6 +476,7 @@ async function _onCreateIncidencia() {
       titulo,
       descripcion,
       nota: descripcion,
+      codigo: `INC-${String(Date.now()).slice(-6)}`,
       prioridad,
       mva,
       plaza: _state.plaza,
@@ -470,7 +484,7 @@ async function _onCreateIncidencia() {
       autor,
       creadoPor: autor,
       estado: 'PENDIENTE',
-      source: 'app_shell'
+      source: 'notas_admin'
     };
     
     if (_state.archivosNuevaNota.length) {
@@ -524,7 +538,7 @@ function _applyDraftMeta() {
 function _updatePreview() {
   const prioridad = String(q('nuevaNotaPrioridad')?.value || 'ALTA').toUpperCase();
   const meta = _priorityMeta({ prioridad });
-  _setText('incPreviewTitulo', String(q('nuevaNotaTitulo')?.value || '').trim() || 'Nueva incidencia');
+  _setText('incPreviewTitulo', String(q('nuevaNotaTitulo')?.value || '').trim() || 'Nueva nota');
   _setText('incPreviewBody', String(q('nuevaNotaTxt')?.value || '').trim() || 'Documenta el evento con precision tecnica para que el historial operativo conserve contexto e impacto.');
   _setText('incPreviewAutor', `Emitido por: ${String(q('autorNuevaNota')?.value || '--')}`);
   _setText('incPreviewEstado', 'Pendiente');
@@ -537,13 +551,13 @@ function _updatePreview() {
 
 function _statusFromNota(item) {
   const value = String(item?.estado || '').toUpperCase().trim();
-  if (value === 'RESUELTA' || value === 'CERRADA') return 'RESUELTA';
+  if (value === 'RESUELTA' || value === 'RESUELTO' || value === 'CERRADA' || value === 'CERRADO') return 'RESUELTA';
   return 'PENDIENTE';
 }
 
 function _priority(item) {
   const p = String(item?.prioridad || '').toUpperCase().trim();
-  if (p === 'CRITICA' || p === 'CRÍTICA') return 'CRITICA';
+  if (p === 'CRITICA' || p === 'CRÍTICA' || p === 'CRITICO' || p === 'CRÍTICO' || p === 'URGENTE') return 'CRITICA';
   if (p === 'ALTA') return 'ALTA';
   if (p === 'BAJA') return 'BAJA';
   return 'MEDIA';
@@ -555,6 +569,19 @@ function _priorityMeta(item) {
   if (p === 'ALTA') return { key: 'ALTA', icon: 'priority_high', label: 'Alta', className: 'is-alta' };
   if (p === 'BAJA') return { key: 'BAJA', icon: 'low_priority', label: 'Baja', className: 'is-baja' };
   return { key: 'MEDIA', icon: 'report_problem', label: 'Media', className: 'is-media' };
+}
+
+function _canDelete(item) {
+  if (_statusFromNota(item) !== 'PENDIENTE') return false;
+  const gs = getState();
+  const author = String(item?.autor || item?.creadoPor || '').trim();
+  if (!author) return false;
+  return [
+    gs.profile?.nombre,
+    gs.profile?.nombreCompleto,
+    gs.profile?.displayName,
+    gs.profile?.email
+  ].some(value => String(value || '').trim() === author);
 }
 
 function _stateMeta(item) {
@@ -651,8 +678,8 @@ function _renderLayout() {
           <div class="incv2-header-left">
             <span class="material-icons">description</span>
             <div>
-              <h2 class="incv2-header-title">BITÁCORA</h2>
-              <p class="incv2-header-sub">Incidencias operativas</p>
+              <h2 class="incv2-header-title">NOTAS E INCIDENCIAS</h2>
+              <p class="incv2-header-sub">Bitácora operativa del mapa</p>
             </div>
           </div>
           <div class="incv2-header-right">
@@ -734,11 +761,11 @@ function _renderLayout() {
                   <input type="text" id="incMvaInput" class="inc-input" placeholder="Ej: MVA-1234">
                 </div>
                 <div class="inc-field">
-                  <label class="inc-field-label">Titulo de la incidencia</label>
+                  <label class="inc-field-label">Titulo de la nota</label>
                   <input type="text" id="nuevaNotaTitulo" class="inc-input" placeholder="Ej: Disrupcion operativa en unidad">
                 </div>
                 <div class="inc-field">
-                  <label class="inc-field-label">Descripcion de la incidencia</label>
+                  <label class="inc-field-label">Descripcion de la nota/incidencia</label>
                   <textarea id="nuevaNotaTxt" class="inc-editor-textarea" placeholder="Describe causas, impacto y contexto operativo"></textarea>
                 </div>
                 <div class="inc-field">
@@ -769,7 +796,7 @@ function _renderLayout() {
               </div>
               <div class="inc-preview-card">
                 <div class="inc-preview-top"><span id="incPreviewPrioridad" class="inc-preview-priority is-alta">Alta</span><span id="incPreviewStamp" class="inc-preview-stamp">Sin adjuntos</span></div>
-                <h3 id="incPreviewTitulo" class="inc-preview-title">Nueva incidencia</h3>
+                <h3 id="incPreviewTitulo" class="inc-preview-title">Nueva nota</h3>
                 <div id="incPreviewBody" class="inc-preview-body">Documenta el evento operativo con claridad.</div>
                 <div class="inc-preview-meta"><span id="incPreviewAutor">Emitido por: --</span><span id="incPreviewEstado">Pendiente</span></div>
               </div>
@@ -780,7 +807,7 @@ function _renderLayout() {
 
       <div id="modalAuthIncidencia" class="modal-overlay">
         <div class="modal-box">
-          <div class="modal-title">Resolver Incidencia</div>
+          <div class="modal-title">Resolver nota</div>
           <div class="modal-text">Describe brevemente cómo se solucionó:</div>
           <textarea id="authComentario" rows="3"></textarea>
           <div class="modal-actions">

@@ -6,9 +6,13 @@
 //  dentro del main stage en modo content-only (?shell=1).
 // ═══════════════════════════════════════════════════════════
 
+import { getState, onPlazaChange } from '/js/app/app-state.js';
+
 let _container = null;
 let _shell = null;
 let _iframe = null;
+let _offGlobalSearch = null;
+let _offPlazaChange = null;
 
 const LEGACY_BY_ID = {
   dashboard:   { src: '/home',              title: 'Dashboard' },
@@ -16,7 +20,7 @@ const LEGACY_BY_ID = {
   mensajes:    { src: '/mensajes',          title: 'Mensajes' },
   cola:        { src: '/cola-preparacion',  title: 'Cola de preparación' },
   incidencias: { src: '/incidencias',       title: 'Incidencias' },
-  cuadre:      { src: '/cuadre',            title: 'Cuadre' },
+  cuadre:      { src: '/mapa',              title: 'Cuadre' },
   admin:       { src: '/gestion',           title: 'Panel administrativo' },
   programador: { src: '/programador',       title: 'Consola técnica' },
   mapa:        { src: '/mapa',              title: 'Mapa operativo' },
@@ -84,12 +88,18 @@ function _tabFromPath(path = '') {
 function _srcFor(id, ctx = {}) {
   const cfg = LEGACY_BY_ID[id] || LEGACY_BY_ID.dashboard;
   const params = new URLSearchParams(window.location.search || '');
+  const appState = getState();
+  const plaza = String(appState.currentPlaza || '').toUpperCase().trim();
   params.delete('legacy');
   params.set('shell', '1');
   params.set('appStage', '1');
   if (id === 'admin') params.set('admin', '1');
   if (id === 'mensajes') params.set('messages', '1');
-  if (id === 'cuadre') params.set('fleet', '1');
+  if (id === 'cuadre') {
+    params.set('fleet', '1');
+    if (!params.get('tab')) params.set('tab', 'normal');
+  }
+  if (id === 'cola' && plaza) params.set('plaza', plaza);
   if (id === 'admin' && !params.get('tab')) {
     const tab = _tabFromPath(ctx.state?.currentRoute || window.location.pathname);
     if (tab) params.set('tab', tab);
@@ -179,6 +189,118 @@ function _scheduleFrameSync(frame, id, ctx = {}) {
   });
 }
 
+const SEARCH_SELECTORS = {
+  dashboard: ['#homeSearchInput', '#shellRouteSearchInput'],
+  profile: ['#profileRouteSearchInput', '#shellRouteSearchInput'],
+  mensajes: ['#buscadorContactos', '.chatv2-search-input'],
+  cola: ['#prepSearchInput'],
+  cuadre: ['#searchFlota', '#searchInput', '#searchInputMobile', '#audit-search'],
+  admin: ['#cfg-search-input', '#um-search', '#busqueda-solicitudes', '#cfg-plaza-search', '#cfg-correo-interno-search'],
+  programador: ['#programmerRouteSearchInput', '#programmerSearchInput'],
+  mapa: ['#searchInput', '#searchInputMobile', '#searchFlota', '#audit-search'],
+  editmap: ['#searchInput', '#searchInputMobile', '#dropdownSearchInput']
+};
+
+const SEARCH_FUNCTIONS = [
+  'buscarMasivo',
+  'filtrarFlota',
+  'renderContactos',
+  'buscarEnListaConfig',
+  'umFiltrar',
+  'filtrarSolicitudesActuales',
+  '_filtrarPlazasCfg'
+];
+
+function _dispatchFieldEvents(input) {
+  ['input', 'keyup', 'change'].forEach(type => {
+    try { input.dispatchEvent(new Event(type, { bubbles: true })); } catch (_) {}
+  });
+}
+
+function _applySearchToWindow(win, id, query) {
+  try {
+    const doc = win?.document;
+    if (!doc) return;
+    const selectors = SEARCH_SELECTORS[id] || [];
+    selectors.forEach(selector => {
+      doc.querySelectorAll(selector).forEach(input => {
+        if (!('value' in input)) return;
+        input.value = query;
+        _dispatchFieldEvents(input);
+      });
+    });
+    SEARCH_FUNCTIONS.forEach(name => {
+      try {
+        if (typeof win[name] === 'function') win[name]();
+      } catch (_) {}
+    });
+    Array.from(doc.querySelectorAll('iframe')).forEach(child => {
+      if (child.contentWindow) _applySearchToWindow(child.contentWindow, id, query);
+    });
+  } catch (_) {}
+}
+
+function _syncSearch(query = '', id = '') {
+  if (!_iframe) return;
+  _applySearchToWindow(_iframe.contentWindow, id, String(query || ''));
+}
+
+function _setPlazaFields(win, plaza) {
+  try {
+    const doc = win?.document;
+    if (!doc) return;
+    ['#prepPlazaSelect', '#homePlazaSelect', '#shellRoutePlazaSelect', '#programmerRoutePlazaSelect', '#profileRoutePlazaSelect'].forEach(selector => {
+      doc.querySelectorAll(selector).forEach(select => {
+        if (!('value' in select)) return;
+        select.value = plaza;
+        _dispatchFieldEvents(select);
+      });
+    });
+  } catch (_) {}
+}
+
+function _applyPlazaToWindow(win, id, plaza) {
+  try {
+    if (!win) return;
+    if (typeof win.setMexCurrentPlaza === 'function') {
+      win.setMexCurrentPlaza(plaza, { persistLocal: true, source: 'app-shell-stage' });
+    } else {
+      win.__mexCurrentPlazaId = plaza;
+    }
+    if (typeof win.cambiarPlazaMapa === 'function' && ['mapa', 'cuadre', 'editmap'].includes(id)) {
+      win.cambiarPlazaMapa(plaza);
+    }
+    _setPlazaFields(win, plaza);
+    Array.from(win.document?.querySelectorAll('iframe') || []).forEach(child => {
+      if (child.contentWindow) _applyPlazaToWindow(child.contentWindow, id, plaza);
+    });
+  } catch (_) {}
+}
+
+function _syncPlaza(plaza, id, ctx) {
+  const normalized = String(plaza || '').toUpperCase().trim();
+  if (!normalized || !_iframe) return;
+  _applyPlazaToWindow(_iframe.contentWindow, id, normalized);
+
+  if (['cola', 'dashboard', 'profile', 'programador'].includes(id)) {
+    const nextSrc = _srcFor(id, ctx);
+    if (_iframe.getAttribute('src') !== nextSrc) _iframe.setAttribute('src', nextSrc);
+  }
+}
+
+function _bindShellSignals(id, ctx = {}) {
+  if (typeof _offGlobalSearch === 'function') _offGlobalSearch();
+  if (typeof _offPlazaChange === 'function') _offPlazaChange();
+
+  const searchHandler = event => {
+    _syncSearch(event?.detail?.query || '', id);
+  };
+  window.addEventListener('mex:global-search', searchHandler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', searchHandler);
+
+  _offPlazaChange = onPlazaChange(nextPlaza => _syncPlaza(nextPlaza, id, ctx));
+}
+
 export function mount(ctx = {}) {
   _container = ctx.container;
   _shell = ctx.shell || null;
@@ -198,22 +320,33 @@ export function mount(ctx = {}) {
         title="${esc(cfg.title)}"
         src="${esc(src)}"
         data-app-legacy-stage="${esc(id)}"
+        loading="eager"
         allow="clipboard-read; clipboard-write; microphone; camera; fullscreen"
       ></iframe>
     </section>
   `;
 
   _iframe = _container.querySelector('#appLegacyStageFrame');
+  _bindShellSignals(id, ctx);
   _iframe?.addEventListener('load', () => {
     _injectFrameOverrides(_iframe, id);
     _scheduleFrameSync(_iframe, id, ctx);
+    _syncPlaza(getState().currentPlaza, id, ctx);
   });
 }
 
 export function unmount() {
   try { _shell?.setHeaderActions?.(''); } catch (_) {}
+  if (typeof _offGlobalSearch === 'function') {
+    try { _offGlobalSearch(); } catch (_) {}
+  }
+  if (typeof _offPlazaChange === 'function') {
+    try { _offPlazaChange(); } catch (_) {}
+  }
   document.body.classList.remove('app-legacy-stage-active');
   if (_container) _container.innerHTML = '';
+  _offGlobalSearch = null;
+  _offPlazaChange = null;
   _iframe = null;
   _shell = null;
   _container = null;

@@ -38,7 +38,10 @@ const ROUTE_TABLE = {
   '/app/mensajes':          legacyStage('mensajes', '/mensajes'),
   '/app/cola-preparacion':  legacyStage('cola', '/cola-preparacion'),
   '/app/cola':              { redirect: '/app/cola-preparacion' },
-  '/app/incidencias':       legacyStage('incidencias', '/incidencias'),
+  '/app/incidencias':       {
+    loader:   () => import('/js/app/views/incidencias.js'),
+    navRoute: '/incidencias'
+  },
   '/app/cuadre':            legacyStage('cuadre', '/cuadre'),
   '/app/admin':             legacyStage('admin', '/gestion'),
   '/app/gestion':           { redirect: '/app/admin' },

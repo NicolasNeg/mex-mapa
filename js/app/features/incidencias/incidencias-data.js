@@ -6,19 +6,19 @@ function normalizePlaza(plaza) {
 
 function normalizePriority(value = '') {
   const normalized = String(value || '').toUpperCase().trim();
-  if (['CRITICA', 'CRÍTICA', 'URGENTE', 'CRITICO', 'CRÍTICO'].includes(normalized)) return 'alta';
-  if (normalized === 'ALTA') return 'alta';
-  if (normalized === 'BAJA') return 'baja';
-  return 'media';
+  if (['CRITICA', 'CRÍTICA', 'URGENTE', 'CRITICO', 'CRÍTICO'].includes(normalized)) return 'CRITICA';
+  if (normalized === 'ALTA') return 'ALTA';
+  if (normalized === 'BAJA') return 'BAJA';
+  return 'MEDIA';
 }
 
 function normalizeState(value = '') {
   const normalized = String(value || '').toUpperCase().trim();
   if (normalized === 'RESUELTA' || normalized === 'RESUELTO' || normalized === 'CERRADA' || normalized === 'CERRADO') {
-    return 'resuelta';
+    return 'RESUELTA';
   }
-  if (normalized === 'EN_PROCESO' || normalized === 'EN PROCESO') return 'en_proceso';
-  return 'abierta';
+  if (normalized === 'EN_PROCESO' || normalized === 'EN PROCESO') return 'EN_PROCESO';
+  return 'PENDIENTE';
 }
 
 function normalizeDateField(value) {
@@ -52,27 +52,35 @@ function normalizeAttachments(data = {}) {
 export function mapNotaAdminToIncidencia(id, data = {}) {
   const plaza = normalizePlaza(data.plaza || data.plazaID || data.plazaId || '');
   const timestamp = Number(data.timestamp || 0);
+  const descripcion = String(data.descripcion || data.nota || '').trim();
   return {
     id: String(id || data.id || ''),
     legacyNotaId: String(id || data.id || ''),
     plazaID: plaza,
     plaza,
     mva: String(data.mva || data.unidad || '').toUpperCase().trim(),
-    titulo: String(data.titulo || '').trim() || 'Incidencia',
-    descripcion: String(data.descripcion || data.nota || '').trim(),
+    titulo: String(data.titulo || '').trim() || 'Nota',
+    descripcion,
+    nota: descripcion,
+    codigo: String(data.codigo || data.folio || '').trim(),
     tipo: String(data.tipo || 'OTRO').toUpperCase().trim() || 'OTRO',
     prioridad: normalizePriority(data.prioridad),
     estado: normalizeState(data.estado),
     autor: String(data.autor || data.creadoPor || '').trim(),
     creadoPor: String(data.creadoPor || data.autor || '').trim(),
     creadoEn: normalizeDateField(data.creadoEn || data.fecha || data.timestamp || timestamp),
+    fecha: data.fecha || '',
+    timestamp,
     actualizadoPor: String(data.actualizadoPor || '').trim(),
     actualizadoEn: normalizeDateField(data.actualizadoEn),
     resueltoPor: String(data.quienResolvio || data.resueltoPor || '').trim(),
     resueltoEn: normalizeDateField(data.resueltaEn || data.resueltoEn),
+    resueltaEn: data.resueltaEn || data.resueltoEn || '',
+    quienResolvio: String(data.quienResolvio || data.resueltoPor || '').trim(),
     solucion: String(data.solucion || '').trim(),
+    adjuntos: normalizeAttachments(data),
     evidencias: normalizeAttachments(data),
-    source: String(data.source || 'notas_admin').trim(),
+    source: String(data.source || 'notas_admin').trim() || 'notas_admin',
     version: Number(data.version || 1) || 1,
   };
 }
@@ -91,11 +99,17 @@ export function subscribeIncidencias({ plaza, onData, onError }) {
     return () => {};
   }
 
+  const cached = readIncidenciasCache(plazaId);
+  if (cached.length) {
+    queueMicrotask(() => handleData(cached));
+  }
+
   try {
     if (window.api?.suscribirNotasAdmin && typeof window.api.suscribirNotasAdmin === 'function') {
       return window.api.suscribirNotasAdmin(notas => {
         const rows = Array.isArray(notas) ? notas : [];
         const normalized = rows.map(item => normalizeIncidencia(item?.id, item));
+        writeIncidenciasCache(plazaId, normalized);
         handleData(normalized);
       }, plazaId);
     }
@@ -112,6 +126,7 @@ export function subscribeIncidencias({ plaza, onData, onError }) {
     return query.onSnapshot(
       snap => {
         const normalized = snap.docs.map(doc => normalizeIncidencia(doc.id, doc.data()));
+        writeIncidenciasCache(plazaId, normalized);
         handleData(normalized);
       },
       error => handleError(error)
@@ -120,6 +135,31 @@ export function subscribeIncidencias({ plaza, onData, onError }) {
     handleError(error);
     return () => {};
   }
+}
+
+function cacheKey(plaza) {
+  return `mex.app.notas-incidencias.${normalizePlaza(plaza)}`;
+}
+
+function readIncidenciasCache(plaza) {
+  try {
+    const raw = sessionStorage.getItem(cacheKey(plaza));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+    return rows.map(item => normalizeIncidencia(item?.id, item));
+  } catch (_) {
+    return [];
+  }
+}
+
+function writeIncidenciasCache(plaza, rows = []) {
+  try {
+    sessionStorage.setItem(cacheKey(plaza), JSON.stringify({
+      savedAt: Date.now(),
+      rows: Array.isArray(rows) ? rows.slice(0, 300) : []
+    }));
+  } catch (_) {}
 }
 
 export async function createIncidencia(payload = {}) {
@@ -142,7 +182,7 @@ export async function createIncidencia(payload = {}) {
     timestamp: Date.now(),
     fecha: new Date().toISOString(),
     autor: String(basePayload.autor || basePayload.creadoPor || 'Sistema'),
-    titulo: String(basePayload.titulo || 'Incidencia'),
+    titulo: String(basePayload.titulo || 'Nota'),
     prioridad: String(basePayload.prioridad || 'MEDIA').toUpperCase(),
     nota: String(basePayload.descripcion || basePayload.nota || ''),
     descripcion: String(basePayload.descripcion || basePayload.nota || ''),
