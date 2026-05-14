@@ -53,6 +53,44 @@ const SHOULD_SKIP_MAIN_MAP_BOOTSTRAP = STANDALONE_ROUTE_RE.test(window.location.
 const EDITMAP_STANDALONE_ROUTE_RE = /^\/(?:editmap)(?:\/|$)/i;
 const EDITMAP_ACTIVE_PLAZA_KEY = 'mex:last-active-plaza';
 const EDITMAP_LAST_ROUTE_PLAZA_KEY = 'mex:last-editmap-plaza';
+const LEGACY_MODAL_SOURCE_PATH = '/mapa.html';
+const _legacyModalImportPromises = new Map();
+
+async function _ensureLegacyModalElement(id) {
+  const modalId = String(id || '').trim();
+  if (!modalId) return null;
+  const existing = document.getElementById(modalId);
+  if (existing) return existing;
+  if (_legacyModalImportPromises.has(modalId)) {
+    return _legacyModalImportPromises.get(modalId);
+  }
+  const promise = (async () => {
+    try {
+      const res = await fetch(LEGACY_MODAL_SOURCE_PATH, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const html = await res.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const source = doc.getElementById(modalId);
+      if (!source) throw new Error(`No existe #${modalId} en ${LEGACY_MODAL_SOURCE_PATH}`);
+      const imported = document.importNode(source, true);
+      document.body.appendChild(imported);
+      return imported;
+    } catch (error) {
+      console.warn('[cuadre/modal]', modalId, error);
+      try { showToast('No se pudo cargar el panel solicitado. Actualiza e intenta de nuevo.', 'error'); } catch (_) {}
+      return null;
+    }
+  })();
+  _legacyModalImportPromises.set(modalId, promise);
+  return promise;
+}
+
+async function _openLegacyModalElement(id) {
+  const modal = await _ensureLegacyModalElement(id);
+  if (!modal) return null;
+  modal.classList.add('active');
+  return modal;
+}
 
 function _rememberActivePlaza(plaza, options = {}) {
   const { forEditmap = false } = options;
@@ -5718,7 +5756,7 @@ function manejarBotonAgregarFlotante() {
   }
 }
 
-function seleccionarFilaFlota(index, rowElement) {
+async function seleccionarFilaFlota(index, rowElement) {
   // Resaltar la fila seleccionada
   document.querySelectorAll('#tablaCuerpoFlota tr').forEach(tr => tr.classList.remove('selected'));
   rowElement.classList.add('selected');
@@ -5769,7 +5807,8 @@ function seleccionarFilaFlota(index, rowElement) {
     let esSoloLecturaAdmin = !canEditAdminCuadre();
 
     // Abrimos el modal correcto [cite: 1234]
-    document.getElementById('modal-editar-admin').classList.add('active');
+    const modal = await _openLegacyModalElement('modal-editar-admin');
+    if (!modal) return;
 
     // Ponemos el MVA en la cabecera del modal [cite: 1235]
     document.getElementById('a_mod_badgeMVA').innerText = SELECT_REF_FLOTA.mva;
@@ -9793,15 +9832,15 @@ function obtenerDisenoCalor(fechaIngresoStr) {
 // --- LÓGICA DEL MENÚ 'MÁS CONTROLES' ---
 
 function toggleMoreControls() {
-  document.getElementById('adminControlsDropdown').classList.remove('show'); // close the other
+  document.getElementById('adminControlsDropdown')?.classList.remove('show'); // close the other
   const menu = document.getElementById('moreControlsDropdown');
-  menu.classList.toggle('show');
+  if (menu) menu.classList.toggle('show');
 }
 
 function toggleAdminControls() {
-  document.getElementById('moreControlsDropdown').classList.remove('show'); // close the other
+  document.getElementById('moreControlsDropdown')?.classList.remove('show'); // close the other
   const menu = document.getElementById('adminControlsDropdown');
-  menu.classList.toggle('show');
+  if (menu) menu.classList.toggle('show');
 }
 
 // Cerrar los menús si hacemos clic afuera de ellos
@@ -9833,9 +9872,10 @@ const ICONOS_RESUMEN = {
 let globalResData = null;
 let vistaActualResumen = 'patio';
 
-function abrirResumenFlota() {
+async function abrirResumenFlota() {
   toggleMoreControls();
-  document.getElementById('modal-resumen-flota').classList.add('active');
+  const modal = await _openLegacyModalElement('modal-resumen-flota');
+  if (!modal) return;
   const branch = document.getElementById('resv2-branch');
   if (branch) branch.innerText = _miPlaza() || '---';
 
@@ -9922,7 +9962,7 @@ function actualizarFechaResumen() {
 // ==============================================================
 // LÓGICA: INSERTAR UNIDAD AL CUADRE ADMINS
 // ==============================================================
-function abrirModalInsertarAdmin() {
+async function abrirModalInsertarAdmin() {
   const menu = document.getElementById('moreControlsDropdown');
   if (menu) menu.classList.remove('show');
   const plazaOperativa = _obtenerPlazaOperativaCuadreAdmin();
@@ -9933,7 +9973,8 @@ function abrirModalInsertarAdmin() {
   ADMIN_INSERT_UNIT = null;
 
   // 1. Mostrar el modal
-  document.getElementById('modal-insertar-admin').classList.add('active');
+  const modal = await _openLegacyModalElement('modal-insertar-admin');
+  if (!modal) return;
 
   // 🔥 Aseguramos que el contenedor sea visible desde el segundo 1
   document.getElementById('a_ins_formContainer').style.display = 'block';
@@ -9986,7 +10027,7 @@ function limpiarFormularioInsertarExterno() {
   });
 }
 
-function abrirModalInsertarExterno() {
+async function abrirModalInsertarExterno() {
   if (!canInsertExternalUnits()) {
     showToast("Esta operación está disponible desde Gerente de Plaza hacia arriba.", "error");
     return;
@@ -9997,10 +10038,11 @@ function abrirModalInsertarExterno() {
     return;
   }
   document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  const modal = await _openLegacyModalElement('modal-insertar-externo');
+  if (!modal) return;
   const badge = document.getElementById('ext_badgePlaza');
   if (badge) badge.innerText = `PLAZA ${plaza}`;
   limpiarFormularioInsertarExterno();
-  document.getElementById('modal-insertar-externo').classList.add('active');
   setTimeout(() => document.getElementById('ext_mva')?.focus(), 80);
 }
 
@@ -10244,13 +10286,14 @@ let FLOTA_TOTAL_GLOBAL = [];
 let UNIDAD_GLOBAL_ACTIVA = null;
 
 // --- 1. INSERTAR (ALTA UNIVERSAL) ---
-function abrirModalInsertarGlobal() {
+async function abrirModalInsertarGlobal() {
   if (!hasFullAccess()) {
     showToast("Tu rol no puede insertar unidades globales.", "error");
     return;
   }
   toggleMoreControls();
-  document.getElementById('modal-insertar-global').classList.add('active');
+  const modal = await _openLegacyModalElement('modal-insertar-global');
+  if (!modal) return;
   limpiarFormularioAltaGlobal();
   const scrollPanel = document.querySelector('#modal-insertar-global .form-modal-scroll');
   if (scrollPanel) scrollPanel.scrollTop = 0;
@@ -10303,13 +10346,14 @@ function limpiarFormularioAltaGlobal() {
 // LÓGICA 1: EDICIÓN GLOBAL (MODIFICADOR MAESTRO - VIN/AÑO)
 // ==============================================================
 
-function abrirModalEditarGlobal() {
+async function abrirModalEditarGlobal() {
   if (!hasFullAccess()) {
     showToast("Tu rol no puede abrir la edición global.", "error");
     return;
   }
   toggleMoreControls();
-  document.getElementById('modal-editar-global').classList.add('active');
+  const modal = await _openLegacyModalElement('modal-editar-global');
+  if (!modal) return;
   desbloquearEdicionGlobal();
   const scrollPanel = document.querySelector('#modal-editar-global .form-modal-scroll');
   if (scrollPanel) scrollPanel.scrollTop = 0;
@@ -10438,12 +10482,12 @@ async function guardarEdicionAdmin(tipoAccion) {
 }
 
 
-function abrirModalEliminarGlobal() {
+async function abrirModalEliminarGlobal() {
   if (!hasFullAccess()) {
     showToast("Tu rol no puede eliminar unidades globales.", "error");
     return;
   }
-  abrirModalEditarGlobal();
+  await abrirModalEditarGlobal();
   showToast("Busca la unidad que deseas eliminar globalmente", "warning");
 }
 
@@ -10949,10 +10993,11 @@ function cambiarModoAuditoria(mode) {
   cargarLogsAuditoria();
 }
 
-function abrirRegistrosMovimientos() {
+async function abrirRegistrosMovimientos() {
   toggleMoreControls(); // Cierra el menú desplegable
   aud_modoActual = 'OPERACION';
-  document.getElementById('modal-registros-movimientos').classList.add('active');
+  const modal = await _openLegacyModalElement('modal-registros-movimientos');
+  if (!modal) return;
   const search = document.getElementById('logBuscador');
   if (search) search.value = '';
   actualizarModoAuditoriaUI();
@@ -10964,6 +11009,10 @@ function cargarLogsAuditoria() {
   const icon = document.getElementById('logRefreshIcon');
   const contenedor = document.getElementById('listaLogsAuditoria');
   const btnMas = document.getElementById('btnCargarMasLogs');
+  if (!icon || !contenedor || !btnMas) {
+    console.warn('[cuadre/modal] Auditoría no está montada todavía.');
+    return;
+  }
 
   icon.classList.add('spinner');
   btnMas.style.display = 'none';
@@ -14590,8 +14639,10 @@ function extraerConteoClases(textoRaw) {
 
 function reiniciarPrediccion() {
   // 1. Ocultar la tabla de resultados y mostrar de nuevo las cajas de texto
-  document.getElementById('prediccion-paso-2').style.display = 'none';
-  document.getElementById('prediccion-paso-1').style.display = 'block';
+  const paso2 = document.getElementById('prediccion-paso-2');
+  const paso1 = document.getElementById('prediccion-paso-1');
+  if (paso2) paso2.style.display = 'none';
+  if (paso1) paso1.style.display = 'block';
   htmlTablaPrediccion = "";
   datosCalculadosParaExcel = [];
   resumenPrediccionActual = null;
@@ -14599,8 +14650,10 @@ function reiniciarPrediccion() {
   fechaSeleccionadaIso = "";
 
   // 2. Limpiar las cajas de texto para que queden en blanco
-  document.getElementById('txt-pred-reservas').value = "";
-  document.getElementById('txt-pred-regresos').value = "";
+  const txtReservas = document.getElementById('txt-pred-reservas');
+  const txtRegresos = document.getElementById('txt-pred-regresos');
+  if (txtReservas) txtReservas.value = "";
+  if (txtRegresos) txtRegresos.value = "";
   const tabla = document.getElementById('tabla-prediccion-container');
   if (tabla) tabla.innerHTML = '';
 
@@ -20970,6 +21023,7 @@ Object.assign(window, {
   abrirGestorAlertas,
   abrirHistorialCuadres,
   abrirIncidencias,
+  abrirLectorReservasCuadre,
   abrirLightboxChat,
   abrirLogs,
   abrirModalCuadre3V,
@@ -20985,6 +21039,7 @@ Object.assign(window, {
   abrirPanelAdministracion,
   abrirPanelConfiguracion,
   abrirRegistrosMovimientos,
+  abrirPrediccionCuadre,
   abrirReporteImpresion,
   abrirResumenFlota,
   abrirSelectorArchivosNota,
@@ -21704,8 +21759,8 @@ function exportarComparadorCSV() {
 // ═══════════════════════════════════════════════════════════
 
 // ── F4.1  Modal de carga ────────────────────────────────────
-function abrirModalPDFReservas() {
-  const modal = document.getElementById('modal-pdf-reservas');
+async function abrirModalPDFReservas() {
+  const modal = document.getElementById('modal-pdf-reservas') || await _ensureLegacyModalElement('modal-pdf-reservas');
   if (!modal) return;
   // Limpiar estado previo
   const ta = document.getElementById('pdf-texto-bruto');
@@ -21715,6 +21770,21 @@ function abrirModalPDFReservas() {
   const dz = document.getElementById('pdf-drop-zone');
   if (dz) { dz.style.borderColor = '#cbd5e1'; dz.style.background = ''; }
   modal.style.display = 'flex';
+}
+
+async function abrirLectorReservasCuadre() {
+  const modal = await _openLegacyModalElement('modal-lector-reservas');
+  if (!modal) return;
+  toggleMoreControls();
+}
+
+async function abrirPrediccionCuadre() {
+  const modal = await _openLegacyModalElement('modal-prediccion');
+  if (!modal) return;
+  reiniciarPrediccion();
+  const fecha = document.getElementById('fecha-prediccion');
+  if (fecha) fecha.valueAsDate = new Date();
+  toggleMoreControls();
 }
 
 function cerrarModalPDFReservas() {
