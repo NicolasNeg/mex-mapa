@@ -359,7 +359,7 @@ async function _confirmAvatarCrop() {
       .replace(/\.[^.]+$/, '')
       .replace(/[^a-z0-9_.-]+/gi, '-')
       .slice(0, 64) || 'avatar';
-    const ref = storageClient.ref(`usuarios/${docId}/avatar/${Date.now()}-${originalName}-crop.jpg`);
+    const ref = storageClient.ref(`profile_avatars/${docId}/${Date.now()}-${originalName}-crop.jpg`);
     await ref.put(blob, { contentType: 'image/jpeg' });
     const url = await ref.getDownloadURL();
     const input = _ctx?.container?.querySelector('#appProfileAvatarUrl');

@@ -139,6 +139,13 @@ export const NAV_GROUPS = [
     label: 'Sistema',
     items: [
       {
+        id: 'configuracion',
+        label: 'Configuración de mapa',
+        icon: 'map',
+        route: '/editmap',
+        roles: ['CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
+      },
+      {
         id: 'consola',
         label: 'Consola técnica',
         icon: 'terminal',
@@ -191,6 +198,7 @@ export const ROUTE_TITLES = {
   '/app/alertas/historial':'Historial de alertas',
   '/app/programador':      'Consola técnica',
   '/app/mapa':             'Mapa operativo',
+  '/app/editmap':          'Configuración de mapa',
 };
 
 export function routeTitle(route = '') {

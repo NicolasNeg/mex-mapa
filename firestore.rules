@@ -349,7 +349,15 @@ service cloud.firestore {
           "avatarPath",
           "photoURL",
           "fotoURL",
-          "profilePhotoUrl"
+          "profilePhotoUrl",
+          "nombreCompleto",
+          "nombre",
+          "usuario",
+          "telefono",
+          "profilePreferences",
+          "updatedAt",
+          "actualizadoAt",
+          "updatedFrom"
         ])
         && (!changed.hasAny(["_reloadRequired"]) || request.resource.data._reloadRequired == false)
         && (!changed.hasAny(["isOnline"]) || request.resource.data.isOnline is bool)
@@ -360,7 +368,15 @@ service cloud.firestore {
         && (!changed.hasAny(["avatarPath"]) || request.resource.data.avatarPath is string)
         && (!changed.hasAny(["photoURL"]) || request.resource.data.photoURL is string)
         && (!changed.hasAny(["fotoURL"]) || request.resource.data.fotoURL is string)
-        && (!changed.hasAny(["profilePhotoUrl"]) || request.resource.data.profilePhotoUrl is string);
+        && (!changed.hasAny(["profilePhotoUrl"]) || request.resource.data.profilePhotoUrl is string)
+        && (!changed.hasAny(["nombreCompleto"]) || request.resource.data.nombreCompleto is string)
+        && (!changed.hasAny(["nombre"]) || request.resource.data.nombre is string)
+        && (!changed.hasAny(["usuario"]) || request.resource.data.usuario is string)
+        && (!changed.hasAny(["telefono"]) || request.resource.data.telefono is string)
+        && (!changed.hasAny(["profilePreferences"]) || request.resource.data.profilePreferences is map)
+        && (!changed.hasAny(["updatedAt"]) || request.resource.data.updatedAt is number)
+        && (!changed.hasAny(["actualizadoAt"]) || request.resource.data.actualizadoAt is number)
+        && (!changed.hasAny(["updatedFrom"]) || request.resource.data.updatedFrom is string);
     }
 
     function deviceDocValido(deviceId) {

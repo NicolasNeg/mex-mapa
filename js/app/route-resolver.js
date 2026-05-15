@@ -119,6 +119,15 @@ export const ROUTE_MAP = {
     shellIntegrated:    true,
     fullModuleMigrated: true,
   },
+  editmap: {
+    id: 'editmap', label: 'Configuración de mapa',
+    legacyRoute:  '/editmap',
+    appRoute:     '/app/editmap',
+    navRoute:     '/editmap',
+    fallbackRoute:'/editmap',
+    shellIntegrated:    true,
+    fullModuleMigrated: false,
+  },
 };
 
 // ── API pública ──────────────────────────────────────────────

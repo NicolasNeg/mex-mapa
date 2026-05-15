@@ -41,6 +41,7 @@ const api = window.api;
 // scope global no se accede por nombre sin prefijo, así que capturamos aquí.
 const mexConfirm = (...a) => (window.mexConfirm || (() => Promise.resolve(true)))(...a);
 const mexDialog  = (...a) => (window.mexDialog  || (() => Promise.resolve(null)))(...a);
+const mexPrompt  = (...a) => (window.mexPrompt  || (() => Promise.resolve(null)))(...a);
 
 const APP_DEFAULT_COMPANY_NAME = 'EMPRESA';
 const USER_PRESENCE_HEARTBEAT_MS = 45000;
@@ -567,6 +568,14 @@ function cambiarTabFlota(tabSeleccionado) {
     btnAdmins.style.color = '#64748b';
     cargarFlota();
   } else {
+    if (!canViewAdminCuadre()) {
+      btnNormal.style.background = 'var(--mex-blue)';
+      btnNormal.style.color = 'white';
+      btnAdmins.style.background = '#f1f5f9';
+      btnAdmins.style.color = '#64748b';
+      document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px; color:#94a3b8;">Sin acceso al Cuadre Admins.</td></tr>`;
+      return;
+    }
     btnAdmins.style.background = '#d97706';
     btnAdmins.style.color = 'white';
     btnNormal.style.background = '#f1f5f9';
@@ -1251,6 +1260,7 @@ function _setSessionProfile(profile) {
   window.__mexSeedCurrentUserRecordCache?.(profile, auth.currentUser);
   _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
   _updateGlobalPlazaEmail();
+  try { if (profile.email) localStorage.setItem('mex.lastAuthEmail.v1', profile.email); } catch (_) {}
   console.log('[MEX-INTEG] _setSessionProfile →', { email: profile.email, rol: userAccessRole, plaza: PLAZA_ACTIVA_MAPA || '(sin plaza)', userRole, fullAccess: isGlobalAdmin });
   setErrorUser({ email: profile.email, role: userAccessRole, plaza: PLAZA_ACTIVA_MAPA });
   _inyectarSidebar();
@@ -5490,6 +5500,11 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
   const adminSection = document.getElementById('btnAdminControlsWrapper');
   if (adminSection) {
     adminSection.style.display = hasFullAccess() ? 'inline-block' : 'none';
+  }
+
+  const btnTabAdmins = document.getElementById('tabFlotaAdmins');
+  if (btnTabAdmins) {
+    btnTabAdmins.style.display = canViewAdminCuadre() ? '' : 'none';
   }
 
   const itemInsertarExterno = document.getElementById('mcInsertarExterno');
@@ -13921,7 +13936,7 @@ function _docIconForExt(ext) {
 async function editarMensajeChat(idMsg) {
   const msg = allChatMessages.find(m => m.id == idMsg);
   if (!msg) return;
-  const act = prompt("Edita tu mensaje:", msg.mensaje);
+  const act = await mexPrompt("Editar mensaje", "Edita tu mensaje:", "Mensaje", "text", msg.mensaje || "");
   if (act && act !== msg.mensaje) {
     msg.mensaje = act;
     renderChatWindow();
@@ -22946,4 +22961,61 @@ async function ejecutarMigracionLegacy() {
     showToast('Error durante la migración', 'error');
     console.error('[F5] migración error:', err);
   }
+}
+
+// ── Restauración temprana de perfil desde caché ──────────────────────────────
+// Establece userAccessRole/currentUserProfile ANTES de que onAuthStateChanged
+// resuelva (que incluye await getIdToken que tarda 200-500 ms). Esto evita que
+// _bootGestionAdminRoute vea un rol "AUXILIAR" transitorio y muestre toasts de
+// error al cargar /gestion u otras vistas admin.
+function _earlyRestoreProfileFromCache() {
+  const MAX_AGE_MS = 30 * 60 * 1000;
+  try {
+    let knownEmail = '';
+    try { knownEmail = String(localStorage.getItem('mex.lastAuthEmail.v1') || '').trim().toLowerCase(); } catch (_) {}
+
+    function _tryLoadEntry(lsKey) {
+      try {
+        // Intentar primero la versión de sesión (más fresca), luego la local
+        const sessionKey = lsKey.replace('mex.bootstrap.profile.local.v1.', 'mex.bootstrap.profile.v1.');
+        const raw = (() => { try { return sessionStorage.getItem(sessionKey); } catch (_) { return null; } })()
+                 || (() => { try { return localStorage.getItem(lsKey); } catch (_) { return null; } })();
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const ts = Number(parsed?.ts || 0);
+        if (!ts || Date.now() - ts > MAX_AGE_MS) return null;
+        return parsed?.data && typeof parsed.data === 'object' ? { data: parsed.data, ts } : null;
+      } catch (_) { return null; }
+    }
+
+    let best = null;
+    const PREFIX = 'mex.bootstrap.profile.local.v1.';
+
+    // Intento rápido con email conocido
+    if (knownEmail) best = _tryLoadEntry(PREFIX + knownEmail);
+
+    // Fallback: escanear localStorage para encontrar la entrada más reciente
+    if (!best) {
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (!k || !k.startsWith(PREFIX)) continue;
+          const candidate = _tryLoadEntry(k);
+          if (candidate && (!best || candidate.ts > best.ts)) best = candidate;
+        }
+      } catch (_) {}
+    }
+
+    if (!best) return;
+    const profile = _normalizeUserProfile(best.data);
+    if (!profile?.email) return;
+    _setSessionProfile(profile);
+    console.log('[MEX] Perfil pre-cargado del caché:', { email: profile.email, rol: profile.rol });
+  } catch (_) {}
+}
+
+// Ejecutar inmediatamente al cargar el módulo (antes de que onAuthStateChanged
+// resuelva) para que userAccessRole tenga el valor correcto desde el inicio.
+if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
+  _earlyRestoreProfileFromCache();
 }
