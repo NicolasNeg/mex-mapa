@@ -87,6 +87,12 @@ function unique(values = []) {
   return Array.from(new Set((values || []).map(upper).filter(Boolean)));
 }
 
+function _mexAlert(titulo, texto, tipo = 'info') {
+  if (typeof window.mexAlert === 'function') return window.mexAlert(titulo, texto, tipo);
+  console.warn('[login] mexAlert no disponible:', titulo, texto);
+  return Promise.resolve(true);
+}
+
 function requestPlazas() {
   const empresa = window.MEX_CONFIG?.empresa || {};
   const direct = Array.isArray(empresa.plazas) ? empresa.plazas : [];
@@ -234,6 +240,10 @@ auth.onAuthStateChanged(async (user) => {
           force: true
         });
       }
+      // Cargar contexto de empresa/tenant para el usuario autenticado.
+      if (typeof window.mexEmpresaContext?.cargarParaUsuario === 'function') {
+        await window.mexEmpresaContext.cargarParaUsuario(record).catch(() => {});
+      }
       // Sesión válida → App Shell como destino principal post-login (Fase 6)
       console.log('[login] post-login redirect:', POST_LOGIN_ROUTE);
       window.location.href = POST_LOGIN_ROUTE;
@@ -360,12 +370,12 @@ window.enviarSolicitudAcceso = async function () {
   const plazasDisponibles = populateSolicitudPlazas(plaza);
 
   if (!nombre || !email || !puesto || !plaza || !pass) {
-    alert('Completa los campos obligatorios.'); return;
+    await _mexAlert('Solicitud incompleta', 'Completa los campos obligatorios.', 'warning'); return;
   }
-  if (!plazasDisponibles.includes(plaza)) { alert('Selecciona una plaza válida.'); return; }
-  if (pass !== confirm) { alert('Las contraseñas no coinciden.'); return; }
-  if (pass.length < 6)  { alert('La contraseña debe tener mínimo 6 caracteres.'); return; }
-  if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) { alert('Teléfono inválido.'); return; }
+  if (!plazasDisponibles.includes(plaza)) { await _mexAlert('Plaza inválida', 'Selecciona una plaza válida.', 'warning'); return; }
+  if (pass !== confirm) { await _mexAlert('Contraseña distinta', 'Las contraseñas no coinciden.', 'warning'); return; }
+  if (pass.length < 6)  { await _mexAlert('Contraseña corta', 'La contraseña debe tener mínimo 6 caracteres.', 'warning'); return; }
+  if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) { await _mexAlert('Teléfono inválido', 'Revisa el formato del teléfono.', 'warning'); return; }
 
   btn.disabled = true;
   btn.innerText = 'ENVIANDO...';
@@ -385,14 +395,14 @@ window.enviarSolicitudAcceso = async function () {
       source: 'solicitud_publica'
     });
     cerrarModalSolicitud();
-    alert('✅ Solicitud enviada. Un administrador la revisará pronto.');
+    await _mexAlert('Solicitud enviada', 'Un administrador la revisará pronto.', 'success');
   } catch (e) {
     console.error('[login.js] enviarSolicitud:', e);
     const code = String(e?.code || '');
     if (code.includes('already-exists') || code.includes('permission-denied')) {
-      alert('Ya existe una solicitud para este correo o no es posible modificarla desde este formulario.');
+      await _mexAlert('Solicitud no disponible', 'Ya existe una solicitud para este correo o no es posible modificarla desde este formulario.', 'warning');
     } else {
-      alert('Error al enviar. Intenta de nuevo.');
+      await _mexAlert('Error al enviar', 'Intenta de nuevo.', 'error');
     }
   } finally {
     btn.disabled = false;

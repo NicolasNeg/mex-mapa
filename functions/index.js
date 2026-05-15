@@ -2778,6 +2778,81 @@ exports.seedPrimeraEmpresa = functions.region(REGION).https.onCall(async (data, 
 });
 
 // ══════════════════════════════════════════════════════════════
+//  migrarEmpresaIdUsuarios — HTTPS callable (solo PROGRAMADOR)
+//  Batch-actualiza todos los documentos de /usuarios que NO tengan
+//  empresaId asignado, poniéndoles empresaId = empresaId dado.
+//  Idempotente y paginado (500 docs por lote).
+// ══════════════════════════════════════════════════════════════
+exports.migrarEmpresaIdUsuarios = functions.region(REGION).https.onCall(async (data, context) => {
+  await requireProgrammerAuth(context);
+
+  const empresaId = normalizeString(data?.empresaId || "");
+  if (!empresaId) throw new HttpsError("invalid-argument", "empresaId requerido.");
+
+  // Verify empresa exists first.
+  const empresaSnap = await db.collection(EMPRESAS_COL).doc(empresaId).get();
+  if (!empresaSnap.exists) throw new HttpsError("not-found", `Empresa no encontrada: ${empresaId}`);
+
+  let updated = 0;
+  let lastDoc = null;
+
+  while (true) {
+    let query = db.collection(USERS_COL)
+      .where("empresaId", "==", null)
+      .limit(500);
+    // Firestore doesn't support "field does not exist" queries easily;
+    // use a workaround: fetch docs without empresaId via two passes.
+    // Pass 1: field is null. Pass 2: field doesn't exist — handled below.
+    if (lastDoc) query = query.startAfter(lastDoc);
+
+    const snap = await query.get();
+    if (snap.empty) break;
+
+    const batch = db.batch();
+    snap.docs.forEach(doc => {
+      batch.update(doc.ref, {
+        empresaId,
+        _updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+    });
+    await batch.commit();
+    updated += snap.docs.length;
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.docs.length < 500) break;
+  }
+
+  // Second pass: docs where empresaId field simply doesn't exist yet.
+  // We query all docs and filter server-side (Firestore limitation).
+  const allSnap = await db.collection(USERS_COL).limit(2000).get();
+  const sinEmpresa = allSnap.docs.filter(d => !d.data().empresaId);
+  if (sinEmpresa.length > 0) {
+    const batchSize = 500;
+    for (let i = 0; i < sinEmpresa.length; i += batchSize) {
+      const batch = db.batch();
+      sinEmpresa.slice(i, i + batchSize).forEach(doc => {
+        batch.update(doc.ref, {
+          empresaId,
+          _updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+      });
+      await batch.commit();
+      updated += Math.min(batchSize, sinEmpresa.length - i);
+    }
+  }
+
+  await recordProgrammerAudit({
+    actor:     "migrarEmpresaIdUsuarios",
+    actorRole: "PROGRAMADOR",
+    action:    "migrarEmpresaId",
+    empresaId,
+    usuariosActualizados: updated,
+  });
+
+  logger.info("[migrarEmpresaIdUsuarios] done", { empresaId, updated });
+  return { ok: true, empresaId, usuariosActualizados: updated };
+});
+
+// ══════════════════════════════════════════════════════════════
 //  listarEmpresas — HTTPS callable (solo PROGRAMADOR)
 //  Devuelve todas las empresas registradas (sin datos sensibles de billing).
 // ══════════════════════════════════════════════════════════════
