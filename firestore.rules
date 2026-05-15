@@ -868,5 +868,30 @@ service cloud.firestore {
     match /api_key_logs/{doc} {
       allow read, write: if false;
     }
+
+    // ─── EMPRESAS (SaaS multi-tenant) ────────────────────────────────────────
+    // Cada documento representa un tenant/empresa con su plan y feature gates.
+    // Solo el programador bootstrap puede escribir.
+    // Usuarios autenticados solo leen el documento de su propia empresa
+    // (determinado por el campo empresaId en su perfil de usuario).
+    match /empresas/{empresaId} {
+      allow read: if esProgramadorBootstrap()
+        || (
+          estaAutenticado()
+          && tienePerfilActual()
+          && perfilActual().empresaId == empresaId
+        );
+      allow write: if esProgramadorBootstrap();
+    }
+
+    // ─── SUPERADMINS ─────────────────────────────────────────────────────────
+    // Registro de programadores/superadmins con acceso cross-empresa.
+    // El bootstrap programmer puede gestionar este directorio libremente.
+    // Cada superadmin puede leer su propio documento.
+    match /superadmins/{docId} {
+      allow read: if esProgramadorBootstrap()
+        || (estaAutenticado() && request.auth.uid == docId);
+      allow write: if esProgramadorBootstrap();
+    }
   }
 }

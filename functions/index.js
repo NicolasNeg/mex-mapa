@@ -22,6 +22,8 @@ const AUDIT_COL = "programmer_audit";
 const ADMIN_AUDIT_COL = "bitacora_gestion";
 const ACCESS_REQUESTS_PRIMARY_COL = "solicitudes";
 const ACCESS_REQUESTS_LEGACY_COL = "solicitudes_acceso";
+const EMPRESAS_COL = "empresas";
+const SUPERADMINS_COL = "superadmins";
 const PROGRAMMER_ROLES = new Set(["PROGRAMADOR", "JEFE_OPERACION", "CORPORATIVO_USER"]);
 const ADMIN_ROLES = new Set(["VENTAS", "SUPERVISOR", "JEFE_PATIO", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "PROGRAMADOR", "JEFE_OPERACION"]);
 const BOOTSTRAP_PROGRAMMER_EMAILS = new Set(["angelarmentta@icloud.com"]);
@@ -2683,6 +2685,114 @@ exports.listarApiKeys = functions.region(REGION).https.onCall(async (_data, cont
     const { keyHash: _omit, ...safe } = doc.data();
     return { keyId: doc.id, ...serializeFirestoreValue(safe) };
   });
+
+  return { ok: true, data };
+});
+
+// ══════════════════════════════════════════════════════════════
+//  seedPrimeraEmpresa — HTTPS callable (solo PROGRAMADOR)
+//  Crea el primer documento de empresa en la colección /empresas
+//  copiando los datos base de /configuracion/empresa.
+//  Idempotente: si ya existe un documento con el mismo empresaId
+//  devuelve el existente sin modificarlo, a menos que force=true.
+//
+//  Parámetros:
+//    empresaId  {string}  ID del documento a crear (ej. "mex-default")
+//    nombre     {string}  Nombre comercial de la empresa (opcional)
+//    plan       {string}  'starter' | 'pro' | 'enterprise'  (default: 'enterprise')
+//    force      {boolean} Si true, sobreescribe el doc existente
+// ══════════════════════════════════════════════════════════════
+exports.seedPrimeraEmpresa = functions.region(REGION).https.onCall(async (data, context) => {
+  await requireProgrammerAuth(context);
+
+  const empresaId = normalizeString(data?.empresaId || "mex-default");
+  if (!empresaId) throw new HttpsError("invalid-argument", "empresaId requerido.");
+
+  const plan   = normalizeString(data?.plan || "enterprise");
+  const force  = data?.force === true;
+
+  const ref = db.collection(EMPRESAS_COL).doc(empresaId);
+  const snap = await ref.get();
+
+  if (snap.exists && !force) {
+    return { ok: true, created: false, empresaId, empresa: serializeFirestoreValue(snap.data()) };
+  }
+
+  // Leer configuracion/empresa para copiar datos base.
+  const configSnap = await db.collection(CONFIG_COL).doc("empresa").get().catch(() => null);
+  const configData = configSnap && configSnap.exists ? configSnap.data() : {};
+
+  const nombre = normalizeString(data?.nombre || configData.nombre || configData.nombreComercial || "EMPRESA");
+
+  const TODAS_FEATURES_HABILITADAS = {
+    mensajeria:          true,
+    alertas:             true,
+    cuadre:              true,
+    incidencias:         true,
+    cola_preparacion:    true,
+    reportes:            true,
+    auditoria:           true,
+    ia_placas:           true,
+    historial_logs:      true,
+    gestion_usuarios:    true,
+    solicitudes_acceso:  true,
+    edicion_mapa:        true,
+    exportar_excel:      true,
+    notificaciones_push: true,
+  };
+
+  const payload = {
+    nombre,
+    slug:    empresaId,
+    plan,
+    activa:  true,
+    creadaEn: admin.firestore.FieldValue.serverTimestamp(),
+    _updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    features: TODAS_FEATURES_HABILITADAS,
+    limites: {
+      maxPlazas:    -1,
+      maxUsuarios:  -1,
+      maxUnidades:  -1,
+    },
+    plazas:        Array.isArray(configData.plazas) ? configData.plazas : [],
+    plazasDetalle: Array.isArray(configData.plazasDetalle) ? configData.plazasDetalle : [],
+    branding: {
+      nombre,
+      nombreComercial: normalizeString(configData.nombreComercial || nombre),
+      correosInternos: Array.isArray(configData.correosInternos) ? configData.correosInternos : [],
+    },
+  };
+
+  await ref.set(payload, { merge: !force });
+
+  await recordProgrammerAudit({
+    actor:     "seedPrimeraEmpresa",
+    actorRole: "PROGRAMADOR",
+    action:    force ? "seedEmpresaForced" : "seedEmpresaCreated",
+    empresaId,
+    plan,
+  });
+
+  logger.info("[seedPrimeraEmpresa] empresa creada", { empresaId, plan });
+  return { ok: true, created: true, empresaId, empresa: serializeFirestoreValue(payload) };
+});
+
+// ══════════════════════════════════════════════════════════════
+//  listarEmpresas — HTTPS callable (solo PROGRAMADOR)
+//  Devuelve todas las empresas registradas (sin datos sensibles de billing).
+// ══════════════════════════════════════════════════════════════
+exports.listarEmpresas = functions.region(REGION).https.onCall(async (_data, context) => {
+  await requireProgrammerAuth(context);
+
+  const snap = await db.collection(EMPRESAS_COL)
+    .orderBy("nombre", "asc")
+    .limit(500)
+    .get();
+
+  const data = snap.docs.map(doc => ({
+    empresaId: doc.id,
+    ...serializeFirestoreValue(doc.data()),
+  }));
 
   return { ok: true, data };
 });
