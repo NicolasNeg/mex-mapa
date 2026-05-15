@@ -8,6 +8,10 @@ let _ctx = null;
 let _mounted = false;
 let _formState = null;
 let _offGlobalSearch = null;
+let _avatarCrop = null;
+
+const AVATAR_STAGE_SIZE = 360;
+const AVATAR_OUTPUT_SIZE = 720;
 
 export function mount(ctx) {
   _ctx = ctx;
@@ -28,6 +32,7 @@ export function mount(ctx) {
 }
 
 export function unmount() {
+  _closeAvatarCropper({ silent: true });
   if (typeof _offGlobalSearch === 'function') {
     try { _offGlobalSearch(); } catch (_) {}
   }
@@ -71,6 +76,8 @@ function _bind() {
   const cancel = c.querySelector('#appProfileCancel');
   const avatar = c.querySelector('#appProfileAvatarUrl');
   const avatarFile = c.querySelector('#appProfileAvatarFile');
+  const chooseAvatar = c.querySelector('#appProfileChooseAvatar');
+  const removeAvatar = c.querySelector('#appProfileRemoveAvatar');
 
   [
     '#appProfileName',
@@ -104,7 +111,10 @@ function _bind() {
 
   avatar?.addEventListener('input', _renderAvatarPreview);
   c.querySelector('#appProfileAvatarFit')?.addEventListener('change', _renderAvatarPreview);
-  avatarFile?.addEventListener('change', _uploadAvatarFile);
+  chooseAvatar?.addEventListener('click', () => avatarFile?.click());
+  removeAvatar?.addEventListener('click', _removeAvatar);
+  avatarFile?.addEventListener('change', _openAvatarCropper);
+  _bindAvatarCropper();
   save?.addEventListener('click', _saveProfile);
   cancel?.addEventListener('click', _resetForm);
   c.querySelector('#appProfileClearCache')?.addEventListener('click', _clearViewCache);
@@ -216,17 +226,119 @@ async function _saveProfile() {
   }
 }
 
-async function _uploadAvatarFile(event) {
+function _removeAvatar() {
+  const input = _ctx?.container?.querySelector('#appProfileAvatarUrl');
+  if (input) input.value = '';
+  _syncFormFromDom();
+  _renderAvatarPreview();
+  _setDirty(true);
+  _setStatus('Avatar eliminado de la vista previa. Guarda cambios para fijarlo.', 'info');
+}
+
+function _bindAvatarCropper() {
+  const c = _ctx?.container;
+  if (!c) return;
+  const modal = c.querySelector('#appProfileCropModal');
+  const canvas = c.querySelector('#appProfileCropCanvas');
+  const zoom = c.querySelector('#appProfileCropZoom');
+  if (!modal || !canvas) return;
+
+  c.querySelector('#appProfileCropClose')?.addEventListener('click', _closeAvatarCropper);
+  c.querySelector('#appProfileCropCancel')?.addEventListener('click', _closeAvatarCropper);
+  c.querySelector('#appProfileCropApply')?.addEventListener('click', _confirmAvatarCrop);
+  c.querySelector('#appProfileCropReset')?.addEventListener('click', _resetAvatarCrop);
+  c.querySelector('#appProfileCropRotateLeft')?.addEventListener('click', () => _rotateAvatarCrop(-90));
+  c.querySelector('#appProfileCropRotateRight')?.addEventListener('click', () => _rotateAvatarCrop(90));
+  zoom?.addEventListener('input', event => {
+    if (!_avatarCrop) return;
+    _avatarCrop.zoom = Number(event.target.value || 1);
+    _drawAvatarCropper();
+  });
+
+  canvas.addEventListener('pointerdown', event => {
+    if (!_avatarCrop) return;
+    _avatarCrop.dragging = true;
+    _avatarCrop.lastX = event.clientX;
+    _avatarCrop.lastY = event.clientY;
+    canvas.setPointerCapture?.(event.pointerId);
+  });
+  canvas.addEventListener('pointermove', event => {
+    if (!_avatarCrop?.dragging) return;
+    const dx = event.clientX - _avatarCrop.lastX;
+    const dy = event.clientY - _avatarCrop.lastY;
+    _avatarCrop.lastX = event.clientX;
+    _avatarCrop.lastY = event.clientY;
+    _avatarCrop.offsetX += dx;
+    _avatarCrop.offsetY += dy;
+    _drawAvatarCropper();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => {
+    canvas.addEventListener(type, event => {
+      if (!_avatarCrop) return;
+      _avatarCrop.dragging = false;
+      try { canvas.releasePointerCapture?.(event.pointerId); } catch (_) {}
+    });
+  });
+  canvas.addEventListener('wheel', event => {
+    if (!_avatarCrop) return;
+    event.preventDefault();
+    const next = Math.max(1, Math.min(4, _avatarCrop.zoom + (event.deltaY > 0 ? -0.08 : 0.08)));
+    _avatarCrop.zoom = next;
+    if (zoom) zoom.value = String(next);
+    _drawAvatarCropper();
+  }, { passive: false });
+}
+
+async function _openAvatarCropper(event) {
   const file = event?.target?.files?.[0] || null;
   if (!file) return;
   if (!/^image\//i.test(file.type || '')) {
     _setStatus('Selecciona una imagen válida para el avatar.', 'error');
     return;
   }
-  if (file.size > 4 * 1024 * 1024) {
-    _setStatus('La imagen debe pesar menos de 4 MB.', 'error');
+  if (file.size > 12 * 1024 * 1024) {
+    _setStatus('La imagen debe pesar menos de 12 MB.', 'error');
     return;
   }
+  _closeAvatarCropper({ keepInput: true, silent: true });
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    if (!_mounted) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+    const baseScale = Math.max(AVATAR_STAGE_SIZE / img.width, AVATAR_STAGE_SIZE / img.height);
+    _avatarCrop = {
+      file,
+      url,
+      img,
+      baseScale,
+      zoom: 1,
+      rotation: 0,
+      offsetX: 0,
+      offsetY: 0,
+      dragging: false,
+      lastX: 0,
+      lastY: 0
+    };
+    const modal = _ctx?.container?.querySelector('#appProfileCropModal');
+    const zoom = _ctx?.container?.querySelector('#appProfileCropZoom');
+    if (zoom) zoom.value = '1';
+    modal?.classList.add('is-open');
+    modal?.setAttribute('aria-hidden', 'false');
+    _drawAvatarCropper();
+    _setStatus('Ajusta el recorte y confirma para subir la foto.', 'info');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    _setStatus('No se pudo leer la imagen seleccionada.', 'error');
+  };
+  img.src = url;
+}
+
+async function _confirmAvatarCrop() {
+  if (!_avatarCrop) return;
   const current = getState().profile || {};
   const docId = String(current.id || current.email || '').toLowerCase().trim();
   const storageClient = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
@@ -234,25 +346,144 @@ async function _uploadAvatarFile(event) {
     _setStatus('Firebase Storage no está disponible para subir avatar.', 'error');
     return;
   }
-  _setStatus('Subiendo avatar...', 'info');
+  const btn = _ctx?.container?.querySelector('#appProfileCropApply');
+  const oldText = btn?.textContent || '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Subiendo...';
+  }
+  _setStatus('Recortando y subiendo avatar...', 'info');
   try {
-    const safeName = String(file.name || 'avatar')
+    const blob = await _avatarCropToBlob();
+    const originalName = String(_avatarCrop.file?.name || 'avatar.jpg')
+      .replace(/\.[^.]+$/, '')
       .replace(/[^a-z0-9_.-]+/gi, '-')
-      .slice(0, 80);
-    const ref = storageClient.ref(`usuarios/${docId}/avatar/${Date.now()}-${safeName}`);
-    await ref.put(file, { contentType: file.type || 'image/jpeg' });
+      .slice(0, 64) || 'avatar';
+    const ref = storageClient.ref(`usuarios/${docId}/avatar/${Date.now()}-${originalName}-crop.jpg`);
+    await ref.put(blob, { contentType: 'image/jpeg' });
     const url = await ref.getDownloadURL();
     const input = _ctx?.container?.querySelector('#appProfileAvatarUrl');
+    const fit = _ctx?.container?.querySelector('#appProfileAvatarFit');
     if (input) input.value = url;
+    if (fit) fit.value = 'cover';
     _syncFormFromDom();
     _renderAvatarPreview();
     _setDirty(true);
-    _setStatus('Avatar subido. Guarda cambios para fijarlo en tu perfil.', 'ok');
+    _closeAvatarCropper({ silent: true });
+    _setStatus('Avatar recortado y subido. Guarda cambios para fijarlo en tu perfil.', 'ok');
   } catch (err) {
-    _setStatus(err?.message || 'No se pudo subir el avatar.', 'error');
+    _setStatus(err?.message || 'No se pudo subir el avatar recortado.', 'error');
   } finally {
-    if (event?.target) event.target.value = '';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = oldText || 'Usar esta foto';
+    }
   }
+}
+
+function _closeAvatarCropper(options = {}) {
+  const { keepInput = false, silent = false } = options || {};
+  const modal = _ctx?.container?.querySelector('#appProfileCropModal');
+  modal?.classList.remove('is-open');
+  modal?.setAttribute('aria-hidden', 'true');
+  if (_avatarCrop?.url) URL.revokeObjectURL(_avatarCrop.url);
+  _avatarCrop = null;
+  if (!keepInput) {
+    const input = _ctx?.container?.querySelector('#appProfileAvatarFile');
+    if (input) input.value = '';
+  }
+  if (!silent) _setStatus('Recorte cancelado.', 'info');
+}
+
+function _resetAvatarCrop() {
+  if (!_avatarCrop) return;
+  _avatarCrop.zoom = 1;
+  _avatarCrop.rotation = 0;
+  _avatarCrop.offsetX = 0;
+  _avatarCrop.offsetY = 0;
+  const zoom = _ctx?.container?.querySelector('#appProfileCropZoom');
+  if (zoom) zoom.value = '1';
+  _drawAvatarCropper();
+}
+
+function _rotateAvatarCrop(deg) {
+  if (!_avatarCrop) return;
+  _avatarCrop.rotation = (_avatarCrop.rotation + deg) % 360;
+  _drawAvatarCropper();
+}
+
+function _drawAvatarCropper() {
+  const canvas = _ctx?.container?.querySelector('#appProfileCropCanvas');
+  const preview = _ctx?.container?.querySelector('#appProfileCropPreview');
+  if (!canvas || !_avatarCrop) return;
+  canvas.width = AVATAR_STAGE_SIZE;
+  canvas.height = AVATAR_STAGE_SIZE;
+  _drawAvatarCrop(canvas, { overlay: true, circleMask: false });
+  if (preview) {
+    preview.width = 128;
+    preview.height = 128;
+    _drawAvatarCrop(preview, { overlay: false, circleMask: true });
+  }
+}
+
+function _drawAvatarCrop(canvas, options = {}) {
+  if (!_avatarCrop) return;
+  const { overlay = false, circleMask = false } = options;
+  const size = canvas.width || AVATAR_STAGE_SIZE;
+  const ratio = size / AVATAR_STAGE_SIZE;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  if (circleMask) {
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+    ctx.clip();
+  }
+  ctx.fillStyle = '#0f172a';
+  ctx.fillRect(0, 0, size, size);
+  ctx.translate(size / 2 + _avatarCrop.offsetX * ratio, size / 2 + _avatarCrop.offsetY * ratio);
+  ctx.rotate((_avatarCrop.rotation * Math.PI) / 180);
+  const scale = _avatarCrop.baseScale * _avatarCrop.zoom * ratio;
+  ctx.scale(scale, scale);
+  ctx.drawImage(_avatarCrop.img, -_avatarCrop.img.width / 2, -_avatarCrop.img.height / 2);
+  ctx.restore();
+
+  if (overlay) {
+    const r = size * 0.42;
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.46)';
+    ctx.beginPath();
+    ctx.rect(0, 0, size, size);
+    ctx.arc(size / 2, size / 2, r, 0, Math.PI * 2, true);
+    ctx.fill('evenodd');
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.42)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(size / 2 - r, size / 2);
+    ctx.lineTo(size / 2 + r, size / 2);
+    ctx.moveTo(size / 2, size / 2 - r);
+    ctx.lineTo(size / 2, size / 2 + r);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function _avatarCropToBlob() {
+  const canvas = document.createElement('canvas');
+  canvas.width = AVATAR_OUTPUT_SIZE;
+  canvas.height = AVATAR_OUTPUT_SIZE;
+  _drawAvatarCrop(canvas, { overlay: false, circleMask: false });
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(blob => {
+      if (blob) resolve(blob);
+      else reject(new Error('No se pudo generar el recorte.'));
+    }, 'image/jpeg', 0.9);
+  });
 }
 
 function _clearViewCache() {
@@ -410,6 +641,17 @@ function _html(profile, role, form) {
           <label>Plazas secundarias
             <input value="${escAttr(secondaryPlazas)}" readonly />
           </label>
+          <div class="app-profile-avatar-editor app-profile-wide">
+            <div>
+              <strong>Foto de perfil</strong>
+              <span>Elige una imagen, ajusta el recorte y revisa la vista previa antes de subirla.</span>
+            </div>
+            <div class="app-profile-avatar-editor-actions">
+              <button id="appProfileChooseAvatar" type="button">Elegir imagen y recortar</button>
+              <button id="appProfileRemoveAvatar" type="button">Quitar foto</button>
+              <input id="appProfileAvatarFile" type="file" accept="image/*" />
+            </div>
+          </div>
           <label class="app-profile-wide">Avatar URL
             <input id="appProfileAvatarUrl" value="${escAttr(form.avatarUrl)}" placeholder="https://..." />
           </label>
@@ -418,9 +660,6 @@ function _html(profile, role, form) {
               <option value="cover" ${form.avatarFit === 'cover' ? 'selected' : ''}>Cubrir cuadro</option>
               <option value="contain" ${form.avatarFit === 'contain' ? 'selected' : ''}>Mostrar completo</option>
             </select>
-          </label>
-          <label>Subir imagen
-            <input id="appProfileAvatarFile" type="file" accept="image/*" />
           </label>
         </div>
       </section>
@@ -505,6 +744,42 @@ function _html(profile, role, form) {
         <button id="appProfileCancel" type="button">Cancelar</button>
       </div>
       <div id="appProfileStatus" class="app-profile-status"></div>
+    </div>
+  </div>
+  <div id="appProfileCropModal" class="app-profile-crop-modal" aria-hidden="true">
+    <div class="app-profile-crop-dialog" role="dialog" aria-modal="true" aria-label="Recortar foto de perfil">
+      <header class="app-profile-crop-head">
+        <div>
+          <strong>Recortar foto de perfil</strong>
+          <span>Mueve la imagen y ajusta el zoom antes de subirla.</span>
+        </div>
+        <button id="appProfileCropClose" type="button" aria-label="Cerrar">×</button>
+      </header>
+      <div class="app-profile-crop-body">
+        <div class="app-profile-crop-stage">
+          <canvas id="appProfileCropCanvas" width="${AVATAR_STAGE_SIZE}" height="${AVATAR_STAGE_SIZE}"></canvas>
+          <span>Arrastra la imagen para centrarla</span>
+        </div>
+        <aside class="app-profile-crop-preview">
+          <canvas id="appProfileCropPreview" width="128" height="128"></canvas>
+          <strong>Así se verá</strong>
+          <span>Esta previsualización se actualiza antes de subir.</span>
+        </aside>
+      </div>
+      <div class="app-profile-crop-controls">
+        <label>Zoom
+          <input id="appProfileCropZoom" type="range" min="1" max="4" step="0.01" value="1" />
+        </label>
+        <div>
+          <button id="appProfileCropRotateLeft" type="button">Girar izq.</button>
+          <button id="appProfileCropRotateRight" type="button">Girar der.</button>
+          <button id="appProfileCropReset" type="button">Reiniciar</button>
+        </div>
+      </div>
+      <footer class="app-profile-crop-actions">
+        <button id="appProfileCropCancel" type="button">Cancelar</button>
+        <button id="appProfileCropApply" type="button">Usar esta foto</button>
+      </footer>
     </div>
   </div>
 </div>`;

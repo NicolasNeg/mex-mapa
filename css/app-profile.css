@@ -172,6 +172,68 @@ body.app-profile-active #mexShellContent {
   padding: 9px 10px;
 }
 
+.app-profile-avatar-editor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #dbe3ef;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.app-profile-avatar-editor strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.app-profile-avatar-editor span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.app-profile-avatar-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.app-profile-avatar-editor-actions button {
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  min-height: 38px;
+  padding: 0 12px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+#appProfileChooseAvatar {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+#appProfileRemoveAvatar {
+  color: #b91c1c;
+  background: #fff5f5;
+  border-color: #fecaca;
+}
+
+#appProfileAvatarFile {
+  display: none;
+}
+
 .app-profile-grid label.app-profile-check {
   display: flex;
   align-items: center;
@@ -259,6 +321,191 @@ body.app-profile-active #mexShellContent {
   color: #475569;
 }
 
+.app-profile-crop-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(15, 23, 42, 0.58);
+  backdrop-filter: blur(8px);
+  z-index: 100400;
+}
+
+.app-profile-crop-modal.is-open {
+  display: flex;
+}
+
+.app-profile-crop-dialog {
+  width: min(920px, 100%);
+  max-height: min(92vh, 780px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 32px 90px rgba(15, 23, 42, 0.36);
+}
+
+.app-profile-crop-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.app-profile-crop-head strong {
+  display: block;
+  font-size: 18px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.app-profile-crop-head span,
+.app-profile-crop-stage span,
+.app-profile-crop-preview span {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.app-profile-crop-head button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid #dbe3ef;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.app-profile-crop-body {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 210px;
+  gap: 18px;
+  padding: 20px;
+  overflow: auto;
+  background: #f8fafc;
+}
+
+.app-profile-crop-stage {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+}
+
+#appProfileCropCanvas {
+  width: min(360px, 76vw);
+  height: min(360px, 76vw);
+  border-radius: 22px;
+  background: #0f172a;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.24);
+  touch-action: none;
+  cursor: grab;
+}
+
+#appProfileCropCanvas:active {
+  cursor: grabbing;
+}
+
+.app-profile-crop-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+  text-align: center;
+}
+
+#appProfileCropPreview {
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
+  background: #0f172a;
+}
+
+.app-profile-crop-preview strong {
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.app-profile-crop-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.app-profile-crop-controls label {
+  min-width: min(360px, 100%);
+  display: grid;
+  gap: 7px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.app-profile-crop-controls input[type="range"] {
+  width: 100%;
+  accent-color: #0f172a;
+}
+
+.app-profile-crop-controls div,
+.app-profile-crop-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.app-profile-crop-controls button,
+.app-profile-crop-actions button {
+  min-height: 38px;
+  border-radius: 10px;
+  border: 1px solid #dbe3ef;
+  background: #ffffff;
+  color: #334155;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.app-profile-crop-actions {
+  justify-content: flex-end;
+  padding: 14px 20px 18px;
+  border-top: 1px solid #e2e8f0;
+}
+
+#appProfileCropApply {
+  border-color: #0f172a;
+  background: #0f172a;
+  color: #ffffff;
+}
+
+#appProfileCropApply:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
 @media (max-width: 980px) {
   .app-profile-hero {
     grid-template-columns: 110px minmax(0, 1fr);
@@ -302,11 +549,35 @@ body.app-profile-active #mexShellContent {
   .app-profile-grid {
     grid-template-columns: 1fr;
   }
+  .app-profile-avatar-editor {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .app-profile-avatar-editor-actions {
+    justify-content: flex-start;
+  }
   .app-profile-nav {
     grid-template-columns: 1fr 1fr;
   }
   .app-profile-actions a {
     margin-left: 0;
     width: 100%;
+  }
+  .app-profile-crop-modal {
+    padding: 10px;
+  }
+  .app-profile-crop-body {
+    grid-template-columns: 1fr;
+    padding: 14px;
+  }
+  .app-profile-crop-preview {
+    flex-direction: row;
+    justify-content: flex-start;
+    text-align: left;
+  }
+  #appProfileCropPreview {
+    width: 86px;
+    height: 86px;
+    flex: 0 0 86px;
   }
 }
