@@ -121,6 +121,10 @@ function _srcFor(id, ctx = {}) {
     if (!params.get('tab')) params.set('tab', 'normal');
   }
   if (id === 'cola' && plaza) params.set('plaza', plaza);
+  if (id === 'editmap') {
+    const base = plaza ? `/editmap/${encodeURIComponent(plaza)}` : '/editmap';
+    return `${base}?${params.toString()}${window.location.hash || ''}`;
+  }
   if (id === 'admin' && !params.get('tab')) {
     const tab = _tabFromPath(ctx.state?.currentRoute || window.location.pathname);
     if (tab) params.set('tab', tab);
@@ -383,7 +387,7 @@ function _syncPlaza(plaza, id, ctx) {
   if (!normalized || !_iframe) return;
   _applyPlazaToWindow(_iframe.contentWindow, id, normalized);
 
-  if (['cola', 'dashboard', 'profile', 'programador', 'alertas', 'alertasHist'].includes(id)) {
+  if (['cola', 'dashboard', 'profile', 'programador', 'alertas', 'alertasHist', 'editmap'].includes(id)) {
     const nextSrc = _srcFor(id, ctx);
     if (_iframe.getAttribute('src') !== nextSrc) _iframe.setAttribute('src', nextSrc);
   }
