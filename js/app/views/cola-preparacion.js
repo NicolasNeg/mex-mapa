@@ -48,6 +48,8 @@ const CHECKLIST_META = [
 const q   = id  => _container?.querySelector('#' + id) ?? null;
 const qs  = sel => _container?.querySelector(sel) ?? null;
 const qsa = sel => Array.from(_container?.querySelectorAll(sel) ?? []);
+const _mexConfirm = (titulo, texto, tipo = 'warning') =>
+  typeof window.mexConfirm === 'function' ? window.mexConfirm(titulo, texto, tipo) : Promise.resolve(false);
 
 function esc(v) {
   return String(v ?? '')
@@ -332,7 +334,7 @@ async function _runBulkComplete() {
     _toast('No hay unidades pendientes visibles.', 'info');
     return;
   }
-  if (!confirm(`¿Marcar checklist completo en ${items.length} unidad(es) visibles?`)) return;
+  if (!await _mexConfirm('Checklist masivo', `¿Marcar checklist completo en ${items.length} unidad(es) visibles?`, 'warning')) return;
   const plaza = String(_state?.plaza || '').toUpperCase().trim();
   const fv = _fv();
   const actor = _state.profileEmail || '';
@@ -1214,7 +1216,7 @@ function _showDetail(it) {
       _showDetail(_state.items.find(x => x.id === it.id) || it);
       return;
     }
-    if (!confirm('¿Eliminar esta entrada de la cola? No borra la unidad del cuadre ni externos.')) return;
+    if (!await _mexConfirm('Eliminar de cola', '¿Eliminar esta entrada de la cola? No borra la unidad del cuadre ni externos.', 'danger')) return;
     await _deletePrepItem(it.id);
   });
   panel.querySelector('#prepDetailCancelDelBtn')?.addEventListener('click', () => {
@@ -1261,7 +1263,7 @@ function _showDetail(it) {
   });
 
   panel.querySelector('#prepCompleteChecklistBtn')?.addEventListener('click', async () => {
-    if (!confirm('¿Marcar todos los ítems del checklist como completados? Esto indica que la unidad está lista para salida.')) return;
+    if (!await _mexConfirm('Completar checklist', '¿Marcar todos los ítems del checklist como completados? Esto indica que la unidad está lista para salida.', 'warning')) return;
     const checklist = CHECKLIST_META.reduce((acc, meta) => {
       acc[meta.key] = true;
       return acc;

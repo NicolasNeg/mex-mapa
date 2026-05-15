@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v300';
+const CACHE_NAME = 'mapa-v303';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -44,6 +44,9 @@ const CRITICAL_ASSETS = [
   // Core JS
   '/js/core/firebase-init.js',
   '/js/core/database.js',
+  '/js/core/dialogs.js',
+  '/js/core/empresa-context.js',
+  '/js/core/feature-gates.js',
   '/js/core/notifications.js',
   '/js/core/observability.js',
   '/js/core/error-tracking.js',
@@ -72,6 +75,7 @@ const CRITICAL_ASSETS = [
   // CSS
   '/css/global.css',
   '/css/base.css',
+  '/css/dialogs.css',
   '/css/mapa.css',
   '/css/alertas.css',
   '/css/config.css',
@@ -94,6 +98,7 @@ const CRITICAL_ASSETS = [
   // App Shell core (Fase 2–3) — crítico: sin estos el shell no arranca
   '/app.html',
   '/js/app/main.js',
+  '/js/app/app-cache.js',
   '/js/app/app-state.js',
   '/js/app/router.js',
   '/js/app/route-resolver.js',

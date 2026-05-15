@@ -48,6 +48,9 @@ let _profileChromeReady = false;
 let _profileTabsReady = false;
 let _profileSectionObserver = null;
 
+const _mexConfirm = (titulo, texto, tipo = 'warning') =>
+  typeof window.mexConfirm === 'function' ? window.mexConfirm(titulo, texto, tipo) : Promise.resolve(false);
+
 function _authInstance() {
   if (auth && typeof auth.onAuthStateChanged === 'function') return auth;
   if (window._auth && typeof window._auth.onAuthStateChanged === 'function') return window._auth;
@@ -1210,7 +1213,7 @@ window.profile_eliminarAvatar = async function () {
     return;
   }
 
-  if (!window.confirm('¿Quitar tu foto de perfil?')) return;
+  if (!await _mexConfirm('Quitar foto de perfil', '¿Quitar tu foto de perfil?', 'warning')) return;
 
   try {
     if (avatarPath) {

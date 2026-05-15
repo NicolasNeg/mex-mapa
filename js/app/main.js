@@ -22,9 +22,11 @@ import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
 import { getNotificationsSummary } from '/js/app/features/notifications/notifications-summary.js';
+import { warmAppAssets, warmAppData, getAppCacheStatus } from '/js/app/app-cache.js';
 
 let _notifCenterModule = null;
 let _notifCenterPromise = null;
+let _lastWarmKey = '';
 
 function _loadNotificationCenter() {
   if (_notifCenterModule) return Promise.resolve(_notifCenterModule);
@@ -48,6 +50,21 @@ function _runWhenIdle(fn, timeout = 2200) {
   } else {
     window.setTimeout(fn, Math.min(timeout, 1200));
   }
+}
+
+function _scheduleAppWarmup(reason = 'boot', { force = false } = {}) {
+  const state = getState();
+  const key = [
+    state.currentPlaza || '',
+    state.role || '',
+    state.profile?.email || state.profile?.uid || ''
+  ].join('|');
+  if (!force && key === _lastWarmKey) return;
+  _lastWarmKey = key;
+  _runWhenIdle(() => {
+    warmAppData(getState(), { reason, force })
+      .catch(err => console.warn('[app/main] precache datos:', err));
+  }, reason === 'boot' ? 900 : 650);
 }
 
 function _isLocalQaAuthBypassEnabled() {
@@ -281,6 +298,12 @@ async function boot() {
 
   // 6. Crear router — renderiza la vista inicial automáticamente
   router = createRouter({ shell });
+  _runWhenIdle(() => {
+    warmAppAssets().catch(err => console.warn('[app/main] precache assets:', err));
+  }, 700);
+  _scheduleAppWarmup('boot');
+  window.__mexWarmAppData = (options = {}) => warmAppData(getState(), { reason: 'manual', force: true, ...options });
+  window.__mexAppCacheStatus = () => getAppCacheStatus(getState());
   void refreshNotifSummary({ force: true });
   _runWhenIdle(() => {
     _loadNotificationCenter()
@@ -295,6 +318,7 @@ async function boot() {
   subscribe(state => {
     shell.setPlaza(state.currentPlaza, state.availablePlazas, state.canSwitchPlaza);
     refreshNotifSummary();
+    _scheduleAppWarmup('state');
   });
 
   window.addEventListener('mex:plaza-change', event => {

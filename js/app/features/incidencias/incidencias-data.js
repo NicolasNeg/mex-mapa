@@ -1,5 +1,7 @@
 import { db, COL } from '/js/core/database.js';
 
+const INCIDENCIAS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
 function normalizePlaza(plaza) {
   return String(plaza || '').toUpperCase().trim();
 }
@@ -145,11 +147,12 @@ function cacheKey(plaza) {
   return `mex.app.notas-incidencias.${normalizePlaza(plaza)}`;
 }
 
-function readIncidenciasCache(plaza) {
+export function readIncidenciasCache(plaza) {
   try {
-    const raw = sessionStorage.getItem(cacheKey(plaza));
+    const raw = sessionStorage.getItem(cacheKey(plaza)) || localStorage.getItem(cacheKey(plaza));
     if (!raw) return [];
     const parsed = JSON.parse(raw);
+    if (Date.now() - Number(parsed?.savedAt || 0) > INCIDENCIAS_CACHE_TTL_MS) return [];
     const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
     return rows.map(item => normalizeIncidencia(item?.id, item));
   } catch (_) {
@@ -157,12 +160,14 @@ function readIncidenciasCache(plaza) {
   }
 }
 
-function writeIncidenciasCache(plaza, rows = []) {
+export function writeIncidenciasCache(plaza, rows = []) {
   try {
-    sessionStorage.setItem(cacheKey(plaza), JSON.stringify({
+    const payload = JSON.stringify({
       savedAt: Date.now(),
       rows: Array.isArray(rows) ? rows.slice(0, 300) : []
-    }));
+    });
+    sessionStorage.setItem(cacheKey(plaza), payload);
+    localStorage.setItem(cacheKey(plaza), payload);
   } catch (_) {}
 }
 

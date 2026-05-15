@@ -30,6 +30,13 @@ let _destMode = 'GLOBAL';
 let _selectedDest = [];
 let _historyFilter = { q: '', tipo: '', modo: '' };
 
+const _mexAlert = (titulo, texto, tipo = 'info') =>
+  typeof window.mexAlert === 'function' ? window.mexAlert(titulo, texto, tipo) : Promise.resolve(true);
+const _mexConfirm = (titulo, texto, tipo = 'warning') =>
+  typeof window.mexConfirm === 'function' ? window.mexConfirm(titulo, texto, tipo) : Promise.resolve(false);
+const _mexPrompt = (titulo, texto, placeholder = '', inputTipo = 'text', valor = '') =>
+  typeof window.mexPrompt === 'function' ? window.mexPrompt(titulo, texto, placeholder, inputTipo, valor) : Promise.resolve(null);
+
 const ALERTA_TIPO_META = Object.freeze({
   URGENTE: { label: 'URGENTE', bg: '#fee2e2', color: '#ef4444', selectBg: '#fef2f2', border: '#ef4444' },
   WARNING: { label: 'ADVERTENCIA', bg: '#fef3c7', color: '#d97706', selectBg: '#fffbeb', border: '#f59e0b' },
@@ -979,10 +986,7 @@ async function _emitAlert() {
 async function _saveTemplate() {
   const form = _getForm();
   if (!form.titulo && !_plainText(form.mensaje)) return _toast('Primero disena la alerta antes de guardarla como plantilla.', 'error');
-  const promptFn = typeof window.mexPrompt === 'function'
-    ? window.mexPrompt
-    : async (_title, _text, _placeholder, _type, value) => window.prompt('Nombre de la plantilla:', value || 'Nueva plantilla');
-  const name = await promptFn('Guardar plantilla', 'Nombre para la plantilla:', 'Nombre de plantilla', 'text', form.titulo ? `Plantilla ${form.titulo}` : 'Nueva plantilla');
+  const name = await _mexPrompt('Guardar plantilla', 'Nombre para la plantilla:', 'Nombre de plantilla', 'text', form.titulo ? `Plantilla ${form.titulo}` : 'Nueva plantilla');
   if (!name || !String(name).trim()) return;
   try {
     const result = await guardarPlantillaAlerta(String(name).trim(), form.tipo, form.titulo || 'Sin titulo', form.mensaje, form.modo, _actorName(), {
@@ -1111,7 +1115,7 @@ function _clearHistoryFilters() {
 async function _deleteAlert(id) {
   const alert = _history.find(item => String(item.id) === String(id));
   if (!alert) return;
-  if (!window.confirm(`Borrar la alerta "${alert.titulo || id}" definitivamente?`)) return;
+  if (!await _mexConfirm('Borrar alerta', `¿Borrar la alerta "${alert.titulo || id}" definitivamente?`, 'danger')) return;
   try {
     const result = await eliminarAlertaMaestraBackend(id, _actorName());
     if (result !== 'EXITO') throw new Error(String(result || 'No se pudo borrar la alerta.'));
@@ -1126,7 +1130,7 @@ function _showReaders(id) {
   const alert = _history.find(item => String(item.id) === String(id));
   const readers = _parseCsv(alert?.leidoPor);
   const text = readers.length ? `Han confirmado:\n\n- ${readers.join('\n- ')}` : 'Nadie ha confirmado la lectura aun.';
-  window.alert(text);
+  _mexAlert('Reporte de lecturas', text, 'info');
 }
 
 function _execCommand(cmd, value = null) {
@@ -1146,7 +1150,7 @@ function _execCommand(cmd, value = null) {
 
 async function _insertLink() {
   _saveSelection();
-  const url = window.prompt('Enlace para insertar:', 'https://');
+  const url = await _mexPrompt('Insertar enlace', 'Enlace para insertar:', 'https://', 'url', 'https://');
   if (!url || !String(url).trim()) return;
   const normalized = _normalizeUrl(url);
   if (!_safeUrl(normalized)) return _toast('Ese enlace no es valido.', 'error');

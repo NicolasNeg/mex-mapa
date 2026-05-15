@@ -11,6 +11,13 @@ let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recT
 
 const EMOJI_LIST = ["😀","😂","😍","😎","😢","😡","👍","👎","❤️","🔥","🎉","✅","🙏","😮","🤔","💯","🚀","💪","😴","😅","🤣","🤩","😇","😏","🥳","😤","🤯","👏","🙌","🤝","💔","💥","⭐","✨","🎁","💡","📌","📎","🔒","📢","💬","📱","💻","📊","📈","🌍","☕","🌈","☀️","⚡","👀","🫡","💀","🤖","🏆","🎯","🎮","📚","🔎","🧠"];
 
+const _mexAlert = (titulo, texto, tipo = 'info') =>
+  typeof window.mexAlert === 'function' ? window.mexAlert(titulo, texto, tipo) : Promise.resolve(true);
+const _mexConfirm = (titulo, texto, tipo = 'warning') =>
+  typeof window.mexConfirm === 'function' ? window.mexConfirm(titulo, texto, tipo) : Promise.resolve(false);
+const _mexPrompt = (titulo, texto, placeholder = '', inputTipo = 'text', valor = '') =>
+  typeof window.mexPrompt === 'function' ? window.mexPrompt(titulo, texto, placeholder, inputTipo, valor) : Promise.resolve(null);
+
 export async function mount(ctx) {
   const container = ctx.container || document.querySelector('#routeMainStage') || document.body;
   const { profile } = getState();
@@ -211,7 +218,7 @@ function _startReply(mIdSafe) {
 async function _editMsg(mIdSafe) {
   const msg = _all.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
   if (!msg) return;
-  const newText = prompt('Edita tu mensaje:', msg.mensaje);
+  const newText = await _mexPrompt('Editar mensaje', 'Edita tu mensaje:', 'Mensaje', 'text', msg.mensaje || '');
   if (newText && newText !== msg.mensaje) {
     msg.mensaje = newText; _renderMessages();
     try { await D.editarMensajeChatDb(String(msg.id), newText); } catch(e) { console.error(e); }
@@ -221,7 +228,7 @@ async function _editMsg(mIdSafe) {
 async function _deleteMsg(mIdSafe) {
   const msg = _all.find(m => String(m.id).replace(/[^a-zA-Z0-9_-]/g,'_') === mIdSafe);
   if (!msg) return;
-  if (!confirm('¿Borrar este mensaje para todos?')) return;
+  if (!await _mexConfirm('Borrar mensaje', '¿Borrar este mensaje para todos?', 'danger')) return;
   _all = _all.filter(m => m.id !== msg.id); _renderMessages();
   try { await D.eliminarMensajeChatDb(String(msg.id)); } catch(e) { console.error(e); }
 }
@@ -277,7 +284,7 @@ function _showPeerInfo() {
 function _hideInfo() { document.getElementById('amUserInfoModal')?.classList.remove('active'); }
 
 async function _openNewChat() {
-  const name = prompt('Escribe el nombre o correo del usuario:');
+  const name = await _mexPrompt('Nuevo chat', 'Escribe el nombre o correo del usuario:', 'Nombre o correo', 'text', '');
   if (!name?.trim()) return;
   const identity = D.getCanonicalMessageIdentity(name.trim());
   _activePeer = identity.key;
@@ -322,11 +329,11 @@ async function _send() {
 }
 
 // ── File staging ──────────────────────────────────────────
-function _stageFile(inputEl) {
+async function _stageFile(inputEl) {
   const file = inputEl?.files?.[0];
   if (!file) return;
   const err = A.validateFile(file);
-  if (err) { alert(err); inputEl.value = ''; return; }
+  if (err) { await _mexAlert('Archivo no válido', err, 'warning'); inputEl.value = ''; return; }
   const isImg = A.isImageFile(file.name);
   _pendingFile = { file, isImg, previewUrl: isImg ? URL.createObjectURL(file) : null };
   _renderStaging();
@@ -364,7 +371,7 @@ function _renderStaging() {
 // ── Audio recording ───────────────────────────────────────
 async function _toggleRecording() {
   if (_recorder?.state === 'recording') { _stopRecording(); return; }
-  if (typeof window.MediaRecorder === 'undefined') { alert('Tu navegador no soporta grabación de audio.'); return; }
+  if (typeof window.MediaRecorder === 'undefined') { await _mexAlert('Audio no compatible', 'Tu navegador no soporta grabación de audio.', 'warning'); return; }
   try {
     const stream = await A.getUserMediaAudio();
     const mimeType = A.audioMimeType();
@@ -394,7 +401,7 @@ async function _toggleRecording() {
     _recorder.start(300);
     document.getElementById('amMicBtn')?.classList.add('recording');
     _renderStaging();
-  } catch(err) { console.error(err); alert('No se pudo acceder al micrófono.'); }
+  } catch(err) { console.error(err); await _mexAlert('Micrófono no disponible', 'No se pudo acceder al micrófono.', 'error'); }
 }
 
 function _stopRecording(silent) {

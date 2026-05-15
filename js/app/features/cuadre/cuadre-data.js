@@ -7,6 +7,37 @@
 
 import { db, COL } from '/js/core/database.js';
 
+const CUADRE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
+function cacheKey(plaza) {
+  return `mex.app.cuadre.snapshot.${String(plaza || '').toUpperCase().trim()}`;
+}
+
+export function readCuadreCache(plaza) {
+  try {
+    const raw = sessionStorage.getItem(cacheKey(plaza)) || localStorage.getItem(cacheKey(plaza));
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!parsed || Date.now() - Number(parsed.savedAt || 0) > CUADRE_CACHE_TTL_MS) return [];
+    const rows = Array.isArray(parsed.rows) ? parsed.rows : [];
+    return rows.map((row, idx) => normalizeCuadreRecord(row?.id || `${plaza}_${idx}`, row));
+  } catch (_) {
+    return [];
+  }
+}
+
+export function writeCuadreCache(plaza, rows = []) {
+  try {
+    const payload = JSON.stringify({
+      savedAt: Date.now(),
+      plaza: String(plaza || '').toUpperCase().trim(),
+      rows: (Array.isArray(rows) ? rows : []).slice(0, 900)
+    });
+    sessionStorage.setItem(cacheKey(plaza), payload);
+    localStorage.setItem(cacheKey(plaza), payload);
+  } catch (_) {}
+}
+
 export function normalizeCuadreRecord(id, data = {}) {
   return {
     id:          String(id || ''),
@@ -34,9 +65,11 @@ export async function getCuadreSnapshot(plaza) {
 
   if (window.api?.obtenerDatosFlotaConsola && typeof window.api.obtenerDatosFlotaConsola === 'function') {
     const rows = await window.api.obtenerDatosFlotaConsola(plazaId);
-    return (Array.isArray(rows) ? rows : []).map((row, idx) =>
+    const normalized = (Array.isArray(rows) ? rows : []).map((row, idx) =>
       normalizeCuadreRecord(row?.id || row?.fila || `${plazaId}_${row?.mva || idx}`, row)
     );
+    writeCuadreCache(plazaId, normalized);
+    return normalized;
   }
 
   const [cuadre, externos] = await Promise.all([
@@ -44,10 +77,12 @@ export async function getCuadreSnapshot(plaza) {
     db.collection(COL.EXTERNOS).where('plaza', '==', plazaId).get()
   ]);
 
-  return [
+  const normalized = [
     ...cuadre.docs.map(d => normalizeCuadreRecord(d.id, d.data())),
     ...externos.docs.map(d => normalizeCuadreRecord(d.id, { ...d.data(), tipo: 'externo', ubicacion: d.data().ubicacion || 'EXTERNO' }))
   ];
+  writeCuadreCache(plazaId, normalized);
+  return normalized;
 }
 
 // Abre dos onSnapshot (cuadre + externos) filtrados por plaza.
@@ -81,6 +116,11 @@ export function subscribeCuadre({ plaza, onData, onError }) {
   let unsubCuadre   = () => {};
   let unsubExternos = () => {};
 
+  const cached = readCuadreCache(plazaId);
+  if (cached.length) {
+    queueMicrotask(() => handleData(cached));
+  }
+
   // Snapshot inicial vía API legacy cuando está disponible.
   // Mantiene compatibilidad con la misma normalización que usa /cuadre legacy.
   getCuadreSnapshot(plazaId)
@@ -93,6 +133,7 @@ export function subscribeCuadre({ plaza, onData, onError }) {
         externosDocs = baseExternos;
         cuadreReady = true;
         externosReady = true;
+        writeCuadreCache(plazaId, rows);
         emit();
       }
     })
@@ -106,6 +147,7 @@ export function subscribeCuadre({ plaza, onData, onError }) {
         snap => {
           cuadreDocs  = snap.docs.map(d => normalizeCuadreRecord(d.id, d.data()));
           cuadreReady = true;
+          if (externosReady) writeCuadreCache(plazaId, [...cuadreDocs, ...externosDocs]);
           emit();
         },
         err => handleError(err)
@@ -130,6 +172,7 @@ export function subscribeCuadre({ plaza, onData, onError }) {
             })
           );
           externosReady = true;
+          if (cuadreReady) writeCuadreCache(plazaId, [...cuadreDocs, ...externosDocs]);
           emit();
         },
         err => handleError(err)

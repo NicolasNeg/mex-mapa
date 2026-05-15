@@ -16,6 +16,10 @@ let _renderFrame = 0;
 
 const q = id => _container?.querySelector(`#${id}`) || null;
 const qsa = sel => Array.from(_container?.querySelectorAll(sel) || []);
+const _mexConfirm = (titulo, texto, tipo = 'warning') =>
+  typeof window.mexConfirm === 'function' ? window.mexConfirm(titulo, texto, tipo) : Promise.resolve(false);
+const _mexPrompt = (titulo, texto, placeholder = '', inputTipo = 'text', valor = '') =>
+  typeof window.mexPrompt === 'function' ? window.mexPrompt(titulo, texto, placeholder, inputTipo, valor) : Promise.resolve(null);
 
 function _trackListener(action, name, extra = {}) {
   if (typeof window.__mexTrackListener !== 'function') return;
@@ -312,14 +316,15 @@ function _syncRichEditorToTextarea() {
   textarea.value = String(editor.innerText || '').trim();
 }
 
-function _applyRichCommand(cmd, value = null) {
+async function _applyRichCommand(cmd, value = null) {
   const editor = _editorEl();
   if (!editor) return;
   editor.focus();
   let exec = cmd;
   let val = value;
   if (cmd === 'link') {
-    const url = _normalizeDraftUrl(prompt('Enlace para insertar:', 'https://') || '');
+    const raw = await _mexPrompt('Insertar enlace', 'Enlace para insertar:', 'https://', 'url', 'https://');
+    const url = _normalizeDraftUrl(raw || '');
     if (!url) return;
     try { new URL(url); } catch (_) { return _showNotice('El enlace no tiene formato válido.', 'error'); }
     exec = 'createLink';
@@ -592,9 +597,9 @@ function _renderList() {
   });
 
   qsa('[data-delete-id]').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const id = btn.dataset.deleteId;
-      if (confirm('¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.')) {
+      if (await _mexConfirm('Eliminar registro', '¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.', 'danger')) {
         _onDeleteIncidencia(id);
       }
     });

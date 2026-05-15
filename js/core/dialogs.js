@@ -25,6 +25,35 @@
 
       let _cleanup = null;
 
+      function _ensureOverlay() {
+        let overlay = document.getElementById('mex-dialog-overlay');
+        if (overlay) return overlay;
+
+        overlay = document.createElement('div');
+        overlay.id = 'mex-dialog-overlay';
+        overlay.innerHTML = `
+          <div class="mex-dlg-card" role="dialog" aria-modal="true" aria-labelledby="mex-dlg-title">
+            <div class="mex-dlg-icon-row" id="mex-dlg-icon-row">
+              <span class="material-icons mex-dlg-main-icon" id="mex-dlg-icon">info</span>
+            </div>
+            <div class="mex-dlg-body">
+              <h3 class="mex-dlg-title" id="mex-dlg-title"></h3>
+              <p class="mex-dlg-text" id="mex-dlg-text"></p>
+              <div class="mex-dlg-input-wrap" id="mex-dlg-input-wrap" style="display:none;">
+                <input class="mex-dlg-input" id="mex-dlg-input" type="text">
+              </div>
+            </div>
+            <div class="mex-dlg-actions">
+              <button type="button" class="mex-dlg-btn mex-dlg-btn-extra" id="mex-dlg-extra" style="display:none;"></button>
+              <button type="button" class="mex-dlg-btn mex-dlg-btn-cancel" id="mex-dlg-cancel" style="display:none;"></button>
+              <button type="button" class="mex-dlg-btn mex-dlg-btn-confirm" id="mex-dlg-confirm"></button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        return overlay;
+      }
+
       window.mexDialog = function ({
         titulo = '',
         texto = '',
@@ -39,7 +68,7 @@
         input = null
       } = {}) {
         return new Promise(resolve => {
-          const overlay = document.getElementById('mex-dialog-overlay');
+          const overlay = _ensureOverlay();
           const iconRow = document.getElementById('mex-dlg-icon-row');
           const iconEl = document.getElementById('mex-dlg-icon');
           const titleEl = document.getElementById('mex-dlg-title');
@@ -49,7 +78,13 @@
           const extraBtn = document.getElementById('mex-dlg-extra');
           const cancelBtn = document.getElementById('mex-dlg-cancel');
           const confirmBtn = document.getElementById('mex-dlg-confirm');
-          const card = overlay.querySelector('.mex-dlg-card');
+          const card = overlay?.querySelector('.mex-dlg-card');
+
+          if (!overlay || !card || !iconRow || !iconEl || !titleEl || !textEl || !inputWrap || !inputEl || !extraBtn || !cancelBtn || !confirmBtn) {
+            console.warn('[mexDialog] estructura incompleta');
+            resolve(valorConfirmar);
+            return;
+          }
 
           // Clean up previous listeners if any
           if (_cleanup) { _cleanup(); _cleanup = null; }
