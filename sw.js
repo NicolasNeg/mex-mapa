@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v298';
+const CACHE_NAME = 'mapa-v299';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -110,8 +110,11 @@ const OPTIONAL_ASSETS = [
   '/css/app-profile.css',
   '/css/app-mensajes.css',
   '/css/app-incidencias.css',
+  '/css/app-alertas.css',
+  '/css/alertas.css',
   '/css/cola-preparacion.css',
   '/js/app/views/profile.js',
+  '/js/app/views/alertas.js',
   '/js/app/views/mensajes.js',
   '/js/app/features/mensajes/mensajes-data.js',
   '/js/app/features/mensajes/mensajes-attachments.js',

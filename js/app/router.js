@@ -69,8 +69,14 @@ const ROUTE_TABLE = {
   '/app/admin/catalogos':   { redirect: '/app/admin?tab=catalogos' },
   '/app/gestion/catalogos': { redirect: '/app/admin?tab=catalogos' },
   '/app/admin/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
-  '/app/alertas':          legacyStage('alertas', '/app/alertas'),
-  '/app/alertas/historial': legacyStage('alertasHist', '/app/alertas/historial'),
+  '/app/alertas':          {
+    loader:   () => import('/js/app/views/alertas.js'),
+    navRoute: '/app/alertas'
+  },
+  '/app/alertas/historial': {
+    loader:   () => import('/js/app/views/alertas.js'),
+    navRoute: '/app/alertas/historial'
+  },
   '/app/historial-alertas': { redirect: '/app/alertas/historial' },
   '/app/gestion/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
   '/app/admin/estados':     { redirect: '/app/admin?tab=estados' },
