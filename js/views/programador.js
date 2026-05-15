@@ -38,12 +38,17 @@ const state = {
   testTarget: '',
   testTitle: '',
   testBody: '',
-  toolsLog: []
+  toolsLog: [],
+  empresas: [],
+  empresasLoading: false,
 };
 
 const BUILD_TAG = 'mapa-v90';
 const CC_NAME = 'Centro de Control';
 let programmerClockTimer = null;
+
+const _mexConfirm = (titulo, texto, tipo = 'warning') =>
+  typeof window.mexConfirm === 'function' ? window.mexConfirm(titulo, texto, tipo) : Promise.resolve(false);
 
 function safe(value) {
   return String(value ?? '').trim();
@@ -469,6 +474,13 @@ const PROGRAMMER_TAB_META = {
     label: 'Notificaciones',
     short: 'Notificaciones',
     description: 'Revisa inbox, entrega de push y pruebas controladas sobre clientes reales.'
+  },
+  empresas: {
+    section: 'saas',
+    icon: 'business',
+    label: 'Gestión de empresas',
+    short: 'Empresas',
+    description: 'Administra tenants, planes y feature gates. Activa o desactiva módulos por empresa sin tocar código.'
   }
 };
 
@@ -507,6 +519,11 @@ const PROGRAMMER_SECTION_META = {
     icon: 'devices',
     label: 'Dispositivos y clientes',
     description: 'Sesiones activas, dispositivos conectados, push y comportamiento del cliente.'
+  },
+  saas: {
+    icon: 'corporate_fare',
+    label: 'SaaS',
+    description: 'Multi-tenant: empresas registradas, planes activos y control de features por tenant.'
   }
 };
 
@@ -517,7 +534,8 @@ const PROGRAMMER_SECTION_TABS = {
   errores: ['errores'],
   seguridad: ['seguridad'],
   herramientas: ['herramientas'],
-  clientes: ['dispositivos', 'notificaciones']
+  clientes: ['dispositivos', 'notificaciones'],
+  saas: ['empresas']
 };
 
 function programmerSectionKey(tab = state.tab) {
@@ -1743,6 +1761,255 @@ function renderHerramientasTab() {
   });
 }
 
+// ── SaaS: metadatos de features ───────────────────────────────────────────────
+const SAAS_FEATURE_LABELS = {
+  alertas:             'Alertas',
+  cuadre:              'Cuadre',
+  cola_preparacion:    'Cola de preparación',
+  incidencias:         'Incidencias',
+  mensajeria:          'Mensajería',
+  notificaciones_push: 'Push notifications',
+  gestion_usuarios:    'Gestión usuarios',
+  solicitudes_acceso:  'Solicitudes de acceso',
+  auditoria:           'Auditoría',
+  historial_logs:      'Historial y logs',
+  reportes:            'Reportes',
+  exportar_excel:      'Exportar Excel',
+  ia_placas:           'IA de placas',
+  edicion_mapa:        'Edición de mapa',
+};
+
+const SAAS_FEATURE_GROUPS = [
+  { label: 'Operaciones',       keys: ['alertas', 'cuadre', 'cola_preparacion', 'incidencias'] },
+  { label: 'Comunicación',      keys: ['mensajeria', 'notificaciones_push'] },
+  { label: 'Administración',    keys: ['gestion_usuarios', 'solicitudes_acceso', 'auditoria'] },
+  { label: 'Reportes y datos',  keys: ['historial_logs', 'reportes', 'exportar_excel'] },
+  { label: 'Avanzado',          keys: ['ia_placas', 'edicion_mapa'] },
+];
+
+const SAAS_PLAN_META = {
+  starter:    { label: 'Starter',    color: '#3b82f6' },
+  pro:        { label: 'Pro',        color: '#8b5cf6' },
+  enterprise: { label: 'Enterprise', color: '#10b981' },
+};
+
+async function loadEmpresas() {
+  state.empresasLoading = true;
+  renderEmpresasTab();
+  try {
+    const fn = callable('listarEmpresas');
+    const result = await fn({});
+    state.empresas = Array.isArray(result?.data?.data) ? result.data.data : [];
+  } catch (e) {
+    console.error('loadEmpresas', e);
+    state.empresas = [];
+    showToast('No se pudieron cargar las empresas: ' + describeError(e), 'error');
+  } finally {
+    state.empresasLoading = false;
+    renderEmpresasTab();
+  }
+}
+
+async function saasToggleFeature(empresaId, feature, enabled) {
+  try {
+    const empresa = state.empresas.find(e => e.empresaId === empresaId);
+    if (!empresa) return;
+    const features = Object.assign({}, empresa.features || {}, { [feature]: enabled });
+    await db.collection('empresas').doc(empresaId).update({ [`features.${feature}`]: enabled });
+    empresa.features = features;
+    renderEmpresasTab();
+    showToast(`${SAAS_FEATURE_LABELS[feature] || feature}: ${enabled ? 'activada' : 'desactivada'}`, enabled ? 'success' : 'warning');
+  } catch (e) {
+    console.error('saasToggleFeature', e);
+    showToast('Error al actualizar feature: ' + describeError(e), 'error');
+    renderEmpresasTab();
+  }
+}
+
+async function saasCambiarPlan(empresaId, plan) {
+  const confirmed = await _mexConfirm(
+    'Cambiar plan',
+    `¿Cambiar la empresa "${empresaId}" al plan ${plan.toUpperCase()}?`
+  );
+  if (!confirmed) { renderEmpresasTab(); return; }
+  try {
+    await db.collection('empresas').doc(empresaId).update({ plan });
+    const empresa = state.empresas.find(e => e.empresaId === empresaId);
+    if (empresa) empresa.plan = plan;
+    renderEmpresasTab();
+    showToast(`Plan actualizado a ${plan}`, 'success');
+  } catch (e) {
+    console.error('saasCambiarPlan', e);
+    showToast('Error al cambiar plan: ' + describeError(e), 'error');
+  }
+}
+
+async function saasEntrarEmpresa(empresaId) {
+  if (typeof window.mexEmpresaContext?.switchEmpresa !== 'function') {
+    showToast('empresa-context.js no está disponible', 'error');
+    return;
+  }
+  const empresa = await window.mexEmpresaContext.switchEmpresa(empresaId);
+  if (empresa) {
+    showToast(`Contexto activo: ${empresa.nombre || empresaId}`, 'success');
+    renderEmpresasTab();
+  } else {
+    showToast(`No se encontró la empresa: ${empresaId}`, 'error');
+  }
+}
+
+async function saasMigrarUsuarios(empresaId) {
+  const confirmed = await _mexConfirm(
+    'Migrar usuarios',
+    `Asignar empresaId="${empresaId}" a todos los usuarios que no lo tengan. ¿Continuar?`
+  );
+  if (!confirmed) return;
+  try {
+    const fn = callable('migrarEmpresaIdUsuarios');
+    const result = await fn({ empresaId });
+    showToast(`${result?.data?.usuariosActualizados ?? 0} usuarios migrados`, 'success');
+  } catch (e) {
+    showToast('Error en migración: ' + describeError(e), 'error');
+  }
+}
+
+function renderEmpresasTab() {
+  const container = document.getElementById('programmerTabContent');
+  if (!container) return;
+
+  const ctxId = window.mexEmpresaContext?.getEmpresaId?.() || '';
+
+  if (state.empresasLoading) {
+    container.innerHTML = `
+      <section class="programmer-section">
+        <div class="programmer-section-head">
+          <h3>Gestión de Empresas</h3>
+          <span>Cargando tenants...</span>
+        </div>
+        ${skeletonCards(2)}
+      </section>`;
+    return;
+  }
+
+  const planBadge = (plan) => {
+    const meta = SAAS_PLAN_META[plan] || { label: plan || '—', color: '#64748b' };
+    return `<span style="display:inline-block;padding:2px 10px;border-radius:999px;font-size:10px;font-weight:800;letter-spacing:.06em;background:${meta.color}22;color:${meta.color};border:1px solid ${meta.color}44">${meta.label.toUpperCase()}</span>`;
+  };
+
+  const featureToggle = (empresaId, key, enabled) => `
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:5px 0;min-width:160px;">
+      <span style="position:relative;display:inline-block;width:36px;height:20px;flex-shrink:0;">
+        <input type="checkbox" ${enabled ? 'checked' : ''} style="opacity:0;width:0;height:0;position:absolute;"
+          onchange="saasToggleFeature('${escapeHtml(empresaId)}','${key}',this.checked)">
+        <span style="
+          position:absolute;inset:0;border-radius:10px;transition:.2s;
+          background:${enabled ? '#10b981' : '#94a3b8'};cursor:pointer;">
+          <span style="
+            position:absolute;top:2px;left:${enabled ? '18px' : '2px'};width:16px;height:16px;
+            border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2);">
+          </span>
+        </span>
+      </span>
+      <span style="font-size:12px;color:${enabled ? '#1e293b' : '#94a3b8'}">${SAAS_FEATURE_LABELS[key] || key}</span>
+    </label>`;
+
+  const empresaCard = (empresa) => {
+    const id = empresa.empresaId;
+    const isCtx = id === ctxId;
+    const features = empresa.features || {};
+
+    const groupsHtml = SAAS_FEATURE_GROUPS.map(group => `
+      <div style="min-width:180px;">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#64748b;text-transform:uppercase;margin-bottom:4px;">${group.label}</div>
+        ${group.keys.map(k => featureToggle(id, k, features[k] !== false)).join('')}
+      </div>`).join('');
+
+    const planOptions = Object.keys(SAAS_PLAN_META).map(p =>
+      `<option value="${p}" ${empresa.plan === p ? 'selected' : ''}>${SAAS_PLAN_META[p].label}</option>`
+    ).join('');
+
+    return `
+      <div class="programmer-panel" style="margin-bottom:16px;${isCtx ? 'border:2px solid #10b981;' : ''}">
+        <div class="programmer-panel-head" style="flex-wrap:wrap;gap:8px;">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h4 style="margin:0;">${escapeHtml(empresa.nombre || id)}</h4>
+            ${planBadge(empresa.plan)}
+            ${isCtx ? '<span style="font-size:10px;font-weight:700;color:#10b981;background:#10b98114;padding:2px 8px;border-radius:999px;">CONTEXTO ACTIVO</span>' : ''}
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span style="font-size:11px;color:#64748b;">ID: <code>${escapeHtml(id)}</code></span>
+            <select style="font-size:11px;padding:4px 8px;border-radius:6px;border:1px solid #e2e8f0;background:#f8fafc;cursor:pointer;"
+              onchange="saasCambiarPlan('${escapeHtml(id)}', this.value)">
+              ${planOptions}
+            </select>
+            <button type="button" class="programmer-page-btn primary" style="font-size:11px;min-height:28px;padding:0 10px;"
+              onclick="saasEntrarEmpresa('${escapeHtml(id)}')">
+              <span class="material-icons" style="font-size:14px;">login</span>
+              Entrar contexto
+            </button>
+            <button type="button" class="programmer-page-btn" style="font-size:11px;min-height:28px;padding:0 10px;"
+              onclick="saasMigrarUsuarios('${escapeHtml(id)}')">
+              <span class="material-icons" style="font-size:14px;">group_add</span>
+              Migrar usuarios
+            </button>
+          </div>
+        </div>
+        <div style="padding:16px;display:flex;flex-wrap:wrap;gap:24px;">
+          ${groupsHtml}
+        </div>
+        <div style="padding:0 16px 12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <span style="font-size:11px;color:#94a3b8;">
+            Plazas: ${escapeHtml((empresa.plazas || []).join(', ') || '—')}
+          </span>
+          <span style="font-size:11px;color:#94a3b8;">
+            · Features activas: ${Object.values(features).filter(v => v !== false).length}/${Object.keys(SAAS_FEATURE_LABELS).length}
+          </span>
+        </div>
+      </div>`;
+  };
+
+  const noEmpresas = `
+    <div class="programmer-empty-state">
+      <span class="material-icons">business_center</span>
+      <strong>Sin empresas registradas</strong>
+      <p>Usa <em>Seed empresa</em> para crear el primer tenant desde los datos actuales de configuracion/empresa.</p>
+    </div>`;
+
+  container.innerHTML = `
+    <section class="programmer-section">
+      <div class="programmer-section-head">
+        <h3>Gestión de Empresas</h3>
+        <span>Tenants registrados · Planes · Feature gates por empresa</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;">
+        <button type="button" class="programmer-page-btn" onclick="loadEmpresas()">
+          <span class="material-icons">refresh</span> Recargar
+        </button>
+        <button type="button" class="programmer-page-btn primary" onclick="saasSeedEmpresa()">
+          <span class="material-icons">add_business</span> Nueva empresa
+        </button>
+      </div>
+    </section>
+    <section style="padding:0 16px 24px;">
+      ${state.empresas.length === 0 ? noEmpresas : state.empresas.map(empresaCard).join('')}
+    </section>`;
+}
+
+async function saasSeedEmpresa() {
+  const empresaId = prompt('ID de la nueva empresa (ej: "cliente-abc"):');
+  if (!empresaId || !empresaId.trim()) return;
+  const nombre = prompt('Nombre comercial:') || '';
+  const plan = prompt('Plan (starter / pro / enterprise):', 'enterprise') || 'enterprise';
+  try {
+    const fn = callable('seedPrimeraEmpresa');
+    const result = await fn({ empresaId: empresaId.trim(), nombre, plan });
+    showToast(`Empresa ${result?.data?.empresaId || empresaId} ${result?.data?.created ? 'creada' : 'ya existía'}`, 'success');
+    await loadEmpresas();
+  } catch (e) {
+    showToast('Error al crear empresa: ' + describeError(e), 'error');
+  }
+}
+
 function renderCurrentTab() {
   if (state.tab === 'resumen') return renderResumenTab();
   if (state.tab === 'herramientas') return renderHerramientasTab();
@@ -1760,6 +2027,11 @@ function renderCurrentTab() {
   if (state.tab === 'seguridad') return renderSeguridadTab();
   if (state.tab === 'errores') return renderErroresTab();
   if (state.tab === 'dispositivos') return renderDispositivosTab();
+  if (state.tab === 'empresas') {
+    renderEmpresasTab();
+    if (state.empresas.length === 0 && !state.empresasLoading) loadEmpresas();
+    return;
+  }
 }
 
 function filteredQueryRows() {
@@ -1951,7 +2223,7 @@ async function deleteDbDocument() {
     showToast('Selecciona un documento para eliminar.', 'error');
     return;
   }
-  const ok = window.confirm(`Se eliminará ${docPathInput}. Las subcolecciones no se borran automáticamente. ¿Continuar?`);
+  const ok = await _mexConfirm('Eliminar documento', `Se eliminará ${docPathInput}. Las subcolecciones no se borran automáticamente. ¿Continuar?`, 'danger');
   if (!ok) return;
   try {
     const result = await runJob('delete-document', {
@@ -2293,6 +2565,15 @@ async function refreshAll() {
   }
 }
 
+// Expose SaaS management functions for inline onclick handlers inside
+// dynamically-injected innerHTML (ES module scope is not accessible otherwise).
+window.saasToggleFeature = saasToggleFeature;
+window.saasCambiarPlan   = saasCambiarPlan;
+window.saasEntrarEmpresa = saasEntrarEmpresa;
+window.saasMigrarUsuarios = saasMigrarUsuarios;
+window.saasSeedEmpresa   = saasSeedEmpresa;
+window.loadEmpresas      = loadEmpresas;
+
 installProgrammerErrorReporter({
   screen: 'programador',
   getProfile: () => state.profile,
@@ -2322,6 +2603,9 @@ auth.onAuthStateChanged(async user => {
         allowLogout: true,
         force: false
       });
+    }
+    if (typeof window.mexEmpresaContext?.cargarParaUsuario === 'function') {
+      await window.mexEmpresaContext.cargarParaUsuario(state.profile).catch(() => {});
     }
     state.plaza = window.getMexCurrentPlaza?.() || state.profile.plazaAsignada || '';
     configureNotifications({
