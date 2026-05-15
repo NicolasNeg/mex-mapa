@@ -49,11 +49,14 @@ export async function mount({ container }) {
     if (!_state || !_container) return;
     _state.plaza = String(nextPlaza || '').toUpperCase().trim();
     _syncPlazaLabels();
-    await Promise.all([_loadMetrics(), _loadMapPreview()]);
     _render();
+    void _refreshDashboardData({ includeMap: true });
   });
-  await Promise.all([_loadMetrics(), _loadMapPreview()]);
   _render();
+  void _refreshDashboardData({ includeMap: false });
+  _deferWork(() => {
+    void _loadMapPreview().then(() => _applyQuery());
+  });
   _cleanup = () => {
     if (typeof _offSearch === 'function') _offSearch();
     if (typeof _offPlaza === 'function') _offPlaza();
@@ -354,13 +357,28 @@ function _bindReload() {
   const btn = _container?.querySelector('#appDashReloadBtn');
   if (btn && btn.dataset.bound !== '1') {
     btn.dataset.bound = '1';
-    btn.addEventListener('click', () => window.location.reload());
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      void _refreshDashboardData({ includeMap: true }).finally(() => {
+        if (btn) btn.disabled = false;
+      });
+    });
   }
+}
+
+async function _refreshDashboardData({ includeMap = true } = {}) {
+  await _loadMetrics();
+  if (!_state || !_container) return;
+  _render();
+  if (includeMap) await _loadMapPreview();
+  if (!_state || !_container) return;
+  _applyQuery();
 }
 
 async function _loadMetrics() {
   const plaza = String(_state?.plaza || '').toUpperCase().trim();
-  const isAdmin = _isAdminRole(_state.role);
+  const role = String(_state?.role || '');
+  const isAdmin = _isAdminRole(role);
   const [cuadre, externos, solicitudes, notasSnap] = await Promise.all([
     plaza ? _safeCount(db.collection(COL.CUADRE).where('plaza', '==', plaza).limit(180).get()) : 0,
     plaza ? _safeCount(db.collection(COL.EXTERNOS).where('plaza', '==', plaza).limit(180).get()) : 0,
@@ -373,6 +391,7 @@ async function _loadMetrics() {
         return estado !== 'RESUELTA' && estado !== 'CERRADA';
       }).length
     : 0;
+  if (!_state || String(_state.plaza || '').toUpperCase().trim() !== plaza) return;
   _state.metrics = { unidades: cuadre, externos, incidencias: notas, solicitudes };
 }
 
@@ -407,12 +426,21 @@ async function _loadMapPreview() {
       .filter(Boolean);
     _state.mapPreview.loading = false;
     _paintMiniMap(el, plaza, estructura, unidades);
+    _applyQuery();
   } catch (error) {
     if (!_state || requestId !== _mapPreviewRequestId) return;
     _state.mapPreview = { mvKeys: [], loading: false, error: error?.message || 'mapa' };
     if (el) {
       el.innerHTML = `<div class="appdash__map-fallback-inner"><span class="material-symbols-outlined appdash__map-fallback-ico" data-icon="map_off">map_off</span><span>Vista en vivo no disponible (${esc(plaza)})</span></div>`;
     }
+  }
+}
+
+function _deferWork(fn, timeout = 900) {
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(fn, { timeout });
+  } else {
+    window.setTimeout(fn, Math.min(timeout, 500));
   }
 }
 
@@ -427,11 +455,12 @@ function _paintMiniMap(container, plaza, estructuraRaw, unidadesRaw) {
     let minY = 0;
     let maxX = 800;
     let maxY = 600;
-    if (vm.cajones && vm.cajones.length > 0) {
-      minX = Math.min(...vm.cajones.map(c => c.x));
-      minY = Math.min(...vm.cajones.map(c => c.y));
-      maxX = Math.max(...vm.cajones.map(c => c.x + c.width));
-      maxY = Math.max(...vm.cajones.map(c => c.y + c.height));
+    const cajonesPreview = Array.isArray(vm.cajones) ? vm.cajones.slice(0, 320) : [];
+    if (cajonesPreview.length > 0) {
+      minX = Math.min(...cajonesPreview.map(c => c.x));
+      minY = Math.min(...cajonesPreview.map(c => c.y));
+      maxX = Math.max(...cajonesPreview.map(c => c.x + c.width));
+      maxY = Math.max(...cajonesPreview.map(c => c.y + c.height));
     }
     const rect = container.getBoundingClientRect();
     const targetW = rect.width || 800;
@@ -458,7 +487,9 @@ function _paintMiniMap(container, plaza, estructuraRaw, unidadesRaw) {
 
     let html = `<div class="appdash__mini-map-scale" style="transform: translate(-50%, -50%) scale(${scale}); width:${mapW}px; height:${mapH}px;">`;
 
-    for (const c of vm.cajones) {
+    const cajonByPos = new Map();
+    for (const c of cajonesPreview) {
+      cajonByPos.set(c.pos, c);
       if (c.tipo === 'pilar') continue;
       const spotStyle = c.esLabel
         ? `background:transparent; border:none; color:rgba(255,255,255,0.4); font-size:32px; font-weight:bold;`
@@ -467,9 +498,10 @@ function _paintMiniMap(container, plaza, estructuraRaw, unidadesRaw) {
       html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); ${spotStyle} display:flex; align-items:center; justify-content:center; box-sizing:border-box;">${text}</div>`;
     }
 
-    for (const [mva, u] of vm.unitMap.entries()) {
+    const unitEntries = Array.from(vm.unitMap.entries()).slice(0, 220);
+    for (const [mva, u] of unitEntries) {
       if (u.pos === 'LIMBO') continue;
-      const c = vm.cajones.find(cj => cj.pos === u.pos);
+      const c = cajonByPos.get(u.pos);
       if (!c) continue;
       const bg = colors[u.estado] || '#64748b';
       const carStyle = `border-radius:16px 16px 10px 10px; background:linear-gradient(160deg, ${bg} 0%, #000 120%); box-shadow:0 8px 15px -4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.25); border:1px solid rgba(0,0,0,0.15); color:white; font-size:16px; font-weight:900; text-shadow:0 1px 3px rgba(0,0,0,0.4);`;

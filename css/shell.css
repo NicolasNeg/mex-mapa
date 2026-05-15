@@ -54,6 +54,8 @@
   transition:
     width  0.26s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  contain: layout paint style;
+  will-change: width, transform;
 }
 
 .mex-sidebar.compact {
@@ -501,6 +503,8 @@
   transition: left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
   gap: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  contain: layout paint style;
+  will-change: left;
 }
 .mex-shell.sidebar-compact .mex-header {
   left: var(--sh-sidebar-compact-w);
@@ -906,6 +910,12 @@
   overflow-x: clip;
   transition: margin-left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
+  contain: layout style;
+}
+
+#mexShellContent {
+  min-width: 0;
+  contain: layout style;
 }
 .mex-shell.sidebar-compact .mex-main {
   margin-left: var(--sh-sidebar-compact-w);

@@ -22,12 +22,33 @@ import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';
 import { getNotificationsSummary } from '/js/app/features/notifications/notifications-summary.js';
-import {
-  setupAppNotificationCenter,
-  openAppNotificationCenter,
-  teardownAppNotificationShell,
-  getCurrentDeviceSnapshot
-} from '/js/app/features/notifications/notification-center.js';
+
+let _notifCenterModule = null;
+let _notifCenterPromise = null;
+
+function _loadNotificationCenter() {
+  if (_notifCenterModule) return Promise.resolve(_notifCenterModule);
+  if (!_notifCenterPromise) {
+    _notifCenterPromise = import('/js/app/features/notifications/notification-center.js')
+      .then(mod => {
+        _notifCenterModule = mod;
+        return mod;
+      })
+      .catch(err => {
+        _notifCenterPromise = null;
+        throw err;
+      });
+  }
+  return _notifCenterPromise;
+}
+
+function _runWhenIdle(fn, timeout = 2200) {
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(fn, { timeout });
+  } else {
+    window.setTimeout(fn, Math.min(timeout, 1200));
+  }
+}
 
 function _isLocalQaAuthBypassEnabled() {
   try {
@@ -155,6 +176,9 @@ async function boot() {
   const shell = new ShellLayout();
   let notifSummary = { total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 };
   let notifTimer = null;
+  let notifInFlight = null;
+  let notifLastKey = '';
+  let notifLastAt = 0;
   let router = null;
 
   const shellToast = (message, type = 'info') => {
@@ -187,20 +211,36 @@ async function boot() {
     setTimeout(() => { try { el.remove(); } catch (_) {} }, 4200);
   };
 
-  const refreshNotifSummary = async () => {
+  const refreshNotifSummary = async ({ force = false } = {}) => {
     const state = getState();
-    notifSummary = await getNotificationsSummary({
-      profile: state.profile || {},
-      role: state.role || '',
-      plaza: state.currentPlaza || ''
-    }).catch(() => ({ total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 }));
-    let inboxUnread = 0;
-    try {
-      inboxUnread = Number(getCurrentDeviceSnapshot()?.unread || 0);
-    } catch (_) {
-      inboxUnread = 0;
-    }
-    shell.setBellBadge(Number(notifSummary.total || 0) > 0 || inboxUnread > 0);
+    const profile = state.profile || {};
+    const key = [
+      state.currentPlaza || '',
+      state.role || '',
+      profile.email || profile.nombreCompleto || profile.nombre || ''
+    ].join('|');
+    const now = Date.now();
+    if (!force && notifInFlight) return notifInFlight;
+    if (!force && key === notifLastKey && now - notifLastAt < 45000) return;
+    notifInFlight = (async () => {
+      notifSummary = await getNotificationsSummary({
+        profile,
+        role: state.role || '',
+        plaza: state.currentPlaza || ''
+      }).catch(() => ({ total: 0, mensajes: 0, incidencias: 0, alertas: 0, solicitudes: 0 }));
+      let inboxUnread = 0;
+      try {
+        inboxUnread = Number(_notifCenterModule?.getCurrentDeviceSnapshot?.()?.unread || 0);
+      } catch (_) {
+        inboxUnread = 0;
+      }
+      notifLastKey = key;
+      notifLastAt = Date.now();
+      shell.setBellBadge(Number(notifSummary.total || 0) > 0 || inboxUnread > 0);
+    })().finally(() => {
+      notifInFlight = null;
+    });
+    return notifInFlight;
   };
   shell.mount({
     container:    appRoot,
@@ -214,8 +254,10 @@ async function boot() {
     onNavigate:   (route) => router.navigate(isMigratedRoute(route) ? toAppRoute(route) : route),
     onLogout:     ()      => handleLogout(),
     onBellClick:  ()      => {
-      setupAppNotificationCenter({ router, toast: shellToast })
-        .then(() => openAppNotificationCenter())
+      _loadNotificationCenter()
+        .then(mod => Promise.resolve(mod.setupAppNotificationCenter?.({ router, toast: shellToast })).then(() => mod))
+        .then(mod => mod.openAppNotificationCenter?.())
+        .then(() => refreshNotifSummary({ force: true }))
         .catch(err => {
           console.warn('[app/main] Centro de notificaciones:', err);
           shellToast('No se pudo abrir el centro de notificaciones.', 'error');
@@ -239,15 +281,16 @@ async function boot() {
 
   // 6. Crear router — renderiza la vista inicial automáticamente
   router = createRouter({ shell });
-  try {
-    await setupAppNotificationCenter({ router, toast: shellToast });
-  } catch (err) {
-    console.warn('[app/main] No se pudo inicializar notificaciones al arrancar:', err);
-  }
-  await refreshNotifSummary();
+  void refreshNotifSummary({ force: true });
+  _runWhenIdle(() => {
+    _loadNotificationCenter()
+      .then(mod => mod.setupAppNotificationCenter?.({ router, toast: shellToast }))
+      .then(() => refreshNotifSummary({ force: true }))
+      .catch(err => console.warn('[app/main] Notificaciones diferidas:', err));
+  });
   notifTimer = window.setInterval(() => {
-    refreshNotifSummary();
-  }, 60000);
+    refreshNotifSummary({ force: true });
+  }, 90000);
 
   subscribe(state => {
     shell.setPlaza(state.currentPlaza, state.availablePlazas, state.canSwitchPlaza);
@@ -261,13 +304,13 @@ async function boot() {
   });
   window.addEventListener('beforeunload', () => {
     if (notifTimer) clearInterval(notifTimer);
-    try { teardownAppNotificationShell(); } catch (_) {}
+    try { _notifCenterModule?.teardownAppNotificationShell?.(); } catch (_) {}
   }, { once: true });
 }
 
 // ── Handlers ────────────────────────────────────────────────
 async function handleLogout() {
-  try { teardownAppNotificationShell(); } catch (_) {}
+  try { _notifCenterModule?.teardownAppNotificationShell?.(); } catch (_) {}
   try {
     await auth.signOut();
   } catch (err) {

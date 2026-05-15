@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v296';
+const CACHE_NAME = 'mapa-v297';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -155,22 +155,32 @@ const OPTIONAL_ASSETS = [
   // Fuentes de Google — se cachean en runtime la primera vez
 ];
 
+function warmOptionalAssetsInBackground() {
+  caches.open(CACHE_NAME).then(cache => {
+    let index = 0;
+    const pump = () => {
+      const url = OPTIONAL_ASSETS[index++];
+      if (!url) return;
+      cache.match(url)
+        .then(hit => hit || cache.add(url))
+        .catch(err => {
+          console.warn('[sw] Asset opcional no cacheado:', url, err?.message || err);
+        })
+        .finally(() => {
+          setTimeout(pump, 80);
+        });
+    };
+    setTimeout(pump, 600);
+  }).catch(() => {});
+}
+
 // ── Instalación ──────────────────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
-      // 1. Cachear assets críticos — fallo aquí aborta la instalación
+      // Cachear solo assets críticos aquí; los opcionales se calientan en segundo plano.
       await cache.addAll(CRITICAL_ASSETS);
-
-      // 2. Cachear assets opcionales — fallo se loggea, no aborta
-      await Promise.allSettled(
-        OPTIONAL_ASSETS.map(url =>
-          cache.add(url).catch(err => {
-            console.warn('[sw] Asset opcional no cacheado:', url, err?.message || err);
-          })
-        )
-      );
-
+      warmOptionalAssetsInBackground();
       return self.skipWaiting();
     })
   );
@@ -186,6 +196,7 @@ self.addEventListener('activate', event => {
           .map(key => caches.delete(key))
       )
     ).then(() => self.clients.claim())
+      .then(() => warmOptionalAssetsInBackground())
   );
 });
 

@@ -12,6 +12,7 @@
   background: #f4fbf4;
   box-sizing: border-box;
   min-height: 0;
+  contain: layout style;
 }
 
 .appdash *,
@@ -208,7 +209,22 @@
   top: 50%;
   pointer-events: none;
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform;
   opacity: 0.9;
+}
+
+.appdash__shell-card,
+.appdash__actividad,
+.appdash__kpi-card {
+  contain: layout paint style;
+}
+
+@supports (content-visibility: auto) {
+  .appdash__secondary,
+  .appdash__dev-only {
+    content-visibility: auto;
+    contain-intrinsic-size: 420px;
+  }
 }
 
 .appdash__map-fallback-inner {

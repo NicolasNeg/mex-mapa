@@ -490,6 +490,20 @@
   padding: 12px;
 }
 
+.app-incidencias .nota-card,
+.app-incidencias .inc-form-card,
+.app-incidencias .inc-side-panel,
+.app-incidencias .inc-preview-card {
+  contain: layout paint style;
+}
+
+@supports (content-visibility: auto) {
+  .app-incidencias .nota-card {
+    content-visibility: auto;
+    contain-intrinsic-size: 180px;
+  }
+}
+
 .app-incidencias .inc-field-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

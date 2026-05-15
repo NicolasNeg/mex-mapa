@@ -33,6 +33,9 @@ let _searchInputHandler = null;
 let _cssRef = null;
 let _dndHintEl = null;
 let _lastDndEligibility = null;
+let _renderFrame = 0;
+let _renderDelayTimer = 0;
+let _lastUnitsHeaderTotal = null;
 /** @type {{ mva: string, originKey?: string, destKey?: string, actionText?: string, at: number, user: string } | null} */
 let _lastPersistSummary = null;
 /** @type {{ cleanup?: Function, setPlaza?: Function } | null} */
@@ -1121,7 +1124,7 @@ export function mount({ container, shell }) {
   if (_searchEl) {
     _searchInputHandler = event => {
       _viewState.query = String(event?.target?.value || '').trim();
-      _render();
+      _scheduleRender(90);
     };
     _searchEl.addEventListener('input', _searchInputHandler);
   }
@@ -1562,6 +1565,8 @@ export function unmount() {
   _dndHintEl = null;
   _lastDndEligibility = null;
   _lastPersistSummary = null;
+  _lastUnitsHeaderTotal = null;
+  _cancelScheduledRender();
   _trackListener('cleanup', 'view');
 }
 
@@ -1626,7 +1631,44 @@ function _scrollToSearchMatch() {
   } catch (_) {}
 }
 
+function _scheduleRender(delay = 0) {
+  if (!_contentEl) return;
+  if (delay > 0) {
+    if (_renderDelayTimer) window.clearTimeout(_renderDelayTimer);
+    _renderDelayTimer = window.setTimeout(() => {
+      _renderDelayTimer = 0;
+      _render();
+    }, delay);
+    return;
+  }
+  if (_renderDelayTimer) {
+    window.clearTimeout(_renderDelayTimer);
+    _renderDelayTimer = 0;
+  }
+  _render();
+}
+
+function _cancelScheduledRender() {
+  if (_renderDelayTimer) {
+    window.clearTimeout(_renderDelayTimer);
+    _renderDelayTimer = 0;
+  }
+  if (_renderFrame) {
+    window.cancelAnimationFrame(_renderFrame);
+    _renderFrame = 0;
+  }
+}
+
 function _render() {
+  if (!_contentEl) return;
+  if (_renderFrame) return;
+  _renderFrame = window.requestAnimationFrame(() => {
+    _renderFrame = 0;
+    _renderNow();
+  });
+}
+
+function _renderNow() {
   if (!_contentEl) return;
   const snapshot = _viewState.snapshot;
   if (!snapshot || snapshot.loading) {
@@ -1697,23 +1739,30 @@ function _render() {
       <span>UNIDADES</span>
       <strong class="mex-hdr-limbo-count">${data.total}</strong>
     </button>`;
-    _shell.setHeaderActions?.(btnHtml);
+    const existingHeaderBtn = document.getElementById('mexHdrLimboBtn');
+    if (!existingHeaderBtn || _lastUnitsHeaderTotal !== data.total) {
+      _shell.setHeaderActions?.(btnHtml);
+      _lastUnitsHeaderTotal = data.total;
+    }
 
     const drawer = _contentEl.querySelector('#app-mapa-units-drawer');
     const headerBtn = document.getElementById('mexHdrLimboBtn');
-    if (headerBtn && drawer) {
+    if (headerBtn && drawer && headerBtn.dataset.mapaUnitsBound !== '1') {
+      headerBtn.dataset.mapaUnitsBound = '1';
       headerBtn.addEventListener('click', () => {
-        if (drawer.hidden) {
-          drawer.hidden = false;
+        const currentDrawer = _contentEl?.querySelector('#app-mapa-units-drawer');
+        if (!currentDrawer) return;
+        if (currentDrawer.hidden) {
+          currentDrawer.hidden = false;
           // Force reflow before applying open class to trigger transition
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-              drawer.classList.add('open');
+              currentDrawer.classList.add('open');
             });
           });
         } else {
-          drawer.classList.remove('open');
-          setTimeout(() => { drawer.hidden = true; }, 350);
+          currentDrawer.classList.remove('open');
+          setTimeout(() => { currentDrawer.hidden = true; }, 350);
         }
       });
     }
@@ -1744,7 +1793,7 @@ function _bindGlobalSearch() {
     if (route && !route.startsWith('/app/mapa') && route !== '/mapa') return;
     _viewState.query = String(event?.detail?.query || '').trim();
     _syncLocalSearchInput();
-    _render();
+    _scheduleRender(90);
   };
   window.addEventListener('mex:global-search', handler);
   return () => window.removeEventListener('mex:global-search', handler);

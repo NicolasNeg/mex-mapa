@@ -20,6 +20,9 @@ function _isAdminRole(role = '') {
   ].includes(_safeUp(role));
 }
 
+let _pendingRequestsCache = { value: 0, at: 0 };
+const PENDING_REQUESTS_TTL = 5 * 60 * 1000;
+
 function _profileAliases(profile = {}) {
   return [
     profile?.nombre,
@@ -48,6 +51,10 @@ function _isAlertReadByAnyAlias(alerta = {}, aliases = []) {
 }
 
 async function _countPendingRequests() {
+  const now = Date.now();
+  if (now - _pendingRequestsCache.at < PENDING_REQUESTS_TTL) {
+    return _pendingRequestsCache.value;
+  }
   const [primary, legacy] = await Promise.all([
     db.collection('solicitudes').where('estado', '==', 'PENDIENTE').limit(120).get().catch(() => null),
     db.collection('solicitudes_acceso').where('estado', '==', 'PENDIENTE').limit(120).get().catch(() => null)
@@ -59,6 +66,7 @@ async function _countPendingRequests() {
       if (email) emails.add(email);
     });
   });
+  _pendingRequestsCache = { value: emails.size, at: now };
   return emails.size;
 }
 

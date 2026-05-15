@@ -6,6 +6,7 @@
   box-sizing: border-box;
   max-width: 100%;
   overflow-x: hidden;
+  contain: layout style;
 }
 
 .app-mapa-status-banner {
@@ -4164,4 +4165,45 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
   overflow-y: auto;
   padding: 0;
   background: #f8fafc;
+}
+
+/* Performance: el mapa cambia mucho; limitamos repaints al stage activo. */
+.app-mapa-content,
+.app-mapa-legacy-content,
+.app-mapa-map-stage,
+.app-mapa-canvas-viewport,
+.app-mapa-canvas-inner,
+.app-mapa-detail {
+  contain: layout paint style;
+}
+
+.app-mapa-canvas-viewport,
+.app-mapa-canvas-inner,
+.app-mapa-units-drawer-panel {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.app-mapa-unit,
+.app-mapa-slot,
+.app-mapa-list-row,
+.app-mapa-units-menu-section {
+  contain: layout paint style;
+}
+
+@supports (content-visibility: auto) {
+  .app-mapa-detail,
+  .app-mapa-units-menu-section {
+    content-visibility: auto;
+    contain-intrinsic-size: 280px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-mapa-loading-spinner,
+  .app-mapa-units-drawer-panel,
+  .app-mapa-units-drawer-overlay {
+    animation: none !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -12,6 +12,7 @@ let _unsubIncidencias = null;
 let _unsubPlaza = null;
 let _offGlobalSearch = null;
 let _cssInjected = false;
+let _renderFrame = 0;
 
 const q = id => _container?.querySelector(`#${id}`) || null;
 const qsa = sel => Array.from(_container?.querySelectorAll(sel) || []);
@@ -85,6 +86,10 @@ function _ensureCss() {
 }
 
 function _cleanup() {
+  if (_renderFrame) {
+    window.cancelAnimationFrame(_renderFrame);
+    _renderFrame = 0;
+  }
   if (typeof _unsubIncidencias === 'function') {
     try { _unsubIncidencias(); } catch (_) {}
     _trackListener('cleanup', 'incidencias-sub');
@@ -332,6 +337,14 @@ function _applyFilters() {
 }
 
 function _render() {
+  if (_renderFrame) return;
+  _renderFrame = window.requestAnimationFrame(() => {
+    _renderFrame = 0;
+    _renderNow();
+  });
+}
+
+function _renderNow() {
   if (!_state) return;
   _setText('incPlazaBadge', _state.plaza || '—');
   _setText('incMetaUbicacion', _state.plaza || 'GLOBAL');
