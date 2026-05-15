@@ -178,6 +178,45 @@ function _announceMapa(message) {
   _setMapaMessage({ message }, '');
 }
 
+function _quickHistoryKey() {
+  const st = getState();
+  const plaza = String(_viewState.snapshot?.plaza || st.currentPlaza || st.profile?.plazaAsignada || 'GLOBAL').toUpperCase();
+  return `mex.app.mapa.quick-history.${plaza || 'GLOBAL'}`;
+}
+
+function _readQuickHistory() {
+  try {
+    const rows = JSON.parse(localStorage.getItem(_quickHistoryKey()) || '[]');
+    return Array.isArray(rows) ? rows : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+function _pushQuickHistory(entry = {}) {
+  const item = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    mva: String(entry.mva || '').toUpperCase().trim(),
+    message: String(entry.message || entry.actionText || '').trim(),
+    from: String(entry.from || entry.originKey || '').trim(),
+    to: String(entry.to || entry.destKey || '').trim(),
+    user: String(entry.user || _actorName() || 'Sistema').trim(),
+    at: Number(entry.at || Date.now())
+  };
+  if (!item.mva && !item.message) return;
+  const rows = _readQuickHistory();
+  rows.unshift(item);
+  try { localStorage.setItem(_quickHistoryKey(), JSON.stringify(rows.slice(0, 18))); } catch (_) {}
+  _lastPersistSummary = {
+    mva: item.mva,
+    originKey: item.from,
+    destKey: item.to,
+    actionText: item.message,
+    at: item.at,
+    user: item.user
+  };
+}
+
 async function _runOfficialTool(action) {
   const snapshot = _viewState.snapshot || _lifecycle?.getSnapshot?.()?.data || {};
   const ctx = _officialToolsContext();
@@ -454,8 +493,8 @@ function _updateMetaLines() {
       : 'Última sincronización de datos: —';
   }
   if (moveEl) {
-    if (_lastPersistSummary) {
-      const s = _lastPersistSummary;
+    const s = _lastPersistSummary || _readQuickHistory()[0] || null;
+    if (s) {
       moveEl.textContent = s.actionText
         ? `Última actualización: ${s.actionText} · ${_fmtShort(s.at)} · ${s.user}`
         : `Último guardado: ${s.mva} · ${s.originKey}→${s.destKey} · ${_fmtShort(s.at)} · ${s.user}`;
@@ -526,7 +565,7 @@ function _showPersistConfirm({ mva, fromKey, toKey, occupantMva = '' }) {
     });
     wrap.querySelector('[data-act="cancel"]')?.addEventListener('click', () => done(false));
     wrap.querySelector('[data-act="ok"]')?.addEventListener('click', () => done(true));
-    _container.appendChild(wrap);
+    document.body.appendChild(wrap);
   });
 }
 
@@ -626,7 +665,15 @@ async function _persistSelectedToZone(zoneEl, { source = 'click' } = {}) {
     _render();
     return;
   }
-  _lastPersistSummary = { mva: fromCtx.mva, originKey, destKey, at: Date.now(), user: _actorName() };
+  _pushQuickHistory({
+    mva: fromCtx.mva,
+    originKey,
+    destKey,
+    message: toCtx.occupantMva
+      ? `Intercambio guardado: ${fromCtx.mva} ${originKey}→${destKey}`
+      : `Movimiento guardado: ${fromCtx.mva} ${originKey}→${destKey}`,
+    user: _actorName()
+  });
   _updateMetaLines();
   await _lifecycle?.resyncData?.();
   _announceMapa(toCtx.occupantMva ? 'Intercambio guardado.' : 'Movimiento guardado.');
@@ -666,13 +713,13 @@ async function _persistSelectedToLimbo() {
     _render();
     return;
   }
-  _lastPersistSummary = {
+  _pushQuickHistory({
     mva: fromCtx.mva,
     originKey: fromCtx.positionKey,
     destKey: 'LIMBO',
-    at: Date.now(),
+    message: `Movimiento a LIMBO guardado: ${fromCtx.mva}`,
     user: _actorName()
-  };
+  });
   _viewState.selectedId = '';
   _updateMetaLines();
   await _lifecycle?.resyncData?.();
@@ -759,7 +806,7 @@ async function _showUnitActionModal({ action, selected, context }) {
       if (msgEl) msgEl.textContent = '';
       done({ cancelled: false, payload: out });
     });
-    _container.appendChild(wrap);
+    document.body.appendChild(wrap);
   });
 }
 
@@ -815,7 +862,7 @@ async function _showQuickIncidentModal(selected) {
       }
       done({ cancelled: false, payload });
     });
-    _container.appendChild(wrap);
+    document.body.appendChild(wrap);
     wrap.querySelector('[data-fld="titulo"]')?.focus?.();
   });
 }
@@ -859,7 +906,7 @@ async function _showQuickNoteActionModal({ title, body, label, placeholder = '' 
       }
       done({ cancelled: false, nota });
     });
-    _container.appendChild(wrap);
+    document.body.appendChild(wrap);
     wrap.querySelector('[data-fld="nota"]')?.focus?.();
   });
 }
@@ -933,7 +980,7 @@ async function _runQuickLegacyUnitAction(action) {
       _announceMapa(`No se pudo guardar: ${String(res?.message || res?.error || res || 'error')}`);
       return;
     }
-    _lastPersistSummary = { mva, actionText, at: Date.now(), user: actor };
+    _pushQuickHistory({ mva, actionText, message: actionText, at: Date.now(), user: actor });
     _updateMetaLines();
     await _lifecycle?.resyncData?.();
     _announceMapa(`${actionText}.`);
@@ -1280,13 +1327,13 @@ export function mount({ container, shell }) {
         };
       }
 
-      _lastPersistSummary = {
+      _pushQuickHistory({
         mva: String(fromCtx?.mva || ''),
         originKey: String(originKey || ''),
         destKey: String(destKey || ''),
-        at: Date.now(),
+        message: `Movimiento guardado: ${String(fromCtx?.mva || '')} ${String(originKey || '')}→${String(destKey || '')}`,
         user: _actorName()
-      };
+      });
       _updateMetaLines();
 
       if (_dndHintEl) {
@@ -1712,6 +1759,7 @@ function _renderNow() {
     incidentsByMva: _incSummaryState.byMva,
     incidentsReady: _incSummaryState.ready,
     incidentsFailed: _incSummaryState.failed,
+    quickHistory: _readQuickHistory(),
     showDiagnostics: false
   };
   if (_viewState.selectedId && !getResolvedMapaSelection(snapshot, readOpts)) {

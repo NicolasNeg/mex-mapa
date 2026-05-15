@@ -3,6 +3,13 @@
   margin: 0 auto;
   padding: 20px 14px 92px;
   color: #0f172a;
+  min-height: calc(100vh - 72px);
+}
+
+body.app-profile-active .mex-main,
+body.app-profile-active #mexShellContent {
+  overflow: visible;
+  contain: none;
 }
 
 .app-profile-hero,
@@ -32,6 +39,7 @@
   place-items: center;
   font-size: 34px;
   font-weight: 800;
+  background-repeat: no-repeat;
 }
 
 .app-profile-hero-main h1 {
@@ -160,6 +168,27 @@
   padding: 8px 10px;
 }
 
+.app-profile-grid input[type="file"] {
+  padding: 9px 10px;
+}
+
+.app-profile-grid label.app-profile-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border: 1px solid #dbe3ef;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #ffffff;
+}
+
+.app-profile-grid label.app-profile-check input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: #0f172a;
+}
+
 .app-profile-grid input[readonly] {
   background: #f8fafc;
   color: #64748b;
@@ -176,6 +205,10 @@
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+.app-profile-actions--inside {
+  margin-top: 14px;
 }
 
 .app-profile-actions button {
@@ -240,7 +273,7 @@
   .app-profile-nav {
     position: static;
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 8px;
   }
   .app-profile-tab {
@@ -268,6 +301,9 @@
   }
   .app-profile-grid {
     grid-template-columns: 1fr;
+  }
+  .app-profile-nav {
+    grid-template-columns: 1fr 1fr;
   }
   .app-profile-actions a {
     margin-left: 0;

@@ -41,6 +41,7 @@ function _makeState(plaza) {
     hasPermissionDenied: false,
     archivosNuevaNota: [], // para guardar los adjuntos temporales
     linksNuevaNota: [],
+    descripcionHtmlNuevaNota: '',
   };
 }
 
@@ -204,6 +205,15 @@ function _bindUi() {
   q('nuevaNotaPrioridad')?.addEventListener('change', _updatePreview);
   q('nuevaNotaTitulo')?.addEventListener('input', _updatePreview);
   q('nuevaNotaTxt')?.addEventListener('input', _updatePreview);
+  q('nuevaNotaRich')?.addEventListener('input', () => {
+    _syncRichEditorToTextarea();
+    _updatePreview();
+  });
+  q('incEditorFontSize')?.addEventListener('change', event => _applyRichCommand('fontSize', event.target.value || '3'));
+  q('incEditorFontFamily')?.addEventListener('change', event => _applyRichCommand('fontName', event.target.value || 'Inter'));
+  qsa('[data-inc-editor-cmd]').forEach(btn => {
+    btn.addEventListener('click', () => _applyRichCommand(btn.dataset.incEditorCmd || ''));
+  });
   q('incMvaInput')?.addEventListener('input', _updatePreview);
   q('incLinkInput')?.addEventListener('keydown', event => {
     if (event.key === 'Enter') {
@@ -224,6 +234,107 @@ function _normalizeDraftUrl(value = '') {
   if (!raw) return '';
   if (/^https?:\/\//i.test(raw)) return raw;
   return `https://${raw}`;
+}
+
+function _editorEl() {
+  return q('nuevaNotaRich');
+}
+
+function _sanitizeStyle(style = '') {
+  const allowed = new Set(['font-weight', 'font-style', 'text-decoration', 'font-size', 'font-family', 'color', 'background-color']);
+  return String(style || '')
+    .split(';')
+    .map(part => part.trim())
+    .filter(Boolean)
+    .map(part => {
+      const idx = part.indexOf(':');
+      if (idx === -1) return '';
+      const prop = part.slice(0, idx).trim().toLowerCase();
+      const value = part.slice(idx + 1).trim().replace(/[<>"']/g, '');
+      if (!allowed.has(prop) || /url\s*\(/i.test(value)) return '';
+      return `${prop}: ${value}`;
+    })
+    .filter(Boolean)
+    .join('; ');
+}
+
+function _sanitizeRichHtml(html = '') {
+  const raw = String(html || '').trim();
+  if (!raw) return '';
+  const allowed = new Set(['B', 'STRONG', 'I', 'EM', 'U', 'A', 'UL', 'OL', 'LI', 'BR', 'P', 'DIV', 'SPAN', 'FONT']);
+  const root = document.createElement('div');
+  root.innerHTML = raw;
+  const walk = node => {
+    Array.from(node.childNodes || []).forEach(child => {
+      if (child.nodeType !== 1) return;
+      const el = child;
+      walk(el);
+      if (!allowed.has(el.tagName)) {
+        while (el.firstChild) el.parentNode.insertBefore(el.firstChild, el);
+        el.remove();
+        return;
+      }
+      Array.from(el.attributes || []).forEach(attr => {
+        const name = attr.name.toLowerCase();
+        const value = String(attr.value || '');
+        const isLink = el.tagName === 'A' && name === 'href' && /^https?:\/\//i.test(value);
+        const isSafeLinkAttr = el.tagName === 'A' && ['target', 'rel'].includes(name);
+        const isStyle = name === 'style';
+        const isFont = el.tagName === 'FONT' && ['size', 'color', 'face'].includes(name);
+        if (!isLink && !isSafeLinkAttr && !isStyle && !isFont) el.removeAttribute(attr.name);
+      });
+      if (el.tagName === 'A') {
+        const href = String(el.getAttribute('href') || '');
+        if (!/^https?:\/\//i.test(href)) el.removeAttribute('href');
+        else {
+          el.setAttribute('target', '_blank');
+          el.setAttribute('rel', 'noopener noreferrer');
+          el.classList.add('inc-inline-link');
+        }
+      }
+      if (el.hasAttribute('style')) {
+        const style = _sanitizeStyle(el.getAttribute('style'));
+        if (style) el.setAttribute('style', style);
+        else el.removeAttribute('style');
+      }
+    });
+  };
+  walk(root);
+  return root.innerHTML;
+}
+
+function _syncRichEditorToTextarea() {
+  const editor = _editorEl();
+  const textarea = q('nuevaNotaTxt');
+  if (!editor || !textarea) return;
+  const html = _sanitizeRichHtml(editor.innerHTML || '');
+  _state.descripcionHtmlNuevaNota = html;
+  textarea.value = String(editor.innerText || '').trim();
+}
+
+function _applyRichCommand(cmd, value = null) {
+  const editor = _editorEl();
+  if (!editor) return;
+  editor.focus();
+  let exec = cmd;
+  let val = value;
+  if (cmd === 'link') {
+    const url = _normalizeDraftUrl(prompt('Enlace para insertar:', 'https://') || '');
+    if (!url) return;
+    try { new URL(url); } catch (_) { return _showNotice('El enlace no tiene formato válido.', 'error'); }
+    exec = 'createLink';
+    val = url;
+  } else if (cmd === 'ul') {
+    exec = 'insertUnorderedList';
+  } else if (cmd === 'ol') {
+    exec = 'insertOrderedList';
+  } else if (cmd === 'clear') {
+    exec = 'removeFormat';
+  }
+  try { document.execCommand('styleWithCSS', false, true); } catch (_) {}
+  try { document.execCommand(exec, false, val); } catch (_) {}
+  _syncRichEditorToTextarea();
+  _updatePreview();
 }
 
 function _addDraftLink() {
@@ -323,6 +434,7 @@ function _applyFilters() {
     const hay = [
       item.titulo,
       item.descripcion,
+      item.descripcionHtml,
       item.nota,
       item.autor,
       item.creadoPor,
@@ -449,7 +561,7 @@ function _renderList() {
             </div>
           </div>
         </div>
-        <div class="nota-body">${_renderRichText(item.descripcion || 'Sin descripción')}</div>
+        <div class="nota-body">${_renderRichText(item.descripcion || 'Sin descripción', item.descripcionHtml)}</div>
         ${_renderEvidenceBlock(evidencias)}
         <div class="nota-footer">
           <div class="nota-footer-left">
@@ -513,7 +625,9 @@ function _renderEvidenceBlock(items) {
   `;
 }
 
-function _renderRichText(value = '') {
+function _renderRichText(value = '', html = '') {
+  const rich = _sanitizeRichHtml(html || '');
+  if (rich) return rich;
   const escaped = esc(value || '');
   return escaped
     .replace(/(https?:\/\/[^\s<]+)/g, url => `<a class="inc-inline-link" href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
@@ -548,8 +662,10 @@ async function _confirmResolve() {
 
 async function _onCreateIncidencia() {
   if (!_state?.plaza) return _showNotice('Selecciona una plaza para registrar notas e incidencias.', 'error');
+  _syncRichEditorToTextarea();
   const titulo = String(q('nuevaNotaTitulo')?.value || '').trim();
   const descripcion = String(q('nuevaNotaTxt')?.value || '').trim();
+  const descripcionHtml = _sanitizeRichHtml(_state.descripcionHtmlNuevaNota || '');
   const prioridad = String(q('nuevaNotaPrioridad')?.value || 'MEDIA').toUpperCase();
   const mva = String(q('incMvaInput')?.value || '').trim().toUpperCase();
   if (!titulo) return _showNotice('Escribe el titulo de la nota.', 'error');
@@ -563,6 +679,8 @@ async function _onCreateIncidencia() {
     const payload = {
       titulo,
       descripcion,
+      descripcionHtml,
+      notaHtml: descripcionHtml,
       nota: descripcion,
       codigo: `INC-${String(Date.now()).slice(-6)}`,
       prioridad,
@@ -606,6 +724,8 @@ async function _onCreateIncidencia() {
 function _resetComposer() {
   q('nuevaNotaTitulo').value = '';
   q('nuevaNotaTxt').value = '';
+  if (q('nuevaNotaRich')) q('nuevaNotaRich').innerHTML = '';
+  _state.descripcionHtmlNuevaNota = '';
   q('nuevaNotaPrioridad').value = 'ALTA';
   if (_state.archivosNuevaNota) {
     _state.archivosNuevaNota.forEach(item => {
@@ -642,7 +762,9 @@ function _updatePreview() {
   _setText('incPreviewTitulo', String(q('nuevaNotaTitulo')?.value || '').trim() || 'Nueva nota');
   const previewBody = q('incPreviewBody');
   if (previewBody) {
-    previewBody.innerHTML = _renderRichText(String(q('nuevaNotaTxt')?.value || '').trim() || 'Documenta el evento con precision tecnica para que el historial operativo conserve contexto e impacto.');
+    _syncRichEditorToTextarea();
+    const fallback = 'Documenta el evento con precision tecnica para que el historial operativo conserve contexto e impacto.';
+    previewBody.innerHTML = _renderRichText(String(q('nuevaNotaTxt')?.value || '').trim() || fallback, _state.descripcionHtmlNuevaNota);
   }
   _setText('incPreviewAutor', `Emitido por: ${String(q('autorNuevaNota')?.value || '--')}`);
   _setText('incPreviewEstado', String(q('incMvaInput')?.value || '').trim().toUpperCase() || 'Pendiente');
@@ -879,7 +1001,33 @@ function _renderLayout() {
                 </div>
                 <div class="inc-field">
                   <label class="inc-field-label">Descripcion de la nota/incidencia</label>
-                  <textarea id="nuevaNotaTxt" class="inc-editor-textarea" placeholder="Describe causas, impacto y contexto operativo"></textarea>
+                  <div class="inc-editor-shell">
+                    <div class="inc-editor-toolbar" aria-label="Formato de nota">
+                      <button type="button" class="inc-editor-btn" data-inc-editor-cmd="bold" title="Negritas"><span class="material-icons">format_bold</span></button>
+                      <button type="button" class="inc-editor-btn" data-inc-editor-cmd="italic" title="Cursiva"><span class="material-icons">format_italic</span></button>
+                      <button type="button" class="inc-editor-btn" data-inc-editor-cmd="underline" title="Subrayado"><span class="material-icons">format_underlined</span></button>
+                      <span class="inc-toolbar-divider"></span>
+                      <button type="button" class="inc-editor-btn" data-inc-editor-cmd="ul" title="Lista"><span class="material-icons">format_list_bulleted</span></button>
+                      <button type="button" class="inc-editor-btn" data-inc-editor-cmd="ol" title="Lista numerada"><span class="material-icons">format_list_numbered</span></button>
+                      <button type="button" class="inc-editor-btn" data-inc-editor-cmd="link" title="Enlace"><span class="material-icons">link</span></button>
+                      <span class="inc-toolbar-divider"></span>
+                      <select id="incEditorFontSize" class="inc-editor-select" title="Tamaño">
+                        <option value="2">Chico</option>
+                        <option value="3" selected>Normal</option>
+                        <option value="4">Grande</option>
+                        <option value="5">Título</option>
+                      </select>
+                      <select id="incEditorFontFamily" class="inc-editor-select" title="Fuente">
+                        <option value="Inter" selected>Inter</option>
+                        <option value="Arial">Arial</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Courier New">Mono</option>
+                      </select>
+                      <button type="button" class="inc-editor-btn inc-editor-btn--danger" data-inc-editor-cmd="clear" title="Limpiar formato"><span class="material-icons">format_clear</span></button>
+                    </div>
+                    <div id="nuevaNotaRich" class="inc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Describe causas, impacto y contexto operativo"></div>
+                    <textarea id="nuevaNotaTxt" class="inc-editor-textarea inc-editor-textarea--hidden" tabindex="-1" aria-hidden="true"></textarea>
+                  </div>
                 </div>
                 <div class="inc-field">
                   <label class="inc-field-label">Adjuntar Evidencias</label>

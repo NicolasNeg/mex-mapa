@@ -1,5 +1,5 @@
-import { db, COL } from '/js/core/database.js';
-import { getState, setState } from '/js/app/app-state.js';
+import { db, COL, storage } from '/js/core/database.js';
+import { getState, setState, setCurrentPlaza } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 
 const APP_PROFILE_CSS_SELECTOR = 'link[data-app-profile-css="1"]';
@@ -12,6 +12,7 @@ let _offGlobalSearch = null;
 export function mount(ctx) {
   _ctx = ctx;
   _mounted = true;
+  document.body.classList.add('app-profile-active');
   _ensureCss();
   const { profile, role } = getState();
   if (!profile) {
@@ -32,6 +33,7 @@ export function unmount() {
   }
   _offGlobalSearch = null;
   _mounted = false;
+  document.body.classList.remove('app-profile-active');
   _ctx = null;
   _formState = null;
 }
@@ -68,6 +70,7 @@ function _bind() {
   const save = c.querySelector('#appProfileSave');
   const cancel = c.querySelector('#appProfileCancel');
   const avatar = c.querySelector('#appProfileAvatarUrl');
+  const avatarFile = c.querySelector('#appProfileAvatarFile');
 
   [
     '#appProfileName',
@@ -78,6 +81,11 @@ function _bind() {
     '#appProfileLanguage',
     '#appProfileHomeView',
     '#appProfileDefaultPlaza',
+    '#appProfileAvatarFit',
+    '#appProfileNotifyActive',
+    '#appProfilePassiveAlerts',
+    '#appProfileQuickHistory',
+    '#appProfileVisibleCache',
   ].forEach(selector => {
     const el = c.querySelector(selector);
     el?.addEventListener('input', _onFormChange);
@@ -95,8 +103,12 @@ function _bind() {
   });
 
   avatar?.addEventListener('input', _renderAvatarPreview);
+  c.querySelector('#appProfileAvatarFit')?.addEventListener('change', _renderAvatarPreview);
+  avatarFile?.addEventListener('change', _uploadAvatarFile);
   save?.addEventListener('click', _saveProfile);
   cancel?.addEventListener('click', _resetForm);
+  c.querySelector('#appProfileClearCache')?.addEventListener('click', _clearViewCache);
+  c.querySelector('#appProfileApplyPlaza')?.addEventListener('click', _applyDefaultPlazaNow);
 }
 
 function _onFormChange() {
@@ -115,6 +127,11 @@ function _syncFormFromDom() {
   _formState.language = String(c.querySelector('#appProfileLanguage')?.value || 'es').trim();
   _formState.homeView = String(c.querySelector('#appProfileHomeView')?.value || 'dashboard').trim();
   _formState.defaultPlaza = String(c.querySelector('#appProfileDefaultPlaza')?.value || '').trim().toUpperCase();
+  _formState.avatarFit = String(c.querySelector('#appProfileAvatarFit')?.value || 'cover').trim();
+  _formState.notifyActive = Boolean(c.querySelector('#appProfileNotifyActive')?.checked);
+  _formState.passiveAlerts = Boolean(c.querySelector('#appProfilePassiveAlerts')?.checked);
+  _formState.quickHistory = Boolean(c.querySelector('#appProfileQuickHistory')?.checked);
+  _formState.visibleCache = Boolean(c.querySelector('#appProfileVisibleCache')?.checked);
 }
 
 function _resetForm() {
@@ -131,6 +148,11 @@ function _resetForm() {
   c.querySelector('#appProfileLanguage').value = _formState.language;
   c.querySelector('#appProfileHomeView').value = _formState.homeView;
   c.querySelector('#appProfileDefaultPlaza').value = _formState.defaultPlaza;
+  c.querySelector('#appProfileAvatarFit').value = _formState.avatarFit;
+  c.querySelector('#appProfileNotifyActive').checked = _formState.notifyActive;
+  c.querySelector('#appProfilePassiveAlerts').checked = _formState.passiveAlerts;
+  c.querySelector('#appProfileQuickHistory').checked = _formState.quickHistory;
+  c.querySelector('#appProfileVisibleCache').checked = _formState.visibleCache;
   _renderAvatarPreview();
   _setDirty(false);
   _setStatus('Cambios restaurados.', 'info');
@@ -162,7 +184,15 @@ async function _saveProfile() {
       visualDensity: _formState.visualDensity,
       language: _formState.language,
       homeView: _formState.homeView,
-      defaultPlaza: _formState.defaultPlaza || String(current.plazaAsignada || current.plaza || '').toUpperCase()
+      defaultPlaza: _formState.defaultPlaza || String(current.plazaAsignada || current.plaza || '').toUpperCase(),
+      avatarFit: _formState.avatarFit,
+      notifications: {
+        ...(current.profilePreferences?.notifications || {}),
+        active: _formState.notifyActive,
+        passiveAlerts: _formState.passiveAlerts
+      },
+      quickHistory: _formState.quickHistory,
+      visibleCache: _formState.visibleCache
     },
     updatedAt: Date.now(),
     actualizadoAt: Date.now(),
@@ -174,12 +204,77 @@ async function _saveProfile() {
     if (!_mounted) return;
     const nextProfile = { ...current, ...payload };
     setState({ profile: nextProfile });
+    try {
+      localStorage.setItem('mex.profile.preferences', JSON.stringify(payload.profilePreferences));
+      localStorage.setItem('mex.profile.visibleCache', _formState.visibleCache ? '1' : '0');
+    } catch (_) {}
     _ctx?.shell?.setProfile?.(nextProfile, getState().role);
     _setDirty(false);
     _setStatus('Perfil actualizado correctamente.', 'ok');
   } catch (err) {
     _setStatus(err?.message || 'No se pudieron guardar los cambios.', 'error');
   }
+}
+
+async function _uploadAvatarFile(event) {
+  const file = event?.target?.files?.[0] || null;
+  if (!file) return;
+  if (!/^image\//i.test(file.type || '')) {
+    _setStatus('Selecciona una imagen válida para el avatar.', 'error');
+    return;
+  }
+  if (file.size > 4 * 1024 * 1024) {
+    _setStatus('La imagen debe pesar menos de 4 MB.', 'error');
+    return;
+  }
+  const current = getState().profile || {};
+  const docId = String(current.id || current.email || '').toLowerCase().trim();
+  const storageClient = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
+  if (!docId || !storageClient?.ref) {
+    _setStatus('Firebase Storage no está disponible para subir avatar.', 'error');
+    return;
+  }
+  _setStatus('Subiendo avatar...', 'info');
+  try {
+    const safeName = String(file.name || 'avatar')
+      .replace(/[^a-z0-9_.-]+/gi, '-')
+      .slice(0, 80);
+    const ref = storageClient.ref(`usuarios/${docId}/avatar/${Date.now()}-${safeName}`);
+    await ref.put(file, { contentType: file.type || 'image/jpeg' });
+    const url = await ref.getDownloadURL();
+    const input = _ctx?.container?.querySelector('#appProfileAvatarUrl');
+    if (input) input.value = url;
+    _syncFormFromDom();
+    _renderAvatarPreview();
+    _setDirty(true);
+    _setStatus('Avatar subido. Guarda cambios para fijarlo en tu perfil.', 'ok');
+  } catch (err) {
+    _setStatus(err?.message || 'No se pudo subir el avatar.', 'error');
+  } finally {
+    if (event?.target) event.target.value = '';
+  }
+}
+
+function _clearViewCache() {
+  let removed = 0;
+  try {
+    [localStorage, sessionStorage].forEach(store => {
+      Object.keys(store).forEach(key => {
+        if (!/^mex\.app\.(dashboard|mapa|notas-incidencias|incidencias)/.test(key)) return;
+        store.removeItem(key);
+        removed += 1;
+      });
+    });
+  } catch (_) {}
+  _setStatus(`Cache visible limpiado (${removed} entradas).`, 'ok');
+}
+
+function _applyDefaultPlazaNow() {
+  _syncFormFromDom();
+  const next = String(_formState?.defaultPlaza || '').toUpperCase().trim();
+  if (!next) return _setStatus('Selecciona una plaza por defecto.', 'error');
+  const applied = setCurrentPlaza(next, { source: 'app-profile' });
+  _setStatus(`Plaza activa: ${applied || next}.`, 'ok');
 }
 
 function _setStatus(msg, type) {
@@ -208,8 +303,9 @@ function _renderAvatarPreview() {
   if (url) {
     const safeUrl = url.replace(/"/g, '%22');
     holder.style.backgroundImage = `url("${safeUrl}")`;
-    holder.style.backgroundSize = 'cover';
+    holder.style.backgroundSize = _formState?.avatarFit === 'contain' ? 'contain' : 'cover';
     holder.style.backgroundPosition = 'center';
+    holder.style.backgroundRepeat = 'no-repeat';
   } else {
     holder.style.backgroundImage = 'none';
     holder.style.background = '#0f172a';
@@ -225,7 +321,12 @@ function _makeFormState(profile = {}) {
     visualDensity: String(profile?.profilePreferences?.visualDensity || 'compacta').trim(),
     language: String(profile?.profilePreferences?.language || 'es').trim(),
     homeView: String(profile?.profilePreferences?.homeView || 'dashboard').trim(),
-    defaultPlaza: String(profile?.profilePreferences?.defaultPlaza || profile.plazaAsignada || profile.plaza || '').trim().toUpperCase()
+    defaultPlaza: String(profile?.profilePreferences?.defaultPlaza || profile.plazaAsignada || profile.plaza || '').trim().toUpperCase(),
+    avatarFit: String(profile?.profilePreferences?.avatarFit || 'cover').trim(),
+    notifyActive: profile?.profilePreferences?.notifications?.active !== false,
+    passiveAlerts: profile?.profilePreferences?.notifications?.passiveAlerts !== false,
+    quickHistory: profile?.profilePreferences?.quickHistory !== false,
+    visibleCache: profile?.profilePreferences?.visibleCache !== false
   };
 }
 
@@ -285,6 +386,7 @@ function _html(profile, role, form) {
       <button class="app-profile-tab" data-target="appProfileGeneral">General</button>
       <button class="app-profile-tab" data-target="appProfilePrefs">Preferencias</button>
       <button class="app-profile-tab" data-target="appProfileAccess">Accesos</button>
+      <button class="app-profile-tab" data-target="appProfileLocal">Datos locales</button>
     </aside>
     <div class="app-profile-main">
       <section class="app-profile-card" id="appProfileGeneral" data-profile-search-text="general nombre telefono avatar email rol plaza perfil">
@@ -310,6 +412,15 @@ function _html(profile, role, form) {
           </label>
           <label class="app-profile-wide">Avatar URL
             <input id="appProfileAvatarUrl" value="${escAttr(form.avatarUrl)}" placeholder="https://..." />
+          </label>
+          <label>Ajuste de avatar
+            <select id="appProfileAvatarFit">
+              <option value="cover" ${form.avatarFit === 'cover' ? 'selected' : ''}>Cubrir cuadro</option>
+              <option value="contain" ${form.avatarFit === 'contain' ? 'selected' : ''}>Mostrar completo</option>
+            </select>
+          </label>
+          <label>Subir imagen
+            <input id="appProfileAvatarFile" type="file" accept="image/*" />
           </label>
         </div>
       </section>
@@ -347,6 +458,22 @@ function _html(profile, role, form) {
           <label>Plaza por defecto
             <select id="appProfileDefaultPlaza">${plazaOptions}</select>
           </label>
+          <label class="app-profile-check">
+            <input id="appProfileNotifyActive" type="checkbox" ${form.notifyActive ? 'checked' : ''} />
+            <span>Notificaciones activas</span>
+          </label>
+          <label class="app-profile-check">
+            <input id="appProfilePassiveAlerts" type="checkbox" ${form.passiveAlerts ? 'checked' : ''} />
+            <span>Alertas pasivas</span>
+          </label>
+          <label class="app-profile-check">
+            <input id="appProfileQuickHistory" type="checkbox" ${form.quickHistory ? 'checked' : ''} />
+            <span>Historial rápido persistente</span>
+          </label>
+          <label class="app-profile-check">
+            <input id="appProfileVisibleCache" type="checkbox" ${form.visibleCache ? 'checked' : ''} />
+            <span>Cache visible de vistas</span>
+          </label>
         </div>
       </section>
 
@@ -358,6 +485,18 @@ function _html(profile, role, form) {
           <p><strong>Email:</strong> ${esc(email || '-')}</p>
           <p><strong>Plaza:</strong> ${esc(plaza)}</p>
           <p><strong>Campos bloqueados:</strong> email, uid, rol, permisos, isAdmin/isGlobal, plazasPermitidas, plazaAsignada, password, status.</p>
+        </div>
+      </section>
+
+      <section class="app-profile-card" id="appProfileLocal" data-profile-search-text="cache local datos plaza limpiar rendimiento visibles">
+        <h2>Datos Locales</h2>
+        <div class="app-profile-readonly-grid">
+          <p><strong>Cache visible:</strong> conserva el último mapa/dashboard/incidencias para pintar datos antes de la lectura en vivo.</p>
+          <p><strong>Plaza por defecto:</strong> puedes aplicarla ahora sin esperar a recargar sesión.</p>
+        </div>
+        <div class="app-profile-actions app-profile-actions--inside">
+          <button id="appProfileApplyPlaza" type="button">Aplicar plaza por defecto</button>
+          <button id="appProfileClearCache" type="button">Limpiar cache de vistas</button>
         </div>
       </section>
 

@@ -55,6 +55,7 @@ export function mapNotaAdminToIncidencia(id, data = {}) {
   const plaza = normalizePlaza(data.plaza || data.plazaID || data.plazaId || '');
   const timestamp = Number(data.timestamp || 0);
   const descripcion = String(data.descripcion || data.nota || '').trim();
+  const descripcionHtml = String(data.descripcionHtml || data.notaHtml || data.html || '').trim();
   return {
     id: String(id || data.id || ''),
     legacyNotaId: String(id || data.id || ''),
@@ -63,6 +64,7 @@ export function mapNotaAdminToIncidencia(id, data = {}) {
     mva: String(data.mva || data.unidad || '').toUpperCase().trim(),
     titulo: String(data.titulo || '').trim() || 'Nota',
     descripcion,
+    descripcionHtml,
     nota: descripcion,
     codigo: String(data.codigo || data.folio || '').trim(),
     tipo: String(data.tipo || 'OTRO').toUpperCase().trim() || 'OTRO',
@@ -188,6 +190,8 @@ export async function createIncidencia(payload = {}) {
     prioridad: String(basePayload.prioridad || 'MEDIA').toUpperCase(),
     nota: String(basePayload.descripcion || basePayload.nota || ''),
     descripcion: String(basePayload.descripcion || basePayload.nota || ''),
+    descripcionHtml: String(basePayload.descripcionHtml || basePayload.notaHtml || ''),
+    notaHtml: String(basePayload.descripcionHtml || basePayload.notaHtml || ''),
     estado: 'PENDIENTE',
     quienResolvio: '',
     solucion: '',

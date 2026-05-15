@@ -87,6 +87,122 @@ function _ensureCss() {
   _cssRef = link;
 }
 
+function _unique(values = []) {
+  const seen = new Set();
+  const out = [];
+  values.forEach(value => {
+    const normalized = String(value || '').toUpperCase().trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    out.push(normalized);
+  });
+  return out;
+}
+
+function _plazaCandidates(plaza) {
+  const p = String(plaza || '').toUpperCase().trim();
+  const aliases = [p];
+  if (['GDL', 'GUADALAJARA', 'GUADALAJARA JALISCO', 'GUADALAJARA-JALISCO'].includes(p)) {
+    aliases.push('GDL', 'GUADALAJARA', 'GUADALAJARA JALISCO');
+  }
+  return _unique(aliases);
+}
+
+function _dashMapCacheKey(plaza) {
+  return `mex.app.dashboard.visible-map.${String(plaza || '').toUpperCase().trim()}`;
+}
+
+function _readDashMapCache(plaza) {
+  try {
+    const raw = localStorage.getItem(_dashMapCacheKey(plaza)) || sessionStorage.getItem(_dashMapCacheKey(plaza));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.estructura) || !Array.isArray(parsed.unidades)) return null;
+    const age = Date.now() - Number(parsed.savedAt || 0);
+    if (age > 1000 * 60 * 60 * 12) return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeDashMapCache(plaza, payload = {}) {
+  try {
+    const key = _dashMapCacheKey(plaza);
+    const value = JSON.stringify({
+      savedAt: Date.now(),
+      plaza: String(plaza || '').toUpperCase().trim(),
+      resolvedPlaza: String(payload.resolvedPlaza || plaza || '').toUpperCase().trim(),
+      estructura: (Array.isArray(payload.estructura) ? payload.estructura : []).slice(0, 800),
+      unidades: (Array.isArray(payload.unidades) ? payload.unidades : []).slice(0, 650)
+    });
+    localStorage.setItem(key, value);
+    sessionStorage.setItem(key, value);
+  } catch (_) {}
+}
+
+function _matchesCandidate(data = {}, plaza) {
+  const candidates = new Set(_plazaCandidates(plaza));
+  const inferred = String(
+    data.plaza ||
+    data.plazaID ||
+    data.plazaId ||
+    data.plazaAsignada ||
+    data.sucursal ||
+    data.ubicacionSucursal ||
+    ''
+  ).toUpperCase().trim();
+  return !candidates.size || candidates.has(inferred);
+}
+
+async function _countCollectionForPlaza(collectionName, plaza) {
+  const candidates = _plazaCandidates(plaza);
+  const seen = new Set();
+  let count = 0;
+  await Promise.all(candidates.map(async p => {
+    try {
+      const snap = await db.collection(collectionName).where('plaza', '==', p).limit(300).get();
+      snap.docs.forEach(doc => {
+        const key = `${collectionName}:${doc.id}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        count += 1;
+      });
+    } catch (_) {}
+  }));
+  if (count > 0) return count;
+  try {
+    const snap = await db.collection(collectionName).limit(600).get();
+    snap.docs.forEach(doc => {
+      const data = doc.data() || {};
+      const key = `${collectionName}:${doc.id}`;
+      if (seen.has(key) || !_matchesCandidate(data, plaza)) return;
+      seen.add(key);
+      count += 1;
+    });
+  } catch (_) {}
+  return count;
+}
+
+async function _notasCountForPlaza(plaza) {
+  const candidates = _plazaCandidates(plaza);
+  const seen = new Set();
+  let total = 0;
+  await Promise.all(candidates.map(async p => {
+    try {
+      const snap = await db.collection(COL.NOTAS).where('plaza', '==', p).limit(160).get();
+      snap.docs.forEach(doc => {
+        const estado = String(doc.data()?.estado || '').toUpperCase();
+        if (estado === 'RESUELTA' || estado === 'CERRADA') return;
+        if (seen.has(doc.id)) return;
+        seen.add(doc.id);
+        total += 1;
+      });
+    } catch (_) {}
+  }));
+  return total;
+}
+
 function _modulesForRole(role) {
   const r = String(role || '').toUpperCase();
   const common = [
@@ -379,20 +495,43 @@ async function _loadMetrics() {
   const plaza = String(_state?.plaza || '').toUpperCase().trim();
   const role = String(_state?.role || '');
   const isAdmin = _isAdminRole(role);
-  const [cuadre, externos, solicitudes, notasSnap] = await Promise.all([
-    plaza ? _safeCount(db.collection(COL.CUADRE).where('plaza', '==', plaza).limit(180).get()) : 0,
-    plaza ? _safeCount(db.collection(COL.EXTERNOS).where('plaza', '==', plaza).limit(180).get()) : 0,
+  const [cuadre, externos, solicitudes, notas] = await Promise.all([
+    plaza ? _countCollectionForPlaza(COL.CUADRE, plaza) : 0,
+    plaza ? _countCollectionForPlaza(COL.EXTERNOS, plaza) : 0,
     isAdmin ? _safeCount(db.collection('solicitudes').where('estado', '==', 'PENDIENTE').limit(80).get()) : 0,
-    plaza ? db.collection(COL.NOTAS).where('plaza', '==', plaza).limit(120).get() : null,
+    plaza ? _notasCountForPlaza(plaza) : 0,
   ]);
-  const notas = notasSnap?.docs
-    ? notasSnap.docs.filter(doc => {
-        const estado = String(doc.data()?.estado || '').toUpperCase();
-        return estado !== 'RESUELTA' && estado !== 'CERRADA';
-      }).length
-    : 0;
   if (!_state || String(_state.plaza || '').toUpperCase().trim() !== plaza) return;
   _state.metrics = { unidades: cuadre, externos, incidencias: notas, solicitudes };
+}
+
+async function _loadMapPreviewDataset(plaza) {
+  const candidates = _plazaCandidates(plaza);
+  const results = await Promise.all(candidates.map(async candidate => {
+    try {
+      const [estructura, datosMapa] = await Promise.all([
+        obtenerEstructuraMapa(candidate),
+        obtenerDatosParaMapa(candidate),
+      ]);
+      return {
+        candidate,
+        estructura: Array.isArray(estructura) ? estructura : [],
+        unidades: Array.isArray(datosMapa?.unidades) ? datosMapa.unidades : []
+      };
+    } catch (error) {
+      return { candidate, estructura: [], unidades: [], error };
+    }
+  }));
+  const withUnits = results.find(item => item.unidades.length > 0) || results[0] || { candidate: plaza, unidades: [] };
+  const withStructure = results.find(item => item.candidate === withUnits.candidate && item.estructura.length > 0)
+    || results.find(item => item.estructura.length > 0)
+    || withUnits
+    || { estructura: [] };
+  return {
+    resolvedPlaza: withUnits.candidate || plaza,
+    estructura: withStructure.estructura || [],
+    unidades: withUnits.unidades || []
+  };
 }
 
 async function _loadMapPreview() {
@@ -413,19 +552,28 @@ async function _loadMapPreview() {
     return;
   }
 
+  const cached = _readDashMapCache(plaza);
+  if (cached && el) {
+    const cachedUnits = Array.isArray(cached.unidades) ? cached.unidades : [];
+    _state.mapPreview.mvKeys = cachedUnits
+      .slice(0, 160)
+      .map(u => String(u.mva || '').trim().toUpperCase())
+      .filter(Boolean);
+    _state.mapPreview.loading = true;
+    _paintMiniMap(el, cached.resolvedPlaza || plaza, cached.estructura || [], cachedUnits);
+    _applyQuery();
+  }
+
   try {
-    const [estructura, datosMapa] = await Promise.all([
-      obtenerEstructuraMapa(plaza),
-      obtenerDatosParaMapa(plaza),
-    ]);
+    const { estructura, unidades, resolvedPlaza } = await _loadMapPreviewDataset(plaza);
     if (!_state || requestId !== _mapPreviewRequestId) return;
-    const unidades = Array.isArray(datosMapa?.unidades) ? datosMapa.unidades : [];
     _state.mapPreview.mvKeys = unidades
       .slice(0, 160)
       .map(u => String(u.mva || '').trim().toUpperCase())
       .filter(Boolean);
     _state.mapPreview.loading = false;
-    _paintMiniMap(el, plaza, estructura, unidades);
+    _writeDashMapCache(plaza, { resolvedPlaza, estructura, unidades });
+    _paintMiniMap(el, resolvedPlaza || plaza, estructura, unidades);
     _applyQuery();
   } catch (error) {
     if (!_state || requestId !== _mapPreviewRequestId) return;

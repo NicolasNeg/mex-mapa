@@ -71,6 +71,17 @@ async function _countPendingRequests() {
 }
 
 export async function getNotificationsSummary({ profile = {}, role = '', plaza = '' } = {}) {
+  const prefs = profile?.profilePreferences?.notifications || {};
+  if (prefs.active === false) {
+    return {
+      total: 0,
+      mensajes: 0,
+      incidencias: 0,
+      alertas: 0,
+      solicitudes: 0,
+      plaza: _safeUp(plaza || profile?.plazaAsignada || profile?.plaza || '')
+    };
+  }
   const aliases = _profileAliases(profile);
   const userIdentity = aliases[0] || '';
   const currentPlaza = _safeUp(plaza || profile?.plazaAsignada || profile?.plaza || '');
@@ -88,7 +99,9 @@ export async function getNotificationsSummary({ profile = {}, role = '', plaza =
   const notif = await checarNotificaciones(userIdentity, currentPlaza).catch(() => ({}));
   const mensajes = Number(notif?.mensajesSinLeer || 0);
   const incidencias = Number(notif?.incidenciasPendientes || 0);
-  const alertas = Array.isArray(notif?.alertas)
+  const alertas = prefs.passiveAlerts === false
+    ? 0
+    : Array.isArray(notif?.alertas)
     ? notif.alertas.filter(alerta => !_isAlertReadByAnyAlias(alerta, aliases)).length
     : 0;
   const solicitudes = _isAdminRole(role) ? await _countPendingRequests() : 0;

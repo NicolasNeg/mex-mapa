@@ -25,6 +25,17 @@ function legacyStage(legacyId, navRoute) {
   };
 }
 
+function _appMapToolRedirect(rawPath = '') {
+  const pathOnly = String(rawPath || '').split('?')[0].replace(/\/$/, '') || '/app/dashboard';
+  if (pathOnly !== '/app/mapa') return '';
+  const query = String(rawPath || '').includes('?') ? String(rawPath).slice(String(rawPath).indexOf('?')) : '';
+  const params = new URLSearchParams(query || '');
+  const open = String(params.get('open') || params.get('tool') || '').trim().toLowerCase();
+  if (open === 'alertas' || open === 'crear-alerta' || open === 'emitir-alerta') return '/app/alertas';
+  if (open === 'historial-alertas' || open === 'alertas-historial') return '/app/alertas/historial';
+  return '';
+}
+
 // ── Tabla de rutas ───────────────────────────────────────────
 // loader:    () => Promise<{ mount, unmount }>
 // redirect:  string  — alias, redirige sin render
@@ -34,7 +45,10 @@ const ROUTE_TABLE = {
   '/app/home':       { redirect: '/app/dashboard' },
   '/app/dashboard':  legacyStage('dashboard', '/home'),
   '/app/perfil':     { redirect: '/app/profile' },
-  '/app/profile':    legacyStage('profile', '/profile'),
+  '/app/profile':    {
+    loader:   () => import('/js/app/views/profile.js'),
+    navRoute: '/profile'
+  },
   '/app/mensajes':          legacyStage('mensajes', '/mensajes'),
   '/app/cola-preparacion':  legacyStage('cola', '/cola-preparacion'),
   '/app/cola':              { redirect: '/app/cola-preparacion' },
@@ -55,6 +69,9 @@ const ROUTE_TABLE = {
   '/app/admin/catalogos':   { redirect: '/app/admin?tab=catalogos' },
   '/app/gestion/catalogos': { redirect: '/app/admin?tab=catalogos' },
   '/app/admin/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
+  '/app/alertas':          legacyStage('alertas', '/app/alertas'),
+  '/app/alertas/historial': legacyStage('alertasHist', '/app/alertas/historial'),
+  '/app/historial-alertas': { redirect: '/app/alertas/historial' },
   '/app/gestion/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
   '/app/admin/estados':     { redirect: '/app/admin?tab=estados' },
   '/app/gestion/estados':   { redirect: '/app/admin?tab=estados' },
@@ -117,6 +134,11 @@ export function createRouter({ shell }) {
   // ── Renderizar ruta ───────────────────────────────────────
   async function _renderRoute(rawPath) {
     const path = _routePathOnly(rawPath);
+    const toolRedirect = _appMapToolRedirect(rawPath);
+    if (toolRedirect) {
+      navigate(toolRedirect, { replace: true });
+      return;
+    }
     const route = ROUTE_TABLE[path];
 
     // Redirect alias (ej. /app → /app/dashboard)

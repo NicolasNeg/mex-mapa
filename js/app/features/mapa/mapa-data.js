@@ -34,6 +34,43 @@ function _toRows(payload) {
   return [];
 }
 
+function _cacheKey(plaza) {
+  return `mex.app.mapa.visible-snapshot.${_safeUp(plaza)}`;
+}
+
+function _readVisibleCache(plaza) {
+  try {
+    const raw = localStorage.getItem(_cacheKey(plaza)) || sessionStorage.getItem(_cacheKey(plaza));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.units) || !Array.isArray(parsed.structure)) return null;
+    const age = Date.now() - Number(parsed.savedAt || 0);
+    if (age > 1000 * 60 * 60 * 12) return null;
+    return parsed;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _writeVisibleCache(snapshot) {
+  try {
+    const plaza = _safeUp(snapshot?.plaza);
+    if (!plaza) return;
+    const units = Array.isArray(snapshot.units) ? snapshot.units : [];
+    const structure = Array.isArray(snapshot.structure) ? snapshot.structure : [];
+    if (!units.length && !structure.length) return;
+    const payload = JSON.stringify({
+      savedAt: Date.now(),
+      plaza,
+      lastUpdated: Number(snapshot.lastUpdated || Date.now()),
+      units: units.slice(0, 900),
+      structure: structure.slice(0, 1200)
+    });
+    localStorage.setItem(_cacheKey(plaza), payload);
+    sessionStorage.setItem(_cacheKey(plaza), payload);
+  } catch (_) {}
+}
+
 function _isLocalQaAuthBypassEnabled() {
   try {
     const host = window.location.hostname;
@@ -142,6 +179,12 @@ export function createMapaDataController({
     _snapshot.error = '';
     _snapshot.permissionDenied = false;
     _snapshot.missingIndex = false;
+    const cached = _readVisibleCache(activePlaza);
+    if (cached) {
+      _snapshot.units = cached.units || [];
+      _snapshot.structure = cached.structure || [];
+      _snapshot.lastUpdated = Number(cached.lastUpdated || cached.savedAt || Date.now());
+    }
     _emitData();
     _log(_debug, 'subscribe', { plaza: activePlaza, token });
 
@@ -177,7 +220,10 @@ export function createMapaDataController({
           _snapshot.missingIndex = false;
           _snapshot.units = rows;
         });
-        if (ok) _emitData();
+        if (ok) {
+          _writeVisibleCache(_snapshot);
+          _emitData();
+        }
       });
       if (typeof unsubMapa === 'function') _unsubs.push(unsubMapa);
     } else if (db) {
@@ -191,7 +237,10 @@ export function createMapaDataController({
             _snapshot.missingIndex = false;
             _snapshot.units = rows;
           });
-          if (ok) _emitData();
+          if (ok) {
+            _writeVisibleCache(_snapshot);
+            _emitData();
+          }
         },
         err => _handleError(token, err)
       );
@@ -203,7 +252,10 @@ export function createMapaDataController({
         const ok = _guardedUpdate(token, () => {
           _snapshot.structure = Array.isArray(rows) ? rows : [];
         });
-        if (ok) _emitData();
+        if (ok) {
+          _writeVisibleCache(_snapshot);
+          _emitData();
+        }
       }, activePlaza);
       if (typeof unsubEstructura === 'function') _unsubs.push(unsubEstructura);
     }

@@ -705,6 +705,7 @@ function _normalizeIncidentAttachments(data = {}) {
 function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampValue = null) {
   const timestamp = Number(timestampValue || data.timestamp || _ts()) || _ts();
   const descripcion = String(data.descripcion ?? data.nota ?? "").trim();
+  const descripcionHtml = String(data.descripcionHtml || data.notaHtml || data.html || "").trim();
   const tituloBase = _sanitizeText(data.titulo || "");
   const titulo = tituloBase || (descripcion ? descripcion.split(/\r?\n/)[0].slice(0, 90) : "Incidencia sin título");
   const prioridad = _normalizeIncidentPriority(data.prioridad, `${titulo} ${descripcion}`);
@@ -725,6 +726,7 @@ function _buildIncidentPayload(data = {}, autor = "", adjuntos = [], timestampVa
     prioridad,
     nota: descripcion,
     descripcion,
+    ...(descripcionHtml ? { descripcionHtml, notaHtml: descripcionHtml } : {}),
     estado,
     quienResolvio: _sanitizeText(data.quienResolvio || ""),
     solucion: _sanitizeText(data.solucion || ""),

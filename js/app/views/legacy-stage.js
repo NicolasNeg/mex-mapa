@@ -26,6 +26,8 @@ const LEGACY_BY_ID = {
   admin:       { src: '/gestion',           title: 'Panel administrativo' },
   programador: { src: '/programador',       title: 'Consola técnica' },
   mapa:        { src: '/mapa',              title: 'Mapa operativo' },
+  alertas:     { src: '/mapa',              title: 'Emitir alertas', open: 'alertas' },
+  alertasHist: { src: '/mapa',              title: 'Historial de alertas', open: 'historial-alertas' },
   editmap:     { src: '/editmap',           title: 'Editor de patio' },
 };
 
@@ -41,6 +43,9 @@ const LEGACY_BY_APP_PATH = {
   '/app/cuadre': 'cuadre',
   '/app/admin': 'admin',
   '/app/gestion': 'admin',
+  '/app/alertas': 'alertas',
+  '/app/alertas/historial': 'alertasHist',
+  '/app/historial-alertas': 'alertasHist',
   '/app/programador': 'programador',
   '/app/mapa': 'mapa',
   '/app/editmap': 'editmap',
@@ -110,6 +115,8 @@ function _srcFor(id, ctx = {}) {
   params.set('appStage', '1');
   if (id === 'admin') params.set('admin', '1');
   if (id === 'mensajes') params.set('messages', '1');
+  if (cfg.open) params.set('open', cfg.open);
+  if ((id === 'alertas' || id === 'alertasHist') && plaza) params.set('plaza', plaza);
   if (id === 'cuadre') {
     if (!params.get('tab')) params.set('tab', 'normal');
   }
@@ -218,7 +225,7 @@ function _maybeNavigateFromFrameLocation(frame, id, ctx = {}) {
   try {
     const href = frame?.contentWindow?.location?.href || '';
     const framePath = new URL(href, window.location.origin).pathname.replace(/\/+$/, '') || '/';
-    if (id === 'cuadre' && framePath === '/mapa') return;
+    if (['cuadre', 'alertas', 'alertasHist'].includes(id) && framePath === '/mapa') return;
     const appRoute = _appRouteFromLegacyValue(href);
     if (!appRoute) return;
     const appPath = appRoute.split('?')[0].replace(/\/+$/, '') || '/app/dashboard';
@@ -265,6 +272,21 @@ function _scheduleFrameSync(frame, id, ctx = {}) {
   if (!tab) return;
   [0, 250, 750, 1500, 3000].forEach(delay => {
     window.setTimeout(() => _activateAdminTab(frame, tab), delay);
+  });
+}
+
+function _scheduleToolFrameSync(frame, id) {
+  const actionName = id === 'alertas'
+    ? 'abrirCreadorAlertas'
+    : (id === 'alertasHist' ? 'abrirGestorAlertas' : '');
+  if (!actionName) return;
+  [300, 800, 1600, 3000].forEach(delay => {
+    window.setTimeout(() => {
+      try {
+        const win = frame?.contentWindow;
+        if (typeof win?.[actionName] === 'function') win[actionName]();
+      } catch (_) {}
+    }, delay);
   });
 }
 
@@ -361,7 +383,7 @@ function _syncPlaza(plaza, id, ctx) {
   if (!normalized || !_iframe) return;
   _applyPlazaToWindow(_iframe.contentWindow, id, normalized);
 
-  if (['cola', 'dashboard', 'profile', 'programador'].includes(id)) {
+  if (['cola', 'dashboard', 'profile', 'programador', 'alertas', 'alertasHist'].includes(id)) {
     const nextSrc = _srcFor(id, ctx);
     if (_iframe.getAttribute('src') !== nextSrc) _iframe.setAttribute('src', nextSrc);
   }
@@ -475,6 +497,7 @@ export function mount(ctx = {}) {
     _injectFrameOverrides(_iframe, id);
     _bindFrameRouteBridge(_iframe, id, ctx);
     _scheduleFrameSync(_iframe, id, ctx);
+    _scheduleToolFrameSync(_iframe, id);
     _syncPlaza(getState().currentPlaza, id, ctx);
     _startLegacyMapUnitsHeader(id);
   });

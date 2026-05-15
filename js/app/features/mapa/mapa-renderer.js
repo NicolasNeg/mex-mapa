@@ -654,6 +654,30 @@ function _detailIncBlock(mva, byMva, ready, failed) {
   `;
 }
 
+function _detailQuickHistoryBlock(mva, items = []) {
+  const key = String(mva || '').toUpperCase().trim();
+  const rows = (Array.isArray(items) ? items : [])
+    .filter(item => !key || String(item?.mva || '').toUpperCase().trim() === key)
+    .slice(0, 4);
+  if (!rows.length) return '';
+  return `
+    <div class="app-mapa-inc-summary app-mapa-quick-history">
+      <h4 class="app-mapa-inc-summary-title">Historial rápido</h4>
+      <ol class="app-mapa-mini-history">
+        ${rows.map(item => {
+          const when = item.at ? _fmtLastAtMs(item.at) : '';
+          const flow = [item.from, item.to].filter(Boolean).join(' → ');
+          return `<li>
+            <strong>${esc(item.message || 'Actualización operativa')}</strong>
+            <span>${esc([item.user || 'Sistema', when].filter(Boolean).join(' · '))}</span>
+            ${flow ? `<small>${esc(flow)}</small>` : ''}
+          </li>`;
+        }).join('')}
+      </ol>
+    </div>
+  `;
+}
+
 function _renderUnitActionsBlock(selected, plaza, actions = {}) {
   if (!selected) return '';
   const mva = String(selected.mva || '').trim();
@@ -711,7 +735,7 @@ function _detailPanel(selected, plaza, incOpts = {}, actionsOpts = {}) {
   const mvaK = String(selected.mva || '')
     .toUpperCase()
     .trim();
-  const { incidentsByMva = {}, incidentsReady = false, incidentsFailed = false } = incOpts;
+  const { incidentsByMva = {}, incidentsReady = false, incidentsFailed = false, quickHistory = [] } = incOpts;
   return `
     <div class="app-mapa-detail-hero">
       <h2 class="app-mapa-detail-mva-title">${esc(selected.mva)}</h2>
@@ -719,6 +743,7 @@ function _detailPanel(selected, plaza, incOpts = {}, actionsOpts = {}) {
       <p class="app-mapa-detail-subline"><span class="app-mapa-detail-k">Ubicación</span> <span class="app-mapa-detail-v">${esc(selected.ubicacion || '—')}</span></p>
     </div>
     ${_renderUnitActionsBlock(selected, plaza, actionsOpts)}
+    ${_detailQuickHistoryBlock(mvaK, quickHistory)}
     ${_detailIncBlock(mvaK, incidentsByMva, incidentsReady, incidentsFailed)}
     <div class="app-mapa-detail-fields">
     <p><strong>Estado:</strong> ${esc(selected.estado)}</p>
@@ -778,7 +803,8 @@ export function renderMapaReadOnly(container, snapshot = {}, options = {}) {
   const incOpts = {
     incidentsByMva: options.incidentsByMva || {},
     incidentsReady: options.incidentsReady === true,
-    incidentsFailed: options.incidentsFailed === true
+    incidentsFailed: options.incidentsFailed === true,
+    quickHistory: Array.isArray(options.quickHistory) ? options.quickHistory : []
   };
   const actionsOpts = { ...(options.unitActions || {}), showDiagnostics: options.showDiagnostics === true };
 
