@@ -33,7 +33,9 @@ function normalizeAttachments(data = {}) {
   const fromAdjuntos = Array.isArray(data.adjuntos) ? data.adjuntos : [];
   const fromEvidencias = Array.isArray(data.evidencias) ? data.evidencias : [];
   const fromUrls = Array.isArray(data.evidenciaUrls) ? data.evidenciaUrls.map(url => ({ url })) : [];
-  const merged = [...fromAdjuntos, ...fromEvidencias, ...fromUrls];
+  const fromLinks = Array.isArray(data.links) ? data.links : [];
+  const fromEnlaces = Array.isArray(data.enlaces) ? data.enlaces : [];
+  const merged = [...fromAdjuntos, ...fromEvidencias, ...fromUrls, ...fromLinks, ...fromEnlaces];
   const seen = new Set();
   return merged
     .map(item => {
@@ -191,7 +193,15 @@ export async function createIncidencia(payload = {}) {
     solucion: '',
     resueltaEn: '',
     codigo: String(basePayload.codigo || `INC-${id.slice(-6)}`),
-    adjuntos: Array.isArray(basePayload.evidencias) ? basePayload.evidencias : [],
+    adjuntos: [
+      ...(Array.isArray(basePayload.evidencias) ? basePayload.evidencias : []),
+      ...(Array.isArray(basePayload.adjuntos) ? basePayload.adjuntos : []),
+      ...(Array.isArray(basePayload.links) ? basePayload.links : []),
+      ...(Array.isArray(basePayload.enlaces) ? basePayload.enlaces : []),
+    ],
+    links: Array.isArray(basePayload.links) ? basePayload.links : [],
+    enlaces: Array.isArray(basePayload.enlaces) ? basePayload.enlaces : [],
+    evidenciaUrls: Array.isArray(basePayload.evidenciaUrls) ? basePayload.evidenciaUrls : [],
     plaza: plazaID,
     plazaID,
     source: basePayload.source,

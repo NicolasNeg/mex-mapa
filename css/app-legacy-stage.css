@@ -11,11 +11,54 @@ body.app-legacy-stage-active #mexShellContent {
 }
 
 .app-legacy-stage {
+  position: relative;
   width: 100%;
   height: calc(100vh - var(--sh-header-h, 64px));
   min-height: 0;
   overflow: hidden;
   background: #f8fafc;
+}
+
+.app-legacy-stage__loader {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background:
+    linear-gradient(180deg, rgba(248, 250, 252, .96), rgba(241, 245, 249, .92)),
+    radial-gradient(circle at center, rgba(37, 99, 235, .08), transparent 42%);
+  color: #0f172a;
+  font: 800 13px/1.2 "Inter", system-ui, sans-serif;
+  pointer-events: none;
+  transition: opacity .22s ease, visibility .22s ease;
+}
+
+.app-legacy-stage__loader.is-ready {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.app-legacy-stage__loader small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.app-legacy-stage__loader-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 3px solid #dbeafe;
+  border-top-color: #1d4ed8;
+  animation: appLegacySpin .8s linear infinite;
+}
+
+@keyframes appLegacySpin {
+  to { transform: rotate(360deg); }
 }
 
 .app-legacy-stage__frame {

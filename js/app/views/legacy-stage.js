@@ -22,7 +22,7 @@ const LEGACY_BY_ID = {
   mensajes:    { src: '/mensajes',          title: 'Mensajes' },
   cola:        { src: '/cola-preparacion',  title: 'Cola de preparación' },
   incidencias: { src: '/incidencias',       title: 'Incidencias' },
-  cuadre:      { src: '/mapa',              title: 'Cuadre' },
+  cuadre:      { src: '/cuadre',            title: 'Cuadre' },
   admin:       { src: '/gestion',           title: 'Panel administrativo' },
   programador: { src: '/programador',       title: 'Consola técnica' },
   mapa:        { src: '/mapa',              title: 'Mapa operativo' },
@@ -111,7 +111,6 @@ function _srcFor(id, ctx = {}) {
   if (id === 'admin') params.set('admin', '1');
   if (id === 'mensajes') params.set('messages', '1');
   if (id === 'cuadre') {
-    params.set('fleet', '1');
     if (!params.get('tab')) params.set('tab', 'normal');
   }
   if (id === 'cola' && plaza) params.set('plaza', plaza);
@@ -451,6 +450,11 @@ export function mount(ctx = {}) {
 
   _container.innerHTML = `
     <section class="app-legacy-stage" data-legacy-stage="${esc(id)}">
+      <div class="app-legacy-stage__loader" id="appLegacyStageLoader" aria-live="polite">
+        <span class="app-legacy-stage__loader-mark"></span>
+        <strong>${esc(cfg.title)}</strong>
+        <small>Sincronizando vista...</small>
+      </div>
       <iframe
         id="appLegacyStageFrame"
         class="app-legacy-stage__frame"
@@ -464,8 +468,10 @@ export function mount(ctx = {}) {
   `;
 
   _iframe = _container.querySelector('#appLegacyStageFrame');
+  const loader = _container.querySelector('#appLegacyStageLoader');
   _bindShellSignals(id, ctx);
   _iframe?.addEventListener('load', () => {
+    loader?.classList.add('is-ready');
     _injectFrameOverrides(_iframe, id);
     _bindFrameRouteBridge(_iframe, id, ctx);
     _scheduleFrameSync(_iframe, id, ctx);

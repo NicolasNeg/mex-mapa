@@ -3835,6 +3835,22 @@
       pointer-events: auto;
     }
 
+    #reserveModal.modal-overlay {
+      z-index: 2147483000 !important;
+      display: flex;
+      visibility: visible;
+    }
+
+    #reserveModal.modal-overlay.active {
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
+    #reserveModal .modal-box {
+      position: relative;
+      z-index: 1;
+    }
+
     .modal-box {
       background: white;
       padding: 30px;

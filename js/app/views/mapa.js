@@ -1112,7 +1112,7 @@ export function mount({ container, shell }) {
         </label>
       </div>
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
-      <div id="app-mapa-content" class="app-mapa-status is-loading">Cargando mapa…</div>
+      <div id="app-mapa-content" class="app-mapa-status is-loading">${_mapaLoadingHtml('Cargando mapa')}</div>
     </section>
   `;
   _contentEl = _container.querySelector('#app-mapa-content');
@@ -1347,7 +1347,10 @@ export function mount({ container, shell }) {
     _viewState.selectedId = '';
     _viewState.snapshot = null;
     _unitActionDefs = _defaultUnitActionDefs();
-    if (_contentEl) _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Actualizando plaza…</div>';
+    if (_contentEl) {
+      _contentEl.className = 'app-mapa-status is-loading';
+      _contentEl.innerHTML = _mapaLoadingHtml('Actualizando plaza');
+    }
     void _syncIncSummaryPlaza(nextPlaza);
     _lifecycle?.setPlaza(nextPlaza);
   });
@@ -1628,7 +1631,7 @@ function _render() {
   const snapshot = _viewState.snapshot;
   if (!snapshot || snapshot.loading) {
     _contentEl.className = 'app-mapa-status is-loading';
-    _contentEl.innerHTML = '<div class="app-mapa-status is-loading">Cargando mapa…</div>';
+    _contentEl.innerHTML = _mapaLoadingHtml('Cargando mapa');
     _updateMetaLines();
     return;
   }
@@ -1757,6 +1760,16 @@ function _ensureCss() {
   link.setAttribute('data-app-mapa-css', '1');
   document.head.appendChild(link);
   _cssRef = link;
+}
+
+function _mapaLoadingHtml(label = 'Cargando mapa') {
+  return `
+    <div class="app-mapa-loading-shell">
+      <span class="app-mapa-loading-spinner"></span>
+      <strong>${esc(label)}</strong>
+      <small>Sincronizando datos operativos...</small>
+    </div>
+  `;
 }
 
 function esc(value) {

@@ -495,8 +495,8 @@ function _renderCompactUnitsMenu(vm, options) {
   const orphan = Array.isArray(vm.orphanFiltered) ? vm.orphanFiltered : [];
   const total = limbo.length + taller.length + orphan.length;
   const sections =
-    _renderCompactUnitsSection('Patio · Sin asignar', 'local_parking', limbo, options, 'LIMBO') +
-    _renderCompactUnitsSection('Taller · Sin asignar', 'build', taller, options, 'TALLER') +
+    _renderCompactUnitsSection('Patio — sin asignar', 'local_parking', limbo, options, 'LIMBO') +
+    _renderCompactUnitsSection('Taller — sin asignar', 'build', taller, options, 'TALLER') +
     (orphan.length
       ? _renderCompactUnitsSection('Posición no encontrada', 'help_outline', orphan, options, 'ORPHAN')
       : '');
@@ -507,9 +507,9 @@ function _renderCompactUnitsMenu(vm, options) {
       <div class="app-mapa-units-drawer-overlay" data-mapa-drawer-close></div>
       <div class="app-mapa-units-drawer-panel">
         <div class="app-mapa-units-drawer-head">
-          <h2>UNIDADES EN EL LIMBO</h2>
-          <span>${total} sin cajón activo</span>
-          <button type="button" class="app-mapa-units-drawer-close" data-mapa-drawer-close>&times;</button>
+          <h2>UNIDADES</h2>
+          <span>Patio y taller sin cajón activo · ${total}</span>
+          <button type="button" class="app-mapa-units-drawer-close" data-mapa-drawer-close><span class="material-icons">close</span></button>
         </div>
         <div class="app-mapa-units-drawer-body">
           ${sections || '<p class="app-mapa-units-menu-empty">No hay unidades sin cajón.</p>'}

@@ -39,6 +39,7 @@ function _makeState(plaza) {
     errorMessage: '',
     hasPermissionDenied: false,
     archivosNuevaNota: [], // para guardar los adjuntos temporales
+    linksNuevaNota: [],
   };
 }
 
@@ -198,11 +199,74 @@ function _bindUi() {
   q('nuevaNotaPrioridad')?.addEventListener('change', _updatePreview);
   q('nuevaNotaTitulo')?.addEventListener('input', _updatePreview);
   q('nuevaNotaTxt')?.addEventListener('input', _updatePreview);
+  q('incMvaInput')?.addEventListener('input', _updatePreview);
+  q('incLinkInput')?.addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      _addDraftLink();
+    }
+  });
+  q('incAddLinkBtn')?.addEventListener('click', _addDraftLink);
 
   q('incResolverCancelar')?.addEventListener('click', () => _toggleResolverModal(false));
   q('btnConfirmarResInc')?.addEventListener('click', _confirmResolve);
 
   q('incAdjuntosInput')?.addEventListener('change', _onFilesSelected);
+}
+
+function _normalizeDraftUrl(value = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+function _addDraftLink() {
+  const input = q('incLinkInput');
+  const url = _normalizeDraftUrl(input?.value || '');
+  if (!url) return _showNotice('Pega un link para agregarlo.', 'error');
+  try {
+    new URL(url);
+  } catch (_) {
+    return _showNotice('El link no tiene formato válido.', 'error');
+  }
+  if (_state.linksNuevaNota.some(item => item.url === url)) {
+    input.value = '';
+    return _showNotice('Ese link ya está agregado.', 'error');
+  }
+  _state.linksNuevaNota.push({ url, label: _labelFromUrl(url), tipo: 'link' });
+  input.value = '';
+  _renderLinksNuevos();
+  _updatePreview();
+}
+
+function _labelFromUrl(url = '') {
+  try {
+    const parsed = new URL(url);
+    const last = parsed.pathname.split('/').filter(Boolean).pop() || parsed.hostname;
+    return decodeURIComponent(last).slice(0, 64) || parsed.hostname;
+  } catch (_) {
+    return String(url || 'Link').slice(0, 64);
+  }
+}
+
+function _removeDraftLink(index) {
+  _state.linksNuevaNota.splice(index, 1);
+  _renderLinksNuevos();
+  _updatePreview();
+}
+window._incRemoveDraftLink = _removeDraftLink;
+
+function _renderLinksNuevos() {
+  const cont = q('incLinksNuevosCont');
+  if (!cont) return;
+  cont.innerHTML = (_state.linksNuevaNota || []).map((item, i) => `
+    <div class="inc-link-chip">
+      <span class="material-icons">link</span>
+      <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer">${esc(item.label || item.url)}</a>
+      <button type="button" onclick="window._incRemoveDraftLink(${i})" title="Quitar link"><span class="material-icons">close</span></button>
+    </div>
+  `).join('');
 }
 
 function _onFilesSelected(e) {
@@ -216,6 +280,7 @@ function _onFilesSelected(e) {
   });
   e.target.value = '';
   _renderAdjuntosNuevos();
+  _updatePreview();
 }
 
 function _eliminarArchivoNuevos(index) {
@@ -284,7 +349,10 @@ function _renderPreview() {
   if (!stamp) return;
   
   if (_state.archivosNuevaNota.length) {
-    stamp.textContent = `${_state.archivosNuevaNota.length} adjunto${_state.archivosNuevaNota.length === 1 ? '' : 's'}`;
+    const total = _state.archivosNuevaNota.length + (_state.linksNuevaNota?.length || 0);
+    stamp.textContent = `${total} evidencia${total === 1 ? '' : 's'}`;
+  } else if (_state.linksNuevaNota?.length) {
+    stamp.textContent = `${_state.linksNuevaNota.length} link${_state.linksNuevaNota.length === 1 ? '' : 's'}`;
   } else {
     stamp.textContent = 'Sin adjuntos';
   }
@@ -368,7 +436,7 @@ function _renderList() {
             </div>
           </div>
         </div>
-        <div class="nota-body">${esc(item.descripcion || 'Sin descripción').replace(/\n/g, '<br>')}</div>
+        <div class="nota-body">${_renderRichText(item.descripcion || 'Sin descripción')}</div>
         ${_renderEvidenceBlock(evidencias)}
         <div class="nota-footer">
           <div class="nota-footer-left">
@@ -432,6 +500,13 @@ function _renderEvidenceBlock(items) {
   `;
 }
 
+function _renderRichText(value = '') {
+  const escaped = esc(value || '');
+  return escaped
+    .replace(/(https?:\/\/[^\s<]+)/g, url => `<a class="inc-inline-link" href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`)
+    .replace(/\n/g, '<br>');
+}
+
 function _toggleResolverModal(show) {
   q('modalAuthIncidencia')?.classList.toggle('active', !!show);
   if (show) q('authComentario')?.focus();
@@ -486,10 +561,21 @@ async function _onCreateIncidencia() {
       estado: 'PENDIENTE',
       source: 'notas_admin'
     };
+    const links = (_state.linksNuevaNota || []).map(item => ({
+      url: item.url,
+      label: item.label || _labelFromUrl(item.url),
+      tipo: 'link'
+    }));
     
     if (_state.archivosNuevaNota.length) {
        payload.evidencias = _state.archivosNuevaNota.map(item => item.file);
        payload.archivos = _state.archivosNuevaNota.map(item => item.file);
+    }
+    if (links.length) {
+      payload.adjuntos = links;
+      payload.links = links;
+      payload.enlaces = links;
+      payload.evidenciaUrls = links.map(item => item.url);
     }
 
     await createIncidencia(payload);
@@ -514,7 +600,9 @@ function _resetComposer() {
     });
     _state.archivosNuevaNota = [];
   }
+  _state.linksNuevaNota = [];
   _renderAdjuntosNuevos();
+  _renderLinksNuevos();
   _prefillMvaFromQuery();
   _applyDraftMeta();
   _updatePreview();
@@ -539,9 +627,19 @@ function _updatePreview() {
   const prioridad = String(q('nuevaNotaPrioridad')?.value || 'ALTA').toUpperCase();
   const meta = _priorityMeta({ prioridad });
   _setText('incPreviewTitulo', String(q('nuevaNotaTitulo')?.value || '').trim() || 'Nueva nota');
-  _setText('incPreviewBody', String(q('nuevaNotaTxt')?.value || '').trim() || 'Documenta el evento con precision tecnica para que el historial operativo conserve contexto e impacto.');
+  const previewBody = q('incPreviewBody');
+  if (previewBody) {
+    previewBody.innerHTML = _renderRichText(String(q('nuevaNotaTxt')?.value || '').trim() || 'Documenta el evento con precision tecnica para que el historial operativo conserve contexto e impacto.');
+  }
   _setText('incPreviewAutor', `Emitido por: ${String(q('autorNuevaNota')?.value || '--')}`);
-  _setText('incPreviewEstado', 'Pendiente');
+  _setText('incPreviewEstado', String(q('incMvaInput')?.value || '').trim().toUpperCase() || 'Pendiente');
+  const linksPreview = q('incPreviewLinks');
+  if (linksPreview) {
+    const links = _state?.linksNuevaNota || [];
+    linksPreview.innerHTML = links.length
+      ? links.map(item => `<a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer"><span class="material-icons">link</span>${esc(item.label || item.url)}</a>`).join('')
+      : '';
+  }
   const badge = q('incPreviewPrioridad');
   if (badge) {
     badge.className = `inc-preview-priority ${meta.className}`;
@@ -598,6 +696,8 @@ function _evidenceRows(item) {
   fromArray(item?.evidencias);
   fromArray(item?.adjuntos);
   fromArray(item?.evidenciaUrls);
+  fromArray(item?.links);
+  fromArray(item?.enlaces);
   if (item?.url) list.push(item.url);
   if (item?.evidencia) list.push(item.evidencia);
   const out = [];
@@ -778,6 +878,14 @@ function _renderLayout() {
                   </div>
                   <div id="incAdjuntosNuevosCont" style="margin-top:8px;"></div>
                 </div>
+                <div class="inc-field">
+                  <label class="inc-field-label">Agregar link de evidencia</label>
+                  <div class="inc-link-input-row">
+                    <input type="url" id="incLinkInput" class="inc-input" placeholder="https://drive.google.com/...">
+                    <button type="button" id="incAddLinkBtn" class="inc-btn-ghost"><span class="material-icons">add_link</span>Agregar</button>
+                  </div>
+                  <div id="incLinksNuevosCont" class="inc-link-chip-list"></div>
+                </div>
                 <div class="inc-form-actions">
                   <button type="button" id="incDiscardBtn" class="inc-btn-ghost">Descartar</button>
                   <button type="button" id="btnPublicarInc" class="inc-btn-primary"><span>Publicar Nota</span><span class="material-icons">send</span></button>
@@ -798,6 +906,7 @@ function _renderLayout() {
                 <div class="inc-preview-top"><span id="incPreviewPrioridad" class="inc-preview-priority is-alta">Alta</span><span id="incPreviewStamp" class="inc-preview-stamp">Sin adjuntos</span></div>
                 <h3 id="incPreviewTitulo" class="inc-preview-title">Nueva nota</h3>
                 <div id="incPreviewBody" class="inc-preview-body">Documenta el evento operativo con claridad.</div>
+                <div id="incPreviewLinks" class="inc-preview-links"></div>
                 <div class="inc-preview-meta"><span id="incPreviewAutor">Emitido por: --</span><span id="incPreviewEstado">Pendiente</span></div>
               </div>
             </aside>

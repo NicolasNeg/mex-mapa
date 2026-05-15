@@ -103,13 +103,6 @@ export const NAV_GROUPS = [
         icon: 'warning',
         route: '/incidencias',
         roles: '*'
-      },
-      {
-        id: 'gestion',
-        label: 'Gestión',
-        icon: 'manage_accounts',
-        route: '/gestion',
-        roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
       }
     ]
   },
@@ -127,6 +120,8 @@ export const NAV_GROUPS = [
           { id: 'usuarios',    label: 'Usuarios',    route: '/gestion?tab=usuarios',    icon: 'group' },
           { id: 'roles',       label: 'Roles',       route: '/gestion?tab=roles',       icon: 'shield' },
           { id: 'solicitudes', label: 'Solicitudes', route: '/gestion?tab=solicitudes', icon: 'assignment' },
+          { id: 'alertas-emitir', label: 'Emitir alertas', route: '/app/mapa?open=alertas', icon: 'campaign' },
+          { id: 'alertas-historial', label: 'Historial alertas', route: '/app/mapa?open=historial-alertas', icon: 'notifications_active' },
           { id: 'estados',     label: 'Estados',     route: '/gestion?tab=estados',     icon: 'tune' },
           { id: 'categorias',  label: 'Categorías',  route: '/gestion?tab=categorias',  icon: 'directions_car' },
           { id: 'modelos',     label: 'Modelos',     route: '/gestion?tab=modelos',     icon: 'no_crash' },

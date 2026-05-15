@@ -2552,8 +2552,12 @@ function iniciarApp(esNuevoLogin = true) {
   const configReadyPromise = inicializarConfiguracion();
 
   _iniciarSincronizacionUsuarios(); // Poblar dbUsuariosLogin en tiempo real
-  init(); // Carga el mapa
-  setTimeout(() => _applyPendingShellSearch(), 900);
+  if (!isDedicatedCuadreRoute) {
+    init(); // Carga el mapa
+    setTimeout(() => _applyPendingShellSearch(), 900);
+  } else {
+    document.body.classList.add('cuadre-dedicated-mode');
+  }
   _schedulePrivilegedRoutePrefetch();
 
   // [TEST] Abrir editor de mapa directamente si ?editor=1 en la URL
@@ -2594,6 +2598,7 @@ function iniciarApp(esNuevoLogin = true) {
           console.warn('No se pudo abrir el modo flota dedicado:', error);
         }
       }
+      _bootShellRequestedTool();
     });
 
   // [F2.7] Qué cambió desde última visita
@@ -5759,7 +5764,7 @@ function manejarBotonAgregarFlotante() {
 async function seleccionarFilaFlota(index, rowElement) {
   // Resaltar la fila seleccionada
   document.querySelectorAll('#tablaCuerpoFlota tr').forEach(tr => tr.classList.remove('selected'));
-  rowElement.classList.add('selected');
+  if (rowElement?.classList) rowElement.classList.add('selected');
 
   // Obtener la unidad desde la memoria de la tabla actual
   SELECT_REF_FLOTA = DATOS_TABLA_ACTUAL[index];
@@ -5771,23 +5776,41 @@ async function seleccionarFilaFlota(index, rowElement) {
     MODO_FLOTA = "MODIFICAR";
     let esSoloLectura = (typeof userRole !== 'undefined' && userRole !== 'admin');
 
-    document.getElementById('formTitleFlota').innerText = (esSoloLectura ? "VISUALIZANDO: " : "MODIFICANDO: ") + SELECT_REF_FLOTA.mva;
-    document.getElementById('admin-flota-panel-hint').style.display = 'none';
-    document.getElementById('autofill-section').style.display = 'none';
-    document.getElementById('form-fields-container').style.display = 'flex';
+    const title = document.getElementById('formTitleFlota');
+    if (!title) {
+      showToast("No se pudo abrir el gestor de unidad. Recarga Cuadre e intenta de nuevo.", "error");
+      return;
+    }
+    title.innerText = (esSoloLectura ? "VISUALIZANDO: " : "MODIFICANDO: ") + SELECT_REF_FLOTA.mva;
+    const hint = document.getElementById('admin-flota-panel-hint');
+    const autofill = document.getElementById('autofill-section');
+    const fields = document.getElementById('form-fields-container');
+    if (hint) hint.style.display = 'none';
+    if (autofill) autofill.style.display = 'none';
+    if (fields) fields.style.display = 'flex';
 
-    document.getElementById('f_mva').value = SELECT_REF_FLOTA.mva || "";
-    document.getElementById('f_cat').value = SELECT_REF_FLOTA.categoria || SELECT_REF_FLOTA.categ || "N/A";
-    document.getElementById('f_mod').value = SELECT_REF_FLOTA.modelo || "";
-    document.getElementById('f_pla').value = SELECT_REF_FLOTA.placas || "";
-    document.getElementById('f_est').value = SELECT_REF_FLOTA.estado || "";
-    document.getElementById('f_gas').value = SELECT_REF_FLOTA.gasolina || "N/A";
-    document.getElementById('f_ubi').value = SELECT_REF_FLOTA.ubicacion || "";
-    document.getElementById('f_not').value = SELECT_REF_FLOTA.notas || "";
+    const values = {
+      f_mva: SELECT_REF_FLOTA.mva || "",
+      f_cat: SELECT_REF_FLOTA.categoria || SELECT_REF_FLOTA.categ || "N/A",
+      f_mod: SELECT_REF_FLOTA.modelo || "",
+      f_pla: SELECT_REF_FLOTA.placas || "",
+      f_est: SELECT_REF_FLOTA.estado || "",
+      f_gas: SELECT_REF_FLOTA.gasolina || "N/A",
+      f_ubi: SELECT_REF_FLOTA.ubicacion || "",
+      f_not: SELECT_REF_FLOTA.notas || ""
+    };
+    Object.entries(values).forEach(([id, value]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = value;
+    });
 
-    ['f_est', 'f_gas', 'f_ubi', 'f_not'].forEach(id => document.getElementById(id).disabled = esSoloLectura);
+    ['f_est', 'f_gas', 'f_ubi', 'f_not'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = esSoloLectura;
+    });
 
-    document.getElementById('del-note-wrapper').style.display = esSoloLectura ? 'none' : 'flex';
+    const delNoteWrapper = document.getElementById('del-note-wrapper');
+    if (delNoteWrapper) delNoteWrapper.style.display = esSoloLectura ? 'none' : 'flex';
     if (document.getElementById('f_del_note')) document.getElementById('f_del_note').checked = false;
 
     if (document.getElementById('btnDelFlota')) document.getElementById('btnDelFlota').style.display = esSoloLectura ? "none" : "flex";
@@ -5911,16 +5934,25 @@ function prepararNuevoFlota() {
   MODO_FLOTA = "INSERTAR";
   SELECT_REF_FLOTA = null;
   document.querySelectorAll('#tablaCuerpoFlota tr').forEach(tr => tr.classList.remove('selected'));
-  document.getElementById('formTitleFlota').innerText = "NUEVO REGISTRO";
-  document.getElementById('formTitleFlota').style.color = "var(--mex-blue)";
+  const title = document.getElementById('formTitleFlota');
+  if (!title) {
+    showToast("No se pudo abrir el gestor de unidad. Recarga Cuadre e intenta de nuevo.", "error");
+    return;
+  }
+  title.innerText = "NUEVO REGISTRO";
+  title.style.color = "var(--mex-blue)";
 
   abrirFormularioFlota();
 
-  document.getElementById('form-fields-container').style.display = 'none';
-  document.getElementById('admin-flota-panel-hint').style.display = 'none';
-  document.getElementById('autofill-section').style.display = 'block';
+  const fields = document.getElementById('form-fields-container');
+  const hint = document.getElementById('admin-flota-panel-hint');
+  const autofill = document.getElementById('autofill-section');
+  if (fields) fields.style.display = 'none';
+  if (hint) hint.style.display = 'none';
+  if (autofill) autofill.style.display = 'block';
   resetAutofill();
-  document.getElementById('del-note-wrapper').style.display = 'none';
+  const delNoteWrapper = document.getElementById('del-note-wrapper');
+  if (delNoteWrapper) delNoteWrapper.style.display = 'none';
   if (document.getElementById('f_del_note')) document.getElementById('f_del_note').checked = false;
   if (document.getElementById('btnDelFlota')) document.getElementById('btnDelFlota').style.display = "none";
 
@@ -6184,18 +6216,31 @@ function ejecutarAccionRapida(mva, accion) {
 }
 
 function prepararModalInput(titulo, texto, btnTexto, btnColor) {
-  document.getElementById('resTitle').innerText = titulo;
-  document.getElementById('resText').innerText = texto;
-  document.getElementById('reserveReason').value = "";
-  document.getElementById('reserveReason').readOnly = false;
+  const modal = document.getElementById('reserveModal');
+  const title = document.getElementById('resTitle');
+  const text = document.getElementById('resText');
+  const reason = document.getElementById('reserveReason');
+  const btn = document.getElementById('btnConfirmRes');
+  if (!modal || !title || !text || !reason || !btn) {
+    showToast("No se pudo abrir el diálogo de la unidad. Recarga e intenta de nuevo.", "error");
+    console.warn('[reserveModal] elementos faltantes', { modal: !!modal, title: !!title, text: !!text, reason: !!reason, btn: !!btn });
+    return;
+  }
 
-  let btn = document.getElementById('btnConfirmRes');
+  title.innerText = titulo;
+  text.innerText = texto;
+  reason.value = "";
+  reason.readOnly = false;
+
   btn.innerText = btnTexto;
   btn.style.background = btnColor;
   btn.onclick = procesarInputModal;
 
-  document.getElementById('reserveModal').classList.add('active');
-  setTimeout(() => document.getElementById('reserveReason').focus(), 100);
+  if (modal.parentElement !== document.body) document.body.appendChild(modal);
+  modal.style.display = 'flex';
+  modal.style.zIndex = '2147483000';
+  requestAnimationFrame(() => modal.classList.add('active'));
+  setTimeout(() => reason.focus(), 100);
 }
 
 function procesarInputModal() {
@@ -6339,7 +6384,12 @@ function enviarCambioRapido(mva, estado, ubi, gas, notas, borrarNotas = false) {
 }
 
 function cerrarReserveModal() {
-  document.getElementById('reserveModal').classList.remove('active');
+  const modal = document.getElementById('reserveModal');
+  if (!modal) return;
+  modal.classList.remove('active');
+  window.setTimeout(() => {
+    if (!modal.classList.contains('active')) modal.style.display = '';
+  }, 180);
 }
 // Alias para el botón estático del reserveModal (onclick="confirmarReserva()")
 function confirmarReserva() { procesarInputModal(); }
@@ -17546,6 +17596,32 @@ function _bootCuadreFleetRoute() {
   if (!_isCuadreFleetMode() || _cuadreFleetBooted) return;
   _cuadreFleetBooted = true;
   abrirModalFlota(_cuadreInitialTab());
+}
+
+let _shellRequestedToolBooted = false;
+function _bootShellRequestedTool() {
+  if (_shellRequestedToolBooted) return;
+  const requested = String(_qs('open') || _qs('tool') || '').trim().toLowerCase();
+  if (!requested) return;
+  _shellRequestedToolBooted = true;
+  window.setTimeout(() => {
+    try {
+      if (requested === 'alertas' || requested === 'crear-alerta' || requested === 'emitir-alerta') {
+        if (typeof abrirCreadorAlertas === 'function') abrirCreadorAlertas();
+        return;
+      }
+      if (requested === 'historial-alertas' || requested === 'alertas-historial') {
+        if (typeof abrirGestorAlertas === 'function') abrirGestorAlertas();
+        return;
+      }
+      if (requested === 'incidencias' || requested === 'notas') {
+        if (typeof abrirIncidencias === 'function') abrirIncidencias();
+      }
+    } catch (error) {
+      console.warn('[shell-tool]', requested, error);
+      showToast('No se pudo abrir la herramienta solicitada.', 'error');
+    }
+  }, 450);
 }
 
 function abrirPanelConfiguracion(tabInicial) {

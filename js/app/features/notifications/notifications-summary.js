@@ -20,6 +20,33 @@ function _isAdminRole(role = '') {
   ].includes(_safeUp(role));
 }
 
+function _profileAliases(profile = {}) {
+  return [
+    profile?.nombre,
+    profile?.usuario,
+    profile?.nombreCompleto,
+    profile?.displayName,
+    profile?.email,
+    profile?.uid
+  ]
+    .map(_safeUp)
+    .filter(Boolean);
+}
+
+function _csvList(value = '') {
+  if (Array.isArray(value)) return value.flatMap(_csvList);
+  return String(value || '')
+    .split(',')
+    .map(_safeUp)
+    .filter(Boolean);
+}
+
+function _isAlertReadByAnyAlias(alerta = {}, aliases = []) {
+  if (!aliases.length) return false;
+  const readers = new Set(_csvList(alerta.leidoPor || alerta.leidaPor || alerta.readBy || alerta.vistoPor));
+  return aliases.some(alias => readers.has(alias));
+}
+
 async function _countPendingRequests() {
   const [primary, legacy] = await Promise.all([
     db.collection('solicitudes').where('estado', '==', 'PENDIENTE').limit(120).get().catch(() => null),
@@ -36,13 +63,8 @@ async function _countPendingRequests() {
 }
 
 export async function getNotificationsSummary({ profile = {}, role = '', plaza = '' } = {}) {
-  const userIdentity = _safe(
-    profile?.nombre
-    || profile?.usuario
-    || profile?.nombreCompleto
-    || profile?.email
-    || ''
-  ).toUpperCase();
+  const aliases = _profileAliases(profile);
+  const userIdentity = aliases[0] || '';
   const currentPlaza = _safeUp(plaza || profile?.plazaAsignada || profile?.plaza || '');
   if (!userIdentity) {
     return {
@@ -58,7 +80,9 @@ export async function getNotificationsSummary({ profile = {}, role = '', plaza =
   const notif = await checarNotificaciones(userIdentity, currentPlaza).catch(() => ({}));
   const mensajes = Number(notif?.mensajesSinLeer || 0);
   const incidencias = Number(notif?.incidenciasPendientes || 0);
-  const alertas = Array.isArray(notif?.alertas) ? notif.alertas.length : 0;
+  const alertas = Array.isArray(notif?.alertas)
+    ? notif.alertas.filter(alerta => !_isAlertReadByAnyAlias(alerta, aliases)).length
+    : 0;
   const solicitudes = _isAdminRole(role) ? await _countPendingRequests() : 0;
   const activeTotal = mensajes + alertas + solicitudes;
   return {
