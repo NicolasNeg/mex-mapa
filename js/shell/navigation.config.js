@@ -75,14 +75,16 @@ export const NAV_GROUPS = [
         label: 'Mensajes',
         icon: 'chat',
         route: '/mensajes',
-        roles: '*'
+        roles: '*',
+        feature: 'mensajeria'
       },
       {
         id: 'cola',
         label: 'Cola de preparación',
         icon: 'format_list_bulleted',
         route: '/cola-preparacion',
-        roles: '*'
+        roles: '*',
+        feature: 'cola_preparacion'
       }
     ]
   },
@@ -95,14 +97,16 @@ export const NAV_GROUPS = [
         label: 'Cuadre',
         icon: 'calculate',
         route: '/cuadre',
-        roles: ['VENTAS', 'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
+        roles: ['VENTAS', 'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
+        feature: 'cuadre'
       },
       {
         id: 'incidencias',
         label: 'Notas e incidencias',
         icon: 'warning',
         route: '/incidencias',
-        roles: '*'
+        roles: '*',
+        feature: 'incidencias'
       }
     ]
   },
@@ -166,6 +170,7 @@ export function filterNavForRole(userRole) {
       ...group,
       items: group.items
         .filter(item => hasNavAccess(userRole, item.roles))
+        .filter(item => !item.feature || !window.mexFeatures || window.mexFeatures.puedeUsar(item.feature))
         .map(item => ({ ...item }))
     }))
     .filter(group => group.items.length > 0);

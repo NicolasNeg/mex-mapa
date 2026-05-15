@@ -1039,6 +1039,12 @@ async function boot() {
         return;
       }
 
+      if (window.mexFeatures && !window.mexFeatures.puedeUsar('cola_preparacion')) {
+        showToast('La Cola de preparación no está disponible en tu plan actual.', 'info');
+        setTimeout(() => window.location.replace('/app/dashboard'), 2200);
+        return;
+      }
+
       const options = unique([
         state.profile?.plazaAsignada,
         ...(state.profile?.plazasPermitidas || []),

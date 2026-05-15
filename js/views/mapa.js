@@ -1484,9 +1484,10 @@ function canViewAdminSystem() {
 function canViewAdminProgrammer() { return hasPermission('view_admin_programmer') || canUseProgrammerConfig(); }
 function _cfgCanAccessTab(tabName = '') {
   const normalized = String(tabName || '').trim().toLowerCase();
-  if (normalized === 'usuarios') return canViewAdminUsers();
-  if (normalized === 'roles') return canViewAdminRoles();
-  if (normalized === 'solicitudes') return canViewAdminRequests();
+  const f = window.mexFeatures;
+  if (normalized === 'usuarios') return canViewAdminUsers() && (!f || f.puedeUsar('gestion_usuarios'));
+  if (normalized === 'roles') return canViewAdminRoles() && (!f || f.puedeUsar('gestion_usuarios'));
+  if (normalized === 'solicitudes') return canViewAdminRequests() && (!f || f.puedeUsar('solicitudes_acceso'));
   if (['estados', 'categorias', 'modelos', 'gasolinas'].includes(normalized)) return canViewAdminOperationCatalogs();
   if (['plazas', 'ubicaciones'].includes(normalized)) return canViewAdminStructure();
   if (normalized === 'empresa') return canViewAdminOrganization();
@@ -20564,6 +20565,20 @@ function configurarPermisosUI() {
   }
 
   _actualizarBloquesAdminSidebar();
+
+  // ── Feature-gate overrides (SaaS) ──────────────────────────────────
+  // puedeUsar() defaults to true → no impact when no empresa is loaded.
+  if (window.mexFeatures) {
+    const _fHide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
+    if (!window.mexFeatures.puedeUsar('mensajeria'))          _fHide('btnBuzon');
+    if (!window.mexFeatures.puedeUsar('alertas'))             ['btnAlerts', 'btnMenuAlertasGlobales', 'btnMenuHistorialAlertas'].forEach(_fHide);
+    if (!window.mexFeatures.puedeUsar('cuadre'))              _fHide('btnVerCuadres');
+    if (!window.mexFeatures.puedeUsar('auditoria'))           ['btnMenuAuditoria', 'btnMenuBitacora'].forEach(_fHide);
+    if (!window.mexFeatures.puedeUsar('exportar_excel'))      _fHide('btnMenuExportar');
+    if (!window.mexFeatures.puedeUsar('historial_logs'))      _fHide('btnMenuHistorial');
+    if (!window.mexFeatures.puedeUsar('edicion_mapa'))        _fHide('btnEditorMapa');
+    if (!window.mexFeatures.puedeUsar('notificaciones_push')) _fHide('btnNotificationCenter');
+  }
 }
 
 
@@ -23019,3 +23034,10 @@ function _earlyRestoreProfileFromCache() {
 if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
   _earlyRestoreProfileFromCache();
 }
+
+// Re-apply permission UI when the programador switches empresa context.
+window.addEventListener('mex:empresa-change', () => {
+  if (typeof configurarPermisosUI === 'function' && currentUserProfile) {
+    configurarPermisosUI();
+  }
+});

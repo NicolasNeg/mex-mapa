@@ -88,6 +88,12 @@ async function _cargarPerfilUsuario(user) {
     const plazaEl = document.getElementById('inc-plaza');
     if (plazaEl) plazaEl.textContent = _currentPlaza || 'GLOBAL';
 
+    if (window.mexFeatures && !window.mexFeatures.puedeUsar('incidencias')) {
+      _toast('Notas e incidencias no está disponible en tu plan actual.', 'info');
+      setTimeout(() => window.location.replace('/app/dashboard'), 2200);
+      return;
+    }
+
     _suscribirIncidencias();
   } catch (e) {
     console.error('[incidencias] _cargarPerfilUsuario:', e);
