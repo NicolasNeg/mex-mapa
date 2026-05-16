@@ -581,3 +581,78 @@ body.app-profile-active #mexShellContent {
     flex: 0 0 86px;
   }
 }
+
+/* ── Badge pills (role / status indicators) ──────────────── */
+.profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+.profile-badge.badge-role {
+  background: #eff6ff;
+  color: #3b82f6;
+  border-color: #bfdbfe;
+}
+.profile-badge.badge-status-active {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+.profile-badge.badge-status-inactive {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fecaca;
+}
+.profile-badge.badge-dark {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #1e293b;
+}
+
+/* ── Toggle switch (tail-switch pattern) ─────────────────── */
+.profile-tail-switch {
+  position: relative;
+  display: inline-flex;
+  height: 24px;
+  width: 44px;
+  align-items: center;
+  border-radius: 9999px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  background: #cbd5e1;
+  flex-shrink: 0;
+  outline: none;
+  padding: 0;
+}
+.profile-tail-switch::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s ease;
+  transform: translateX(3px);
+}
+.profile-tail-switch.is-on {
+  background: #0f172a;
+}
+.profile-tail-switch.is-on::after {
+  transform: translateX(23px);
+}
+.profile-tail-switch:focus-visible {
+  box-shadow: 0 0 0 3px rgba(15,23,42,0.25);
+}
