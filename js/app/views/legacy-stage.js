@@ -11,10 +11,20 @@ import { getState, onPlazaChange } from '/js/app/app-state.js';
 let _container = null;
 let _shell = null;
 let _iframe = null;
+let _currentId = null;
 let _offGlobalSearch = null;
 let _offPlazaChange = null;
 let _unitsHeaderTimer = null;
 let _unitsHeaderSig = '';
+
+// Views kept alive between navigations (iframe preserved in memory, not destroyed).
+// Excludes alertas/alertasHist (tool overlays on mapa, share its iframe src).
+const _keepAliveIds = new Set([
+  'dashboard', 'mapa', 'cuadre', 'admin', 'mensajes',
+  'cola', 'incidencias', 'programador', 'editmap', 'profile'
+]);
+// id → { sectionEl, iframe }
+const _iframePool = new Map();
 
 const LEGACY_BY_ID = {
   dashboard:   { src: '/home',              title: 'Dashboard' },
@@ -159,6 +169,7 @@ function _injectFrameOverrides(frame, id) {
       body.legacy-embedded-stage .cfg-v2-sidebar{display:none!important;}
       body.legacy-embedded-stage .cfg-v2-body{grid-template-columns:minmax(0,1fr)!important;}
       body.legacy-embedded-stage .cfg-v2-hero{display:none!important;}
+      body.legacy-embedded-stage .cfg-v2-search-box{display:none!important;}
       body.legacy-embedded-stage #modal-config-global{border-radius:0!important;}
       body.legacy-embedded-stage .chatv2-header{display:none!important;}
       body.legacy-embedded-stage #buzon-modal{height:100vh!important;min-height:100vh!important;}
@@ -467,41 +478,65 @@ export function mount(ctx = {}) {
   _container = ctx.container;
   _shell = ctx.shell || null;
   const id = _idFromContext(ctx);
+  _currentId = id;
   const cfg = LEGACY_BY_ID[id] || LEGACY_BY_ID.dashboard;
-  const src = _srcFor(id, ctx);
 
   _ensureCss();
   document.body.classList.add('app-legacy-stage-active');
   _shell?.setHeaderActions?.('');
 
-  _container.innerHTML = `
-    <section class="app-legacy-stage" data-legacy-stage="${esc(id)}">
-      <div class="app-legacy-stage__loader" id="appLegacyStageLoader" aria-live="polite">
-        <span class="app-legacy-stage__loader-mark"></span>
-        <strong>${esc(cfg.title)}</strong>
-        <small>Sincronizando vista...</small>
-      </div>
-      <iframe
-        id="appLegacyStageFrame"
-        class="app-legacy-stage__frame"
-        title="${esc(cfg.title)}"
-        src="${esc(src)}"
-        data-app-legacy-stage="${esc(id)}"
-        loading="eager"
-        allow="clipboard-read; clipboard-write; microphone; camera; fullscreen"
-      ></iframe>
-    </section>
-  `;
-
-  _iframe = _container.querySelector('#appLegacyStageFrame');
-  const loader = _container.querySelector('#appLegacyStageLoader');
-  _bindShellSignals(id, ctx);
-  _iframe?.addEventListener('load', () => {
-    loader?.classList.add('is-ready');
+  // ── Keep-alive: reutilizar iframe ya cargado ──────────────
+  if (_keepAliveIds.has(id) && _iframePool.has(id)) {
+    const cached = _iframePool.get(id);
+    _iframe = cached.iframe;
+    _container.appendChild(cached.sectionEl);
+    _bindShellSignals(id, ctx);
+    // Re-inyectar overrides por si el iframe recargó mientras estaba fuera del DOM
     _injectFrameOverrides(_iframe, id);
-    _bindFrameRouteBridge(_iframe, id, ctx);
-    _scheduleFrameSync(_iframe, id, ctx);
-    _scheduleToolFrameSync(_iframe, id);
+    // Sincronizar plaza actual (pudo cambiar mientras la vista estaba oculta)
+    _syncPlaza(getState().currentPlaza, id, ctx);
+    _startLegacyMapUnitsHeader(id);
+    return;
+  }
+
+  // ── Primera carga: crear iframe nuevo ─────────────────────
+  const src = _srcFor(id, ctx);
+
+  const sectionEl = document.createElement('section');
+  sectionEl.className = 'app-legacy-stage';
+  sectionEl.dataset.legacyStage = id;
+
+  const loaderEl = document.createElement('div');
+  loaderEl.className = 'app-legacy-stage__loader';
+  loaderEl.id = 'appLegacyStageLoader';
+  loaderEl.setAttribute('aria-live', 'polite');
+  loaderEl.innerHTML = `<span class="app-legacy-stage__loader-mark"></span><strong>${esc(cfg.title)}</strong><small>Sincronizando vista...</small>`;
+
+  const iframeEl = document.createElement('iframe');
+  iframeEl.id = 'appLegacyStageFrame';
+  iframeEl.className = 'app-legacy-stage__frame';
+  iframeEl.title = cfg.title;
+  iframeEl.src = src;
+  iframeEl.dataset.appLegacyStage = id;
+  iframeEl.loading = 'eager';
+  iframeEl.allow = 'clipboard-read; clipboard-write; microphone; camera; fullscreen';
+
+  sectionEl.appendChild(loaderEl);
+  sectionEl.appendChild(iframeEl);
+  _container.appendChild(sectionEl);
+  _iframe = iframeEl;
+
+  if (_keepAliveIds.has(id)) {
+    _iframePool.set(id, { sectionEl, iframe: iframeEl });
+  }
+
+  _bindShellSignals(id, ctx);
+  iframeEl.addEventListener('load', () => {
+    loaderEl.classList.add('is-ready');
+    _injectFrameOverrides(iframeEl, id);
+    _bindFrameRouteBridge(iframeEl, id, ctx);
+    _scheduleFrameSync(iframeEl, id, ctx);
+    _scheduleToolFrameSync(iframeEl, id);
     _syncPlaza(getState().currentPlaza, id, ctx);
     _startLegacyMapUnitsHeader(id);
   });
@@ -510,17 +545,21 @@ export function mount(ctx = {}) {
 export function unmount() {
   try { _shell?.setHeaderActions?.(''); } catch (_) {}
   _clearUnitsHeader();
-  if (typeof _offGlobalSearch === 'function') {
-    try { _offGlobalSearch(); } catch (_) {}
-  }
-  if (typeof _offPlazaChange === 'function') {
-    try { _offPlazaChange(); } catch (_) {}
-  }
-  document.body.classList.remove('app-legacy-stage-active');
-  if (_container) _container.innerHTML = '';
+  if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
+  if (typeof _offPlazaChange === 'function') { try { _offPlazaChange(); } catch (_) {} }
   _offGlobalSearch = null;
   _offPlazaChange = null;
+
+  // ── Keep-alive: solo desacoplar del DOM, no destruir ─────
+  if (_currentId && _keepAliveIds.has(_currentId) && _iframePool.has(_currentId)) {
+    try { _iframePool.get(_currentId).sectionEl.remove(); } catch (_) {}
+  } else {
+    if (_container) _container.innerHTML = '';
+  }
+
+  document.body.classList.remove('app-legacy-stage-active');
   _iframe = null;
   _shell = null;
   _container = null;
+  _currentId = null;
 }

@@ -132,8 +132,7 @@ export const NAV_GROUPS = [
           { id: 'gasolinas',   label: 'Gasolinas',   route: '/gestion?tab=gasolinas',   icon: 'local_gas_station' },
           { id: 'plazas',      label: 'Plazas',      route: '/gestion?tab=plazas',      icon: 'location_city' },
           { id: 'ubicaciones', label: 'Ubicaciones', route: '/gestion?tab=ubicaciones', icon: 'place' },
-          { id: 'empresa',     label: 'Empresa',     route: '/gestion?tab=empresa',     icon: 'business' },
-          { id: 'catalogos',   label: 'Catálogos',   route: '/gestion?tab=catalogos',   icon: 'list_alt' }
+          { id: 'empresa',     label: 'Empresa',     route: '/gestion?tab=empresa',     icon: 'business' }
         ]
       }
     ]
