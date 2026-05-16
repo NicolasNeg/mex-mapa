@@ -66,6 +66,7 @@ export function mount(ctx) {
   window.CURRENT_USER_PROFILE = _profile;
 
   ctx.container.innerHTML = _html();
+  _mountCropPortal();
   _setupCropDocListeners();
   _bindChrome();
   _initTabs();
@@ -83,6 +84,7 @@ export function unmount() {
   if (_docMouseUp) document.removeEventListener('mouseup', _docMouseUp);
   if (_docTouchMove) document.removeEventListener('touchmove', _docTouchMove);
   if (_docTouchEnd) document.removeEventListener('touchend', _docTouchEnd);
+  document.getElementById('profile-crop-overlay')?.remove();
   _resetState();
 }
 
@@ -637,48 +639,7 @@ function _html() {
 </div>
 
 <!-- Avatar file input -->
-<input id="profile-avatar-input" type="file" accept="image/*" style="display:none;">
-
-<!-- Crop overlay -->
-<div id="profile-crop-overlay" class="profile-crop-overlay" style="display:none;">
-  <div class="profile-crop-card">
-    <div class="profile-crop-head">
-      <div>
-        <h3 class="profile-crop-title">Ajustar foto de perfil</h3>
-        <p class="profile-crop-sub">Arrastra la imagen y usa el zoom para centrar tu avatar.</p>
-      </div>
-      <button type="button" class="profile-crop-close" id="profile-crop-close-btn" aria-label="Cerrar">×</button>
-    </div>
-    <div class="profile-crop-stage-wrap">
-      <div id="profile-crop-stage" class="profile-crop-stage">
-        <img id="profile-crop-img" class="profile-crop-image" alt="Recorte de avatar">
-        <div class="profile-crop-mask"></div>
-      </div>
-    </div>
-    <div class="profile-crop-zoom">
-      <label for="profile-crop-zoom-input">Zoom</label>
-      <input id="profile-crop-zoom-input" type="range" min="1" max="4" step="0.01" value="1">
-      <p>1x – 4x</p>
-    </div>
-    <div class="profile-crop-previews">
-      <div class="profile-crop-preview-item">
-        <canvas id="profile-preview-circle" width="96" height="96"></canvas>
-        <span>Avatar</span>
-      </div>
-      <div class="profile-crop-preview-item">
-        <canvas id="profile-preview-card" width="112" height="112"></canvas>
-        <span>Vista previa</span>
-      </div>
-    </div>
-    <div class="profile-crop-actions">
-      <button type="button" class="profile-crop-btn cancel" id="profile-crop-cancel-btn">Cancelar</button>
-      <button id="profile-crop-save-btn" type="button" class="profile-crop-btn confirm">
-        <span class="material-symbols-outlined" style="font-size:16px;">check</span>
-        Guardar Foto
-      </button>
-    </div>
-  </div>
-</div>`;
+<input id="profile-avatar-input" type="file" accept="image/*" style="display:none;">`;
 }
 
 // ── Render ────────────────────────────────────────────────
@@ -1012,12 +973,7 @@ function _bindChrome() {
   });
 
   document.getElementById('profile-btn-quitar-foto')?.addEventListener('click', _removeAvatar);
-  document.getElementById('profile-crop-close-btn')?.addEventListener('click', _cancelCrop);
-  document.getElementById('profile-crop-cancel-btn')?.addEventListener('click', _cancelCrop);
-  document.getElementById('profile-crop-save-btn')?.addEventListener('click', _saveAvatar);
-  document.getElementById('profile-crop-zoom-input')?.addEventListener('input', function () {
-    _adjustZoom(parseFloat(this.value) || 1);
-  });
+  // Crop buttons are bound in _mountCropPortal (overlay lives in document.body)
 }
 
 // ── Tab navigation ────────────────────────────────────────
@@ -1156,6 +1112,62 @@ async function _removeAvatar() {
   }
 }
 
+// ── Crop portal ───────────────────────────────────────────
+// The overlay is appended to document.body so it escapes
+// the #mexShellContent CSS containment (contain:layout style)
+// that breaks position:fixed inside the content area.
+function _mountCropPortal() {
+  if (document.getElementById('profile-crop-overlay')) return;
+  const portal = document.createElement('div');
+  portal.id = 'profile-crop-overlay';
+  portal.className = 'profile-crop-overlay';
+  portal.style.display = 'none';
+  portal.innerHTML = `
+    <div class="profile-crop-card">
+      <div class="profile-crop-head">
+        <div>
+          <h3 class="profile-crop-title">Ajustar foto de perfil</h3>
+          <p class="profile-crop-sub">Arrastra la imagen y usa el zoom para centrar tu avatar.</p>
+        </div>
+        <button type="button" class="profile-crop-close" id="profile-crop-close-btn" aria-label="Cerrar">×</button>
+      </div>
+      <div class="profile-crop-stage-wrap">
+        <div id="profile-crop-stage" class="profile-crop-stage">
+          <img id="profile-crop-img" class="profile-crop-image" alt="Recorte de avatar">
+          <div class="profile-crop-mask"></div>
+        </div>
+      </div>
+      <div class="profile-crop-zoom">
+        <label for="profile-crop-zoom-input">Zoom</label>
+        <input id="profile-crop-zoom-input" type="range" min="1" max="4" step="0.01" value="1">
+        <p>1x – 4x</p>
+      </div>
+      <div class="profile-crop-previews">
+        <div class="profile-crop-preview-item">
+          <canvas id="profile-preview-circle" width="96" height="96"></canvas>
+          <span>Avatar</span>
+        </div>
+        <div class="profile-crop-preview-item">
+          <canvas id="profile-preview-card" width="112" height="112"></canvas>
+          <span>Vista previa</span>
+        </div>
+      </div>
+      <div class="profile-crop-actions">
+        <button type="button" class="profile-crop-btn cancel" id="profile-crop-cancel-btn">Cancelar</button>
+        <button id="profile-crop-save-btn" type="button" class="profile-crop-btn confirm">
+          <span class="material-symbols-outlined" style="font-size:16px;">check</span>
+          Guardar Foto
+        </button>
+      </div>
+    </div>`;
+  document.body.appendChild(portal);
+  portal.querySelector('#profile-crop-close-btn')?.addEventListener('click', _cancelCrop);
+  portal.querySelector('#profile-crop-cancel-btn')?.addEventListener('click', _cancelCrop);
+  portal.querySelector('#profile-crop-save-btn')?.addEventListener('click', _saveAvatar);
+  const zoomInput = portal.querySelector('#profile-crop-zoom-input');
+  if (zoomInput) zoomInput.addEventListener('input', e => _adjustZoom(e.target.value));
+}
+
 // ── Crop ──────────────────────────────────────────────────
 function _openCrop(src) {
   const overlay = document.getElementById('profile-crop-overlay');
@@ -1278,11 +1290,15 @@ async function _saveAvatar() {
     ctx.drawImage(src.img, src.sx, src.sy, src.sw, src.sw, 0, 0, 512, 512);
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
     if (!blob) throw new Error('No se pudo generar la imagen final');
+    const a = _authInstance();
+    const uid = _safeText(a?.currentUser?.uid);
     const docId = _docId();
-    if (!docId) throw new Error('No se pudo resolver el documento del usuario');
+    if (!docId && !uid) throw new Error('No se pudo resolver el documento del usuario');
     const prevPath = _safeText(_profile?.avatarPath);
     const prevUrl = _getAvatarUrl(_profile);
-    const avatarPath = `profile_avatars/${docId}/avatar_${Date.now()}.jpg`;
+    // Use uid for storage path — always matches request.auth.uid in storage rules.
+    const storageBucket = uid || docId;
+    const avatarPath = `profile_avatars/${storageBucket}/avatar_${Date.now()}.jpg`;
     const sc = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
     if (!sc?.ref) throw new Error('Storage no disponible');
     const ref = sc.ref(avatarPath);
@@ -1292,7 +1308,6 @@ async function _saveAvatar() {
     await db.collection('usuarios').doc(docId).set(payload, { merge: true });
     if (prevPath && prevPath !== avatarPath) sc.ref(prevPath).delete().catch(() => {});
     else if (!prevPath && prevUrl && prevUrl !== avatarUrl) sc.refFromURL(prevUrl).delete().catch(() => {});
-    const a = _authInstance();
     if (a?.currentUser?.updateProfile) a.currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => {});
     _profile = { ..._profile, ...payload };
     window.CURRENT_USER_PROFILE = _profile;
