@@ -96,6 +96,7 @@ function _resetState() {
   _cropState = null; _cropDragging = false; _cropLast = null;
   _docMouseMove = null; _docMouseUp = null;
   _docTouchMove = null; _docTouchEnd = null;
+  _resolvedDocId = null;
 }
 
 function _ensureCss() {
@@ -209,6 +210,33 @@ function _getAvatarUrl(p = _profile) {
 function _docId() {
   const a = _authInstance();
   return _safeText(_profile?.id || _profile?.email || a?.currentUser?.uid || a?.currentUser?.email);
+}
+
+// Resolves the EXISTING Firestore document ID for the current user.
+// Checks email key first (most common), then UID. Returns null if neither found.
+// Cached per mount to avoid repeated Firestore reads.
+let _resolvedDocId = null;
+async function _resolveFirestoreDocId() {
+  if (_resolvedDocId) return _resolvedDocId;
+  const a = _authInstance();
+  const emailKey = _safeText(_profile?.email || a?.currentUser?.email).toLowerCase();
+  const uid = _safeText(a?.currentUser?.uid);
+  if (emailKey) {
+    try {
+      const snap = await db.collection('usuarios').doc(emailKey).get();
+      if (snap.exists) { _resolvedDocId = emailKey; return emailKey; }
+    } catch (_) {}
+  }
+  if (uid) {
+    try {
+      const snap = await db.collection('usuarios').doc(uid).get();
+      if (snap.exists) { _resolvedDocId = uid; return uid; }
+    } catch (_) {}
+  }
+  // Fall back to profile.id — may still be correct
+  const fallback = _docId();
+  if (fallback) _resolvedDocId = fallback;
+  return fallback || null;
 }
 function _isOnline(p = _profile) {
   const ts = _coerceTs(p?.lastSeenAt || p?.lastActiveAt);
@@ -858,9 +886,9 @@ async function _save() {
   }
   try {
     const { phone, prefs } = _collectForm();
-    const docId = _docId();
+    const docId = await _resolveFirestoreDocId();
     if (!docId) throw new Error('No se pudo resolver el documento del usuario');
-    await db.collection('usuarios').doc(docId).set({ telefono: phone, profilePreferences: prefs }, { merge: true });
+    await db.collection('usuarios').doc(docId).update({ telefono: phone, profilePreferences: prefs });
     _profile = { ..._profile, telefono: phone, profilePreferences: prefs };
     _prefs = prefs;
     _persistPrefs(prefs);
@@ -1278,6 +1306,7 @@ async function _saveAvatar() {
   const btn = document.getElementById('profile-crop-save-btn');
   if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
   try {
+    // ── 1. Build canvas blob ──────────────────────────────
     const stage = document.getElementById('profile-crop-stage');
     if (!stage || !_cropState) throw new Error('Sin imagen para recortar');
     const canvas = document.createElement('canvas');
@@ -1290,32 +1319,57 @@ async function _saveAvatar() {
     ctx.drawImage(src.img, src.sx, src.sy, src.sw, src.sw, 0, 0, 512, 512);
     const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
     if (!blob) throw new Error('No se pudo generar la imagen final');
+
+    // ── 2. Resolve identity ───────────────────────────────
     const a = _authInstance();
-    const uid = _safeText(a?.currentUser?.uid);
-    const docId = _docId();
-    if (!docId && !uid) throw new Error('No se pudo resolver el documento del usuario');
-    const prevPath = _safeText(_profile?.avatarPath);
-    const prevUrl = _getAvatarUrl(_profile);
-    // Use uid for storage path — always matches request.auth.uid in storage rules.
-    const storageBucket = uid || docId;
-    const avatarPath = `profile_avatars/${storageBucket}/avatar_${Date.now()}.jpg`;
+    const currentUser = a?.currentUser;
+    const uid = _safeText(currentUser?.uid);
+    const authEmail = _safeText(currentUser?.email).toLowerCase();
+
+    // Storage path: uid always matches request.auth.uid in storage rules
+    const storageBucket = uid || _profile?.id || authEmail;
+    if (!storageBucket) throw new Error('No hay identidad de usuario para el storage');
+
+    // Firestore doc key: resolved by checking which document actually exists
+    const firestoreDocId = await _resolveFirestoreDocId();
+    if (!firestoreDocId) throw new Error('No se pudo localizar el documento del usuario');
+
+    // ── 3. Upload to Storage ──────────────────────────────
     const sc = storage || window._storage || (window.firebase?.storage ? window.firebase.storage() : null);
     if (!sc?.ref) throw new Error('Storage no disponible');
-    const ref = sc.ref(avatarPath);
-    await ref.put(blob, { contentType: 'image/jpeg' });
-    const avatarUrl = await ref.getDownloadURL();
+    const prevPath = _safeText(_profile?.avatarPath);
+    const prevUrl = _getAvatarUrl(_profile);
+    const avatarPath = `profile_avatars/${storageBucket}/avatar_${Date.now()}.jpg`;
+    let avatarUrl;
+    try {
+      const ref = sc.ref(avatarPath);
+      await ref.put(blob, { contentType: 'image/jpeg' });
+      avatarUrl = await ref.getDownloadURL();
+    } catch (storageErr) {
+      console.error('[app/profile] storage upload failed:', storageErr.code, storageErr.message, { storageBucket, avatarPath, uid, authEmail });
+      throw storageErr;
+    }
+
+    // ── 4. Write to Firestore ─────────────────────────────
     const payload = { avatarUrl, avatarPath, photoURL: avatarUrl, fotoURL: avatarUrl, profilePhotoUrl: avatarUrl };
-    await db.collection('usuarios').doc(docId).set(payload, { merge: true });
+    try {
+      await db.collection('usuarios').doc(firestoreDocId).update(payload);
+    } catch (fsErr) {
+      console.error('[app/profile] firestore write failed:', fsErr.code, fsErr.message, { firestoreDocId, uid, authEmail });
+      throw fsErr;
+    }
+
+    // ── 5. Cleanup & update local state ──────────────────
     if (prevPath && prevPath !== avatarPath) sc.ref(prevPath).delete().catch(() => {});
     else if (!prevPath && prevUrl && prevUrl !== avatarUrl) sc.refFromURL(prevUrl).delete().catch(() => {});
-    if (a?.currentUser?.updateProfile) a.currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => {});
+    if (currentUser?.updateProfile) currentUser.updateProfile({ photoURL: avatarUrl }).catch(() => {});
     _profile = { ..._profile, ...payload };
     window.CURRENT_USER_PROFILE = _profile;
     if (_mounted) _renderProfile();
     _cancelCrop();
     _toast('Foto actualizada ✓', 'success');
   } catch (err) {
-    console.error('[app/profile] save avatar:', err);
+    console.error('[app/profile] save avatar:', err?.code, err?.message);
     _toast('No se pudo guardar la foto.', 'error');
   } finally {
     if (btn) {
