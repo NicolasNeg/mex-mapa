@@ -809,12 +809,12 @@ function _attachToolbarHandlers() {
   q('incRefreshBtn')?.addEventListener('click', () => {
     if (_state?.plaza) _startListener();
   });
-  q('[data-clear-sel]')?.addEventListener('click', () => {
+  _container?.querySelector('[data-clear-sel]')?.addEventListener('click', () => {
     _state.selectedIds = [];
     _render();
   });
-  q('[data-bulk-resolve]')?.addEventListener('click', _onBulkResolve);
-  q('[data-bulk-copy]')?.addEventListener('click', _onBulkCopyCsv);
+  _container?.querySelector('[data-bulk-resolve]')?.addEventListener('click', _onBulkResolve);
+  _container?.querySelector('[data-bulk-copy]')?.addEventListener('click', _onBulkCopyCsv);
 }
 
 function _renderView(items) {
@@ -866,6 +866,20 @@ function _attachRowHandlers() {
       const id = el.dataset.openId;
       const item = _state.allItems.find(it => (it.legacyNotaId || it.id) === id);
       if (item) _openDetail(item);
+    });
+  });
+
+  // Row check (toggle selection)
+  qsa('[data-row-check]').forEach(label => {
+    label.addEventListener('click', event => {
+      event.stopPropagation();
+      const id = label.dataset.rowCheck;
+      if (!id) return;
+      const sel = new Set(_state.selectedIds || []);
+      if (sel.has(id)) sel.delete(id);
+      else sel.add(id);
+      _state.selectedIds = [...sel];
+      _render();
     });
   });
 
@@ -1092,15 +1106,12 @@ function _openDetail(item) {
   _state.detailOpenId = item.legacyNotaId || item.id || '';
   _renderDetailPanel();
   _renderView(_state.items); // refrescar marca activa
-  const panel = q('incDetailPanel');
-  panel?.classList.add('is-open');
 }
 
 function _closeDetail() {
   if (!_state) return;
   _state.detailOpenId = '';
-  const panel = q('incDetailPanel');
-  panel?.classList.remove('is-open');
+  _renderDetailPanel();
   _renderView(_state.items);
 }
 
@@ -1109,26 +1120,26 @@ function _renderDetailPanel() {
   if (!panel) return;
   const id = _state.detailOpenId;
   if (!id) {
+    panel.className = 'detail detail-empty';
     panel.innerHTML = `
-      <div class="dp-empty">
-        <div class="dp-empty-mark"><span class="material-icons">inbox</span></div>
-        <div class="dp-empty-title">Selecciona una incidencia</div>
-        <div class="dp-empty-sub">Aquí verás el detalle completo, la línea de tiempo y las acciones.</div>
-      </div>
+      <div class="de-mark"><span class="material-icons">inbox</span></div>
+      <div class="de-title">Selecciona una incidencia</div>
+      <div class="de-sub">Aquí verás el detalle completo, la línea de tiempo y las acciones.</div>
     `;
     return;
   }
   const item = _state.allItems.find(it => (it.legacyNotaId || it.id) === id);
   if (!item) {
+    panel.className = 'detail detail-empty';
     panel.innerHTML = `
-      <div class="dp-empty">
-        <div class="dp-empty-mark"><span class="material-icons">inbox</span></div>
-        <div class="dp-empty-title">Incidencia no disponible</div>
-        <div class="dp-empty-sub">Es posible que haya sido eliminada o ya no esté visible.</div>
-      </div>
+      <div class="de-mark"><span class="material-icons">inbox</span></div>
+      <div class="de-title">Incidencia no disponible</div>
+      <div class="de-sub">Es posible que haya sido eliminada o ya no esté visible.</div>
     `;
     return;
   }
+
+  panel.className = 'detail';
 
   const codigo = item.codigo || item.legacyNotaId || item.id || '';
   const pr = _priority(item);
@@ -1142,19 +1153,39 @@ function _renderDetailPanel() {
   const descripcion = _renderRichText(item.descripcion || 'Sin descripción.', item.descripcionHtml);
   const resolved = status === 'RESUELTA' || status === 'CERRADA';
 
+  // Watchers (estática: autor + supervisión + despacho)
+  const author = String(item.autor || item.creadoPor || 'Sistema').trim();
+  const watchers = [
+    { initials: _initialsFrom(author), name: author.split(/[\s@]/)[0] || 'Autor' },
+    { initials: 'DP', name: 'Despacho' },
+    { initials: 'SU', name: 'Supervisión' },
+  ];
+
+  // Related (same tipo, excluir actual, máx 3)
+  const tipoCur = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
+  const related = (_state.allItems || [])
+    .filter(r => (r.legacyNotaId || r.id) !== id && (String(r?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO') === tipoCur)
+    .slice(0, 3);
+
+  // Usuario actual (para caja de comentario)
+  const gs = getState();
+  const me = gs?.profile?.nombreCompleto || gs?.profile?.nombre || gs?.profile?.email || 'Usuario';
+  const meInitials = _initialsFrom(me);
+
   panel.innerHTML = `
     <div class="dp-head">
       <div class="dp-head-top">
         <span class="dp-id">${esc(codigo)}</span>
         <span class="dp-id-sep">·</span>
         <span class="dp-region">${esc(item.plaza || _state.plaza || 'GLOBAL')}</span>
-        <span class="dp-head-spacer"></span>
+        <span class="dp-head-spacer" style="flex:1"></span>
         <button class="dp-icon-btn" id="incDetailClose" title="Cerrar"><span class="material-icons">close</span></button>
       </div>
       <h2 class="dp-title">${esc(item.titulo || 'Sin título')}</h2>
       <div class="dp-pills">
         <span class="dp-pill"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(pr))}</span>
         <span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span>
+        <span class="schedule-chip sla-neutral">—</span>
       </div>
     </div>
 
@@ -1209,6 +1240,43 @@ function _renderDetailPanel() {
       ` : ''}
 
       <section class="dp-section">
+        <div class="dp-section-label">Watchers · ${watchers.length}</div>
+        <div class="dp-watchers">
+          <div class="dp-watcher-stack">
+            ${watchers.map((w, i) => `
+              <div class="dp-watcher-av" style="z-index:${10 - i}">
+                <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(w.initials)}</span>
+              </div>
+            `).join('')}
+          </div>
+          <button class="dp-watcher-add"><span class="material-icons">add</span>Seguir</button>
+        </div>
+      </section>
+
+      ${related.length ? `
+        <section class="dp-section">
+          <div class="dp-section-label">Relacionadas</div>
+          <div class="dp-related">
+            ${related.map(r => {
+              const rid = r.legacyNotaId || r.id || '';
+              const rPr = _priority(r).toLowerCase();
+              const rStatus = _statusFromNota(r);
+              const rStKey = rStatus.toLowerCase();
+              const rStLabel = _statusLabel(rStatus);
+              return `
+                <button class="dp-related-row" data-open-id="${esc(rid)}">
+                  <span class="prio-dot is-${esc(rPr)}"></span>
+                  <span class="dp-related-id">${esc(r.codigo || rid)}</span>
+                  <span class="dp-related-title">${esc(r.titulo || 'Sin título')}</span>
+                  <span class="status-pill is-${esc(rStKey)}"><span class="status-pill-dot"></span>${esc(rStLabel)}</span>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </section>
+      ` : ''}
+
+      <section class="dp-section">
         <div class="dp-section-label">Línea de tiempo</div>
         <ol class="inc-timeline">
           <li class="inc-timeline-item is-create">
@@ -1225,20 +1293,35 @@ function _renderDetailPanel() {
           ` : ''}
         </ol>
       </section>
+
+      <section class="dp-section">
+        <div class="dp-section-label">Comentar</div>
+        <div class="dp-comment">
+          <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(meInitials)}</span>
+          <input id="incCommentInput" placeholder="Escribe un comentario o @menciona…">
+          <button class="dp-send" id="incCommentSend"><span class="material-icons">send</span></button>
+        </div>
+      </section>
     </div>
 
     <div class="dp-foot">
       ${open ? `
-        <button class="dp-btn is-primary" data-resolve-id="${esc(item.legacyNotaId || item.id)}" data-stop>
-          <span class="material-icons">check</span> Marcar resuelta
+        <button class="dp-btn dp-btn-secondary" data-stop>
+          <span class="material-icons" style="font-size:13px">person</span> Reasignar
         </button>
-      ` : ''}
+        <button class="dp-btn dp-btn-primary" data-resolve-id="${esc(item.legacyNotaId || item.id)}" data-stop>
+          <span class="material-icons" style="font-size:13px">check</span> Marcar resuelta
+        </button>
+      ` : `
+        <button class="dp-btn dp-btn-secondary" data-stop>
+          <span class="material-icons" style="font-size:13px">refresh</span> Reabrir incidencia
+        </button>
+      `}
       ${canDelete ? `
         <button class="dp-btn is-danger" data-delete-id="${esc(item.legacyNotaId || item.id)}" data-stop>
-          <span class="material-icons">delete</span> Eliminar
+          <span class="material-icons" style="font-size:13px">delete</span>
         </button>
       ` : ''}
-      ${!open && !canDelete ? `<span style="font-size:11.5px;color:var(--fg-muted);align-self:center;">Sin acciones disponibles.</span>` : ''}
     </div>
   `;
 
@@ -1258,6 +1341,21 @@ function _renderDetailPanel() {
       }
     });
   });
+  panel.querySelectorAll('[data-open-id]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rid = btn.dataset.openId;
+      const ritem = _state.allItems.find(it => (it.legacyNotaId || it.id) === rid);
+      if (ritem) _openDetail(ritem);
+    });
+  });
+  // Comentario stub (solo toast por ahora)
+  q('incCommentSend')?.addEventListener('click', () => {
+    const txt = String(q('incCommentInput')?.value || '').trim();
+    if (!txt) return;
+    _showToast('Comentario enviado', 'Próximamente: se guardará en la línea de tiempo.', 'ok');
+    const inp = q('incCommentInput');
+    if (inp) inp.value = '';
+  });
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1268,6 +1366,10 @@ function _toggleCreateDialog(show) {
   bd?.classList.toggle('is-open', !!show);
   if (show) {
     _applyDraftMeta();
+    const sub = q('incCreateSub');
+    if (sub) sub.textContent = `Se publicará en la bitácora · ${_state?.plaza || 'GLOBAL'}`;
+    _onDraftChange();
+    _renderCreatePreview();
     setTimeout(() => q('nuevaNotaTitulo')?.focus(), 50);
   }
 }
@@ -1323,11 +1425,13 @@ async function _onCreateIncidencia() {
     }
 
     await createIncidencia(payload);
-    _showNotice('Nota publicada.', 'ok');
+    _showToast('Incidencia publicada', titulo.slice(0, 60), 'ok');
+    const createAnother = !!q('incCreateAgain')?.checked;
     _resetComposer();
-    _toggleCreateDialog(false);
+    if (!createAnother) _toggleCreateDialog(false);
+    else setTimeout(() => q('nuevaNotaTitulo')?.focus(), 50);
   } catch (error) {
-    _showNotice(error?.message || 'Error al publicar.', 'error');
+    _showToast('No se pudo publicar', error?.message || 'Intenta de nuevo.', 'error');
   } finally {
     if (btn) btn.disabled = false;
   }
@@ -1340,15 +1444,20 @@ function _resetComposer() {
   _state.descripcionHtmlNuevaNota = '';
   const pri = q('nuevaNotaPrioridad'); if (pri) pri.value = 'ALTA';
   const tip = q('nuevaNotaTipo'); if (tip) tip.value = 'OTRO';
+  // Reset segmented prio
+  qsa('[data-ci-prio]').forEach(b => b.classList.toggle('is-on', b.dataset.ciPrio === 'ALTA'));
   if (_state.archivosNuevaNota) {
     _state.archivosNuevaNota.forEach(item => { if (item.previewUrl) URL.revokeObjectURL(item.previewUrl); });
     _state.archivosNuevaNota = [];
   }
   _state.linksNuevaNota = [];
+  _state.createDraft = { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '' };
   _renderAdjuntosNuevos();
   _renderLinksNuevos();
   _prefillMvaFromQuery();
   _applyDraftMeta();
+  _renderCreatePreview();
+  _updateCreateSubmitState();
 }
 
 function _prefillMvaFromQuery() {
@@ -1547,18 +1656,173 @@ function _setText(id, value) {
 }
 
 function _showNotice(message, type = 'ok') {
-  let el = document.getElementById('app-inc-notice');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'app-inc-notice';
-    el.style.cssText = 'position:fixed;right:16px;bottom:18px;z-index:100001;padding:10px 12px;border-radius:10px;color:#fff;font:700 12px Inter,sans-serif;box-shadow:0 10px 26px rgba(15,23,42,.24);max-width:92vw;';
-    document.body.appendChild(el);
+  // Compat: si recibe (mensaje, tipo) lo mapea al nuevo toast
+  _showToast(message, '', type);
+}
+
+function _showToast(title, sub = '', tone = 'ok') {
+  if (!_container) {
+    // Fallback (no module mounted)
+    let el = document.getElementById('app-inc-notice');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'app-inc-notice';
+      el.style.cssText = 'position:fixed;right:16px;bottom:18px;z-index:100001;padding:10px 12px;border-radius:10px;color:#fff;font:700 12px Inter,sans-serif;box-shadow:0 10px 26px rgba(15,23,42,.24);max-width:92vw;';
+      document.body.appendChild(el);
+    }
+    el.style.background = tone === 'error' ? '#b91c1c' : '#166534';
+    el.textContent = String(title || '');
+    el.style.opacity = '1';
+    clearTimeout(_showToast._t);
+    _showToast._t = setTimeout(() => { el.style.opacity = '0'; }, 3200);
+    return;
   }
-  el.style.background = type === 'error' ? '#b91c1c' : '#166534';
-  el.textContent = String(message || '');
-  el.style.opacity = '1';
-  clearTimeout(_showNotice._t);
-  _showNotice._t = setTimeout(() => { el.style.opacity = '0'; }, 3200);
+
+  // Remueve toast anterior
+  const old = _container.querySelector('.toast');
+  if (old) old.remove();
+  if (_state?.toastTimer) {
+    clearTimeout(_state.toastTimer);
+    _state.toastTimer = null;
+  }
+
+  const icon = tone === 'error' ? 'error_outline'
+    : tone === 'warn' ? 'warning'
+    : 'check';
+  const cls = tone === 'error' ? 'toast-error'
+    : tone === 'warn' ? 'toast-warn'
+    : 'toast-ok';
+
+  const wrap = document.createElement('div');
+  wrap.className = `toast ${cls}`;
+  wrap.innerHTML = `
+    <div class="toast-icon"><span class="material-icons">${icon}</span></div>
+    <div class="toast-body">
+      <div class="toast-title">${esc(title || '')}</div>
+      ${sub ? `<div class="toast-sub">${esc(sub)}</div>` : ''}
+    </div>
+    <button class="toast-close" title="Cerrar"><span class="material-icons">close</span></button>
+  `;
+  wrap.querySelector('.toast-close')?.addEventListener('click', () => {
+    wrap.remove();
+    if (_state?.toastTimer) { clearTimeout(_state.toastTimer); _state.toastTimer = null; }
+  });
+  _container.appendChild(wrap);
+  if (_state) {
+    _state.toastTimer = setTimeout(() => {
+      wrap.remove();
+      if (_state) _state.toastTimer = null;
+    }, 3600);
+  }
+}
+
+function _onBulkResolve() {
+  const ids = (_state?.selectedIds || []).slice();
+  if (!ids.length) return;
+  _showToast('Resolución masiva', `${ids.length} incidencia${ids.length === 1 ? '' : 's'}: marca una por una desde el detalle.`, 'warn');
+  // Limpia selección visual
+  _state.selectedIds = [];
+  _render();
+}
+
+function _onBulkCopyCsv() {
+  const ids = new Set(_state?.selectedIds || []);
+  if (!ids.size) return;
+  const items = (_state.allItems || []).filter(it => ids.has(it.legacyNotaId || it.id));
+  const header = ['ID', 'Titulo', 'Prioridad', 'Estado', 'Tipo', 'MVA', 'Autor', 'CreadoEn'];
+  const rows = items.map(it => [
+    it.codigo || it.legacyNotaId || it.id || '',
+    (it.titulo || '').replace(/[\r\n]+/g, ' '),
+    _priority(it),
+    _statusFromNota(it),
+    String(it.tipo || 'OTRO').toUpperCase(),
+    it.mva || '',
+    it.autor || it.creadoPor || '',
+    _longDate(it.creadoEn || it.fecha)
+  ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(','));
+  const csv = [header.join(','), ...rows].join('\n');
+  const copy = navigator.clipboard?.writeText ? navigator.clipboard.writeText(csv) : Promise.reject();
+  copy
+    .then(() => _showToast('Copiado como CSV', `${items.length} incidencia${items.length === 1 ? '' : 's'} en el portapapeles`, 'ok'))
+    .catch(() => _showToast('No se pudo copiar', 'Tu navegador bloqueó el acceso al portapapeles.', 'error'));
+}
+
+function _onDraftChange() {
+  if (!_state) return;
+  _state.createDraft.titulo = String(q('nuevaNotaTitulo')?.value || '');
+  _state.createDraft.descripcion = String(q('nuevaNotaTxt')?.value || q('nuevaNotaRich')?.innerText || '');
+  _state.createDraft.prioridad = String(q('nuevaNotaPrioridad')?.value || 'ALTA').toUpperCase();
+  _state.createDraft.tipo = String(q('nuevaNotaTipo')?.value || 'OTRO').toUpperCase();
+  _state.createDraft.mva = String(q('incMvaInput')?.value || '').trim();
+  // Hint counter
+  const titleHint = q('incCreateTitleHint');
+  if (titleHint) {
+    const n = _state.createDraft.titulo.length;
+    titleHint.textContent = `Sé específico: incluye activo y síntoma. ${n}/120`;
+  }
+  _renderCreatePreview();
+  _updateCreateSubmitState();
+}
+
+function _renderCreatePreview() {
+  const card = q('incCreatePreviewCard');
+  if (!card) return;
+  const d = _state?.createDraft || { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '' };
+  const prLower = String(d.prioridad).toLowerCase();
+  const tipo = String(d.tipo || 'OTRO').toUpperCase();
+  const gs = getState();
+  const me = gs?.profile?.nombreCompleto || gs?.profile?.nombre || gs?.profile?.email || 'Sistema';
+  const meInitials = _initialsFrom(me);
+
+  card.innerHTML = `
+    <div class="ci-prev-bar is-${esc(prLower)}"></div>
+    <div class="ci-prev-top">
+      <span class="ci-prev-id">INC-NUEVA</span>
+      <span class="ci-prev-dot">·</span>
+      <span>${esc(_state?.plaza || 'GLOBAL')}</span>
+      <span class="ci-prev-dot">·</span>
+      <span>justo ahora</span>
+    </div>
+    <h2 class="ci-prev-title">${d.titulo ? esc(d.titulo) : '<span class="ci-prev-empty">Título de la incidencia</span>'}</h2>
+    <div class="ci-prev-pills">
+      <span class="ci-prev-pill"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(d.prioridad))}</span>
+      <span class="status-pill is-pendiente"><span class="status-pill-dot"></span>Pendiente</span>
+      <span class="ci-prev-pill ci-prev-pill-soft">${esc(tipo)}</span>
+      ${d.mva ? `<span class="ci-prev-pill ci-prev-pill-soft">${esc(d.mva)}</span>` : ''}
+    </div>
+    <section class="ci-prev-section">
+      <div class="ci-prev-section-label">Descripción</div>
+      <p class="ci-prev-note">${d.descripcion ? esc(d.descripcion) : '<span class="ci-prev-empty">La descripción aparecerá aquí…</span>'}</p>
+    </section>
+    <section class="ci-prev-meta">
+      <div>
+        <div class="ci-prev-meta-label">Reportada por</div>
+        <div class="ci-prev-person">
+          <span class="inc-avatar" style="width:20px;height:20px;font-size:9px;">${esc(meInitials)}</span>
+          <div>
+            <div class="ci-prev-person-name">${esc(me)}</div>
+            <div class="ci-prev-person-sub">Notificación automática</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="ci-prev-meta-label">MVA / Activo</div>
+        <div class="ci-prev-mono">${esc(d.mva || '—')}</div>
+      </div>
+    </section>
+    <footer class="ci-prev-foot">
+      <span class="material-icons">notifications</span>
+      Se notificará al equipo de despacho al publicar
+    </footer>
+  `;
+}
+
+function _updateCreateSubmitState() {
+  const btn = q('btnPublicarInc');
+  if (!btn) return;
+  const t = String(_state?.createDraft?.titulo || '').trim();
+  if (t.length < 3) btn.classList.add('is-disabled');
+  else btn.classList.remove('is-disabled');
 }
 
 function esc(value) {

@@ -533,10 +533,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  min-height: 50px;
+  background: var(--bg-sub);
+  min-height: 44px;
   flex-shrink: 0;
 }
 .inc-tabs {
@@ -2275,6 +2275,11 @@
   line-height: 1.5;
   min-height: 110px;
 }
+.inc-module .ci-textarea[contenteditable="true"]:empty::before {
+  content: attr(data-placeholder);
+  color: var(--fg-soft);
+  pointer-events: none;
+}
 .inc-module .ci-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -2560,7 +2565,7 @@
     inset: 0;
     z-index: 90;
   }
-  .inc-module .detail.is-empty { display: none; }
+  .inc-module .detail.detail-empty { display: none; }
   .inc-module .mod-head {
     grid-template-columns: minmax(0, 1fr) auto;
   }
