@@ -53,6 +53,7 @@ function _makeState(plaza) {
     sortBy: 'recent', // 'recent' | 'priority'
     viewMode: 'list', // 'list' | 'table' | 'board'
     selectedId: '',
+    selectedIds: [],
     detailOpenId: '',
     resolverTargetId: '',
     mvaFromQuery,
@@ -63,6 +64,15 @@ function _makeState(plaza) {
     linksNuevaNota: [],
     descripcionHtmlNuevaNota: '',
     myAuthor,
+    // Live state para create dialog
+    createDraft: {
+      titulo: '',
+      descripcion: '',
+      prioridad: 'ALTA',
+      tipo: 'OTRO',
+      mva: ''
+    },
+    toastTimer: null,
   };
 }
 
@@ -125,6 +135,10 @@ function _cleanup() {
   }
   if (typeof _offGlobalSearch === 'function') {
     try { _offGlobalSearch(); } catch (_) {}
+  }
+  if (_bindUi._kbBound) {
+    window.removeEventListener('keydown', _onGlobalKey);
+    _bindUi._kbBound = false;
   }
   _unsubIncidencias = null;
   _unsubPlaza = null;
@@ -245,56 +259,66 @@ function _bindUi() {
     });
   });
 
-  // Botón "Nueva"
+  // Asignado a (radios) — solo visual por ahora
+  qsa('input[name="incAssignTo"]').forEach(input => {
+    input.addEventListener('change', () => {
+      qsa('input[name="incAssignTo"]').forEach(other => {
+        const lbl = other.closest('.rail-check');
+        if (lbl) lbl.classList.toggle('is-on', other.checked);
+      });
+    });
+  });
+
+  // Botones "Nueva incidencia"
   q('incBtnNew')?.addEventListener('click', () => _toggleCreateDialog(true));
+  q('incBtnNewRail')?.addEventListener('click', () => _toggleCreateDialog(true));
+
+  // Create dialog · cerrar
   q('incCreateClose')?.addEventListener('click', () => _toggleCreateDialog(false));
   q('incCreateCancel')?.addEventListener('click', () => _toggleCreateDialog(false));
   q('incCreateBackdrop')?.addEventListener('click', event => {
     if (event.target === event.currentTarget) _toggleCreateDialog(false);
   });
 
-  // Toolbar · Tabs
-  qsa('[data-tab]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _state.activeTab = btn.dataset.tab;
-      _applyFilters();
-      _render();
-    });
+  // Search trigger — dispara mex:global-search abierto
+  q('incSearchTrigger')?.addEventListener('click', () => {
+    if (typeof window.mexOpenGlobalSearch === 'function') window.mexOpenGlobalSearch();
+    else q('incSearchTrigger')?.focus();
   });
-
-  // Toolbar · Sort
-  q('incSort')?.addEventListener('change', event => {
-    _state.sortBy = String(event.target.value || 'recent');
-    _applyFilters();
-    _render();
-  });
-
-  // Toolbar · View toggle
-  qsa('[data-view]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _state.viewMode = btn.dataset.view;
-      _render();
-    });
-  });
-
-  // Refresh
-  q('incRefreshBtn')?.addEventListener('click', () => {
-    if (_state?.plaza) _startListener();
-  });
-
-  // Detail panel · Cerrar
-  q('incDetailClose')?.addEventListener('click', _closeDetail);
 
   // Composer
   q('btnPublicarInc')?.addEventListener('click', _onCreateIncidencia);
   q('nuevaNotaPrioridad')?.addEventListener('change', _applyDraftMeta);
-  q('nuevaNotaTitulo')?.addEventListener('input', () => {});
-  q('nuevaNotaRich')?.addEventListener('input', _syncRichEditorToTextarea);
+  q('nuevaNotaTitulo')?.addEventListener('input', _onDraftChange);
+  q('nuevaNotaTipo')?.addEventListener('change', _onDraftChange);
+  q('incMvaInput')?.addEventListener('input', _onDraftChange);
+  q('nuevaNotaRich')?.addEventListener('input', () => {
+    _syncRichEditorToTextarea();
+    _onDraftChange();
+  });
+
+  // Botones de prioridad segmentado
+  qsa('[data-ci-prio]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.ciPrio;
+      qsa('[data-ci-prio]').forEach(b => b.classList.toggle('is-on', b.dataset.ciPrio === key));
+      const hidden = q('nuevaNotaPrioridad');
+      if (hidden) {
+        hidden.value = key;
+        hidden.dispatchEvent(new Event('change'));
+      }
+      _state.createDraft.prioridad = key;
+      _renderCreatePreview();
+    });
+  });
+
+  // Editor compat (font size/family si existe en DOM oculto)
   q('incEditorFontSize')?.addEventListener('change', event => _applyRichCommand('fontSize', event.target.value || '3'));
   q('incEditorFontFamily')?.addEventListener('change', event => _applyRichCommand('fontName', event.target.value || 'Inter'));
   qsa('[data-inc-editor-cmd]').forEach(btn => {
     btn.addEventListener('click', () => _applyRichCommand(btn.dataset.incEditorCmd || ''));
   });
+
   q('incLinkInput')?.addEventListener('keydown', event => {
     if (event.key === 'Enter') {
       event.preventDefault();
@@ -307,6 +331,30 @@ function _bindUi() {
   // Resolver modal
   q('incResolverCancelar')?.addEventListener('click', () => _toggleResolverModal(false));
   q('btnConfirmarResInc')?.addEventListener('click', _confirmResolve);
+
+  // Keyboard shortcut N para abrir create
+  if (!_bindUi._kbBound) {
+    _bindUi._kbBound = true;
+    window.addEventListener('keydown', _onGlobalKey);
+  }
+}
+
+function _onGlobalKey(e) {
+  if (!_container || !_state) return;
+  const tag = (e.target?.tagName || '').toLowerCase();
+  const editing = tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable;
+  if (editing) return;
+  // Solo si la vista está montada
+  if (!document.body.contains(_container)) return;
+  if ((e.key === 'n' || e.key === 'N') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    e.preventDefault();
+    _toggleCreateDialog(true);
+  } else if (e.key === 'Escape') {
+    const bd = q('incCreateBackdrop');
+    if (bd?.classList.contains('is-open')) {
+      _toggleCreateDialog(false);
+    }
+  }
 }
 
 // ────────────────────────────────────────────────────────────
@@ -575,10 +623,63 @@ function _render() {
 
 function _renderNow() {
   if (!_state) return;
+  _renderHeader();
+  _renderMetrics();
   _renderFilterRail();
   _renderToolbar();
   _renderView(_state.items);
   _renderDetailPanel();
+}
+
+function _renderHeader() {
+  const sub = q('incModSub');
+  if (!sub) return;
+  const total = (_state.allItems || []).length;
+  const shown = (_state.items || []).length;
+  sub.textContent = `Bitácora operativa · ${shown} de ${total} incidencia${total === 1 ? '' : 's'}`;
+}
+
+function _renderMetrics() {
+  const cont = q('incMetrics');
+  if (!cont) return;
+  const all = _state.allItems || [];
+  const today = new Date();
+  const todayYmd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const isToday = ms => {
+    if (!ms) return false;
+    const d = new Date(ms);
+    const ymd = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return ymd === todayYmd;
+  };
+
+  const abiertas = all.filter(it => {
+    const s = _statusFromNota(it);
+    return s === 'PENDIENTE' || s === 'EN_PROCESO';
+  }).length;
+  const criticas = all.filter(it => _priority(it) === 'CRITICA' && (_statusFromNota(it) === 'PENDIENTE' || _statusFromNota(it) === 'EN_PROCESO')).length;
+  const enProceso = all.filter(it => _statusFromNota(it) === 'EN_PROCESO').length;
+  const resueltasHoy = all.filter(it => {
+    if (_statusFromNota(it) !== 'RESUELTA' && _statusFromNota(it) !== 'CERRADA') return false;
+    return isToday(_dateMs(it.resueltaEn || it.resueltoEn || it.actualizadoEn));
+  }).length;
+
+  const cards = [
+    { label: 'Abiertas',       value: abiertas,       sub: 'Pendientes o en proceso', tone: 'neutral' },
+    { label: 'Críticas',       value: criticas,       sub: 'Atención inmediata',      tone: 'danger' },
+    { label: 'En proceso',     value: enProceso,      sub: 'Trabajándose',            tone: 'neutral' },
+    { label: 'Resueltas hoy',  value: resueltasHoy,   sub: 'Cerradas en el día',      tone: 'ok' },
+    { label: 'SLA en riesgo',  value: '?',            sub: 'Sin cálculo de SLA',      tone: 'warning' },
+    { label: 'Tiempo prom.',   value: '—',            sub: 'Próximamente',            tone: 'neutral' },
+  ];
+
+  cont.innerHTML = cards.map(c => `
+    <div class="metric metric-${c.tone}">
+      <div class="metric-label">${esc(c.label)}</div>
+      <div class="metric-value">${esc(String(c.value))}</div>
+      <div class="metric-sub">${esc(c.sub)}</div>
+    </div>
+  `).join('');
 }
 
 function _renderFilterRail() {
@@ -635,23 +736,85 @@ function _updateFilterCounts(items) {
 }
 
 function _renderToolbar() {
-  // Tabs activos
-  qsa('[data-tab]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.tab === _state.activeTab));
-  // Vista activa
-  qsa('[data-view]').forEach(btn => btn.classList.toggle('is-active', btn.dataset.view === _state.viewMode));
-  // Sort select
-  const sortEl = q('incSort');
-  if (sortEl && sortEl.value !== _state.sortBy) sortEl.value = _state.sortBy;
+  const toolbar = q('incToolbar');
+  if (!toolbar) return;
 
-  // Tab counters
   const me = _state.myAuthor;
   const all = _state.allItems || [];
-  _setText('tabCount_todas', all.length);
-  _setText('tabCount_mias', all.filter(it => String(it?.autor || it?.creadoPor || '').toLowerCase() === me).length);
-  _setText('tabCount_sin_asignar', all.filter(it => !String(it?.autor || it?.creadoPor || '').trim()).length);
+  const countTodas = all.length;
+  const countMias = all.filter(it => me && String(it?.autor || it?.creadoPor || '').toLowerCase() === me).length;
+  const countSinAsignar = all.filter(it => !String(it?.autor || it?.creadoPor || '').trim()).length;
+  const selCount = (_state.selectedIds || []).length;
 
-  // Results count
-  _setText('incResultsCount', `${_state.items.length} resultado${_state.items.length === 1 ? '' : 's'}`);
+  if (selCount > 0) {
+    toolbar.className = 'inc-toolbar toolbar-bulk';
+    toolbar.innerHTML = `
+      <button class="bulk-clear" data-clear-sel title="Limpiar selección"><span class="material-icons" style="font-size:14px">close</span></button>
+      <span class="bulk-count"><b>${selCount}</b> seleccionada${selCount === 1 ? '' : 's'}</span>
+      <div class="bulk-sep"></div>
+      <button class="bulk-act" data-bulk-resolve><span class="material-icons" style="font-size:13px">check</span>Marcar resuelta</button>
+      <button class="bulk-act" data-bulk-copy><span class="material-icons" style="font-size:13px">content_copy</span>Copiar CSV</button>
+      <div style="flex:1"></div>
+      <div class="inc-view-toggle">
+        <button class="inc-view-btn ${_state.viewMode === 'list' ? 'is-active' : ''}" data-view="list" title="Lista"><span class="material-icons">view_list</span></button>
+        <button class="inc-view-btn ${_state.viewMode === 'table' ? 'is-active' : ''}" data-view="table" title="Tabla"><span class="material-icons">table_rows</span></button>
+        <button class="inc-view-btn ${_state.viewMode === 'board' ? 'is-active' : ''}" data-view="board" title="Tablero"><span class="material-icons">view_kanban</span></button>
+      </div>
+    `;
+  } else {
+    toolbar.className = 'inc-toolbar';
+    toolbar.innerHTML = `
+      <div class="inc-tabs">
+        <button class="inc-tab ${_state.activeTab === 'todas' ? 'is-active' : ''}" data-tab="todas">Todas <span class="inc-tab-count" id="tabCount_todas">${countTodas}</span></button>
+        <button class="inc-tab ${_state.activeTab === 'mias' ? 'is-active' : ''}" data-tab="mias">Asignadas a mí <span class="inc-tab-count" id="tabCount_mias">${countMias}</span></button>
+        <button class="inc-tab ${_state.activeTab === 'sin_asignar' ? 'is-active' : ''}" data-tab="sin_asignar">Sin asignar <span class="inc-tab-count" id="tabCount_sin_asignar">${countSinAsignar}</span></button>
+      </div>
+      <div class="inc-toolbar-right">
+        <span class="inc-results-count" id="incResultsCount">${_state.items.length} resultado${_state.items.length === 1 ? '' : 's'}</span>
+        <select class="inc-sort" id="incSort">
+          <option value="recent" ${_state.sortBy === 'recent' ? 'selected' : ''}>Más recientes</option>
+          <option value="priority" ${_state.sortBy === 'priority' ? 'selected' : ''}>Prioridad</option>
+        </select>
+        <div class="inc-view-toggle">
+          <button class="inc-view-btn ${_state.viewMode === 'list' ? 'is-active' : ''}" data-view="list" title="Lista"><span class="material-icons">view_list</span></button>
+          <button class="inc-view-btn ${_state.viewMode === 'table' ? 'is-active' : ''}" data-view="table" title="Tabla"><span class="material-icons">table_rows</span></button>
+          <button class="inc-view-btn ${_state.viewMode === 'board' ? 'is-active' : ''}" data-view="board" title="Tablero"><span class="material-icons">view_kanban</span></button>
+        </div>
+        <button class="inc-refresh-btn" id="incRefreshBtn" title="Actualizar"><span class="material-icons">refresh</span></button>
+      </div>
+    `;
+  }
+  _attachToolbarHandlers();
+}
+
+function _attachToolbarHandlers() {
+  qsa('[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _state.activeTab = btn.dataset.tab;
+      _applyFilters();
+      _render();
+    });
+  });
+  qsa('[data-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _state.viewMode = btn.dataset.view;
+      _render();
+    });
+  });
+  q('incSort')?.addEventListener('change', event => {
+    _state.sortBy = String(event.target.value || 'recent');
+    _applyFilters();
+    _render();
+  });
+  q('incRefreshBtn')?.addEventListener('click', () => {
+    if (_state?.plaza) _startListener();
+  });
+  q('[data-clear-sel]')?.addEventListener('click', () => {
+    _state.selectedIds = [];
+    _render();
+  });
+  q('[data-bulk-resolve]')?.addEventListener('click', _onBulkResolve);
+  q('[data-bulk-copy]')?.addEventListener('click', _onBulkCopyCsv);
 }
 
 function _renderView(items) {
@@ -733,14 +896,18 @@ function _attachRowHandlers() {
 function _renderList(items) {
   const head = `
     <div class="inc-list-head">
-      <span></span>
-      <span>ID</span>
-      <span>Incidencia</span>
-      <span>Estado</span>
-      <span>Acción</span>
-      <span></span>
+      <span class="lh-prio"></span>
+      <span class="lh-check"></span>
+      <span class="lh-id">ID</span>
+      <span class="lh-main">Incidencia</span>
+      <span class="lh-sla">Programación</span>
+      <span class="lh-assignee">Asignada</span>
+      <span class="lh-status">Estado</span>
+      <span class="lh-more"></span>
     </div>
   `;
+  const sel = new Set(_state.selectedIds || []);
+
   const rows = items.map(item => {
     const id = item.legacyNotaId || item.id || '';
     const codigo = item.codigo || id;
@@ -749,15 +916,21 @@ function _renderList(items) {
     const stKey = status.toLowerCase();
     const stLabel = _statusLabel(status);
     const isActive = _state.detailOpenId === id;
-    const open = status === 'PENDIENTE' || status === 'EN_PROCESO';
-    const canDelete = _canDelete(item);
+    const isSelected = sel.has(id);
     const tipo = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
     const mva = item.mva || '';
     const fecha = _relativeDate(item.creadoEn || item.fecha);
+    const author = String(item.autor || item.creadoPor || '').trim();
+    const initials = _initialsFrom(author);
+    const firstName = author ? author.split(/[\s@]/)[0] : '';
 
     return `
-      <div class="inc-row ${isActive ? 'is-active' : ''}" data-open-id="${esc(id)}">
+      <div class="inc-row ${isActive ? 'is-active' : ''} ${isSelected ? 'is-selected' : ''}" data-open-id="${esc(id)}">
         <div class="row-prio-bar is-${esc(pr)}"></div>
+        <label class="row-check" data-stop data-row-check="${esc(id)}">
+          <input type="checkbox" ${isSelected ? 'checked' : ''}>
+          <span class="row-check-box"></span>
+        </label>
         <div class="inc-row-id" title="${esc(codigo)}">${esc(codigo)}</div>
         <div class="inc-row-main">
           <div class="inc-row-title-line">
@@ -771,20 +944,43 @@ function _renderList(items) {
             <span>${esc(fecha)}</span>
           </div>
         </div>
-        <div><span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span></div>
-        <div>
-          ${open
-            ? `<button class="inc-row-action" data-resolve-id="${esc(id)}" data-stop title="Marcar como resuelta"><span class="material-icons">check</span>Resolver</button>`
-            : `<span class="status-pill is-resuelta"><span class="material-icons" style="font-size:11px;">check</span>Resuelta</span>`}
+        <div class="row-sla">
+          <span class="schedule-chip sla-neutral">—</span>
         </div>
-        <div>
-          ${canDelete ? `<button class="inc-row-delete" data-delete-id="${esc(id)}" data-stop title="Eliminar"><span class="material-icons">delete</span></button>` : ''}
+        <div class="row-assignee">
+          ${author
+            ? `<span class="row-assignee-pill"><span class="inc-avatar" style="width:20px;height:20px;font-size:9px;">${esc(initials)}</span><span>${esc(firstName)}</span></span>`
+            : `<span class="row-unassigned">Sin asignar</span>`}
         </div>
+        <div class="row-status"><span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span></div>
+        <button class="row-more" data-stop title="Más"><span class="material-icons">more_vert</span></button>
       </div>
     `;
   }).join('');
 
-  return `<div class="inc-list">${head}<div class="inc-list-body">${rows}</div></div>`;
+  return `<div class="inc-list">${head}<div class="inc-list-body">${rows || _emptyListHtml()}</div></div>`;
+}
+
+function _emptyListHtml() {
+  return `
+    <div class="inc-empty">
+      <div class="inc-empty-mark"><span class="material-icons">inbox</span></div>
+      <div class="inc-empty-title">No hay incidencias con estos filtros</div>
+      <div class="inc-empty-sub">Ajusta los filtros del panel izquierdo o crea una nueva.</div>
+    </div>
+  `;
+}
+
+function _initialsFrom(name) {
+  const s = String(name || '').trim();
+  if (!s) return '?';
+  if (s.includes('@')) {
+    const local = s.split('@')[0];
+    return (local.charAt(0) + (local.charAt(1) || '')).toUpperCase();
+  }
+  const parts = s.split(/\s+/).filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
 }
 
 // ────────────────────────────────────────────────────────────
@@ -1384,12 +1580,12 @@ function _renderPriorityChecks() {
     { key: 'BAJA',    label: 'Baja',    cls: 'is-baja' },
   ];
   return opts.map(o => `
-    <label class="inc-filter-check is-on" data-priority="${o.key}">
+    <label class="rail-check is-on" data-priority="${o.key}">
       <input type="checkbox" checked>
-      <span class="inc-filter-tick"></span>
+      <span class="rail-tick"></span>
       <span class="prio-dot ${o.cls}"></span>
-      <span class="inc-filter-label">${o.label}</span>
-      <span class="inc-filter-count" data-count-priority="${o.key}">0</span>
+      <span class="rail-label">${o.label}</span>
+      <span class="rail-num" data-count-priority="${o.key}">0</span>
     </label>
   `).join('');
 }
@@ -1402,22 +1598,22 @@ function _renderStatusChecks() {
     { key: 'CERRADA',    label: 'Cerrada',    cls: 'is-cerrada' },
   ];
   return opts.map(o => `
-    <label class="inc-filter-check is-on" data-status="${o.key}">
+    <label class="rail-check is-on" data-status="${o.key}">
       <input type="checkbox" checked>
-      <span class="inc-filter-tick"></span>
+      <span class="rail-tick"></span>
       <span class="status-pill ${o.cls}" style="padding:1px 7px;font-size:10.5px;"><span class="status-pill-dot"></span>${o.label}</span>
-      <span class="inc-filter-count" data-count-status="${o.key}">0</span>
+      <span class="rail-num" data-count-status="${o.key}">0</span>
     </label>
   `).join('');
 }
 
 function _renderTipoChecks() {
   return TIPOS_KNOWN.map(t => `
-    <label class="inc-filter-check is-on" data-tipo="${t}">
+    <label class="rail-check is-on" data-tipo="${t}">
       <input type="checkbox" checked>
-      <span class="inc-filter-tick"></span>
-      <span class="inc-filter-label">${esc(t.charAt(0) + t.slice(1).toLowerCase())}</span>
-      <span class="inc-filter-count" data-count-tipo="${t}">0</span>
+      <span class="rail-tick"></span>
+      <span class="rail-label">${esc(t.charAt(0) + t.slice(1).toLowerCase())}</span>
+      <span class="rail-num" data-count-tipo="${t}">0</span>
     </label>
   `).join('');
 }
@@ -1425,159 +1621,216 @@ function _renderTipoChecks() {
 function _renderLayout() {
   return `
     <div class="inc-module" data-theme="light" data-density="regular">
-      <aside class="inc-filter-rail">
-        <div class="inc-rail-head">
-          <h2>Incidencias</h2>
-          <button class="inc-btn-new" id="incBtnNew" title="Nueva incidencia (N)">
-            <span class="material-icons" style="font-size:14px;">add</span> Nueva
+      <header class="mod-head">
+        <div class="mod-head-left">
+          <h1 class="mod-title">Incidencias</h1>
+          <p class="mod-sub" id="incModSub">Bitácora operativa</p>
+        </div>
+        <div class="mod-search" id="incSearchTrigger" role="search">
+          <span class="material-icons" style="font-size:14px;">search</span>
+          <span class="mod-search-text">Buscar por ID, título, activo…</span>
+          <span class="mod-kbd">⌘K</span>
+        </div>
+        <div class="mod-actions">
+          <button class="btn-ghost" id="incBtnNew" title="Nueva incidencia (N)">
+            <span class="material-icons" style="font-size:13px;">add</span> Nueva incidencia
           </button>
         </div>
+      </header>
 
-        <section class="inc-rail-section">
-          <h3>Prioridad</h3>
-          ${_renderPriorityChecks()}
-        </section>
+      <div class="metrics" id="incMetrics"></div>
 
-        <section class="inc-rail-section">
-          <h3>Estado</h3>
-          ${_renderStatusChecks()}
-        </section>
+      <div class="workspace">
+        <aside class="rail">
+          <button class="rail-new" id="incBtnNewRail" title="Nueva incidencia (N)">
+            <span class="material-icons" style="font-size:14px;">add</span>
+            Nueva incidencia
+            <span class="rail-new-kbd">N</span>
+          </button>
 
-        <section class="inc-rail-section">
-          <h3>Tipo</h3>
-          ${_renderTipoChecks()}
-        </section>
-      </aside>
-
-      <div class="inc-canvas">
-        <div class="inc-toolbar">
-          <div class="inc-tabs">
-            <button class="inc-tab is-active" data-tab="todas">Todas <span class="inc-tab-count" id="tabCount_todas">0</span></button>
-            <button class="inc-tab" data-tab="mias">Mis incidencias <span class="inc-tab-count" id="tabCount_mias">0</span></button>
-            <button class="inc-tab" data-tab="sin_asignar">Sin asignar <span class="inc-tab-count" id="tabCount_sin_asignar">0</span></button>
+          <div class="rail-section">
+            <div class="rail-title">Prioridad</div>
+            <div class="rail-list">
+              ${_renderPriorityChecks()}
+            </div>
           </div>
-          <div class="inc-toolbar-right">
-            <span class="inc-results-count" id="incResultsCount">0 resultados</span>
-            <select class="inc-sort" id="incSort">
-              <option value="recent">Más recientes</option>
-              <option value="priority">Prioridad</option>
-            </select>
-            <div class="inc-view-toggle">
-              <button class="inc-view-btn is-active" data-view="list" title="Lista"><span class="material-icons">view_list</span></button>
-              <button class="inc-view-btn" data-view="table" title="Tabla"><span class="material-icons">table_rows</span></button>
-              <button class="inc-view-btn" data-view="board" title="Tablero"><span class="material-icons">view_kanban</span></button>
+
+          <div class="rail-section">
+            <div class="rail-title">Estado</div>
+            <div class="rail-list">
+              ${_renderStatusChecks()}
             </div>
-            <button class="inc-refresh-btn" id="incRefreshBtn" title="Actualizar"><span class="material-icons">refresh</span></button>
           </div>
-        </div>
 
-        <div class="inc-view-container" id="incViewContainer"></div>
-      </div>
-
-      <div class="inc-detail-panel" id="incDetailPanel"></div>
-
-      <!-- Dialog Nueva nota -->
-      <div class="inc-dialog-backdrop" id="incCreateBackdrop">
-        <div class="inc-dialog" role="dialog" aria-modal="true" aria-labelledby="incCreateTitle">
-          <div class="inc-dialog-head">
-            <div class="inc-dialog-head-icon"><span class="material-icons">add_task</span></div>
-            <div class="inc-dialog-head-text">
-              <div class="inc-dialog-title" id="incCreateTitle">Nueva incidencia</div>
-              <div class="inc-dialog-sub">Registra una nota operativa con prioridad, tipo y evidencias.</div>
+          <div class="rail-section">
+            <div class="rail-title">Tipo</div>
+            <div class="rail-list">
+              ${_renderTipoChecks()}
             </div>
-            <button class="inc-dialog-close" id="incCreateClose" title="Cerrar"><span class="material-icons">close</span></button>
           </div>
-          <div class="inc-dialog-body">
-            <div class="inc-grid-2">
-              <div class="inc-field">
-                <label class="inc-field-label">Reportado por</label>
-                <input type="text" id="autorNuevaNota" class="inc-input" disabled>
-              </div>
-              <div class="inc-field">
-                <label class="inc-field-label">Prioridad</label>
-                <select id="nuevaNotaPrioridad" class="inc-select">
-                  <option value="BAJA">Baja</option>
-                  <option value="MEDIA">Media</option>
-                  <option value="ALTA" selected>Alta</option>
-                  <option value="CRITICA">Crítica</option>
-                </select>
-              </div>
-            </div>
-            <div class="inc-grid-2">
-              <div class="inc-field">
-                <label class="inc-field-label">Tipo</label>
-                <select id="nuevaNotaTipo" class="inc-select">
-                  <option value="MECANICA">Mecánica</option>
-                  <option value="ACCIDENTE">Accidente</option>
-                  <option value="LIMPIEZA">Limpieza</option>
-                  <option value="DOCUMENTOS">Documentos</option>
-                  <option value="OTRO" selected>Otro</option>
-                </select>
-              </div>
-              <div class="inc-field">
-                <label class="inc-field-label">MVA / Unidad</label>
-                <input type="text" id="incMvaInput" class="inc-input" placeholder="Ej: MVA-1234">
-              </div>
-            </div>
-            <div class="inc-field">
-              <label class="inc-field-label">Título</label>
-              <input type="text" id="nuevaNotaTitulo" class="inc-input" placeholder="Ej: Disrupción operativa en unidad">
-            </div>
-            <div class="inc-field">
-              <label class="inc-field-label">Descripción</label>
-              <div class="inc-editor-shell">
-                <div class="inc-editor-toolbar" aria-label="Formato de nota">
-                  <button type="button" class="inc-editor-btn" data-inc-editor-cmd="bold" title="Negritas"><span class="material-icons">format_bold</span></button>
-                  <button type="button" class="inc-editor-btn" data-inc-editor-cmd="italic" title="Cursiva"><span class="material-icons">format_italic</span></button>
-                  <button type="button" class="inc-editor-btn" data-inc-editor-cmd="underline" title="Subrayado"><span class="material-icons">format_underlined</span></button>
-                  <span class="inc-toolbar-divider"></span>
-                  <button type="button" class="inc-editor-btn" data-inc-editor-cmd="ul" title="Lista"><span class="material-icons">format_list_bulleted</span></button>
-                  <button type="button" class="inc-editor-btn" data-inc-editor-cmd="ol" title="Lista numerada"><span class="material-icons">format_list_numbered</span></button>
-                  <button type="button" class="inc-editor-btn" data-inc-editor-cmd="link" title="Enlace"><span class="material-icons">link</span></button>
-                  <span class="inc-toolbar-divider"></span>
-                  <select id="incEditorFontSize" class="inc-editor-select" title="Tamaño">
-                    <option value="2">Chico</option>
-                    <option value="3" selected>Normal</option>
-                    <option value="4">Grande</option>
-                    <option value="5">Título</option>
-                  </select>
-                  <select id="incEditorFontFamily" class="inc-editor-select" title="Fuente">
-                    <option value="Inter" selected>Inter</option>
-                    <option value="Arial">Arial</option>
-                    <option value="Georgia">Georgia</option>
-                    <option value="Courier New">Mono</option>
-                  </select>
-                  <button type="button" class="inc-editor-btn inc-editor-btn--danger" data-inc-editor-cmd="clear" title="Limpiar formato"><span class="material-icons">format_clear</span></button>
-                </div>
-                <div id="nuevaNotaRich" class="inc-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Describe causas, impacto y contexto operativo"></div>
-                <textarea id="nuevaNotaTxt" class="inc-editor-textarea--hidden" tabindex="-1" aria-hidden="true"></textarea>
-              </div>
-            </div>
-            <div class="inc-field">
-              <label class="inc-field-label">Adjuntar evidencias</label>
-              <label class="inc-btn-ghost" style="align-self:flex-start;cursor:pointer;">
-                <span class="material-icons">cloud_upload</span> Seleccionar archivos…
-                <input type="file" id="incAdjuntosInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;">
+
+          <div class="rail-section">
+            <div class="rail-title">Asignado a</div>
+            <div class="rail-list">
+              <label class="rail-check is-on">
+                <input type="radio" name="incAssignTo" checked>
+                <span class="rail-radio"></span>
+                <span class="rail-label">Cualquiera</span>
               </label>
-              <div id="incAdjuntosNuevosCont"></div>
+              <label class="rail-check">
+                <input type="radio" name="incAssignTo">
+                <span class="rail-radio"></span>
+                <span class="rail-label">Sin asignar</span>
+              </label>
+              <label class="rail-check">
+                <input type="radio" name="incAssignTo">
+                <span class="rail-radio"></span>
+                <span class="rail-label">Yo</span>
+              </label>
             </div>
-            <div class="inc-field">
-              <label class="inc-field-label">Agregar link de evidencia</label>
-              <div class="inc-link-input-row">
-                <input type="url" id="incLinkInput" class="inc-input" placeholder="https://drive.google.com/...">
-                <button type="button" id="incAddLinkBtn" class="inc-btn-ghost"><span class="material-icons">add_link</span>Agregar</button>
+          </div>
+
+          <div class="rail-section">
+            <div class="rail-title">Vistas guardadas</div>
+            <div class="rail-list">
+              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>Mi día</button>
+              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>SLA crítico</button>
+              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>Por flota</button>
+              <button type="button" class="rail-saved"><span class="rail-saved-dot"></span>Cerradas semana</button>
+            </div>
+          </div>
+        </aside>
+
+        <main class="inc-canvas">
+          <div class="inc-toolbar" id="incToolbar"></div>
+          <div class="inc-view-container" id="incViewContainer"></div>
+        </main>
+
+        <aside class="detail" id="incDetailPanel"></aside>
+      </div>
+
+      <!-- Dialog Nueva incidencia (split form + live preview) -->
+      <div class="ci-backdrop" id="incCreateBackdrop">
+        <div class="ci-sheet" role="dialog" aria-modal="true" aria-labelledby="incCreateTitle">
+          <header class="ci-head">
+            <div class="ci-head-left">
+              <div class="ci-head-icon"><span class="material-icons">add</span></div>
+              <div>
+                <div class="ci-head-title" id="incCreateTitle">Nueva incidencia</div>
+                <div class="ci-head-sub" id="incCreateSub">Se publicará en la bitácora</div>
               </div>
-              <div id="incLinksNuevosCont" class="inc-link-chip-list"></div>
             </div>
+            <div class="ci-head-right">
+              <span class="ci-kbd">⌘</span>
+              <span class="ci-kbd">↵</span>
+              <span class="ci-head-hint">para publicar</span>
+              <button class="ci-close" id="incCreateClose" title="Cerrar"><span class="material-icons">close</span></button>
+            </div>
+          </header>
+
+          <div class="ci-body">
+            <div class="ci-form">
+              <div class="ci-field">
+                <label class="ci-label">Título</label>
+                <input type="text" id="nuevaNotaTitulo" class="ci-input ci-input-lg" placeholder="Ej. Fuga hidráulica en compactador 03">
+                <div class="ci-hint" id="incCreateTitleHint">Sé específico: incluye activo y síntoma.</div>
+              </div>
+
+              <div class="ci-grid">
+                <div class="ci-field">
+                  <label class="ci-label">Prioridad</label>
+                  <div class="ci-prio-seg" id="incPrioSeg">
+                    <button type="button" class="ci-prio-opt ci-prio-critica" data-ci-prio="CRITICA"><span class="prio-dot is-critica"></span>Crítica</button>
+                    <button type="button" class="ci-prio-opt ci-prio-alta is-on" data-ci-prio="ALTA"><span class="prio-dot is-alta"></span>Alta</button>
+                    <button type="button" class="ci-prio-opt ci-prio-media" data-ci-prio="MEDIA"><span class="prio-dot is-media"></span>Media</button>
+                    <button type="button" class="ci-prio-opt ci-prio-baja" data-ci-prio="BAJA"><span class="prio-dot is-baja"></span>Baja</button>
+                  </div>
+                  <select id="nuevaNotaPrioridad" style="display:none">
+                    <option value="BAJA">Baja</option>
+                    <option value="MEDIA">Media</option>
+                    <option value="ALTA" selected>Alta</option>
+                    <option value="CRITICA">Crítica</option>
+                  </select>
+                </div>
+
+                <div class="ci-field">
+                  <label class="ci-label">Tipo</label>
+                  <select id="nuevaNotaTipo" class="ci-input">
+                    <option value="MECANICA">Mecánica</option>
+                    <option value="ACCIDENTE">Accidente</option>
+                    <option value="LIMPIEZA">Limpieza</option>
+                    <option value="DOCUMENTOS">Documentos</option>
+                    <option value="OTRO" selected>Otro</option>
+                  </select>
+                </div>
+
+                <div class="ci-field">
+                  <label class="ci-label">MVA / Activo</label>
+                  <input type="text" id="incMvaInput" class="ci-input ci-input-mono" placeholder="MVA-2241">
+                </div>
+
+                <div class="ci-field">
+                  <label class="ci-label">Reportado por</label>
+                  <input type="text" id="autorNuevaNota" class="ci-input" disabled>
+                </div>
+              </div>
+
+              <div class="ci-field">
+                <label class="ci-label">Descripción</label>
+                <div id="nuevaNotaRich" class="ci-textarea" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="Describe qué ocurrió, qué se observó y cualquier acción tomada."></div>
+                <textarea id="nuevaNotaTxt" style="display:none"></textarea>
+              </div>
+
+              <div class="ci-field">
+                <label class="ci-label">Adjuntar evidencias</label>
+                <label class="btn-ghost" style="align-self:flex-start;cursor:pointer;">
+                  <span class="material-icons" style="font-size:13px">cloud_upload</span> Seleccionar archivos…
+                  <input type="file" id="incAdjuntosInput" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx" style="display:none;">
+                </label>
+                <div id="incAdjuntosNuevosCont"></div>
+              </div>
+
+              <div class="ci-field">
+                <label class="ci-label">Link de evidencia</label>
+                <div class="inc-link-input-row">
+                  <input type="url" id="incLinkInput" class="ci-input ci-input-mono" placeholder="https://drive.google.com/...">
+                  <button type="button" id="incAddLinkBtn" class="btn-ghost"><span class="material-icons" style="font-size:13px">add_link</span>Agregar</button>
+                </div>
+                <div id="incLinksNuevosCont" class="inc-link-chip-list"></div>
+              </div>
+
+              <!-- Compatibilidad: editor toolbar oculto (sigue siendo refireable desde código existente si usuarios lo usan) -->
+              <div style="display:none">
+                <select id="incEditorFontSize"><option value="3" selected>Normal</option></select>
+                <select id="incEditorFontFamily"><option value="Inter" selected>Inter</option></select>
+              </div>
+            </div>
+
+            <aside class="ci-preview" id="incCreatePreview">
+              <div class="ci-prev-head">
+                <span class="ci-prev-label">Vista previa</span>
+                <span class="ci-prev-live"><span class="ci-prev-live-dot"></span>En vivo</span>
+              </div>
+              <div class="ci-prev-canvas">
+                <article class="ci-prev-card" id="incCreatePreviewCard"></article>
+              </div>
+            </aside>
           </div>
-          <div class="inc-dialog-foot">
-            <button type="button" id="incCreateCancel" class="inc-btn-ghost">Cancelar</button>
-            <button type="button" id="btnPublicarInc" class="inc-btn-primary"><span class="material-icons">send</span>Publicar nota</button>
-          </div>
+
+          <footer class="ci-foot">
+            <label class="ci-foot-check">
+              <input type="checkbox" id="incCreateAgain" checked>
+              <span class="ci-foot-check-box"></span>
+              Crear otra después de publicar
+            </label>
+            <div style="flex:1"></div>
+            <button type="button" id="incCreateCancel" class="btn-ghost">Cancelar</button>
+            <button type="button" id="btnPublicarInc" class="btn-primary"><span class="material-icons" style="font-size:13px">check</span>Publicar nota</button>
+          </footer>
         </div>
       </div>
 
-      <!-- Modal resolver -->
+      <!-- Modal resolver (mantenemos compat con IDs antiguos) -->
       <div id="modalAuthIncidencia" class="modal-overlay">
         <div class="modal-box">
           <div class="modal-title">Resolver nota</div>
