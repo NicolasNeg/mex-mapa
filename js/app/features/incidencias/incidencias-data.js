@@ -88,6 +88,8 @@ export function mapNotaAdminToIncidencia(id, data = {}) {
     evidencias: normalizeAttachments(data),
     source: String(data.source || 'notas_admin').trim() || 'notas_admin',
     version: Number(data.version || 1) || 1,
+    asignadoA: (data.asignadoA && typeof data.asignadoA === 'object') ? data.asignadoA : null,
+    seguidores: Array.isArray(data.seguidores) ? data.seguidores : [],
   };
 }
 
@@ -240,4 +242,69 @@ export async function deleteIncidencia(id) {
   }
   await db.collection(COL.NOTAS).doc(String(id)).delete();
   return 'OK';
+}
+
+export async function updateIncidenciaField(id, fields = {}) {
+  if (!id || !Object.keys(fields).length) return;
+  await db.collection(COL.NOTAS).doc(String(id)).update(fields);
+  return 'OK';
+}
+
+export async function toggleSeguidor(id, userObj) {
+  const FieldValue = window.firebase?.firestore?.FieldValue;
+  if (!FieldValue) {
+    // Fallback: read-then-write
+    const snap = await db.collection(COL.NOTAS).doc(String(id)).get();
+    const seg = Array.isArray(snap.data()?.seguidores) ? snap.data().seguidores : [];
+    const idx = seg.findIndex(s => s.uid === userObj.uid || s.email === userObj.email);
+    if (idx >= 0) seg.splice(idx, 1);
+    else seg.push(userObj);
+    await db.collection(COL.NOTAS).doc(String(id)).update({ seguidores: seg });
+    return idx < 0 ? 'added' : 'removed';
+  }
+  // Check if already following
+  const snap = await db.collection(COL.NOTAS).doc(String(id)).get();
+  const seg = Array.isArray(snap.data()?.seguidores) ? snap.data().seguidores : [];
+  const following = seg.some(s => s.uid === userObj.uid || s.email === userObj.email);
+  await db.collection(COL.NOTAS).doc(String(id)).update({
+    seguidores: following
+      ? FieldValue.arrayRemove(seg.find(s => s.uid === userObj.uid || s.email === userObj.email))
+      : FieldValue.arrayUnion(userObj),
+  });
+  return following ? 'removed' : 'added';
+}
+
+export async function searchUsuarios(queryStr, currentPlaza = '', maxResults = 8) {
+  const q = String(queryStr || '').trim().toLowerCase();
+  if (!q || q.length < 2) return [];
+  try {
+    const plaza = normalizePlaza(currentPlaza);
+    const [localSnap, globalSnap] = await Promise.all([
+      plaza ? db.collection(COL.USERS).where('plaza', '==', plaza).limit(50).get()
+             : Promise.resolve({ docs: [] }),
+      db.collection(COL.USERS).where('isGlobal', '==', true).limit(20).get(),
+    ]);
+    const seen = new Set();
+    const users = [];
+    [...localSnap.docs, ...globalSnap.docs].forEach(doc => {
+      if (seen.has(doc.id)) return;
+      seen.add(doc.id);
+      const d = doc.data();
+      users.push({
+        uid: doc.id,
+        nombre: String(d.nombreCompleto || d.nombre || d.displayName || '').trim(),
+        email: String(d.email || doc.id || '').trim(),
+        rol: String(d.rol || '').trim(),
+        plaza: String(d.plaza || d.plazaID || '').trim(),
+        isGlobal: !!d.isGlobal,
+      });
+    });
+    return users.filter(u =>
+      u.nombre.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      u.rol.toLowerCase().includes(q)
+    ).slice(0, maxResults);
+  } catch (_) {
+    return [];
+  }
 }
