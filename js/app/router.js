@@ -40,6 +40,7 @@ function _appMapToolRedirect(rawPath = '') {
 // loader:    () => Promise<{ mount, unmount }>
 // redirect:  string  — alias, redirige sin render
 // navRoute:  string  — ruta que se activa en el sidebar (cuando difiere del path)
+// feature:   string  — feature gate key; if disabled, shows "not available" screen
 const ROUTE_TABLE = {
   '/app':            { redirect: '/app/dashboard' },
   '/app/home':       { redirect: '/app/dashboard' },
@@ -49,14 +50,15 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/profile.js'),
     navRoute: '/profile'
   },
-  '/app/mensajes':          legacyStage('mensajes', '/mensajes'),
-  '/app/cola-preparacion':  legacyStage('cola', '/cola-preparacion'),
+  '/app/mensajes':          { ...legacyStage('mensajes', '/mensajes'),              feature: 'mensajeria' },
+  '/app/cola-preparacion':  { ...legacyStage('cola', '/cola-preparacion'),          feature: 'cola_preparacion' },
   '/app/cola':              { redirect: '/app/cola-preparacion' },
   '/app/incidencias':       {
     loader:   () => import('/js/app/views/incidencias.js'),
-    navRoute: '/incidencias'
+    navRoute: '/incidencias',
+    feature:  'incidencias'
   },
-  '/app/cuadre':            legacyStage('cuadre', '/cuadre'),
+  '/app/cuadre':            { ...legacyStage('cuadre', '/cuadre'),                  feature: 'cuadre' },
   '/app/admin':             legacyStage('admin', '/gestion'),
   '/app/gestion':           { redirect: '/app/admin' },
   '/app/usuarios':          { redirect: '/app/admin?tab=usuarios' },
@@ -71,11 +73,13 @@ const ROUTE_TABLE = {
   '/app/admin/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
   '/app/alertas':          {
     loader:   () => import('/js/app/views/alertas.js'),
-    navRoute: '/app/alertas'
+    navRoute: '/app/alertas',
+    feature:  'alertas'
   },
   '/app/alertas/historial': {
     loader:   () => import('/js/app/views/alertas.js'),
-    navRoute: '/app/alertas/historial'
+    navRoute: '/app/alertas/historial',
+    feature:  'alertas'
   },
   '/app/historial-alertas': { redirect: '/app/alertas/historial' },
   '/app/gestion/solicitudes': { redirect: '/app/admin?tab=solicitudes' },
@@ -185,6 +189,12 @@ export function createRouter({ shell }) {
     const contentEl = shell.contentEl;
     if (!contentEl) return;
 
+    // Feature gate check — block access if empresa has the feature disabled
+    if (route?.feature && window.mexFeatures && !window.mexFeatures.puedeUsar(route.feature)) {
+      _renderFeatureDisabled(contentEl, route.feature);
+      return;
+    }
+
     // Vista registrada
     if (route?.loader) {
       contentEl.innerHTML = '<div style="padding:32px;text-align:center;color:#64748b;font-size:13px;">Cargando…</div>';
@@ -203,6 +213,29 @@ export function createRouter({ shell }) {
 
     // Ruta /app/* sin vista registrada → placeholder
     _renderPlaceholder(contentEl, path);
+  }
+
+  // ── Feature deshabilitada por el plan ────────────────────
+  function _renderFeatureDisabled(contentEl, featureKey) {
+    contentEl.innerHTML = `
+      <div style="padding:48px 24px;max-width:520px;margin:0 auto;font-family:'Inter',sans-serif;text-align:center;">
+        <div style="width:64px;height:64px;border-radius:20px;background:#fefce8;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+          <span class="material-symbols-outlined" style="font-size:32px;color:#eab308;">lock</span>
+        </div>
+        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Función no disponible</h2>
+        <p style="font-size:14px;color:#64748b;margin:0 0 6px;line-height:1.6;">
+          Este módulo no está habilitado en el plan actual de tu empresa.
+        </p>
+        <p style="font-size:12px;color:#94a3b8;margin:0 0 28px;">
+          Contacta a tu administrador para activar <strong>${featureKey}</strong>.
+        </p>
+        <a data-app-route="/app/dashboard" href="/app/dashboard"
+           style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none;font-size:13px;font-weight:600;">
+          <span class="material-symbols-outlined" style="font-size:16px;">home</span>
+          Ir al Dashboard
+        </a>
+      </div>
+    `;
   }
 
   // ── Placeholder para rutas /app/* no implementadas ────────
@@ -248,6 +281,14 @@ export function createRouter({ shell }) {
       </div>
     `;
   }
+
+  // ── Re-render on empresa context change (programador switching tenants) ──
+  window.addEventListener('mex:empresa-change', () => {
+    const currentPath = window.location.pathname + window.location.search;
+    if (isInternalAppRoute(window.location.pathname)) {
+      _renderRoute(currentPath);
+    }
+  });
 
   // ── Interceptor global de clicks en [data-app-route] ──────
   document.addEventListener('click', event => {

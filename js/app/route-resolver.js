@@ -46,6 +46,7 @@ export const ROUTE_MAP = {
     fallbackRoute:'/mensajes',
     shellIntegrated:    true,
     fullModuleMigrated: true,
+    feature: 'mensajeria',
   },
   cola: {
     id: 'cola', label: 'Cola de preparación',
@@ -55,6 +56,7 @@ export const ROUTE_MAP = {
     fallbackRoute:'/cola-preparacion',
     shellIntegrated:    true,
     fullModuleMigrated: true,
+    feature: 'cola_preparacion',
   },
   incidencias: {
     id: 'incidencias', label: 'Incidencias',
@@ -64,6 +66,7 @@ export const ROUTE_MAP = {
     fallbackRoute:'/incidencias',
     shellIntegrated:    true,
     fullModuleMigrated: true,
+    feature: 'incidencias',
   },
   cuadre: {
     id: 'cuadre', label: 'Cuadre',
@@ -73,6 +76,7 @@ export const ROUTE_MAP = {
     fallbackRoute:'/cuadre',
     shellIntegrated:    true,
     fullModuleMigrated: true,
+    feature: 'cuadre',
   },
   admin: {
     id: 'admin', label: 'Panel admin',
@@ -91,6 +95,7 @@ export const ROUTE_MAP = {
     fallbackRoute:'/app/alertas',
     shellIntegrated:    true,
     fullModuleMigrated: true,
+    feature: 'alertas',
   },
   alertasHist: {
     id: 'alertasHist', label: 'Historial de alertas',
@@ -100,6 +105,7 @@ export const ROUTE_MAP = {
     fallbackRoute:'/app/alertas/historial',
     shellIntegrated:    true,
     fullModuleMigrated: true,
+    feature: 'alertas',
   },
   programador: {
     id: 'programador', label: 'Consola técnica',

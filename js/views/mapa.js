@@ -17602,6 +17602,11 @@ function _mountMessagesShell() {
 
 function _bootMessagesRoute() {
   if (!_isMessagesMode() || _messagesBooted) return;
+  if (window.mexFeatures && !window.mexFeatures.puedeUsar('mensajeria')) {
+    showToast('La mensajería no está disponible en tu plan actual.', 'info');
+    setTimeout(() => _navigateTop('/mapa'), 2200);
+    return;
+  }
   _messagesBooted = true;
   document.body.classList.add('messages-mode');
   _mountMessagesShell();
@@ -18360,7 +18365,7 @@ function renderizarListaConfig() {
               </div>
             </div>
 
-            <!-- Catálogo de Plazas movido al tab Plazas -->
+            ${_renderEmpresaFeaturesCard()}
 
             ${canUseProgrammerConfig() ? `
             <div class="cfg-emp-card" id="cfg-backfill-card">
@@ -19085,6 +19090,97 @@ async function guardarConfiguracionEnFirebase() {
     await _reloadConfigAfterAdminPersist();
     showToast("Error al guardar: " + error.message, "error");
   }
+}
+
+// ── S4: Feature flags per empresa ────────────────────────────────────────────
+
+const _empresaFeatureDefs = [
+  { key: 'mensajeria',          label: 'Mensajería interna',     icon: 'chat',                 desc: 'Buzón y mensajes entre operadores' },
+  { key: 'alertas',             label: 'Alertas operativas',     icon: 'campaign',             desc: 'Emisión e historial de alertas' },
+  { key: 'cuadre',              label: 'Cuadre de inventario',   icon: 'calculate',            desc: 'Módulo de cuadre y reservas' },
+  { key: 'incidencias',         label: 'Notas e incidencias',    icon: 'warning',              desc: 'Registro de notas e incidencias' },
+  { key: 'cola_preparacion',    label: 'Cola de preparación',    icon: 'format_list_bulleted', desc: 'Preparación de unidades' },
+  { key: 'reportes',            label: 'Reportes',               icon: 'bar_chart',            desc: 'Reportes y estadísticas' },
+  { key: 'auditoria',           label: 'Auditoría',              icon: 'policy',               desc: 'Registro de cambios y bitácora' },
+  { key: 'exportar_excel',      label: 'Exportar a Excel',       icon: 'table_view',           desc: 'Descarga de datos en hoja de cálculo' },
+  { key: 'historial_logs',      label: 'Historial de logs',      icon: 'history',              desc: 'Logs técnicos y eventos' },
+  { key: 'gestion_usuarios',    label: 'Gestión de usuarios',    icon: 'group',                desc: 'Administración de roles y usuarios' },
+  { key: 'solicitudes_acceso',  label: 'Solicitudes de acceso',  icon: 'assignment',           desc: 'Solicitudes de nuevos usuarios' },
+  { key: 'edicion_mapa',        label: 'Edición de mapa',        icon: 'edit_location_alt',    desc: 'Editor visual de cajones' },
+  { key: 'notificaciones_push', label: 'Notificaciones push',    icon: 'notifications',        desc: 'Alertas push al dispositivo' },
+  { key: 'ia_placas',           label: 'IA de placas',           icon: 'smart_toy',            desc: 'Reconocimiento de placas con IA' },
+];
+
+async function _toggleEmpresaFeature(key, enabled) {
+  const empresa = window._empresaActual;
+  if (!empresa || !empresa.id || empresa.isSuperAdminContext) {
+    showToast('No hay contexto de empresa activo.', 'error');
+    return;
+  }
+  if (!empresa.features) empresa.features = {};
+  const prevValue = empresa.features[key] !== false;
+
+  const track = document.getElementById('cfg-ft-track-' + key);
+  const thumb  = document.getElementById('cfg-ft-thumb-' + key);
+  const _applyTrack = (on) => {
+    if (track) track.style.background = on ? '#2563eb' : '#cbd5e1';
+    if (thumb) thumb.style.left = (on ? '22' : '3') + 'px';
+  };
+  _applyTrack(enabled);
+  empresa.features[key] = enabled;
+
+  try {
+    await db.collection('empresas').doc(empresa.id).update({ ['features.' + key]: enabled });
+    window.dispatchEvent(new CustomEvent('mex:empresa-change', { detail: { empresaId: empresa.id, empresa } }));
+    const def = _empresaFeatureDefs.find(f => f.key === key);
+    showToast(`${def?.label || key}: ${enabled ? 'activado' : 'desactivado'}`, 'success');
+  } catch (err) {
+    console.error('[S4] _toggleEmpresaFeature:', err);
+    empresa.features[key] = prevValue;
+    const cb = document.querySelector('input[data-feature="' + key + '"]');
+    if (cb) cb.checked = prevValue;
+    _applyTrack(prevValue);
+    showToast('Error al guardar. Intenta de nuevo.', 'error');
+  }
+}
+window._toggleEmpresaFeature = _toggleEmpresaFeature;
+
+function _renderEmpresaFeaturesCard() {
+  const empresa = window._empresaActual;
+  if (!empresa || empresa.isSuperAdminContext) return '';
+  const features = empresa.features || {};
+  const rows = _empresaFeatureDefs.map(def => {
+    const on = features[def.key] !== false;
+    return `
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:#f8fafc;border:1.5px solid #e2e8f0;">
+        <span class="material-icons" style="font-size:20px;color:#2563eb;flex-shrink:0;">${def.icon}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:800;color:#1e293b;">${escapeHtml(def.label)}</div>
+          <div style="font-size:11px;color:#64748b;font-weight:600;">${escapeHtml(def.desc)}</div>
+        </div>
+        <label style="position:relative;width:44px;height:24px;flex-shrink:0;cursor:pointer;display:block;">
+          <input type="checkbox" data-feature="${def.key}" ${on ? 'checked' : ''}
+            onchange="_toggleEmpresaFeature('${def.key}', this.checked)"
+            style="position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1;">
+          <div id="cfg-ft-track-${def.key}" style="width:44px;height:24px;border-radius:12px;background:${on ? '#2563eb' : '#cbd5e1'};transition:background .2s;pointer-events:none;position:relative;">
+            <div id="cfg-ft-thumb-${def.key}" style="position:absolute;top:3px;left:${on ? '22' : '3'}px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2);transition:left .2s;"></div>
+          </div>
+        </label>
+      </div>`;
+  }).join('');
+  return `
+    <div class="cfg-emp-card" id="cfg-features-card">
+      <div class="cfg-emp-section-header">
+        <span class="material-icons">toggle_on</span>
+        Funciones del Plan
+      </div>
+      <p style="font-size:12px;color:#64748b;font-weight:600;margin:0 0 12px;line-height:1.6;">
+        Activa o desactiva módulos para esta empresa. Los cambios aplican de inmediato.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${rows}
+      </div>
+    </div>`;
 }
 
 async function guardarEmpresaConfig(actionType = 'EMPRESA_ACTUALIZADA', message = 'Actualizó la configuración de empresa', successMessage = 'Empresa actualizada.', extra = {}) {

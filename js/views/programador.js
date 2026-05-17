@@ -41,6 +41,7 @@ const state = {
   toolsLog: [],
   empresas: [],
   empresasLoading: false,
+  showCrearEmpresaForm: false,
 };
 
 const BUILD_TAG = 'mapa-v90';
@@ -1793,6 +1794,70 @@ const SAAS_PLAN_META = {
   enterprise: { label: 'Enterprise', color: '#10b981' },
 };
 
+// ── S7: Plan presets ─────────────────────────────────────────
+// Canonical feature set and limits for each plan.
+// Used to auto-populate new empresa forms and to offer "reset to preset"
+// when the programador changes a plan.
+const PLAN_PRESETS = {
+  starter: {
+    features: {
+      mensajeria:          true,
+      alertas:             false,
+      cuadre:              true,
+      incidencias:         true,
+      cola_preparacion:    true,
+      reportes:            false,
+      auditoria:           false,
+      ia_placas:           false,
+      historial_logs:      false,
+      gestion_usuarios:    true,
+      solicitudes_acceso:  true,
+      edicion_mapa:        false,
+      exportar_excel:      false,
+      notificaciones_push: false,
+    },
+    limites: { maxPlazas: 1, maxUsuarios: 10, maxUnidades: 50 },
+  },
+  pro: {
+    features: {
+      mensajeria:          true,
+      alertas:             true,
+      cuadre:              true,
+      incidencias:         true,
+      cola_preparacion:    true,
+      reportes:            true,
+      auditoria:           true,
+      ia_placas:           false,
+      historial_logs:      true,
+      gestion_usuarios:    true,
+      solicitudes_acceso:  true,
+      edicion_mapa:        true,
+      exportar_excel:      true,
+      notificaciones_push: true,
+    },
+    limites: { maxPlazas: 5, maxUsuarios: 50, maxUnidades: 500 },
+  },
+  enterprise: {
+    features: {
+      mensajeria:          true,
+      alertas:             true,
+      cuadre:              true,
+      incidencias:         true,
+      cola_preparacion:    true,
+      reportes:            true,
+      auditoria:           true,
+      ia_placas:           true,
+      historial_logs:      true,
+      gestion_usuarios:    true,
+      solicitudes_acceso:  true,
+      edicion_mapa:        true,
+      exportar_excel:      true,
+      notificaciones_push: true,
+    },
+    limites: { maxPlazas: -1, maxUsuarios: -1, maxUnidades: -1 },
+  },
+};
+
 async function loadEmpresas() {
   state.empresasLoading = true;
   renderEmpresasTab();
@@ -1838,9 +1903,37 @@ async function saasCambiarPlan(empresaId, plan) {
     if (empresa) empresa.plan = plan;
     renderEmpresasTab();
     showToast(`Plan actualizado a ${plan}`, 'success');
+
+    const applyPreset = await _mexConfirm(
+      'Aplicar preset de features',
+      `¿Aplicar también las funciones y límites del plan ${plan.toUpperCase()}? Esto sobreescribirá la configuración actual.`,
+      'info'
+    );
+    if (applyPreset) await saasAplicarPreset(empresaId, plan);
   } catch (e) {
     console.error('saasCambiarPlan', e);
     showToast('Error al cambiar plan: ' + describeError(e), 'error');
+  }
+}
+
+async function saasAplicarPreset(empresaId, plan) {
+  const preset = PLAN_PRESETS[plan];
+  if (!preset) { showToast(`Sin preset definido para "${plan}".`, 'error'); return; }
+  try {
+    await db.collection('empresas').doc(empresaId).update({
+      features: preset.features,
+      limites:  preset.limites,
+    });
+    const empresa = state.empresas.find(e => e.empresaId === empresaId);
+    if (empresa) {
+      empresa.features = { ...preset.features };
+      empresa.limites  = { ...preset.limites };
+    }
+    renderEmpresasTab();
+    showToast(`Preset ${plan.toUpperCase()} aplicado correctamente.`, 'success');
+  } catch (e) {
+    console.error('saasAplicarPreset', e);
+    showToast('Error al aplicar preset: ' + describeError(e), 'error');
   }
 }
 
@@ -1870,6 +1963,187 @@ async function saasMigrarUsuarios(empresaId) {
     showToast(`${result?.data?.usuariosActualizados ?? 0} usuarios migrados`, 'success');
   } catch (e) {
     showToast('Error en migración: ' + describeError(e), 'error');
+  }
+}
+
+// ── S5: Nueva empresa — formulario inline ─────────────────────────────────────
+
+function _renderNuevaEmpresaForm() {
+  const featureCheckboxes = SAAS_FEATURE_GROUPS.map(group => `
+    <div style="min-width:160px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:.07em;color:#64748b;text-transform:uppercase;margin-bottom:6px;">${group.label}</div>
+      ${group.keys.map(key => `
+        <label style="display:flex;align-items:center;gap:7px;cursor:pointer;padding:3px 0;">
+          <input type="checkbox" id="nef-${key}" checked style="accent-color:#6366f1;width:13px;height:13px;cursor:pointer;">
+          <span style="font-size:12px;color:#334155;">${SAAS_FEATURE_LABELS[key] || key}</span>
+        </label>`).join('')}
+    </div>`).join('');
+
+  return `
+    <div class="programmer-panel" style="margin-bottom:20px;border:2px solid #6366f1;">
+      <div class="programmer-panel-head">
+        <h4 style="margin:0;display:flex;align-items:center;gap:8px;">
+          <span class="material-icons" style="color:#6366f1;font-size:20px;">add_business</span>
+          Nueva empresa
+        </h4>
+        <button class="programmer-page-btn" onclick="cancelarCrearEmpresa()">
+          <span class="material-icons" style="font-size:16px;">close</span> Cancelar
+        </button>
+      </div>
+      <div style="padding:16px;display:flex;flex-direction:column;gap:16px;">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">ID único (slug) *</label>
+            <input id="nef-empresaId" placeholder="cliente-abc" autocomplete="off" spellcheck="false"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:monospace;"
+              oninput="this.value=this.value.toLowerCase().replace(/[^a-z0-9-]/g,'')">
+            <div style="font-size:10px;color:#94a3b8;margin-top:3px;">Solo minúsculas, números y guiones. Inmutable tras la creación.</div>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Nombre comercial *</label>
+            <input id="nef-nombre" placeholder="Empresa XYZ"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:12px;align-items:end;">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Plan</label>
+            <select id="nef-plan"
+              onchange="aplicarPresetNuevaEmpresa(this.value)"
+              style="padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;background:#fff;cursor:pointer;">
+              ${Object.entries(SAAS_PLAN_META).map(([key, meta]) =>
+                `<option value="${key}" ${key === 'enterprise' ? 'selected' : ''}>${meta.label}</option>`
+              ).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Máx. Plazas</label>
+            <input id="nef-maxPlazas" type="number" value="-1"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+            <div style="font-size:10px;color:#94a3b8;margin-top:3px;">-1 = ilimitado</div>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Máx. Usuarios</label>
+            <input id="nef-maxUsuarios" type="number" value="-1"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em;">Máx. Unidades</label>
+            <input id="nef-maxUnidades" type="number" value="-1"
+              style="width:100%;box-sizing:border-box;padding:8px 10px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;">
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;color:#475569;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Funciones habilitadas</label>
+          <div style="display:flex;flex-wrap:wrap;gap:20px;background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:14px;">
+            ${featureCheckboxes}
+          </div>
+          <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="programmer-page-btn" onclick="aplicarPresetNuevaEmpresa(document.getElementById('nef-plan').value)" style="font-size:11px;min-height:26px;padding:0 10px;">
+              <span class="material-icons" style="font-size:13px;">auto_fix_high</span> Preset del plan
+            </button>
+            <button type="button" class="programmer-page-btn" onclick="toggleAllNuevoFeatures(true)" style="font-size:11px;min-height:26px;padding:0 10px;">
+              <span class="material-icons" style="font-size:13px;">done_all</span> Todas
+            </button>
+            <button type="button" class="programmer-page-btn" onclick="toggleAllNuevoFeatures(false)" style="font-size:11px;min-height:26px;padding:0 10px;">
+              <span class="material-icons" style="font-size:13px;">remove_done</span> Ninguna
+            </button>
+          </div>
+        </div>
+
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#64748b;">
+          <input type="checkbox" id="nef-force" style="accent-color:#f59e0b;width:14px;height:14px;cursor:pointer;">
+          <span>Sobreescribir si la empresa ya existe</span>
+        </label>
+
+        <div style="display:flex;gap:10px;padding-top:4px;">
+          <button type="button" class="programmer-page-btn primary" onclick="crearNuevaEmpresa()" id="nef-submit-btn">
+            <span class="material-icons" style="font-size:16px;">add_business</span> Crear empresa
+          </button>
+          <button type="button" class="programmer-page-btn" onclick="cancelarCrearEmpresa()">Cancelar</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function abrirCrearEmpresaForm() {
+  state.showCrearEmpresaForm = true;
+  renderEmpresasTab();
+  setTimeout(() => document.getElementById('nef-empresaId')?.focus(), 50);
+}
+
+function cancelarCrearEmpresa() {
+  state.showCrearEmpresaForm = false;
+  renderEmpresasTab();
+}
+
+function toggleAllNuevoFeatures(enabled) {
+  SAAS_FEATURE_GROUPS.flatMap(g => g.keys).forEach(key => {
+    const cb = document.getElementById('nef-' + key);
+    if (cb) cb.checked = enabled;
+  });
+}
+
+function aplicarPresetNuevaEmpresa(plan) {
+  const preset = PLAN_PRESETS[plan];
+  if (!preset) return;
+  Object.entries(preset.features).forEach(([key, val]) => {
+    const cb = document.getElementById('nef-' + key);
+    if (cb) cb.checked = val;
+  });
+  const setNum = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+  setNum('nef-maxPlazas',   preset.limites.maxPlazas);
+  setNum('nef-maxUsuarios', preset.limites.maxUsuarios);
+  setNum('nef-maxUnidades', preset.limites.maxUnidades);
+}
+
+async function crearNuevaEmpresa() {
+  const empresaId = (document.getElementById('nef-empresaId')?.value || '').trim();
+  const nombre    = (document.getElementById('nef-nombre')?.value || '').trim();
+  const plan      = document.getElementById('nef-plan')?.value || 'enterprise';
+  const force     = document.getElementById('nef-force')?.checked || false;
+  const maxPlazas   = parseInt(document.getElementById('nef-maxPlazas')?.value ?? '-1', 10);
+  const maxUsuarios = parseInt(document.getElementById('nef-maxUsuarios')?.value ?? '-1', 10);
+  const maxUnidades = parseInt(document.getElementById('nef-maxUnidades')?.value ?? '-1', 10);
+
+  if (!empresaId) { showToast('El ID de empresa es obligatorio.', 'error'); return; }
+  if (!nombre)    { showToast('El nombre comercial es obligatorio.', 'error'); return; }
+  if (!/^[a-z0-9-]+$/.test(empresaId)) { showToast('El ID solo puede tener minúsculas, números y guiones.', 'error'); return; }
+
+  const features = {};
+  SAAS_FEATURE_GROUPS.flatMap(g => g.keys).forEach(key => {
+    const cb = document.getElementById('nef-' + key);
+    features[key] = cb ? cb.checked : true;
+  });
+
+  const submitBtn = document.getElementById('nef-submit-btn');
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '<span class="material-icons" style="font-size:16px;">hourglass_top</span> Creando...'; }
+
+  try {
+    const fn = callable('seedPrimeraEmpresa');
+    const result = await fn({ empresaId, nombre, plan, force });
+
+    const limites = {
+      maxPlazas:   isNaN(maxPlazas)   ? -1 : maxPlazas,
+      maxUsuarios: isNaN(maxUsuarios) ? -1 : maxUsuarios,
+      maxUnidades: isNaN(maxUnidades) ? -1 : maxUnidades,
+    };
+    const hasCustomFeatures = Object.values(features).some(v => !v);
+    const hasCustomLimites  = limites.maxPlazas !== -1 || limites.maxUsuarios !== -1 || limites.maxUnidades !== -1;
+    if (hasCustomFeatures || hasCustomLimites) {
+      await db.collection('empresas').doc(empresaId).update({ features, limites });
+    }
+
+    showToast(`Empresa "${nombre}" (${empresaId}) ${result?.data?.created ? 'creada' : 'actualizada'} correctamente.`, 'success');
+    state.showCrearEmpresaForm = false;
+    await loadEmpresas();
+  } catch (e) {
+    console.error('[S5] crearNuevaEmpresa:', e);
+    showToast('Error: ' + describeError(e), 'error');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = '<span class="material-icons" style="font-size:16px;">add_business</span> Crear empresa'; }
   }
 }
 
@@ -1952,6 +2226,11 @@ function renderEmpresasTab() {
               <span class="material-icons" style="font-size:14px;">group_add</span>
               Migrar usuarios
             </button>
+            <button type="button" class="programmer-page-btn" style="font-size:11px;min-height:28px;padding:0 10px;"
+              onclick="saasAplicarPreset('${escapeHtml(id)}', '${escapeHtml(empresa.plan || 'enterprise')}')">
+              <span class="material-icons" style="font-size:14px;">auto_fix_high</span>
+              Aplicar preset
+            </button>
           </div>
         </div>
         <div style="padding:16px;display:flex;flex-wrap:wrap;gap:24px;">
@@ -1964,6 +2243,11 @@ function renderEmpresasTab() {
           <span style="font-size:11px;color:#94a3b8;">
             · Features activas: ${Object.values(features).filter(v => v !== false).length}/${Object.keys(SAAS_FEATURE_LABELS).length}
           </span>
+          ${empresa.limites ? `<span style="font-size:11px;color:#94a3b8;">
+            · Límites: ${empresa.limites.maxPlazas === -1 ? '∞' : empresa.limites.maxPlazas} plazas /
+            ${empresa.limites.maxUsuarios === -1 ? '∞' : empresa.limites.maxUsuarios} usuarios /
+            ${empresa.limites.maxUnidades === -1 ? '∞' : empresa.limites.maxUnidades} unidades
+          </span>` : ''}
         </div>
       </div>`;
   };
@@ -1985,13 +2269,15 @@ function renderEmpresasTab() {
         <button type="button" class="programmer-page-btn" onclick="loadEmpresas()">
           <span class="material-icons">refresh</span> Recargar
         </button>
-        <button type="button" class="programmer-page-btn primary" onclick="saasSeedEmpresa()">
+        ${!state.showCrearEmpresaForm ? `
+        <button type="button" class="programmer-page-btn primary" onclick="abrirCrearEmpresaForm()">
           <span class="material-icons">add_business</span> Nueva empresa
-        </button>
+        </button>` : ''}
       </div>
     </section>
     <section style="padding:0 16px 24px;">
-      ${state.empresas.length === 0 ? noEmpresas : state.empresas.map(empresaCard).join('')}
+      ${state.showCrearEmpresaForm ? _renderNuevaEmpresaForm() : ''}
+      ${state.empresas.length === 0 && !state.showCrearEmpresaForm ? noEmpresas : state.empresas.map(empresaCard).join('')}
     </section>`;
 }
 
@@ -2567,12 +2853,18 @@ async function refreshAll() {
 
 // Expose SaaS management functions for inline onclick handlers inside
 // dynamically-injected innerHTML (ES module scope is not accessible otherwise).
-window.saasToggleFeature = saasToggleFeature;
-window.saasCambiarPlan   = saasCambiarPlan;
-window.saasEntrarEmpresa = saasEntrarEmpresa;
-window.saasMigrarUsuarios = saasMigrarUsuarios;
-window.saasSeedEmpresa   = saasSeedEmpresa;
-window.loadEmpresas      = loadEmpresas;
+window.saasToggleFeature   = saasToggleFeature;
+window.saasCambiarPlan     = saasCambiarPlan;
+window.saasEntrarEmpresa   = saasEntrarEmpresa;
+window.saasMigrarUsuarios  = saasMigrarUsuarios;
+window.saasSeedEmpresa     = saasSeedEmpresa;
+window.loadEmpresas        = loadEmpresas;
+window.abrirCrearEmpresaForm      = abrirCrearEmpresaForm;
+window.cancelarCrearEmpresa       = cancelarCrearEmpresa;
+window.crearNuevaEmpresa          = crearNuevaEmpresa;
+window.toggleAllNuevoFeatures     = toggleAllNuevoFeatures;
+window.aplicarPresetNuevaEmpresa  = aplicarPresetNuevaEmpresa;
+window.saasAplicarPreset          = saasAplicarPreset;
 
 installProgrammerErrorReporter({
   screen: 'programador',
