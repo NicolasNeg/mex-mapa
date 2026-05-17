@@ -2582,3 +2582,186 @@
   .inc-module .inc-row .row-sla,
   .inc-module .inc-row .row-assignee { display: none; }
 }
+
+/* ── Assign-to field in create dialog ── */
+.inc-module .ci-assign-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  background: var(--bg-card, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+}
+.inc-module .ci-assign-clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--fg-muted);
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+}
+.inc-module .ci-assign-clear:hover { color: var(--fg-strong); }
+
+.inc-module .ci-assign-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: var(--bg-card, #f8fafc);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 8px;
+  transition: border-color .15s;
+}
+.inc-module .ci-assign-search-wrap:focus-within {
+  border-color: var(--accent, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59,130,246,.12);
+}
+.inc-module .ci-assign-search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font: 13px/1.4 var(--font, Inter, sans-serif);
+  color: var(--fg-strong);
+}
+.inc-module .ci-assign-search-input::placeholder { color: var(--fg-muted); }
+
+.inc-module .ci-assign-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-overlay, #fff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15,23,42,.13);
+  z-index: 200;
+  overflow: hidden;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.inc-module .ci-assign-result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  transition: background .1s;
+}
+.inc-module .ci-assign-result:last-child { border-bottom: none; }
+.inc-module .ci-assign-result:hover { background: var(--bg-hover, #f1f5f9); }
+.inc-module .ci-assign-result-name {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg-strong);
+}
+.inc-module .ci-assign-result-meta {
+  font-size: 11px;
+  color: var(--fg-muted);
+}
+
+/* ── Image preview grid in detail panel ── */
+.inc-module .dp-image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.inc-module .dp-image-thumb {
+  display: block;
+  border-radius: 7px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: var(--bg-hover, #f1f5f9);
+  border: 1px solid var(--border, #e2e8f0);
+  transition: transform .15s, box-shadow .15s;
+}
+.inc-module .dp-image-thumb:hover {
+  transform: scale(1.03);
+  box-shadow: 0 4px 14px rgba(15,23,42,.15);
+}
+.inc-module .dp-image-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Seguidores section ── */
+.inc-module .dp-seguidores {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.inc-module .dp-seg-more {
+  font-size: 11px;
+  color: var(--fg-muted);
+  background: var(--bg-hover, #f1f5f9);
+  border-radius: 50px;
+  padding: 2px 7px;
+}
+.inc-module .dp-seguir-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: var(--bg-card, #f8fafc);
+  color: var(--fg-strong);
+  font: 600 11.5px/1 var(--font, Inter, sans-serif);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.inc-module .dp-seguir-btn:hover { background: var(--bg-hover, #f1f5f9); border-color: var(--accent, #3b82f6); }
+.inc-module .dp-seguir-btn.is-following {
+  background: rgba(59,130,246,.08);
+  border-color: rgba(59,130,246,.3);
+  color: var(--accent, #3b82f6);
+}
+.inc-module .dp-seguir-btn:disabled { opacity: .5; cursor: default; }
+
+/* ── Assignee / visibility badges in detail ── */
+.inc-module .dp-assign-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: var(--fg-strong);
+}
+.inc-module .dp-unassigned {
+  font-size: 12px;
+  color: var(--fg-muted);
+  font-style: italic;
+}
+.inc-module .dp-plaza-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-hover, #f1f5f9);
+  color: var(--fg-muted);
+  text-transform: uppercase;
+}
+.inc-module .dp-plaza-badge.is-global {
+  background: rgba(59,130,246,.1);
+  color: var(--accent, #3b82f6);
+}
+
+/* ── Timeline assign entry ── */
+.inc-module .inc-timeline-item.is-assign .inc-timeline-mark {
+  background: rgba(99,102,241,.12);
+  color: #6366f1;
+}

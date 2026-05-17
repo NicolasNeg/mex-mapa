@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
-import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
+import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia, updateIncidenciaField, toggleSeguidor, searchUsuarios } from '/js/app/features/incidencias/incidencias-data.js';
 
 let _container = null;
 let _state = null;
@@ -73,6 +73,10 @@ function _makeState(plaza) {
       mva: ''
     },
     toastTimer: null,
+    asignarSelected: null,   // { uid, nombre, email, rol, plaza, isGlobal }
+    asignarSearchTerm: '',
+    asignarResults: [],
+    asignarSearchTimer: null,
   };
 }
 
@@ -332,11 +336,86 @@ function _bindUi() {
   q('incResolverCancelar')?.addEventListener('click', () => _toggleResolverModal(false));
   q('btnConfirmarResInc')?.addEventListener('click', _confirmResolve);
 
+  // Asignar a — búsqueda en tiempo real
+  q('incAsignarInput')?.addEventListener('input', _onAsignarInput);
+  q('incAsignarClear')?.addEventListener('click', _clearAsignar);
+
   // Keyboard shortcut N para abrir create
   if (!_bindUi._kbBound) {
     _bindUi._kbBound = true;
     window.addEventListener('keydown', _onGlobalKey);
   }
+}
+
+// ────────────────────────────────────────────────────────────
+// ASIGNAR A — búsqueda de usuarios
+// ────────────────────────────────────────────────────────────
+function _onAsignarInput(e) {
+  if (!_state) return;
+  const term = String(e.target?.value || '').trim();
+  _state.asignarSearchTerm = term;
+  clearTimeout(_state.asignarSearchTimer);
+  if (term.length < 2) {
+    _renderAsignarDropdown([]);
+    return;
+  }
+  _state.asignarSearchTimer = setTimeout(async () => {
+    try {
+      const results = await searchUsuarios(term, _state.plaza || '');
+      if (_state?.asignarSearchTerm === term) _renderAsignarDropdown(results);
+    } catch (_) { _renderAsignarDropdown([]); }
+  }, 250);
+}
+
+function _renderAsignarDropdown(results) {
+  const drop = q('incAsignarDropdown');
+  if (!drop) return;
+  if (!results.length) { drop.style.display = 'none'; drop.innerHTML = ''; return; }
+  drop.style.display = 'block';
+  drop.innerHTML = results.map(u => `
+    <button type="button" class="ci-assign-result" data-uid="${esc(u.uid)}">
+      <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(_initialsFrom(u.nombre || u.email))}</span>
+      <span class="ci-assign-result-name">${esc(u.nombre || _displayName(u.email))}</span>
+      <span class="ci-assign-result-meta">${esc(u.rol)}${u.plaza ? ' · ' + esc(u.plaza) : ''}${u.isGlobal ? ' · Global' : ''}</span>
+    </button>
+  `).join('');
+  drop.querySelectorAll('.ci-assign-result').forEach((btn, i) => {
+    btn.addEventListener('click', () => _selectAsignar(results[i]));
+  });
+}
+
+function _selectAsignar(user) {
+  if (!_state) return;
+  _state.asignarSelected = user;
+  _state.asignarSearchTerm = '';
+  // Actualiza UI
+  const sel = q('incAsignarSelected');
+  const wrap = q('incAsignarSearchWrap');
+  const av = q('incAsignarAvatar');
+  const nm = q('incAsignarNombre');
+  const rl = q('incAsignarRole');
+  if (sel) sel.style.display = 'flex';
+  if (wrap) wrap.style.display = 'none';
+  if (av) av.textContent = _initialsFrom(user.nombre || user.email);
+  if (nm) nm.textContent = user.nombre || _displayName(user.email);
+  if (rl) rl.textContent = [user.rol, user.plaza, user.isGlobal ? 'Global' : ''].filter(Boolean).join(' · ');
+  const drop = q('incAsignarDropdown');
+  if (drop) { drop.style.display = 'none'; drop.innerHTML = ''; }
+  const input = q('incAsignarInput');
+  if (input) input.value = '';
+  _renderCreatePreview();
+}
+
+function _clearAsignar() {
+  if (!_state) return;
+  _state.asignarSelected = null;
+  const sel = q('incAsignarSelected');
+  const wrap = q('incAsignarSearchWrap');
+  if (sel) sel.style.display = 'none';
+  if (wrap) wrap.style.display = 'flex';
+  const input = q('incAsignarInput');
+  if (input) { input.value = ''; input.focus(); }
+  _renderCreatePreview();
 }
 
 function _onGlobalKey(e) {
@@ -935,8 +1014,13 @@ function _renderList(items) {
     const mva = item.mva || '';
     const fecha = _relativeDate(item.creadoEn || item.fecha);
     const author = String(item.autor || item.creadoPor || '').trim();
-    const initials = _initialsFrom(author);
-    const firstName = author ? author.split(/[\s@]/)[0] : '';
+    const asignadoRow = item.asignadoA && (item.asignadoA.nombre || item.asignadoA.email)
+      ? item.asignadoA : null;
+    const assigneeName = asignadoRow
+      ? (asignadoRow.nombre || _displayName(asignadoRow.email))
+      : _displayName(author);
+    const initials = _initialsFrom(assigneeName);
+    const firstName = (assigneeName || '').split(/\s+/)[0] || '';
 
     return `
       <div class="inc-row ${isActive ? 'is-active' : ''} ${isSelected ? 'is-selected' : ''}" data-open-id="${esc(id)}">
@@ -962,7 +1046,7 @@ function _renderList(items) {
           <span class="schedule-chip sla-neutral">—</span>
         </div>
         <div class="row-assignee">
-          ${author
+          ${(asignadoRow || author)
             ? `<span class="row-assignee-pill"><span class="inc-avatar" style="width:20px;height:20px;font-size:9px;">${esc(initials)}</span><span>${esc(firstName)}</span></span>`
             : `<span class="row-unassigned">Sin asignar</span>`}
         </div>
@@ -1021,7 +1105,7 @@ function _renderTable(items) {
         </td>
         <td><span class="td-prio"><span class="prio-dot is-${esc(prLower)}"></span>${esc(_priorityLabel(pr))}</span></td>
         <td><span class="status-pill is-${esc(stKey)}"><span class="status-pill-dot"></span>${esc(stLabel)}</span></td>
-        <td class="td-mono">${esc(item.autor || item.creadoPor || '—')}</td>
+        <td class="td-mono">${esc((item.asignadoA?.nombre) || _displayName(item.autor || item.creadoPor || '') || '—')}</td>
         <td class="td-mono">${esc(item.mva || '—')}</td>
         <td class="td-time">${esc(_relativeDate(item.actualizadoEn || item.creadoEn || item.fecha))}</td>
       </tr>
@@ -1153,13 +1237,17 @@ function _renderDetailPanel() {
   const descripcion = _renderRichText(item.descripcion || 'Sin descripción.', item.descripcionHtml);
   const resolved = status === 'RESUELTA' || status === 'CERRADA';
 
-  // Watchers (estática: autor + supervisión + despacho)
+  // Seguidores (real desde Firestore)
   const author = String(item.autor || item.creadoPor || 'Sistema').trim();
-  const watchers = [
-    { initials: _initialsFrom(author), name: author.split(/[\s@]/)[0] || 'Autor' },
-    { initials: 'DP', name: 'Despacho' },
-    { initials: 'SU', name: 'Supervisión' },
-  ];
+  const seguidores = Array.isArray(item.seguidores) ? item.seguidores : [];
+  const gsMe = getState();
+  const myUid = String(gsMe?.profile?.uid || '');
+  const myEmail = String(gsMe?.profile?.email || '').toLowerCase();
+  const amFollowing = seguidores.some(s =>
+    (myUid && s.uid === myUid) || (myEmail && String(s.email || '').toLowerCase() === myEmail)
+  );
+  const asignadoA = item.asignadoA && (item.asignadoA.nombre || item.asignadoA.email)
+    ? item.asignadoA : null;
 
   // Related (same tipo, excluir actual, máx 3)
   const tipoCur = String(item?.tipo || 'OTRO').toUpperCase().trim() || 'OTRO';
@@ -1202,7 +1290,7 @@ function _renderDetailPanel() {
         </div>
         <div>
           <div class="dp-section-label">Reportada por</div>
-          <div class="dp-meta-val-plain">${esc(item.autor || item.creadoPor || 'Sistema')}</div>
+          <div class="dp-meta-val-plain">${esc(_displayName(item.autor || item.creadoPor || 'Sistema'))}</div>
         </div>
         <div>
           <div class="dp-section-label">MVA / Activo</div>
@@ -1212,17 +1300,39 @@ function _renderDetailPanel() {
           <div class="dp-section-label">Tipo</div>
           <div class="dp-meta-val">${esc(String(item.tipo || 'OTRO').toUpperCase())}</div>
         </div>
+        <div>
+          <div class="dp-section-label">Asignada a</div>
+          <div class="dp-meta-val-plain">${asignadoA
+            ? `<span class="dp-assign-pill"><span class="inc-avatar" style="width:18px;height:18px;font-size:8px;">${esc(_initialsFrom(asignadoA.nombre || asignadoA.email))}</span>${esc(asignadoA.nombre || _displayName(asignadoA.email))}</span>`
+            : `<span class="dp-unassigned">Sin asignar</span>`
+          }</div>
+        </div>
+        <div>
+          <div class="dp-section-label">Visibilidad</div>
+          <div class="dp-meta-val">${item.plaza && item.plaza !== 'GLOBAL'
+            ? `<span class="dp-plaza-badge">${esc(item.plaza)}</span>`
+            : `<span class="dp-plaza-badge is-global">GLOBAL</span>`
+          }</div>
+        </div>
       </section>
 
       ${evidencias.length ? `
         <section class="dp-section">
           <div class="dp-section-label">Evidencias · ${evidencias.length}</div>
-          <div class="dp-attachments">
-            ${evidencias.map(ev => ev.url
-              ? `<a class="dp-attachment" href="${esc(ev.url)}" target="_blank" rel="noopener noreferrer"><span class="material-icons">attach_file</span><span class="dp-att-label">${esc(ev.label)}</span></a>`
-              : `<div class="dp-attachment"><span class="material-icons">folder</span><span class="dp-att-label">${esc(ev.label)}</span></div>`
-            ).join('')}
-          </div>
+          ${(() => {
+            const imgs = evidencias.filter(ev => ev.url && _isImageUrl(ev.url));
+            const files = evidencias.filter(ev => !(ev.url && _isImageUrl(ev.url)));
+            return `
+              ${imgs.length ? `<div class="dp-image-grid">${imgs.map(ev => `
+                <a class="dp-image-thumb" href="${esc(ev.url)}" target="_blank" rel="noopener noreferrer" title="${esc(ev.label)}">
+                  <img src="${esc(ev.url)}" alt="${esc(ev.label)}" loading="lazy">
+                </a>`).join('')}</div>` : ''}
+              ${files.length ? `<div class="dp-attachments">${files.map(ev => ev.url
+                ? `<a class="dp-attachment" href="${esc(ev.url)}" target="_blank" rel="noopener noreferrer"><span class="material-icons">attach_file</span><span class="dp-att-label">${esc(ev.label)}</span></a>`
+                : `<div class="dp-attachment"><span class="material-icons">folder</span><span class="dp-att-label">${esc(ev.label)}</span></div>`
+              ).join('')}</div>` : ''}
+            `;
+          })()}
         </section>
       ` : ''}
 
@@ -1232,7 +1342,7 @@ function _renderDetailPanel() {
           <div class="dp-resolution">
             <div class="dp-resolution-head">
               <span class="material-icons">check</span>
-              Resuelta por ${esc(item.resueltoPor || item.quienResolvio || 'Sistema')} · ${esc(_longDate(item.resueltoEn || item.resueltaEn || item.actualizadoEn))}
+              Resuelta por ${esc(_displayName(item.resueltoPor || item.quienResolvio || 'Sistema'))} · ${esc(_longDate(item.resueltoEn || item.resueltaEn || item.actualizadoEn))}
             </div>
             <div class="dp-resolution-body">${esc(item.solucion || 'Sin detalle de solución.').replace(/\n/g, '<br>')}</div>
           </div>
@@ -1240,16 +1350,20 @@ function _renderDetailPanel() {
       ` : ''}
 
       <section class="dp-section">
-        <div class="dp-section-label">Watchers · ${watchers.length}</div>
-        <div class="dp-watchers">
+        <div class="dp-section-label">Seguidores · ${seguidores.length}</div>
+        <div class="dp-seguidores">
           <div class="dp-watcher-stack">
-            ${watchers.map((w, i) => `
-              <div class="dp-watcher-av" style="z-index:${10 - i}">
-                <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(w.initials)}</span>
+            ${seguidores.slice(0, 6).map((s, i) => `
+              <div class="dp-watcher-av" style="z-index:${10 - i}" title="${esc(s.nombre || _displayName(s.email))}">
+                <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(_initialsFrom(s.nombre || s.email))}</span>
               </div>
             `).join('')}
           </div>
-          <button class="dp-watcher-add"><span class="material-icons">add</span>Seguir</button>
+          ${seguidores.length > 6 ? `<span class="dp-seg-more">+${seguidores.length - 6}</span>` : ''}
+          <button class="dp-seguir-btn${amFollowing ? ' is-following' : ''}" id="incSeguirBtn" data-stop>
+            <span class="material-icons" style="font-size:13px">${amFollowing ? 'notifications_off' : 'notifications'}</span>
+            ${amFollowing ? 'Dejar de seguir' : 'Seguir'}
+          </button>
         </div>
       </section>
 
@@ -1281,13 +1395,20 @@ function _renderDetailPanel() {
         <ol class="inc-timeline">
           <li class="inc-timeline-item is-create">
             <div class="inc-timeline-mark"><span class="material-icons">add</span></div>
-            <div class="inc-timeline-text"><b>${esc(item.autor || item.creadoPor || 'Sistema')}</b> · Creó la incidencia</div>
+            <div class="inc-timeline-text"><b>${esc(_displayName(item.autor || item.creadoPor || 'Sistema'))}</b> · Creó la incidencia</div>
             <div class="inc-timeline-when">${esc(_longDate(item.creadoEn || item.fecha))}</div>
           </li>
+          ${asignadoA ? `
+            <li class="inc-timeline-item is-assign">
+              <div class="inc-timeline-mark"><span class="material-icons">person</span></div>
+              <div class="inc-timeline-text">Asignada a <b>${esc(asignadoA.nombre || _displayName(asignadoA.email))}</b></div>
+              <div class="inc-timeline-when">${esc(_longDate(item.creadoEn || item.fecha))}</div>
+            </li>
+          ` : ''}
           ${resolved ? `
             <li class="inc-timeline-item is-resolve">
               <div class="inc-timeline-mark"><span class="material-icons">check</span></div>
-              <div class="inc-timeline-text"><b>${esc(item.resueltoPor || item.quienResolvio || 'Sistema')}</b> · Marcó como resuelta</div>
+              <div class="inc-timeline-text"><b>${esc(_displayName(item.resueltoPor || item.quienResolvio || 'Sistema'))}</b> · Marcó como resuelta</div>
               <div class="inc-timeline-when">${esc(_longDate(item.resueltoEn || item.resueltaEn || item.actualizadoEn))}</div>
             </li>
           ` : ''}
@@ -1348,6 +1469,28 @@ function _renderDetailPanel() {
       if (ritem) _openDetail(ritem);
     });
   });
+  // Seguir / Dejar de seguir
+  const seguirBtn = q('incSeguirBtn');
+  if (seguirBtn) {
+    seguirBtn.addEventListener('click', async () => {
+      const gs3 = getState();
+      const me = {
+        uid: gs3?.profile?.uid || '',
+        nombre: gs3?.profile?.nombreCompleto || gs3?.profile?.nombre || '',
+        email: gs3?.profile?.email || ''
+      };
+      if (!me.uid && !me.email) return _showToast('Error', 'No se pudo identificar tu usuario.', 'error');
+      try {
+        seguirBtn.disabled = true;
+        await toggleSeguidor(id, me);
+      } catch (err) {
+        _showToast('Error', err?.message || 'No se pudo actualizar.', 'error');
+      } finally {
+        seguirBtn.disabled = false;
+      }
+    });
+  }
+
   // Comentario stub (solo toast por ahora)
   q('incCommentSend')?.addEventListener('click', () => {
     const txt = String(q('incCommentInput')?.value || '').trim();
@@ -1406,7 +1549,9 @@ async function _onCreateIncidencia() {
       autor,
       creadoPor: autor,
       estado: 'PENDIENTE',
-      source: 'notas_admin'
+      source: 'notas_admin',
+      asignadoA: _state.asignarSelected || null,
+      seguidores: [],
     };
     const links = (_state.linksNuevaNota || []).map(item => ({
       url: item.url,
@@ -1451,6 +1596,16 @@ function _resetComposer() {
     _state.archivosNuevaNota = [];
   }
   _state.linksNuevaNota = [];
+  _state.asignarSelected = null;
+  _state.asignarSearchTerm = '';
+  const selEl = q('incAsignarSelected');
+  const wrapEl = q('incAsignarSearchWrap');
+  const dropEl = q('incAsignarDropdown');
+  if (selEl) selEl.style.display = 'none';
+  if (wrapEl) wrapEl.style.display = 'flex';
+  if (dropEl) { dropEl.style.display = 'none'; dropEl.innerHTML = ''; }
+  const assignInput = q('incAsignarInput');
+  if (assignInput) assignInput.value = '';
   _state.createDraft = { titulo: '', descripcion: '', prioridad: 'ALTA', tipo: 'OTRO', mva: '' };
   _renderAdjuntosNuevos();
   _renderLinksNuevos();
@@ -1833,6 +1988,32 @@ function esc(value) {
     .replace(/"/g, '&quot;');
 }
 
+// Limpia un valor que puede ser email/nombre para mostrar solo el nombre
+function _displayName(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '—';
+  // Si contiene @ es un email → extraer parte antes de @ y capitalizar
+  if (raw.includes('@')) {
+    const local = raw.split('@')[0];
+    // Reemplaza puntos/guiones con espacios y capitaliza cada palabra
+    return local
+      .replace(/[._-]+/g, ' ')
+      .replace(/\b\w/g, c => c.toUpperCase())
+      .trim() || raw;
+  }
+  return raw;
+}
+
+// Detecta si una URL apunta a una imagen
+function _isImageUrl(url) {
+  if (!url) return false;
+  // Por extensión
+  if (/\.(jpe?g|png|gif|webp|bmp|svg|avif)(\?|$)/i.test(url)) return true;
+  // Firebase Storage URLs de imágenes suelen tener alt=media y un path con imagen
+  if (/firebasestorage\.googleapis\.com/.test(url) && /\.(jpe?g|png|gif|webp)/i.test(url)) return true;
+  return false;
+}
+
 // ────────────────────────────────────────────────────────────
 // LAYOUT (HTML inicial)
 // ────────────────────────────────────────────────────────────
@@ -1889,11 +2070,6 @@ function _renderLayout() {
         <div class="mod-head-left">
           <h1 class="mod-title">Incidencias</h1>
           <p class="mod-sub" id="incModSub">Bitácora operativa</p>
-        </div>
-        <div class="mod-search" id="incSearchTrigger" role="search">
-          <span class="material-icons" style="font-size:14px;">search</span>
-          <span class="mod-search-text">Buscar por ID, título, activo…</span>
-          <span class="mod-kbd">⌘K</span>
         </div>
         <div class="mod-actions">
           <button class="btn-ghost" id="incBtnNew" title="Nueva incidencia (N)">
@@ -2037,6 +2213,24 @@ function _renderLayout() {
                   <label class="ci-label">Reportado por</label>
                   <input type="text" id="autorNuevaNota" class="ci-input" disabled>
                 </div>
+              </div>
+
+              <div class="ci-field" style="position:relative">
+                <label class="ci-label">Asignar a <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--fg-muted)">(opcional)</span></label>
+                <div class="ci-assign-selected" id="incAsignarSelected" style="display:none">
+                  <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;" id="incAsignarAvatar"></span>
+                  <span id="incAsignarNombre" style="font-size:13px;color:var(--fg-strong);flex:1"></span>
+                  <span id="incAsignarRole" style="font-size:11px;color:var(--fg-muted)"></span>
+                  <button type="button" class="ci-assign-clear" id="incAsignarClear" title="Quitar asignación">
+                    <span class="material-icons" style="font-size:14px">close</span>
+                  </button>
+                </div>
+                <div class="ci-assign-search-wrap" id="incAsignarSearchWrap">
+                  <span class="material-icons" style="font-size:14px;color:var(--fg-muted)">person_search</span>
+                  <input type="text" id="incAsignarInput" class="ci-assign-search-input"
+                    placeholder="Buscar por nombre, correo o rol…" autocomplete="off">
+                </div>
+                <div class="ci-assign-dropdown" id="incAsignarDropdown" style="display:none"></div>
               </div>
 
               <div class="ci-field">
