@@ -121,8 +121,11 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/mapa.js'),
     navRoute: '/mapa'
   },
-  '/app/editmap':           legacyStage('editmap', '/editmap'),
-  '/app/mapa/editor':       legacyStage('editmap', '/editmap'),
+  '/app/editmap': {
+    loader:   () => import('/js/app/views/editmap.js'),
+    navRoute: '/editmap'
+  },
+  '/app/mapa/editor': { redirect: '/app/editmap' },
 };
 
 // ── Factory ──────────────────────────────────────────────────

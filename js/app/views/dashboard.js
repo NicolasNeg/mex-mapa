@@ -426,6 +426,15 @@ function _layout(state) {
         </div>
       </div>
     </div>
+
+    <div class="appdash__modules-wrap">
+      <div class="appdash__modules-head">
+        <h3 class="appdash__modules-title">Acceso Rápido</h3>
+      </div>
+      <div class="appdash__modules" id="appDashModules">
+        ${_renderModuleCards(state.modules)}
+      </div>
+    </div>
   </div>
 
   ${showDebug ? `
@@ -435,6 +444,18 @@ function _layout(state) {
     </div>
   ` : ''}
 </section>`;
+}
+
+function _renderModuleCards(modules = []) {
+  return modules.map(m => `
+    <a class="appdash__module-card appdash__shell-card" href="${esc(m.appRoute)}" data-app-route="${esc(m.appRoute)}">
+      <div class="appdash__module-ico">
+        <span class="material-symbols-outlined appdash__module-ico-s">${esc(m.icon)}</span>
+      </div>
+      <span class="appdash__module-label">${esc(m.label)}</span>
+      <span class="material-symbols-outlined appdash__module-arrow">arrow_forward</span>
+    </a>
+  `).join('');
 }
 
 function _actividadBlocks(inc, un, plazaLabel) {

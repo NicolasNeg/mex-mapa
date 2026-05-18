@@ -132,7 +132,7 @@ export const ROUTE_MAP = {
     navRoute:     '/editmap',
     fallbackRoute:'/editmap',
     shellIntegrated:    true,
-    fullModuleMigrated: false,
+    fullModuleMigrated: true,
   },
 };
 
