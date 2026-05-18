@@ -795,15 +795,38 @@ async function _loadMapPreviewDataset(plaza) {
       return { candidate, estructura: [], unidades: [], error };
     }
   }));
+
+  // Elige el resultado donde más unidades tienen su pos representado en la estructura.
+  // Esto evita que un alias (ej. GUADALAJARA) contamine con una estructura vieja
+  // cuyos cajón.valor no coinciden con los unit.pos del candidato con más unidades.
+  function _matchScore(unidades, estructura) {
+    if (!estructura.length || !unidades.length) return 0;
+    const valoresSet = new Set(estructura.map(e => String(e.valor || '').toUpperCase()).filter(Boolean));
+    return unidades.filter(u => {
+      const p = String(u.pos || '').toUpperCase();
+      return p && p !== 'LIMBO' && valoresSet.has(p);
+    }).length;
+  }
+
+  // Candidato con más unidades (fuente de datos)
   const withUnits = results.find(item => item.unidades.length > 0) || results[0] || { candidate: plaza, unidades: [] };
-  const withStructure = results.find(item => item.candidate === withUnits.candidate && item.estructura.length > 0)
-    || results.find(item => item.estructura.length > 0)
-    || withUnits
-    || { estructura: [] };
+
+  // Entre todos los candidatos con estructura, elegir el que más coincidencias tiene
+  // con las unidades del candidato ganador. Si ninguno tiene coincidencias, preferir
+  // la estructura del mismo candidato, luego cualquier otra.
+  const unidadesRef = withUnits.unidades || [];
+  const conEstructura = results.filter(r => r.estructura.length > 0);
+  const bestStructure = conEstructura
+    .map(r => ({ r, score: _matchScore(unidadesRef, r.estructura) }))
+    .sort((a, b) => b.score - a.score)[0]?.r
+    || results.find(r => r.candidate === withUnits.candidate && r.estructura.length > 0)
+    || conEstructura[0]
+    || withUnits;
+
   return {
     resolvedPlaza: withUnits.candidate || plaza,
-    estructura: withStructure.estructura || [],
-    unidades: withUnits.unidades || []
+    estructura: bestStructure.estructura || [],
+    unidades: unidadesRef
   };
 }
 
