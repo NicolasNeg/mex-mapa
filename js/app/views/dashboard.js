@@ -59,6 +59,7 @@ export async function mount({ container }) {
   _render();
   void _refreshDashboardData({ includeMap: false });
   _startRealtimeWidgets(plaza);
+  void _cleanupAliasPlazas();
   _deferWork(() => {
     void _loadMapPreview().then(() => _applyQuery());
   });
@@ -107,11 +108,28 @@ function _unique(values = []) {
 
 function _plazaCandidates(plaza) {
   const p = String(plaza || '').toUpperCase().trim();
-  const aliases = [p];
-  if (['GDL', 'GUADALAJARA', 'GUADALAJARA JALISCO', 'GUADALAJARA-JALISCO'].includes(p)) {
-    aliases.push('GDL', 'GUADALAJARA', 'GUADALAJARA JALISCO');
+  return p ? [p] : [];
+}
+
+// Limpia plazas alias que _ensurePlazaBootstrap pudo haber registrado falsamente.
+// Solo corre si detecta que esas entradas existen; no hace nada en caso contrario.
+async function _cleanupAliasPlazas() {
+  const FAKE = ['GUADALAJARA', 'GUADALAJARA JALISCO', 'GUADALAJARA-JALISCO'];
+  try {
+    const empresaRef = db.collection(COL.CONFIG).doc('empresa');
+    const snap = await empresaRef.get();
+    if (!snap.exists) return;
+    const data = snap.data() || {};
+    const plazas = Array.isArray(data.plazas) ? data.plazas : [];
+    const detalle = Array.isArray(data.plazasDetalle) ? data.plazasDetalle : [];
+    const newPlazas = plazas.filter(p => !FAKE.includes(String(p || '').toUpperCase().trim()));
+    const newDetalle = detalle.filter(p => !FAKE.includes(String(p?.id || '').toUpperCase().trim()));
+    if (newPlazas.length === plazas.length && newDetalle.length === detalle.length) return;
+    await empresaRef.set({ plazas: newPlazas, plazasDetalle: newDetalle }, { merge: true });
+    console.info('[dashboard] Plazas alias eliminadas de empresa:', FAKE.filter(f => plazas.includes(f)));
+  } catch (err) {
+    console.warn('[dashboard] No se pudo limpiar plazas alias:', err?.message);
   }
-  return _unique(aliases);
 }
 
 function _dashMapCacheKey(plaza) {
@@ -779,55 +797,19 @@ async function _loadMetrics() {
 }
 
 async function _loadMapPreviewDataset(plaza) {
-  const candidates = _plazaCandidates(plaza);
-  const results = await Promise.all(candidates.map(async candidate => {
-    try {
-      const [estructura, datosMapa] = await Promise.all([
-        obtenerEstructuraMapa(candidate),
-        obtenerDatosParaMapa(candidate),
-      ]);
-      return {
-        candidate,
-        estructura: Array.isArray(estructura) ? estructura : [],
-        unidades: Array.isArray(datosMapa?.unidades) ? datosMapa.unidades : []
-      };
-    } catch (error) {
-      return { candidate, estructura: [], unidades: [], error };
-    }
-  }));
-
-  // Elige el resultado donde más unidades tienen su pos representado en la estructura.
-  // Esto evita que un alias (ej. GUADALAJARA) contamine con una estructura vieja
-  // cuyos cajón.valor no coinciden con los unit.pos del candidato con más unidades.
-  function _matchScore(unidades, estructura) {
-    if (!estructura.length || !unidades.length) return 0;
-    const valoresSet = new Set(estructura.map(e => String(e.valor || '').toUpperCase()).filter(Boolean));
-    return unidades.filter(u => {
-      const p = String(u.pos || '').toUpperCase();
-      return p && p !== 'LIMBO' && valoresSet.has(p);
-    }).length;
+  try {
+    const [estructura, datosMapa] = await Promise.all([
+      obtenerEstructuraMapa(plaza),
+      obtenerDatosParaMapa(plaza),
+    ]);
+    return {
+      resolvedPlaza: plaza,
+      estructura: Array.isArray(estructura) ? estructura : [],
+      unidades: Array.isArray(datosMapa?.unidades) ? datosMapa.unidades : [],
+    };
+  } catch (error) {
+    return { resolvedPlaza: plaza, estructura: [], unidades: [] };
   }
-
-  // Candidato con más unidades (fuente de datos)
-  const withUnits = results.find(item => item.unidades.length > 0) || results[0] || { candidate: plaza, unidades: [] };
-
-  // Entre todos los candidatos con estructura, elegir el que más coincidencias tiene
-  // con las unidades del candidato ganador. Si ninguno tiene coincidencias, preferir
-  // la estructura del mismo candidato, luego cualquier otra.
-  const unidadesRef = withUnits.unidades || [];
-  const conEstructura = results.filter(r => r.estructura.length > 0);
-  const bestStructure = conEstructura
-    .map(r => ({ r, score: _matchScore(unidadesRef, r.estructura) }))
-    .sort((a, b) => b.score - a.score)[0]?.r
-    || results.find(r => r.candidate === withUnits.candidate && r.estructura.length > 0)
-    || conEstructura[0]
-    || withUnits;
-
-  return {
-    resolvedPlaza: withUnits.candidate || plaza,
-    estructura: bestStructure.estructura || [],
-    unidades: unidadesRef
-  };
 }
 
 async function _loadMapPreview() {
@@ -943,15 +925,42 @@ function _paintMiniMap(container, plaza, estructuraRaw, unidadesRaw) {
     }
 
     const unitEntries = Array.from(vm.unitMap.entries()).slice(0, 220);
+    let placedCount = 0;
     for (const [mva, u] of unitEntries) {
       if (u.pos === 'LIMBO') continue;
       const c = cajonByPos.get(u.pos);
       if (!c) continue;
+      placedCount++;
       const bg = colors[u.estado] || '#64748b';
       const carStyle = `border-radius:16px 16px 10px 10px; background:linear-gradient(160deg, ${bg} 0%, #000 120%); box-shadow:0 8px 15px -4px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.25); border:1px solid rgba(0,0,0,0.15); color:white; font-size:16px; font-weight:900; text-shadow:0 1px 3px rgba(0,0,0,0.4);`;
       html += `<div style="position:absolute; left:${c.x - minX + 50}px; top:${c.y - minY + 50}px; width:${c.width}px; height:${c.height}px; transform:rotate(${c.rotation}deg); ${carStyle} display:flex; align-items:center; justify-content:center; box-sizing:border-box;">${mva}</div>`;
     }
     html += `</div>`;
+
+    // Si hay unidades pero ninguna está asignada a cajones (todo en LIMBO / mismatch),
+    // mostrar un resumen compacto por estado en lugar de mapa vacío.
+    if (placedCount === 0 && normUnidades.length > 0) {
+      const byStatus = {};
+      normUnidades.forEach(u => { byStatus[u.estado] = (byStatus[u.estado] || 0) + 1; });
+      const chips = Object.entries(byStatus)
+        .sort((a, b) => b[1] - a[1])
+        .map(([est, n]) => {
+          const bg = colors[est] || '#64748b';
+          return `<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);">
+            <span style="width:10px;height:10px;border-radius:50%;background:${bg};flex-shrink:0;"></span>
+            <span style="font-size:11px;font-weight:700;color:#cbd5e1;">${est}</span>
+            <strong style="font-size:13px;color:#fff;">${n}</strong>
+          </div>`;
+        }).join('');
+      container.innerHTML = `
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding:24px;">
+          <span style="font-size:12px;font-weight:600;color:#64748b;letter-spacing:.5px;">UNIDADES EN PATIO · ${plaza}</span>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;">${chips}</div>
+          <span style="font-size:11px;color:#475569;margin-top:4px;">Sin mapa asignado — ve al editor para colocarlas</span>
+        </div>`;
+      return;
+    }
+
     container.innerHTML = html;
   } catch (e) {
     console.error('[dashboard mini map]', e);
