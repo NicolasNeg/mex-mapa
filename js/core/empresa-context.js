@@ -45,6 +45,13 @@
 
   function applyEmpresaGlobal(empresa) {
     window._empresaActual = empresa;
+    if (empresa && empresa.configuracion) {
+      try {
+        window.MEX_CONFIG = window.MEX_CONFIG || {};
+        window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
+        window.MEX_CONFIG.empresa.configuracion = empresa.configuracion;
+      } catch (_) {}
+    }
     try {
       window.dispatchEvent(new CustomEvent('mex:empresa-change', {
         detail: { empresaId: empresa ? empresa.id : '', empresa }

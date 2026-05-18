@@ -2138,6 +2138,12 @@ async function crearNuevaEmpresa() {
     }
 
     showToast(`Empresa "${nombre}" (${empresaId}) ${result?.data?.created ? 'creada' : 'actualizada'} correctamente.`, 'success');
+    // Mark new empresa as pending onboarding so the wizard runs on first login
+    if (result?.data?.created) {
+      try {
+        await db.collection('empresas').doc(empresaId).update({ onboarding_completado: false, onboarding_paso: 'inicio' });
+      } catch (_) {}
+    }
     state.showCrearEmpresaForm = false;
     await loadEmpresas();
   } catch (e) {
@@ -2289,6 +2295,9 @@ async function saasSeedEmpresa() {
   try {
     const fn = callable('seedPrimeraEmpresa');
     const result = await fn({ empresaId: empresaId.trim(), nombre, plan });
+    if (result?.data?.created) {
+      try { await db.collection('empresas').doc(empresaId.trim()).update({ onboarding_completado: false, onboarding_paso: 'inicio' }); } catch (_) {}
+    }
     showToast(`Empresa ${result?.data?.empresaId || empresaId} ${result?.data?.created ? 'creada' : 'ya existía'}`, 'success');
     await loadEmpresas();
   } catch (e) {

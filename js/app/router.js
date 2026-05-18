@@ -106,6 +106,10 @@ const ROUTE_TABLE = {
     feature:  'edicion_mapa'
   },
   '/app/mapa/editor': { redirect: '/app/editmap' },
+  '/app/onboarding': {
+    loader: () => import('/js/app/views/onboarding.js'),
+    navRoute: '/home'
+  },
 };
 
 // ── Factory ──────────────────────────────────────────────────
@@ -195,6 +199,17 @@ export function createRouter({ shell }) {
 
     const contentEl = shell.contentEl;
     if (!contentEl) return;
+
+    // Onboarding gate — redirect if empresa setup is incomplete
+    const empresa = window._empresaActual;
+    if (
+      empresa &&
+      empresa.onboarding_completado === false &&
+      path !== '/app/onboarding'
+    ) {
+      navigate('/app/onboarding', { replace: true });
+      return;
+    }
 
     // Feature gate check — block access if empresa has the feature disabled
     if (route?.feature && window.mexFeatures && !window.mexFeatures.puedeUsar(route.feature)) {

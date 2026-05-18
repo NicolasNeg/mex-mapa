@@ -203,6 +203,7 @@ export const ROUTE_TITLES = {
   '/app/programador':      'Consola técnica',
   '/app/mapa':             'Mapa operativo',
   '/app/editmap':          'Configuración de mapa',
+  '/app/onboarding':       'Configuración inicial',
 };
 
 export function routeTitle(route = '') {

@@ -906,6 +906,25 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ─── UNIDADES CATALOGO (subcollection de empresa) ──────────────────────────
+    match /empresas/{empresaId}/unidades/{unitId} {
+      allow read: if estaAutenticado()
+        && (esProgramadorBootstrap() || (tienePerfilActual() && perfilActual().empresaId == empresaId));
+      allow create, update: if estaAutenticado()
+        && (esProgramadorBootstrap() || (tienePerfilActual() && perfilActual().empresaId == empresaId));
+      allow delete: if esProgramadorBootstrap()
+        || (tienePerfilActual() && perfilActual().empresaId == empresaId && esAdminOperativo());
+    }
+
+    // ─── IMPORTACIONES ──────────────────────────────────────────────────────────
+    match /importaciones/{importId} {
+      allow read: if estaAutenticado()
+        && (esProgramadorBootstrap() || (tienePerfilActual() && resource.data.empresaId == perfilActual().empresaId));
+      allow create: if tienePerfilActual()
+        && request.resource.data.empresaId == perfilActual().empresaId;
+      allow update, delete: if esProgramadorBootstrap();
+    }
+
     // ─── EMPRESAS (SaaS multi-tenant) ────────────────────────────────────────
     // Cada documento representa un tenant/empresa con su plan y feature gates.
     // Solo el programador bootstrap puede escribir.
@@ -918,7 +937,15 @@ service cloud.firestore {
           && tienePerfilActual()
           && perfilActual().empresaId == empresaId
         );
-      allow write: if esProgramadorBootstrap();
+      // Full write for bootstrap. Empresa admins can only update onboarding fields.
+      allow create, delete: if esProgramadorBootstrap();
+      allow update: if esProgramadorBootstrap()
+        || (
+          tienePerfilActual()
+          && perfilActual().empresaId == empresaId
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['tipo_negocio', 'configuracion', 'onboarding_paso', 'onboarding_completado', 'onboarding_plazas'])
+        );
     }
 
     // ─── SUPERADMINS ─────────────────────────────────────────────────────────
