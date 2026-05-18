@@ -109,3 +109,10 @@ body.app-legacy-stage-active #mexShellContent {
     height: calc(100vh - var(--sh-header-h, 64px));
   }
 }
+
+.app-legacy-stage[data-legacy-stage="mapa"] {
+  background: #141f2e;
+}
+.app-legacy-stage[data-legacy-stage="mapa"] .app-legacy-stage__frame {
+  background: #141f2e;
+}

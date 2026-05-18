@@ -183,6 +183,14 @@ function _injectFrameOverrides(frame, id) {
       body.legacy-embedded-profile .shell-main-stage,
       body.legacy-embedded-profile .shell-main-offset{height:auto!important;min-height:100vh!important;overflow:visible!important;}
       body.legacy-embedded-profile #profileApp{padding-bottom:112px!important;}
+      body.legacy-embedded-mapa{background:#141f2e!important;overflow:hidden!important;}
+      body.legacy-embedded-mapa .map-shell-topbar,
+      body.legacy-embedded-mapa .shell-topbar-surface,
+      body.legacy-embedded-mapa .map-shell-topbar-left,
+      body.legacy-embedded-mapa .map-shell-topbar-right{display:none!important;height:0!important;min-height:0!important;visibility:hidden!important;}
+      body.legacy-embedded-mapa #mapaMainStage{padding-top:0!important;margin-top:0!important;}
+      body.legacy-embedded-mapa #map-stage{margin-top:0!important;}
+      body.legacy-embedded-mapa .mapa-shell{background:#141f2e!important;}
     `;
     doc.head.appendChild(style);
     doc.body?.classList?.add('legacy-embedded-stage', `legacy-embedded-${id}`);
