@@ -765,7 +765,28 @@ service cloud.firestore {
     }
 
     match /notas_admin/{doc} {
-      allow read, write: if tienePerfilActual();
+      allow read: if tienePerfilActual();
+      // Soft tenant enforcement: if empresaId is present in the write, it must match
+      // the user's own empresaId (or the user is superadmin). Docs without empresaId
+      // are still writable so legacy data flows continue to work.
+      allow create: if tienePerfilActual()
+        && (
+          !('empresaId' in request.resource.data)
+          || esProgramadorBootstrap()
+          || (
+            'empresaId' in perfilActual()
+            && request.resource.data.empresaId == perfilActual().empresaId
+          )
+        );
+      allow update, delete: if tienePerfilActual()
+        && (
+          !('empresaId' in resource.data)
+          || esProgramadorBootstrap()
+          || (
+            'empresaId' in perfilActual()
+            && resource.data.empresaId == perfilActual().empresaId
+          )
+        );
     }
 
     match /settings/{doc} {
@@ -919,7 +940,15 @@ service cloud.firestore {
         && request.resource.data.usuarioId == request.auth.uid
         && request.resource.data.estado == 'ACTIVO'
         && request.resource.data.plazaId is string
-        && request.resource.data.usuarioNombre is string;
+        && request.resource.data.usuarioNombre is string
+        && (
+          !('empresaId' in request.resource.data)
+          || esProgramadorBootstrap()
+          || (
+            'empresaId' in perfilActual()
+            && request.resource.data.empresaId == perfilActual().empresaId
+          )
+        );
       allow update: if estaAutenticado()
         && (
           resource.data.usuarioId == request.auth.uid

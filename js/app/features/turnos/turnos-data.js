@@ -13,6 +13,10 @@ const COL_TURNOS = 'turnos';
 
 function _fv() { return window.firebase?.firestore?.FieldValue; }
 
+function _getEmpresaId() {
+  return String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+}
+
 /**
  * Abre un turno para el usuario en la plaza dada.
  * Cierra automáticamente cualquier turno previo activo.
@@ -26,6 +30,7 @@ export async function iniciarTurno(user, plazaId) {
   if (previo) await cerrarTurno(previo.id);
 
   const fv = _fv();
+  const empresaId = _getEmpresaId();
   const doc = {
     usuarioId: user.uid,
     usuarioNombre: String(user.nombreCompleto || user.nombre || user.displayName || user.email || '').trim(),
@@ -34,6 +39,7 @@ export async function iniciarTurno(user, plazaId) {
     inicio: fv ? fv.serverTimestamp() : Date.now(),
     fin: null,
     estado: 'ACTIVO',
+    ...(empresaId && empresaId !== '__superadmin__' ? { empresaId } : {}),
   };
   const ref = await db.collection(COL_TURNOS).add(doc);
   return ref.id;
@@ -72,10 +78,14 @@ export function onTurnosActivos(plazaId, callback) {
     callback([]);
     return () => {};
   }
-  return db.collection(COL_TURNOS)
+  const empresaId = _getEmpresaId();
+  let query = db.collection(COL_TURNOS)
     .where('plazaId', '==', plaza)
-    .where('estado', '==', 'ACTIVO')
-    .onSnapshot(
+    .where('estado', '==', 'ACTIVO');
+  if (empresaId && empresaId !== '__superadmin__') {
+    query = query.where('empresaId', '==', empresaId);
+  }
+  return query.onSnapshot(
       snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => {
         console.warn('[turnos] onSnapshot:', err?.message);
