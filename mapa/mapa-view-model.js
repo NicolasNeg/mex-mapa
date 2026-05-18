@@ -102,13 +102,17 @@ export function buildUnitViewModel(unidad, uiState = {}, options = {}) {
  * @param {object[]} unidades           Lista de unidades con su viewModel
  * @returns {object} cajonViewModel
  */
+function _sanitizePos(value = '') {
+  return String(value || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+}
+
 export function buildCajonViewModel(elementoEstructura, unidades = []) {
   const el = normalizarElemento(elementoEstructura);
-  const pos = String(el.valor || '').toUpperCase();
+  const pos = _sanitizePos(el.valor || '');
 
-  // Buscar la unidad que ocupa este cajón
+  // Buscar la unidad que ocupa este cajón (comparar con el mismo sanitize)
   const unidadEnCajon = unidades.find(u =>
-    String(u.pos || '').toUpperCase() === pos && pos !== 'LIMBO'
+    pos !== 'LIMBO' && _sanitizePos(u.pos || '') === pos
   );
 
   const occupied  = Boolean(unidadEnCajon);
