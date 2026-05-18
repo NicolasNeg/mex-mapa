@@ -209,7 +209,7 @@ export class ShellLayout {
           .onSnapshot(snap => {
             const count = snap.docs.filter(d => {
               const l = d.data().leido;
-              return !l && l !== 'SI';
+              return l !== 'SI';
             }).length;
             this._sidebar?.setBadge('mensajes', count);
           }, () => this._sidebar?.setBadge('mensajes', 0));
@@ -217,15 +217,19 @@ export class ShellLayout {
       } catch (_) {}
     }
 
-    // Badge incidencias: abiertas en mi plaza
+    // Badge incidencias: pendientes en mi plaza (filtro client-side para evitar índice composite)
     const p = String(plaza || '').toUpperCase().trim();
     if (p) {
       try {
         const u = db.collection('notas_admin')
           .where('plaza', '==', p)
-          .where('estado', 'in', ['PENDIENTE', 'EN_PROCESO'])
+          .limit(200)
           .onSnapshot(snap => {
-            this._sidebar?.setBadge('incidencias', snap.size);
+            const count = snap.docs.filter(d => {
+              const est = String(d.data()?.estado || '').toUpperCase();
+              return est === 'PENDIENTE' || est === 'EN_PROCESO';
+            }).length;
+            this._sidebar?.setBadge('incidencias', count);
           }, () => this._sidebar?.setBadge('incidencias', 0));
         unsubs.push(u);
       } catch (_) {}
