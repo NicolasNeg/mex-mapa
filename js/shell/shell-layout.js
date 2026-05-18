@@ -20,6 +20,10 @@ export class ShellLayout {
     this._mainEl  = null;
     this._contentEl = null;
     this._containerEl = null;
+    this._badgeUnsubs = null;
+    this._unsubAuth = null;
+    this._badgeUser = null;
+    this._currentBadgePlaza = '';
   }
 
   /**
@@ -124,6 +128,16 @@ export class ShellLayout {
     // Apply initial state
     if (this._sidebar.isCollapsed) container.classList.add('sidebar-compact');
 
+    // ── Auto-start notification badges via auth state ─────
+    this._currentBadgePlaza = currentPlaza || '';
+    if (window._auth?.onAuthStateChanged) {
+      this._unsubAuth = window._auth.onAuthStateChanged(user => {
+        this._badgeUser = user || null;
+        if (user) this._startBadgesInternal();
+        else this._stopBadges();
+      });
+    }
+
     return this;
   }
 
@@ -155,7 +169,9 @@ export class ShellLayout {
   }
 
   setPlaza(currentPlaza = '', availablePlazas = [], canSwitchPlaza = false) {
+    this._currentBadgePlaza = currentPlaza || '';
     this._header?.setPlaza(currentPlaza, availablePlazas, canSwitchPlaza);
+    if (this._badgeUser) this._startBadgesInternal();
   }
 
   setSearchValue(value = '') {
@@ -167,8 +183,70 @@ export class ShellLayout {
     this._header?.setCustomActions(htmlOrElement);
   }
 
+  /** Muestra/oculta badge numérico en un ítem del sidebar. */
+  setBadge(navId, count) {
+    this._sidebar?.setBadge(navId, count);
+  }
+
+  /** Inicia listeners de badges para mensajes + incidencias. */
+  _startBadgesInternal() {
+    this._stopBadges();
+    const user = this._badgeUser;
+    const plaza = this._currentBadgePlaza;
+    if (!user) return;
+    const db = window._db;
+    if (!db) return;
+
+    const myKey = String(user.email || '').toUpperCase();
+    const unsubs = [];
+
+    // Badge mensajes: no leídos donde soy destinatario
+    if (myKey) {
+      try {
+        const u = db.collection('mensajes')
+          .where('destinatario', '==', myKey)
+          .limit(200)
+          .onSnapshot(snap => {
+            const count = snap.docs.filter(d => {
+              const l = d.data().leido;
+              return !l && l !== 'SI';
+            }).length;
+            this._sidebar?.setBadge('mensajes', count);
+          }, () => this._sidebar?.setBadge('mensajes', 0));
+        unsubs.push(u);
+      } catch (_) {}
+    }
+
+    // Badge incidencias: abiertas en mi plaza
+    const p = String(plaza || '').toUpperCase().trim();
+    if (p) {
+      try {
+        const u = db.collection('notas_admin')
+          .where('plaza', '==', p)
+          .where('estado', 'in', ['PENDIENTE', 'EN_PROCESO'])
+          .onSnapshot(snap => {
+            this._sidebar?.setBadge('incidencias', snap.size);
+          }, () => this._sidebar?.setBadge('incidencias', 0));
+        unsubs.push(u);
+      } catch (_) {}
+    }
+
+    this._badgeUnsubs = unsubs;
+  }
+
+  _stopBadges() {
+    if (this._badgeUnsubs) {
+      this._badgeUnsubs.forEach(fn => { try { if (typeof fn === 'function') fn(); } catch (_) {} });
+      this._badgeUnsubs = null;
+    }
+    this._sidebar?.setBadge('mensajes', 0);
+    this._sidebar?.setBadge('incidencias', 0);
+  }
+
   /** Destruye el shell y libera listeners. */
   destroy() {
+    if (this._unsubAuth) { try { this._unsubAuth(); } catch (_) {} this._unsubAuth = null; }
+    this._stopBadges();
     this._sidebar?.destroy();
     this._header?.destroy();
     this._mainEl?.remove();

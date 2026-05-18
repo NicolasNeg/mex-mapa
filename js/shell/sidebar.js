@@ -351,6 +351,31 @@ export class ShellSidebar {
     if (logoSub) logoSub.textContent = this._roleLabel();
   }
 
+  /**
+   * Muestra u oculta una pastilla numérica en el ítem del nav indicado.
+   * @param {string} navId  - id del ítem (ej. 'mensajes', 'incidencias')
+   * @param {number} count  - cantidad; 0 o negativo elimina el badge
+   */
+  setBadge(navId, count) {
+    if (!this._el) return;
+    const item = this._el.querySelector(`[data-nav-id="${navId}"]`);
+    if (!item) return;
+    let badge = item.querySelector('.mex-nav-item-badge');
+    if (!count || count <= 0) {
+      badge?.remove();
+      return;
+    }
+    const label = count > 99 ? '99+' : String(count);
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'mex-nav-item-badge';
+      const arrow = item.querySelector('.mex-nav-item-arrow');
+      if (arrow) item.insertBefore(badge, arrow);
+      else item.appendChild(badge);
+    }
+    badge.textContent = label;
+  }
+
   collapse() {
     this._writeCollapsed(true);
     this._el?.classList.add('compact');

@@ -909,5 +909,24 @@ service cloud.firestore {
         || (estaAutenticado() && request.auth.uid == docId);
       allow write: if esProgramadorBootstrap();
     }
+
+    // ─── TURNOS OPERATIVOS ───────────────────────────────────────────────────
+    // Checkin/checkout de personal en plaza.
+    // Solo el propio usuario puede abrir su turno; él mismo o un admin lo cierran.
+    match /turnos/{turnoId} {
+      allow read: if estaAutenticado();
+      allow create: if estaAutenticado()
+        && request.resource.data.usuarioId == request.auth.uid
+        && request.resource.data.estado == 'ACTIVO'
+        && request.resource.data.plazaId is string
+        && request.resource.data.usuarioNombre is string;
+      allow update: if estaAutenticado()
+        && (
+          resource.data.usuarioId == request.auth.uid
+          || esAdminOperativo()
+        )
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fin', 'estado']);
+      allow delete: if false;
+    }
   }
 }

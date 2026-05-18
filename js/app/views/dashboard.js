@@ -11,6 +11,7 @@ import { db, COL, obtenerDatosParaMapa, obtenerEstructuraMapa } from '/js/core/d
 import { buildMapaViewModel } from '/mapa/mapa-view-model.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
+import { iniciarTurno, cerrarTurno } from '/js/app/features/turnos/turnos-data.js';
 
 let _cleanup = null;
 let _container = null;
@@ -19,6 +20,9 @@ let _offSearch = null;
 let _offPlaza = null;
 let _cssRef = null;
 let _mapPreviewRequestId = 0;
+let _unsubCuadre = null;
+let _unsubCola = null;
+let _unsubTurno = null;
 
 export async function mount({ container }) {
   unmount();
@@ -35,11 +39,10 @@ export async function mount({ container }) {
     query: '',
     metrics: { unidades: 0, externos: 0, incidencias: 0, solicitudes: 0 },
     modules: _orderedModules(role),
-    mapPreview: {
-      mvKeys: [],
-      loading: true,
-      error: ''
-    }
+    mapPreview: { mvKeys: [], loading: true, error: '' },
+    cuadreStats: { listo: 0, sucio: 0, manto: 0, otros: 0 },
+    colaPreview: [],
+    turnoActivo: null,
   };
 
   _container.innerHTML = _layout(_state);
@@ -51,15 +54,18 @@ export async function mount({ container }) {
     _syncPlazaLabels();
     _render();
     void _refreshDashboardData({ includeMap: true });
+    _startRealtimeWidgets(_state.plaza);
   });
   _render();
   void _refreshDashboardData({ includeMap: false });
+  _startRealtimeWidgets(plaza);
   _deferWork(() => {
     void _loadMapPreview().then(() => _applyQuery());
   });
   _cleanup = () => {
     if (typeof _offSearch === 'function') _offSearch();
     if (typeof _offPlaza === 'function') _offPlaza();
+    _stopRealtimeWidgets();
     _offSearch = null;
     _offPlaza = null;
     _cssRef = document.querySelector('link[data-app-dashboard-css="1"]');
@@ -435,6 +441,38 @@ function _layout(state) {
         ${_renderModuleCards(state.modules)}
       </div>
     </div>
+
+    <div class="appdash__live-row">
+      <div class="appdash__widget appdash__shell-card">
+        <div class="appdash__widget-head">
+          <span class="material-symbols-outlined">directions_car</span>
+          <h3>Estado del Patio</h3>
+          <a class="appdash__widget-link" data-app-route="/app/mapa" href="/app/mapa">Ver mapa</a>
+        </div>
+        <div class="appdash__widget-body" id="appDashCuadreBody">
+          <p class="appdash__widget-empty">Cargando…</p>
+        </div>
+      </div>
+      <div class="appdash__widget appdash__shell-card">
+        <div class="appdash__widget-head">
+          <span class="material-symbols-outlined">format_list_bulleted</span>
+          <h3>Cola de Preparación</h3>
+          <a class="appdash__widget-link" data-app-route="/app/cola-preparacion" href="/app/cola-preparacion">Ver todo</a>
+        </div>
+        <div class="appdash__widget-body" id="appDashColaBody">
+          <p class="appdash__widget-empty">Cargando…</p>
+        </div>
+      </div>
+      <div class="appdash__widget appdash__shell-card">
+        <div class="appdash__widget-head">
+          <span class="material-symbols-outlined">badge</span>
+          <h3>Mi Turno</h3>
+        </div>
+        <div class="appdash__widget-body" id="appDashTurnoBody">
+          <p class="appdash__widget-empty">Cargando…</p>
+        </div>
+      </div>
+    </div>
   </div>
 
   ${showDebug ? `
@@ -488,6 +526,220 @@ function _actividadBlocks(inc, un, plazaLabel) {
       : '';
 
   return incBlock + unBlock;
+}
+
+// ── Realtime widget helpers ──────────────────────────────────
+
+function _cpDone(checklist) {
+  if (!checklist) return 0;
+  return ['lavado', 'gasolina', 'docs', 'revision'].filter(k => checklist[k] === true).length;
+}
+
+function _timeElapsed(since) {
+  const ms = Date.now() - since.getTime();
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  if (h > 0) return `${h}h ${m}m en turno`;
+  return `${m}m en turno`;
+}
+
+function _stopRealtimeWidgets() {
+  if (typeof _unsubCuadre === 'function') { try { _unsubCuadre(); } catch (_) {} _unsubCuadre = null; }
+  if (typeof _unsubCola === 'function') { try { _unsubCola(); } catch (_) {} _unsubCola = null; }
+  if (typeof _unsubTurno === 'function') { try { _unsubTurno(); } catch (_) {} _unsubTurno = null; }
+}
+
+function _startRealtimeWidgets(plaza) {
+  _stopRealtimeWidgets();
+  if (!_state || !plaza) {
+    _updateCuadreWidget();
+    _updateColaWidget();
+    _updateTurnoWidget();
+    return;
+  }
+
+  const gs = getState();
+  const uid = gs.profile?.uid || gs.profile?.id || '';
+
+  // D: Estado del patio (cuadre onSnapshot)
+  try {
+    _unsubCuadre = db.collection(COL.CUADRE)
+      .where('plaza', '==', plaza)
+      .onSnapshot(snap => {
+        if (!_state) return;
+        const stats = { listo: 0, sucio: 0, manto: 0, otros: 0 };
+        snap.forEach(doc => {
+          const estado = String(doc.data()?.estado || '').toUpperCase().trim();
+          if (estado === 'LISTO') stats.listo++;
+          else if (['SUCIO', 'EN_PREP', 'EN PREPARACIÓN', 'PREPARACION', 'LAVADO', 'LIMPIEZA'].includes(estado)) stats.sucio++;
+          else if (['MANTENIMIENTO', 'MANTO', 'HYP', 'RETENIDA'].includes(estado)) stats.manto++;
+          else if (estado) stats.otros++;
+        });
+        _state.cuadreStats = stats;
+        _updateCuadreWidget();
+      }, err => {
+        console.warn('[dashboard] cuadre snap:', err?.code);
+      });
+  } catch (_) {}
+
+  // F: Cola top 5
+  try {
+    _unsubCola = db.collection('cola_preparacion').doc(plaza).collection('items')
+      .limit(10)
+      .onSnapshot(snap => {
+        if (!_state) return;
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        items.sort((a, b) => {
+          const ao = Number(a.orden); const bo = Number(b.orden);
+          if (Number.isFinite(ao) && Number.isFinite(bo) && ao !== bo) return ao - bo;
+          const at = a.fechaSalida?.toDate?.()?.getTime?.() ?? Number.MAX_SAFE_INTEGER;
+          const bt = b.fechaSalida?.toDate?.()?.getTime?.() ?? Number.MAX_SAFE_INTEGER;
+          return at - bt;
+        });
+        _state.colaPreview = items.slice(0, 5);
+        _updateColaWidget();
+      }, () => {
+        if (!_state) return;
+        _state.colaPreview = [];
+        _updateColaWidget();
+      });
+  } catch (_) {}
+
+  // G: Mi turno (listener en tiempo real)
+  if (uid) {
+    try {
+      _unsubTurno = db.collection('turnos')
+        .where('usuarioId', '==', uid)
+        .where('estado', '==', 'ACTIVO')
+        .limit(1)
+        .onSnapshot(snap => {
+          if (!_state) return;
+          _state.turnoActivo = snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
+          _updateTurnoWidget();
+        }, () => {
+          if (!_state) return;
+          _state.turnoActivo = null;
+          _updateTurnoWidget();
+        });
+    } catch (_) {}
+  } else {
+    _updateTurnoWidget();
+  }
+}
+
+function _updateCuadreWidget() {
+  const el = _container?.querySelector('#appDashCuadreBody');
+  if (!el) return;
+  const s = _state?.cuadreStats || { listo: 0, sucio: 0, manto: 0, otros: 0 };
+  const total = s.listo + s.sucio + s.manto + s.otros;
+  const avail = total > 0 ? Math.round((s.listo / total) * 100) : 0;
+  if (!_state?.plaza) {
+    el.innerHTML = '<p class="appdash__widget-empty">Selecciona una plaza</p>';
+    return;
+  }
+  el.innerHTML = `
+    <div class="appdash__cs-stats">
+      <div class="appdash__cs-stat">
+        <span class="appdash__cs-dot" style="background:#10b981"></span>
+        <span class="appdash__cs-label">Listo</span>
+        <span class="appdash__cs-val">${s.listo}</span>
+      </div>
+      <div class="appdash__cs-stat">
+        <span class="appdash__cs-dot" style="background:#f59e0b"></span>
+        <span class="appdash__cs-label">Sucio / En prep</span>
+        <span class="appdash__cs-val">${s.sucio}</span>
+      </div>
+      <div class="appdash__cs-stat">
+        <span class="appdash__cs-dot" style="background:#ef4444"></span>
+        <span class="appdash__cs-label">Manto / Retenida</span>
+        <span class="appdash__cs-val">${s.manto}</span>
+      </div>
+    </div>
+    <div class="appdash__cs-bar">
+      <div style="width:${s.listo / Math.max(total, 1) * 100}%;background:#10b981"></div>
+      <div style="width:${s.sucio / Math.max(total, 1) * 100}%;background:#f59e0b"></div>
+      <div style="width:${s.manto / Math.max(total, 1) * 100}%;background:#ef4444"></div>
+    </div>
+    <div class="appdash__cs-avail">Disponibilidad: <strong>${avail}%</strong></div>`;
+}
+
+function _updateColaWidget() {
+  const el = _container?.querySelector('#appDashColaBody');
+  if (!el) return;
+  const items = _state?.colaPreview || [];
+  if (!_state?.plaza) {
+    el.innerHTML = '<p class="appdash__widget-empty">Selecciona una plaza</p>';
+    return;
+  }
+  if (!items.length) {
+    el.innerHTML = '<p class="appdash__widget-empty">Cola vacía</p>';
+    return;
+  }
+  el.innerHTML = items.map(it => {
+    const mva = esc(String(it.mva || it.id || '—'));
+    const asignado = esc(String(it.asignado || 'Sin asignar'));
+    const done = _cpDone(it.checklist);
+    return `<div class="appdash__cola-row">
+      <span class="appdash__cola-mva">${mva}</span>
+      <span class="appdash__cola-info">${asignado}</span>
+      <span class="appdash__cola-prog">${done}/4</span>
+    </div>`;
+  }).join('');
+}
+
+function _updateTurnoWidget() {
+  const el = _container?.querySelector('#appDashTurnoBody');
+  if (!el) return;
+  const turno = _state?.turnoActivo;
+  const gs = getState();
+  const profile = gs.profile || {};
+  const uid = profile?.uid || profile?.id || '';
+  const plaza = _state?.plaza || '';
+
+  if (!turno) {
+    el.innerHTML = `
+      <p class="appdash__widget-empty" style="margin-bottom:10px;">Sin turno activo</p>
+      <button type="button" class="appdash__turno-btn appdash__turno-btn--start" id="appDashIniciarTurno"
+              ${(!uid || !plaza) ? 'disabled' : ''}>
+        <span class="material-symbols-outlined">play_circle</span> Iniciar turno
+      </button>`;
+    el.querySelector('#appDashIniciarTurno')?.addEventListener('click', async () => {
+      const btn = el.querySelector('#appDashIniciarTurno');
+      if (btn) btn.disabled = true;
+      try {
+        await iniciarTurno({ uid, ...profile }, plaza);
+      } catch (e) {
+        console.warn('[dashboard] iniciarTurno:', e);
+        if (_state && btn) btn.disabled = false;
+      }
+    });
+    return;
+  }
+
+  const inicio = turno.inicio?.toDate?.() || new Date(turno.inicio || Date.now());
+  const elapsed = _timeElapsed(inicio);
+  const since = inicio.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  el.innerHTML = `
+    <div class="appdash__turno-active">
+      <span class="material-symbols-outlined appdash__turno-ico">schedule</span>
+      <div>
+        <div class="appdash__turno-elapsed">${esc(elapsed)}</div>
+        <div class="appdash__turno-since">Desde las ${esc(since)}</div>
+      </div>
+    </div>
+    <button type="button" class="appdash__turno-btn appdash__turno-btn--end" id="appDashCerrarTurno">
+      <span class="material-symbols-outlined">stop_circle</span> Cerrar turno
+    </button>`;
+  el.querySelector('#appDashCerrarTurno')?.addEventListener('click', async () => {
+    const btn = el.querySelector('#appDashCerrarTurno');
+    if (btn) btn.disabled = true;
+    try {
+      await cerrarTurno(turno.id);
+    } catch (e) {
+      console.warn('[dashboard] cerrarTurno:', e);
+      if (_state && btn) btn.disabled = false;
+    }
+  });
 }
 
 function _bindReload() {
