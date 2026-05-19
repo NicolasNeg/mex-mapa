@@ -94,6 +94,7 @@ export function mapNotaAdminToIncidencia(id, data = {}) {
     version: Number(data.version || 1) || 1,
     asignadoA: (data.asignadoA && typeof data.asignadoA === 'object') ? data.asignadoA : null,
     seguidores: Array.isArray(data.seguidores) ? data.seguidores : [],
+    comentarios: Array.isArray(data.comentarios) ? data.comentarios : [],
   };
 }
 
@@ -261,27 +262,33 @@ export async function updateIncidenciaField(id, fields = {}) {
 }
 
 export async function toggleSeguidor(id, userObj) {
-  const FieldValue = window.firebase?.firestore?.FieldValue;
-  if (!FieldValue) {
-    // Fallback: read-then-write
-    const snap = await db.collection(COL.NOTAS).doc(String(id)).get();
-    const seg = Array.isArray(snap.data()?.seguidores) ? snap.data().seguidores : [];
-    const idx = seg.findIndex(s => s.uid === userObj.uid || s.email === userObj.email);
-    if (idx >= 0) seg.splice(idx, 1);
-    else seg.push(userObj);
-    await db.collection(COL.NOTAS).doc(String(id)).update({ seguidores: seg });
-    return idx < 0 ? 'added' : 'removed';
-  }
-  // Check if already following
   const snap = await db.collection(COL.NOTAS).doc(String(id)).get();
-  const seg = Array.isArray(snap.data()?.seguidores) ? snap.data().seguidores : [];
-  const following = seg.some(s => s.uid === userObj.uid || s.email === userObj.email);
-  await db.collection(COL.NOTAS).doc(String(id)).update({
-    seguidores: following
-      ? FieldValue.arrayRemove(seg.find(s => s.uid === userObj.uid || s.email === userObj.email))
-      : FieldValue.arrayUnion(userObj),
+  const seg = Array.isArray(snap.data()?.seguidores) ? [...snap.data().seguidores] : [];
+  const emailLower = String(userObj.email || '').toLowerCase();
+  const uid = String(userObj.uid || '');
+  const idx = seg.findIndex(s =>
+    (uid && String(s.uid || '') === uid) ||
+    (emailLower && String(s.email || '').toLowerCase() === emailLower)
+  );
+  if (idx >= 0) seg.splice(idx, 1);
+  else seg.push(userObj);
+  await db.collection(COL.NOTAS).doc(String(id)).update({ seguidores: seg });
+  return idx < 0 ? 'added' : 'removed';
+}
+
+export async function addComentario(id, { texto, autor, uid, email }) {
+  const snap = await db.collection(COL.NOTAS).doc(String(id)).get();
+  const comentarios = Array.isArray(snap.data()?.comentarios) ? [...snap.data().comentarios] : [];
+  comentarios.push({
+    texto: String(texto || '').trim(),
+    autor: String(autor || '').trim(),
+    uid: String(uid || '').trim(),
+    email: String(email || '').trim(),
+    fecha: new Date().toISOString(),
+    ts: Date.now(),
   });
-  return following ? 'removed' : 'added';
+  await db.collection(COL.NOTAS).doc(String(id)).update({ comentarios });
+  return 'OK';
 }
 
 export async function searchUsuarios(queryStr, currentPlaza = '', maxResults = 8) {

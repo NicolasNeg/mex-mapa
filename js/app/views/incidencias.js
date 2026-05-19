@@ -6,7 +6,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
-import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia, updateIncidenciaField, toggleSeguidor, searchUsuarios } from '/js/app/features/incidencias/incidencias-data.js';
+import { subscribeIncidencias, createIncidencia, resolveIncidencia, deleteIncidencia, updateIncidenciaField, toggleSeguidor, addComentario, searchUsuarios } from '/js/app/features/incidencias/incidencias-data.js';
 
 let _container = null;
 let _state = null;
@@ -15,6 +15,9 @@ let _unsubPlaza = null;
 let _offGlobalSearch = null;
 let _cssInjected = false;
 let _renderFrame = 0;
+
+const _nameCache = new Map();
+const _namePending = new Set();
 
 const q = id => _container?.querySelector(`#${id}`) || null;
 const qsa = sel => Array.from(_container?.querySelectorAll(sel) || []);
@@ -1246,7 +1249,7 @@ function _renderDetailPanel() {
   const author = String(item.autor || item.creadoPor || 'Sistema').trim();
   const seguidores = Array.isArray(item.seguidores) ? item.seguidores : [];
   const gsMe = getState();
-  const myUid = String(gsMe?.profile?.uid || '');
+  const myUid = String(gsMe?.profile?.id || gsMe?.profile?.uid || '');
   const myEmail = String(gsMe?.profile?.email || '').toLowerCase();
   const amFollowing = seguidores.some(s =>
     (myUid && s.uid === myUid) || (myEmail && String(s.email || '').toLowerCase() === myEmail)
@@ -1410,6 +1413,13 @@ function _renderDetailPanel() {
               <div class="inc-timeline-when">${esc(_longDate(item.creadoEn || item.fecha))}</div>
             </li>
           ` : ''}
+          ${(item.comentarios || []).map(c => `
+            <li class="inc-timeline-item is-comment">
+              <div class="inc-timeline-mark"><span class="material-icons">chat_bubble_outline</span></div>
+              <div class="inc-timeline-text"><b>${esc(_displayName(c.autor || c.email || 'Usuario'))}</b> · ${esc(String(c.texto || ''))}</div>
+              <div class="inc-timeline-when">${esc(_longDate(c.fecha || c.ts))}</div>
+            </li>
+          `).join('')}
           ${resolved ? `
             <li class="inc-timeline-item is-resolve">
               <div class="inc-timeline-mark"><span class="material-icons">check</span></div>
@@ -1420,11 +1430,23 @@ function _renderDetailPanel() {
         </ol>
       </section>
 
+      ${open ? `
+        <section class="dp-section" id="incReasignarSection" style="display:none">
+          <div class="dp-section-label">Reasignar a</div>
+          <div style="position:relative">
+            <input id="incReasignarInput" placeholder="Buscar por nombre, correo o rol…" autocomplete="off"
+              style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:inherit;font-size:13px;outline:none;">
+            <div id="incReasignarDropdown" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:#1e293b;border:1px solid rgba(255,255,255,0.15);border-radius:8px;z-index:50;max-height:220px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,.35)"></div>
+          </div>
+          <button class="dp-btn dp-btn-secondary" id="incReasignarCancel" style="margin-top:6px;font-size:12px">Cancelar</button>
+        </section>
+      ` : ''}
+
       <section class="dp-section">
         <div class="dp-section-label">Comentar</div>
         <div class="dp-comment">
           <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;">${esc(meInitials)}</span>
-          <input id="incCommentInput" placeholder="Escribe un comentario o @menciona…">
+          <input id="incCommentInput" placeholder="Escribe un comentario…">
           <button class="dp-send" id="incCommentSend"><span class="material-icons">send</span></button>
         </div>
       </section>
@@ -1432,7 +1454,7 @@ function _renderDetailPanel() {
 
     <div class="dp-foot">
       ${open ? `
-        <button class="dp-btn dp-btn-secondary" data-stop>
+        <button class="dp-btn dp-btn-secondary" id="incReasignarBtn" data-reasignar-id="${esc(item.legacyNotaId || item.id)}" data-stop>
           <span class="material-icons" style="font-size:13px">person</span> Reasignar
         </button>
         <button class="dp-btn dp-btn-primary" data-resolve-id="${esc(item.legacyNotaId || item.id)}" data-stop>
@@ -1480,7 +1502,7 @@ function _renderDetailPanel() {
     seguirBtn.addEventListener('click', async () => {
       const gs3 = getState();
       const me = {
-        uid: gs3?.profile?.uid || '',
+        uid: gs3?.profile?.id || gs3?.profile?.uid || '',
         nombre: gs3?.profile?.nombreCompleto || gs3?.profile?.nombre || '',
         email: gs3?.profile?.email || ''
       };
@@ -1496,13 +1518,85 @@ function _renderDetailPanel() {
     });
   }
 
-  // Comentario stub (solo toast por ahora)
-  q('incCommentSend')?.addEventListener('click', () => {
-    const txt = String(q('incCommentInput')?.value || '').trim();
-    if (!txt) return;
-    _showToast('Comentario enviado', 'Próximamente: se guardará en la línea de tiempo.', 'ok');
+  // Reasignar
+  const reasignarBtn = q('incReasignarBtn');
+  const reasignarSection = q('incReasignarSection');
+  if (reasignarBtn && reasignarSection) {
+    reasignarBtn.addEventListener('click', () => {
+      const visible = reasignarSection.style.display !== 'none';
+      reasignarSection.style.display = visible ? 'none' : '';
+      if (!visible) setTimeout(() => q('incReasignarInput')?.focus(), 50);
+    });
+    q('incReasignarCancel')?.addEventListener('click', () => {
+      reasignarSection.style.display = 'none';
+    });
+
+    let _reaSearchTimer = null;
+    q('incReasignarInput')?.addEventListener('input', e => {
+      const term = String(e.target?.value || '').trim();
+      clearTimeout(_reaSearchTimer);
+      const drop = q('incReasignarDropdown');
+      if (!drop) return;
+      if (term.length < 2) { drop.style.display = 'none'; drop.innerHTML = ''; return; }
+      _reaSearchTimer = setTimeout(async () => {
+        try {
+          const results = await searchUsuarios(term, _state?.plaza || '');
+          if (!results.length) { drop.style.display = 'none'; drop.innerHTML = ''; return; }
+          drop.style.display = 'block';
+          drop.innerHTML = results.map(u => `
+            <button type="button" class="ci-assign-result" data-uid="${esc(u.uid)}" style="display:flex;align-items:center;gap:8px;width:100%;padding:8px 10px;background:none;border:none;color:inherit;cursor:pointer;font-size:13px;text-align:left">
+              <span class="inc-avatar" style="width:22px;height:22px;font-size:9px;flex-shrink:0">${esc(_initialsFrom(u.nombre || u.email))}</span>
+              <span>${esc(u.nombre || _displayName(u.email))}</span>
+              <span style="opacity:.5;font-size:11px;margin-left:auto">${esc(u.rol)}${u.plaza ? ' · ' + esc(u.plaza) : ''}</span>
+            </button>
+          `).join('');
+          drop.querySelectorAll('.ci-assign-result').forEach((btn, i) => {
+            btn.addEventListener('click', async () => {
+              const u = results[i];
+              try {
+                reasignarBtn.disabled = true;
+                await updateIncidenciaField(id, {
+                  asignadoA: { uid: u.uid, nombre: u.nombre, email: u.email, rol: u.rol }
+                });
+                reasignarSection.style.display = 'none';
+                _showToast('Reasignada', `Asignada a ${u.nombre || _displayName(u.email)}`, 'ok');
+              } catch (err) {
+                _showToast('Error', err?.message || 'No se pudo reasignar.', 'error');
+              } finally {
+                reasignarBtn.disabled = false;
+              }
+            });
+          });
+        } catch (_) {}
+      }, 250);
+    });
+  }
+
+  // Comentario
+  const sendComment = async () => {
     const inp = q('incCommentInput');
-    if (inp) inp.value = '';
+    const txt = String(inp?.value || '').trim();
+    if (!txt) return;
+    const gs4 = getState();
+    const sendBtn = q('incCommentSend');
+    if (sendBtn) sendBtn.disabled = true;
+    try {
+      await addComentario(id, {
+        texto: txt,
+        autor: gs4?.profile?.nombreCompleto || gs4?.profile?.nombre || gs4?.profile?.email || 'Usuario',
+        uid: gs4?.profile?.id || gs4?.profile?.uid || '',
+        email: gs4?.profile?.email || '',
+      });
+      if (inp) inp.value = '';
+    } catch (err) {
+      _showToast('Error', err?.message || 'No se pudo enviar el comentario.', 'error');
+    } finally {
+      if (sendBtn) sendBtn.disabled = false;
+    }
+  };
+  q('incCommentSend')?.addEventListener('click', sendComment);
+  q('incCommentInput')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendComment(); }
   });
 }
 
@@ -2023,20 +2117,52 @@ function esc(value) {
     .replace(/"/g, '&quot;');
 }
 
-// Limpia un valor que puede ser email/nombre para mostrar solo el nombre
+// Limpia un valor que puede ser email/nombre para mostrar solo el nombre.
+// Para emails: primero busca en caché de usuarios; si no hay, muestra local part
+// y lanza un lookup async que re-renderiza cuando resuelve.
 function _displayName(value) {
   const raw = String(value || '').trim();
   if (!raw) return '—';
-  // Si contiene @ es un email → extraer parte antes de @ y capitalizar
-  if (raw.includes('@')) {
-    const local = raw.split('@')[0];
-    // Reemplaza puntos/guiones con espacios y capitaliza cada palabra
-    return local
-      .replace(/[._-]+/g, ' ')
-      .replace(/\b\w/g, c => c.toUpperCase())
-      .trim() || raw;
+  if (!raw.includes('@')) return raw;
+
+  const emailLower = raw.toLowerCase();
+
+  // Coincide con el usuario actual → usar nombre real
+  const meProfile = getState()?.profile;
+  if (meProfile && String(meProfile.email || '').toLowerCase() === emailLower) {
+    const realName = String(meProfile.nombreCompleto || meProfile.nombre || meProfile.displayName || '').trim();
+    if (realName) return realName;
   }
-  return raw;
+
+  // Caché de usuarios ya resueltos
+  if (_nameCache.has(emailLower)) return _nameCache.get(emailLower);
+
+  // Programar lookup asíncrono
+  _scheduleNameLookup(emailLower);
+
+  // Fallback mientras llega la respuesta
+  const local = raw.split('@')[0];
+  return local.replace(/[._-]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).trim() || raw;
+}
+
+function _scheduleNameLookup(emailLower) {
+  if (_namePending.has(emailLower)) return;
+  _namePending.add(emailLower);
+  import('/js/core/database.js').then(({ db, COL }) => {
+    const docId = emailLower;
+    return db.collection(COL.USERS).doc(docId).get()
+      .then(snap => {
+        if (snap.exists) {
+          const d = snap.data();
+          const name = String(d.nombreCompleto || d.nombre || d.displayName || '').trim();
+          if (name) {
+            _nameCache.set(emailLower, name);
+            // Trigger re-render si el panel sigue abierto
+            if (_state) _render();
+          }
+        }
+      });
+  }).catch(() => {}).finally(() => { _namePending.delete(emailLower); });
 }
 
 // Detecta si una URL apunta a una imagen
