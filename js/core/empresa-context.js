@@ -151,4 +151,9 @@
     isSuperAdminContext,
     limpiarContexto,
   });
+
+  // Restore stored empresa context immediately on load (pre-auth).
+  // This makes window._empresaActual available synchronously from storage
+  // for code that runs before the full cargarParaUsuario call.
+  restaurarDesdeStorage().catch(() => {});
 })();

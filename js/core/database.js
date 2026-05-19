@@ -118,6 +118,7 @@ export const emitirNuevaAlertaMaestra     = (...a) => _api().emitirNuevaAlertaMa
 export const marcarAlertaComoLeida        = (...a) => _api().marcarAlertaComoLeida(...a);
 export const actualizarAlertaMaestra      = (...a) => _api().actualizarAlertaMaestra(...a);
 export const obtenerTodasLasAlertas       = (...a) => _api().obtenerTodasLasAlertas(...a);
+export const suscribirAlertas             = (...a) => _api().suscribirAlertas(...a);
 export const eliminarAlertaMaestraBackend = (...a) => _api().eliminarAlertaMaestraBackend(...a);
 export const obtenerPlantillasAlerta      = (...a) => _api().obtenerPlantillasAlerta(...a);
 export const guardarPlantillaAlerta       = (...a) => _api().guardarPlantillaAlerta(...a);

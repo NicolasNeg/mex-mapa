@@ -22,6 +22,7 @@
       const tipoNormalizado = _normalizeAlertType(tipo);
       const authorMeta = _normalizeAlertAuthor(meta.author || {}, actor);
       const banner = _normalizeAlertBanner(meta.banner || {}, tipoNormalizado);
+      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
       await db.collection(COL.ALERTAS).add({
         timestamp: _ts(), fecha: _now(), actor,
         autor: authorMeta.visible, authorMode: authorMeta.mode, authorValue: authorMeta.value,
@@ -34,7 +35,8 @@
         destMode: _normalizeAlertDestMode(meta.destMode, destinatariosNormalizados),
         modo: _normalizeAlertMode(modo),
         cta: _normalizeAlertCta(meta.cta),
-        version: 1
+        version: 1,
+        ...(empresaId && empresaId !== '__superadmin__' ? { empresaId } : {}),
       });
       await _registrarEventoGestion("ALERTA_EMITIDA", `Emitió alerta maestra "${titulo}" (${tipo})`, autor, {
         entidad: "ALERTAS", referencia: titulo || ""
@@ -100,8 +102,26 @@
     },
 
     async obtenerTodasLasAlertas() {
-      const snap = await db.collection(COL.ALERTAS).orderBy("timestamp", "desc").get();
+      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+      let query = db.collection(COL.ALERTAS).orderBy("timestamp", "desc");
+      if (empresaId && empresaId !== '__superadmin__') {
+        query = query.where('empresaId', '==', empresaId);
+      }
+      const snap = await query.get();
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    },
+
+    suscribirAlertas(callback, options = {}) {
+      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+      const limit = Number(options.limit) || 100;
+      let query = db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(limit);
+      if (empresaId && empresaId !== '__superadmin__') {
+        query = query.where('empresaId', '==', empresaId);
+      }
+      return query.onSnapshot(
+        snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })), null),
+        err => callback([], err)
+      );
     },
 
     async eliminarAlertaMaestraBackend(idAlerta, actor = "Sistema") {
@@ -154,11 +174,13 @@
     async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null, replyTo = null) {
       const ts = _ts();
       const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
+      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
       const payload = {
         timestamp: ts, fecha: _now(),
         remitente: remitente.trim().toUpperCase(),
         destinatario: destinatario.trim().toUpperCase(),
-        mensaje: texto || "", leido: "NO"
+        mensaje: texto || "", leido: "NO",
+        ...(empresaId && empresaId !== '__superadmin__' ? { empresaId } : {}),
       };
       if (archivoUrl)  { payload.archivoUrl = archivoUrl; payload.archivoNombre = archivoNombre; }
       if (replyTo)     { payload.replyTo = { id: replyTo.id, remitente: replyTo.remitente, mensaje: replyTo.mensaje }; }

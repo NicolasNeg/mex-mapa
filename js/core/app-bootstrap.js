@@ -1234,7 +1234,12 @@
           state.cache.delete(cacheKey);
           return null;
         }
-        return persistCachedCurrentUserRecord(record, activeUser);
+        const normalized = persistCachedCurrentUserRecord(record, activeUser);
+        // Load empresa (tenant) context for this user — fire-and-forget
+        if (typeof root.mexEmpresaContext?.cargarParaUsuario === 'function') {
+          root.mexEmpresaContext.cargarParaUsuario(normalized).catch(() => {});
+        }
+        return normalized;
       })
       .catch(error => {
         state.cache.delete(cacheKey);

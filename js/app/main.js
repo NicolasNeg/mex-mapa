@@ -150,7 +150,14 @@ async function boot() {
     return;
   }
 
-  // 3. Esperar config global si no está resuelta
+  // 3. Cargar contexto de empresa (tenant) para este usuario
+  if (!qaAuthBypass && typeof window.mexEmpresaContext?.cargarParaUsuario === 'function') {
+    await window.mexEmpresaContext.cargarParaUsuario(profile).catch(err =>
+      console.warn('[app/main] empresa context:', err)
+    );
+  }
+
+  // 4. Esperar config global si no está resuelta
   if (window.__mexConfigReadyPromise) {
     try { await window.__mexConfigReadyPromise; } catch (_) {}
   }
@@ -172,7 +179,7 @@ async function boot() {
     return;
   }
 
-  // 4. Inicializar estado global
+  // 5. Inicializar estado global
   initState({
     user,
     profile,

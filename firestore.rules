@@ -742,8 +742,22 @@ service cloud.firestore {
     // ─── COMUNICACIÓN Y LOGS ─────────────────────────────────
     match /alertas/{doc} {
       allow read: if tienePerfilActual() || esAccesoTotal();
-      allow create, delete: if puedeEmitirAlertasMaestras();
-      allow update: if puedeEmitirAlertasMaestras() || alertaLecturaValida();
+      allow create: if puedeEmitirAlertasMaestras()
+        && (
+          !('empresaId' in request.resource.data)
+          || esProgramadorBootstrap()
+          || !('empresaId' in perfilActual())
+          || request.resource.data.empresaId == perfilActual().empresaId
+        );
+      allow delete: if puedeEmitirAlertasMaestras();
+      allow update: if (puedeEmitirAlertasMaestras()
+          && (
+            !('empresaId' in resource.data)
+            || esProgramadorBootstrap()
+            || !('empresaId' in perfilActual())
+            || resource.data.empresaId == perfilActual().empresaId
+          ))
+        || alertaLecturaValida();
     }
 
     match /plantillas_alertas/{doc} {
@@ -751,7 +765,21 @@ service cloud.firestore {
     }
 
     match /mensajes/{doc} {
-      allow read, write: if tienePerfilActual();
+      allow read: if tienePerfilActual();
+      allow create: if tienePerfilActual()
+        && (
+          !('empresaId' in request.resource.data)
+          || esProgramadorBootstrap()
+          || !('empresaId' in perfilActual())
+          || request.resource.data.empresaId == perfilActual().empresaId
+        );
+      allow update, delete: if tienePerfilActual()
+        && (
+          !('empresaId' in resource.data)
+          || esProgramadorBootstrap()
+          || !('empresaId' in perfilActual())
+          || resource.data.empresaId == perfilActual().empresaId
+        );
     }
 
     match /logs/{doc} {
