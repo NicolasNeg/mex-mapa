@@ -995,13 +995,17 @@ service cloud.firestore {
     match /turnos/{turnoId} {
       allow read: if estaAutenticado();
       allow create: if estaAutenticado()
-        && request.resource.data.usuarioId == request.auth.uid
+        && (
+          esProgramadorBootstrap()
+          || request.resource.data.usuarioId == request.auth.uid
+        )
         && request.resource.data.estado == 'ACTIVO'
         && request.resource.data.plazaId is string
         && request.resource.data.usuarioNombre is string
         && (
           !('empresaId' in request.resource.data)
           || esProgramadorBootstrap()
+          || !tienePerfilActual()
           || !('empresaId' in perfilActual())
           || request.resource.data.empresaId == perfilActual().empresaId
         );
@@ -1009,6 +1013,7 @@ service cloud.firestore {
         && (
           resource.data.usuarioId == request.auth.uid
           || esAdminOperativo()
+          || esProgramadorBootstrap()
         )
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fin', 'estado']);
       allow delete: if false;

@@ -2780,3 +2780,184 @@
   background: rgba(99,102,241,.12);
   color: #6366f1;
 }
+
+/* ══════════════════════════════════════════════════════════
+   MOBILE — ≤640px (smartphone)
+   Estrategia Stitch: contenido single-column, rail como drawer,
+   detail como full-screen overlay, diálogo full-screen.
+   ══════════════════════════════════════════════════════════ */
+@media (max-width: 640px) {
+  /* Root: menos padding, sin overflow:hidden para que scroll funcione */
+  .inc-module {
+    padding: 10px;
+    overflow: visible;
+    overflow-x: hidden;
+    min-height: 0;
+  }
+
+  /* Header: stack en 2 filas */
+  .inc-module .mod-head {
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 8px;
+  }
+  .inc-module .mod-head-left { grid-column: 1; }
+  .inc-module .mod-search    { grid-column: 1 / -1; order: 4; }
+  .inc-module .mod-actions   { grid-column: 2; grid-row: 1; }
+  .inc-module .mod-title { font-size: 18px; }
+  .inc-module .mod-sub   { display: none; }
+  .inc-module .mod-kbd   { display: none; }
+
+  /* Métricas: 3 columnas compactas — se puede scrollear horizontal */
+  .inc-module .metrics {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px;
+  }
+  .inc-module .metrics::-webkit-scrollbar { display: none; }
+  .inc-module .metric { padding: 9px 10px; }
+  .inc-module .metric-value { font-size: 18px; }
+  .inc-module .metric-label { font-size: 10px; }
+  .inc-module .metric-sub   { display: none; }
+
+  /* Workspace: columna única, sin rail visible */
+  .inc-module .workspace {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  /* Rail: oculto por defecto en móvil — se muestra con .is-mobile-open */
+  .inc-module .rail {
+    display: none;
+    max-height: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 120;
+    background: var(--bg-panel);
+    border-top: 1px solid var(--border);
+    border-radius: 16px 16px 0 0;
+    padding: 16px 14px 20px;
+    box-shadow: 0 -8px 32px rgba(15,23,42,.18);
+    overflow-y: auto;
+    max-height: 70vh;
+    overscroll-behavior: contain;
+  }
+  .inc-module .rail.is-mobile-open { display: flex; flex-direction: column; gap: 10px; }
+
+  /* Backdrop oscuro detrás del rail en móvil */
+  .inc-module .rail-backdrop {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    z-index: 119;
+  }
+  .inc-module .rail-backdrop.is-visible { display: block; }
+
+  /* Botón de filtros encima de la lista */
+  .inc-module .inc-mobile-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md, 8px);
+    background: var(--bg-panel);
+    color: var(--fg-strong);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-bottom: 8px;
+  }
+  .inc-module .inc-mobile-filter-btn .material-icons { font-size: 16px; }
+
+  /* Fila tabs: scroll horizontal */
+  .inc-module .inc-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 6px;
+    padding-bottom: 4px;
+  }
+  .inc-module .inc-tabs::-webkit-scrollbar { display: none; }
+  .inc-module .inc-tab { flex-shrink: 0; white-space: nowrap; }
+
+  /* Filas de lista: layout tarjeta */
+  .inc-module .inc-list-head { display: none; }
+  .inc-module .inc-row {
+    display: grid;
+    grid-template-columns: 3px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: 2px 6px;
+    padding: 10px 10px 10px 0;
+  }
+  .inc-module .inc-row-bar       { grid-row: 1 / 3; }
+  .inc-module .inc-row-main      { grid-column: 2; grid-row: 1; }
+  .inc-module .inc-row-meta      { grid-column: 2; grid-row: 2; font-size: 11px; }
+  .inc-module .inc-row-status    { grid-column: 3; grid-row: 1; align-self: start; }
+  .inc-module .inc-row-actions   { grid-column: 3; grid-row: 2; align-self: end; }
+  .inc-module .inc-row-id,
+  .inc-module .row-sla,
+  .inc-module .row-assignee,
+  .inc-module .inc-row-select    { display: none; }
+
+  /* Detail panel: pantalla completa */
+  .inc-module .detail {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    border-radius: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .inc-module .detail.detail-empty { display: none; }
+
+  /* Create dialog: pantalla completa */
+  .inc-module .ci-backdrop.is-open .ci-dialog {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    overflow-y: auto;
+  }
+  .inc-module .ci-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  /* Vista board: columna única */
+  .inc-module .inc-board { grid-template-columns: 1fr; }
+
+  /* Table view: scroll horizontal */
+  .inc-module .inc-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Toolbar: ocultar hint, solo botones esenciales */
+  .inc-module .toolbar { gap: 6px; flex-wrap: wrap; }
+  .inc-module .toolbar .btn-ghost { padding: 6px 8px; font-size: 11px; }
+
+  /* Resolver dialog: full width */
+  .inc-module .resolver-dialog {
+    width: calc(100vw - 20px);
+    max-width: none;
+  }
+}
+
+/* ──────────────────────────────────────────────
+   TABLET portrait (641px – 760px) ya cubierto arriba
+   pero mejoramos el rail
+   ────────────────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 760px) {
+  .inc-module .rail {
+    max-height: 30vh;
+    overflow-y: auto;
+  }
+  .inc-module .metrics { grid-template-columns: repeat(3, 1fr); }
+  .inc-module .mod-title { font-size: 20px; }
+}

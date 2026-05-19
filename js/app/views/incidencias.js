@@ -852,6 +852,9 @@ function _renderToolbar() {
     toolbar.className = 'inc-toolbar';
     toolbar.innerHTML = `
       <div class="inc-tabs">
+        <button class="inc-mobile-filter-btn" id="incMobileFilterBtn" title="Filtros">
+          <span class="material-icons">filter_list</span> Filtros
+        </button>
         <button class="inc-tab ${_state.activeTab === 'todas' ? 'is-active' : ''}" data-tab="todas">Todas <span class="inc-tab-count" id="tabCount_todas">${countTodas}</span></button>
         <button class="inc-tab ${_state.activeTab === 'mias' ? 'is-active' : ''}" data-tab="mias">Asignadas a mí <span class="inc-tab-count" id="tabCount_mias">${countMias}</span></button>
         <button class="inc-tab ${_state.activeTab === 'sin_asignar' ? 'is-active' : ''}" data-tab="sin_asignar">Sin asignar <span class="inc-tab-count" id="tabCount_sin_asignar">${countSinAsignar}</span></button>
@@ -896,6 +899,25 @@ function _attachToolbarHandlers() {
   q('incRefreshBtn')?.addEventListener('click', () => {
     if (_state?.plaza) _startListener();
   });
+
+  // Mobile filter drawer
+  const mobileFilterBtn = q('incMobileFilterBtn');
+  const rail = _container?.querySelector('.rail');
+  const railBackdrop = _container?.querySelector('.rail-backdrop');
+  if (mobileFilterBtn && rail) {
+    const openRail = () => {
+      rail.classList.add('is-mobile-open');
+      railBackdrop?.classList.add('is-visible');
+    };
+    const closeRail = () => {
+      rail.classList.remove('is-mobile-open');
+      railBackdrop?.classList.remove('is-visible');
+    };
+    mobileFilterBtn.addEventListener('click', openRail);
+    railBackdrop?.addEventListener('click', closeRail);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeRail(); });
+  }
+
   _container?.querySelector('[data-clear-sel]')?.addEventListener('click', () => {
     _state.selectedIds = [];
     _render();

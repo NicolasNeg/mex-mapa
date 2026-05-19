@@ -7,7 +7,7 @@
 //  estado: 'ACTIVO' | 'CERRADO'
 // ═══════════════════════════════════════════════════════════
 
-import { db } from '/js/core/database.js';
+import { db, auth } from '/js/core/database.js';
 
 const COL_TURNOS = 'turnos';
 
@@ -22,17 +22,21 @@ function _getEmpresaId() {
  * Cierra automáticamente cualquier turno previo activo.
  */
 export async function iniciarTurno(user, plazaId) {
-  if (!user?.uid || !plazaId) throw new Error('Usuario y plaza requeridos');
+  // Siempre usar el UID real de Firebase Auth — los perfiles legacy pueden tener
+  // uid = email en su documento de Firestore, lo que rompe la regla de seguridad
+  // que verifica request.resource.data.usuarioId == request.auth.uid.
+  const firebaseUid = auth.currentUser?.uid || user.uid;
+  if (!firebaseUid || !plazaId) throw new Error('Usuario y plaza requeridos');
   const plaza = String(plazaId).toUpperCase().trim();
   if (!plaza) throw new Error('Plaza inválida');
 
-  const previo = await getMiTurnoActivo(user.uid);
+  const previo = await getMiTurnoActivo(firebaseUid);
   if (previo) await cerrarTurno(previo.id);
 
   const fv = _fv();
   const empresaId = _getEmpresaId();
   const doc = {
-    usuarioId: user.uid,
+    usuarioId: firebaseUid,
     usuarioNombre: String(user.nombreCompleto || user.nombre || user.displayName || user.email || '').trim(),
     usuarioRol: String(user.rol || user.role || '').toUpperCase(),
     plazaId: plaza,
