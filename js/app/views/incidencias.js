@@ -295,7 +295,12 @@ function _bindUi() {
   q('nuevaNotaPrioridad')?.addEventListener('change', _applyDraftMeta);
   q('nuevaNotaTitulo')?.addEventListener('input', _onDraftChange);
   q('nuevaNotaTipo')?.addEventListener('change', _onDraftChange);
-  q('incMvaInput')?.addEventListener('input', _onDraftChange);
+  const mvaInput = q('incMvaInput');
+  if (mvaInput) {
+    mvaInput.addEventListener('input', () => { _onDraftChange(); _showMvaSuggestions(mvaInput); });
+    mvaInput.addEventListener('blur', () => { setTimeout(() => _hideMvaSuggestions(), 180); });
+    mvaInput.setAttribute('autocomplete', 'off');
+  }
   q('nuevaNotaRich')?.addEventListener('input', () => {
     _syncRichEditorToTextarea();
     _onDraftChange();
@@ -1621,6 +1626,36 @@ function _prefillMvaFromQuery() {
   input.value = _state?.mvaFromQuery || '';
 }
 
+function _hideMvaSuggestions() {
+  const el = q('incMvaSuggestions');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+function _showMvaSuggestions(input) {
+  const el = q('incMvaSuggestions');
+  if (!el) return;
+  const val = String(input.value || '').trim();
+  if (!val || val.length < 1 || !window.mexUnidades) { _hideMvaSuggestions(); return; }
+  const results = window.mexUnidades.buscar(val, 6);
+  if (!results.length) { _hideMvaSuggestions(); return; }
+  el.innerHTML = results.map(u => {
+    const meta = [u.marca, u.modelo, u.placas].filter(Boolean).join(' · ');
+    return `<div class="inc-mva-suggestion" data-mva="${esc(u.mva)}">
+      <span class="sug-mva">${esc(u.mva)}</span>
+      ${meta ? `<span class="sug-meta">${esc(meta)}</span>` : ''}
+    </div>`;
+  }).join('');
+  el.style.display = 'block';
+  el.querySelectorAll('.inc-mva-suggestion').forEach(item => {
+    item.addEventListener('mousedown', e => {
+      e.preventDefault();
+      input.value = item.dataset.mva;
+      _hideMvaSuggestions();
+      _onDraftChange();
+    });
+  });
+}
+
 function _applyDraftMeta() {
   const gs = getState();
   const autor = gs.profile?.nombreCompleto || gs.profile?.nombre || gs.profile?.email || 'Sistema';
@@ -2207,6 +2242,7 @@ function _renderLayout() {
                 <div class="ci-field">
                   <label class="ci-label">MVA / Activo</label>
                   <input type="text" id="incMvaInput" class="ci-input ci-input-mono" placeholder="MVA-2241">
+                  <div id="incMvaSuggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;background:#fff;border:1.5px solid #e2e8f0;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.1);max-height:200px;overflow-y:auto;margin-top:2px;"></div>
                 </div>
 
                 <div class="ci-field">

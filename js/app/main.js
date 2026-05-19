@@ -18,6 +18,7 @@
 
 import { auth }                     from '/js/core/database.js';
 import { ShellLayout }              from '/js/shell/shell-layout.js';
+import '/js/app/features/unidades/unidades-lookup.js';
 import { initState, getState, setCurrentPlaza, subscribe, resolveAvailablePlazas } from '/js/app/app-state.js';
 import { createRouter }             from '/js/app/router.js';
 import { toAppRoute, isMigratedRoute } from '/js/app/route-resolver.js';

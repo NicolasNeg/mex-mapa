@@ -1958,9 +1958,27 @@ async function saasMigrarUsuarios(empresaId) {
   );
   if (!confirmed) return;
   try {
-    const fn = callable('migrarEmpresaIdUsuarios');
-    const result = await fn({ empresaId });
-    showToast(`${result?.data?.usuariosActualizados ?? 0} usuarios migrados`, 'success');
+    // Client-side batch migration: reads usuarios, writes empresaId in batches of 400
+    const snap = await db.collection('usuarios').get();
+    const pending = snap.docs.filter(d => {
+      const data = d.data();
+      return !data.empresaId || data.empresaId !== empresaId;
+    });
+    if (!pending.length) {
+      showToast('Todos los usuarios ya tienen empresaId asignado', 'info');
+      return;
+    }
+    const BATCH = 400;
+    let total = 0;
+    for (let i = 0; i < pending.length; i += BATCH) {
+      const batch = db.batch();
+      pending.slice(i, i + BATCH).forEach(doc => {
+        batch.update(doc.ref, { empresaId });
+      });
+      await batch.commit();
+      total += Math.min(BATCH, pending.length - i);
+    }
+    showToast(`${total} usuarios migrados a empresaId="${empresaId}"`, 'success');
   } catch (e) {
     showToast('Error en migración: ' + describeError(e), 'error');
   }

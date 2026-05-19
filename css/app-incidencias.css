@@ -2214,7 +2214,22 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  position: relative;
 }
+.inc-mva-suggestion {
+  padding: 9px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #0f172a;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inc-mva-suggestion:last-child { border-bottom: none; }
+.inc-mva-suggestion:hover { background: #f8fafc; }
+.inc-mva-suggestion .sug-mva { font-weight: 700; font-family: monospace; }
+.inc-mva-suggestion .sug-meta { font-size: 11px; color: #64748b; }
 .inc-module .ci-label {
   font-size: 11px;
   font-weight: 600;

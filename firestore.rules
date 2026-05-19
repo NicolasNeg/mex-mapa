@@ -773,19 +773,15 @@ service cloud.firestore {
         && (
           !('empresaId' in request.resource.data)
           || esProgramadorBootstrap()
-          || (
-            'empresaId' in perfilActual()
-            && request.resource.data.empresaId == perfilActual().empresaId
-          )
+          || !('empresaId' in perfilActual())
+          || request.resource.data.empresaId == perfilActual().empresaId
         );
       allow update, delete: if tienePerfilActual()
         && (
           !('empresaId' in resource.data)
           || esProgramadorBootstrap()
-          || (
-            'empresaId' in perfilActual()
-            && resource.data.empresaId == perfilActual().empresaId
-          )
+          || !('empresaId' in perfilActual())
+          || resource.data.empresaId == perfilActual().empresaId
         );
     }
 
@@ -909,11 +905,15 @@ service cloud.firestore {
     // ─── UNIDADES CATALOGO (subcollection de empresa) ──────────────────────────
     match /empresas/{empresaId}/unidades/{unitId} {
       allow read: if estaAutenticado()
-        && (esProgramadorBootstrap() || (tienePerfilActual() && perfilActual().empresaId == empresaId));
+        && (esProgramadorBootstrap()
+          || (tienePerfilActual()
+            && (!('empresaId' in perfilActual()) || perfilActual().empresaId == empresaId)));
       allow create, update: if estaAutenticado()
-        && (esProgramadorBootstrap() || (tienePerfilActual() && perfilActual().empresaId == empresaId));
+        && (esProgramadorBootstrap()
+          || (tienePerfilActual()
+            && (!('empresaId' in perfilActual()) || perfilActual().empresaId == empresaId)));
       allow delete: if esProgramadorBootstrap()
-        || (tienePerfilActual() && perfilActual().empresaId == empresaId && esAdminOperativo());
+        || (tienePerfilActual() && (!('empresaId' in perfilActual()) || perfilActual().empresaId == empresaId) && esAdminOperativo());
     }
 
     // ─── IMPORTACIONES ──────────────────────────────────────────────────────────
@@ -921,7 +921,10 @@ service cloud.firestore {
       allow read: if estaAutenticado()
         && (esProgramadorBootstrap() || (tienePerfilActual() && resource.data.empresaId == perfilActual().empresaId));
       allow create: if tienePerfilActual()
-        && request.resource.data.empresaId == perfilActual().empresaId;
+        && (
+          !('empresaId' in perfilActual())
+          || request.resource.data.empresaId == perfilActual().empresaId
+        );
       allow update, delete: if esProgramadorBootstrap();
     }
 
@@ -971,10 +974,8 @@ service cloud.firestore {
         && (
           !('empresaId' in request.resource.data)
           || esProgramadorBootstrap()
-          || (
-            'empresaId' in perfilActual()
-            && request.resource.data.empresaId == perfilActual().empresaId
-          )
+          || !('empresaId' in perfilActual())
+          || request.resource.data.empresaId == perfilActual().empresaId
         );
       allow update: if estaAutenticado()
         && (
