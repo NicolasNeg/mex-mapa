@@ -61,6 +61,10 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {
+        "source": "/programador/**",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
+      },
+      {
         "source": "/home",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
@@ -146,6 +150,7 @@
       { "source": "/login",       "destination": "/login.html" },
       { "source": "/mapa",        "destination": "/mapa.html" },
       { "source": "/programador", "destination": "/programador.html" },
+      { "source": "/programador/**", "destination": "/programador.html" },
       { "source": "/home",        "destination": "/home.html" },
       { "source": "/gestion",     "destination": "/gestion.html" },
       { "source": "/mensajes",    "destination": "/mensajes.html" },

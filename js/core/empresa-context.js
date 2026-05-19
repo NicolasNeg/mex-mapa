@@ -78,8 +78,17 @@
     if (!profile) return null;
 
     // Superadmin (bootstrap programmer) — synthetic all-access context.
-    // No real empresa document; switchEmpresa() is used for inspection.
+    // If a specific empresa was selected via switchEmpresa() (stored in localStorage),
+    // restore that empresa so the programador can view the app as that tenant.
     if (profile.rol === 'PROGRAMADOR' && profile.bootstrapProgrammer === true) {
+      const stored = readStoredEmpresaId();
+      if (stored && stored !== '__superadmin__') {
+        const empresa = await fetchEmpresa(stored);
+        if (empresa) {
+          applyEmpresaGlobal(empresa);
+          return empresa;
+        }
+      }
       const ctx = { id: '__superadmin__', isSuperAdminContext: true, nombre: 'SUPERADMIN', features: {} };
       applyEmpresaGlobal(ctx);
       writeStoredEmpresaId('__superadmin__');

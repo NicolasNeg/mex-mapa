@@ -157,6 +157,15 @@ async function boot() {
     );
   }
 
+  // 3b. PROGRAMADOR sin empresa seleccionada → redirigir al panel programador
+  if (!qaAuthBypass && String(profile.rol || '').toUpperCase() === 'PROGRAMADOR') {
+    const empresaActual = window._empresaActual;
+    if (!empresaActual || empresaActual.isSuperAdminContext === true) {
+      window.location.replace('/programador');
+      return;
+    }
+  }
+
   // 4. Esperar config global si no está resuelta
   if (window.__mexConfigReadyPromise) {
     try { await window.__mexConfigReadyPromise; } catch (_) {}
@@ -304,6 +313,11 @@ async function boot() {
 
   loadSpinner?.remove();
 
+  // Banner para PROGRAMADOR que está viendo una empresa específica
+  if (role === 'PROGRAMADOR' && window._empresaActual && !window._empresaActual.isSuperAdminContext) {
+    _mountProgramadorBanner(window._empresaActual, appRoot);
+  }
+
   // 6. Crear router — renderiza la vista inicial automáticamente
   router = createRouter({ shell });
   _runWhenIdle(() => {
@@ -358,6 +372,50 @@ function waitForAuth() {
       unsubscribe();
       resolve(user || null);
     });
+  });
+}
+
+// ── Banner programador viendo empresa ──────────────────────
+function _mountProgramadorBanner(empresa, appRoot) {
+  const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const banner = document.createElement('div');
+  banner.id = 'progEmpresaBanner';
+  banner.style.cssText = [
+    'position:fixed;top:0;left:0;right:0;z-index:500;',
+    'background:rgba(79,70,229,0.97);backdrop-filter:blur(6px);',
+    'padding:5px 14px;',
+    'display:flex;align-items:center;justify-content:space-between;gap:10px;',
+    'font-family:Inter,sans-serif;',
+  ].join('');
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+      <span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,0.7);flex-shrink:0;">visibility</span>
+      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);flex-shrink:0;">Viendo como PROGRAMADOR:</span>
+      <span style="font-size:11px;font-weight:800;color:#e0e7ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(empresa.nombre || empresa.id)}</span>
+      <span style="font-size:10px;color:rgba(255,255,255,0.35);font-family:monospace;flex-shrink:0;">${esc(empresa.id)}</span>
+    </div>
+    <button id="progExitEmpresaBtn" type="button" style="
+      display:flex;align-items:center;gap:5px;flex-shrink:0;
+      padding:4px 10px;border-radius:6px;
+      background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.2);
+      color:#fff;font-size:11px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;
+    ">
+      <span class="material-symbols-outlined" style="font-size:13px;">arrow_back</span>
+      Salir de empresa
+    </button>
+  `;
+  document.body.insertBefore(banner, document.body.firstChild);
+
+  const bannerH = banner.offsetHeight || 32;
+  if (appRoot) appRoot.style.paddingTop = bannerH + 'px';
+
+  banner.querySelector('#progExitEmpresaBtn')?.addEventListener('click', () => {
+    try {
+      sessionStorage.setItem('mex.empresaCtx.v1', JSON.stringify('__superadmin__'));
+      localStorage.setItem('mex.empresaCtx.local.v1', JSON.stringify('__superadmin__'));
+    } catch (_) {}
+    window._empresaActual = null;
+    window.location.replace('/programador');
   });
 }
 
