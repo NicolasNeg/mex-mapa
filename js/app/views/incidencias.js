@@ -1461,7 +1461,7 @@ function _renderDetailPanel() {
           <span class="material-icons" style="font-size:13px">check</span> Marcar resuelta
         </button>
       ` : `
-        <button class="dp-btn dp-btn-secondary" data-stop>
+        <button class="dp-btn dp-btn-secondary" data-reopen-id="${esc(item.legacyNotaId || item.id)}" data-stop>
           <span class="material-icons" style="font-size:13px">refresh</span> Reabrir incidencia
         </button>
       `}
@@ -1486,6 +1486,27 @@ function _renderDetailPanel() {
       const id = btn.dataset.deleteId;
       if (await _mexConfirm('Eliminar registro', '¿Estás seguro de eliminar este registro? Esta acción no se puede deshacer.', 'danger')) {
         _onDeleteIncidencia(id);
+      }
+    });
+  });
+  panel.querySelectorAll('[data-reopen-id]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const rid = btn.dataset.reopenId;
+      if (!rid) return;
+      btn.disabled = true;
+      try {
+        await updateIncidenciaField(rid, {
+          estado: 'PENDIENTE',
+          quienResolvio: '',
+          resueltaPor: '',
+          resueltaEn: '',
+          solucion: '',
+        });
+        _showToast('Reabierta', 'La incidencia fue marcada como pendiente.', 'ok');
+      } catch (err) {
+        _showToast('Error', err?.message || 'No se pudo reabrir.', 'error');
+      } finally {
+        btn.disabled = false;
       }
     });
   });
@@ -1630,7 +1651,7 @@ async function _onCreateIncidencia() {
 
   const btn = q('btnPublicarInc');
   const gs = getState();
-  const autor = gs.profile?.email || gs.profile?.nombre || 'Usuario';
+  const autor = gs.profile?.nombreCompleto || gs.profile?.nombre || gs.profile?.displayName || gs.profile?.email || 'Usuario';
   if (btn) btn.disabled = true;
   try {
     const payload = {

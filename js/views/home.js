@@ -1504,6 +1504,16 @@ if ((window.location.pathname || '').replace(/\/+$/, '') === '/home') {
       window.location.replace('/login');
       return;
     }
+    // Solicitar/activar ubicación desde el dashboard (primera vista tras login).
+    // Si ya está concedido arranca el watch silenciosamente; si no, muestra el overlay.
+    if (typeof window.__mexRequireLocationAccess === 'function') {
+      window.__mexRequireLocationAccess({
+        title: 'Ubicación necesaria para operar',
+        copy: 'Activa tu ubicación para dejar trazabilidad en movimientos y acciones administrativas.',
+        allowLogout: false,
+        force: false
+      }).catch(() => {});
+    }
     renderBoot();
   });
 }

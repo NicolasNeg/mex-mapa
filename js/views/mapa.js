@@ -2355,13 +2355,18 @@ auth.onAuthStateChanged(async (user) => {
         return;
       }
     }
-    if (typeof window.__mexRequireLocationAccess === 'function') {
+    // En modo fleet (iframe de cuadre) o admin, la ubicación ya fue gestionada por el padre.
+    // Solo solicitamos en modo standalone para evitar el doble prompt.
+    if (typeof window.__mexRequireLocationAccess === 'function' && !_isDedicatedCuadreIframeMode() && !_isDedicatedGestionIframeMode()) {
       await window.__mexRequireLocationAccess({
         title: 'Ubicacion obligatoria para entrar',
         copy: 'Activa tu ubicacion exacta para permitir auditoria de movimientos, cambios globales y eventos operativos dentro de la plataforma.',
         allowLogout: true,
         force: false
       });
+    } else if (typeof window.__mexGetExactLocationSnapshot === 'function' && (_isDedicatedCuadreIframeMode() || _isDedicatedGestionIframeMode())) {
+      // Modo iframe: iniciar watch silencioso si el permiso ya está concedido
+      window.__mexGetExactLocationSnapshot({ force: false }).catch(() => {});
     }
     // iniciarApp fuera del try/catch: errores de UI no deben redirigir a /login
     iniciarApp(true);

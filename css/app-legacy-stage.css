@@ -1,13 +1,16 @@
 /* App Shell legacy stage: the only chrome is the Shell sidebar/header. */
 
 body.app-legacy-stage-active .mex-main {
+  height: calc(100vh - var(--sh-header-h, 64px));
+  min-height: 0;
   overflow: hidden;
   background: #f8fafc;
 }
 
 body.app-legacy-stage-active #mexShellContent {
-  height: calc(100vh - var(--sh-header-h, 64px));
+  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .app-legacy-stage {
@@ -105,14 +108,25 @@ body.app-legacy-stage-active #mexShellContent {
 
 @media (max-width: 767px) {
   .app-legacy-stage,
+  body.app-legacy-stage-active .mex-main,
   body.app-legacy-stage-active #mexShellContent {
     height: calc(100vh - var(--sh-header-h, 64px));
   }
 }
 
-.app-legacy-stage[data-legacy-stage="mapa"] {
+.app-legacy-stage[data-legacy-stage="mapa"],
+.app-legacy-stage[data-legacy-stage="cuadre"],
+.app-legacy-stage[data-legacy-stage="dashboard"] {
   background: #141f2e;
 }
-.app-legacy-stage[data-legacy-stage="mapa"] .app-legacy-stage__frame {
+.app-legacy-stage[data-legacy-stage="mapa"] .app-legacy-stage__frame,
+.app-legacy-stage[data-legacy-stage="cuadre"] .app-legacy-stage__frame,
+.app-legacy-stage[data-legacy-stage="dashboard"] .app-legacy-stage__frame {
   background: #141f2e;
+}
+
+/* Shell container must not bleed its background into legacy stage area */
+body.app-legacy-stage-active .mex-shell {
+  overflow: hidden;
+  height: 100vh;
 }
