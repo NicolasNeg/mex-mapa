@@ -155,6 +155,11 @@ async function boot() {
     await window.mexEmpresaContext.cargarParaUsuario(profile).catch(err =>
       console.warn('[app/main] empresa context:', err)
     );
+    // After loading empresa, invalidate bootstrap config cache so the correct
+    // tenant name and plazas are used when the shell reads window.__mexCompanyName.
+    if (window._empresaActual && !window._empresaActual.isSuperAdminContext) {
+      window.__mexInvalidateConfigCache?.();
+    }
   }
 
   // 3b. PROGRAMADOR sin empresa seleccionada → redirigir al panel programador
@@ -375,48 +380,94 @@ function waitForAuth() {
   });
 }
 
-// ── Banner programador viendo empresa ──────────────────────
-function _mountProgramadorBanner(empresa, appRoot) {
+// ── Banner flotante programador viendo empresa ─────────────
+// Pill discreto en la esquina inferior-derecha.
+// Se puede colapsar a solo el ícono. No bloquea el layout.
+function _mountProgramadorBanner(empresa) {
   const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const banner = document.createElement('div');
-  banner.id = 'progEmpresaBanner';
-  banner.style.cssText = [
-    'position:fixed;top:0;left:0;right:0;z-index:500;',
-    'background:rgba(79,70,229,0.97);backdrop-filter:blur(6px);',
-    'padding:5px 14px;',
-    'display:flex;align-items:center;justify-content:space-between;gap:10px;',
-    'font-family:Inter,sans-serif;',
-  ].join('');
-  banner.innerHTML = `
-    <div style="display:flex;align-items:center;gap:8px;min-width:0;">
-      <span class="material-symbols-outlined" style="font-size:15px;color:rgba(255,255,255,0.7);flex-shrink:0;">visibility</span>
-      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.8);flex-shrink:0;">Viendo como PROGRAMADOR:</span>
-      <span style="font-size:11px;font-weight:800;color:#e0e7ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(empresa.nombre || empresa.id)}</span>
-      <span style="font-size:10px;color:rgba(255,255,255,0.35);font-family:monospace;flex-shrink:0;">${esc(empresa.id)}</span>
-    </div>
-    <button id="progExitEmpresaBtn" type="button" style="
-      display:flex;align-items:center;gap:5px;flex-shrink:0;
-      padding:4px 10px;border-radius:6px;
-      background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.2);
-      color:#fff;font-size:11px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;
-    ">
-      <span class="material-symbols-outlined" style="font-size:13px;">arrow_back</span>
-      Salir de empresa
-    </button>
+  // Default: collapsed. Only expand if user explicitly clicked expand ('0' stored).
+  const stored = (() => { try { return localStorage.getItem('mex.prog.bannerCollapsed') !== '0'; } catch (_) { return true; } })();
+
+  const pill = document.createElement('div');
+  pill.id = 'progEmpresaBanner';
+  pill.setAttribute('data-collapsed', stored ? '1' : '0');
+  pill.style.cssText = `
+    position:fixed;bottom:18px;right:16px;z-index:2000;
+    font-family:Inter,sans-serif;
+    transition:all .22s ease;
   `;
-  document.body.insertBefore(banner, document.body.firstChild);
 
-  const bannerH = banner.offsetHeight || 32;
-  if (appRoot) appRoot.style.paddingTop = bannerH + 'px';
+  function _render(collapsed) {
+    if (collapsed) {
+      pill.innerHTML = `
+        <button id="progBannerExpandBtn" title="Panel programador activo — click para ver opciones" type="button" style="
+          display:flex;align-items:center;justify-content:center;
+          width:36px;height:36px;border-radius:50%;
+          background:rgba(79,70,229,0.92);backdrop-filter:blur(8px);
+          border:2px solid rgba(255,255,255,0.2);
+          box-shadow:0 4px 16px rgba(79,70,229,0.4);
+          cursor:pointer;transition:transform .15s;
+        ">
+          <span class="material-symbols-outlined" style="font-size:17px;color:#fff;">visibility</span>
+        </button>`;
+      pill.querySelector('#progBannerExpandBtn')?.addEventListener('click', () => {
+        try { localStorage.setItem('mex.prog.bannerCollapsed', '0'); } catch (_) {}
+        pill.setAttribute('data-collapsed', '0');
+        _render(false);
+      });
+    } else {
+      pill.innerHTML = `
+        <div style="
+          display:flex;align-items:center;gap:10px;
+          background:rgba(23,18,62,0.94);backdrop-filter:blur(10px);
+          border:1px solid rgba(99,102,241,0.35);border-radius:12px;
+          padding:8px 12px;
+          box-shadow:0 4px 20px rgba(0,0,0,0.35);
+          max-width:320px;
+        ">
+          <span class="material-symbols-outlined" style="font-size:15px;color:#818cf8;flex-shrink:0;">visibility</span>
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:10px;color:rgba(255,255,255,0.45);font-weight:600;line-height:1.3;">PROGRAMADOR</div>
+            <div style="font-size:12px;font-weight:800;color:#e0e7ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(empresa.nombre || empresa.id)}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex-shrink:0;">
+            <button id="progBannerCollapseBtn" title="Minimizar" type="button" style="
+              width:26px;height:26px;border-radius:6px;border:none;
+              background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);
+              cursor:pointer;display:flex;align-items:center;justify-content:center;
+            ">
+              <span class="material-symbols-outlined" style="font-size:14px;">minimize</span>
+            </button>
+            <button id="progBannerExitBtn" title="Salir de empresa" type="button" style="
+              display:flex;align-items:center;gap:4px;
+              padding:4px 8px;border-radius:6px;border:none;
+              background:rgba(99,102,241,0.25);color:#a5b4fc;
+              font-size:11px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;
+            ">
+              <span class="material-symbols-outlined" style="font-size:12px;">logout</span>
+              Salir
+            </button>
+          </div>
+        </div>`;
+      pill.querySelector('#progBannerCollapseBtn')?.addEventListener('click', () => {
+        try { localStorage.setItem('mex.prog.bannerCollapsed', '1'); } catch (_) {}
+        pill.setAttribute('data-collapsed', '1');
+        _render(true);
+      });
+      pill.querySelector('#progBannerExitBtn')?.addEventListener('click', () => {
+        try {
+          sessionStorage.setItem('mex.empresaCtx.v1', JSON.stringify('__superadmin__'));
+          localStorage.setItem('mex.empresaCtx.local.v1', JSON.stringify('__superadmin__'));
+          localStorage.removeItem('mex.prog.bannerCollapsed');
+        } catch (_) {}
+        window._empresaActual = null;
+        window.location.replace('/programador');
+      });
+    }
+  }
 
-  banner.querySelector('#progExitEmpresaBtn')?.addEventListener('click', () => {
-    try {
-      sessionStorage.setItem('mex.empresaCtx.v1', JSON.stringify('__superadmin__'));
-      localStorage.setItem('mex.empresaCtx.local.v1', JSON.stringify('__superadmin__'));
-    } catch (_) {}
-    window._empresaActual = null;
-    window.location.replace('/programador');
-  });
+  _render(stored);
+  document.body.appendChild(pill);
 }
 
 // ── Start ───────────────────────────────────────────────────

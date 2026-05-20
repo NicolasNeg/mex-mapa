@@ -45,11 +45,14 @@
 
   function applyEmpresaGlobal(empresa) {
     window._empresaActual = empresa;
-    if (empresa && empresa.configuracion) {
+    if (empresa && !empresa.isSuperAdminContext) {
       try {
         window.MEX_CONFIG = window.MEX_CONFIG || {};
-        window.MEX_CONFIG.empresa = window.MEX_CONFIG.empresa || {};
-        window.MEX_CONFIG.empresa.configuracion = empresa.configuracion;
+        // Merge full empresa data so plazas, nombre, features, etc. are available
+        window.MEX_CONFIG.empresa = Object.assign({}, window.MEX_CONFIG.empresa || {}, empresa);
+        // Update company name globals used by app-bootstrap and shell
+        const nombre = String(empresa.nombre || empresa.id || '').trim();
+        if (nombre) window.__mexCompanyName = nombre;
       } catch (_) {}
     }
     try {
@@ -77,10 +80,10 @@
   async function cargarParaUsuario(profile) {
     if (!profile) return null;
 
-    // Superadmin (bootstrap programmer) — synthetic all-access context.
-    // If a specific empresa was selected via switchEmpresa() (stored in localStorage),
-    // restore that empresa so the programador can view the app as that tenant.
-    if (profile.rol === 'PROGRAMADOR' && profile.bootstrapProgrammer === true) {
+    // PROGRAMADOR: nunca usa su propio empresaId del perfil.
+    // Si hay una empresa seleccionada vía switchEmpresa() en storage, úsala.
+    // Si no, contexto superadmin sintético (acceso global).
+    if (profile.rol === 'PROGRAMADOR') {
       const stored = readStoredEmpresaId();
       if (stored && stored !== '__superadmin__') {
         const empresa = await fetchEmpresa(stored);
