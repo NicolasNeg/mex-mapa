@@ -53,6 +53,10 @@
         // Update company name globals used by app-bootstrap and shell
         const nombre = String(empresa.nombre || empresa.id || '').trim();
         if (nombre) window.__mexCompanyName = nombre;
+        // Override global listas with empresa-specific ones if defined
+        if (empresa.listas && typeof empresa.listas === 'object') {
+          window.MEX_CONFIG.listas = Object.assign({}, window.MEX_CONFIG.listas || {}, empresa.listas);
+        }
       } catch (_) {}
     }
     try {

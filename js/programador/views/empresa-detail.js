@@ -13,6 +13,7 @@ const TABS = [
   { key: 'config',   label: 'Configuración', icon: 'settings'    },
   { key: 'features', label: 'Features',       icon: 'toggle_on'   },
   { key: 'plazas',   label: 'Plazas',         icon: 'location_on' },
+  { key: 'listas',   label: 'Listas',         icon: 'list'        },
   { key: 'usuarios', label: 'Usuarios',        icon: 'group'       },
 ];
 
@@ -95,6 +96,7 @@ function _bindTab(tab) {
   if (tab === 'config')   _bindConfig();
   if (tab === 'features') _bindFeatures();
   if (tab === 'plazas')   _bindPlazas();
+  if (tab === 'listas')   _bindListas();
   if (tab === 'usuarios') _loadUsuarios();
 }
 
@@ -150,11 +152,39 @@ function _bindFeatures() {
         if (!_empresa.features) _empresa.features = {};
         _empresa.features[key] = val;
         _toast(`Feature "${key}" ${val ? 'activada' : 'desactivada'}`, 'ok');
+        // Re-render to update label colors
+        _switchTab('features');
       } catch (err) {
-        toggle.checked = !val; // revert
+        toggle.checked = !val;
         _toast('Error: ' + err.message, 'error');
       }
     });
+  });
+
+  const FEATURE_KEYS = ['alertas','cuadre','mensajeria','incidencias','ia_placas','cola_preparacion','exportar_excel','edicion_mapa'];
+
+  _container?.querySelector('#featEnableAll')?.addEventListener('click', async () => {
+    const updates = {};
+    FEATURE_KEYS.forEach(k => { updates[`features.${k}`] = true; });
+    try {
+      await window._db.collection('empresas').doc(_empresaId).update(updates);
+      if (!_empresa.features) _empresa.features = {};
+      FEATURE_KEYS.forEach(k => { _empresa.features[k] = true; });
+      _toast('Todas las features activadas', 'ok');
+      _switchTab('features');
+    } catch (err) { _toast('Error: ' + err.message, 'error'); }
+  });
+
+  _container?.querySelector('#featDisableAll')?.addEventListener('click', async () => {
+    const updates = {};
+    FEATURE_KEYS.forEach(k => { updates[`features.${k}`] = false; });
+    try {
+      await window._db.collection('empresas').doc(_empresaId).update(updates);
+      if (!_empresa.features) _empresa.features = {};
+      FEATURE_KEYS.forEach(k => { _empresa.features[k] = false; });
+      _toast('Todas las features desactivadas', 'ok');
+      _switchTab('features');
+    } catch (err) { _toast('Error: ' + err.message, 'error'); }
   });
 }
 
@@ -288,6 +318,7 @@ function _tabContent(tab) {
   if (tab === 'config')   return _configTabHtml();
   if (tab === 'features') return _featuresTabHtml();
   if (tab === 'plazas')   return _plazasTabHtml();
+  if (tab === 'listas')   return _listasTabHtml();
   if (tab === 'usuarios') return _usuariosTabHtml();
   return '';
 }
@@ -327,6 +358,7 @@ function _configTabHtml() {
 
 function _featuresTabHtml() {
   const features = _empresa.features || {};
+  const hasFeatures = _empresa.features && typeof _empresa.features === 'object';
   const list = [
     ['alertas',          'Alertas',          'Emisión y gestión de alertas masivas'],
     ['cuadre',           'Cuadre',           'Módulo de cuadre de flota/patio'],
@@ -339,8 +371,13 @@ function _featuresTabHtml() {
   ];
   return `
 <div style="max-width:680px;display:flex;flex-direction:column;gap:10px;">
+  ${!hasFeatures ? `<div style="padding:12px 14px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:8px;font-size:12px;color:#fbbf24;margin-bottom:4px;">Esta empresa no tiene features configuradas. Activa las que necesite.</div>` : ''}
+  <div style="display:flex;gap:8px;margin-bottom:4px;">
+    <button id="featEnableAll" type="button" style="padding:6px 12px;border-radius:7px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.25);color:#a5b4fc;font-size:11px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">Activar todas</button>
+    <button id="featDisableAll" type="button" style="padding:6px 12px;border-radius:7px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:rgba(255,255,255,0.4);font-size:11px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">Desactivar todas</button>
+  </div>
   ${list.map(([key, label, desc]) => {
-    const on = features[key] !== false;
+    const on = features[key] === true;
     return `
 <div style="background:#0f1b2d;border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
   <div>
@@ -402,6 +439,89 @@ function _plazasListHtml() {
       <span style="font-size:10px;color:rgba(255,255,255,0.2);">${p.activa === false ? 'inactiva' : 'activa'}</span>
     </div>`).join('')}
   </div>`;
+}
+
+function _listasTabHtml() {
+  const listas = _empresa.listas || {};
+  const secciones = [
+    { key: 'categorias', label: 'Categorías', placeholder: 'SEDAN', hint: 'Tipos de vehículo (ej: SEDAN, SUV, CAMIONETA)' },
+    { key: 'modelos',    label: 'Modelos',    placeholder: 'TSURU', hint: 'Modelos de vehículo (ej: TSURU, VERSA, AVEO)' },
+    { key: 'estados',    label: 'Estados operativos', placeholder: 'DISPONIBLE', hint: 'Estados del mapa (ej: DISPONIBLE, OCUPADO)' },
+    { key: 'gasolinas',  label: 'Tipos de combustible', placeholder: 'MAGNA', hint: 'Tipos de gasolina (ej: MAGNA, PREMIUM, DIESEL)' },
+  ];
+
+  return `
+<div style="max-width:800px;display:flex;flex-direction:column;gap:20px;">
+  <div style="padding:12px 14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;font-size:12px;color:#a5b4fc;">
+    Las listas definen los catálogos propios de esta empresa (categorías, modelos, etc.).<br/>
+    Si se dejan vacías, se usan los catálogos globales del sistema.
+  </div>
+  ${secciones.map(s => {
+    const items = Array.isArray(listas[s.key]) ? listas[s.key] : [];
+    return `
+<div style="background:#0f1b2d;border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:16px;">
+  <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">${_esc(s.label)}</div>
+  <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-bottom:10px;">${_esc(s.hint)}</div>
+  <div id="lista-items-${_esc(s.key)}" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:24px;">
+    ${items.map(item => `
+    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);font-size:11px;font-weight:700;color:#a5b4fc;">
+      ${_esc(String(item))}
+      <button data-lista-remove="${_esc(s.key)}" data-item="${_esc(String(item))}" type="button" style="display:inline-flex;align-items:center;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:0;font-size:12px;line-height:1;">×</button>
+    </span>`).join('')}
+    ${!items.length ? `<span style="font-size:11px;color:rgba(255,255,255,0.2);">Sin items — se usará el catálogo global</span>` : ''}
+  </div>
+  <form data-lista-form="${_esc(s.key)}" style="display:flex;gap:6px;align-items:center;">
+    <input type="text" placeholder="${_esc(s.placeholder)}" data-lista-input="${_esc(s.key)}" style="
+      flex:1;padding:7px 10px;background:#070d16;border:1px solid rgba(255,255,255,0.1);
+      border-radius:7px;color:#fff;font-size:12px;font-family:Inter,sans-serif;outline:none;
+    " required/>
+    <button type="submit" style="padding:7px 12px;border-radius:7px;background:#6366f1;color:#fff;border:none;font-size:12px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">Agregar</button>
+  </form>
+</div>`;
+  }).join('')}
+</div>`;
+}
+
+function _bindListas() {
+  _container?.querySelectorAll('[data-lista-form]').forEach(form => {
+    form.addEventListener('submit', async e => {
+      e.preventDefault();
+      const key = form.dataset.listaForm;
+      const input = form.querySelector(`[data-lista-input="${key}"]`);
+      const val = String(input?.value || '').trim().toUpperCase();
+      if (!val) return;
+
+      const current = Array.isArray(_empresa.listas?.[key]) ? [..._empresa.listas[key]] : [];
+      if (current.includes(val)) { _toast(`"${val}" ya existe`, 'ok'); return; }
+      const updated = [...current, val];
+
+      try {
+        await window._db.collection('empresas').doc(_empresaId).update({ [`listas.${key}`]: updated });
+        if (!_empresa.listas) _empresa.listas = {};
+        _empresa.listas[key] = updated;
+        input.value = '';
+        _toast(`${val} agregado a ${key}`, 'ok');
+        _switchTab('listas');
+      } catch (err) { _toast('Error: ' + err.message, 'error'); }
+    });
+  });
+
+  _container?.querySelectorAll('[data-lista-remove]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const key = btn.dataset.listaRemove;
+      const item = btn.dataset.item;
+      const current = Array.isArray(_empresa.listas?.[key]) ? [..._empresa.listas[key]] : [];
+      const updated = current.filter(i => String(i) !== item);
+
+      try {
+        await window._db.collection('empresas').doc(_empresaId).update({ [`listas.${key}`]: updated });
+        if (!_empresa.listas) _empresa.listas = {};
+        _empresa.listas[key] = updated;
+        _toast(`${item} eliminado`, 'ok');
+        _switchTab('listas');
+      } catch (err) { _toast('Error: ' + err.message, 'error'); }
+    });
+  });
 }
 
 function _usuariosTabHtml() {
