@@ -1,0 +1,281 @@
+/* ═══════════════════════════════════════════════════════════
+   css/prog-panel.css  —  Temas dark / light para /programador
+   Usa !important para sobreescribir inline styles generados en JS.
+   El tema se activa poniendo data-prog-theme="light" en <html>
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Base ─────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* ── Variables dark (default) ─────────────────────────────── */
+:root {
+  --p-bg:           #070d16;
+  --p-sidebar:      #0a1220;
+  --p-header:       #070d16;
+  --p-card:         #0f1b2d;
+  --p-card-deep:    #070d16;
+  --p-border:       rgba(255,255,255,0.07);
+  --p-border-soft:  rgba(255,255,255,0.04);
+  --p-text:         #ffffff;
+  --p-text-sec:     rgba(255,255,255,0.6);
+  --p-text-muted:   rgba(255,255,255,0.35);
+  --p-text-faint:   rgba(255,255,255,0.18);
+  --p-accent:       #6366f1;
+  --p-accent-light: #818cf8;
+  --p-accent-pale:  rgba(99,102,241,0.12);
+  --p-nav-active:   rgba(99,102,241,0.14);
+  --p-hover:        rgba(255,255,255,0.05);
+  --p-input-bg:     #070d16;
+  --p-th-bg:        #0a1220;
+  --p-scrollbar:    rgba(255,255,255,0.12);
+  --p-shadow:       rgba(0,0,0,0.5);
+  --p-skeleton:     rgba(255,255,255,0.04);
+}
+
+/* ── Variables light ──────────────────────────────────────── */
+[data-prog-theme="light"] {
+  --p-bg:           #f1f5f9;
+  --p-sidebar:      #ffffff;
+  --p-header:       #ffffff;
+  --p-card:         #ffffff;
+  --p-card-deep:    #f8fafc;
+  --p-border:       rgba(0,0,0,0.08);
+  --p-border-soft:  rgba(0,0,0,0.05);
+  --p-text:         #0f172a;
+  --p-text-sec:     #334155;
+  --p-text-muted:   #64748b;
+  --p-text-faint:   #94a3b8;
+  --p-accent:       #4f46e5;
+  --p-accent-light: #6366f1;
+  --p-accent-pale:  rgba(79,70,229,0.08);
+  --p-nav-active:   rgba(79,70,229,0.1);
+  --p-hover:        rgba(0,0,0,0.04);
+  --p-input-bg:     #f8fafc;
+  --p-th-bg:        #f8fafc;
+  --p-scrollbar:    rgba(0,0,0,0.15);
+  --p-shadow:       rgba(0,0,0,0.1);
+  --p-skeleton:     rgba(0,0,0,0.04);
+}
+
+/* ══════════════════════════════════════════════════════════
+   OVERRIDES para modo LIGHT — sobreescribir inline styles JS
+   ══════════════════════════════════════════════════════════ */
+
+/* Root shell */
+[data-prog-theme="light"] #progShell {
+  background: var(--p-bg) !important;
+  color: var(--p-text) !important;
+}
+
+/* Sidebar */
+[data-prog-theme="light"] #progShell > aside {
+  background: var(--p-sidebar) !important;
+  border-color: var(--p-border) !important;
+}
+
+/* Header principal */
+[data-prog-theme="light"] #progShell header {
+  background: var(--p-header) !important;
+  border-color: var(--p-border) !important;
+}
+
+/* Título header */
+[data-prog-theme="light"] #progHeaderTitle {
+  color: var(--p-text) !important;
+}
+
+/* Área de contenido */
+[data-prog-theme="light"] #progContent {
+  background: var(--p-bg) !important;
+}
+
+/* Nav buttons (sidebar) */
+[data-prog-theme="light"] .prog-nav-btn {
+  color: var(--p-text-muted) !important;
+}
+[data-prog-theme="light"] .prog-nav-btn:hover {
+  background: var(--p-hover) !important;
+  color: var(--p-text) !important;
+}
+[data-prog-theme="light"] .prog-nav-btn.prog-nav-active {
+  background: var(--p-nav-active) !important;
+  color: var(--p-accent) !important;
+}
+[data-prog-theme="light"] .prog-nav-icon {
+  color: inherit !important;
+}
+[data-prog-theme="light"] .prog-nav-btn.prog-nav-active .prog-nav-icon {
+  color: var(--p-accent) !important;
+}
+
+/* Sub-nav botones */
+[data-prog-theme="light"] .prog-subnav-btn {
+  color: var(--p-text-muted) !important;
+}
+[data-prog-theme="light"] .prog-subnav-btn:hover {
+  background: var(--p-hover) !important;
+  color: var(--p-text) !important;
+}
+[data-prog-theme="light"] .prog-subnav-btn.prog-subnav-active {
+  background: var(--p-nav-active) !important;
+  color: var(--p-accent) !important;
+}
+
+/* Separadores en sidebar */
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.2)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.06)"] {
+  border-color: var(--p-border) !important;
+}
+
+/* Texto en sidebar */
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.28)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.3)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.35)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.4)"] {
+  color: var(--p-text-muted) !important;
+}
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.8)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.85)"] {
+  color: var(--p-text) !important;
+}
+
+/* Avatar inicial en sidebar */
+[data-prog-theme="light"] #progShell aside [style*="background:#1e2d42"] {
+  background: #e0e7ff !important;
+}
+
+/* Logout btn */
+[data-prog-theme="light"] #progLogoutBtn {
+  color: var(--p-text-faint) !important;
+}
+[data-prog-theme="light"] #progLogoutBtn:hover {
+  background: rgba(239,68,68,0.07) !important;
+  color: #dc2626 !important;
+}
+
+/* Cards / containers en contenido */
+[data-prog-theme="light"] #progContent [style*="background:#0f1b2d"],
+[data-prog-theme="light"] #progContent [style*="background: #0f1b2d"] {
+  background: var(--p-card) !important;
+  border-color: var(--p-border) !important;
+}
+[data-prog-theme="light"] #progContent [style*="background:#070d16"],
+[data-prog-theme="light"] #progContent [style*="background: #070d16"] {
+  background: var(--p-card-deep) !important;
+}
+[data-prog-theme="light"] #progContent [style*="background:#0a1220"],
+[data-prog-theme="light"] #progContent [style*="background: #0a1220"] {
+  background: var(--p-th-bg) !important;
+}
+[data-prog-theme="light"] #progContent [style*="background:#0b1524"] {
+  background: var(--p-sidebar) !important;
+}
+
+/* Texto blanco → oscuro en contenido */
+[data-prog-theme="light"] #progContent [style*="color:#fff"],
+[data-prog-theme="light"] #progContent [style*="color: #fff"],
+[data-prog-theme="light"] #progContent [style*="color:#ffffff"] {
+  color: var(--p-text) !important;
+}
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.8)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.75)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.65)"] {
+  color: var(--p-text-sec) !important;
+}
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.5)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.45)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.4)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.35)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.3)"] {
+  color: var(--p-text-muted) !important;
+}
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.2)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.18)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.25)"] {
+  color: var(--p-text-faint) !important;
+}
+
+/* Bordes */
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,0.07)"],
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,0.1)"] {
+  border-color: var(--p-border) !important;
+}
+[data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,0.04)"],
+[data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,0.05)"],
+[data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,0.06)"] {
+  border-color: var(--p-border-soft) !important;
+}
+
+/* Inputs */
+[data-prog-theme="light"] #progContent input,
+[data-prog-theme="light"] #progContent select {
+  background: var(--p-input-bg) !important;
+  color: var(--p-text) !important;
+  border-color: var(--p-border) !important;
+}
+[data-prog-theme="light"] #progContent input::placeholder {
+  color: var(--p-text-faint) !important;
+}
+
+/* Tab buttons (empresa-detail) */
+[data-prog-theme="light"] .emp-tab-btn {
+  color: var(--p-text-muted) !important;
+  border-color: transparent !important;
+}
+[data-prog-theme="light"] .emp-tab-btn:hover {
+  color: var(--p-text) !important;
+}
+[data-prog-theme="light"] .emp-tab-btn.emp-tab-active {
+  color: var(--p-accent) !important;
+  border-bottom-color: var(--p-accent) !important;
+}
+
+/* Pre blocks (code/output) */
+[data-prog-theme="light"] #progContent pre {
+  background: #f8fafc !important;
+  color: #1e293b !important;
+  border-color: var(--p-border) !important;
+}
+
+/* Badge SUPERADMIN en header */
+[data-prog-theme="light"] #progShell header [style*="rgba(99,102,241,0.12)"] {
+  background: rgba(79,70,229,0.08) !important;
+  border-color: rgba(79,70,229,0.2) !important;
+}
+
+/* Scrollbar */
+[data-prog-theme="light"] #progContent::-webkit-scrollbar { width: 6px; height: 6px; }
+[data-prog-theme="light"] #progContent::-webkit-scrollbar-track { background: transparent; }
+[data-prog-theme="light"] #progContent::-webkit-scrollbar-thumb { background: var(--p-scrollbar); border-radius: 3px; }
+
+/* Toggle button en header */
+#progThemeToggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--p-border, rgba(255,255,255,0.08));
+  background: var(--p-hover, rgba(255,255,255,0.04));
+  color: var(--p-text-muted, rgba(255,255,255,0.45));
+  font-size: 12px;
+  font-family: Inter, sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+#progThemeToggle:hover {
+  background: var(--p-hover, rgba(255,255,255,0.07));
+  color: var(--p-text, #fff);
+}
+[data-prog-theme="light"] #progThemeToggle {
+  border-color: rgba(0,0,0,0.08) !important;
+  background: rgba(0,0,0,0.03) !important;
+  color: #64748b !important;
+}

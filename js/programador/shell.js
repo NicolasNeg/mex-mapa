@@ -180,10 +180,36 @@ function _renderContent(html) {
 }
 
 // ── Eventos del shell ─────────────────────────────────────
+const _THEME_KEY = 'mex.prog.theme';
+
+function _applyTheme(theme) {
+  const isLight = theme === 'light';
+  if (isLight) {
+    document.documentElement.setAttribute('data-prog-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-prog-theme');
+  }
+  const labelEl = document.getElementById('progThemeLabel');
+  const iconEl  = document.getElementById('progThemeToggle')?.querySelector('.material-symbols-outlined');
+  if (labelEl) labelEl.textContent = isLight ? 'Oscuro' : 'Claro';
+  if (iconEl)  iconEl.textContent  = isLight ? 'dark_mode' : 'light_mode';
+}
+
 function _bindShellEvents() {
   document.getElementById('progLogoutBtn')?.addEventListener('click', async () => {
     try { await window._auth?.signOut(); } catch (_) {}
     window.location.replace('/login');
+  });
+
+  // Theme toggle
+  const saved = localStorage.getItem(_THEME_KEY) || 'dark';
+  _applyTheme(saved);
+
+  document.getElementById('progThemeToggle')?.addEventListener('click', () => {
+    const current = document.documentElement.getAttribute('data-prog-theme') === 'light' ? 'light' : 'dark';
+    const next = current === 'light' ? 'dark' : 'light';
+    localStorage.setItem(_THEME_KEY, next);
+    _applyTheme(next);
   });
 }
 
@@ -292,6 +318,10 @@ function _shellHtml(profile) {
       <h1 id="progHeaderTitle" style="margin:0;font-size:14px;font-weight:700;color:#fff;"></h1>
       <div style="display:flex;align-items:center;gap:8px;">
         <span style="font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(99,102,241,0.12);color:#818cf8;border:1px solid rgba(99,102,241,0.22);border-radius:5px;padding:2px 8px;">SUPERADMIN</span>
+        <button id="progThemeToggle" type="button">
+          <span class="material-symbols-outlined" style="font-size:14px;">light_mode</span>
+          <span id="progThemeLabel">Claro</span>
+        </button>
         <a href="/app/dashboard" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);text-decoration:none;font-size:12px;font-weight:600;">
           <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>Ver App
         </a>
