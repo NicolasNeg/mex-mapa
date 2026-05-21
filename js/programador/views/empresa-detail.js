@@ -266,7 +266,7 @@ function _html(activeTab) {
   const color  = (_empresa.branding || {}).colorPrincipal || '#6366f1';
 
   return `
-<div style="padding:24px 28px;max-width:1100px;margin:0 auto;">
+<div style="padding:20px;max-width:1100px;margin:0 auto;">
 
   <!-- Breadcrumb + empresa info -->
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
@@ -304,13 +304,19 @@ function _html(activeTab) {
 
 <style>
 .emp-tab-btn {
-  display:flex;align-items:center;gap:6px;padding:8px 14px;border:none;
+  display:flex;align-items:center;gap:6px;padding:8px 12px;border:none;
   background:transparent;color:rgba(255,255,255,0.38);font-size:12px;
   font-family:Inter,sans-serif;font-weight:600;cursor:pointer;
   border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .12s;
+  white-space:nowrap;
 }
 .emp-tab-btn:hover { color:rgba(255,255,255,0.7); }
 .emp-tab-btn.emp-tab-active { color:#a5b4fc;border-bottom-color:#6366f1; }
+.emp-tab-btn span.material-symbols-outlined { flex-shrink:0; }
+@media (max-width:540px) {
+  .emp-tab-btn span:not(.material-symbols-outlined) { display:none; }
+  .emp-tab-btn { padding:8px 10px; }
+}
 </style>`;
 }
 
@@ -328,7 +334,7 @@ function _configTabHtml() {
   const b = e.branding || {};
   const l = e.limites || {};
   return `
-<form id="empConfigForm" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:720px;">
+<form id="empConfigForm" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:720px;">
   ${_field('Nombre de la empresa', `<input name="nombre" value="${_esc(e.nombre||'')}" style="${_inp()}" required/>`)}
   ${_field('Tipo de negocio', `<select name="tipo_negocio" style="${_inp()}">
     ${['RENTA_AUTOS','ESTACIONAMIENTO','FLOTA','GENERICO'].map(t => `<option value="${t}" ${e.tipo_negocio===t?'selected':''}>${_tipoLabel(t)}</option>`).join('')}
@@ -526,8 +532,8 @@ function _bindListas() {
 
 function _usuariosTabHtml() {
   return `
-<div style="max-width:900px;">
-  <table style="width:100%;border-collapse:collapse;font-size:12px;">
+<div style="max-width:900px;overflow-x:auto;">
+  <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:560px;">
     <thead>
       <tr style="color:rgba(255,255,255,0.3);">
         <th style="text-align:left;padding:0 10px 10px 0;font-weight:600;font-size:10px;text-transform:uppercase;">Nombre</th>

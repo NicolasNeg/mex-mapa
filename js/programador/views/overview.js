@@ -10,15 +10,16 @@ export async function mount({ container, navigate }) {
   _container = container;
   container.innerHTML = _skeleton();
 
-  // Cargar datos en paralelo
-  const [health, saasStats, recentActivity] = await Promise.all([
+    // Cargar datos en paralelo
+  const [health, saasStats, recentActivity, pendingStats] = await Promise.all([
     _collectHealth(),
     _collectSaasStats(),
     _collectRecentActivity(),
+    _collectPendingStats(),
   ]);
 
   if (_container) {
-    _container.innerHTML = _html(health, saasStats, recentActivity, navigate);
+    _container.innerHTML = _html(health, saasStats, recentActivity, pendingStats, navigate);
     _bind(navigate);
   }
 }
@@ -74,6 +75,22 @@ async function _collectRecentActivity() {
   } catch (_) { return []; }
 }
 
+async function _collectPendingStats() {
+  if (!window._db) return { solicitudes: 0, totalUsuarios: 0 };
+  try {
+    const [solSnap, usrSnap] = await Promise.all([
+      window._db.collection('solicitudes').where('estado', '==', 'PENDIENTE').get(),
+      window._db.collection('usuarios').limit(1000).get(),
+    ]);
+    return {
+      solicitudes: solSnap.size,
+      totalUsuarios: usrSnap.size,
+    };
+  } catch (_) {
+    return { solicitudes: '—', totalUsuarios: '—' };
+  }
+}
+
 async function _swVersion() {
   if (!navigator.serviceWorker?.controller) return 'sin control';
   return new Promise(resolve => {
@@ -98,19 +115,21 @@ function _bind(navigate) {
 
 // ── HTML ──────────────────────────────────────────────────
 
-function _html(health, saas, activity, navigate) {
+function _html(health, saas, activity, pending, navigate) {
   const firebaseOk = health.hasDb && health.hasAuth;
+  const solCount = pending?.solicitudes ?? 0;
+  const solAlert = typeof solCount === 'number' && solCount > 0;
   return `
-<div style="padding:24px 28px;max-width:1400px;margin:0 auto;">
+<div style="padding:20px;max-width:1400px;margin:0 auto;">
 
   <!-- Título -->
-  <div style="margin-bottom:22px;">
-    <h2 style="margin:0 0 4px;font-size:21px;font-weight:800;color:#fff;">System Overview</h2>
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.3);">${health.host} · ${health.env}</p>
+  <div style="margin-bottom:18px;">
+    <h2 style="margin:0 0 4px;font-size:20px;font-weight:800;color:#fff;">System Overview</h2>
+    <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);">${_esc(health.host)} · ${_esc(health.env)}</p>
   </div>
 
   <!-- Fila 1: Salud del sistema -->
-  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:12px;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:10px;">
     ${_healthCard('Firebase', firebaseOk ? 'Operacional' : 'Error', firebaseOk ? '#10b981' : '#ef4444', 'database',
       `db:${health.hasDb?'✓':'✗'} auth:${health.hasAuth?'✓':'✗'} storage:${health.hasStorage?'✓':'✗'}`)}
     ${_healthCard('Service Worker', health.swVersion, health.swControlled ? '#10b981' : '#f59e0b', 'settings_suggest',
@@ -121,59 +140,68 @@ function _html(health, saas, activity, navigate) {
       health.host)}
   </div>
 
-  <!-- Fila 2: Stats SaaS -->
-  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:12px;">
-    ${_statCard('Empresas registradas', saas.totalEmpresas, 'domain', '#6366f1', '/programador/saas')}
+  <!-- Fila 2: Stats SaaS (6 tarjetas) -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px;">
+    ${_statCard('Empresas', saas.totalEmpresas, 'domain', '#6366f1', '/programador/saas')}
     ${_statCard('Plazas totales', saas.totalPlazas, 'location_on', '#0ea5e9', null)}
-    ${_statCard('Actividad reciente', `${activity.length} eventos`, 'history', '#8b5cf6', '/programador/logs')}
+    ${_statCard('Usuarios', pending?.totalUsuarios ?? '—', 'group', '#8b5cf6', null)}
+    ${_statCard('Solicitudes pendientes', solCount, 'pending_actions', solAlert ? '#ef4444' : '#64748b', null, solAlert)}
+    ${_statCard('Logs recientes', `${activity.length}`, 'history', '#8b5cf6', '/programador/logs')}
+    ${_statCard('Errores', '—', 'warning', '#f59e0b', '/programador/errores')}
   </div>
 
   <!-- Fila 3: Plan breakdown + Actividad reciente -->
-  <div style="display:grid;grid-template-columns:280px 1fr;gap:12px;margin-bottom:12px;">
+  <div style="display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:10px;margin-bottom:10px;">
 
     <!-- Plan breakdown -->
     <div style="${_card()}">
       <div style="${_cardTitle()}">Tenants por plan</div>
       ${Object.keys(saas.byPlan || {}).length
         ? Object.entries(saas.byPlan).map(([plan, count]) => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
             <span style="color:rgba(255,255,255,0.55);text-transform:capitalize;">${_esc(plan)}</span>
             <span style="font-weight:800;color:#fff;font-size:15px;">${count}</span>
           </div>`).join('')
         : `<div style="font-size:12px;color:rgba(255,255,255,0.25);padding:12px 0;">Sin datos</div>`}
       ${saas.totalEmpresas > 0 ? `
-      <div style="margin-top:12px;">
+      <div style="margin-top:10px;">
         <a data-prog-route="/programador/saas" href="/programador/saas" style="font-size:12px;color:#818cf8;text-decoration:none;display:flex;align-items:center;gap:5px;">
-          Ver todas las empresas
+          Ver todas
           <span class="material-symbols-outlined" style="font-size:13px;">arrow_forward</span>
         </a>
+      </div>` : ''}
+
+      ${solAlert ? `
+      <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);">
+        <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:2px;">${solCount} solicitud${solCount !== 1 ? 'es' : ''} pendiente${solCount !== 1 ? 's' : ''}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.3);">Usuarios esperando acceso</div>
       </div>` : ''}
     </div>
 
     <!-- Actividad reciente -->
-    <div style="${_card()}">
+    <div style="${_card()}overflow:hidden;">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
         <div style="${_cardTitle()}margin-bottom:0;">Actividad reciente</div>
-        <a data-prog-route="/programador/logs" href="/programador/logs" style="font-size:11px;color:#818cf8;text-decoration:none;">Ver todos →</a>
+        <a data-prog-route="/programador/logs" href="/programador/logs" style="font-size:11px;color:#818cf8;text-decoration:none;white-space:nowrap;">Ver todos →</a>
       </div>
       ${activity.length ? `
-      <div style="overflow:auto;max-height:280px;">
-        <table style="width:100%;border-collapse:collapse;font-size:11.5px;">
+      <div style="overflow-x:auto;max-height:260px;overflow-y:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:11.5px;min-width:480px;">
           <thead>
             <tr style="color:rgba(255,255,255,0.3);">
               <th style="text-align:left;padding:0 0 8px;font-weight:600;font-size:10px;text-transform:uppercase;">Fecha</th>
-              <th style="text-align:left;padding:0 0 8px;font-weight:600;font-size:10px;text-transform:uppercase;">Actor</th>
-              <th style="text-align:left;padding:0 0 8px;font-weight:600;font-size:10px;text-transform:uppercase;">Acción</th>
+              <th style="text-align:left;padding:0 8px 8px;font-weight:600;font-size:10px;text-transform:uppercase;">Actor</th>
+              <th style="text-align:left;padding:0 8px 8px;font-weight:600;font-size:10px;text-transform:uppercase;">Acción</th>
               <th style="text-align:left;padding:0 0 8px;font-weight:600;font-size:10px;text-transform:uppercase;">Detalle</th>
             </tr>
           </thead>
           <tbody>
             ${activity.map(ev => `
             <tr style="border-top:1px solid rgba(255,255,255,0.04);">
-              <td style="padding:6px 8px 6px 0;color:rgba(255,255,255,0.3);white-space:nowrap;font-family:monospace;font-size:10px;">${_relTime(ev.timestamp || ev.fecha)}</td>
-              <td style="padding:6px 8px;color:rgba(255,255,255,0.55);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(ev.actor || ev.usuario || '—')}</td>
-              <td style="padding:6px 8px;color:#a5b4fc;white-space:nowrap;">${_esc(ev.accion || ev.tipo || '—')}</td>
-              <td style="padding:6px 0;color:rgba(255,255,255,0.4);max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(ev.descripcion || ev.detalles || ev.referencia || '')}</td>
+              <td style="padding:5px 8px 5px 0;color:rgba(255,255,255,0.3);white-space:nowrap;font-family:monospace;font-size:10px;">${_relTime(ev.timestamp || ev.fecha)}</td>
+              <td style="padding:5px 8px;color:rgba(255,255,255,0.55);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(ev.actor || ev.usuario || '—')}</td>
+              <td style="padding:5px 8px;color:#a5b4fc;white-space:nowrap;">${_esc(ev.accion || ev.tipo || '—')}</td>
+              <td style="padding:5px 0;color:rgba(255,255,255,0.4);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(ev.descripcion || ev.detalles || ev.referencia || '')}</td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -182,7 +210,7 @@ function _html(health, saas, activity, navigate) {
   </div>
 
   <!-- Quick nav -->
-  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
     ${_quickCard('Empresas · SaaS', 'Gestionar tenants, planes y features', 'domain', '#6366f1', '/programador/saas')}
     ${_quickCard('Diagnóstico', 'Firebase, API, flags del sistema', 'terminal', '#0ea5e9', '/programador/tecnico')}
     ${_quickCard('Deploy', 'Smoke check, cache, release', 'rocket_launch', '#10b981', '/programador/deploy')}
@@ -203,16 +231,19 @@ function _healthCard(title, value, color, icon, sub) {
 </div>`;
 }
 
-function _statCard(label, value, icon, color, route) {
-  const clickable = route ? `data-nav-to="${_esc(route)}" style="${_card()}cursor:pointer;"` : `style="${_card()}"`;
+function _statCard(label, value, icon, color, route, alert = false) {
+  const extraStyle = alert ? `border-color:rgba(239,68,68,0.3);background:rgba(239,68,68,0.05);` : '';
+  const clickable = route
+    ? `data-nav-to="${_esc(route)}" style="${_card()}${extraStyle}cursor:pointer;"`
+    : `style="${_card()}${extraStyle}"`;
   return `
 <div ${clickable}>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-    <span style="font-size:11px;color:rgba(255,255,255,0.4);font-weight:600;">${_esc(label)}</span>
-    <span class="material-symbols-outlined" style="font-size:18px;color:${_esc(color)};">${_esc(icon)}</span>
+    <span style="font-size:10px;color:rgba(255,255,255,0.4);font-weight:600;line-height:1.3;">${_esc(label)}</span>
+    <span class="material-symbols-outlined" style="font-size:18px;color:${_esc(color)};flex-shrink:0;">${_esc(icon)}</span>
   </div>
-  <div style="font-size:26px;font-weight:900;color:#fff;">${_esc(String(value))}</div>
-  ${route ? `<div style="font-size:10px;color:${_esc(color)};margin-top:6px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_forward</span>Ver detalle</div>` : ''}
+  <div style="font-size:24px;font-weight:900;color:${alert ? '#f87171' : '#fff'};">${_esc(String(value))}</div>
+  ${route ? `<div style="font-size:10px;color:${_esc(color)};margin-top:6px;display:flex;align-items:center;gap:4px;"><span class="material-symbols-outlined" style="font-size:12px;">arrow_forward</span>Ver</div>` : ''}
 </div>`;
 }
 

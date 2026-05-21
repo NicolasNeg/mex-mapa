@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es" data-page-title="Iniciar sesion" data-page-description="Iniciar sesion en %COMPANY%">
+<html lang="es" data-page-title="Iniciar sesion" data-page-description="Iniciar sesion en MapGestion">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -7,8 +7,8 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Login">
-  <meta name="description" content="Iniciar sesion en la plataforma operativa">
+  <meta name="apple-mobile-web-app-title" content="MapGestion">
+  <meta name="description" content="Accede a tu plataforma de gestión operativa MapGestion">
   <link rel="manifest" href="/manifest.json">
   <link rel="icon" href="/img/no-model.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/img/no-model.svg">
@@ -41,7 +41,7 @@
   <script src="/js/core/feature-gates.js"></script>
   <script src="/js/core/dialogs.js"></script>
 
-  <title>Iniciar sesion</title>
+  <title>MapGestion — Plataforma de Gestión</title>
 </head>
 <body style="margin:0; background:#0b1e3d;">
 
@@ -50,15 +50,21 @@
     <div class="login-split-container">
 
       <div class="login-left-side">
+        <div class="login-left-bg-glow login-left-bg-glow--top"></div>
+        <div class="login-left-bg-glow login-left-bg-glow--bottom"></div>
         <div class="login-left-overlay">
-          <div class="login-brand">
-            <span class="login-brand-name" id="loginBrandName">Cargando empresa...</span>
-            <span class="login-brand-sub" id="loginBrandSub" style="display:none;"></span>
+          <div class="login-saas-badge">
+            <span class="material-icons" style="font-size:13px;vertical-align:middle;margin-right:5px;">verified</span>
+            MapGestion SaaS
           </div>
-          <p class="login-brand-desc">Plataforma avanzada para el control operativo y gestión de flota vehicular.</p>
+          <div class="login-brand">
+            <span class="login-brand-name">Gestiona<br>tu flota.</span>
+            <span class="login-brand-sub" style="display:block;">PLATAFORMA OPERATIVA · SaaS</span>
+          </div>
+          <p class="login-brand-desc">Control total de unidades, estados, cuadres y personal operativo — en tiempo real, desde cualquier dispositivo.</p>
           <div class="login-stats">
-            <div class="login-stat"><span class="login-stat-num">24/7</span><span class="login-stat-lbl">Monitoreo</span></div>
-            <div class="login-stat"><span class="login-stat-num">100%</span><span class="login-stat-lbl">Seguro</span></div>
+            <div class="login-stat"><span class="login-stat-num">RT</span><span class="login-stat-lbl">Tiempo Real</span></div>
+            <div class="login-stat"><span class="login-stat-num">PWA</span><span class="login-stat-lbl">Nativo</span></div>
             <div class="login-stat"><span class="login-stat-num">MX</span><span class="login-stat-lbl">Nacional</span></div>
           </div>
         </div>
@@ -67,16 +73,16 @@
       <div class="login-right-side">
         <div class="login-form-wrapper">
           <div class="login-logo-mark">
-            <span class="material-icons" style="font-size:22px; color:white;">directions_car</span>
+            <span style="font-size:18px;font-weight:900;color:white;letter-spacing:-1px;font-family:inherit;">MG</span>
           </div>
-          <h3>Bienvenido</h3>
-          <p>Ingresa tus credenciales para continuar</p>
+          <h3>Bienvenido de vuelta</h3>
+          <p>Accede a tu plataforma de gestión operativa</p>
 
           <div class="login-field">
             <label class="input-label">Correo Electrónico</label>
             <div class="mex-input-wrap">
               <span class="material-icons mex-input-icon">person</span>
-              <input type="email" id="auth_email" class="mex-input" placeholder="usuario@empresa.com">
+              <input type="email" id="auth_email" class="mex-input" placeholder="correo@tuempresa.com">
             </div>
           </div>
 
@@ -113,8 +119,8 @@
           </div>
 
           <div class="login-footer">
-            <p>¿No tienes cuenta corporativa?</p>
-            <a href="/solicitud" class="login-link-btn">Solicitar Acceso al Sistema</a>
+            <p>¿Tu empresa aún no tiene acceso?</p>
+            <a href="/solicitud" class="login-link-btn">Solicitar Acceso</a>
           </div>
         </div>
       </div>
@@ -132,10 +138,8 @@
       <div class="solicitud-form-body">
         <input type="text"  id="sol_nombre"   class="sol-input" placeholder="Nombre completo" autocomplete="off">
         <input type="email" id="sol_email"    class="sol-input" placeholder="Correo corporativo">
+        <input type="text"  id="sol_empresa"  class="sol-input" placeholder="Nombre de tu empresa o negocio">
         <input type="text"  id="sol_puesto"   class="sol-input" placeholder="Puesto solicitado">
-        <select id="sol_plaza" class="sol-input">
-          <option value="">Cargando plazas...</option>
-        </select>
         <input type="tel"   id="sol_telefono" class="sol-input" placeholder="Teléfono (opcional)">
         <div class="mex-input-wrap">
           <input type="password" id="sol_pass"         class="sol-input" placeholder="Contraseña" style="padding-right:46px;">

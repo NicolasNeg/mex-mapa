@@ -77,9 +77,165 @@ function _applyFilters() {
   });
 }
 
+// ── Nueva Empresa Modal ───────────────────────────────────
+
+function _openNuevaEmpresaModal(navigate) {
+  // Create modal overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'nuevaEmpresaOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(4px);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;animation:fadeIn 0.2s ease;';
+
+  overlay.innerHTML = `
+    <div style="background:var(--p-card,#0f1b2d);border-radius:20px;padding:28px;width:100%;max-width:480px;border:1px solid var(--p-border,rgba(255,255,255,0.1));box-shadow:0 40px 80px rgba(0,0,0,0.6);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <div>
+          <h3 style="margin:0;font-size:18px;font-weight:800;color:var(--p-text,#e2e8f0);">Nueva Empresa</h3>
+          <p style="margin:4px 0 0;font-size:12px;color:var(--p-text-muted,#64748b);">Crea un nuevo tenant en la plataforma</p>
+        </div>
+        <button id="closeNuevaEmpresa" style="background:transparent;border:none;color:var(--p-text-muted,#64748b);cursor:pointer;padding:4px;border-radius:8px;display:flex;align-items:center;">
+          <span class="material-symbols-outlined" style="font-size:20px;">close</span>
+        </button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Nombre de la empresa *</label>
+          <input id="neNombre" type="text" placeholder="Ej: Estacionamiento Central" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--p-border,rgba(255,255,255,0.12));background:var(--p-bg,#070d16);color:var(--p-text,#e2e8f0);font-size:13px;outline:none;box-sizing:border-box;font-family:inherit;">
+        </div>
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">ID único *</label>
+          <input id="neId" type="text" placeholder="estacionamiento-central" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--p-border,rgba(255,255,255,0.12));background:var(--p-bg,#070d16);color:var(--p-text,#e2e8f0);font-size:13px;outline:none;box-sizing:border-box;font-family:inherit;font-family:monospace;">
+          <p style="margin:4px 0 0;font-size:11px;color:var(--p-text-muted,#475569);">Solo letras minúsculas, números y guiones. Usado como document ID.</p>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Tipo de negocio</label>
+            <select id="neTipo" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--p-border,rgba(255,255,255,0.12));background:var(--p-bg,#070d16);color:var(--p-text,#e2e8f0);font-size:13px;outline:none;box-sizing:border-box;font-family:inherit;">
+              <option value="estacionamiento">Estacionamiento</option>
+              <option value="valet">Valet Parking</option>
+              <option value="flotilla">Flotilla</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Plan</label>
+            <select id="nePlan" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--p-border,rgba(255,255,255,0.12));background:var(--p-bg,#070d16);color:var(--p-text,#e2e8f0);font-size:13px;outline:none;box-sizing:border-box;font-family:inherit;">
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+              <option value="enterprise">Enterprise</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Features iniciales</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;" id="neFeatures">
+            ${['mapa','cuadre','mensajeria','alertas','incidencias','cola_preparacion'].map(f =>
+              `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border-radius:8px;border:1px solid var(--p-border,rgba(255,255,255,0.1));font-size:12px;color:var(--p-text-muted,#94a3b8);">
+                <input type="checkbox" data-feature="${f}" style="accent-color:#6366f1;"> ${f}
+              </label>`
+            ).join('')}
+          </div>
+        </div>
+
+        <div id="neError" style="display:none;padding:10px 14px;border-radius:10px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:#f87171;font-size:13px;"></div>
+
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <button id="cancelNuevaEmpresa" style="flex:1;padding:11px;border-radius:10px;border:1px solid var(--p-border,rgba(255,255,255,0.1));background:transparent;color:var(--p-text-muted,#64748b);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">Cancelar</button>
+          <button id="submitNuevaEmpresa" style="flex:2;padding:11px;border-radius:10px;border:none;background:linear-gradient(135deg,#6366f1,#818cf8);color:white;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;">Crear Empresa</button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.appendChild(overlay);
+
+  // Auto-generate ID from nombre
+  document.getElementById('neNombre')?.addEventListener('input', (e) => {
+    const id = e.target.value
+      .toLowerCase()
+      .normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .trim().replace(/\s+/g, '-');
+    document.getElementById('neId').value = id;
+  });
+
+  function close() { overlay.remove(); }
+  document.getElementById('closeNuevaEmpresa')?.addEventListener('click', close);
+  document.getElementById('cancelNuevaEmpresa')?.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+
+  document.getElementById('submitNuevaEmpresa')?.addEventListener('click', async () => {
+    const nombre = document.getElementById('neNombre')?.value.trim();
+    const id = document.getElementById('neId')?.value.trim();
+    const tipo = document.getElementById('neTipo')?.value;
+    const plan = document.getElementById('nePlan')?.value;
+    const errorEl = document.getElementById('neError');
+
+    if (!nombre || !id) {
+      errorEl.textContent = 'El nombre y el ID son obligatorios.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(id) && !/^[a-z0-9]$/.test(id)) {
+      errorEl.textContent = 'El ID solo puede contener letras minúsculas, números y guiones.';
+      errorEl.style.display = 'block';
+      return;
+    }
+    errorEl.style.display = 'none';
+
+    const btn = document.getElementById('submitNuevaEmpresa');
+    btn.disabled = true;
+    btn.textContent = 'Creando...';
+
+    // Build features object from checkboxes
+    const features = {};
+    document.querySelectorAll('#neFeatures input[type="checkbox"]').forEach(cb => {
+      features[cb.dataset.feature] = cb.checked;
+    });
+    // mapa is always true
+    features.mapa = true;
+
+    try {
+      // Check if ID already exists
+      const existing = await window._db.collection('empresas').doc(id).get();
+      if (existing.exists) {
+        errorEl.textContent = 'Ya existe una empresa con ese ID. Elige otro.';
+        errorEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Crear Empresa';
+        return;
+      }
+
+      await window._db.collection('empresas').doc(id).set({
+        nombre,
+        tipo_negocio: tipo,
+        plan,
+        features,
+        plazas: [],
+        limites: { plazas: 5, usuarios: 20 },
+        branding: { colorPrincipal: '#6366f1' },
+        activo: true,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+
+      close();
+      _toast(`Empresa "${nombre}" creada exitosamente.`, 'success');
+      // Reload the list
+      setTimeout(() => navigate('/programador/saas'), 300);
+    } catch (err) {
+      console.error('[saas] createEmpresa:', err);
+      errorEl.textContent = 'Error al crear la empresa: ' + (err.message || err);
+      errorEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Crear Empresa';
+    }
+  });
+}
+
 // ── Bind ──────────────────────────────────────────────────
 
-function _bind() {
+function _bind(navigate) {
   const searchEl = _container?.querySelector('#saasSearch');
   const tipoEl   = _container?.querySelector('#saasTipo');
   const planEl   = _container?.querySelector('#saasPlan');
@@ -107,7 +263,7 @@ function _bind() {
     }
     const newBtn = e.target.closest('[data-new-empresa]');
     if (newBtn) {
-      _toast('Creación de empresas: próximamente desde este panel', 'info');
+      _openNuevaEmpresaModal(_navigate);
     }
   });
 }
@@ -143,13 +299,13 @@ function _html() {
   const planes = [...new Set(_empresas.map(e => e.plan).filter(Boolean))];
 
   return `
-<div style="padding:24px 28px;max-width:1400px;margin:0 auto;">
+<div style="padding:20px;max-width:1400px;margin:0 auto;">
 
   <!-- Header -->
-  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
     <div>
-      <h2 style="margin:0 0 4px;font-size:21px;font-weight:800;color:#fff;">Empresas · SaaS</h2>
-      <p style="margin:0;font-size:13px;color:rgba(255,255,255,0.3);" id="saasCount">
+      <h2 style="margin:0 0 3px;font-size:20px;font-weight:800;color:#fff;">Empresas · SaaS</h2>
+      <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.3);" id="saasCount">
         ${_empresas.length} empresa${_empresas.length !== 1 ? 's' : ''} registradas
       </p>
     </div>
@@ -158,6 +314,7 @@ function _html() {
       border-radius:9px;background:rgba(99,102,241,0.12);
       border:1px solid rgba(99,102,241,0.28);
       color:#a5b4fc;font-size:13px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;
+      white-space:nowrap;
     ">
       <span class="material-symbols-outlined" style="font-size:16px;">add</span>
       Nueva empresa
@@ -165,8 +322,8 @@ function _html() {
   </div>
 
   <!-- Filtros -->
-  <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
-    <div style="position:relative;flex:1;min-width:200px;max-width:320px;">
+  <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+    <div style="position:relative;flex:1;min-width:180px;max-width:320px;">
       <span class="material-symbols-outlined" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);font-size:16px;color:rgba(255,255,255,0.3);pointer-events:none;">search</span>
       <input id="saasSearch" type="text" placeholder="Buscar empresa o ID…" style="
         width:100%;padding:8px 10px 8px 34px;
@@ -174,18 +331,18 @@ function _html() {
         color:#fff;font-size:13px;font-family:Inter,sans-serif;outline:none;
       "/>
     </div>
-    <select id="saasTipo" style="padding:8px 12px;background:#0f1b2d;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:rgba(255,255,255,0.65);font-size:12px;font-family:Inter,sans-serif;cursor:pointer;">
+    <select id="saasTipo" style="padding:8px 10px;background:#0f1b2d;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:rgba(255,255,255,0.65);font-size:12px;font-family:Inter,sans-serif;cursor:pointer;">
       <option value="">Todos los tipos</option>
       ${tipos.map(t => `<option value="${_esc(t)}">${_esc(_tipoLabel(t))}</option>`).join('')}
     </select>
-    <select id="saasPlan" style="padding:8px 12px;background:#0f1b2d;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:rgba(255,255,255,0.65);font-size:12px;font-family:Inter,sans-serif;cursor:pointer;">
+    <select id="saasPlan" style="padding:8px 10px;background:#0f1b2d;border:1px solid rgba(255,255,255,0.1);border-radius:8px;color:rgba(255,255,255,0.65);font-size:12px;font-family:Inter,sans-serif;cursor:pointer;">
       <option value="">Todos los planes</option>
       ${planes.map(p => `<option value="${_esc(p)}">${_esc(p)}</option>`).join('')}
     </select>
   </div>
 
   <!-- Grid -->
-  <div id="saasGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;">
+  <div id="saasGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">
     ${_gridHtml()}
   </div>
 </div>
@@ -207,23 +364,27 @@ function _card(e) {
   const plazas   = Array.isArray(e.plazas) ? e.plazas : Object.keys(e.plazasDetalle || {});
   const features = e.features || {};
   const color    = String((e.branding || {}).colorPrincipal || '#6366f1');
+  const isActive = e.activo !== false;
 
   return `
 <div style="
-  background:#0f1b2d;border:1px solid rgba(255,255,255,0.07);
-  border-radius:13px;overflow:hidden;
-  display:flex;flex-direction:column;
+  background:#0f1b2d;border:1px solid rgba(255,255,255,${isActive ? '0.07' : '0.04'});
+  border-radius:13px;overflow:hidden;display:flex;flex-direction:column;
+  opacity:${isActive ? '1' : '0.55'};
 ">
   <div style="height:3px;background:${_esc(color)};flex-shrink:0;"></div>
-  <div style="padding:15px 16px 14px;flex:1;display:flex;flex-direction:column;gap:10px;">
+  <div style="padding:14px 15px 13px;flex:1;display:flex;flex-direction:column;gap:9px;">
 
     <!-- Nombre + plan -->
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px;">
       <div style="min-width:0;">
-        <div style="font-size:15px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(nombre)}</div>
-        <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
-          <span style="font-size:11px;color:rgba(255,255,255,0.4);">${_esc(_tipoLabel(e.tipo_negocio))}</span>
-          <span style="font-size:10px;color:rgba(255,255,255,0.2);font-family:monospace;">${_esc(e.id)}</span>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+          <div style="font-size:14px;font-weight:800;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(nombre)}</div>
+          ${!isActive ? `<span style="font-size:9px;font-weight:700;background:rgba(239,68,68,0.15);color:#f87171;border-radius:4px;padding:1px 5px;flex-shrink:0;">INACTIVA</span>` : ''}
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+          <span style="font-size:10px;color:rgba(255,255,255,0.35);">${_esc(_tipoLabel(e.tipo_negocio))}</span>
+          <span style="font-size:9px;color:rgba(255,255,255,0.2);font-family:monospace;">${_esc(e.id)}</span>
         </div>
       </div>
       ${_planBadge(e.plan)}
@@ -234,15 +395,15 @@ function _card(e) {
       ${_featurePills(features)}
     </div>
 
-    <!-- Límites -->
-    <div style="display:flex;gap:12px;">
+    <!-- Límites + stats -->
+    <div style="display:flex;gap:14px;">
       ${_limitCell('Plazas', `${plazas.length}${e.limites?.maxPlazas > 0 ? '/' + e.limites.maxPlazas : ''}`)}
-      ${_limitCell('Usuarios', e.limites?.maxUsuarios > 0 ? `máx ${e.limites.maxUsuarios}` : '∞')}
-      ${_limitCell('Onboarding', e.onboarding_completado ? '✓' : 'pendiente')}
+      ${_limitCell('Máx usuarios', e.limites?.maxUsuarios > 0 ? e.limites.maxUsuarios : '∞')}
+      ${_limitCell('Onboarding', e.onboarding_completado ? '✓' : '—')}
     </div>
 
     <!-- Botones -->
-    <div style="display:flex;gap:8px;margin-top:auto;padding-top:2px;">
+    <div style="display:flex;gap:7px;margin-top:auto;padding-top:2px;">
       <a data-prog-route="/programador/empresa/${_esc(e.id)}/config"
          href="/programador/empresa/${_esc(e.id)}/config"
          style="
@@ -250,7 +411,7 @@ function _card(e) {
            padding:7px 10px;border-radius:7px;
            background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
            color:rgba(255,255,255,0.65);text-decoration:none;
-           font-size:12px;font-family:Inter,sans-serif;font-weight:700;
+           font-size:11px;font-family:Inter,sans-serif;font-weight:700;
          ">
         <span class="material-symbols-outlined" style="font-size:14px;">settings</span>
         Gestionar
@@ -259,7 +420,7 @@ function _card(e) {
         flex:1;display:flex;align-items:center;justify-content:center;gap:5px;
         padding:7px 10px;border-radius:7px;
         background:#6366f1;color:#fff;border:none;
-        font-size:12px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;
+        font-size:11px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;
       ">
         <span class="material-symbols-outlined" style="font-size:14px;">login</span>
         Ver App

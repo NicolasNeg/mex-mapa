@@ -130,7 +130,7 @@ function _syncSidebar(pathname, params) {
   if (!empresaSubnav) return;
 
   const isEmpresaRoute = pathname.startsWith('/programador/empresa/');
-  empresaSubnav.style.display = isEmpresaRoute ? '' : 'none';
+  empresaSubnav.style.display = isEmpresaRoute ? 'block' : 'none';
 
   if (isEmpresaRoute && params.id) {
     const id = params.id;
@@ -196,10 +196,31 @@ function _applyTheme(theme) {
   if (iconEl)  iconEl.textContent  = isLight ? 'dark_mode' : 'light_mode';
 }
 
+function _openMobileSidebar() {
+  document.getElementById('progSidebar')?.classList.add('prog-sidebar-open');
+  document.getElementById('progMobileBackdrop')?.classList.add('visible');
+}
+
+function _closeMobileSidebar() {
+  document.getElementById('progSidebar')?.classList.remove('prog-sidebar-open');
+  document.getElementById('progMobileBackdrop')?.classList.remove('visible');
+}
+
 function _bindShellEvents() {
   document.getElementById('progLogoutBtn')?.addEventListener('click', async () => {
     try { await window._auth?.signOut(); } catch (_) {}
     window.location.replace('/login');
+  });
+
+  // Mobile sidebar
+  document.getElementById('progMobileToggle')?.addEventListener('click', _openMobileSidebar);
+  document.getElementById('progMobileBackdrop')?.addEventListener('click', _closeMobileSidebar);
+
+  // Close sidebar on any nav click (mobile UX)
+  document.addEventListener('click', e => {
+    if (e.target.closest('.prog-nav-btn') || e.target.closest('.prog-subnav-btn')) {
+      if (window.innerWidth <= 768) _closeMobileSidebar();
+    }
   });
 
   // Theme toggle
@@ -222,38 +243,41 @@ function _shellHtml(profile) {
   return `
 <div id="progShell" style="display:flex;height:100dvh;min-height:0;background:#070d16;font-family:Inter,sans-serif;color:#fff;overflow:hidden;">
 
+  <!-- Mobile backdrop -->
+  <div id="progMobileBackdrop"></div>
+
   <!-- Sidebar -->
-  <aside style="width:228px;flex-shrink:0;background:#0a1220;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;overflow:hidden;">
+  <aside id="progSidebar" style="width:228px;flex-shrink:0;background:#0a1220;border-right:1px solid rgba(255,255,255,0.06);display:flex;flex-direction:column;overflow:hidden;">
 
     <!-- Branding -->
     <div style="padding:16px 14px 14px;border-bottom:1px solid rgba(255,255,255,0.06);">
       <div style="display:flex;align-items:center;gap:10px;">
         <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#4f46e5,#7c3aed);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-          <span style="font-size:14px;font-weight:900;color:#fff;">M</span>
+          <span style="font-size:14px;font-weight:900;color:#fff;">MG</span>
         </div>
         <div>
-          <div style="font-size:11px;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:.06em;line-height:1.3;">MEX Platform</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.28);line-height:1.4;">Admin Panel</div>
+          <div style="font-size:11px;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:.06em;line-height:1.3;">MapGestion</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.28);line-height:1.4;">Admin Panel · SaaS</div>
         </div>
       </div>
     </div>
 
     <!-- Nav principal -->
-    <nav id="progNav" style="padding:10px 8px 6px;flex-shrink:0;">
+    <nav id="progNav" style="padding:10px 8px 6px;flex-shrink:0;overflow-y:auto;flex:1;">
 
       <button data-prog-nav="/programador/overview" data-prog-route="/programador/overview" class="prog-nav-btn" type="button">
         <span class="material-symbols-outlined prog-nav-icon">dashboard</span>
         <span>Overview</span>
       </button>
 
-      <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,0.2);letter-spacing:.08em;padding:10px 10px 4px;">SaaS</div>
+      <div class="prog-nav-section">SaaS</div>
 
       <button data-prog-nav="/programador/saas" data-prog-route="/programador/saas" class="prog-nav-btn" type="button">
         <span class="material-symbols-outlined prog-nav-icon">domain</span>
         <span>Empresas</span>
       </button>
 
-      <div style="font-size:9px;font-weight:800;text-transform:uppercase;color:rgba(255,255,255,0.2);letter-spacing:.08em;padding:10px 10px 4px;">Sistema</div>
+      <div class="prog-nav-section">Sistema</div>
 
       <button data-prog-nav="/programador/tecnico" data-prog-route="/programador/tecnico" class="prog-nav-btn" type="button">
         <span class="material-symbols-outlined prog-nav-icon">terminal</span>
@@ -271,37 +295,34 @@ function _shellHtml(profile) {
         <span class="material-symbols-outlined prog-nav-icon">warning</span>
         <span>Errores</span>
       </button>
+
+      <!-- Sub-nav empresa (oculto por defecto) -->
+      <div id="progEmpresaSubnav" style="display:none;margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;flex-shrink:0;">
+        <button data-prog-route="/programador/saas" class="prog-nav-btn" type="button" style="margin-bottom:4px;">
+          <span class="material-symbols-outlined prog-nav-icon">arrow_back</span>
+          <span>Empresas</span>
+        </button>
+        <div style="padding:6px 10px 6px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="progEmpresaSubnavId">—</div>
+        <button data-prog-subnav="config"    class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">settings</span>Configuración
+        </button>
+        <button data-prog-subnav="features"  class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">toggle_on</span>Features
+        </button>
+        <button data-prog-subnav="plazas"    class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">location_on</span>Plazas
+        </button>
+        <button data-prog-subnav="listas"    class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">list</span>Listas
+        </button>
+        <button data-prog-subnav="usuarios"  class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">group</span>Usuarios
+        </button>
+      </div>
     </nav>
 
-    <!-- Sub-nav empresa (oculto por defecto) -->
-    <div id="progEmpresaSubnav" style="display:none;margin:0 8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;flex-shrink:0;">
-      <button data-prog-route="/programador/saas" class="prog-nav-btn" type="button" style="margin-bottom:4px;">
-        <span class="material-symbols-outlined prog-nav-icon">arrow_back</span>
-        <span>Empresas</span>
-      </button>
-      <div style="padding:6px 10px 6px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="progEmpresaSubnavId">—</div>
-      <button data-prog-subnav="config"    class="prog-subnav-btn" type="button">
-        <span class="material-symbols-outlined" style="font-size:15px;">settings</span>Configuración
-      </button>
-      <button data-prog-subnav="features"  class="prog-subnav-btn" type="button">
-        <span class="material-symbols-outlined" style="font-size:15px;">toggle_on</span>Features
-      </button>
-      <button data-prog-subnav="plazas"    class="prog-subnav-btn" type="button">
-        <span class="material-symbols-outlined" style="font-size:15px;">location_on</span>Plazas
-      </button>
-      <button data-prog-subnav="listas"    class="prog-subnav-btn" type="button">
-        <span class="material-symbols-outlined" style="font-size:15px;">list</span>Listas
-      </button>
-      <button data-prog-subnav="usuarios"  class="prog-subnav-btn" type="button">
-        <span class="material-symbols-outlined" style="font-size:15px;">group</span>Usuarios
-      </button>
-    </div>
-
-    <!-- Spacer -->
-    <div style="flex:1;"></div>
-
     <!-- User footer -->
-    <div style="padding:8px 8px 12px;border-top:1px solid rgba(255,255,255,0.06);">
+    <div style="padding:8px 8px 12px;border-top:1px solid rgba(255,255,255,0.06);flex-shrink:0;">
       <div style="padding:8px 8px;display:flex;align-items:center;gap:8px;margin-bottom:4px;">
         <div style="width:28px;height:28px;border-radius:50%;background:#1e2d42;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:800;color:#818cf8;">${_esc(initials)}</div>
         <div style="min-width:0;flex:1;">
@@ -318,16 +339,22 @@ function _shellHtml(profile) {
   <!-- Main -->
   <main style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;">
     <!-- Header -->
-    <header style="height:50px;flex-shrink:0;background:#070d16;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;padding:0 20px;gap:12px;">
-      <h1 id="progHeaderTitle" style="margin:0;font-size:14px;font-weight:700;color:#fff;"></h1>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <span style="font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(99,102,241,0.12);color:#818cf8;border:1px solid rgba(99,102,241,0.22);border-radius:5px;padding:2px 8px;">SUPERADMIN</span>
-        <button id="progThemeToggle" type="button">
-          <span class="material-symbols-outlined" style="font-size:14px;">light_mode</span>
-          <span id="progThemeLabel">Claro</span>
+    <header style="height:50px;flex-shrink:0;background:#070d16;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;align-items:center;justify-content:space-between;padding:0 16px;gap:10px;">
+      <div style="display:flex;align-items:center;gap:10px;min-width:0;">
+        <button id="progMobileToggle" type="button" style="display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:rgba(255,255,255,0.6);cursor:pointer;flex-shrink:0;">
+          <span class="material-symbols-outlined" style="font-size:20px;">menu</span>
         </button>
-        <a href="/app/dashboard" style="display:flex;align-items:center;gap:5px;padding:5px 10px;border-radius:7px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);text-decoration:none;font-size:12px;font-weight:600;">
-          <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>Ver App
+        <h1 id="progHeaderTitle" style="margin:0;font-size:14px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;"></h1>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <span style="font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(99,102,241,0.12);color:#818cf8;border:1px solid rgba(99,102,241,0.22);border-radius:5px;padding:2px 8px;white-space:nowrap;">SUPERADMIN</span>
+        <button id="progThemeToggle" type="button" class="prog-header-action-btn">
+          <span class="material-symbols-outlined" style="font-size:14px;">light_mode</span>
+          <span id="progThemeLabel" class="prog-header-label">Claro</span>
+        </button>
+        <a href="/app/dashboard" class="prog-header-action-btn" style="text-decoration:none;">
+          <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>
+          <span class="prog-header-label">Ver App</span>
         </a>
       </div>
     </header>
@@ -339,6 +366,13 @@ function _shellHtml(profile) {
 
 <style>
 * { box-sizing: border-box; }
+
+.prog-nav-section {
+  font-size:9px;font-weight:800;text-transform:uppercase;
+  color:rgba(255,255,255,0.2);letter-spacing:.08em;
+  padding:10px 10px 4px;
+}
+
 .prog-nav-btn {
   display:flex;align-items:center;gap:9px;width:100%;
   padding:8px 10px;border-radius:7px;border:none;
@@ -351,6 +385,7 @@ function _shellHtml(profile) {
 .prog-nav-btn.prog-nav-active { background:rgba(99,102,241,0.14);color:#a5b4fc; }
 .prog-nav-icon { font-size:17px; }
 .prog-nav-btn.prog-nav-active .prog-nav-icon { color:#6366f1; }
+
 .prog-subnav-btn {
   display:flex;align-items:center;gap:8px;width:100%;
   padding:7px 10px 7px 14px;border-radius:6px;border:none;
@@ -361,7 +396,52 @@ function _shellHtml(profile) {
 }
 .prog-subnav-btn:hover { background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.65); }
 .prog-subnav-btn.prog-subnav-active { background:rgba(99,102,241,0.1);color:#a5b4fc; }
+
+.prog-header-action-btn {
+  display:flex;align-items:center;gap:5px;
+  padding:5px 10px;border-radius:7px;
+  background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);
+  color:rgba(255,255,255,0.5);font-size:12px;font-weight:600;
+  font-family:Inter,sans-serif;cursor:pointer;white-space:nowrap;
+}
+
 #progLogoutBtn:hover { background:rgba(239,68,68,0.08);color:#f87171; }
+
+/* ── Mobile responsive ────────────────────────────────── */
+#progMobileBackdrop {
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(2px);
+  -webkit-backdrop-filter:blur(2px);
+  z-index:199;
+}
+#progMobileBackdrop.visible { display:block; }
+
+@media (max-width: 768px) {
+  #progMobileToggle { display:flex !important; }
+  .prog-header-label { display:none; }
+
+  #progSidebar {
+    position:fixed;
+    left:-240px;
+    top:0;
+    height:100dvh;
+    z-index:200;
+    transition:left .25s cubic-bezier(.4,0,.2,1);
+    box-shadow:none;
+  }
+  #progSidebar.prog-sidebar-open {
+    left:0;
+    box-shadow:4px 0 32px rgba(0,0,0,.6);
+  }
+
+  #progContent { padding-bottom:env(safe-area-inset-bottom); }
+}
+
+@media (max-width: 480px) {
+  .prog-header-action-btn span.material-symbols-outlined + span { display:none; }
+}
 </style>`;
 }
 
