@@ -9,6 +9,12 @@
     _registrarLog, _generarEstructuraPorDefecto, _buildPlazaScopedQuery
   } = window._mex;
 
+  function _eid() {
+    const ctx = window._empresaActual;
+    if (!ctx || ctx.isSuperAdminContext) return '';
+    return ctx.id || '';
+  }
+
   window._mexParts = window._mexParts || {};
   window._mexParts.mapa = {
 
@@ -32,13 +38,18 @@
         }, immediate ? 0 : MAPA_SNAPSHOT_MERGE_MS);
       }
 
-      const unsubFlat1 = db.collection(COL.CUADRE).onSnapshot(snap => {
+      const eidSM = _eid();
+      let cuadreQ = db.collection(COL.CUADRE);
+      if (eidSM) cuadreQ = cuadreQ.where('empresaId', '==', eidSM);
+      let externosQ = db.collection(COL.EXTERNOS);
+      if (eidSM) externosQ = externosQ.where('empresaId', '==', eidSM);
+      const unsubFlat1 = cuadreQ.onSnapshot(snap => {
         const bootstrap = !fcReady || !feReady;
         fc = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         fcReady = true;
         _emit(bootstrap && feReady);
       }, err => console.error("onSnapshot cuadre:", err));
-      const unsubFlat2 = db.collection(COL.EXTERNOS).onSnapshot(snap => {
+      const unsubFlat2 = externosQ.onSnapshot(snap => {
         const bootstrap = !fcReady || !feReady;
         fe = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         feReady = true;
@@ -74,12 +85,19 @@
         }, immediate ? 0 : MAPA_SNAPSHOT_MERGE_MS);
       }
 
-      const cuadreQuery = typeof _buildPlazaScopedQuery === 'function'
-        ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
-        : db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
-      const externosQuery = typeof _buildPlazaScopedQuery === 'function'
-        ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
-        : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+      const eidSMP = _eid();
+      let cuadreQuery, externosQuery;
+      if (eidSMP) {
+        cuadreQuery = db.collection(COL.CUADRE).where('empresaId', '==', eidSMP).where('plaza', '==', plazaUp);
+        externosQuery = db.collection(COL.EXTERNOS).where('empresaId', '==', eidSMP).where('plaza', '==', plazaUp);
+      } else {
+        cuadreQuery = typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
+          : db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+        externosQuery = typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
+          : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+      }
 
       const unsubCuadre = cuadreQuery.onSnapshot(snap => {
         const bootstrap = !cuadreReady || !externosReady;
@@ -100,16 +118,25 @@
 
     async obtenerDatosParaMapa(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const cuadreQuery = plazaUp
-        ? (typeof _buildPlazaScopedQuery === 'function'
+      const eidODPM = _eid();
+      let cuadreQuery, externosQuery;
+      if (eidODPM && plazaUp) {
+        cuadreQuery = db.collection(COL.CUADRE).where('empresaId', '==', eidODPM).where('plaza', '==', plazaUp);
+        externosQuery = db.collection(COL.EXTERNOS).where('empresaId', '==', eidODPM).where('plaza', '==', plazaUp);
+      } else if (eidODPM) {
+        cuadreQuery = db.collection(COL.CUADRE).where('empresaId', '==', eidODPM);
+        externosQuery = db.collection(COL.EXTERNOS).where('empresaId', '==', eidODPM);
+      } else if (plazaUp) {
+        cuadreQuery = typeof _buildPlazaScopedQuery === 'function'
           ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
-          : db.collection(COL.CUADRE).where('plaza', '==', plazaUp))
-        : db.collection(COL.CUADRE);
-      const externosQuery = plazaUp
-        ? (typeof _buildPlazaScopedQuery === 'function'
+          : db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+        externosQuery = typeof _buildPlazaScopedQuery === 'function'
           ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
-          : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp))
-        : db.collection(COL.EXTERNOS);
+          : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+      } else {
+        cuadreQuery = db.collection(COL.CUADRE);
+        externosQuery = db.collection(COL.EXTERNOS);
+      }
       const [cuadreSnap, externosSnap] = await Promise.all([
         cuadreQuery.get(), externosQuery.get()
       ]);
@@ -283,6 +310,7 @@
         id,
         totalCeldas: elementos.length,
         _savedAt: Date.now(),
+        empresaId: _eid()
       });
       // Guardar celdas
       for (let i = 0; i < elementos.length; i += 490) {
@@ -296,7 +324,10 @@
     },
 
     async listarPlantillasMapa() {
-      const snap = await db.collection('mapa_plantillas').orderBy('_savedAt', 'desc').get();
+      const eidLPM = _eid();
+      let plantillasQ = db.collection('mapa_plantillas');
+      if (eidLPM) plantillasQ = plantillasQ.where('empresaId', '==', eidLPM);
+      const snap = await plantillasQ.orderBy('_savedAt', 'desc').get();
       return snap.docs.map(d => d.data());
     },
 

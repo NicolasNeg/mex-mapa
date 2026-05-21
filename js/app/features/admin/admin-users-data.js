@@ -1,5 +1,11 @@
 import { db, COL } from '/js/core/database.js';
 
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
+}
+
 export function normalizeUserRecord(id, data = {}) {
   const email = String(data.email || id || '').toLowerCase().trim();
   const lastAccess = data.lastLoginAt || data.ultimoAcceso || data.lastSeenAt || data.ultimaSesion || null;
@@ -72,7 +78,10 @@ export async function mergeAdminUserBasics(userDocId, patch = {}, actorEmail = '
 export function subscribeAdminUsers({ onData, onError }) {
   const ok = typeof onData === 'function' ? onData : () => {};
   const fail = typeof onError === 'function' ? onError : () => {};
-  const unsub = db.collection(COL.USERS).onSnapshot(
+  const eid = _eid();
+  let q = db.collection(COL.USERS);
+  if (eid) q = q.where('empresaId', '==', eid);
+  const unsub = q.onSnapshot(
     snap => ok(snap.docs.map(d => normalizeUserRecord(d.id, d.data()))),
     err => fail(err)
   );
@@ -84,7 +93,10 @@ export async function fetchAdminUserByEmail(email = '') {
   if (!normalized) return null;
   const direct = await db.collection(COL.USERS).doc(normalized).get().catch(() => null);
   if (direct?.exists) return normalizeUserRecord(direct.id, direct.data());
-  const byEmail = await db.collection(COL.USERS).where('email', '==', normalized).limit(1).get().catch(() => null);
+  const eid = _eid();
+  let q = db.collection(COL.USERS).where('email', '==', normalized);
+  if (eid) q = q.where('empresaId', '==', eid);
+  const byEmail = await q.limit(1).get().catch(() => null);
   if (byEmail && !byEmail.empty) {
     const doc = byEmail.docs[0];
     return normalizeUserRecord(doc.id, doc.data());

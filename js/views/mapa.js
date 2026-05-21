@@ -37,6 +37,12 @@ import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consum
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
 
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
+}
+
 // dialogs.js se carga como <script> antes que este módulo; en ES modules el
 // scope global no se accede por nombre sin prefijo, así que capturamos aquí.
 const mexConfirm = (...a) => (window.mexConfirm || (() => Promise.resolve(true)))(...a);
@@ -2682,7 +2688,10 @@ function _registrarYMostrarResumenVisita() {
 function _iniciarSincronizacionUsuarios() {
   if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; _trackLegacyListener('cleanup', 'users-live'); }
 
-  _unsubUsersLive = db.collection(COL.USERS).onSnapshot(snap => {
+  const _eidUsersLive = _eid();
+  let _qUsersLive = db.collection(COL.USERS);
+  if (_eidUsersLive) _qUsersLive = _qUsersLive.where('empresaId', '==', _eidUsersLive);
+  _unsubUsersLive = _qUsersLive.onSnapshot(snap => {
     dbUsuariosLogin = snap.docs
       .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
       .sort((a, b) => a.usuario.localeCompare(b.usuario));
@@ -6445,7 +6454,10 @@ function _umIniciar() {
   document.getElementById('um-cards-container').innerHTML =
     '<div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>';
 
-  _unsubUsuarios = db.collection(COL.USERS).onSnapshot(snap => {
+  const _eidUm = _eid();
+  let _qUm = db.collection(COL.USERS);
+  if (_eidUm) _qUm = _qUm.where('empresaId', '==', _eidUm);
+  _unsubUsuarios = _qUm.onSnapshot(snap => {
     const currentDocId = String(
       currentUserProfile?.id
       || currentUserProfile?.email
@@ -8515,29 +8527,38 @@ function iniciarRadarNotificaciones() {
     }, err => console.warn('Radar settings global:', err))
   );
 
-  _unsubRadar.push(
-    db.collection('alertas').orderBy('timestamp', 'desc').limit(50).onSnapshot(snap => {
+  _unsubRadar.push((() => {
+    const eid = _eid();
+    let q = db.collection('alertas').orderBy('timestamp', 'desc').limit(50);
+    if (eid) q = db.collection('alertas').where('empresaId', '==', eid).orderBy('timestamp', 'desc').limit(50);
+    return q.onSnapshot(snap => {
       _radarState.alertas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _radarReady.alertas = true;
       emitir();
-    }, err => console.warn('Radar alertas:', err))
-  );
+    }, err => console.warn('Radar alertas:', err));
+  })());
 
-  _unsubRadar.push(
-    db.collection('mensajes').where('destinatario', '==', USER_NAME.toUpperCase()).onSnapshot(snap => {
+  _unsubRadar.push((() => {
+    const eid = _eid();
+    let q = db.collection('mensajes').where('destinatario', '==', USER_NAME.toUpperCase());
+    if (eid) q = q.where('empresaId', '==', eid);
+    return q.onSnapshot(snap => {
       _radarState.mensajes = snap.docs.filter(d => d.data().leido !== 'SI').length;
       _radarReady.mensajes = true;
       emitir();
-    }, err => console.warn('Radar mensajes:', err))
-  );
+    }, err => console.warn('Radar mensajes:', err));
+  })());
 
-  _unsubRadar.push(
-    db.collection('notas_admin').where('estado', '==', 'PENDIENTE').onSnapshot(snap => {
+  _unsubRadar.push((() => {
+    const eid = _eid();
+    let q = db.collection('notas_admin').where('estado', '==', 'PENDIENTE');
+    if (eid) q = q.where('empresaId', '==', eid);
+    return q.onSnapshot(snap => {
       _radarState.incidencias = snap.size;
       _radarReady.incidencias = true;
       emitir();
-    }, err => console.warn('Radar incidencias:', err))
-  );
+    }, err => console.warn('Radar incidencias:', err));
+  })());
 }
 
 let STRING_ULTIMO_FEED = ""; // Memoria para detectar cambios reales
@@ -13442,23 +13463,26 @@ function _startChatListener() {
     if (activeChatUser) renderChatWindow();
   }
 
-  _chatListenerUnsubs.push(
-    db.collection('mensajes').where('remitente', '==', me)
-      .orderBy('timestamp', 'desc').limit(300)
+  const _chatEid = _eid();
+  _chatListenerUnsubs.push((() => {
+    let q = db.collection('mensajes').where('remitente', '==', me);
+    if (_chatEid) q = q.where('empresaId', '==', _chatEid);
+    return q.orderBy('timestamp', 'desc').limit(300)
       .onSnapshot(snap => {
         _sentMsgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         _mergeAndRender();
-      }, err => console.error('chat:sent', err))
-  );
+      }, err => console.error('chat:sent', err));
+  })());
 
-  _chatListenerUnsubs.push(
-    db.collection('mensajes').where('destinatario', '==', me)
-      .orderBy('timestamp', 'desc').limit(300)
+  _chatListenerUnsubs.push((() => {
+    let q = db.collection('mensajes').where('destinatario', '==', me);
+    if (_chatEid) q = q.where('empresaId', '==', _chatEid);
+    return q.orderBy('timestamp', 'desc').limit(300)
       .onSnapshot(snap => {
         _recvMsgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         _mergeAndRender();
-      }, err => console.error('chat:recv', err))
-  );
+      }, err => console.error('chat:recv', err));
+  })());
 }
 
 function _linkifyText(text) {

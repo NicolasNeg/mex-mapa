@@ -12,6 +12,12 @@
     _registrarEventoGestion
   } = window._mex;
 
+  function _eid() {
+    const ctx = window._empresaActual;
+    if (!ctx || ctx.isSuperAdminContext) return '';
+    return ctx.id || '';
+  }
+
   window._mexParts = window._mexParts || {};
   window._mexParts.alertas = {
 
@@ -22,7 +28,6 @@
       const tipoNormalizado = _normalizeAlertType(tipo);
       const authorMeta = _normalizeAlertAuthor(meta.author || {}, actor);
       const banner = _normalizeAlertBanner(meta.banner || {}, tipoNormalizado);
-      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
       await db.collection(COL.ALERTAS).add({
         timestamp: _ts(), fecha: _now(), actor,
         autor: authorMeta.visible, authorMode: authorMeta.mode, authorValue: authorMeta.value,
@@ -36,7 +41,7 @@
         modo: _normalizeAlertMode(modo),
         cta: _normalizeAlertCta(meta.cta),
         version: 1,
-        ...(empresaId && empresaId !== '__superadmin__' ? { empresaId } : {}),
+        empresaId: _eid(),
       });
       await _registrarEventoGestion("ALERTA_EMITIDA", `Emitió alerta maestra "${titulo}" (${tipo})`, autor, {
         entidad: "ALERTAS", referencia: titulo || ""
@@ -102,22 +107,18 @@
     },
 
     async obtenerTodasLasAlertas() {
-      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+      const eid = _eid();
       let query = db.collection(COL.ALERTAS).orderBy("timestamp", "desc");
-      if (empresaId && empresaId !== '__superadmin__') {
-        query = query.where('empresaId', '==', empresaId);
-      }
+      if (eid) query = query.where('empresaId', '==', eid);
       const snap = await query.get();
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     },
 
     suscribirAlertas(callback, options = {}) {
-      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+      const eid = _eid();
       const limit = Number(options.limit) || 100;
       let query = db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(limit);
-      if (empresaId && empresaId !== '__superadmin__') {
-        query = query.where('empresaId', '==', empresaId);
-      }
+      if (eid) query = query.where('empresaId', '==', eid);
       return query.onSnapshot(
         snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })), null),
         err => callback([], err)
@@ -138,7 +139,10 @@
     },
 
     async obtenerPlantillasAlerta() {
-      const snap = await db.collection(COL.PLANTILLAS_ALERTAS).orderBy("nombre").get();
+      const eid = _eid();
+      let query = db.collection(COL.PLANTILLAS_ALERTAS).orderBy("nombre");
+      if (eid) query = query.where('empresaId', '==', eid);
+      const snap = await query.get();
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     },
 
@@ -152,7 +156,8 @@
           banner: _normalizeAlertBanner(meta.banner || {}, tipoNormalizado),
           imagen: String(meta.imagen || "").trim(),
           cta: _normalizeAlertCta(meta.cta),
-          timestamp: _ts(), fecha: _now()
+          timestamp: _ts(), fecha: _now(),
+          empresaId: _eid(),
         });
         return "EXITO";
       } catch(e) { return "ERROR: " + e.message; }
@@ -174,13 +179,12 @@
     async enviarMensajePrivado(remitente, destinatario, texto, archivoUrl = null, archivoNombre = null, replyTo = null) {
       const ts = _ts();
       const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
-      const empresaId = String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
       const payload = {
         timestamp: ts, fecha: _now(),
         remitente: remitente.trim().toUpperCase(),
         destinatario: destinatario.trim().toUpperCase(),
         mensaje: texto || "", leido: "NO",
-        ...(empresaId && empresaId !== '__superadmin__' ? { empresaId } : {}),
+        empresaId: _eid(),
       };
       if (archivoUrl)  { payload.archivoUrl = archivoUrl; payload.archivoNombre = archivoNombre; }
       if (replyTo)     { payload.replyTo = { id: replyTo.id, remitente: replyTo.remitente, mensaje: replyTo.mensaje }; }

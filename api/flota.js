@@ -9,6 +9,12 @@
     _buscarUnidadEnSubcol
   } = window._mex;
 
+  function _eid() {
+    const ctx = window._empresaActual;
+    if (!ctx || ctx.isSuperAdminContext) return '';
+    return ctx.id || '';
+  }
+
   async function _resolverUnidadIndexRef(plaza, idOrToken = '', mva = '') {
     const plazaUp = _normalizePlazaId(plaza);
     const directId = String(idOrToken || '').trim();
@@ -22,9 +28,16 @@
 
     const token = String(mva || idOrToken || '').trim().toUpperCase();
     if (!token) return null;
+    const eid = _eid();
+    let mvaQ = db.collection(COL.INDEX).where("mva", "==", token);
+    let filaQ = db.collection(COL.INDEX).where("fila", "==", token);
+    if (eid) {
+      mvaQ = mvaQ.where('empresaId', '==', eid);
+      filaQ = filaQ.where('empresaId', '==', eid);
+    }
     const snaps = await Promise.all([
-      db.collection(COL.INDEX).where("mva", "==", token).limit(10).get(),
-      db.collection(COL.INDEX).where("fila", "==", token).limit(10).get()
+      mvaQ.limit(10).get(),
+      filaQ.limit(10).get()
     ]);
     const docs = snaps.flatMap(snap => snap.docs);
     const target = docs.find(doc => !plazaUp || _matchesPlaza(doc.data(), plazaUp));
@@ -37,10 +50,19 @@
     // ─── TABLA DE FLOTA ───────────────────────────────────
     async obtenerUnidadesVeloz(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
+      const eid = _eid();
+      let cuadreQ = db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+      let externosQ = db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+      let indexQ = db.collection(COL.INDEX);
+      if (eid) {
+        cuadreQ = cuadreQ.where('empresaId', '==', eid);
+        externosQ = externosQ.where('empresaId', '==', eid);
+        indexQ = indexQ.where('empresaId', '==', eid);
+      }
       const [cuadre, externos, index] = await Promise.all([
-        db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(),
-        db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get(),
-        db.collection(COL.INDEX).get()
+        cuadreQ.get(),
+        externosQ.get(),
+        indexQ.get()
       ]);
       const lista = [];
       const vistos = new Set();
@@ -61,10 +83,17 @@
 
     async obtenerDatosFlotaConsola(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
+      const eid = _eid();
       const ORDEN = { "LISTO":1,"SUCIO":2,"MANTENIMIENTO":3,"RESGUARDO":4,"TRASLADO":5,"NO ARRENDABLE":6,"RETENIDA":92,"VENTA":93 };
+      let cuadreQ = db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+      let externosQ = db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+      if (eid) {
+        cuadreQ = cuadreQ.where('empresaId', '==', eid);
+        externosQ = externosQ.where('empresaId', '==', eid);
+      }
       const [cuadre, externos] = await Promise.all([
-        db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(),
-        db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get()
+        cuadreQ.get(),
+        externosQ.get()
       ]);
       const lista = [
         ...cuadre.docs.map(d => ({ id: d.id, fila: d.id, ...d.data() })).filter(u => u.mva),
@@ -78,9 +107,16 @@
     // ─── RESUMEN FLOTA ────────────────────────────────────
     async obtenerResumenFlotaPatio(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
+      const eid = _eid();
+      let cuadreQ = db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+      let externosQ = db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+      if (eid) {
+        cuadreQ = cuadreQ.where('empresaId', '==', eid);
+        externosQ = externosQ.where('empresaId', '==', eid);
+      }
       const [cuadreSnap, externosSnap] = await Promise.all([
-        db.collection(COL.CUADRE).where('plaza', '==', plazaUp).get(),
-        db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).get()
+        cuadreQ.get(),
+        externosQ.get()
       ]);
       const cuadreUnits = cuadreSnap.docs.map(d => d.data()).filter(u => u.mva);
       const externosUnits = externosSnap.docs.map(d => ({ ...d.data(), ubicacion: "EXTERNO" })).filter(u => u.mva);
@@ -113,18 +149,24 @@
 
     // ─── PLAZAS / CORPORATIVO ─────────────────────────────
     async obtenerUnidadesPlazas() {
-      const snap = await db.collection(COL.INDEX).orderBy("sucursal").get();
+      const eid = _eid();
+      let query = db.collection(COL.INDEX).orderBy("sucursal");
+      if (eid) query = query.where('empresaId', '==', eid);
+      const snap = await query.get();
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     },
 
     async registrarUnidadEnPlaza(data) {
-      await db.collection(COL.INDEX).add({ ...data, _createdAt: _now() });
+      await db.collection(COL.INDEX).add({ ...data, _createdAt: _now(), empresaId: _eid() });
       return "EXITO";
     },
 
     async obtenerDetalleCompleto(sucursal, mva) {
       const mvaStr = mva.toString().trim().toUpperCase();
-      const snap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
+      const eid = _eid();
+      let mvaQuery = db.collection(COL.INDEX).where("mva", "==", mvaStr);
+      if (eid) mvaQuery = mvaQuery.where('empresaId', '==', eid);
+      const snap = await mvaQuery.limit(1).get();
       if (snap.empty) return null;
       const data = snap.docs[0].data();
       let cuadreData = {};
@@ -166,7 +208,7 @@
       const plazaUp = _normalizePlazaId(plaza);
       const docId = plazaUp ? `${plazaUp}_${mvaStr}` : mvaStr;
       const ref = db.collection('unit_extras').doc(docId);
-      await ref.set({ ...extras, mva: mvaStr, plaza: plazaUp, _updatedAt: Date.now() }, { merge: true });
+      await ref.set({ ...extras, mva: mvaStr, plaza: plazaUp, _updatedAt: Date.now(), empresaId: _eid() }, { merge: true });
       return 'OK';
     },
 
@@ -181,7 +223,10 @@
     async obtenerExtrasPlaza(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
       if (!plazaUp) return {};
-      const snap = await db.collection('unit_extras').where('plaza', '==', plazaUp).get();
+      const eid = _eid();
+      let query = db.collection('unit_extras').where('plaza', '==', plazaUp);
+      if (eid) query = query.where('empresaId', '==', eid);
+      const snap = await query.get();
       const result = {};
       snap.docs.forEach(d => { const data = d.data(); if (data.mva) result[data.mva] = data; });
       return result;

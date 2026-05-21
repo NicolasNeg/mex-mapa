@@ -8,12 +8,21 @@
     _fecha, _registrarEventoGestion
   } = window._mex;
 
+  function _eid() {
+    const ctx = window._empresaActual;
+    if (!ctx || ctx.isSuperAdminContext) return '';
+    return ctx.id || '';
+  }
+
   window._mexParts = window._mexParts || {};
   window._mexParts.historial = {
 
     // ─── HISTORIAL ────────────────────────────────────────
     async obtenerHistorialLogs() {
-      const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
+      const eidOHL = _eid();
+      let histPatioQ = db.collection("historial_patio");
+      if (eidOHL) histPatioQ = histPatioQ.where('empresaId', '==', eidOHL);
+      const snap = await histPatioQ.orderBy("timestamp", "desc").limit(500).get();
       return snap.docs.map(d => {
         const data = d.data();
         return {
@@ -37,7 +46,10 @@
     },
 
     async obtenerLogsServer() {
-      const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
+      const eidOLS = _eid();
+      let logsQ = db.collection(COL.LOGS);
+      if (eidOLS) logsQ = logsQ.where('empresaId', '==', eidOLS);
+      const snap = await logsQ.orderBy("timestamp", "desc").limit(200).get();
       return snap.docs.map(d => {
         const data = d.data();
         const accion = data.accion || "";
@@ -64,7 +76,10 @@
     },
 
     async obtenerEventosGestion() {
-      const snap = await db.collection(COL.ADMIN_AUDIT).orderBy("timestamp", "desc").limit(300).get();
+      const eidOEG = _eid();
+      let auditQ = db.collection(COL.ADMIN_AUDIT);
+      if (eidOEG) auditQ = auditQ.where('empresaId', '==', eidOEG);
+      const snap = await auditQ.orderBy("timestamp", "desc").limit(300).get();
       return snap.docs.map(d => {
         const data = d.data();
         return {

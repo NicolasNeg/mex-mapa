@@ -12,6 +12,12 @@
 
 import { auth, db, COL, functions } from '/js/core/database.js';
 
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
+}
+
 const RECAPTCHA_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
 const RECAPTCHA_ACTION_EMAIL = 'LOGIN_EMAIL';
 const RECAPTCHA_ACTION_GOOGLE = 'LOGIN_GOOGLE';
@@ -386,6 +392,7 @@ window.enviarSolicitudAcceso = async function () {
       nombre, email, puesto, telefono, password: pass,
       rolSolicitado: null,
       plazaSolicitada: plaza,
+      empresaId: _eid(),
       fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
       estado: 'PENDIENTE',
       _ts: firebase.firestore.FieldValue.serverTimestamp(),

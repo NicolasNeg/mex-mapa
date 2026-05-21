@@ -3,6 +3,12 @@ import { db } from '/js/core/database.js';
 const PRIMARY = 'solicitudes';
 const LEGACY = 'solicitudes_acceso';
 
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
+}
+
 function _collectionsOrder(preferred = '') {
   return Array.from(new Set(
     [preferred, PRIMARY, LEGACY].map(v => String(v || '').trim()).filter(Boolean)
@@ -94,7 +100,11 @@ export function subscribeAdminRequests({ status = 'PENDIENTE', onData, onError }
     ok(_mergeRecords(primary, legacy));
   };
 
-  const unsubPrimary = db.collection(PRIMARY).where('estado', '==', normalizedStatus).onSnapshot(
+  const eid = _eid();
+
+  let qPrimary = db.collection(PRIMARY).where('estado', '==', normalizedStatus);
+  if (eid) qPrimary = qPrimary.where('empresaId', '==', eid);
+  const unsubPrimary = qPrimary.onSnapshot(
     snap => {
       primary = snap.docs.map(d => normalizeRequestRecord(d.id, d.data(), PRIMARY));
       readyPrimary = true;
@@ -103,7 +113,9 @@ export function subscribeAdminRequests({ status = 'PENDIENTE', onData, onError }
     err => fail(err)
   );
 
-  const unsubLegacy = db.collection(LEGACY).where('estado', '==', normalizedStatus).onSnapshot(
+  let qLegacy = db.collection(LEGACY).where('estado', '==', normalizedStatus);
+  if (eid) qLegacy = qLegacy.where('empresaId', '==', eid);
+  const unsubLegacy = qLegacy.onSnapshot(
     snap => {
       legacy = snap.docs.map(d => normalizeRequestRecord(d.id, d.data(), LEGACY));
       readyLegacy = true;
@@ -155,6 +167,7 @@ export async function rejectAccessRequestSafely({
   if (!target?.ref) throw new Error('No se encontró la solicitud.');
   const fv = _fieldValue();
   const reviewedBy = _normEmail(actorEmail);
+  const eid = _eid();
   const payload = {
     estado: 'RECHAZADA',
     comentarioRevision: _norm(comment),
@@ -165,7 +178,8 @@ export async function rejectAccessRequestSafely({
     updatedBy: reviewedBy,
     revisadoEn: fv ? fv.serverTimestamp() : new Date().toISOString(),
     rechazadoEn: fv ? fv.serverTimestamp() : new Date().toISOString(),
-    updatedAt: fv ? fv.serverTimestamp() : new Date().toISOString()
+    updatedAt: fv ? fv.serverTimestamp() : new Date().toISOString(),
+    ...(eid ? { empresaId: eid } : {})
   };
   await target.ref.set(payload, { merge: true });
   return { collectionName: target.collectionName, email: _normEmail(email) };

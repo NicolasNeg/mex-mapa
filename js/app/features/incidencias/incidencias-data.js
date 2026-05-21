@@ -2,8 +2,10 @@ import { db, COL } from '/js/core/database.js';
 
 const INCIDENCIAS_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
-function _getEmpresaId() {
-  return String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
 }
 
 function normalizePlaza(plaza) {
@@ -131,12 +133,12 @@ export function subscribeIncidencias({ plaza, onData, onError }) {
   }
 
   try {
-    const empresaId = _getEmpresaId();
+    const eid = _eid();
     let query = db
       .collection(COL.NOTAS)
       .where('plaza', '==', plazaId);
-    if (empresaId && empresaId !== '__superadmin__') {
-      query = query.where('empresaId', '==', empresaId);
+    if (eid) {
+      query = query.where('empresaId', '==', eid);
     }
     query = query.orderBy('timestamp', 'desc');
 
@@ -198,9 +200,9 @@ export async function createIncidencia(payload = {}) {
   }
 
   const id = String(Date.now());
-  const empresaId = _getEmpresaId();
+  const empresaId = _eid();
   await db.collection(COL.NOTAS).doc(id).set({
-    ...(empresaId && empresaId !== '__superadmin__' ? { empresaId } : {}),
+    ...(empresaId ? { empresaId } : {}),
     timestamp: Date.now(),
     fecha: new Date().toISOString(),
     autor: String(basePayload.autor || basePayload.creadoPor || 'Sistema'),

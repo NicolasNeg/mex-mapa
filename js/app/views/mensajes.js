@@ -8,8 +8,9 @@ let _unsub = null, _me = null, _all = [], _convs = [], _meta = new Map();
 let _activePeer = null, _archivedMode = false, _archived = {};
 let _pendingFile = null, _pendingAudio = null, _replyTo = null;
 let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recTimer = null;
+let _emojiPickerImport = null;
 
-const EMOJI_LIST = ["😀","😂","😍","😎","😢","😡","👍","👎","❤️","🔥","🎉","✅","🙏","😮","🤔","💯","🚀","💪","😴","😅","🤣","🤩","😇","😏","🥳","😤","🤯","👏","🙌","🤝","💔","💥","⭐","✨","🎁","💡","📌","📎","🔒","📢","💬","📱","💻","📊","📈","🌍","☕","🌈","☀️","⚡","👀","🫡","💀","🤖","🏆","🎯","🎮","📚","🔎","🧠"];
+const EMOJI_PICKER_SRC = 'https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js';
 
 const _mexAlert = (titulo, texto, tipo = 'info') =>
   typeof window.mexAlert === 'function' ? window.mexAlert(titulo, texto, tipo) : Promise.resolve(true);
@@ -233,17 +234,47 @@ async function _deleteMsg(mIdSafe) {
   try { await D.eliminarMensajeChatDb(String(msg.id)); } catch(e) { console.error(e); }
 }
 
-function _showEmojiPicker(btn) {
+function _ensureEmojiPickerElement() {
+  if (window.customElements?.get('emoji-picker')) return Promise.resolve();
+  if (!_emojiPickerImport) {
+    _emojiPickerImport = import(EMOJI_PICKER_SRC).catch(error => {
+      _emojiPickerImport = null;
+      throw error;
+    });
+  }
+  return _emojiPickerImport;
+}
+
+async function _showEmojiPicker(btn) {
   const mId = btn.dataset.mid;
   let panel = document.getElementById('amEmojiPanel');
   if (panel) { panel.remove(); }
   panel = document.createElement('div');
   panel.id = 'amEmojiPanel';
   panel.className = 'am-emoji-panel';
-  panel.innerHTML = EMOJI_LIST.map(em => `<button class="am-emoji-btn" data-emoji="${em}" data-mid="${mId}">${em}</button>`).join('');
-  panel.addEventListener('click', e => { const b = e.target.closest('.am-emoji-btn'); if(b){_toggleReaction(b.dataset.mid,b.dataset.emoji); panel.remove();} });
+  panel.innerHTML = '<div class="am-emoji-loading">Cargando emojis...</div>';
   btn.closest('.am-bubble')?.appendChild(panel);
   setTimeout(() => { document.addEventListener('click', function _dismiss(ev) { if(!panel.contains(ev.target)){panel.remove();document.removeEventListener('click',_dismiss);} }, {once:false}); },10);
+  try {
+    await _ensureEmojiPickerElement();
+    if (!panel.isConnected) return;
+    const picker = document.createElement('emoji-picker');
+    picker.className = 'am-emoji-picker';
+    picker.setAttribute('locale', 'es');
+    picker.setAttribute('skin-tone-emoji', '👍');
+    picker.addEventListener('emoji-click', event => {
+      const emoji = event?.detail?.unicode || event?.detail?.emoji?.unicode || event?.detail?.emoji || '';
+      if (!emoji) return;
+      _toggleReaction(mId, emoji);
+      panel.remove();
+    });
+    panel.replaceChildren(picker);
+  } catch (error) {
+    console.warn('[mensajes] emoji picker', error);
+    if (panel.isConnected) {
+      panel.innerHTML = '<div class="am-emoji-loading am-emoji-loading--error">No se pudo cargar el selector de emojis.</div>';
+    }
+  }
 }
 
 async function _toggleReaction(mIdSafe, emoji) {

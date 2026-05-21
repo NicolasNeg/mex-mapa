@@ -13,6 +13,12 @@ import { db, COL,
   eliminarMensajeChatDb
 } from '/js/core/database.js';
 
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
+}
+
 // ── Canonical identity helpers ────────────────────────────
 
 export function normalizeEmail(v) {
@@ -145,14 +151,17 @@ export function startRealtimeListener(me, callback) {
     callback(all);
   }
 
+  const eid = _eid();
+
   // Listen for all identities the user may have
   for (const identity of identities) {
     const safeId = _up(identity);
     if (!safeId) continue;
 
+    let q1 = db.collection('mensajes').where('remitente', '==', safeId);
+    if (eid) q1 = q1.where('empresaId', '==', eid);
     unsubs.push(
-      db.collection('mensajes').where('remitente', '==', safeId)
-        .orderBy('timestamp', 'desc').limit(300)
+      q1.orderBy('timestamp', 'desc').limit(300)
         .onSnapshot(snap => {
           const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           // Merge into sent bucket, keeping unique by id
@@ -165,9 +174,10 @@ export function startRealtimeListener(me, callback) {
         }, err => console.error('[mensajes-data] sent listener', safeId, err))
     );
 
+    let q2 = db.collection('mensajes').where('destinatario', '==', safeId);
+    if (eid) q2 = q2.where('empresaId', '==', eid);
     unsubs.push(
-      db.collection('mensajes').where('destinatario', '==', safeId)
-        .orderBy('timestamp', 'desc').limit(300)
+      q2.orderBy('timestamp', 'desc').limit(300)
         .onSnapshot(snap => {
           const rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
           const existing = new Set(rows.map(r => r.id));
@@ -310,7 +320,10 @@ export async function uploadChatAudio(blob, mimeType, extension) {
 
 export async function getAllUsers() {
   try {
-    const snap = await db.collection(COL.USERS).get();
+    const eid = _eid();
+    let q = db.collection(COL.USERS);
+    if (eid) q = q.where('empresaId', '==', eid);
+    const snap = await q.get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (err) {
     console.warn('[mensajes-data] getAllUsers', err);

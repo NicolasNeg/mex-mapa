@@ -7,6 +7,12 @@
 
 import { db, COL } from '/js/core/database.js';
 
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
+}
+
 const CUADRE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
 function cacheKey(plaza) {
@@ -72,9 +78,14 @@ export async function getCuadreSnapshot(plaza) {
     return normalized;
   }
 
+  const eid = _eid();
+  let qCuadre = db.collection(COL.CUADRE).where('plaza', '==', plazaId);
+  if (eid) qCuadre = qCuadre.where('empresaId', '==', eid);
+  let qExternos = db.collection(COL.EXTERNOS).where('plaza', '==', plazaId);
+  if (eid) qExternos = qExternos.where('empresaId', '==', eid);
   const [cuadre, externos] = await Promise.all([
-    db.collection(COL.CUADRE).where('plaza', '==', plazaId).get(),
-    db.collection(COL.EXTERNOS).where('plaza', '==', plazaId).get()
+    qCuadre.get(),
+    qExternos.get()
   ]);
 
   const normalized = [
@@ -139,10 +150,12 @@ export function subscribeCuadre({ plaza, onData, onError }) {
     })
     .catch(handleError);
 
+  const eid = _eid();
+
   try {
-    unsubCuadre = db
-      .collection(COL.CUADRE)
-      .where('plaza', '==', plazaId)
+    let qSnapCuadre = db.collection(COL.CUADRE).where('plaza', '==', plazaId);
+    if (eid) qSnapCuadre = qSnapCuadre.where('empresaId', '==', eid);
+    unsubCuadre = qSnapCuadre
       .onSnapshot(
         snap => {
           cuadreDocs  = snap.docs.map(d => normalizeCuadreRecord(d.id, d.data()));
@@ -159,9 +172,9 @@ export function subscribeCuadre({ plaza, onData, onError }) {
   }
 
   try {
-    unsubExternos = db
-      .collection(COL.EXTERNOS)
-      .where('plaza', '==', plazaId)
+    let qSnapExternos = db.collection(COL.EXTERNOS).where('plaza', '==', plazaId);
+    if (eid) qSnapExternos = qSnapExternos.where('empresaId', '==', eid);
+    unsubExternos = qSnapExternos
       .onSnapshot(
         snap => {
           externosDocs  = snap.docs.map(d =>

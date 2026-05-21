@@ -17,6 +17,12 @@
     _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
+  function _eid() {
+    const ctx = window._empresaActual;
+    if (!ctx || ctx.isSuperAdminContext) return '';
+    return ctx.id || '';
+  }
+
   function _feedAccionUnidad(mvaStr, actual = {}, estado = '', ubi = '', gas = '', notaFinal = '', notaEntrada = '', borrarNotas = false) {
     const oldNotes = String(actual.notas || '').toUpperCase();
     const newNotes = String(notaFinal || notaEntrada || '').toUpperCase();
@@ -45,10 +51,17 @@
       let docRef = null, actual = null;
 
       if (plazaUp) {
-        let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
+        const eid = _eid();
+        let cuadreQ = db.collection(COL.CUADRE);
+        if (eid) cuadreQ = cuadreQ.where('empresaId', '==', eid);
+        cuadreQ = cuadreQ.where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1);
+        let snap = await cuadreQ.get();
         if (!snap.empty) { docRef = snap.docs[0].ref; actual = snap.docs[0].data(); }
         if (!docRef) {
-          snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
+          let externosQ = db.collection(COL.EXTERNOS);
+          if (eid) externosQ = externosQ.where('empresaId', '==', eid);
+          externosQ = externosQ.where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1);
+          snap = await externosQ.get();
           if (!snap.empty) { docRef = snap.docs[0].ref; actual = snap.docs[0].data(); }
         }
       }
@@ -122,9 +135,12 @@
       const docId  = _mvaToDocId(mvaStr);
       const plazaUp = (objeto.plaza || '').toUpperCase().trim();
 
-      const dupQuery = plazaUp
-        ? db.collection(COL.CUADRE).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
-        : db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1);
+      const eidIUD = _eid();
+      let dupQuery = db.collection(COL.CUADRE);
+      if (eidIUD) dupQuery = dupQuery.where('empresaId', '==', eidIUD);
+      dupQuery = plazaUp
+        ? dupQuery.where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
+        : dupQuery.where("mva", "==", mvaStr).limit(1);
       const existeLeg = await dupQuery.get();
       if (!existeLeg.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
 
@@ -144,6 +160,7 @@
         notas:        notaFinal,
         pos:          "LIMBO",
         plaza:        plazaUp || null,
+        empresaId:    _eid(),
         fechaIngreso: new Date().toISOString(),
         _createdAt:   ahora,
         _createdBy:   objeto.responsableSesion || "Sistema",
@@ -166,9 +183,12 @@
       const docId   = _mvaToDocId(mvaStr);
       const plazaUp = (objeto.plaza || '').toUpperCase().trim();
 
-      const dupQueryExt = plazaUp
-        ? db.collection(COL.EXTERNOS).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
-        : db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1);
+      const eidIUE = _eid();
+      let dupQueryExt = db.collection(COL.EXTERNOS);
+      if (eidIUE) dupQueryExt = dupQueryExt.where('empresaId', '==', eidIUE);
+      dupQueryExt = plazaUp
+        ? dupQueryExt.where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
+        : dupQueryExt.where("mva", "==", mvaStr).limit(1);
       const existeLeg = await dupQueryExt.get();
       if (!existeLeg.empty) return `La unidad externa ${mvaStr} ya está registrada.`;
 
@@ -186,6 +206,7 @@
         pos:          "LIMBO",
         plaza:        plazaUp || null,
         tipo:         "externo",
+        empresaId:    _eid(),
         fechaIngreso: new Date().toISOString(),
         _createdAt:   ahora,
         _createdBy:   objeto.responsableSesion || "Sistema",
@@ -210,9 +231,14 @@
         let eliminado = false;
 
         if (plazaUp) {
-          let snap = await db.collection(COL.CUADRE).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
+          const eidElim = _eid();
+          let cuadreElimQ = db.collection(COL.CUADRE);
+          if (eidElim) cuadreElimQ = cuadreElimQ.where('empresaId', '==', eidElim);
+          let snap = await cuadreElimQ.where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
           if (!snap.empty) { await snap.docs[0].ref.delete(); eliminado = true; }
-          snap = await db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
+          let externosElimQ = db.collection(COL.EXTERNOS);
+          if (eidElim) externosElimQ = externosElimQ.where('empresaId', '==', eidElim);
+          snap = await externosElimQ.where('plaza', '==', plazaUp).where('mva', '==', mvaStr).limit(1).get();
           if (!snap.empty) { await snap.docs[0].ref.delete(); eliminado = true; }
         }
 
@@ -238,13 +264,20 @@
 
       const unitMap = {};
       if (plazaUp) {
+        const eidGNP = _eid();
+        let cuadreGNPQ = typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
+          : db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+        let externosGNPQ = typeof _buildPlazaScopedQuery === 'function'
+          ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
+          : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
+        if (eidGNP) {
+          cuadreGNPQ = db.collection(COL.CUADRE).where('empresaId', '==', eidGNP).where('plaza', '==', plazaUp);
+          externosGNPQ = db.collection(COL.EXTERNOS).where('empresaId', '==', eidGNP).where('plaza', '==', plazaUp);
+        }
         const [cuadreSnap, externosSnap] = await Promise.all([
-          (typeof _buildPlazaScopedQuery === 'function'
-            ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
-            : db.collection(COL.CUADRE).where('plaza', '==', plazaUp)).get(),
-          (typeof _buildPlazaScopedQuery === 'function'
-            ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
-            : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp)).get()
+          cuadreGNPQ.get(),
+          externosGNPQ.get()
         ]);
         cuadreSnap.docs.forEach(d => {
           const mva = (d.data().mva || '').toString().trim().toUpperCase();
@@ -328,7 +361,8 @@
           timestamp: ts, fecha: _now(), tipo,
           mva: h.mva, hoja: h.hoja,
           posAnterior: h.posAnterior, posNueva: h.posNueva,
-          autor: usuarioResponsable || "Sistema", plaza: plazaUp || ""
+          autor: usuarioResponsable || "Sistema", plaza: plazaUp || "",
+          empresaId: _eid()
         };
         if (auditExtra.locationStatus) payload.locationStatus = auditExtra.locationStatus;
         if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
@@ -359,11 +393,19 @@
 
     async obtenerCuadreAdminsData(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const query = plazaUp
-        ? (typeof _buildPlazaScopedQuery === 'function'
+      const eidCAD = _eid();
+      let query;
+      if (eidCAD && plazaUp) {
+        query = db.collection(COL.CUADRE_ADM).where('empresaId', '==', eidCAD).where('plaza', '==', plazaUp).orderBy('_createdAt', 'desc');
+      } else if (eidCAD) {
+        query = db.collection(COL.CUADRE_ADM).where('empresaId', '==', eidCAD).orderBy('_createdAt', 'desc');
+      } else if (plazaUp) {
+        query = typeof _buildPlazaScopedQuery === 'function'
           ? _buildPlazaScopedQuery(COL.CUADRE_ADM, plazaUp, { orderBy: { field: '_createdAt', direction: 'desc' } })
-          : db.collection(COL.CUADRE_ADM).where('plaza', '==', plazaUp).orderBy('_createdAt', 'desc'))
-        : db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc");
+          : db.collection(COL.CUADRE_ADM).where('plaza', '==', plazaUp).orderBy('_createdAt', 'desc');
+      } else {
+        query = db.collection(COL.CUADRE_ADM).orderBy("_createdAt", "desc");
+      }
       const snap = await query.get().catch(async error => {
         if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
         _warnQueryFallback?.('obtenerCuadreAdminsData', error);
@@ -393,6 +435,7 @@
             { ...datos, mva, _createdAt: _now(), _createdBy: actor },
             [...manualEvidence, ...uploadedEvidence]
           );
+          finalPayload.empresaId = _eid();
           await newRef.set(finalPayload);
 
         } else if (tipoAccion === "MODIFICAR") {
@@ -412,6 +455,7 @@
             _createdBy: actual._createdBy || actor
           }, evidencias);
           if (!payload.plaza) return "ERROR: Falta la plaza operativa para actualizar en Cuadre Admins.";
+          payload.empresaId = actual.empresaId || _eid();
           await ref.set(payload, { merge: true });
 
         } else if (tipoAccion === "ELIMINAR") {
@@ -429,7 +473,10 @@
 
     async obtenerConteoGeneral() {
       const conteo = { LISTO: 0, SUCIO: 0, MANTENIMIENTO: 0, total: 0 };
-      const snap = await db.collection(COL.CUADRE).get();
+      const eidOCG = _eid();
+      let conteoQ = db.collection(COL.CUADRE);
+      if (eidOCG) conteoQ = conteoQ.where('empresaId', '==', eidOCG);
+      const snap = await conteoQ.get();
       snap.docs.forEach(d => {
         const estado = (d.data().estado || "").toUpperCase();
         if (conteo[estado] !== undefined) conteo[estado]++;
@@ -439,7 +486,10 @@
     },
 
     async obtenerMovimientosRecientes() {
-      const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(20).get();
+      const eidOMR = _eid();
+      let logsQ = db.collection(COL.LOGS);
+      if (eidOMR) logsQ = logsQ.where('empresaId', '==', eidOMR);
+      const snap = await logsQ.orderBy("timestamp", "desc").limit(20).get();
       return snap.docs.map(d => d.data());
     },
 
@@ -474,7 +524,7 @@
         ultimaModificacion: _now(),
         ultimoEditor: autor || "Sistema"
       }, plazaUp);
-      await db.collection(COL.AUDITORIA).add({ timestamp: _ts(), fecha: _now(), autor, datos: datosAuditoria, plaza: plazaUp });
+      await db.collection(COL.AUDITORIA).add({ timestamp: _ts(), fecha: _now(), autor, datos: datosAuditoria, plaza: plazaUp, empresaId: _eid() });
       return "EXITO";
     },
 
@@ -504,7 +554,10 @@
 
     async obtenerHistorialCuadres(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(200).get();
+      const eidOHC = _eid();
+      let histCuadresQ = db.collection(COL.HISTORIAL_CUADRES);
+      if (eidOHC) histCuadresQ = histCuadresQ.where('empresaId', '==', eidOHC);
+      const snap = await histCuadresQ.orderBy("timestamp", "desc").limit(200).get();
       const filtrados = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp)).slice(0, 30);
       return filtrados.map(d => {
         const data = d.data();
@@ -533,7 +586,8 @@
         faltantes: stats?.faltantes || 0,
         sobrantes: stats?.sobrantes || 0,
         plaza:     plazaUp || "",
-        pdfUrl:    ""
+        pdfUrl:    "",
+        empresaId: _eid()
       };
       await db.collection(COL.HISTORIAL_CUADRES).add(registro);
       await _setSettings({

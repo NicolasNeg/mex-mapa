@@ -13,8 +13,10 @@ const COL_TURNOS = 'turnos';
 
 function _fv() { return window.firebase?.firestore?.FieldValue; }
 
-function _getEmpresaId() {
-  return String(window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
 }
 
 /**
@@ -34,7 +36,7 @@ export async function iniciarTurno(user, plazaId) {
   if (previo) await cerrarTurno(previo.id);
 
   const fv = _fv();
-  const empresaId = _getEmpresaId();
+  const empresaId = _eid();
   const doc = {
     usuarioId: firebaseUid,
     usuarioNombre: String(user.nombreCompleto || user.nombre || user.displayName || user.email || '').trim(),
@@ -43,7 +45,7 @@ export async function iniciarTurno(user, plazaId) {
     inicio: fv ? fv.serverTimestamp() : Date.now(),
     fin: null,
     estado: 'ACTIVO',
-    ...(empresaId && empresaId !== '__superadmin__' ? { empresaId } : {}),
+    ...(empresaId ? { empresaId } : {}),
   };
   const ref = await db.collection(COL_TURNOS).add(doc);
   return ref.id;
@@ -62,11 +64,12 @@ export async function cerrarTurno(turnoId) {
 /** Devuelve el turno ACTIVO del usuario, o null. */
 export async function getMiTurnoActivo(userId) {
   if (!userId) return null;
-  const snap = await db.collection(COL_TURNOS)
+  const eid = _eid();
+  let q = db.collection(COL_TURNOS)
     .where('usuarioId', '==', userId)
-    .where('estado', '==', 'ACTIVO')
-    .limit(1)
-    .get();
+    .where('estado', '==', 'ACTIVO');
+  if (eid) q = q.where('empresaId', '==', eid);
+  const snap = await q.limit(1).get();
   if (snap.empty) return null;
   const doc = snap.docs[0];
   return { id: doc.id, ...doc.data() };
@@ -82,12 +85,12 @@ export function onTurnosActivos(plazaId, callback) {
     callback([]);
     return () => {};
   }
-  const empresaId = _getEmpresaId();
+  const eid = _eid();
   let query = db.collection(COL_TURNOS)
     .where('plazaId', '==', plaza)
     .where('estado', '==', 'ACTIVO');
-  if (empresaId && empresaId !== '__superadmin__') {
-    query = query.where('empresaId', '==', empresaId);
+  if (eid) {
+    query = query.where('empresaId', '==', eid);
   }
   return query.onSnapshot(
       snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),

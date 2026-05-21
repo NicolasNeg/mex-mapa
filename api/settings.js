@@ -18,20 +18,41 @@
     _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
+  function _eid() {
+    const ctx = window._empresaActual;
+    if (!ctx || ctx.isSuperAdminContext) return '';
+    return ctx.id || '';
+  }
+
   window._mexParts = window._mexParts || {};
   window._mexParts.settings = {
 
     // ─── RADAR ────────────────────────────────────────────
     async checarNotificaciones(usuarioActivo, plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const alertasQuery = plazaUp
-        ? (typeof _buildPlazaScopedQuery === 'function'
+      const eidCN = _eid();
+      let alertasQuery;
+      if (eidCN && plazaUp) {
+        alertasQuery = db.collection(COL.ALERTAS).where('empresaId', '==', eidCN).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc').limit(50);
+      } else if (eidCN) {
+        alertasQuery = db.collection(COL.ALERTAS).where('empresaId', '==', eidCN).orderBy('timestamp', 'desc').limit(50);
+      } else if (plazaUp) {
+        alertasQuery = typeof _buildPlazaScopedQuery === 'function'
           ? _buildPlazaScopedQuery(COL.ALERTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' }, limit: 50 })
-          : db.collection(COL.ALERTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc').limit(50))
-        : db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50);
-      const notasQuery = plazaUp
-        ? db.collection(COL.NOTAS).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE")
-        : db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE");
+          : db.collection(COL.ALERTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc').limit(50);
+      } else {
+        alertasQuery = db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50);
+      }
+      let notasQuery;
+      if (eidCN && plazaUp) {
+        notasQuery = db.collection(COL.NOTAS).where('empresaId', '==', eidCN).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE");
+      } else if (eidCN) {
+        notasQuery = db.collection(COL.NOTAS).where('empresaId', '==', eidCN).where("estado", "==", "PENDIENTE");
+      } else if (plazaUp) {
+        notasQuery = db.collection(COL.NOTAS).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE");
+      } else {
+        notasQuery = db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE");
+      }
       const alertasPromise = alertasQuery.get().catch(async error => {
         if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
         _warnQueryFallback?.('checarNotificaciones.alertas', error);
@@ -168,6 +189,7 @@
 
     async guardarConfiguracionListas(listasActualizadas, autor = "Admin Global", plaza) {
       const plazaUp = _normalizePlazaId(plaza);
+      const eidGCL = _eid();
       const { ubicaciones, ...globalRest } = listasActualizadas;
       const listasRef = db.collection(COL.CONFIG).doc("listas");
       const listasSnap = await listasRef.get();
@@ -200,7 +222,13 @@
         payload.ubicaciones = ubicacionesFinales;
       }
 
-      await listasRef.set(payload, { merge: true });
+      if (eidGCL) {
+        // Per-empresa: merge listas into the empresa doc to avoid cross-tenant contamination
+        await db.collection('empresas').doc(eidGCL).set({ listas: payload }, { merge: true });
+      } else {
+        // SuperAdmin with no empresa selected: write to global configuracion/listas
+        await listasRef.set(payload, { merge: true });
+      }
 
       return "EXITO";
     },
