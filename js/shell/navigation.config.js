@@ -61,7 +61,8 @@ export const NAV_GROUPS = [
         label: 'Dashboard',
         icon: 'home',
         route: '/home',
-        roles: '*'
+        roles: '*',
+        feature: 'dashboard'
       },
       {
         id: 'mapa',
@@ -126,8 +127,8 @@ export const NAV_GROUPS = [
           { id: 'solicitudes', label: 'Solicitudes', route: '/gestion?tab=solicitudes', icon: 'assignment' },
           { id: 'alertas-emitir', label: 'Emitir alertas', route: '/app/alertas', icon: 'campaign' },
           { id: 'alertas-historial', label: 'Historial alertas', route: '/app/alertas/historial', icon: 'notifications_active' },
-          { id: 'estados',     label: 'Estados',     route: '/gestion?tab=estados',     icon: 'tune' },
-          { id: 'categorias',  label: 'Categorías',  route: '/gestion?tab=categorias',  icon: 'directions_car' },
+          { id: 'estados',     label: 'Estados',     route: '/gestion?tab=estados',     icon: 'tune',            feature: 'estados_mapa' },
+          { id: 'categorias',  label: 'Categorías',  route: '/gestion?tab=categorias',  icon: 'directions_car',  feature: 'cuadre' },
           { id: 'modelos',     label: 'Modelos',     route: '/gestion?tab=modelos',     icon: 'no_crash' },
           { id: 'gasolinas',   label: 'Gasolinas',   route: '/gestion?tab=gasolinas',   icon: 'local_gas_station' },
           { id: 'plazas',      label: 'Plazas',      route: '/gestion?tab=plazas',      icon: 'location_city' },
@@ -147,13 +148,6 @@ export const NAV_GROUPS = [
         icon: 'map',
         route: '/editmap',
         roles: ['CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
-      },
-      {
-        id: 'consola',
-        label: 'Consola técnica',
-        icon: 'terminal',
-        route: '/programador',
-        roles: ['PROGRAMADOR', 'JEFE_OPERACION']
       }
     ]
   }
@@ -163,14 +157,23 @@ export const NAV_GROUPS = [
  * Filtra los grupos de navegación según el rol del usuario.
  * Elimina grupos que queden vacíos después del filtro.
  */
+function _featureEnabled(feature) {
+  return !feature || !window.mexFeatures || window.mexFeatures.puedeUsar(feature);
+}
+
 export function filterNavForRole(userRole) {
   return NAV_GROUPS
     .map(group => ({
       ...group,
       items: group.items
         .filter(item => hasNavAccess(userRole, item.roles))
-        .filter(item => !item.feature || !window.mexFeatures || window.mexFeatures.puedeUsar(item.feature))
-        .map(item => ({ ...item }))
+        .filter(item => _featureEnabled(item.feature))
+        .map(item => ({
+          ...item,
+          children: Array.isArray(item.children)
+            ? item.children.filter(child => _featureEnabled(child.feature))
+            : item.children
+        }))
     }))
     .filter(group => group.items.length > 0);
 }
@@ -187,7 +190,6 @@ export const ROUTE_TITLES = {
   '/incidencias':       'Notas e incidencias',
   '/gestion':           'Panel administrativo',
   '/profile':           'Mi perfil',
-  '/programador':       'Consola técnica',
   '/editmap':           'Editor de mapa',
   '/solicitud':         'Solicitud de acceso',
   // App Shell — rutas /app/*
@@ -200,7 +202,6 @@ export const ROUTE_TITLES = {
   '/app/admin':            'Panel admin',
   '/app/alertas':          'Emitir alertas',
   '/app/alertas/historial':'Historial de alertas',
-  '/app/programador':      'Consola técnica',
   '/app/mapa':             'Mapa operativo',
   '/app/editmap':          'Configuración de mapa',
   '/app/onboarding':       'Configuración inicial',

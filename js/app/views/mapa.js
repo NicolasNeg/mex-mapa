@@ -1148,6 +1148,7 @@ export function mount({ container, shell }) {
             <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="create-unit"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta unidad</button>
             <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="bulk-units"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta masiva</button>
             <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="editor"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Editar patio</button>
+            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="feature-config"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Configurar módulos</button>
           </div>
         </details>
         <div class="app-mapa-chrome-sub">
@@ -1527,6 +1528,10 @@ export function mount({ container, shell }) {
       void _runOfficialTool(act);
       return;
     }
+    if (act === 'feature-config') {
+      _openFeatureConfigPanel();
+      return;
+    }
     if (act === 'clear-search') {
       _viewState.query = '';
       _render();
@@ -1857,6 +1862,102 @@ function _ensureCss() {
   link.setAttribute('data-app-mapa-css', '1');
   document.head.appendChild(link);
   _cssRef = link;
+}
+
+// ── Feature config panel (acceso rápido desde el mapa) ──────
+function _openFeatureConfigPanel() {
+  const empresa = window._empresaActual;
+  if (!empresa || empresa.isSuperAdminContext) return;
+  const db = window._db;
+  if (!db) return;
+
+  const FEATURE_LIST = [
+    { key: 'dashboard',        label: 'Dashboard de inicio',   desc: 'Mostrar dashboard al entrar. Si no, carga el mapa directamente.' },
+    { key: 'estados_mapa',     label: 'Estados operativos',    desc: 'Permite asignar estados a las unidades (disponible, ocupado, etc.).' },
+    { key: 'cuadre',           label: 'Cuadre',                desc: 'Módulo de cuadre. Al desactivar, también oculta Categorías del menú.' },
+    { key: 'mensajeria',       label: 'Mensajería',            desc: 'Mensajes internos entre usuarios.' },
+    { key: 'incidencias',      label: 'Incidencias',           desc: 'Reporte y seguimiento de incidencias.' },
+    { key: 'cola_preparacion', label: 'Cola de preparación',   desc: 'Módulo de cola de salida.' },
+    { key: 'alertas',          label: 'Alertas',               desc: 'Emisión y gestión de alertas masivas.' },
+    { key: 'edicion_mapa',     label: 'Editor de mapa',        desc: 'Configuración visual del patio.' },
+  ];
+
+  const features = empresa.features || {};
+  const defaults = window.mexFeatures?.DEFAULTS || {};
+
+  const panelId = 'app-mapa-feature-panel';
+  if (document.getElementById(panelId)) return;
+
+  const panel = document.createElement('div');
+  panel.id = panelId;
+  panel.style.cssText = `
+    position:fixed;top:0;right:0;bottom:0;width:320px;z-index:9000;
+    background:#0d1b2e;border-left:1px solid rgba(255,255,255,0.08);
+    display:flex;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,.6);
+    font-family:Inter,sans-serif;overflow-y:auto;
+  `;
+
+  const rows = FEATURE_LIST.map(f => {
+    const val = typeof features[f.key] === 'boolean' ? features[f.key] : (defaults[f.key] !== false);
+    return `
+    <div style="padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.05);">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;color:${val?'#e2e8f0':'rgba(255,255,255,0.35)'};">${f.label}</div>
+          <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px;line-height:1.4;">${f.desc}</div>
+        </div>
+        <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;cursor:pointer;">
+          <input type="checkbox" data-feat="${f.key}" ${val?'checked':''} style="opacity:0;width:0;height:0;position:absolute;"/>
+          <span style="position:absolute;inset:0;border-radius:22px;background:${val?'#6366f1':'rgba(255,255,255,0.15)'};transition:background .2s;pointer-events:none;"></span>
+          <span style="position:absolute;left:${val?'18px':'2px'};top:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:left .2s;pointer-events:none;"></span>
+        </label>
+      </div>
+    </div>`;
+  }).join('');
+
+  panel.innerHTML = `
+    <div style="padding:16px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-size:14px;font-weight:800;color:#fff;">Configurar módulos</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px;">${esc(empresa.nombre || empresa.id || '')}</div>
+      </div>
+      <button id="fcpClose" type="button" style="background:rgba(255,255,255,0.06);border:none;color:rgba(255,255,255,0.5);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;">×</button>
+    </div>
+    <div id="fcpRows">${rows}</div>
+    <div id="fcpStatus" style="padding:10px 16px;font-size:12px;font-weight:600;color:#4ade80;min-height:34px;"></div>
+    <div style="padding:12px 16px;font-size:11px;color:rgba(255,255,255,0.2);border-top:1px solid rgba(255,255,255,0.05);">
+      Los cambios se aplican en tiempo real para todos los usuarios.
+    </div>
+  `;
+
+  document.body.appendChild(panel);
+
+  panel.querySelector('#fcpClose').addEventListener('click', () => panel.remove());
+
+  panel.querySelectorAll('[data-feat]').forEach(chk => {
+    chk.addEventListener('change', async () => {
+      const key = chk.dataset.feat;
+      const val = chk.checked;
+      const statusEl = panel.querySelector('#fcpStatus');
+      try {
+        await db.collection('empresas').doc(empresa.id).update({ [`features.${key}`]: val });
+        if (!empresa.features) empresa.features = {};
+        empresa.features[key] = val;
+        window._empresaActual = empresa;
+        if (statusEl) { statusEl.textContent = `"${key}" ${val ? 'activado' : 'desactivado'} ✓`; setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 2500); }
+        // Refresca el toggle visual
+        const knob = chk.parentElement?.querySelector('span:last-child');
+        const track = chk.parentElement?.querySelector('span:first-child');
+        const label = chk.closest('[style]')?.querySelector('[style*="font-weight:700"]');
+        if (knob) knob.style.left = val ? '18px' : '2px';
+        if (track) track.style.background = val ? '#6366f1' : 'rgba(255,255,255,0.15)';
+        if (label) label.style.color = val ? '#e2e8f0' : 'rgba(255,255,255,0.35)';
+      } catch (err) {
+        chk.checked = !val;
+        if (statusEl) { statusEl.style.color = '#f87171'; statusEl.textContent = 'Error: ' + err.message; setTimeout(() => { if (statusEl) { statusEl.textContent = ''; statusEl.style.color = '#4ade80'; } }, 3500); }
+      }
+    });
+  });
 }
 
 function _mapaLoadingHtml(label = 'Cargando mapa') {

@@ -26,7 +26,7 @@ function legacyStage(legacyId, navRoute) {
 }
 
 function _appMapToolRedirect(rawPath = '') {
-  const pathOnly = String(rawPath || '').split('?')[0].replace(/\/$/, '') || '/app/dashboard';
+  const pathOnly = String(rawPath || '').split('?')[0].replace(/\/$/, '') || _defaultHome();
   if (pathOnly !== '/app/mapa') return '';
   const query = String(rawPath || '').includes('?') ? String(rawPath).slice(String(rawPath).indexOf('?')) : '';
   const params = new URLSearchParams(query || '');
@@ -41,9 +41,13 @@ function _appMapToolRedirect(rawPath = '') {
 // redirect:  string  — alias, redirige sin render
 // navRoute:  string  — ruta que se activa en el sidebar (cuando difiere del path)
 // feature:   string  — feature gate key; if disabled, shows "not available" screen
+function _defaultHome() {
+  return window.mexFeatures?.puedeUsar('dashboard') === false ? '/app/mapa' : '/app/dashboard';
+}
+
 const ROUTE_TABLE = {
-  '/app':            { redirect: '/app/dashboard' },
-  '/app/home':       { redirect: '/app/dashboard' },
+  '/app':       { redirect: _defaultHome },
+  '/app/home':  { redirect: _defaultHome },
   '/app/dashboard':  {
     loader:   () => import('/js/app/views/dashboard.js'),
     navRoute: '/home'
@@ -131,7 +135,7 @@ export function createRouter({ shell }) {
     const raw = String(rawPath || '');
     const cut = raw.indexOf('?');
     const pathname = cut === -1 ? raw : raw.slice(0, cut);
-    return pathname.replace(/\/$/, '') || '/app/dashboard';
+    return pathname.replace(/\/$/, '') || _defaultHome();
   }
 
   // ── Navegar ───────────────────────────────────────────────
@@ -162,13 +166,12 @@ export function createRouter({ shell }) {
     }
     const route = ROUTE_TABLE[path];
 
-    // Redirect alias (ej. /app → /app/dashboard)
+    // Redirect alias (ej. /app → /app/dashboard o /app/mapa)
     if (route?.redirect) {
+      const target = typeof route.redirect === 'function' ? route.redirect() : String(route.redirect);
       const raw = String(rawPath || '');
-      const tail = raw.includes('?') && !route.redirect.includes('?')
-        ? raw.slice(raw.indexOf('?'))
-        : '';
-      navigate(route.redirect + tail, { replace: true });
+      const tail = raw.includes('?') && !target.includes('?') ? raw.slice(raw.indexOf('?')) : '';
+      navigate(target + tail, { replace: true });
       return;
     }
 
@@ -181,7 +184,7 @@ export function createRouter({ shell }) {
     // Sincronizar header y sidebar.
     // navRoute permite resaltar el item operativo cuando la URL vive en /app/*
     // (ej. /app/profile → resalta nav item "/profile")
-    let navRoute = route?.navRoute || path || '/app/dashboard';
+    let navRoute = route?.navRoute || path || _defaultHome();
     if (navRoute === '/gestion') {
       const tab = new URLSearchParams(searchIdx === -1 ? '' : String(rawPath).slice(searchIdx)).get('tab');
       if (tab) navRoute = `/gestion?tab=${encodeURIComponent(tab)}`;

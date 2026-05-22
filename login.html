@@ -1090,6 +1090,52 @@
     </div>
   </div>
 
+  <!-- ── Marquee dinámico desde Firestore ─────────────── -->
+  <script>
+  (function () {
+    const STATIC = [
+      { nombre: 'Global Freight SA',    tagline: '' },
+      { nombre: 'Nexus Transporte',      tagline: '' },
+      { nombre: 'Apex Supply Chain',     tagline: '' },
+      { nombre: 'OmniRoutes',            tagline: '' },
+      { nombre: 'Flota Nacional MX',     tagline: '' },
+      { nombre: 'Logística del Norte',   tagline: '' },
+      { nombre: 'CargoRed Express',      tagline: '' },
+    ];
+
+    function buildMarqueeHTML(list) {
+      const items = list.map(e => {
+        const name = String(e.nombre || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `<div class="login-marquee-item"><span>${name}</span></div>`;
+      }).join('');
+      return `<div class="login-marquee-half">${items}</div><div class="login-marquee-half">${items}</div>`;
+    }
+
+    function renderMarquee(list) {
+      const wrap = document.querySelector('.login-marquee');
+      if (wrap) wrap.innerHTML = buildMarqueeHTML(list);
+    }
+
+    function loadFromFirestore() {
+      const db = window._db || (firebase?.apps?.length && firebase.firestore());
+      if (!db) return;
+      db.collection('configuracion').doc('loginPresencia').get()
+        .then(snap => {
+          if (!snap.exists) return;
+          const lista = snap.data()?.lista;
+          if (Array.isArray(lista) && lista.length > 0) renderMarquee(lista);
+        })
+        .catch(() => {});
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', loadFromFirestore, { once: true });
+    } else {
+      setTimeout(loadFromFirestore, 400);
+    }
+  })();
+  </script>
+
   <!-- ── Controlador de la vista (ES6 module) ──────────── -->
   <script type="module" src="/js/views/login.js"></script>
 

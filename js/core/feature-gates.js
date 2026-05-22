@@ -22,6 +22,9 @@
     edicion_mapa:        true,
     exportar_excel:      true,
     notificaciones_push: true,
+    // Nuevas — controlables por empresa
+    dashboard:           true,   // Si false → mapa es la pantalla de inicio
+    estados_mapa:        true,   // Si false → modo simple sin estados operativos
   });
 
   function getEmpresaFeatures() {

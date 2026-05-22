@@ -10,11 +10,12 @@ let _empresa   = null;
 let _empresaId = null;
 
 const TABS = [
-  { key: 'config',   label: 'Configuración', icon: 'settings'    },
-  { key: 'features', label: 'Features',       icon: 'toggle_on'   },
-  { key: 'plazas',   label: 'Plazas',         icon: 'location_on' },
-  { key: 'listas',   label: 'Listas',         icon: 'list'        },
-  { key: 'usuarios', label: 'Usuarios',        icon: 'group'       },
+  { key: 'config',   label: 'Configuración',    icon: 'settings'    },
+  { key: 'features', label: 'Features',          icon: 'toggle_on'   },
+  { key: 'plazas',   label: 'Plazas',            icon: 'location_on' },
+  { key: 'listas',   label: 'Listas',            icon: 'list'        },
+  { key: 'usuarios', label: 'Usuarios',           icon: 'group'       },
+  { key: 'login',    label: 'Presencia en Login', icon: 'language'    },
 ];
 
 export async function mount({ container, params, pathname, navigate }) {
@@ -98,6 +99,7 @@ function _bindTab(tab) {
   if (tab === 'plazas')   _bindPlazas();
   if (tab === 'listas')   _bindListas();
   if (tab === 'usuarios') _loadUsuarios();
+  if (tab === 'login')    _bindLoginPresencia();
 }
 
 // ── Config tab ────────────────────────────────────────────
@@ -161,7 +163,7 @@ function _bindFeatures() {
     });
   });
 
-  const FEATURE_KEYS = ['alertas','cuadre','mensajeria','incidencias','ia_placas','cola_preparacion','exportar_excel','edicion_mapa'];
+  const FEATURE_KEYS = ['dashboard','estados_mapa','alertas','cuadre','mensajeria','incidencias','ia_placas','cola_preparacion','exportar_excel','edicion_mapa'];
 
   _container?.querySelector('#featEnableAll')?.addEventListener('click', async () => {
     const updates = {};
@@ -326,6 +328,7 @@ function _tabContent(tab) {
   if (tab === 'plazas')   return _plazasTabHtml();
   if (tab === 'listas')   return _listasTabHtml();
   if (tab === 'usuarios') return _usuariosTabHtml();
+  if (tab === 'login')    return _loginPresenciaTabHtml();
   return '';
 }
 
@@ -366,14 +369,16 @@ function _featuresTabHtml() {
   const features = _empresa.features || {};
   const hasFeatures = _empresa.features && typeof _empresa.features === 'object';
   const list = [
-    ['alertas',          'Alertas',          'Emisión y gestión de alertas masivas'],
-    ['cuadre',           'Cuadre',           'Módulo de cuadre de flota/patio'],
-    ['mensajeria',       'Mensajería',        'Mensajes internos entre usuarios'],
-    ['incidencias',      'Incidencias',       'Reporte y seguimiento de incidencias'],
-    ['ia_placas',        'IA Placas',         'Reconocimiento de placas con Vision AI'],
-    ['cola_preparacion', 'Cola preparación',  'Módulo de cola de salida'],
-    ['exportar_excel',   'Exportar Excel',    'Exportación de reportes a Excel'],
-    ['edicion_mapa',     'Editor de mapa',    'Configuración visual del mapa de patio'],
+    ['dashboard',        'Dashboard de inicio', 'Si está desactivado, el mapa es la pantalla inicial al entrar'],
+    ['estados_mapa',     'Estados operativos',  'Permite estados en unidades. Desactivar para modo estacionamiento simple (solo datos del auto)'],
+    ['cuadre',           'Cuadre',              'Módulo de cuadre. Al desactivar, también oculta Categorías del menú'],
+    ['alertas',          'Alertas',             'Emisión y gestión de alertas masivas'],
+    ['mensajeria',       'Mensajería',          'Mensajes internos entre usuarios'],
+    ['incidencias',      'Incidencias',         'Reporte y seguimiento de incidencias'],
+    ['ia_placas',        'IA Placas',           'Reconocimiento de placas con Vision AI'],
+    ['cola_preparacion', 'Cola preparación',    'Módulo de cola de salida'],
+    ['exportar_excel',   'Exportar Excel',      'Exportación de reportes a Excel'],
+    ['edicion_mapa',     'Editor de mapa',      'Configuración visual del mapa de patio'],
   ];
   return `
 <div style="max-width:680px;display:flex;flex-direction:column;gap:10px;">
@@ -528,6 +533,116 @@ function _bindListas() {
       } catch (err) { _toast('Error: ' + err.message, 'error'); }
     });
   });
+}
+
+// ── Login Presencia tab ───────────────────────────────────
+
+function _loginPresenciaTabHtml() {
+  const p = _empresa.loginPresencia || {};
+  return `
+<div style="max-width:560px;display:flex;flex-direction:column;gap:16px;">
+  <div style="padding:12px 14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;font-size:12px;color:#a5b4fc;line-height:1.5;">
+    Configura cómo aparece esta empresa en la sección <strong style="color:#c7d2fe;">"Empresas que nos usan"</strong> del login público.
+    Si está visible, se mostrará en el marquee inferior de la pantalla de inicio.
+  </div>
+  <form id="loginPresenciaForm" style="display:flex;flex-direction:column;gap:14px;">
+    <label style="display:flex;align-items:center;gap:12px;cursor:pointer;background:#0f1b2d;border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 16px;">
+      <div style="position:relative;display:inline-block;width:42px;height:24px;flex-shrink:0;">
+        <input type="checkbox" name="visible" id="lpVisible" ${p.visible ? 'checked' : ''} style="opacity:0;width:0;height:0;position:absolute;"/>
+        <span id="lpTrack" style="position:absolute;inset:0;border-radius:24px;background:${p.visible?'#6366f1':'rgba(255,255,255,0.15)'};transition:background .2s;pointer-events:none;"></span>
+        <span id="lpKnob" style="position:absolute;left:${p.visible?'20px':'2px'};top:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:left .2s;pointer-events:none;"></span>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#fff;">Mostrar en el login</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.35);margin-top:2px;">Aparece en el marquee de la pantalla de acceso</div>
+      </div>
+    </label>
+    ${_field('Nombre para mostrar', `<input name="nombre" value="${_esc(p.nombre || _empresa.nombre || '')}" placeholder="${_esc(_empresa.nombre || 'Nombre')}" style="${_inp()}"/>`)}
+    ${_field('Tagline (opcional)', `<input name="tagline" value="${_esc(p.tagline || '')}" placeholder="Gestión de flota desde 2018" style="${_inp()}"/>`)}
+    ${_field('URL del logo (opcional)', `<input name="logoUrl" type="url" value="${_esc(p.logoUrl || '')}" placeholder="https://..." style="${_inp()}"/>`)}
+    <div>
+      <button type="submit" style="padding:9px 20px;border-radius:8px;background:#6366f1;color:#fff;border:none;font-size:13px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">
+        Guardar presencia
+      </button>
+    </div>
+  </form>
+  ${p.visible ? `
+  <div style="padding:14px 16px;background:#070d16;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
+    <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Preview marquee</div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      ${p.logoUrl ? `<img src="${_esc(p.logoUrl)}" style="height:20px;border-radius:3px;opacity:.8;" onerror="this.style.display='none'"/>` : ''}
+      <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);">${_esc(p.nombre || _empresa.nombre || '')}</span>
+      ${p.tagline ? `<span style="font-size:11px;color:rgba(255,255,255,0.25);">${_esc(p.tagline)}</span>` : ''}
+    </div>
+  </div>` : ''}
+</div>`;
+}
+
+function _bindLoginPresencia() {
+  const form = _container?.querySelector('#loginPresenciaForm');
+  if (!form) return;
+
+  const chk = form.querySelector('[name=visible]');
+  const track = form.querySelector('#lpTrack');
+  const knob  = form.querySelector('#lpKnob');
+  if (chk && track && knob) {
+    chk.addEventListener('change', () => {
+      const v = chk.checked;
+      track.style.background = v ? '#6366f1' : 'rgba(255,255,255,0.15)';
+      knob.style.left = v ? '20px' : '2px';
+    });
+  }
+
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const btn = form.querySelector('[type=submit]');
+    btn.disabled = true; btn.textContent = 'Guardando…';
+    const data = {
+      visible:  form.visible.checked,
+      nombre:   form.nombre.value.trim() || _empresa.nombre || '',
+      tagline:  form.tagline.value.trim(),
+      logoUrl:  form.logoUrl.value.trim(),
+    };
+    try {
+      await window._db.collection('empresas').doc(_empresaId).update({ loginPresencia: data });
+      _empresa.loginPresencia = data;
+      await _syncLoginPresenciaPublica();
+      _toast('Presencia guardada', 'ok');
+      btn.textContent = 'Guardado ✓';
+      setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = 'Guardar presencia'; } }, 2200);
+      _switchTab('login');
+    } catch (err) {
+      _toast('Error: ' + err.message, 'error');
+      btn.disabled = false; btn.textContent = 'Guardar presencia';
+    }
+  });
+}
+
+async function _syncLoginPresenciaPublica() {
+  if (!window._db) return;
+  try {
+    const snap = await window._db.collection('empresas')
+      .where('loginPresencia.visible', '==', true)
+      .get();
+    const lista = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.loginPresencia?.visible) {
+        lista.push({
+          id:      doc.id,
+          nombre:  d.loginPresencia.nombre || d.nombre || doc.id,
+          tagline: d.loginPresencia.tagline || '',
+          logoUrl: d.loginPresencia.logoUrl || '',
+        });
+      }
+    });
+    await window._db.collection('configuracion').doc('loginPresencia').set({
+      lista,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+  } catch (err) {
+    console.warn('[empresa-detail] syncLoginPresencia:', err);
+  }
 }
 
 function _usuariosTabHtml() {
