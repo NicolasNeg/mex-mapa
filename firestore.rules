@@ -443,7 +443,8 @@ service cloud.firestore {
         ])
         && request.resource.data.keys().hasOnly([
           "nombre", "email", "puesto", "telefono", "password",
-          "rolSolicitado", "plazaSolicitada", "fecha", "estado", "_ts",
+          "rolSolicitado", "plazaSolicitada", "empresaId", "empresaNombre",
+          "fecha", "estado", "_ts",
           "createdAt", "updatedAt", "updatedFrom", "source"
         ])
         && request.resource.data.nombre is string
@@ -472,6 +473,14 @@ service cloud.firestore {
           request.resource.data.plazaSolicitada == null
           || request.resource.data.plazaSolicitada is string
         )
+        && (
+          request.resource.data.empresaId == null
+          || request.resource.data.empresaId is string
+        )
+        && (
+          request.resource.data.empresaNombre == null
+          || request.resource.data.empresaNombre is string
+        )
         && request.resource.data.estado == "PENDIENTE"
         && request.resource.data.nombre.size() >= 3
         && request.resource.data.email.size() >= 5
@@ -481,7 +490,9 @@ service cloud.firestore {
         && request.resource.data.telefono.size() <= 24
         && request.resource.data.password.size() >= 6
         && request.resource.data.password.size() <= 120
-        && (request.resource.data.plazaSolicitada == null || request.resource.data.plazaSolicitada.size() <= 40);
+        && (request.resource.data.plazaSolicitada == null || request.resource.data.plazaSolicitada.size() <= 40)
+        && (request.resource.data.empresaId == null || request.resource.data.empresaId.size() <= 80)
+        && (request.resource.data.empresaNombre == null || request.resource.data.empresaNombre.size() <= 120);
     }
 
     function solicitudUpdateValida() {

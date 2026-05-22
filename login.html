@@ -128,32 +128,126 @@
     </div>
   </div>
 
-  <!-- ── Modal solicitud de acceso ─────────────────────── -->
+  <!-- ── Modal solicitud de acceso (3 pasos) ──────────── -->
+  <style>
+    .sol-stepper { display:flex; align-items:center; padding:20px 24px 0; }
+    .sol-step-dot {
+      width:28px; height:28px; border-radius:50%; background:#e2e8f0; color:#94a3b8;
+      font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center;
+      flex-shrink:0; transition:all .2s; font-family:inherit;
+    }
+    .sol-step-dot.sol-step-active { background:#0b2548; color:#fff; }
+    .sol-step-dot.sol-step-done { background:#22c55e; color:#fff; }
+    .sol-step-line { flex:1; height:2px; background:#e2e8f0; margin:0 6px; }
+    .sol-step-labels {
+      display:flex; align-items:center; padding:4px 24px 0;
+      font-size:10px; font-weight:700; color:#94a3b8;
+      text-transform:uppercase; letter-spacing:.5px;
+    }
+    .sol-step-labels span:not(.sol-step-spacer) { white-space:nowrap; }
+    .sol-step-spacer { flex:1; }
+    .sol-empresa-card {
+      background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:12px; padding:14px 16px;
+    }
+    .sol-empresa-card .emp-name { font-size:15px; font-weight:800; color:#15803d; }
+    .sol-empresa-card .emp-id { font-size:11px; color:#16a34a; margin-top:2px; font-family:monospace; }
+    .sol-field-error { color:#ef4444; font-size:12px; margin-top:6px; font-weight:600; display:none; }
+    .sol-input-hint { font-size:11px; color:#94a3b8; margin-top:6px; line-height:1.5; }
+  </style>
+
   <div id="modal-solicitud" class="solicitud-modal-overlay" style="display:none;">
     <div class="solicitud-modal-card">
-      <div class="solicitud-modal-header">
-        <h2 class="solicitud-modal-title">Solicitar Acceso</h2>
-        <p class="solicitud-modal-sub">Completa el formulario y un administrador lo revisará.</p>
+
+      <!-- Stepper indicator -->
+      <div class="sol-stepper">
+        <div class="sol-step-dot sol-step-active" data-step="1">1</div>
+        <div class="sol-step-line"></div>
+        <div class="sol-step-dot" data-step="2">2</div>
+        <div class="sol-step-line"></div>
+        <div class="sol-step-dot" data-step="3">3</div>
       </div>
-      <div class="solicitud-form-body">
-        <input type="text"  id="sol_nombre"   class="sol-input" placeholder="Nombre completo" autocomplete="off">
-        <input type="email" id="sol_email"    class="sol-input" placeholder="Correo corporativo">
-        <input type="text"  id="sol_empresa"  class="sol-input" placeholder="Nombre de tu empresa o negocio">
-        <input type="text"  id="sol_puesto"   class="sol-input" placeholder="Puesto solicitado">
-        <input type="tel"   id="sol_telefono" class="sol-input" placeholder="Teléfono (opcional)">
-        <div class="mex-input-wrap">
-          <input type="password" id="sol_pass"         class="sol-input" placeholder="Contraseña" style="padding-right:46px;">
-          <span class="material-icons input-icon" onclick="togglePassword('sol_pass', this)">visibility</span>
+      <div class="sol-step-labels">
+        <span>Empresa</span>
+        <span class="sol-step-spacer"></span>
+        <span>Confirmar</span>
+        <span class="sol-step-spacer"></span>
+        <span>Tus datos</span>
+      </div>
+
+      <!-- Paso 1: Código de empresa -->
+      <div id="sol-step-1" class="sol-step-panel">
+        <div class="solicitud-modal-header">
+          <h2 class="solicitud-modal-title">Buscar Empresa</h2>
+          <p class="solicitud-modal-sub">Ingresa el código de tu empresa en la plataforma.</p>
         </div>
-        <div class="mex-input-wrap">
-          <input type="password" id="sol_pass_confirm" class="sol-input" placeholder="Confirmar contraseña" style="padding-right:46px;">
-          <span class="material-icons input-icon" onclick="togglePassword('sol_pass_confirm', this)">visibility</span>
-        </div>
-        <div style="display:flex; gap:12px;">
-          <button onclick="cerrarModalSolicitud()" class="sol-btn-cancel">CANCELAR</button>
-          <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" class="sol-btn-submit">ENVIAR SOLICITUD</button>
+        <div class="solicitud-form-body">
+          <input type="text" id="sol_empresa_id" class="sol-input"
+            placeholder="Código de empresa (ej: parking-central)"
+            autocomplete="off" style="text-transform:lowercase; letter-spacing:.5px;">
+          <div id="sol-emp-error" class="sol-field-error"></div>
+          <p class="sol-input-hint">El código lo proporciona el administrador de tu empresa.</p>
+          <div style="display:flex; gap:12px; margin-top:16px;">
+            <button onclick="cerrarModalSolicitud()" class="sol-btn-cancel">CANCELAR</button>
+            <button id="btnBuscarEmpresa" onclick="solBuscarEmpresa()" class="sol-btn-submit">BUSCAR EMPRESA</button>
+          </div>
         </div>
       </div>
+
+      <!-- Paso 2: Confirmar empresa + seleccionar plaza / rol -->
+      <div id="sol-step-2" class="sol-step-panel" style="display:none;">
+        <div class="solicitud-modal-header">
+          <h2 class="solicitud-modal-title">Confirmar Empresa</h2>
+          <p class="solicitud-modal-sub">Selecciona tu sucursal y el puesto que solicitas.</p>
+        </div>
+        <div class="solicitud-form-body">
+          <div id="sol-emp-card" class="sol-empresa-card"></div>
+          <div id="sol-plaza-wrap" style="margin-top:12px; display:none;">
+            <select id="sol_plaza" class="sol-input">
+              <option value="">— Sucursal / Plaza —</option>
+            </select>
+          </div>
+          <select id="sol_rol_solicitado" class="sol-input" style="margin-top:8px;">
+            <option value="">— Selecciona el puesto que solicitas * —</option>
+            <option value="AUXILIAR">Auxiliar</option>
+            <option value="VENTAS">Ventas</option>
+            <option value="SUPERVISOR">Supervisor</option>
+            <option value="JEFE_PATIO">Jefe de Patio</option>
+            <option value="GERENTE_PLAZA">Gerente de Plaza</option>
+            <option value="JEFE_REGIONAL">Jefe Regional</option>
+          </select>
+          <div id="sol-step2-error" class="sol-field-error"></div>
+          <div style="display:flex; gap:12px; margin-top:16px;">
+            <button onclick="solIrAPaso(1)" class="sol-btn-cancel">ATRÁS</button>
+            <button onclick="solConfirmarEmpresa()" class="sol-btn-submit">CONTINUAR</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paso 3: Datos del usuario -->
+      <div id="sol-step-3" class="sol-step-panel" style="display:none;">
+        <div class="solicitud-modal-header">
+          <h2 class="solicitud-modal-title">Tus Datos</h2>
+          <p class="solicitud-modal-sub">Completa tu información para enviar la solicitud.</p>
+        </div>
+        <div class="solicitud-form-body">
+          <input type="text"  id="sol_nombre"   class="sol-input" placeholder="Nombre completo *" autocomplete="off">
+          <input type="email" id="sol_email"    class="sol-input" placeholder="Correo electrónico *">
+          <input type="tel"   id="sol_telefono" class="sol-input" placeholder="Teléfono (opcional)">
+          <div class="mex-input-wrap">
+            <input type="password" id="sol_pass"         class="sol-input" placeholder="Contraseña * (mín. 6 caracteres)" style="padding-right:46px;">
+            <span class="material-icons input-icon" onclick="togglePassword('sol_pass', this)">visibility</span>
+          </div>
+          <div class="mex-input-wrap">
+            <input type="password" id="sol_pass_confirm" class="sol-input" placeholder="Confirmar contraseña *" style="padding-right:46px;">
+            <span class="material-icons input-icon" onclick="togglePassword('sol_pass_confirm', this)">visibility</span>
+          </div>
+          <div style="display:flex; gap:12px; margin-top:16px;">
+            <button onclick="solIrAPaso(2)" class="sol-btn-cancel">ATRÁS</button>
+            <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" class="sol-btn-submit">ENVIAR SOLICITUD</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 

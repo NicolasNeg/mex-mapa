@@ -2871,3 +2871,37 @@ exports.listarEmpresas = functions.region(REGION).https.onCall(async (_data, con
 
   return { ok: true, data };
 });
+
+// ══════════════════════════════════════════════════════════════
+//  getEmpresaPublicInfo — HTTPS callable (sin auth requerida)
+//  Valida que una empresa exista y esté activa; devuelve solo
+//  los campos seguros para mostrar en el formulario de registro.
+//  No expone datos sensibles: solo nombre, id y plazas.
+// ══════════════════════════════════════════════════════════════
+exports.getEmpresaPublicInfo = functions.region(REGION).https.onCall(async (data) => {
+  const raw = String(data?.empresaId || "").trim().toLowerCase();
+  if (!raw || raw.length < 2 || raw.length > 80) {
+    throw new HttpsError("invalid-argument", "Código de empresa inválido.");
+  }
+
+  const snap = await db.collection(EMPRESAS_COL).doc(raw).get();
+  if (!snap.exists) {
+    throw new HttpsError("not-found", "No encontramos esa empresa en la plataforma.");
+  }
+
+  const d = snap.data();
+  if (d.activo === false) {
+    throw new HttpsError("failed-precondition", "Esta empresa no está activa en la plataforma.");
+  }
+
+  const plazas = Array.isArray(d.plazas)
+    ? d.plazas.filter(p => typeof p === "string" && p.trim().length > 0).slice(0, 50)
+    : [];
+
+  return {
+    ok: true,
+    id: snap.id,
+    nombre: d.nombre || snap.id,
+    plazas,
+  };
+});
