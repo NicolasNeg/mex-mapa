@@ -2052,17 +2052,66 @@
     .login-left-side {
       flex: 1.1;
       position: relative;
-      background: url('https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?auto=format&fit=crop&q=80&w=800') center/cover no-repeat;
+      background: linear-gradient(150deg, #050d1e 0%, #0a1628 50%, #0d1f3c 100%);
+      overflow: hidden;
+    }
+
+    .login-left-bg-glow {
+      position: absolute;
+      border-radius: 50%;
+      pointer-events: none;
+      filter: blur(70px);
+    }
+
+    .login-left-bg-glow--top {
+      width: 350px;
+      height: 350px;
+      top: -100px;
+      right: -80px;
+      background: radial-gradient(circle, rgba(99,102,241,0.22) 0%, transparent 70%);
+    }
+
+    .login-left-bg-glow--bottom {
+      width: 280px;
+      height: 280px;
+      bottom: -60px;
+      left: -60px;
+      background: radial-gradient(circle, rgba(59,130,246,0.18) 0%, transparent 70%);
+    }
+
+    .login-saas-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 12px;
+      background: rgba(99,102,241,0.18);
+      border: 1px solid rgba(99,102,241,0.35);
+      border-radius: 100px;
+      color: #a5b4fc;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      margin-bottom: 28px;
     }
 
     .login-left-overlay {
       position: absolute;
       inset: 0;
-      background: linear-gradient(160deg, rgba(6, 14, 28, 0.3) 0%, rgba(6, 14, 28, 0.82) 52%, rgba(6, 14, 28, 0.97) 100%);
+      background: transparent;
       padding: 44px 40px;
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
+    }
+
+    .login-left-overlay::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(99,102,241,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(99,102,241,0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
     }
 
     .login-brand {
@@ -2072,7 +2121,7 @@
     }
 
     .login-brand-name {
-      font-size: 62px;
+      font-size: 54px;
       font-weight: 900;
       line-height: 1;
       color: white;
@@ -2080,11 +2129,11 @@
     }
 
     .login-brand-sub {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 800;
-      color: #38bdf8;
-      letter-spacing: 5px;
-      margin-top: 5px;
+      color: #818cf8;
+      letter-spacing: 4px;
+      margin-top: 10px;
       text-transform: uppercase;
     }
 
@@ -2588,8 +2637,12 @@
       }
 
       .login-left-side {
-        height: 200px;
+        height: 220px;
         flex: none;
+      }
+
+      .login-saas-badge {
+        display: none;
       }
 
       .login-left-overlay {
