@@ -108,6 +108,41 @@ function _bindConfig() {
   const form = _container?.querySelector('#empConfigForm');
   if (!form) return;
 
+  // Color picker sync
+  const colorInput = form.querySelector('[name=colorPrincipal]');
+  const colorDisplay = form.querySelector('#colorHexDisplay');
+  if (colorInput && colorDisplay) {
+    colorInput.addEventListener('input', () => { colorDisplay.value = colorInput.value; });
+  }
+
+  // Migration button
+  const btnMigrar = _container?.querySelector('#btnMigrarLegacy');
+  const migStatus = _container?.querySelector('#migrarStatus');
+  if (btnMigrar) {
+    btnMigrar.addEventListener('click', async () => {
+      if (!confirm(`¿Migrar unidades legacy para "${_empresaId}"?\nEsto añadirá empresaId a todos los docs de cuadre, externos, index_unidades y cuadre_admins que no lo tengan.`)) return;
+      btnMigrar.disabled = true;
+      btnMigrar.textContent = 'Migrando…';
+      if (migStatus) migStatus.textContent = 'Ejecutando migración, puede tardar varios segundos…';
+      try {
+        const fn = firebase.functions().httpsCallable('migrarUnidadesLegacy');
+        const res = await fn({ empresaId: _empresaId });
+        const d = res.data;
+        if (migStatus) {
+          migStatus.style.color = '#4ade80';
+          migStatus.textContent = `✓ Migración completa — cuadre: ${d.cuadre}, externos: ${d.externos}, index_unidades: ${d.index_unidades}, cuadre_admins: ${d.cuadre_admins} docs actualizados.`;
+        }
+        _toast(`Migración completa: ${d.cuadre + d.externos + d.index_unidades + d.cuadre_admins} docs`, 'ok');
+        btnMigrar.textContent = 'Migración completa ✓';
+      } catch (err) {
+        if (migStatus) { migStatus.style.color = '#f87171'; migStatus.textContent = 'Error: ' + err.message; }
+        _toast('Error en migración: ' + err.message, 'error');
+        btnMigrar.disabled = false;
+        btnMigrar.textContent = 'Migrar unidades legacy → empresaId';
+      }
+    });
+  }
+
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const btn = form.querySelector('[type=submit]');
@@ -362,7 +397,22 @@ function _configTabHtml() {
       Guardar cambios
     </button>
   </div>
-</form>`;
+</form>
+<div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);">
+  <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Migración de datos</div>
+  <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px;line-height:1.6;">
+    Asigna el <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">${_esc(_empresaId)}</code> a todos los documentos legacy
+    en <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">cuadre</code>,
+    <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">externos</code>,
+    <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">index_unidades</code> y
+    <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">cuadre_admins</code>
+    que no tienen este campo. Ejecutar solo una vez por empresa.
+  </div>
+  <button id="btnMigrarLegacy" type="button" style="padding:9px 18px;border-radius:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;font-size:13px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">
+    Migrar unidades legacy → empresaId
+  </button>
+  <div id="migrarStatus" style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.5);min-height:18px;"></div>
+</div>`;
 }
 
 function _featuresTabHtml() {

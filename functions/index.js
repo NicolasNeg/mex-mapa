@@ -2905,3 +2905,78 @@ exports.getEmpresaPublicInfo = functions.region(REGION).https.onCall(async (data
     plazas,
   };
 });
+
+// ══════════════════════════════════════════════════════════════
+//  migrarUnidadesLegacy — HTTPS callable (solo PROGRAMADOR)
+//  Añade empresaId a todos los documentos de cuadre, externos,
+//  index_unidades y cuadre_admins que no tienen el campo.
+//  Llama desde el panel programador → empresa-detail → Configuración.
+//  Parámetros: { empresaId: string }
+//  Devuelve:   { ok, cuadre, externos, index_unidades, cuadre_admins }
+// ══════════════════════════════════════════════════════════════
+exports.migrarUnidadesLegacy = functions
+  .region(REGION)
+  .runWith({ timeoutSeconds: 540, memory: "512MB" })
+  .https.onCall(async (data, context) => {
+    await requireProgrammerAuth(context);
+
+    const empresaId = String(data?.empresaId || "").trim().toLowerCase();
+    if (!empresaId || empresaId.length < 2) {
+      throw new HttpsError("invalid-argument", "empresaId requerido.");
+    }
+
+    // Verify empresa exists
+    const empSnap = await db.collection(EMPRESAS_COL).doc(empresaId).get();
+    if (!empSnap.exists) {
+      throw new HttpsError("not-found", `Empresa "${empresaId}" no encontrada.`);
+    }
+
+    const BATCH_LIMIT = 400;
+    const colecciones = [
+      { name: "cuadre",         col: "cuadre" },
+      { name: "externos",       col: "externos" },
+      { name: "index_unidades", col: "index_unidades" },
+      { name: "cuadre_admins",  col: "cuadre_admins" },
+    ];
+
+    const results = {};
+
+    for (const { name, col } of colecciones) {
+      let updated = 0;
+      let lastDoc = null;
+      let hasMore = true;
+
+      while (hasMore) {
+        let q = db.collection(col).limit(500);
+        if (lastDoc) q = q.startAfter(lastDoc);
+
+        const snap = await q.get();
+        if (snap.empty) { hasMore = false; break; }
+        lastDoc = snap.docs[snap.docs.length - 1];
+        if (snap.docs.length < 500) hasMore = false;
+
+        // Filter docs without empresaId (field missing or null)
+        const toUpdate = snap.docs.filter(d => {
+          const val = d.data().empresaId;
+          return val === undefined || val === null || val === "";
+        });
+
+        // Batch update in chunks
+        for (let i = 0; i < toUpdate.length; i += BATCH_LIMIT) {
+          const batch = db.batch();
+          const chunk = toUpdate.slice(i, i + BATCH_LIMIT);
+          for (const doc of chunk) {
+            batch.update(doc.ref, { empresaId });
+          }
+          await batch.commit();
+          updated += chunk.length;
+        }
+      }
+
+      results[name] = updated;
+      logger.info(`[migrarUnidadesLegacy] ${col}: ${updated} docs actualizados`, { empresaId });
+    }
+
+    logger.info("[migrarUnidadesLegacy] done", { empresaId, results });
+    return { ok: true, empresaId, ...results };
+  });

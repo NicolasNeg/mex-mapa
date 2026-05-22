@@ -33,6 +33,47 @@
       ]
     },
     {
+      "collectionGroup": "cuadre_admins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "_createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cuadre_admins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "plaza", "order": "ASCENDING" },
+        { "fieldPath": "_createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "cuadre",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "plaza", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "externos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "plaza", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "historial_cuadres",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "mensajes",
       "queryScope": "COLLECTION",
       "fields": [
@@ -47,8 +88,7 @@
         { "fieldPath": "remitente", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
-    }
-  ,
+    },
     {
       "collectionGroup": "historial_patio",
       "queryScope": "COLLECTION",
