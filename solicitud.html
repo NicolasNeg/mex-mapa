@@ -18,7 +18,7 @@
   <script src="/js/core/firebase-init.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
 
-  <title>Solicitar Acceso — Armenta Rent A Car</title>
+  <title>Solicitar Acceso — MapGestion</title>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -245,15 +245,13 @@
       </div>
 
       <div class="field">
-        <label for="sol_puesto">Puesto solicitado *</label>
-        <input class="input" id="sol_puesto" type="text" placeholder="Ej: AUXILIAR, VENTAS, SUPERVISOR...">
+        <label for="sol_empresa">Empresa o negocio</label>
+        <input class="input" id="sol_empresa" type="text" placeholder="Ej: Estacionamiento Central">
       </div>
 
       <div class="field">
-        <label for="sol_plaza">Plaza solicitada *</label>
-        <select class="input" id="sol_plaza">
-          <option value="">Cargando plazas...</option>
-        </select>
+        <label for="sol_puesto">Puesto solicitado *</label>
+        <input class="input" id="sol_puesto" type="text" placeholder="Ej: AUXILIAR, VENTAS, SUPERVISOR...">
       </div>
 
       <div class="field">
@@ -328,43 +326,6 @@
     else                         { inp.type = 'password'; ico.textContent = 'visibility'; }
   }
 
-  function solUpper(value) {
-    return String(value || '').trim().toUpperCase();
-  }
-
-  function solUnique(values = []) {
-    return Array.from(new Set((values || []).map(solUpper).filter(Boolean)));
-  }
-
-  function getRequestPlazas() {
-    const empresa = window.MEX_CONFIG?.empresa || {};
-    const direct = Array.isArray(empresa.plazas) ? empresa.plazas : [];
-    const detailed = Array.isArray(empresa.plazasDetalle)
-      ? empresa.plazasDetalle.map(item => item?.id)
-      : [];
-    return solUnique([...direct, ...detailed]);
-  }
-
-  function fillRequestPlazas(selectedValue = '') {
-    const select = document.getElementById('sol_plaza');
-    if (!select) return [];
-    const plazas = getRequestPlazas();
-    if (!plazas.length) {
-      select.innerHTML = '<option value="">No hay plazas disponibles</option>';
-      select.disabled = true;
-      return [];
-    }
-    select.disabled = false;
-    select.innerHTML = '<option value="">Selecciona una plaza</option>' + plazas
-      .map(plaza => `<option value="${plaza}">${plaza}</option>`)
-      .join('');
-    const preferred = solUpper(selectedValue || window.getMexCurrentPlaza?.() || '');
-    if (preferred && plazas.includes(preferred)) {
-      select.value = preferred;
-    }
-    return plazas;
-  }
-
   let _toastTimer;
   function solToast(msg, ok = false) {
     const el  = document.getElementById('sol-toast');
@@ -382,35 +343,29 @@
     const REQUEST_COLLECTION = 'solicitudes';
     const nombre   = document.getElementById('sol_nombre').value.trim().toUpperCase();
     const email    = document.getElementById('sol_email').value.trim().toLowerCase();
+    const empresa  = document.getElementById('sol_empresa')?.value.trim() || '';
     const puesto   = document.getElementById('sol_puesto').value.trim().toUpperCase();
-    const plaza    = solUpper(document.getElementById('sol_plaza').value);
     const telefono = document.getElementById('sol_telefono').value.trim();
     const pass     = document.getElementById('sol_pass').value;
     const pass2    = document.getElementById('sol_pass2').value;
     const btn      = document.getElementById('sol-btn');
 
-    const plazasDisponibles = fillRequestPlazas(plaza);
-    if (!nombre || !email || !puesto || !plaza) { solToast('Completa los campos obligatorios.'); return; }
-    if (!plazasDisponibles.includes(plaza))      { solToast('Selecciona una plaza válida.'); return; }
+    if (!nombre || !email || !puesto) { solToast('Completa los campos obligatorios.'); return; }
     if (!pass || pass.length < 6) { solToast('La contraseña debe tener mínimo 6 caracteres.'); return; }
     if (pass !== pass2) { solToast('Las contraseñas no coinciden.'); return; }
-    const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRx.test(email))         { solToast('Correo electrónico no válido.'); return; }
-    if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) {
-      solToast('Teléfono inválido.');
-      return;
-    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { solToast('Correo electrónico no válido.'); return; }
+    if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) { solToast('Teléfono inválido.'); return; }
 
     btn.disabled = true;
     btn.textContent = 'ENVIANDO...';
 
     try {
-      const reqRef = firebase.firestore().collection(REQUEST_COLLECTION).doc(email);
-      // Create-only por reglas: set crea doc nuevo; update posterior queda denegado.
-      await reqRef.set({
+      await firebase.firestore().collection(REQUEST_COLLECTION).doc(email).set({
         nombre, email, puesto, telefono, password: pass,
         rolSolicitado: null,
-        plazaSolicitada: plaza,
+        empresaNombre: empresa,
+        empresaId: null,
+        plazaAsignada: null,
         fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
         estado: 'PENDIENTE',
         _ts: firebase.firestore.FieldValue.serverTimestamp(),
@@ -420,27 +375,21 @@
         source: 'solicitud_publica'
       });
 
-      // 2. Enviar correo de confirmación via Cloud Function
       try {
-        const fn = firebase.functions().httpsCallable('enviarCorreoSolicitud');
-        await fn({ nombre, email, puesto });
+        await firebase.functions().httpsCallable('enviarCorreoSolicitud')({ nombre, email, puesto });
       } catch (mailErr) {
-        // Si el correo falla, la solicitud igual quedó guardada — no bloquear
         console.warn('[solicitud] correo no enviado:', mailErr.message);
       }
 
-      // 3. Mostrar estado de éxito
       document.getElementById('sol-form-state').style.display = 'none';
       document.getElementById('sol-success-state').style.display = 'block';
-
-      // Redirigir al login después de 6 segundos
       setTimeout(() => { window.location.href = '/login'; }, 6000);
 
     } catch (err) {
       console.error('[solicitud]', err);
       const code = String(err?.code || '');
       if (code.includes('already-exists') || code.includes('permission-denied')) {
-        solToast('Ya existe una solicitud para este correo o no es posible modificarla desde este formulario.');
+        solToast('Ya existe una solicitud para este correo o no es posible modificarla.');
       } else {
         solToast('Error al enviar la solicitud. Intenta de nuevo.');
       }
@@ -450,18 +399,10 @@
     }
   }
 
-  // Enter en cualquier campo dispara el envío
   document.querySelectorAll('.input').forEach(inp => {
-    inp.addEventListener('keydown', e => {
-      if (e.key === 'Enter') enviarSolicitud();
-    });
-  });
-
-  Promise.resolve(window.__mexConfigReadyPromise).catch(() => null).finally(() => {
-    fillRequestPlazas();
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') enviarSolicitud(); });
   });
 </script>
-<script src="/js/views/legacy-shell-bridge.js"></script>
 
 </body>
 </html>

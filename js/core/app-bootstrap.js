@@ -1125,12 +1125,13 @@
     if (!root._db) {
       throw new Error('Firebase no está listo para cargar la configuración global.');
     }
-    const [empresaSnap, listasSnap] = await Promise.all([
-      root._db.collection('configuracion').doc('empresa').get(),
-      root._db.collection('configuracion').doc('listas').get()
-    ]);
+    // empresa data comes from empresa-context.js (empresas/{empresaId}) — not from configuracion/empresa (legacy single-tenant doc).
+    const listasSnap = await root._db.collection('configuracion').doc('listas').get();
+    const empresaData = (root._empresaActual && !root._empresaActual.isSuperAdminContext)
+      ? root._empresaActual
+      : {};
     return normalizeConfig({
-      empresa: empresaSnap.exists ? (empresaSnap.data() || {}) : {},
+      empresa: empresaData,
       listas: listasSnap.exists ? (listasSnap.data() || {}) : {}
     });
   }

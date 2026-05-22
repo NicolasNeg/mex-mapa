@@ -1855,7 +1855,7 @@ exports.enviarCorreoSolicitud = functions
     const html = `
       <div style="font-family:Inter,sans-serif;max-width:520px;margin:0 auto;background:#f8fafc;border-radius:16px;overflow:hidden;">
         <div style="background:linear-gradient(135deg,#0b2548,#1a53a0);padding:32px 36px;">
-          <h1 style="color:#fff;margin:0;font-size:22px;font-weight:900;">Armenta Rent A Car</h1>
+          <h1 style="color:#fff;margin:0;font-size:22px;font-weight:900;">MapGestion</h1>
           <p style="color:rgba(255,255,255,0.7);margin:6px 0 0;font-size:13px;">Sistema de Administración de Flota</p>
         </div>
         <div style="padding:32px 36px;background:#fff;">
@@ -1875,15 +1875,15 @@ exports.enviarCorreoSolicitud = functions
           </p>
         </div>
         <div style="padding:16px 36px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-          <p style="color:#cbd5e1;font-size:11px;margin:0;text-align:center;">Armenta Rent A Car · Sistema MEX Mapa</p>
+          <p style="color:#cbd5e1;font-size:11px;margin:0;text-align:center;">MapGestion · Sistema MEX Mapa</p>
         </div>
       </div>
     `;
 
     await transporter.sendMail({
-      from: `"Armenta Rent A Car" <${mailUser}>`,
+      from: `"MapGestion" <${mailUser}>`,
       to: email,
-      subject: "Solicitud de acceso recibida — Armenta Rent A Car",
+      subject: "Solicitud de acceso recibida — MapGestion",
       html,
     });
 

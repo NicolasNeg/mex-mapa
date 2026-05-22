@@ -148,20 +148,23 @@
     },
 
     // ─── CONFIGURACIÓN GLOBAL ─────────────────────────────
+    // empresa data comes from empresa-context.js (empresas/{empresaId}).
     // Ubicaciones viven en configuracion/listas (global) y se segmentan por plazaId.
     // configuracion/{PLAZA} se mantiene solo como fallback legacy de lectura.
     async obtenerConfiguracion(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
       if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
       const fetches = [
-        db.collection(COL.CONFIG).doc("empresa").get(),
         db.collection(COL.CONFIG).doc("listas").get()
       ];
       if (plazaUp) fetches.push(_configPlazaRef(plazaUp).get());
       const snaps = await Promise.all(fetches);
-      const snapEmpresa = snaps[0];
-      const snapListas  = snaps[1];
-      const snapPlaza   = snaps[2] || null;
+      const snapListas = snaps[0];
+      const snapPlaza  = snaps[1] || null;
+
+      // Empresa data: use context loaded by empresa-context.js (not legacy configuracion/empresa)
+      const empresaCtx = window._empresaActual;
+      const empresaData = (empresaCtx && !empresaCtx.isSuperAdminContext) ? empresaCtx : {};
 
       const globalListas = snapListas.exists
         ? snapListas.data()
@@ -182,7 +185,7 @@
       }
 
       return {
-        empresa: snapEmpresa.exists ? snapEmpresa.data() : { nombre: "EMPRESA" },
+        empresa: empresaData,
         listas: { ...globalListas, ubicaciones }
       };
     },
