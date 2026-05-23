@@ -335,16 +335,79 @@ window.loginConGoogle = async function () {
 };
 
 // ── Modal de solicitud de acceso — flujo multi-tenant ─────
-// _solEmpresa almacena el tenant verificado al completar el Paso 1.
-let _solEmpresa = null; // { id, nombre, plazas: string[] }
+let _solEmpresa = null;
+let _solEmpresas = []; // lista completa cargada desde Cloud Function
+let _solSelectedId = ''; // empresa elegida del combobox
 
-window.abrirModalSolicitud = () => {
+window.abrirModalSolicitud = async () => {
   _solEmpresa = null;
-  const empInput = document.getElementById('sol_empresa_id');
-  if (empInput) empInput.value = '';
+  _solSelectedId = '';
+  const hiddenInput = document.getElementById('sol_empresa_id');
+  const searchInput = document.getElementById('sol_empresa_search');
+  if (hiddenInput) hiddenInput.value = '';
+  if (searchInput) searchInput.value = '';
   _solSetEmpError('');
   solIrAPaso(1);
   document.getElementById('modal-solicitud').style.display = 'flex';
+  _loadEmpresasCombobox();
+};
+
+async function _loadEmpresasCombobox() {
+  const loading = document.getElementById('sol-combo-loading');
+  const hint = document.getElementById('sol-combo-hint');
+  if (loading) loading.style.display = '';
+  if (hint) hint.textContent = 'Cargando empresas disponibles…';
+
+  try {
+    const fetch = window._solFetchEmpresas || (() => Promise.resolve([]));
+    _solEmpresas = await fetch();
+    _renderEmpresasList('');
+    if (hint) hint.textContent = _solEmpresas.length
+      ? `${_solEmpresas.length} empresa${_solEmpresas.length !== 1 ? 's' : ''} disponible${_solEmpresas.length !== 1 ? 's' : ''}`
+      : 'No hay empresas registradas aún.';
+  } catch {
+    if (hint) hint.textContent = 'Error al cargar empresas. Intenta de nuevo.';
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function _renderEmpresasList(query) {
+  const container = document.getElementById('sol-empresa-list');
+  if (!container) return;
+  const q = (query || '').toLowerCase().trim();
+  const filtered = q
+    ? _solEmpresas.filter(e => e.nombre.toLowerCase().includes(q) || e.id.toLowerCase().includes(q))
+    : _solEmpresas;
+
+  if (!filtered.length) {
+    container.innerHTML = `<div class="sol-emp-no-results">${q ? 'Sin resultados para "' + q + '"' : 'No hay empresas disponibles'}</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.slice(0, 40).map(e => {
+    const name = String(e.nombre || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const id = String(e.id || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const active = e.id === _solSelectedId ? ' active' : '';
+    return `<div class="sol-emp-option${active}" data-id="${id}" onclick="solSeleccionarEmpresa('${id}','${name}')">
+      <span class="material-icons emp-opt-icon">business</span>
+      <div><div class="emp-opt-name">${name}</div><div class="emp-opt-id">${id}</div></div>
+    </div>`;
+  }).join('');
+}
+
+window.solFiltrarEmpresas = function (query) {
+  _renderEmpresasList(query);
+};
+
+window.solSeleccionarEmpresa = function (id, nombre) {
+  _solSelectedId = id;
+  const hiddenInput = document.getElementById('sol_empresa_id');
+  const searchInput = document.getElementById('sol_empresa_search');
+  if (hiddenInput) hiddenInput.value = id;
+  if (searchInput) searchInput.value = nombre;
+  _renderEmpresasList('');
+  _solSetEmpError('');
 };
 
 window.cerrarModalSolicitud = () => {
@@ -378,12 +441,11 @@ window.solIrAPaso = function (paso) {
 };
 
 window.solBuscarEmpresa = async function () {
-  const inp = document.getElementById('sol_empresa_id');
-  const empresaId = (inp?.value || '').trim().toLowerCase().replace(/\s+/g, '-');
+  const empresaId = (_solSelectedId || '').trim().toLowerCase();
   _solSetEmpError('');
 
   if (!empresaId || empresaId.length < 2) {
-    _solSetEmpError('Ingresa el código de empresa (mínimo 2 caracteres).');
+    _solSetEmpError('Selecciona una empresa de la lista.');
     return;
   }
 
@@ -440,7 +502,7 @@ window.solBuscarEmpresa = async function () {
       : 'Error al buscar la empresa. Intenta de nuevo.';
     _solSetEmpError(msg);
   } finally {
-    if (btn) { btn.disabled = false; btn.innerText = 'BUSCAR EMPRESA'; }
+    if (btn) { btn.disabled = false; btn.innerText = 'CONTINUAR'; }
   }
 };
 

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es" data-page-title="Iniciar sesion" data-page-description="Iniciar sesion en MapGestion">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -14,7 +15,8 @@
   <link rel="apple-touch-icon" href="/img/no-model.svg">
 
   <!-- Plus Jakarta Sans (reference design) + Material Icons -->
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+    rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
   <link rel="stylesheet" href="/css/dialogs.css">
@@ -35,7 +37,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
   <!-- reCAPTCHA Enterprise -->
-  <script src="https://www.google.com/recaptcha/enterprise.js?render=6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j" async defer></script>
+  <script src="https://www.google.com/recaptcha/enterprise.js?render=6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j" async
+    defer></script>
 
   <!-- Firebase core -->
   <script src="/js/core/firebase-config.js"></script>
@@ -52,7 +55,11 @@
        LOGIN PAGE — self-contained styles
        Font: Plus Jakarta Sans  |  Design: Pro Blue SaaS
     ═══════════════════════════════════════════════════════ */
-    *, *::before, *::after { box-sizing: border-box; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+    }
 
     /* ── Page shell ──────────────────────────────────────── */
     body {
@@ -108,7 +115,10 @@
       flex-shrink: 0;
     }
 
-    .login-header-icon .material-icons { color: #002f66; font-size: 22px; }
+    .login-header-icon .material-icons {
+      color: #002f66;
+      font-size: 22px;
+    }
 
     .login-header-name {
       display: block;
@@ -131,17 +141,20 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      background: rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.08);
       backdrop-filter: blur(8px);
       padding: 6px 14px;
       border-radius: 9999px;
-      border: 1px solid rgba(255,255,255,0.12);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       font-size: 12px;
       font-weight: 600;
       color: white;
     }
 
-    .login-secure-badge .material-icons { font-size: 14px; color: #4ade80; }
+    .login-secure-badge .material-icons {
+      font-size: 14px;
+      color: #4ade80;
+    }
 
     /* ── Main ───────────────────────────────────────────── */
     .login-main {
@@ -185,8 +198,15 @@
     }
 
     @keyframes slideUp {
-      from { opacity: 0; transform: translateY(24px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     /* ── Left: dark brand panel ─────────────────────────── */
@@ -220,15 +240,19 @@
     }
 
     .login-left-bg-glow--top {
-      width: 350px; height: 350px;
-      top: -100px; right: -80px;
-      background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%);
+      width: 350px;
+      height: 350px;
+      top: -100px;
+      right: -80px;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.25) 0%, transparent 70%);
     }
 
     .login-left-bg-glow--bottom {
-      width: 280px; height: 280px;
-      bottom: -60px; left: -60px;
-      background: radial-gradient(circle, rgba(45,212,191,0.2) 0%, transparent 70%);
+      width: 280px;
+      height: 280px;
+      bottom: -60px;
+      left: -60px;
+      background: radial-gradient(circle, rgba(45, 212, 191, 0.2) 0%, transparent 70%);
     }
 
     .login-left-overlay {
@@ -241,8 +265,8 @@
       align-items: center;
       gap: 6px;
       padding: 5px 12px;
-      background: rgba(171,199,255,0.12);
-      border: 1px solid rgba(171,199,255,0.22);
+      background: rgba(171, 199, 255, 0.12);
+      border: 1px solid rgba(171, 199, 255, 0.22);
       border-radius: 9999px;
       color: #abc7ff;
       font-size: 11px;
@@ -285,7 +309,10 @@
       padding-top: 20px;
     }
 
-    .login-stat { display: flex; flex-direction: column; }
+    .login-stat {
+      display: flex;
+      flex-direction: column;
+    }
 
     .login-stat-num {
       font-size: 20px;
@@ -327,7 +354,7 @@
       align-items: center;
       justify-content: center;
       margin-bottom: 24px;
-      box-shadow: 0 6px 18px rgba(8,18,32,0.35);
+      box-shadow: 0 6px 18px rgba(8, 18, 32, 0.35);
     }
 
     .login-form-wrapper h3 {
@@ -338,14 +365,16 @@
       letter-spacing: -0.5px;
     }
 
-    .login-form-wrapper > p {
+    .login-form-wrapper>p {
       color: #94a3b8;
       font-size: 13px;
       font-weight: 500;
       margin: 0 0 28px;
     }
 
-    .login-field { margin-bottom: 16px; }
+    .login-field {
+      margin-bottom: 16px;
+    }
 
     .input-label {
       display: block;
@@ -363,7 +392,7 @@
       align-items: center;
       border-radius: 9999px;
       background: white;
-      box-shadow: 0 4px 20px -4px rgba(0,0,0,0.07);
+      box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.07);
       border: 1.5px solid #f1f5f9;
       transition: border-color 0.2s, box-shadow 0.2s;
       position: relative;
@@ -371,7 +400,7 @@
 
     .login-input-pill:focus-within {
       border-color: #2dd4bf;
-      box-shadow: 0 0 0 3px rgba(45,212,191,0.15), 0 4px 20px -4px rgba(0,0,0,0.07);
+      box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15), 0 4px 20px -4px rgba(0, 0, 0, 0.07);
     }
 
     .login-pill-icon {
@@ -383,7 +412,9 @@
       transition: color 0.2s;
     }
 
-    .login-input-pill:focus-within .login-pill-icon { color: #2dd4bf; }
+    .login-input-pill:focus-within .login-pill-icon {
+      color: #2dd4bf;
+    }
 
     .login-input-pill input {
       width: 100%;
@@ -397,7 +428,9 @@
       color: #0f172a;
     }
 
-    .login-input-pill input::placeholder { color: #cbd5e1; }
+    .login-input-pill input::placeholder {
+      color: #cbd5e1;
+    }
 
     .input-icon {
       position: absolute;
@@ -409,7 +442,9 @@
       transition: color 0.2s;
     }
 
-    .input-icon:hover { color: #2dd4bf; }
+    .input-icon:hover {
+      color: #2dd4bf;
+    }
 
     /* ── Remember me ────────────────────────────────────── */
     .login-remember {
@@ -420,7 +455,9 @@
       cursor: pointer;
     }
 
-    .login-remember input[type="checkbox"] { display: none; }
+    .login-remember input[type="checkbox"] {
+      display: none;
+    }
 
     .remember-box {
       width: 18px;
@@ -435,7 +472,7 @@
       transition: all 0.2s;
     }
 
-    .login-remember input:checked ~ .remember-box {
+    .login-remember input:checked~.remember-box {
       background: linear-gradient(135deg, #2dd4bf, #6366f1);
       border-color: transparent;
     }
@@ -452,7 +489,9 @@
       transition: opacity 0.15s;
     }
 
-    .login-remember input:checked ~ .remember-box::after { opacity: 1; }
+    .login-remember input:checked~.remember-box::after {
+      opacity: 1;
+    }
 
     .remember-text {
       font-size: 12px;
@@ -484,11 +523,14 @@
     }
 
     .login-btn-primary:hover:not(:disabled) {
-      box-shadow: 0 8px 24px rgba(45,212,191,0.35);
+      box-shadow: 0 8px 24px rgba(45, 212, 191, 0.35);
       transform: translateY(-1px);
     }
 
-    .login-btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
 
     /* ── Divider ─────────────────────────────────────────── */
     .login-divider {
@@ -502,7 +544,11 @@
       letter-spacing: 1px;
     }
 
-    .login-divider div { flex: 1; height: 1px; background: #f1f5f9; }
+    .login-divider div {
+      flex: 1;
+      height: 1px;
+      background: #f1f5f9;
+    }
 
     /* ── Google button ───────────────────────────────────── */
     .login-btn-google {
@@ -521,7 +567,7 @@
       justify-content: center;
       gap: 10px;
       transition: all 0.2s;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
     }
 
     .login-btn-google:hover:not(:disabled) {
@@ -530,7 +576,10 @@
       transform: translateY(-1px);
     }
 
-    .login-btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
+    .login-btn-google:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
 
     /* ── Error box ───────────────────────────────────────── */
     .login-error-box {
@@ -575,16 +624,23 @@
       padding: 0;
     }
 
-    .login-link-btn:hover { color: #0b2548; text-decoration: underline; }
+    .login-link-btn:hover {
+      color: #0b2548;
+      text-decoration: underline;
+    }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
     /* ── Page footer ─────────────────────────────────────── */
     .login-page-footer {
       position: relative;
       z-index: 10;
-      border-top: 1px solid rgba(255,255,255,0.07);
-      background: rgba(13,27,46,0.88);
+      border-top: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(13, 27, 46, 0.88);
       backdrop-filter: blur(8px);
       flex-shrink: 0;
     }
@@ -598,12 +654,16 @@
       gap: 8px;
     }
 
-    .login-footer-links { display: flex; gap: 24px; flex-wrap: wrap; }
+    .login-footer-links {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
 
     .login-footer-link {
       font-size: 12px;
       font-weight: 600;
-      color: rgba(195,198,210,0.55);
+      color: rgba(195, 198, 210, 0.55);
       text-decoration: none;
       display: flex;
       align-items: center;
@@ -611,19 +671,21 @@
       transition: color 0.2s;
     }
 
-    .login-footer-link:hover { color: white; }
+    .login-footer-link:hover {
+      color: white;
+    }
 
     .login-footer-version {
       font-size: 11px;
       font-weight: 800;
-      color: rgba(195,198,210,0.4);
+      color: rgba(195, 198, 210, 0.4);
       text-transform: uppercase;
       letter-spacing: 1px;
     }
 
     /* ── Marquee ─────────────────────────────────────────── */
     .login-marquee-outer {
-      border-top: 1px solid rgba(255,255,255,0.04);
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
       padding: 10px 0;
     }
 
@@ -642,7 +704,9 @@
       transition: opacity 0.4s;
     }
 
-    .login-marquee:hover { opacity: 1; }
+    .login-marquee:hover {
+      opacity: 1;
+    }
 
     .login-marquee-half {
       display: flex;
@@ -662,19 +726,24 @@
     .login-marquee-item span {
       font-size: 12px;
       font-weight: 600;
-      color: rgba(195,198,210,0.6);
+      color: rgba(195, 198, 210, 0.6);
     }
 
     @keyframes marqueeScroll {
-      0%   { transform: translateX(0); }
-      100% { transform: translateX(-50%); }
+      0% {
+        transform: translateX(0);
+      }
+
+      100% {
+        transform: translateX(-50%);
+      }
     }
 
     /* ── Solicitud modal ─────────────────────────────────── */
     .solicitud-modal-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.7);
+      background: rgba(0, 0, 0, 0.7);
       z-index: 99999;
       display: flex;
       align-items: center;
@@ -688,16 +757,35 @@
       width: 92%;
       border-radius: 24px;
       padding: 36px;
-      box-shadow: 0 40px 80px rgba(0,0,0,0.55);
-      animation: slideUp 0.45s cubic-bezier(0.16,1,0.3,1) both;
+      box-shadow: 0 40px 80px rgba(0, 0, 0, 0.55);
+      animation: slideUp 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
       max-height: 90vh;
       overflow-y: auto;
     }
 
-    .solicitud-modal-header { margin-bottom: 22px; }
-    .solicitud-modal-title  { color: #0f172a; font-weight: 900; font-size: 20px; margin: 0 0 4px; }
-    .solicitud-modal-sub    { color: #64748b; font-size: 13px; margin: 0; font-weight: 500; }
-    .solicitud-form-body    { display: flex; flex-direction: column; gap: 12px; }
+    .solicitud-modal-header {
+      margin-bottom: 22px;
+    }
+
+    .solicitud-modal-title {
+      color: #0f172a;
+      font-weight: 900;
+      font-size: 20px;
+      margin: 0 0 4px;
+    }
+
+    .solicitud-modal-sub {
+      color: #64748b;
+      font-size: 13px;
+      margin: 0;
+      font-weight: 500;
+    }
+
+    .solicitud-form-body {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
 
     .sol-input {
       width: 100%;
@@ -714,8 +802,15 @@
       box-sizing: border-box;
     }
 
-    .sol-input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); background: #fff; }
-    .sol-input::placeholder { color: #cbd5e1; }
+    .sol-input:focus {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+      background: #fff;
+    }
+
+    .sol-input::placeholder {
+      color: #cbd5e1;
+    }
 
     .sol-btn-cancel {
       flex: 1;
@@ -731,7 +826,9 @@
       transition: background 0.2s;
     }
 
-    .sol-btn-cancel:hover { background: #e2e8f0; }
+    .sol-btn-cancel:hover {
+      background: #e2e8f0;
+    }
 
     .sol-btn-submit {
       flex: 1.6;
@@ -745,70 +842,332 @@
       cursor: pointer;
       font-family: inherit;
       transition: all 0.25s;
-      box-shadow: 0 4px 14px rgba(11,37,72,0.3);
+      box-shadow: 0 4px 14px rgba(11, 37, 72, 0.3);
     }
 
-    .sol-btn-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(11,37,72,0.45); }
-    .sol-btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .sol-btn-submit:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 22px rgba(11, 37, 72, 0.45);
+    }
+
+    .sol-btn-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
 
     /* Solicitud modal stepper */
-    .sol-stepper { display:flex; align-items:center; padding:20px 0 0; margin-bottom:2px; }
-    .sol-step-dot {
-      width:28px; height:28px; border-radius:50%; background:#e2e8f0; color:#94a3b8;
-      font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center;
-      flex-shrink:0; transition:all .2s; font-family:inherit;
+    .sol-stepper {
+      display: flex;
+      align-items: center;
+      padding: 20px 0 0;
+      margin-bottom: 2px;
     }
-    .sol-step-dot.sol-step-active { background:#0b2548; color:#fff; }
-    .sol-step-dot.sol-step-done   { background:#22c55e; color:#fff; }
-    .sol-step-line   { flex:1; height:2px; background:#e2e8f0; margin:0 6px; }
+
+    .sol-step-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #e2e8f0;
+      color: #94a3b8;
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: all .2s;
+      font-family: inherit;
+    }
+
+    .sol-step-dot.sol-step-active {
+      background: #0b2548;
+      color: #fff;
+    }
+
+    .sol-step-dot.sol-step-done {
+      background: #22c55e;
+      color: #fff;
+    }
+
+    .sol-step-line {
+      flex: 1;
+      height: 2px;
+      background: #e2e8f0;
+      margin: 0 6px;
+    }
+
     .sol-step-labels {
-      display:flex; align-items:center; padding:4px 0 0;
-      font-size:10px; font-weight:700; color:#94a3b8;
-      text-transform:uppercase; letter-spacing:.5px;
+      display: flex;
+      align-items: center;
+      padding: 4px 0 0;
+      font-size: 10px;
+      font-weight: 700;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .5px;
       margin-bottom: 20px;
     }
-    .sol-step-spacer { flex:1; }
-    .sol-empresa-card {
-      background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:12px; padding:14px 16px;
+
+    .sol-step-spacer {
+      flex: 1;
     }
-    .sol-empresa-card .emp-name { font-size:15px; font-weight:800; color:#15803d; }
-    .sol-empresa-card .emp-id   { font-size:11px; color:#16a34a; margin-top:2px; font-family:monospace; }
-    .sol-field-error { color:#ef4444; font-size:12px; margin-top:6px; font-weight:600; display:none; }
-    .sol-input-hint  { font-size:11px; color:#94a3b8; margin-top:6px; line-height:1.5; }
+
+    .sol-empresa-card {
+      background: #f0fdf4;
+      border: 1.5px solid #bbf7d0;
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+
+    .sol-empresa-card .emp-name {
+      font-size: 15px;
+      font-weight: 800;
+      color: #15803d;
+    }
+
+    .sol-empresa-card .emp-id {
+      font-size: 11px;
+      color: #16a34a;
+      margin-top: 2px;
+      font-family: monospace;
+    }
+
+    .sol-field-error {
+      color: #ef4444;
+      font-size: 12px;
+      margin-top: 6px;
+      font-weight: 600;
+      display: none;
+    }
+
+    .sol-input-hint {
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 6px;
+      line-height: 1.5;
+    }
 
     /* Inner password toggle in solicitud modal */
-    .mex-input-wrap { position: relative; }
+    .mex-input-wrap {
+      position: relative;
+    }
+
+    /* ── Empresa combobox ────────────────────────────────── */
+    .sol-combo-input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .sol-combo-icon {
+      position: absolute;
+      left: 14px;
+      color: #94a3b8;
+      font-size: 18px;
+      pointer-events: none;
+    }
+    .sol-combo-input {
+      padding-left: 42px !important;
+    }
+    .sol-combo-loading {
+      position: absolute;
+      right: 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .sol-combo-loading .material-icons { animation: spin 0.8s linear infinite; font-size: 18px; color: #94a3b8; }
+    .sol-empresa-dropdown {
+      background: #fff;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 4px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+    }
+    .sol-empresa-dropdown:empty { display: none; }
+    .sol-emp-option {
+      padding: 11px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: background 0.15s;
+    }
+    .sol-emp-option:last-child { border-bottom: none; }
+    .sol-emp-option:hover, .sol-emp-option.active {
+      background: #eff6ff;
+    }
+    .sol-emp-option .emp-opt-name { font-weight: 700; font-size: 13px; color: #0f172a; }
+    .sol-emp-option .emp-opt-id { font-size: 11px; color: #94a3b8; }
+    .sol-emp-option .emp-opt-icon { color: #3b82f6; font-size: 18px; flex-shrink: 0; }
+    .sol-emp-no-results { padding: 16px; text-align: center; color: #94a3b8; font-size: 13px; }
+
+    /* ── Full-screen modals (T&C + Contact) ─────────────── */
+    .legal-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .legal-modal-overlay.open { display: flex; }
+    .legal-modal-card {
+      background: #fff;
+      border-radius: 20px;
+      width: 100%;
+      max-width: 640px;
+      max-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+      overflow: hidden;
+    }
+    .legal-modal-header {
+      padding: 24px 28px 18px;
+      border-bottom: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .legal-modal-icon {
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      background: #eff6ff;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .legal-modal-icon .material-icons { color: #3b82f6; font-size: 22px; }
+    .legal-modal-title { font-size: 17px; font-weight: 800; color: #0f172a; margin: 0; }
+    .legal-modal-sub { font-size: 12px; color: #64748b; margin: 2px 0 0; }
+    .legal-modal-close {
+      margin-left: auto;
+      background: none; border: none; cursor: pointer;
+      color: #94a3b8; width: 36px; height: 36px;
+      border-radius: 8px; display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .legal-modal-close:hover { background: #f1f5f9; color: #475569; }
+    .legal-modal-body {
+      flex: 1; overflow-y: auto; padding: 24px 28px;
+      color: #374151; font-size: 13px; line-height: 1.7;
+    }
+    .legal-modal-body h3 { font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 8px; }
+    .legal-modal-body h3:first-child { margin-top: 0; }
+    .legal-modal-body p { margin: 0 0 10px; }
+    .legal-modal-body ul { margin: 0 0 10px; padding-left: 20px; }
+    .legal-modal-body li { margin-bottom: 4px; }
+    .legal-modal-footer {
+      padding: 16px 28px;
+      border-top: 1px solid #e2e8f0;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .legal-modal-accept {
+      flex: 1; padding: 13px;
+      background: linear-gradient(135deg, #0b2548, #1a53a0);
+      color: #fff; border: none; border-radius: 12px;
+      font-weight: 800; font-size: 13px; cursor: pointer;
+      font-family: inherit; transition: opacity 0.2s;
+    }
+    .legal-modal-accept:hover { opacity: 0.92; }
+    .contact-method {
+      display: flex; align-items: center; gap: 14px;
+      padding: 16px;
+      background: #f8fafc;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      text-decoration: none; color: inherit;
+      border: 1.5px solid #e2e8f0;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .contact-method:hover { border-color: #3b82f6; box-shadow: 0 4px 14px rgba(59,130,246,0.12); }
+    .contact-method-icon {
+      width: 44px; height: 44px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .contact-method-icon.email { background: #eff6ff; color: #3b82f6; }
+    .contact-method-icon.whatsapp { background: #f0fdf4; color: #22c55e; }
+    .contact-method-icon .material-icons { font-size: 22px; }
+    .contact-method-info strong { display: block; font-size: 13px; font-weight: 700; color: #0f172a; }
+    .contact-method-info span { font-size: 12px; color: #64748b; }
 
     /* ── Responsive ──────────────────────────────────────── */
     @media (max-width: 900px) {
-      .login-page-header { padding: 16px 24px; }
-      .login-footer-bar  { padding: 10px 24px; }
-      .login-left-side   { flex: 0 0 42%; padding: 36px 28px; }
-      .login-right-side  { flex: 0 0 58%; padding: 36px 28px; }
+      .login-page-header {
+        padding: 16px 24px;
+      }
+
+      .login-footer-bar {
+        padding: 10px 24px;
+      }
+
+      .login-left-side {
+        flex: 0 0 42%;
+        padding: 36px 28px;
+      }
+
+      .login-right-side {
+        flex: 0 0 58%;
+        padding: 36px 28px;
+      }
     }
 
     @media (max-width: 680px) {
-      .login-page-header { padding: 14px 16px; }
-      .login-secure-badge { display: none; }
-      .login-footer-bar { padding: 10px 16px; }
-      .login-footer-links { gap: 14px; }
-      .login-footer-link { font-size: 11px; }
+      .login-page-header {
+        padding: 14px 16px;
+      }
 
-      .login-main { padding: 0; align-items: flex-end; }
-      .login-glow-wrapper { max-width: 100%; }
-      .login-card-glow { display: none; }
+      .login-secure-badge {
+        display: none;
+      }
+
+      .login-footer-bar {
+        padding: 10px 16px;
+      }
+
+      .login-footer-links {
+        gap: 14px;
+      }
+
+      .login-footer-link {
+        font-size: 11px;
+      }
+
+      .login-main {
+        padding: 0;
+        align-items: flex-end;
+      }
+
+      .login-glow-wrapper {
+        max-width: 100%;
+      }
+
+      .login-card-glow {
+        display: none;
+      }
 
       .login-split-container {
         flex-direction: column;
         border-radius: 0;
         border-top-left-radius: 24px;
         border-top-right-radius: 24px;
-        animation: slideUpMobile 0.5s cubic-bezier(0.16,1,0.3,1) both;
+        animation: slideUpMobile 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
       }
 
       @keyframes slideUpMobile {
-        from { transform: translateY(60px); opacity: 0.5; }
-        to   { transform: translateY(0); opacity: 1; }
+        from {
+          transform: translateY(60px);
+          opacity: 0.5;
+        }
+
+        to {
+          transform: translateY(0);
+          opacity: 1;
+        }
       }
 
       .login-left-side {
@@ -818,23 +1177,56 @@
         justify-content: flex-start;
       }
 
-      .login-left-car-bg { display: none; }
-      .login-saas-badge  { display: none; }
-      .login-brand-name  { font-size: 32px; letter-spacing: -1px; }
-      .login-brand-sub   { letter-spacing: 2px; margin-top: 6px; font-size: 10px; }
-      .login-brand-desc  { display: none; }
-      .login-stats       { padding-top: 14px; gap: 20px; }
-      .login-stat-num    { font-size: 16px; }
+      .login-left-car-bg {
+        display: none;
+      }
 
-      .login-right-side  { flex: none; padding: 28px 20px 36px; }
-      .login-form-wrapper { max-width: 100%; }
+      .login-saas-badge {
+        display: none;
+      }
+
+      .login-brand-name {
+        font-size: 32px;
+        letter-spacing: -1px;
+      }
+
+      .login-brand-sub {
+        letter-spacing: 2px;
+        margin-top: 6px;
+        font-size: 10px;
+      }
+
+      .login-brand-desc {
+        display: none;
+      }
+
+      .login-stats {
+        padding-top: 14px;
+        gap: 20px;
+      }
+
+      .login-stat-num {
+        font-size: 16px;
+      }
+
+      .login-right-side {
+        flex: none;
+        padding: 28px 20px 36px;
+      }
+
+      .login-form-wrapper {
+        max-width: 100%;
+      }
     }
 
     @media (max-width: 400px) {
-      .login-right-side { padding: 22px 16px 30px; }
+      .login-right-side {
+        padding: 22px 16px 30px;
+      }
     }
   </style>
 </head>
+
 <body>
 
   <!-- Dark overlay -->
@@ -848,7 +1240,7 @@
       </div>
       <div>
         <span class="login-header-name">MapGestion</span>
-        <span class="login-header-sub">BY LOGICORP</span>
+        <span class="login-header-sub">BY ArmentaCorp</span>
       </div>
     </div>
     <div class="login-secure-badge">
@@ -869,26 +1261,23 @@
           <div class="login-left-bg-glow login-left-bg-glow--top"></div>
           <div class="login-left-bg-glow login-left-bg-glow--bottom"></div>
           <div class="login-left-overlay">
-            <div class="login-saas-badge">
-              <span class="material-icons" style="font-size:13px;">check_circle</span>
-              MapGestion SaaS
-            </div>
             <div>
               <span class="login-brand-name">Gestiona<br>tu flota.</span>
-              <span class="login-brand-sub">PLATAFORMA OPERATIVA · SaaS</span>
+              <span class="login-brand-sub">PLATAFORMA OPERATIVA</span>
             </div>
-            <p class="login-brand-desc">Control total de unidades, estados, cuadres y personal operativo — en tiempo real, desde cualquier dispositivo.</p>
+            <p class="login-brand-desc">Control total de unidades, estados, cuadres y personal operativo — en tiempo
+              real, desde cualquier dispositivo.</p>
             <div class="login-stats">
               <div class="login-stat">
-                <span class="login-stat-num">RT</span>
+                <span class="login-stat-num">⏳</span>
                 <span class="login-stat-lbl">Tiempo Real</span>
               </div>
               <div class="login-stat">
-                <span class="login-stat-num">PWA</span>
-                <span class="login-stat-lbl">Nativo</span>
+                <span class="login-stat-num">📱</span>
+                <span class="login-stat-lbl">APP</span>
               </div>
               <div class="login-stat">
-                <span class="login-stat-num">MX</span>
+                <span class="login-stat-num">🇲🇽</span>
                 <span class="login-stat-lbl">Nacional</span>
               </div>
             </div>
@@ -898,9 +1287,6 @@
         <!-- Right: white form panel -->
         <div class="login-right-side">
           <div class="login-form-wrapper">
-            <div class="login-logo-mark">
-              <span style="font-size:18px;font-weight:900;color:white;letter-spacing:-1px;font-family:inherit;">MG</span>
-            </div>
             <h3>Bienvenido de vuelta</h3>
             <p>Accede a tu plataforma de gestión operativa</p>
 
@@ -916,8 +1302,8 @@
               <label class="input-label">Contraseña</label>
               <div class="login-input-pill">
                 <span class="material-icons login-pill-icon">lock</span>
-                <input type="password" id="auth_pass" placeholder="••••••••"
-                  autocomplete="current-password" style="padding-right:52px; letter-spacing:2px;">
+                <input type="password" id="auth_pass" placeholder="••••••••" autocomplete="current-password"
+                  style="padding-right:52px; letter-spacing:2px;">
                 <span class="material-icons input-icon" onclick="togglePassword('auth_pass', this)">visibility</span>
               </div>
             </div>
@@ -932,10 +1318,14 @@
               INICIAR SESIÓN
             </button>
 
-            <div class="login-divider"><div></div><span>O CONTINÚA CON</span><div></div></div>
+            <div class="login-divider">
+              <div></div><span>O CONTINÚA CON</span>
+              <div></div>
+            </div>
 
             <button onclick="loginConGoogle()" id="btnGoogleLogin" class="login-btn-google">
-              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;" alt="Google">
+              <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"
+                alt="Google">
               CUENTA DE GOOGLE
             </button>
 
@@ -959,14 +1349,14 @@
   <footer class="login-page-footer">
     <div class="login-footer-bar">
       <div class="login-footer-links">
-        <a href="#" class="login-footer-link">
+        <a href="https://nicolasneg.github.io/mapgestionpreview/" class="login-footer-link">
           <span class="material-icons" style="font-size:13px;">open_in_new</span>
           Ir a MapGestion
         </a>
-        <a href="#" class="login-footer-link">Términos y Condiciones</a>
-        <a href="#" class="login-footer-link">Soporte y Contacto</a>
+        <a href="#" onclick="abrirModalTerminos();return false;" class="login-footer-link">Términos y Condiciones</a>
+        <a href="#" onclick="abrirModalContacto();return false;" class="login-footer-link">Soporte y Contacto</a>
       </div>
-      <div class="login-footer-version">Versión 3.37</div>
+      <div class="login-footer-version">Versión BETA</div>
     </div>
     <div class="login-marquee-outer">
       <div class="login-marquee-wrap">
@@ -1013,21 +1403,29 @@
         <span>Tus datos</span>
       </div>
 
-      <!-- Paso 1: Código de empresa -->
+      <!-- Paso 1: Seleccionar empresa -->
       <div id="sol-step-1" class="sol-step-panel">
         <div class="solicitud-modal-header">
           <h2 class="solicitud-modal-title">Buscar Empresa</h2>
-          <p class="solicitud-modal-sub">Ingresa el código de tu empresa en la plataforma.</p>
+          <p class="solicitud-modal-sub">Selecciona o busca tu empresa en la plataforma.</p>
         </div>
         <div class="solicitud-form-body">
-          <input type="text" id="sol_empresa_id" class="sol-input"
-            placeholder="Código de empresa (ej: parking-central)"
-            autocomplete="off" style="text-transform:lowercase; letter-spacing:.5px;">
+          <div class="sol-combo-input-wrap">
+            <span class="material-icons sol-combo-icon">search</span>
+            <input type="text" id="sol_empresa_search" class="sol-input sol-combo-input"
+              placeholder="Buscar empresa..." autocomplete="off"
+              oninput="solFiltrarEmpresas(this.value)">
+            <div class="sol-combo-loading" id="sol-combo-loading">
+              <span class="material-icons">autorenew</span>
+            </div>
+          </div>
+          <div id="sol-empresa-list" class="sol-empresa-dropdown"></div>
+          <input type="hidden" id="sol_empresa_id">
           <div id="sol-emp-error" class="sol-field-error"></div>
-          <p class="sol-input-hint">El código lo proporciona el administrador de tu empresa.</p>
+          <p class="sol-input-hint" id="sol-combo-hint">Cargando empresas disponibles…</p>
           <div style="display:flex; gap:12px; margin-top:4px;">
             <button onclick="cerrarModalSolicitud()" class="sol-btn-cancel">CANCELAR</button>
-            <button id="btnBuscarEmpresa" onclick="solBuscarEmpresa()" class="sol-btn-submit">BUSCAR EMPRESA</button>
+            <button id="btnBuscarEmpresa" onclick="solBuscarEmpresa()" class="sol-btn-submit">CONTINUAR</button>
           </div>
         </div>
       </div>
@@ -1069,20 +1467,23 @@
           <p class="solicitud-modal-sub">Completa tu información para enviar la solicitud.</p>
         </div>
         <div class="solicitud-form-body">
-          <input type="text"  id="sol_nombre"   class="sol-input" placeholder="Nombre completo *" autocomplete="off">
-          <input type="email" id="sol_email"    class="sol-input" placeholder="Correo electrónico *">
-          <input type="tel"   id="sol_telefono" class="sol-input" placeholder="Teléfono (opcional)">
+          <input type="text" id="sol_nombre" class="sol-input" placeholder="Nombre completo *" autocomplete="off">
+          <input type="email" id="sol_email" class="sol-input" placeholder="Correo electrónico *">
+          <input type="tel" id="sol_telefono" class="sol-input" placeholder="Teléfono (opcional)">
           <div class="mex-input-wrap">
-            <input type="password" id="sol_pass"         class="sol-input" placeholder="Contraseña * (mín. 6 caracteres)" style="padding-right:46px;">
+            <input type="password" id="sol_pass" class="sol-input" placeholder="Contraseña * (mín. 6 caracteres)"
+              style="padding-right:46px;">
             <span class="material-icons input-icon" onclick="togglePassword('sol_pass', this)">visibility</span>
           </div>
           <div class="mex-input-wrap">
-            <input type="password" id="sol_pass_confirm" class="sol-input" placeholder="Confirmar contraseña *" style="padding-right:46px;">
+            <input type="password" id="sol_pass_confirm" class="sol-input" placeholder="Confirmar contraseña *"
+              style="padding-right:46px;">
             <span class="material-icons input-icon" onclick="togglePassword('sol_pass_confirm', this)">visibility</span>
           </div>
           <div style="display:flex; gap:12px;">
             <button onclick="solIrAPaso(2)" class="sol-btn-cancel">ATRÁS</button>
-            <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" class="sol-btn-submit">ENVIAR SOLICITUD</button>
+            <button id="btnEnviarSolicitud" onclick="enviarSolicitudAcceso()" class="sol-btn-submit">ENVIAR
+              SOLICITUD</button>
           </div>
         </div>
       </div>
@@ -1090,54 +1491,193 @@
     </div>
   </div>
 
-  <!-- ── Marquee dinámico desde Firestore ─────────────── -->
+  <!-- ── Empresas: carga única para marquee y combobox ── -->
   <script>
-  (function () {
-    const STATIC = [
-      { nombre: 'Global Freight SA',    tagline: '' },
-      { nombre: 'Nexus Transporte',      tagline: '' },
-      { nombre: 'Apex Supply Chain',     tagline: '' },
-      { nombre: 'OmniRoutes',            tagline: '' },
-      { nombre: 'Flota Nacional MX',     tagline: '' },
-      { nombre: 'Logística del Norte',   tagline: '' },
-      { nombre: 'CargoRed Express',      tagline: '' },
-    ];
+    (function () {
+      let _promise = null;
 
-    function buildMarqueeHTML(list) {
-      const items = list.map(e => {
-        const name = String(e.nombre || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        return `<div class="login-marquee-item"><span>${name}</span></div>`;
-      }).join('');
-      return `<div class="login-marquee-half">${items}</div><div class="login-marquee-half">${items}</div>`;
-    }
+      function _esc(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
 
-    function renderMarquee(list) {
-      const wrap = document.querySelector('.login-marquee');
-      if (wrap) wrap.innerHTML = buildMarqueeHTML(list);
-    }
+      function _fetch() {
+        if (_promise) return _promise;
+        _promise = new Promise(function (resolve) {
+          function tryCall() {
+            try {
+              var fn = firebase.functions().httpsCallable('listarEmpresasPublicas');
+              fn({}).then(function (r) {
+                var list = r && r.data && r.data.empresas;
+                resolve(Array.isArray(list) ? list : []);
+              }).catch(function () { resolve([]); });
+            } catch (e) { resolve([]); }
+          }
+          if (firebase && firebase.apps && firebase.apps.length) {
+            tryCall();
+          } else {
+            document.addEventListener('DOMContentLoaded', tryCall, { once: true });
+          }
+        });
+        return _promise;
+      }
 
-    function loadFromFirestore() {
-      const db = window._db || (firebase?.apps?.length && firebase.firestore());
-      if (!db) return;
-      db.collection('configuracion').doc('loginPresencia').get()
-        .then(snap => {
-          if (!snap.exists) return;
-          const lista = snap.data()?.lista;
-          if (Array.isArray(lista) && lista.length > 0) renderMarquee(lista);
-        })
-        .catch(() => {});
-    }
+      // Expose for login.js module
+      window._solFetchEmpresas = _fetch;
 
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadFromFirestore, { once: true });
-    } else {
-      setTimeout(loadFromFirestore, 400);
+      // Marquee
+      function buildMarqueeHTML(list) {
+        if (!list.length) return '';
+        var items = list.map(function (e) {
+          return '<div class="login-marquee-item"><span>' + _esc(e.nombre) + '</span></div>';
+        }).join('');
+        return '<div class="login-marquee-half">' + items + '</div><div class="login-marquee-half">' + items + '</div>';
+      }
+
+      function loadMarquee() {
+        _fetch().then(function (list) {
+          if (!list.length) return;
+          var wrap = document.querySelector('.login-marquee');
+          if (wrap) wrap.innerHTML = buildMarqueeHTML(list);
+        });
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadMarquee, { once: true });
+      } else {
+        loadMarquee();
+      }
+    })();
+  </script>
+
+  <!-- ── Modal: Términos y Condiciones ─────────────────── -->
+  <div id="modal-terminos" class="legal-modal-overlay" onclick="if(event.target===this)cerrarModalTerminos()">
+    <div class="legal-modal-card">
+      <div class="legal-modal-header">
+        <div class="legal-modal-icon"><span class="material-icons">gavel</span></div>
+        <div>
+          <p class="legal-modal-title">Términos y Condiciones de Uso</p>
+          <p class="legal-modal-sub">MapGestion — Plataforma SaaS de Gestión Operativa</p>
+        </div>
+        <button class="legal-modal-close" onclick="cerrarModalTerminos()"><span class="material-icons">close</span></button>
+      </div>
+      <div class="legal-modal-body">
+        <h3>1. Partes del Contrato</h3>
+        <p><strong>Proveedor:</strong> MapGestion, operado por ArmentaCorp ("la Empresa"), con domicilio en la Ciudad de México, México. <strong>Usuario:</strong> La persona física o moral que accede y utiliza la plataforma ("el Usuario").</p>
+
+        <h3>2. Naturaleza del Servicio (SaaS)</h3>
+        <p>MapGestion es un servicio de software como servicio (SaaS) que se proporciona mediante suscripción. La Empresa otorga al Usuario una licencia de uso limitada, no exclusiva, no transferible e intransferible para acceder a la plataforma a través de internet, conforme a lo previsto en la <em>Ley Federal del Derecho de Autor</em> (LFDA) y el Código de Comercio de los Estados Unidos Mexicanos.</p>
+
+        <h3>3. Licencia de Uso</h3>
+        <ul>
+          <li>El software permanece en todo momento como propiedad intelectual de la Empresa.</li>
+          <li>Queda prohibida la copia, distribución, modificación, ingeniería inversa o sublicencia del software.</li>
+          <li>El Usuario no adquiere ningún derecho de propiedad sobre el software ni sus componentes.</li>
+        </ul>
+
+        <h3>4. Protección de Datos Personales (LFPDPPP)</h3>
+        <p>La Empresa trata los datos personales del Usuario conforme a la <em>Ley Federal de Protección de Datos Personales en Posesión de los Particulares</em> (LFPDPPP, D.O.F. 5/07/2010). El Usuario tiene en todo momento los derechos ARCO (Acceso, Rectificación, Cancelación y Oposición) sobre sus datos. Para ejercerlos, escriba a <strong>contacto@mpagestion.com</strong>.</p>
+        <p>Los datos operativos ingresados por el Usuario son de su propiedad. La Empresa no venderá ni compartirá dichos datos con terceros sin consentimiento explícito, excepto cuando sea requerido por autoridad competente.</p>
+
+        <h3>5. Disponibilidad del Servicio</h3>
+        <p>La Empresa procurará la disponibilidad continua del servicio, pero no garantiza una disponibilidad del 100%. No se asume responsabilidad por interrupciones derivadas de mantenimiento, fallas de infraestructura de terceros (ej. Google Firebase), causas de fuerza mayor o caso fortuito.</p>
+
+        <h3>6. Obligaciones del Usuario</h3>
+        <ul>
+          <li>Usar la plataforma únicamente para fines lícitos y conforme a estos términos.</li>
+          <li>No compartir credenciales de acceso con terceros no autorizados.</li>
+          <li>No realizar actividades que puedan comprometer la seguridad o integridad del servicio.</li>
+          <li>Mantener actualizada la información de contacto registrada.</li>
+        </ul>
+
+        <h3>7. Facturación y Suscripción</h3>
+        <p>Las tarifas de suscripción se establecen en el plan contratado. La falta de pago en los términos acordados puede resultar en la suspensión o cancelación del acceso. El periodo de facturación y los precios son comunicados al momento de la contratación del servicio.</p>
+
+        <h3>8. Limitación de Responsabilidad</h3>
+        <p>En ningún caso la Empresa será responsable por daños indirectos, lucro cesante, pérdida de datos o cualquier daño derivado del uso o imposibilidad de uso del servicio, hasta el límite máximo permitido por la ley mexicana aplicable.</p>
+
+        <h3>9. Modificaciones</h3>
+        <p>La Empresa se reserva el derecho de modificar estos términos en cualquier momento, notificando al Usuario con al menos 15 días de anticipación por los medios disponibles.</p>
+
+        <h3>10. Jurisdicción y Ley Aplicable</h3>
+        <p>Estos términos se rigen por las leyes de los Estados Unidos Mexicanos. Para cualquier controversia, las partes se someten expresamente a la jurisdicción de los tribunales competentes de la Ciudad de México, renunciando a cualquier fuero que pudiera corresponderles en razón de sus domicilios presentes o futuros.</p>
+
+        <p style="font-size:11px;color:#94a3b8;margin-top:16px;">Última actualización: Mayo 2026. Marco legal: LFPDPPP, LFDA, Código de Comercio, NOM-151-SCFI-2016.</p>
+      </div>
+      <div class="legal-modal-footer">
+        <button class="legal-modal-accept" onclick="cerrarModalTerminos()">ENTENDIDO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Modal: Soporte y Contacto ──────────────────────── -->
+  <div id="modal-contacto" class="legal-modal-overlay" onclick="if(event.target===this)cerrarModalContacto()">
+    <div class="legal-modal-card">
+      <div class="legal-modal-header">
+        <div class="legal-modal-icon" style="background:#f0fdf4;"><span class="material-icons" style="color:#22c55e;">support_agent</span></div>
+        <div>
+          <p class="legal-modal-title">Soporte y Contacto</p>
+          <p class="legal-modal-sub">Estamos aquí para ayudarte — horario de atención: Lunes a Viernes, 9:00–18:00 CST</p>
+        </div>
+        <button class="legal-modal-close" onclick="cerrarModalContacto()"><span class="material-icons">close</span></button>
+      </div>
+      <div class="legal-modal-body">
+        <h3>Canales de Atención</h3>
+        <a class="contact-method" href="mailto:contacto@mpagestion.com">
+          <div class="contact-method-icon email"><span class="material-icons">email</span></div>
+          <div class="contact-method-info">
+            <strong>Correo Electrónico</strong>
+            <span>contacto@mpagestion.com — Respuesta en menos de 24 hrs hábiles</span>
+          </div>
+        </a>
+        <a class="contact-method" href="https://wa.me/524778024682" target="_blank" rel="noopener">
+          <div class="contact-method-icon whatsapp"><span class="material-icons">chat</span></div>
+          <div class="contact-method-info">
+            <strong>WhatsApp</strong>
+            <span>+52 477 802 4682 — Soporte rápido por mensajería</span>
+          </div>
+        </a>
+
+        <h3>Tipos de Soporte</h3>
+        <ul>
+          <li><strong>Onboarding:</strong> Configuración inicial de tu empresa y usuarios.</li>
+          <li><strong>Soporte técnico:</strong> Errores, comportamientos inesperados o problemas de acceso.</li>
+          <li><strong>Capacitación:</strong> Orientación sobre funciones de la plataforma.</li>
+          <li><strong>Facturación:</strong> Consultas sobre tu suscripción y pagos.</li>
+        </ul>
+
+        <h3>¿Necesitas Acceso?</h3>
+        <p>Si tu empresa aún no tiene acceso a MapGestion, haz clic en <strong>"Solicitar Acceso"</strong> en la pantalla principal o escríbenos directamente para coordinar tu alta.</p>
+
+        <p style="font-size:11px;color:#94a3b8;margin-top:16px;">MapGestion es operado por ArmentaCorp · Ciudad de México, México</p>
+      </div>
+      <div class="legal-modal-footer">
+        <button class="legal-modal-accept" onclick="cerrarModalContacto()">CERRAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Controladores de modales legales ───────────────── -->
+  <script>
+    function abrirModalTerminos() {
+      document.getElementById('modal-terminos').classList.add('open');
     }
-  })();
+    function cerrarModalTerminos() {
+      document.getElementById('modal-terminos').classList.remove('open');
+    }
+    function abrirModalContacto() {
+      document.getElementById('modal-contacto').classList.add('open');
+    }
+    function cerrarModalContacto() {
+      document.getElementById('modal-contacto').classList.remove('open');
+    }
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape') { cerrarModalTerminos(); cerrarModalContacto(); }
+    });
   </script>
 
   <!-- ── Controlador de la vista (ES6 module) ──────────── -->
   <script type="module" src="/js/views/login.js"></script>
 
 </body>
+
 </html>

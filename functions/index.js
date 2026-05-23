@@ -2980,3 +2980,26 @@ exports.migrarUnidadesLegacy = functions
     logger.info("[migrarUnidadesLegacy] done", { empresaId, results });
     return { ok: true, empresaId, ...results };
   });
+
+// ══════════════════════════════════════════════════════════════
+//  listarEmpresasPublicas — HTTPS callable (sin auth requerido)
+//  Devuelve lista pública de empresas activas para el login.
+//  Usada por: combobox de solicitud de acceso y marquee de login.
+// ══════════════════════════════════════════════════════════════
+exports.listarEmpresasPublicas = functions
+  .region(REGION)
+  .https.onCall(async (data, context) => {
+    const snap = await db.collection(EMPRESAS_COL).limit(200).get();
+    const empresas = [];
+    snap.forEach(doc => {
+      const d = doc.data();
+      if (d.activo === false) return;
+      empresas.push({
+        id: doc.id,
+        nombre: String(d.nombre || doc.id),
+        tagline: String(d.tagline || d.descripcion || ''),
+      });
+    });
+    empresas.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+    return { ok: true, empresas };
+  });

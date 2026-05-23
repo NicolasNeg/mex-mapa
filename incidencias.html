@@ -25,6 +25,9 @@
   <script src="/js/core/dialogs.js"></script>
 
   <title>Incidencias — MEX MAPA</title>
+  <!-- FOUC guard: hide chrome immediately when loaded as iframe in app shell -->
+  <script>(function(){var p=new URLSearchParams(location.search);if(p.get('appStage')==='1'||p.get('shell')==='1')document.documentElement.classList.add('shell-embedded');})();</script>
+  <style>html.shell-embedded #admin-sidebar,html.shell-embedded #topbar,html.shell-embedded #legacySidebar,html.shell-embedded #legacyHeader,html.shell-embedded .legacy-topbar,html.shell-embedded .legacy-sidebar,html.shell-embedded #routeSidebarHost,html.shell-embedded #routeTopbarHost,html.shell-embedded #homeSidebar,html.shell-embedded .shell-topbar-surface,html.shell-embedded .cfg-v2-sidebar,html.shell-embedded .chatv2-header,html.shell-embedded .map-shell-topbar,html.shell-embedded #legacyAppShellBanner{display:none !important}html.shell-embedded body{overflow:hidden !important;padding:0 !important;margin:0 !important}html.shell-embedded .cfg-v2-body{grid-template-columns:minmax(0,1fr) !important}html.shell-embedded .shell-main-stage,html.shell-embedded .shell-main-offset,html.shell-embedded #routeMainStage{margin-left:0 !important;width:100% !important;max-width:none !important;padding-top:0 !important}</style>
 </head>
 <body>
 
