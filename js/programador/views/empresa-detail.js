@@ -115,34 +115,6 @@ function _bindConfig() {
     colorInput.addEventListener('input', () => { colorDisplay.value = colorInput.value; });
   }
 
-  // Migration button (unidades)
-  const btnMigrar = _container?.querySelector('#btnMigrarLegacy');
-  const migStatus = _container?.querySelector('#migrarStatus');
-  if (btnMigrar) {
-    btnMigrar.addEventListener('click', async () => {
-      if (!confirm(`¿Migrar unidades legacy para "${_empresaId}"?\nEsto añadirá empresaId a todos los docs de cuadre, externos, index_unidades y cuadre_admins que no lo tengan.`)) return;
-      btnMigrar.disabled = true;
-      btnMigrar.textContent = 'Migrando…';
-      if (migStatus) migStatus.textContent = 'Ejecutando migración, puede tardar varios segundos…';
-      try {
-        const fn = firebase.functions().httpsCallable('migrarUnidadesLegacy');
-        const res = await fn({ empresaId: _empresaId });
-        const d = res.data;
-        if (migStatus) {
-          migStatus.style.color = '#4ade80';
-          migStatus.textContent = `✓ Migración completa — cuadre: ${d.cuadre}, externos: ${d.externos}, index_unidades: ${d.index_unidades}, cuadre_admins: ${d.cuadre_admins} docs actualizados.`;
-        }
-        _toast(`Migración completa: ${d.cuadre + d.externos + d.index_unidades + d.cuadre_admins} docs`, 'ok');
-        btnMigrar.textContent = 'Migración completa ✓';
-      } catch (err) {
-        if (migStatus) { migStatus.style.color = '#f87171'; migStatus.textContent = 'Error: ' + err.message; }
-        _toast('Error en migración: ' + err.message, 'error');
-        btnMigrar.disabled = false;
-        btnMigrar.textContent = 'Migrar unidades legacy → empresaId';
-      }
-    });
-  }
-
   // Full migration button (all collections + settings + mapa_config + listas)
   const btnMigrarCompleto = _container?.querySelector('#btnMigrarCompleto');
   const migCompletoStatus = _container?.querySelector('#migrarCompletoStatus');
@@ -429,21 +401,6 @@ function _configTabHtml() {
   </div>
 </form>
 <div style="margin-top:24px;padding-top:20px;border-top:1px solid rgba(255,255,255,0.06);">
-  <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Migración de datos</div>
-  <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px;line-height:1.6;">
-    Asigna el <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">${_esc(_empresaId)}</code> a todos los documentos legacy
-    en <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">cuadre</code>,
-    <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">externos</code>,
-    <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">index_unidades</code> y
-    <code style="background:rgba(255,255,255,0.07);padding:1px 5px;border-radius:4px;font-size:11px;">cuadre_admins</code>
-    que no tienen este campo. Ejecutar solo una vez por empresa.
-  </div>
-  <button id="btnMigrarLegacy" type="button" style="padding:9px 18px;border-radius:8px;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);color:#fbbf24;font-size:13px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">
-    Migrar unidades legacy → empresaId
-  </button>
-  <div id="migrarStatus" style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.5);min-height:18px;"></div>
-</div>
-<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
   <div style="font-size:12px;font-weight:700;color:rgba(99,102,241,0.7);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Migración completa (multi-tenant)</div>
   <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px;line-height:1.6;">
     Migra <strong>todos</strong> los datos legacy de la empresa al nuevo esquema multi-tenant:
@@ -545,6 +502,12 @@ function _plazasListHtml() {
   </div>`;
 }
 
+function _listaItemName(item) {
+  if (typeof item === 'string') return item;
+  if (item && typeof item === 'object') return item.nombre || item.label || item.name || JSON.stringify(item);
+  return String(item ?? '');
+}
+
 function _listasTabHtml() {
   const listas = _empresa.listas || {};
   const secciones = [
@@ -567,10 +530,10 @@ function _listasTabHtml() {
   <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">${_esc(s.label)}</div>
   <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-bottom:10px;">${_esc(s.hint)}</div>
   <div id="lista-items-${_esc(s.key)}" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;min-height:24px;">
-    ${items.map(item => `
+    ${items.map((item, idx) => `
     <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:20px;background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2);font-size:11px;font-weight:700;color:#a5b4fc;">
-      ${_esc(String(item))}
-      <button data-lista-remove="${_esc(s.key)}" data-item="${_esc(String(item))}" type="button" style="display:inline-flex;align-items:center;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:0;font-size:12px;line-height:1;">×</button>
+      ${_esc(_listaItemName(item))}
+      <button data-lista-remove="${_esc(s.key)}" data-lista-index="${idx}" type="button" style="display:inline-flex;align-items:center;background:none;border:none;color:rgba(255,255,255,0.4);cursor:pointer;padding:0;font-size:12px;line-height:1;">×</button>
     </span>`).join('')}
     ${!items.length ? `<span style="font-size:11px;color:rgba(255,255,255,0.2);">Sin items — se usará el catálogo global</span>` : ''}
   </div>
@@ -596,7 +559,8 @@ function _bindListas() {
       if (!val) return;
 
       const current = Array.isArray(_empresa.listas?.[key]) ? [..._empresa.listas[key]] : [];
-      if (current.includes(val)) { _toast(`"${val}" ya existe`, 'ok'); return; }
+      const names = current.map(i => _listaItemName(i).toUpperCase());
+      if (names.includes(val)) { _toast(`"${val}" ya existe`, 'ok'); return; }
       const updated = [...current, val];
 
       try {
@@ -613,15 +577,16 @@ function _bindListas() {
   _container?.querySelectorAll('[data-lista-remove]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const key = btn.dataset.listaRemove;
-      const item = btn.dataset.item;
+      const idx = Number(btn.dataset.listaIndex);
       const current = Array.isArray(_empresa.listas?.[key]) ? [..._empresa.listas[key]] : [];
-      const updated = current.filter(i => String(i) !== item);
+      const itemName = _listaItemName(current[idx] ?? '');
+      const updated = current.filter((_, i) => i !== idx);
 
       try {
         await window._db.collection('empresas').doc(_empresaId).update({ [`listas.${key}`]: updated });
         if (!_empresa.listas) _empresa.listas = {};
         _empresa.listas[key] = updated;
-        _toast(`${item} eliminado`, 'ok');
+        _toast(`${itemName} eliminado`, 'ok');
         _switchTab('listas');
       } catch (err) { _toast('Error: ' + err.message, 'error'); }
     });
