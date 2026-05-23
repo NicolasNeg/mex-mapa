@@ -17,7 +17,8 @@ const ROUTES = [
   { pattern: '/programador/empresa/:id/features',   title: 'Features Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/plazas',     title: 'Plazas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/usuarios',   title: 'Usuarios Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/listas',     title: 'Listas Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/listas',     title: 'Listas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/login',     title: 'Login Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/tecnico',                title: 'Diagnóstico Técnico',  nav: '/programador/tecnico',   loader: () => import('/js/app/views/programador.js') },
   { pattern: '/programador/logs',                   title: 'Logs del Sistema',     nav: '/programador/logs',      loader: () => import('./views/logs.js') },
   { pattern: '/programador/errores',                title: 'Errores',              nav: '/programador/errores',   loader: () => import('./views/errores.js') },
@@ -317,6 +318,9 @@ function _shellHtml(profile) {
         </button>
         <button data-prog-subnav="usuarios"  class="prog-subnav-btn" type="button">
           <span class="material-symbols-outlined" style="font-size:15px;">group</span>Usuarios
+        </button>
+        <button data-prog-subnav="login"     class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">language</span>Login
         </button>
       </div>
     </nav>
