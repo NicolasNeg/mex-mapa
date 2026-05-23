@@ -241,37 +241,14 @@
 
 /* Avatar circular */
 .notif-item-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
-  font-weight: 900;
-  color: white;
   overflow: hidden;
-  position: relative;
-}
-
-/* Ícono de tipo sobre el avatar (esquina inferior derecha) */
-.notif-avatar-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: white;
-  border: 2px solid white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.notif-avatar-badge .material-icons {
-  font-size: 13px;
 }
 
 /* Cuerpo del item */
@@ -1831,15 +1808,14 @@
 }
 
 .notif-item-avatar {
-  width: 50px;
-  height: 50px;
-  box-shadow: inset 0 1px 1px rgba(255,255,255,.24), 0 10px 20px rgba(15,23,42,.12);
-}
-
-.notif-avatar-badge {
-  bottom: -1px;
-  right: -1px;
-  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.14);
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px rgba(15,23,42,.14);
 }
 
 .notif-item-copy {

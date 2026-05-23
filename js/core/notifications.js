@@ -636,10 +636,28 @@ function _currentDevicePrefs() {
   return prefs;
 }
 
-// Obtiene el color del avatar según tipo de notificación
-function _notifAvatarColor(type = '') {
+// Humaniza nombres de archivo en el cuerpo de notificaciones
+function _humanizeBody(body) {
+  const b = String(body || '').trim();
+  if (!b) return '';
+  if (/\.(webm|ogg|mp3|m4a|aac|wav|opus|oga)$/i.test(b) || /^(audio|voz|voice)[-_\d]/i.test(b)) return 'Mensaje de voz';
+  if (/\.(mp4|mov|avi|mkv|3gp|flv)$/i.test(b) || /^video[-_\d]/i.test(b)) return 'Envió un video';
+  if (/\.(jpg|jpeg|png|gif|webp|heic|bmp|tiff)$/i.test(b) || /^(image|img|photo|foto)[-_\d]/i.test(b)) return 'Envió una foto';
+  if (/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z)$/i.test(b)) return 'Envió un archivo';
+  return b;
+}
+
+// Obtiene el color e ícono del avatar según tipo + contenido del mensaje
+function _notifAvatarColor(type = '', body = '') {
   const t = type.toLowerCase();
-  if (t.includes('message')) return { bg: '#3b82f6', icon: 'forum' };
+  const b = String(body || '').toLowerCase();
+  if (t.includes('message') || t.includes('mensaje')) {
+    if (/\.(webm|ogg|mp3|m4a|aac|wav|opus|oga)$/i.test(b) || /^(audio|voz|voice)[-_\d]/i.test(b)) return { bg: '#7c3aed', icon: 'mic' };
+    if (/\.(mp4|mov|avi|mkv|3gp)$/i.test(b) || /^video[-_\d]/i.test(b)) return { bg: '#0284c7', icon: 'videocam' };
+    if (/\.(jpg|jpeg|png|gif|webp|heic|bmp)$/i.test(b) || /^(image|img|photo|foto)[-_\d]/i.test(b)) return { bg: '#059669', icon: 'image' };
+    if (/\.(pdf|doc|docx|xls|xlsx|zip|rar)$/i.test(b)) return { bg: '#b45309', icon: 'attach_file' };
+    return { bg: '#3b82f6', icon: 'forum' };
+  }
   if (t.includes('cuadre.assigned')) return { bg: '#f59e0b', icon: 'assignment' };
   if (t.includes('cuadre.review_ready')) return { bg: '#10b981', icon: 'fact_check' };
   if (t.includes('cuadre')) return { bg: '#f97316', icon: 'inventory_2' };
@@ -655,9 +673,12 @@ function _notifFriendlyText(item = {}) {
   const sender = _notificationSender(item);
   const body   = _safeText(item?.body || item?.payload?.mensaje || '');
 
-  if (type.includes('message')) {
+  if (type.includes('message') || type.includes('mensaje')) {
     const who = sender || 'Alguien';
-    const preview = body ? `: "${body.slice(0, 60)}${body.length > 60 ? '…' : ''}"` : ' te envió un mensaje.';
+    const friendly = _humanizeBody(body);
+    const isFile = friendly !== body && body.length > 0;
+    if (isFile) return `<strong>${who}</strong> ${friendly.toLowerCase()}.`;
+    const preview = friendly ? `: "${friendly.slice(0, 60)}${friendly.length > 60 ? '…' : ''}"` : ' te envió un mensaje.';
     return `<strong>${who}</strong>${preview}`;
   }
   if (type.includes('cuadre.assigned')) {
@@ -774,19 +795,16 @@ function _renderNotifList() {
       const timeStr  = _notifRelativeTime(ts);
       const isUnread = !item.read && item.status !== 'READ';
       const type     = _safeText(item?.type);
-      const meta     = _notifAvatarColor(type);
+      const rawBody  = _safeText(item?.body || item?.payload?.mensaje || '');
+      const meta     = _notifAvatarColor(type, rawBody);
       const sender   = _notificationSender(item);
       const context  = _notificationContextCopy(item);
-      const initials = sender ? sender.slice(0, 2).toUpperCase() : meta.icon.slice(0, 2).toUpperCase();
       const text     = _notifFriendlyText(item);
 
       html += `
         <button class="notif-item${isUnread ? ' unread' : ''}" type="button" data-id="${id}">
           <div class="notif-item-avatar" style="background:${meta.bg}">
-            ${initials}
-            <div class="notif-avatar-badge" style="background:${meta.bg}">
-              <span class="material-icons" style="color:white;font-size:13px;">${meta.icon}</span>
-            </div>
+            <span class="material-icons" style="color:rgba(255,255,255,0.95);font-size:22px;line-height:1;">${meta.icon}</span>
           </div>
           <div class="notif-item-copy">
             <div class="notif-item-head">
@@ -794,10 +812,7 @@ function _renderNotifList() {
               <span class="notif-item-time">${timeStr}</span>
             </div>
             <p class="notif-item-text">${text}</p>
-            <div class="notif-item-meta">
-              ${_safeText(item?.plaza) ? `<span class="notif-item-tag">${_safeText(item.plaza)}</span>` : ''}
-              <span class="notif-item-tag">${isUnread ? 'Pendiente' : 'Leída'}</span>
-            </div>
+            ${_safeText(item?.plaza) ? `<div class="notif-item-meta"><span class="notif-item-tag">${_safeText(item.plaza)}</span></div>` : ''}
           </div>
           ${isUnread ? '<div class="notif-unread-dot"></div>' : ''}
         </button>
@@ -1176,6 +1191,22 @@ export async function acknowledgeNotification(notificationId) {
   }
 }
 
+function _inferDeepLink(item = {}) {
+  const existing = _safeText(item.deepLink || '');
+  if (existing) return existing;
+  const type = _safeText(item.type || '').toLowerCase();
+  if (type.includes('message') || type.includes('mensaje')) {
+    const sender = _notificationSender(item);
+    return sender
+      ? `/app/mensajes?notif=chat&chatUser=${encodeURIComponent(sender)}`
+      : '/app/mensajes?notif=chat';
+  }
+  if (type.includes('cuadre')) return '/app/cuadre?notif=cuadre';
+  if (type.includes('alert')) return '/app/mapa?notif=alerts';
+  if (type.includes('solicitud') || type.includes('request')) return '/app/admin?notif=solicitudes';
+  return '';
+}
+
 export async function handleInboxItemAction(item = {}) {
   const notificationId = item.notificationId || item.id;
   await acknowledgeNotification(notificationId);
@@ -1186,7 +1217,9 @@ export async function handleInboxItemAction(item = {}) {
   );
   _updateUnreadFromInbox();
   _renderNotificationCenter();
-  routeDeepLink(item.deepLink || '');
+  closeNotificationCenter();
+  const link = _inferDeepLink(item);
+  if (link) routeDeepLink(link);
 }
 
 export function routeDeepLink(url = '') {
