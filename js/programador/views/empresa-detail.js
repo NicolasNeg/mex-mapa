@@ -617,7 +617,27 @@ function _loginPresenciaTabHtml() {
     </label>
     ${_field('Nombre para mostrar', `<input name="nombre" value="${_esc(p.nombre || _empresa.nombre || '')}" placeholder="${_esc(_empresa.nombre || 'Nombre')}" style="${_inp()}"/>`)}
     ${_field('Tagline (opcional)', `<input name="tagline" value="${_esc(p.tagline || '')}" placeholder="Gestión de flota desde 2018" style="${_inp()}"/>`)}
-    ${_field('URL del logo (opcional)', `<input name="logoUrl" type="url" value="${_esc(p.logoUrl || '')}" placeholder="https://..." style="${_inp()}"/>`)}
+    <div>
+      <label style="display:block;font-size:11px;font-weight:600;color:rgba(255,255,255,0.4);margin-bottom:8px;">Logo de la empresa</label>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div id="lpLogoThumb" style="width:56px;height:56px;border-radius:10px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;">
+          ${p.logoUrl
+            ? `<img src="${_esc(p.logoUrl)}" style="width:100%;height:100%;object-fit:contain;padding:4px;" onerror="this.parentElement.innerHTML='<span style=\\'font-size:20px;opacity:.3;\\'>🏢</span>'">`
+            : `<span style="font-size:20px;opacity:.3;">🏢</span>`}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;min-width:0;">
+          <input type="file" id="lpLogoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" style="display:none;">
+          <button type="button" id="lpLogoPickBtn" style="padding:7px 14px;border-radius:8px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;font-size:12px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">
+            Seleccionar imagen
+          </button>
+          <span id="lpLogoFileName" style="font-size:11px;color:rgba(255,255,255,0.3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+            ${p.logoUrl ? 'Logo actual guardado' : 'Sin logo — PNG, JPG, SVG o WebP'}
+          </span>
+        </div>
+      </div>
+      <input type="hidden" name="logoUrl" id="lpLogoUrl" value="${_esc(p.logoUrl || '')}">
+      <div id="lpLogoUploadStatus" style="margin-top:6px;font-size:11px;color:rgba(255,255,255,0.4);min-height:16px;"></div>
+    </div>
     ${_field('Sitio web de la empresa (opcional)', `<input name="sitioWeb" type="url" value="${_esc(p.sitioWeb || '')}" placeholder="https://miempresa.com" style="${_inp()}"/>`)}
     <div>
       <button type="submit" style="padding:9px 20px;border-radius:8px;background:#6366f1;color:#fff;border:none;font-size:13px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">
@@ -653,15 +673,70 @@ function _bindLoginPresencia() {
     });
   }
 
+  // ── Logo file picker ──────────────────────────────────
+  let _pendingLogoFile = null;
+
+  const pickBtn    = form.querySelector('#lpLogoPickBtn');
+  const fileInput  = form.querySelector('#lpLogoFile');
+  const thumb      = form.querySelector('#lpLogoThumb');
+  const fileLabel  = form.querySelector('#lpLogoFileName');
+  const uploadStat = form.querySelector('#lpLogoUploadStatus');
+
+  pickBtn?.addEventListener('click', () => fileInput?.click());
+
+  fileInput?.addEventListener('change', () => {
+    const file = fileInput.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      _toast('El archivo no debe superar 2 MB', 'error');
+      fileInput.value = '';
+      return;
+    }
+    _pendingLogoFile = file;
+    if (fileLabel) fileLabel.textContent = file.name;
+    // Preview local inmediato
+    const reader = new FileReader();
+    reader.onload = ev => {
+      if (thumb) thumb.innerHTML = `<img src="${ev.target.result}" style="width:100%;height:100%;object-fit:contain;padding:4px;">`;
+    };
+    reader.readAsDataURL(file);
+    if (uploadStat) uploadStat.textContent = 'Archivo seleccionado. Se subirá al guardar.';
+  });
+
+  // ── Submit ────────────────────────────────────────────
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const btn = form.querySelector('[type=submit]');
     btn.disabled = true; btn.textContent = 'Guardando…';
+
+    let logoUrl = form.logoUrl.value.trim();
+
+    // Subir logo si hay archivo pendiente
+    if (_pendingLogoFile) {
+      if (uploadStat) uploadStat.textContent = 'Subiendo logo…';
+      try {
+        const ext  = _pendingLogoFile.name.split('.').pop().toLowerCase() || 'png';
+        const path = `empresa_config/${_empresaId}_logo.${ext}`;
+        const ref  = firebase.storage().ref(path);
+        const snap = await ref.put(_pendingLogoFile, { contentType: _pendingLogoFile.type });
+        logoUrl = await snap.ref.getDownloadURL();
+        const urlInput = form.querySelector('#lpLogoUrl');
+        if (urlInput) urlInput.value = logoUrl;
+        if (uploadStat) uploadStat.textContent = 'Logo subido correctamente ✓';
+        _pendingLogoFile = null;
+      } catch (err) {
+        _toast('Error al subir logo: ' + err.message, 'error');
+        if (uploadStat) { uploadStat.style.color = '#f87171'; uploadStat.textContent = 'Error al subir: ' + err.message; }
+        btn.disabled = false; btn.textContent = 'Guardar presencia';
+        return;
+      }
+    }
+
     const data = {
       visible:  form.visible.checked,
       nombre:   form.nombre.value.trim() || _empresa.nombre || '',
       tagline:  form.tagline.value.trim(),
-      logoUrl:  form.logoUrl.value.trim(),
+      logoUrl,
       sitioWeb: form.sitioWeb.value.trim(),
     };
     try {
