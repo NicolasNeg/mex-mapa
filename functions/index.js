@@ -3003,3 +3003,158 @@ exports.listarEmpresasPublicas = functions
     empresas.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
     return { ok: true, empresas };
   });
+
+// ══════════════════════════════════════════════════════════════
+//  migrarDatosLegacyCompleto — HTTPS callable (solo PROGRAMADOR)
+//
+//  Añade empresaId a todos los documentos legacy de las colecciones
+//  de actividad (alertas, notas_admin, logs, bitacora_gestion,
+//  historial_patio, mensajes, plantillas_alertas, auditoria).
+//
+//  Además migra configuración por plaza:
+//    - settings/{plaza} → settings/{empresaId}__{plaza}
+//    - mapa_config/{plaza} + subcollección estructura
+//      → mapa_config/{empresaId}__{plaza}
+//
+//  También siembra las listas de la empresa (estados, gasolinas,
+//  categorias) copiando configuracion/listas → empresas/{id}.listas
+//  si la empresa no tiene listas propias todavía.
+//
+//  Parámetros: { empresaId: string, plazas?: string[] }
+//    - plazas: lista de plazas a migrar para settings/mapa_config.
+//              Si se omite, se lee de empresas/{empresaId}.plazas.
+//
+//  Devuelve: { ok, conteos: { [coleccion]: number } }
+// ══════════════════════════════════════════════════════════════
+exports.migrarDatosLegacyCompleto = functions
+  .region(REGION)
+  .runWith({ timeoutSeconds: 540, memory: "1GB" })
+  .https.onCall(async (data, context) => {
+    await requireProgrammerAuth(context);
+
+    const empresaId = String(data?.empresaId || "").trim().toLowerCase();
+    if (!empresaId || empresaId.length < 2) {
+      throw new HttpsError("invalid-argument", "empresaId requerido.");
+    }
+
+    const empSnap = await db.collection(EMPRESAS_COL).doc(empresaId).get();
+    if (!empSnap.exists) {
+      throw new HttpsError("not-found", `Empresa "${empresaId}" no encontrada.`);
+    }
+    const empData = empSnap.data() || {};
+
+    // Plazas a migrar para settings/mapa_config
+    let plazas = Array.isArray(data?.plazas) ? data.plazas : [];
+    if (!plazas.length && Array.isArray(empData.plazas)) plazas = empData.plazas;
+    plazas = plazas.map(p => String(p).trim().toUpperCase()).filter(Boolean);
+
+    const BATCH_LIMIT = 400;
+    const conteos = {};
+
+    // ── Helper: backfill empresaId en colección plana ──────
+    async function backfillCollection(colName) {
+      let updated = 0;
+      let lastDoc = null;
+      let hasMore = true;
+      while (hasMore) {
+        let q = db.collection(colName).limit(500);
+        if (lastDoc) q = q.startAfter(lastDoc);
+        const snap = await q.get();
+        if (snap.empty) { hasMore = false; break; }
+        lastDoc = snap.docs[snap.docs.length - 1];
+        if (snap.docs.length < 500) hasMore = false;
+        const toUpdate = snap.docs.filter(d => {
+          const v = d.data().empresaId;
+          return v === undefined || v === null || v === "";
+        });
+        for (let i = 0; i < toUpdate.length; i += BATCH_LIMIT) {
+          const batch = db.batch();
+          for (const doc of toUpdate.slice(i, i + BATCH_LIMIT)) {
+            batch.update(doc.ref, { empresaId });
+          }
+          await batch.commit();
+          updated += Math.min(BATCH_LIMIT, toUpdate.length - i);
+        }
+      }
+      conteos[colName] = updated;
+      logger.info(`[migrarDatosLegacyCompleto] ${colName}: ${updated} docs`, { empresaId });
+    }
+
+    // ── Colecciones de actividad ───────────────────────────
+    const colsActividad = [
+      "alertas", "notas_admin", "logs", "bitacora_gestion",
+      "historial_patio", "mensajes", "plantillas_alertas",
+      "auditoria", "mapa_plantillas",
+    ];
+    for (const col of colsActividad) {
+      await backfillCollection(col);
+    }
+
+    // ── Settings: copiar settings/{plaza} → settings/{id}__{plaza} ──
+    conteos.settings = 0;
+    for (const plaza of plazas) {
+      const srcDocId = plaza;
+      const dstDocId = `${empresaId}__${plaza}`;
+      const srcRef = db.collection("settings").doc(srcDocId);
+      const dstRef = db.collection("settings").doc(dstDocId);
+      const [srcSnap, dstSnap] = await Promise.all([srcRef.get(), dstRef.get()]);
+      if (srcSnap.exists && !dstSnap.exists) {
+        await dstRef.set({ ...srcSnap.data(), empresaId, plaza });
+        conteos.settings++;
+        logger.info(`[migrarDatosLegacyCompleto] settings ${srcDocId} → ${dstDocId}`, { empresaId });
+      }
+    }
+
+    // ── Mapa config: copiar mapa_config/{plaza}/estructura ─
+    conteos.mapa_config = 0;
+    for (const plaza of plazas) {
+      const srcDocId = plaza;
+      const dstDocId = `${empresaId}__${plaza}`;
+      const srcRef = db.collection("mapa_config").doc(srcDocId);
+      const dstRef = db.collection("mapa_config").doc(dstDocId);
+
+      // Copy root doc metadata
+      const [srcSnap, dstSnap] = await Promise.all([srcRef.get(), dstRef.get()]);
+      if (srcSnap.exists && !dstSnap.exists) {
+        await dstRef.set({ ...srcSnap.data(), empresaId, plaza });
+      }
+
+      // Copy estructura subcollection
+      const srcEst = srcRef.collection("estructura");
+      const dstEst = dstRef.collection("estructura");
+      const [srcEstSnap, dstEstSnap] = await Promise.all([
+        srcEst.orderBy("orden").get(),
+        dstEst.limit(1).get(),
+      ]);
+      if (!srcEstSnap.empty && dstEstSnap.empty) {
+        for (let i = 0; i < srcEstSnap.docs.length; i += BATCH_LIMIT) {
+          const batch = db.batch();
+          for (const doc of srcEstSnap.docs.slice(i, i + BATCH_LIMIT)) {
+            batch.set(dstEst.doc(doc.id), { ...doc.data(), empresaId });
+          }
+          await batch.commit();
+        }
+        conteos.mapa_config++;
+        logger.info(`[migrarDatosLegacyCompleto] mapa_config ${srcDocId} → ${dstDocId} (${srcEstSnap.docs.length} celdas)`, { empresaId });
+      }
+    }
+
+    // ── Seed listas: configuracion/listas → empresas/{id}.listas ──
+    conteos.listas = 0;
+    if (!empData.listas) {
+      const globalListasSnap = await db.collection("configuracion").doc("listas").get();
+      if (globalListasSnap.exists) {
+        await db.collection(EMPRESAS_COL).doc(empresaId).set(
+          { listas: globalListasSnap.data() },
+          { merge: true }
+        );
+        conteos.listas = 1;
+        logger.info(`[migrarDatosLegacyCompleto] listas globales copiadas a empresa`, { empresaId });
+      }
+    } else {
+      conteos.listas = -1; // already has listas, skipped
+    }
+
+    logger.info("[migrarDatosLegacyCompleto] done", { empresaId, conteos });
+    return { ok: true, empresaId, plazas, conteos };
+  });

@@ -64,11 +64,14 @@
         return db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get();
       });
 
+      const eidCN2 = _eid();
+      let msgsQuery = db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase());
+      if (eidCN2) msgsQuery = db.collection(COL.MENSAJES).where("empresaId", "==", eidCN2).where("destinatario", "==", usuarioActivo.toUpperCase());
       const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
         _getSettings(plaza),
         _getSettings('GLOBAL'),
         alertasPromise,
-        db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase()).get(),
+        msgsQuery.get(),
         notasPromise
       ]);
       const alertas = alertasSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -148,29 +151,37 @@
     },
 
     // ─── CONFIGURACIÓN GLOBAL ─────────────────────────────
-    // empresa data comes from empresa-context.js (empresas/{empresaId}).
-    // Ubicaciones viven en configuracion/listas (global) y se segmentan por plazaId.
-    // configuracion/{PLAZA} se mantiene solo como fallback legacy de lectura.
+    // Listas (estados, gasolinas, categorias, ubicaciones) se leen desde:
+    //   1. empresas/{empresaId}.listas  (per-tenant — fuente principal cuando hay empresa activa)
+    //   2. configuracion/listas         (global / super-admin fallback)
     async obtenerConfiguracion(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
       if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
-      const fetches = [
-        db.collection(COL.CONFIG).doc("listas").get()
-      ];
-      if (plazaUp) fetches.push(_configPlazaRef(plazaUp).get());
-      const snaps = await Promise.all(fetches);
-      const snapListas = snaps[0];
-      const snapPlaza  = snaps[1] || null;
 
-      // Empresa data: use context loaded by empresa-context.js (not legacy configuracion/empresa)
       const empresaCtx = window._empresaActual;
-      const empresaData = (empresaCtx && !empresaCtx.isSuperAdminContext) ? empresaCtx : {};
+      const eidOC = (empresaCtx && !empresaCtx.isSuperAdminContext) ? (empresaCtx.id || '') : '';
+      const empresaData = empresaCtx && !empresaCtx.isSuperAdminContext ? empresaCtx : {};
 
-      const globalListas = snapListas.exists
+      const fetches = [];
+      // Per-empresa listas (priority): read from the empresa doc itself
+      if (eidOC) fetches.push(db.collection('empresas').doc(eidOC).get());
+      // Global fallback
+      fetches.push(db.collection(COL.CONFIG).doc("listas").get());
+      if (plazaUp) fetches.push(_configPlazaRef(plazaUp).get());
+
+      const snaps = await Promise.all(fetches);
+      let snapEmpresa = null, snapListas = null, snapPlaza = null;
+      if (eidOC) { snapEmpresa = snaps[0]; snapListas = snaps[1]; snapPlaza = snaps[2] || null; }
+      else       { snapListas = snaps[0]; snapPlaza = snaps[1] || null; }
+
+      // Listas: empresa doc takes precedence over global configuracion/listas
+      const empresaListas = snapEmpresa?.exists ? (snapEmpresa.data()?.listas || null) : null;
+      const globalListas = snapListas?.exists
         ? snapListas.data()
         : { estados: [], gasolinas: [], categorias: [] };
+      const sourceListas = empresaListas || globalListas;
 
-      const globalUbicaciones = _mergeLocationCatalogs(globalListas.ubicaciones || []);
+      const sourceUbicaciones = _mergeLocationCatalogs(sourceListas.ubicaciones || []);
       const legacyUbicaciones = plazaUp && snapPlaza && snapPlaza.exists && Array.isArray(snapPlaza.data().ubicaciones)
         ? _mergeLocationCatalogs(
           snapPlaza.data().ubicaciones
@@ -179,14 +190,14 @@
         )
         : [];
 
-      let ubicaciones = _mergeLocationCatalogs(globalUbicaciones, legacyUbicaciones);
+      let ubicaciones = _mergeLocationCatalogs(sourceUbicaciones, legacyUbicaciones);
       if (plazaUp && !ubicaciones.some(item => _locationMatchesPlaza(item, plazaUp))) {
         ubicaciones = _mergeLocationCatalogs(ubicaciones, _buildDefaultPlazaLocations(plazaUp));
       }
 
       return {
         empresa: empresaData,
-        listas: { ...globalListas, ubicaciones }
+        listas: { ...sourceListas, ubicaciones }
       };
     },
 

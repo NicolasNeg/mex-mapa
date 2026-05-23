@@ -115,7 +115,7 @@ function _bindConfig() {
     colorInput.addEventListener('input', () => { colorDisplay.value = colorInput.value; });
   }
 
-  // Migration button
+  // Migration button (unidades)
   const btnMigrar = _container?.querySelector('#btnMigrarLegacy');
   const migStatus = _container?.querySelector('#migrarStatus');
   if (btnMigrar) {
@@ -139,6 +139,36 @@ function _bindConfig() {
         _toast('Error en migración: ' + err.message, 'error');
         btnMigrar.disabled = false;
         btnMigrar.textContent = 'Migrar unidades legacy → empresaId';
+      }
+    });
+  }
+
+  // Full migration button (all collections + settings + mapa_config + listas)
+  const btnMigrarCompleto = _container?.querySelector('#btnMigrarCompleto');
+  const migCompletoStatus = _container?.querySelector('#migrarCompletoStatus');
+  if (btnMigrarCompleto) {
+    btnMigrarCompleto.addEventListener('click', async () => {
+      if (!confirm(`¿Ejecutar migración completa de TODOS los datos legacy para "${_empresaId}"?\n\nEsto hará:\n• Añadir empresaId a: alertas, notas, logs, bitácora, historial, mensajes…\n• Copiar settings y mapa_config de plazas al nuevo esquema por empresa\n• Copiar listas globales a la empresa (si no tiene listas propias)\n\nPuede tardar hasta 9 minutos.`)) return;
+      btnMigrarCompleto.disabled = true;
+      btnMigrarCompleto.textContent = 'Migrando todo…';
+      if (migCompletoStatus) migCompletoStatus.textContent = 'Ejecutando migración completa, puede tardar varios minutos…';
+      try {
+        const fn = firebase.functions().httpsCallable('migrarDatosLegacyCompleto');
+        const res = await fn({ empresaId: _empresaId });
+        const d = res.data;
+        const c = d.conteos || {};
+        const resumen = Object.entries(c).map(([k, v]) => `${k}: ${v}`).join(', ');
+        if (migCompletoStatus) {
+          migCompletoStatus.style.color = '#4ade80';
+          migCompletoStatus.textContent = `✓ Migración completa — ${resumen}`;
+        }
+        _toast('Migración completa exitosa', 'ok');
+        btnMigrarCompleto.textContent = 'Migración completa ✓';
+      } catch (err) {
+        if (migCompletoStatus) { migCompletoStatus.style.color = '#f87171'; migCompletoStatus.textContent = 'Error: ' + err.message; }
+        _toast('Error en migración completa: ' + err.message, 'error');
+        btnMigrarCompleto.disabled = false;
+        btnMigrarCompleto.textContent = 'Migración completa (todos los datos)';
       }
     });
   }
@@ -412,6 +442,19 @@ function _configTabHtml() {
     Migrar unidades legacy → empresaId
   </button>
   <div id="migrarStatus" style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.5);min-height:18px;"></div>
+</div>
+<div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.06);">
+  <div style="font-size:12px;font-weight:700;color:rgba(99,102,241,0.7);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Migración completa (multi-tenant)</div>
+  <div style="font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:12px;line-height:1.6;">
+    Migra <strong>todos</strong> los datos legacy de la empresa al nuevo esquema multi-tenant:
+    alertas, notas, logs, bitácora, historial de patio, mensajes, plantillas de alertas, auditoría,
+    settings por plaza, estructura del mapa y listas (categorías, estados, gasolinas).
+    <br><strong style="color:#f87171;">Ejecutar solo una vez. Puede tardar varios minutos.</strong>
+  </div>
+  <button id="btnMigrarCompleto" type="button" style="padding:9px 18px;border-radius:8px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.4);color:#a5b4fc;font-size:13px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">
+    Migración completa (todos los datos)
+  </button>
+  <div id="migrarCompletoStatus" style="margin-top:10px;font-size:12px;color:rgba(255,255,255,0.5);min-height:18px;"></div>
 </div>`;
 }
 
