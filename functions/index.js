@@ -2994,10 +2994,13 @@ exports.listarEmpresasPublicas = functions
     snap.forEach(doc => {
       const d = doc.data();
       if (d.activo === false) return;
+      const lp = d.loginPresencia || {};
       empresas.push({
-        id: doc.id,
-        nombre: String(d.nombre || doc.id),
-        tagline: String(d.tagline || d.descripcion || ''),
+        id:       doc.id,
+        nombre:   String(lp.nombre || d.nombre || doc.id),
+        tagline:  String(lp.tagline || d.tagline || d.descripcion || ''),
+        logoUrl:  String(lp.logoUrl || d.branding?.logoUrl || ''),
+        sitioWeb: String(lp.sitioWeb || d.sitioWeb || ''),
       });
     });
     empresas.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));

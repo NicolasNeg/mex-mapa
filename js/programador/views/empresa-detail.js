@@ -618,6 +618,7 @@ function _loginPresenciaTabHtml() {
     ${_field('Nombre para mostrar', `<input name="nombre" value="${_esc(p.nombre || _empresa.nombre || '')}" placeholder="${_esc(_empresa.nombre || 'Nombre')}" style="${_inp()}"/>`)}
     ${_field('Tagline (opcional)', `<input name="tagline" value="${_esc(p.tagline || '')}" placeholder="Gestión de flota desde 2018" style="${_inp()}"/>`)}
     ${_field('URL del logo (opcional)', `<input name="logoUrl" type="url" value="${_esc(p.logoUrl || '')}" placeholder="https://..." style="${_inp()}"/>`)}
+    ${_field('Sitio web de la empresa (opcional)', `<input name="sitioWeb" type="url" value="${_esc(p.sitioWeb || '')}" placeholder="https://miempresa.com" style="${_inp()}"/>`)}
     <div>
       <button type="submit" style="padding:9px 20px;border-radius:8px;background:#6366f1;color:#fff;border:none;font-size:13px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;">
         Guardar presencia
@@ -626,11 +627,12 @@ function _loginPresenciaTabHtml() {
   </form>
   ${p.visible ? `
   <div style="padding:14px 16px;background:#070d16;border:1px solid rgba(255,255,255,0.06);border-radius:8px;">
-    <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Preview marquee</div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      ${p.logoUrl ? `<img src="${_esc(p.logoUrl)}" style="height:20px;border-radius:3px;opacity:.8;" onerror="this.style.display='none'"/>` : ''}
-      <span style="font-size:13px;font-weight:700;color:rgba(255,255,255,0.75);">${_esc(p.nombre || _empresa.nombre || '')}</span>
-      ${p.tagline ? `<span style="font-size:11px;color:rgba(255,255,255,0.25);">${_esc(p.tagline)}</span>` : ''}
+    <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.25);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;">Preview hover card</div>
+    <div style="background:rgba(10,18,32,0.95);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:14px 16px;max-width:240px;box-shadow:0 12px 32px rgba(0,0,0,0.5);">
+      ${p.logoUrl ? `<img src="${_esc(p.logoUrl)}" style="width:36px;height:36px;border-radius:8px;object-fit:contain;background:rgba(255,255,255,0.06);padding:3px;margin-bottom:8px;display:block;" onerror="this.style.display='none'"/>` : ''}
+      <div style="font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;">${_esc(p.nombre || _empresa.nombre || '')}</div>
+      ${p.tagline ? `<div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:10px;">${_esc(p.tagline)}</div>` : ''}
+      ${p.sitioWeb ? `<a href="${_esc(p.sitioWeb)}" target="_blank" style="display:inline-flex;align-items:center;gap:5px;padding:5px 11px;border-radius:8px;background:rgba(99,102,241,0.15);border:1px solid rgba(99,102,241,0.3);color:#a5b4fc;font-size:11px;font-weight:700;text-decoration:none;"><span class="material-symbols-outlined" style="font-size:12px;">open_in_new</span>Visitar sitio</a>` : '<span style="font-size:11px;color:rgba(255,255,255,0.2);">Sin sitio web configurado</span>'}
     </div>
   </div>` : ''}
 </div>`;
@@ -660,6 +662,7 @@ function _bindLoginPresencia() {
       nombre:   form.nombre.value.trim() || _empresa.nombre || '',
       tagline:  form.tagline.value.trim(),
       logoUrl:  form.logoUrl.value.trim(),
+      sitioWeb: form.sitioWeb.value.trim(),
     };
     try {
       await window._db.collection('empresas').doc(_empresaId).update({ loginPresencia: data });

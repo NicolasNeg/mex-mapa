@@ -706,6 +706,7 @@
 
     .login-marquee:hover {
       opacity: 1;
+      animation-play-state: paused;
     }
 
     .login-marquee-half {
@@ -721,12 +722,82 @@
       align-items: center;
       gap: 8px;
       white-space: nowrap;
+      cursor: pointer;
     }
 
     .login-marquee-item span {
       font-size: 12px;
       font-weight: 600;
       color: rgba(195, 198, 210, 0.6);
+      transition: color 0.15s;
+    }
+
+    .login-marquee-item:hover span {
+      color: rgba(195, 198, 210, 1);
+    }
+
+    /* ── Marquee hover card ──────────────────────────────── */
+    #marqCard {
+      position: fixed;
+      z-index: 99999;
+      background: rgba(7, 13, 22, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 16px 18px;
+      min-width: 210px;
+      max-width: 290px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.7), 0 0 0 1px rgba(99,102,241,0.18);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+    #marqCard.marq-card-visible {
+      pointer-events: auto;
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    #marqCard .mc-logo {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      object-fit: contain;
+      background: rgba(255,255,255,0.06);
+      padding: 4px;
+      margin-bottom: 10px;
+      display: block;
+    }
+    #marqCard .mc-name {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      margin-bottom: 4px;
+      line-height: 1.3;
+    }
+    #marqCard .mc-tagline {
+      font-size: 11px;
+      color: rgba(255,255,255,0.45);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+    #marqCard .mc-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      background: rgba(99,102,241,0.15);
+      border: 1px solid rgba(99,102,241,0.3);
+      color: #a5b4fc;
+      font-size: 11px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.15s;
+    }
+    #marqCard .mc-link:hover {
+      background: rgba(99,102,241,0.28);
     }
 
     @keyframes marqueeScroll {
@@ -1384,6 +1455,9 @@
     </div>
   </footer>
 
+  <!-- ── Marquee hover card ───────────────────────────── -->
+  <div id="marqCard"></div>
+
   <!-- ── Modal solicitud de acceso (3 pasos) ──────────── -->
   <div id="modal-solicitud" class="solicitud-modal-overlay" style="display:none;">
     <div class="solicitud-modal-card">
@@ -1525,19 +1599,114 @@
       window._solFetchEmpresas = _fetch;
 
       // Marquee
+      function _escAttr(s) {
+        return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+      }
+
       function buildMarqueeHTML(list) {
         if (!list.length) return '';
         var items = list.map(function (e) {
-          return '<div class="login-marquee-item"><span>' + _esc(e.nombre) + '</span></div>';
+          return '<div class="login-marquee-item"'
+            + ' data-nombre="' + _escAttr(e.nombre) + '"'
+            + ' data-tagline="' + _escAttr(e.tagline || '') + '"'
+            + ' data-logo="' + _escAttr(e.logoUrl || '') + '"'
+            + ' data-sitio="' + _escAttr(e.sitioWeb || '') + '"'
+            + '><span>' + _esc(e.nombre) + '</span></div>';
         }).join('');
         return '<div class="login-marquee-half">' + items + '</div><div class="login-marquee-half">' + items + '</div>';
+      }
+
+      // ── Hover card ────────────────────────────────────────
+      var _card = null;
+      var _hideTimer = null;
+
+      function _getCard() {
+        if (!_card) _card = document.getElementById('marqCard');
+        return _card;
+      }
+
+      function _showCard(el, e) {
+        clearTimeout(_hideTimer);
+        var card = _getCard();
+        if (!card) return;
+
+        var nombre  = el.dataset.nombre  || '';
+        var tagline = el.dataset.tagline || '';
+        var logo    = el.dataset.logo    || '';
+        var sitio   = el.dataset.sitio   || '';
+
+        // Build content
+        var logoHtml = logo
+          ? '<img class="mc-logo" src="' + _escAttr(logo) + '" alt="" onerror="this.style.display=\'none\'">'
+          : '';
+        var tagHtml = tagline
+          ? '<div class="mc-tagline">' + _esc(tagline) + '</div>'
+          : '<div class="mc-tagline" style="display:none"></div>';
+        var linkHtml = sitio
+          ? '<a class="mc-link" href="' + _escAttr(sitio) + '" target="_blank" rel="noopener">'
+            + '<span class="material-icons" style="font-size:13px;">open_in_new</span>Visitar sitio</a>'
+          : '';
+
+        card.innerHTML = logoHtml
+          + '<div class="mc-name">' + _esc(nombre) + '</div>'
+          + tagHtml
+          + linkHtml;
+
+        // Position: above the item, centered
+        var rect = el.getBoundingClientRect();
+        var cardW = 240;
+        var left  = rect.left + rect.width / 2 - cardW / 2;
+        left = Math.max(8, Math.min(left, window.innerWidth - cardW - 8));
+        var top = rect.top - 12; // will use translateY to go up
+
+        card.style.left   = left + 'px';
+        card.style.top    = (top - 20) + 'px'; // start estimate; adjust after render
+        card.style.width  = cardW + 'px';
+        card.classList.add('marq-card-visible');
+
+        // After render, adjust so card sits above item
+        requestAnimationFrame(function () {
+          var h = card.offsetHeight;
+          card.style.top = (rect.top - h - 10) + 'px';
+        });
+      }
+
+      function _hideCard(immediate) {
+        clearTimeout(_hideTimer);
+        _hideTimer = setTimeout(function () {
+          var card = _getCard();
+          if (card) card.classList.remove('marq-card-visible');
+        }, immediate ? 0 : 140);
+      }
+
+      function _bindMarqueeHover(wrap) {
+        wrap.addEventListener('mouseover', function (e) {
+          var item = e.target.closest('.login-marquee-item');
+          if (!item || !item.dataset.nombre) return;
+          _showCard(item, e);
+        });
+        wrap.addEventListener('mouseout', function (e) {
+          var item = e.target.closest('.login-marquee-item');
+          if (!item) return;
+          var to = e.relatedTarget;
+          if (to && (to === _card || (_card && _card.contains(to)))) return;
+          _hideCard(false);
+        });
+        var card = _getCard();
+        if (card) {
+          card.addEventListener('mouseenter', function () { clearTimeout(_hideTimer); });
+          card.addEventListener('mouseleave', function () { _hideCard(false); });
+        }
       }
 
       function loadMarquee() {
         _fetch().then(function (list) {
           if (!list.length) return;
           var wrap = document.querySelector('.login-marquee');
-          if (wrap) wrap.innerHTML = buildMarqueeHTML(list);
+          if (wrap) {
+            wrap.innerHTML = buildMarqueeHTML(list);
+            _bindMarqueeHover(wrap);
+          }
         });
       }
 
