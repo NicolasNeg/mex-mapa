@@ -987,7 +987,8 @@ service cloud.firestore {
           tienePerfilActual()
           && perfilActual().empresaId == empresaId
           && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['tipo_negocio', 'configuracion', 'onboarding_paso', 'onboarding_completado', 'onboarding_plazas'])
+              .hasOnly(['tipo_negocio', 'configuracion', 'onboarding_paso', 'onboarding_completado',
+                        'onboarding_plazas', 'rolePermissions'])
         );
     }
 

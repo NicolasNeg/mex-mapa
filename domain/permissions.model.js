@@ -47,3 +47,113 @@ export function puedeVerPlaza(usuario, plazaId) {
   }
   return String(usuario?.plazaAsignada || '').toUpperCase() === plazaUp;
 }
+
+// ── Per-empresa per-role permissions ────────────────────────────────────────
+
+/** Canonical list of all controllable permission keys. */
+export const PERMISSION_KEYS = Object.freeze([
+  // Navigation
+  'view_dashboard', 'view_mapa', 'view_cuadre', 'view_incidencias',
+  'view_cola_preparacion', 'view_mensajes', 'view_alertas', 'view_admin', 'view_reportes',
+  // Mapa operations
+  'edit_mapa_layout', 'move_units', 'change_unit_state', 'manage_unit_info',
+  // Cuadre
+  'view_cuadre_admin', 'edit_cuadre_admin', 'export_data',
+  // Incidencias
+  'create_incidencia', 'edit_incidencia', 'delete_incidencia',
+  // Admin
+  'manage_users', 'manage_solicitudes', 'manage_fleet',
+  // Alertas
+  'emit_alerts', 'delete_alerts',
+  // Sistema
+  'manage_settings',
+]);
+
+/**
+ * Baseline role permissions that apply when an empresa has NOT customized a role.
+ * Empresa-specific overrides are stored in `empresas/{id}.rolePermissions`.
+ * PROGRAMADOR / JEFE_OPERACION / CORPORATIVO_USER always have full access
+ * and are NOT included here — use tieneAccesoTotal() to check those.
+ */
+export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
+  AUXILIAR: {
+    view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
+    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_admin: false,     view_reportes: false,
+    edit_mapa_layout: false, move_units: true, change_unit_state: true, manage_unit_info: false,
+    view_cuadre_admin: false, edit_cuadre_admin: false, export_data: false,
+    create_incidencia: true, edit_incidencia: false, delete_incidencia: false,
+    manage_users: false, manage_solicitudes: false, manage_fleet: false,
+    emit_alerts: false, delete_alerts: false, manage_settings: false,
+  },
+  VENTAS: {
+    view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
+    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_admin: true,      view_reportes: true,
+    edit_mapa_layout: false, move_units: true, change_unit_state: true, manage_unit_info: true,
+    view_cuadre_admin: true, edit_cuadre_admin: false, export_data: true,
+    create_incidencia: true, edit_incidencia: true, delete_incidencia: false,
+    manage_users: false, manage_solicitudes: false, manage_fleet: false,
+    emit_alerts: false, delete_alerts: false, manage_settings: false,
+  },
+  SUPERVISOR: {
+    view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
+    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_admin: true,      view_reportes: true,
+    edit_mapa_layout: false, move_units: true, change_unit_state: true, manage_unit_info: true,
+    view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,
+    create_incidencia: true, edit_incidencia: true, delete_incidencia: true,
+    manage_users: false, manage_solicitudes: false, manage_fleet: false,
+    emit_alerts: true, delete_alerts: false, manage_settings: false,
+  },
+  JEFE_PATIO: {
+    view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
+    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_admin: true,      view_reportes: true,
+    edit_mapa_layout: true, move_units: true, change_unit_state: true, manage_unit_info: true,
+    view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,
+    create_incidencia: true, edit_incidencia: true, delete_incidencia: true,
+    manage_users: false, manage_solicitudes: true, manage_fleet: true,
+    emit_alerts: true, delete_alerts: true, manage_settings: false,
+  },
+  GERENTE_PLAZA: {
+    view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
+    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_admin: true,      view_reportes: true,
+    edit_mapa_layout: true, move_units: true, change_unit_state: true, manage_unit_info: true,
+    view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,
+    create_incidencia: true, edit_incidencia: true, delete_incidencia: true,
+    manage_users: true, manage_solicitudes: true, manage_fleet: true,
+    emit_alerts: true, delete_alerts: true, manage_settings: true,
+  },
+  JEFE_REGIONAL: {
+    view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
+    view_cola_preparacion: true, view_mensajes: true, view_alertas: true,
+    view_admin: true,      view_reportes: true,
+    edit_mapa_layout: true, move_units: true, change_unit_state: true, manage_unit_info: true,
+    view_cuadre_admin: true, edit_cuadre_admin: true, export_data: true,
+    create_incidencia: true, edit_incidencia: true, delete_incidencia: true,
+    manage_users: true, manage_solicitudes: true, manage_fleet: true,
+    emit_alerts: true, delete_alerts: true, manage_settings: true,
+  },
+});
+
+/**
+ * Returns the effective permission map for a role in an empresa context.
+ * fullAccess roles always get all permissions.
+ * For other roles: DEFAULT_ROLE_PERMISSIONS[rol] merged with empresa.rolePermissions[rol].
+ */
+export function resolveRolePermissions(empresa, rol) {
+  const meta = getRoleMeta(rol);
+  if (meta.fullAccess) {
+    return Object.fromEntries(PERMISSION_KEYS.map(k => [k, true]));
+  }
+  const defaults = DEFAULT_ROLE_PERMISSIONS[rol] || DEFAULT_ROLE_PERMISSIONS.AUXILIAR;
+  const override = empresa?.rolePermissions?.[rol];
+  if (!override || typeof override !== 'object') return { ...defaults };
+  const result = { ...defaults };
+  for (const key of PERMISSION_KEYS) {
+    if (typeof override[key] === 'boolean') result[key] = override[key];
+  }
+  return result;
+}

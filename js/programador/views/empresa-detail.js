@@ -10,12 +10,13 @@ let _empresa   = null;
 let _empresaId = null;
 
 const TABS = [
-  { key: 'config',   label: 'Configuración',    icon: 'settings'    },
-  { key: 'features', label: 'Features',          icon: 'toggle_on'   },
-  { key: 'plazas',   label: 'Plazas',            icon: 'location_on' },
-  { key: 'listas',   label: 'Listas',            icon: 'list'        },
-  { key: 'usuarios', label: 'Usuarios',           icon: 'group'       },
-  { key: 'login',    label: 'Presencia en Login', icon: 'language'    },
+  { key: 'config',    label: 'Configuración',    icon: 'settings'       },
+  { key: 'features',  label: 'Features',          icon: 'toggle_on'      },
+  { key: 'permisos',  label: 'Permisos',          icon: 'security'       },
+  { key: 'plazas',    label: 'Plazas',            icon: 'location_on'    },
+  { key: 'listas',    label: 'Listas',            icon: 'list'           },
+  { key: 'usuarios',  label: 'Usuarios',          icon: 'group'          },
+  { key: 'login',     label: 'Presencia en Login', icon: 'language'      },
 ];
 
 export async function mount({ container, params, pathname, navigate }) {
@@ -96,6 +97,7 @@ function _switchTab(tab) {
 function _bindTab(tab) {
   if (tab === 'config')   _bindConfig();
   if (tab === 'features') _bindFeatures();
+  if (tab === 'permisos') _bindPermisos();
   if (tab === 'plazas')   _bindPlazas();
   if (tab === 'listas')   _bindListas();
   if (tab === 'usuarios') _loadUsuarios();
@@ -362,6 +364,7 @@ function _html(activeTab) {
 function _tabContent(tab) {
   if (tab === 'config')   return _configTabHtml();
   if (tab === 'features') return _featuresTabHtml();
+  if (tab === 'permisos') return _permisosTabHtml();
   if (tab === 'plazas')   return _plazasTabHtml();
   if (tab === 'listas')   return _listasTabHtml();
   if (tab === 'usuarios') return _usuariosTabHtml();
@@ -590,6 +593,220 @@ function _bindListas() {
         _switchTab('listas');
       } catch (err) { _toast('Error: ' + err.message, 'error'); }
     });
+  });
+}
+
+// ── Permisos tab ─────────────────────────────────────────
+
+const _CONFIGURABLE_ROLES = ['AUXILIAR', 'VENTAS', 'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL'];
+const _ROLE_LABELS = { AUXILIAR:'Auxiliar', VENTAS:'Ventas', SUPERVISOR:'Supervisor', JEFE_PATIO:'Jefe Patio', GERENTE_PLAZA:'Gerente Plaza', JEFE_REGIONAL:'Jefe Regional' };
+
+// Mirrors domain/permissions.model.js DEFAULT_ROLE_PERMISSIONS
+const _PERM_DEFAULTS = {
+  AUXILIAR:     { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:false, view_reportes:false, edit_mapa_layout:false, move_units:true, change_unit_state:true, manage_unit_info:false, view_cuadre_admin:false, edit_cuadre_admin:false, export_data:false, create_incidencia:true,  edit_incidencia:false, delete_incidencia:false, manage_users:false, manage_solicitudes:false, manage_fleet:false, emit_alerts:false, delete_alerts:false, manage_settings:false },
+  VENTAS:       { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:false, move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:false, export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:false, manage_users:false, manage_solicitudes:false, manage_fleet:false, emit_alerts:false, delete_alerts:false, manage_settings:false },
+  SUPERVISOR:   { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:false, move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:false, manage_solicitudes:false, manage_fleet:false, emit_alerts:true,  delete_alerts:false, manage_settings:false },
+  JEFE_PATIO:   { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:true,  move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:false, manage_solicitudes:true,  manage_fleet:true,  emit_alerts:true,  delete_alerts:true,  manage_settings:false },
+  GERENTE_PLAZA:{ view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:true,  move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:true,  manage_solicitudes:true,  manage_fleet:true,  emit_alerts:true,  delete_alerts:true,  manage_settings:true  },
+  JEFE_REGIONAL:{ view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:true,  move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:true,  manage_solicitudes:true,  manage_fleet:true,  emit_alerts:true,  delete_alerts:true,  manage_settings:true  },
+};
+
+const _PERM_GROUPS = [
+  { label: 'Navegación', items: [
+    { key: 'view_dashboard',        label: 'Dashboard',               desc: 'Acceso al panel principal' },
+    { key: 'view_mapa',             label: 'Mapa',                    desc: 'Ver el mapa de unidades' },
+    { key: 'view_cuadre',           label: 'Cuadre',                  desc: 'Acceso al módulo de cuadre' },
+    { key: 'view_incidencias',      label: 'Incidencias',             desc: 'Ver reportes de incidencias' },
+    { key: 'view_cola_preparacion', label: 'Cola preparación',        desc: 'Ver la cola de salida' },
+    { key: 'view_mensajes',         label: 'Mensajes',                desc: 'Acceso a mensajería interna' },
+    { key: 'view_alertas',          label: 'Alertas',                 desc: 'Ver alertas del sistema' },
+    { key: 'view_admin',            label: 'Panel Admin',             desc: 'Acceso al módulo de administración' },
+    { key: 'view_reportes',         label: 'Reportes',                desc: 'Ver reportes y estadísticas' },
+  ]},
+  { label: 'Mapa', items: [
+    { key: 'edit_mapa_layout',  label: 'Editar estructura',           desc: 'Modificar celdas y layout del mapa' },
+    { key: 'move_units',        label: 'Mover unidades',              desc: 'Arrastrar y reubicar unidades en el mapa' },
+    { key: 'change_unit_state', label: 'Cambiar estado',              desc: 'Modificar el estado operativo de una unidad' },
+    { key: 'manage_unit_info',  label: 'Editar info de unidad',       desc: 'Actualizar datos de la unidad (placas, modelo, etc.)' },
+  ]},
+  { label: 'Cuadre', items: [
+    { key: 'view_cuadre_admin', label: 'Ver cuadre administrativo',   desc: 'Acceso a la vista admin del cuadre' },
+    { key: 'edit_cuadre_admin', label: 'Editar cuadre administrativo', desc: 'Modificar registros del cuadre admin' },
+    { key: 'export_data',       label: 'Exportar datos',              desc: 'Exportar a Excel o PDF' },
+  ]},
+  { label: 'Incidencias', items: [
+    { key: 'create_incidencia', label: 'Crear incidencias',           desc: 'Reportar nuevas incidencias' },
+    { key: 'edit_incidencia',   label: 'Editar incidencias',          desc: 'Modificar incidencias existentes' },
+    { key: 'delete_incidencia', label: 'Eliminar incidencias',        desc: 'Borrar incidencias del sistema' },
+  ]},
+  { label: 'Usuarios y Admin', items: [
+    { key: 'manage_users',       label: 'Gestionar usuarios',         desc: 'Crear, editar y desactivar usuarios' },
+    { key: 'manage_solicitudes', label: 'Gestionar solicitudes',      desc: 'Aprobar o rechazar solicitudes de acceso' },
+    { key: 'manage_fleet',       label: 'Gestionar flota',            desc: 'Administrar el catálogo de unidades' },
+  ]},
+  { label: 'Alertas', items: [
+    { key: 'emit_alerts',   label: 'Emitir alertas',                  desc: 'Crear y enviar alertas masivas' },
+    { key: 'delete_alerts', label: 'Eliminar alertas',                desc: 'Remover alertas del sistema' },
+  ]},
+  { label: 'Sistema', items: [
+    { key: 'manage_settings', label: 'Configuración de la empresa',   desc: 'Modificar ajustes y configuración de la empresa' },
+  ]},
+];
+
+let _permActiveRole = 'AUXILIAR';
+
+function _permisosTabHtml() {
+  return `
+<div style="max-width:820px;">
+  <div style="padding:12px 14px;background:rgba(99,102,241,0.08);border:1px solid rgba(99,102,241,0.2);border-radius:8px;font-size:12px;color:#a5b4fc;line-height:1.6;margin-bottom:20px;">
+    Define qué puede hacer cada rol en esta empresa. Los cambios aplican <strong>solo para esta empresa</strong> y no afectan a otras.
+    Los roles PROGRAMADOR, JEFE_OPERACIÓN y CORPORATIVO tienen acceso total y no se configuran aquí.
+  </div>
+  <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:20px;border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:0;" id="permRoleTabs">
+    ${_CONFIGURABLE_ROLES.map(r => `
+    <button data-perm-role-tab="${_esc(r)}"
+            class="emp-tab-btn perm-role-tab-btn ${r === _permActiveRole ? 'emp-tab-active' : ''}"
+            type="button">
+      ${_esc(_ROLE_LABELS[r] || r)}
+    </button>`).join('')}
+  </div>
+  <div id="permRoleContent">
+    ${_permRoleContentHtml(_permActiveRole)}
+  </div>
+</div>`;
+}
+
+function _permRoleContentHtml(rol) {
+  const defaults = _PERM_DEFAULTS[rol] || _PERM_DEFAULTS.AUXILIAR;
+  const overrides = _empresa?.rolePermissions?.[rol];
+  const hasOverrides = overrides && typeof overrides === 'object' && Object.keys(overrides).length > 0;
+
+  const rows = _PERM_GROUPS.map(group => {
+    const items = group.items.map(perm => {
+      const defaultVal = defaults[perm.key] === true;
+      const override   = overrides?.[perm.key];
+      const effective  = typeof override === 'boolean' ? override : defaultVal;
+      const isCustom   = typeof override === 'boolean' && override !== defaultVal;
+
+      return `
+<div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 14px;border-top:1px solid rgba(255,255,255,0.04);">
+  <div style="flex:1;min-width:0;">
+    <div style="display:flex;align-items:center;gap:7px;">
+      <span style="font-size:13px;font-weight:600;color:${effective ? '#e2e8f0' : 'rgba(255,255,255,0.35)'};">${_esc(perm.label)}</span>
+      ${isCustom ? `<span style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#f59e0b;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.25);border-radius:4px;padding:1px 5px;">empresa</span>` : `<span style="font-size:9px;font-weight:700;color:rgba(255,255,255,0.2);font-family:monospace;">sistema</span>`}
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.28);margin-top:2px;">${_esc(perm.desc)}</div>
+  </div>
+  <label style="position:relative;display:inline-block;width:38px;height:22px;flex-shrink:0;cursor:pointer;">
+    <input type="checkbox" data-perm-key="${_esc(perm.key)}" data-perm-role="${_esc(rol)}" ${effective ? 'checked' : ''} style="opacity:0;width:0;height:0;position:absolute;"/>
+    <span style="position:absolute;inset:0;border-radius:22px;background:${effective ? '#6366f1' : 'rgba(255,255,255,0.12)'};transition:background .18s;pointer-events:none;"></span>
+    <span style="position:absolute;left:${effective ? '18px' : '2px'};top:2px;width:18px;height:18px;background:#fff;border-radius:50%;transition:left .18s;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.3);"></span>
+  </label>
+</div>`;
+    }).join('');
+
+    return `
+<div style="background:#0f1b2d;border:1px solid rgba(255,255,255,0.07);border-radius:10px;margin-bottom:10px;overflow:hidden;">
+  <div style="padding:10px 14px;background:rgba(255,255,255,0.02);font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.05em;">
+    ${_esc(group.label)}
+  </div>
+  ${items}
+</div>`;
+  }).join('');
+
+  return `
+<div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+  <div>
+    <div style="font-size:13px;font-weight:700;color:#fff;">${_esc(_ROLE_LABELS[rol] || rol)}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,0.3);margin-top:2px;">
+      ${hasOverrides ? `<span style="color:#f59e0b;">Permisos personalizados para esta empresa</span>` : `<span>Usando valores del sistema predeterminados</span>`}
+    </div>
+  </div>
+  ${hasOverrides ? `
+  <button data-reset-role="${_esc(rol)}" type="button"
+          style="padding:6px 12px;border-radius:7px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);color:#fca5a5;font-size:11px;font-family:Inter,sans-serif;font-weight:700;cursor:pointer;white-space:nowrap;">
+    Restaurar predeterminados
+  </button>` : ''}
+</div>
+${rows}`;
+}
+
+function _bindPermisos() {
+  _permActiveRole = _CONFIGURABLE_ROLES[0];
+
+  _container?.querySelectorAll('[data-perm-role-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      _permActiveRole = btn.dataset.permRoleTab;
+      _container?.querySelectorAll('[data-perm-role-tab]').forEach(b => {
+        b.classList.toggle('emp-tab-active', b.dataset.permRoleTab === _permActiveRole);
+      });
+      const content = _container?.querySelector('#permRoleContent');
+      if (content) {
+        content.innerHTML = _permRoleContentHtml(_permActiveRole);
+        _bindPermToggles();
+        _bindPermReset(_permActiveRole);
+      }
+    });
+  });
+
+  _bindPermToggles();
+  _bindPermReset(_permActiveRole);
+}
+
+function _bindPermToggles() {
+  _container?.querySelectorAll('[data-perm-key]').forEach(chk => {
+    chk.addEventListener('change', async () => {
+      const key  = chk.dataset.permKey;
+      const rol  = chk.dataset.permRole;
+      const val  = chk.checked;
+      const track = chk.nextElementSibling;
+      const knob  = track?.nextElementSibling;
+      if (track) track.style.background = val ? '#6366f1' : 'rgba(255,255,255,0.12)';
+      if (knob)  knob.style.left         = val ? '18px'   : '2px';
+
+      try {
+        await window._db.collection('empresas').doc(_empresaId).update({
+          [`rolePermissions.${rol}.${key}`]: val,
+        });
+        if (!_empresa.rolePermissions)      _empresa.rolePermissions = {};
+        if (!_empresa.rolePermissions[rol]) _empresa.rolePermissions[rol] = {};
+        _empresa.rolePermissions[rol][key] = val;
+        _toast(`${_ROLE_LABELS[rol] || rol} · ${key} → ${val ? 'permitido' : 'denegado'}`, 'ok');
+        // Refresh badge/header row without full re-render
+        const content = _container?.querySelector('#permRoleContent');
+        if (content) {
+          content.innerHTML = _permRoleContentHtml(rol);
+          _bindPermToggles();
+          _bindPermReset(rol);
+        }
+      } catch (err) {
+        chk.checked = !val;
+        if (track) track.style.background = !val ? '#6366f1' : 'rgba(255,255,255,0.12)';
+        if (knob)  knob.style.left         = !val ? '18px'   : '2px';
+        _toast('Error: ' + err.message, 'error');
+      }
+    });
+  });
+}
+
+function _bindPermReset(rol) {
+  _container?.querySelector(`[data-reset-role="${rol}"]`)?.addEventListener('click', async () => {
+    if (!confirm(`¿Restaurar permisos predeterminados para "${_ROLE_LABELS[rol] || rol}"?\nEsto eliminará todas las personalizaciones de este rol en esta empresa.`)) return;
+    try {
+      const updates = {};
+      updates[`rolePermissions.${rol}`] = firebase.firestore.FieldValue.delete();
+      await window._db.collection('empresas').doc(_empresaId).update(updates);
+      if (_empresa.rolePermissions) delete _empresa.rolePermissions[rol];
+      _toast(`Permisos de ${_ROLE_LABELS[rol] || rol} restaurados`, 'ok');
+      const content = _container?.querySelector('#permRoleContent');
+      if (content) {
+        content.innerHTML = _permRoleContentHtml(rol);
+        _bindPermToggles();
+        _bindPermReset(rol);
+      }
+    } catch (err) {
+      _toast('Error: ' + err.message, 'error');
+    }
   });
 }
 

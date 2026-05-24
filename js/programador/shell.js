@@ -18,6 +18,7 @@ const ROUTES = [
   { pattern: '/programador/empresa/:id/plazas',     title: 'Plazas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/usuarios',   title: 'Usuarios Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/listas',     title: 'Listas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/permisos',   title: 'Permisos Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/login',     title: 'Login Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/tecnico',                title: 'Diagnóstico Técnico',  nav: '/programador/tecnico',   loader: () => import('/js/app/views/programador.js') },
   { pattern: '/programador/logs',                   title: 'Logs del Sistema',     nav: '/programador/logs',      loader: () => import('./views/logs.js') },
@@ -309,6 +310,9 @@ function _shellHtml(profile) {
         </button>
         <button data-prog-subnav="features"  class="prog-subnav-btn" type="button">
           <span class="material-symbols-outlined" style="font-size:15px;">toggle_on</span>Features
+        </button>
+        <button data-prog-subnav="permisos"  class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">security</span>Permisos
         </button>
         <button data-prog-subnav="plazas"    class="prog-subnav-btn" type="button">
           <span class="material-symbols-outlined" style="font-size:15px;">location_on</span>Plazas

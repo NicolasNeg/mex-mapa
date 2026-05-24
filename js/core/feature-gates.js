@@ -77,4 +77,67 @@
     obtenerTodas,
     DEFAULTS: FEATURES_DEFAULTS,
   });
+
+  // ── Per-empresa per-role permissions ────────────────────────────────────────
+  // Mirrors domain/permissions.model.js DEFAULT_ROLE_PERMISSIONS.
+  // fullAccess roles (PROGRAMADOR, JEFE_OPERACION, CORPORATIVO_USER) always return true.
+  const _PERM_DEFAULTS = Object.freeze({
+    AUXILIAR:     { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:false, view_reportes:false, edit_mapa_layout:false, move_units:true, change_unit_state:true, manage_unit_info:false, view_cuadre_admin:false, edit_cuadre_admin:false, export_data:false, create_incidencia:true,  edit_incidencia:false, delete_incidencia:false, manage_users:false, manage_solicitudes:false, manage_fleet:false, emit_alerts:false, delete_alerts:false, manage_settings:false },
+    VENTAS:       { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:false, move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:false, export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:false, manage_users:false, manage_solicitudes:false, manage_fleet:false, emit_alerts:false, delete_alerts:false, manage_settings:false },
+    SUPERVISOR:   { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:false, move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:false, manage_solicitudes:false, manage_fleet:false, emit_alerts:true,  delete_alerts:false, manage_settings:false },
+    JEFE_PATIO:   { view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:true,  move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:false, manage_solicitudes:true,  manage_fleet:true,  emit_alerts:true,  delete_alerts:true,  manage_settings:false },
+    GERENTE_PLAZA:{ view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:true,  move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:true,  manage_solicitudes:true,  manage_fleet:true,  emit_alerts:true,  delete_alerts:true,  manage_settings:true  },
+    JEFE_REGIONAL:{ view_dashboard:true,  view_mapa:true,  view_cuadre:true,  view_incidencias:true, view_cola_preparacion:true, view_mensajes:true, view_alertas:true, view_admin:true,  view_reportes:true,  edit_mapa_layout:true,  move_units:true, change_unit_state:true, manage_unit_info:true,  view_cuadre_admin:true,  edit_cuadre_admin:true,  export_data:true,  create_incidencia:true,  edit_incidencia:true,  delete_incidencia:true,  manage_users:true,  manage_solicitudes:true,  manage_fleet:true,  emit_alerts:true,  delete_alerts:true,  manage_settings:true  },
+  });
+
+  const _FULL_ACCESS_ROLES = ['PROGRAMADOR', 'JEFE_OPERACION', 'CORPORATIVO_USER'];
+
+  let _permRole = null;
+
+  function _resolvedRole() {
+    return _permRole
+        || window.MEX_CONFIG?.profile?.rol
+        || window._userProfile?.rol
+        || 'AUXILIAR';
+  }
+
+  // Call this after login when the user's role is known.
+  function permInit(rol) {
+    _permRole = String(rol || '').trim().toUpperCase() || 'AUXILIAR';
+  }
+
+  function canDo(permission) {
+    const empresa = window._empresaActual;
+    if (!empresa) return true;
+    if (empresa.isSuperAdminContext === true) return true;
+    const rol = _resolvedRole();
+    if (_FULL_ACCESS_ROLES.includes(rol)) return true;
+    const defaults = _PERM_DEFAULTS[rol] || _PERM_DEFAULTS.AUXILIAR;
+    const override = empresa.rolePermissions?.[rol];
+    const key = String(permission);
+    if (override && typeof override === 'object' && typeof override[key] === 'boolean') return override[key];
+    return defaults[key] === true;
+  }
+
+  function getAllPerms() {
+    const empresa = window._empresaActual;
+    const rol = _resolvedRole();
+    if (!empresa || empresa.isSuperAdminContext || _FULL_ACCESS_ROLES.includes(rol)) {
+      return Object.fromEntries(Object.keys(_PERM_DEFAULTS.AUXILIAR).map(k => [k, true]));
+    }
+    const defaults = _PERM_DEFAULTS[rol] || _PERM_DEFAULTS.AUXILIAR;
+    const override = empresa.rolePermissions?.[rol];
+    if (!override || typeof override !== 'object') return { ...defaults };
+    const result = { ...defaults };
+    for (const key of Object.keys(defaults)) {
+      if (typeof override[key] === 'boolean') result[key] = override[key];
+    }
+    return result;
+  }
+
+  window.mexPerms = Object.freeze({
+    init: permInit,
+    canDo,
+    getAll: getAllPerms,
+  });
 })();
