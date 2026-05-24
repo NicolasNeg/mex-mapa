@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v348';
+const CACHE_NAME = 'mapa-v349';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -102,6 +102,7 @@ const CRITICAL_ASSETS = [
   '/js/app/app-state.js',
   '/js/app/router.js',
   '/js/app/route-resolver.js',
+  '/contrato-publico.html',
 ];
 
 // ── Assets opcionales ────────────────────────────────────────
@@ -178,6 +179,7 @@ const OPTIONAL_ASSETS = [
   '/js/programador/views/logs.js',
   '/js/programador/views/errores.js',
   '/js/programador/views/deploy.js',
+  '/js/programador/views/contratos.js',
   // Fuentes de Google — se cachean en runtime la primera vez
 ];
 

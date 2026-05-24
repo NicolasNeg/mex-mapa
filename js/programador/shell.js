@@ -12,6 +12,7 @@ const ROUTES = [
   { pattern: '/programador',                        redirect: () => '/programador/overview' },
   { pattern: '/programador/overview',               title: 'Overview',             nav: '/programador/overview',  loader: () => import('./views/overview.js') },
   { pattern: '/programador/saas',                   title: 'Empresas · SaaS',      nav: '/programador/saas',      loader: () => import('./views/saas.js') },
+  { pattern: '/programador/contratos',               title: 'Contratos SaaS',       nav: '/programador/contratos', loader: () => import('./views/contratos.js') },
   { pattern: '/programador/empresa/:id',            redirect: p => `/programador/empresa/${p.id}/config` },
   { pattern: '/programador/empresa/:id/config',     title: 'Config Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/features',   title: 'Features Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
@@ -277,6 +278,10 @@ function _shellHtml(profile) {
       <button data-prog-nav="/programador/saas" data-prog-route="/programador/saas" class="prog-nav-btn" type="button">
         <span class="material-symbols-outlined prog-nav-icon">domain</span>
         <span>Empresas</span>
+      </button>
+      <button data-prog-nav="/programador/contratos" data-prog-route="/programador/contratos" class="prog-nav-btn" type="button">
+        <span class="material-symbols-outlined prog-nav-icon">description</span>
+        <span>Contratos</span>
       </button>
 
       <div class="prog-nav-section">Sistema</div>

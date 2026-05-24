@@ -992,6 +992,28 @@ service cloud.firestore {
         );
     }
 
+    // ─── CONTRATOS SaaS ──────────────────────────────────────────────────────
+    // El token es el docId (32 hex aleatorio) — seguridad por oscuridad.
+    // Cualquiera con el enlace puede leer; solo el portador del token puede
+    // actualizar los campos de firma/vista (el contrato no puede modificarse
+    // una vez firmado).
+    function contratoSignValido() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return resource.data.estado != 'firmado'
+        && changed.hasOnly(['estado', 'fechaFirmado', 'firmaData', 'fechaVisto'])
+        && (request.resource.data.estado == 'firmado' || request.resource.data.estado == 'visto')
+        && (request.resource.data.firmaData == null || request.resource.data.firmaData is string)
+        && (request.resource.data.fechaFirmado == null || request.resource.data.fechaFirmado is timestamp)
+        && (request.resource.data.fechaVisto == null || request.resource.data.fechaVisto is timestamp);
+    }
+
+    match /contratos/{contratoId} {
+      allow get: if true;
+      allow list: if esProgramadorBootstrap();
+      allow create, delete: if esProgramadorBootstrap();
+      allow update: if esProgramadorBootstrap() || contratoSignValido();
+    }
+
     // ─── SUPERADMINS ─────────────────────────────────────────────────────────
     // Registro de programadores/superadmins con acceso cross-empresa.
     // El bootstrap programmer puede gestionar este directorio libremente.
