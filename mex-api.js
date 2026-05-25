@@ -235,11 +235,19 @@ function _buildDefaultPlazaDetalle(plaza) {
   };
 }
 
+function _empresaConfigRef() {
+  const ctx = window._empresaActual;
+  const eid = (ctx && !ctx.isSuperAdminContext) ? (ctx.id || '') : '';
+  return eid
+    ? db.collection('empresas').doc(eid)
+    : db.collection(COL.CONFIG).doc('empresa');
+}
+
 async function _ensurePlazaBootstrap(plaza) {
   const plazaUp = _normalizePlazaId(plaza);
   if (!plazaUp || plazaUp === 'GLOBAL') return;
 
-  const empresaRef = db.collection(COL.CONFIG).doc('empresa');
+  const empresaRef = _empresaConfigRef();
   const settingsRef = _settingsDoc(plazaUp);
   const estructuraRef = db.collection(COL.MAPA_CFG).doc(_plazaDocId(plazaUp)).collection('estructura');
 
@@ -1160,7 +1168,7 @@ window._mex = {
   _normalizeLocationScope, _locationMatchesPlaza,
   _normalizePlazaLocationItem, _mergeLocationCatalogs, _buildDefaultPlazaLocations,
   _buildDefaultPlazaSettings, _buildDefaultPlazaDetalle,
-  _configPlazaRef, _ensurePlazaBootstrap,
+  _configPlazaRef, _empresaConfigRef, _ensurePlazaBootstrap,
   // Unidades
   _mvaToDocId, _buscarUnidadEnSubcol, _buscarUnidadLegacy,
   backfillPlazaEnUnidades,

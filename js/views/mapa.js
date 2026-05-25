@@ -19031,7 +19031,13 @@ async function _persistEmpresaAdminAction(actionType, message, successMessage, e
   try {
     _syncEmpresaCorreosInternosState();
     await _captureAdminExactLocation({ force: true });
-    await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, { merge: true });
+    const _eCtxPA = window._empresaActual;
+    const _eidPA  = (_eCtxPA && !_eCtxPA.isSuperAdminContext) ? (_eCtxPA.id || '') : '';
+    if (_eidPA) {
+      await db.collection('empresas').doc(_eidPA).set(window.MEX_CONFIG.empresa, { merge: true });
+    } else {
+      await db.collection('configuracion').doc('empresa').set(window.MEX_CONFIG.empresa, { merge: true });
+    }
     await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
     await registrarEventoGestion(actionType, message, extra);
     await _reloadConfigAfterAdminPersist();
@@ -19093,7 +19099,13 @@ async function guardarConfiguracionEnFirebase() {
     await _captureAdminExactLocation({ force: true });
     _ensureSecurityConfig();
     _syncEmpresaCorreosInternosState();
-    await db.collection("configuracion").doc("empresa").set(window.MEX_CONFIG.empresa, { merge: true });
+    const _eCtxGCF = window._empresaActual;
+    const _eidGCF  = (_eCtxGCF && !_eCtxGCF.isSuperAdminContext) ? (_eCtxGCF.id || '') : '';
+    if (_eidGCF) {
+      await db.collection('empresas').doc(_eidGCF).set(window.MEX_CONFIG.empresa, { merge: true });
+    } else {
+      await db.collection('configuracion').doc('empresa').set(window.MEX_CONFIG.empresa, { merge: true });
+    }
     await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
     await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _persistPlazaForAdminLists());
     await registrarEventoGestion('CONFIG_GLOBAL', 'Publicó manualmente la configuración administrativa', {

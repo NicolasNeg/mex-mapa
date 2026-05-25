@@ -204,13 +204,19 @@ async function _loadUserProfile(user) {
 async function _loadConfiguredPlazas() {
   let plazas = [];
   try {
-    const empresaSnap = await db.collection('configuracion').doc('empresa').get();
+    // Prefer per-empresa doc when tenant context is active
+    const _eCtxEM = window._empresaActual;
+    const _eidEM  = (_eCtxEM && !_eCtxEM.isSuperAdminContext) ? (_eCtxEM.id || '') : '';
+    const empresaRef = _eidEM
+      ? db.collection('empresas').doc(_eidEM)
+      : db.collection('configuracion').doc('empresa');
+    const empresaSnap = await empresaRef.get();
     const empresaData = empresaSnap.exists ? empresaSnap.data() : {};
     plazas = Array.isArray(empresaData?.plazas)
       ? empresaData.plazas.map(_normalizePlaza).filter(Boolean)
       : [];
   } catch (error) {
-    console.warn('[editmap] no se pudieron leer plazas desde configuracion/empresa:', error);
+    console.warn('[editmap] no se pudieron leer plazas:', error);
   }
 
   if (!plazas.length) {
