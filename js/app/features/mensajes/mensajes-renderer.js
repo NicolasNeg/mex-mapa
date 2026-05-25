@@ -197,6 +197,26 @@ export function renderContactInfo(user) {
 </div>`;
 }
 
+export function renderDirectoryContact(user, isActive) {
+  const email  = String(user.id || user.email || '').toLowerCase();
+  const nombre = String(user.nombre || user.nombreCompleto || user.usuario || '').trim() || email;
+  const plaza  = String(user.plazaAsignada || user.plaza || '').toUpperCase();
+  const rol    = String(user.rol || '').toUpperCase();
+  const badge  = [rol, plaza].filter(Boolean).join(' · ') || 'Directorio';
+  const peerKey = email ? `EMAIL:${email}` : `LEGACY:${nombre.toUpperCase()}`;
+  return `
+<div class="am-contact am-contact--dir${isActive ? ' active' : ''}" data-peer="${esc(peerKey)}">
+  <div class="am-contact-av">${esc(initials(nombre))}</div>
+  <div class="am-contact-body">
+    <div class="am-contact-top">
+      <span class="am-contact-name">${esc(nombre)}</span>
+    </div>
+    <div class="am-contact-sub">${esc(badge)}</div>
+    <div class="am-contact-snippet" style="color:#64748b;font-style:italic;">Iniciar conversacion</div>
+  </div>
+</div>`;
+}
+
 export function renderEmptyContacts(isArchived, hasFilters) {
   if (isArchived) return '<div class="am-contacts-empty">No hay conversaciones archivadas.</div>';
   if (hasFilters) return '<div class="am-contacts-empty">No hay contactos que coincidan.</div>';

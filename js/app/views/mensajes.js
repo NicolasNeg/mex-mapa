@@ -5,6 +5,7 @@ import * as A from '/js/app/features/mensajes/mensajes-attachments.js';
 import * as R from '/js/app/features/mensajes/mensajes-renderer.js';
 
 let _unsub = null, _me = null, _all = [], _convs = [], _meta = new Map();
+let _allUsers = [];
 let _activePeer = null, _archivedMode = false, _archived = {};
 let _pendingFile = null, _pendingAudio = null, _replyTo = null;
 let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recTimer = null;
@@ -41,13 +42,19 @@ export async function mount(ctx) {
   container.innerHTML = R.shellLayout(_me.display);
   _bindEvents(container);
   _unsub = D.startRealtimeListener(_me, msgs => { _all = msgs; _refresh(); });
+  // Load full user directory in background for cross-plaza search
+  D.getAllUsers().then(users => {
+    _allUsers = users;
+    _populateFilters();
+    _renderContacts();
+  }).catch(() => {});
 }
 
 export function unmount() {
   _unsub?.(); _unsub = null; _stopRecording(true);
   if (_pendingFile?.previewUrl) URL.revokeObjectURL(_pendingFile.previewUrl);
   if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
-  _all = []; _convs = []; _meta = new Map();
+  _all = []; _convs = []; _meta = new Map(); _allUsers = [];
   _activePeer = null; _pendingFile = null; _pendingAudio = null; _replyTo = null;
 }
 
@@ -91,7 +98,18 @@ async function _refresh() {
 
 function _populateFilters() {
   const plazas = new Set(), roles = new Set();
-  _meta.forEach(m => { if(m.plaza) plazas.add(m.plaza); if(m.rol) roles.add(m.rol); });
+  // Prefer full user directory for filter options; fallback to conversation meta
+  const source = _allUsers.length ? _allUsers : null;
+  if (source) {
+    source.forEach(u => {
+      const p = String(u.plazaAsignada || u.plaza || '').toUpperCase();
+      const r = String(u.rol || '').toUpperCase();
+      if (p) plazas.add(p);
+      if (r) roles.add(r);
+    });
+  } else {
+    _meta.forEach(m => { if(m.plaza) plazas.add(m.plaza); if(m.rol) roles.add(m.rol); });
+  }
   const pSel = document.getElementById('amFilterPlaza');
   const rSel = document.getElementById('amFilterRol');
   if (pSel) { const v=pSel.value; pSel.innerHTML='<option value="">Todas plazas</option>'+[...plazas].sort().map(p=>`<option value="${R.esc(p)}">${R.esc(p)}</option>`).join(''); pSel.value=v; }
@@ -128,18 +146,57 @@ function _renderContacts() {
     if (_archivedMode) hint.textContent = `${filtered.length} archivado${filtered.length===1?'':'s'}`;
     else hint.textContent = `${filtered.length} conversación${filtered.length===1?'':'es'}${archCount?' · '+archCount+' archivado'+(archCount===1?'':'s'):''}`;
   }
-  if (!filtered.length) { list.innerHTML = R.renderEmptyContacts(_archivedMode, hasFilters); return; }
-  list.innerHTML = filtered.map(c => {
+  // Directory contacts: users from _allUsers not already in conversations, matching active filter
+  let directoryItems = [];
+  if (hasFilters && !_archivedMode && _allUsers.length) {
+    const existingEmails = new Set(_convs.map(c => (c.peerEmail || '').toLowerCase()).filter(Boolean));
+    const myEmail = (_me?.email || '').toLowerCase();
+    directoryItems = _allUsers.filter(u => {
+      const email = String(u.id || u.email || '').toLowerCase();
+      if (!email || email === myEmail) return false;
+      if (existingEmails.has(email)) return false;
+      const uPlaza = String(u.plazaAsignada || u.plaza || '').toUpperCase();
+      const uRol   = String(u.rol || '').toUpperCase();
+      const uNombre = String(u.nombre || u.nombreCompleto || u.usuario || '').toLowerCase();
+      if (plaza && uPlaza !== plaza) return false;
+      if (rol && uRol !== rol) return false;
+      if (term) {
+        const searchable = [uNombre, email, uPlaza, uRol].join(' ');
+        if (!searchable.includes(term)) return false;
+      }
+      return true;
+    });
+  }
+
+  if (!filtered.length && !directoryItems.length) { list.innerHTML = R.renderEmptyContacts(_archivedMode, hasFilters); return; }
+
+  const convHtml = filtered.map(c => {
     const m = _meta.get(c.peerEmail);
     const isArch = D.isConversationArchived(_archived, c.peerKey, D.msgTs(c.last));
     return R.renderContactItem(c, m, c.peerKey === _activePeer, isArch);
-  }).join('');
+  });
+  const dirHtml = directoryItems.map(u => R.renderDirectoryContact(u, false));
+  list.innerHTML = [...convHtml, ...dirHtml].join('');
 }
 
 function _openChat(peerKey) {
   _activePeer = peerKey;
   _replyTo = null; _cancelFile(); _cancelAudio();
-  const conv = _convs.find(c => c.peerKey === peerKey);
+  let conv = _convs.find(c => c.peerKey === peerKey);
+  // Directory contact (no previous conversation) — create a fakeConv so the sidebar stays consistent
+  if (!conv) {
+    const identity = D.getCanonicalMessageIdentity(peerKey.replace(/^(EMAIL|LEGACY):/,''));
+    // Try to get display name from _allUsers
+    const dirUser = _allUsers.find(u => {
+      const email = String(u.id || u.email || '').toLowerCase();
+      return peerKey === `EMAIL:${email}`;
+    });
+    const label = dirUser
+      ? String(dirUser.nombre || dirUser.nombreCompleto || dirUser.usuario || identity.label).trim().toUpperCase() || identity.label
+      : identity.label;
+    conv = { peerKey: identity.key, peerEmail: identity.email, displayLabel: label, preferredHandle: identity.raw, last: null, total: 0, unread: 0 };
+    _convs.unshift(conv);
+  }
   const header = document.getElementById('amChatHeader');
   const msgs = document.getElementById('amMessages');
   const input = document.getElementById('amInputBar');
