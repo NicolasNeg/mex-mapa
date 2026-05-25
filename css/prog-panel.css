@@ -443,39 +443,41 @@ body {
   border-radius: 3px;
 }
 
-/* ── Theme toggle button ─────────────────────────────────── */
-#progThemeToggle {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border-radius: 7px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
-  color: rgba(255,255,255,0.45);
-  font-size: 12px;
-  font-family: Inter, sans-serif;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background .14s, color .14s;
-}
-#progThemeToggle:hover {
-  background: rgba(255,255,255,0.07);
-  color: #fff;
-}
-[data-prog-theme="light"] #progThemeToggle {
-  border-color: rgba(0,0,0,0.08) !important;
-  background: rgba(0,0,0,0.03) !important;
-  color: #64748b !important;
-}
-[data-prog-theme="light"] #progThemeToggle:hover {
-  background: rgba(0,0,0,0.06) !important;
-  color: var(--p-text) !important;
-}
-
 /* ── "Ver App" link en header ────────────────────────────── */
 [data-prog-theme="light"] #progShell header a.prog-header-action-btn {
   border-color: rgba(0,0,0,0.08) !important;
   background: rgba(0,0,0,0.03) !important;
   color: #64748b !important;
+}
+
+/* ── Contraste: clases CSS (no inline) en light mode ────── */
+[data-prog-theme="light"] .prog-nav-section {
+  color: #94a3b8 !important;
+}
+[data-prog-theme="light"] #progSidebar [style*="color:#818cf8"] {
+  color: #4f46e5 !important;
+}
+[data-prog-theme="light"] #progSidebar [style*="background:linear-gradient"] {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
+}
+[data-prog-theme="light"] #progShell aside [style*="border-top:1px solid rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progShell aside [style*="border-bottom:1px solid rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progShell aside [style*="border-right:1px solid rgba(255,255,255,0.06)"] {
+  border-color: rgba(0,0,0,0.08) !important;
+}
+[data-prog-theme="light"] #progShell header [style*="border-bottom:1px solid rgba(255,255,255,0.06)"] {
+  border-color: rgba(0,0,0,0.08) !important;
+}
+[data-prog-theme="light"] .prog-header-action-btn {
+  border-color: rgba(0,0,0,0.08) !important;
+  background: rgba(0,0,0,0.03) !important;
+  color: #64748b !important;
+}
+[data-prog-theme="light"] .prog-header-action-btn:hover {
+  background: rgba(0,0,0,0.06) !important;
+  color: #1e293b !important;
+}
+[data-prog-theme="light"] #progContent {
+  background: var(--p-bg) !important;
+  color: var(--p-text) !important;
 }

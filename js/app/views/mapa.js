@@ -53,6 +53,7 @@ let _unitActionStatus = 'idle';
 let _unitActionMsg = '';
 let _unitActionLastError = '';
 let _shell = null;
+let _addedLegacyClass = false;
 
 let _viewState = {
   query: '',
@@ -1116,7 +1117,11 @@ async function _runUnitAction(actionId) {
 export function mount({ container, shell }) {
   _container = container;
   _shell = shell;
-  document.body?.classList?.add('app-map-legacy-shell');
+  // Only apply legacy shell overrides when NOT inside the new App Shell.
+  // In App Shell, body.app-map-legacy-shell would conflict: it shrinks the
+  // sidebar from 280px to 84px and resets .mex-main margins incorrectly.
+  _addedLegacyClass = !shell;
+  if (_addedLegacyClass) document.body?.classList?.add('app-map-legacy-shell');
   _trackListener('create', 'view', { plaza: getState().currentPlaza || '' });
   _ensureCss();
   const state = getState();
@@ -1572,7 +1577,8 @@ export function mount({ container, shell }) {
 }
 
 export function unmount() {
-  document.body?.classList?.remove('app-map-legacy-shell');
+  if (_addedLegacyClass) document.body?.classList?.remove('app-map-legacy-shell');
+  _addedLegacyClass = false;
   _removeMapaModals();
   try {
     _unitActionsCtrl?.cleanup?.();

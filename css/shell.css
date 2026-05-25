@@ -912,13 +912,60 @@
 }
 
 /* ── View-specific overrides inside App Shell ───────────────── */
-/* Cola-preparacion: oculta topbar interno (shell ya provee navegación y header) */
+
+/* Cola-preparacion: oculta topbar interno (shell ya provee navegación) */
 #mexShellContent [data-prep-topbar] {
   display: none !important;
 }
 
-/* Cuadre: table max-height compensates for shell header (original -310px assumed no shell) */
+/* ─ Cuadre ──────────────────────────────────────────────────── */
+/* Remove viewport-relative min-height so cuadre doesn't overflow #mexShellContent */
+#mexShellContent .cqv {
+  min-height: 0 !important;
+}
+/* Table max-height: shell header (64px) replaces the 74px the original assumed */
 #mexShellContent .cqv__table-wrap {
-  max-height: calc(100vh - var(--sh-header-h) - 280px) !important;
-  min-height: 280px !important;
+  max-height: calc(100vh - var(--sh-header-h) - 260px) !important;
+  min-height: 200px !important;
+}
+
+/* ─ Mapa ─────────────────────────────────────────────────────── */
+/*
+  In standalone mode, mapa.js adds body.app-map-legacy-shell which:
+    • Shrinks .mex-sidebar from 280px to 84px
+    • Sets .mex-main margin-left to 84px (conflicts with App Shell's 280px)
+  We fixed this in mapa.js by NOT adding the class when shell param is present.
+
+  But inside App Shell, app-mapa-view still has padding:20px and app-mapa-content
+  uses height:calc(100vh - 64px) causing overflow. Fix below:
+*/
+#mexShellContent .app-mapa-view {
+  padding: 0 !important;
+  height: 100%;
+  overflow: hidden;
+}
+#mexShellContent .app-mapa-view.app-mapa-operativo {
+  gap: 0;
+}
+/* Map content fills the shell content area */
+#mexShellContent #app-mapa-content {
+  height: 100% !important;
+  min-height: 0 !important;
+}
+/* Chrome bar: re-expose as absolute overlay (CSS has display:none !important that kills the re-show) */
+#mexShellContent .app-mapa-view.app-mapa-operativo > .app-mapa-chrome-bar {
+  display: inline-flex !important;
+  position: absolute;
+  z-index: 30;
+  top: 14px;
+  left: 14px;
+}
+/* Controls (search): re-expose as absolute overlay */
+#mexShellContent .app-mapa-view.app-mapa-operativo > .app-mapa-controls {
+  display: flex !important;
+  position: absolute;
+  z-index: 30;
+  top: 66px;
+  left: 14px;
+  max-width: min(340px, calc(100vw - 28px));
 }

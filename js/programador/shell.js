@@ -191,19 +191,8 @@ function _renderContent(html) {
 }
 
 // ── Eventos del shell ─────────────────────────────────────
-const _THEME_KEY = 'mex.prog.theme';
-
-function _applyTheme(theme) {
-  const isLight = theme === 'light';
-  if (isLight) {
-    document.documentElement.setAttribute('data-prog-theme', 'light');
-  } else {
-    document.documentElement.removeAttribute('data-prog-theme');
-  }
-  const labelEl = document.getElementById('progThemeLabel');
-  const iconEl  = document.getElementById('progThemeToggle')?.querySelector('.material-symbols-outlined');
-  if (labelEl) labelEl.textContent = isLight ? 'Oscuro' : 'Claro';
-  if (iconEl)  iconEl.textContent  = isLight ? 'dark_mode' : 'light_mode';
+function _applyTheme() {
+  document.documentElement.setAttribute('data-prog-theme', 'light');
 }
 
 function _openMobileSidebar() {
@@ -233,16 +222,7 @@ function _bindShellEvents() {
     }
   });
 
-  // Theme toggle
-  const saved = localStorage.getItem(_THEME_KEY) || 'dark';
-  _applyTheme(saved);
-
-  document.getElementById('progThemeToggle')?.addEventListener('click', () => {
-    const current = document.documentElement.getAttribute('data-prog-theme') === 'light' ? 'light' : 'dark';
-    const next = current === 'light' ? 'dark' : 'light';
-    localStorage.setItem(_THEME_KEY, next);
-    _applyTheme(next);
-  });
+  _applyTheme();
 }
 
 // ── HTML del shell ────────────────────────────────────────
@@ -391,10 +371,6 @@ function _shellHtml(profile) {
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
         <span style="font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(99,102,241,0.12);color:#818cf8;border:1px solid rgba(99,102,241,0.22);border-radius:5px;padding:2px 8px;white-space:nowrap;">SUPERADMIN</span>
-        <button id="progThemeToggle" type="button" class="prog-header-action-btn">
-          <span class="material-symbols-outlined" style="font-size:14px;">light_mode</span>
-          <span id="progThemeLabel" class="prog-header-label">Claro</span>
-        </button>
         <a href="/app/dashboard" class="prog-header-action-btn" style="text-decoration:none;">
           <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>
           <span class="prog-header-label">Ver App</span>

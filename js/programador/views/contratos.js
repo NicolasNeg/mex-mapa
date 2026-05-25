@@ -538,47 +538,101 @@ function _bindGenerateModal(empresa) {
 }
 
 function _openPreviewModal(contrato) {
-  _openModal(`
-<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;">
+  document.getElementById('ctPreviewOverlay')?.remove();
+
+  const fullHtml     = _generarContratoHTML(contrato.proveedor || _proveedor, contrato);
+  const styleMatch   = fullHtml.match(/<style>([\s\S]*?)<\/style>/i);
+  const bodyContent  = fullHtml.replace(/[\s\S]*<body>/i, '').replace(/<\/body>[\s\S]*/i, '');
+  const contractCSS  = styleMatch ? styleMatch[1] : '';
+
+  const alreadySigned = contrato.estado === 'firmado' && contrato.firmaData;
+  const sigDate       = contrato.fechaFirmado
+    ? _fmtDate(contrato.fechaFirmado?.toDate ? contrato.fechaFirmado.toDate() : new Date(contrato.fechaFirmado))
+    : '—';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ctPreviewOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:3000;display:flex;flex-direction:column;background:#111827;font-family:Inter,sans-serif;';
+
+  overlay.innerHTML = `
+<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:#0a1220;border-bottom:1px solid rgba(255,255,255,.08);flex-shrink:0;gap:12px;">
   <div>
-    <div style="font-size:15px;font-weight:800;color:#fff;">Vista previa del contrato</div>
-    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;">${_esc(contrato.empresaNombre || contrato.empresaId)}</div>
+    <div style="font-size:13px;font-weight:700;color:#fff;">${_esc(contrato.empresaNombre || contrato.empresaId)}</div>
+    <div style="font-size:11px;color:rgba(255,255,255,.35);margin-top:2px;">${_esc(contrato.representante || '')}${contrato.plan ? ' · ' + _esc(contrato.plan) : ''}${contrato.vigenciaFin ? ' · vence ' + _esc(contrato.vigenciaFin) : ''}</div>
   </div>
-  <button id="ctPrevClose" class="ct-btn-ghost" type="button" style="padding:6px 10px;">
-    <span class="material-symbols-outlined" style="font-size:16px;">close</span>
-  </button>
+  <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+    <button id="ctPv_print"  class="ct-btn-ghost" type="button" style="padding:6px 10px;font-size:11px;"><span class="material-symbols-outlined" style="font-size:14px;">print</span><span class="ct-pv-lbl">Imprimir</span></button>
+    <button id="ctPv_dl"     class="ct-btn-ghost" type="button" style="padding:6px 10px;font-size:11px;"><span class="material-symbols-outlined" style="font-size:14px;">download</span><span class="ct-pv-lbl">Descargar</span></button>
+    <button id="ctPv_link"   class="ct-btn-success" type="button" style="padding:6px 10px;font-size:11px;"><span class="material-symbols-outlined" style="font-size:14px;">link</span><span class="ct-pv-lbl">Enviar</span></button>
+    <button id="ctPv_close"  class="ct-btn-ghost" type="button" style="padding:6px 10px;"><span class="material-symbols-outlined" style="font-size:16px;">close</span></button>
+  </div>
 </div>
-<iframe id="ctPrevFrame" style="width:100%;height:520px;border:1px solid rgba(255,255,255,.1);border-radius:8px;background:#fff;" sandbox="allow-same-origin" title="Contrato"></iframe>
-<div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-  <button id="ctPrevPrint" class="ct-btn-ghost" type="button">
-    <span class="material-symbols-outlined" style="font-size:14px;">print</span>Imprimir / PDF
-  </button>
-  <button id="ctPrevDownload" class="ct-btn-ghost" type="button">
-    <span class="material-symbols-outlined" style="font-size:14px;">download</span>Descargar HTML
-  </button>
-  <button id="ctPrevLink" class="ct-btn-success" type="button">
-    <span class="material-symbols-outlined" style="font-size:14px;">link</span>Enviar al cliente
-  </button>
-</div>`);
 
-  // Set iframe via JS to avoid attribute escaping issues
-  const frame = _container?.querySelector('#ctPrevFrame');
-  if (frame) {
-    const html = _generarContratoHTML(contrato.proveedor || _proveedor, contrato);
-    frame.srcdoc = html;
-  }
+<div style="flex:1;overflow-y:auto;padding:20px 12px 40px;-webkit-overflow-scrolling:touch;">
+  <!-- Paper -->
+  <div style="max-width:780px;margin:0 auto;background:#fff;padding:36px 40px;border-radius:4px;box-shadow:0 4px 32px rgba(0,0,0,.5);">
+    <div id="ctPvBody"><style>
+#ctPvBody{font-family:Arial,'Helvetica Neue',sans-serif;color:#222;line-height:1.75;font-size:10.5pt;}
+${contractCSS}
+</style>${bodyContent}</div>
+  </div>
 
-  _container?.querySelector('#ctPrevClose')?.addEventListener('click', _closeModal);
+  <!-- Signature / firma section -->
+  <div style="max-width:780px;margin:20px auto 0;">
+    <div style="background:#fff;border-radius:12px;box-shadow:0 2px 16px rgba(0,0,0,.4);overflow:hidden;">
+      <div style="padding:16px 20px 12px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="material-symbols-outlined" style="font-size:20px;color:#6366f1;">draw</span>
+        <div>
+          <div style="font-size:14px;font-weight:800;color:#1e293b;">Firma digital del cliente</div>
+          <div style="font-size:12px;color:#64748b;margin-top:1px;">${_esc(contrato.representante || '')} — ${_esc(contrato.empresaNombre || '')}</div>
+        </div>
+        ${alreadySigned ? `<span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font-size:11px;color:#16a34a;font-weight:700;"><span class="material-symbols-outlined" style="font-size:14px;">verified</span>Firmado ${sigDate}</span>` : ''}
+      </div>
+      ${alreadySigned ? `
+      <div style="padding:20px;text-align:center;">
+        <img src="${_esc(contrato.firmaData)}" alt="Firma digital" style="max-height:80px;display:inline-block;border:1px solid #e2e8f0;border-radius:8px;padding:8px;"/>
+      </div>` : `
+      <div style="padding:16px 20px;">
+        <div style="font-size:11px;color:#64748b;margin-bottom:8px;">Firma aquí con el ratón o tu dedo:</div>
+        <div style="position:relative;border:2px dashed #cbd5e1;border-radius:8px;background:#f8fafc;">
+          <canvas id="ctSigCanvas" style="display:block;width:100%;height:160px;cursor:crosshair;border-radius:6px;touch-action:none;"></canvas>
+          <div id="ctSigHint" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:#94a3b8;font-size:13px;font-style:italic;">Toca o haz clic para firmar</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <button id="ctSigClear"  class="ct-btn-ghost"   type="button" style="flex:1;min-width:90px;justify-content:center;"><span class="material-symbols-outlined" style="font-size:15px;">undo</span>Limpiar</button>
+          <button id="ctSigSubmit" class="ct-btn-primary"  type="button" style="flex:2;min-width:140px;justify-content:center;"><span class="material-symbols-outlined" style="font-size:15px;">draw</span>Firmar contrato</button>
+        </div>
+        <div id="ctSigStatus" style="margin-top:8px;font-size:11px;color:#64748b;min-height:14px;"></div>
+      </div>`}
+    </div>
 
-  _container?.querySelector('#ctPrevPrint')?.addEventListener('click', () => {
+    <!-- Pago futuro placeholder -->
+    <div style="margin-top:12px;padding:12px 16px;background:rgba(255,255,255,.04);border:1px dashed rgba(255,255,255,.1);border-radius:10px;display:flex;align-items:center;gap:8px;">
+      <span class="material-symbols-outlined" style="font-size:18px;color:rgba(255,255,255,.25);">payments</span>
+      <span style="font-size:11px;color:rgba(255,255,255,.25);">Próximamente: pago integrado (Mercado Pago / Stripe) en esta sección</span>
+    </div>
+  </div>
+</div>
+
+<style>
+@media(max-width:520px){
+  .ct-pv-lbl{display:none!important;}
+  #ctPvBody{font-size:9pt!important;}
+  #ctPreviewOverlay [style*="padding:36px 40px"]{padding:16px 12px!important;}
+}
+</style>`;
+
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#ctPv_close')?.addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#ctPv_print')?.addEventListener('click', () => {
     const html = _generarContratoHTML(contrato.proveedor || _proveedor, contrato);
     const win  = window.open('', '_blank');
     win.document.write(html);
     win.document.close();
-    setTimeout(() => { win.print(); }, 600);
+    setTimeout(() => win.print(), 600);
   });
-
-  _container?.querySelector('#ctPrevDownload')?.addEventListener('click', () => {
+  overlay.querySelector('#ctPv_dl')?.addEventListener('click', () => {
     const html = _generarContratoHTML(contrato.proveedor || _proveedor, contrato);
     const blob = new Blob([html], { type: 'text/html' });
     const url  = URL.createObjectURL(blob);
@@ -588,11 +642,105 @@ function _openPreviewModal(contrato) {
     a.click();
     URL.revokeObjectURL(url);
   });
-
-  _container?.querySelector('#ctPrevLink')?.addEventListener('click', () => {
-    _closeModal();
+  overlay.querySelector('#ctPv_link')?.addEventListener('click', () => {
+    overlay.remove();
     _openModal(_linkModalHtml(contrato));
     _bindLinkModal(contrato);
+  });
+
+  _setupSigCanvas(overlay, contrato);
+}
+
+function _setupSigCanvas(overlay, contrato) {
+  const canvas = overlay.querySelector('#ctSigCanvas');
+  if (!canvas) return;
+  const hint   = overlay.querySelector('#ctSigHint');
+  const status = overlay.querySelector('#ctSigStatus');
+  let drawing  = false;
+  let hasMark  = false;
+
+  function _resize() {
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width) return;
+    canvas.width  = Math.round(rect.width  * (window.devicePixelRatio || 1));
+    canvas.height = Math.round(rect.height * (window.devicePixelRatio || 1));
+    const ctx = canvas.getContext('2d');
+    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth   = 2.5;
+    ctx.lineCap     = 'round';
+    ctx.lineJoin    = 'round';
+  }
+  setTimeout(_resize, 80);
+
+  function _pos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const src  = e.touches ? e.touches[0] : e;
+    return { x: src.clientX - rect.left, y: src.clientY - rect.top };
+  }
+
+  function _start(e) {
+    e.preventDefault();
+    drawing = true;
+    if (!hasMark) { hasMark = true; if (hint) hint.style.display = 'none'; }
+    const p = _pos(e);
+    const ctx = canvas.getContext('2d');
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+  }
+  function _move(e) {
+    if (!drawing) return;
+    e.preventDefault();
+    const p = _pos(e);
+    const ctx = canvas.getContext('2d');
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }
+  function _end() { drawing = false; }
+
+  canvas.addEventListener('mousedown',   _start);
+  canvas.addEventListener('mousemove',   _move);
+  canvas.addEventListener('mouseup',     _end);
+  canvas.addEventListener('mouseleave',  _end);
+  canvas.addEventListener('touchstart',  _start, { passive: false });
+  canvas.addEventListener('touchmove',   _move,  { passive: false });
+  canvas.addEventListener('touchend',    _end,   { passive: false });
+  canvas.addEventListener('touchcancel', _end,   { passive: false });
+
+  overlay.querySelector('#ctSigClear')?.addEventListener('click', () => {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    hasMark = false;
+    if (hint)   hint.style.display = 'flex';
+    if (status) status.textContent = '';
+  });
+
+  overlay.querySelector('#ctSigSubmit')?.addEventListener('click', async () => {
+    if (!hasMark) {
+      if (status) { status.style.color = '#ef4444'; status.textContent = 'Dibuja tu firma antes de continuar.'; }
+      return;
+    }
+    const sigData = canvas.toDataURL('image/png');
+    const btn = overlay.querySelector('#ctSigSubmit');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">hourglass_top</span>Guardando...'; }
+    if (status) { status.style.color = '#6366f1'; status.textContent = 'Guardando firma…'; }
+    try {
+      await window._db.collection('contratos').doc(contrato.id).update({
+        estado:       'firmado',
+        firmaData:    sigData,
+        fechaFirmado: firebase.firestore.FieldValue.serverTimestamp(),
+      });
+      const c = _contratos.find(x => x.id === contrato.id);
+      if (c) { c.estado = 'firmado'; c.firmaData = sigData; }
+      const emp = _empresas.find(e => e.id === _selectedId);
+      if (emp?.ultimoContrato) emp.ultimoContrato.estado = 'firmado';
+      overlay.remove();
+      _toast('Contrato firmado exitosamente', 'ok');
+      _render();
+    } catch (err) {
+      if (status) { status.style.color = '#ef4444'; status.textContent = 'Error: ' + err.message; }
+      if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-size:14px;">draw</span>Firmar contrato'; }
+    }
   });
 }
 
