@@ -41,8 +41,38 @@ function _appMapToolRedirect(rawPath = '') {
 // redirect:  string  — alias, redirige sin render
 // navRoute:  string  — ruta que se activa en el sidebar (cuando difiere del path)
 // feature:   string  — feature gate key; if disabled, shows "not available" screen
+
+function _safeLS(key) {
+  try { return localStorage.getItem(key); } catch (_) { return null; }
+}
+
+// Rutas válidas que el usuario puede establecer como vista de inicio
+const _PREF_ROUTES = new Set([
+  '/app/dashboard',
+  '/app/mapa',
+  '/app/cola-preparacion',
+  '/app/incidencias',
+  '/app/mensajes',
+  '/app/cuadre',
+  '/app/alertas',
+]);
+
 function _defaultHome() {
-  return window.mexFeatures?.puedeUsar('dashboard') === false ? '/app/mapa' : '/app/dashboard';
+  // 1. Vista preferida del usuario (perfil Firestore > localStorage)
+  const state = getState();
+  const prefProfile = state?.profile?.profilePreferences?.vistaPreferida;
+  const prefStorage = _safeLS('mex.app.preferredView');
+  const pref = String(prefProfile || prefStorage || '').trim();
+
+  if (pref && pref !== 'dashboard' && pref !== '/app/dashboard') {
+    const route = pref.startsWith('/app/') ? pref : `/app/${pref}`;
+    if (_PREF_ROUTES.has(route)) return route;
+  }
+
+  // 2. Feature gate: si dashboard está desactivado → mapa
+  if (window.mexFeatures?.puedeUsar('dashboard') === false) return '/app/mapa';
+
+  return '/app/dashboard';
 }
 
 const ROUTE_TABLE = {
