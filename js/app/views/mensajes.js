@@ -9,6 +9,7 @@ let _activePeer = null, _archivedMode = false, _archived = {};
 let _pendingFile = null, _pendingAudio = null, _replyTo = null;
 let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recTimer = null;
 let _emojiPickerImport = null;
+let _cssLink = null;
 
 const EMOJI_PICKER_SRC = 'https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js';
 
@@ -19,8 +20,21 @@ const _mexConfirm = (titulo, texto, tipo = 'warning') =>
 const _mexPrompt = (titulo, texto, placeholder = '', inputTipo = 'text', valor = '') =>
   typeof window.mexPrompt === 'function' ? window.mexPrompt(titulo, texto, placeholder, inputTipo, valor) : Promise.resolve(null);
 
+function _ensureCss() {
+  if (_cssLink && document.contains(_cssLink)) return;
+  _cssLink = document.querySelector('link[data-app-mensajes-css="1"]');
+  if (_cssLink) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/app-mensajes.css';
+  link.setAttribute('data-app-mensajes-css', '1');
+  document.head.appendChild(link);
+  _cssLink = link;
+}
+
 export async function mount(ctx) {
   const container = ctx.container || document.querySelector('#routeMainStage') || document.body;
+  _ensureCss();
   const { profile } = getState();
   _me = D.buildMyIdentity(profile);
   _archived = D.loadArchived(_me.email);

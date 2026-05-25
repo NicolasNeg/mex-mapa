@@ -878,16 +878,22 @@
 .mex-main {
   margin-left: var(--sh-sidebar-w);
   margin-top: var(--sh-header-h);
-  min-height: calc(100vh - var(--sh-header-h));
+  height: calc(100vh - var(--sh-header-h));
   min-width: 0;
-  overflow-x: clip;
+  overflow: hidden;
   transition: margin-left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   contain: layout style;
+  display: flex;
+  flex-direction: column;
 }
 
 #mexShellContent {
+  flex: 1;
+  min-height: 0;
   min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   contain: layout style;
 }
 .mex-shell.sidebar-compact .mex-main {
