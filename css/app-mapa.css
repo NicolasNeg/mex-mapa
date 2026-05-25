@@ -3108,7 +3108,7 @@ body.app-map-legacy-shell .mex-header {
 body.app-map-legacy-shell .mex-main {
   margin-left: var(--app-map-rail-w) !important;
   margin-top: var(--app-map-header-h);
-  min-height: calc(100vh - var(--app-map-header-h));
+  height: calc(100vh - var(--app-map-header-h));
 }
 
 body.app-map-legacy-shell .mex-sidebar-logo {
