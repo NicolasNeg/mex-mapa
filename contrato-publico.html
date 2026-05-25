@@ -97,6 +97,35 @@
   .state-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 8px; }
   .state-desc  { font-size: 13px; color: rgba(255,255,255,.45); line-height: 1.6; }
 
+  /* Password gate */
+  #pwGate {
+    min-height: 100svh; display: none; align-items: center; justify-content: center;
+    padding: 20px;
+  }
+  .pw-box {
+    width: 100%; max-width: 380px; background: #0e1e33;
+    border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 36px 32px;
+    text-align: center;
+  }
+  .pw-icon  { font-size: 44px; margin-bottom: 14px; }
+  .pw-title { font-size: 18px; font-weight: 800; color: #fff; margin-bottom: 6px; }
+  .pw-desc  { font-size: 12px; color: rgba(255,255,255,.4); margin-bottom: 22px; line-height: 1.6; }
+  .pw-input {
+    width: 100%; padding: 11px 14px; background: #071220;
+    border: 1px solid rgba(255,255,255,.12); border-radius: 9px;
+    color: #fff; font-size: 15px; font-family: inherit; outline: none;
+    text-align: center; letter-spacing: .1em; margin-bottom: 12px;
+  }
+  .pw-input:focus { border-color: rgba(99,102,241,.5); }
+  .pw-btn {
+    width: 100%; padding: 11px; border-radius: 9px; border: none;
+    background: #6366f1; color: #fff; font-size: 14px; font-weight: 800;
+    font-family: inherit; cursor: pointer; transition: background .15s; margin-bottom: 10px;
+  }
+  .pw-btn:hover:not(:disabled) { background: #4f46e5; }
+  .pw-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .pw-error { font-size: 12px; color: #f87171; min-height: 16px; }
+
   /* Signed banner */
   .signed-banner {
     background: rgba(16,185,129,.1); border: 1px solid rgba(16,185,129,.25);
@@ -113,6 +142,18 @@
 </style>
 </head>
 <body>
+
+<!-- Password gate -->
+<div id="pwGate">
+  <div class="pw-box">
+    <div class="pw-icon">🔒</div>
+    <div class="pw-title">Contrato protegido</div>
+    <div class="pw-desc">Este contrato requiere una contraseña para ser visualizado.<br>Ingresa la contraseña que te proporcionó el equipo de MapGestion.</div>
+    <input type="password" id="pwInput" class="pw-input" placeholder="••••••••" autocomplete="off"/>
+    <button id="pwBtn" class="pw-btn" type="button">Acceder al contrato</button>
+    <div id="pwError" class="pw-error"></div>
+  </div>
+</div>
 
 <div id="stateScreen" style="display:none;">
   <div class="state-box">
@@ -187,10 +228,16 @@
 
   function showState(icon, title, desc) {
     qs('#stateScreen').style.display = 'flex';
-    qs('#app').style.display = 'none';
+    qs('#pwGate').style.display      = 'none';
+    qs('#app').style.display         = 'none';
     qs('#stateIcon').textContent  = icon;
     qs('#stateTitle').textContent = title;
     qs('#stateDesc').textContent  = desc;
+  }
+
+  async function sha256Hex(str) {
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
   }
 
   function fmtDate(d) {
@@ -369,11 +416,50 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
       }
 
       const contrato = { id: snap.id, ...snap.data() };
+
+      // ── Password gate ─────────────────────────────────────
+      if (contrato.passwordHash) {
+        qs('#stateScreen').style.display = 'none';
+        qs('#pwGate').style.display      = 'flex';
+        qs('#app').style.display         = 'none';
+
+        const verifyAndProceed = async () => {
+          const pwd = (qs('#pwInput')?.value || '').trim();
+          if (!pwd) {
+            if (qs('#pwError')) qs('#pwError').textContent = 'Ingresa la contraseña.';
+            return;
+          }
+          const btn = qs('#pwBtn');
+          if (btn) { btn.disabled = true; btn.textContent = 'Verificando…'; }
+          const hash = await sha256Hex(pwd);
+          if (hash !== contrato.passwordHash) {
+            if (qs('#pwError')) qs('#pwError').textContent = 'Contraseña incorrecta. Intenta de nuevo.';
+            if (btn) { btn.disabled = false; btn.textContent = 'Acceder al contrato'; }
+            if (qs('#pwInput')) { qs('#pwInput').value = ''; qs('#pwInput').focus(); }
+            return;
+          }
+          qs('#pwGate').style.display = 'none';
+          _showContrato(contrato);
+        };
+
+        qs('#pwBtn')?.addEventListener('click', verifyAndProceed);
+        qs('#pwInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') verifyAndProceed(); });
+        return;
+      }
+
+      _showContrato(contrato);
+    } catch (err) {
+      console.error('[contrato-publico]', err);
+      showState('⚠️', 'Error al cargar', 'Ocurrió un error al obtener el contrato. Verifica tu conexión e intenta de nuevo.');
+    }
+  });
+
+  function _showContrato(contrato) {
       const signed   = contrato.estado === 'firmado';
 
       // Mark as visto (non-blocking, only once)
       if (!signed && contrato.estado !== 'visto') {
-        window._db.collection('contratos').doc(token).update({
+        window._db.collection('contratos').doc(contrato.id).update({
           estado: 'visto',
           fechaVisto: firebase.firestore.FieldValue.serverTimestamp(),
         }).catch(() => {});
@@ -531,12 +617,7 @@ ${c.notas ? `<p><em><strong>Condiciones especiales:</strong> ${c.notas}</em></p>
           btnSign.innerHTML = '<span>✍</span> Firmar contrato';
         }
       });
-
-    } catch (err) {
-      console.error('[contrato-publico]', err);
-      showState('⚠️', 'Error al cargar', 'Ocurrió un error al obtener el contrato. Verifica tu conexión e intenta de nuevo.');
-    }
-  });
+  }
 
 })();
 </script>
