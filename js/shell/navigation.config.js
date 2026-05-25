@@ -108,6 +108,13 @@ export const NAV_GROUPS = [
         route: '/incidencias',
         roles: '*',
         feature: 'incidencias'
+      },
+      {
+        id: 'turnos',
+        label: 'Turnos y horarios',
+        icon: 'schedule',
+        route: '/app/turnos',
+        roles: '*',
       }
     ]
   },
@@ -205,6 +212,7 @@ export const ROUTE_TITLES = {
   '/app/mapa':             'Mapa operativo',
   '/app/editmap':          'Configuración de mapa',
   '/app/onboarding':       'Configuración inicial',
+  '/app/turnos':           'Turnos y horarios',
 };
 
 export function routeTitle(route = '') {

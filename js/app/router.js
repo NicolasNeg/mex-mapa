@@ -144,6 +144,10 @@ const ROUTE_TABLE = {
     loader: () => import('/js/app/views/onboarding.js'),
     navRoute: '/home'
   },
+  '/app/turnos': {
+    loader:   () => import('/js/app/views/turnos.js'),
+    navRoute: '/app/turnos',
+  },
 };
 
 // ── Factory ──────────────────────────────────────────────────

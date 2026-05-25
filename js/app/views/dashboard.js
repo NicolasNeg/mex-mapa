@@ -714,7 +714,7 @@ function _updateTurnoWidget() {
       const btn = el.querySelector('#dashIniciarTurno');
       if (btn) btn.disabled = true;
       try {
-        await iniciarTurno({ uid, ...profile }, plaza);
+        await iniciarTurno({ uid: window._auth?.currentUser?.uid || uid, ...profile }, plaza);
       } catch (e) {
         console.warn('[dashboard] iniciarTurno:', e);
         if (_s && btn) btn.disabled = false;

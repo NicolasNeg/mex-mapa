@@ -1061,5 +1061,27 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fin', 'estado']);
       allow delete: if false;
     }
+
+    // ─── HORARIOS SEMANALES ───────────────────────────────────────────────────
+    // Asignación de horarios por usuario/semana/plaza.
+    // Lectura: cualquier usuario autenticado.
+    // Escritura: solo roles administrativos o programador.
+    match /horarios/{horarioId} {
+      allow read: if estaAutenticado();
+      allow create, update: if estaAutenticado()
+        && (esAdminOperativo() || esProgramadorBootstrap());
+      allow delete: if esProgramadorBootstrap();
+    }
+
+    // ─── ASISTENCIA ───────────────────────────────────────────────────────────
+    // Registro de asistencia diaria por usuario/plaza/fecha.
+    // Lectura: cualquier usuario autenticado (para ver su propia asistencia).
+    // Escritura: solo roles administrativos o programador.
+    match /asistencia/{asistenciaId} {
+      allow read: if estaAutenticado();
+      allow create, update: if estaAutenticado()
+        && (esAdminOperativo() || esProgramadorBootstrap());
+      allow delete: if esProgramadorBootstrap();
+    }
   }
 }
