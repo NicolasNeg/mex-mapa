@@ -503,8 +503,9 @@
   transition: left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
   gap: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  contain: layout paint style;
+  contain: layout style;
   will-change: left;
+  overflow: visible;
 }
 .mex-shell.sidebar-compact .mex-header {
   left: var(--sh-sidebar-compact-w);
