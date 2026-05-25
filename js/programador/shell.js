@@ -13,14 +13,21 @@ const ROUTES = [
   { pattern: '/programador/overview',               title: 'Overview',             nav: '/programador/overview',  loader: () => import('./views/overview.js') },
   { pattern: '/programador/saas',                   title: 'Empresas · SaaS',      nav: '/programador/saas',      loader: () => import('./views/saas.js') },
   { pattern: '/programador/contratos',               title: 'Contratos SaaS',       nav: '/programador/contratos', loader: () => import('./views/contratos.js') },
-  { pattern: '/programador/empresa/:id',            redirect: p => `/programador/empresa/${p.id}/config` },
+  { pattern: '/programador/metricas',               title: 'Métricas SaaS',        nav: '/programador/metricas',  loader: () => import('./views/metricas.js') },
+  { pattern: '/programador/facturacion',            title: 'Facturación Global',   nav: '/programador/facturacion', loader: () => import('./views/facturacion-global.js') },
+  { pattern: '/programador/empresa/:id',            redirect: p => `/programador/empresa/${p.id}/datos` },
+  { pattern: '/programador/empresa/:id/datos',      title: 'Datos Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/facturacion', title: 'Facturación Empresa', nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/contratos',  title: 'Contratos Empresa',    nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/config',     title: 'Config Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/features',   title: 'Features Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/plazas',     title: 'Plazas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/usuarios',   title: 'Usuarios Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/listas',     title: 'Listas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/empresa/:id/permisos',   title: 'Permisos Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/login',     title: 'Login Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/actividad',  title: 'Actividad Empresa',    nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/soporte',    title: 'Soporte Empresa',      nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
+  { pattern: '/programador/empresa/:id/login',      title: 'Login Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/tecnico',                title: 'Diagnóstico Técnico',  nav: '/programador/tecnico',   loader: () => import('/js/app/views/programador.js') },
   { pattern: '/programador/logs',                   title: 'Logs del Sistema',     nav: '/programador/logs',      loader: () => import('./views/logs.js') },
   { pattern: '/programador/errores',                title: 'Errores',              nav: '/programador/errores',   loader: () => import('./views/errores.js') },
@@ -283,6 +290,14 @@ function _shellHtml(profile) {
         <span class="material-symbols-outlined prog-nav-icon">description</span>
         <span>Contratos</span>
       </button>
+      <button data-prog-nav="/programador/metricas" data-prog-route="/programador/metricas" class="prog-nav-btn" type="button">
+        <span class="material-symbols-outlined prog-nav-icon">bar_chart</span>
+        <span>Métricas</span>
+      </button>
+      <button data-prog-nav="/programador/facturacion" data-prog-route="/programador/facturacion" class="prog-nav-btn" type="button">
+        <span class="material-symbols-outlined prog-nav-icon">account_balance_wallet</span>
+        <span>Facturación</span>
+      </button>
 
       <div class="prog-nav-section">Sistema</div>
 
@@ -310,6 +325,15 @@ function _shellHtml(profile) {
           <span>Empresas</span>
         </button>
         <div style="padding:6px 10px 6px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="progEmpresaSubnavId">—</div>
+        <button data-prog-subnav="datos"       class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">business</span>Datos
+        </button>
+        <button data-prog-subnav="facturacion" class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">payments</span>Facturación
+        </button>
+        <button data-prog-subnav="contratos"   class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">description</span>Contratos
+        </button>
         <button data-prog-subnav="config"    class="prog-subnav-btn" type="button">
           <span class="material-symbols-outlined" style="font-size:15px;">settings</span>Configuración
         </button>
@@ -327,6 +351,12 @@ function _shellHtml(profile) {
         </button>
         <button data-prog-subnav="usuarios"  class="prog-subnav-btn" type="button">
           <span class="material-symbols-outlined" style="font-size:15px;">group</span>Usuarios
+        </button>
+        <button data-prog-subnav="actividad" class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">monitoring</span>Actividad
+        </button>
+        <button data-prog-subnav="soporte"   class="prog-subnav-btn" type="button">
+          <span class="material-symbols-outlined" style="font-size:15px;">support_agent</span>Soporte
         </button>
         <button data-prog-subnav="login"     class="prog-subnav-btn" type="button">
           <span class="material-symbols-outlined" style="font-size:15px;">language</span>Login

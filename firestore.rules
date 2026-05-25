@@ -990,6 +990,14 @@ service cloud.firestore {
               .hasOnly(['tipo_negocio', 'configuracion', 'onboarding_paso', 'onboarding_completado',
                         'onboarding_plazas', 'rolePermissions'])
         );
+
+      match /pagos/{pagoId} {
+        allow read, write: if esProgramadorBootstrap();
+      }
+
+      match /notas_programador/{notaId} {
+        allow read, write: if esProgramadorBootstrap();
+      }
     }
 
     // ─── CONTRATOS SaaS ──────────────────────────────────────────────────────
