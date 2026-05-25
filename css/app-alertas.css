@@ -7,7 +7,7 @@ body.app-alertas-active {
 }
 
 .app-alertas-page {
-  min-height: calc(100vh - var(--shell-header-height, 66px));
+  min-height: 100%;
   padding: 18px 24px 36px;
   background: #eef2f7;
   font-family: 'Inter', sans-serif;

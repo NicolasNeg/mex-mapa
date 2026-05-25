@@ -916,3 +916,9 @@
 #mexShellContent [data-prep-topbar] {
   display: none !important;
 }
+
+/* Cuadre: table max-height compensates for shell header (original -310px assumed no shell) */
+#mexShellContent .cqv__table-wrap {
+  max-height: calc(100vh - var(--sh-header-h) - 280px) !important;
+  min-height: 280px !important;
+}
