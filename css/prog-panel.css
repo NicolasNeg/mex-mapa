@@ -17,14 +17,15 @@ body {
   --p-bg:           #070d16;
   --p-sidebar:      #0a1220;
   --p-header:       #070d16;
-  --p-card:         #0f1b2d;
-  --p-card-deep:    #070d16;
-  --p-border:       rgba(255,255,255,0.07);
-  --p-border-soft:  rgba(255,255,255,0.04);
-  --p-text:         #ffffff;
-  --p-text-sec:     rgba(255,255,255,0.6);
-  --p-text-muted:   rgba(255,255,255,0.35);
-  --p-text-faint:   rgba(255,255,255,0.18);
+  --p-card:         #ffffff;
+  --p-card-dark:    #0f1b2d;
+  --p-card-deep:    #f8fafc;
+  --p-border:       rgba(0,0,0,0.08);
+  --p-border-soft:  rgba(0,0,0,0.05);
+  --p-text:         #0f172a;
+  --p-text-sec:     #334155;
+  --p-text-muted:   #64748b;
+  --p-text-faint:   #94a3b8;
   --p-accent:       #6366f1;
   --p-accent-light: #818cf8;
   --p-accent-pale:  rgba(99,102,241,0.12);
@@ -43,6 +44,7 @@ body {
   --p-sidebar:      #ffffff;
   --p-header:       #ffffff;
   --p-card:         #ffffff;
+  --p-card-dark:    #ffffff;
   --p-card-deep:    #f8fafc;
   --p-border:       rgba(0,0,0,0.08);
   --p-border-soft:  rgba(0,0,0,0.05);
@@ -66,35 +68,34 @@ body {
    OVERRIDES para modo LIGHT — sobreescribir inline styles JS
    ══════════════════════════════════════════════════════════ */
 
-/* Root shell */
+/* ── Shell root ──────────────────────────────────────────── */
 [data-prog-theme="light"] #progShell {
   background: var(--p-bg) !important;
   color: var(--p-text) !important;
 }
 
-/* Sidebar */
+/* ── Sidebar ─────────────────────────────────────────────── */
 [data-prog-theme="light"] #progShell > aside {
   background: var(--p-sidebar) !important;
   border-color: var(--p-border) !important;
 }
 
-/* Header principal */
+/* ── Header ──────────────────────────────────────────────── */
 [data-prog-theme="light"] #progShell header {
   background: var(--p-header) !important;
   border-color: var(--p-border) !important;
 }
 
-/* Título header */
 [data-prog-theme="light"] #progHeaderTitle {
   color: var(--p-text) !important;
 }
 
-/* Área de contenido */
+/* ── Content area ────────────────────────────────────────── */
 [data-prog-theme="light"] #progContent {
   background: var(--p-bg) !important;
 }
 
-/* Nav buttons (sidebar) */
+/* ── Nav buttons ─────────────────────────────────────────── */
 [data-prog-theme="light"] .prog-nav-btn {
   color: var(--p-text-muted) !important;
 }
@@ -106,14 +107,12 @@ body {
   background: var(--p-nav-active) !important;
   color: var(--p-accent) !important;
 }
-[data-prog-theme="light"] .prog-nav-icon {
-  color: inherit !important;
-}
+[data-prog-theme="light"] .prog-nav-icon { color: inherit !important; }
 [data-prog-theme="light"] .prog-nav-btn.prog-nav-active .prog-nav-icon {
   color: var(--p-accent) !important;
 }
 
-/* Sub-nav botones */
+/* ── Sub-nav botones ─────────────────────────────────────── */
 [data-prog-theme="light"] .prog-subnav-btn {
   color: var(--p-text-muted) !important;
 }
@@ -126,30 +125,26 @@ body {
   color: var(--p-accent) !important;
 }
 
-/* Separadores en sidebar */
-[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.2)"],
-[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.06)"] {
-  border-color: var(--p-border) !important;
-}
-
-/* Texto en sidebar */
+/* ── Sidebar text/borders ────────────────────────────────── */
 [data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.28)"],
 [data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.3)"],
 [data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.35)"],
-[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.4)"] {
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.4)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,.28)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,.3)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,.35)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,.4)"] {
   color: var(--p-text-muted) !important;
 }
 [data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.8)"],
-[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.85)"] {
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,0.85)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,.8)"],
+[data-prog-theme="light"] #progShell aside [style*="rgba(255,255,255,.85)"] {
   color: var(--p-text) !important;
 }
-
-/* Avatar inicial en sidebar */
 [data-prog-theme="light"] #progShell aside [style*="background:#1e2d42"] {
   background: #e0e7ff !important;
 }
-
-/* Logout btn */
 [data-prog-theme="light"] #progLogoutBtn {
   color: var(--p-text-faint) !important;
 }
@@ -158,7 +153,10 @@ body {
   color: #dc2626 !important;
 }
 
-/* Cards / containers en contenido */
+/* ══════════════════════════════════════════════════════════
+   CONTENIDO — Backgrounds (hex)
+   ══════════════════════════════════════════════════════════ */
+
 [data-prog-theme="light"] #progContent [style*="background:#0f1b2d"],
 [data-prog-theme="light"] #progContent [style*="background: #0f1b2d"] {
   background: var(--p-card) !important;
@@ -172,58 +170,202 @@ body {
 [data-prog-theme="light"] #progContent [style*="background: #0a1220"] {
   background: var(--p-th-bg) !important;
 }
-[data-prog-theme="light"] #progContent [style*="background:#0b1524"] {
-  background: var(--p-sidebar) !important;
+[data-prog-theme="light"] #progContent [style*="background:#0b1524"],
+[data-prog-theme="light"] #progContent [style*="background: #0b1524"],
+[data-prog-theme="light"] #progContent [style*="background:#091525"],
+[data-prog-theme="light"] #progContent [style*="background:#0c1a2e"],
+[data-prog-theme="light"] #progContent [style*="background:#0d1b2e"],
+[data-prog-theme="light"] #progContent [style*="background:#111827"] {
+  background: var(--p-th-bg) !important;
 }
 
-/* Texto blanco → oscuro en contenido */
+/* Backgrounds semitransparentes oscuros → hover claro */
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.04)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.05)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.07)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.04)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.05)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.06)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.07)"] {
+  background: rgba(0,0,0,0.03) !important;
+}
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.08)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.09)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.1)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.08)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.09)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.1)"] {
+  background: rgba(0,0,0,0.05) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CONTENIDO — Colores de texto
+   Cubre tanto 0.X (forma larga) como .X (forma abreviada)
+   ══════════════════════════════════════════════════════════ */
+
+/* Texto blanco puro */
 [data-prog-theme="light"] #progContent [style*="color:#fff"],
 [data-prog-theme="light"] #progContent [style*="color: #fff"],
-[data-prog-theme="light"] #progContent [style*="color:#ffffff"] {
+[data-prog-theme="light"] #progContent [style*="color:#ffffff"],
+[data-prog-theme="light"] #progContent [style*="color: #ffffff"] {
   color: var(--p-text) !important;
 }
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.8)"],
+
+/* Texto alto contraste (0.75 – 1.0) → texto primario */
 [data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.75)"],
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.65)"] {
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.8)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.85)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.9)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.75)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.8)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.85)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.9)"] {
+  color: var(--p-text) !important;
+}
+
+/* Texto secundario (0.55 – 0.74) */
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.55)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.6)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.65)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.7)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.55)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.6)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.65)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.7)"] {
   color: var(--p-text-sec) !important;
 }
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.5)"],
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.45)"],
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.4)"],
+
+/* Texto muted (0.3 – 0.54) */
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.3)"],
 [data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.35)"],
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.3)"] {
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.4)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.45)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.5)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.3)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.35)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.4)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.45)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.5)"] {
   color: var(--p-text-muted) !important;
 }
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.2)"],
+
+/* Texto faint (< 0.3) */
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.1)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.15)"],
 [data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.18)"],
-[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.25)"] {
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.2)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,0.25)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.1)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.15)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.18)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.2)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(255,255,255,.25)"] {
   color: var(--p-text-faint) !important;
 }
 
-/* Bordes */
+/* ── Preservar colores de badges con fondo de color ──────── */
+/* Plan badges y status badges tienen color:#fff sobre fondo colorido — no invertir */
+[data-prog-theme="light"] #progContent span[style*="background:#059669"],
+[data-prog-theme="light"] #progContent span[style*="background:#6366f1"],
+[data-prog-theme="light"] #progContent span[style*="background:#d97706"],
+[data-prog-theme="light"] #progContent span[style*="background:#334155"],
+[data-prog-theme="light"] #progContent span[style*="background:#475569"],
+[data-prog-theme="light"] #progContent span[style*="background:#dc2626"],
+[data-prog-theme="light"] #progContent span[style*="background:#f87171"],
+[data-prog-theme="light"] #progContent span[style*="background:#10b981"],
+[data-prog-theme="light"] #progContent span[style*="background:#3b82f6"],
+[data-prog-theme="light"] #progContent span[style*="background:#8b5cf6"],
+[data-prog-theme="light"] #progContent span[style*="background:#ec4626"],
+[data-prog-theme="light"] #progContent span[style*="background:linear-gradient"] {
+  color: #fff !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CONTENIDO — Bordes
+   ══════════════════════════════════════════════════════════ */
+
+/* Bordes de cards (1px solid) */
 [data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,0.07)"],
-[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,0.1)"] {
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,0.08)"],
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,0.1)"],
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,.07)"],
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,.08)"],
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,.1)"],
+[data-prog-theme="light"] #progContent [style*="border:1px solid rgba(255,255,255,.06)"] {
   border-color: var(--p-border) !important;
 }
+
+/* Border-top / border-bottom de filas de tabla */
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,0.04)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,0.05)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,0.07)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,.04)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,.05)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,.06)"],
+[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,.07)"],
 [data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,0.04)"],
 [data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,0.05)"],
 [data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,0.06)"],
-[data-prog-theme="light"] #progContent [style*="border-top:1px solid rgba(255,255,255,0.06)"] {
+[data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,.04)"],
+[data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,.05)"],
+[data-prog-theme="light"] #progContent [style*="border-bottom:1px solid rgba(255,255,255,.06)"] {
   border-color: var(--p-border-soft) !important;
 }
 
-/* Inputs */
+/* Border-left accent (indicadores de estado) */
+[data-prog-theme="light"] #progContent [style*="border-left:3px solid rgba(255,255,255,"],
+[data-prog-theme="light"] #progContent [style*="border-left:4px solid rgba(255,255,255,"] {
+  border-left-color: var(--p-border) !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   CONTENIDO — Inputs, Selects, Textareas
+   ══════════════════════════════════════════════════════════ */
+
 [data-prog-theme="light"] #progContent input,
-[data-prog-theme="light"] #progContent select {
+[data-prog-theme="light"] #progContent select,
+[data-prog-theme="light"] #progContent textarea {
   background: var(--p-input-bg) !important;
   color: var(--p-text) !important;
   border-color: var(--p-border) !important;
 }
-[data-prog-theme="light"] #progContent input::placeholder {
+[data-prog-theme="light"] #progContent input::placeholder,
+[data-prog-theme="light"] #progContent textarea::placeholder {
   color: var(--p-text-faint) !important;
 }
 
-/* Tab buttons (empresa-detail) */
+/* Inputs con fondo dark explícito */
+[data-prog-theme="light"] #progContent input[style*="background:#070d16"],
+[data-prog-theme="light"] #progContent input[style*="background:#0f1b2d"],
+[data-prog-theme="light"] #progContent input[style*="background:#0a1220"],
+[data-prog-theme="light"] #progContent select[style*="background:#070d16"],
+[data-prog-theme="light"] #progContent select[style*="background:#0f1b2d"],
+[data-prog-theme="light"] #progContent textarea[style*="background:#070d16"],
+[data-prog-theme="light"] #progContent textarea[style*="background:#0f1b2d"] {
+  background: var(--p-input-bg) !important;
+  color: var(--p-text) !important;
+  border-color: var(--p-border) !important;
+}
+
+/* ── Botones con fondo semitransparente oscuro ───────────── */
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,0.05)"],
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,.05)"],
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,0.04)"],
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,.04)"],
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,.06)"],
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,0.08)"],
+[data-prog-theme="light"] #progContent button[style*="background:rgba(255,255,255,.08)"],
+[data-prog-theme="light"] #progContent button[style*="background:transparent"] {
+  background: rgba(0,0,0,0.04) !important;
+  border-color: var(--p-border) !important;
+  color: var(--p-text-muted) !important;
+}
+
+/* ── Tab buttons (empresa-detail) ────────────────────────── */
 [data-prog-theme="light"] .emp-tab-btn {
   color: var(--p-text-muted) !important;
   border-color: transparent !important;
@@ -236,34 +378,81 @@ body {
   border-bottom-color: var(--p-accent) !important;
 }
 
-/* Pre blocks (code/output) */
-[data-prog-theme="light"] #progContent pre {
+/* Tab bar container */
+[data-prog-theme="light"] #progContent [style*="border-bottom:2px solid rgba(255,255,255,0.06)"],
+[data-prog-theme="light"] #progContent [style*="border-bottom:2px solid rgba(255,255,255,.06)"] {
+  border-bottom-color: var(--p-border) !important;
+}
+
+/* ── Modales / overlays ──────────────────────────────────── */
+[data-prog-theme="light"] #progContent [style*="background:rgba(0,0,0,0.7)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(0,0,0,.7)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(0,0,0,0.6)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(0,0,0,.6)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(0,0,0,0.5)"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(0,0,0,.5)"] {
+  background: rgba(0,0,0,0.45) !important;
+}
+
+/* Contenido de modal (panel blanco interno) */
+[data-prog-theme="light"] #progContent [style*="background:#1a2436"],
+[data-prog-theme="light"] #progContent [style*="background:#121e30"],
+[data-prog-theme="light"] #progContent [style*="background:#16202e"] {
+  background: var(--p-card) !important;
+  border-color: var(--p-border) !important;
+}
+
+/* ── Pre / code blocks ───────────────────────────────────── */
+[data-prog-theme="light"] #progContent pre,
+[data-prog-theme="light"] #progContent code {
   background: #f8fafc !important;
   color: #1e293b !important;
   border-color: var(--p-border) !important;
 }
 
-/* Badge SUPERADMIN en header */
-[data-prog-theme="light"] #progShell header [style*="rgba(99,102,241,0.12)"] {
+/* ── Tablas: th color ────────────────────────────────────── */
+[data-prog-theme="light"] #progContent th[style*="color:rgba(255,255,255,0.25)"],
+[data-prog-theme="light"] #progContent th[style*="color:rgba(255,255,255,.25)"] {
+  color: var(--p-text-faint) !important;
+}
+
+/* ── Section labels (como "Distribución por plan") ───────── */
+[data-prog-theme="light"] #progContent [style*="color:rgba(99,102,241,0.65)"],
+[data-prog-theme="light"] #progContent [style*="color:rgba(99,102,241,.65)"] {
+  color: #4f46e5 !important;
+}
+
+/* ── Header badge SUPERADMIN ─────────────────────────────── */
+[data-prog-theme="light"] #progShell header [style*="rgba(99,102,241,0.12)"],
+[data-prog-theme="light"] #progShell header [style*="rgba(99,102,241,.12)"] {
   background: rgba(79,70,229,0.08) !important;
   border-color: rgba(79,70,229,0.2) !important;
 }
 
-/* Scrollbar */
+/* ── Progress bars / usage bars ──────────────────────────── */
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,0.08)"][style*="border-radius"],
+[data-prog-theme="light"] #progContent [style*="background:rgba(255,255,255,.08)"][style*="border-radius"] {
+  background: rgba(0,0,0,0.08) !important;
+}
+
+/* ── Scrollbar ───────────────────────────────────────────── */
 [data-prog-theme="light"] #progContent::-webkit-scrollbar { width: 6px; height: 6px; }
 [data-prog-theme="light"] #progContent::-webkit-scrollbar-track { background: transparent; }
-[data-prog-theme="light"] #progContent::-webkit-scrollbar-thumb { background: var(--p-scrollbar); border-radius: 3px; }
+[data-prog-theme="light"] #progContent::-webkit-scrollbar-thumb {
+  background: var(--p-scrollbar);
+  border-radius: 3px;
+}
 
-/* Toggle button en header */
+/* ── Theme toggle button ─────────────────────────────────── */
 #progThemeToggle {
   display: flex;
   align-items: center;
   gap: 5px;
   padding: 5px 10px;
   border-radius: 7px;
-  border: 1px solid var(--p-border, rgba(255,255,255,0.08));
-  background: var(--p-hover, rgba(255,255,255,0.04));
-  color: var(--p-text-muted, rgba(255,255,255,0.45));
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  color: rgba(255,255,255,0.45);
   font-size: 12px;
   font-family: Inter, sans-serif;
   font-weight: 600;
@@ -271,10 +460,21 @@ body {
   transition: background .14s, color .14s;
 }
 #progThemeToggle:hover {
-  background: var(--p-hover, rgba(255,255,255,0.07));
-  color: var(--p-text, #fff);
+  background: rgba(255,255,255,0.07);
+  color: #fff;
 }
 [data-prog-theme="light"] #progThemeToggle {
+  border-color: rgba(0,0,0,0.08) !important;
+  background: rgba(0,0,0,0.03) !important;
+  color: #64748b !important;
+}
+[data-prog-theme="light"] #progThemeToggle:hover {
+  background: rgba(0,0,0,0.06) !important;
+  color: var(--p-text) !important;
+}
+
+/* ── "Ver App" link en header ────────────────────────────── */
+[data-prog-theme="light"] #progShell header a.prog-header-action-btn {
   border-color: rgba(0,0,0,0.08) !important;
   background: rgba(0,0,0,0.03) !important;
   color: #64748b !important;
