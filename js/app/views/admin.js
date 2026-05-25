@@ -19,6 +19,19 @@ let _unsubRequests = null;
 let _offGlobalSearch = null;
 let _metaLoaded = false;
 let _plazaUnitsCache = new Map();
+let _cssLink = null;
+
+function _ensureCss() {
+  if (_cssLink && document.contains(_cssLink)) return;
+  _cssLink = document.querySelector('link[data-app-admin-css="1"]');
+  if (_cssLink) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/app-admin.css';
+  link.setAttribute('data-app-admin-css', '1');
+  document.head.appendChild(link);
+  _cssLink = link;
+}
 
 function _trackListener(action, name, extra = {}) {
   if (typeof window.__mexTrackListener !== 'function') return;
@@ -393,6 +406,7 @@ export function mount(ctx) {
     selectedRequestId: null
   };
   _trackListener('create', 'view', { tab: _state.tab });
+  _ensureCss();
   const gs = getState();
   ctx.container.innerHTML = _html(gs.profile);
   _bind();
@@ -547,8 +561,12 @@ function _applyFilters() {
 function _renderTab() {
   const c = _ctx?.container;
   if (!c) return;
-  c.querySelectorAll('[data-admin-tab]').forEach(btn => btn.style.background = btn.dataset.adminTab === _state.tab ? '#0f172a' : '#fff');
-  c.querySelectorAll('[data-admin-tab]').forEach(btn => btn.style.color = btn.dataset.adminTab === _state.tab ? '#fff' : '#475569');
+  c.querySelectorAll('[data-admin-tab]').forEach(btn => {
+    const active = btn.dataset.adminTab === _state.tab;
+    btn.style.background = active ? '#0f172a' : '#fff';
+    btn.style.color = active ? '#fff' : '#475569';
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
   c.querySelector('#adminUsuariosPane').style.display = _state.tab === 'usuarios' ? 'grid' : 'none';
   c.querySelector('#adminRolesPane').style.display = _state.tab === 'roles' ? 'grid' : 'none';
   c.querySelector('#adminPlazasPane').style.display = _state.tab === 'plazas' ? 'grid' : 'none';
@@ -582,6 +600,8 @@ function _renderUsersTable() {
       <td style="padding:8px;border-bottom:1px solid #eef2f7;">${esc(_fmtDate(u.updatedAt || u.createdAt))}</td>
     </tr>`).join(''));
   _ctx.container.querySelectorAll('[data-admin-user]').forEach(row => row.addEventListener('click', () => {
+    _ctx.container.querySelectorAll('[data-admin-user]').forEach(r => r.removeAttribute('aria-selected'));
+    row.setAttribute('aria-selected', 'true');
     _state.selectedId = row.dataset.adminUser;
     _syncDetail();
   }));
@@ -883,7 +903,7 @@ function _syncRequestDetail() {
 
 function _html(profile = {}) {
   return `
-<div style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
+<div id="appAdminRoot" style="padding:22px;max-width:1150px;margin:0 auto;font-family:Inter,sans-serif;">
   <h1 style="margin:0 0 10px;color:#0f172a;font-size:26px;">Panel admin</h1>
   <p style="margin:0 0 14px;padding:11px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;font-size:12px;color:#475569;line-height:1.45;">
     Solicitudes y usuarios tienen flujo operativo seguro con confirmación por permisos. Roles, plazas y catálogos muestran datos reales dentro del App Shell.

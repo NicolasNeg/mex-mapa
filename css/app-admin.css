@@ -1,0 +1,137 @@
+/* ================================================================
+   App Admin View — Enhancement layer for #appAdminRoot
+   Adds hover, focus, transitions — things inline styles can't do.
+   ================================================================ */
+
+/* ── Tab pills ──────────────────────────────────────────────── */
+#appAdminRoot [data-admin-tab] {
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+}
+#appAdminRoot [data-admin-tab]:hover {
+  box-shadow: 0 0 0 2px #94a3b8;
+}
+#appAdminRoot [data-admin-tab][aria-selected="true"] {
+  box-shadow: 0 2px 8px rgba(15,23,42,.2);
+}
+#appAdminRoot [data-admin-tab]:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+#appAdminRoot [data-admin-tab]:active {
+  transform: scale(0.96);
+}
+
+/* ── Table rows ─────────────────────────────────────────────── */
+#appAdminRoot [data-admin-user],
+#appAdminRoot [data-admin-role],
+#appAdminRoot [data-admin-plaza],
+#appAdminRoot [data-admin-catalog],
+#appAdminRoot [data-admin-req] {
+  transition: background 0.1s;
+}
+#appAdminRoot [data-admin-user]:hover td,
+#appAdminRoot [data-admin-role]:hover td,
+#appAdminRoot [data-admin-plaza]:hover td,
+#appAdminRoot [data-admin-catalog]:hover td,
+#appAdminRoot [data-admin-req]:hover td {
+  background: #f0f9ff !important;
+}
+#appAdminRoot [data-admin-user][aria-selected="true"] td,
+#appAdminRoot [data-admin-role][aria-selected="true"] td,
+#appAdminRoot [data-admin-plaza][aria-selected="true"] td,
+#appAdminRoot [data-admin-catalog][aria-selected="true"] td,
+#appAdminRoot [data-admin-req][aria-selected="true"] td {
+  background: #eff6ff !important;
+}
+
+/* ── Sticky table headers ───────────────────────────────────── */
+#appAdminRoot thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: #64748b;
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────── */
+#appAdminRoot ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+#appAdminRoot ::-webkit-scrollbar-track {
+  background: #f8fafc;
+  border-radius: 3px;
+}
+#appAdminRoot ::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+#appAdminRoot ::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* ── Select / inputs ────────────────────────────────────────── */
+#appAdminRoot select {
+  transition: border-color 0.15s, box-shadow 0.15s;
+  cursor: pointer;
+  appearance: auto;
+}
+#appAdminRoot select:hover {
+  border-color: #94a3b8 !important;
+}
+#appAdminRoot select:focus {
+  outline: none;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+#appAdminRoot input[type="text"],
+#appAdminRoot input[type="url"],
+#appAdminRoot input[type="email"],
+#appAdminRoot textarea {
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+#appAdminRoot input[type="text"]:focus,
+#appAdminRoot input[type="url"]:focus,
+#appAdminRoot input[type="email"]:focus,
+#appAdminRoot textarea:focus {
+  outline: none;
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.15);
+}
+
+/* ── Action buttons ─────────────────────────────────────────── */
+#appAdminRoot button {
+  transition: opacity 0.15s, box-shadow 0.15s, transform 0.1s;
+}
+#appAdminRoot button:not([data-admin-tab]):hover {
+  opacity: 0.88;
+  box-shadow: 0 2px 8px rgba(15,23,42,.14);
+}
+#appAdminRoot button:active {
+  transform: scale(0.96);
+}
+#appAdminRoot button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+/* ── Card panels ────────────────────────────────────────────── */
+#appAdminRoot aside {
+  transition: box-shadow 0.2s;
+}
+#appAdminRoot aside:not(:empty) {
+  box-shadow: 0 2px 12px rgba(15,23,42,.06);
+}
+
+/* ── Detail panel padding ───────────────────────────────────── */
+#appAdminDetail:not(:empty),
+#appAdminRoleDetail:not(:empty),
+#appAdminPlazaDetail:not(:empty),
+#appAdminCatalogDetail:not(:empty),
+#appAdminRequestDetail:not(:empty) {
+  padding: 14px;
+}

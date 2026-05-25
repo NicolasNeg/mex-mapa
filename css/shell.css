@@ -910,3 +910,9 @@
   .mex-nav-item-icon { font-size: 22px !important; }
   .mex-header-title { font-size: 16px; }
 }
+
+/* ── View-specific overrides inside App Shell ───────────────── */
+/* Cola-preparacion: oculta topbar interno (shell ya provee navegación y header) */
+#mexShellContent [data-prep-topbar] {
+  display: none !important;
+}
