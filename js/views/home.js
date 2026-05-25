@@ -335,6 +335,7 @@ export function consumeShellSearch() {
 }
 
 export function renderShellTopbarHTML(options = {}) {
+  return '';
   const profile = options.profile || {};
   const config = options.config || window.MEX_CONFIG || {};
   const currentRoute = safe(options.currentRoute || window.location.pathname || '/home') || '/home';
@@ -506,24 +507,8 @@ export function ensureRouteShellLayout(options = {}) {
   const company = safe(options.company || companyName(config)) || 'MAPA';
   const currentRoute = safe(options.currentRoute || window.location.pathname || '/home') || '/home';
 
-  sidebarHost.innerHTML = renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute);
-  topbarHost.innerHTML = renderShellTopbarHTML({
-    profile,
-    config,
-    currentRoute,
-    currentPlaza,
-    userName,
-    plazas: options.plazas,
-    searchId: options.searchId,
-    plazaSelectId: options.plazaSelectId,
-    searchPlaceholder: options.searchPlaceholder,
-    searchValue: options.searchValue,
-    searchHtml: options.searchHtml,
-    plazaHtml: options.plazaHtml,
-    vehicleHtml: options.vehicleHtml,
-    preBellHtml: options.preBellHtml,
-    showVehicleShortcut: options.showVehicleShortcut
-  });
+  sidebarHost.innerHTML = '';
+  topbarHost.innerHTML = '';
 
   if (options.mainClass) {
     mainStage.className = `shell-main-stage shell-main-offset pt-16 min-h-screen overflow-y-auto pb-12 relative ${options.mainClass}`.trim();
@@ -1098,6 +1083,7 @@ function saveSidebarState(collapsed) {
 }
 
 export function renderSidebarHTML(profile, metrics, currentPlaza, company, userName, currentRoute = '/home') {
+  return '';
   const navGroups = sidebarGroups(profile, metrics, currentPlaza, currentRoute);
   const shellCollapsed = isDesktopShell() ? Boolean(_homeState.collapsed) : true;
   let activeGroupIndex = 0;
@@ -1181,27 +1167,14 @@ function renderHome(profile, config, metrics) {
   const now = new Date();
   const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
   const dateString = now.toLocaleDateString('es-MX', dateOptions);
-  const topbarHtml = renderShellTopbarHTML({
-    profile,
-    config,
-    currentRoute: '/home',
-    currentPlaza,
-    plazas,
-    userName,
-    searchId: 'homeSearchInput',
-    plazaSelectId: 'homePlazaSelect',
-    searchPlaceholder: 'Buscar unidad, ruta...',
-    showVehicleShortcut: false
-  });
-
   mountAppShell({
     appRoot: root,
     layoutId: 'homeMainLayout',
     sidebarHostId: 'homeSidebarHost',
     topbarHostId: 'homeTopbarHost',
     mainId: 'homeMainStage',
-    sidebarHtml: renderSidebarHTML(profile, metrics, currentPlaza, company, userName, '/home'),
-    topbarHtml,
+    sidebarHtml: '',
+    topbarHtml: '',
     mainClass: 'shell-main-stage shell-main-offset pt-16 h-screen overflow-y-auto pb-12 relative app-shell-main'
   });
 

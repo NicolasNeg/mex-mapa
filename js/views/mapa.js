@@ -1273,15 +1273,7 @@ function _setSessionProfile(profile) {
 }
 
 function _inyectarSidebar() {
-  const container = document.getElementById('mapaLeftSidebarContainer');
-  if (!container || !currentUserProfile) return;
-  const companyName = window.MEX_CONFIG?.empresa?.nombre || APP_DEFAULT_COMPANY_NAME;
-  const activeMetrics = ((window._supervisionData || _supervisionData || {})[PLAZA_ACTIVA_MAPA]) || {};
-  const shellUserName = displayUserName(currentUserProfile);
-  const html = renderSidebarHTML(currentUserProfile, activeMetrics, PLAZA_ACTIVA_MAPA, companyName, shellUserName, '/mapa');
-  container.innerHTML = html;
-  bindSidebarShell(document, { currentPlaza: PLAZA_ACTIVA_MAPA });
-  _syncMapShellHeader();
+  // sidebar handled by app shell
 }
 
 function _syncMapShellHeader() {

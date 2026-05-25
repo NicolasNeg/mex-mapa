@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -11,9 +12,16 @@
   <title>Página no encontrada — MapGestion</title>
 
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-    html, body {
+    html,
+    body {
       min-height: 100svh;
       background: linear-gradient(160deg, #060e1c 0%, #0c1e3a 100%);
       font-family: 'Inter', sans-serif;
@@ -31,8 +39,15 @@
     }
 
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(20px); }
-      to   { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .error-code {
@@ -50,7 +65,7 @@
 
     .error-icon {
       font-size: 48px;
-      color: rgba(96,165,250,0.4);
+      color: rgba(96, 165, 250, 0.4);
       margin-bottom: 20px;
     }
 
@@ -70,8 +85,8 @@
 
     .error-url {
       display: inline-block;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 8px;
       padding: 6px 14px;
       font-size: 12px;
@@ -99,9 +114,13 @@
       font-family: inherit;
       text-decoration: none;
       transition: all 0.25s;
-      box-shadow: 0 4px 20px rgba(11,37,72,0.5);
+      box-shadow: 0 4px 20px rgba(11, 37, 72, 0.5);
     }
-    .btn-home:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(11,37,72,0.65); }
+
+    .btn-home:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(11, 37, 72, 0.65);
+    }
 
     .btn-back {
       display: inline-flex;
@@ -109,8 +128,8 @@
       gap: 6px;
       margin-left: 12px;
       padding: 14px 20px;
-      background: rgba(255,255,255,0.06);
-      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
       color: #94a3b8;
       border-radius: 14px;
       font-weight: 700;
@@ -120,7 +139,11 @@
       text-decoration: none;
       transition: all 0.2s;
     }
-    .btn-back:hover { background: rgba(255,255,255,0.1); color: #e2e8f0; }
+
+    .btn-back:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #e2e8f0;
+    }
 
     .divider-dot {
       display: inline-block;
@@ -133,39 +156,49 @@
     }
 
     @media (max-width: 480px) {
-      .btn-back { margin-left: 0; margin-top: 10px; }
-      .actions { display: flex; flex-direction: column; align-items: center; }
+      .btn-back {
+        margin-left: 0;
+        margin-top: 10px;
+      }
+
+      .actions {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
     }
   </style>
 </head>
+
 <body>
 
-<div class="container">
-  <div class="error-code">404</div>
-  <div class="error-icon">
-    <span class="material-icons" style="font-size:inherit;">explore_off</span>
+  <div class="container">
+    <div class="error-code">404</div>
+    <div class="error-icon">
+      <span class="material-icons" style="font-size:inherit;">explore_off</span>
+    </div>
+    <div class="error-title">Página no encontrada</div>
+    <div class="error-sub">
+      La ruta que buscas no existe o fue movida.<br>
+      Verifica la URL o regresa al mapa.
+    </div>
+    <div class="error-url" id="bad-url"></div>
+    <div class="actions">
+      <a class="btn-home" href="/app/mapa">
+        <span class="material-icons" style="font-size:18px;">map</span>
+        Ir al Mapa
+      </a>
+      <a class="btn-back" href="javascript:history.back()">
+        <span class="material-icons" style="font-size:16px;">arrow_back</span>
+        Volver
+      </a>
+    </div>
   </div>
-  <div class="error-title">Página no encontrada</div>
-  <div class="error-sub">
-    La ruta que buscas no existe o fue movida.<br>
-    Verifica la URL o regresa al mapa.
-  </div>
-  <div class="error-url" id="bad-url"></div>
-  <div class="actions">
-    <a class="btn-home" href="/mapa">
-      <span class="material-icons" style="font-size:18px;">map</span>
-      Ir al Mapa
-    </a>
-    <a class="btn-back" href="javascript:history.back()">
-      <span class="material-icons" style="font-size:16px;">arrow_back</span>
-      Volver
-    </a>
-  </div>
-</div>
 
-<script>
-  document.getElementById('bad-url').textContent = window.location.pathname;
-</script>
+  <script>
+    document.getElementById('bad-url').textContent = window.location.pathname;
+  </script>
 
 </body>
+
 </html>

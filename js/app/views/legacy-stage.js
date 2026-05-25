@@ -489,6 +489,9 @@ export function mount(ctx = {}) {
   _currentId = id;
   const cfg = LEGACY_BY_ID[id] || LEGACY_BY_ID.dashboard;
 
+  // Remove any loading placeholder the router injected before this module loaded
+  if (_container) _container.innerHTML = '';
+
   _ensureCss();
   document.body.classList.add('app-legacy-stage-active');
   _shell?.setHeaderActions?.('');

@@ -1,7 +1,7 @@
 {
-  "name": "Mapa — Rent a Car",
-  "short_name": "Mapa nameless",
-  "description": "Plataforma de control operativo y gestión de flota Rent a Car",
+  "name": "MapGestion — Gestión Operativa",
+  "short_name": "MapGestion",
+  "description": "Plataforma de control operativo y gestión de flota vehicular en tiempo real",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -15,13 +15,13 @@
       "src": "img/no-model.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
       "src": "img/no-model.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ],
   "screenshots": [],

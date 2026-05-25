@@ -1510,69 +1510,6 @@
   </div>
   <div id="overlay" class="overlay" onclick="closeMainSidebars()"></div>
 
-  <header class="map-shell-topbar shell-topbar-surface shell-topbar-offset fixed top-0 h-16 z-30 flex items-center justify-between px-3 md:px-6 shadow-sm">
-    <div class="map-shell-topbar-left">
-      <button type="button" class="map-shell-header-btn" data-sidebar-toggle title="Mostrar menú" aria-label="Mostrar menú">
-        <span class="material-symbols-outlined">menu</span>
-      </button>
-      <a href="/home" class="map-shell-header-btn" title="Volver al inicio" aria-label="Volver al inicio">
-        <span class="material-symbols-outlined">home</span>
-      </a>
-      <div class="search-wrapper map-shell-search">
-        <span class="search-icon">
-          <span class="material-icons" style="font-size:18px; vertical-align:middle;">search</span>
-        </span>
-        <input type="text" id="searchInput" placeholder="Buscar unidad, placas o modelo..." oninput="buscarMasivo()">
-        <button id="btn-voz-busqueda" onclick="activarBusquedaVoz()" title="Buscar por voz (NATO: 'Delta 2019')" class="search-mic-btn">
-          <span class="material-icons" style="font-size:17px;">mic</span>
-        </button>
-        <button class="clear-btn" onclick="limpiarBusqueda()">✕</button>
-        <div id="voz-transcript-bar" class="voz-transcript-bar" style="display:none;"></div>
-      </div>
-    </div>
-
-    <div class="map-shell-topbar-right">
-      <div id="mapSyncBadge" class="map-sync-badge sync-live" aria-live="polite" style="display:none;">
-        <span id="mapSyncIcon" class="material-icons">cloud_done</span>
-        <span id="mapSyncText">EN VIVO</span>
-      </div>
-
-      <a href="/mapa?tab=cuadre" class="map-shell-header-btn" title="Ir a Cuadre" aria-label="Ir a Cuadre" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px; padding:0 14px; min-width:auto; width:auto; font-size:12px; font-weight:700; color:#059669; letter-spacing:0.3px; border-color:rgba(16,185,129,0.3); background:#f4fbf4;">
-        <span class="material-symbols-outlined" style="font-size:18px;">calculate</span>
-        <span style="white-space:nowrap;">CUADRE</span>
-      </a>
-
-      <button id="btnAdmin" onclick="toggleSidebar()" class="map-shell-header-btn map-shell-vehicle-btn" style="display:none;" title="Vehículos y unidades">
-        <span class="material-icons" style="font-size:20px;">directions_car</span>
-        <span id="badgeIncidencias" class="badge-pulse yellow" style="display:none;">0</span>
-      </button>
-
-      <div id="plaza-map-picker" class="map-shell-plaza-picker" style="display:none;">
-        <button id="plaza-map-picker-btn" onclick="_togglePlazaPicker()" class="plaza-picker-btn" title="Cambiar plaza">
-          <span class="material-icons" style="font-size:14px;">location_city</span>
-          <span id="plaza-picker-label">—</span>
-          <span class="material-icons" style="font-size:12px;" id="plaza-picker-chevron">expand_more</span>
-        </button>
-        <div id="plaza-picker-dropdown" class="plaza-picker-dropdown" style="display:none;"></div>
-      </div>
-
-      <button type="button" class="map-shell-header-btn map-shell-bell-btn" data-shell-bell title="Alertas y notificaciones">
-        <span class="material-symbols-outlined">notifications</span>
-        <span id="shellBellBadge" class="badge-pulse yellow" style="display:none;">0</span>
-      </button>
-
-      <div class="map-shell-divider"></div>
-
-      <a href="/profile" class="map-shell-user" title="Abrir perfil" aria-label="Abrir perfil">
-        <div class="map-shell-user-copy">
-          <p id="shellUserName">Usuario</p>
-          <span id="shellUserMeta">Operación · En línea</span>
-        </div>
-        <div class="map-shell-user-avatar" id="shellUserAvatar">U</div>
-      </a>
-    </div>
-  </header>
-
   <div class="content">
     <div class="kpi-container">
       <div class="kpi-item">
