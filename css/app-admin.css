@@ -3,15 +3,35 @@
    Adds hover, focus, transitions — things inline styles can't do.
    ================================================================ */
 
+/* ── Page root ──────────────────────────────────────────────── */
+#appAdminRoot {
+  background: #f8fafc;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+#appAdminRoot h1 {
+  font-size: 22px !important;
+  letter-spacing: -0.02em;
+}
+
+/* ── Info paragraph ─────────────────────────────────────────── */
+#appAdminRoot > p {
+  border-left: 3px solid #6366f1 !important;
+  background: linear-gradient(to right, #f8f9ff, #f8fafc) !important;
+  border-radius: 0 10px 10px 0 !important;
+}
+
 /* ── Tab pills ──────────────────────────────────────────────── */
 #appAdminRoot [data-admin-tab] {
-  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  transition: box-shadow 0.15s ease, transform 0.1s ease, background 0.15s ease;
+  text-transform: capitalize;
+  letter-spacing: 0.01em;
 }
 #appAdminRoot [data-admin-tab]:hover {
   box-shadow: 0 0 0 2px #94a3b8;
 }
 #appAdminRoot [data-admin-tab][aria-selected="true"] {
-  box-shadow: 0 2px 8px rgba(15,23,42,.2);
+  box-shadow: 0 2px 8px rgba(15,23,42,.25);
 }
 #appAdminRoot [data-admin-tab]:focus-visible {
   outline: 2px solid #2563eb;
@@ -19,6 +39,30 @@
 }
 #appAdminRoot [data-admin-tab]:active {
   transform: scale(0.96);
+}
+
+/* ── Pane card containers ───────────────────────────────────── */
+#adminUsuariosPane > div:first-child,
+#adminRolesPane > div:first-child,
+#adminPlazasPane > div:first-child,
+#adminCatalogosPane > div:first-child,
+#adminSolicitudesPane > div:first-child {
+  box-shadow: 0 1px 4px rgba(15,23,42,.06);
+}
+#adminUsuariosPane > aside,
+#adminRolesPane > aside,
+#adminPlazasPane > aside,
+#adminCatalogosPane > aside,
+#adminSolicitudesPane > aside {
+  box-shadow: 0 1px 4px rgba(15,23,42,.06);
+  transition: box-shadow 0.2s;
+}
+#adminUsuariosPane > aside:hover,
+#adminRolesPane > aside:hover,
+#adminPlazasPane > aside:hover,
+#adminCatalogosPane > aside:hover,
+#adminSolicitudesPane > aside:hover {
+  box-shadow: 0 4px 16px rgba(15,23,42,.1);
 }
 
 /* ── Table rows ─────────────────────────────────────────────── */
@@ -44,17 +88,34 @@
   background: #eff6ff !important;
 }
 
+/* ── Table cells ────────────────────────────────────────────── */
+#appAdminRoot tbody td {
+  font-size: 12px;
+  color: #334155;
+}
+#appAdminRoot tbody td:first-child {
+  font-weight: 700;
+  color: #0f172a;
+}
+
 /* ── Sticky table headers ───────────────────────────────────── */
 #appAdminRoot thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   white-space: nowrap;
   color: #64748b;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* ── Status badges in table ─────────────────────────────────── */
+#appAdminRoot [data-admin-user] td span[style*="background:#e2e8f0"] {
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 /* ── Scrollbars ─────────────────────────────────────────────── */
@@ -78,7 +139,7 @@
 #appAdminRoot select {
   transition: border-color 0.15s, box-shadow 0.15s;
   cursor: pointer;
-  appearance: auto;
+  font-size: 12px;
 }
 #appAdminRoot select:hover {
   border-color: #94a3b8 !important;
@@ -93,6 +154,7 @@
 #appAdminRoot input[type="email"],
 #appAdminRoot textarea {
   transition: border-color 0.15s, box-shadow 0.15s;
+  font-size: 13px;
 }
 #appAdminRoot input[type="text"]:focus,
 #appAdminRoot input[type="url"]:focus,
@@ -106,6 +168,7 @@
 /* ── Action buttons ─────────────────────────────────────────── */
 #appAdminRoot button {
   transition: opacity 0.15s, box-shadow 0.15s, transform 0.1s;
+  font-family: Inter, sans-serif;
 }
 #appAdminRoot button:not([data-admin-tab]):hover {
   opacity: 0.88;
@@ -119,19 +182,31 @@
   outline-offset: 2px;
 }
 
-/* ── Card panels ────────────────────────────────────────────── */
+/* ── Detail panel ───────────────────────────────────────────── */
 #appAdminRoot aside {
   transition: box-shadow 0.2s;
 }
-#appAdminRoot aside:not(:empty) {
-  box-shadow: 0 2px 12px rgba(15,23,42,.06);
+#appAdminDetail,
+#appAdminRoleDetail,
+#appAdminPlazaDetail,
+#appAdminCatalogDetail,
+#appAdminRequestDetail {
+  min-height: 120px;
+  position: sticky;
+  top: 0;
 }
-
-/* ── Detail panel padding ───────────────────────────────────── */
 #appAdminDetail:not(:empty),
 #appAdminRoleDetail:not(:empty),
 #appAdminPlazaDetail:not(:empty),
 #appAdminCatalogDetail:not(:empty),
 #appAdminRequestDetail:not(:empty) {
   padding: 14px;
+  box-shadow: 0 4px 16px rgba(15,23,42,.08);
+}
+
+/* ── Session footer ─────────────────────────────────────────── */
+#appAdminRoot > div:last-child {
+  padding-top: 8px;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 14px !important;
 }
