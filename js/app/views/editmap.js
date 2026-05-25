@@ -37,7 +37,7 @@ function _render(plaza) {
   _iframe = document.createElement('iframe');
   _iframe.src = _editUrl(plaza);
   _iframe.title = 'Configuración de patio';
-  _iframe.style.cssText = 'flex:1;width:100%;border:none;display:block;min-height:calc(100vh - 56px);';
+  _iframe.style.cssText = 'flex:1;width:100%;border:none;display:block;min-height:0;';
   _iframe.loading = 'eager';
   _iframe.allow = 'clipboard-read; clipboard-write; microphone; camera; fullscreen';
   _container.appendChild(_iframe);
