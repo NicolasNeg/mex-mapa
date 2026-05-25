@@ -90,7 +90,7 @@
 
   // ── Instancias globales ───────────────────────────────────
   const db        = _configureFirestoreTransport(firebase.firestore());
-  const auth      = firebase.auth();
+  const auth      = (typeof firebase.auth === 'function') ? firebase.auth() : null;
   const storage   = (typeof firebase.storage === 'function') ? firebase.storage() : null;
   const functions = (typeof firebase.functions === 'function') ? firebase.app().functions('us-central1') : null;
 
