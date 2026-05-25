@@ -87,16 +87,16 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/profile.js'),
     navRoute: '/profile'
   },
-  '/app/mensajes':   { ...legacyStage('mensajes', '/mensajes'), feature: 'mensajeria' },
-  '/app/cola-preparacion': { ...legacyStage('cola', '/cola-preparacion'), feature: 'cola_preparacion' },
+  '/app/mensajes':         { loader: () => import('/js/app/views/mensajes.js'),         navRoute: '/mensajes',         feature: 'mensajeria' },
+  '/app/cola-preparacion': { loader: () => import('/js/app/views/cola-preparacion.js'), navRoute: '/cola-preparacion', feature: 'cola_preparacion' },
   '/app/cola':              { redirect: '/app/cola-preparacion' },
   '/app/incidencias':       {
     loader:   () => import('/js/app/views/incidencias.js'),
     navRoute: '/incidencias',
     feature:  'incidencias'
   },
-  '/app/cuadre':    { ...legacyStage('cuadre', '/cuadre'), feature: 'cuadre' },
-  '/app/admin':     legacyStage('admin', '/gestion'),
+  '/app/cuadre':   { loader: () => import('/js/app/views/cuadre.js'), navRoute: '/cuadre', feature: 'cuadre' },
+  '/app/admin':    { loader: () => import('/js/app/views/admin.js'), navRoute: '/gestion' },
   '/app/gestion':           { redirect: '/app/admin' },
   '/app/usuarios':          { redirect: '/app/admin?tab=usuarios' },
   '/app/admin/usuarios':    { redirect: '/app/admin?tab=usuarios' },
@@ -132,8 +132,8 @@ const ROUTE_TABLE = {
   '/app/gestion/ubicaciones': { redirect: '/app/admin?tab=ubicaciones' },
   '/app/admin/empresa':     { redirect: '/app/admin?tab=empresa' },
   '/app/gestion/empresa':   { redirect: '/app/admin?tab=empresa' },
-  '/app/programador':       legacyStage('programador', '/programador'),
-  '/app/mapa':              legacyStage('mapa', '/mapa'),
+  '/app/programador': { loader: () => import('/js/app/views/programador.js'), navRoute: '/programador' },
+  '/app/mapa':        { loader: () => import('/js/app/views/mapa.js'),        navRoute: '/mapa' },
   '/app/editmap': {
     loader:   () => import('/js/app/views/editmap.js'),
     navRoute: '/editmap',
@@ -256,7 +256,7 @@ export function createRouter({ shell }) {
 
     // Vista registrada
     if (route?.loader) {
-      contentEl.innerHTML = '<div style="padding:32px;text-align:center;color:#64748b;font-size:13px;">Cargando…</div>';
+      contentEl.innerHTML = '';
       try {
         const mod = await route.loader();
         if (typeof mod.mount === 'function') {
