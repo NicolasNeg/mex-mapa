@@ -28,6 +28,8 @@
       const tipoNormalizado = _normalizeAlertType(tipo);
       const authorMeta = _normalizeAlertAuthor(meta.author || {}, actor);
       const banner = _normalizeAlertBanner(meta.banner || {}, tipoNormalizado);
+      // plaza: '' = todos los plazas del empresa; 'BJX' = solo esa plaza
+      const plazaScope = String(meta.plazaScope || '').trim().toUpperCase();
       await db.collection(COL.ALERTAS).add({
         timestamp: _ts(), fecha: _now(), actor,
         autor: authorMeta.visible, authorMode: authorMeta.mode, authorValue: authorMeta.value,
@@ -42,6 +44,7 @@
         cta: _normalizeAlertCta(meta.cta),
         version: 1,
         empresaId: _eid(),
+        plaza: plazaScope,
       });
       await _registrarEventoGestion("ALERTA_EMITIDA", `Emitió alerta maestra "${titulo}" (${tipo})`, autor, {
         entidad: "ALERTAS", referencia: titulo || ""
@@ -91,13 +94,18 @@
       );
       const banner = _normalizeAlertBanner(cambios.banner || actual.banner || {}, tipo);
       const ahora = _now();
+      const plazaScope = 'plazaScope' in cambios
+        ? String(cambios.plazaScope || '').trim().toUpperCase()
+        : String(actual.plaza || '').trim().toUpperCase();
       await ref.update({
         timestamp: _ts(), fecha: ahora,
         actor: _sanitizeText(actor) || "Sistema",
         autor: authorMeta.visible, authorMode: authorMeta.mode, authorValue: authorMeta.value,
         tipo, banner, titulo, mensaje, imagen, destinatarios, destMode, modo, cta,
         leidoPor: "", editadoPor: _sanitizeText(actor) || "Sistema", editadoEn: ahora,
-        version: Number(actual.version || 1) + 1
+        version: Number(actual.version || 1) + 1,
+        empresaId: actual.empresaId || _eid(),
+        plaza: plazaScope,
       });
       await _registrarEventoGestion("ALERTA_EDITADA", `Editó alerta maestra "${titulo}" (${tipo})`, actor, {
         entidad: "ALERTAS", referencia: idAlerta,

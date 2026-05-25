@@ -28,6 +28,7 @@ let _users = [];
 let _editingId = '';
 let _destMode = 'GLOBAL';
 let _selectedDest = [];
+let _plazaScope = '';
 let _historyFilter = { q: '', tipo: '', modo: '' };
 
 const _mexAlert = (titulo, texto, tipo = 'info') =>
@@ -199,7 +200,17 @@ function _bindGlobalSearch() {
   _offGlobalSearch = () => window.removeEventListener('mex:global-search', handler);
 }
 
+function _getEmpresaPlazas() {
+  const empresa = window._empresaActual;
+  if (!empresa || empresa.isSuperAdminContext) return [];
+  return Array.isArray(empresa.plazas) ? empresa.plazas.filter(Boolean) : [];
+}
+
 async function _bootstrap() {
+  if (window.mexFeatures && !window.mexFeatures.puedeUsar('alertas')) {
+    _renderFeatureDisabled();
+    return;
+  }
   if (!_hasPermission()) {
     _renderNoAccess();
     return;
@@ -231,6 +242,17 @@ function _renderNoAccess() {
       <span class="material-symbols-outlined">lock</span>
       <h2>Sin permiso para alertas maestras</h2>
       <p>Tu rol actual no puede emitir ni administrar alertas globales.</p>
+    </section>
+  `;
+}
+
+function _renderFeatureDisabled() {
+  if (!_container) return;
+  _container.innerHTML = `
+    <section class="app-alertas-page app-alertas-denied">
+      <span class="material-symbols-outlined">campaign</span>
+      <h2>Funcion no disponible</h2>
+      <p>El modulo de alertas no esta habilitado para tu empresa. Contacta al administrador para activarlo.</p>
     </section>
   `;
 }
@@ -301,6 +323,8 @@ function _renderEditor() {
               <select id="destSoloUsuario"></select>
             </div>
           </div>
+
+          ${_renderPlazaScopeField()}
 
           <div class="app-alertas-mode-grid">
             <button type="button" id="modoCardInterr" data-alert-action="modo" data-mode="INTERRUPTIVA">
@@ -446,6 +470,21 @@ function _renderEditor() {
   `;
 }
 
+function _renderPlazaScopeField() {
+  const plazas = _getEmpresaPlazas();
+  if (plazas.length <= 1) return '';
+  const opts = plazas.map(p => `<option value="${esc(p)}">${esc(p)}</option>`).join('');
+  return `
+    <label class="app-alertas-field">
+      <span>Alcance por plaza</span>
+      <select id="alertaPlazaScope">
+        <option value="">Toda la empresa</option>
+        ${opts}
+      </select>
+    </label>
+  `;
+}
+
 function _toolbarButton(cmd, icon, title, extra = '') {
   return `<button type="button" class="${extra}" data-alert-cmd="${esc(cmd)}" title="${esc(title)}"><span class="material-symbols-outlined">${esc(icon)}</span></button>`;
 }
@@ -559,6 +598,7 @@ function _onChange(event) {
   if (target.id === 'alertaPlantillasSelect') _loadTemplateIntoForm(target.value);
   if (target.id === 'alertaBannerCustomToggle') _updateBannerUi();
   if (target.id === 'alertaAutorModo') _updateAuthorUi();
+  if (target.id === 'alertaPlazaScope') { _plazaScope = String(target.value || '').trim().toUpperCase(); }
   if (target.id === 'destSoloUsuario') {
     _selectedDest = target.value ? [String(target.value).toUpperCase()] : [];
   }
@@ -574,7 +614,12 @@ function _onChange(event) {
 
 async function _loadUsers() {
   try {
-    const snap = await db.collection(COL.USERS).get();
+    const eCtx = window._empresaActual;
+    const eid = (eCtx && !eCtx.isSuperAdminContext) ? (eCtx.id || '') : '';
+    const query = eid
+      ? db.collection(COL.USERS).where('empresaId', '==', eid)
+      : db.collection(COL.USERS);
+    const snap = await query.get();
     _users = snap.docs.map(doc => {
       const data = doc.data() || {};
       return String(data.usuario || data.nombreCompleto || data.nombre || data.email || doc.id || '').trim().toUpperCase();
@@ -649,6 +694,7 @@ function _prepareEditor() {
   _editingId = '';
   _destMode = 'GLOBAL';
   _selectedDest = [];
+  _plazaScope = '';
   q('#alertaNuevaTipo').value = 'URGENTE';
   q('#alertaAutorModo').value = 'CURRENT';
   q('#alertaAutorCustom').value = '';
@@ -681,6 +727,8 @@ function _fillForm(alert = {}) {
   _setActionForm(alert.cta || {});
   _setDestMode(_inferDestMode(alert));
   _selectedDest = _parseCsv(alert.destinatarios).filter(item => item !== 'GLOBAL');
+  _plazaScope = String(alert.plaza || '').trim().toUpperCase();
+  if (q('#alertaPlazaScope')) q('#alertaPlazaScope').value = _plazaScope;
   _renderDestinations();
   _selectModo(alert.modo || 'INTERRUPTIVA');
   _updateAuthorUi();
@@ -822,7 +870,9 @@ function _updatePreview() {
   if (q('#alertaEditorStats')) q('#alertaEditorStats').textContent = `${stats.words} palabras · ${stats.chars} caracteres`;
   if (q('#alertaPreviewHoraStatus')) q('#alertaPreviewHoraStatus').textContent = `Ultima vista previa: ${now}`;
   if (q('#alertaPreviewSyncLabel')) q('#alertaPreviewSyncLabel').textContent = stats.chars ? `Preview sincronizado ${now}` : 'Preview sincronizado';
-  if (q('#alertaPreviewSubline')) q('#alertaPreviewSubline').textContent = form.modo === 'PASIVA' ? 'Alerta pasiva en campana' : 'Mensaje interruptivo para lectura obligatoria';
+  const scopeLabel = form.plazaScope ? `Solo plaza ${form.plazaScope}` : 'Toda la empresa';
+  const modeLabel = form.modo === 'PASIVA' ? 'Alerta pasiva en campana' : 'Mensaje interruptivo para lectura obligatoria';
+  if (q('#alertaPreviewSubline')) q('#alertaPreviewSubline').textContent = `${modeLabel} · ${scopeLabel}`;
   if (q('#alertaPreviewDestinatarios')) {
     q('#alertaPreviewDestinatarios').innerHTML = `<span class="material-symbols-outlined">${esc(dest.icon)}</span>${esc(dest.label)}`;
     q('#alertaPreviewDestinatarios').title = dest.detail;
@@ -867,7 +917,8 @@ function _getForm() {
     author,
     banner,
     destinatarios,
-    destMode: _destMode
+    destMode: _destMode,
+    plazaScope: _plazaScope
   };
 }
 
@@ -955,7 +1006,8 @@ async function _emitAlert() {
         destinatarios: form.destinatarios,
         destMode: form.destMode,
         author: { mode: form.author.mode, value: form.author.value },
-        banner: form.banner
+        banner: form.banner,
+        plazaScope: form.plazaScope
       }, actor)
       : await emitirNuevaAlertaMaestra(
         form.tipo,
@@ -965,7 +1017,7 @@ async function _emitAlert() {
         actor,
         form.destinatarios,
         form.modo,
-        { destMode: form.destMode, cta: form.cta, author: { mode: form.author.mode, value: form.author.value }, banner: form.banner }
+        { destMode: form.destMode, cta: form.cta, author: { mode: form.author.mode, value: form.author.value }, banner: form.banner, plazaScope: form.plazaScope }
       );
     if (result !== 'EXITO') throw new Error(String(result || 'No se pudo guardar la alerta.'));
     _toast(_editingId ? 'Alerta actualizada correctamente.' : 'Alerta emitida a la red.', 'success');
