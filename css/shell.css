@@ -936,8 +936,13 @@
     • Sets .mex-main margin-left to 84px (conflicts with App Shell's 280px)
   We fixed this in mapa.js by NOT adding the class when shell param is present.
 
-  But inside App Shell, app-mapa-view still has padding:20px and app-mapa-content
-  uses height:calc(100vh - 64px) causing overflow. Fix below:
+  Inside App Shell:
+    • .app-mapa-view has padding:20px (cleared below)
+    • .app-mapa-view.app-mapa-operativo has min-height:calc(100vh-64px) which
+      overflows the shell on mobile browsers where 100vh > visible height (cleared below)
+    • #app-mapa-content uses height:calc(100vh-64px) (overridden to 100% below)
+    • Canvas viewport uses vh-relative heights designed for the legacy 240px offset;
+      in the shell the offset is much smaller so we give the canvas more room.
 */
 #mexShellContent .app-mapa-view {
   padding: 0 !important;
@@ -946,11 +951,25 @@
 }
 #mexShellContent .app-mapa-view.app-mapa-operativo {
   gap: 0;
+  min-height: 0 !important;
 }
 /* Map content fills the shell content area */
 #mexShellContent #app-mapa-content {
   height: 100% !important;
   min-height: 0 !important;
+}
+/* Legacy port fills its container */
+#mexShellContent .app-mapa-legacy-port {
+  height: 100%;
+  min-height: 0;
+}
+#mexShellContent .app-mapa-legacy-content {
+  min-height: 0 !important;
+}
+/* Canvas viewport: shell header already accounted for; loosen vh constraints */
+#mexShellContent .app-mapa-legacy-port .map-zoom-container.app-mapa-canvas-viewport {
+  min-height: min(320px, 40vh) !important;
+  max-height: calc(100vh - var(--sh-header-h) - 80px) !important;
 }
 /* Chrome bar: re-expose as absolute overlay (CSS has display:none !important that kills the re-show) */
 #mexShellContent .app-mapa-view.app-mapa-operativo > .app-mapa-chrome-bar {
