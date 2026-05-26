@@ -932,18 +932,23 @@
 
 /* ─ Mapa ─────────────────────────────────────────────────────── */
 /*
-  .app-mapa-view.app-mapa-operativo tiene min-height: calc(100vh - 64px)
-  que puede causar overflow en #mexShellContent cuando 100vh > viewport visible.
-  Solo anulamos eso; el resto (overflow, height) lo deja manejar el flujo normal.
+  .app-mapa-view tiene padding: 20px por defecto → añade 40px de altura extra
+  dentro de #mexShellContent y genera un scroll innecesario. Lo quitamos.
 
-  El canvas viewport tenía max-height: calc(100vh - 240px) pensado para el
-  overhead del shell legacy (240px). En App Shell solo hay 64px de header,
-  así que ampliamos el espacio disponible.
+  .app-mapa-view.app-mapa-operativo tiene min-height: calc(100vh - 64px)
+  que puede causar overflow adicional. Lo anulamos.
+
+  El canvas viewport tiene max-height: calc(100vh - 240px) pensado para el
+  standalone legacy (header page 64px + kpi + margins ≈ 240px). En App Shell
+  el header ya está fuera de #mexShellContent, así que el canvas puede ser
+  más alto; ajustamos para que use casi todo el espacio disponible.
 */
+#mexShellContent .app-mapa-view {
+  padding: 0 !important;
+}
 #mexShellContent .app-mapa-view.app-mapa-operativo {
   min-height: 0 !important;
 }
 #mexShellContent .app-mapa-legacy-port .map-zoom-container.app-mapa-canvas-viewport {
-  min-height: min(400px, 55vh) !important;
-  max-height: calc(100vh - var(--sh-header-h) - 60px) !important;
+  max-height: calc(100vh - var(--sh-header-h) - 44px) !important;
 }
