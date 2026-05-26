@@ -544,6 +544,35 @@ function _renderSummary() {
   }
 }
 
+function _ubiClass(ubicacion) {
+  const u = String(ubicacion || '').toUpperCase();
+  if (!u) return 'cqv-ubi-DEFAULT';
+  if (u.includes('PATIO')) return 'cqv-ubi-PATIO';
+  if (u.includes('TALLER')) return 'cqv-ubi-TALLER';
+  if (u.includes('AGENCIA')) return 'cqv-ubi-AGENCIA';
+  if (u.includes('EXTERNO') || u.includes('HYP')) return 'cqv-ubi-EXTERNO';
+  const PLAZAS_FIJAS = ['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN'];
+  if (!PLAZAS_FIJAS.includes(u)) return 'cqv-ubi-PERSONA';
+  return 'cqv-ubi-DEFAULT';
+}
+
+function _estClass(estado) {
+  const e = String(estado || '').toUpperCase().replace(/[\s-]+/g, '');
+  const MAP = {
+    LISTO: 'cqv-st-LISTO',
+    SUCIO: 'cqv-st-SUCIO',
+    MANTENIMIENTO: 'cqv-st-MANTENIMIENTO',
+    TRASLADO: 'cqv-st-TRASLADO',
+    VENTA: 'cqv-st-VENTA',
+    RESGUARDO: 'cqv-st-RESGUARDO',
+    RETENIDA: 'cqv-st-RETENIDA',
+    NOARRENDABLE: 'cqv-st-MUTED',
+    ENRENTA: 'cqv-st-ENRENTA',
+    HYP: 'cqv-st-MUTED',
+  };
+  return MAP[e] || 'cqv-st-MUTED';
+}
+
 function _renderTable() {
   const tbody = q('#cqvTableBody');
   if (!tbody) return;
@@ -556,14 +585,17 @@ function _renderTable() {
   }
   tbody.innerHTML = _state.items.map(item => {
     const selected = item.id === _state.selectedId ? 'is-selected' : '';
-    return `<tr class="cqv__row ${selected}" data-cqv-row="${esc(item.id)}" style="cursor:pointer;">
-      <td><strong>${esc(item.mva || '—')}</strong></td>
-      <td>${esc(item.categoria || '—')}</td>
+    const gasClass = String(item.gasolina || '').toUpperCase() === 'F' ? 'cqv-gas-f' : 'cqv-gas';
+    const ubiCls = _ubiClass(item.ubicacion);
+    const estCls = _estClass(item.estado);
+    return `<tr class="cqv__row ${selected}" data-cqv-row="${esc(item.id)}">
+      <td class="cqv-td-mva">${esc(item.mva || '—')}</td>
+      <td><span class="cqv-td-cat">${esc(item.categoria || 'N/A')}</span></td>
       <td>${esc(item.modelo || '—')}</td>
-      <td>${esc(item.placas || '—')}</td>
-      <td>${esc(item.gasolina || '—')}</td>
-      <td>${_estadoBadge(item.estado || 'SIN ESTADO')}</td>
-      <td>${esc(item.ubicacion || '—')}</td>
+      <td class="cqv-td-placas">${esc(item.placas || '—')}</td>
+      <td><span class="${gasClass}">${esc(item.gasolina || '—')}</span></td>
+      <td><span class="cqv-badge ${estCls}">${esc(item.estado || '—')}</span></td>
+      <td><span class="cqv-ubi-badge ${ubiCls}">${esc(item.ubicacion || '—')}</span></td>
     </tr>`;
   }).join('');
   qsa('[data-cqv-row]').forEach(row => row.addEventListener('click', () => {
