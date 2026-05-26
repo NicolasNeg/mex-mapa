@@ -270,8 +270,8 @@ export function createRouter({ shell }) {
       return;
     }
 
-    // Ruta /app/* sin vista registrada → placeholder
-    _renderPlaceholder(contentEl, path);
+    // Ruta /app/* sin vista registrada → 404 en-app
+    _renderPlaceholder(contentEl);
   }
 
   // ── Feature deshabilitada por el plan ────────────────────
@@ -297,27 +297,33 @@ export function createRouter({ shell }) {
     `;
   }
 
-  // ── Placeholder para rutas /app/* no implementadas ────────
-  function _renderPlaceholder(contentEl, path) {
-    const esc = v => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  // ── Página no encontrada (dentro del App Shell) ───────────
+  function _renderPlaceholder(contentEl) {
     contentEl.innerHTML = `
-      <div style="padding:48px 24px;max-width:520px;margin:0 auto;font-family:'Inter',sans-serif;text-align:center;">
-        <div style="width:64px;height:64px;border-radius:20px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
-          <span class="material-symbols-outlined" style="font-size:32px;color:#94a3b8;">construction</span>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:70vh;padding:48px 24px;text-align:center;">
+        <div style="width:88px;height:88px;border-radius:24px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.18);display:flex;align-items:center;justify-content:center;margin:0 auto 24px;">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.75;">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            <line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/>
+          </svg>
         </div>
-        <h2 style="font-size:20px;font-weight:800;color:#0f172a;margin:0 0 8px;">Ruta no registrada</h2>
-        <p style="font-size:14px;color:#64748b;margin:0 0 6px;line-height:1.6;">
-          La ruta <code style="background:#f1f5f9;padding:2px 6px;border-radius:5px;font-size:12.5px;">${esc(path)}</code>
-          no está en el menú operativo del App Shell.
+        <h2 style="font-size:20px;font-weight:900;color:#f1f5f9;margin:0 0 10px;letter-spacing:-0.2px;">No encontramos esta página</h2>
+        <p style="font-size:14px;color:#64748b;margin:0 0 32px;line-height:1.75;max-width:320px;">
+          Puede que el enlace haya caducado o la dirección tenga un error.<br>
+          Si el problema persiste, avísale a tu administrador.
         </p>
-        <p style="font-size:13px;color:#94a3b8;margin:0 0 28px;">
-          Usa el menú lateral para acceder a las rutas productivas.
-        </p>
-        <a data-app-route="/app/dashboard" href="/app/dashboard"
-           style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;background:#0f172a;color:#fff;text-decoration:none;font-size:13px;font-weight:600;">
-          <span class="material-symbols-outlined" style="font-size:16px;">home</span>
-          Ir al Dashboard
-        </a>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+          <a data-app-route="/app/dashboard" href="/app/dashboard"
+             style="display:inline-flex;align-items:center;gap:8px;padding:12px 22px;border-radius:11px;background:linear-gradient(135deg,#1d4ed8,#2563eb);color:#fff;text-decoration:none;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(37,99,235,0.38);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Ir al inicio
+          </a>
+          <button onclick="history.back()"
+             style="display:inline-flex;align-items:center;gap:6px;padding:12px 18px;border-radius:11px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);color:#94a3b8;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+            Volver
+          </button>
+        </div>
       </div>
     `;
   }

@@ -5,93 +5,129 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0b2548">
+  <link rel="icon" href="/img/logo.png" type="image/png">
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 
   <title>Página no encontrada — MapGestion</title>
 
   <style>
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    html,
-    body {
+    html, body {
       min-height: 100svh;
-      background: linear-gradient(160deg, #060e1c 0%, #0c1e3a 100%);
-      font-family: 'Inter', sans-serif;
+      background: #060e1c;
+      font-family: 'Inter', system-ui, sans-serif;
       color: #e2e8f0;
       display: flex;
       align-items: center;
       justify-content: center;
       padding: 24px;
+      overflow: hidden;
+    }
+
+    /* Fondo con gradiente animado */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(29, 78, 216, 0.18) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 50% at 80% 80%, rgba(14, 116, 144, 0.12) 0%, transparent 60%);
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* Puntos decorativos de fondo */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+      background-size: 28px 28px;
+      z-index: 0;
+      pointer-events: none;
     }
 
     .container {
+      position: relative;
+      z-index: 1;
       text-align: center;
-      max-width: 440px;
-      animation: fadeIn 0.5s ease forwards;
+      max-width: 460px;
+      animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(28px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
 
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-8px); }
+    }
+
+    /* Ícono circular */
+    .icon-wrap {
+      width: 96px;
+      height: 96px;
+      border-radius: 28px;
+      background: rgba(29, 78, 216, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 28px;
+      animation: float 4s ease-in-out infinite;
+    }
+
+    .icon-wrap svg {
+      width: 52px;
+      height: 52px;
+    }
+
+    /* Número 404 */
     .error-code {
-      font-size: clamp(80px, 22vw, 140px);
+      font-size: clamp(88px, 24vw, 148px);
       font-weight: 900;
       line-height: 1;
-      background: linear-gradient(135deg, #1d4ed8, #60a5fa);
+      background: linear-gradient(135deg, #1d4ed8 0%, #60a5fa 60%, #93c5fd 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
-      letter-spacing: -4px;
-      margin-bottom: 8px;
+      letter-spacing: -6px;
+      margin-bottom: 4px;
       user-select: none;
-    }
-
-    .error-icon {
-      font-size: 48px;
-      color: rgba(96, 165, 250, 0.4);
-      margin-bottom: 20px;
+      filter: drop-shadow(0 0 40px rgba(59,130,246,0.25));
     }
 
     .error-title {
-      font-size: 22px;
-      font-weight: 900;
+      font-size: 21px;
+      font-weight: 800;
       color: #f1f5f9;
-      margin-bottom: 10px;
+      margin-bottom: 12px;
+      letter-spacing: -0.2px;
     }
 
     .error-sub {
       font-size: 14px;
       color: #64748b;
-      line-height: 1.7;
-      margin-bottom: 32px;
+      line-height: 1.75;
+      margin-bottom: 28px;
+      max-width: 360px;
+      margin-left: auto;
+      margin-right: auto;
     }
 
     .error-url {
       display: inline-block;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.07);
       border-radius: 8px;
-      padding: 6px 14px;
+      padding: 6px 16px;
       font-size: 12px;
       color: #475569;
-      font-family: monospace;
+      font-family: 'SF Mono', 'Fira Code', monospace;
       margin-bottom: 32px;
       max-width: 100%;
       overflow: hidden;
@@ -99,104 +135,118 @@
       white-space: nowrap;
     }
 
-    .btn-home {
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      padding: 14px 28px;
-      background: linear-gradient(135deg, #0b2548, #1a53a0);
+      padding: 13px 26px;
+      background: linear-gradient(135deg, #1d4ed8, #2563eb);
       color: #fff;
       border: none;
-      border-radius: 14px;
-      font-weight: 800;
-      font-size: 14px;
-      cursor: pointer;
-      font-family: inherit;
-      text-decoration: none;
-      transition: all 0.25s;
-      box-shadow: 0 4px 20px rgba(11, 37, 72, 0.5);
-    }
-
-    .btn-home:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 28px rgba(11, 37, 72, 0.65);
-    }
-
-    .btn-back {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-left: 12px;
-      padding: 14px 20px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #94a3b8;
-      border-radius: 14px;
+      border-radius: 12px;
       font-weight: 700;
       font-size: 14px;
       cursor: pointer;
       font-family: inherit;
       text-decoration: none;
-      transition: all 0.2s;
+      transition: transform 0.2s, box-shadow 0.2s;
+      box-shadow: 0 4px 22px rgba(37, 99, 235, 0.4);
     }
 
-    .btn-back:hover {
-      background: rgba(255, 255, 255, 0.1);
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(37, 99, 235, 0.55);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 13px 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      border-radius: 12px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      font-family: inherit;
+      text-decoration: none;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.09);
       color: #e2e8f0;
     }
 
-    .divider-dot {
-      display: inline-block;
-      width: 4px;
-      height: 4px;
-      background: #334155;
-      border-radius: 50%;
-      margin: 0 8px;
-      vertical-align: middle;
-    }
-
-    @media (max-width: 480px) {
-      .btn-back {
-        margin-left: 0;
-        margin-top: 10px;
-      }
-
-      .actions {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      }
-    }
+    /* Ícono SVG inline — sin dependencia de Material Icons */
+    .ico { display: block; }
   </style>
 </head>
 
 <body>
 
   <div class="container">
+
+    <div class="icon-wrap">
+      <!-- Mapa con pin roto -->
+      <svg class="ico" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="26" cy="22" r="9" stroke="#3b82f6" stroke-width="2.2" stroke-dasharray="4 3"/>
+        <path d="M26 31v8" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round"/>
+        <circle cx="26" cy="22" r="3.5" fill="#3b82f6" fill-opacity="0.5"/>
+        <path d="M10 40l9-16 14 10 9-16" stroke="#1e3a6e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M10 40l9-16" stroke="#3b82f6" stroke-width="2" stroke-linecap="round"/>
+        <path d="M39 24l-6 10" stroke="#60a5fa" stroke-width="2" stroke-linecap="round" stroke-opacity="0.5"/>
+        <line x1="16" y1="44" x2="42" y2="44" stroke="#1e3a6e" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </div>
+
     <div class="error-code">404</div>
-    <div class="error-icon">
-      <span class="material-icons" style="font-size:inherit;">explore_off</span>
-    </div>
-    <div class="error-title">Página no encontrada</div>
+
+    <div class="error-title">No encontramos esta página</div>
+
     <div class="error-sub">
-      La ruta que buscas no existe o fue movida.<br>
-      Verifica la URL o regresa al mapa.
+      Puede que el enlace haya caducado, la dirección tenga un error,
+      o esta sección ya no exista.
     </div>
+
     <div class="error-url" id="bad-url"></div>
+
     <div class="actions">
-      <a class="btn-home" href="/app/mapa">
-        <span class="material-icons" style="font-size:18px;">map</span>
+      <a class="btn-primary" href="/app/mapa">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+          <line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>
+        </svg>
         Ir al Mapa
       </a>
-      <a class="btn-back" href="javascript:history.back()">
-        <span class="material-icons" style="font-size:16px;">arrow_back</span>
+      <a class="btn-secondary" href="javascript:history.back()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
         Volver
       </a>
     </div>
+
   </div>
 
   <script>
-    document.getElementById('bad-url').textContent = window.location.pathname;
+    const url = window.location.pathname;
+    const el = document.getElementById('bad-url');
+    if (url && url !== '/404.html') {
+      el.textContent = url;
+    } else {
+      el.style.display = 'none';
+    }
   </script>
 
 </body>
