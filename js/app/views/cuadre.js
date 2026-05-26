@@ -761,8 +761,7 @@ function _layout({ plaza, role, user }) {
             <div class="cqv__panel cqv__kpi"><div class="cqv__kpi-title">Sin ubicación</div><div id="cqvSummarySinUbicacion" class="cqv__kpi-value" style="color:#ef4444;">0</div></div>
           </div>
           <div class="cqv__panel cqv__notice">
-            <strong>Consola operativa</strong>
-            <p>KPIs, filtros, detalle, exportación y acciones operativas con validación completa.</p>
+            <strong>Alta de unidades</strong>
             <button type="button" class="cqv__btn cqv__btn--primary" id="cqvInsertUnit" style="width:100%;justify-content:center;margin-top:8px;">+ Alta de unidad</button>
             <button type="button" class="cqv__btn" id="cqvInsertExterno" style="width:100%;justify-content:center;margin-top:4px;">+ Insertar externo</button>
           </div>
@@ -1085,7 +1084,7 @@ async function _writeClipboard(text, okMessage, errorMessage) {
 }
 
 function _detailCell(label, value) {
-  return `<div style="border:1px solid #e2e8f0;border-radius:8px;padding:8px;background:#fff;"><div style="font-size:10px;text-transform:uppercase;color:#94a3b8;">${esc(label)}</div><div style="font-size:12px;color:#1e293b;font-weight:700;">${esc(value)}</div></div>`;
+  return `<div style="border:1px solid rgba(148,163,184,0.2);border-radius:8px;padding:8px;background:#0f172a;"><div style="font-size:10px;text-transform:uppercase;color:#8ea1ba;">${esc(label)}</div><div style="font-size:12px;color:#e5eefb;font-weight:700;">${esc(value)}</div></div>`;
 }
 
 function _badge(text, color, bg) { return `<span class="cqv__badge" style="color:${color};background:${bg};">${esc(text)}</span>`; }

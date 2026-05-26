@@ -988,3 +988,17 @@
   max-height: none !important;
   width: 100%;
 }
+
+/* ─ Cuadre ───────────────────────────────────────────────────── */
+/* Corrección de alturas para App Shell (header = 64px vs legacy 74px).
+   La tabla tiene max-height basado en 100vh; en App Shell descuenta el
+   header del shell más el overhead del layout del propio cuadre. */
+#mexShellContent .cqv {
+  min-height: calc(100vh - var(--sh-header-h, 64px));
+}
+#mexShellContent .cqv__table-wrap {
+  max-height: calc(100vh - var(--sh-header-h, 64px) - 300px);
+  min-height: 380px;
+}
+/* El aside sticky funciona relativo a #mexShellContent (overflow-y:auto).
+   top:12px es correcto — el área de contenido ya empieza bajo el header. */
