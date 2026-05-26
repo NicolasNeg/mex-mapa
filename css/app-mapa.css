@@ -4214,10 +4214,8 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
 }
 
 /* ══════════════════════════════════════════════════════════════
-   FASE FINAL — Diseño Premium Legacy Port
-   Restaura proporciones, animaciones y efectos del mapa legacy
-   exactamente en el contexto App Shell (.app-mapa-legacy-port).
-   Este bloque tiene máxima prioridad y anula fases anteriores.
+   FASE FINAL — Diseño idéntico al mapa legacy en el App Shell.
+   Anula todas las fases anteriores dentro de .app-mapa-legacy-port.
    ══════════════════════════════════════════════════════════════ */
 
 @keyframes popInCar {
@@ -4225,31 +4223,84 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
   100% { opacity: 1; transform: scale(1); }
 }
 
-/* Grid canvas — proporciones legacy exactas */
+/* ── Grid: celdas fijas 95×95 igual al legacy ──────────────── */
 .app-mapa-legacy-port .app-mapa-canvas-inner.map-grid {
-  grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+  --map-cols: 12;
+  --map-cell-size: 95px;
+  --map-row-size: 95px;
+  display: grid;
+  grid-template-columns: repeat(var(--map-cols), var(--map-cell-size));
+  grid-auto-rows: var(--map-row-size);
   gap: 28px 15px;
   padding: clamp(28px, 4vw, 56px);
   border-radius: 30px;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  background: #2a3441;
+  background-image: radial-gradient(#3f4d5e 1px, transparent 1px);
+  background-size: 20px 20px;
+  width: max-content;
+  height: max-content;
 }
 
-/* Tarjeta de unidad — versión premium */
-.app-mapa-legacy-port .app-mapa-unit {
-  min-height: 88px;
+/* ── Slot — llena la celda del grid ────────────────────────── */
+.app-mapa-legacy-port .app-mapa-slot.spot {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background: rgba(255, 255, 255, 0.02);
+  border-left: 2px solid rgba(255, 255, 255, 0.10);
+  border-right: 2px solid rgba(255, 255, 255, 0.10);
+  border-top: 2px solid rgba(255, 255, 255, 0.10);
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  overflow: hidden;
+}
+
+.app-mapa-legacy-port .app-mapa-slot-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: stretch;
+  padding: 3px;
+}
+
+.app-mapa-legacy-port .app-mapa-slot-units {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  gap: 0;
+}
+
+/* ── Tarjeta: hereda width/height de la celda ──────────────── */
+.app-mapa-legacy-port .app-mapa-unit,
+.app-mapa-legacy-port .car {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
   border-radius: 16px 16px 10px 10px;
   padding: 8px;
+  font-size: 18px;
+  font-weight: 900;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   box-shadow:
     0 8px 24px -4px rgba(0, 0, 0, 0.55),
     0 2px 6px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.22);
   animation: popInCar 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transition: transform 0.18s cubic-bezier(0.4, 0, 0.2, 1),
-              box-shadow 0.18s ease,
-              opacity 0.18s ease;
+              box-shadow 0.18s ease;
 }
 
-.app-mapa-legacy-port .app-mapa-unit:hover {
+.app-mapa-legacy-port .app-mapa-unit:hover,
+.app-mapa-legacy-port .car:hover {
   transform: translateY(-3px) scale(1.02);
   box-shadow:
     0 14px 32px -4px rgba(0, 0, 0, 0.6),
@@ -4257,26 +4308,26 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-.app-mapa-legacy-port .app-mapa-unit.is-selected {
+.app-mapa-legacy-port .app-mapa-unit.is-selected,
+.app-mapa-legacy-port .car.selected {
   outline: 4px solid #fbbf24;
   outline-offset: 2px;
-  border-color: rgba(251, 191, 36, 0.9);
   box-shadow: 0 0 20px rgba(251, 191, 36, 0.6), 0 14px 32px rgba(0, 0, 0, 0.42);
   transform: scale(1.08);
   z-index: 50;
 }
 
-.app-mapa-legacy-port .app-mapa-unit.is-fade {
+.app-mapa-legacy-port .app-mapa-unit.app-mapa-unit--dim,
+.app-mapa-legacy-port .car.fade {
   opacity: 0.15 !important;
   filter: grayscale(1);
 }
 
-/* Número MVA — tamaño legacy */
+/* ── MVA y badges ──────────────────────────────────────────── */
 .app-mapa-legacy-port .app-mapa-unit-top strong {
   font-size: clamp(16px, 1.35vw, 20px);
 }
 
-/* Badge de estado — posición y tamaño legacy */
 .app-mapa-legacy-port .app-mapa-unit-top .app-mapa-unit-state {
   right: 7px;
   top: 7px;
@@ -4286,20 +4337,17 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
   font-size: 9px;
 }
 
-/* Badge de incidencia — posición legacy */
 .app-mapa-legacy-port .app-mapa-unit-inc {
   left: 7px;
   top: 7px;
 }
 
-/* Meta texto — tamaño legacy */
 .app-mapa-legacy-port .app-mapa-unit-meta {
   font-size: 10px;
   line-height: 1.3;
   margin-top: 3px;
 }
 
-/* Barra de gasolina — proporciones legacy */
 .app-mapa-legacy-port .app-mapa-gas {
   width: min(64px, 76%);
   height: 12px;
@@ -4312,7 +4360,8 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-mapa-legacy-port .app-mapa-unit {
+  .app-mapa-legacy-port .app-mapa-unit,
+  .app-mapa-legacy-port .car {
     animation: none;
   }
 }
