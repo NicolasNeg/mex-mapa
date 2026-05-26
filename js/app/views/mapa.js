@@ -1141,8 +1141,31 @@ export function mount({ container, shell }) {
   };
 
   if (shell) {
-    // App Shell mode: render only the canvas container — no legacy wrapper, no chrome-bar, no controls header
     _container.innerHTML = `
+      <div class="app-mapa-shell-toolbar">
+        <label class="app-mapa-search-wrap" aria-label="Buscar unidad en mapa">
+          <span class="app-mapa-search-ic">search</span>
+          <input id="app-mapa-search" class="app-mapa-search-input" type="search"
+            placeholder="MVA, placas, modelo…"
+            value="${esc(_viewState.query)}" autocomplete="off" />
+          <button type="button" class="app-mapa-search-clear"
+            data-app-mapa-action="clear-search" ${_viewState.query ? '' : 'hidden'}>×</button>
+        </label>
+        <div class="app-mapa-shell-chips">
+          <button type="button" class="app-mapa-qf is-active" data-mapa-qf="all">Todos</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="disponibles">Disponibles</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="mantenimiento">Mantenimiento</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="sin-ubicacion">Sin posición</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="con-incidencias">Incidencias</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="limbo">Limbo</button>
+          <button type="button" class="app-mapa-qf" data-mapa-qf="taller">Taller</button>
+        </div>
+        <div class="app-mapa-shell-view-toggle">
+          <button type="button" class="app-mapa-qf is-active" data-mapa-view="grid" title="Vista cuadrícula">▦</button>
+          <button type="button" class="app-mapa-qf" data-mapa-view="list" title="Vista lista">≡</button>
+        </div>
+        <button type="button" class="app-mapa-qf" data-app-mapa-action="refresh" title="Actualizar datos">↺</button>
+      </div>
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
       <div id="app-mapa-content" class="app-mapa-status is-loading">${_mapaLoadingHtml('Cargando mapa')}</div>
     `;
@@ -1519,6 +1542,13 @@ export function mount({ container, shell }) {
     const qfBtn = ev.target?.closest?.('[data-mapa-qf]');
     if (qfBtn && _container.contains(qfBtn)) {
       _viewState.quickFilter = qfBtn.getAttribute('data-mapa-qf') || 'all';
+      _syncFilterChips();
+      _render();
+      return;
+    }
+    const viewBtn = ev.target?.closest?.('[data-mapa-view]');
+    if (viewBtn && _container.contains(viewBtn)) {
+      _viewState.viewMode = viewBtn.getAttribute('data-mapa-view') || 'grid';
       _syncFilterChips();
       _render();
       return;
