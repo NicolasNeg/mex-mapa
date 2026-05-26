@@ -952,3 +952,324 @@
     max-height: 48vh;
   }
 }
+
+/* ══════════════════════════════════════════════════════════
+   CUADRE v2 — Legacy-port visual components
+   ══════════════════════════════════════════════════════════ */
+
+/* ── BETA badge ─────────────────────────────────────────── */
+.cqv__beta-badge {
+  background: #e2e8f0;
+  color: #475569;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ── Admin button variant ───────────────────────────────── */
+.cqv__btn--admin {
+  background: var(--cq-primary) !important;
+  color: white !important;
+  border-color: var(--cq-primary) !important;
+}
+.cqv__btn--admin:hover {
+  opacity: 0.9;
+}
+
+/* ── Dropdown menus (MÁS CONTROLES / GESTIÓN ADMIN) ─────── */
+.cqv__dropdown-wrap {
+  position: relative;
+}
+
+.cqv__dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  background: white;
+  border: 1px solid var(--cq-border);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  z-index: 300;
+  min-width: 210px;
+  overflow: hidden;
+}
+
+.cqv__dropdown-header {
+  padding: 10px 14px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  background: #f8fafc;
+  border-bottom: 1px solid var(--cq-border);
+}
+
+.cqv__dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.cqv__dropdown-item:hover {
+  background: #f1f5f9;
+}
+.cqv__dropdown-item .material-icons {
+  font-size: 18px;
+  color: #64748b;
+}
+
+/* ── Batch action bar ───────────────────────────────────── */
+.cqv__batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.cqv__batch-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #92400e;
+}
+
+.cqv__batch-select {
+  font-size: 12px;
+  border: 1px solid #fbbf24;
+  border-radius: 6px;
+  padding: 3px 6px;
+  background: #fff;
+  font-family: inherit;
+}
+
+.cqv__batch-apply {
+  font-size: 12px;
+  background: #f59e0b;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 12px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.cqv__batch-apply:hover { background: #d97706; }
+.cqv__batch-apply:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* ── Inline search bar ──────────────────────────────────── */
+.cqv__search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: white;
+  border: 1px solid var(--cq-border);
+  border-radius: 12px;
+  padding: 0 12px;
+  flex: 1;
+  min-width: 0;
+}
+.cqv__search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 10px 0;
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+  color: var(--cq-text);
+}
+.cqv__search-input::placeholder { color: #94a3b8; }
+
+.cqv__btn-clear {
+  background: #fee2e2;
+  color: #ef4444;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+.cqv__btn-clear:hover { background: #fecaca; }
+
+/* ── Excel-style column filters in thead ───────────────── */
+.cqv__table thead th {
+  padding: 6px 8px;
+  vertical-align: middle;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--cq-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.excel-filter {
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 4px 4px;
+  background: white;
+  color: #334155;
+  cursor: pointer;
+  width: 100%;
+  max-width: 150px;
+  font-family: inherit;
+}
+.excel-filter:focus { outline: 2px solid var(--cq-accent); }
+
+.cqv__th-sort {
+  cursor: pointer;
+  user-select: none;
+  font-size: 12px;
+  font-weight: 800;
+  color: #334155;
+  padding: 8px 10px;
+  white-space: nowrap;
+  background: #f8fafc;
+  border-bottom: 2px solid var(--cq-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.cqv__th-sort:hover { background: #e2e8f0; }
+
+/* ── Stats grid (right panel) ───────────────────────────── */
+.cqv__stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.cqv__stat-box {
+  background: white;
+  border: 1px solid var(--cq-border);
+  border-radius: 12px;
+  padding: 14px;
+  text-align: center;
+}
+.cqv__stat-box--green {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+.cqv__stat-num {
+  font-size: 32px;
+  font-weight: 900;
+  color: var(--cq-primary);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.cqv__stat-num--green { color: #16a34a; }
+.cqv__stat-lbl {
+  font-size: 11px;
+  color: var(--cq-muted);
+  font-weight: 700;
+}
+
+/* ── GESTOR DE UNIDAD (right panel) ────────────────────── */
+.cqv__gestor {
+  padding: 0;
+  overflow: hidden;
+}
+.cqv__gestor-header {
+  background: linear-gradient(135deg, var(--cq-primary) 0%, #1e3a5f 100%);
+  padding: 12px 16px;
+}
+.cqv__gestor-title {
+  margin: 0;
+  color: white;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+}
+
+#cqvDetail { padding: 14px; }
+
+.cqv__unit-card { display: flex; flex-direction: column; }
+.cqv__unit-mva {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--cq-primary);
+  margin-bottom: 6px;
+}
+.cqv__unit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.cqv__unit-cell {
+  background: #f8fafc;
+  border: 1px solid var(--cq-border);
+  border-radius: 8px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--cq-text);
+  font-weight: 700;
+}
+.cqv__unit-lbl {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #94a3b8;
+  font-weight: 700;
+}
+.cqv__unit-notes {
+  font-size: 12px;
+  background: #fefce8;
+  border: 1px solid #fef08a;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 10px;
+  color: #78350f;
+  line-height: 1.4;
+}
+.cqv__unit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+/* ── Floating action button ─────────────────────────────── */
+.cqv__fab {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--cq-primary);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(11,37,72,0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  z-index: 10;
+}
+.cqv__fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(11,37,72,0.5);
+}
+.cqv__fab .material-icons { font-size: 24px; }
