@@ -95,7 +95,7 @@ const ROUTE_TABLE = {
     navRoute: '/incidencias',
     feature:  'incidencias'
   },
-  '/app/cuadre':   { loader: () => import('/js/app/views/cuadre.js'), navRoute: '/cuadre', feature: 'cuadre' },
+  '/app/cuadre':   { loader: () => import('/js/app/views/legacy-stage.js'), navRoute: '/cuadre', feature: 'cuadre' },
   '/app/admin':    { loader: () => import('/js/app/views/admin.js'), navRoute: '/gestion' },
   '/app/gestion':           { redirect: '/app/admin' },
   '/app/usuarios':          { redirect: '/app/admin?tab=usuarios' },
@@ -133,7 +133,7 @@ const ROUTE_TABLE = {
   '/app/admin/empresa':     { redirect: '/app/admin?tab=empresa' },
   '/app/gestion/empresa':   { redirect: '/app/admin?tab=empresa' },
   '/app/programador': { loader: () => import('/js/app/views/programador.js'), navRoute: '/programador' },
-  '/app/mapa':        { loader: () => import('/js/app/views/mapa.js'),        navRoute: '/mapa' },
+  '/app/mapa':        { loader: () => import('/js/app/views/legacy-stage.js'), navRoute: '/mapa' },
   '/app/editmap': {
     loader:   () => import('/js/app/views/editmap.js'),
     navRoute: '/editmap',
