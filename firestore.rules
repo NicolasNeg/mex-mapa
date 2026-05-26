@@ -1083,5 +1083,14 @@ service cloud.firestore {
         && (esAdminOperativo() || esProgramadorBootstrap());
       allow delete: if esProgramadorBootstrap();
     }
+
+    // ─── ERROR LOGS (error-logger.js) ────────────────────────────────────────
+    // Cualquier usuario autenticado puede crear entradas de log.
+    // Solo el programador puede leer o borrar.
+    match /error_logs/{logId} {
+      allow create: if estaAutenticado();
+      allow read, delete: if esProgramadorBootstrap();
+      allow update: if false;
+    }
   }
 }

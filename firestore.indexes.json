@@ -180,6 +180,14 @@
         { "fieldPath": "destinatario", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "index_unidades",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "empresaId", "order": "ASCENDING" },
+        { "fieldPath": "sucursal", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

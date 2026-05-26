@@ -134,6 +134,13 @@ function _normalizePlazaId(value) {
   return String(value || '').trim().toUpperCase();
 }
 
+// Returns the active empresa ID, or '' for super-admin / unauthenticated sessions.
+function _eid() {
+  const ctx = window._empresaActual;
+  if (!ctx || ctx.isSuperAdminContext) return '';
+  return ctx.id || '';
+}
+
 // Empresa-scoped doc ID for settings and mapa_config.
 // Format: {empresaId}__{PLAZA} when empresa context is active.
 // Backward compat: returns just {PLAZA} for super-admin / no-context sessions.
@@ -2805,11 +2812,14 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
   // ─── PLAZAS / CORPORATIVO ────────────────────────────────
   async obtenerUnidadesPlazas() {
-    const snap = await db.collection(COL.INDEX).orderBy("sucursal").get();
+    const eid = _eid();
+    let q = db.collection(COL.INDEX).orderBy("sucursal");
+    if (eid) q = q.where('empresaId', '==', eid);
+    const snap = await q.get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
   async registrarUnidadEnPlaza(data) {
-    await db.collection(COL.INDEX).add({ ...data, _createdAt: _now() });
+    await db.collection(COL.INDEX).add({ ...data, _createdAt: _now(), empresaId: _eid() || undefined });
     return "EXITO";
   },
   async obtenerDetalleCompleto(sucursal, mva) {

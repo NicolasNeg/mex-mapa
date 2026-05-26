@@ -3980,11 +3980,12 @@ function ejecutarFiltroMasivo() {
   const inputDesktop = document.getElementById('searchInput');
   const inputMobile = document.getElementById('searchInputMobile');
   const activeInput = document.activeElement === inputMobile ? inputMobile : inputDesktop;
+  if (!activeInput) return;
   const query = activeInput.value.toLowerCase().trim();
 
   // Sincronizar barras de búsqueda
-  if (activeInput === inputDesktop) inputMobile.value = inputDesktop.value;
-  else inputDesktop.value = inputMobile.value;
+  if (activeInput === inputDesktop && inputMobile) inputMobile.value = inputDesktop.value;
+  else if (inputDesktop) inputDesktop.value = activeInput.value;
 
   const cars = document.querySelectorAll('.car');
   const spots = document.querySelectorAll('.spot');
