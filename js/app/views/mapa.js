@@ -54,6 +54,7 @@ let _unitActionMsg = '';
 let _unitActionLastError = '';
 let _shell = null;
 let _addedLegacyClass = false;
+let _sidebarWasExpanded = false;
 
 let _viewState = {
   query: '',
@@ -1122,6 +1123,9 @@ export function mount({ container, shell }) {
   // sidebar from 280px to 84px and resets .mex-main margins incorrectly.
   _addedLegacyClass = !shell;
   if (_addedLegacyClass) document.body?.classList?.add('app-map-legacy-shell');
+  // En App Shell: colapsar sidebar igual que legacy (body.app-map-legacy-shell → 84px)
+  _sidebarWasExpanded = !!(shell && shell.sidebar && !shell.sidebar.isCollapsed);
+  if (_sidebarWasExpanded) shell.sidebar.collapse();
   _trackListener('create', 'view', { plaza: getState().currentPlaza || '' });
   _ensureCss();
   const state = getState();
@@ -1579,6 +1583,8 @@ export function mount({ container, shell }) {
 export function unmount() {
   if (_addedLegacyClass) document.body?.classList?.remove('app-map-legacy-shell');
   _addedLegacyClass = false;
+  if (_sidebarWasExpanded && _shell?.sidebar) _shell.sidebar.expand();
+  _sidebarWasExpanded = false;
   _removeMapaModals();
   try {
     _unitActionsCtrl?.cleanup?.();

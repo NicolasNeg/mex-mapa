@@ -33,6 +33,7 @@
 .mex-shell {
   display: block;
   min-height: 100vh;
+  overflow-x: hidden;
   background: var(--sh-body-bg);
 }
 
@@ -931,60 +932,18 @@
 
 /* ─ Mapa ─────────────────────────────────────────────────────── */
 /*
-  In standalone mode, mapa.js adds body.app-map-legacy-shell which:
-    • Shrinks .mex-sidebar from 280px to 84px
-    • Sets .mex-main margin-left to 84px (conflicts with App Shell's 280px)
-  We fixed this in mapa.js by NOT adding the class when shell param is present.
+  .app-mapa-view.app-mapa-operativo tiene min-height: calc(100vh - 64px)
+  que puede causar overflow en #mexShellContent cuando 100vh > viewport visible.
+  Solo anulamos eso; el resto (overflow, height) lo deja manejar el flujo normal.
 
-  Inside App Shell:
-    • .app-mapa-view has padding:20px (cleared below)
-    • .app-mapa-view.app-mapa-operativo has min-height:calc(100vh-64px) which
-      overflows the shell on mobile browsers where 100vh > visible height (cleared below)
-    • #app-mapa-content uses height:calc(100vh-64px) (overridden to 100% below)
-    • Canvas viewport uses vh-relative heights designed for the legacy 240px offset;
-      in the shell the offset is much smaller so we give the canvas more room.
+  El canvas viewport tenía max-height: calc(100vh - 240px) pensado para el
+  overhead del shell legacy (240px). En App Shell solo hay 64px de header,
+  así que ampliamos el espacio disponible.
 */
-#mexShellContent .app-mapa-view {
-  padding: 0 !important;
-  height: 100%;
-  overflow: hidden;
-}
 #mexShellContent .app-mapa-view.app-mapa-operativo {
-  gap: 0;
   min-height: 0 !important;
 }
-/* Map content fills the shell content area */
-#mexShellContent #app-mapa-content {
-  height: 100% !important;
-  min-height: 0 !important;
-}
-/* Legacy port fills its container */
-#mexShellContent .app-mapa-legacy-port {
-  height: 100%;
-  min-height: 0;
-}
-#mexShellContent .app-mapa-legacy-content {
-  min-height: 0 !important;
-}
-/* Canvas viewport: shell header already accounted for; loosen vh constraints */
 #mexShellContent .app-mapa-legacy-port .map-zoom-container.app-mapa-canvas-viewport {
-  min-height: min(320px, 40vh) !important;
-  max-height: calc(100vh - var(--sh-header-h) - 80px) !important;
-}
-/* Chrome bar: re-expose as absolute overlay (CSS has display:none !important that kills the re-show) */
-#mexShellContent .app-mapa-view.app-mapa-operativo > .app-mapa-chrome-bar {
-  display: inline-flex !important;
-  position: absolute;
-  z-index: 30;
-  top: 14px;
-  left: 14px;
-}
-/* Controls (search): re-expose as absolute overlay */
-#mexShellContent .app-mapa-view.app-mapa-operativo > .app-mapa-controls {
-  display: flex !important;
-  position: absolute;
-  z-index: 30;
-  top: 66px;
-  left: 14px;
-  max-width: min(340px, calc(100vw - 28px));
+  min-height: min(400px, 55vh) !important;
+  max-height: calc(100vh - var(--sh-header-h) - 60px) !important;
 }
