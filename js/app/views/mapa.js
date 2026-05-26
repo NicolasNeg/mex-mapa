@@ -1140,42 +1140,50 @@ export function mount({ container, shell }) {
     zoom: 1
   };
 
-  _container.innerHTML = `
-    <section class="app-mapa-view app-mapa-operativo">
-      <div class="app-mapa-chrome-bar">
-        <div class="app-mapa-chrome-main">
-          <span class="app-mapa-plaza-label">Plaza <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></span>
-          <span id="app-mapa-sync-line" class="app-mapa-chrome-sync"></span>
-        </div>
-        <details class="app-mapa-tools-menu">
-          <summary title="Herramientas del mapa">
-            <span class="material-icons">tune</span>
-          </summary>
-          <div class="app-mapa-chrome-actions">
-            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Actualizar</button>
-            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="radar">Radar</button>
-            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="reports">Reportes</button>
-            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="create-unit"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta unidad</button>
-            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="bulk-units"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta masiva</button>
-            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="editor"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Editar patio</button>
-            <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="feature-config"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Configurar módulos</button>
-          </div>
-        </details>
-        <div class="app-mapa-chrome-sub">
-          <span id="app-mapa-last-move" class="app-mapa-meta-line--persist" hidden></span>
-        </div>
-      </div>
-      <div class="app-mapa-controls">
-        <label class="app-mapa-search-wrap" aria-label="Buscar unidad en mapa">
-          <span class="app-mapa-search-ic">search</span>
-          <input id="app-mapa-search" class="app-mapa-search-input" type="search" placeholder="MVA, placas, modelo…" value="${esc(_viewState.query)}" autocomplete="off" />
-          <button type="button" class="app-mapa-search-clear" data-app-mapa-action="clear-search" ${_viewState.query ? '' : 'hidden'}>×</button>
-        </label>
-      </div>
+  if (shell) {
+    // App Shell mode: render only the canvas container — no legacy wrapper, no chrome-bar, no controls header
+    _container.innerHTML = `
       <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
       <div id="app-mapa-content" class="app-mapa-status is-loading">${_mapaLoadingHtml('Cargando mapa')}</div>
-    </section>
-  `;
+    `;
+  } else {
+    _container.innerHTML = `
+      <section class="app-mapa-view app-mapa-operativo">
+        <div class="app-mapa-chrome-bar">
+          <div class="app-mapa-chrome-main">
+            <span class="app-mapa-plaza-label">Plaza <strong id="app-mapa-plaza-active">${esc(plaza || '—')}</strong></span>
+            <span id="app-mapa-sync-line" class="app-mapa-chrome-sync"></span>
+          </div>
+          <details class="app-mapa-tools-menu">
+            <summary title="Herramientas del mapa">
+              <span class="material-icons">tune</span>
+            </summary>
+            <div class="app-mapa-chrome-actions">
+              <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="refresh">Actualizar</button>
+              <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="radar">Radar</button>
+              <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="reports">Reportes</button>
+              <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="create-unit"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta unidad</button>
+              <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="bulk-units"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Alta masiva</button>
+              <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="editor"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Editar patio</button>
+              <button type="button" class="app-mapa-tool-btn" data-app-mapa-action="feature-config"${canUseMapaOfficialTools(_officialToolsContext()) ? '' : ' hidden'}>Configurar módulos</button>
+            </div>
+          </details>
+          <div class="app-mapa-chrome-sub">
+            <span id="app-mapa-last-move" class="app-mapa-meta-line--persist" hidden></span>
+          </div>
+        </div>
+        <div class="app-mapa-controls">
+          <label class="app-mapa-search-wrap" aria-label="Buscar unidad en mapa">
+            <span class="app-mapa-search-ic">search</span>
+            <input id="app-mapa-search" class="app-mapa-search-input" type="search" placeholder="MVA, placas, modelo…" value="${esc(_viewState.query)}" autocomplete="off" />
+            <button type="button" class="app-mapa-search-clear" data-app-mapa-action="clear-search" ${_viewState.query ? '' : 'hidden'}>×</button>
+          </label>
+        </div>
+        <div id="app-mapa-dnd-hint" class="app-mapa-dnd-hint" hidden></div>
+        <div id="app-mapa-content" class="app-mapa-status is-loading">${_mapaLoadingHtml('Cargando mapa')}</div>
+      </section>
+    `;
+  }
   _contentEl = _container.querySelector('#app-mapa-content');
   _dndHintEl = _container.querySelector('#app-mapa-dnd-hint');
   const _searchEl = _container.querySelector('#app-mapa-search');
