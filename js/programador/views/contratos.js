@@ -399,10 +399,16 @@ function _generateModalHtml(empresa) {
 
   <div>
     <div class="ct-label">Plan</div>
-    <select class="ct-inp" name="plan">
-      ${['free','starter','business','enterprise'].map(p =>
-        `<option value="${p}" ${(ci.plan || empresa.plan) === p ? 'selected' : ''}>${p}</option>`
-      ).join('')}
+    <select class="ct-inp" name="plan" id="ctPlanSelect">
+      ${[
+        { key: 'lite',        label: 'Mapa Lite',   precio: 990   },
+        { key: 'local',       label: 'Local',        precio: 1990  },
+        { key: 'regional',    label: 'Regional',     precio: 4490  },
+        { key: 'corporativo', label: 'Corporativo',  precio: 9990  },
+      ].map(({ key, label, precio }) => {
+        const sel = (ci.plan || empresa.plan) === key ? 'selected' : '';
+        return `<option value="${key}" data-precio="${precio}" ${sel}>${label} — $${precio.toLocaleString('es-MX')} MXN/mes</option>`;
+      }).join('')}
     </select>
   </div>
   <div>
@@ -446,6 +452,16 @@ function _generateModalHtml(empresa) {
 }
 
 function _bindGenerateModal(empresa) {
+  // Auto-fill tarifa cuando cambia el plan
+  _container?.querySelector('#ctPlanSelect')?.addEventListener('change', (e) => {
+    const opt = e.target.options[e.target.selectedIndex];
+    const precio = opt?.dataset?.precio;
+    if (precio) {
+      const tarifaInput = _container?.querySelector('[name="tarifa"]');
+      if (tarifaInput && !tarifaInput.value) tarifaInput.value = precio;
+    }
+  });
+
   _container?.querySelector('#ctGenCancel')?.addEventListener('click', _closeModal);
   _container?.querySelector('#ctGenSubmit')?.addEventListener('click', async () => {
     const form     = _container?.querySelector('#ctGenForm');

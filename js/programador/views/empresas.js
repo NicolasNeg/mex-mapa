@@ -236,18 +236,15 @@ function _featurePills(features) {
 }
 
 function _planBadge(plan) {
-  const p = String(plan || 'free').toLowerCase();
-  const styles = {
-    starter:    'background:#d97706;color:#fff;',
-    business:   'background:#6366f1;color:#fff;',
-    enterprise: 'background:#059669;color:#fff;',
-    free:       'background:#334155;color:#94a3b8;',
-  };
+  const p = String(plan || '').toLowerCase();
+  const PLANES = window.mexFeatures?.PLANES;
+  const color = PLANES?.[p]?.color || { starter:'#d97706', business:'#6366f1', enterprise:'#059669', free:'#334155', pro:'#8b5cf6' }[p] || '#334155';
+  const label = PLANES?.[p]?.label || plan || '—';
   return `<span style="
     font-size:10px;font-weight:800;text-transform:uppercase;
     border-radius:5px;padding:2px 7px;
-    ${styles[p] || styles.free}
-  ">${_esc(plan || 'free')}</span>`;
+    background:${color};color:#fff;
+  ">${_esc(label)}</span>`;
 }
 
 function _tipoBadge(tipo) {

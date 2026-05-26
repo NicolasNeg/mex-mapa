@@ -22,9 +22,72 @@
     edicion_mapa:        true,
     exportar_excel:      true,
     notificaciones_push: true,
-    // Nuevas — controlables por empresa
     dashboard:           true,   // Si false → mapa es la pantalla de inicio
     estados_mapa:        true,   // Si false → modo simple sin estados operativos
+    multi_plaza:         true,   // Dashboard global cross-plaza + RBAC regional
+    api_access:          false,  // API REST de integración (Corporativo+)
+    white_label:         false,  // White-label parcial (Corporativo+)
+  });
+
+  // Catálogo oficial de planes. Fuente única de verdad para features y límites.
+  // Exportado como window.mexFeatures.PLANES para uso en UI y creación de empresas.
+  const PLAN_CATALOG = Object.freeze({
+    lite: Object.freeze({
+      label:      'Mapa Lite',
+      precio_mxn: 990,
+      color:      '#475569',
+      features: Object.freeze({
+        mensajeria: false, alertas: false, cuadre: false,
+        incidencias: false, cola_preparacion: false, reportes: false,
+        auditoria: false, ia_placas: false, historial_logs: false,
+        gestion_usuarios: false, solicitudes_acceso: false, edicion_mapa: false,
+        exportar_excel: false, notificaciones_push: false, dashboard: false,
+        estados_mapa: false, multi_plaza: false, api_access: false, white_label: false,
+      }),
+      limites: Object.freeze({ maxPlazas: 1, maxUsuarios: 3,  maxUnidades: -1, gps_refresh_sec: 300, historial_dias: 30  }),
+    }),
+    local: Object.freeze({
+      label:      'Local',
+      precio_mxn: 1990,
+      color:      '#3b82f6',
+      features: Object.freeze({
+        mensajeria: true, alertas: true, cuadre: true,
+        incidencias: true, cola_preparacion: true, reportes: true,
+        auditoria: true, ia_placas: true, historial_logs: true,
+        gestion_usuarios: true, solicitudes_acceso: true, edicion_mapa: true,
+        exportar_excel: true, notificaciones_push: true, dashboard: true,
+        estados_mapa: true, multi_plaza: false, api_access: false, white_label: false,
+      }),
+      limites: Object.freeze({ maxPlazas: 1, maxUsuarios: 25, maxUnidades: -1, gps_refresh_sec: 30,  historial_dias: 90  }),
+    }),
+    regional: Object.freeze({
+      label:      'Regional',
+      precio_mxn: 4490,
+      color:      '#8b5cf6',
+      features: Object.freeze({
+        mensajeria: true, alertas: true, cuadre: true,
+        incidencias: true, cola_preparacion: true, reportes: true,
+        auditoria: true, ia_placas: true, historial_logs: true,
+        gestion_usuarios: true, solicitudes_acceso: true, edicion_mapa: true,
+        exportar_excel: true, notificaciones_push: true, dashboard: true,
+        estados_mapa: true, multi_plaza: true, api_access: false, white_label: false,
+      }),
+      limites: Object.freeze({ maxPlazas: 3, maxUsuarios: 75, maxUnidades: -1, gps_refresh_sec: 30,  historial_dias: 90  }),
+    }),
+    corporativo: Object.freeze({
+      label:      'Corporativo',
+      precio_mxn: 9990,
+      color:      '#10b981',
+      features: Object.freeze({
+        mensajeria: true, alertas: true, cuadre: true,
+        incidencias: true, cola_preparacion: true, reportes: true,
+        auditoria: true, ia_placas: true, historial_logs: true,
+        gestion_usuarios: true, solicitudes_acceso: true, edicion_mapa: true,
+        exportar_excel: true, notificaciones_push: true, dashboard: true,
+        estados_mapa: true, multi_plaza: true, api_access: true, white_label: true,
+      }),
+      limites: Object.freeze({ maxPlazas: -1, maxUsuarios: -1, maxUnidades: -1, gps_refresh_sec: 10,  historial_dias: 365 }),
+    }),
   });
 
   function getEmpresaFeatures() {
@@ -76,6 +139,7 @@
     puedeUsar,
     obtenerTodas,
     DEFAULTS: FEATURES_DEFAULTS,
+    PLANES:   PLAN_CATALOG,
   });
 
   // ── Per-empresa per-role permissions ────────────────────────────────────────

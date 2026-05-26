@@ -2699,19 +2699,68 @@ exports.listarApiKeys = functions.region(REGION).https.onCall(async (_data, cont
 //  Parámetros:
 //    empresaId  {string}  ID del documento a crear (ej. "mex-default")
 //    nombre     {string}  Nombre comercial de la empresa (opcional)
-//    plan       {string}  'starter' | 'pro' | 'enterprise'  (default: 'enterprise')
+//    plan       {string}  'lite' | 'local' | 'regional' | 'corporativo'  (default: 'local')
 //    force      {boolean} Si true, sobreescribe el doc existente
 // ══════════════════════════════════════════════════════════════
+
+// Catálogo de planes — espejo del frontend (js/core/feature-gates.js PLAN_CATALOG).
+const _PLAN_CATALOG = {
+  lite: {
+    features: {
+      mensajeria: false, alertas: false, cuadre: false,
+      incidencias: false, cola_preparacion: false, reportes: false,
+      auditoria: false, ia_placas: false, historial_logs: false,
+      gestion_usuarios: false, solicitudes_acceso: false, edicion_mapa: false,
+      exportar_excel: false, notificaciones_push: false, dashboard: false,
+      estados_mapa: false, multi_plaza: false, api_access: false, white_label: false,
+    },
+    limites: { maxPlazas: 1, maxUsuarios: 3,  maxUnidades: -1, gps_refresh_sec: 300, historial_dias: 30  },
+  },
+  local: {
+    features: {
+      mensajeria: true, alertas: true, cuadre: true,
+      incidencias: true, cola_preparacion: true, reportes: true,
+      auditoria: true, ia_placas: true, historial_logs: true,
+      gestion_usuarios: true, solicitudes_acceso: true, edicion_mapa: true,
+      exportar_excel: true, notificaciones_push: true, dashboard: true,
+      estados_mapa: true, multi_plaza: false, api_access: false, white_label: false,
+    },
+    limites: { maxPlazas: 1, maxUsuarios: 25, maxUnidades: -1, gps_refresh_sec: 30,  historial_dias: 90  },
+  },
+  regional: {
+    features: {
+      mensajeria: true, alertas: true, cuadre: true,
+      incidencias: true, cola_preparacion: true, reportes: true,
+      auditoria: true, ia_placas: true, historial_logs: true,
+      gestion_usuarios: true, solicitudes_acceso: true, edicion_mapa: true,
+      exportar_excel: true, notificaciones_push: true, dashboard: true,
+      estados_mapa: true, multi_plaza: true, api_access: false, white_label: false,
+    },
+    limites: { maxPlazas: 3, maxUsuarios: 75, maxUnidades: -1, gps_refresh_sec: 30,  historial_dias: 90  },
+  },
+  corporativo: {
+    features: {
+      mensajeria: true, alertas: true, cuadre: true,
+      incidencias: true, cola_preparacion: true, reportes: true,
+      auditoria: true, ia_placas: true, historial_logs: true,
+      gestion_usuarios: true, solicitudes_acceso: true, edicion_mapa: true,
+      exportar_excel: true, notificaciones_push: true, dashboard: true,
+      estados_mapa: true, multi_plaza: true, api_access: true, white_label: true,
+    },
+    limites: { maxPlazas: -1, maxUsuarios: -1, maxUnidades: -1, gps_refresh_sec: 10,  historial_dias: 365 },
+  },
+};
+
 exports.seedPrimeraEmpresa = functions.region(REGION).https.onCall(async (data, context) => {
   await requireProgrammerAuth(context);
 
   const empresaId = normalizeString(data?.empresaId || "mex-default");
   if (!empresaId) throw new HttpsError("invalid-argument", "empresaId requerido.");
 
-  const plan   = normalizeString(data?.plan || "enterprise");
-  const force  = data?.force === true;
+  const plan  = normalizeString(data?.plan || "local");
+  const force = data?.force === true;
 
-  const ref = db.collection(EMPRESAS_COL).doc(empresaId);
+  const ref  = db.collection(EMPRESAS_COL).doc(empresaId);
   const snap = await ref.get();
 
   if (snap.exists && !force) {
@@ -2722,45 +2771,28 @@ exports.seedPrimeraEmpresa = functions.region(REGION).https.onCall(async (data, 
   const configSnap = await db.collection(CONFIG_COL).doc("empresa").get().catch(() => null);
   const configData = configSnap && configSnap.exists ? configSnap.data() : {};
 
-  const nombre = normalizeString(data?.nombre || configData.nombre || configData.nombreComercial || "EMPRESA");
-
-  const TODAS_FEATURES_HABILITADAS = {
-    mensajeria:          true,
-    alertas:             true,
-    cuadre:              true,
-    incidencias:         true,
-    cola_preparacion:    true,
-    reportes:            true,
-    auditoria:           true,
-    ia_placas:           true,
-    historial_logs:      true,
-    gestion_usuarios:    true,
-    solicitudes_acceso:  true,
-    edicion_mapa:        true,
-    exportar_excel:      true,
-    notificaciones_push: true,
-  };
+  const nombre  = normalizeString(data?.nombre || configData.nombre || configData.nombreComercial || "EMPRESA");
+  const planDef = _PLAN_CATALOG[plan] || _PLAN_CATALOG.local;
 
   const payload = {
     nombre,
-    slug:    empresaId,
+    slug:       empresaId,
     plan,
-    activa:  true,
-    creadaEn: admin.firestore.FieldValue.serverTimestamp(),
+    activa:     true,
+    creadaEn:   admin.firestore.FieldValue.serverTimestamp(),
     _updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    features: TODAS_FEATURES_HABILITADAS,
-    limites: {
-      maxPlazas:    -1,
-      maxUsuarios:  -1,
-      maxUnidades:  -1,
-    },
+    features:   { ...planDef.features },
+    limites:    { ...planDef.limites },
     plazas:        Array.isArray(configData.plazas) ? configData.plazas : [],
-    plazasDetalle: Array.isArray(configData.plazasDetalle) ? configData.plazasDetalle : [],
+    plazasDetalle: typeof configData.plazasDetalle === 'object' && !Array.isArray(configData.plazasDetalle)
+      ? configData.plazasDetalle : {},
     branding: {
       nombre,
       nombreComercial: normalizeString(configData.nombreComercial || nombre),
       correosInternos: Array.isArray(configData.correosInternos) ? configData.correosInternos : [],
     },
+    onboarding_completado: false,
+    onboarding_paso:       'inicio',
   };
 
   await ref.set(payload, { merge: !force });

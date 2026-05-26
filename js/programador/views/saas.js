@@ -111,32 +111,25 @@ function _openNuevaEmpresaModal(navigate) {
           <div>
             <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Tipo de negocio</label>
             <select id="neTipo" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--p-border,rgba(255,255,255,0.12));background:var(--p-bg,#070d16);color:var(--p-text,#e2e8f0);font-size:13px;outline:none;box-sizing:border-box;font-family:inherit;">
-              <option value="estacionamiento">Estacionamiento</option>
-              <option value="valet">Valet Parking</option>
-              <option value="flotilla">Flotilla</option>
-              <option value="otro">Otro</option>
+              <option value="ESTACIONAMIENTO">Estacionamiento</option>
+              <option value="RENTA_AUTOS">Renta de Autos</option>
+              <option value="FLOTA">Flota / Logística</option>
+              <option value="GENERICO">Otro</option>
             </select>
           </div>
           <div>
             <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;">Plan</label>
             <select id="nePlan" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--p-border,rgba(255,255,255,0.12));background:var(--p-bg,#070d16);color:var(--p-text,#e2e8f0);font-size:13px;outline:none;box-sizing:border-box;font-family:inherit;">
-              <option value="starter">Starter</option>
-              <option value="pro">Pro</option>
-              <option value="enterprise">Enterprise</option>
+              <option value="lite">Mapa Lite — $990 MXN/mes</option>
+              <option value="local" selected>Local — $1,990 MXN/mes</option>
+              <option value="regional">Regional — $4,490 MXN/mes</option>
+              <option value="corporativo">Corporativo — $9,990 MXN/mes</option>
             </select>
           </div>
         </div>
 
-        <div>
-          <label style="display:block;font-size:11px;font-weight:700;color:var(--p-text-muted,#64748b);text-transform:uppercase;letter-spacing:0.8px;margin-bottom:8px;">Features iniciales</label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;" id="neFeatures">
-            ${['mapa','cuadre','mensajeria','alertas','incidencias','cola_preparacion'].map(f =>
-              `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 10px;border-radius:8px;border:1px solid var(--p-border,rgba(255,255,255,0.1));font-size:12px;color:var(--p-text-muted,#94a3b8);">
-                <input type="checkbox" data-feature="${f}" style="accent-color:#6366f1;"> ${f}
-              </label>`
-            ).join('')}
-          </div>
-        </div>
+        <!-- Resumen del plan seleccionado (se actualiza dinámicamente) -->
+        <div id="nePlanInfo" style="border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);padding:12px 14px;font-size:12px;"></div>
 
         <div id="neError" style="display:none;padding:10px 14px;border-radius:10px;background:rgba(248,113,113,0.1);border:1px solid rgba(248,113,113,0.3);color:#f87171;font-size:13px;"></div>
 
@@ -159,16 +152,68 @@ function _openNuevaEmpresaModal(navigate) {
     document.getElementById('neId').value = id;
   });
 
+  // Render plan summary card
+  function _renderPlanInfo(planKey) {
+    const PLANES = window.mexFeatures?.PLANES;
+    const infoEl = document.getElementById('nePlanInfo');
+    if (!infoEl) return;
+    if (!PLANES || !PLANES[planKey]) {
+      infoEl.innerHTML = '';
+      return;
+    }
+    const p = PLANES[planKey];
+    const lim = p.limites;
+    const plazasLabel  = lim.maxPlazas  === -1 ? 'Ilimitadas' : lim.maxPlazas;
+    const usuariosLabel= lim.maxUsuarios === -1 ? 'Ilimitados' : lim.maxUsuarios;
+    const gpsLabel     = lim.gps_refresh_sec >= 60 ? `Cada ${lim.gps_refresh_sec/60} min` : `Cada ${lim.gps_refresh_sec} seg`;
+    const histLabel    = lim.historial_dias === 365 ? '1 año' : `${lim.historial_dias} días`;
+
+    const featureMap = [
+      ['cuadre','Cuadre'], ['alertas','Alertas'], ['incidencias','Incidencias'],
+      ['cola_preparacion','Cola prep.'], ['mensajeria','Mensajería'], ['reportes','Reportes'],
+      ['multi_plaza','Multi-plaza'], ['api_access','API'], ['white_label','White-label'],
+    ];
+    const pills = featureMap.map(([k, l]) => {
+      const on = p.features[k] === true;
+      return `<span style="font-size:10px;padding:2px 7px;border-radius:20px;
+        border:1px solid ${on ? 'rgba(59,130,246,0.35)' : 'rgba(255,255,255,0.07)'};
+        color:${on ? '#93c5fd' : 'rgba(255,255,255,0.2)'};
+        background:${on ? 'rgba(59,130,246,0.08)' : 'transparent'};
+        text-decoration:${on ? 'none' : 'line-through'};
+      ">${l}</span>`;
+    }).join('');
+
+    infoEl.innerHTML = `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <span style="font-size:11px;font-weight:800;text-transform:uppercase;
+          padding:2px 8px;border-radius:5px;background:${p.color};color:#fff;">
+          ${p.label}
+        </span>
+        <span style="font-size:12px;color:rgba(255,255,255,0.5);">$${p.precio_mxn.toLocaleString('es-MX')} MXN/mes</span>
+      </div>
+      <div style="display:flex;gap:16px;margin-bottom:8px;font-size:11px;color:rgba(255,255,255,0.45);">
+        <span>Plazas: <strong style="color:rgba(255,255,255,0.75);">${plazasLabel}</strong></span>
+        <span>Usuarios: <strong style="color:rgba(255,255,255,0.75);">${usuariosLabel}</strong></span>
+        <span>GPS: <strong style="color:rgba(255,255,255,0.75);">${gpsLabel}</strong></span>
+        <span>Historial: <strong style="color:rgba(255,255,255,0.75);">${histLabel}</strong></span>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">${pills}</div>`;
+  }
+
+  // Init plan info and listen for changes
+  _renderPlanInfo('local');
+  document.getElementById('nePlan')?.addEventListener('change', (e) => _renderPlanInfo(e.target.value));
+
   function close() { overlay.remove(); }
   document.getElementById('closeNuevaEmpresa')?.addEventListener('click', close);
   document.getElementById('cancelNuevaEmpresa')?.addEventListener('click', close);
   overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
 
   document.getElementById('submitNuevaEmpresa')?.addEventListener('click', async () => {
-    const nombre = document.getElementById('neNombre')?.value.trim();
-    const id = document.getElementById('neId')?.value.trim();
-    const tipo = document.getElementById('neTipo')?.value;
-    const plan = document.getElementById('nePlan')?.value;
+    const nombre  = document.getElementById('neNombre')?.value.trim();
+    const id      = document.getElementById('neId')?.value.trim();
+    const tipo    = document.getElementById('neTipo')?.value;
+    const planKey = document.getElementById('nePlan')?.value;
     const errorEl = document.getElementById('neError');
 
     if (!nombre || !id) {
@@ -187,16 +232,13 @@ function _openNuevaEmpresaModal(navigate) {
     btn.disabled = true;
     btn.textContent = 'Creando...';
 
-    // Build features object from checkboxes
-    const features = {};
-    document.querySelectorAll('#neFeatures input[type="checkbox"]').forEach(cb => {
-      features[cb.dataset.feature] = cb.checked;
-    });
-    // mapa is always true
-    features.mapa = true;
+    // Obtener features y límites del catálogo de planes
+    const PLANES = window.mexFeatures?.PLANES;
+    const planDef = PLANES?.[planKey];
+    const features = planDef ? { ...planDef.features } : {};
+    const limites  = planDef ? { ...planDef.limites  } : { maxPlazas: 1, maxUsuarios: 10, maxUnidades: -1, gps_refresh_sec: 30, historial_dias: 90 };
 
     try {
-      // Check if ID already exists
       const existing = await window._db.collection('empresas').doc(id).get();
       if (existing.exists) {
         errorEl.textContent = 'Ya existe una empresa con ese ID. Elige otro.';
@@ -208,20 +250,23 @@ function _openNuevaEmpresaModal(navigate) {
 
       await window._db.collection('empresas').doc(id).set({
         nombre,
+        slug:         id,
         tipo_negocio: tipo,
-        plan,
+        plan:         planKey,
         features,
-        plazas: [],
-        limites: { plazas: 5, usuarios: 20 },
-        branding: { colorPrincipal: '#6366f1' },
-        activo: true,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        limites,
+        plazas:       [],
+        plazasDetalle:{},
+        branding:     { nombre, nombreComercial: nombre, colorPrincipal: planDef?.color || '#3b82f6', correosInternos: [] },
+        activa:       true,
+        onboarding_completado: false,
+        onboarding_paso:       'inicio',
+        creadaEn:     firebase.firestore.FieldValue.serverTimestamp(),
+        _updatedAt:   firebase.firestore.FieldValue.serverTimestamp(),
       });
 
       close();
-      _toast(`Empresa "${nombre}" creada exitosamente.`, 'success');
-      // Reload the list
+      _toast(`Empresa "${nombre}" creada con plan ${planDef?.label || planKey}.`, 'success');
       setTimeout(() => navigate('/programador/saas'), 300);
     } catch (err) {
       console.error('[saas] createEmpresa:', err);
@@ -440,9 +485,11 @@ function _limitCell(label, val) {
 }
 
 function _planBadge(plan) {
-  const p = String(plan || 'free').toLowerCase();
-  const bg = { starter:'#d97706', business:'#6366f1', enterprise:'#059669', free:'#334155' }[p] || '#334155';
-  return `<span style="flex-shrink:0;font-size:10px;font-weight:800;text-transform:uppercase;border-radius:5px;padding:2px 7px;background:${bg};color:#fff;">${_esc(plan || 'free')}</span>`;
+  const p = String(plan || '').toLowerCase();
+  const PLANES = window.mexFeatures?.PLANES;
+  const color = PLANES?.[p]?.color || { starter:'#d97706', business:'#6366f1', enterprise:'#059669', free:'#334155', pro:'#8b5cf6' }[p] || '#334155';
+  const label = PLANES?.[p]?.label || plan || '—';
+  return `<span style="flex-shrink:0;font-size:10px;font-weight:800;text-transform:uppercase;border-radius:5px;padding:2px 7px;background:${color};color:#fff;">${_esc(label)}</span>`;
 }
 
 function _featurePills(f) {
