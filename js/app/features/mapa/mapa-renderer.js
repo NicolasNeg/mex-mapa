@@ -222,6 +222,38 @@ export function normalizeMapaViewModel(data = {}) {
   });
 }
 
+function _getHeatBadge(fechaIngreso) {
+  if (!fechaIngreso || String(fechaIngreso).trim() === '') return '';
+  try {
+    const d = new Date(fechaIngreso);
+    if (isNaN(d.getTime())) return '';
+    const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
+    let bg, border, color, text, icon;
+    if (dias <= 2)      { bg = '#dcfce7'; border = '#86efac'; color = '#16a34a'; text = `${dias} DÍAS`; icon = 'eco'; }
+    else if (dias <= 5) { bg = '#fef9c3'; border = '#fde047'; color = '#ca8a04'; text = `${dias} DÍAS`; icon = 'schedule'; }
+    else                { bg = '#fee2e2'; border = '#fca5a5'; color = '#ef4444'; text = `${dias} DÍAS`; icon = 'local_fire_department'; }
+    return `<div class="badge-calor" style="background:${bg};border:1px solid ${border};color:${color};"><span class="material-icons" style="font-size:11px;">${icon}</span> ${text}</div>`;
+  } catch (_) { return ''; }
+}
+
+function _legacyGasBar(gasolinaRaw) {
+  const gas = String(gasolinaRaw == null ? '' : gasolinaRaw).trim().toUpperCase();
+  if (!gas || gas === 'N/A' || gas === '—') return '';
+  let pct = 0;
+  if (gas === 'F' || gas === 'FULL') pct = 100;
+  else if (gas === 'E') pct = 0;
+  else if (gas === 'H') pct = 50;
+  else if (gas.includes('/')) {
+    const [n, d] = gas.split('/').map(Number);
+    if (d) pct = Math.round((n / d) * 100);
+  } else {
+    const n = Number(gas.replace('%', ''));
+    if (Number.isFinite(n)) pct = Math.max(0, Math.min(100, n));
+  }
+  const color = pct >= 75 ? '#4ade80' : pct >= 37 ? '#facc15' : '#f87171';
+  return `<div class="gas-container"><div class="gas-fill" style="width:${pct}%;background:${color};"></div><span class="gas-text">${esc(gasolinaRaw)}</span></div>`;
+}
+
 export function renderUnit(unit, options = {}) {
   const selectedId = String(options.selectedId || '');
   const selected = selectedId && selectedId === String(unit.id);
@@ -253,29 +285,51 @@ export function renderUnit(unit, options = {}) {
   const stateClass = _stateClass(unit.estado);
   const legacyCar = _legacyCarPaintClass(unit.estado, unit.tipo, unit.ubicacion);
   const legacyCarCls = legacyCar ? ` ${legacyCar}` : '';
-  const gasPct = _gasPct(unit.gasolina);
-  const gasLabel = unit.gasolina != null && unit.gasolina !== '' && unit.gasolina !== '—' ? String(unit.gasolina) : 'N/A';
-  const incHtml =
-    showInc || showCrit
-      ? `<span class="app-mapa-unit-inc" aria-label="Incidencias">
+
+  // Heat/age badge
+  const calorHtml = _getHeatBadge(unit.fechaIngreso || unit.ingreso);
+
+  // Notes-based badges
+  const notesUp = String(unit.notas || '').toUpperCase();
+  const isInTransit = String(unit.estado || '').toUpperCase().includes('TRASLADO') || Boolean(unit.traslado_destino);
+  const urgHtml    = notesUp.includes('URGENTE')  ? '<div class="urgent-badge">⚡</div>' : '';
+  const lockHtml   = (notesUp.includes('RESERVAD') || notesUp.includes('APARTAD')) ? '<div class="lock-badge">🔒</div>' : '';
+  const docHtml    = notesUp.includes('DOBLE CERO') ? '<div class="doc-badge">🍃</div>' : '';
+  const mantoHtml  = (['MANTENIMIENTO', 'TALLER'].includes(String(unit.estado || '').toUpperCase())) ? '<div class="manto-badge">⚙️</div>' : '';
+  const trasladoDest = esc(String(unit.traslado_destino || ''));
+  const trasladoHtml = isInTransit
+    ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + trasladoDest : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${trasladoDest}</span>` : ''}</div>`
+    : '';
+
+  // Incidencias badge
+  const incHtml = showInc || showCrit
+    ? `<span class="app-mapa-unit-inc" aria-label="Incidencias">
         ${showCrit ? '<span class="app-mapa-inc-crit" title="Incluye prioridad alta/crítica">!</span>' : ''}
         ${showInc ? `<span class="app-mapa-inc-badge">${inc.total}</span>` : ''}
       </span>`
-      : '';
+    : '';
+
+  // Gas bar (legacy style)
+  const gasBarHtml = _legacyGasBar(unit.gasolina);
+
+  // Sidebar body — shown in the units drawer, hidden on map
+  const estadoClsLower = String(unit.estado || 'sucio').toLowerCase().trim()
+    .normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, '-');
+  const estadoSidebar  = isInTransit ? 'EN TRASLADO' : esc(unit.estado || 'DISPONIBLE');
+  const placasSide  = unit.placas  ? `<span class="car-sb-chip"><span class="material-icons" style="font-size:11px;vertical-align:middle;">pin</span> ${esc(unit.placas)}</span>`  : '';
+  const modeloSide  = unit.modelo  ? `<span class="car-sb-chip"><span class="material-icons" style="font-size:11px;vertical-align:middle;">directions_car</span> ${esc(unit.modelo)}</span>` : '';
+  const metaSide    = (placasSide || modeloSide) ? `<div class="car-sb-meta">${placasSide}${modeloSide}</div>` : '';
+  const sidebarBody = `<div class="car-sidebar-body"><div class="car-sb-main"><span class="car-sb-mva">${esc(unit.mva)}</span><span class="car-sb-badge car-sb-badge--${esc(estadoClsLower)}">${estadoSidebar}</span></div>${metaSide}</div>`;
+
   return `
     <button type="button" class="app-mapa-unit car${legacyCarCls} ${stateClass} ${selected ? 'is-selected selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
       data-unit-id="${esc(unit.id)}"${baseAttrs}${dndAttrs}>
-      <div class="app-mapa-unit-top">
-        <strong>${esc(unit.mva)}</strong>
-        ${incHtml}
-        <span class="app-mapa-unit-state ${stateClass}">${esc(unit.estado)}</span>
+      ${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}${incHtml}
+      <div class="car-map-content">
+        <span class="car-mva-label">${esc(unit.mva)}</span>
+        ${gasBarHtml}
       </div>
-      <div class="app-mapa-unit-meta">${esc(unit.modelo)} · ${esc(unit.placas)}</div>
-      <div class="app-mapa-gas ${_gasClass(gasPct)}" aria-label="Gasolina ${esc(gasLabel)}">
-        <span class="app-mapa-gas-fill" style="width:${gasPct}%"></span>
-        <span class="app-mapa-gas-text">${esc(gasLabel)}</span>
-      </div>
-      <div class="app-mapa-unit-zona">${esc(position || '—')}${zoneHint ? ` · <span class="app-mapa-unit-zone-hint">${esc(zoneHint)}</span>` : ''}</div>
+      ${sidebarBody}
     </button>
   `;
 }
