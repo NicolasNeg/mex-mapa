@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /home
+Allow: /login
+Allow: /contrato-publico.html
+Allow: /solicitud.html
+Allow: /manifest.json
+Allow: /img/
+Disallow: /app
+Disallow: /mapa
+Disallow: /cuadre
+Disallow: /gestion
+Disallow: /mensajes
+Disallow: /profile
+Disallow: /editmap
+Disallow: /incidencias
+Disallow: /cola-preparacion
+Disallow: /programador
+
+Sitemap: https://app.mapgestion.com/sitemap.xml

@@ -1,7 +1,7 @@
 {
-  "name": "MapGestion — Gestión Operativa",
+  "name": "MapGestion — App de Mapa y Gestión",
   "short_name": "MapGestion",
-  "description": "Plataforma de control operativo y gestión de flota vehicular en tiempo real",
+  "description": "Plataforma de mapa y gestión operativa de flotas vehiculares en tiempo real para México.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -12,15 +12,15 @@
   "categories": ["business", "productivity"],
   "icons": [
     {
-      "src": "img/no-model.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "img/no-model.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "img/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "maskable"
     }
   ],
