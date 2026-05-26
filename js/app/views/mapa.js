@@ -1126,6 +1126,7 @@ export function mount({ container, shell }) {
   // En App Shell: colapsar sidebar igual que legacy (body.app-map-legacy-shell → 84px)
   _sidebarWasExpanded = !!(shell && shell.sidebar && !shell.sidebar.isCollapsed);
   if (_sidebarWasExpanded) shell.sidebar.collapse();
+  if (shell) container?.classList?.add('mapa-view-active');
   _trackListener('create', 'view', { plaza: getState().currentPlaza || '' });
   _ensureCss();
   const state = getState();
@@ -1585,6 +1586,7 @@ export function unmount() {
   _addedLegacyClass = false;
   if (_sidebarWasExpanded && _shell?.sidebar) _shell.sidebar.expand();
   _sidebarWasExpanded = false;
+  _container?.classList?.remove('mapa-view-active');
   _removeMapaModals();
   try {
     _unitActionsCtrl?.cleanup?.();

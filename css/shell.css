@@ -932,23 +932,67 @@
 
 /* ─ Mapa ─────────────────────────────────────────────────────── */
 /*
-  .app-mapa-view tiene padding: 20px por defecto → añade 40px de altura extra
-  dentro de #mexShellContent y genera un scroll innecesario. Lo quitamos.
-
-  .app-mapa-view.app-mapa-operativo tiene min-height: calc(100vh - 64px)
-  que puede causar overflow adicional. Lo anulamos.
-
-  El canvas viewport tiene max-height: calc(100vh - 240px) pensado para el
-  standalone legacy (header page 64px + kpi + margins ≈ 240px). En App Shell
-  el header ya está fuera de #mexShellContent, así que el canvas puede ser
-  más alto; ajustamos para que use casi todo el espacio disponible.
+  Flex-chain scoped: la clase .mapa-view-active se añade por JS al montar
+  la vista mapa. Hace que el canvas llene exactamente #mexShellContent sin
+  depender de calc(100vh - Xpx) ni de alturas absolutas del shell legacy.
 */
-#mexShellContent .app-mapa-view {
-  padding: 0 !important;
+#mexShellContent.mapa-view-active {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* el canvas tiene su propio overflow:auto interno */
 }
-#mexShellContent .app-mapa-view.app-mapa-operativo {
+#mexShellContent.mapa-view-active .app-mapa-view {
+  flex: 1;
+  min-height: 0;
+  padding: 0 !important;
+  display: flex;
+  flex-direction: column;
   min-height: 0 !important;
 }
-#mexShellContent .app-mapa-legacy-port .map-zoom-container.app-mapa-canvas-viewport {
-  max-height: calc(100vh - var(--sh-header-h) - 44px) !important;
+/* Sobrescribe height:calc(100vh-64px) del CSS base — aquí usamos flex:1 */
+#mexShellContent.mapa-view-active #app-mapa-content.app-mapa-content {
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+#mexShellContent.mapa-view-active .app-mapa-legacy-port {
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+#mexShellContent.mapa-view-active .app-mapa-legacy-port .content.app-mapa-legacy-content {
+  flex: 1;
+  min-height: 0;
+  height: auto !important;
+  display: flex;
+  flex-direction: column;
+}
+/* El grid del mapa se estira para llenar la columna flex */
+#mexShellContent.mapa-view-active .app-mapa-legacy-mapdetail-row {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch !important;
+}
+#mexShellContent.mapa-view-active .app-mapa-legacy-main-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+#mexShellContent.mapa-view-active .app-mapa-legacy-port .map-stage.app-mapa-map-stage {
+  flex: 1;
+  min-height: 0;
+  margin: 8px 0 8px;
+  width: 100%;
+  max-width: 100%;
+}
+/* El canvas viewport llena todo — su propio overflow:auto maneja mapas grandes */
+#mexShellContent.mapa-view-active .app-mapa-legacy-port .map-zoom-container.app-mapa-canvas-viewport {
+  flex: 1;
+  min-height: 80px !important;
+  max-height: none !important;
+  width: 100%;
 }
