@@ -692,6 +692,185 @@
   background: #fee2e2;
 }
 
+/* ── Company brand ────────────────────────────────────────── */
+.dash-company-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.dash-company-logo {
+  height: 36px;
+  max-width: 120px;
+  width: auto;
+  object-fit: contain;
+  border-radius: 8px;
+}
+
+.dash-company-monogram {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--brand, #6366f1);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+.dash-company-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: -0.01em;
+}
+
+/* ── Turno widget enhancements ────────────────────────────── */
+.dash-turno-widget {
+  border-color: #c7d2fe;
+  background: linear-gradient(135deg, #f8f8ff 0%, #fff 100%);
+}
+
+.dash-turno-widget .dash-widget-head .material-symbols-outlined {
+  color: #6366f1;
+}
+
+.dash-turno-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  animation: dashPulse 2s ease-in-out infinite;
+}
+
+.dash-turno-active-info {
+  flex: 1;
+}
+
+.dash-turno-rest {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #6366f1;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.dash-turno-hint {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+
+.dash-turno-schedule {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.dash-turno-sch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #475569;
+}
+
+.dash-turno-sch-row strong {
+  color: #0f172a;
+}
+
+/* ── Equipo en turno ──────────────────────────────────────── */
+.dash-equipo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #6366f1;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.dash-equipo-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.dash-equipo-row:last-child {
+  border-bottom: none;
+}
+
+.dash-equipo-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-equipo-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dash-equipo-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dash-equipo-dur {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+.dash-equipo-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+}
+
 /* ── Preferred view bar ───────────────────────────────────── */
 .dash-pref-bar {
   display: flex;
