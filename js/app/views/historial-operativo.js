@@ -10,6 +10,7 @@
 let _container  = null;
 let _state      = null;
 let _cssInjected = false;
+let _abortCtrl  = null;
 
 // ── Estado interno ───────────────────────────────────────────
 function _makeState() {
@@ -236,7 +237,11 @@ async function _loadEstado() {
 
 // ── Eventos ──────────────────────────────────────────────────
 function _bindEvents() {
+  _abortCtrl?.abort();
+  _abortCtrl = new AbortController();
+  const sig = { signal: _abortCtrl.signal };
   _container.addEventListener('click', e => {
+    if (!_state) return;
     const tabBtn = e.target.closest('[data-tab]');
     if (tabBtn) {
       _state.tab = tabBtn.dataset.tab;
@@ -260,19 +265,21 @@ function _bindEvents() {
     }
     if (e.target.closest('#hist-op-recargarMov')) { _state.movimientos = []; _loadMovimientos(); return; }
     if (e.target.closest('#hist-op-recargarEst')) { _state.estado = []; _loadEstado(); return; }
-  });
+  }, sig);
 
   _container.addEventListener('input', e => {
+    if (!_state) return;
     if (e.target.id === 'hist-op-qMov')   { _state.qMov = e.target.value; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-qEst')   { _state.qEst = e.target.value; _renderEstado(); return; }
-  });
+  }, sig);
 
   _container.addEventListener('change', e => {
+    if (!_state) return;
     if (e.target.id === 'hist-op-tipoMov')    { _state.tipoMov = e.target.value; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-fechaMov')   { _state.fechaMov = e.target.value; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-usuarioMov') { _state.usuarioMov = e.target.value; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-tipoEst')    { _state.tipoEst = e.target.value; _renderEstado(); return; }
-  });
+  }, sig);
 }
 
 // ── API pública del módulo ───────────────────────────────────
@@ -287,6 +294,8 @@ export function mount(ctx) {
 }
 
 export function unmount() {
+  _abortCtrl?.abort();
+  _abortCtrl = null;
   if (_container) _container.innerHTML = '';
   _container = null;
   _state     = null;

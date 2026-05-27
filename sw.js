@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v409';
+const CACHE_NAME = 'mapa-v410';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -288,7 +288,10 @@ self.addEventListener('fetch', event => {
           const cached = await caches.match(event.request);
           if (cached) return cached;
           if (isDocumentRequest) {
-            return (await caches.match('/index.html')) || Response.error();
+            const shellFallback = url.pathname.startsWith('/app')
+              ? await caches.match('/app.html')
+              : await caches.match('/index.html');
+            return shellFallback || Response.error();
           }
           return Response.error();
         })
@@ -312,7 +315,8 @@ self.addEventListener('fetch', event => {
         })
         .catch(() => {
           if (event.request.destination === 'document') {
-            return caches.match('/index.html').then(match => match || Response.error());
+            const fallbackKey = url.pathname.startsWith('/app') ? '/app.html' : '/index.html';
+            return caches.match(fallbackKey).then(match => match || Response.error());
           }
           return Response.error();
         });

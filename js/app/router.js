@@ -96,7 +96,7 @@ const ROUTE_TABLE = {
     feature:  'incidencias'
   },
   '/app/cuadre':   { loader: () => import('/js/app/views/cuadre.js'), navRoute: '/cuadre', feature: 'cuadre' },
-  '/app/admin':    { loader: () => import('/js/app/views/admin.js'), navRoute: '/gestion' },
+  '/app/admin':    legacyStage('admin', '/gestion'),
   '/app/gestion':           { redirect: '/app/admin' },
   '/app/usuarios':          { redirect: '/app/admin?tab=usuarios' },
   '/app/admin/usuarios':    { redirect: '/app/admin?tab=usuarios' },
