@@ -834,27 +834,31 @@
 
     /* Sección labels dentro del sidebar */
     .sidebar-section-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 1px;
-      margin: 0 0 10px;
+      letter-spacing: 1.2px;
+      margin: 0 0 8px;
       display: flex;
       align-items: center;
       gap: 6px;
+      padding: 5px 10px;
+      border-radius: 8px;
     }
 
     .sidebar-section-label.patio {
-      color: #0369a1;
+      color: #1d4ed8;
+      background: #eff6ff;
     }
 
     .sidebar-section-label.taller {
-      color: #b45309;
+      color: #92400e;
+      background: #fffbeb;
     }
 
     .sidebar-taller-box {
-      background: #fffbeb;
-      padding: 12px;
+      background: rgba(251, 191, 36, 0.06);
+      padding: 10px;
       border-radius: 12px;
       border: 1.5px dashed #fcd34d;
       min-height: 50px;
@@ -880,9 +884,12 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: 0.2s;
+      transition: background 0.18s, transform 0.18s;
     }
-    .sidebar-opts-btn:hover { background: rgba(255,255,255,0.22) !important; }
+    .sidebar-opts-btn:hover {
+      background: rgba(255,255,255,0.22) !important;
+      transform: rotate(30deg);
+    }
 
     /* ── Sidebar options panel (heatmap toggle, etc.) ── */
     .sidebar-opciones-panel {
@@ -993,19 +1000,21 @@
       height: auto !important;
       min-height: 0 !important;
       width: 100% !important;
-      border-radius: 10px !important;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07) !important;
+      border-radius: 12px !important;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 0 0 1px rgba(0,0,0,0.04) !important;
       margin-bottom: 0 !important;
       display: block !important;
-      padding: 11px 14px !important;
+      padding: 10px 13px !important;
       background: #ffffff !important;
       color: #1e293b !important;
       text-shadow: none !important;
-      border: 1px solid #e2e8f0 !important;
+      border: none !important;
       border-left: 4px solid #3b82f6 !important;
       animation: none !important;
       overflow: visible !important;
       transform: none !important;
+      cursor: grab;
+      transition: box-shadow 0.15s, background 0.15s, transform 0.12s !important;
     }
 
     #unidades-taller .car {
@@ -1014,15 +1023,15 @@
 
     #unidades-limbo .car:hover,
     #unidades-taller .car:hover {
-      transform: none !important;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+      transform: translateX(-2px) !important;
+      box-shadow: 3px 4px 16px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(59,130,246,0.12) !important;
       background: #f8fafc !important;
     }
 
     #unidades-limbo .car:active,
     #unidades-taller .car:active {
-      transform: scale(0.98) !important;
-      filter: brightness(0.97);
+      transform: scale(0.97) !important;
+      cursor: grabbing;
     }
 
     .units-sidebar .car:active {
@@ -5441,10 +5450,12 @@
 
 .sidebar-backdrop {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 320px; /* no tapar el sidebar */
   z-index: 1999;
-  background: rgba(7, 17, 31, 0.45);
-  backdrop-filter: blur(2px);
+  background: rgba(7, 17, 31, 0.38);
   pointer-events: auto;
   animation: backdropFadeIn 0.25s ease forwards;
 }
@@ -5481,3 +5492,20 @@
 .units-sidebar.open .car:nth-child(9)  { animation-delay: 0.29s; }
 .units-sidebar.open .car:nth-child(10) { animation-delay: 0.31s; }
 .units-sidebar.open .car:nth-child(n+11) { animation-delay: 0.33s; }
+
+/* ── Fly-to-limbo pill ───────────────────────────────────────── */
+.car-fly-pill {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  color: #e0f2fe;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.45), 0 0 0 1px rgba(255,255,255,0.1);
+  pointer-events: none;
+  position: fixed;
+  z-index: 99999;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}

@@ -5118,6 +5118,8 @@ async function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
 function moverUnidadInmediato(unidad, destino, { fromDrag = false } = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return;
   MAP_SWAP_MODE_ACTIVE = false;
+  const goingToLimbo = destino.id === 'unidades-limbo' || destino.id === 'unidades-taller';
+  if (goingToLimbo) _flyCarToLimbo(unidad);
 
   const _commit = () => {
     destino.appendChild(unidad);
@@ -5153,8 +5155,41 @@ function moverUnidadInmediato(unidad, destino, { fromDrag = false } = {}) {
   }
 }
 
+function _flyCarToLimbo(carEl) {
+  if (!carEl) return;
+  const sidebar = document.getElementById('sidebar');
+  const isOpen = sidebar?.classList.contains('open');
+  const targetEl = isOpen
+    ? document.getElementById('unidades-limbo')
+    : document.getElementById('btnAbrirUnidades');
+  if (!targetEl) return;
+
+  const from = carEl.getBoundingClientRect();
+  const to   = targetEl.getBoundingClientRect();
+  const mva  = carEl.dataset.mva || '';
+
+  const pill = document.createElement('div');
+  pill.className = 'car-fly-pill';
+  pill.textContent = mva;
+  pill.style.left = `${from.left + from.width  / 2}px`;
+  pill.style.top  = `${from.top  + from.height / 2}px`;
+  document.body.appendChild(pill);
+
+  const dx   = (to.left + to.width  / 2) - (from.left + from.width  / 2);
+  const dy   = (to.top  + to.height / 2) - (from.top  + from.height / 2);
+  const arcY = Math.min(dy * 0.25, -60);
+
+  pill.animate([
+    { transform: 'translate(-50%,-50%) scale(1)',                                         opacity: 1,   offset: 0   },
+    { transform: `translate(calc(-50% + ${dx * 0.4}px), calc(-50% + ${arcY}px)) scale(0.9)`, opacity: 0.95, offset: 0.35 },
+    { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.25)`,    opacity: 0,   offset: 1   },
+  ], { duration: 480, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)', fill: 'forwards' })
+    .addEventListener('finish', () => pill.remove());
+}
+
 function resetUnitToLimbo() {
   if (!selectedAuto) return;
+  _flyCarToLimbo(selectedAuto);
   MAP_SWAP_MODE_ACTIVE = false;
   document.getElementById("unidades-limbo").appendChild(selectedAuto);
   lastMoveTime = Date.now();
