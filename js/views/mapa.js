@@ -1787,6 +1787,7 @@ function _isCuadreFleetMode() {
   const tab = (_qs('tab') || '').toLowerCase();
   return _qs('fleet') === '1'
     || /^\/cuadre(?:\.html)?$/i.test(window.location.pathname || '')
+    || /^\/app\/cuadre$/i.test(window.location.pathname || '')
     || tab === 'cuadre'
     || tab === 'cuadreadmins';
 }
@@ -23170,4 +23171,13 @@ window.addEventListener('mex:empresa-change', () => {
   if (typeof configurarPermisosUI === 'function' && currentUserProfile) {
     configurarPermisosUI();
   }
+});
+
+// App Shell cuadre view asks us to open/close the fleet modal in-place.
+window.addEventListener('mex:navigate-cuadre', (e) => {
+  const tab = e?.detail?.tab || 'NORMAL';
+  if (typeof abrirModalFlota === 'function') abrirModalFlota(tab);
+});
+window.addEventListener('mex:navigate-mapa', () => {
+  if (typeof cerrarModalFlota === 'function') cerrarModalFlota();
 });

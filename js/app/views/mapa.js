@@ -132,9 +132,9 @@ export async function mount(ctx) {
     await import('/js/views/mapa.js');
   } else {
     // Re-montaje: el DOM y las suscripciones ya existen
-    // Solo asegurar overrides y mostrar
     _ensureStageOverrides(stage);
-    // Notificar al legacy que volvió al viewport (para resize/re-render)
+    // Cerrar fleet modal si venimos de /app/cuadre
+    window.dispatchEvent(new CustomEvent('mex:navigate-mapa'));
     window.dispatchEvent(new Event('resize'));
     window.dispatchEvent(new CustomEvent('mex:mapa-stage-visible'));
   }
