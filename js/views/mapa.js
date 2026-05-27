@@ -5196,6 +5196,27 @@ function sincronizarEstadoSidebars() {
   document.getElementById('overlay')?.classList.toggle('active', !!(sidebarOpen || adminOpen));
 }
 
+function _getSidebarBackdrop() {
+  return document.getElementById('_sidebarBackdrop');
+}
+
+function _createSidebarBackdrop() {
+  if (_getSidebarBackdrop()) return;
+  const bd = document.createElement('div');
+  bd.id = '_sidebarBackdrop';
+  bd.className = 'sidebar-backdrop';
+  bd.addEventListener('click', () => toggleSidebar(false));
+  document.body.appendChild(bd);
+}
+
+function _removeSidebarBackdrop() {
+  const bd = _getSidebarBackdrop();
+  if (!bd) return;
+  bd.classList.add('is-closing');
+  bd.addEventListener('animationend', () => bd.remove(), { once: true });
+  setTimeout(() => { if (bd.isConnected) bd.remove(); }, 300);
+}
+
 function toggleSidebar(forceState = null) {
   const sidebar = document.getElementById('sidebar');
   const adminSidebar = document.getElementById('admin-sidebar');
@@ -5204,6 +5225,10 @@ function toggleSidebar(forceState = null) {
   const abrir = typeof forceState === 'boolean' ? forceState : !sidebar.classList.contains('open');
   if (abrir) adminSidebar?.classList.remove('open');
   sidebar.classList.toggle('open', abrir);
+
+  if (abrir) _createSidebarBackdrop();
+  else _removeSidebarBackdrop();
+
   sincronizarEstadoSidebars();
 }
 

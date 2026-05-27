@@ -932,6 +932,16 @@
     .sidebar-switch input:checked ~ .sidebar-switch-track::after { left: 20px; }
 
     /* ── Floating button to open units sidebar ── */
+    @keyframes btnUnidadesPulse {
+      0%   { box-shadow: -3px 0 12px rgba(0,0,0,0.25), 0 0 0 0 rgba(59,130,246,0.5); }
+      60%  { box-shadow: -3px 0 12px rgba(0,0,0,0.25), -6px 0 0 6px rgba(59,130,246,0); }
+      100% { box-shadow: -3px 0 12px rgba(0,0,0,0.25), 0 0 0 0 rgba(59,130,246,0); }
+    }
+    @keyframes btnCarFloat {
+      0%, 100% { transform: translateY(-50%) translateX(0); }
+      50%       { transform: translateY(-50%) translateX(-3px); }
+    }
+
     #btnAbrirUnidades {
       position: fixed;
       right: 0;
@@ -950,8 +960,12 @@
       cursor: pointer;
       box-shadow: -3px 0 12px rgba(0,0,0,0.25);
       transition: background 0.15s;
+      animation: btnUnidadesPulse 2.4s ease-in-out infinite, btnCarFloat 3s ease-in-out infinite;
     }
-    #btnAbrirUnidades:hover { background: #1e40af; }
+    #btnAbrirUnidades:hover {
+      background: #1e40af;
+      animation: none;
+    }
     #btnAbrirUnidades .material-icons { font-size: 20px; }
     body.sidebar-open #btnAbrirUnidades { display: none; }
 
@@ -5409,3 +5423,50 @@
 .car.car-arrive {
   animation: carArrive 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* ── Units sidebar backdrop ─────────────────────────────────── */
+@keyframes backdropFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdropFadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+.sidebar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1999;
+  background: rgba(7, 17, 31, 0.45);
+  backdrop-filter: blur(2px);
+  pointer-events: auto;
+  animation: backdropFadeIn 0.25s ease forwards;
+}
+.sidebar-backdrop.is-closing {
+  animation: backdropFadeOut 0.2s ease forwards;
+  pointer-events: none;
+}
+
+/* ── Units sidebar header animate-in ────────────────────────── */
+@keyframes sidebarHeaderIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.units-sidebar.open .units-sidebar-header h2 {
+  animation: sidebarHeaderIn 0.3s 0.08s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Units stagger on sidebar open ──────────────────────────── */
+@keyframes sidebarUnitIn {
+  from { opacity: 0; transform: translateX(24px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
+}
+.units-sidebar.open .car {
+  animation: sidebarUnitIn 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.units-sidebar.open .car:nth-child(1)  { animation-delay: 0.06s; }
+.units-sidebar.open .car:nth-child(2)  { animation-delay: 0.10s; }
+.units-sidebar.open .car:nth-child(3)  { animation-delay: 0.13s; }
+.units-sidebar.open .car:nth-child(4)  { animation-delay: 0.16s; }
+.units-sidebar.open .car:nth-child(5)  { animation-delay: 0.19s; }
+.units-sidebar.open .car:nth-child(6)  { animation-delay: 0.22s; }
+.units-sidebar.open .car:nth-child(7)  { animation-delay: 0.25s; }
+.units-sidebar.open .car:nth-child(8)  { animation-delay: 0.27s; }
+.units-sidebar.open .car:nth-child(9)  { animation-delay: 0.29s; }
+.units-sidebar.open .car:nth-child(10) { animation-delay: 0.31s; }
+.units-sidebar.open .car:nth-child(n+11) { animation-delay: 0.33s; }
