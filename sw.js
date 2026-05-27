@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v393';
+const CACHE_NAME = 'mapa-v394';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -54,6 +54,10 @@ const CRITICAL_ASSETS = [
   '/js/layouts/app-shell.js',
   '/js/features/cuadre/pdf-reservas.js',
   '/js/features/cuadre/prediccion.js',
+  // Módulos extraídos Fase 4
+  '/mapa/features/core/utils.js',
+  '/mapa/features/extras/supervision.js',
+  '/mapa/features/extras/ocr.js',
   // Vistas legacy
   '/js/views/login.js',
   '/js/views/mapa.js',

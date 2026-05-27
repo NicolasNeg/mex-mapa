@@ -34,6 +34,11 @@ import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
 import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consumeShellSearch, ensureRouteShellLayout, queueShellSearch } from '/js/views/home.js';
 
+// ── Módulos extraídos (Fase 4) ────────────────────────────
+import { escapeHtml, _safeUpper, _safeLower, _cloneJson, generarSlugArchivo, descargarArchivoLocal, _gasToPercent, formatearFechaDocumento, _darken } from '/mapa/features/core/utils.js';
+import { abrirComparadorPlazas, cerrarComparadorPlazas, exportarComparadorCSV } from '/mapa/features/extras/supervision.js';
+import { procesarImagenOCR, ejecutarLogicaOCR } from '/mapa/features/extras/ocr.js';
+
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
 
@@ -220,15 +225,7 @@ function _aplicarColoresEstados() {
   styleTag.textContent = css;
 }
 
-// Oscurece un color hex por un % (0-100)
-function _darken(hex, pct) {
-  let c = hex.replace('#', '');
-  if (c.length === 3) c = c.split('').map(x => x + x).join('');
-  const r = Math.max(0, parseInt(c.slice(0, 2), 16) - Math.round(2.55 * pct));
-  const g = Math.max(0, parseInt(c.slice(2, 4), 16) - Math.round(2.55 * pct));
-  const b = Math.max(0, parseInt(c.slice(4, 6), 16) - Math.round(2.55 * pct));
-  return `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')}`;
-}
+function _darken(hex, pct) { /* _darken → /mapa/features/core/utils.js (Fase 4) */ }
 
 async function inicializarConfiguracion() {
   try {
@@ -885,9 +882,7 @@ const BASE_ROLE_META = Object.freeze({
 let ROLE_META = {};
 let ROLE_OPTIONS = [];
 
-function _cloneJson(value) {
-  return JSON.parse(JSON.stringify(value));
-}
+function _cloneJson(value) { /* _cloneJson → /mapa/features/core/utils.js (Fase 4) */ }
 
 function _configuredSecurity() {
   const security = window.MEX_CONFIG?.empresa?.security;
@@ -1747,14 +1742,7 @@ function _umGetPlazasDisponibles() {
   return [...set].sort();
 }
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// escapeHtml → /mapa/features/core/utils.js (Fase 4)
 
 const _adminAuditLocationState = {
   status: 'pending',
@@ -1767,13 +1755,7 @@ let _cuadreFleetBooted = false;
 let _adminInlineRouteBound = false;
 let _fleetInlineRouteBound = false;
 
-function _safeUpper(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function _safeLower(value) {
-  return String(value || '').trim().toLowerCase();
-}
+// _safeUpper / _safeLower → /mapa/features/core/utils.js (Fase 4)
 
 function _qs(name) {
   return new URLSearchParams(window.location.search).get(name);
@@ -2137,26 +2119,7 @@ async function registrarEventoGestion(tipo, mensaje, extra = {}) {
   }
 }
 
-function generarSlugArchivo(texto) {
-  return String(texto || 'reporte')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'reporte';
-}
-
-function descargarArchivoLocal(nombreArchivo, contenido, mimeType) {
-  const blob = new Blob([contenido], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = nombreArchivo;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// generarSlugArchivo / descargarArchivoLocal \u2192 /mapa/features/core/utils.js (Fase 4)
 
 function abrirReporteImpresion(htmlContenido) {
   const container = document.getElementById('reporte-pdf-container');
@@ -2224,17 +2187,7 @@ function abrirReporteImpresion(htmlContenido) {
   }, 80);
 }
 
-function formatearFechaDocumento(fechaTexto) {
-  const fecha = new Date(fechaTexto);
-  if (Number.isNaN(fecha.getTime())) return String(fechaTexto || '');
-  return fecha.toLocaleString('es-MX', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
+function formatearFechaDocumento(fechaTexto) { /* formatearFechaDocumento → /mapa/features/core/utils.js (Fase 4) */ }
 
 // auth ya está declarada en mex-api.js — no redeclarar
 
@@ -15403,86 +15356,9 @@ function colapsarTerminal() {
 /**
  * 👁️ RECONOCIMIENTO DE PLACAS OPTIMIZADO (SIN ALERTS)
  */
-async function procesarImagenOCR(event) {
-  const file = event.target.files[0];
-  if (!file) return;
+async function procesarImagenOCR(event) { /* procesarImagenOCR → /mapa/features/extras/ocr.js (Fase 4) */ }
 
-  // Notificación visual de progreso
-  notificarRespuestaIA("👁️ Procesando placa... por favor espera.");
-
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const img = new Image();
-    img.src = e.target.result;
-    img.onload = function () {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-
-      const MAX_WIDTH = 1000;
-      let width = img.width;
-      let height = img.height;
-      if (width > MAX_WIDTH) {
-        height *= MAX_WIDTH / width;
-        width = MAX_WIDTH;
-      }
-      canvas.width = width;
-      canvas.height = height;
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
-
-      api.analizarPlacaVisionAPI(compressedBase64).then(function (textoDetectado) {
-        // Ejecutamos la lógica de búsqueda sin alertas
-        ejecutarLogicaOCR(textoDetectado);
-      }).catch(function (err) {
-        notificarRespuestaIA("❌ Error de comunicación con la cámara.");
-      });
-    };
-  };
-  reader.readAsDataURL(file);
-  event.target.value = "";
-}
-
-/**
- * 🔍 BUSCADOR DE PLACAS (FILTRO DE BASURA)
- */
-function ejecutarLogicaOCR(textoDetectado) {
-  if (!textoDetectado || textoDetectado === "NO_TEXT_FOUND" || textoDetectado.startsWith("ERROR")) {
-    return notificarRespuestaIA("❌ No logré leer la placa. Intenta de nuevo.");
-  }
-
-  // 1. Limpiamos el texto de la cámara y lo dividimos en palabras (Tokens)
-  // Esto separa "GJS-358-G" de "GUANAJUATO"
-  const tokensOCR = textoDetectado.toUpperCase().split(/\s+/).map(p => p.replace(/[^A-Z0-9]/gi, ''));
-
-  const todosLosAutos = Array.from(document.querySelectorAll('.car'));
-  let carNode = null;
-
-  for (let car of todosLosAutos) {
-    // Obtenemos la placa de la base de datos limpia
-    let placaDB = (car.dataset.placas || "").toUpperCase().replace(/[^A-Z0-9]/gi, '');
-    if (placaDB.length < 4) continue;
-
-    // 2. BUSCADOR: ¿Alguna palabra de la foto contiene la placa de la base de datos?
-    // Ejemplo: Si el token es "GJS358G" y tu placa es "GJS358G", hay match.
-    if (tokensOCR.some(token => token.includes(placaDB) || (token.length >= 5 && placaDB.includes(token)))) {
-      carNode = car;
-      break;
-    }
-  }
-
-  if (carNode) {
-    window.ultimoMVA_MEXIA = carNode.dataset.mva; // Actualizar memoria RAM
-
-    carNode.classList.add('car-focus');
-    setTimeout(() => carNode.classList.remove('car-focus'), 5000);
-
-    notificarRespuestaIA(`✅ Identificado: ${carNode.dataset.mva}. ¿Qué orden tienes?`);
-    expandirTerminal(); // Abre la terminal automáticamente
-  } else {
-    notificarRespuestaIA(`❌ Placa no registrada en el patio.`);
-  }
-}
+function ejecutarLogicaOCR(textoDetectado) { /* ejecutarLogicaOCR → /mapa/features/extras/ocr.js (Fase 4) */ }
 
 // ═══════════════════════════════════════════════════════════
 // 🗺️  EDITOR VISUAL DE MAPA — [F2] Posicionamiento absoluto libre
@@ -18723,19 +18599,7 @@ function cfgToggleModelos(id) {
 }
 
 // Convierte valor de gasolina a porcentaje (0-100)
-function _gasToPercent(val) {
-  const v = String(val || '').trim().toUpperCase();
-  if (v === 'F') return 100;
-  if (v === 'H') return 50;
-  if (v === 'E') return 0;
-  if (v === 'N/A') return 0;
-  const parts = v.split('/');
-  if (parts.length === 2) {
-    const n = Number(parts[0]), d = Number(parts[1]);
-    if (d > 0) return Math.round((n / d) * 100);
-  }
-  return 0;
-}
+function _gasToPercent(val) { /* _gasToPercent → /mapa/features/core/utils.js (Fase 4) */ }
 
 function buscarEnListaConfig() { renderizarListaConfig(); }
 
@@ -21785,211 +21649,13 @@ function _actualizarSupervisionConUnidades(unidades) {
   _actualizarPanelSupervision();
 }
 
-// ── F3.2 Comparador de plazas ───────────────────────────────
-let _comparadorCache = null;
+// ── F3.2 Comparador de plazas → /mapa/features/extras/supervision.js (Fase 4) ──
+async function _obtenerMetricasComparadorPlaza(plaza) { /* → supervision.js (Fase 4) */ }
+async function abrirComparadorPlazas() { /* → supervision.js (Fase 4) */ }
+function _renderComparadorLoading() { /* → supervision.js (Fase 4) */ }
 
-async function _obtenerMetricasComparadorPlaza(plaza) {
-  const [lista, estructura] = await Promise.all([
-    api.obtenerDatosFlotaConsola(plaza),
-    api.obtenerEstructuraMapa(plaza)
-  ]);
+function _renderComparadorTabla(resultados) { /* → supervision.js (Fase 4) */ }
 
-  const registros = Array.isArray(lista) ? lista : [];
-  const totalSpots = Array.isArray(estructura)
-    ? estructura.filter(item => String(item?.tipo || (item?.esLabel ? 'label' : 'cajon')).trim().toLowerCase() === 'cajon').length
-    : 0;
-
-  const metricas = {
-    plaza,
-    total: registros.length,
-    listos: 0,
-    sucios: 0,
-    manto: 0,
-    externos: 0,
-    traslados: 0,
-    totalSpots,
-    ocupacion: totalSpots > 0 ? Math.round((registros.length / totalSpots) * 100) : null
-  };
-
-  registros.forEach(item => {
-    const estado = String(item?.estado || '').trim().toUpperCase();
-    const ubicacion = String(item?.ubicacion || '').trim().toUpperCase();
-    if (estado === 'LISTO') metricas.listos++;
-    if (estado === 'SUCIO') metricas.sucios++;
-    if (estado === 'MANTENIMIENTO' || estado === 'TALLER' || estado === 'NO ARRENDABLE' || estado === 'RETENIDA') metricas.manto++;
-    if (estado === 'TRASLADO') metricas.traslados++;
-    if (ubicacion === 'EXTERNO') metricas.externos++;
-  });
-
-  return metricas;
-}
-
-async function abrirComparadorPlazas() {
-  const modal = document.getElementById('modal-comparador-plazas');
-  if (!modal) return;
-  modal.style.display = 'flex';
-  _renderComparadorLoading();
-  try {
-    const plazas = window.MEX_CONFIG?.empresa?.plazas || [];
-    if (plazas.length === 0) {
-      document.getElementById('comparador-content').innerHTML =
-        '<div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">No hay plazas configuradas.</div>';
-      return;
-    }
-    const resultados = await Promise.all(plazas.map(async p => {
-      try {
-        return await _obtenerMetricasComparadorPlaza(p);
-      } catch {
-        return { plaza: p, error: true };
-      }
-    }));
-    _comparadorCache = resultados;
-    _renderComparadorTabla(resultados);
-  } catch (e) {
-    document.getElementById('comparador-content').innerHTML =
-      `<div style="text-align:center; padding:40px; color:#ef4444; font-weight:700;">Error cargando datos: ${escapeHtml(String(e.message || e))}</div>`;
-  }
-}
-
-function _renderComparadorLoading() {
-  const c = document.getElementById('comparador-content');
-  if (!c) return;
-  c.innerHTML = '<div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700; display:flex; align-items:center; justify-content:center; gap:10px;"><span class="material-icons" style="animation:spin 1s linear infinite; font-size:22px;">sync</span> Cargando datos de todas las plazas...</div>';
-}
-
-function _renderComparadorTabla(resultados) {
-  const c = document.getElementById('comparador-content');
-  if (!c) return;
-  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
-  const exitosos = resultados.filter(item => !item.error);
-
-  const cols = [
-    { key: 'total', label: 'Total', color: '#0f172a' },
-    { key: 'listos', label: 'Listos', color: '#10b981' },
-    { key: 'sucios', label: 'Sucios', color: '#f59e0b' },
-    { key: 'manto', label: 'Manto.', color: '#ef4444' },
-    { key: 'externos', label: 'Externos', color: '#6366f1' },
-    { key: 'ocupacion', label: '% Ocup.', color: '#0ea5e9' },
-  ];
-
-  const topOcupacion = exitosos
-    .filter(item => typeof item.ocupacion === 'number')
-    .sort((a, b) => b.ocupacion - a.ocupacion)[0];
-  const topListos = [...exitosos].sort((a, b) => (b.listos || 0) - (a.listos || 0))[0];
-  const totalUnidades = exitosos.reduce((sum, item) => sum + Number(item.total || 0), 0);
-  const totalExternos = exitosos.reduce((sum, item) => sum + Number(item.externos || 0), 0);
-
-  const resumenCards = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px;">
-      <div style="padding:12px 14px;border-radius:14px;background:#eff6ff;border:1px solid #bfdbfe;">
-        <div style="font-size:11px;font-weight:900;color:#1d4ed8;letter-spacing:.06em;text-transform:uppercase;">Unidades consolidadas</div>
-        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${totalUnidades}</div>
-        <div style="font-size:11px;color:#64748b;font-weight:700;">Lectura rápida de todas las plazas</div>
-      </div>
-      <div style="padding:12px 14px;border-radius:14px;background:#fefce8;border:1px solid #fde68a;">
-        <div style="font-size:11px;font-weight:900;color:#b45309;letter-spacing:.06em;text-transform:uppercase;">Mayor ocupación</div>
-        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${topOcupacion ? `${topOcupacion.ocupacion}%` : '—'}</div>
-        <div style="font-size:11px;color:#64748b;font-weight:700;">${escapeHtml(topOcupacion?.plaza || 'Sin datos')}</div>
-      </div>
-      <div style="padding:12px 14px;border-radius:14px;background:#f0fdf4;border:1px solid #bbf7d0;">
-        <div style="font-size:11px;font-weight:900;color:#047857;letter-spacing:.06em;text-transform:uppercase;">Plaza más lista</div>
-        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${topListos ? topListos.listos : 0}</div>
-        <div style="font-size:11px;color:#64748b;font-weight:700;">${escapeHtml(topListos?.plaza || 'Sin datos')}</div>
-      </div>
-      <div style="padding:12px 14px;border-radius:14px;background:#eef2ff;border:1px solid #c7d2fe;">
-        <div style="font-size:11px;font-weight:900;color:#4338ca;letter-spacing:.06em;text-transform:uppercase;">Externos activos</div>
-        <div style="font-size:26px;font-weight:900;color:#0f172a;margin-top:4px;">${totalExternos}</div>
-        <div style="font-size:11px;color:#64748b;font-weight:700;">Total detectado en comparativo</div>
-      </div>
-    </div>
-  `;
-
-  const filas = resultados.map(r => {
-    const d = plazasDetalle.find(x => x.id === r.plaza) || {};
-    const total = Number(r.total || r.totalUnidades || 0);
-    const listos = Number(r.listos || r.totalListos || 0);
-    const sucios = Number(r.sucios || r.totalSucios || 0);
-    const manto = Number(r.manto || r.totalManto || r.totalMantenimiento || 0);
-    const externos = Number(r.externos || r.totalExternos || 0);
-    const spots = Number(r.totalSpots || r.cajones || 0);
-    const pctOcup = typeof r.ocupacion === 'number' ? r.ocupacion : (spots > 0 ? Math.round((total / spots) * 100) : '—');
-    const esTemporal = d.temporal;
-    const badgeTemp = esTemporal ? `<span style="font-size:9px; background:#f59e0b; color:white; padding:1px 5px; border-radius:4px; font-weight:800; margin-left:4px;">TEMP</span>` : '';
-
-    if (r.error) {
-      return `<tr>
-        <td style="font-weight:800; padding:10px 12px;">${escapeHtml(r.plaza)}${badgeTemp}</td>
-        <td colspan="${cols.length}" style="color:#ef4444; font-size:12px; font-weight:700; padding:10px 12px;">Error al cargar datos</td>
-      </tr>`;
-    }
-    const ocupPct = typeof pctOcup === 'number' ? pctOcup : 0;
-    const ocupColor = ocupPct >= 90 ? '#dc2626' : ocupPct >= 80 ? '#d97706' : '#10b981';
-    return `<tr style="border-bottom:1px solid #f1f5f9;">
-      <td style="font-weight:900; padding:11px 12px; color:#0f172a; font-size:13px;">${escapeHtml(r.plaza)}${badgeTemp}<br><span style="font-size:10px; color:#94a3b8; font-weight:600;">${escapeHtml(d.localidad || d.nombre || '')}</span></td>
-      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px;">${total}</td>
-      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#10b981;">${listos}</td>
-      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#f59e0b;">${sucios}</td>
-      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#ef4444;">${manto}</td>
-      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:#6366f1;">${externos}</td>
-      <td style="text-align:center; padding:11px 8px; font-weight:800; font-size:14px; color:${ocupColor};">${typeof pctOcup === 'number' ? pctOcup + '%' : '—'}</td>
-    </tr>`;
-  }).join('');
-
-  c.innerHTML = `
-    ${resumenCards}
-    <div style="overflow-x:auto;">
-      <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <thead>
-          <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
-            <th style="text-align:left; padding:10px 12px; font-weight:900; color:#475569; font-size:11px; text-transform:uppercase; letter-spacing:.06em;">Plaza</th>
-            ${cols.map(col => `<th style="text-align:center; padding:10px 8px; font-weight:900; color:${col.color}; font-size:11px; text-transform:uppercase; letter-spacing:.06em; min-width:70px;">${col.label}</th>`).join('')}
-          </tr>
-        </thead>
-        <tbody>${filas}</tbody>
-      </table>
-    </div>
-    <div style="margin-top:10px; font-size:11px; color:#94a3b8; font-weight:600; text-align:right;">
-      Última consulta: ${new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-      · <button onclick="abrirComparadorPlazas()" style="background:none;border:none;color:#0ea5e9;font-size:11px;font-weight:800;cursor:pointer;">Actualizar</button>
-    </div>`;
-}
-
-function cerrarComparadorPlazas() {
-  const modal = document.getElementById('modal-comparador-plazas');
-  if (modal) modal.style.display = 'none';
-}
-
-function exportarComparadorCSV() {
-  if (!_comparadorCache?.length) { showToast('Abre el comparador primero', 'warning'); return; }
-  const plazasDetalle = window.MEX_CONFIG?.empresa?.plazasDetalle || [];
-  const encabezado = ['Plaza', 'Localidad', 'Temporal', 'Total', 'Listos', 'Sucios', 'Manto', 'Externos', '% Ocup'];
-  const filas = _comparadorCache.map(r => {
-    const d = plazasDetalle.find(x => x.id === r.plaza) || {};
-    const total = r.total || r.totalUnidades || 0;
-    const spots = r.totalSpots || r.cajones || 0;
-    const pct = spots > 0 ? Math.round((total / spots) * 100) : '';
-    return [
-      r.plaza,
-      d.localidad || d.nombre || '',
-      d.temporal ? 'TEMPORAL' : 'FIJA',
-      total,
-      r.listos || r.totalListos || 0,
-      r.sucios || r.totalSucios || 0,
-      r.manto || r.totalManto || r.totalMantenimiento || 0,
-      r.externos || r.totalExternos || 0,
-      pct !== '' ? pct + '%' : '—'
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
-  });
-  const csv = [encabezado.join(','), ...filas].join('\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `comparador_plazas_${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
-  showToast('CSV exportado correctamente', 'success');
-}
 
 // ═══════════════════════════════════════════════════════════
 //  FASE 4 — SATURACIÓN Y PROYECCIÓN OPERATIVA
