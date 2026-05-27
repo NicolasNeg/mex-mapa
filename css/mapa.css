@@ -5353,3 +5353,59 @@
   color: #94a3b8;
   margin-top: 2px;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS — menus, unit moves, DnD
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Select dropdown entrance ───────────────────────────────── */
+.select-dropdown.show {
+  animation: slideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Plaza picker dropdown entrance ────────────────────────── */
+@keyframes dropdownFadeSlide {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.plaza-picker-dropdown.dd-animate-in {
+  animation: dropdownFadeSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Sidebar opciones panel — slide down / up ───────────────── */
+@keyframes opcionesSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes opcionesSlideOut {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-8px); }
+}
+.sidebar-opciones-panel.panel-opening {
+  animation: opcionesSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.sidebar-opciones-panel.panel-closing {
+  animation: opcionesSlideOut 0.16s ease-in forwards;
+}
+
+/* ── Click-based unit move: depart ─────────────────────────── */
+@keyframes carDepart {
+  0%   { opacity: 1; transform: scale(1); }
+  50%  { opacity: 0.3; transform: scale(0.72) rotate(-3deg); }
+  100% { opacity: 0; transform: scale(0.55) rotate(-6deg); }
+}
+.car.car-depart {
+  animation: carDepart 0.17s ease-in forwards;
+  pointer-events: none;
+}
+
+/* ── Click-based unit move: arrive ─────────────────────────── */
+@keyframes carArrive {
+  0%   { opacity: 0; transform: scale(0.5) rotate(4deg); }
+  55%  { opacity: 1; transform: scale(1.12) rotate(-1deg); }
+  80%  { transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+.car.car-arrive {
+  animation: carArrive 0.32s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

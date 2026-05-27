@@ -1248,8 +1248,11 @@
 }
 
 .car.drag-origin {
-  opacity: 0.55;
-  transform: scale(0.96);
+  opacity: 0.35;
+  transform: scale(0.88);
+  filter: grayscale(0.5);
+  box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.5) inset !important;
+  transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease !important;
 }
 
 body.car-dragging,
@@ -1434,6 +1437,16 @@ body.car-dragging * {
   border-color: rgba(251, 191, 36, 0.94);
 }
 
+@keyframes ghostPopIn {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg) scale(0.5); }
+  65%  { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1.08); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1); }
+}
+@keyframes ghostPopOut {
+  from { opacity: 1; transform: translate(-50%, -50%) rotate(-3deg) scale(1); }
+  to   { opacity: 0; transform: translate(-50%, -50%) rotate(-3deg) scale(0.55); }
+}
+
 .map-drag-ghost {
   position: fixed;
   top: 0;
@@ -1453,6 +1466,21 @@ body.car-dragging * {
   pointer-events: none;
   z-index: 120000;
   transform: translate(-50%, -50%) rotate(-3deg);
+  animation: ghostPopIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.map-drag-ghost.ghost-removing {
+  animation: ghostPopOut 0.15s ease-in forwards;
+}
+
+/* DnD drop landing */
+@keyframes carDropLand {
+  0%   { transform: scale(0.6); opacity: 0.4; }
+  55%  { transform: scale(1.14); opacity: 1; }
+  78%  { transform: scale(0.96); }
+  100% { transform: scale(1); opacity: 1; }
+}
+.car.car-drop-land {
+  animation: carDropLand 0.34s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .map-drag-ghost small {

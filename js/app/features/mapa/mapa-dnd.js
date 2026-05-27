@@ -105,8 +105,12 @@ export function createMapaDndController({
   }
 
   function _removeGhost() {
-    if (_ghost?.isConnected) _ghost.remove();
+    const g = _ghost;
     _ghost = null;
+    if (!g?.isConnected) return;
+    g.classList.add('ghost-removing');
+    g.addEventListener('animationend', () => g.remove(), { once: true });
+    setTimeout(() => { if (g.isConnected) g.remove(); }, 250);
   }
 
   function _createGhost(label) {

@@ -3712,7 +3712,16 @@ function cambiarPlazaMapa(plaza) {
 function _togglePlazaPicker() {
   const dd = document.getElementById('plaza-picker-dropdown');
   if (!dd) return;
-  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+  const isOpen = dd.style.display !== 'none' && dd.style.display !== '';
+  if (isOpen) {
+    dd.style.display = 'none';
+  } else {
+    dd.style.display = 'block';
+    dd.classList.remove('dd-animate-in');
+    void dd.offsetWidth;
+    dd.classList.add('dd-animate-in');
+    dd.addEventListener('animationend', () => dd.classList.remove('dd-animate-in'), { once: true });
+  }
 }
 
 // Renderiza el picker de plaza en el header (solo si el usuario tiene acceso a >1 plaza)
@@ -4510,8 +4519,12 @@ function _positionMapDragGhost(clientX, clientY) {
 }
 
 function _removeMapDragGhost() {
-  if (_mapDragState.ghost?.isConnected) _mapDragState.ghost.remove();
+  const g = _mapDragState.ghost;
   _mapDragState.ghost = null;
+  if (!g?.isConnected) return;
+  g.classList.add('ghost-removing');
+  g.addEventListener('animationend', () => g.remove(), { once: true });
+  setTimeout(() => { if (g.isConnected) g.remove(); }, 300);
 }
 
 function _createMapDragGhost(car, clientX, clientY) {
@@ -4632,7 +4645,7 @@ async function _handleMapUnitDrop(unidad, destino, options = {}) {
       'warning'
     );
     if (!ok) return false;
-    moverUnidadInmediato(unidad, destino);
+    moverUnidadInmediato(unidad, destino, { fromDrag: true });
     return true;
   }
 
@@ -4646,7 +4659,7 @@ async function _handleMapUnitDrop(unidad, destino, options = {}) {
     return mostrarConfirmacionSwap(unidad, occupant, destino);
   }
 
-  moverUnidadInmediato(unidad, destino);
+  moverUnidadInmediato(unidad, destino, { fromDrag });
   return true;
 }
 
@@ -5102,14 +5115,42 @@ async function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
   return true;
 }
 
-function moverUnidadInmediato(unidad, destino) {
+function moverUnidadInmediato(unidad, destino, { fromDrag = false } = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return;
   MAP_SWAP_MODE_ACTIVE = false;
-  destino.appendChild(unidad);
-  lastMoveTime = Date.now();
-  solicitarGuardadoProgresivo();
-  cerrarPanel();
-  actualizarContadores();
+
+  const _commit = () => {
+    destino.appendChild(unidad);
+    // Re-trigger popInCar: reset animation then let CSS reapply it
+    unidad.style.animation = 'none';
+    void unidad.offsetWidth;
+    unidad.style.animation = '';
+    if (fromDrag) {
+      // DnD drop: landing bounce
+      unidad.classList.remove('car-drop-land');
+      void unidad.offsetWidth;
+      unidad.classList.add('car-drop-land');
+      unidad.addEventListener('animationend', () => unidad.classList.remove('car-drop-land'), { once: true });
+    } else {
+      // Click move: arrive
+      unidad.classList.add('car-arrive');
+      unidad.addEventListener('animationend', () => unidad.classList.remove('car-arrive'), { once: true });
+    }
+    lastMoveTime = Date.now();
+    solicitarGuardadoProgresivo();
+    cerrarPanel();
+    actualizarContadores();
+  };
+
+  if (fromDrag) {
+    _commit();
+  } else {
+    unidad.classList.add('car-depart');
+    setTimeout(() => {
+      unidad.classList.remove('car-depart');
+      _commit();
+    }, 170);
+  }
 }
 
 function resetUnitToLimbo() {
@@ -9888,8 +9929,27 @@ function toggleMapaCalor(force = null) {
 function toggleSidebarOpciones() {
   const panel = document.getElementById('sidebarOpcionesPanel');
   if (!panel) return;
-  const open = panel.style.display === 'none' || !panel.style.display;
-  panel.style.display = open ? 'block' : 'none';
+  const isOpen = panel.style.display !== 'none' && panel.style.display !== '';
+  if (isOpen) {
+    panel.classList.remove('panel-opening');
+    panel.classList.add('panel-closing');
+    panel.addEventListener('animationend', () => {
+      panel.style.display = 'none';
+      panel.classList.remove('panel-closing');
+    }, { once: true });
+    setTimeout(() => {
+      if (panel.classList.contains('panel-closing')) {
+        panel.style.display = 'none';
+        panel.classList.remove('panel-closing');
+      }
+    }, 250);
+  } else {
+    panel.style.display = 'block';
+    panel.classList.remove('panel-closing');
+    void panel.offsetWidth;
+    panel.classList.add('panel-opening');
+    panel.addEventListener('animationend', () => panel.classList.remove('panel-opening'), { once: true });
+  }
   const sw = document.getElementById('switchMapaCalor');
   if (sw) sw.checked = document.body.classList.contains('heatmap-active');
 }
