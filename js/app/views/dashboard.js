@@ -4,10 +4,7 @@
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
-import { db, COL, obtenerDatosParaMapa, obtenerEstructuraMapa } from '/js/core/database.js';
-import { buildMapaViewModel } from '/mapa/mapa-view-model.js';
-import { normalizarUnidad } from '/domain/unidad.model.js';
-import { normalizarElemento } from '/domain/mapa.model.js';
+import { db, COL } from '/js/core/database.js';
 import { iniciarTurno, cerrarTurno } from '/js/app/features/turnos/turnos-data.js';
 import { semanaInicio, DIAS } from '/js/app/features/turnos/horarios-data.js';
 
@@ -15,7 +12,6 @@ import { semanaInicio, DIAS } from '/js/app/features/turnos/horarios-data.js';
 let _ctr = null;
 let _s = null;
 let _offs = [];
-let _mapReqId = 0;
 let _unsubCuadre = null;
 let _unsubCola   = null;
 let _unsubTurno  = null;
@@ -48,7 +44,6 @@ export async function mount({ container }) {
     turnoActivo:  null,
     turnosPlaza:  [],
     horarioHoy:   null,
-    mapLoading:   !!plaza,
     prefView:     _readPrefView(),
   };
 
@@ -57,17 +52,14 @@ export async function mount({ container }) {
   _startWidgets();
   void _loadMetrics();
   void _loadHorarioUsuario();
-  if (plaza) void _loadMapPreview();
 
   _offs.push(onPlazaChange(next => {
     if (!_s || !_ctr) return;
     _s.plaza = String(next || '').toUpperCase().trim();
-    _s.mapLoading = !!_s.plaza;
     _syncPlaza();
     _stopWidgets();
     _startWidgets();
     void _loadMetrics();
-    void _loadMapPreview();
   }));
 }
 
@@ -115,13 +107,6 @@ function _renderHtml() {
   const dateStr   = now.toLocaleDateString('es-MX', {
     weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
   });
-  const hasMap   = !!plaza;
-  const bodyClass = hasMap ? '' : 'dash-body--full';
-  const logoHtml  = logoUrl
-    ? `<img src="${esc(logoUrl)}" class="dash-company-logo" alt="${esc(company)}" onerror="this.style.display='none'">`
-    : (company && company !== 'MAPA'
-      ? `<div class="dash-company-monogram" style="--brand:${esc(brandColor)}">${esc(company.charAt(0).toUpperCase())}</div>`
-      : '');
 
   return `
 <div class="dash">
@@ -130,7 +115,6 @@ function _renderHtml() {
     <!-- Header -->
     <div class="dash-top">
       <div class="dash-greeting">
-        ${logoHtml ? `<div class="dash-company-brand">${logoHtml}<span class="dash-company-name">${esc(company)}</span></div>` : ''}
         <h1 class="dash-h1">Hola, ${esc(name)} 👋</h1>
         <p class="dash-meta">
           <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">calendar_today</span>
@@ -159,30 +143,31 @@ function _renderHtml() {
     </div>
 
     <!-- Main body -->
-    <div class="dash-body ${bodyClass}">
-      ${hasMap ? `
-      <div class="dash-map-card">
-        <div class="dash-map-canvas" id="dashMapCanvas">
-          <div class="dash-map-loading"><div class="dash-spinner"></div></div>
-        </div>
-        <div class="dash-map-overlay">
-          <div class="dash-map-top">
-            <div class="dash-live-badge">
-              <div class="dash-live-dot"></div>
-              <span id="dashLivePlaza">${esc(plaza)}</span>
-            </div>
-            <a class="dash-map-link" href="/app/mapa" data-app-route="/app/mapa">
-              <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>
-              Ver mapa
-            </a>
+    <div class="dash-body">
+
+      <!-- Brand card (left) -->
+      <div class="dash-brand-card" style="--brand:${esc(brandColor)}">
+        <div class="dash-brand-body">
+          <div class="dash-brand-logo-wrap">
+            ${logoUrl
+              ? `<img src="${esc(logoUrl)}" class="dash-brand-logo" alt="${esc(company)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+              : ''}
+            <div class="dash-brand-monogram" style="${logoUrl ? 'display:none' : ''}">${esc((company && company !== 'MAPA' ? company : '?').charAt(0).toUpperCase())}</div>
           </div>
-          <div class="dash-map-stats" id="dashMapStats">
-            <div class="dash-map-stat"><div class="dash-map-stat-val" id="dashStatUni">—</div><div class="dash-map-stat-label">Activas</div></div>
-            <div class="dash-map-stat"><div class="dash-map-stat-val" id="dashStatExt">—</div><div class="dash-map-stat-label">Externos</div></div>
-            ${feats.incidencias ? `<div class="dash-map-stat"><div class="dash-map-stat-val" id="dashStatInc" style="color:#fbbf24;">—</div><div class="dash-map-stat-label">Alertas</div></div>` : ''}
+          ${company && company !== 'MAPA' ? `<h2 class="dash-brand-title">${esc(company)}</h2>` : ''}
+          <div class="dash-brand-pills">
+            <span class="dash-brand-pill">
+              <span class="material-symbols-outlined">location_on</span>
+              ${esc(plaza || 'Global')}
+            </span>
+            <span class="dash-brand-pill dash-brand-pill--accent">
+              <span class="material-symbols-outlined">person</span>
+              ${esc(roleLabel)}
+            </span>
           </div>
+          <p class="dash-brand-date">${esc(dateStr.charAt(0).toUpperCase() + dateStr.slice(1))}</p>
         </div>
-      </div>` : ''}
+      </div>
 
       <!-- Right sidebar: widgets -->
       <div class="dash-sidebar">
@@ -285,7 +270,7 @@ function _bindAll() {
   _ctr?.querySelector('#dashRefreshBtn')?.addEventListener('click', async () => {
     const btn = _ctr.querySelector('#dashRefreshBtn');
     if (btn) btn.disabled = true;
-    await Promise.all([_loadMetrics(), _loadMapPreview(), _loadHorarioUsuario()]);
+    await Promise.all([_loadMetrics(), _loadHorarioUsuario()]);
     if (btn) btn.disabled = false;
   });
 
@@ -317,7 +302,6 @@ async function _loadMetrics() {
   if (!_s || !_ctr) return;
   _s.metrics = { unidades, externos, incidencias, solicitudes };
   _updateKpis();
-  _updateMapStats();
 }
 
 function _updateKpis() {
@@ -331,19 +315,9 @@ function _updateKpis() {
   if (kpiInc) kpiInc.classList.toggle('dash-kpi--alert', m.incidencias > 0);
 }
 
-function _updateMapStats() {
-  const m = _s?.metrics;
-  if (!m || !_ctr) return;
-  _setText('#dashStatUni', m.unidades);
-  _setText('#dashStatExt', m.externos);
-  _setText('#dashStatInc', m.incidencias);
-}
-
 function _syncPlaza() {
   if (!_ctr || !_s) return;
-  const p = _s.plaza || 'Global';
-  _setText('#dashChipPlaza', p, true);
-  _setText('#dashLivePlaza', p);
+  _setText('#dashChipPlaza', _s.plaza || 'Global', true);
 }
 
 // ── Horario del usuario ───────────────────────────────────────
@@ -660,114 +634,6 @@ function _updateColaWidget() {
       <span class="dash-cola-info">${esc(String(it.asignado || 'Sin asignar'))}</span>
       <span class="dash-cola-prog">${_cpDone(it.checklist)}/4</span>
     </div>`).join('');
-}
-
-// ── Map preview ───────────────────────────────────────────────
-const _MAP_CACHE_KEY = p => `mex.dash.map.${p}`;
-
-function _readMapCache(plaza) {
-  try {
-    const raw = localStorage.getItem(_MAP_CACHE_KEY(plaza));
-    if (!raw) return null;
-    const d = JSON.parse(raw);
-    if (!d || !Array.isArray(d.estructura) || !Array.isArray(d.unidades)) return null;
-    if (Date.now() - Number(d.savedAt || 0) > 43200000) return null;
-    return d;
-  } catch (_) { return null; }
-}
-
-function _writeMapCache(plaza, data) {
-  try {
-    localStorage.setItem(_MAP_CACHE_KEY(plaza), JSON.stringify({
-      savedAt: Date.now(),
-      estructura: data.estructura.slice(0, 800),
-      unidades:   data.unidades.slice(0, 650),
-    }));
-  } catch (_) {}
-}
-
-async function _loadMapPreview() {
-  if (!_s || !_ctr) return;
-  const plaza = _s.plaza;
-  const el = _ctr.querySelector('#dashMapCanvas');
-  if (!el) return;
-  if (!plaza) {
-    el.innerHTML = `<div class="dash-map-nodata"><span class="material-symbols-outlined">map_off</span><span>Selecciona una plaza para ver el mapa</span></div>`;
-    return;
-  }
-  const reqId  = ++_mapReqId;
-  const cached = _readMapCache(plaza);
-  if (cached) _paintMap(el, plaza, cached.estructura, cached.unidades);
-  else el.innerHTML = '<div class="dash-map-loading"><div class="dash-spinner"></div></div>';
-  try {
-    const [estructura, mapaData] = await Promise.all([obtenerEstructuraMapa(plaza), obtenerDatosParaMapa(plaza)]);
-    if (!_s || reqId !== _mapReqId || !_ctr) return;
-    const unidades = Array.isArray(mapaData?.unidades) ? mapaData.unidades : [];
-    _writeMapCache(plaza, { estructura: estructura || [], unidades });
-    _paintMap(el, plaza, estructura || [], unidades);
-  } catch (err) {
-    if (!_s || reqId !== _mapReqId || !_ctr) return;
-    if (!cached) el.innerHTML = `<div class="dash-map-nodata"><span class="material-symbols-outlined">map_off</span><span>Vista en vivo no disponible</span></div>`;
-  }
-}
-
-function _paintMap(container, plaza, estructuraRaw, unidadesRaw) {
-  if (!container) return;
-  try {
-    const estructura = (Array.isArray(estructuraRaw) ? estructuraRaw : []).map((item, i) => normalizarElemento(item, i));
-    const normUnidades = (Array.isArray(unidadesRaw) ? unidadesRaw : []).map(u => normalizarUnidad(u)).filter(u => u.mva);
-    const vm = buildMapaViewModel(estructura, normUnidades, {}, {});
-    const cajones = Array.isArray(vm.cajones) ? vm.cajones.slice(0, 320) : [];
-    if (!cajones.length && !normUnidades.length) {
-      container.innerHTML = `<div class="dash-map-nodata"><span class="material-symbols-outlined">map_off</span><span>Sin datos de mapa para ${esc(plaza)}</span></div>`;
-      return;
-    }
-    let minX = 0, minY = 0, maxX = 800, maxY = 600;
-    if (cajones.length) {
-      minX = Math.min(...cajones.map(c => c.x));
-      minY = Math.min(...cajones.map(c => c.y));
-      maxX = Math.max(...cajones.map(c => c.x + c.width));
-      maxY = Math.max(...cajones.map(c => c.y + c.height));
-    }
-    const rect = container.getBoundingClientRect();
-    const mapW = maxX - minX + 80, mapH = maxY - minY + 80;
-    const scale = Math.min(Math.min(((rect.width || 600) / mapW) * 0.88, ((rect.height || 300) / mapH) * 0.88), 1.3);
-    const colors = { LISTO: '#10b981', SUCIO: '#f59e0b', MANTENIMIENTO: '#ef4444', RESGUARDO: '#92400e', TRASLADO: '#7c3aed', 'EN RENTA': '#38bdf8', RETENIDA: '#1d4ed8', VENTA: '#f59e0b', HYP: '#ef4444' };
-    const cajonByPos = new Map();
-    let html = `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(${scale});transform-origin:center;width:${mapW}px;height:${mapH}px;">`;
-    for (const c of cajones) {
-      cajonByPos.set(c.pos, c);
-      if (c.tipo === 'pilar') continue;
-      const style = c.esLabel
-        ? 'background:transparent;border:none;color:rgba(255,255,255,.3);font-size:28px;font-weight:bold;'
-        : 'background:rgba(255,255,255,.02);border:1.5px solid rgba(255,255,255,.08);border-radius:5px 5px 0 0;';
-      html += `<div style="position:absolute;left:${c.x - minX + 40}px;top:${c.y - minY + 40}px;width:${c.width}px;height:${c.height}px;transform:rotate(${c.rotation}deg);${style}display:flex;align-items:center;justify-content:center;box-sizing:border-box;">${c.esLabel ? c.pos : ''}</div>`;
-    }
-    let placed = 0;
-    for (const [mva, u] of Array.from(vm.unitMap.entries()).slice(0, 220)) {
-      if (u.pos === 'LIMBO') continue;
-      const c = cajonByPos.get(u.pos);
-      if (!c) continue;
-      placed++;
-      const bg = colors[u.estado] || '#64748b';
-      html += `<div style="position:absolute;left:${c.x - minX + 40}px;top:${c.y - minY + 40}px;width:${c.width}px;height:${c.height}px;transform:rotate(${c.rotation}deg);border-radius:14px 14px 8px 8px;background:linear-gradient(155deg,${bg},#000 130%);box-shadow:0 6px 14px -3px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.2);color:#fff;font-size:14px;font-weight:900;text-shadow:0 1px 3px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;box-sizing:border-box;">${esc(mva)}</div>`;
-    }
-    html += '</div>';
-    if (placed === 0 && normUnidades.length > 0) {
-      const byStatus = {};
-      normUnidades.forEach(u => { byStatus[u.estado] = (byStatus[u.estado] || 0) + 1; });
-      const chips = Object.entries(byStatus).sort((a, b) => b[1] - a[1]).map(([est, n]) => {
-        const bg = colors[est] || '#64748b';
-        return `<div style="display:flex;align-items:center;gap:6px;padding:5px 10px;border-radius:99px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);"><span style="width:8px;height:8px;border-radius:50%;background:${bg};flex-shrink:0;"></span><span style="font-size:11px;color:#cbd5e1;font-weight:700;">${esc(est)}</span><strong style="font-size:12px;color:#fff;">${n}</strong></div>`;
-      }).join('');
-      container.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;padding:20px;"><span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.35);letter-spacing:.04em;text-transform:uppercase;">Unidades · ${esc(plaza)}</span><div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;">${chips}</div></div>`;
-      return;
-    }
-    container.innerHTML = html;
-  } catch (e) {
-    console.warn('[dashboard] paintMap:', e?.message);
-    if (container) container.innerHTML = `<div class="dash-map-nodata"><span class="material-symbols-outlined">map_off</span><span>Error al renderizar el mapa</span></div>`;
-  }
 }
 
 // ── Preferred view ────────────────────────────────────────────
