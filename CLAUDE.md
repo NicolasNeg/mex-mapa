@@ -32,6 +32,26 @@ There is no build step, linter, or test suite — the project is plain HTML/CSS/
 
 ---
 
+## Local development
+
+There is no build step or bundler. Serve the project root with any static file server that supports `cleanUrls`:
+
+```bash
+# Preferred — uses Firebase Hosting emulator (matches production headers)
+firebase emulators:start --only hosting
+
+# Quick alternative
+npx serve . --single
+```
+
+For functions development, use:
+
+```bash
+firebase emulators:start --only hosting,functions,firestore
+```
+
+---
+
 ## Architecture
 
 ### Two parallel experiences
@@ -77,6 +97,23 @@ Roles `PROGRAMADOR`, `JEFE_OPERACION`, and `CORPORATIVO_USER` have full access a
 
 Check access with `window.mexPerms.canDo('permission_key')`.
 
+### Legacy views inside the SPA shell
+
+`js/app/views/legacy-stage.js` wraps legacy HTML pages as iframes rendered inside `#mexShellMain`. The legacy page is loaded with `?shell=1` so it renders content-only (no its own sidebar/header). A subset of views is kept alive in an **iframe pool** (`_iframePool` map) so they are not destroyed on route change:
+
+> dashboard, mapa, cuadre, admin, mensajes, cola, incidencias, programador, editmap, profile
+
+Views outside this set are destroyed on unmount. When adding a new legacy stage route, add it to `LEGACY_BY_ID` in `legacy-stage.js` and the `ROUTE_TABLE` in `router.js` using the `legacyStage(id, navRoute)` helper.
+
+### Domain layer
+
+`domain/*.model.js` contains **pure JavaScript business logic** with no Firebase dependency:
+
+- `permissions.model.js` — role metadata, `esAdmin()`, `esGlobal()`, `tieneAccesoTotal()`
+- `unidad.model.js`, `estado.model.js`, `movimiento.model.js`, `mapa.model.js` — entity shapes and pure helpers
+
+Import from `domain/` when writing logic that should be testable in isolation from Firebase.
+
 ### API layer
 
 All data access goes through `api/*.js` modules. Each file exports functions that are assembled by `api/_assemble.js` into `window.api`. The entry point `mex-api.js` also exposes a `window.api` facade and legacy globals.
@@ -92,6 +129,31 @@ For new features inside the SPA, prefer the data modules in `js/app/features/*/`
 Navigation config lives in `js/shell/navigation.config.js`.
 
 Navigation links must use `data-app-route="/app/route"` attribute (not bare `href`) so the router intercepts the click without a full page reload.
+
+The `navRoute` field in `ROUTE_TABLE` entries sets which sidebar item is highlighted as active when that route is mounted. It can differ from the actual URL path (e.g., `/app/dashboard` highlights the `/home` nav item).
+
+### App state
+
+`js/app/app-state.js` is a minimal pub/sub state store (no framework). It holds session, profile, role, active plaza, and available plazas. Import `getState()`, `setState()`, `subscribe()`, `setCurrentPlaza()` from it inside ES modules. Do not use `window.__mex*` globals in new SPA code — use app-state instead.
+
+### Cloud Functions
+
+`functions/index.js` — Node.js 18, Firebase Functions v1, deployed to `us-central1`. Key callable functions include: `crearEmpresa`, `seedPrimeraEmpresa`, user management, push notifications, and audit logging. All functions guard with `PROGRAMMER_ROLES` or `ADMIN_ROLES` checks before mutating data.
+
+Deploy with `npm run deploy:functions`.
+
+### Key Firestore collections
+
+| Collection | Purpose |
+|---|---|
+| `empresas/{id}` | Tenant documents — plan, features, plazas, limits |
+| `usuarios/{id}` | User profiles and roles |
+| `solicitudes` | Access requests |
+| `configuracion/{empresaId}` | Per-tenant config (listas, settings) |
+| `mapa_config/{empresaId}` | Map overlays and zone configuration |
+| `ops_events` | Operational audit log |
+| `programmer_errors` / `programmer_jobs` | Programmer console data |
+| `bitacora_gestion` | Admin audit trail |
 
 ### CSS organization
 

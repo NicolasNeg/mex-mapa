@@ -1077,3 +1077,27 @@ body.heatmap-active .btn-calor-toggle {
   background: rgba(239, 68, 68, 0.1) !important;
   border-color: rgba(239, 68, 68, 0.3) !important;
 }
+
+/* ── Header mapa actions (fleet + heatmap) ───────────────────
+   Only injected when /app/mapa is active. Hidden on mobile
+   since the map has its own touch controls on small screens.   */
+.mex-hdr-mapa-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.mex-hdr-mapa-btn--heat.is-active {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.mex-hdr-mapa-btn--heat.is-active:hover {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+@media (max-width: 767px) {
+  .mex-hdr-mapa-actions {
+    display: none;
+  }
+}

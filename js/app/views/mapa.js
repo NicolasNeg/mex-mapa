@@ -11,6 +11,7 @@ const STAGE_ID = 'mex-legacy-mapa-stage';
 
 let _stage     = null;
 let _htmlCache = null;
+let _shell     = null;
 
 // ── CSS legacy ───────────────────────────────────────────────
 function _ensureCss() {
@@ -107,12 +108,49 @@ export async function ensureStageReady() {
   return { stage, fresh: true };
 }
 
+// ── Header actions (fleet + heatmap) ────────────────────────
+function _buildHeaderActions() {
+  const wrap = document.createElement('div');
+  wrap.className = 'mex-hdr-mapa-actions';
+
+  const heatmapActive = document.body.classList.contains('heatmap-active');
+
+  wrap.innerHTML = `
+    <button class="mex-header-icon-btn mex-hdr-mapa-btn" id="mexHdrMapaFleet"
+            title="Panel de unidades" aria-label="Abrir panel de unidades">
+      <span class="mex-hdr-icon">directions_car</span>
+    </button>
+    <button class="mex-header-icon-btn mex-hdr-mapa-btn mex-hdr-mapa-btn--heat${heatmapActive ? ' is-active' : ''}"
+            id="mexHdrMapaHeat"
+            title="Mapa de calor" aria-label="Activar mapa de calor"
+            aria-pressed="${heatmapActive ? 'true' : 'false'}">
+      <span class="mex-hdr-icon">thermostat</span>
+    </button>
+  `;
+
+  wrap.querySelector('#mexHdrMapaFleet').addEventListener('click', () => {
+    if (typeof window.toggleSidebar === 'function') window.toggleSidebar();
+  });
+
+  wrap.querySelector('#mexHdrMapaHeat').addEventListener('click', () => {
+    if (typeof window.toggleMapaCalor === 'function') window.toggleMapaCalor();
+    const btn = wrap.querySelector('#mexHdrMapaHeat');
+    if (!btn) return;
+    const isActive = document.body.classList.contains('heatmap-active');
+    btn.classList.toggle('is-active', isActive);
+    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+
+  return wrap;
+}
+
 // ══════════════════════════════════════════════════════════════
 //  mount / unmount — API del App Shell router
 // ══════════════════════════════════════════════════════════════
 
 export async function mount(ctx) {
   _ensureCss();
+  _shell = ctx?.shell ?? null;
 
   const { stage, fresh } = await ensureStageReady();
   if (!stage) return;
@@ -126,6 +164,8 @@ export async function mount(ctx) {
   }
 
   stage.style.display = 'block';
+
+  if (_shell) _shell.setCustomActions(_buildHeaderActions());
 }
 
 export function unmount() {
@@ -134,4 +174,6 @@ export function unmount() {
     stage.style.display = 'none';
     window.dispatchEvent(new CustomEvent('mex:mapa-stage-hidden'));
   }
+  _shell?.setCustomActions('');
+  _shell = null;
 }
