@@ -1,0 +1,3267 @@
+<!-- ═══════════════════════════════════════════════════════════
+     mapa-core.html — Template HTML compartido (todos los tipos).
+     Extraído de mapa.html Fase 3. NO modificar directamente;
+     editar mapa.html y re-extraer con el script de Fase 3.
+
+     Incluye: map-stage, info-panel, todos los modales core,
+     overlay auditoría, chat, perfil, config, editor mapa, etc.
+     ═══════════════════════════════════════════════════════════ -->
+
+<!-- ── global-status-banner ─────────────────────────────── -->
+    <div id="global-status-banner" style="display:none;"></div>
+
+<!-- ── overlayAuditoria ─────────────────────────────── -->
+  <div id="overlayAuditoria" style="display: none;">
+
+    <div id="auditViewAdmin" class="audit-card-pill" style="display: none;">
+      <span class="material-icons pulse-icon">admin_panel_settings</span>
+      <h2 style="margin:0; font-size:13px; font-weight:900; letter-spacing:1px;">MODO AUDITORÍA ACTIVO</h2>
+    </div>
+
+    <div id="auditViewUser" class="audit-card-intrusive" style="display: none;">
+      <span class="material-icons pulse-icon" style="font-size: 65px; margin-bottom: 15px;">block</span>
+      <h1 style="margin:0; font-size:28px; font-weight:900; letter-spacing:1px; line-height:1.1;">SISTEMA BLOQUEADO</h1>
+      <p
+        style="margin:15px 0 0; font-size:14px; font-weight:800; background:rgba(0,0,0,0.2); padding:10px 20px; border-radius:12px;">
+        AUDITORÍA DE PATIO EN CURSO</p>
+      <p style="margin:20px 0 0; font-size:13px; font-weight:600; opacity:0.9;">Espera a que Administración libere el
+        sistema para continuar.</p>
+
+      <button onclick="cerrarSesion()"
+        style="margin-top: 25px; padding: 12px 25px; background: white; color: #ef4444; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: 0.2s;">
+        <span class="material-icons">logout</span> CAMBIAR USUARIO / SALIR
+      </button>
+    </div>
+
+  </div>
+
+<!-- ── customModal ─────────────────────────────── -->
+  <div id="customModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="material-icons modal-icon" id="modalIcon">warning</div>
+      <div class="modal-title" id="modalTitle">Confirmación</div>
+      <div class="modal-text" id="modalText">¿Estás seguro de continuar?</div>
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel" onclick="cerrarCustomModal()">CANCELAR</button>
+        <button class="modal-btn modal-btn-confirm" id="modalConfirmBtn">ACEPTAR</button>
+      </div>
+    </div>
+  </div>
+
+<!-- ── logs-modal ─────────────────────────────── -->
+  <div id="logs-modal" class="fleet-modal">
+    <div class="fleet-header-top">
+      <div style="display:flex; align-items:center; gap: 10px;">
+        <h2 style="color:var(--primary); font-weight:900; margin:0;">HISTORIAL DE ACTIVIDAD</h2>
+      </div>
+      <button onclick="document.getElementById('logs-modal').classList.remove('active')"
+        style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
+    </div>
+
+    <!-- ── Barra de filtros ── -->
+    <div style="padding: 0 20px 14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <input id="logsBuscador" type="text" placeholder="Buscar MVA, usuario o movimiento…" oninput="_renderLogsTabla()"
+        style="flex:1; min-width:180px; padding:10px 14px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:600; outline:none;">
+
+      <input id="logsFecha" type="date" onchange="_renderLogsTabla()"
+        style="padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:600; outline:none; cursor:pointer;">
+
+      <select id="logsTipo" onchange="_renderLogsTabla()"
+        style="padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:700; outline:none; cursor:pointer; background:white;">
+        <option value="">Todos los tipos</option>
+        <option value="MOVE">MOVE</option>
+        <option value="SWAP">SWAP</option>
+        <option value="ADD">ADD</option>
+        <option value="EDIT">EDIT</option>
+        <option value="DEL">DEL</option>
+      </select>
+
+      <select id="logsUsuario" onchange="_renderLogsTabla()"
+        style="padding:10px 12px; border-radius:10px; border:1.5px solid var(--border); font-family:'Inter'; font-size:13px; font-weight:700; outline:none; cursor:pointer; background:white; max-width:220px;">
+        <option value="">Todos los usuarios</option>
+      </select>
+
+      <button onclick="_limpiarFiltrosLogs()"
+        style="padding:10px 16px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:800; font-size:12px; cursor:pointer; letter-spacing:0.5px;">
+        LIMPIAR
+      </button>
+
+      <span id="logsContador" style="font-size:12px; font-weight:700; color:#64748b; white-space:nowrap;"></span>
+    </div>
+
+    <div class="fleet-wrapper">
+      <div
+        style="flex:1; background:white; border-radius:16px; border:1px solid #e2e8f0; display:flex; flex-direction:column; overflow:hidden;">
+        <div class="table-container" style="border:none; border-radius:0;">
+          <table>
+            <thead>
+              <tr>
+                <th>FECHA Y HORA</th>
+                <th>ACCIÓN</th>
+                <th>MVA</th>
+                <th>UBICACIÓN/ESTADO</th>
+                <th>ORIGEN REAL</th>
+                <th>USUARIO</th>
+              </tr>
+            </thead>
+            <tbody id="logs-table-body">
+              <tr>
+                <td colspan="6" style="text-align:center; padding:20px;"><span class="material-icons spinner"
+                    style="vertical-align:middle;">sync</span> Cargando historial...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── gestor-alertas-modal ─────────────────────────────── -->
+  <div id="gestor-alertas-modal" class="fleet-modal">
+    <div class="fleet-header-top">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span class="material-icons" style="font-size:22px; color:#ef4444;">campaign</span>
+        <h2 style="color:var(--primary); font-weight:900; margin:0;">HISTORIAL DE ALERTAS</h2>
+      </div>
+      <button onclick="document.getElementById('gestor-alertas-modal').classList.remove('active')"
+        style="background:#f1f5f9; color:var(--text); border:none; padding:10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
+    </div>
+
+    <!-- Stats bar -->
+    <div id="alertaHistStatsBar"
+      style="padding:8px 20px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; background:white; border-bottom:1px solid var(--border); min-height:38px; flex-shrink:0;">
+      <span style="font-size:12px; color:#94a3b8; font-weight:700;">Cargando...</span>
+    </div>
+
+    <!-- Filter bar -->
+    <div
+      style="padding:10px 20px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; background:#f8fafc; border-bottom:1px solid var(--border); flex-shrink:0;">
+      <input id="alertaHistBuscador" type="text" placeholder="Buscar título o autor..."
+        oninput="_renderHistorialAlertas()"
+        style="flex:1; min-width:150px; padding:8px 12px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:600; outline:none; font-family:'Inter';">
+      <select id="alertaHistTipo" onchange="_renderHistorialAlertas()"
+        style="padding:8px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; background:white; cursor:pointer; font-family:'Inter';">
+        <option value="">Todos los tipos</option>
+        <option value="URGENTE">🔴 URGENTE</option>
+        <option value="WARNING">🟡 ADVERTENCIA</option>
+        <option value="INFO">🔵 INFORMATIVO</option>
+      </select>
+      <select id="alertaHistModo" onchange="_renderHistorialAlertas()"
+        style="padding:8px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; background:white; cursor:pointer; font-family:'Inter';">
+        <option value="">Todos los modos</option>
+        <option value="INTERRUPTIVA">⚡ Interruptiva</option>
+        <option value="PASIVA">🔔 Pasiva</option>
+      </select>
+      <button onclick="_limpiarFiltrosHistAlertas()"
+        style="padding:8px 14px; border-radius:10px; border:none; background:#f1f5f9; color:#475569; font-weight:800; font-size:12px; cursor:pointer; letter-spacing:0.4px;">LIMPIAR</button>
+    </div>
+
+    <!-- List -->
+    <div class="fleet-wrapper" style="overflow-y:auto; padding:16px 20px; background:#f1f5f9;">
+      <div id="listaHistorialAlertas"
+        style="display:flex; flex-direction:column; gap:10px; max-width:860px; margin:0 auto; width:100%;">
+        <div style="text-align:center; padding:40px; color:#64748b; font-weight:700;">
+          <span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando historial...
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── reserveModal ─────────────────────────────── -->
+  <div id="reserveModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="material-icons modal-icon" id="resIcon" style="color: #fbbf24;">lock</div>
+      <div class="modal-title" id="resTitle">Reservar Unidad</div>
+      <div class="modal-text" id="resText">Ingresa el motivo o nombre del cliente:</div>
+      <textarea id="reserveReason" rows="3"
+        style="width:100%; padding:15px; border-radius:12px; border:2px solid var(--border); margin-bottom:20px; outline:none; font-family:'Inter'; font-size:14px;"></textarea>
+      <div class="modal-actions" id="resActions">
+        <button class="modal-btn modal-btn-cancel" onclick="cerrarReserveModal()">CERRAR</button>
+        <button class="modal-btn" id="btnConfirmRes" style="background: #1e293b; color: white;"
+          onclick="confirmarReserva()">GUARDAR</button>
+      </div>
+    </div>
+  </div>
+
+<!-- ── crear-alerta-modal ─────────────────────────────── -->
+  <div id="crear-alerta-modal" class="fleet-modal">
+    <div class="fleet-header-top">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <h2 id="tituloModalCrearAlerta"
+          style="color:#ef4444; font-weight:900; margin:0; font-size:clamp(14px,3vw,20px);">
+          <span class="material-icons" style="font-size:22px; vertical-align:bottom;">campaign</span> EMITIR ALERTA
+          MAESTRA
+        </h2>
+      </div>
+      <button onclick="document.getElementById('crear-alerta-modal').classList.remove('active')"
+        style="background:#f1f5f9; color:var(--text); border:none; padding:10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
+    </div>
+
+    <div class="fleet-wrapper" style="overflow-y:auto; background:#f1f5f9; padding:18px; align-items:flex-start;">
+      <div class="alerta-studio-layout">
+
+        <!-- ══ COLUMNA IZQUIERDA: Configuración ══ -->
+        <div class="alerta-config-card">
+
+          <p
+            style="font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin:0; text-transform:uppercase;">
+            Configuración</p>
+
+          <!-- Urgencia -->
+          <div class="field" style="margin:0;">
+            <label>Nivel de Urgencia</label>
+            <select id="alertaNuevaTipo" onchange="_updateAlertaTipoStyle(); _actualizarPreviewAlerta();"
+              style="border:2px solid #ef4444; background:#fef2f2; color:#ef4444; font-weight:800;">
+              <option value="URGENTE">🔴 URGENTE</option>
+              <option value="WARNING">🟡 ADVERTENCIA</option>
+              <option value="INFO">🔵 INFORMATIVO</option>
+            </select>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label
+              style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Firma
+              visible</label>
+            <select id="alertaAutorModo" onchange="_actualizarAutorAlertaUI(); _actualizarPreviewAlerta();"
+              style="width:100%; padding:10px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:12px; font-weight:700; outline:none; box-sizing:border-box; background:white; font-family:'Inter';">
+              <option value="CURRENT">Usuario actual</option>
+              <option value="NONE">Sin autor visible</option>
+              <option value="CUSTOM">Autor personalizado</option>
+            </select>
+            <input type="text" id="alertaAutorCustom" placeholder="Ej. Empresa *Plaza* "
+              oninput="_actualizarPreviewAlerta()"
+              style="display:none; width:100%; padding:10px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:12px; font-weight:700; outline:none; box-sizing:border-box;">
+            <div style="font-size:11px; color:#64748b; font-weight:700; line-height:1.4;">Puedes firmar con tu usuario,
+              ocultar la firma o usar un nombre institucional como EQUIPO DE PROTECCIÓN DE DATOS.</div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+              <label
+                style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Banner
+                visible</label>
+              <label
+                style="display:inline-flex; align-items:center; gap:7px; font-size:11px; color:#64748b; font-weight:800; cursor:pointer;">
+                <input type="checkbox" id="alertaBannerCustomToggle"
+                  onchange="_actualizarBannerAlertaUI(); _actualizarPreviewAlerta();">
+                Personalizar
+              </label>
+            </div>
+            <div id="alertaBannerCustomWrap"
+              style="display:none; flex-direction:column; gap:8px; padding:10px; border-radius:12px; background:#f8fafc; border:1px solid #e2e8f0;">
+              <input type="text" id="alertaBannerLabel" placeholder="Ej. EQUIPO DE PROTECCIÓN DE DATOS"
+                oninput="_actualizarPreviewAlerta()"
+                style="width:100%; padding:10px 11px; border-radius:10px; border:1.5px solid var(--border); font-size:12px; font-weight:700; outline:none; box-sizing:border-box; background:white;">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                <label
+                  style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:900; color:#64748b; letter-spacing:0.6px; text-transform:uppercase;">
+                  Fondo
+                  <input type="color" id="alertaBannerBg" value="#fee2e2" onchange="_actualizarPreviewAlerta()"
+                    style="width:100%; height:40px; border:none; border-radius:10px; background:transparent; cursor:pointer;">
+                </label>
+                <label
+                  style="display:flex; flex-direction:column; gap:6px; font-size:10px; font-weight:900; color:#64748b; letter-spacing:0.6px; text-transform:uppercase;">
+                  Texto
+                  <input type="color" id="alertaBannerText" value="#ef4444" onchange="_actualizarPreviewAlerta()"
+                    style="width:100%; height:40px; border:none; border-radius:10px; background:transparent; cursor:pointer;">
+                </label>
+              </div>
+              <div style="font-size:11px; color:#64748b; font-weight:700; line-height:1.4;">Si lo dejas apagado, el
+                banner usará automáticamente el estilo del nivel de urgencia seleccionado.</div>
+            </div>
+          </div>
+
+          <!-- Destinatarios -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label
+              style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Destinatarios</label>
+            <div style="display:flex; gap:5px;">
+              <button id="destBtnGlobal" onclick="_setDestMode('GLOBAL')"
+                style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid var(--mex-blue); background:var(--mex-blue); color:white; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
+                🌐 GLOBAL
+              </button>
+              <button id="destBtnSel" onclick="_setDestMode('SEL')"
+                style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
+                ☑ VARIOS
+              </button>
+              <button id="destBtnSolo" onclick="_setDestMode('SOLO')"
+                style="flex:1; padding:7px 4px; border-radius:8px; border:1.5px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:10px; cursor:pointer; letter-spacing:0.3px;">
+                👤 SOLO A
+              </button>
+            </div>
+            <!-- SELECCIONADOS panel -->
+            <div id="destPanelSel" style="display:none; flex-direction:column; gap:5px;">
+              <input type="text" id="destBuscadorUsuarios" placeholder="Filtrar usuarios..."
+                oninput="_filtrarDestinatarios()"
+                style="padding:7px 11px; border-radius:8px; border:1.5px solid var(--border); font-size:12px; font-weight:600; outline:none; width:100%; box-sizing:border-box;">
+              <div id="destListaCheckboxes"
+                style="max-height:130px; overflow-y:auto; display:flex; flex-direction:column; gap:3px; padding:2px;">
+                <span style="color:#94a3b8; font-size:12px; font-weight:700; padding:4px;">Cargando usuarios...</span>
+              </div>
+            </div>
+            <!-- SOLO panel -->
+            <div id="destPanelSolo" style="display:none;">
+              <select id="destSoloUsuario" onchange="_seleccionarUsuarioDestino(this.value)"
+                style="width:100%; padding:8px 11px; border-radius:8px; border:1.5px solid var(--border); font-size:13px; font-weight:700; outline:none; box-sizing:border-box; background:white; font-family:'Inter';">
+                <option value="">Seleccionar usuario...</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Modo de entrega -->
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <label
+              style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase;">Tipo
+              de Entrega</label>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+              <label id="modoCardInterr" onclick="_selectModo('INTERRUPTIVA')"
+                style="cursor:pointer; border:2px solid var(--mex-blue); border-radius:10px; padding:10px; background:#eff6ff; display:flex; flex-direction:column; gap:3px;">
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span class="material-icons"
+                    style="font-size:15px; color:var(--mex-blue);">notification_important</span>
+                  <b style="font-size:11px; color:var(--mex-blue);">INTERRUPTIVA</b>
+                </div>
+                <small style="font-size:9px; color:#64748b; line-height:1.3;">Bloquea pantalla hasta que se lea</small>
+              </label>
+              <label id="modoCardPasiva" onclick="_selectModo('PASIVA')"
+                style="cursor:pointer; border:2px solid #e2e8f0; border-radius:10px; padding:10px; background:white; display:flex; flex-direction:column; gap:3px;">
+                <div style="display:flex; align-items:center; gap:4px;">
+                  <span class="material-icons" style="font-size:15px; color:#64748b;">notifications</span>
+                  <b style="font-size:11px; color:#475569;">PASIVA</b>
+                </div>
+                <small style="font-size:9px; color:#64748b; line-height:1.3;">Solo en la campanita</small>
+              </label>
+            </div>
+            <input type="hidden" id="alertaModoActual" value="INTERRUPTIVA">
+          </div>
+
+          <!-- Título -->
+          <div class="field" style="margin:0;">
+            <label>Título Principal</label>
+            <input type="text" id="alertaNuevaTitulo" placeholder="Ej. Actualización del Sistema"
+              oninput="_actualizarPreviewAlerta()" style="font-size:15px; font-weight:800;">
+          </div>
+
+          <!-- Imagen -->
+          <div class="field" style="margin:0;">
+            <label>Imagen (Opcional)</label>
+            <label for="alertaFile"
+              style="display:flex; align-items:center; justify-content:center; gap:8px; background:#f8fafc; border:2px dashed #cbd5e1; padding:11px; border-radius:10px; cursor:pointer; color:#64748b; font-weight:800; font-size:12px;">
+              <span class="material-icons" style="font-size:18px;">add_photo_alternate</span>
+              <span id="textoUploadAlerta">Seleccionar imagen...</span>
+            </label>
+            <input type="file" id="alertaFile" accept="image/*" style="display:none;"
+              onchange="comprimirImagenAlerta(event)">
+            <input type="hidden" id="alertaNuevaImagen">
+            <button id="btnQuitarImagenAlerta" onclick="limpiarImagenAlerta()" type="button"
+              style="margin-top:8px; width:100%; padding:8px 10px; border-radius:9px; border:1px solid #e2e8f0; background:white; color:#64748b; font-weight:800; font-size:11px; cursor:pointer;">
+              Quitar imagen actual
+            </button>
+          </div>
+
+          <div class="alerta-action-stack">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+              <label
+                style="font-size:11px; font-weight:800; color:#475569; letter-spacing:0.5px; text-transform:uppercase; margin:0;">Botón
+                y función</label>
+              <span style="font-size:10px; color:#64748b; font-weight:800;">Personaliza la acción que verá el
+                usuario</span>
+            </div>
+            <div class="alerta-action-field">
+              <label for="alertaActionType">Tipo de acción</label>
+              <select id="alertaActionType" onchange="_actualizarCamposAccionAlerta(); _actualizarPreviewAlerta();">
+                <option value="NONE">Sin botón extra</option>
+                <option value="URL">Abrir enlace</option>
+                <option value="WHATSAPP">Abrir WhatsApp</option>
+                <option value="COPY">Copiar texto / enlace</option>
+              </select>
+            </div>
+            <div id="alertaActionConfig" class="alerta-action-grid" style="display:none;">
+              <div class="alerta-action-field">
+                <label id="alertaActionLabelCaption" for="alertaActionLabel">Texto del botón</label>
+                <input type="text" id="alertaActionLabel" placeholder="Ej. Abrir actualización"
+                  oninput="_actualizarPreviewAlerta()">
+              </div>
+              <div class="alerta-action-field">
+                <label id="alertaActionValueCaption" for="alertaActionValue">Destino</label>
+                <input type="text" id="alertaActionValue" placeholder="https://..."
+                  oninput="_actualizarPreviewAlerta()">
+              </div>
+              <div id="alertaActionExtraWrap" class="alerta-action-field">
+                <label id="alertaActionExtraCaption" for="alertaActionExtra">Dato extra</label>
+                <input type="text" id="alertaActionExtra" placeholder="" oninput="_actualizarPreviewAlerta()">
+              </div>
+            </div>
+            <div id="alertaActionHelp" class="alerta-action-help">
+              La alerta solo mostrará el botón para marcarla como leída.
+            </div>
+          </div>
+
+          <!-- Emit button -->
+          <button id="btnEmitirAlertaGlobal" onclick="emitirAlertaGlobal()"
+            style="width:100%; padding:15px; background:#ef4444; color:white; border:none; border-radius:12px; font-weight:900; cursor:pointer; display:flex; justify-content:center; align-items:center; gap:8px; font-size:13px; box-shadow:0 6px 16px rgba(239,68,68,0.3); letter-spacing:0.5px; margin-top:auto;">
+            <span class="material-icons">send</span>
+            <span id="txtBtnEmitir">EMITIR A TODA LA RED</span>
+          </button>
+        </div>
+
+        <!-- ══ COLUMNA DERECHA: Editor ══ -->
+        <div class="alerta-editor-card">
+
+          <div class="alerta-editor-topline">
+            <div>
+              <p
+                style="font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:1px; margin:0 0 5px; text-transform:uppercase;">
+                Diseño del Cuerpo del Mensaje</p>
+              <div style="font-size:12px; color:#64748b; font-weight:700;">Texto, formato y preview trabajando en tiempo
+                real mientras redactas.</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+              <div class="alerta-live-pill">
+                <span class="alerta-live-dot"></span>
+                <span id="alertaPreviewSyncLabel">Preview sincronizado</span>
+              </div>
+              <select id="alertaPlantillasSelect" onchange="cargarPlantillaSeleccionada()"
+                style="font-size:11px; font-weight:700; padding:7px 10px; border-radius:10px; border:1px solid var(--border); outline:none; background:#f8fafc; color:#475569; cursor:pointer;">
+                <option value="">📂 Cargar plantilla...</option>
+              </select>
+              <button onclick="guardarComoPlantilla()"
+                style="font-size:11px; padding:7px 12px; border-radius:10px; border:1px solid var(--mex-accent); background:#e0f2fe; color:var(--mex-accent); cursor:pointer; font-weight:800; transition:0.2s;"
+                onmouseover="this.style.background='#bae6fd'" onmouseout="this.style.background='#e0f2fe'">💾 Guardar
+                como plantilla</button>
+            </div>
+          </div>
+
+          <div class="alerta-editor-shell">
+            <div class="alerta-editor-info">
+              <div>
+                <strong>Texto del Mensaje</strong>
+                <span>Este cuerpo es scrolleable y el lector verá el mismo contenido en un modal desplazable.</span>
+              </div>
+              <div id="alertaEditorDestinos" class="alerta-editor-destino">
+                <span class="material-icons" style="font-size:14px;">public</span>
+                <span>GLOBAL</span>
+              </div>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="alerta-editor-toolbar">
+              <button type="button" onclick="alertaCmd('bold')" title="Negrita"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-weight:900; font-size:13px; color:#334155; padding:0 5px;"
+                onmouseover="this.style.background='#e2e8f0'"
+                onmouseout="this.style.background='transparent'"><b>B</b></button>
+              <button type="button" onclick="alertaCmd('italic')" title="Cursiva"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
+                onmouseover="this.style.background='#e2e8f0'"
+                onmouseout="this.style.background='transparent'"><i>I</i></button>
+              <button type="button" onclick="alertaCmd('underline')" title="Subrayado"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 5px;"
+                onmouseover="this.style.background='#e2e8f0'"
+                onmouseout="this.style.background='transparent'"><u>U</u></button>
+              <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+              <button type="button" onclick="alertaFontSize(1)" title="Pequeño"
+                style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:10px; color:#334155; padding:0 4px; font-weight:700;"
+                onmouseover="this.style.background='#e2e8f0'"
+                onmouseout="this.style.background='transparent'">A<sub>s</sub></button>
+              <button type="button" onclick="alertaFontSize(3)" title="Normal"
+                style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:13px; color:#334155; padding:0 4px; font-weight:700;"
+                onmouseover="this.style.background='#e2e8f0'"
+                onmouseout="this.style.background='transparent'">A</button>
+              <button type="button" onclick="alertaFontSize(5)" title="Grande"
+                style="min-width:26px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; font-size:15px; color:#334155; padding:0 4px; font-weight:700;"
+                onmouseover="this.style.background='#e2e8f0'"
+                onmouseout="this.style.background='transparent'">A<sup>+</sup></button>
+              <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+              <label title="Color de texto"
+                style="display:flex; align-items:center; gap:1px; cursor:pointer; height:26px; padding:0 4px; border-radius:5px;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'">
+                <span class="material-icons" style="font-size:14px; color:#334155;">format_color_text</span>
+                <input type="color" id="alertaColorPicker" onchange="alertaCmd('foreColor', this.value)" value="#334155"
+                  style="width:16px; height:16px; border:none; padding:0; cursor:pointer; background:transparent; opacity:0; position:absolute;">
+              </label>
+              <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+              <button type="button" onclick="alertaCmd('justifyLeft')" title="Izquierda"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">format_align_left</span></button>
+              <button type="button" onclick="alertaCmd('justifyCenter')" title="Centrar"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">format_align_center</span></button>
+              <button type="button" onclick="alertaCmd('justifyRight')" title="Derecha"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">format_align_right</span></button>
+              <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+              <button type="button" onclick="alertaInsertLink()" title="Insertar enlace"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">link</span></button>
+              <button type="button" onclick="abrirSelectorImagenCuerpoAlerta()" title="Insertar imagen en el cuerpo"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">image</span></button>
+              <input type="file" id="alertaBodyImageFile" accept="image/*" style="display:none;"
+                onchange="insertarImagenCuerpoAlerta(event)">
+              <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+              <button type="button" onclick="alertaCmd('insertUnorderedList')" title="Lista"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">format_list_bulleted</span></button>
+              <button type="button" onclick="alertaInsertHR()" title="Línea separadora"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#334155; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#e2e8f0'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">horizontal_rule</span></button>
+              <span style="width:1px; height:18px; background:#e2e8f0; margin:0 2px; flex-shrink:0;"></span>
+              <button type="button" onclick="alertaCmd('removeFormat')" title="Limpiar formato"
+                style="min-width:28px; height:26px; border:none; background:transparent; border-radius:5px; cursor:pointer; color:#ef4444; padding:0 3px; display:flex; align-items:center;"
+                onmouseover="this.style.background='#fee2e2'" onmouseout="this.style.background='transparent'"><span
+                  class="material-icons" style="font-size:14px;">format_clear</span></button>
+            </div>
+
+            <!-- Editor contenteditable -->
+            <div id="alertaEditorCuerpo" contenteditable="true" oninput="_actualizarPreviewAlerta()"
+              class="alerta-rich-editor alerta-scroll-thin">
+            </div>
+            <div class="alerta-editor-status">
+              <span id="alertaEditorStats">0 palabras · 0 caracteres</span>
+              <span id="alertaPreviewHoraStatus">Última vista previa: --:--</span>
+            </div>
+          </div>
+
+          <!-- Divider preview -->
+          <div class="alerta-preview-shell">
+            <div class="alerta-preview-caption">
+              <span class="alerta-live-dot" style="background:#ff4d4f;"></span>
+              Vista previa en tiempo real
+            </div>
+
+            <!-- Mini preview -->
+            <div class="alerta-preview-card">
+              <div id="alertaPreviewBanner" class="alerta-preview-banner"></div>
+              <div class="alerta-preview-content">
+                <div class="alerta-preview-head">
+                  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                    <span id="alertaPreviewBadge"
+                      style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#fee2e2; color:#ef4444; letter-spacing:0.8px;">URGENTE</span>
+                    <span id="alertaPreviewModoBadge"
+                      style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:50px; background:#eff6ff; color:#1a73e8; letter-spacing:0.8px;">⚡
+                      INTERRUPTIVA</span>
+                    <span id="alertaPreviewDestinatarios" class="alerta-preview-recipient">
+                      <span class="material-icons" style="font-size:14px;">public</span>
+                      GLOBAL
+                    </span>
+                  </div>
+                  <span id="alertaPreviewHora" style="font-size:11px; color:#94a3b8; font-weight:800;">Ahora</span>
+                </div>
+                <div>
+                  <h3 id="alertaPreviewTitulo"
+                    style="margin:0 0 6px; color:#0f172a; font-size:21px; font-weight:900; line-height:1.18;">Sin título
+                  </h3>
+                  <div id="alertaPreviewSubline"
+                    style="font-size:11px; color:#64748b; font-weight:900; letter-spacing:1px; text-transform:uppercase;">
+                    Mensaje listo para toda la red</div>
+                </div>
+                <div id="alertaPreviewMensaje" class="alerta-preview-message alerta-scroll-thin"></div>
+                <div id="alertaPreviewActionWrap" class="alerta-preview-action">
+                  <button id="alertaPreviewActionBtn" type="button" class="alerta-preview-action-btn"
+                    onclick="return false;">
+                    <span class="material-icons" style="font-size:16px;">bolt</span>
+                    <span>Acción</span>
+                  </button>
+                  <div id="alertaPreviewActionHint" class="alerta-preview-action-hint"></div>
+                </div>
+                <div class="alerta-preview-meta">
+                  <span id="alertaPreviewAuthorWrap">Enviado por: <span id="alertaPreviewAutor"
+                      style="color:#1a73e8;">TÚ</span></span>
+                  <span id="alertaPreviewStats">0 palabras · 0 caracteres</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── incidencias-modal ─────────────────────────────── -->
+  <div id="incidencias-modal" class="fleet-modal">
+    <!-- HEADER V2: Navy gradient, compact -->
+    <div class="incv2-header">
+      <div class="incv2-header-bg"></div>
+      <div class="incv2-header-content">
+        <div class="incv2-header-left">
+          <span class="material-icons" style="font-size:22px; color:rgba(255,255,255,0.7);">description</span>
+          <div>
+            <h2 class="incv2-header-title">BITÁCORA</h2>
+            <p class="incv2-header-sub">Incidencias operativas</p>
+          </div>
+        </div>
+        <div class="incv2-header-right">
+          <div class="incv2-stat-pills">
+            <div class="incv2-stat-pill"><span>Activas</span><strong id="incStatPendientes">0</strong></div>
+            <div class="incv2-stat-pill"><span>Total</span><strong id="incStatTotal">0</strong></div>
+            <div class="incv2-stat-pill incv2-stat-pill--danger"><span>Críticas</span><strong
+                id="incStatCriticas">0</strong></div>
+          </div>
+          <button class="incv2-close" onclick="cerrarIncidencias()">
+            <span class="material-icons" style="font-size:18px;">close</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="fleet-wrapper alerta-scroll-thin"
+      style="overflow-y: auto; background: #f7f9fb; padding: 20px; align-items: stretch;">
+      <div class="incidencias-shell">
+        <div class="inc-tabs">
+          <div class="inc-tab active" data-inc-tab="viewTab" onclick="switchIncTab(event, 'viewTab')">Historial
+          </div>
+          <div class="inc-tab" data-inc-tab="addTab" onclick="switchIncTab(event, 'addTab')">+ Nueva</div>
+        </div>
+
+        <div id="viewTab" class="inc-content active">
+          <div class="inc-history-shell">
+
+            <div class="inc-history-grid" style="margin-top:0;">
+              <!-- SIDEBAR COMPACTA -->
+              <aside class="inc-filter-column">
+                <div class="inc-filter-card">
+                  <h3 class="inc-filter-title">Prioridad</h3>
+                  <div class="inc-filter-stack">
+                    <label class="inc-filter-item">
+                      <span><span class="inc-filter-dot is-critica"></span> Crítica</span>
+                      <input type="checkbox" id="incFilterCritica" checked onchange="filtrarListaNotas()">
+                    </label>
+                    <label class="inc-filter-item">
+                      <span><span class="inc-filter-dot is-alta"></span> Alta</span>
+                      <input type="checkbox" id="incFilterAlta" checked onchange="filtrarListaNotas()">
+                    </label>
+                    <label class="inc-filter-item">
+                      <span><span class="inc-filter-dot is-media"></span> Media</span>
+                      <input type="checkbox" id="incFilterMedia" checked onchange="filtrarListaNotas()">
+                    </label>
+                    <label class="inc-filter-item">
+                      <span><span class="inc-filter-dot is-baja"></span> Baja</span>
+                      <input type="checkbox" id="incFilterBaja" checked onchange="filtrarListaNotas()">
+                    </label>
+                  </div>
+                </div>
+
+                <div class="inc-filter-card">
+                  <h3 class="inc-filter-title">Estado</h3>
+                  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+                    <span class="inc-filter-pill"><span class="inc-filter-dot is-pendiente"></span><span
+                        id="incCountPendientes">0</span></span>
+                    <span class="inc-filter-pill"><span class="inc-filter-dot is-resuelta"></span><span
+                        id="incCountResueltas">0</span></span>
+                    <span class="inc-filter-pill"><span class="material-icons"
+                        style="font-size:14px;">attach_file</span><span id="incCountAdjuntos">0</span></span>
+                  </div>
+                </div>
+
+                <button class="incv2-btn-new"
+                  onclick="switchIncTab({ target: document.querySelector('[data-inc-tab=&quot;addTab&quot;]') }, 'addTab')">
+                  <span class="material-icons" style="font-size:16px;">add</span> Nueva nota
+                </button>
+              </aside>
+
+              <div class="inc-list-column">
+                <div class="inc-history-toolbar">
+                  <input type="text" id="buscadorNotas" class="search-input-inc" placeholder="Buscar..."
+                    onkeyup="filtrarListaNotas()">
+                  <select id="filtroEstado" class="inc-select-filter" onchange="filtrarListaNotas()">
+                    <option value="TODAS">Todas</option>
+                    <option value="PENDIENTE">Pendientes</option>
+                    <option value="RESUELTA">Resueltas</option>
+                  </select>
+                  <button class="btn-inline-inc" onclick="cargarNotasIncidencias()">
+                    <span class="material-icons" style="font-size:17px;">refresh</span>
+                  </button>
+                </div>
+
+                <div id="listaNotas" class="inc-history-list">
+                  <div class="inc-empty-state"><span class="material-icons spinner">sync</span>
+                    <div>Cargando...</div>
+                  </div>
+                </div>
+
+                <div class="inc-history-footer">
+                  <button class="inc-load-more" onclick="cargarNotasIncidencias()">Actualizar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="addTab" class="inc-content">
+          <div class="inc-compose-grid" style="margin-top: 12px;">
+            <div class="inc-form-panel">
+              <div class="inc-form-card">
+                <div class="inc-field-grid">
+                  <div class="inc-field">
+                    <label class="inc-field-label">Reportado por</label>
+                    <input type="text" id="autorNuevaNota" class="inc-input inc-input-readonly" disabled>
+                  </div>
+                  <div class="inc-field">
+                    <label class="inc-field-label">Nivel de importancia</label>
+                    <select id="nuevaNotaPrioridad" class="inc-select" onchange="actualizarPreviewNuevaNota()">
+                      <option value="BAJA">Baja</option>
+                      <option value="MEDIA">Media</option>
+                      <option value="ALTA" selected>Alta</option>
+                      <option value="CRITICA">Critica</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="inc-field">
+                  <label class="inc-field-label">Titulo de la incidencia</label>
+                  <input type="text" id="nuevaNotaTitulo" class="inc-input"
+                    placeholder="Ej: Disrupcion en el nodo de red de la Zona 4" oninput="actualizarPreviewNuevaNota()">
+                </div>
+
+                <div class="inc-field">
+                  <label class="inc-field-label">Descripcion de la incidencia</label>
+                  <div class="inc-editor-shell">
+                    <div class="inc-editor-toolbar">
+                      <button type="button" class="inc-editor-btn" onclick="aplicarFormatoIncidencia('bold')"
+                        title="Negritas"><span class="material-icons">format_bold</span></button>
+                      <button type="button" class="inc-editor-btn" onclick="aplicarFormatoIncidencia('italic')"
+                        title="Cursiva"><span class="material-icons">format_italic</span></button>
+                      <button type="button" class="inc-editor-btn" onclick="aplicarFormatoIncidencia('link')"
+                        title="Enlace"><span class="material-icons">link</span></button>
+                      <div class="inc-toolbar-divider"></div>
+                      <button type="button" class="inc-editor-btn" onclick="aplicarFormatoIncidencia('ul')"
+                        title="Lista"><span class="material-icons">format_list_bulleted</span></button>
+                      <button type="button" class="inc-editor-btn" onclick="aplicarFormatoIncidencia('ol')"
+                        title="Lista numerada"><span class="material-icons">format_list_numbered</span></button>
+                    </div>
+                    <textarea id="nuevaNotaTxt" class="inc-editor-textarea"
+                      placeholder="Describe detalladamente las causas, el impacto observado y los responsables involucrados..."
+                      oninput="actualizarPreviewNuevaNota()"></textarea>
+                  </div>
+                </div>
+
+                <div class="inc-field">
+                  <label class="inc-field-label">Adjuntar imagenes / archivos</label>
+                  <input type="file" id="nuevaNotaArchivos" accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.log,.csv"
+                    multiple style="display:none;" onchange="manejarArchivosNuevaNota(this.files)">
+                  <div id="incDropZone" class="inc-upload-zone" onclick="abrirSelectorArchivosNota()"
+                    ondragenter="estadoDragNota(true)" ondragleave="estadoDragNota(false)"
+                    ondragover="manejarDragNota(event)" ondrop="soltarArchivosNota(event)">
+                    <span class="material-icons">cloud_upload</span>
+                    <div class="inc-upload-title">Arrastre archivos aqui o haga clic para explorar</div>
+                    <div class="inc-upload-copy">Formatos soportados: PDF, PNG, JPG, WEBP, GIF, TXT, LOG, CSV (max 25MB
+                      por archivo)</div>
+                  </div>
+                  <div id="incAdjuntosLista" class="inc-upload-list"></div>
+                </div>
+
+                <div class="inc-form-actions">
+                  <button type="button" class="inc-btn-ghost" onclick="resetFormularioIncidencia()">Descartar</button>
+                  <button type="button" id="btnPublicarInc" class="inc-btn-primary" onclick="guardarNuevaNota(event)">
+                    <span>Publicar Nota</span>
+                    <span class="material-icons" style="font-size:18px;">send</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <aside class="inc-side-panel">
+              <div class="inc-side-kicker">Protocolo operativo v4.2</div>
+
+              <div class="inc-system-card">
+                <h3 class="inc-side-title">Detalles del sistema</h3>
+                <div class="inc-system-rows">
+                  <div class="inc-system-row">
+                    <span>Timestamp</span>
+                    <strong id="incMetaTimestamp">--</strong>
+                  </div>
+                  <div class="inc-system-row">
+                    <span>Ubicacion</span>
+                    <strong id="incMetaUbicacion">--</strong>
+                  </div>
+                  <div class="inc-system-row">
+                    <span>ID registro</span>
+                    <strong id="incMetaId">INC-000000</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="inc-help-card">
+                <h3 class="inc-side-title" style="margin-bottom:10px;">Ayuda corporativa</h3>
+                <p>Si la incidencia involucra activos criticos, documenta el impacto, adjunta evidencia y notifica al
+                  equipo regional antes de cerrar el caso.</p>
+                <a href="javascript:void(0)" class="inc-help-link"
+                  onclick="showToast('Sigue el protocolo de escalamiento critico con gerencia operativa.', 'info')">
+                  <span>Ver protocolo de emergencia</span>
+                  <span class="material-icons" style="font-size:16px;">open_in_new</span>
+                </a>
+              </div>
+
+              <div class="inc-warning-card">
+                <span class="material-icons">warning</span>
+                <p>Las notas publicadas forman parte del historial operativo. Verifica prioridad, titulo y adjuntos
+                  antes de confirmar.</p>
+              </div>
+
+              <div class="inc-preview-card">
+                <div class="inc-preview-top">
+                  <span id="incPreviewPrioridad" class="inc-preview-priority is-alta">Alta</span>
+                  <span id="incPreviewStamp" class="inc-preview-stamp">0 adjuntos</span>
+                </div>
+                <h3 id="incPreviewTitulo" class="inc-preview-title">Nueva incidencia</h3>
+                <div id="incPreviewBody" class="inc-preview-body">Documenta el evento con precision tecnica para que el
+                  historial operativo conserve contexto, impacto y evidencia.</div>
+                <div class="inc-preview-meta">
+                  <span id="incPreviewAutor">Emitido por: --</span>
+                  <span id="incPreviewEstado">Pendiente</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modalAuthIncidencia ─────────────────────────────── -->
+  <div id="modalAuthIncidencia" class="modal-overlay">
+    <div class="modal-box">
+      <div
+        style="background: #dcfce7; width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+        <span class="material-icons" style="color:#16a34a; font-size:28px;">task_alt</span>
+      </div>
+      <div class="modal-title">Resolver Incidencia</div>
+      <div class="modal-text" style="margin-bottom:10px;">Describe brevemente cómo se solucionó:</div>
+
+      <textarea id="authComentario" rows="3"
+        style="width:100%; padding:12px; border-radius:10px; border:1.5px solid var(--border); font-family:inherit; margin-bottom:20px; outline:none;"></textarea>
+
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel"
+          onclick="document.getElementById('modalAuthIncidencia').classList.remove('active')">CANCELAR</button>
+        <button class="modal-btn" id="btnConfirmarResInc" onclick="ejecutarResolucion()"
+          style="background:#16a34a; color:white;">CONFIRMAR</button>
+      </div>
+    </div>
+  </div>
+
+<!-- ── audit-modal ─────────────────────────────── -->
+  <div id="audit-modal" class="fleet-modal" style="z-index: 6000;">
+    <div class="fleet-header-top">
+      <div style="display:flex; align-items:center; gap: 10px;">
+        <h2 style="color:var(--primary); font-weight:900; margin:0;">ASISTENTE DE AUDITORÍA (3 VÍAS)</h2>
+      </div>
+      <button onclick="document.getElementById('audit-modal').classList.remove('active')"
+        style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
+    </div>
+
+    <div class="fleet-wrapper" style="align-items: center; background: #f8fafc; padding: 25px; overflow-y: auto;">
+
+      <div id="audit-paso1"
+        style="width: 100%; max-width: 850px; background: white; padding: 30px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
+
+        <div style="text-align: center; margin-bottom: 25px;">
+          <h3 style="color:var(--primary); font-weight:900; margin-bottom:10px; font-size: 18px;">PASO 1: CARGAR BASE
+            CORPORATIVA</h3>
+          <p style="font-size:13px; color:#64748b; margin:0;">Cruza el reporte del sistema de ventas con la realidad
+            física del patio.</p>
+        </div>
+
+        <div
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; align-items: center;">
+
+          <div style="display: flex; flex-direction: column; justify-content: center; text-align: center;">
+            <div id="drop-zone" class="upload-drop-zone" onclick="document.getElementById('csvFileInput').click()"
+              ondragover="event.preventDefault(); this.classList.add('dragover');"
+              ondragleave="this.classList.remove('dragover');"
+              ondrop="event.preventDefault(); this.classList.remove('dragover'); window.procesarDropSeguro(event);">
+
+              <span class="material-icons" id="upload-icon"
+                style="font-size: 55px; color: var(--mex-accent); margin-bottom: 10px;">cloud_upload</span>
+              <p id="upload-text" style="font-weight: 800; color: var(--mex-blue); font-size: 16px; margin:0;">Arrastra
+                el archivo aquí</p>
+              <p style="font-size: 12px; color: #64748b; margin-top:5px;">o haz clic para explorar tu PC</p>
+              <input type="file" id="csvFileInput" style="display: none;" onchange="window.procesarInputSeguro(this)">
+            </div>
+
+            <div id="csv-preview-info"
+              style="display:none; margin-top: 20px; padding: 15px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; color: #166534; font-weight: 800; font-size: 14px;">
+              <span class="material-icons" style="vertical-align: middle;">format_list_numbered</span> <span
+                id="csv-count">0</span> unidades extraídas del archivo.
+            </div>
+
+            <button id="btnIniciarMision" onclick="iniciarMisionAuditoria()" disabled
+              style="width: 100%; padding: 18px; background: var(--mex-accent); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; transition: 0.2s; margin-top: 20px; opacity: 0.5; font-size: 14px;">
+              INICIAR MISIÓN DE AUDITORÍA
+            </button>
+          </div>
+
+          <div
+            style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 25px; text-align: left;">
+            <h4
+              style="color: var(--mex-blue); font-weight: 900; font-size: 14px; margin-top: 0; margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+              <span class="material-icons" style="color: #f59e0b;">lightbulb</span> GUÍA RÁPIDA PARA VENTAS
+            </h4>
+
+            <div style="margin-bottom: 18px;">
+              <div
+                style="font-weight: 800; font-size: 12px; color: #1e293b; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                <span
+                  style="background: var(--mex-blue); color: white; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px;">1</span>
+                EXPORTAR FLOTA
+              </div>
+              <p style="font-size: 12px; color: #64748b; margin: 0 0 0 28px; line-height: 1.4;">Filtra en el sistema:
+                Locación <b>BJX</b> y Estatus <b>Arrendable</b>. Haz clic en Exportar.</p>
+            </div>
+
+            <div style="margin-bottom: 18px;">
+              <div
+                style="font-weight: 800; font-size: 12px; color: #1e293b; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                <span
+                  style="background: var(--mex-blue); color: white; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px;">2</span>
+                DESCARGAR FORMATO
+              </div>
+              <p style="font-size: 12px; color: #64748b; margin: 0 0 0 28px; line-height: 1.4;">Abre el archivo en
+                Google Drive/Sheets y ve a <b>Archivo &gt; Descargar &gt; Valores separados por comas (.csv)</b>.</p>
+            </div>
+
+            <div>
+              <div
+                style="font-weight: 800; font-size: 12px; color: #1e293b; margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
+                <span
+                  style="background: var(--mex-blue); color: white; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 50%; font-size: 11px;">3</span>
+                INICIAR MISIÓN
+              </div>
+              <p style="font-size: 12px; color: #64748b; margin: 0 0 0 28px; line-height: 1.4;">Arrastra el .csv a la
+                zona de carga y presiona el botón azul para enviar la misión al Auxiliar.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div id="audit-paso2"
+        style="display:none; position: relative; width: 100%; max-width: 600px; background: #f8fafc; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.15); border: 1px solid var(--border); flex-direction: column; max-height: 80vh; margin: auto;">
+
+        <div style="background: var(--mex-blue); padding: 15px 20px; color: white; flex-shrink: 0; z-index: 10;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+            <h3 id="titulo-auditoria"
+              style="margin:0; font-weight: 900; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+              <span class="material-icons">fact_check</span> PASE DE LISTA
+            </h3>
+            <span id="audit-progress"
+              style="background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 900;">0 / 0</span>
+          </div>
+          <div class="audit-progress-bar">
+            <span class="audit-progress-fill" id="audit-progress-fill"></span>
+          </div>
+          <div style="position: relative; margin-top: 10px;">
+            <span class="material-icons"
+              style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;">search</span>
+            <input type="text" id="audit-search" placeholder="Buscar MVA o Placa..." oninput="renderizarPaseLista()"
+              style="width: 100%; padding: 12px 12px 12px 40px; border-radius: 12px; border: none; outline: none; font-weight: 800; font-size: 14px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+          </div>
+        </div>
+
+        <div id="audit-scroll-area"
+          style="flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 15px; position: relative; background: #f8fafc;">
+          <div id="audit-list-container"></div>
+        </div>
+
+        <div
+          style="padding: 15px; background: white; border-top: 1px solid #e2e8f0; flex-shrink: 0; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.02);">
+          <button onclick="agregarUnidadExtra()"
+            style="width: 100%; padding: 12px; background: #fffbeb; color: #d97706; border: 2px dashed #fcd34d; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 10px;">
+            <span class="material-icons">add_circle</span> AÑADIR SOBRANTE
+          </button>
+          <button id="btnFinalizarAudit" onclick="finalizarPaseLista()" disabled
+            style="width: 100%; padding: 16px; background: #cbd5e1; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.3s;">
+            <span class="material-icons">compare_arrows</span> FINALIZAR AUDITORÍA
+          </button>
+        </div>
+
+      </div>
+
+      <div id="audit-paso3"
+        style="display:none; width: 100%; max-width: 500px; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
+        <div style="background: var(--mex-blue); padding: 25px; color: white; text-align: center;">
+          <span class="material-icons" style="font-size: 40px; margin-bottom: 10px; color: #38bdf8;">analytics</span>
+          <h2 style="margin:0; font-weight: 900; font-size: 20px;">REVISIÓN FINALIZADA</h2>
+          <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Listo para cruzar datos y generar PDF Oficial.
+          </p>
+        </div>
+
+        <div class="audit-stat-grid">
+          <div class="audit-stat-card">
+            <div class="audit-stat-num audit-stat-num--red" id="res-faltantes-count">0</div>
+            <div class="audit-stat-label">FALTANTES</div>
+          </div>
+          <div class="audit-stat-card">
+            <div class="audit-stat-num audit-stat-num--amber" id="res-extras-count">0</div>
+            <div class="audit-stat-label">SOBRANTES</div>
+          </div>
+          <div class="audit-stat-card">
+            <div class="audit-stat-num audit-stat-num--green" id="res-ok-count">0</div>
+            <div class="audit-stat-label">CUADRADOS</div>
+          </div>
+        </div>
+
+        <div style="padding: 20px; border-top: 1px solid #e2e8f0; background: white;">
+          <button id="btnCertificarFinal" onclick="enviarReporteAuditoriaFinal()"
+            style="width: 100%; padding: 18px; background: #1e293b; color: white; border: none; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;">
+            <span class="material-icons">gavel</span> ENVIAR REPORTE A VENTAS
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<!-- ── map-stage + info-panel ─────────────────────────────── -->
+    <div id="map-stage">
+      <div id="map-zoom-container">
+        <div id="grid-map" class="map-grid"></div>
+      </div>
+    </div>
+
+    <div id="info-panel" class="info-sidebar">
+      <div id="detalle-unidad"></div>
+      <div id="swap-container"></div>
+      <!-- F7: Sección de utilidades rápidas -->
+      <div id="panel-extras-unidad"
+        style="display:none; margin:10px 0 0; padding:12px 14px; background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:14px; display:flex; flex-direction:column; gap:10px;">
+        <!-- Tags de color -->
+        <div id="panel-tags-unidad"></div>
+        <!-- Nota rápida -->
+        <div id="panel-nota-rapida"></div>
+        <!-- Recordatorio -->
+        <div id="panel-recordatorio-unidad"></div>
+        <!-- Botones de acción rápida -->
+        <div id="panel-acciones-rapidas" style="display:flex; gap:6px; flex-wrap:wrap;"></div>
+      </div>
+      <div id="infoPanelBtnGrid" style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:15px; margin-top:25px;">
+        <button id="btnMandarLimbo" onclick="resetUnitToLimbo()"
+          style="padding:18px; border-radius:14px; border:none; background:#fee2e2; color:#ef4444; font-weight:900; cursor:pointer; font-size:14px;">MANDAR
+          AL LIMBO 🗑️</button>
+        <button onclick="cerrarPanel()"
+          style="padding:18px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer; font-size:14px;">CERRAR</button>
+      </div>
+    </div>
+
+<!-- ── modal-insertar-admin ─────────────────────────────── -->
+  <div id="modal-insertar-admin" class="modal-overlay" style="z-index: 6000;">
+    <div class="console-card admin-console-card" style="min-height: 580px;">
+      <button class="admin-modal-close"
+        onclick="document.getElementById('modal-insertar-admin').classList.remove('active')">
+        <span class="material-icons" style="font-size:20px;">close</span>
+      </button>
+
+      <div class="admin-modal-hero">
+        <div class="admin-modal-kicker">
+          <span class="material-icons" style="font-size:16px;">shield</span>
+          Control Administrativo
+        </div>
+        <div class="admin-modal-title">Registro Administrativo</div>
+        <div class="admin-modal-subtitle">Alta rápida al cuadre admins con base global precargada, evidencia flexible y
+          responsable visible.</div>
+
+        <div class="admin-badge-row">
+          <div id="a_ins_badgePlaza" class="admin-badge">PLAZA --</div>
+          <div id="a_ins_badgeAdmin" class="admin-badge">RESPONSABLE --</div>
+        </div>
+      </div>
+
+      <div class="admin-modal-body">
+        <div class="admin-highlight-card">
+          <div class="admin-section-title" style="margin-top:0;">Vincular Base Maestra</div>
+          <div class="search-wrapper admin-search-shell" style="position:relative;">
+            <span class="material-icons"
+              style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
+            <input type="text" id="a_ins_searchInput" class="search-global-input"
+              placeholder="Buscar unidad en Base Maestra..." oninput="filtrarBusquedaAdmin()" autocomplete="off">
+            <div id="a_ins_results" class="floating-results"></div>
+          </div>
+          <div id="a_ins_searchMeta" class="admin-search-meta">
+            <span class="material-icons" style="font-size:14px;">dataset</span>
+            Preparando índice global...
+          </div>
+          <div class="admin-search-hint">Busca por MVA, placas, modelo o plaza. La base maestra se precarga desde que
+            abre la app para responder al instante.</div>
+        </div>
+
+        <div class="admin-stitch-strip">
+          <div class="admin-stitch-pill"><span class="material-icons">hub</span>
+            <div><small>Paso 1</small><strong>Vincula la unidad</strong></div>
+          </div>
+          <div class="admin-stitch-pill"><span class="material-icons">inventory_2</span>
+            <div><small>Paso 2</small><strong>Confirma estado y ubicación</strong></div>
+          </div>
+          <div class="admin-stitch-pill"><span class="material-icons">attach_file</span>
+            <div><small>Paso 3</small><strong>Sube archivos y notas</strong></div>
+          </div>
+        </div>
+
+        <div id="a_ins_formContainer" class="admin-modal-scroll" style="animation: slideUp 0.5s ease;">
+          <div class="admin-section-title">Identificación de Unidad</div>
+          <div class="inner-card admin-form-card">
+            <div class="grid-2">
+              <div class="field"><label>MVA</label><input type="text" id="a_ins_mva" disabled
+                  style="background:#f1f5f9; font-weight:900; color:var(--mex-blue);"></div>
+              <div class="field"><label>Categoría</label><input type="text" id="a_ins_cat" disabled
+                  style="background:#f1f5f9; color:#64748b;"></div>
+            </div>
+            <div class="grid-2" style="margin-top:10px">
+              <div class="field"><label>Modelo</label><input type="text" id="a_ins_mod" disabled
+                  style="background:#f1f5f9; color:#64748b;"></div>
+              <div class="field"><label>Placas</label><input type="text" id="a_ins_pla" disabled
+                  style="background:#f1f5f9; color:#64748b;"></div>
+            </div>
+          </div>
+
+          <div class="admin-section-title">Control Operativo</div>
+          <div class="inner-card admin-form-card">
+            <div class="grid-2">
+              <div class="field">
+                <label>Gasolina ⛽</label>
+                <select id="a_ins_gas">
+                  <option value="N/A">Seleccionar...</option>
+                  <option value="F">F (Lleno Total)</option>
+                  <optgroup label="MEDIO">
+                    <option value="15/16">15/16</option>
+                    <option value="7/8">7/8</option>
+                    <option value="13/16">13/16</option>
+                    <option value="3/4">3/4</option>
+                    <option value="11/16">11/16</option>
+                    <option value="5/8">5/8</option>
+                    <option value="9/16">9/16</option>
+                    <option value="H">H (Medio)</option>
+                  </optgroup>
+                  <optgroup label="BAJO">
+                    <option value="7/16">7/16</option>
+                    <option value="3/8">3/8</option>
+                    <option value="5/16">5/16</option>
+                    <option value="1/4">1/4</option>
+                    <option value="3/16">3/16</option>
+                    <option value="1/8">1/8</option>
+                    <option value="1/16">1/16</option>
+                    <option value="E">E (Vacío)</option>
+                  </optgroup>
+                  <option value="N/A">N/A</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Estado 🛠️</label>
+                <select id="a_ins_est">
+                  <option value="">Seleccionar...</option>
+                  <option value="LISTO">🟢 LISTO</option>
+                  <option value="SUCIO">🟡 SUCIO</option>
+                  <option value="RESGUARDO">🔘 RESGUARDO</option>
+                  <option value="TRASLADO">🟣 TRASLADO</option>
+                  <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
+                  <option value="HYP">🔴 HYP</option>
+                  <option value="EN RENTA">🔵 EN RENTA</option>
+                  <option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option>
+                  <option value="VENTA">⚫ VENTA</option>
+                  <option value="RETENIDA">🟤 RETENIDA</option>
+                </select>
+              </div>
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label>Ubicación Física 📍</label>
+              <select id="a_ins_ubi">
+                <option value="">Seleccionar...</option>
+                <option value="PATIO">🏠 PATIO</option>
+                <option value="TALLER">🔧 TALLER</option>
+                <option value="AGENCIA">🏢 AGENCIA</option>
+                <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
+                <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                <option value="OTRA PLAZA">📌 OTRA PLAZA</option>
+                <optgroup label="PERSONA RESPONSABLE">
+                  <option value="JORGE">👤 JORGE</option>
+                  <option value="GERARDO">👤 GERARDO</option>
+                  <option value="OSVALDO">👤 OSVALDO</option>
+                  <option value="BALANDRAN">👤 BALANDRAN</option>
+                  <option value="ULISES">👤 ULISES</option>
+                  <option value="JOSUE">👤 JOSUE</option>
+                  <option value="ISRAEL">👤 ISRAEL</option>
+                  <option value="ISAAC">👤 ISAAC</option>
+                  <option value="ANGEL">👤 ANGEL</option>
+                  <option value="LEO">👤 LEO</option>
+                  <option value="BRAULIO">👤 BRAULIO</option>
+                  <option value="LONGORIA">👤 LONGORIA</option>
+                  <option value="MARTHA">👤 MARTHA</option>
+                  <option value="FERNANDA">👤 FERNANDA</option>
+                  <option value="ZALLO">👤 ZALLO</option>
+                  <option value="UBALDO">👤 UBALDO</option>
+                  <option value="JOSE LUIS">👤 JOSE LUIS</option>
+                  <option value="PASCUAL">👤 PASCUAL</option>
+                  <option value="EDUARDO">👤 EDUARDO</option>
+                  <option value="EDGAR">👤 EDGAR</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <div class="admin-section-title">Evidencia y Seguimiento</div>
+          <div class="inner-card admin-form-card">
+            <div class="field admin-upload-box">
+              <label>📂 Adjuntar archivos del expediente</label>
+              <input type="file" id="a_ins_file" multiple
+                onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')"
+                style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+              <div class="admin-upload-meta">Acepta imágenes, PDF, hojas, documentos, ZIP y archivos de soporte en
+                general.</div>
+              <div id="a_ins_fileStatus" class="admin-file-status"><span class="material-icons">folder_open</span> Sin
+                archivos seleccionados todavía</div>
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label>Notas Administrativas</label>
+              <textarea id="a_ins_not" rows="2"
+                placeholder="Describe la incidencia, seguimiento o contexto administrativo relevante..."
+                style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
+            </div>
+          </div>
+
+          <button class="btn-save-global" id="btnGuardarAdmin" onclick="ejecutarInsertarAdmin()">
+            <span class="material-icons" id="iconGuardarAdmin">save</span> <span id="txtGuardarAdmin">CONFIRMAR
+              REGISTRO</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modal-insertar-global ─────────────────────────────── -->
+  <div id="modal-insertar-global" class="modal-overlay" style="z-index: 6000;">
+    <div class="console-card form-console-card">
+      <button class="form-modal-close"
+        onclick="document.getElementById('modal-insertar-global').classList.remove('active')">
+        <span class="material-icons" style="font-size:20px;">close</span>
+      </button>
+
+      <div class="form-modal-hero">
+        <div class="form-modal-kicker">
+          <span class="material-icons" style="font-size:16px;">add_business</span>
+          Base Maestra Global
+        </div>
+        <div class="form-modal-title">Alta de Unidad Global</div>
+        <div class="form-modal-subtitle">Registra una unidad nueva con identidad técnica, plaza destino y datos clave
+          listos para entrar al inventario maestro.</div>
+
+        <div class="form-modal-metrics">
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">warehouse</span>
+            Inventario central
+          </div>
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">pin_drop</span>
+            Alta por plaza
+          </div>
+        </div>
+      </div>
+
+      <div class="form-modal-body">
+        <div class="form-modal-scroll">
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Destino Operativo</span>
+            <div class="field" style="margin-bottom:0;">
+              <label>Sede de Destino</label>
+              <select id="g_plaza">
+                <option value="BJX">BJX - León</option>
+                <option value="GDL">GDL - Guadalajara</option>
+                <option value="QRO">QRO - Querétaro</option>
+                <option value="PVR">PVR - Puerto Vallarta</option>
+                <option value="MID">MID - Mérida</option>
+                <option value="CUN">CUN - Cancún</option>
+                <option value="TLC">TLC - Toluca</option>
+                <option value="TQO">TQO - Tulum</option>
+                <option value="CTM">CTM - Chetumal</option>
+                <option value="MEX">MEX - CDMX</option>
+                <option value="HMO">HMO - Hermosillo</option>
+                <option value="TGZ">TGZ - Tuxtla</option>
+                <option value="TPQ">TPQ - Tepic</option>
+                <option value="TIJ">TIJ - Tijuana</option>
+                <option value="CUL">CUL - Culiacán</option>
+                <option value="MTY">MTY - Monterrey</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Identificación Técnica</span>
+            <div class="field"><label>VIN (Número de Serie)</label><input type="text" id="g_vin"
+                placeholder="3N1CN8AE0SK5..."></div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>Categoría</label><input type="text" id="g_categoria" placeholder="Ej. CCAR">
+              </div>
+              <div class="field"><label>Año</label><input type="number" id="g_año" placeholder="2025"></div>
+            </div>
+          </div>
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Especificaciones y Control</span>
+            <div class="grid-2">
+              <div class="field"><label>Marca</label><input type="text" id="g_marca" placeholder="NISSAN"></div>
+              <div class="field">
+                <label>Modelo</label>
+                <input type="text" id="g_ins_mod" placeholder="Ej. AVEO SEDAN...">
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>Económico (MVA)</label><input type="text" id="g_mva" placeholder="C2974"></div>
+              <div class="field"><label>Placas</label><input type="text" id="g_placas" placeholder="GVT840F"></div>
+            </div>
+          </div>
+
+          <div class="form-modal-helper">La unidad se registrará en la plaza seleccionada y quedará disponible para su
+            expediente técnico global.</div>
+        </div>
+
+        <button class="btn-save-global" id="btnGuardarGlobal" onclick="ejecutarInsertarGlobal()">
+          <span class="material-icons" id="iconInsertGlobal">save</span> <span id="txtInsertGlobal">GUARDAR EN
+            PLAZA</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modal-insertar-externo ─────────────────────────────── -->
+  <div id="modal-insertar-externo" class="modal-overlay" style="z-index: 6000;">
+    <div class="console-card form-console-card" style="min-height: 520px;">
+      <button class="form-modal-close"
+        onclick="document.getElementById('modal-insertar-externo').classList.remove('active')">
+        <span class="material-icons" style="font-size:20px;">close</span>
+      </button>
+
+      <div class="form-modal-hero">
+        <div class="form-modal-kicker">
+          <span class="material-icons" style="font-size:16px;">directions_car</span>
+          Registro Operativo
+        </div>
+        <div class="form-modal-title">Alta de Unidad Externa</div>
+        <div class="form-modal-subtitle">Registra una unidad externa dentro de la plaza activa para que quede visible
+          en mapa, flota y seguimiento operativo sin mezclar otras plazas.</div>
+
+        <div class="form-modal-metrics">
+          <div class="form-modal-pill" id="ext_badgePlaza">
+            <span class="material-icons" style="font-size:15px;">pin_drop</span>
+            PLAZA --
+          </div>
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">route</span>
+            Flujo por plaza
+          </div>
+        </div>
+      </div>
+
+      <div class="form-modal-body">
+        <div class="form-modal-scroll">
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Identificación</span>
+            <div class="grid-2">
+              <div class="field"><label>Económico (MVA)</label><input type="text" id="ext_mva" placeholder="Ej. D5256">
+              </div>
+              <div class="field"><label>Placas</label><input type="text" id="ext_placas" placeholder="Ej. GVT840F">
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:15px;">
+              <div class="field"><label>Categoría</label><input type="text" id="ext_categoria"
+                  placeholder="Ej. EXTERNO"></div>
+              <div class="field"><label>Modelo</label><input type="text" id="ext_modelo"
+                  placeholder="Ej. AVEO / SENTRA / SIN MODELO"></div>
+            </div>
+          </div>
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Seguimiento</span>
+            <div class="field">
+              <label>Notas Operativas</label>
+              <textarea id="ext_notas" rows="3"
+                placeholder="Motivo del alta, traslado, resguardo, envío a otra plaza o cualquier contexto relevante..."
+                style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
+            </div>
+            <div class="form-modal-helper">Se registrará como unidad externa en la plaza activa y quedará ubicada como
+              EXTERNO para evitar confusión con otras plazas.</div>
+          </div>
+        </div>
+
+        <button class="btn-save-global" id="btnGuardarExterno" onclick="ejecutarInsertarExterno()">
+          <span class="material-icons" id="iconGuardarExterno">save</span>
+          <span id="txtGuardarExterno">REGISTRAR EXTERNO</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modal-editar-global ─────────────────────────────── -->
+  <div id="modal-editar-global" class="modal-overlay" style="z-index: 6000;">
+    <div class="console-card form-console-card" style="min-height: 500px;">
+      <button class="form-modal-close" onclick="cerrarModificadorGlobal()">
+        <span class="material-icons" style="font-size:20px;">close</span>
+      </button>
+
+      <div class="form-modal-hero">
+        <div class="form-modal-kicker">
+          <span class="material-icons" style="font-size:16px;">tune</span>
+          Modificador Global
+        </div>
+        <div class="form-modal-title">Expediente Técnico Global</div>
+        <div class="form-modal-subtitle">Busca la unidad en la base maestra, actualiza sus datos principales y, si hace
+          falta, retírala de su plaza con control total.</div>
+
+        <div class="form-modal-metrics">
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">manage_search</span>
+            Búsqueda central
+          </div>
+          <div class="form-modal-pill">
+            <span class="material-icons" style="font-size:15px;">edit_note</span>
+            Edición y baja
+          </div>
+        </div>
+      </div>
+
+      <div class="form-modal-body">
+        <div class="form-modal-card form-search-card" id="g_edit_searchCont" style="margin-bottom: 16px;">
+          <span class="material-icons"
+            style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
+          <input type="text" id="g_edit_searchInput" class="search-global-input" placeholder="Cargando flota global..."
+            disabled oninput="filtrarEdicionGlobal()" autocomplete="off">
+          <div id="g_edit_results" class="floating-results"></div>
+        </div>
+
+        <div id="g_edit_emptyState" class="form-modal-card form-empty-state">
+          <div class="form-empty-state-icon">
+            <span class="material-icons" style="font-size:40px;">build_circle</span>
+          </div>
+          <h3 style="margin:0; font-weight: 900; color: #475569; font-size: 18px;">Edición Global</h3>
+          <p style="font-size: 13px; margin:0; color: #94a3b8; font-weight: 700; max-width: 360px;">Ingresa el MVA,
+            modelo o placas para abrir el expediente técnico de la unidad en su plaza correspondiente.</p>
+        </div>
+
+        <div class="unit-identity-card" id="g_edit_unitIdentity" style="display:none;">
+          <div class="unit-meta">
+            <span id="g_edit_badgePlaza">SEDE</span>
+            <h2 id="g_edit_badgeMVA">MVA</h2>
+          </div>
+          <button class="btn-change" onclick="desbloquearEdicionGlobal()">CAMBIAR</button>
+        </div>
+
+        <div id="g_edit_formContainer" class="form-modal-scroll" style="display:none; animation: slideUp 0.5s ease;">
+          <input type="hidden" id="g_edit_fila">
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Identificación Técnica</span>
+            <div class="field"><label>Número de Serie (VIN)</label><input type="text" id="g_edit_vin"></div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>Categoría</label><input type="text" id="g_edit_cat"></div>
+              <div class="field"><label>Año</label><input type="number" id="g_edit_año"></div>
+            </div>
+          </div>
+
+          <div class="form-modal-card">
+            <span class="section-label-modal" style="margin-top:0;">Datos Comerciales</span>
+            <div class="grid-2">
+              <div class="field"><label>Marca</label><input type="text" id="g_edit_mar"></div>
+              <div class="field">
+                <label>Modelo</label>
+                <input type="text" id="g_edit_mod" placeholder="Ej. AVEO SEDAN...">
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:15px">
+              <div class="field"><label>MVA</label><input type="text" id="g_edit_mva"
+                  style="background:#f1f5f9; color:#94a3b8;"></div>
+              <div class="field"><label>Placas</label><input type="text" id="g_edit_pla"></div>
+            </div>
+          </div>
+
+          <div class="global-action-row">
+            <button class="btn-save-global" onclick="guardarEdicionGlobal('MODIFICAR')">GUARDAR CAMBIOS</button>
+            <button class="btn-save-global btn-ghost-danger" onclick="guardarEdicionGlobal('ELIMINAR')">ELIMINAR
+              UNIDAD</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modal-editar-admin ─────────────────────────────── -->
+  <div id="modal-editar-admin" class="modal-overlay" style="z-index: 6000;">
+    <div class="console-card admin-console-card" style="min-height: 620px;">
+      <button class="admin-modal-close"
+        onclick="document.getElementById('modal-editar-admin').classList.remove('active')">
+        <span class="material-icons" style="font-size:20px;">close</span>
+      </button>
+
+      <div class="admin-modal-hero">
+        <div class="admin-modal-kicker">
+          <span class="material-icons" style="font-size:16px;">folder_managed</span>
+          Cuadre Admins
+        </div>
+        <div class="admin-modal-title">Expediente Administrativo</div>
+        <div class="admin-modal-subtitle">Seguimiento profesional de unidad con notas, evidencia, responsable, plaza
+          operativa e historial visible para auditoría.</div>
+      </div>
+
+      <div class="admin-modal-body">
+        <div class="unit-identity-card" style="display:flex;">
+          <div class="unit-meta">
+            <span id="a_mod_badgePlaza">TABLA ADMINS</span>
+            <h2 id="a_mod_badgeMVA">MVA</h2>
+          </div>
+        </div>
+
+        <div id="a_mod_metaRow" class="admin-meta-grid">
+          <div class="admin-meta-card">
+            <div class="admin-meta-card__label">Plaza Operativa</div>
+            <div id="a_mod_metaPlaza" class="admin-meta-card__value">--</div>
+          </div>
+          <div class="admin-meta-card">
+            <div class="admin-meta-card__label">Admin / Responsable</div>
+            <div id="a_mod_metaResponsable" class="admin-meta-card__value">--</div>
+          </div>
+          <div class="admin-meta-card">
+            <div class="admin-meta-card__label">Última Actualización</div>
+            <div id="a_mod_metaUpdated" class="admin-meta-card__value">--</div>
+          </div>
+        </div>
+
+        <div id="a_mod_formContainer" class="admin-modal-scroll">
+          <div class="admin-section-title" style="margin-top:0;">Ficha de Unidad</div>
+          <div class="inner-card admin-form-card">
+            <div class="grid-2">
+              <div class="field"><label>Categoría</label><input type="text" id="a_mod_cat"></div>
+              <div class="field">
+                <label>Modelo</label>
+                <input type="text" id="a_mod_mod" disabled style="background:#f1f5f9; color:#94a3b8; font-weight:800;">
+              </div>
+            </div>
+            <div class="grid-2" style="margin-top:10px">
+              <div class="field"><label>MVA</label><input type="text" id="a_mod_mva" disabled
+                  style="background:#f1f5f9; color:#94a3b8;"></div>
+              <div class="field"><label>Placas</label><input type="text" id="a_mod_pla"></div>
+            </div>
+          </div>
+
+          <div class="admin-section-title">Control Operativo</div>
+          <div class="inner-card admin-form-card">
+            <div class="grid-2">
+              <div class="field">
+                <label>Gasolina ⛽</label>
+                <select id="a_mod_gas">
+                  <option value="N/A">Seleccionar...</option>
+                  <option value="F">F (Lleno Total)</option>
+                  <optgroup label="MEDIO">
+                    <option value="15/16">15/16</option>
+                    <option value="7/8">7/8</option>
+                    <option value="13/16">13/16</option>
+                    <option value="3/4">3/4</option>
+                    <option value="11/16">11/16</option>
+                    <option value="5/8">5/8</option>
+                    <option value="9/16">9/16</option>
+                    <option value="H">H (Medio)</option>
+                  </optgroup>
+                  <optgroup label="BAJO">
+                    <option value="7/16">7/16</option>
+                    <option value="3/8">3/8</option>
+                    <option value="5/16">5/16</option>
+                    <option value="1/4">1/4</option>
+                    <option value="3/16">3/16</option>
+                    <option value="1/8">1/8</option>
+                    <option value="1/16">1/16</option>
+                    <option value="E">E (Vacío)</option>
+                    <option value="N/A">N/A</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="field">
+                <label>Estado 🛠️</label>
+                <select id="a_mod_est">
+                  <option value="">Seleccionar...</option>
+                  <option value="LISTO">🟢 LISTO</option>
+                  <option value="SUCIO">🟡 SUCIO</option>
+                  <option value="RESGUARDO">🔘 RESGUARDO</option>
+                  <option value="TRASLADO">🟣 TRASLADO</option>
+                  <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
+                  <option value="HYP">🔴 HYP</option>
+                  <option value="EN RENTA">🔵 EN RENTA</option>
+                  <option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option>
+                  <option value="VENTA">⚫ VENTA</option>
+                  <option value="RETENIDA">🟤 RETENIDA</option>
+                </select>
+              </div>
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label>Ubicación Física 📍</label>
+              <select id="a_mod_ubi">
+                <option value="">Seleccionar...</option>
+                <option value="PATIO">🏠 PATIO</option>
+                <option value="TALLER">🔧 TALLER</option>
+                <option value="AGENCIA">🏢 AGENCIA</option>
+                <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
+                <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                <option value="OTRA PLAZA">📌 OTRA PLAZA</option>
+                <optgroup label="PERSONA RESPONSABLE">
+                  <option value="JORGE">👤 JORGE</option>
+                  <option value="GERARDO">👤 GERARDO</option>
+                  <option value="OSVALDO">👤 OSVALDO</option>
+                  <option value="BALANDRAN">👤 BALANDRAN</option>
+                  <option value="ULISES">👤 ULISES</option>
+                  <option value="JOSUE">👤 JOSUE</option>
+                  <option value="ISRAEL">👤 ISRAEL</option>
+                  <option value="ISAAC">👤 ISAAC</option>
+                  <option value="ANGEL">👤 ANGEL</option>
+                  <option value="LEO">👤 LEO</option>
+                  <option value="BRAULIO">👤 BRAULIO</option>
+                  <option value="LONGORIA">👤 LONGORIA</option>
+                  <option value="MARTHA">👤 MARTHA</option>
+                  <option value="FERNANDA">👤 FERNANDA</option>
+                  <option value="ZALLO">👤 ZALLO</option>
+                  <option value="UBALDO">👤 UBALDO</option>
+                  <option value="JOSE LUIS">👤 JOSE LUIS</option>
+                  <option value="PASCUAL">👤 PASCUAL</option>
+                  <option value="EDUARDO">👤 EDUARDO</option>
+                  <option value="EDGAR">👤 EDGAR</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+
+          <div class="admin-section-title">Evidencia y Seguimiento</div>
+          <div class="inner-card admin-form-card">
+            <div class="field admin-upload-box">
+              <label>📂 Cargar nuevos archivos al expediente</label>
+              <input type="file" id="a_mod_file" multiple
+                onchange="actualizarEstadoArchivosAdmin('a_mod_file', 'a_mod_fileStatus')"
+                style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
+              <div class="admin-upload-meta">Puedes subir evidencia visual, PDFs, Excel, Word, ZIP u otros archivos de
+                soporte.</div>
+              <div id="a_mod_fileStatus" class="admin-file-status"></div>
+            </div>
+            <div class="field" style="margin-top:10px">
+              <label>Añadir Nota Administrativa</label>
+              <textarea id="a_mod_not" rows="2"
+                placeholder="Agrega detalle operativo, seguimiento o contexto administrativo..."
+                style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
+            </div>
+          </div>
+
+          <div class="inner-card admin-form-card admin-visor-card" id="a_visor_evidencia"
+            style="display:none; text-align:center; padding: 15px;">
+            <span class="section-label-modal" style="margin-top:0; justify-content:center;">EVIDENCIA ADJUNTA EN EL
+              SISTEMA</span>
+            <div id="a_visor_frame" class="admin-visor-frame"></div>
+            <div id="a_visor_list" class="admin-visor-list"></div>
+            <a id="a_link_drive" href="#" target="_blank"
+              style="font-size:11px; font-weight:800; color:var(--mex-blue); text-decoration:none; display:inline-flex; align-items:center; justify-content:center; gap:5px; background: #e0f2fe; padding: 8px 15px; border-radius: 8px;">
+              <span class="material-icons" style="font-size:14px;">open_in_new</span> ABRIR ARCHIVO PRINCIPAL
+            </a>
+          </div>
+
+          <div class="danger-zone" id="a_mod_danger_zone" onclick="document.getElementById('a_mod_del_note').click()">
+            <input type="checkbox" id="a_mod_del_note" onclick="event.stopPropagation()">
+            <label style="color:var(--mex-red);">BORRAR TODO EL HISTORIAL DE NOTAS DE ESTA UNIDAD</label>
+          </div>
+
+          <div id="a_mod_btn_container" class="admin-actions" style="display:flex; gap:10px; margin-top:20px;">
+            <button class="btn-save-global" onclick="guardarEdicionAdmin('MODIFICAR')" style="margin-top:0;">💾 GUARDAR
+              CAMBIOS</button>
+            <button class="btn-save-global" onclick="guardarEdicionAdmin('ELIMINAR')"
+              style="margin-top:0; background:#fff1f2; color:#ef4444; box-shadow:none;">🗑️ RETIRAR DE CUADRE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modalAlertaMaestra ─────────────────────────────── -->
+  <div id="modalAlertaMaestra" class="modal-overlay" style="z-index: 99999;">
+    <div class="modal-box alerta-final-shell">
+
+      <div id="alertaBannerImg" class="alerta-final-banner"></div>
+
+      <div class="alerta-final-content">
+        <div class="alerta-final-head">
+          <div class="alerta-final-badges">
+            <span id="alertaTipo"
+              style="font-size: 10px; font-weight: 900; padding: 4px 10px; border-radius: 50px; background: #fee2e2; color: #ef4444; letter-spacing: 1px;">URGENTE</span>
+          </div>
+          <span id="alertaFecha" style="font-size: 11px; color: #64748b; font-weight: 800;">--</span>
+        </div>
+
+        <div>
+          <h2 id="alertaTitulo" class="alerta-final-title">Cargando...</h2>
+        </div>
+
+        <div id="alertaMensaje" class="alerta-final-message-scroll alerta-scroll-thin"></div>
+
+        <div class="alerta-final-footer">
+          <div class="alerta-final-actions">
+            <button id="btnAccionAlerta" class="alerta-final-secondary" type="button"
+              onclick="ejecutarAccionAlertaActual()" style="display:none;">
+              <span class="material-icons" style="font-size:17px;">bolt</span>
+              <span>Acción</span>
+            </button>
+            <button id="btnCerrarAlerta" class="alerta-final-cta" onclick="procesarAlertaLeida()">
+              ENTENDIDO (MARCAR COMO LEÍDA)
+            </button>
+          </div>
+          <div id="alertaFinalAuthorWrap" class="alerta-final-author">
+            Enviado por: <span id="alertaAutor" style="color: var(--primary);">Administración</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modal-registros-movimientos ─────────────────────────────── -->
+  <div id="modal-registros-movimientos" class="modal-overlay" style="z-index: 6000;">
+    <div class="log-container">
+
+      <button onclick="document.getElementById('modal-registros-movimientos').classList.remove('active')"
+        style="position:absolute; right:15px; top:25px; background:rgba(255,255,255,0.15); color:white; border:none; border-radius:50%; width:35px; height:35px; cursor:pointer; font-weight:900; z-index:20; display:flex; align-items:center; justify-content:center; backdrop-filter: blur(5px);">✕</button>
+
+      <div class="log-header">
+        <div class="log-header-text">
+          <h2 id="auditTitle">AUDITORÍA DEL SISTEMA</h2>
+          <p id="auditSubtitle">Historial de Movimientos Globales</p>
+        </div>
+        <div class="header-actions" style="margin-right: 40px; display:flex; align-items:center; gap:10px;">
+          <div style="display:flex; gap:8px; padding:4px; border-radius:999px; background:rgba(255,255,255,0.08);">
+            <button id="auditModeOperacion" onclick="cambiarModoAuditoria('OPERACION')"
+              style="border:none; border-radius:999px; padding:9px 14px; font-weight:900; font-size:11px; cursor:pointer; background:rgba(255,255,255,0.18); color:white; letter-spacing:0.6px;">OPERACIÓN</button>
+            <button id="auditModeGestion" onclick="cambiarModoAuditoria('GESTION')"
+              style="border:none; border-radius:999px; padding:9px 14px; font-weight:900; font-size:11px; cursor:pointer; background:rgba(255,255,255,0.08); color:#cbd5e1; letter-spacing:0.6px;">GESTIÓN</button>
+          </div>
+          <button class="log-action-btn" onclick="cargarLogsAuditoria()" title="Actualizar Logs">
+            <span class="material-icons" id="logRefreshIcon">sync</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="log-main-content">
+        <div class="log-filter-container">
+          <input type="text" id="logBuscador" class="log-search-box" placeholder="Buscar unidad, fecha o autor..."
+            onkeyup="aplicarFiltrosLogs(true)">
+          <select id="logFiltroTipo" class="log-select-box" onchange="aplicarFiltrosLogs(true)">
+            <option value="TODOS">Todas las acciones</option>
+            <option value="IN">Solo Entradas (IN)</option>
+            <option value="BAJA">Solo Bajas (BAJA)</option>
+            <option value="MODIF">Modificaciones</option>
+          </select>
+        </div>
+
+        <div id="listaLogsAuditoria"></div>
+
+        <button id="btnCargarMasLogs" class="log-btn-load" onclick="cargarMasLogs()" style="display: none;">
+          <span class="material-icons">expand_more</span> Cargar movimientos más antiguos
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+<!-- ── bannerBloqueo ─────────────────────────────── -->
+  <div id="bannerBloqueo"
+
+<!-- ── liveActivityFeed ─────────────────────────────── -->
+  <div id="liveActivityFeed"
+
+<!-- ── modalWhatsapp ─────────────────────────────── -->
+  <div id="modalWhatsapp" class="modal-overlay" style="z-index: 75000;">
+    <div class="modal-box">
+      <div class="material-icons modal-icon" style="color: #25D366;">whatsapp</div>
+      <div class="modal-title">Avisar a Auxiliar</div>
+      <div class="modal-text" style="margin-bottom: 15px;">Selecciona al auxiliar en turno:</div>
+
+      <div style="text-align: left; margin-bottom: 25px;">
+        <select id="wa-select-user"
+          style="width:100%; padding:12px; border-radius:12px; border:2px solid var(--border); font-weight:800; font-size:14px; outline:none; cursor:pointer; color: var(--mex-blue);">
+        </select>
+      </div>
+
+      <div class="modal-actions">
+        <button class="modal-btn modal-btn-cancel"
+          onclick="document.getElementById('modalWhatsapp').classList.remove('active')">CANCELAR</button>
+        <button class="modal-btn" style="background: #25D366; color: white;" onclick="ejecutarWhatsApp()">ENVIAR
+          ALERTA</button>
+      </div>
+    </div>
+  </div>
+
+<!-- ── modalAddExtra ─────────────────────────────── -->
+  <div id="modalAddExtra" class="modal-overlay" style="z-index: 70000;">
+    <div class="modal-box">
+      <div class="material-icons modal-icon" style="color: #d97706;">add_circle</div>
+      <div class="modal-title">Unidad Sobrante</div>
+      <div class="modal-text">Ingresa los datos de la unidad física encontrada:</div>
+
+      <div style="text-align: left; margin-bottom: 12px;">
+        <label style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Número Económico
+          (MVA)</label>
+        <input type="text" id="inputExtraMva" placeholder="Ej. C2871"
+          style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:16px; text-transform:uppercase; outline:none; transition:0.2s;"
+          onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <div style="text-align: left; margin-bottom: 12px;">
+        <label style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Modelo del
+          Vehículo</label>
+        <input type="text" id="inputExtraModelo" placeholder="Ej. VERSA SENSE"
+          style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:14px; text-transform:uppercase; outline:none; transition:0.2s;"
+          onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <div style="text-align: left; margin-bottom: 16px;">
+        <label style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Placas
+          <span style="color:#94a3b8;">(opcional)</span></label>
+        <input type="text" id="inputExtraPlacas" placeholder="Ej. GHD700G o S/P"
+          style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:14px; text-transform:uppercase; outline:none; transition:0.2s;"
+          onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <div style="display:flex; gap:10px; margin-top:4px;">
+        <button class="modal-btn" style="flex:1; background:#f1f5f9; color:#334155;"
+          onclick="document.getElementById('modalAddExtra').classList.remove('active')">Cancelar</button>
+        <button class="modal-btn" style="flex:1; background: var(--mex-accent); color:white;"
+          onclick="procesarUnidadExtra()">
+          <span class="material-icons" style="font-size:16px;vertical-align:middle;">add_task</span>
+          Añadir sobrante
+        </button>
+      </div>
+    </div>
+  </div>
+
+<!-- ── buzon-modal ─────────────────────────────── -->
+  <div id="buzon-modal" class="fleet-modal chatv2-modal" style="z-index: 8000;">
+
+        <!-- Header original del modal (oculto por CSS, solo conservamos el botón de close) -->
+        <div class="chatv2-header">
+          <div class="chatv2-header-bg"></div>
+          <div class="chatv2-header-content">
+            <div class="chatv2-header-left">
+              <span class="material-icons" style="font-size:20px; color:rgba(255,255,255,0.7);">forum</span>
+              <div>
+                <h2 class="chatv2-header-title">Mensajes Internos</h2>
+                <p class="chatv2-header-sub" id="chatv2-company-label"></p>
+              </div>
+            </div>
+            <button class="chatv2-close"
+              onclick="document.getElementById('buzon-modal').classList.remove('active'); _stopChatListener(); cerrarLightboxChat()">
+              <span class="material-icons" style="font-size:18px;">close</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="fleet-wrapper chatv2-layout">
+
+          <!-- PANEL IZQUIERDO: Lista de conversaciones -->
+          <div id="chat-contacts-view" class="chatv2-contacts">
+
+            <!-- Header estilo Instagram: nombre de usuario + botón composar -->
+            <div class="chatv2-panel-header">
+              <div class="chatv2-panel-username">
+                <span id="chatPanelUsername">Mensajes</span>
+                <span class="material-icons">expand_more</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <button class="chatv2-compose-btn" title="Cerrar mensajes"
+                  onclick="document.getElementById('buzon-modal').classList.remove('active'); _stopChatListener(); cerrarLightboxChat()">
+                  <span class="material-icons">close</span>
+                </button>
+                <button class="chatv2-compose-btn" title="Nuevo mensaje" onclick="" style="color:#0f172a;">
+                  <span class="material-icons">edit_square</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Barra de búsqueda ovalada -->
+            <div class="chatv2-search-bar">
+              <div class="chatv2-search-inner">
+                <span class="material-icons chatv2-search-icon">search</span>
+                <input type="text" id="buscadorContactos" class="chatv2-search-input" placeholder="Buscar..."
+                  onkeyup="renderContactos()">
+              </div>
+            </div>
+
+            <!-- Tabs: Mensajes / Solicitudes -->
+            <div class="chatv2-tabs">
+              <span class="chatv2-tab-label">Mensajes</span>
+              <button class="chatv2-tab-secondary">Solicitudes</button>
+            </div>
+
+            <!-- Filtros compactos -->
+            <div class="chatv2-filter-row">
+              <label class="chat-filter-chip">
+                <span class="material-icons">apartment</span>
+                <select id="chatFilterPlaza" onchange="actualizarFiltrosChat()">
+                  <option value="">Todas las plazas</option>
+                </select>
+              </label>
+              <label class="chat-filter-chip">
+                <span class="material-icons">badge</span>
+                <select id="chatFilterRol" onchange="actualizarFiltrosChat()">
+                  <option value="">Todos los roles</option>
+                </select>
+              </label>
+              <label class="chat-filter-chip">
+                <span class="material-icons">tune</span>
+                <select id="chatFilterStatus" onchange="actualizarFiltrosChat()">
+                  <option value="">Todos</option>
+                </select>
+              </label>
+              <button class="chat-filter-reset" onclick="limpiarFiltrosChat()">
+                <span class="material-icons" style="font-size:14px;">refresh</span>
+                Limpiar
+              </button>
+            </div>
+
+            <!-- Lista de contactos / conversaciones -->
+            <div id="listaContactosContainer">
+              <div style="text-align:center; padding:40px; color:#94a3b8;"><span
+                  class="material-icons spinner">sync</span></div>
+            </div>
+
+          </div>
+
+          <!-- PANEL DERECHO: Ventana de chat individual -->
+          <div id="chat-window-view" class="chatv2-window">
+
+            <!-- Estado vacío (visible cuando no hay chat seleccionado) -->
+            <div id="chat-empty-state" class="chatv2-empty-state">
+              <div class="chatv2-empty-icon">
+                <span class="material-icons">send</span>
+              </div>
+              <h3>Tus mensajes</h3>
+              <p>Envía un mensaje para iniciar una conversación.</p>
+              <button class="chatv2-empty-btn" onclick="document.getElementById('buscadorContactos')?.focus()">
+                Enviar mensaje
+              </button>
+            </div>
+
+            <!-- Header del chat activo -->
+            <div class="chatv2-chat-header" id="chat-active-header" style="display:none;">
+              <button class="chatv2-back" onclick="cerrarChat()">
+                <span class="material-icons" style="font-size:20px;">arrow_back</span>
+              </button>
+              <button class="chat-avatar chat-avatar-button" id="chat-active-avatar" onclick="abrirInfoContactoActivo()"
+                style="width: 36px; height: 36px; font-size: 14px;">U</button>
+              <div style="flex:1; overflow:hidden;">
+                <div id="chat-active-name" class="chatv2-active-name">Nombre</div>
+                <div class="chatv2-active-status">Conversación segura</div>
+              </div>
+              <div class="chatv2-header-actions">
+                <button class="chatv2-info-btn" onclick="abrirInfoContactoActivo()" title="Más información">
+                  <span class="material-icons" style="font-size:18px;">info</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Área de mensajes -->
+            <div id="chat-messages-container" class="chatv2-messages" style="display:none;"></div>
+
+            <!-- Staging area -->
+            <div id="chatStagingArea" class="chatv2-staging-area"></div>
+
+            <!-- Input bar -->
+            <div class="chatv2-input-bar" id="chat-input-bar" style="display:none;">
+              <input type="file" id="chatFileInput" style="display:none;"
+                accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onchange="stagedArchivoChatV2(this)">
+              <button class="chatv2-attach-btn" onclick="document.getElementById('chatFileInput').click()"
+                title="Adjuntar archivo">
+                <span class="material-icons" style="font-size:20px;">add_circle</span>
+              </button>
+              <div class="chatv2-input-box">
+                <textarea id="chat-input" rows="1" class="chatv2-textarea" placeholder="Mensaje..."
+                  oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 100) + 'px'"
+                  onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();enviarMensajeChat();}"></textarea>
+              </div>
+              <button id="chatMicBtn" class="chatv2-mic-btn" onclick="toggleGrabacionChat()" title="Grabar audio">
+                <span class="material-icons" style="font-size:20px;">mic</span>
+              </button>
+              <button class="chatv2-send-btn" onclick="enviarMensajeChat()">
+                <span class="material-icons">send</span>
+              </button>
+              <!-- Emoji picker panel -->
+              <div id="chatEmojiPickerPanel"></div>
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+<!-- ── perfil-modal ─────────────────────────────── -->
+      <div id="perfil-modal" class="fleet-modal profile-modal" style="z-index: 8100;">
+        <div class="profile-modal-shell">
+          <div class="profile-modal-hero">
+            <div>
+              <div class="profile-modal-kicker">Tu Cuenta</div>
+              <h2 class="profile-modal-title">Perfil</h2>
+              <p class="profile-modal-sub">Tu avatar ya funciona y el resto del panel queda listo para futuras
+                configuraciones personales.</p>
+            </div>
+            <button class="profile-modal-close" onclick="cerrarPerfilUsuario()">
+              <span class="material-icons" style="font-size:18px;">close</span>
+            </button>
+          </div>
+
+          <div class="profile-modal-body">
+            <div class="profile-modal-card">
+              <div id="profileCurrentAvatar" class="profile-avatar-large">U</div>
+              <div class="profile-modal-copy">
+                <div id="profileCurrentName" class="profile-modal-name">Usuario</div>
+                <div id="profileCurrentMeta" class="profile-modal-meta">Sin datos</div>
+                <div id="profileCurrentBadges" class="profile-modal-badges"></div>
+              </div>
+            </div>
+
+            <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;"
+              onchange="subirAvatarPerfil(this)">
+
+            <div class="profile-modal-actions">
+              <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
+                <span class="material-icons" style="font-size:18px;">photo_camera</span>
+                Subir y Recortar
+              </button>
+              <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
+                <span class="material-icons" style="font-size:18px;">delete</span>
+                Quitar Foto
+              </button>
+            </div>
+
+            <div class="profile-modal-note">
+              Usa una imagen cuadrada o vertical ligera para que se vea mejor en el chat, la barra lateral y futuras
+              vistas del sistema. Las opciones de abajo son visuales por ahora y quedan listas para conectar después.
+            </div>
+
+            <div class="profile-settings-grid">
+              <section class="profile-settings-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">notifications_active</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Notificaciones del dispositivo</div>
+                    <p class="profile-settings-sub">Controla si este equipo recibe avisos reales en el celular o
+                      navegador.</p>
+                  </div>
+                  <span class="profile-settings-badge" id="profileNotificationBadge">Preparando</span>
+                </div>
+                <div class="profile-setting-row profile-setting-row-hero">
+                  <div>
+                    <strong>Notificaciones activas</strong>
+                    <small>Si lo apagas, el historial sigue en el inbox pero este equipo deja de sonar.</small>
+                  </div>
+                  <button id="profileNotifMasterToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Notificaciones activas"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Mensajes directos</strong>
+                    <small>Avísame cuando alguien me escriba o responda.</small>
+                  </div>
+                  <button id="profileNotifMessagesToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Mensajes directos"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Misión de cuadre</strong>
+                    <small>Recibe avisos cuando te asignen o actualicen tu cuadre.</small>
+                  </div>
+                  <button id="profileNotifCuadreToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Misión de cuadre"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Alertas críticas</strong>
+                    <small>Solo las situaciones urgentes de operación y patio.</small>
+                  </div>
+                  <button id="profileNotifCriticalToggle" type="button" class="profile-setting-toggle is-on"
+                    aria-label="Alertas críticas"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Silenciar este equipo</strong>
+                    <small>Pausa los avisos del sistema sin perder el historial dentro del inbox.</small>
+                  </div>
+                  <button id="profileNotifMuteToggle" type="button" class="profile-setting-toggle is-off"
+                    aria-label="Silenciar este equipo"></button>
+                </div>
+                <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
+                <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary"
+                  style="width:100%; margin-top:14px;">
+                  <span class="material-icons" style="font-size:18px;">notifications</span>
+                  Ver historial y detalles
+                </button>
+              </section>
+
+              <section class="profile-settings-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">palette</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Preferencias</div>
+                    <p class="profile-settings-sub">Preparado para apariencia, atajos y comportamiento del mapa.</p>
+                  </div>
+                  <span class="profile-settings-badge">Próximamente</span>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Modo compacto</strong>
+                    <small>Para listas más densas y navegación rápida.</small>
+                  </div>
+                  <span class="profile-setting-toggle is-off"></span>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Zoom recordado</strong>
+                    <small>Guardará tu escala favorita al volver al mapa.</small>
+                  </div>
+                  <span class="profile-setting-toggle is-on"></span>
+                </div>
+              </section>
+
+              <section class="profile-settings-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">shield</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Privacidad y sesión</div>
+                    <p class="profile-settings-sub">Estado del permiso, este equipo activo y forma en que recibes
+                      avisos.</p>
+                  </div>
+                  <span class="profile-settings-badge" id="profileSessionBadge">En línea</span>
+                </div>
+                <div class="profile-setting-row profile-setting-row-hero">
+                  <div>
+                    <strong>Permiso push del dispositivo</strong>
+                    <small id="profilePermissionSummary">Revisando soporte de notificaciones…</small>
+                  </div>
+                  <button id="profilePermissionToggle" type="button" class="profile-setting-toggle is-off"
+                    aria-label="Activar notificaciones push"></button>
+                </div>
+                <div class="profile-setting-row">
+                  <div>
+                    <strong>Este equipo</strong>
+                    <small id="profileCurrentDeviceSummary">Cargando información del dispositivo actual.</small>
+                  </div>
+                  <span class="profile-settings-badge">Este equipo</span>
+                </div>
+              </section>
+
+              <section class="profile-settings-card profile-shortcuts-card">
+                <div class="profile-settings-head">
+                  <div class="profile-settings-icon">
+                    <span class="material-icons" style="font-size:20px;">keyboard_command_key</span>
+                  </div>
+                  <div>
+                    <div class="profile-settings-title">Accesos rápidos</div>
+                    <p class="profile-settings-sub">Atajos activos para moverte más rápido en escritorio.</p>
+                  </div>
+                  <span class="profile-settings-badge">Activos</span>
+                </div>
+                <div class="profile-shortcut-list">
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>C</kbd></div>
+                    <span>Abrir gestión de flota</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>M</kbd></div>
+                    <span>Abrir mensajes</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>P</kbd></div>
+                    <span>Abrir perfil</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Shift</kbd><kbd>R</kbd></div>
+                    <span>Resumen de flota</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>/</kbd></div>
+                    <span>Enfocar buscador del mapa</span>
+                  </div>
+                  <div class="profile-shortcut-item">
+                    <div class="profile-shortcut-keys"><kbd>Esc</kbd></div>
+                    <span>Cerrar panel o modal activo</span>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- ── modal-lector-reservas ─────────────────────────────── -->
+      <div id="modal-lector-reservas" class="modal-overlay" style="z-index: 76000;">
+        <div class="console-card" style="max-width: 750px; text-align: center; padding: 30px;">
+          <button onclick="document.getElementById('modal-lector-reservas').classList.remove('active')"
+            style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
+
+          <span class="material-icons" style="font-size: 50px; color: #0284c7; margin-bottom: 10px;">assessment</span>
+          <h2 style="color: var(--primary); font-weight: 900; margin: 0 0 5px 0; font-size: 22px;">REPORTE DE ACTIVIDAD
+            DIARIA</h2>
+          <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 600;">Genera el PDF maestro de
+            Entradas y Salidas.</p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin-bottom: 15px;">
+            <div>
+              <label
+                style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                <span class="material-icons" style="font-size: 16px;">flight_takeoff</span> 1. RESERVAS (Salidas)
+              </label>
+              <textarea id="textoBrutoReservas" rows="6" placeholder="Pega aquí las Reservaciones..."
+                style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fcd34d; background:#fffbeb; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
+                oninput="validarTextareasActividad()"></textarea>
+            </div>
+            <div>
+              <label
+                style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                <span class="material-icons" style="font-size: 16px;">flight_land</span> 2. REGRESOS (Llegadas)
+              </label>
+              <textarea id="textoBrutoRegresos" rows="6" placeholder="Pega aquí los Contratos por Cerrar..."
+                style="width:100%; padding:15px; border-radius:12px; border:2px dashed #bae6fd; background:#f0f9ff; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
+                oninput="validarTextareasActividad()"></textarea>
+            </div>
+          </div>
+
+          <div style="text-align: left; margin-bottom: 20px;">
+            <label
+              style="font-weight: 900; font-size: 12px; color: #ef4444; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+              <span class="material-icons" style="font-size: 16px;">warning</span> 3. VENCIDOS (Opcional - Posibles
+              Llegadas)
+            </label>
+            <textarea id="textoBrutoVencidos" rows="4" placeholder="Pega aquí los contratos vencidos..."
+              style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fca5a5; background:#fef2f2; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"></textarea>
+          </div>
+
+          <button id="btnGenerarPdfActividad" onclick="procesarActividadDiaria()" disabled
+            style="width: 100%; padding: 18px; background: #e2e8f0; color: #94a3b8; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.3s;">
+            <span class="material-icons">lock</span> ESPERANDO DATOS (PASO 1 Y 2)...
+          </button>
+        </div>
+      </div>
+
+<!-- ── modal-prediccion ─────────────────────────────── -->
+      <div id="modal-prediccion" class="modal-overlay" style="z-index: 76000;">
+        <div class="console-card"
+          style="max-width: 800px; padding: 0; overflow: hidden; display: flex; flex-direction: column;">
+
+          <div
+            style="background: var(--mex-blue); padding: 20px 25px; color: white; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h2 style="margin: 0; font-weight: 900; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+                <span class="material-icons" style="color: #38bdf8;">query_stats</span> CUADRE DE PREDICCIONES
+              </h2>
+              <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Compara Reservas vs Regresos vs Patio
+                Actual
+              </p>
+            </div>
+            <button onclick="document.getElementById('modal-prediccion').classList.remove('active')"
+              style="background: rgba(255,255,255,0.2); color: white; border: none; border-radius: 50%; width: 35px; height: 35px; cursor: pointer; font-weight: 900;">✕</button>
+          </div>
+
+          <div id="prediccion-paso-1" style="padding: 25px; display: block;">
+
+            <div
+              style="margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1;">
+              <label
+                style="font-weight: 900; font-size: 13px; color: var(--mex-blue); display: flex; align-items: center; gap: 8px;">
+                <span class="material-icons">calendar_month</span> SELECCIONA LA FECHA DEL CUADRE:
+              </label>
+              <input type="date" id="fecha-prediccion"
+                style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid var(--mex-accent); margin-top: 10px; font-family: inherit; font-weight: bold; font-size: 15px; color: #1e293b; outline: none;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div>
+                <label
+                  style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                  <span class="material-icons" style="font-size: 16px;">event_available</span> PEGAR RESERVAS AQUÍ
+                </label>
+                <textarea id="txt-pred-reservas" rows="8" placeholder="Pega la tabla de 'Reservaciones'..."
+                  style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #fcd34d; background: #fffbeb; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+              </div>
+
+              <div>
+                <label
+                  style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                  <span class="material-icons" style="font-size: 16px;">event_busy</span> PEGAR REGRESOS AQUÍ
+                </label>
+                <textarea id="txt-pred-regresos" rows="8" placeholder="Pega la tabla de 'Contratos por Cerrar'..."
+                  style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #bae6fd; background: #f0f9ff; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
+              </div>
+            </div>
+
+            <button id="btnProcesarPrediccion" onclick="ejecutarPrediccion()"
+              style="width: 100%; padding: 18px; background: #10b981; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; box-shadow: 0 10px 20px rgba(16,185,129,0.3); transition: 0.2s;">
+              <span class="material-icons">auto_awesome</span> CALCULAR DISPONIBILIDAD
+            </button>
+          </div>
+
+          <div id="prediccion-paso-2" style="padding: 25px; display: none; background: #f8fafc;">
+            <div id="tabla-prediccion-container"
+              style="background: white; border-radius: 12px; padding: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow-x: auto;">
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+              <button onclick="reiniciarPrediccion()"
+                style="flex: 1; padding: 15px; background: #e2e8f0; color: #475569; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;">NUEVO
+                CÁLCULO</button>
+
+              <button id="btnDescargarPrediccionExcel" onclick="crearExcelPrediccion()"
+                style="flex: 2; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(22,163,74,0.3);">
+                <span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE
+              </button>
+              <button id="btnDescargarPrediccionPdf" onclick="descargarPDFPrediccion()"
+                style="flex: 2; padding: 15px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
+                <span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+<!-- ── ai-response-panel ─────────────────────────────── -->
+      <div id="ai-response-panel">
+        <div class="ai-panel-header">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span class="material-icons" style="font-size: 18px; color: #38bdf8;">smart_toy</span> IA
+          </div>
+          <button onclick="document.getElementById('ai-response-panel').style.display='none'"
+            style="background: transparent; border: none; color: white; cursor: pointer; font-weight: bold; font-size: 16px;">✕</button>
+        </div>
+        <div class="ai-panel-body" id="ai-response-content">
+        </div>
+      </div>
+
+<!-- ── modal-editor-mapa ─────────────────────────────── -->
+      <div id="modal-editor-mapa" class="modal-overlay"
+        style="z-index:75000; padding:8px; align-items:center; justify-content:center;">
+        <div class="mapa-editor-shell">
+
+          <div class="mapa-editor-header">
+            <div class="mapa-editor-header-left">
+              <span class="material-icons" style="color:#38bdf8; font-size:28px; flex-shrink:0;">map</span>
+              <div>
+                <h2>EDITOR DE MAPA</h2>
+                <p>Edición directa sobre el plano · vista previa en vivo</p>
+              </div>
+            </div>
+            <div class="mapa-editor-header-tools">
+              <button onclick="modoAgregarEditor('cajon')" class="mapa-editor-tool-btn cajon" id="btn-tool-cajon"
+                data-tip="Cajón: elige la herramienta y luego haz clic en el mapa para colocarlo.">
+                <span class="material-icons">crop_square</span>
+                <span>Cajón</span>
+              </button>
+              <button onclick="modoAgregarEditor('area')" class="mapa-editor-tool-btn area" id="btn-tool-area"
+                data-tip="Área: crea zonas especiales como taller, acceso o recepción.">
+                <span class="material-icons">dashboard_customize</span>
+                <span>Área</span>
+              </button>
+              <button onclick="modoAgregarEditor('label')" class="mapa-editor-tool-btn etiqueta" id="btn-tool-label"
+                data-tip="Etiqueta: agrega un rótulo rápido para nombrar secciones del patio.">
+                <span class="material-icons">sell</span>
+                <span>Etiqueta</span>
+              </button>
+              <button onclick="editorAgregarForma('fila-3')" class="mapa-editor-tool-btn ghost"
+                data-tip="Fila x3: inserta una base visual de tres cajones para acelerar el acomodo.">
+                <span class="material-icons">view_week</span>
+                <span>Fila x3</span>
+              </button>
+              <button onclick="editorAgregarForma('rect-h')" class="mapa-editor-tool-btn ghost"
+                data-tip="Rect H: agrega una pieza horizontal para bloques largos o pasillos.">
+                <span class="material-icons">crop_16_9</span>
+                <span>Rect H</span>
+              </button>
+            </div>
+            <div class="mapa-editor-header-right">
+              <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="mapa-btn-guardar">
+                <span class="material-icons" style="font-size:18px;">save</span> GUARDAR CAMBIOS
+              </button>
+              <button onclick="document.getElementById('modal-editor-mapa').classList.remove('active')"
+                class="mapa-btn-cerrar">
+                <span class="material-icons" style="font-size:20px;">close</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="mapa-editor-body">
+            <div class="mapa-editor-canvas">
+              <div id="editor-loading" class="mapa-editor-loading">
+                <span class="material-icons spinner" style="font-size:48px; color:#38bdf8;">sync</span>
+                <p>Cargando estructura del mapa…</p>
+              </div>
+
+              <div id="editor-grid-wrapper" class="editor-grid-stage" style="display:none;">
+                <div class="editor-help-strip">
+                  <button class="editor-help-card" type="button"
+                    data-tip="1. Elige una pieza arriba. 2. Haz clic en el mapa para colocarla.">
+                    <span class="material-icons">add_box</span>
+                    <span>Agregar</span>
+                  </button>
+                  <button class="editor-help-card" type="button"
+                    data-tip="Arrastra una pieza para moverla y usa los nodos dorados para cambiar su tamaño.">
+                    <span class="material-icons">open_with</span>
+                    <span>Mover</span>
+                  </button>
+                  <button class="editor-help-card" type="button"
+                    data-tip="Encierra con el mouse o usa Shift/Ctrl/Cmd para seleccionar varias piezas.">
+                    <span class="material-icons">select_all</span>
+                    <span>Multi</span>
+                  </button>
+                  <button class="editor-help-card" type="button"
+                    data-tip="Click derecho o botón de tres puntos para abrir más opciones sobre un spot.">
+                    <span class="material-icons">more_horiz</span>
+                    <span>Más</span>
+                  </button>
+                </div>
+
+                <div id="editor-add-hint" class="mapa-add-hint" style="display:none;">
+                  <span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span>
+                  Toca el mapa para colocar un elemento nuevo
+                </div>
+
+                <div id="editor-live-badge" class="editor-live-pill">
+                  <span class="material-icons" style="font-size:18px;">visibility</span>
+                  <span>Vista previa en vivo</span>
+                </div>
+
+                <div id="editor-selection-summary" class="editor-selection-summary">
+                  <span class="material-icons" style="font-size:18px;">mouse</span>
+                  <span>Haz clic o encierra con el mouse para empezar.</span>
+                </div>
+
+                <div class="editor-floating-card editor-inspector-card">
+                  <div class="editor-card-header">
+                    <div>
+                      <div class="editor-card-kicker">Inspector</div>
+                      <h3>Selección</h3>
+                    </div>
+                    <span class="editor-card-dot"></span>
+                  </div>
+
+                  <div id="editor-no-sel" class="mapa-no-sel editor-empty-state">
+                    <span class="material-icons"
+                      style="font-size:54px; color:#1e3a5f; display:block; margin-bottom:12px;">ads_click</span>
+                    <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.</p>
+                  </div>
+
+                  <div id="editor-sel-form" style="display:none;">
+                    <div class="editor-form-grid two">
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Nombre</label>
+                        <input id="ep-nombre" type="text" maxlength="20" class="mapa-input" placeholder="Ej: A-01"
+                          oninput="editorPropChange()">
+                      </div>
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Tipo</label>
+                        <select id="ep-tipo" class="mapa-select" onchange="editorPropChange()">
+                          <option value="cajon">Cajón</option>
+                          <option value="area">Área</option>
+                          <option value="label">Etiqueta</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="editor-form-grid two">
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Posición X</label>
+                        <input id="ep-x" type="number" min="0" step="10" class="mapa-input"
+                          oninput="editorPropChange()">
+                      </div>
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Posición Y</label>
+                        <input id="ep-y" type="number" min="0" step="10" class="mapa-input"
+                          oninput="editorPropChange()">
+                      </div>
+                    </div>
+
+                    <div class="editor-form-grid two">
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Ancho</label>
+                        <div class="mapa-size-ctrl">
+                          <button onclick="editorSpanChange('width',-10)">−</button>
+                          <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
+                            style="width:58px; text-align:center;" oninput="editorPropChange()">
+                          <button onclick="editorSpanChange('width',10)">+</button>
+                        </div>
+                      </div>
+                      <div class="mapa-field-group">
+                        <label class="mapa-field-label">Alto</label>
+                        <div class="mapa-size-ctrl">
+                          <button onclick="editorSpanChange('height',-10)">−</button>
+                          <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
+                            style="width:58px; text-align:center;" oninput="editorPropChange()">
+                          <button onclick="editorSpanChange('height',10)">+</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="mapa-field-group">
+                      <label class="mapa-field-label">Rotación</label>
+                      <input id="ep-rotation" type="number" min="-360" max="360" step="5" class="mapa-input"
+                        oninput="editorPropChange()">
+                    </div>
+
+                    <div class="mapa-field-group">
+                      <label class="mapa-field-label">Ajuste fino</label>
+                      <div class="mapa-arrow-pad">
+                        <div></div>
+                        <button onclick="editorMoverCelda(0,-1)" class="mapa-arrow-btn" title="Arriba"><span
+                            class="material-icons">north</span></button>
+                        <div></div>
+                        <button onclick="editorMoverCelda(-1,0)" class="mapa-arrow-btn" title="Izquierda"><span
+                            class="material-icons">west</span></button>
+                        <div class="mapa-arrow-center"><span class="material-icons">open_with</span></div>
+                        <button onclick="editorMoverCelda(1,0)" class="mapa-arrow-btn" title="Derecha"><span
+                            class="material-icons">east</span></button>
+                        <div></div>
+                        <button onclick="editorMoverCelda(0,1)" class="mapa-arrow-btn" title="Abajo"><span
+                            class="material-icons">south</span></button>
+                        <div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div id="editor-selection-actions" class="editor-floating-toolbar editor-selection-actions"
+                  style="display:none;">
+                  <button type="button" onclick="editorCopiarCelda()"
+                    data-tip="Duplica la selección con un pequeño desplazamiento.">
+                    <span class="material-icons">content_copy</span>
+                  </button>
+                  <button type="button" onclick="editorEliminarCelda()"
+                    data-tip="Elimina la pieza o el grupo seleccionado.">
+                    <span class="material-icons">delete_forever</span>
+                  </button>
+                  <button type="button" onclick="editorDuplicarFila()"
+                    data-tip="Clona una fila completa a partir del spot seleccionado.">
+                    <span class="material-icons">table_rows</span>
+                  </button>
+                  <button type="button" onclick="editorToggleMoreMenu(event)"
+                    data-tip="Abre más opciones para el spot o grupo activo.">
+                    <span class="material-icons">more_horiz</span>
+                  </button>
+                </div>
+
+                <div id="editor-group-actions" class="editor-floating-toolbar editor-group-actions"
+                  style="display:none;">
+                  <button type="button" onclick="editorAlinearGrupo('left')" data-tip="Alinea los bordes izquierdos.">
+                    <span class="material-icons">align_horizontal_left</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('centerH')"
+                    data-tip="Centra horizontalmente el grupo.">
+                    <span class="material-icons">align_horizontal_center</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('right')" data-tip="Alinea los bordes derechos.">
+                    <span class="material-icons">align_horizontal_right</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('top')"
+                    data-tip="Alinea la parte superior del grupo.">
+                    <span class="material-icons">align_vertical_top</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('centerV')"
+                    data-tip="Centra verticalmente el grupo.">
+                    <span class="material-icons">align_vertical_center</span>
+                  </button>
+                  <button type="button" onclick="editorAlinearGrupo('bottom')" data-tip="Alinea la base del grupo.">
+                    <span class="material-icons">align_vertical_bottom</span>
+                  </button>
+                  <button type="button" onclick="editorDistribuirGrupo('H')"
+                    data-tip="Distribuye la separación horizontal del grupo.">
+                    <span>↔</span>
+                  </button>
+                  <button type="button" onclick="editorDistribuirGrupo('V')"
+                    data-tip="Distribuye la separación vertical del grupo.">
+                    <span>↕</span>
+                  </button>
+                </div>
+
+                <div class="ed-zoom-bar editor-floating-zoom">
+                  <button onclick="editorZoom(-0.1)" title="Zoom -">−</button>
+                  <span id="ed-zoom-label">100%</span>
+                  <button onclick="editorZoom(+0.1)" title="Zoom +">+</button>
+                  <button onclick="editorZoom(0)" title="Reset zoom"
+                    style="font-size:11px; width:auto; padding:0 8px;">1:1</button>
+                </div>
+
+                <div id="ed-more-menu" class="ed-more-menu" style="display:none;">
+                  <button onclick="editorCentrarH()"><span class="material-icons"
+                      style="font-size:15px;">align_horizontal_center</span><span>Centrar
+                      horizontalmente</span></button>
+                  <button onclick="editorCentrarV()"><span class="material-icons"
+                      style="font-size:15px;">align_vertical_center</span><span>Centrar verticalmente</span></button>
+                  <hr>
+                  <button onclick="editorTraerFrente()"><span class="material-icons"
+                      style="font-size:15px;">flip_to_front</span><span>Traer al frente</span></button>
+                  <button onclick="editorEnviarFondo()"><span class="material-icons"
+                      style="font-size:15px;">flip_to_back</span><span>Enviar al fondo</span></button>
+                  <hr>
+                  <button onclick="editorAgregarForma('cuadrado')"><span class="material-icons"
+                      style="font-size:15px;">check_box_outline_blank</span><span>Agregar cuadrado</span></button>
+                  <button onclick="editorAgregarForma('rect-v')"><span class="material-icons"
+                      style="font-size:15px;">crop_portrait</span><span>Agregar rectángulo vertical</span></button>
+                  <button onclick="editorAgregarForma('rect-grande')"><span class="material-icons"
+                      style="font-size:15px;">crop_32_9</span><span>Agregar rectángulo grande</span></button>
+                </div>
+
+                <div id="editor-grid"
+                  style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- ── modal-config-global ─────────────────────────────── -->
+      <div id="modal-config-global" class="fleet-modal cfg-modal-v2" style="z-index: 70000;">
+
+        <!-- HERO HEADER -->
+        <div class="cfg-v2-hero">
+          <div class="cfg-v2-hero-bg"></div>
+          <div class="cfg-v2-hero-content">
+            <div class="cfg-v2-hero-compact-row">
+              <div class="cfg-v2-kicker">
+                <span class="material-icons" style="font-size:13px;">admin_panel_settings</span>
+                CENTRO DE CONFIGURACIÓN
+              </div>
+              <h2 class="cfg-v2-title">Panel Administrativo</h2>
+              <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
+            </div>
+            <!-- Contexto rápido del sistema -->
+            <div class="cfg-v2-hero-context-row">
+              <span class="cfg-v2-ctx-chip" id="cfg-ctx-users">
+                <span class="material-icons">group</span>
+                <span id="cfg-insight-users">— usuarios</span>
+              </span>
+              <span class="cfg-v2-ctx-chip" id="cfg-ctx-plazas">
+                <span class="material-icons">location_city</span>
+                <span id="cfg-insight-plazas">— plazas</span>
+              </span>
+              <span class="cfg-v2-ctx-chip" id="cfg-ctx-catalogs">
+                <span class="material-icons">list_alt</span>
+                <span id="cfg-insight-catalogs">— catálogos</span>
+              </span>
+              <span class="cfg-v2-ctx-chip cfg-v2-ctx-chip-warn" id="cfg-ctx-pending">
+                <span class="material-icons">pending_actions</span>
+                <span id="cfg-insight-pending">--</span>
+              </span>
+              <a class="cfg-v2-ctx-chip cfg-v2-ctx-chip-link" href="/mapa" title="Volver al mapa operativo">
+                <span class="material-icons">map</span>
+                <span>Ir al mapa</span>
+              </a>
+            </div>
+          </div>
+          <button class="cfg-v2-close" onclick="cerrarPanelConfiguracion()">
+            <span class="material-icons" style="font-size:20px;">close</span>
+          </button>
+        </div>
+
+        <!-- BODY: SIDEBAR + CONTENT -->
+        <div class="cfg-v2-body">
+
+          <!-- SIDEBAR -->
+          <div class="cfg-v2-sidebar" id="cfg-admin-sidebar">
+            <div class="cfg-v2-sidebar-top">
+              <div>
+                <div class="cfg-v2-sidebar-label">
+                  <span class="material-icons">admin_panel_settings</span>
+                  <span>Panel Admin</span>
+                </div>
+                <div class="cfg-v2-sidebar-sublabel">Centro de configuración del negocio</div>
+              </div>
+              <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Fijar sidebar expandido">
+                <span class="material-icons">push_pin</span>
+              </button>
+            </div>
+            <nav class="cfg-v2-nav">
+
+              <section class="cfg-nav-group open" data-group="accesos">
+                <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('accesos')" title="Accesos y permisos">
+                  <span class="cfg-nav-group-copy">
+                    <span class="material-icons">key</span>
+                    <span>
+                      <small>Accesos y permisos</small>
+                      <strong>Usuarios, roles y solicitudes</strong>
+                    </span>
+                  </span>
+                  <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+                </button>
+                <div class="cfg-nav-group-body">
+                  <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)"
+                    title="Usuarios">
+                    <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+                    <span>Usuarios</span>
+                  </button>
+                  <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
+                    <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
+                    <span>Roles</span>
+                  </button>
+                  <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)"
+                    style="position:relative;" title="Solicitudes de acceso">
+                    <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
+                    <span>Solicitudes</span>
+                    <span id="badge-config-solicitudes" class="badge-pulse"
+                      style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="cfg-nav-group open" data-group="operacion">
+                <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('operacion')" title="Operación">
+                  <span class="cfg-nav-group-copy">
+                    <span class="material-icons">tune</span>
+                    <span>
+                      <small>Operación</small>
+                      <strong>Catálogos del patio y reglas</strong>
+                    </span>
+                  </span>
+                  <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+                </button>
+                <div class="cfg-nav-group-body">
+                  <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados de unidades">
+                    <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+                    <span>Estados</span>
+                  </button>
+                  <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)"
+                    title="Categorías de vehículos">
+                    <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+                    <span>Categorías</span>
+                  </button>
+                  <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos registrados">
+                    <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+                    <span>Modelos</span>
+                  </button>
+                  <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)"
+                    title="Tipos de combustible">
+                    <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+                    <span>Gasolinas</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="cfg-nav-group open" data-group="estructura">
+                <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('estructura')" title="Estructura">
+                  <span class="cfg-nav-group-copy">
+                    <span class="material-icons">schema</span>
+                    <span>
+                      <small>Estructura</small>
+                      <strong>Plazas, ubicaciones y mapa</strong>
+                    </span>
+                  </span>
+                  <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+                </button>
+                <div class="cfg-nav-group-body">
+                  <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas del sistema">
+                    <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+                    <span>Plazas</span>
+                  </button>
+                  <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)"
+                    title="Ubicaciones y responsables">
+                    <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+                    <span>Ubicaciones</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="cfg-nav-group open" data-group="organizacion">
+                <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('organizacion')" title="Organización">
+                  <span class="cfg-nav-group-copy">
+                    <span class="material-icons">business</span>
+                    <span>
+                      <small>Organización</small>
+                      <strong>Empresa y parámetros del negocio</strong>
+                    </span>
+                  </span>
+                  <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+                </button>
+                <div class="cfg-nav-group-body">
+                  <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Configuración de empresa">
+                    <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+                    <span>Empresa</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="cfg-nav-group open" data-group="sistema">
+                <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('sistema')" title="Sistema">
+                  <span class="cfg-nav-group-copy">
+                    <span class="material-icons">settings_suggest</span>
+                    <span>
+                      <small>Sistema</small>
+                      <strong>Acciones globales y entorno</strong>
+                    </span>
+                  </span>
+                  <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+                </button>
+                <div class="cfg-nav-group-body">
+                  <button id="cfg-action-bloqueo-patio" class="cfg-tab cfg-tab-action" onclick="_cfgQuickAction('toggle-lock')" title="Bloquear patio">
+                    <span class="cfg-tab-icon"><span class="material-icons">lock</span></span>
+                    <span>Bloquear patio</span>
+                  </button>
+                </div>
+              </section>
+
+              <section class="cfg-nav-group open" data-group="programador">
+                <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('programador')" title="Programador">
+                  <span class="cfg-nav-group-copy">
+                    <span class="material-icons">terminal</span>
+                    <span>
+                      <small>Programador</small>
+                      <strong>Observabilidad y control técnico</strong>
+                    </span>
+                  </span>
+                  <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+                </button>
+                <div class="cfg-nav-group-body">
+                  <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)"
+                    title="Consola técnica del sistema">
+                    <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
+                    <span>Consola técnica</span>
+                  </button>
+                </div>
+              </section>
+            </nav>
+          </div>
+
+          <!-- MAIN PANEL -->
+          <div class="cfg-v2-main">
+
+            <div class="cfg-v2-workspace-header">
+              <div class="cfg-v2-workspace-copy">
+                <div class="cfg-v2-workspace-kicker" id="cfg-module-breadcrumb">ACCESOS · CENTRO ADMIN</div>
+                <div class="cfg-v2-workspace-title-row">
+                  <h3 id="cfg-module-title">Usuarios</h3>
+                  <span class="cfg-v2-module-badge" id="cfg-module-badge">CONFIG</span>
+                </div>
+                <p id="cfg-module-subtitle">Gestiona cuentas, alcances y relaciones operativas del sistema.</p>
+              </div>
+              <div class="cfg-v2-workspace-meta">
+                <span class="cfg-v2-meta-chip" id="cfg-meta-user">
+                  <span class="material-icons">person</span>
+                  <span>Usuario activo</span>
+                </span>
+                <span class="cfg-v2-meta-chip" id="cfg-meta-plaza">
+                  <span class="material-icons">location_city</span>
+                  <span>Plaza foco</span>
+                </span>
+                <span class="cfg-v2-meta-chip" id="cfg-meta-scope">
+                  <span class="material-icons">verified_user</span>
+                  <span>Alcance</span>
+                </span>
+              </div>
+            </div>
+
+            <div class="cfg-v2-tools" id="cfg-v2-tools">
+              <button type="button" class="cfg-v2-tool-btn" data-tool="refresh" onclick="_cfgQuickAction('refresh')">
+                <span class="material-icons">refresh</span>
+                Actualizar contexto
+              </button>
+              <button type="button" class="cfg-v2-tool-btn" data-tool="new-user" onclick="_cfgQuickAction('new-user')">
+                <span class="material-icons">person_add</span>
+                Nuevo usuario
+              </button>
+              <button type="button" class="cfg-v2-tool-btn" data-tool="new-role" onclick="_cfgQuickAction('new-role')">
+                <span class="material-icons">verified_user</span>
+                Nuevo rol
+              </button>
+              <button type="button" class="cfg-v2-tool-btn" data-tool="new-plaza" onclick="_cfgQuickAction('new-plaza')">
+                <span class="material-icons">location_city</span>
+                Nueva plaza
+              </button>
+              <button type="button" class="cfg-v2-tool-btn" data-tool="new-item" onclick="_cfgQuickAction('new-item')">
+                <span class="material-icons">add_circle</span>
+                Nuevo catálogo
+              </button>
+              <button type="button" class="cfg-v2-tool-btn" data-tool="go-map" onclick="_cfgQuickAction('go-map')">
+                <span class="material-icons">map</span>
+                Volver al mapa
+              </button>
+              <button type="button" class="cfg-v2-tool-btn" data-tool="open-programmer" onclick="_cfgQuickAction('open-programmer')">
+                <span class="material-icons">terminal</span>
+                Consola programador
+              </button>
+              <button type="button" class="cfg-v2-tool-btn success" data-tool="publish" onclick="_cfgQuickAction('publish')">
+                <span class="material-icons">cloud_upload</span>
+                Guardar cambios
+              </button>
+            </div>
+
+            <!-- ADD BAR -->
+            <div class="cfg-v2-add-bar">
+              <div class="cfg-v2-search-box">
+                <span class="material-icons cfg-v2-search-icon">search</span>
+                <input type="text" id="cfg-search-input" placeholder="Buscar catálogo..."
+                  oninput="buscarEnListaConfig()">
+              </div>
+              <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
+                <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
+              </button>
+            </div>
+
+            <!-- LIST -->
+            <div id="cfg-lista-items" class="cfg-v2-list"></div>
+
+            <!-- FOOTER -->
+            <div class="cfg-v2-footer">
+              <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> ·
+                Configuración v3</span>
+              <div class="cfg-v2-footer-actions">
+                <button class="cfg-v2-btn-cancel" onclick="cerrarPanelConfiguracion()">
+                  CANCELAR
+                </button>
+                <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
+                  <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- ── modal-cfg-add ─────────────────────────────── -->
+      <div id="modal-cfg-add"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75000; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);"
+        onclick="if(event.target===this)this.style.display='none'">
+        <div class="cfg-add-card">
+
+          <!-- Header dinámico -->
+          <div class="cfg-add-header">
+            <div class="cfg-add-header-icon" id="cfg-add-header-icon">
+              <span class="material-icons">add_circle</span>
+            </div>
+            <div class="cfg-add-header-text">
+              <div class="cfg-add-header-title" id="modal-cfg-add-title">Agregar Nuevo</div>
+              <div class="cfg-add-header-sub" id="cfg-add-header-sub">Nueva entrada en la lista</div>
+            </div>
+            <button class="cfg-add-close-btn" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+
+          <!-- Cuerpo -->
+          <div class="cfg-add-body">
+
+            <!-- Nombre/Clave -->
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Nombre / Clave</label>
+              <input type="text" id="cfg-add-name" placeholder="Ej: NUEVO ESTADO" class="cfg-add-input"
+                autocomplete="off" onkeydown="if(event.key==='Enter') confirmarAgregadoConfig()">
+            </div>
+
+            <!-- Opciones: Ubicación -->
+            <div id="cfg-add-ubi-options" style="display:none;">
+              <label class="cfg-add-checkbox-row" for="cfg-add-is-plaza">
+                <div class="cfg-add-checkbox-box">
+                  <input type="checkbox" id="cfg-add-is-plaza" checked>
+                  <div class="cfg-add-checkbox-custom"></div>
+                </div>
+                <div>
+                  <div class="cfg-add-checkbox-label">Es Plaza Fija</div>
+                  <div class="cfg-add-checkbox-sub">Desmarca si es una persona o responsable externo</div>
+                </div>
+              </label>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Plaza asignada</label>
+                <select id="cfg-add-ubi-plaza" class="cfg-add-select">
+                  <option value="">— Todas las plazas —</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Opciones: Estado -->
+            <div id="cfg-add-estado-options" style="display:none;">
+              <div class="cfg-add-field">
+                <label class="cfg-add-label">Color del estado</label>
+                <div class="cfg-add-color-row">
+                  <input type="color" id="cfg-add-color" value="#64748b" oninput="_cfgUpdateColorSwatch(this.value)">
+                  <div class="cfg-add-color-swatch" id="cfg-add-color-swatch" style="background:#64748b;">
+                    <span id="cfg-add-color-hex">#64748B</span>
+                  </div>
+                </div>
+                <div class="cfg-add-color-presets" id="cfg-add-color-presets"></div>
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Orden en tabla (prioridad)</label>
+                <input type="number" id="cfg-add-orden" placeholder="Ej: 1" class="cfg-add-input" min="1" max="99">
+              </div>
+            </div>
+
+            <!-- Opciones: Modelo -->
+            <div id="cfg-add-modelo-options" style="display:none;">
+              <div class="cfg-add-field">
+                <label class="cfg-add-label">Categoría del modelo</label>
+                <select id="cfg-add-modelo-cat" class="cfg-add-select">
+                  <!-- Llenado dinámico en JS -->
+                </select>
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Orden sugerido</label>
+                <input type="number" id="cfg-add-modelo-orden" placeholder="Ej: 4" class="cfg-add-input" min="1" max="999">
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Imagen del modelo (URL opcional)</label>
+                <input type="url" id="cfg-add-modelo-img" class="cfg-add-input"
+                  placeholder="https://dominio.com/modelo.jpg" oninput="_cfgPreviewModeloImg(this.value)">
+                <div style="display:grid; gap:10px; margin-top:10px;">
+                  <input type="file" id="cfg-add-modelo-file" class="cfg-add-input" accept="image/*">
+                  <label class="cfg-add-checkbox-row" for="cfg-add-modelo-remove-bg">
+                    <div class="cfg-add-checkbox-box">
+                      <input type="checkbox" id="cfg-add-modelo-remove-bg">
+                      <div class="cfg-add-checkbox-custom"></div>
+                    </div>
+                    <div>
+                      <div class="cfg-add-checkbox-label">Eliminar fondo claro</div>
+                      <div class="cfg-add-checkbox-sub">Genera PNG transparente para futuras vistas del sistema</div>
+                    </div>
+                  </label>
+                  <button type="button" class="cfg-add-btn-cancel" style="width:fit-content;" onclick="_cfgUploadModelImage('cfg-add')">
+                    <span class="material-icons" style="font-size:16px;">upload</span>
+                    Subir desde este equipo
+                  </button>
+                  <div id="cfg-add-modelo-upload-status" style="font-size:11px; font-weight:700; color:#64748b;"></div>
+                </div>
+                <div id="cfg-add-modelo-preview" class="cfg-add-modelo-preview" style="display:none;">
+                  <img id="cfg-add-modelo-preview-img" alt="Preview modelo" loading="lazy">
+                  <span id="cfg-add-modelo-preview-label">Vista previa</span>
+                </div>
+              </div>
+            </div>
+
+            <div id="cfg-add-categoria-options" style="display:none;">
+              <div class="cfg-add-field">
+                <label class="cfg-add-label">Descripción de la categoría</label>
+                <textarea id="cfg-add-categoria-desc" class="cfg-add-input" rows="4"
+                  placeholder="Describe cuándo usar esta categoría, su familia operativa o relación con los modelos."></textarea>
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Orden sugerido</label>
+                <input type="number" id="cfg-add-categoria-orden" placeholder="Ej: 3" class="cfg-add-input" min="1" max="999">
+              </div>
+            </div>
+
+          </div><!-- /cfg-add-body -->
+
+          <!-- Acciones -->
+          <div class="cfg-add-actions">
+            <button class="cfg-add-btn-cancel" onclick="document.getElementById('modal-cfg-add').style.display='none'">
+              Cancelar
+            </button>
+            <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
+              <span class="material-icons">check</span> Guardar
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+<!-- ── modal-nueva-plaza ─────────────────────────────── -->
+      <div id="modal-nueva-plaza"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.72); z-index:75001; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);"
+        onclick="if(event.target===this)_cerrarModalNuevaplaza()">
+        <div class="cfg-add-card">
+          <div class="cfg-add-header">
+            <div class="cfg-add-header-icon">
+              <span class="material-icons">add_location_alt</span>
+            </div>
+            <div class="cfg-add-header-text">
+              <div class="cfg-add-header-title">Nueva Plaza</div>
+              <div class="cfg-add-header-sub">Configura los datos iniciales de la sucursal</div>
+            </div>
+            <button class="cfg-add-close-btn" onclick="_cerrarModalNuevaplaza()">
+              <span class="material-icons">close</span>
+            </button>
+          </div>
+          <div class="cfg-add-body">
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Clave / ID de la Plaza <span style="color:#ef4444">*</span></label>
+              <input type="text" id="nueva-plaza-id" class="cfg-add-input" maxlength="10"
+                placeholder="Ej: GDL, BJX, MTY" oninput="this.value=this.value.toUpperCase()"
+                onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+              <div style="font-size:11px; color:#94a3b8; font-weight:600; margin-top:4px;">Clave corta, única e
+                irreversible. Ej: GDL</div>
+            </div>
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Nombre completo de la plaza</label>
+              <input type="text" id="nueva-plaza-nombre" class="cfg-add-input" placeholder="Ej: Guadalajara Centro"
+                onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+            </div>
+            <div class="cfg-add-field">
+              <label class="cfg-add-label">Descripción (subtítulo en el header)</label>
+              <input type="text" id="nueva-plaza-descripcion" class="cfg-add-input"
+                placeholder="Ej: Sucursal principal del Bajío"
+                onkeydown="if(event.key==='Enter') _confirmarNuevaplaza()">
+            </div>
+          </div>
+          <div class="cfg-add-actions">
+            <button class="cfg-add-btn-cancel" onclick="_cerrarModalNuevaplaza()">Cancelar</button>
+            <button class="cfg-add-btn-save" onclick="_confirmarNuevaplaza()">
+              <span class="material-icons">add_location_alt</span> Crear Plaza
+            </button>
+          </div>
+        </div>
+      </div>
+
+<!-- ── mex-dialog-overlay ─────────────────────────────── -->
+      <div id="mex-dialog-overlay">
+        <div class="mex-dlg-card">
+          <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
+            <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+          </div>
+          <div class="mex-dlg-body">
+            <h3 id="mex-dlg-title" class="mex-dlg-title"></h3>
+            <p id="mex-dlg-text" class="mex-dlg-text"></p>
+            <div id="mex-dlg-input-wrap" class="mex-dlg-input-wrap">
+              <input id="mex-dlg-input" class="mex-dlg-input" type="text" autocomplete="off">
+            </div>
+          </div>
+          <div class="mex-dlg-actions">
+            <button id="mex-dlg-extra" class="mex-dlg-btn mex-dlg-btn-extra"></button>
+            <button id="mex-dlg-cancel" class="mex-dlg-btn mex-dlg-btn-cancel"></button>
+            <button id="mex-dlg-confirm" class="mex-dlg-btn mex-dlg-btn-confirm"></button>
+          </div>
+        </div>
+      </div>
+
+<!-- ── modal-comparador-plazas ─────────────────────────────── -->
+      <div id="modal-comparador-plazas"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.8); z-index:75100; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);"
+        onclick="if(event.target===this)cerrarComparadorPlazas()">
+        <div
+          style="background:#fff; border-radius:18px; width:100%; max-width:900px; max-height:88vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.35);">
+          <div
+            style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="material-icons" style="color:#004a99; font-size:22px;">compare</span>
+              <div>
+                <div style="font-size:15px; font-weight:900; color:#0f172a; letter-spacing:.03em;">Comparador de Plazas
+                </div>
+                <div style="font-size:11px; color:#64748b; font-weight:600;">Vista ejecutiva · KPIs en tiempo real</div>
+              </div>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button onclick="exportarComparadorCSV()" title="Exportar CSV"
+                style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
+                <span class="material-icons" style="font-size:15px;">download</span> CSV
+              </button>
+              <button onclick="cerrarComparadorPlazas()"
+                style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                <span class="material-icons" style="font-size:18px; color:#64748b;">close</span>
+              </button>
+            </div>
+          </div>
+          <div id="comparador-content" style="overflow-y:auto; padding:18px 22px; flex:1;">
+            <div style="text-align:center; padding:40px; color:#94a3b8; font-weight:700;">Cargando datos...</div>
+          </div>
+        </div>
+      </div>
+
+<!-- ── modal-recordatorio ─────────────────────────────── -->
+      <div id="modal-recordatorio"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.7); z-index:75300; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(4px);"
+        onclick="if(event.target===this)cerrarModalRecordatorio()">
+        <div
+          style="background:#fff; border-radius:16px; width:100%; max-width:400px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+          <div
+            style="padding:16px 20px 12px; background:linear-gradient(135deg,#1e3a5f,#0f172a); display:flex; align-items:center; gap:10px; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="material-icons" style="color:#fbbf24; font-size:20px;">alarm</span>
+              <div style="font-size:14px; font-weight:900; color:white;">Recordatorio</div>
+            </div>
+            <button onclick="cerrarModalRecordatorio()"
+              style="background:rgba(255,255,255,0.1);border:none;border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;">
+              <span class="material-icons" style="font-size:16px;color:#94a3b8;">close</span>
+            </button>
+          </div>
+          <div style="padding:18px 20px;">
+            <input type="hidden" id="recordatorio-mva">
+            <label
+              style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Fecha</label>
+            <input type="date" id="recordatorio-fecha"
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;box-sizing:border-box;margin-bottom:12px;"
+              onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'">
+            <label
+              style="font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em;display:block;margin-bottom:5px;">Mensaje</label>
+            <textarea id="recordatorio-mensaje" rows="3" placeholder="Ej: Revisión mecánica pendiente..."
+              style="width:100%;padding:9px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:13px;font-weight:700;color:#0f172a;outline:none;resize:none;box-sizing:border-box;font-family:inherit;"
+              onfocus="this.style.borderColor='#f59e0b'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+            <div style="display:flex;gap:8px;margin-top:14px;">
+              <button onclick="guardarRecordatorio()"
+                style="flex:1;background:linear-gradient(135deg,#d97706,#f59e0b);color:white;border:none;border-radius:8px;padding:10px;font-size:13px;font-weight:900;cursor:pointer;">Guardar</button>
+              <button onclick="borrarRecordatorio()"
+                style="background:#fee2e2;color:#ef4444;border:none;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:900;cursor:pointer;">Borrar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+<!-- ── modal-pdf-reservas ─────────────────────────────── -->
+      <div id="modal-pdf-reservas"
+        style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.82); z-index:75200; justify-content:center; align-items:center; padding:16px; backdrop-filter:blur(6px);"
+        onclick="if(event.target===this)cerrarModalPDFReservas()">
+        <div
+          style="background:#fff; border-radius:18px; width:100%; max-width:620px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.4);">
+          <!-- Header -->
+          <div
+            style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0; background:linear-gradient(135deg,#0f172a,#1e3a5f);">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="material-icons" style="color:#38bdf8; font-size:24px;">analytics</span>
+              <div>
+                <div style="font-size:15px; font-weight:900; color:white; letter-spacing:.03em;">Análisis de Reservas
+                </div>
+                <div style="font-size:11px; color:#94a3b8; font-weight:600;">Carga PDF o pega texto · Motor de
+                  proyección operativa</div>
+              </div>
+            </div>
+            <button onclick="cerrarModalPDFReservas()"
+              style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+              <span class="material-icons" style="font-size:18px; color:#94a3b8;">close</span>
+            </button>
+          </div>
+          <!-- Body -->
+          <div style="overflow-y:auto; padding:20px 22px; flex:1; display:flex; flex-direction:column; gap:16px;">
+            <!-- Upload zone -->
+            <div id="pdf-drop-zone"
+              style="border:2px dashed #cbd5e1; border-radius:14px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;"
+              onclick="document.getElementById('pdf-file-input').click()"
+              ondragover="event.preventDefault();this.style.borderColor='#0284c7';this.style.background='#f0f9ff'"
+              ondragleave="this.style.borderColor='#cbd5e1';this.style.background=''" ondrop="_onPDFDrop(event)">
+              <span class="material-icons"
+                style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">upload_file</span>
+              <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra tu PDF aquí o haz clic para
+                seleccionar</div>
+              <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Reportes de reservas, regresos o asignaciones
+              </div>
+              <input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none"
+                onchange="_onPDFFileInput(this)">
+            </div>
+            <!-- OR divider -->
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+              <span style="font-size:11px; font-weight:800; color:#94a3b8; letter-spacing:.06em;">O PEGA EL TEXTO</span>
+              <div style="flex:1; height:1px; background:#e2e8f0;"></div>
+            </div>
+            <!-- Text area -->
+            <textarea id="pdf-texto-bruto" rows="6"
+              placeholder="Pega aquí el contenido del reporte (reservas, regresos, entregas...)"
+              style="border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:12px; font-family:monospace; resize:vertical; outline:none; color:#334155; transition:border-color .2s;"
+              onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
+            <!-- Analyze button -->
+            <button id="btn-analizar-pdf" onclick="_ejecutarAnalisisPDF()"
+              style="background:linear-gradient(135deg,#0369a1,#0284c7); color:white; border:none; border-radius:10px; padding:12px 20px; font-size:13px; font-weight:900; cursor:pointer; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .2s;">
+              <span class="material-icons" style="font-size:18px;">auto_graph</span>
+              Analizar y proyectar
+            </button>
+            <!-- Results area -->
+            <div id="pdf-resultados" style="display:none;"></div>
+          </div>
+        </div>
+      </div>
