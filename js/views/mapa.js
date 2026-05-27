@@ -23027,3 +23027,12 @@ window.addEventListener('mex:navigate-cuadre', (e) => {
 window.addEventListener('mex:navigate-mapa', () => {
   if (typeof cerrarModalFlota === 'function') cerrarModalFlota();
 });
+
+// App Shell header plaza picker → reload map for the new plaza.
+window.addEventListener('mex:plaza-change', (e) => {
+  const source = e?.detail?.source || '';
+  if (source === 'mapa' || source === 'editmap') return; // dispatched by us, ignore
+  const plaza = String(e?.detail?.plaza || '').toUpperCase().trim();
+  if (!plaza || plaza === PLAZA_ACTIVA_MAPA) return;
+  cambiarPlazaMapa(plaza);
+});
