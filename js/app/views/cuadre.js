@@ -1,49 +1,45 @@
 // ═══════════════════════════════════════════════════════════
 //  App Shell — Vista Cuadre
 //
-//  Cuadre ES el fleet-modal del mapa, abierto en el mismo stage
-//  persistente que usa /app/mapa. No hay iframe ni reescritura;
-//  reutilizamos el legacy mapa.js directamente.
+//  Comparte el stage persistente de /app/mapa.
+//  mapa.js (singleton) detecta /app/cuadre → abre fleet modal.
+//  En re-montaje: despacha mex:navigate-cuadre para abrirlo.
 // ═══════════════════════════════════════════════════════════
 
-import { mount as _mountMapaStage, unmount as _unmountMapaStage } from '/js/app/views/mapa.js';
+import { ensureStageReady } from '/js/app/views/mapa.js';
 
-const FLEET_MODAL_ID = 'fleet-modal';
-const TAB_PARAM      = new URLSearchParams(window.location.search).get('tab') || 'NORMAL';
+const STAGE_ID = 'mex-legacy-mapa-stage';
 
-// Espera a que el fleet-modal exista en el DOM (mapa.js lo inyecta vía mapa.html)
-function _waitForFleetModal(ms = 8000) {
-  return new Promise((resolve) => {
-    const modal = document.getElementById(FLEET_MODAL_ID);
-    if (modal) { resolve(modal); return; }
-    const start = Date.now();
-    const poll = () => {
-      const m = document.getElementById(FLEET_MODAL_ID);
-      if (m) { resolve(m); return; }
-      if (Date.now() - start >= ms) { resolve(null); return; }
-      setTimeout(poll, 80);
-    };
-    poll();
-  });
+function _ensureCss() {
+  if (document.querySelector('link[data-lmapa-css]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/mapa.css';
+  link.setAttribute('data-lmapa-css', '1');
+  document.head.appendChild(link);
 }
 
 export async function mount(ctx) {
-  // Montar (o mostrar) el stage del mapa — inicializa mapa.js si es la primera vez
-  await _mountMapaStage(ctx);
+  _ensureCss();
 
-  // Una vez que el DOM del stage está listo, abrir el fleet modal
-  const modal = await _waitForFleetModal();
-  if (!modal) {
-    console.warn('[cuadre-view] fleet-modal no encontrado tras espera');
-    return;
+  const { stage, fresh } = await ensureStageReady();
+  if (!stage) return;
+
+  if (!fresh) {
+    // Stage ya existe — solo abrir el fleet modal
+    window.dispatchEvent(new CustomEvent('mex:navigate-cuadre'));
+    window.dispatchEvent(new Event('resize'));
   }
+  // Si fresh=true: mapa.js acaba de importarse, _isCuadreFleetMode() detecta
+  // /app/cuadre y abre el fleet modal automáticamente vía _bootCuadreFleetRoute()
 
-  // Dejar que el legacy maneje la apertura correcta (carga datos, tabs, permisos)
-  window.dispatchEvent(new CustomEvent('mex:navigate-cuadre', {
-    detail: { tab: String(TAB_PARAM).toUpperCase() === 'ADMINS' ? 'ADMINS' : 'NORMAL' }
-  }));
+  stage.style.display = 'block';
 }
 
 export function unmount() {
-  _unmountMapaStage();
+  const stage = document.getElementById(STAGE_ID);
+  if (stage) {
+    stage.style.display = 'none';
+    window.dispatchEvent(new CustomEvent('mex:mapa-stage-hidden'));
+  }
 }
