@@ -902,6 +902,11 @@
       filter: brightness(0.97);
     }
 
+    .units-sidebar .car:active {
+      transform: scale(0.95);
+      filter: brightness(0.9);
+    }
+
     /* En mapa: mostrar contenido compacto, ocultar sidebar body */
     .car .car-sidebar-body {
       display: none;

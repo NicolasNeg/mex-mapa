@@ -7,6 +7,7 @@
  *
  * Para editar estilos, ir al archivo correspondiente:
  *   base.css          — Variables :root, scrollbars, dark theme, animaciones
+ *   dialogs.css       — Modales del sistema (.mex-dlg-*)
  *   mapa.css          — Mapa principal, header, carros, paneles, flota, login
  *   alertas.css       — Studio alertas maestras, badges, menú controles, radar
  *   config.css        — Panel config (cfg-*), plazas, empresa, editor de mapa
@@ -18,6 +19,7 @@
  */
 
 @import url('base.css');
+@import url('dialogs.css');
 @import url('mapa.css');
 @import url('alertas.css');
 @import url('config.css');
