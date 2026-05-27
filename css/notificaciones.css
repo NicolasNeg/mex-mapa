@@ -1252,6 +1252,13 @@
   transform: scale(0.96);
 }
 
+body.car-dragging,
+body.car-dragging * {
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  cursor: grabbing !important;
+}
+
 .map-drop-target {
   position: relative;
 }

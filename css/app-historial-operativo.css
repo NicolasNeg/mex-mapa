@@ -1,0 +1,206 @@
+/* ══════════════════════════════════════════════════════════
+   app-historial-operativo.css — Historial Operativo SPA view
+   ══════════════════════════════════════════════════════════ */
+
+.hist-op-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg-surface, #f8fafc);
+}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+.hist-op-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 16px 20px 0;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  background: var(--surface, #fff);
+  flex-shrink: 0;
+}
+
+.hist-op-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: none;
+  border-bottom: 3px solid transparent;
+  background: none;
+  color: #64748b;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.hist-op-tab:hover  { color: #1e293b; background: #f1f5f9; }
+.hist-op-tab.active { color: #3b82f6; border-bottom-color: #3b82f6; background: #eff6ff; }
+.hist-op-tab .material-icons { font-size: 17px; }
+
+/* ── Panel ─────────────────────────────────────────────────── */
+.hist-op-panel {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  gap: 12px;
+}
+
+.hist-op-panel.hidden { display: none; }
+
+/* ── Filtros ───────────────────────────────────────────────── */
+.hist-op-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.hist-op-filters input[type="text"],
+.hist-op-filters input[type="date"],
+.hist-op-filters select {
+  padding: 8px 12px;
+  border: 1.5px solid var(--border, #e2e8f0);
+  border-radius: 10px;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+  outline: none;
+  background: #fff;
+  transition: border-color 0.15s;
+}
+
+.hist-op-filters input[type="text"] { min-width: 200px; flex: 1; }
+.hist-op-filters input:focus,
+.hist-op-filters select:focus { border-color: #3b82f6; }
+
+.hist-op-btn-clear {
+  padding: 8px 14px;
+  border: none;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #475569;
+  font-weight: 800;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s;
+  letter-spacing: 0.3px;
+}
+.hist-op-btn-clear:hover { background: #e2e8f0; }
+
+.hist-op-btn-refresh {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border: none;
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.hist-op-btn-refresh:hover { background: #dbeafe; }
+.hist-op-btn-refresh .material-icons { font-size: 18px; }
+
+.hist-op-counter {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
+/* ── Tabla ─────────────────────────────────────────────────── */
+.hist-op-table-wrap {
+  flex: 1;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border, #e2e8f0);
+  background: #fff;
+}
+
+.hist-op-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.hist-op-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8fafc;
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 800;
+  color: #64748b;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  border-bottom: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.hist-op-table tbody tr {
+  border-bottom: 1px solid #f1f5f9;
+  transition: background 0.12s;
+}
+.hist-op-table tbody tr:hover { background: #f8fafc; }
+.hist-op-table tbody tr:last-child { border-bottom: none; }
+
+.hist-op-table td {
+  padding: 9px 14px;
+  vertical-align: middle;
+  color: #1e293b;
+}
+
+.hist-op-cell-date { color: #64748b; font-weight: 700; white-space: nowrap; }
+.hist-op-cell-mva  { color: #3b82f6; font-weight: 900; font-size: 13px; }
+
+/* ── Badges tipo ────────────────────────────────────────────── */
+.hist-op-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-move { background: #dbeafe; color: #1d4ed8; }
+.badge-swap { background: #fef9c3; color: #92400e; }
+.badge-add  { background: #dcfce7; color: #15803d; }
+.badge-edit { background: #f0fdf4; color: #166534; }
+.badge-del  { background: #fee2e2; color: #b91c1c; }
+.badge-otro { background: #f1f5f9; color: #475569; }
+
+/* ── Estados vacío / cargando ──────────────────────────────── */
+.hist-op-loading,
+.hist-op-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 48px 24px;
+  color: #94a3b8;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.hist-op-loading .material-icons { font-size: 22px; }
+
+@keyframes hist-op-spin {
+  to { transform: rotate(360deg); }
+}
+.hist-op-loading .spin,
+.hist-op-loading .material-icons { animation: hist-op-spin 1s linear infinite; }

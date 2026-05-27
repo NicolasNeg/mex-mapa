@@ -148,6 +148,11 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/turnos.js'),
     navRoute: '/app/turnos',
   },
+  '/app/historial-operativo': {
+    loader:   () => import('/js/app/views/historial-operativo.js'),
+    navRoute: '/app/historial-operativo',
+    feature:  'historial_logs',
+  },
 };
 
 // ── Factory ──────────────────────────────────────────────────

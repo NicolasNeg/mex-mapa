@@ -134,6 +134,16 @@ export const ROUTE_MAP = {
     shellIntegrated:    true,
     fullModuleMigrated: true,
   },
+  historialOperativo: {
+    id: 'historialOperativo', label: 'Historial operativo',
+    legacyRoute:   '/historial-operativo',
+    appRoute:      '/app/historial-operativo',
+    navRoute:      '/app/historial-operativo',
+    fallbackRoute: '/app/historial-operativo',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+    feature: 'historial_logs',
+  },
 };
 
 // ── API pública ──────────────────────────────────────────────

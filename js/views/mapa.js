@@ -1264,7 +1264,40 @@ function _setSessionProfile(profile) {
   try { if (profile.email) localStorage.setItem('mex.lastAuthEmail.v1', profile.email); } catch (_) {}
   console.log('[MEX-INTEG] _setSessionProfile →', { email: profile.email, rol: userAccessRole, plaza: PLAZA_ACTIVA_MAPA || '(sin plaza)', userRole, fullAccess: isGlobalAdmin });
   setErrorUser({ email: profile.email, role: userAccessRole, plaza: PLAZA_ACTIVA_MAPA });
+  if (userRole !== 'admin') _pruneApiForLowRole();
   _inyectarSidebar();
+}
+
+// Admin-only API functions that low-privilege roles will never call directly.
+// Cross-role communication functions (radars, audit listeners, alert receipt) are preserved.
+const _ADMIN_ONLY_API_FNS = [
+  // Audit & bitácora write
+  'limpiarBitacora', 'iniciarAuditoria', 'finalizarAuditoria',
+  // Export
+  'exportarExcel', 'exportarCSV', 'exportarPlantilla',
+  // Config write
+  'guardarConfiguracionListas', 'guardarConfiguracionEmpresa', 'guardarConfigEmpresa',
+  'resetConfig', 'eliminarConfig',
+  // User management
+  'crearUsuario', 'eliminarUsuario', 'actualizarRol', 'guardarRol', 'eliminarRol',
+  // Admin cuadre
+  'cerrarCuadre', 'iniciarCuadre', 'obtenerUnidadesPlazas',
+  // Historial write
+  'limpiarHistorial', 'eliminarLogHistorial',
+];
+
+function _pruneApiForLowRole() {
+  if (_mapaRuntime.apiPruned) return;
+  _mapaRuntime.apiPruned = true;
+  if (!window.api) return;
+  let pruned = 0;
+  _ADMIN_ONLY_API_FNS.forEach(fn => {
+    if (typeof window.api[fn] === 'function') {
+      delete window.api[fn];
+      pruned++;
+    }
+  });
+  if (pruned > 0) console.log(`[MEX-API] Rol limitado — ${pruned} funciones admin removidas del scope.`);
 }
 
 function _inyectarSidebar() {
@@ -2632,9 +2665,12 @@ function _registrarYMostrarResumenVisita() {
 }
 
 function _iniciarSincronizacionUsuarios() {
+  const _eidNow = _eid();
+  if (_unsubUsersLive && _mapaRuntime.syncUsersPlaza === _eidNow) return; // already subscribed to this empresa
   if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; _trackLegacyListener('cleanup', 'users-live'); }
+  _mapaRuntime.syncUsersPlaza = _eidNow;
 
-  const _eidUsersLive = _eid();
+  const _eidUsersLive = _eidNow;
   let _qUsersLive = db.collection(COL.USERS);
   if (_eidUsersLive) _qUsersLive = _qUsersLive.where('empresaId', '==', _eidUsersLive);
   _unsubUsersLive = _qUsersLive.onSnapshot(snap => {
@@ -2976,7 +3012,9 @@ let _mapaRuntime = {
   pendingUnits: null,
   rolePrefetchScheduled: false,
   plazaPrefetchScheduled: false,
-  adminWarmupScheduled: false
+  adminWarmupScheduled: false,
+  apiPruned: false,
+  syncUsersPlaza: null,
 };
 let _mapaSyncState = {
   hasPendingWrite: false,
@@ -4512,6 +4550,7 @@ function _finishMapDrag() {
   _mapDragState.sourceCar = null;
   _mapDragState.activeTouchId = null;
   _mapDragState.active = false;
+  document.body.classList.remove('car-dragging');
 }
 
 // [F2.10] Resaltar cajones disponibles y compatibles con la categoría de la unidad
@@ -4615,6 +4654,7 @@ function _handleMapCarDragStart(event) {
   const car = event.currentTarget;
   if (!car) return;
   _finishMapDrag();
+  document.body.classList.add('car-dragging');
   _selectCarOnMap(car, { openPanel: false, preserveSwap: true });
   _mapDragState.sourceCar = car;
   car.classList.add('drag-origin');
@@ -8764,10 +8804,17 @@ function _procesarPingUI(res) {
     if (feedContainer && res.liveFeed && res.liveFeed.length > 0) {
       feedContainer.innerHTML = _renderLiveActivityFeed(res.liveFeed);
 
+      // Per-item fade-out after 5s
+      feedContainer.querySelectorAll('.feed-change-card').forEach((card, i) => {
+        setTimeout(() => {
+          card.style.opacity = '0';
+          setTimeout(() => card.remove(), 400);
+        }, 5000 + i * 200);
+      });
+
       // 🕒 AUTO-LIMPIADOR: Después de 15 segundos de inactividad, vaciamos el feed visualmente
       clearTimeout(window.feedTimer);
       window.feedTimer = setTimeout(() => {
-        // Solo lo limpiamos si el usuario no ha movido nada nuevo
         api.limpiarFeedGlobal(_miPlaza()).catch(e => console.error(e));
       }, 15000);
 

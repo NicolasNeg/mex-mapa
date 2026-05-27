@@ -4168,6 +4168,28 @@
       border-radius: 1px;
     }
 
+    .kpi-sidebar-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: none;
+      border: none;
+      padding: 4px 6px;
+      border-radius: 8px;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .kpi-sidebar-toggle:hover {
+      color: #f8fafc;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .kpi-sidebar-toggle .material-icons {
+      font-size: 20px;
+    }
+
     /* Colores Neón para los números */
     .text-green {
       color: #34d399;

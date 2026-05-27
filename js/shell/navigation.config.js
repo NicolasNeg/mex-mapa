@@ -115,6 +115,14 @@ export const NAV_GROUPS = [
         icon: 'schedule',
         route: '/app/turnos',
         roles: '*',
+      },
+      {
+        id: 'historial-operativo',
+        label: 'Historial operativo',
+        icon: 'history',
+        route: '/app/historial-operativo',
+        roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
+        feature: 'historial_logs',
       }
     ]
   },
@@ -212,7 +220,8 @@ export const ROUTE_TITLES = {
   '/app/mapa':             'Mapa operativo',
   '/app/editmap':          'Configuración de mapa',
   '/app/onboarding':       'Configuración inicial',
-  '/app/turnos':           'Turnos y horarios',
+  '/app/turnos':                   'Turnos y horarios',
+  '/app/historial-operativo':      'Historial operativo',
 };
 
 export function routeTitle(route = '') {
