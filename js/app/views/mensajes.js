@@ -324,8 +324,25 @@ async function _showEmojiPicker(btn) {
   panel.id = 'amEmojiPanel';
   panel.className = 'am-emoji-panel';
   panel.innerHTML = '<div class="am-emoji-loading">Cargando emojis...</div>';
-  btn.closest('.am-bubble')?.appendChild(panel);
-  setTimeout(() => { document.addEventListener('click', function _dismiss(ev) { if(!panel.contains(ev.target)){panel.remove();document.removeEventListener('click',_dismiss);} }, {once:false}); },10);
+
+  // Anclar al body para que no se corte por overflow de contenedores padres
+  document.body.appendChild(panel);
+
+  // Posicionar debajo del botón; si no cabe abajo, abrir arriba
+  const r   = btn.getBoundingClientRect();
+  const pw  = Math.min(360, window.innerWidth - 32);
+  const ph  = Math.min(420, window.innerHeight * 0.7);
+  const gap = 6;
+  let top  = r.bottom + gap;
+  let left = r.right - pw;
+  if (left < 8) left = 8;
+  if (left + pw > window.innerWidth - 8) left = window.innerWidth - pw - 8;
+  // Si no cabe abajo → abrir arriba
+  if (top + ph > window.innerHeight - 8) top = r.top - ph - gap;
+  if (top < 8) top = 8;
+  Object.assign(panel.style, { top: `${top}px`, left: `${left}px` });
+
+  setTimeout(() => { document.addEventListener('click', function _dismiss(ev) { if(!panel.contains(ev.target) && ev.target !== btn){panel.remove();document.removeEventListener('click',_dismiss);} }, {once:false}); },10);
   try {
     await _ensureEmojiPickerElement();
     if (!panel.isConnected) return;
