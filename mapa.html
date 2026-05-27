@@ -1512,10 +1512,6 @@
 
   <div class="content">
     <div class="kpi-container">
-      <button class="kpi-sidebar-toggle" onclick="toggleSidebar()" title="Unidades">
-        <span class="material-icons">view_list</span>
-      </button>
-      <div class="kpi-divider"></div>
       <div class="kpi-item">
         <span class="kpi-value" id="kpi-total">0</span>
         <span class="kpi-label">TOTALES</span>
@@ -1558,13 +1554,37 @@
       </button>
     </div>
 
+    <!-- Floating button to open units sidebar when it's closed -->
+    <button id="btnAbrirUnidades" class="btn-abrir-unidades" onclick="toggleSidebar()" title="Panel de unidades">
+      <span class="material-icons">format_list_bulleted</span>
+    </button>
+
     <aside id="sidebar" class="units-sidebar">
       <!-- Header con gradiente -->
       <div class="units-sidebar-header">
         <h2>UNIDADES</h2>
-        <button onclick="toggleSidebar()" title="Cerrar">
-          <span class="material-icons" style="font-size:20px;">close</span>
-        </button>
+        <div style="display:flex;align-items:center;gap:4px;">
+          <button id="btnSidebarOpciones" class="sidebar-opts-btn" onclick="toggleSidebarOpciones()" title="Opciones">
+            <span class="material-icons" style="font-size:18px;">menu</span>
+          </button>
+          <button onclick="toggleSidebar()" title="Cerrar">
+            <span class="material-icons" style="font-size:20px;">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel de opciones (mapa de calor, etc.) -->
+      <div id="sidebarOpcionesPanel" class="sidebar-opciones-panel" style="display:none;">
+        <div class="sidebar-opcion-row">
+          <div class="sidebar-opcion-label">
+            <span class="material-icons">thermostat</span>
+            Mapa de calor
+          </div>
+          <label class="sidebar-switch">
+            <input type="checkbox" id="switchMapaCalor" onchange="toggleMapaCalor()">
+            <span class="sidebar-switch-track"></span>
+          </label>
+        </div>
       </div>
 
       <!-- Buscador -->

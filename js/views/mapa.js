@@ -9871,12 +9871,27 @@ function eliminarAlertaDesdeHistorial(idAlerta) {
 // 🔥 MAPA DE CALOR LÓGICA
 // ==========================================
 
-function toggleMapaCalor() {
-  document.body.classList.toggle('heatmap-active');
+function toggleMapaCalor(force = null) {
+  if (typeof force === 'boolean') {
+    document.body.classList.toggle('heatmap-active', force);
+  } else {
+    document.body.classList.toggle('heatmap-active');
+  }
   const isActivo = document.body.classList.contains('heatmap-active');
   const btn = document.getElementById('btnMapaCalor');
   if (btn) btn.classList.toggle('btn-calor--activo', isActivo);
+  const sw = document.getElementById('switchMapaCalor');
+  if (sw && sw.checked !== isActivo) sw.checked = isActivo;
   showToast(isActivo ? "Mapa de calor activado" : "Mapa de calor desactivado", "success");
+}
+
+function toggleSidebarOpciones() {
+  const panel = document.getElementById('sidebarOpcionesPanel');
+  if (!panel) return;
+  const open = panel.style.display === 'none' || !panel.style.display;
+  panel.style.display = open ? 'block' : 'none';
+  const sw = document.getElementById('switchMapaCalor');
+  if (sw) sw.checked = document.body.classList.contains('heatmap-active');
 }
 
 // Devuelve el color y diseño del globito según los días
@@ -20609,6 +20624,8 @@ function configurarPermisosUI() {
         document.body.classList.add('heatmap-active');
         const btn = document.getElementById('btnMapaCalor');
         if (btn) btn.classList.add('btn-calor--activo');
+        const sw = document.getElementById('switchMapaCalor');
+        if (sw) sw.checked = true;
       }
     }
   }
@@ -21472,6 +21489,7 @@ Object.assign(window, {
   toggleGrabacionChat,
   toggleIframe,
   toggleMapaCalor,
+  toggleSidebarOpciones,
   toggleMoreControls,
   toggleMuteIA,
   toggleReaccionChat,
