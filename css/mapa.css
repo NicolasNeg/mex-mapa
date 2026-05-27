@@ -1,3 +1,14 @@
+    /* Deshabilitar selección de texto en toda la página del mapa */
+    body, body * {
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    }
+    /* Permitir selección solo en campos de texto e inputs */
+    input, textarea, [contenteditable="true"] {
+      user-select: text !important;
+      -webkit-user-select: text !important;
+    }
+
     /* --- MAPA Y HEADER --- */
     .map-shell-topbar {
       background: rgba(255, 255, 255, 0.88);
