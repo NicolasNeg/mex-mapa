@@ -210,6 +210,87 @@ export async function getHistorialTurnos(plaza, opts = {}) {
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// ── Plantillas predefinidas ───────────────────────────────────
+const COL_PLANTILLAS = 'horarios_plantillas';
+
+export function onPlantillas(callback) {
+  const eid = _eid();
+  let q = db.collection(COL_PLANTILLAS);
+  if (eid) q = q.where('empresaId', '==', eid);
+  return q.onSnapshot(
+    snap => callback(
+      snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''))
+    ),
+    err => { console.warn('[plantillas]', err?.message); callback([]); }
+  );
+}
+
+export async function guardarPlantilla(nombre, inicio, fin, id = null) {
+  const eid = _eid();
+  const fv  = _fv();
+  const base = {
+    nombre: String(nombre).trim(),
+    inicio: String(inicio).trim(),
+    fin:    String(fin).trim(),
+    ...(eid ? { empresaId: eid } : {}),
+    actualizadoPor: _authUid(),
+    actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
+  };
+  if (id) {
+    await db.collection(COL_PLANTILLAS).doc(id).update(base);
+    return id;
+  }
+  base.creadoEn = fv ? fv.serverTimestamp() : Date.now();
+  const ref = await db.collection(COL_PLANTILLAS).add(base);
+  return ref.id;
+}
+
+export async function eliminarPlantilla(id) {
+  if (!id) return;
+  await db.collection(COL_PLANTILLAS).doc(id).delete();
+}
+
+// ── Notas generales de semana ─────────────────────────────────
+const COL_NOTAS_SEM = 'notas_semana';
+
+function _notasSemId(plaza, semana) {
+  return `${String(plaza).toLowerCase().replace(/[^a-z0-9]/g, '_')}_${semana}`;
+}
+
+export function onNotasSemana(plaza, semana, callback) {
+  const docId = _notasSemId(plaza, semana);
+  return db.collection(COL_NOTAS_SEM).doc(docId).onSnapshot(
+    snap => callback(snap.exists ? (snap.data()?.notas || {}) : {}),
+    err  => { console.warn('[notas_semana]', err?.message); callback({}); }
+  );
+}
+
+export async function guardarNotaSemana(plaza, semana, diaKey, nota) {
+  const eid   = _eid();
+  const fv    = _fv();
+  const docId = _notasSemId(plaza, semana);
+  const ref   = db.collection(COL_NOTAS_SEM).doc(docId);
+  const snap  = await ref.get();
+  if (!snap.exists) {
+    await ref.set({
+      plaza,
+      semana,
+      ...(eid ? { empresaId: eid } : {}),
+      notas: { [diaKey]: String(nota).trim() },
+      actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
+      actualizadoPor: _authUid(),
+    });
+  } else {
+    await ref.update({
+      [`notas.${diaKey}`]: String(nota).trim(),
+      actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
+      actualizadoPor: _authUid(),
+    });
+  }
+}
+
 // ── Usuarios de plaza ─────────────────────────────────────────
 /** Lista básica de usuarios de una plaza para el grid de horarios. */
 export async function getUsuariosPlaza(plaza) {

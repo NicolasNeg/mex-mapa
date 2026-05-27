@@ -1092,5 +1092,22 @@ service cloud.firestore {
       allow read, delete: if esProgramadorBootstrap();
       allow update: if false;
     }
+
+    // Plantillas predefinidas de horarios.
+    // Lectura: cualquier usuario autenticado.
+    // Escritura: solo admins con perfil.
+    match /horarios_plantillas/{plantillaId} {
+      allow read: if estaAutenticado();
+      allow create, update, delete: if tienePerfilActual();
+    }
+
+    // Notas generales por semana (visibles en la tabla de horarios).
+    // Lectura: cualquier usuario autenticado.
+    // Escritura: solo admins con perfil.
+    match /notas_semana/{docId} {
+      allow read: if estaAutenticado();
+      allow create, update: if tienePerfilActual();
+      allow delete: if tienePerfilActual();
+    }
   }
 }
