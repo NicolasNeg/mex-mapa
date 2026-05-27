@@ -228,11 +228,12 @@ function _getHeatBadge(fechaIngreso) {
     const d = new Date(fechaIngreso);
     if (isNaN(d.getTime())) return '';
     const dias = Math.floor((Date.now() - d.getTime()) / 86400000);
-    let bg, border, color, text, icon;
-    if (dias <= 2)      { bg = '#dcfce7'; border = '#86efac'; color = '#16a34a'; text = `${dias} DÍAS`; icon = 'eco'; }
-    else if (dias <= 5) { bg = '#fef9c3'; border = '#fde047'; color = '#ca8a04'; text = `${dias} DÍAS`; icon = 'schedule'; }
-    else                { bg = '#fee2e2'; border = '#fca5a5'; color = '#ef4444'; text = `${dias} DÍAS`; icon = 'local_fire_department'; }
-    return `<div class="badge-calor" style="background:${bg};border:1px solid ${border};color:${color};"><span class="material-icons" style="font-size:11px;">${icon}</span> ${text}</div>`;
+    let bg, border, color, icon, clase = '';
+    if (dias <= 2)       { bg = '#dcfce7'; border = '#86efac'; color = '#15803d'; icon = 'eco'; }
+    else if (dias <= 7)  { bg = '#fef9c3'; border = '#fde047'; color = '#a16207'; icon = 'schedule'; }
+    else if (dias <= 14) { bg = '#ffedd5'; border = '#fdba74'; color = '#c2410c'; icon = 'warning'; }
+    else                 { bg = '#fee2e2'; border = '#fca5a5'; color = '#b91c1c'; icon = 'local_fire_department'; clase = 'calor-fuego'; }
+    return `<div class="badge-calor ${clase}" style="background:${bg};border:1px solid ${border};color:${color};"><span class="material-icons" style="font-size:10px;line-height:1;">${icon}</span>${dias}d</div>`;
   } catch (_) { return ''; }
 }
 

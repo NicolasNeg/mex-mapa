@@ -4363,7 +4363,7 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   const trasladoDest = unitVm.traslado_destino ? ` → ${unitVm.traslado_destino}` : '';
   const trasladoHtml = unitVm.isInTransit ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + unitVm.traslado_destino : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${unitVm.traslado_destino}</span>` : ''}</div>` : '';
   const termometro = obtenerDisenoCalor(unitVm.fechaIngreso);
-  const calorHtml = `<div class="badge-calor ${termometro.clase}" style="background:${termometro.bg};color:${termometro.color};">${termometro.dias ?? ''}</div>`;
+  const calorHtml = termometro.dias !== null ? `<div class="badge-calor ${termometro.clase}" style="background:${termometro.bg};border:1px solid ${termometro.border};color:${termometro.color};"><span class="material-icons" style="font-size:10px;line-height:1;">${termometro.icon}</span>${termometro.dias}d</div>` : '';
   const gasBarHtml = _renderGasolinaMapa(unitVm.gasolina);
   const estadoClase = unitVm.estado
     ? unitVm.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')
@@ -9894,18 +9894,20 @@ function toggleSidebarOpciones() {
   if (sw) sw.checked = document.body.classList.contains('heatmap-active');
 }
 
-// Devuelve el color y diseño del globito según los días
+// Devuelve el color y diseño del chip según los días desde ingreso.
+// 4 niveles de semáforo: verde (0-2d) → amarillo (3-7d) → naranja (8-14d) → rojo-fuego (15+d)
 function obtenerDisenoCalor(fechaIngresoStr) {
-  if (!fechaIngresoStr || fechaIngresoStr.trim() === '') return { bg: 'transparent', color: 'transparent', clase: '', dias: null };
+  if (!fechaIngresoStr || fechaIngresoStr.trim() === '') return { bg: 'transparent', border: 'transparent', color: 'transparent', clase: '', icon: '', dias: null };
   try {
     const fechaAuto = new Date(fechaIngresoStr);
-    if (isNaN(fechaAuto.getTime())) return { bg: 'transparent', color: 'transparent', clase: '', dias: null };
+    if (isNaN(fechaAuto.getTime())) return { bg: 'transparent', border: 'transparent', color: 'transparent', clase: '', icon: '', dias: null };
     const dias = Math.floor(Math.abs(Date.now() - fechaAuto) / 86400000);
-    if (dias <= 2) return { bg: '#dcfce7', color: '#16a34a', clase: '', dias };
-    if (dias <= 5) return { bg: '#fef9c3', color: '#ca8a04', clase: '', dias };
-    return { bg: '#fee2e2', color: '#ef4444', clase: 'calor-fuego', dias };
+    if (dias <= 2)  return { bg: '#dcfce7', border: '#86efac', color: '#15803d', clase: '',            icon: 'eco',                   dias };
+    if (dias <= 7)  return { bg: '#fef9c3', border: '#fde047', color: '#a16207', clase: '',            icon: 'schedule',              dias };
+    if (dias <= 14) return { bg: '#ffedd5', border: '#fdba74', color: '#c2410c', clase: '',            icon: 'warning',               dias };
+    return              { bg: '#fee2e2', border: '#fca5a5', color: '#b91c1c', clase: 'calor-fuego', icon: 'local_fire_department', dias };
   } catch (_) {
-    return { bg: 'transparent', color: 'transparent', clase: '', dias: null };
+    return { bg: 'transparent', border: 'transparent', color: 'transparent', clase: '', icon: '', dias: null };
   }
 }
 
@@ -20615,15 +20617,17 @@ function configurarPermisosUI() {
     if (!window.mexFeatures.puedeUsar('historial_logs'))      _fHide('btnMenuHistorial');
     if (!window.mexFeatures.puedeUsar('edicion_mapa'))        _fHide('btnEditorMapa');
     if (!window.mexFeatures.puedeUsar('notificaciones_push')) _fHide('btnNotificationCenter');
-    if (!window.mexFeatures.puedeUsar('estados_mapa'))        _fHide('btnMapaCalor');
+    if (!window.mexFeatures.puedeUsar('estados_mapa')) {
+      _fHide('btnMapaCalor');
+    } else {
+      const btnCalor = document.getElementById('btnMapaCalor');
+      if (btnCalor) btnCalor.style.display = '';
 
-    // Apply defaultHeatmap user preference (only if feature is enabled)
-    if (window.mexFeatures.puedeUsar('estados_mapa')) {
+      // Apply defaultHeatmap user preference
       const prefs = currentUserProfile?.preferences || {};
       if (prefs.defaultHeatmap && !document.body.classList.contains('heatmap-active')) {
         document.body.classList.add('heatmap-active');
-        const btn = document.getElementById('btnMapaCalor');
-        if (btn) btn.classList.add('btn-calor--activo');
+        if (btnCalor) btnCalor.classList.add('btn-calor--activo');
         const sw = document.getElementById('switchMapaCalor');
         if (sw) sw.checked = true;
       }
