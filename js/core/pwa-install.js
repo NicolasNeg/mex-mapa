@@ -30,6 +30,8 @@ export function initPwaInstall() {
   if (dismissed && Date.now() - dismissed < 7 * 24 * 60 * 60 * 1000) return;
 
   window.addEventListener('beforeinstallprompt', e => {
+    const banner = document.getElementById('pwa-install-banner');
+    if (!banner) return; // banner not in DOM yet → let Chrome show its own infobar
     e.preventDefault();
     _deferredPrompt = e;
     _mostrarBanner();

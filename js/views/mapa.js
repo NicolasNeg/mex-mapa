@@ -225,7 +225,7 @@ function _aplicarColoresEstados() {
   styleTag.textContent = css;
 }
 
-function _darken(hex, pct) { /* _darken → /mapa/features/core/utils.js (Fase 4) */ }
+// _darken → /mapa/features/core/utils.js (Fase 4)
 
 async function inicializarConfiguracion() {
   try {
@@ -882,7 +882,7 @@ const BASE_ROLE_META = Object.freeze({
 let ROLE_META = {};
 let ROLE_OPTIONS = [];
 
-function _cloneJson(value) { /* _cloneJson → /mapa/features/core/utils.js (Fase 4) */ }
+// _cloneJson → /mapa/features/core/utils.js (Fase 4)
 
 function _configuredSecurity() {
   const security = window.MEX_CONFIG?.empresa?.security;
@@ -2187,7 +2187,7 @@ function abrirReporteImpresion(htmlContenido) {
   }, 80);
 }
 
-function formatearFechaDocumento(fechaTexto) { /* formatearFechaDocumento → /mapa/features/core/utils.js (Fase 4) */ }
+// formatearFechaDocumento → /mapa/features/core/utils.js (Fase 4)
 
 // auth ya está declarada en mex-api.js — no redeclarar
 
@@ -15336,9 +15336,9 @@ function colapsarTerminal() {
 /**
  * 👁️ RECONOCIMIENTO DE PLACAS OPTIMIZADO (SIN ALERTS)
  */
-async function procesarImagenOCR(event) { /* procesarImagenOCR → /mapa/features/extras/ocr.js (Fase 4) */ }
+// procesarImagenOCR → /mapa/features/extras/ocr.js (Fase 4)
 
-function ejecutarLogicaOCR(textoDetectado) { /* ejecutarLogicaOCR → /mapa/features/extras/ocr.js (Fase 4) */ }
+// ejecutarLogicaOCR → /mapa/features/extras/ocr.js (Fase 4)
 
 // ═══════════════════════════════════════════════════════════
 // 🗺️  EDITOR VISUAL DE MAPA — [F2] Posicionamiento absoluto libre
@@ -18579,7 +18579,7 @@ function cfgToggleModelos(id) {
 }
 
 // Convierte valor de gasolina a porcentaje (0-100)
-function _gasToPercent(val) { /* _gasToPercent → /mapa/features/core/utils.js (Fase 4) */ }
+// _gasToPercent → /mapa/features/core/utils.js (Fase 4)
 
 function buscarEnListaConfig() { renderizarListaConfig(); }
 
@@ -21641,11 +21641,11 @@ function _actualizarSupervisionConUnidades(unidades) {
 }
 
 // ── F3.2 Comparador de plazas → /mapa/features/extras/supervision.js (Fase 4) ──
-async function _obtenerMetricasComparadorPlaza(plaza) { /* → supervision.js (Fase 4) */ }
-async function abrirComparadorPlazas() { /* → supervision.js (Fase 4) */ }
-function _renderComparadorLoading() { /* → supervision.js (Fase 4) */ }
+// → supervision.js (Fase 4)
+// → supervision.js (Fase 4)
+// → supervision.js (Fase 4)
 
-function _renderComparadorTabla(resultados) { /* → supervision.js (Fase 4) */ }
+// → supervision.js (Fase 4)
 
 
 // ═══════════════════════════════════════════════════════════
