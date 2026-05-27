@@ -110,31 +110,23 @@
 
     .badge-calor {
       display: none;
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      font-size: 7px;
+      font-weight: 900;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      line-height: 1;
+      pointer-events: none;
     }
 
-    /* Mostrar los globitos SOLO cuando el body tiene la clase activa */
     body.heatmap-active .badge-calor {
       display: flex;
-    }
-
-    /* Estilos del Globito Termómetro */
-    /* Estilos del Globito Termómetro (Abajo al Centro) */
-    .badge-calor {
-      position: absolute;
-      bottom: -10px;
-      /* Lo ponemos abajo para no tapar el candado o el engrane */
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 9px;
-      font-weight: 900;
-      padding: 3px 6px;
-      border-radius: 8px;
-      align-items: center;
-      gap: 3px;
-      z-index: 20;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-      letter-spacing: 0.5px;
-      white-space: nowrap;
     }
 
     body.dark-theme {
@@ -1042,77 +1034,28 @@
 
 
     .calor-fuego {
-      animation: latidoFuego 1.5s infinite;
+      animation: latidoFuego 2s infinite;
     }
 
     @keyframes latidoFuego {
-      0% {
-        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
-      }
-
-      70% {
-        box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
-      }
-
-      100% {
-        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
-      }
+      0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
+      70%  { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
 
-    /* Estilos del Botón Switch en el Header */
-    .heatmap-switch-wrapper {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: #1e293b;
-      padding: 8px 12px;
-      border-radius: 12px;
-      border: 1px solid #334155;
-      color: white;
-      font-size: 11px;
-      font-weight: 800;
-      cursor: pointer;
-      transition: 0.2s;
+    /* Botón mapa de calor en zoom controls */
+    .btn-calor-toggle {
+      color: #64748b;
+      transition: color 0.2s, background 0.2s;
     }
 
-    .heatmap-switch-wrapper:hover {
-      background: #334155;
+    .btn-calor--activo,
+    body.heatmap-active .btn-calor-toggle {
+      color: #ef4444 !important;
+      background: #fee2e2 !important;
     }
 
-    .heatmap-switch {
-      position: relative;
-      width: 34px;
-      height: 18px;
-      background: #64748b;
-      border-radius: 20px;
-      transition: 0.3s;
-    }
-
-    .heatmap-switch::after {
-      content: '';
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 14px;
-      height: 14px;
-      background: white;
-      border-radius: 50%;
-      transition: 0.3s;
-    }
-
-    /* Cuando se activa el switch */
-    body.heatmap-active .heatmap-switch {
-      background: #ef4444;
-      box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
-    }
-
-    body.heatmap-active .heatmap-switch::after {
-      transform: translateX(16px);
-    }
-
-    body.heatmap-active .heatmap-switch-wrapper {
-      border-color: #ef4444;
-    }
+    /* heatmap-switch-wrapper eliminado — reemplazado por btn-calor-toggle en zoom-controls */
 
 
     /* Estilo del Switch deslizable */

@@ -4325,7 +4325,7 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   const trasladoDest = unitVm.traslado_destino ? ` → ${unitVm.traslado_destino}` : '';
   const trasladoHtml = unitVm.isInTransit ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + unitVm.traslado_destino : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${unitVm.traslado_destino}</span>` : ''}</div>` : '';
   const termometro = obtenerDisenoCalor(unitVm.fechaIngreso);
-  const calorHtml = `<div class="badge-calor ${termometro.clase}" style="background: ${termometro.bg}; border: 1px solid ${termometro.border}; color: ${termometro.color};"><span class="material-icons" style="font-size: 11px;">${termometro.icon}</span> ${termometro.text}</div>`;
+  const calorHtml = `<div class="badge-calor ${termometro.clase}" style="background:${termometro.bg};color:${termometro.color};">${termometro.dias ?? ''}</div>`;
   const gasBarHtml = _renderGasolinaMapa(unitVm.gasolina);
   const estadoClase = unitVm.estado
     ? unitVm.estado.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '-')
@@ -9825,45 +9825,25 @@ function eliminarAlertaDesdeHistorial(idAlerta) {
 // ==========================================
 
 function toggleMapaCalor() {
-  // Ponemos o quitamos la clase maestra al body
   document.body.classList.toggle('heatmap-active');
-
   const isActivo = document.body.classList.contains('heatmap-active');
-  if (isActivo) {
-    showToast("🔥 Mapa de Calor Activado", "success");
-  } else {
-    showToast("❄️ Mapa de Calor Desactivado", "success");
-  }
+  const btn = document.getElementById('btnMapaCalor');
+  if (btn) btn.classList.toggle('btn-calor--activo', isActivo);
+  showToast(isActivo ? "Mapa de calor activado" : "Mapa de calor desactivado", "success");
 }
 
 // Devuelve el color y diseño del globito según los días
 function obtenerDisenoCalor(fechaIngresoStr) {
-  // Si está vacío (coches viejos), no mostramos nada
-  if (!fechaIngresoStr || fechaIngresoStr.trim() === "") return { bg: 'transparent', border: 'transparent', color: 'transparent', text: '', icon: '', clase: '' };
-
+  if (!fechaIngresoStr || fechaIngresoStr.trim() === '') return { bg: 'transparent', color: 'transparent', clase: '', dias: null };
   try {
-    // Como el backend envía ISO 8601 (yyyy-MM-ddTHH:mm:ss), JS lo entiende perfecto:
     const fechaAuto = new Date(fechaIngresoStr);
-
-    // Validar si la fecha es inválida (evita el NaN)
-    if (isNaN(fechaAuto.getTime())) throw new Error("Fecha inválida");
-
-    const hoy = new Date();
-
-    // Calculamos diferencia en milisegundos y pasamos a días completos (con decimales)
-    const diffTime = Math.abs(hoy - fechaAuto);
-    const dias = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-    if (dias <= 2) {
-      return { bg: '#dcfce7', border: '#86efac', color: '#16a34a', text: dias + ' DÍAS', icon: 'eco', clase: '' };
-    } else if (dias <= 5) {
-      return { bg: '#fef9c3', border: '#fde047', color: '#ca8a04', text: dias + ' DÍAS', icon: 'schedule', clase: '' };
-    } else {
-      return { bg: '#fee2e2', border: '#fca5a5', color: '#ef4444', text: dias + ' DÍAS', icon: 'local_fire_department', clase: 'calor-fuego' };
-    }
-  } catch (e) {
-    // Si algo sale mal, no mostramos el globo feo de NaN, lo ocultamos discretamente
-    return { bg: 'transparent', border: 'transparent', color: 'transparent', text: '', icon: '', clase: '' };
+    if (isNaN(fechaAuto.getTime())) return { bg: 'transparent', color: 'transparent', clase: '', dias: null };
+    const dias = Math.floor(Math.abs(Date.now() - fechaAuto) / 86400000);
+    if (dias <= 2) return { bg: '#dcfce7', color: '#16a34a', clase: '', dias };
+    if (dias <= 5) return { bg: '#fef9c3', color: '#ca8a04', clase: '', dias };
+    return { bg: '#fee2e2', color: '#ef4444', clase: 'calor-fuego', dias };
+  } catch (_) {
+    return { bg: 'transparent', color: 'transparent', clase: '', dias: null };
   }
 }
 
@@ -20573,6 +20553,17 @@ function configurarPermisosUI() {
     if (!window.mexFeatures.puedeUsar('historial_logs'))      _fHide('btnMenuHistorial');
     if (!window.mexFeatures.puedeUsar('edicion_mapa'))        _fHide('btnEditorMapa');
     if (!window.mexFeatures.puedeUsar('notificaciones_push')) _fHide('btnNotificationCenter');
+    if (!window.mexFeatures.puedeUsar('estados_mapa'))        _fHide('btnMapaCalor');
+
+    // Apply defaultHeatmap user preference (only if feature is enabled)
+    if (window.mexFeatures.puedeUsar('estados_mapa')) {
+      const prefs = currentUserProfile?.preferences || {};
+      if (prefs.defaultHeatmap && !document.body.classList.contains('heatmap-active')) {
+        document.body.classList.add('heatmap-active');
+        const btn = document.getElementById('btnMapaCalor');
+        if (btn) btn.classList.add('btn-calor--activo');
+      }
+    }
   }
 }
 
