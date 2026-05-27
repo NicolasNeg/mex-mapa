@@ -69,7 +69,6 @@ export function unmount() {
   _stopWidgets();
   _ctr = null;
   _s = null;
-  _mapReqId = 0;
 }
 
 // ── Feature detection ─────────────────────────────────────────
