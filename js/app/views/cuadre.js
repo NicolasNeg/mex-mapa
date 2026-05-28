@@ -30,6 +30,9 @@ function _fresh(plaza) {
     colMod:      '',
     colEst:      '',
     colUbi:      '',
+    colPla:      '',   // placas filter value
+    colGas:      '',   // gas filter value
+    sortCol:     'mva',
     sortDir:     'asc',
     selected:    new Set(),  // MVAs checked
     batchEstado: '',
@@ -111,8 +114,15 @@ function _matchPill(u, pill) {
   return true;
 }
 
+// Gas ordering: F=fullest … E=empty, N/A last
+const GAS_ORDER = ['F','15/16','7/8','3/4','H','1/2','1/4','1/8','E','N/A',''];
+function _gasRank(v) {
+  const i = GAS_ORDER.indexOf(String(v || '').trim().toUpperCase());
+  return i === -1 ? GAS_ORDER.length : i;
+}
+
 function _visible() {
-  const { units, search, pill, colCat, colMod, colEst, colUbi, sortDir } = _s;
+  const { units, search, pill, colCat, colMod, colEst, colUbi, colPla, colGas, sortCol, sortDir } = _s;
   const q = up(search);
   let rows = units
     .filter(u => _matchPill(u, pill))
@@ -120,9 +130,19 @@ function _visible() {
     .filter(u => !colMod || up(u.modelo).includes(up(colMod)))
     .filter(u => !colEst || up(u.estado) === up(colEst))
     .filter(u => !colUbi || up(u.ubicacion) === up(colUbi))
+    .filter(u => !colPla || up(u.placas).includes(up(colPla)))
+    .filter(u => !colGas || up(u.gasolina) === up(colGas))
     .filter(u => !q || [u.mva, u.modelo, u.placas, u.categoria, u.estado, u.ubicacion, u.notas].map(up).join(' ').includes(q));
+
   rows.sort((a, b) => {
-    const cmp = up(a.mva).localeCompare(up(b.mva), 'es');
+    let cmp = 0;
+    if (sortCol === 'placas') {
+      cmp = up(a.placas).localeCompare(up(b.placas), 'es');
+    } else if (sortCol === 'gasolina') {
+      cmp = _gasRank(a.gasolina) - _gasRank(b.gasolina);
+    } else {
+      cmp = up(a.mva).localeCompare(up(b.mva), 'es');
+    }
     return sortDir === 'asc' ? cmp : -cmp;
   });
   return rows;
@@ -164,6 +184,114 @@ function _badgeUbi(v) {
   if (u.includes('TALLER')) return `<span class="cqv-badge cqv-badge--red">${esc(v)}</span>`;
   if (u === 'EXTERNO')      return `<span class="cqv-badge cqv-badge--orange">${esc(v)}</span>`;
   return `<span class="cqv-badge cqv-badge--blue">${esc(v)}</span>`;
+}
+
+// ── Empresa listas helpers ───────────────────────────────────
+const ESTADOS_FALLBACK  = ['LISTO','SUCIO','MANTENIMIENTO','RESGUARDO','TRASLADO','VENTA','RETENIDA','NO ARRENDABLE','HYP','EN RENTA'];
+const GASOLINAS_FALLBACK = ['F','15/16','7/8','3/4','H','1/4','1/8','E','N/A'];
+
+function _getEstados() {
+  const raw = window.MEX_CONFIG?.listas?.estados;
+  if (!Array.isArray(raw) || !raw.length) return ESTADOS_FALLBACK;
+  return raw
+    .map(e => (typeof e === 'object' ? { id: e.id || e.nombre || String(e), orden: e.orden ?? 99 } : { id: String(e), orden: 99 }))
+    .sort((a, b) => a.orden - b.orden)
+    .map(e => e.id)
+    .filter(Boolean);
+}
+
+function _getGasolinas() {
+  const raw = window.MEX_CONFIG?.listas?.gasolinas;
+  if (!Array.isArray(raw) || !raw.length) return GASOLINAS_FALLBACK;
+  const vals = raw.map(v => String(typeof v === 'object' ? (v.nombre || v.id || v) : v).trim().toUpperCase()).filter(Boolean);
+  return vals.length ? vals : GASOLINAS_FALLBACK;
+}
+
+function _getUbicaciones(plaza) {
+  const raw = window.MEX_CONFIG?.listas?.ubicaciones;
+  if (!Array.isArray(raw) || !raw.length) {
+    return {
+      fijas:    ['PATIO','TALLER','AGENCIA','TALLER EXTERNO'],
+      personas: [],
+    };
+  }
+  const plazaUp = String(plaza || '').toUpperCase();
+  const filtered = raw.filter(u => {
+    const pid = String((typeof u === 'object' ? u.plazaId : null) || '').toUpperCase();
+    return !pid || pid === 'ALL' || pid === plazaUp;
+  });
+  const parsed = filtered.map(u => typeof u === 'object' ? u : {
+    nombre: u,
+    isPlazaFija: ['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN'].includes(u),
+  });
+  return {
+    fijas:    parsed.filter(u => u.isPlazaFija !== false).map(u => u.nombre || u.id).filter(Boolean),
+    personas: parsed.filter(u => u.isPlazaFija === false).map(u => u.nombre || u.id).filter(Boolean),
+  };
+}
+
+function _gasLabel(v) {
+  const g = String(v || '').trim().toUpperCase();
+  if (g === 'F') return 'F (Lleno)';
+  if (g === 'H') return 'H (Medio)';
+  if (g === 'E') return 'E (Vacío)';
+  if (g === 'N/A') return 'N/A';
+  return g;
+}
+
+function _renderEstadoOpts(selected) {
+  return _getEstados().map(v =>
+    `<option value="${esc(v)}"${selected === v ? ' selected' : ''}>${esc(v)}</option>`
+  ).join('');
+}
+
+function _renderGasOpts(selected) {
+  const vals = _getGasolinas();
+  const grupos = { COMPLETO: [], MEDIO: [], BAJO: [], OTROS: [] };
+  vals.forEach(v => {
+    const g = v.toUpperCase();
+    if (g === 'F') grupos.COMPLETO.push(v);
+    else if (g === 'H' || g === '3/4' || g === '7/8' || g === '15/16') grupos.MEDIO.push(v);
+    else if (g === 'E' || g === '1/4' || g === '1/8' || g === '1/2') grupos.BAJO.push(v);
+    else if (g !== 'N/A') grupos.OTROS.push(v);
+  });
+  let html = `<option value="N/A"${selected === 'N/A' || !selected ? ' selected' : ''}>Seleccionar...</option>`;
+  const addGroup = (label, arr) => {
+    if (!arr.length) return;
+    html += `<optgroup label="${label}">`;
+    arr.forEach(v => { html += `<option value="${esc(v)}"${selected === v ? ' selected' : ''}>${_gasLabel(v)}</option>`; });
+    html += `</optgroup>`;
+  };
+  if (grupos.COMPLETO.length || grupos.MEDIO.length || grupos.BAJO.length || grupos.OTROS.length) {
+    addGroup('LLENO', grupos.COMPLETO);
+    addGroup('MEDIO', grupos.MEDIO);
+    addGroup('BAJO', grupos.BAJO);
+    addGroup('OTROS', grupos.OTROS);
+  } else {
+    vals.filter(v => v !== 'N/A').forEach(v => {
+      html += `<option value="${esc(v)}"${selected === v ? ' selected' : ''}>${_gasLabel(v)}</option>`;
+    });
+  }
+  if (vals.includes('N/A')) {
+    html += `<option value="N/A"${selected === 'N/A' ? ' selected' : ''}>N/A</option>`;
+  }
+  return html;
+}
+
+function _renderUbicacionOpts(selected, plaza) {
+  const { fijas, personas } = _getUbicaciones(plaza);
+  let html = `<option value="">Seleccionar...</option>`;
+  if (fijas.length) {
+    html += `<optgroup label="PLAZAS FIJAS">`;
+    fijas.forEach(v => { html += `<option value="${esc(v)}"${selected === v ? ' selected' : ''}>${esc(v)}</option>`; });
+    html += `</optgroup>`;
+  }
+  if (personas.length) {
+    html += `<optgroup label="PERSONA RESPONSABLE">`;
+    personas.forEach(v => { html += `<option value="${esc(v)}"${selected === v ? ' selected' : ''}>👤 ${esc(v)}</option>`; });
+    html += `</optgroup>`;
+  }
+  return html;
 }
 
 // ── Sub-renderers ────────────────────────────────────────────
@@ -234,36 +362,21 @@ function _renderPanel() {
           <span>ESTADO</span>
           <select id="cqvFEst">
             <option value="">Seleccionar...</option>
-            ${['LISTO','SUCIO','MANTENIMIENTO','RESGUARDO','TRASLADO','VENTA','RETENIDA','NO ARRENDABLE','HYP','EN RENTA'].map(v =>
-              `<option value="${v}"${form.estado === v ? ' selected' : ''}>${v}</option>`
-            ).join('')}
+            ${_renderEstadoOpts(form.estado)}
           </select>
         </label>
 
         <label class="cqv-field">
           <span>GASOLINA</span>
           <select id="cqvFGas">
-            <option value="N/A">Seleccionar...</option>
-            ${['F','15/16','7/8','3/4','H','1/4','1/8','E','N/A'].map(v =>
-              `<option value="${v}"${form.gasolina === v ? ' selected' : ''}>${v}</option>`
-            ).join('')}
+            ${_renderGasOpts(form.gasolina)}
           </select>
         </label>
 
         <label class="cqv-field">
           <span>UBICACIÓN</span>
           <select id="cqvFUbi">
-            <option value="">Seleccionar...</option>
-            <optgroup label="PLAZAS FIJAS">
-              ${['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN'].map(v =>
-                `<option value="${v}"${form.ubicacion === v ? ' selected' : ''}>🏠 ${v}</option>`
-              ).join('')}
-            </optgroup>
-            <optgroup label="PERSONA RESPONSABLE">
-              ${['JORGE','GERARDO','OSVALDO','BALANDRAN','ULISES','JOSUE','ISRAEL','ISAAC','ANGEL','LEO','BRAULIO','MARTHA','FERNANDA','ZALLO','UBALDO','JOSE LUIS','PASCUAL','LALO','EDGAR'].map(v =>
-                `<option value="${v}"${form.ubicacion === v ? ' selected' : ''}>👤 ${v}</option>`
-              ).join('')}
-            </optgroup>
+            ${_renderUbicacionOpts(form.ubicacion, _s.plaza)}
           </select>
         </label>
 
@@ -301,9 +414,7 @@ function _renderBatchBar(rows) {
       <span class="cqv-batch-count">${count} unidades seleccionadas</span>
       <select class="cqv-batch-select" id="cqvBatchEst">
         <option value="">-- Estado --</option>
-        ${['LISTO','SUCIO','MANTENIMIENTO','RESGUARDO','TRASLADO','VENTA','RETENIDA','NO ARRENDABLE'].map(v =>
-          `<option value="${v}"${batchEstado === v ? ' selected' : ''}>${v}</option>`
-        ).join('')}
+        ${_renderEstadoOpts(batchEstado)}
       </select>
       <button class="cqv-batch-apply${batchSaving ? ' cqv-batch-apply--loading' : ''}" data-action="batch-apply" ${batchSaving ? 'disabled' : ''}>
         ${batchSaving ? 'Aplicando...' : 'Aplicar'}
@@ -424,7 +535,7 @@ function _renderAdminTable() {
 function _render() {
   if (!_container) return;
   const rows = _visible();
-  const { units, loading, error, tab, search, pill, colCat, colMod, colEst, colUbi, sortDir, edit, selected, dropdown, modal } = _s;
+  const { units, loading, error, tab, search, pill, colCat, colMod, colEst, colUbi, colPla, colGas, sortCol, sortDir, edit, selected, dropdown, modal } = _s;
   const cats = _uniq('categoria');
   const mods = _uniq('modelo');
   const ests = _uniq('estado');
@@ -459,23 +570,13 @@ function _render() {
         </div>
 
         ${tab === 'normal' ? `
-        <!-- Search row -->
-        <div class="cqv-search-row">
-          <div class="cqv-searchbar">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            <input id="cqvSearch" type="text" value="${esc(search)}" placeholder="Buscar MVA, Notas, Placas o Modelo...">
-          </div>
-          <button class="cqv-clear-btn" id="cqvClear" title="Limpiar filtros">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
-          </button>
-        </div>
-
         <!-- Pills -->
         <div class="cqv-pills">
           ${Object.entries(PILL_LABELS).map(([id, label]) => `
             <button class="cqv-pill${pill === id ? ' cqv-pill--active' : ''}" data-pill="${esc(id)}">${label}</button>
           `).join('')}
           <button class="cqv-pill cqv-pill--purple" data-action="reservas">📋 RESERVAS</button>
+          <button class="cqv-pill cqv-pill--clear" id="cqvClear" title="Limpiar todos los filtros">✕ Limpiar</button>
         </div>
 
         <!-- Batch bar -->
@@ -492,7 +593,7 @@ function _render() {
             <thead>
               <tr>
                 <th class="cqv-th-check"><input type="checkbox" id="cqvSelectAll" title="Seleccionar todos"></th>
-                <th class="cqv-th-sort" data-sort="mva">MVA ${sortDir === 'asc' ? '↑' : '↓'}</th>
+                <th class="cqv-th-sort${sortCol === 'mva' ? ' cqv-th-sort--active' : ''}" data-sort="mva">MVA ${sortCol === 'mva' ? (sortDir === 'asc' ? '↑' : '↓') : ''}</th>
                 <th>
                   <select class="cqv-th-select" id="cqvColCat">
                     <option value="">CATEGORIA (ALL)</option>
@@ -505,8 +606,24 @@ function _render() {
                     ${mods.map(v => `<option value="${esc(v)}"${colMod === v ? ' selected' : ''}>${esc(v)}</option>`).join('')}
                   </select>
                 </th>
-                <th>PLACAS</th>
-                <th>GAS</th>
+                <th>
+                  <div class="cqv-th-sort-wrap">
+                    <select class="cqv-th-select" id="cqvColPla">
+                      <option value="">PLACAS (ALL)</option>
+                      ${_uniq('placas').map(v => `<option value="${esc(v)}"${colPla === v ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+                    </select>
+                    <button class="cqv-th-sortbtn${sortCol === 'placas' ? ' cqv-th-sortbtn--active' : ''}" data-sort="placas" title="Ordenar por Placas">${sortCol === 'placas' ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}</button>
+                  </div>
+                </th>
+                <th>
+                  <div class="cqv-th-sort-wrap">
+                    <select class="cqv-th-select" id="cqvColGas">
+                      <option value="">GAS (ALL)</option>
+                      ${GAS_ORDER.filter(v => v && _uniq('gasolina').map(up).includes(up(v))).map(v => `<option value="${esc(v)}"${colGas === up(v) ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+                    </select>
+                    <button class="cqv-th-sortbtn${sortCol === 'gasolina' ? ' cqv-th-sortbtn--active' : ''}" data-sort="gasolina" title="Ordenar por Gas">${sortCol === 'gasolina' ? (sortDir === 'asc' ? '↑' : '↓') : '⇅'}</button>
+                  </div>
+                </th>
                 <th>
                   <select class="cqv-th-select" id="cqvColEst">
                     <option value="">ESTADO (ALL)</option>
@@ -572,16 +689,11 @@ function _bind() {
   const el = _container;
   if (!el) return;
 
-  // Search — debounced to avoid re-render on every keystroke
-  el.querySelector('#cqvSearch')?.addEventListener('input', e => {
-    const val = e.target.value;
-    clearTimeout(_searchDebounce);
-    _searchDebounce = setTimeout(() => { _s.search = val; _render(); }, 120);
-  });
-
   el.querySelector('#cqvClear')?.addEventListener('click', () => {
     _s.search = ''; _s.pill = 'todos';
     _s.colCat = ''; _s.colMod = ''; _s.colEst = ''; _s.colUbi = '';
+    _s.colPla = ''; _s.colGas = '';
+    _s.sortCol = 'mva'; _s.sortDir = 'asc';
     _s.selected = new Set();
     _render();
   });
@@ -603,15 +715,25 @@ function _bind() {
     })
   );
 
-  el.querySelector('[data-sort="mva"]')?.addEventListener('click', () => {
-    _s.sortDir = _s.sortDir === 'asc' ? 'desc' : 'asc';
-    _render();
-  });
+  el.querySelectorAll('[data-sort]').forEach(btn =>
+    btn.addEventListener('click', () => {
+      const col = btn.dataset.sort;
+      if (_s.sortCol === col) {
+        _s.sortDir = _s.sortDir === 'asc' ? 'desc' : 'asc';
+      } else {
+        _s.sortCol = col;
+        _s.sortDir = 'asc';
+      }
+      _render();
+    })
+  );
 
   el.querySelector('#cqvColCat')?.addEventListener('change', e => { _s.colCat = e.target.value; _render(); });
   el.querySelector('#cqvColMod')?.addEventListener('change', e => { _s.colMod = e.target.value; _render(); });
   el.querySelector('#cqvColEst')?.addEventListener('change', e => { _s.colEst = e.target.value; _render(); });
   el.querySelector('#cqvColUbi')?.addEventListener('change', e => { _s.colUbi = e.target.value; _render(); });
+  el.querySelector('#cqvColPla')?.addEventListener('change', e => { _s.colPla = e.target.value; _render(); });
+  el.querySelector('#cqvColGas')?.addEventListener('change', e => { _s.colGas = e.target.value; _render(); });
 
   // Row clicks — propagation stopped from checkbox cell
   el.querySelectorAll('.cqv-row[data-mva]').forEach(row => {
