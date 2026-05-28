@@ -113,11 +113,19 @@ function _qaBypassProfile() {
   };
 }
 
+function _setBootStatus(title, subtitle = '') {
+  const t = document.getElementById('mexAppBootstrapTitle');
+  const s = document.getElementById('mexAppBootstrapSubtitle');
+  if (t) t.textContent = title;
+  if (s) s.textContent = subtitle;
+}
+
 // ── Boot ────────────────────────────────────────────────────
 async function boot() {
   const qaAuthBypass = _isLocalQaAuthBypassEnabled();
   window.__MEX_QA_AUTH_BYPASS = qaAuthBypass;
   // 1. Esperar estado de auth
+  _setBootStatus('Verificando sesión…');
   const user = qaAuthBypass ? _qaBypassUser() : await waitForAuth();
 
   if (!user) {
@@ -126,6 +134,7 @@ async function boot() {
   }
 
   // 2. Cargar perfil
+  _setBootStatus('Cargando perfil…');
   let profile = null;
   try {
     profile = qaAuthBypass
@@ -151,6 +160,7 @@ async function boot() {
   }
 
   // 3. Cargar contexto de empresa (tenant) para este usuario
+  _setBootStatus('Cargando empresa…');
   if (!qaAuthBypass && typeof window.mexEmpresaContext?.cargarParaUsuario === 'function') {
     await window.mexEmpresaContext.cargarParaUsuario(profile).catch(err =>
       console.warn('[app/main] empresa context:', err)
@@ -206,6 +216,7 @@ async function boot() {
   });
 
   // 5. Revelar root y montar shell
+  _setBootStatus('Preparando panel…');
   const appRoot     = document.getElementById('appRoot');
   const loadSpinner = document.getElementById('appLoadingSpinner');
   if (!appRoot) return;

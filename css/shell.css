@@ -244,6 +244,29 @@
   pointer-events: none;
 }
 
+.mex-sidebar.compact .mex-nav-item[data-tooltip] {
+  overflow: visible;
+}
+.mex-sidebar.compact .mex-nav-item[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(15, 23, 42, 0.96);
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  padding: 5px 10px;
+  border-radius: 7px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 400;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 .mex-nav-item-badge {
   font-size: 10px;
   font-weight: 700;
@@ -755,7 +778,11 @@
     gap: 4px;
   }
   .mex-header-title {
-    display: none;
+    font-size: 12px;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .mex-plaza-picker-btn {
     max-width: 90px;

@@ -30,7 +30,7 @@
   <link rel="apple-touch-icon" href="/img/logo.png">
 
   <!-- Tailwind & Fuentes -->
-  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+  <script defer src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 
@@ -82,8 +82,10 @@
     inset: 0;
     background: #07111f;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 20px;
     z-index: 100;
   ">
     <div style="
@@ -94,6 +96,10 @@
       border-radius: 50%;
       animation: appSpin 0.9s linear infinite;
     "></div>
+    <div style="text-align:center;">
+      <div id="mexAppBootstrapTitle" style="font-family:Inter,sans-serif;font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);margin-bottom:4px;">Iniciando...</div>
+      <div id="mexAppBootstrapSubtitle" style="font-family:Inter,sans-serif;font-size:11px;color:rgba(255,255,255,0.35);"></div>
+    </div>
     <style>@keyframes appSpin { to { transform: rotate(360deg); } }</style>
   </div>
 

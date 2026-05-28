@@ -19,7 +19,7 @@ let _unsubPlazaTurnos = null;
 let _turnoTimer  = null;
 
 // ── Lifecycle ─────────────────────────────────────────────────
-export async function mount({ container }) {
+export async function mount({ container, navigate }) {
   unmount();
   _ctr = container;
   _ensureCss();
@@ -61,6 +61,16 @@ export async function mount({ container }) {
     _startWidgets();
     void _loadMetrics();
   }));
+
+  const searchHandler = event => {
+    const route = String(event?.detail?.route || '');
+    if (!(route.startsWith('/app/dashboard') || route === '/home')) return;
+    const q = String(event?.detail?.query || '').trim();
+    if (!q) return;
+    if (typeof navigate === 'function') navigate(`/app/cuadre?query=${encodeURIComponent(q)}`);
+  };
+  window.addEventListener('mex:global-search', searchHandler);
+  _offs.push(() => window.removeEventListener('mex:global-search', searchHandler));
 }
 
 export function unmount() {

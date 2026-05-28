@@ -30,12 +30,6 @@ function _appMapToolRedirect(rawPath = '') {
   if (pathOnly !== '/app/mapa') return '';
   const query = String(rawPath || '').includes('?') ? String(rawPath).slice(String(rawPath).indexOf('?')) : '';
   const params = new URLSearchParams(query || '');
-  const tab = String(params.get('tab') || '').trim().toLowerCase();
-  if (tab === 'cuadre') {
-    params.delete('tab');
-    const tail = params.toString();
-    return `/app/cuadre${tail ? `?${tail}` : ''}`;
-  }
   const open = String(params.get('open') || params.get('tool') || '').trim().toLowerCase();
   if (open === 'alertas' || open === 'crear-alerta' || open === 'emitir-alerta') return '/app/alertas';
   if (open === 'historial-alertas' || open === 'alertas-historial') return '/app/alertas/historial';

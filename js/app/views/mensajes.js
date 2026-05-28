@@ -11,6 +11,7 @@ let _pendingFile = null, _pendingAudio = null, _replyTo = null;
 let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recTimer = null;
 let _emojiPickerImport = null;
 let _cssLink = null;
+let _offGlobalSearch = null;
 
 const EMOJI_PICKER_SRC = 'https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js';
 
@@ -20,6 +21,23 @@ const _mexConfirm = (titulo, texto, tipo = 'warning') =>
   typeof window.mexConfirm === 'function' ? window.mexConfirm(titulo, texto, tipo) : Promise.resolve(false);
 const _mexPrompt = (titulo, texto, placeholder = '', inputTipo = 'text', valor = '') =>
   typeof window.mexPrompt === 'function' ? window.mexPrompt(titulo, texto, placeholder, inputTipo, valor) : Promise.resolve(null);
+
+function _toast(msg, type = 'error') {
+  const root = document.getElementById('appRoot') || document.body;
+  let host = document.getElementById('mexAppToastHost');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'mexAppToastHost';
+    host.style.cssText = 'position:fixed;bottom:20px;right:16px;z-index:260;display:flex;flex-direction:column;gap:8px;pointer-events:none;';
+    root.appendChild(host);
+  }
+  const el = document.createElement('div');
+  const tone = type === 'error' ? 'background:#fee2e2;border:1px solid #fecaca;' : 'background:#fef9c3;border:1px solid #fde047;';
+  el.style.cssText = `pointer-events:auto;padding:11px 14px;border-radius:10px;font-size:13px;font-weight:600;max-width:min(360px,calc(100vw - 32px));box-shadow:0 10px 30px rgba(2,6,23,.18);color:#0f172a;${tone}`;
+  el.textContent = String(msg || 'Error desconocido');
+  host.appendChild(el);
+  setTimeout(() => { try { el.remove(); } catch (_) {} }, 4200);
+}
 
 function _ensureCss() {
   if (_cssLink && document.contains(_cssLink)) return;
@@ -48,10 +66,21 @@ export async function mount(ctx) {
     _populateFilters();
     _renderContacts();
   }).catch(() => {});
+  const searchHandler = event => {
+    const route = String(event?.detail?.route || '');
+    if (!(route.startsWith('/app/mensajes') || route === '/mensajes')) return;
+    const q = String(event?.detail?.query || '').trim();
+    const input = document.getElementById('amSearch');
+    if (input) { input.value = q; _renderContacts(); }
+  };
+  window.addEventListener('mex:global-search', searchHandler);
+  _offGlobalSearch = () => window.removeEventListener('mex:global-search', searchHandler);
 }
 
 export function unmount() {
   _unsub?.(); _unsub = null; _stopRecording(true);
+  try { _offGlobalSearch?.(); } catch (_) {}
+  _offGlobalSearch = null;
   if (_pendingFile?.previewUrl) URL.revokeObjectURL(_pendingFile.previewUrl);
   if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
   _all = []; _convs = []; _meta = new Map(); _allUsers = [];
@@ -293,7 +322,7 @@ async function _editMsg(mIdSafe) {
   const newText = await _mexPrompt('Editar mensaje', 'Edita tu mensaje:', 'Mensaje', 'text', msg.mensaje || '');
   if (newText && newText !== msg.mensaje) {
     msg.mensaje = newText; _renderMessages();
-    try { await D.editarMensajeChatDb(String(msg.id), newText); } catch(e) { console.error(e); }
+    try { await D.editarMensajeChatDb(String(msg.id), newText); } catch(e) { _toast('No se pudo editar el mensaje.'); }
   }
 }
 
@@ -302,7 +331,7 @@ async function _deleteMsg(mIdSafe) {
   if (!msg) return;
   if (!await _mexConfirm('Borrar mensaje', '¿Borrar este mensaje para todos?', 'danger')) return;
   _all = _all.filter(m => m.id !== msg.id); _renderMessages();
-  try { await D.eliminarMensajeChatDb(String(msg.id)); } catch(e) { console.error(e); }
+  try { await D.eliminarMensajeChatDb(String(msg.id)); } catch(e) { _toast('No se pudo eliminar el mensaje.'); }
 }
 
 function _ensureEmojiPickerElement() {
@@ -435,7 +464,7 @@ async function _send() {
       const r = await D.uploadChatAudio(_pendingAudio.blob, _pendingAudio.mimeType, _pendingAudio.extension);
       archivoUrl = r.url; archivoNombre = r.name;
     }
-  } catch(e) { console.error('Upload error:', e); return; }
+  } catch(e) { _toast('No se pudo subir el archivo.'); return; }
   _clearStaging();
   // Optimistic local message
   const now = new Date();
