@@ -1,549 +1,531 @@
 // ═══════════════════════════════════════════════════════════
-//  App Shell — Cuadre SaaS
-//  Vista independiente del mapa: inventario, búsqueda por unidad
-//  y bitácora operativa desde /app/cuadre?query=MVA.
+//  /app/cuadre — Gestor de Flota SPA
+//  Estilo: ejemplo_css.html (light, white card, #232a85 blue)
 // ═══════════════════════════════════════════════════════════
 
 import { getState, onPlazaChange } from '/js/app/app-state.js';
-import {
-  getCuadreSnapshot,
-  getUnidadBitacora,
-  subscribeCuadre
-} from '/js/app/features/cuadre/cuadre-data.js';
+import { subscribeCuadre } from '/js/app/features/cuadre/cuadre-data.js';
 
-let _ctx = null;
 let _container = null;
-let _unsubscribeCuadre = null;
-let _unsubscribePlaza = null;
-let _resizeHandler = null;
-let _state = null;
+let _ctx        = null;
+let _s          = null;   // state
+let _unsub      = null;
+let _unsubPlaza = null;
 
-const FILTERS = [
-  { id: 'todos', label: 'Todo' },
-  { id: 'listo', label: 'Listos' },
-  { id: 'sucio', label: 'Sucios' },
-  { id: 'mantenimiento', label: 'Manto' },
-  { id: 'taller', label: 'Taller' },
-  { id: 'externo', label: 'Externos' },
-  { id: 'alertas', label: 'Alertas' },
-];
-
-function esc(value) {
-  return String(value ?? '').replace(/[&<>"']/g, ch => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-  }[ch]));
+// ── State ────────────────────────────────────────────────────
+function _fresh(plaza) {
+  return {
+    plaza,
+    units:    [],
+    loading:  true,
+    error:    '',
+    tab:      'normal',   // normal | admin
+    search:   '',
+    pill:     'todos',
+    colCat:   '',
+    colMod:   '',
+    colEst:   '',
+    colUbi:   '',
+    sortDir:  'asc',
+    edit:     null,       // unit being edited
+    form:     { estado: '', gasolina: '', ubicacion: '', notas: '', borrarNotas: false },
+    saving:   false,
+    saveMsg:  null,       // { text, ok }
+  };
 }
 
-function up(value) {
-  return String(value || '').trim().toUpperCase();
-}
-
-function ensureCss() {
+// ── CSS ──────────────────────────────────────────────────────
+function _ensureCss() {
   if (document.querySelector('link[data-app-cuadre-css]')) return;
   const link = document.createElement('link');
-  link.rel = 'stylesheet';
+  link.rel  = 'stylesheet';
   link.href = '/css/app-cuadre.css';
   link.setAttribute('data-app-cuadre-css', '1');
   document.head.appendChild(link);
 }
 
-function parseUrlState() {
-  const url = new URL(window.location.href);
-  const query = up(url.searchParams.get('query') || url.searchParams.get('mva') || '');
-  const filter = String(url.searchParams.get('filter') || 'todos').toLowerCase();
-  return {
-    query,
-    filter: FILTERS.some(item => item.id === filter) ? filter : 'todos'
-  };
+// ── Helpers ──────────────────────────────────────────────────
+function esc(v) {
+  return String(v ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
+function up(v) { return String(v || '').trim().toUpperCase(); }
 
-function formatDate(value) {
-  if (!value) return 'Sin fecha';
-  let date = null;
-  if (typeof value?.toDate === 'function') date = value.toDate();
-  else if (typeof value?.seconds === 'number') date = new Date(value.seconds * 1000);
-  else if (typeof value === 'number') date = new Date(value);
-  else date = new Date(value);
-  if (!date || Number.isNaN(date.getTime())) return 'Sin fecha';
-  return date.toLocaleString('es-MX', {
-    day: '2-digit',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-}
+// ── Filtering & sorting ──────────────────────────────────────
+const PILL_LABELS = {
+  todos: 'Todos',
+  sucio: '🧹 SUCIO',
+  listo: '✅ LISTO',
+  mant:  '🔧 MANT.',
+  traslado: '🚛 TRASLADO',
+  'doble-cero': '🍃 DOBLE CERO',
+  apartados: '🔒 APARTADOS',
+  urgente: '⚡ URGENTE',
+  resguardo: '👀 RESGUARDO',
+  taller: '🏭 TALLER',
+};
 
-function dateMs(value) {
-  if (!value) return 0;
-  if (typeof value?.toDate === 'function') return value.toDate().getTime();
-  if (typeof value?.seconds === 'number') return value.seconds * 1000;
-  const ms = new Date(value).getTime();
-  return Number.isFinite(ms) ? ms : Number(value) || 0;
-}
-
-function matchesFilter(unit, filter) {
-  const estado = up(unit.estado);
-  const ubi = up(unit.ubicacion);
-  const tipo = up(unit.tipo);
-  const notas = up(unit.notas);
-  if (filter === 'listo') return estado === 'LISTO';
-  if (filter === 'sucio') return estado === 'SUCIO';
-  if (filter === 'mantenimiento') return estado.includes('MANTEN') || estado === 'MANTO';
-  if (filter === 'taller') return ubi === 'TALLER';
-  if (filter === 'externo') return tipo === 'EXTERNO' || ubi === 'EXTERNO';
-  if (filter === 'alertas') return notas.includes('URGENTE') || notas.includes('APARTAD') || notas.includes('DOBLE CERO');
+function _matchPill(u, pill) {
+  const e = up(u.estado), ubi = up(u.ubicacion), n = up(u.notas);
+  if (pill === 'todos') return true;
+  if (pill === 'sucio') return e === 'SUCIO';
+  if (pill === 'listo') return e === 'LISTO';
+  if (pill === 'mant')  return e.includes('MANTEN') || e === 'MANTO';
+  if (pill === 'traslado') return e === 'TRASLADO';
+  if (pill === 'doble-cero') return n.includes('DOBLE CERO');
+  if (pill === 'apartados')  return n.includes('APARTAD') || n.includes('RESERVAD');
+  if (pill === 'urgente')    return n.includes('URGENTE');
+  if (pill === 'resguardo')  return e === 'RESGUARDO';
+  if (pill === 'taller')     return ubi === 'TALLER';
   return true;
 }
 
-function unitSearchText(unit) {
-  return [
-    unit.mva,
-    unit.modelo,
-    unit.placas,
-    unit.categoria,
-    unit.estado,
-    unit.ubicacion,
-    unit.pos,
-    unit.notas
-  ].map(up).join(' ');
-}
-
-function getVisibleUnits() {
-  const query = up(_state?.query);
-  return (_state?.units || [])
-    .filter(unit => matchesFilter(unit, _state.filter))
-    .filter(unit => !query || unitSearchText(unit).includes(query))
-    .sort((a, b) => up(a.mva).localeCompare(up(b.mva), 'es'));
-}
-
-function getSelectedUnit() {
-  const selected = up(_state?.selectedMva);
-  if (!selected) return null;
-  return (_state?.units || []).find(unit => up(unit.mva) === selected) || null;
-}
-
-function buildStats(units) {
-  const stats = {
-    total: units.length,
-    listo: 0,
-    sucio: 0,
-    mantenimiento: 0,
-    taller: 0,
-    externos: 0,
-    alertas: 0
-  };
-  units.forEach(unit => {
-    if (matchesFilter(unit, 'listo')) stats.listo += 1;
-    if (matchesFilter(unit, 'sucio')) stats.sucio += 1;
-    if (matchesFilter(unit, 'mantenimiento')) stats.mantenimiento += 1;
-    if (matchesFilter(unit, 'taller')) stats.taller += 1;
-    if (matchesFilter(unit, 'externo')) stats.externos += 1;
-    if (matchesFilter(unit, 'alertas')) stats.alertas += 1;
+function _visible() {
+  const { units, search, pill, colCat, colMod, colEst, colUbi, sortDir } = _s;
+  const q = up(search);
+  let rows = units
+    .filter(u => _matchPill(u, pill))
+    .filter(u => !colCat || up(u.categoria) === up(colCat))
+    .filter(u => !colMod || up(u.modelo).includes(up(colMod)))
+    .filter(u => !colEst || up(u.estado) === up(colEst))
+    .filter(u => !colUbi || up(u.ubicacion) === up(colUbi))
+    .filter(u => !q || [u.mva, u.modelo, u.placas, u.categoria, u.estado, u.ubicacion, u.notas].map(up).join(' ').includes(q));
+  rows.sort((a, b) => {
+    const cmp = up(a.mva).localeCompare(up(b.mva), 'es');
+    return sortDir === 'asc' ? cmp : -cmp;
   });
-  return stats;
+  return rows;
 }
 
-function statusClass(value) {
-  const estado = up(value);
-  if (estado === 'LISTO') return 'is-ready';
-  if (estado === 'SUCIO') return 'is-dirty';
-  if (estado.includes('MANTEN') || estado === 'MANTO') return 'is-maint';
-  if (estado === 'EXTERNO') return 'is-external';
-  return 'is-neutral';
+function _uniq(key) {
+  const s = new Set();
+  (_s?.units || []).forEach(u => { const v = String(u[key] || '').trim(); if (v) s.add(v); });
+  return [...s].sort((a, b) => a.localeCompare(b, 'es'));
 }
 
-function renderShell() {
-  const stats = buildStats(_state.units);
-  const visible = getVisibleUnits();
-  const selected = getSelectedUnit();
-  const selectedMva = up(_state.selectedMva || _state.query);
-  const busyClass = _state.loading ? 'is-loading' : '';
+// ── Badge renderers ──────────────────────────────────────────
+function _badgeCat(v) {
+  return `<span class="cqv-badge cqv-badge--gray">${esc(v || 'S/C')}</span>`;
+}
+
+function _badgeGas(v) {
+  const g = up(v);
+  if (g === 'F') return `<span class="cqv-badge cqv-badge--blue-light">F</span>`;
+  if (g === 'E') return `<span class="cqv-badge cqv-badge--orange">E</span>`;
+  return `<span class="cqv-badge cqv-badge--gray">${esc(v || 'N/A')}</span>`;
+}
+
+function _badgeEstado(v) {
+  const e = up(v);
+  if (e === 'LISTO')  return `<span class="cqv-badge cqv-badge--green">${esc(v)}</span>`;
+  if (e === 'SUCIO')  return `<span class="cqv-badge cqv-badge--yellow">${esc(v)}</span>`;
+  if (e.includes('MANTEN') || e === 'MANTO') return `<span class="cqv-badge cqv-badge--red">${esc(v)}</span>`;
+  if (e === 'TRASLADO') return `<span class="cqv-badge cqv-badge--purple">${esc(v)}</span>`;
+  if (e === 'RESGUARDO') return `<span class="cqv-badge cqv-badge--brown">${esc(v)}</span>`;
+  if (!v) return `<span class="cqv-badge cqv-badge--gray">S/E</span>`;
+  return `<span class="cqv-text-status">${esc(v)}</span>`;
+}
+
+function _badgeUbi(v) {
+  const u = up(v);
+  if (!v) return `<span class="cqv-badge cqv-badge--gray">-</span>`;
+  if (u === 'TALLER') return `<span class="cqv-badge cqv-badge--red">${esc(v)}</span>`;
+  if (u === 'EXTERNO') return `<span class="cqv-badge cqv-badge--orange">${esc(v)}</span>`;
+  return `<span class="cqv-badge cqv-badge--blue">${esc(v)}</span>`;
+}
+
+// ── Render ───────────────────────────────────────────────────
+function _render() {
+  if (!_container) return;
+  const rows = _visible();
+  const { units, loading, error, tab, search, pill, colCat, colMod, colEst, colUbi, sortDir, edit, saving, saveMsg } = _s;
+
+  // Dynamic unique options
+  const cats = _uniq('categoria');
+  const mods = _uniq('modelo');
+  const ests = _uniq('estado');
+  const ubis = _uniq('ubicacion');
+  const total = units.length;
+  const listos = units.filter(u => up(u.estado) === 'LISTO').length;
 
   _container.innerHTML = `
-    <section class="cqv ${busyClass}" aria-label="Cuadre SaaS">
-      <header class="cqv-hero">
-        <div class="cqv-hero__copy">
-          <span class="cqv-kicker">Cuadre SaaS</span>
-          <h1>Inventario operativo</h1>
-          <p>${esc(_state.plaza || 'Sin plaza')} · ${stats.total} unidades · bitácora por MVA</p>
-        </div>
-        <div class="cqv-search" role="search">
-          <span class="material-symbols-outlined" aria-hidden="true">search</span>
-          <input id="cqvQuery" type="search" value="${esc(_state.query)}" placeholder="Buscar unidad, placas, modelo o posición" autocomplete="off">
-          <button class="cqv-icon-btn" type="button" data-action="clear-query" title="Limpiar búsqueda">
-            <span class="material-symbols-outlined">close</span>
+    <div class="cqv-root">
+      <div class="cqv-card">
+
+        <!-- Tabs -->
+        <div class="cqv-tabs">
+          <button class="cqv-tab${tab === 'normal' ? ' cqv-tab--active' : ''}" data-tab="normal">
+            🚗 FLOTA REGULAR
+          </button>
+          <button class="cqv-tab${tab === 'admin' ? ' cqv-tab--active' : ''}" data-tab="admin">
+            👑 CUADRE ADMINS
           </button>
         </div>
-      </header>
 
-      <div class="cqv-metrics" aria-label="Resumen de cuadre">
-        ${renderMetric('Total', stats.total, 'directions_car')}
-        ${renderMetric('Listos', stats.listo, 'check_circle')}
-        ${renderMetric('Sucios', stats.sucio, 'cleaning_services')}
-        ${renderMetric('Alertas', stats.alertas, 'priority_high')}
-      </div>
-
-      <div class="cqv-workspace">
-        <aside class="cqv-sidebar" aria-label="Filtros de inventario">
-          <div class="cqv-filter-list">
-            ${FILTERS.map(item => `
-              <button type="button" class="cqv-filter ${_state.filter === item.id ? 'is-active' : ''}" data-filter="${esc(item.id)}">
-                <span>${esc(item.label)}</span>
-                <strong>${countForFilter(stats, item.id)}</strong>
-              </button>
-            `).join('')}
+        <!-- Search row -->
+        <div class="cqv-search-row">
+          <div class="cqv-searchbar">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="cqvSearch" type="text" value="${esc(search)}" placeholder="Buscar MVA, Notas, Placas o Modelo...">
           </div>
-          <button type="button" class="cqv-action" data-action="refresh">
-            <span class="material-symbols-outlined">sync</span>
-            Actualizar
+          <button class="cqv-clear-btn" id="cqvClear" title="Limpiar filtros">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
           </button>
-          <button type="button" class="cqv-action" data-action="open-incidencia" ${selectedMva ? '' : 'disabled'}>
-            <span class="material-symbols-outlined">add_notes</span>
-            Incidencia
-          </button>
-        </aside>
+        </div>
 
-        <main class="cqv-table-panel">
-          <div class="cqv-table-head">
-            <div>
-              <strong>${visible.length}</strong>
-              <span>resultado${visible.length === 1 ? '' : 's'}</span>
-            </div>
-            ${_state.error ? `<p class="cqv-error">${esc(_state.error)}</p>` : ''}
-          </div>
-          <div class="cqv-table-wrap">
-            <table class="cqv-table">
-              <thead>
-                <tr>
-                  <th>MVA</th>
-                  <th>Estado</th>
-                  <th>Ubicación</th>
-                  <th>Pos</th>
-                  <th>Modelo</th>
-                  <th>Placas</th>
-                  <th>Gas</th>
-                  <th>Notas</th>
+        <!-- Pills -->
+        <div class="cqv-pills">
+          ${Object.entries(PILL_LABELS).map(([id, label]) => `
+            <button class="cqv-pill${pill === id ? ' cqv-pill--active' : ''}" data-pill="${esc(id)}">${label}</button>
+          `).join('')}
+          <button class="cqv-pill cqv-pill--purple" data-action="reservas">📋 RESERVAS</button>
+        </div>
+
+        <!-- Loading / error -->
+        ${loading ? `<div class="cqv-loading"><span class="cqv-spinner"></span> Cargando flota...</div>` : ''}
+        ${error ? `<div class="cqv-error-msg">${esc(error)}</div>` : ''}
+
+        <!-- Table -->
+        ${!loading ? `
+        <div class="cqv-table-wrap">
+          <table class="cqv-table">
+            <thead>
+              <tr>
+                <th class="cqv-th-sort" data-sort="mva">MVA ${sortDir === 'asc' ? '↑' : '↓'}</th>
+                <th>
+                  <select class="cqv-th-select" id="cqvColCat">
+                    <option value="">CATEGORIA (ALL)</option>
+                    ${cats.map(v => `<option value="${esc(v)}"${colCat === v ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="cqv-th-select" id="cqvColMod">
+                    <option value="">MODELO (ALL)</option>
+                    ${mods.map(v => `<option value="${esc(v)}"${colMod === v ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+                  </select>
+                </th>
+                <th>PLACAS</th>
+                <th>GAS</th>
+                <th>
+                  <select class="cqv-th-select" id="cqvColEst">
+                    <option value="">ESTADO (ALL)</option>
+                    ${ests.map(v => `<option value="${esc(v)}"${colEst === v ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+                  </select>
+                </th>
+                <th>
+                  <select class="cqv-th-select" id="cqvColUbi">
+                    <option value="">UBICACION (ALL)</option>
+                    ${ubis.map(v => `<option value="${esc(v)}"${colUbi === v ? ' selected' : ''}>${esc(v)}</option>`).join('')}
+                  </select>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.length ? rows.map(u => `
+                <tr class="cqv-row${edit && up(edit.mva) === up(u.mva) ? ' cqv-row--selected' : ''}" data-mva="${esc(u.mva)}">
+                  <td class="cqv-td-mva">${esc(u.mva || 'S/MVA')}</td>
+                  <td>${_badgeCat(u.categoria)}</td>
+                  <td>${esc(u.modelo || '-')}</td>
+                  <td class="cqv-td-placas">${esc(u.placas || '-')}</td>
+                  <td>${_badgeGas(u.gasolina)}</td>
+                  <td>${_badgeEstado(u.estado)}</td>
+                  <td>${_badgeUbi(u.ubicacion)}</td>
                 </tr>
-              </thead>
-              <tbody>
-                ${visible.length ? visible.map(renderUnitRow).join('') : renderEmptyRows()}
-              </tbody>
-            </table>
+              `).join('') : `
+                <tr><td colspan="7" class="cqv-empty">
+                  Sin unidades que coincidan con los filtros aplicados.
+                </td></tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+        ` : ''}
+
+        <!-- FAB -->
+        <button class="cqv-fab" data-action="add" title="Agregar unidad">+</button>
+      </div>
+
+      <!-- Edit overlay -->
+      ${edit ? `<div class="cqv-overlay" id="cqvOverlay"></div>` : ''}
+
+      <!-- Edit panel -->
+      ${edit ? `
+      <div class="cqv-panel${edit ? ' cqv-panel--open' : ''}" id="cqvPanel">
+        <div class="cqv-panel-head">
+          <div>
+            <h3>GESTOR DE UNIDAD</h3>
+            <p>${esc(edit.mva)}</p>
           </div>
-        </main>
+          <button class="cqv-panel-close" data-action="close-panel">✕</button>
+        </div>
 
-        <aside class="cqv-detail" aria-label="Detalle y bitácora">
-          ${selected ? renderDetail(selected) : renderNoSelection(selectedMva)}
-          ${renderBitacora()}
-        </aside>
-      </div>
-    </section>
-  `;
-  bindEvents();
-}
+        <!-- Stats -->
+        <div class="cqv-panel-stats">
+          <div class="cqv-stat-box">
+            <div class="cqv-stat-num">${total}</div>
+            <div class="cqv-stat-lbl">Total Flota</div>
+          </div>
+          <div class="cqv-stat-box cqv-stat-box--green">
+            <div class="cqv-stat-num cqv-stat-num--green">${listos}</div>
+            <div class="cqv-stat-lbl">Listos Renta</div>
+          </div>
+        </div>
 
-function renderMetric(label, value, icon) {
-  return `
-    <div class="cqv-metric">
-      <span class="material-symbols-outlined">${esc(icon)}</span>
-      <div>
-        <strong>${Number(value || 0)}</strong>
-        <small>${esc(label)}</small>
+        <!-- Unit info -->
+        <div class="cqv-panel-unit">
+          <div class="cqv-panel-unit-row"><span>MVA</span><strong>${esc(edit.mva)}</strong></div>
+          <div class="cqv-panel-unit-row"><span>Modelo</span><strong>${esc(edit.modelo || '-')}</strong></div>
+          <div class="cqv-panel-unit-row"><span>Placas</span><strong>${esc(edit.placas || '-')}</strong></div>
+          <div class="cqv-panel-unit-row"><span>Categoría</span><strong>${esc(edit.categoria || '-')}</strong></div>
+        </div>
+
+        <!-- Save message -->
+        ${saveMsg ? `<div class="cqv-save-msg${saveMsg.ok ? ' cqv-save-msg--ok' : ' cqv-save-msg--err'}">${esc(saveMsg.text)}</div>` : ''}
+
+        <!-- Form -->
+        <div class="cqv-panel-form">
+          <label class="cqv-field">
+            <span>ESTADO</span>
+            <select id="cqvFEst">
+              <option value="">Seleccionar...</option>
+              ${['LISTO','SUCIO','MANTENIMIENTO','RESGUARDO','TRASLADO','VENTA','RETENIDA','NO ARRENDABLE','HYP','EN RENTA'].map(v =>
+                `<option value="${v}"${_s.form.estado === v ? ' selected' : ''}>${v}</option>`
+              ).join('')}
+            </select>
+          </label>
+
+          <label class="cqv-field">
+            <span>GASOLINA</span>
+            <select id="cqvFGas">
+              <option value="N/A">Seleccionar...</option>
+              ${['F','15/16','7/8','3/4','H','1/4','1/8','E','N/A'].map(v =>
+                `<option value="${v}"${_s.form.gasolina === v ? ' selected' : ''}>${v}</option>`
+              ).join('')}
+            </select>
+          </label>
+
+          <label class="cqv-field">
+            <span>UBICACIÓN</span>
+            <select id="cqvFUbi">
+              <option value="">Seleccionar...</option>
+              <optgroup label="PLAZAS FIJAS">
+                ${['PATIO','TALLER','AGENCIA','TALLER EXTERNO','HYP COBIAN'].map(v =>
+                  `<option value="${v}"${_s.form.ubicacion === v ? ' selected' : ''}>🏠 ${v}</option>`
+                ).join('')}
+              </optgroup>
+              <optgroup label="PERSONA RESPONSABLE">
+                ${['JORGE','GERARDO','OSVALDO','BALANDRAN','ULISES','JOSUE','ISRAEL','ISAAC','ANGEL','LEO','BRAULIO','MARTHA','FERNANDA','ZALLO','UBALDO','JOSE LUIS','PASCUAL','LALO','EDGAR'].map(v =>
+                  `<option value="${v}"${_s.form.ubicacion === v ? ' selected' : ''}>👤 ${v}</option>`
+                ).join('')}
+              </optgroup>
+            </select>
+          </label>
+
+          <label class="cqv-field">
+            <span>NOTAS / OBSERVACIONES</span>
+            <textarea id="cqvFNotas" rows="3" placeholder="Escribe aquí...">${esc(_s.form.notas)}</textarea>
+          </label>
+
+          <label class="cqv-field cqv-field--check">
+            <input type="checkbox" id="cqvFBorrar" ${_s.form.borrarNotas ? 'checked' : ''}>
+            <span>Borrar historial de notas actual</span>
+          </label>
+        </div>
+
+        <div class="cqv-panel-actions">
+          <button class="cqv-btn-del" data-action="delete-unit" title="Eliminar unidad">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </button>
+          <button class="cqv-btn-save${saving ? ' cqv-btn-save--loading' : ''}" data-action="save-unit" ${saving ? 'disabled' : ''}>
+            ${saving ? 'Guardando...' : '💾 GUARDAR CAMBIOS'}
+          </button>
+        </div>
       </div>
+      ` : ''}
     </div>
   `;
+
+  _bind();
 }
 
-function countForFilter(stats, id) {
-  if (id === 'todos') return stats.total;
-  if (id === 'externo') return stats.externos;
-  return stats[id] ?? 0;
+// ── Events ───────────────────────────────────────────────────
+function _bind() {
+  const el = _container;
+  if (!el) return;
+
+  el.querySelector('#cqvSearch')?.addEventListener('input', e => {
+    _s.search = e.target.value;
+    _rerender();
+  });
+
+  el.querySelector('#cqvClear')?.addEventListener('click', () => {
+    _s.search = ''; _s.pill = 'todos';
+    _s.colCat = ''; _s.colMod = ''; _s.colEst = ''; _s.colUbi = '';
+    _rerender();
+  });
+
+  el.querySelectorAll('[data-tab]').forEach(btn =>
+    btn.addEventListener('click', () => { _s.tab = btn.dataset.tab; _rerender(); })
+  );
+
+  el.querySelectorAll('[data-pill]').forEach(btn =>
+    btn.addEventListener('click', () => { _s.pill = btn.dataset.pill; _rerender(); })
+  );
+
+  el.querySelector('[data-sort="mva"]')?.addEventListener('click', () => {
+    _s.sortDir = _s.sortDir === 'asc' ? 'desc' : 'asc';
+    _rerender();
+  });
+
+  el.querySelector('#cqvColCat')?.addEventListener('change', e => { _s.colCat = e.target.value; _rerender(); });
+  el.querySelector('#cqvColMod')?.addEventListener('change', e => { _s.colMod = e.target.value; _rerender(); });
+  el.querySelector('#cqvColEst')?.addEventListener('change', e => { _s.colEst = e.target.value; _rerender(); });
+  el.querySelector('#cqvColUbi')?.addEventListener('change', e => { _s.colUbi = e.target.value; _rerender(); });
+
+  el.querySelectorAll('.cqv-row[data-mva]').forEach(row =>
+    row.addEventListener('click', () => _openEdit(row.dataset.mva))
+  );
+
+  el.querySelector('[data-action="close-panel"]')?.addEventListener('click', _closeEdit);
+  el.querySelector('#cqvOverlay')?.addEventListener('click', _closeEdit);
+
+  el.querySelector('[data-action="save-unit"]')?.addEventListener('click', _saveUnit);
+  el.querySelector('[data-action="delete-unit"]')?.addEventListener('click', _deleteUnit);
+
+  el.querySelector('#cqvFEst')?.addEventListener('change',   e => { _s.form.estado    = e.target.value; });
+  el.querySelector('#cqvFGas')?.addEventListener('change',   e => { _s.form.gasolina  = e.target.value; });
+  el.querySelector('#cqvFUbi')?.addEventListener('change',   e => { _s.form.ubicacion = e.target.value; });
+  el.querySelector('#cqvFNotas')?.addEventListener('input',  e => { _s.form.notas     = e.target.value; });
+  el.querySelector('#cqvFBorrar')?.addEventListener('change',e => { _s.form.borrarNotas = e.target.checked; });
 }
 
-function renderUnitRow(unit) {
-  const selected = up(unit.mva) === up(_state.selectedMva);
-  return `
-    <tr class="cqv-row ${selected ? 'is-selected' : ''}" data-mva="${esc(unit.mva)}">
-      <td><button type="button" class="cqv-mva" data-mva="${esc(unit.mva)}">${esc(unit.mva || 'S/MVA')}</button></td>
-      <td><span class="cqv-badge ${statusClass(unit.estado)}">${esc(unit.estado || 'SIN ESTADO')}</span></td>
-      <td>${esc(unit.ubicacion || '-')}</td>
-      <td class="cqv-mono">${esc(unit.pos || '-')}</td>
-      <td>${esc(unit.modelo || '-')}</td>
-      <td class="cqv-mono">${esc(unit.placas || '-')}</td>
-      <td>${esc(unit.gasolina || '-')}</td>
-      <td class="cqv-notes-cell">${esc(unit.notas || '-')}</td>
-    </tr>
-  `;
+function _rerender() {
+  _render();
 }
 
-function renderEmptyRows() {
-  return `
-    <tr>
-      <td colspan="8">
-        <div class="cqv-empty">
-          <span class="material-symbols-outlined">manage_search</span>
-          <strong>Sin unidades en esta búsqueda</strong>
-          <small>Ajusta el query o cambia de filtro.</small>
-        </div>
-      </td>
-    </tr>
-  `;
+function _openEdit(mva) {
+  const unit = (_s.units || []).find(u => up(u.mva) === up(mva));
+  if (!unit) return;
+  _s.edit = unit;
+  _s.form = {
+    estado:      unit.estado || '',
+    gasolina:    unit.gasolina || 'N/A',
+    ubicacion:   unit.ubicacion || '',
+    notas:       unit.notas || '',
+    borrarNotas: false,
+  };
+  _s.saveMsg = null;
+  _render();
 }
 
-function renderDetail(unit) {
-  return `
-    <section class="cqv-detail-card">
-      <div class="cqv-detail-title">
-        <div>
-          <span>Unidad</span>
-          <h2>${esc(unit.mva)}</h2>
-        </div>
-        <span class="cqv-badge ${statusClass(unit.estado)}">${esc(unit.estado || 'SIN ESTADO')}</span>
-      </div>
-      <dl class="cqv-defs">
-        ${defItem('Modelo', unit.modelo)}
-        ${defItem('Placas', unit.placas)}
-        ${defItem('Categoría', unit.categoria)}
-        ${defItem('Ubicación', unit.ubicacion)}
-        ${defItem('Posición', unit.pos)}
-        ${defItem('Gasolina', unit.gasolina)}
-      </dl>
-      ${unit.notas ? `<div class="cqv-notes"><strong>Notas</strong><p>${esc(unit.notas)}</p></div>` : ''}
-    </section>
-  `;
+function _closeEdit() {
+  _s.edit    = null;
+  _s.saveMsg = null;
+  _render();
 }
 
-function defItem(label, value) {
-  return `<div><dt>${esc(label)}</dt><dd>${esc(value || '-')}</dd></div>`;
-}
-
-function renderNoSelection(mva) {
-  return `
-    <section class="cqv-detail-card cqv-detail-card--empty">
-      <span class="material-symbols-outlined">route</span>
-      <h2>${mva ? esc(mva) : 'Elige una unidad'}</h2>
-      <p>${mva ? 'No encontramos esa unidad en el cuadre activo.' : 'Selecciona un MVA para ver su detalle y bitácora.'}</p>
-    </section>
-  `;
-}
-
-function renderBitacora() {
-  const selectedMva = up(_state.selectedMva || _state.query);
-  if (!selectedMva) {
-    return `
-      <section class="cqv-log">
-        <div class="cqv-log-head"><h3>Bitácora</h3></div>
-        <div class="cqv-log-empty">Selecciona una unidad para consultar sus movimientos.</div>
-      </section>
-    `;
+async function _saveUnit() {
+  if (!_s.edit || _s.saving) return;
+  const { estado, gasolina, ubicacion, notas, borrarNotas } = _s.form;
+  if (!estado || !ubicacion) {
+    _s.saveMsg = { text: 'Selecciona Estado y Ubicación antes de guardar.', ok: false };
+    _render();
+    return;
   }
-  const items = [...(_state.bitacora || [])].sort((a, b) => dateMs(b.timestamp || b.fecha || b.creadoEn) - dateMs(a.timestamp || a.fecha || a.creadoEn));
-  return `
-    <section class="cqv-log">
-      <div class="cqv-log-head">
-        <h3>Bitácora</h3>
-        <span>${esc(selectedMva)}</span>
-      </div>
-      ${_state.bitacoraLoading ? '<div class="cqv-log-empty">Cargando movimientos...</div>' : ''}
-      ${!_state.bitacoraLoading && !items.length ? '<div class="cqv-log-empty">Sin movimientos recientes para esta unidad.</div>' : ''}
-      ${items.length ? `<ol class="cqv-timeline">${items.map(renderLogItem).join('')}</ol>` : ''}
-    </section>
-  `;
-}
+  _s.saving  = true;
+  _s.saveMsg = null;
+  _render();
 
-function renderLogItem(item) {
-  const type = up(item.tipo || item.source || 'LOG');
-  return `
-    <li class="cqv-timeline-item">
-      <div class="cqv-timeline-dot"></div>
-      <div class="cqv-timeline-body">
-        <div class="cqv-timeline-top">
-          <strong>${esc(type)}</strong>
-          <time>${esc(formatDate(item.timestamp || item.fecha || item.creadoEn))}</time>
-        </div>
-        <p>${esc(item.accion || item.titulo || item.detalles || item.descripcion || 'Movimiento registrado')}</p>
-        <small>${esc(item.autor || item.usuario || item.creadoPor || 'Sistema')}</small>
-      </div>
-    </li>
-  `;
-}
+  try {
+    const state   = getState();
+    const profile = state.profile || {};
+    const autor   = profile.nombreCompleto || profile.nombre || profile.email || 'Sistema';
+    const plaza   = _s.plaza;
+    const mva     = _s.edit.mva;
 
-function bindEvents() {
-  const input = _container.querySelector('#cqvQuery');
-  input?.addEventListener('input', event => {
-    const next = up(event.target.value);
-    _state.query = next;
-    const exact = _state.units.find(unit => up(unit.mva) === next);
-    if (exact) selectMva(exact.mva, { push: false });
-    else {
-      _state.selectedMva = next.length >= 3 ? next : '';
-      syncUrl({ replace: true });
-      loadBitacora();
-      renderShell();
+    const result = await window.api.aplicarEstado(
+      mva, estado, ubicacion, gasolina, notas, borrarNotas, autor, autor, plaza
+    );
+
+    const ok = result === 'EXITO' || result?.ok === true;
+    _s.saveMsg = { text: ok ? `✅ ${mva} guardado correctamente.` : `Error: ${String(result)}`, ok };
+    if (ok) {
+      _s.form.borrarNotas = false;
+      setTimeout(() => {
+        if (_s.saveMsg?.ok) { _s.saveMsg = null; _render(); }
+      }, 2500);
     }
-  });
-
-  _container.querySelectorAll('[data-filter]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      _state.filter = btn.dataset.filter || 'todos';
-      syncUrl({ replace: false });
-      renderShell();
-    });
-  });
-
-  _container.querySelectorAll('[data-mva]').forEach(el => {
-    el.addEventListener('click', event => {
-      event.stopPropagation();
-      selectMva(el.dataset.mva, { push: true });
-    });
-  });
-
-  _container.querySelector('[data-action="clear-query"]')?.addEventListener('click', () => {
-    _state.query = '';
-    _state.selectedMva = '';
-    _state.bitacora = [];
-    syncUrl({ replace: false });
-    renderShell();
-  });
-
-  _container.querySelector('[data-action="refresh"]')?.addEventListener('click', () => refreshSnapshot());
-  _container.querySelector('[data-action="open-incidencia"]')?.addEventListener('click', () => {
-    const mva = up(_state.selectedMva || _state.query);
-    if (mva) _ctx?.navigate?.(`/app/incidencias?mva=${encodeURIComponent(mva)}`);
-  });
-}
-
-function selectMva(mva, { push = false } = {}) {
-  const next = up(mva);
-  if (!next) return;
-  _state.selectedMva = next;
-  _state.query = next;
-  syncUrl({ replace: !push });
-  renderShell();
-  loadBitacora();
-}
-
-function syncUrl({ replace = true } = {}) {
-  const params = new URLSearchParams();
-  if (_state.query) params.set('query', _state.query);
-  if (_state.filter && _state.filter !== 'todos') params.set('filter', _state.filter);
-  const next = `/app/cuadre${params.toString() ? `?${params}` : ''}`;
-  if (replace) history.replaceState({}, '', next);
-  else history.pushState({}, '', next);
-}
-
-async function loadBitacora() {
-  const mva = up(_state.selectedMva || _state.query);
-  if (!mva) return;
-  _state.bitacoraLoading = true;
-  renderShell();
-  try {
-    const items = await getUnidadBitacora({ plaza: _state.plaza, mva, limit: 80 });
-    if (up(_state.selectedMva || _state.query) !== mva) return;
-    _state.bitacora = items;
-    _state.bitacoraLoading = false;
-    renderShell();
-  } catch (error) {
-    _state.bitacoraLoading = false;
-    _state.error = error?.message || 'No se pudo cargar la bitácora.';
-    renderShell();
+  } catch (err) {
+    _s.saveMsg = { text: `Error: ${err?.message || String(err)}`, ok: false };
   }
+
+  _s.saving = false;
+  _render();
 }
 
-async function refreshSnapshot() {
-  _state.loading = true;
-  renderShell();
-  try {
-    const rows = await getCuadreSnapshot(_state.plaza);
-    _state.units = rows;
-    _state.loading = false;
-    _state.error = '';
-    resolveSelection();
-    renderShell();
-    loadBitacora();
-  } catch (error) {
-    _state.loading = false;
-    _state.error = error?.message || 'No se pudo actualizar el cuadre.';
-    renderShell();
-  }
+function _deleteUnit() {
+  if (!_s.edit) return;
+  const mva = _s.edit.mva;
+  if (!confirm(`¿Eliminar la unidad ${mva} del cuadre? Esta acción no se puede deshacer.`)) return;
+  const state   = getState();
+  const profile = state.profile || {};
+  const autor   = profile.nombreCompleto || profile.nombre || profile.email || 'Sistema';
+  window.api.ejecutarEliminacion([mva], autor, _s.plaza)
+    .then(() => { _s.edit = null; _render(); })
+    .catch(err => {
+      _s.saveMsg = { text: `Error al eliminar: ${err?.message || String(err)}`, ok: false };
+      _render();
+    });
 }
 
-function resolveSelection() {
-  const query = up(_state.query);
-  if (!query) return;
-  const exact = _state.units.find(unit => up(unit.mva) === query);
-  _state.selectedMva = exact ? exact.mva : query;
-}
-
-function startSubscription() {
-  try { _unsubscribeCuadre?.(); } catch (_) {}
-  _unsubscribeCuadre = subscribeCuadre({
-    plaza: _state.plaza,
+// ── Subscription ─────────────────────────────────────────────
+function _start() {
+  try { _unsub?.(); } catch (_) {}
+  _unsub = subscribeCuadre({
+    plaza: _s.plaza,
     onData(rows) {
-      _state.units = Array.isArray(rows) ? rows : [];
-      _state.loading = false;
-      _state.error = '';
-      resolveSelection();
-      renderShell();
-      if (up(_state.selectedMva || _state.query)) loadBitacora();
+      _s.units   = Array.isArray(rows) ? rows : [];
+      _s.loading = false;
+      _s.error   = '';
+      if (_s.edit) {
+        const refreshed = _s.units.find(u => up(u.mva) === up(_s.edit.mva));
+        if (refreshed) _s.edit = refreshed;
+      }
+      _render();
     },
-    onError(error) {
-      _state.loading = false;
-      _state.error = error?.message || 'No se pudo leer el cuadre.';
-      renderShell();
+    onError(err) {
+      _s.loading = false;
+      _s.error   = err?.message || 'No se pudo leer el cuadre.';
+      _render();
     }
   });
 }
 
+// ── Lifecycle ────────────────────────────────────────────────
 export async function mount(ctx) {
-  _ctx = ctx || {};
+  _ctx       = ctx || {};
   _container = _ctx.container;
   if (!_container) return;
-  ensureCss();
+  _ensureCss();
 
   const appState = getState();
-  const urlState = parseUrlState();
-  _state = {
-    plaza: up(appState.currentPlaza || window.getMexCurrentPlaza?.() || ''),
-    query: urlState.query,
-    selectedMva: urlState.query,
-    filter: urlState.filter,
-    units: [],
-    bitacora: [],
-    loading: true,
-    bitacoraLoading: false,
-    error: ''
-  };
+  _s = _fresh(up(appState.currentPlaza || window.getMexCurrentPlaza?.() || ''));
+  _render();
+  _start();
 
-  renderShell();
-  startSubscription();
-  if (_state.selectedMva) loadBitacora();
-
-  _unsubscribePlaza = onPlazaChange(plaza => {
-    _state.plaza = up(plaza);
-    _state.units = [];
-    _state.loading = true;
-    _state.bitacora = [];
-    renderShell();
-    startSubscription();
-    if (_state.selectedMva) loadBitacora();
+  _unsubPlaza = onPlazaChange(plaza => {
+    _s.plaza   = up(plaza);
+    _s.units   = [];
+    _s.loading = true;
+    _s.edit    = null;
+    _render();
+    _start();
   });
-
-  _resizeHandler = () => {
-    if (_container) _container.style.setProperty('--cqv-vh', `${window.innerHeight}px`);
-  };
-  _resizeHandler();
-  window.addEventListener('resize', _resizeHandler);
 }
 
 export function unmount() {
-  try { _unsubscribeCuadre?.(); } catch (_) {}
-  try { _unsubscribePlaza?.(); } catch (_) {}
-  if (_resizeHandler) window.removeEventListener('resize', _resizeHandler);
-  _unsubscribeCuadre = null;
-  _unsubscribePlaza = null;
-  _resizeHandler = null;
-  _ctx = null;
-  _container = null;
-  _state = null;
+  try { _unsub?.();      } catch (_) {}
+  try { _unsubPlaza?.(); } catch (_) {}
+  _unsub = null; _unsubPlaza = null;
+  _ctx = null; _container = null; _s = null;
 }
