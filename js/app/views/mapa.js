@@ -165,7 +165,7 @@ export async function mount(ctx) {
 
   stage.style.display = 'block';
 
-  if (_shell) _shell.setCustomActions(_buildHeaderActions());
+  if (_shell) _shell.setHeaderActions(_buildHeaderActions());
 }
 
 export function unmount() {
@@ -174,6 +174,6 @@ export function unmount() {
     stage.style.display = 'none';
     window.dispatchEvent(new CustomEvent('mex:mapa-stage-hidden'));
   }
-  _shell?.setCustomActions('');
+  _shell?.setHeaderActions('');
   _shell = null;
 }

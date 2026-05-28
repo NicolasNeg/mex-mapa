@@ -118,7 +118,7 @@ export class ShellSidebar {
     const cls = ['mex-nav-item', isActive ? 'active' : '', hasChildren && isOpen ? 'submenu-open' : ''].filter(Boolean).join(' ');
 
     const attrs = hasChildren
-      ? `data-submenu-toggle="${esc(item.id)}"`
+      ? `data-submenu-toggle="${esc(item.id)}"${item.route ? ` data-route="${esc(item.route)}"` : ''}`
       : `data-route="${esc(item.route)}"`;
 
     return `
@@ -210,6 +210,14 @@ export class ShellSidebar {
     const route       = target.dataset.route;
     const submenuId   = target.dataset.submenuToggle;
     const action      = target.dataset.action;
+
+    if (route && submenuId) {
+      event.preventDefault();
+      this._toggleSubmenu(submenuId);
+      if (!this._isDesktop()) this.closeMobileDrawer();
+      this._navigate(route);
+      return;
+    }
 
     if (route) {
       event.preventDefault();

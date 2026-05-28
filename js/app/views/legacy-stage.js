@@ -507,6 +507,8 @@ export function mount(ctx = {}) {
     // Sincronizar plaza actual (pudo cambiar mientras la vista estaba oculta)
     _syncPlaza(getState().currentPlaza, id, ctx);
     _startLegacyMapUnitsHeader(id);
+    // Para admin: sincronizar tab activo con la URL actual
+    _scheduleFrameSync(_iframe, id, ctx);
     return;
   }
 
