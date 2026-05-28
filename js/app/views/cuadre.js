@@ -4,56 +4,58 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, onPlazaChange } from '/js/app/app-state.js';
-import { subscribeCuadre } from '/js/app/features/cuadre/cuadre-data.js';
+import { subscribeCuadre, getUnidadBitacora } from '/js/app/features/cuadre/cuadre-data.js';
 
-let _container = null;
-let _ctx        = null;
-let _s          = null;
-let _unsub      = null;
-let _unsubPlaza = null;
-let _searchDebounce = null;
-let _autofillDebounce = null;
+let _container            = null;
+let _ctx                  = null;
+let _s                    = null;
+let _unsub                = null;
+let _unsubPlaza           = null;
+let _searchDebounce       = null;
+let _autofillDebounce     = null;
+let _headerSearchListener = null;
 
 // ── State ────────────────────────────────────────────────────
 function _fresh(plaza) {
   return {
     plaza,
-    units:       [],
-    adminUnits:  [],
-    loading:     true,
+    units:        [],
+    adminUnits:   [],
+    loading:      true,
     adminLoading: false,
-    error:       '',
-    tab:         'normal',
-    search:      '',
-    pill:        'todos',
-    colCat:      '',
-    colMod:      '',
-    colEst:      '',
-    colUbi:      '',
-    colPla:      '',   // placas filter value
-    colGas:      '',   // gas filter value
-    sortCol:     'mva',
-    sortDir:     'asc',
-    selected:    new Set(),  // MVAs checked
-    batchEstado: '',
-    batchSaving: false,
-    batchMsg:    null,
-    edit:        null,
-    editMode:    'modify',   // 'modify' | 'insert'
-    form:        { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false },
-    formOrig:    null,       // snapshot of form values when unit was opened (for change detection)
-    autofillQ:   '',
-    autofillRes: [],
+    error:        '',
+    tab:          'normal',
+    search:       '',
+    pill:         'todos',
+    colCat:       '',
+    colMod:       '',
+    colEst:       '',
+    colUbi:       '',
+    colPla:       '',
+    colGas:       '',
+    sortCol:      'mva',
+    sortDir:      'asc',
+    selected:     new Set(),
+    batchEstado:  '',
+    batchSaving:  false,
+    batchMsg:     null,
+    edit:         null,
+    editMode:     'modify',   // 'modify' | 'insert'
+    form:         { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false },
+    formOrig:     null,
+    autofillQ:    '',
+    autofillRes:  [],
     autofillLoading: false,
-    saving:      false,
-    saveMsg:     null,
-    dropdown:    false,
-    modal:       null,  // 'insert-external'
-    extForm:     { mva: '', modelo: '', placas: '' },
-    extSaving:   false,
-    extMsg:      null,
-    toasts:      [],
-    _toastSeq:   0,
+    saving:       false,
+    saveMsg:      null,
+    dropdown:     false,
+    modal:        null,   // 'insert-external' | 'info'
+    modalData:    null,   // { title, bodyHtml }
+    extForm:      { mva: '', modelo: '', placas: '' },
+    extSaving:    false,
+    extMsg:       null,
+    toasts:       [],
+    _toastSeq:    0,
   };
 }
 
@@ -74,16 +76,89 @@ function esc(v) {
 }
 function up(v) { return String(v || '').trim().toUpperCase(); }
 
+function _isAdmin() {
+  const role = up(getState().role || '');
+  return ['PROGRAMADOR', 'JEFE_OPERACION', 'CORPORATIVO_USER'].includes(role)
+    || window.mexPerms?.canDo?.('fleet_global_write') === true;
+}
+
+// ── Toast (in-place, no scroll reset) ────────────────────────
+function _updateToastsInPlace() {
+  if (!_container) return;
+  const root = _container.querySelector('.cqv-root');
+  if (!root) return;
+  const existing = root.querySelector('.cqv-toasts');
+  const html = _renderToasts();
+  if (html) {
+    if (existing) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      existing.replaceWith(tmp.firstElementChild);
+    } else {
+      root.insertAdjacentHTML('beforeend', html);
+    }
+  } else if (existing) {
+    existing.remove();
+  }
+}
+
 function _toast(text, ok = true) {
   if (!_s) return;
   const id = ++_s._toastSeq;
   _s.toasts = [..._s.toasts, { id, text, ok }];
-  _render();
+  _updateToastsInPlace();
   setTimeout(() => {
     if (!_s) return;
     _s.toasts = _s.toasts.filter(t => t.id !== id);
-    _render();
+    _updateToastsInPlace();
   }, 3200);
+}
+
+// ── Partial render: panel only (no table scroll reset) ───────
+function _renderPanelInPlace() {
+  const root = _container?.querySelector('.cqv-root');
+  if (!root) { _render(); return; }
+
+  const showPanel = !!(_s.edit || _s.editMode === 'insert');
+
+  // Overlay
+  let overlay = root.querySelector('#cqvOverlay');
+  if (showPanel && !overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'cqv-overlay';
+    overlay.id = 'cqvOverlay';
+    overlay.addEventListener('click', _closeEdit);
+    const anchor = root.querySelector('.cqv-modal-overlay') || root.querySelector('.cqv-toasts') || null;
+    root.insertBefore(overlay, anchor);
+  } else if (!showPanel && overlay) {
+    overlay.remove();
+  }
+
+  // Panel
+  const oldPanel = root.querySelector('#cqvPanel');
+  if (showPanel) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = _renderPanel();
+    const newPanel = tmp.firstElementChild;
+    if (oldPanel) {
+      oldPanel.replaceWith(newPanel);
+    } else {
+      const anchor = root.querySelector('.cqv-modal-overlay') || root.querySelector('.cqv-toasts') || null;
+      root.insertBefore(newPanel, anchor);
+    }
+    _bindPanel(root);
+  } else if (oldPanel) {
+    oldPanel.remove();
+  }
+
+  // Row highlight
+  root.querySelectorAll('.cqv-row[data-mva]').forEach(row => {
+    row.classList.toggle('cqv-row--selected', !!(
+      _s.edit && up(row.dataset.mva) === up(_s.edit.mva)
+    ));
+  });
+
+  _updateToastsInPlace();
 }
 
 // ── Filtering & sorting ──────────────────────────────────────
@@ -115,7 +190,6 @@ function _matchPill(u, pill) {
   return true;
 }
 
-// Gas ordering: F=fullest … E=empty, N/A last
 const GAS_ORDER = ['F','15/16','7/8','3/4','H','1/2','1/4','1/8','E','N/A',''];
 function _gasRank(v) {
   const i = GAS_ORDER.indexOf(String(v || '').trim().toUpperCase());
@@ -188,7 +262,7 @@ function _badgeUbi(v) {
 }
 
 // ── Empresa listas helpers ───────────────────────────────────
-const ESTADOS_FALLBACK  = ['LISTO','SUCIO','MANTENIMIENTO','RESGUARDO','TRASLADO','VENTA','RETENIDA','NO ARRENDABLE','HYP','EN RENTA'];
+const ESTADOS_FALLBACK   = ['LISTO','SUCIO','MANTENIMIENTO','RESGUARDO','TRASLADO','VENTA','RETENIDA','NO ARRENDABLE','HYP','EN RENTA'];
 const GASOLINAS_FALLBACK = ['F','15/16','7/8','3/4','H','1/4','1/8','E','N/A'];
 
 function _getEstados() {
@@ -211,10 +285,7 @@ function _getGasolinas() {
 function _getUbicaciones(plaza) {
   const raw = window.MEX_CONFIG?.listas?.ubicaciones;
   if (!Array.isArray(raw) || !raw.length) {
-    return {
-      fijas:    ['PATIO','TALLER','AGENCIA','TALLER EXTERNO'],
-      personas: [],
-    };
+    return { fijas: ['PATIO','TALLER','AGENCIA','TALLER EXTERNO'], personas: [] };
   }
   const plazaUp = String(plaza || '').toUpperCase();
   const filtered = raw.filter(u => {
@@ -295,14 +366,10 @@ function _renderUbicacionOpts(selected, plaza) {
   return html;
 }
 
-// Returns true when the save button should be enabled
 function _canSave() {
   const { editMode, edit, form, formOrig } = _s;
   const { estado, ubicacion, gasolina, notas, borrarNotas } = form;
-  if (editMode === 'insert') {
-    return !!(edit && estado && ubicacion);
-  }
-  // modify: needs valid state + location + at least one changed field
+  if (editMode === 'insert') return !!(edit && estado && ubicacion);
   if (!estado || !ubicacion) return false;
   if (!formOrig) return !!(estado && ubicacion);
   return (
@@ -331,7 +398,6 @@ function _renderPanel() {
   return `
     <div class="cqv-panel cqv-panel--open" id="cqvPanel">
 
-      <!-- Panel head -->
       <div class="cqv-panel-head">
         <h3 class="cqv-panel-title">GESTOR DE UNIDAD</h3>
         <button class="cqv-panel-close" data-action="close-panel">
@@ -339,7 +405,6 @@ function _renderPanel() {
         </button>
       </div>
 
-      <!-- Stats -->
       <div class="cqv-stats-grid">
         <div class="cqv-stat-box">
           <div class="cqv-stat-num">${total}</div>
@@ -351,15 +416,12 @@ function _renderPanel() {
         </div>
       </div>
 
-      <!-- Form panel box -->
       <div class="cqv-form-panel">
 
-        <!-- Form header -->
         <div class="cqv-form-header">
           <span class="cqv-form-title">${formTitle}</span>
         </div>
 
-        <!-- Admin mode hint -->
         ${tab === 'admin' ? `
         <div class="cqv-admin-hint">
           <span class="material-symbols-outlined">inventory_2</span>
@@ -370,7 +432,6 @@ function _renderPanel() {
         </div>
         ` : ''}
 
-        <!-- Autofill section (INSERT mode only) -->
         ${editMode === 'insert' ? `
         <div class="cqv-autofill-section">
           <label class="cqv-autofill-label">BUSCAR EN BASE MAESTRA 🔍</label>
@@ -396,35 +457,31 @@ function _renderPanel() {
         </div>
         ` : ''}
 
-        <!-- Form fields (visible when a unit is selected/open) -->
         ${showFields ? `
         <div class="cqv-form-fields">
 
-          <!-- Row 1: MVA + Categoría -->
           <div class="cqv-grid-2">
             <div class="cqv-field">
               <label>MVA</label>
-              <input type="text" class="cqv-locked-input" value="${esc(edit?.mva || '')}" disabled>
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.mva || '')}" readonly>
             </div>
             <div class="cqv-field">
               <label>Categoría</label>
-              <input type="text" class="cqv-locked-input" value="${esc(edit?.categoria || '')}" disabled placeholder="S/C">
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.categoria || '')}" readonly placeholder="S/C">
             </div>
           </div>
 
-          <!-- Row 2: Modelo + Placas -->
           <div class="cqv-grid-2">
             <div class="cqv-field">
               <label>Modelo</label>
-              <input type="text" class="cqv-locked-input" value="${esc(edit?.modelo || '')}" disabled>
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.modelo || '')}" readonly>
             </div>
             <div class="cqv-field">
               <label>Placas</label>
-              <input type="text" class="cqv-locked-input" value="${esc(edit?.placas || '')}" disabled>
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.placas || '')}" readonly>
             </div>
           </div>
 
-          <!-- Row 3: Estado + Gasolina -->
           <div class="cqv-grid-2">
             <div class="cqv-field">
               <label>ESTADO 🛠️</label>
@@ -441,7 +498,6 @@ function _renderPanel() {
             </div>
           </div>
 
-          <!-- Ubicación (full width) -->
           <div class="cqv-field">
             <label>UBICACIÓN ACTUAL 📍</label>
             <select id="cqvFUbi">
@@ -449,13 +505,11 @@ function _renderPanel() {
             </select>
           </div>
 
-          <!-- Notas (full width) -->
           <div class="cqv-field">
             <label>Notas / Observaciones</label>
             <textarea id="cqvFNotas" rows="3" placeholder="Escribe aquí...">${esc(form.notas)}</textarea>
           </div>
 
-          <!-- Delete notes checkbox (modify mode only) -->
           ${editMode === 'modify' ? `
           <div class="cqv-del-note-wrap">
             <input type="checkbox" id="cqvFBorrar" ${form.borrarNotas ? 'checked' : ''}>
@@ -464,12 +518,10 @@ function _renderPanel() {
           ` : ''}
 
         </div>
-        ` : (!editMode === 'insert' ? `<p class="cqv-panel-hint">Haz clic en una fila para editar la unidad.</p>` : '')}
+        ` : `<p class="cqv-panel-hint">Haz clic en una fila para editar la unidad.</p>`}
 
-        <!-- Save message -->
         ${saveMsg ? `<div class="cqv-save-msg${saveMsg.ok ? ' cqv-save-msg--ok' : ' cqv-save-msg--err'}">${esc(saveMsg.text)}</div>` : ''}
 
-        <!-- Action buttons -->
         ${showFields ? `
         <div class="cqv-btn-group">
           ${editMode === 'modify' ? `
@@ -487,12 +539,12 @@ function _renderPanel() {
         </div>
         ` : ''}
 
-      </div><!-- /cqv-form-panel -->
+      </div>
     </div>
   `;
 }
 
-function _renderBatchBar(rows) {
+function _renderBatchBar() {
   const { selected, batchEstado, batchSaving, batchMsg } = _s;
   const count = selected.size;
   if (count < 2) return '';
@@ -514,6 +566,7 @@ function _renderBatchBar(rows) {
 
 function _renderDropdown() {
   if (!_s.dropdown) return '';
+  const admin = _isAdmin();
   return `
     <div class="cqv-dropdown" id="cqvDropdown">
       <button class="cqv-dropdown-item" data-action="dd-movimientos">
@@ -533,6 +586,17 @@ function _renderDropdown() {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         Insertar Unidad Externa
       </button>
+      ${admin ? `
+      <div class="cqv-dropdown-sep"></div>
+      <button class="cqv-dropdown-item cqv-dropdown-item--admin" data-action="dd-insert-global">
+        <span class="material-symbols-outlined" style="font-size:16px;flex-shrink:0">add_circle</span>
+        Insertar Unidad Global
+      </button>
+      <button class="cqv-dropdown-item cqv-dropdown-item--admin cqv-dropdown-item--danger" data-action="dd-delete-global">
+        <span class="material-symbols-outlined" style="font-size:16px;flex-shrink:0">delete_forever</span>
+        Eliminar Unidades Globales
+      </button>
+      ` : ''}
     </div>
   `;
 }
@@ -563,6 +627,27 @@ function _renderExtModal() {
           <button class="cqv-btn-save${extSaving ? ' cqv-btn-save--loading' : ''}" data-action="save-external" ${extSaving ? 'disabled' : ''}>
             ${extSaving ? 'Guardando...' : 'Insertar'}
           </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function _renderInfoModal() {
+  const { modalData } = _s;
+  if (!modalData) return '';
+  return `
+    <div class="cqv-modal-overlay" id="cqvModalOverlay">
+      <div class="cqv-modal cqv-modal--wide">
+        <div class="cqv-modal-head">
+          <h3>${esc(modalData.title)}</h3>
+          <button class="cqv-modal-close" data-action="close-modal">✕</button>
+        </div>
+        <div class="cqv-modal-body">
+          ${modalData.bodyHtml}
+        </div>
+        <div class="cqv-modal-foot">
+          <button class="cqv-modal-cancel" data-action="close-modal">Cerrar</button>
         </div>
       </div>
     </div>
@@ -618,11 +703,119 @@ function _renderAdminTable() {
   `;
 }
 
+// ── Resumen / Validar builders ───────────────────────────────
+function _buildResumenData() {
+  const units = _s.units;
+  const byEstado = {}, byUbi = {};
+  units.forEach(u => {
+    const e = u.estado || 'S/E', ub = u.ubicacion || 'S/U';
+    byEstado[e] = (byEstado[e] || 0) + 1;
+    byUbi[ub]   = (byUbi[ub]   || 0) + 1;
+  });
+  const rows = obj => Object.entries(obj).sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => `<tr><td style="padding:5px 8px">${esc(k)}</td><td style="padding:5px 8px;text-align:right"><strong>${v}</strong></td></tr>`).join('');
+  const th = `style="text-align:left;padding:6px 8px;background:#f1f5f9;font-size:11px;font-weight:700;text-transform:uppercase"`;
+  const bodyHtml = `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;font-size:13px">
+      <div>
+        <p style="margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;color:#475569">Por Estado</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+          <thead><tr><th ${th}>Estado</th><th ${th} style="text-align:right">Total</th></tr></thead>
+          <tbody style="font-size:12px">${rows(byEstado)}</tbody>
+        </table>
+      </div>
+      <div>
+        <p style="margin:0 0 8px;font-size:11px;font-weight:800;text-transform:uppercase;color:#475569">Por Ubicación</p>
+        <table style="width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden">
+          <thead><tr><th ${th}>Ubicación</th><th ${th} style="text-align:right">Total</th></tr></thead>
+          <tbody style="font-size:12px">${rows(byUbi)}</tbody>
+        </table>
+      </div>
+    </div>
+    <p style="margin:16px 0 0;font-size:12px;color:#64748b">Total flota: <strong>${units.length}</strong> | Plaza: <strong>${esc(_s.plaza)}</strong> | Listos: <strong style="color:#16a34a">${units.filter(u=>up(u.estado)==='LISTO').length}</strong></p>
+  `;
+  return { title: `Resumen Flota — ${_s.plaza}`, bodyHtml };
+}
+
+function _buildValidarData() {
+  const units = _s.units;
+  const sinEstado    = units.filter(u => !u.estado).length;
+  const sinUbi       = units.filter(u => !u.ubicacion).length;
+  const sinPlacas    = units.filter(u => !u.placas).length;
+  const listos       = units.filter(u => up(u.estado) === 'LISTO').length;
+  const sc = n => n > 0 ? 'color:#dc2626;font-weight:700' : 'color:#16a34a;font-weight:700';
+  const td = 'style="padding:8px 12px;border-bottom:1px solid #f1f5f9"';
+  const bodyHtml = `
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr>
+        <th style="text-align:left;padding:8px 12px;background:#f1f5f9;font-size:11px;font-weight:700;text-transform:uppercase">Verificación</th>
+        <th style="text-align:right;padding:8px 12px;background:#f1f5f9;font-size:11px;font-weight:700;text-transform:uppercase">Resultado</th>
+      </tr></thead>
+      <tbody>
+        <tr><td ${td}>Total de unidades</td><td ${td} style="text-align:right"><strong>${units.length}</strong></td></tr>
+        <tr><td ${td}>Sin estado registrado</td><td ${td} style="text-align:right;${sc(sinEstado)}">${sinEstado}</td></tr>
+        <tr><td ${td}>Sin ubicación registrada</td><td ${td} style="text-align:right;${sc(sinUbi)}">${sinUbi}</td></tr>
+        <tr><td ${td}>Sin placas registradas</td><td ${td} style="text-align:right;${sc(sinPlacas)}">${sinPlacas}</td></tr>
+        <tr><td ${td} style="border:none">Listos para renta</td><td ${td} style="text-align:right;border:none;color:#16a34a;font-weight:700">${listos}</td></tr>
+      </tbody>
+    </table>
+    <p style="margin:14px 0 0;font-size:11px;color:#94a3b8">Calculado de la vista actual — Plaza <strong>${esc(_s.plaza)}</strong>.</p>
+  `;
+  return { title: `Validar Cuadre — ${_s.plaza}`, bodyHtml };
+}
+
+async function _openBitacoraModal(mva) {
+  _s.modal = 'info';
+  _s.modalData = { title: `Movimientos — ${mva}`, bodyHtml: '<div style="text-align:center;padding:20px;color:#94a3b8;font-size:13px">Cargando...</div>' };
+  _render();
+  try {
+    const logs = await getUnidadBitacora({ plaza: _s.plaza, mva, limit: 50 });
+    if (!_s || _s.modal !== 'info') return;
+    if (!logs.length) {
+      _s.modalData.bodyHtml = '<p style="color:#94a3b8;font-size:13px;text-align:center;padding:20px">Sin registros encontrados.</p>';
+    } else {
+      const rows = logs.map(l => {
+        const ts = l.creadoEn?.toDate?.() || l.timestamp?.toDate?.() || null;
+        const fecha = ts ? ts.toLocaleDateString('es-MX', { day:'2-digit', month:'2-digit', year:'2-digit', hour:'2-digit', minute:'2-digit' }) : '-';
+        const evento = l.evento || l.accion || l.tipo || l.source || '-';
+        const resp   = l.responsable || l.autor || l.creadoPor || '-';
+        return `<tr style="border-bottom:1px solid #f1f5f9">
+          <td style="padding:5px 8px;white-space:nowrap;font-size:11px;color:#64748b">${esc(fecha)}</td>
+          <td style="padding:5px 8px;font-weight:600">${esc(evento)}</td>
+          <td style="padding:5px 8px;color:#64748b">${esc(resp)}</td>
+        </tr>`;
+      }).join('');
+      _s.modalData.bodyHtml = `<div style="max-height:360px;overflow-y:auto;font-size:12px">
+        <table style="width:100%;border-collapse:collapse">
+          <thead style="position:sticky;top:0;background:#fff">
+            <tr>
+              <th style="text-align:left;padding:6px 8px;background:#f1f5f9;font-size:10px;font-weight:700;text-transform:uppercase">Fecha</th>
+              <th style="text-align:left;padding:6px 8px;background:#f1f5f9;font-size:10px;font-weight:700;text-transform:uppercase">Evento</th>
+              <th style="text-align:left;padding:6px 8px;background:#f1f5f9;font-size:10px;font-weight:700;text-transform:uppercase">Responsable</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>`;
+    }
+    _render();
+  } catch (err) {
+    if (!_s || _s.modal !== 'info') return;
+    _s.modalData.bodyHtml = `<p style="color:#dc2626;font-size:13px;padding:16px">Error: ${esc(err?.message || String(err))}</p>`;
+    _render();
+  }
+}
+
 // ── Main render ──────────────────────────────────────────────
 function _render() {
   if (!_container) return;
+
+  // Preserve table scroll position across full re-renders
+  const tableWrap = _container.querySelector('.cqv-table-wrap');
+  const savedScroll = tableWrap?.scrollTop || 0;
+
   const rows = _visible();
-  const { units, loading, error, tab, search, pill, colCat, colMod, colEst, colUbi, colPla, colGas, sortCol, sortDir, edit, selected, dropdown, modal } = _s;
+  const { units, loading, error, tab, pill, colCat, colMod, colEst, colUbi, colPla, colGas, sortCol, sortDir, edit, selected, dropdown, modal } = _s;
   const cats = _uniq('categoria');
   const mods = _uniq('modelo');
   const ests = _uniq('estado');
@@ -632,7 +825,6 @@ function _render() {
     <div class="cqv-root">
       <div class="cqv-card">
 
-        <!-- Title row -->
         <div class="cqv-title-row">
           <h2 class="cqv-title">GESTIÓN DE FLOTA</h2>
           <div class="cqv-title-actions">
@@ -646,7 +838,6 @@ function _render() {
           </div>
         </div>
 
-        <!-- Tabs -->
         <div class="cqv-tabs">
           <button class="cqv-tab${tab === 'normal' ? ' cqv-tab--active' : ''}" data-tab="normal">
             🚗 FLOTA REGULAR
@@ -657,7 +848,6 @@ function _render() {
         </div>
 
         ${tab === 'normal' ? `
-        <!-- Pills -->
         <div class="cqv-pills">
           ${Object.entries(PILL_LABELS).map(([id, label]) => `
             <button class="cqv-pill${pill === id ? ' cqv-pill--active' : ''}" data-pill="${esc(id)}">${label}</button>
@@ -666,14 +856,11 @@ function _render() {
           <button class="cqv-pill cqv-pill--clear" id="cqvClear" title="Limpiar todos los filtros">✕ Limpiar</button>
         </div>
 
-        <!-- Batch bar -->
-        ${_renderBatchBar(rows)}
+        ${_renderBatchBar()}
 
-        <!-- Loading / error -->
         ${loading ? `<div class="cqv-loading"><span class="cqv-spinner"></span> Cargando flota...</div>` : ''}
-        ${error ? `<div class="cqv-error-msg">${esc(error)}</div>` : ''}
+        ${error   ? `<div class="cqv-error-msg">${esc(error)}</div>` : ''}
 
-        <!-- Table -->
         ${!loading ? `
         <div class="cqv-table-wrap">
           <table class="cqv-table">
@@ -750,28 +937,64 @@ function _render() {
         ` : ''}
         ` : _renderAdminTable()}
 
-        <!-- FAB (only on normal tab) -->
         ${tab === 'normal' ? `<button class="cqv-fab" data-action="add" title="Agregar unidad">+</button>` : ''}
       </div>
 
-      <!-- Edit overlay (mobile) -->
       ${edit || _s.editMode === 'insert' ? `<div class="cqv-overlay" id="cqvOverlay"></div>` : ''}
-
-      <!-- Edit panel -->
       ${(edit || _s.editMode === 'insert') ? _renderPanel() : ''}
 
-      <!-- Modal -->
-      ${modal === 'insert-external' ? _renderExtModal() : ''}
+      ${modal === 'insert-external' ? _renderExtModal() : modal === 'info' ? _renderInfoModal() : ''}
 
-      <!-- Toasts -->
       ${_renderToasts()}
     </div>
   `;
 
+  // Restore scroll
+  if (savedScroll) {
+    const newWrap = _container.querySelector('.cqv-table-wrap');
+    if (newWrap) newWrap.scrollTop = savedScroll;
+  }
+
   _bind();
 }
 
-// ── Events ───────────────────────────────────────────────────
+// ── Panel-only event bindings ────────────────────────────────
+function _bindPanel(root) {
+  const el = root || _container;
+
+  el.querySelector('[data-action="close-panel"]')?.addEventListener('click', _closeEdit);
+  el.querySelector('#cqvOverlay')?.addEventListener('click', _closeEdit);
+  el.querySelector('[data-action="save-unit"]')?.addEventListener('click', _saveUnit);
+  el.querySelector('[data-action="delete-unit"]')?.addEventListener('click', _deleteUnit);
+
+  el.querySelector('#cqvFEst')?.addEventListener('change',    e => { _s.form.estado      = e.target.value;   _renderPanelInPlace(); });
+  el.querySelector('#cqvFGas')?.addEventListener('change',    e => { _s.form.gasolina    = e.target.value;   _renderPanelInPlace(); });
+  el.querySelector('#cqvFUbi')?.addEventListener('change',    e => { _s.form.ubicacion   = e.target.value;   _renderPanelInPlace(); });
+  el.querySelector('#cqvFNotas')?.addEventListener('input',   e => { _s.form.notas       = e.target.value; });
+  el.querySelector('#cqvFNotas')?.addEventListener('change',  e => { _s.form.notas       = e.target.value; _renderPanelInPlace(); });
+  el.querySelector('#cqvFBorrar')?.addEventListener('change', e => { _s.form.borrarNotas = e.target.checked; _renderPanelInPlace(); });
+
+  el.querySelector('[data-action="reset-autofill"]')?.addEventListener('click', () => {
+    _s.edit = null; _s.autofillQ = ''; _s.autofillRes = [];
+    _s.form = { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false };
+    _s.saveMsg = null;
+    _renderPanelInPlace();
+  });
+
+  el.querySelector('#cqvAutofillInput')?.addEventListener('input', e => {
+    const val = e.target.value;
+    _s.autofillQ = val;
+    clearTimeout(_autofillDebounce);
+    if (!val.trim()) { _s.autofillRes = []; _renderPanelInPlace(); return; }
+    _autofillDebounce = setTimeout(() => _doAutofill(val), 300);
+  });
+
+  el.querySelectorAll('[data-autofill-mva]').forEach(btn =>
+    btn.addEventListener('click', () => _selectAutofill(btn.dataset.autofillMva))
+  );
+}
+
+// ── Full event bindings ──────────────────────────────────────
 function _bind() {
   const el = _container;
   if (!el) return;
@@ -805,12 +1028,8 @@ function _bind() {
   el.querySelectorAll('[data-sort]').forEach(btn =>
     btn.addEventListener('click', () => {
       const col = btn.dataset.sort;
-      if (_s.sortCol === col) {
-        _s.sortDir = _s.sortDir === 'asc' ? 'desc' : 'asc';
-      } else {
-        _s.sortCol = col;
-        _s.sortDir = 'asc';
-      }
+      if (_s.sortCol === col) _s.sortDir = _s.sortDir === 'asc' ? 'desc' : 'asc';
+      else { _s.sortCol = col; _s.sortDir = 'asc'; }
       _render();
     })
   );
@@ -822,22 +1041,17 @@ function _bind() {
   el.querySelector('#cqvColPla')?.addEventListener('change', e => { _s.colPla = e.target.value; _render(); });
   el.querySelector('#cqvColGas')?.addEventListener('change', e => { _s.colGas = e.target.value; _render(); });
 
-  // Row clicks — propagation stopped from checkbox cell
-  el.querySelectorAll('.cqv-row[data-mva]').forEach(row => {
+  el.querySelectorAll('.cqv-row[data-mva]').forEach(row =>
     row.addEventListener('click', e => {
       if (e.target.closest('[data-stop]')) return;
       _openEdit(row.dataset.mva);
-    });
-  });
+    })
+  );
 
-  // Checkboxes
   el.querySelector('#cqvSelectAll')?.addEventListener('change', e => {
     const rows = _visible();
-    if (e.target.checked) {
-      rows.forEach(u => _s.selected.add(up(u.mva)));
-    } else {
-      _s.selected = new Set();
-    }
+    if (e.target.checked) rows.forEach(u => _s.selected.add(up(u.mva)));
+    else _s.selected = new Set();
     _render();
   });
 
@@ -851,42 +1065,7 @@ function _bind() {
     })
   );
 
-  // Panel
-  el.querySelector('[data-action="close-panel"]')?.addEventListener('click', _closeEdit);
-  el.querySelector('#cqvOverlay')?.addEventListener('click', _closeEdit);
-  el.querySelector('[data-action="save-unit"]')?.addEventListener('click', _saveUnit);
-  el.querySelector('[data-action="delete-unit"]')?.addEventListener('click', _deleteUnit);
-
-  el.querySelector('#cqvFEst')?.addEventListener('change',    e => { _s.form.estado      = e.target.value;   _render(); });
-  el.querySelector('#cqvFGas')?.addEventListener('change',    e => { _s.form.gasolina    = e.target.value;   _render(); });
-  el.querySelector('#cqvFUbi')?.addEventListener('change',    e => { _s.form.ubicacion   = e.target.value;   _render(); });
-  el.querySelector('#cqvFNotas')?.addEventListener('input',   e => { _s.form.notas       = e.target.value; /* no full re-render on every keystroke */ });
-  el.querySelector('#cqvFNotas')?.addEventListener('change',  e => { _s.form.notas       = e.target.value;   _render(); });
-  el.querySelector('#cqvFBorrar')?.addEventListener('change', e => { _s.form.borrarNotas = e.target.checked; _render(); });
-
-  // Reset autofill (INSERT mode: change unit)
-  el.querySelector('[data-action="reset-autofill"]')?.addEventListener('click', () => {
-    _s.edit = null;
-    _s.autofillQ = ''; _s.autofillRes = [];
-    _s.form = { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false };
-    _s.saveMsg = null;
-    _render();
-  });
-
-  // Autofill
-  el.querySelector('#cqvAutofillInput')?.addEventListener('input', e => {
-    const val = e.target.value;
-    _s.autofillQ = val;
-    clearTimeout(_autofillDebounce);
-    if (!val.trim()) { _s.autofillRes = []; _render(); return; }
-    _autofillDebounce = setTimeout(() => _doAutofill(val), 300);
-  });
-
-  el.querySelectorAll('[data-autofill-mva]').forEach(btn =>
-    btn.addEventListener('click', () => _selectAutofill(btn.dataset.autofillMva))
-  );
-
-  // FAB
+  // FAB — show insert panel without resetting table scroll
   el.querySelector('[data-action="add"]')?.addEventListener('click', () => {
     _s.editMode  = 'insert';
     _s.edit      = null;
@@ -894,7 +1073,7 @@ function _bind() {
     _s.form      = { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false };
     _s.autofillQ = ''; _s.autofillRes = [];
     _s.saveMsg   = null;
-    _render();
+    _renderPanelInPlace();
   });
 
   // Dropdown
@@ -905,23 +1084,68 @@ function _bind() {
   });
 
   el.querySelector('[data-action="dd-movimientos"]')?.addEventListener('click', () => {
-    _s.dropdown = false; _render();
-    _toast('Próximamente — Registros / Movimientos', true);
+    _s.dropdown = false;
+    if (_s.edit) {
+      _openBitacoraModal(_s.edit.mva);
+    } else {
+      _render();
+      _toast('Selecciona una unidad para ver sus movimientos.', false);
+    }
   });
+
   el.querySelector('[data-action="dd-validar"]')?.addEventListener('click', () => {
-    _s.dropdown = false; _render();
-    _toast('Próximamente — Validar Cuadre', true);
+    _s.dropdown = false;
+    _s.modal    = 'info';
+    _s.modalData = _buildValidarData();
+    _render();
   });
+
   el.querySelector('[data-action="dd-resumen"]')?.addEventListener('click', () => {
-    _s.dropdown = false; _render();
-    _toast('Próximamente — Resumen Flota', true);
+    _s.dropdown = false;
+    _s.modal    = 'info';
+    _s.modalData = _buildResumenData();
+    _render();
   });
+
   el.querySelector('[data-action="dd-externa"]')?.addEventListener('click', () => {
     _s.dropdown = false;
-    _s.modal = 'insert-external';
-    _s.extForm = { mva: '', modelo: '', placas: '' };
-    _s.extMsg = null;
+    _s.modal    = 'insert-external';
+    _s.extForm  = { mva: '', modelo: '', placas: '' };
+    _s.extMsg   = null;
     _render();
+  });
+
+  el.querySelector('[data-action="dd-insert-global"]')?.addEventListener('click', () => {
+    _s.dropdown = false;
+    if (typeof window.abrirModalInsertarGlobal === 'function') {
+      window.abrirModalInsertarGlobal();
+      _render();
+    } else {
+      _s.editMode  = 'insert';
+      _s.edit      = null; _s.formOrig = null;
+      _s.form      = { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false };
+      _s.autofillQ = ''; _s.autofillRes = [];
+      _s.saveMsg   = null;
+      _render();
+    }
+  });
+
+  el.querySelector('[data-action="dd-delete-global"]')?.addEventListener('click', () => {
+    _s.dropdown = false;
+    if (typeof window.abrirModalEliminarGlobal === 'function') {
+      window.abrirModalEliminarGlobal();
+      _render();
+    } else if (_s.selected.size > 0) {
+      const mvas = [..._s.selected];
+      if (!confirm(`¿Eliminar globalmente ${mvas.length} unidad(es)?\nEsta acción NO se puede deshacer.`)) { _render(); return; }
+      window.api.ejecutarEliminacion(mvas, _autor(), _s.plaza)
+        .then(() => { _s.selected = new Set(); _toast(`✅ ${mvas.length} unidades eliminadas.`, true); })
+        .catch(err => _toast(`Error: ${err?.message || String(err)}`, false));
+      _render();
+    } else {
+      _render();
+      _toast('Selecciona unidades con el checkbox antes de eliminar.', false);
+    }
   });
 
   el.querySelector('[data-action="reservas"]')?.addEventListener('click', () => {
@@ -937,32 +1161,34 @@ function _bind() {
 
   // Modal
   el.querySelector('[data-action="close-modal"]')?.addEventListener('click', () => {
-    _s.modal = null; _render();
+    _s.modal = null; _s.modalData = null; _render();
   });
   el.querySelector('#cqvModalOverlay')?.addEventListener('click', e => {
-    if (e.target.id === 'cqvModalOverlay') { _s.modal = null; _render(); }
+    if (e.target.id === 'cqvModalOverlay') { _s.modal = null; _s.modalData = null; _render(); }
   });
   el.querySelector('#cqvExtMva')?.addEventListener('input',    e => { _s.extForm.mva    = e.target.value; });
   el.querySelector('#cqvExtModelo')?.addEventListener('input', e => { _s.extForm.modelo = e.target.value; });
   el.querySelector('#cqvExtPlacas')?.addEventListener('input', e => { _s.extForm.placas = e.target.value; });
   el.querySelector('[data-action="save-external"]')?.addEventListener('click', _saveExternal);
 
-  // Global click to close dropdown
   if (_s.dropdown) {
     const closeDropdown = () => {
+      document.removeEventListener('click', closeDropdown);
+      if (!_s) return;
       _s.dropdown = false;
       _render();
-      document.removeEventListener('click', closeDropdown);
     };
     document.addEventListener('click', closeDropdown);
   }
+
+  _bindPanel(el);
 }
 
 // ── Actions ──────────────────────────────────────────────────
 function _openEdit(mva) {
   const unit = (_s.units || []).find(u => up(u.mva) === up(mva));
   if (!unit) return;
-  _s.edit    = unit;
+  _s.edit     = unit;
   _s.editMode = 'modify';
   const form = {
     estado:      unit.estado || '',
@@ -974,7 +1200,7 @@ function _openEdit(mva) {
   _s.form     = form;
   _s.formOrig = { ...form };
   _s.saveMsg  = null;
-  _render();
+  _renderPanelInPlace();
 }
 
 function _closeEdit() {
@@ -983,7 +1209,7 @@ function _closeEdit() {
   _s.saveMsg   = null;
   _s.formOrig  = null;
   _s.autofillQ = ''; _s.autofillRes = [];
-  _render();
+  _renderPanelInPlace();
 }
 
 function _autor() {
@@ -998,13 +1224,13 @@ async function _saveUnit() {
   if (_s.editMode === 'insert') {
     if (!_s.edit) {
       _s.saveMsg = { text: 'Selecciona una unidad con la búsqueda primero.', ok: false };
-      _render(); return;
+      _renderPanelInPlace(); return;
     }
     if (!estado || !ubicacion) {
       _s.saveMsg = { text: 'Selecciona Estado y Ubicación.', ok: false };
-      _render(); return;
+      _renderPanelInPlace(); return;
     }
-    _s.saving = true; _s.saveMsg = null; _render();
+    _s.saving = true; _s.saveMsg = null; _renderPanelInPlace();
     try {
       const mva = _s.edit.mva;
       const result = await window.api.insertarUnidadDesdeHTML({
@@ -1014,20 +1240,21 @@ async function _saveUnit() {
       });
       const ok = typeof result === 'string' ? result.startsWith('EXITO') : result?.ok === true;
       _s.saveMsg = { text: ok ? `✅ ${mva} insertado.` : `Error: ${String(result)}`, ok };
+      _s.saving  = false; _renderPanelInPlace();
       if (ok) setTimeout(() => { if (_s?.saveMsg?.ok) { _closeEdit(); } }, 1500);
     } catch (err) {
       _s.saveMsg = { text: `Error: ${err?.message || String(err)}`, ok: false };
+      _s.saving  = false; _renderPanelInPlace();
     }
-    _s.saving = false; _render(); return;
+    return;
   }
 
-  // modify mode
   if (!_s.edit) return;
   if (!estado || !ubicacion) {
     _s.saveMsg = { text: 'Selecciona Estado y Ubicación antes de guardar.', ok: false };
-    _render(); return;
+    _renderPanelInPlace(); return;
   }
-  _s.saving = true; _s.saveMsg = null; _render();
+  _s.saving = true; _s.saveMsg = null; _renderPanelInPlace();
   try {
     const mva = _s.edit.mva;
     const result = await window.api.aplicarEstado(
@@ -1035,14 +1262,18 @@ async function _saveUnit() {
     );
     const ok = result === 'EXITO' || result?.ok === true;
     _s.saveMsg = { text: ok ? `✅ ${mva} guardado.` : `Error: ${String(result)}`, ok };
+    _s.saving  = false;
     if (ok) {
       _s.form.borrarNotas = false;
-      setTimeout(() => { if (_s?.saveMsg?.ok) { _s.saveMsg = null; _render(); } }, 2500);
+      _renderPanelInPlace();
+      setTimeout(() => { if (_s?.saveMsg?.ok) { _s.saveMsg = null; _renderPanelInPlace(); } }, 2500);
+    } else {
+      _renderPanelInPlace();
     }
   } catch (err) {
     _s.saveMsg = { text: `Error: ${err?.message || String(err)}`, ok: false };
+    _s.saving  = false; _renderPanelInPlace();
   }
-  _s.saving = false; _render();
 }
 
 function _deleteUnit() {
@@ -1050,10 +1281,10 @@ function _deleteUnit() {
   const mva = _s.edit.mva;
   if (!confirm(`¿Eliminar la unidad ${mva} del cuadre? Esta acción no se puede deshacer.`)) return;
   window.api.ejecutarEliminacion([mva], _autor(), _s.plaza)
-    .then(() => { _s.edit = null; _render(); })
+    .then(() => { _closeEdit(); })
     .catch(err => {
       _s.saveMsg = { text: `Error al eliminar: ${err?.message || String(err)}`, ok: false };
-      _render();
+      _renderPanelInPlace();
     });
 }
 
@@ -1063,8 +1294,8 @@ async function _applyBatch() {
   if (!selected.size) return;
   _s.batchSaving = true; _s.batchMsg = null; _render();
   const autor = _autor();
-  const mvas = [...selected];
-  let errors = 0;
+  const mvas  = [...selected];
+  let errors  = 0;
   for (const mva of mvas) {
     try {
       const unit = (_s.units || []).find(u => up(u.mva) === mva);
@@ -1094,7 +1325,7 @@ async function _saveExternal() {
     });
     const ok = result === 'EXITO' || result?.ok === true || !result;
     _s.extMsg = { text: ok ? '✅ Unidad externa insertada.' : `Error: ${String(result)}`, ok };
-    if (ok) setTimeout(() => { if (_s) { _s.modal = null; _render(); } }, 1500);
+    if (ok) setTimeout(() => { if (_s) { _s.modal = null; _s.modalData = null; _render(); } }, 1500);
   } catch (err) {
     _s.extMsg = { text: `Error: ${err?.message || String(err)}`, ok: false };
   }
@@ -1103,7 +1334,7 @@ async function _saveExternal() {
 
 async function _doAutofill(q) {
   if (!_s) return;
-  _s.autofillLoading = true; _render();
+  _s.autofillLoading = true; _renderPanelInPlace();
   try {
     const snap = await window._db.collection('index_unidades')
       .where('mva', '>=', up(q))
@@ -1115,7 +1346,7 @@ async function _doAutofill(q) {
     if (!_s) return;
     _s.autofillRes = [];
   }
-  _s.autofillLoading = false; _render();
+  _s.autofillLoading = false; _renderPanelInPlace();
 }
 
 function _selectAutofill(mva) {
@@ -1128,9 +1359,9 @@ function _selectAutofill(mva) {
     categoria: found.categoria || found.categ || '',
   };
   _s.form.gasolina = found.gasolina || 'N/A';
-  _s.autofillQ = up(found.mva);
-  _s.autofillRes = [];
-  _render();
+  _s.autofillQ     = up(found.mva);
+  _s.autofillRes   = [];
+  _renderPanelInPlace();
 }
 
 async function _loadAdmin() {
@@ -1138,7 +1369,7 @@ async function _loadAdmin() {
   try {
     const data = await window.api.obtenerCuadreAdminsData(_s.plaza);
     _s.adminUnits = Array.isArray(data) ? data : [];
-  } catch (err) {
+  } catch (_) {
     _s.adminUnits = [];
   }
   _s.adminLoading = false; _render();
@@ -1163,7 +1394,7 @@ function _start() {
       _s.loading = false;
       _s.error   = err?.message || 'No se pudo leer el cuadre.';
       _render();
-    }
+    },
   });
 }
 
@@ -1178,6 +1409,21 @@ export async function mount(ctx) {
   _s = _fresh(up(appState.currentPlaza || window.getMexCurrentPlaza?.() || ''));
   _render();
   _start();
+
+  // Wire shell header search input
+  const hdrInput = document.getElementById('mexHdrSearchInput');
+  if (hdrInput) {
+    _headerSearchListener = () => {
+      clearTimeout(_searchDebounce);
+      _searchDebounce = setTimeout(() => {
+        if (!_s) return;
+        _s.search = up(hdrInput.value);
+        _render();
+      }, 180);
+    };
+    hdrInput.addEventListener('input', _headerSearchListener);
+    if (hdrInput.value) _s.search = up(hdrInput.value);
+  }
 
   _unsubPlaza = onPlazaChange(plaza => {
     _s.plaza      = up(plaza);
@@ -1194,6 +1440,10 @@ export async function mount(ctx) {
 export function unmount() {
   clearTimeout(_searchDebounce);
   clearTimeout(_autofillDebounce);
+  if (_headerSearchListener) {
+    document.getElementById('mexHdrSearchInput')?.removeEventListener('input', _headerSearchListener);
+    _headerSearchListener = null;
+  }
   try { _unsub?.();      } catch (_) {}
   try { _unsubPlaza?.(); } catch (_) {}
   _unsub = null; _unsubPlaza = null;

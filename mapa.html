@@ -1549,87 +1549,67 @@
     <div class="zoom-controls">
       <button class="btn-zoom" onclick="adjustZoom(0.1)">+</button>
       <button class="btn-zoom" onclick="adjustZoom(-0.1)">-</button>
-      <button id="btnMapaCalor" class="btn-zoom btn-calor-toggle" onclick="toggleMapaCalor()" title="Mapa de calor" style="display:none;">
-        <span class="material-icons" style="font-size:15px;pointer-events:none;">thermostat</span>
-      </button>
+      <!-- CONTROLES: gear button with dropdown -->
+      <div style="position:relative">
+        <button id="btnControles" class="btn-zoom" onclick="toggleControlesMenu(event)" title="Controles"
+          style="color:#374151">
+          <span class="material-icons" style="font-size:22px;pointer-events:none">settings</span>
+        </button>
+        <div id="controlesMenu"
+          style="display:none;position:absolute;right:0;bottom:calc(100% + 10px);background:#ffffff;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:230px;padding:8px;z-index:9999;border:1px solid #e5e7eb;animation:dd-in .15s ease both">
+          <div style="padding:6px 12px 6px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#6b7280;text-transform:uppercase">CONTROLES</div>
+
+          <!-- Mapa de calor -->
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:default">
+            <span class="material-icons" style="font-size:18px;color:#6b7280;flex-shrink:0">thermostat</span>
+            <span style="font-size:13px;font-weight:600;color:#111827;flex:1">Mapa de calor</span>
+            <label class="sidebar-switch">
+              <input type="checkbox" id="switchMapaCalor" onchange="toggleMapaCalor()">
+              <span class="sidebar-switch-track"></span>
+            </label>
+          </div>
+
+          <!-- Bloquear patio (solo roles con acceso total) -->
+          <div id="controlesItemBloqueo"
+            style="display:none;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s"
+            onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''"
+            onclick="_cfgQuickAction('toggle-lock');toggleControlesMenu()">
+            <span class="material-icons" style="font-size:18px;color:#6b7280;flex-shrink:0">lock</span>
+            <span style="font-size:13px;font-weight:600;color:#111827;flex:1">Bloquear patio</span>
+            <span class="material-icons" style="font-size:16px;color:#9ca3af">chevron_right</span>
+          </div>
+
+          <!-- Más opciones en el futuro -->
+        </div>
+      </div>
     </div>
 
-    <!-- Floating button to open units sidebar when it's closed -->
-    <button id="btnAbrirUnidades" class="btn-abrir-unidades" onclick="toggleSidebar()" title="Panel de unidades">
-      <span class="material-icons">directions_car</span>
-    </button>
-
-    <aside id="sidebar" class="units-sidebar">
-      <!-- Header con gradiente -->
-      <div class="units-sidebar-header">
-        <h2>UNIDADES</h2>
-        <div style="display:flex;align-items:center;gap:4px;">
-          <button id="btnSidebarOpciones" class="sidebar-opts-btn" onclick="toggleSidebarOpciones()" title="Opciones">
-            <span class="material-icons" style="font-size:18px;">settings</span>
-          </button>
-          <button onclick="toggleSidebar()" title="Cerrar">
-            <span class="material-icons" style="font-size:20px;">close</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Panel de opciones (mapa de calor, etc.) -->
-      <div id="sidebarOpcionesPanel" class="sidebar-opciones-panel" style="display:none;">
-        <div class="sidebar-opcion-row">
-          <div class="sidebar-opcion-label">
-            <span class="material-icons">thermostat</span>
-            Mapa de calor
-          </div>
-          <label class="sidebar-switch">
-            <input type="checkbox" id="switchMapaCalor" onchange="toggleMapaCalor()">
-            <span class="sidebar-switch-track"></span>
-          </label>
-        </div>
-      </div>
-
-      <!-- Buscador -->
-      <div class="units-sidebar-search">
-        <div class="search-wrapper units-sidebar-searchbox">
-          <span class="search-icon" style="color:#94a3b8;">
-            <span class="material-icons" style="font-size:17px; vertical-align:middle;">search</span>
-          </span>
-          <input type="text" id="searchInputMobile" placeholder="MVA, Placas o Modelo..." oninput="buscarMasivo()"
-            style="background:#fff; color:#1e293b; border:1px solid #e2e8f0; border-radius:10px; padding-right:76px;">
-          <button id="btn-voz-busqueda-mobile" onclick="activarBusquedaVoz(true)" title="Buscar por voz"
-            class="search-mic-btn" style="color:#64748b;">
-            <span class="material-icons" style="font-size:17px;">mic</span>
-          </button>
-          <button class="clear-btn" onclick="limpiarBusqueda()" style="background:#e2e8f0; color:#64748b;">✕</button>
-          <div id="voz-transcript-bar-mobile" class="voz-transcript-bar" style="display:none;"></div>
-        </div>
-        <div id="no-results-message"
-          style="display:none; text-align:center; padding:12px 0 0; color:#94a3b8; font-size:12px; font-weight:700;">
-          Sin resultados
-        </div>
-      </div>
-
-      <!-- Contenido scroll -->
-      <div class="scroll-area">
-        <p class="sidebar-section-label patio">
-          <span class="material-icons" style="font-size:14px;">local_parking</span>
-          Patio — Sin asignar (<span id="count-limbo">0</span>)
-        </p>
-        <div id="unidades-limbo"
-          style="display:flex; flex-direction:column; gap:8px; margin-bottom:24px; min-height:50px;">
-        </div>
-
-        <p class="sidebar-section-label taller">
-          <span class="material-icons" style="font-size:14px;">build</span>
-          Taller — Sin asignar (<span id="count-taller">0</span>)
-        </p>
-        <div class="sidebar-taller-box">
-          <div id="unidades-taller"
-            style="display:flex; flex-direction:column; gap:8px; min-height:44px;">
-          </div>
-        </div>
-      </div>
-
-    </aside>
+    <style>
+      @keyframes dd-in { from { opacity:0; transform:scale(.97) translateY(4px); } to { opacity:1; transform:none; } }
+    </style>
+    <script>
+      window.toggleControlesMenu = function(e) {
+        if (e) e.stopPropagation();
+        var menu = document.getElementById('controlesMenu');
+        if (!menu) return;
+        var isOpen = menu.style.display !== 'none';
+        if (isOpen) { menu.style.display = 'none'; return; }
+        // Show/hide bloquear patio based on permission
+        var bloqueoItem = document.getElementById('controlesItemBloqueo');
+        if (bloqueoItem) {
+          bloqueoItem.style.display =
+            (typeof hasFullAccess === 'function' && hasFullAccess()) ? 'flex' : 'none';
+        }
+        menu.style.display = 'block';
+        // Close on next outside click
+        setTimeout(function() {
+          document.addEventListener('click', function closeMenu() {
+            menu.style.display = 'none';
+            document.removeEventListener('click', closeMenu);
+          }, { once: true });
+        }, 0);
+      };
+    </script>
 
     <div id="map-stage">
       <div id="map-zoom-container">

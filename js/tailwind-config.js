@@ -1,3 +1,4 @@
+if (typeof tailwind === 'undefined') { /* tailwind CDN not loaded yet in this context */ } else
 tailwind.config = {
   darkMode: "class",
   theme: {

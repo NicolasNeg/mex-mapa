@@ -127,6 +127,15 @@
 
 .cqv-dropdown-sep { height: 1px; background: var(--cq-border); margin: 4px 0; }
 
+.cqv-dropdown-item--admin { color: #7c3aed; }
+.cqv-dropdown-item--admin svg,
+.cqv-dropdown-item--admin .material-symbols-outlined { color: #7c3aed; }
+.cqv-dropdown-item--admin:hover { background: #f5f3ff; color: #6d28d9; }
+
+.cqv-dropdown-item--danger { color: #dc2626 !important; }
+.cqv-dropdown-item--danger .material-symbols-outlined { color: #dc2626 !important; }
+.cqv-dropdown-item--danger:hover { background: #fef2f2 !important; color: #b91c1c !important; }
+
 /* ── Tabs ─────────────────────────────────────────────────── */
 .cqv-tabs {
   display: flex;
@@ -700,11 +709,12 @@
 .cqv-field textarea:focus,
 .cqv-input:focus { border-color: var(--cq-primary); background: #ffffff; }
 
-/* Locked (read-only) inputs */
+/* Locked (read-only) inputs — selectable so user can copy MVA/Placas/Modelo */
 .cqv-locked-input {
   background: #f1f5f9 !important;
   color: #94a3b8 !important;
-  cursor: not-allowed;
+  cursor: text;
+  user-select: text;
   border-color: #e2e8f0 !important;
   font-weight: 800 !important;
 }
@@ -820,6 +830,7 @@
   overflow: hidden;
   animation: cqv-dd-in 0.2s ease both;
 }
+.cqv-modal--wide { max-width: 680px; }
 .cqv-modal-head {
   display: flex;
   align-items: center;
