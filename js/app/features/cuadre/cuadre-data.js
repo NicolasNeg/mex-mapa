@@ -203,3 +203,42 @@ export function subscribeCuadre({ plaza, onData, onError }) {
     try { unsubExternos(); } catch (_) {}
   };
 }
+
+// Queries historial_operativo + ops_events for a single unit (by MVA).
+// Returns an array of normalized log items sorted newest-first.
+export async function getUnidadBitacora({ plaza, mva, limit = 80 } = {}) {
+  const plazaId = String(plaza || '').toUpperCase().trim();
+  const mvaId   = String(mva   || '').toUpperCase().trim();
+  if (!mvaId) return [];
+
+  const eid = _eid();
+  const results = [];
+
+  // historial_operativo
+  try {
+    let q = db.collection('historial_operativo')
+      .where('mva', '==', mvaId)
+      .orderBy('creadoEn', 'desc')
+      .limit(limit);
+    if (plazaId) q = q.where('plaza', '==', plazaId);
+    if (eid) q = q.where('empresaId', '==', eid);
+    const snap = await q.get();
+    snap.docs.forEach(d => results.push({ id: d.id, source: 'historial', ...d.data() }));
+  } catch (_) {}
+
+  // ops_events (audit log)
+  if (results.length < limit) {
+    try {
+      let q = db.collection('ops_events')
+        .where('mva', '==', mvaId)
+        .orderBy('timestamp', 'desc')
+        .limit(limit - results.length);
+      if (plazaId) q = q.where('plaza', '==', plazaId);
+      if (eid) q = q.where('empresaId', '==', eid);
+      const snap = await q.get();
+      snap.docs.forEach(d => results.push({ id: d.id, source: 'ops', ...d.data() }));
+    } catch (_) {}
+  }
+
+  return results;
+}
