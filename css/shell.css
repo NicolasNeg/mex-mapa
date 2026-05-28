@@ -911,9 +911,10 @@
   overflow: hidden;
   transition: margin-left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
-  /* contain:layout removido — causaba que position:fixed dentro quedara
-     limitado a esta caja en lugar del viewport (fleet modal en cuadre) */
-  contain: style;
+  /* contain:layout makes this the containing block for position:fixed children.
+     cuadre's overlay and panel are designed for this — iframes are unaffected
+     since their fixed elements live in separate documents. */
+  contain: layout style;
   display: flex;
   flex-direction: column;
 }
