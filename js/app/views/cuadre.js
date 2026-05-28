@@ -41,6 +41,7 @@ function _fresh(plaza) {
     edit:        null,
     editMode:    'modify',   // 'modify' | 'insert'
     form:        { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false },
+    formOrig:    null,       // snapshot of form values when unit was opened (for change detection)
     autofillQ:   '',
     autofillRes: [],
     autofillLoading: false,
@@ -294,28 +295,52 @@ function _renderUbicacionOpts(selected, plaza) {
   return html;
 }
 
+// Returns true when the save button should be enabled
+function _canSave() {
+  const { editMode, edit, form, formOrig } = _s;
+  const { estado, ubicacion, gasolina, notas, borrarNotas } = form;
+  if (editMode === 'insert') {
+    return !!(edit && estado && ubicacion);
+  }
+  // modify: needs valid state + location + at least one changed field
+  if (!estado || !ubicacion) return false;
+  if (!formOrig) return !!(estado && ubicacion);
+  return (
+    estado      !== formOrig.estado      ||
+    gasolina    !== formOrig.gasolina    ||
+    ubicacion   !== formOrig.ubicacion   ||
+    notas       !== formOrig.notas       ||
+    borrarNotas !== formOrig.borrarNotas
+  );
+}
+
 // ── Sub-renderers ────────────────────────────────────────────
 function _renderPanel() {
-  const { edit, editMode, form, saving, saveMsg, autofillQ, autofillRes, autofillLoading } = _s;
-  const units = _s.units;
+  const { edit, editMode, form, saving, saveMsg, autofillQ, autofillRes, autofillLoading, tab } = _s;
+  const units  = _s.units;
   const total  = units.length;
   const listos = units.filter(u => up(u.estado) === 'LISTO').length;
+  const canSave = _canSave();
 
-  const panelSubtitle = editMode === 'insert'
-    ? 'Nueva unidad'
-    : (edit ? esc(edit.mva) : '—');
+  const formTitle = editMode === 'insert'
+    ? 'NUEVO REGISTRO'
+    : (edit ? `MODIFICANDO: ${esc(edit.mva)}` : 'SELECCIONA UNA UNIDAD');
+
+  const showFields = (editMode === 'modify' && edit) || (editMode === 'insert' && edit);
 
   return `
     <div class="cqv-panel cqv-panel--open" id="cqvPanel">
+
+      <!-- Panel head -->
       <div class="cqv-panel-head">
-        <div>
-          <h3>GESTOR DE UNIDAD</h3>
-          <p>${panelSubtitle}</p>
-        </div>
-        <button class="cqv-panel-close" data-action="close-panel">✕</button>
+        <h3 class="cqv-panel-title">GESTOR DE UNIDAD</h3>
+        <button class="cqv-panel-close" data-action="close-panel">
+          <span class="material-symbols-outlined">close</span>
+        </button>
       </div>
 
-      <div class="cqv-panel-stats">
+      <!-- Stats -->
+      <div class="cqv-stats-grid">
         <div class="cqv-stat-box">
           <div class="cqv-stat-num">${total}</div>
           <div class="cqv-stat-lbl">Total Flota</div>
@@ -326,81 +351,143 @@ function _renderPanel() {
         </div>
       </div>
 
-      ${editMode === 'insert' ? `
-      <div class="cqv-panel-autofill">
-        <div class="cqv-autofill-search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input id="cqvAutofillInput" type="text" value="${esc(autofillQ)}" placeholder="Buscar MVA para autocompletar...">
-          ${autofillLoading ? '<span class="cqv-spinner cqv-spinner--sm"></span>' : ''}
+      <!-- Form panel box -->
+      <div class="cqv-form-panel">
+
+        <!-- Form header -->
+        <div class="cqv-form-header">
+          <span class="cqv-form-title">${formTitle}</span>
         </div>
-        ${autofillRes.length ? `
-        <div class="cqv-autofill-results">
-          ${autofillRes.map(r => `
-            <button class="cqv-autofill-item" data-autofill-mva="${esc(r.mva)}">
-              <span class="cqv-autofill-mva">${esc(r.mva)}</span>
-              <span class="cqv-autofill-detail">${esc(r.modelo || '')} — ${esc(r.placas || '')}</span>
-            </button>
-          `).join('')}
+
+        <!-- Admin mode hint -->
+        ${tab === 'admin' ? `
+        <div class="cqv-admin-hint">
+          <span class="material-symbols-outlined">inventory_2</span>
+          <div>
+            <strong>Modo Cuadre Admins</strong>
+            <p>El registro se hace desde el modal administrativo. Esta vista es de sólo lectura.</p>
+          </div>
         </div>
         ` : ''}
-      </div>
-      ` : ''}
 
-      ${edit ? `
-      <div class="cqv-panel-unit">
-        <div class="cqv-panel-unit-row"><span>MVA</span><strong>${esc(edit.mva)}</strong></div>
-        <div class="cqv-panel-unit-row"><span>Modelo</span><strong>${esc(edit.modelo || '-')}</strong></div>
-        <div class="cqv-panel-unit-row"><span>Placas</span><strong>${esc(edit.placas || '-')}</strong></div>
-        <div class="cqv-panel-unit-row"><span>Categoría</span><strong>${esc(edit.categoria || '-')}</strong></div>
-      </div>
-      ` : ''}
-
-      ${saveMsg ? `<div class="cqv-save-msg${saveMsg.ok ? ' cqv-save-msg--ok' : ' cqv-save-msg--err'}">${esc(saveMsg.text)}</div>` : ''}
-
-      <div class="cqv-panel-form">
-        <label class="cqv-field">
-          <span>ESTADO</span>
-          <select id="cqvFEst">
-            <option value="">Seleccionar...</option>
-            ${_renderEstadoOpts(form.estado)}
-          </select>
-        </label>
-
-        <label class="cqv-field">
-          <span>GASOLINA</span>
-          <select id="cqvFGas">
-            ${_renderGasOpts(form.gasolina)}
-          </select>
-        </label>
-
-        <label class="cqv-field">
-          <span>UBICACIÓN</span>
-          <select id="cqvFUbi">
-            ${_renderUbicacionOpts(form.ubicacion, _s.plaza)}
-          </select>
-        </label>
-
-        <label class="cqv-field">
-          <span>NOTAS / OBSERVACIONES</span>
-          <textarea id="cqvFNotas" rows="3" placeholder="Escribe aquí...">${esc(form.notas)}</textarea>
-        </label>
-
-        <label class="cqv-field cqv-field--check">
-          <input type="checkbox" id="cqvFBorrar" ${form.borrarNotas ? 'checked' : ''}>
-          <span>Borrar historial de notas actual</span>
-        </label>
-      </div>
-
-      <div class="cqv-panel-actions">
-        ${editMode === 'modify' && edit ? `
-        <button class="cqv-btn-del" data-action="delete-unit" title="Eliminar unidad">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        </button>
+        <!-- Autofill section (INSERT mode only) -->
+        ${editMode === 'insert' ? `
+        <div class="cqv-autofill-section">
+          <label class="cqv-autofill-label">BUSCAR EN BASE MAESTRA 🔍</label>
+          <div class="cqv-autofill-wrap">
+            <input id="cqvAutofillInput" type="text" class="cqv-autofill-input"
+              value="${esc(autofillQ)}" placeholder="Escribe MVA, Placas o Modelo...">
+            ${autofillLoading ? '<span class="cqv-spinner-sm"></span>' : ''}
+            ${edit ? `
+            <button class="cqv-autofill-reset" data-action="reset-autofill" title="Cambiar unidad">
+              <span class="material-symbols-outlined">close</span>
+            </button>` : ''}
+          </div>
+          ${autofillRes.length ? `
+          <div class="cqv-autofill-results" id="cqvAutofillResults">
+            ${autofillRes.map(r => `
+              <button class="cqv-autofill-item" data-autofill-mva="${esc(r.mva)}">
+                <span class="cqv-autofill-mva">${esc(r.mva)}</span>
+                <span class="cqv-autofill-detail">${esc(r.modelo || '')}${r.placas ? ' — ' + esc(r.placas) : ''}</span>
+              </button>
+            `).join('')}
+          </div>
+          ` : ''}
+        </div>
         ` : ''}
-        <button class="cqv-btn-save${saving ? ' cqv-btn-save--loading' : ''}" data-action="save-unit" ${saving ? 'disabled' : ''}>
-          ${saving ? '<span class="cqv-btn-spinner"></span> Guardando...' : (editMode === 'insert' ? '➕ INSERTAR UNIDAD' : '💾 GUARDAR CAMBIOS')}
-        </button>
-      </div>
+
+        <!-- Form fields (visible when a unit is selected/open) -->
+        ${showFields ? `
+        <div class="cqv-form-fields">
+
+          <!-- Row 1: MVA + Categoría -->
+          <div class="cqv-grid-2">
+            <div class="cqv-field">
+              <label>MVA</label>
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.mva || '')}" disabled>
+            </div>
+            <div class="cqv-field">
+              <label>Categoría</label>
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.categoria || '')}" disabled placeholder="S/C">
+            </div>
+          </div>
+
+          <!-- Row 2: Modelo + Placas -->
+          <div class="cqv-grid-2">
+            <div class="cqv-field">
+              <label>Modelo</label>
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.modelo || '')}" disabled>
+            </div>
+            <div class="cqv-field">
+              <label>Placas</label>
+              <input type="text" class="cqv-locked-input" value="${esc(edit?.placas || '')}" disabled>
+            </div>
+          </div>
+
+          <!-- Row 3: Estado + Gasolina -->
+          <div class="cqv-grid-2">
+            <div class="cqv-field">
+              <label>ESTADO 🛠️</label>
+              <select id="cqvFEst">
+                <option value="">Seleccionar...</option>
+                ${_renderEstadoOpts(form.estado)}
+              </select>
+            </div>
+            <div class="cqv-field">
+              <label>GASOLINA ⛽</label>
+              <select id="cqvFGas">
+                ${_renderGasOpts(form.gasolina)}
+              </select>
+            </div>
+          </div>
+
+          <!-- Ubicación (full width) -->
+          <div class="cqv-field">
+            <label>UBICACIÓN ACTUAL 📍</label>
+            <select id="cqvFUbi">
+              ${_renderUbicacionOpts(form.ubicacion, _s.plaza)}
+            </select>
+          </div>
+
+          <!-- Notas (full width) -->
+          <div class="cqv-field">
+            <label>Notas / Observaciones</label>
+            <textarea id="cqvFNotas" rows="3" placeholder="Escribe aquí...">${esc(form.notas)}</textarea>
+          </div>
+
+          <!-- Delete notes checkbox (modify mode only) -->
+          ${editMode === 'modify' ? `
+          <div class="cqv-del-note-wrap">
+            <input type="checkbox" id="cqvFBorrar" ${form.borrarNotas ? 'checked' : ''}>
+            <label for="cqvFBorrar">Borrar historial de notas actual</label>
+          </div>
+          ` : ''}
+
+        </div>
+        ` : (!editMode === 'insert' ? `<p class="cqv-panel-hint">Haz clic en una fila para editar la unidad.</p>` : '')}
+
+        <!-- Save message -->
+        ${saveMsg ? `<div class="cqv-save-msg${saveMsg.ok ? ' cqv-save-msg--ok' : ' cqv-save-msg--err'}">${esc(saveMsg.text)}</div>` : ''}
+
+        <!-- Action buttons -->
+        ${showFields ? `
+        <div class="cqv-btn-group">
+          ${editMode === 'modify' ? `
+          <button class="cqv-btn-del" data-action="delete-unit" title="Eliminar unidad">
+            <span class="material-symbols-outlined">delete</span>
+          </button>
+          ` : ''}
+          <button class="cqv-btn-save${saving ? ' cqv-btn-save--loading' : ''}"
+            data-action="save-unit"
+            ${saving || !canSave ? 'disabled' : ''}>
+            ${saving
+              ? '<span class="cqv-btn-spinner"></span> Guardando...'
+              : `<span class="material-symbols-outlined">${editMode === 'insert' ? 'add_circle' : 'save'}</span> ${editMode === 'insert' ? 'INSERTAR UNIDAD' : 'GUARDAR CAMBIOS'}`}
+          </button>
+        </div>
+        ` : ''}
+
+      </div><!-- /cqv-form-panel -->
     </div>
   `;
 }
@@ -770,11 +857,21 @@ function _bind() {
   el.querySelector('[data-action="save-unit"]')?.addEventListener('click', _saveUnit);
   el.querySelector('[data-action="delete-unit"]')?.addEventListener('click', _deleteUnit);
 
-  el.querySelector('#cqvFEst')?.addEventListener('change',    e => { _s.form.estado      = e.target.value; });
-  el.querySelector('#cqvFGas')?.addEventListener('change',    e => { _s.form.gasolina    = e.target.value; });
-  el.querySelector('#cqvFUbi')?.addEventListener('change',    e => { _s.form.ubicacion   = e.target.value; });
-  el.querySelector('#cqvFNotas')?.addEventListener('input',   e => { _s.form.notas       = e.target.value; });
-  el.querySelector('#cqvFBorrar')?.addEventListener('change', e => { _s.form.borrarNotas = e.target.checked; });
+  el.querySelector('#cqvFEst')?.addEventListener('change',    e => { _s.form.estado      = e.target.value;   _render(); });
+  el.querySelector('#cqvFGas')?.addEventListener('change',    e => { _s.form.gasolina    = e.target.value;   _render(); });
+  el.querySelector('#cqvFUbi')?.addEventListener('change',    e => { _s.form.ubicacion   = e.target.value;   _render(); });
+  el.querySelector('#cqvFNotas')?.addEventListener('input',   e => { _s.form.notas       = e.target.value; /* no full re-render on every keystroke */ });
+  el.querySelector('#cqvFNotas')?.addEventListener('change',  e => { _s.form.notas       = e.target.value;   _render(); });
+  el.querySelector('#cqvFBorrar')?.addEventListener('change', e => { _s.form.borrarNotas = e.target.checked; _render(); });
+
+  // Reset autofill (INSERT mode: change unit)
+  el.querySelector('[data-action="reset-autofill"]')?.addEventListener('click', () => {
+    _s.edit = null;
+    _s.autofillQ = ''; _s.autofillRes = [];
+    _s.form = { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false };
+    _s.saveMsg = null;
+    _render();
+  });
 
   // Autofill
   el.querySelector('#cqvAutofillInput')?.addEventListener('input', e => {
@@ -791,11 +888,12 @@ function _bind() {
 
   // FAB
   el.querySelector('[data-action="add"]')?.addEventListener('click', () => {
-    _s.editMode = 'insert';
-    _s.edit = null;
-    _s.form = { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false };
+    _s.editMode  = 'insert';
+    _s.edit      = null;
+    _s.formOrig  = null;
+    _s.form      = { estado: '', gasolina: 'N/A', ubicacion: '', notas: '', borrarNotas: false };
     _s.autofillQ = ''; _s.autofillRes = [];
-    _s.saveMsg = null;
+    _s.saveMsg   = null;
     _render();
   });
 
@@ -866,21 +964,24 @@ function _openEdit(mva) {
   if (!unit) return;
   _s.edit    = unit;
   _s.editMode = 'modify';
-  _s.form = {
+  const form = {
     estado:      unit.estado || '',
     gasolina:    unit.gasolina || 'N/A',
     ubicacion:   unit.ubicacion || '',
     notas:       unit.notas || '',
     borrarNotas: false,
   };
-  _s.saveMsg = null;
+  _s.form     = form;
+  _s.formOrig = { ...form };
+  _s.saveMsg  = null;
   _render();
 }
 
 function _closeEdit() {
-  _s.edit     = null;
-  _s.editMode = 'modify';
-  _s.saveMsg  = null;
+  _s.edit      = null;
+  _s.editMode  = 'modify';
+  _s.saveMsg   = null;
+  _s.formOrig  = null;
   _s.autofillQ = ''; _s.autofillRes = [];
   _render();
 }
