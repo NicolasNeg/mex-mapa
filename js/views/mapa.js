@@ -21153,8 +21153,28 @@ function enviarCorreoWebhook(email, nombre, estado, motivo) {
   }).catch(e => console.error("Error en Webhook:", e));
 }
 
+function toggleControlesMenu(e) {
+  if (e) e.stopPropagation();
+  const menu = document.getElementById('controlesMenu');
+  if (!menu) return;
+  const isOpen = menu.style.display !== 'none';
+  if (isOpen) { menu.style.display = 'none'; return; }
+  const bloqueoItem = document.getElementById('controlesItemBloqueo');
+  if (bloqueoItem) {
+    bloqueoItem.style.display = (typeof hasFullAccess === 'function' && hasFullAccess()) ? 'flex' : 'none';
+  }
+  menu.style.display = 'block';
+  setTimeout(function () {
+    document.addEventListener('click', function closeMenu() {
+      menu.style.display = 'none';
+      document.removeEventListener('click', closeMenu);
+    }, { once: true });
+  }, 0);
+}
+
 // ── Asignaciones críticas explícitas (evitan ReferenceError si el módulo carga tarde) ──
 window.toggleSidebar = toggleSidebar;
+window.toggleControlesMenu = toggleControlesMenu;
 window.abrirReporteImpresion  = abrirReporteImpresion;
 window.descargarArchivoLocal  = descargarArchivoLocal;
 window.generarSlugArchivo     = generarSlugArchivo;
