@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v424';
+const CACHE_NAME = 'mapa-v429';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -58,6 +58,12 @@ const CRITICAL_ASSETS = [
   '/mapa/features/core/utils.js',
   '/mapa/features/extras/supervision.js',
   '/mapa/features/extras/ocr.js',
+  // Mapa modular — tipo negocio estacionamiento
+  '/mapa/mapa-loader.js',
+  '/mapa/mapa-store.js',
+  '/mapa/configs/estacionamiento.config.js',
+  '/mapa/configs/default.config.js',
+  '/mapa/features/estacionamiento/grid.js',
   // Vistas legacy
   '/js/views/login.js',
   '/js/views/mapa.js',
@@ -88,6 +94,9 @@ const CRITICAL_ASSETS = [
   '/css/programador.css',
   '/css/incidencias.css',
   '/css/cola-preparacion.css',
+  '/css/mapa-estacionamiento.css',
+  '/css/mapa-fluid.css',
+  '/js/mapa-fluid.js',
   '/cola-preparacion.html',
   '/js/views/cola-preparacion.js',
   '/cuadre.html',

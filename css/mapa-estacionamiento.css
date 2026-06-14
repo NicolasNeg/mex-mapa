@@ -1,0 +1,284 @@
+/* ============================================================
+   css/mapa-estacionamiento.css
+   Modo parking — activo cuando body.mapa-business-estacionamiento
+   Toolbar de filtros, estados de cajones y decoración de unidades.
+   ============================================================ */
+
+/* ── Toolbar principal ──────────────────────────────────────── */
+
+.parking-map-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: rgba(10, 17, 34, 0.92);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  min-height: 56px;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+
+/* ── Sección izquierda: ícono + título + plaza ────────────── */
+
+.parking-toolbar-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 148px;
+}
+
+.parking-toolbar-main .material-icons {
+  font-size: 22px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.parking-toolbar-main strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #f1f5f9;
+  line-height: 1.25;
+}
+
+.parking-toolbar-main small {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.25;
+  letter-spacing: 0.03em;
+}
+
+/* ── Barra de ocupación ─────────────────────────────────────── */
+
+.parking-toolbar-occupancy {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 100px;
+}
+
+.parking-toolbar-occupancy span[data-parking-occupancy-text] {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.parking-toolbar-occupancy > div {
+  height: 5px;
+  background: rgba(148, 163, 184, 0.18);
+  border-radius: 9999px;
+  overflow: hidden;
+  min-width: 90px;
+}
+
+.parking-toolbar-occupancy i[data-parking-occupancy-bar] {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: #3b82f6;
+  border-radius: 9999px;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
+}
+
+body.mapa-business-estacionamiento[data-parking-occupancy="alta"]
+  .parking-toolbar-occupancy i[data-parking-occupancy-bar] {
+  background: #f59e0b;
+}
+
+body.mapa-business-estacionamiento[data-parking-occupancy="critica"]
+  .parking-toolbar-occupancy i[data-parking-occupancy-bar] {
+  background: #ef4444;
+}
+
+/* ── Botones de filtro ──────────────────────────────────────── */
+
+.parking-toolbar-filters {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.parking-toolbar-filters button {
+  padding: 5px 12px;
+  border-radius: 9999px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: #64748b;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  line-height: 1.4;
+}
+
+.parking-toolbar-filters button:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.parking-toolbar-filters button.is-active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(59, 130, 246, 0.35);
+}
+
+/* ── Botones de acción (inventario, editor, refresh) ─────── */
+
+.parking-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.parking-toolbar-actions button {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.parking-toolbar-actions button:hover {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.parking-toolbar-actions .material-icons {
+  font-size: 17px;
+  line-height: 1;
+}
+
+/* ── Estado de cajones (aplicado por updateEstacionamientoKpis) ─ */
+
+.parking-slot {
+  transition: opacity 0.25s ease;
+}
+
+.spot.parking-occupied {
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+.spot.parking-free {
+  border-color: rgba(16, 185, 129, 0.25);
+}
+
+.spot.parking-reserved {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.spot.parking-blocked {
+  border-color: rgba(100, 116, 139, 0.3);
+  opacity: 0.55;
+}
+
+/* ── Filtros de visibilidad ─────────────────────────────────── */
+
+body.mapa-business-estacionamiento[data-parking-filter="ocupados"] .spot:not(.parking-occupied) {
+  opacity: 0.15;
+}
+
+body.mapa-business-estacionamiento[data-parking-filter="libres"] .spot:not(.parking-free) {
+  opacity: 0.15;
+}
+
+body.mapa-business-estacionamiento[data-parking-filter="reservados"] .spot:not(.parking-reserved) {
+  opacity: 0.15;
+}
+
+body.mapa-business-estacionamiento[data-parking-filter="bloqueados"] .spot:not(.parking-blocked) {
+  opacity: 0.15;
+}
+
+body.mapa-business-estacionamiento[data-parking-filter="sin-cajon"] .map-grid {
+  opacity: 0.25;
+}
+
+/* ── Decoración de unidades por estado de parking ─────────── */
+
+.parking-unit--reservado {
+  outline: 2px solid rgba(245, 158, 11, 0.7) !important;
+  outline-offset: 2px;
+}
+
+.parking-unit--incidencia {
+  outline: 2px solid rgba(239, 68, 68, 0.7) !important;
+  outline-offset: 2px;
+}
+
+.parking-unit--servicio {
+  outline: 2px solid rgba(148, 163, 184, 0.5) !important;
+  outline-offset: 2px;
+  filter: brightness(0.85);
+}
+
+.parking-unit--bloqueado {
+  opacity: 0.55 !important;
+  filter: grayscale(0.6);
+}
+
+/* ── Área no-cajón (caminos, etiquetas de zona) ──────────── */
+
+.parking-area {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+/* ── Responsive: mobile ─────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .parking-map-toolbar {
+    padding: 8px 12px;
+    row-gap: 6px;
+    border-radius: 8px;
+  }
+
+  .parking-toolbar-main {
+    min-width: unset;
+    flex: 1;
+  }
+
+  .parking-toolbar-occupancy {
+    min-width: unset;
+    flex: 1;
+  }
+
+  .parking-toolbar-filters {
+    width: 100%;
+    flex: unset;
+    order: 3;
+  }
+
+  .parking-toolbar-actions {
+    margin-left: 0;
+  }
+
+  .parking-toolbar-filters button {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+}

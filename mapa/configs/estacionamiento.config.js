@@ -5,6 +5,31 @@
 export default {
   tipoNegocio: 'estacionamiento',
   label: 'Estacionamiento',
+  descripcion: 'Operacion centrada en cajones: entradas, salidas, reservas y movimientos desde el mapa.',
+
+  dataScope: {
+    tenant: 'empresaId',
+    plaza: 'plaza',
+    estructura: 'mapa_config/{empresaId}__{PLAZA}/estructura',
+    unidades: ['cuadre', 'externos']
+  },
+
+  mapa: {
+    mode: 'parking',
+    route: '/app/mapa',
+    primaryEntity: 'cajon',
+    unitQueryParam: 'query',
+    movementSource: 'parking_map',
+    defaultLayoutProvider: 'buildEstacionamientoDefaultStructure',
+    kpis: ['cajones', 'ocupados', 'libres', 'reservados', 'bloqueados', 'sin_cajon'],
+    supports: {
+      dragDrop: true,
+      swap: true,
+      filters: true,
+      multiPlaza: true,
+      plazaScopedLayout: true
+    }
+  },
 
   features: [
     '/mapa/features/estacionamiento/grid.js',
