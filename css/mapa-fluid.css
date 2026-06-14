@@ -1,0 +1,366 @@
+/* ============================================================
+   css/mapa-fluid.css  — Capa de fluidez del mapa
+   Apple-level micro-interactions, GPU hints, spring physics.
+   Importado al final de global.css — sobreescribe sin !important
+   salvo donde se documenta.
+   ============================================================ */
+
+/* ── 1. GPU COMPOSITING ──────────────────────────────────── */
+
+/* Habilitar compositing de GPU para los elementos más animados */
+.car {
+  will-change: transform;
+  /* translateZ fuerza su propio layer de composición */
+  transform: translateZ(0);
+  /* Transición suave de sombra y transform en todos los estados */
+  transition:
+    box-shadow     0.22s cubic-bezier(0.4, 0, 0.2, 1),
+    transform      0.18s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity        0.2s  ease,
+    outline        0.14s ease,
+    outline-offset 0.14s ease;
+}
+
+#map-zoom-container {
+  will-change: transform;
+}
+
+.map-grid {
+  /* Aislar el layout del grid del resto del DOM */
+  contain: layout style;
+}
+
+/* ── 2. CAR HOVER — más profundidad, efecto levitación ─── */
+
+.car:hover {
+  transform: translateY(-5px) scale(1.03) translateZ(0);
+  box-shadow:
+    0 20px 40px -6px rgba(0, 0, 0, 0.7),
+    0 4px 10px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+}
+
+/* ── 3. CAR SELECTED — spring suave al seleccionar ──────── */
+
+.car.selected {
+  transform: scale(1.08) translateZ(0) !important;
+  transition:
+    transform      0.24s cubic-bezier(0.16, 1, 0.3, 1),
+    outline        0.14s ease,
+    outline-offset 0.14s ease,
+    box-shadow     0.22s ease;
+}
+
+/* ── 4. STATE-CHANGE FLASH — clase añadida por JS ─────── */
+
+@keyframes carStateFlash {
+  0%   { filter: brightness(1); }
+  25%  { filter: brightness(1.55) saturate(1.3); }
+  55%  { filter: brightness(0.88); }
+  100% { filter: brightness(1); }
+}
+
+.car.car-state-changed {
+  animation: carStateFlash 0.42s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── 5. KPI FLASH — clase añadida por JS cuando cambia valor */
+
+@keyframes kpiFlip {
+  0%   { transform: scale(1)    translateY(0);     opacity: 1; }
+  30%  { transform: scale(1.22) translateY(-3px);  opacity: 1; }
+  65%  { transform: scale(0.92) translateY(1px);   opacity: 1; }
+  100% { transform: scale(1)    translateY(0);     opacity: 1; }
+}
+
+.kpi-value.kpi-flash {
+  animation: kpiFlip 0.40s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Pequeño color hint según tipo de KPI */
+#kpi-listos.kpi-flash  { color: #34d399; }
+#kpi-sucios.kpi-flash  { color: #fbbf24; }
+#kpi-manto.kpi-flash   { color: #f87171; }
+
+/* ── 6. SPOT HOVER — profundidad y glow ─────────────────── */
+
+.spot {
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+/* Cajones vacíos: sutil brillo al hacer hover */
+.spot:not(:has(.car)):hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.12);
+}
+
+/* ── 7. BUTTON PRESS PHYSICS ─────────────────────────────── */
+
+/* Todo botón se "hunde" 96% al presionar — feedback táctil */
+button:not([disabled]):active,
+.map-shell-header-btn:active,
+.chip:active,
+.parking-toolbar-filters button:active,
+.sidebar-opts-btn:active {
+  transform: scale(0.94) !important;
+  transition: transform 0.06s ease !important;
+}
+
+/* Botones dentro de modales */
+.mex-dlg-btn:active:not([disabled]),
+.modal-btn:active,
+.incv2-btn-new:active {
+  transform: scale(0.93) !important;
+  transition: transform 0.06s ease !important;
+}
+
+/* ── 8. SEARCH FOCUS — iOS spring ring ──────────────────── */
+
+#searchInput:focus,
+.map-shell-topbar .search-wrapper #searchInput:focus {
+  outline: none !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  box-shadow:
+    0 0 0 3px rgba(59, 130, 246, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  background: #ffffff !important;
+  transform: none !important;
+}
+
+/* ── 9. FLEET MODAL ENTRANCE ─────────────────────────────── */
+
+@keyframes fleetModalIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.fleet-modal.active {
+  animation: fleetModalIn 0.32s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Encabezado del modal — desliza desde arriba */
+@keyframes modalHeaderIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.fleet-modal.active .fleet-header-top {
+  animation: modalHeaderIn 0.28s 0.04s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── 10. MODAL BOX SPRING (customModal, reserveModal) ────── */
+
+@keyframes modalBoxIn {
+  from {
+    opacity: 0;
+    transform: scale(0.86) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-overlay.active .modal-box {
+  animation: modalBoxIn 0.30s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── 11. TOAST REFINAMIENTO ──────────────────────────────── */
+
+/* Mejorar la pildora de toast con blur */
+.toast {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Toast de warning */
+.toast.warning .material-icons {
+  color: #fbbf24;
+}
+
+/* ── 12. KPI CONTAINER — brillo al hover ────────────────── */
+
+.kpi-container {
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+}
+
+.kpi-container:hover {
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+.kpi-item {
+  cursor: default;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.kpi-item:hover {
+  transform: translateY(-2px);
+}
+
+/* ── 13. MAP GRID ENTRANCE — cuando se redibuja completo ─── */
+
+@keyframes gridIn {
+  from { opacity: 0; transform: scale(0.985) translateZ(0); }
+  to   { opacity: 1; transform: scale(1)     translateZ(0); }
+}
+
+.map-grid.grid-entering {
+  animation: gridIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── 14. SCROLLBAR MODERNA — .content ────────────────────── */
+
+.content::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.content::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 9999px;
+}
+
+.content::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+}
+
+/* Sidebar de unidades */
+.units-sidebar-scroll::-webkit-scrollbar,
+.units-sidebar > div:last-child::-webkit-scrollbar {
+  width: 4px;
+}
+
+.units-sidebar-scroll::-webkit-scrollbar-thumb,
+.units-sidebar > div:last-child::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.2);
+  border-radius: 9999px;
+}
+
+/* ── 15. TOPBAR BUTTON ACTIVO — resaltado ────────────────── */
+
+.map-shell-header-btn:active {
+  transform: scale(0.88) translateY(0) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.1) !important;
+}
+
+/* ── 16. ZOOM CONTAINER — transición más suave ───────────── */
+
+#map-zoom-container {
+  transition: transform 0.12s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* ── 17. DRAG SOURCE — car siendo arrastrado ─────────────── */
+
+/* El car que está siendo arrastrado (HTML5 DnD) pierde levitación */
+.car[draggable="true"]:active {
+  opacity: 0.5;
+  transform: scale(0.95) translateZ(0);
+}
+
+/* ── 18. DROP TARGET PULSE ───────────────────────────────── */
+
+@keyframes dropTargetPulse {
+  0%   { box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.6); }
+  50%  { box-shadow: 0 0 0 6px rgba(96, 165, 250, 0.2); }
+  100% { box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.6); }
+}
+
+.map-drop-target-empty {
+  animation: dropTargetPulse 0.9s ease-in-out infinite;
+}
+
+/* ── 19. FORGOTTEN (unidad no encontrada) — más urgente ──── */
+
+.car.forgotten {
+  animation: pulseRed 1.4s ease-in-out infinite !important;
+}
+
+/* ── 20. CAR-FOCUS (resultado de búsqueda) ───────────────── */
+
+.car-focus {
+  z-index: 9999 !important;
+  outline: 3px solid #38bdf8 !important;
+  outline-offset: 3px;
+  animation: carFocusPulse 1.1s cubic-bezier(0.16, 1, 0.3, 1) infinite !important;
+}
+
+@keyframes carFocusPulse {
+  0%   { outline-color: #38bdf8; box-shadow: 0 0 0  0px rgba(56, 189, 248, 0.5); }
+  40%  { outline-color: #7dd3fc; box-shadow: 0 0 0 10px rgba(56, 189, 248, 0);   }
+  100% { outline-color: #38bdf8; box-shadow: 0 0 0  0px rgba(56, 189, 248, 0);   }
+}
+
+/* ── 21. FOCUS RINGS GLOBALES — accesibilidad ────────────── */
+
+button:focus-visible,
+[tabindex="0"]:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* ── 22. SIDEBAR PANEL UNIDAD — spring más suave ─────────── */
+
+.info-sidebar {
+  transition: transform 0.38s cubic-bezier(0.16, 1, 0.3, 1),
+              opacity   0.28s ease !important;
+}
+
+.info-sidebar:not(.open) {
+  opacity: 0;
+}
+
+.info-sidebar.open {
+  opacity: 1;
+}
+
+/* ── 23. BANNER GLOBAL — más suave ──────────────────────── */
+
+#global-status-banner {
+  animation: bannerIn 0.38s cubic-bezier(0.16, 1, 0.3, 1) both !important;
+}
+
+@keyframes bannerIn {
+  from { transform: translateY(-100%); opacity: 0; }
+  to   { transform: translateY(0);     opacity: 1; }
+}
+
+/* ── 24. DARK THEME OVERRIDES ────────────────────────────── */
+
+body.dark-theme .spot:not(:has(.car)):hover {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+body.dark-theme .kpi-container:hover {
+  box-shadow: 0 20px 45px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.06);
+}
+
+/* ── 25. PREFERS-REDUCED-MOTION ──────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .car,
+  .spot,
+  .kpi-value,
+  .info-sidebar,
+  .fleet-modal,
+  .fleet-modal.active,
+  .map-grid,
+  #map-zoom-container {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
