@@ -276,6 +276,13 @@ export function syncEstacionamientoMode(options = {}) {
 
   if (!document.body.dataset.parkingFilter) document.body.dataset.parkingFilter = 'todos';
   applyEstacionamientoFilter();
+
+  // Inicializar sub-módulos de forma lazy (dynamic import para evitar circular)
+  Promise.all([
+    import('/mapa/features/estacionamiento/entrada-salida.js').then(m => m.initEntradaSalida()),
+    import('/mapa/features/estacionamiento/reservas.js').then(m => m.initReservas()),
+  ]).catch(() => {});
+
   return true;
 }
 

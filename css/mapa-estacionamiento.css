@@ -248,6 +248,323 @@ body.mapa-business-estacionamiento[data-parking-filter="sin-cajon"] .map-grid {
   pointer-events: none;
 }
 
+/* ── Badge de reserva en cajón vacío ─────────────────────── */
+
+.parking-reserva-badge {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.06);
+  border-radius: 4px;
+  padding: 4px;
+  text-align: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* ── Actividad lateral ──────────────────────────────────── */
+
+.parking-activity-item {
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.parking-activity-item strong {
+  display: block;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.parking-activity-item span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 11px;
+}
+
+/* ── Modales de entrada / salida / reserva ──────────────── */
+
+.parking-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(9, 13, 26, 0.65);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease;
+}
+
+.parking-modal-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.parking-modal-box {
+  width: min(480px, 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: var(--surface, #1e293b);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  transform: scale(0.97) translateY(10px);
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.parking-modal-overlay.is-open .parking-modal-box {
+  transform: scale(1) translateY(0);
+}
+
+.parking-modal-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  background: rgba(15, 23, 42, 0.6);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.parking-modal-head .material-icons {
+  font-size: 20px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+.parking-modal-head strong {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.parking-modal-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.parking-modal-close:hover {
+  background: rgba(148, 163, 184, 0.1);
+  color: #f1f5f9;
+}
+
+.parking-modal-close .material-icons {
+  font-size: 16px;
+}
+
+.parking-modal-body {
+  padding: 20px;
+}
+
+.parking-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.parking-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.parking-field--full {
+  grid-column: 1 / -1;
+}
+
+.parking-field span {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.parking-field input,
+.parking-field select,
+.parking-field textarea {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(15, 23, 42, 0.5);
+  color: #f1f5f9;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.parking-field input:focus,
+.parking-field select:focus,
+.parking-field textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+}
+
+.parking-field input[readonly] {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.parking-field textarea {
+  resize: vertical;
+  min-height: 60px;
+  line-height: 1.45;
+}
+
+.parking-field select option {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+.parking-salida-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.parking-salida-confirm-row .material-icons {
+  font-size: 16px;
+  color: #ef4444;
+  flex-shrink: 0;
+}
+
+.parking-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+/* ── Botones de modal ───────────────────────────────────── */
+
+.parking-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: filter 0.15s ease, transform 0.1s ease;
+  white-space: nowrap;
+}
+
+.parking-btn:active { transform: scale(0.96); }
+
+.parking-btn .material-icons { font-size: 16px; }
+
+.parking-btn--primary {
+  background: #3b82f6;
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
+}
+
+.parking-btn--primary:hover { filter: brightness(1.1); }
+
+.parking-btn--secondary {
+  background: rgba(148, 163, 184, 0.1);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.parking-btn--secondary:hover {
+  background: rgba(148, 163, 184, 0.16);
+  color: #f1f5f9;
+}
+
+.parking-btn--danger {
+  background: rgba(239, 68, 68, 0.14);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.parking-btn--danger:hover {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fff;
+}
+
+/* ── Menú contextual (right-click en cajón) ─────────────── */
+
+.parking-ctx-menu {
+  position: fixed;
+  z-index: 300;
+  min-width: 180px;
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: var(--surface, #1e293b);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  animation: ctxMenuIn 0.14s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ctxMenuIn {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.parking-ctx-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.parking-ctx-menu button:hover {
+  background: rgba(59, 130, 246, 0.1);
+  color: #f1f5f9;
+}
+
+.parking-ctx-menu button .material-icons {
+  font-size: 17px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
 /* ── Responsive: mobile ─────────────────────────────────── */
 
 @media (max-width: 768px) {
@@ -280,5 +597,17 @@ body.mapa-business-estacionamiento[data-parking-filter="sin-cajon"] .map-grid {
   .parking-toolbar-filters button {
     padding: 4px 10px;
     font-size: 11px;
+  }
+
+  .parking-modal-box {
+    border-radius: 12px;
+  }
+
+  .parking-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .parking-field--full {
+    grid-column: 1;
   }
 }
