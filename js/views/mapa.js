@@ -32,6 +32,14 @@ import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
+import {
+  decorateEstacionamientoSpot,
+  decorateEstacionamientoUnit,
+  esMapaEstacionamiento,
+  resolveEstacionamientoStructure,
+  syncEstacionamientoMode,
+  updateEstacionamientoKpis
+} from '/mapa/features/estacionamiento/grid.js';
 import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consumeShellSearch, ensureRouteShellLayout, queueShellSearch } from '/js/views/home.js';
 
 // ── Módulos extraídos (Fase 4) ────────────────────────────
@@ -225,6 +233,12 @@ function _aplicarColoresEstados() {
   styleTag.textContent = css;
 }
 
+function _syncMapaBusinessMode() {
+  const active = syncEstacionamientoMode({ plaza: _miPlaza?.() || window.__mexCurrentPlazaId || '' });
+  if (active) updateEstacionamientoKpis(document);
+  return active;
+}
+
 // _darken → /mapa/features/core/utils.js (Fase 4)
 
 async function inicializarConfiguracion() {
@@ -245,6 +259,7 @@ async function inicializarConfiguracion() {
       console.log("✅ Configuración Global Cargada:", window.MEX_CONFIG);
       aplicarVariablesDeEmpresa(window.MEX_CONFIG.empresa);
       _aplicarColoresEstados();
+      _syncMapaBusinessMode();
       if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
       if (typeof _renderPlazaSwitcher === 'function') _renderPlazaSwitcher();
       _syncEmpresaCorreosInternosState();
@@ -2237,14 +2252,31 @@ auth.onAuthStateChanged(async (user) => {
       // Force token refresh so Firestore security rules get the auth context immediately
       await user.getIdToken(true);
       let perfilValidado = null;
-      const cachedProfile = typeof window.__mexLoadCurrentUserRecord === 'function'
+
+      // ── Detectar si corremos dentro del App Shell (iframe) ──
+      // En ese caso NO hacer auth.signOut() global si el perfil no carga,
+      // porque firmaría a TODOS los iframes y rompería el shell.
+      const _enShellIframe = _qs('shell') === '1' || _qs('appStage') === '1';
+
+      let cachedProfile = typeof window.__mexLoadCurrentUserRecord === 'function'
         ? await window.__mexLoadCurrentUserRecord(user).catch(() => null)
         : null;
+
+      // Reintento único: el iframe tiene sessionStorage vacío; la primera lectura
+      // de Firestore puede fallar por timing. Esperamos 700 ms y refrescamos token.
+      if (!cachedProfile) {
+        await new Promise(r => setTimeout(r, 700));
+        await user.getIdToken(true);
+        cachedProfile = typeof window.__mexLoadCurrentUserRecord === 'function'
+          ? await window.__mexLoadCurrentUserRecord(user, { force: true }).catch(() => null)
+          : null;
+      }
+
       let docs = cachedProfile ? [cachedProfile] : [];
 
       if (!docs.length && user.uid) {
-        const uidSnap = await db.collection(COL.USERS).doc(user.uid).get();
-        if (uidSnap.exists) {
+        const uidSnap = await db.collection(COL.USERS).doc(user.uid).get().catch(() => null);
+        if (uidSnap?.exists) {
           docs = [{ id: uidSnap.id, email: emailNormalizado, ...uidSnap.data() }];
         }
       }
@@ -2289,9 +2321,13 @@ auth.onAuthStateChanged(async (user) => {
           perfilValidado = datosSinteticos;
         }
       } else {
-        // Email no autorizado — redirigir a login con mensaje
-        auth.signOut();
+        // Email no autorizado — redirigir a login con mensaje.
+        // NUNCA llamar auth.signOut() dentro del shell iframe: firmaría
+        // a todos los iframes y destruiría la sesión del usuario.
         sessionStorage.setItem('login_error', `❌ El correo ${user.email} no tiene permisos en el sistema.`);
+        if (!_enShellIframe) {
+          auth.signOut();
+        }
         window.location.replace('/login');
         return;
       }
@@ -2356,10 +2392,14 @@ auth.onAuthStateChanged(async (user) => {
     // iniciarApp fuera del try/catch: errores de UI no deben redirigir a /login
     iniciarApp(true);
   } else {
-    // Sin sesión — redirigir a /login
-    _detenerPresenciaUsuario(false);
-    _clearSessionProfile();
-    window.location.replace('/login');
+    // Sin sesión — redirigir a /login.
+    // En el shell iframe esta condición puede ocurrir en el tick inicial de Firebase
+    // antes de que resuelva la sesión almacenada. No actuar si estamos en shell.
+    if (!(_qs('shell') === '1' || _qs('appStage') === '1')) {
+      _detenerPresenciaUsuario(false);
+      _clearSessionProfile();
+      window.location.replace('/login');
+    }
   }
 });
 
@@ -3599,6 +3639,7 @@ function _bindGlobalShortcuts() {
 }
 
 function init() {
+  _syncMapaBusinessMode();
   startAutoRefresh();
   updateZoom();
   _ajustarViewportMapa();
@@ -3618,6 +3659,7 @@ function startAutoRefresh() {
   // Siempre usar window.api fresco — el const api puede ser snapshot anterior al assemble
   const _api = window.api || api;
   const plazaActiva = _miPlaza();
+  _syncMapaBusinessMode();
   const cacheState = _resolveMapCachePresence(plazaActiva);
 
   // Guard: no reiniciar si ya tenemos suscripciones activas para esta misma plaza
@@ -3681,6 +3723,7 @@ function cambiarPlazaMapa(plaza) {
   console.log('[MEX-INTEG] cambiarPlazaMapa →', { de: PLAZA_ACTIVA_MAPA || '(sin plaza)', a: normalizedPlaza });
   PLAZA_ACTIVA_MAPA = normalizedPlaza;
   _rememberActivePlaza(PLAZA_ACTIVA_MAPA);
+  _syncMapaBusinessMode();
   _updateGlobalPlazaEmail();
   _mapaRuntime.estructuraReady = false;
   _mapaRuntime.unidadesReady = false;
@@ -3805,8 +3848,9 @@ function _ajustarViewportMapa() {
   }
 
   const isMobile = window.innerWidth <= 768;
+  const parkingMode = esMapaEstacionamiento();
   const outerPad = isMobile ? 14 : Math.max(16, Math.min(36, Math.round(window.innerWidth * 0.022)));
-  const topMargin = isMobile ? 14 : 82;
+  const topMargin = isMobile ? (parkingMode ? 126 : 14) : (parkingMode ? 148 : 82);
   container.style.setProperty('--map-outer-pad', `${outerPad}px`);
   stage.style.marginTop = `${topMargin}px`;
 
@@ -4143,7 +4187,8 @@ function _normalizarEstructuraMapa(estructura = [], opciones = {}) {
         isTemporaryHolding: base.isTemporaryHolding,
         priority: base.priority,
         googleMapsUrl: base.googleMapsUrl,
-        pathType: base.pathType
+        pathType: base.pathType,
+        metadata: base.metadata
       };
     })
     .sort((a, b) => a.orden - b.orden);
@@ -4192,10 +4237,12 @@ function dibujarMapaCompleto(estructura = null) {
       .catch(e => { console.error('[MEX-INTEG] dibujarMapaCompleto fetch error:', e); captureError(e, { context: 'dibujarMapaCompleto' }); });
   }
 
-  _ultimaEstructuraMapa = estructura;
-  _persistMapStructureCache(estructura, _miPlaza());
-  _rebuildCurrentMapViewModel(_ultimaFlotaMapa, estructura);
-  const normalizada = _normalizarEstructuraMapa(estructura);
+  const estructuraOperativa = resolveEstacionamientoStructure(estructura);
+  _ultimaEstructuraMapa = estructuraOperativa;
+  _persistMapStructureCache(estructuraOperativa, _miPlaza());
+  _syncMapaBusinessMode();
+  _rebuildCurrentMapViewModel(_ultimaFlotaMapa, estructuraOperativa);
+  const normalizada = _normalizarEstructuraMapa(estructuraOperativa);
 
   if (normalizada.signature === _mapaRuntime.estructuraSig && grid.children.length) {
     _ajustarViewportMapa();
@@ -4242,6 +4289,7 @@ function dibujarMapaCompleto(estructura = null) {
     if (celda.rotation) div.style.transform = `rotate(${celda.rotation}deg)`; // [F2]
     if (celda.tipo === 'cajon') div.innerHTML = `<label>${celda.valor}</label>`;
     else div.innerHTML = `<span>${celda.valor}</span>`;
+    decorateEstacionamientoSpot(div, celda);
     fragment.appendChild(div);
   });
   grid.appendChild(fragment);
@@ -4385,6 +4433,7 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   const sidebarBody = `<div class="car-sidebar-body"><div class="car-sb-main"><span class="car-sb-mva">${unitVm.mva}</span><span class="car-sb-badge car-sb-badge--${estadoClase}">${estadoSidebar}</span></div>${metaSide}</div>`;
   car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}<div class="car-map-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;"><span style="font-size:19px;flex:1;display:flex;align-items:center;">${unitVm.mva}</span>${gasBarHtml}</div>${sidebarBody}`;
   car.className = `car ${estadoClase}`;
+  decorateEstacionamientoUnit(car, unitVm);
   if (esGhost) car.classList.add('ghost');
   if (esForgotten) car.classList.add('forgotten');
   if (esSelected) car.classList.add('selected');
@@ -5277,6 +5326,8 @@ function closeMainSidebars() {
 }
 
 function actualizarContadores() {
+  if (updateEstacionamientoKpis(document)) return;
+
   // 1. Contadores del sidebar izquierdo (Limbo)
   const limbo = document.getElementById('unidades-limbo');
   const taller = document.getElementById('unidades-taller');
@@ -15723,7 +15774,8 @@ function abrirEditorMapa(plazaOverride) {
     document.getElementById('editor-loading').style.display = 'none';
     document.getElementById('editor-grid-wrapper').style.display = 'block';
     // [F2] Normalizar al formato absoluto (también acepta legado grid)
-    const normalizada = _normalizarEstructuraMapa(estructura, { aplicarAireRender: false });
+    const estructuraEditor = resolveEstacionamientoStructure(estructura);
+    const normalizada = _normalizarEstructuraMapa(estructuraEditor, { aplicarAireRender: false });
     _edCeldas = normalizada.items.map((c, i) => ({
       id: 'ec_' + i + '_' + Math.random().toString(36).substr(2, 5),
       valor: c.valor,

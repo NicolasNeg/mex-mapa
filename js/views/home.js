@@ -1430,9 +1430,18 @@ async function renderBoot() {
     </div>
   `;
 
-  const firebaseUser = auth.currentUser;
+  let firebaseUser = auth.currentUser;
+  // En el shell iframe auth.currentUser puede ser null en el primer tick
+  // mientras Firebase resuelve la sesión almacenada. Reintentamos brevemente.
   if (!firebaseUser) {
-    window.location.replace('/login');
+    await new Promise(r => setTimeout(r, 500));
+    firebaseUser = auth.currentUser;
+  }
+  if (!firebaseUser) {
+    const inShell = (() => {
+      try { const p = new URLSearchParams(window.location.search); return p.get('shell') === '1' || p.get('appStage') === '1'; } catch (_) { return false; }
+    })();
+    if (!inShell) window.location.replace('/login');
     return;
   }
 
@@ -1472,14 +1481,25 @@ async function renderBoot() {
 }
 
 if ((window.location.pathname || '').replace(/\/+$/, '') === '/home') {
+  const _homeInShell = (() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      return p.get('shell') === '1' || p.get('appStage') === '1';
+    } catch (_) { return false; }
+  })();
+
   auth.onAuthStateChanged(user => {
     if (!user) {
-      window.location.replace('/login');
+      // Dentro del App Shell iframe NO redirigir: podría ser un estado transitorio
+      // mientras Firebase inicializa. El shell ya verificó la sesión en main.js.
+      if (!_homeInShell) {
+        window.location.replace('/login');
+      }
       return;
     }
     // Solicitar/activar ubicación desde el dashboard (primera vista tras login).
     // Si ya está concedido arranca el watch silenciosamente; si no, muestra el overlay.
-    if (typeof window.__mexRequireLocationAccess === 'function') {
+    if (typeof window.__mexRequireLocationAccess === 'function' && !_homeInShell) {
       window.__mexRequireLocationAccess({
         title: 'Ubicación necesaria para operar',
         copy: 'Activa tu ubicación para dejar trazabilidad en movimientos y acciones administrativas.',
