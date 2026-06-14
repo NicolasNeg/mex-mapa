@@ -15,6 +15,47 @@
     return ctx.id || '';
   }
 
+  function _mapaConfigDocId(plaza) {
+    const p = _normalizePlazaId(plaza);
+    const eid = _eid();
+    return eid && p ? `${eid}__${p}` : p;
+  }
+
+  function _mapaEstructuraRef(plaza) {
+    return db.collection('mapa_config').doc(_mapaConfigDocId(plaza)).collection('estructura');
+  }
+
+  function _legacyMapaEstructuraRef(plaza) {
+    return db.collection('mapa_config').doc(_normalizePlazaId(plaza)).collection('estructura');
+  }
+
+  function _esEstructuraDefaultMinima(rows) {
+    if (!Array.isArray(rows) || rows.length !== 1) return false;
+    const row = rows[0] || {};
+    return String(row.valor || '').toUpperCase() === 'A1'
+      && String(row.tipo || 'cajon') === 'cajon'
+      && Number(row.x || 0) === 0
+      && Number(row.y || 0) === 0;
+  }
+
+  async function _leerEstructuraPlaza(plaza) {
+    const p = _normalizePlazaId(plaza);
+    const docId = _mapaConfigDocId(p);
+    const snap = await db.collection('mapa_config').doc(docId).collection('estructura').orderBy('orden').get();
+    const scopedRows = !snap.empty ? snap.docs.map(d => d.data()) : [];
+
+    if (docId !== p) {
+      const legacySnap = await _legacyMapaEstructuraRef(p).orderBy('orden').get();
+      if (!legacySnap.empty) {
+        const legacyRows = legacySnap.docs.map(d => d.data());
+        if (scopedRows.length === 0 || _esEstructuraDefaultMinima(scopedRows)) return legacyRows;
+      }
+    }
+
+    if (scopedRows.length > 0) return scopedRows;
+    return _generarEstructuraPorDefecto();
+  }
+
   window._mexParts = window._mexParts || {};
   window._mexParts.mapa = {
 
@@ -159,9 +200,7 @@
       const p = _normalizePlazaId(plaza);
       if (p) {
         await _ensurePlazaBootstrap(p);
-        const snap = await db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden').get();
-        if (!snap.empty) return snap.docs.map(d => d.data());
-        return _generarEstructuraPorDefecto();
+        return _leerEstructuraPlaza(p);
       }
       const legSnap = await db.collection(COL.MAPA_CFG).orderBy('orden').get();
       const legDocs = legSnap.docs.filter(d => d.id.startsWith('cel_'));
@@ -173,9 +212,26 @@
       const p = _normalizePlazaId(plaza);
       if (p) {
         _ensurePlazaBootstrap(p).catch(err => console.warn("No se pudo bootstrapear la plaza:", p, err));
-        return db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden')
+        return _mapaEstructuraRef(p).orderBy('orden')
           .onSnapshot(snap => {
-            callback(!snap.empty ? snap.docs.map(d => d.data()) : _generarEstructuraPorDefecto());
+            if (_mapaConfigDocId(p) !== p) {
+              const scopedRows = !snap.empty ? snap.docs.map(d => d.data()) : [];
+              _legacyMapaEstructuraRef(p).orderBy('orden').get()
+                .then(legacySnap => {
+                  if (!legacySnap.empty && (scopedRows.length === 0 || _esEstructuraDefaultMinima(scopedRows))) {
+                    callback(legacySnap.docs.map(d => d.data()));
+                    return;
+                  }
+                  callback(scopedRows.length > 0 ? scopedRows : _generarEstructuraPorDefecto());
+                })
+                .catch(() => callback(scopedRows.length > 0 ? scopedRows : _generarEstructuraPorDefecto()));
+              return;
+            }
+            if (!snap.empty) {
+              callback(snap.docs.map(d => d.data()));
+              return;
+            }
+            callback(_generarEstructuraPorDefecto());
           }, err => console.error('onSnapshot mapa_cfg:', err));
       }
       return db.collection(COL.MAPA_CFG).orderBy('orden').onSnapshot(snap => {
@@ -188,14 +244,19 @@
       const p = _normalizePlazaId(plaza);
       if (!p) return {};
       await _ensurePlazaBootstrap(p);
-      const snap = await db.collection('mapa_config').doc(p).get();
+      const docId = _mapaConfigDocId(p);
+      const snap = await db.collection('mapa_config').doc(docId).get();
+      if (!snap.exists && docId !== p) {
+        const legacySnap = await db.collection('mapa_config').doc(p).get();
+        return legacySnap.exists ? legacySnap.data() : {};
+      }
       return snap.exists ? snap.data() : {};
     },
 
     async guardarEstructuraMapa(elementos, plaza, options = {}) {
       if (!plaza) throw new Error('Plaza requerida para guardar estructura del mapa');
       const p = plaza.toUpperCase().trim();
-      const ref = db.collection('mapa_config').doc(p).collection('estructura');
+      const ref = _mapaEstructuraRef(p);
       const snap = await ref.get();
       if (!snap.empty) {
         const batch = db.batch();
@@ -250,8 +311,13 @@
         await batch.commit();
       }
       const extras = options?.mapEditorExtras;
+      await db.collection('mapa_config').doc(_mapaConfigDocId(p)).set({
+        empresaId: _eid() || null,
+        plaza: p,
+        _updatedAt: Date.now()
+      }, { merge: true });
       if (extras && typeof extras === 'object' && Object.keys(extras).length) {
-        await db.collection('mapa_config').doc(p).set({ mapEditorExtras: extras }, { merge: true });
+        await db.collection('mapa_config').doc(_mapaConfigDocId(p)).set({ mapEditorExtras: extras }, { merge: true });
       }
       await _registrarLog('SISTEMA', `🗺️ Estructura del mapa (${p}) actualizada`, 'Sistema', p);
       return 'OK';
@@ -265,12 +331,11 @@
       if (pO === pD) throw new Error('El origen y destino no pueden ser la misma plaza');
 
       // Leer estructura origen
-      const snapOrigen = await db.collection('mapa_config').doc(pO).collection('estructura').orderBy('orden').get();
-      if (snapOrigen.empty) throw new Error(`La plaza ${pO} no tiene estructura guardada`);
-      const elementos = snapOrigen.docs.map(d => d.data());
+      const elementos = await _leerEstructuraPlaza(pO);
+      if (!elementos.length) throw new Error(`La plaza ${pO} no tiene estructura guardada`);
 
       // Borrar destino existente
-      const refDest = db.collection('mapa_config').doc(pD).collection('estructura');
+      const refDest = _mapaEstructuraRef(pD);
       const snapDest = await refDest.get();
       if (!snapDest.empty) {
         const delBatch = db.batch();
