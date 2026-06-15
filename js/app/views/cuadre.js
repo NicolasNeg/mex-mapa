@@ -54,6 +54,7 @@ function _fresh(plaza) {
     saving:          false,
     saveMsg:         null,
     dropdown:        false,
+    kpiCollapsed:    (() => { try { return localStorage.getItem('mex.cuadre.kpi.collapsed') === '1'; } catch(_) { return false; } })(),
     modal:           null,
     modalData:       null,
     extForm:         { mva: '', modelo: '', placas: '' },
@@ -397,23 +398,30 @@ function _badgeUbi(v) {
 function _renderKpis() {
   if (_s.loading) return '';
   const k = _kpis();
+  const c = _s.kpiCollapsed;
   return `
-    <div class="cqv-kpi-row">
-      <div class="cqv-kpi-card">
-        <div class="cqv-kpi-num">${k.total}</div>
-        <div class="cqv-kpi-lbl">Total</div>
-      </div>
-      <div class="cqv-kpi-card cqv-kpi-card--green">
-        <div class="cqv-kpi-num">${k.listos}</div>
-        <div class="cqv-kpi-lbl">Listos</div>
-      </div>
-      <div class="cqv-kpi-card cqv-kpi-card--purple">
-        <div class="cqv-kpi-num">${k.externos}</div>
-        <div class="cqv-kpi-lbl">Externos</div>
-      </div>
-      <div class="cqv-kpi-card cqv-kpi-card--gray">
-        <div class="cqv-kpi-num">${k.resguardo}</div>
-        <div class="cqv-kpi-lbl">Resguardo</div>
+    <div class="cqv-kpi-wrap${c ? ' cqv-kpi-wrap--collapsed' : ''}">
+      <button class="cqv-kpi-toggle" data-action="toggle-kpi" title="Mostrar/ocultar estadísticas">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="cqv-kpi-chevron"><polyline points="18 15 12 9 6 15"/></svg>
+        <span>${c ? 'KPIs' : 'OCULTAR'}</span>
+      </button>
+      <div class="cqv-kpi-row">
+        <div class="cqv-kpi-card">
+          <div class="cqv-kpi-num">${k.total}</div>
+          <div class="cqv-kpi-lbl">Total</div>
+        </div>
+        <div class="cqv-kpi-card cqv-kpi-card--green">
+          <div class="cqv-kpi-num">${k.listos}</div>
+          <div class="cqv-kpi-lbl">Listos</div>
+        </div>
+        <div class="cqv-kpi-card cqv-kpi-card--purple">
+          <div class="cqv-kpi-num">${k.externos}</div>
+          <div class="cqv-kpi-lbl">Externos</div>
+        </div>
+        <div class="cqv-kpi-card cqv-kpi-card--gray">
+          <div class="cqv-kpi-num">${k.resguardo}</div>
+          <div class="cqv-kpi-lbl">Resguardo</div>
+        </div>
       </div>
     </div>`;
 }
@@ -1198,6 +1206,14 @@ function _bind() {
     _s.autofillQ = ''; _s.autofillRes = [];
     _s.saveMsg   = null;
     _renderPanelInPlace();
+  });
+
+  // KPI toggle
+  el.querySelector('[data-action="toggle-kpi"]')?.addEventListener('click', e => {
+    e.stopPropagation();
+    _s.kpiCollapsed = !_s.kpiCollapsed;
+    try { localStorage.setItem('mex.cuadre.kpi.collapsed', _s.kpiCollapsed ? '1' : '0'); } catch(_) {}
+    _render();
   });
 
   // Dropdown

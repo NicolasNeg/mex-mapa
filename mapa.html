@@ -1511,34 +1511,59 @@
   <div id="overlay" class="overlay" onclick="closeMainSidebars()"></div>
 
   <div class="content">
-    <div class="kpi-container">
-      <div class="kpi-item">
-        <span class="kpi-value" id="kpi-total">0</span>
-        <span class="kpi-label">TOTALES</span>
-      </div>
-      <div class="kpi-divider"></div>
-      <div class="kpi-item">
-        <span class="kpi-value text-green" id="kpi-listos">0</span>
-        <span class="kpi-label">LISTOS</span>
-      </div>
-      <div class="kpi-item">
-        <span class="kpi-value text-yellow" id="kpi-sucios">0</span>
-        <span class="kpi-label">SUCIOS</span>
-      </div>
-      <div class="kpi-item">
-        <span class="kpi-value text-red" id="kpi-manto">0</span>
-        <span class="kpi-label">MANTENIMIENTO</span>
-      </div>
-      <div class="kpi-divider"></div>
-      <div class="kpi-item">
-        <span class="kpi-value text-blue" id="kpi-patio">0</span>
-        <span class="kpi-label">EN PATIO</span>
-      </div>
-      <div class="kpi-item">
-        <span class="kpi-value text-orange" id="kpi-taller-loc">0</span>
-        <span class="kpi-label">EN TALLER</span>
+    <div class="kpi-container" id="kpiPanel">
+      <button class="kpi-toggle-btn" id="kpiToggleBtn" title="Mostrar/ocultar estadísticas">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" id="kpiChevron"><polyline points="18 15 12 9 6 15"/></svg>
+        <span id="kpiToggleLabel">ESTADÍSTICAS</span>
+      </button>
+      <div class="kpi-items-wrap" id="kpiItemsWrap">
+        <div class="kpi-item">
+          <span class="kpi-value" id="kpi-total">0</span>
+          <span class="kpi-label">TOTALES</span>
+        </div>
+        <div class="kpi-divider"></div>
+        <div class="kpi-item">
+          <span class="kpi-value text-green" id="kpi-listos">0</span>
+          <span class="kpi-label">LISTOS</span>
+        </div>
+        <div class="kpi-item">
+          <span class="kpi-value text-yellow" id="kpi-sucios">0</span>
+          <span class="kpi-label">SUCIOS</span>
+        </div>
+        <div class="kpi-item">
+          <span class="kpi-value text-red" id="kpi-manto">0</span>
+          <span class="kpi-label">MANTENIMIENTO</span>
+        </div>
+        <div class="kpi-divider"></div>
+        <div class="kpi-item">
+          <span class="kpi-value text-blue" id="kpi-patio">0</span>
+          <span class="kpi-label">EN PATIO</span>
+        </div>
+        <div class="kpi-item">
+          <span class="kpi-value text-orange" id="kpi-taller-loc">0</span>
+          <span class="kpi-label">EN TALLER</span>
+        </div>
       </div>
     </div>
+    <script>
+      (function() {
+        var panel = document.getElementById('kpiPanel');
+        var btn   = document.getElementById('kpiToggleBtn');
+        var label = document.getElementById('kpiToggleLabel');
+        var chev  = document.getElementById('kpiChevron');
+        var KEY   = 'mex.kpi.collapsed';
+        function applyKpi(collapsed) {
+          panel.classList.toggle('is-collapsed', collapsed);
+          label.textContent = collapsed ? 'ESTADÍSTICAS' : 'OCULTAR';
+          chev.style.transform = collapsed ? 'rotate(180deg)' : '';
+          try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch(_) {}
+        }
+        try { if (localStorage.getItem(KEY) === '1') applyKpi(true); } catch(_) {}
+        btn.addEventListener('click', function() {
+          applyKpi(!panel.classList.contains('is-collapsed'));
+        });
+      })();
+    </script>
 
     <!-- [F3.3] Panel KPI de supervisión (multi-plaza) -->
     <div id="panel-supervision" style="display:none;"></div>
@@ -1556,7 +1581,7 @@
           <span class="material-icons" style="font-size:22px;pointer-events:none">settings</span>
         </button>
         <div id="controlesMenu"
-          style="display:none;position:absolute;right:0;bottom:calc(100% + 10px);background:#ffffff;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:230px;padding:8px;z-index:9999;border:1px solid #e5e7eb;animation:dd-in .15s ease both">
+          style="display:none;position:absolute;left:0;bottom:calc(100% + 10px);background:#ffffff;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:230px;padding:8px;z-index:9999;border:1px solid #e5e7eb;animation:dd-in .15s ease both">
           <div style="padding:6px 12px 6px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#6b7280;text-transform:uppercase">CONTROLES</div>
 
           <!-- Mapa de calor -->

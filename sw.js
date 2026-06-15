@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v431';
+const CACHE_NAME = 'mapa-v433';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -249,27 +249,29 @@ self.addEventListener('activate', event => {
   );
 });
 
+// ── Helpers de estrategia ────────────────────────────────────
+function _cacheAndReturn(request, response) {
+  if (response && response.status === 200 && response.type !== 'opaque') {
+    const toCache = response.clone();
+    caches.open(CACHE_NAME).then(cache => cache.put(request, toCache));
+  }
+  return response;
+}
+
 // ── Fetch: estrategia por tipo de recurso ───────────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
   const sameOrigin = url.origin === self.location.origin;
-  const isDocumentRequest =
-    event.request.mode === 'navigate' ||
-    event.request.destination === 'document';
-  const isAppShellRequest =
-    sameOrigin && (
-      isDocumentRequest ||
-      event.request.destination === 'script' ||
-      event.request.destination === 'style' ||
-      event.request.destination === 'manifest'
-    );
+  const dest = event.request.destination;
+  const isDocumentRequest = event.request.mode === 'navigate' || dest === 'document';
+  const isStaticAsset = sameOrigin && (dest === 'script' || dest === 'style');
 
   // Nunca interceptar scripts de Service Worker
   if (sameOrigin && (url.pathname === '/sw.js' || url.pathname === '/firebase-messaging-sw.js')) {
     return;
   }
 
-  // Siempre ir a la red para Firebase (Firestore, Auth, FCM)
+  // Siempre ir a la red para Firebase (Firestore, Auth, FCM) y no-GET
   if (
     url.hostname.includes('firestore.googleapis.com') ||
     url.hostname.includes('firebase') ||
@@ -282,53 +284,49 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Para el shell principal: network-first para no quedar atrapados con versión vieja
-  if (isAppShellRequest) {
+  // Documentos HTML → network-first con fallback al shell cacheado
+  if (isDocumentRequest) {
     event.respondWith(
       fetch(event.request)
-        .then(response => {
-          if (response && response.status === 200 && response.type !== 'opaque') {
-            const toCache = response.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(event.request, toCache));
-          }
-          return response;
-        })
+        .then(r => _cacheAndReturn(event.request, r))
         .catch(async () => {
           const cached = await caches.match(event.request);
           if (cached) return cached;
-          if (isDocumentRequest) {
-            const shellFallback = url.pathname.startsWith('/app')
-              ? await caches.match('/app.html')
-              : await caches.match('/index.html');
-            return shellFallback || Response.error();
-          }
-          return Response.error();
+          const fallback = url.pathname.startsWith('/app') ? '/app.html' : '/index.html';
+          return caches.match(fallback).then(m => m || Response.error());
         })
     );
     return;
   }
 
-  // Para assets del propio dominio: Cache-first → si no hay cache, red → cachear
+  // JS y CSS → stale-while-revalidate: respuesta inmediata desde cache,
+  // actualización en background. Esto elimina el bloqueo de red en navegaciones repetidas.
+  if (isStaticAsset) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        const networkFetch = fetch(event.request)
+          .then(r => _cacheAndReturn(event.request, r))
+          .catch(() => null);
+
+        // Si tenemos cache → responder inmediato y actualizar en fondo
+        if (cached) {
+          event.waitUntil(networkFetch);
+          return cached;
+        }
+        // Sin cache → esperar la red
+        return networkFetch.then(r => r || Response.error());
+      })
+    );
+    return;
+  }
+
+  // Resto (imágenes, fuentes propias, manifests) → cache-first
   event.respondWith(
     caches.match(event.request).then(cached => {
       if (cached) return cached;
-
       return fetch(event.request)
-        .then(response => {
-          if (!response || response.status !== 200 || response.type === 'opaque') {
-            return response;
-          }
-          const toCache = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, toCache));
-          return response;
-        })
-        .catch(() => {
-          if (event.request.destination === 'document') {
-            const fallbackKey = url.pathname.startsWith('/app') ? '/app.html' : '/index.html';
-            return caches.match(fallbackKey).then(match => match || Response.error());
-          }
-          return Response.error();
-        });
+        .then(r => _cacheAndReturn(event.request, r))
+        .catch(() => Response.error());
     })
   );
 });

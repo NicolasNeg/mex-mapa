@@ -166,11 +166,47 @@
 .cqv-tab--classic:not(.cqv-tab--active) { color: #9ca3af; border: 1px dashed #d1d5db; }
 .cqv-tab--classic:hover { color: var(--cq-primary) !important; border-color: var(--cq-primary); }
 
+/* ── KPI wrap + toggle ────────────────────────────────────── */
+.cqv-kpi-wrap {
+  margin-bottom: 16px;
+}
+.cqv-kpi-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 2px 4px 6px;
+  font-family: inherit;
+  transition: color 0.15s;
+}
+.cqv-kpi-toggle:hover { color: var(--cq-primary); }
+.cqv-kpi-chevron { transition: transform 0.22s ease; }
+.cqv-kpi-wrap--collapsed .cqv-kpi-chevron { transform: rotate(180deg); }
+.cqv-kpi-wrap .cqv-kpi-row {
+  overflow: hidden;
+  max-height: 120px;
+  transition: max-height 0.22s ease, opacity 0.18s ease;
+  opacity: 1;
+}
+.cqv-kpi-wrap--collapsed .cqv-kpi-row {
+  max-height: 0;
+  opacity: 0;
+  pointer-events: none;
+  margin-bottom: 0;
+}
+
 /* ── KPI row ──────────────────────────────────────────────── */
 .cqv-kpi-row {
   display: flex;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
   flex-wrap: wrap;
 }
 .cqv-kpi-card {
