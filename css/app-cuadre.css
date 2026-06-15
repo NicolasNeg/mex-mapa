@@ -163,6 +163,66 @@
 }
 .cqv-tab--active { background: var(--cq-primary); color: #ffffff; }
 .cqv-tab:not(.cqv-tab--active):hover { background: #e0e4ff; color: var(--cq-primary); }
+.cqv-tab--classic:not(.cqv-tab--active) { color: #9ca3af; border: 1px dashed #d1d5db; }
+.cqv-tab--classic:hover { color: var(--cq-primary) !important; border-color: var(--cq-primary); }
+
+/* ── KPI row ──────────────────────────────────────────────── */
+.cqv-kpi-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.cqv-kpi-card {
+  flex: 1;
+  min-width: 80px;
+  background: var(--cq-bg);
+  border: 1px solid var(--cq-border);
+  border-radius: 8px;
+  padding: 10px 14px;
+  text-align: center;
+}
+.cqv-kpi-card--green   { background: #f0fdf4; border-color: #bbf7d0; }
+.cqv-kpi-card--purple  { background: #faf5ff; border-color: #ddd6fe; }
+.cqv-kpi-card--gray    { background: #f8fafc; border-color: #e2e8f0; }
+.cqv-kpi-num  { font-size: 20px; font-weight: 900; color: var(--cq-primary); line-height: 1; }
+.cqv-kpi-card--green  .cqv-kpi-num { color: #16a34a; }
+.cqv-kpi-card--purple .cqv-kpi-num { color: #7c3aed; }
+.cqv-kpi-card--gray   .cqv-kpi-num { color: #475569; }
+.cqv-kpi-lbl  { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; margin-top: 2px; }
+
+/* ── Dropdown items (cqv-dd-*) ────────────────────────────── */
+.cqv-dd-section {
+  padding: 4px 12px 2px;
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+  text-transform: uppercase;
+}
+.cqv-dd-sep { height: 1px; background: var(--cq-border); margin: 4px 0; }
+.cqv-dd-item {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--cq-text);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: background 0.1s;
+}
+.cqv-dd-item:hover { background: var(--cq-hover); color: var(--cq-primary); }
+.cqv-dd-item--danger { color: #dc2626; }
+.cqv-dd-item--danger:hover { background: #fef2f2; color: #b91c1c; }
+
+/* ── External row tint ────────────────────────────────────── */
+.cqv-row--ext { background: #faf5ff; }
+.cqv-row--ext:hover { background: #f3e8ff; }
 
 /* ── Search Row ───────────────────────────────────────────── */
 /* search-row removed — header has global search */
