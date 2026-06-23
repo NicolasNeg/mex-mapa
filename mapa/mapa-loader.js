@@ -11,16 +11,8 @@
 // Por ahora re-exporta el bootstrap del monolito legado.
 
 export async function loadMapa(stageEl) {
-  // Fase 5 → detectar tipoNegocio y cargar config
-  const tipoNegocio = window._empresaActual?.tipoNegocio || 'default';
-
-  let configModule;
-  try {
-    configModule = await import(`/mapa/configs/${tipoNegocio}.config.js`);
-  } catch (_) {
-    configModule = await import('/mapa/configs/default.config.js');
-  }
-
+  // Producto especializado: único giro soportado.
+  const configModule = await import('/mapa/configs/arrendadora.config.js');
   const config = configModule.default;
 
   // Cargar feature modules del core (siempre)
