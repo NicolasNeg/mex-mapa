@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v434';
+const CACHE_NAME = 'mapa-v435';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -258,6 +258,47 @@ function _cacheAndReturn(request, response) {
   return response;
 }
 
+function _documentFallbackCandidates(pathname = "/") {
+  let cleanPath = String(pathname || "/");
+  while (cleanPath.length > 1 && cleanPath.endsWith("/")) cleanPath = cleanPath.slice(0, -1);
+  if (!cleanPath) cleanPath = "/";
+  const legacyDocs = {
+    "/": "/index.html",
+    "/login": "/login.html",
+    "/mapa": "/mapa.html",
+    "/programador": "/programador.html",
+    "/home": "/home.html",
+    "/gestion": "/gestion.html",
+    "/mensajes": "/mensajes.html",
+    "/profile": "/profile.html",
+    "/cola-preparacion": "/cola-preparacion.html",
+    "/editmap": "/editmap.html",
+    "/solicitud": "/solicitud.html",
+    "/incidencias": "/incidencias.html",
+    "/cuadre": "/cuadre.html",
+    "/contrato-publico": "/contrato-publico.html"
+  };
+  const first = cleanPath === "/app" || cleanPath.startsWith("/app/")
+    ? "/app.html"
+    : (legacyDocs[cleanPath] || (cleanPath.endsWith(".html") ? cleanPath : "/index.html"));
+  return Array.from(new Set([first, "/app.html", "/index.html", "/404.html"]));
+}
+
+async function _documentFallbackResponse(request, url) {
+  const cachedExact = await caches.match(request);
+  if (cachedExact) return cachedExact;
+
+  for (const candidate of _documentFallbackCandidates(url.pathname)) {
+    const cached = await caches.match(candidate);
+    if (cached) return cached;
+  }
+
+  return new Response(
+    `<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sin conexion</title><body style="font-family:system-ui,sans-serif;padding:24px;background:#07111f;color:#f8fafc"><h1>No se pudo cargar la app</h1><p>Revisa tu conexion e intenta recargar.</p></body></html>`,
+    { status: 503, headers: { "Content-Type": "text/html; charset=utf-8" } }
+  );
+}
+
 // ── Fetch: estrategia por tipo de recurso ───────────────────
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
@@ -288,13 +329,8 @@ self.addEventListener('fetch', event => {
   if (isDocumentRequest) {
     event.respondWith(
       fetch(event.request)
-        .then(r => _cacheAndReturn(event.request, r))
-        .catch(async () => {
-          const cached = await caches.match(event.request);
-          if (cached) return cached;
-          const fallback = url.pathname.startsWith('/app') ? '/app.html' : '/index.html';
-          return caches.match(fallback).then(m => m || Response.error());
-        })
+        .then(r => (r && r.ok) ? _cacheAndReturn(event.request, r) : _documentFallbackResponse(event.request, url))
+        .catch(() => _documentFallbackResponse(event.request, url))
     );
     return;
   }

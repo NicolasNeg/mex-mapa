@@ -5277,7 +5277,7 @@ function sincronizarEstadoSidebars() {
   const adminOpen = document.getElementById('admin-sidebar')?.classList.contains('open');
   document.body.classList.toggle('sidebar-open', !!sidebarOpen);
   document.body.classList.toggle('admin-sidebar-open', !!adminOpen);
-  document.getElementById('overlay')?.classList.toggle('active', !!(sidebarOpen || adminOpen));
+  document.getElementById('overlay')?.classList.toggle('active', !!adminOpen);
 }
 
 function _getSidebarBackdrop() {

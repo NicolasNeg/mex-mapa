@@ -28,7 +28,7 @@ After every deploy, also run `git add . && git commit && git push` to keep GitHu
 
 The `npm run deploy` scripts automatically call `scripts/bump-sw.js`, which increments `CACHE_NAME = 'mapa-vXXX'` in `sw.js`. **Never deploy without bumping the SW version**, or returning users will receive stale cached assets.
 
-There is no build step, linter, or test suite — the project is plain HTML/CSS/JS served directly by Firebase Hosting.
+There is no build step or linter. The only automated test is a Playwright smoke test.
 
 ---
 
@@ -49,6 +49,25 @@ For functions development, use:
 ```bash
 firebase emulators:start --only hosting,functions,firestore
 ```
+
+---
+
+## Running the smoke test
+
+`scripts/test-mapa.js` is a Playwright end-to-end smoke test (login → `/app/mapa` → sidebar + controles menu). It auto-starts a local Firebase Hosting emulator if none is running.
+
+```bash
+# Headless (default) — against local emulator
+node scripts/test-mapa.js
+
+# Show browser window
+node scripts/test-mapa.js --headed
+
+# Against a specific URL (e.g., staging)
+node scripts/test-mapa.js --url=https://staging.example.com
+```
+
+The test credentials (`jlp@gmail.com` / `123456`) must exist in the target Firebase project.
 
 ---
 
@@ -97,13 +116,26 @@ Roles `PROGRAMADOR`, `JEFE_OPERACION`, and `CORPORATIVO_USER` have full access a
 
 Check access with `window.mexPerms.canDo('permission_key')`.
 
+### Route resolver
+
+`js/app/route-resolver.js` is the single source of truth for the legacy ↔ App Shell route mapping. `ROUTE_MAP` has one entry per module with fields:
+
+- `legacyRoute` / `appRoute` — canonical URL forms
+- `navRoute` — sidebar item to highlight
+- `shellIntegrated` — `true` once the module has its own `/app/*` view
+- `fullModuleMigrated` — `true` once all business logic lives in the SPA
+
+Key exports: `toAppRoute(path)`, `toLegacyRoute(path)`, `isMigratedRoute(path)`, `getNavRoute(path)`, `normalizePath(path)`. Query strings are preserved by all functions.
+
 ### Legacy views inside the SPA shell
 
-`js/app/views/legacy-stage.js` wraps legacy HTML pages as iframes rendered inside `#mexShellMain`. The legacy page is loaded with `?shell=1` so it renders content-only (no its own sidebar/header). A subset of views is kept alive in an **iframe pool** (`_iframePool` map) so they are not destroyed on route change:
+`js/app/views/legacy-stage.js` wraps legacy HTML pages as iframes rendered inside `#mexShellMain`. The legacy page is loaded with `?shell=1` so it renders content-only (no sidebar/header). A subset of views is kept alive in an **iframe pool** (`_iframePool` map) so they are not destroyed on route change:
 
 > dashboard, mapa, cuadre, admin, mensajes, cola, incidencias, programador, editmap, profile
 
 Views outside this set are destroyed on unmount. When adding a new legacy stage route, add it to `LEGACY_BY_ID` in `legacy-stage.js` and the `ROUTE_TABLE` in `router.js` using the `legacyStage(id, navRoute)` helper.
+
+The router also listens to the `mex:empresa-change` custom event (dispatched when the programmer console switches tenants) and re-renders the current route.
 
 ### Domain layer
 
@@ -118,7 +150,46 @@ Import from `domain/` when writing logic that should be testable in isolation fr
 
 All data access goes through `api/*.js` modules. Each file exports functions that are assembled by `api/_assemble.js` into `window.api`. The entry point `mex-api.js` also exposes a `window.api` facade and legacy globals.
 
-For new features inside the SPA, prefer the data modules in `js/app/features/*/` which import directly from the API modules using ES module syntax.
+For new features inside the SPA, prefer the data modules in `js/app/features/*/` which import directly from the API modules using ES module syntax. These `*-data.js` files use `onSnapshot` directly for real-time listeners. Each feature folder may contain multiple sub-modules: `*-data.js` (Firestore subscriptions), `*-mutations.js` (writes), `*-renderer.js` (DOM), `*-view-model.js` (derived state), etc. — see `js/app/features/mapa/` as the reference implementation.
+
+`js/core/database.js` is a **bridge module** that re-exports `window.api` functions under ES module imports, and additionally exports `db`, `auth`, `storage`, `functions` (Firebase instances) and a `COL` constants object for all Firestore collection names. Import from here in new SPA code rather than accessing `window.api` directly:
+
+```js
+import { db, COL } from '/js/core/database.js';
+// COL.CUADRE, COL.EXTERNOS, COL.USUARIOS, etc.
+```
+
+When the migration is complete, `database.js` will contain direct implementations and `mex-api.js` can be removed.
+
+The `COL` object covers the main collections listed above plus `CUADRE_ADM`, `AUDITORIA`, `HISTORIAL_CUADRES`, `SIPP`, `CONFIG`, `PLANTILLAS_ALERTAS` — see `js/core/database.js` for the full list.
+
+### Core utility modules
+
+`js/core/` contains several shared utilities beyond the bridge/state modules:
+
+| Module | Exports / purpose |
+|---|---|
+| `dialogs.js` | `mexDialog()`, `mexAlert()`, `mexConfirm()`, `mexPrompt()` — design-system modals that replace `alert()`/`confirm()`/`prompt()`. Use these everywhere instead of native browser dialogs. |
+| `error-logger.js` | `reportProgrammerError(payload)` — sends client errors to Firestore `programmer_errors`. Used by the global error handler and callable manually for caught exceptions. |
+| `observability.js` | Performance and error observability helpers — instruments `reportProgrammerError` with screen/profile context. |
+| `notifications.js` | Push notification helpers — request permission, subscribe/unsubscribe from FCM topics. |
+| `pwa-install.js` | Listens for the `beforeinstallprompt` event and exposes the deferred prompt for the install button in the shell. |
+
+`firebase-messaging-sw.js` (in the project root, alongside `sw.js`) is a second service worker used exclusively for FCM background push notifications. It does **not** handle asset caching.
+
+### Mapa modular architecture
+
+The mapa view is being decomposed into a per-`tipoNegocio` modular system. `mapa/mapa-loader.js` orchestrates loading:
+
+1. **Config** — reads `window._empresaActual.tipoNegocio` and dynamically imports `mapa/configs/{tipoNegocio}.config.js` (falls back to `default.config.js`). Valid types: `estacionamiento`, `flotilla`, `arrendadora`, `default`. Each config exports `{ features: [...paths], ... }`.
+2. **Core feature modules** — always loaded from `mapa/features/core/`: `init`, `render`, `permissions`, `modals`, `search`, `plaza-switcher`, `unit-selection`, `notifications`.
+3. **Type-specific modules** — loaded from the config's `features` array (e.g., `mapa/features/estacionamiento/grid.js`).
+4. **Extras** — feature-gate-controlled: `editmap-inline`, `auditoria`, `ocr`, `pdf-reports`, `supervision` loaded from `mapa/features/extras/`.
+5. **Templates** — per-`tipoNegocio` HTML fragments live in `mapa/templates/` (e.g., `mapa-estacionamiento.html`, `mapa-flotilla.html`). Feature modules fetch and inject these rather than building HTML in JS.
+
+Shared state across all mapa feature modules lives in `mapa/mapa-store.js` (`mapaStore` object + `setStore()` + `onStoreChange(key, fn)` observer). Do not use module-level variables for state that multiple feature modules need — put it in `mapaStore` instead.
+
+The legacy monolith (`js/views/mapa.js`) is still the active implementation; `mapa-loader.js` is the in-progress replacement (Fase 6).
 
 ### App Shell
 
@@ -174,7 +245,9 @@ Deploy with `npm run deploy:functions`.
 
 ## Design system
 
-Read `ESTILO.md` before writing any CSS or Tailwind classes. Critical rules:
+Read `ESTILO.md` before writing any CSS or Tailwind classes. **Tailwind is loaded via CDN only in `app.html`** (`https://cdn.tailwindcss.com`) — Tailwind classes work in SPA views but **not** in standalone legacy HTML pages. The runtime config is set in `js/tailwind-config.js` (sets `tailwind.config` after the CDN script loads). Never add Tailwind classes to legacy `*.html` files.
+
+Critical rules:
 
 - **Font**: Inter only. Weights 400/500/600/700.
 - **Icons**: `<span class="material-symbols-outlined">icon_name</span>` only. No emojis as functional icons.
@@ -193,5 +266,28 @@ Read `ESTILO.md` before writing any CSS or Tailwind classes. Critical rules:
 
 1. Create `js/app/views/my-view.js` exporting `mount({ container, navigate, shell, state })` and `unmount()`.
 2. Add the route to `ROUTE_TABLE` in `js/app/router.js` with a `loader` and, if feature-gated, a `feature` key.
-3. Create `css/app-my-view.css` for view-specific styles and inject it in the `mount()` function.
-4. Update `js/shell/navigation.config.js` if adding a sidebar navigation item.
+3. Add an entry to `ROUTE_MAP` in `js/app/route-resolver.js` with `shellIntegrated: true`.
+4. Create `css/app-my-view.css` for view-specific styles and inject it in the `mount()` function.
+5. Update `js/shell/navigation.config.js` if adding a sidebar navigation item.
+
+## Design documents
+
+`docs/` contains ~40 markdown files: feature specs, migration runbooks, QA checklists, and view blueprints. Key files for ongoing work:
+
+- `docs/app-real-view-migration-status.md` — per-view migration progress
+- `docs/app-shell-migration-policy.md` — rules for when a view qualifies as "migrated"
+- `docs/legacy-view-blueprints.md` — visual/behavioral spec for each legacy page being ported
+- `docs/smoke-matrix.md` — manual QA checklist matrix per release
+
+---
+
+## Firebase project aliases
+
+Deploy scripts use two named Firebase project aliases:
+
+| Alias | Usage |
+|---|---|
+| `production` | `npm run deploy`, `npm run deploy:full`, `npm run deploy:functions`, `npm run deploy:rules` |
+| `staging` | `npm run deploy:staging`, `npm run deploy:staging:full` |
+
+These aliases are configured in `.firebaserc`. Hosting rewrites in `firebase.json` map clean URLs (e.g., `/app/**` → `app.html`, `/mapa` → `mapa.html`) — add new clean-URL pages there if needed.
