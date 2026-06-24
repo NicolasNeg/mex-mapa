@@ -4,9 +4,7 @@ const PRIMARY = 'solicitudes';
 const LEGACY = 'solicitudes_acceso';
 
 function _eid() {
-  const ctx = window._empresaActual;
-  if (!ctx || ctx.isSuperAdminContext) return '';
-  return ctx.id || '';
+  return window.MEX_CONFIG?.empresa?.id || '';
 }
 
 function _collectionsOrder(preferred = '') {

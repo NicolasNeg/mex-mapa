@@ -46,9 +46,7 @@ export const DIA_NOMBRE = {
 // ── Helpers ───────────────────────────────────────────────────
 function _fv()  { return window.firebase?.firestore?.FieldValue; }
 function _eid() {
-  const ctx = window._empresaActual;
-  if (!ctx || ctx.isSuperAdminContext) return '';
-  return ctx.id || '';
+  return window.MEX_CONFIG?.empresa?.id || '';
 }
 function _authUid() { return window._auth?.currentUser?.uid || ''; }
 

@@ -1,9 +1,7 @@
 import { db, COL } from '/js/core/database.js';
 
 function _eid() {
-  const ctx = window._empresaActual;
-  if (!ctx || ctx.isSuperAdminContext) return '';
-  return ctx.id || '';
+  return window.MEX_CONFIG?.empresa?.id || '';
 }
 
 export function normalizeUserRecord(id, data = {}) {

@@ -14,9 +14,7 @@ const COL_TURNOS = 'turnos';
 function _fv() { return window.firebase?.firestore?.FieldValue; }
 
 function _eid() {
-  const ctx = window._empresaActual;
-  if (!ctx || ctx.isSuperAdminContext) return '';
-  return ctx.id || '';
+  return window.MEX_CONFIG?.empresa?.id || '';
 }
 
 /**

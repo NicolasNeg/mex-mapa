@@ -45,7 +45,6 @@ const CRITICAL_ASSETS = [
   '/js/core/firebase-init.js',
   '/js/core/database.js',
   '/js/core/dialogs.js',
-  '/js/core/empresa-context.js',
   '/js/core/feature-gates.js',
   '/js/core/notifications.js',
   '/js/core/observability.js',

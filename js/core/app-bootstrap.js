@@ -1125,11 +1125,8 @@
     if (!root._db) {
       throw new Error('Firebase no está listo para cargar la configuración global.');
     }
-    // empresa data comes from empresa-context.js (empresas/{empresaId}) — not from configuracion/empresa (legacy single-tenant doc).
     const listasSnap = await root._db.collection('configuracion').doc('listas').get();
-    const empresaData = (root._empresaActual && !root._empresaActual.isSuperAdminContext)
-      ? root._empresaActual
-      : {};
+    const empresaData = (root.MEX_CONFIG && root.MEX_CONFIG.empresa) ? root.MEX_CONFIG.empresa : {};
     return normalizeConfig({
       empresa: empresaData,
       listas: listasSnap.exists ? (listasSnap.data() || {}) : {}
@@ -1236,10 +1233,7 @@
           return null;
         }
         const normalized = persistCachedCurrentUserRecord(record, activeUser);
-        // Load empresa (tenant) context for this user — fire-and-forget
-        if (typeof root.mexEmpresaContext?.cargarParaUsuario === 'function') {
-          root.mexEmpresaContext.cargarParaUsuario(normalized).catch(() => {});
-        }
+        // (empresa context loading removed — single-tenant, MEX_CONFIG.empresa already set)
         return normalized;
       })
       .catch(error => {

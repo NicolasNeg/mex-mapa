@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  mapa-loader.js — Orquestador modular del mapa
-//  Lee window._empresaActual.tipoNegocio y carga el config
-//  correcto, los templates HTML y los feature modules.
+//  Carga el config correcto (arrendadora), los templates HTML
+//  y los feature modules.
 //
 //  Reemplaza el import directo de /js/views/mapa.js en
 //  js/app/views/mapa.js una vez completada la migración.

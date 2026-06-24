@@ -49,7 +49,7 @@
   // ── Helpers ───────────────────────────────────────────────
 
   function _empresaId() {
-    try { return window._empresaActual?.id || ''; } catch (_) { return ''; }
+    try { return window.MEX_CONFIG?.empresa?.id || ''; } catch (_) { return ''; }
   }
 
   function _userId() {

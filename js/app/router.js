@@ -243,7 +243,7 @@ export function createRouter({ shell }) {
     if (!contentEl) return;
 
     // Onboarding gate — redirect if empresa setup is incomplete
-    const empresa = window._empresaActual;
+    const empresa = window.MEX_CONFIG?.empresa;
     if (
       empresa &&
       empresa.onboarding_completado === false &&
@@ -351,14 +351,6 @@ export function createRouter({ shell }) {
       </div>
     `;
   }
-
-  // ── Re-render on empresa context change (programador switching tenants) ──
-  window.addEventListener('mex:empresa-change', () => {
-    const currentPath = window.location.pathname + window.location.search;
-    if (isInternalAppRoute(window.location.pathname)) {
-      _renderRoute(currentPath);
-    }
-  });
 
   // ── Interceptor global de clicks en [data-app-route] ──────
   document.addEventListener('click', event => {

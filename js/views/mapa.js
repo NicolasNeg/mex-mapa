@@ -32,14 +32,15 @@ import * as _prediccion    from '/js/features/cuadre/prediccion.js';
 import { normalizarUnidad } from '/domain/unidad.model.js';
 import { normalizarElemento } from '/domain/mapa.model.js';
 import { buildMapaViewModel, buildUnitViewModel } from '/mapa/mapa-view-model.js';
-import {
-  decorateEstacionamientoSpot,
-  decorateEstacionamientoUnit,
-  esMapaEstacionamiento,
-  resolveEstacionamientoStructure,
-  syncEstacionamientoMode,
-  updateEstacionamientoKpis
-} from '/mapa/features/estacionamiento/grid.js';
+// Arrendadora: el modo estacionamiento se eliminó. Shims locales que lo dejan
+// inactivo (esMapaEstacionamiento → false desactiva sus branches).
+// ponytail: stubs inline en vez de un módulo fantasma; el monolito se retira en Fase 6.
+const decorateEstacionamientoSpot = () => {};
+const decorateEstacionamientoUnit = () => {};
+const esMapaEstacionamiento = () => false;
+const resolveEstacionamientoStructure = (x) => x;
+const syncEstacionamientoMode = () => false;
+const updateEstacionamientoKpis = () => false;
 import { renderSidebarHTML, bindSidebarShell, displayUserName, roleLabel, consumeShellSearch, ensureRouteShellLayout, queueShellSearch } from '/js/views/home.js';
 
 // ── Módulos extraídos (Fase 4) ────────────────────────────
