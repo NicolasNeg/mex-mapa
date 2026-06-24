@@ -238,6 +238,59 @@ git commit -m "refactor: purga total de empresaId en capa API y mex-api"
 
 ---
 
+### Task 3B: Purga de empresaId en la capa de datos SPA (`js/app/features/*`)
+
+*(Descubierto en el review de Task 4: Task 3 solo cubrió `api/*`+`mex-api.js`; los módulos de datos del SPA siguen usando empresaId — 84 referencias en 10 archivos.)*
+
+**Files:**
+- Modify: `js/app/features/unidades/unidades-data.js`, `js/app/features/unidades/unidades-lookup.js`, `js/app/features/cuadre/cuadre-data.js`, `js/app/features/incidencias/incidencias-data.js`, `js/app/features/mensajes/mensajes-data.js`, `js/app/features/turnos/turnos-data.js`, `js/app/features/turnos/horarios-data.js`, `js/app/features/admin/admin-users-data.js`, `js/app/features/admin/admin-requests-data.js`
+- (NO tocar `onboarding-data.js` aquí → se reescribe en Task 7B)
+
+**Interfaces:**
+- Produces: módulos de datos SPA sin parámetro/filtro `empresaId`; el catálogo de unidades se lee de la colección plana `unidades_catalogo` (alineado con la migración Task 8).
+
+- [ ] **Step 1: `unidades-data.js` → colección plana `unidades_catalogo`**
+
+Reemplazar `const COL_EMPRESAS='empresas'` y `_unidadesRef(empresaId)=db.collection('empresas').doc(empresaId).collection('unidades')` por una colección plana:
+```js
+const COL_UNIDADES = 'unidades_catalogo';
+function _unidadesRef() { return db.collection(COL_UNIDADES); }
+```
+Quitar el parámetro `empresaId` de `onUnidades/getUnidades/crearUnidad/actualizarUnidad/eliminarUnidad/buscarUnidad` y de los writes (no escribir campo `empresaId`). Mantener `plaza` si el doc lo trae.
+
+- [ ] **Step 2: `unidades-lookup.js` → init en config-ready, sin empresaId**
+
+Reemplazar el bloque final (`const initialId = ...; if (initialId) _start(initialId);`) por arranque single-tenant cuando la config esté lista:
+```js
+// Single-tenant: un solo catálogo. Arrancar cuando MEX_CONFIG esté listo.
+function _boot() { _start(); }
+if (window.__mexConfigReadyPromise) window.__mexConfigReadyPromise.then(_boot).catch(_boot);
+else _boot();
+```
+Cambiar `_start(empresaId)` a `_start()` y `onUnidades(_empresaId, cb)` a `onUnidades(cb)`; eliminar `_empresaId` y su gating (`if (!_empresaId ...)`).
+
+- [ ] **Step 3: Resto de módulos — quitar empresaId**
+
+En `cuadre-data.js, incidencias-data.js, mensajes-data.js, turnos-data.js, horarios-data.js, admin-users-data.js, admin-requests-data.js`: quitar parámetros `empresaId`, cláusulas `.where('empresaId','==',...)` (conservando `.where('plaza',...)/orderBy/limit`) y el campo `empresaId` en writes. Actualizar los callers (vistas) que pasaban `empresaId`.
+
+- [ ] **Step 4: Verificación**
+
+Run:
+```bash
+grep -rn "empresaId" js/app/features/ | grep -v "onboarding-data" | grep -v "//"
+```
+Expected: sin resultados (exit 1).
+Y parse-check: `for f in $(git diff --name-only | grep '\.js$'); do node --check "$f" || echo "FAIL $f"; done`
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add js/app/features/
+git commit -m "refactor: purga de empresaId en capa de datos SPA; unidades vía unidades_catalogo"
+```
+
+---
+
 ### Task 4: Borrar empresa-context.js y sus consumidores
 
 **Files:**
