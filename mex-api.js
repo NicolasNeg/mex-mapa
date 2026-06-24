@@ -1017,8 +1017,7 @@ async function _deleteEvidenceFiles(items = []) {
   }
 }
 
-// Settings are empresa-scoped: settings/{empresaId}__{PLAZA}
-// Super-admin fallback: settings/{PLAZA}
+// Settings are plaza-scoped: settings/{PLAZA}
 let _settingsPlazaActual = 'GLOBAL';
 function _settingsDoc(plaza) {
   const p = ((plaza || _settingsPlazaActual) || 'GLOBAL').toUpperCase().trim() || 'GLOBAL';
@@ -2651,8 +2650,8 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   },
 
   // ─── CONFIGURACIÓN GLOBAL ────────────────────────────────
-  // empresa data comes from empresa-context.js (empresas/{empresaId}).
-  // Ubicaciones viven en configuracion/listas (global) y se segmentan por plazaId.
+  // La config del tenant vive en configuracion/empresa + configuracion/listas.
+  // Ubicaciones viven en configuracion/listas y se segmentan por plazaId.
   // configuracion/{PLAZA} se conserva solo como fallback legacy de lectura.
   async obtenerConfiguracion(plaza) {
     const plazaUp = _normalizePlazaId(plaza);

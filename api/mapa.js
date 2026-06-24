@@ -17,19 +17,6 @@
     return db.collection('mapa_config').doc(_mapaConfigDocId(plaza)).collection('estructura');
   }
 
-  function _legacyMapaEstructuraRef(plaza) {
-    return db.collection('mapa_config').doc(_normalizePlazaId(plaza)).collection('estructura');
-  }
-
-  function _esEstructuraDefaultMinima(rows) {
-    if (!Array.isArray(rows) || rows.length !== 1) return false;
-    const row = rows[0] || {};
-    return String(row.valor || '').toUpperCase() === 'A1'
-      && String(row.tipo || 'cajon') === 'cajon'
-      && Number(row.x || 0) === 0
-      && Number(row.y || 0) === 0;
-  }
-
   async function _leerEstructuraPlaza(plaza) {
     const p = _normalizePlazaId(plaza);
     const snap = await db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden').get();

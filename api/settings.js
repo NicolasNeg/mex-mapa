@@ -126,9 +126,8 @@
     },
 
     // ─── CONFIGURACIÓN GLOBAL ─────────────────────────────
-    // Listas (estados, gasolinas, categorias, ubicaciones) se leen desde:
-    //   1. empresas/{empresaId}.listas  (per-tenant — fuente principal cuando hay empresa activa)
-    //   2. configuracion/listas         (global / super-admin fallback)
+    // Listas (estados, gasolinas, categorias, ubicaciones) se leen de
+    // configuracion/listas (config única del tenant).
     async obtenerConfiguracion(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
       if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
