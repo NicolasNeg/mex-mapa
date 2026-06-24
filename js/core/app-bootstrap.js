@@ -1125,8 +1125,14 @@
     if (!root._db) {
       throw new Error('Firebase no está listo para cargar la configuración global.');
     }
-    const listasSnap = await root._db.collection('configuracion').doc('listas').get();
-    const empresaData = (root.MEX_CONFIG && root.MEX_CONFIG.empresa) ? root.MEX_CONFIG.empresa : {};
+    const [listasSnap, empresaSnap] = await Promise.all([
+      root._db.collection('configuracion').doc('listas').get(),
+      root._db.collection('configuracion').doc('empresa').get()
+    ]);
+    // La config del tenant vive en configuracion/empresa (single-tenant).
+    const empresaData = empresaSnap.exists
+      ? (empresaSnap.data() || {})
+      : ((root.MEX_CONFIG && root.MEX_CONFIG.empresa) ? root.MEX_CONFIG.empresa : {});
     return normalizeConfig({
       empresa: empresaData,
       listas: listasSnap.exists ? (listasSnap.data() || {}) : {}

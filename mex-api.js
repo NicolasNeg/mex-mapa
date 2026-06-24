@@ -2657,14 +2657,19 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const plazaUp = _normalizePlazaId(plaza);
     if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
     const fetches = [
-      db.collection(COL.CONFIG).doc("listas").get()
+      db.collection(COL.CONFIG).doc("listas").get(),
+      _empresaConfigRef().get()
     ];
     if (plazaUp) fetches.push(_configPlazaRef(plazaUp).get());
     const snaps = await Promise.all(fetches);
     const snapListas = snaps[0];
-    const snapPlaza  = snaps[1] || null;
+    const snapEmpresa = snaps[1];
+    const snapPlaza  = snaps[2] || null;
 
-    const empresaData = window.MEX_CONFIG?.empresa || {};
+    // La config del tenant (nombre, plazas, permisos) vive en configuracion/empresa.
+    const empresaData = snapEmpresa.exists
+      ? (snapEmpresa.data() || {})
+      : (window.MEX_CONFIG?.empresa || {});
 
     const globalListas = snapListas.exists
       ? snapListas.data()
