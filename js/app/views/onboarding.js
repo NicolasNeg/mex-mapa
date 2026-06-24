@@ -19,7 +19,7 @@ let _importResult = null;
 const STEPS = ['tipo', 'plazas', 'unidades', 'done'];
 
 function _empresaIdFromCtx() {
-  return String(window._empresaActual?.id || window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+  return String(window.MEX_CONFIG?.empresa?.id || '').trim();
 }
 
 function _esc(v) {

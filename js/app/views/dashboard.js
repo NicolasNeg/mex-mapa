@@ -27,7 +27,7 @@ export async function mount({ container, navigate }) {
   const gs      = getState();
   const role    = String(gs.role || 'AUXILIAR').toUpperCase();
   const plaza   = String(getCurrentPlaza() || gs.profile?.plazaAsignada || '').toUpperCase().trim();
-  const empresa = window._empresaActual || {};
+  const empresa = window.MEX_CONFIG?.empresa || {};
   const feats   = _feats();
 
   _s = {
@@ -337,7 +337,7 @@ async function _loadHorarioUsuario() {
   if (!uid || !plaza) { _updateTurnoWidget(); return; }
   try {
     const semana = semanaInicio();
-    const eid    = (window._empresaActual && !window._empresaActual.isSuperAdminContext) ? (window._empresaActual.id || '') : '';
+    const eid    = window.MEX_CONFIG?.empresa?.id || '';
     let q = db.collection('horarios')
       .where('usuarioId', '==', uid)
       .where('plaza', '==', plaza)

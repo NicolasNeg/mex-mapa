@@ -2664,9 +2664,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const snapListas = snaps[0];
     const snapPlaza  = snaps[1] || null;
 
-    // Empresa data: use context loaded by empresa-context.js (not legacy configuracion/empresa)
-    const empresaCtx = window._empresaActual;
-    const empresaData = (empresaCtx && !empresaCtx.isSuperAdminContext) ? empresaCtx : {};
+    const empresaData = window.MEX_CONFIG?.empresa || {};
 
     const globalListas = snapListas.exists
       ? snapListas.data()

@@ -38,14 +38,6 @@ async function boot() {
     return;
   }
 
-  // Al entrar al panel de programador, siempre resetear al contexto superadmin.
-  // Cuando el programador quiere ver una empresa usa el botón "Entrar" de este panel.
-  try {
-    sessionStorage.setItem('mex.empresaCtx.v1', JSON.stringify('__superadmin__'));
-    localStorage.setItem('mex.empresaCtx.local.v1', JSON.stringify('__superadmin__'));
-  } catch (_) {}
-  window._empresaActual = { id: '__superadmin__', isSuperAdminContext: true, nombre: 'SUPERADMIN', features: {} };
-
   // Esperar config si está pendiente
   if (window.__mexConfigReadyPromise) {
     try { await window.__mexConfigReadyPromise; } catch (_) {}

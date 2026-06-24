@@ -55,15 +55,8 @@ export function getByPlacas(placas) {
 export function isReady() { return _ready; }
 export function todas() { return _cache.slice(); }
 
-// ── Wire to empresa context ──────────────────────────────────────────────────
-
-window.addEventListener('mex:empresa-change', e => {
-  const id = String(e?.detail?.empresaId || '').trim();
-  if (id && id !== _empresaId) _start(id);
-});
-
-// Start immediately if context already loaded
-const initialId = String(window._empresaActual?.id || window.mexEmpresaContext?.getEmpresaId?.() || '').trim();
+// Start immediately — single-tenant, no empresa context switching needed
+const initialId = String(window.MEX_CONFIG?.empresa?.id || '').trim();
 if (initialId) _start(initialId);
 
 // Public API

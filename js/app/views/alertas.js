@@ -201,8 +201,8 @@ function _bindGlobalSearch() {
 }
 
 function _getEmpresaPlazas() {
-  const empresa = window._empresaActual;
-  if (!empresa || empresa.isSuperAdminContext) return [];
+  const empresa = window.MEX_CONFIG?.empresa;
+  if (!empresa) return [];
   return Array.isArray(empresa.plazas) ? empresa.plazas.filter(Boolean) : [];
 }
 
@@ -614,8 +614,7 @@ function _onChange(event) {
 
 async function _loadUsers() {
   try {
-    const eCtx = window._empresaActual;
-    const eid = (eCtx && !eCtx.isSuperAdminContext) ? (eCtx.id || '') : '';
+    const eid = window.MEX_CONFIG?.empresa?.id || '';
     const query = eid
       ? db.collection(COL.USERS).where('empresaId', '==', eid)
       : db.collection(COL.USERS);

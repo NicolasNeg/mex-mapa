@@ -13,9 +13,7 @@
 import { auth, db, COL, functions } from '/js/core/database.js';
 
 function _eid() {
-  const ctx = window._empresaActual;
-  if (!ctx || ctx.isSuperAdminContext) return '';
-  return ctx.id || '';
+  return window.MEX_CONFIG?.empresa?.id || '';
 }
 
 const RECAPTCHA_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
@@ -220,10 +218,6 @@ auth.onAuthStateChanged(async (user) => {
           allowLogout: true,
           force: true
         });
-      }
-      // Cargar contexto de empresa/tenant para el usuario autenticado.
-      if (typeof window.mexEmpresaContext?.cargarParaUsuario === 'function') {
-        await window.mexEmpresaContext.cargarParaUsuario(record).catch(() => {});
       }
       // Sesión válida → App Shell como destino principal post-login (Fase 6)
       console.log('[login] post-login redirect:', POST_LOGIN_ROUTE);

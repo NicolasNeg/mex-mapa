@@ -1938,17 +1938,8 @@ async function saasAplicarPreset(empresaId, plan) {
 }
 
 async function saasEntrarEmpresa(empresaId) {
-  if (typeof window.mexEmpresaContext?.switchEmpresa !== 'function') {
-    showToast('empresa-context.js no está disponible', 'error');
-    return;
-  }
-  const empresa = await window.mexEmpresaContext.switchEmpresa(empresaId);
-  if (empresa) {
-    showToast(`Contexto activo: ${empresa.nombre || empresaId}`, 'success');
-    renderEmpresasTab();
-  } else {
-    showToast(`No se encontró la empresa: ${empresaId}`, 'error');
-  }
+  // Single-tenant: empresa context switching not available.
+  showToast('Sistema de un solo tenant — no se requiere cambio de empresa.', 'info');
 }
 
 async function saasMigrarUsuarios(empresaId) {
@@ -2175,7 +2166,7 @@ function renderEmpresasTab() {
   const container = document.getElementById('programmerTabContent');
   if (!container) return;
 
-  const ctxId = window.mexEmpresaContext?.getEmpresaId?.() || '';
+  const ctxId = window.MEX_CONFIG?.empresa?.id || '';
 
   if (state.empresasLoading) {
     container.innerHTML = `
@@ -2923,9 +2914,7 @@ auth.onAuthStateChanged(async user => {
         force: false
       });
     }
-    if (typeof window.mexEmpresaContext?.cargarParaUsuario === 'function') {
-      await window.mexEmpresaContext.cargarParaUsuario(state.profile).catch(() => {});
-    }
+    // (empresa context loading removed — single-tenant)
     state.plaza = window.getMexCurrentPlaza?.() || state.profile.plazaAsignada || '';
     configureNotifications({
       profileGetter: () => state.profile,

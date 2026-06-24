@@ -132,8 +132,7 @@
       const plazaUp = _normalizePlazaId(plaza);
       if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
 
-      const empresaCtx = window._empresaActual;
-      const empresaData = empresaCtx && !empresaCtx.isSuperAdminContext ? empresaCtx : {};
+      const empresaData = window.MEX_CONFIG?.empresa || {};
 
       const fetches = [db.collection(COL.CONFIG).doc("listas").get()];
       if (plazaUp) fetches.push(_configPlazaRef(plazaUp).get());

@@ -52,9 +52,7 @@ import { procesarImagenOCR, ejecutarLogicaOCR } from '/mapa/features/extras/ocr.
 const api = window.api;
 
 function _eid() {
-  const ctx = window._empresaActual;
-  if (!ctx || ctx.isSuperAdminContext) return '';
-  return ctx.id || '';
+  return window.MEX_CONFIG?.empresa?.id || '';
 }
 
 // dialogs.js se carga como <script> antes que este módulo; en ES modules el
@@ -19114,13 +19112,7 @@ async function _persistEmpresaAdminAction(actionType, message, successMessage, e
   try {
     _syncEmpresaCorreosInternosState();
     await _captureAdminExactLocation({ force: true });
-    const _eCtxPA = window._empresaActual;
-    const _eidPA  = (_eCtxPA && !_eCtxPA.isSuperAdminContext) ? (_eCtxPA.id || '') : '';
-    if (_eidPA) {
-      await db.collection('empresas').doc(_eidPA).set(window.MEX_CONFIG.empresa, { merge: true });
-    } else {
-      await db.collection('configuracion').doc('empresa').set(window.MEX_CONFIG.empresa, { merge: true });
-    }
+    await db.collection('configuracion').doc('empresa').set(window.MEX_CONFIG.empresa, { merge: true });
     await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
     await registrarEventoGestion(actionType, message, extra);
     await _reloadConfigAfterAdminPersist();
@@ -19182,13 +19174,7 @@ async function guardarConfiguracionEnFirebase() {
     await _captureAdminExactLocation({ force: true });
     _ensureSecurityConfig();
     _syncEmpresaCorreosInternosState();
-    const _eCtxGCF = window._empresaActual;
-    const _eidGCF  = (_eCtxGCF && !_eCtxGCF.isSuperAdminContext) ? (_eCtxGCF.id || '') : '';
-    if (_eidGCF) {
-      await db.collection('empresas').doc(_eidGCF).set(window.MEX_CONFIG.empresa, { merge: true });
-    } else {
-      await db.collection('configuracion').doc('empresa').set(window.MEX_CONFIG.empresa, { merge: true });
-    }
+    await db.collection('configuracion').doc('empresa').set(window.MEX_CONFIG.empresa, { merge: true });
     await api.garantizarPlazasOperativas(window.MEX_CONFIG?.empresa?.plazas || []);
     await api.guardarConfiguracionListas(window.MEX_CONFIG.listas, USER_NAME, _persistPlazaForAdminLists());
     await registrarEventoGestion('CONFIG_GLOBAL', 'Publicó manualmente la configuración administrativa', {
@@ -19228,9 +19214,9 @@ const _empresaFeatureDefs = [
 ];
 
 async function _toggleEmpresaFeature(key, enabled) {
-  const empresa = window._empresaActual;
-  if (!empresa || !empresa.id || empresa.isSuperAdminContext) {
-    showToast('No hay contexto de empresa activo.', 'error');
+  const empresa = window.MEX_CONFIG?.empresa;
+  if (!empresa) {
+    showToast('No hay configuración de empresa.', 'error');
     return;
   }
   if (!empresa.features) empresa.features = {};
@@ -19246,8 +19232,7 @@ async function _toggleEmpresaFeature(key, enabled) {
   empresa.features[key] = enabled;
 
   try {
-    await db.collection('empresas').doc(empresa.id).update({ ['features.' + key]: enabled });
-    window.dispatchEvent(new CustomEvent('mex:empresa-change', { detail: { empresaId: empresa.id, empresa } }));
+    await db.collection('configuracion').doc('empresa').update({ ['features.' + key]: enabled });
     const def = _empresaFeatureDefs.find(f => f.key === key);
     showToast(`${def?.label || key}: ${enabled ? 'activado' : 'desactivado'}`, 'success');
   } catch (err) {
@@ -19262,8 +19247,8 @@ async function _toggleEmpresaFeature(key, enabled) {
 window._toggleEmpresaFeature = _toggleEmpresaFeature;
 
 function _renderEmpresaFeaturesCard() {
-  const empresa = window._empresaActual;
-  if (!empresa || empresa.isSuperAdminContext) return '';
+  const empresa = window.MEX_CONFIG?.empresa;
+  if (!empresa) return '';
   const features = empresa.features || {};
   const rows = _empresaFeatureDefs.map(def => {
     const on = features[def.key] !== false;
@@ -23084,13 +23069,6 @@ function _earlyRestoreProfileFromCache() {
 if (!SHOULD_SKIP_MAIN_MAP_BOOTSTRAP) {
   _earlyRestoreProfileFromCache();
 }
-
-// Re-apply permission UI when the programador switches empresa context.
-window.addEventListener('mex:empresa-change', () => {
-  if (typeof configurarPermisosUI === 'function' && currentUserProfile) {
-    configurarPermisosUI();
-  }
-});
 
 // App Shell cuadre view asks us to open/close the fleet modal in-place.
 window.addEventListener('mex:navigate-cuadre', (e) => {
