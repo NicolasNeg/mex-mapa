@@ -11,12 +11,6 @@
   } = window._mex;
   const functions = window._functions || (typeof firebase?.functions === 'function' ? firebase.app().functions('us-central1') : null);
 
-  function _eid() {
-    const ctx = window._empresaActual;
-    if (!ctx || ctx.isSuperAdminContext) return '';
-    return ctx.id || '';
-  }
-
   window._mexParts = window._mexParts || {};
   window._mexParts.users = {
 
@@ -45,7 +39,6 @@
           ...perfilExtra,
           authUid: nuevoUid,
           status: "ACTIVO",
-          empresaId: _eid(),
         });
 
         if (nuevoUid && nuevoUid !== docId) {
@@ -65,10 +58,7 @@
     async modificarUsuario(nombreOriginal, nuevoNombre, nuevoPin, isAdmin, telefono, isGlobalAdmin) {
       const origUpper = nombreOriginal.trim().toUpperCase();
       const nuevoUpper = nuevoNombre.trim().toUpperCase();
-      const eid = _eid();
-      let usersQuery = db.collection(COL.USERS).where("usuario", "==", origUpper);
-      if (eid) usersQuery = usersQuery.where('empresaId', '==', eid);
-      const snap = await usersQuery.limit(1).get();
+      const snap = await db.collection(COL.USERS).where("usuario", "==", origUpper).limit(1).get();
       if (snap.empty) return "ERROR: Usuario no encontrado";
       const esAdmin = isAdmin === true || isAdmin === "true";
       const esGlobal = isGlobalAdmin === true || isGlobalAdmin === "true";
@@ -78,14 +68,11 @@
         isAdmin: esAdmin,
         telefono: (telefono || "").trim()
       });
-      let adminsQuery = db.collection(COL.ADMINS).where("usuario", "==", origUpper);
-      if (eid) adminsQuery = adminsQuery.where('empresaId', '==', eid);
-      const adminSnap = await adminsQuery.limit(1).get();
+      const adminSnap = await db.collection(COL.ADMINS).where("usuario", "==", origUpper).limit(1).get();
       if (esAdmin) {
         if (adminSnap.empty) {
           await db.collection(COL.ADMINS).doc(nuevoUpper).set({
             usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal,
-            empresaId: _eid(),
           });
         } else {
           await adminSnap.docs[0].ref.update({ usuario: nuevoUpper, password: nuevoPin.toString(), isGlobal: esGlobal });
@@ -98,24 +85,16 @@
 
     async eliminarUsuario(nombre) {
       const nombreUpper = nombre.trim().toUpperCase();
-      const eid = _eid();
-      let usersQuery = db.collection(COL.USERS).where("usuario", "==", nombreUpper);
-      if (eid) usersQuery = usersQuery.where('empresaId', '==', eid);
-      const snap = await usersQuery.limit(1).get();
+      const snap = await db.collection(COL.USERS).where("usuario", "==", nombreUpper).limit(1).get();
       if (snap.empty) return "ERROR: Usuario no encontrado";
       await snap.docs[0].ref.delete();
-      let adminsQuery = db.collection(COL.ADMINS).where("usuario", "==", nombreUpper);
-      if (eid) adminsQuery = adminsQuery.where('empresaId', '==', eid);
-      const adminSnap = await adminsQuery.limit(1).get();
+      const adminSnap = await db.collection(COL.ADMINS).where("usuario", "==", nombreUpper).limit(1).get();
       if (!adminSnap.empty) await adminSnap.docs[0].ref.delete();
       return "EXITO";
     },
 
     async checkEsAdmin(nombre) {
-      const eid = _eid();
-      let query = db.collection(COL.USERS).where("nombre", "==", nombre.trim().toUpperCase());
-      if (eid) query = query.where('empresaId', '==', eid);
-      const snap = await query.limit(1).get();
+      const snap = await db.collection(COL.USERS).where("nombre", "==", nombre.trim().toUpperCase()).limit(1).get();
       if (snap.empty) return false;
       return _normalizeUserRoleData(snap.docs[0].data()).isAdmin === true;
     },

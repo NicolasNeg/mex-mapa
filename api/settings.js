@@ -18,41 +18,18 @@
     _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
-  function _eid() {
-    const ctx = window._empresaActual;
-    if (!ctx || ctx.isSuperAdminContext) return '';
-    return ctx.id || '';
-  }
-
   window._mexParts = window._mexParts || {};
   window._mexParts.settings = {
 
     // ─── RADAR ────────────────────────────────────────────
     async checarNotificaciones(usuarioActivo, plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const eidCN = _eid();
-      let alertasQuery;
-      if (eidCN && plazaUp) {
-        alertasQuery = db.collection(COL.ALERTAS).where('empresaId', '==', eidCN).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc').limit(50);
-      } else if (eidCN) {
-        alertasQuery = db.collection(COL.ALERTAS).where('empresaId', '==', eidCN).orderBy('timestamp', 'desc').limit(50);
-      } else if (plazaUp) {
-        alertasQuery = typeof _buildPlazaScopedQuery === 'function'
-          ? _buildPlazaScopedQuery(COL.ALERTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' }, limit: 50 })
-          : db.collection(COL.ALERTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc').limit(50);
-      } else {
-        alertasQuery = db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50);
-      }
-      let notasQuery;
-      if (eidCN && plazaUp) {
-        notasQuery = db.collection(COL.NOTAS).where('empresaId', '==', eidCN).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE");
-      } else if (eidCN) {
-        notasQuery = db.collection(COL.NOTAS).where('empresaId', '==', eidCN).where("estado", "==", "PENDIENTE");
-      } else if (plazaUp) {
-        notasQuery = db.collection(COL.NOTAS).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE");
-      } else {
-        notasQuery = db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE");
-      }
+      const alertasQuery = plazaUp
+        ? db.collection(COL.ALERTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc').limit(50)
+        : db.collection(COL.ALERTAS).orderBy("timestamp", "desc").limit(50);
+      const notasQuery = plazaUp
+        ? db.collection(COL.NOTAS).where('plaza', '==', plazaUp).where("estado", "==", "PENDIENTE")
+        : db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE");
       const alertasPromise = alertasQuery.get().catch(async error => {
         if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
         _warnQueryFallback?.('checarNotificaciones.alertas', error);
@@ -64,9 +41,7 @@
         return db.collection(COL.NOTAS).where("estado", "==", "PENDIENTE").get();
       });
 
-      const eidCN2 = _eid();
-      let msgsQuery = db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase());
-      if (eidCN2) msgsQuery = db.collection(COL.MENSAJES).where("empresaId", "==", eidCN2).where("destinatario", "==", usuarioActivo.toUpperCase());
+      const msgsQuery = db.collection(COL.MENSAJES).where("destinatario", "==", usuarioActivo.toUpperCase());
       const [settings, globalSettings, alertasSnap, msgsSnap, notasSnap] = await Promise.all([
         _getSettings(plaza),
         _getSettings('GLOBAL'),
@@ -159,29 +134,20 @@
       if (plazaUp) await _ensurePlazaBootstrap(plazaUp);
 
       const empresaCtx = window._empresaActual;
-      const eidOC = (empresaCtx && !empresaCtx.isSuperAdminContext) ? (empresaCtx.id || '') : '';
       const empresaData = empresaCtx && !empresaCtx.isSuperAdminContext ? empresaCtx : {};
 
-      const fetches = [];
-      // Per-empresa listas (priority): read from the empresa doc itself
-      if (eidOC) fetches.push(db.collection('empresas').doc(eidOC).get());
-      // Global fallback
-      fetches.push(db.collection(COL.CONFIG).doc("listas").get());
+      const fetches = [db.collection(COL.CONFIG).doc("listas").get()];
       if (plazaUp) fetches.push(_configPlazaRef(plazaUp).get());
 
       const snaps = await Promise.all(fetches);
-      let snapEmpresa = null, snapListas = null, snapPlaza = null;
-      if (eidOC) { snapEmpresa = snaps[0]; snapListas = snaps[1]; snapPlaza = snaps[2] || null; }
-      else       { snapListas = snaps[0]; snapPlaza = snaps[1] || null; }
+      const snapListas = snaps[0];
+      const snapPlaza = snaps[1] || null;
 
-      // Listas: empresa doc takes precedence over global configuracion/listas
-      const empresaListas = snapEmpresa?.exists ? (snapEmpresa.data()?.listas || null) : null;
-      const globalListas = snapListas?.exists
+      const sourceListas = snapListas?.exists
         ? snapListas.data()
         : { estados: [], gasolinas: [], categorias: [] };
-      const sourceListas = empresaListas || globalListas;
 
-      const sourceUbicaciones = _mergeLocationCatalogs(sourceListas.ubicaciones || []);
+      const sourceUbicaciones = _mergeLocationCatalogs((sourceListas.ubicaciones || []));
       const legacyUbicaciones = plazaUp && snapPlaza && snapPlaza.exists && Array.isArray(snapPlaza.data().ubicaciones)
         ? _mergeLocationCatalogs(
           snapPlaza.data().ubicaciones
@@ -203,7 +169,6 @@
 
     async guardarConfiguracionListas(listasActualizadas, autor = "Admin Global", plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const eidGCL = _eid();
       const { ubicaciones, ...globalRest } = listasActualizadas;
       const listasRef = db.collection(COL.CONFIG).doc("listas");
       const listasSnap = await listasRef.get();
@@ -236,13 +201,7 @@
         payload.ubicaciones = ubicacionesFinales;
       }
 
-      if (eidGCL) {
-        // Per-empresa: merge listas into the empresa doc to avoid cross-tenant contamination
-        await db.collection('empresas').doc(eidGCL).set({ listas: payload }, { merge: true });
-      } else {
-        // SuperAdmin with no empresa selected: write to global configuracion/listas
-        await listasRef.set(payload, { merge: true });
-      }
+      await listasRef.set(payload, { merge: true });
 
       return "EXITO";
     },

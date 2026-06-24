@@ -9,16 +9,8 @@
     _registrarLog, _generarEstructuraPorDefecto, _buildPlazaScopedQuery
   } = window._mex;
 
-  function _eid() {
-    const ctx = window._empresaActual;
-    if (!ctx || ctx.isSuperAdminContext) return '';
-    return ctx.id || '';
-  }
-
   function _mapaConfigDocId(plaza) {
-    const p = _normalizePlazaId(plaza);
-    const eid = _eid();
-    return eid && p ? `${eid}__${p}` : p;
+    return _normalizePlazaId(plaza);
   }
 
   function _mapaEstructuraRef(plaza) {
@@ -40,19 +32,8 @@
 
   async function _leerEstructuraPlaza(plaza) {
     const p = _normalizePlazaId(plaza);
-    const docId = _mapaConfigDocId(p);
-    const snap = await db.collection('mapa_config').doc(docId).collection('estructura').orderBy('orden').get();
-    const scopedRows = !snap.empty ? snap.docs.map(d => d.data()) : [];
-
-    if (docId !== p) {
-      const legacySnap = await _legacyMapaEstructuraRef(p).orderBy('orden').get();
-      if (!legacySnap.empty) {
-        const legacyRows = legacySnap.docs.map(d => d.data());
-        if (scopedRows.length === 0 || _esEstructuraDefaultMinima(scopedRows)) return legacyRows;
-      }
-    }
-
-    if (scopedRows.length > 0) return scopedRows;
+    const snap = await db.collection('mapa_config').doc(p).collection('estructura').orderBy('orden').get();
+    if (!snap.empty) return snap.docs.map(d => d.data());
     return _generarEstructuraPorDefecto();
   }
 
@@ -79,18 +60,13 @@
         }, immediate ? 0 : MAPA_SNAPSHOT_MERGE_MS);
       }
 
-      const eidSM = _eid();
-      let cuadreQ = db.collection(COL.CUADRE);
-      if (eidSM) cuadreQ = cuadreQ.where('empresaId', '==', eidSM);
-      let externosQ = db.collection(COL.EXTERNOS);
-      if (eidSM) externosQ = externosQ.where('empresaId', '==', eidSM);
-      const unsubFlat1 = cuadreQ.onSnapshot(snap => {
+      const unsubFlat1 = db.collection(COL.CUADRE).onSnapshot(snap => {
         const bootstrap = !fcReady || !feReady;
         fc = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         fcReady = true;
         _emit(bootstrap && feReady);
       }, err => console.error("onSnapshot cuadre:", err));
-      const unsubFlat2 = externosQ.onSnapshot(snap => {
+      const unsubFlat2 = db.collection(COL.EXTERNOS).onSnapshot(snap => {
         const bootstrap = !fcReady || !feReady;
         fe = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         feReady = true;
@@ -126,19 +102,8 @@
         }, immediate ? 0 : MAPA_SNAPSHOT_MERGE_MS);
       }
 
-      const eidSMP = _eid();
-      let cuadreQuery, externosQuery;
-      if (eidSMP) {
-        cuadreQuery = db.collection(COL.CUADRE).where('empresaId', '==', eidSMP).where('plaza', '==', plazaUp);
-        externosQuery = db.collection(COL.EXTERNOS).where('empresaId', '==', eidSMP).where('plaza', '==', plazaUp);
-      } else {
-        cuadreQuery = typeof _buildPlazaScopedQuery === 'function'
-          ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
-          : db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
-        externosQuery = typeof _buildPlazaScopedQuery === 'function'
-          ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
-          : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
-      }
+      const cuadreQuery = db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
+      const externosQuery = db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
 
       const unsubCuadre = cuadreQuery.onSnapshot(snap => {
         const bootstrap = !cuadreReady || !externosReady;
@@ -159,25 +124,12 @@
 
     async obtenerDatosParaMapa(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const eidODPM = _eid();
-      let cuadreQuery, externosQuery;
-      if (eidODPM && plazaUp) {
-        cuadreQuery = db.collection(COL.CUADRE).where('empresaId', '==', eidODPM).where('plaza', '==', plazaUp);
-        externosQuery = db.collection(COL.EXTERNOS).where('empresaId', '==', eidODPM).where('plaza', '==', plazaUp);
-      } else if (eidODPM) {
-        cuadreQuery = db.collection(COL.CUADRE).where('empresaId', '==', eidODPM);
-        externosQuery = db.collection(COL.EXTERNOS).where('empresaId', '==', eidODPM);
-      } else if (plazaUp) {
-        cuadreQuery = typeof _buildPlazaScopedQuery === 'function'
-          ? _buildPlazaScopedQuery(COL.CUADRE, plazaUp)
-          : db.collection(COL.CUADRE).where('plaza', '==', plazaUp);
-        externosQuery = typeof _buildPlazaScopedQuery === 'function'
-          ? _buildPlazaScopedQuery(COL.EXTERNOS, plazaUp)
-          : db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp);
-      } else {
-        cuadreQuery = db.collection(COL.CUADRE);
-        externosQuery = db.collection(COL.EXTERNOS);
-      }
+      const cuadreQuery = plazaUp
+        ? db.collection(COL.CUADRE).where('plaza', '==', plazaUp)
+        : db.collection(COL.CUADRE);
+      const externosQuery = plazaUp
+        ? db.collection(COL.EXTERNOS).where('plaza', '==', plazaUp)
+        : db.collection(COL.EXTERNOS);
       const [cuadreSnap, externosSnap] = await Promise.all([
         cuadreQuery.get(), externosQuery.get()
       ]);
@@ -214,19 +166,6 @@
         _ensurePlazaBootstrap(p).catch(err => console.warn("No se pudo bootstrapear la plaza:", p, err));
         return _mapaEstructuraRef(p).orderBy('orden')
           .onSnapshot(snap => {
-            if (_mapaConfigDocId(p) !== p) {
-              const scopedRows = !snap.empty ? snap.docs.map(d => d.data()) : [];
-              _legacyMapaEstructuraRef(p).orderBy('orden').get()
-                .then(legacySnap => {
-                  if (!legacySnap.empty && (scopedRows.length === 0 || _esEstructuraDefaultMinima(scopedRows))) {
-                    callback(legacySnap.docs.map(d => d.data()));
-                    return;
-                  }
-                  callback(scopedRows.length > 0 ? scopedRows : _generarEstructuraPorDefecto());
-                })
-                .catch(() => callback(scopedRows.length > 0 ? scopedRows : _generarEstructuraPorDefecto()));
-              return;
-            }
             if (!snap.empty) {
               callback(snap.docs.map(d => d.data()));
               return;
@@ -244,12 +183,7 @@
       const p = _normalizePlazaId(plaza);
       if (!p) return {};
       await _ensurePlazaBootstrap(p);
-      const docId = _mapaConfigDocId(p);
-      const snap = await db.collection('mapa_config').doc(docId).get();
-      if (!snap.exists && docId !== p) {
-        const legacySnap = await db.collection('mapa_config').doc(p).get();
-        return legacySnap.exists ? legacySnap.data() : {};
-      }
+      const snap = await db.collection('mapa_config').doc(p).get();
       return snap.exists ? snap.data() : {};
     },
 
@@ -312,7 +246,6 @@
       }
       const extras = options?.mapEditorExtras;
       await db.collection('mapa_config').doc(_mapaConfigDocId(p)).set({
-        empresaId: _eid() || null,
         plaza: p,
         _updatedAt: Date.now()
       }, { merge: true });
@@ -374,8 +307,7 @@
         nombre: nombre.trim(),
         id,
         totalCeldas: elementos.length,
-        _savedAt: Date.now(),
-        empresaId: _eid()
+        _savedAt: Date.now()
       });
       // Guardar celdas
       for (let i = 0; i < elementos.length; i += 490) {
@@ -389,10 +321,7 @@
     },
 
     async listarPlantillasMapa() {
-      const eidLPM = _eid();
-      let plantillasQ = db.collection('mapa_plantillas');
-      if (eidLPM) plantillasQ = plantillasQ.where('empresaId', '==', eidLPM);
-      const snap = await plantillasQ.orderBy('_savedAt', 'desc').get();
+      const snap = await db.collection('mapa_plantillas').orderBy('_savedAt', 'desc').get();
       return snap.docs.map(d => d.data());
     },
 

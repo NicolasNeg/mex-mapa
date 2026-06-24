@@ -134,19 +134,9 @@ function _normalizePlazaId(value) {
   return String(value || '').trim().toUpperCase();
 }
 
-// Returns the active empresa ID, or '' for super-admin / unauthenticated sessions.
-function _eid() {
-  const ctx = window._empresaActual;
-  if (!ctx || ctx.isSuperAdminContext) return '';
-  return ctx.id || '';
-}
-
-// Empresa-scoped doc ID for settings and mapa_config.
-// Format: {empresaId}__{PLAZA} when empresa context is active.
-// Backward compat: returns just {PLAZA} for super-admin / no-context sessions.
+// Doc ID for settings and mapa_config — just the normalized plaza.
 function _plazaDocId(plaza) {
-  const eid = _eid();
-  return eid ? `${eid}__${plaza}` : plaza;
+  return plaza;
 }
 
 function _inferPlazaId(data = {}) {
@@ -243,11 +233,7 @@ function _buildDefaultPlazaDetalle(plaza) {
 }
 
 function _empresaConfigRef() {
-  const ctx = window._empresaActual;
-  const eid = (ctx && !ctx.isSuperAdminContext) ? (ctx.id || '') : '';
-  return eid
-    ? db.collection('empresas').doc(eid)
-    : db.collection(COL.CONFIG).doc('empresa');
+  return db.collection(COL.CONFIG).doc('empresa');
 }
 
 async function _ensurePlazaBootstrap(plaza) {
@@ -1055,12 +1041,6 @@ async function _getSettings(plaza) {
   }
   const snap = await _settingsDoc(plaza).get();
   if (snap.exists) return snap.data();
-  // Fallback: read legacy plaza-only doc (before empresa-scoping migration)
-  const eid = _eid();
-  if (eid) {
-    const legacySnap = await db.collection(COL.SETTINGS).doc(plazaUp || 'GLOBAL').get();
-    if (legacySnap.exists) return legacySnap.data();
-  }
   return {};
 }
 async function _setSettings(data, plaza) {
@@ -1094,8 +1074,6 @@ async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   const id = `log_${ts}_${Math.floor(Math.random() * 1000)}`;
   const payload = { fecha: _now(), timestamp: ts, tipo, accion: mensaje, autor: autor || "Sistema" };
   if (plaza) payload.plaza = (plaza || '').toUpperCase().trim();
-  const eid = _eid();
-  if (eid) payload.empresaId = eid;
   const auditExtra = _windowLocationAuditExtra(extra);
   if (auditExtra.locationStatus) payload.locationStatus = auditExtra.locationStatus;
   if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
@@ -1107,14 +1085,12 @@ async function _registrarEventoGestion(tipo, mensaje, autor, extra = {}) {
   const ts = _ts();
   const id = `gest_${ts}_${Math.floor(Math.random() * 1000)}`;
   const extraSanitizado = _windowLocationAuditExtra(extra);
-  const eid = _eid();
   await db.collection(COL.ADMIN_AUDIT).doc(id).set({
     fecha: _now(),
     timestamp: ts,
     tipo: _sanitizeText(tipo) || "GESTION",
     accion: _sanitizeText(mensaje),
     autor: _sanitizeText(autor) || "Sistema",
-    ...(eid ? { empresaId: eid } : {}),
     ...extraSanitizado
   });
 }
@@ -1837,8 +1813,6 @@ const API_FUNCTIONS = {
         autor: usuarioResponsable || "Sistema",
         plaza: plazaUp || ""
       };
-      const eidHP = _eid();
-      if (eidHP) payload.empresaId = eidHP;
       if (auditExtra.locationStatus) payload.locationStatus = auditExtra.locationStatus;
       if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
       if (auditExtra.ipAddress) payload.ipAddress = auditExtra.ipAddress;
@@ -2137,12 +2111,9 @@ const API_FUNCTIONS = {
   },
   async obtenerTodasLasAlertas(plaza) {
     const plazaUp = _normalizePlazaId(plaza);
-    const eidOTA = _eid();
-    let q = db.collection(COL.ALERTAS);
-    if (eidOTA && plazaUp) q = q.where('empresaId', '==', eidOTA).where('plaza', '==', plazaUp);
-    else if (eidOTA) q = q.where('empresaId', '==', eidOTA);
-    else if (plazaUp) q = q.where('plaza', '==', plazaUp);
-    q = q.orderBy("timestamp", "desc");
+    let q = plazaUp
+      ? db.collection(COL.ALERTAS).where('plaza', '==', plazaUp).orderBy("timestamp", "desc")
+      : db.collection(COL.ALERTAS).orderBy("timestamp", "desc");
     const snap = await q.get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
@@ -2191,14 +2162,10 @@ const API_FUNCTIONS = {
   // ─── MENSAJES ────────────────────────────────────────────
   async obtenerMensajesPrivados(usuario) {
     const me = usuario.trim().toUpperCase();
-    const eidMP = _eid();
-    let qSent = db.collection(COL.MENSAJES).where("remitente", "==", me).orderBy("timestamp", "desc");
-    let qRecv = db.collection(COL.MENSAJES).where("destinatario", "==", me).orderBy("timestamp", "desc");
-    if (eidMP) {
-      qSent = db.collection(COL.MENSAJES).where("empresaId", "==", eidMP).where("remitente", "==", me).orderBy("timestamp", "desc");
-      qRecv = db.collection(COL.MENSAJES).where("empresaId", "==", eidMP).where("destinatario", "==", me).orderBy("timestamp", "desc");
-    }
-    const [sent, recv] = await Promise.all([qSent.get(), qRecv.get()]);
+    const [sent, recv] = await Promise.all([
+      db.collection(COL.MENSAJES).where("remitente", "==", me).orderBy("timestamp", "desc").get(),
+      db.collection(COL.MENSAJES).where("destinatario", "==", me).orderBy("timestamp", "desc").get()
+    ]);
     const todos = [...sent.docs, ...recv.docs].map(d => ({ id: d.id, ...d.data() })).sort((a, b) => b.timestamp - a.timestamp);
     const vistos = new Set();
     return todos.filter(m => { if (vistos.has(m.id)) return false; vistos.add(m.id); return true; })
@@ -2208,8 +2175,6 @@ const API_FUNCTIONS = {
     const ts = _ts();
     const id = `msg_${ts}_${Math.floor(Math.random() * 1000)}`;
     const payload = { timestamp: ts, fecha: _now(), remitente: remitente.trim().toUpperCase(), destinatario: destinatario.trim().toUpperCase(), mensaje: texto || "", leido: "NO" };
-    const eidEM = _eid();
-    if (eidEM) payload.empresaId = eidEM;
     if (archivoUrl)  { payload.archivoUrl = archivoUrl; payload.archivoNombre = archivoNombre; }
     if (replyTo)     { payload.replyTo = { id: replyTo.id, remitente: replyTo.remitente, mensaje: replyTo.mensaje }; }
     if (meta && typeof meta === 'object') {
@@ -2395,10 +2360,7 @@ const API_FUNCTIONS = {
   // Gestión de Flota → Más Controles → REGISTROS/MOVIMIENTOS
   // Lee de historial_patio: movimientos de cajón (MOVE / SWAP / DEL)
   async obtenerHistorialLogs() {
-    const eidHL = _eid();
-    let q = db.collection("historial_patio").orderBy("timestamp", "desc").limit(500);
-    if (eidHL) q = db.collection("historial_patio").where("empresaId", "==", eidHL).orderBy("timestamp", "desc").limit(500);
-    const snap = await q.get();
+    const snap = await db.collection("historial_patio").orderBy("timestamp", "desc").limit(500).get();
     return snap.docs.map(d => {
       const data = d.data();
       return {
@@ -2424,10 +2386,7 @@ const API_FUNCTIONS = {
   // Sidebar → HISTORIAL ACTIVIDAD (AUDITORÍA DEL SISTEMA)
   // Lee de LOGS: inserciones, modificaciones de estado, bajas
   async obtenerLogsServer() {
-    const eidLS = _eid();
-    let q = db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200);
-    if (eidLS) q = db.collection(COL.LOGS).where("empresaId", "==", eidLS).orderBy("timestamp", "desc").limit(200);
-    const snap = await q.get();
+    const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
     return snap.docs.map(d => {
       const data = d.data();
       const accion = data.accion || "";
@@ -2454,10 +2413,7 @@ const API_FUNCTIONS = {
   },
 
   async obtenerEventosGestion() {
-    const eidEG = _eid();
-    let q = db.collection(COL.ADMIN_AUDIT).orderBy("timestamp", "desc").limit(300);
-    if (eidEG) q = db.collection(COL.ADMIN_AUDIT).where("empresaId", "==", eidEG).orderBy("timestamp", "desc").limit(300);
-    const snap = await q.get();
+    const snap = await db.collection(COL.ADMIN_AUDIT).orderBy("timestamp", "desc").limit(300).get();
     return snap.docs.map(d => {
       const data = d.data();
       return {
@@ -2812,14 +2768,11 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
   // ─── PLAZAS / CORPORATIVO ────────────────────────────────
   async obtenerUnidadesPlazas() {
-    const eid = _eid();
-    let q = db.collection(COL.INDEX).orderBy("sucursal");
-    if (eid) q = q.where('empresaId', '==', eid);
-    const snap = await q.get();
+    const snap = await db.collection(COL.INDEX).orderBy("sucursal").get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   },
   async registrarUnidadEnPlaza(data) {
-    await db.collection(COL.INDEX).add({ ...data, _createdAt: _now(), empresaId: _eid() || undefined });
+    await db.collection(COL.INDEX).add({ ...data, _createdAt: _now() });
     return "EXITO";
   },
   async obtenerDetalleCompleto(sucursal, mva) {
@@ -2884,10 +2837,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
 
   // ─── SIPP ────────────────────────────────────────────────
   async obtenerDisponiblesSIPP() {
-    const eidSIPP = _eid();
-    let q = db.collection(COL.SIPP);
-    if (eidSIPP) q = q.where("empresaId", "==", eidSIPP);
-    const snap = await q.get();
+    const snap = await db.collection(COL.SIPP).get();
     return snap.docs.map(d => d.data());
   },
 

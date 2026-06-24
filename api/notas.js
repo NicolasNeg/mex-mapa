@@ -11,31 +11,19 @@
     _buildPlazaScopedQuery, _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
-  function _eid() {
-    const ctx = window._empresaActual;
-    if (!ctx || ctx.isSuperAdminContext) return '';
-    return ctx.id || '';
-  }
-
   window._mexParts = window._mexParts || {};
   window._mexParts.notas = {
 
     // ─── NOTAS ────────────────────────────────────────────
     async obtenerTodasLasNotas(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const eid = _eid();
       let query = plazaUp
-        ? (typeof _buildPlazaScopedQuery === 'function'
-          ? _buildPlazaScopedQuery(COL.NOTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' } })
-          : db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc'))
+        ? db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc')
         : db.collection(COL.NOTAS).orderBy("timestamp", "desc");
-      if (eid) query = query.where('empresaId', '==', eid);
       const snap = await query.get().catch(async error => {
         if (!_isMissingIndexError?.(error) || !plazaUp) throw error;
         _warnQueryFallback?.('obtenerTodasLasNotas', error);
-        let fbQuery = db.collection(COL.NOTAS).orderBy('timestamp', 'desc').limit(300);
-        if (eid) fbQuery = fbQuery.where('empresaId', '==', eid);
-        return fbQuery.get();
+        return db.collection(COL.NOTAS).orderBy('timestamp', 'desc').limit(300).get();
       });
       const docs = snap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp));
       return docs.map(d => _normalizeIncidentRecord(d.id, d.data()));
@@ -43,13 +31,9 @@
 
     suscribirNotasAdmin(callback, plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const eid = _eid();
-      let query = plazaUp
-        ? (typeof _buildPlazaScopedQuery === 'function'
-          ? _buildPlazaScopedQuery(COL.NOTAS, plazaUp, { orderBy: { field: 'timestamp', direction: 'desc' } })
-          : db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc'))
+      const query = plazaUp
+        ? db.collection(COL.NOTAS).where('plaza', '==', plazaUp).orderBy('timestamp', 'desc')
         : db.collection(COL.NOTAS).orderBy("timestamp", "desc");
-      if (eid) query = query.where('empresaId', '==', eid);
       let fallbackUnsub = null;
       const primaryUnsub = query.onSnapshot(snap => {
         const docs = snap.docs.filter(d => !plazaUp || _matchesPlaza(d.data(), plazaUp));
@@ -58,8 +42,7 @@
         if (_isMissingIndexError?.(err) && plazaUp) {
           _warnQueryFallback?.('suscribirNotasAdmin', err);
           if (!fallbackUnsub) {
-            let fbQuery = db.collection(COL.NOTAS).orderBy('timestamp', 'desc').limit(300);
-            if (eid) fbQuery = fbQuery.where('empresaId', '==', eid);
+            const fbQuery = db.collection(COL.NOTAS).orderBy('timestamp', 'desc').limit(300);
             fallbackUnsub = fbQuery.onSnapshot(fallbackSnap => {
               const docs = fallbackSnap.docs.filter(d => _matchesPlaza(d.data(), plazaUp));
               callback(docs.map(d => _normalizeIncidentRecord(d.id, d.data())));
@@ -98,7 +81,6 @@
         resueltaEn: ""
       }, actor, [...adjuntosManual, ...adjuntosSubidos], ts);
       if (plazaNotaUp) payload.plaza = plazaNotaUp;
-      payload.empresaId = _eid();
 
       await db.collection(COL.NOTAS).doc(id).set(payload);
       return "OK";
