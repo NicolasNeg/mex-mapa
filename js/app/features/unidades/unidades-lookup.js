@@ -1,25 +1,17 @@
-// Global unit catalog lookup — self-initializes when empresa context loads.
+// Global unit catalog lookup — self-initializes when config is ready.
 // Exposes window.mexUnidades for use from any form or native view.
 import { onUnidades } from './unidades-data.js';
 
 let _cache = [];
 let _unsub = null;
 let _ready = false;
-let _empresaId = '';
 
-function _start(empresaId) {
+function _start() {
   if (_unsub) { try { _unsub(); } catch (_) {} _unsub = null; }
   _cache = [];
   _ready = false;
-  _empresaId = String(empresaId || '').trim();
 
-  if (!_empresaId || _empresaId === '__superadmin__') {
-    _ready = true;
-    _dispatch();
-    return;
-  }
-
-  _unsub = onUnidades(_empresaId, units => {
+  _unsub = onUnidades(units => {
     _cache = Array.isArray(units) ? units : [];
     _ready = true;
     _dispatch();
@@ -55,9 +47,10 @@ export function getByPlacas(placas) {
 export function isReady() { return _ready; }
 export function todas() { return _cache.slice(); }
 
-// Start immediately — single-tenant, no empresa context switching needed
-const initialId = String(window.MEX_CONFIG?.empresa?.id || '').trim();
-if (initialId) _start(initialId);
+// Single-tenant: un solo catálogo. Arrancar cuando MEX_CONFIG esté listo.
+function _boot() { _start(); }
+if (window.__mexConfigReadyPromise) window.__mexConfigReadyPromise.then(_boot).catch(_boot);
+else _boot();
 
 // Public API
 window.mexUnidades = Object.freeze({ buscar, getByMva, getByPlacas, isReady, todas });

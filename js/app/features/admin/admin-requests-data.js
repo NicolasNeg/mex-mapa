@@ -3,9 +3,6 @@ import { db } from '/js/core/database.js';
 const PRIMARY = 'solicitudes';
 const LEGACY = 'solicitudes_acceso';
 
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
 
 function _collectionsOrder(preferred = '') {
   return Array.from(new Set(
@@ -98,10 +95,8 @@ export function subscribeAdminRequests({ status = 'PENDIENTE', onData, onError }
     ok(_mergeRecords(primary, legacy));
   };
 
-  const eid = _eid();
 
   let qPrimary = db.collection(PRIMARY).where('estado', '==', normalizedStatus);
-  if (eid) qPrimary = qPrimary.where('empresaId', '==', eid);
   const unsubPrimary = qPrimary.onSnapshot(
     snap => {
       primary = snap.docs.map(d => normalizeRequestRecord(d.id, d.data(), PRIMARY));
@@ -112,7 +107,6 @@ export function subscribeAdminRequests({ status = 'PENDIENTE', onData, onError }
   );
 
   let qLegacy = db.collection(LEGACY).where('estado', '==', normalizedStatus);
-  if (eid) qLegacy = qLegacy.where('empresaId', '==', eid);
   const unsubLegacy = qLegacy.onSnapshot(
     snap => {
       legacy = snap.docs.map(d => normalizeRequestRecord(d.id, d.data(), LEGACY));
@@ -165,7 +159,6 @@ export async function rejectAccessRequestSafely({
   if (!target?.ref) throw new Error('No se encontró la solicitud.');
   const fv = _fieldValue();
   const reviewedBy = _normEmail(actorEmail);
-  const eid = _eid();
   const payload = {
     estado: 'RECHAZADA',
     comentarioRevision: _norm(comment),
@@ -177,7 +170,6 @@ export async function rejectAccessRequestSafely({
     revisadoEn: fv ? fv.serverTimestamp() : new Date().toISOString(),
     rechazadoEn: fv ? fv.serverTimestamp() : new Date().toISOString(),
     updatedAt: fv ? fv.serverTimestamp() : new Date().toISOString(),
-    ...(eid ? { empresaId: eid } : {})
   };
   await target.ref.set(payload, { merge: true });
   return { collectionName: target.collectionName, email: _normEmail(email) };

@@ -471,7 +471,7 @@ async function _handleFileImport(file) {
   if (resultEl) resultEl.style.display = 'none';
 
   try {
-    const result = await importarDesdeArchivo(_empresaId, file, _tipoSeleccionado);
+    const result = await importarDesdeArchivo(file, _tipoSeleccionado);
     _importResult = result;
     if (progressEl) progressEl.style.display = 'none';
     _renderImportResult(result);

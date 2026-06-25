@@ -45,9 +45,6 @@ export const DIA_NOMBRE = {
 
 // ── Helpers ───────────────────────────────────────────────────
 function _fv()  { return window.firebase?.firestore?.FieldValue; }
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
 function _authUid() { return window._auth?.currentUser?.uid || ''; }
 
 /** Lunes de la semana que contiene 'date' (default hoy). */
@@ -91,11 +88,9 @@ export function rangoSemana(semana) {
 // ── Horarios ──────────────────────────────────────────────────
 /** Escucha en tiempo real los horarios de una semana para una plaza. */
 export function onHorariosSemanales(plaza, semana, callback) {
-  const eid = _eid();
   let q = db.collection(COL_HORARIOS)
     .where('plaza', '==', plaza)
     .where('semanaInicio', '==', semana);
-  if (eid) q = q.where('empresaId', '==', eid);
   return q.onSnapshot(
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
     err  => { console.warn('[horarios]', err?.message); callback([]); }
@@ -104,13 +99,11 @@ export function onHorariosSemanales(plaza, semana, callback) {
 
 /** Guarda o actualiza el horario de un usuario para una semana. */
 export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) {
-  const eid = _eid();
   const fv  = _fv();
   let q = db.collection(COL_HORARIOS)
     .where('usuarioId', '==', usuarioId)
     .where('plaza', '==', plaza)
     .where('semanaInicio', '==', semana);
-  if (eid) q = q.where('empresaId', '==', eid);
   const snap = await q.limit(1).get();
 
   const base = {
@@ -120,7 +113,6 @@ export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) 
     plaza,
     semanaInicio:   semana,
     dias,
-    ...(eid ? { empresaId: eid } : {}),
     actualizadoPor: _authUid(),
     actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
   };
@@ -136,12 +128,10 @@ export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) 
 
 /** Horario de un usuario para una semana (one-shot). */
 export async function getMiHorario(usuarioId, plaza, semana) {
-  const eid = _eid();
   let q = db.collection(COL_HORARIOS)
     .where('usuarioId', '==', usuarioId)
     .where('plaza', '==', plaza)
     .where('semanaInicio', '==', semana);
-  if (eid) q = q.where('empresaId', '==', eid);
   const snap = await q.limit(1).get();
   if (snap.empty) return null;
   return { id: snap.docs[0].id, ...snap.docs[0].data() };
@@ -150,12 +140,10 @@ export async function getMiHorario(usuarioId, plaza, semana) {
 // ── Asistencia ────────────────────────────────────────────────
 /** Escucha asistencia de una plaza en un rango de fechas. */
 export function onAsistencia(plaza, fechaInicio, fechaFin, callback) {
-  const eid = _eid();
   let q = db.collection(COL_ASISTENCIA)
     .where('plaza', '==', plaza)
     .where('fecha', '>=', fechaInicio)
     .where('fecha', '<=', fechaFin);
-  if (eid) q = q.where('empresaId', '==', eid);
   return q.onSnapshot(
     snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
     err  => { console.warn('[asistencia]', err?.message); callback([]); }
@@ -164,13 +152,11 @@ export function onAsistencia(plaza, fechaInicio, fechaFin, callback) {
 
 /** Registra o actualiza la asistencia de un usuario en una fecha. */
 export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts = {}) {
-  const eid = _eid();
   const fv  = _fv();
   let q = db.collection(COL_ASISTENCIA)
     .where('usuarioId', '==', usuarioId)
     .where('plaza', '==', plaza)
     .where('fecha', '==', fecha);
-  if (eid) q = q.where('empresaId', '==', eid);
   const snap = await q.limit(1).get();
 
   const base = {
@@ -181,7 +167,6 @@ export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts 
     estado,
     nota:          String(opts.nota    || '').trim(),
     turnoId:       opts.turnoId || null,
-    ...(eid ? { empresaId: eid } : {}),
     registradoPor: _authUid(),
     registradoEn:  fv ? fv.serverTimestamp() : Date.now(),
   };
@@ -197,11 +182,9 @@ export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts 
 // ── Historial de turnos ───────────────────────────────────────
 /** Trae los últimos 'limit' turnos CERRADOS de la plaza (o del usuario). */
 export async function getHistorialTurnos(plaza, opts = {}) {
-  const eid = _eid();
   const lim = opts.limit || 40;
   let q = db.collection('turnos').where('estado', '==', 'CERRADO');
   if (plaza) q = q.where('plazaId', '==', plaza);
-  if (eid)   q = q.where('empresaId', '==', eid);
   if (opts.usuarioId) q = q.where('usuarioId', '==', opts.usuarioId);
   q = q.orderBy('inicio', 'desc').limit(lim);
   const snap = await q.get();
@@ -212,9 +195,7 @@ export async function getHistorialTurnos(plaza, opts = {}) {
 const COL_PLANTILLAS = 'horarios_plantillas';
 
 export function onPlantillas(callback) {
-  const eid = _eid();
   let q = db.collection(COL_PLANTILLAS);
-  if (eid) q = q.where('empresaId', '==', eid);
   return q.onSnapshot(
     snap => callback(
       snap.docs
@@ -226,13 +207,11 @@ export function onPlantillas(callback) {
 }
 
 export async function guardarPlantilla(nombre, inicio, fin, id = null) {
-  const eid = _eid();
   const fv  = _fv();
   const base = {
     nombre: String(nombre).trim(),
     inicio: String(inicio).trim(),
     fin:    String(fin).trim(),
-    ...(eid ? { empresaId: eid } : {}),
     actualizadoPor: _authUid(),
     actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
   };
@@ -266,7 +245,6 @@ export function onNotasSemana(plaza, semana, callback) {
 }
 
 export async function guardarNotaSemana(plaza, semana, diaKey, nota) {
-  const eid   = _eid();
   const fv    = _fv();
   const docId = _notasSemId(plaza, semana);
   const ref   = db.collection(COL_NOTAS_SEM).doc(docId);
@@ -275,7 +253,6 @@ export async function guardarNotaSemana(plaza, semana, diaKey, nota) {
     await ref.set({
       plaza,
       semana,
-      ...(eid ? { empresaId: eid } : {}),
       notas: { [diaKey]: String(nota).trim() },
       actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
       actualizadoPor: _authUid(),
@@ -292,12 +269,8 @@ export async function guardarNotaSemana(plaza, semana, diaKey, nota) {
 // ── Usuarios de plaza ─────────────────────────────────────────
 /** Lista básica de usuarios de una plaza para el grid de horarios. */
 export async function getUsuariosPlaza(plaza) {
-  const eid = _eid();
   if (!plaza) return [];
   let q = db.collection('usuarios');
-  if (eid) {
-    q = q.where('empresaId', '==', eid);
-  }
   const snap = await q.limit(150).get();
   return snap.docs
     .map(d => ({ id: d.id, ...d.data() }))

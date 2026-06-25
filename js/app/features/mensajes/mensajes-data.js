@@ -13,9 +13,6 @@ import { db, COL,
   eliminarMensajeChatDb
 } from '/js/core/database.js';
 
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
 
 // ── Canonical identity helpers ────────────────────────────
 
@@ -149,7 +146,6 @@ export function startRealtimeListener(me, callback) {
     callback(all);
   }
 
-  const eid = _eid();
 
   // Listen for all identities the user may have
   for (const identity of identities) {
@@ -157,7 +153,6 @@ export function startRealtimeListener(me, callback) {
     if (!safeId) continue;
 
     let q1 = db.collection('mensajes').where('remitente', '==', safeId);
-    if (eid) q1 = q1.where('empresaId', '==', eid);
     unsubs.push(
       q1.orderBy('timestamp', 'desc').limit(300)
         .onSnapshot(snap => {
@@ -173,7 +168,6 @@ export function startRealtimeListener(me, callback) {
     );
 
     let q2 = db.collection('mensajes').where('destinatario', '==', safeId);
-    if (eid) q2 = q2.where('empresaId', '==', eid);
     unsubs.push(
       q2.orderBy('timestamp', 'desc').limit(300)
         .onSnapshot(snap => {
@@ -318,9 +312,7 @@ export async function uploadChatAudio(blob, mimeType, extension) {
 
 export async function getAllUsers() {
   try {
-    const eid = _eid();
     let q = db.collection(COL.USERS);
-    if (eid) q = q.where('empresaId', '==', eid);
     const snap = await q.get();
     return snap.docs.map(d => ({ id: d.id, ...d.data() }));
   } catch (err) {

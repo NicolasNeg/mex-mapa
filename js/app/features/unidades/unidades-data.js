@@ -1,20 +1,18 @@
 import { db } from '/js/core/database.js';
 import { getCsvColumnas, normalizarFila } from '/js/app/features/onboarding/onboarding-config.js';
 
-const COL_EMPRESAS = 'empresas';
-const SUB_UNIDADES = 'unidades';
+const COL_UNIDADES = 'unidades_catalogo';
 
 function _fv() {
   return window.firebase?.firestore?.FieldValue?.serverTimestamp?.() || Date.now();
 }
 
-function _unidadesRef(empresaId) {
-  return db.collection(COL_EMPRESAS).doc(empresaId).collection(SUB_UNIDADES);
+function _unidadesRef() {
+  return db.collection(COL_UNIDADES);
 }
 
-export function onUnidades(empresaId, callback) {
-  if (!empresaId) { callback([]); return () => {}; }
-  return _unidadesRef(empresaId)
+export function onUnidades(callback) {
+  return _unidadesRef()
     .where('estado', '!=', 'INACTIVO')
     .onSnapshot(
       snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
@@ -25,40 +23,37 @@ export function onUnidades(empresaId, callback) {
     );
 }
 
-export async function getUnidades(empresaId) {
-  if (!empresaId) return [];
-  const snap = await _unidadesRef(empresaId)
+export async function getUnidades() {
+  const snap = await _unidadesRef()
     .where('estado', '!=', 'INACTIVO')
     .get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-export async function crearUnidad(empresaId, unitData) {
-  if (!empresaId) throw new Error('empresaId requerido');
+export async function crearUnidad(unitData) {
   const doc = {
     ...unitData,
-    empresaId,
     estado: 'ACTIVO',
     creadoEn: _fv(),
   };
-  const ref = await _unidadesRef(empresaId).add(doc);
+  const ref = await _unidadesRef().add(doc);
   return ref.id;
 }
 
-export async function actualizarUnidad(empresaId, unitId, fields) {
-  if (!empresaId || !unitId) throw new Error('empresaId y unitId requeridos');
-  await _unidadesRef(empresaId).doc(unitId).update(fields);
+export async function actualizarUnidad(unitId, fields) {
+  if (!unitId) throw new Error('unitId requerido');
+  await _unidadesRef().doc(unitId).update(fields);
 }
 
-export async function eliminarUnidad(empresaId, unitId) {
-  if (!empresaId || !unitId) throw new Error('empresaId y unitId requeridos');
-  await _unidadesRef(empresaId).doc(unitId).update({ estado: 'INACTIVO' });
+export async function eliminarUnidad(unitId) {
+  if (!unitId) throw new Error('unitId requerido');
+  await _unidadesRef().doc(unitId).update({ estado: 'INACTIVO' });
 }
 
-export async function buscarUnidad(empresaId, query) {
+export async function buscarUnidad(query) {
   const q = String(query || '').toUpperCase().trim();
   if (!q) return [];
-  const all = await getUnidades(empresaId);
+  const all = await getUnidades();
   return all.filter(u => {
     const mva = String(u.mva || '').toUpperCase();
     const placas = String(u.placas || '').toUpperCase();
@@ -130,7 +125,7 @@ function _normalizeColName(raw) {
     .replace(/[\s.#]+/g, '_');
 }
 
-export async function importarCsv(empresaId, csvText, tipoNegocio) {
+export async function importarCsv(csvText, tipoNegocio) {
   const text = _stripBom(String(csvText || ''));
   const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
 
@@ -163,10 +158,9 @@ export async function importarCsv(empresaId, csvText, tipoNegocio) {
     const batch = db.batch();
     const chunk = validRows.slice(start, start + BATCH_SIZE);
     for (const unitData of chunk) {
-      const ref = _unidadesRef(empresaId).doc();
+      const ref = _unidadesRef().doc();
       batch.set(ref, {
         ...unitData,
-        empresaId,
         estado: 'ACTIVO',
         creadoEn: _fv(),
       });
@@ -182,7 +176,7 @@ export async function importarCsv(empresaId, csvText, tipoNegocio) {
   };
 }
 
-export async function importarDesdeArchivo(empresaId, file, tipoNegocio) {
+export async function importarDesdeArchivo(file, tipoNegocio) {
   if (!file) return { ok: false, errorTipo: 'no_file', mensaje: 'No se proporcionó archivo', total: 0, importados: 0, errores: [] };
 
   const name = String(file.name || '').toLowerCase();
@@ -212,7 +206,7 @@ export async function importarDesdeArchivo(empresaId, file, tipoNegocio) {
     const reader = new FileReader();
     reader.onload = async e => {
       try {
-        const result = await importarCsv(empresaId, e.target.result, tipoNegocio);
+        const result = await importarCsv(e.target.result, tipoNegocio);
         resolve({ ok: true, ...result });
       } catch (err) {
         resolve({ ok: false, errorTipo: 'parse_error', mensaje: err.message || 'Error al procesar CSV', total: 0, importados: 0, errores: [] });

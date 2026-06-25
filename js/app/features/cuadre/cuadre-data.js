@@ -7,10 +7,6 @@
 
 import { db, COL } from '/js/core/database.js';
 
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
-
 const CUADRE_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
 function cacheKey(plaza) {
@@ -76,11 +72,8 @@ export async function getCuadreSnapshot(plaza) {
     return normalized;
   }
 
-  const eid = _eid();
   let qCuadre = db.collection(COL.CUADRE).where('plaza', '==', plazaId);
-  if (eid) qCuadre = qCuadre.where('empresaId', '==', eid);
   let qExternos = db.collection(COL.EXTERNOS).where('plaza', '==', plazaId);
-  if (eid) qExternos = qExternos.where('empresaId', '==', eid);
   const [cuadre, externos] = await Promise.all([
     qCuadre.get(),
     qExternos.get()
@@ -148,11 +141,9 @@ export function subscribeCuadre({ plaza, onData, onError }) {
     })
     .catch(handleError);
 
-  const eid = _eid();
 
   try {
     let qSnapCuadre = db.collection(COL.CUADRE).where('plaza', '==', plazaId);
-    if (eid) qSnapCuadre = qSnapCuadre.where('empresaId', '==', eid);
     unsubCuadre = qSnapCuadre
       .onSnapshot(
         snap => {
@@ -171,7 +162,6 @@ export function subscribeCuadre({ plaza, onData, onError }) {
 
   try {
     let qSnapExternos = db.collection(COL.EXTERNOS).where('plaza', '==', plazaId);
-    if (eid) qSnapExternos = qSnapExternos.where('empresaId', '==', eid);
     unsubExternos = qSnapExternos
       .onSnapshot(
         snap => {
@@ -209,7 +199,6 @@ export async function getUnidadBitacora({ plaza, mva, limit = 80 } = {}) {
   const mvaId   = String(mva   || '').toUpperCase().trim();
   if (!mvaId) return [];
 
-  const eid = _eid();
   const results = [];
 
   // historial_operativo
@@ -219,7 +208,6 @@ export async function getUnidadBitacora({ plaza, mva, limit = 80 } = {}) {
       .orderBy('creadoEn', 'desc')
       .limit(limit);
     if (plazaId) q = q.where('plaza', '==', plazaId);
-    if (eid) q = q.where('empresaId', '==', eid);
     const snap = await q.get();
     snap.docs.forEach(d => results.push({ id: d.id, source: 'historial', ...d.data() }));
   } catch (_) {}
@@ -232,7 +220,6 @@ export async function getUnidadBitacora({ plaza, mva, limit = 80 } = {}) {
         .orderBy('timestamp', 'desc')
         .limit(limit - results.length);
       if (plazaId) q = q.where('plaza', '==', plazaId);
-      if (eid) q = q.where('empresaId', '==', eid);
       const snap = await q.get();
       snap.docs.forEach(d => results.push({ id: d.id, source: 'ops', ...d.data() }));
     } catch (_) {}

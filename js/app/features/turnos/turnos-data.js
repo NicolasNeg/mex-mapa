@@ -13,9 +13,6 @@ const COL_TURNOS = 'turnos';
 
 function _fv() { return window.firebase?.firestore?.FieldValue; }
 
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
 
 /**
  * Abre un turno para el usuario en la plaza dada.
@@ -34,7 +31,6 @@ export async function iniciarTurno(user, plazaId) {
   if (previo) await cerrarTurno(previo.id);
 
   const fv = _fv();
-  const empresaId = _eid();
   const doc = {
     usuarioId: firebaseUid,
     usuarioNombre: String(user.nombreCompleto || user.nombre || user.displayName || user.email || '').trim(),
@@ -43,7 +39,6 @@ export async function iniciarTurno(user, plazaId) {
     inicio: fv ? fv.serverTimestamp() : Date.now(),
     fin: null,
     estado: 'ACTIVO',
-    ...(empresaId ? { empresaId } : {}),
   };
   const ref = await db.collection(COL_TURNOS).add(doc);
   return ref.id;
@@ -62,11 +57,9 @@ export async function cerrarTurno(turnoId) {
 /** Devuelve el turno ACTIVO del usuario, o null. */
 export async function getMiTurnoActivo(userId) {
   if (!userId) return null;
-  const eid = _eid();
   let q = db.collection(COL_TURNOS)
     .where('usuarioId', '==', userId)
     .where('estado', '==', 'ACTIVO');
-  if (eid) q = q.where('empresaId', '==', eid);
   const snap = await q.limit(1).get();
   if (snap.empty) return null;
   const doc = snap.docs[0];
@@ -83,13 +76,9 @@ export function onTurnosActivos(plazaId, callback) {
     callback([]);
     return () => {};
   }
-  const eid = _eid();
   let query = db.collection(COL_TURNOS)
     .where('plazaId', '==', plaza)
     .where('estado', '==', 'ACTIVO');
-  if (eid) {
-    query = query.where('empresaId', '==', eid);
-  }
   return query.onSnapshot(
       snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
       err => {

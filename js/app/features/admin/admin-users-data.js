@@ -1,8 +1,5 @@
 import { db, COL } from '/js/core/database.js';
 
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
 
 export function normalizeUserRecord(id, data = {}) {
   const email = String(data.email || id || '').toLowerCase().trim();
@@ -76,9 +73,7 @@ export async function mergeAdminUserBasics(userDocId, patch = {}, actorEmail = '
 export function subscribeAdminUsers({ onData, onError }) {
   const ok = typeof onData === 'function' ? onData : () => {};
   const fail = typeof onError === 'function' ? onError : () => {};
-  const eid = _eid();
   let q = db.collection(COL.USERS);
-  if (eid) q = q.where('empresaId', '==', eid);
   const unsub = q.onSnapshot(
     snap => ok(snap.docs.map(d => normalizeUserRecord(d.id, d.data()))),
     err => fail(err)
@@ -91,9 +86,7 @@ export async function fetchAdminUserByEmail(email = '') {
   if (!normalized) return null;
   const direct = await db.collection(COL.USERS).doc(normalized).get().catch(() => null);
   if (direct?.exists) return normalizeUserRecord(direct.id, direct.data());
-  const eid = _eid();
   let q = db.collection(COL.USERS).where('email', '==', normalized);
-  if (eid) q = q.where('empresaId', '==', eid);
   const byEmail = await q.limit(1).get().catch(() => null);
   if (byEmail && !byEmail.empty) {
     const doc = byEmail.docs[0];
