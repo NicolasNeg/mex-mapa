@@ -1,0 +1,40 @@
+/* css/app-gestion.css — reutiliza tokens de base.css (var(--bg/--surface/--text/--border)) */
+.gestion-view { padding: 24px; max-width: 960px; margin: 0 auto; }
+.gestion-title { font-size: 24px; font-weight: 700; color: var(--text); margin: 0; }
+.gestion-sub { color: var(--text-muted, #64748b); margin: 4px 0 24px; font-size: 14px; }
+.gestion-card { background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+.gestion-form { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+.gestion-form .field { display: flex; flex-direction: column; gap: 4px; }
+.gestion-form label { font-size: 12px; font-weight: 500; color: var(--text-muted, #64748b); }
+.gestion-form select, .gestion-form input { height: 40px; min-width: 140px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font: inherit; }
+.btn-primary { height: 40px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px;
+  background: #3b82f6; color: #fff; border: 0; border-radius: 8px; font-weight: 600; cursor: pointer; }
+.btn-primary:hover { background: #2563eb; }
+.btn-primary:disabled { opacity: .5; cursor: default; }
+.gestion-table { width: 100%; border-collapse: collapse; }
+.gestion-table th, .gestion-table td { text-align: left; padding: 12px; border-bottom: 1px solid var(--border); }
+.gestion-table th { font-size: 12px; color: var(--text-muted, #64748b); font-weight: 600; }
+.t-num { font-variant-numeric: tabular-nums; }
+.t-code { display: flex; align-items: center; gap: 8px; }
+.t-code code { font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.t-empty { text-align: center; color: var(--text-muted, #64748b); padding: 32px; }
+.t-empty .material-symbols-outlined { display: block; font-size: 32px; margin-bottom: 8px; opacity: .6; }
+.chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 9999px;
+  font-size: 12px; font-weight: 600; }
+.chip .material-symbols-outlined { font-size: 14px; }
+.chip-ok  { background: #dcfce7; color: #166534; }
+.chip-mut { background: #e2e8f0; color: #475569; }
+.chip-warn{ background: #fef3c7; color: #92400e; }
+.chip-bad { background: #fee2e2; color: #991b1b; }
+.btn-copy { background: none; border: 0; cursor: pointer; color: var(--text-muted, #64748b); padding: 4px; border-radius: 4px; }
+.btn-copy.copied { color: #16a34a; }
+.btn-danger-ghost { background: none; border: 1px solid #fca5a5; color: #dc2626; border-radius: 8px;
+  padding: 6px 12px; font-weight: 500; cursor: pointer; }
+.btn-danger-ghost:hover { background: #fee2e2; }
+body.dark-theme .chip-ok  { background: rgba(34,197,94,.15);  color: #4ade80; }
+body.dark-theme .chip-mut { background: rgba(148,163,184,.15); color: #94a3b8; }
+body.dark-theme .chip-warn{ background: rgba(245,158,11,.15); color: #fbbf24; }
+body.dark-theme .chip-bad { background: rgba(239,68,68,.15);  color: #f87171; }
+body.dark-theme .btn-danger-ghost:hover { background: rgba(239,68,68,.12); }

@@ -131,6 +131,14 @@ export const NAV_GROUPS = [
     label: 'Administración',
     items: [
       {
+        id: 'invitaciones',
+        label: 'Invitaciones',
+        icon: 'mail',
+        route: '/app/gestion',
+        roles: ['GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
+        feature: 'gestion_usuarios'
+      },
+      {
         id: 'panel-admin',
         label: 'Panel admin',
         icon: 'admin_panel_settings',
@@ -139,7 +147,6 @@ export const NAV_GROUPS = [
         children: [
           { id: 'usuarios',    label: 'Usuarios',    route: '/gestion?tab=usuarios',    icon: 'group' },
           { id: 'roles',       label: 'Roles',       route: '/gestion?tab=roles',       icon: 'shield' },
-          { id: 'solicitudes', label: 'Solicitudes', route: '/gestion?tab=solicitudes', icon: 'assignment' },
           { id: 'alertas-emitir', label: 'Emitir alertas', route: '/app/alertas', icon: 'campaign' },
           { id: 'alertas-historial', label: 'Historial alertas', route: '/app/alertas/historial', icon: 'notifications_active' },
           { id: 'estados',     label: 'Estados',     route: '/gestion?tab=estados',     icon: 'tune',            feature: 'estados_mapa' },
@@ -215,6 +222,7 @@ export const ROUTE_TITLES = {
   '/app/incidencias':      'Notas e incidencias',
   '/app/cuadre':           'Cuadre',
   '/app/admin':            'Panel admin',
+  '/app/gestion':          'Invitaciones',
   '/app/alertas':          'Emitir alertas',
   '/app/alertas/historial':'Historial de alertas',
   '/app/mapa':             'Mapa operativo',
