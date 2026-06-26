@@ -443,7 +443,7 @@ service cloud.firestore {
         ])
         && request.resource.data.keys().hasOnly([
           "nombre", "email", "puesto", "telefono", "password",
-          "rolSolicitado", "plazaSolicitada", "empresaId", "empresaNombre",
+          "rolSolicitado", "plazaSolicitada",
           "fecha", "estado", "_ts",
           "createdAt", "updatedAt", "updatedFrom", "source"
         ])
@@ -473,14 +473,6 @@ service cloud.firestore {
           request.resource.data.plazaSolicitada == null
           || request.resource.data.plazaSolicitada is string
         )
-        && (
-          request.resource.data.empresaId == null
-          || request.resource.data.empresaId is string
-        )
-        && (
-          request.resource.data.empresaNombre == null
-          || request.resource.data.empresaNombre is string
-        )
         && request.resource.data.estado == "PENDIENTE"
         && request.resource.data.nombre.size() >= 3
         && request.resource.data.email.size() >= 5
@@ -490,9 +482,7 @@ service cloud.firestore {
         && request.resource.data.telefono.size() <= 24
         && request.resource.data.password.size() >= 6
         && request.resource.data.password.size() <= 120
-        && (request.resource.data.plazaSolicitada == null || request.resource.data.plazaSolicitada.size() <= 40)
-        && (request.resource.data.empresaId == null || request.resource.data.empresaId.size() <= 80)
-        && (request.resource.data.empresaNombre == null || request.resource.data.empresaNombre.size() <= 120);
+        && (request.resource.data.plazaSolicitada == null || request.resource.data.plazaSolicitada.size() <= 40);
     }
 
     function solicitudUpdateValida() {
@@ -753,22 +743,9 @@ service cloud.firestore {
     // ─── COMUNICACIÓN Y LOGS ─────────────────────────────────
     match /alertas/{doc} {
       allow read: if tienePerfilActual() || esAccesoTotal();
-      allow create: if puedeEmitirAlertasMaestras()
-        && (
-          !('empresaId' in request.resource.data)
-          || esProgramadorBootstrap()
-          || !('empresaId' in perfilActual())
-          || request.resource.data.empresaId == perfilActual().empresaId
-        );
+      allow create: if puedeEmitirAlertasMaestras();
       allow delete: if puedeEmitirAlertasMaestras();
-      allow update: if (puedeEmitirAlertasMaestras()
-          && (
-            !('empresaId' in resource.data)
-            || esProgramadorBootstrap()
-            || !('empresaId' in perfilActual())
-            || resource.data.empresaId == perfilActual().empresaId
-          ))
-        || alertaLecturaValida();
+      allow update: if puedeEmitirAlertasMaestras() || alertaLecturaValida();
     }
 
     match /plantillas_alertas/{doc} {
@@ -777,20 +754,8 @@ service cloud.firestore {
 
     match /mensajes/{doc} {
       allow read: if tienePerfilActual();
-      allow create: if tienePerfilActual()
-        && (
-          !('empresaId' in request.resource.data)
-          || esProgramadorBootstrap()
-          || !('empresaId' in perfilActual())
-          || request.resource.data.empresaId == perfilActual().empresaId
-        );
-      allow update, delete: if tienePerfilActual()
-        && (
-          !('empresaId' in resource.data)
-          || esProgramadorBootstrap()
-          || !('empresaId' in perfilActual())
-          || resource.data.empresaId == perfilActual().empresaId
-        );
+      allow create: if tienePerfilActual();
+      allow update, delete: if tienePerfilActual();
     }
 
     match /logs/{doc} {
@@ -805,23 +770,8 @@ service cloud.firestore {
 
     match /notas_admin/{doc} {
       allow read: if tienePerfilActual();
-      // Soft tenant enforcement: if empresaId is present in the write, it must match
-      // the user's own empresaId (or the user is superadmin). Docs without empresaId
-      // are still writable so legacy data flows continue to work.
-      allow create: if tienePerfilActual()
-        && (
-          !('empresaId' in request.resource.data)
-          || esProgramadorBootstrap()
-          || !('empresaId' in perfilActual())
-          || request.resource.data.empresaId == perfilActual().empresaId
-        );
-      allow update, delete: if tienePerfilActual()
-        && (
-          !('empresaId' in resource.data)
-          || esProgramadorBootstrap()
-          || !('empresaId' in perfilActual())
-          || resource.data.empresaId == perfilActual().empresaId
-        );
+      allow create: if tienePerfilActual();
+      allow update, delete: if tienePerfilActual();
     }
 
     match /settings/{doc} {
@@ -942,84 +892,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ─── UNIDADES CATALOGO (subcollection de empresa) ──────────────────────────
-    match /empresas/{empresaId}/unidades/{unitId} {
-      allow read: if estaAutenticado()
-        && (esProgramadorBootstrap()
-          || (tienePerfilActual()
-            && (!('empresaId' in perfilActual()) || perfilActual().empresaId == empresaId)));
-      allow create, update: if estaAutenticado()
-        && (esProgramadorBootstrap()
-          || (tienePerfilActual()
-            && (!('empresaId' in perfilActual()) || perfilActual().empresaId == empresaId)));
-      allow delete: if esProgramadorBootstrap()
-        || (tienePerfilActual() && (!('empresaId' in perfilActual()) || perfilActual().empresaId == empresaId) && esAdminOperativo());
+    // ─── UNIDADES CATALOGO (single-tenant, colección plana) ────────────────────
+    match /unidades_catalogo/{unitId} {
+      allow read: if tienePerfilActual();
+      allow create, update: if tienePerfilActual();
+      allow delete: if tienePerfilActual() && esAdminOperativo();
     }
 
     // ─── IMPORTACIONES ──────────────────────────────────────────────────────────
     match /importaciones/{importId} {
-      allow read: if estaAutenticado()
-        && (esProgramadorBootstrap() || (tienePerfilActual() && resource.data.empresaId == perfilActual().empresaId));
-      allow create: if tienePerfilActual()
-        && (
-          !('empresaId' in perfilActual())
-          || request.resource.data.empresaId == perfilActual().empresaId
-        );
+      allow read: if tienePerfilActual();
+      allow create: if tienePerfilActual();
       allow update, delete: if esProgramadorBootstrap();
-    }
-
-    // ─── EMPRESAS (SaaS multi-tenant) ────────────────────────────────────────
-    // Cada documento representa un tenant/empresa con su plan y feature gates.
-    // Solo el programador bootstrap puede escribir.
-    // Usuarios autenticados solo leen el documento de su propia empresa
-    // (determinado por el campo empresaId en su perfil de usuario).
-    match /empresas/{empresaId} {
-      allow read: if esProgramadorBootstrap()
-        || (
-          estaAutenticado()
-          && tienePerfilActual()
-          && perfilActual().empresaId == empresaId
-        );
-      // Full write for bootstrap. Empresa admins can only update onboarding fields.
-      allow create, delete: if esProgramadorBootstrap();
-      allow update: if esProgramadorBootstrap()
-        || (
-          tienePerfilActual()
-          && perfilActual().empresaId == empresaId
-          && request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['tipo_negocio', 'configuracion', 'onboarding_paso', 'onboarding_completado',
-                        'onboarding_plazas', 'rolePermissions'])
-        );
-
-      match /pagos/{pagoId} {
-        allow read, write: if esProgramadorBootstrap();
-      }
-
-      match /notas_programador/{notaId} {
-        allow read, write: if esProgramadorBootstrap();
-      }
-    }
-
-    // ─── CONTRATOS SaaS ──────────────────────────────────────────────────────
-    // El token es el docId (32 hex aleatorio) — seguridad por oscuridad.
-    // Cualquiera con el enlace puede leer; solo el portador del token puede
-    // actualizar los campos de firma/vista (el contrato no puede modificarse
-    // una vez firmado).
-    function contratoSignValido() {
-      let changed = request.resource.data.diff(resource.data).affectedKeys();
-      return resource.data.estado != 'firmado'
-        && changed.hasOnly(['estado', 'fechaFirmado', 'firmaData', 'fechaVisto'])
-        && (request.resource.data.estado == 'firmado' || request.resource.data.estado == 'visto')
-        && (request.resource.data.firmaData == null || request.resource.data.firmaData is string)
-        && (request.resource.data.fechaFirmado == null || request.resource.data.fechaFirmado is timestamp)
-        && (request.resource.data.fechaVisto == null || request.resource.data.fechaVisto is timestamp);
-    }
-
-    match /contratos/{contratoId} {
-      allow get: if true;
-      allow list: if esProgramadorBootstrap();
-      allow create, delete: if esProgramadorBootstrap();
-      allow update: if esProgramadorBootstrap() || contratoSignValido();
     }
 
     // ─── SUPERADMINS ─────────────────────────────────────────────────────────
@@ -1044,14 +928,7 @@ service cloud.firestore {
         )
         && request.resource.data.estado == 'ACTIVO'
         && request.resource.data.plazaId is string
-        && request.resource.data.usuarioNombre is string
-        && (
-          !('empresaId' in request.resource.data)
-          || esProgramadorBootstrap()
-          || !tienePerfilActual()
-          || !('empresaId' in perfilActual())
-          || request.resource.data.empresaId == perfilActual().empresaId
-        );
+        && request.resource.data.usuarioNombre is string;
       allow update: if estaAutenticado()
         && (
           resource.data.usuarioId == request.auth.uid
