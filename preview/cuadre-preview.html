@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PREVIEW · Cuadre — comparar versiones</title>
+
+  <!-- Import-map: redirige los imports de cuadre.js a los mocks (sin Firebase) -->
+  <script type="importmap">
+  {
+    "imports": {
+      "/js/app/app-state.js": "/preview/cuadre-mocks.js",
+      "/js/app/features/cuadre/cuadre-data.js": "/preview/cuadre-mocks.js",
+      "/js/core/database.js": "/preview/cuadre-mocks.js"
+    }
+  }
+  </script>
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+  <!-- CSS real de la vista operativa -->
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/app-cuadre.css">
+
+  <style>
+    body { margin:0; font-family:'Inter',sans-serif; background:#0b1220; color:#e2e8f0; }
+    .pv-bar { position:sticky; top:0; z-index:50; display:flex; gap:8px; align-items:center;
+      padding:10px 16px; background:#07111f; border-bottom:1px solid rgba(255,255,255,.08); }
+    .pv-bar b { font-size:13px; color:#fff; margin-right:8px; }
+    .pv-tab { padding:8px 16px; border-radius:8px; border:1px solid rgba(255,255,255,.12);
+      background:transparent; color:#cbd5e1; font:inherit; font-weight:600; cursor:pointer; }
+    .pv-tab.active { background:#3b82f6; color:#fff; border-color:#3b82f6; }
+    .pv-note { margin-left:auto; font-size:11px; color:#64748b; }
+    .pv-panel { display:none; }
+    .pv-panel.active { display:block; }
+    #pv-clasico-frame { width:100%; height:calc(100vh - 56px); border:0; background:#fff; }
+    body.dark-theme { background:#0b1220; }
+  </style>
+</head>
+<body class="dark-theme">
+  <div class="pv-bar">
+    <b>PREVIEW Cuadre</b>
+    <button class="pv-tab active" data-pv="operativa">A · Operativa (/app/cuadre)</button>
+    <button class="pv-tab" data-pv="clasico">B · Clásica (/cuadre)</button>
+    <span class="pv-note">Datos falsos · sin Firebase · no afecta producción</span>
+  </div>
+
+  <div class="pv-panel active" id="pv-operativa">
+    <div id="cuadre-root"></div>
+  </div>
+
+  <div class="pv-panel" id="pv-clasico">
+    <iframe id="pv-clasico-frame" data-src="/preview/cuadre-clasico.html" title="Cuadre clásico"></iframe>
+  </div>
+
+  <!-- Stubs globales para que las acciones referenciadas no rompan el render -->
+  <script>
+    window.MEX_CONFIG = { empresa: { nombre: 'PREVIEW', plazas: ['CDMX'] } };
+    window.__mexCurrentPlazaId = 'CDMX';
+    window.mexConfirm = async () => true;
+    window.mexAlert = async () => true;
+    window.mexPrompt = async () => null;
+    window.mexPerms = { canDo: () => true, getAll: () => ({}), init(){} };
+    window.mexFeatures = { puedeUsar: () => true, limite: () => -1 };
+    window.api = {};
+  </script>
+
+  <!-- Monta la vista operativa REAL con los mocks -->
+  <script type="module">
+    import { mount } from '/js/app/views/cuadre.js';
+    mount({
+      container: document.getElementById('cuadre-root'),
+      navigate: (to) => console.log('[preview] navigate →', to),
+      state: () => ({ currentPlaza: 'CDMX' }),
+      shell: null,
+    }).catch(err => {
+      document.getElementById('cuadre-root').innerHTML =
+        '<pre style="color:#f87171;padding:24px;white-space:pre-wrap;">Error montando la vista operativa:\n' +
+        (err && err.stack || err) + '</pre>';
+    });
+
+    // Tabs
+    const frame = document.getElementById('pv-clasico-frame');
+    document.querySelectorAll('.pv-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.pv;
+        document.querySelectorAll('.pv-tab').forEach(b => b.classList.toggle('active', b === btn));
+        document.getElementById('pv-operativa').classList.toggle('active', id === 'operativa');
+        document.getElementById('pv-clasico').classList.toggle('active', id === 'clasico');
+        if (id === 'clasico' && !frame.src) frame.src = frame.dataset.src; // lazy-load
+      });
+    });
+  </script>
+</body>
+</html>

@@ -17,6 +17,8 @@
       "serviceAccountKey.json",
       "backups",
       "backups/**",
+      "preview",
+      "preview/**",
       "scripts",
       "scripts/**",
       "docs",
