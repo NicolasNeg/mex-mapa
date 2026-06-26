@@ -614,10 +614,7 @@ function _onChange(event) {
 
 async function _loadUsers() {
   try {
-    const eid = window.MEX_CONFIG?.empresa?.id || '';
-    const query = eid
-      ? db.collection(COL.USERS).where('empresaId', '==', eid)
-      : db.collection(COL.USERS);
+    const query = db.collection(COL.USERS);
     const snap = await query.get();
     _users = snap.docs.map(doc => {
       const data = doc.data() || {};

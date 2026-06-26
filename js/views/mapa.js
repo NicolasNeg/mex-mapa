@@ -51,10 +51,6 @@ import { procesarImagenOCR, ejecutarLogicaOCR } from '/mapa/features/extras/ocr.
 // Acceso al API legacy (mex-api.js lo expone en window.api)
 const api = window.api;
 
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
-
 // dialogs.js se carga como <script> antes que este módulo; en ES modules el
 // scope global no se accede por nombre sin prefijo, así que capturamos aquí.
 const mexConfirm = (...a) => (window.mexConfirm || (() => Promise.resolve(true)))(...a);
@@ -2407,68 +2403,6 @@ auth.onAuthStateChanged(async (user) => {
 // abrirModalSolicitud, cerrarModalSolicitud — definidos en el módulo de autenticación
 // (script aislado antes del admin-sidebar)
 
-async function enviarSolicitudAcceso() {
-  const REQUEST_COLLECTION = 'solicitudes';
-  const nombre = document.getElementById('sol_nombre').value.trim().toUpperCase();
-  const email = document.getElementById('sol_email').value.trim().toLowerCase();
-  const puesto = document.getElementById('sol_puesto').value.trim().toUpperCase();
-  const telefono = document.getElementById('sol_telefono').value.trim();
-  const pass = document.getElementById('sol_pass').value;
-  const passConfirm = document.getElementById('sol_pass_confirm').value;
-  const btn = document.getElementById('btnEnviarSolicitud');
-  const emailNormalizado = _profileDocId(email);
-  const rolSolicitado = _inferRequestedAccessRole(puesto, emailNormalizado);
-
-  // Validaciones con Toasts de error
-  if (!nombre || !email || !puesto || !telefono || !pass || !passConfirm) {
-    return showToast("Llena todos los campos del formulario", "error");
-  }
-  if (pass.length < 6) {
-    return showToast("La contraseña debe tener mínimo 6 caracteres", "error");
-  }
-  if (pass !== passConfirm) {
-    document.getElementById('sol_pass_confirm').value = "";
-    document.getElementById('sol_pass_confirm').focus();
-    return showToast("Las contraseñas no coinciden", "error");
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = `<span class="material-icons spinner" style="font-size: 18px; vertical-align: middle;">sync</span> ENVIANDO...`;
-
-  try {
-    await db.collection(REQUEST_COLLECTION).doc(emailNormalizado).set({
-      nombre: nombre,
-      email: emailNormalizado,
-      puesto: puesto,
-      telefono: telefono,
-      password: pass,
-      rolSolicitado: rolSolicitado,
-      plazaSolicitada: "",
-      fecha: new Date().toISOString(),
-      estado: "PENDIENTE",
-      _ts: firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-    // Toast de éxito y limpieza
-    showToast("Solicitud enviada a revisión", "success");
-
-    document.getElementById('sol_nombre').value = "";
-    document.getElementById('sol_email').value = "";
-    document.getElementById('sol_puesto').value = "";
-    document.getElementById('sol_telefono').value = "";
-    document.getElementById('sol_pass').value = "";
-    document.getElementById('sol_pass_confirm').value = "";
-
-    cerrarModalSolicitud();
-  } catch (error) {
-    console.error("Error al guardar solicitud:", error);
-    showToast(error && error.message ? error.message : "Error de conexión al enviar", "error");
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `ENVIAR SOLICITUD`;
-  }
-}
-
 function renderModernDropdown(usersList) {
   const listDiv = document.getElementById('dropdownList');
   if (!listDiv) return;
@@ -2704,14 +2638,8 @@ function _registrarYMostrarResumenVisita() {
 }
 
 function _iniciarSincronizacionUsuarios() {
-  const _eidNow = _eid();
-  if (_unsubUsersLive && _mapaRuntime.syncUsersPlaza === _eidNow) return; // already subscribed to this empresa
-  if (_unsubUsersLive) { _unsubUsersLive(); _unsubUsersLive = null; _trackLegacyListener('cleanup', 'users-live'); }
-  _mapaRuntime.syncUsersPlaza = _eidNow;
-
-  const _eidUsersLive = _eidNow;
-  let _qUsersLive = db.collection(COL.USERS);
-  if (_eidUsersLive) _qUsersLive = _qUsersLive.where('empresaId', '==', _eidUsersLive);
+  if (_unsubUsersLive) return; // ya suscrito (single-tenant)
+  const _qUsersLive = db.collection(COL.USERS);
   _unsubUsersLive = _qUsersLive.onSnapshot(snap => {
     dbUsuariosLogin = snap.docs
       .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
@@ -6592,9 +6520,7 @@ function _umIniciar() {
   document.getElementById('um-cards-container').innerHTML =
     '<div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>';
 
-  const _eidUm = _eid();
   let _qUm = db.collection(COL.USERS);
-  if (_eidUm) _qUm = _qUm.where('empresaId', '==', _eidUm);
   _unsubUsuarios = _qUm.onSnapshot(snap => {
     const currentDocId = String(
       currentUserProfile?.id
@@ -8666,9 +8592,7 @@ function iniciarRadarNotificaciones() {
   );
 
   _unsubRadar.push((() => {
-    const eid = _eid();
     let q = db.collection('alertas').orderBy('timestamp', 'desc').limit(50);
-    if (eid) q = db.collection('alertas').where('empresaId', '==', eid).orderBy('timestamp', 'desc').limit(50);
     return q.onSnapshot(snap => {
       _radarState.alertas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       _radarReady.alertas = true;
@@ -8677,9 +8601,7 @@ function iniciarRadarNotificaciones() {
   })());
 
   _unsubRadar.push((() => {
-    const eid = _eid();
     let q = db.collection('mensajes').where('destinatario', '==', USER_NAME.toUpperCase());
-    if (eid) q = q.where('empresaId', '==', eid);
     return q.onSnapshot(snap => {
       _radarState.mensajes = snap.docs.filter(d => d.data().leido !== 'SI').length;
       _radarReady.mensajes = true;
@@ -8688,9 +8610,7 @@ function iniciarRadarNotificaciones() {
   })());
 
   _unsubRadar.push((() => {
-    const eid = _eid();
     let q = db.collection('notas_admin').where('estado', '==', 'PENDIENTE');
-    if (eid) q = q.where('empresaId', '==', eid);
     return q.onSnapshot(snap => {
       _radarState.incidencias = snap.size;
       _radarReady.incidencias = true;
@@ -13624,10 +13544,8 @@ function _startChatListener() {
     if (activeChatUser) renderChatWindow();
   }
 
-  const _chatEid = _eid();
   _chatListenerUnsubs.push((() => {
     let q = db.collection('mensajes').where('remitente', '==', me);
-    if (_chatEid) q = q.where('empresaId', '==', _chatEid);
     return q.orderBy('timestamp', 'desc').limit(300)
       .onSnapshot(snap => {
         _sentMsgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -13637,7 +13555,6 @@ function _startChatListener() {
 
   _chatListenerUnsubs.push((() => {
     let q = db.collection('mensajes').where('destinatario', '==', me);
-    if (_chatEid) q = q.where('empresaId', '==', _chatEid);
     return q.orderBy('timestamp', 'desc').limit(300)
       .onSnapshot(snap => {
         _recvMsgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -20763,7 +20680,7 @@ function configurarPermisosUI() {
 
   _actualizarBloquesAdminSidebar();
 
-  // ── Feature-gate overrides (SaaS) ──────────────────────────────────
+  // ── Feature gates ───────────────────────────────────────────────────────────────────
   // puedeUsar() defaults to true → no impact when no empresa is loaded.
   if (window.mexFeatures) {
     const _fHide = id => { const el = document.getElementById(id); if (el) el.style.display = 'none'; };
@@ -21522,7 +21439,6 @@ Object.assign(window, {
   enviarCorreoWebhook,
   enviarMensajeChat,
   enviarReporteAuditoriaFinal,
-  enviarSolicitudAcceso,
   esAdjuntoImagenIncidencia,
   escapeHtml,
   estadoDragNota,

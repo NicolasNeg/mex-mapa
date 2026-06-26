@@ -3,7 +3,7 @@
 //  Gestión de horarios semanales y registro de asistencia.
 //
 //  Schema horarios/{id}:
-//    { empresaId, usuarioId, usuarioNombre, usuarioRol,
+//    { usuarioId, usuarioNombre, usuarioRol,
 //      plaza, semanaInicio (YYYY-MM-DD lunes),
 //      dias: { lun|mar|mie|jue|vie|sab|dom:
 //               { tipo:'NORMAL'|'DESCANSO'|'VACACIONES'|'FESTIVO',
@@ -11,7 +11,7 @@
 //      actualizadoPor, actualizadoEn, creadoEn }
 //
 //  Schema asistencia/{id}:
-//    { empresaId, usuarioId, usuarioNombre, plaza, fecha (YYYY-MM-DD),
+//    { usuarioId, usuarioNombre, plaza, fecha (YYYY-MM-DD),
 //      estado:'PRESENTE'|'AUSENTE'|'TARDE'|'JUSTIFICADO'|'DESCANSO',
 //      nota, turnoId, registradoPor, registradoEn }
 // ═══════════════════════════════════════════════════════════

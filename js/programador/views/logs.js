@@ -6,7 +6,6 @@
 let _container  = null;
 let _logs       = [];
 let _lastDoc    = null;
-let _filterEmpresa = '';
 let _filterAccion  = '';
 let _loading    = false;
 const PAGE_SIZE = 50;
@@ -15,7 +14,6 @@ export async function mount({ container }) {
   _container     = container;
   _logs          = [];
   _lastDoc       = null;
-  _filterEmpresa = '';
   _filterAccion  = '';
 
   _renderShell();
@@ -41,7 +39,6 @@ async function _loadPage(reset = false) {
 
   try {
     let q = window._db.collection('bitacora_gestion').orderBy('timestamp', 'desc').limit(PAGE_SIZE);
-    if (_filterEmpresa) q = q.where('empresaId', '==', _filterEmpresa);
     if (_lastDoc) q = q.startAfter(_lastDoc);
 
     const snap = await q.get();

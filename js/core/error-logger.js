@@ -48,10 +48,6 @@
 
   // ── Helpers ───────────────────────────────────────────────
 
-  function _empresaId() {
-    try { return window.MEX_CONFIG?.empresa?.id || ''; } catch (_) { return ''; }
-  }
-
   function _userId() {
     try {
       const profile = window.__mexCurrentProfile;
@@ -102,7 +98,6 @@
       severity:   extra.severity || cat.severity,
       message:    String(message || '').slice(0, 2000),
       stack:      String(extra.stack || '').slice(0, 3000),
-      empresaId:  extra.empresaId || _empresaId(),
       route:      extra.route || _route(),
       action:     String(extra.action || '').slice(0, 200),
       userId:     extra.userId || _userId(),

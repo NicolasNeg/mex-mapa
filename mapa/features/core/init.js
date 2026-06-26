@@ -7,7 +7,6 @@
 //    inicializarConfiguracion (L233)
 //    iniciarApp              (L2490)
 //    cerrarSesion            (L2772)
-//    _eid                    (L40)
 //    _companyNameFrom        (L170)
 //    aplicarVariablesDeEmpresa (L179)
 //    _aplicarColoresEstados  (L197)

@@ -337,12 +337,10 @@ async function _loadHorarioUsuario() {
   if (!uid || !plaza) { _updateTurnoWidget(); return; }
   try {
     const semana = semanaInicio();
-    const eid    = window.MEX_CONFIG?.empresa?.id || '';
     let q = db.collection('horarios')
       .where('usuarioId', '==', uid)
       .where('plaza', '==', plaza)
       .where('semanaInicio', '==', semana);
-    if (eid) q = q.where('empresaId', '==', eid);
     const snap = await q.limit(1).get();
     if (!_s) return;
     if (!snap.empty) {

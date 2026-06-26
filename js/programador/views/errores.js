@@ -68,7 +68,7 @@ function _filtered() {
     if (_filterCat  && e.category  !== _filterCat)  return false;
     if (_filterSev  && e.severity  !== _filterSev)  return false;
     if (_filterText) {
-      const hay = `${e.message} ${e.route} ${e.empresaId} ${e.userName} ${e.service}`.toLowerCase();
+      const hay = `${e.message} ${e.route} ${e.userName} ${e.service}`.toLowerCase();
       if (!hay.includes(_filterText.toLowerCase())) return false;
     }
     return true;
@@ -145,7 +145,6 @@ function _html() {
           <th style="${_th()}">Categoría</th>
           <th style="${_th()}">Sev.</th>
           <th style="${_th()}">Mensaje</th>
-          <th style="${_th()}">Empresa</th>
           <th style="${_th()}">Ruta</th>
           <th style="${_th()}">Usuario</th>
           <th style="${_th()}">Fecha</th>
@@ -189,7 +188,6 @@ function _row(e) {
       ${e.service ? `<div style="font-size:10px;color:rgba(255,255,255,0.3);margin-top:2px;">svc: ${_esc(e.service)}</div>` : ''}
       ${e.stack    ? `<details style="margin-top:3px;"><summary style="font-size:10px;color:rgba(255,255,255,0.25);cursor:pointer;">stack</summary><pre style="font-size:9px;color:rgba(255,255,255,0.3);white-space:pre-wrap;margin:4px 0 0;">${_esc(String(e.stack).slice(0,800))}</pre></details>` : ''}
     </td>
-    <td style="padding:8px 12px;color:rgba(255,255,255,0.45);white-space:nowrap;font-size:11px;">${_esc(e.empresaId || '—')}</td>
     <td style="padding:8px 12px;color:rgba(255,255,255,0.45);font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${_esc(e.route || '—')}</td>
     <td style="padding:8px 12px;color:rgba(255,255,255,0.35);white-space:nowrap;font-size:11px;">${_esc(e.userName || e.userId || '—')}</td>
     <td style="padding:8px 12px;color:rgba(255,255,255,0.3);white-space:nowrap;font-size:11px;">${_esc(date)}</td>

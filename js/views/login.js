@@ -12,10 +12,6 @@
 
 import { auth, db, COL, functions } from '/js/core/database.js';
 
-function _eid() {
-  return window.MEX_CONFIG?.empresa?.id || '';
-}
-
 const RECAPTCHA_SITE_KEY = '6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j';
 const RECAPTCHA_ACTION_EMAIL = 'LOGIN_EMAIL';
 const RECAPTCHA_ACTION_GOOGLE = 'LOGIN_GOOGLE';
