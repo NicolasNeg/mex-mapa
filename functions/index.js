@@ -2688,3 +2688,111 @@ exports.listarApiKeys = functions.region(REGION).https.onCall(async (_data, cont
   return { ok: true, data };
 });
 
+
+// ══════════════════════════════════════════════════════════════
+//  INVITACIONES — registro single-tenant por código de invitación.
+//  Un código pre-asigna plaza + rol, es de un solo uso y expira.
+//  El registro es automático (sin aprobación manual).
+// ══════════════════════════════════════════════════════════════
+const INVITACIONES_COL = "invitaciones";
+const _INV_ALFABETO = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin O,0,I,1
+const _INV_DIA_MS = 24 * 60 * 60 * 1000;
+function _genCodigoInv() {
+  let o = "";
+  for (let i = 0; i < 8; i++) o += _INV_ALFABETO[Math.floor(Math.random() * _INV_ALFABETO.length)];
+  return o;
+}
+
+exports.generarInvitacion = functions.region(REGION).https.onCall(async (data, context) => {
+  const profile = await findUserProfileFromAuth(context.auth);
+  const actorRole = inferRole(profile.data, profile.data?.email || context.auth?.token?.email);
+  const security = await loadSecurityConfig();
+  if (!canManageUsersBackend(actorRole, security, profile.data || {})) {
+    throw new HttpsError("permission-denied", "No autorizado para generar invitaciones.");
+  }
+  const plaza = normalizeUpper(data?.plaza || "");
+  const rol   = normalizeUpper(data?.rol || "AUXILIAR");
+  const dias  = Math.max(1, Math.min(90, Number(data?.expiraEnDias) || 7));
+  if (!plaza) throw new HttpsError("invalid-argument", "Plaza requerida.");
+  if (!canActorManageTargetRole(actorRole, rol, security)) {
+    throw new HttpsError("permission-denied", `No puedes invitar con el rol ${rol}.`);
+  }
+  const ahora = Date.now();
+  let codigo, ref, exists = true, tries = 0;
+  do {
+    codigo = _genCodigoInv();
+    ref = db.collection(INVITACIONES_COL).doc(codigo);
+    exists = (await ref.get()).exists;
+  } while (exists && ++tries < 5);
+  if (exists) throw new HttpsError("internal", "No se pudo generar un código único.");
+  const expiraEnMs = ahora + dias * _INV_DIA_MS;
+  await ref.set({
+    codigo, plaza, rol,
+    creadoPor: normalizeLower(profile.data?.email || context.auth?.token?.email || ""),
+    creadoEnMs: ahora, expiraEnMs,
+    usadaPor: null, usadaEnMs: null, revocada: false,
+    _createdAt: admin.firestore.FieldValue.serverTimestamp(),
+  });
+  return { ok: true, codigo, expiraEnMs };
+});
+
+exports.registrarConInvitacion = functions.region(REGION).https.onCall(async (data) => {
+  const codigo = normalizeUpper(data?.codigo || "");
+  const nombre = normalizeUpper(data?.nombre || "");
+  const email  = normalizeLower(data?.email || "");
+  const telefono = normalizeString(data?.telefono || "");
+  const password = normalizeString(data?.password || "");
+  if (!codigo || !nombre || !email) throw new HttpsError("invalid-argument", "Datos incompletos.");
+  if (password.length < 6) throw new HttpsError("invalid-argument", "La contraseña debe tener 6+ caracteres.");
+
+  const ref = db.collection(INVITACIONES_COL).doc(codigo);
+  const ahora = Date.now();
+
+  // Validar + reservar el código en transacción (un solo uso).
+  const inv = await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new HttpsError("not-found", "Código de invitación inválido.");
+    const d = snap.data();
+    if (d.revocada) throw new HttpsError("failed-precondition", "El código fue revocado.");
+    if (d.usadaPor) throw new HttpsError("failed-precondition", "El código ya fue usado.");
+    if (ahora > d.expiraEnMs) throw new HttpsError("failed-precondition", "El código expiró.");
+    tx.update(ref, { usadaPor: email, usadaEnMs: ahora });
+    return d;
+  });
+
+  // Crear/actualizar auth user.
+  let authUser = null;
+  try { authUser = await admin.auth().getUserByEmail(email); }
+  catch (e) { if (e?.code !== "auth/user-not-found") throw e; }
+  if (!authUser) {
+    authUser = await admin.auth().createUser({ email, password, displayName: nombre });
+  }
+
+  // Crear perfil — registro automático, sin aprobación.
+  const userRef = await resolveUserProfileDocRefByEmail(email, authUser);
+  await userRef.set({
+    nombre, email, telefono,
+    rol: inv.rol,
+    plaza: inv.plaza, plazaAsignada: inv.plaza,
+    plazasPermitidas: [inv.plaza],
+    status: "ACTIVO", activo: true, autorizado: true, accesoSistema: true,
+    invitacionCodigo: codigo,
+    creadoAt: nowIso(), creadoPor: inv.creadoPor || "invitacion",
+    updatedFrom: "registro_invitacion",
+  }, { merge: true });
+
+  return { ok: true, uid: authUser.uid };
+});
+
+exports.revocarInvitacion = functions.region(REGION).https.onCall(async (data, context) => {
+  const profile = await findUserProfileFromAuth(context.auth);
+  const actorRole = inferRole(profile.data, profile.data?.email || context.auth?.token?.email);
+  const security = await loadSecurityConfig();
+  if (!canManageUsersBackend(actorRole, security, profile.data || {})) {
+    throw new HttpsError("permission-denied", "No autorizado.");
+  }
+  const codigo = normalizeUpper(data?.codigo || "");
+  if (!codigo) throw new HttpsError("invalid-argument", "Código requerido.");
+  await db.collection(INVITACIONES_COL).doc(codigo).update({ revocada: true });
+  return { ok: true };
+});
