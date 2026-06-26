@@ -8,7 +8,7 @@ let _container = null;
 const APP_ROUTES = [
   '/app/dashboard', '/app/mapa', '/app/mensajes', '/app/cola-preparacion',
   '/app/incidencias', '/app/cuadre', '/app/admin', '/app/programador', '/app/profile',
-  '/programador', '/programador/overview', '/programador/saas',
+  '/programador', '/programador/overview',
 ];
 
 const APP_ASSETS = [

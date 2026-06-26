@@ -11,23 +11,6 @@ let _currentNav = '';
 const ROUTES = [
   { pattern: '/programador',                        redirect: () => '/programador/overview' },
   { pattern: '/programador/overview',               title: 'Overview',             nav: '/programador/overview',  loader: () => import('./views/overview.js') },
-  { pattern: '/programador/saas',                   title: 'Empresas · SaaS',      nav: '/programador/saas',      loader: () => import('./views/saas.js') },
-  { pattern: '/programador/contratos',               title: 'Contratos SaaS',       nav: '/programador/contratos', loader: () => import('./views/contratos.js') },
-  { pattern: '/programador/metricas',               title: 'Métricas SaaS',        nav: '/programador/metricas',  loader: () => import('./views/metricas.js') },
-  { pattern: '/programador/facturacion',            title: 'Facturación Global',   nav: '/programador/facturacion', loader: () => import('./views/facturacion-global.js') },
-  { pattern: '/programador/empresa/:id',            redirect: p => `/programador/empresa/${p.id}/datos` },
-  { pattern: '/programador/empresa/:id/datos',      title: 'Datos Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/facturacion', title: 'Facturación Empresa', nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/contratos',  title: 'Contratos Empresa',    nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/config',     title: 'Config Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/features',   title: 'Features Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/plazas',     title: 'Plazas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/usuarios',   title: 'Usuarios Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/listas',     title: 'Listas Empresa',       nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/permisos',   title: 'Permisos Empresa',     nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/actividad',  title: 'Actividad Empresa',    nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/soporte',    title: 'Soporte Empresa',      nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
-  { pattern: '/programador/empresa/:id/login',      title: 'Login Empresa',        nav: '/programador/saas',      loader: () => import('./views/empresa-detail.js') },
   { pattern: '/programador/tecnico',                title: 'Diagnóstico Técnico',  nav: '/programador/tecnico',   loader: () => import('/js/app/views/programador.js') },
   { pattern: '/programador/logs',                   title: 'Logs del Sistema',     nav: '/programador/logs',      loader: () => import('./views/logs.js') },
   { pattern: '/programador/errores',                title: 'Errores',              nav: '/programador/errores',   loader: () => import('./views/errores.js') },
@@ -135,53 +118,12 @@ function _syncSidebar(pathname, params) {
     btn.classList.toggle('prog-nav-active', btn.dataset.progNav === _currentNav);
   });
 
-  // Sub-nav empresa (solo si estamos en /programador/empresa/:id/*)
-  const empresaSubnav = document.getElementById('progEmpresaSubnav');
-  if (!empresaSubnav) return;
-
-  const isEmpresaRoute = pathname.startsWith('/programador/empresa/');
-  empresaSubnav.style.display = isEmpresaRoute ? 'block' : 'none';
-
-  if (isEmpresaRoute && params.id) {
-    const id = params.id;
-    empresaSubnav.querySelectorAll('[data-prog-subnav]').forEach(btn => {
-      const target = `/programador/empresa/${id}/${btn.dataset.progSubnav}`;
-      btn.dataset.progRoute = target;
-      btn.classList.toggle('prog-subnav-active', pathname === target || pathname.startsWith(target));
-    });
-
-    // Mostrar empresa ID en el subnav header
-    const nameEl = empresaSubnav.querySelector('#progEmpresaSubnavId');
-    if (nameEl) nameEl.textContent = id;
-
-    // Intentar cargar nombre real si está disponible
-    if (window._db) {
-      window._db.collection('empresas').doc(id).get().then(snap => {
-        if (snap.exists) {
-          const nombre = snap.data().nombre || id;
-          const nameEl2 = empresaSubnav.querySelector('#progEmpresaSubnavId');
-          if (nameEl2) nameEl2.textContent = nombre;
-          const titleEl = document.getElementById('progHeaderTitle');
-          if (titleEl && titleEl.dataset.empresaCtx === id) {
-            titleEl.textContent = `${snap.data().nombre || id}`;
-          }
-        }
-      }).catch(() => {});
-    }
-  }
 }
 
 function _setHeaderTitle(title, pathname, params) {
   const titleEl = document.getElementById('progHeaderTitle');
   if (!titleEl) return;
-
-  if (pathname.startsWith('/programador/empresa/') && params.id) {
-    titleEl.textContent = params.id;
-    titleEl.dataset.empresaCtx = params.id;
-  } else {
-    titleEl.textContent = title;
-    titleEl.dataset.empresaCtx = '';
-  }
+  titleEl.textContent = title;
 }
 
 // ── Helpers de render ─────────────────────────────────────
@@ -247,7 +189,7 @@ function _shellHtml(profile) {
         </div>
         <div>
           <div style="font-size:11px;font-weight:800;color:#818cf8;text-transform:uppercase;letter-spacing:.06em;line-height:1.3;">MapGestion</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.28);line-height:1.4;">Admin Panel · SaaS</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.28);line-height:1.4;">Admin Panel</div>
         </div>
       </div>
     </div>
@@ -258,25 +200,6 @@ function _shellHtml(profile) {
       <button data-prog-nav="/programador/overview" data-prog-route="/programador/overview" class="prog-nav-btn" type="button">
         <span class="material-symbols-outlined prog-nav-icon">dashboard</span>
         <span>Overview</span>
-      </button>
-
-      <div class="prog-nav-section">SaaS</div>
-
-      <button data-prog-nav="/programador/saas" data-prog-route="/programador/saas" class="prog-nav-btn" type="button">
-        <span class="material-symbols-outlined prog-nav-icon">domain</span>
-        <span>Empresas</span>
-      </button>
-      <button data-prog-nav="/programador/contratos" data-prog-route="/programador/contratos" class="prog-nav-btn" type="button">
-        <span class="material-symbols-outlined prog-nav-icon">description</span>
-        <span>Contratos</span>
-      </button>
-      <button data-prog-nav="/programador/metricas" data-prog-route="/programador/metricas" class="prog-nav-btn" type="button">
-        <span class="material-symbols-outlined prog-nav-icon">bar_chart</span>
-        <span>Métricas</span>
-      </button>
-      <button data-prog-nav="/programador/facturacion" data-prog-route="/programador/facturacion" class="prog-nav-btn" type="button">
-        <span class="material-symbols-outlined prog-nav-icon">account_balance_wallet</span>
-        <span>Facturación</span>
       </button>
 
       <div class="prog-nav-section">Sistema</div>
@@ -298,50 +221,6 @@ function _shellHtml(profile) {
         <span>Errores</span>
       </button>
 
-      <!-- Sub-nav empresa (oculto por defecto) -->
-      <div id="progEmpresaSubnav" style="display:none;margin-top:8px;border-top:1px solid rgba(255,255,255,0.06);padding-top:8px;flex-shrink:0;">
-        <button data-prog-route="/programador/saas" class="prog-nav-btn" type="button" style="margin-bottom:4px;">
-          <span class="material-symbols-outlined prog-nav-icon">arrow_back</span>
-          <span>Empresas</span>
-        </button>
-        <div style="padding:6px 10px 6px;font-size:11px;font-weight:700;color:rgba(255,255,255,0.45);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" id="progEmpresaSubnavId">—</div>
-        <button data-prog-subnav="datos"       class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">business</span>Datos
-        </button>
-        <button data-prog-subnav="facturacion" class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">payments</span>Facturación
-        </button>
-        <button data-prog-subnav="contratos"   class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">description</span>Contratos
-        </button>
-        <button data-prog-subnav="config"    class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">settings</span>Configuración
-        </button>
-        <button data-prog-subnav="features"  class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">toggle_on</span>Features
-        </button>
-        <button data-prog-subnav="permisos"  class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">security</span>Permisos
-        </button>
-        <button data-prog-subnav="plazas"    class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">location_on</span>Plazas
-        </button>
-        <button data-prog-subnav="listas"    class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">list</span>Listas
-        </button>
-        <button data-prog-subnav="usuarios"  class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">group</span>Usuarios
-        </button>
-        <button data-prog-subnav="actividad" class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">monitoring</span>Actividad
-        </button>
-        <button data-prog-subnav="soporte"   class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">support_agent</span>Soporte
-        </button>
-        <button data-prog-subnav="login"     class="prog-subnav-btn" type="button">
-          <span class="material-symbols-outlined" style="font-size:15px;">language</span>Login
-        </button>
-      </div>
     </nav>
 
     <!-- User footer -->
@@ -405,16 +284,6 @@ function _shellHtml(profile) {
 .prog-nav-icon { font-size:17px; }
 .prog-nav-btn.prog-nav-active .prog-nav-icon { color:#6366f1; }
 
-.prog-subnav-btn {
-  display:flex;align-items:center;gap:8px;width:100%;
-  padding:7px 10px 7px 14px;border-radius:6px;border:none;
-  background:transparent;color:rgba(255,255,255,0.35);
-  font-size:11px;font-family:Inter,sans-serif;font-weight:600;
-  cursor:pointer;text-align:left;transition:background .12s,color .12s;
-  margin-bottom:1px;
-}
-.prog-subnav-btn:hover { background:rgba(255,255,255,0.04);color:rgba(255,255,255,0.65); }
-.prog-subnav-btn.prog-subnav-active { background:rgba(99,102,241,0.1);color:#a5b4fc; }
 
 .prog-header-action-btn {
   display:flex;align-items:center;gap:5px;

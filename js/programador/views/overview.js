@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════════════════════
 //  /js/programador/views/overview.js
 //  Dashboard principal del panel programador.
-//  Muestra salud del sistema, stats SaaS y actividad reciente.
+//  Muestra salud del sistema, stats del sistema y actividad reciente.
 // ═══════════════════════════════════════════════════════════
 
 let _container = null;
@@ -11,15 +11,14 @@ export async function mount({ container, navigate }) {
   container.innerHTML = _skeleton();
 
     // Cargar datos en paralelo
-  const [health, saasStats, recentActivity, pendingStats] = await Promise.all([
+  const [health, recentActivity, pendingStats] = await Promise.all([
     _collectHealth(),
-    _collectSaasStats(),
     _collectRecentActivity(),
     _collectPendingStats(),
   ]);
 
   if (_container) {
-    _container.innerHTML = _html(health, saasStats, recentActivity, pendingStats, navigate);
+    _container.innerHTML = _html(health, recentActivity, pendingStats, navigate);
     _bind(navigate);
   }
 }
@@ -47,23 +46,6 @@ async function _collectHealth() {
   const persistenceEnabled = window._firestorePersistenceEnabled === true;
 
   return { hasDb, hasAuth, hasStorage, apiCount, env, host, swVersion, swControlled, persistenceEnabled };
-}
-
-async function _collectSaasStats() {
-  if (!window._db) return { totalEmpresas: 0, totalPlazas: 0, empresas: [] };
-  try {
-    const snap = await window._db.collection('empresas').get();
-    const empresas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const totalPlazas = empresas.reduce((acc, e) => {
-      const p = Array.isArray(e.plazas) ? e.plazas.length : Object.keys(e.plazasDetalle || {}).length;
-      return acc + p;
-    }, 0);
-    const byPlan = {};
-    empresas.forEach(e => { const p = e.plan || 'free'; byPlan[p] = (byPlan[p] || 0) + 1; });
-    return { totalEmpresas: empresas.length, totalPlazas, byPlan, empresas };
-  } catch (_) {
-    return { totalEmpresas: '—', totalPlazas: '—', byPlan: {}, empresas: [] };
-  }
 }
 
 async function _collectRecentActivity() {
@@ -115,7 +97,7 @@ function _bind(navigate) {
 
 // ── HTML ──────────────────────────────────────────────────
 
-function _html(health, saas, activity, pending, navigate) {
+function _html(health, activity, pending, navigate) {
   const firebaseOk = health.hasDb && health.hasAuth;
   const solCount = pending?.solicitudes ?? 0;
   const solAlert = typeof solCount === 'number' && solCount > 0;
@@ -140,42 +122,25 @@ function _html(health, saas, activity, pending, navigate) {
       health.host)}
   </div>
 
-  <!-- Fila 2: Stats SaaS (6 tarjetas) -->
+  <!-- Fila 2: Stats del sistema -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:10px;">
-    ${_statCard('Empresas', saas.totalEmpresas, 'domain', '#6366f1', '/programador/saas')}
-    ${_statCard('Plazas totales', saas.totalPlazas, 'location_on', '#0ea5e9', null)}
     ${_statCard('Usuarios', pending?.totalUsuarios ?? '—', 'group', '#8b5cf6', null)}
     ${_statCard('Solicitudes pendientes', solCount, 'pending_actions', solAlert ? '#ef4444' : '#64748b', null, solAlert)}
     ${_statCard('Logs recientes', `${activity.length}`, 'history', '#8b5cf6', '/programador/logs')}
     ${_statCard('Errores', '—', 'warning', '#f59e0b', '/programador/errores')}
   </div>
 
-  <!-- Fila 3: Plan breakdown + Actividad reciente -->
+  <!-- Fila 3: Solicitudes pendientes + Actividad reciente -->
   <div style="display:grid;grid-template-columns:minmax(200px,260px) 1fr;gap:10px;margin-bottom:10px;">
 
-    <!-- Plan breakdown -->
+    <!-- Panel de solicitudes -->
     <div style="${_card()}">
-      <div style="${_cardTitle()}">Tenants por plan</div>
-      ${Object.keys(saas.byPlan || {}).length
-        ? Object.entries(saas.byPlan).map(([plan, count]) => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;">
-            <span style="color:rgba(255,255,255,0.55);text-transform:capitalize;">${_esc(plan)}</span>
-            <span style="font-weight:800;color:#fff;font-size:15px;">${count}</span>
-          </div>`).join('')
-        : `<div style="font-size:12px;color:rgba(255,255,255,0.25);padding:12px 0;">Sin datos</div>`}
-      ${saas.totalEmpresas > 0 ? `
-      <div style="margin-top:10px;">
-        <a data-prog-route="/programador/saas" href="/programador/saas" style="font-size:12px;color:#818cf8;text-decoration:none;display:flex;align-items:center;gap:5px;">
-          Ver todas
-          <span class="material-symbols-outlined" style="font-size:13px;">arrow_forward</span>
-        </a>
-      </div>` : ''}
-
+      <div style="${_cardTitle()}">Estado del sistema</div>
       ${solAlert ? `
-      <div style="margin-top:12px;padding:10px 12px;border-radius:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);">
+      <div style="padding:10px 12px;border-radius:8px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);">
         <div style="font-size:11px;font-weight:700;color:#f87171;margin-bottom:2px;">${solCount} solicitud${solCount !== 1 ? 'es' : ''} pendiente${solCount !== 1 ? 's' : ''}</div>
         <div style="font-size:10px;color:rgba(255,255,255,0.3);">Usuarios esperando acceso</div>
-      </div>` : ''}
+      </div>` : `<div style="font-size:12px;color:rgba(255,255,255,0.25);padding:12px 0;">Sin solicitudes pendientes</div>`}
     </div>
 
     <!-- Actividad reciente -->
@@ -211,7 +176,6 @@ function _html(health, saas, activity, pending, navigate) {
 
   <!-- Quick nav -->
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;">
-    ${_quickCard('Empresas · SaaS', 'Gestionar tenants, planes y features', 'domain', '#6366f1', '/programador/saas')}
     ${_quickCard('Diagnóstico', 'Firebase, API, flags del sistema', 'terminal', '#0ea5e9', '/programador/tecnico')}
     ${_quickCard('Deploy', 'Smoke check, cache, release', 'rocket_launch', '#10b981', '/programador/deploy')}
     ${_quickCard('Logs', 'Bitácora de gestión y auditoría', 'list_alt', '#f59e0b', '/programador/logs')}
