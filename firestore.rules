@@ -175,14 +175,6 @@ service cloud.firestore {
         );
     }
 
-    function puedeGestionarSolicitudes() {
-      return esAccesoTotal()
-        || (
-          tienePerfilActual()
-          && tienePermiso(perfilActual(), "process_access_requests")
-        );
-    }
-
     function puedeEmitirAlertasMaestras() {
       return esAccesoTotal()
         || (
@@ -433,80 +425,6 @@ service cloud.firestore {
         && (request.resource.data.build == null || request.resource.data.build is string)
         && (request.resource.data.source == null || request.resource.data.source is string)
         && (request.resource.data.userAgent == null || request.resource.data.userAgent is string);
-    }
-
-    function solicitudCreateValida(docId) {
-      return request.auth == null
-        && request.resource.data.keys().hasAll([
-          "nombre", "email", "puesto", "telefono", "password",
-          "fecha", "estado", "updatedFrom", "source"
-        ])
-        && request.resource.data.keys().hasOnly([
-          "nombre", "email", "puesto", "telefono", "password",
-          "rolSolicitado", "plazaSolicitada",
-          "fecha", "estado", "_ts",
-          "createdAt", "updatedAt", "updatedFrom", "source"
-        ])
-        && request.resource.data.nombre is string
-        && request.resource.data.email is string
-        && request.resource.data.puesto is string
-        && request.resource.data.telefono is string
-        && request.resource.data.password is string
-        && request.resource.data.fecha is string
-        && (request.resource.data._ts == null || request.resource.data._ts is timestamp)
-        && (request.resource.data.createdAt == null || request.resource.data.createdAt is timestamp)
-        && (request.resource.data.updatedAt == null || request.resource.data.updatedAt is timestamp)
-        && request.resource.data.updatedFrom == "public_solicitud"
-        && request.resource.data.source == "solicitud_publica"
-        && docId == request.resource.data.email
-        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$')
-        && (
-          request.resource.data.rolSolicitado == null
-          || request.resource.data.rolSolicitado == "AUXILIAR"
-          || request.resource.data.rolSolicitado == "VENTAS"
-          || request.resource.data.rolSolicitado == "SUPERVISOR"
-          || request.resource.data.rolSolicitado == "JEFE_PATIO"
-          || request.resource.data.rolSolicitado == "GERENTE_PLAZA"
-          || request.resource.data.rolSolicitado == "JEFE_REGIONAL"
-        )
-        && (
-          request.resource.data.plazaSolicitada == null
-          || request.resource.data.plazaSolicitada is string
-        )
-        && request.resource.data.estado == "PENDIENTE"
-        && request.resource.data.nombre.size() >= 3
-        && request.resource.data.email.size() >= 5
-        && request.resource.data.nombre.size() <= 120
-        && request.resource.data.puesto.size() >= 2
-        && request.resource.data.puesto.size() <= 80
-        && request.resource.data.telefono.size() <= 24
-        && request.resource.data.password.size() >= 6
-        && request.resource.data.password.size() <= 120
-        && (request.resource.data.plazaSolicitada == null || request.resource.data.plazaSolicitada.size() <= 40);
-    }
-
-    function solicitudUpdateValida() {
-      return puedeGestionarSolicitudes()
-        && request.resource.data.nombre == resource.data.nombre
-        && request.resource.data.email == resource.data.email
-        && request.resource.data.puesto == resource.data.puesto
-        && request.resource.data.telefono == resource.data.telefono
-        && request.resource.data.fecha == resource.data.fecha
-        && request.resource.data.rolSolicitado == resource.data.rolSolicitado
-        && request.resource.data.plazaSolicitada == resource.data.plazaSolicitada
-        && (
-          request.resource.data.password == null
-          || request.resource.data.password == ""
-          || request.resource.data.password == resource.data.password
-        )
-        && (
-          request.resource.data.estado == "APROBADA"
-          || request.resource.data.estado == "RECHAZADA"
-        )
-        && (
-          request.resource.data.motivo_rechazo == null
-          || request.resource.data.motivo_rechazo is string
-        );
     }
 
     function exactLocationGestionValida() {
@@ -863,17 +781,13 @@ service cloud.firestore {
       }
     }
 
-    // ─── SOLICITUDES DE ACCESO ───────────────────────────────
-    match /solicitudes/{doc} {
-      allow create: if solicitudCreateValida(doc);
-      allow read, delete: if puedeGestionarSolicitudes();
-      allow update: if solicitudUpdateValida();
-    }
-
-    match /solicitudes_acceso/{doc} {
-      allow create: if solicitudCreateValida(doc);
-      allow read, delete: if puedeGestionarSolicitudes();
-      allow update: if solicitudUpdateValida();
+    // ─── INVITACIONES ────────────────────────────────────────
+    // Gestionadas exclusivamente por Cloud Functions (Admin SDK):
+    // generarInvitacion / registrarConInvitacion / revocarInvitacion.
+    // El cliente solo puede leer (panel de gestión); nunca escribe directo.
+    match /invitaciones/{codigo} {
+      allow read: if tienePerfilActual() && esAdminOperativo();
+      allow write: if false; // solo Admin SDK
     }
 
     // ─── API KEYS (MEX API) ──────────────────────────────────
