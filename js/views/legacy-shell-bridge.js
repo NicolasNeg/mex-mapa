@@ -76,8 +76,7 @@
     '/gestion': { hideChrome: true, hideSelectors: [] },
     '/programador': { hideChrome: true, hideSelectors: [] },
     '/mapa': { hideChrome: true, hideSelectors: [] },
-    '/editmap': { hideChrome: true, hideSelectors: [] },
-    '/solicitud': { hideChrome: true, hideSelectors: [] }
+    '/editmap': { hideChrome: true, hideSelectors: [] }
   };
   var current = routeProfile[path] || { hideChrome: true, hideSelectors: [] };
   var mapaCuadreTab = path === '/mapa' && params.get('tab') === 'cuadre';

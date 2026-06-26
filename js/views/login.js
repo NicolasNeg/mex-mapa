@@ -328,253 +328,43 @@ window.loginConGoogle = async function () {
   }
 };
 
-// ── Modal de solicitud de acceso — flujo multi-tenant ─────
-let _solEmpresa = null;
-let _solEmpresas = []; // lista completa cargada desde Cloud Function
-let _solSelectedId = ''; // empresa elegida del combobox
 
-window.abrirModalSolicitud = async () => {
-  _solEmpresa = null;
-  _solSelectedId = '';
-  const hiddenInput = document.getElementById('sol_empresa_id');
-  const searchInput = document.getElementById('sol_empresa_search');
-  if (hiddenInput) hiddenInput.value = '';
-  if (searchInput) searchInput.value = '';
-  _solSetEmpError('');
-  solIrAPaso(1);
-  document.getElementById('modal-solicitud').style.display = 'flex';
-  _loadEmpresasCombobox();
+// ── Registro con código de invitación ─────────────────────
+window.abrirModalSolicitud = () => {
+  const m = document.getElementById('modal-solicitud');
+  if (m) m.style.display = 'flex';
 };
-
-async function _loadEmpresasCombobox() {
-  const loading = document.getElementById('sol-combo-loading');
-  const hint = document.getElementById('sol-combo-hint');
-  if (loading) loading.style.display = '';
-  if (hint) hint.textContent = 'Cargando empresas disponibles…';
-
-  try {
-    const fetch = window._solFetchEmpresas || (() => Promise.resolve([]));
-    _solEmpresas = await fetch();
-    _renderEmpresasList('');
-    if (hint) hint.textContent = _solEmpresas.length
-      ? `${_solEmpresas.length} empresa${_solEmpresas.length !== 1 ? 's' : ''} disponible${_solEmpresas.length !== 1 ? 's' : ''}`
-      : 'No hay empresas registradas aún.';
-  } catch {
-    if (hint) hint.textContent = 'Error al cargar empresas. Intenta de nuevo.';
-  } finally {
-    if (loading) loading.style.display = 'none';
-  }
-}
-
-function _renderEmpresasList(query) {
-  const container = document.getElementById('sol-empresa-list');
-  if (!container) return;
-  const q = (query || '').toLowerCase().trim();
-  const filtered = q
-    ? _solEmpresas.filter(e => e.nombre.toLowerCase().includes(q) || e.id.toLowerCase().includes(q))
-    : _solEmpresas;
-
-  if (!filtered.length) {
-    container.innerHTML = `<div class="sol-emp-no-results">${q ? 'Sin resultados para "' + q + '"' : 'No hay empresas disponibles'}</div>`;
-    return;
-  }
-
-  container.innerHTML = filtered.slice(0, 40).map(e => {
-    const name = String(e.nombre || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    const id = String(e.id || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    const active = e.id === _solSelectedId ? ' active' : '';
-    return `<div class="sol-emp-option${active}" data-id="${id}" onclick="solSeleccionarEmpresa('${id}','${name}')">
-      <span class="material-icons emp-opt-icon">business</span>
-      <div><div class="emp-opt-name">${name}</div><div class="emp-opt-id">${id}</div></div>
-    </div>`;
-  }).join('');
-}
-
-window.solFiltrarEmpresas = function (query) {
-  _renderEmpresasList(query);
-};
-
-window.solSeleccionarEmpresa = function (id, nombre) {
-  _solSelectedId = id;
-  const hiddenInput = document.getElementById('sol_empresa_id');
-  const searchInput = document.getElementById('sol_empresa_search');
-  if (hiddenInput) hiddenInput.value = id;
-  if (searchInput) searchInput.value = nombre;
-  _renderEmpresasList('');
-  _solSetEmpError('');
-};
-
 window.cerrarModalSolicitud = () => {
-  document.getElementById('modal-solicitud').style.display = 'none';
+  const m = document.getElementById('modal-solicitud');
+  if (m) m.style.display = 'none';
 };
-
-function _solSetEmpError(msg) {
-  const el = document.getElementById('sol-emp-error');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.display = msg ? 'block' : 'none';
-}
-
-function _solSetStep2Error(msg) {
-  const el = document.getElementById('sol-step2-error');
-  if (!el) return;
-  el.textContent = msg;
-  el.style.display = msg ? 'block' : 'none';
-}
-
-window.solIrAPaso = function (paso) {
-  [1, 2, 3].forEach(n => {
-    const panel = document.getElementById(`sol-step-${n}`);
-    if (panel) panel.style.display = n === paso ? '' : 'none';
-    const dot = document.querySelector(`.sol-step-dot[data-step="${n}"]`);
-    if (!dot) return;
-    dot.classList.toggle('sol-step-active', n === paso);
-    dot.classList.toggle('sol-step-done', n < paso);
-    if (n === paso) dot.classList.remove('sol-step-done');
+function _wireRegistroInvitacion() {
+  const form = document.getElementById('inv-reg-form');
+  if (!form) return;
+  const err = document.getElementById('reg_err');
+  document.getElementById('reg_cancel')?.addEventListener('click', window.cerrarModalSolicitud);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (err) err.style.display = 'none';
+    const btn = document.getElementById('reg_submit');
+    btn.disabled = true; btn.textContent = 'Creando…';
+    const payload = {
+      codigo: document.getElementById('reg_codigo').value.trim().toUpperCase(),
+      nombre: document.getElementById('reg_nombre').value.trim(),
+      email:  document.getElementById('reg_email').value.trim().toLowerCase(),
+      telefono: document.getElementById('reg_tel').value.trim(),
+      password: document.getElementById('reg_pass').value,
+    };
+    try {
+      await firebase.functions().httpsCallable('registrarConInvitacion')(payload);
+      await firebase.auth().signInWithEmailAndPassword(payload.email, payload.password);
+      window.location.href = '/app';
+    } catch (e2) {
+      if (err) { err.textContent = e2?.message || 'No se pudo crear la cuenta.'; err.style.display = 'block'; }
+      btn.disabled = false; btn.textContent = 'Crear cuenta';
+    }
   });
-};
-
-window.solBuscarEmpresa = async function () {
-  const empresaId = (_solSelectedId || '').trim().toLowerCase();
-  _solSetEmpError('');
-
-  if (!empresaId || empresaId.length < 2) {
-    _solSetEmpError('Selecciona una empresa de la lista.');
-    return;
-  }
-
-  const btn = document.getElementById('btnBuscarEmpresa');
-  if (btn) { btn.disabled = true; btn.innerText = 'BUSCANDO...'; }
-
-  try {
-    const callable = functions.httpsCallable('getEmpresaPublicInfo');
-    const result = await callable({ empresaId });
-    const d = result?.data || {};
-
-    _solEmpresa = { id: d.id || empresaId, nombre: d.nombre || empresaId, plazas: d.plazas || [] };
-
-    // Populate empresa confirmation card
-    const card = document.getElementById('sol-emp-card');
-    if (card) {
-      card.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span class="material-icons" style="color:#22c55e;font-size:28px;">verified</span>
-          <div>
-            <div class="emp-name">${_solEmpresa.nombre}</div>
-            <div class="emp-id">${_solEmpresa.id}</div>
-          </div>
-        </div>`;
-    }
-
-    // Populate plaza select
-    const sel = document.getElementById('sol_plaza');
-    const plazaWrap = document.getElementById('sol-plaza-wrap');
-    if (sel) {
-      sel.innerHTML = '<option value="">— Sucursal / Plaza (opcional) —</option>';
-      _solEmpresa.plazas.forEach(p => {
-        const opt = document.createElement('option');
-        opt.value = p;
-        opt.textContent = p;
-        sel.appendChild(opt);
-      });
-    }
-    if (plazaWrap) plazaWrap.style.display = _solEmpresa.plazas.length > 0 ? '' : 'none';
-
-    // Reset role select
-    const rolSel = document.getElementById('sol_rol_solicitado');
-    if (rolSel) rolSel.value = '';
-
-    solIrAPaso(2);
-  } catch (e) {
-    const code = String(e?.code || '');
-    const msg = code === 'not-found'
-      ? 'No encontramos esa empresa. Verifica el código con tu administrador.'
-      : code === 'failed-precondition'
-      ? 'Esta empresa no está activa en la plataforma.'
-      : code === 'invalid-argument'
-      ? 'Código de empresa inválido.'
-      : 'Error al buscar la empresa. Intenta de nuevo.';
-    _solSetEmpError(msg);
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerText = 'CONTINUAR'; }
-  }
-};
-
-window.solConfirmarEmpresa = function () {
-  const rol = document.getElementById('sol_rol_solicitado')?.value;
-  _solSetStep2Error('');
-  if (!rol) {
-    _solSetStep2Error('Selecciona el puesto que solicitas.');
-    return;
-  }
-  solIrAPaso(3);
-};
-
-window.enviarSolicitudAcceso = async function () {
-  const REQUEST_COLLECTION = 'solicitudes';
-  const nombre   = document.getElementById('sol_nombre').value.trim().toUpperCase();
-  const email    = document.getElementById('sol_email').value.trim().toLowerCase();
-  const telefono = document.getElementById('sol_telefono')?.value.trim() || '';
-  const pass     = document.getElementById('sol_pass')?.value || '';
-  const confirm  = document.getElementById('sol_pass_confirm')?.value || '';
-  const plaza    = document.getElementById('sol_plaza')?.value || '';
-  const rol      = document.getElementById('sol_rol_solicitado')?.value || '';
-  const btn      = document.getElementById('btnEnviarSolicitud');
-
-  if (!nombre || !email) {
-    await _mexAlert('Solicitud incompleta', 'Nombre y correo son obligatorios.', 'warning'); return;
-  }
-  if (!rol) {
-    await _mexAlert('Puesto requerido', 'Vuelve al paso anterior y selecciona el puesto.', 'warning'); return;
-  }
-  if (!pass || pass.length < 6) {
-    await _mexAlert('Contraseña corta', 'La contraseña debe tener mínimo 6 caracteres.', 'warning'); return;
-  }
-  if (pass !== confirm) { await _mexAlert('Contraseña distinta', 'Las contraseñas no coinciden.', 'warning'); return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    await _mexAlert('Correo inválido', 'Ingresa un correo electrónico válido.', 'warning'); return;
-  }
-  if (telefono && !/^[0-9+\-\s()]{7,20}$/.test(telefono)) {
-    await _mexAlert('Teléfono inválido', 'Revisa el formato del teléfono.', 'warning'); return;
-  }
-
-  btn.disabled = true;
-  btn.innerText = 'ENVIANDO...';
-
-  try {
-    await db.collection(REQUEST_COLLECTION).doc(email).set({
-      nombre,
-      email,
-      puesto: rol,
-      telefono,
-      password: pass,
-      rolSolicitado: rol,
-      plazaSolicitada: plaza || null,
-      empresaId: _solEmpresa?.id || null,
-      empresaNombre: _solEmpresa?.nombre || null,
-      fecha: new Date().toLocaleString('es-MX', { timeZone: 'America/Mazatlan' }),
-      estado: 'PENDIENTE',
-      _ts: firebase.firestore.FieldValue.serverTimestamp(),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedFrom: 'public_solicitud',
-      source: 'solicitud_publica'
-    });
-    cerrarModalSolicitud();
-    await _mexAlert('Solicitud enviada', 'Un administrador la revisará pronto y te asignará acceso.', 'success');
-  } catch (e) {
-    console.error('[login.js] enviarSolicitud:', e);
-    const code = String(e?.code || '');
-    if (code.includes('already-exists') || code.includes('permission-denied')) {
-      await _mexAlert('Solicitud no disponible', 'Ya existe una solicitud para este correo o no es posible modificarla desde este formulario.', 'warning');
-    } else {
-      await _mexAlert('Error al enviar', 'Intenta de nuevo.', 'error');
-    }
-  } finally {
-    btn.disabled = false;
-    btn.innerText = 'ENVIAR SOLICITUD';
-  }
-};
+}
 
 // ── Helpers UI ────────────────────────────────────────────
 window.togglePassword = function (inputId, iconEl) {
@@ -616,17 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
   emailEl?.addEventListener('keydown', tryLogin);
   passEl?.addEventListener('keydown',  tryLogin);
 
-  // Paso 1: Enter en el campo de código de empresa inicia búsqueda
-  document.getElementById('sol_empresa_id')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); window.solBuscarEmpresa(); }
-  });
-
-  // Paso 3: Enter en campos de datos personales envía la solicitud
-  ['sol_nombre', 'sol_email', 'sol_pass', 'sol_pass_confirm'].forEach(id => {
-    document.getElementById(id)?.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); window.enviarSolicitudAcceso(); }
-    });
-  });
+  _wireRegistroInvitacion();
 
   document.addEventListener('keydown', event => {
     if (event.key === 'Escape' && document.getElementById('modal-solicitud')?.style.display === 'flex') {

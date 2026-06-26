@@ -93,10 +93,6 @@
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
       {
-        "source": "/solicitud",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      },
-      {
         "source": "/incidencias",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       },
@@ -158,7 +154,6 @@
       { "source": "/cola-preparacion", "destination": "/cola-preparacion.html" },
       { "source": "/editmap",     "destination": "/editmap.html" },
       { "source": "/editmap/**",  "destination": "/editmap.html" },
-      { "source": "/solicitud",     "destination": "/solicitud.html" },
       { "source": "/incidencias",   "destination": "/incidencias.html" },
       { "source": "/cuadre",        "destination": "/cuadre.html" },
       { "source": "/cuadre/**",     "destination": "/cuadre.html" },

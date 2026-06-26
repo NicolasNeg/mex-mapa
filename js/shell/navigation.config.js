@@ -213,7 +213,6 @@ export const ROUTE_TITLES = {
   '/gestion':           'Panel administrativo',
   '/profile':           'Mi perfil',
   '/editmap':           'Editor de mapa',
-  '/solicitud':         'Solicitud de acceso',
   // App Shell — rutas /app/*
   '/app/dashboard':        'Dashboard',
   '/app/profile':          'Mi perfil',

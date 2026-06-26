@@ -1033,10 +1033,6 @@ function renderNoAccess(profile = null) {
         <strong>${escapeHtml(profile?.email || 'No encontramos tu perfil')}</strong>
         <span>La cuenta inició sesión, pero todavía no existe un perfil operativo dentro del sistema.</span>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <button type="button" class="home-btn primary" data-route="/solicitud">
-            <span class="material-symbols-outlined">how_to_reg</span>
-            Solicitar acceso
-          </button>
           <button type="button" class="home-btn" id="homeLogoutBtn">
             <span class="material-symbols-outlined">logout</span>
             Cerrar sesion
@@ -1045,9 +1041,6 @@ function renderNoAccess(profile = null) {
       </div>
     </div>
   `;
-  root.querySelector('[data-route="/solicitud"]')?.addEventListener('click', () => {
-    window.location.href = '/solicitud';
-  });
   document.getElementById('homeLogoutBtn')?.addEventListener('click', async () => {
     await auth.signOut().catch(() => { });
     window.location.replace('/login');

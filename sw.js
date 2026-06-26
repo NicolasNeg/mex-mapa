@@ -73,7 +73,6 @@ const CRITICAL_ASSETS = [
   '/css/editmap.css',
   '/js/views/profile.js',
   '/js/views/editmap.js',
-  '/solicitud.html',
   '/404.html',
   '/incidencias.html',
   '/js/views/incidencias.js',
@@ -262,7 +261,6 @@ function _documentFallbackCandidates(pathname = "/") {
     "/profile": "/profile.html",
     "/cola-preparacion": "/cola-preparacion.html",
     "/editmap": "/editmap.html",
-    "/solicitud": "/solicitud.html",
     "/incidencias": "/incidencias.html",
     "/cuadre": "/cuadre.html",
     "/contrato-publico": "/contrato-publico.html"
