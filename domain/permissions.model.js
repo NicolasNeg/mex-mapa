@@ -70,8 +70,8 @@ export const PERMISSION_KEYS = Object.freeze([
 ]);
 
 /**
- * Baseline role permissions that apply when an empresa has NOT customized a role.
- * Empresa-specific overrides are stored in `empresas/{id}.rolePermissions`.
+ * Baseline role permissions that apply when a role has NOT been customized.
+ * Overrides are stored in `configuracion/empresa.rolePermissions`.
  * PROGRAMADOR / JEFE_OPERACION / CORPORATIVO_USER always have full access
  * and are NOT included here — use tieneAccesoTotal() to check those.
  */

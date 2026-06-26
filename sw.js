@@ -63,7 +63,6 @@ const CRITICAL_ASSETS = [
   // Vistas legacy
   '/js/views/login.js',
   '/js/views/mapa.js',
-  '/js/views/programador.js',
   '/js/views/gestion.js',
   '/gestion.html',
   '/mensajes.html',

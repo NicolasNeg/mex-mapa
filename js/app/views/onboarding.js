@@ -10,17 +10,12 @@ import { importarDesdeArchivo, generarTemplateCsv } from '/js/app/features/unida
 
 let _container = null;
 let _navigate = null;
-let _empresaId = null;
 let _step = 'tipo';
 let _tipoSeleccionado = null;
 let _plazas = [];
 let _importResult = null;
 
 const STEPS = ['tipo', 'plazas', 'unidades', 'done'];
-
-function _empresaIdFromCtx() {
-  return String(window.MEX_CONFIG?.empresa?.id || '').trim();
-}
 
 function _esc(v) {
   return String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -420,7 +415,7 @@ function _syncPlazasFromDom() {
 async function _onTipoSiguiente() {
   if (!_tipoSeleccionado) return;
   try {
-    await configurarTipoNegocio(_empresaId, _tipoSeleccionado);
+    await configurarTipoNegocio();
     _step = 'plazas';
     _render();
   } catch (err) {
@@ -432,7 +427,7 @@ async function _onTipoSiguiente() {
 async function _onPlazasSiguiente() {
   _syncPlazasFromDom();
   try {
-    await guardarPlazas(_empresaId, _plazas);
+    await guardarPlazas(_plazas);
     _step = 'unidades';
     _importResult = null;
     _render();
@@ -452,7 +447,7 @@ async function _onUnidadesSiguiente() {
 
 async function _finalizarOnboarding() {
   try {
-    await completarOnboarding(_empresaId);
+    await completarOnboarding();
     _step = 'done';
     _render();
   } catch (err) {
@@ -478,7 +473,7 @@ async function _handleFileImport(file) {
 
     if (result.ok && result.importados > 0) {
       try {
-        await registrarImportacion(_empresaId, result);
+        await registrarImportacion(result);
       } catch (_) {}
     }
   } catch (err) {
@@ -491,16 +486,6 @@ async function _handleFileImport(file) {
 export async function mount(ctx) {
   _container = ctx.container;
   _navigate = ctx.navigate;
-  _empresaId = _empresaIdFromCtx();
-
-  if (!_empresaId) {
-    _container.innerHTML = `
-      <div style="padding:48px 24px;text-align:center;font-family:'Inter',sans-serif;">
-        <p style="color:#ef4444;font-size:14px;">No se encontró el contexto de empresa. Recarga la página.</p>
-      </div>
-    `;
-    return;
-  }
 
   _step = 'tipo';
   _tipoSeleccionado = null;
@@ -508,7 +493,7 @@ export async function mount(ctx) {
   _importResult = null;
 
   try {
-    const estado = await getEstadoOnboarding(_empresaId);
+    const estado = await getEstadoOnboarding();
     if (estado?.tipo_negocio) {
       _tipoSeleccionado = estado.tipo_negocio;
     }
