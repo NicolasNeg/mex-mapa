@@ -16,7 +16,6 @@ const SECONDARY_PLAZA_DELAY_MS = 650;
 const VIEW_MODULES = [
   '/js/app/views/dashboard.js',
   '/js/app/views/mapa.js',
-  '/js/app/views/cuadre.js',
   '/js/app/views/incidencias.js',
   '/js/app/views/mensajes.js',
   '/js/app/views/alertas.js',
@@ -26,7 +25,6 @@ const VIEW_MODULES = [
 const VIEW_STYLES = [
   '/css/app-dashboard.css',
   '/css/app-mapa.css',
-  '/css/app-cuadre.css',
   '/css/app-incidencias.css',
   '/css/app-mensajes.css',
   '/css/app-alertas.css',
