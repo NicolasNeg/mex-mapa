@@ -1,5 +1,7 @@
 # ─── Credenciales y configuración sensible ──────────────────
 config.js
+serviceAccountKey.json
+backups/
 .env
 .env.*
 .codex
