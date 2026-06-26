@@ -20,7 +20,7 @@ if (!fs.existsSync(keyPath)) {
   console.error('  Descárgala de Firebase Console → Cuentas de servicio → Generar nueva clave privada.');
   process.exit(1);
 }
-admin.initializeApp({ credential: admin.cert(require(keyPath)) });
+admin.initializeApp({ credential: admin.credential.cert(require(keyPath)) });
 const db = admin.firestore();
 
 const outDir = path.join(__dirname, '../backups', new Date().toISOString().replace(/[:.]/g, '-'));

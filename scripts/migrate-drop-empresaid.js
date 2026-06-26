@@ -20,7 +20,7 @@ if (!fs.existsSync(keyPath)) {
   console.error('✗ Falta la service-account key en:', keyPath);
   process.exit(1);
 }
-admin.initializeApp({ credential: admin.cert(require(keyPath)) });
+admin.initializeApp({ credential: admin.credential.cert(require(keyPath)) });
 const db = admin.firestore();
 const DRY = process.argv.includes('--dry');
 const tag = DRY ? ' (dry)' : '';
