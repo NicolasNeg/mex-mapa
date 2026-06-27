@@ -10,15 +10,35 @@
   --sh-sidebar-w:         280px;
   --sh-sidebar-compact-w: 72px;
   --sh-header-h:          64px;
-  --sh-sidebar-bg:        #07111f;
-  --sh-sidebar-text:      rgba(255, 255, 255, 0.82);
-  --sh-sidebar-accent:    #2ecc71;
-  --sh-sidebar-active-bg: rgba(255, 255, 255, 0.1);
-  --sh-sidebar-hover-bg:  rgba(255, 255, 255, 0.06);
-  --sh-sidebar-border:    rgba(255, 255, 255, 0.08);
+  --sh-bottomnav-h:       60px;
+  /* Light theme (default). Dark mode flips these in body.dark-theme. */
+  --sh-sidebar-bg:        #ffffff;
+  --sh-sidebar-text:      #475569;  /* slate-600 labels */
+  --sh-sidebar-muted:     #94a3b8;  /* slate-400 icons / group labels / dots */
+  --sh-sidebar-strong:    #1e293b;  /* slate-800 profile name */
+  --sh-sidebar-accent:    #3b82f6;  /* blue */
+  --sh-sidebar-active-bg: #3b82f6;
+  --sh-sidebar-active-text: #ffffff;
+  --sh-sidebar-hover-bg:  #f1f5f9;  /* slate-100 */
+  --sh-sidebar-border:    #e5e7eb;  /* gray-200 */
   --sh-header-bg:         rgba(255, 255, 255, 0.92);
   --sh-header-border:     rgba(0, 0, 0, 0.06);
-  --sh-body-bg:           #f4fbf4;
+  --sh-body-bg:           #f6f8fb;
+}
+
+body.dark-theme {
+  --sh-sidebar-bg:        #07111f;
+  --sh-sidebar-text:      rgba(255, 255, 255, 0.82);
+  --sh-sidebar-muted:     rgba(255, 255, 255, 0.45);
+  --sh-sidebar-strong:    #ffffff;
+  --sh-sidebar-accent:    #3b82f6;
+  --sh-sidebar-active-bg: #3b82f6;
+  --sh-sidebar-active-text: #ffffff;
+  --sh-sidebar-hover-bg:  rgba(255, 255, 255, 0.06);
+  --sh-sidebar-border:    rgba(255, 255, 255, 0.08);
+  --sh-header-bg:         rgba(15, 23, 42, 0.92);
+  --sh-header-border:     rgba(255, 255, 255, 0.08);
+  --sh-body-bg:           #0b1220;
 }
 
 /* TV / pantallas grandes */
@@ -113,13 +133,13 @@
 .mex-sidebar-logo-text h2 {
   font-size: 14px;
   font-weight: 700;
-  color: #fff;
+  color: var(--sh-sidebar-strong);
   line-height: 1.2;
   font-family: 'Inter', sans-serif;
 }
 .mex-sidebar-logo-text p {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.4);
+  color: var(--sh-sidebar-muted);
   margin-top: 2px;
   font-family: 'Inter', sans-serif;
 }
@@ -136,11 +156,11 @@
   overflow-x: hidden;
   padding: 6px 0;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  scrollbar-color: var(--sh-sidebar-border) transparent;
 }
 .mex-sidebar-nav::-webkit-scrollbar { width: 4px; }
 .mex-sidebar-nav::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--sh-sidebar-border);
   border-radius: 2px;
 }
 
@@ -157,7 +177,7 @@
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.28);
+  color: var(--sh-sidebar-muted);
   white-space: nowrap;
   overflow: hidden;
   transition: opacity 0.15s, max-height 0.26s, padding 0.26s;
@@ -191,11 +211,11 @@
 }
 .mex-nav-item:hover {
   background: var(--sh-sidebar-hover-bg);
-  color: #fff;
+  color: var(--sh-sidebar-strong);
 }
 .mex-nav-item.active {
   background: var(--sh-sidebar-active-bg);
-  color: #fff;
+  color: var(--sh-sidebar-active-text);
 }
 .mex-nav-item.active::before {
   content: '';
@@ -205,7 +225,7 @@
   transform: translateY(-50%);
   width: 3px;
   height: 22px;
-  background: var(--sh-sidebar-accent);
+  background: var(--sh-sidebar-active-text);
   border-radius: 0 3px 3px 0;
 }
 
@@ -221,12 +241,14 @@
   font-style: normal;
   font-weight: normal;
   line-height: 1;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--sh-sidebar-muted);
   transition: color 0.14s;
 }
-.mex-nav-item:hover .mex-nav-item-icon,
-.mex-nav-item.active .mex-nav-item-icon {
+.mex-nav-item:hover .mex-nav-item-icon {
   color: var(--sh-sidebar-accent);
+}
+.mex-nav-item.active .mex-nav-item-icon {
+  color: var(--sh-sidebar-active-text);
 }
 
 .mex-nav-item-label {
@@ -287,7 +309,7 @@
 .mex-nav-item-arrow {
   font-size: 16px !important;
   flex-shrink: 0;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--sh-sidebar-muted);
   transition: transform 0.22s ease, opacity 0.18s;
   font-family: 'Material Symbols Outlined' !important;
   font-style: normal;
@@ -318,7 +340,7 @@
   margin: 1px 7px 1px 30px;
   padding: 7px 10px;
   border-radius: 8px;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--sh-sidebar-text);
   cursor: pointer;
   text-decoration: none;
   font-size: 12.5px;
@@ -335,21 +357,26 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--sh-sidebar-muted);
   flex-shrink: 0;
   transition: background 0.13s;
 }
 .mex-submenu-item:hover {
   background: var(--sh-sidebar-hover-bg);
-  color: #fff;
+  color: var(--sh-sidebar-strong);
 }
-.mex-submenu-item:hover::before,
-.mex-submenu-item.active::before {
+.mex-submenu-item:hover::before {
   background: var(--sh-sidebar-accent);
+}
+.mex-submenu-item.active::before {
+  background: var(--sh-sidebar-active-text);
 }
 .mex-submenu-item.active {
   background: var(--sh-sidebar-active-bg);
-  color: #fff;
+  color: var(--sh-sidebar-active-text);
+}
+.mex-nav-item.active .mex-nav-item-arrow {
+  color: var(--sh-sidebar-active-text);
 }
 
 /* ── Compact tooltip ───────────────────────────────────────── */
@@ -410,8 +437,8 @@
   width: 34px;
   height: 34px;
   border-radius: 9px;
-  background: rgba(46, 204, 113, 0.15);
-  border: 1px solid rgba(46, 204, 113, 0.3);
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -441,7 +468,7 @@
 .mex-profile-info-name {
   font-size: 12.5px;
   font-weight: 600;
-  color: #fff;
+  color: var(--sh-sidebar-strong);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -449,7 +476,7 @@
 }
 .mex-profile-info-role {
   font-size: 10.5px;
-  color: rgba(255, 255, 255, 0.38);
+  color: var(--sh-sidebar-muted);
   white-space: nowrap;
   margin-top: 1px;
   font-family: 'Inter', sans-serif;
@@ -933,7 +960,12 @@
   margin-left: var(--sh-sidebar-compact-w);
 }
 @media (max-width: 767px) {
-  .mex-main { margin-left: 0 !important; }
+  .mex-main {
+    margin-left: 0 !important;
+    /* Reserve space for the fixed bottom nav (+ iOS safe area) so the map
+       and scrollable content sit above the bar instead of behind it. */
+    height: calc(100dvh - var(--sh-header-h) - var(--sh-bottomnav-h) - env(safe-area-inset-bottom));
+  }
 }
 
 /* TV spacing */
@@ -1130,4 +1162,107 @@ body.heatmap-active .btn-calor-toggle {
   .mex-hdr-mapa-actions {
     display: none;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM NAV (mobile only)
+   Una sola barra: fijos (Inicio/Mapa/Cuadre/Más) anclados a la
+   izquierda + extras de la sección anexados a la derecha con
+   scroll horizontal y auto-scroll. Ver js/shell/bottom-nav.js.
+   ═══════════════════════════════════════════════════════════ */
+.mex-bottomnav { display: none; }
+
+@media (max-width: 767px) {
+  .mex-bottomnav {
+    display: block;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    height: calc(var(--sh-bottomnav-h) + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: var(--sh-sidebar-bg);
+    border-top: 1px solid var(--sh-sidebar-border);
+    z-index: 45;
+    box-shadow: 0 -2px 12px rgba(2, 6, 23, 0.06);
+  }
+
+  /* Primarios viven en la bottom nav → se ocultan del drawer para no duplicar.
+     ponytail: si un rol solo tuviera estos items en un grupo, su header queda
+     vacío; aceptable por ahora dado que Principal/Operación tienen más items. */
+  .mex-sidebar .mex-nav-item[data-nav-id="home"],
+  .mex-sidebar .mex-nav-item[data-nav-id="mapa"],
+  .mex-sidebar .mex-nav-item[data-nav-id="cuadre"] { display: none; }
+}
+
+.mex-bottomnav-scroll {
+  display: flex;
+  align-items: stretch;
+  height: var(--sh-bottomnav-h);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.mex-bottomnav-scroll::-webkit-scrollbar { display: none; }
+
+.mex-bottomnav-item {
+  position: relative;
+  flex: 1 0 25vw;        /* 4 fijos llenan el ancho; crecen si hay 3 */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--sh-sidebar-muted);
+  font-family: 'Inter', sans-serif;
+  padding: 8px 6px;
+  transition: color 0.14s, transform 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.mex-bottomnav-item--extra { flex: 0 0 28vw; }  /* extras nunca crecen → overflow → scroll */
+.mex-bottomnav-item:active { transform: scale(0.94); }
+
+.mex-bottomnav-icon,
+.mex-bottomnav-label { position: relative; z-index: 1; }
+.mex-bottomnav-icon {
+  font-family: 'Material Symbols Outlined';
+  font-style: normal;
+  font-weight: normal;
+  font-size: 23px;
+  line-height: 1;
+}
+.mex-bottomnav-label {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mex-bottomnav-item.active { color: var(--sh-sidebar-active-text); }
+.mex-bottomnav-item.active::before {
+  content: '';
+  position: absolute;
+  inset: 7px 12px;
+  z-index: 0;
+  background: var(--sh-sidebar-active-bg);
+  border-radius: 14px;
+}
+
+.mex-bottomnav-sep {
+  flex: 0 0 1px;
+  align-self: center;
+  height: 28px;
+  margin: 0 4px;
+  background: var(--sh-sidebar-border);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mex-bottomnav-scroll { scroll-behavior: auto; }
+  .mex-bottomnav-item:active { transform: none; }
 }

@@ -12,11 +12,13 @@
 
 import { ShellSidebar } from './sidebar.js';
 import { ShellHeader }  from './header.js';
+import { ShellBottomNav } from './bottom-nav.js';
 
 export class ShellLayout {
   constructor() {
     this._sidebar = null;
     this._header  = null;
+    this._bottomNav = null;
     this._mainEl  = null;
     this._contentEl = null;
     this._containerEl = null;
@@ -110,6 +112,26 @@ export class ShellLayout {
     });
     this._header.mount(headerWrap);
 
+    // ── Bottom nav (mobile) ────────────────────────────────
+    const bottomWrap = document.createElement('div');
+    bottomWrap.id = 'mexBottomNavWrap';
+    container.appendChild(bottomWrap);
+
+    this._bottomNav = new ShellBottomNav({
+      role,
+      currentRoute,
+      onNavigate: route => {
+        if (typeof onNavigate === 'function') onNavigate(route);
+        else window.location.href = route;
+      },
+      onMore: () => {
+        this._sidebar.isMobileOpen
+          ? this._sidebar.closeMobileDrawer()
+          : this._sidebar.openMobileDrawer();
+      }
+    });
+    this._bottomNav.mount(bottomWrap);
+
     // ── Main outlet ────────────────────────────────────────
     this._mainEl = document.createElement('main');
     this._mainEl.id = 'mexShellMain';
@@ -152,6 +174,7 @@ export class ShellLayout {
     this._sidebar?.closeMobileDrawer();
     this._header?.setRoute(route);
     this._header?.setSearchPlaceholder();
+    this._bottomNav?.setRoute(route);
   }
 
   /**
@@ -161,6 +184,7 @@ export class ShellLayout {
   setProfile(profile, role) {
     this._sidebar?.setProfile(profile, role);
     this._header?.setProfile(profile, role);
+    this._bottomNav?.setProfile(profile, role);
   }
 
   /** Muestra/oculta el badge de notificaciones. */
@@ -253,6 +277,7 @@ export class ShellLayout {
     this._stopBadges();
     this._sidebar?.destroy();
     this._header?.destroy();
+    this._bottomNav?.destroy();
     this._mainEl?.remove();
     this._containerEl?.classList.remove('mex-shell', 'sidebar-compact');
   }

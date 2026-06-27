@@ -187,6 +187,35 @@ async function ensureServer() {
       check('Sidebar se cierra', sidebarClosed);
     }
 
+    // ── 4.5 Bottom nav (móvil) ────────────────────────────────
+    info('Probando bottom nav en viewport móvil...');
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${BASE_URL}/app/dashboard`, { waitUntil: 'domcontentloaded', timeout: 20000 });
+    await page.waitForSelector('#mexBottomNav', { timeout: 15000 }).catch(() => {});
+
+    const bottomVisible = await page.evaluate(() => {
+      const el = document.getElementById('mexBottomNav');
+      return !!el && getComputedStyle(el).display !== 'none';
+    });
+    check('Bottom nav visible en móvil', bottomVisible);
+
+    const hasInicio = await page.evaluate(
+      () => !!document.querySelector('#mexBottomNav [data-route="/home"]')
+    );
+    check('Bottom nav tiene tab Inicio', hasInicio);
+
+    // "Más" abre el drawer
+    const moreBtn = await page.$('#mexBottomNav [data-action="more"]');
+    check('Bottom nav tiene botón Más', !!moreBtn);
+    if (moreBtn) {
+      await moreBtn.click();
+      await page.waitForTimeout(350);
+      const drawerOpen = await page.evaluate(
+        () => document.getElementById('mexShellSidebar')?.classList.contains('drawer-open')
+      );
+      check('"Más" abre el drawer', drawerOpen);
+    }
+
     // ── 5. Console errors ─────────────────────────────────────
     const criticalErrors = errors.filter(e =>
       e.includes('ReferenceError') ||
