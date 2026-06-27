@@ -5587,3 +5587,49 @@
   transform: translate(-50%, -50%);
   white-space: nowrap;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MÓVIL — KPIs on-demand, modal acotado, mapa más compacto
+   (3 ajustes pedidos; sólo afectan ≤768px, escritorio intacto)
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* 1) KPIs fuera del flujo: ocultos por defecto, se muestran como
+     panel flotante on-demand desde el engranaje (Ver KPIs). */
+  .kpi-container { display: none; }
+  .kpi-container.kpi-show {
+    display: flex;
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    margin: 0;
+    z-index: 1500;
+    max-width: calc(100% - 16px);
+  }
+  /* En el panel flotante todos los KPIs visibles; sobra el toggle interno. */
+  .kpi-container.kpi-show .kpi-toggle-btn { display: none; }
+  .kpi-container.kpi-show .kpi-items-wrap { max-height: none; opacity: 1; padding: 10px 16px; }
+  .kpi-container.kpi-show.is-collapsed .kpi-items-wrap { max-height: none; opacity: 1; }
+
+  /* 2) Modal de unidad: bottom-sheet acotado, nunca tapa toda la pantalla. */
+  .info-sidebar {
+    max-height: 72vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 3) Mapa más compacto: menos relleno/espacios muertos + sombra más barata. */
+  #map-stage { margin: 8px auto 16px; }
+  #map-zoom-container { --map-outer-pad: clamp(8px, 2vw, 16px); }
+  .map-grid {
+    gap: 14px 12px;
+    padding: clamp(12px, 3vw, 20px);
+    border-radius: 18px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+  }
+}
+
+/* "Ver KPIs" sólo tiene sentido en móvil; en escritorio la barra ya está visible. */
+@media (min-width: 769px) {
+  .kpi-menu-item { display: none !important; }
+}
