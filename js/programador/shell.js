@@ -250,7 +250,8 @@ function _shellHtml(profile) {
       </div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
         <span style="font-size:10px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;background:rgba(99,102,241,0.12);color:#818cf8;border:1px solid rgba(99,102,241,0.22);border-radius:5px;padding:2px 8px;white-space:nowrap;">SUPERADMIN</span>
-        <a href="/app/dashboard" class="prog-header-action-btn" style="text-decoration:none;">
+        <a href="/app/dashboard" class="prog-header-action-btn" style="text-decoration:none;"
+           onclick="sessionStorage.setItem('mexProgViewApp','1')">
           <span class="material-symbols-outlined" style="font-size:13px;">open_in_new</span>
           <span class="prog-header-label">Ver App</span>
         </a>

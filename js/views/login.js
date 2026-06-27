@@ -390,7 +390,48 @@ function _hideError() {
   if (el) el.style.display = 'none';
 }
 
+// ── Branding de empresa en el login ───────────────────────
+// La plantilla nace con un login simple (markup por defecto) y se rellena con
+// logo + nombre + eslogan en cuanto llega la config. configuracion/empresa es de
+// lectura pública (ver firestore.rules). Se cachea para no mostrar login sin imágenes.
+const _BRANDING_CACHE_KEY = 'mex_login_branding';
+
+function _applyBranding(cfg) {
+  if (!cfg) return;
+  const nombre = String(cfg.nombre || '').trim();
+  const logo   = String(cfg.logoURL || '').trim();
+
+  if (nombre) {
+    document.querySelectorAll('.brand-name').forEach(el => { el.textContent = nombre; });
+    document.title = nombre;
+  }
+  if (logo) {
+    document.querySelectorAll('.brand-logo').forEach(box => {
+      box.innerHTML = `<img src="${logo}" alt="" style="width:100%;height:100%;object-fit:contain;" onerror="this.remove()">`;
+    });
+  }
+}
+
+function _initBranding() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(_BRANDING_CACHE_KEY) || 'null');
+    if (cached) _applyBranding(cached);
+  } catch (_) {}
+
+  db.collection(COL.CONFIG).doc('empresa').get()
+    .then(snap => {
+      if (!snap.exists) return;
+      const c = snap.data() || {};
+      const branding = { nombre: c.nombre || '', logoURL: c.logoURL || '' };
+      _applyBranding(branding);
+      try { localStorage.setItem(_BRANDING_CACHE_KEY, JSON.stringify(branding)); } catch (_) {}
+    })
+    .catch(e => console.warn('[login] branding no disponible:', e?.message || e));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  _initBranding();
+
   const emailEl = document.getElementById('auth_email');
   const passEl  = document.getElementById('auth_pass');
 

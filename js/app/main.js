@@ -159,8 +159,10 @@ async function boot() {
     return;
   }
 
-  // 3b. PROGRAMADOR → redirigir al panel programador (single-tenant: no empresa context)
-  if (!qaAuthBypass && String(profile.rol || '').toUpperCase() === 'PROGRAMADOR') {
+  // 3b. PROGRAMADOR → redirigir al panel programador (single-tenant: no empresa context).
+  // Excepción: si pulsó "Ver App" en el panel, entra a la app sin rebotar.
+  const progViewApp = sessionStorage.getItem('mexProgViewApp') === '1';
+  if (!qaAuthBypass && !progViewApp && String(profile.rol || '').toUpperCase() === 'PROGRAMADOR') {
     window.location.replace('/programador');
     return;
   }
