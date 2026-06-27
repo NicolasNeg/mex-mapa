@@ -3331,6 +3331,11 @@
       border-bottom: 1px solid #e2e8f0;
       height: 60px;
       flex-shrink: 0;
+      /* La animación modalHeaderIn (fill both) crea un stacking context con
+         z-index 0 que tapaba el dropdown de "MÁS CONTROLES" bajo la tabla.
+         Elevarlo deja el menú por encima de .fleet-wrapper. */
+      position: relative;
+      z-index: 60;
     }
 
     .fleet-wrapper {

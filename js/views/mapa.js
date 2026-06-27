@@ -5829,6 +5829,11 @@ function renderFlota(data) {
 
 
 function abrirFormularioFlota() {
+  // Repoblar f_est/f_gas/f_ubi desde MEX_CONFIG (config global de la empresa).
+  // En /app/cuadre el fleet-modal ya nace activo, así que el repoblado de
+  // _openFleetModalInPlace no corre y los selects quedaban con opciones legacy.
+  // _setOptions preserva el valor seleccionado, así que es seguro tras fijar values.
+  if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
   const panel = document.getElementById('form-flota-panel');
   const overlay = document.getElementById('form-flota-overlay');
   if (panel) panel.classList.add('active');

@@ -459,7 +459,8 @@ function _toggleLegacyUnitsSidebar() {
 }
 
 function _syncLegacyMapUnitsHeader(id) {
-  if (!['mapa', 'cuadre'].includes(id) || !_shell || !_iframe) return;
+  // Solo mapa: cuadre no tiene limbo/taller ni sidebar de unidades (clic se trababa).
+  if (id !== 'mapa' || !_shell || !_iframe) return;
   const counts = _legacyMapUnitsCounts();
   const sig = `${id}:${counts.limbo}:${counts.taller}:${counts.total}`;
   const existing = document.getElementById('mexHdrLegacyUnitsBtn');
@@ -477,7 +478,7 @@ function _syncLegacyMapUnitsHeader(id) {
 
 function _startLegacyMapUnitsHeader(id) {
   _clearUnitsHeader();
-  if (!['mapa', 'cuadre'].includes(id)) return;
+  if (id !== 'mapa') return;
   _syncLegacyMapUnitsHeader(id);
   _unitsHeaderTimer = window.setInterval(() => _syncLegacyMapUnitsHeader(id), 1000);
 }
