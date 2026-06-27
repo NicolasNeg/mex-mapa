@@ -909,7 +909,9 @@
   height: calc(100vh - var(--sh-header-h));
   min-width: 0;
   overflow: hidden;
-  transition: margin-left 0.26s cubic-bezier(0.4, 0, 0.2, 1);
+  /* ponytail: sin transición de margin-left — animarla reflowaba el iframe del
+     mapa ~16 veces (Leaflet recalcula cada frame). El contenido reajusta una
+     vez y el sidebar (fixed, opaco) anima por encima dando el reveal suave. */
   position: relative;
   /* contain:layout makes this the containing block for position:fixed children.
      cuadre's overlay and panel are designed for this — iframes are unaffected
