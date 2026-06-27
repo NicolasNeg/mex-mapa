@@ -2134,6 +2134,33 @@
       display: block;
     }
 
+    @media (max-width: 768px) {
+      /* Bug 2: overlay sin blur en mobile — el backdrop-filter fullscreen
+         congelaba el touch y bloqueaba toda la pantalla. El dim basta. */
+      .overlay {
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+      }
+
+      /* Bug 1: panel de detalle de unidad compacto en mobile */
+      .info-sidebar {
+        width: calc(100% - 20px);
+        bottom: 12px;
+        padding: 16px;
+        border-radius: 20px;
+      }
+      #info-panel .btn-swap-confirm,
+      #info-panel #btnMandarLimbo,
+      #info-panel button[onclick="cerrarPanel()"] {
+        padding: 12px !important;
+        font-size: 14px !important;
+        min-height: 48px;
+      }
+      #info-panel div[style*="grid-template-columns"] {
+        gap: 10px !important;
+      }
+    }
+
     #sidebar .search-wrapper:not(.units-sidebar-searchbox) {
       margin-bottom: 20px !important;
     }

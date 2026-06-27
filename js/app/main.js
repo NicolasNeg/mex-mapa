@@ -159,13 +159,9 @@ async function boot() {
     return;
   }
 
-  // 3b. PROGRAMADOR → redirigir al panel programador (single-tenant: no empresa context).
-  // Excepción: si pulsó "Ver App" en el panel, entra a la app sin rebotar.
-  const progViewApp = sessionStorage.getItem('mexProgViewApp') === '1';
-  if (!qaAuthBypass && !progViewApp && String(profile.rol || '').toUpperCase() === 'PROGRAMADOR') {
-    window.location.replace('/programador');
-    return;
-  }
+  // PROGRAMADOR entra a la app de la empresa como cualquier usuario.
+  // Accede al panel de programador desde el item "Programador" del sidebar
+  // (visible solo para ese rol — ver navigation.config.js).
 
   // 4. Esperar config global si no está resuelta
   if (window.__mexConfigReadyPromise) {

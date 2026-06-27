@@ -501,8 +501,8 @@
   inset: 0;
   background: rgba(0, 0, 0, 0.52);
   z-index: 49;
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
+  /* ponytail: sin backdrop-filter — el blur fullscreen sobre el iframe del mapa
+     congelaba el compositor en mobile y trababa el cierre del drawer. */
 }
 .mex-drawer-overlay.visible { display: block; }
 

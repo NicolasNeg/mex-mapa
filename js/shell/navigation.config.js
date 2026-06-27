@@ -170,6 +170,13 @@ export const NAV_GROUPS = [
         icon: 'map',
         route: '/editmap',
         roles: ['CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
+      },
+      {
+        id: 'programador',
+        label: 'Programador',
+        icon: 'terminal',
+        route: '/programador',
+        roles: ['PROGRAMADOR']
       }
     ]
   }
