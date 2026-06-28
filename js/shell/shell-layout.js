@@ -128,6 +128,16 @@ export class ShellLayout {
         this._sidebar.isMobileOpen
           ? this._sidebar.closeMobileDrawer()
           : this._sidebar.openMobileDrawer();
+      },
+      onConfig: () => {
+        // El mapa se monta inline en el shell → toggleControlesMenu vive en window.
+        // (fallback a iframe por si algún build lo embebe).
+        try {
+          if (typeof window.toggleControlesMenu === 'function') { window.toggleControlesMenu(); return; }
+          const frame = [...document.querySelectorAll('iframe')]
+            .find(f => { try { return typeof f.contentWindow?.toggleControlesMenu === 'function'; } catch (_) { return false; } });
+          frame?.contentWindow?.toggleControlesMenu?.();
+        } catch (_) {}
       }
     });
     this._bottomNav.mount(bottomWrap);
@@ -175,6 +185,9 @@ export class ShellLayout {
     this._header?.setRoute(route);
     this._header?.setSearchPlaceholder();
     this._bottomNav?.setRoute(route);
+    // route-mapa: el mapa llena bajo el footer (footer transparente lo deja ver).
+    const isMapa = String(route).split('?')[0].replace(/\.html$/, '').replace(/\/+$/, '') === '/mapa';
+    this._containerEl?.classList.toggle('route-mapa', isMapa);
   }
 
   /**

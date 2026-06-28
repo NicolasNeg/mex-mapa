@@ -34,12 +34,17 @@ function normFull(route = '') {
 }
 
 export class ShellBottomNav {
-  constructor({ role = 'AUXILIAR', currentRoute = '/home', onNavigate = null, onMore = null } = {}) {
+  constructor({ role = 'AUXILIAR', currentRoute = '/home', onNavigate = null, onMore = null, onConfig = null } = {}) {
     this._role = role;
     this._currentRoute = currentRoute;
     this._onNavigate = onNavigate;
     this._onMore = onMore;
+    this._onConfig = onConfig;  // en /mapa el 4º slot abre el engranaje del mapa
     this._el = null;
+  }
+
+  _isMapa() {
+    return normPath(this._currentRoute) === '/mapa';
   }
 
   _isActive(route) {
@@ -87,10 +92,16 @@ export class ShellBottomNav {
 
   _buildHTML() {
     const fixed = this._fixedTabs().map(t => this._itemHTML(t, false)).join('');
-    const more = `<button class="mex-bottomnav-item" data-action="more" aria-label="Más opciones">
-      <span class="mex-bottomnav-icon">more_horiz</span>
-      <span class="mex-bottomnav-label">Más</span>
-    </button>`;
+    // En /mapa el 4º slot es el engranaje (Config) en vez de "Más".
+    const more = this._isMapa()
+      ? `<button class="mex-bottomnav-item" data-action="config" aria-label="Configuración del mapa">
+          <span class="mex-bottomnav-icon">settings</span>
+          <span class="mex-bottomnav-label">Config</span>
+        </button>`
+      : `<button class="mex-bottomnav-item" data-action="more" aria-label="Más opciones">
+          <span class="mex-bottomnav-icon">more_horiz</span>
+          <span class="mex-bottomnav-label">Más</span>
+        </button>`;
     const extras = this._sectionExtras();
     const extrasHTML = extras.length
       ? `<span class="mex-bottomnav-sep" aria-hidden="true"></span>` + extras.map(e => this._itemHTML(e, true)).join('')
@@ -115,7 +126,7 @@ export class ShellBottomNav {
   mount(container) {
     this._el = document.createElement('nav');
     this._el.id = 'mexBottomNav';
-    this._el.className = 'mex-bottomnav';
+    this._el.className = 'mex-bottomnav' + (this._isMapa() ? ' is-mapa' : '');
     this._el.setAttribute('aria-label', 'Navegación principal');
     this._el.innerHTML = this._buildHTML();
     container.appendChild(this._el);
@@ -123,7 +134,8 @@ export class ShellBottomNav {
     this._el.addEventListener('click', e => {
       const btn = e.target.closest('[data-route],[data-action]');
       if (!btn) return;
-      if (btn.dataset.action === 'more') { this._onMore?.(); return; }
+      if (btn.dataset.action === 'more')   { this._onMore?.();   return; }
+      if (btn.dataset.action === 'config') { this._onConfig?.(); return; }
       if (btn.dataset.route) this._onNavigate?.(btn.dataset.route);
     });
 
@@ -134,6 +146,7 @@ export class ShellBottomNav {
   setRoute(route) {
     this._currentRoute = route;
     this._render();
+    this._el?.classList.toggle('is-mapa', this._isMapa());
     this._autoScroll();
   }
 

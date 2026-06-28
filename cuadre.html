@@ -2,8 +2,7 @@
 <html lang="es" data-page-title="Cuadre de Flota" data-page-description="Consola de gestión de flota de %COMPANY%">
 <head>
   <meta charset="UTF-8">
-  <!-- Permite pinch-zoom para ver la tabla completa de cuadre en móvil -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#0b2548">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -341,6 +340,12 @@
               <span class="material-icons">add</span>
             </button>
 
+            <!-- Zoom de la tabla (móvil): acota el zoom a la tabla, no a la página -->
+            <div class="cuadre-zoom-ctrl">
+              <button type="button" onclick="cuadreZoom(0.1)" aria-label="Acercar tabla">+</button>
+              <button type="button" onclick="cuadreZoom(-0.1)" aria-label="Alejar tabla">−</button>
+            </div>
+
           </div>
 
           <div class="col-form-overlay" id="form-flota-overlay" onclick="cerrarFormularioFlota()"></div>
@@ -557,6 +562,18 @@
         showVehicleShortcut: false
       });
     });
+  </script>
+
+  <script>
+    // Zoom acotado SOLO a la tabla del cuadre (usa CSS zoom → reflowa el scroll).
+    (function () {
+      var scale = 1;
+      window.cuadreZoom = function (delta) {
+        scale = Math.min(1.6, Math.max(0.5, Math.round((scale + delta) * 10) / 10));
+        var c = document.querySelector('.col-table .table-container');
+        if (c) c.style.zoom = scale;
+      };
+    })();
   </script>
 
 </body>

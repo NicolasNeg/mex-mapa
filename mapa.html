@@ -1587,7 +1587,7 @@
           <div id="controlesItemKpis" class="kpi-menu-item"
             style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s"
             onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''"
-            onclick="toggleKpiPanel();toggleControlesMenu()">
+            onclick="verKpis();toggleControlesMenu()">
             <span class="material-icons" style="font-size:18px;color:#6b7280;flex-shrink:0">bar_chart</span>
             <span style="font-size:13px;font-weight:600;color:#111827;flex:1">Ver KPIs</span>
             <span class="material-icons" style="font-size:16px;color:#9ca3af">chevron_right</span>
@@ -1644,23 +1644,6 @@
         }, 0);
       };
 
-      // Ver KPIs: panel flotante on-demand (móvil). Cerrar al tocar fuera.
-      window.toggleKpiPanel = function() {
-        var p = document.getElementById('kpiPanel');
-        if (!p) return;
-        var show = !p.classList.contains('kpi-show');
-        p.classList.toggle('kpi-show', show);
-        if (!show) return;
-        setTimeout(function() {
-          document.addEventListener('click', function closeKpi(ev) {
-            if (p.contains(ev.target)) {
-              document.addEventListener('click', closeKpi, { once: true });
-              return;
-            }
-            p.classList.remove('kpi-show');
-          }, { once: true });
-        }, 0);
-      };
 </script>
 
     <button id="btnAbrirUnidades" class="btn-abrir-unidades" onclick="toggleSidebar()" title="Panel de unidades">
@@ -1725,6 +1708,13 @@
     </div>
 
     <div id="info-panel" class="info-sidebar">
+      <!-- Barra compacta (móvil): resumen + expandir. Oculta en escritorio. -->
+      <div id="info-compact-bar">
+        <span id="info-compact-summary">—</span>
+        <button id="info-expand-btn" type="button" onclick="toggleInfoExpand()" aria-label="Expandir detalle">
+          <span class="material-icons">expand_less</span>
+        </button>
+      </div>
       <div id="detalle-unidad"></div>
       <div id="swap-container"></div>
       <!-- F7: Sección de utilidades rápidas -->

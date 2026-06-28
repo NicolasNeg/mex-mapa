@@ -966,6 +966,10 @@ body.dark-theme {
        and scrollable content sit above the bar instead of behind it. */
     height: calc(100dvh - var(--sh-header-h) - var(--sh-bottomnav-h) - env(safe-area-inset-bottom));
   }
+  /* En el mapa el contenido llena bajo el footer; el footer transparente lo deja ver. */
+  .mex-shell.route-mapa .mex-main {
+    height: calc(100dvh - var(--sh-header-h));
+  }
 }
 
 /* TV spacing */
@@ -1183,6 +1187,22 @@ body.heatmap-active .btn-calor-toggle {
     border-top: 1px solid var(--sh-sidebar-border);
     z-index: 45;
     box-shadow: 0 -2px 12px rgba(2, 6, 23, 0.06);
+  }
+
+  /* En /mapa el footer es transparente para ver el mapa por debajo. */
+  .mex-bottomnav.is-mapa {
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
+  }
+  .mex-bottomnav.is-mapa .mex-bottomnav-item {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+  }
+  .mex-bottomnav.is-mapa .mex-bottomnav-item:not(.active) {
+    color: #e2e8f0;  /* legible sobre el asfalto oscuro del mapa */
+  }
+  .mex-bottomnav.is-mapa .mex-bottomnav-item .mex-bottomnav-icon {
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.55));
   }
 
   /* Primarios viven en la bottom nav → se ocultan del drawer para no duplicar.

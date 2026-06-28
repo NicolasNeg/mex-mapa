@@ -5588,37 +5588,19 @@
   white-space: nowrap;
 }
 
+/* Barra compacta del panel de unidad — oculta en escritorio. */
+#info-compact-bar { display: none; }
+
 /* ═══════════════════════════════════════════════════════════
-   MÓVIL — KPIs on-demand, modal acotado, mapa más compacto
-   (3 ajustes pedidos; sólo afectan ≤768px, escritorio intacto)
+   MÓVIL (≤768px) — mapa compacto, KPIs por toast, zoom/engranaje
+   en el footer, y panel de unidad como barra compacta expandible.
+   Escritorio intacto.
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* 1) KPIs fuera del flujo: ocultos por defecto, se muestran como
-     panel flotante on-demand desde el engranaje (Ver KPIs). */
+  /* KPIs fuera del mapa: la barra no se muestra; "Ver KPIs" usa un toast. */
   .kpi-container { display: none; }
-  .kpi-container.kpi-show {
-    display: flex;
-    position: fixed;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    margin: 0;
-    z-index: 1500;
-    max-width: calc(100% - 16px);
-  }
-  /* En el panel flotante todos los KPIs visibles; sobra el toggle interno. */
-  .kpi-container.kpi-show .kpi-toggle-btn { display: none; }
-  .kpi-container.kpi-show .kpi-items-wrap { max-height: none; opacity: 1; padding: 10px 16px; }
-  .kpi-container.kpi-show.is-collapsed .kpi-items-wrap { max-height: none; opacity: 1; }
 
-  /* 2) Modal de unidad: bottom-sheet acotado, nunca tapa toda la pantalla. */
-  .info-sidebar {
-    max-height: 72vh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* 3) Mapa más compacto: menos relleno/espacios muertos + sombra más barata. */
+  /* Mapa más compacto: menos relleno/espacios muertos + sombra más barata. */
   #map-stage { margin: 8px auto 16px; }
   #map-zoom-container { --map-outer-pad: clamp(8px, 2vw, 16px); }
   .map-grid {
@@ -5627,22 +5609,94 @@
     border-radius: 18px;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
   }
-}
 
-/* "Ver KPIs" sólo tiene sentido en móvil; en escritorio la barra ya está visible. */
-@media (min-width: 769px) {
-  .kpi-menu-item { display: none !important; }
-}
+  /* Zoom +/- y engranaje viven en el footer (Config) → fuera del mapa. */
+  .zoom-controls .btn-zoom { display: none; }
+  /* El menú del engranaje se abre como hoja anclada al fondo del mapa. */
+  #controlesMenu {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: 76px !important;   /* sobre el footer transparente */
+    top: auto !important;
+    min-width: 0 !important;
+  }
 
-/* ═══════════════════════════════════════════════════════════
-   CUADRE móvil — tabla completa visible (scroll horizontal) y
-   pinch-zoom habilitado (viewport en cuadre.html). Seleccionar
-   una fila abre el panel de gestión de unidad (comportamiento PC).
-   ═══════════════════════════════════════════════════════════ */
-@media (max-width: 768px) {
+  /* ── Panel de unidad: barra compacta expandible ───────────── */
+  .info-sidebar.open {
+    bottom: 76px !important;   /* despeja el footer */
+    max-height: none;
+    overflow: visible;
+  }
+  #info-compact-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 2px 10px;
+  }
+  #info-compact-summary {
+    flex: 1;
+    font-weight: 800;
+    font-size: 15px;
+    color: var(--primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #info-expand-btn {
+    flex-shrink: 0;
+    width: 36px; height: 36px;
+    border: none; border-radius: 10px;
+    background: #f1f5f9; color: #475569;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  /* Compacto (por defecto): sólo barra + botonera; oculta el detalle largo. */
+  .info-sidebar:not(.expanded) #detalle-unidad,
+  .info-sidebar:not(.expanded) #panel-extras-unidad,
+  .info-sidebar:not(.expanded) #swap-container { display: none; }
+  .info-sidebar:not(.expanded) #infoPanelBtnGrid { margin-top: 0 !important; }
+  .info-sidebar:not(.expanded) #infoPanelBtnGrid button {
+    padding: 12px !important;
+    min-height: 44px;
+    font-size: 12px !important;
+  }
+  /* Expandido: panel completo scrolleable. */
+  .info-sidebar.expanded {
+    max-height: 68dvh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .info-sidebar.expanded #info-expand-btn .material-icons { transform: rotate(180deg); }
+
+  /* ── Cuadre: zoom de la tabla con botones ─────────────────── */
   .col-table .table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y pinch-zoom;
   }
+  .cuadre-zoom-ctrl {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: absolute;
+    right: 14px;
+    bottom: 84px;   /* encima del FAB de agregar */
+    z-index: 20;
+  }
+  .cuadre-zoom-ctrl button {
+    width: 40px; height: 40px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: #fff; color: #0f172a;
+    font-size: 20px; font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(2, 6, 23, 0.12);
+  }
+}
+
+/* Escritorio: botones de zoom del cuadre fuera (la tabla cabe) y
+   "Ver KPIs" fuera (la barra de KPIs ya está visible). */
+@media (min-width: 769px) {
+  .cuadre-zoom-ctrl { display: none; }
+  .kpi-menu-item { display: none !important; }
 }

@@ -413,6 +413,18 @@ function showToast(msg, type = 'success') {
   setTimeout(() => { if (t.parentElement) t.remove(); }, 3500);
 }
 
+// Ver KPIs (desde el engranaje): resumen en un toast, no panel fijo.
+window.verKpis = function () {
+  const g = id => (document.getElementById(id)?.textContent || '0').trim();
+  const msg = `Totales ${g('kpi-total')} · Listos ${g('kpi-listos')} · Sucios ${g('kpi-sucios')} · Manto ${g('kpi-manto')} · Patio ${g('kpi-patio')} · Taller ${g('kpi-taller-loc')}`;
+  showToast(msg, 'info');
+};
+
+// Expande/colapsa el panel de unidad (barra compacta ↔ detalle completo) en móvil.
+window.toggleInfoExpand = function () {
+  document.getElementById('info-panel')?.classList.toggle('expanded');
+};
+
 
 // Variable para saber en qué pestaña estamos
 let VISTA_ACTUAL_FLOTA = 'NORMAL';
@@ -5034,7 +5046,12 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
     <button onclick="cerrarPanel()" style="padding:15px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer; font-size:13px;">CERRAR</button>
   `;
 
-  document.getElementById('info-panel').classList.add('open');
+  // Barra compacta (móvil): resumen + siempre abrir colapsado.
+  const _cs = document.getElementById('info-compact-summary');
+  if (_cs) _cs.textContent = `${d.mva} · ${d.estado || 'N/A'}`;
+  const _ip = document.getElementById('info-panel');
+  _ip.classList.remove('expanded');
+  _ip.classList.add('open');
   _renderSwapStatus();
   const zoomControls = document.querySelector('.zoom-controls');
   if (zoomControls) zoomControls.classList.add('panel-open');
@@ -5184,7 +5201,7 @@ function cerrarPanel() {
   if (selectedAuto) selectedAuto.classList.remove('selected');
   MAP_SWAP_MODE_ACTIVE = false;
   selectedAuto = null;
-  document.getElementById('info-panel').classList.remove('open');
+  document.getElementById('info-panel').classList.remove('open', 'expanded');
   document.getElementById('swap-container').innerHTML = "";
 
   const zoomBtn = document.querySelector('.zoom-controls');
