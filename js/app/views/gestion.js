@@ -1,7 +1,9 @@
 // js/app/views/gestion.js — panel de gestión: generación de códigos de invitación.
 import { subscribeInvitaciones, crearInvitacion, revocarInvitacion } from '/js/app/features/gestion/invitaciones-data.js';
 import { estadoInvitacion } from '/domain/invitacion.model.js';
-import { mexConfirm, mexAlert } from '/js/core/dialogs.js';
+import '/js/core/dialogs.js';  // side-effect: define window.mex* (sin exports ESM — también carga como <script> legacy)
+const mexConfirm = (...a) => window.mexConfirm(...a);
+const mexAlert   = (...a) => window.mexAlert(...a);
 
 let _unsub = null;
 const ESTADO_CHIP = {

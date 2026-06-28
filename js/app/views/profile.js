@@ -383,7 +383,6 @@ function _html() {
     ['profile-section-mapa', 'map', 'Mapa'],
     ['profile-section-notificaciones', 'notifications', 'Notificaciones'],
     ['profile-section-seguridad', 'verified_user', 'Seguridad'],
-    ['profile-section-accesos', 'lock_open', 'Accesos'],
     ['profile-section-atajos', 'keyboard', 'Atajos'],
   ];
 
@@ -429,10 +428,10 @@ function _html() {
   </div>
 
   <!-- ── Body layout ── -->
-  <div style="display:flex;gap:20px;align-items:flex-start;">
+  <div class="profile-body" style="display:flex;gap:20px;align-items:flex-start;">
 
     <!-- Sidebar nav -->
-    <aside style="width:210px;flex-shrink:0;position:sticky;top:80px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:12px;">
+    <aside class="profile-nav" style="width:210px;flex-shrink:0;position:sticky;top:80px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:16px;padding:12px;">
       <div style="padding:6px 8px 10px;border-bottom:1px solid #e2e8f0;margin-bottom:8px;">
         <p style="margin:0;font-size:13px;font-weight:700;color:#0f172a;">Ajustes de cuenta</p>
         <p style="margin:3px 0 0;font-size:11px;color:#64748b;">Administra tu perfil</p>
@@ -445,7 +444,7 @@ function _html() {
     </aside>
 
     <!-- Sections -->
-    <div style="flex:1;min-width:0;display:grid;gap:20px;">
+    <div class="profile-sections" style="flex:1;min-width:0;display:grid;gap:20px;">
 
       <!-- ── General ── -->
       <section id="profile-section-general" style="background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(15,23,42,0.04);overflow:hidden;">
@@ -478,9 +477,7 @@ function _html() {
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
             <div style="display:grid;gap:14px;">
               ${_selectField('Tema', 'profile-theme-select', [['light', 'Claro'], ['dark', 'Oscuro']])}
-              ${_selectField('Idioma', 'profile-language-select', [['es', 'Español'], ['en', 'English']])}
               ${_selectField('Vista inicial', 'profile-home-view-select', [['dashboard', 'Dashboard'], ['mapa', 'Mapa'], ['mensajes', 'Mensajes'], ['cuadre', 'Cuadres']])}
-              ${_selectField('Densidad visual', 'profile-density-select', [['compacta', 'Compacta'], ['media', 'Media'], ['amplia', 'Amplia']])}
             </div>
             <div style="display:grid;gap:4px;align-content:start;padding-top:4px;">
               <div style="height:1px;background:#e2e8f0;margin-bottom:8px;"></div>
@@ -614,21 +611,6 @@ function _html() {
               </button>
             </div>
           </div>
-        </div>
-      </section>
-
-      <!-- ── Accesos ── -->
-      <section id="profile-section-accesos" style="background:#fff;border-radius:18px;border:1px solid #e2e8f0;box-shadow:0 4px 12px rgba(15,23,42,0.04);overflow:hidden;">
-        <div style="padding:16px 22px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;">
-          <h2 style="margin:0;font-size:18px;font-weight:800;color:#0f172a;">Resumen de Accesos</h2>
-          <span id="profile-admin-chip" style="display:none;font-size:11px;font-weight:700;color:#4338ca;background:#e0e7ff;padding:3px 10px;border-radius:8px;">Admin</span>
-        </div>
-        <div style="padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-          <div><p style="margin:0;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">Rol operativo</p><p id="profile-access-role" style="margin:4px 0 0;font-size:14px;font-weight:700;color:#0f172a;">-</p></div>
-          <div><p style="margin:0;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">Nivel</p><p id="profile-access-level" style="margin:4px 0 0;font-size:14px;font-weight:700;color:#0f172a;">-</p></div>
-          <div style="grid-column:1/-1;"><p style="margin:0;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">Módulos habilitados</p><p id="profile-access-modules" style="margin:4px 0 0;font-size:13px;color:#334155;">-</p></div>
-          <div style="grid-column:1/-1;"><p style="margin:0;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">Cobertura de plazas</p><p id="profile-access-plazas" style="margin:4px 0 0;font-size:13px;color:#334155;">-</p></div>
-          <div style="grid-column:1/-1;"><p style="margin:0;font-size:11px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.06em;">Alcance</p><p id="profile-access-scope" style="margin:4px 0 0;font-size:13px;color:#334155;">-</p></div>
         </div>
       </section>
 
@@ -1010,26 +992,15 @@ function _initTabs() {
   _tabsReady = true;
   const tabs = [...document.querySelectorAll('.profile-tab[data-target]')];
   const sections = tabs.map(t => document.getElementById(t.dataset.target)).filter(Boolean);
+  if (!sections.length) return;
 
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = document.getElementById(tab.dataset.target);
-      if (!target) return;
-      const offset = window.innerWidth <= 980 ? 200 : 120;
-      const top = target.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top: Math.max(top, 0), behavior: 'smooth' });
-      _setActiveTab(tab.dataset.target);
-    });
-  });
-
-  if ('IntersectionObserver' in window && sections.length) {
-    _observer = new IntersectionObserver(entries => {
-      const cur = entries.filter(e => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
-      if (cur?.target?.id) _setActiveTab(cur.target.id);
-    }, { rootMargin: '-28% 0px -54% 0px', threshold: [0.15, 0.35, 0.6] });
-    sections.forEach(s => _observer.observe(s));
-  }
+  // Ventanas separadas: cada pestaña muestra SOLO su sección (no scroll).
+  const show = id => {
+    sections.forEach(s => { s.style.display = s.id === id ? '' : 'none'; });
+    _setActiveTab(id);
+  };
+  tabs.forEach(tab => tab.addEventListener('click', () => show(tab.dataset.target)));
+  show(tabs[0].dataset.target);  // primera pestaña activa por defecto
 }
 
 function _setActiveTab(sectionId) {

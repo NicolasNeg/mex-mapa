@@ -5633,3 +5633,16 @@
 @media (min-width: 769px) {
   .kpi-menu-item { display: none !important; }
 }
+
+/* ═══════════════════════════════════════════════════════════
+   CUADRE móvil — tabla completa visible (scroll horizontal) y
+   pinch-zoom habilitado (viewport en cuadre.html). Seleccionar
+   una fila abre el panel de gestión de unidad (comportamiento PC).
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .col-table .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y pinch-zoom;
+  }
+}
