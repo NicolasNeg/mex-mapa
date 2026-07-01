@@ -138,6 +138,11 @@ async function _getRecaptchaToken(action) {
  * devuelve blocked:true con mensaje de seguridad (no confundir con credenciales).
  */
 async function tryVerifyRecaptchaForLogin(action) {
+  // reCAPTCHA desactivado: la site key no está autorizada para este dominio
+  // (badge "Invalid domain for site key"). Bypass total hasta reconfigurar la
+  // key en Google Cloud + reañadir el <script> en login.html.
+  return { blocked: false };
+  // eslint-disable-next-line no-unreachable
   if (!functions || typeof functions.httpsCallable !== 'function') {
     console.warn('[login] Firebase Functions no disponible; se omite verificación reCAPTCHA.');
     return { blocked: false };

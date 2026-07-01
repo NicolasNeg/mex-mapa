@@ -32,8 +32,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-functions-compat.js"></script>
 
-  <!-- reCAPTCHA Enterprise -->
-  <script src="https://www.google.com/recaptcha/enterprise.js?render=6Le3cc4sAAAAAG4wNYaerrb-vz6Hn1OFw5k1J63j" async defer></script>
+  <!-- reCAPTCHA Enterprise desactivado: la site key no está autorizada para
+       este dominio (badge "Invalid domain for site key"). Reactivar cuando se
+       reconfigure la key en Google Cloud. -->
 
   <!-- Firebase core -->
   <script src="/js/core/firebase-config.js"></script>
@@ -49,29 +50,37 @@
        LOGIN — foto full-bg + tarjeta flotante (Armenta Rent A Car)
        Desktop: tarjeta a la derecha · Mobile: wordmark + tarjeta centrada
     ═══════════════════════════════════════════════════════════ */
-    *, *::before, *::after { box-sizing: border-box; }
-
-    :root {
-      --surface:   #ffffff;
-      --primary:   #2563eb;
-      --primary-d: #1d4ed8;
-      --text:      #0f172a;
-      --muted:     #64748b;
-      --border:    #d5deec;
-      --field:     #ffffff;
-      --danger:    #dc2626;
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
     }
 
-    html, body { height: 100%; }
+    :root {
+      --surface: #ffffff;
+      --primary: #2563eb;
+      --primary-d: #1d4ed8;
+      --text: #0f172a;
+      --muted: #64748b;
+      --border: #d5deec;
+      --field: #ffffff;
+      --danger: #dc2626;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
     body {
       margin: 0;
       min-height: 100dvh;
       font-family: 'Inter', system-ui, sans-serif;
       color: var(--text);
-      /* Fondo: foto del auto (déjala en /img/login-bg.jpg). Degradado de respaldo. */
+      /* Fondo: foto en /img/login-bg.png. Degradado de respaldo si falta. */
       background:
-        linear-gradient(180deg, rgba(15,23,42,0.45) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.55) 100%),
-        url('/img/login-bg.jpg') center center / cover no-repeat,
+        linear-gradient(180deg, rgba(15, 23, 42, 0.45) 0%, rgba(15, 23, 42, 0.15) 40%, rgba(15, 23, 42, 0.55) 100%),
+        url('/img/login-bg.png') center center / cover no-repeat,
         linear-gradient(155deg, #46505f 0%, #737d8a 55%, #2b3038 100%);
       background-blend-mode: normal;
     }
@@ -80,7 +89,8 @@
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
-      align-items: flex-end;          /* desktop: tarjeta a la derecha */
+      align-items: flex-end;
+      /* desktop: tarjeta a la derecha */
       justify-content: center;
       padding: 32px clamp(24px, 6vw, 96px);
     }
@@ -91,12 +101,32 @@
       align-items: center;
       gap: 12px;
       color: #fff;
-      text-shadow: 0 2px 12px rgba(0,0,0,0.35);
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
     }
-    .brand-wordmark .brand-logo { width: 54px; height: 54px; color: #fff; }
-    .brand-wordmark .wm-text { display: flex; flex-direction: column; line-height: 1.05; }
-    .brand-wordmark .brand-name { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
-    .brand-wordmark .wm-sub { font-size: 15px; font-weight: 500; opacity: 0.92; }
+
+    .brand-wordmark .brand-logo {
+      width: 54px;
+      height: 54px;
+      color: #fff;
+    }
+
+    .brand-wordmark .wm-text {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.05;
+    }
+
+    .brand-wordmark .brand-name {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .brand-wordmark .wm-sub {
+      font-size: 15px;
+      font-weight: 500;
+      opacity: 0.92;
+    }
 
     /* ── Tarjeta ── */
     .login-card {
@@ -108,34 +138,70 @@
       box-shadow: 0 30px 70px rgba(15, 23, 42, 0.28);
       animation: cardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
+
     @keyframes cardIn {
-      from { opacity: 0; transform: translateY(16px) scale(0.99); }
-      to   { opacity: 1; transform: none; }
+      from {
+        opacity: 0;
+        transform: translateY(16px) scale(0.99);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
     }
 
     /* Logo "A" dentro de la tarjeta (visible en desktop) */
     .card-logo {
-      width: 68px; height: 68px;
+      width: 68px;
+      height: 68px;
       margin: 0 auto 6px;
       color: var(--text);
     }
-    .brand-logo { display: block; }
-    .brand-logo svg { width: 100%; height: 100%; display: block; }
-    .brand-logo img { width: 100%; height: 100%; object-fit: contain; }
+
+    .brand-logo {
+      display: block;
+    }
+
+    .brand-logo svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .brand-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
 
     .form-title {
       margin: 0 0 26px;
       text-align: center;
-      font-size: 40px; font-weight: 800; letter-spacing: -1px;
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -1px;
       color: var(--text);
     }
 
-    .field { margin-bottom: 14px; }
-    .field-pill { position: relative; display: flex; align-items: center; }
-    .field-pill > .pill-icon {
-      position: absolute; left: 16px;
-      color: #94a3b8; font-size: 22px; pointer-events: none;
+    .field {
+      margin-bottom: 14px;
     }
+
+    .field-pill {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .field-pill>.pill-icon {
+      position: absolute;
+      left: 16px;
+      color: #94a3b8;
+      font-size: 22px;
+      pointer-events: none;
+    }
+
     .field-pill input {
       width: 100%;
       height: 56px;
@@ -143,49 +209,97 @@
       border-radius: 12px;
       background: var(--field);
       padding: 0 48px 0 50px;
-      font-size: 16px; font-family: inherit; color: var(--text);
+      font-size: 16px;
+      font-family: inherit;
+      color: var(--text);
       transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .field-pill input::placeholder { color: #9aa6b8; }
+
+    .field-pill input::placeholder {
+      color: #9aa6b8;
+    }
+
     .field-pill input:focus {
       outline: none;
       border-color: var(--primary);
       box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
     }
+
     .pill-toggle {
-      position: absolute; right: 14px;
-      cursor: pointer; color: #94a3b8; font-size: 22px; user-select: none;
+      position: absolute;
+      right: 14px;
+      cursor: pointer;
+      color: #94a3b8;
+      font-size: 22px;
+      user-select: none;
     }
 
     .form-row {
-      display: flex; align-items: center; justify-content: space-between;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin: 10px 2px 22px;
     }
+
     .remember {
-      display: flex; align-items: center; gap: 8px;
-      font-size: 14px; color: #334155; cursor: pointer; user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #334155;
+      cursor: pointer;
+      user-select: none;
     }
-    .remember input { width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer; }
+
+    .remember input {
+      width: 17px;
+      height: 17px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
     .link-forgot {
-      background: none; border: none; padding: 0; cursor: pointer;
-      color: var(--primary); font-size: 14px; font-weight: 600; font-family: inherit;
+      background: none;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+      color: var(--primary);
+      font-size: 14px;
+      font-weight: 600;
+      font-family: inherit;
     }
-    .link-forgot:hover { text-decoration: underline; }
+
+    .link-forgot:hover {
+      text-decoration: underline;
+    }
 
     .btn-primary {
       width: 100%;
       height: 56px;
-      border: none; border-radius: 12px;
+      border: none;
+      border-radius: 12px;
       background: var(--primary);
       color: #fff;
-      font-size: 16px; font-weight: 700; font-family: inherit;
+      font-size: 16px;
+      font-weight: 700;
+      font-family: inherit;
       letter-spacing: 0.3px;
       cursor: pointer;
       transition: background 0.15s, transform 0.05s;
     }
-    .btn-primary:hover { background: var(--primary-d); }
-    .btn-primary:active { transform: translateY(1px); }
-    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .btn-primary:hover {
+      background: var(--primary-d);
+    }
+
+    .btn-primary:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
 
     .btn-google {
       width: 100%;
@@ -193,85 +307,185 @@
       margin-top: 14px;
       border: 1.5px solid var(--primary);
       border-radius: 12px;
-      background: #fff; color: var(--text);
-      font-size: 15px; font-weight: 600; font-family: inherit;
+      background: #fff;
+      color: var(--text);
+      font-size: 15px;
+      font-weight: 600;
+      font-family: inherit;
       cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
       transition: background 0.15s;
     }
-    .btn-google:hover { background: #f1f5f9; }
-    .btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
-    .btn-google img { width: 20px; }
+
+    .btn-google:hover {
+      background: #f1f5f9;
+    }
+
+    .btn-google:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .btn-google img {
+      width: 20px;
+    }
 
     .login-error-box {
-      display: flex; align-items: center; gap: 8px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
       margin-top: 16px;
       padding: 11px 14px;
-      background: #fef2f2; border: 1px solid #fecaca;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
       border-radius: 12px;
-      color: var(--danger); font-size: 13px; font-weight: 500;
+      color: var(--danger);
+      font-size: 13px;
+      font-weight: 500;
     }
 
     .form-footer {
       margin-top: 22px;
       text-align: center;
-      font-size: 14px; color: var(--muted);
+      font-size: 14px;
+      color: var(--muted);
     }
+
     .form-footer .link-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--text); font-weight: 700; font-family: inherit; font-size: 14px;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text);
+      font-weight: 700;
+      font-family: inherit;
+      font-size: 14px;
       padding: 0;
     }
-    .form-footer .link-btn:hover { text-decoration: underline; }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
+    .form-footer .link-btn:hover {
+      text-decoration: underline;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
 
     /* ── Invitation modal ─────────────────────────────────── */
     .sol-modal {
-      position: fixed; inset: 0; z-index: 1000;
-      display: none; align-items: center; justify-content: center;
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
       padding: 20px;
       background: rgba(15, 23, 42, 0.5);
     }
+
     .sol-modal-card {
-      width: 100%; max-width: 380px;
-      background: #fff; border-radius: 20px;
+      width: 100%;
+      max-width: 380px;
+      background: #fff;
+      border-radius: 20px;
       padding: 28px 26px;
       box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
     }
-    .sol-modal-card h2 { margin: 0 0 4px; font-size: 19px; font-weight: 800; }
-    .sol-modal-card .sol-sub { margin: 0 0 18px; font-size: 13px; color: var(--muted); }
-    .sol-form { display: flex; flex-direction: column; gap: 10px; }
+
+    .sol-modal-card h2 {
+      margin: 0 0 4px;
+      font-size: 19px;
+      font-weight: 800;
+    }
+
+    .sol-modal-card .sol-sub {
+      margin: 0 0 18px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .sol-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
     .sol-input {
-      height: 46px; border: 1.5px solid var(--border); border-radius: 12px;
-      background: #f8fafc; padding: 0 14px; font-size: 14px; font-family: inherit;
+      height: 46px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 0 14px;
+      font-size: 14px;
+      font-family: inherit;
     }
-    .sol-input:focus { outline: none; border-color: var(--primary); background: #fff; }
+
+    .sol-input:focus {
+      outline: none;
+      border-color: var(--primary);
+      background: #fff;
+    }
+
     .sol-btn-primary {
-      height: 48px; border: none; border-radius: 12px; margin-top: 4px;
-      background: var(--primary); color: #fff;
-      font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
+      height: 48px;
+      border: none;
+      border-radius: 12px;
+      margin-top: 4px;
+      background: var(--primary);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
     }
+
     .sol-link-btn {
-      background: none; border: none; cursor: pointer;
-      color: var(--muted); font-size: 13px; font-family: inherit;
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+      font-family: inherit;
     }
 
     /* ── Mobile ───────────────────────────────────────────── */
     @media (max-width: 860px) {
       .login-shell {
-        align-items: center;             /* mobile: tarjeta centrada */
+        align-items: center;
+        /* mobile: tarjeta centrada */
         justify-content: flex-start;
         gap: 48px;
         padding-top: clamp(48px, 12vh, 120px);
       }
-      .brand-wordmark { display: flex; }
-      .card-logo { display: none; }        /* en mobile el logo va en el wordmark */
-      .login-card { max-width: 440px; padding: 34px 28px 28px; }
-      .form-title { font-size: 34px; margin-bottom: 22px; }
+
+      .brand-wordmark {
+        display: flex;
+      }
+
+      .card-logo {
+        display: none;
+      }
+
+      /* en mobile el logo va en el wordmark */
+      .login-card {
+        max-width: 440px;
+        padding: 34px 28px 28px;
+      }
+
+      .form-title {
+        font-size: 34px;
+        margin-bottom: 22px;
+      }
     }
+
     @media (prefers-reduced-motion: reduce) {
-      .login-card { animation: none; }
+      .login-card {
+        animation: none;
+      }
     }
   </style>
 </head>
@@ -283,9 +497,11 @@
     <header class="brand-wordmark">
       <span class="brand-logo" aria-hidden="true">
         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M13 51 L32 13 L51 51" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M23 39 L41 39" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
-          <path d="M7 45 C24 33, 40 33, 57 45" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+          <path d="M13 51 L32 13 L51 51" stroke="currentColor" stroke-width="6" stroke-linecap="round"
+            stroke-linejoin="round" />
+          <path d="M23 39 L41 39" stroke="currentColor" stroke-width="6" stroke-linecap="round" />
+          <path d="M7 45 C24 33, 40 33, 57 45" stroke="currentColor" stroke-width="4" stroke-linecap="round"
+            opacity="0.85" />
         </svg>
       </span>
       <span class="wm-text">
@@ -298,9 +514,11 @@
     <main class="login-card">
       <span class="brand-logo card-logo" aria-hidden="true">
         <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M13 51 L32 13 L51 51" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M23 39 L41 39" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
-          <path d="M7 45 C24 33, 40 33, 57 45" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+          <path d="M13 51 L32 13 L51 51" stroke="currentColor" stroke-width="6" stroke-linecap="round"
+            stroke-linejoin="round" />
+          <path d="M23 39 L41 39" stroke="currentColor" stroke-width="6" stroke-linecap="round" />
+          <path d="M7 45 C24 33, 40 33, 57 45" stroke="currentColor" stroke-width="4" stroke-linecap="round"
+            opacity="0.85" />
         </svg>
       </span>
 
@@ -355,11 +573,13 @@
       <h2>Crear cuenta</h2>
       <p class="sol-sub">Ingresa el código de invitación que te dieron.</p>
       <form class="sol-form" id="inv-reg-form">
-        <input id="reg_codigo" class="sol-input" placeholder="Código de invitación" required autocomplete="off" style="text-transform:uppercase;letter-spacing:2px;">
+        <input id="reg_codigo" class="sol-input" placeholder="Código de invitación" required autocomplete="off"
+          style="text-transform:uppercase;letter-spacing:2px;">
         <input id="reg_nombre" class="sol-input" placeholder="Nombre completo" required>
         <input id="reg_email" type="email" class="sol-input" placeholder="Correo" required autocomplete="email">
         <input id="reg_tel" type="tel" class="sol-input" placeholder="Teléfono (opcional)" autocomplete="tel">
-        <input id="reg_pass" type="password" class="sol-input" placeholder="Contraseña (6+)" required autocomplete="new-password">
+        <input id="reg_pass" type="password" class="sol-input" placeholder="Contraseña (6+)" required
+          autocomplete="new-password">
         <p id="reg_err" style="display:none;color:#dc2626;font-size:13px;margin:0;"></p>
         <button type="submit" class="sol-btn-primary" id="reg_submit">Crear cuenta</button>
         <button type="button" class="sol-link-btn" id="reg_cancel">Cancelar</button>
