@@ -13,6 +13,12 @@ body.app-legacy-stage-active #mexShellContent {
   overflow: hidden;
 }
 
+/* Ancla para #legacyStageHost (host persistente de iframes keep-alive que no
+   se recargan al navegar). El host vive en #mexShellMain, que el router no
+   limpia — solo vacía #mexShellContent. */
+#mexShellMain { position: relative; }
+#legacyStageHost > .app-legacy-stage { position: absolute; inset: 0; }
+
 .app-legacy-stage {
   position: relative;
   width: 100%;

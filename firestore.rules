@@ -130,9 +130,19 @@ service cloud.firestore {
         );
     }
 
+    // Rol crudo tolerante: acepta los mismos alias que el cliente
+    // (inferProfileRole: rol/role/perfil) y normaliza a MAYÚSCULAS para no
+    // negar acceso por diferencias de casing entre el doc y las reglas.
+    function rolCrudoDePerfil(data) {
+      return data.rol is string && data.rol.size() > 0 ? data.rol.upper()
+        : data.role is string && data.role.size() > 0 ? data.role.upper()
+        : data.perfil is string && data.perfil.size() > 0 ? data.perfil.upper()
+        : "";
+    }
+
     function rolDePerfil(data) {
       return esEmailBootstrapProgramador(data.email) ? "PROGRAMADOR"
-        : data.rol is string && rolValido(data.rol) ? data.rol
+        : (rolCrudoDePerfil(data) != "" && rolValido(rolCrudoDePerfil(data))) ? rolCrudoDePerfil(data)
         : data.isGlobal == true ? "CORPORATIVO_USER"
         : data.isAdmin == true ? "VENTAS"
         : "AUXILIAR";

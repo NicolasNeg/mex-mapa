@@ -52,6 +52,54 @@ function _tipoBadgeClass(tipo) {
   return map[t] || 'badge-otro';
 }
 
+// ── Popover cajón-a-cajón (solo PC con hover) ────────────────
+// Al pasar el ratón sobre una fila reproduce una vez la animación
+// de la unidad deslizándose del cajón origen al destino.
+let _pop = null;
+function _ensurePop() {
+  if (_pop) return _pop;
+  _pop = document.createElement('div');
+  _pop.className = 'hist-move-pop';
+  _pop.style.display = 'none';
+  document.body.appendChild(_pop);
+  return _pop;
+}
+function _parseMove(detalles) {
+  const parts = String(detalles || '').split(/→|->/);
+  return { origen: (parts[0] || '').trim(), destino: (parts[1] || '').trim() };
+}
+function _showPop(tr) {
+  const { origen, destino } = _parseMove(tr.dataset.detalles);
+  if (!origen && !destino) return;
+  const mva  = tr.dataset.mva || '';
+  const tipo = (tr.dataset.tipo || '').toUpperCase();
+  const oLimbo = /limbo/i.test(origen);
+  const dLimbo = /limbo/i.test(destino);
+  const pop = _ensurePop();
+  const variant = (tipo === 'DEL' || dLimbo) ? 'hmp-del'
+                : (tipo === 'ADD' || oLimbo) ? 'hmp-add' : 'hmp-swap';
+  pop.className = `hist-move-pop ${variant}`;
+  // innerHTML se reescribe en cada hover → reinicia la animación gratis
+  pop.innerHTML = `
+    <div class="hmp-track">
+      <div class="hmp-box hmp-origin ${oLimbo ? 'hmp-box-limbo' : ''}"><span>${esc(origen || '—')}</span></div>
+      <span class="hmp-arrow material-icons">arrow_forward</span>
+      <div class="hmp-box hmp-dest ${dLimbo ? 'hmp-box-limbo' : ''}"><span>${esc(destino || '—')}</span></div>
+      <div class="hmp-unit">${esc(mva)}</div>
+    </div>
+    <div class="hmp-caption">${esc(tipo)} · ${esc(mva)}</div>`;
+  pop.style.display = 'block';
+  const r  = tr.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  let top  = r.bottom + 8;
+  if (top + pr.height > window.innerHeight - 8) top = r.top - pr.height - 8;
+  let left = r.left + 40;
+  if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - pr.width - 8;
+  pop.style.top  = `${Math.max(8, top)}px`;
+  pop.style.left = `${Math.max(8, left)}px`;
+}
+function _hidePop() { if (_pop) _pop.style.display = 'none'; }
+
 // ── Render ───────────────────────────────────────────────────
 function _renderShell() {
   _container.innerHTML = `
@@ -140,7 +188,7 @@ function _renderMovimientos() {
       </tr></thead>
       <tbody>
         ${rows.map(r => `
-          <tr>
+          <tr data-detalles="${esc(r.detalles)}" data-mva="${esc(r.mva)}" data-tipo="${esc(r.tipo)}">
             <td class="hist-op-cell-date">${esc(r.fecha)}</td>
             <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}">${esc(r.tipo)}</span></td>
             <td class="hist-op-cell-mva">${esc(r.mva)}</td>
@@ -280,6 +328,19 @@ function _bindEvents() {
     if (e.target.id === 'hist-op-usuarioMov') { _state.usuarioMov = e.target.value; _renderMovimientos(); return; }
     if (e.target.id === 'hist-op-tipoEst')    { _state.tipoEst = e.target.value; _renderEstado(); return; }
   }, sig);
+
+  // Popover cajón-a-cajón — solo en dispositivos con hover real (PC)
+  if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) {
+    let curTr = null;
+    _container.addEventListener('mouseover', e => {
+      const tr = e.target.closest('tr[data-detalles]');
+      if (tr && tr !== curTr) { curTr = tr; _showPop(tr); }
+    }, sig);
+    _container.addEventListener('mouseout', e => {
+      const tr = e.target.closest('tr[data-detalles]');
+      if (tr && !tr.contains(e.relatedTarget)) { curTr = null; _hidePop(); }
+    }, sig);
+  }
 }
 
 // ── API pública del módulo ───────────────────────────────────
@@ -296,6 +357,7 @@ export function mount(ctx) {
 export function unmount() {
   _abortCtrl?.abort();
   _abortCtrl = null;
+  if (_pop) { _pop.remove(); _pop = null; }
   if (_container) _container.innerHTML = '';
   _container = null;
   _state     = null;

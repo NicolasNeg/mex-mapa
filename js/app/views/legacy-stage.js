@@ -483,6 +483,58 @@ function _startLegacyMapUnitsHeader(id) {
   _unitsHeaderTimer = window.setInterval(() => _syncLegacyMapUnitsHeader(id), 1000);
 }
 
+// Host persistente para los iframes keep-alive. Vive dentro de #mexShellMain
+// (que el router NO limpia — solo vacía #mexShellContent). Los iframes del pool
+// NUNCA salen del DOM: reparentar/quitar un <iframe> descarta su browsing
+// context y el navegador lo recarga (era la causa de la recarga de 15s del mapa).
+function _ensureStageHost() {
+  let host = document.getElementById('legacyStageHost');
+  if (host) return host;
+  const main = document.getElementById('mexShellMain') || document.body;
+  host = document.createElement('div');
+  host.id = 'legacyStageHost';
+  host.style.cssText = 'position:absolute;inset:0;display:none;z-index:1;';
+  main.appendChild(host);
+  return host;
+}
+
+function _buildStage(id, cfg, ctx) {
+  const sectionEl = document.createElement('section');
+  sectionEl.className = 'app-legacy-stage';
+  sectionEl.dataset.legacyStage = id;
+
+  const loaderEl = document.createElement('div');
+  loaderEl.className = 'app-legacy-stage__loader';
+  loaderEl.id = `appLegacyStageLoader-${id}`;
+  loaderEl.setAttribute('aria-live', 'polite');
+  loaderEl.innerHTML = `<span class="app-legacy-stage__loader-mark"></span><strong>${esc(cfg.title)}</strong><small>Sincronizando vista...</small>`;
+
+  const iframeEl = document.createElement('iframe');
+  iframeEl.id = `appLegacyStageFrame-${id}`;
+  iframeEl.className = 'app-legacy-stage__frame';
+  iframeEl.title = cfg.title;
+  iframeEl.src = _srcFor(id, ctx);
+  iframeEl.dataset.appLegacyStage = id;
+  iframeEl.loading = 'eager';
+  iframeEl.allow = 'clipboard-read; clipboard-write; microphone; camera; fullscreen';
+
+  sectionEl.appendChild(loaderEl);
+  sectionEl.appendChild(iframeEl);
+  return { sectionEl, iframeEl, loaderEl };
+}
+
+function _wireFirstLoad(iframeEl, loaderEl, id, ctx) {
+  iframeEl.addEventListener('load', () => {
+    loaderEl.classList.add('is-ready');
+    _injectFrameOverrides(iframeEl, id);
+    _bindFrameRouteBridge(iframeEl, id, ctx);
+    _scheduleFrameSync(iframeEl, id, ctx);
+    _scheduleToolFrameSync(iframeEl, id);
+    _syncPlaza(getState().currentPlaza, id, ctx);
+    _startLegacyMapUnitsHeader(id);
+  });
+}
+
 export function mount(ctx = {}) {
   _container = ctx.container;
   _shell = ctx.shell || null;
@@ -497,63 +549,45 @@ export function mount(ctx = {}) {
   document.body.classList.add('app-legacy-stage-active');
   _shell?.setHeaderActions?.('');
 
-  // ── Keep-alive: reutilizar iframe ya cargado ──────────────
-  if (_keepAliveIds.has(id) && _iframePool.has(id)) {
-    const cached = _iframePool.get(id);
-    _iframe = cached.iframe;
-    _container.appendChild(cached.sectionEl);
+  // ── Keep-alive: iframe persistente en el host (sin recarga) ──
+  if (_keepAliveIds.has(id)) {
+    const host = _ensureStageHost();
+    // Mostrar solo la sección de esta vista; el resto del pool oculto.
+    _iframePool.forEach((entry, key) => {
+      if (entry.sectionEl) entry.sectionEl.style.display = (key === id) ? 'block' : 'none';
+    });
+    host.style.display = 'block';
+
+    if (_iframePool.has(id)) {
+      // Ya cargado: re-mostrar sin tocar el DOM del iframe.
+      const cached = _iframePool.get(id);
+      _iframe = cached.iframe;
+      cached.sectionEl.style.display = 'block';
+      _bindShellSignals(id, ctx);
+      _injectFrameOverrides(_iframe, id);
+      _syncPlaza(getState().currentPlaza, id, ctx);
+      _startLegacyMapUnitsHeader(id);
+      _scheduleFrameSync(_iframe, id, ctx);
+      return;
+    }
+
+    // Primera carga: crear la sección dentro del host persistente.
+    const { sectionEl, iframeEl, loaderEl } = _buildStage(id, cfg, ctx);
+    host.appendChild(sectionEl);
+    _iframe = iframeEl;
+    _iframePool.set(id, { sectionEl, iframe: iframeEl });
     _bindShellSignals(id, ctx);
-    // Re-inyectar overrides por si el iframe recargó mientras estaba fuera del DOM
-    _injectFrameOverrides(_iframe, id);
-    // Sincronizar plaza actual (pudo cambiar mientras la vista estaba oculta)
-    _syncPlaza(getState().currentPlaza, id, ctx);
-    _startLegacyMapUnitsHeader(id);
-    // Para admin: sincronizar tab activo con la URL actual
-    _scheduleFrameSync(_iframe, id, ctx);
+    _wireFirstLoad(iframeEl, loaderEl, id, ctx);
     return;
   }
 
-  // ── Primera carga: crear iframe nuevo ─────────────────────
-  const src = _srcFor(id, ctx);
-
-  const sectionEl = document.createElement('section');
-  sectionEl.className = 'app-legacy-stage';
-  sectionEl.dataset.legacyStage = id;
-
-  const loaderEl = document.createElement('div');
-  loaderEl.className = 'app-legacy-stage__loader';
-  loaderEl.id = 'appLegacyStageLoader';
-  loaderEl.setAttribute('aria-live', 'polite');
-  loaderEl.innerHTML = `<span class="app-legacy-stage__loader-mark"></span><strong>${esc(cfg.title)}</strong><small>Sincronizando vista...</small>`;
-
-  const iframeEl = document.createElement('iframe');
-  iframeEl.id = 'appLegacyStageFrame';
-  iframeEl.className = 'app-legacy-stage__frame';
-  iframeEl.title = cfg.title;
-  iframeEl.src = src;
-  iframeEl.dataset.appLegacyStage = id;
-  iframeEl.loading = 'eager';
-  iframeEl.allow = 'clipboard-read; clipboard-write; microphone; camera; fullscreen';
-
-  sectionEl.appendChild(loaderEl);
-  sectionEl.appendChild(iframeEl);
+  // ── Vistas sin keep-alive: dentro del container del router ──
+  _ensureStageHost().style.display = 'none';
+  const { sectionEl, iframeEl, loaderEl } = _buildStage(id, cfg, ctx);
   _container.appendChild(sectionEl);
   _iframe = iframeEl;
-
-  if (_keepAliveIds.has(id)) {
-    _iframePool.set(id, { sectionEl, iframe: iframeEl });
-  }
-
   _bindShellSignals(id, ctx);
-  iframeEl.addEventListener('load', () => {
-    loaderEl.classList.add('is-ready');
-    _injectFrameOverrides(iframeEl, id);
-    _bindFrameRouteBridge(iframeEl, id, ctx);
-    _scheduleFrameSync(iframeEl, id, ctx);
-    _scheduleToolFrameSync(iframeEl, id);
-    _syncPlaza(getState().currentPlaza, id, ctx);
-    _startLegacyMapUnitsHeader(id);
-  });
+  _wireFirstLoad(iframeEl, loaderEl, id, ctx);
 }
 
 export function unmount() {
@@ -564,11 +598,13 @@ export function unmount() {
   _offGlobalSearch = null;
   _offPlazaChange = null;
 
-  // ── Keep-alive: solo desacoplar del DOM, no destruir ─────
-  if (_currentId && _keepAliveIds.has(_currentId) && _iframePool.has(_currentId)) {
-    try { _iframePool.get(_currentId).sectionEl.remove(); } catch (_) {}
-  } else {
-    if (_container) _container.innerHTML = '';
+  // ── Keep-alive: ocultar el host; el iframe NUNCA sale del DOM ─
+  // (así conserva su estado y no se recarga al volver).
+  if (_currentId && _keepAliveIds.has(_currentId)) {
+    const host = document.getElementById('legacyStageHost');
+    if (host) host.style.display = 'none';
+  } else if (_container) {
+    _container.innerHTML = '';
   }
 
   document.body.classList.remove('app-legacy-stage-active');

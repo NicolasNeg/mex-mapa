@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MapGestión · Simulador de Patio (Demo)</title>
+
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,400,0,0" rel="stylesheet">
+
+<script>
+  tailwind.config = {
+    theme: { extend: {
+      fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] },
+      keyframes: {
+        feedIn: { '0%': { opacity: '0', transform: 'translateY(-10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
+        popIn:  { '0%': { opacity: '0', transform: 'scale(.96)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
+        bump:   { '0%,100%': { transform: 'scale(1)' }, '40%': { transform: 'scale(1.18)' } },
+      },
+      animation: { 'feed-in': 'feedIn .45s ease-out', 'pop-in': 'popIn .14s ease-out', 'bump': 'bump .35s ease-out' },
+    }},
+  };
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════
+     CSS del tablero + tarjetas .car — copiado/adaptado del proyecto
+     real (css/app-mapa.css) para que se vea LITERAL como la app.
+     Todo scopeado bajo #mg-sandbox para no filtrar estilos.
+     ══════════════════════════════════════════════════════════════ -->
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  #mg-sandbox .material-symbols-outlined { font-family: 'Material Symbols Outlined'; line-height: 1; vertical-align: middle; }
+  #mg-sandbox .mg-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+  #mg-sandbox .mg-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+  #mg-sandbox .mg-scroll::-webkit-scrollbar-track { background: transparent; }
+  #mg-sandbox .mg-board::-webkit-scrollbar { width: 8px; height: 8px; }
+  #mg-sandbox .mg-board::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+
+  /* ── Tablero oscuro (protagonista) ─────────────────────────── */
+  #mg-sandbox .mg-board { background: #0b1220; }
+  #mg-sandbox .mg-zona { border: 1px solid rgba(255,255,255,.06); border-radius: 14px; background: rgba(255,255,255,.015); }
+  #mg-sandbox .mg-zona-head { color: #94a3b8; }
+  #mg-sandbox .mg-spots { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 10px; }
+  #mg-sandbox .mg-spot { position: relative; height: 98px; display: flex; flex-direction: column; }
+  #mg-sandbox .mg-spot-label { font-size: 9px; font-weight: 800; letter-spacing: .5px; color: #64748b; margin-bottom: 3px; text-align: center; }
+  #mg-sandbox .mg-spot-slot { flex: 1; min-height: 0; }
+  #mg-sandbox .mg-empty {
+    height: 100%; border: 2px dashed rgba(255,255,255,.09); border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: rgba(148,163,184,.4);
+    background: rgba(255,255,255,.015);
+  }
+  #mg-sandbox .mg-empty:hover { border-color: rgba(59,130,246,.4); }
+
+  /* ── Tarjeta .car (idéntica a la app) ──────────────────────── */
+  #mg-sandbox .car {
+    position: relative; width: 100%; height: 100%; min-height: 0;
+    border-radius: 16px 16px 10px 10px; padding: 8px;
+    font-size: 18px; font-weight: 900; color: #fff;
+    text-shadow: 0 1px 3px rgba(0,0,0,.35);
+    border: 1px solid rgba(0,0,0,.12);
+    box-shadow: 0 8px 24px -4px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.22);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    cursor: pointer;
+    animation: popInCar .28s cubic-bezier(.16,1,.3,1) forwards;
+    transition: transform .18s cubic-bezier(.4,0,.2,1), box-shadow .18s ease;
+  }
+  #mg-sandbox .car:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 14px 32px -4px rgba(0,0,0,.6), 0 3px 8px rgba(0,0,0,.3), inset 0 1px 0 rgba(255,255,255,.28);
+  }
+  #mg-sandbox .car.selected {
+    outline: 4px solid #fbbf24; outline-offset: 2px;
+    box-shadow: 0 0 20px rgba(251,191,36,.6), 0 14px 32px rgba(0,0,0,.42);
+    transform: scale(1.06); z-index: 40;
+  }
+  #mg-sandbox .car.just-changed { animation: popInCar .28s ease, glowCar .9s ease; }
+  @keyframes popInCar { 0% { opacity: 0; transform: scale(.9) translateY(6px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
+  @keyframes glowCar { 0%,100% { box-shadow: 0 8px 24px -4px rgba(0,0,0,.55); } 40% { box-shadow: 0 0 0 3px rgba(255,255,255,.55), 0 8px 24px -4px rgba(0,0,0,.55); } }
+
+  /* Gradientes de estado — exactos del proyecto real */
+  #mg-sandbox .car.listo         { background: linear-gradient(160deg, #0d9488 0%, #0f766e 100%); }
+  #mg-sandbox .car.sucio         { background: linear-gradient(160deg, #d97706 0%, #b45309 100%); }
+  #mg-sandbox .car.mantenimiento { background: linear-gradient(160deg, #dc2626 0%, #991b1b 100%); }
+  #mg-sandbox .car.traslado      { background: linear-gradient(160deg, #7c3aed 0%, #5b21b6 100%); }
+  #mg-sandbox .car.resguardo     { background: linear-gradient(160deg, #92400e 0%, #78350f 100%); }
+  #mg-sandbox .car.no-arrendable { background: linear-gradient(160deg, #0891b2 0%, #0e7490 100%); }
+  #mg-sandbox .car.venta         { background: linear-gradient(160deg, #334155 0%, #1e293b 100%); }
+  #mg-sandbox .car.en-renta      { background: linear-gradient(160deg, #2563eb 0%, #1d4ed8 100%); }
+
+  #mg-sandbox .car-map-content { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; pointer-events: none; min-height: 0; }
+  #mg-sandbox .car-mva-label { font-size: 19px; font-weight: 900; flex: 1; display: flex; align-items: center; line-height: 1; }
+
+  /* Barra de gasolina (legacy) */
+  #mg-sandbox .gas-container { width: 75%; height: 13px; background: rgba(0,0,0,.5); border-radius: 6px; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 1px 4px rgba(0,0,0,.6); border: 1px solid rgba(255,255,255,.15); flex-shrink: 0; }
+  #mg-sandbox .gas-fill { position: absolute; left: 0; top: 0; height: 100%; border-radius: 5px; box-shadow: inset 0 1px 0 rgba(255,255,255,.3); }
+  #mg-sandbox .gas-text { position: relative; z-index: 2; font-size: 8px; font-weight: 900; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.9); letter-spacing: .5px; }
+
+  /* Badges de esquina */
+  #mg-sandbox .corner-badge { position: absolute; width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 3px 6px rgba(0,0,0,.4); z-index: 30; background: #fff; }
+  #mg-sandbox .lock-badge  { top: -8px; left: -8px; border: 2px solid #f59e0b; }
+  #mg-sandbox .manto-badge { bottom: -8px; left: -8px; border: 2px solid #ef4444; }
+  #mg-sandbox .urgent-badge{ top: -8px; left: 16px; border: 2px solid #eab308; }
+  #mg-sandbox .traslado-badge { position: absolute; top: -8px; right: -8px; background: #7c3aed; border: 2px solid #fff; border-radius: 12px; padding: 2px 5px; display: flex; align-items: center; gap: 2px; font-size: 11px; box-shadow: 0 3px 6px rgba(0,0,0,.4); z-index: 30; color: #fff; }
+  #mg-sandbox .badge-calor { position: absolute; top: -8px; right: -8px; border-radius: 8px; padding: 1px 5px; font-size: 9px; font-weight: 800; display: flex; align-items: center; gap: 2px; box-shadow: 0 2px 5px rgba(0,0,0,.35); z-index: 25; }
+
+  /* ── Variante bucket (LIMBO / TALLER): tarjeta clara con sidebar ── */
+  #mg-sandbox .car--bucket { height: auto; min-height: 58px; border-radius: 12px !important; background: rgba(248,250,252,.98) !important; color: #0f172a; border: 1px solid rgba(0,0,0,.08); box-shadow: 0 2px 8px rgba(0,0,0,.12); text-shadow: none; padding: 9px 11px; align-items: stretch; justify-content: center; animation: none; }
+  #mg-sandbox .car--bucket .car-map-content { display: none; }
+  #mg-sandbox .car-sb-main { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 6px; }
+  #mg-sandbox .car-sb-mva { font-size: 14px; font-weight: 800; color: #0f172a; letter-spacing: .3px; }
+  #mg-sandbox .car-sb-badge { font-size: 9px; font-weight: 700; padding: 2px 8px; border-radius: 999px; letter-spacing: .3px; text-transform: uppercase; }
+  #mg-sandbox .car-sb-badge--listo { background:#dcfce7; color:#166534; }
+  #mg-sandbox .car-sb-badge--sucio { background:#fff7ed; color:#9a3412; }
+  #mg-sandbox .car-sb-badge--mantenimiento { background:#fee2e2; color:#991b1b; }
+  #mg-sandbox .car-sb-badge--traslado { background:#ede9fe; color:#5b21b6; }
+  #mg-sandbox .car-sb-badge--resguardo { background:#fef3c7; color:#78350f; }
+  #mg-sandbox .car-sb-badge--venta { background:#1e293b; color:#fff; }
+  #mg-sandbox .car-sb-badge--no-arrendable { background:#cffafe; color:#0e7490; }
+  #mg-sandbox .car-sb-badge--en-renta { background:#dbeafe; color:#1e3a8a; }
+  #mg-sandbox .car-sb-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  #mg-sandbox .car-sb-chip { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 600; color: #475569; background: #f1f5f9; padding: 1px 6px; border-radius: 6px; }
+</style>
+</head>
+
+<body class="bg-slate-100 p-4 sm:p-8">
+
+<!-- ══════════════════════════════════════════════════════════════
+     SANDBOX — copiar/pegar este bloque + el <style> y <script>.
+     ══════════════════════════════════════════════════════════════ -->
+<div id="mg-sandbox"
+     class="relative mx-auto max-w-6xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl shadow-slate-300/40">
+
+  <!-- Topbar tipo app -->
+  <header class="flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/90 px-4 py-2.5">
+    <div class="flex items-center gap-3">
+      <div class="hidden items-center gap-1.5 sm:flex">
+        <span class="h-3 w-3 rounded-full bg-red-400"></span>
+        <span class="h-3 w-3 rounded-full bg-amber-400"></span>
+        <span class="h-3 w-3 rounded-full bg-emerald-400"></span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[20px] text-blue-600">map</span>
+        <span class="text-sm font-extrabold tracking-tight text-slate-800">MapGestión</span>
+        <span class="inline-flex items-center gap-1 rounded-full bg-slate-200/70 px-2 py-0.5 text-[11px] font-bold text-slate-600">
+          <span class="material-symbols-outlined text-[13px]">apartment</span>Sucursal Centro
+        </span>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+        <span class="relative flex h-2 w-2">
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+        </span>En vivo
+      </span>
+      <button id="mg-toggle" class="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 transition hover:bg-slate-50">
+        <span class="material-symbols-outlined text-[16px]" id="mg-toggle-icon">pause</span>
+        <span id="mg-toggle-label">Auto-demo</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Cuerpo -->
+  <div class="grid grid-cols-1 gap-4 bg-slate-100 p-3 lg:grid-cols-[1.85fr_1fr] lg:gap-4 lg:p-4">
+
+    <!-- ── TABLERO (mapa oscuro) ──────────────────────────────── -->
+    <div class="mg-board mg-scroll min-w-0 overflow-auto rounded-2xl p-4 shadow-inner lg:max-h-[640px]">
+
+      <!-- KPI strip -->
+      <div id="mg-kpis" class="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-6"></div>
+
+      <!-- Zonas del patio -->
+      <div id="mg-map" class="flex flex-col gap-3"></div>
+
+      <!-- Buckets: Patio (LIMBO) + Taller -->
+      <div class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <section class="mg-zona p-3">
+          <header class="mg-zona-head mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wide">
+            <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">local_parking</span>Patio · sin ubicación</span>
+            <span id="mg-limbo-count" class="text-[10px]">0</span>
+          </header>
+          <div id="mg-limbo" class="grid grid-cols-1 gap-2 sm:grid-cols-2"></div>
+        </section>
+        <section class="mg-zona p-3">
+          <header class="mg-zona-head mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wide">
+            <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[16px]">build</span>Taller</span>
+            <span id="mg-taller-count" class="text-[10px]">0</span>
+          </header>
+          <div id="mg-taller" class="grid grid-cols-1 gap-2 sm:grid-cols-2"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- ── PANEL OPERATIVO ────────────────────────────────────── -->
+    <aside class="flex min-w-0 flex-col gap-3">
+
+      <!-- Métricas -->
+      <div class="grid grid-cols-2 gap-2">
+        <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400"><span class="material-symbols-outlined text-[15px]">inventory_2</span>Flota total</div>
+          <p id="mg-m-total" class="mt-0.5 text-2xl font-extrabold text-slate-800">0</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400"><span class="material-symbols-outlined text-[15px] text-teal-500">check_circle</span>Listos renta</div>
+          <p id="mg-m-listos" class="mt-0.5 text-2xl font-extrabold text-teal-600">0</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400"><span class="material-symbols-outlined text-[15px] text-amber-500">local_car_wash</span>Sucios</div>
+          <p id="mg-m-sucios" class="mt-0.5 text-2xl font-extrabold text-amber-600">0</p>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div class="flex items-center gap-1.5 text-[11px] font-bold text-slate-400"><span class="material-symbols-outlined text-[15px] text-red-500">build</span>En taller</div>
+          <p id="mg-m-taller" class="mt-0.5 text-2xl font-extrabold text-red-600">0</p>
+        </div>
+      </div>
+
+      <!-- Leyenda de estados -->
+      <div class="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div id="mg-legend" class="flex flex-wrap gap-x-3 gap-y-1.5 text-[10px] font-semibold text-slate-500"></div>
+      </div>
+
+      <!-- Bitácora -->
+      <div class="flex min-h-0 flex-1 flex-col rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-slate-100 px-3 py-2.5">
+          <h3 class="flex items-center gap-1.5 text-sm font-extrabold text-slate-800"><span class="material-symbols-outlined text-[18px] text-blue-600">history</span>Bitácora en vivo</h3>
+          <span class="text-[10px] font-bold uppercase tracking-wide text-slate-400">Movimientos</span>
+        </div>
+        <ul id="mg-feed" class="mg-scroll max-h-[300px] flex-1 overflow-y-auto lg:max-h-none"></ul>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Panel de detalle de unidad (posicionado por JS) -->
+  <div id="mg-popover" class="absolute z-40 hidden w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl animate-pop-in"></div>
+
+  <span class="pointer-events-none absolute bottom-2 right-3 select-none text-[10px] font-semibold text-slate-400/70">Modo demo · datos simulados</span>
+</div>
+
+<script>
+(() => {
+  // ── Estados reales de la arrendadora ──────────────────────────
+  const EST = {
+    LISTO:          { key: 'listo',         label: 'LISTO',         emoji: '🟢' },
+    SUCIO:          { key: 'sucio',         label: 'SUCIO',         emoji: '🟡' },
+    MANTENIMIENTO:  { key: 'mantenimiento', label: 'MANTENIMIENTO', emoji: '🔴' },
+    RESGUARDO:      { key: 'resguardo',     label: 'RESGUARDO',     emoji: '🔘' },
+    TRASLADO:       { key: 'traslado',      label: 'TRASLADO',      emoji: '🟣' },
+    'NO ARRENDABLE':{ key: 'no-arrendable', label: 'NO ARRENDABLE', emoji: '▫️' },
+    VENTA:          { key: 'venta',         label: 'VENTA',         emoji: '⚫' },
+    'EN RENTA':     { key: 'en-renta',      label: 'EN RENTA',      emoji: '✈️' },
+  };
+  const OPERARIOS = ['Carlos M.', 'Ana R.', 'Luis P.', 'Miguel T.', 'Sofía G.', 'José Luis'];
+
+  // ── Estructura del patio (zonas + spots) ──────────────────────
+  const ZONAS = [
+    { id: 'recepcion', nombre: 'Recepción',        spots: ['R-1', 'R-2', 'R-3', 'R-4'] },
+    { id: 'linea-a',   nombre: 'Línea A',          spots: ['A-1', 'A-2', 'A-3', 'A-4', 'A-5', 'A-6'] },
+    { id: 'linea-b',   nombre: 'Línea B',          spots: ['B-1', 'B-2', 'B-3', 'B-4', 'B-5', 'B-6'] },
+    { id: 'listos',    nombre: 'Listos / Salida',  spots: ['L-1', 'L-2', 'L-3', 'L-4', 'L-5', 'L-6'] },
+  ];
+  const ALL_SPOTS = ZONAS.flatMap(z => z.spots);
+
+  // ── Flota (mock) ──────────────────────────────────────────────
+  const UNIDADES = [
+    { mva: 'F1161', modelo: 'Nissan Versa',   placas: 'MHV-42-19', cat: 'ECAR',   estado: 'LISTO',         gas: 'F',    pos: 'L-1', op: 'Ana R.',    dias: 3,  notas: '' },
+    { mva: 'M164',  modelo: 'Chevrolet Aveo', placas: 'NKT-88-02', cat: 'ECAR',   estado: 'SUCIO',         gas: '3/8',  pos: 'A-2', op: 'Carlos M.', dias: 12, notas: '' },
+    { mva: 'I166',  modelo: 'Kia Rio',        placas: 'PBR-15-77', cat: 'CCAR',   estado: 'MANTENIMIENTO', gas: 'E',    pos: 'TALLER', op: 'Luis P.', dias: 6, notas: '' },
+    { mva: 'N372',  modelo: 'VW Vento',       placas: 'RTX-30-45', cat: 'ICAR',   estado: 'TRASLADO',      gas: 'H',    pos: 'B-1', op: 'Sofía G.',  dias: 4,  notas: '', destino: 'SUC. NORTE' },
+    { mva: 'D5256', modelo: 'Nissan March',   placas: 'JLP-77-11', cat: 'ECAR',   estado: 'LISTO',         gas: '7/8',  pos: 'L-2', op: 'Miguel T.', dias: 2,  notas: '' },
+    { mva: 'M159',  modelo: 'Toyota Hilux',   placas: 'HGT-05-88', cat: 'PICKUP', estado: 'RESGUARDO',     gas: '1/4',  pos: 'R-1', op: 'José Luis', dias: 7,  notas: '' },
+    { mva: 'K220',  modelo: 'Nissan NP300',   placas: 'KLM-21-63', cat: 'PICKUP', estado: 'SUCIO',         gas: 'H',    pos: 'A-1', op: 'Ana R.',    dias: 5,  notas: '' },
+    { mva: 'R018',  modelo: 'VW Saveiro',     placas: 'SAV-45-90', cat: 'PICKUP', estado: 'LISTO',         gas: 'F',    pos: 'L-3', op: 'Carlos M.', dias: 1,  notas: '' },
+    { mva: 'H445',  modelo: 'Hino 300',       placas: 'HNO-30-12', cat: 'CAMION', estado: 'MANTENIMIENTO', gas: 'E',    pos: 'TALLER', op: 'Luis P.', dias: 9, notas: '' },
+    { mva: 'S233',  modelo: 'Suzuki Swift',   placas: 'SWF-14-25', cat: 'ECAR',   estado: 'LISTO',         gas: '15/16',pos: 'L-4', op: 'Miguel T.', dias: 2,  notas: '' },
+    { mva: 'A090',  modelo: 'Renault Kwid',   placas: 'KWD-60-33', cat: 'ECAR',   estado: 'SUCIO',         gas: '1/8',  pos: 'A-3', op: 'Sofía G.',  dias: 4,  notas: '' },
+    { mva: 'V551',  modelo: 'Mazda 3',        placas: 'MZD-03-71', cat: 'ICAR',   estado: 'EN RENTA',      gas: 'N/A',  pos: 'LIMBO', op: 'Ana R.',   dias: 0,  notas: '' },
+    { mva: 'G120',  modelo: 'MG 5',           placas: 'MG5-51-08', cat: 'CCAR',   estado: 'LISTO',         gas: 'F',    pos: 'L-5', op: 'Carlos M.', dias: 1,  notas: 'RESERVADO' },
+    { mva: 'C303',  modelo: 'Chevrolet Aveo', placas: 'AVO-22-14', cat: 'ECAR',   estado: 'NO ARRENDABLE', gas: 'E',    pos: 'B-4', op: 'Ana R.',    dias: 20, notas: '' },
+    { mva: 'T880',  modelo: 'Kenworth T680',  placas: 'KNW-68-00', cat: 'CAMION', estado: 'VENTA',         gas: 'N/A',  pos: 'R-4', op: 'Luis P.',   dias: 30, notas: '' },
+    { mva: 'B417',  modelo: 'Nissan Versa',   placas: 'BVR-77-52', cat: 'ECAR',   estado: 'SUCIO',         gas: '5/8',  pos: 'B-2', op: 'Miguel T.', dias: 18, notas: 'URGENTE' },
+    { mva: 'P205',  modelo: 'Kia Rio',        placas: 'PKR-22-14', cat: 'CCAR',   estado: 'LISTO',         gas: 'H',    pos: 'A-5', op: 'Ana R.',    dias: 9,  notas: '' },
+    { mva: 'W612',  modelo: 'VW Vento',       placas: 'WVT-60-31', cat: 'ICAR',   estado: 'RESGUARDO',     gas: '3/4',  pos: 'LIMBO', op: 'José Luis',dias: 11, notas: '' },
+  ];
+
+  const appState = { units: {} };
+  UNIDADES.forEach(u => { u.ubicacion = u.pos === 'TALLER' ? 'TALLER' : 'PATIO'; appState.units[u.mva] = u; });
+
+  // ── Helpers ───────────────────────────────────────────────────
+  const $ = id => document.getElementById(id);
+  const rand = n => Math.floor(Math.random() * n);
+  const pick = a => a[rand(a.length)];
+  const container = $('mg-sandbox');
+  const fmtTime = d => d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const unitAt = pos => Object.values(appState.units).find(u => u.pos === pos);
+
+  function gasBar(g) {
+    if (!g || g === 'N/A') return '';
+    let pct = 0;
+    if (g === 'F') pct = 100;
+    else if (g === 'E') pct = 0;
+    else if (g === 'H') pct = 50;
+    else if (g.includes('/')) { const [a, b] = g.split('/').map(Number); if (b) pct = Math.round((a / b) * 100); }
+    const color = pct >= 75 ? '#4ade80' : pct >= 37 ? '#facc15' : '#f87171';
+    return `<div class="gas-container"><div class="gas-fill" style="width:${pct}%;background:${color}"></div><span class="gas-text">${g}</span></div>`;
+  }
+  function calorBadge(dias) {
+    if (dias >= 15) return `<div class="badge-calor" style="background:#fee2e2;border:1px solid #fca5a5;color:#b91c1c;"><span class="material-symbols-outlined" style="font-size:10px;">local_fire_department</span>${dias}d</div>`;
+    if (dias >= 7)  return `<div class="badge-calor" style="background:#fef9c3;border:1px solid #fde047;color:#a16207;">${dias}d</div>`;
+    return '';
+  }
+
+  // ── Tarjeta en el mapa ────────────────────────────────────────
+  function carMapHTML(u, highlight) {
+    const s = EST[u.estado];
+    const notas = (u.notas || '').toUpperCase();
+    const badges =
+      (notas.includes('RESERVAD') ? `<div class="corner-badge lock-badge">🔒</div>` : '') +
+      (notas.includes('URGENTE') ? `<div class="corner-badge urgent-badge">⚡</div>` : '') +
+      (u.estado === 'MANTENIMIENTO' ? `<div class="corner-badge manto-badge">⚙️</div>` : '') +
+      (u.estado === 'TRASLADO' ? `<div class="traslado-badge">🚛${u.destino ? `<span style="font-size:8px;font-weight:700;">${u.destino}</span>` : ''}</div>` : calorBadge(u.dias));
+    return `<div class="car ${s.key} ${highlight ? 'just-changed' : ''}" data-mva="${u.mva}" title="${u.modelo} · ${u.placas}">
+      ${badges}
+      <div class="car-map-content">
+        <span class="car-mva-label">${u.mva}</span>
+        ${gasBar(u.gas)}
+      </div>
+    </div>`;
+  }
+
+  // ── Tarjeta en bucket (LIMBO / TALLER) ────────────────────────
+  function carBucketHTML(u) {
+    const s = EST[u.estado];
+    return `<div class="car ${s.key} car--bucket" data-mva="${u.mva}">
+      <div class="car-sb-main">
+        <span class="car-sb-mva">${u.mva}</span>
+        <span class="car-sb-badge car-sb-badge--${s.key}">${s.label}</span>
+      </div>
+      <div class="car-sb-meta">
+        <span class="car-sb-chip"><span class="material-symbols-outlined" style="font-size:11px;">pin</span>${u.placas}</span>
+        <span class="car-sb-chip"><span class="material-symbols-outlined" style="font-size:11px;">directions_car</span>${u.modelo}</span>
+      </div>
+    </div>`;
+  }
+
+  // ── Render del tablero ────────────────────────────────────────
+  function renderMap(highlightMva) {
+    $('mg-map').innerHTML = ZONAS.map(z => {
+      const ocupados = z.spots.filter(p => unitAt(p)).length;
+      return `<section class="mg-zona p-3">
+        <header class="mg-zona-head mb-2 flex items-center justify-between text-xs font-bold uppercase tracking-wide">
+          <span>${z.nombre}</span><span class="text-[10px]">${ocupados}/${z.spots.length}</span>
+        </header>
+        <div class="mg-spots">
+          ${z.spots.map(p => {
+            const u = unitAt(p);
+            return `<div class="mg-spot"><span class="mg-spot-label">${p}</span>
+              <div class="mg-spot-slot">${u ? carMapHTML(u, u.mva === highlightMva) : `<div class="mg-empty">${p}</div>`}</div></div>`;
+          }).join('')}
+        </div>
+      </section>`;
+    }).join('');
+
+    const limbo = Object.values(appState.units).filter(u => u.pos === 'LIMBO');
+    const taller = Object.values(appState.units).filter(u => u.pos === 'TALLER');
+    $('mg-limbo').innerHTML  = limbo.length  ? limbo.map(carBucketHTML).join('')  : `<div class="text-[11px] text-slate-500/60 italic py-2">Sin unidades</div>`;
+    $('mg-taller').innerHTML = taller.length ? taller.map(carBucketHTML).join('') : `<div class="text-[11px] text-slate-500/60 italic py-2">Sin unidades</div>`;
+    $('mg-limbo-count').textContent  = limbo.length;
+    $('mg-taller-count').textContent = taller.length;
+  }
+
+  // ── KPIs + métricas ───────────────────────────────────────────
+  function renderKpis() {
+    const u = Object.values(appState.units);
+    const c = {
+      total: u.length,
+      listos: u.filter(x => x.estado === 'LISTO').length,
+      sucios: u.filter(x => x.estado === 'SUCIO').length,
+      manto: u.filter(x => x.estado === 'MANTENIMIENTO').length,
+      patio: u.filter(x => x.ubicacion !== 'TALLER').length,
+      taller: u.filter(x => x.ubicacion === 'TALLER').length,
+    };
+    const kpi = (label, val, cls) => `<div class="rounded-xl border border-white/10 bg-white/5 px-2.5 py-2 text-center">
+      <div class="text-[9px] font-bold uppercase tracking-wide text-slate-400">${label}</div>
+      <div class="text-xl font-extrabold ${cls}">${val}</div></div>`;
+    $('mg-kpis').innerHTML =
+      kpi('Totales', c.total, 'text-white') +
+      kpi('Listos', c.listos, 'text-teal-300') +
+      kpi('Sucios', c.sucios, 'text-amber-300') +
+      kpi('Manto', c.manto, 'text-red-300') +
+      kpi('Patio', c.patio, 'text-blue-300') +
+      kpi('Taller', c.taller, 'text-rose-300');
+
+    setNum('mg-m-total', c.total);
+    setNum('mg-m-listos', c.listos);
+    setNum('mg-m-sucios', c.sucios);
+    setNum('mg-m-taller', c.taller);
+  }
+  function setNum(id, v) { const el = $(id); if (el.textContent !== String(v)) { el.textContent = v; el.classList.remove('animate-bump'); void el.offsetWidth; el.classList.add('animate-bump'); } }
+
+  function renderLegend() {
+    $('mg-legend').innerHTML = Object.entries(EST).map(([, s]) =>
+      `<span class="flex items-center gap-1"><span class="h-2.5 w-2.5 rounded-sm car ${s.key}" style="box-shadow:none;border:none;"></span>${s.label}</span>`
+    ).join('');
+  }
+
+  // ── Bitácora ──────────────────────────────────────────────────
+  function feedHTML(text, key, time) {
+    return `<li class="animate-feed-in flex gap-2.5 border-b border-slate-100 px-3 py-2 last:border-0">
+      <span class="mt-1 h-2 w-2 shrink-0 rounded-full car ${key}" style="box-shadow:none;border:none;"></span>
+      <div class="min-w-0"><p class="text-[12px] leading-snug text-slate-700">${text}</p><span class="text-[10px] font-semibold text-slate-400">${time}</span></div>
+    </li>`;
+  }
+  function pushFeed(text, key) {
+    const f = $('mg-feed');
+    f.insertAdjacentHTML('afterbegin', feedHTML(text, key, fmtTime(new Date())));
+    while (f.children.length > 30) f.lastElementChild.remove();
+  }
+  function seedFeed() {
+    const now = Date.now();
+    const seed = [
+      { t: '<b>Ana R.</b> movió <b>D5256</b> de A-4 a <b>L-2</b>', k: 'listo', ago: 3 },
+      { t: '<b>Luis P.</b> envió <b>H445</b> · HNO-30-12 a <b>Taller</b>', k: 'mantenimiento', ago: 8 },
+      { t: '<b>Carlos M.</b> marcó <b>M164</b> como <b>SUCIO</b>', k: 'sucio', ago: 14 },
+      { t: '<b>Sofía G.</b> puso <b>N372</b> en <b>TRASLADO</b> → SUC. NORTE', k: 'traslado', ago: 21 },
+    ];
+    $('mg-feed').innerHTML = seed.map(e => feedHTML(e.t, e.k, fmtTime(new Date(now - e.ago * 60000)))).join('');
+  }
+
+  // ── Mutaciones ────────────────────────────────────────────────
+  function setEstado(mva, estado, actor) {
+    const u = appState.units[mva];
+    if (!u || u.estado === estado) return;
+    u.estado = estado;
+    if (estado === 'MANTENIMIENTO') { u.pos = 'TALLER'; u.ubicacion = 'TALLER'; }
+    else if (u.ubicacion === 'TALLER') { u.ubicacion = 'PATIO'; u.pos = firstEmptySpot() || 'LIMBO'; }
+    renderMap(mva); renderKpis();
+    pushFeed(`<b>${actor}</b> marcó <b>${u.mva}</b> · ${u.placas} como <b>${estado}</b>`, EST[estado].key);
+    if (openMva === mva) fillPopover(u);
+  }
+  function firstEmptySpot() { return ALL_SPOTS.find(p => !unitAt(p)); }
+  function moveUnit(mva, actor) {
+    const u = appState.units[mva];
+    if (u.ubicacion === 'TALLER') return false;
+    const empties = ALL_SPOTS.filter(p => !unitAt(p) && p !== u.pos);
+    if (!empties.length) return false;
+    const from = u.pos === 'LIMBO' ? 'Patio' : u.pos;
+    const to = pick(empties);
+    u.pos = to; u.ubicacion = 'PATIO';
+    renderMap(mva); renderKpis();
+    pushFeed(`<b>${actor}</b> movió <b>${u.mva}</b> · ${u.placas} de <b>${from}</b> a <b>${to}</b>`, EST[u.estado].key);
+    if (openMva === mva) fillPopover(u);
+    return true;
+  }
+
+  // ── Panel de detalle ──────────────────────────────────────────
+  let openMva = null;
+  const ACCIONES = ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'TRASLADO'];
+  function fillPopover(u) {
+    const s = EST[u.estado];
+    const ubic = u.pos === 'TALLER' ? 'Taller' : u.pos === 'LIMBO' ? 'Patio (sin ubicación)' : u.pos;
+    const nota = u.notas ? `<div class="mt-2 flex items-center gap-1.5 rounded-lg bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-700"><span class="material-symbols-outlined text-[14px]">${u.notas.includes('URGENTE') ? 'bolt' : 'lock'}</span>${u.notas}</div>` : '';
+    $('mg-popover').innerHTML = `
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <span class="text-lg font-extrabold text-slate-800">${u.mva}</span>
+            <span class="inline-flex items-center gap-1 rounded-full car-sb-badge car-sb-badge--${s.key}">${s.emoji} ${s.label}</span>
+          </div>
+          <p class="mt-0.5 text-xs font-semibold text-slate-500">${u.modelo} · ${u.cat}</p>
+        </div>
+        <button data-close-pop class="text-slate-400 transition hover:text-slate-700"><span class="material-symbols-outlined text-[18px]">close</span></button>
+      </div>
+      <dl class="mt-3 space-y-1.5 text-xs">
+        <div class="flex justify-between gap-2"><dt class="text-slate-400">Placas</dt><dd class="font-mono font-bold text-slate-700">${u.placas}</dd></div>
+        <div class="flex justify-between gap-2"><dt class="text-slate-400">Gasolina</dt><dd class="font-semibold text-slate-700">${u.gas}</dd></div>
+        <div class="flex justify-between gap-2"><dt class="text-slate-400">Ubicación</dt><dd class="font-semibold text-slate-700">${ubic}</dd></div>
+        <div class="flex justify-between gap-2"><dt class="text-slate-400">En patio</dt><dd class="font-semibold text-slate-700">${u.dias} día(s)</dd></div>
+        <div class="flex justify-between gap-2"><dt class="text-slate-400">Operador</dt><dd class="font-semibold text-slate-700">${u.op}</dd></div>
+      </dl>
+      ${nota}
+      <div class="mt-3">
+        <p class="mb-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">Cambiar estado</p>
+        <div class="grid grid-cols-2 gap-1.5">
+          ${ACCIONES.map(e => {
+            const es = EST[e], active = u.estado === e;
+            return `<button data-set="${e}" class="flex items-center justify-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-bold ${active ? `car-sb-badge--${es.key} border-transparent` : 'border-slate-200 text-slate-600 hover:bg-slate-50'}">${es.emoji} ${es.label.split(' ')[0]}</button>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }
+  function openPopover(mva, anchor) {
+    openMva = mva;
+    const pop = $('mg-popover');
+    fillPopover(appState.units[mva]);
+    pop.classList.remove('hidden');
+    const c = container.getBoundingClientRect(), a = anchor.getBoundingClientRect();
+    const pw = pop.offsetWidth, ph = pop.offsetHeight;
+    let left = a.right - c.left + 8;
+    if (left + pw > container.clientWidth - 8) left = a.left - c.left - pw - 8;
+    left = Math.max(8, Math.min(left, container.clientWidth - pw - 8));
+    let top = Math.max(8, Math.min(a.top - c.top, container.clientHeight - ph - 8));
+    pop.style.left = left + 'px'; pop.style.top = top + 'px';
+  }
+  function closePopover() { openMva = null; $('mg-popover').classList.add('hidden'); container.querySelectorAll('.car.selected').forEach(c => c.classList.remove('selected')); }
+
+  // ── Eventos ───────────────────────────────────────────────────
+  container.addEventListener('click', e => {
+    const car = e.target.closest('[data-mva]');
+    if (car) {
+      container.querySelectorAll('.car.selected').forEach(c => c.classList.remove('selected'));
+      car.classList.add('selected');
+      openPopover(car.dataset.mva, car);
+      return;
+    }
+    const set = e.target.closest('[data-set]');
+    if (set) { setEstado(openMva, set.dataset.set, 'Tú'); return; }
+    if (e.target.closest('[data-close-pop]')) { closePopover(); return; }
+  });
+  document.addEventListener('click', e => {
+    if (!openMva) return;
+    if (e.target.closest('#mg-popover') || e.target.closest('[data-mva]')) return;
+    closePopover();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closePopover(); });
+
+  // ── Auto-demo ─────────────────────────────────────────────────
+  let autoOn = true, timer = null;
+  function tick() {
+    if (autoOn) {
+      const actor = pick(OPERARIOS);
+      const mvas = Object.keys(appState.units);
+      const r = Math.random();
+      if (r < 0.45) {                       // mover de cajón (SWAP)
+        if (!moveUnit(pick(mvas), actor)) setEstado(pick(mvas), pick(['LISTO', 'SUCIO']), actor);
+      } else {                              // cambiar estado
+        const mva = pick(mvas), u = appState.units[mva];
+        const nuevos = ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'TRASLADO', 'RESGUARDO'].filter(x => x !== u.estado);
+        setEstado(mva, pick(nuevos), actor);
+      }
+    }
+    timer = setTimeout(tick, 6000 + Math.random() * 2000);
+  }
+  $('mg-toggle').addEventListener('click', () => {
+    autoOn = !autoOn;
+    $('mg-toggle-icon').textContent = autoOn ? 'pause' : 'play_arrow';
+    $('mg-toggle-label').textContent = autoOn ? 'Auto-demo' : 'Pausado';
+  });
+
+  // ── Init ──────────────────────────────────────────────────────
+  renderMap(); renderKpis(); renderLegend(); seedFeed();
+  timer = setTimeout(tick, 6000 + Math.random() * 2000);
+})();
+</script>
+</body>
+</html>

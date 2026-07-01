@@ -5597,8 +5597,35 @@
    Escritorio intacto.
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* KPIs fuera del mapa: la barra no se muestra; "Ver KPIs" usa un toast. */
-  .kpi-container { display: none; }
+  /* KPIs en mobile: barra compacta colapsable (no toast). Colapsada por
+     defecto (solo el chip); al tocar se expande en una fila con scroll
+     horizontal. No tapa el mapa. */
+  .kpi-container {
+    display: flex;
+    width: auto;
+    max-width: calc(100% - 16px);
+    margin: 8px auto 10px;
+    border-radius: 0 0 14px 14px;
+    padding: 0 2px;
+  }
+  .kpi-toggle-btn { padding: 8px; font-size: 11px; }
+  .kpi-items-wrap {
+    min-width: 0;
+    gap: 14px;
+    padding: 8px 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .kpi-items-wrap::-webkit-scrollbar { display: none; }
+  .kpi-item { flex: 0 0 auto; }
+  .kpi-value { font-size: 16px; }
+  .kpi-divider { display: none; }
+
+  /* Bug: el scrim del sidebar de unidades se agrega a <body> y en mobile queda
+     por encima del sidebar (contexto de apilamiento), bloqueando los taps sobre
+     las unidades. Sin scrim en mobile: el sidebar se cierra con su botón ✕. */
+  .sidebar-backdrop { display: none !important; }
 
   /* Mapa más compacto: menos relleno/espacios muertos + sombra más barata. */
   #map-stage { margin: 8px auto 16px; }

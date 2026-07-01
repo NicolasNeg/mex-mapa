@@ -4599,6 +4599,8 @@ function _selectCarOnMap(car, options = {}) {
   if (openPanel) mostrarDetalle(car.dataset);
   else _renderSwapStatus();
 }
+// Expuesto para el panel BUSCAR UNIDAD (mapa-buscador.js, script clásico).
+window.__mexSelectCarOnMap = _selectCarOnMap;
 
 async function _handleMapUnitDrop(unidad, destino, options = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return false;
@@ -11600,7 +11602,16 @@ async function solicitarToggleBloqueo() {
       "success"
     );
     hacerPingNotificaciones();
-  }).catch(e => console.error(e));
+  }).catch(e => {
+    console.error(e);
+    const permiso = String(e?.code || e?.message || '').toLowerCase().includes('permission');
+    showToast(
+      permiso
+        ? "🚫 Sin permiso para cambiar el bloqueo. Revisa tu rol/reglas."
+        : "No se pudo cambiar el bloqueo. Intenta de nuevo.",
+      "error"
+    );
+  });
 }
 
 

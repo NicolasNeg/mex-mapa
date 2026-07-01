@@ -204,3 +204,101 @@
 }
 .hist-op-loading .spin,
 .hist-op-loading .material-icons { animation: hist-op-spin 1s linear infinite; }
+
+/* ── Popover cajón-a-cajón (hover en PC) ───────────────────── */
+.hist-move-pop {
+  position: fixed;
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.16);
+  padding: 14px 16px 10px;
+  pointer-events: none;
+  font-family: 'Inter', sans-serif;
+}
+
+.hmp-track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 200px;
+  height: 56px;
+}
+
+.hmp-box {
+  width: 76px;
+  height: 52px;
+  flex-shrink: 0;
+  border: 2px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #475569;
+}
+.hmp-box span { padding: 0 4px; text-align: center; word-break: break-all; }
+.hmp-box-limbo { border-style: dashed; background: #fff; color: #94a3b8; }
+
+.hmp-arrow { color: #94a3b8; font-size: 20px; }
+
+/* Unidad que se desliza de origen (left:8) a destino (+124px).
+   Geometría fija: cajones de 76px, unidad de 60px centrada sobre cada uno. */
+.hmp-unit {
+  position: absolute;
+  left: 8px;
+  top: 6px;
+  width: 60px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #fff;
+  background: #3b82f6;
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);
+  animation: hmp-slide 1.1s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+}
+
+@keyframes hmp-slide {
+  0%   { transform: translateX(0);     opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translateX(124px); opacity: 1; }
+}
+
+/* SWAP/MOVE — color azul por defecto (arriba) */
+
+/* DEL — unidad roja que sale del patio y se desvanece */
+.hmp-del .hmp-unit {
+  background: #ef4444;
+  box-shadow: 0 4px 10px rgba(239, 68, 68, 0.4);
+  animation-name: hmp-slide-del;
+}
+.hmp-del .hmp-dest { border-color: #fca5a5; }
+@keyframes hmp-slide-del {
+  0%   { transform: translateX(0);     opacity: 1; }
+  70%  { transform: translateX(124px); opacity: 1; }
+  100% { transform: translateX(124px); opacity: 0; }
+}
+
+/* ADD — unidad verde que entra al patio */
+.hmp-add .hmp-unit {
+  background: #22c55e;
+  box-shadow: 0 4px 10px rgba(34, 197, 94, 0.4);
+}
+
+.hmp-caption {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #64748b;
+  text-transform: uppercase;
+}

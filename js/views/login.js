@@ -380,18 +380,16 @@ window.togglePassword = function (inputId, iconEl) {
 // ── Recuperar contraseña ──────────────────────────────────
 window.olvidePassword = async function () {
   const typed = document.getElementById('auth_email')?.value.trim() || '';
-  const ask   = window.mexPrompt || (async (t) => window.prompt(t, typed));
-  const email = (await ask('Recuperar contraseña', {
-    message: 'Escribe tu correo y te enviaremos un enlace para restablecerla.',
-    defaultValue: typed,
-    placeholder: 'correo@empresa.com'
-  }))?.toString().trim();
-  if (!email) return;
+  const email = window.mexPrompt
+    ? await window.mexPrompt('Recuperar contraseña', 'Escribe tu correo y te enviaremos un enlace para restablecerla.', 'correo@empresa.com', 'email', typed)
+    : window.prompt('Escribe tu correo para recuperar la contraseña:', typed);
+  const dest = email?.toString().trim();
+  if (!dest) return;
   try {
-    await firebase.auth().sendPasswordResetEmail(email);
-    (window.mexAlert || window.alert)('Listo. Revisa tu correo para restablecer la contraseña.');
+    await firebase.auth().sendPasswordResetEmail(dest);
+    (window.mexAlert || window.alert)('Listo', 'Revisa tu correo para restablecer la contraseña.', 'success');
   } catch (err) {
-    (window.mexAlert || window.alert)('No se pudo enviar el correo. Verifica que la dirección sea correcta.');
+    (window.mexAlert || window.alert)('No se pudo enviar', 'Verifica que la dirección sea correcta e intenta de nuevo.', 'error');
   }
 };
 
