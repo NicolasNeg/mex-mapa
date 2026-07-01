@@ -1,0 +1,2497 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <title>MEX MAPA - Sandbox Mapa BJX</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <link rel="canonical" href="https://mapgestion.com/" />
+    <link rel="icon" href="/assets/brand/favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+            --bg: #111329;
+            --panel: #15172e;
+            --panel-2: #202742;
+            --yard: #263346;
+            --slot: rgba(33, 43, 62, .52);
+            --slot-border: rgba(137, 152, 181, .22);
+            --line: rgba(159, 174, 203, .18);
+            --text: #f6f7ff;
+            --muted: #8e99b5;
+            --soft: #b7c1d9;
+            --blue: #2fb1ff;
+            --green: #00d489;
+            --yellow: #ffd426;
+            --pink: #ff5874;
+            --cyan: #00c8ff;
+            --orange: #ffc16a;
+            --purple: #25216f;
+            --shadow: 0 24px 70px rgba(0, 0, 0, .42);
+        }
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+        }
+
+        html {
+            background: #121329;
+        }
+
+        body {
+            overflow: hidden;
+            background-color: #121329;
+            background:
+                radial-gradient(circle at 100% 35%, rgba(86, 55, 156, .42), transparent 34%),
+                linear-gradient(180deg, #4b5873 0, #48546d 18%, #222941 18%, #121329 100%);
+            color: var(--text);
+            font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        button,
+        input,
+        select,
+        textarea {
+            font: inherit;
+        }
+
+        button {
+            border: 0;
+            cursor: pointer;
+        }
+
+        input,
+        select,
+        textarea {
+            border: 0;
+            outline: 0;
+        }
+
+        .app {
+            min-width: 1024px;
+            height: 100vh;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .top-shell {
+            height: 185px;
+            padding: 30px 24px 0;
+            position: relative;
+        }
+
+        .command-bar {
+            height: 76px;
+            border-radius: 0 0 10px 10px;
+            background: #12142a;
+            box-shadow: 0 16px 40px rgba(3, 5, 17, .28);
+            position: relative;
+        }
+
+        .plaza-card {
+            position: absolute;
+            left: 12px;
+            top: 6px;
+            width: 90px;
+            height: 64px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, .18);
+            background: rgba(255, 255, 255, .08);
+            display: grid;
+            place-items: center;
+            padding: 8px;
+            text-align: center;
+        }
+
+        .plaza-card strong {
+            display: block;
+            font-size: 12px;
+            letter-spacing: .08em;
+            line-height: 1;
+        }
+
+        .plaza-card small {
+            display: block;
+            margin-top: 7px;
+            color: #00ff9a;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .02em;
+        }
+
+        .plaza-card .mini-counts {
+            margin-top: 3px;
+            display: flex;
+            justify-content: center;
+            gap: 4px;
+            font-size: 9px;
+            font-weight: 900;
+        }
+
+        .mini-ok {
+            color: #00ff9a;
+        }
+
+        .mini-warn {
+            color: #ffd426;
+        }
+
+        .mini-bad {
+            color: #ff5574;
+        }
+
+        .scoreboard {
+            position: absolute;
+            left: 50%;
+            top: 2px;
+            transform: translateX(-50%);
+            min-width: 574px;
+            height: 66px;
+            padding: 12px 28px;
+            border: 1px solid rgba(94, 94, 149, .55);
+            border-radius: 18px;
+            background: #12142a;
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            gap: 24px;
+        }
+
+        .metric {
+            min-width: 54px;
+            display: grid;
+            place-items: center;
+            text-align: center;
+        }
+
+        .metric+.metric {
+            position: relative;
+        }
+
+        .metric+.metric::before {
+            content: "";
+            position: absolute;
+            left: -12px;
+            top: 6px;
+            width: 1px;
+            height: 31px;
+            background: rgba(138, 145, 184, .38);
+        }
+
+        .metric strong {
+            display: block;
+            font-size: 25px;
+            line-height: 1;
+            font-weight: 900;
+            letter-spacing: .01em;
+        }
+
+        .metric span {
+            display: block;
+            margin-top: 7px;
+            color: #969fbd;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .ops-panel {
+            position: fixed;
+            right: 18px;
+            top: 96px;
+            z-index: 64;
+            width: 292px;
+            display: grid;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .ops-card {
+            border-radius: 18px;
+            background: rgba(15, 17, 35, .9);
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 18px 46px rgba(0, 0, 0, .34);
+            backdrop-filter: blur(16px);
+            padding: 16px;
+        }
+
+        .ops-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .ops-title {
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .live-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            padding: 5px 8px;
+            background: rgba(0, 212, 137, .12);
+            color: #7affc5;
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .live-pill::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 0 5px rgba(0, 212, 137, .12);
+        }
+
+        .ops-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .ops-stat {
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .06);
+            border: 1px solid rgba(255, 255, 255, .08);
+            padding: 10px;
+        }
+
+        .ops-stat span {
+            display: block;
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .ops-stat strong {
+            display: block;
+            margin-top: 5px;
+            font-size: 20px;
+            line-height: 1;
+            font-weight: 900;
+        }
+
+        .activity-list {
+            display: grid;
+            gap: 8px;
+            max-height: 214px;
+            overflow: auto;
+            padding-right: 2px;
+        }
+
+        .activity-item {
+            border-radius: 12px;
+            background: rgba(255, 255, 255, .055);
+            border: 1px solid rgba(255, 255, 255, .075);
+            padding: 10px;
+            font-size: 11px;
+            font-weight: 900;
+            line-height: 1.35;
+        }
+
+        .activity-item span {
+            display: block;
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 800;
+        }
+
+        .map-tools {
+            position: fixed;
+            left: 18px;
+            top: 96px;
+            z-index: 64;
+            width: 292px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .tool-card {
+            border-radius: 18px;
+            background: rgba(15, 17, 35, .9);
+            border: 1px solid rgba(255, 255, 255, .1);
+            box-shadow: 0 18px 46px rgba(0, 0, 0, .34);
+            backdrop-filter: blur(16px);
+            padding: 16px;
+        }
+
+        .tool-title {
+            margin-bottom: 10px;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .map-search {
+            width: 100%;
+            min-height: 40px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .1);
+            background: rgba(255, 255, 255, .08);
+            color: #fff;
+            padding: 0 12px;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .map-search::placeholder {
+            color: rgba(183, 193, 217, .62);
+        }
+
+        .filter-row,
+        .layer-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 7px;
+        }
+
+        .filter-chip,
+        .layer-chip,
+        .tool-link {
+            min-height: 30px;
+            border-radius: 999px;
+            padding: 0 10px;
+            background: rgba(255, 255, 255, .08);
+            color: rgba(242, 245, 255, .82);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+        }
+
+        .filter-chip.active {
+            background: var(--green);
+            color: #081a13;
+        }
+
+        .layer-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            cursor: pointer;
+        }
+
+        .layer-chip input {
+            accent-color: var(--green);
+        }
+
+        .tool-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .tool-link {
+            border: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .unit.filtered-out {
+            opacity: .16;
+            filter: grayscale(.8);
+            pointer-events: none;
+        }
+
+        .slot.layer-hidden {
+            opacity: .08;
+            pointer-events: none;
+        }
+
+        .slot.search-hit {
+            box-shadow: 0 0 0 2px rgba(0, 200, 255, .8), inset 0 0 22px rgba(0, 200, 255, .16);
+        }
+
+        .inventory-drawer {
+            position: fixed;
+            left: 330px;
+            top: 96px;
+            z-index: 70;
+            width: 520px;
+            max-width: calc(100vw - 660px);
+            max-height: calc(100vh - 180px);
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(20, 22, 44, .96);
+            box-shadow: var(--shadow);
+            transform: translateX(-16px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .18s ease, transform .18s ease;
+            overflow: hidden;
+            display: grid;
+            grid-template-rows: auto 1fr;
+        }
+
+        .inventory-drawer.open {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .inventory-head {
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #151738, #234fbc);
+        }
+
+        .inventory-head span {
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .inventory-list {
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .inventory-row {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 76px 1fr 92px 70px;
+            gap: 8px;
+            align-items: center;
+            min-height: 46px;
+            border-radius: 12px;
+            padding: 8px 10px;
+            background: rgba(255, 255, 255, .055);
+            color: #fff;
+            text-align: left;
+        }
+
+        .inventory-row+.inventory-row {
+            margin-top: 7px;
+        }
+
+        .inventory-row strong,
+        .inventory-row span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .inventory-row strong {
+            font-size: 12px;
+        }
+
+        .inventory-row span {
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 900;
+        }
+
+        .yard-wrap {
+            position: absolute;
+            inset: 185px 0 0;
+            overflow: hidden;
+        }
+
+        .yard-viewport {
+            position: absolute;
+            inset: 0;
+            overflow: auto;
+            border-top: 1px solid rgba(255, 255, 255, .03);
+        }
+
+        .yard-viewport::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        .yard-viewport::-webkit-scrollbar-track {
+            background: rgba(18, 20, 42, .2);
+        }
+
+        .yard-viewport::-webkit-scrollbar-thumb {
+            border-radius: 99px;
+            background: rgba(114, 123, 155, .82);
+        }
+
+        .yard-stage {
+            position: relative;
+            width: 1840px;
+            height: 930px;
+            margin: 0 0 0 20px;
+            border-radius: 22px 0 0 0;
+            background:
+                radial-gradient(circle, rgba(115, 133, 164, .32) 1px, transparent 1.5px) 0 0 / 18px 18px,
+                linear-gradient(90deg, rgba(31, 40, 58, .88), rgba(35, 43, 65, .9));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+            transform-origin: 0 0;
+        }
+
+        .slot,
+        .area {
+            position: absolute;
+        }
+
+        .slot {
+            border: 1px solid var(--slot-border);
+            border-radius: 6px;
+            background: var(--slot);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .03);
+            transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+        }
+
+        .slot.interactive {
+            cursor: crosshair;
+        }
+
+        .slot.drop-target,
+        .slot:hover.interactive {
+            border-color: rgba(225, 231, 248, .44);
+            background: rgba(43, 55, 78, .70);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06), 0 0 0 2px rgba(96, 147, 255, .10);
+        }
+
+        .slot.selected-slot {
+            border-color: rgba(255, 255, 255, .58);
+            box-shadow: 0 0 0 2px rgba(115, 70, 255, .36), inset 0 1px 0 rgba(255, 255, 255, .08);
+        }
+
+        .slot::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: -15px;
+            color: rgba(189, 198, 219, .62);
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: .02em;
+            text-align: center;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, .45);
+        }
+
+        .slot.wide::before {
+            top: -14px;
+        }
+
+        .label-inside {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 6px;
+            color: rgba(219, 225, 239, .75);
+            font-size: 9px;
+            font-weight: 900;
+            letter-spacing: .04em;
+            text-align: center;
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+
+        .area {
+            border: 1px solid rgba(137, 152, 181, .22);
+            border-radius: 6px;
+            color: rgba(192, 201, 222, .58);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-align: center;
+            text-transform: uppercase;
+            display: grid;
+            place-items: center;
+        }
+
+        .area::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: -15px;
+            font-size: 9px;
+            color: rgba(189, 198, 219, .62);
+        }
+
+        .workshop {
+            background:
+                repeating-linear-gradient(45deg, rgba(147, 159, 188, .10) 0 7px, rgba(8, 12, 28, .18) 7px 16px),
+                rgba(21, 28, 44, .52);
+            border: 0;
+            border-radius: 0;
+            font-size: 19px;
+            color: rgba(222, 228, 241, .44);
+        }
+
+        .unit {
+            position: absolute;
+            inset: 5px;
+            border-radius: 16px 16px 10px 10px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            font-weight: 900;
+            letter-spacing: .01em;
+            text-align: center;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, .32);
+            box-shadow:
+                0 9px 18px rgba(0, 0, 0, .32),
+                inset 0 1px 0 rgba(255, 255, 255, .20);
+            transition: transform .16s ease, box-shadow .16s ease, outline .16s ease;
+            user-select: none;
+        }
+
+        .unit:hover {
+            transform: translateY(-2px);
+            box-shadow:
+                0 14px 24px rgba(0, 0, 0, .38),
+                inset 0 1px 0 rgba(255, 255, 255, .24);
+        }
+
+        .unit.selected {
+            outline: 2px solid #d9d6ff;
+            outline-offset: 3px;
+        }
+
+        .unit.dragging {
+            opacity: .45;
+        }
+
+        /* Estados reales del proyecto — gradiente 160deg color -> darken(color,20) */
+        .unit.listo         { background: linear-gradient(160deg, #10b981, #0c9467); }
+        .unit.sucio         { background: linear-gradient(160deg, #f59e0b, #c47e08); }
+        .unit.mantenimiento { background: linear-gradient(160deg, #ef4444, #bf3636); }
+        .unit.resguardo     { background: linear-gradient(160deg, #64748b, #505c6f); }
+        .unit.traslado      { background: linear-gradient(160deg, #c084fc, #9969c9); }
+        .unit.no-arrendable { background: linear-gradient(160deg, #cbd5e1, #a2aab4); color: #1e293b; text-shadow: none; }
+        .unit.venta         { background: linear-gradient(160deg, #1e293b, #18202f); }
+        .unit.en-renta      { background: linear-gradient(160deg, #3b82f6, #2f68c4); }
+        .unit.retenida      { background: linear-gradient(160deg, #92400e, #74330b); }
+
+        /* Badges de esquina — como el mapa real */
+        .unit .u-badge {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 11px;
+            line-height: 1;
+            background: #fff;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, .4);
+            z-index: 6;
+        }
+
+        .unit .u-badge.manto {
+            bottom: -7px;
+            left: -7px;
+            border: 2px solid #ef4444;
+        }
+
+        .unit .u-badge.lock {
+            top: -7px;
+            left: -7px;
+            border: 2px solid #f59e0b;
+        }
+
+        .unit .u-badge.trasl {
+            top: -7px;
+            right: -7px;
+            width: auto;
+            height: auto;
+            padding: 1px 5px;
+            border-radius: 10px;
+            background: #7c3aed;
+            color: #fff;
+            border: 2px solid #fff;
+            font-size: 10px;
+        }
+
+        .fuel {
+            position: absolute;
+            left: 12px;
+            right: 12px;
+            bottom: 9px;
+            height: 10px;
+            border-radius: 99px;
+            background: rgba(7, 10, 20, .75);
+            overflow: hidden;
+        }
+
+        .fuel::after {
+            content: attr(data-fuel);
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: #eaffd9;
+            font-size: 7px;
+            font-weight: 900;
+        }
+
+        .fuel i {
+            display: block;
+            width: var(--fill);
+            height: 100%;
+            border-radius: inherit;
+            background: #19ef6e;
+        }
+
+        .drag-token {
+            position: absolute;
+            right: -10px;
+            top: -8px;
+            width: 19px;
+            height: 19px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle at 57% 46%, #00df5f 0 3px, transparent 4px),
+                conic-gradient(from 260deg, #7346ff 0 32%, #fff 0 73%, #7346ff 0);
+            border: 2px solid rgba(255, 255, 255, .9);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, .4);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .16s ease;
+        }
+
+        .unit:hover .drag-token,
+        .unit.selected .drag-token {
+            opacity: 1;
+        }
+
+        .unit-popover {
+            position: fixed;
+            right: 28px;
+            top: 132px;
+            width: 318px;
+            z-index: 40;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(20, 22, 44, .94);
+            box-shadow: var(--shadow);
+            transform: translateX(16px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .18s ease, transform .18s ease;
+            overflow: hidden;
+        }
+
+        .unit-popover.open {
+            opacity: 1;
+            transform: translateX(0);
+            pointer-events: auto;
+        }
+
+        .popover-head {
+            padding: 18px 18px 14px;
+            background: linear-gradient(135deg, #151738, #234fbc);
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .eyebrow {
+            color: rgba(223, 229, 248, .68);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+        }
+
+        .popover-title {
+            margin-top: 6px;
+            font-size: 25px;
+            font-weight: 900;
+        }
+
+        .icon-button {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            background: rgba(255, 255, 255, .11);
+            color: #fff;
+            display: grid;
+            place-items: center;
+        }
+
+        .popover-body {
+            padding: 16px 18px 18px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .field {
+            display: grid;
+            gap: 6px;
+        }
+
+        .field.full {
+            grid-column: 1 / -1;
+        }
+
+        .field label {
+            color: rgba(217, 224, 245, .58);
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            min-width: 0;
+            border-radius: 9px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(255, 255, 255, .08);
+            color: #fff;
+            padding: 10px 11px;
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .field select option {
+            color: #161932;
+        }
+
+        .field textarea {
+            min-height: 74px;
+            resize: vertical;
+            line-height: 1.45;
+        }
+
+        .panel-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 9px;
+            padding-top: 4px;
+        }
+
+        .panel-actions button,
+        .sandbox-toolbar button {
+            min-height: 38px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .02em;
+        }
+
+        .primary-action {
+            background: #08c884;
+            color: #fff;
+            box-shadow: 0 10px 22px rgba(8, 200, 132, .22);
+        }
+
+        .secondary-action {
+            background: rgba(255, 255, 255, .11);
+            color: rgba(242, 245, 255, .86);
+        }
+
+        .danger-action {
+            background: rgba(255, 84, 112, .14);
+            color: #ff8ca0;
+        }
+
+        .sandbox-toolbar {
+            position: fixed;
+            left: 26px;
+            bottom: 28px;
+            z-index: 36;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            max-width: calc(100vw - 160px);
+            padding: 9px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(12, 14, 31, .86);
+            box-shadow: 0 18px 36px rgba(0, 0, 0, .35);
+            backdrop-filter: blur(12px);
+        }
+
+        .sandbox-mark {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            height: 38px;
+            padding: 0 12px;
+            border-radius: 11px;
+            background: rgba(255, 255, 255, .08);
+            color: rgba(239, 242, 255, .78);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .10em;
+        }
+
+        .sandbox-mark::before {
+            content: "";
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #08c884;
+            box-shadow: 0 0 0 4px rgba(8, 200, 132, .14);
+        }
+
+        .sandbox-toolbar button {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 0 12px;
+            background: rgba(255, 255, 255, .10);
+            color: #fff;
+        }
+
+        .sandbox-toolbar button:hover,
+        .panel-actions button:hover,
+        .zoom-stack button:hover {
+            filter: brightness(1.08);
+        }
+
+        .history-drawer {
+            position: fixed;
+            left: 26px;
+            bottom: 88px;
+            width: 344px;
+            max-height: 340px;
+            z-index: 37;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            border-radius: 17px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            background: rgba(16, 18, 39, .94);
+            box-shadow: var(--shadow);
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(14px);
+            pointer-events: none;
+            transition: opacity .18s ease, transform .18s ease;
+        }
+
+        .history-drawer.open {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .history-head {
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 0 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, .08);
+            color: rgba(235, 239, 255, .92);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .history-list {
+            overflow: auto;
+            padding: 10px;
+        }
+
+        .history-item {
+            padding: 10px 11px;
+            border-radius: 11px;
+            background: rgba(255, 255, 255, .06);
+            color: rgba(236, 241, 255, .90);
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .history-item+.history-item {
+            margin-top: 7px;
+        }
+
+        .history-item span {
+            display: block;
+            margin-top: 4px;
+            color: rgba(187, 197, 224, .62);
+            font-size: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, .07);
+            color: var(--soft);
+            font-size: 12px;
+            font-weight: 800;
+        }
+
+        .info-row strong {
+            color: #fff;
+            text-align: right;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 88px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(0, 212, 137, .16);
+            color: #32efaa;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .summary-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            display: grid;
+            place-items: center;
+            padding: 28px;
+            background: rgba(9, 10, 26, .60);
+            backdrop-filter: blur(7px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .18s ease;
+        }
+
+        .summary-modal.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .summary-card {
+            width: min(520px, 100%);
+            overflow: hidden;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: #f6f7fb;
+            color: #161932;
+            box-shadow: var(--shadow);
+        }
+
+        .summary-head {
+            padding: 28px 24px 20px;
+            background: linear-gradient(135deg, #15183a, #2755bd);
+            color: #fff;
+            position: relative;
+        }
+
+        .summary-chip {
+            display: inline-flex;
+            gap: 5px;
+            align-items: center;
+            border: 1px solid rgba(255, 255, 255, .20);
+            border-radius: 999px;
+            padding: 7px 14px;
+            background: rgba(16, 18, 42, .50);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .06em;
+        }
+
+        .summary-chip b {
+            color: var(--cyan);
+        }
+
+        .summary-head h2 {
+            margin: 12px 0 3px;
+            font-size: 27px;
+            line-height: 1;
+            letter-spacing: -.03em;
+        }
+
+        .summary-head p {
+            margin: 0;
+            color: rgba(255, 255, 255, .58);
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .04em;
+        }
+
+        .summary-close {
+            position: absolute;
+            right: 16px;
+            top: 16px;
+            width: 37px;
+            height: 37px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, .14);
+            color: #fff;
+            display: grid;
+            place-items: center;
+        }
+
+        .summary-body {
+            padding: 16px 22px 24px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .summary-stat,
+        .summary-wide {
+            min-height: 62px;
+            border-radius: 14px;
+            background: #fff;
+            border-left: 4px solid transparent;
+            padding: 12px 14px;
+            box-shadow: 0 8px 22px rgba(24, 28, 49, .05);
+        }
+
+        .summary-stat span,
+        .summary-wide span {
+            display: block;
+            color: #8d98b4;
+            font-size: 10px;
+            font-weight: 900;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+        }
+
+        .summary-stat strong,
+        .summary-wide strong {
+            display: block;
+            margin-top: 3px;
+            font-size: 25px;
+            line-height: 1;
+            color: #20233d;
+        }
+
+        .summary-wide-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        .summary-wide {
+            min-height: 102px;
+            padding-top: 22px;
+        }
+
+        .summary-foot {
+            margin-top: 24px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e6f0;
+            color: #6f7893;
+            font-size: 12px;
+            font-weight: 900;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .zoom-stack {
+            position: fixed;
+            right: 28px;
+            bottom: 39px;
+            z-index: 30;
+            display: grid;
+            gap: 14px;
+        }
+
+        .zoom-stack button {
+            width: 60px;
+            height: 60px;
+            border-radius: 16px;
+            background: #f7f5fb;
+            color: #2b2092;
+            box-shadow: 0 10px 22px rgba(0, 0, 0, .28);
+            display: grid;
+            place-items: center;
+            font-size: 31px;
+            font-weight: 900;
+        }
+
+        .toast {
+            position: fixed;
+            left: 50%;
+            bottom: 24px;
+            z-index: 80;
+            transform: translateX(-50%) translateY(8px);
+            min-width: 250px;
+            border-radius: 999px;
+            padding: 11px 17px;
+            background: rgba(10, 12, 27, .92);
+            color: #f8f9ff;
+            border: 1px solid rgba(255, 255, 255, .12);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, .30);
+            opacity: 0;
+            pointer-events: none;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 900;
+            transition: opacity .18s ease, transform .18s ease;
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        @media (max-width: 1200px) {
+            .app {
+                min-width: 920px;
+            }
+
+            .top-shell {
+                padding-left: 12px;
+                padding-right: 12px;
+            }
+
+            .scoreboard {
+                min-width: 520px;
+                gap: 18px;
+            }
+
+            .ops-panel,
+            .map-tools {
+                display: none;
+            }
+
+            .inventory-drawer {
+                left: 20px;
+                max-width: calc(100vw - 40px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <header class="top-shell" aria-label="Resumen del mapa">
+            <div class="command-bar">
+                <button class="plaza-card" type="button" onclick="openSummary()" aria-label="Abrir resumen de BJX">
+                    <span>
+                        <strong>BJX</strong>
+                        <small id="plazaOccupied">0% ocupado</small>
+                        <span class="mini-counts" aria-hidden="true">
+                            <span class="mini-ok" id="miniListo">1</span>
+                            <span class="mini-warn" id="miniSucio">0</span>
+                            <span class="mini-bad" id="miniManto">0</span>
+                        </span>
+                    </span>
+                </button>
+
+                <button class="scoreboard" type="button" onclick="openSummary()" aria-label="Abrir resumen de flota">
+                    <span class="metric"><strong id="metricTotal">3</strong><span>Totales</span></span>
+                    <span class="metric"><strong id="metricListo"
+                            style="color:var(--green)">1</strong><span>Listos</span></span>
+                    <span class="metric"><strong id="metricSucio"
+                            style="color:var(--yellow)">0</strong><span>Sucios</span></span>
+                    <span class="metric"><strong id="metricManto"
+                            style="color:var(--pink)">0</strong><span>Mantenimiento</span></span>
+                    <span class="metric"><strong id="metricPatio" style="color:var(--cyan)">3</strong><span>En
+                            patio</span></span>
+                    <span class="metric"><strong id="metricTaller" style="color:var(--orange)">0</strong><span>En
+                            taller</span></span>
+                </button>
+            </div>
+        </header>
+
+        <main class="yard-wrap" aria-label="Mapa vivo BJX">
+            <div class="yard-viewport" id="yardViewport">
+                <section class="yard-stage" id="yardStage">
+                    <div class="slot" data-label="L-1" style="left:34px;top:32px;width:92px;height:132px;">
+                        <button class="unit blue" type="button" data-id="Z018" data-slot="L-1"
+                            data-status="NO ARRENDABLE" data-place="Limbo" data-fuel="F" onclick="selectUnit(this)">
+                            Z018
+                            <span class="fuel" data-fuel="F"><i style="--fill:100%"></i></span>
+                        </button>
+                    </div>
+                    <div class="slot" data-label="L-2" style="left:138px;top:32px;width:92px;height:132px;">
+                        <button class="unit green" type="button" data-id="F998" data-slot="L-2" data-status="LISTO"
+                            data-place="Patio" data-fuel="E" onclick="selectUnit(this)">
+                            F998
+                            <span class="drag-token" aria-hidden="true"></span>
+                            <span class="fuel" data-fuel="E"><i style="--fill:0%"></i></span>
+                        </button>
+                    </div>
+                    <div class="slot" data-label="L-3" style="left:242px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-4" style="left:346px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-5" style="left:450px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-6" style="left:554px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-7" style="left:658px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-8" style="left:762px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-9" style="left:866px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-10" style="left:970px;top:32px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L-11" style="left:1074px;top:32px;width:96px;height:132px;"></div>
+
+                    <div class="slot" data-label="L2-1" style="left:34px;top:180px;width:92px;height:132px;">
+                        <button class="unit gray" type="button" data-id="OSVALDO" data-slot="L2-1"
+                            data-status="NO ARRENDABLE" data-place="Limbo" data-fuel="N/A" onclick="selectUnit(this)">
+                            OSVALDO
+                        </button>
+                    </div>
+                    <div class="slot" data-label="L2-2" style="left:138px;top:180px;width:92px;height:132px;"></div>
+                    <div class="slot" data-label="L2-3" style="left:242px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-4" style="left:346px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-5" style="left:450px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-6" style="left:554px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-7" style="left:658px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-8" style="left:762px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-9" style="left:866px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-10" style="left:970px;top:180px;width:96px;height:132px;"></div>
+                    <div class="slot" data-label="L2-11" style="left:1074px;top:180px;width:96px;height:132px;"></div>
+
+                    <div class="slot wide" data-label="O-1" style="left:34px;top:330px;width:196px;height:64px;"></div>
+                    <div class="slot wide" data-label="O-2" style="left:242px;top:330px;width:196px;height:64px;"></div>
+                    <div class="slot wide" data-label="O-3" style="left:450px;top:330px;width:196px;height:64px;"></div>
+                    <div class="slot wide" data-label="O-4" style="left:658px;top:330px;width:196px;height:64px;"></div>
+
+                    <div class="slot wide" data-label="S4-7" style="left:866px;top:330px;width:196px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S3-7" style="left:1074px;top:330px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S2-7" style="left:1178px;top:330px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S1-7" style="left:1282px;top:330px;width:96px;height:64px;">
+                    </div>
+
+                    <div class="slot wide" data-label="" style="left:34px;top:406px;width:400px;height:132px;">
+                        <span class="label-inside">Entrada / Salida</span>
+                    </div>
+
+                    <div class="slot wide" data-label="S4-6" style="left:866px;top:406px;width:196px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S3-6" style="left:1074px;top:406px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S2-6" style="left:1178px;top:406px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S1-6" style="left:1282px;top:406px;width:96px;height:64px;">
+                    </div>
+
+                    <div class="slot wide" data-label="M-1" style="left:138px;top:548px;width:196px;height:132px;">
+                    </div>
+                    <div class="slot" data-label="OFICINA-1" style="left:554px;top:548px;width:96px;height:132px;">
+                    </div>
+                    <div class="slot" data-label="OFICINA-2" style="left:670px;top:548px;width:96px;height:132px;">
+                    </div>
+
+                    <div class="slot wide" data-label="S4-5" style="left:866px;top:482px;width:196px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S3-5" style="left:1074px;top:482px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S2-5" style="left:1178px;top:482px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S1-5" style="left:1282px;top:482px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S4-4" style="left:866px;top:558px;width:196px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S3-4" style="left:1074px;top:558px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S2-4" style="left:1178px;top:558px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S1-4" style="left:1282px;top:558px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S4-3" style="left:866px;top:634px;width:196px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S3-3" style="left:1074px;top:634px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S2-3" style="left:1178px;top:634px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S1-3" style="left:1282px;top:634px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S4-2" style="left:866px;top:710px;width:196px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S3-2" style="left:1074px;top:710px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S2-2" style="left:1178px;top:710px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S1-2" style="left:1282px;top:710px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S4-1" style="left:866px;top:786px;width:196px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S3-1" style="left:1074px;top:786px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S2-1" style="left:1178px;top:786px;width:96px;height:64px;">
+                    </div>
+                    <div class="slot wide" data-label="S1-1" style="left:1282px;top:786px;width:96px;height:64px;">
+                    </div>
+
+                    <div class="slot" data-label="B-1" style="left:34px;top:612px;width:92px;height:64px;">
+                        <button class="unit blue" type="button" data-id="N372" data-slot="B-1"
+                            data-status="NO ARRENDABLE" data-place="Bano" data-fuel="" onclick="selectUnit(this)"
+                            style="font-size:16px;">
+                            N372
+                            <span class="fuel" data-fuel=""><i style="--fill:0%"></i></span>
+                        </button>
+                        <span class="label-inside" style="bottom:-18px;">BAÑO</span>
+                    </div>
+                    <div class="slot wide" data-label="B-2" style="left:138px;top:612px;width:92px;height:64px;"></div>
+                    <div class="slot wide" data-label="B-3" style="left:242px;top:612px;width:96px;height:64px;"></div>
+                    <div class="slot wide" data-label="B-4" style="left:346px;top:612px;width:96px;height:64px;"></div>
+
+                    <div class="slot wide" data-label="" style="left:450px;top:710px;width:500px;height:128px;">
+                        <span class="label-inside" style="top:-17px;bottom:auto;">Oficina / Check In</span>
+                    </div>
+                    <div class="slot wide" data-label="VS-2" style="left:970px;top:710px;width:96px;height:128px;">
+                    </div>
+                    <div class="slot wide" data-label="VS-1" style="left:1074px;top:710px;width:96px;height:128px;">
+                    </div>
+
+                    <div class="area" data-label="AREA DE LAVADO - 1"
+                        style="left:1200px;top:32px;width:188px;height:132px;"></div>
+                    <div class="area workshop" style="left:1404px;top:32px;width:194px;height:818px;">Taller</div>
+                    <div class="slot" data-label="TLLRS-1" style="left:1612px;top:32px;width:194px;height:90px;"></div>
+                    <div class="slot" data-label="TLLRS-2" style="left:1612px;top:132px;width:194px;height:90px;"></div>
+                    <div class="slot" data-label="TLLRS-3" style="left:1612px;top:232px;width:194px;height:90px;"></div>
+                    <div class="slot" data-label="TLLRS-4" style="left:1612px;top:332px;width:194px;height:90px;"></div>
+                    <div class="slot" data-label="TLLRS-5" style="left:1612px;top:432px;width:194px;height:90px;"></div>
+                    <div class="slot" data-label="TLLRS-6" style="left:1612px;top:532px;width:194px;height:90px;"></div>
+                </section>
+            </div>
+        </main>
+
+        <aside class="unit-popover" id="unitPopover" aria-live="polite">
+            <div class="popover-head">
+                <div>
+                    <div class="eyebrow" id="editorMode">Unidad</div>
+                    <div class="popover-title" id="unitTitle">-</div>
+                </div>
+                <button class="icon-button" type="button" onclick="closeUnit()" aria-label="Cerrar">
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round">
+                        <path d="M3 3l9 9M12 3l-9 9" />
+                    </svg>
+                </button>
+            </div>
+            <div class="popover-body">
+                <div class="field-grid">
+                    <div class="field">
+                        <label for="unitMva">MVA</label>
+                        <input id="unitMva" autocomplete="off" />
+                    </div>
+                    <div class="field">
+                        <label for="unitSlotField">Cajon</label>
+                        <select id="unitSlotField"></select>
+                    </div>
+                    <div class="field">
+                        <label for="unitStatusField">Estado</label>
+                        <select id="unitStatusField">
+                            <option>LISTO</option>
+                            <option>SUCIO</option>
+                            <option>MANTENIMIENTO</option>
+                            <option>RESGUARDO</option>
+                            <option>TRASLADO</option>
+                            <option>NO ARRENDABLE</option>
+                            <option>VENTA</option>
+                            <option>EN RENTA</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="unitFuelField">Gasolina</label>
+                        <select id="unitFuelField">
+                            <option>F</option>
+                            <option>3/4</option>
+                            <option>1/2</option>
+                            <option>1/4</option>
+                            <option>E</option>
+                            <option>N/A</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="unitPlaceField">Ubicacion</label>
+                        <input id="unitPlaceField" autocomplete="off" />
+                    </div>
+                    <div class="field">
+                        <label for="unitPlatesField">Placas</label>
+                        <input id="unitPlatesField" autocomplete="off" />
+                    </div>
+                    <div class="field full">
+                        <label for="unitModelField">Modelo</label>
+                        <input id="unitModelField" autocomplete="off" />
+                    </div>
+                    <div class="field full">
+                        <label for="unitNotesField">Notas</label>
+                        <textarea id="unitNotesField"></textarea>
+                    </div>
+                </div>
+                <div class="info-row"><span>Origen real</span><strong>Silao, Guanajuato</strong></div>
+                <div class="info-row"><span>Ultimo guardado</span><strong id="unitSavedAt">Sin guardar</strong></div>
+                <div class="panel-actions">
+                    <button class="primary-action" type="button" onclick="saveEditor()">Guardar</button>
+                    <button class="secondary-action" type="button" onclick="duplicateSelected()">Duplicar</button>
+                    <button class="danger-action" type="button" onclick="deleteSelected()">Eliminar</button>
+                    <button class="secondary-action" type="button" onclick="closeUnit()">Cerrar</button>
+                </div>
+            </div>
+        </aside>
+
+        <aside class="history-drawer" id="historyDrawer" aria-label="Historial sandbox">
+            <div class="history-head">
+                <span>Movimientos</span>
+                <button class="icon-button" type="button" onclick="toggleHistory()" aria-label="Cerrar historial">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round">
+                        <path d="M3 3l8 8M11 3l-8 8" />
+                    </svg>
+                </button>
+            </div>
+            <div class="history-list" id="historyList"></div>
+        </aside>
+
+        <aside class="map-tools" aria-label="Herramientas del mapa">
+            <section class="tool-card">
+                <div class="tool-title">Buscar unidad</div>
+                <input class="map-search" id="mapSearch" type="search" placeholder="MVA, placas, modelo..."
+                    autocomplete="off" />
+            </section>
+            <section class="tool-card">
+                <div class="tool-title">Estados</div>
+                <div class="filter-row" id="statusFilters">
+                    <button class="filter-chip active" type="button" data-status="TODOS"
+                        onclick="setStatusFilter('TODOS')">Todos</button>
+                    <button class="filter-chip" type="button" data-status="LISTO"
+                        onclick="setStatusFilter('LISTO')">Listos</button>
+                    <button class="filter-chip" type="button" data-status="SUCIO"
+                        onclick="setStatusFilter('SUCIO')">Sucios</button>
+                    <button class="filter-chip" type="button" data-status="MANTENIMIENTO"
+                        onclick="setStatusFilter('MANTENIMIENTO')">Manto</button>
+                    <button class="filter-chip" type="button" data-status="EN TALLER"
+                        onclick="setStatusFilter('EN TALLER')">Taller</button>
+                </div>
+            </section>
+            <section class="tool-card">
+                <div class="tool-title">Capas</div>
+                <div class="layer-list">
+                    <label class="layer-chip"><input type="checkbox" data-layer="limbo" checked
+                            onchange="toggleLayer(this)" /> Limbo</label>
+                    <label class="layer-chip"><input type="checkbox" data-layer="patio" checked
+                            onchange="toggleLayer(this)" /> Patio</label>
+                    <label class="layer-chip"><input type="checkbox" data-layer="oficina" checked
+                            onchange="toggleLayer(this)" /> Oficina</label>
+                    <label class="layer-chip"><input type="checkbox" data-layer="taller" checked
+                            onchange="toggleLayer(this)" /> Taller</label>
+                    <label class="layer-chip"><input type="checkbox" data-layer="bano" checked
+                            onchange="toggleLayer(this)" /> Baño</label>
+                </div>
+            </section>
+            <section class="tool-card">
+                <div class="tool-title">Datos</div>
+                <div class="tool-actions">
+                    <button class="tool-link" type="button" onclick="toggleInventory()">Inventario</button>
+                    <button class="tool-link" type="button" onclick="exportCsv()">Export CSV</button>
+                    <button class="tool-link" type="button" onclick="clearMapFilters()">Limpiar</button>
+                    <button class="tool-link" type="button" onclick="openSummary()">Resumen</button>
+                </div>
+            </section>
+        </aside>
+
+        <aside class="inventory-drawer" id="inventoryDrawer" aria-label="Inventario de unidades">
+            <div class="inventory-head">
+                <span>Inventario visible</span>
+                <button class="icon-button" type="button" onclick="toggleInventory()" aria-label="Cerrar inventario">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round">
+                        <path d="M3 3l8 8M11 3l-8 8" />
+                    </svg>
+                </button>
+            </div>
+            <div class="inventory-list" id="inventoryList"></div>
+        </aside>
+
+        <aside class="ops-panel" aria-label="Paneles clave del sandbox">
+            <section class="ops-card">
+                <div class="ops-head">
+                    <div class="ops-title">Operación en vivo</div>
+                    <div class="live-pill" id="simStatus">Simulado</div>
+                </div>
+                <div class="ops-grid">
+                    <div class="ops-stat"><span>Usuarios activos</span><strong id="opsUsers">4</strong></div>
+                    <div class="ops-stat"><span>Pendientes</span><strong id="opsPending">0</strong></div>
+                    <div class="ops-stat"><span>Último mov.</span><strong id="opsLastMove">--</strong></div>
+                    <div class="ops-stat"><span>Alertas</span><strong id="opsAlerts">0</strong></div>
+                </div>
+            </section>
+            <section class="ops-card">
+                <div class="ops-head">
+                    <div class="ops-title">Actividad reciente</div>
+                    <div class="live-pill">Tiempo real</div>
+                </div>
+                <div class="activity-list" id="activityList"></div>
+            </section>
+        </aside>
+
+        <section class="summary-modal" id="summaryModal" role="dialog" aria-modal="true" aria-label="Resumen de flota">
+            <article class="summary-card">
+                <div class="summary-head">
+                    <div class="summary-chip">ARMENTA RENT A CAR <b>BJX</b></div>
+                    <h2>RESUMEN DE FLOTA</h2>
+                    <p>LUN, 20 DE ABR DE 2026 · 06:02 P.M.</p>
+                    <button class="summary-close" type="button" onclick="closeSummary()" aria-label="Cerrar resumen">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor"
+                            stroke-width="2" stroke-linecap="round">
+                            <path d="M3 3l10 10M13 3L3 13" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="summary-body">
+                    <div class="summary-grid">
+                        <div class="summary-stat"><span>Total flota</span><strong id="summaryTotal">4</strong></div>
+                        <div class="summary-stat" style="border-left-color:#00c66f;"><span>En patio</span><strong
+                                id="summaryPatio" style="color:#00b765;">3</strong></div>
+                        <div class="summary-stat" style="border-left-color:#5a58ff;"><span>Fuera</span><strong
+                                id="summaryFuera" style="color:#5a58ff;">1</strong></div>
+                    </div>
+                    <div class="summary-wide-grid">
+                        <div class="summary-wide" style="border-left-color:#596074;"><span>No arrendable</span><strong
+                                id="summaryNoRent">2</strong></div>
+                        <div class="summary-wide" style="border-left-color:#00c66f;"><span>Listo</span><strong
+                                id="summaryListo" style="color:#00b765;">1</strong></div>
+                    </div>
+                    <div class="summary-foot">
+                        <span>Total <strong id="summaryFooterTotal" style="font-size:26px;color:#151832;">3</strong>
+                            vehiculos</span>
+                        <span id="summaryClock">06:02:41 p.m.</span>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        <div class="sandbox-toolbar" aria-label="Controles del sandbox">
+            <span class="sandbox-mark">SANDBOX</span>
+            <button type="button" onclick="openAdd()">+ Nuevo</button>
+            <button type="button" onclick="saveSandbox()">Guardar</button>
+            <button type="button" onclick="toggleHistory()">Movimientos</button>
+            <button type="button" onclick="toggleInventory()">Inventario</button>
+            <button type="button" onclick="exportCsv()">CSV</button>
+            <button type="button" onclick="toggleSimulation()" id="simToggle">Pausar vivo</button>
+            <button type="button" onclick="resetSandbox()">Reset</button>
+        </div>
+
+        <div class="zoom-stack" aria-label="Controles de zoom">
+            <button type="button" onclick="zoomMap(1.12)" aria-label="Acercar">+</button>
+            <button type="button" onclick="zoomMap(.89)" aria-label="Alejar">-</button>
+        </div>
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script>
+        const stage = document.getElementById('yardStage');
+        const viewport = document.getElementById('yardViewport');
+        const popover = document.getElementById('unitPopover');
+        const historyDrawer = document.getElementById('historyDrawer');
+        const historyList = document.getElementById('historyList');
+        const activityList = document.getElementById('activityList');
+        const inventoryDrawer = document.getElementById('inventoryDrawer');
+        const inventoryList = document.getElementById('inventoryList');
+        const mapSearch = document.getElementById('mapSearch');
+        const slotField = document.getElementById('unitSlotField');
+        const STORAGE_KEY = 'mex-mapa:sandbox-bjx:v3';
+        // Clase por estado — igual que el mapa real (id -> clase kebab)
+        const STATUS_STYLE = {
+            'LISTO': 'listo',
+            'SUCIO': 'sucio',
+            'MANTENIMIENTO': 'mantenimiento',
+            'RESGUARDO': 'resguardo',
+            'TRASLADO': 'traslado',
+            'NO ARRENDABLE': 'no-arrendable',
+            'VENTA': 'venta',
+            'EN RENTA': 'en-renta',
+            'RETENIDA': 'retenida',
+            'EN TALLER': 'mantenimiento',
+        };
+        const STATUS_LABEL = {
+            'LISTO': 'Listo',
+            'SUCIO': 'Sucio',
+            'MANTENIMIENTO': 'Manto',
+            'RESGUARDO': 'Resguardo',
+            'TRASLADO': 'Traslado',
+            'NO ARRENDABLE': 'No arrendable',
+            'VENTA': 'Venta',
+            'EN RENTA': 'En renta',
+            'RETENIDA': 'Retenida',
+            'EN TALLER': 'En taller',
+        };
+        const SIM_USERS = ['Ana · Admin', 'Luis · Patio', 'Marta · Taller', 'Diego · Supervisor'];
+        const DEMO_UNITS = [
+            { id: 'A1842', slot: 'L-3', status: 'LISTO', fuel: '3/4', place: 'Patio', model: 'Nissan Versa 2024', plates: 'GTO-1842', notes: 'Lista para salida mostrador', color: 'green' },
+            { id: 'B7310', slot: 'L-4', status: 'SUCIO', fuel: '1/2', place: 'Patio', model: 'Chevrolet Aveo 2023', plates: 'GTO-7310', notes: 'Pendiente lavado interior', color: 'yellow' },
+            { id: 'C5209', slot: 'L-5', status: 'MANTENIMIENTO', fuel: '1/4', place: 'Patio', model: 'Kia Rio 2022', plates: 'GTO-5209', notes: 'Revisar testigo de motor', color: 'red' },
+            { id: 'D8841', slot: 'S4-5', status: 'TRASLADO', fuel: 'F', place: 'Patio', model: 'Nissan Kicks 2024', plates: 'GTO-8841', notes: 'Traslado programado a aeropuerto', color: 'purple' },
+            { id: 'E4112', slot: 'S3-5', status: 'LISTO', fuel: 'F', place: 'Patio', model: 'Toyota Corolla 2024', plates: 'GTO-4112', notes: 'Unidad premium lista', color: 'green' },
+            { id: 'G9024', slot: 'TLLRS-1', status: 'EN TALLER', fuel: '1/2', place: 'Taller', model: 'VW Jetta 2023', plates: 'GTO-9024', notes: 'Cambio de balatas', color: 'orange' },
+            { id: 'H3377', slot: 'OFICINA-1', status: 'NO ARRENDABLE', fuel: 'N/A', place: 'Oficina', model: 'Hyundai i10 2022', plates: 'GTO-3377', notes: 'Documentación pendiente', color: 'blue' },
+        ];
+        let currentScale = 1;
+        let toastTimer = 0;
+        let selectedUnitId = '';
+        let editorMode = 'edit';
+        let draggingUnitId = '';
+        let state = null;
+        let simulationTimer = 0;
+        const filterState = {
+            query: '',
+            status: 'TODOS',
+            layers: new Set(['limbo', 'patio', 'oficina', 'taller', 'bano']),
+        };
+
+        function getSlotId(slot) {
+            return (slot?.dataset?.label || '').trim();
+        }
+
+        const slotNodes = Array.from(document.querySelectorAll('.slot')).filter((slot) => getSlotId(slot));
+        const slotIds = slotNodes.map((slot) => getSlotId(slot));
+
+        function slotNode(slotId) {
+            return slotNodes.find((slot) => getSlotId(slot) === slotId);
+        }
+
+        function placeForSlot(slotId) {
+            if (slotId.startsWith('TLLRS')) return 'Taller';
+            if (slotId.startsWith('B-')) return 'Bano';
+            if (slotId.startsWith('L')) return 'Limbo';
+            if (slotId.startsWith('OFICINA')) return 'Oficina';
+            return 'Patio';
+        }
+
+        function layerForSlot(slotId) {
+            if (slotId.startsWith('TLLRS')) return 'taller';
+            if (slotId.startsWith('B-')) return 'bano';
+            if (slotId.startsWith('L')) return 'limbo';
+            if (slotId.startsWith('OFICINA')) return 'oficina';
+            return 'patio';
+        }
+
+        function fuelFill(fuel) {
+            return {
+                'F': '100%',
+                '3/4': '75%',
+                '1/2': '50%',
+                '1/4': '25%',
+                'E': '0%',
+                'N/A': '0%',
+                '': '0%',
+            }[fuel] || '0%';
+        }
+
+        function nowLabel() {
+            return new Date().toLocaleString('es-MX', {
+                day: 'numeric',
+                month: 'numeric',
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+            });
+        }
+
+        function captureInitialState() {
+            const units = {};
+            document.querySelectorAll('.unit').forEach((button) => {
+                const slot = button.closest('.slot');
+                const slotId = getSlotId(slot);
+                if (!slotId || !button.dataset.id) return;
+                const unitId = button.dataset.id.trim().toUpperCase();
+                const color = ['listo', 'sucio', 'mantenimiento', 'resguardo', 'traslado', 'no-arrendable', 'venta', 'en-renta', 'retenida'].find((name) => button.classList.contains(name)) || '';
+                units[unitId] = {
+                    id: unitId,
+                    slot: slotId,
+                    status: button.dataset.status || 'NO ARRENDABLE',
+                    fuel: button.dataset.fuel || 'N/A',
+                    place: button.dataset.place || placeForSlot(slotId),
+                    model: button.dataset.model || '',
+                    plates: button.dataset.plates || '',
+                    notes: '',
+                    color,
+                    savedAt: '19/4/2026, 5:51 p.m.',
+                };
+            });
+            DEMO_UNITS.forEach((unit) => {
+                if (!units[unit.id] && slotIds.includes(unit.slot)) {
+                    units[unit.id] = { ...unit, savedAt: nowLabel() };
+                }
+            });
+            return {
+                version: 3,
+                units,
+                history: [
+                    { action: 'Carga inicial', detail: 'Sandbox BJX con autos ficticios y actividad simulada', actor: 'Sistema', at: nowLabel() },
+                    { action: 'Aprobación', detail: 'Ana aprobó acceso para operador de patio', actor: 'Ana · Admin', at: nowLabel() },
+                    { action: 'Movimiento remoto', detail: 'Luis movió A1842 de preparación a patio', actor: 'Luis · Patio', at: nowLabel() },
+                ],
+                activity: [
+                    { title: 'Autos ficticios cargados', detail: `${DEMO_UNITS.length} unidades demo agregadas`, actor: 'Sistema', at: nowLabel() },
+                    { title: 'Simulación activa', detail: 'Otros usuarios moverán unidades automáticamente', actor: 'Sistema', at: nowLabel() },
+                ],
+                simulationPaused: false,
+            };
+        }
+
+        function loadState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return captureInitialState();
+                const parsed = JSON.parse(raw);
+                if (!parsed || parsed.version !== 3 || !parsed.units) return captureInitialState();
+                return normalizeState(parsed);
+            } catch {
+                return captureInitialState();
+            }
+        }
+
+        function normalizeState(candidate) {
+            const fresh = captureInitialState();
+            return {
+                version: 3,
+                units: { ...fresh.units, ...candidate.units },
+                history: Array.isArray(candidate.history) && candidate.history.length ? candidate.history : fresh.history,
+                activity: Array.isArray(candidate.activity) && candidate.activity.length ? candidate.activity : fresh.activity,
+                simulationPaused: Boolean(candidate.simulationPaused),
+            };
+        }
+
+        function persistState(showMessage = false) {
+            const payload = {
+                version: 3,
+                units: state.units,
+                history: state.history.slice(0, 80),
+                activity: (state.activity || []).slice(0, 50),
+                simulationPaused: Boolean(state.simulationPaused),
+            };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            if (showMessage) showToast('Cambios guardados en este sandbox');
+        }
+
+        function saveSandbox() {
+            Object.values(state.units).forEach((unit) => {
+                unit.savedAt = nowLabel();
+            });
+            addHistory('Guardado', 'Cambios persistidos localmente');
+            persistState(true);
+            renderAll();
+        }
+
+        function resetSandbox() {
+            localStorage.removeItem(STORAGE_KEY);
+            state = captureInitialState();
+            selectedUnitId = '';
+            editorMode = 'edit';
+            closeUnit();
+            renderAll();
+            persistState();
+            showToast('Sandbox restaurado');
+        }
+
+        function statusClass(unit) {
+            return STATUS_STYLE[unit.status] || 'no-arrendable';
+        }
+
+        function createUnitElement(unit) {
+            const button = document.createElement('button');
+            button.className = `unit ${statusClass(unit)}`;
+            button.type = 'button';
+            button.draggable = true;
+            button.dataset.id = unit.id;
+            button.dataset.slot = unit.slot;
+            button.dataset.status = unit.status;
+            button.dataset.place = unit.place || placeForSlot(unit.slot);
+            button.dataset.fuel = unit.fuel || 'N/A';
+            button.style.fontSize = unit.id.length > 7 ? '14px' : '';
+            button.textContent = unit.id;
+            if (unit.id === selectedUnitId) button.classList.add('selected');
+
+            if (unit.fuel && unit.fuel !== 'N/A') {
+                const fuel = document.createElement('span');
+                fuel.className = 'fuel';
+                fuel.dataset.fuel = unit.fuel;
+                const fill = document.createElement('i');
+                fill.style.setProperty('--fill', fuelFill(unit.fuel));
+                fuel.appendChild(fill);
+                button.appendChild(fuel);
+            }
+
+            const token = document.createElement('span');
+            token.className = 'drag-token';
+            token.setAttribute('aria-hidden', 'true');
+            button.appendChild(token);
+
+            // Badges de esquina — como el mapa real (⚙️ taller, 🔒 apartado, 🚛 traslado)
+            const notesUpper = (unit.notes || '').toUpperCase();
+            const addBadge = (cls, txt) => { const b = document.createElement('span'); b.className = 'u-badge ' + cls; b.textContent = txt; button.appendChild(b); };
+            if (unit.status === 'MANTENIMIENTO' || unit.status === 'EN TALLER') addBadge('manto', '⚙️');
+            if (notesUpper.includes('RESERVAD') || notesUpper.includes('APARTAD')) addBadge('lock', '🔒');
+            if (unit.status === 'TRASLADO') addBadge('trasl', '🚛');
+
+            button.addEventListener('click', (event) => {
+                event.stopPropagation();
+                selectUnit(unit.id);
+            });
+            button.addEventListener('dragstart', (event) => {
+                draggingUnitId = unit.id;
+                button.classList.add('dragging');
+                event.dataTransfer.setData('text/plain', unit.id);
+                event.dataTransfer.effectAllowed = 'move';
+            });
+            button.addEventListener('dragend', () => {
+                draggingUnitId = '';
+                button.classList.remove('dragging');
+                slotNodes.forEach((slot) => slot.classList.remove('drop-target'));
+            });
+            return button;
+        }
+
+        function renderAll() {
+            document.querySelectorAll('.unit').forEach((unit) => unit.remove());
+            slotNodes.forEach((slot) => slot.classList.toggle('selected-slot', getSlotId(slot) === state.units[selectedUnitId]?.slot));
+            Object.values(state.units).forEach((unit) => {
+                const target = slotNode(unit.slot);
+                if (target) target.appendChild(createUnitElement(unit));
+            });
+            fillSlotOptions();
+            applyMapFilters();
+            renderInventory();
+            renderHistory();
+            renderActivity();
+            updateSummary();
+        }
+
+        function fillSlotOptions() {
+            const current = slotField.value;
+            slotField.innerHTML = slotIds.map((slotId) => `<option value="${slotId}">${slotId}</option>`).join('');
+            if (current && slotIds.includes(current)) slotField.value = current;
+        }
+
+        function unitMatchesFilters(unit) {
+            const query = filterState.query.trim().toUpperCase();
+            const layer = layerForSlot(unit.slot || '');
+            const statusOk = filterState.status === 'TODOS' || unit.status === filterState.status;
+            const layerOk = filterState.layers.has(layer);
+            const searchText = [unit.id, unit.slot, unit.status, unit.place, unit.fuel, unit.plates, unit.model, unit.notes]
+                .join(' ')
+                .toUpperCase();
+            const queryOk = !query || searchText.includes(query);
+            return statusOk && layerOk && queryOk;
+        }
+
+        function visibleUnits() {
+            return Object.values(state.units).filter(unitMatchesFilters);
+        }
+
+        function applyMapFilters() {
+            const query = filterState.query.trim().toUpperCase();
+            slotNodes.forEach((slot) => {
+                const slotId = getSlotId(slot);
+                const layer = layerForSlot(slotId);
+                slot.classList.toggle('layer-hidden', !filterState.layers.has(layer));
+                slot.classList.remove('search-hit');
+            });
+            Object.values(state.units).forEach((unit) => {
+                const el = document.querySelector(`.unit[data-id="${CSS.escape(unit.id)}"]`);
+                if (!el) return;
+                const visible = unitMatchesFilters(unit);
+                el.classList.toggle('filtered-out', !visible);
+                if (query && visible) slotNode(unit.slot)?.classList.add('search-hit');
+            });
+            document.querySelectorAll('.filter-chip').forEach((button) => {
+                button.classList.toggle('active', button.dataset.status === filterState.status);
+            });
+        }
+
+        function setStatusFilter(status) {
+            filterState.status = status;
+            renderAll();
+        }
+
+        function toggleLayer(input) {
+            if (input.checked) filterState.layers.add(input.dataset.layer);
+            else filterState.layers.delete(input.dataset.layer);
+            renderAll();
+        }
+
+        function clearMapFilters() {
+            filterState.query = '';
+            filterState.status = 'TODOS';
+            filterState.layers = new Set(['limbo', 'patio', 'oficina', 'taller', 'bano']);
+            mapSearch.value = '';
+            document.querySelectorAll('.layer-chip input').forEach((input) => {
+                input.checked = true;
+            });
+            renderAll();
+            showToast('Filtros limpiados');
+        }
+
+        function selectUnit(target) {
+            const unitId = typeof target === 'string' ? target : target?.dataset?.id;
+            if (!unitId || !state.units[unitId]) return;
+            selectedUnitId = unitId;
+            editorMode = 'edit';
+            openEditor(state.units[unitId]);
+            renderAll();
+            showToast(`${unitId} seleccionado`);
+        }
+
+        function openEditor(unit) {
+            document.getElementById('editorMode').textContent = editorMode === 'add' ? 'Nuevo vehiculo' : `${unit.place || placeForSlot(unit.slot)} · ${unit.slot}`;
+            document.getElementById('unitTitle').textContent = unit.id || 'Nuevo';
+            document.getElementById('unitMva').value = unit.id || '';
+            document.getElementById('unitSlotField').value = unit.slot || firstEmptySlot();
+            document.getElementById('unitStatusField').value = unit.status || 'LISTO';
+            document.getElementById('unitFuelField').value = unit.fuel || 'F';
+            document.getElementById('unitPlaceField').value = unit.place || placeForSlot(unit.slot || firstEmptySlot());
+            document.getElementById('unitPlatesField').value = unit.plates || '';
+            document.getElementById('unitModelField').value = unit.model || '';
+            document.getElementById('unitNotesField').value = unit.notes || '';
+            document.getElementById('unitSavedAt').textContent = unit.savedAt || 'Sin guardar';
+            popover.classList.add('open');
+        }
+
+        function closeUnit() {
+            popover.classList.remove('open');
+            editorMode = 'edit';
+            document.querySelectorAll('.unit.selected').forEach((unit) => unit.classList.remove('selected'));
+            slotNodes.forEach((slot) => slot.classList.remove('selected-slot'));
+        }
+
+        function firstEmptySlot() {
+            return slotIds.find((slotId) => !Object.values(state.units).some((unit) => unit.slot === slotId)) || slotIds[0];
+        }
+
+        function openAdd(preferredSlot = '') {
+            selectedUnitId = '';
+            editorMode = 'add';
+            const slot = preferredSlot || firstEmptySlot();
+            openEditor({
+                id: nextMva(),
+                slot,
+                status: 'LISTO',
+                fuel: 'F',
+                place: placeForSlot(slot),
+                model: 'Demo 2026',
+                plates: '',
+                notes: '',
+                savedAt: 'Sin guardar',
+            });
+        }
+
+        function nextMva() {
+            let index = 1;
+            while (state.units[`DEMO${String(index).padStart(2, '0')}`]) index++;
+            return `DEMO${String(index).padStart(2, '0')}`;
+        }
+
+        function readEditorUnit() {
+            const id = document.getElementById('unitMva').value.trim().toUpperCase().replace(/\s+/g, '');
+            const slot = document.getElementById('unitSlotField').value;
+            return {
+                id,
+                slot,
+                status: document.getElementById('unitStatusField').value,
+                fuel: document.getElementById('unitFuelField').value,
+                place: document.getElementById('unitPlaceField').value.trim() || placeForSlot(slot),
+                plates: document.getElementById('unitPlatesField').value.trim().toUpperCase(),
+                model: document.getElementById('unitModelField').value.trim(),
+                notes: document.getElementById('unitNotesField').value.trim(),
+                color: STATUS_STYLE[document.getElementById('unitStatusField').value] || 'gray',
+                savedAt: nowLabel(),
+            };
+        }
+
+        function saveEditor() {
+            const unit = readEditorUnit();
+            if (!unit.id) {
+                showToast('MVA requerido');
+                return;
+            }
+
+            const oldId = selectedUnitId;
+            const existingById = state.units[unit.id];
+            if (editorMode === 'add' && existingById) {
+                showToast('Ese MVA ya existe');
+                return;
+            }
+            if (editorMode === 'edit' && existingById && unit.id !== oldId) {
+                showToast('Ese MVA ya existe');
+                return;
+            }
+
+            const occupied = Object.values(state.units).find((candidate) => candidate.slot === unit.slot && candidate.id !== oldId);
+            if (editorMode === 'add' && occupied) {
+                showToast(`El cajon ${unit.slot} ya esta ocupado`);
+                return;
+            }
+
+            if (editorMode === 'edit' && occupied && oldId && state.units[oldId]) {
+                occupied.slot = state.units[oldId].slot;
+                occupied.place = placeForSlot(occupied.slot);
+                occupied.savedAt = nowLabel();
+                addHistory('Swap', `${unit.id} ${state.units[oldId].slot} -> ${unit.slot} · ${occupied.id} -> ${occupied.slot}`);
+            }
+
+            if (editorMode === 'edit' && oldId && oldId !== unit.id) delete state.units[oldId];
+            state.units[unit.id] = unit;
+            selectedUnitId = unit.id;
+            addHistory(editorMode === 'add' ? 'Alta' : 'Edicion', `${unit.id} · ${unit.slot}`);
+            editorMode = 'edit';
+            persistState();
+            renderAll();
+            selectUnit(unit.id);
+            showToast(`${unit.id} guardado`);
+        }
+
+        function deleteSelected() {
+            if (!selectedUnitId || !state.units[selectedUnitId]) return;
+            const removed = state.units[selectedUnitId];
+            delete state.units[selectedUnitId];
+            addHistory('Baja', `${removed.id} removido de ${removed.slot}`);
+            selectedUnitId = '';
+            closeUnit();
+            persistState();
+            renderAll();
+            showToast('Unidad eliminada');
+        }
+
+        function duplicateSelected() {
+            const source = selectedUnitId ? state.units[selectedUnitId] : null;
+            if (!source) {
+                showToast('Selecciona una unidad');
+                return;
+            }
+            const slot = firstEmptySlot();
+            if (!slot) {
+                showToast('Sin cajones libres');
+                return;
+            }
+            const clone = {
+                ...source,
+                id: nextMva(),
+                slot,
+                place: placeForSlot(slot),
+                savedAt: nowLabel(),
+            };
+            state.units[clone.id] = clone;
+            selectedUnitId = clone.id;
+            addHistory('Duplicado', `${source.id} -> ${clone.id} en ${slot}`);
+            persistState();
+            renderAll();
+            selectUnit(clone.id);
+        }
+
+        function moveUnit(unitId, targetSlot) {
+            const unit = state.units[unitId];
+            if (!unit || !slotIds.includes(targetSlot) || unit.slot === targetSlot) return;
+            const originSlot = unit.slot;
+            const occupied = Object.values(state.units).find((candidate) => candidate.slot === targetSlot && candidate.id !== unitId);
+            if (occupied) {
+                occupied.slot = originSlot;
+                occupied.place = placeForSlot(originSlot);
+                occupied.savedAt = nowLabel();
+                addHistory('Swap', `${unit.id} ${originSlot} -> ${targetSlot} · ${occupied.id} -> ${originSlot}`);
+            } else {
+                addHistory('Movimiento', `${unit.id} ${originSlot} -> ${targetSlot}`);
+            }
+            unit.slot = targetSlot;
+            unit.place = placeForSlot(targetSlot);
+            if (targetSlot.startsWith('TLLRS')) {
+                unit.status = 'EN TALLER';
+                unit.color = STATUS_STYLE[unit.status];
+            }
+            unit.savedAt = nowLabel();
+            selectedUnitId = unit.id;
+            persistState();
+            renderAll();
+            selectUnit(unit.id);
+        }
+
+        function bindSlotInteractions() {
+            slotNodes.forEach((slot) => {
+                const slotId = getSlotId(slot);
+                slot.classList.add('interactive');
+                slot.addEventListener('click', (event) => {
+                    if (event.target.closest('.unit')) return;
+                    if (selectedUnitId && state.units[selectedUnitId]) {
+                        moveUnit(selectedUnitId, slotId);
+                    } else {
+                        openAdd(slotId);
+                    }
+                });
+                slot.addEventListener('dragover', (event) => {
+                    event.preventDefault();
+                    event.dataTransfer.dropEffect = 'move';
+                    slot.classList.add('drop-target');
+                });
+                slot.addEventListener('dragleave', () => {
+                    slot.classList.remove('drop-target');
+                });
+                slot.addEventListener('drop', (event) => {
+                    event.preventDefault();
+                    slot.classList.remove('drop-target');
+                    const unitId = event.dataTransfer.getData('text/plain') || draggingUnitId;
+                    moveUnit(unitId, slotId);
+                });
+            });
+        }
+
+        function addHistory(action, detail, actor = 'Tú') {
+            if (!Array.isArray(state.history)) state.history = [];
+            state.history.unshift({ action, detail, actor, at: nowLabel() });
+            state.history = state.history.slice(0, 80);
+            addActivity(action, detail, actor);
+            renderHistory();
+        }
+
+        function addActivity(title, detail, actor = 'Sistema') {
+            if (!Array.isArray(state.activity)) state.activity = [];
+            state.activity.unshift({ title, detail, actor, at: nowLabel() });
+            state.activity = state.activity.slice(0, 50);
+        }
+
+        function renderHistory() {
+            const items = state.history || [];
+            historyList.innerHTML = items.length
+                ? items.slice(0, 24).map((item) => `<div class="history-item">${item.action}<span>${item.detail} · ${item.actor || 'Sistema'} · ${item.at}</span></div>`).join('')
+                : '<div class="history-item">Sin movimientos<span>Los cambios del sandbox apareceran aqui.</span></div>';
+        }
+
+        function renderActivity() {
+            const items = state.activity || [];
+            activityList.innerHTML = items.length
+                ? items.slice(0, 8).map((item) => `<div class="activity-item">${item.title}<span>${item.detail} · ${item.actor || 'Sistema'}</span></div>`).join('')
+                : '<div class="activity-item">Sin actividad<span>La simulación aparecerá aquí.</span></div>';
+            document.getElementById('simToggle').textContent = state.simulationPaused ? 'Reanudar vivo' : 'Pausar vivo';
+            document.getElementById('simStatus').textContent = state.simulationPaused ? 'Pausado' : 'Simulado';
+        }
+
+        function renderInventory() {
+            const units = visibleUnits().sort((a, b) => a.id.localeCompare(b.id));
+            inventoryList.innerHTML = units.length
+                ? units.map((unit) => `
+      <button class="inventory-row" type="button" onclick="focusInventoryUnit('${unit.id}')">
+        <strong>${unit.id}</strong>
+        <span>${unit.model || 'Modelo demo'}</span>
+        <span>${STATUS_LABEL[unit.status] || unit.status}</span>
+        <span>${unit.slot}</span>
+      </button>
+    `).join('')
+                : '<div class="activity-item">Sin resultados<span>Ajusta búsqueda, estado o capas.</span></div>';
+        }
+
+        function toggleInventory() {
+            inventoryDrawer.classList.toggle('open');
+            renderInventory();
+        }
+
+        function focusInventoryUnit(unitId) {
+            const unit = state.units[unitId];
+            if (!unit) return;
+            const target = slotNode(unit.slot);
+            if (target) target.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+            selectUnit(unitId);
+        }
+
+        function exportCsv() {
+            const rows = [
+                ['MVA', 'Estado', 'Cajon', 'Ubicacion', 'Gasolina', 'Placas', 'Modelo', 'Notas'],
+                ...visibleUnits().map((unit) => [unit.id, unit.status, unit.slot, unit.place, unit.fuel, unit.plates, unit.model, unit.notes]),
+            ];
+            const csv = rows.map((row) => row.map((value) => `"${String(value || '').replace(/"/g, '""')}"`).join(',')).join('\n');
+            const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `inventario-bjx-${new Date().toISOString().slice(0, 10)}.csv`;
+            link.click();
+            URL.revokeObjectURL(url);
+            addHistory('Exportacion', `${visibleUnits().length} unidades exportadas a CSV`);
+            persistState();
+            showToast('CSV generado');
+        }
+
+        function toggleHistory() {
+            historyDrawer.classList.toggle('open');
+        }
+
+        function updateSummary() {
+            const units = Object.values(state.units);
+            const total = units.length;
+            const listo = units.filter((unit) => unit.status === 'LISTO').length;
+            const sucio = units.filter((unit) => unit.status === 'SUCIO').length;
+            const manto = units.filter((unit) => unit.status === 'MANTENIMIENTO').length;
+            const taller = units.filter((unit) => unit.status === 'EN TALLER' || unit.slot.startsWith('TLLRS')).length;
+            const patio = total - taller;
+            const noRent = units.filter((unit) => unit.status === 'NO ARRENDABLE').length;
+            const alerts = units.filter((unit) => ['MANTENIMIENTO', 'EN TALLER', 'NO ARRENDABLE'].includes(unit.status)).length;
+            const occupied = Math.round((total / slotIds.length) * 100);
+            const lastMovement = (state.history || []).find((item) => /movimiento|swap|remoto/i.test(item.action || ''));
+
+            document.getElementById('metricTotal').textContent = total;
+            document.getElementById('metricListo').textContent = listo;
+            document.getElementById('metricSucio').textContent = sucio;
+            document.getElementById('metricManto').textContent = manto;
+            document.getElementById('metricPatio').textContent = patio;
+            document.getElementById('metricTaller').textContent = taller;
+            document.getElementById('plazaOccupied').textContent = `${occupied}% ocupado`;
+            document.getElementById('miniListo').textContent = listo;
+            document.getElementById('miniSucio').textContent = sucio;
+            document.getElementById('miniManto').textContent = manto;
+            document.getElementById('summaryTotal').textContent = total;
+            document.getElementById('summaryPatio').textContent = patio;
+            document.getElementById('summaryFuera').textContent = 0;
+            document.getElementById('summaryNoRent').textContent = noRent;
+            document.getElementById('summaryListo').textContent = listo;
+            document.getElementById('summaryFooterTotal').textContent = patio;
+            document.getElementById('opsUsers').textContent = state.simulationPaused ? 1 : SIM_USERS.length + 1;
+            document.getElementById('opsPending').textContent = Math.max(0, sucio + manto);
+            document.getElementById('opsAlerts').textContent = alerts;
+            document.getElementById('opsLastMove').textContent = lastMovement ? lastMovement.at.split(',').pop().trim() : '--';
+            document.getElementById('summaryClock').textContent = new Date().toLocaleTimeString('es-MX', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+            });
+        }
+
+        function zoomMap(factor) {
+            currentScale = Math.max(.72, Math.min(1.45, currentScale * factor));
+            stage.style.transform = `scale(${currentScale})`;
+            stage.style.width = `${1840 * currentScale}px`;
+            stage.style.height = `${930 * currentScale}px`;
+        }
+
+        function randomFrom(items) {
+            return items[Math.floor(Math.random() * items.length)];
+        }
+
+        function emptySlots() {
+            const occupied = new Set(Object.values(state.units).map((unit) => unit.slot));
+            return slotIds.filter((slotId) => !occupied.has(slotId));
+        }
+
+        function toggleSimulation() {
+            state.simulationPaused = !state.simulationPaused;
+            addActivity(state.simulationPaused ? 'Simulación pausada' : 'Simulación reanudada', 'El flujo en vivo es completamente ficticio', 'Sistema');
+            persistState();
+            renderAll();
+            showToast(state.simulationPaused ? 'Tiempo real pausado' : 'Tiempo real simulado activo');
+        }
+
+        function simulateRealtimeMove() {
+            if (!state || state.simulationPaused || document.hidden) return;
+            const units = Object.values(state.units).filter((unit) => unit.id !== selectedUnitId);
+            if (!units.length) return;
+            const actor = randomFrom(SIM_USERS);
+            const unit = randomFrom(units);
+            const actionType = Math.random();
+
+            if (actionType < .58) {
+                const targets = emptySlots().filter((slotId) => !slotId.startsWith('B-') && slotId !== unit.slot);
+                if (!targets.length) return;
+                const originSlot = unit.slot;
+                const targetSlot = randomFrom(targets);
+                unit.slot = targetSlot;
+                unit.place = placeForSlot(targetSlot);
+                if (targetSlot.startsWith('TLLRS')) {
+                    unit.status = 'EN TALLER';
+                    unit.color = STATUS_STYLE[unit.status];
+                }
+                unit.savedAt = nowLabel();
+                addHistory('Movimiento remoto', `${unit.id} ${originSlot} -> ${targetSlot}`, actor);
+                showToast(`${actor} movió ${unit.id}`);
+            } else if (actionType < .84) {
+                const nextStatus = randomFrom(['LISTO', 'SUCIO', 'MANTENIMIENTO', 'TRASLADO', 'RESGUARDO', 'NO ARRENDABLE']);
+                const oldStatus = unit.status;
+                unit.status = nextStatus;
+                unit.color = STATUS_STYLE[nextStatus] || unit.color;
+                unit.savedAt = nowLabel();
+                addHistory('Cambio remoto', `${unit.id} ${STATUS_LABEL[oldStatus] || oldStatus} -> ${STATUS_LABEL[nextStatus] || nextStatus}`, actor);
+                showToast(`${actor} actualizó ${unit.id}`);
+            } else {
+                const request = randomFrom(['acceso operador patio', 'permiso taller', 'alta usuario temporal', 'bloqueo preventivo']);
+                addHistory('Aprobación remota', `${request} revisado para BJX`, actor);
+                showToast(`${actor} revisó una solicitud`);
+            }
+
+            persistState();
+            renderAll();
+        }
+
+        function openSummary() {
+            document.getElementById('summaryModal').classList.add('open');
+        }
+
+        function closeSummary() {
+            document.getElementById('summaryModal').classList.remove('open');
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                closeSummary();
+                closeUnit();
+                historyDrawer.classList.remove('open');
+                inventoryDrawer.classList.remove('open');
+            }
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+                event.preventDefault();
+                saveSandbox();
+            }
+            if (!event.ctrlKey && !event.metaKey && event.key.toLowerCase() === 'n') {
+                const target = event.target;
+                if (target?.tagName !== 'INPUT' && target?.tagName !== 'TEXTAREA' && target?.tagName !== 'SELECT') openAdd();
+            }
+        });
+
+        document.getElementById('summaryModal').addEventListener('click', (event) => {
+            if (event.target.id === 'summaryModal') closeSummary();
+        });
+
+        mapSearch.addEventListener('input', (event) => {
+            filterState.query = event.target.value;
+            renderAll();
+        });
+
+        state = loadState();
+        bindSlotInteractions();
+        renderAll();
+        persistState();
+        viewport.scrollTo({ left: 0, top: 0 });
+        simulationTimer = setInterval(simulateRealtimeMove, 5200);
+    </script>
+</body>
+
+</html>
