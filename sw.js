@@ -244,6 +244,18 @@ function _cacheAndReturn(request, response) {
   return response;
 }
 
+// Una navegación (redirect mode "manual") no acepta una Response con
+// redirected=true → reconstruimos una Response limpia con el mismo body.
+async function _stripRedirect(response) {
+  if (!response || !response.redirected) return response;
+  const body = await response.blob();
+  return new Response(body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: response.headers
+  });
+}
+
 function _documentFallbackCandidates(pathname = "/") {
   let cleanPath = String(pathname || "/");
   while (cleanPath.length > 1 && cleanPath.endsWith("/")) cleanPath = cleanPath.slice(0, -1);
@@ -314,7 +326,9 @@ self.addEventListener('fetch', event => {
   if (isDocumentRequest) {
     event.respondWith(
       fetch(event.request)
-        .then(r => (r && r.ok) ? _cacheAndReturn(event.request, r) : _documentFallbackResponse(event.request, url))
+        .then(async r => (r && r.ok)
+          ? _cacheAndReturn(event.request, await _stripRedirect(r))
+          : _documentFallbackResponse(event.request, url))
         .catch(() => _documentFallbackResponse(event.request, url))
     );
     return;

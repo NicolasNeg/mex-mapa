@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#f8fafc">
+  <meta name="theme-color" content="#0f172a">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="description" content="Acceso a la plataforma de gestión operativa de flota.">
@@ -46,49 +46,66 @@
 
   <style>
     /* ═══════════════════════════════════════════════════════════
-       LOGIN — Light, single-tenant, branded
-       Palette: bg #f8fafc · surface #fff · primary #2563eb · accent #3b82f6
+       LOGIN — foto full-bg + tarjeta flotante (Armenta Rent A Car)
+       Desktop: tarjeta a la derecha · Mobile: wordmark + tarjeta centrada
     ═══════════════════════════════════════════════════════════ */
     *, *::before, *::after { box-sizing: border-box; }
 
     :root {
-      --bg:        #f8fafc;
       --surface:   #ffffff;
       --primary:   #2563eb;
       --primary-d: #1d4ed8;
-      --accent:    #3b82f6;
       --text:      #0f172a;
       --muted:     #64748b;
-      --border:    #e4ecfc;
-      --field:     #f1f5f9;
+      --border:    #d5deec;
+      --field:     #ffffff;
       --danger:    #dc2626;
     }
 
+    html, body { height: 100%; }
     body {
       margin: 0;
       min-height: 100dvh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 24px;
       font-family: 'Inter', system-ui, sans-serif;
       color: var(--text);
+      /* Fondo: foto del auto (déjala en /img/login-bg.jpg). Degradado de respaldo. */
       background:
-        radial-gradient(60% 60% at 15% 20%, rgba(37,99,235,0.08), transparent 70%),
-        radial-gradient(50% 60% at 90% 90%, rgba(59,130,246,0.07), transparent 70%),
-        var(--bg);
+        linear-gradient(180deg, rgba(15,23,42,0.45) 0%, rgba(15,23,42,0.15) 40%, rgba(15,23,42,0.55) 100%),
+        url('/img/login-bg.jpg') center center / cover no-repeat,
+        linear-gradient(155deg, #46505f 0%, #737d8a 55%, #2b3038 100%);
+      background-blend-mode: normal;
     }
 
-    /* ── Split card ───────────────────────────────────────── */
-    .login-card {
+    .login-shell {
+      min-height: 100dvh;
       display: flex;
+      flex-direction: column;
+      align-items: flex-end;          /* desktop: tarjeta a la derecha */
+      justify-content: center;
+      padding: 32px clamp(24px, 6vw, 96px);
+    }
+
+    /* ── Wordmark (visible sólo en mobile, sobre la foto) ── */
+    .brand-wordmark {
+      display: none;
+      align-items: center;
+      gap: 12px;
+      color: #fff;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.35);
+    }
+    .brand-wordmark .brand-logo { width: 54px; height: 54px; color: #fff; }
+    .brand-wordmark .wm-text { display: flex; flex-direction: column; line-height: 1.05; }
+    .brand-wordmark .brand-name { font-size: 30px; font-weight: 800; letter-spacing: -0.5px; }
+    .brand-wordmark .wm-sub { font-size: 15px; font-weight: 500; opacity: 0.92; }
+
+    /* ── Tarjeta ── */
+    .login-card {
       width: 100%;
-      max-width: 960px;
+      max-width: 420px;
       background: var(--surface);
-      border-radius: 24px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
+      border-radius: 20px;
+      padding: 44px 40px 34px;
+      box-shadow: 0 30px 70px rgba(15, 23, 42, 0.28);
       animation: cardIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
     @keyframes cardIn {
@@ -96,187 +113,95 @@
       to   { opacity: 1; transform: none; }
     }
 
-    /* ── Brand side (claro) ───────────────────────────────── */
-    .brand-side {
-      flex: 1 1 44%;
-      position: relative;
-      padding: 48px 40px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      gap: 22px;
-      background: linear-gradient(160deg, #eff6ff 0%, #dbeafe 100%);
-      overflow: hidden;
-    }
-    /* Líneas topográficas sutiles */
-    .brand-side::before {
-      content: '';
-      position: absolute; inset: 0;
-      background-image: radial-gradient(circle, rgba(37,99,235,0.10) 1.2px, transparent 1.2px);
-      background-size: 26px 26px;
-      opacity: 0.6;
-      pointer-events: none;
-    }
-    .brand-side > * { position: relative; z-index: 1; }
-
-    .brand-logo {
-      width: 88px; height: 88px;
-      border-radius: 22px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      box-shadow: 0 10px 24px rgba(37, 99, 235, 0.14);
-      display: flex; align-items: center; justify-content: center;
-      overflow: hidden;
-    }
-    .brand-logo .material-icons { font-size: 44px; color: var(--primary); }
-
-    .brand-name {
-      margin: 0;
-      font-size: 26px;
-      font-weight: 800;
-      letter-spacing: -0.4px;
-      color: #0b2a66;
-      line-height: 1.15;
-    }
-    .brand-slogan {
-      margin: 0;
-      font-size: 15px;
-      font-weight: 500;
-      line-height: 1.55;
-      color: #1e3a8a;
-      max-width: 320px;
-    }
-    .brand-features {
-      display: flex; flex-direction: column; gap: 10px;
-      margin-top: 6px;
-    }
-    .brand-feature {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 13px; font-weight: 600; color: #1e40af;
-    }
-    .brand-feature .material-icons {
-      font-size: 18px;
-      color: var(--primary);
-      background: rgba(37, 99, 235, 0.1);
-      border-radius: 8px;
-      padding: 5px;
-    }
-
-    /* ── Form side ────────────────────────────────────────── */
-    .form-side {
-      flex: 1 1 56%;
-      padding: 48px 44px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-    }
-    .form-avatar {
+    /* Logo "A" dentro de la tarjeta (visible en desktop) */
+    .card-logo {
       width: 68px; height: 68px;
-      margin: 0 auto 18px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--accent), var(--primary));
-      display: flex; align-items: center; justify-content: center;
-      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.28);
+      margin: 0 auto 6px;
+      color: var(--text);
     }
-    .form-avatar .material-icons { color: #fff; font-size: 34px; }
+    .brand-logo { display: block; }
+    .brand-logo svg { width: 100%; height: 100%; display: block; }
+    .brand-logo img { width: 100%; height: 100%; object-fit: contain; }
 
     .form-title {
-      margin: 0 0 4px;
-      text-align: center;
-      font-size: 22px; font-weight: 800; letter-spacing: -0.3px;
-    }
-    .form-sub {
       margin: 0 0 26px;
       text-align: center;
-      font-size: 13.5px; color: var(--muted);
+      font-size: 40px; font-weight: 800; letter-spacing: -1px;
+      color: var(--text);
     }
 
     .field { margin-bottom: 14px; }
-    .field-label {
-      display: block;
-      font-size: 12px; font-weight: 600;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-    .field-pill {
-      position: relative;
-      display: flex; align-items: center;
-    }
+    .field-pill { position: relative; display: flex; align-items: center; }
     .field-pill > .pill-icon {
-      position: absolute; left: 15px;
-      color: var(--primary); font-size: 20px;
-      pointer-events: none;
+      position: absolute; left: 16px;
+      color: #94a3b8; font-size: 22px; pointer-events: none;
     }
     .field-pill input {
       width: 100%;
-      height: 52px;
+      height: 56px;
       border: 1.5px solid var(--border);
-      border-radius: 14px;
+      border-radius: 12px;
       background: var(--field);
-      padding: 0 48px 0 46px;
-      font-size: 15px; font-family: inherit; color: var(--text);
-      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      padding: 0 48px 0 50px;
+      font-size: 16px; font-family: inherit; color: var(--text);
+      transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .field-pill input::placeholder { color: #94a3b8; }
+    .field-pill input::placeholder { color: #9aa6b8; }
     .field-pill input:focus {
       outline: none;
       border-color: var(--primary);
-      background: #fff;
-      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
     }
     .pill-toggle {
-      position: absolute; right: 12px;
-      cursor: pointer; color: #94a3b8; font-size: 20px;
-      user-select: none;
+      position: absolute; right: 14px;
+      cursor: pointer; color: #94a3b8; font-size: 22px; user-select: none;
     }
 
     .form-row {
       display: flex; align-items: center; justify-content: space-between;
-      margin: 4px 0 22px;
+      margin: 10px 2px 22px;
     }
     .remember {
       display: flex; align-items: center; gap: 8px;
-      font-size: 13px; color: var(--muted); cursor: pointer; user-select: none;
+      font-size: 14px; color: #334155; cursor: pointer; user-select: none;
     }
-    .remember input { width: 16px; height: 16px; accent-color: var(--primary); cursor: pointer; }
+    .remember input { width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer; }
+    .link-forgot {
+      background: none; border: none; padding: 0; cursor: pointer;
+      color: var(--primary); font-size: 14px; font-weight: 600; font-family: inherit;
+    }
+    .link-forgot:hover { text-decoration: underline; }
 
     .btn-primary {
       width: 100%;
-      height: 52px;
-      border: none; border-radius: 14px;
-      background: linear-gradient(135deg, var(--accent), var(--primary));
+      height: 56px;
+      border: none; border-radius: 12px;
+      background: var(--primary);
       color: #fff;
-      font-size: 15px; font-weight: 700; font-family: inherit;
+      font-size: 16px; font-weight: 700; font-family: inherit;
       letter-spacing: 0.3px;
       cursor: pointer;
-      transition: filter 0.15s, transform 0.05s;
-      box-shadow: 0 8px 20px rgba(37, 99, 235, 0.25);
+      transition: background 0.15s, transform 0.05s;
     }
-    .btn-primary:hover { filter: brightness(1.06); }
+    .btn-primary:hover { background: var(--primary-d); }
     .btn-primary:active { transform: translateY(1px); }
     .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 
-    .divider {
-      display: flex; align-items: center; gap: 12px;
-      margin: 22px 0;
-      color: #94a3b8; font-size: 11px; font-weight: 600; letter-spacing: 0.5px;
-    }
-    .divider::before, .divider::after {
-      content: ''; flex: 1; height: 1px; background: var(--border);
-    }
-
     .btn-google {
       width: 100%;
-      height: 50px;
-      border: 1.5px solid var(--border); border-radius: 14px;
+      height: 54px;
+      margin-top: 14px;
+      border: 1.5px solid var(--primary);
+      border-radius: 12px;
       background: #fff; color: var(--text);
-      font-size: 14px; font-weight: 600; font-family: inherit;
+      font-size: 15px; font-weight: 600; font-family: inherit;
       cursor: pointer;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
-      transition: background 0.15s, border-color 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+      transition: background 0.15s;
     }
-    .btn-google:hover { background: var(--field); border-color: #cbd5e1; }
+    .btn-google:hover { background: #f1f5f9; }
     .btn-google:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-google img { width: 20px; }
 
     .login-error-box {
       display: flex; align-items: center; gap: 8px;
@@ -290,11 +215,11 @@
     .form-footer {
       margin-top: 22px;
       text-align: center;
-      font-size: 12.5px; color: var(--muted);
+      font-size: 14px; color: var(--muted);
     }
     .form-footer .link-btn {
       background: none; border: none; cursor: pointer;
-      color: var(--primary); font-weight: 700; font-family: inherit; font-size: 12.5px;
+      color: var(--text); font-weight: 700; font-family: inherit; font-size: 14px;
       padding: 0;
     }
     .form-footer .link-btn:hover { text-decoration: underline; }
@@ -319,12 +244,12 @@
     .sol-form { display: flex; flex-direction: column; gap: 10px; }
     .sol-input {
       height: 46px; border: 1.5px solid var(--border); border-radius: 12px;
-      background: var(--field); padding: 0 14px; font-size: 14px; font-family: inherit;
+      background: #f8fafc; padding: 0 14px; font-size: 14px; font-family: inherit;
     }
     .sol-input:focus { outline: none; border-color: var(--primary); background: #fff; }
     .sol-btn-primary {
       height: 48px; border: none; border-radius: 12px; margin-top: 4px;
-      background: linear-gradient(135deg, var(--accent), var(--primary)); color: #fff;
+      background: var(--primary); color: #fff;
       font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer;
     }
     .sol-link-btn {
@@ -332,15 +257,18 @@
       color: var(--muted); font-size: 13px; font-family: inherit;
     }
 
-    /* ── Responsive ───────────────────────────────────────── */
+    /* ── Mobile ───────────────────────────────────────────── */
     @media (max-width: 860px) {
-      .login-card { flex-direction: column; max-width: 440px; }
-      .brand-side { padding: 32px 30px; }
-      .brand-features { display: none; }
-      .brand-logo { width: 64px; height: 64px; border-radius: 18px; }
-      .brand-logo .material-icons { font-size: 32px; }
-      .brand-name { font-size: 22px; }
-      .form-side { padding: 36px 28px; }
+      .login-shell {
+        align-items: center;             /* mobile: tarjeta centrada */
+        justify-content: flex-start;
+        gap: 48px;
+        padding-top: clamp(48px, 12vh, 120px);
+      }
+      .brand-wordmark { display: flex; }
+      .card-logo { display: none; }        /* en mobile el logo va en el wordmark */
+      .login-card { max-width: 440px; padding: 34px 28px 28px; }
+      .form-title { font-size: 34px; margin-bottom: 22px; }
     }
     @media (prefers-reduced-motion: reduce) {
       .login-card { animation: none; }
@@ -349,43 +277,46 @@
 </head>
 
 <body>
-  <div class="login-card">
+  <div class="login-shell">
 
-    <!-- Brand (logo + nombre desde config; slogan fijo) -->
-    <aside class="brand-side">
-      <div class="brand-logo">
-        <span class="material-icons">directions_car</span>
-      </div>
-      <div>
-        <h1 class="brand-name">Mi Empresa</h1>
-      </div>
-      <p class="brand-slogan">Control de Flota, Visual, Administrativa y más.</p>
-      <div class="brand-features">
-        <div class="brand-feature"><span class="material-icons">map</span> Unidades en tiempo real</div>
-        <div class="brand-feature"><span class="material-icons">fact_check</span> Cuadres y movimientos</div>
-        <div class="brand-feature"><span class="material-icons">report</span> Incidencias y reportes</div>
-      </div>
-    </aside>
+    <!-- Wordmark (mobile) -->
+    <header class="brand-wordmark">
+      <span class="brand-logo" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 51 L32 13 L51 51" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M23 39 L41 39" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <path d="M7 45 C24 33, 40 33, 57 45" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+        </svg>
+      </span>
+      <span class="wm-text">
+        <strong class="brand-name">Armenta</strong>
+        <span class="wm-sub">Rent A Car</span>
+      </span>
+    </header>
 
-    <!-- Form -->
-    <main class="form-side">
-      <div class="form-avatar"><span class="material-icons">person</span></div>
-      <h2 class="form-title">Bienvenido</h2>
-      <p class="form-sub">Accede a tu plataforma de gestión operativa</p>
+    <!-- Tarjeta -->
+    <main class="login-card">
+      <span class="brand-logo card-logo" aria-hidden="true">
+        <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M13 51 L32 13 L51 51" stroke="currentColor" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M23 39 L41 39" stroke="currentColor" stroke-width="6" stroke-linecap="round"/>
+          <path d="M7 45 C24 33, 40 33, 57 45" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity="0.85"/>
+        </svg>
+      </span>
+
+      <h1 class="form-title">Login</h1>
 
       <div class="field">
-        <label class="field-label" for="auth_email">Correo electrónico</label>
         <div class="field-pill">
-          <span class="material-icons pill-icon">mail</span>
-          <input type="email" id="auth_email" placeholder="correo@empresa.com" autocomplete="email">
+          <span class="material-icons pill-icon">person</span>
+          <input type="email" id="auth_email" placeholder="Username" autocomplete="email">
         </div>
       </div>
 
       <div class="field">
-        <label class="field-label" for="auth_pass">Contraseña</label>
         <div class="field-pill">
           <span class="material-icons pill-icon">lock</span>
-          <input type="password" id="auth_pass" placeholder="••••••••" autocomplete="current-password">
+          <input type="password" id="auth_pass" placeholder="Password" autocomplete="current-password">
           <span class="material-icons pill-toggle" onclick="togglePassword('auth_pass', this)">visibility</span>
         </div>
       </div>
@@ -393,17 +324,16 @@
       <div class="form-row">
         <label class="remember">
           <input type="checkbox" id="auth_remember" checked>
-          Mantener sesión iniciada
+          Remember me
         </label>
+        <button type="button" class="link-forgot" onclick="olvidePassword()">Forgot password?</button>
       </div>
 
-      <button onclick="loginManual()" id="btnLoginManual" class="btn-primary">INICIAR SESIÓN</button>
-
-      <div class="divider">O CONTINÚA CON</div>
+      <button onclick="loginManual()" id="btnLoginManual" class="btn-primary">LOGIN</button>
 
       <button onclick="loginConGoogle()" id="btnGoogleLogin" class="btn-google">
-        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;" alt="">
-        Cuenta de Google
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="">
+        Sign in with Google
       </button>
 
       <div id="login-error" class="login-error-box" style="display:none;">
@@ -412,8 +342,8 @@
       </div>
 
       <div class="form-footer">
-        ¿Tienes un código de invitación?
-        <button type="button" class="link-btn" onclick="window.abrirModalSolicitud()">Crear cuenta</button>
+        Need access?
+        <button type="button" class="link-btn" onclick="window.abrirModalSolicitud()">Request here</button>
       </div>
     </main>
 

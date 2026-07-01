@@ -76,7 +76,7 @@ function _resetManualLoginButton() {
   const btn = document.getElementById('btnLoginManual');
   if (!btn) return;
   btn.disabled = false;
-  btn.innerText = 'INICIAR SESIÓN';
+  btn.innerText = 'LOGIN';
 }
 
 function upper(value) {
@@ -245,7 +245,7 @@ window.loginManual = async function () {
   if (!email || !pass) { _showError('Ingresa correo y contraseña.'); return; }
 
   btn.disabled = true;
-  btn.innerText = 'VERIFICANDO...';
+  btn.innerText = 'VERIFYING…';
   _hideError();
 
   try {
@@ -257,7 +257,7 @@ window.loginManual = async function () {
     const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_EMAIL);
     if (gate.blocked) {
       btn.disabled = false;
-      btn.innerText = 'INICIAR SESIÓN';
+      btn.innerText = 'LOGIN';
       _showError(gate.message || 'No pudimos validar seguridad, intenta de nuevo.');
       return;
     }
@@ -266,7 +266,7 @@ window.loginManual = async function () {
     // onAuthStateChanged redirige automáticamente
   } catch (err) {
     btn.disabled = false;
-    btn.innerText = 'INICIAR SESIÓN';
+    btn.innerText = 'LOGIN';
     const genericAuthMsg = 'No pudimos iniciar sesión. Verifica tus datos o confirma que tu cuenta ya fue autorizada.';
     const MSGS = {
       'auth/wrong-password': genericAuthMsg,
@@ -304,7 +304,7 @@ window.loginConGoogle = async function () {
     const gate = await tryVerifyRecaptchaForLogin(RECAPTCHA_ACTION_GOOGLE);
     if (gate.blocked) {
       btn.disabled = false;
-      btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE';
+      btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> Sign in with Google';
       _showError(gate.message || 'No pudimos validar seguridad, intenta de nuevo.');
       return;
     }
@@ -313,7 +313,7 @@ window.loginConGoogle = async function () {
     await firebase.auth().signInWithPopup(provider);
   } catch (err) {
     btn.disabled = false;
-    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> CUENTA DE GOOGLE';
+    btn.innerHTML = '<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:18px;"> Sign in with Google';
     if (err.code === 'auth/popup-closed-by-user') return;
     const code = err?.code || '';
     if (String(code).startsWith('auth/')) {
@@ -374,6 +374,24 @@ window.togglePassword = function (inputId, iconEl) {
     input.type = 'password';
     iconEl.innerText = 'visibility';
     iconEl.style.color = '#c4d0de';
+  }
+};
+
+// ── Recuperar contraseña ──────────────────────────────────
+window.olvidePassword = async function () {
+  const typed = document.getElementById('auth_email')?.value.trim() || '';
+  const ask   = window.mexPrompt || (async (t) => window.prompt(t, typed));
+  const email = (await ask('Recuperar contraseña', {
+    message: 'Escribe tu correo y te enviaremos un enlace para restablecerla.',
+    defaultValue: typed,
+    placeholder: 'correo@empresa.com'
+  }))?.toString().trim();
+  if (!email) return;
+  try {
+    await firebase.auth().sendPasswordResetEmail(email);
+    (window.mexAlert || window.alert)('Listo. Revisa tu correo para restablecer la contraseña.');
+  } catch (err) {
+    (window.mexAlert || window.alert)('No se pudo enviar el correo. Verifica que la dirección sea correcta.');
   }
 };
 
