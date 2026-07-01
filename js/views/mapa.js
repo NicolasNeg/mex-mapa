@@ -8557,17 +8557,26 @@ function _isMissingIndexRadarError(error) {
   return code === 'failed-precondition' || message.includes('requires an index');
 }
 
+let _radarPlaza = null;
+
 function _limpiarRadar() {
   if (radarInterval) { clearInterval(radarInterval); radarInterval = null; }
   _unsubRadar.forEach(u => u());
   _unsubRadar = [];
+  _radarPlaza = null;
   _radarState = { settings: null, globalSettings: null, alertas: null, mensajes: null, incidencias: 0 };
   _radarReady = { settings: false, globalSettings: false, alertas: false, mensajes: false, incidencias: false };
 }
 
 function iniciarRadarNotificaciones() {
+  const _plazaRadar = (_miPlaza() || 'GLOBAL').toUpperCase();
+  // Idempotente: si el radar ya está suscrito para esta misma plaza, no lo
+  // reiniciamos (evita re-leer alertas×50 + mensajes + notas + settings en cada
+  // llamada redundante — init, cambio de plaza a la misma, remount, etc.).
+  if (_unsubRadar.length && _radarPlaza === _plazaRadar) return;
   _limpiarRadar();
   if (!USER_NAME) return;
+  _radarPlaza = _plazaRadar;
   if (canLockMap() && typeof api.ensureGlobalSettingsDoc === 'function') {
     api.ensureGlobalSettingsDoc().catch(err => console.warn('GLOBAL settings:', err));
   }
