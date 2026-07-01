@@ -108,7 +108,12 @@
     setTimeout(function () { i.focus(); }, 120);
     runSearch();
   }
-  function close() { document.getElementById('mexbzOverlay').classList.remove('open'); }
+  function close() {
+    document.getElementById('mexbzOverlay').classList.remove('open');
+    // Limpiar el filtro en vivo para no dejar el mapa filtrado al cerrar.
+    var live = document.getElementById('searchInput') || document.getElementById('searchInputMobile');
+    if (live && live.value) { live.value = ''; if (typeof window.buscarMasivo === 'function') window.buscarMasivo(); }
+  }
 
   function switchTab(tab) {
     if (tab === TAB) return;
