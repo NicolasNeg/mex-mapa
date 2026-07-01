@@ -1544,30 +1544,9 @@
         </div>
       </div>
     </div>
-    <script>
-      (function() {
-        var panel = document.getElementById('kpiPanel');
-        var btn   = document.getElementById('kpiToggleBtn');
-        var label = document.getElementById('kpiToggleLabel');
-        var chev  = document.getElementById('kpiChevron');
-        var KEY   = 'mex.kpi.collapsed';
-        function applyKpi(collapsed) {
-          panel.classList.toggle('is-collapsed', collapsed);
-          label.textContent = collapsed ? 'ESTADÍSTICAS' : 'OCULTAR';
-          chev.style.transform = collapsed ? 'rotate(180deg)' : '';
-          try { localStorage.setItem(KEY, collapsed ? '1' : '0'); } catch(_) {}
-        }
-        try {
-          var stored = localStorage.getItem(KEY);
-          var isMobile = window.matchMedia('(max-width: 768px)').matches;
-          // Mobile arranca colapsada (solo el chip) si no hay preferencia previa.
-          if (stored === '1' || (stored === null && isMobile)) applyKpi(true);
-        } catch(_) {}
-        btn.addEventListener('click', function() {
-          applyKpi(!panel.classList.contains('is-collapsed'));
-        });
-      })();
-    </script>
+    <!-- Barra fija de KPIs retirada: los KPIs se ven como popup desde el
+         engranaje (verKpis). El #kpiPanel de arriba queda oculto por CSS para
+         que sus valores #kpi-* se sigan calculando y el popup los lea. -->
 
     <!-- [F3.3] Panel KPI de supervisión (multi-plaza) -->
     <div id="panel-supervision" style="display:none;"></div>
@@ -1588,7 +1567,7 @@
           style="display:none;position:absolute;left:0;bottom:calc(100% + 10px);background:#ffffff;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:230px;padding:8px;z-index:9999;border:1px solid #e5e7eb;animation:dd-in .15s ease both">
           <div style="padding:6px 12px 6px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#6b7280;text-transform:uppercase">CONTROLES</div>
 
-          <!-- Ver KPIs (sólo móvil: en escritorio la barra ya está visible) -->
+          <!-- Ver KPIs (popup) — disponible en escritorio y móvil -->
           <div id="controlesItemKpis" class="kpi-menu-item"
             style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s"
             onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''"

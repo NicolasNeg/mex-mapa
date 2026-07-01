@@ -4283,11 +4283,13 @@
     }
 
     .kpi-container {
-      /* In-flow sticky — nunca se superpone a las unidades */
+      /* Barra fija de KPIs retirada del mapa (estorbaba). Los KPIs se ven como
+         popup desde el engranaje (verKpis). Se mantiene en el DOM oculta para
+         que los valores #kpi-* sigan calculándose y el popup los lea. */
+      display: none;
       position: sticky;
       top: 0;
       z-index: 200;
-      display: flex;
       align-items: center;
       justify-content: center;
       gap: 0;
@@ -5597,30 +5599,9 @@
    Escritorio intacto.
    ═══════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  /* KPIs en mobile: barra compacta colapsable (no toast). Colapsada por
-     defecto (solo el chip); al tocar se expande en una fila con scroll
-     horizontal. No tapa el mapa. */
-  .kpi-container {
-    display: flex;
-    width: auto;
-    max-width: calc(100% - 16px);
-    margin: 8px auto 10px;
-    border-radius: 0 0 14px 14px;
-    padding: 0 2px;
-  }
-  .kpi-toggle-btn { padding: 8px; font-size: 11px; }
-  .kpi-items-wrap {
-    min-width: 0;
-    gap: 14px;
-    padding: 8px 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .kpi-items-wrap::-webkit-scrollbar { display: none; }
-  .kpi-item { flex: 0 0 auto; }
-  .kpi-value { font-size: 16px; }
-  .kpi-divider { display: none; }
+  /* KPIs fuera del mapa en todos los tamaños: se ven como popup desde el
+     engranaje (verKpis). La barra fija estorbaba. */
+  .kpi-container { display: none; }
 
   /* Bug: el scrim del sidebar de unidades se agrega a <body> y en mobile queda
      por encima del sidebar (contexto de apilamiento), bloqueando los taps sobre
@@ -5721,9 +5702,7 @@
   }
 }
 
-/* Escritorio: botones de zoom del cuadre fuera (la tabla cabe) y
-   "Ver KPIs" fuera (la barra de KPIs ya está visible). */
+/* Escritorio: botones de zoom del cuadre fuera (la tabla cabe). */
 @media (min-width: 769px) {
   .cuadre-zoom-ctrl { display: none; }
-  .kpi-menu-item { display: none !important; }
 }
