@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v449';
+const CACHE_NAME = 'mapa-v450';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -17,7 +17,9 @@ self.addEventListener('message', event => {
 // Si alguno falla → instalación falla (comportamiento esperado:
 // el SW no se activa con assets rotos).
 const CRITICAL_ASSETS = [
-  '/',
+  // Nota: NO cachear '/' — hosting lo redirige (302 → /app) y cache.add seguiría
+  // el redirect, guardando una Response 'redirected' que rompe la navegación
+  // ("a redirected response was used…" → ERR_FAILED). La raíz se resuelve en runtime.
   '/index.html',
   '/login.html',
   '/mapa.html',
@@ -283,12 +285,14 @@ function _documentFallbackCandidates(pathname = "/") {
 }
 
 async function _documentFallbackResponse(request, url) {
+  // _stripRedirect: una Response 'redirected' cacheada no puede devolverse a una
+  // navegación (redirect mode "manual") sin romperla → la reconstruimos limpia.
   const cachedExact = await caches.match(request);
-  if (cachedExact) return cachedExact;
+  if (cachedExact) return _stripRedirect(cachedExact);
 
   for (const candidate of _documentFallbackCandidates(url.pathname)) {
     const cached = await caches.match(candidate);
-    if (cached) return cached;
+    if (cached) return _stripRedirect(cached);
   }
 
   return new Response(
@@ -327,9 +331,15 @@ self.addEventListener('fetch', event => {
   if (isDocumentRequest) {
     event.respondWith(
       fetch(event.request)
-        .then(async r => (r && r.ok)
-          ? _cacheAndReturn(event.request, await _stripRedirect(r))
-          : _documentFallbackResponse(event.request, url))
+        .then(async r => {
+          // Navegación con redirect del servidor (p.ej. / → /app 302): fetch la
+          // devuelve como 'opaqueredirect'. Hay que devolverla tal cual para que
+          // el navegador siga el redirect (no es error).
+          if (r && r.type === 'opaqueredirect') return r;
+          return (r && r.ok)
+            ? _cacheAndReturn(event.request, await _stripRedirect(r))
+            : _documentFallbackResponse(event.request, url);
+        })
         .catch(() => _documentFallbackResponse(event.request, url))
     );
     return;
