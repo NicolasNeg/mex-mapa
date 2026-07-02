@@ -4632,6 +4632,22 @@ function _selectCarOnMap(car, options = {}) {
 // Expuesto para el panel BUSCAR UNIDAD (mapa-buscador.js, script clásico).
 window.__mexSelectCarOnMap = _selectCarOnMap;
 
+// Acceso directo desde el buscador global ("Ir al mapa"): busca la unidad por
+// MVA, hace scroll, la selecciona y le da un pulso de resaltado. Devuelve true
+// si la encontró (el shell reintenta hasta que el .car esté renderizado).
+window.__mexFocusUnidad = function (mva) {
+  var target = String(mva || '').trim().toUpperCase();
+  if (!target) return false;
+  var car = Array.prototype.slice.call(document.querySelectorAll('.car'))
+    .find(function (c) { return (c.dataset.mva || '').toUpperCase() === target; });
+  if (!car) return false;
+  try { car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+  _selectCarOnMap(car, { openPanel: true });
+  car.classList.add('car-focus-pulse');
+  setTimeout(function () { car.classList.remove('car-focus-pulse'); }, 2200);
+  return true;
+};
+
 async function _handleMapUnitDrop(unidad, destino, options = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return false;
   const fromDrag = options.fromDrag === true;

@@ -596,6 +596,43 @@ body.dark-theme {
   font-weight: normal;
   line-height: 1;
   flex-shrink: 0;
+  /* Ahora es botón clickeable (submit de búsqueda global). */
+  border: none;
+  background: none;
+  padding: 2px;
+  margin: 0;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s, background 0.15s;
+}
+.mex-header-search-icon:hover { color: #2563eb; background: rgba(37, 99, 235, 0.08); }
+
+/* Toggle de modo Página / Global */
+.mex-hdr-searchmode {
+  display: inline-flex;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 2px;
+  gap: 2px;
+}
+.mex-hdr-searchmode button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  padding: 3px 8px;
+  border-radius: 6px;
+  line-height: 1.4;
+  transition: background 0.15s, color 0.15s;
+}
+.mex-hdr-searchmode button.is-active {
+  background: #ffffff;
+  color: #2563eb;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 .mex-header-search-input {

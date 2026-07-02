@@ -56,6 +56,7 @@ export class ShellLayout {
     onBellClick  = null,
     onPlazaChange = null,
     onSearchInput = null,
+    onSearchSubmit = null,
     mainClass    = ''
   } = {}) {
     this._containerEl = container;
@@ -108,6 +109,9 @@ export class ShellLayout {
       },
       onSearchInput: payload => {
         if (typeof onSearchInput === 'function') onSearchInput(payload);
+      },
+      onSearchSubmit: payload => {
+        if (typeof onSearchSubmit === 'function') onSearchSubmit(payload);
       }
     });
     this._header.mount(headerWrap);

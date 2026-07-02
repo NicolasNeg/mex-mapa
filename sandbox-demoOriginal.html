@@ -1382,6 +1382,33 @@
         .mh-title-text { display: none; }
         .mh-plaza { display: none; }
       }
+
+      /* ===== RESPONSIVE — móvil (iPhone) y tablet (iPad) ===== */
+      /* Quita el ancho mínimo que forzaba scroll horizontal + usa dvh (barra del navegador móvil) */
+      .app { min-width: 0 !important; width: 100%; height: 100vh; height: 100dvh; }
+
+      @media (max-width: 1024px) {
+        .inventory-drawer { left: 10px; right: 10px; top: 66px; width: auto; max-width: none; max-height: calc(100dvh - 150px); transform: translateX(0) translateY(-12px); }
+        .inventory-drawer.open { transform: translateY(0); }
+        .history-drawer { left: 10px; right: 10px; width: auto; max-width: 420px; }
+        .zoom-stack { right: 12px; bottom: 12px; gap: 10px; }
+        .zoom-stack button { width: 48px; height: 48px; font-size: 26px; border-radius: 14px; }
+      }
+
+      @media (max-width: 640px) {
+        .sandbox-toolbar {
+          left: 8px; right: 8px; bottom: 8px; max-width: none;
+          gap: 6px; padding: 7px; overflow-x: auto; flex-wrap: nowrap;
+          -webkit-overflow-scrolling: touch;
+        }
+        .sandbox-toolbar::-webkit-scrollbar { display: none; }
+        .sandbox-toolbar button, .sandbox-mark { min-height: 34px; font-size: 11px; flex-shrink: 0; white-space: nowrap; padding: 0 10px; }
+        .zoom-stack { right: 8px; bottom: 68px; }
+        .zoom-stack button { width: 44px; height: 44px; font-size: 24px; }
+        .history-drawer { left: 8px; right: 8px; max-width: none; max-height: 46dvh; bottom: 76px; }
+        .inventory-drawer { top: 62px; max-height: calc(100dvh - 140px); }
+        .map-header-search input { font-size: 12px; }
+      }
     </style>
 </head>
 
@@ -1667,16 +1694,6 @@
             </article>
         </section>
 
-        <div class="sandbox-toolbar" aria-label="Controles del sandbox">
-            <span class="sandbox-mark">SANDBOX</span>
-            <button type="button" onclick="openAdd()">+ Nuevo</button>
-            <button type="button" onclick="saveSandbox()">Guardar</button>
-            <button type="button" onclick="toggleHistory()">Movimientos</button>
-            <button type="button" onclick="toggleInventory()">Inventario</button>
-            <button type="button" onclick="exportCsv()">CSV</button>
-            <button type="button" onclick="toggleSimulation()" id="simToggle">Pausar vivo</button>
-            <button type="button" onclick="resetSandbox()">Reset</button>
-        </div>
 
         <div class="zoom-stack" aria-label="Controles de zoom">
             <button type="button" onclick="zoomMap(1.12)" aria-label="Acercar">+</button>
@@ -2427,12 +2444,25 @@
             set('summaryClock', new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
         }
 
-        function zoomMap(factor) {
-            currentScale = Math.max(.72, Math.min(1.45, currentScale * factor));
+        function applyZoom() {
             stage.style.transform = `scale(${currentScale})`;
             stage.style.width = `${1840 * currentScale}px`;
             stage.style.height = `${930 * currentScale}px`;
         }
+
+        function zoomMap(factor) {
+            currentScale = Math.max(.4, Math.min(1.45, currentScale * factor));
+            applyZoom();
+        }
+
+        // Ajusta el zoom inicial según el ancho de pantalla (iPhone / iPad / desktop)
+        function applyResponsiveZoom() {
+            const w = window.innerWidth;
+            currentScale = w < 560 ? 0.5 : w < 900 ? 0.62 : w < 1200 ? 0.82 : 1;
+            applyZoom();
+        }
+        let _zoomResizeT = 0;
+        window.addEventListener('resize', () => { clearTimeout(_zoomResizeT); _zoomResizeT = setTimeout(applyResponsiveZoom, 200); });
 
         function randomFrom(items) {
             return items[Math.floor(Math.random() * items.length)];
@@ -2545,6 +2575,7 @@
         renderAll();
         persistState();
         viewport.scrollTo({ left: 0, top: 0 });
+        applyResponsiveZoom();
         simulationTimer = setInterval(simulateRealtimeMove, 5200);
     </script>
 </body>

@@ -298,12 +298,24 @@ async function boot() {
     onPlazaChange: (nextPlaza) => {
       setCurrentPlaza(nextPlaza, { source: 'app-shell-header' });
     },
-    // El buscador del header abre el panel global BUSCAR UNIDAD (búsqueda rápida
-    // de unidades/usuarios). El buscador del contenedor (mapa/cuadre) queda
-    // independiente — ya no se alimenta desde el header.
+    // Modo "En página": teclear filtra la vista actual en vivo (comportamiento
+    // previo). Modo "Global": teclear no hace nada; el panel se abre por submit.
     onSearchInput: payload => {
-      const q = String(payload?.query || '');
-      if (typeof window.__mexBuscadorOpen === 'function') window.__mexBuscadorOpen(q);
+      if (payload?.mode !== 'inpage') return;
+      window.dispatchEvent(new CustomEvent('mex:global-search', {
+        detail: {
+          query: String(payload?.query || ''),
+          route: String(payload?.route || getState().currentRoute || ''),
+          source: 'shell-header'
+        }
+      }));
+    },
+    // Submit (Enter o lupa): en modo Global abre el panel BUSCAR UNIDAD.
+    onSearchSubmit: payload => {
+      if (payload?.mode !== 'global') return;
+      if (typeof window.__mexBuscadorOpen === 'function') {
+        window.__mexBuscadorOpen(String(payload?.query || ''));
+      }
     }
   });
 
@@ -313,6 +325,14 @@ async function boot() {
 
   // 6. Crear router — renderiza la vista inicial automáticamente
   router = createRouter({ shell });
+  // Navegación SPA global (la usa el buscador global para "Ir al mapa").
+  window.__mexShellNavigate = (path) => router.navigate(path);
+  // Acceso directo: navega al mapa y deja pendiente el MVA a resaltar
+  // (legacy-stage lo reenvía al iframe del mapa cuando se muestra).
+  window.__mexGoToMapUnit = (mva) => {
+    window.__mexPendingMapFocus = String(mva || '').trim().toUpperCase();
+    router.navigate('/app/mapa');
+  };
   _runWhenIdle(() => {
     warmAppAssets().catch(err => console.warn('[app/main] precache assets:', err));
   }, 700);

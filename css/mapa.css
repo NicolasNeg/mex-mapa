@@ -5590,6 +5590,23 @@
   white-space: nowrap;
 }
 
+/* Pulso de resaltado al llegar desde "Ir al mapa" (buscador global). */
+@keyframes carFocusPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.55); }
+  70%  { box-shadow: 0 0 0 16px rgba(37, 99, 235, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); }
+}
+.car.car-focus-pulse {
+  animation: carFocusPulse 1.1s ease-out 2;
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  position: relative;
+  z-index: 6;
+}
+@media (prefers-reduced-motion: reduce) {
+  .car.car-focus-pulse { animation: none; }
+}
+
 /* Barra compacta del panel de unidad — oculta en escritorio. */
 #info-compact-bar { display: none; }
 

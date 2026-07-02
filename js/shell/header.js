@@ -36,6 +36,12 @@ export class ShellHeader {
     this._onBellClick    = options.onBellClick    || null;
     this._onPlazaChange  = options.onPlazaChange  || null;
     this._onSearchInput  = options.onSearchInput  || null;
+    this._onSearchSubmit = options.onSearchSubmit || null;
+
+    // Modo del buscador: 'inpage' (filtra la vista) | 'global' (abre panel).
+    let storedMode = null;
+    try { storedMode = localStorage.getItem('mex.search.mode'); } catch (_) {}
+    this._searchMode = storedMode === 'global' ? 'global' : 'inpage';
 
     this._bellHasBadge = false;
     this._el = null;
@@ -107,16 +113,23 @@ export class ShellHeader {
   }
 
   _searchControlHTML() {
-    const placeholder = this._searchPlaceholder();
+    const mode = this._searchMode;
+    const placeholder = mode === 'global'
+      ? 'Buscar unidad o usuario · Enter'
+      : this._searchPlaceholder();
     return `
-      <div class="mex-header-search ${this._mobileSearchOpen ? 'is-mobile-open' : ''}">
-        <span class="mex-header-search-icon">search</span>
+      <div class="mex-header-search ${this._mobileSearchOpen ? 'is-mobile-open' : ''}" data-search-mode="${mode}">
+        <div class="mex-hdr-searchmode" id="mexHdrSearchMode" role="group" aria-label="Modo de búsqueda">
+          <button type="button" data-mode="inpage" class="${mode === 'inpage' ? 'is-active' : ''}" title="Filtrar la vista actual">Página</button>
+          <button type="button" data-mode="global" class="${mode === 'global' ? 'is-active' : ''}" title="Búsqueda global (Enter)">Global</button>
+        </div>
         <input id="mexHdrSearchInput"
                class="mex-header-search-input"
                type="search"
                value="${esc(this._searchValue)}"
                placeholder="${esc(placeholder)}"
-               aria-label="Busqueda global contextual">
+               aria-label="Buscador">
+        <button type="button" class="mex-header-search-icon" id="mexHdrSearchGo" title="Buscar" aria-label="Buscar">search</button>
       </div>
     `;
   }
@@ -242,9 +255,12 @@ export class ShellHeader {
       this._searchValue = String(event.target?.value || '');
       if (this._searchTimer) clearTimeout(this._searchTimer);
       this._searchTimer = setTimeout(() => {
+        // Solo el modo "En página" reacciona al tecleo (filtro en vivo). En
+        // modo "Global" el tecleo no dispara nada; se abre por Enter/lupa.
         if (typeof this._onSearchInput === 'function') {
           this._onSearchInput({
             query: this._searchValue,
+            mode: this._searchMode,
             route: this._currentRoute,
             source: 'shell-header'
           });
@@ -256,6 +272,21 @@ export class ShellHeader {
         }
       }, this._searchDebounceMs);
     });
+    // Enter = submit (abre el panel en modo Global).
+    searchInput?.addEventListener('keydown', event => {
+      if (event.key === 'Enter') { event.preventDefault(); this._submitSearch(); }
+    });
+    // Lupa clickeable = submit.
+    this._el.querySelector('#mexHdrSearchGo')?.addEventListener('click', event => {
+      event.preventDefault();
+      this._submitSearch();
+    });
+    // Toggle de modo (Página / Global).
+    this._el.querySelector('#mexHdrSearchMode')?.addEventListener('click', event => {
+      const btn = event.target.closest('[data-mode]');
+      if (btn) this._setSearchMode(btn.dataset.mode);
+    });
+
     searchToggle?.addEventListener('click', event => {
       event.stopPropagation();
       this._mobileSearchOpen = !this._mobileSearchOpen;
@@ -263,6 +294,42 @@ export class ShellHeader {
       searchToggle.setAttribute('aria-expanded', this._mobileSearchOpen ? 'true' : 'false');
       if (this._mobileSearchOpen) searchInput?.focus();
     });
+  }
+
+  _submitSearch() {
+    if (this._searchTimer) { clearTimeout(this._searchTimer); this._searchTimer = null; }
+    if (typeof this._onSearchSubmit === 'function') {
+      this._onSearchSubmit({
+        query: this._searchValue,
+        mode: this._searchMode,
+        route: this._currentRoute,
+        source: 'shell-header'
+      });
+    }
+  }
+
+  _setSearchMode(mode) {
+    const next = mode === 'global' ? 'global' : 'inpage';
+    if (next === this._searchMode) return;
+    this._searchMode = next;
+    try { localStorage.setItem('mex.search.mode', next); } catch (_) {}
+    const wrap = this._el?.querySelector('.mex-header-search');
+    if (wrap) wrap.setAttribute('data-search-mode', next);
+    this._el?.querySelectorAll('#mexHdrSearchMode [data-mode]').forEach(b => {
+      b.classList.toggle('is-active', b.dataset.mode === next);
+    });
+    const input = this._el?.querySelector('#mexHdrSearchInput');
+    if (input) input.placeholder = next === 'global' ? 'Buscar unidad o usuario · Enter' : this._searchPlaceholder();
+    // Al cambiar a "En página" reaplica el filtro con el texto actual; al pasar
+    // a "Global" limpia el filtro del contenedor (queda a cargo del panel).
+    if (typeof this._onSearchInput === 'function') {
+      this._onSearchInput({
+        query: next === 'inpage' ? this._searchValue : '',
+        mode: 'inpage',
+        route: this._currentRoute,
+        source: 'shell-header'
+      });
+    }
   }
 
   // ── Public API ──────────────────────────────────────────

@@ -498,6 +498,23 @@ function _ensureStageHost() {
   return host;
 }
 
+// "Ir al mapa" desde el buscador global deja window.__mexPendingMapFocus con el
+// MVA. Al mostrarse el mapa, se lo pasamos al iframe (mismo-origen) reintentando
+// hasta que el .car esté renderizado.
+function _applyPendingMapFocus(iframe) {
+  const mva = window.__mexPendingMapFocus;
+  if (!mva || !iframe) return;
+  let tries = 0;
+  const tick = () => {
+    tries++;
+    let ok = false;
+    try { ok = iframe.contentWindow?.__mexFocusUnidad?.(mva) === true; } catch (_) {}
+    if (ok || tries > 40) { window.__mexPendingMapFocus = null; return; }
+    setTimeout(tick, 200);
+  };
+  setTimeout(tick, 150);
+}
+
 function _buildStage(id, cfg, ctx) {
   const sectionEl = document.createElement('section');
   sectionEl.className = 'app-legacy-stage';
@@ -568,6 +585,7 @@ export function mount(ctx = {}) {
       _syncPlaza(getState().currentPlaza, id, ctx);
       _startLegacyMapUnitsHeader(id);
       _scheduleFrameSync(_iframe, id, ctx);
+      if (id === 'mapa') _applyPendingMapFocus(_iframe);
       return;
     }
 
@@ -578,6 +596,7 @@ export function mount(ctx = {}) {
     _iframePool.set(id, { sectionEl, iframe: iframeEl });
     _bindShellSignals(id, ctx);
     _wireFirstLoad(iframeEl, loaderEl, id, ctx);
+    if (id === 'mapa') _applyPendingMapFocus(iframeEl);
     return;
   }
 

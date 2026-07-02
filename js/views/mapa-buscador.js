@@ -23,8 +23,13 @@
       '#mexbzFab{position:fixed;top:10px;right:10px;z-index:9000;width:46px;height:46px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(15,23,42,.92);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 8px 22px rgba(0,0,0,.28);transition:transform .12s,background .15s}',
       '#mexbzFab:hover{background:#1e293b;transform:translateY(-1px)}',
       '#mexbzFab .material-icons{font-size:24px}',
-      '#mexbzOverlay{position:fixed;inset:0;z-index:100000;display:none;background:rgba(7,17,31,.5)}',
-      '#mexbzOverlay.open{display:block}',
+      '#mexbzOverlay{position:fixed;inset:0;z-index:100000;background:rgba(7,17,31,.5);opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s}',
+      '#mexbzOverlay.open{opacity:1;visibility:visible}',
+      '@keyframes mexbzRowIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}',
+      '@keyframes mexbzFadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}',
+      '.mexbz-row{animation:mexbzRowIn .18s ease both}',
+      '.mexbz-ficha{animation:mexbzFadeIn .2s ease both}',
+      '@media (prefers-reduced-motion:reduce){#mexbzOverlay,#mexbzPanel,.mexbz-row,.mexbz-ficha{transition:none!important;animation:none!important}}',
       '#mexbzPanel{position:absolute;top:0;right:0;bottom:0;width:min(420px,92vw);background:#fff;display:flex;flex-direction:column;box-shadow:-12px 0 40px rgba(0,0,0,.28);transform:translateX(100%);transition:transform .28s cubic-bezier(.16,1,.3,1)}',
       '#mexbzOverlay.open #mexbzPanel{transform:translateX(0)}',
       '.mexbz-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid #eef2f7}',
@@ -195,9 +200,10 @@
     var box = document.getElementById('mexbzResults');
     if (!list.length) { box.innerHTML = '<div class="mexbz-empty">Sin unidades que coincidan.</div>'; return; }
     box.innerHTML = '';
-    list.forEach(function (d) {
+    list.forEach(function (d, idx) {
       var row = document.createElement('div');
       row.className = 'mexbz-row';
+      row.style.animationDelay = Math.min(idx, 12) * 25 + 'ms';
       row.innerHTML =
         '<span class="mexbz-dot" style="background:' + estadoColor(d.estado) + '"></span>' +
         '<div style="flex:1;min-width:0">' +
@@ -216,8 +222,20 @@
     return { ok: true, txt: 'En cuadre · En patio' };
   }
 
+  // "En el mapa" = tiene un cajón real (no LIMBO/EXTERNO/vacío) y no está en
+  // taller/traslado. Solo entonces mostramos "Ir al mapa".
+  function estaEnMapa(d) {
+    if (d._car) return true;
+    var ubi = (d.ubicacion || '').toUpperCase().trim();
+    var est = (d.estado || '').toUpperCase();
+    if (!ubi || ubi === 'LIMBO' || ubi === 'EXTERNO') return false;
+    if (est.indexOf('TALLER') > -1 || est.indexOf('MANTEN') > -1 || est.indexOf('TRASLAD') > -1) return false;
+    return true;
+  }
+
   function fichaUnidad(d) {
     var cu = cuadreStatus(d.estado);
+    var onMap = estaEnMapa(d);
     var box = document.getElementById('mexbzResults');
     box.innerHTML =
       '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
@@ -232,16 +250,17 @@
         kv('Gasolina', d.gasolina || '—') +
         kv('Últ. movimiento', d.lastTouchedBy || '—') +
         (d.notas ? kv('Notas', d.notas) : '') +
-        '<button class="mexbz-btn" id="mexbzGoMap"><span class="material-icons">map</span>Ir al mapa</button>' +
+        (onMap ? '<button class="mexbz-btn" id="mexbzGoMap"><span class="material-icons">map</span>Ir al mapa</button>' : '') +
       '</div>';
     box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
-    box.querySelector('#mexbzGoMap').addEventListener('click', function () {
+    var go = box.querySelector('#mexbzGoMap');
+    if (go) go.addEventListener('click', function () {
       close();
       if (d._car && typeof window.__mexSelectCarOnMap === 'function') {
         try { d._car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
         window.__mexSelectCarOnMap(d._car, { openPanel: true });
-      } else if (typeof window.__mexShellNavigate === 'function') {
-        window.__mexShellNavigate('/app/mapa');
+      } else if (typeof window.__mexGoToMapUnit === 'function') {
+        window.__mexGoToMapUnit(d.mva);   // navega al mapa + resalta la unidad
       } else {
         window.location.assign('/app/mapa');
       }
@@ -271,9 +290,10 @@
       }).slice(0, 40);
       if (!list.length) { box.innerHTML = '<div class="mexbz-empty">Sin usuarios que coincidan.</div>'; return; }
       box.innerHTML = '';
-      list.forEach(function (u) {
+      list.forEach(function (u, idx) {
         var row = document.createElement('div');
         row.className = 'mexbz-row';
+        row.style.animationDelay = Math.min(idx, 12) * 25 + 'ms';
         row.innerHTML = avatarHtml(u) +
           '<div style="flex:1;min-width:0">' +
             '<div class="mva">' + esc(u.nombreCompleto || u.nombre || u.usuario || 'Usuario') + '</div>' +
