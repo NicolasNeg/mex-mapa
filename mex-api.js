@@ -382,7 +382,8 @@ const ACCESS_ROLE_META = Object.freeze({
   JEFE_OPERACION: { isAdmin: true, isGlobal: true, fullAccess: true }
 });
 const API_PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
-  "angelarmentta@icloud.com"
+  "angelarmentta@icloud.com",
+  "armentanegreteangelnicolas@gmail.com"
 ]);
 
 function _now() {

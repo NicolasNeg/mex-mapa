@@ -32,6 +32,7 @@ service cloud.firestore {
       return email != null
         && (
           email == "angelarmentta@icloud.com"
+          || email == "armentanegreteangelnicolas@gmail.com"
         );
     }
 

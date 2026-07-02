@@ -15,7 +15,8 @@
   const SESSION_ACTIVE_PLAZA_KEY = 'mex.activePlaza.v1';
   const LOCAL_ACTIVE_PLAZA_KEY = 'mex.activePlaza.local.v1';
   const BOOTSTRAP_PROGRAMMER_EMAILS = Object.freeze([
-    'angelarmentta@icloud.com'
+    'angelarmentta@icloud.com',
+    'armentanegreteangelnicolas@gmail.com'
   ]);
   const DEFAULT_LISTS = {
     ubicaciones: [],

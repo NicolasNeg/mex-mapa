@@ -331,13 +331,13 @@ window.loginConGoogle = async function () {
 
 
 // ── Registro con código de invitación ─────────────────────
+// Vista Request Access: se alterna con una clase en <body> (CSS hace el slide).
 window.abrirModalSolicitud = () => {
-  const m = document.getElementById('modal-solicitud');
-  if (m) m.style.display = 'flex';
+  document.body.classList.add('show-request');
+  setTimeout(() => document.getElementById('reg_codigo')?.focus(), 300);
 };
 window.cerrarModalSolicitud = () => {
-  const m = document.getElementById('modal-solicitud');
-  if (m) m.style.display = 'none';
+  document.body.classList.remove('show-request');
 };
 function _wireRegistroInvitacion() {
   const form = document.getElementById('inv-reg-form');
@@ -348,13 +348,19 @@ function _wireRegistroInvitacion() {
     e.preventDefault();
     if (err) err.style.display = 'none';
     const btn = document.getElementById('reg_submit');
-    btn.disabled = true; btn.textContent = 'Creando…';
+    const pass  = document.getElementById('reg_pass').value;
+    const pass2 = document.getElementById('reg_pass2')?.value;
+    if (pass2 != null && pass !== pass2) {
+      if (err) { err.textContent = 'Las contraseñas no coinciden.'; err.style.display = 'block'; }
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Enviando…';
     const payload = {
       codigo: document.getElementById('reg_codigo').value.trim().toUpperCase(),
       nombre: document.getElementById('reg_nombre').value.trim(),
       email:  document.getElementById('reg_email').value.trim().toLowerCase(),
       telefono: document.getElementById('reg_tel').value.trim(),
-      password: document.getElementById('reg_pass').value,
+      password: pass,
     };
     try {
       await firebase.functions().httpsCallable('registrarConInvitacion')(payload);
@@ -362,7 +368,7 @@ function _wireRegistroInvitacion() {
       window.location.href = '/app';
     } catch (e2) {
       if (err) { err.textContent = e2?.message || 'No se pudo crear la cuenta.'; err.style.display = 'block'; }
-      btn.disabled = false; btn.textContent = 'Crear cuenta';
+      btn.disabled = false; btn.textContent = 'Request Access';
     }
   });
 }
@@ -467,7 +473,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _wireRegistroInvitacion();
 
   document.addEventListener('keydown', event => {
-    if (event.key === 'Escape' && document.getElementById('modal-solicitud')?.style.display === 'flex') {
+    if (event.key === 'Escape' && document.body.classList.contains('show-request')) {
       cerrarModalSolicitud();
     }
   });
