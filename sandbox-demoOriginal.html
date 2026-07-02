@@ -540,17 +540,26 @@
             background: rgba(114, 123, 155, .82);
         }
 
+        /* Wrapper externo: reserva el tamaño escalado para que el scroll sea correcto (lo ajusta el JS). */
         .yard-stage {
             position: relative;
             width: 1840px;
             height: 930px;
             margin: 0 0 0 20px;
+        }
+
+        /* Canvas interno: se escala con transform (uniforme + GPU), sin deformar. */
+        .yard-canvas {
+            position: relative;
+            width: 1840px;
+            height: 930px;
+            transform-origin: 0 0;
+            will-change: transform;
             border-radius: 22px 0 0 0;
             background:
                 radial-gradient(circle, rgba(115, 133, 164, .32) 1px, transparent 1.5px) 0 0 / 18px 18px,
                 linear-gradient(90deg, rgba(31, 40, 58, .88), rgba(35, 43, 65, .9));
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
-            transform-origin: 0 0;
         }
 
         .slot,
@@ -1408,6 +1417,8 @@
         .history-drawer { left: 8px; right: 8px; max-width: none; max-height: 46dvh; bottom: 76px; }
         .inventory-drawer { top: 62px; max-height: calc(100dvh - 140px); }
         .map-header-search input { font-size: 12px; }
+        /* El toast sube (debajo del header) para no tapar la píldora ni las acciones rápidas */
+        .toast { top: 66px; bottom: auto; }
       }
     </style>
 </head>
@@ -1431,6 +1442,7 @@
         <main class="yard-wrap" aria-label="Mapa vivo BJX">
             <div class="yard-viewport" id="yardViewport">
                 <section class="yard-stage" id="yardStage">
+                  <div class="yard-canvas" id="yardCanvas">
                     <div class="slot" data-label="L-1" style="left:34px;top:32px;width:92px;height:132px;">
                         <button class="unit no-arrendable" type="button" data-id="Z018" data-slot="L-1"
                             data-status="NO ARRENDABLE" data-place="Limbo" data-fuel="F" onclick="selectUnit(this)">
@@ -1578,6 +1590,7 @@
                     <div class="slot" data-label="TLLRS-4" style="left:1612px;top:332px;width:194px;height:90px;"></div>
                     <div class="slot" data-label="TLLRS-5" style="left:1612px;top:432px;width:194px;height:90px;"></div>
                     <div class="slot" data-label="TLLRS-6" style="left:1612px;top:532px;width:194px;height:90px;"></div>
+                  </div>
                 </section>
             </div>
         </main>
@@ -1704,6 +1717,7 @@
 
     <script>
         const stage = document.getElementById('yardStage');
+        const canvas = document.getElementById('yardCanvas');
         const viewport = document.getElementById('yardViewport');
         const popover = document.getElementById('unitPopover');
         const historyDrawer = document.getElementById('historyDrawer');
@@ -1976,17 +1990,62 @@
             return button;
         }
 
-        function renderAll() {
-            document.querySelectorAll('.unit').forEach((unit) => unit.remove());
-            slotNodes.forEach((slot) => slot.classList.toggle('selected-slot', getSlotId(slot) === state.units[selectedUnitId]?.slot));
-            Object.values(state.units).forEach((unit) => {
-                const target = slotNode(unit.slot);
-                if (target) target.appendChild(createUnitElement(unit));
-            });
-            fillSlotOptions();
+        // ══════════════════════════════════════════════════════════════
+        //  RENDER DEL MAPA — patrón de producción: requestAnimationFrame + diffing
+        //  Problema del render ingenuo: borrar y recrear TODOS los .unit en cada
+        //  cambio (cada tick de simulación, cada acción) genera lag y parpadeo.
+        //  Solución: cada unidad tiene una "firma" (data-sig) con sus campos
+        //  visibles. En cada render solo se crea/actualiza/reubica el nodo cuya
+        //  firma cambió; los demás no se tocan. Los cambios se agrupan en un
+        //  requestAnimationFrame para repintar una sola vez por ráfaga.
+        //  → Directamente replicable en la app de producción (mismo enfoque que
+        //    `sincronizarMapa`/`_firmaUnidadMapa` en js/views/mapa.js).
+        // ══════════════════════════════════════════════════════════════
+        let _rafPending = 0;
+        function scheduleRender() {
+            if (_rafPending) return;
+            _rafPending = requestAnimationFrame(renderMapNow);
+        }
+        function unitSignature(u) {
+            return [u.slot, u.status, u.fuel, u.notes || '', u.plates || '', u.model || '', u.id === selectedUnitId ? 1 : 0].join('|');
+        }
+        // ponytail: self-check del diffing (avisa en consola si la firma se rompe)
+        console.assert(
+            unitSignature({ slot: 'L-1', status: 'LISTO', fuel: 'F' }) === unitSignature({ slot: 'L-1', status: 'LISTO', fuel: 'F' }) &&
+            unitSignature({ slot: 'L-1', status: 'LISTO', fuel: 'F' }) !== unitSignature({ slot: 'L-2', status: 'LISTO', fuel: 'F' }),
+            'unitSignature: debe ser estable e ir campo por campo'
+        );
+        function renderMapNow() {
+            _rafPending = 0;
+            const present = new Set();
+            for (const u of Object.values(state.units)) {
+                const target = slotNode(u.slot);
+                if (!target) continue;                 // LIMBO / sin cajón → fuera del mapa
+                present.add(u.id);
+                const sig = unitSignature(u);
+                const el = document.getElementById('u-' + u.id);
+                if (el && el.dataset.sig === sig) {
+                    if (el.parentElement !== target) target.appendChild(el);  // solo cambió de cajón
+                    continue;                          // sin cambios → no se toca el DOM
+                }
+                const fresh = createUnitElement(u);    // nueva o firma cambiada → un solo nodo
+                fresh.id = 'u-' + u.id;
+                fresh.dataset.sig = sig;
+                if (el) el.replaceWith(fresh); else target.appendChild(fresh);
+                if (fresh.parentElement !== target) target.appendChild(fresh);
+            }
+            for (const el of document.querySelectorAll('.unit')) {
+                if (!present.has(el.dataset.id)) el.remove();   // eliminadas / en limbo
+            }
+            for (const s of slotNodes) s.classList.toggle('selected-slot', getSlotId(s) === state.units[selectedUnitId]?.slot);
             applyMapFilters();
-            renderInventory();
-            renderHistory();
+        }
+
+        function renderAll() {
+            scheduleRender();                          // mapa: diffing + rAF (barato)
+            fillSlotOptions();
+            if (inventoryDrawer.classList.contains('open')) renderInventory();
+            if (historyDrawer.classList.contains('open')) renderHistory();
             renderActivity();
             updateSummary();
         }
@@ -2425,6 +2484,7 @@
 
         function toggleHistory() {
             historyDrawer.classList.toggle('open');
+            renderHistory();
         }
 
         function updateSummary() {
@@ -2444,8 +2504,10 @@
             set('summaryClock', new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
         }
 
+        // Zoom sin deformar: el canvas se escala con transform (uniforme, GPU) y el
+        // wrapper reserva el tamaño escalado para que el scroll sea correcto.
         function applyZoom() {
-            stage.style.transform = `scale(${currentScale})`;
+            canvas.style.transform = `scale(${currentScale})`;
             stage.style.width = `${1840 * currentScale}px`;
             stage.style.height = `${930 * currentScale}px`;
         }

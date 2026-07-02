@@ -3369,7 +3369,12 @@
       display: flex;
       flex-direction: column;
       gap: 15px;
-      height: 100%;
+      /* flex:1 + min-height:0 (NO height:100%): llena el espacio restante bajo el
+         header en la columna del fleet-modal. Con height:100% ocupaba todo el
+         alto ignorando el header → overflow → la tabla no scrolleaba (y en mobile
+         .main-grid-flota no obtenía altura acotada → tarjetas cortadas). */
+      flex: 1;
+      min-height: 0;
       color: #0f172a;
       padding: 15px;
       overflow: hidden;
