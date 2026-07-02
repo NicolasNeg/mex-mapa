@@ -298,14 +298,12 @@ async function boot() {
     onPlazaChange: (nextPlaza) => {
       setCurrentPlaza(nextPlaza, { source: 'app-shell-header' });
     },
+    // El buscador del header abre el panel global BUSCAR UNIDAD (búsqueda rápida
+    // de unidades/usuarios). El buscador del contenedor (mapa/cuadre) queda
+    // independiente — ya no se alimenta desde el header.
     onSearchInput: payload => {
-      window.dispatchEvent(new CustomEvent('mex:global-search', {
-        detail: {
-          query: String(payload?.query || ''),
-          route: String(payload?.route || getState().currentRoute || ''),
-          source: 'shell-header'
-        }
-      }));
+      const q = String(payload?.query || '');
+      if (typeof window.__mexBuscadorOpen === 'function') window.__mexBuscadorOpen(q);
     }
   });
 

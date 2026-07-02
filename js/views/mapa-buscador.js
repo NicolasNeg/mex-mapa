@@ -12,6 +12,7 @@
 
   var TAB = 'unidades';
   var _usersCache = null;
+  var _unitsCache = null;
 
   // ── CSS ────────────────────────────────────────────────────
   function injectCss() {
@@ -68,13 +69,7 @@
 
   // ── DOM ────────────────────────────────────────────────────
   function build() {
-    var fab = document.createElement('button');
-    fab.id = 'mexbzFab';
-    fab.title = 'Buscar unidad o usuario';
-    fab.innerHTML = '<span class="material-icons">search</span>';
-    fab.addEventListener('click', open);
-    document.body.appendChild(fab);
-
+    // Sin FAB: el disparador es el buscador del header del shell (__mexBuscadorOpen).
     var ov = document.createElement('div');
     ov.id = 'mexbzOverlay';
     ov.innerHTML =
@@ -102,11 +97,22 @@
     });
   }
 
-  function open() {
+  function open(query) {
     document.getElementById('mexbzOverlay').classList.add('open');
     var i = document.getElementById('mexbzInput');
+    if (typeof query === 'string') { TAB = 'unidades'; syncTabButtons(); i.value = query; }
     setTimeout(function () { i.focus(); }, 120);
     runSearch();
+  }
+  // Punto de entrada global (lo llama el buscador del header del shell).
+  window.__mexBuscadorOpen = function (query) { open(query || ''); };
+
+  function syncTabButtons() {
+    document.querySelectorAll('.mexbz-tab').forEach(function (b) {
+      b.classList.toggle('active', b.dataset.tab === TAB);
+    });
+    var input = document.getElementById('mexbzInput');
+    if (input) input.placeholder = TAB === 'unidades' ? 'Buscar unidad...' : 'Buscar usuario...';
   }
   function close() {
     document.getElementById('mexbzOverlay').classList.remove('open');
@@ -133,28 +139,63 @@
   }
 
   // ── TAB UNIDADES ───────────────────────────────────────────
+  // Fuente doble: si estamos en el mapa (hay .car en el DOM) usamos esos +
+  // filtro en vivo. Si no (a nivel shell / otras rutas), consultamos Firestore
+  // vía window.api.obtenerUnidadesVeloz.
+  function _normCar(el) {
+    var d = el.dataset;
+    return { mva: d.mva, estado: d.estado, ubicacion: d.ubicacion, placas: d.placas, modelo: d.modelo,
+      categoria: d.categoria, gasolina: d.gasolina, notas: d.notas, lastTouchedBy: d.lastTouchedBy,
+      hay: [d.mva, d.placas, d.modelo, d.notas, d.searchTokens].join(' ').toLowerCase(), _car: el };
+  }
+  function _normRaw(u) {
+    return { mva: u.mva, estado: u.estado, ubicacion: u.ubicacion, placas: u.placas, modelo: u.modelo,
+      categoria: u.categoria, gasolina: u.gasolina, notas: u.notas, lastTouchedBy: u.lastTouchedBy || u.responsable,
+      hay: [u.mva, u.placas, u.modelo, u.notas, u.categoria].join(' ').toLowerCase(), _car: null };
+  }
+  function loadUnitsApi() {
+    if (_unitsCache) return Promise.resolve(_unitsCache);
+    var api = window.api;
+    if (!api || typeof api.obtenerUnidadesVeloz !== 'function') return Promise.resolve([]);
+    var plaza = window.__mexCurrentPlazaId || '';
+    return api.obtenerUnidadesVeloz(plaza).then(function (list) {
+      _unitsCache = (list || []).filter(function (u) { return u && u.mva; }).map(_normRaw);
+      return _unitsCache;
+    }).catch(function () { return []; });
+  }
+
   function searchUnidades() {
     var q = (document.getElementById('mexbzInput').value || '').toLowerCase().trim();
-    // Conservar el filtro/resaltado en vivo del mapa reusando buscarMasivo.
-    var live = document.getElementById('searchInput') || document.getElementById('searchInputMobile');
-    if (live) { live.value = q; if (typeof window.buscarMasivo === 'function') window.buscarMasivo(); }
-
     var cars = Array.prototype.slice.call(document.querySelectorAll('.car'));
-    var seen = {}, out = [];
-    for (var i = 0; i < cars.length; i++) {
-      var d = cars[i].dataset;
-      if (!d.mva || seen[d.mva]) continue;
-      var hay = [d.mva, d.placas, d.modelo, d.notas, d.searchTokens].join(' ').toLowerCase();
-      if (q && hay.indexOf(q) === -1) continue;
-      seen[d.mva] = 1;
-      out.push(cars[i]);
-      if (out.length >= 50) break;
+    if (cars.length) {
+      // En el mapa: filtro/resaltado en vivo + lista desde el DOM.
+      var live = document.getElementById('searchInput') || document.getElementById('searchInputMobile');
+      if (live) { live.value = q; if (typeof window.buscarMasivo === 'function') window.buscarMasivo(); }
+      var seen = {}, out = [];
+      for (var i = 0; i < cars.length; i++) {
+        if (!cars[i].dataset.mva || seen[cars[i].dataset.mva]) continue;
+        var d = _normCar(cars[i]);
+        if (q && d.hay.indexOf(q) === -1) continue;
+        seen[d.mva] = 1; out.push(d);
+        if (out.length >= 50) break;
+      }
+      renderUnitRows(out);
+      return;
     }
+    // A nivel shell: desde Firestore.
     var box = document.getElementById('mexbzResults');
-    if (!out.length) { box.innerHTML = '<div class="mexbz-empty">Sin unidades que coincidan.</div>'; return; }
+    box.innerHTML = '<div class="mexbz-empty">Cargando unidades...</div>';
+    loadUnitsApi().then(function (units) {
+      var out = units.filter(function (d) { return !q || d.hay.indexOf(q) > -1; }).slice(0, 60);
+      renderUnitRows(out);
+    });
+  }
+
+  function renderUnitRows(list) {
+    var box = document.getElementById('mexbzResults');
+    if (!list.length) { box.innerHTML = '<div class="mexbz-empty">Sin unidades que coincidan.</div>'; return; }
     box.innerHTML = '';
-    out.forEach(function (car) {
-      var d = car.dataset;
+    list.forEach(function (d) {
       var row = document.createElement('div');
       row.className = 'mexbz-row';
       row.innerHTML =
@@ -163,7 +204,7 @@
           '<div class="mva">' + esc(d.mva) + '</div>' +
           '<div class="sub">' + esc(d.estado || '—') + ' · ' + esc(d.ubicacion || 'LIMBO') + (d.modelo ? ' · ' + esc(d.modelo) : '') + '</div>' +
         '</div><span class="material-icons" style="color:#cbd5e1">chevron_right</span>';
-      row.addEventListener('click', function () { fichaUnidad(car); });
+      row.addEventListener('click', function () { fichaUnidad(d); });
       box.appendChild(row);
     });
   }
@@ -175,8 +216,7 @@
     return { ok: true, txt: 'En cuadre · En patio' };
   }
 
-  function fichaUnidad(car) {
-    var d = car.dataset;
+  function fichaUnidad(d) {
     var cu = cuadreStatus(d.estado);
     var box = document.getElementById('mexbzResults');
     box.innerHTML =
@@ -197,8 +237,14 @@
     box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
     box.querySelector('#mexbzGoMap').addEventListener('click', function () {
       close();
-      try { car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
-      if (typeof window.__mexSelectCarOnMap === 'function') window.__mexSelectCarOnMap(car, { openPanel: true });
+      if (d._car && typeof window.__mexSelectCarOnMap === 'function') {
+        try { d._car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+        window.__mexSelectCarOnMap(d._car, { openPanel: true });
+      } else if (typeof window.__mexShellNavigate === 'function') {
+        window.__mexShellNavigate('/app/mapa');
+      } else {
+        window.location.assign('/app/mapa');
+      }
     });
   }
 
