@@ -11604,9 +11604,7 @@ async function _elegirAlcanceBloqueoMapa(nuevoEstado) {
 }
 
 async function solicitarToggleBloqueo() {
-  console.log('[DEBUG] solicitarToggleBloqueo', { canLock: canLockMap(), role: userAccessRole });
   if (!canLockMap()) {
-    console.warn('[DEBUG] canLockMap=false, rol:', userAccessRole);
     showToast("🚫 Solo los roles con acceso total pueden bloquear el patio.", "error");
     return;
   }
@@ -13432,7 +13430,6 @@ async function _subirBlobAvatarPerfil(fileBlob, contentType = 'image/jpeg') {
 }
 
 function abrirPerfilUsuario() {
-  console.log('[DEBUG] abrirPerfilUsuario', { profile: currentUserProfile, windowProfile: window.CURRENT_USER_PROFILE });
   if (!currentUserProfile && !window.CURRENT_USER_PROFILE) {
     console.warn('[DEBUG] currentUserProfile es null — perfil no cargado');
     showToast('Tu perfil todavía no está listo. Intenta de nuevo en unos segundos.', 'warning');
@@ -13556,7 +13553,6 @@ async function eliminarAvatarPerfil() {
 }
 
 function abrirBuzon() {
-  console.log('[DEBUG] abrirBuzon called, modal:', document.getElementById('buzon-modal'));
   const _buzonEl = document.getElementById('buzon-modal');
   if (!_buzonEl) { console.error('[DEBUG] buzon-modal no encontrado en el DOM'); return; }
   _buzonEl.classList.add('active');
@@ -15737,7 +15733,6 @@ function _edToggleSelection(celda) {
 }
 
 function abrirEditorMapa(plazaOverride) {
-  console.log('[DEBUG] abrirEditorMapa', { role: userAccessRole, canAdmin: canOpenAdminPanel(), modal: !!document.getElementById('modal-editor-mapa'), plazaOverride });
   // Si se pasa una plaza explícita (desde /editmap/PLAZA), sobreescribir la activa
   if (plazaOverride) {
     PLAZA_ACTIVA_MAPA = _rememberActivePlaza(plazaOverride, { forEditmap: true });
@@ -15746,9 +15741,8 @@ function abrirEditorMapa(plazaOverride) {
   }
   toggleAdminSidebar(false);
   const _edModal = document.getElementById('modal-editor-mapa');
-  if (!_edModal) { console.error('[DEBUG] modal-editor-mapa NO ENCONTRADO en DOM'); return; }
+  if (!_edModal) { console.error('modal-editor-mapa no encontrado en el DOM'); return; }
   _edModal.classList.add('active');
-  console.log('[DEBUG] modal-editor-mapa classList:', _edModal.classList.toString(), 'display:', getComputedStyle(_edModal).display);
   document.getElementById('editor-loading').style.display = 'flex';
   document.getElementById('editor-grid-wrapper').style.display = 'none';
   _edCeldas = []; _edSel = null; _edModo = null; _edDrag = null; _edResize = null; _edZoom = 1.0; _edMultiSel = []; _edRotate = null; _edRectSel = null; _edDragResizeBound = false;
@@ -17749,9 +17743,7 @@ function _bootShellRequestedTool() {
 }
 
 function abrirPanelConfiguracion(tabInicial) {
-  console.log('[DEBUG] abrirPanelConfiguracion', { tabInicial, role: userAccessRole, canOpen: canOpenAdminPanel(), profile: !!currentUserProfile });
   if (!canOpenAdminPanel()) {
-    console.warn('[DEBUG] canOpenAdminPanel=false, rol:', userAccessRole);
     showToast("Tu rol no puede abrir el panel administrativo.", "error");
     return;
   }
@@ -17786,16 +17778,8 @@ function abrirPanelConfiguracion(tabInicial) {
   if (typeof toggleAdminSidebar === 'function') toggleAdminSidebar(false);
   _applyGestionAdminChrome();
   const _cfgModal = document.getElementById('modal-config-global');
-  console.log('[DEBUG] modal-config-global:', _cfgModal, 'gestionMode:', _isGestionAdminMode(), 'pathname:', window.location.pathname);
-  if (!_cfgModal) { console.error('[DEBUG] modal-config-global NO ENCONTRADO en DOM'); return; }
+  if (!_cfgModal) { console.error('modal-config-global no encontrado en el DOM'); return; }
   _cfgModal.classList.add('active');
-  console.log('[DEBUG] modal-config-global classList after add:', _cfgModal.classList.toString(), 'display:', getComputedStyle(_cfgModal).display);
-  // Extra debug: verify dimensions and z-index after repaint
-  requestAnimationFrame(() => {
-    const r = _cfgModal.getBoundingClientRect();
-    const cs = getComputedStyle(_cfgModal);
-    console.log('[DEBUG] modal-config-global rect (after paint):', JSON.stringify({ top: r.top, left: r.left, width: r.width, height: r.height }), 'z-index:', cs.zIndex, 'visibility:', cs.visibility, 'opacity:', cs.opacity, 'bg:', cs.backgroundColor);
-  });
   _cfgApplySidebarPinState();
   _captureAdminExactLocation({ force: false }).catch(() => {});
   _cfgRefreshSearchPlaceholder();

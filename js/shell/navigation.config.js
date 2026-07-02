@@ -139,10 +139,11 @@ export const NAV_GROUPS = [
         feature: 'gestion_usuarios'
       },
       {
+        // Sin `route`: es un desplegable puro (clic solo abre/cierra el submenú,
+        // no navega directo a usuarios). Aplica en PC y mobile (mismo handler).
         id: 'panel-admin',
         label: 'Panel admin',
         icon: 'admin_panel_settings',
-        route: '/gestion',
         roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
         children: [
           { id: 'usuarios',    label: 'Usuarios',    route: '/gestion?tab=usuarios',    icon: 'group' },
