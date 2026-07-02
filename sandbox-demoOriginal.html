@@ -12,6 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
     <style>
         :root {
             --bg: #111329;
@@ -1301,6 +1302,69 @@
             }
         }
     </style>
+
+    <!-- ===== Píldora de unidad — réplica del panel real del mapa ===== -->
+    <style>
+      .unit-popover.pill-panel {
+        right: 28px; left: auto; top: auto; bottom: 24px;
+        width: 384px; max-width: calc(100vw - 32px);
+        background: rgba(255, 255, 255, .97);
+        color: #1e293b;
+        border: 1px solid rgba(15, 23, 42, .08);
+        border-radius: 24px;
+        padding: 22px 20px 16px;
+        box-shadow: 0 25px 60px -12px rgba(0, 0, 0, .45);
+        overflow: visible;
+        transform: translateY(16px);
+      }
+      .unit-popover.pill-panel.open { transform: translateY(0); }
+      .pill-close { position: absolute; right: 14px; top: 14px; width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; color: #64748b; display: grid; place-items: center; }
+      .pill-close:hover { background: #e2e8f0; }
+      .pill-head { text-align: center; }
+      .pill-eyebrow { font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #64748b; }
+      .pill-mva { font-size: 32px; font-weight: 900; line-height: 1; color: #0f172a; margin: 3px 0 12px; }
+      .pill-chips { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #475569; background: #f1f5f9; padding: 10px 12px; border-radius: 14px; }
+      .pill-chips .chip-sep { color: #cbd5e1; }
+      .pill-panel.is-add .pill-chips { display: none; }
+
+      .pill-edit { margin-top: 12px; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; background: #fff; }
+      .pill-edit > summary { list-style: none; cursor: pointer; padding: 12px 14px; font-size: 12px; font-weight: 800; color: #334155; background: #f8fafc; display: flex; align-items: center; gap: 8px; }
+      .pill-edit > summary::-webkit-details-marker { display: none; }
+      .pill-edit > summary .material-icons { font-size: 16px; color: #3b82f6; }
+      .pill-edit[open] > summary { border-bottom: 1px solid #e2e8f0; }
+      .pill-edit .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px; }
+      .pill-edit .field { display: grid; gap: 6px; }
+      .pill-edit .field.full { grid-column: 1 / -1; }
+      .pill-edit .field label { color: #64748b; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+      .pill-edit .field input, .pill-edit .field select, .pill-edit .field textarea { border-radius: 9px; border: 1px solid #e2e8f0; background: #f8fafc; color: #1e293b; padding: 9px 10px; font-size: 12px; font-weight: 800; }
+      .pill-edit .field textarea { min-height: 60px; resize: vertical; }
+      .pill-edit-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 0 14px 14px; }
+      .pill-edit-actions button { min-height: 38px; border-radius: 10px; font-size: 12px; font-weight: 900; }
+
+      .pill-footer { display: grid; grid-template-columns: 1fr 1.1fr 1fr; gap: 10px; margin-top: 14px; }
+      .pill-panel.is-add .pill-footer { display: none; }
+      .pill-btn { min-height: 54px; border-radius: 16px; font-size: 14px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 6px; letter-spacing: .02em; }
+      .pill-btn-limbo { background: #fee2e2; color: #ef4444; }
+      .pill-btn-limbo:hover { background: #fecaca; }
+      .pill-btn-acc { background: #e0f2fe; color: #0284c7; box-shadow: 0 4px 12px rgba(2, 132, 199, .18); }
+      .pill-btn-acc:hover { background: #bae6fd; }
+      .pill-btn-acc .material-icons { font-size: 18px; }
+      .pill-btn-cerrar { background: #f1f5f9; color: #334155; }
+      .pill-btn-cerrar:hover { background: #e2e8f0; }
+
+      .pill-acciones { position: relative; }
+      .acciones-dropdown { position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%) scale(.96); transform-origin: bottom center; width: 252px; max-width: 82vw; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; box-shadow: 0 20px 45px rgba(0, 0, 0, .22); padding: 6px; opacity: 0; pointer-events: none; transition: opacity .16s ease, transform .16s ease; z-index: 30; }
+      .acciones-dropdown.show { opacity: 1; pointer-events: auto; transform: translateX(-50%) scale(1); }
+      .action-item { display: flex; align-items: center; gap: 11px; width: 100%; padding: 12px; border-radius: 10px; background: transparent; color: #1e293b; font-size: 12.5px; font-weight: 800; text-align: left; line-height: 1.25; }
+      .action-item:hover { background: #f1f5f9; }
+      .action-item .material-icons { font-size: 19px; flex-shrink: 0; }
+
+      @media (max-width: 640px) {
+        .unit-popover.pill-panel { right: 0; left: 0; bottom: 0; width: 100%; max-width: 100%; border-radius: 22px 22px 0 0; padding-bottom: 20px; transform: translateY(100%); }
+        .unit-popover.pill-panel.open { transform: translateY(0); }
+        .acciones-dropdown { width: min(340px, 88vw); }
+      }
+    </style>
 </head>
 
 <body>
@@ -1489,78 +1553,51 @@
             </div>
         </main>
 
-        <aside class="unit-popover" id="unitPopover" aria-live="polite">
-            <div class="popover-head">
-                <div>
-                    <div class="eyebrow" id="editorMode">Unidad</div>
-                    <div class="popover-title" id="unitTitle">-</div>
-                </div>
-                <button class="icon-button" type="button" onclick="closeUnit()" aria-label="Cerrar">
-                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round">
-                        <path d="M3 3l9 9M12 3l-9 9" />
-                    </svg>
-                </button>
+        <aside class="unit-popover pill-panel" id="unitPopover" aria-live="polite">
+            <button class="pill-close" type="button" onclick="closeUnit()" aria-label="Cerrar"><span class="material-icons">close</span></button>
+            <div class="pill-head">
+                <div class="pill-eyebrow" id="editorMode">UNIDAD SELECCIONADA</div>
+                <div class="pill-mva" id="unitTitle">-</div>
+                <div class="pill-chips" id="unitChips"></div>
             </div>
-            <div class="popover-body">
+
+            <details class="pill-edit" id="pillEdit">
+                <summary><span class="material-icons">edit</span> Editar unidad (cajón, gasolina, estado…)</summary>
                 <div class="field-grid">
-                    <div class="field">
-                        <label for="unitMva">MVA</label>
-                        <input id="unitMva" autocomplete="off" />
-                    </div>
-                    <div class="field">
-                        <label for="unitSlotField">Cajon</label>
-                        <select id="unitSlotField"></select>
-                    </div>
-                    <div class="field">
-                        <label for="unitStatusField">Estado</label>
+                    <div class="field"><label for="unitMva">MVA</label><input id="unitMva" autocomplete="off" /></div>
+                    <div class="field"><label for="unitSlotField">Cajón</label><select id="unitSlotField"></select></div>
+                    <div class="field"><label for="unitStatusField">Estado</label>
                         <select id="unitStatusField">
-                            <option>LISTO</option>
-                            <option>SUCIO</option>
-                            <option>MANTENIMIENTO</option>
-                            <option>RESGUARDO</option>
-                            <option>TRASLADO</option>
-                            <option>NO ARRENDABLE</option>
-                            <option>VENTA</option>
-                            <option>EN RENTA</option>
+                            <option>LISTO</option><option>SUCIO</option><option>MANTENIMIENTO</option>
+                            <option>RESGUARDO</option><option>TRASLADO</option><option>NO ARRENDABLE</option>
+                            <option>VENTA</option><option>EN RENTA</option>
                         </select>
                     </div>
-                    <div class="field">
-                        <label for="unitFuelField">Gasolina</label>
+                    <div class="field"><label for="unitFuelField">Gasolina</label>
                         <select id="unitFuelField">
-                            <option>F</option>
-                            <option>3/4</option>
-                            <option>1/2</option>
-                            <option>1/4</option>
-                            <option>E</option>
-                            <option>N/A</option>
+                            <option>F</option><option>3/4</option><option>1/2</option><option>1/4</option><option>E</option><option>N/A</option>
                         </select>
                     </div>
-                    <div class="field">
-                        <label for="unitPlaceField">Ubicacion</label>
-                        <input id="unitPlaceField" autocomplete="off" />
-                    </div>
-                    <div class="field">
-                        <label for="unitPlatesField">Placas</label>
-                        <input id="unitPlatesField" autocomplete="off" />
-                    </div>
-                    <div class="field full">
-                        <label for="unitModelField">Modelo</label>
-                        <input id="unitModelField" autocomplete="off" />
-                    </div>
-                    <div class="field full">
-                        <label for="unitNotesField">Notas</label>
-                        <textarea id="unitNotesField"></textarea>
-                    </div>
+                    <div class="field"><label for="unitPlaceField">Ubicación</label><input id="unitPlaceField" autocomplete="off" /></div>
+                    <div class="field"><label for="unitPlatesField">Placas</label><input id="unitPlatesField" autocomplete="off" /></div>
+                    <div class="field full"><label for="unitModelField">Modelo</label><input id="unitModelField" autocomplete="off" /></div>
+                    <div class="field full"><label for="unitNotesField">Notas</label><textarea id="unitNotesField"></textarea></div>
                 </div>
-                <div class="info-row"><span>Origen real</span><strong>Silao, Guanajuato</strong></div>
-                <div class="info-row"><span>Ultimo guardado</span><strong id="unitSavedAt">Sin guardar</strong></div>
-                <div class="panel-actions">
+                <div class="pill-edit-actions">
                     <button class="primary-action" type="button" onclick="saveEditor()">Guardar</button>
                     <button class="secondary-action" type="button" onclick="duplicateSelected()">Duplicar</button>
                     <button class="danger-action" type="button" onclick="deleteSelected()">Eliminar</button>
-                    <button class="secondary-action" type="button" onclick="closeUnit()">Cerrar</button>
                 </div>
+                <span id="unitSavedAt" hidden></span>
+            </details>
+
+            <div class="pill-footer">
+                <button class="pill-btn pill-btn-limbo" type="button" onclick="mgxAction('LIMBO')">LIMBO 🗑️</button>
+                <div class="pill-acciones">
+                    <button class="pill-btn pill-btn-acc" type="button" onclick="toggleAcciones(event)"><span class="material-icons">bolt</span> ACCIONES</button>
+                    <div class="acciones-dropdown" id="accionesDropdown"></div>
+                </div>
+                <button class="pill-btn pill-btn-cerrar" type="button" onclick="closeUnit()">CERRAR</button>
             </div>
         </aside>
 
@@ -2076,8 +2113,11 @@
         }
 
         function openEditor(unit) {
-            document.getElementById('editorMode').textContent = editorMode === 'add' ? 'Nuevo vehiculo' : `${unit.place || placeForSlot(unit.slot)} · ${unit.slot}`;
+            const isAdd = editorMode === 'add';
+            document.getElementById('editorMode').textContent = isAdd ? 'NUEVO VEHÍCULO' : 'UNIDAD SELECCIONADA';
             document.getElementById('unitTitle').textContent = unit.id || 'Nuevo';
+            const chips = document.getElementById('unitChips');
+            if (chips) chips.innerHTML = renderChips(unit);
             document.getElementById('unitMva').value = unit.id || '';
             document.getElementById('unitSlotField').value = unit.slot || firstEmptySlot();
             document.getElementById('unitStatusField').value = unit.status || 'LISTO';
@@ -2086,8 +2126,80 @@
             document.getElementById('unitPlatesField').value = unit.plates || '';
             document.getElementById('unitModelField').value = unit.model || '';
             document.getElementById('unitNotesField').value = unit.notes || '';
-            document.getElementById('unitSavedAt').textContent = unit.savedAt || 'Sin guardar';
+            const savedEl = document.getElementById('unitSavedAt');
+            if (savedEl) savedEl.textContent = unit.savedAt || 'Sin guardar';
+            const dd = document.getElementById('accionesDropdown');
+            if (dd) { dd.innerHTML = isAdd ? '' : buildAcciones(unit); dd.classList.remove('show'); }
+            const pe = document.getElementById('pillEdit');
+            if (pe) pe.open = isAdd;
+            popover.classList.toggle('is-add', isAdd);
             popover.classList.add('open');
+        }
+
+        // ── Píldora: chips + acciones rápidas (como el mapa real) ──
+        function renderChips(unit) {
+            const st = unit.status || 'N/A';
+            return `<span>📍 ${unit.slot || '—'}</span><span class="chip-sep">•</span>`
+                + `<span>🏷️ ${unit.plates || 'N/A'}</span><span class="chip-sep">•</span>`
+                + `<span>🚗 ${unit.model || 'S/M'}</span><span class="chip-sep">•</span>`
+                + `<span style="text-transform:capitalize;">⚙️ ${st}</span>`;
+        }
+        function accItem(action, icon, color, label) {
+            return `<button type="button" class="action-item" onclick="mgxAction('${action}')"><span class="material-icons" style="color:${color}">${icon}</span> ${label}</button>`;
+        }
+        function buildAcciones(unit) {
+            const n = (unit.notes || '').toUpperCase();
+            const apartado = n.includes('RESERVAD') || n.includes('APARTAD');
+            const dobleCero = n.includes('DOBLE CERO');
+            const urgente = n.includes('URGENTE');
+            const manto = unit.status === 'MANTENIMIENTO' || unit.status === 'EN TALLER';
+            let h = '';
+            h += apartado ? accItem('QUITAR_APARTADO', 'lock_open', '#64748b', 'QUITAR APARTADO') : accItem('APARTAR', 'lock', '#fbbf24', 'APARTAR UNIDAD');
+            h += dobleCero ? accItem('QUITAR_DOBLE_CERO', 'do_not_disturb_on', '#64748b', 'QUITAR DOBLE CERO') : accItem('DOBLE_CERO', 'verified', '#3b82f6', 'AÑADIR DOBLE CERO');
+            h += urgente ? accItem('QUITAR_URGENTE', 'notifications_paused', '#64748b', 'QUITAR URGENTE') : accItem('URGENTE', 'priority_high', '#ef4444', 'MARCAR COMO URGENTE');
+            h += manto ? accItem('QUITAR_MANTENIMIENTO', 'build_circle', '#64748b', 'QUITAR DE MANTENIMIENTO') : accItem('MANTENIMIENTO', 'build', '#ef4444', 'PONER EN "TALLER"');
+            if (unit.status !== 'LISTO') h += accItem('LISTO', 'check_circle', '#10b981', 'PONER EN "LISTO"');
+            h += accItem('SWAP', 'swap_horiz', '#2563eb', 'CAMBIAR POSICIÓN');
+            return h;
+        }
+        function toggleAcciones(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('accionesDropdown')?.classList.toggle('show');
+        }
+        function addTag(notes, tag) { const s = (notes || '').trim(); return (s + (s ? ' ' : '') + tag).trim(); }
+        function delTag(notes, re) { return (notes || '').replace(new RegExp(re, 'ig'), '').replace(/\s+/g, ' ').trim(); }
+        function firstFreeTaller() { return slotIds.find((s) => s.startsWith('TLLRS') && !Object.values(state.units).some((u) => u.slot === s)); }
+        function firstEmptyNonTaller() { return slotIds.find((s) => !s.startsWith('TLLRS') && !Object.values(state.units).some((u) => u.slot === s)); }
+        function mgxAction(action) {
+            const unit = state.units[selectedUnitId];
+            document.getElementById('accionesDropdown')?.classList.remove('show');
+            if (!unit) return;
+            if (action === 'SWAP') { showToast('Toca un cajón vacío para mover ' + unit.id); closeUnit(); return; }
+            if (action === 'LIMBO') {
+                unit.slot = 'LIMBO';
+                unit.place = 'Limbo';
+                unit.savedAt = nowLabel();
+                addHistory('Limbo', `${unit.id} enviada al limbo (sin cajón)`);
+                closeUnit(); persistState(); renderAll();
+                showToast(`${unit.id} enviada al limbo`);
+                return;
+            }
+            switch (action) {
+                case 'APARTAR': unit.notes = addTag(unit.notes, 'RESERVADO'); break;
+                case 'QUITAR_APARTADO': unit.notes = delTag(unit.notes, 'RESERVAD|APARTAD'); break;
+                case 'DOBLE_CERO': unit.notes = addTag(unit.notes, 'DOBLE CERO'); break;
+                case 'QUITAR_DOBLE_CERO': unit.notes = delTag(unit.notes, 'DOBLE CERO'); break;
+                case 'URGENTE': unit.notes = addTag(unit.notes, 'URGENTE'); break;
+                case 'QUITAR_URGENTE': unit.notes = delTag(unit.notes, 'URGENTE'); break;
+                case 'MANTENIMIENTO': { unit.status = 'MANTENIMIENTO'; const t = firstFreeTaller(); if (t) { unit.slot = t; unit.place = 'Taller'; } break; }
+                case 'QUITAR_MANTENIMIENTO': { unit.status = 'LISTO'; if (String(unit.slot).startsWith('TLLRS')) { const e = firstEmptyNonTaller(); if (e) { unit.slot = e; unit.place = placeForSlot(e); } } break; }
+                case 'LISTO': unit.status = 'LISTO'; break;
+            }
+            unit.color = STATUS_STYLE[unit.status] || unit.color;
+            unit.savedAt = nowLabel();
+            addHistory('Acción rápida', `${unit.id} · ${STATUS_LABEL[unit.status] || unit.status}`);
+            markChanged(unit.id);
+            persistState(); renderAll(); selectUnit(unit.id);
         }
 
         function closeUnit() {
@@ -2498,6 +2610,10 @@
 
         document.getElementById('summaryModal').addEventListener('click', (event) => {
             if (event.target.id === 'summaryModal') closeSummary();
+        });
+
+        document.addEventListener('click', (event) => {
+            if (!event.target.closest('.pill-acciones')) document.getElementById('accionesDropdown')?.classList.remove('show');
         });
 
         mapSearch.addEventListener('input', (event) => {

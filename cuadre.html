@@ -56,6 +56,9 @@
       background: var(--bg, #f1f5f9);
       font-family: 'Inter', sans-serif;
     }
+    /* body como flex column: sin esto, #cuadreApp{flex:1} no toma altura del
+       viewport y la tabla no puede scrollear (crece y se recorta). */
+    body { display: flex; flex-direction: column; }
 
     /* Ocultar elementos de mapa.js que no son parte del cuadre */
     #login-overlay, #admin-sidebar, #map-stage, #info-panel,
