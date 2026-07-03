@@ -1639,7 +1639,7 @@ const API_FUNCTIONS = {
     if (!existeLeg.empty) return `La unidad ${mvaStr} ya está registrada en el patio.`;
 
     const ahora = _now();
-    const notaFinal = objeto.notas ? `(${ahora}) - ${objeto.notas} - ${objeto.responsableSesion || ""}` : "";
+    const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
     const indexSnap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     const indexData = indexSnap.empty ? {} : indexSnap.docs[0].data();
 
@@ -1680,7 +1680,7 @@ const API_FUNCTIONS = {
     if (!existeLeg.empty) return `La unidad externa ${mvaStr} ya está registrada.`;
 
     const ahora = _now();
-    const notaFinal = objeto.notas ? `(${ahora}) - ${objeto.notas} - ${objeto.responsableSesion || ""}` : "";
+    const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
 
     const unitData = {
       mva:          mvaStr,

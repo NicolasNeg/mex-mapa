@@ -421,6 +421,14 @@
             pointer-events: none;
         }
 
+        /* Coincidencia de búsqueda: resalta la unidad (las demás se atenúan con .filtered-out) */
+        .unit.search-match {
+            outline: 3px solid #38bdf8;
+            outline-offset: 2px;
+            z-index: 20;
+            box-shadow: 0 0 0 4px rgba(56, 189, 248, .25), 0 14px 26px rgba(0, 0, 0, .45);
+        }
+
         .slot.layer-hidden {
             opacity: .08;
             pointer-events: none;
@@ -672,7 +680,7 @@
             box-shadow:
                 0 9px 18px rgba(0, 0, 0, .32),
                 inset 0 1px 0 rgba(255, 255, 255, .20);
-            transition: transform .16s ease, box-shadow .16s ease, outline .16s ease;
+            transition: transform .16s ease, box-shadow .16s ease, outline .16s ease, opacity .28s ease, filter .28s ease;
             user-select: none;
         }
 
@@ -1458,6 +1466,15 @@
       .b-en-renta { background: #dbeafe; color: #1e3a8a; }
       .b-retenida { background: #fef3c7; color: #92400e; }
 
+      /* Autocompletado MVA al crear unidad */
+      .mva-suggest { display: none; margin-top: 6px; max-height: 190px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, .12); }
+      .mva-sug { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; text-align: left; padding: 8px 11px; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+      .mva-sug:last-child { border-bottom: none; }
+      .mva-sug:hover { background: #eff6ff; }
+      .mva-sug strong { font-size: 13px; font-weight: 800; color: #0f172a; }
+      .mva-sug span { font-size: 11px; color: #64748b; }
+      .mva-sug-empty { padding: 10px; font-size: 11px; color: #94a3b8; text-align: center; }
+
       @media (max-width: 640px) {
         .units-drawer { width: 100%; max-width: 100%; }
       }
@@ -1484,21 +1501,8 @@
             <div class="yard-viewport" id="yardViewport">
                 <section class="yard-stage" id="yardStage">
                   <div class="yard-canvas" id="yardCanvas">
-                    <div class="slot" data-label="L-1" style="left:34px;top:32px;width:92px;height:132px;">
-                        <button class="unit no-arrendable" type="button" data-id="Z018" data-slot="L-1"
-                            data-status="NO ARRENDABLE" data-place="Limbo" data-fuel="F" onclick="selectUnit(this)">
-                            Z018
-                            <span class="fuel" data-fuel="F"><i style="--fill:100%"></i></span>
-                        </button>
-                    </div>
-                    <div class="slot" data-label="L-2" style="left:138px;top:32px;width:92px;height:132px;">
-                        <button class="unit listo" type="button" data-id="F998" data-slot="L-2" data-status="LISTO"
-                            data-place="Patio" data-fuel="E" onclick="selectUnit(this)">
-                            F998
-                            <span class="drag-token" aria-hidden="true"></span>
-                            <span class="fuel" data-fuel="E"><i style="--fill:0%"></i></span>
-                        </button>
-                    </div>
+                    <div class="slot" data-label="L-1" style="left:34px;top:32px;width:92px;height:132px;"></div>
+                    <div class="slot" data-label="L-2" style="left:138px;top:32px;width:92px;height:132px;"></div>
                     <div class="slot" data-label="L-3" style="left:242px;top:32px;width:96px;height:132px;"></div>
                     <div class="slot" data-label="L-4" style="left:346px;top:32px;width:96px;height:132px;"></div>
                     <div class="slot" data-label="L-5" style="left:450px;top:32px;width:96px;height:132px;"></div>
@@ -1509,12 +1513,7 @@
                     <div class="slot" data-label="L-10" style="left:970px;top:32px;width:96px;height:132px;"></div>
                     <div class="slot" data-label="L-11" style="left:1074px;top:32px;width:96px;height:132px;"></div>
 
-                    <div class="slot" data-label="L2-1" style="left:34px;top:180px;width:92px;height:132px;">
-                        <button class="unit no-arrendable" type="button" data-id="OSVALDO" data-slot="L2-1"
-                            data-status="NO ARRENDABLE" data-place="Limbo" data-fuel="N/A" onclick="selectUnit(this)">
-                            OSVALDO
-                        </button>
-                    </div>
+                    <div class="slot" data-label="L2-1" style="left:34px;top:180px;width:92px;height:132px;"></div>
                     <div class="slot" data-label="L2-2" style="left:138px;top:180px;width:92px;height:132px;"></div>
                     <div class="slot" data-label="L2-3" style="left:242px;top:180px;width:96px;height:132px;"></div>
                     <div class="slot" data-label="L2-4" style="left:346px;top:180px;width:96px;height:132px;"></div>
@@ -1602,12 +1601,6 @@
                     </div>
 
                     <div class="slot" data-label="B-1" style="left:34px;top:612px;width:92px;height:64px;">
-                        <button class="unit no-arrendable" type="button" data-id="N372" data-slot="B-1"
-                            data-status="NO ARRENDABLE" data-place="Bano" data-fuel="" onclick="selectUnit(this)"
-                            style="font-size:16px;">
-                            N372
-                            <span class="fuel" data-fuel=""><i style="--fill:0%"></i></span>
-                        </button>
                         <span class="label-inside" style="bottom:-18px;">BAÑO</span>
                     </div>
                     <div class="slot wide" data-label="B-2" style="left:138px;top:612px;width:92px;height:64px;"></div>
@@ -1647,7 +1640,7 @@
             <details class="pill-edit" id="pillEdit">
                 <summary><span class="material-icons">edit</span> Editar unidad (cajón, gasolina, estado…)</summary>
                 <div class="field-grid">
-                    <div class="field"><label for="unitMva">MVA</label><input id="unitMva" autocomplete="off" /></div>
+                    <div class="field"><label for="unitMva">MVA</label><input id="unitMva" autocomplete="off" oninput="mvaAutocomplete(this.value)" /><div id="mvaSuggest" class="mva-suggest"></div></div>
                     <div class="field"><label for="unitSlotField">Cajón</label><select id="unitSlotField"></select></div>
                     <div class="field"><label for="unitStatusField">Estado</label>
                         <select id="unitStatusField">
@@ -1772,7 +1765,7 @@
         const inventoryList = document.getElementById('inventoryList');
         const mapSearch = document.getElementById('mapSearch');
         const slotField = document.getElementById('unitSlotField');
-        const STORAGE_KEY = 'mex-mapa:sandbox-bjx:v3';
+        const STORAGE_KEY = 'mex-mapa:sandbox-bjx:v4';
         // Clase por estado — igual que el mapa real (id -> clase kebab)
         const STATUS_STYLE = {
             'LISTO': 'listo',
@@ -1800,16 +1793,36 @@
         };
         const SIM_USERS = ['Ana · Admin', 'Luis · Patio', 'Marta · Taller', 'Diego · Supervisor'];
         const DEMO_UNITS = [
-            { id: 'M159', slot: 'LIMBO', status: 'SUCIO', fuel: 'H', place: 'Limbo', model: 'Suburban LT Paq C', plates: 'DSR767E', notes: '', color: 'sucio' },
-            { id: 'A1842', slot: 'L-3', status: 'LISTO', fuel: '3/4', place: 'Patio', model: 'Nissan Versa 2024', plates: 'GTO-1842', notes: 'Lista para salida mostrador', color: 'green' },
-            { id: 'B7310', slot: 'L-4', status: 'SUCIO', fuel: '1/2', place: 'Patio', model: 'Chevrolet Aveo 2023', plates: 'GTO-7310', notes: 'Pendiente lavado interior', color: 'yellow' },
-            { id: 'C5209', slot: 'L-5', status: 'MANTENIMIENTO', fuel: '1/4', place: 'Patio', model: 'Kia Rio 2022', plates: 'GTO-5209', notes: 'Revisar testigo de motor', color: 'red' },
-            { id: 'D8841', slot: 'S4-5', status: 'TRASLADO', fuel: 'F', place: 'Patio', model: 'Nissan Kicks 2024', plates: 'GTO-8841', notes: 'Traslado programado a aeropuerto', color: 'purple' },
-            { id: 'E4112', slot: 'S3-5', status: 'LISTO', fuel: 'F', place: 'Patio', model: 'Toyota Corolla 2024', plates: 'GTO-4112', notes: 'Unidad premium lista', color: 'green' },
-            { id: 'G9024', slot: 'TLLRS-1', status: 'EN TALLER', fuel: '1/2', place: 'Taller', model: 'VW Jetta 2023', plates: 'GTO-9024', notes: 'Cambio de balatas', color: 'orange' },
-            { id: 'H3377', slot: 'OFICINA-1', status: 'NO ARRENDABLE', fuel: 'N/A', place: 'Oficina', model: 'Hyundai i10 2022', plates: 'GTO-3377', notes: 'Documentación pendiente', color: 'blue' },
+            { id: 'M159',    slot: 'LIMBO',     status: 'SUCIO',         fuel: 'H',   place: 'Limbo',   cat: 'SUV',    model: 'Chevrolet Suburban', plates: 'DSR767E' },
+            { id: 'A1842',   slot: 'L-3',       status: 'LISTO',         fuel: '3/4', place: 'Patio',   cat: 'ECAR',   model: 'Nissan Versa',       plates: 'GLM184A' },
+            { id: 'B7310',   slot: 'L-4',       status: 'SUCIO',         fuel: '1/2', place: 'Patio',   cat: 'ECAR',   model: 'Chevrolet Aveo',     plates: 'GNK731B' },
+            { id: 'C5209',   slot: 'L-5',       status: 'MANTENIMIENTO', fuel: '1/4', place: 'Patio',   cat: 'CCAR',   model: 'Kia Rio',            plates: 'GBP520C' },
+            { id: 'D8841',   slot: 'S4-5',      status: 'TRASLADO',      fuel: 'F',   place: 'Patio',   cat: 'ICAR',   model: 'Nissan Kicks',       plates: 'GRT884D' },
+            { id: 'E4112',   slot: 'S3-5',      status: 'LISTO',         fuel: 'F',   place: 'Patio',   cat: 'ICAR',   model: 'Toyota Corolla',     plates: 'GVF411E' },
+            { id: 'G9024',   slot: 'TLLRS-1',   status: 'EN TALLER',     fuel: '1/2', place: 'Taller',  cat: 'CCAR',   model: 'VW Jetta',           plates: 'GKW902G' },
+            { id: 'H3377',   slot: 'OFICINA-1', status: 'NO ARRENDABLE', fuel: 'N/A', place: 'Oficina', cat: 'ECAR',   model: 'Hyundai Grand i10',  plates: 'GHY337H' },
+            { id: 'Z018',    slot: 'L-1',       status: 'NO ARRENDABLE', fuel: 'F',   place: 'Patio',   cat: 'ICAR',   model: 'Kia Forte',          plates: 'GTH118A' },
+            { id: 'F998',    slot: 'L-2',       status: 'LISTO',         fuel: 'E',   place: 'Patio',   cat: 'ECAR',   model: 'Nissan March',       plates: 'GPD774B' },
+            { id: 'OSVALDO', slot: 'L2-1',      status: 'NO ARRENDABLE', fuel: 'N/A', place: 'Patio',   cat: 'ICAR',   model: 'VW Vento',           plates: 'SIN PLACA' },
+            { id: 'N372',    slot: 'B-1',       status: 'RESGUARDO',     fuel: 'H',   place: 'Bano',    cat: 'CCAR',   model: 'Chevrolet Aveo',     plates: 'GXR552H' },
+        ];
+        // Catálogo maestro (base de datos simulada) para el autocompletado al crear.
+        // Incluye las del mapa + otras que NO están, para sugerir con "intenta con X".
+        const CATALOGO = [
+            ...DEMO_UNITS.map((u) => ({ id: u.id, cat: u.cat, model: u.model, plates: u.plates })),
+            { id: 'J1994', cat: 'ECAR',   model: 'Nissan Versa',   plates: 'GJP199J' },
+            { id: 'M092',  cat: 'CCAR',   model: 'Kia Rio',        plates: 'GMD092M' },
+            { id: 'K540',  cat: 'SUV',    model: 'Toyota RAV4',    plates: 'GKV540K' },
+            { id: 'P233',  cat: 'PICKUP', model: 'Nissan NP300',   plates: 'GPN233P' },
+            { id: 'R118',  cat: 'ECAR',   model: 'Suzuki Swift',   plates: 'GRS118R' },
+            { id: 'S760',  cat: 'ICAR',   model: 'Mazda 3',        plates: 'GSM760S' },
+            { id: 'T044',  cat: 'PICKUP', model: 'Toyota Hilux',   plates: 'GTH044T' },
+            { id: 'V612',  cat: 'CCAR',   model: 'Chevrolet Onix', plates: 'GVC612V' },
+            { id: 'W283',  cat: 'ECAR',   model: 'Renault Kwid',   plates: 'GWK283W' },
+            { id: 'Y905',  cat: 'ICAR',   model: 'VW Vento',       plates: 'GYV905Y' },
         ];
         let currentScale = 1;
+        let _searchZoomed = false;
         let toastTimer = 0;
         let selectedUnitId = '';
         let editorMode = 'edit';
@@ -2131,6 +2144,7 @@
                 if (!el) return;
                 const visible = unitMatchesFilters(unit);
                 el.classList.toggle('filtered-out', !visible);
+                el.classList.toggle('search-match', !!query && visible);
                 if (query && visible) slotNode(unit.slot)?.classList.add('search-hit');
             });
             document.querySelectorAll('.filter-chip').forEach((button) => {
@@ -2166,6 +2180,7 @@
             if (!unitId || !state.units[unitId]) return;
             selectedUnitId = unitId;
             editorMode = 'edit';
+            if (_searchZoomed) { _searchZoomed = false; applyResponsiveZoom(); } // el clic quita el zoom de búsqueda
             openEditor(state.units[unitId]);
             renderAll();
             showToast(`${unitId} seleccionado`);
@@ -2191,6 +2206,8 @@
             if (dd) { dd.innerHTML = isAdd ? '' : buildAcciones(unit); dd.classList.remove('show'); }
             const pe = document.getElementById('pillEdit');
             if (pe) pe.open = isAdd;
+            const sug = document.getElementById('mvaSuggest');
+            if (sug) { if (isAdd) mvaAutocomplete(''); else sug.style.display = 'none'; }
             popover.classList.toggle('is-add', isAdd);
             popover.classList.add('open');
         }
@@ -2202,6 +2219,29 @@
                 + `<span>🏷️ ${unit.plates || 'N/A'}</span><span class="chip-sep">•</span>`
                 + `<span>🚗 ${unit.model || 'S/M'}</span><span class="chip-sep">•</span>`
                 + `<span style="text-transform:capitalize;">⚙️ ${st}</span>`;
+        }
+
+        // Autocompletado al crear (como la "base maestra" del cuadre, con datos simulados)
+        function mvaAutocomplete(val) {
+            const box = document.getElementById('mvaSuggest');
+            if (!box) return;
+            if (editorMode !== 'add') { box.style.display = 'none'; return; }
+            const q = String(val || '').trim().toUpperCase();
+            const libres = CATALOGO.filter((c) => !state.units[c.id]);
+            const list = (q ? libres.filter((c) => `${c.id} ${c.plates} ${c.model}`.toUpperCase().includes(q)) : libres).slice(0, 6);
+            box.innerHTML = list.length
+                ? list.map((c) => `<button type="button" class="mva-sug" onclick="applySuggestion('${c.id}')"><strong>${c.id}</strong><span>${c.model} · ${c.plates} · ${c.cat}</span></button>`).join('')
+                : '<div class="mva-sug-empty">Sin coincidencias en catálogo</div>';
+            box.style.display = 'block';
+        }
+        function applySuggestion(id) {
+            const c = CATALOGO.find((x) => x.id === id);
+            if (!c) return;
+            document.getElementById('unitMva').value = c.id;
+            document.getElementById('unitModelField').value = c.model;
+            document.getElementById('unitPlatesField').value = c.plates;
+            const box = document.getElementById('mvaSuggest');
+            if (box) box.style.display = 'none';
         }
         function accItem(action, icon, color, label) {
             return `<button type="button" class="action-item" onclick="mgxAction('${action}')"><span class="material-icons" style="color:${color}">${icon}</span> ${label}</button>`;
@@ -2328,6 +2368,21 @@
             if (editorMode === 'edit' && existingById && unit.id !== oldId) {
                 showToast('Ese MVA ya existe');
                 return;
+            }
+
+            // Al crear: la unidad debe existir en el catálogo (base maestra simulada).
+            // Si no, sugiere una del catálogo que NO esté ya en el mapa.
+            if (editorMode === 'add') {
+                const cat = CATALOGO.find((c) => c.id === unit.id);
+                if (!cat) {
+                    const libres = CATALOGO.filter((c) => !state.units[c.id]);
+                    const sug = libres.length ? libres[Math.floor(Math.random() * libres.length)].id : '—';
+                    showToast(`No tenemos "${unit.id}". Intenta con ${sug}`);
+                    return;
+                }
+                unit.cat = cat.cat;
+                if (!unit.model) unit.model = cat.model;
+                if (!unit.plates) unit.plates = cat.plates;
             }
 
             const occupied = Object.values(state.units).find((candidate) => candidate.slot === unit.slot && candidate.id !== oldId);
@@ -2585,6 +2640,7 @@
         }
 
         function zoomMap(factor) {
+            _searchZoomed = false;
             currentScale = Math.max(.4, Math.min(1.45, currentScale * factor));
             applyZoom();
         }
@@ -2701,7 +2757,29 @@
         mapSearch.addEventListener('input', (event) => {
             filterState.query = event.target.value;
             renderAll();
+            handleSearchZoom();
         });
+
+        // Búsqueda con zoom: 1 coincidencia → acerca y centra; varias → se mantiene;
+        // buscador vacío → vuelve al zoom normal. (El clic en una unidad también lo quita.)
+        function handleSearchZoom() {
+            const q = filterState.query.trim().toUpperCase();
+            if (!q) {
+                if (_searchZoomed) { _searchZoomed = false; applyResponsiveZoom(); }
+                return;
+            }
+            const matches = Object.values(state.units).filter((u) => slotNode(u.slot) && unitMatchesFilters(u));
+            if (matches.length === 1) zoomToUnit(matches[0]);
+        }
+        function zoomToUnit(u) {
+            _searchZoomed = true;
+            currentScale = 1.18;
+            applyZoom();
+            requestAnimationFrame(() => {
+                (document.getElementById('u-' + u.id) || slotNode(u.slot))
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            });
+        }
 
         state = loadState();
         markChanged(...Object.keys(state.units));
