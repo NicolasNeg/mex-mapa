@@ -348,6 +348,9 @@ async function boot() {
   _runWhenIdle(() => {
     warmAppAssets().catch(err => console.warn('[app/main] precache assets:', err));
   }, 700);
+  // Calentar el cache del buscador global (índice + usuarios) en idle → primera
+  // búsqueda instantánea. Usa localStorage si está fresco (0 lecturas).
+  _runWhenIdle(() => { try { window.__mexBuscadorPrefetch?.(); } catch (_) {} }, 1500);
   _scheduleAppWarmup('boot');
   window.__mexWarmAppData = (options = {}) => warmAppData(getState(), { reason: 'manual', force: true, ...options });
   window.__mexAppCacheStatus = () => getAppCacheStatus(getState());

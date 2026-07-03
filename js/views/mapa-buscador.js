@@ -14,6 +14,30 @@
   var _usersCache = null;
   var _unitsCache = null;
 
+  // ── Cache persistente (localStorage + TTL) ─────────────────
+  var CACHE_TTL_MS = 6 * 60 * 60 * 1000;   // válido 6h (recarga sin re-descargar)
+  var REFRESH_AGE_MS = 30 * 60 * 1000;     // si la copia local tiene >30min, refresca en 2º plano
+  var MAX_LS_BYTES = 4 * 1024 * 1024;      // guard de tamaño ~4MB
+  var LS_UNITS = 'mexbz.units.v1';
+  var LS_USERS = 'mexbz.users.v1';
+
+  function _lsRead(key) {
+    try {
+      var raw = localStorage.getItem(key);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      if (!o || (Date.now() - o.t) > CACHE_TTL_MS) return null;
+      return o;   // { t, d }
+    } catch (_) { return null; }
+  }
+  function _lsWrite(key, data) {
+    try {
+      var raw = JSON.stringify({ t: Date.now(), d: data });
+      if (raw.length > MAX_LS_BYTES) return;   // demasiado grande → solo cache en memoria
+      localStorage.setItem(key, raw);
+    } catch (_) { /* quota/priv mode → ignorar */ }
+  }
+
   // ── CSS ────────────────────────────────────────────────────
   function injectCss() {
     if (document.getElementById('mexbz-css')) return;
@@ -25,6 +49,7 @@
       '#mexbzFab .material-icons{font-size:24px}',
       '#mexbzOverlay{position:fixed;inset:0;z-index:100000;background:rgba(7,17,31,.5);opacity:0;visibility:hidden;transition:opacity .25s ease,visibility .25s}',
       '#mexbzOverlay.open{opacity:1;visibility:visible}',
+      '@keyframes mexbzSpin{to{transform:rotate(360deg)}}',
       '@keyframes mexbzRowIn{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}',
       '@keyframes mexbzFadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}',
       '.mexbz-row{animation:mexbzRowIn .18s ease both}',
@@ -79,7 +104,7 @@
     ov.id = 'mexbzOverlay';
     ov.innerHTML =
       '<aside id="mexbzPanel">' +
-        '<div class="mexbz-head"><h2>Buscar</h2><button class="mexbz-x" id="mexbzClose"><span class="material-icons">close</span></button></div>' +
+        '<div class="mexbz-head"><h2>Buscar</h2><div style="display:flex;gap:2px"><button class="mexbz-x" id="mexbzRefresh" title="Actualizar datos"><span class="material-icons">refresh</span></button><button class="mexbz-x" id="mexbzClose"><span class="material-icons">close</span></button></div></div>' +
         '<div class="mexbz-tabs">' +
           '<button class="mexbz-tab active" data-tab="unidades">Unidades</button>' +
           '<button class="mexbz-tab" data-tab="usuarios">Usuarios</button>' +
@@ -91,6 +116,14 @@
 
     ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
     ov.querySelector('#mexbzClose').addEventListener('click', close);
+    ov.querySelector('#mexbzRefresh').addEventListener('click', function () {
+      var btn = this.querySelector('.material-icons');
+      if (btn) btn.style.animation = 'mexbzSpin .7s linear infinite';
+      Promise.all([loadUnitsApi(true), loadUsers(true)]).then(function () {
+        if (btn) btn.style.animation = '';
+        runSearch();
+      });
+    });
     ov.querySelectorAll('.mexbz-tab').forEach(function (b) {
       b.addEventListener('click', function () { switchTab(b.dataset.tab); });
     });
@@ -111,6 +144,13 @@
   }
   // Punto de entrada global (lo llama el buscador del header del shell).
   window.__mexBuscadorOpen = function (query) { open(query || ''); };
+
+  // Prefetch: calienta el cache (índice + usuarios) al iniciar sesión / boot, en
+  // idle. Así la primera búsqueda es instantánea. Usa localStorage si está fresco
+  // (0 lecturas) o descarga una vez.
+  window.__mexBuscadorPrefetch = function () {
+    try { loadUnitsApi(false); loadUsers(false); } catch (_) {}
+  };
 
   function syncTabButtons() {
     document.querySelectorAll('.mexbz-tab').forEach(function (b) {
@@ -165,14 +205,34 @@
       _car: null
     };
   }
-  function loadUnitsApi() {
-    if (_unitsCache) return Promise.resolve(_unitsCache);
+  function _fetchUnitsFromServer() {
     var api = window.api;
-    if (!api || typeof api.obtenerUnidadesPlazas !== 'function') return Promise.resolve([]);
+    if (!api || typeof api.obtenerUnidadesPlazas !== 'function') return Promise.resolve(_unitsCache || []);
     return api.obtenerUnidadesPlazas().then(function (list) {
       _unitsCache = (list || []).filter(function (u) { return u && u.mva; }).map(_normRaw);
+      _lsWrite(LS_UNITS, _unitsCache);
       return _unitsCache;
-    }).catch(function () { return []; });
+    }).catch(function () { return _unitsCache || []; });
+  }
+  // force=true → servidor. Si no: memoria → localStorage (refresca en 2º plano si
+  // es viejo) → servidor.
+  function loadUnitsApi(force) {
+    if (force) return _fetchUnitsFromServer();
+    if (_unitsCache) return Promise.resolve(_unitsCache);
+    var ls = _lsRead(LS_UNITS);
+    if (ls) {
+      _unitsCache = ls.d;
+      if ((Date.now() - ls.t) > REFRESH_AGE_MS) _fetchUnitsFromServer();
+      return Promise.resolve(_unitsCache);
+    }
+    return _fetchUnitsFromServer();
+  }
+  // Devuelve unidades ya en cache (memoria o LS) sin ir al servidor, o null.
+  function unitsReady() {
+    if (_unitsCache) return _unitsCache;
+    var ls = _lsRead(LS_UNITS);
+    if (ls) { _unitsCache = ls.d; if ((Date.now() - ls.t) > REFRESH_AGE_MS) _fetchUnitsFromServer(); return _unitsCache; }
+    return null;
   }
 
   function searchUnidades() {
@@ -193,13 +253,16 @@
       renderUnitRows(out);
       return;
     }
-    // A nivel shell: desde Firestore.
+    // A nivel shell: desde cache (índice global). Si el cache está caliente
+    // (prefetch/localStorage) render instantáneo, sin "Cargando".
+    var filtrar = function (units) {
+      return (units || []).filter(function (d) { return !q || d.hay.indexOf(q) > -1; }).slice(0, 60);
+    };
+    var ready = unitsReady();
+    if (ready) { renderUnitRows(filtrar(ready)); return; }
     var box = document.getElementById('mexbzResults');
     box.innerHTML = '<div class="mexbz-empty">Cargando unidades...</div>';
-    loadUnitsApi().then(function (units) {
-      var out = units.filter(function (d) { return !q || d.hay.indexOf(q) > -1; }).slice(0, 60);
-      renderUnitRows(out);
-    });
+    loadUnitsApi().then(function (units) { renderUnitRows(filtrar(units)); });
   }
 
   // Estado de cuadre según plazaActual (índice global): En cuadre / No
@@ -270,21 +333,39 @@
   }
 
   // ── TAB USUARIOS ───────────────────────────────────────────
-  function loadUsers() {
-    if (_usersCache) return Promise.resolve(_usersCache);
+  function _fetchUsersFromServer() {
     var db = window._db;
-    if (!db) return Promise.resolve([]);
+    if (!db) return Promise.resolve(_usersCache || []);
     return db.collection('usuarios').get().then(function (snap) {
       _usersCache = snap.docs.map(function (doc) { var x = doc.data() || {}; x.id = doc.id; return x; });
+      _lsWrite(LS_USERS, _usersCache);
       return _usersCache;
-    }).catch(function () { return []; });
+    }).catch(function () { return _usersCache || []; });
+  }
+  function loadUsers(force) {
+    if (force) return _fetchUsersFromServer();
+    if (_usersCache) return Promise.resolve(_usersCache);
+    var ls = _lsRead(LS_USERS);
+    if (ls) {
+      _usersCache = ls.d;
+      if ((Date.now() - ls.t) > REFRESH_AGE_MS) _fetchUsersFromServer();
+      return Promise.resolve(_usersCache);
+    }
+    return _fetchUsersFromServer();
+  }
+  function usersReady() {
+    if (_usersCache) return _usersCache;
+    var ls = _lsRead(LS_USERS);
+    if (ls) { _usersCache = ls.d; if ((Date.now() - ls.t) > REFRESH_AGE_MS) _fetchUsersFromServer(); return _usersCache; }
+    return null;
   }
 
   function searchUsuarios() {
     var q = (document.getElementById('mexbzInput').value || '').toLowerCase().trim();
     var box = document.getElementById('mexbzResults');
-    box.innerHTML = '<div class="mexbz-empty">Cargando usuarios...</div>';
-    loadUsers().then(function (users) {
+    var ready = usersReady();
+    if (!ready) box.innerHTML = '<div class="mexbz-empty">Cargando usuarios...</div>';
+    (ready ? Promise.resolve(ready) : loadUsers()).then(function (users) {
       var list = users.filter(function (u) {
         var name = (u.nombreCompleto || u.nombre || u.usuario || '').toLowerCase();
         var mail = (u.email || u.id || '').toLowerCase();
