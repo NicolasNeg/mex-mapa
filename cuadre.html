@@ -72,9 +72,12 @@
       flex-direction: column !important;
     }
 
-    /* cuadreApp llena el espacio disponible del main stage */
+    /* cuadreApp llena el espacio disponible. position:fixed + inset:0 lo ancla al
+       viewport (del iframe o del navegador) → altura DEFINIDA sin depender de la
+       cadena body/html. Así la tabla interna puede scrollear siempre. */
     #cuadreApp {
-      flex: 1;
+      position: fixed;
+      inset: 0;
       display: flex;
       flex-direction: column;
       min-height: 0;
@@ -109,6 +112,18 @@
     /* Mobile: el scroll de tarjetas lo lleva .main-grid-flota */
     @media (max-width: 768px) {
       #fleet-modal .main-grid-flota { overflow-y: auto !important; }
+    }
+    /* Botones flotantes SIEMPRE visibles (fixed al viewport), no absolute dentro
+       del col-table que crece. */
+    #fleet-modal .btn-flotante-agregar-cuadre {
+      position: fixed !important; bottom: 24px !important; right: 24px !important; z-index: 40 !important;
+    }
+    #fleet-modal .cuadre-zoom-ctrl {
+      position: fixed !important; bottom: 92px !important; right: 24px !important; z-index: 40 !important;
+    }
+    @media (max-width: 768px) {
+      #fleet-modal .btn-flotante-agregar-cuadre { bottom: 88px !important; }
+      #fleet-modal .cuadre-zoom-ctrl { bottom: 156px !important; }
     }
   </style>
 </head>

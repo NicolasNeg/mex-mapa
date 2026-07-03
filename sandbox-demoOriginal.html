@@ -1983,7 +1983,7 @@
             { id: 'A1842',   slot: 'L-3',       status: 'LISTO',         fuel: '3/4', place: 'Patio',   cat: 'ECAR',   model: 'Nissan Versa',       plates: 'GLM184A' },
             { id: 'B7310',   slot: 'L-4',       status: 'SUCIO',         fuel: '1/2', place: 'Patio',   cat: 'ECAR',   model: 'Chevrolet Aveo',     plates: 'GNK731B' },
             { id: 'C5209',   slot: 'L-5',       status: 'MANTENIMIENTO', fuel: '1/4', place: 'Patio',   cat: 'CCAR',   model: 'Kia Rio',            plates: 'GBP520C' },
-            { id: 'D8841',   slot: 'S4-5',      status: 'TRASLADO',      fuel: 'F',   place: 'Patio',   cat: 'ICAR',   model: 'Nissan Kicks',       plates: 'GRT884D' },
+            { id: 'D8841',   slot: 'LIMBO',     status: 'TRASLADO',      fuel: 'F',   place: 'Carretera', cat: 'ICAR', model: 'Nissan Kicks',       plates: 'GRT884D', destino: 'SUC. NORTE' },
             { id: 'E4112',   slot: 'S3-5',      status: 'LISTO',         fuel: 'F',   place: 'Patio',   cat: 'ICAR',   model: 'Toyota Corolla',     plates: 'GVF411E' },
             { id: 'G9024',   slot: 'TLLRS-1',   status: 'EN TALLER',     fuel: '1/2', place: 'Taller',  cat: 'CCAR',   model: 'VW Jetta',           plates: 'GKW902G' },
             { id: 'H3377',   slot: 'OFICINA-1', status: 'NO ARRENDABLE', fuel: 'N/A', place: 'Oficina', cat: 'ECAR',   model: 'Hyundai Grand i10',  plates: 'GHY337H' },
@@ -2467,12 +2467,19 @@
             const dobleCero = n.includes('DOBLE CERO');
             const urgente = n.includes('URGENTE');
             const manto = unit.status === 'MANTENIMIENTO' || unit.status === 'EN TALLER';
+            const enRoad = unit.status === 'TRASLADO';
             let h = '';
+            // Si está en carretera, solo mostrar "Recibir" — las demás acciones no aplican
+            if (enRoad) {
+                h += accItem('RECIBIR', 'where_to_vote', '#10b981', 'RECIBIR EN PATIO');
+                return h;
+            }
             h += apartado ? accItem('QUITAR_APARTADO', 'lock_open', '#64748b', 'QUITAR APARTADO') : accItem('APARTAR', 'lock', '#fbbf24', 'APARTAR UNIDAD');
             h += dobleCero ? accItem('QUITAR_DOBLE_CERO', 'do_not_disturb_on', '#64748b', 'QUITAR DOBLE CERO') : accItem('DOBLE_CERO', 'verified', '#3b82f6', 'AÑADIR DOBLE CERO');
             h += urgente ? accItem('QUITAR_URGENTE', 'notifications_paused', '#64748b', 'QUITAR URGENTE') : accItem('URGENTE', 'priority_high', '#ef4444', 'MARCAR COMO URGENTE');
             h += manto ? accItem('QUITAR_MANTENIMIENTO', 'build_circle', '#64748b', 'QUITAR DE MANTENIMIENTO') : accItem('MANTENIMIENTO', 'build', '#ef4444', 'PONER EN "TALLER"');
             if (unit.status !== 'LISTO') h += accItem('LISTO', 'check_circle', '#10b981', 'PONER EN "LISTO"');
+            h += accItem('TRASLADO', 'local_shipping', '#7c3aed', 'MANDAR EN TRASLADO');
             h += accItem('SWAP', 'swap_horiz', '#2563eb', 'CAMBIAR POSICIÓN');
             return h;
         }
@@ -2967,7 +2974,10 @@
             const units = Object.values(state.units).filter((unit) => unit.id !== selectedUnitId);
             if (!units.length) return;
             const actor = randomFrom(SIM_USERS);
-            const unit = randomFrom(units);
+            // No mover/cambiar unidades que están en carretera (slot=LIMBO por TRASLADO)
+            const eligible = units.filter((u) => !isInRoad(u));
+            if (!eligible.length) return;
+            const unit = randomFrom(eligible);
             const actionType = Math.random();
 
             if (actionType < .58) {
@@ -2986,7 +2996,7 @@
                 addHistory('Movimiento remoto', `${unit.id} ${originSlot} -> ${targetSlot}`, actor);
                 showToast(`${actor} movió ${unit.id}`);
             } else if (actionType < .84) {
-                const nextStatus = randomFrom(['LISTO', 'SUCIO', 'MANTENIMIENTO', 'TRASLADO', 'RESGUARDO', 'NO ARRENDABLE']);
+                const nextStatus = randomFrom(['LISTO', 'SUCIO', 'MANTENIMIENTO', 'RESGUARDO']);
                 const oldStatus = unit.status;
                 unit.status = nextStatus;
                 unit.color = STATUS_STYLE[nextStatus] || unit.color;
