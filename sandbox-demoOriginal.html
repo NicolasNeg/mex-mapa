@@ -1487,8 +1487,57 @@
       .nav-rail-btn:hover { background: rgba(255, 255, 255, .06); color: #e2e8f0; }
       .nav-rail-btn.active { background: rgba(59, 130, 246, .16); color: #60a5fa; }
 
+      /* ===== Franja "En carretera" (unidades en TRASLADO) ===== */
+      .road-strip {
+        position: absolute; left: 56px; right: 0; top: 56px; z-index: 35;
+        display: none; /* se muestra solo cuando hay unidades en traslado */
+        align-items: center; gap: 10px;
+        padding: 8px 14px;
+        background: linear-gradient(90deg, rgba(124, 58, 237, .14) 0%, rgba(124, 58, 237, .04) 100%);
+        border-bottom: 1px solid rgba(124, 58, 237, .25);
+        overflow-x: auto; overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+      .road-strip.has-units { display: flex; }
+      .road-strip::-webkit-scrollbar { height: 4px; }
+      .road-strip::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, .3); border-radius: 999px; }
+      .road-strip-label {
+        display: flex; align-items: center; gap: 6px; white-space: nowrap;
+        font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+        color: #a78bfa; flex-shrink: 0;
+      }
+      .road-strip-label .material-icons { font-size: 16px; animation: roadMove 2s ease-in-out infinite; }
+      @keyframes roadMove { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
+      .road-count {
+        background: rgba(124, 58, 237, .25); color: #c4b5fd;
+        border-radius: 999px; padding: 1px 7px; font-size: 10px;
+      }
+      .road-cards { display: flex; gap: 8px; align-items: center; }
+      .road-card {
+        flex-shrink: 0; display: flex; align-items: center; gap: 10px;
+        background: rgba(124, 58, 237, .12); border: 1px solid rgba(124, 58, 237, .3);
+        border-radius: 12px; padding: 7px 12px; cursor: pointer;
+        transition: background .15s, transform .15s;
+        animation: roadCardIn .3s cubic-bezier(.16,1,.3,1);
+      }
+      @keyframes roadCardIn { from { opacity: 0; transform: scale(.9) translateX(-10px); } }
+      .road-card:hover { background: rgba(124, 58, 237, .22); transform: translateY(-1px); }
+      .road-card-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(124,58,237,.25); display: grid; place-items: center; }
+      .road-card-icon .material-icons { font-size: 17px; color: #c4b5fd; }
+      .road-card-info { display: flex; flex-direction: column; gap: 1px; }
+      .road-card-mva { font-size: 13px; font-weight: 900; color: #e9d5ff; line-height: 1; }
+      .road-card-sub { font-size: 10px; color: #a78bfa; font-weight: 700; }
+      .road-card-dest { font-size: 10px; color: rgba(196,181,253,.7); display: flex; align-items: center; gap: 3px; }
+      .road-card-dest .material-icons { font-size: 11px; }
+      /* Indicador de movimiento en la card */
+      .road-pulse { width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; animation: roadPulse 1.4s ease-in-out infinite; flex-shrink: 0; }
+      @keyframes roadPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.75); } }
+
       /* El mapa y el cuadre empiezan después del rail */
       .yard-wrap { left: 56px; }
+      /* Cuando hay franja, el mapa baja */
+      .road-strip.has-units ~ .yard-wrap,
+      .road-strip.has-units ~ section.cuadre-view { top: calc(56px + 54px); }
 
       /* ===== Vista Cuadre ===== */
       .cuadre-view { position: absolute; inset: 56px 0 0 56px; overflow: hidden; background: #f1f5f9; display: flex; flex-direction: column; }
@@ -1526,10 +1575,27 @@
       @media (max-width: 640px) {
         .nav-rail { width: 48px; }
         .yard-wrap { left: 48px; }
+        .road-strip { left: 48px; }
         .cuadre-view { inset: 56px 0 0 48px; }
         .nav-rail-lbl { display: none; }
         .nav-rail-btn { height: 46px; }
       }
+
+      /* Modo claro — franja carretera */
+      body.light .road-strip {
+        background: linear-gradient(90deg, rgba(124,58,237,.08) 0%, rgba(124,58,237,.02) 100%);
+        border-bottom-color: rgba(124,58,237,.2);
+      }
+      body.light .road-card { background: rgba(124,58,237,.07); border-color: rgba(124,58,237,.22); }
+      body.light .road-card:hover { background: rgba(124,58,237,.14); }
+      body.light .road-card-mva { color: #5b21b6; }
+      body.light .road-card-sub { color: #7c3aed; }
+      body.light .road-card-dest { color: rgba(109,40,217,.65); }
+      body.light .road-strip-label { color: #7c3aed; }
+      body.light .road-count { background: rgba(124,58,237,.15); color: #6d28d9; }
+      body.light .road-card-icon { background: rgba(124,58,237,.12); }
+      body.light .road-card-icon .material-icons { color: #7c3aed; }
+      body.light .road-pulse { background: #7c3aed; }
 
       /* ===== Modo claro ===== */
       body.light { background: #eef2f7; }
@@ -1606,6 +1672,16 @@
                 </div>
             </div>
         </section>
+
+        <!-- Franja "EN CARRETERA": unidades en TRASLADO — fuera del mapa -->
+        <div class="road-strip" id="roadStrip">
+            <div class="road-strip-label">
+                <span class="material-icons">local_shipping</span>
+                En carretera
+                <span class="road-count" id="roadCount">0</span>
+            </div>
+            <div class="road-cards" id="roadCards"></div>
+        </div>
 
         <main class="yard-wrap" aria-label="Mapa vivo BJX">
             <div class="yard-viewport" id="yardViewport">
@@ -2184,10 +2260,38 @@
             unitSignature({ slot: 'L-1', status: 'LISTO', fuel: 'F' }) !== unitSignature({ slot: 'L-2', status: 'LISTO', fuel: 'F' }),
             'unitSignature: debe ser estable e ir campo por campo'
         );
+        // Unidades en TRASLADO: no están en el patio, están en carretera.
+        // Se excluyen del canvas del mapa y aparecen en la franja "En carretera".
+        const isInRoad = (u) => u.status === 'TRASLADO';
+
+        function renderRoadStrip() {
+            const strip = document.getElementById('roadStrip');
+            const cards = document.getElementById('roadCards');
+            const count = document.getElementById('roadCount');
+            if (!strip || !cards) return;
+            const onRoad = Object.values(state.units).filter(isInRoad);
+            strip.classList.toggle('has-units', onRoad.length > 0);
+            if (count) count.textContent = onRoad.length;
+            cards.innerHTML = onRoad.map((u) => {
+                const dest = u.notes?.match(/DEST[^\s]*\s*([A-Z0-9\s]+)/i)?.[1]?.trim() || u.destino || '';
+                return `<div class="road-card" onclick="selectUnit('${u.id}')" title="Clic para ver detalle">
+                    <div class="road-card-icon"><span class="material-icons">local_shipping</span></div>
+                    <div class="road-card-info">
+                        <span class="road-card-mva">${u.id}</span>
+                        <span class="road-card-sub">${u.model || 'S/M'} · ${u.plates || 'S/P'}</span>
+                        ${dest ? `<span class="road-card-dest"><span class="material-icons">arrow_forward</span>${dest}</span>` : ''}
+                    </div>
+                    <div class="road-pulse"></div>
+                </div>`;
+            }).join('');
+        }
+
         function renderMapNow() {
             _rafPending = 0;
+            renderRoadStrip();  // siempre sincroniza la franja al renderizar
             const present = new Set();
             for (const u of Object.values(state.units)) {
+                if (isInRoad(u)) continue;             // en TRASLADO → fuera del mapa, en la franja
                 const target = slotNode(u.slot);
                 if (!target) continue;                 // LIMBO / sin cajón → fuera del mapa
                 present.add(u.id);
@@ -2403,6 +2507,19 @@
                 case 'QUITAR_URGENTE': unit.notes = delTag(unit.notes, 'URGENTE'); break;
                 case 'MANTENIMIENTO': { unit.status = 'MANTENIMIENTO'; const t = firstFreeTaller(); if (t) { unit.slot = t; unit.place = 'Taller'; } break; }
                 case 'QUITAR_MANTENIMIENTO': { unit.status = 'LISTO'; if (String(unit.slot).startsWith('TLLRS')) { const e = firstEmptyNonTaller(); if (e) { unit.slot = e; unit.place = placeForSlot(e); } } break; }
+                case 'TRASLADO': {
+                    // Sale del cajón — va a carretera, ya no ocupa espacio en el mapa
+                    unit._prevSlot = unit.slot !== 'LIMBO' ? unit.slot : (unit._prevSlot || '');
+                    unit.status = 'TRASLADO'; unit.slot = 'LIMBO'; unit.place = 'Carretera';
+                    closeUnit(); // cierra la píldora, aparece en la franja
+                    break;
+                }
+                case 'RECIBIR': {
+                    // Regresa de carretera al patio (entra a LIMBO para asignar cajón)
+                    unit.status = 'SUCIO'; unit.slot = 'LIMBO'; unit.place = 'Patio';
+                    showToast(`${unit.id} recibida — asigna un cajón`);
+                    break;
+                }
                 case 'LISTO': unit.status = 'LISTO'; break;
             }
             unit.color = STATUS_STYLE[unit.status] || unit.color;

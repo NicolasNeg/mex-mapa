@@ -95,6 +95,21 @@
 
     /* El botón "VER MAPA" del fleet-header redirige al mapa */
     .fleet-header-top .txt-mobile-hide { display: inline !important; }
+
+    /* ── BLINDAJE DE SCROLL DEL CUADRE ──────────────────────────
+       Fuerza cada eslabón de la cadena flex para que la tabla scrollee
+       (desktop) y las tarjetas scrolleen (mobile), sin depender de mapa.css. */
+    #fleet-modal { flex: 1 1 auto !important; min-height: 0 !important; flex-direction: column !important; }
+    #fleet-modal .fleet-header-top,
+    #fleet-modal .more-controls-wrapper { flex: 0 0 auto !important; }
+    #fleet-modal .fleet-wrapper { flex: 1 1 auto !important; min-height: 0 !important; }
+    #fleet-modal .main-grid-flota { flex: 1 1 auto !important; min-height: 0 !important; }
+    #fleet-modal .col-table { flex: 1 1 auto !important; min-height: 0 !important; }
+    #fleet-modal .col-table .table-container { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; }
+    /* Mobile: el scroll de tarjetas lo lleva .main-grid-flota */
+    @media (max-width: 768px) {
+      #fleet-modal .main-grid-flota { overflow-y: auto !important; }
+    }
   </style>
 </head>
 <body>
