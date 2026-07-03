@@ -149,8 +149,30 @@
   // idle. Así la primera búsqueda es instantánea. Usa localStorage si está fresco
   // (0 lecturas) o descarga una vez.
   window.__mexBuscadorPrefetch = function () {
-    try { loadUnitsApi(false); loadUsers(false); } catch (_) {}
+    try { loadUnitsApi(false).then(maybeBackfill); loadUsers(false); } catch (_) {}
   };
+
+  // Auto-heal: si el índice global no tiene poblado plazaActual (ninguna unidad
+  // lo trae), corre el backfill UNA vez (por navegador) y refresca el cache. Los
+  // writes son solo de ubicación → permitidos para cualquier usuario. Idempotente.
+  function maybeBackfill(units) {
+    if (!units || !units.length) return;
+    var poblado = units.some(function (u) { return u.plazaActual !== undefined && u.plazaActual !== null; });
+    if (poblado) return;
+    var api = window.api;
+    if (!api || typeof api.backfillUbicacionGlobal !== 'function') return;
+    try { if (localStorage.getItem('mexbz.backfill.v1')) return; localStorage.setItem('mexbz.backfill.v1', String(Date.now())); } catch (_) {}
+    api.backfillUbicacionGlobal().then(function () {
+      _unitsCache = null;
+      try { localStorage.removeItem(LS_UNITS); } catch (_) {}
+      loadUnitsApi(true).then(function () {
+        var ov = document.getElementById('mexbzOverlay');
+        if (ov && ov.classList.contains('open')) runSearch();
+      });
+    }).catch(function () {
+      try { localStorage.removeItem('mexbz.backfill.v1'); } catch (_) {}  // permitir reintento
+    });
+  }
 
   function syncTabButtons() {
     document.querySelectorAll('.mexbz-tab').forEach(function (b) {

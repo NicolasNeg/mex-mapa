@@ -140,7 +140,12 @@
       ]);
       cuadreSnap.docs.forEach(d => take(d.data()));
       externosSnap.docs.forEach(d => take(d.data()));
-      subSnap.docs.forEach(d => take(d.data()));
+      subSnap.docs.forEach(d => {
+        const u = d.data();
+        // Subcolección cuadre/{plaza}/unidades: si no trae plaza, la derivamos del path.
+        if (!u.plaza) { try { u.plaza = d.ref.parent.parent.id; } catch (_) {} }
+        take(u);
+      });
 
       let batch = db.batch(), n = 0, actualizadas = 0;
       for (const doc of indexSnap.docs) {

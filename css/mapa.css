@@ -3389,6 +3389,9 @@
 
     .col-table {
       flex: 1;
+      /* min-height:0 es clave: sin él, .table-container (flex:1) no se acota y
+         crece con todas las filas → overflow:hidden lo recorta y no scrollea. */
+      min-height: 0;
       background: var(--surface);
       border-radius: 16px;
       padding: 20px;

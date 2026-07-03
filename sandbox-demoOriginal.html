@@ -1478,6 +1478,72 @@
       @media (max-width: 640px) {
         .units-drawer { width: 100%; max-width: 100%; }
       }
+
+      /* ===== Rail de navegación (Mapa | Cuadre) ===== */
+      .nav-rail { position: absolute; left: 0; top: 56px; bottom: 0; width: 56px; z-index: 45; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 0; background: #0d1327; border-right: 1px solid rgba(255, 255, 255, .08); }
+      .nav-rail-btn { width: 46px; height: 52px; border-radius: 12px; background: transparent; border: none; color: #8e99b5; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; transition: background .15s, color .15s; }
+      .nav-rail-btn .material-icons { font-size: 22px; }
+      .nav-rail-lbl { font-size: 9px; font-weight: 800; letter-spacing: .02em; }
+      .nav-rail-btn:hover { background: rgba(255, 255, 255, .06); color: #e2e8f0; }
+      .nav-rail-btn.active { background: rgba(59, 130, 246, .16); color: #60a5fa; }
+
+      /* El mapa y el cuadre empiezan después del rail */
+      .yard-wrap { left: 56px; }
+
+      /* ===== Vista Cuadre ===== */
+      .cuadre-view { position: absolute; inset: 56px 0 0 56px; overflow: hidden; background: #f1f5f9; display: flex; flex-direction: column; }
+      .cuadre-view[hidden] { display: none; }
+      .cuadre-inner { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 16px clamp(12px, 3vw, 28px); gap: 12px; }
+      .cuadre-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+      .cuadre-title { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 900; color: #0f172a; }
+      .cuadre-title .material-icons { color: #2563eb; }
+      .cuadre-badge { background: #e2e8f0; color: #475569; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 800; }
+      .cuadre-stats { display: flex; gap: 10px; }
+      .cuadre-stat { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 8px 14px; text-align: center; min-width: 70px; }
+      .cuadre-stat b { display: block; font-size: 20px; font-weight: 900; color: #0f172a; line-height: 1; }
+      .cuadre-stat span { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+      .cuadre-tools { display: flex; gap: 10px; }
+      .cuadre-search { position: relative; flex: 1; display: flex; align-items: center; }
+      .cuadre-search .material-icons { position: absolute; left: 12px; color: #94a3b8; font-size: 18px; }
+      .cuadre-search input { width: 100%; height: 44px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; color: #1e293b; padding: 0 14px 0 38px; font-size: 14px; font-weight: 600; outline: none; }
+      .cuadre-search input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, .12); }
+      .cuadre-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+      .cchip { border: 1px solid #e2e8f0; background: #fff; color: #475569; border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 800; cursor: pointer; }
+      .cchip:hover { background: #f1f5f9; }
+      .cchip.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+      .cuadre-table-wrap { flex: 1; min-height: 0; overflow: auto; background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; }
+      .cuadre-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .cuadre-table thead th { position: sticky; top: 0; background: #f8fafc; text-align: left; padding: 12px 14px; font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: .5px; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
+      .cuadre-table tbody tr { border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: background .12s; }
+      .cuadre-table tbody tr:hover { background: #f8fafc; }
+      .cuadre-table tbody tr.is-sel { background: #eff6ff; }
+      .cuadre-table td { padding: 11px 14px; color: #1e293b; white-space: nowrap; }
+      .cuadre-table .c-mva { font-weight: 900; color: #0f172a; }
+      .cuadre-table .c-pla { font-family: ui-monospace, monospace; font-weight: 700; color: #475569; }
+      .cuadre-table .c-empty { text-align: center; color: #94a3b8; padding: 32px; font-weight: 600; }
+      .c-badge { font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; text-transform: uppercase; }
+
+      @media (max-width: 640px) {
+        .nav-rail { width: 48px; }
+        .yard-wrap { left: 48px; }
+        .cuadre-view { inset: 56px 0 0 48px; }
+        .nav-rail-lbl { display: none; }
+        .nav-rail-btn { height: 46px; }
+      }
+
+      /* ===== Modo claro ===== */
+      body.light { background: #eef2f7; }
+      body.light .map-header { background: #fff; border-bottom-color: #e2e8f0; }
+      body.light .map-header-title { color: #0f172a; }
+      body.light .map-header-search input { background: #f1f5f9; border-color: #e2e8f0; color: #1e293b; }
+      body.light .map-header-search input::placeholder { color: #94a3b8; }
+      body.light .mh-btn { background: #f1f5f9; border-color: #e2e8f0; color: #475569; }
+      body.light .mh-btn:hover { background: #e2e8f0; color: #0f172a; }
+      body.light .mh-plaza { background: #f1f5f9; border-color: #e2e8f0; color: #334155; }
+      body.light .nav-rail { background: #fff; border-right-color: #e2e8f0; }
+      body.light .nav-rail-btn { color: #64748b; }
+      body.light .nav-rail-btn:hover { background: #f1f5f9; color: #0f172a; }
+      body.light .nav-rail-btn.active { background: #eff6ff; color: #2563eb; }
     </style>
 </head>
 
@@ -1490,12 +1556,56 @@
                 <input id="mapSearch" type="search" placeholder="Buscar unidad, placas, modelo…" autocomplete="off" />
             </div>
             <div class="map-header-right">
+                <button class="mh-btn" type="button" onclick="toggleTheme()" title="Modo claro / oscuro" aria-label="Cambiar tema"><span class="material-icons" id="themeIcon">light_mode</span></button>
                 <button class="mh-btn" type="button" onclick="toggleInventory()" title="Unidades" aria-label="Unidades">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 17h14M6.5 17l1.2-4.6a2 2 0 0 1 1.9-1.4h4.8a2 2 0 0 1 1.9 1.4L17.5 17" /><circle cx="7.5" cy="17.5" r="1.6" /><circle cx="16.5" cy="17.5" r="1.6" /></svg>
                 </button>
                 <span class="mh-plaza">BJX</span>
             </div>
         </header>
+
+        <nav class="nav-rail" id="navRail" aria-label="Vistas">
+            <button class="nav-rail-btn active" type="button" data-view="mapa" onclick="setView('mapa')" title="Mapa">
+                <span class="material-icons">map</span><span class="nav-rail-lbl">Mapa</span>
+            </button>
+            <button class="nav-rail-btn" type="button" data-view="cuadre" onclick="setView('cuadre')" title="Cuadre">
+                <span class="material-icons">table_rows</span><span class="nav-rail-lbl">Cuadre</span>
+            </button>
+        </nav>
+
+        <section id="cuadreView" class="cuadre-view" hidden aria-label="Cuadre de flota">
+            <div class="cuadre-inner">
+                <div class="cuadre-topbar">
+                    <div class="cuadre-title"><span class="material-icons">local_shipping</span> Gestión de Flota <span class="cuadre-badge">DEMO</span></div>
+                    <div class="cuadre-stats">
+                        <div class="cuadre-stat"><b id="cuadreTotal">0</b><span>Total</span></div>
+                        <div class="cuadre-stat"><b id="cuadreListos" style="color:#16a34a">0</b><span>Listos</span></div>
+                    </div>
+                </div>
+                <div class="cuadre-tools">
+                    <div class="cuadre-search">
+                        <span class="material-icons">search</span>
+                        <input id="cuadreSearch" type="search" placeholder="Buscar MVA, placas o modelo…" autocomplete="off" oninput="renderCuadre()">
+                    </div>
+                </div>
+                <div class="cuadre-chips" id="cuadreChips">
+                    <button class="cchip active" data-est="TODOS" onclick="cuadreChip(this)">Todos</button>
+                    <button class="cchip" data-est="LISTO" onclick="cuadreChip(this)">🟢 Listo</button>
+                    <button class="cchip" data-est="SUCIO" onclick="cuadreChip(this)">🟡 Sucio</button>
+                    <button class="cchip" data-est="MANTENIMIENTO" onclick="cuadreChip(this)">🔴 Manto</button>
+                    <button class="cchip" data-est="TRASLADO" onclick="cuadreChip(this)">🟣 Traslado</button>
+                    <button class="cchip" data-est="RESGUARDO" onclick="cuadreChip(this)">🔘 Resguardo</button>
+                    <button class="cchip" data-est="NO ARRENDABLE" onclick="cuadreChip(this)">▫️ No arrend.</button>
+                    <button class="cchip" data-est="TALLER" onclick="cuadreChip(this)">🏭 Taller</button>
+                </div>
+                <div class="cuadre-table-wrap">
+                    <table class="cuadre-table">
+                        <thead><tr><th>MVA</th><th>Cat.</th><th>Modelo</th><th>Placas</th><th>Gas</th><th>Estado</th><th>Ubicación</th></tr></thead>
+                        <tbody id="cuadreBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
 
         <main class="yard-wrap" aria-label="Mapa vivo BJX">
             <div class="yard-viewport" id="yardViewport">
@@ -2105,6 +2215,7 @@
             fillSlotOptions();
             if (inventoryDrawer.classList.contains('open')) renderInventory();
             if (historyDrawer.classList.contains('open')) renderHistory();
+            if (currentView === 'cuadre') renderCuadre();
             renderActivity();
             updateSummary();
         }
@@ -2592,6 +2703,69 @@
             selectUnit(unitId);
         }
 
+        // ══════════════ Vistas: Mapa | Cuadre + Modo claro ══════════════
+        let currentView = 'mapa';
+        const cuadreFilter = { estado: 'TODOS' };
+
+        function setView(v) {
+            currentView = v;
+            const cv = document.getElementById('cuadreView');
+            const yard = document.querySelector('.yard-wrap');
+            if (cv) cv.hidden = v !== 'cuadre';
+            if (yard) yard.style.display = v === 'mapa' ? '' : 'none';
+            document.querySelectorAll('.nav-rail-btn').forEach((b) => b.classList.toggle('active', b.dataset.view === v));
+            if (v === 'cuadre') renderCuadre();
+        }
+
+        function cuadreChip(el) {
+            document.querySelectorAll('#cuadreChips .cchip').forEach((c) => c.classList.remove('active'));
+            el.classList.add('active');
+            cuadreFilter.estado = el.dataset.est;
+            renderCuadre();
+        }
+
+        function cuadreRow(id) { selectUnit(id); } // abre la píldora para editar
+
+        function renderCuadre() {
+            const body = document.getElementById('cuadreBody');
+            if (!body) return;
+            const q = (document.getElementById('cuadreSearch')?.value || '').trim().toUpperCase();
+            const est = cuadreFilter.estado;
+            let list = Object.values(state.units);
+            if (est === 'TALLER') {
+                list = list.filter((u) => u.status === 'EN TALLER' || u.status === 'MANTENIMIENTO' || String(u.slot).startsWith('TLLRS') || u.place === 'Taller');
+            } else if (est !== 'TODOS') {
+                list = list.filter((u) => u.status === est);
+            }
+            if (q) list = list.filter((u) => `${u.id} ${u.plates} ${u.model} ${u.cat}`.toUpperCase().includes(q));
+            list.sort((a, b) => a.id.localeCompare(b.id));
+            body.innerHTML = list.length ? list.map((u) => {
+                const sc = STATUS_STYLE[u.status] || 'no-arrendable';
+                const ubic = u.slot === 'LIMBO' ? 'Sin asignar'
+                    : String(u.slot).startsWith('TLLRS') ? `Taller · ${u.slot}`
+                        : `${u.place || 'Patio'} · ${u.slot}`;
+                return `<tr class="${u.id === selectedUnitId ? 'is-sel' : ''}" onclick="cuadreRow('${u.id}')">
+                    <td class="c-mva">${u.id}</td>
+                    <td>${u.cat || '—'}</td>
+                    <td>${u.model || '—'}</td>
+                    <td class="c-pla">${u.plates || 'S/P'}</td>
+                    <td>${u.fuel || 'N/A'}</td>
+                    <td><span class="c-badge b-${sc}">${STATUS_LABEL[u.status] || u.status}</span></td>
+                    <td>${ubic}</td>
+                </tr>`;
+            }).join('') : `<tr><td colspan="7" class="c-empty">Sin resultados</td></tr>`;
+            const all = Object.values(state.units);
+            const t = document.getElementById('cuadreTotal'); if (t) t.textContent = all.length;
+            const l = document.getElementById('cuadreListos'); if (l) l.textContent = all.filter((u) => u.status === 'LISTO').length;
+        }
+
+        function toggleTheme() {
+            const light = document.body.classList.toggle('light');
+            const ti = document.getElementById('themeIcon');
+            if (ti) ti.textContent = light ? 'dark_mode' : 'light_mode';
+            try { localStorage.setItem('mex-sandbox-theme', light ? 'light' : 'dark'); } catch (_) { }
+        }
+
         function exportCsv() {
             const rows = [
                 ['MVA', 'Estado', 'Cajon', 'Ubicacion', 'Gasolina', 'Placas', 'Modelo', 'Notas'],
@@ -2789,6 +2963,13 @@
         viewport.scrollTo({ left: 0, top: 0 });
         applyResponsiveZoom();
         simulationTimer = setInterval(simulateRealtimeMove, 5200);
+        try {
+            if (localStorage.getItem('mex-sandbox-theme') === 'light') {
+                document.body.classList.add('light');
+                const ti = document.getElementById('themeIcon');
+                if (ti) ti.textContent = 'dark_mode';
+            }
+        } catch (_) { }
     </script>
 </body>
 
