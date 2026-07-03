@@ -566,12 +566,21 @@ service cloud.firestore {
       }
     }
 
+    // Sync de ubicación global: cualquier usuario autenticado puede actualizar
+    // SOLO plazaActual/pos/ubicacion (lo escribe la mutación de cuadre para saber
+    // dónde está cada unidad sin leer los cuadres de todas las plazas).
+    function actualizacionUbicacionIndexValida() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(["plazaActual", "pos", "ubicacion"]);
+    }
+
     match /index_unidades/{doc} {
       allow read: if tienePerfilActual();
       allow create: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexNueva());
-      allow update: if puedeGestionarFlotaMaestra()
-        && mismaPlaza(plazaIndexActual())
-        && mismaPlaza(plazaIndexNueva());
+      allow update: if (puedeGestionarFlotaMaestra()
+          && mismaPlaza(plazaIndexActual())
+          && mismaPlaza(plazaIndexNueva()))
+        || (tienePerfilActual() && actualizacionUbicacionIndexValida());
       allow delete: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexActual());
     }
 

@@ -1397,8 +1397,6 @@
       .app { min-width: 0 !important; width: 100%; height: 100vh; height: 100dvh; }
 
       @media (max-width: 1024px) {
-        .inventory-drawer { left: 10px; right: 10px; top: 66px; width: auto; max-width: none; max-height: calc(100dvh - 150px); transform: translateX(0) translateY(-12px); }
-        .inventory-drawer.open { transform: translateY(0); }
         .history-drawer { left: 10px; right: 10px; width: auto; max-width: 420px; }
         .zoom-stack { right: 12px; bottom: 12px; gap: 10px; }
         .zoom-stack button { width: 48px; height: 48px; font-size: 26px; border-radius: 14px; }
@@ -1415,10 +1413,53 @@
         .zoom-stack { right: 8px; bottom: 68px; }
         .zoom-stack button { width: 44px; height: 44px; font-size: 24px; }
         .history-drawer { left: 8px; right: 8px; max-width: none; max-height: 46dvh; bottom: 76px; }
-        .inventory-drawer { top: 62px; max-height: calc(100dvh - 140px); }
         .map-header-search input { font-size: 12px; }
         /* El toast sube (debajo del header) para no tapar la píldora ni las acciones rápidas */
         .toast { top: 66px; bottom: auto; }
+      }
+
+      /* ===== Sidebar UNIDADES (unidades sin cajón) — Patio / Taller ===== */
+      .units-drawer { left: auto; right: 0; top: 56px; bottom: 0; width: 340px; max-width: 90vw; max-height: none; border-radius: 0; border: none; border-left: 1px solid #e2e8f0; background: #fff; transform: translateX(16px); grid-template-rows: auto auto 1fr; box-shadow: -8px 0 32px rgba(0, 0, 0, .15); }
+      .units-drawer.open { transform: translateX(0); }
+      .units-drawer .inventory-head { background: linear-gradient(135deg, #0d2a54, #234fbc); }
+      .units-search { position: relative; display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+      .units-search .units-search-ic { position: absolute; left: 24px; color: #94a3b8; pointer-events: none; }
+      .units-search input { width: 100%; height: 42px; border-radius: 12px; border: 1px solid #e2e8f0; background: #fff; color: #1e293b; padding: 0 12px 0 34px; font-size: 13px; font-weight: 700; outline: none; }
+      .units-search input:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, .12); }
+      .units-drawer .inventory-list { background: #f8fafc; }
+
+      .units-section { padding: 12px 12px 4px; }
+      .units-section-label { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; padding: 5px 10px; border-radius: 8px; margin-bottom: 8px; }
+      .units-section-label .material-icons { font-size: 15px; }
+      .units-section-label--patio { color: #1d4ed8; background: #eff6ff; }
+      .units-section-label--taller { color: #92400e; background: #fffbeb; }
+      .units-section-count { margin-left: auto; }
+      .units-section-body--taller { background: rgba(251, 191, 36, .06); border: 1.5px dashed #fcd34d; border-radius: 12px; padding: 8px; min-height: 46px; }
+
+      .units-card { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid #eef2f7; border-left: 4px solid #3b82f6; border-radius: 12px; padding: 10px 12px; box-shadow: 0 1px 4px rgba(0, 0, 0, .06); cursor: pointer; transition: box-shadow .15s, transform .12s; }
+      .units-card + .units-card { margin-top: 8px; }
+      .units-card:hover { transform: translateX(-2px); box-shadow: 3px 4px 14px rgba(0, 0, 0, .1); }
+      .units-section-body--taller .units-card { border-left-color: #f59e0b; }
+      .units-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+      .units-card-mva { font-size: 15px; font-weight: 800; color: #0f172a; letter-spacing: .3px; }
+      .units-card-badge { font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 999px; letter-spacing: .3px; text-transform: uppercase; }
+      .units-card-meta { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+      .units-card-meta span { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: #64748b; }
+      .units-card-meta .material-icons { font-size: 13px; color: #94a3b8; }
+      .units-empty { padding: 10px; text-align: center; font-size: 11px; font-weight: 600; color: #94a3b8; font-style: italic; }
+
+      .b-listo { background: #dcfce7; color: #166534; }
+      .b-sucio { background: #fff7ed; color: #9a3412; }
+      .b-mantenimiento { background: #fee2e2; color: #991b1b; }
+      .b-resguardo { background: #fef3c7; color: #78350f; }
+      .b-traslado { background: #ede9fe; color: #5b21b6; }
+      .b-no-arrendable { background: #cffafe; color: #0e7490; }
+      .b-venta { background: #1e293b; color: #fff; }
+      .b-en-renta { background: #dbeafe; color: #1e3a8a; }
+      .b-retenida { background: #fef3c7; color: #92400e; }
+
+      @media (max-width: 640px) {
+        .units-drawer { width: 100%; max-width: 100%; }
       }
     </style>
 </head>
@@ -1657,15 +1698,19 @@
         </aside>
 
 
-        <aside class="inventory-drawer" id="inventoryDrawer" aria-label="Inventario de unidades">
+        <aside class="inventory-drawer units-drawer" id="inventoryDrawer" aria-label="Unidades sin asignar">
             <div class="inventory-head">
-                <span>Inventario visible</span>
-                <button class="icon-button" type="button" onclick="toggleInventory()" aria-label="Cerrar inventario">
+                <span>UNIDADES</span>
+                <button class="icon-button" type="button" onclick="toggleInventory()" aria-label="Cerrar unidades">
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round">
                         <path d="M3 3l8 8M11 3l-8 8" />
                     </svg>
                 </button>
+            </div>
+            <div class="units-search">
+                <svg class="units-search-ic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>
+                <input id="unitsSearch" type="search" placeholder="MVA, Placas o Modelo…" autocomplete="off" oninput="renderInventory()" />
             </div>
             <div class="inventory-list" id="inventoryList"></div>
         </aside>
@@ -1755,6 +1800,7 @@
         };
         const SIM_USERS = ['Ana · Admin', 'Luis · Patio', 'Marta · Taller', 'Diego · Supervisor'];
         const DEMO_UNITS = [
+            { id: 'M159', slot: 'LIMBO', status: 'SUCIO', fuel: 'H', place: 'Limbo', model: 'Suburban LT Paq C', plates: 'DSR767E', notes: '', color: 'sucio' },
             { id: 'A1842', slot: 'L-3', status: 'LISTO', fuel: '3/4', place: 'Patio', model: 'Nissan Versa 2024', plates: 'GTO-1842', notes: 'Lista para salida mostrador', color: 'green' },
             { id: 'B7310', slot: 'L-4', status: 'SUCIO', fuel: '1/2', place: 'Patio', model: 'Chevrolet Aveo 2023', plates: 'GTO-7310', notes: 'Pendiente lavado interior', color: 'yellow' },
             { id: 'C5209', slot: 'L-5', status: 'MANTENIMIENTO', fuel: '1/4', place: 'Patio', model: 'Kia Rio 2022', plates: 'GTO-5209', notes: 'Revisar testigo de motor', color: 'red' },
@@ -1854,7 +1900,7 @@
                 };
             });
             DEMO_UNITS.forEach((unit) => {
-                if (!units[unit.id] && slotIds.includes(unit.slot)) {
+                if (!units[unit.id] && (unit.slot === 'LIMBO' || slotIds.includes(unit.slot))) {
                     units[unit.id] = { ...unit, savedAt: nowLabel() };
                 }
             });
@@ -2438,18 +2484,43 @@
             if (simStatus) simStatus.textContent = state.simulationPaused ? 'Pausado' : 'Simulado';
         }
 
+        // Sidebar UNIDADES — solo las unidades SIN cajón (slot 'LIMBO'), agrupadas
+        // en Patio / Taller (igual que el mapa real: #unidades-limbo / #unidades-taller).
+        function unitsCardHTML(u) {
+            const sc = STATUS_STYLE[u.status] || 'no-arrendable';
+            return `
+      <button class="units-card" type="button" onclick="focusInventoryUnit('${u.id}')">
+        <div class="units-card-top">
+          <span class="units-card-mva">${u.id}</span>
+          <span class="units-card-badge b-${sc}">${STATUS_LABEL[u.status] || u.status}</span>
+        </div>
+        <div class="units-card-meta">
+          <span><span class="material-icons">badge</span>${u.plates || 'S/P'}</span>
+          <span><span class="material-icons">directions_car</span>${u.model || 'S/M'}</span>
+        </div>
+      </button>`;
+        }
+        function unitsSectionHTML(icon, title, kind, list) {
+            const body = list.length ? list.map(unitsCardHTML).join('') : '<div class="units-empty">Sin unidades</div>';
+            return `
+      <div class="units-section">
+        <div class="units-section-label units-section-label--${kind}">
+          <span class="material-icons">${icon}</span>${title} <span class="units-section-count">${list.length}</span>
+        </div>
+        <div class="units-section-body units-section-body--${kind}">${body}</div>
+      </div>`;
+        }
         function renderInventory() {
-            const units = visibleUnits().sort((a, b) => a.id.localeCompare(b.id));
-            inventoryList.innerHTML = units.length
-                ? units.map((unit) => `
-      <button class="inventory-row" type="button" onclick="focusInventoryUnit('${unit.id}')">
-        <strong>${unit.id}</strong>
-        <span>${unit.model || 'Modelo demo'}</span>
-        <span>${STATUS_LABEL[unit.status] || unit.status}</span>
-        <span>${unit.slot}</span>
-      </button>
-    `).join('')
-                : '<div class="activity-item">Sin resultados<span>Ajusta búsqueda, estado o capas.</span></div>';
+            const q = (document.getElementById('unitsSearch')?.value || '').trim().toUpperCase();
+            const match = (u) => !q || [u.id, u.plates, u.model, STATUS_LABEL[u.status] || u.status].join(' ').toUpperCase().includes(q);
+            const byId = (a, b) => a.id.localeCompare(b.id);
+            const limbo = Object.values(state.units).filter((u) => u.slot === 'LIMBO' && match(u));
+            const enTaller = (u) => u.status === 'MANTENIMIENTO' || u.status === 'EN TALLER';
+            const patio = limbo.filter((u) => !enTaller(u)).sort(byId);
+            const taller = limbo.filter(enTaller).sort(byId);
+            inventoryList.innerHTML =
+                unitsSectionHTML('local_parking', 'Patio — sin asignar', 'patio', patio) +
+                unitsSectionHTML('build', 'Taller — sin asignar', 'taller', taller);
         }
 
         function toggleInventory() {
@@ -2460,6 +2531,7 @@
         function focusInventoryUnit(unitId) {
             const unit = state.units[unitId];
             if (!unit) return;
+            inventoryDrawer.classList.remove('open'); // cierra el sidebar para ver la píldora / asignar cajón
             const target = slotNode(unit.slot);
             if (target) target.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
             selectUnit(unitId);

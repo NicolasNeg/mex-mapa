@@ -17,6 +17,18 @@
     _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
+  // Sincroniza la ubicación global de la unidad en index_unidades sin leer los
+  // cuadres de todas las plazas. plazaActual = dónde está AHORA (vs sucursal =
+  // de dónde es). Fire-and-forget: nunca rompe la mutación principal.
+  async function _syncIndexUbicacion(mva, fields) {
+    try {
+      const mvaStr = String(mva || '').toUpperCase().trim();
+      if (!mvaStr || !fields) return;
+      const snap = await db.collection(COL.INDEX).where('mva', '==', mvaStr).limit(1).get();
+      if (!snap.empty) await snap.docs[0].ref.set(fields, { merge: true });
+    } catch (_) { /* el sync del índice no debe afectar la mutación */ }
+  }
+
   function _feedAccionUnidad(mvaStr, actual = {}, estado = '', ubi = '', gas = '', notaFinal = '', notaEntrada = '', borrarNotas = false) {
     const oldNotes = String(actual.notas || '').toUpperCase();
     const newNotes = String(notaFinal || notaEntrada || '').toUpperCase();
@@ -97,6 +109,7 @@
       };
       if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
       await docRef.update(updatePayload);
+      _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp, ubicacion: ubi });
       await _actualizarFeed(_feedAccionUnidad(mvaStr, actual, estado, ubi, gas, notaFinal, notaEntrada, borrarNotas), responsableSesion, plazaUp);
 
       const cambiosReales = [];
@@ -158,6 +171,7 @@
       await db.collection(COL.CUADRE).doc(docId).set(unitData);
       await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp);
       await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp);
+      _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: objeto.ubicacion || 'PATIO' });
       return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
     },
 
@@ -200,6 +214,7 @@
       await db.collection(COL.EXTERNOS).doc(docId).set(unitData);
       await _actualizarFeed(`EXT IN: ${mvaStr} (${objeto.modelo || 'S/M'})`, objeto.responsableSesion, plazaUp);
       await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp);
+      _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: 'EXTERNO' });
       return `EXITO|${objeto.modelo || 'S/M'}|${objeto.placas || 'S/P'}`;
     },
 
@@ -224,6 +239,8 @@
         if (eliminado) {
           await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp);
           await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp);
+          // Sale de todo cuadre → queda "No Registrado" en el índice global.
+          _syncIndexUbicacion(mvaStr, { plazaActual: '', pos: '', ubicacion: '' });
         }
       }
       return "EXITO";
@@ -303,6 +320,9 @@
       }
 
       await batch.commit();
+
+      // Sincronizar la posición global de cada unidad movida (pos = nuevo cajón).
+      histBatch.forEach(h => _syncIndexUbicacion(h.mva, { plazaActual: plazaUp || '', pos: h.posNueva }));
 
       const pairKeys = new Map();
       histBatch.forEach(h => {

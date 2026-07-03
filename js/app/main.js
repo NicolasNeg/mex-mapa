@@ -328,10 +328,22 @@ async function boot() {
   // Navegación SPA global (la usa el buscador global para "Ir al mapa").
   window.__mexShellNavigate = (path) => router.navigate(path);
   // Acceso directo: navega al mapa y deja pendiente el MVA a resaltar
-  // (legacy-stage lo reenvía al iframe del mapa cuando se muestra).
-  window.__mexGoToMapUnit = (mva) => {
+  // (legacy-stage lo reenvía al iframe del mapa cuando se muestra). Si la unidad
+  // está en otra plaza permitida, cambia la plaza activa primero.
+  window.__mexGoToMapUnit = (mva, plaza) => {
     window.__mexPendingMapFocus = String(mva || '').trim().toUpperCase();
+    const p = String(plaza || '').trim().toUpperCase();
+    if (p && p !== String(getState().currentPlaza || '').toUpperCase() && window.__mexCanViewPlaza(p)) {
+      setCurrentPlaza(p, { source: 'buscador-ir-al-mapa' });
+    }
     router.navigate('/app/mapa');
+  };
+  // ¿El usuario puede ver esta plaza? (para mostrar/ocultar "Ver en mapa").
+  window.__mexCanViewPlaza = (plaza) => {
+    const p = String(plaza || '').trim().toUpperCase();
+    if (!p) return false;
+    const list = (getState().availablePlazas || []).map(x => String(x || '').toUpperCase());
+    return list.length === 0 || list.includes(p);
   };
   _runWhenIdle(() => {
     warmAppAssets().catch(err => console.warn('[app/main] precache assets:', err));

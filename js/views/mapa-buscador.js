@@ -153,17 +153,23 @@
       categoria: d.categoria, gasolina: d.gasolina, notas: d.notas, lastTouchedBy: d.lastTouchedBy,
       hay: [d.mva, d.placas, d.modelo, d.notas, d.searchTokens].join(' ').toLowerCase(), _car: el };
   }
+  // Unidad del índice GLOBAL (todas las plazas). sucursal = de dónde es;
+  // plazaActual = dónde está ahora; pos = spot del mapa; ubicacion = área.
   function _normRaw(u) {
-    return { mva: u.mva, estado: u.estado, ubicacion: u.ubicacion, placas: u.placas, modelo: u.modelo,
-      categoria: u.categoria, gasolina: u.gasolina, notas: u.notas, lastTouchedBy: u.lastTouchedBy || u.responsable,
-      hay: [u.mva, u.placas, u.modelo, u.notas, u.categoria].join(' ').toLowerCase(), _car: null };
+    return {
+      mva: u.mva, placas: u.placas, modelo: u.modelo, categoria: u.categoria || u.clase,
+      vin: u.vin, anio: u.anio || u['año'] || u.anio,
+      sucursal: u.sucursal, plazaActual: u.plazaActual, pos: u.pos, ubicacion: u.ubicacion,
+      estado: u.estado,
+      hay: [u.mva, u.placas, u.modelo, u.vin, u.categoria, u.sucursal, u.plazaActual].join(' ').toLowerCase(),
+      _car: null
+    };
   }
   function loadUnitsApi() {
     if (_unitsCache) return Promise.resolve(_unitsCache);
     var api = window.api;
-    if (!api || typeof api.obtenerUnidadesVeloz !== 'function') return Promise.resolve([]);
-    var plaza = window.__mexCurrentPlazaId || '';
-    return api.obtenerUnidadesVeloz(plaza).then(function (list) {
+    if (!api || typeof api.obtenerUnidadesPlazas !== 'function') return Promise.resolve([]);
+    return api.obtenerUnidadesPlazas().then(function (list) {
       _unitsCache = (list || []).filter(function (u) { return u && u.mva; }).map(_normRaw);
       return _unitsCache;
     }).catch(function () { return []; });
@@ -196,71 +202,67 @@
     });
   }
 
+  // Estado de cuadre según plazaActual (índice global): En cuadre / No
+  // Registrado / ERROR. plazaActual = dónde está AHORA la unidad.
+  function estadoCuadre(d) {
+    var pa = d.plazaActual;
+    if (typeof pa === 'string' && pa.trim()) return { key: 'ok', txt: 'En cuadre', color: '#16a34a' };
+    if (pa === '' || pa == null) return { key: 'no', txt: 'No Registrado', color: '#64748b' };
+    return { key: 'err', txt: 'ERROR', color: '#dc2626' };
+  }
+  function ubicacionTexto(d, st) {
+    if (st.key !== 'ok') return 'Sin ubicar';
+    var pos = String(d.pos || '').toUpperCase();
+    if (pos && pos !== 'LIMBO') return pos;              // cajón real
+    if (d.ubicacion) return String(d.ubicacion);         // área operativa (PATIO…)
+    return pos === 'LIMBO' ? 'Limbo' : 'Sin ubicar';
+  }
+
   function renderUnitRows(list) {
     var box = document.getElementById('mexbzResults');
     if (!list.length) { box.innerHTML = '<div class="mexbz-empty">Sin unidades que coincidan.</div>'; return; }
     box.innerHTML = '';
     list.forEach(function (d, idx) {
+      var st = estadoCuadre(d);
       var row = document.createElement('div');
       row.className = 'mexbz-row';
       row.style.animationDelay = Math.min(idx, 12) * 25 + 'ms';
       row.innerHTML =
-        '<span class="mexbz-dot" style="background:' + estadoColor(d.estado) + '"></span>' +
+        '<span class="mexbz-dot" style="background:' + st.color + '"></span>' +
         '<div style="flex:1;min-width:0">' +
           '<div class="mva">' + esc(d.mva) + '</div>' +
-          '<div class="sub">' + esc(d.estado || '—') + ' · ' + esc(d.ubicacion || 'LIMBO') + (d.modelo ? ' · ' + esc(d.modelo) : '') + '</div>' +
+          '<div class="sub">' + esc(d.sucursal || '?') + (st.key === 'ok' ? ' → ' + esc(d.plazaActual) : ' · ' + st.txt) + (d.modelo ? ' · ' + esc(d.modelo) : '') + '</div>' +
         '</div><span class="material-icons" style="color:#cbd5e1">chevron_right</span>';
       row.addEventListener('click', function () { fichaUnidad(d); });
       box.appendChild(row);
     });
   }
 
-  function cuadreStatus(estado) {
-    var e = (estado || '').toUpperCase();
-    if (e.indexOf('TALLER') > -1 || e.indexOf('MANTEN') > -1) return { ok: false, txt: 'Fuera del cuadre · En taller' };
-    if (e.indexOf('TRASLAD') > -1) return { ok: false, txt: 'Fuera del cuadre · En traslado' };
-    return { ok: true, txt: 'En cuadre · En patio' };
-  }
-
-  // "En el mapa" = tiene un cajón real (no LIMBO/EXTERNO/vacío) y no está en
-  // taller/traslado. Solo entonces mostramos "Ir al mapa".
-  function estaEnMapa(d) {
-    if (d._car) return true;
-    var ubi = (d.ubicacion || '').toUpperCase().trim();
-    var est = (d.estado || '').toUpperCase();
-    if (!ubi || ubi === 'LIMBO' || ubi === 'EXTERNO') return false;
-    if (est.indexOf('TALLER') > -1 || est.indexOf('MANTEN') > -1 || est.indexOf('TRASLAD') > -1) return false;
-    return true;
-  }
-
   function fichaUnidad(d) {
-    var cu = cuadreStatus(d.estado);
-    var onMap = estaEnMapa(d);
+    var st = estadoCuadre(d);
+    var canView = st.key === 'ok' && typeof window.__mexCanViewPlaza === 'function' && window.__mexCanViewPlaza(d.plazaActual);
     var box = document.getElementById('mexbzResults');
     box.innerHTML =
       '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
       '<div class="mexbz-ficha">' +
         '<h3>' + esc(d.mva) + '</h3>' +
-        '<span class="mexbz-badge" style="background:' + estadoColor(d.estado) + '22;color:' + estadoColor(d.estado) + '">' + esc(d.estado || '—') + '</span>' +
-        '<div class="mexbz-cuadre ' + (cu.ok ? 'ok' : 'no') + '"><span class="material-icons" style="font-size:18px">' + (cu.ok ? 'check_circle' : 'error') + '</span>' + cu.txt + '</div>' +
-        kv('Ubicación', d.ubicacion || 'LIMBO') +
+        '<div class="mexbz-cuadre ' + (st.key === 'ok' ? 'ok' : 'no') + '" style="' + (st.key === 'err' ? 'background:#fef2f2;color:#dc2626' : '') + '"><span class="material-icons" style="font-size:18px">' + (st.key === 'ok' ? 'check_circle' : (st.key === 'err' ? 'error' : 'help')) + '</span>' + st.txt + '</div>' +
+        kv('Sucursal (origen)', d.sucursal || '—') +
+        kv('Plaza actual', st.key === 'ok' ? d.plazaActual : '—') +
+        kv('Ubicación', ubicacionTexto(d, st)) +
         kv('Placas', d.placas || '—') +
         kv('Modelo', d.modelo || '—') +
         kv('Categoría', d.categoria || '—') +
-        kv('Gasolina', d.gasolina || '—') +
-        kv('Últ. movimiento', d.lastTouchedBy || '—') +
-        (d.notas ? kv('Notas', d.notas) : '') +
-        (onMap ? '<button class="mexbz-btn" id="mexbzGoMap"><span class="material-icons">map</span>Ir al mapa</button>' : '') +
+        (d.anio ? kv('Año', d.anio) : '') +
+        (d.vin ? kv('VIN', d.vin) : '') +
+        (canView ? '<button class="mexbz-btn" id="mexbzGoMap"><span class="material-icons">map</span>Ver en mapa</button>' : '') +
       '</div>';
     box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
     var go = box.querySelector('#mexbzGoMap');
     if (go) go.addEventListener('click', function () {
       close();
-      if (d._car && typeof window.__mexSelectCarOnMap === 'function') {
-        try { d._car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
-        window.__mexSelectCarOnMap(d._car, { openPanel: true });
-      } else if (typeof window.__mexGoToMapUnit === 'function') {
-        window.__mexGoToMapUnit(d.mva);   // navega al mapa + resalta la unidad
+      if (typeof window.__mexGoToMapUnit === 'function') {
+        window.__mexGoToMapUnit(d.mva, d.plazaActual);   // cambia plaza si aplica + resalta
       } else {
         window.location.assign('/app/mapa');
       }

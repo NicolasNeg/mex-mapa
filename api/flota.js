@@ -117,6 +117,43 @@
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     },
 
+    // Backfill one-time: puebla plazaActual/pos/ubicacion en index_unidades a
+    // partir de los cuadres/externos actuales (root + subcolecciones). Las que
+    // no estén en ningún cuadre quedan vacías → "No Registrado". Correr una vez
+    // desde consola: await api.backfillUbicacionGlobal()
+    async backfillUbicacionGlobal() {
+      const loc = {};
+      const take = (u) => {
+        const mva = String(u?.mva || '').toUpperCase().trim();
+        if (!mva || loc[mva]) return;
+        loc[mva] = {
+          plazaActual: String(u.plaza || '').toUpperCase().trim(),
+          pos: String(u.pos || 'LIMBO').toUpperCase(),
+          ubicacion: String(u.ubicacion || '')
+        };
+      };
+      const [cuadreSnap, externosSnap, subSnap, indexSnap] = await Promise.all([
+        db.collection(COL.CUADRE).get(),
+        db.collection(COL.EXTERNOS).get(),
+        db.collectionGroup('unidades').get().catch(() => ({ docs: [] })),
+        db.collection(COL.INDEX).get()
+      ]);
+      cuadreSnap.docs.forEach(d => take(d.data()));
+      externosSnap.docs.forEach(d => take(d.data()));
+      subSnap.docs.forEach(d => take(d.data()));
+
+      let batch = db.batch(), n = 0, actualizadas = 0;
+      for (const doc of indexSnap.docs) {
+        const mva = String(doc.data().mva || '').toUpperCase().trim();
+        const info = loc[mva] || { plazaActual: '', pos: '', ubicacion: '' };
+        batch.set(doc.ref, info, { merge: true });
+        actualizadas++; n++;
+        if (n >= 400) { await batch.commit(); batch = db.batch(); n = 0; }
+      }
+      if (n > 0) await batch.commit();
+      return { indexadas: actualizadas, enCuadre: Object.keys(loc).length };
+    },
+
     async registrarUnidadEnPlaza(data) {
       await db.collection(COL.INDEX).add({ ...data, _createdAt: _now() });
       return "EXITO";
