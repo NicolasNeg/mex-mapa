@@ -13,6 +13,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700;800;900&display=swap" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <!-- Modo embed: ?embed=1 oculta la barra de título del navegador y ajusta el layout -->
+    <script>
+        (function () {
+            var p = new URLSearchParams(location.search);
+            if (p.get('embed') === '1') document.documentElement.classList.add('is-embed');
+        })();
+    </script>
+    <style>
+        /* Embed mode: sin fondo de página, sin padding exterior, border-radius 0 */
+        html.is-embed body { background: transparent; padding: 0; margin: 0; }
+        html.is-embed .app { border-radius: 0; box-shadow: none; height: 100vh; height: 100dvh; }
+    </style>
     <style>
         :root {
             --bg: #111329;
@@ -1441,6 +1453,17 @@
       .units-section-label .material-icons { font-size: 15px; }
       .units-section-label--patio { color: #1d4ed8; background: #eff6ff; }
       .units-section-label--taller { color: #92400e; background: #fffbeb; }
+      .units-section-label--traslado { color: #6d28d9; background: #f5f3ff; }
+      .units-section-body--traslado { background: rgba(124,58,237,.04); border: 1.5px dashed rgba(124,58,237,.3); border-radius: 12px; padding: 8px; min-height: 46px; }
+      .units-section-body--traslado .units-card { border-left-color: #7c3aed; }
+      .units-card-dest { display: flex; align-items: center; gap: 3px; font-size: 10px; color: #7c3aed; font-weight: 700; margin-top: 2px; }
+      .units-card-dest .material-icons { font-size: 12px; }
+      /* Pulso de movimiento en la card de traslado */
+      .traslado-pulse { display: inline-flex; align-items: center; gap: 5px; }
+      .traslado-dot { width: 6px; height: 6px; border-radius: 50%; background: #7c3aed; animation: tPulse 1.4s ease-in-out infinite; flex-shrink: 0; }
+      @keyframes tPulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.35;transform:scale(.7)} }
+      @keyframes roadMove { 0%,100%{transform:translateX(0)} 50%{transform:translateX(4px)} }
+      .units-section-label--traslado .material-icons { animation: roadMove 2s ease-in-out infinite; }
       .units-section-count { margin-left: auto; }
       .units-section-body--taller { background: rgba(251, 191, 36, .06); border: 1.5px dashed #fcd34d; border-radius: 12px; padding: 8px; min-height: 46px; }
 
@@ -1466,6 +1489,35 @@
       .b-en-renta { background: #dbeafe; color: #1e3a8a; }
       .b-retenida { background: #fef3c7; color: #92400e; }
 
+      /* ===== Modo ADD — agregar unidad desde catálogo ===== */
+      .add-search-wrap { margin-top: 12px; }
+      .add-search-label { display: flex; align-items: center; gap: 6px; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #3b82f6; margin-bottom: 8px; }
+      .add-search-label .material-icons { font-size: 15px; }
+      .add-search-box { position: relative; display: flex; align-items: center; }
+      .add-search-ic { position: absolute; left: 11px; color: #94a3b8; font-size: 18px; pointer-events: none; }
+      .add-search-box input { width: 100%; height: 46px; border-radius: 12px; border: 2px solid #e2e8f0; background: #f8fafc; color: #1e293b; padding: 0 14px 0 38px; font-size: 14px; font-weight: 700; outline: none; }
+      .add-search-box input:focus { border-color: #3b82f6; background: #fff; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+      .add-hint { display: flex; align-items: center; gap: 7px; margin-top: 12px; padding: 10px 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; color: #64748b; font-size: 12px; font-weight: 600; }
+      .add-hint .material-icons { font-size: 16px; color: #94a3b8; }
+      .add-form-fields { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+      .add-unit-card { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; }
+      .add-unit-card-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(59,130,246,.2); display: grid; place-items: center; }
+      .add-unit-card-icon .material-icons { color: #60a5fa; font-size: 22px; }
+      .add-unit-card-info { flex: 1; min-width: 0; }
+      .add-unit-card-mva { font-size: 20px; font-weight: 900; color: #fff; line-height: 1; }
+      .add-unit-card-sub { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+      .add-unit-card-badge { font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: rgba(59,130,246,.18); color: #60a5fa; }
+      .add-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .add-form-fields .field { display: grid; gap: 5px; }
+      .add-form-fields .field label { font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+      .add-form-fields .field select, .add-form-fields .field input { border-radius: 9px; border: 1px solid #e2e8f0; background: #f8fafc; color: #1e293b; padding: 9px 10px; font-size: 13px; font-weight: 700; outline: none; }
+      .add-form-fields .field select:focus, .add-form-fields .field input:focus { border-color: #3b82f6; }
+      .add-save-btn { width: 100%; padding: 14px; border-radius: 14px; border: none; background: #2563eb; color: #fff; font-size: 14px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; transition: background .15s, transform .12s; box-shadow: 0 6px 16px rgba(37,99,235,.3); }
+      .add-save-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+      .add-save-btn .material-icons { font-size: 18px; }
+      .pill-panel .field { display: grid; gap: 5px; }
+      .pill-panel .field label { font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; color: #64748b; }
+
       /* Autocompletado MVA al crear unidad */
       .mva-suggest { display: none; margin-top: 6px; max-height: 190px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 10px; background: #fff; box-shadow: 0 10px 24px rgba(0, 0, 0, .12); }
       .mva-sug { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; width: 100%; text-align: left; padding: 8px 11px; background: transparent; border: none; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
@@ -1487,57 +1539,8 @@
       .nav-rail-btn:hover { background: rgba(255, 255, 255, .06); color: #e2e8f0; }
       .nav-rail-btn.active { background: rgba(59, 130, 246, .16); color: #60a5fa; }
 
-      /* ===== Franja "En carretera" (unidades en TRASLADO) ===== */
-      .road-strip {
-        position: absolute; left: 56px; right: 0; top: 56px; z-index: 35;
-        display: none; /* se muestra solo cuando hay unidades en traslado */
-        align-items: center; gap: 10px;
-        padding: 8px 14px;
-        background: linear-gradient(90deg, rgba(124, 58, 237, .14) 0%, rgba(124, 58, 237, .04) 100%);
-        border-bottom: 1px solid rgba(124, 58, 237, .25);
-        overflow-x: auto; overflow-y: hidden;
-        -webkit-overflow-scrolling: touch;
-      }
-      .road-strip.has-units { display: flex; }
-      .road-strip::-webkit-scrollbar { height: 4px; }
-      .road-strip::-webkit-scrollbar-thumb { background: rgba(124, 58, 237, .3); border-radius: 999px; }
-      .road-strip-label {
-        display: flex; align-items: center; gap: 6px; white-space: nowrap;
-        font-size: 11px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
-        color: #a78bfa; flex-shrink: 0;
-      }
-      .road-strip-label .material-icons { font-size: 16px; animation: roadMove 2s ease-in-out infinite; }
-      @keyframes roadMove { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(5px); } }
-      .road-count {
-        background: rgba(124, 58, 237, .25); color: #c4b5fd;
-        border-radius: 999px; padding: 1px 7px; font-size: 10px;
-      }
-      .road-cards { display: flex; gap: 8px; align-items: center; }
-      .road-card {
-        flex-shrink: 0; display: flex; align-items: center; gap: 10px;
-        background: rgba(124, 58, 237, .12); border: 1px solid rgba(124, 58, 237, .3);
-        border-radius: 12px; padding: 7px 12px; cursor: pointer;
-        transition: background .15s, transform .15s;
-        animation: roadCardIn .3s cubic-bezier(.16,1,.3,1);
-      }
-      @keyframes roadCardIn { from { opacity: 0; transform: scale(.9) translateX(-10px); } }
-      .road-card:hover { background: rgba(124, 58, 237, .22); transform: translateY(-1px); }
-      .road-card-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(124,58,237,.25); display: grid; place-items: center; }
-      .road-card-icon .material-icons { font-size: 17px; color: #c4b5fd; }
-      .road-card-info { display: flex; flex-direction: column; gap: 1px; }
-      .road-card-mva { font-size: 13px; font-weight: 900; color: #e9d5ff; line-height: 1; }
-      .road-card-sub { font-size: 10px; color: #a78bfa; font-weight: 700; }
-      .road-card-dest { font-size: 10px; color: rgba(196,181,253,.7); display: flex; align-items: center; gap: 3px; }
-      .road-card-dest .material-icons { font-size: 11px; }
-      /* Indicador de movimiento en la card */
-      .road-pulse { width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; animation: roadPulse 1.4s ease-in-out infinite; flex-shrink: 0; }
-      @keyframes roadPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .4; transform: scale(.75); } }
-
       /* El mapa y el cuadre empiezan después del rail */
       .yard-wrap { left: 56px; }
-      /* Cuando hay franja, el mapa baja */
-      .road-strip.has-units ~ .yard-wrap,
-      .road-strip.has-units ~ section.cuadre-view { top: calc(56px + 54px); }
 
       /* ===== Vista Cuadre ===== */
       .cuadre-view { position: absolute; inset: 56px 0 0 56px; overflow: hidden; background: #f1f5f9; display: flex; flex-direction: column; }
@@ -1575,27 +1578,12 @@
       @media (max-width: 640px) {
         .nav-rail { width: 48px; }
         .yard-wrap { left: 48px; }
-        .road-strip { left: 48px; }
+
         .cuadre-view { inset: 56px 0 0 48px; }
         .nav-rail-lbl { display: none; }
         .nav-rail-btn { height: 46px; }
       }
 
-      /* Modo claro — franja carretera */
-      body.light .road-strip {
-        background: linear-gradient(90deg, rgba(124,58,237,.08) 0%, rgba(124,58,237,.02) 100%);
-        border-bottom-color: rgba(124,58,237,.2);
-      }
-      body.light .road-card { background: rgba(124,58,237,.07); border-color: rgba(124,58,237,.22); }
-      body.light .road-card:hover { background: rgba(124,58,237,.14); }
-      body.light .road-card-mva { color: #5b21b6; }
-      body.light .road-card-sub { color: #7c3aed; }
-      body.light .road-card-dest { color: rgba(109,40,217,.65); }
-      body.light .road-strip-label { color: #7c3aed; }
-      body.light .road-count { background: rgba(124,58,237,.15); color: #6d28d9; }
-      body.light .road-card-icon { background: rgba(124,58,237,.12); }
-      body.light .road-card-icon .material-icons { color: #7c3aed; }
-      body.light .road-pulse { background: #7c3aed; }
 
       /* ===== Modo claro ===== */
       body.light { background: #eef2f7; }
@@ -1673,15 +1661,6 @@
             </div>
         </section>
 
-        <!-- Franja "EN CARRETERA": unidades en TRASLADO — fuera del mapa -->
-        <div class="road-strip" id="roadStrip">
-            <div class="road-strip-label">
-                <span class="material-icons">local_shipping</span>
-                En carretera
-                <span class="road-count" id="roadCount">0</span>
-            </div>
-            <div class="road-cards" id="roadCards"></div>
-        </div>
 
         <main class="yard-wrap" aria-label="Mapa vivo BJX">
             <div class="yard-viewport" id="yardViewport">
@@ -1817,49 +1796,109 @@
 
         <aside class="unit-popover pill-panel" id="unitPopover" aria-live="polite">
             <button class="pill-close" type="button" onclick="closeUnit()" aria-label="Cerrar"><span class="material-icons">close</span></button>
-            <div class="pill-head">
-                <div class="pill-eyebrow" id="editorMode">UNIDAD SELECCIONADA</div>
-                <div class="pill-mva" id="unitTitle">-</div>
-                <div class="pill-chips" id="unitChips"></div>
+
+            <!-- ── Modo ADD: buscar en catálogo ── -->
+            <div id="pillAddMode">
+                <div class="pill-head">
+                    <div class="pill-eyebrow">AGREGAR UNIDAD</div>
+                    <div class="pill-mva" id="addSlotLabel" style="font-size:18px;">Cajón —</div>
+                </div>
+                <div class="add-search-wrap">
+                    <label class="add-search-label"><span class="material-icons">manage_search</span> Buscar en base maestra</label>
+                    <div class="add-search-box">
+                        <span class="material-icons add-search-ic">search</span>
+                        <input id="unitMva" type="text" placeholder="MVA, placas o modelo…" autocomplete="off" oninput="mvaAutocomplete(this.value)" />
+                    </div>
+                    <div id="mvaSuggest" class="mva-suggest"></div>
+                </div>
+                <!-- Formulario que aparece SOLO después de elegir del catálogo -->
+                <div id="addFormFields" class="add-form-fields" hidden>
+                    <div class="add-unit-card" id="addUnitCard"></div>
+                    <div class="add-form-row">
+                        <div class="field"><label for="addStatusField">Estado inicial</label>
+                            <select id="addStatusField">
+                                <option value="SUCIO">🟡 SUCIO</option>
+                                <option value="LISTO">🟢 LISTO</option>
+                                <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
+                                <option value="RESGUARDO">🔘 RESGUARDO</option>
+                                <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="addFuelField">Gasolina</label>
+                            <select id="addFuelField">
+                                <option value="F">F — Lleno</option>
+                                <option value="3/4">3/4</option>
+                                <option value="H" selected>H — Medio</option>
+                                <option value="1/4">1/4</option>
+                                <option value="E">E — Vacío</option>
+                                <option value="N/A">N/A</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="field"><label for="addNotasField">Notas (opcional)</label>
+                        <input id="addNotasField" type="text" placeholder="Observaciones…" autocomplete="off" />
+                    </div>
+                    <input id="addMvaHidden" type="hidden" />
+                    <input id="unitSlotField" type="hidden" />
+                    <!-- campos ocultos que readEditorUnit() necesita leer -->
+                    <input id="unitStatusField" type="hidden" />
+                    <input id="unitFuelField" type="hidden" />
+                    <input id="unitPlaceField" type="hidden" />
+                    <input id="unitPlatesField" type="hidden" />
+                    <input id="unitModelField" type="hidden" />
+                    <input id="unitNotesField" type="hidden" />
+                    <span id="unitSavedAt" hidden></span>
+                    <button class="add-save-btn" type="button" onclick="confirmAdd()">
+                        <span class="material-icons">add_circle</span> Registrar en patio
+                    </button>
+                </div>
+                <div class="add-hint" id="addHint">
+                    <span class="material-icons">info</span> Escribe el MVA, placas o modelo para buscarlo en la base maestra
+                </div>
             </div>
 
-            <details class="pill-edit" id="pillEdit">
-                <summary><span class="material-icons">edit</span> Editar unidad (cajón, gasolina, estado…)</summary>
-                <div class="field-grid">
-                    <div class="field"><label for="unitMva">MVA</label><input id="unitMva" autocomplete="off" oninput="mvaAutocomplete(this.value)" /><div id="mvaSuggest" class="mva-suggest"></div></div>
-                    <div class="field"><label for="unitSlotField">Cajón</label><select id="unitSlotField"></select></div>
-                    <div class="field"><label for="unitStatusField">Estado</label>
-                        <select id="unitStatusField">
-                            <option>LISTO</option><option>SUCIO</option><option>MANTENIMIENTO</option>
-                            <option>RESGUARDO</option><option>TRASLADO</option><option>NO ARRENDABLE</option>
-                            <option>VENTA</option><option>EN RENTA</option>
-                        </select>
+            <!-- ── Modo EDIT: detalle + acciones rápidas ── -->
+            <div id="pillEditMode" hidden>
+                <div class="pill-head">
+                    <div class="pill-eyebrow" id="editorMode">UNIDAD SELECCIONADA</div>
+                    <div class="pill-mva" id="unitTitle">-</div>
+                    <div class="pill-chips" id="unitChips"></div>
+                </div>
+                <details class="pill-edit" id="pillEdit">
+                    <summary><span class="material-icons">edit</span> Editar datos</summary>
+                    <div class="field-grid">
+                        <div class="field full"><label>MVA (no editable)</label><input id="editMvaDisplay" disabled style="background:#f1f5f9;color:#94a3b8;" /></div>
+                        <div class="field"><label for="editSlotField">Cajón</label><select id="editSlotField"></select></div>
+                        <div class="field"><label for="editStatusField">Estado</label>
+                            <select id="editStatusField">
+                                <option>LISTO</option><option>SUCIO</option><option>MANTENIMIENTO</option>
+                                <option>RESGUARDO</option><option>NO ARRENDABLE</option><option>VENTA</option><option>EN RENTA</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="editFuelField">Gasolina</label>
+                            <select id="editFuelField">
+                                <option>F</option><option>7/8</option><option>3/4</option><option>H</option>
+                                <option>1/2</option><option>1/4</option><option>1/8</option><option>E</option><option>N/A</option>
+                            </select>
+                        </div>
+                        <div class="field"><label for="editPlatesField">Placas</label><input id="editPlatesField" autocomplete="off" /></div>
+                        <div class="field"><label for="editModelField">Modelo</label><input id="editModelField" autocomplete="off" /></div>
+                        <div class="field full"><label for="editNotasField">Notas</label><textarea id="editNotasField"></textarea></div>
                     </div>
-                    <div class="field"><label for="unitFuelField">Gasolina</label>
-                        <select id="unitFuelField">
-                            <option>F</option><option>3/4</option><option>1/2</option><option>1/4</option><option>E</option><option>N/A</option>
-                        </select>
+                    <div class="pill-edit-actions">
+                        <button class="primary-action" type="button" onclick="saveEdit()">Guardar</button>
+                        <button class="secondary-action" type="button" onclick="duplicateSelected()">Duplicar</button>
+                        <button class="danger-action" type="button" onclick="deleteSelected()">Eliminar</button>
                     </div>
-                    <div class="field"><label for="unitPlaceField">Ubicación</label><input id="unitPlaceField" autocomplete="off" /></div>
-                    <div class="field"><label for="unitPlatesField">Placas</label><input id="unitPlatesField" autocomplete="off" /></div>
-                    <div class="field full"><label for="unitModelField">Modelo</label><input id="unitModelField" autocomplete="off" /></div>
-                    <div class="field full"><label for="unitNotesField">Notas</label><textarea id="unitNotesField"></textarea></div>
+                </details>
+                <div class="pill-footer">
+                    <button class="pill-btn pill-btn-limbo" type="button" onclick="mgxAction('LIMBO')"><span class="material-icons" style="font-size:18px">delete</span> LIMBO</button>
+                    <div class="pill-acciones">
+                        <button class="pill-btn pill-btn-acc" type="button" onclick="toggleAcciones(event)"><span class="material-icons">bolt</span> ACCIONES</button>
+                        <div class="acciones-dropdown" id="accionesDropdown"></div>
+                    </div>
+                    <button class="pill-btn pill-btn-cerrar" type="button" onclick="closeUnit()">CERRAR</button>
                 </div>
-                <div class="pill-edit-actions">
-                    <button class="primary-action" type="button" onclick="saveEditor()">Guardar</button>
-                    <button class="secondary-action" type="button" onclick="duplicateSelected()">Duplicar</button>
-                    <button class="danger-action" type="button" onclick="deleteSelected()">Eliminar</button>
-                </div>
-                <span id="unitSavedAt" hidden></span>
-            </details>
-
-            <div class="pill-footer">
-                <button class="pill-btn pill-btn-limbo" type="button" onclick="mgxAction('LIMBO')"><span class="material-icons" style="font-size:18px">delete</span> LIMBO</button>
-                <div class="pill-acciones">
-                    <button class="pill-btn pill-btn-acc" type="button" onclick="toggleAcciones(event)"><span class="material-icons">bolt</span> ACCIONES</button>
-                    <div class="acciones-dropdown" id="accionesDropdown"></div>
-                </div>
-                <button class="pill-btn pill-btn-cerrar" type="button" onclick="closeUnit()">CERRAR</button>
             </div>
         </aside>
 
@@ -2260,35 +2299,17 @@
             unitSignature({ slot: 'L-1', status: 'LISTO', fuel: 'F' }) !== unitSignature({ slot: 'L-2', status: 'LISTO', fuel: 'F' }),
             'unitSignature: debe ser estable e ir campo por campo'
         );
-        // Unidades en TRASLADO: no están en el patio, están en carretera.
-        // Se excluyen del canvas del mapa y aparecen en la franja "En carretera".
+        // Unidades en TRASLADO: no están en el patio.
+        // Se excluyen del canvas del mapa y aparecen en el sidebar de UNIDADES.
         const isInRoad = (u) => u.status === 'TRASLADO';
-
-        function renderRoadStrip() {
-            const strip = document.getElementById('roadStrip');
-            const cards = document.getElementById('roadCards');
-            const count = document.getElementById('roadCount');
-            if (!strip || !cards) return;
-            const onRoad = Object.values(state.units).filter(isInRoad);
-            strip.classList.toggle('has-units', onRoad.length > 0);
-            if (count) count.textContent = onRoad.length;
-            cards.innerHTML = onRoad.map((u) => {
-                const dest = u.notes?.match(/DEST[^\s]*\s*([A-Z0-9\s]+)/i)?.[1]?.trim() || u.destino || '';
-                return `<div class="road-card" onclick="selectUnit('${u.id}')" title="Clic para ver detalle">
-                    <div class="road-card-icon"><span class="material-icons">local_shipping</span></div>
-                    <div class="road-card-info">
-                        <span class="road-card-mva">${u.id}</span>
-                        <span class="road-card-sub">${u.model || 'S/M'} · ${u.plates || 'S/P'}</span>
-                        ${dest ? `<span class="road-card-dest"><span class="material-icons">arrow_forward</span>${dest}</span>` : ''}
-                    </div>
-                    <div class="road-pulse"></div>
-                </div>`;
-            }).join('');
-        }
 
         function renderMapNow() {
             _rafPending = 0;
-            renderRoadStrip();  // siempre sincroniza la franja al renderizar
+            // Actualiza badge del botón cuando el sidebar está cerrado
+            if (!inventoryDrawer.classList.contains('open')) {
+                const n = Object.values(state.units).filter(isInRoad).length;
+                updateUnitsBtnBadge(n);
+            }
             const present = new Set();
             for (const u of Object.values(state.units)) {
                 if (isInRoad(u)) continue;             // en TRASLADO → fuera del mapa, en la franja
@@ -2316,7 +2337,6 @@
 
         function renderAll() {
             scheduleRender();                          // mapa: diffing + rAF (barato)
-            fillSlotOptions();
             if (inventoryDrawer.classList.contains('open')) renderInventory();
             if (historyDrawer.classList.contains('open')) renderHistory();
             if (currentView === 'cuadre') renderCuadre();
@@ -2403,28 +2423,51 @@
 
         function openEditor(unit) {
             const isAdd = editorMode === 'add';
-            document.getElementById('editorMode').textContent = isAdd ? 'NUEVO VEHÍCULO' : 'UNIDAD SELECCIONADA';
-            document.getElementById('unitTitle').textContent = unit.id || 'Nuevo';
-            const chips = document.getElementById('unitChips');
-            if (chips) chips.innerHTML = renderChips(unit);
-            document.getElementById('unitMva').value = unit.id || '';
-            document.getElementById('unitSlotField').value = unit.slot || firstEmptySlot();
-            document.getElementById('unitStatusField').value = unit.status || 'LISTO';
-            document.getElementById('unitFuelField').value = unit.fuel || 'F';
-            document.getElementById('unitPlaceField').value = unit.place || placeForSlot(unit.slot || firstEmptySlot());
-            document.getElementById('unitPlatesField').value = unit.plates || '';
-            document.getElementById('unitModelField').value = unit.model || '';
-            document.getElementById('unitNotesField').value = unit.notes || '';
-            const savedEl = document.getElementById('unitSavedAt');
-            if (savedEl) savedEl.textContent = unit.savedAt || 'Sin guardar';
-            const dd = document.getElementById('accionesDropdown');
-            if (dd) { dd.innerHTML = isAdd ? '' : buildAcciones(unit); dd.classList.remove('show'); }
-            const pe = document.getElementById('pillEdit');
-            if (pe) pe.open = isAdd;
-            const sug = document.getElementById('mvaSuggest');
-            if (sug) { if (isAdd) mvaAutocomplete(''); else sug.style.display = 'none'; }
-            popover.classList.toggle('is-add', isAdd);
+            // Alterna entre los dos modos de la píldora
+            document.getElementById('pillAddMode').hidden = !isAdd;
+            document.getElementById('pillEditMode').hidden = isAdd;
             popover.classList.add('open');
+            if (isAdd) {
+                // Modo ADD: limpia la búsqueda y muestra el cajón destino
+                const slotLabel = document.getElementById('addSlotLabel');
+                if (slotLabel) slotLabel.textContent = 'Cajón ' + (unit.slot && unit.slot !== 'LIMBO' ? unit.slot : '—');
+                document.getElementById('unitMva').value = '';
+                document.getElementById('addFormFields').hidden = true;
+                document.getElementById('addHint').style.display = 'flex';
+                document.getElementById('mvaSuggest').style.display = 'none';
+                document.getElementById('unitSlotField').value = unit.slot || '';
+                setTimeout(() => document.getElementById('unitMva').focus(), 120);
+            } else {
+                // Modo EDIT: rellena todos los campos de edición
+                document.getElementById('editorMode').textContent = 'UNIDAD SELECCIONADA';
+                document.getElementById('unitTitle').textContent = unit.id || '—';
+                const chips = document.getElementById('unitChips');
+                if (chips) chips.innerHTML = renderChips(unit);
+                document.getElementById('editMvaDisplay').value = unit.id || '';
+                // Rellena el select de cajón de edición
+                const eSel = document.getElementById('editSlotField');
+                if (eSel) {
+                    fillSlotOptions(eSel);
+                    eSel.value = unit.slot || firstEmptySlot();
+                }
+                const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val || ''; };
+                set('editStatusField', unit.status || 'SUCIO');
+                set('editFuelField', unit.fuel || 'N/A');
+                set('editPlatesField', unit.plates || '');
+                set('editModelField', unit.model || '');
+                set('editNotasField', unit.notes || '');
+                const dd = document.getElementById('accionesDropdown');
+                if (dd) { dd.innerHTML = buildAcciones(unit); dd.classList.remove('show'); }
+            }
+        }
+
+        // fillSlotOptions acepta un elemento select opcional (para el modo EDIT)
+        function fillSlotOptions(targetSel) {
+            const sel = targetSel || document.getElementById('editSlotField');
+            if (!sel) return;
+            const current = sel.value;
+            sel.innerHTML = ['LIMBO', ...slotIds].map((id) => `<option value="${id}">${id === 'LIMBO' ? 'Patio — sin cajón' : id}</option>`).join('');
+            if (current && (slotIds.includes(current) || current === 'LIMBO')) sel.value = current;
         }
 
         // ── Píldora: chips + acciones rápidas (como el mapa real) ──
@@ -2436,27 +2479,58 @@
                 + `<span style="text-transform:capitalize;">⚙️ ${st}</span>`;
         }
 
-        // Autocompletado al crear (como la "base maestra" del cuadre, con datos simulados)
+        // Autocompletado al crear — busca en CATALOGO (base maestra simulada)
         function mvaAutocomplete(val) {
             const box = document.getElementById('mvaSuggest');
+            const hint = document.getElementById('addHint');
+            const formFields = document.getElementById('addFormFields');
             if (!box) return;
-            if (editorMode !== 'add') { box.style.display = 'none'; return; }
             const q = String(val || '').trim().toUpperCase();
+            if (!q) {
+                box.style.display = 'none';
+                if (hint) hint.style.display = 'flex';
+                if (formFields) formFields.hidden = true;
+                return;
+            }
             const libres = CATALOGO.filter((c) => !state.units[c.id]);
-            const list = (q ? libres.filter((c) => `${c.id} ${c.plates} ${c.model}`.toUpperCase().includes(q)) : libres).slice(0, 6);
+            const list = libres.filter((c) => `${c.id} ${c.plates} ${c.model}`.toUpperCase().includes(q)).slice(0, 7);
             box.innerHTML = list.length
-                ? list.map((c) => `<button type="button" class="mva-sug" onclick="applySuggestion('${c.id}')"><strong>${c.id}</strong><span>${c.model} · ${c.plates} · ${c.cat}</span></button>`).join('')
-                : '<div class="mva-sug-empty">Sin coincidencias en catálogo</div>';
+                ? list.map((c) => `<button type="button" class="mva-sug" onclick="applySuggestion('${c.id}')">
+                    <strong>${c.id}</strong>
+                    <span>${c.model} · <span style="font-family:monospace">${c.plates}</span> · ${c.cat}</span>
+                  </button>`).join('')
+                : `<div class="mva-sug-empty">Sin coincidencias — <b onclick="confirmUnknown('${q}')" style="cursor:pointer;text-decoration:underline">agregar "${q}" igual</b></div>`;
             box.style.display = 'block';
+            if (hint) hint.style.display = 'none';
+            if (formFields) formFields.hidden = true;
         }
+
         function applySuggestion(id) {
             const c = CATALOGO.find((x) => x.id === id);
             if (!c) return;
             document.getElementById('unitMva').value = c.id;
-            document.getElementById('unitModelField').value = c.model;
-            document.getElementById('unitPlatesField').value = c.plates;
-            const box = document.getElementById('mvaSuggest');
-            if (box) box.style.display = 'none';
+            document.getElementById('mvaSuggest').style.display = 'none';
+            document.getElementById('addHint').style.display = 'none';
+            // Muestra la card con la unidad del catálogo
+            const card = document.getElementById('addUnitCard');
+            if (card) card.innerHTML = `
+                <div class="add-unit-card-icon"><span class="material-icons">directions_car</span></div>
+                <div class="add-unit-card-info">
+                    <div class="add-unit-card-mva">${c.id}</div>
+                    <div class="add-unit-card-sub">${c.model} · <span style="font-family:monospace">${c.plates}</span></div>
+                </div>
+                <span class="add-unit-card-badge">${c.cat}</span>`;
+            document.getElementById('addMvaHidden').value = c.id;
+            document.getElementById('addFormFields').hidden = false;
+            setTimeout(() => document.getElementById('addStatusField').focus(), 80);
+        }
+
+        function confirmUnknown(mva) {
+            // Permite agregar una unidad que NO está en el catálogo
+            const libres = CATALOGO.filter((c) => !state.units[c.id]);
+            const sug = libres.length ? libres[Math.floor(Math.random() * libres.length)].id : null;
+            if (sug) showToast(`"${mva}" no está en catálogo. Intenta con ${sug}`);
+            else showToast(`"${mva}" no está en catálogo`);
         }
         function accItem(action, icon, color, label) {
             return `<button type="button" class="action-item" onclick="mgxAction('${action}')"><span class="material-icons" style="color:${color}">${icon}</span> ${label}</button>`;
@@ -2550,18 +2624,8 @@
         function openAdd(preferredSlot = '') {
             selectedUnitId = '';
             editorMode = 'add';
-            const slot = preferredSlot || firstEmptySlot();
-            openEditor({
-                id: nextMva(),
-                slot,
-                status: 'LISTO',
-                fuel: 'F',
-                place: placeForSlot(slot),
-                model: 'Demo 2026',
-                plates: '',
-                notes: '',
-                savedAt: 'Sin guardar',
-            });
+            const slot = preferredSlot || 'LIMBO';
+            openEditor({ slot });
         }
 
         function nextMva() {
@@ -2570,79 +2634,88 @@
             return `DEMO${String(index).padStart(2, '0')}`;
         }
 
-        function readEditorUnit() {
-            const id = document.getElementById('unitMva').value.trim().toUpperCase().replace(/\s+/g, '');
+        // Confirmar alta desde el modo ADD
+        function confirmAdd() {
+            const mvaId = document.getElementById('addMvaHidden').value.trim().toUpperCase();
             const slot = document.getElementById('unitSlotField').value;
-            return {
-                id,
-                slot,
-                status: document.getElementById('unitStatusField').value,
-                fuel: document.getElementById('unitFuelField').value,
-                place: document.getElementById('unitPlaceField').value.trim() || placeForSlot(slot),
-                plates: document.getElementById('unitPlatesField').value.trim().toUpperCase(),
-                model: document.getElementById('unitModelField').value.trim(),
-                notes: document.getElementById('unitNotesField').value.trim(),
-                color: STATUS_STYLE[document.getElementById('unitStatusField').value] || 'gray',
-                savedAt: nowLabel(),
+            if (!mvaId) { showToast('Elige una unidad del catálogo primero'); return; }
+            if (state.units[mvaId]) { showToast(`${mvaId} ya está registrada`); return; }
+            const cat = CATALOGO.find((c) => c.id === mvaId);
+            if (!cat) { showToast(`${mvaId} no está en catálogo`); return; }
+            const status = document.getElementById('addStatusField').value;
+            const fuel = document.getElementById('addFuelField').value;
+            const notes = document.getElementById('addNotasField').value.trim();
+            // Si el cajón destino está ocupado, va a LIMBO
+            const occupied = slot && slot !== 'LIMBO' && Object.values(state.units).some((u) => u.slot === slot);
+            const finalSlot = occupied ? 'LIMBO' : (slot || 'LIMBO');
+            if (occupied) showToast(`${slot} ocupado — se colocó en Patio sin cajón`);
+            const newUnit = {
+                id: mvaId, cat: cat.cat, model: cat.model, plates: cat.plates,
+                slot: finalSlot, place: placeForSlot(finalSlot),
+                status, fuel, notes, savedAt: nowLabel(),
             };
-        }
-
-        function saveEditor() {
-            const unit = readEditorUnit();
-            if (!unit.id) {
-                showToast('MVA requerido');
-                return;
-            }
-
-            const oldId = selectedUnitId;
-            const existingById = state.units[unit.id];
-            if (editorMode === 'add' && existingById) {
-                showToast('Ese MVA ya existe');
-                return;
-            }
-            if (editorMode === 'edit' && existingById && unit.id !== oldId) {
-                showToast('Ese MVA ya existe');
-                return;
-            }
-
-            // Al crear: la unidad debe existir en el catálogo (base maestra simulada).
-            // Si no, sugiere una del catálogo que NO esté ya en el mapa.
-            if (editorMode === 'add') {
-                const cat = CATALOGO.find((c) => c.id === unit.id);
-                if (!cat) {
-                    const libres = CATALOGO.filter((c) => !state.units[c.id]);
-                    const sug = libres.length ? libres[Math.floor(Math.random() * libres.length)].id : '—';
-                    showToast(`No tenemos "${unit.id}". Intenta con ${sug}`);
-                    return;
-                }
-                unit.cat = cat.cat;
-                if (!unit.model) unit.model = cat.model;
-                if (!unit.plates) unit.plates = cat.plates;
-            }
-
-            const occupied = Object.values(state.units).find((candidate) => candidate.slot === unit.slot && candidate.id !== oldId);
-            if (editorMode === 'add' && occupied) {
-                showToast(`El cajon ${unit.slot} ya esta ocupado`);
-                return;
-            }
-
-            if (editorMode === 'edit' && occupied && oldId && state.units[oldId]) {
-                occupied.slot = state.units[oldId].slot;
-                occupied.place = placeForSlot(occupied.slot);
-                occupied.savedAt = nowLabel();
-                addHistory('Swap', `${unit.id} ${state.units[oldId].slot} -> ${unit.slot} · ${occupied.id} -> ${occupied.slot}`);
-            }
-
-            if (editorMode === 'edit' && oldId && oldId !== unit.id) delete state.units[oldId];
-            state.units[unit.id] = unit;
-            selectedUnitId = unit.id;
-            addHistory(editorMode === 'add' ? 'Alta' : 'Edicion', `${unit.id} · ${unit.slot}`);
+            state.units[mvaId] = newUnit;
+            selectedUnitId = mvaId;
             editorMode = 'edit';
-            markChanged(unit.id);
+            addHistory('Alta', `${mvaId} · ${finalSlot}`);
+            markChanged(mvaId);
             persistState();
             renderAll();
-            selectUnit(unit.id);
+            selectUnit(mvaId);
+            showToast(`✓ ${mvaId} registrada en patio`);
+        }
+
+        // Guardar edición en modo EDIT
+        function saveEdit() {
+            const unit = state.units[selectedUnitId];
+            if (!unit) return;
+            const slot = document.getElementById('editSlotField')?.value || unit.slot;
+            const status = document.getElementById('editStatusField')?.value || unit.status;
+            const fuel = document.getElementById('editFuelField')?.value || unit.fuel;
+            const plates = document.getElementById('editPlatesField')?.value.trim().toUpperCase() || unit.plates;
+            const model = document.getElementById('editModelField')?.value.trim() || unit.model;
+            const notes = document.getElementById('editNotasField')?.value.trim() || '';
+            const oldSlot = unit.slot;
+            // Maneja swap si el cajón destino está ocupado
+            const occupied = slot !== 'LIMBO' && Object.values(state.units).find((u) => u.slot === slot && u.id !== unit.id);
+            if (occupied) {
+                occupied.slot = oldSlot;
+                occupied.place = placeForSlot(oldSlot);
+                occupied.savedAt = nowLabel();
+                addHistory('Swap', `${unit.id} ${oldSlot} → ${slot} · ${occupied.id} → ${oldSlot}`);
+                markChanged(occupied.id);
+            }
+            unit.slot = slot; unit.place = placeForSlot(slot);
+            unit.status = status; unit.fuel = fuel;
+            unit.plates = plates; unit.model = model; unit.notes = notes;
+            unit.savedAt = nowLabel();
+            addHistory('Edición', `${unit.id} · ${slot}`);
+            markChanged(unit.id);
+            persistState(); renderAll(); selectUnit(unit.id);
             showToast(`${unit.id} guardado`);
+        }
+
+        // saveEditor redirige al método correcto según el modo (compatibilidad)
+        function saveEditor() { if (editorMode === 'add') confirmAdd(); else saveEdit(); }
+
+        // readEditorUnit mantiene compatibilidad con duplicateSelected y otros callers
+        function readEditorUnit() {
+            if (editorMode === 'edit') {
+                const unit = state.units[selectedUnitId] || {};
+                return {
+                    id: selectedUnitId,
+                    slot: document.getElementById('editSlotField')?.value || unit.slot,
+                    status: document.getElementById('editStatusField')?.value || unit.status,
+                    fuel: document.getElementById('editFuelField')?.value || unit.fuel,
+                    place: placeForSlot(document.getElementById('editSlotField')?.value || unit.slot),
+                    plates: document.getElementById('editPlatesField')?.value?.trim().toUpperCase() || unit.plates,
+                    model: document.getElementById('editModelField')?.value?.trim() || unit.model,
+                    notes: document.getElementById('editNotasField')?.value?.trim() || '',
+                    cat: unit.cat,
+                    savedAt: nowLabel(),
+                };
+            }
+            return { id: document.getElementById('addMvaHidden')?.value?.trim().toUpperCase() || '' };
         }
 
         function deleteSelected() {
@@ -2778,9 +2851,12 @@
         // en Patio / Taller (igual que el mapa real: #unidades-limbo / #unidades-taller).
         function unitsCardHTML(u) {
             const sc = STATUS_STYLE[u.status] || 'no-arrendable';
+            const isTraslado = u.status === 'TRASLADO';
+            const dest = u.destino || '';
             return `
       <button class="units-card" type="button" onclick="focusInventoryUnit('${u.id}')">
         <div class="units-card-top">
+          ${isTraslado ? `<span class="traslado-dot"></span>` : ''}
           <span class="units-card-mva">${u.id}</span>
           <span class="units-card-badge b-${sc}">${STATUS_LABEL[u.status] || u.status}</span>
         </div>
@@ -2788,6 +2864,7 @@
           <span><span class="material-icons">badge</span>${u.plates || 'S/P'}</span>
           <span><span class="material-icons">directions_car</span>${u.model || 'S/M'}</span>
         </div>
+        ${dest ? `<div class="units-card-dest"><span class="material-icons">arrow_forward</span>${dest}</div>` : ''}
       </button>`;
         }
         function unitsSectionHTML(icon, title, kind, list) {
@@ -2802,15 +2879,38 @@
         }
         function renderInventory() {
             const q = (document.getElementById('unitsSearch')?.value || '').trim().toUpperCase();
-            const match = (u) => !q || [u.id, u.plates, u.model, STATUS_LABEL[u.status] || u.status].join(' ').toUpperCase().includes(q);
+            const match = (u) => !q || [u.id, u.plates, u.model, STATUS_LABEL[u.status] || u.status, u.destino || ''].join(' ').toUpperCase().includes(q);
             const byId = (a, b) => a.id.localeCompare(b.id);
+            // Patio sin cajón (LIMBO, no en taller, no en traslado)
             const limbo = Object.values(state.units).filter((u) => u.slot === 'LIMBO' && match(u));
             const enTaller = (u) => u.status === 'MANTENIMIENTO' || u.status === 'EN TALLER';
-            const patio = limbo.filter((u) => !enTaller(u)).sort(byId);
-            const taller = limbo.filter(enTaller).sort(byId);
+            const patio = limbo.filter((u) => !enTaller(u) && !isInRoad(u)).sort(byId);
+            const taller = limbo.filter((u) => enTaller(u)).sort(byId);
+            const traslado = Object.values(state.units).filter((u) => isInRoad(u) && match(u)).sort(byId);
             inventoryList.innerHTML =
+                (traslado.length ? unitsSectionHTML('local_shipping', 'En traslado', 'traslado', traslado) : '') +
                 unitsSectionHTML('local_parking', 'Patio — sin asignar', 'patio', patio) +
                 unitsSectionHTML('build', 'Taller — sin asignar', 'taller', taller);
+            // Actualiza badge del botón de unidades si hay unidades en traslado
+            updateUnitsBtnBadge(traslado.length);
+        }
+
+        function updateUnitsBtnBadge(n) {
+            let badge = document.getElementById('unitsBtnBadge');
+            const btn = document.querySelector('.mh-btn[aria-label="Unidades"]');
+            if (!btn) return;
+            if (n > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.id = 'unitsBtnBadge';
+                    badge.style.cssText = 'position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:#7c3aed;color:#fff;font-size:9px;font-weight:900;display:grid;place-items:center;border:2px solid #12142a;';
+                    btn.style.position = 'relative';
+                    btn.appendChild(badge);
+                }
+                badge.textContent = n;
+            } else if (badge) {
+                badge.remove();
+            }
         }
 
         function toggleInventory() {

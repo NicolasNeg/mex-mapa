@@ -196,7 +196,8 @@
     });
     var input = document.getElementById('mexbzInput');
     input.placeholder = tab === 'unidades' ? 'Buscar unidad...' : 'Buscar usuario...';
-    input.value = '';
+    // Mismo buscador: el texto se conserva al cambiar de pestaña; cada sección
+    // filtra su dominio con el mismo término.
     runSearch();
   }
 

@@ -109,9 +109,20 @@
     #fleet-modal .main-grid-flota { flex: 1 1 auto !important; min-height: 0 !important; }
     #fleet-modal .col-table { flex: 1 1 auto !important; min-height: 0 !important; }
     #fleet-modal .col-table .table-container { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; }
-    /* Mobile: el scroll de tarjetas lo lleva .main-grid-flota */
+    /* Mobile: la lista de unidades (col-table) es la vista principal scrollable;
+       el panel GESTOR (col-form, que trae los KPIs) es un bottom-sheet OCULTO que
+       solo sube cuando seleccionas una unidad (.active). Antes tapaba la lista. */
     @media (max-width: 768px) {
-      #fleet-modal .main-grid-flota { overflow-y: auto !important; }
+      #fleet-modal .main-grid-flota { flex-direction: column !important; overflow: hidden !important; }
+      #fleet-modal .col-table { display: flex !important; flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important; }
+      #fleet-modal .col-table .table-container { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; overflow-x: hidden !important; }
+      #fleet-modal .col-form {
+        position: fixed !important; left: 0 !important; right: 0 !important;
+        top: auto !important; bottom: -105% !important; width: 100% !important;
+        height: 88vh !important; z-index: 60 !important; border-radius: 24px 24px 0 0 !important;
+        transition: bottom .32s cubic-bezier(.4,0,.2,1) !important;
+      }
+      #fleet-modal .col-form.active { bottom: 0 !important; }
     }
     /* Botones flotantes SIEMPRE visibles (fixed al viewport), no absolute dentro
        del col-table que crece. */
