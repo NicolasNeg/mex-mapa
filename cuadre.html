@@ -104,6 +104,11 @@
        alimente vía _syncSearch → buscarMasivo). */
     .search-wrapper-flota { display: none !important; }
 
+    /* Menos amontonado: cuando el cuadre está embebido en el shell, su header
+       interno (.fleet-header-top: título/toggle/buscador/plaza/campana) DUPLICA
+       el header del shell → lo ocultamos. En standalone /cuadre sí se muestra. */
+    html.shell-embedded .fleet-header-top { display: none !important; }
+
     /* ── BLINDAJE DE SCROLL DEL CUADRE ──────────────────────────
        Fuerza cada eslabón de la cadena flex para que la tabla scrollee
        (desktop) y las tarjetas scrolleen (mobile), sin depender de mapa.css. */
