@@ -129,7 +129,11 @@
         loc[mva] = {
           plazaActual: String(u.plaza || '').toUpperCase().trim(),
           pos: String(u.pos || 'LIMBO').toUpperCase(),
-          ubicacion: String(u.ubicacion || '')
+          ubicacion: String(u.ubicacion || ''),
+          // estáticos, por si hay que CREAR el doc del índice (unidad sin doc)
+          _modelo: u.modelo || '', _placas: u.placas || '',
+          _categoria: u.categoria || u.clase || '', _vin: u.vin || '',
+          _sucursal: String(u.sucursal || u.plaza || '').toUpperCase().trim()
         };
       };
       const [cuadreSnap, externosSnap, subSnap, indexSnap] = await Promise.all([
@@ -147,16 +151,33 @@
         take(u);
       });
 
-      let batch = db.batch(), n = 0, actualizadas = 0;
+      const enIndex = new Set();
+      let batch = db.batch(), n = 0, actualizadas = 0, creadas = 0;
+      const flush = async () => { if (n) { await batch.commit(); batch = db.batch(); n = 0; } };
+
       for (const doc of indexSnap.docs) {
         const mva = String(doc.data().mva || '').toUpperCase().trim();
+        if (mva) enIndex.add(mva);
         const info = loc[mva] || { plazaActual: '', pos: '', ubicacion: '' };
-        batch.set(doc.ref, info, { merge: true });
+        batch.set(doc.ref, { plazaActual: info.plazaActual, pos: info.pos, ubicacion: info.ubicacion }, { merge: true });
         actualizadas++; n++;
-        if (n >= 400) { await batch.commit(); batch = db.batch(); n = 0; }
+        if (n >= 400) await flush();
       }
-      if (n > 0) await batch.commit();
-      return { indexadas: actualizadas, enCuadre: Object.keys(loc).length };
+      // Crear docs para unidades del cuadre que NO estén en el índice → buscables.
+      for (const mva in loc) {
+        if (enIndex.has(mva)) continue;
+        const info = loc[mva];
+        batch.set(db.collection(COL.INDEX).doc(), {
+          mva, sucursal: info._sucursal, modelo: info._modelo, placas: info._placas,
+          categoria: info._categoria, vin: info._vin,
+          plazaActual: info.plazaActual, pos: info.pos, ubicacion: info.ubicacion,
+          _createdAt: _now(), _createdBy: 'backfill'
+        });
+        creadas++; n++;
+        if (n >= 400) await flush();
+      }
+      await flush();
+      return { indexadas: actualizadas, creadas, enCuadre: Object.keys(loc).length };
     },
 
     async registrarUnidadEnPlaza(data) {

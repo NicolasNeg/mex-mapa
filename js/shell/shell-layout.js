@@ -95,7 +95,8 @@ export class ShellLayout {
       availablePlazas,
       canSwitchPlaza,
       onMenuToggle: () => {
-        if (window.innerWidth < 768) {
+        // ≤1024px (mobile + tablet) el sidebar es drawer; >1024px se colapsa.
+        if (window.innerWidth <= 1024) {
           this._sidebar.isMobileOpen
             ? this._sidebar.closeMobileDrawer()
             : this._sidebar.openMobileDrawer();

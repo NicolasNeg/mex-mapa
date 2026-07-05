@@ -64,9 +64,9 @@ export class ShellSidebar {
       const v = localStorage.getItem(COLLAPSED_KEY);
       if (v !== null) return v === '1';
     } catch (_) {}
-    // Default: compact on tablet, expanded on desktop/TV
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1280;
-    return w >= 768 && w < 1024;
+    // ≤1024px el sidebar es drawer (abre completo con labels) → no compact.
+    // >1024px expandido por defecto.
+    return false;
   }
 
   _writeCollapsed(val) {
@@ -265,7 +265,9 @@ export class ShellSidebar {
   }
 
   _isDesktop() {
-    return typeof window !== 'undefined' && window.innerWidth >= 768;
+    // Solo desktop real (>1024px) mantiene el sidebar fijo; ≤1024px es drawer
+    // (mobile + tablet) → al navegar se cierra.
+    return typeof window !== 'undefined' && window.innerWidth > 1024;
   }
 
   _dispatchToggle() {

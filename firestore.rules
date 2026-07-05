@@ -576,7 +576,11 @@ service cloud.firestore {
 
     match /index_unidades/{doc} {
       allow read: if tienePerfilActual();
-      allow create: if puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexNueva());
+      // create abierto a usuarios autenticados (consistente con /cuadre) para que
+      // al insertar una unidad al cuadre se pueda crear su doc en el índice global
+      // y sea buscable. La unidad debe traer mva.
+      allow create: if (puedeGestionarFlotaMaestra() && mismaPlaza(plazaIndexNueva()))
+        || (tienePerfilActual() && request.resource.data.mva is string);
       allow update: if (puedeGestionarFlotaMaestra()
           && mismaPlaza(plazaIndexActual())
           && mismaPlaza(plazaIndexNueva()))

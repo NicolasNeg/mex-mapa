@@ -171,7 +171,19 @@
       await db.collection(COL.CUADRE).doc(docId).set(unitData);
       await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp);
       await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp);
-      _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: objeto.ubicacion || 'PATIO' });
+      // Completitud del índice global: si la unidad no tiene doc en index_unidades,
+      // lo creamos para que sea buscable (con su ubicación actual ya puesta).
+      if (indexSnap.empty) {
+        db.collection(COL.INDEX).add({
+          mva: mvaStr,
+          sucursal: plazaUp || '',
+          modelo: unitData.modelo, placas: unitData.placas, categoria: unitData.categoria,
+          plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: objeto.ubicacion || 'PATIO',
+          _createdAt: ahora, _createdBy: objeto.responsableSesion || 'Sistema'
+        }).catch(function () {});
+      } else {
+        _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: objeto.ubicacion || 'PATIO' });
+      }
       return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
     },
 

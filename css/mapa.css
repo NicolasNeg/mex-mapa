@@ -1988,8 +1988,8 @@
       .info-sidebar {
         left: auto;
         right: 16px;
-        bottom: auto;
-        top: 76px;
+        top: auto;
+        bottom: 16px;
         width: 380px;
         max-width: calc(100vw - 32px);
         max-height: min(560px, calc(100vh - 96px));

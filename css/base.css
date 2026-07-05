@@ -44,22 +44,37 @@
       --c-retenida: #6d4c41;
     }
 
+    /* Scrollbar unificado del proyecto */
+    :root {
+      --sb-track-color: #2e2e4a;
+      --sb-thumb-color: #574e6f;
+      --sb-size: 16px;
+    }
+
     ::-webkit-scrollbar {
-      width: 8px;
-      height: 8px;
+      width: var(--sb-size);
+      height: var(--sb-size);
     }
 
     ::-webkit-scrollbar-track {
-      background: transparent;
+      background: var(--sb-track-color);
+      border-radius: 3px;
     }
 
     ::-webkit-scrollbar-thumb {
-      background: rgba(148, 163, 184, 0.3);
-      border-radius: 10px;
+      background: var(--sb-thumb-color);
+      border-radius: 3px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
-      background: rgba(148, 163, 184, 0.6);
+      background: #6b6089;
+    }
+
+    /* Firefox / navegadores sin ::-webkit-scrollbar */
+    @supports not selector(::-webkit-scrollbar) {
+      html {
+        scrollbar-color: var(--sb-thumb-color) var(--sb-track-color);
+      }
     }
 
     .material-symbols-outlined {
@@ -965,10 +980,7 @@
     /* Los dots de colores son intencionales, no cambian */
 
     /* ─ Scrollbars en dark ─ */
-    body.dark-theme ::-webkit-scrollbar { width: 6px; height: 6px; }
-    body.dark-theme ::-webkit-scrollbar-track { background: #0f172a; }
-    body.dark-theme ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-    body.dark-theme ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    /* dark-theme usa el mismo scrollbar unificado (definido arriba con var(--sb-*)) */
 
     /* ─ Focus visible accesible ─ */
     body.dark-theme *:focus-visible {
