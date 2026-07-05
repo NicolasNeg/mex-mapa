@@ -615,26 +615,39 @@ function cambiarTabFlota(tabSeleccionado) {
   // 1. Lógica Visual de los botones superiores
   const btnNormal = document.getElementById('tabFlotaNormal');
   const btnAdmins = document.getElementById('tabFlotaAdmins');
+  const btnHistorial = document.getElementById('tabFlotaHistorial');
 
   if (tabSeleccionado === 'NORMAL') {
-    btnNormal.style.background = 'var(--mex-blue)';
+    btnNormal.style.background = '#0ea5e9';
     btnNormal.style.color = 'white';
-    btnAdmins.style.background = '#f1f5f9';
+    btnAdmins.style.background = 'transparent';
     btnAdmins.style.color = '#64748b';
+    if (btnHistorial) {
+      btnHistorial.style.background = 'transparent';
+      btnHistorial.style.color = '#64748b';
+    }
     cargarFlota();
   } else {
     if (!canViewAdminCuadre()) {
-      btnNormal.style.background = 'var(--mex-blue)';
+      btnNormal.style.background = '#0ea5e9';
       btnNormal.style.color = 'white';
-      btnAdmins.style.background = '#f1f5f9';
+      btnAdmins.style.background = 'transparent';
       btnAdmins.style.color = '#64748b';
+      if (btnHistorial) {
+        btnHistorial.style.background = 'transparent';
+        btnHistorial.style.color = '#64748b';
+      }
       document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px; color:#94a3b8;">Sin acceso al Cuadre Admins.</td></tr>`;
       return;
     }
     btnAdmins.style.background = '#d97706';
     btnAdmins.style.color = 'white';
-    btnNormal.style.background = '#f1f5f9';
+    btnNormal.style.background = 'transparent';
     btnNormal.style.color = '#64748b';
+    if (btnHistorial) {
+      btnHistorial.style.background = 'transparent';
+      btnHistorial.style.color = '#64748b';
+    }
 
     document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;"><span class="material-icons spinner">sync</span> Cargando Cuadre Admins...</td></tr>`;
 
@@ -5820,6 +5833,10 @@ let DATOS_TABLA_ACTUAL = []; // 🔥 Memoria para saber qué estamos viendo
 function renderFlota(data) {
   // 🔥 1. GUARDAMOS LA LISTA FILTRADA EN LA MEMORIA 🔥
   DATOS_TABLA_ACTUAL = data;
+  
+  const count = data ? data.length : 0;
+  const pagTexto = document.getElementById('flotaPaginacionTexto');
+  if (pagTexto) pagTexto.innerText = `Mostrando 1 - ${count} de ${count} vehiculos`;
 
   const tbody = document.getElementById('tablaCuerpoFlota');
   const thAutor = document.getElementById('th-autor');

@@ -1982,6 +1982,27 @@
       /* Sube y se mantiene centrado */
     }
 
+    /* Desktop: el panel de detalle se abre a la DERECHA, más compacto y menos alto.
+       Móvil mantiene la barra compacta inferior (ver @media max-width:768px). */
+    @media (min-width: 769px) {
+      .info-sidebar {
+        left: auto;
+        right: 16px;
+        bottom: auto;
+        top: 76px;
+        width: 380px;
+        max-width: calc(100vw - 32px);
+        max-height: min(560px, calc(100vh - 96px));
+        overflow-y: auto;
+        transform: translateX(calc(100% + 32px));
+        /* Oculto hacia la derecha */
+      }
+      .info-sidebar.open {
+        transform: translateX(0);
+        /* Entra desde la derecha */
+      }
+    }
+
     .btn-swap-confirm {
       width: 100%;
       padding: 20px;

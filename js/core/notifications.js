@@ -1001,6 +1001,14 @@ async function _obtainMessagingToken(forcePrompt = false) {
       if (!registration) registration = await _getServiceWorkerRegistration();
       if (!registration) return '';
 
+      // PushManager.subscribe requiere un SW ACTIVO. Si aún no lo está, esperamos
+      // a que lo esté (navigator.serviceWorker.ready solo resuelve con SW activo);
+      // si no hay, retornamos sin token en vez de lanzar AbortError.
+      if (!registration.active) {
+        try { registration = await navigator.serviceWorker.ready; } catch (_) {}
+      }
+      if (!registration || !registration.active) return '';
+
       const messaging = firebase.messaging();
       const options = { serviceWorkerRegistration: registration };
       const vapidKey = _state.profileGetter?.()?.notifications?.vapidKey

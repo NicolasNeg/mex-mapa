@@ -260,24 +260,8 @@
 
   function searchUnidades() {
     var q = (document.getElementById('mexbzInput').value || '').toLowerCase().trim();
-    var cars = Array.prototype.slice.call(document.querySelectorAll('.car'));
-    if (cars.length) {
-      // En el mapa: filtro/resaltado en vivo + lista desde el DOM.
-      var live = document.getElementById('searchInput') || document.getElementById('searchInputMobile');
-      if (live) { live.value = q; if (typeof window.buscarMasivo === 'function') window.buscarMasivo(); }
-      var seen = {}, out = [];
-      for (var i = 0; i < cars.length; i++) {
-        if (!cars[i].dataset.mva || seen[cars[i].dataset.mva]) continue;
-        var d = _normCar(cars[i]);
-        if (q && d.hay.indexOf(q) === -1) continue;
-        seen[d.mva] = 1; out.push(d);
-        if (out.length >= 50) break;
-      }
-      renderUnitRows(out);
-      return;
-    }
-    // A nivel shell: desde cache (índice global). Si el cache está caliente
-    // (prefetch/localStorage) render instantáneo, sin "Cargando".
+    // Siempre desde el índice global (mismo comportamiento en todas las rutas).
+    // Si el cache está caliente (prefetch/localStorage) render instantáneo.
     var filtrar = function (units) {
       return (units || []).filter(function (d) { return !q || d.hay.indexOf(q) > -1; }).slice(0, 60);
     };

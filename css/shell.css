@@ -606,6 +606,8 @@ body.dark-theme {
   transition: color 0.15s, background 0.15s;
 }
 .mex-header-search-icon:hover { color: #2563eb; background: rgba(37, 99, 235, 0.08); }
+/* En PC el input cabe → la lupa/submit sobra (Enter envía). En mobile se queda. */
+@media (min-width: 769px) { .mex-header-search-icon { display: none; } }
 
 /* Toggle de modo Página / Global */
 .mex-hdr-searchmode {
