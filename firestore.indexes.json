@@ -1,6 +1,14 @@
 {
   "indexes": [
     {
+      "collectionGroup": "asistencia",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plaza", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "ops_events",
       "queryScope": "COLLECTION",
       "fields": [

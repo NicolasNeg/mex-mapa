@@ -338,7 +338,7 @@ function _renderTurnoCard(turno, esPropio) {
 
 // ── Tab Horarios ──────────────────────────────────────────────
 function _renderHorarios() {
-  const { semana, horarios, usuarios, isAdmin, usuariosLoading, uid, plantillas, notasSemana, showGestionPlantillas } = _s;
+  const { semana, horarios, usuarios, isAdmin, usuariosLoading, uid, plantillas, notasSemana, showGestionPlantillas, profile } = _s;
 
   const semanaFin = moverSemana(semana, 1);
   const semanaFinDisplay = new Date(semanaFin + 'T00:00:00');
@@ -372,10 +372,15 @@ function _renderHorarios() {
   if (usuariosLoading) {
     filas = `<tr><td colspan="8" class="tu-grid-loading">Cargando usuarios…</td></tr>`;
   } else {
-    const lista = isAdmin ? usuarios : usuarios.filter(u => (u.uid || u.id) === uid);
+    let lista = isAdmin ? usuarios : usuarios.filter(u => (u.uid || u.id) === uid);
+    // Fallback: un no-admin siempre debe verse a sí mismo aunque getUsuariosPlaza
+    // no lo devuelva (plazaAsignada desincronizada). Ver spec Fase 1.2.
+    if (!isAdmin && !lista.length && uid) {
+      lista = [{ uid, id: uid, ...profile }];
+    }
     if (!lista.length) {
       filas = `<tr><td colspan="8" class="tu-grid-empty">
-        ${isAdmin ? 'No hay usuarios registrados en esta plaza.' : 'No se encontró tu perfil en esta plaza.'}
+        No hay usuarios registrados en esta plaza.
       </td></tr>`;
     } else {
       for (const u of lista) {
