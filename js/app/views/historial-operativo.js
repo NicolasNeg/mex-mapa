@@ -46,6 +46,19 @@ function _ensureCss() {
 const q   = id  => _container?.querySelector(`#hist-op-${id}`);
 const esc = str => String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
+// Normaliza cualquier timestamp (segundos | ms | Firestore {seconds}) a día local
+// 'YYYY-MM-DD'. El filtro fallaba cuando timestamp llegaba como objeto (*1000=NaN).
+function _tsADia(ts) {
+  if (ts == null) return '';
+  let ms;
+  if (typeof ts === 'object' && 'seconds' in ts) ms = ts.seconds * 1000;
+  else if (typeof ts === 'number') ms = ts < 1e12 ? ts * 1000 : ts; // <1e12 => segundos
+  else ms = new Date(ts).getTime();
+  if (!isFinite(ms)) return '';
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function _tipoBadgeClass(tipo) {
   const t = String(tipo || '').toUpperCase();
   const map = { MOVE:'badge-move', SWAP:'badge-swap', ADD:'badge-add', EDIT:'badge-edit', DEL:'badge-del', IN:'badge-add', BAJA:'badge-del', MODIF:'badge-edit' };
@@ -166,11 +179,7 @@ function _renderMovimientos() {
   let rows = _state.movimientos;
   if (qv)              rows = rows.filter(r => [r.mva,r.usuario,r.detalles,r.tipo].some(v => (v||'').toLowerCase().includes(qv)));
   if (_state.tipoMov)  rows = rows.filter(r => r.tipo === _state.tipoMov);
-  if (_state.fechaMov) rows = rows.filter(r => {
-    if (!r.timestamp) return false;
-    const d = new Date(r.timestamp * 1000);
-    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}` === _state.fechaMov;
-  });
+  if (_state.fechaMov) rows = rows.filter(r => _tsADia(r.timestamp) === _state.fechaMov);
   if (_state.usuarioMov) rows = rows.filter(r => r.usuario === _state.usuarioMov);
 
   const ctr = q('contadorMov');
