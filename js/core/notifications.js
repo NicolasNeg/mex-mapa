@@ -1084,8 +1084,19 @@ async function syncDeviceFocusState(options = {}) {
 
   _state.lastDeviceSyncAt = now;
   _state.lastDeviceSyncSignature = signature;
+  // La callable syncDeviceContext puede no estar desplegada (Functions requieren
+  // plan Blaze) → pegaría a un endpoint inexistente y spamearía errores CORS en
+  // cada sync. Si falló recientemente, la saltamos y usamos el upsert directo.
+  // Se reintenta pasadas 24h por si se despliega la función.
+  const CALLABLE_TTL = 24 * 60 * 60 * 1000;
+  let callableDisabled = false;
+  try {
+    const t = Number(localStorage.getItem('mex.syncDeviceCallable.failedAt') || 0);
+    callableDisabled = t && (Date.now() - t) < CALLABLE_TTL;
+  } catch (_) {}
+
   const callable = _fxCallable('syncDeviceContext');
-  if (callable) {
+  if (callable && !callableDisabled) {
     try {
       const res = await callable(payload);
       _state.currentDevice = {
@@ -1095,7 +1106,8 @@ async function syncDeviceFocusState(options = {}) {
       };
       return;
     } catch (error) {
-      console.warn('syncDeviceContext fallback directo:', error);
+      // Función no alcanzable → no reintentar esta callable por 24h (usa directo).
+      try { localStorage.setItem('mex.syncDeviceCallable.failedAt', String(Date.now())); } catch (_) {}
     }
   }
   await _upsertDeviceDirect(payload);
