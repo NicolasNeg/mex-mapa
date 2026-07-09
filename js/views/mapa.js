@@ -4655,6 +4655,11 @@ window.__mexFocusUnidad = function (mva) {
   var car = Array.prototype.slice.call(document.querySelectorAll('.car'))
     .find(function (c) { return (c.dataset.mva || '').toUpperCase() === target; });
   if (!car) return false;
+  // Reflejar la unidad en el buscador del mapa (input text) — ver spec Fase 1.5.
+  var sd = document.getElementById('searchInput');
+  var sm = document.getElementById('searchInputMobile');
+  if (sd) sd.value = target;
+  if (sm) sm.value = target;
   try { car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
   _selectCarOnMap(car, { openPanel: true });
   car.classList.add('car-focus-pulse');
