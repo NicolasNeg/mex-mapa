@@ -649,8 +649,9 @@ body.dark-theme {
   font-family: 'Inter', sans-serif;
 }
 
+/* La lupa del header (abre el buscador global) siempre visible: PC y mobile. */
 .mex-header-search-toggle {
-  display: none;
+  display: inline-flex;
 }
 
 .mex-header-menu-btn {

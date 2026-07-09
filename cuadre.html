@@ -99,11 +99,6 @@
     /* El botón "VER MAPA" del fleet-header redirige al mapa */
     .fleet-header-top .txt-mobile-hide { display: inline !important; }
 
-    /* Un solo buscador: el del header. Ocultamos la caja de búsqueda del cuadre
-       (queda en el DOM, oculta, para que el header en modo "En página" la
-       alimente vía _syncSearch → buscarMasivo). */
-    .search-wrapper-flota { display: none !important; }
-
     /* Menos amontonado: cuando el cuadre está embebido en el shell, su header
        interno (.fleet-header-top: título/toggle/buscador/plaza/campana) DUPLICA
        el header del shell → lo ocultamos. En standalone /cuadre sí se muestra. */
@@ -214,9 +209,13 @@
               </div>
             </div>
             
-            <div style="display: none;">
-              <!-- Input oculto para no romper JS -->
-              <input type="text" id="searchFlota" onkeyup="window.filtrarFlota && window.filtrarFlota()">
+            <!-- Buscador LOCAL del cuadre (filtra esta plaza). El header solo abre
+                 el buscador global de unidades/usuarios. -->
+            <div style="position:relative; margin-bottom:12px;">
+              <span class="material-symbols-outlined" style="position:absolute; left:14px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size:20px; pointer-events:none;">search</span>
+              <input type="text" id="searchFlota" onkeyup="window.filtrarFlota && window.filtrarFlota()"
+                placeholder="Buscar en esta plaza: MVA, notas, placas, modelo..."
+                style="width:100%; height:44px; padding:0 16px 0 44px; border:1.5px solid #e2e8f0; border-radius:12px; font-size:14px; font-family:'Inter',sans-serif; background:#f8fafc; outline:none; color:#0f172a; box-sizing:border-box;">
             </div>
 
             <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">

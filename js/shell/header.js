@@ -82,9 +82,8 @@ export class ShellHeader {
         <div id="mexHdrCustomActions" class="mex-header-custom-actions"></div>
         ${plazaHtml}
         <button class="mex-header-icon-btn mex-header-search-toggle" id="mexHdrSearchToggle"
-                title="Buscar"
-                aria-label="Abrir búsqueda"
-                aria-expanded="${this._mobileSearchOpen ? 'true' : 'false'}">
+                title="Buscar unidad o usuario"
+                aria-label="Buscar unidad o usuario">
           <span class="mex-hdr-icon">search</span>
         </button>
         <button class="mex-header-icon-btn" id="mexHdrBell"
@@ -112,26 +111,10 @@ export class ShellHeader {
     return 'Buscar en la vista actual...';
   }
 
+  // Header sin caja de búsqueda: solo la lupa (#mexHdrSearchToggle) abre el
+  // buscador global. El filtrado local vive en cada sección.
   _searchControlHTML() {
-    const mode = this._searchMode;
-    const placeholder = mode === 'global'
-      ? 'Buscar unidad o usuario · Enter'
-      : this._searchPlaceholder();
-    return `
-      <div class="mex-header-search ${this._mobileSearchOpen ? 'is-mobile-open' : ''}" data-search-mode="${mode}">
-        <div class="mex-hdr-searchmode" id="mexHdrSearchMode" role="group" aria-label="Modo de búsqueda">
-          <button type="button" data-mode="inpage" class="${mode === 'inpage' ? 'is-active' : ''}" title="Filtrar la vista actual">Página</button>
-          <button type="button" data-mode="global" class="${mode === 'global' ? 'is-active' : ''}" title="Búsqueda global (Enter)">Global</button>
-        </div>
-        <input id="mexHdrSearchInput"
-               class="mex-header-search-input"
-               type="search"
-               value="${esc(this._searchValue)}"
-               placeholder="${esc(placeholder)}"
-               aria-label="Buscador">
-        <button type="button" class="mex-header-search-icon" id="mexHdrSearchGo" title="Buscar" aria-label="Buscar">search</button>
-      </div>
-    `;
+    return '';
   }
 
   _plazaControlHTML() {
@@ -249,50 +232,11 @@ export class ShellHeader {
     document.addEventListener('pointerdown', this._onDocPointerDown);
     document.addEventListener('keydown', this._onDocKeyDown);
 
-    const searchInput = this._el.querySelector('#mexHdrSearchInput');
-    const searchToggle = this._el.querySelector('#mexHdrSearchToggle');
-    searchInput?.addEventListener('input', event => {
-      this._searchValue = String(event.target?.value || '');
-      if (this._searchTimer) clearTimeout(this._searchTimer);
-      this._searchTimer = setTimeout(() => {
-        // Solo el modo "En página" reacciona al tecleo (filtro en vivo). En
-        // modo "Global" el tecleo no dispara nada; se abre por Enter/lupa.
-        if (typeof this._onSearchInput === 'function') {
-          this._onSearchInput({
-            query: this._searchValue,
-            mode: this._searchMode,
-            route: this._currentRoute,
-            source: 'shell-header'
-          });
-        }
-        if (!this._searchValue && this._mobileSearchOpen) {
-          this._mobileSearchOpen = false;
-          this._el.querySelector('.mex-header-search')?.classList.remove('is-mobile-open');
-          this._el.querySelector('#mexHdrSearchToggle')?.setAttribute('aria-expanded', 'false');
-        }
-      }, this._searchDebounceMs);
-    });
-    // Enter = submit (abre el panel en modo Global).
-    searchInput?.addEventListener('keydown', event => {
-      if (event.key === 'Enter') { event.preventDefault(); this._submitSearch(); }
-    });
-    // Lupa clickeable = submit.
-    this._el.querySelector('#mexHdrSearchGo')?.addEventListener('click', event => {
+    // Header = solo lupa: abre el buscador GLOBAL (unidades/usuarios). El filtrado
+    // "en página" lo hace cada sección con su propio buscador local.
+    this._el.querySelector('#mexHdrSearchToggle')?.addEventListener('click', event => {
       event.preventDefault();
-      this._submitSearch();
-    });
-    // Toggle de modo (Página / Global).
-    this._el.querySelector('#mexHdrSearchMode')?.addEventListener('click', event => {
-      const btn = event.target.closest('[data-mode]');
-      if (btn) this._setSearchMode(btn.dataset.mode);
-    });
-
-    searchToggle?.addEventListener('click', event => {
-      event.stopPropagation();
-      this._mobileSearchOpen = !this._mobileSearchOpen;
-      this._el.querySelector('.mex-header-search')?.classList.toggle('is-mobile-open', this._mobileSearchOpen);
-      searchToggle.setAttribute('aria-expanded', this._mobileSearchOpen ? 'true' : 'false');
-      if (this._mobileSearchOpen) searchInput?.focus();
+      if (typeof window.__mexBuscadorOpen === 'function') window.__mexBuscadorOpen('');
     });
   }
 
