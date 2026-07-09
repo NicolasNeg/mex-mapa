@@ -146,6 +146,12 @@
       const indexSnap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
       const indexData = indexSnap.empty ? {} : indexSnap.docs[0].data();
 
+      // Guard: la unidad no puede estar activa en otra plaza (índice global).
+      const plazaActualIdx = String(indexData.plazaActual || '').toUpperCase().trim();
+      if (plazaActualIdx && plazaActualIdx !== plazaUp) {
+        return `La unidad ${mvaStr} está registrada en la plaza ${plazaActualIdx}. Retírala de ahí antes de insertarla aquí.`;
+      }
+
       const unitData = {
         categoria:    indexData.categoria || objeto.categ || "S/C",
         modelo:       indexData.modelo || objeto.modelo || "S/M",
@@ -197,6 +203,13 @@
         : db.collection(COL.EXTERNOS).where("mva", "==", mvaStr).limit(1);
       const existeLeg = await dupQueryExt.get();
       if (!existeLeg.empty) return `La unidad externa ${mvaStr} ya está registrada.`;
+
+      // Guard: la unidad no puede estar activa en otra plaza (índice global).
+      const idxSnapExt = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
+      const plazaActualExt = idxSnapExt.empty ? '' : String(idxSnapExt.docs[0].data().plazaActual || '').toUpperCase().trim();
+      if (plazaActualExt && plazaActualExt !== plazaUp) {
+        return `La unidad ${mvaStr} está registrada en la plaza ${plazaActualExt}.`;
+      }
 
       const ahora = _now();
       const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
