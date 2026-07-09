@@ -3,7 +3,8 @@
 import { db, auth } from '/js/core/database.js';
 
 const EDITMAP_BOOTSTRAP_PROGRAMMER_EMAILS = Object.freeze([
-  'angelarmentta@icloud.com'
+  'angelarmentta@icloud.com',
+  'armentanegreteangelnicolas@gmail.com'
 ]);
 const ACTIVE_PLAZA_STORAGE_KEY = 'mex:last-active-plaza';
 const EDITMAP_LAST_ROUTE_PLAZA_KEY = 'mex:last-editmap-plaza';

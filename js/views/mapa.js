@@ -1093,7 +1093,8 @@ function _isSystemRole(role) {
 
 _refreshSecurityRoleCatalog();
 const UI_PROGRAMADOR_BOOTSTRAP_EMAILS = Object.freeze([
-  'angelarmentta@icloud.com'
+  'angelarmentta@icloud.com',
+  'armentanegreteangelnicolas@gmail.com'
 ]);
 
 let userRole = null;

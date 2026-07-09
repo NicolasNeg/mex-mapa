@@ -13,7 +13,8 @@ import {
 import { ensureRouteShellLayout } from '/js/views/home.js';
 
 const PROFILE_BOOTSTRAP_PROGRAMMER_EMAILS = Object.freeze([
-  'angelarmentta@icloud.com'
+  'angelarmentta@icloud.com',
+  'armentanegreteangelnicolas@gmail.com'
 ]);
 const PROFILE_PRESENCE_STALE_MS = 120000;
 const PROFILE_PREFS_STORAGE_KEY = 'mex_profile_preferences_v2';

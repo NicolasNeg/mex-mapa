@@ -25,7 +25,7 @@ const ACCESS_REQUESTS_LEGACY_COL = "solicitudes_acceso";
 const SUPERADMINS_COL = "superadmins";
 const PROGRAMMER_ROLES = new Set(["PROGRAMADOR", "JEFE_OPERACION", "CORPORATIVO_USER"]);
 const ADMIN_ROLES = new Set(["VENTAS", "SUPERVISOR", "JEFE_PATIO", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "PROGRAMADOR", "JEFE_OPERACION"]);
-const BOOTSTRAP_PROGRAMMER_EMAILS = new Set(["angelarmentta@icloud.com"]);
+const BOOTSTRAP_PROGRAMMER_EMAILS = new Set(["angelarmentta@icloud.com", "armentanegreteangelnicolas@gmail.com"]);
 const DEFAULT_ROLE_SPECS = Object.freeze({
   AUXILIAR:         { label: "AUXILIAR", isAdmin: false, fullAccess: false, needsPlaza: true, multiPlaza: false },
   VENTAS:           { label: "VENTAS", isAdmin: true, fullAccess: false, needsPlaza: true, multiPlaza: false },
