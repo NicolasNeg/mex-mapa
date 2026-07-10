@@ -1,89 +1,51 @@
 ---
-title: Mapa sin iframe — carga instantánea nativa en el shell
+title: Mapa — carga instantánea (ya es nativo, no iframe)
 date: 2026-07-10
-status: approved-approach / staged
+status: corregido tras investigación
 ---
 
-# Mapa sin iframe (nativo en el shell)
+# Mapa: carga instantánea
 
-## Problema (medido, no teoría)
+## Corrección clave (tras leer el código real)
+El mapa **YA NO usa iframe**. La ruta `/app/mapa` carga `js/app/views/mapa.js`, una
+vista **nativa** que:
+- Crea un `<div id="mex-legacy-mapa-stage">` persistente en `#mexShellMain` (no iframe).
+- Inyecta el `<body>` de `mapa.html` (sin scripts) una sola vez.
+- Hace `import('/js/views/mapa.js')` (monolito) una sola vez (`stage.dataset.mexInit`).
+- Al salir: `display:none` (no destruye) → volver es instantáneo, sin redibujar.
+- `mex:navigate-mapa` solo cierra el fleet modal; `mex:plaza-change` solo redibuja si
+  cambió la plaza. Cache local ya existe (`_readMapCache`).
 
-El mapa se monta como **iframe keep-alive** (`mapa.html` vía `legacy-stage.js`).
-Abrir ese iframe **rearranca la app completa por segunda vez**: recarga 6 SDKs de
-Firebase + `mex-api.js` + 11 módulos `/api/*` + `mapa.js` (**23,136 líneas**), y
-hace su propio `firebase init` + `onAuthStateChanged`. Todo eso el **shell ya lo
-tiene cargado**. Por eso las demás secciones (vistas SPA nativas) son instantáneas
-y el mapa no: es un boot entero desde cero.
+Así que "sacar el mapa del iframe" **ya estaba hecho**. La migración NO es el trabajo.
 
-Objetivo del usuario (textual): **instantáneo (<2s)**, **sin iframe**, **sin
-redibujar en cada apertura**, **sin gastar lecturas** al reabrir.
+## Problema real
+1. **Primera carga lenta**: `import()` del monolito (23,136 líneas) + su boot ocurren
+   bajo demanda al primer clic → ese es el retraso.
+2. **Quedaba en blanco al volver**: los fixes previos se pusieron en `legacy-stage.js`
+   (el path de IFRAME, que NO sirve al mapa). Archivo equivocado.
+3. **"Ver en mapa" no resalta**: el foco pendiente (`__mexPendingMapFocus`) lo aplicaba
+   `legacy-stage.js`, no la vista nativa → nunca se aplicaba.
 
-## Enfoque
+## Solución (implementada, bajo riesgo, en el archivo correcto)
+- **A) Precarga en idle** (`js/app/main.js`): tras el boot, en idle (2.5s) se hace
+  `import('/js/app/views/mapa.js').then(m => m.ensureStageReady())` si no estás ya en
+  el mapa → el import del monolito + inyección del stage suceden en segundo plano →
+  el **primer clic al mapa es instantáneo**. Idempotente (guard `mexInit`).
+- **B) No quedar en blanco al mostrar** (`js/app/views/mapa.js` `mount()`):
+  `_kickMapaRender()` → `resize` + `window.__mexEnsureMapaRendered()` (re-fit; redibuja
+  SOLO si el grid está vacío — no redibuja un mapa ya pintado).
+- **C) "Ver en mapa" resalta** (`js/app/views/mapa.js` `mount()`): `_applyPendingFocus()`
+  consume `window.__mexPendingMapFocus` y llama `window.__mexFocusUnidad(mva)` con
+  reintento ~18s (las unidades tardan en renderizar tras cambiar de plaza).
 
-Montar el DOM del mapa **dentro del shell** como vista nativa (`mount()/unmount()`)
-y dejar que `mapa.js` corra en el contexto del shell, **reusando** su Firebase/api
-ya cargados. Sin iframe → sin segundo boot. DOM persistente oculto al salir → sin
-redibujar. Cache local existente (`_readMapCache`/`_hydrateMapFromLocalCache`) →
-sin lecturas al reabrir (solo el listener en vivo para cambios).
+## Sobre "no gastar lecturas / no redibujar"
+Ya se cumple: el monolito bootea una vez, render desde cache local, listener en vivo
+solo para deltas. `__mexEnsureMapaRendered` redibuja únicamente si el grid quedó vacío.
 
-### Riesgo principal
-`mapa.js` asume que es la página completa: manipula `document.body`,
-`window.history`, overlays de login/carga, registra `auth.onAuthStateChanged`, y
-define cientos de `window.*`. En el shell comparte `document`/`window` → posibles
-colisiones con el router y el layout del shell. **Ya existen guards** de contexto
-(`_enShellIframe`, `SHOULD_SKIP_MAIN_MAP_BOOTSTRAP`, `_isDedicated*`) que
-reaprovechamos y ampliamos.
-
-### Mitigación: feature flag + etapas
-- **Flag**: `localStorage['mex.mapaNative'] === '1'` (toggle desde consola). Con
-  el flag **apagado (default)** el mapa sigue por el iframe actual — **cero
-  cambios de comportamiento** para el usuario normal.
-- Se implementa y prueba con el flag **encendido** hasta estar estable; entonces
-  se voltea el default y se retira el iframe.
-
-## Etapas
-
-### Etapa 1 — Scaffold detrás del flag (esta sesión)
-- `js/app/views/mapa-native.js`: vista SPA con `mount()/unmount()` que:
-  1. Inyecta el fragmento del `<body>` de `mapa.html` en un **host persistente**
-     dentro del shell (patrón similar al `legacyStageHost`, pero **div, no iframe**).
-  2. Carga `mapa.js` **una sola vez** (dynamic import) y llama a un
-     `window.__mexMountMapaNative()` nuevo (arranque bajo demanda).
-- `mapa.js`: exponer `__mexMountMapaNative()` que corre la init del mapa **sin**
-  los efectos de página que colisionan (history/overlays/body), reusando la
-  lógica interna de render (`dibujarMapaCompleto`, listeners de datos).
-- Router (`router.js` / `route-resolver.js` / `legacy-stage.js`): si el flag está
-  ON, la ruta `/app/mapa` monta `mapa-native` en vez del iframe; si OFF, el iframe.
-- **Entregable**: con el flag ON, el mapa aparece nativo (aunque falten pulidos);
-  con el flag OFF, todo igual que hoy.
-
-### Etapa 2 — Domar colisiones
-- `window.history`/rutas: gate para que el mapa nativo no toque el history del
-  shell (extender los guards `_isDedicated*`).
-- `document.body` classes y overlays: ámbito acotado al host del mapa.
-- `auth.onAuthStateChanged`: no re-registrar; usar el estado ya resuelto del shell.
-- IDs duplicados entre `mapa.html` body y el shell: renombrar/scoping si colisionan.
-- Handlers globales `window.*` que el shell ya define: evitar pisarlos.
-
-### Etapa 3 — Persistencia real (sin redraw, sin lecturas)
-- Al `unmount()`: **ocultar** el host (display:none), NO destruir → volver es
-  instantáneo, sin redibujar.
-- Primer render desde cache local; suscripción en vivo solo para deltas.
-- Verificar en consola que reabrir el mapa **no dispara lecturas** de estructura
-  (solo el snapshot incremental).
-
-### Etapa 4 — Voltear el default y limpiar
-- Cuando esté estable: flag ON por default, quitar la rama iframe del mapa en
-  `legacy-stage.js` (`mapa` sale del pool keep-alive de iframes).
-- Mantener cuadre/admin como iframe por ahora (fuera de alcance).
-
-## Criterios de éxito
-- `/app/mapa` carga **instantáneo** (como dashboard), sin segundo boot de Firebase.
-- Volver al mapa desde otra pestaña: instantáneo, **sin redibujar**.
-- Reabrir no genera lecturas de estructura (solo listener incremental).
-- Con el flag OFF, comportamiento idéntico al actual (red de seguridad).
-
-## Fuera de alcance
-- Reescribir `mapa.js` al sistema modular `mapa-loader.js` (Fase 6). Aquí
-  **reusamos el monolito**, solo cambiamos dónde/cómo se monta.
-- De-iframe de cuadre/admin.
+## Pendiente / a validar
+- Confirmar en prod que el primer clic ya es instantáneo (por la precarga) y que
+  reabrir no redibuja.
+- Si la precarga del monolito en el dashboard causara algún glitch (acoplamiento del
+  boot con `document.body`), gatearla; hasta ahora el stage nace oculto → bajo riesgo.
+- (Futuro) Buscador flotante dentro del mapa desde el engranaje — pedido del usuario,
+  se hará aparte.

@@ -165,7 +165,42 @@ export async function mount(ctx) {
 
   stage.style.display = 'block';
 
+  // Al mostrar: el stage pudo dimensionarse en 0 mientras estaba oculto → re-fit
+  // y re-dibujar SOLO si el grid quedó vacío (no redibuja si ya está pintado).
+  _kickMapaRender();
+  // "Ver en mapa" desde el buscador global deja window.__mexPendingMapFocus.
+  _applyPendingFocus();
+
   if (_shell) _shell.setHeaderActions(_buildHeaderActions());
+}
+
+// Re-ajusta el viewport y re-dibuja si el grid está vacío. Barato e idempotente;
+// no redibuja un mapa ya pintado (solo re-fit). Se dispara varias veces porque el
+// layout tarda un tick en estabilizarse al pasar de oculto a visible.
+function _kickMapaRender() {
+  const kick = () => {
+    try { window.dispatchEvent(new Event('resize')); } catch (_) {}
+    try { if (typeof window.__mexEnsureMapaRendered === 'function') window.__mexEnsureMapaRendered(); } catch (_) {}
+  };
+  kick();
+  try { requestAnimationFrame(kick); } catch (_) { setTimeout(kick, 60); }
+  setTimeout(kick, 350);
+}
+
+// Aplica el resaltado de unidad pendiente ("Ver en mapa"). Reintenta hasta ~18s
+// porque las unidades (.car) pueden tardar en renderizar tras cambiar de plaza.
+function _applyPendingFocus() {
+  const mva = window.__mexPendingMapFocus;
+  if (!mva) return;
+  let tries = 0;
+  const tick = () => {
+    tries++;
+    let ok = false;
+    try { ok = window.__mexFocusUnidad?.(mva) === true; } catch (_) {}
+    if (ok || tries > 90) { window.__mexPendingMapFocus = null; return; }
+    setTimeout(tick, 200);
+  };
+  setTimeout(tick, 150);
 }
 
 export function unmount() {

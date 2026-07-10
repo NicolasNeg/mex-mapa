@@ -351,6 +351,16 @@ async function boot() {
   // Calentar el cache del buscador global (índice + usuarios) en idle → primera
   // búsqueda instantánea. Usa localStorage si está fresco (0 lecturas).
   _runWhenIdle(() => { try { window.__mexBuscadorPrefetch?.(); } catch (_) {} }, 1500);
+  // Precalentar el mapa en segundo plano (import del monolito + inyección del
+  // stage) para que el PRIMER clic a /app/mapa sea instantáneo. El stage nace
+  // oculto; render inicial desde cache local. Idempotente (guard mexInit).
+  if (window.location.pathname !== '/app/mapa') {
+    _runWhenIdle(() => {
+      import('/js/app/views/mapa.js')
+        .then(m => m.ensureStageReady?.())
+        .catch(err => console.warn('[app/main] preload mapa:', err));
+    }, 2500);
+  }
   _scheduleAppWarmup('boot');
   window.__mexWarmAppData = (options = {}) => warmAppData(getState(), { reason: 'manual', force: true, ...options });
   window.__mexAppCacheStatus = () => getAppCacheStatus(getState());
