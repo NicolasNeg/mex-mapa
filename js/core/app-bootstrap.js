@@ -671,6 +671,18 @@
     state.location.exactLocation = exactLocation ? { ...exactLocation } : null;
     state.location.lastUpdated = Date.now();
     state.location.error = safeText(error);
+    // Persistir el último snapshot CONCEDIDO para el fast-path (evita el flash del
+    // gate al abrir otra pestaña). Si se deniega, se limpia.
+    try {
+      if (state.location.status === 'granted' && state.location.exactLocation) {
+        localStorage.setItem('mex.location.last.v1', JSON.stringify({
+          exactLocation: state.location.exactLocation,
+          lastUpdated: state.location.lastUpdated
+        }));
+      } else if (state.location.status === 'denied') {
+        localStorage.removeItem('mex.location.last.v1');
+      }
+    } catch (_) {}
     dispatchLocationUpdate();
     return cloneLocationState();
   }
@@ -887,9 +899,12 @@
         width: min(460px, 100%);
         padding: 30px 26px;
         border-radius: 28px;
-        background: rgba(9, 17, 35, 0.92);
-        border: 1px solid rgba(255,255,255,0.08);
-        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.45);
+        /* Glassmorphism: translúcido + blur + borde luminoso + brillo interior. */
+        background: rgba(15, 23, 42, 0.55);
+        -webkit-backdrop-filter: blur(26px) saturate(150%);
+        backdrop-filter: blur(26px) saturate(150%);
+        border: 1px solid rgba(255,255,255,0.14);
+        box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255,255,255,0.12);
         color: #f8fafc;
         text-align: center;
       }
@@ -1323,6 +1338,24 @@
       hideLocationGate();
       return currentSnapshot;
     }
+
+    // Fast-path persistente: si se concedió en una sesión reciente (<6h), hidratar
+    // del localStorage y devolver YA, sin overlay → sin flash al abrir pestañas.
+    // La verificación real del permiso corre en 2º plano: si fue revocado, limpia
+    // el flag y el próximo gate volverá a bloquear (nota: pedir solo al login).
+    try {
+      const saved = JSON.parse(localStorage.getItem('mex.location.last.v1') || 'null');
+      if (saved && saved.exactLocation && saved.lastUpdated && (Date.now() - saved.lastUpdated) < 21600000) {
+        applyLocationSnapshot('granted', saved.exactLocation, '');
+        ensureLocationWatch();
+        hideLocationGate();
+        queryGeolocationPermission().then(({ state: st }) => {
+          if (st === 'denied') { try { localStorage.removeItem('mex.location.last.v1'); } catch (_) {} }
+        }).catch(() => {});
+        readExactLocation({ force: false, timeoutMs: 15000 }).catch(() => {});
+        return cloneLocationState();
+      }
+    } catch (_) {}
 
     if (state.location.pendingPromise) return state.location.pendingPromise;
 
