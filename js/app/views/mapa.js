@@ -62,6 +62,11 @@ async function _fetchBodyHtml() {
   }
   doc.body.querySelector('.map-shell-topbar')?.remove();
   doc.body.querySelector('#routeTopbarHost')?.remove();
+  // Elementos GLOBALES que pertenecen al shell, no al mapa. Si se inyectan aquí
+  // duplican su ID y roban el getElementById → diálogos de otras secciones
+  // (mexConfirm/mexAlert/etc.) se renderizan dentro del stage oculto del mapa.
+  // El shell (dialogs.js) crea su propio #mex-dialog-overlay en <body>.
+  doc.body.querySelector('#mex-dialog-overlay')?.remove();
   _htmlCache = doc.body.innerHTML;
   return _htmlCache;
 }
