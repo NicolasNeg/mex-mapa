@@ -4005,16 +4005,26 @@ function buscarMasivo() {
 }
 
 // 2. EL MOTOR DE BÚSQUEDA (Optimizado)
-function ejecutarFiltroMasivo() {
+function ejecutarFiltroMasivo(queryOverride) {
   const inputDesktop = document.getElementById('searchInput');
   const inputMobile = document.getElementById('searchInputMobile');
-  const activeInput = document.activeElement === inputMobile ? inputMobile : inputDesktop;
-  if (!activeInput) return;
-  const query = activeInput.value.toLowerCase().trim();
+  const inputFloat  = document.getElementById('mexMapaFloatSearch');
+  // Fuente del texto: query explícito (buscador flotante) o el input activo.
+  let raw;
+  if (typeof queryOverride === 'string') {
+    raw = queryOverride;
+  } else {
+    const activeInput =
+      document.activeElement === inputMobile ? inputMobile :
+      document.activeElement === inputFloat  ? inputFloat  :
+      (inputDesktop || inputMobile || inputFloat);
+    if (!activeInput) return;
+    raw = activeInput.value;
+  }
+  const query = raw.toLowerCase().trim();
 
-  // Sincronizar barras de búsqueda
-  if (activeInput === inputDesktop && inputMobile) inputMobile.value = inputDesktop.value;
-  else if (inputDesktop) inputDesktop.value = activeInput.value;
+  // Sincronizar todas las barras de búsqueda con el mismo texto
+  [inputDesktop, inputMobile, inputFloat].forEach(el => { if (el && el.value !== raw) el.value = raw; });
 
   const cars = document.querySelectorAll('.car');
   const spots = document.querySelectorAll('.spot');
@@ -4106,6 +4116,30 @@ function ejecutarFiltroMasivo() {
     clearTimeout(window._searchFocusTimer);
   }
 }
+
+// ── Buscador flotante del mapa (opción "Buscar unidad" del engranaje) ──────
+// Filtra/resalta unidades sobre el mapa con un query explícito (debounced).
+// Reutiliza ejecutarFiltroMasivo → filtrado + smart focus (zoom a 1 resultado).
+window.__mexMapaBuscar = function (q) {
+  clearTimeout(searchTimeout);
+  const query = String(q || '');
+  searchTimeout = setTimeout(() => ejecutarFiltroMasivo(query), 250);
+};
+
+// Muestra/oculta la barra flotante. Al cerrar, limpia el filtro.
+window.__mexToggleMapaSearch = function (show) {
+  const bar = document.getElementById('mexMapaFloatSearch-bar');
+  const input = document.getElementById('mexMapaFloatSearch');
+  if (!bar) return;
+  const willShow = (show === undefined) ? (bar.style.display === 'none') : !!show;
+  bar.style.display = willShow ? 'block' : 'none';
+  if (willShow) {
+    setTimeout(() => { try { input?.focus(); } catch (_) {} }, 50);
+  } else {
+    if (input) input.value = '';
+    ejecutarFiltroMasivo('');
+  }
+};
 
 const MAPA_RENDER_AIRE_X = 6;
 const MAPA_RENDER_AIRE_Y = 8;

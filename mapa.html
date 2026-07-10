@@ -1567,6 +1567,16 @@
           style="display:none;position:absolute;left:0;bottom:calc(100% + 10px);background:#ffffff;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:230px;padding:8px;z-index:9999;border:1px solid #e5e7eb;animation:dd-in .15s ease both">
           <div style="padding:6px 12px 6px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#6b7280;text-transform:uppercase">CONTROLES</div>
 
+          <!-- Buscar unidad — abre la barra flotante de búsqueda en el mapa -->
+          <div class="kpi-menu-item"
+            style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s"
+            onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''"
+            onclick="window.__mexToggleMapaSearch(true);toggleControlesMenu()">
+            <span class="material-icons" style="font-size:18px;color:#6b7280;flex-shrink:0">search</span>
+            <span style="font-size:13px;font-weight:600;color:#111827;flex:1">Buscar unidad</span>
+            <span class="material-icons" style="font-size:16px;color:#9ca3af">chevron_right</span>
+          </div>
+
           <!-- Ver KPIs (popup) — disponible en escritorio y móvil -->
           <div id="controlesItemKpis" class="kpi-menu-item"
             style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;transition:background .1s"
@@ -1599,6 +1609,22 @@
 
           <!-- Más opciones en el futuro -->
         </div>
+      </div>
+    </div>
+
+    <!-- Buscador flotante del mapa (se abre desde el engranaje → "Buscar unidad") -->
+    <div id="mexMapaFloatSearch-bar"
+      style="display:none;position:fixed;top:72px;left:50%;transform:translateX(-50%);z-index:9998;width:min(92vw,440px);">
+      <div style="display:flex;align-items:center;gap:8px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:8px 10px;animation:dd-in .15s ease both;">
+        <span class="material-icons" style="font-size:20px;color:#94a3b8;flex-shrink:0;">search</span>
+        <input type="text" id="mexMapaFloatSearch" placeholder="Buscar MVA, placas o modelo…"
+          oninput="window.__mexMapaBuscar(this.value)"
+          onkeydown="if(event.key==='Escape')window.__mexToggleMapaSearch(false)"
+          style="flex:1;border:none;outline:none;font-size:14px;font-weight:600;color:#0f172a;background:transparent;">
+        <button type="button" onclick="window.__mexToggleMapaSearch(false)" title="Cerrar" aria-label="Cerrar buscador"
+          style="border:none;background:#f1f5f9;color:#475569;border-radius:8px;width:30px;height:30px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span class="material-icons" style="font-size:18px;">close</span>
+        </button>
       </div>
     </div>
 
