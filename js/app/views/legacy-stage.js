@@ -509,7 +509,9 @@ function _applyPendingMapFocus(iframe) {
     tries++;
     let ok = false;
     try { ok = iframe.contentWindow?.__mexFocusUnidad?.(mva) === true; } catch (_) {}
-    if (ok || tries > 40) { window.__mexPendingMapFocus = null; return; }
+    // Hasta ~18s: el mapa puede tardar en renderizar las unidades (.car) tras
+    // navegar/cambiar de plaza; antes se rendía a los 8s y no resaltaba.
+    if (ok || tries > 90) { window.__mexPendingMapFocus = null; return; }
     setTimeout(tick, 200);
   };
   setTimeout(tick, 150);
@@ -552,6 +554,22 @@ function _isFrameAlive(iframe) {
   }
 }
 
+// Fuerza al mapa a re-ajustar su viewport y re-dibujar tras MOSTRARSE. Un iframe
+// que se pinta/oculta con display:none puede quedar dimensionado en 0 → grid
+// oscuro. Disparamos varias veces (rAF + delays) porque el layout tarda un tick
+// en estabilizarse al pasar de oculto a visible.
+function _kickMapaFrame(iframe) {
+  const win = iframe && iframe.contentWindow;
+  if (!win) return;
+  const kick = () => {
+    try { win.dispatchEvent(new Event('resize')); } catch (_) {}
+    try { if (typeof win.__mexEnsureMapaRendered === 'function') win.__mexEnsureMapaRendered(); } catch (_) {}
+  };
+  kick();
+  try { win.requestAnimationFrame ? win.requestAnimationFrame(kick) : setTimeout(kick, 60); } catch (_) { setTimeout(kick, 60); }
+  setTimeout(kick, 350);
+}
+
 function _wireFirstLoad(iframeEl, loaderEl, id, ctx) {
   let done = false;
   const ready = () => {
@@ -564,6 +582,7 @@ function _wireFirstLoad(iframeEl, loaderEl, id, ctx) {
     _scheduleToolFrameSync(iframeEl, id);
     _syncPlaza(getState().currentPlaza, id, ctx);
     _startLegacyMapUnitsHeader(id);
+    if (id === 'mapa') _kickMapaFrame(iframeEl);
   };
 
   iframeEl.addEventListener('load', ready);
@@ -628,7 +647,7 @@ export function mount(ctx = {}) {
         _syncPlaza(getState().currentPlaza, id, ctx);
         _startLegacyMapUnitsHeader(id);
         _scheduleFrameSync(_iframe, id, ctx);
-        if (id === 'mapa') _applyPendingMapFocus(_iframe);
+        if (id === 'mapa') { _kickMapaFrame(_iframe); _applyPendingMapFocus(_iframe); }
         return;
       }
     }

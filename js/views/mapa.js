@@ -4691,6 +4691,18 @@ window.__mexFocusUnidad = function (mva) {
   return true;
 };
 
+// Lo llama el shell cada vez que MUESTRA el iframe del mapa (al navegar de
+// vuelta o en la primera carga). Un iframe mostrado desde display:none pudo
+// dimensionarse en 0 → el grid quedó mal posicionado/oscuro. Re-ajusta el
+// viewport y, si el grid quedó vacío, re-dibuja. Idempotente y barato.
+window.__mexEnsureMapaRendered = function () {
+  try {
+    _ajustarViewportMapa();
+    var grid = document.getElementById('grid-map');
+    if (grid && grid.children.length === 0) dibujarMapaCompleto();
+  } catch (_) {}
+};
+
 async function _handleMapUnitDrop(unidad, destino, options = {}) {
   if (!unidad || !destino || unidad.parentElement === destino) return false;
   const fromDrag = options.fromDrag === true;
