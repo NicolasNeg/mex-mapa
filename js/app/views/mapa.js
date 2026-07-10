@@ -67,6 +67,10 @@ async function _fetchBodyHtml() {
   // (mexConfirm/mexAlert/etc.) se renderizan dentro del stage oculto del mapa.
   // El shell (dialogs.js) crea su propio #mex-dialog-overlay en <body>.
   doc.body.querySelector('#mex-dialog-overlay')?.remove();
+  // Mismo caso: #toastContainer es un singleton global (window.showToast lo
+  // reusa por ID). Si se inyecta aquí, los toasts de TODAS las secciones se
+  // apilan dentro del stage oculto del mapa. showToast lo recrea en <body>.
+  doc.body.querySelector('#toastContainer')?.remove();
   _htmlCache = doc.body.innerHTML;
   return _htmlCache;
 }
