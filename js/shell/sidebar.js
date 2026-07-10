@@ -159,6 +159,9 @@ export class ShellSidebar {
           <h2>${esc(this._company)}</h2>
           <p>${esc(roleLabel)}</p>
         </div>
+        <button class="mex-sidebar-close" data-action="close-drawer" type="button" aria-label="Cerrar menú">
+          <span class="material-icons">close</span>
+        </button>
       </div>
 
       <nav class="mex-sidebar-nav" role="menu" aria-label="Navegación principal">
@@ -229,6 +232,12 @@ export class ShellSidebar {
     if (submenuId) {
       event.preventDefault();
       this._toggleSubmenu(submenuId);
+      return;
+    }
+
+    if (action === 'close-drawer') {
+      event.preventDefault();
+      this.closeMobileDrawer();
       return;
     }
 
