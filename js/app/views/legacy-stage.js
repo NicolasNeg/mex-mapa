@@ -540,16 +540,49 @@ function _buildStage(id, cfg, ctx) {
   return { sectionEl, iframeEl, loaderEl };
 }
 
+// ¿El iframe está vivo (mismo origen, con contenido pintado)? Un iframe
+// keep-alive oculto conserva su documento; solo devuelve false si nunca cargó
+// o la respuesta llegó vacía/rota.
+function _isFrameAlive(iframe) {
+  try {
+    const doc = iframe && iframe.contentDocument;
+    return !!(doc && doc.body && doc.body.childElementCount > 0);
+  } catch (_) {
+    return false; // cross-origin no debería pasar aquí; si pasa, trátalo como muerto
+  }
+}
+
 function _wireFirstLoad(iframeEl, loaderEl, id, ctx) {
-  iframeEl.addEventListener('load', () => {
-    loaderEl.classList.add('is-ready');
+  let done = false;
+  const ready = () => {
+    if (done) return;
+    done = true;
+    if (loaderEl) loaderEl.classList.add('is-ready');
     _injectFrameOverrides(iframeEl, id);
     _bindFrameRouteBridge(iframeEl, id, ctx);
     _scheduleFrameSync(iframeEl, id, ctx);
     _scheduleToolFrameSync(iframeEl, id);
     _syncPlaza(getState().currentPlaza, id, ctx);
     _startLegacyMapUnitsHeader(id);
-  });
+  };
+
+  iframeEl.addEventListener('load', ready);
+
+  // Race real: con la caché del Service Worker el iframe puede disparar 'load'
+  // ANTES de que este listener exista → el loader se quedaría pegado tapando la
+  // vista para siempre. Si ya cargó al llegar aquí, resolvemos de una.
+  try {
+    if (iframeEl.contentDocument && iframeEl.contentDocument.readyState === 'complete') ready();
+  } catch (_) {}
+
+  // Watchdog: si en 12s no hubo 'load' (respuesta perdida/rota), un reintento.
+  window.setTimeout(() => {
+    if (done) return;
+    if (_isFrameAlive(iframeEl)) { ready(); return; }
+    try { iframeEl.src = iframeEl.src; } catch (_) {} // el 'load' del reintento llamará ready()
+  }, 12000);
+  // Rendición: nunca dejar un spinner muerto. Peor un iframe visible que un loader eterno.
+  window.setTimeout(() => { if (!done && loaderEl) loaderEl.classList.add('is-ready'); }, 20000);
 }
 
 export function mount(ctx = {}) {
@@ -576,17 +609,28 @@ export function mount(ctx = {}) {
     host.style.display = 'block';
 
     if (_iframePool.has(id)) {
-      // Ya cargado: re-mostrar sin tocar el DOM del iframe.
       const cached = _iframePool.get(id);
-      _iframe = cached.iframe;
-      cached.sectionEl.style.display = 'block';
-      _bindShellSignals(id, ctx);
-      _injectFrameOverrides(_iframe, id);
-      _syncPlaza(getState().currentPlaza, id, ctx);
-      _startLegacyMapUnitsHeader(id);
-      _scheduleFrameSync(_iframe, id, ctx);
-      if (id === 'mapa') _applyPendingMapFocus(_iframe);
-      return;
+      // Auto-cura al volver: si el iframe murió (respuesta rota, nunca cargó),
+      // lo desechamos y caemos al camino de primera carga para reconstruirlo.
+      // Antes esto mostraba una sección muerta → blanco hasta Ctrl+Shift+R.
+      if (!_isFrameAlive(cached.iframe)) {
+        try { cached.sectionEl.remove(); } catch (_) {}
+        _iframePool.delete(id);
+      } else {
+        // Vivo: re-mostrar sin tocar el DOM del iframe.
+        _iframe = cached.iframe;
+        cached.sectionEl.style.display = 'block';
+        // Por si el loader se quedó pegado en la carga inicial (el race): retíralo.
+        const stuck = cached.sectionEl.querySelector('.app-legacy-stage__loader');
+        if (stuck) stuck.classList.add('is-ready');
+        _bindShellSignals(id, ctx);
+        _injectFrameOverrides(_iframe, id);
+        _syncPlaza(getState().currentPlaza, id, ctx);
+        _startLegacyMapUnitsHeader(id);
+        _scheduleFrameSync(_iframe, id, ctx);
+        if (id === 'mapa') _applyPendingMapFocus(_iframe);
+        return;
+      }
     }
 
     // Primera carga: crear la sección dentro del host persistente.
