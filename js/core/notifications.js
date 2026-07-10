@@ -1229,7 +1229,9 @@ function _inferDeepLink(item = {}) {
 
 export async function handleInboxItemAction(item = {}) {
   const notificationId = item.notificationId || item.id;
-  await acknowledgeNotification(notificationId);
+  // Optimista: marcar leído + redirigir DE INMEDIATO, sin esperar el round-trip
+  // al Cloud Function ackNotification (antes bloqueaba: "no actualiza al instante"
+  // y "tarda en redirigir"). El ack se persiste en segundo plano.
   _state.inbox = _state.inbox.map(entry =>
     ((entry.notificationId || entry.id) === notificationId)
       ? { ...entry, read: true, status: 'READ', readAt: Date.now() }
@@ -1240,6 +1242,8 @@ export async function handleInboxItemAction(item = {}) {
   closeNotificationCenter();
   const link = _inferDeepLink(item);
   if (link) routeDeepLink(link);
+  // Persistencia en background — no bloquea la UI ni la navegación.
+  Promise.resolve(acknowledgeNotification(notificationId)).catch(() => {});
 }
 
 export function routeDeepLink(url = '') {
