@@ -3711,6 +3711,7 @@ function cambiarPlazaMapa(plaza) {
   _mapaRuntime.estructuraReady = false;
   _mapaRuntime.unidadesReady = false;
   _mapaRuntime.pendingUnits = null;
+  _mapaRuntime.emptyRetries = 0; // reintentos frescos para la nueva plaza
   const cacheState = _hydrateMapFromLocalCache(normalizedPlaza);
   _beginPlazaSwitchLoading(normalizedPlaza, cacheState);
   _warmPlazaCache(normalizedPlaza).then(result => {
@@ -4216,8 +4217,31 @@ function dibujarMapaCompleto(estructura = null) {
   if (!Array.isArray(estructura)) {
     console.log('[MEX-INTEG] dibujarMapaCompleto: sin estructura → obteniendo de Firestore', { plaza: _miPlaza() || '(sin plaza)' });
     return (window.api || api).obtenerEstructuraMapa(_miPlaza())
-      .then(dibujarMapaCompleto)
-      .catch(e => { console.error('[MEX-INTEG] dibujarMapaCompleto fetch error:', e); captureError(e, { context: 'dibujarMapaCompleto' }); });
+      .then(est => {
+        // Auto-cura: si la estructura llegó VACÍA pero hay plaza activa, casi
+        // siempre es un race/fetch transitorio del bootstrap de plaza. Reintentar
+        // ACOTADO (máx 6, con backoff) en vez de dejar el grid en blanco para
+        // siempre. Fix bug "el mapa a veces no carga / queda oscuro".
+        const vacia = !Array.isArray(est) || est.length === 0;
+        if (vacia && _miPlaza() && (_mapaRuntime.emptyRetries || 0) < 6) {
+          _mapaRuntime.emptyRetries = (_mapaRuntime.emptyRetries || 0) + 1;
+          const delay = Math.min(400 * _mapaRuntime.emptyRetries, 2500);
+          console.warn('[MEX-INTEG] estructura vacía; reintento', _mapaRuntime.emptyRetries, 'en', delay, 'ms');
+          setTimeout(() => dibujarMapaCompleto(), delay);
+          return;
+        }
+        _mapaRuntime.emptyRetries = 0; // llegó estructura (o se agotaron reintentos): detener
+        return dibujarMapaCompleto(est);
+      })
+      .catch(e => {
+        console.error('[MEX-INTEG] dibujarMapaCompleto fetch error:', e);
+        captureError(e, { context: 'dibujarMapaCompleto' });
+        // Error transitorio (red/permiso/cold read): reintento acotado, no dejar blanco.
+        if ((_mapaRuntime.emptyRetries || 0) < 6) {
+          _mapaRuntime.emptyRetries = (_mapaRuntime.emptyRetries || 0) + 1;
+          setTimeout(() => dibujarMapaCompleto(), Math.min(600 * _mapaRuntime.emptyRetries, 3000));
+        }
+      });
   }
 
   const estructuraOperativa = resolveEstacionamientoStructure(estructura);
