@@ -185,6 +185,42 @@
         </div>
       </div>
 
+      <!-- Herramientas del cuadre: MÁS CONTROLES + GESTIÓN ADMIN. Barra propia
+           (no .fleet-header-top) para seguir visible en el shell, donde el
+           header interno se oculta. Ver spec Fase 1.4. Modales se cargan on-demand
+           desde /mapa.html vía _ensureLegacyModalElement. -->
+      <div class="cuadre-tools-bar" style="display:flex; align-items:center; gap:10px; padding:8px 24px; background:white; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
+        <div id="btnMasControlesWrapper" class="more-controls-wrapper">
+          <button class="btn-more-controls btn-icon-mobile" onclick="toggleMoreControls()">
+            <span class="material-icons" style="font-size: 18px;">tune</span>
+            <span class="txt-mobile-hide">MÁS CONTROLES</span>
+          </button>
+          <div id="moreControlsDropdown" class="more-controls-dropdown">
+            <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
+            <div id="mcValidarCuadre" class="mc-item" onclick="abrirUltimoCuadre()" style="display: flex; flex-direction: column; align-items: flex-start;">
+              <div><span class="material-icons">history</span> Validar Cuadre Actual</div>
+              <small id="lblUltimoCuadre" style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">✅ --/-- 00:00 (Nadie)</small>
+            </div>
+            <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen Flota</div>
+            <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno()"><span class="material-icons" style="color:#8b5cf6;">directions_car</span> Insertar Unidad Externa</div>
+            <div id="mcPdfReservas" class="mc-item" onclick="abrirModalPDFReservas(); toggleMoreControls();"><span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas</div>
+          </div>
+        </div>
+
+        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display: none;">
+          <button class="btn-more-controls btn-icon-mobile" style="background:var(--mex-blue); border-color:var(--mex-blue); color:white;" onclick="toggleAdminControls()">
+            <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
+            <span class="txt-mobile-hide">GESTIÓN ADMIN</span>
+          </button>
+          <div id="adminControlsDropdown" class="more-controls-dropdown">
+            <div class="mc-header">ADMINISTRACIÓN GLOBAL</div>
+            <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span> Insertar Unidad Global</div>
+            <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span> Editar Unidad Global</div>
+            <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
+          </div>
+        </div>
+      </div>
+
       <div id="toastContainer"></div>
 
       <div class="fleet-wrapper">
