@@ -10568,6 +10568,87 @@ async function ejecutarInsertarAdmin() {
 
 window.PAUSA_CONEXIONES = false; // 🔥 NUESTRA VARIABLE SEMÁFORO GLOBAL
 
+// ── Firma digital de responsables (auxiliar + agente de ventas) ────────────
+// Pad de firma vanilla sobre <canvas> (mouse + touch). Devuelve API mínima.
+let _firmaPads = { aux: null, vta: null };
+function _initFirmaPad(canvas) {
+  if (!canvas) return null;
+  const ctx = canvas.getContext('2d');
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.max(1, Math.round(rect.width));
+  canvas.height = Math.max(1, Math.round(rect.height));
+  ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f172a';
+  let drawing = false, hasInk = false;
+  const at = e => { const r = canvas.getBoundingClientRect(); const t = e.touches ? e.touches[0] : e; return { x: t.clientX - r.left, y: t.clientY - r.top }; };
+  const start = e => { drawing = true; const p = at(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); if (e.cancelable) e.preventDefault(); };
+  const move  = e => { if (!drawing) return; const p = at(e); ctx.lineTo(p.x, p.y); ctx.stroke(); hasInk = true; if (e.cancelable) e.preventDefault(); };
+  const end   = () => { drawing = false; };
+  canvas.addEventListener('mousedown', start); canvas.addEventListener('mousemove', move); window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, { passive: false }); canvas.addEventListener('touchmove', move, { passive: false }); canvas.addEventListener('touchend', end);
+  return { clear() { ctx.clearRect(0, 0, canvas.width, canvas.height); hasInk = false; }, hasInk() { return hasInk; }, dataUrl() { return canvas.toDataURL('image/png'); } };
+}
+window.__mexLimpiarFirma = function (which) { _firmaPads[which]?.clear(); };
+
+// Muestra el modal y resuelve con { aux:{nombre,firma}, vta:{nombre,firma} } o null.
+async function _pedirFirmasCuadre() {
+  // Cargar el modal on-demand (mapa.html) para que funcione también en cuadre.
+  const modal = (typeof _ensureLegacyModalElement === 'function')
+    ? await _ensureLegacyModalElement('modal-firmas-cuadre')
+    : document.getElementById('modal-firmas-cuadre');
+  if (!modal) return null;
+  return new Promise(resolve => {
+    modal.classList.add('active');
+    // Init pads tras el reflow (para medir el canvas ya visible).
+    setTimeout(() => {
+      _firmaPads.aux = _initFirmaPad(document.getElementById('firmaAuxCanvas'));
+      _firmaPads.vta = _initFirmaPad(document.getElementById('firmaVtaCanvas'));
+    }, 30);
+    const cleanup = () => { modal.classList.remove('active'); window.__mexConfirmarFirmas = null; window.__mexCancelarFirmas = null; };
+    window.__mexCancelarFirmas = () => { cleanup(); resolve(null); };
+    window.__mexConfirmarFirmas = () => {
+      const nomAux = (document.getElementById('firmaAuxNombre')?.value || '').trim();
+      const nomVta = (document.getElementById('firmaVtaNombre')?.value || '').trim();
+      if (!_firmaPads.aux?.hasInk() || !_firmaPads.vta?.hasInk() || !nomAux || !nomVta) {
+        showToast('Ambos responsables deben escribir su nombre y firmar.', 'error');
+        return;
+      }
+      const firmas = { aux: { nombre: nomAux, firma: _firmaPads.aux.dataUrl() }, vta: { nombre: nomVta, firma: _firmaPads.vta.dataUrl() } };
+      cleanup(); resolve(firmas);
+    };
+  });
+}
+
+// Compone la imagen del reporte: [snapshot del mapa] + pie con las 2 firmas.
+async function _componerReporteConFirmas(mapCanvas, firmas) {
+  try {
+    const w = mapCanvas.width;
+    const footerH = Math.round(w * 0.16) + 40;
+    const out = document.createElement('canvas');
+    out.width = w; out.height = mapCanvas.height + footerH;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(mapCanvas, 0, 0);
+    const y0 = mapCanvas.height;
+    ctx.fillStyle = '#f8fafc'; ctx.fillRect(0, y0, w, footerH);
+    ctx.fillStyle = '#0f172a'; ctx.font = `bold ${Math.round(w * 0.018)}px Inter, sans-serif`;
+    ctx.fillText(`Cuadre validado — ${new Date().toLocaleString('es-MX')}`, 24, y0 + 30);
+    const colW = w / 2, padY = y0 + 46, sigH = footerH - 90;
+    const drawSig = async (dataUrl, nombre, rol, x) => {
+      await new Promise(res => { const img = new Image(); img.onload = () => { const r = Math.min((colW - 60) / img.width, sigH / img.height); ctx.drawImage(img, x + 30, padY, img.width * r, img.height * r); res(); }; img.onerror = res; img.src = dataUrl; });
+      ctx.strokeStyle = '#94a3b8'; ctx.beginPath(); ctx.moveTo(x + 30, padY + sigH); ctx.lineTo(x + colW - 30, padY + sigH); ctx.stroke();
+      ctx.fillStyle = '#334155'; ctx.font = `bold ${Math.round(w * 0.014)}px Inter, sans-serif`;
+      ctx.fillText(`${nombre}`, x + 30, padY + sigH + 22);
+      ctx.fillStyle = '#64748b'; ctx.font = `${Math.round(w * 0.012)}px Inter, sans-serif`;
+      ctx.fillText(rol, x + 30, padY + sigH + 40);
+    };
+    await drawSig(firmas.aux.firma, firmas.aux.nombre, 'Auxiliar', 0);
+    await drawSig(firmas.vta.firma, firmas.vta.nombre, 'Agente de Ventas', colW);
+    return out.toDataURL('image/png');
+  } catch (_) {
+    return mapCanvas.toDataURL('image/png'); // fallback: sin firmas embebidas
+  }
+}
+
 async function abrirUltimoCuadre() {
   const ok = await mexConfirm(
     'Validar Cuadre',
@@ -10576,13 +10657,17 @@ async function abrirUltimoCuadre() {
   );
   if (!ok) return;
 
+  // Firma digital obligatoria de los 2 responsables antes de sellar.
+  const firmas = await _pedirFirmasCuadre();
+  if (!firmas) return;
+
   window.PAUSA_CONEXIONES = true; // 🛑 DETENEMOS EL RADAR PARA NO ATURDIR A GOOGLE
   showToast("Capturando mapa...", "info");
 
   try {
     const gridMap = document.getElementById('grid-map');
     const canvas = await html2canvas(gridMap, { backgroundColor: "#2A3441", scale: 1, useCORS: true });
-    const base64Image = canvas.toDataURL("image/png");
+    const base64Image = await _componerReporteConFirmas(canvas, firmas);
 
     const stats = {
       total: document.getElementById('kpi-total').innerText,
