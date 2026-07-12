@@ -5110,25 +5110,61 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
     ? _spotValueFromElement(parent)
     : (parent?.id === 'unidades-taller' ? 'TALLER' : 'LIMBO');
 
-  const notasHtml = d.notas ? `<div class="nota-display" style="display:block;">📝 ${d.notas}</div>` : '';
+  // --- FLAGS DE ESTADO (a partir de notas) — usados por el detalle y el menú ---
+  const notesUpper = (d.notas || "").toUpperCase();
+  const esUrgente = notesUpper.includes("URGENTE");
+  const esDobleCero = notesUpper.includes("DOBLE CERO");
+  const esApartado = notesUpper.includes("RESERVAD") || notesUpper.includes("APARTAD");
+  const esManto = d.estado === "MANTENIMIENTO" || d.estado === "TALLER";
+
+  // Gasolina → medidor vertical
+  const _gasNum = parseInt(String(d.gasolina ?? '').replace('%', ''), 10);
+  const _gasValid = !isNaN(_gasNum);
+  const _gasPct = _gasValid ? Math.max(0, Math.min(100, _gasNum)) : 0;
+  const _gasLabel = _gasValid ? `${_gasPct}%` : 'N/A';
+  const _gasCls = !_gasValid ? '' : (_gasPct < 20 ? 'is-low' : _gasPct < 50 ? 'is-mid' : '');
+
+  // Extra (flags especiales) e ícono de fila
+  const _extra = esDobleCero ? 'DOBLE CERO' : esUrgente ? 'URGENTE' : esApartado ? 'APARTADA' : '';
+  const _extraRow = _extra
+    ? `<div class="usel-row"><span class="material-icons">info</span><span>${escapeHtml(_extra)}</span></div>` : '';
+  const _notaHtml = d.notas ? `
+      <div class="usel-note">
+        <div class="usel-note-head"><span class="usel-note-author">NOTA</span></div>
+        <div class="usel-note-text">${escapeHtml(d.notas)}</div>
+      </div>` : '';
 
   document.getElementById('detalle-unidad').innerHTML = `
-    <div style="text-align: center; padding: 10px 0;">
-      <h3 style="color: #64748b; font-size: 11px; font-weight: 800; text-transform: uppercase; margin-bottom: 2px;">Unidad Seleccionada</h3>
-      <h2 style="color: var(--primary); font-weight: 900; font-size: 32px; line-height: 1; margin-bottom: 12px;">${d.mva}</h2>
-      <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; font-size: 13px; font-weight: 600; color: #475569; background: #f1f5f9; padding: 10px; border-radius: 12px;">
-        <span>📍 ${loc}</span><span style="color: #cbd5e1;">•</span><span>🏷️ ${d.placas || 'N/A'}</span><span style="color: #cbd5e1;">•</span><span>🚗 ${d.modelo || 'S/M'}</span><span style="color: #cbd5e1;">•</span><span style="text-transform: capitalize;">⚙️ ${d.estado || 'N/A'}</span>
+    <div class="usel">
+      <button class="usel-close" onclick="cerrarPanel()" aria-label="Cerrar"><span class="material-icons">close</span></button>
+      <div class="usel-top">
+        <div class="usel-info">
+          <div class="usel-mva">${escapeHtml(d.mva || '')}</div>
+          <div class="usel-model">${escapeHtml(d.modelo || 'S/M')}</div>
+          <div class="usel-grid">
+            <div class="usel-row"><span class="material-icons">sell</span><span>${escapeHtml(d.placas || 'N/A')}</span></div>
+            <div class="usel-row"><span class="material-icons">settings</span><span>${escapeHtml(d.estado || 'N/A')}</span></div>
+            <div class="usel-row"><span class="material-icons">location_on</span><span>${escapeHtml(loc)}</span></div>
+            ${_extraRow}
+          </div>
+        </div>
+        <div class="usel-fuel ${_gasCls}">
+          <div class="usel-fuel-bar"><i style="height:${_gasPct}%"></i></div>
+          <div class="usel-fuel-num"><span class="material-icons">local_gas_station</span>${_gasLabel}</div>
+        </div>
       </div>
-      ${notasHtml}
+      ${_notaHtml}
+      <div class="usel-etiqueta">
+        <select onchange="if(this.value){ejecutarAccionRapida('${d.mva}', this.value);} this.selectedIndex=0;">
+          <option value="">ETIQUETA</option>
+          <option value="LISTO">Marcar LISTO</option>
+          <option value="DOBLE_CERO">Añadir doble cero</option>
+          <option value="URGENTE">Marcar urgente</option>
+          <option value="MANTENIMIENTO">Mandar a taller</option>
+        </select>
+      </div>
     </div>
   `;
-
-  // --- LÓGICA DEL MENÚ INTELIGENTE ---
-  let notesUpper = (d.notas || "").toUpperCase();
-  let esUrgente = notesUpper.includes("URGENTE");
-  let esDobleCero = notesUpper.includes("DOBLE CERO");
-  let esApartado = notesUpper.includes("RESERVAD") || notesUpper.includes("APARTAD");
-  let esManto = d.estado === "MANTENIMIENTO" || d.estado === "TALLER";
 
   let actionsHtml = "";
   let removeActions = "";
@@ -5163,15 +5199,20 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   // DIBUJAR BOTONES
   const btnGrid = document.getElementById('infoPanelBtnGrid');
   if (!btnGrid) return;
-  btnGrid.style.gridTemplateColumns = "1fr 1fr 1fr";
-  let btnLimboStyle = (loc === "unidades-limbo" || loc === "unidades-taller") ? "opacity: 0.5; pointer-events: none;" : "cursor:pointer;";
+  btnGrid.style.gridTemplateColumns = "1fr 1fr";
+  const _limboOff = (loc === "unidades-limbo" || loc === "unidades-taller" || loc === "LIMBO" || loc === "TALLER");
+  const btnLimboStyle = _limboOff ? "opacity:0.5; pointer-events:none;" : "cursor:pointer;";
 
   btnGrid.innerHTML = `
-    <button id="btnMandarLimbo" onclick="resetUnitToLimbo()" style="padding:15px; border-radius:14px; border:none; background:#fee2e2; color:#ef4444; font-weight:900; font-size:13px; ${btnLimboStyle}">LIMBO 🗑️</button>
+    <button id="btnMandarLimbo" onclick="resetUnitToLimbo()"
+      style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:14px; border-radius:14px; border:none; background:rgba(239,68,68,0.12); color:var(--color-error,#ef4444); font-weight:900; font-size:13px; ${btnLimboStyle}">
+      LIMBO <span class="material-icons" style="font-size:18px;">delete</span>
+    </button>
 
-    <div style="position: relative;">
-      <button onclick="document.getElementById('moreActionsMenu').classList.toggle('show')" style="width:100%; padding:15px; border-radius:14px; border:none; background:#e0f2fe; color:#0284c7; font-weight:900; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow: 0 4px 6px rgba(2, 132, 199, 0.2);">
-        <span class="material-icons" style="font-size:18px">bolt</span> ACCIONES
+    <div style="position:relative;">
+      <button onclick="document.getElementById('moreActionsMenu').classList.toggle('show')"
+        style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; padding:14px; border-radius:14px; border:none; background:var(--accent-pale,#dbeafe); color:var(--accent,#2563eb); font-weight:900; cursor:pointer; font-size:13px;">
+        <span class="material-icons" style="font-size:18px;">bolt</span> ACCIONES
       </button>
       <div id="moreActionsMenu" class="actions-dropdown">
         ${actionsHtml}
@@ -5179,8 +5220,6 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
         ${removeActions}
       </div>
     </div>
-
-    <button onclick="cerrarPanel()" style="padding:15px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer; font-size:13px;">CERRAR</button>
   `;
 
   // Barra compacta (móvil): resumen + siempre abrir colapsado.
