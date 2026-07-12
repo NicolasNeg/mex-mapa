@@ -5027,6 +5027,61 @@ function _bindCarMapInteractions(car) {
     car.addEventListener('pointerdown', _handleMapCarPointerDown);
   }
   car.addEventListener('touchstart', _handleMapCarTouchStart, { passive: true });
+  car.addEventListener('contextmenu', _handleMapCarContextMenu);
+}
+
+// ── [Mover vs Info] Modo "carry": el clic izquierdo levanta la unidad (una
+//    mini-tarjeta/ghost sigue el cursor y clic en un cajón = coloca, se puede
+//    scrollear mientras cargas); el clic derecho abre el panel de info. ──
+let _carrySelectCar = null;
+let _carryPointerHandler = null;
+function _carryKeyHandler(e) {
+  if (e.key === 'Escape') {
+    _exitCarrySelect();
+    if (selectedAuto) { selectedAuto.classList.remove('selected'); selectedAuto = null; }
+  }
+}
+function _enterCarrySelect(car) {
+  if (!car) return;
+  _exitCarrySelect();
+  // Al empezar a mover, cierra el panel de info si estaba abierto (no estorba).
+  if (typeof cerrarPanel === 'function' && document.getElementById('info-panel')?.classList.contains('open')) cerrarPanel();
+  _carrySelectCar = car;
+  const r = car.getBoundingClientRect();
+  _createMapDragGhost(car, r.left + r.width / 2, r.top + r.height / 2);
+  car.classList.add('drag-origin');
+  _mostrarSugerenciasDisponibles(car);
+  document.body.classList.add('car-carrying');
+  if (!window.__mexCarryHintShown) {
+    window.__mexCarryHintShown = true;
+    if (typeof showToast === 'function') showToast('Clic en un cajón para colocar · Esc cancela · clic derecho = ver info', 'info');
+  }
+  _carryPointerHandler = (e) => {
+    if (!_carrySelectCar) return;
+    _positionMapDragGhost(e.clientX, e.clientY);
+    _updateMapDropHighlight(_resolveMapDropZone(document.elementFromPoint(e.clientX, e.clientY)), _carrySelectCar);
+  };
+  document.addEventListener('pointermove', _carryPointerHandler);
+  document.addEventListener('keydown', _carryKeyHandler);
+}
+function _exitCarrySelect() {
+  if (_carryPointerHandler) document.removeEventListener('pointermove', _carryPointerHandler);
+  document.removeEventListener('keydown', _carryKeyHandler);
+  _carryPointerHandler = null;
+  if (_carrySelectCar) _carrySelectCar.classList.remove('drag-origin');
+  document.querySelectorAll('.spot-available-hint').forEach(s => s.classList.remove('spot-available-hint'));
+  _clearMapDropHighlight();
+  _removeMapDragGhost();
+  document.body.classList.remove('car-carrying');
+  _carrySelectCar = null;
+}
+function _handleMapCarContextMenu(event) {
+  const car = event.currentTarget;
+  if (!car) return;
+  event.preventDefault();
+  event.stopPropagation();
+  _exitCarrySelect();
+  _selectCarOnMap(car, { openPanel: true });
 }
 
 function _renderSwapStatus() {
@@ -5085,13 +5140,24 @@ document.addEventListener('click', (e) => {
   }
 
   if (carClicked) {
-    _selectCarOnMap(carClicked);
+    // Clic izquierdo = levantar la unidad para mover (sin abrir el panel).
+    // Ver info = clic derecho (_handleMapCarContextMenu).
+    _selectCarOnMap(carClicked, { openPanel: false });
+    _enterCarrySelect(carClicked);
     e.stopPropagation();
     return;
   }
 
   if (spotClicked && selectedAuto) {
     void _handleMapUnitDrop(selectedAuto, spotClicked);
+    _exitCarrySelect();
+    return;
+  }
+
+  // Clic en zona vacía mientras cargas una unidad = cancelar el movimiento.
+  if (_carrySelectCar) {
+    _exitCarrySelect();
+    if (selectedAuto) { selectedAuto.classList.remove('selected'); selectedAuto = null; }
   }
 });
 
