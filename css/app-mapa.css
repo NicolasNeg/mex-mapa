@@ -3125,7 +3125,7 @@ body.app-map-legacy-shell .mex-header {
 body.app-map-legacy-shell .mex-main {
   margin-left: var(--app-map-rail-w) !important;
   margin-top: var(--app-map-header-h);
-  height: calc(100vh - var(--app-map-header-h));
+  height: calc(100dvh - var(--app-map-header-h));
 }
 
 body.app-map-legacy-shell .mex-sidebar-logo {
@@ -3232,7 +3232,7 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
 
 .app-mapa-view.app-mapa-operativo {
   position: relative;
-  min-height: calc(100vh - var(--app-map-header-h, 64px));
+  min-height: calc(100dvh - var(--app-map-header-h, 64px));
   padding: 0;
   gap: 0;
   overflow: hidden;
@@ -3408,7 +3408,7 @@ body.app-map-legacy-shell .mex-header-plaza-select-wrap {
 }
 
 .app-mapa-content {
-  height: calc(100vh - var(--app-map-header-h, 64px));
+  height: calc(100dvh - var(--app-map-header-h, 64px));
   min-height: 560px;
 }
 

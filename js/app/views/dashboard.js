@@ -246,7 +246,7 @@ function _renderKpis(metrics, feats, role) {
   if (feats.solicitudes && _isAdmin(role)) kpis.push({ icon: 'assignment_ind', id: 'dashKpiSol', val: metrics.solicitudes, label: 'Solicitudes', alert: metrics.solicitudes > 0 });
   return kpis.map(k => `
     <div class="dash-kpi${k.alert ? ' dash-kpi--alert' : ''}">
-      <span class="material-symbols-outlined" style="font-size:18px;color:${k.alert ? '#dc2626' : '#6366f1'};">${k.icon}</span>
+      <span class="material-symbols-outlined" style="font-size:18px;color:${k.alert ? 'var(--color-error)' : 'var(--accent)'};">${k.icon}</span>
       <div class="dash-kpi-val" id="${k.id}">${k.val}</div>
       <div class="dash-kpi-label">${k.label}</div>
     </div>`).join('');

@@ -44,6 +44,54 @@
       --c-retenida: #6d4c41;
     }
 
+    /* ══════════════════════════════════════════════════════════
+       DESIGN TOKENS (ESTILO.md) — capa canónica
+       Aditivo: las vistas migran a estas vars; no rompe lo previo.
+       ══════════════════════════════════════════════════════════ */
+    :root {
+      /* Acento (Blue) */
+      --accent:        #3b82f6;
+      --accent-hover:  #2563eb;
+      --accent-light:  #93c5fd;
+      --accent-pale:   rgba(59, 130, 246, 0.12);
+
+      /* Neutrales Slate */
+      --slate-950: #020617;
+      --slate-900: #0f172a;
+      --slate-800: #1e293b;
+      --slate-700: #334155;
+      --slate-600: #475569;
+      --slate-500: #64748b;
+      --slate-400: #94a3b8;
+      --slate-300: #cbd5e1;
+      --slate-200: #e2e8f0;
+      --slate-100: #f1f5f9;
+      --slate-50:  #f8fafc;
+
+      /* Semánticos */
+      --color-success: #10b981;
+      --color-warning: #f59e0b;
+      --color-error:   #ef4444;
+      --color-info:    #3b82f6;
+
+      /* Tema (light) — --bg/--surface/--text/--border ya existen arriba */
+      --text-muted: #64748b;
+      --border-md:  #cbd5e1;
+
+      /* Radios */
+      --radius-sm:   4px;
+      --radius-md:   8px;
+      --radius-lg:   12px;
+      --radius-xl:   16px;
+      --radius-full: 9999px;
+
+      /* Sombras */
+      --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.08);
+      --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.12);
+      --shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.16);
+      --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.10);
+    }
+
     /* Scrollbar unificado del proyecto */
     :root {
       --sb-track-color: #2e2e4a;
@@ -159,6 +207,9 @@
       --text-muted: #94a3b8;
       --border: #334155;
       --primary: #3b82f6;
+      /* Design tokens (dark) */
+      --accent-light: #60a5fa;
+      --border-md: #475569;
     }
 
     /* ── Fondos principales ── */

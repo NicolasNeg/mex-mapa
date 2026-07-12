@@ -117,41 +117,9 @@ export async function ensureStageReady() {
   return { stage, fresh: true };
 }
 
-// ── Header actions (fleet + heatmap) ────────────────────────
-function _buildHeaderActions() {
-  const wrap = document.createElement('div');
-  wrap.className = 'mex-hdr-mapa-actions';
-
-  const heatmapActive = document.body.classList.contains('heatmap-active');
-
-  wrap.innerHTML = `
-    <button class="mex-header-icon-btn mex-hdr-mapa-btn" id="mexHdrMapaFleet"
-            title="Panel de unidades" aria-label="Abrir panel de unidades">
-      <span class="mex-hdr-icon">directions_car</span>
-    </button>
-    <button class="mex-header-icon-btn mex-hdr-mapa-btn mex-hdr-mapa-btn--heat${heatmapActive ? ' is-active' : ''}"
-            id="mexHdrMapaHeat"
-            title="Mapa de calor" aria-label="Activar mapa de calor"
-            aria-pressed="${heatmapActive ? 'true' : 'false'}">
-      <span class="mex-hdr-icon">thermostat</span>
-    </button>
-  `;
-
-  wrap.querySelector('#mexHdrMapaFleet').addEventListener('click', () => {
-    if (typeof window.toggleSidebar === 'function') window.toggleSidebar();
-  });
-
-  wrap.querySelector('#mexHdrMapaHeat').addEventListener('click', () => {
-    if (typeof window.toggleMapaCalor === 'function') window.toggleMapaCalor();
-    const btn = wrap.querySelector('#mexHdrMapaHeat');
-    if (!btn) return;
-    const isActive = document.body.classList.contains('heatmap-active');
-    btn.classList.toggle('is-active', isActive);
-    btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-  });
-
-  return wrap;
-}
+// Los accesos a "panel de unidades" (botón flotante #btnAbrirUnidades) y
+// "mapa de calor" (switch en controles) viven en el propio mapa, por eso el
+// header del shell ya no duplica esos íconos.
 
 // ══════════════════════════════════════════════════════════════
 //  mount / unmount — API del App Shell router
@@ -180,7 +148,7 @@ export async function mount(ctx) {
   // "Ver en mapa" desde el buscador global deja window.__mexPendingMapFocus.
   _applyPendingFocus();
 
-  if (_shell) _shell.setHeaderActions(_buildHeaderActions());
+  if (_shell) _shell.setHeaderActions(null);
 }
 
 // Re-ajusta el viewport y re-dibuja si el grid está vacío. Barato e idempotente;

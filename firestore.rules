@@ -687,7 +687,11 @@ service cloud.firestore {
       allow read: if tienePerfilActual() || esAccesoTotal();
       allow create: if puedeEmitirAlertasMaestras();
       allow delete: if puedeEmitirAlertasMaestras();
-      allow update: if puedeEmitirAlertasMaestras() || alertaLecturaValida();
+      // alertaLecturaValida() primero: es barata (auth + diff, sin get/exists) y
+      // corta el OR antes de evaluar puedeEmitirAlertasMaestras(), que en la ruta
+      // de un rol sin permiso agota el límite de 1000 expresiones y erroraba el
+      // update ("error || true" = deny). Marcar leído (solo leidoPor) ya no falla.
+      allow update: if alertaLecturaValida() || puedeEmitirAlertasMaestras();
     }
 
     match /plantillas_alertas/{doc} {

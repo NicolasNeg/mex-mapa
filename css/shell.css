@@ -24,9 +24,45 @@
   --sh-header-bg:         rgba(255, 255, 255, 0.92);
   --sh-header-border:     rgba(0, 0, 0, 0.06);
   --sh-body-bg:           #f6f8fb;
+
+  /* ── Design tokens (ESTILO.md) ──────────────────────────────
+     El SPA /app/* NO carga base.css (solo lo usan las páginas
+     legacy vía global.css). Se definen aquí para que las vistas
+     del shell puedan consumir var(--surface/--text/--accent…). */
+  --bg:            #f1f5f9;
+  --surface:       #ffffff;
+  --text:          #1e293b;
+  --text-muted:    #64748b;
+  --border:        #e2e8f0;
+  --border-md:     #cbd5e1;
+  --accent:        #3b82f6;
+  --accent-hover:  #2563eb;
+  --accent-light:  #93c5fd;
+  --accent-pale:   rgba(59, 130, 246, 0.12);
+  --slate-950: #020617;  --slate-900: #0f172a;  --slate-800: #1e293b;
+  --slate-700: #334155;  --slate-600: #475569;  --slate-500: #64748b;
+  --slate-400: #94a3b8;  --slate-300: #cbd5e1;  --slate-200: #e2e8f0;
+  --slate-100: #f1f5f9;  --slate-50:  #f8fafc;
+  --color-success: #10b981;  --color-warning: #f59e0b;
+  --color-error:   #ef4444;  --color-info:    #3b82f6;
+  --radius-sm: 4px;  --radius-md: 8px;  --radius-lg: 12px;
+  --radius-xl: 16px; --radius-full: 9999px;
+  --shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.16);
+  --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
 body.dark-theme {
+  /* Design tokens (dark) */
+  --bg:            #0f172a;
+  --surface:       #1e293b;
+  --text:          #f1f5f9;
+  --text-muted:    #94a3b8;
+  --border:        #334155;
+  --border-md:     #475569;
+  --accent-light:  #60a5fa;
+
   --sh-sidebar-bg:        #07111f;
   --sh-sidebar-text:      rgba(255, 255, 255, 0.82);
   --sh-sidebar-muted:     rgba(255, 255, 255, 0.45);
