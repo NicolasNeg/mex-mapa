@@ -657,9 +657,13 @@ service cloud.firestore {
         || esDocumentoUsuarioLegiblePorAuth(doc)
         || leePropioUsuarioPorCampoEmail();
       allow create: if puedeCrearUsuario(request.resource.data) || esProgramadorBootstrap();
-      allow update: if puedeActualizarUsuario(resource.data, request.resource.data)
-        || actualizacionSelfServiceUsuarioValida(doc)
-        || esProgramadorBootstrap();
+      // self-service primero: es barato (diff + auth, sin get/exists) y corta el OR
+      // antes de puedeActualizarUsuario(), que en la ruta de auto-edición agota el
+      // límite de 1000 expresiones y erraba el update ("error || true" = deny).
+      // Así un usuario puede cambiar su avatar/teléfono/preferencias sin fallar.
+      allow update: if actualizacionSelfServiceUsuarioValida(doc)
+        || esProgramadorBootstrap()
+        || puedeActualizarUsuario(resource.data, request.resource.data);
       allow delete: if puedeEliminarUsuario(resource.data) || esProgramadorBootstrap();
 
       match /devices/{deviceId} {
