@@ -112,6 +112,14 @@ export async function ensureStageReady() {
   const html = await _fetchBodyHtml();
   stage.innerHTML = html;
   _ensureStageOverrides(stage);
+  // `.mex-main` tiene `contain: layout` → es el bloque contenedor de todo hijo
+  // position:fixed, así que atrapa el sidebar de unidades y su backdrop dentro
+  // del área de contenido (bajo el header): en móvil su cabecera/cerrar quedan
+  // tapadas. Los movemos a <body> para que sean overlay real del viewport.
+  ['sidebar', 'overlay'].forEach(id => {
+    const el = stage.querySelector('#' + id);
+    if (el && el.parentElement !== document.body) document.body.appendChild(el);
+  });
   stage.dataset.mexInit = '1';
   await import('/js/views/mapa.js');
   return { stage, fresh: true };
