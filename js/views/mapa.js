@@ -5247,14 +5247,9 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
         <span class="usel-fuel-num">${_gasLabel}</span>
       </div>
       ${_notaHtml}
-      <div class="usel-etiqueta">
-        <select onchange="if(this.value){ejecutarAccionRapida('${d.mva}', this.value);} this.selectedIndex=0;">
-          <option value="">ETIQUETA</option>
-          <option value="LISTO">Marcar LISTO</option>
-          <option value="DOBLE_CERO">Añadir doble cero</option>
-          <option value="URGENTE">Marcar urgente</option>
-          <option value="MANTENIMIENTO">Mandar a taller</option>
-        </select>
+      <div class="usel-tags" id="uselTags">
+        <span class="usel-tags-label">Etiqueta</span>
+        <div class="usel-tags-dots" id="uselTagsDots"><span class="usel-tags-loading">…</span></div>
       </div>
       <div class="usel-mov">
         <div class="usel-mov-title">Últimos movimientos</div>
@@ -5302,15 +5297,13 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const btnLimboStyle = _limboOff ? "opacity:0.5; pointer-events:none;" : "cursor:pointer;";
 
   btnGrid.innerHTML = `
-    <button id="btnMandarLimbo" onclick="resetUnitToLimbo()"
-      style="display:flex; flex-direction:column; align-items:center; gap:4px; padding:14px; border-radius:14px; border:none; background:rgba(239,68,68,0.12); color:var(--color-error,#ef4444); font-weight:900; font-size:13px; ${btnLimboStyle}">
-      LIMBO <span class="material-icons" style="font-size:18px;">delete</span>
+    <button id="btnMandarLimbo" onclick="resetUnitToLimbo()" class="usel-btn usel-btn-limbo" style="${btnLimboStyle}">
+      <span class="material-icons">delete_outline</span> Limbo
     </button>
 
-    <div style="position:relative;">
-      <button onclick="document.getElementById('moreActionsMenu').classList.toggle('show')"
-        style="width:100%; display:flex; align-items:center; justify-content:center; gap:6px; padding:14px; border-radius:14px; border:none; background:var(--accent-pale,#dbeafe); color:var(--accent,#2563eb); font-weight:900; cursor:pointer; font-size:13px;">
-        <span class="material-icons" style="font-size:18px;">bolt</span> ACCIONES
+    <div class="usel-btn-wrap">
+      <button onclick="document.getElementById('moreActionsMenu').classList.toggle('show')" class="usel-btn usel-btn-acciones">
+        <span class="material-icons">bolt</span> Acciones
       </button>
       <div id="moreActionsMenu" class="actions-dropdown">
         ${actionsHtml}
@@ -5329,6 +5322,7 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   document.body.classList.add('info-open');   // empuja el mapa (desktop)
   _scrollSelectedIntoView(d.mva);             // trae la unidad al área visible
   _renderUltimosMovimientos(d.mva);
+  _renderUselTags(d.mva);                      // dots de etiqueta (color)
   _renderSwapStatus();
   const zoomControls = document.querySelector('.zoom-controls');
   if (zoomControls) zoomControls.classList.add('panel-open');
@@ -22126,6 +22120,7 @@ Object.assign(window, {
   exportarMapaPDF,
   copiarDatosUnidad,
   toggleTagUnidad,
+  toggleUselTag,
   abrirModalRecordatorio,
   cerrarModalRecordatorio,
   guardarRecordatorio,
@@ -23148,6 +23143,24 @@ function _actualizarTagsBadgeCar(mva, tags) {
     return c ? `<span style="width:6px;height:6px;border-radius:50%;background:${c.dot};display:inline-block;"></span>` : '';
   }).join('');
   badge.style.display = tags.length > 0 ? 'flex' : 'none';
+}
+
+// Dots de etiqueta (color) dentro del panel de unidad (.usel). Reutiliza el
+// sistema de tags existente (_TAG_COLORS / toggleTagUnidad).
+async function _renderUselTags(mva) {
+  const cont = document.getElementById('uselTagsDots');
+  if (!cont) return;
+  let extras = {};
+  try { extras = await _cargarExtrasUnidad(mva) || {}; } catch (e) {}
+  if (document.getElementById('uselTagsDots') !== cont) return; // cambió de unidad
+  const tags = extras.tags || [];
+  cont.innerHTML = Object.entries(_TAG_COLORS).map(([key, c]) =>
+    `<button class="usel-tag-dot${tags.includes(key) ? ' active' : ''}" style="--dot:${c.dot}" title="${c.label}" onclick="toggleUselTag('${mva}','${key}')"></button>`
+  ).join('');
+}
+async function toggleUselTag(mva, tag) {
+  await toggleTagUnidad(mva, tag); // guarda + actualiza el badge del auto en el mapa
+  _renderUselTags(mva);            // re-render de los dots del panel
 }
 
 // ── F7.6  Recordatorios ─────────────────────────────────────

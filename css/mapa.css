@@ -2034,20 +2034,27 @@
     .usel-note-text { font-size: 14px; color: var(--text, #1e293b); margin: 6px 0 8px; line-height: 1.45; }
     .usel-note-time { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted, #64748b); }
     .usel-note-time .material-icons { font-size: 15px; }
-    /* Etiqueta dropdown */
-    .usel-etiqueta { position: relative; margin-top: 14px; }
-    .usel-etiqueta select {
-      width: 100%; appearance: none; -webkit-appearance: none;
-      padding: 13px 42px 13px 16px; border: 1px solid var(--border, #e2e8f0);
-      border-radius: 12px; background: color-mix(in srgb, var(--surface, #ffffff) 55%, transparent);
-      color: var(--text-muted, #475569); font-size: 13px; font-weight: 800;
-      letter-spacing: 0.03em; cursor: pointer; font-family: inherit;
+    /* Etiqueta = dots de colores (tag por unidad) */
+    .usel-tags { margin-top: 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .usel-tags-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #64748b); }
+    .usel-tags-dots { display: flex; gap: 8px; align-items: center; }
+    .usel-tag-dot { width: 22px; height: 22px; border-radius: 9999px; border: 2.5px solid var(--border-md, #cbd5e1); background: transparent; cursor: pointer; transition: transform .12s, background .12s, border-color .12s; padding: 0; }
+    .usel-tag-dot.active { border-color: var(--dot); background: var(--dot); }
+    .usel-tag-dot:hover { transform: scale(1.12); }
+    .usel-tags-loading { font-size: 12px; color: var(--text-muted, #94a3b8); }
+    /* Botones LIMBO + ACCIONES — simétricos, minimalistas */
+    .usel-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 11px 14px; border: none; border-radius: 12px;
+      font-weight: 700; font-size: 13px; letter-spacing: 0.01em; cursor: pointer;
+      font-family: inherit; transition: background .15s;
     }
-    .usel-etiqueta::after {
-      content: 'expand_more'; font-family: 'Material Icons'; font-size: 22px;
-      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-      color: var(--text-muted, #94a3b8); pointer-events: none;
-    }
+    .usel-btn .material-icons { font-size: 18px; }
+    .usel-btn-limbo { background: color-mix(in srgb, var(--color-error, #ef4444) 12%, transparent); color: var(--color-error, #ef4444); }
+    .usel-btn-limbo:hover { background: color-mix(in srgb, var(--color-error, #ef4444) 20%, transparent); }
+    .usel-btn-acciones { background: var(--accent-pale, #dbeafe); color: var(--accent, #2563eb); }
+    .usel-btn-acciones:hover { background: color-mix(in srgb, var(--accent, #3b82f6) 22%, transparent); }
+    .usel-btn-wrap { position: relative; }
     /* Últimos movimientos — llena el espacio sobrante y scrollea */
     .usel-mov { display: flex; flex-direction: column; min-height: 0; margin-top: 18px; }
     .usel-mov-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #64748b); margin-bottom: 10px; flex-shrink: 0; }
@@ -2093,7 +2100,9 @@
       #info-panel #detalle-unidad { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
       #info-panel .usel { flex: 1 1 auto; min-height: 0; }
       #info-panel .usel-mov-list { max-height: none; }
-      body.info-open .info-sidebar { overflow: hidden; }
+      /* overflow visible para que el dropdown de ACCIONES no se recorte;
+         el scroll interno lo maneja .usel-mov-list. */
+      body.info-open .info-sidebar { overflow: visible; }
       /* El sidebar EMPUJA el mapa (no lo tapa): el viewport se encoge a la izquierda. */
       .content { transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
       body.info-open .content { right: 400px; }
@@ -4293,9 +4302,9 @@
       left: 0;
       width: 100%;
       min-width: 220px;
-      background: white;
+      background: var(--surface, #ffffff);
       border-radius: 16px;
-      box-shadow: 0 -16px 30px rgba(0, 0, 0, 0.16);
+      box-shadow: 0 -16px 30px rgba(2, 6, 23, 0.28);
       margin-bottom: 0;
       display: none;
       flex-direction: column;
@@ -4331,13 +4340,13 @@
       font-weight: 800;
       color: var(--text);
       cursor: pointer;
-      border-bottom: 1px solid #f1f5f9;
+      border-bottom: 1px solid var(--border, #f1f5f9);
       transition: background 0.2s;
     }
 
     .action-item:hover {
-      background: #f8fafc;
-      color: var(--primary);
+      background: var(--bg, #f8fafc);
+      color: var(--accent, #2563eb);
       padding-left: 20px;
     }
 
