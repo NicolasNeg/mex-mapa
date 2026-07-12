@@ -2,8 +2,8 @@
   max-width: 1240px;
   margin: 0 auto;
   padding: 20px 14px 92px;
-  color: #0f172a;
-  min-height: calc(100vh - 72px);
+  color: var(--text);
+  min-height: calc(100dvh - 72px);
 }
 
 body.app-profile-active .mex-main,
@@ -14,9 +14,9 @@ body.app-profile-active #mexShellContent {
 
 .app-profile-hero,
 .app-profile-card {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
 }
 
@@ -32,8 +32,8 @@ body.app-profile-active #mexShellContent {
 .app-profile-avatar {
   width: 110px;
   height: 110px;
-  border-radius: 24px;
-  background: #0f172a;
+  border-radius: var(--radius-xl);
+  background: var(--accent);
   color: #fff;
   display: grid;
   place-items: center;
@@ -50,7 +50,7 @@ body.app-profile-active #mexShellContent {
 
 .app-profile-hero-main p {
   margin: 6px 0 10px;
-  color: #475569;
+  color: var(--text-muted);
 }
 
 .app-profile-badges {
@@ -64,8 +64,8 @@ body.app-profile-active #mexShellContent {
   font-weight: 700;
   border-radius: 999px;
   padding: 5px 10px;
-  background: #eef2ff;
-  color: #334155;
+  background: var(--accent-pale);
+  color: var(--text);
 }
 
 .app-profile-stats {
@@ -75,9 +75,9 @@ body.app-profile-active #mexShellContent {
 }
 
 .app-profile-stats div {
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
   padding: 8px 10px;
 }
 
@@ -87,7 +87,7 @@ body.app-profile-active #mexShellContent {
 }
 
 .app-profile-stats small {
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 11px;
   text-transform: uppercase;
 }
@@ -101,9 +101,9 @@ body.app-profile-active #mexShellContent {
 .app-profile-nav {
   position: sticky;
   top: 88px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   padding: 12px;
   height: fit-content;
 }
@@ -112,9 +112,9 @@ body.app-profile-active #mexShellContent {
   width: 100%;
   text-align: left;
   border: none;
-  background: #ffffff;
-  color: #334155;
-  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-md);
   padding: 10px 12px;
   font-weight: 700;
   margin-bottom: 8px;
@@ -148,7 +148,7 @@ body.app-profile-active #mexShellContent {
 .app-profile-grid label {
   display: grid;
   gap: 6px;
-  color: #334155;
+  color: var(--text);
   font-size: 13px;
   font-weight: 700;
 }
@@ -160,11 +160,11 @@ body.app-profile-active #mexShellContent {
 .app-profile-grid input,
 .app-profile-grid select {
   width: 100%;
-  border: 1px solid #dbe3ef;
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   min-height: 42px;
-  background: #ffffff;
-  color: #0f172a;
+  background: var(--surface);
+  color: var(--text);
   padding: 8px 10px;
 }
 
@@ -178,14 +178,14 @@ body.app-profile-active #mexShellContent {
   justify-content: space-between;
   gap: 14px;
   padding: 14px;
-  border: 1px solid #dbe3ef;
-  border-radius: 14px;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
 }
 
 .app-profile-avatar-editor strong {
   display: block;
-  color: #0f172a;
+  color: var(--text);
   font-size: 14px;
   font-weight: 900;
 }
@@ -193,7 +193,7 @@ body.app-profile-active #mexShellContent {
 .app-profile-avatar-editor span {
   display: block;
   margin-top: 4px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -207,27 +207,27 @@ body.app-profile-active #mexShellContent {
 }
 
 .app-profile-avatar-editor-actions button {
-  border: 1px solid #dbe3ef;
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   min-height: 38px;
   padding: 0 12px;
-  background: #ffffff;
-  color: #334155;
+  background: var(--surface);
+  color: var(--text);
   font-size: 12px;
   font-weight: 900;
   cursor: pointer;
 }
 
 #appProfileChooseAvatar {
-  border-color: #0f172a;
-  background: #0f172a;
+  border-color: var(--accent);
+  background: var(--accent);
   color: #ffffff;
 }
 
 #appProfileRemoveAvatar {
-  color: #b91c1c;
-  background: #fff5f5;
-  border-color: #fecaca;
+  color: var(--color-error);
+  background: rgba(239,68,68,.08);
+  border-color: rgba(239,68,68,.35);
 }
 
 #appProfileAvatarFile {
@@ -239,27 +239,27 @@ body.app-profile-active #mexShellContent {
   align-items: center;
   gap: 10px;
   min-height: 44px;
-  border: 1px solid #dbe3ef;
-  border-radius: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   padding: 8px 10px;
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .app-profile-grid label.app-profile-check input {
   width: 18px;
   min-height: 18px;
-  accent-color: #0f172a;
+  accent-color: var(--accent);
 }
 
 .app-profile-grid input[readonly] {
-  background: #f8fafc;
-  color: #64748b;
+  background: var(--bg);
+  color: var(--text-muted);
 }
 
 .app-profile-readonly-grid p {
   margin: 0 0 8px;
   font-size: 13px;
-  color: #334155;
+  color: var(--text);
 }
 
 .app-profile-actions {
@@ -274,8 +274,8 @@ body.app-profile-active #mexShellContent {
 }
 
 .app-profile-actions button {
-  border-radius: 10px;
-  border: 1px solid #dbe3ef;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
   min-height: 42px;
   padding: 0 14px;
   font-weight: 800;
@@ -283,8 +283,8 @@ body.app-profile-active #mexShellContent {
 }
 
 #appProfileSave {
-  border-color: #0f172a;
-  background: #0f172a;
+  border-color: var(--accent);
+  background: var(--accent);
   color: #ffffff;
 }
 
@@ -293,13 +293,13 @@ body.app-profile-active #mexShellContent {
 }
 
 #appProfileCancel {
-  background: #ffffff;
-  color: #334155;
+  background: var(--surface);
+  color: var(--text);
 }
 
 .app-profile-actions a {
   margin-left: auto;
-  color: #0f172a;
+  color: var(--text);
   font-size: 13px;
   text-decoration: underline;
 }
@@ -310,15 +310,15 @@ body.app-profile-active #mexShellContent {
 }
 
 .app-profile-status.is-ok {
-  color: #15803d;
+  color: var(--color-success);
 }
 
 .app-profile-status.is-error {
-  color: #b91c1c;
+  color: var(--color-error);
 }
 
 .app-profile-status.is-info {
-  color: #475569;
+  color: var(--text-muted);
 }
 
 .app-profile-crop-modal {
@@ -343,8 +343,8 @@ body.app-profile-active #mexShellContent {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 22px;
-  background: #ffffff;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
   box-shadow: 0 32px 90px rgba(15, 23, 42, 0.36);
 }
 
@@ -354,14 +354,14 @@ body.app-profile-active #mexShellContent {
   justify-content: space-between;
   gap: 14px;
   padding: 18px 20px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
 }
 
 .app-profile-crop-head strong {
   display: block;
   font-size: 18px;
   font-weight: 900;
-  color: #0f172a;
+  color: var(--text);
 }
 
 .app-profile-crop-head span,
@@ -369,7 +369,7 @@ body.app-profile-active #mexShellContent {
 .app-profile-crop-preview span {
   display: block;
   margin-top: 4px;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
 }
@@ -377,10 +377,10 @@ body.app-profile-active #mexShellContent {
 .app-profile-crop-head button {
   width: 38px;
   height: 38px;
-  border: 1px solid #dbe3ef;
-  border-radius: 12px;
-  background: #f8fafc;
-  color: #334155;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  color: var(--text);
   font-size: 26px;
   line-height: 1;
   cursor: pointer;
@@ -393,7 +393,7 @@ body.app-profile-active #mexShellContent {
   gap: 18px;
   padding: 20px;
   overflow: auto;
-  background: #f8fafc;
+  background: var(--bg);
 }
 
 .app-profile-crop-stage {
@@ -405,8 +405,8 @@ body.app-profile-active #mexShellContent {
 #appProfileCropCanvas {
   width: min(360px, 76vw);
   height: min(360px, 76vw);
-  border-radius: 22px;
-  background: #0f172a;
+  border-radius: var(--radius-xl);
+  background: var(--slate-900);
   box-shadow: 0 18px 38px rgba(15, 23, 42, 0.24);
   touch-action: none;
   cursor: grab;
@@ -423,9 +423,9 @@ body.app-profile-active #mexShellContent {
   justify-content: center;
   gap: 8px;
   padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 18px;
-  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
   text-align: center;
 }
 
@@ -434,11 +434,11 @@ body.app-profile-active #mexShellContent {
   height: 128px;
   border-radius: 50%;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
-  background: #0f172a;
+  background: var(--slate-900);
 }
 
 .app-profile-crop-preview strong {
-  color: #0f172a;
+  color: var(--text);
   font-size: 14px;
   font-weight: 900;
 }
@@ -450,22 +450,22 @@ body.app-profile-active #mexShellContent {
   gap: 14px;
   flex-wrap: wrap;
   padding: 14px 20px;
-  border-top: 1px solid #e2e8f0;
-  background: #ffffff;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .app-profile-crop-controls label {
   min-width: min(360px, 100%);
   display: grid;
   gap: 7px;
-  color: #334155;
+  color: var(--text);
   font-size: 12px;
   font-weight: 900;
 }
 
 .app-profile-crop-controls input[type="range"] {
   width: 100%;
-  accent-color: #0f172a;
+  accent-color: var(--accent);
 }
 
 .app-profile-crop-controls div,
@@ -479,10 +479,10 @@ body.app-profile-active #mexShellContent {
 .app-profile-crop-controls button,
 .app-profile-crop-actions button {
   min-height: 38px;
-  border-radius: 10px;
-  border: 1px solid #dbe3ef;
-  background: #ffffff;
-  color: #334155;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
   padding: 0 12px;
   font-size: 12px;
   font-weight: 900;
@@ -492,12 +492,12 @@ body.app-profile-active #mexShellContent {
 .app-profile-crop-actions {
   justify-content: flex-end;
   padding: 14px 20px 18px;
-  border-top: 1px solid #e2e8f0;
+  border-top: 1px solid var(--border);
 }
 
 #appProfileCropApply {
-  border-color: #0f172a;
-  background: #0f172a;
+  border-color: var(--accent);
+  background: var(--accent);
   color: #ffffff;
 }
 
@@ -588,35 +588,35 @@ body.app-profile-active #mexShellContent {
   align-items: center;
   gap: 4px;
   padding: 3px 10px;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.02em;
   line-height: 1.4;
   white-space: nowrap;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #e2e8f0;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 .profile-badge.badge-role {
-  background: #eff6ff;
-  color: #3b82f6;
-  border-color: #bfdbfe;
+  background: var(--accent-pale);
+  color: var(--accent);
+  border-color: var(--accent-light);
 }
 .profile-badge.badge-status-active {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
+  background: rgba(16,185,129,.12);
+  color: var(--color-success);
+  border-color: rgba(16,185,129,.35);
 }
 .profile-badge.badge-status-inactive {
-  background: #fef2f2;
-  color: #dc2626;
-  border-color: #fecaca;
+  background: rgba(239,68,68,.10);
+  color: var(--color-error);
+  border-color: rgba(239,68,68,.35);
 }
 .profile-badge.badge-dark {
-  background: #0f172a;
-  color: #f8fafc;
-  border-color: #1e293b;
+  background: var(--slate-900);
+  color: var(--slate-50);
+  border-color: var(--slate-800);
 }
 
 /* ── Toggle switch (tail-switch pattern) ─────────────────── */
@@ -626,11 +626,11 @@ body.app-profile-active #mexShellContent {
   height: 24px;
   width: 44px;
   align-items: center;
-  border-radius: 9999px;
+  border-radius: var(--radius-full);
   border: none;
   cursor: pointer;
   transition: background-color 0.2s ease;
-  background: #cbd5e1;
+  background: var(--border-md);
   flex-shrink: 0;
   outline: none;
   padding: 0;
@@ -641,14 +641,14 @@ body.app-profile-active #mexShellContent {
   left: 0;
   width: 18px;
   height: 18px;
-  border-radius: 9999px;
-  background: #ffffff;
+  border-radius: var(--radius-full);
+  background: var(--surface);
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
   transition: transform 0.2s ease;
   transform: translateX(3px);
 }
 .profile-tail-switch.is-on {
-  background: #0f172a;
+  background: var(--accent);
 }
 .profile-tail-switch.is-on::after {
   transform: translateX(23px);
