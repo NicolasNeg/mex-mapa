@@ -5230,22 +5230,21 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
 
   document.getElementById('detalle-unidad').innerHTML = `
     <div class="usel">
-      <button class="usel-close" onclick="cerrarPanel()" aria-label="Cerrar"><span class="material-icons">close</span></button>
-      <div class="usel-top">
-        <div class="usel-info">
-          <div class="usel-mva">${escapeHtml(d.mva || '')}</div>
-          <div class="usel-model">${escapeHtml(d.modelo || 'S/M')}</div>
-          <div class="usel-grid">
-            <div class="usel-row"><span class="material-icons">sell</span><span>${escapeHtml(d.placas || 'N/A')}</span></div>
-            <div class="usel-row"><span class="material-icons">settings</span><span>${escapeHtml(d.estado || 'N/A')}</span></div>
-            <div class="usel-row"><span class="material-icons">location_on</span><span>${escapeHtml(loc)}</span></div>
-            ${_extraRow}
-          </div>
-        </div>
-        <div class="usel-fuel ${_gasCls}">
-          <div class="usel-fuel-bar"><i style="height:${_gasPct}%"></i></div>
-          <div class="usel-fuel-num"><span class="material-icons">local_gas_station</span>${_gasLabel}</div>
-        </div>
+      <div class="usel-head">
+        <div class="usel-mva">${escapeHtml(d.mva || '')}</div>
+        <button class="usel-close" onclick="cerrarPanel()" aria-label="Cerrar"><span class="material-icons">close</span></button>
+      </div>
+      <div class="usel-model">${escapeHtml(d.modelo || 'S/M')}</div>
+      <div class="usel-grid">
+        <div class="usel-row"><span class="material-icons">sell</span><span>${escapeHtml(d.placas || 'N/A')}</span></div>
+        <div class="usel-row"><span class="material-icons">settings</span><span>${escapeHtml(d.estado || 'N/A')}</span></div>
+        <div class="usel-row"><span class="material-icons">location_on</span><span>${escapeHtml(loc)}</span></div>
+        ${_extraRow}
+      </div>
+      <div class="usel-fuel ${_gasCls}">
+        <span class="material-icons">local_gas_station</span>
+        <div class="usel-fuel-track"><i style="width:${_gasPct}%"></i></div>
+        <span class="usel-fuel-num">${_gasLabel}</span>
       </div>
       ${_notaHtml}
       <div class="usel-etiqueta">
@@ -5256,6 +5255,10 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
           <option value="URGENTE">Marcar urgente</option>
           <option value="MANTENIMIENTO">Mandar a taller</option>
         </select>
+      </div>
+      <div class="usel-mov">
+        <div class="usel-mov-title">Últimos movimientos</div>
+        <div class="usel-mov-list" id="uselMovList"><div class="usel-mov-empty">Cargando…</div></div>
       </div>
     </div>
   `;
@@ -5323,6 +5326,8 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const _ip = document.getElementById('info-panel');
   _ip.classList.remove('expanded');
   _ip.classList.add('open');
+  document.body.classList.add('info-open');   // empuja el mapa (desktop)
+  _renderUltimosMovimientos(d.mva);
   _renderSwapStatus();
   const zoomControls = document.querySelector('.zoom-controls');
   if (zoomControls) zoomControls.classList.add('panel-open');
@@ -5331,6 +5336,42 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   // etiqueta ahora es el dropdown del detalle y "agregar recordatorio" vive en ACCIONES.
   const _extrasBox = document.getElementById('panel-extras-unidad');
   if (_extrasBox) _extrasBox.style.display = 'none';
+}
+
+// ── Últimos movimientos de la unidad (panel) — cache corto para no re-bajar 500 docs ──
+let _movLogsCache = null;
+let _movLogsCacheAt = 0;
+async function _getHistorialLogsCached() {
+  const now = Date.now();
+  if (_movLogsCache && (now - _movLogsCacheAt) < 30000) return _movLogsCache;
+  _movLogsCache = (typeof api !== 'undefined' && api.obtenerHistorialLogs) ? await api.obtenerHistorialLogs() : [];
+  _movLogsCacheAt = now;
+  return _movLogsCache;
+}
+async function _renderUltimosMovimientos(mva) {
+  const list = document.getElementById('uselMovList');
+  if (!list) return;
+  const target = String(mva || '').trim().toUpperCase();
+  try {
+    const logs = await _getHistorialLogsCached();
+    // Si el panel cambió de unidad mientras cargaba, no pisar.
+    if (document.getElementById('uselMovList') !== list) return;
+    const propios = logs
+      .filter(l => String(l.mva || '').trim().toUpperCase() === target && (l.detalles || l.accion))
+      .slice(0, 8);
+    list.innerHTML = propios.length
+      ? propios.map(l => `
+        <div class="usel-mov-item">
+          <span class="usel-mov-dot"></span>
+          <div class="usel-mov-body">
+            <div class="usel-mov-move">${escapeHtml(l.detalles || l.accion || '')}</div>
+            <div class="usel-mov-meta">${escapeHtml(l.fecha || '')}${l.autor ? ' · ' + escapeHtml(l.autor) : ''}</div>
+          </div>
+        </div>`).join('')
+      : '<div class="usel-mov-empty">Sin movimientos recientes.</div>';
+  } catch (e) {
+    if (list.isConnected) list.innerHTML = '<div class="usel-mov-empty">No se pudo cargar el historial.</div>';
+  }
 }
 
 document.addEventListener('click', (e) => {
@@ -5476,6 +5517,7 @@ function cerrarPanel() {
   MAP_SWAP_MODE_ACTIVE = false;
   selectedAuto = null;
   document.getElementById('info-panel').classList.remove('open', 'expanded');
+  document.body.classList.remove('info-open');   // deja de empujar el mapa
   document.getElementById('swap-container').innerHTML = "";
 
   const zoomBtn = document.querySelector('.zoom-controls');

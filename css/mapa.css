@@ -1964,9 +1964,11 @@
       width: 90%;
       max-width: 500px;
       /* No deja que sea kilométrico en monitores grandes */
-      background: var(--surface, rgba(255, 255, 255, 0.95));
-      /* Theme-aware: en dark usa superficie oscura para que el texto (var(--text)) se lea */
-      backdrop-filter: blur(15px);
+      background: color-mix(in srgb, var(--surface, #ffffff) 80%, transparent);
+      /* Glass: superficie semi-transparente + blur, theme-aware (menos estorbosa) */
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      border: 1px solid color-mix(in srgb, var(--border, #e2e8f0) 55%, transparent);
       /* Efecto cristal */
       z-index: 2500;
       transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1992,20 +1994,20 @@
        UNIDAD SELECCIONADA — rediseño (spec MapGestion / Obsidian)
        Tokens de shell.css (SPA) o base.css (legacy).
        ═══════════════════════════════════════════════════════════ */
-    .usel { position: relative; display: flex; flex-direction: column; }
-    .usel-close {
-      position: absolute; top: -6px; right: -6px; z-index: 3;
-      width: 30px; height: 30px; border-radius: 9999px; border: none;
-      background: var(--bg, #f1f5f9); color: var(--text-muted, #64748b);
-      display: flex; align-items: center; justify-content: center; cursor: pointer;
-    }
-    .usel-close .material-icons { font-size: 18px; }
-    .usel-top { display: flex; gap: 16px; align-items: stretch; }
-    .usel-info { flex: 1; min-width: 0; }
+    .usel { position: relative; display: flex; flex-direction: column; min-height: 0; }
+    .usel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     .usel-mva {
       font-size: 34px; font-weight: 900; line-height: 1;
       color: var(--text, #0f172a); letter-spacing: -0.02em;
     }
+    .usel-close {
+      flex-shrink: 0; width: 32px; height: 32px; border-radius: 9999px; border: none;
+      background: color-mix(in srgb, var(--text-muted, #64748b) 14%, transparent);
+      color: var(--text-muted, #64748b); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; transition: background .15s;
+    }
+    .usel-close:hover { background: color-mix(in srgb, var(--text-muted, #64748b) 26%, transparent); }
+    .usel-close .material-icons { font-size: 20px; }
     .usel-model {
       font-size: 14px; font-weight: 800; text-transform: uppercase;
       color: var(--text, #1e293b); margin: 6px 0 14px; letter-spacing: 0.02em;
@@ -2017,24 +2019,18 @@
     }
     .usel-row .material-icons { font-size: 18px; color: var(--text-muted, #94a3b8); flex-shrink: 0; }
     .usel-row span:last-child { overflow: hidden; text-overflow: ellipsis; }
-    /* Medidor de gasolina vertical — margin-top libera la X de cerrar (arriba-derecha) */
-    .usel-fuel { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-shrink: 0; margin-top: 30px; }
-    .usel-fuel-bar {
-      width: 9px; flex: 1; min-height: 120px; border-radius: 9999px;
-      background: var(--border, #e2e8f0); position: relative; overflow: hidden;
-      display: flex; align-items: flex-end;
-    }
-    .usel-fuel-bar > i { display: block; width: 100%; border-radius: 9999px; background: var(--color-success, #10b981); transition: height 0.3s ease; }
-    .usel-fuel.is-mid .usel-fuel-bar > i { background: var(--color-warning, #f59e0b); }
-    .usel-fuel.is-low .usel-fuel-bar > i { background: var(--color-error, #ef4444); }
-    .usel-fuel-num { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 13px; font-weight: 800; color: var(--text, #0f172a); }
-    .usel-fuel-num .material-icons { font-size: 18px; color: var(--text, #334155); }
+    /* Medidor de gasolina HORIZONTAL */
+    .usel-fuel { display: flex; align-items: center; gap: 10px; margin: 16px 0 4px; }
+    .usel-fuel > .material-icons { font-size: 20px; color: var(--text-muted, #64748b); flex-shrink: 0; }
+    .usel-fuel-track { flex: 1; height: 8px; border-radius: 9999px; background: var(--border, #e2e8f0); overflow: hidden; }
+    .usel-fuel-track > i { display: block; height: 100%; border-radius: 9999px; background: var(--color-success, #10b981); transition: width 0.3s ease; }
+    .usel-fuel.is-mid .usel-fuel-track > i { background: var(--color-warning, #f59e0b); }
+    .usel-fuel.is-low .usel-fuel-track > i { background: var(--color-error, #ef4444); }
+    .usel-fuel-num { font-size: 13px; font-weight: 800; color: var(--text, #0f172a); flex-shrink: 0; min-width: 40px; text-align: right; }
     /* Nota */
     .usel-note { border-top: 1px solid var(--border, #e2e8f0); margin-top: 14px; padding-top: 14px; }
     .usel-note-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .usel-note-author { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; color: var(--text-muted, #64748b); }
-    .usel-note-edit { background: none; border: none; cursor: pointer; color: var(--text-muted, #94a3b8); padding: 2px; display: flex; }
-    .usel-note-edit .material-icons { font-size: 18px; }
     .usel-note-text { font-size: 14px; color: var(--text, #1e293b); margin: 6px 0 8px; line-height: 1.45; }
     .usel-note-time { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-muted, #64748b); }
     .usel-note-time .material-icons { font-size: 15px; }
@@ -2042,8 +2038,8 @@
     .usel-etiqueta { position: relative; margin-top: 14px; }
     .usel-etiqueta select {
       width: 100%; appearance: none; -webkit-appearance: none;
-      padding: 14px 42px 14px 16px; border: 1px solid var(--border, #e2e8f0);
-      border-radius: 12px; background: var(--surface, #ffffff);
+      padding: 13px 42px 13px 16px; border: 1px solid var(--border, #e2e8f0);
+      border-radius: 12px; background: color-mix(in srgb, var(--surface, #ffffff) 55%, transparent);
       color: var(--text-muted, #475569); font-size: 13px; font-weight: 800;
       letter-spacing: 0.03em; cursor: pointer; font-family: inherit;
     }
@@ -2052,15 +2048,20 @@
       position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
       color: var(--text-muted, #94a3b8); pointer-events: none;
     }
-    /* Footer: banda con LIMBO + ACCIONES (mockup) */
+    /* Últimos movimientos — llena el espacio sobrante y scrollea */
+    .usel-mov { display: flex; flex-direction: column; min-height: 0; margin-top: 18px; }
+    .usel-mov-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted, #64748b); margin-bottom: 10px; flex-shrink: 0; }
+    .usel-mov-list { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; max-height: 30vh; }
+    .usel-mov-item { display: flex; gap: 10px; align-items: flex-start; }
+    .usel-mov-dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--accent, #3b82f6); margin-top: 5px; flex-shrink: 0; }
+    .usel-mov-body { flex: 1; min-width: 0; }
+    .usel-mov-move { font-size: 13px; font-weight: 700; color: var(--text, #1e293b); }
+    .usel-mov-meta { font-size: 11px; color: var(--text-muted, #94a3b8); margin-top: 1px; }
+    .usel-mov-empty { font-size: 12px; color: var(--text-muted, #94a3b8); }
+    /* Footer: LIMBO + ACCIONES SIN banda de color detrás */
     #info-panel #infoPanelBtnGrid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-top: 18px;
-      padding: 16px;
-      background: var(--bg, #f1f5f9);
-      border-radius: 16px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+      margin-top: 16px; padding: 0; background: transparent;
     }
 
     /* Desktop: el panel de detalle se abre a la DERECHA, más compacto y menos alto.
@@ -2087,8 +2088,31 @@
       .info-sidebar.open {
         transform: translateX(0);
       }
-      /* Footer pegado al fondo del sidebar */
-      #info-panel #infoPanelBtnGrid { margin-top: auto; }
+      /* Alto completo: el detalle llena y "últimos movimientos" scrollea dentro;
+         el footer queda al fondo. El sidebar no hace scroll global. */
+      #info-panel #detalle-unidad { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+      #info-panel .usel { flex: 1 1 auto; min-height: 0; }
+      #info-panel .usel-mov-list { max-height: none; }
+      body.info-open .info-sidebar { overflow: hidden; }
+      /* El sidebar EMPUJA el mapa (no lo tapa): el viewport se encoge a la izquierda. */
+      .content { transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+      body.info-open .content { right: 400px; }
+    }
+
+    /* ── Scrollbar del mapa (.content) — prominente y fácil de agarrar ── */
+    .content::-webkit-scrollbar { width: 14px; height: 14px; }
+    .content::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.04); border-radius: 9999px; }
+    .content::-webkit-scrollbar-thumb {
+      background: color-mix(in srgb, var(--accent, #3b82f6) 60%, transparent);
+      border-radius: 9999px;
+      border: 3px solid transparent;
+      background-clip: padding-box;
+      transition: background 0.15s;
+    }
+    .content::-webkit-scrollbar-thumb:hover { background: var(--accent, #3b82f6); background-clip: padding-box; }
+    .content::-webkit-scrollbar-corner { background: transparent; }
+    @supports not selector(::-webkit-scrollbar) {
+      .content { scrollbar-width: auto; scrollbar-color: var(--accent, #3b82f6) rgba(255,255,255,0.06); }
     }
 
     .btn-swap-confirm {
