@@ -5327,6 +5327,7 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   _ip.classList.remove('expanded');
   _ip.classList.add('open');
   document.body.classList.add('info-open');   // empuja el mapa (desktop)
+  _scrollSelectedIntoView(d.mva);             // trae la unidad al área visible
   _renderUltimosMovimientos(d.mva);
   _renderSwapStatus();
   const zoomControls = document.querySelector('.zoom-controls');
@@ -5336,6 +5337,24 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   // etiqueta ahora es el dropdown del detalle y "agregar recordatorio" vive en ACCIONES.
   const _extrasBox = document.getElementById('panel-extras-unidad');
   if (_extrasBox) _extrasBox.style.display = 'none';
+}
+
+// Al abrir el panel (que empuja el mapa), centra la unidad seleccionada en el
+// área visible para no perderla detrás del sidebar. Espera a que .content se
+// encoja (transición ~0.3s) antes de medir.
+function _scrollSelectedIntoView(mva) {
+  if (window.innerWidth < 769) return; // el empuje solo aplica en desktop
+  const content = document.querySelector('.content');
+  const car = document.getElementById('auto-' + mva) || selectedAuto;
+  if (!car || !content) return;
+  setTimeout(() => {
+    if (!car.isConnected || !content.isConnected) return;
+    const cr = car.getBoundingClientRect();
+    const vr = content.getBoundingClientRect();
+    const left = Math.max(0, (cr.left - vr.left) + content.scrollLeft + cr.width / 2 - vr.width / 2);
+    const top = Math.max(0, (cr.top - vr.top) + content.scrollTop + cr.height / 2 - vr.height / 2);
+    content.scrollTo({ left, top, behavior: 'smooth' });
+  }, 340);
 }
 
 // ── Últimos movimientos de la unidad (panel) — cache corto para no re-bajar 500 docs ──
