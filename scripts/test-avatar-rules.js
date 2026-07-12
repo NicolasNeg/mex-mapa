@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const { initializeTestEnvironment } = require('@firebase/rules-unit-testing');
 const { doc, setDoc, updateDoc } = require('firebase/firestore');
-const { ref, uploadBytes } = require('firebase/storage');
+const { ref, uploadBytes, deleteObject } = require('firebase/storage');
 
 const root = path.join(__dirname, '..');
 const UID = 'user-uid-123';
@@ -46,6 +46,17 @@ const EMAIL = 'gerente@gmail.com';
     });
     results.push(['Firestore: escribir campos avatar', 'ALLOWED ✅']);
   } catch (e) { results.push(['Firestore: escribir campos avatar', 'DENIED ❌ ' + (e.code || e.message)]); }
+
+  // 3. Storage: BORRAR el avatar anterior (limpieza) bajo el path del email
+  await testEnv.withSecurityRulesDisabled(async (c) => {
+    const st = c.storage();
+    await uploadBytes(ref(st, `profile_avatars/${EMAIL}/avatar_old.jpg`), new Uint8Array([255, 216, 255, 0]), { contentType: 'image/jpeg' });
+  });
+  try {
+    const st = ctx.storage();
+    await deleteObject(ref(st, `profile_avatars/${EMAIL}/avatar_old.jpg`));
+    results.push(['Storage: borrar avatar anterior (email path)', 'ALLOWED ✅']);
+  } catch (e) { results.push(['Storage: borrar avatar anterior (email path)', 'DENIED ❌ ' + (e.code || e.message)]); }
 
   console.log('\n── Cambiar foto de perfil ──');
   for (const [l, r] of results) console.log(`  ${r.padEnd(26)}  ${l}`);

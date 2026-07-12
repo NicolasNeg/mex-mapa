@@ -165,9 +165,18 @@ service firebase.storage {
 
     match /profile_avatars/{userDocId}/{fileName} {
       allow read: if tienePerfilActual();
+      // request.resource == null en un DELETE (limpieza del avatar anterior).
+      // Antes exigíamos size/contentType siempre → el delete daba 403 porque
+      // esos campos no existen al borrar. Ahora: borrar si es dueño; subir si
+      // además es imagen válida y de tamaño permitido.
       allow write: if esDocumentoUsuarioPropio(userDocId)
-        && request.resource.size < 12 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 12 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*')
+          )
+        );
     }
 
     match /empresa_config/{fileName} {
