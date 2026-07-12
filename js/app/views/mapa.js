@@ -16,11 +16,15 @@ let _shell     = null;
 // ── CSS legacy ───────────────────────────────────────────────
 function _ensureCss() {
   if (document.querySelector('link[data-lmapa-css]')) return;
-  const link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = '/css/mapa.css';
-  link.setAttribute('data-lmapa-css', '1');
-  document.head.appendChild(link);
+  // mapa.css + alertas.css (el estilo de alertas y del feed vive en alertas.css;
+  // el SPA no carga global.css, así que hay que inyectarla aquí o salen sin estilo).
+  ['/css/mapa.css', '/css/alertas.css'].forEach(href => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.setAttribute('data-lmapa-css', '1');
+    document.head.appendChild(link);
+  });
 }
 
 // ── Stage persistente ────────────────────────────────────────
