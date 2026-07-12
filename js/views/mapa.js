@@ -5095,6 +5095,31 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Traduce niveles de gasolina a % — lee F/H/E, palabras, fracciones y números.
+// F=Full=100, H=Half=50, E=Empty=0; "8/8"=100, "1/2"=50; números → % (0–100).
+function _fuelToPct(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim().toUpperCase();
+  if (!s || s === 'N/A' || s === 'NA' || s === '-') return null;
+  if (/^(F|FULL|LLENO|LLENA)$/.test(s)) return 100;
+  if (/^(H|HALF|MEDIO|MEDIA|1\/2)$/.test(s)) return 50;
+  if (/^(E|EMPTY|VAC[IÍ]O|VAC[IÍ]A)$/.test(s)) return 0;
+  const frac = s.match(/^(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)$/);
+  if (frac) { const den = parseFloat(frac[2]); if (den > 0) return Math.max(0, Math.min(100, Math.round(parseFloat(frac[1]) / den * 100))); }
+  const n = parseFloat(s.replace('%', '').replace(',', '.'));
+  if (!isNaN(n)) return Math.max(0, Math.min(100, Math.round(n)));
+  return null;
+}
+
+// Desconcatena una nota guardada como "(fecha) [autor] texto" en sus partes.
+function _parseNota(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  const m = s.match(/^\(([^)]*)\)\s*(?:\[([^\]]*)\]\s*)?([\s\S]*)$/);
+  if (m) return { fecha: (m[1] || '').trim(), autor: (m[2] || '').trim(), texto: (m[3] || '').trim() };
+  return { fecha: '', autor: '', texto: s };
+}
+
 function mostrarDetalle(d, esActualizacionRemota = false) {
   if (!esActualizacionRemota) {
     const inputD = document.getElementById('searchInput');
@@ -5117,10 +5142,10 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const esApartado = notesUpper.includes("RESERVAD") || notesUpper.includes("APARTAD");
   const esManto = d.estado === "MANTENIMIENTO" || d.estado === "TALLER";
 
-  // Gasolina → medidor vertical
-  const _gasNum = parseInt(String(d.gasolina ?? '').replace('%', ''), 10);
-  const _gasValid = !isNaN(_gasNum);
-  const _gasPct = _gasValid ? Math.max(0, Math.min(100, _gasNum)) : 0;
+  // Gasolina → medidor vertical (traduce F/H/E, fracciones y números)
+  const _gasPctRaw = _fuelToPct(d.gasolina);
+  const _gasValid = _gasPctRaw != null;
+  const _gasPct = _gasValid ? _gasPctRaw : 0;
   const _gasLabel = _gasValid ? `${_gasPct}%` : 'N/A';
   const _gasCls = !_gasValid ? '' : (_gasPct < 20 ? 'is-low' : _gasPct < 50 ? 'is-mid' : '');
 
@@ -5128,10 +5153,13 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const _extra = esDobleCero ? 'DOBLE CERO' : esUrgente ? 'URGENTE' : esApartado ? 'APARTADA' : '';
   const _extraRow = _extra
     ? `<div class="usel-row"><span class="material-icons">info</span><span>${escapeHtml(_extra)}</span></div>` : '';
-  const _notaHtml = d.notas ? `
+  // Nota concatenada "(fecha) [autor] texto" → desconcatenada (autor + texto + fecha)
+  const _nota = _parseNota(d.notas);
+  const _notaHtml = (_nota && _nota.texto) ? `
       <div class="usel-note">
-        <div class="usel-note-head"><span class="usel-note-author">NOTA</span></div>
-        <div class="usel-note-text">${escapeHtml(d.notas)}</div>
+        <div class="usel-note-head"><span class="usel-note-author">${_nota.autor ? 'NOTA DE: ' + escapeHtml(_nota.autor) : 'NOTA'}</span></div>
+        <div class="usel-note-text">${escapeHtml(_nota.texto)}</div>
+        ${_nota.fecha ? `<div class="usel-note-time"><span class="material-icons">schedule</span> ${escapeHtml(_nota.fecha)}</div>` : ''}
       </div>` : '';
 
   document.getElementById('detalle-unidad').innerHTML = `
@@ -5183,6 +5211,7 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
 
   if (d.estado !== "LISTO") actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'LISTO')"><span class="material-icons" style="color:#10b981">check_circle</span> PONER EN "LISTO"</div>`;
   actionsHtml += `<div class="action-item" onclick="activarModoSwap()"><span class="material-icons" style="color:#2563eb">swap_horiz</span> CAMBIAR POSICIÓN</div>`;
+  actionsHtml += `<div class="action-item" onclick="abrirModalRecordatorio('${d.mva}')"><span class="material-icons" style="color:#8b5cf6">alarm_add</span> AGREGAR RECORDATORIO</div>`;
 
   // OPCIONES PARA QUITAR (BORRAN LAS NOTAS) - Solo Admins pueden quitar cosas delicadas
   if (esAdmin && esApartado) removeActions += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'QUITAR_APARTADO')"><span class="material-icons" style="color:#64748b">lock_open</span> QUITAR APARTADO</div>`;
@@ -5232,7 +5261,10 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const zoomControls = document.querySelector('.zoom-controls');
   if (zoomControls) zoomControls.classList.add('panel-open');
   // [F7] Panel de utilidades rápidas
-  if (typeof _renderPanelExtrasUnidad === 'function') _renderPanelExtrasUnidad(d.mva);
+  // Box viejo de extras (etiqueta/nota rápida/recordatorio) retirado del panel:
+  // etiqueta ahora es el dropdown del detalle y "agregar recordatorio" vive en ACCIONES.
+  const _extrasBox = document.getElementById('panel-extras-unidad');
+  if (_extrasBox) _extrasBox.style.display = 'none';
 }
 
 document.addEventListener('click', (e) => {
