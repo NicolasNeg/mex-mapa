@@ -526,7 +526,12 @@ function _buildStage(id, cfg, ctx) {
   loaderEl.className = 'app-legacy-stage__loader';
   loaderEl.id = `appLegacyStageLoader-${id}`;
   loaderEl.setAttribute('aria-live', 'polite');
-  loaderEl.innerHTML = `<span class="app-legacy-stage__loader-mark"></span><strong>${esc(cfg.title)}</strong><small>Sincronizando vista...</small>`;
+  // Skeleton de tabla para vistas de lista (cuadre) → ilusión de carga rápida.
+  const skel = id === 'cuadre'
+    ? `<div class="app-legacy-stage__skel" aria-hidden="true">${Array.from({ length: 7 }).map(() =>
+        `<div class="mex-skel-row"><span class="mex-skel mex-skel-avatar"></span><span class="mex-skel mex-skel-text w-40"></span><span class="mex-skel mex-skel-text w-80"></span><span class="mex-skel mex-skel-chip"></span></div>`).join('')}</div>`
+    : '';
+  loaderEl.innerHTML = `<span class="app-legacy-stage__loader-mark"></span><strong>${esc(cfg.title)}</strong><small>Sincronizando vista...</small>${skel}`;
 
   const iframeEl = document.createElement('iframe');
   iframeEl.id = `appLegacyStageFrame-${id}`;

@@ -53,6 +53,41 @@
   --shadow-glass: inset 0 1px 0 rgba(255, 255, 255, 0.10);
 }
 
+/* ── Skeleton loading (ilusión de carga) — theme-aware vía tokens ──
+   Uso: filas <div class="mex-skel-row"><span class="mex-skel mex-skel-avatar">…
+   El SPA carga shell.css, así que estas clases están disponibles en /app/*. */
+@keyframes mexSkelShimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+.mex-skel {
+  display: block;
+  position: relative;
+  border-radius: var(--radius-md, 8px);
+  background: linear-gradient(
+    100deg,
+    color-mix(in srgb, var(--border, #e2e8f0) 55%, transparent) 30%,
+    color-mix(in srgb, var(--border, #e2e8f0) 90%, transparent) 50%,
+    color-mix(in srgb, var(--border, #e2e8f0) 55%, transparent) 70%
+  );
+  background-size: 200% 100%;
+  animation: mexSkelShimmer 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mex-skel { animation-duration: 0s; }
+}
+.mex-skel-text { height: 12px; width: 100%; }
+.mex-skel-text.w-40 { width: 40%; }
+.mex-skel-text.w-60 { width: 60%; }
+.mex-skel-text.w-80 { width: 80%; }
+.mex-skel-chip { height: 20px; width: 64px; border-radius: var(--radius-full, 9999px); }
+.mex-skel-avatar { height: 40px; width: 40px; border-radius: 9999px; flex-shrink: 0; }
+.mex-skel-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border, #e2e8f0); }
+.mex-skel-row > .mex-skel { flex: 1; }
+.mex-skel-row .mex-skel-avatar { flex: 0 0 auto; }
+.mex-skel-row:nth-child(2n) .mex-skel { animation-delay: .15s; }
+.mex-skel-row:nth-child(3n) .mex-skel { animation-delay: .30s; }
+
 body.dark-theme {
   /* Design tokens (dark) */
   --bg:            #0f172a;

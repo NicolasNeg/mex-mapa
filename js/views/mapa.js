@@ -21995,6 +21995,11 @@ function _actualizarPanelSupervision() {
   const panel = document.getElementById('panel-supervision');
   if (!panel) return;
 
+  // Desactivado: el chip de supervisión multi-plaza (BJX · % ocupado · counts)
+  // no aporta valor (single-tenant) y estorbaba sobre el mapa. Se oculta siempre.
+  panel.style.display = 'none';
+  return;
+
   // Solo visible para roles que pueden ver todas las plazas
   const canSeeAll = _puedeVerTodasPlazas && _puedeVerTodasPlazas();
   if (!canSeeAll) { panel.style.display = 'none'; return; }
