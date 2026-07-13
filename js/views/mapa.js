@@ -4911,28 +4911,30 @@ async function _handleMapZoneDrop(event) {
   await _handleMapUnitDrop(sourceCar, zone, { fromDrag: true });
 }
 
+// Móvil: SIN drag & drop. Tap corto = carry (levantar y tocar un cajón para
+// colocar; lo maneja el listener global de 'click'). Long-press = ver info en la
+// hoja inferior. (Plan aprobado — ver project_pending_mapa_panel en memoria.)
+let _carLongPressTimer = null;
+let _carLongPressStart = null;
+function _cancelCarLongPress() {
+  if (_carLongPressTimer) { clearTimeout(_carLongPressTimer); _carLongPressTimer = null; }
+  _carLongPressStart = null;
+}
 function _handleMapCarTouchStart(event) {
   if (event.touches.length !== 1 || _mapaRuntime.pinchState) return;
   const car = event.currentTarget;
   const touch = event.touches[0];
-  _finishMapDrag();
-  _mapDragState.sourceCar = car;
-  _mapDragState.pendingTouch = { id: touch.identifier, startX: touch.clientX, startY: touch.clientY };
-  _mapDragState.touchTimer = setTimeout(() => {
-    _mapDragState.active = true;
-    _mapDragState.activeTouchId = touch.identifier;
-    _selectCarOnMap(car, { openPanel: false, preserveSwap: true });
-    car.classList.add('drag-origin');
-    // [F2.4] Highlight del spot origen
-    const sourceSpot = car.parentElement;
-    if (sourceSpot?.classList.contains('spot')) {
-      sourceSpot.classList.add('spot-drag-origin');
-      _mapDragState.sourceSpot = sourceSpot;
-    }
-    // [F2.10] Mostrar cajones disponibles compatibles
-    _mostrarSugerenciasDisponibles(car);
-    _createMapDragGhost(car, touch.clientX, touch.clientY);
-  }, 220);
+  _cancelCarLongPress();
+  _carLongPressStart = { x: touch.clientX, y: touch.clientY };
+  _carLongPressTimer = setTimeout(() => {
+    _carLongPressTimer = null;
+    // Long-press = ver info. Cancela cualquier carry en curso y suprime el click
+    // que sigue al soltar para que NO entre en modo mover.
+    _exitCarrySelect();
+    _mapDragSuppressClickUntil = Date.now() + 700;
+    if (navigator.vibrate) { try { navigator.vibrate(12); } catch (_) {} }
+    _selectCarOnMap(car, { openPanel: true });
+  }, 480);
 }
 
 function _startPointerMapDrag(pointerState, clientX, clientY) {
@@ -5003,6 +5005,12 @@ async function _handleMapPointerUp(event) {
 }
 
 function _handleMapTouchDragMove(event) {
+  // Si el dedo se mueve (scroll/pan), cancela el long-press pendiente: no era
+  // una pulsación sostenida sobre la unidad.
+  if (_carLongPressTimer && _carLongPressStart) {
+    const t = event.touches[0];
+    if (t && Math.hypot(t.clientX - _carLongPressStart.x, t.clientY - _carLongPressStart.y) > 12) _cancelCarLongPress();
+  }
   if (_mapDragState.touchTimer && !_mapDragState.active && _mapDragState.pendingTouch) {
     const touch = Array.from(event.touches).find(t => t.identifier === _mapDragState.pendingTouch.id);
     if (!touch) return;
@@ -5022,6 +5030,9 @@ function _handleMapTouchDragMove(event) {
 }
 
 async function _handleMapTouchDragEnd(event) {
+  // Tap corto: cancela el long-press pendiente; el 'click' que sigue levanta la
+  // unidad para mover (modo carry). Si el long-press ya disparó, no hay timer.
+  _cancelCarLongPress();
   if (_mapDragState.touchTimer && !_mapDragState.active) {
     _finishMapDrag();
     return;
@@ -5106,7 +5117,11 @@ function _enterCarrySelect(car) {
   document.body.classList.add('car-carrying');
   if (!window.__mexCarryHintShown) {
     window.__mexCarryHintShown = true;
-    if (typeof showToast === 'function') showToast('Clic en un cajón para colocar · Esc cancela · clic derecho = ver info', 'info');
+    const _touch = window.matchMedia('(pointer: coarse)').matches;
+    const _hint = _touch
+      ? 'Toca un cajón para colocar · mantén presionada la unidad para ver info'
+      : 'Clic en un cajón para colocar · Esc cancela · clic derecho = ver info';
+    if (typeof showToast === 'function') showToast(_hint, 'info');
   }
   _carryPointerHandler = (e) => {
     if (!_carrySelectCar) return;
