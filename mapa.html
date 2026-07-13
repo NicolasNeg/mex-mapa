@@ -236,20 +236,15 @@
     </div>
   </div>
 
-  <div id="crear-alerta-modal" class="fleet-modal">
-    <div class="fleet-header-top">
-      <div style="display:flex; align-items:center; gap:10px;">
-        <h2 id="tituloModalCrearAlerta"
-          style="color:#ef4444; font-weight:900; margin:0; font-size:clamp(14px,3vw,20px);">
-          <span class="material-icons" style="font-size:22px; vertical-align:bottom;">campaign</span> EMITIR ALERTA
-          MAESTRA
-        </h2>
+  <div id="crear-alerta-modal" class="fleet-modal alrt-hist-modal">
+    <div class="fleet-header-top alrt-hist-header">
+      <div class="alrt-hist-header-title">
+        <h2 id="tituloModalCrearAlerta"><span class="material-icons">campaign</span> Emitir alerta maestra</h2>
       </div>
-      <button onclick="document.getElementById('crear-alerta-modal').classList.remove('active')"
-        style="background:#f1f5f9; color:var(--text); border:none; padding:10px 20px; border-radius:10px; font-size:14px; font-weight:800; cursor:pointer;">CERRAR</button>
+      <button class="alrt-hist-close" onclick="document.getElementById('crear-alerta-modal').classList.remove('active')">Cerrar</button>
     </div>
 
-    <div class="fleet-wrapper" style="overflow-y:auto; background:#f1f5f9; padding:18px; align-items:flex-start;">
+    <div class="fleet-wrapper" style="overflow-y:auto; background:transparent; padding:18px; align-items:flex-start;">
       <div class="alerta-studio-layout">
 
         <!-- ══ COLUMNA IZQUIERDA: Configuración ══ -->
