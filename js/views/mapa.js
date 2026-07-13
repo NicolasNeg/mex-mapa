@@ -408,7 +408,8 @@ function showToast(msg, type = 'success') {
   }
   const t = document.createElement('div');
   t.className = `toast ${type}`;
-  t.innerHTML = `<span class="material-icons">${type === 'success' ? 'check_circle' : 'error'}</span> ${msg}`;
+  const _toastIcons = { success: 'check_circle', error: 'error', warning: 'warning', info: 'info', search: 'search', notfound: 'search_off' };
+  t.innerHTML = `<span class="material-icons">${_toastIcons[type] || 'check_circle'}</span> ${msg}`;
   box.appendChild(t);
   setTimeout(() => { if (t.parentElement) t.remove(); }, 3500);
 }
@@ -4023,6 +4024,9 @@ function ejecutarFiltroMasivo(queryOverride) {
   }
   const query = raw.toLowerCase().trim();
 
+  // Cancelar cualquier aviso de búsqueda pendiente (se reprograma abajo si aplica).
+  clearTimeout(_resumenBusquedaTimer);
+
   // Sincronizar todas las barras de búsqueda con el mismo texto
   [inputDesktop, inputMobile, inputFloat].forEach(el => { if (el && el.value !== raw) el.value = raw; });
 
@@ -4115,6 +4119,54 @@ function ejecutarFiltroMasivo(queryOverride) {
     clearTimeout(window._searchPanelTimer);
     clearTimeout(window._searchFocusTimer);
   }
+
+  // Aviso de búsqueda (debounced): solo "No existente" cuando no hay resultados;
+  // en móvil, un mini-resumen de lo encontrado. En PC con resultados no molesta
+  // (el zoom/highlight ya es feedback). Ver enfocarCajon (ya no toastea "localizada").
+  _programarResumenBusqueda(query, coincidencias);
+}
+
+// Aviso diferido para no spamear en cada tecla: solo dispara ~450ms tras dejar
+// de escribir (cada llamada cancela el timer previo en ejecutarFiltroMasivo).
+let _resumenBusquedaTimer = null;
+function _programarResumenBusqueda(query, coincidencias) {
+  if (!query) return;
+  const encontrados = coincidencias.slice();
+  _resumenBusquedaTimer = setTimeout(() => {
+    if (encontrados.length === 0) {
+      showToast(`«${query}» — No existente`, 'notfound');
+      return;
+    }
+    if (window.innerWidth <= 768) {
+      showToast(_construirResumenBusqueda(encontrados), 'search');
+    }
+  }, 450);
+}
+
+// "Hay 3 jettas · 1 listo, 2 sucio" — agrupa por modelo (dominante) y estado.
+function _construirResumenBusqueda(cars) {
+  const modelos = {}, estados = {};
+  cars.forEach(c => {
+    const m = String(c.dataset.modelo || '').trim().toLowerCase();
+    if (m) modelos[m] = (modelos[m] || 0) + 1;
+    const e = String(c.dataset.estado || '').trim().toLowerCase();
+    if (e) estados[e] = (estados[e] || 0) + 1;
+  });
+  const total = cars.length;
+  const modeloEntries = Object.entries(modelos).sort((a, b) => b[1] - a[1]);
+  let cabeza;
+  if (modeloEntries.length === 1) {
+    const [nombre] = modeloEntries[0];
+    const plural = total === 1 || /s$/.test(nombre) ? nombre : nombre + 's';
+    cabeza = `Hay ${total} ${plural}`;
+  } else {
+    cabeza = `Hay ${total} unidad${total === 1 ? '' : 'es'}`;
+  }
+  const detalleEstados = Object.entries(estados)
+    .sort((a, b) => b[1] - a[1])
+    .map(([e, n]) => `${n} ${e}`)
+    .join(', ');
+  return detalleEstados ? `${cabeza} · ${detalleEstados}` : cabeza;
 }
 
 // ── Buscador flotante del mapa (opción "Buscar unidad" del engranaje) ──────
@@ -5733,8 +5785,8 @@ function enfocarCajon(elemento) {
       left: targetLeft,
       behavior: 'smooth'
     });
-
-    showToast("Unidad localizada 🎯", "success");
+    // (Sin toast de "localizada": el zoom + highlight ya son feedback suficiente.
+    //  El aviso solo aparece cuando NO se encuentra — ver _programarResumenBusqueda.)
   }, 50);
 }
 
