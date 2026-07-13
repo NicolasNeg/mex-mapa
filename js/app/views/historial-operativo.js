@@ -65,6 +65,14 @@ function _tipoBadgeClass(tipo) {
   return map[t] || 'badge-otro';
 }
 
+// Etiqueta visible del tipo. Un cambio de estado/etiqueta (doble cero, etc.) se
+// guarda como MODIF pero el usuario lo conoce como EDIT (nuevo estado/etiqueta).
+// Solo cambia el texto; el valor real (MODIF) se conserva para filtrar.
+function _tipoLabel(tipo) {
+  const t = String(tipo || '').toUpperCase();
+  return (t === 'MODIF' || t === 'MODIFICACION') ? 'EDIT' : t;
+}
+
 // ── Popover cajón-a-cajón (solo PC con hover) ────────────────
 // Al pasar el ratón sobre una fila reproduce una vez la animación
 // de la unidad deslizándose del cajón origen al destino.
@@ -153,7 +161,7 @@ function _renderShell() {
           <input id="hist-op-qEst" type="text" placeholder="Buscar unidad, autor, acción…" value="${esc(_state.qEst)}">
           <select id="hist-op-tipoEst">
             ${['TODOS','IN','BAJA','MODIF','GESTION'].map(t =>
-              `<option value="${t}" ${_state.tipoEst===t?'selected':''}>${t}</option>`).join('')}
+              `<option value="${t}" ${_state.tipoEst===t?'selected':''}>${_tipoLabel(t)}</option>`).join('')}
           </select>
           <button id="hist-op-recargarEst" class="hist-op-btn-refresh">
             <span class="material-icons">sync</span>
@@ -239,7 +247,7 @@ function _renderEstado() {
         ${rows.map(r => `
           <tr>
             <td class="hist-op-cell-date">${esc(r.fecha)}</td>
-            <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}">${esc(r.tipo||'OTRO')}</span></td>
+            <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}">${esc(_tipoLabel(r.tipo)||'OTRO')}</span></td>
             <td>${esc(r.accion || r.detalles || '')}</td>
             <td>${esc(r.autor || r.usuario || '')}</td>
           </tr>`).join('')}
