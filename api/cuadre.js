@@ -14,7 +14,7 @@
     _uploadAdminEvidenceFiles, _deleteEvidenceFiles,
     _windowLocationAuditExtra, _matchesPlaza, _sanitizeText,
     _getSettings, _setSettings, _ensureGlobalSettingsDoc, _buildPlazaScopedQuery,
-    _isMissingIndexError, _warnQueryFallback
+    _isMissingIndexError, _warnQueryFallback, _clasificarMovimientoPatio
   } = window._mex;
 
   // Sincroniza la ubicación global de la unidad en index_unidades sin leer los
@@ -349,12 +349,12 @@
       // Sincronizar la posición global de cada unidad movida (pos = nuevo cajón).
       histBatch.forEach(h => _syncIndexUbicacion(h.mva, { plazaActual: plazaUp || '', pos: h.posNueva }));
 
-      const pairKeys = new Map();
+      // Solo movimientos REALES. (Bug previo: se insertaba la clave inversa con "+0",
+      // así que has(reverse) era SIEMPRE true → TODO movimiento se marcaba SWAP.)
+      const moveKeys = new Map();
       histBatch.forEach(h => {
         const key = `${String(h.posAnterior || '').toUpperCase()}->${String(h.posNueva || '').toUpperCase()}`;
-        const reverseKey = `${String(h.posNueva || '').toUpperCase()}->${String(h.posAnterior || '').toUpperCase()}`;
-        pairKeys.set(key, (pairKeys.get(key) || 0) + 1);
-        pairKeys.set(reverseKey, (pairKeys.get(reverseKey) || 0) + 0);
+        moveKeys.set(key, (moveKeys.get(key) || 0) + 1);
       });
 
       const auditExtra = _windowLocationAuditExtra(extra);
@@ -362,9 +362,7 @@
         const ts = _ts();
         const origen = String(h.posAnterior || '').toUpperCase();
         const destino = String(h.posNueva || '').toUpperCase();
-        const isLimboMove = destino === 'LIMBO';
-        const isSwap = !isLimboMove && pairKeys.has(`${destino}->${origen}`);
-        const tipo = isLimboMove ? 'DEL' : (isSwap ? 'SWAP' : 'MOVE');
+        const tipo = _clasificarMovimientoPatio(origen, destino, moveKeys);
         const payload = {
           timestamp: ts, fecha: _now(), tipo,
           mva: h.mva, hoja: h.hoja,

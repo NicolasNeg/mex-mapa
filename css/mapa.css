@@ -5247,6 +5247,17 @@
       color: #7e22ce;
     }
 
+    /* ADD = de limbo al mapa (alta) → verde. EDIT = nuevo estado/etiqueta → azul. */
+    .badge.st-ADD {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    .badge.st-EDIT {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+
 
     /* --- ESTILOS BITÁCORA V2 HEADER --- */
     .incv2-header {

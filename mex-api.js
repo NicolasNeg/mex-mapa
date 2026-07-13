@@ -1081,6 +1081,21 @@ async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   if (auditExtra.forwardedFor) payload.forwardedFor = auditExtra.forwardedFor;
   await db.collection(COL.LOGS).doc(id).set(payload);
 }
+// Clasifica un movimiento de cajón para historial_patio:
+//   DEL  → destino LIMBO (se saca del mapa)
+//   ADD  → viene de LIMBO al mapa
+//   SWAP → otro auto hizo el movimiento inverso en el MISMO guardado (intercambio)
+//   MOVE → mueve a un cajón (vacío o entre ubicaciones nombradas)
+// `moveKeys` es un Map con las claves "ORIGEN->DESTINO" de los movimientos reales.
+function _clasificarMovimientoPatio(origen, destino, moveKeys) {
+  const o = String(origen || '').toUpperCase();
+  const d = String(destino || '').toUpperCase();
+  if (d === 'LIMBO') return 'DEL';
+  if (o === 'LIMBO') return 'ADD';
+  if (moveKeys && moveKeys.has(`${d}->${o}`)) return 'SWAP';
+  return 'MOVE';
+}
+
 async function _registrarEventoGestion(tipo, mensaje, autor, extra = {}) {
   const ts = _ts();
   const id = `gest_${ts}_${Math.floor(Math.random() * 1000)}`;
@@ -1182,7 +1197,7 @@ window._mex = {
   _ensureGlobalSettingsDoc, _actualizarFeed,
   // Logs
   _windowLocationAuditExtra, _registrarLog, _registrarEventoGestion,
-  _sanearEventoGestionExtra,
+  _sanearEventoGestionExtra, _clasificarMovimientoPatio,
   // Mapa
   _generarEstructuraPorDefecto,
 };
@@ -1786,12 +1801,12 @@ const API_FUNCTIONS = {
 
     await batch.commit();
 
-    const pairKeys = new Map();
+    // Solo movimientos REALES. (Bug previo: se insertaba la clave inversa con "+0",
+    // así que has(reverse) era SIEMPRE true → TODO movimiento se marcaba SWAP.)
+    const moveKeys = new Map();
     histBatch.forEach(h => {
       const key = `${String(h.posAnterior || '').toUpperCase()}->${String(h.posNueva || '').toUpperCase()}`;
-      const reverseKey = `${String(h.posNueva || '').toUpperCase()}->${String(h.posAnterior || '').toUpperCase()}`;
-      pairKeys.set(key, (pairKeys.get(key) || 0) + 1);
-      pairKeys.set(reverseKey, (pairKeys.get(reverseKey) || 0) + 0);
+      moveKeys.set(key, (moveKeys.get(key) || 0) + 1);
     });
 
     const auditExtra = _windowLocationAuditExtra(extra);
@@ -1799,9 +1814,7 @@ const API_FUNCTIONS = {
       const ts = _ts();
       const origen = String(h.posAnterior || '').toUpperCase();
       const destino = String(h.posNueva || '').toUpperCase();
-      const isLimboMove = destino === 'LIMBO';
-      const isSwap = !isLimboMove && pairKeys.has(`${destino}->${origen}`);
-      const tipo = isLimboMove ? 'DEL' : (isSwap ? 'SWAP' : 'MOVE');
+      const tipo = _clasificarMovimientoPatio(origen, destino, moveKeys);
       const payload = {
         timestamp: ts,
         fecha: _now(),

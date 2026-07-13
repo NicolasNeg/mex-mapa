@@ -5439,25 +5439,13 @@ async function _renderUltimosMovimientos(mva) {
   }
 }
 
+// Cerrar el menú de Acciones al hacer clic fuera de su contenedor.
+// (Antes buscaba un div con estilo inline "position: relative"; el rediseño del
+//  panel usa la clase .usel-btn-wrap, así que el selector viejo nunca casaba y el
+//  MISMO clic que abría el menú lo cerraba de inmediato → nunca se desplegaba.)
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('moreActionsMenu');
-  if (menu && menu.classList.contains('show') && !e.target.closest('#info-panel div[style*="position: relative"]')) {
-    menu.classList.remove('show');
-  }
-});
-
-// Ocultar menú si das click afuera
-document.addEventListener('click', (e) => {
-  const menu = document.getElementById('moreActionsMenu');
-  if (menu && menu.classList.contains('show') && !e.target.closest('#info-panel div[style*="position: relative"]')) {
-    menu.classList.remove('show');
-  }
-});
-
-// Ocultar el menú si hacen clic en cualquier otro lado
-document.addEventListener('click', (e) => {
-  const menu = document.getElementById('moreActionsMenu');
-  if (menu && menu.classList.contains('show') && !e.target.closest('#info-panel div[style*="position: relative"]')) {
+  if (menu && menu.classList.contains('show') && !e.target.closest('.usel-btn-wrap')) {
     menu.classList.remove('show');
   }
 });
@@ -7564,10 +7552,11 @@ function _renderLogsTabla() {
     return;
   }
 
+  const _tipoBadgeClass = { MOVE: 'st-MOVE', SWAP: 'st-SWAP', ADD: 'st-ADD', EDIT: 'st-EDIT', DEL: 'st-DELETE', DELETE: 'st-DELETE', BAJA: 'st-DELETE' };
   tbody.innerHTML = filtered.map(l => `
     <tr>
       <td style="font-size:11px; color:#64748b; font-weight:800;">${l.fecha}</td>
-      <td><span class="badge ${l.tipo === 'MOVE' ? 'st-MOVE' : (l.tipo === 'SWAP' ? 'st-SWAP' : 'st-DELETE')}">${l.tipo}</span></td>
+      <td><span class="badge ${_tipoBadgeClass[l.tipo] || 'st-MOVE'}">${l.tipo}</span></td>
       <td style="font-weight:900; color:var(--mex-blue); font-size:14px;">${l.mva}</td>
       <td style="font-size:12px; font-weight:700;">${l.detalles}</td>
       <td style="font-size:11px; font-weight:800;">${_logExactLocationHtml(l)}</td>
