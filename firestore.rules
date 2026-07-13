@@ -53,20 +53,24 @@ service cloud.firestore {
         : {};
     }
 
+    // Estos 3 accesores usan `let` para llamar al nivel inferior UNA sola vez.
+    // Antes cada uno lo invocaba 2× (test + uso) → rolConfig expandía empresaConfig
+    // 8× (crecimiento exponencial) y una sola cadena de permisos ya rebasaba el
+    // límite de 1000 expresiones. Con `let` el costo es lineal. `.get(k,{})` además
+    // evita el throw "Property undefined" cuando falta security/roles.
     function seguridadConfig() {
-      return empresaConfig().security != null && empresaConfig().security is map
-        ? empresaConfig().security
-        : {};
+      let sec = empresaConfig().get('security', {});
+      return sec is map ? sec : {};
     }
 
     function rolesConfig() {
-      return seguridadConfig().roles != null && seguridadConfig().roles is map
-        ? seguridadConfig().roles
-        : {};
+      let roles = seguridadConfig().get('roles', {});
+      return roles is map ? roles : {};
     }
 
     function rolConfig(role) {
-      return rolesConfig().keys().hasAny([role]) ? rolesConfig()[role] : null;
+      let roles = rolesConfig();
+      return roles.keys().hasAny([role]) ? roles[role] : null;
     }
 
     function rolValido(role) {
@@ -83,9 +87,12 @@ service cloud.firestore {
     }
 
     function permisoOverride(perfil, permiso) {
-      return perfil.permissionOverrides != null
-        && perfil.permissionOverrides is map
-        && perfil.permissionOverrides.keys().hasAny([permiso])
+      // .get() porque el doc de usuario puede NO tener el campo permissionOverrides;
+      // acceder con .permissionOverrides a una clave ausente LANZA "Property undefined"
+      // → erroraba tienePermiso y negaba TODA escritura permisada (config/rol) de
+      // usuarios cuyo doc no traía ese campo (seeds, importados, legacy).
+      return perfil.get('permissionOverrides', {}) is map
+        && perfil.get('permissionOverrides', {}).keys().hasAny([permiso])
         ? perfil.permissionOverrides[permiso]
         : null;
     }
@@ -123,12 +130,13 @@ service cloud.firestore {
     }
 
     function tienePermiso(perfil, permiso) {
+      // permisoOverride se calcula UNA vez (antes 2×): reduce a la mitad el costo de
+      // expresiones de este helper, que se encadena hasta 3 veces en esAdminOperativo/
+      // esAccesoTotal y rebasaba el límite de 1000 expr → deny para no-bootstrap.
+      let ov = permisoOverride(perfil, permiso);
       return esProgramadorBootstrap()
-        || permisoOverride(perfil, permiso) == true
-        || (
-          permisoOverride(perfil, permiso) == null
-          && rolTienePermiso(rolDePerfil(perfil), permiso)
-        );
+        || ov == true
+        || (ov == null && rolTienePermiso(rolDePerfil(perfil), permiso));
     }
 
     // Rol crudo tolerante: acepta los mismos alias que el cliente
@@ -142,10 +150,13 @@ service cloud.firestore {
     }
 
     function rolDePerfil(data) {
-      return esEmailBootstrapProgramador(data.email) ? "PROGRAMADOR"
-        : (rolCrudoDePerfil(data) != "" && rolValido(rolCrudoDePerfil(data))) ? rolCrudoDePerfil(data)
-        : data.isGlobal == true ? "CORPORATIVO_USER"
-        : data.isAdmin == true ? "VENTAS"
+      // rolCrudoDePerfil se calcula UNA vez (antes 3×): recorta el costo de expresiones
+      // de cada tienePermiso (evita rebasar el límite de 1000 en cadenas de permisos).
+      let raw = rolCrudoDePerfil(data);
+      return esEmailBootstrapProgramador(data.get('email', '')) ? "PROGRAMADOR"
+        : (raw != "" && rolValido(raw)) ? raw
+        : data.get('isGlobal', false) == true ? "CORPORATIVO_USER"
+        : data.get('isAdmin', false) == true ? "VENTAS"
         : "AUXILIAR";
     }
 
@@ -168,7 +179,11 @@ service cloud.firestore {
     }
 
     function esAdminOperativo() {
-      return esAccesoTotal()
+      // NO usar esAccesoTotal() aquí: añade un tienePermiso("platform_full_access")
+      // heavy como TERCERA cadena y, combinado con view/edit_admin_cuadre +
+      // eventoGestionValido, rebasa el límite de 1000 expr → deny para gerentes.
+      // view/edit_admin_cuadre ya conceden a los roles admin y bootstrap va aparte.
+      return esProgramadorBootstrap()
         || (
           tienePerfilActual()
           && (
@@ -187,7 +202,12 @@ service cloud.firestore {
     }
 
     function puedeEmitirAlertasMaestras() {
-      return esAccesoTotal()
+      // NO usar esAccesoTotal() aquí: encadena un tienePermiso("platform_full_access")
+      // heavy ANTES del tienePermiso("emit_master_alerts"), y dos evaluaciones
+      // completas rebasan el límite de 1000 expresiones → deny para gerentes/superv.
+      // tienePermiso("emit_master_alerts") ya concede a PROGRAMADOR/JEFE_OPERACION/
+      // CORPORATIVO_USER y respeta overrides, así que basta con bootstrap + ese check.
+      return esProgramadorBootstrap()
         || (
           tienePerfilActual()
           && tienePermiso(perfilActual(), "emit_master_alerts")
@@ -482,23 +502,27 @@ service cloud.firestore {
         && request.resource.data.tipo is string
         && request.resource.data.accion is string
         && request.resource.data.autor is string
-        && (request.resource.data.entidad == null || request.resource.data.entidad is string)
-        && (request.resource.data.referencia == null || request.resource.data.referencia is string)
-        && (request.resource.data.detalles == null || request.resource.data.detalles is string)
-        && (request.resource.data.objetivo == null || request.resource.data.objetivo is string)
-        && (request.resource.data.rolObjetivo == null || request.resource.data.rolObjetivo is string)
-        && (request.resource.data.plazaObjetivo == null || request.resource.data.plazaObjetivo is string)
-        && (request.resource.data.resultado == null || request.resource.data.resultado is string)
-        && (request.resource.data.plaza == null || request.resource.data.plaza is string)
-        && (request.resource.data.deviceId == null || request.resource.data.deviceId is string)
-        && (request.resource.data.activeRoute == null || request.resource.data.activeRoute is string)
-        && (request.resource.data.locationStatus == null || request.resource.data.locationStatus is string)
-        && (request.resource.data.ipAddress == null || request.resource.data.ipAddress is string)
-        && (request.resource.data.forwardedFor == null || request.resource.data.forwardedFor is string)
-        && (request.resource.data.userAgent == null || request.resource.data.userAgent is string)
-        && (request.resource.data.userDocId == null || request.resource.data.userDocId is string)
-        && (request.resource.data.userEmail == null || request.resource.data.userEmail is string)
-        && (request.resource.data.role == null || request.resource.data.role is string)
+        // Campos opcionales: usar .get(k,'') porque el cliente OMITE los que van
+        // vacíos (plaza, ipAddress, userAgent, role...). Acceder con .campo a una
+        // clave ausente LANZA "Property X is undefined" → la regla erroraba y
+        // negaba la escritura de auditoría (la alerta se enviaba pero sin confirmar).
+        && request.resource.data.get('entidad', '') is string
+        && request.resource.data.get('referencia', '') is string
+        && request.resource.data.get('detalles', '') is string
+        && request.resource.data.get('objetivo', '') is string
+        && request.resource.data.get('rolObjetivo', '') is string
+        && request.resource.data.get('plazaObjetivo', '') is string
+        && request.resource.data.get('resultado', '') is string
+        && request.resource.data.get('plaza', '') is string
+        && request.resource.data.get('deviceId', '') is string
+        && request.resource.data.get('activeRoute', '') is string
+        && request.resource.data.get('locationStatus', '') is string
+        && request.resource.data.get('ipAddress', '') is string
+        && request.resource.data.get('forwardedFor', '') is string
+        && request.resource.data.get('userAgent', '') is string
+        && request.resource.data.get('userDocId', '') is string
+        && request.resource.data.get('userEmail', '') is string
+        && request.resource.data.get('role', '') is string
         && exactLocationGestionValida();
     }
 
