@@ -10119,8 +10119,8 @@ function abrirGestorAlertas() {
   const adminSidebar = document.getElementById('admin-sidebar');
   if (adminSidebar?.classList.contains('open')) toggleAdminSidebar();
   document.getElementById('gestor-alertas-modal').classList.add('active');
-  document.getElementById('alertaHistStatsBar').innerHTML = `<span style="font-size:12px; color:#94a3b8; font-weight:700;">Cargando métricas...</span>`;
-  document.getElementById('listaHistorialAlertas').innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:700;"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando historial...</div>`;
+  document.getElementById('alertaHistStatsBar').innerHTML = `<span class="alrt-hist-stat-loading">Cargando métricas…</span>`;
+  document.getElementById('listaHistorialAlertas').innerHTML = `<div class="alrt-hist-empty"><span class="material-icons spinner">sync</span><p>Cargando historial…</p></div>`;
 
   api.obtenerTodasLasAlertas().then(alertas => {
     historialAlertasCache = (alertas || []).map(alerta => ({
@@ -10130,8 +10130,8 @@ function abrirGestorAlertas() {
     _renderHistorialAlertas();
   }).catch(e => {
     console.error(e);
-    document.getElementById('listaHistorialAlertas').innerHTML = `<div style="text-align:center; padding:40px; color:#dc2626; font-weight:700;">No se pudo cargar el historial.</div>`;
-    document.getElementById('alertaHistStatsBar').innerHTML = `<span style="font-size:12px; color:#dc2626; font-weight:800;">Error al cargar métricas</span>`;
+    document.getElementById('listaHistorialAlertas').innerHTML = `<div class="alrt-hist-empty alrt-hist-empty--error"><span class="material-icons">error_outline</span><p>No se pudo cargar el historial.</p></div>`;
+    document.getElementById('alertaHistStatsBar').innerHTML = `<span class="alrt-hist-stat-loading alrt-hist-stat-loading--error">Error al cargar métricas</span>`;
   });
 }
 
@@ -10180,15 +10180,15 @@ function _renderHistorialAlertas() {
   const globales = historialAlertasCache.filter(alerta => _inferirModoDestinatariosAlerta(alerta) === 'GLOBAL').length;
 
   stats.innerHTML = `
-    <span style="padding:6px 10px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:900;">${total} TOTAL</span>
-    <span style="padding:6px 10px; border-radius:999px; background:#ecfeff; color:#0f766e; font-size:11px; font-weight:900;">${filtradas.length} FILTRADAS</span>
-    <span style="padding:6px 10px; border-radius:999px; background:#fef2f2; color:#dc2626; font-size:11px; font-weight:900;">${interruptivas} INTERRUPTIVAS</span>
-    <span style="padding:6px 10px; border-radius:999px; background:#f8fafc; color:#475569; font-size:11px; font-weight:900;">${pasivas} PASIVAS</span>
-    <span style="padding:6px 10px; border-radius:999px; background:#eef2ff; color:#4338ca; font-size:11px; font-weight:900;">${globales} GLOBALES</span>
+    <span class="alrt-hist-stat alrt-hist-stat--total"><b>${total}</b> total</span>
+    <span class="alrt-hist-stat alrt-hist-stat--filtered"><b>${filtradas.length}</b> filtradas</span>
+    <span class="alrt-hist-stat alrt-hist-stat--urgent"><b>${interruptivas}</b> interruptivas</span>
+    <span class="alrt-hist-stat"><b>${pasivas}</b> pasivas</span>
+    <span class="alrt-hist-stat alrt-hist-stat--global"><b>${globales}</b> globales</span>
   `;
 
   if (filtradas.length === 0) {
-    contenedor.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:700;">No hay alertas que coincidan con los filtros actuales.</div>`;
+    contenedor.innerHTML = `<div class="alrt-hist-empty"><span class="material-icons">inbox</span><p>No hay alertas que coincidan con los filtros actuales.</p></div>`;
     return;
   }
 
@@ -10201,66 +10201,64 @@ function _renderHistorialAlertas() {
     const actorVisible = String(alerta.actor || alerta.emitidoPor || '').trim();
     const lectores = _parseListaAlertaCsv(alerta.leidoPor);
     const editadaInfo = alerta.editadoEn
-      ? `<div style="font-size:11px; color:#64748b; font-weight:700;">Editada por <span style="color:#1a73e8;">${escapeHtml(alerta.editadoPor || 'Sistema')}</span> · ${escapeHtml(alerta.editadoEn)}</div>`
+      ? `<div class="alrt-hist-sub">Editada por <b>${escapeHtml(alerta.editadoPor || 'Sistema')}</b> · ${escapeHtml(alerta.editadoEn)}</div>`
       : '';
     const actorInfo = actorVisible && actorVisible.toUpperCase() !== String(autorVisible || '').toUpperCase()
-      ? `<div style="font-size:11px; color:#64748b; font-weight:700;">Publicada por <span style="color:#1a73e8;">${escapeHtml(actorVisible)}</span></div>`
+      ? `<div class="alrt-hist-sub">Publicada por <b>${escapeHtml(actorVisible)}</b></div>`
       : '';
     const imagen = alerta.imagen
-      ? `<div style="width:100%; height:130px; border-radius:12px; background-image:url('${_safeCssUrl(alerta.imagen)}'); background-size:cover; background-position:center;"></div>`
+      ? `<div class="alrt-hist-img" style="background-image:url('${_safeCssUrl(alerta.imagen)}')"></div>`
       : '';
 
     return `
-      <div style="background:white; border-radius:16px; padding:18px; border:1px solid #dbe4f0; box-shadow:0 10px 30px rgba(15,23,42,0.06); display:flex; flex-direction:column; gap:14px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${bannerMeta.bg}; color:${bannerMeta.color}; letter-spacing:0.8px;">${escapeHtml(bannerMeta.label)}</span>
-            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${metaModo.bg}; color:${metaModo.color}; letter-spacing:0.8px;">${metaModo.icon} ${metaModo.label}</span>
-            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:#f8fafc; color:#475569; letter-spacing:0.8px; display:flex; align-items:center; gap:4px;">
-              <span class="material-icons" style="font-size:13px;">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}
-            </span>
-            <span style="font-size:10px; font-weight:900; padding:5px 10px; border-radius:999px; background:${metaTipo.selectBg}; color:${metaTipo.color}; letter-spacing:0.8px;">BASE ${metaTipo.label}</span>
+      <article class="alrt-hist-card">
+        <header class="alrt-hist-head">
+          <div class="alrt-hist-badges">
+            <span class="alrt-hist-badge" style="--b-bg:${bannerMeta.bg}; --b-fg:${bannerMeta.color};">${escapeHtml(bannerMeta.label)}</span>
+            <span class="alrt-hist-badge" style="--b-bg:${metaModo.bg}; --b-fg:${metaModo.color};">${metaModo.icon} ${metaModo.label}</span>
+            <span class="alrt-hist-badge alrt-hist-badge--soft"><span class="material-icons">${resumenDest.icon}</span>${escapeHtml(resumenDest.label)}</span>
+            <span class="alrt-hist-badge" style="--b-bg:${metaTipo.selectBg}; --b-fg:${metaTipo.color};">Base ${metaTipo.label}</span>
           </div>
-          <div style="text-align:right; min-width:145px;">
-            <div style="font-size:11px; color:#64748b; font-weight:900;">${escapeHtml(alerta.fecha || 'Sin fecha')}</div>
-            <div style="font-size:10px; color:#94a3b8; font-weight:700;">${lectores.length} lectura${lectores.length === 1 ? '' : 's'}</div>
+          <div class="alrt-hist-when">
+            <span class="alrt-hist-date">${escapeHtml(alerta.fecha || 'Sin fecha')}</span>
+            <span class="alrt-hist-reads">${lectores.length} lectura${lectores.length === 1 ? '' : 's'}</span>
           </div>
-        </div>
+        </header>
 
         ${imagen}
 
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:14px; flex-wrap:wrap;">
-          <div style="flex:1; min-width:220px;">
-            <h3 style="margin:0 0 6px; color:#163a63; font-size:18px; line-height:1.2;">${escapeHtml(alerta.titulo || 'Sin título')}</h3>
-            <div style="font-size:12px; color:#64748b; font-weight:800; margin-bottom:4px;">${autorVisible ? `Emitida como <span style="color:#1a73e8;">${escapeHtml(autorVisible)}</span>` : 'Sin autor visible'}</div>
+        <div class="alrt-hist-body">
+          <div class="alrt-hist-main">
+            <h3 class="alrt-hist-title">${escapeHtml(alerta.titulo || 'Sin título')}</h3>
+            <div class="alrt-hist-author">${autorVisible ? `Emitida como <b>${escapeHtml(autorVisible)}</b>` : 'Sin autor visible'}</div>
             ${actorInfo}
             ${editadaInfo}
           </div>
-          <div style="min-width:180px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px 12px;">
-            <div style="font-size:10px; color:#94a3b8; font-weight:900; letter-spacing:0.8px; margin-bottom:6px;">ALCANCE</div>
-            <div style="font-size:12px; color:#334155; font-weight:800;">${escapeHtml(resumenDest.detail)}</div>
+          <div class="alrt-hist-scope">
+            <span class="alrt-hist-scope-label">Alcance</span>
+            <span class="alrt-hist-scope-val">${escapeHtml(resumenDest.detail)}</span>
           </div>
         </div>
 
-        <details style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:12px 14px;">
-          <summary style="cursor:pointer; font-size:12px; font-weight:900; color:#334155; letter-spacing:0.5px;">VER CUERPO COMPLETO</summary>
-          <div style="margin-top:12px; font-size:14px; color:#334155; line-height:1.7;">
-            ${alerta.mensaje || `<div style="color:#94a3b8;">Sin contenido.</div>`}
+        <details class="alrt-hist-details">
+          <summary>Ver cuerpo completo</summary>
+          <div class="alrt-hist-content">
+            ${alerta.mensaje || `<span class="alrt-hist-muted">Sin contenido.</span>`}
           </div>
         </details>
 
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
-          <button onclick="verLectoresAlerta('${alerta.id}')" style="background:white; border:1px solid #cbd5e1; padding:9px 12px; border-radius:10px; font-size:11px; font-weight:900; color:#0f172a; cursor:pointer; display:flex; align-items:center; gap:6px;">
-            <span class="material-icons" style="font-size:14px;">visibility</span> LEÍDO POR ${lectores.length}
+        <footer class="alrt-hist-actions">
+          <button class="alrt-hist-btn" onclick="verLectoresAlerta('${alerta.id}')">
+            <span class="material-icons">visibility</span> Leído por ${lectores.length}
           </button>
-          <button onclick="editarAlertaDesdeHistorial('${alerta.id}')" style="background:#eff6ff; border:1px solid #bfdbfe; padding:9px 12px; border-radius:10px; font-size:11px; font-weight:900; color:#1d4ed8; cursor:pointer; display:flex; align-items:center; gap:6px;">
-            <span class="material-icons" style="font-size:14px;">edit</span> EDITAR
+          <button class="alrt-hist-btn alrt-hist-btn--edit" onclick="editarAlertaDesdeHistorial('${alerta.id}')">
+            <span class="material-icons">edit</span> Editar
           </button>
-          <button onclick="eliminarAlertaDesdeHistorial('${alerta.id}')" style="background:#fef2f2; border:1px solid #fecaca; padding:9px 12px; border-radius:10px; font-size:11px; font-weight:900; color:#dc2626; cursor:pointer; display:flex; align-items:center; gap:6px;">
-            <span class="material-icons" style="font-size:14px;">delete</span> BORRAR
+          <button class="alrt-hist-btn alrt-hist-btn--del" onclick="eliminarAlertaDesdeHistorial('${alerta.id}')">
+            <span class="material-icons">delete</span> Borrar
           </button>
-        </div>
-      </div>
+        </footer>
+      </article>
     `;
   }).join('');
 }
