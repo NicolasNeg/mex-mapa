@@ -54,6 +54,8 @@ export const COL = Object.freeze({
   SIPP:               'sipp',
   CONFIG:             'configuracion',
   PLANTILLAS_ALERTAS: 'plantillas_alertas',
+  KM_REGISTROS:       'km_registros',
+  KM_DISCREPANCIAS:   'km_discrepancias',
 });
 
 // ── Meta de roles ─────────────────────────────────────────
@@ -95,6 +97,7 @@ export const aplicarEstado            = (...a) => _api().aplicarEstado(...a);
 export const insertarUnidadDesdeHTML  = (...a) => _api().insertarUnidadDesdeHTML(...a);
 export const insertarUnidadExterna    = (...a) => _api().insertarUnidadExterna(...a);
 export const ejecutarEliminacion      = (...a) => _api().ejecutarEliminacion(...a);
+export const registrarKm              = (...a) => _api().registrarKm(...a);
 export const guardarNuevasPosiciones  = (...a) => _api().guardarNuevasPosiciones(...a);
 
 // ── Tabla de flota ────────────────────────────────────────

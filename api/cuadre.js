@@ -29,6 +29,27 @@
     } catch (_) { /* el sync del índice no debe afectar la mutación */ }
   }
 
+  // ── KILOMETRAJE ──────────────────────────────────────────
+  // ponytail: copia privada de domain/kilometraje.model.js::clasificarCaptura
+  // (los scripts clásicos no importan ES modules). Mantener en sincronía.
+  function _clasificarKm({ kmNuevo, kmAnterior, umbral = 5, fuenteUltima = '', esCorreccion = false }) {
+    if (typeof kmNuevo !== 'number' || !Number.isFinite(kmNuevo) || kmNuevo < 0) return { tipo: 'INVALIDO', delta: 0 };
+    if (kmAnterior == null) return { tipo: 'NORMAL', delta: 0 };
+    const delta = kmNuevo - kmAnterior;
+    if (esCorreccion) return { tipo: 'CORRECCION', delta };
+    if (delta < 0) return { tipo: 'RECHAZADO_MENOR', delta };
+    if (delta <= umbral) return { tipo: 'NORMAL', delta };
+    const legitimas = ['RETIRO_RENTA', 'TRASLADO_SALIDA'];
+    return legitimas.includes(String(fuenteUltima).toUpperCase().trim())
+      ? { tipo: 'NORMAL', delta }
+      : { tipo: 'DISCREPANCIA', delta };
+  }
+
+  function _kmUmbral() {
+    const n = parseInt(window.MEX_CONFIG && window.MEX_CONFIG.listas && window.MEX_CONFIG.listas.kmUmbralDiscrepancia, 10);
+    return Number.isFinite(n) && n >= 0 ? n : 5;
+  }
+
   function _feedAccionUnidad(mvaStr, actual = {}, estado = '', ubi = '', gas = '', notaFinal = '', notaEntrada = '', borrarNotas = false) {
     const oldNotes = String(actual.notas || '').toUpperCase();
     const newNotes = String(notaFinal || notaEntrada || '').toUpperCase();
@@ -130,6 +151,71 @@
       return "EXITO";
     },
 
+    // Registra una captura de km: historial en km_registros (append-only),
+    // actualiza index_unidades y el doc del cuadre si existe, y crea
+    // discrepancia si el delta rebasa el umbral sin salida legítima.
+    // fuente: INSERT | CUADRE | RETIRO | TRASLADO_SALIDA | TRASLADO_LLEGADA | CORRECCION
+    async registrarKm({ mva, km, fuente, usuario, plaza, motivo = '', nota = '', trasladoId = '' }) {
+      const mvaStr = String(mva || '').toUpperCase().trim();
+      const kmNum = parseInt(String(km).replace(/[,\s]/g, ''), 10);
+      if (!mvaStr) return 'Falta MVA';
+      if (!Number.isFinite(kmNum) || kmNum < 0) return 'Kilometraje inválido';
+      const plazaUp = _normalizePlazaId(plaza);
+      const fuenteUp = String(fuente || '').toUpperCase().trim();
+
+      const idxSnap = await db.collection(COL.INDEX).where('mva', '==', mvaStr).limit(1).get();
+      const idxData = idxSnap.empty ? {} : idxSnap.docs[0].data();
+      const kmAnterior = (typeof idxData.km === 'number') ? idxData.km : null;
+
+      const esCorreccion = fuenteUp === 'CORRECCION';
+      if (esCorreccion && !(window.mexPerms && window.mexPerms.canDo('km_corregir'))) {
+        return 'No tienes permiso para corregir kilometraje';
+      }
+
+      const c = _clasificarKm({
+        kmNuevo: kmNum, kmAnterior, umbral: _kmUmbral(),
+        fuenteUltima: idxData.kmFuenteUltima || '', esCorreccion
+      });
+      if (c.tipo === 'INVALIDO') return 'Kilometraje inválido';
+      if (c.tipo === 'RECHAZADO_MENOR') {
+        return `El km (${kmNum}) es menor al último registrado (${kmAnterior}). Si el registro anterior está mal, usa una corrección.`;
+      }
+
+      const ahora = _now();
+      // RETIRO por renta se recuerda como salida legítima: el regreso con delta
+      // grande no genera discrepancia.
+      const fuenteUltima = (fuenteUp === 'RETIRO' && String(motivo).toUpperCase().trim() === 'RENTA')
+        ? 'RETIRO_RENTA' : fuenteUp;
+
+      await db.collection('km_registros').add({
+        mva: mvaStr, km: kmNum, kmAnterior, delta: c.delta,
+        fuente: fuenteUp, motivo: String(motivo || '').toUpperCase().trim(),
+        usuario: usuario || 'Sistema', plaza: plazaUp || '',
+        fecha: ahora, timestamp: _ts(),
+        trasladoId: trasladoId || '', nota: nota || ''
+      });
+
+      if (!idxSnap.empty) {
+        await idxSnap.docs[0].ref.set({ km: kmNum, kmFecha: ahora, kmFuenteUltima: fuenteUltima }, { merge: true });
+      }
+      // update (no set): si la unidad no está en el cuadre NO crear doc fantasma.
+      db.collection(COL.CUADRE).doc(_mvaToDocId(mvaStr)).update({ km: kmNum }).catch(function () {});
+
+      if (c.tipo === 'DISCREPANCIA') {
+        await db.collection('km_discrepancias').add({
+          mva: mvaStr, kmEsperado: kmAnterior, kmCapturado: kmNum, delta: c.delta,
+          fuente: fuenteUp, usuario: usuario || 'Sistema', plaza: plazaUp || '',
+          fecha: ahora, timestamp: _ts(), estado: 'PENDIENTE'
+        });
+        await _registrarLog('KM', `⚠️ KM DISCREPANCIA: ${mvaStr} · ${kmAnterior} ➜ ${kmNum} (+${c.delta} km sin salida registrada)`, usuario, plazaUp);
+        return 'DISCREPANCIA';
+      }
+      if (esCorreccion) {
+        await _registrarLog('KM', `✏️ KM CORREGIDO: ${mvaStr} · ${kmAnterior} ➜ ${kmNum}`, usuario, plazaUp);
+      }
+      return 'EXITO';
+    },
+
     async insertarUnidadDesdeHTML(objeto) {
       const mvaStr = objeto.mva.toString().trim().toUpperCase();
       const docId  = _mvaToDocId(mvaStr);
@@ -190,6 +276,14 @@
       } else {
         _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: objeto.ubicacion || 'PATIO' });
       }
+      // Captura de km al insertar (obligatoria en el form; tolerante aquí para
+      // callers legacy sin km, p.ej. el comando de voz).
+      if (objeto.km != null && String(objeto.km) !== '') {
+        await this.registrarKm({
+          mva: mvaStr, km: objeto.km, fuente: 'INSERT',
+          usuario: objeto.responsableSesion, plaza: plazaUp
+        });
+      }
       return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
     },
 
@@ -243,7 +337,14 @@
       return `EXITO|${objeto.modelo || 'S/M'}|${objeto.placas || 'S/P'}`;
     },
 
-    async ejecutarEliminacion(listaMvas, responsableSesion, plaza) {
+    async ejecutarEliminacion(listaMvas, responsableSesion, plaza, retiro = null) {
+      // Km de salida + motivo (RENTA/OTRO), solo para retiros individuales.
+      if (retiro && retiro.km != null && listaMvas.length === 1) {
+        await this.registrarKm({
+          mva: listaMvas[0], km: retiro.km, fuente: 'RETIRO',
+          motivo: retiro.motivo || '', usuario: responsableSesion, plaza
+        });
+      }
       const plazaUp = _normalizePlazaId(plaza);
       for (const mva of listaMvas) {
         const mvaStr = mva.toString().trim().toUpperCase();
