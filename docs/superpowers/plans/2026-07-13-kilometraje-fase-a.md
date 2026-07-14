@@ -127,7 +127,7 @@ git commit -m "feat(km): modelo puro de kilometraje (parseKm, clasificarCaptura)
 - Consumes: `window._mex` helpers ya destructurados en el archivo (`db, COL, _normalizePlazaId, _mvaToDocId, _now, _ts, _registrarLog`).
 - Produces: `api.registrarKm({ mva, km, fuente, usuario, plaza, motivo?, nota?, trasladoId? }) → Promise<'EXITO'|'DISCREPANCIA'|string>` (string = mensaje de error). `ejecutarEliminacion(listaMvas, responsableSesion, plaza, retiro?)` con `retiro = { km, motivo }` opcional. Campos nuevos en `index_unidades`: `km, kmFecha, kmFuenteUltima`. Campo `km` en docs de `cuadre`.
 
-- [ ] **Step 1: Helpers privados en api/cuadre.js**
+- [x] **Step 1: Helpers privados en api/cuadre.js**
 
 Insertar después de la función `_syncIndexUbicacion` (tras su `}` de cierre, ~línea 30):
 
@@ -154,7 +154,7 @@ Insertar después de la función `_syncIndexUbicacion` (tras su `}` de cierre, ~
   }
 ```
 
-- [ ] **Step 2: Método registrarKm**
+- [x] **Step 2: Método registrarKm**
 
 Insertar dentro del objeto `window._mexParts.cuadre` (después del método `aplicarEstado`, antes de `insertarUnidadDesdeHTML`):
 
@@ -225,7 +225,7 @@ Insertar dentro del objeto `window._mexParts.cuadre` (después del método `apli
     },
 ```
 
-- [ ] **Step 3: km al insertar y al retirar (misma api/cuadre.js)**
+- [x] **Step 3: km al insertar y al retirar (misma api/cuadre.js)**
 
 En `insertarUnidadDesdeHTML`, justo ANTES del `return \`EXITO|...\`` final (después del bloque que sincroniza el índice), insertar:
 
@@ -253,7 +253,7 @@ En `ejecutarEliminacion`, cambiar la firma y añadir la captura al inicio del cu
       }
 ```
 
-- [ ] **Step 4: COL + bridge en js/core/database.js**
+- [x] **Step 4: COL + bridge en js/core/database.js**
 
 En el objeto `COL` añadir (antes del cierre `});`):
 
@@ -268,12 +268,12 @@ En la sección `// ── Operaciones de flota ──` añadir junto a `ejecutar
 export const registrarKm              = (...a) => _api().registrarKm(...a);
 ```
 
-- [ ] **Step 5: Verificar sintaxis**
+- [x] **Step 5: Verificar sintaxis**
 
 Run: `node --check api/cuadre.js && node --check js/core/database.js && echo OK`
 Expected: `OK` (database.js es ES module: si `--check` protesta por `export`, usar `node --input-type=module --check < js/core/database.js`)
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add api/cuadre.js js/core/database.js

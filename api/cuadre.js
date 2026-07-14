@@ -267,7 +267,7 @@
       // Completitud del índice global: si la unidad no tiene doc en index_unidades,
       // lo creamos para que sea buscable (con su ubicación actual ya puesta).
       if (indexSnap.empty) {
-        db.collection(COL.INDEX).add({
+        await db.collection(COL.INDEX).add({
           mva: mvaStr,
           sucursal: plazaUp || '',
           modelo: unitData.modelo, placas: unitData.placas, categoria: unitData.categoria,
