@@ -152,6 +152,203 @@
       #fleet-modal .btn-flotante-agregar-cuadre { bottom: 88px !important; }
       #fleet-modal .cuadre-zoom-ctrl { bottom: 156px !important; }
     }
+
+    /* Obsidian redesign - unit manager drawer */
+    #cuadreApp {
+      --cuadre-bg: #f7f9fb;
+      --cuadre-surface: #ffffff;
+      --cuadre-muted: #565e6d;
+      --cuadre-soft: #7b8492;
+      --cuadre-text: #191c1e;
+      --cuadre-navy: #131b2e;
+      --cuadre-blue: #0b74b8;
+      --cuadre-border: #c6cbd3;
+      --cuadre-border-soft: #e2e6eb;
+      font-variant-numeric: tabular-nums;
+    }
+
+    #fleet-modal .cuadre-tools-bar {
+      min-height: 52px !important;
+      padding: 8px 18px !important;
+      background: var(--cuadre-surface) !important;
+      border-bottom: 1px solid var(--cuadre-border-soft) !important;
+    }
+
+    #fleet-modal .btn-more-controls {
+      min-height: 34px !important;
+      border-radius: 6px !important;
+      border: 1px solid var(--cuadre-border) !important;
+      background: var(--cuadre-surface) !important;
+      color: var(--cuadre-text) !important;
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0 !important;
+      transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease !important;
+    }
+
+    #fleet-modal .btn-more-controls:hover { background: #f2f4f6 !important; border-color: #9aa3af !important; }
+    #fleet-modal .btn-more-controls:active { transform: translateY(1px) !important; }
+
+    #fleet-modal .more-controls-dropdown {
+      border-radius: 8px !important;
+      border: 1px solid var(--cuadre-border) !important;
+      background: var(--cuadre-surface) !important;
+      box-shadow: 0 18px 44px rgba(19, 27, 46, .16) !important;
+      overflow: hidden !important;
+    }
+
+    #fleet-modal .mc-item,
+    #fleet-modal .mc-header {
+      color: var(--cuadre-text) !important;
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0 !important;
+    }
+
+    #fleet-modal .mc-item {
+      min-height: 38px !important;
+      padding: 9px 12px !important;
+      border-bottom: 1px solid var(--cuadre-border-soft) !important;
+      transition: background-color .18s ease, color .18s ease !important;
+    }
+
+    #fleet-modal .mc-item:hover { background: #f7f9fb !important; color: var(--cuadre-blue) !important; }
+
+    #fleet-modal .col-form {
+      width: min(408px, 100vw) !important;
+      right: -440px !important;
+      padding: 0 !important;
+      gap: 0 !important;
+      background: var(--cuadre-surface) !important;
+      border-left: 1px solid var(--cuadre-border) !important;
+      box-shadow: -18px 0 46px rgba(19, 27, 46, .16) !important;
+      color: var(--cuadre-text) !important;
+    }
+
+    #fleet-modal .col-form.active { right: 0 !important; }
+
+    #fleet-modal .col-form > div:first-child {
+      position: sticky !important;
+      top: 0 !important;
+      z-index: 4 !important;
+      margin: 0 !important;
+      padding: 15px 16px !important;
+      border-bottom: 1px solid var(--cuadre-border-soft) !important;
+      background: rgba(255,255,255,.98) !important;
+      backdrop-filter: blur(10px) !important;
+    }
+
+    #fleet-modal .col-form > div:first-child h3 {
+      color: var(--cuadre-navy) !important;
+      font-size: 15px !important;
+      font-weight: 850 !important;
+      letter-spacing: 0 !important;
+      text-transform: none !important;
+    }
+
+    #fleet-modal .col-form > div:first-child button {
+      width: 34px !important;
+      height: 34px !important;
+      border-radius: 6px !important;
+      border: 1px solid var(--cuadre-border-soft) !important;
+      background: var(--cuadre-surface) !important;
+      color: var(--cuadre-muted) !important;
+    }
+
+    #fleet-modal .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; padding: 14px 16px 0 !important; }
+    #fleet-modal .stat-box { border-radius: 8px !important; border: 1px solid var(--cuadre-border-soft) !important; background: #f7f9fb !important; box-shadow: none !important; padding: 12px !important; }
+    #fleet-modal .stat-box .num { color: var(--cuadre-navy) !important; font-size: 24px !important; font-weight: 900 !important; line-height: 1 !important; }
+    #fleet-modal .stat-box .lbl { margin-top: 6px !important; color: var(--cuadre-muted) !important; font-size: 10px !important; font-weight: 850 !important; letter-spacing: .06em !important; text-transform: uppercase !important; }
+
+    #fleet-modal .form-panel {
+      margin: 14px 16px 16px !important;
+      padding: 0 !important;
+      border-radius: 8px !important;
+      border: 1px solid var(--cuadre-border-soft) !important;
+      background: var(--cuadre-surface) !important;
+      box-shadow: none !important;
+      overflow: visible !important;
+    }
+
+    #fleet-modal .form-header { margin: 0 !important; padding: 14px 14px 0 !important; }
+    #fleet-modal .form-title { color: var(--cuadre-muted) !important; font-size: 10px !important; font-weight: 900 !important; letter-spacing: .08em !important; text-transform: uppercase !important; }
+
+    #fleet-modal #admin-flota-panel-hint,
+    #fleet-modal #autofill-section { margin: 14px !important; border-radius: 8px !important; box-shadow: none !important; }
+    #fleet-modal #autofill-section { border: 1px dashed #9bd5f5 !important; background: #f7fbff !important; padding: 12px !important; }
+    #fleet-modal #form-fields-container { gap: 11px !important; padding: 0 14px 14px !important; }
+
+    #fleet-modal .field label {
+      margin-bottom: 6px !important;
+      color: var(--cuadre-muted) !important;
+      font-size: 10px !important;
+      font-weight: 900 !important;
+      letter-spacing: .07em !important;
+      text-transform: uppercase !important;
+    }
+
+    #fleet-modal .field input,
+    #fleet-modal .field select,
+    #fleet-modal .field textarea,
+    #fleet-modal #autofill-input {
+      width: 100% !important;
+      min-height: 40px !important;
+      border-radius: 6px !important;
+      border: 1px solid var(--cuadre-border) !important;
+      background: var(--cuadre-surface) !important;
+      color: var(--cuadre-text) !important;
+      font-size: 13px !important;
+      font-weight: 650 !important;
+      box-shadow: none !important;
+      outline: none !important;
+      transition: border-color .18s ease, box-shadow .18s ease !important;
+    }
+
+    #fleet-modal .field input:focus,
+    #fleet-modal .field select:focus,
+    #fleet-modal .field textarea:focus,
+    #fleet-modal #autofill-input:focus {
+      border-color: var(--cuadre-blue) !important;
+      box-shadow: 0 0 0 3px rgba(11, 116, 184, .13) !important;
+    }
+
+    #fleet-modal .locked-input { background: #f2f4f6 !important; color: #454b57 !important; }
+
+    #fleet-modal .btn-group {
+      position: sticky !important;
+      bottom: 0 !important;
+      margin: 4px -14px -14px !important;
+      padding: 12px 14px !important;
+      background: rgba(255,255,255,.96) !important;
+      border-top: 1px solid var(--cuadre-border-soft) !important;
+      backdrop-filter: blur(10px) !important;
+    }
+
+    #fleet-modal .btn-save,
+    #fleet-modal .btn-del {
+      min-height: 42px !important;
+      border-radius: 6px !important;
+      font-size: 12px !important;
+      font-weight: 850 !important;
+      letter-spacing: 0 !important;
+      text-transform: none !important;
+      box-shadow: none !important;
+    }
+
+    #fleet-modal .btn-save { background: var(--cuadre-navy) !important; color: #fff !important; }
+    #fleet-modal .btn-save:hover { background: #202b42 !important; }
+    #fleet-modal .btn-del { background: #fff1f1 !important; color: #a61b1b !important; border: 1px solid #f2b8b5 !important; }
+    #fleet-modal .col-form-overlay.active { background: rgba(10, 15, 24, .42) !important; backdrop-filter: blur(4px) !important; }
+
+    @media (max-width: 1024px) {
+      #fleet-modal .col-form {
+        right: 0 !important;
+        width: 100% !important;
+        border-left: 0 !important;
+        border-radius: 18px 18px 0 0 !important;
+      }
+    }
+
   </style>
 </head>
 <body>
@@ -185,7 +382,7 @@
         </div>
       </div>
 
-      <!-- Herramientas del cuadre: MÁS CONTROLES + GESTIÓN ADMIN. Barra propia
+      <!-- Herramientas del cuadre: Más controles + Gestion admin. Barra propia
            (no .fleet-header-top) para seguir visible en el shell, donde el
            header interno se oculta. Ver spec Fase 1.4. Modales se cargan on-demand
            desde /mapa.html vía _ensureLegacyModalElement. -->
@@ -193,24 +390,25 @@
         <div id="btnMasControlesWrapper" class="more-controls-wrapper">
           <button class="btn-more-controls btn-icon-mobile" onclick="toggleMoreControls()">
             <span class="material-icons" style="font-size: 18px;">tune</span>
-            <span class="txt-mobile-hide">MÁS CONTROLES</span>
+            <span class="txt-mobile-hide">Más controles</span>
           </button>
           <div id="moreControlsDropdown" class="more-controls-dropdown">
             <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
             <div id="mcValidarCuadre" class="mc-item" onclick="abrirUltimoCuadre()" style="display: flex; flex-direction: column; align-items: flex-start;">
-              <div><span class="material-icons">history</span> Validar Cuadre Actual</div>
-              <small id="lblUltimoCuadre" style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">✅ --/-- 00:00 (Nadie)</small>
+              <div><span class="material-icons">history</span> Validar cuadre actual</div>
+              <small id="lblUltimoCuadre" style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">--/-- 00:00 (Nadie)</small>
             </div>
-            <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen Flota</div>
-            <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno()"><span class="material-icons" style="color:#8b5cf6;">directions_car</span> Insertar Unidad Externa</div>
-            <div id="mcPdfReservas" class="mc-item" onclick="abrirModalPDFReservas(); toggleMoreControls();"><span class="material-icons" style="color: #0284c7;">receipt_long</span> Generar PDF Reservas</div>
+            <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen flota</div>
+            <div id="mcInsertarExterno" class="mc-item" style="display:none;" onclick="abrirModalInsertarExterno()"><span class="material-icons" style="color:#8b5cf6;">directions_car</span> Insertar unidad externa</div>
+            <div id="mcPdfReservas" class="mc-item" onclick="abrirModalPDFReservas(); toggleMoreControls();"><span class="material-icons" style="color: #0284c7;">receipt_long</span> Analisis de reservas</div>
+            <div id="mcPrediccionCuadre" class="mc-item" onclick="abrirPrediccionCuadre(); toggleMoreControls();"><span class="material-icons" style="color: #0b74b8;">query_stats</span> Cuadre de predicciones</div>
           </div>
         </div>
 
         <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display: none;">
           <button class="btn-more-controls btn-icon-mobile" style="background:var(--mex-blue); border-color:var(--mex-blue); color:white;" onclick="toggleAdminControls()">
             <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
-            <span class="txt-mobile-hide">GESTIÓN ADMIN</span>
+            <span class="txt-mobile-hide">Gestion admin</span>
           </button>
           <div id="adminControlsDropdown" class="more-controls-dropdown">
             <div class="mc-header">ADMINISTRACIÓN GLOBAL</div>
@@ -420,7 +618,7 @@
           <div class="col-form" id="form-flota-panel">
 
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
-              <h3 style="margin:0; color:var(--primary); font-size:18px; font-weight:900;">GESTOR DE UNIDAD</h3>
+              <h3 style="margin:0; color:var(--primary); font-size:18px; font-weight:900;">Gestor de unidad</h3>
               <button onclick="cerrarFormularioFlota()"
                 style="background:#f1f5f9; border:none; width:36px; height:36px; border-radius:10px; color:#64748b; cursor:pointer; display:flex; align-items:center; justify-content:center;">
                 <span class="material-icons" style="font-size:20px;">close</span>
@@ -430,17 +628,17 @@
             <div class="stats-grid">
               <div class="stat-box">
                 <div class="num" id="statTotal">--</div>
-                <div class="lbl">Total Flota</div>
+                <div class="lbl">Total flota</div>
               </div>
               <div class="stat-box" style="background: #f0fdf4; border-color: #bbf7d0;">
                 <div class="num" id="statListos" style="color: #16a34a;">--</div>
-                <div class="lbl">Listos Renta</div>
+                <div class="lbl">Listos renta</div>
               </div>
             </div>
 
             <div class="form-panel">
               <div class="form-header" style="margin-bottom: 15px;">
-                <div class="form-title" id="formTitleFlota" style="font-size: 15px;">NUEVO REGISTRO</div>
+                <div class="form-title" id="formTitleFlota" style="font-size: 15px;">Nuevo registro</div>
               </div>
 
               <div id="admin-flota-panel-hint"
@@ -458,9 +656,9 @@
 
               <div id="autofill-section" class="field"
                 style="background:#f8fafc; padding:12px; border-radius:12px; border:1px dashed var(--mex-accent); position:relative; margin-bottom: 15px;">
-                <label style="color:var(--mex-accent); margin-bottom: 8px;">BUSCAR EN BASE MAESTRA 🔍</label>
+                <label style="color:var(--mex-accent); margin-bottom: 8px;">Buscar en base maestra</label>
                 <div style="display:flex; gap:8px; align-items:center;">
-                  <input type="text" id="autofill-input" placeholder="Escribe MVA, Placas o Modelo..."
+                  <input type="text" id="autofill-input" placeholder="MVA, placas o modelo"
                     oninput="debouncedAutofill(this.value)"
                     style="border-color:var(--mex-accent); flex:1; background:white;">
                   <button id="btnResetAutofill" onclick="resetAutofill()"
@@ -491,25 +689,25 @@
 
                 <div class="grid-2">
                   <div class="field">
-                    <label>ESTADO 🛠️</label>
+                    <label>Estado</label>
                     <select id="f_est" onchange="validarBotonGuardar()">
-                      <option value="">Seleccionar...</option>
-                      <option value="LISTO">🟢 LISTO</option>
-                      <option value="SUCIO">🟡 SUCIO</option>
-                      <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                      <option value="RESGUARDO">🔘 RESGUARDO</option>
-                      <option value="TRASLADO">🟣 TRASLADO</option>
-                      <option value="VENTA">⚫ VENTA</option>
-                      <option value="RETENIDA">🟤 RETENIDA</option>
-                      <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
-                      <option value="HYP">🚚 HYP</option>
-                      <option value="EN RENTA">✈️ EN RENTA</option>
+                      <option value="">Seleccionar</option>
+                      <option value="LISTO">LISTO</option>
+                      <option value="SUCIO">SUCIO</option>
+                      <option value="MANTENIMIENTO">MANTENIMIENTO</option>
+                      <option value="RESGUARDO">RESGUARDO</option>
+                      <option value="TRASLADO">TRASLADO</option>
+                      <option value="VENTA">VENTA</option>
+                      <option value="RETENIDA">RETENIDA</option>
+                      <option value="NO ARRENDABLE">NO ARRENDABLE</option>
+                      <option value="HYP">HYP</option>
+                      <option value="EN RENTA">EN RENTA</option>
                     </select>
                   </div>
                   <div class="field">
-                    <label>GASOLINA ⛽</label>
+                    <label>Gasolina</label>
                     <select id="f_gas" onchange="validarBotonGuardar()">
-                      <option value="N/A">Seleccionar...</option>
+                      <option value="N/A">Seleccionar</option>
                       <option value="F">F (Lleno Total)</option>
                       <optgroup label="MEDIO">
                         <option value="15/16">15/16</option>
@@ -537,43 +735,43 @@
                 </div>
 
                 <div class="field">
-                  <label>UBICACIÓN ACTUAL 📍</label>
+                  <label>Ubicacion actual</label>
                   <select id="f_ubi" onchange="validarBotonGuardar(); verificarHabitosUbicacion();">
-                    <option value="">Seleccionar...</option>
+                    <option value="">Seleccionar</option>
                     <optgroup label="PLAZAS FIJAS">
-                      <option value="PATIO">🏠 PATIO</option>
-                      <option value="TALLER">🔧 TALLER</option>
-                      <option value="AGENCIA">🏢 AGENCIA</option>
-                      <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                      <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
+                      <option value="PATIO">PATIO</option>
+                      <option value="TALLER">TALLER</option>
+                      <option value="AGENCIA">AGENCIA</option>
+                      <option value="TALLER EXTERNO">TALLER EXTERNO</option>
+                      <option value="HYP COBIAN">HYP COBIAN</option>
                     </optgroup>
                     <optgroup label="PERSONA RESPONSABLE">
-                      <option value="JORGE">👤 JORGE</option>
-                      <option value="GERARDO">👤 GERARDO</option>
-                      <option value="OSVALDO">👤 OSVALDO</option>
-                      <option value="BALANDRAN">👤 BALANDRAN</option>
-                      <option value="ULISES">👤 ULISES</option>
-                      <option value="JOSUE">👤 JOSUE</option>
-                      <option value="ISRAEL">👤 ISRAEL</option>
-                      <option value="ISAAC">👤 ISAAC</option>
-                      <option value="ANGEL">👤 ANGEL</option>
-                      <option value="LEO">👤 LEO</option>
-                      <option value="BRAULIO">👤 BRAULIO</option>
-                      <option value="MARTHA">👤 MARTHA</option>
-                      <option value="FERNANDA">👤 FERNANDA</option>
-                      <option value="ZALLO">👤 ZALLO</option>
-                      <option value="UBALDO">👤 UBALDO</option>
-                      <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                      <option value="PASCUAL">👤 PASCUAL</option>
-                      <option value="LALO">👤 LALO</option>
-                      <option value="EDGAR">👤 EDGAR</option>
+                      <option value="JORGE">JORGE</option>
+                      <option value="GERARDO">GERARDO</option>
+                      <option value="OSVALDO">OSVALDO</option>
+                      <option value="BALANDRAN">BALANDRAN</option>
+                      <option value="ULISES">ULISES</option>
+                      <option value="JOSUE">JOSUE</option>
+                      <option value="ISRAEL">ISRAEL</option>
+                      <option value="ISAAC">ISAAC</option>
+                      <option value="ANGEL">ANGEL</option>
+                      <option value="LEO">LEO</option>
+                      <option value="BRAULIO">BRAULIO</option>
+                      <option value="MARTHA">MARTHA</option>
+                      <option value="FERNANDA">FERNANDA</option>
+                      <option value="ZALLO">ZALLO</option>
+                      <option value="UBALDO">UBALDO</option>
+                      <option value="JOSE LUIS">JOSE LUIS</option>
+                      <option value="PASCUAL">PASCUAL</option>
+                      <option value="LALO">LALO</option>
+                      <option value="EDGAR">EDGAR</option>
                     </optgroup>
                   </select>
                 </div>
 
                 <div class="field">
-                  <label>Notas / Observaciones</label>
-                  <textarea id="f_not" rows="2" placeholder="Escribe aquí..." oninput="validarBotonGuardar()"></textarea>
+                  <label>Notas / observaciones</label>
+                  <textarea id="f_not" rows="2" placeholder="Agrega observaciones operativas" oninput="validarBotonGuardar()"></textarea>
 
                   <div id="del-note-wrapper"
                     style="display:none; align-items:center; gap:8px; margin-top: 8px; background: #fee2e2; padding: 10px 12px; border-radius: 8px; border: 1px solid #f87171;">
@@ -591,7 +789,7 @@
                     <span class="material-icons">delete</span>
                   </button>
                   <button id="btnSaveFlota" class="btn btn-save" onclick="ejecutarGuardadoFlota()">
-                    <span class="material-icons" style="font-size:18px">save</span> GUARDAR CAMBIOS
+                    <span class="material-icons" style="font-size:18px">save</span> Guardar cambios
                   </button>
                 </div>
               </div>

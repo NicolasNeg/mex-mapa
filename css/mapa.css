@@ -5884,3 +5884,323 @@
 @media (min-width: 769px) {
   .cuadre-zoom-ctrl { display: none; }
 }
+
+
+/* Obsidian redesign - reservas and prediction modals */
+#modal-pdf-reservas,
+#modal-lector-reservas,
+#modal-prediccion {
+  background: rgba(10, 15, 24, .48) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+#modal-pdf-reservas > div,
+#modal-lector-reservas > .console-card,
+#modal-prediccion > .console-card {
+  width: min(100%, 820px) !important;
+  max-height: min(90vh, 760px) !important;
+  border-radius: 8px !important;
+  border: 1px solid #c6cbd3 !important;
+  background: #ffffff !important;
+  box-shadow: 0 24px 70px rgba(19, 27, 46, .24) !important;
+}
+
+#modal-pdf-reservas > div {
+  max-width: 620px !important;
+}
+
+#modal-pdf-reservas > div > div:first-child,
+#modal-prediccion > .console-card > div:first-child {
+  padding: 18px !important;
+  border-bottom: 1px solid #e2e6eb !important;
+  background: #ffffff !important;
+  color: #131b2e !important;
+}
+
+#modal-pdf-reservas > div > div:first-child .material-icons,
+#modal-prediccion > .console-card > div:first-child .material-icons,
+#modal-lector-reservas > .console-card > .material-icons {
+  color: #0b74b8 !important;
+}
+
+#modal-pdf-reservas > div > div:first-child div div:first-child,
+#modal-prediccion > .console-card > div:first-child h2,
+#modal-lector-reservas > .console-card h2 {
+  color: #131b2e !important;
+  font-size: 18px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+#modal-pdf-reservas > div > div:first-child div div:nth-child(2),
+#modal-prediccion > .console-card > div:first-child p,
+#modal-lector-reservas > .console-card p {
+  color: #565e6d !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+#modal-pdf-reservas button,
+#modal-lector-reservas button,
+#modal-prediccion button {
+  border-radius: 6px !important;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease !important;
+}
+
+#modal-pdf-reservas button:active,
+#modal-lector-reservas button:active,
+#modal-prediccion button:active {
+  transform: translateY(1px) !important;
+}
+
+#modal-pdf-reservas > div > div:first-child button,
+#modal-prediccion > .console-card > div:first-child button,
+#modal-lector-reservas > .console-card > button:first-child {
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid #e2e6eb !important;
+  background: #ffffff !important;
+  color: #565e6d !important;
+}
+
+#modal-pdf-reservas > div > div:first-child button:hover,
+#modal-prediccion > .console-card > div:first-child button:hover,
+#modal-lector-reservas > .console-card > button:first-child:hover {
+  background: #f2f4f6 !important;
+  color: #131b2e !important;
+}
+
+#modal-pdf-reservas > div > div:last-child {
+  padding: 20px !important;
+  gap: 14px !important;
+  background: #f7f9fb !important;
+}
+
+#pdf-drop-zone {
+  border: 1.5px dashed #9aa3af !important;
+  border-radius: 8px !important;
+  background: #ffffff !important;
+  padding: 30px 22px !important;
+}
+
+#pdf-drop-zone:hover {
+  border-color: #0b74b8 !important;
+  background: #f5fbff !important;
+}
+
+#pdf-drop-zone .material-icons {
+  color: #7b8492 !important;
+}
+
+#pdf-texto-bruto,
+#textoBrutoReservas,
+#textoBrutoRegresos,
+#textoBrutoVencidos,
+#txt-pred-reservas,
+#txt-pred-regresos {
+  border-radius: 6px !important;
+  border: 1px solid #c6cbd3 !important;
+  background: #ffffff !important;
+  color: #191c1e !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace !important;
+  font-size: 11px !important;
+  line-height: 1.55 !important;
+  box-shadow: none !important;
+}
+
+#pdf-texto-bruto:focus,
+#textoBrutoReservas:focus,
+#textoBrutoRegresos:focus,
+#textoBrutoVencidos:focus,
+#txt-pred-reservas:focus,
+#txt-pred-regresos:focus {
+  border-color: #0b74b8 !important;
+  box-shadow: 0 0 0 3px rgba(11, 116, 184, .13) !important;
+}
+
+#btn-analizar-pdf,
+#btnGenerarPdfActividad {
+  min-height: 44px !important;
+  border-radius: 6px !important;
+  background: #131b2e !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+#btn-analizar-pdf:hover,
+#btnGenerarPdfActividad:hover:not(:disabled) {
+  background: #202b42 !important;
+}
+
+#btnGenerarPdfActividad:disabled {
+  background: #e2e6eb !important;
+  color: #7b8492 !important;
+}
+
+#modal-lector-reservas > .console-card {
+  padding: 24px !important;
+  text-align: left !important;
+}
+
+#modal-lector-reservas > .console-card > .material-icons {
+  width: 44px !important;
+  height: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 0 0 12px !important;
+  border-radius: 8px !important;
+  background: #e6f3fb !important;
+  font-size: 24px !important;
+}
+
+#modal-lector-reservas label,
+#modal-prediccion label {
+  color: #565e6d !important;
+  font-size: 10px !important;
+  font-weight: 900 !important;
+  letter-spacing: .07em !important;
+  text-transform: uppercase !important;
+}
+
+#modal-prediccion #prediccion-paso-1,
+#modal-prediccion #prediccion-paso-2 {
+  background: #f7f9fb !important;
+}
+
+#fecha-prediccion {
+  border-radius: 6px !important;
+  border: 1px solid #c6cbd3 !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 720px) {
+  #modal-pdf-reservas,
+  #modal-lector-reservas,
+  #modal-prediccion {
+    align-items: stretch !important;
+    padding: 10px !important;
+  }
+
+  #modal-pdf-reservas > div,
+  #modal-lector-reservas > .console-card,
+  #modal-prediccion > .console-card {
+    max-height: calc(100dvh - 20px) !important;
+  }
+
+  #modal-lector-reservas > .console-card > div[style*="grid-template-columns"],
+  #modal-prediccion #prediccion-paso-1 > div[style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Obsidian redesign - mobile map command surface */
+@media (max-width: 768px) {
+  .content {
+    padding-bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  #mexMapaFloatSearch-bar {
+    display: block !important;
+    position: fixed !important;
+    top: 72px !important;
+    left: 12px !important;
+    right: 12px !important;
+    width: auto !important;
+    transform: none !important;
+    z-index: 1805 !important;
+  }
+
+  #mexMapaFloatSearch-bar > div {
+    min-height: 48px !important;
+    padding: 7px 10px !important;
+    border: 1px solid #dbe4f0 !important;
+    border-radius: 14px !important;
+    background: rgba(255, 255, 255, .96) !important;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .14) !important;
+    backdrop-filter: blur(14px) !important;
+    -webkit-backdrop-filter: blur(14px) !important;
+  }
+
+  #mexMapaFloatSearch {
+    min-width: 0 !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+  }
+
+  #mexMapaFloatSearch-bar button[aria-label="Cerrar buscador"] {
+    display: none !important;
+  }
+
+  #map-stage {
+    margin-top: 74px !important;
+    margin-bottom: 14px !important;
+  }
+
+  .zoom-controls {
+    right: 14px !important;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+    z-index: 1910 !important;
+  }
+
+  .zoom-controls > .btn-zoom:not(#btnControles) {
+    display: none !important;
+  }
+
+  .zoom-controls #btnControles {
+    display: flex !important;
+    width: 54px !important;
+    height: 54px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(15, 23, 42, .12) !important;
+    background: #131b2e !important;
+    color: #ffffff !important;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .28) !important;
+  }
+
+  .zoom-controls #btnControles .material-icons {
+    font-size: 23px !important;
+  }
+
+  #controlesMenu {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: calc(80px + env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    min-width: 0 !important;
+    max-height: min(62dvh, 420px) !important;
+    overflow-y: auto !important;
+    border-radius: 16px !important;
+    border: 1px solid #dbe4f0 !important;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, .24) !important;
+  }
+
+  #btnAbrirUnidades {
+    top: auto !important;
+    right: 78px !important;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px)) !important;
+    transform: none !important;
+    width: 54px !important;
+    height: 54px !important;
+    border-radius: 16px !important;
+    border: 1px solid #dbe4f0 !important;
+    background: #ffffff !important;
+    color: #131b2e !important;
+    box-shadow: 0 14px 34px rgba(15, 23, 42, .18) !important;
+    animation: none !important;
+  }
+
+  #btnAbrirUnidades .material-icons {
+    font-size: 23px !important;
+  }
+
+  .info-sidebar.open {
+    bottom: calc(82px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}

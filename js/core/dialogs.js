@@ -25,7 +25,18 @@
 
       let _cleanup = null;
 
+      function _ensureDialogStyles() {
+        if (!document?.head) return;
+        if (document.querySelector("link[data-mex-dialog-css], link[href=\"/css/dialogs.css\"], link[href$=\"/css/dialogs.css\"], link[href$=\"css/dialogs.css\"]")) return;
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = "/css/dialogs.css";
+        link.dataset.mexDialogCss = "true";
+        document.head.appendChild(link);
+      }
+
       function _ensureOverlay() {
+        _ensureDialogStyles();
         let overlay = document.getElementById('mex-dialog-overlay');
         if (overlay) return overlay;
 
@@ -67,6 +78,12 @@
         valorExtra = 'extra',
         input = null
       } = {}) {
+        const dialogOptions = { titulo, texto, tipo, icon, btnConfirmar, btnCancelar, btnExtra, valorConfirmar, valorCancelar, valorExtra, input };
+        try {
+          if (!window.__MEX_DIALOG_STAY_LOCAL && window.parent && window.parent !== window && typeof window.parent.mexDialog === "function") {
+            return window.parent.mexDialog(dialogOptions);
+          }
+        } catch (_) {}
         return new Promise(resolve => {
           const overlay = _ensureOverlay();
           const iconRow = document.getElementById('mex-dlg-icon-row');
@@ -90,6 +107,11 @@
           if (_cleanup) { _cleanup(); _cleanup = null; }
 
           const cfg = tipoMap[tipo] || tipoMap.info;
+          card.classList.toggle('mex-dlg-card--input', !!input);
+          card.classList.toggle('mex-dlg-card--simple', !input);
+          card.setAttribute('role', 'dialog');
+          card.setAttribute('aria-modal', 'true');
+          card.setAttribute('aria-labelledby', 'mex-dlg-title');
 
           // Icon row
           iconRow.className = `mex-dlg-icon-row ${cfg.cls}`;

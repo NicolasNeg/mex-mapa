@@ -1544,13 +1544,13 @@
       <button class="btn-zoom" onclick="adjustZoom(-0.1)">-</button>
       <!-- CONTROLES: gear button with dropdown -->
       <div style="position:relative">
-        <button id="btnControles" class="btn-zoom" onclick="toggleControlesMenu(event)" title="Controles"
+        <button id="btnControles" class="btn-zoom" onclick="toggleControlesMenu(event)" title="Vista y filtros"
           style="color:#374151">
-          <span class="material-icons" style="font-size:22px;pointer-events:none">settings</span>
+          <span class="material-icons" style="font-size:22px;pointer-events:none">visibility</span>
         </button>
         <div id="controlesMenu"
           style="display:none;position:absolute;left:0;bottom:calc(100% + 10px);background:#ffffff;border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.18);min-width:230px;padding:8px;z-index:9999;border:1px solid #e5e7eb;animation:dd-in .15s ease both">
-          <div style="padding:6px 12px 6px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#6b7280;text-transform:uppercase">CONTROLES</div>
+          <div style="padding:6px 12px 6px;font-size:10px;font-weight:900;letter-spacing:.1em;color:#6b7280;text-transform:uppercase">VISTA Y FILTROS</div>
 
           <!-- Buscar unidad — abre la barra flotante de búsqueda en el mapa -->
           <div class="kpi-menu-item"
@@ -1568,7 +1568,7 @@
             onmouseenter="this.style.background='#f9fafb'" onmouseleave="this.style.background=''"
             onclick="verKpis();toggleControlesMenu()">
             <span class="material-icons" style="font-size:18px;color:#6b7280;flex-shrink:0">bar_chart</span>
-            <span style="font-size:13px;font-weight:600;color:#111827;flex:1">Ver KPIs</span>
+            <span style="font-size:13px;font-weight:600;color:#111827;flex:1">Indicadores</span>
             <span class="material-icons" style="font-size:16px;color:#9ca3af">chevron_right</span>
           </div>
 

@@ -221,3 +221,191 @@ html[data-theme="dark"] .mex-dlg-btn-cancel {
   background: #334155;
   color: #94a3b8;
 }
+
+/* Obsidian redesign - clean corporate dialogs */
+html body #mex-dialog-overlay {
+  z-index: 2147483000 !important;
+  padding: 18px !important;
+  background: rgba(15, 23, 42, .86) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html body #mex-dialog-overlay.active { display: flex !important; }
+
+html body #mex-dialog-overlay .mex-dlg-card {
+  max-width: 440px !important;
+  width: min(100%, 440px) !important;
+  overflow: hidden !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, .26) !important;
+  animation: mex-dlg-clean-in .20s cubic-bezier(.16, 1, .3, 1) both !important;
+}
+
+@keyframes mex-dlg-clean-in {
+  from { opacity: 0; transform: translateY(14px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+html body #mex-dialog-overlay .mex-dlg-icon-row,
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-info,
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-success,
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-warning,
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-danger,
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-error {
+  padding: 30px 28px 8px !important;
+  background: #ffffff !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-icon-row::before { display: none !important; }
+
+html body #mex-dialog-overlay .mex-dlg-main-icon {
+  color: #2563eb !important;
+  font-size: 48px !important;
+  line-height: 1 !important;
+  filter: none !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-success .mex-dlg-main-icon { color: #16a34a !important; }
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-warning .mex-dlg-main-icon { color: #d97706 !important; }
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-danger .mex-dlg-main-icon,
+html body #mex-dialog-overlay .mex-dlg-icon-row.dlg-error .mex-dlg-main-icon { color: #dc2626 !important; }
+
+html body #mex-dialog-overlay .mex-dlg-body {
+  padding: 14px 30px 12px !important;
+  text-align: center !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-card.mex-dlg-card--input .mex-dlg-body { text-align: left !important; }
+
+html body #mex-dialog-overlay .mex-dlg-title {
+  margin: 0 0 10px !important;
+  color: #0f172a !important;
+  font-size: 20px !important;
+  font-weight: 800 !important;
+  line-height: 1.22 !important;
+  letter-spacing: 0 !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-text {
+  margin: 0 !important;
+  color: #475569 !important;
+  font-size: 14px !important;
+  line-height: 1.6 !important;
+  white-space: pre-wrap !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-input-wrap { margin-top: 18px !important; }
+
+html body #mex-dialog-overlay .mex-dlg-input {
+  width: 100% !important;
+  min-height: 44px !important;
+  padding: 11px 13px !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  background: #f3f4f6 !important;
+  color: #0f172a !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-input:focus {
+  border-color: #2563eb !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .13) !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-actions {
+  display: flex !important;
+  gap: 10px !important;
+  justify-content: center !important;
+  padding: 14px 30px 30px !important;
+  flex-wrap: wrap !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-card.mex-dlg-card--input .mex-dlg-actions { justify-content: flex-end !important; }
+
+html body #mex-dialog-overlay .mex-dlg-btn {
+  min-width: 104px !important;
+  min-height: 42px !important;
+  padding: 10px 18px !important;
+  border: 1px solid transparent !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  font-weight: 850 !important;
+  letter-spacing: .04em !important;
+  text-transform: uppercase !important;
+  box-shadow: none !important;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-btn:hover { transform: translateY(-1px) !important; }
+html body #mex-dialog-overlay .mex-dlg-btn:active { transform: translateY(1px) !important; }
+
+html body #mex-dialog-overlay .mex-dlg-btn-cancel {
+  background: #f3f4f6 !important;
+  color: #475569 !important;
+  border-color: #f3f4f6 !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-btn-cancel:hover {
+  background: #e5e7eb !important;
+  color: #0f172a !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-btn-extra {
+  background: #e0f2fe !important;
+  color: #0369a1 !important;
+  border-color: #bae6fd !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-btn-confirm {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
+}
+
+html body #mex-dialog-overlay .mex-dlg-btn-confirm:hover { background: #1d4ed8 !important; }
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-success { background: #16a34a !important; border-color: #16a34a !important; }
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-success:hover { background: #15803d !important; }
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-warning { background: #d97706 !important; border-color: #d97706 !important; }
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-warning:hover { background: #b45309 !important; }
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-danger,
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-error { background: #dc2626 !important; border-color: #dc2626 !important; }
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-danger:hover,
+html body #mex-dialog-overlay .mex-dlg-btn-confirm.dlg-error:hover { background: #b91c1c !important; }
+
+html.dark-theme body #mex-dialog-overlay .mex-dlg-card,
+html[data-theme=dark] body #mex-dialog-overlay .mex-dlg-card,
+body.dark-theme #mex-dialog-overlay .mex-dlg-card {
+  border-color: #334155 !important;
+  background: #0f172a !important;
+}
+
+html.dark-theme body #mex-dialog-overlay .mex-dlg-icon-row,
+html[data-theme=dark] body #mex-dialog-overlay .mex-dlg-icon-row,
+body.dark-theme #mex-dialog-overlay .mex-dlg-icon-row { background: #0f172a !important; }
+
+html.dark-theme body #mex-dialog-overlay .mex-dlg-title,
+html[data-theme=dark] body #mex-dialog-overlay .mex-dlg-title,
+body.dark-theme #mex-dialog-overlay .mex-dlg-title { color: #f8fafc !important; }
+
+html.dark-theme body #mex-dialog-overlay .mex-dlg-text,
+html[data-theme=dark] body #mex-dialog-overlay .mex-dlg-text,
+body.dark-theme #mex-dialog-overlay .mex-dlg-text { color: #cbd5e1 !important; }
+
+@media (max-width: 520px) {
+  html body #mex-dialog-overlay { align-items: flex-end !important; padding: 12px !important; }
+  html body #mex-dialog-overlay .mex-dlg-card { width: 100% !important; max-width: none !important; border-radius: 18px !important; }
+  html body #mex-dialog-overlay .mex-dlg-actions { flex-direction: column-reverse !important; }
+  html body #mex-dialog-overlay .mex-dlg-btn { width: 100% !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html body #mex-dialog-overlay .mex-dlg-card { animation: none !important; }
+  html body #mex-dialog-overlay .mex-dlg-btn { transition: none !important; }
+}
