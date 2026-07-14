@@ -852,7 +852,7 @@
   <div id="audit-modal" class="fleet-modal" style="z-index: 6000;">
     <div class="fleet-header-top">
       <div style="display:flex; align-items:center; gap: 10px;">
-        <h2 style="color:var(--primary); font-weight:900; margin:0;">ASISTENTE DE AUDITORÍA (3 VÍAS)</h2>
+        <h2 style="color:var(--primary); font-weight:900; margin:0;">CUADRE DE FLOTA</h2>
       </div>
       <button onclick="document.getElementById('audit-modal').classList.remove('active')"
         style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
@@ -864,10 +864,8 @@
         style="width: 100%; max-width: 850px; background: white; padding: 30px; border-radius: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
 
         <div style="text-align: center; margin-bottom: 25px;">
-          <h3 style="color:var(--primary); font-weight:900; margin-bottom:10px; font-size: 18px;">PASO 1: CARGAR BASE
-            CORPORATIVA</h3>
-          <p style="font-size:13px; color:#64748b; margin:0;">Cruza el reporte del sistema de ventas con la realidad
-            física del patio.</p>
+          <h3 style="color:var(--primary); font-weight:900; margin-bottom:10px; font-size: 18px;">PASO 1: CARGAR FLOTA Y ASIGNAR AUXILIAR</h3>
+          <p style="font-size:13px; color:#64748b; margin:0;">Carga la base, selecciona el auxiliar y envía la misión al patio.</p>
         </div>
 
         <div
@@ -893,9 +891,15 @@
                 id="csv-count">0</span> unidades extraídas del archivo.
             </div>
 
+            <div class="audit-assignee-strip">
+              <label class="audit-assignee-label" for="cuadreAuxiliarSelect">Auxiliar de patio</label>
+              <select id="cuadreAuxiliarSelect" class="audit-assignee-select" onchange="window.__syncCuadreMissionButtonState && window.__syncCuadreMissionButtonState()"></select>
+              <div class="audit-assignee-note">La alerta y el pase de lista solo se enviarán a esa persona.</div>
+            </div>
+
             <button id="btnIniciarMision" onclick="iniciarMisionAuditoria()" disabled
               style="width: 100%; padding: 18px; background: var(--mex-accent); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; transition: 0.2s; margin-top: 20px; opacity: 0.5; font-size: 14px;">
-              INICIAR MISIÓN DE AUDITORÍA
+              ENVIAR MISIÓN AL AUXILIAR
             </button>
           </div>
 
@@ -950,7 +954,7 @@
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <h3 id="titulo-auditoria"
               style="margin:0; font-weight: 900; font-size: 16px; display: flex; align-items: center; gap: 8px;">
-              <span class="material-icons">fact_check</span> PASE DE LISTA
+              <span class="material-icons">fact_check</span> PASE DE LISTA / CORRECCIONES
             </h3>
             <span id="audit-progress"
               style="background: rgba(255,255,255,0.2); padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 900;">0 / 0</span>
@@ -961,7 +965,7 @@
           <div style="position: relative; margin-top: 10px;">
             <span class="material-icons"
               style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8;">search</span>
-            <input type="text" id="audit-search" placeholder="Buscar MVA o Placa..." oninput="renderizarPaseLista()"
+            <input type="text" id="audit-search" placeholder="Buscar MVA, placa o modelo..." oninput="renderizarPaseLista()"
               style="width: 100%; padding: 12px 12px 12px 40px; border-radius: 12px; border: none; outline: none; font-weight: 800; font-size: 14px; box-sizing: border-box; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
           </div>
         </div>
@@ -975,11 +979,11 @@
           style="padding: 15px; background: white; border-top: 1px solid #e2e8f0; flex-shrink: 0; z-index: 10; box-shadow: 0 -5px 15px rgba(0,0,0,0.02);">
           <button onclick="agregarUnidadExtra()"
             style="width: 100%; padding: 12px; background: #fffbeb; color: #d97706; border: 2px dashed #fcd34d; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 10px;">
-            <span class="material-icons">add_circle</span> AÑADIR SOBRANTE
+            <span class="material-icons">add_circle</span> AÑADIR UNIDAD EXTRA
           </button>
           <button id="btnFinalizarAudit" onclick="finalizarPaseLista()" disabled
             style="width: 100%; padding: 16px; background: #cbd5e1; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.3s;">
-            <span class="material-icons">compare_arrows</span> FINALIZAR AUDITORÍA
+            <span class="material-icons">compare_arrows</span> FINALIZAR RECORRIDO
           </button>
         </div>
 
@@ -989,8 +993,8 @@
         style="display:none; width: 100%; max-width: 500px; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
         <div style="background: var(--mex-blue); padding: 25px; color: white; text-align: center;">
           <span class="material-icons" style="font-size: 40px; margin-bottom: 10px; color: #38bdf8;">analytics</span>
-          <h2 style="margin:0; font-weight: 900; font-size: 20px;">REVISIÓN FINALIZADA</h2>
-          <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Listo para cruzar datos y generar PDF Oficial.
+          <h2 style="margin:0; font-weight: 900; font-size: 20px;">REVISIÓN DE VENTAS</h2>
+          <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Listo para revisar, firmar y generar el cierre oficial.
           </p>
         </div>
 
@@ -1012,7 +1016,7 @@
         <div style="padding: 20px; border-top: 1px solid #e2e8f0; background: white;">
           <button id="btnCertificarFinal" onclick="enviarReporteAuditoriaFinal()"
             style="width: 100%; padding: 18px; background: #1e293b; color: white; border: none; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;">
-            <span class="material-icons">gavel</span> ENVIAR REPORTE A VENTAS
+            <span class="material-icons">gavel</span> FIRMAR Y ENVIAR REPORTE
           </button>
         </div>
       </div>
@@ -1812,6 +1816,20 @@
           Vehículo</label>
         <input type="text" id="inputExtraModelo" placeholder="Ej. VERSA SENSE"
           style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:14px; text-transform:uppercase; outline:none; transition:0.2s;"
+          onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <div style="text-align: left; margin-bottom: 12px;">
+        <label style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Kilometraje corregido</label>
+        <input type="number" id="inputExtraKm" placeholder="Ej. 45210" min="0"
+          style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:16px; text-transform:uppercase; outline:none; transition:0.2s;"
+          onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
+      </div>
+
+      <div style="text-align: left; margin-bottom: 12px;">
+        <label style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Gasolina corregida</label>
+        <input type="text" id="inputExtraGas" placeholder="Ej. 1/2, 3/4, LLENO"
+          style="width:100%; text-align:center; padding:12px; border-radius:12px; border:2px solid var(--border); margin-top: 5px; font-weight:900; font-size:16px; text-transform:uppercase; outline:none; transition:0.2s;"
           onfocus="this.style.borderColor='var(--mex-accent)'" onblur="this.style.borderColor='var(--border)'">
       </div>
 

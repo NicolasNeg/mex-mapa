@@ -113,8 +113,8 @@ function _ensureAutoConfiguration() {
       openChat: (chatUser = '') => {
         const safeUser = _safeText(chatUser);
         window.location.href = safeUser
-          ? `/mensajes?notif=chat&chatUser=${encodeURIComponent(safeUser)}`
-          : '/mensajes';
+          ? '/app/mensajes?notif=chat&chatUser=' + encodeURIComponent(safeUser)
+          : '/app/mensajes';
       },
       openCuadre: () => { window.location.href = '/app/cuadre'; },
       openAlerts: () => { window.location.href = '/app/mapa?notif=alerts'; }

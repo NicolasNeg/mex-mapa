@@ -587,21 +587,107 @@
     },
 
     // ─── CUADRE V3 ────────────────────────────────────────
-    async iniciarProtocoloDesdeAdmin(nombreAdmin, jsonMision, plaza) {
+    async iniciarProtocoloDesdeAdmin(nombreAdmin, jsonMision, plaza, meta = {}) {
+      const plazaUp = _normalizePlazaId(plaza);
+      const missionId = String(meta.missionId || ('cuadre_' + Date.now() + '_' + Math.random().toString(16).slice(2, 8))).toUpperCase();
+      const destinatarioDocId = String(meta.destinatarioDocId || meta.recipientDocId || meta.docId || '').trim();
+      const destinatarioNombre = String(meta.destinatarioNombre || meta.recipientName || meta.nombre || '').trim();
+      let unidades = [];
+      if (Array.isArray(jsonMision)) {
+        unidades = jsonMision;
+      } else if (jsonMision && typeof jsonMision === 'object' && Array.isArray(jsonMision.unidades)) {
+        unidades = jsonMision.unidades;
+      } else if (typeof jsonMision === 'string') {
+        try {
+          const parsed = JSON.parse(jsonMision);
+          if (Array.isArray(parsed)) {
+            unidades = parsed;
+          } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.unidades)) {
+            unidades = parsed.unidades;
+          }
+        } catch (_) {}
+      }
+      const missionPayload = {
+        missionId,
+        tipo: 'CUADRE_FLOTA',
+        creador: nombreAdmin || 'Sistema',
+        creadorDocId: String(meta.creadorDocId || meta.adminDocId || '').trim(),
+        creadorEmail: String(meta.creadorEmail || meta.adminEmail || '').trim(),
+        destinatarioDocId,
+        destinatarioNombre,
+        plaza: plazaUp,
+        unidades,
+        estado: 'PENDIENTE',
+        creadoEn: _now(),
+        creadoAt: _ts()
+      };
       await _setSettings({
-        estadoCuadreV3: "PROCESO",
-        adminIniciador: nombreAdmin,
-        misionAuditoria: jsonMision,
-        datosAuditoria: "[]",
+        estadoCuadreV3: 'PROCESO',
+        adminIniciador: nombreAdmin || 'Sistema',
+        adminIniciadorDocId: String(meta.creadorDocId || meta.adminDocId || '').trim(),
+        adminIniciadorEmail: String(meta.creadorEmail || meta.adminEmail || '').trim(),
+        misionAuditoria: JSON.stringify(missionPayload),
+        datosAuditoria: '[]',
+        cuadreMissionId: missionId,
+        cuadreDestinoDocId: destinatarioDocId,
+        cuadreDestinoNombre: destinatarioNombre,
+        cuadreMissionEstado: 'ENVIADA',
         ultimaModificacion: _now(),
-        ultimoEditor: nombreAdmin || "Sistema"
-      }, plaza);
-      return "EXITO";
+        ultimoEditor: nombreAdmin || 'Sistema'
+      }, plazaUp);
+      if (destinatarioDocId) {
+        await db.collection(COL.USERS).doc(destinatarioDocId).collection('inbox').doc(missionId).set({
+          notificationId: missionId,
+          type: 'cuadre.assigned',
+          kindLabel: 'Mision de patio',
+          title: 'Mision de patio',
+          body: destinatarioNombre
+            ? ('Tienes una nueva mision de cuadre para ' + (plazaUp || 'tu plaza') + '.')
+            : 'Tienes una nueva mision de cuadre asignada.',
+          deepLink: '/app/cuadre?notif=cuadre',
+          plaza: plazaUp,
+          senderLabel: nombreAdmin || 'Sistema',
+          actorName: nombreAdmin || 'Sistema',
+          recipientDocId: destinatarioDocId,
+          recipientLabel: destinatarioNombre,
+          missionId,
+          missionUnits: unidades.length,
+          timestamp: _ts(),
+          createdAt: Date.now(),
+          read: false,
+          status: 'UNREAD',
+          priority: 'HIGH',
+          payload: {
+            missionId,
+            plaza: plazaUp,
+            destinatarioDocId,
+            destinatarioNombre,
+            missionUnits: unidades.length,
+            creadoPor: nombreAdmin || 'Sistema'
+          }
+        }, { merge: true });
+      }
+      await _registrarLog('CUADRE', 'MISION DE PATIO ENVIADA POR ' + (nombreAdmin || 'Sistema') + (destinatarioNombre ? ' A ' + destinatarioNombre : '') + ' (' + unidades.length + ' unidades)', nombreAdmin, plazaUp);
+      return { exito: true, missionId, destinatarioDocId, destinatarioNombre, unidades: unidades.length };
     },
 
     async obtenerMisionAuditoria(plaza) {
       const settings = await _getSettings(plaza);
-      try { return JSON.parse(settings.misionAuditoria || "[]"); } catch { return []; }
+      const raw = settings.misionAuditoria || '[]';
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && typeof parsed === 'object') {
+          const unidades = Array.isArray(parsed.unidades)
+            ? parsed.unidades
+            : (Array.isArray(parsed.items) ? parsed.items : []);
+          if (Array.isArray(unidades)) {
+            unidades.meta = parsed;
+            return unidades;
+          }
+        }
+      } catch (_) {}
+      return [];
     },
 
     async obtenerRevisionAuditoria(plaza) {
