@@ -692,7 +692,21 @@
 
     async obtenerRevisionAuditoria(plaza) {
       const settings = await _getSettings(plaza);
-      try { return JSON.parse(settings.datosAuditoria || "[]"); } catch { return []; }
+      const raw = settings.datosAuditoria || '[]';
+      try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed;
+        if (parsed && typeof parsed === 'object') {
+          const unidades = Array.isArray(parsed.unidades)
+            ? parsed.unidades
+            : (Array.isArray(parsed.items) ? parsed.items : []);
+          if (Array.isArray(unidades)) {
+            unidades.meta = parsed;
+            return unidades;
+          }
+        }
+      } catch (_) {}
+      return [];
     },
 
     async guardarAuditoriaCruzada(datosAuditoria, autor, plaza) {
@@ -740,27 +754,45 @@
         return {
           id:        d.id,
           fecha:     window._mex._fecha(data),
+          tipo:      data.tipo || data.etapa || 'CUADRE',
           auxiliar:  data.auxiliar || data.autor || "",
           admin:     data.admin || data.adminVentas || "",
           ok:        data.ok || "0",
           faltantes: data.faltantes || "0",
           sobrantes: data.sobrantes || data.numSobrantes || "0",
+          firmaAuxiliar: data.firmaAuxiliar || data.auxFirmaNombre || "",
+          firmaVentas: data.firmaVentas || data.ventasFirmaNombre || "",
+          estado:    data.estado || data.status || "",
           pdfUrl:    data.pdfUrl || data.jsonCompleto || "",
           plaza:     data.plaza || plazaUp || ""
         };
       });
     },
 
-    async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats, plaza) {
+    async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats, plaza, meta = {}) {
       const plazaUp = (plaza || stats?.plaza || '').toUpperCase().trim();
+      const units = Array.isArray(auditList)
+        ? auditList
+        : (auditList && typeof auditList === 'object' && Array.isArray(auditList.unidades) ? auditList.unidades : []);
+      const revisionMeta = auditList && typeof auditList === 'object' && !Array.isArray(auditList)
+        ? (auditList.meta || {})
+        : (meta || {});
+      const auxiliarNombre = String(meta.auxiliarNombre || revisionMeta.auxiliarNombre || revisionMeta.auxiliar || stats?.auxiliar || '').trim();
+      const firmaAuxiliar = String(meta.firmaAuxiliar || revisionMeta.firmaAuxiliar || revisionMeta.auxiliarFirmaNombre || '').trim();
+      const firmaVentas = String(meta.firmaVentas || meta.firmaNombre || autorAdmin || '').trim();
       await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp);
       const registro = {
         timestamp: _ts(), fecha: _now(),
-        auxiliar:  stats?.auxiliar || "",
+        tipo:      'CUADRE_FLOTA',
+        etapa:     'VENTAS',
+        auxiliar:  auxiliarNombre,
         admin:     autorAdmin,
         ok:        stats?.ok || 0,
         faltantes: stats?.faltantes || 0,
         sobrantes: stats?.sobrantes || 0,
+        firmaAuxiliar,
+        firmaVentas,
+        estado:    'CERRADO',
         plaza:     plazaUp || "",
         pdfUrl:    ""
       };
@@ -770,6 +802,10 @@
         adminIniciador: "",
         misionAuditoria: "[]",
         datosAuditoria: "[]",
+        cuadreMissionId: "",
+        cuadreDestinoDocId: "",
+        cuadreDestinoNombre: "",
+        cuadreRevisionEstado: "CERRADO",
         ultimaModificacion: _now(),
         ultimoEditor: autorAdmin || "Sistema"
       }, plazaUp);

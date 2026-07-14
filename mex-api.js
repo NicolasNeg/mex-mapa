@@ -2691,8 +2691,22 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     return [];
   },
   async obtenerRevisionAuditoria(plaza) {
-    const settings = await _getSettings(plaza); // [F1]
-    try { return JSON.parse(settings.datosAuditoria || "[]"); } catch { return []; }
+    const settings = await _getSettings(plaza);
+    const raw = settings.datosAuditoria || '[]';
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+      if (parsed && typeof parsed === 'object') {
+        const unidades = Array.isArray(parsed.unidades)
+          ? parsed.unidades
+          : (Array.isArray(parsed.items) ? parsed.items : []);
+        if (Array.isArray(unidades)) {
+          unidades.meta = parsed;
+          return unidades;
+        }
+      }
+    } catch (_) {}
+    return [];
   },
   async guardarAuditoriaCruzada(datosAuditoria, autor, plaza) {
     const plazaUp = _normalizePlazaId(plaza);
@@ -2739,11 +2753,15 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       return {
         id:        d.id,
         fecha:     _fecha(data),
+        tipo:      data.tipo || data.etapa || 'CUADRE',
         auxiliar:  data.auxiliar || data.autor || "",
         admin:     data.admin || data.adminVentas || "",
         ok:        data.ok || "0",
         faltantes: data.faltantes || "0",
         sobrantes: data.sobrantes || data.numSobrantes || "0",
+        firmaAuxiliar: data.firmaAuxiliar || data.auxFirmaNombre || "",
+        firmaVentas: data.firmaVentas || data.ventasFirmaNombre || "",
+        estado:    data.estado || data.status || "",
         pdfUrl:    data.pdfUrl || data.jsonCompleto || "",
         plaza:     data.plaza || plazaUp || ""
       };
@@ -2843,17 +2861,31 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     return "EXITO";
   },
 
-  async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats, plaza) {
+  async procesarAuditoriaDesdeAdmin(auditList, autorAdmin, stats, plaza, meta = {}) {
     const plazaUp = (plaza || stats?.plaza || '').toUpperCase().trim();
-    await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp); // [F1]
+    const units = Array.isArray(auditList)
+      ? auditList
+      : (auditList && typeof auditList === 'object' && Array.isArray(auditList.unidades) ? auditList.unidades : []);
+    const revisionMeta = auditList && typeof auditList === 'object' && !Array.isArray(auditList)
+      ? (auditList.meta || {})
+      : (meta || {});
+    const auxiliarNombre = String(meta.auxiliarNombre || revisionMeta.auxiliarNombre || revisionMeta.auxiliar || stats?.auxiliar || '').trim();
+    const firmaAuxiliar = String(meta.firmaAuxiliar || revisionMeta.firmaAuxiliar || revisionMeta.auxiliarFirmaNombre || '').trim();
+    const firmaVentas = String(meta.firmaVentas || meta.firmaNombre || autorAdmin || '').trim();
+    await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp);
     const registro = {
       timestamp: _ts(), fecha: _now(),
-      auxiliar:  stats?.auxiliar || "",
+      tipo:      'CUADRE_FLOTA',
+      etapa:     'VENTAS',
+      auxiliar:  auxiliarNombre,
       admin:     autorAdmin,
       ok:        stats?.ok || 0,
       faltantes: stats?.faltantes || 0,
       sobrantes: stats?.sobrantes || 0,
-      plaza:     plazaUp || "", // [F1] campo plaza siempre presente
+      firmaAuxiliar,
+      firmaVentas,
+      estado:    'CERRADO',
+      plaza:     plazaUp || "",
       pdfUrl:    ""
     };
     // [F1] Colección plana historial_cuadres con .add() — Firestore genera ID
@@ -2863,6 +2895,10 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       adminIniciador: "",
       misionAuditoria: "[]",
       datosAuditoria: "[]",
+      cuadreMissionId: "",
+      cuadreDestinoDocId: "",
+      cuadreDestinoNombre: "",
+      cuadreRevisionEstado: "CERRADO",
       ultimaModificacion: _now(),
       ultimoEditor: autorAdmin || "Sistema"
     }, plazaUp); // [F1]
@@ -2949,17 +2985,43 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     await _registrarLog("EMAIL", `📧 Reporte de cuadre enviado por ${autor}`, autor);
     return "EXITO";
   },
-  async enviarAuditoriaAVentas(auditList, autor, plaza) {
+  async enviarAuditoriaAVentas(auditList, autor, plaza, meta = {}) {
     const plazaUp = _normalizePlazaId(plaza);
+    const units = Array.isArray(auditList)
+      ? auditList
+      : (auditList && typeof auditList === 'object' && Array.isArray(auditList.unidades) ? auditList.unidades : []);
+    const missionMeta = auditList && typeof auditList === 'object' && !Array.isArray(auditList)
+      ? (auditList.meta || {})
+      : (meta || {});
+    const payload = {
+      missionId: String(meta.missionId || missionMeta.missionId || '').trim(),
+      tipo: 'REVISION_AUXILIAR',
+      plaza: plazaUp,
+      auxiliar: String(meta.auxiliarNombre || missionMeta.auxiliarNombre || autor || '').trim(),
+      auxiliarDocId: String(meta.auxiliarDocId || missionMeta.auxiliarDocId || '').trim(),
+      firmaAuxiliarNombre: String(meta.firmaNombre || meta.firmaAuxiliar || missionMeta.firmaAuxiliarNombre || '').trim(),
+      firmaAuxiliarUrl: String(meta.firmaDataUrl || meta.firmaAuxiliarUrl || missionMeta.firmaAuxiliarUrl || '').trim(),
+      unidades: units,
+      stats: meta.stats || missionMeta.stats || null,
+      creadoEn: _now(),
+      creadoAt: _ts()
+    };
     await _setSettings({
       estadoCuadreV3: "REVISION",
-      datosAuditoria: JSON.stringify(Array.isArray(auditList) ? auditList : []),
+      datosAuditoria: JSON.stringify(payload),
+      cuadreRevisionEstado: "EN_REVISION",
+      cuadreRevisionAuxNombre: payload.auxiliar,
+      cuadreRevisionAuxDocId: payload.auxiliarDocId,
+      cuadreRevisionAuxFirmaNombre: payload.firmaAuxiliarNombre,
+      cuadreRevisionAuxFirmaUrl: payload.firmaAuxiliarUrl,
+      cuadreMissionId: payload.missionId || "",
       ultimaModificacion: _now(),
       ultimoEditor: autor || "Sistema"
     }, plazaUp);
-    await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${auditList.length} unidades)`, autor, plazaUp);
-    return { exito: true, plaza: plazaUp };
+    await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${units.length} unidades)`, autor, plazaUp);
+    return { exito: true, plaza: plazaUp, missionId: payload.missionId, unidades: units.length };
   },
+
   async llamarGeminiAI(instruccionUsuario, contextoPatio, ultimoMVA) { return null; },
   async generarPDFActividadDiaria(reservas, regresos, vencidos, autor, fechaFront) {
     await _registrarLog("PDF", `📄 Reporte Actividad Diaria generado por ${autor}`, autor);
