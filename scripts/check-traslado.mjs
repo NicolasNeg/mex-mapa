@@ -16,6 +16,7 @@ assert.equal(estadoOperativoTraslado({ estado: "CERRADO", fechaSalida: now + 600
 
 assert.equal(licenciaVigente("2026-07-14", now), true);
 assert.equal(licenciaVigente("2026-07-13", now), false);
+assert.equal(licenciaVigente("", now), false);
 assert.equal(choferElegible({ isChofer: true, licenciaVencimiento: "2026-07-15" }, now), true);
 assert.equal(choferElegible({ isChofer: false, licenciaVencimiento: "2026-07-15" }, now), false);
 assert.equal(choferElegible({ isChofer: true, licenciaVencimiento: "2026-07-01" }, now), false);

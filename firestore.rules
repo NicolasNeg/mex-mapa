@@ -291,6 +291,8 @@ service cloud.firestore {
         && data.isAdmin is bool
         && data.isGlobal is bool
         && (data.status == null || data.status is string)
+        && (data.isChofer == null || data.isChofer is bool)
+        && (data.licenciaVencimiento == null || data.licenciaVencimiento is string)
         && rolValido(data.rol)
         && rolDePerfil(data) == data.rol
         && (!rolRequierePlaza(data.rol) || data.plazaAsignada.size() > 0);

@@ -32,6 +32,10 @@
     if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
     if (typeof v === 'object' && typeof v.seconds === 'number') return v.seconds * 1000;
     if (v instanceof Date) return v.getTime();
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      const parts = v.split('-').map(Number);
+      return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+    }
     const ms = new Date(v).getTime();
     return Number.isFinite(ms) ? ms : 0;
   }
@@ -45,7 +49,7 @@
     return salidaMs && salidaMs > (nowMs || Date.now()) ? 'PROGRAMADO' : 'ABIERTO';
   }
   function _licenciaVigente(v, nowMs) {
-    if (!v) return true;
+    if (!v) return false;
     const ms = _toMs(v);
     if (!ms) return false;
     const today = new Date(nowMs || Date.now());
@@ -67,6 +71,17 @@
         etiqueta: _text(item.etiqueta || item.label || item.nombre || item.codigo || item.id)
       };
     }).filter(item => item.codigo);
+  }
+  function _plazasList() {
+    const emp = window.MEX_CONFIG && window.MEX_CONFIG.empresa;
+    const fromSimple = Array.isArray(emp && emp.plazas) ? emp.plazas : [];
+    const fromDetail = Array.isArray(emp && emp.plazasDetalle) ? emp.plazasDetalle.map(item => item && (item.id || item.codigo || item.nombre)) : [];
+    return Array.from(new Set(fromSimple.concat(fromDetail).map(_normalizePlazaId).filter(Boolean))).sort();
+  }
+  function _tipoEtiqueta(codigo) {
+    const raw = _upper(codigo);
+    const found = _tipoList().find(item => _upper(item.codigo) === raw);
+    return found ? found.etiqueta : raw;
   }
   function _canManageTraslados() {
     return !!(window.mexPerms && window.mexPerms.canDo && window.mexPerms.canDo('traslados_gestionar'));
@@ -174,7 +189,7 @@
       const [traslados, unidades, choferes, discrepancias] = await Promise.all([
         _loadTraslados(plaza), _loadUnidades(plaza), _loadChoferes(), _loadDiscrepancias(plaza)
       ]);
-      return { plaza, traslados, unidades, choferes, tipos: _tipoList(), discrepancias, canManage: _canManageTraslados(), canResolveKm: _canResolveKm() };
+      return { plaza, plazas: _plazasList(), traslados, unidades, choferes, tipos: _tipoList(), discrepancias, canManage: _canManageTraslados(), canResolveKm: _canResolveKm() };
     },
 
     async crearTraslado(payload = {}) {
@@ -204,7 +219,7 @@
       const ref = db.collection(TRASLADOS_COL).doc();
       const data = {
         folio, mva, modelo: unit.data.modelo || '', placas: unit.data.placas || '', categoria: unit.data.categoria || '',
-        tipo, tipoEtiqueta: _text(payload.tipoEtiqueta || tipo), choferUid: chofer.data.authUid || chofer.id,
+        tipo, tipoEtiqueta: _text(payload.tipoEtiqueta || _tipoEtiqueta(tipo)), choferUid: chofer.data.authUid || chofer.id,
         choferNombre: _userName(chofer.data), plazaOrigen, plazaDestino,
         kmSalida, gasSalida: unit.data.gasolina || 'N/A', fechaSalida: salidaIso,
         fechaRegresoEstimada: payload.fechaRegresoEstimada ? _iso(payload.fechaRegresoEstimada) : '',
@@ -243,6 +258,7 @@
         edits.push(_edicion(field, cur[field], next, actor));
       };
       setField('tipo', cambios.tipo ? _upper(cambios.tipo) : '');
+      if (update.tipo) update.tipoEtiqueta = _tipoEtiqueta(update.tipo);
       setField('plazaDestino', cambios.plazaDestino);
       setField('fechaSalida', cambios.fechaSalida ? _iso(cambios.fechaSalida) : '');
       setField('fechaRegresoEstimada', cambios.fechaRegresoEstimada ? _iso(cambios.fechaRegresoEstimada) : '');
@@ -306,7 +322,10 @@
         const idx = await db.collection(COL.INDEX).where('mva', '==', data.mva).limit(1).get();
         if (!idx.empty) await idx.docs[0].ref.set({ plazaActual: data.plazaDestino, pos: 'LIMBO', ubicacion: 'PATIO' }, { merge: true });
       }
-      const cierre = { estado: 'CERRADO', kmLlegada, gasLlegada, fechaCierre, cerradoPor: actor, notaCierre: _text(payload.nota || ''), ediciones: (Array.isArray(data.ediciones) ? data.ediciones : []).concat([_edicion('estado', 'ABIERTO', 'CERRADO', actor)]) };
+      const cierreNota = _text(payload.nota || '');
+      const notas = Array.isArray(data.notas) ? data.notas.slice() : [];
+      if (cierreNota) notas.push({ texto: cierreNota, usuario: actor, fecha: _now(), timestamp: _ts(), tipo: 'CIERRE' });
+      const cierre = { estado: 'CERRADO', kmLlegada, gasLlegada, fechaCierre, cerradoPor: actor, notaCierre: cierreNota, notas, ediciones: (Array.isArray(data.ediciones) ? data.ediciones : []).concat([_edicion('estado', 'ABIERTO', 'CERRADO', actor)]) };
       await ref.set(cierre, { merge: true });
       await _actualizarFeed('TRASLADO CERRADO: ' + data.mva + ' -> ' + data.plazaDestino, actor, data.plazaDestino);
       await _registrarLog('TRASLADO', 'TRASLADO CERRADO: ' + (data.folio || ref.id) + ' · ' + data.mva, actor, data.plazaDestino);

@@ -4927,6 +4927,35 @@
       cursor: not-allowed;
     }
 
+    .um-driver-toggle {
+      display: flex !important;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1.5px solid #e2e8f0;
+      border-radius: 12px;
+      background: #f8fafc;
+      color: #334155 !important;
+      font-size: 12px !important;
+      font-weight: 800 !important;
+      letter-spacing: 0 !important;
+      text-transform: none !important;
+      cursor: pointer;
+    }
+
+    .um-driver-toggle input {
+      width: 18px !important;
+      height: 18px;
+      accent-color: var(--mex-accent, #2563eb);
+      flex: 0 0 auto;
+    }
+
+    .um-driver-toggle input:disabled {
+      cursor: not-allowed;
+    }
+
     .um-toggle-row {
       display: flex;
       align-items: center;

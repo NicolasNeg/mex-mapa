@@ -16,6 +16,10 @@ export function toMs(value) {
   if (typeof value === "number") return Number.isFinite(value) ? value : 0;
   if (typeof value === "object" && typeof value.seconds === "number") return value.seconds * 1000;
   if (value instanceof Date) return value.getTime();
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d).getTime();
+  }
   const ms = new Date(value).getTime();
   return Number.isFinite(ms) ? ms : 0;
 }
@@ -28,7 +32,7 @@ export function estadoOperativoTraslado({ estado = "ABIERTO", fechaSalida, now =
 }
 
 export function licenciaVigente(licenciaVencimiento, now = Date.now()) {
-  if (!licenciaVencimiento) return true;
+  if (!licenciaVencimiento) return false;
   const vencimiento = toMs(licenciaVencimiento);
   if (!vencimiento) return false;
   const today = new Date(toMs(now));

@@ -1,7 +1,7 @@
 ---
 title: Kilometraje global por unidad + módulo de Traslados
 date: 2026-07-13
-status: Fase A IMPLEMENTADA (deploy hosting pendiente) · Fase B pendiente — ver "ESTADO DE IMPLEMENTACIÓN"
+status: Fase A IMPLEMENTADA (deploy hosting pendiente) · Fase B IMPLEMENTADA localmente (deploy pendiente)
 ---
 
 # Kilometraje global + Traslados
@@ -44,11 +44,12 @@ la página vive en un IFRAME — al automatizar, buscar en `p.frames()`); llamad
    working tree, y `firebase deploy` sube el DISCO, no el commit. Antes de desplegar:
    `node --check api/cuadre.js && node --check mex-api.js` → verdes → `npm run deploy`
    (bumpea el SW solo) → `git add . && git commit && git push`. HEAD `407f5a1` está sano.
-2. **Fase B — Traslados: TODO el bloque de abajo.** No existe plan aún: escribirlo
-   desde este spec (el flujo de la casa es superpowers:writing-plans → ejecutar
-   tarea por tarea con review). La vista `/app/traslados` se implementa con el skill
-   `ui-ux-pro-max` y `ESTILO.md` (glass/minimalista); los screenshots del usuario
-   son inspiración funcional, no estética.
+2. **Fase B — Traslados: IMPLEMENTADA localmente el 2026-07-14.** Incluye API
+   `api/traslados.js`, logica pura `domain/traslado.model.js`, self-check
+   `node scripts/check-traslado.mjs`, vista SPA `/app/traslados`,
+   `css/app-traslados.css`, campos de chofer/licencia en usuarios y reglas
+   Firestore para `traslados`/discrepancias. Pendiente antes de producción:
+   validacion manual con sesion real y deploy.
 
 ### 🧾 Debt aceptado de Fase A (no bloqueante; detalles en `.superpowers/sdd/progress.md`)
 

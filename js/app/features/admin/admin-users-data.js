@@ -19,6 +19,8 @@ export function normalizeUserRecord(id, data = {}) {
     activo: data.activo !== false,
     isAdmin: data.isAdmin === true,
     isGlobal: data.isGlobal === true,
+    isChofer: data.isChofer === true,
+    licenciaVencimiento: String(data.licenciaVencimiento || data.licenciaChoferVence || '').slice(0, 10),
     notasInternas: String(data.notasInternas || data.notasAdmin || '').trim(),
     lastAccess,
     createdAt,

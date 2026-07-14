@@ -1255,6 +1255,29 @@ function _coerceTimestamp(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function _dateInputValue(value) {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) return value.slice(0, 10);
+  let ms = 0;
+  if (value && typeof value.toMillis === 'function') ms = value.toMillis();
+  else if (value && typeof value.seconds === 'number') ms = value.seconds * 1000;
+  else if (typeof value === 'number') ms = value < 1e12 ? value * 1000 : value;
+  else ms = new Date(value).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return '';
+  const d = new Date(ms);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function _licenciaChoferLabel(value) {
+  const input = _dateInputValue(value);
+  if (!input) return 'Licencia sin fecha';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const d = new Date(`${input}T23:59:59`);
+  const status = d.getTime() >= today.getTime() ? 'vigente' : 'vencida';
+  return `Licencia ${status} · ${input}`;
+}
+
 function _getUserAvatarUrl(user = {}) {
   return String(
     user.avatarUrl
@@ -1330,6 +1353,8 @@ function _normalizeUserProfile(raw = {}) {
     avatarUrl: _getUserAvatarUrl(raw),
     avatarPath: String(raw.avatarPath || '').trim(),
     plazasPermitidas: Array.isArray(raw.plazasPermitidas) ? raw.plazasPermitidas.map(_normalizePlaza).filter(Boolean) : [],
+    isChofer: raw.isChofer === true,
+    licenciaVencimiento: _dateInputValue(raw.licenciaVencimiento || raw.licenciaChoferVence || ''),
     permissionOverrides: _normalizePermissionOverrides(raw.permissionOverrides || raw.permisosUsuario || {})
   };
 }
@@ -7145,6 +7170,7 @@ function _umRenderCards() {
             <div class="um-card-meta">
               <span><span class="material-icons">apartment</span>${plazaLabel}</span>
               <span class="${statusLabel === 'ACTIVO' ? 'success' : ''}"><span class="material-icons">verified</span>${statusLabel}</span>
+              ${u.isChofer ? `<span class="success"><span class="material-icons">badge</span>CHOFER</span>` : ''}
             </div>
           </div>
         </button>`;
@@ -7168,7 +7194,8 @@ function _umRenderEditForm(user) {
   const contextCards = [
     ['Cobertura', plazasPermitidas.length > 0 ? `Multi-plaza (${plazasPermitidas.length})` : (user.plazaAsignada || 'Sin plaza base')],
     ['Nivel', accessMeta.fullAccess ? 'Global' : (accessMeta.isAdmin ? 'Administrativo' : 'Operativo')],
-    ['Cuenta', user.email ? 'Cuenta activa' : 'Perfil heredado']
+    ['Cuenta', user.email ? 'Cuenta activa' : 'Perfil heredado'],
+    ['Chofer', user.isChofer ? _licenciaChoferLabel(user.licenciaVencimiento) : 'No habilitado']
   ];
 
   const roleLockedMsg = canEdit ? '' : `
@@ -7232,6 +7259,24 @@ function _umRenderEditForm(user) {
                 ${lockBtn('um-edit-telefono')}
               </div>
               <input type="tel" id="um-edit-telefono" value="${escapeHtml(user.telefono || '')}" placeholder="Ej. 6441234567" disabled>
+            </div>
+
+            <div class="um-form-field">
+              <div class="um-field-label-row">
+                <label>Chofer de traslados</label>
+                ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleDriverFields()" title="Editar chofer">
+                  <span class="material-icons" style="font-size:15px;">edit</span>
+                </button>` : ''}
+              </div>
+              <label class="um-driver-toggle">
+                <input type="checkbox" id="um-edit-is-chofer" ${user.isChofer ? 'checked' : ''} disabled onchange="_umSyncDriverFields('um-edit')">
+                <span>Habilitar como chofer elegible</span>
+              </label>
+            </div>
+
+            <div class="um-form-field" id="um-edit-licencia-row" style="${user.isChofer ? '' : 'display:none;'}">
+              <label>Vencimiento de licencia</label>
+              <input type="date" id="um-edit-licencia" value="${escapeHtml(user.licenciaVencimiento || '')}" disabled>
             </div>
           </div>
 
@@ -7314,6 +7359,25 @@ function _umToggleRolSection() {
   if (plazaEl) plazaEl.disabled = !nowEditing;
 }
 
+function _umSyncDriverFields(prefix = 'um-edit') {
+  const isDriver = document.getElementById(`${prefix}-is-chofer`)?.checked === true;
+  const row = document.getElementById(`${prefix}-licencia-row`);
+  const input = document.getElementById(`${prefix}-licencia`);
+  if (row) row.style.display = isDriver ? '' : 'none';
+  if (!isDriver && input) input.value = '';
+}
+
+function _umToggleDriverFields() {
+  const driverEl = document.getElementById('um-edit-is-chofer');
+  const licenseEl = document.getElementById('um-edit-licencia');
+  if (!driverEl) return;
+  const nowEditing = driverEl.disabled;
+  driverEl.disabled = !nowEditing;
+  if (licenseEl) licenseEl.disabled = !nowEditing;
+  if (!driverEl.disabled) driverEl.focus();
+  _umSyncDriverFields('um-edit');
+}
+
 async function umGuardarCambios(docId) {
   if (!canManageUsers()) return showToast('No tienes permisos para editar usuarios.', 'error');
   const targetUser = _umUsers.find(u => u.id === docId);
@@ -7330,9 +7394,12 @@ async function umGuardarCambios(docId) {
     ? _getSelectedPlazas('um-edit-plazas-permitidas')
     : [];
   const permissionOverrides = _readPermissionOverrides('um-edit-permission-overrides');
+  const isChofer = document.getElementById('um-edit-is-chofer')?.checked === true;
+  const licenciaVencimiento = _dateInputValue(document.getElementById('um-edit-licencia')?.value || '');
   const meta = ROLE_META[rol];
 
   if (!nombre) return showToast('El nombre es obligatorio', 'error');
+  if (isChofer && !licenciaVencimiento) return showToast('Captura el vencimiento de licencia del chofer.', 'error');
   if (!canManageTargetRole(targetUser.rol) || !canAssignRole(rol)) {
     return showToast('Tu rol no puede modificar ese nivel de acceso.', 'error');
   }
@@ -7356,6 +7423,8 @@ async function umGuardarCambios(docId) {
     const cambios = [];
     if ((targetUser.nombre || '') !== nombre) cambios.push(`Nombre: ${targetUser.nombre || 'N/D'} → ${nombre}`);
     if ((targetUser.telefono || '') !== telefono) cambios.push(`Teléfono: ${targetUser.telefono || 'N/D'} → ${telefono || 'N/D'}`);
+    if ((targetUser.isChofer === true) !== isChofer) cambios.push(`Chofer: ${targetUser.isChofer ? 'SI' : 'NO'} → ${isChofer ? 'SI' : 'NO'}`);
+    if ((targetUser.licenciaVencimiento || '') !== licenciaVencimiento) cambios.push(`Licencia: ${targetUser.licenciaVencimiento || 'N/D'} → ${licenciaVencimiento || 'N/D'}`);
     if (rolAnterior !== rol) cambios.push(`Rol: ${ROLE_META[rolAnterior].label} → ${meta.label}`);
     if ((targetUser.plazaAsignada || '') !== plazaAsignada) cambios.push(`Plaza: ${targetUser.plazaAsignada || 'SIN PLAZA'} → ${plazaAsignada || 'SIN PLAZA'}`);
     if (_roleNeedsMultiplePlazas(rol)) cambios.push(`Plazas permitidas: [${plazasPermitidas.join(', ')}]`);
@@ -7371,6 +7440,8 @@ async function umGuardarCambios(docId) {
       plazaAsignada,
       isAdmin: meta.isAdmin,
       isGlobal: meta.fullAccess,
+      isChofer,
+      licenciaVencimiento: isChofer ? licenciaVencimiento : firebase.firestore.FieldValue.delete(),
       permissionOverrides
     };
     if (Object.keys(permissionOverrides).length === 0) {
@@ -7503,6 +7574,17 @@ function umNuevoUsuario() {
               <label>Teléfono (opcional)</label>
               <input type="tel" id="um-new-tel" placeholder="Ej. 6441234567">
             </div>
+            <div class="um-form-field">
+              <label>Chofer de traslados</label>
+              <label class="um-driver-toggle">
+                <input type="checkbox" id="um-new-is-chofer" onchange="_umSyncDriverFields('um-new'); _umValidarNuevo();">
+                <span>Habilitar como chofer elegible</span>
+              </label>
+            </div>
+            <div class="um-form-field" id="um-new-licencia-row" style="display:none;">
+              <label>Vencimiento de licencia</label>
+              <input type="date" id="um-new-licencia" onchange="_umValidarNuevo()">
+            </div>
           </div>
 
           <div class="um-info-panel">
@@ -7555,6 +7637,8 @@ function _umValidarNuevo() {
   const rol = document.getElementById('um-new-role')?.value || '';
   const needsPlaza = _roleNeedsPlaza(rol);
   const plaza = needsPlaza ? (document.getElementById('um-new-plaza')?.value || '').trim() : 'OK';
+  const isChofer = document.getElementById('um-new-is-chofer')?.checked === true;
+  const licencia = _dateInputValue(document.getElementById('um-new-licencia')?.value || '');
 
   const btn = document.getElementById('um-btn-crear');
   const hint = document.getElementById('um-new-hints');
@@ -7565,6 +7649,7 @@ function _umValidarNuevo() {
   if (!email || !email.includes('@')) missing.push('correo válido');
   if (pass.length < 6) missing.push('contraseña (mín. 6)');
   if (!plaza) missing.push('plaza');
+  if (isChofer && !licencia) missing.push('licencia de chofer');
 
   const ok = missing.length === 0;
   btn.disabled = !ok;
@@ -7581,6 +7666,8 @@ async function umCrearUsuario() {
   const email = (document.getElementById('um-new-email').value || '').trim().toLowerCase();
   const pass = (document.getElementById('um-new-pass').value || '').trim();
   const telefono = (document.getElementById('um-new-tel').value || '').trim();
+  const isChofer = document.getElementById('um-new-is-chofer')?.checked === true;
+  const licenciaVencimiento = _dateInputValue(document.getElementById('um-new-licencia')?.value || '');
   const rolSeleccionado = _sanitizeRole(document.getElementById('um-new-role').value) || 'AUXILIAR';
   const rol = _resolveStoredRoleForEmail(email, rolSeleccionado);
   const plazaAsignada = _roleNeedsPlaza(rol)
@@ -7593,6 +7680,7 @@ async function umCrearUsuario() {
   if (!nombre) return showToast('El nombre es obligatorio', 'error');
   if (!email || !email.includes('@')) return showToast('Correo inválido', 'error');
   if (pass.length < 6) return showToast('La contraseña debe tener mínimo 6 caracteres', 'error');
+  if (isChofer && !licenciaVencimiento) return showToast('Captura el vencimiento de licencia del chofer.', 'error');
   if (!canAssignRole(rol)) {
     return showToast('Tu rol no puede crear ese nivel de acceso.', 'error');
   }
@@ -7603,6 +7691,9 @@ async function umCrearUsuario() {
 
   const res = await api.guardarNuevoUsuarioAuth(nombre, email, pass, rol, telefono, plazaAsignada, plazasPermitidas);
   if (res === 'EXITO') {
+    if (isChofer) {
+      await db.collection(COL.USERS).doc(email).set({ isChofer: true, licenciaVencimiento }, { merge: true });
+    }
     await registrarEventoGestion('USUARIO_CREADO', `Creó al usuario ${nombre}`, {
       entidad: 'USUARIOS',
       referencia: email,
@@ -22076,6 +22167,8 @@ Object.assign(window, {
   _umRenderCards,
   _umRenderEditForm,
   _umRoleBadge,
+  _umSyncDriverFields,
+  _umToggleDriverFields,
   _updateAlertaTipoStyle,
   _updateBtnEmitir,
   _visualLogAuditoria,
