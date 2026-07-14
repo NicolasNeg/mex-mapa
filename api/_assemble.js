@@ -12,6 +12,7 @@
     parts.auth     || {},
     parts.mapa     || {},
     parts.cuadre   || {},
+    parts.traslados|| {},
     parts.externos || {},
     parts.flota    || {},
     parts.alertas  || {},

@@ -66,7 +66,7 @@ export const PERMISSION_KEYS = Object.freeze([
   // Alertas
   'emit_alerts', 'delete_alerts',
   // Sistema
-  'manage_settings',
+  'manage_settings', 'km_corregir', 'traslados_gestionar',
 ]);
 
 /**
@@ -86,6 +86,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     manage_users: false, manage_solicitudes: false, manage_fleet: false,
     emit_alerts: false, delete_alerts: false, manage_settings: false,
     km_corregir: false,
+    traslados_gestionar: false,
   },
   VENTAS: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -97,6 +98,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     manage_users: false, manage_solicitudes: false, manage_fleet: false,
     emit_alerts: false, delete_alerts: false, manage_settings: false,
     km_corregir: false,
+    traslados_gestionar: true,
   },
   SUPERVISOR: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -108,6 +110,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     manage_users: false, manage_solicitudes: false, manage_fleet: false,
     emit_alerts: true, delete_alerts: false, manage_settings: false,
     km_corregir: false,
+    traslados_gestionar: true,
   },
   JEFE_PATIO: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -119,6 +122,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     manage_users: false, manage_solicitudes: true, manage_fleet: true,
     emit_alerts: true, delete_alerts: true, manage_settings: false,
     km_corregir: false,
+    traslados_gestionar: true,
   },
   GERENTE_PLAZA: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -130,6 +134,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     manage_users: true, manage_solicitudes: true, manage_fleet: true,
     emit_alerts: true, delete_alerts: true, manage_settings: true,
     km_corregir: true,
+    traslados_gestionar: true,
   },
   JEFE_REGIONAL: {
     view_dashboard: true,  view_mapa: true,   view_cuadre: true,  view_incidencias: true,
@@ -141,6 +146,7 @@ export const DEFAULT_ROLE_PERMISSIONS = Object.freeze({
     manage_users: true, manage_solicitudes: true, manage_fleet: true,
     emit_alerts: true, delete_alerts: true, manage_settings: true,
     km_corregir: true,
+    traslados_gestionar: true,
   },
 });
 

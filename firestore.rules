@@ -128,6 +128,8 @@ service cloud.firestore {
           ? (conf != null && ((conf.fullAccess != null && conf.fullAccess == true) || hasPerm))
         : permiso == "km_corregir"
           ? (role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
+        : permiso == "traslados_gestionar"
+          ? (role == "VENTAS" || role == "SUPERVISOR" || role == "JEFE_PATIO" || role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : hasPerm;
     }
 
@@ -665,8 +667,24 @@ service cloud.firestore {
       allow create: if tienePerfilActual()
         && request.resource.data.estado == "PENDIENTE";
       allow update: if tienePerfilActual()
+        && resource.data.estado == "PENDIENTE"
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(["estado", "resueltoPor", "fechaResolucion", "notaResolucion"])
         && request.resource.data.estado == "RESUELTA"
         && tienePermiso(perfilActual(), "km_corregir");
+      allow delete: if false;
+    }
+
+    // ─── TRASLADOS ──────────────────────────────────────────
+    match /traslados/{doc} {
+      allow read: if tienePerfilActual();
+      allow create: if tienePerfilActual()
+        && tienePermiso(perfilActual(), "traslados_gestionar")
+        && request.resource.data.mva is string
+        && request.resource.data.estado == "ABIERTO";
+      allow update: if tienePerfilActual()
+        && tienePermiso(perfilActual(), "traslados_gestionar")
+        && resource.data.estado != "CERRADO";
       allow delete: if false;
     }
 
@@ -840,7 +858,12 @@ service cloud.firestore {
         || document == "loginPresencia"
         || tienePerfilActual()
         || esAccesoTotal();
-      allow write: if esAccesoTotal()
+      allow write: if (
+          document == "counters"
+          && tienePerfilActual()
+          && tienePermiso(perfilActual(), "traslados_gestionar")
+        )
+        || esAccesoTotal()
         || (
           tienePerfilActual()
           && tienePermiso(perfilActual(), "manage_system_settings")
