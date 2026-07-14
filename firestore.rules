@@ -126,6 +126,8 @@ service cloud.firestore {
           ? hasPerm
         : permiso == "platform_full_access"
           ? (conf != null && ((conf.fullAccess != null && conf.fullAccess == true) || hasPerm))
+        : permiso == "km_corregir"
+          ? (role == "GERENTE_PLAZA" || role == "JEFE_REGIONAL" || hasPerm)
         : hasPerm;
     }
 
@@ -595,7 +597,7 @@ service cloud.firestore {
     // dónde está cada unidad sin leer los cuadres de todas las plazas).
     function actualizacionUbicacionIndexValida() {
       return request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(["plazaActual", "pos", "ubicacion"]);
+        .hasOnly(["plazaActual", "pos", "ubicacion", "km", "kmFecha", "kmFuenteUltima"]);
     }
 
     match /index_unidades/{doc} {
@@ -641,6 +643,31 @@ service cloud.firestore {
 
     match /historial_patio/{doc} {
       allow read, write: if tienePerfilActual();
+    }
+
+    // ─── KILOMETRAJE ────────────────────────────────────────
+    // Historial append-only: nadie edita ni borra capturas.
+    // ponytail: la monotonía (km >= anterior) se valida solo en cliente —
+    // validarla aquí exigiría un get() por escritura y el doc del índice
+    // tiene id automático (no direccionable desde rules).
+    match /km_registros/{doc} {
+      allow read: if tienePerfilActual();
+      allow create: if tienePerfilActual()
+        && request.resource.data.mva is string
+        && request.resource.data.km is number
+        && request.resource.data.km >= 0;
+      allow update, delete: if false;
+    }
+
+    // Discrepancias: crear cualquiera autenticado; resolver solo con permiso.
+    match /km_discrepancias/{doc} {
+      allow read: if tienePerfilActual();
+      allow create: if tienePerfilActual()
+        && request.resource.data.estado == "PENDIENTE";
+      allow update: if tienePerfilActual()
+        && request.resource.data.estado == "RESUELTA"
+        && tienePermiso(perfilActual(), "km_corregir");
+      allow delete: if false;
     }
 
     // Cuadre Admins — doc raíz (legacy) + subcollection por plaza (Fase 3)
