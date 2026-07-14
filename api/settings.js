@@ -229,16 +229,68 @@
       return "EXITO";
     },
 
-    async enviarAuditoriaAVentas(auditList, autor, plaza) {
+    async enviarAuditoriaAVentas(auditList, autor, plaza, meta = {}) {
       const plazaUp = _normalizePlazaId(plaza);
+      const units = Array.isArray(auditList) ? auditList : [];
+      const settings = await _getSettings(plazaUp);
+      let missionMeta = {};
+      try {
+        const parsed = JSON.parse(settings.misionAuditoria || '{}');
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) missionMeta = parsed;
+      } catch (_) {}
+      const missionId = String(meta.missionId || missionMeta.missionId || settings.cuadreMissionId || '').trim().toUpperCase();
+      const auxiliarDocId = String(meta.auxiliarDocId || missionMeta.destinatarioDocId || settings.cuadreDestinoDocId || '').trim();
+      const auxiliarNombre = String(meta.auxiliarNombre || missionMeta.destinatarioNombre || settings.cuadreDestinoNombre || autor || '').trim();
+      const revisionPayload = {
+        tipo: 'CUADRE_FLOTA',
+        estado: 'REVISION',
+        plaza: plazaUp,
+        missionId,
+        auxiliarDocId,
+        auxiliarNombre,
+        autorEnvio: autor || 'Sistema',
+        enviadoEn: _now(),
+        unidades: units,
+        meta: {
+          ...missionMeta,
+          ...meta,
+          missionId,
+          auxiliarDocId,
+          auxiliarNombre,
+          autorEnvio: autor || 'Sistema',
+          enviadoEn: _now(),
+          plaza: plazaUp
+        }
+      };
       await _setSettings({
         estadoCuadreV3: "REVISION",
-        datosAuditoria: JSON.stringify(Array.isArray(auditList) ? auditList : []),
+        datosAuditoria: JSON.stringify(revisionPayload),
+        cuadreMissionId: missionId,
+        cuadreDestinoDocId: auxiliarDocId,
+        cuadreDestinoNombre: auxiliarNombre,
+        cuadreMissionEstado: "REVISION",
+        cuadreRevisionEstado: "PENDIENTE_VENTAS",
         ultimaModificacion: _now(),
         ultimoEditor: autor || "Sistema"
       }, plazaUp);
-      await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${auditList.length} unidades)`, autor, plazaUp);
-      return { exito: true, plaza: plazaUp };
+      if (missionId && auxiliarDocId) {
+        await db.collection(COL.USERS).doc(auxiliarDocId).collection('inbox').doc(missionId).set({
+          read: false,
+          status: 'IN_REVIEW',
+          missionStatus: 'IN_REVIEW',
+          title: 'Mision enviada a ventas',
+          body: 'La mision sigue pendiente hasta que ventas cierre el cuadre.',
+          updatedAt: Date.now(),
+          payload: {
+            missionId,
+            plaza: plazaUp,
+            auxiliarDocId,
+            auxiliarNombre
+          }
+        }, { merge: true }).catch(() => {});
+      }
+      await _registrarLog("AUDITORIA", `📋 Auditoría enviada a Ventas por ${autor} (${units.length} unidades)`, autor, plazaUp);
+      return { exito: true, plaza: plazaUp, missionId, auxiliarDocId };
     },
 
     async llamarGeminiAI(_instruccionUsuario, _contextoPatio, _ultimoMVA) { return null; },

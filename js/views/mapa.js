@@ -12746,6 +12746,37 @@ window.__syncCuadreAuxiliares = _cuadreActualizarAuxiliares;
 // 📋 MOTOR DE AUDITORÍA (LISTA PURA Y ESTABLE)
 // ==========================================
 
+function _auditGasLabel(value) {
+  const gas = String(value || '').trim().toUpperCase();
+  if (gas === 'F') return 'F (Lleno)';
+  if (gas === 'H') return 'H (Medio)';
+  if (gas === 'E') return 'E (Vacio)';
+  if (gas === 'N/A') return 'N/A';
+  return gas || 'N/A';
+}
+
+function _auditGasValues(selected = '') {
+  const configured = Array.isArray(window.MEX_CONFIG?.listas?.gasolinas)
+    ? window.MEX_CONFIG.listas.gasolinas
+    : [];
+  const base = configured.length
+    ? configured
+    : ["F", "15/16", "7/8", "13/16", "3/4", "11/16", "5/8", "9/16", "H", "7/16", "3/8", "5/16", "1/4", "3/16", "1/8", "1/16", "E", "N/A"];
+  const values = base.map(v => String(v || '').trim().toUpperCase()).filter(Boolean);
+  const safeSelected = String(selected || 'N/A').trim().toUpperCase() || 'N/A';
+  if (!values.includes(safeSelected)) values.unshift(safeSelected);
+  if (!values.includes('N/A')) values.push('N/A');
+  return Array.from(new Set(values));
+}
+
+function _auditGasOptionsHtml(selected = '') {
+  const safeSelected = String(selected || 'N/A').trim().toUpperCase() || 'N/A';
+  return _auditGasValues(safeSelected).map(value => {
+    const selectedAttr = value === safeSelected ? ' selected' : '';
+    return `<option value="${escapeHtml(value)}"${selectedAttr}>${escapeHtml(_auditGasLabel(value))}</option>`;
+  }).join('');
+}
+
 function _renderAuditCard(u) {
   const statusClass = u.status === 'OK'      ? 'audit-card--ok'
                     : u.status === 'FALTANTE' ? 'audit-card--faltante'
@@ -12757,16 +12788,26 @@ function _renderAuditCard(u) {
                       : u.status === 'EXTRA'    ? 'audit-btn-action--active-extra-ok'
                       : '';
 
+  const gasValue = String(u.gasolinaCorregida || u.gasolina || 'N/A').toUpperCase();
+  const kmValue = u.km != null ? u.km : '';
+
   return `
     <div class="audit-card ${statusClass}">
       <div class="audit-card-info">
         <h3 class="audit-card-mva">${u.mva}</h3>
         <span class="audit-card-meta">${u.modelo} &bull; ${u.placas}</span>
-        <div class="audit-card-km" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;margin-top:6px;color:#64748b;">
-          <span class="material-icons" style="font-size:14px;">speed</span>
-          <input id="audit-km-${u.mva}" type="text" inputmode="numeric" autocomplete="off"
-            value="${u.km != null ? u.km : ''}" placeholder="km"
-            style="width:90px;padding:4px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:800;font-size:12px;">
+        <div class="audit-card-corrections" onclick="event.stopPropagation()">
+          <label class="audit-card-field">
+            <span class="material-icons">speed</span>
+            <input id="audit-km-${u.mva}" type="text" inputmode="numeric" autocomplete="off"
+              value="${escapeHtml(String(kmValue))}" placeholder="km">
+          </label>
+          <label class="audit-card-field">
+            <span class="material-icons">local_gas_station</span>
+            <select id="audit-gas-${u.mva}">
+              ${_auditGasOptionsHtml(gasValue)}
+            </select>
+          </label>
         </div>
         ${u.status === 'EXTRA' ? '<span class="audit-card-extra-badge">&#9888; SOBRANTE</span>' : ''}
       </div>
@@ -12853,33 +12894,56 @@ function renderizarPaseLista() {
 function marcarUnidadAudit(mva, status) {
   const index = window.AUDIT_LIST.findIndex(u => u.mva === mva);
   if (index !== -1) {
+    const unit = window.AUDIT_LIST[index];
+    const kmInput = document.getElementById(`audit-km-${mva}`);
+    const gasInput = document.getElementById(`audit-gas-${mva}`);
+    const kmValue = kmInput ? parseKm(kmInput.value) : null;
+    const gasValue = String(gasInput?.value || unit.gasolinaCorregida || unit.gasolina || 'N/A').trim().toUpperCase() || 'N/A';
+    const wasExtra = unit.status === 'EXTRA';
+    if (!unit.gasolinaSistema) unit.gasolinaSistema = unit.gasolina || 'N/A';
+    unit.gasolinaCorregida = gasValue;
+
     // Si agregó un sobrante por error y le da a la "X", lo borramos de la lista
-    if (window.AUDIT_LIST[index].status === 'EXTRA' && status === 'FALTANTE') {
+    if (wasExtra && status === 'FALTANTE') {
       window.AUDIT_LIST.splice(index, 1);
     }
     // Si toca el MISMO botón que ya estaba marcado (Ej. estaba en OK y le vuelve a dar OK), lo desmarca
-    else if (window.AUDIT_LIST[index].status === status) {
-      window.AUDIT_LIST[index].status = 'PENDIENTE';
+    else if (unit.status === status) {
+      unit.status = 'PENDIENTE';
     }
     // Aplica la decisión normal (Falta o Está)
     else {
-      window.AUDIT_LIST[index].status = status;
+      unit.status = status;
     }
 
     // Captura de km del cuadre de flota: solo el auxiliar (no la revisión del
     // admin) y solo si el valor tecleado difiere del último conocido.
-    if (status === 'OK' && (typeof userRole === 'undefined' || userRole !== 'admin')) {
-      const inp = document.getElementById(`audit-km-${mva}`);
-      const val = inp ? parseKm(inp.value) : null;
-      const prev = window.AUDIT_LIST[index].km;
-      if (val != null && val !== prev) {
-        window.AUDIT_LIST[index].km = val;
-        api.registrarKm({ mva, km: val, fuente: 'CUADRE', usuario: USER_NAME, plaza: _miPlaza() })
+    if (status === 'OK' && unit.status === 'OK' && (typeof userRole === 'undefined' || userRole !== 'admin')) {
+      const prev = unit.km;
+      if (kmValue != null && kmValue !== prev) {
+        unit.km = kmValue;
+        api.registrarKm({ mva, km: kmValue, fuente: 'CUADRE', usuario: USER_NAME, plaza: _miPlaza() })
           .then(r => {
-            if (r === 'DISCREPANCIA') showToast(`⚠️ ${mva}: diferencia de km sin salida registrada`, 'error');
+            if (r === 'DISCREPANCIA') showToast(`${mva}: diferencia de km sin salida registrada`, 'error');
             else if (r !== 'EXITO') showToast(`${mva}: ${r}`, 'error');
           })
           .catch(() => {});
+      }
+      const prevGas = String(unit.gasolinaSistema || unit.gasolina || 'N/A').trim().toUpperCase() || 'N/A';
+      if (gasValue && gasValue !== prevGas && !wasExtra && unit.estado && unit.ubicacion) {
+        unit.gasolinaCorregida = gasValue;
+        unit.gasolina = gasValue;
+        api.aplicarEstado(
+          mva,
+          unit.estado,
+          unit.ubicacion,
+          gasValue,
+          '',
+          false,
+          USER_NAME,
+          USER_NAME,
+          _miPlaza()
+        ).catch(() => showToast(`${mva}: no se pudo guardar gasolina`, 'error'));
       }
     }
 
@@ -12933,7 +12997,16 @@ function procesarUnidadExtra() {
     document.getElementById('modalAddExtra').classList.remove('active');
   } else {
     // Registramos la unidad con los datos reales que escribió el auxiliar
-    window.AUDIT_LIST.push({ mva: mvaClean, placas: placasClean, modelo: modeloClean, status: 'EXTRA' });
+    window.AUDIT_LIST.push({
+      mva: mvaClean,
+      placas: placasClean,
+      modelo: modeloClean,
+      status: 'EXTRA',
+      gasolina: 'N/A',
+      gasolinaSistema: 'N/A',
+      gasolinaCorregida: 'N/A',
+      km: null
+    });
     document.getElementById('audit-search').value = mvaClean;
     showToast("Sobrante agregado", "success");
     document.getElementById('modalAddExtra').classList.remove('active');
@@ -12967,6 +13040,353 @@ function compartirWhatsApp() {
   const texto = `Cuadre de flota listo\nEl auxiliar ${auxiliar} finalizó el escaneo físico en patio.\n\nResumen previo:\nCuadrados: ${summary.ok}\nSobrantes: ${summary.extras}\nFaltantes: ${summary.faltantes}\n\nEl área de ventas ya puede finalizar el cuadre en el sistema para asentar los datos y generar el PDF.`;
 
   window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
+}
+
+function _cuadreEmpresaPdfData() {
+  const empresa = window.MEX_CONFIG?.empresa || {};
+  const plaza = _miPlaza();
+  const plazasDetalle = Array.isArray(empresa.plazasDetalle) ? empresa.plazasDetalle : [];
+  const plazaDetalle = plazasDetalle.find(p => String(p.id || p.nombre || '').trim().toUpperCase() === plaza) || {};
+  const nombre = String(empresa.nombre || empresa.razonSocial || empresa.empresa || APP_DEFAULT_COMPANY_NAME || '').trim();
+  const logo = String(empresa.logoURL || empresa.logoUrl || empresa.logo || empresa.logoEmpresa || '').trim();
+  const rfc = String(empresa.rfc || empresa.RFC || empresa.rfcEmpresa || '').trim();
+  const direccion = String(
+    plazaDetalle.direccion
+    || plazaDetalle.direccionFiscal
+    || empresa.direccionFiscal
+    || empresa.direccion
+    || empresa.domicilio
+    || ''
+  ).trim();
+  const correo = String(plazaDetalle.correo || empresa.correoEmpresa || empresa.correoFacturacion || empresa.email || '').trim();
+  const telefono = String(plazaDetalle.telefono || empresa.telefono || empresa.telefonoEmpresa || '').trim();
+  return { nombre, logo, rfc, direccion, correo, telefono, plaza };
+}
+
+function _cuadrePdfCell(value) {
+  const text = value == null || value === '' ? 'N/D' : String(value);
+  return escapeHtml(text);
+}
+
+function _cuadrePdfFirmaHtml(title, name, dataUrl) {
+  const safeTitle = escapeHtml(title);
+  const safeName = escapeHtml(name || 'Pendiente');
+  const img = dataUrl
+    ? `<img src="${escapeHtml(dataUrl)}" alt="${safeTitle}" class="cuadre-pdf-sign-img">`
+    : '';
+  return `
+    <div class="cuadre-pdf-sign-box">
+      <div class="cuadre-pdf-sign-area">${img}</div>
+      <div class="cuadre-pdf-sign-line"></div>
+      <strong>${safeName}</strong>
+      <span>${safeTitle}</span>
+    </div>
+  `;
+}
+
+function generarHtmlAuditoriaCuadrePdf(auditList = window.AUDIT_LIST || [], statsInput = null, metaInput = {}) {
+  const units = Array.isArray(auditList) ? auditList : [];
+  const stats = {
+    ..._cuadreResumenAuditoria(units),
+    ...(statsInput || {})
+  };
+  stats.sobrantes = stats.sobrantes ?? stats.extras ?? 0;
+  const meta = metaInput || {};
+  const empresa = _cuadreEmpresaPdfData();
+  const fecha = meta.cerradoEn || meta.enviadoEn || formatearFechaDocumento(new Date());
+  const auxiliar = meta.auxiliarNombre || meta.destinatarioNombre || stats.auxiliar || '';
+  const ventas = meta.firmaVentas || meta.firmaNombre || meta.cerradoPor || USER_NAME || '';
+  const plaza = meta.plaza || empresa.plaza || _miPlaza() || '';
+  const rows = units.map(u => {
+    const status = String(u.status || '').toUpperCase();
+    const estadoLabel = status === 'OK' ? 'CUADRE PERFECTO'
+      : (status === 'FALTANTE' ? 'FALTANTE FISICO' : (status === 'EXTRA' ? 'SOBRANTE FISICO' : status || 'PENDIENTE'));
+    const gas = u.gasolinaCorregida || u.gasolina || u.gas || 'N/A';
+    const ubicacion = u.ubicacion || u.pos || (status === 'EXTRA' ? 'SOBRANTE' : 'PATIO');
+    const notas = [
+      u.km != null && u.km !== '' ? `KM ${u.km}` : '',
+      u.gasolinaSistema && String(u.gasolinaSistema) !== String(gas) ? `Gas sistema ${u.gasolinaSistema}` : '',
+      u.notas || ''
+    ].filter(Boolean).join(' | ');
+    return `
+      <tr class="status-${escapeHtml(status || 'PENDIENTE')}">
+        <td>${_cuadrePdfCell(u.mva)}</td>
+        <td>${_cuadrePdfCell(u.modelo)}</td>
+        <td>${_cuadrePdfCell(u.placas)}</td>
+        <td>${_cuadrePdfCell(gas)}</td>
+        <td>${_cuadrePdfCell(estadoLabel)}</td>
+        <td>${_cuadrePdfCell(ubicacion)}</td>
+        <td>${_cuadrePdfCell(notas || 'Sin observaciones')}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <style>
+      @page { size: A4 landscape; margin: 12mm; }
+      #reporte-pdf-container {
+        background: #ffffff !important;
+      }
+      .cuadre-pdf {
+        min-height: 100vh;
+        background: #ffffff;
+        color: #111827;
+        font-family: Inter, Arial, sans-serif;
+        padding: 0;
+      }
+      .cuadre-pdf-page {
+        page-break-after: always;
+      }
+      .cuadre-pdf-page:last-child {
+        page-break-after: auto;
+      }
+      .cuadre-pdf-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+        border-bottom: 2px solid #111827;
+        padding-bottom: 10px;
+        margin-bottom: 12px;
+      }
+      .cuadre-pdf-brand {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .cuadre-pdf-logo {
+        width: 54px;
+        height: 54px;
+        object-fit: contain;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        padding: 5px;
+      }
+      .cuadre-pdf-company h1 {
+        margin: 0 0 4px;
+        font-size: 18px;
+        line-height: 1.1;
+        font-weight: 900;
+      }
+      .cuadre-pdf-company p,
+      .cuadre-pdf-meta p {
+        margin: 1px 0;
+        color: #4b5563;
+        font-size: 9px;
+        line-height: 1.35;
+      }
+      .cuadre-pdf-meta {
+        min-width: 230px;
+        text-align: right;
+      }
+      .cuadre-pdf-title {
+        margin: 12px 0 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: end;
+        gap: 12px;
+      }
+      .cuadre-pdf-title h2 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 900;
+        letter-spacing: 0;
+      }
+      .cuadre-pdf-title span {
+        color: #4b5563;
+        font-size: 10px;
+        font-weight: 800;
+      }
+      .cuadre-pdf-kpis {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 8px;
+        margin: 10px 0 12px;
+      }
+      .cuadre-pdf-kpi {
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        padding: 8px 10px;
+        background: #f9fafb;
+      }
+      .cuadre-pdf-kpi small {
+        display: block;
+        color: #6b7280;
+        font-size: 8px;
+        font-weight: 900;
+        text-transform: uppercase;
+        margin-bottom: 4px;
+      }
+      .cuadre-pdf-kpi strong {
+        display: block;
+        color: #111827;
+        font-size: 21px;
+        line-height: 1;
+        font-weight: 900;
+      }
+      .cuadre-pdf-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 8.5px;
+      }
+      .cuadre-pdf-table th,
+      .cuadre-pdf-table td {
+        border: 1px solid #d1d5db;
+        padding: 5px 6px;
+        text-align: left;
+        vertical-align: top;
+      }
+      .cuadre-pdf-table th {
+        background: #111827;
+        color: #ffffff;
+        font-size: 8px;
+        text-transform: uppercase;
+      }
+      .cuadre-pdf-table tr.status-FALTANTE td {
+        background: #fff1f2;
+      }
+      .cuadre-pdf-table tr.status-EXTRA td {
+        background: #fffbeb;
+      }
+      .cuadre-pdf-sign-page {
+        min-height: 510px;
+        display: flex;
+        flex-direction: column;
+      }
+      .cuadre-pdf-sign-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 28px;
+        margin-top: 34px;
+      }
+      .cuadre-pdf-sign-box {
+        min-height: 150px;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        align-items: center;
+        text-align: center;
+      }
+      .cuadre-pdf-sign-area {
+        width: 100%;
+        height: 76px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .cuadre-pdf-sign-img {
+        max-width: 260px;
+        max-height: 74px;
+        object-fit: contain;
+      }
+      .cuadre-pdf-sign-line {
+        width: 78%;
+        border-top: 1.5px solid #111827;
+        margin: 8px auto 8px;
+      }
+      .cuadre-pdf-sign-box strong {
+        color: #111827;
+        font-size: 12px;
+        font-weight: 900;
+      }
+      .cuadre-pdf-sign-box span {
+        color: #6b7280;
+        font-size: 9px;
+        font-weight: 800;
+        text-transform: uppercase;
+        margin-top: 3px;
+      }
+      .cuadre-pdf-final-mark {
+        margin-top: auto;
+        padding-top: 28px;
+        text-align: right;
+        color: #111827;
+        font-size: 10px;
+        font-weight: 900;
+        letter-spacing: .08em;
+      }
+      .cuadre-pdf-final-mark::before {
+        content: "";
+        display: inline-block;
+        width: 190px;
+        border-top: 1px solid #111827;
+        margin: 0 0 8px auto;
+      }
+      @media print {
+        body * { visibility: hidden !important; }
+        #reporte-pdf-container, #reporte-pdf-container * { visibility: visible !important; }
+        #reporte-pdf-container {
+          position: fixed !important;
+          inset: 0 !important;
+          display: block !important;
+          overflow: visible !important;
+        }
+      }
+    </style>
+    <div class="cuadre-pdf">
+      <section class="cuadre-pdf-page">
+        <header class="cuadre-pdf-header">
+          <div class="cuadre-pdf-brand">
+            ${empresa.logo ? `<img class="cuadre-pdf-logo" src="${escapeHtml(empresa.logo)}" alt="Logo">` : ''}
+            <div class="cuadre-pdf-company">
+              <h1>${escapeHtml(empresa.nombre || 'Empresa')}</h1>
+              ${empresa.rfc ? `<p>RFC: ${escapeHtml(empresa.rfc)}</p>` : ''}
+              ${empresa.direccion ? `<p>${escapeHtml(empresa.direccion)}</p>` : ''}
+              ${empresa.correo ? `<p>${escapeHtml(empresa.correo)}</p>` : ''}
+              ${empresa.telefono ? `<p>${escapeHtml(empresa.telefono)}</p>` : ''}
+            </div>
+          </div>
+          <div class="cuadre-pdf-meta">
+            <p><strong>Fecha de corte:</strong> ${escapeHtml(fecha)}</p>
+            <p><strong>Plaza:</strong> ${escapeHtml(plaza || 'N/D')}</p>
+            <p><strong>Auxiliar en patio:</strong> ${escapeHtml(auxiliar || 'N/D')}</p>
+            <p><strong>Autorizado por:</strong> ${escapeHtml(ventas || 'N/D')}</p>
+            ${meta.missionId ? `<p><strong>Mision:</strong> ${escapeHtml(meta.missionId)}</p>` : ''}
+          </div>
+        </header>
+
+        <div class="cuadre-pdf-title">
+          <h2>Reporte de Auditoria Cruzada</h2>
+          <span>Cuadre de flota operativo</span>
+        </div>
+
+        <div class="cuadre-pdf-kpis">
+          <div class="cuadre-pdf-kpi"><small>Total revisadas</small><strong>${escapeHtml(String(stats.total || units.length || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Cuadre perfecto</small><strong>${escapeHtml(String(stats.ok || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Faltantes fisicos</small><strong>${escapeHtml(String(stats.faltantes || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Sobrantes fisicos</small><strong>${escapeHtml(String(stats.sobrantes || 0))}</strong></div>
+          <div class="cuadre-pdf-kpi"><small>Pendientes</small><strong>${escapeHtml(String(stats.pendientes || 0))}</strong></div>
+        </div>
+
+        <table class="cuadre-pdf-table">
+          <thead>
+            <tr>
+              <th>MVA</th>
+              <th>Modelo</th>
+              <th>Placas</th>
+              <th>Gas</th>
+              <th>Estado</th>
+              <th>Ubicacion</th>
+              <th>Notas adicionales</th>
+            </tr>
+          </thead>
+          <tbody>${rows || '<tr><td colspan="7">Sin unidades revisadas.</td></tr>'}</tbody>
+        </table>
+      </section>
+
+      <section class="cuadre-pdf-page cuadre-pdf-sign-page">
+        <div class="cuadre-pdf-title">
+          <h2>Firmas de Conformidad</h2>
+          <span>Responsables del cuadre</span>
+        </div>
+        <div class="cuadre-pdf-sign-grid">
+          ${_cuadrePdfFirmaHtml('Auxiliar en patio', meta.firmaAuxiliar || meta.firmaAuxiliarNombre || auxiliar, meta.firmaAuxiliarUrl || meta.auxiliarFirmaUrl || '')}
+          ${_cuadrePdfFirmaHtml('Agente de ventas', ventas, meta.firmaDataUrl || meta.ventasFirmaUrl || '')}
+        </div>
+        <div class="cuadre-pdf-final-mark">GENERADO POR MAP GESTION</div>
+      </section>
+    </div>
+  `;
 }
 
 // ☁️ EL AUXILIAR O EL ADMIN MANDAN EL REPORTE (SIN ALERTS NATIVOS)
@@ -13010,7 +13430,11 @@ async function enviarReporteAuditoriaFinal() {
   }
 
   const payload = Array.isArray(window.AUDIT_LIST) ? window.AUDIT_LIST.map(u => ({ ...u })) : [];
-  const stats = { ...summary, auxiliar: ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || signedName };
+  const stats = {
+    ...summary,
+    sobrantes: summary.extras,
+    auxiliar: ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || signedName
+  };
 
   try {
     if (mode === 'sales') {
@@ -13019,7 +13443,7 @@ async function enviarReporteAuditoriaFinal() {
         auxiliarNombre: ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || '',
         auxiliarDocId: ctx.auxiliarDocId || ctx.revisionMeta?.auxiliarDocId || '',
         firmaAuxiliar: ctx.auxiliarFirmaNombre || ctx.revisionMeta?.firmaAuxiliarNombre || '',
-        firmaAuxiliarUrl: ctx.auxiliarFirmaUrl || ctx.revisionMeta?.firmaAuxiliarUrl || '',
+        firmaAuxiliarUrl: ctx.auxiliarFirmaUrl || ctx.revisionMeta?.firmaAuxiliarUrl || ctx.revisionMeta?.firmaDataUrl || '',
         firmaVentas: signedName,
         firmaNombre: signedName,
         firmaDataUrl: firmaUrl,
@@ -13028,6 +13452,7 @@ async function enviarReporteAuditoriaFinal() {
       const res = await api.procesarAuditoriaDesdeAdmin(payload, USER_NAME, stats, _miPlaza(), meta);
       if (res === 'EXITO' || (res && res.exito)) {
         showToast('Cuadre firmado y cerrado.', 'success');
+        abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(payload, stats, meta));
         _cuadreResetFlujo();
         window.AUDIT_LIST = [];
         hacerPingNotificaciones();
@@ -13041,6 +13466,8 @@ async function enviarReporteAuditoriaFinal() {
         auxiliarDocId: ctx.auxiliarDocId || '',
         firmaNombre: signedName,
         firmaDataUrl: firmaUrl,
+        firmaAuxiliarNombre: signedName,
+        firmaAuxiliarUrl: firmaUrl,
         stats
       };
       const res = await api.enviarAuditoriaAVentas(payload, USER_NAME, _miPlaza(), meta);
@@ -13088,7 +13515,16 @@ function manejadorFlujoV3() {
       const unidades = Array.isArray(mision) ? mision : [];
       const meta = unidades.meta || mision?.meta || {};
       if (unidades.length > 0) {
-        window.AUDIT_LIST = unidades.map(u => ({ ...u, status: u.status || 'PENDIENTE' }));
+        window.AUDIT_LIST = unidades.map(u => {
+          const gas = String(u.gasolinaCorregida || u.gasolina || 'N/A').toUpperCase();
+          return {
+            ...u,
+            status: u.status || 'PENDIENTE',
+            gasolinaSistema: u.gasolinaSistema || u.gasolina || gas,
+            gasolinaCorregida: gas,
+            gasolina: gas
+          };
+        });
         _cuadreSetStage('sales-review', {
           missionId: meta.missionId || meta.cuadreMissionId || '',
           missionMeta: meta,
@@ -13096,7 +13532,7 @@ function manejadorFlujoV3() {
           auxiliarDocId: meta.auxiliarDocId || meta.destinatarioDocId || '',
           auxiliarNombre: meta.auxiliarNombre || meta.destinatarioNombre || meta.auxiliar || '',
           auxiliarFirmaNombre: meta.firmaAuxiliarNombre || meta.firmaNombre || '',
-          auxiliarFirmaUrl: meta.firmaAuxiliarUrl || ''
+          auxiliarFirmaUrl: meta.firmaAuxiliarUrl || meta.firmaDataUrl || ''
         });
 
         document.getElementById('audit-modal')?.classList.add('active');
@@ -13125,7 +13561,11 @@ function manejadorFlujoV3() {
             ...u,
             status: 'PENDIENTE',
             km: (typeof local.km === 'number') ? local.km : (typeof u.km === 'number' ? u.km : null),
-            gasolina: typeof local.gasolina !== 'undefined' ? local.gasolina : u.gasolina
+            estado: local.estado || u.estado || '',
+            ubicacion: local.ubicacion || u.ubicacion || '',
+            gasolinaSistema: typeof local.gasolina !== 'undefined' ? local.gasolina : (u.gasolina || 'N/A'),
+            gasolinaCorregida: typeof local.gasolina !== 'undefined' ? local.gasolina : (u.gasolina || 'N/A'),
+            gasolina: typeof local.gasolina !== 'undefined' ? local.gasolina : (u.gasolina || 'N/A')
           };
         });
 
@@ -13212,24 +13652,59 @@ async function iniciarMisionAuditoria() {
 
 // 🗄️ ABRIR EL ARCHIVERO DE CUADRES
 let globalHistorialAuditorias = [];
+let historialCuadresPage = 1;
+const HISTORIAL_CUADRES_PAGE_SIZE = 8;
 
 function abrirHistorialCuadres() {
   toggleAdminSidebar(false);
-  document.getElementById('historial-cuadres-modal').classList.add('active');
+  document.getElementById('historial-cuadres-modal')?.classList.add('active');
   const container = document.getElementById('lista-historial-cuadres');
-  container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b;"><span class="material-icons spinner">sync</span> Buscando en los archivos...</div>`;
+  if (!container) return;
+  container.innerHTML = `<div class="audit-history-empty"><span class="material-icons spinner">sync</span> Cargando historial de cuadres...</div>`;
 
   api.obtenerHistorialCuadres(_miPlaza()).then(data => {
     globalHistorialAuditorias = data || [];
+    historialCuadresPage = 1;
     // Llenar select de autores
     const autorSelect = document.getElementById('filtroAutorArchivero');
     if (autorSelect) {
-      const autores = [...new Set(data.flatMap(c => [c.auxiliar, c.admin, c.firmaAuxiliar, c.firmaVentas].filter(Boolean)))].sort();
+      const autores = [...new Set((data || []).flatMap(c => [c.auxiliar, c.admin, c.firmaAuxiliar, c.firmaVentas].filter(Boolean)))].sort();
       autorSelect.innerHTML = '<option value="">Todos los autores</option>' +
         autores.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
     }
     renderHistorialCuadres();
   }).catch(e => console.error(e));
+}
+
+function abrirCuadrarFlotaDesdeHistorial() {
+  const estadoActual = (document.getElementById('txtV3')?.innerText || '').trim();
+  const modal = document.getElementById('historial-cuadres-modal');
+  if (modal) modal.classList.remove('active');
+
+  if (userRole === 'admin') {
+    if (!estadoActual) {
+      document.getElementById('audit-modal')?.classList.add('active');
+      _cuadreSetStage('aux-setup');
+      _cuadreMostrarPaso(1);
+      window.UNIDADES_SISTEMA_CORPORATIVO = [];
+      _cuadreActualizarAuxiliares();
+      _cuadreActualizarBotonMision();
+      return;
+    }
+    if (estadoActual === "INICIAR CUADRE (ADMIN)" || estadoActual === "FINALIZAR CUADRE") {
+      return manejadorFlujoV3();
+    }
+    if (estadoActual.includes('MISIÓN') || estadoActual.includes('PROCESO')) {
+      showToast('Ya hay una misión de patio en proceso. Espera el envío del auxiliar.', 'warning');
+      return;
+    }
+    return manejadorFlujoV3();
+  }
+
+  if (estadoActual === "VERIFICAR INVENTARIO") {
+    return manejadorFlujoV3();
+  }
+  showToast('No tienes una misión de cuadre asignada en este momento.', 'warning');
 }
 
 // Convierte URL de Google Drive share a URL de embed iframe
@@ -13247,6 +13722,7 @@ function limpiarFiltrosArchivero() {
   if (buscador) buscador.value = '';
   if (fecha) fecha.value = '';
   if (autor) autor.value = '';
+  historialCuadresPage = 1;
   renderHistorialCuadres();
 }
 
@@ -13256,13 +13732,12 @@ function toggleIframe(id) {
   else { el.style.display = 'none'; }
 }
 
-function renderHistorialCuadres() {
-  const container = document.getElementById('lista-historial-cuadres');
+function _filtrarHistorialCuadres() {
   const query = (document.getElementById('buscadorArchivero')?.value || '').toLowerCase().trim();
   const fechaFiltro = (document.getElementById('filtroFechaArchivero')?.value || '').trim();
   const autorFiltro = (document.getElementById('filtroAutorArchivero')?.value || '').toLowerCase().trim();
 
-  let filtered = globalHistorialAuditorias;
+  let filtered = Array.isArray(globalHistorialAuditorias) ? globalHistorialAuditorias : [];
 
   if (query) {
     filtered = filtered.filter(c =>
@@ -13298,39 +13773,102 @@ function renderHistorialCuadres() {
     );
   }
 
+  return filtered;
+}
+
+function historialCuadresIrPagina(delta) {
+  const total = _filtrarHistorialCuadres().length;
+  const totalPages = Math.max(1, Math.ceil(total / HISTORIAL_CUADRES_PAGE_SIZE));
+  historialCuadresPage = Math.max(1, Math.min(totalPages, historialCuadresPage + Number(delta || 0)));
+  renderHistorialCuadres();
+}
+
+function _historialCuadrePayload(item = {}) {
+  if (item.jsonCompleto) {
+    try {
+      const parsed = JSON.parse(item.jsonCompleto);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (_) {}
+  }
+  return {
+    unidades: Array.isArray(item.unidades) ? item.unidades : [],
+    stats: {
+      total: Number(item.ok || 0) + Number(item.faltantes || 0) + Number(item.sobrantes || 0),
+      ok: Number(item.ok || 0),
+      faltantes: Number(item.faltantes || 0),
+      sobrantes: Number(item.sobrantes || 0),
+      extras: Number(item.sobrantes || 0),
+      auxiliar: item.auxiliar || ''
+    },
+    meta: {
+      ...(item.meta || {}),
+      auxiliarNombre: item.auxiliar || '',
+      firmaAuxiliar: item.firmaAuxiliar || '',
+      firmaVentas: item.firmaVentas || item.admin || '',
+      cerradoPor: item.admin || '',
+      cerradoEn: item.fecha || '',
+      plaza: item.plaza || _miPlaza()
+    }
+  };
+}
+
+function verPdfCuadreHistorial(id) {
+  const item = (globalHistorialAuditorias || []).find(c => String(c.id) === String(id));
+  if (!item) {
+    showToast('No encontré ese registro de cuadre.', 'error');
+    return;
+  }
+  const payload = _historialCuadrePayload(item);
+  const units = Array.isArray(payload.unidades) ? payload.unidades : [];
+  const stats = payload.stats || {};
+  const meta = payload.meta || {};
+  abrirReporteImpresion(generarHtmlAuditoriaCuadrePdf(units, stats, meta));
+}
+
+function renderHistorialCuadres() {
+  const container = document.getElementById('lista-historial-cuadres');
+  if (!container) return;
+  const filtered = _filtrarHistorialCuadres();
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / HISTORIAL_CUADRES_PAGE_SIZE));
+  historialCuadresPage = Math.max(1, Math.min(totalPages, historialCuadresPage));
+  const start = total === 0 ? 0 : (historialCuadresPage - 1) * HISTORIAL_CUADRES_PAGE_SIZE;
+  const end = Math.min(total, start + HISTORIAL_CUADRES_PAGE_SIZE);
+  const pageRows = filtered.slice(start, end);
+  const status = document.getElementById('historialCuadreStatus');
+  if (status) status.textContent = `${total} registro${total === 1 ? '' : 's'} disponibles`;
+
   if (filtered.length === 0) {
-    container.innerHTML = `<div style="text-align:center; padding:40px; color:#64748b; font-weight:800;">No hay cuadres que coincidan con los filtros.</div>`;
+    container.innerHTML = `
+      <div class="audit-history-empty">No hay cuadres que coincidan con los filtros.</div>
+      <div class="audit-history-footer">
+        <span>Showing 0-0 of 0 records</span>
+        <div class="audit-history-pager">
+          <button class="audit-history-page-btn" disabled><span class="material-icons">chevron_left</span></button>
+          <button class="audit-history-page-btn" disabled><span class="material-icons">chevron_right</span></button>
+        </div>
+      </div>
+    `;
     return;
   }
 
-  const rows = filtered.map(c => {
-    const tipo = String(c.tipo || 'CUADRE').toUpperCase();
-    const badgeClass = tipo.includes('CERRADO') ? 'ok' : (tipo.includes('REVISION') ? 'info' : 'muted');
-    const tipoIcon = tipo.includes('CERRADO') ? 'verified_user' : (tipo.includes('REVISION') ? 'fact_check' : 'history');
+  const rows = pageRows.map(c => {
     const pdfUrl = _toDriveEmbedUrl(c.pdfUrl);
-    const hasPdf = !!pdfUrl;
+    const hasStoredPayload = !!c.jsonCompleto || (Array.isArray(c.unidades) && c.unidades.length > 0);
+    const action = pdfUrl
+      ? `<a class="audit-history-action-btn" href="${escapeHtml(c.pdfUrl)}" target="_blank" rel="noopener"><span class="material-icons">picture_as_pdf</span>Ver PDF</a>`
+      : (hasStoredPayload
+        ? `<button class="audit-history-action-btn" onclick="verPdfCuadreHistorial('${escapeHtml(c.id)}')"><span class="material-icons">picture_as_pdf</span>Ver PDF</button>`
+        : `<button class="audit-history-action-btn" disabled><span class="material-icons">picture_as_pdf</span>Sin PDF</button>`);
     return `
       <tr>
         <td data-label="Fecha"><strong>${escapeHtml(String(c.fecha || ''))}</strong></td>
-        <td data-label="Tipo"><span class="audit-history-badge ${badgeClass}"><span class="material-icons" style="font-size:14px;">${tipoIcon}</span>${escapeHtml(tipo)}</span></td>
-        <td data-label="Auxiliar"><strong>${escapeHtml(c.auxiliar || 'N/A')}</strong></td>
-        <td data-label="Ventas"><strong>${escapeHtml(c.admin || 'N/A')}</strong></td>
-        <td data-label="Resumen">
-          <div style="display:flex;flex-wrap:wrap;gap:6px; margin-bottom:8px;">
-            <span class="audit-history-badge ok">OK ${escapeHtml(c.ok || '0')}</span>
-            <span class="audit-history-badge warn">FALTAN ${escapeHtml(c.faltantes || '0')}</span>
-            <span class="audit-history-badge muted">SOBRAN ${escapeHtml(c.sobrantes || '0')}</span>
-          </div>
-          <div style="color:#64748b; font-size:12px; line-height:1.45;">
-            <div><strong>Firma auxiliar:</strong> ${escapeHtml(c.firmaAuxiliar || 'N/A')}</div>
-            <div><strong>Firma ventas:</strong> ${escapeHtml(c.firmaVentas || 'N/A')}</div>
-          </div>
-        </td>
-        <td data-label="PDF">
-          ${hasPdf
-            ? `<a class="audit-history-link" href="${escapeHtml(c.pdfUrl)}" target="_blank" rel="noopener"><span class="material-icons" style="font-size:16px;">download</span>Abrir</a>`
-            : '<span style="color:#94a3b8;font-size:12px;font-weight:700;">Sin PDF</span>'}
-        </td>
+        <td data-label="Auxiliar en Patio">${escapeHtml(c.auxiliar || c.firmaAuxiliar || 'N/A')}</td>
+        <td data-label="Autorizado por">${escapeHtml(c.admin || c.firmaVentas || 'N/A')}</td>
+        <td data-label="OK"><span class="audit-history-pill ok">${escapeHtml(String(c.ok || 0))}</span></td>
+        <td data-label="Faltantes"><span class="audit-history-pill warn">${escapeHtml(String(c.faltantes || 0))}</span></td>
+        <td data-label="Sobrantes"><span class="audit-history-pill info">${escapeHtml(String(c.sobrantes || 0))}</span></td>
+        <td data-label="Acción">${action}</td>
       </tr>`;
   }).join('');
 
@@ -13339,15 +13877,23 @@ function renderHistorialCuadres() {
       <thead>
         <tr>
           <th>Fecha</th>
-          <th>Tipo</th>
-          <th>Auxiliar</th>
-          <th>Ventas</th>
-          <th>Resumen</th>
-          <th>PDF</th>
+          <th>Auxiliar en Patio</th>
+          <th>Autorizado por</th>
+          <th>OK</th>
+          <th>Faltantes</th>
+          <th>Sobrantes</th>
+          <th>Acción</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
     </table>
+    <div class="audit-history-footer">
+      <span>Showing ${start + 1}-${end} of ${total} records</span>
+      <div class="audit-history-pager">
+        <button class="audit-history-page-btn" onclick="historialCuadresIrPagina(-1)" ${historialCuadresPage <= 1 ? 'disabled' : ''}><span class="material-icons">chevron_left</span></button>
+        <button class="audit-history-page-btn" onclick="historialCuadresIrPagina(1)" ${historialCuadresPage >= totalPages ? 'disabled' : ''}><span class="material-icons">chevron_right</span></button>
+      </div>
+    </div>
   `;
 }
 
@@ -21983,6 +22529,10 @@ function toggleControlesMenu(e) {
 window.toggleSidebar = toggleSidebar;
 window.toggleControlesMenu = toggleControlesMenu;
 window.abrirReporteImpresion  = abrirReporteImpresion;
+window.abrirCuadrarFlotaDesdeHistorial = abrirCuadrarFlotaDesdeHistorial;
+window.verPdfCuadreHistorial = verPdfCuadreHistorial;
+window.historialCuadresIrPagina = historialCuadresIrPagina;
+window.generarHtmlAuditoriaCuadrePdf = generarHtmlAuditoriaCuadrePdf;
 window.descargarArchivoLocal  = descargarArchivoLocal;
 window.generarSlugArchivo     = generarSlugArchivo;
 window.toggleAdminSidebar = toggleAdminSidebar;

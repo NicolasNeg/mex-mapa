@@ -1166,11 +1166,11 @@
             <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span>
               Registros / Movimientos</div>
 
-            <div id="mcValidarCuadre" class="mc-item" onclick="abrirUltimoCuadre()"
+            <div id="mcValidarCuadre" class="mc-item" onclick="abrirHistorialCuadres()"
               style="display: flex; flex-direction: column; align-items: flex-start;">
-              <div><span class="material-icons">directions_car</span> Cuadre de Flota</div>
+              <div><span class="material-icons">fact_check</span> Historial de Cuadre</div>
               <small id="lblUltimoCuadre"
-                style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">✅ --/-- 00:00
+                style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">--/-- 00:00
                 (Nadie)</small>
             </div>
 
@@ -2734,42 +2734,50 @@
   <div id="reporte-pdf-container" style="display: none;"></div>
 
   <div id="historial-cuadres-modal" class="fleet-modal" style="z-index: 6000;">
-    <div class="fleet-header-top"
-      style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
-      <div style="display:flex; align-items:center; gap: 10px;">
-        <span class="material-icons" style="font-size:24px; color:var(--mex-blue);">folder_special</span>
-        <h2 style="color:var(--primary); font-weight:900; margin:0;">ARCHIVERO DE AUDITORÍAS</h2>
+    <div class="historial-cuadre-shell">
+      <div class="historial-cuadre-toolbar">
+        <div class="historial-cuadre-title">
+          <h2>Historial de Cuadre</h2>
+          <span id="historialCuadreStatus">Cuadres oficiales de flota</span>
+        </div>
+        <div class="historial-cuadre-actions">
+          <button class="historial-cuadre-primary" onclick="abrirCuadrarFlotaDesdeHistorial()">
+            <span class="material-icons">playlist_add_check</span>
+            Cuadrar Flota
+          </button>
+          <button class="historial-cuadre-filter-btn" onclick="document.getElementById('historial-cuadre-filters')?.classList.toggle('active')">
+            <span class="material-icons">filter_list</span>
+            Filtrar
+          </button>
+          <button class="historial-cuadre-close" title="Cerrar" onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
       </div>
-      <button onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')"
-        style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
-    </div>
-    <!-- Filtros -->
-    <div style="display:flex; gap:10px; padding:0 25px 12px; flex-wrap:wrap; align-items:center;">
-      <div
-        style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:8px 14px; border:1px solid #e2e8f0; flex:1; min-width:180px;">
-        <span class="material-icons" style="color:#94a3b8; font-size:18px; margin-right:8px;">search</span>
-        <input type="text" id="buscadorArchivero" placeholder="Buscar por nombre..." oninput="renderHistorialCuadres()"
-          style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); width:100%; font-size:13px;">
+
+      <div id="historial-cuadre-filters" class="historial-cuadre-filters">
+        <label class="historial-cuadre-field">
+          <span class="material-icons">search</span>
+          <input type="text" id="buscadorArchivero" placeholder="Buscar auxiliar, ventas o fecha" oninput="renderHistorialCuadres()">
+        </label>
+        <label class="historial-cuadre-field compact">
+          <span class="material-icons">calendar_today</span>
+          <input type="date" id="filtroFechaArchivero" oninput="renderHistorialCuadres()">
+        </label>
+        <label class="historial-cuadre-field compact">
+          <span class="material-icons">person_search</span>
+          <select id="filtroAutorArchivero" onchange="renderHistorialCuadres()">
+            <option value="">Todos los autores</option>
+          </select>
+        </label>
+        <button class="historial-cuadre-clear" onclick="limpiarFiltrosArchivero()">
+          <span class="material-icons">filter_alt_off</span>
+          Limpiar
+        </button>
       </div>
-      <div
-        style="display:flex; align-items:center; background:#f1f5f9; border-radius:12px; padding:6px 12px; border:1px solid #e2e8f0; gap:6px;">
-        <span class="material-icons" style="color:#94a3b8; font-size:16px;">calendar_today</span>
-        <input type="date" id="filtroFechaArchivero" oninput="renderHistorialCuadres()"
-          style="border:none; outline:none; background:transparent; font-weight:600; color:var(--text); font-size:13px; cursor:pointer;">
-      </div>
-      <select id="filtroAutorArchivero" onchange="renderHistorialCuadres()"
-        style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:12px; padding:9px 14px; font-weight:700; font-size:13px; color:var(--text); outline:none; cursor:pointer;">
-        <option value="">Todos los autores</option>
-      </select>
-      <button onclick="limpiarFiltrosArchivero()" title="Limpiar filtros"
-        style="background:white; border:1px solid #e2e8f0; border-radius:10px; padding:8px 12px; cursor:pointer; font-size:12px; font-weight:800; color:#64748b; display:flex; align-items:center; gap:4px;">
-        <span class="material-icons" style="font-size:15px;">filter_alt_off</span> Limpiar
-      </button>
-    </div>
-    <div class="fleet-wrapper"
-      style="padding: 0 25px 25px; overflow-y: auto; background: #f8fafc; align-items: center;">
-      <div id="lista-historial-cuadres"
-        style="width: 100%; max-width: 600px; display: flex; flex-direction: column; gap: 15px;">
+
+      <div class="fleet-wrapper historial-cuadre-wrapper">
+        <div id="lista-historial-cuadres" class="historial-cuadre-table-wrap"></div>
       </div>
     </div>
   </div>

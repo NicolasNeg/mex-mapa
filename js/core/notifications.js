@@ -1243,23 +1243,37 @@ function _inferDeepLink(item = {}) {
   return '';
 }
 
+function _isPersistentCuadreMission(item = {}) {
+  const type = _safeText(item.type || '').toLowerCase();
+  const status = _safeText(item.status || '').toUpperCase();
+  const missionStatus = _safeText(item.missionStatus || item.payload?.missionStatus || '').toUpperCase();
+  const hasMissionId = !!_safeText(item.missionId || item.payload?.missionId || item.notificationId || item.id);
+  const isCuadreMission = type.includes('cuadre.assigned') || (type.includes('cuadre') && hasMissionId);
+  if (!isCuadreMission) return false;
+  if (item.read === true || status === 'READ' || missionStatus === 'COMPLETED' || missionStatus === 'CERRADA') return false;
+  return true;
+}
+
 export async function handleInboxItemAction(item = {}) {
   const notificationId = item.notificationId || item.id;
+  const keepPending = _isPersistentCuadreMission(item);
   // Optimista: marcar leído + redirigir DE INMEDIATO, sin esperar el round-trip
   // al Cloud Function ackNotification (antes bloqueaba: "no actualiza al instante"
   // y "tarda en redirigir"). El ack se persiste en segundo plano.
-  _state.inbox = _state.inbox.map(entry =>
-    ((entry.notificationId || entry.id) === notificationId)
-      ? { ...entry, read: true, status: 'READ', readAt: Date.now() }
-      : entry
-  );
-  _updateUnreadFromInbox();
-  _renderNotificationCenter();
+  if (!keepPending) {
+    _state.inbox = _state.inbox.map(entry =>
+      ((entry.notificationId || entry.id) === notificationId)
+        ? { ...entry, read: true, status: 'READ', readAt: Date.now() }
+        : entry
+    );
+    _updateUnreadFromInbox();
+    _renderNotificationCenter();
+  }
   closeNotificationCenter();
   const link = _inferDeepLink(item);
   if (link) routeDeepLink(link);
   // Persistencia en background — no bloquea la UI ni la navegación.
-  Promise.resolve(acknowledgeNotification(notificationId)).catch(() => {});
+  if (!keepPending) Promise.resolve(acknowledgeNotification(notificationId)).catch(() => {});
 }
 
 export function routeDeepLink(url = '') {

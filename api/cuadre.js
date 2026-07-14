@@ -50,6 +50,20 @@
     return Number.isFinite(n) && n >= 0 ? n : 5;
   }
 
+  async function _cerrarInboxMisionCuadre(userDocId, missionId, extra = {}) {
+    const uid = String(userDocId || '').trim();
+    const mid = String(missionId || '').trim().toUpperCase();
+    if (!uid || !mid) return;
+    await db.collection(COL.USERS).doc(uid).collection('inbox').doc(mid).set({
+      read: true,
+      status: 'READ',
+      missionStatus: 'COMPLETED',
+      completedAt: Date.now(),
+      updatedAt: Date.now(),
+      ...extra
+    }, { merge: true }).catch(() => {});
+  }
+
   function _feedAccionUnidad(mvaStr, actual = {}, estado = '', ubi = '', gas = '', notaFinal = '', notaEntrada = '', borrarNotas = false) {
     const oldNotes = String(actual.notas || '').toUpperCase();
     const newNotes = String(notaFinal || notaEntrada || '').toUpperCase();
@@ -722,6 +736,15 @@
     },
 
     async finalizarProtocoloV3(autorCierre, plaza) {
+      const settings = await _getSettings(plaza);
+      const missionId = String(settings.cuadreMissionId || '').trim();
+      const destinoDocId = String(settings.cuadreDestinoDocId || '').trim();
+      if (missionId && destinoDocId) {
+        await _cerrarInboxMisionCuadre(destinoDocId, missionId, {
+          title: 'Cuadre de flota completado',
+          body: 'La misión de patio fue completada y cerrada por ventas.'
+        });
+      }
       await _setSettings({
         estadoCuadreV3: "LIBRE",
         adminIniciador: "",
@@ -763,7 +786,10 @@
           firmaAuxiliar: data.firmaAuxiliar || data.auxFirmaNombre || "",
           firmaVentas: data.firmaVentas || data.ventasFirmaNombre || "",
           estado:    data.estado || data.status || "",
-          pdfUrl:    data.pdfUrl || data.jsonCompleto || "",
+          pdfUrl:    data.pdfUrl || "",
+          jsonCompleto: data.jsonCompleto || "",
+          meta:      data.meta || {},
+          unidades:  Array.isArray(data.unidades) ? data.unidades : [],
           plaza:     data.plaza || plazaUp || ""
         };
       });
@@ -780,6 +806,27 @@
       const auxiliarNombre = String(meta.auxiliarNombre || revisionMeta.auxiliarNombre || revisionMeta.auxiliar || stats?.auxiliar || '').trim();
       const firmaAuxiliar = String(meta.firmaAuxiliar || revisionMeta.firmaAuxiliar || revisionMeta.auxiliarFirmaNombre || '').trim();
       const firmaVentas = String(meta.firmaVentas || meta.firmaNombre || autorAdmin || '').trim();
+      const missionId = String(meta.missionId || revisionMeta.missionId || revisionMeta.cuadreMissionId || '').trim().toUpperCase();
+      const auxiliarDocId = String(meta.auxiliarDocId || revisionMeta.auxiliarDocId || revisionMeta.destinatarioDocId || '').trim();
+      const sobrantes = stats?.sobrantes ?? stats?.extras ?? 0;
+      const faltantes = stats?.faltantes ?? 0;
+      const ok = stats?.ok ?? 0;
+      const pdfPayload = {
+        unidades: units,
+        stats: { ...(stats || {}), ok, faltantes, sobrantes, extras: sobrantes },
+        meta: {
+          ...revisionMeta,
+          ...meta,
+          missionId,
+          auxiliarDocId,
+          auxiliarNombre,
+          firmaAuxiliar,
+          firmaVentas,
+          cerradoPor: autorAdmin || '',
+          cerradoEn: _now(),
+          plaza: plazaUp || ''
+        }
+      };
       await _registrarLog("CUADRE", `✅ CUADRE VALIDADO - ${stats?.ok || 0} OK / ${stats?.faltantes || 0} FALTAN`, autorAdmin, plazaUp);
       const registro = {
         timestamp: _ts(), fecha: _now(),
@@ -787,16 +834,18 @@
         etapa:     'VENTAS',
         auxiliar:  auxiliarNombre,
         admin:     autorAdmin,
-        ok:        stats?.ok || 0,
-        faltantes: stats?.faltantes || 0,
-        sobrantes: stats?.sobrantes || 0,
+        ok,
+        faltantes,
+        sobrantes,
         firmaAuxiliar,
         firmaVentas,
         estado:    'CERRADO',
         plaza:     plazaUp || "",
-        pdfUrl:    ""
+        pdfUrl:    "",
+        meta:      pdfPayload.meta,
+        jsonCompleto: JSON.stringify(pdfPayload)
       };
-      await db.collection(COL.HISTORIAL_CUADRES).add(registro);
+      const docRef = await db.collection(COL.HISTORIAL_CUADRES).add(registro);
       await _setSettings({
         estadoCuadreV3: "LIBRE",
         adminIniciador: "",
@@ -809,7 +858,18 @@
         ultimaModificacion: _now(),
         ultimoEditor: autorAdmin || "Sistema"
       }, plazaUp);
-      return "EXITO";
+      if (missionId && auxiliarDocId) {
+        await _cerrarInboxMisionCuadre(auxiliarDocId, missionId, {
+          title: 'Cuadre de flota completado',
+          body: `Ventas cerró el cuadre${plazaUp ? ' de ' + plazaUp : ''}.`,
+          payload: {
+            missionId,
+            plaza: plazaUp,
+            historialId: docRef.id
+          }
+        });
+      }
+      return { exito: true, id: docRef.id, registro };
     },
 
   };
