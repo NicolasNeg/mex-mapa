@@ -321,6 +321,18 @@ function _notificationSender(item = {}) {
   );
 }
 
+function _notificationChatTarget(item = {}) {
+  return _safeText(
+    item?.payload?.remitenteEmail
+    || item?.payload?.remitente_email
+    || item?.senderEmail
+    || item?.actorEmail
+    || item?.payload?.remitente
+    || _notificationSender(item)
+    || ""
+  );
+}
+
 function _notificationContextCopy(item = {}) {
   const parts = [];
   const kind = _friendlyNotificationKind(item);
@@ -445,7 +457,7 @@ function _ensureNotificationCenterDom() {
         <!-- Header -->
         <div class="notif-center-header">
           <div class="notif-center-heading">
-            <div class="notif-center-kicker">Centro vivo</div>
+            <div class="notif-center-kicker">Centro operativo</div>
             <div class="notif-center-title-row">
               <h2 class="notif-center-title">Notificaciones</h2>
               <span id="notif-center-unread-badge" class="notif-center-unread-badge">Todo al día</span>
@@ -695,7 +707,7 @@ function _notifFriendlyText(item = {}) {
   }
   if (type.includes('alert.critical')) {
     const titulo = _safeText(item?.title || '');
-    return `🚨 Alerta operativa${titulo ? `: <strong>${titulo}</strong>` : ' crítica recibida.'}`;
+    return `Alerta operativa${titulo ? `: <strong>${titulo}</strong>` : ' crítica recibida.'}`;
   }
   if (type.includes('alert')) {
     return _safeText(item?.title || 'Nueva alerta del sistema.');
@@ -704,7 +716,7 @@ function _notifFriendlyText(item = {}) {
     return `Nueva solicitud de registro${sender ? ` de <strong>${sender}</strong>` : ''}.`;
   }
   if (type.includes('test')) {
-    return '🔔 Prueba de notificaciones enviada correctamente.';
+    return 'Prueba de notificaciones enviada correctamente.';
   }
   // Fallback legible
   const titulo = _safeText(item?.title || '');
@@ -1216,7 +1228,7 @@ function _inferDeepLink(item = {}) {
   if (existing) return existing;
   const type = _safeText(item.type || '').toLowerCase();
   if (type.includes('message') || type.includes('mensaje')) {
-    const sender = _notificationSender(item);
+    const sender = _notificationChatTarget(item);
     return sender
       ? `/app/mensajes?notif=chat&chatUser=${encodeURIComponent(sender)}`
       : '/app/mensajes?notif=chat';
@@ -1251,17 +1263,11 @@ export function routeDeepLink(url = '') {
   const target = new URL(url, window.location.origin);
   const notif  = target.searchParams.get('notif') || '';
 
-  if (notif === 'chat') {
-    // ── FIX: cerrar notif center, abrir buzón PRIMERO y luego el chat ──
+  if (notif === "chat") {
     closeNotificationCenter();
-    const chatUser = decodeURIComponent(target.searchParams.get('chatUser') || '');
-    if (chatUser) {
-      if (typeof _state.routeHandlers?.openBuzon === 'function') {
-        _state.routeHandlers.openBuzon();
-        setTimeout(() => _state.routeHandlers?.openChat?.(chatUser), 220);
-      } else {
-        _state.routeHandlers?.openChat?.(chatUser);
-      }
+    const chatUser = target.searchParams.get("chatUser") || "";
+    if (chatUser && typeof _state.routeHandlers?.openChat === "function") {
+      _state.routeHandlers.openChat(chatUser);
     } else {
       _state.routeHandlers?.openBuzon?.();
     }

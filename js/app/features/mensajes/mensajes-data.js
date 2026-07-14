@@ -123,7 +123,7 @@ export function messageSnippet(msg) {
     return fileName ? `Archivo: ${fileName}` : 'Archivo adjunto';
   }
   const text = String(msg.mensaje || '').trim();
-  return text || 'Toca para chatear';
+  return text || 'Abrir conversación';
 }
 
 // ── Realtime listener ─────────────────────────────────────

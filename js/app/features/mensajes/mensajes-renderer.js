@@ -28,10 +28,10 @@ export function shellLayout(meDisplay) {
       </div>
       <div class="am-search">
         <span class="material-icons am-search-icon">search</span>
-        <input type="text" id="amSearch" class="am-search-input" placeholder="Buscar...">
+        <input type="text" id="amSearch" class="am-search-input" placeholder="Buscar contacto, plaza o rol">
       </div>
       <div class="am-tabs">
-        <span class="am-tab-label">Mensajes</span>
+        <span class="am-tab-label">Buzón operativo</span>
         <button id="amArchiveToggle" class="am-tab-btn" type="button">Archivados</button>
       </div>
       <div class="am-filters">
@@ -52,16 +52,16 @@ export function shellLayout(meDisplay) {
     <section class="am-chat" id="amChat">
       <div id="amEmptyState" class="am-empty">
         <div class="am-empty-icon"><span class="material-icons">send</span></div>
-        <h3>Tus mensajes</h3>
-        <p>Envía un mensaje para iniciar una conversación.</p>
-        <button class="am-empty-btn" id="amEmptyBtn">Enviar mensaje</button>
+        <h3>Selecciona una conversación</h3>
+        <p>Consulta acuerdos, archivos y seguimiento interno desde un canal limpio de operación.</p>
+        <button class="am-empty-btn" id="amEmptyBtn">Nuevo mensaje</button>
       </div>
       <div id="amChatHeader" class="am-chat-header" style="display:none;">
         <button id="amBackBtn" class="am-back"><span class="material-icons">arrow_back</span></button>
         <button id="amChatAvatar" class="am-chat-av">U</button>
         <div class="am-chat-hinfo">
           <div id="amChatName" class="am-chat-name">Nombre</div>
-          <div id="amChatStatus" class="am-chat-status">Conversación segura</div>
+          <div id="amChatStatus" class="am-chat-status">Canal interno</div>
         </div>
         <div class="am-chat-hactions">
           <button id="amArchiveBtn" class="am-hbtn" title="Archivar" style="display:none;"><span class="material-icons">delete_outline</span></button>
@@ -74,7 +74,7 @@ export function shellLayout(meDisplay) {
         <input type="file" id="amFileInput" style="display:none;" accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt">
         <button id="amAttachBtn" class="am-attach"><span class="material-icons">add_circle</span></button>
         <div class="am-input-box">
-          <textarea id="amInput" rows="1" class="am-textarea" placeholder="Mensaje..."></textarea>
+          <textarea id="amInput" rows="1" class="am-textarea" placeholder="Escribe una actualización..."></textarea>
         </div>
         <button id="amMicBtn" class="am-mic"><span class="material-icons">mic</span></button>
         <button id="amSendBtn" class="am-send"><span class="material-icons">send</span></button>
@@ -97,7 +97,7 @@ export function shellLayout(meDisplay) {
 
 export function renderContactItem(c, meta, isActive, isArchived) {
   const unread = c.unread || 0;
-  const snippet = c.last ? messageSnippet(c.last) : 'Toca para chatear';
+  const snippet = c.last ? messageSnippet(c.last) : 'Abrir conversación';
   const display = c.last?.esMio ? `Tú: ${snippet}` : snippet;
   const truncated = display.length > 55 ? display.substring(0, 55) + '…' : display;
   const time = c.last ? formatMsgTime(c.last) : '';
@@ -160,7 +160,7 @@ export function renderMessage(m, userName) {
       return `<button class="am-react-btn${isMine}" data-mid="${mId}" data-emoji="${esc(emoji)}" title="${esc(users.join(', '))}">${emoji}<span>${users.length}</span></button>`;
     }).join('');
   }
-  reactionsHtml += `<button class="am-add-react" data-mid="${mId}">😊</button></div>`;
+  reactionsHtml += `<button class="am-add-react" data-mid="${mId}" title="Agregar reacción"><span class="material-icons">add_reaction</span></button></div>`;
   // Edit/Delete
   let optionsHtml = '';
   if (mine) {
@@ -212,7 +212,7 @@ export function renderDirectoryContact(user, isActive) {
       <span class="am-contact-name">${esc(nombre)}</span>
     </div>
     <div class="am-contact-sub">${esc(badge)}</div>
-    <div class="am-contact-snippet" style="color:#64748b;font-style:italic;">Iniciar conversacion</div>
+    <div class="am-contact-snippet" style="color:#64748b;font-style:italic;">Iniciar conversación</div>
   </div>
 </div>`;
 }

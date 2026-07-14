@@ -12,6 +12,7 @@ let _recorder = null, _audioCtx = null, _analyser = null, _specRaf = null, _recT
 let _emojiPickerImport = null;
 let _cssLink = null;
 let _offGlobalSearch = null;
+let _pendingDeepLinkPeer = "";
 
 const EMOJI_PICKER_SRC = 'https://cdn.jsdelivr.net/npm/emoji-picker-element@1/index.js';
 
@@ -59,12 +60,14 @@ export async function mount(ctx) {
   _archived = D.loadArchived(_me.email);
   container.innerHTML = R.shellLayout(_me.display);
   _bindEvents(container);
+  _captureNotificationDeepLink();
   _unsub = D.startRealtimeListener(_me, msgs => { _all = msgs; _refresh(); });
   // Load full user directory in background for cross-plaza search
   D.getAllUsers().then(users => {
     _allUsers = users;
     _populateFilters();
     _renderContacts();
+    _consumeNotificationDeepLink();
   }).catch(() => {});
   const searchHandler = event => {
     const route = String(event?.detail?.route || '');
@@ -85,6 +88,74 @@ export function unmount() {
   if (_pendingAudio?.localUrl) URL.revokeObjectURL(_pendingAudio.localUrl);
   _all = []; _convs = []; _meta = new Map(); _allUsers = [];
   _activePeer = null; _pendingFile = null; _pendingAudio = null; _replyTo = null;
+  _pendingDeepLinkPeer = "";
+}
+
+function _captureNotificationDeepLink() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("notif") !== "chat") return;
+    const chatUser = params.get("chatUser") || params.get("user") || "";
+    _pendingDeepLinkPeer = String(chatUser || "").trim();
+  } catch (_) {
+    _pendingDeepLinkPeer = "";
+  }
+}
+
+function _clearNotificationDeepLinkQuery() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("notif") !== "chat") return;
+    params.delete("notif");
+    params.delete("chatUser");
+    params.delete("user");
+    const query = params.toString();
+    history.replaceState({}, "", window.location.pathname + (query ? "?" + query : "") + (window.location.hash || ""));
+  } catch (_) {}
+}
+
+function _resolveDeepLinkPeerKey(rawPeer) {
+  const raw = String(rawPeer || "").trim();
+  if (!raw) return "";
+  const identity = D.getCanonicalMessageIdentity(raw);
+  const rawUp = raw.toUpperCase();
+  const rawEmail = D.normalizeEmail(raw);
+
+  const conv = _convs.find(c => {
+    const values = [
+      c.peerKey,
+      c.peerEmail,
+      c.displayLabel,
+      c.preferredHandle,
+      c.last?.remitente,
+      c.last?.destinatario,
+      c.last?.remitenteEmail,
+      c.last?.destinatarioEmail
+    ].map(v => String(v || "").trim());
+    if (values.includes(identity.key)) return true;
+    if (rawEmail && values.some(v => v.toLowerCase() === rawEmail)) return true;
+    return values.some(v => v.toUpperCase() === rawUp);
+  });
+  if (conv?.peerKey) return conv.peerKey;
+
+  if (rawEmail && _allUsers.length) {
+    const user = _allUsers.find(u => {
+      const email = String(u.id || u.email || "").trim().toLowerCase();
+      return email === rawEmail;
+    });
+    if (user) return D.getCanonicalMessageIdentity(rawEmail).key;
+  }
+
+  return identity.key;
+}
+
+function _consumeNotificationDeepLink() {
+  if (!_pendingDeepLinkPeer) return;
+  const peerKey = _resolveDeepLinkPeerKey(_pendingDeepLinkPeer);
+  if (!peerKey) return;
+  _pendingDeepLinkPeer = "";
+  _openChat(peerKey);
+  _clearNotificationDeepLinkQuery();
 }
 
 function _bindEvents(rootNode) {
@@ -123,6 +194,7 @@ async function _refresh() {
   _populateFilters();
   _renderContacts();
   if (_activePeer) _renderMessages();
+  _consumeNotificationDeepLink();
 }
 
 function _populateFilters() {
@@ -244,7 +316,7 @@ function _openChat(peerKey) {
   document.getElementById('amChatName').textContent = name;
   document.getElementById('amChatAvatar').textContent = R.initials(name);
   const m = _meta.get(conv?.peerEmail);
-  document.getElementById('amChatStatus').textContent = m ? `${m.rol||''} · ${m.plaza||''}` : 'Conversación segura';
+  document.getElementById('amChatStatus').textContent = m ? `${m.rol||''} · ${m.plaza||''}` : 'Canal interno';
   // Mark read
   const idsToMark = [];
   _all.forEach(msg => {
