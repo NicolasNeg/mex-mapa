@@ -4,7 +4,7 @@
 //
 //  Tab 1: Movimientos (historial_patio — MOVE/SWAP/ADD/EDIT/DEL)
 //         → en el futuro se moverá a Cuadre
-//  Tab 2: Estado / Eliminaciones (COL.LOGS + COL.ADMIN_AUDIT)
+//  Tab 2: Estados (COL.LOGS: IN / BAJA / EDIT / GESTION)
 // ═══════════════════════════════════════════════════════════
 
 let _container  = null;
@@ -59,18 +59,73 @@ function _tsADia(ts) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-function _tipoBadgeClass(tipo) {
-  const t = String(tipo || '').toUpperCase();
-  const map = { MOVE:'badge-move', SWAP:'badge-swap', ADD:'badge-add', EDIT:'badge-edit', DEL:'badge-del', IN:'badge-add', BAJA:'badge-del', MODIF:'badge-edit' };
-  return map[t] || 'badge-otro';
+function _normalizeTipo(tipo) {
+  const t = String(tipo || "").toUpperCase().trim();
+  if (t === "MODIF" || t === "MODIFICACION" || t === "MODIFICACIÓN") return "EDIT";
+  if (t === "DELETE") return "DEL";
+  return t || "OTRO";
 }
 
-// Etiqueta visible del tipo. Un cambio de estado/etiqueta (doble cero, etc.) se
-// guarda como MODIF pero el usuario lo conoce como EDIT (nuevo estado/etiqueta).
-// Solo cambia el texto; el valor real (MODIF) se conserva para filtrar.
+function _tipoBadgeClass(tipo) {
+  const t = _normalizeTipo(tipo);
+  const map = { MOVE:"badge-move", SWAP:"badge-swap", ADD:"badge-add", EDIT:"badge-edit", DEL:"badge-del", IN:"badge-add", BAJA:"badge-del", GESTION:"badge-gestion" };
+  return map[t] || "badge-otro";
+}
+
 function _tipoLabel(tipo) {
-  const t = String(tipo || '').toUpperCase();
-  return (t === 'MODIF' || t === 'MODIFICACION') ? 'EDIT' : t;
+  const t = _normalizeTipo(tipo);
+  return t === "OTRO" ? "INFO" : t;
+}
+
+function _tipoIcon(tipo) {
+  const map = {
+    MOVE: "arrow_forward",
+    SWAP: "swap_horiz",
+    ADD: "add_circle",
+    DEL: "remove_circle",
+    IN: "login",
+    BAJA: "logout",
+    EDIT: "edit_note",
+    GESTION: "settings_suggest"
+  };
+  return map[_normalizeTipo(tipo)] || "info";
+}
+
+function _cleanAuditText(value) {
+  return String(value || "")
+    .replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}\uFE0F]/gu, "")
+    .replace(/\s*\|\s*Notas eliminadas/gi, "")
+    .replace(/Notas reemplazadas/gi, "Notas actualizadas")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+function _estadoPermitido(row) {
+  return ["IN", "BAJA", "EDIT", "GESTION"].includes(_normalizeTipo(row?.tipo));
+}
+
+function _toMs(ts) {
+  if (ts == null) return 0;
+  if (typeof ts === "object" && "seconds" in ts) return ts.seconds * 1000;
+  if (typeof ts === "number") return ts < 1e12 ? ts * 1000 : ts;
+  const ms = new Date(ts).getTime();
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+function _motionPreviewHtml(row = {}) {
+  const tipo = _normalizeTipo(row.tipo);
+  const cls = tipo === "SWAP" ? "is-swap"
+    : tipo === "DEL" ? "is-del"
+    : tipo === "ADD" ? "is-add"
+    : "is-move";
+  return [
+    `<div class="hist-op-motion-mini ${cls}" aria-hidden="true">`,
+    `<span class="hist-op-slot hist-op-slot-a"></span>`,
+    `<span class="hist-op-slot hist-op-slot-b"></span>`,
+    `<span class="hist-op-unit hist-op-unit-a"></span>`,
+    tipo === "SWAP" ? `<span class="hist-op-unit hist-op-unit-b"></span>` : "",
+    "</div>"
+  ].join("");
 }
 
 // ── Popover cajón-a-cajón (solo PC con hover) ────────────────
@@ -92,32 +147,35 @@ function _parseMove(detalles) {
 function _showPop(tr) {
   const { origen, destino } = _parseMove(tr.dataset.detalles);
   if (!origen && !destino) return;
-  const mva  = tr.dataset.mva || '';
-  const tipo = (tr.dataset.tipo || '').toUpperCase();
+  const mva  = tr.dataset.mva || "";
+  const tipo = _normalizeTipo(tr.dataset.tipo);
   const oLimbo = /limbo/i.test(origen);
   const dLimbo = /limbo/i.test(destino);
   const pop = _ensurePop();
-  const variant = (tipo === 'DEL' || dLimbo) ? 'hmp-del'
-                : (tipo === 'ADD' || oLimbo) ? 'hmp-add' : 'hmp-swap';
-  pop.className = `hist-move-pop ${variant}`;
-  // innerHTML se reescribe en cada hover → reinicia la animación gratis
-  pop.innerHTML = `
-    <div class="hmp-track">
-      <div class="hmp-box hmp-origin ${oLimbo ? 'hmp-box-limbo' : ''}"><span>${esc(origen || '—')}</span></div>
-      <span class="hmp-arrow material-icons">arrow_forward</span>
-      <div class="hmp-box hmp-dest ${dLimbo ? 'hmp-box-limbo' : ''}"><span>${esc(destino || '—')}</span></div>
-      <div class="hmp-unit">${esc(mva)}</div>
-    </div>
-    <div class="hmp-caption">${esc(tipo)} · ${esc(mva)}</div>`;
-  pop.style.display = 'block';
+  const variant = (tipo === "SWAP") ? "hmp-swap"
+    : (tipo === "DEL" || dLimbo) ? "hmp-del"
+    : (tipo === "ADD" || oLimbo) ? "hmp-add"
+    : "hmp-move";
+  pop.className = "hist-move-pop " + variant;
+  pop.innerHTML = [
+    `<div class="hmp-track">`,
+    `<div class="hmp-box hmp-origin ${oLimbo ? "hmp-box-limbo" : ""}"><span>${esc(origen || "Origen")}</span></div>`,
+    `<span class="hmp-arrow material-icons">${tipo === "SWAP" ? "sync_alt" : "arrow_forward"}</span>`,
+    `<div class="hmp-box hmp-dest ${dLimbo ? "hmp-box-limbo" : ""}"><span>${esc(destino || "Destino")}</span></div>`,
+    `<div class="hmp-unit hmp-unit-a">${esc(mva || "Unidad")}</div>`,
+    tipo === "SWAP" ? `<div class="hmp-unit hmp-unit-b">OCUPANTE</div>` : "",
+    `</div>`,
+    `<div class="hmp-caption"><span class="material-icons">${_tipoIcon(tipo)}</span> ${esc(_tipoLabel(tipo))} · ${esc(mva)}</div>`
+  ].join("");
+  pop.style.display = "block";
   const r  = tr.getBoundingClientRect();
   const pr = pop.getBoundingClientRect();
   let top  = r.bottom + 8;
   if (top + pr.height > window.innerHeight - 8) top = r.top - pr.height - 8;
   let left = r.left + 40;
   if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - pr.width - 8;
-  pop.style.top  = `${Math.max(8, top)}px`;
-  pop.style.left = `${Math.max(8, left)}px`;
+  pop.style.top  = Math.max(8, top) + "px";
+  pop.style.left = Math.max(8, left) + "px";
 }
 function _hidePop() { if (_pop) _pop.style.display = 'none'; }
 
@@ -125,6 +183,13 @@ function _hidePop() { if (_pop) _pop.style.display = 'none'; }
 function _renderShell() {
   _container.innerHTML = `
     <div class="hist-op-root">
+      <header class="hist-op-header">
+        <div>
+          <p class="hist-op-kicker">Auditoria operativa</p>
+          <h1>Historial de cambios</h1>
+        </div>
+        <div class="hist-op-header-note">Movimientos, estados y bajas de unidad</div>
+      </header>
       <div class="hist-op-tabs">
         <button id="hist-op-tab-mov" class="hist-op-tab ${_state.tab === 'movimientos' ? 'active' : ''}"
           data-tab="movimientos">
@@ -132,13 +197,13 @@ function _renderShell() {
         </button>
         <button id="hist-op-tab-est" class="hist-op-tab ${_state.tab === 'estado' ? 'active' : ''}"
           data-tab="estado">
-          <span class="material-icons">history_toggle_off</span> Estado / Eliminaciones
+          <span class="material-icons">tune</span> Estados
         </button>
       </div>
 
       <div id="hist-op-panel-movimientos" class="hist-op-panel ${_state.tab === 'movimientos' ? '' : 'hidden'}">
         <div class="hist-op-filters">
-          <input id="hist-op-qMov" type="text" placeholder="MVA, usuario, movimiento…" value="${esc(_state.qMov)}">
+          <input id="hist-op-qMov" type="text" placeholder="Buscar MVA, usuario o movimiento" value="${esc(_state.qMov)}">
           <input id="hist-op-fechaMov" type="date" value="${esc(_state.fechaMov)}">
           <select id="hist-op-tipoMov">
             ${['','MOVE','SWAP','ADD','EDIT','DEL'].map(t =>
@@ -158,9 +223,9 @@ function _renderShell() {
 
       <div id="hist-op-panel-estado" class="hist-op-panel ${_state.tab === 'estado' ? '' : 'hidden'}">
         <div class="hist-op-filters">
-          <input id="hist-op-qEst" type="text" placeholder="Buscar unidad, autor, acción…" value="${esc(_state.qEst)}">
+          <input id="hist-op-qEst" type="text" placeholder="Buscar unidad, autor o cambio" value="${esc(_state.qEst)}">
           <select id="hist-op-tipoEst">
-            ${['TODOS','IN','BAJA','MODIF','GESTION'].map(t =>
+            ${['TODOS','IN','BAJA','EDIT','GESTION'].map(t =>
               `<option value="${t}" ${_state.tipoEst===t?'selected':''}>${_tipoLabel(t)}</option>`).join('')}
           </select>
           <button id="hist-op-recargarEst" class="hist-op-btn-refresh">
@@ -186,7 +251,7 @@ function _renderMovimientos() {
   const qv = _state.qMov.toLowerCase();
   let rows = _state.movimientos;
   if (qv)              rows = rows.filter(r => [r.mva,r.usuario,r.detalles,r.tipo].some(v => (v||'').toLowerCase().includes(qv)));
-  if (_state.tipoMov)  rows = rows.filter(r => r.tipo === _state.tipoMov);
+  if (_state.tipoMov)  rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoMov);
   if (_state.fechaMov) rows = rows.filter(r => _tsADia(r.timestamp) === _state.fechaMov);
   if (_state.usuarioMov) rows = rows.filter(r => r.usuario === _state.usuarioMov);
 
@@ -201,58 +266,71 @@ function _renderMovimientos() {
   wrap.innerHTML = `
     <table class="hist-op-table">
       <thead><tr>
-        <th>FECHA</th><th>TIPO</th><th>MVA</th><th>MOVIMIENTO</th><th>USUARIO</th>
+        <th>FECHA</th><th>TIPO</th><th>MVA</th><th>MOVIMIENTO</th><th>ANIMACION</th><th>USUARIO</th>
       </tr></thead>
       <tbody>
         ${rows.map(r => `
           <tr data-detalles="${esc(r.detalles)}" data-mva="${esc(r.mva)}" data-tipo="${esc(r.tipo)}">
             <td class="hist-op-cell-date">${esc(r.fecha)}</td>
-            <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}">${esc(r.tipo)}</span></td>
+            <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}"><span class="material-icons">${_tipoIcon(r.tipo)}</span>${esc(_tipoLabel(r.tipo))}</span></td>
             <td class="hist-op-cell-mva">${esc(r.mva)}</td>
-            <td>${esc(r.detalles)}</td>
-            <td>${esc(r.usuario)}</td>
+            <td>${esc(_cleanAuditText(r.detalles))}</td>
+            <td class="hist-op-motion-cell">${_motionPreviewHtml(r)}</td>
+            <td>${esc(_cleanAuditText(r.usuario))}</td>
           </tr>`).join('')}
       </tbody>
     </table>`;
 }
 
 function _renderEstado() {
-  const wrap = q('tablaEst');
+  const wrap = q("tablaEst");
   if (!wrap) return;
 
   if (_state.loadingEst) {
-    wrap.innerHTML = `<div class="hist-op-loading"><span class="material-icons spin">sync</span> Cargando historial…</div>`;
+    wrap.innerHTML = `<div class="hist-op-loading"><span class="material-icons spin">sync</span> Cargando historial de cambios...</div>`;
     return;
   }
 
   const qv = _state.qEst.toLowerCase();
-  let rows = _state.estado;
-  if (qv) rows = rows.filter(r => [r.mva,r.autor,r.accion,r.tipo,r.detalles,r.objetivo].some(v => (v||'').toLowerCase().includes(qv)));
-  if (_state.tipoEst && _state.tipoEst !== 'TODOS') rows = rows.filter(r => (r.tipo||'').toUpperCase() === _state.tipoEst);
+  let rows = _state.estado.filter(_estadoPermitido);
+  if (qv) rows = rows.filter(r => [r.mva,r.autor,r.accion,r.tipo,r.detalles,r.objetivo].some(v => _cleanAuditText(v).toLowerCase().includes(qv)));
+  if (_state.tipoEst && _state.tipoEst !== "TODOS") rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoEst);
 
-  const ctr = q('contadorEst');
+  const ctr = q("contadorEst");
   if (ctr) ctr.textContent = `${rows.length} de ${_state.estado.length} registros`;
 
   if (!rows.length) {
-    wrap.innerHTML = `<div class="hist-op-empty">No hay registros que coincidan.</div>`;
+    wrap.innerHTML = `<div class="hist-op-empty"><span class="material-icons">rule</span><div>No hay cambios de estado con esos filtros.</div></div>`;
     return;
   }
 
   wrap.innerHTML = `
-    <table class="hist-op-table">
-      <thead><tr>
-        <th>FECHA</th><th>TIPO</th><th>ACCIÓN</th><th>AUTOR</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(r => `
-          <tr>
-            <td class="hist-op-cell-date">${esc(r.fecha)}</td>
-            <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}">${esc(_tipoLabel(r.tipo)||'OTRO')}</span></td>
-            <td>${esc(r.accion || r.detalles || '')}</td>
-            <td>${esc(r.autor || r.usuario || '')}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
+    <div class="hist-op-state-list">
+      ${rows.map((r, index) => {
+        const tipo = _normalizeTipo(r.tipo);
+        const accion = _cleanAuditText(r.accion || r.detalles || "Cambio registrado");
+        const target = _cleanAuditText(r.mva || r.objetivo || r.referencia || "Unidad");
+        return `
+          <article class="hist-op-state-card is-${tipo.toLowerCase()}" style="animation-delay:${Math.min(index, 10) * 0.025}s">
+            <div class="hist-op-state-mark"><span class="material-icons">${_tipoIcon(tipo)}</span></div>
+            <div class="hist-op-state-body">
+              <div class="hist-op-state-top">
+                <span class="hist-op-badge ${_tipoBadgeClass(tipo)}"><span class="material-icons">${_tipoIcon(tipo)}</span>${esc(_tipoLabel(tipo))}</span>
+                <strong>${esc(target)}</strong>
+                <time>${esc(r.fecha || "")}</time>
+              </div>
+              <p>${esc(accion)}</p>
+              <div class="hist-op-state-meta">
+                <span class="material-icons">person</span>
+                <span>${esc(_cleanAuditText(r.autor || r.usuario || "Sistema"))}</span>
+              </div>
+            </div>
+            <div class="hist-op-state-anim" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </div>
+          </article>`;
+      }).join("")}
+    </div>`;
 }
 
 // ── Carga de datos ───────────────────────────────────────────
@@ -285,14 +363,19 @@ async function _loadEstado() {
   _state.loadingEst = true;
   _renderEstado();
   try {
-    const [serverLogs, gestionLogs] = await Promise.all([
-      window.api.obtenerLogsServer?.() || Promise.resolve([]),
-      window.api.obtenerEventosGestion?.() || Promise.resolve([]),
-    ]);
-    _state.estado = [...serverLogs, ...gestionLogs]
-      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const serverLogs = await (window.api.obtenerLogsServer?.() || Promise.resolve([]));
+    _state.estado = (Array.isArray(serverLogs) ? serverLogs : [])
+      .map(log => ({
+        ...log,
+        tipo: _normalizeTipo(log.tipo),
+        accion: _cleanAuditText(log.accion || log.detalles || ""),
+        detalles: _cleanAuditText(log.detalles || ""),
+        autor: _cleanAuditText(log.autor || log.usuario || "Sistema")
+      }))
+      .filter(_estadoPermitido)
+      .sort((a, b) => _toMs(b.timestamp) - _toMs(a.timestamp));
   } catch (e) {
-    console.error('[historial-op] estado', e);
+    console.error("[historial-op] estado", e);
     _state.estado = [];
   } finally {
     _state.loadingEst = false;

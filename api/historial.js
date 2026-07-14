@@ -54,6 +54,7 @@
           estado:   estadoMatch ? estadoMatch[1] : (data.tipo || ""),
           autor:    data.autor || "",
           usuario:  data.autor || "",
+          timestamp: data.timestamp || 0,
           locationStatus: data.locationStatus || '',
           exactLocation: data.exactLocation || null,
           googleMapsUrl: data.exactLocation?.googleMapsUrl || '',

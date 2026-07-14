@@ -109,15 +109,15 @@ function _ensureAutoConfiguration() {
       console.log(text);
     },
     routeHandlers: {
-      openBuzon: () => { window.location.href = '/mensajes'; },
+      openBuzon: () => { window.location.href = '/app/mensajes'; },
       openChat: (chatUser = '') => {
         const safeUser = _safeText(chatUser);
         window.location.href = safeUser
           ? `/mensajes?notif=chat&chatUser=${encodeURIComponent(safeUser)}`
           : '/mensajes';
       },
-      openCuadre: () => { window.location.href = '/cuadre'; },
-      openAlerts: () => { window.location.href = '/mapa?notif=alerts'; }
+      openCuadre: () => { window.location.href = '/app/cuadre'; },
+      openAlerts: () => { window.location.href = '/app/mapa?notif=alerts'; }
     }
   });
 }

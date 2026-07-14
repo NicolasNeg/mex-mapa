@@ -135,7 +135,7 @@ export const ROUTE_MAP = {
     fullModuleMigrated: true,
   },
   historialOperativo: {
-    id: 'historialOperativo', label: 'Historial operativo',
+    id: 'historialOperativo', label: 'Historial de cambios',
     legacyRoute:   '/historial-operativo',
     appRoute:      '/app/historial-operativo',
     navRoute:      '/app/historial-operativo',

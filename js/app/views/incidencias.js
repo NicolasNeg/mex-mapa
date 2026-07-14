@@ -1875,16 +1875,7 @@ function _priorityLabel(p) {
 }
 
 function _canDelete(item) {
-  if (_statusFromNota(item) !== 'PENDIENTE') return false;
-  const gs = getState();
-  const author = String(item?.autor || item?.creadoPor || '').trim();
-  if (!author) return false;
-  return [
-    gs.profile?.nombre,
-    gs.profile?.nombreCompleto,
-    gs.profile?.displayName,
-    gs.profile?.email
-  ].some(value => String(value || '').trim() === author);
+  return false;
 }
 
 function _evidenceRows(item) {

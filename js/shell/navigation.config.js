@@ -118,7 +118,7 @@ export const NAV_GROUPS = [
       },
       {
         id: 'historial-operativo',
-        label: 'Historial operativo',
+        label: 'Historial de cambios',
         icon: 'history',
         route: '/app/historial-operativo',
         roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
@@ -236,7 +236,7 @@ export const ROUTE_TITLES = {
   '/app/editmap':          'Configuración de mapa',
   '/app/onboarding':       'Configuración inicial',
   '/app/turnos':                   'Turnos y horarios',
-  '/app/historial-operativo':      'Historial operativo',
+  '/app/historial-operativo':      'Historial de cambios',
 };
 
 export function routeTitle(route = '') {

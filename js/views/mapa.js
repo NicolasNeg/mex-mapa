@@ -8148,7 +8148,7 @@ function filtrarListaNotas() {
   }
 
   contenedor.innerHTML = filtradas.map(n => {
-    const puedeBorrar = (String(n.estado || '').toUpperCase() === 'PENDIENTE' && n.autor === USER_NAME);
+    const puedeBorrar = false;
     const prioridad = metaPrioridadIncidencia(n.prioridad);
     const estado = metaEstadoIncidencia(n.estado);
     const expandida = notasExpandState.has(String(n.id));

@@ -155,6 +155,69 @@ const ROUTE_TABLE = {
   },
 };
 
+const ROUTE_STYLES = {
+  "/app/dashboard": [{ href: "/css/app-dashboard.css", attr: "data-app-dashboard-css" }],
+  "/app/profile": [
+    { href: "/css/app-profile.css", attr: "data-app-profile-css" },
+    { href: "/css/profile.css", attr: "data-profile-css" },
+  ],
+  "/app/mensajes": [{ href: "/css/app-mensajes.css", attr: "data-app-mensajes-css" }],
+  "/app/cola-preparacion": [{ href: "/css/cola-preparacion.css", attr: "data-cola-css" }],
+  "/app/incidencias": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
+  "/app/mapa": [
+    { href: "/css/mapa.css", attr: "data-lmapa-css" },
+    { href: "/css/alertas.css", attr: "data-lmapa-alertas-css" },
+  ],
+  "/app/cuadre": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/admin": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],
+  "/app/alertas": [
+    { href: "/css/alertas.css", attr: "data-app-alertas-legacy-css" },
+    { href: "/css/app-alertas.css", attr: "data-app-alertas-css" },
+  ],
+  "/app/alertas/historial": [
+    { href: "/css/alertas.css", attr: "data-app-alertas-legacy-css" },
+    { href: "/css/app-alertas.css", attr: "data-app-alertas-css" },
+  ],
+  "/app/programador": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/editmap": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/turnos": [{ href: "/css/app-turnos.css", attr: "data-app-turnos-css" }],
+  "/app/historial-operativo": [{ href: "/css/app-historial-operativo.css", attr: "data-app-historial-operativo-css" }],
+};
+
+function _sameStylesheetHref(link, href) {
+  try { return new URL(link.getAttribute("href") || "", window.location.origin).pathname === href; } catch (_) { return false; }
+}
+
+function _ensureStylesheet(meta = {}) {
+  if (typeof document === "undefined") return Promise.resolve();
+  const href = String(meta.href || "");
+  if (!href) return Promise.resolve();
+  const existingById = meta.id ? document.getElementById(meta.id) : null;
+  const existingByAttr = meta.attr ? Array.from(document.querySelectorAll("link[" + meta.attr + "]")).find(link => _sameStylesheetHref(link, href)) : null;
+  const existingByHref = Array.from(document.querySelectorAll("link[rel=\"stylesheet\"]")).find(link => _sameStylesheetHref(link, href));
+  const link = existingById || existingByAttr || existingByHref || document.createElement("link");
+  if (meta.id && !link.id) link.id = meta.id;
+  if (meta.attr) link.setAttribute(meta.attr, "1");
+  link.rel = "stylesheet";
+  if (!link.href || !_sameStylesheetHref(link, href)) link.href = href;
+  link.setAttribute("data-mex-route-css", "1");
+  if (!link.parentNode) document.head.appendChild(link);
+  if (link.sheet) return Promise.resolve();
+  return new Promise(resolve => {
+    let settled = false;
+    const done = () => { if (settled) return; settled = true; window.clearTimeout(timer); resolve(); };
+    const timer = window.setTimeout(done, 1800);
+    link.addEventListener("load", done, { once: true });
+    link.addEventListener("error", done, { once: true });
+  });
+}
+
+function _ensureRouteStyles(path) {
+  const key = String(path || "").split("?")[0].replace(/\/$/, "") || "/app/dashboard";
+  const styles = ROUTE_STYLES[key] || [];
+  return Promise.all(styles.map(_ensureStylesheet));
+}
 // ── Factory ──────────────────────────────────────────────────
 /**
  * @param {{ shell: import('/js/shell/shell-layout.js').ShellLayout }} options
@@ -163,6 +226,7 @@ const ROUTE_TABLE = {
  */
 export function createRouter({ shell }) {
   let _currentUnmount = null; // función unmount de la vista activa
+  let _renderSeq = 0;
 
   // ── Predicado ─────────────────────────────────────────────
   function isInternalAppRoute(path) {
@@ -197,6 +261,7 @@ export function createRouter({ shell }) {
 
   // ── Renderizar ruta ───────────────────────────────────────
   async function _renderRoute(rawPath) {
+    const renderSeq = ++_renderSeq;
     const path = _routePathOnly(rawPath);
     const toolRedirect = _appMapToolRedirect(rawPath);
     if (toolRedirect) {
@@ -261,24 +326,79 @@ export function createRouter({ shell }) {
 
     // Vista registrada
     if (route?.loader) {
-      contentEl.innerHTML = '';
+      _renderRouteSkeleton(contentEl, path);
       try {
+        await _ensureRouteStyles(path);
+        if (renderSeq !== _renderSeq) return;
         const mod = await route.loader();
-        if (typeof mod.mount === 'function') {
-          mod.mount({ container: contentEl, navigate, shell, state: getState() });
-          _currentUnmount = mod.unmount ?? null;
+        if (renderSeq !== _renderSeq) return;
+        if (typeof mod.mount === "function") {
+          const viewUnmount = mod.unmount ?? null;
+          const mounted = mod.mount({ container: contentEl, navigate, shell, state: getState() });
+          if (mounted && typeof mounted.then === "function") await mounted;
+          if (renderSeq !== _renderSeq) {
+            try { if (typeof viewUnmount === "function") viewUnmount(); } catch (_) {}
+            return;
+          }
+          _currentUnmount = viewUnmount;
         }
       } catch (err) {
-        console.error('[router] Error cargando vista:', currentRoute, err);
+        if (renderSeq !== _renderSeq) return;
+        console.error("[router] Error cargando vista:", currentRoute, err);
         _renderError(contentEl, currentRoute, err);
       }
       return;
     }
-
     // Ruta /app/* sin vista registrada → 404 en-app
     _renderPlaceholder(contentEl);
   }
 
+  function _renderRouteSkeleton(contentEl, path = "") {
+    const normalized = String(path || "").split("?")[0];
+    const variant = normalized.includes("mensajes")
+      ? "mensajes"
+      : normalized.includes("mapa")
+        ? "mapa"
+        : normalized.includes("incidencias")
+          ? "incidencias"
+          : "generic";
+
+    if (variant === "mensajes") {
+      contentEl.innerHTML = [
+        "<section class=\"mex-route-skeleton mex-route-skeleton--mensajes\" aria-busy=\"true\" aria-label=\"Cargando mensajes\">",
+        "<div class=\"mex-route-skel-panel mex-route-skel-rail\">",
+        "<span class=\"mex-skel mex-skel-title\"></span>",
+        "<span class=\"mex-skel mex-skel-input\"></span>",
+        "<div class=\"mex-route-skel-list\">",
+        Array.from({ length: 6 }).map(() => "<div class=\"mex-skel-row\"><span class=\"mex-skel mex-skel-avatar\"></span><span class=\"mex-skel mex-skel-text\"></span></div>").join(""),
+        "</div></div>",
+        "<div class=\"mex-route-skel-panel mex-route-skel-chat\">",
+        "<span class=\"mex-skel mex-skel-title w-40\"></span>",
+        "<div class=\"mex-route-skel-bubbles\">",
+        "<span class=\"mex-skel mex-skel-bubble w-60\"></span><span class=\"mex-skel mex-skel-bubble is-right w-40\"></span><span class=\"mex-skel mex-skel-bubble w-80\"></span>",
+        "</div><span class=\"mex-skel mex-skel-input\"></span></div></section>"
+      ].join("");
+      return;
+    }
+
+    if (variant === "mapa") {
+      contentEl.innerHTML = [
+        "<section class=\"mex-route-skeleton mex-route-skeleton--mapa\" aria-busy=\"true\" aria-label=\"Cargando mapa\">",
+        "<div class=\"mex-route-skel-map\">",
+        Array.from({ length: 28 }).map(() => "<span class=\"mex-skel mex-skel-map-cell\"></span>").join(""),
+        "</div></section>"
+      ].join("");
+      return;
+    }
+
+    contentEl.innerHTML = [
+      "<section class=\"mex-route-skeleton mex-route-skeleton--" + variant + "\" aria-busy=\"true\" aria-label=\"Cargando vista\">",
+      "<div class=\"mex-route-skel-head\"><span class=\"mex-skel mex-skel-title\"></span><span class=\"mex-skel mex-skel-text w-40\"></span></div>",
+      "<div class=\"mex-route-skel-grid\">",
+      Array.from({ length: 6 }).map(() => "<article class=\"mex-route-skel-card\"><span class=\"mex-skel mex-skel-chip\"></span><span class=\"mex-skel mex-skel-text\"></span><span class=\"mex-skel mex-skel-text w-60\"></span></article>").join(""),
+      "</div></section>"
+    ].join("");
+  }
   // ── Feature deshabilitada por el plan ────────────────────
   function _renderFeatureDisabled(contentEl, featureKey) {
     contentEl.innerHTML = `
