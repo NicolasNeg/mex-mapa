@@ -421,6 +421,16 @@ function _pedirKmRetiro(mva, kmPrev) {
 
 function confirmarBorradoFlotaUI() {
   if (!SELECT_REF_FLOTA) return;
+  if (typeof VISTA_ACTUAL_FLOTA !== 'undefined' && VISTA_ACTUAL_FLOTA !== 'NORMAL') {
+    // Cuadre Admins: eliminar sin captura de km (dataset maestro, no operativo).
+    mostrarCustomModal(
+      "Eliminar Unidad",
+      `¿Estás absolutamente seguro de eliminar la unidad ${SELECT_REF_FLOTA.mva}?\nEsta acción no se puede deshacer.`,
+      "delete_forever", "#dc2626", "ELIMINAR", "#dc2626",
+      ejecutarBorradoReal
+    );
+    return;
+  }
   const u = (typeof DB_FLOTA !== 'undefined' && DB_FLOTA.find(x => x.mva === SELECT_REF_FLOTA.mva)) || {};
   _pedirKmRetiro(SELECT_REF_FLOTA.mva, (typeof u.km === 'number') ? u.km : null).then(datos => {
     if (!datos) return; // canceló
