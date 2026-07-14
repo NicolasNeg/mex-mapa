@@ -12053,12 +12053,16 @@ function validarBotonGuardar() {
     const ubiOriginal = String(SELECT_REF_FLOTA.ubicacion || "").trim();
     const notOriginal = String(SELECT_REF_FLOTA.notas || "").trim();
 
+    const fKmChk = document.getElementById('f_km');
+    const kmCambio = !!(fKmChk && !fKmChk.disabled && String(fKmChk.value).trim() !== String(fKmChk.dataset.kmOriginal || ''));
+
     const hayCambios = (
       est !== estOriginal ||
       gas !== gasOriginal ||
       ubi !== ubiOriginal ||
       not !== notOriginal ||
-      delNote === true
+      delNote === true ||
+      kmCambio
     );
 
     // 🚨 CORRECCIÓN: Si hay cambios, solo validamos que Estado y Ubicación no estén vacíos
