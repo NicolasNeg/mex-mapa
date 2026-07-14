@@ -1,3 +1,4 @@
+import { parseKm } from '/domain/kilometraje.model.js';
 // ═══════════════════════════════════════════════════════════
 //  js/views/mapa.js  —  ES6 Module
 //  Vista principal: mapa visual de flota.
@@ -6322,6 +6323,14 @@ async function seleccionarFilaFlota(index, rowElement) {
     if (document.getElementById('btnDelFlota')) document.getElementById('btnDelFlota').style.display = esSoloLectura ? "none" : "flex";
     if (document.getElementById('btnSaveFlota')) document.getElementById('btnSaveFlota').style.display = esSoloLectura ? "none" : "flex";
 
+    const fKmEdit = document.getElementById('f_km');
+    if (fKmEdit) {
+      const u = DATOS_TABLA_ACTUAL[index] || {};
+      fKmEdit.value = (typeof u.km === 'number') ? u.km : '';
+      fKmEdit.dataset.kmOriginal = (typeof u.km === 'number') ? String(u.km) : '';
+      fKmEdit.disabled = true; // corrección con permiso llega en Task 7
+    }
+
     abrirFormularioFlota();
   } else {
     // ---- LÓGICA CUADRE ADMINS (Abre el Modal de Expediente) [cite: 890] ----
@@ -6457,6 +6466,8 @@ function prepararNuevoFlota() {
   if (hint) hint.style.display = 'none';
   if (autofill) autofill.style.display = 'block';
   resetAutofill();
+  const fKm = document.getElementById('f_km');
+  if (fKm) { fKm.value = ''; fKm.disabled = false; fKm.dataset.kmOriginal = ''; }
   const delNoteWrapper = document.getElementById('del-note-wrapper');
   if (delNoteWrapper) delNoteWrapper.style.display = 'none';
   if (document.getElementById('f_del_note')) document.getElementById('f_del_note').checked = false;
@@ -6497,6 +6508,13 @@ function ejecutarGuardadoFlota() {
     setTimeout(() => estField.classList.remove('input-error'), 400);
     isValid = false;
   }
+  const kmField = document.getElementById('f_km');
+  const kmVal = kmField ? parseKm(kmField.value) : null;
+  if (MODO_FLOTA === "INSERTAR" && kmVal == null) {
+    if (kmField) { kmField.classList.add('input-error'); setTimeout(() => kmField.classList.remove('input-error'), 400); }
+    showToast("Captura el kilometraje de la unidad", "error");
+    isValid = false;
+  }
   if (!isValid) return;
 
   // 🔥 SINCRONIZADOR: Si movieron el mapa justo antes de entrar a la tabla, guarda ese movimiento AHORA
@@ -6515,6 +6533,7 @@ function ejecutarGuardadoFlota() {
     placas: document.getElementById('f_pla').value.toUpperCase().trim(),
     gasolina: document.getElementById('f_gas').value,
     estado: estField.value,
+    km: kmVal,
     ubicacion: document.getElementById('f_ubi').value,
     notas: document.getElementById('f_not').value,
     borrarNotas: document.getElementById('f_del_note') ? document.getElementById('f_del_note').checked : false,
