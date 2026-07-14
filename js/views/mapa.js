@@ -377,17 +377,56 @@ function confirmarCierreSesion() {
   });
 }
 
+let _retiroPendiente = null;
+
+// Mini-diálogo propio para capturar km + motivo al retirar. No usa
+// mostrarCustomModal porque necesita dos inputs.
+function _pedirKmRetiro(mva, kmPrev) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;';
+    overlay.innerHTML = `
+      <div style="background:var(--surface,#fff);border-radius:16px;padding:24px;max-width:360px;width:100%;box-shadow:0 25px 60px rgba(0,0,0,.35);">
+        <h3 style="margin:0 0 4px;font-size:16px;font-weight:800;color:#dc2626;display:flex;align-items:center;gap:8px;">
+          <span class="material-icons">delete_forever</span> Retirar ${mva}
+        </h3>
+        <p style="margin:0 0 16px;font-size:12px;color:#64748b;">Captura el km del tablero para cerrar su registro.${kmPrev != null ? ` Último: <b>${kmPrev.toLocaleString('es-MX')}</b>` : ''}</p>
+        <label style="font-size:11px;font-weight:800;color:#334155;">KILOMETRAJE</label>
+        <input id="retKm" type="text" inputmode="numeric" autocomplete="off" placeholder="Ej: 45210"
+          style="width:100%;padding:10px 12px;margin:4px 0 12px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:700;">
+        <label style="font-size:11px;font-weight:800;color:#334155;">MOTIVO DE SALIDA</label>
+        <select id="retMotivo" style="width:100%;padding:10px 12px;margin:4px 0 20px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:700;">
+          <option value="RENTA">✈️ RENTA</option>
+          <option value="OTRO">📤 OTRO</option>
+        </select>
+        <div style="display:flex;gap:8px;">
+          <button id="retCancel" style="flex:1;padding:10px;border:1px solid var(--border,#e2e8f0);background:transparent;border-radius:8px;font-weight:800;cursor:pointer;">Cancelar</button>
+          <button id="retOk" style="flex:1;padding:10px;border:none;background:#dc2626;color:#fff;border-radius:8px;font-weight:800;cursor:pointer;">ELIMINAR</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const kmInput = overlay.querySelector('#retKm');
+    kmInput.focus();
+    overlay.querySelector('#retCancel').onclick = () => { overlay.remove(); resolve(null); };
+    overlay.querySelector('#retOk').onclick = () => {
+      const km = parseKm(kmInput.value);
+      if (km == null) { showToast('Kilometraje inválido', 'error'); return; }
+      if (kmPrev != null && km < kmPrev) { showToast(`El km no puede ser menor al último registrado (${kmPrev})`, 'error'); return; }
+      const motivo = overlay.querySelector('#retMotivo').value;
+      overlay.remove();
+      resolve({ km, motivo });
+    };
+  });
+}
+
 function confirmarBorradoFlotaUI() {
   if (!SELECT_REF_FLOTA) return;
-  mostrarCustomModal(
-    "Eliminar Unidad",
-    `¿Estás absolutamente seguro de eliminar la unidad ${SELECT_REF_FLOTA.mva}?\nEsta acción no se puede deshacer.`,
-    "delete_forever",
-    "#dc2626",
-    "ELIMINAR",
-    "#dc2626",
-    ejecutarBorradoReal
-  );
+  const u = (typeof DB_FLOTA !== 'undefined' && DB_FLOTA.find(x => x.mva === SELECT_REF_FLOTA.mva)) || {};
+  _pedirKmRetiro(SELECT_REF_FLOTA.mva, (typeof u.km === 'number') ? u.km : null).then(datos => {
+    if (!datos) return; // canceló
+    _retiroPendiente = datos;
+    ejecutarBorradoReal();
+  });
 }
 
 function _ensureToastContainer() {
@@ -6608,7 +6647,8 @@ function ejecutarBorradoReal() {
     actualizarContadores(); // Refresca los números gigantes de arriba
 
     // Guardado silencioso (El servidor lo borra tranquilamente en segundo plano)
-    api.ejecutarEliminacion([mvaABorrar], USER_NAME, _miPlaza()).catch(() => showToast("Error de sincronización al borrar", "error"));
+    api.ejecutarEliminacion([mvaABorrar], USER_NAME, _miPlaza(), _retiroPendiente).catch(() => showToast("Error de sincronización al borrar", "error"));
+    _retiroPendiente = null;
 
   }
   else {
