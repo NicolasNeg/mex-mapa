@@ -102,6 +102,13 @@ export const NAV_GROUPS = [
         feature: 'cuadre'
       },
       {
+        id: "traslados",
+        label: "Traslados",
+        icon: "local_shipping",
+        route: "/app/traslados",
+        roles: ["VENTAS", "SUPERVISOR", "JEFE_PATIO", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "JEFE_OPERACION", "PROGRAMADOR"]
+      },
+      {
         id: 'incidencias',
         label: 'Notas e incidencias',
         icon: 'warning',
@@ -228,6 +235,7 @@ export const ROUTE_TITLES = {
   '/app/cola-preparacion': 'Cola de preparación',
   '/app/incidencias':      'Notas e incidencias',
   '/app/cuadre':           'Cuadre',
+  '/app/traslados':        'Traslados',
   '/app/admin':            'Panel admin',
   '/app/gestion':          'Invitaciones',
   '/app/alertas':          'Emitir alertas',

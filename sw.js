@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v513';
+const CACHE_NAME = 'mapa-v514';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -30,6 +30,7 @@ const CRITICAL_ASSETS = [
   '/api/auth.js',
   '/api/mapa.js',
   '/api/cuadre.js',
+  '/api/traslados.js',
   '/api/externos.js',
   '/api/flota.js',
   '/api/alertas.js',
@@ -135,6 +136,8 @@ const OPTIONAL_ASSETS = [
   '/js/app/features/mensajes/mensajes-attachments.js',
   '/js/app/features/mensajes/mensajes-renderer.js',
   '/js/app/views/cola-preparacion.js',
+  '/js/app/views/traslados.js',
+  '/css/app-traslados.css',
   '/js/app/views/incidencias.js',
   '/js/app/features/incidencias/incidencias-data.js',
   '/js/app/features/cuadre/cuadre-data.js',
@@ -158,6 +161,7 @@ const OPTIONAL_ASSETS = [
   '/domain/unidad.model.js',
   '/domain/mapa.model.js',
   '/domain/permissions.model.js',
+  '/domain/traslado.model.js',
   '/js/app/features/mapa/mapa-dnd.js',
   '/js/app/features/mapa/mapa-mutations.js',
   '/js/app/features/mapa/mapa-incidencias-summary.js',

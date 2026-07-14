@@ -78,6 +78,15 @@ export const ROUTE_MAP = {
     fullModuleMigrated: true,
     feature: 'cuadre',
   },
+  traslados: {
+    id: "traslados", label: "Traslados",
+    legacyRoute:  "/traslados",
+    appRoute:     "/app/traslados",
+    navRoute:     "/app/traslados",
+    fallbackRoute:"/app/traslados",
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+  },
   admin: {
     id: 'admin', label: 'Panel admin',
     legacyRoute:  '/gestion',
@@ -146,6 +155,22 @@ export const ROUTE_MAP = {
   },
 };
 
+function _dynamicAppRoute(pathname, tail = '') {
+  const path = String(pathname || '');
+  if (path.startsWith('/app/mensajes/')) return path + tail;
+  if (path.startsWith('/mensajes/')) return '/app' + path + tail;
+  return '';
+}
+
+function _dynamicRouteEntry(pathname) {
+  let path = String(pathname || '');
+  while (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+  if (!path) path = '/';
+  if (path.startsWith('/app/mensajes/')) return ROUTE_MAP.mensajes;
+  if (path.startsWith('/mensajes/')) return ROUTE_MAP.mensajes;
+  return null;
+}
+
 // ── API pública ──────────────────────────────────────────────
 
 /**
@@ -173,6 +198,8 @@ export function normalizePath(path) {
  */
 export function resolveRoute(path) {
   const pathname = _pathname(normalizePath(path));
+  const dynamic = _dynamicRouteEntry(pathname);
+  if (dynamic) return dynamic;
   return Object.values(ROUTE_MAP).find(r =>
     r.legacyRoute === pathname || r.appRoute === pathname
   ) ?? null;
@@ -186,6 +213,9 @@ export function resolveRoute(path) {
 export function toAppRoute(path) {
   const normalized = normalizePath(path);
   const tail       = _tail(normalized);
+  const pathname   = _pathname(normalized);
+  const dynamicApp = _dynamicAppRoute(pathname, tail);
+  if (dynamicApp) return dynamicApp;
   const entry      = resolveRoute(path);
   if (!entry) return normalized;
   return (entry.shellIntegrated ? entry.appRoute : entry.fallbackRoute) + tail;

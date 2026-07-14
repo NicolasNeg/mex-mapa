@@ -93,12 +93,18 @@ export function unmount() {
 
 function _captureNotificationDeepLink() {
   try {
-    const params = new URLSearchParams(window.location.search || "");
-    if (params.get("notif") !== "chat") return;
-    const chatUser = params.get("chatUser") || params.get("user") || "";
-    _pendingDeepLinkPeer = String(chatUser || "").trim();
+    const re = new RegExp('^/app/mensajes/c/([^/?#]+)', 'i');
+    const match = String(window.location.pathname || '').match(re);
+    if (match) {
+      _pendingDeepLinkPeer = decodeURIComponent(match[1] || '').trim();
+      return;
+    }
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('notif') !== 'chat') return;
+    const chatUser = params.get('chatUser') || params.get('user') || '';
+    _pendingDeepLinkPeer = String(chatUser || '').trim();
   } catch (_) {
-    _pendingDeepLinkPeer = "";
+    _pendingDeepLinkPeer = '';
   }
 }
 
@@ -111,6 +117,21 @@ function _clearNotificationDeepLinkQuery() {
     params.delete("user");
     const query = params.toString();
     history.replaceState({}, "", window.location.pathname + (query ? "?" + query : "") + (window.location.hash || ""));
+  } catch (_) {}
+}
+
+function _conversationRouteParam(peerKey) {
+  const conv = _convs.find(c => c.peerKey === peerKey);
+  return String(conv?.peerEmail || conv?.preferredHandle || peerKey.replace(/^(EMAIL|LEGACY):/, '') || '').trim();
+}
+
+function _syncConversationRoute(peerKey) {
+  try {
+    const raw = _conversationRouteParam(peerKey);
+    if (!raw) return;
+    const next = '/app/mensajes/c/' + encodeURIComponent(raw);
+    if (window.location.pathname === next && !window.location.search) return;
+    history.replaceState({}, '', next + (window.location.hash || ''));
   } catch (_) {}
 }
 
@@ -138,12 +159,20 @@ function _resolveDeepLinkPeerKey(rawPeer) {
   });
   if (conv?.peerKey) return conv.peerKey;
 
-  if (rawEmail && _allUsers.length) {
+  if (_allUsers.length) {
+    const rawLower = raw.toLowerCase();
     const user = _allUsers.find(u => {
-      const email = String(u.id || u.email || "").trim().toLowerCase();
-      return email === rawEmail;
+      const values = [u.id, u.email, u.authUid, u.uid, u.nombre, u.nombreCompleto, u.usuario]
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+      return values.some(v => v.toLowerCase() === rawLower || v.toUpperCase() === rawUp);
     });
-    if (user) return D.getCanonicalMessageIdentity(rawEmail).key;
+    if (user) {
+      const email = D.normalizeEmail(user.email || user.id);
+      if (email) return D.getCanonicalMessageIdentity(email).key;
+      const name = String(user.nombre || user.nombreCompleto || user.usuario || raw).trim();
+      return D.getCanonicalMessageIdentity(name).key;
+    }
   }
 
   return identity.key;
@@ -330,6 +359,7 @@ function _openChat(peerKey) {
   _renderContacts();
   const inp = document.getElementById('amInput');
   if (inp) { inp.value = ''; inp.style.height = 'auto'; inp.focus(); }
+  _syncConversationRoute(peerKey);
 }
 
 function _closeChat() {

@@ -4532,6 +4532,39 @@ function _renderGasolinaMapa(gasolina) {
   return `<div class="gas-container"><div class="gas-fill" style="width: ${pct}%; background: ${gasColor};"></div><span class="gas-text">${gasolina}</span></div>`;
 }
 
+function _renderUnidadSubestadoBadge(tipo, icono, etiqueta, extraHtml = '') {
+  return `
+    <span class="car-substate-badge car-substate-badge--${tipo}" title="${escapeHtml(etiqueta)}" aria-label="${escapeHtml(etiqueta)}">
+      <span class="material-icons" aria-hidden="true">${icono}</span>
+      ${extraHtml}
+    </span>
+  `;
+}
+
+function _renderUnidadSubestados({ notas = '', estado = '', isInTransit = false, trasladoDestino = '' } = {}) {
+  const textoNotas = String(notas || '').toUpperCase();
+  const estadoUp = String(estado || '').toUpperCase();
+  const badges = [];
+  if (textoNotas.includes('URGENTE')) {
+    badges.push(_renderUnidadSubestadoBadge('urgent', 'priority_high', 'Urgente'));
+  }
+  if (textoNotas.includes('RESERVAD') || textoNotas.includes('APARTAD')) {
+    badges.push(_renderUnidadSubestadoBadge('reserved', 'lock', 'Reservada o apartada'));
+  }
+  if (textoNotas.includes('DOBLE CERO')) {
+    badges.push(_renderUnidadSubestadoBadge('double-zero', 'eco', 'Doble cero'));
+  }
+  if (estadoUp === 'MANTENIMIENTO' || estadoUp === 'TALLER') {
+    badges.push(_renderUnidadSubestadoBadge('maintenance', 'construction', 'Mantenimiento'));
+  }
+  if (isInTransit) {
+    const destino = String(trasladoDestino || '').trim().toUpperCase();
+    const extra = destino ? `<span class="car-substate-text">${escapeHtml(destino)}</span>` : '';
+    badges.push(_renderUnidadSubestadoBadge('transfer', 'local_shipping', destino ? `En traslado a ${destino}` : 'En traslado', extra));
+  }
+  return badges.length ? `<div class="car-substate-popover">${badges.join('')}</div>` : '';
+}
+
 function _actualizarNodoUnidadMapa(car, unit, signature) {
   const unitVm = _unitViewModelFor(unit);
   const esGhost = car.classList.contains('ghost');
@@ -4557,13 +4590,12 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   car.dataset.conflicted = unitVm.isConflicted ? 'SI' : 'NO';
   car.dataset.trasladoDestino = unitVm.traslado_destino || "";
 
-  const textoNotas = (unitVm.notas || "").toUpperCase();
-  const urgHtml = textoNotas.includes("URGENTE") ? `<div class="urgent-badge">⚡</div>` : '';
-  const lockHtml = (textoNotas.includes("RESERVAD") || textoNotas.includes("APARTAD")) ? `<div class="lock-badge">🔒</div>` : '';
-  const docHtml = textoNotas.includes("DOBLE CERO") ? `<div class="doc-badge">🍃</div>` : '';
-  const mantoHtml = (unitVm.estado === "MANTENIMIENTO" || unitVm.estado === "TALLER") ? `<div class="manto-badge">⚙️</div>` : '';
-  const trasladoDest = unitVm.traslado_destino ? ` → ${unitVm.traslado_destino}` : '';
-  const trasladoHtml = unitVm.isInTransit ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + unitVm.traslado_destino : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${unitVm.traslado_destino}</span>` : ''}</div>` : '';
+  const subestadoHtml = _renderUnidadSubestados({
+    notas: unitVm.notas,
+    estado: unitVm.estado,
+    isInTransit: unitVm.isInTransit,
+    trasladoDestino: unitVm.traslado_destino
+  });
   const termometro = obtenerDisenoCalor(unitVm.fechaIngreso);
   const calorHtml = termometro.dias !== null ? `<div class="badge-calor ${termometro.clase}" style="background:${termometro.bg};border:1px solid ${termometro.border};color:${termometro.color};"><span class="material-icons" style="font-size:10px;line-height:1;">${termometro.icon}</span>${termometro.dias}d</div>` : '';
   const gasBarHtml = _renderGasolinaMapa(unitVm.gasolina);
@@ -4576,7 +4608,7 @@ function _actualizarNodoUnidadMapa(car, unit, signature) {
   const modeloSide = unitVm.modelo ? `<span class="car-sb-chip"><span class="material-icons" style="font-size:11px;vertical-align:middle;">directions_car</span> ${unitVm.modelo}</span>` : '';
   const metaSide = (placasSide || modeloSide) ? `<div class="car-sb-meta">${placasSide}${modeloSide}</div>` : '';
   const sidebarBody = `<div class="car-sidebar-body"><div class="car-sb-main"><span class="car-sb-mva">${unitVm.mva}</span><span class="car-sb-badge car-sb-badge--${estadoClase}">${estadoSidebar}</span></div>${metaSide}</div>`;
-  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}<div class="car-map-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;"><span style="font-size:19px;flex:1;display:flex;align-items:center;">${unitVm.mva}</span>${gasBarHtml}</div>${sidebarBody}`;
+  car.innerHTML = `${calorHtml}${subestadoHtml}<div class="car-map-content" style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;pointer-events:none;"><span style="font-size:19px;flex:1;display:flex;align-items:center;">${unitVm.mva}</span>${gasBarHtml}</div>${sidebarBody}`;
   car.className = `car ${estadoClase}`;
   decorateEstacionamientoUnit(car, unitVm);
   if (esGhost) car.classList.add('ghost');
@@ -6916,16 +6948,15 @@ function aplicarCambioDOM(mva, estado, ubi, gas, notas) {
   if (car.classList.contains('selected')) extraClasses += " selected";
   car.className = `car ${estadoClase}${extraClasses}`;
 
-  // ==========================================
-  // 🔥 5. MAGIA DE INSIGNIAS INSTANTÁNEAS 🔥
-  // ==========================================
+  // Recalcular subestados visuales sin tocar el texto central de la unidad.
   let textoNotas = (car.dataset.notas || "").toUpperCase();
 
-  // Evaluamos las notas al momento para poner los iconos
-  let urgHtml = textoNotas.includes("URGENTE") ? `<div class="urgent-badge">⚡</div>` : '';
-  let lockHtml = (textoNotas.includes("RESERVAD") || textoNotas.includes("APARTAD")) ? `<div class="lock-badge">🔒</div>` : '';
-  let docHtml = textoNotas.includes("DOBLE CERO") ? `<div class="doc-badge">🍃</div>` : '';
-  let mantoHtml = (estado === "MANTENIMIENTO" || estado === "TALLER") ? `<div class="manto-badge">⚙️</div>` : '';
+  const subestadoHtml = _renderUnidadSubestados({
+    notas: textoNotas,
+    estado,
+    isInTransit: String(estado || '').toUpperCase().includes('TRASLADO') || !!car.dataset.trasladoDestino,
+    trasladoDestino: car.dataset.trasladoDestino || ''
+  });
 
   // Rescatar el HTML del termómetro (Mapa de Calor) si lo tiene, para no borrarlo
   let calorHtml = "";
@@ -6949,7 +6980,7 @@ function aplicarCambioDOM(mva, estado, ubi, gas, notas) {
   }
 
   // ¡REINYECCIÓN TOTAL AL INSTANTE!
-  car.innerHTML = `${calorHtml}${lockHtml}${docHtml}${mantoHtml}${urgHtml}<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; pointer-events:none;"><span style="font-size: 19px; flex: 1; display: flex; align-items: center;">${mva}</span>${gasBarHtml}</div>`;
+  car.innerHTML = `${calorHtml}${subestadoHtml}<div style="display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; height: 100%; pointer-events:none;"><span style="font-size: 19px; flex: 1; display: flex; align-items: center;">${mva}</span>${gasBarHtml}</div>`;
 
   actualizarContadores();
 }

@@ -255,6 +255,31 @@ function _legacyGasBar(gasolinaRaw) {
   return `<div class="gas-container"><div class="gas-fill" style="width:${pct}%;background:${color};"></div><span class="gas-text">${esc(gasolinaRaw)}</span></div>`;
 }
 
+function _substateBadge(tipo, icono, etiqueta, extraHtml = '') {
+  return `
+    <span class="car-substate-badge car-substate-badge--${tipo}" title="${esc(etiqueta)}" aria-label="${esc(etiqueta)}">
+      <span class="material-icons" aria-hidden="true">${icono}</span>
+      ${extraHtml}
+    </span>
+  `;
+}
+
+function _unitSubstates(unit, isInTransit) {
+  const notesUp = String(unit.notas || '').toUpperCase();
+  const estado = String(unit.estado || '').toUpperCase();
+  const badges = [];
+  if (notesUp.includes('URGENTE')) badges.push(_substateBadge('urgent', 'priority_high', 'Urgente'));
+  if (notesUp.includes('RESERVAD') || notesUp.includes('APARTAD')) badges.push(_substateBadge('reserved', 'lock', 'Reservada o apartada'));
+  if (notesUp.includes('DOBLE CERO')) badges.push(_substateBadge('double-zero', 'eco', 'Doble cero'));
+  if (estado === 'MANTENIMIENTO' || estado === 'TALLER') badges.push(_substateBadge('maintenance', 'construction', 'Mantenimiento'));
+  if (isInTransit) {
+    const destino = String(unit.traslado_destino || '').trim().toUpperCase();
+    const extra = destino ? `<span class="car-substate-text">${esc(destino)}</span>` : '';
+    badges.push(_substateBadge('transfer', 'local_shipping', destino ? `En traslado a ${destino}` : 'En traslado', extra));
+  }
+  return badges.length ? `<div class="car-substate-popover">${badges.join('')}</div>` : '';
+}
+
 export function renderUnit(unit, options = {}) {
   const selectedId = String(options.selectedId || '');
   const selected = selectedId && selectedId === String(unit.id);
@@ -290,17 +315,8 @@ export function renderUnit(unit, options = {}) {
   // Heat/age badge
   const calorHtml = _getHeatBadge(unit.fechaIngreso || unit.ingreso);
 
-  // Notes-based badges
-  const notesUp = String(unit.notas || '').toUpperCase();
   const isInTransit = String(unit.estado || '').toUpperCase().includes('TRASLADO') || Boolean(unit.traslado_destino);
-  const urgHtml    = notesUp.includes('URGENTE')  ? '<div class="urgent-badge">⚡</div>' : '';
-  const lockHtml   = (notesUp.includes('RESERVAD') || notesUp.includes('APARTAD')) ? '<div class="lock-badge">🔒</div>' : '';
-  const docHtml    = notesUp.includes('DOBLE CERO') ? '<div class="doc-badge">🍃</div>' : '';
-  const mantoHtml  = (['MANTENIMIENTO', 'TALLER'].includes(String(unit.estado || '').toUpperCase())) ? '<div class="manto-badge">⚙️</div>' : '';
-  const trasladoDest = esc(String(unit.traslado_destino || ''));
-  const trasladoHtml = isInTransit
-    ? `<div class="traslado-badge" title="En traslado${trasladoDest ? ': ' + trasladoDest : ''}">🚛${trasladoDest ? `<span class="traslado-dest">${trasladoDest}</span>` : ''}</div>`
-    : '';
+  const subestadoHtml = _unitSubstates(unit, isInTransit);
 
   // Incidencias badge
   const incHtml = showInc || showCrit
@@ -325,7 +341,7 @@ export function renderUnit(unit, options = {}) {
   return `
     <button type="button" class="app-mapa-unit car${legacyCarCls} ${stateClass} ${selected ? 'is-selected selected' : ''}${dndActive ? ' app-mapa-unit--dnd' : ''}${dim}${matchClass}"
       data-unit-id="${esc(unit.id)}"${baseAttrs}${dndAttrs}>
-      ${calorHtml}${lockHtml}${docHtml}${mantoHtml}${trasladoHtml}${urgHtml}${incHtml}
+      ${calorHtml}${subestadoHtml}${incHtml}
       <div class="car-map-content">
         <span class="car-mva-label">${esc(unit.mva)}</span>
         ${gasBarHtml}

@@ -54,6 +54,7 @@ const _PREF_ROUTES = new Set([
   '/app/incidencias',
   '/app/mensajes',
   '/app/cuadre',
+  "/app/traslados",
   '/app/alertas',
 ]);
 
@@ -96,6 +97,7 @@ const ROUTE_TABLE = {
     feature:  'incidencias'
   },
   '/app/cuadre':   legacyStage('cuadre', '/cuadre'),
+  "/app/traslados": { loader: () => import("/js/app/views/traslados.js"), navRoute: "/app/traslados" },
   '/app/admin':    legacyStage('admin', '/gestion'),
   '/app/gestion':           { loader: () => import('/js/app/views/gestion.js'), navRoute: '/app/gestion', feature: 'gestion_usuarios' },
   '/app/usuarios':          { redirect: '/app/admin?tab=usuarios' },
@@ -169,6 +171,7 @@ const ROUTE_STYLES = {
     { href: "/css/alertas.css", attr: "data-lmapa-alertas-css" },
   ],
   "/app/cuadre": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
   "/app/admin": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],
   "/app/alertas": [
@@ -213,8 +216,25 @@ function _ensureStylesheet(meta = {}) {
   });
 }
 
+function _stripRouteSlash(value) {
+  const raw = String(value || '');
+  return raw.length > 1 && raw.endsWith('/') ? raw.slice(0, -1) : raw;
+}
+
+function _routeForPath(path) {
+  const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
+  if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
+  return ROUTE_TABLE[key];
+}
+
+function _styleKeyForPath(path) {
+  const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
+  if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
+  return key;
+}
+
 function _ensureRouteStyles(path) {
-  const key = String(path || "").split("?")[0].replace(/\/$/, "") || "/app/dashboard";
+  const key = _styleKeyForPath(path);
   const styles = ROUTE_STYLES[key] || [];
   return Promise.all(styles.map(_ensureStylesheet));
 }
@@ -268,7 +288,7 @@ export function createRouter({ shell }) {
       navigate(toolRedirect, { replace: true });
       return;
     }
-    const route = ROUTE_TABLE[path];
+    const route = _routeForPath(path);
 
     // Redirect alias (ej. /app → /app/dashboard o /app/mapa)
     if (route?.redirect) {

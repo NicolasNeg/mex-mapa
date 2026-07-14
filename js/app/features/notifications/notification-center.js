@@ -19,14 +19,15 @@ function _navigate(router, path) {
   else window.location.href = raw;
 }
 
+function _chatRoute(chatUser = '') {
+  const u = String(chatUser || '').trim();
+  return u ? '/app/mensajes/c/' + encodeURIComponent(u) : '/app/mensajes';
+}
+
 function _routeHandlers(router) {
   return {
     openBuzon: () => _navigate(router, '/app/mensajes'),
-    openChat: (chatUser = '') => {
-      const u = String(chatUser || '').trim();
-      const q = u ? `?notif=chat&chatUser=${encodeURIComponent(u)}` : '';
-      _navigate(router, `/app/mensajes${q}`);
-    },
+    openChat: (chatUser = '') => _navigate(router, _chatRoute(chatUser)),
     openCuadre: () => _navigate(router, '/app/cuadre'),
     openAlerts: () => _navigate(router, '/app/mapa?notif=alerts')
   };

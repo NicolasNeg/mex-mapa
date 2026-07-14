@@ -92,6 +92,17 @@ function _fallbackCurrentPlaza() {
   );
 }
 
+function _chatDeepLink(chatUser = '') {
+  const safeUser = _safeText(chatUser);
+  return safeUser ? '/app/mensajes/c/' + encodeURIComponent(safeUser) : '/app/mensajes';
+}
+
+function _chatUserFromPath(pathname = '') {
+  const re = new RegExp('^/app/mensajes/c/([^/?#]+)', 'i');
+  const match = String(pathname || '').match(re);
+  return match ? decodeURIComponent(match[1] || '') : '';
+}
+
 function _ensureAutoConfiguration() {
   if (_state.autoConfigured) return;
   configureNotifications({
@@ -110,12 +121,7 @@ function _ensureAutoConfiguration() {
     },
     routeHandlers: {
       openBuzon: () => { window.location.href = '/app/mensajes'; },
-      openChat: (chatUser = '') => {
-        const safeUser = _safeText(chatUser);
-        window.location.href = safeUser
-          ? '/app/mensajes?notif=chat&chatUser=' + encodeURIComponent(safeUser)
-          : '/app/mensajes';
-      },
+      openChat: (chatUser = '') => { window.location.href = _chatDeepLink(chatUser); },
       openCuadre: () => { window.location.href = '/app/cuadre'; },
       openAlerts: () => { window.location.href = '/app/mapa?notif=alerts'; }
     }
@@ -1229,9 +1235,7 @@ function _inferDeepLink(item = {}) {
   const type = _safeText(item.type || '').toLowerCase();
   if (type.includes('message') || type.includes('mensaje')) {
     const sender = _notificationChatTarget(item);
-    return sender
-      ? `/app/mensajes?notif=chat&chatUser=${encodeURIComponent(sender)}`
-      : '/app/mensajes?notif=chat';
+    return _chatDeepLink(sender);
   }
   if (type.includes('cuadre')) return '/app/cuadre?notif=cuadre';
   if (type.includes('alert')) return '/app/mapa?notif=alerts';
@@ -1262,6 +1266,14 @@ export function routeDeepLink(url = '') {
   if (!url) return;
   const target = new URL(url, window.location.origin);
   const notif  = target.searchParams.get('notif') || '';
+  const chatFromPath = _chatUserFromPath(target.pathname);
+
+  if (chatFromPath) {
+    closeNotificationCenter();
+    if (typeof _state.routeHandlers?.openChat === 'function') _state.routeHandlers.openChat(chatFromPath);
+    else window.location.href = _chatDeepLink(chatFromPath);
+    return;
+  }
 
   if (notif === "chat") {
     closeNotificationCenter();
