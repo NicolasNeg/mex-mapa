@@ -6386,7 +6386,9 @@ async function seleccionarFilaFlota(index, rowElement) {
       const u = DATOS_TABLA_ACTUAL[index] || {};
       fKmEdit.value = (typeof u.km === 'number') ? u.km : '';
       fKmEdit.dataset.kmOriginal = (typeof u.km === 'number') ? String(u.km) : '';
-      fKmEdit.disabled = true; // corrección con permiso llega en Task 7
+      const puedeCorregir = !!(window.mexPerms && window.mexPerms.canDo('km_corregir'));
+      fKmEdit.disabled = !puedeCorregir;
+      fKmEdit.title = puedeCorregir ? 'Corregir kilometraje (queda registrado)' : 'Solo usuarios con permiso pueden corregir km';
     }
 
     abrirFormularioFlota();
@@ -6619,6 +6621,14 @@ function ejecutarGuardadoFlota() {
       showToast("Modificación instantánea", "success");
       restaurarBotonFlota();
       prepararNuevoFlota(); // Limpia formulario
+
+      // Corrección de km con permiso (Task 7)
+      const kmOriginal = kmField && kmField.dataset.kmOriginal !== '' ? parseInt(kmField.dataset.kmOriginal, 10) : null;
+      if (kmField && !kmField.disabled && kmVal != null && kmVal !== kmOriginal) {
+        api.registrarKm({ mva: payload.mva, km: kmVal, fuente: 'CORRECCION', usuario: USER_NAME, plaza: _miPlaza() })
+          .then(r => { if (r !== 'EXITO') showToast(r, 'error'); else showToast('Km corregido', 'success'); })
+          .catch(() => showToast('Error al corregir km', 'error'));
+      }
 
       // 3. Enviamos los datos reales a Google sin trabar la pantalla
       api.aplicarEstado(payload.mva, payload.estado, payload.ubicacion, payload.gasolina, payload.notas, payload.borrarNotas, payload.autor, payload.responsableSesion, _miPlaza()).catch(() => showToast("Error de sincronización", "error"));
