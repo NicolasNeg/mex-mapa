@@ -6168,6 +6168,11 @@ function filtrarFlota() {
   // Ordenamiento (MVA, Modelo, etc.)
   if (sortCol) {
     filtrados.sort((a, b) => {
+      if (sortCol === 'km') {
+        const va = (typeof a.km === 'number') ? a.km : -1;
+        const vb = (typeof b.km === 'number') ? b.km : -1;
+        return sortAsc ? va - vb : vb - va;
+      }
       let valA = (a[sortCol] || '').toString().toLowerCase();
       let valB = (b[sortCol] || '').toString().toLowerCase();
       if (valA < valB) return sortAsc ? -1 : 1;
@@ -6220,12 +6225,11 @@ function renderFlota(data) {
   }
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = data.map((u, i) => {
-    const gasClass = u.gasolina === "F" ? "td-gas-f" : "td-gas";
     const estadoClass = u.estado ? u.estado.replace(/\s+/g, '') : "SUCIO";
 
     let ubiClass = "ubi-DEFAULT";
@@ -6272,7 +6276,12 @@ function renderFlota(data) {
       <td><span class="td-cat">${u.categoria || u.categ || 'N/A'}</span></td>
       <td>${u.modelo}</td>
       <td style="color: #64748b;">${u.placas}</td>
-      <td><span class="${gasClass}">${u.gasolina}</span></td>
+      <td>${(() => {
+        const pct = _fuelToPct(u.gasolina);
+        if (pct == null) return `<span class="td-gas">${u.gasolina || 'N/A'}</span>`;
+        return `<div class="gas-cell" title="${u.gasolina}"><div class="gas-cell-track"><div class="gas-cell-fill${pct <= 25 ? ' gas-cell-fill--low' : ''}" style="width:${pct}%"></div></div><span class="gas-cell-label">${u.gasolina}</span></div>`;
+      })()}</td>
+      <td class="td-km">${(typeof u.km === 'number') ? u.km.toLocaleString('es-MX') : '—'}</td>
       <td><span class="badge st-${estadoClass}">${u.estado}</span></td>
       <td><span class="ubi-badge ${ubiClass}">${u.ubicacion}</span></td>
       ${tdAutor}

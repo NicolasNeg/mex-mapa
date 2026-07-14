@@ -3790,6 +3790,13 @@
       display: inline-block;
     }
 
+    .gas-cell { display: flex; align-items: center; gap: 8px; min-width: 90px; }
+    .gas-cell-track { flex: 1; height: 6px; border-radius: 9999px; background: var(--border, #e2e8f0); overflow: hidden; }
+    .gas-cell-fill { height: 100%; border-radius: 9999px; background: var(--mex-blue, #3b82f6); }
+    .gas-cell-fill--low { background: #dc2626; }
+    .gas-cell-label { font-size: 10px; font-weight: 800; color: #64748b; min-width: 30px; text-align: right; }
+    .td-km { font-weight: 700; color: #0f172a; white-space: nowrap; }
+
     /* COLORES ESTADOS EN TABLA */
     .badge {
       padding: 4px 10px;
