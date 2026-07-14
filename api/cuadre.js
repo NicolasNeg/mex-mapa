@@ -157,7 +157,8 @@
     // fuente: INSERT | CUADRE | RETIRO | TRASLADO_SALIDA | TRASLADO_LLEGADA | CORRECCION
     async registrarKm({ mva, km, fuente, usuario, plaza, motivo = '', nota = '', trasladoId = '' }) {
       const mvaStr = String(mva || '').toUpperCase().trim();
-      const kmNum = parseInt(String(km).replace(/[,\s]/g, ''), 10);
+      const kmStr = String(km).replace(/[,\s]/g, '');
+      const kmNum = /^\d+$/.test(kmStr) ? parseInt(kmStr, 10) : NaN;
       if (!mvaStr) return 'Falta MVA';
       if (!Number.isFinite(kmNum) || kmNum < 0) return 'Kilometraje inválido';
       const plazaUp = _normalizePlazaId(plaza);
@@ -279,10 +280,12 @@
       // Captura de km al insertar (obligatoria en el form; tolerante aquí para
       // callers legacy sin km, p.ej. el comando de voz).
       if (objeto.km != null && String(objeto.km) !== '') {
-        await this.registrarKm({
-          mva: mvaStr, km: objeto.km, fuente: 'INSERT',
-          usuario: objeto.responsableSesion, plaza: plazaUp
-        });
+        try {
+          await this.registrarKm({
+            mva: mvaStr, km: objeto.km, fuente: 'INSERT',
+            usuario: objeto.responsableSesion, plaza: plazaUp
+          });
+        } catch (_) { /* best-effort: la unidad ya quedó insertada */ }
       }
       return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
     },
@@ -340,10 +343,12 @@
     async ejecutarEliminacion(listaMvas, responsableSesion, plaza, retiro = null) {
       // Km de salida + motivo (RENTA/OTRO), solo para retiros individuales.
       if (retiro && retiro.km != null && listaMvas.length === 1) {
-        await this.registrarKm({
-          mva: listaMvas[0], km: retiro.km, fuente: 'RETIRO',
-          motivo: retiro.motivo || '', usuario: responsableSesion, plaza
-        });
+        try {
+          await this.registrarKm({
+            mva: listaMvas[0], km: retiro.km, fuente: 'RETIRO',
+            motivo: retiro.motivo || '', usuario: responsableSesion, plaza
+          });
+        } catch (_) { /* best-effort: la eliminación procede igual */ }
       }
       const plazaUp = _normalizePlazaId(plaza);
       for (const mva of listaMvas) {
