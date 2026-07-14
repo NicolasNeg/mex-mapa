@@ -1027,40 +1027,120 @@
           </button>
           <button id="btnFinalizarAudit" onclick="finalizarPaseLista()" disabled
             style="width: 100%; padding: 16px; background: #cbd5e1; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 8px; transition: 0.3s;">
-            <span class="material-icons">compare_arrows</span> FINALIZAR RECORRIDO
+            <span class="material-icons">arrow_right_alt</span> CONTINUAR A FIRMA
           </button>
         </div>
 
       </div>
 
       <div id="audit-paso3"
-        style="display:none; width: 100%; max-width: 500px; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
-        <div style="background: var(--mex-blue); padding: 25px; color: white; text-align: center;">
-          <span class="material-icons" style="font-size: 40px; margin-bottom: 10px; color: #38bdf8;">analytics</span>
-          <h2 style="margin:0; font-weight: 900; font-size: 20px;">REVISIÓN DE VENTAS</h2>
-          <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Listo para revisar, firmar y generar el cierre oficial.
-          </p>
-        </div>
-
-        <div class="audit-stat-grid">
-          <div class="audit-stat-card">
-            <div class="audit-stat-num audit-stat-num--red" id="res-faltantes-count">0</div>
-            <div class="audit-stat-label">FALTANTES</div>
-          </div>
-          <div class="audit-stat-card">
-            <div class="audit-stat-num audit-stat-num--amber" id="res-extras-count">0</div>
-            <div class="audit-stat-label">SOBRANTES</div>
-          </div>
-          <div class="audit-stat-card">
-            <div class="audit-stat-num audit-stat-num--green" id="res-ok-count">0</div>
-            <div class="audit-stat-label">CUADRADOS</div>
+        style="display:none; width: 100%; max-width: 560px; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
+        <div style="background: var(--mex-blue); padding: 24px; color: white;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom: 10px;">
+            <div>
+              <h2 style="margin:0; font-weight: 900; font-size: 20px; display:flex; align-items:center; gap:8px;">
+                <span class="material-icons">badge</span> FIRMA DEL AUXILIAR
+              </h2>
+              <p style="margin: 6px 0 0 0; font-size: 12px; color: #bae6fd; line-height: 1.4;">El auxiliar confirma el conteo y envía el cuadre a ventas.</p>
+            </div>
+            <span style="background: rgba(255,255,255,0.18); color: white; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 800; white-space: nowrap;">Paso 3</span>
           </div>
         </div>
 
-        <div style="padding: 20px; border-top: 1px solid #e2e8f0; background: white;">
-          <button id="btnCertificarFinal" onclick="enviarReporteAuditoriaFinal()"
-            style="width: 100%; padding: 18px; background: #1e293b; color: white; border: none; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;">
-            <span class="material-icons">gavel</span> FIRMAR Y ENVIAR REPORTE
+        <div style="padding: 18px 18px 0; background: #f8fafc;">
+          <div class="audit-stat-grid">
+            <div class="audit-stat-card">
+              <div class="audit-stat-num audit-stat-num--green" id="cuadre-aux-ok-count">0</div>
+              <div class="audit-stat-label">OK</div>
+            </div>
+            <div class="audit-stat-card">
+              <div class="audit-stat-num audit-stat-num--red" id="cuadre-aux-faltantes-count">0</div>
+              <div class="audit-stat-label">FALTANTES</div>
+            </div>
+            <div class="audit-stat-card">
+              <div class="audit-stat-num audit-stat-num--amber" id="cuadre-aux-extras-count">0</div>
+              <div class="audit-stat-label">EXTRAS</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 18px; display: grid; gap: 14px; background: white;">
+          <label style="display: grid; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: .04em; text-transform: uppercase;">Nombre del auxiliar</span>
+            <input id="cuadreAuxFirmaNombre" type="text" placeholder="Escribe el nombre del auxiliar"
+              style="width: 100%; padding: 13px 14px; border: 1px solid #cbd5e1; border-radius: 12px; font-weight: 800; font-size: 14px; box-sizing: border-box; outline: none;">
+          </label>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; flex-wrap: wrap;">
+            <div id="cuadreAuxResumen" style="color: #475569; font-size: 13px; font-weight: 700; line-height: 1.4;">Validación del auxiliar</div>
+            <button type="button" onclick="__mexLimpiarFirma(&quot;cuadreAux&quot;)"
+              style="border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; padding: 9px 12px; border-radius: 10px; font-weight: 800; font-size: 12px; cursor: pointer; display:flex; align-items:center; gap:6px;">
+              <span class="material-icons" style="font-size: 16px;">ink_eraser</span> LIMPIAR FIRMA
+            </button>
+          </div>
+
+          <canvas id="cuadreAuxFirmaCanvas"
+            style="width: 100%; height: 160px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; touch-action: none; display:block;"></canvas>
+
+          <button id="btnCuadreAuxFirma" onclick="enviarReporteAuditoriaFinal()"
+            style="width: 100%; padding: 16px; background: #0f172a; color: white; border: none; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;">
+            <span class="material-icons">send</span> FIRMAR Y ENVIAR A VENTAS
+          </button>
+        </div>
+      </div>
+
+      <div id="audit-paso4"
+        style="display:none; width: 100%; max-width: 560px; background: white; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border); margin: auto;">
+        <div style="background: #0f172a; padding: 24px; color: white;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom: 10px;">
+            <div>
+              <h2 style="margin:0; font-weight: 900; font-size: 20px; display:flex; align-items:center; gap:8px;">
+                <span class="material-icons">verified_user</span> FIRMA DE VENTAS
+              </h2>
+              <p style="margin: 6px 0 0 0; font-size: 12px; color: #cbd5e1; line-height: 1.4;">Ventas revisa la información recibida y cierra el cuadre oficial.</p>
+            </div>
+            <span style="background: rgba(255,255,255,0.08); color: white; padding: 6px 10px; border-radius: 10px; font-size: 11px; font-weight: 800; white-space: nowrap;">Paso 4</span>
+          </div>
+        </div>
+
+        <div style="padding: 18px 18px 0; background: #f8fafc;">
+          <div class="audit-stat-grid">
+            <div class="audit-stat-card">
+              <div class="audit-stat-num audit-stat-num--green" id="cuadre-sales-ok-count">0</div>
+              <div class="audit-stat-label">OK</div>
+            </div>
+            <div class="audit-stat-card">
+              <div class="audit-stat-num audit-stat-num--red" id="cuadre-sales-faltantes-count">0</div>
+              <div class="audit-stat-label">FALTANTES</div>
+            </div>
+            <div class="audit-stat-card">
+              <div class="audit-stat-num audit-stat-num--amber" id="cuadre-sales-extras-count">0</div>
+              <div class="audit-stat-label">EXTRAS</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 18px; display: grid; gap: 14px; background: white;">
+          <label style="display: grid; gap: 8px;">
+            <span style="font-size: 11px; font-weight: 800; color: #64748b; letter-spacing: .04em; text-transform: uppercase;">Nombre del agente de ventas</span>
+            <input id="cuadreVentasFirmaNombre" type="text" placeholder="Escribe el nombre del agente de ventas"
+              style="width: 100%; padding: 13px 14px; border: 1px solid #cbd5e1; border-radius: 12px; font-weight: 800; font-size: 14px; box-sizing: border-box; outline: none;">
+          </label>
+
+          <div style="display:flex; justify-content:space-between; align-items:center; gap: 10px; flex-wrap: wrap;">
+            <div id="cuadreVentasResumen" style="color: #475569; font-size: 13px; font-weight: 700; line-height: 1.4;">Revisión de ventas</div>
+            <button type="button" onclick="__mexLimpiarFirma(&quot;cuadreVentas&quot;)"
+              style="border: 1px solid #cbd5e1; background: #f8fafc; color: #1e293b; padding: 9px 12px; border-radius: 10px; font-weight: 800; font-size: 12px; cursor: pointer; display:flex; align-items:center; gap:6px;">
+              <span class="material-icons" style="font-size: 16px;">ink_eraser</span> LIMPIAR FIRMA
+            </button>
+          </div>
+
+          <canvas id="cuadreVentasFirmaCanvas"
+            style="width: 100%; height: 160px; background: #fff; border: 1px solid #e2e8f0; border-radius: 16px; touch-action: none; display:block;"></canvas>
+
+          <button id="btnCuadreVentasFirma" onclick="enviarReporteAuditoriaFinal()"
+            style="width: 100%; padding: 16px; background: #16a34a; color: white; border: none; border-radius: 14px; font-weight: 900; font-size: 14px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.2s;">
+            <span class="material-icons">verified_user</span> FIRMAR Y CERRAR CUADRE
           </button>
         </div>
       </div>
@@ -1088,7 +1168,7 @@
 
             <div id="mcValidarCuadre" class="mc-item" onclick="abrirUltimoCuadre()"
               style="display: flex; flex-direction: column; align-items: flex-start;">
-              <div><span class="material-icons">history</span> Validar Cuadre Actual</div>
+              <div><span class="material-icons">directions_car</span> Cuadre de Flota</div>
               <small id="lblUltimoCuadre"
                 style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">✅ --/-- 00:00
                 (Nadie)</small>

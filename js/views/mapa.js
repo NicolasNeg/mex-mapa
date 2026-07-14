@@ -2587,7 +2587,7 @@ function iniciarApp(esNuevoLogin = true) {
     routeHandlers: {
       openChat:   nombre => _abrirChatDesdeNotificacion(nombre),
       openBuzon:  () => abrirBuzon(),
-      openCuadre: () => _abrirCuadreDesdeNotificacion(),
+      openCuadre: () => { window.location.href = '/app/cuadre'; },
       openAlerts: () => abrirSiguienteAlerta()
     }
   });
@@ -2752,6 +2752,8 @@ function _iniciarSincronizacionUsuarios() {
       .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
       .sort((a, b) => a.usuario.localeCompare(b.usuario));
     if (typeof renderModernDropdown === 'function') renderModernDropdown(dbUsuariosLogin);
+    if (typeof window.__syncCuadreAuxiliares === 'function') window.__syncCuadreAuxiliares();
+    if (typeof window.__syncCuadreMissionButtonState === 'function') window.__syncCuadreMissionButtonState();
     if (document.getElementById('crear-alerta-modal')?.classList.contains('active') && typeof _renderDestinatariosAlerta === 'function') {
       _renderDestinatariosAlerta();
       _updateBtnEmitir();
@@ -10904,7 +10906,7 @@ window.PAUSA_CONEXIONES = false; // 🔥 NUESTRA VARIABLE SEMÁFORO GLOBAL
 
 // ── Firma digital de responsables (auxiliar + agente de ventas) ────────────
 // Pad de firma vanilla sobre <canvas> (mouse + touch). Devuelve API mínima.
-let _firmaPads = { aux: null, vta: null };
+let _firmaPads = { aux: null, vta: null, cuadreAux: null, cuadreVentas: null };
 function _initFirmaPad(canvas) {
   if (!canvas) return null;
   const ctx = canvas.getContext('2d');
@@ -10983,63 +10985,8 @@ async function _componerReporteConFirmas(mapCanvas, firmas) {
   }
 }
 
-async function abrirUltimoCuadre() {
-  const ok = await mexConfirm(
-    'Validar Cuadre',
-    '¿Deseas VALIDAR el CUADRE y enviar el reporte a Gerencia?',
-    'warning'
-  );
-  if (!ok) return;
-
-  // Firma digital obligatoria de los 2 responsables antes de sellar.
-  const firmas = await _pedirFirmasCuadre();
-  if (!firmas) return;
-
-  window.PAUSA_CONEXIONES = true; // 🛑 DETENEMOS EL RADAR PARA NO ATURDIR A GOOGLE
-  showToast("Capturando mapa...", "info");
-
-  try {
-    const gridMap = document.getElementById('grid-map');
-    const canvas = await html2canvas(gridMap, { backgroundColor: "#2A3441", scale: 1, useCORS: true });
-    const base64Image = await _componerReporteConFirmas(canvas, firmas);
-
-    const stats = {
-      total: document.getElementById('kpi-total').innerText,
-      listos: document.getElementById('kpi-listos').innerText,
-      taller: document.getElementById('kpi-taller-loc').innerText
-    };
-
-    const btnTxt = document.getElementById('lblUltimoCuadre');
-    if (btnTxt) btnTxt.innerText = "⏳ ENVIANDO...";
-
-    // 1. Sellamos primero en la base de datos
-    api.registrarCierreCuadre(USER_NAME).then(res => {
-      showToast("Aplicando sello. Generando correo...", "info");
-
-      // 2. CUANDO EL SELLO TERMINA, MANDAMOS EL CORREO (Peticiones en fila india)
-      api.enviarReporteCuadreEmail(base64Image, USER_NAME, stats).then(resMail => {
-        window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
-        if (resMail === "EXITO") {
-          showToast("¡Cuadre enviado con éxito!", "success");
-          if (btnTxt) btnTxt.innerText = "✅ " + new Date().toLocaleString('es-MX') + " (" + USER_NAME + ")";
-        } else {
-          showToast("Fallo el correo: " + resMail, "error");
-        }
-        hacerPingNotificaciones(); // Hacemos un ping limpio
-      }).catch(err => {
-        window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
-        showToast("Error enviando el correo", "error");
-      });
-
-    }).catch(err => {
-      window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
-      showToast("Error de conexión", "error");
-    });
-
-  } catch (err) {
-    window.PAUSA_CONEXIONES = false; // 🟢 REACTIVAMOS EL RADAR
-    showToast("Error visual al capturar", "error");
-  }
+function abrirUltimoCuadre() {
+  return manejadorFlujoV3();
 }
 
 // ==============================================================
@@ -12451,6 +12398,7 @@ window.ejecutarLectorCSV = function (file) {
         const btn = document.getElementById('btnIniciarMision');
         btn.disabled = false;
         btn.style.opacity = '1';
+        if (typeof window.__syncCuadreMissionButtonState === 'function') window.__syncCuadreMissionButtonState();
 
         notificar("Base corporativa cargada", "success");
         console.log("LISTA LIMPIA Y ESTRUCTURADA:", window.UNIDADES_SISTEMA_CORPORATIVO);
@@ -12489,6 +12437,185 @@ window.ejecutarLectorCSV = function (file) {
 // --- FLUJO DE AUDITORÍA: AUXILIAR Y ADMIN ---
 // ==========================================
 window.AUDIT_LIST = [];
+
+window.__CUADRE_V3_CONTEXT = window.__CUADRE_V3_CONTEXT || {
+  stage: 'idle',
+  missionId: '',
+  missionMeta: null,
+  auxiliarDocId: '',
+  auxiliarNombre: '',
+  auxiliarFirmaNombre: '',
+  auxiliarFirmaUrl: '',
+  ventasFirmaNombre: '',
+  ventasFirmaUrl: '',
+  revisionMeta: null
+};
+
+function _cuadreCtx() {
+  return window.__CUADRE_V3_CONTEXT;
+}
+
+function _cuadreResumenAuditoria(list = window.AUDIT_LIST || []) {
+  const arr = Array.isArray(list) ? list : [];
+  return {
+    total: arr.length,
+    pendientes: arr.filter(u => u.status === 'PENDIENTE').length,
+    revisadas: arr.filter(u => u.status !== 'PENDIENTE').length,
+    ok: arr.filter(u => u.status === 'OK').length,
+    faltantes: arr.filter(u => u.status === 'FALTANTE').length,
+    extras: arr.filter(u => u.status === 'EXTRA').length
+  };
+}
+
+function _cuadreStageMode() {
+  const stage = String(_cuadreCtx().stage || '').toLowerCase();
+  if (stage.includes('sales')) return 'sales';
+  return 'aux';
+}
+
+function _cuadreMostrarPaso(step) {
+  const steps = {
+    1: 'audit-paso1',
+    2: 'audit-paso2',
+    3: 'audit-paso3',
+    4: 'audit-paso4'
+  };
+  Object.entries(steps).forEach(([numero, id]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.display = String(step) === numero ? (id === 'audit-paso2' ? 'flex' : 'block') : 'none';
+  });
+  const modal = document.getElementById('audit-modal');
+  if (modal) modal.classList.add('active');
+}
+
+function _cuadreSetStage(stage, extra = {}) {
+  Object.assign(_cuadreCtx(), extra, { stage });
+}
+
+function _cuadreSelectData() {
+  return document.getElementById('cuadreAuxiliarSelect');
+}
+
+function _cuadreActualizarAuxiliares() {
+  const select = _cuadreSelectData();
+  if (!select) return;
+  const plaza = _miPlaza();
+  const currentValue = select.value;
+  const usuarios = (dbUsuariosLogin || []).filter(user => {
+    const name = String(user.usuario || user.nombre || '').trim();
+    if (!name) return false;
+    const role = String(user.roleLabel || user.rol || '').toUpperCase();
+    const plazaUser = _normalizePlaza(user.plazaAsignada || user.plaza || '');
+    const samePlaza = !plaza || plazaUser === plaza;
+    const active = String(user.status || 'ACTIVO').toUpperCase() !== 'INACTIVO';
+    if (!samePlaza || !active) return false;
+    if (role.includes('ADMIN') || role.includes('VENTA') || role.includes('GERENT') || role.includes('DIRECT')) return false;
+    return role.includes('AUX') || role.includes('PATIO') || role.includes('OPER') || role.includes('ASIST') || role.includes('LOG') || role.includes('CONDUCT') || !role;
+  }).sort((a, b) => String(a.nombre || a.usuario || '').localeCompare(String(b.nombre || b.usuario || '')));
+
+  const fallback = (dbUsuariosLogin || []).filter(user => {
+    const name = String(user.usuario || user.nombre || '').trim();
+    if (!name) return false;
+    const plazaUser = _normalizePlaza(user.plazaAsignada || user.plaza || '');
+    const samePlaza = !plaza || plazaUser === plaza;
+    const active = String(user.status || 'ACTIVO').toUpperCase() !== 'INACTIVO';
+    const role = String(user.roleLabel || user.rol || '').toUpperCase();
+    return samePlaza && active && !role.includes('ADMIN');
+  });
+
+  const list = usuarios.length > 0 ? usuarios : fallback;
+  select.innerHTML = '<option value="">Selecciona un auxiliar</option>' + list.map(user => {
+    const value = String(user.id || user.email || _profileDocId(user.usuario || user.nombre || '')).trim();
+    const label = String(user.nombre || user.usuario || value || 'Usuario').trim();
+    const role = String(user.roleLabel || user.rol || '').trim();
+    return `<option value="${escapeHtml(value)}" data-nombre="${escapeHtml(label)}" data-rol="${escapeHtml(role)}">${escapeHtml(label)}${role ? ` · ${escapeHtml(role)}` : ''}</option>`;
+  }).join('');
+
+  if (currentValue) select.value = currentValue;
+  _cuadreActualizarBotonMision();
+}
+
+function _cuadreActualizarBotonMision() {
+  const btn = document.getElementById('btnIniciarMision');
+  if (!btn) return;
+  const select = _cuadreSelectData();
+  const hasUnits = Array.isArray(window.UNIDADES_SISTEMA_CORPORATIVO) && window.UNIDADES_SISTEMA_CORPORATIVO.length > 0;
+  const hasAux = !!(select && String(select.value || '').trim());
+  const enabled = hasUnits && hasAux;
+  btn.disabled = !enabled;
+  btn.style.opacity = enabled ? '1' : '0.5';
+  btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+}
+
+function _cuadreFirmaIds(kind = 'aux') {
+  return kind === 'sales'
+    ? { prefix: 'ventas', padKey: 'cuadreVentas', nameId: 'cuadreVentasFirmaNombre', canvasId: 'cuadreVentasFirmaCanvas', summaryId: 'cuadreVentasResumen', okId: 'cuadre-sales-ok-count', faltantesId: 'cuadre-sales-faltantes-count', extrasId: 'cuadre-sales-extras-count', btnId: 'btnCuadreVentasFirma' }
+    : { prefix: 'aux', padKey: 'cuadreAux', nameId: 'cuadreAuxFirmaNombre', canvasId: 'cuadreAuxFirmaCanvas', summaryId: 'cuadreAuxResumen', okId: 'cuadre-aux-ok-count', faltantesId: 'cuadre-aux-faltantes-count', extrasId: 'cuadre-aux-extras-count', btnId: 'btnCuadreAuxFirma' };
+}
+
+function _cuadreRenderFirmaPaso(kind = 'aux') {
+  const ids = _cuadreFirmaIds(kind);
+  const summary = _cuadreResumenAuditoria();
+  const ctx = _cuadreCtx();
+  const input = document.getElementById(ids.nameId);
+  const summaryEl = document.getElementById(ids.summaryId);
+  const btn = document.getElementById(ids.btnId);
+  const okEl = document.getElementById(ids.okId);
+  const faltEl = document.getElementById(ids.faltantesId);
+  const extraEl = document.getElementById(ids.extrasId);
+
+  if (okEl) okEl.innerText = String(summary.ok);
+  if (faltEl) faltEl.innerText = String(summary.faltantes);
+  if (extraEl) extraEl.innerText = String(summary.extras);
+
+  if (input && !String(input.value || '').trim()) {
+    input.value = kind === 'sales'
+      ? (USER_NAME || ctx.ventasFirmaNombre || '')
+      : (ctx.auxiliarNombre || USER_NAME || '');
+  }
+  if (summaryEl) {
+    const auxLabel = ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || 'auxiliar';
+    const missionLabel = ctx.missionId ? `Misión ${ctx.missionId}` : 'Cuadre en curso';
+    summaryEl.innerText = kind === 'sales'
+      ? `Recibido de ${auxLabel} · ${missionLabel}`
+      : `Validación del auxiliar · ${missionLabel}`;
+  }
+  if (btn) btn.disabled = summary.total === 0;
+
+  if (!_firmaPads[ids.padKey]) {
+    _firmaPads[ids.padKey] = _initFirmaPad(document.getElementById(ids.canvasId));
+  } else {
+    _firmaPads[ids.padKey].clear();
+  }
+}
+
+function _cuadreAbrirFirmaPaso(kind = 'aux') {
+  const isSales = kind === 'sales';
+  _cuadreSetStage(isSales ? 'sales-sign' : 'aux-sign');
+  _cuadreMostrarPaso(isSales ? 4 : 3);
+  setTimeout(() => _cuadreRenderFirmaPaso(kind), 60);
+}
+
+function _cuadreResetFlujo() {
+  _cuadreSetStage('idle', {
+    missionId: '',
+    missionMeta: null,
+    auxiliarDocId: '',
+    auxiliarNombre: '',
+    auxiliarFirmaNombre: '',
+    auxiliarFirmaUrl: '',
+    ventasFirmaNombre: '',
+    ventasFirmaUrl: '',
+    revisionMeta: null
+  });
+  const modal = document.getElementById('audit-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+window.__syncCuadreMissionButtonState = _cuadreActualizarBotonMision;
+window.__syncCuadreAuxiliares = _cuadreActualizarAuxiliares;
+
 
 // ==========================================
 // 📋 MOTOR DE AUDITORÍA (LISTA PURA)
@@ -12553,12 +12680,22 @@ function renderizarPaseLista() {
   if (fill) fill.style.width = `${pct}%`;
 
   // 2. Botón finalizar
+  const stageMode = _cuadreStageMode();
+  const titulo = document.getElementById('titulo-auditoria');
+  if (titulo) {
+    titulo.innerHTML = stageMode === 'sales'
+      ? '<span class="material-icons">verified_user</span> REVISIÓN DE VENTAS'
+      : '<span class="material-icons">fact_check</span> PASE DE LISTA / CORRECCIONES';
+  }
   const btnFinalizar = document.getElementById('btnFinalizarAudit');
   if (btnFinalizar) {
     const listo = pendientes === 0 && total > 0;
     btnFinalizar.disabled = !listo;
     btnFinalizar.style.background = listo ? "#10b981" : "#cbd5e1";
     btnFinalizar.style.cursor = listo ? "pointer" : "not-allowed";
+    btnFinalizar.innerHTML = stageMode === 'sales'
+      ? '<span class="material-icons">verified_user</span> FIRMAR Y CERRAR CUADRE'
+      : '<span class="material-icons">send</span> FIRMAR Y ENVIAR A VENTAS';
   }
 
   // 3. Filtrar
@@ -12696,190 +12833,154 @@ function finalizarPaseLista() {
 }
 
 function llamarAlJuezDeAuditoria() {
-  document.getElementById('audit-paso2').style.display = 'none';
-  document.getElementById('audit-paso3').style.display = 'block';
-
-  document.getElementById('res-faltantes-count').innerText = window.AUDIT_LIST.filter(u => u.status === 'FALTANTE').length;
-  document.getElementById('res-extras-count').innerText = window.AUDIT_LIST.filter(u => u.status === 'EXTRA').length;
-  document.getElementById('res-ok-count').innerText = window.AUDIT_LIST.filter(u => u.status === 'OK').length;
-
-  const btn = document.getElementById('btnCertificarFinal');
-
-  // Cambiamos el diseño del botón según quién esté operando
-  if (userRole === 'admin') {
-    btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> VALIDAR Y GENERAR REPORTE`;
-    btn.style.background = "#0284c7"; // Azul corporativo
-  } else {
-    btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE A VENTAS`;
-    btn.style.background = "#1e293b"; // Negro elegante
-  }
+  const mode = _cuadreStageMode();
+  _cuadreAbrirFirmaPaso(mode === 'sales' ? 'sales' : 'aux');
 }
 
 // 📱 COMPARTIR POR WHATSAPP AL TERMINAR
 function compartirWhatsApp() {
-  const oks = document.getElementById('res-ok-count').innerText;
-  const faltantes = document.getElementById('res-faltantes-count').innerText;
-  const extras = document.getElementById('res-extras-count').innerText;
+  const summary = _cuadreResumenAuditoria();
+  const ctx = _cuadreCtx();
+  const auxiliar = ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || USER_NAME || "el auxiliar";
+  const texto = `Cuadre de flota listo\nEl auxiliar ${auxiliar} finalizó el escaneo físico en patio.\n\nResumen previo:\nCuadrados: ${summary.ok}\nSobrantes: ${summary.extras}\nFaltantes: ${summary.faltantes}\n\nEl área de ventas ya puede finalizar el cuadre en el sistema para asentar los datos y generar el PDF.`;
 
-  const texto = `✅ *CUADRE DE FLOTA LISTO*\nEl auxiliar *${USER_NAME}* ha finalizado el escaneo físico en patio.\n\n📊 *Resumen Previo:*\n✔️ Cuadrados: ${oks}\n⚠️ Sobrantes: ${extras}\n🚨 Faltantes: ${faltantes}\n\n👉 El Admin de Ventas ya puede *FINALIZAR CUADRE* en el sistema para asentar los datos y generar el PDF.`;
-
-  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, '_blank');
+  window.open(`https://wa.me/?text=${encodeURIComponent(texto)}`, "_blank");
 }
 
 // ☁️ EL AUXILIAR O EL ADMIN MANDAN EL REPORTE (SIN ALERTS NATIVOS)
-function enviarReporteAuditoriaFinal() {
-  const btn = document.getElementById('btnCertificarFinal');
+async function enviarReporteAuditoriaFinal() {
+  const mode = _cuadreStageMode();
+  const ids = _cuadreFirmaIds(mode === 'sales' ? 'sales' : 'aux');
+  const ctx = _cuadreCtx();
+  const summary = _cuadreResumenAuditoria();
+  const btn = document.getElementById(ids.btnId);
+  const nameInput = document.getElementById(ids.nameId);
+  const signedName = String(nameInput?.value || '').trim();
+  const pad = _firmaPads[ids.padKey];
+  const firmaUrl = pad?.dataUrl ? pad.dataUrl() : '';
+  const baseLabel = mode === 'sales' ? 'Ventas' : 'Auxiliar';
 
-  if (userRole === 'admin') {
-    // 👑 MODAL HTML PARA EL ADMIN
-    mostrarCustomModal(
-      "Certificar Inventario",
-      "¿Estás seguro de certificar las correcciones? Se generará el PDF oficial y se enviará la Auditoría Nocturna por correo.",
-      "verified", "#0284c7", "CERTIFICAR Y ENVIAR", "#0284c7",
-      () => {
-        btn.disabled = true;
-        btn.innerHTML = `<span class="material-icons spinner">sync</span> PROCESANDO AUDITORÍA...`;
+  if (!summary.total) {
+    showToast('No hay unidades para firmar.', 'warning');
+    return;
+  }
+  if (!signedName) {
+    showToast(`Escribe el nombre del ${baseLabel.toLowerCase()}.`, 'error');
+    return;
+  }
+  if (!pad?.hasInk?.()) {
+    showToast('La firma está vacía.', 'error');
+    return;
+  }
 
-        // 🔥 SÚPER IMPORTANTE: Armamos los stats para mandarlos al Backend
-        const stats = {
-          total: document.getElementById('kpi-total').innerText,
-          listos: document.getElementById('kpi-listos').innerText,
-          taller: document.getElementById('kpi-taller-loc').innerText
-        };
+  const ok = await mexConfirm(
+    mode === 'sales' ? 'Firmar cierre de ventas' : 'Enviar a Ventas',
+    mode === 'sales'
+      ? 'Ventas validará y cerrará el cuadre con esta firma.'
+      : 'El auxiliar validará y enviará el cuadre a Ventas con esta firma.',
+    'warning'
+  );
+  if (!ok) return;
 
-        api.procesarAuditoriaDesdeAdmin(window.AUDIT_LIST, USER_NAME, stats, _miPlaza()).then(res => {
-          document.getElementById('audit-modal').classList.remove('active');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-icons spinner">sync</span> PROCESANDO...`;
+  }
 
-          // 🚨 REVISAMOS EL VEREDICTO DEL SERVIDOR 🚨
-          if (res === "EXITO") {
-            showToast("¡Auditoría finalizada y Correo Enviado!", "success");
-          }
-          else if (res === "EXITO_SIN_CORREO") {
-            showToast("✅ PDF creado, pero la celda B6 (Correos) está vacía.", "warning");
-          }
-          else if (res && res.toString().startsWith("ERROR_CORREO")) {
-            showToast("❌ PDF creado, pero el correo falló: Revisa la celda B6.", "error");
-            console.error("Motivo del fallo:", res);
-          }
-          else {
-            showToast("Error: " + res, "error");
-          }
+  const payload = Array.isArray(window.AUDIT_LIST) ? window.AUDIT_LIST.map(u => ({ ...u })) : [];
+  const stats = { ...summary, auxiliar: ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || signedName };
 
-          setTimeout(() => {
-            document.getElementById('audit-paso3').style.display = 'none';
-            document.getElementById('audit-paso1').style.display = 'block';
-            btn.disabled = false;
-          }, 1000);
-          hacerPingNotificaciones();
-        }).catch(err => {
-          showToast("Fallo de red o servidor", "error");
-          btn.disabled = false;
-          btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> REINTENTAR`;
-        });
+  try {
+    if (mode === 'sales') {
+      const meta = {
+        missionId: ctx.missionId || ctx.revisionMeta?.missionId || '',
+        auxiliarNombre: ctx.auxiliarNombre || ctx.revisionMeta?.auxiliarNombre || '',
+        auxiliarDocId: ctx.auxiliarDocId || ctx.revisionMeta?.auxiliarDocId || '',
+        firmaAuxiliar: ctx.auxiliarFirmaNombre || ctx.revisionMeta?.firmaAuxiliarNombre || '',
+        firmaAuxiliarUrl: ctx.auxiliarFirmaUrl || ctx.revisionMeta?.firmaAuxiliarUrl || '',
+        firmaVentas: signedName,
+        firmaNombre: signedName,
+        firmaDataUrl: firmaUrl,
+        stats
+      };
+      const res = await api.procesarAuditoriaDesdeAdmin(payload, USER_NAME, stats, _miPlaza(), meta);
+      if (res === 'EXITO' || (res && res.exito)) {
+        showToast('Cuadre firmado y cerrado.', 'success');
+        _cuadreResetFlujo();
+        window.AUDIT_LIST = [];
+        hacerPingNotificaciones();
+      } else {
+        showToast('No se pudo cerrar el cuadre.', 'error');
       }
-    );
-  } else {
-    // 👷 MODAL HTML PARA EL AUXILIAR
-    mostrarCustomModal(
-      "Enviar a Ventas",
-      "¿Terminaste el escaneo en el patio? Se enviará a Ventas para la revisión final.",
-      "send", "#10b981", "ENVIAR REPORTE", "#10b981",
-      () => {
-        const auditoriaPayload = Array.isArray(window.AUDIT_LIST) ? window.AUDIT_LIST : [];
-        if (!auditoriaPayload.length) {
-          showToast("No hay datos de auditoría para enviar.", "error");
-          return;
-        }
-        btn.disabled = true;
-        btn.innerHTML = `<span class="material-icons spinner">sync</span> ENVIANDO REPORTE...`;
-
-        const _resetEnviarBtn = () => {
-          btn.disabled = false;
-          btn.innerHTML = `<span class="material-icons">send</span> ENVIAR REPORTE`;
-        };
-
-        // Timeout de 30s para no dejar el botón congelado si la Cloud Function falla
-        const _enviarTimeout = setTimeout(() => {
-          _resetEnviarBtn();
-          showToast("Tiempo de espera agotado. Verifica tu conexión e intenta de nuevo.", "error");
-        }, 30000);
-
-        api.enviarAuditoriaAVentas(auditoriaPayload, USER_NAME, _miPlaza()).then(async res => {
-          clearTimeout(_enviarTimeout);
-          if (res && res.exito) {
-            let confirmacionPersistencia = true;
-            try {
-              const revision = await api.obtenerRevisionAuditoria(_miPlaza());
-              confirmacionPersistencia = Array.isArray(revision) && revision.length > 0;
-            } catch (error) {
-              confirmacionPersistencia = false;
-              console.warn('No se pudo confirmar persistencia de auditoría en revisión:', error);
-            }
-            document.getElementById('audit-modal').classList.remove('active');
-            showToast(
-              confirmacionPersistencia
-                ? "Auditoría enviada a Ventas. ¡Buen trabajo!"
-                : "Auditoría enviada, pero sin confirmación inmediata. Revisa en unos segundos.",
-              confirmacionPersistencia ? "success" : "warning"
-            );
-            setTimeout(compartirWhatsApp, 1000);
-            setTimeout(() => {
-              document.getElementById('audit-paso3').style.display = 'none';
-              document.getElementById('audit-paso1').style.display = 'block';
-              _resetEnviarBtn();
-              hacerPingNotificaciones();
-            }, 1000);
-          } else {
-            clearTimeout(_enviarTimeout);
-            _resetEnviarBtn();
-            showToast("Error al enviar. Intenta de nuevo.", "error");
-          }
-        }).catch(err => {
-          clearTimeout(_enviarTimeout);
-          _resetEnviarBtn();
-          const msg = err?.code === 'permission-denied'
-            ? "Sin permisos para enviar. Contacta al administrador."
-            : "Error de red: " + (err?.message || err);
-          showToast(msg, "error");
-          console.error("[enviarAuditoria]", err);
-        });
+    } else {
+      const meta = {
+        missionId: ctx.missionId || ctx.missionMeta?.missionId || '',
+        auxiliarNombre: signedName,
+        auxiliarDocId: ctx.auxiliarDocId || '',
+        firmaNombre: signedName,
+        firmaDataUrl: firmaUrl,
+        stats
+      };
+      const res = await api.enviarAuditoriaAVentas(payload, USER_NAME, _miPlaza(), meta);
+      if (res && res.exito) {
+        showToast('Cuadre enviado a Ventas.', 'success');
+        _cuadreResetFlujo();
+        window.AUDIT_LIST = [];
+        hacerPingNotificaciones();
+      } else {
+        showToast('No se pudo enviar la revisión.', 'error');
       }
-    );
+    }
+  } catch (error) {
+    console.error('[cuadre-firma]', error);
+    showToast('Error al procesar la firma.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = mode === 'sales'
+        ? `<span class="material-icons">verified_user</span> FIRMAR Y CERRAR CUADRE`
+        : `<span class="material-icons">send</span> FIRMAR Y ENVIAR A VENTAS`;
+    }
   }
 }
 
-
-
 // 👑 ADMIN Y AUXILIAR: EL BOTÓN MÁGICO DE FLUJO
 function manejadorFlujoV3() {
-  const estadoActual = document.getElementById('txtV3').innerText;
+  const estadoActual = (document.getElementById('txtV3')?.innerText || '').trim();
 
   if (userRole === 'admin' && estadoActual === "INICIAR CUADRE (ADMIN)") {
     toggleAdminSidebar(false);
-    document.getElementById('audit-modal').classList.add('active');
-    document.getElementById('audit-paso1').style.display = 'block';
-    document.getElementById('audit-paso2').style.display = 'none';
-    document.getElementById('audit-paso3').style.display = 'none';
+    document.getElementById('audit-modal')?.classList.add('active');
+    _cuadreSetStage('aux-setup');
+    _cuadreMostrarPaso(1);
     window.UNIDADES_SISTEMA_CORPORATIVO = [];
+    _cuadreActualizarAuxiliares();
+    _cuadreActualizarBotonMision();
   }
   else if (userRole === 'admin' && estadoActual === "FINALIZAR CUADRE") {
-    // 🔥 EL ADMIN DESCARGA LA REVISIÓN DEL AUXILIAR Y LA ABRE EN SU PANTALLA
     toggleAdminSidebar(false);
     showToast("Descargando revisión del patio...", "info");
 
     api.obtenerRevisionAuditoria(_miPlaza()).then(mision => {
       hacerPingNotificaciones();
-      if (mision && mision.length > 0) {
-        window.AUDIT_LIST = mision; // Carga los estados (OK, FALTANTE, etc.) que puso el auxiliar
+      const unidades = Array.isArray(mision) ? mision : [];
+      const meta = unidades.meta || mision?.meta || {};
+      if (unidades.length > 0) {
+        window.AUDIT_LIST = unidades.map(u => ({ ...u, status: u.status || 'PENDIENTE' }));
+        _cuadreSetStage('sales-review', {
+          missionId: meta.missionId || meta.cuadreMissionId || '',
+          missionMeta: meta,
+          revisionMeta: meta,
+          auxiliarDocId: meta.auxiliarDocId || meta.destinatarioDocId || '',
+          auxiliarNombre: meta.auxiliarNombre || meta.destinatarioNombre || meta.auxiliar || '',
+          auxiliarFirmaNombre: meta.firmaAuxiliarNombre || meta.firmaNombre || '',
+          auxiliarFirmaUrl: meta.firmaAuxiliarUrl || ''
+        });
 
-        document.getElementById('audit-modal').classList.add('active');
-        document.getElementById('audit-paso1').style.display = 'none';
-        document.getElementById('audit-paso2').style.display = 'flex';
-        document.getElementById('audit-paso3').style.display = 'none';
-
-        // Le avisa visualmente al Admin que está en modo revisión
-        document.querySelector('#audit-paso2 h3').innerHTML = '<span class="material-icons">admin_panel_settings</span> REVISIÓN DE ADMINISTRADOR';
-
+        document.getElementById('audit-modal')?.classList.add('active');
+        _cuadreMostrarPaso(2);
+        const title = document.getElementById('titulo-auditoria');
+        if (title) title.innerHTML = '<span class="material-icons">verified_user</span> REVISIÓN DE VENTAS';
         renderizarPaseLista();
       } else {
         showToast("No hay datos del auxiliar.", "error");
@@ -12887,39 +12988,104 @@ function manejadorFlujoV3() {
     }).catch(e => console.error(e));
   }
   else if (userRole !== 'admin' && estadoActual === "VERIFICAR INVENTARIO") {
-    // 👷 EL AUXILIAR DESCARGA LA MISIÓN
     toggleAdminSidebar(false);
     showToast("Descargando misión...", "info");
 
     api.obtenerMisionAuditoria(_miPlaza()).then(mision => {
       hacerPingNotificaciones();
-      if (mision && mision.length > 0) {
-        window.UNIDADES_SISTEMA_CORPORATIVO = mision;
-        window.AUDIT_LIST = window.UNIDADES_SISTEMA_CORPORATIVO.map(u => {
+      const unidades = Array.isArray(mision) ? mision : [];
+      const meta = unidades.meta || mision?.meta || {};
+      if (unidades.length > 0) {
+        window.UNIDADES_SISTEMA_CORPORATIVO = unidades;
+        window.AUDIT_LIST = unidades.map(u => {
           const local = (typeof DB_FLOTA !== 'undefined' && DB_FLOTA.find(x => x.mva === u.mva)) || {};
-          return { mva: u.mva, placas: u.placas, modelo: u.modelo, status: 'PENDIENTE', km: (typeof local.km === 'number') ? local.km : null };
+          return {
+            ...u,
+            status: 'PENDIENTE',
+            km: (typeof local.km === 'number') ? local.km : (typeof u.km === 'number' ? u.km : null),
+            gasolina: typeof local.gasolina !== 'undefined' ? local.gasolina : u.gasolina
+          };
         });
 
-        document.getElementById('audit-modal').classList.add('active');
-        document.getElementById('audit-paso1').style.display = 'none';
-        document.getElementById('audit-paso2').style.display = 'flex';
-        document.getElementById('audit-paso3').style.display = 'none';
+        _cuadreSetStage('aux-review', {
+          missionId: meta.missionId || meta.cuadreMissionId || '',
+          missionMeta: meta,
+          revisionMeta: meta,
+          auxiliarDocId: meta.destinatarioDocId || '',
+          auxiliarNombre: meta.destinatarioNombre || meta.auxiliarNombre || '',
+          auxiliarFirmaNombre: meta.firmaAuxiliarNombre || meta.firmaNombre || '',
+          auxiliarFirmaUrl: meta.firmaAuxiliarUrl || ''
+        });
+
+        document.getElementById('audit-modal')?.classList.add('active');
+        _cuadreMostrarPaso(2);
+        const title = document.getElementById('titulo-auditoria');
+        if (title) title.innerHTML = '<span class="material-icons">fact_check</span> PASE DE LISTA / CORRECCIONES';
         renderizarPaseLista();
-      } else showToast("La misión está vacía.", "error");
+      } else {
+        showToast("La misión está vacía.", "error");
+      }
     }).catch(e => console.error(e));
   }
 }
 // ⚡ EL ADMIN SUBE CSV Y ENVÍA MISIÓN
-function iniciarMisionAuditoria() {
+async function iniciarMisionAuditoria() {
   const btn = document.getElementById('btnIniciarMision');
-  btn.disabled = true; btn.innerHTML = `<span class="material-icons spinner">sync</span> DESPLEGANDO AL PATIO...`;
+  const select = document.getElementById('cuadreAuxiliarSelect');
+  const auxDocId = String(select?.value || '').trim();
+  const option = select?.options?.[select.selectedIndex] || null;
+  const auxNombre = String(option?.dataset?.nombre || option?.textContent || '').split('·')[0].trim();
 
-  api.iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(window.UNIDADES_SISTEMA_CORPORATIVO), _miPlaza()).then(res => {
-    showToast("¡Misión enviada al celular del patio! 📡", "success");
-    document.getElementById('audit-modal').classList.remove('active');
-    hacerPingNotificaciones();
-    btn.innerHTML = `INICIAR MISIÓN DE AUDITORÍA`;
-  }).catch(e => console.error(e));
+  if (!Array.isArray(window.UNIDADES_SISTEMA_CORPORATIVO) || window.UNIDADES_SISTEMA_CORPORATIVO.length === 0) {
+    showToast('Primero carga la flota en CSV.', 'error');
+    return;
+  }
+  if (!auxDocId) {
+    showToast('Selecciona un auxiliar para enviar la misión.', 'error');
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span class="material-icons spinner">sync</span> DESPLEGANDO AL PATIO...`;
+  }
+
+  try {
+    const meta = {
+      missionId: `cuadre_${Date.now()}`,
+      destinatarioDocId: auxDocId,
+      destinatarioNombre: auxNombre,
+      auxiliarDocId: auxDocId,
+      auxiliarNombre: auxNombre,
+      creadorDocId: _currentUserDocId(),
+      creadorEmail: auth.currentUser?.email || ''
+    };
+
+    const res = await api.iniciarProtocoloDesdeAdmin(USER_NAME, JSON.stringify(window.UNIDADES_SISTEMA_CORPORATIVO), _miPlaza(), meta);
+    if (res && res.exito) {
+      const ctx = _cuadreCtx();
+      _cuadreSetStage('aux-review', {
+        missionId: res.missionId || meta.missionId,
+        missionMeta: meta,
+        auxiliarDocId: auxDocId,
+        auxiliarNombre: auxNombre
+      });
+      showToast('¡Misión enviada al auxiliar!', 'success');
+      document.getElementById('audit-modal')?.classList.remove('active');
+      hacerPingNotificaciones();
+    } else {
+      showToast('No se pudo enviar la misión.', 'error');
+    }
+  } catch (error) {
+    console.error('[cuadre-mision]', error);
+    showToast('Error al enviar la misión.', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = 'ENVIAR MISIÓN AL AUXILIAR';
+    }
+    _cuadreActualizarBotonMision();
+  }
 }
 
 // 🗄️ ABRIR EL ARCHIVERO DE CUADRES
@@ -12936,7 +13102,7 @@ function abrirHistorialCuadres() {
     // Llenar select de autores
     const autorSelect = document.getElementById('filtroAutorArchivero');
     if (autorSelect) {
-      const autores = [...new Set(data.flatMap(c => [c.auxiliar, c.admin].filter(Boolean)))].sort();
+      const autores = [...new Set(data.flatMap(c => [c.auxiliar, c.admin, c.firmaAuxiliar, c.firmaVentas].filter(Boolean)))].sort();
       autorSelect.innerHTML = '<option value="">Todos los autores</option>' +
         autores.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
     }
@@ -12970,25 +13136,26 @@ function toggleIframe(id) {
 
 function renderHistorialCuadres() {
   const container = document.getElementById('lista-historial-cuadres');
-  const query = (document.getElementById('buscadorArchivero')?.value || "").toLowerCase().trim();
-  const fechaFiltro = (document.getElementById('filtroFechaArchivero')?.value || "").trim(); // "YYYY-MM-DD"
-  const autorFiltro = (document.getElementById('filtroAutorArchivero')?.value || "").toLowerCase().trim();
+  const query = (document.getElementById('buscadorArchivero')?.value || '').toLowerCase().trim();
+  const fechaFiltro = (document.getElementById('filtroFechaArchivero')?.value || '').trim();
+  const autorFiltro = (document.getElementById('filtroAutorArchivero')?.value || '').toLowerCase().trim();
 
   let filtered = globalHistorialAuditorias;
 
   if (query) {
     filtered = filtered.filter(c =>
-      String(c.auxiliar || "").toLowerCase().includes(query) ||
-      String(c.admin || "").toLowerCase().includes(query) ||
-      String(c.fecha || "").toLowerCase().includes(query)
+      String(c.tipo || '').toLowerCase().includes(query) ||
+      String(c.auxiliar || '').toLowerCase().includes(query) ||
+      String(c.admin || '').toLowerCase().includes(query) ||
+      String(c.firmaAuxiliar || '').toLowerCase().includes(query) ||
+      String(c.firmaVentas || '').toLowerCase().includes(query) ||
+      String(c.fecha || '').toLowerCase().includes(query)
     );
   }
 
   if (fechaFiltro) {
-    // c.fecha may be "27/3/2026" or "2026-03-27 14:00" — try to match date
     filtered = filtered.filter(c => {
       const f = String(c.fecha || '');
-      // Normalize to "YYYY-MM-DD" for comparison
       const parts = f.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
       if (parts) {
         const yr = parts[3].length === 2 ? '20' + parts[3] : parts[3];
@@ -13002,8 +13169,10 @@ function renderHistorialCuadres() {
 
   if (autorFiltro) {
     filtered = filtered.filter(c =>
-      String(c.auxiliar || "").toLowerCase().includes(autorFiltro) ||
-      String(c.admin || "").toLowerCase().includes(autorFiltro)
+      String(c.auxiliar || '').toLowerCase().includes(autorFiltro) ||
+      String(c.admin || '').toLowerCase().includes(autorFiltro) ||
+      String(c.firmaAuxiliar || '').toLowerCase().includes(autorFiltro) ||
+      String(c.firmaVentas || '').toLowerCase().includes(autorFiltro)
     );
   }
 
@@ -13012,54 +13181,53 @@ function renderHistorialCuadres() {
     return;
   }
 
-  container.innerHTML = filtered.map((c, i) => {
-    const embedUrl = _toDriveEmbedUrl(c.pdfUrl);
-    const hasPdf = !!embedUrl;
+  const rows = filtered.map(c => {
+    const tipo = String(c.tipo || 'CUADRE').toUpperCase();
+    const badgeClass = tipo.includes('CERRADO') ? 'ok' : (tipo.includes('REVISION') ? 'info' : 'muted');
+    const tipoIcon = tipo.includes('CERRADO') ? 'verified_user' : (tipo.includes('REVISION') ? 'fact_check' : 'history');
+    const pdfUrl = _toDriveEmbedUrl(c.pdfUrl);
+    const hasPdf = !!pdfUrl;
     return `
-        <div style="background: white; border: 1px solid var(--border); border-radius: 16px; padding: 22px; display: flex; flex-direction: column; gap: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
-            <div>
-              <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                <span class="material-icons" style="color:var(--mex-blue); font-size:20px;">description</span>
-                <h3 style="margin: 0; color: var(--mex-blue); font-size: 16px; font-weight:800;">Reporte del ${String(c.fecha).split(' ')[0]}</h3>
-              </div>
-
-              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom: 16px;">
-                <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
-                  <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Auxiliar en Patio</span>
-                  <span style="font-size: 13px; color: var(--mex-accent); font-weight: 800;">${escapeHtml(c.auxiliar || 'N/A')}</span>
-                </div>
-                <div style="background:#f8fafc; padding:10px 14px; border-radius:10px; border:1px solid #e2e8f0;">
-                  <span style="display:block; font-size:10px; color:#94a3b8; font-weight:800; letter-spacing:0.5px; text-transform:uppercase; margin-bottom:4px;">Autorizado por (Ventas)</span>
-                  <span style="font-size: 13px; color: var(--mex-blue); font-weight: 800;">${escapeHtml(c.admin || 'N/A')}</span>
-                </div>
-              </div>
-
-              <div style="display: flex; gap: 12px; font-size: 11px; font-weight: 800; background:#f1f5f9; padding:8px 12px; border-radius:8px; width:fit-content;">
-                <span style="color: #16a34a; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">check_circle</span> OK: ${c.ok}</span>
-                <span style="color: #dc2626; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">error</span> FALTAN: ${c.faltantes}</span>
-                <span style="color: #d97706; display:flex; align-items:center; gap:4px;"><span class="material-icons" style="font-size:14px;">warning</span> SOBRAN: ${c.sobrantes}</span>
-              </div>
-            </div>
-
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              ${hasPdf ? `<button onclick="window.open('${escapeHtml(c.pdfUrl)}', '_blank')" style="background: #0f172a; color: white; border: none; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                <span class="material-icons" style="font-size:16px;">download</span> DESCARGAR PDF
-              </button>
-              <button onclick="toggleIframe('iframe-pdf-${i}')" style="background: white; color: #0f172a; border: 1.5px solid #0f172a; padding: 12px 18px; border-radius: 12px; font-weight: 800; font-size:12px; cursor: pointer; display: flex; justify-content:center; align-items: center; gap: 8px;">
-                <span class="material-icons" style="font-size:16px;">visibility</span> VISTA PREVIA
-              </button>` : `<div style="font-size:11px; color:#94a3b8; font-weight:700; text-align:center; padding:8px; background:#f8fafc; border-radius:8px; border:1px dashed #e2e8f0;">Sin PDF adjunto</div>`}
-            </div>
+      <tr>
+        <td data-label="Fecha"><strong>${escapeHtml(String(c.fecha || ''))}</strong></td>
+        <td data-label="Tipo"><span class="audit-history-badge ${badgeClass}"><span class="material-icons" style="font-size:14px;">${tipoIcon}</span>${escapeHtml(tipo)}</span></td>
+        <td data-label="Auxiliar"><strong>${escapeHtml(c.auxiliar || 'N/A')}</strong></td>
+        <td data-label="Ventas"><strong>${escapeHtml(c.admin || 'N/A')}</strong></td>
+        <td data-label="Resumen">
+          <div style="display:flex;flex-wrap:wrap;gap:6px; margin-bottom:8px;">
+            <span class="audit-history-badge ok">OK ${escapeHtml(c.ok || '0')}</span>
+            <span class="audit-history-badge warn">FALTAN ${escapeHtml(c.faltantes || '0')}</span>
+            <span class="audit-history-badge muted">SOBRAN ${escapeHtml(c.sobrantes || '0')}</span>
           </div>
-
-          ${hasPdf ? `<div id="iframe-pdf-${i}" style="display:none; width:100%; height:500px; border-radius:12px; border:1px solid #e2e8f0; overflow:hidden; margin-top:4px; background:#f1f5f9;">
-            <iframe src="${escapeHtml(embedUrl)}" style="width:100%; height:100%; border:none;" allow="autoplay" loading="lazy"></iframe>
-          </div>` : ''}
-        </div>`;
+          <div style="color:#64748b; font-size:12px; line-height:1.45;">
+            <div><strong>Firma auxiliar:</strong> ${escapeHtml(c.firmaAuxiliar || 'N/A')}</div>
+            <div><strong>Firma ventas:</strong> ${escapeHtml(c.firmaVentas || 'N/A')}</div>
+          </div>
+        </td>
+        <td data-label="PDF">
+          ${hasPdf
+            ? `<a class="audit-history-link" href="${escapeHtml(c.pdfUrl)}" target="_blank" rel="noopener"><span class="material-icons" style="font-size:16px;">download</span>Abrir</a>`
+            : '<span style="color:#94a3b8;font-size:12px;font-weight:700;">Sin PDF</span>'}
+        </td>
+      </tr>`;
   }).join('');
+
+  container.innerHTML = `
+    <table class="audit-history-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Tipo</th>
+          <th>Auxiliar</th>
+          <th>Ventas</th>
+          <th>Resumen</th>
+          <th>PDF</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
 }
-
-
 
 
 // ==========================================
@@ -13571,7 +13739,7 @@ function _abrirChatDesdeNotificacion(nombre = '') {
 
 function _abrirCuadreDesdeNotificacion() {
   try {
-    manejadorFlujoV3();
+    window.location.href = '/app/cuadre';
   } catch (error) {
     console.warn('No se pudo abrir el cuadre desde la notificación:', error);
   }

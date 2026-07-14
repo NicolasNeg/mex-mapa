@@ -724,6 +724,16 @@
       transform: translateX(0) !important;
     }
 
+    .units-sidebar:not(.open) {
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+
+    .units-sidebar.open {
+      visibility: visible !important;
+      pointer-events: auto !important;
+    }
+
     /* Header del sidebar */
     .units-sidebar-header {
       padding: 20px;

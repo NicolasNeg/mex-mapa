@@ -112,22 +112,6 @@ function _toMs(ts) {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function _motionPreviewHtml(row = {}) {
-  const tipo = _normalizeTipo(row.tipo);
-  const cls = tipo === "SWAP" ? "is-swap"
-    : tipo === "DEL" ? "is-del"
-    : tipo === "ADD" ? "is-add"
-    : "is-move";
-  return [
-    `<div class="hist-op-motion-mini ${cls}" aria-hidden="true">`,
-    `<span class="hist-op-slot hist-op-slot-a"></span>`,
-    `<span class="hist-op-slot hist-op-slot-b"></span>`,
-    `<span class="hist-op-unit hist-op-unit-a"></span>`,
-    tipo === "SWAP" ? `<span class="hist-op-unit hist-op-unit-b"></span>` : "",
-    "</div>"
-  ].join("");
-}
-
 // ── Popover cajón-a-cajón (solo PC con hover) ────────────────
 // Al pasar el ratón sobre una fila reproduce una vez la animación
 // de la unidad deslizándose del cajón origen al destino.
@@ -266,7 +250,7 @@ function _renderMovimientos() {
   wrap.innerHTML = `
     <table class="hist-op-table">
       <thead><tr>
-        <th>FECHA</th><th>TIPO</th><th>MVA</th><th>MOVIMIENTO</th><th>ANIMACION</th><th>USUARIO</th>
+        <th>FECHA</th><th>TIPO</th><th>MVA</th><th>MOVIMIENTO</th><th>USUARIO</th>
       </tr></thead>
       <tbody>
         ${rows.map(r => `
@@ -275,7 +259,6 @@ function _renderMovimientos() {
             <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}"><span class="material-icons">${_tipoIcon(r.tipo)}</span>${esc(_tipoLabel(r.tipo))}</span></td>
             <td class="hist-op-cell-mva">${esc(r.mva)}</td>
             <td>${esc(_cleanAuditText(r.detalles))}</td>
-            <td class="hist-op-motion-cell">${_motionPreviewHtml(r)}</td>
             <td>${esc(_cleanAuditText(r.usuario))}</td>
           </tr>`).join('')}
       </tbody>
@@ -324,9 +307,6 @@ function _renderEstado() {
                 <span class="material-icons">person</span>
                 <span>${esc(_cleanAuditText(r.autor || r.usuario || "Sistema"))}</span>
               </div>
-            </div>
-            <div class="hist-op-state-anim" aria-hidden="true">
-              <span></span><span></span><span></span>
             </div>
           </article>`;
       }).join("")}
