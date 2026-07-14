@@ -81,7 +81,7 @@ async function ensureServer() {
     await page.fill('#auth_email', EMAIL);
     await page.fill('#auth_pass', PASSWORD);
     info(`Login como ${EMAIL}...`);
-    await page.click('button[type="submit"], #btn-login, button:has-text("Entrar"), button:has-text("Iniciar")');
+    await page.click('#btnLoginManual, #btn-login, button:has-text("Entrar"), button:has-text("Iniciar")');
 
     // Wait for redirect to /app/*
     await page.waitForURL('**/app/**', { timeout: 20000 }).catch(() => {});
@@ -157,9 +157,9 @@ async function ensureServer() {
       // Try opening via the fleet button in the header
       const fleetBtn = await page.$('#mexHdrMapaFleet');
       if (fleetBtn) {
-        await fleetBtn.click();
+        await fleetBtn.click({ force: true });
       } else if (btnAbrir) {
-        await btnAbrir.click();
+        await btnAbrir.click({ force: true });
       } else {
         await page.evaluate(() => window.toggleSidebar?.());
       }
