@@ -12513,6 +12513,12 @@ function _renderAuditCard(u) {
       <div class="audit-card-info">
         <h3 class="audit-card-mva">${u.mva}</h3>
         <span class="audit-card-meta">${u.modelo} &bull; ${u.placas}</span>
+        <div class="audit-card-km" onclick="event.stopPropagation()" style="display:flex;align-items:center;gap:6px;margin-top:6px;color:#64748b;">
+          <span class="material-icons" style="font-size:14px;">speed</span>
+          <input id="audit-km-${u.mva}" type="text" inputmode="numeric" autocomplete="off"
+            value="${u.km != null ? u.km : ''}" placeholder="km"
+            style="width:90px;padding:4px 8px;border:1px solid var(--border,#e2e8f0);border-radius:8px;font-weight:800;font-size:12px;">
+        </div>
         ${u.status === 'EXTRA' ? '<span class="audit-card-extra-badge">&#9888; SOBRANTE</span>' : ''}
       </div>
       <div class="audit-card-actions">
@@ -12599,6 +12605,23 @@ function marcarUnidadAudit(mva, status) {
     // Aplica la decisión normal (Falta o Está)
     else {
       window.AUDIT_LIST[index].status = status;
+    }
+
+    // Captura de km del cuadre de flota: solo el auxiliar (no la revisión del
+    // admin) y solo si el valor tecleado difiere del último conocido.
+    if (status === 'OK' && (typeof userRole === 'undefined' || userRole !== 'admin')) {
+      const inp = document.getElementById(`audit-km-${mva}`);
+      const val = inp ? parseKm(inp.value) : null;
+      const prev = window.AUDIT_LIST[index].km;
+      if (val != null && val !== prev) {
+        window.AUDIT_LIST[index].km = val;
+        api.registrarKm({ mva, km: val, fuente: 'CUADRE', usuario: USER_NAME, plaza: _miPlaza() })
+          .then(r => {
+            if (r === 'DISCREPANCIA') showToast(`⚠️ ${mva}: diferencia de km sin salida registrada`, 'error');
+            else if (r !== 'EXITO') showToast(`${mva}: ${r}`, 'error');
+          })
+          .catch(() => {});
+      }
     }
 
     // Cerramos el teclado del celular para que pueda seguir scrolleando
@@ -12872,7 +12895,10 @@ function manejadorFlujoV3() {
       hacerPingNotificaciones();
       if (mision && mision.length > 0) {
         window.UNIDADES_SISTEMA_CORPORATIVO = mision;
-        window.AUDIT_LIST = window.UNIDADES_SISTEMA_CORPORATIVO.map(u => ({ mva: u.mva, placas: u.placas, modelo: u.modelo, status: 'PENDIENTE' }));
+        window.AUDIT_LIST = window.UNIDADES_SISTEMA_CORPORATIVO.map(u => {
+          const local = (typeof DB_FLOTA !== 'undefined' && DB_FLOTA.find(x => x.mva === u.mva)) || {};
+          return { mva: u.mva, placas: u.placas, modelo: u.modelo, status: 'PENDIENTE', km: (typeof local.km === 'number') ? local.km : null };
+        });
 
         document.getElementById('audit-modal').classList.add('active');
         document.getElementById('audit-paso1').style.display = 'none';
