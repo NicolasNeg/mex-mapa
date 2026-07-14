@@ -1,10 +1,78 @@
 ---
 title: Kilometraje global por unidad + módulo de Traslados
 date: 2026-07-13
-status: aprobado por el usuario (brainstorming 2026-07-13)
+status: Fase A IMPLEMENTADA (deploy hosting pendiente) · Fase B pendiente — ver "ESTADO DE IMPLEMENTACIÓN"
 ---
 
 # Kilometraje global + Traslados
+
+---
+
+## ⚡ ESTADO DE IMPLEMENTACIÓN (2026-07-14) — leer antes de continuar
+
+> Sección para el agente que retome este trabajo (Codex u otro). El diseño de
+> abajo está APROBADO por el usuario — no re-diseñar; implementar lo que falta.
+
+### ✅ HECHO — Fase A (Kilometraje) COMPLETA en `main`
+
+Plan ejecutado: `docs/superpowers/plans/2026-07-13-kilometraje-fase-a.md` (9/9 tareas,
+cada una con code review; bitácora detallada en `.superpowers/sdd/progress.md`).
+Commits propios: `5891760..1fa38c9` (11, intercalados con commits de rediseño ajenos).
+
+| Pieza | Dónde vive |
+|---|---|
+| Lógica pura `parseKm` / `clasificarCaptura` | `domain/kilometraje.model.js` (+ self-check: `node scripts/check-kilometraje.mjs`) |
+| `api.registrarKm({mva, km, fuente, usuario, plaza, motivo?, nota?, trasladoId?})` → `'EXITO'\|'DISCREPANCIA'\|error-string` | `api/cuadre.js` (con copia privada `_clasificarKm` — los api/*.js son scripts clásicos, no importan ES modules) |
+| Captura al insertar (campo `#f_km` obligatorio) | `cuadre.html` + `ejecutarGuardadoFlota` en `js/views/mapa.js` |
+| Captura al retirar (diálogo `_pedirKmRetiro` km + motivo RENTA/OTRO; Cuadre Admins exento) | `js/views/mapa.js` (`confirmarBorradoFlotaUI`/`ejecutarBorradoReal`) + 4º param `retiro` de `ejecutarEliminacion` |
+| Captura en auditoría (input `#audit-km-{mva}` prellenado; escribe solo si cambió, al marcar OK, solo auxiliar) | `js/views/mapa.js` (`_renderAuditCard`, `marcarUnidadAudit`) |
+| Corrección con permiso `km_corregir` (modo edición) | `js/views/mapa.js` (`seleccionarFilaFlota`, `validarBotonGuardar`, `ejecutarGuardadoFlota`) |
+| Permiso `km_corregir` (default GERENTE_PLAZA + JEFE_REGIONAL) | `domain/permissions.model.js` + `js/core/feature-gates.js` (`_PERM_DEFAULTS`) + `firestore.rules` (`rolTienePermiso`) |
+| Reglas `km_registros` (append-only) y `km_discrepancias` + whitelist índice (`km`,`kmFecha`,`kmFuenteUltima`) | `firestore.rules` — **YA DESPLEGADAS en prod** |
+| Columna KM (ordenable, sin filtro) + gas progressbar | `cuadre.html` (thead) + `renderFlota`/`filtrarFlota` en `js/views/mapa.js` + `css/mapa.css` (`.gas-cell*`, `.td-km`) |
+| Constantes | `js/core/database.js`: `COL.KM_REGISTROS`, `COL.KM_DISCREPANCIAS` + bridge `registrarKm` |
+
+Verificado: self-check OK; smoke Playwright 19/19 (`node scripts/test-mapa.js`);
+columna KM y `#f_km` presentes en DOM real (el `/cuadre` redirige a `/app/cuadre` y
+la página vive en un IFRAME — al automatizar, buscar en `p.frames()`); llamada real
+`api.registrarKm` desde sesión autenticada contra Firestore de prod devolvió EXITO.
+
+### ⏳ PENDIENTE INMEDIATO
+
+1. **Deploy de hosting de la Fase A** — al cierre estaba BLOQUEADO: una sesión
+   paralela dejó `api/cuadre.js` y `mex-api.js` a medio editar (sin parsear) en el
+   working tree, y `firebase deploy` sube el DISCO, no el commit. Antes de desplegar:
+   `node --check api/cuadre.js && node --check mex-api.js` → verdes → `npm run deploy`
+   (bumpea el SW solo) → `git add . && git commit && git push`. HEAD `407f5a1` está sano.
+2. **Fase B — Traslados: TODO el bloque de abajo.** No existe plan aún: escribirlo
+   desde este spec (el flujo de la casa es superpowers:writing-plans → ejecutar
+   tarea por tarea con review). La vista `/app/traslados` se implementa con el skill
+   `ui-ux-pro-max` y `ESTILO.md` (glass/minimalista); los screenshots del usuario
+   son inspiración funcional, no estética.
+
+### 🧾 Debt aceptado de Fase A (no bloqueante; detalles en `.superpowers/sdd/progress.md`)
+
+- 1er insert de una unidad NUNCA vista: el índice se crea con `.add()` sin await y
+  `registrarKm` no le escribe km (se autocura en la 2ª captura). Fix opcional 1 línea.
+- Fila optimista de la tabla sin km hasta recargar (`actualizarTablaLocal` no pasa km).
+- `colspan="7"` desactualizado en el placeholder "Cargando inventario" (`js/views/mapa.js` ~6070).
+- Eliminación por comando de voz/IA no captura km (llama `ejecutarEliminacion` con 3 args).
+- Monotonía `km >= anterior` validada solo en cliente (subir a callables si hay manipulación).
+- **Para Fase B**: apretar la regla `update` de `km_discrepancias` — exigir
+  `resource.data.estado == "PENDIENTE"` + `hasOnly` de campos de resolución (hoy un
+  `km_corregir` podría reescribir `kmCapturado` o re-resolver una resuelta).
+
+### 📐 Reglas de la casa que aplican (resumen para agente externo)
+
+- No hay build step. `api/*.js` = scripts clásicos IIFE sobre `window._mexParts`
+  (PROHIBIDO `import`); `js/views/mapa.js` SÍ es ES module (~23k líneas — ancla por
+  grep, nunca por número de línea). `api/_assemble.js` pisa los duplicados de
+  `mex-api.js` — tocar solo `api/*.js`.
+- `firestore.rules`: check barato PRIMERO en cadenas `&&`/`||` (límite 1000 expr).
+- Nunca `git add .` si hay archivos ajenos modificados — commitear por archivo.
+- Deploy: siempre vía `npm run deploy` (bump SW automático); después commit + push.
+
+---
 
 Dos subsistemas acoplados, implementados en dos fases:
 
