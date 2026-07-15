@@ -5,7 +5,8 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
-import { iniciarTurno, cerrarTurno, onTurnosActivos } from '/js/app/features/turnos/turnos-data.js';
+import { onTurnosActivos } from '/js/app/features/turnos/turnos-data.js';
+import { iniciarTurno, cerrarTurno } from '/js/app/features/turnos/turnos-mutations.js';
 import {
   DIAS, DIA_NOMBRE, TIPOS_DIA, ESTADOS_ASISTENCIA,
   semanaInicio, moverSemana, fechaDia, hoy, rangoSemana,
@@ -16,14 +17,37 @@ import {
   onPlantillas, guardarPlantilla, eliminarPlantilla,
   onNotasSemana, guardarNotaSemana,
 } from '/js/app/features/turnos/horarios-data.js';
+import {
+  isTurnosAdmin,
+  LISTENER_ERROR,
+  nombreUsuario,
+  initialUsuario,
+  escHtml as esc,
+  formatElapsed,
+  formatDuration,
+  turnoInicioDate,
+  turnoFinDate,
+  resolveUsuariosLista,
+  normalizeUsuarioUid,
+  indexErrorBannerHtml,
+  usuariosPlazaEmptyMessage,
+} from '/js/app/features/turnos/turnos-view-model.js';
 
-// ── Constantes de rol ──────────────────────────────────────────
-const ROLES_ADMIN = new Set([
-  'SUPERVISOR','JEFE_PATIO','GERENTE_PLAZA',
-  'JEFE_REGIONAL','CORPORATIVO_USER','JEFE_OPERACION','PROGRAMADOR',
-]);
+function _toast(msg, title = 'Turnos') {
+  if (typeof window.mexAlert === 'function') {
+    void window.mexAlert(msg, title);
+  } else {
+    console.warn(`[turnos] ${title}: ${msg}`);
+  }
+}
 
-function _isAdmin(role) { return ROLES_ADMIN.has(String(role || '').toUpperCase()); }
+function _toastTurnoError(e, action) {
+  if (e?.code === 'INDEX_MISSING') {
+    _toast('Índice de Firestore pendiente. Contacta al administrador o despliega firestore:indexes.', 'Índice requerido');
+    return;
+  }
+  _toast(e?.message || `No se pudo ${action}.`, 'Error');
+}
 
 // ── Estado del módulo ─────────────────────────────────────────
 let _ctr     = null;
@@ -50,13 +74,15 @@ export async function mount({ container }) {
 
   _s = {
     role, plaza, profile, uid,
-    isAdmin: _isAdmin(role),
+    isAdmin: isTurnosAdmin(role),
     tab: 'activos',
     turnosActivos: [],
     miTurno: null,
     horarios: [],
     semana: semanaInicio(),
     usuarios: [],
+    usuariosLoadError: null,
+    listenerErrors: {},
     asistencia: [],
     asistenciaFecha: hoy(),
     historial: [],
@@ -120,16 +146,20 @@ function _startListeners() {
   });
 
   // Horarios de la semana seleccionada
-  _unsubH = onHorariosSemanales(plaza, semana, list => {
+  _unsubH = onHorariosSemanales(plaza, semana, (list, err) => {
     if (!_s) return;
     _s.horarios = list;
+    if (err) _s.listenerErrors.horarios = err;
+    else delete _s.listenerErrors.horarios;
     _repaintTab();
   });
 
   // Asistencia del día seleccionado
-  _unsubAs = onAsistencia(plaza, asistenciaFecha, asistenciaFecha, list => {
+  _unsubAs = onAsistencia(plaza, asistenciaFecha, asistenciaFecha, (list, err) => {
     if (!_s) return;
     _s.asistencia = list;
+    if (err) _s.listenerErrors.asistencia = err;
+    else delete _s.listenerErrors.asistencia;
     _repaintTab();
   });
 
@@ -162,9 +192,11 @@ function _restartListenerHorarios() {
   if (_unsubH)  { try { _unsubH(); }  catch (_) {} _unsubH  = null; }
   if (_unsubNS) { try { _unsubNS(); } catch (_) {} _unsubNS = null; }
   if (!_s?.plaza) return;
-  _unsubH = onHorariosSemanales(_s.plaza, _s.semana, list => {
+  _unsubH = onHorariosSemanales(_s.plaza, _s.semana, (list, err) => {
     if (!_s) return;
     _s.horarios = list;
+    if (err) _s.listenerErrors.horarios = err;
+    else delete _s.listenerErrors.horarios;
     _repaintTab();
   });
   _unsubNS = onNotasSemana(_s.plaza, _s.semana, notas => {
@@ -178,9 +210,11 @@ function _restartListenerAsistencia() {
   if (_unsubAs) { try { _unsubAs(); } catch (_) {} _unsubAs = null; }
   if (!_s?.plaza) return;
   const fecha = _s.asistenciaFecha;
-  _unsubAs = onAsistencia(_s.plaza, fecha, fecha, list => {
+  _unsubAs = onAsistencia(_s.plaza, fecha, fecha, (list, err) => {
     if (!_s) return;
     _s.asistencia = list;
+    if (err) _s.listenerErrors.asistencia = err;
+    else delete _s.listenerErrors.asistencia;
     _repaintTab();
   });
 }
@@ -189,10 +223,17 @@ function _restartListenerAsistencia() {
 async function _loadUsuarios() {
   if (!_s?.plaza) return;
   _s.usuariosLoading = true;
+  _s.usuariosLoadError = null;
   try {
     _s.usuarios = await getUsuariosPlaza(_s.plaza);
-  } catch (_) {
+  } catch (e) {
     _s.usuarios = [];
+    _s.usuariosLoadError = e?.code === 'INDEX_MISSING'
+      ? { code: LISTENER_ERROR.INDEX_MISSING, source: 'usuarios' }
+      : { code: LISTENER_ERROR.OTHER, source: 'usuarios', message: e?.message };
+    if (e?.code === 'INDEX_MISSING') {
+      _s.listenerErrors.usuarios = _s.usuariosLoadError;
+    }
   }
   _s.usuariosLoading = false;
   if (_s?.tab === 'horarios' || _s?.tab === 'asistencia') _repaintTab();
@@ -234,7 +275,7 @@ function _render() {
     </nav>
   </div>
   <div class="tu-body" id="tuBody">
-    ${!plaza ? _renderNoPlaza() : _renderTabContent()}
+    ${!plaza ? _renderNoPlaza() : indexErrorBannerHtml(_s.listenerErrors) + _renderTabContent()}
   </div>
 </div>`;
 
@@ -251,7 +292,9 @@ function _renderNoPlaza() {
 function _repaintTab() {
   const body = _ctr?.querySelector('#tuBody');
   if (!body || !_s) return;
-  body.innerHTML = !_s.plaza ? _renderNoPlaza() : _renderTabContent();
+  body.innerHTML = !_s.plaza
+    ? _renderNoPlaza()
+    : indexErrorBannerHtml(_s.listenerErrors) + _renderTabContent();
   _bindTabBody();
 }
 
@@ -301,11 +344,8 @@ function _renderActivos() {
 }
 
 function _renderTurnoCard(turno, esPropio) {
-  const inicio = turno.inicio?.toDate?.() || new Date(Number(turno.inicio) || Date.now());
-  const ms     = Date.now() - inicio.getTime();
-  const h      = Math.floor(ms / 3600000);
-  const m      = Math.floor((ms % 3600000) / 60000);
-  const elapsed = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const inicio = turnoInicioDate(turno);
+  const elapsed = formatElapsed(Date.now() - inicio.getTime());
   const since   = inicio.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
   const nombre  = esc(turno.usuarioNombre || 'Usuario');
 
@@ -372,25 +412,23 @@ function _renderHorarios() {
   if (usuariosLoading) {
     filas = `<tr><td colspan="8" class="tu-grid-loading">Cargando usuarios…</td></tr>`;
   } else {
-    let lista = isAdmin ? usuarios : usuarios.filter(u => (u.uid || u.id) === uid);
-    // Fallback: un no-admin siempre debe verse a sí mismo aunque getUsuariosPlaza
-    // no lo devuelva (plazaAsignada desincronizada). Ver spec Fase 1.2.
-    if (!isAdmin && !lista.length && uid) {
-      lista = [{ uid, id: uid, ...profile }];
-    }
-    if (!lista.length) {
-      filas = `<tr><td colspan="8" class="tu-grid-empty">
-        No hay usuarios registrados en esta plaza.
-      </td></tr>`;
+    const lista = resolveUsuariosLista(usuarios, { isAdmin, uid, profile });
+    const emptyMsg = usuariosPlazaEmptyMessage({
+      usuariosLoading: false,
+      hasIndexError: !!(_s.listenerErrors?.usuarios || _s.usuariosLoadError?.code === LISTENER_ERROR.INDEX_MISSING),
+      hasUsuarios: lista.length > 0,
+    });
+    if (emptyMsg) {
+      filas = `<tr><td colspan="8" class="tu-grid-empty">${esc(emptyMsg)}</td></tr>`;
     } else {
       for (const u of lista) {
-        const realUid = u.uid || u.id;
+        const realUid = normalizeUsuarioUid(u);
         const horario = horarios.find(h => h.usuarioId === realUid);
         const esYo    = realUid === uid;
         filas += `<tr class="tu-grid-row${esYo ? ' tu-grid-row--own' : ''}">
           <td class="tu-grid-td-name">
-            <span class="tu-grid-avatar">${_initial(u)}</span>
-            <span class="tu-grid-uname">${esc(_nombre(u))}</span>
+            <span class="tu-grid-avatar">${initialUsuario(u)}</span>
+            <span class="tu-grid-uname">${esc(nombreUsuario(u))}</span>
           </td>
           ${DIAS.map(d => {
             const cell  = horario?.dias?.[d];
@@ -405,7 +443,7 @@ function _renderHorarios() {
               if (cell.nota) content += `<div class="tu-cell-nota" title="${esc(cell.nota)}">💬 ${esc(cell.nota)}</div>`;
             }
             return `<td class="tu-grid-td${esHoy ? ' tu-grid-td--today' : ''}${editable ? ' tu-grid-td--editable' : ''}"
-                        ${editable ? `data-edit-uid="${esc(realUid)}" data-edit-nombre="${esc(_nombre(u))}" data-edit-rol="${esc(u.rol || u.role || '')}" data-edit-dia="${d}"` : ''}>
+                        ${editable ? `data-edit-uid="${esc(realUid)}" data-edit-nombre="${esc(nombreUsuario(u))}" data-edit-rol="${esc(u.rol || u.role || '')}" data-edit-dia="${d}"` : ''}>
               ${content || (editable ? '<span class="tu-cell-add">+</span>' : '')}
             </td>`;
           }).join('')}
@@ -577,21 +615,28 @@ function _renderAsistencia() {
   let filas = '';
   if (usuariosLoading) {
     filas = `<tr><td colspan="4" class="tu-grid-loading">Cargando…</td></tr>`;
-  } else if (!usuarios.length) {
-    filas = `<tr><td colspan="4" class="tu-grid-empty">No hay usuarios en esta plaza.</td></tr>`;
   } else {
-    for (const u of usuarios) {
-      const uid  = u.uid || u.id || '';
-      const reg  = asistencia.find(a => a.usuarioId === uid);
-      const est  = reg?.estado || '';
-      const nota = reg?.nota   || '';
-      filas += `<tr class="tu-asist-row" data-uid="${esc(uid)}" data-nombre="${esc(_nombre(u))}">
+    const lista = resolveUsuariosLista(usuarios, { isAdmin: true, uid: _s.uid, profile: _s.profile });
+    const emptyMsg = usuariosPlazaEmptyMessage({
+      usuariosLoading: false,
+      hasIndexError: !!(_s.listenerErrors?.usuarios || _s.usuariosLoadError?.code === LISTENER_ERROR.INDEX_MISSING),
+      hasUsuarios: lista.length > 0,
+    });
+    if (emptyMsg) {
+      filas = `<tr><td colspan="4" class="tu-grid-empty">${esc(emptyMsg)}</td></tr>`;
+    } else {
+      for (const u of lista) {
+        const uUid = normalizeUsuarioUid(u);
+        const reg  = asistencia.find(a => a.usuarioId === uUid);
+        const est  = reg?.estado || '';
+        const nota = reg?.nota   || '';
+        filas += `<tr class="tu-asist-row" data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}">
         <td class="tu-asist-td-name">
-          <span class="tu-grid-avatar">${_initial(u)}</span>
-          <span>${esc(_nombre(u))}</span>
+          <span class="tu-grid-avatar">${initialUsuario(u)}</span>
+          <span>${esc(nombreUsuario(u))}</span>
         </td>
         <td>
-          <select class="tu-select tu-asist-estado" data-uid="${esc(uid)}">
+          <select class="tu-select tu-asist-estado" data-uid="${esc(uUid)}">
             <option value="">— sin registrar —</option>
             ${Object.entries(ESTADOS_ASISTENCIA).map(([k, v]) =>
               `<option value="${k}" ${est === k ? 'selected' : ''}>${v.label}</option>`
@@ -600,15 +645,16 @@ function _renderAsistencia() {
         </td>
         <td>
           <input class="tu-input tu-asist-nota" type="text" placeholder="Nota (opcional)"
-                 value="${esc(nota)}" data-uid="${esc(uid)}">
+                 value="${esc(nota)}" data-uid="${esc(uUid)}">
         </td>
         <td>
           <button class="tu-btn tu-btn--sm tu-btn--primary tu-asist-save"
-                  type="button" data-uid="${esc(uid)}" data-nombre="${esc(_nombre(u))}">
+                  type="button" data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}">
             <span class="material-symbols-outlined">save</span>
           </button>
         </td>
       </tr>`;
+      }
     }
   }
 
@@ -642,13 +688,21 @@ function _renderAsistencia() {
 
 // ── Tab Historial ─────────────────────────────────────────────
 function _renderHistorial() {
-  const { historial, historialCargado, isAdmin, uid } = _s;
+  const { historial, historialCargado, isAdmin, uid, listenerErrors } = _s;
 
   if (!historialCargado) {
     void _loadHistorial();
     return `<div class="tu-loading">
       <div class="tu-spinner"></div>
       <span>Cargando historial…</span>
+    </div>`;
+  }
+
+  if (listenerErrors?.historial?.code === LISTENER_ERROR.INDEX_MISSING) {
+    return `<div class="tu-empty-state">
+      <span class="material-symbols-outlined">construction</span>
+      <p>El historial requiere un índice de Firestore que aún no está desplegado.</p>
+      <p style="font-size:12px;color:#64748b;margin-top:8px;">Ejecuta <code>firebase deploy --only firestore:indexes</code></p>
     </div>`;
   }
 
@@ -660,12 +714,10 @@ function _renderHistorial() {
   }
 
   const filas = historial.map(t => {
-    const inicio = t.inicio?.toDate?.() || new Date(Number(t.inicio) || 0);
-    const fin    = t.fin?.toDate?.()    || new Date(Number(t.fin)    || 0);
+    const inicio = turnoInicioDate(t);
+    const fin    = turnoFinDate(t);
     const ms     = fin.getTime() - inicio.getTime();
-    const h      = Math.floor(ms / 3600000);
-    const m      = Math.floor((ms % 3600000) / 60000);
-    const dur    = ms > 0 ? (h > 0 ? `${h}h ${m}m` : `${m}m`) : '—';
+    const dur    = ms > 0 ? formatDuration(ms) : '—';
     const fechaStr = inicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
     const inicioStr = inicio.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
     const finStr    = fin.toLocaleTimeString('es-MX',    { hour: '2-digit', minute: '2-digit' });
@@ -739,6 +791,7 @@ function _bindActivos() {
       await iniciarTurno({ uid: authUid, ...profile }, plaza);
     } catch (e) {
       console.warn('[turnos] iniciarTurno:', e);
+      _toastTurnoError(e, 'iniciar el turno');
       if (_s && btn) btn.disabled = false;
     }
   });
@@ -748,9 +801,11 @@ function _bindActivos() {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.cerrar;
       btn.disabled = true;
-      try { await cerrarTurno(id); }
-      catch (e) {
+      try {
+        await cerrarTurno(id, { user: _s?.profile, plaza: _s?.plaza });
+      } catch (e) {
         console.warn('[turnos] cerrarTurno:', e);
+        _toastTurnoError(e, 'cerrar el turno');
         btn.disabled = false;
       }
     });
@@ -1025,7 +1080,7 @@ function _exportarHorarios() {
   }).join('');
 
   const rows = usuarios.map(u => {
-    const realUid = u.uid || u.id;
+    const realUid = normalizeUsuarioUid(u);
     const horario = horarios.find(h => h.usuarioId === realUid);
     const celdas  = DIAS.map(d => {
       const cell = horario?.dias?.[d];
@@ -1034,7 +1089,7 @@ function _exportarHorarios() {
       const nota  = cell.nota ? `<br><small style="color:#6366f1">${cell.nota}</small>` : '';
       return `<td>${texto}${nota}</td>`;
     }).join('');
-    return `<tr><td><strong>${_nombre(u)}</strong></td>${celdas}</tr>`;
+    return `<tr><td><strong>${nombreUsuario(u)}</strong></td>${celdas}</tr>`;
   }).join('');
 
   const html = `<!DOCTYPE html>
@@ -1079,25 +1134,19 @@ async function _loadHistorial(more = false) {
       ...(!isAdmin ? { usuarioId: uid } : {}),
     });
     if (!_s) return;
+    delete _s.listenerErrors.historial;
     _s.historial = more ? [...(_s.historial || []), ...items] : items;
     _s.historialCargado = true;
     _repaintTab();
   } catch (e) {
     console.warn('[turnos] historial:', e);
-    if (_s) { _s.historialCargado = true; _repaintTab(); }
+    if (!_s) return;
+    if (e?.code === 'INDEX_MISSING') {
+      _s.listenerErrors.historial = { code: LISTENER_ERROR.INDEX_MISSING, source: 'historial' };
+      _toast('Índice de historial pendiente. Despliega firestore:indexes.', 'Índice requerido');
+    }
+    _s.historial = more ? (_s.historial || []) : [];
+    _s.historialCargado = true;
+    _repaintTab();
   }
-}
-
-// ── Helpers ───────────────────────────────────────────────────
-function _nombre(u) {
-  return String(u.nombreCompleto || u.nombre || u.email || u.id || '—').split(/\s+/).slice(0, 2).join(' ');
-}
-
-function _initial(u) {
-  const n = _nombre(u);
-  return n.charAt(0).toUpperCase();
-}
-
-function esc(v) {
-  return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }

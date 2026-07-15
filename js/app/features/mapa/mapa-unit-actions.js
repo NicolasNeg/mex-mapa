@@ -6,6 +6,7 @@
 
 import { esGlobal } from '/domain/permissions.model.js';
 import { persistUnitMove } from '/js/app/features/mapa/mapa-mutations.js';
+import { enqueueUnit } from '/js/app/features/cola-preparacion/cola-mutations.js';
 
 const MUTATING_ACTIONS = new Set([
   'update_status',
@@ -60,7 +61,7 @@ const ACTION_DEFS = Object.freeze({
     label: 'Enviar a cola preparacion',
     mutates: true,
     requiresConfirmation: true,
-    requiredApi: 'NO_SAFE_LEGACY_API'
+    requiredApi: null
   },
   create_incident_link_only: {
     id: 'create_incident_link_only',
@@ -198,6 +199,7 @@ function _available(action, extra = {}) {
 
 function _hasApiForAction(api, action) {
   const def = _actionDef(action);
+  if (action === 'send_to_preparacion') return true;
   if (!def?.requiredApi) return true;
   if (def.requiredApi === 'NO_SAFE_LEGACY_API') return false;
   return _isFn(api?.[def.requiredApi]);
@@ -261,6 +263,47 @@ function _validatePayload(action, unit, payload = {}) {
     if (!_text(payload.posNueva || payload.pos || payload.destKey)) return { ok: false, code: 'NO_DEST', message: 'Destino requerido.' };
   }
   return { ok: true, code: 'OK', message: '', unit };
+}
+
+async function _executeSendToPreparacion(unit, payload, context) {
+  const mva = _unitMva(unit);
+  const plaza = _upper(context.plaza);
+  const actor = _actorName(context);
+  let fechaSalida = null;
+  if (payload.fechaSalida instanceof Date) {
+    fechaSalida = payload.fechaSalida;
+  } else if (payload.fechaSalida) {
+    fechaSalida = new Date(payload.fechaSalida);
+    if (Number.isNaN(fechaSalida.getTime())) fechaSalida = null;
+  }
+  try {
+    const result = await enqueueUnit({
+      mva,
+      plaza,
+      fechaSalida: fechaSalida || undefined,
+      asignado: _text(payload.asignado || ''),
+      notas: _text(payload.notas || ''),
+      origen: 'MAPA',
+      actor
+    });
+    if (result.alreadyExists) {
+      return {
+        ok: true,
+        code: 'ALREADY_IN_QUEUE',
+        message: `${mva} ya está en la cola de preparación.`,
+        href: `/app/cola-preparacion?mva=${encodeURIComponent(mva)}&plaza=${encodeURIComponent(plaza)}`
+      };
+    }
+    return {
+      ok: true,
+      code: 'OK',
+      message: `${mva} agregado a cola de preparación.`,
+      href: `/app/cola-preparacion?mva=${encodeURIComponent(mva)}&plaza=${encodeURIComponent(plaza)}`,
+      data: result
+    };
+  } catch (err) {
+    return { ok: false, code: 'COLA_ERROR', message: err?.message || 'No se pudo enviar a cola.' };
+  }
 }
 
 async function _executeApplyEstado(api, action, unit, payload, context) {
@@ -383,9 +426,6 @@ export function createMapaUnitActionsController({
       const def = _actionDef(action);
       const common = _validateCommon(action, unit, { confirmed: def?.requiresConfirmation ? true : undefined }, ctx);
       if (!common.ok && !['CONFIRMATION'].includes(common.code)) return _unavailable(action, common.message, { code: common.code });
-      if (action === 'send_to_preparacion') {
-      return _unavailable(action, 'No hay API operativa segura detectada', { code: 'NO_SAFE_API' });
-      }
       if (!_hasApiForAction(apiRef, action)) {
         return _unavailable(action, 'No hay API operativa segura detectada', { code: 'NO_API' });
       }
@@ -395,6 +435,8 @@ export function createMapaUnitActionsController({
             ? _buildLegacyUrl(unit, ctx)
             : action === 'create_incident_link_only'
               ? _buildIncidentUrl(unit, ctx)
+              : action === 'send_to_preparacion'
+                ? `/app/cola-preparacion?mva=${encodeURIComponent(_unitMva(unit))}${ctx.plaza ? `&plaza=${encodeURIComponent(ctx.plaza)}` : ''}`
               : ''
       });
     });
@@ -437,6 +479,9 @@ export function createMapaUnitActionsController({
     }
     if (normalized === 'copy_json') {
       return { ok: true, code: 'OK', message: 'JSON preparado.', data: { ...unit } };
+    }
+    if (normalized === 'send_to_preparacion') {
+      return _executeSendToPreparacion(unit, payload, ctx);
     }
     return { ok: false, code: 'NO_EXECUTOR', message: 'Accion sin executor seguro.' };
   }

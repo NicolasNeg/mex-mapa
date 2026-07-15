@@ -852,6 +852,38 @@
   min-height: 72px;
 }
 
+/* ── Index / error banner ───────────────────────────────────── */
+.tu-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 1px solid #fbbf24;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+}
+
+.tu-banner .material-symbols-outlined {
+  flex-shrink: 0;
+  color: #d97706;
+}
+
+.tu-banner p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #b45309;
+}
+
+.tu-banner code {
+  font-size: 11px;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 1px 4px;
+  border-radius: 4px;
+}
+
 /* ── Mobile ───────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .tu-header { padding: 14px 14px 0; }

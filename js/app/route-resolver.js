@@ -181,6 +181,15 @@ export const ROUTE_MAP = {
     fullModuleMigrated: true,
     feature: 'historial_logs',
   },
+  turnos: {
+    id: 'turnos', label: 'Turnos y horarios',
+    legacyRoute:  '/app/turnos',
+    appRoute:     '/app/turnos',
+    navRoute:     '/app/turnos',
+    fallbackRoute:'/app/turnos',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+  },
 };
 
 function _dynamicAppRoute(pathname, tail = '') {

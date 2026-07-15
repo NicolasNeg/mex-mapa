@@ -110,7 +110,7 @@
     #fleet-modal { flex: 1 1 auto !important; min-height: 0 !important; flex-direction: column !important; }
     #fleet-modal .fleet-header-top,
     #fleet-modal .more-controls-wrapper { flex: 0 0 auto !important; }
-    #fleet-modal .fleet-wrapper { flex: 1 1 auto !important; min-height: 0 !important; }
+    #fleet-modal .fleet-wrapper { flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important; }
     #fleet-modal .main-grid-flota { flex: 1 1 auto !important; min-height: 0 !important; }
     #fleet-modal .col-table { flex: 1 1 auto !important; min-height: 0 !important; }
     #fleet-modal .col-table .table-container { flex: 1 1 auto !important; min-height: 0 !important; overflow-y: auto !important; }
@@ -119,28 +119,193 @@
        solo sube cuando seleccionas una unidad (.active). Antes tapaba la lista. */
     @media (max-width: 1024px) {
       #fleet-modal .main-grid-flota { flex-direction: column !important; overflow: hidden !important; }
-      #fleet-modal .col-table { display: flex !important; flex: 1 1 auto !important; min-height: 0 !important; overflow: hidden !important; }
-      #fleet-modal .col-table .table-container { flex: 1 1 auto !important; min-height: 0 !important; overflow: auto !important; }
+      #fleet-modal .col-table {
+        display: flex !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow: hidden !important;
+        height: auto !important;
+        padding: 12px 12px 0 !important;
+        background: var(--cuadre-surface) !important;
+        border: none !important;
+        box-shadow: none !important;
+      }
+      #fleet-modal .col-table .table-container {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        border: 1px solid var(--cuadre-border-soft) !important;
+        background: var(--cuadre-surface) !important;
+        box-shadow: none !important;
+        overflow-x: auto !important;
+      }
       /* Mantener la TABLA como tabla (NO cards) + scroll horizontal. Revierte la
-         conversión a tarjetas de alertas.css en mobile/tablet. */
-      #fleet-modal .col-table table { display: table !important; width: max-content !important; min-width: 100% !important; }
-      #fleet-modal .col-table thead { display: table-header-group !important; }
-      #fleet-modal .col-table tbody { display: table-row-group !important; }
-      #fleet-modal .col-table tr { display: table-row !important; background: transparent !important; border: 0 !important; margin: 0 !important; padding: 0 !important; }
-      #fleet-modal .col-table th, #fleet-modal .col-table td { display: table-cell !important; white-space: nowrap !important; }
-      #fleet-modal .col-table td::before { display: none !important; content: none !important; }
+         conversión a tarjetas de alertas.css / mapa.css en mobile/tablet. */
+      #fleet-modal .col-table table,
+      #fleet-modal .table-container table {
+        display: table !important;
+        width: max-content !important;
+        min-width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      #fleet-modal .col-table thead,
+      #fleet-modal .table-container thead { display: table-header-group !important; }
+      #fleet-modal .col-table tbody,
+      #fleet-modal .table-container tbody { display: table-row-group !important; }
+      #fleet-modal .col-table tr,
+      #fleet-modal .table-container tr {
+        display: table-row !important;
+        background: transparent !important;
+        border: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        grid-template-columns: unset !important;
+        grid-template-rows: unset !important;
+        gap: 0 !important;
+        transform: none !important;
+      }
+      #fleet-modal .col-table th,
+      #fleet-modal .col-table td,
+      #fleet-modal .table-container th,
+      #fleet-modal .table-container td {
+        display: table-cell !important;
+        white-space: nowrap !important;
+        vertical-align: middle !important;
+        width: auto !important;
+        box-sizing: border-box !important;
+      }
+      #fleet-modal .col-table td::before,
+      #fleet-modal .table-container td::before { display: none !important; content: none !important; }
+      #fleet-modal .col-table td.td-mva,
+      #fleet-modal .table-container td.td-mva {
+        font-size: 15px !important;
+        font-weight: 800 !important;
+        color: var(--cuadre-navy) !important;
+        border-bottom: none !important;
+        padding: 12px !important;
+        margin: 0 !important;
+        justify-content: flex-start !important;
+        text-align: left !important;
+      }
+      /* mapa.js inyecta EDITAR/ELIMINAR en card layout — ocultar en cuadre móvil */
+      #fleet-modal .card-quick-actions { display: none !important; }
     }
+
     /* Botones flotantes SIEMPRE visibles (fixed al viewport), no absolute dentro
        del col-table que crece. */
     #fleet-modal .btn-flotante-agregar-cuadre {
-      position: fixed !important; bottom: 24px !important; right: 24px !important; z-index: 40 !important;
+      position: fixed !important;
+      bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+      right: calc(16px + env(safe-area-inset-right, 0px)) !important;
+      z-index: 40 !important;
+      width: 48px !important;
+      height: 48px !important;
+      min-width: 48px !important;
+      min-height: 48px !important;
     }
     #fleet-modal .cuadre-zoom-ctrl {
-      position: fixed !important; bottom: 92px !important; right: 24px !important; z-index: 40 !important;
+      position: fixed !important;
+      bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+      right: calc(16px + env(safe-area-inset-right, 0px)) !important;
+      z-index: 40 !important;
+      gap: 8px !important;
     }
+    #fleet-modal .cuadre-zoom-ctrl button {
+      width: 44px !important;
+      height: 44px !important;
+      min-width: 44px !important;
+      min-height: 44px !important;
+    }
+
     @media (max-width: 768px) {
-      #fleet-modal .btn-flotante-agregar-cuadre { bottom: 88px !important; }
-      #fleet-modal .cuadre-zoom-ctrl { bottom: 156px !important; }
+      /* Tabs: fila compacta con scroll horizontal */
+      #fleet-modal .toolbar-flota {
+        flex-direction: row !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+      }
+      #fleet-modal .flota-tabs-slider {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin-bottom: 8px !important;
+        padding: 4px !important;
+        gap: 8px !important;
+      }
+      #fleet-modal .flota-tabs-slider::-webkit-scrollbar { display: none !important; }
+      #fleet-modal .flota-tabs-slider button {
+        flex: 0 0 auto !important;
+        white-space: nowrap !important;
+        min-height: 40px !important;
+        padding: 8px 14px !important;
+      }
+
+      /* Chips: wrap con aire; Limpiar en su propia línea */
+      #fleet-modal .cuadre-chips-row {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        align-items: flex-start !important;
+        gap: 8px !important;
+        margin-bottom: 12px !important;
+      }
+      #fleet-modal .cuadre-chips-row .chips-filter {
+        flex: 1 1 100% !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+        overflow: visible !important;
+        padding-bottom: 0 !important;
+      }
+      #fleet-modal .cuadre-chips-row .chip {
+        min-height: 36px !important;
+        padding: 8px 14px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+      }
+      #fleet-modal .cuadre-chips-clear {
+        flex: 0 0 auto !important;
+        min-height: 44px !important;
+        padding: 8px 14px !important;
+        margin-left: auto !important;
+      }
+
+      /* Tabla: padding inferior para no quedar bajo FABs */
+      #fleet-modal .col-table .table-container {
+        padding-bottom: calc(140px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      /* FABs por encima del bottom nav del shell (~60px) */
+      html.shell-embedded #fleet-modal .btn-flotante-agregar-cuadre {
+        bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 16px) !important;
+      }
+      html.shell-embedded #fleet-modal .cuadre-zoom-ctrl {
+        bottom: calc(60px + env(safe-area-inset-bottom, 0px) + 80px) !important;
+      }
+      html.shell-embedded #fleet-modal .col-table .table-container {
+        padding-bottom: calc(200px + env(safe-area-inset-bottom, 0px)) !important;
+      }
+
+      /* Panel gestor: botones Guardar/Eliminar lado a lado, touch 44px */
+      #fleet-modal .btn-group {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 12px !important;
+        padding: 12px !important;
+      }
+      #fleet-modal .btn-save,
+      #fleet-modal .btn-del {
+        flex: 1 1 0 !important;
+        min-height: 44px !important;
+        padding: 10px 16px !important;
+      }
     }
 
     /* Obsidian redesign - unit manager drawer */
@@ -260,7 +425,10 @@
 
     #fleet-modal .col-table table {
       border-collapse: collapse !important;
-      width: 100% !important;
+    }
+
+    @media (min-width: 1025px) {
+      #fleet-modal .col-table table { width: 100% !important; }
     }
 
     #fleet-modal .col-table th {
@@ -524,6 +692,17 @@
       }
     }
 
+    /* Refuerzo final: gana la cascada sobre reglas posteriores del mismo bloque */
+    @media (max-width: 1024px) {
+      #fleet-modal .table-container table { display: table !important; width: max-content !important; min-width: 100% !important; }
+      #fleet-modal .table-container thead { display: table-header-group !important; }
+      #fleet-modal .table-container tbody { display: table-row-group !important; }
+      #fleet-modal .table-container tr { display: table-row !important; }
+      #fleet-modal .table-container th,
+      #fleet-modal .table-container td { display: table-cell !important; }
+      #fleet-modal .card-quick-actions { display: none !important; }
+    }
+
   </style>
 </head>
 <body>
@@ -613,7 +792,7 @@
                 style="width:100%; height:44px; padding:0 16px 0 44px; border:1.5px solid #e2e8f0; border-radius:12px; font-size:14px; font-family:'Inter',sans-serif; background:#f8fafc; outline:none; color:#0f172a; box-sizing:border-box;">
             </div>
 
-            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+            <div class="cuadre-chips-row" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
               <div class="chips-filter" id="chipContainer" style="flex: 1;">
                 <div class="chip active" onclick="filtrarEspecial('TODOS', this)" style="background:#0ea5e9; color:white; border-color:#0ea5e9;">Todos</div>
                 <div class="chip chip-estado chip-sucio" onclick="filtrarEspecial('SUCIO', this)" style="display:inline-flex; align-items:center; gap:4px;"><span style="color:#eab308; font-size:10px;">●</span> SUCIO</div>
@@ -626,7 +805,7 @@
                 <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#64748b;">visibility</span> RESGUARDO</div>
                 <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#f97316;">warehouse</span> TALLER</div>
               </div>
-              <button onclick="window.limpiarFiltrosFlota && window.limpiarFiltrosFlota()"
+              <button class="cuadre-chips-clear" onclick="window.limpiarFiltrosFlota && window.limpiarFiltrosFlota()"
                 style="background:white; color:#ef4444; border:1px solid #fee2e2; padding:6px 12px; border-radius:8px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; transition:0.2s; font-size: 12px; white-space:nowrap;"
                 title="Limpiar Filtros">
                 <span class="material-icons" style="font-size:16px;">filter_alt_off</span> Limpiar

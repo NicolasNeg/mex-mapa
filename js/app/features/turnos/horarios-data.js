@@ -2,24 +2,14 @@
 //  /js/app/features/turnos/horarios-data.js
 //  Gestión de horarios semanales y registro de asistencia.
 //
-//  Schema horarios/{id}:
-//    { usuarioId, usuarioNombre, usuarioRol,
-//      plaza, semanaInicio (YYYY-MM-DD lunes),
-//      dias: { lun|mar|mie|jue|vie|sab|dom:
-//               { tipo:'NORMAL'|'DESCANSO'|'VACACIONES'|'FESTIVO',
-//                 inicio:'08:00', fin:'16:00' } },
-//      actualizadoPor, actualizadoEn, creadoEn }
-//
-//  Schema asistencia/{id}:
-//    { usuarioId, usuarioNombre, plaza, fecha (YYYY-MM-DD),
-//      estado:'PRESENTE'|'AUSENTE'|'TARDE'|'JUSTIFICADO'|'DESCANSO',
-//      nota, turnoId, registradoPor, registradoEn }
+//  Schema horarios/{id}  — id determinístico: {plaza}_{semana}_{uid}
+//  Schema asistencia/{id}
 // ═══════════════════════════════════════════════════════════
 
-import { db } from '/js/core/database.js';
+import { db, COL } from '/js/core/database.js';
+import { isFirestoreIndexError, listenerErrorFrom, normalizePlazaUsuario } from '/js/app/features/turnos/turnos-view-model.js';
 
-const COL_HORARIOS    = 'horarios';
-const COL_ASISTENCIA  = 'asistencia';
+export { isFirestoreIndexError, listenerErrorFrom };
 
 export const TIPOS_DIA = Object.freeze({
   NORMAL:      { label: 'Normal',       color: '#6366f1' },
@@ -46,6 +36,19 @@ export const DIA_NOMBRE = {
 // ── Helpers ───────────────────────────────────────────────────
 function _fv()  { return window.firebase?.firestore?.FieldValue; }
 function _authUid() { return window._auth?.currentUser?.uid || ''; }
+
+function _slugPlaza(plaza) {
+  return String(plaza).toLowerCase().replace(/[^a-z0-9]/g, '_');
+}
+
+function _slugUid(uid) {
+  return String(uid).replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+/** Doc ID determinístico: {plaza}_{semana}_{uid} */
+export function horarioDocId(plaza, semana, usuarioId) {
+  return `${_slugPlaza(plaza)}_${semana}_${_slugUid(usuarioId)}`;
+}
 
 /** Lunes de la semana que contiene 'date' (default hoy). */
 export function semanaInicio(date = new Date()) {
@@ -85,26 +88,37 @@ export function rangoSemana(semana) {
   return { inicio: semana, fin: fin.toISOString().slice(0, 10) };
 }
 
+function _mapUsuarioDoc(d) {
+  const data = d.data();
+  return { id: d.id, uid: data.uid || d.id, ...data };
+}
+
+function _sortUsuarios(a, b) {
+  return String(a.nombreCompleto || a.nombre || a.id)
+    .localeCompare(String(b.nombreCompleto || b.nombre || b.id));
+}
+
 // ── Horarios ──────────────────────────────────────────────────
 /** Escucha en tiempo real los horarios de una semana para una plaza. */
 export function onHorariosSemanales(plaza, semana, callback) {
-  let q = db.collection(COL_HORARIOS)
+  const q = db.collection(COL.HORARIOS)
     .where('plaza', '==', plaza)
     .where('semanaInicio', '==', semana);
   return q.onSnapshot(
-    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err  => { console.warn('[horarios]', err?.message); callback([]); }
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })), null),
+    err => {
+      console.warn('[horarios]', err?.message);
+      callback([], listenerErrorFrom(err, 'horarios'));
+    }
   );
 }
 
 /** Guarda o actualiza el horario de un usuario para una semana. */
 export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) {
-  const fv  = _fv();
-  let q = db.collection(COL_HORARIOS)
-    .where('usuarioId', '==', usuarioId)
-    .where('plaza', '==', plaza)
-    .where('semanaInicio', '==', semana);
-  const snap = await q.limit(1).get();
+  const fv = _fv();
+  const docId = horarioDocId(plaza, semana, usuarioId);
+  const ref = db.collection(COL.HORARIOS).doc(docId);
+  const snap = await ref.get();
 
   const base = {
     usuarioId,
@@ -117,43 +131,43 @@ export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) 
     actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
   };
 
-  if (snap.empty) {
+  if (!snap.exists) {
     base.creadoEn = fv ? fv.serverTimestamp() : Date.now();
-    const ref = await db.collection(COL_HORARIOS).add(base);
-    return ref.id;
+    await ref.set(base);
+  } else {
+    await ref.update(base);
   }
-  await snap.docs[0].ref.update(base);
-  return snap.docs[0].id;
+  return docId;
 }
 
 /** Horario de un usuario para una semana (one-shot). */
 export async function getMiHorario(usuarioId, plaza, semana) {
-  let q = db.collection(COL_HORARIOS)
-    .where('usuarioId', '==', usuarioId)
-    .where('plaza', '==', plaza)
-    .where('semanaInicio', '==', semana);
-  const snap = await q.limit(1).get();
-  if (snap.empty) return null;
-  return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  const docId = horarioDocId(plaza, semana, usuarioId);
+  const snap = await db.collection(COL.HORARIOS).doc(docId).get();
+  if (!snap.exists) return null;
+  return { id: snap.id, ...snap.data() };
 }
 
 // ── Asistencia ────────────────────────────────────────────────
 /** Escucha asistencia de una plaza en un rango de fechas. */
 export function onAsistencia(plaza, fechaInicio, fechaFin, callback) {
-  let q = db.collection(COL_ASISTENCIA)
+  const q = db.collection(COL.ASISTENCIA)
     .where('plaza', '==', plaza)
     .where('fecha', '>=', fechaInicio)
     .where('fecha', '<=', fechaFin);
   return q.onSnapshot(
-    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-    err  => { console.warn('[asistencia]', err?.message); callback([]); }
+    snap => callback(snap.docs.map(d => ({ id: d.id, ...d.data() })), null),
+    err => {
+      console.warn('[asistencia]', err?.message);
+      callback([], listenerErrorFrom(err, 'asistencia'));
+    }
   );
 }
 
 /** Registra o actualiza la asistencia de un usuario en una fecha. */
 export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts = {}) {
-  const fv  = _fv();
-  let q = db.collection(COL_ASISTENCIA)
+  const fv = _fv();
+  let q = db.collection(COL.ASISTENCIA)
     .where('usuarioId', '==', usuarioId)
     .where('plaza', '==', plaza)
     .where('fecha', '==', fecha);
@@ -172,7 +186,7 @@ export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts 
   };
 
   if (snap.empty) {
-    const ref = await db.collection(COL_ASISTENCIA).add(base);
+    const ref = await db.collection(COL.ASISTENCIA).add(base);
     return ref.id;
   }
   await snap.docs[0].ref.update(base);
@@ -183,19 +197,27 @@ export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts 
 /** Trae los últimos 'limit' turnos CERRADOS de la plaza (o del usuario). */
 export async function getHistorialTurnos(plaza, opts = {}) {
   const lim = opts.limit || 40;
-  let q = db.collection('turnos').where('estado', '==', 'CERRADO');
+  let q = db.collection(COL.TURNOS).where('estado', '==', 'CERRADO');
   if (plaza) q = q.where('plazaId', '==', plaza);
   if (opts.usuarioId) q = q.where('usuarioId', '==', opts.usuarioId);
   q = q.orderBy('inicio', 'desc').limit(lim);
-  const snap = await q.get();
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  try {
+    const snap = await q.get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch (err) {
+    if (isFirestoreIndexError(err)) {
+      const e = new Error('INDEX_MISSING');
+      e.code = 'INDEX_MISSING';
+      e.cause = err;
+      throw e;
+    }
+    throw err;
+  }
 }
 
 // ── Plantillas predefinidas ───────────────────────────────────
-const COL_PLANTILLAS = 'horarios_plantillas';
-
 export function onPlantillas(callback) {
-  let q = db.collection(COL_PLANTILLAS);
+  const q = db.collection(COL.HORARIOS_PLANTILLAS);
   return q.onSnapshot(
     snap => callback(
       snap.docs
@@ -207,7 +229,7 @@ export function onPlantillas(callback) {
 }
 
 export async function guardarPlantilla(nombre, inicio, fin, id = null) {
-  const fv  = _fv();
+  const fv = _fv();
   const base = {
     nombre: String(nombre).trim(),
     inicio: String(inicio).trim(),
@@ -216,29 +238,27 @@ export async function guardarPlantilla(nombre, inicio, fin, id = null) {
     actualizadoEn:  fv ? fv.serverTimestamp() : Date.now(),
   };
   if (id) {
-    await db.collection(COL_PLANTILLAS).doc(id).update(base);
+    await db.collection(COL.HORARIOS_PLANTILLAS).doc(id).update(base);
     return id;
   }
   base.creadoEn = fv ? fv.serverTimestamp() : Date.now();
-  const ref = await db.collection(COL_PLANTILLAS).add(base);
+  const ref = await db.collection(COL.HORARIOS_PLANTILLAS).add(base);
   return ref.id;
 }
 
 export async function eliminarPlantilla(id) {
   if (!id) return;
-  await db.collection(COL_PLANTILLAS).doc(id).delete();
+  await db.collection(COL.HORARIOS_PLANTILLAS).doc(id).delete();
 }
 
 // ── Notas generales de semana ─────────────────────────────────
-const COL_NOTAS_SEM = 'notas_semana';
-
 function _notasSemId(plaza, semana) {
-  return `${String(plaza).toLowerCase().replace(/[^a-z0-9]/g, '_')}_${semana}`;
+  return `${_slugPlaza(plaza)}_${semana}`;
 }
 
 export function onNotasSemana(plaza, semana, callback) {
   const docId = _notasSemId(plaza, semana);
-  return db.collection(COL_NOTAS_SEM).doc(docId).onSnapshot(
+  return db.collection(COL.NOTAS_SEMANA).doc(docId).onSnapshot(
     snap => callback(snap.exists ? (snap.data()?.notas || {}) : {}),
     err  => { console.warn('[notas_semana]', err?.message); callback({}); }
   );
@@ -247,7 +267,7 @@ export function onNotasSemana(plaza, semana, callback) {
 export async function guardarNotaSemana(plaza, semana, diaKey, nota) {
   const fv    = _fv();
   const docId = _notasSemId(plaza, semana);
-  const ref   = db.collection(COL_NOTAS_SEM).doc(docId);
+  const ref   = db.collection(COL.NOTAS_SEMANA).doc(docId);
   const snap  = await ref.get();
   if (!snap.exists) {
     await ref.set({
@@ -270,13 +290,30 @@ export async function guardarNotaSemana(plaza, semana, diaKey, nota) {
 /** Lista básica de usuarios de una plaza para el grid de horarios. */
 export async function getUsuariosPlaza(plaza) {
   if (!plaza) return [];
-  let q = db.collection('usuarios');
-  const snap = await q.limit(150).get();
-  return snap.docs
-    .map(d => ({ id: d.id, ...d.data() }))
-    .filter(u => {
-      const p = String(u.plazaAsignada || u.plaza || u.plazaId || '').toUpperCase();
-      return p === String(plaza).toUpperCase();
-    })
-    .sort((a, b) => String(a.nombreCompleto || a.nombre || a.id).localeCompare(String(b.nombreCompleto || b.nombre || b.id)));
+  const plazaUp = String(plaza).toUpperCase().trim();
+
+  const filterByPlaza = docs =>
+    docs
+      .map(_mapUsuarioDoc)
+      .filter(u => normalizePlazaUsuario(u) === plazaUp)
+      .sort(_sortUsuarios);
+
+  try {
+    let snap = await db.collection(COL.USERS).where('plazaAsignada', '==', plazaUp).limit(150).get();
+    if (!snap.empty) return filterByPlaza(snap.docs);
+
+    snap = await db.collection(COL.USERS).where('plaza', '==', plazaUp).limit(150).get();
+    if (!snap.empty) return filterByPlaza(snap.docs);
+
+    snap = await db.collection(COL.USERS).limit(150).get();
+    return filterByPlaza(snap.docs);
+  } catch (err) {
+    if (isFirestoreIndexError(err)) {
+      const e = new Error('INDEX_MISSING');
+      e.code = 'INDEX_MISSING';
+      e.cause = err;
+      throw e;
+    }
+    throw err;
+  }
 }

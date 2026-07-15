@@ -5,7 +5,7 @@
 import { getState, getCurrentPlaza, onPlazaChange } from '/js/app/app-state.js';
 import { ROLE_LABELS } from '/js/shell/navigation.config.js';
 import { db, COL } from '/js/core/database.js';
-import { iniciarTurno, cerrarTurno } from '/js/app/features/turnos/turnos-data.js';
+import { iniciarTurno, cerrarTurno } from '/js/app/features/turnos/turnos-mutations.js';
 import { semanaInicio, DIAS } from '/js/app/features/turnos/horarios-data.js';
 
 // ── State ────────────────────────────────────────────────────
@@ -17,11 +17,13 @@ let _unsubCola   = null;
 let _unsubTurno  = null;
 let _unsubPlazaTurnos = null;
 let _turnoTimer  = null;
+let _navigate    = null;
 
 // ── Lifecycle ─────────────────────────────────────────────────
 export async function mount({ container, navigate }) {
   unmount();
   _ctr = container;
+  _navigate = typeof navigate === 'function' ? navigate : null;
   _ensureCss();
 
   const gs      = getState();
@@ -79,6 +81,7 @@ export function unmount() {
   _stopWidgets();
   _ctr = null;
   _s = null;
+  _navigate = null;
 }
 
 // ── Feature detection ─────────────────────────────────────────
@@ -293,6 +296,13 @@ function _bindAll() {
     const saved = _ctr.querySelector('#dashPrefSaved');
     if (saved) { saved.style.display = ''; setTimeout(() => { if (saved) saved.style.display = 'none'; }, 2000); }
   });
+
+  _ctr?.addEventListener('click', e => {
+    const link = e.target.closest('[data-app-route]');
+    if (!link || !_navigate) return;
+    e.preventDefault();
+    _navigate(link.dataset.appRoute);
+  });
 }
 
 // ── Metrics ───────────────────────────────────────────────────
@@ -396,7 +406,7 @@ function _startWidgets() {
   // Cola
   if (feats.cola && plaza) {
     try {
-      _unsubCola = db.collection('cola_preparacion').doc(plaza).collection('items')
+      _unsubCola = db.collection(COL.COLA_PREPARACION).doc(plaza).collection('items')
         .limit(8).onSnapshot(snap => {
           if (!_s) return;
           const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -493,6 +503,9 @@ function _updateTurnoWidget() {
       await iniciarTurno({ uid: window._auth?.currentUser?.uid || uid, ...profile }, plaza);
     } catch (e) {
       console.warn('[dashboard] iniciarTurno:', e);
+      if (typeof window.mexAlert === 'function') {
+        void window.mexAlert(e?.message || 'No se pudo iniciar el turno.', 'Error');
+      }
       if (_s && btn) btn.disabled = false;
     }
   });
@@ -539,9 +552,12 @@ function _renderTurnoActivo(el, turno, horario, uid, plaza) {
     const btn = el.querySelector('#dashCerrarTurno');
     if (btn) btn.disabled = true;
     try {
-      await cerrarTurno(turno.id);
+      await cerrarTurno(turno.id, { user: _s?.profile, plaza });
     } catch (e) {
       console.warn('[dashboard] cerrarTurno:', e);
+      if (typeof window.mexAlert === 'function') {
+        void window.mexAlert(e?.message || 'No se pudo cerrar el turno.', 'Error');
+      }
       if (_s && btn) btn.disabled = false;
     }
   });
@@ -635,12 +651,19 @@ function _updateColaWidget() {
   const items = _s?.colaPreview || [];
   if (!_s?.plaza) { el.innerHTML = '<p class="dash-widget-empty">Selecciona una plaza</p>'; return; }
   if (!items.length) { el.innerHTML = '<p class="dash-widget-empty">Cola vacía</p>'; return; }
-  el.innerHTML = items.map(it => `
-    <div class="dash-cola-row">
-      <span class="dash-cola-mva">${esc(String(it.mva || it.id || '—'))}</span>
+  el.innerHTML = items.map(it => {
+    const mva = String(it.mva || it.id || '').toUpperCase().trim();
+    const plaza = String(_s?.plaza || '').trim();
+    const route = mva
+      ? `/app/cola-preparacion?mva=${encodeURIComponent(mva)}${plaza ? `&plaza=${encodeURIComponent(plaza)}` : ''}`
+      : '/app/cola-preparacion';
+    return `
+    <a class="dash-cola-row" href="${route}" data-app-route="${esc(route)}" style="text-decoration:none;color:inherit;display:flex;">
+      <span class="dash-cola-mva">${esc(mva || '—')}</span>
       <span class="dash-cola-info">${esc(String(it.asignado || 'Sin asignar'))}</span>
       <span class="dash-cola-prog">${_cpDone(it.checklist)}/4</span>
-    </div>`).join('');
+    </a>`;
+  }).join('');
 }
 
 // ── Preferred view ────────────────────────────────────────────

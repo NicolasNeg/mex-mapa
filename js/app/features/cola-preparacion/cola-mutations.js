@@ -166,31 +166,39 @@ export async function patchItem({
   patch,
   actor = '',
   touchMeta: shouldTouch = true,
-  logType = null
+  logType = null,
+  logMeta = {}
 } = {}) {
   const p = normalizePlaza(plaza);
   const id = String(itemId || '').trim();
   if (!p || !id) throw new Error('Plaza e ítem requeridos.');
 
-  let mergePayload = { ...patch };
+  const mva = normalizeMva(logMeta.mva || patch.mva || id);
+  const cleanPatch = { ...patch };
+  delete cleanPatch.mva;
+  delete cleanPatch._logKey;
+  delete cleanPatch._logChecked;
+
+  let mergePayload = { ...cleanPatch };
   if (shouldTouch) mergePayload = touchMeta(mergePayload, actor);
 
-  if (patch.checklist && typeof patch.checklist === 'object') {
-    mergePayload.estadoCola = deriveEstadoCola({ checklist: patch.checklist, entregadoAt: patch.entregadoAt });
+  if (cleanPatch.checklist && typeof cleanPatch.checklist === 'object') {
+    mergePayload.estadoCola = deriveEstadoCola({
+      checklist: cleanPatch.checklist,
+      entregadoAt: cleanPatch.entregadoAt
+    });
   }
 
   await queueItemsRef(p).doc(id).set(mergePayload, { merge: true });
 
-  if (logType === 'checklist' && patch.checklist) {
-    const mva = normalizeMva(patch.mva || id);
-    const parts = CHECKLIST_KEYS.filter(k => patch.checklist[k] === true).map(k => `${k} ✓`);
-    const removed = CHECKLIST_KEYS.filter(k => patch.checklist[k] === false).map(k => `${k} ✗`);
+  if (logType === 'checklist' && cleanPatch.checklist) {
+    const parts = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === true).map(k => `${k} ✓`);
+    const removed = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === false).map(k => `${k} ✗`);
     const detail = [...parts, ...removed].join(', ') || 'actualizado';
     await registrarLogCola(`✅ CHECKLIST: ${mva} · ${detail}`, actor, p, { mva });
   } else if (logType === 'checklist_key') {
-    const mva = normalizeMva(patch.mva || id);
-    const key = patch._logKey || '';
-    const checked = patch._logChecked === true;
+    const key = logMeta.key || '';
+    const checked = logMeta.checked === true;
     await registrarLogCola(
       `✅ CHECKLIST: ${mva} · ${key} ${checked ? '✓' : '✗'}`,
       actor,
@@ -198,18 +206,16 @@ export async function patchItem({
       { mva }
     );
   } else if (logType === 'assign') {
-    const mva = normalizeMva(patch.mva || id);
-    await registrarLogCola(`👤 ASIGNADO: ${mva} → ${String(patch.asignado || '').trim()}`, actor, p, { mva });
+    await registrarLogCola(`👤 ASIGNADO: ${mva} → ${String(cleanPatch.asignado || '').trim()}`, actor, p, { mva });
   } else if (logType === 'departure') {
-    const mva = normalizeMva(patch.mva || id);
-    const fecha = patch.fechaSalida instanceof Date ? departureLabel(patch.fechaSalida) : '—';
+    const fecha = logMeta.fechaSalida instanceof Date ? departureLabel(logMeta.fechaSalida) : '—';
     await registrarLogCola(`📅 SALIDA: ${mva} · ${fecha}`, actor, p, { mva });
   } else if (logType === 'notes') {
-    const mva = normalizeMva(patch.mva || id);
     await registrarLogCola(`📝 NOTAS COLA: ${mva}`, actor, p, { mva });
   } else if (logType === 'complete') {
-    const mva = normalizeMva(patch.mva || id);
     await registrarLogCola(`🚀 LISTO PREP: ${mva} · checklist completo`, actor, p, { mva });
+  } else if (logType === 'save') {
+    await registrarLogCola(`✏️ COLA: ${mva} · datos operativos actualizados`, actor, p, { mva });
   }
 
   return { ok: true };

@@ -7,9 +7,9 @@
 //  estado: 'ACTIVO' | 'CERRADO'
 // ═══════════════════════════════════════════════════════════
 
-import { db, auth } from '/js/core/database.js';
+import { db, auth, COL } from '/js/core/database.js';
 
-const COL_TURNOS = 'turnos';
+const COL_TURNOS = COL.TURNOS;
 
 function _fv() { return window.firebase?.firestore?.FieldValue; }
 

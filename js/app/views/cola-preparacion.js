@@ -9,7 +9,6 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, onPlazaChange } from '/js/app/app-state.js';
-import { COL } from '/js/core/database.js';
 import {
   subscribeColaQueue,
   hydrateQueueUnits,
@@ -24,7 +23,6 @@ import {
   bulkCompleteChecklist
 } from '/js/app/features/cola-preparacion/cola-mutations.js';
 import {
-  CHECKLIST_KEYS,
   CHECKLIST_META,
   cpProgress,
   isItemReady,
@@ -37,7 +35,6 @@ import {
   filterAndSortItems,
   computeStats,
   canPrepManage,
-  canPrepDelete,
   findItemByMva,
   deriveEstadoCola
 } from '/js/app/features/cola-preparacion/cola-view-model.js';
@@ -78,10 +75,6 @@ function esc(v) {
     .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function escAttr(v) { return esc(v).replace(/'/g, '&#39;'); }
-
-function _fv() {
-  return window.firebase?.firestore?.FieldValue;
-}
 
 function _lower(v) {
   return String(v ?? '').trim().toLowerCase();
@@ -424,10 +417,11 @@ async function _patchQueueItem(itemId, patch, opts = {}) {
     await patchItem({
       plaza,
       itemId,
-      patch: { ...patch, mva },
+      patch,
       actor: _state.profileEmail || '',
       touchMeta: opts.touchMeta !== false,
-      logType: opts.logType || null
+      logType: opts.logType || null,
+      logMeta: { mva, ...(opts.logMeta || {}) }
     });
     if (opts.notify !== false) _toast(opts.successMsg || 'Cambios guardados.', 'success');
     return true;
@@ -563,6 +557,7 @@ function _reloadForPlaza(nextPlaza) {
   _state.items = [];
   _state.filteredItems = [];
   _state.selectedId = null;
+  _state.mvaDeepLinkHandled = false;
   _state.loading = false;
   _state.permissionDenied = false;
   _state.errorMessage = '';
@@ -601,146 +596,69 @@ function _subscribeQueue(plaza) {
   const subscriptionId = ++_queueSubSeq;
   const expectedPlaza = String(plaza || '').toUpperCase().trim();
 
-  try {
-    _unsub = db.collection('cola_preparacion').doc(expectedPlaza).collection('items')
-      .onSnapshot(
-        snap => {
-          if (!_container || !_state) return;          // desmontado mientras cargaba
-          if (subscriptionId !== _queueSubSeq) return; // listener viejo (race condition)
-          if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
-          _state.items = snap.docs.map(doc =>
-            _normalizeQueueItem(doc.id, doc.data() || {})
-          );
-          _state.loading = false;
-          _state.hasSnapshot = true;
-          _state.permissionDenied = false;
-          _state.errorMessage = '';
-          void _hydrateUnitMeta(expectedPlaza);
-          _applyFilters();
-          _renderListByState();
-          _renderStats();
-        },
-        err => {
-          if (!_container || !_state) return;
-          if (subscriptionId !== _queueSubSeq) return; // listener viejo (race condition)
-          if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
-          const code = String(err?.code || '').toLowerCase();
-          // En cambios de plaza rápidos pueden llegar errores tardíos de listeners cerrados.
-          if (code === 'permission-denied' && _state.hasSnapshot) {
-            _debugLog('Ignoring late permission-denied after snapshot', { plaza: expectedPlaza });
-            return;
-          }
-          // Si ya tenemos datos válidos, ignoramos errores tardíos/stale.
-          if ((_state.items || []).length > 0 || _state.hasSnapshot) {
-            _debugLog('Ignoring stale error after data', { code: err?.code, message: err?.message, plaza: expectedPlaza });
-            return;
-          }
-          if (code === 'permission-denied') {
-            _debugLog('Permission denied in active listener', { plaza: expectedPlaza, message: err?.message });
-          } else {
-            console.error('[cola-prep] Firestore error:', err);
-          }
-          _state.loading = false;
-          _state.hasSnapshot = false;
-          if (code === 'permission-denied') {
-            _state.permissionDenied = true;
-            _state.errorMessage = 'No tienes permisos para ver la cola de esta plaza.';
-            _renderListByState();
-            return;
-          }
-          _state.permissionDenied = false;
-          _state.errorMessage = err.message || 'No se pudo cargar la cola de preparación.';
-          _renderListByState();
-        }
-      );
-    _trackListener('create', 'data-sub', { plaza: expectedPlaza });
-  } catch (err) {
-    console.error('[cola-prep] No se pudo suscribir:', err);
-    _state.loading = false;
-    _state.permissionDenied = false;
-    _state.errorMessage = err.message || 'No se pudo cargar la cola de preparación.';
-    _renderListByState();
-  }
+  _unsub = subscribeColaQueue({
+    plaza: expectedPlaza,
+    onData: items => {
+      if (!_container || !_state) return;
+      if (subscriptionId !== _queueSubSeq) return;
+      if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
+      _state.items = items;
+      _state.loading = false;
+      _state.hasSnapshot = true;
+      _state.permissionDenied = false;
+      _state.errorMessage = '';
+      void _hydrateUnitMeta(expectedPlaza);
+      _applyFilters();
+      _renderListByState();
+      _renderStats();
+      if (!_state.mvaDeepLinkHandled) _tryOpenMvaFromQuery();
+    },
+    onError: err => {
+      if (!_container || !_state) return;
+      if (subscriptionId !== _queueSubSeq) return;
+      if (String(_state.plaza || '').toUpperCase().trim() !== expectedPlaza) return;
+      const code = String(err?.code || '').toLowerCase();
+      if (code === 'permission-denied' && _state.hasSnapshot) {
+        _debugLog('Ignoring late permission-denied after snapshot', { plaza: expectedPlaza });
+        return;
+      }
+      if ((_state.items || []).length > 0 || _state.hasSnapshot) {
+        _debugLog('Ignoring stale error after data', { code: err?.code, message: err?.message, plaza: expectedPlaza });
+        return;
+      }
+      if (code === 'permission-denied') {
+        _debugLog('Permission denied in active listener', { plaza: expectedPlaza, message: err?.message });
+      } else {
+        console.error('[cola-prep] Firestore error:', err);
+      }
+      _state.loading = false;
+      _state.hasSnapshot = false;
+      if (code === 'permission-denied') {
+        _state.permissionDenied = true;
+        _state.errorMessage = 'No tienes permisos para ver la cola de esta plaza.';
+        _renderListByState();
+        return;
+      }
+      _state.permissionDenied = false;
+      _state.errorMessage = err.message || 'No se pudo cargar la cola de preparación.';
+      _renderListByState();
+    }
+  });
+  _trackListener('create', 'data-sub', { plaza: expectedPlaza });
 }
 
 // ── Filtrado / ordenamiento ──────────────────────────────────
 
-function _matchesPrepFilter(it) {
-  const f = _state.filterStatus || 'all';
-  if (f === 'all') return true;
-  if (f === 'urgent') return _urgencyType(it) === 'urgent';
-  if (f === 'pending') return !_isItemReady(it);
-  if (f === 'ready') return _isItemReady(it);
-  if (f === 'mine') {
-    const mine = _state.profileEmail;
-    const nick = _lower(_state.profileName);
-    const assigned = _lower(it.asignado);
-    return Boolean(
-      assigned &&
-      ((mine && assigned.includes(mine)) || (nick && assigned.includes(nick)))
-    );
-  }
-  if (f === 'with-date') return Boolean(it?.fechaSalida);
-  return true;
-}
-
-function _matchesPrepSearch(it) {
-  const term = _lower(_state.searchQuery);
-  if (!term) return true;
-  const unit = _unitsByMva.get(String(it.mva || '').toUpperCase()) || {};
-  const hay = [
-    it.mva,
-    it.asignado,
-    it.notas,
-    unit.estado,
-    unit.ubicacion,
-    unit.categoria,
-    unit.modelo,
-    unit.color
-  ].map(_lower).join(' ');
-  return hay.includes(term);
-}
-
 function _applyFilters() {
   if (!_state) return;
-  let items = [..._state.items].filter(it => _matchesPrepFilter(it) && _matchesPrepSearch(it));
-
-  const field = _state.sortField;
-  const dir = _state.sortDir === 'asc' ? 1 : -1;
-  if (field === '__operational') {
-    items.sort((a, b) => _comparePrepItems(a, b));
-  } else {
-    items.sort((a, b) => {
-      const av = _sortVal(a, field);
-      const bv = _sortVal(b, field);
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
-      return 0;
-    });
-  }
-
-  _state.filteredItems = items;
-}
-
-function _sortVal(item, field) {
-  if (field === 'orden') {
-    return Number.isFinite(item.orden) ? item.orden : 999999;
-  }
-  if (field === 'fechaSalida') {
-    const t = item.fechaSalida?.getTime?.();
-    return Number.isFinite(t) ? t : Number.MAX_SAFE_INTEGER;
-  }
-  if (field === 'mva') {
-    return String(item.mva || '').toLowerCase();
-  }
-  if (field === 'creadoEn') {
-    const v = item.creadoEn;
-    if (v instanceof Date) return v.getTime();
-    if (v && typeof v.toDate === 'function') return v.toDate().getTime();
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
-  }
-  return '';
+  _state.filteredItems = filterAndSortItems(_state.items, {
+    filterStatus: _state.filterStatus,
+    searchQuery: _state.searchQuery,
+    sortField: _state.sortField,
+    sortDir: _state.sortDir,
+    profileEmail: _state.profileEmail,
+    profileName: _state.profileName
+  }, _unitsByMva);
 }
 
 // ── Bind eventos ─────────────────────────────────────────────
@@ -863,21 +781,15 @@ function _setTopbarPlaza(plaza = '') {
 
 function _renderStats() {
   if (!_state) return;
-  const items = _state.filteredItems || [];
-  const total = items.length;
-  const urgentes = items.filter(it => _urgencyType(it) === 'urgent').length;
-  const listos = items.filter(it => _isItemReady(it)).length;
-  const progreso = total > 0
-    ? Math.round(items.reduce((acc, it) => acc + _cpProgress(it).percent, 0) / total)
-    : 0;
+  const stats = computeStats(_state.filteredItems || []);
 
-  _setText('prepStatTotal',    String(total));
-  _setText('prepStatUrgent',   String(urgentes));
-  _setText('prepStatReady',    String(listos));
-  _setText('prepStatProgress', `${progreso}%`);
+  _setText('prepStatTotal',    String(stats.total));
+  _setText('prepStatUrgent',   String(stats.urgentes));
+  _setText('prepStatReady',    String(stats.listos));
+  _setText('prepStatProgress', `${stats.progreso}%`);
 
   const bar = q('prepProgressBar');
-  if (bar) bar.style.width = `${progreso}%`;
+  if (bar) bar.style.width = `${stats.progreso}%`;
 }
 
 function _renderList() {
@@ -935,10 +847,10 @@ function _itemCard(it) {
   const mva = it.mva || '—';
   const unit = _unitsByMva.get(String(mva || '').toUpperCase()) || {};
   const modelo = unit.modelo || unit.categoria || 'Sin expediente local';
-  const progress = _cpProgress(it);
-  const urgency = _urgencyType(it);
+  const progress = cpProgress(it);
+  const urgency = urgencyType(it);
   const urgentChip = urgency === 'urgent';
-  const chipLabel = _countdownLabel(it.fechaSalida);
+  const chipLabel = countdownLabel(it.fechaSalida);
   const selected = _state.selectedId === it.id;
 
   return `
@@ -961,7 +873,7 @@ function _itemCard(it) {
   <div class="prep-mini-progress"><span style="width:${progress.percent}%;"></span></div>
   <div class="prep-list-card-footer">
     <span class="prep-list-card-submeta">${esc(it.asignado || 'Sin responsable')}</span>
-    <span class="prep-list-card-submeta">${esc(_departureLabel(it.fechaSalida))}</span>
+    <span class="prep-list-card-submeta">${esc(departureLabel(it.fechaSalida))}</span>
   </div>
 </article>`;
 }
@@ -973,7 +885,10 @@ function _showDetail(it) {
   if (!panel || !it) return;
 
   const unit = _unitsByMva.get(String(it.mva || '').toUpperCase()) || {};
-  const prog = _cpProgress(it);
+  const prog = cpProgress(it);
+  const estadoCola = deriveEstadoCola(it);
+  const mvaRoute = escAttr(String(it.mva || '').toUpperCase());
+  const plazaQ = escAttr(String(_state?.plaza || ''));
 
   const deleteArmed = _deleteArmedPrepId === it.id;
   const showDel = _canPrepDelete();
@@ -1010,7 +925,8 @@ function _showDetail(it) {
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
     ${_detailRow('Plaza operativa', _state?.plaza || '—')}
-    ${_detailRow('Cuenta regresiva', _countdownLabel(it.fechaSalida))}
+    ${_detailRow('Cuenta regresiva', countdownLabel(it.fechaSalida))}
+    ${_detailRow('Estado cola', estadoCola)}
     ${_detailRow('Origen expediente', unit.origen || (unit.mva ? 'PATIO' : '—'))}
     ${_detailRow('Progreso checklist', `${prog.done}/${prog.total} (${prog.percent}%)`)}
   </div>
@@ -1045,11 +961,37 @@ function _showDetail(it) {
     Guardar cambios operativos
   </button>
 
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px;">
+    <a data-app-route="/app/cuadre/u/${mvaRoute}" href="/app/cuadre/u/${mvaRoute}"
+       style="flex:1;min-width:120px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+              border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px 10px;font-size:11px;
+              font-weight:700;color:#0f172a;text-decoration:none;cursor:pointer;">
+      <span class="material-symbols-outlined" style="font-size:16px;">folder_open</span>
+      Expediente
+    </a>
+    <a data-app-route="/app/mapa?mva=${mvaRoute}${plazaQ ? `&plaza=${plazaQ}` : ''}"
+       href="/app/mapa?mva=${mvaRoute}${plazaQ ? `&plaza=${plazaQ}` : ''}"
+       style="flex:1;min-width:120px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+              border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:8px 10px;font-size:11px;
+              font-weight:700;color:#0f172a;text-decoration:none;cursor:pointer;">
+      <span class="material-symbols-outlined" style="font-size:16px;">map</span>
+      Ver en mapa
+    </a>
+  </div>
+
   ${_checklistSection(it)}
 
 </div>`;
 
   panel.style.display = 'block';
+
+  panel.querySelectorAll('[data-app-route]').forEach(link => {
+    link.addEventListener('click', e => {
+      if (!_state?._navigate) return;
+      e.preventDefault();
+      _state._navigate(link.dataset.appRoute);
+    });
+  });
 
   const TS = window.firebase?.firestore?.Timestamp;
 
@@ -1084,7 +1026,7 @@ function _showDetail(it) {
       fechaSalida: departure && TS ? TS.fromDate(departure) : null,
       asignado: String(asEl?.value || '').trim(),
       notas: String(noEl?.value || '').trim()
-    }, { successMsg: 'Salida y notas actualizadas.' });
+    }, { successMsg: 'Salida y notas actualizadas.', logType: 'save', logMeta: { fechaSalida: departure } });
     if (!ok) return;
     Object.assign(it, {
       fechaSalida: departure,
@@ -1103,7 +1045,7 @@ function _showDetail(it) {
       return;
     }
     const assignee = _state.profileEmail || mine;
-    const ok = await _patchQueueItem(it.id, { asignado: assignee }, { successMsg: 'Asignación actualizada.' });
+    const ok = await _patchQueueItem(it.id, { asignado: assignee }, { successMsg: 'Asignación actualizada.', logType: 'assign' });
     if (!ok) return;
     const inp = panel.querySelector('#prepDetailAssigned');
     if (inp) inp.value = assignee;
@@ -1119,7 +1061,7 @@ function _showDetail(it) {
       acc[meta.key] = true;
       return acc;
     }, {});
-    const ok = await _patchQueueItem(it.id, { checklist }, { successMsg: 'Checklist completado.' });
+    const ok = await _patchQueueItem(it.id, { checklist }, { successMsg: 'Checklist completado.', logType: 'complete' });
     if (!ok) return;
     it.checklist = checklist;
     _applyFilters();
@@ -1134,8 +1076,12 @@ function _showDetail(it) {
       if (!key) return;
       const checked = box.checked === true;
       const prev = Boolean(it.checklist?.[key]);
-      const patch = { [`checklist.${key}`]: checked };
-      const ok = await _patchQueueItem(it.id, patch, { notify: false });
+      const nextChecklist = { ...(it.checklist || {}), [key]: checked };
+      const ok = await _patchQueueItem(it.id, { checklist: nextChecklist }, {
+        notify: false,
+        logType: 'checklist_key',
+        logMeta: { key, checked }
+      });
       if (!ok) {
         box.checked = prev;
         return;
@@ -1160,7 +1106,7 @@ function _detailRow(label, value) {
 }
 
 function _checklistSection(it) {
-  const prog = _cpProgress(it);
+  const prog = cpProgress(it);
   const pct = prog.percent;
 
   return `

@@ -58,6 +58,11 @@ export const COL = Object.freeze({
   KM_DISCREPANCIAS:   'km_discrepancias',
   TRASLADOS:          'traslados',
   COLA_PREPARACION:   'cola_preparacion',
+  TURNOS:             'turnos',
+  HORARIOS:           'horarios',
+  ASISTENCIA:         'asistencia',
+  HORARIOS_PLANTILLAS:'horarios_plantillas',
+  NOTAS_SEMANA:       'notas_semana',
 });
 
 // ── Meta de roles ─────────────────────────────────────────

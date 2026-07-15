@@ -9,6 +9,32 @@
       ]
     },
     {
+      "collectionGroup": "turnos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "plazaId", "order": "ASCENDING" },
+        { "fieldPath": "inicio", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "turnos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "usuarioId", "order": "ASCENDING" },
+        { "fieldPath": "inicio", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "horarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "plaza", "order": "ASCENDING" },
+        { "fieldPath": "semanaInicio", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "ops_events",
       "queryScope": "COLLECTION",
       "fields": [
