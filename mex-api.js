@@ -65,6 +65,17 @@ function _getStorageClient() {
 
 // ── Persistencia offline — solo si firebase-init.js no lo hizo ya ────────
 // SDK compat: synchronizeTabs puede advertir deprecación hasta migración modular; no bloquea beta.
+// Solo en la ventana top-level: los iframes legacy del shell (pool de ~10 vistas
+// vivas) comparten el mismo IndexedDB y compiten por el "primary lease",
+// inundando la consola con "Failed to obtain primary lease for action ...".
+// Embebidos operan sin caché offline (red directa); el shell conserva la suya.
+const _esIframeEmbebido = (() => {
+  try { return window.self !== window.top; } catch (_) { return true; }
+})();
+if (_esIframeEmbebido && !window._firestorePersistenceEnabled) {
+  window._firestorePersistenceEnabled = true;
+  window._firestorePersistenceMode = 'disabled-embedded-frame';
+}
 if (!window._firestorePersistenceEnabled) {
   window._firestorePersistenceEnabled = true;
   window._firestorePersistenceMode = 'pending';
