@@ -131,6 +131,9 @@ body.app-legacy-stage-active #mexShellContent {
   body.app-legacy-stage-active #mexShellContent {
     height: calc(100vh - var(--sh-header-h, 64px));
   }
+  .mex-hdr-limbo-btn--legacy .hide-mobile {
+    display: none;
+  }
 }
 
 .app-legacy-stage[data-legacy-stage="mapa"],

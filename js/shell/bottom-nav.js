@@ -9,6 +9,7 @@
 // ═══════════════════════════════════════════════════════════
 
 import { filterNavForRole } from './navigation.config.js';
+import { getRoleMeta } from '/domain/permissions.model.js';
 
 // Pestañas fijas. Labels cortos para móvil; el id/route sale de la config
 // (así heredan el filtrado por rol/feature: si el rol no tiene Cuadre, cae solo).
@@ -82,9 +83,10 @@ export class ShellBottomNav {
   }
 
   _itemHTML(t, extra) {
-    const active = this._isActive(t.route);
+    const active = t.route && this._isActive(t.route);
+    const attr = t.action ? `data-action="${esc(t.action)}"` : `data-route="${esc(t.route)}"`;
     return `<button class="mex-bottomnav-item${extra ? ' mex-bottomnav-item--extra' : ''}${active ? ' active' : ''}"
-            data-route="${esc(t.route)}" ${active ? 'aria-current="page"' : ''}>
+            ${attr} ${active ? 'aria-current="page"' : ''}>
       <span class="mex-bottomnav-icon">${esc(t.icon)}</span>
       <span class="mex-bottomnav-label">${esc(t.label)}</span>
     </button>`;
@@ -92,17 +94,31 @@ export class ShellBottomNav {
 
   _buildHTML() {
     const fixed = this._fixedTabs().map(t => this._itemHTML(t, false)).join('');
-    // En /mapa el 4º slot es el engranaje (Config) en vez de "Más".
-    const more = this._isMapa()
-      ? `<button class="mex-bottomnav-item" data-action="config" aria-label="Configuración del mapa">
+    const isCuadre = normPath(this._currentRoute) === '/cuadre' || normPath(this._currentRoute) === '/app/cuadre';
+    
+    let more = '';
+    if (this._isMapa()) {
+      more = `<button class="mex-bottomnav-item" data-action="config" aria-label="Configuración del mapa">
           <span class="mex-bottomnav-icon">settings</span>
           <span class="mex-bottomnav-label">Config</span>
-        </button>`
-      : `<button class="mex-bottomnav-item" data-action="more" aria-label="Más opciones">
+        </button>`;
+    } else if (isCuadre) {
+      more = `<button class="mex-bottomnav-item" data-action="cuadre_more" aria-label="Más opciones">
+          <span class="mex-bottomnav-icon" style="color:var(--mex-blue, #1d4ed8);">more_horiz</span>
+          <span class="mex-bottomnav-label">Controles</span>
+        </button>`;
+    } else {
+      more = `<button class="mex-bottomnav-item" data-action="more" aria-label="Más opciones">
           <span class="mex-bottomnav-icon">more_horiz</span>
           <span class="mex-bottomnav-label">Más</span>
         </button>`;
+    }
+
     const extras = this._sectionExtras();
+    if (isCuadre && getRoleMeta(this._role).isAdmin) {
+      extras.push({ action: 'cuadre_admin', icon: 'admin_panel_settings', label: 'Admin' });
+    }
+
     const extrasHTML = extras.length
       ? `<span class="mex-bottomnav-sep" aria-hidden="true"></span>` + extras.map(e => this._itemHTML(e, true)).join('')
       : '';
@@ -136,6 +152,8 @@ export class ShellBottomNav {
       if (!btn) return;
       if (btn.dataset.action === 'more')   { this._onMore?.();   return; }
       if (btn.dataset.action === 'config') { this._onConfig?.(); return; }
+      if (btn.dataset.action === 'cuadre_more') { window.dispatchEvent(new CustomEvent('mex:cuadre:more')); return; }
+      if (btn.dataset.action === 'cuadre_admin') { window.dispatchEvent(new CustomEvent('mex:cuadre:admin')); return; }
       if (btn.dataset.route) this._onNavigate?.(btn.dataset.route);
     });
 

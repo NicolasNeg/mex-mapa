@@ -476,11 +476,79 @@ function _syncLegacyMapUnitsHeader(id) {
   document.getElementById('mexHdrLegacyUnitsBtn')?.addEventListener('click', _toggleLegacyUnitsSidebar);
 }
 
-function _startLegacyMapUnitsHeader(id) {
+function _syncLegacyCuadreHeader(id, ctx) {
+  if (id !== 'cuadre' || !_shell || !_iframe) return;
+  const win = _iframe.contentWindow;
+  const doc = _iframe.contentDocument;
+  if (!win || !doc) return;
+
+  const masControles = doc.getElementById('btnMasControlesWrapper');
+  const adminControls = doc.getElementById('btnAdminControlsWrapper');
+
+  const showMas = masControles && masControles.style.display !== 'none';
+  const showAdmin = adminControls && adminControls.style.display !== 'none';
+
+  const sig = `cuadre:${showMas}:${showAdmin}`;
+  if (sig === _unitsHeaderSig) return;
+  _unitsHeaderSig = sig;
+
+  let html = '';
+  if (showMas) {
+    html += `
+      <button type="button" class="mex-hdr-limbo-btn--legacy" id="mexHdrCuadreMoreBtn" title="Más opciones">
+        <span class="material-icons" style="color:#1d4ed8;">more_horiz</span>
+        <span class="hide-mobile">MÁS CONTROLES</span>
+      </button>
+    `;
+  }
+  if (showAdmin) {
+    html += `
+      <button type="button" class="mex-hdr-limbo-btn--legacy" id="mexHdrCuadreAdminBtn" title="Gestión admin" style="margin-left:8px; border-color:#fee2e2; background:#fef2f2;">
+        <span class="material-icons" style="color:#ef4444;">admin_panel_settings</span>
+        <span class="hide-mobile" style="color:#b91c1c;">GESTIÓN ADMIN</span>
+      </button>
+    `;
+  }
+
+  _shell.setHeaderActions?.(html);
+
+  const moreBtn = document.getElementById('mexHdrCuadreMoreBtn');
+  if (moreBtn) {
+    moreBtn.addEventListener('click', () => {
+      try { win.toggleMoreControls?.(); } catch (_) {}
+    });
+  }
+
+  const adminBtn = document.getElementById('mexHdrCuadreAdminBtn');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', () => {
+      try { win.toggleAdminControls?.(); } catch (_) {}
+    });
+  }
+}
+
+let _boundCuadreEvents = false;
+function _bindCuadreEvents() {
+  if (_boundCuadreEvents) return;
+  _boundCuadreEvents = true;
+  window.addEventListener('mex:cuadre:more', () => {
+    try { _iframe?.contentWindow?.toggleMoreControls?.(); } catch(_) {}
+  });
+  window.addEventListener('mex:cuadre:admin', () => {
+    try { _iframe?.contentWindow?.toggleAdminControls?.(); } catch(_) {}
+  });
+}
+
+function _startLegacyHeaderSync(id, ctx) {
   _clearUnitsHeader();
-  if (id !== 'mapa') return;
-  _syncLegacyMapUnitsHeader(id);
-  _unitsHeaderTimer = window.setInterval(() => _syncLegacyMapUnitsHeader(id), 1000);
+  if (id === 'mapa') {
+    _syncLegacyMapUnitsHeader(id);
+    _unitsHeaderTimer = window.setInterval(() => _syncLegacyMapUnitsHeader(id), 1000);
+  } else if (id === 'cuadre') {
+    _bindCuadreEvents();
+    _syncLegacyCuadreHeader(id, ctx);
+    _unitsHeaderTimer = window.setInterval(() => _syncLegacyCuadreHeader(id, ctx), 1000);
+  }
 }
 
 // Host persistente para los iframes keep-alive. Vive dentro de #mexShellMain
@@ -586,7 +654,7 @@ function _wireFirstLoad(iframeEl, loaderEl, id, ctx) {
     _scheduleFrameSync(iframeEl, id, ctx);
     _scheduleToolFrameSync(iframeEl, id);
     _syncPlaza(getState().currentPlaza, id, ctx);
-    _startLegacyMapUnitsHeader(id);
+    _startLegacyHeaderSync(id, ctx);
     if (id === 'mapa') _kickMapaFrame(iframeEl);
   };
 
@@ -650,7 +718,7 @@ export function mount(ctx = {}) {
         _bindShellSignals(id, ctx);
         _injectFrameOverrides(_iframe, id);
         _syncPlaza(getState().currentPlaza, id, ctx);
-        _startLegacyMapUnitsHeader(id);
+        _startLegacyHeaderSync(id, ctx);
         _scheduleFrameSync(_iframe, id, ctx);
         if (id === 'mapa') { _kickMapaFrame(_iframe); _applyPendingMapFocus(_iframe); }
         return;
