@@ -470,6 +470,14 @@ service cloud.firestore {
         && request.resource.data.status is string;
     }
 
+    // El auxiliar actualiza SU propio item de inbox al enviar la auditoría
+    // (status IN_REVIEW + título/cuerpo). Sin esto la tarjeta de misión no
+    // refleja el envío hasta que ventas cierra.
+    function inboxMisionSelfUpdateValido() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(["read", "readAt", "status", "missionStatus", "title", "body", "updatedAt", "payload"]);
+    }
+
     function settingsCuadreWriteValido() {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return changed.hasOnly([
@@ -806,7 +814,7 @@ service cloud.firestore {
         allow create: if esAccesoTotal() || esAdminOperativo();
         allow update: if esAccesoTotal()
           || esAdminOperativo()
-          || (esDocumentoUsuarioPropio(doc) && inboxAckValido());
+          || (esDocumentoUsuarioPropio(doc) && (inboxAckValido() || inboxMisionSelfUpdateValido()));
         allow delete: if esAccesoTotal() || esAdminOperativo();
       }
     }
@@ -869,10 +877,14 @@ service cloud.firestore {
           esAdminOperativo()
           && settingsCuadreWriteValido()
         )
-        // Auxiliar enviando auditoría: transición PROCESO → REVISION
+        // Auxiliar enviando auditoría a Ventas. Antes exigía que el estado
+        // previo fuera exactamente "PROCESO"; si el campo faltaba o quedó en
+        // otro estado (reintento, misión legacy) la lectura lanzaba/negaba y
+        // el auxiliar veía "no tienes permisos". Ahora solo se exige que el
+        // resultado sea REVISION y que únicamente toque campos de cuadre.
         || (
           tienePerfilActual()
-          && resource.data.estadoCuadreV3 == "PROCESO"
+          && settingsCuadreWriteValido()
           && request.resource.data.estadoCuadreV3 == "REVISION"
         );
     }

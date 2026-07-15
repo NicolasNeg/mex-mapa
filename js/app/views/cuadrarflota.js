@@ -40,7 +40,7 @@ export async function mount({ container, navigate }) {
     currentIndex: 0,
     showExtra: false,
     extra: { mva: '', modelo: '', placas: '', km: '', gasolina: 'N/A' },
-    signatureName: _actorName()
+    step: 'review'
   };
 
   _renderLoading();
@@ -253,8 +253,6 @@ function _paint() {
   }
 
   const summary = _summary();
-  const visible = _visibleUnits();
-  const current = _currentUnit(visible);
 
   _ctr.innerHTML = `
     <section class="cf" aria-busy="${_s.busy ? 'true' : 'false'}">
@@ -269,68 +267,131 @@ function _paint() {
         </button>
       </header>
 
-      <section class="cf-progress" aria-label="Avance de auditoria">
-        <div class="cf-progress-top">
-          <strong>${summary.revisadas} / ${summary.total}</strong>
-          <span>${summary.percent}% revisado</span>
-        </div>
-        <div class="cf-bar"><span style="width:${summary.percent}%"></span></div>
-        <div class="cf-kpis">
-          ${_kpi('done', 'OK', summary.ok, 'ok')}
-          ${_kpi('report', 'Faltantes', summary.faltantes, 'bad')}
-          ${_kpi('add_circle', 'Sobrantes', summary.sobrantes, 'warn')}
-          ${_kpi('pending_actions', 'Pendientes', summary.pendientes, '')}
-        </div>
-      </section>
+      ${_stepsHtml(summary)}
 
-      <div class="cf-toolbar">
-        <label class="cf-search">
-          <span class="material-icons">search</span>
-          <input data-search value="${esc(_s.search)}" placeholder="Buscar MVA, placas o modelo">
-        </label>
-        <div class="cf-view-toggle" role="tablist">
-          <button type="button" class="${_s.view === 'card' ? 'active' : ''}" data-action="view-card">
-            <span class="material-icons">style</span>
-            Tarjeta
-          </button>
-          <button type="button" class="${_s.view === 'list' ? 'active' : ''}" data-action="view-list">
-            <span class="material-icons">view_list</span>
-            Lista
-          </button>
-        </div>
-        <button type="button" class="cf-btn secondary" data-action="open-extra">
-          <span class="material-icons">add</span>
-          Sobrante
-        </button>
-      </div>
-
-      <main class="cf-main">
-        ${_s.view === 'list' ? _listHtml(visible) : _cardHtml(current, visible.length)}
-      </main>
-
-      <section class="cf-sign">
-        <div>
-          <p class="cf-eyebrow">Firma del auxiliar</p>
-          <h2>Enviar reporte preliminar a Ventas</h2>
-        </div>
-        <label class="cf-field">
-          <span>Nombre completo</span>
-          <input data-sign-name value="${esc(_s.signatureName)}" placeholder="Nombre del auxiliar">
-        </label>
-        <div class="cf-sign-pad">
-          <canvas id="cfSignatureCanvas" width="680" height="180" aria-label="Firma digital"></canvas>
-          <button type="button" class="cf-clear-sign" data-action="clear-signature">Limpiar firma</button>
-        </div>
-        <button type="button" class="cf-btn primary wide" data-action="submit" ${_s.busy ? 'disabled' : ''}>
-          <span class="material-icons">${_s.busy ? 'sync' : 'send'}</span>
-          ${_s.busy ? 'Enviando...' : 'Enviar a Ventas'}
-        </button>
-      </section>
+      ${_s.step === 'sign' ? _signStepHtml(summary) : _reviewStepHtml(summary)}
 
       ${_s.showExtra ? _extraModalHtml() : ''}
     </section>
   `;
-  _setupSignatureCanvas();
+  if (_s.step === 'sign') _setupSignatureCanvas();
+}
+
+function _stepsHtml(summary) {
+  const reviewDone = summary.total > 0 && summary.pendientes === 0;
+  const steps = [
+    { id: 'review', icon: 'checklist', label: 'Revisar unidades', hint: `${summary.revisadas}/${summary.total}` },
+    { id: 'sign', icon: 'draw', label: 'Firmar', hint: _actorName() },
+    { id: 'sent', icon: 'send', label: 'Enviado a Ventas', hint: '' }
+  ];
+  return `
+    <ol class="cf-steps" aria-label="Flujo del cuadre">
+      ${steps.map((step, i) => {
+        const isCurrent = _s.step === step.id;
+        const isDone = (step.id === 'review' && (reviewDone || _s.step === 'sign')) || false;
+        const clickable = step.id !== 'sent';
+        return `
+          <li class="cf-step ${isCurrent ? 'is-current' : ''} ${isDone && !isCurrent ? 'is-done' : ''}">
+            ${clickable ? `<button type="button" data-action="go-step" data-step="${step.id}">` : '<div>'}
+              <span class="cf-step-dot"><span class="material-icons">${isDone && !isCurrent ? 'check' : step.icon}</span></span>
+              <span class="cf-step-txt">
+                <strong>${i + 1}. ${step.label}</strong>
+                ${step.hint ? `<small>${esc(step.hint)}</small>` : ''}
+              </span>
+            ${clickable ? '</button>' : '</div>'}
+            ${i < steps.length - 1 ? '<span class="cf-step-arrow material-icons">arrow_forward</span>' : ''}
+          </li>
+        `;
+      }).join('')}
+    </ol>
+  `;
+}
+
+function _reviewStepHtml(summary) {
+  return `
+    <section class="cf-progress" aria-label="Avance de auditoria">
+      <div class="cf-progress-top">
+        <strong>${summary.revisadas} / ${summary.total}</strong>
+        <span>${summary.percent}% revisado</span>
+      </div>
+      <div class="cf-bar"><span style="width:${summary.percent}%"></span></div>
+    </section>
+
+    <div class="cf-toolbar">
+      <label class="cf-search">
+        <span class="material-icons">search</span>
+        <input data-search value="${esc(_s.search)}" placeholder="Buscar MVA, placas o modelo">
+      </label>
+      <div class="cf-view-toggle" role="tablist">
+        <button type="button" class="${_s.view === 'card' ? 'active' : ''}" data-action="view-card">
+          <span class="material-icons">style</span>
+          Tarjeta
+        </button>
+        <button type="button" class="${_s.view === 'list' ? 'active' : ''}" data-action="view-list">
+          <span class="material-icons">view_list</span>
+          Lista
+        </button>
+      </div>
+      <button type="button" class="cf-btn secondary" data-action="open-extra">
+        <span class="material-icons">add</span>
+        Sobrante
+      </button>
+    </div>
+
+    <main class="cf-main">${_mainHtml()}</main>
+
+    <div class="cf-flow-next">
+      <button type="button" class="cf-btn primary wide" data-action="go-step" data-step="sign">
+        <span class="material-icons">draw</span>
+        ${summary.pendientes > 0 ? `Continuar a firma (${summary.pendientes} pendientes)` : 'Continuar a firma'}
+      </button>
+    </div>
+  `;
+}
+
+function _signStepHtml(summary) {
+  return `
+    <section class="cf-sign">
+      <div>
+        <p class="cf-eyebrow">Paso final · Firma del auxiliar</p>
+        <h2>Enviar reporte preliminar a Ventas</h2>
+        <p class="cf-sign-note">Revisaste ${summary.revisadas} de ${summary.total} unidades. Firma para enviar el reporte.</p>
+      </div>
+      <label class="cf-field">
+        <span>Nombre del auxiliar</span>
+        <div class="cf-locked-name">
+          <span class="material-icons">lock</span>
+          <input value="${esc(_actorName())}" readonly aria-readonly="true" tabindex="-1">
+        </div>
+      </label>
+      <div class="cf-sign-pad">
+        <canvas id="cfSignatureCanvas" width="680" height="180" aria-label="Firma digital"></canvas>
+        <button type="button" class="cf-clear-sign" data-action="clear-signature">Limpiar firma</button>
+      </div>
+      <div class="cf-sign-actions">
+        <button type="button" class="cf-btn secondary" data-action="go-step" data-step="review">
+          <span class="material-icons">arrow_back</span>
+          Volver a revisar
+        </button>
+        <button type="button" class="cf-btn primary" data-action="submit" ${_s.busy ? 'disabled' : ''}>
+          <span class="material-icons">${_s.busy ? 'sync' : 'send'}</span>
+          ${_s.busy ? 'Enviando...' : 'Enviar a Ventas'}
+        </button>
+      </div>
+    </section>
+  `;
+}
+
+function _mainHtml() {
+  const visible = _visibleUnits();
+  if (_s.view === 'list') return _listHtml(visible);
+  return _cardHtml(_currentUnit(visible), visible.length);
+}
+
+// Repinta solo la zona de unidades (busqueda): conserva el foco del input.
+function _paintMain() {
+  const main = _ctr?.querySelector('.cf-main');
+  if (main) main.innerHTML = _mainHtml();
 }
 
 function _renderLoading() {
@@ -383,11 +444,15 @@ function _cardHtml(unit, visibleCount) {
     return `<div class="cf-empty"><span class="material-icons">search_off</span><strong>Sin unidades visibles</strong><p>Ajusta la busqueda para continuar.</p></div>`;
   }
   const idx = _s.units.findIndex(item => item === unit);
+  const imgUrl = _modelImageUrl(unit.modelo);
   return `
     <section class="cf-card-wrap">
       <div class="cf-card-count">${visibleCount} coincidencia(s) · ${idx + 1} de ${_s.units.length}</div>
       <article class="cf-card-main ${_statusClass(unit.status)}" data-card-mva="${esc(unit.mva)}">
         <div class="cf-card-status">${_statusLabel(unit.status)}</div>
+        ${imgUrl
+          ? `<div class="cf-card-img"><img src="${esc(imgUrl)}" alt="${esc(unit.modelo)}" loading="lazy" draggable="false" onerror="this.parentElement.remove()"></div>`
+          : ''}
         <h2>${esc(unit.mva)}</h2>
         <p>${esc(unit.modelo)} · ${esc(unit.placas)}</p>
         <div class="cf-card-meta">
@@ -479,16 +544,12 @@ function _onInput(event) {
   const target = event.target;
   if (target.matches('[data-search]')) {
     _s.search = target.value;
-    _paint();
+    _paintMain();
     return;
   }
   if (target.matches('[data-km]')) {
     const unit = _unitByMva(target.dataset.km);
     if (unit) unit.km = target.value.replace(/[^\d]/g, '');
-    return;
-  }
-  if (target.matches('[data-sign-name]')) {
-    _s.signatureName = target.value;
     return;
   }
   if (target.matches('[data-extra]')) {
@@ -520,8 +581,17 @@ async function _onClick(event) {
 
   if (action === 'reload') { await _load(); return; }
   if (action === 'go-map') { _navigate?.('/app/mapa'); return; }
-  if (action === 'view-card') { _s.view = 'card'; _paint(); return; }
-  if (action === 'view-list') { _s.view = 'list'; _paint(); return; }
+  if (action === 'go-step') {
+    const step = actionEl.dataset.step;
+    if (step === 'sign' || step === 'review') {
+      _captureVisibleInputs();
+      _s.step = step;
+      _paint();
+    }
+    return;
+  }
+  if (action === 'view-card') { _captureVisibleInputs(); _s.view = 'card'; _paint(); return; }
+  if (action === 'view-list') { _captureVisibleInputs(); _s.view = 'list'; _paint(); return; }
   if (action === 'open-extra') { _s.showExtra = true; _paint(); return; }
   if (action === 'close-extra') { _s.showExtra = false; _paint(); return; }
   if (action === 'save-extra') { _saveExtra(); return; }
@@ -538,6 +608,11 @@ function _markUnit(mva, status) {
   _captureVisibleInputs();
   unit.status = unit.status === status ? 'PENDIENTE' : status;
   _s.currentIndex = _nextPendingIndexAfter(_s.units.findIndex(item => item === unit));
+  // Al revisar la ultima unidad el flujo avanza solo al paso de firma.
+  if (_s.units.length && !_s.units.some(item => item.status === 'PENDIENTE')) {
+    _s.step = 'sign';
+    _toast('Revision completa. Firma para enviar a Ventas.', 'success');
+  }
   _paint();
 }
 
@@ -592,11 +667,8 @@ async function _submit() {
     if (!ok) return;
     pending.forEach(unit => { unit.status = 'FALTANTE'; });
   }
-  const signedName = String(_s.signatureName || '').trim();
-  if (!signedName) {
-    _toast('Escribe el nombre del auxiliar.', 'error');
-    return;
-  }
+  // El nombre siempre sale del perfil del auxiliar logueado (no editable).
+  const signedName = _actorName();
   if (!_sig.hasInk) {
     _toast('La firma digital esta vacia.', 'error');
     return;
@@ -624,6 +696,7 @@ async function _submit() {
     if (!res || res.exito !== true) throw new Error('Respuesta invalida al enviar auditoria.');
     _s.busy = false;
     _s.completed = true;
+    _s.step = 'sent';
     _paint();
     _toast('Reporte enviado a Ventas.', 'success');
   } catch (err) {
@@ -782,8 +855,21 @@ function _nextPendingIndexAfter(index, skipReviewed = true) {
   return Math.max(0, index);
 }
 
-function _kpi(icon, label, value, tone) {
-  return `<div class="cf-kpi ${tone ? 'is-' + tone : ''}"><span class="material-icons">${icon}</span><strong>${value}</strong><small>${label}</small></div>`;
+// Imagen del modelo desde el catalogo de modelos (Panel Admin → Modelos).
+function _modelImageUrl(modelo) {
+  const name = String(modelo || '').trim().toUpperCase();
+  if (!name || name === 'S/M') return '';
+  const catalog = window.MEX_CONFIG?.listas?.modelos || [];
+  let best = null;
+  for (const item of catalog) {
+    if (!item || typeof item !== 'object') continue;
+    const itemName = String(item.nombre || '').trim().toUpperCase();
+    if (!itemName) continue;
+    if (itemName === name) { best = item; break; }
+    if (!best && (name.includes(itemName) || itemName.includes(name.split(' ')[0]))) best = item;
+  }
+  if (!best) return '';
+  return String(best.imagenURL || best.imagen || best.image || best.foto || '').trim();
 }
 
 function _gasOptions(selected = 'N/A') {

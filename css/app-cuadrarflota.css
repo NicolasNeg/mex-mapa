@@ -135,52 +135,111 @@
   transition: width .24s ease;
 }
 
-.cf-kpis {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+/* ── Diagrama de flujo (stepper) ───────────────────────── */
+.cf-steps {
+  max-width: 1180px;
+  margin: 0 auto 14px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
   gap: 8px;
-  margin-top: 12px;
 }
 
-.cf-kpi {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  grid-template-areas:
-    "icon value"
-    "icon label";
+.cf-step {
+  display: flex;
   align-items: center;
-  column-gap: 8px;
-  padding: 10px;
-  border: 1px solid #e2e8f0;
+  gap: 8px;
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.cf-step > button,
+.cf-step > div {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d8dee9;
   border-radius: 8px;
-  background: #f8fafc;
+  background: #ffffff;
+  text-align: left;
+  font: inherit;
+  color: inherit;
 }
 
-.cf-kpi .material-icons {
-  grid-area: icon;
+.cf-step > button {
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.cf-step > button:hover {
+  border-color: #94a3b8;
+}
+
+.cf-step-dot {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
   color: #64748b;
-  font-size: 20px;
+  background: #f1f5f9;
 }
 
-.cf-kpi strong {
-  grid-area: value;
-  color: #0f172a;
+.cf-step-dot .material-icons {
   font-size: 18px;
-  line-height: 1;
-  font-weight: 900;
 }
 
-.cf-kpi small {
-  grid-area: label;
-  color: #64748b;
-  font-size: 10px;
-  font-weight: 900;
-  text-transform: uppercase;
+.cf-step-txt {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
 }
 
-.cf-kpi.is-ok .material-icons { color: #059669; }
-.cf-kpi.is-bad .material-icons { color: #dc2626; }
-.cf-kpi.is-warn .material-icons { color: #d97706; }
+.cf-step-txt strong {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 850;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-step-txt small {
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-step.is-current > button,
+.cf-step.is-current > div {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, .12);
+}
+
+.cf-step.is-current .cf-step-dot {
+  color: #ffffff;
+  background: #2563eb;
+}
+
+.cf-step.is-done .cf-step-dot {
+  color: #047857;
+  background: #ecfdf5;
+}
+
+.cf-step-arrow {
+  flex: none;
+  color: #cbd5e1;
+  font-size: 18px;
+}
 
 .cf-toolbar {
   display: grid;
@@ -309,6 +368,20 @@
 .cf-card-main[data-swipe="missing"] {
   border-color: #fecaca;
   background: #fef2f2;
+}
+
+.cf-card-img {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+}
+
+.cf-card-img img {
+  max-width: min(320px, 80%);
+  max-height: 160px;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 20px rgba(15, 23, 42, .16));
 }
 
 .cf-card-status {
@@ -515,6 +588,52 @@
   font-weight: 900;
 }
 
+.cf-sign-note {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.cf-locked-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid #d8dee9;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.cf-locked-name .material-icons {
+  color: #94a3b8;
+  font-size: 17px;
+}
+
+.cf-locked-name input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #334155;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: default;
+}
+
+.cf-sign-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+}
+
+.cf-flow-next {
+  max-width: 1180px;
+  margin: 14px auto 0;
+}
+
 .cf-sign-pad {
   position: relative;
   min-height: 170px;
@@ -690,8 +809,16 @@
     width: 100%;
   }
 
-  .cf-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .cf-steps {
+    flex-direction: column;
+  }
+
+  .cf-step-arrow {
+    display: none;
+  }
+
+  .cf-sign-actions {
+    grid-template-columns: 1fr;
   }
 
   .cf-card-main {
@@ -753,12 +880,12 @@
     font-size: clamp(38px, 16vw, 60px);
   }
 
-  .cf-kpis {
-    gap: 6px;
+  .cf-card-img {
+    min-height: 90px;
   }
 
-  .cf-kpi {
-    padding: 9px;
+  .cf-card-img img {
+    max-height: 110px;
   }
 
   .cf-view-toggle button {
