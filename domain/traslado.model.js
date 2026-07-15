@@ -27,8 +27,7 @@ export function toMs(value) {
 export function estadoOperativoTraslado({ estado = "ABIERTO", fechaSalida, now = Date.now() } = {}) {
   const est = String(estado || "ABIERTO").toUpperCase().trim();
   if (est === "CERRADO") return "CERRADO";
-  const salidaMs = toMs(fechaSalida);
-  return salidaMs && salidaMs > toMs(now) ? "PROGRAMADO" : "ABIERTO";
+  return "ABIERTO";
 }
 
 export function licenciaVigente(licenciaVencimiento, now = Date.now()) {
@@ -43,7 +42,9 @@ export function licenciaVigente(licenciaVencimiento, now = Date.now()) {
 }
 
 export function choferElegible(usuario = {}, now = Date.now()) {
-  return usuario?.isChofer === true && licenciaVigente(usuario?.licenciaVencimiento, now);
+  return usuario?.isChofer === true
+    && Boolean(String(usuario?.licenciaVencimiento || usuario?.licenciaChoferVence || "").trim())
+    && Boolean(String(usuario?.licenciaArchivoUrl || usuario?.licenciaArchivoPath || usuario?.licenciaUrl || "").trim());
 }
 
 export function validarCierreTraslado({ kmSalida, kmLlegada, fechaCierre, fechaSalida, now = Date.now() } = {}) {

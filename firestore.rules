@@ -293,6 +293,13 @@ service cloud.firestore {
         && (data.status == null || data.status is string)
         && (data.isChofer == null || data.isChofer is bool)
         && (data.licenciaVencimiento == null || data.licenciaVencimiento is string)
+        && (data.licenciaArchivoUrl == null || data.licenciaArchivoUrl is string)
+        && (data.licenciaArchivoPath == null || data.licenciaArchivoPath is string)
+        && (data.licenciaArchivoNombre == null || data.licenciaArchivoNombre is string)
+        && (data.licenciaArchivoTipo == null || data.licenciaArchivoTipo is string)
+        && (data.licenciaSubidaPor == null || data.licenciaSubidaPor is string)
+        && (data.licenciaSubidaAt == null || data.licenciaSubidaAt is timestamp)
+        && (data.licenciaActualizadaAt == null || data.licenciaActualizadaAt is timestamp)
         && rolValido(data.rol)
         && rolDePerfil(data) == data.rol
         && (!rolRequierePlaza(data.rol) || data.plazaAsignada.size() > 0);
@@ -679,7 +686,8 @@ service cloud.firestore {
 
     // ─── TRASLADOS ──────────────────────────────────────────
     match /traslados/{doc} {
-      allow read: if tienePerfilActual();
+      allow read: if tienePerfilActual()
+        && tienePermiso(perfilActual(), "traslados_gestionar");
       allow create: if tienePerfilActual()
         && tienePermiso(perfilActual(), "traslados_gestionar")
         && request.resource.data.mva is string

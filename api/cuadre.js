@@ -187,10 +187,13 @@
         return 'No tienes permiso para corregir kilometraje';
       }
 
-      const c = _clasificarKm({
+      let c = _clasificarKm({
         kmNuevo: kmNum, kmAnterior, umbral: _kmUmbral(),
         fuenteUltima: idxData.kmFuenteUltima || '', esCorreccion
       });
+      if (c.tipo === 'DISCREPANCIA' && (fuenteUp === 'TRASLADO_SALIDA' || fuenteUp === 'TRASLADO_LLEGADA')) {
+        c = { tipo: 'NORMAL', delta: c.delta };
+      }
       if (c.tipo === 'INVALIDO') return 'Kilometraje inválido';
       if (c.tipo === 'RECHAZADO_MENOR') {
         return `El km (${kmNum}) es menor al último registrado (${kmAnterior}). Si el registro anterior está mal, usa una corrección.`;
@@ -770,12 +773,48 @@
 
     async obtenerHistorialCuadres(plaza) {
       const plazaUp = _normalizePlazaId(plaza);
-      const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(200).get();
-      const filtrados = snap.docs.filter(d => _matchesPlaza(d.data(), plazaUp)).slice(0, 30);
-      return filtrados.map(d => {
-        const data = d.data();
+      const rows = [];
+      const seen = new Set();
+      const pushDoc = (docSnap, plazaPath = "") => {
+        const data = docSnap.data() || {};
+        const rowPlaza = _normalizePlazaId(data.plaza || plazaPath);
+        if (plazaUp && rowPlaza && rowPlaza !== plazaUp && !_matchesPlaza(data, plazaUp)) return;
+        const key = docSnap.id;
+        if (seen.has(key)) return;
+        seen.add(key);
+        rows.push({ id: docSnap.id, data: { ...data, plaza: rowPlaza || data.plaza || plazaUp } });
+      };
+
+      try {
+        const snap = await db.collection(COL.HISTORIAL_CUADRES).orderBy("timestamp", "desc").limit(200).get();
+        snap.docs.forEach(d => {
+          if (_matchesPlaza(d.data(), plazaUp)) pushDoc(d);
+        });
+      } catch (error) {
+        console.warn('[cuadre] historial plano no disponible:', error);
+      }
+
+      if (plazaUp) {
+        try {
+          const subSnap = await db.collection(COL.HISTORIAL_CUADRES)
+            .doc(plazaUp)
+            .collection('registros')
+            .orderBy("timestamp", "desc")
+            .limit(200)
+            .get();
+          subSnap.docs.forEach(d => pushDoc(d, plazaUp));
+        } catch (error) {
+          console.warn('[cuadre] historial por plaza no disponible:', error);
+        }
+      }
+
+      return rows
+        .sort((a, b) => Number(b.data.timestamp || 0) - Number(a.data.timestamp || 0))
+        .slice(0, 30)
+        .map(row => {
+        const data = row.data;
         return {
-          id:        d.id,
+          id:        row.id,
           fecha:     window._mex._fecha(data),
           tipo:      data.tipo || data.etapa || 'CUADRE',
           auxiliar:  data.auxiliar || data.autor || "",
@@ -846,6 +885,14 @@
         jsonCompleto: JSON.stringify(pdfPayload)
       };
       const docRef = await db.collection(COL.HISTORIAL_CUADRES).add(registro);
+      if (plazaUp) {
+        db.collection(COL.HISTORIAL_CUADRES)
+          .doc(plazaUp)
+          .collection('registros')
+          .doc(docRef.id)
+          .set(registro, { merge: true })
+          .catch(error => console.warn('[cuadre] no se pudo espejar historial por plaza:', error));
+      }
       await _setSettings({
         estadoCuadreV3: "LIBRE",
         adminIniciador: "",

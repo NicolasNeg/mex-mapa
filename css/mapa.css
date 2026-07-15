@@ -3507,6 +3507,14 @@
       display: flex;
     }
 
+    #historial-cuadres-modal {
+      z-index: 76050 !important;
+    }
+
+    #historial-cuadres-modal.active {
+      display: flex !important;
+    }
+
     .fleet-header-top {
       display: flex;
       justify-content: space-between;

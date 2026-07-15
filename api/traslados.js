@@ -20,6 +20,17 @@
     { codigo: 'INTER', etiqueta: 'Intercambio' },
     { codigo: 'NOCOM', etiqueta: 'No comercial' }
   ];
+  const ROLE_LEVEL = {
+    AUXILIAR: 1,
+    VENTAS: 2,
+    SUPERVISOR: 3,
+    JEFE_PATIO: 4,
+    GERENTE_PLAZA: 5,
+    JEFE_REGIONAL: 6,
+    CORPORATIVO_USER: 7,
+    JEFE_OPERACION: 8,
+    PROGRAMADOR: 9
+  };
 
   function _upper(v) { return String(v || '').trim().toUpperCase(); }
   function _text(v) { return String(v || '').trim(); }
@@ -45,20 +56,14 @@
   }
   function _estadoDerivado(t, nowMs) {
     if (_upper(t && t.estado) === 'CERRADO') return 'CERRADO';
-    const salidaMs = _toMs(t && t.fechaSalida);
-    return salidaMs && salidaMs > (nowMs || Date.now()) ? 'PROGRAMADO' : 'ABIERTO';
+    return 'ABIERTO';
   }
-  function _licenciaVigente(v, nowMs) {
-    if (!v) return false;
-    const ms = _toMs(v);
-    if (!ms) return false;
-    const today = new Date(nowMs || Date.now());
-    today.setHours(0, 0, 0, 0);
-    const end = new Date(ms);
-    end.setHours(23, 59, 59, 999);
-    return end.getTime() >= today.getTime();
+  function _choferElegible(u) {
+    return u
+      && u.isChofer === true
+      && !!_text(u.licenciaVencimiento || u.licenciaChoferVence)
+      && !!_text(u.licenciaArchivoUrl || u.licenciaArchivoPath || u.licenciaUrl);
   }
-  function _choferElegible(u) { return u && u.isChofer === true && _licenciaVigente(u.licenciaVencimiento); }
   function _userName(u) { return _text(u.nombreCompleto || u.displayName || u.nombre || u.usuario || u.email || 'Usuario'); }
   function _tipoList() {
     const raw = window.MEX_CONFIG && window.MEX_CONFIG.listas;
@@ -86,8 +91,11 @@
   function _canManageTraslados() {
     return !!(window.mexPerms && window.mexPerms.canDo && window.mexPerms.canDo('traslados_gestionar'));
   }
-  function _canResolveKm() {
-    return !!(window.mexPerms && window.mexPerms.canDo && window.mexPerms.canDo('km_corregir'));
+  function _currentRole() {
+    return _upper(window.MEX_CONFIG?.profile?.rol || window._userProfile?.rol || window.currentUserProfile?.rol || '');
+  }
+  function _canViewTraslados() {
+    return _canManageTraslados() || (ROLE_LEVEL[_currentRole()] || 0) >= ROLE_LEVEL.VENTAS;
   }
   function _actorName(usuario) { return _text(usuario || window.MEX_CONFIG?.profile?.nombre || window._userProfile?.nombre || window._auth?.currentUser?.email || 'Sistema'); }
 
@@ -156,14 +164,14 @@
     const snap = await db.collection(COL.USERS).limit(300).get();
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       .filter(_choferElegible)
-      .map(u => ({ id: u.id, uid: u.authUid || u.id, nombre: _userName(u), licenciaVencimiento: u.licenciaVencimiento || '' }))
+      .map(u => ({
+        id: u.id,
+        uid: u.authUid || u.id,
+        nombre: _userName(u),
+        licenciaVencimiento: u.licenciaVencimiento || '',
+        licenciaArchivoUrl: u.licenciaArchivoUrl || ''
+      }))
       .sort((a, b) => a.nombre.localeCompare(b.nombre));
-  }
-
-  async function _loadDiscrepancias(plaza) {
-    const plazaUp = _normalizePlazaId(plaza);
-    const snap = await db.collection('km_discrepancias').where('estado', '==', 'PENDIENTE').limit(120).get();
-    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(row => !plazaUp || _normalizePlazaId(row.plaza) === plazaUp);
   }
 
   function _edicion(campo, antes, despues, usuario) {
@@ -185,11 +193,12 @@
   window._mexParts = window._mexParts || {};
   window._mexParts.traslados = {
     async obtenerTrasladosBootstrap(opts = {}) {
+      if (!_canViewTraslados()) throw new Error('No tienes permiso para ver traslados');
       const plaza = _normalizePlazaId(opts.plaza || window.__mexCurrentPlazaId || window.MEX_CONFIG?.profile?.plazaAsignada || '');
-      const [traslados, unidades, choferes, discrepancias] = await Promise.all([
-        _loadTraslados(plaza), _loadUnidades(plaza), _loadChoferes(), _loadDiscrepancias(plaza)
+      const [traslados, unidades, choferes] = await Promise.all([
+        _loadTraslados(plaza), _loadUnidades(plaza), _loadChoferes()
       ]);
-      return { plaza, plazas: _plazasList(), traslados, unidades, choferes, tipos: _tipoList(), discrepancias, canManage: _canManageTraslados(), canResolveKm: _canResolveKm() };
+      return { plaza, plazas: _plazasList(), traslados, unidades, choferes, tipos: _tipoList(), canManage: _canManageTraslados() };
     },
 
     async crearTraslado(payload = {}) {
@@ -210,11 +219,11 @@
       const open = await _openTrasladoForMva(mva);
       if (open) return { ok: false, error: 'La unidad ya tiene un traslado abierto' };
       const chofer = await _findChofer(choferUid);
-      if (!chofer || !_choferElegible(chofer.data)) return { ok: false, error: 'El chofer no esta elegible o su licencia vencio' };
+      if (!chofer || !_choferElegible(chofer.data)) return { ok: false, error: 'El chofer debe estar registrado con licencia cargada' };
 
       const actor = _actorName(payload.usuario);
       const nowText = _now();
-      const salidaIso = _iso(payload.fechaSalida, Date.now() + 2 * 60 * 1000);
+      const salidaIso = _iso(payload.fechaSalida, Date.now());
       const folio = await _nextFolio();
       const ref = db.collection(TRASLADOS_COL).doc();
       const data = {
@@ -229,7 +238,7 @@
       };
       await ref.set(data);
       const kmRes = await window.api.registrarKm({ mva, km: kmSalida, fuente: 'TRASLADO_SALIDA', usuario: actor, plaza: plazaOrigen, trasladoId: ref.id });
-      if (kmRes !== 'EXITO' && kmRes !== 'DISCREPANCIA') {
+      if (kmRes !== 'EXITO') {
         await ref.delete();
         return { ok: false, error: kmRes || 'No se pudo registrar el kilometraje de salida' };
       }
@@ -237,7 +246,7 @@
       await _actualizarFeed('TRASLADO SALIDA: ' + mva + ' -> ' + plazaDestino, actor, plazaOrigen);
       await _registrarLog('TRASLADO', 'TRASLADO CREADO: ' + folio + ' · ' + mva + ' -> ' + plazaDestino, actor, plazaOrigen);
       await _registrarEventoGestion('TRASLADO_CREADO', 'Creo traslado ' + folio + ' para ' + mva, actor, { entidad: 'TRASLADO', referencia: ref.id, plaza: plazaOrigen });
-      return { ok: true, id: ref.id, folio, km: kmRes };
+      return { ok: true, id: ref.id, folio };
     },
 
     async actualizarTraslado(id, cambios = {}) {
@@ -264,7 +273,7 @@
       setField('fechaRegresoEstimada', cambios.fechaRegresoEstimada ? _iso(cambios.fechaRegresoEstimada) : '');
       if (cambios.choferUid) {
         const chofer = await _findChofer(cambios.choferUid);
-        if (!chofer || !_choferElegible(chofer.data)) return { ok: false, error: 'El chofer no esta elegible' };
+        if (!chofer || !_choferElegible(chofer.data)) return { ok: false, error: 'El chofer debe estar registrado con licencia cargada' };
         if (String(cur.choferUid || '') !== String(chofer.data.authUid || chofer.id)) {
           update.choferUid = chofer.data.authUid || chofer.id;
           update.choferNombre = _userName(chofer.data);
@@ -304,7 +313,7 @@
 
       const unit = await _findUnidadCuadre(data.mva, data.plazaOrigen);
       const kmRes = await window.api.registrarKm({ mva: data.mva, km: kmLlegada, fuente: 'TRASLADO_LLEGADA', usuario: actor, plaza: data.plazaDestino, trasladoId: ref.id });
-      if (kmRes !== 'EXITO' && kmRes !== 'DISCREPANCIA') {
+      if (kmRes !== 'EXITO') {
         return { ok: false, error: kmRes || 'No se pudo registrar el kilometraje de llegada' };
       }
       const samePlaza = _normalizePlazaId(data.plazaOrigen) === _normalizePlazaId(data.plazaDestino);
@@ -329,19 +338,7 @@
       await ref.set(cierre, { merge: true });
       await _actualizarFeed('TRASLADO CERRADO: ' + data.mva + ' -> ' + data.plazaDestino, actor, data.plazaDestino);
       await _registrarLog('TRASLADO', 'TRASLADO CERRADO: ' + (data.folio || ref.id) + ' · ' + data.mva, actor, data.plazaDestino);
-      return { ok: true, id: ref.id, km: kmRes };
-    },
-
-    async resolverDiscrepanciaKm(id, payload = {}) {
-      if (!_canResolveKm()) return { ok: false, error: 'No tienes permiso para resolver discrepancias' };
-      const ref = db.collection('km_discrepancias').doc(_text(id));
-      const snap = await ref.get();
-      if (!snap.exists) return { ok: false, error: 'Discrepancia no encontrada' };
-      if (_upper(snap.data().estado) !== 'PENDIENTE') return { ok: false, error: 'La discrepancia ya fue resuelta' };
-      const nota = _text(payload.nota);
-      if (!nota) return { ok: false, error: 'Captura una nota de resolucion' };
-      await ref.update({ estado: 'RESUELTA', resueltoPor: _actorName(payload.usuario), fechaResolucion: _now(), notaResolucion: nota });
-      return { ok: true, id };
+      return { ok: true, id: ref.id };
     }
   };
 })();

@@ -103,7 +103,6 @@ export const obtenerTrasladosBootstrap = (...a) => _api().obtenerTrasladosBootst
 export const crearTraslado             = (...a) => _api().crearTraslado(...a);
 export const actualizarTraslado        = (...a) => _api().actualizarTraslado(...a);
 export const cerrarTraslado            = (...a) => _api().cerrarTraslado(...a);
-export const resolverDiscrepanciaKm    = (...a) => _api().resolverDiscrepanciaKm(...a);
 export const guardarNuevasPosiciones  = (...a) => _api().guardarNuevasPosiciones(...a);
 
 // ── Tabla de flota ────────────────────────────────────────

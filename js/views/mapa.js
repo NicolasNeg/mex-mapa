@@ -1271,11 +1271,7 @@ function _dateInputValue(value) {
 function _licenciaChoferLabel(value) {
   const input = _dateInputValue(value);
   if (!input) return 'Licencia sin fecha';
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const d = new Date(`${input}T23:59:59`);
-  const status = d.getTime() >= today.getTime() ? 'vigente' : 'vencida';
-  return `Licencia ${status} · ${input}`;
+  return `Licencia registrada · ${input}`;
 }
 
 function _getUserAvatarUrl(user = {}) {
@@ -1355,6 +1351,11 @@ function _normalizeUserProfile(raw = {}) {
     plazasPermitidas: Array.isArray(raw.plazasPermitidas) ? raw.plazasPermitidas.map(_normalizePlaza).filter(Boolean) : [],
     isChofer: raw.isChofer === true,
     licenciaVencimiento: _dateInputValue(raw.licenciaVencimiento || raw.licenciaChoferVence || ''),
+    licenciaArchivoUrl: String(raw.licenciaArchivoUrl || raw.licenciaUrl || '').trim(),
+    licenciaArchivoPath: String(raw.licenciaArchivoPath || '').trim(),
+    licenciaArchivoNombre: String(raw.licenciaArchivoNombre || '').trim(),
+    licenciaArchivoTipo: String(raw.licenciaArchivoTipo || '').trim(),
+    licenciaSubidaPor: String(raw.licenciaSubidaPor || '').trim(),
     permissionOverrides: _normalizePermissionOverrides(raw.permissionOverrides || raw.permisosUsuario || {})
   };
 }
@@ -1654,6 +1655,7 @@ function _cfgCanAccessTab(tabName = '') {
   const normalized = String(tabName || '').trim().toLowerCase();
   const f = window.mexFeatures;
   if (normalized === 'usuarios') return canViewAdminUsers() && (!f || f.puedeUsar('gestion_usuarios'));
+  if (normalized === 'choferes') return canViewAdminUsers() && (!f || f.puedeUsar('gestion_usuarios'));
   if (normalized === 'roles') return canViewAdminRoles() && (!f || f.puedeUsar('gestion_usuarios'));
   if (normalized === 'solicitudes') return canViewAdminRequests() && (!f || f.puedeUsar('solicitudes_acceso'));
   if (['estados', 'categorias', 'modelos', 'gasolinas'].includes(normalized)) return canViewAdminOperationCatalogs();
@@ -1663,7 +1665,7 @@ function _cfgCanAccessTab(tabName = '') {
   return false;
 }
 function _cfgVisibleAdminTabs() {
-  return ['usuarios', 'roles', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'plazas', 'ubicaciones', 'empresa', 'programador']
+  return ['usuarios', 'choferes', 'roles', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'plazas', 'ubicaciones', 'empresa', 'programador']
     .filter(tabName => _cfgCanAccessTab(tabName));
 }
 function _cfgResolveAllowedTab(preferred = 'usuarios') {
@@ -2297,8 +2299,13 @@ async function registrarEventoGestion(tipo, mensaje, extra = {}) {
 // generarSlugArchivo / descargarArchivoLocal \u2192 /mapa/features/core/utils.js (Fase 4)
 
 function abrirReporteImpresion(htmlContenido) {
-  const container = document.getElementById('reporte-pdf-container');
-  if (!container) return;
+  let container = document.getElementById('reporte-pdf-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'reporte-pdf-container';
+    container.style.display = 'none';
+    document.body.appendChild(container);
+  }
 
   const originalScrollX = window.scrollX || window.pageXOffset || 0;
   const originalScrollY = window.scrollY || window.pageYOffset || 0;
@@ -7056,6 +7063,9 @@ function obtenerCredencialesMapa() { return getUsuariosAdmin(); }
 let _unsubUsuarios = null;
 let _umUsers = [];
 let _umSelectedId = null;
+let _choferesUnsubUsuarios = null;
+let _choferesUsers = [];
+let _choferesSelectedId = '';
 
 function abrirUsuarios() {
   if (!canManageUsers()) {
@@ -7400,6 +7410,9 @@ async function umGuardarCambios(docId) {
 
   if (!nombre) return showToast('El nombre es obligatorio', 'error');
   if (isChofer && !licenciaVencimiento) return showToast('Captura el vencimiento de licencia del chofer.', 'error');
+  if (isChofer && !(targetUser.licenciaArchivoUrl || targetUser.licenciaArchivoPath)) {
+    return showToast('Registra la licencia desde Panel admin > Choferes para habilitarlo.', 'error');
+  }
   if (!canManageTargetRole(targetUser.rol) || !canAssignRole(rol)) {
     return showToast('Tu rol no puede modificar ese nivel de acceso.', 'error');
   }
@@ -7681,6 +7694,7 @@ async function umCrearUsuario() {
   if (!email || !email.includes('@')) return showToast('Correo inválido', 'error');
   if (pass.length < 6) return showToast('La contraseña debe tener mínimo 6 caracteres', 'error');
   if (isChofer && !licenciaVencimiento) return showToast('Captura el vencimiento de licencia del chofer.', 'error');
+  if (isChofer) return showToast('Crea el usuario primero y registra la licencia desde Panel admin > Choferes.', 'error');
   if (!canAssignRole(rol)) {
     return showToast('Tu rol no puede crear ese nivel de acceso.', 'error');
   }
@@ -11108,7 +11122,7 @@ async function _componerReporteConFirmas(mapCanvas, firmas) {
 }
 
 function abrirUltimoCuadre() {
-  return manejadorFlujoV3();
+  return abrirHistorialCuadres();
 }
 
 // ==============================================================
@@ -13496,8 +13510,9 @@ async function enviarReporteAuditoriaFinal() {
 // 👑 ADMIN Y AUXILIAR: EL BOTÓN MÁGICO DE FLUJO
 function manejadorFlujoV3() {
   const estadoActual = (document.getElementById('txtV3')?.innerText || '').trim();
+  const puedeGestionarCuadre = userRole === 'admin' || _roleMeta().isAdmin || canViewAdminCuadre();
 
-  if (userRole === 'admin' && estadoActual === "INICIAR CUADRE (ADMIN)") {
+  if (puedeGestionarCuadre && estadoActual === "INICIAR CUADRE (ADMIN)") {
     toggleAdminSidebar(false);
     document.getElementById('audit-modal')?.classList.add('active');
     _cuadreSetStage('aux-setup');
@@ -13506,7 +13521,7 @@ function manejadorFlujoV3() {
     _cuadreActualizarAuxiliares();
     _cuadreActualizarBotonMision();
   }
-  else if (userRole === 'admin' && estadoActual === "FINALIZAR CUADRE") {
+  else if (puedeGestionarCuadre && estadoActual === "FINALIZAR CUADRE") {
     toggleAdminSidebar(false);
     showToast("Descargando revisión del patio...", "info");
 
@@ -13654,13 +13669,107 @@ async function iniciarMisionAuditoria() {
 let globalHistorialAuditorias = [];
 let historialCuadresPage = 1;
 const HISTORIAL_CUADRES_PAGE_SIZE = 8;
+const HISTORIAL_CUADRES_Z_INDEX = '76050';
 
-function abrirHistorialCuadres() {
-  toggleAdminSidebar(false);
-  document.getElementById('historial-cuadres-modal')?.classList.add('active');
+function _historialCuadresShellHtml() {
+  return `
+    <div class="historial-cuadre-shell">
+      <div class="historial-cuadre-toolbar">
+        <div class="historial-cuadre-title">
+          <h2>Historial de Cuadre</h2>
+          <span id="historialCuadreStatus">Cuadres oficiales de flota</span>
+        </div>
+        <div class="historial-cuadre-actions">
+          <button class="historial-cuadre-primary" onclick="abrirCuadrarFlotaDesdeHistorial()">
+            <span class="material-icons">playlist_add_check</span>
+            Cuadrar Flota
+          </button>
+          <button class="historial-cuadre-filter-btn" onclick="document.getElementById('historial-cuadre-filters')?.classList.toggle('active')">
+            <span class="material-icons">filter_list</span>
+            Filtrar
+          </button>
+          <button class="historial-cuadre-close" title="Cerrar" onclick="cerrarHistorialCuadres()">
+            <span class="material-icons">close</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="historial-cuadre-filters" class="historial-cuadre-filters">
+        <label class="historial-cuadre-field">
+          <span class="material-icons">search</span>
+          <input type="text" id="buscadorArchivero" placeholder="Buscar auxiliar, ventas o fecha" oninput="renderHistorialCuadres()">
+        </label>
+        <label class="historial-cuadre-field compact">
+          <span class="material-icons">calendar_today</span>
+          <input type="date" id="filtroFechaArchivero" oninput="renderHistorialCuadres()">
+        </label>
+        <label class="historial-cuadre-field compact">
+          <span class="material-icons">person_search</span>
+          <select id="filtroAutorArchivero" onchange="renderHistorialCuadres()">
+            <option value="">Todos los autores</option>
+          </select>
+        </label>
+        <button class="historial-cuadre-clear" onclick="limpiarFiltrosArchivero()">
+          <span class="material-icons">filter_alt_off</span>
+          Limpiar
+        </button>
+      </div>
+
+      <div class="fleet-wrapper historial-cuadre-wrapper">
+        <div id="lista-historial-cuadres" class="historial-cuadre-table-wrap"></div>
+      </div>
+    </div>
+  `;
+}
+
+async function _ensureHistorialCuadresModal() {
+  let modal = document.getElementById('historial-cuadres-modal');
+  if (!modal && typeof _ensureLegacyModalElement === 'function') {
+    modal = await _ensureLegacyModalElement('historial-cuadres-modal');
+  }
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'historial-cuadres-modal';
+    modal.className = 'fleet-modal';
+    document.body.appendChild(modal);
+  }
+  modal.classList.add('fleet-modal');
+  modal.style.zIndex = HISTORIAL_CUADRES_Z_INDEX;
+  if (!modal.querySelector('.historial-cuadre-shell')) {
+    modal.innerHTML = _historialCuadresShellHtml();
+  }
+  return modal;
+}
+
+function cerrarHistorialCuadres() {
+  document.getElementById('historial-cuadres-modal')?.classList.remove('active');
+}
+
+async function abrirHistorialCuadres() {
+  document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  document.getElementById('adminControlsDropdown')?.classList.remove('show');
+  document.getElementById('modal-cuadre-3v')?.classList.remove('active');
+  try { toggleAdminSidebar(false); } catch (_) {}
+
+  const modal = await _ensureHistorialCuadresModal();
+  if (!modal) {
+    showToast('No se pudo abrir el historial de cuadre.', 'error');
+    return;
+  }
+  modal.classList.add('active');
+
   const container = document.getElementById('lista-historial-cuadres');
   if (!container) return;
   container.innerHTML = `<div class="audit-history-empty"><span class="material-icons spinner">sync</span> Cargando historial de cuadres...</div>`;
+  const status = document.getElementById('historialCuadreStatus');
+  if (status) status.textContent = 'Cargando cuadres oficiales...';
+
+  if (!api?.obtenerHistorialCuadres) {
+    container.innerHTML = `<div class="audit-history-empty">No encontré el servicio de historial de cuadres.</div>`;
+    if (status) status.textContent = 'Servicio no disponible';
+    showToast('No encontré el servicio de historial de cuadres.', 'error');
+    return;
+  }
 
   api.obtenerHistorialCuadres(_miPlaza()).then(data => {
     globalHistorialAuditorias = data || [];
@@ -13673,17 +13782,38 @@ function abrirHistorialCuadres() {
         autores.map(a => `<option value="${escapeHtml(a)}">${escapeHtml(a)}</option>`).join('');
     }
     renderHistorialCuadres();
-  }).catch(e => console.error(e));
+  }).catch(e => {
+    console.error(e);
+    container.innerHTML = `
+      <div class="audit-history-empty">
+        <div>
+          <div>No se pudo cargar el historial de cuadres.</div>
+          <button class="audit-history-action-btn" style="margin-top:12px;" onclick="abrirHistorialCuadres()">
+            <span class="material-icons">refresh</span> Reintentar
+          </button>
+        </div>
+      </div>
+    `;
+    if (status) status.textContent = 'Error al cargar historial';
+    showToast('No se pudo cargar el historial de cuadres.', 'error');
+  });
 }
 
-function abrirCuadrarFlotaDesdeHistorial() {
+async function abrirCuadrarFlotaDesdeHistorial() {
   const estadoActual = (document.getElementById('txtV3')?.innerText || '').trim();
   const modal = document.getElementById('historial-cuadres-modal');
   if (modal) modal.classList.remove('active');
 
-  if (userRole === 'admin') {
+  const puedeGestionarCuadre = userRole === 'admin' || _roleMeta().isAdmin || canViewAdminCuadre();
+  if (puedeGestionarCuadre) {
     if (!estadoActual) {
-      document.getElementById('audit-modal')?.classList.add('active');
+      const auditModal = document.getElementById('audit-modal') || await _ensureLegacyModalElement('audit-modal');
+      if (!auditModal) {
+        showToast('No se pudo abrir Cuadrar Flota.', 'error');
+        return;
+      }
+      auditModal.style.zIndex = '76040';
+      auditModal.classList.add('active');
       _cuadreSetStage('aux-setup');
       _cuadreMostrarPaso(1);
       window.UNIDADES_SISTEMA_CORPORATIVO = [];
@@ -17971,6 +18101,13 @@ const _cfgAdminTabMeta = {
     badge: 'Usuarios',
     description: 'Administra cuentas, plazas base, permisos individuales y acciones operativas del equipo.'
   },
+  choferes: {
+    group: 'accesos',
+    groupLabel: 'Accesos y permisos',
+    label: 'Choferes',
+    badge: 'Licencias',
+    description: 'Registra usuarios existentes como choferes y conserva el expediente de licencia vigente.'
+  },
   roles: {
     group: 'accesos',
     groupLabel: 'Accesos y permisos',
@@ -19153,6 +19290,7 @@ function abrirPanelConfiguracion(tabInicial) {
   }
   const visibilityMap = {
     usuarios: canViewAdminUsers(),
+    choferes: canViewAdminUsers(),
     roles: canViewAdminRoles(),
     solicitudes: canViewAdminRequests(),
     estados: canViewAdminOperationCatalogs(),
@@ -19205,10 +19343,14 @@ function abrirTabConfig(tabName, btnElement) {
   if (_isGestionAdminMode() && !_isDedicatedGestionIframeMode()) {
     _syncInlineAdminRoute(normalizedTab);
   }
-  // Si estábamos en el tab de usuarios, desuscribir el listener
+  // Si estábamos en tabs con listeners de usuarios, desuscribir al salir.
   if (TAB_ACTIVA_CFG === 'usuarios' && _unsubUsuarios) {
     _unsubUsuarios(); _unsubUsuarios = null;
     _umUsers = []; _umSelectedId = null;
+  }
+  if (TAB_ACTIVA_CFG === 'choferes' && _choferesUnsubUsuarios) {
+    _choferesUnsubUsuarios(); _choferesUnsubUsuarios = null;
+    _choferesUsers = []; _choferesSelectedId = '';
   }
 
   if (!btnElement) {
@@ -19224,7 +19366,7 @@ function abrirTabConfig(tabName, btnElement) {
   }
 
   const searchBox = document.querySelector('.cfg-v2-add-bar');
-  const tabsSinBarra = ['empresa', 'usuarios', 'roles', 'solicitudes', 'plazas'];
+  const tabsSinBarra = ['empresa', 'usuarios', 'choferes', 'roles', 'solicitudes', 'plazas'];
   if (tabsSinBarra.includes(TAB_ACTIVA_CFG)) {
     if (searchBox) searchBox.style.display = 'none';
   } else {
@@ -19918,6 +20060,11 @@ function renderizarListaConfig() {
 
   if (TAB_ACTIVA_CFG === 'usuarios') {
     renderizarTabConfigUsuarios(container);
+    return;
+  }
+
+  if (TAB_ACTIVA_CFG === 'choferes') {
+    renderizarTabConfigChoferes(container);
     return;
   }
 
@@ -20716,6 +20863,387 @@ function renderizarTabConfigUsuarios(container) {
       `;
   _umRenderPlazaChips();
   _umIniciar();
+}
+
+function renderizarTabConfigChoferes(container) {
+  if (!canViewAdminUsers()) {
+    container.innerHTML = '<div style="padding:28px; text-align:center; color:#ef4444; font-weight:800;">Sin permiso para abrir choferes.</div>';
+    return;
+  }
+  container.innerHTML = `
+    <div class="um-workspace um-workspace-lite">
+      <div class="um-body um-workspace-shell um-workspace-shell-lite">
+        <div class="um-list-col">
+          <div class="um-column-head um-column-head-lite">
+            <div>
+              <span class="um-column-kicker">Directorio</span>
+              <h4>Usuarios del sistema</h4>
+              <p>Selecciona un usuario existente para registrarlo como chofer.</p>
+            </div>
+            <span id="choferes-directory-count" class="cfg-catalog-count">0 visibles</span>
+          </div>
+          <div class="um-list-toolbar">
+            <div class="um-search-wrap">
+              <span class="material-icons um-search-icon">search</span>
+              <input type="text" id="choferes-search" placeholder="Buscar usuario, correo, rol o plaza..." oninput="_choferesFiltrar()">
+            </div>
+          </div>
+          <div id="choferes-list" class="um-cards-stack">
+            <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>
+          </div>
+        </div>
+
+        <div class="um-edit-col">
+          <div class="um-column-head um-column-head-lite">
+            <div>
+              <span class="um-column-kicker">Registro de chofer</span>
+              <h4>Licencia y alta operativa</h4>
+              <p>Los datos base se toman del perfil de usuario. La licencia vigente debe cargarse como imagen o PDF.</p>
+            </div>
+          </div>
+          <div id="choferes-form-host" class="um-editor-stage">
+            <div class="um-placeholder">
+              <span class="material-icons">badge</span>
+              <h5>Selecciona un usuario</h5>
+              <p>Al registrar la licencia, el usuario aparecerá en los formularios de traslados como chofer disponible.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  _choferesIniciar();
+}
+
+function _choferesIniciar() {
+  if (_choferesUnsubUsuarios) _choferesUnsubUsuarios();
+  _choferesUnsubUsuarios = db.collection(COL.USERS).onSnapshot(snap => {
+    _choferesUsers = snap.docs
+      .map(d => _normalizeUserProfile({ id: d.id, ...d.data() }))
+      .sort((a, b) => {
+        const aReady = _choferesEstaRegistrado(a) ? 1 : 0;
+        const bReady = _choferesEstaRegistrado(b) ? 1 : 0;
+        if (aReady !== bReady) return bReady - aReady;
+        return String(a.nombre || '').localeCompare(String(b.nombre || ''));
+      });
+    if (_choferesSelectedId && !_choferesUsers.some(u => u.id === _choferesSelectedId)) _choferesSelectedId = '';
+    _choferesRender();
+    _cfgRefreshAdminHeroStats(true).catch(() => {});
+  }, err => {
+    console.error('onSnapshot choferes:', err);
+    const list = document.getElementById('choferes-list');
+    if (list) list.innerHTML = '<div class="um-loading um-loading-empty"><span class="material-icons">error</span><strong>No se pudieron cargar usuarios</strong></div>';
+  });
+}
+
+function _choferesEstaRegistrado(user = {}) {
+  return user.isChofer === true
+    && Boolean(String(user.licenciaVencimiento || '').trim())
+    && Boolean(String(user.licenciaArchivoUrl || user.licenciaArchivoPath || '').trim());
+}
+
+function _choferesFiltrar() {
+  _choferesRender();
+}
+
+function _choferesListaFiltrada() {
+  const q = String(document.getElementById('choferes-search')?.value || '').trim().toLowerCase();
+  if (!q) return _choferesUsers.slice();
+  return _choferesUsers.filter(user => [
+    user.nombre,
+    user.email,
+    user.plazaAsignada,
+    _umRoleBadge(user.rol).label,
+    _choferesEstaRegistrado(user) ? 'chofer registrado' : 'sin registro'
+  ].some(value => String(value || '').toLowerCase().includes(q)));
+}
+
+function _choferesRender() {
+  _choferesRenderList();
+  _choferesRenderForm();
+}
+
+function _choferesRenderList() {
+  const host = document.getElementById('choferes-list');
+  const count = document.getElementById('choferes-directory-count');
+  if (!host) {
+    if (_choferesUnsubUsuarios) { _choferesUnsubUsuarios(); _choferesUnsubUsuarios = null; }
+    return;
+  }
+  const list = _choferesListaFiltrada();
+  if (count) count.textContent = `${list.length} visibles`;
+  if (!list.length) {
+    host.innerHTML = `
+      <div class="um-loading um-loading-empty">
+        <span class="material-icons">person_search</span>
+        <strong>No encontramos usuarios</strong>
+        <small>Ajusta el buscador para registrar un chofer.</small>
+      </div>
+    `;
+    return;
+  }
+  host.innerHTML = list.map(user => {
+    const active = user.id === _choferesSelectedId ? ' active' : '';
+    const badge = _umRoleBadge(user.rol);
+    const registered = _choferesEstaRegistrado(user);
+    return `
+      <button type="button" class="um-card${active}" onclick="_choferesSelectUser('${_choferesJsArg(user.id)}')" aria-pressed="${active ? 'true' : 'false'}">
+        <div class="um-avatar" style="${_umAvatarStyle(user.nombre || user.email || 'U')}">${_umInitials(user.nombre || user.email || 'U')}</div>
+        <div class="um-card-info">
+          <div class="um-card-head">
+            <div class="um-card-copy">
+              <div class="um-card-name" title="${escapeHtml(user.nombre || '')}">${escapeHtml(user.nombre || 'SIN NOMBRE')}</div>
+              <div class="um-card-email" title="${escapeHtml(user.email || '')}">${escapeHtml(user.email || '(usuario heredado)')}</div>
+            </div>
+            <div class="um-card-badges">
+              <span class="um-role-badge" style="${badge.style}">${escapeHtml(badge.label)}</span>
+              <span class="um-role-badge ${registered ? 'success' : 'um-role-badge-muted'}">${registered ? 'CHOFER' : 'SIN ALTA'}</span>
+            </div>
+          </div>
+          <div class="um-card-meta">
+            <span><span class="material-icons">apartment</span>${escapeHtml(user.plazaAsignada || 'Sin plaza')}</span>
+            <span><span class="material-icons">${registered ? 'description' : 'upload_file'}</span>${registered ? escapeHtml(user.licenciaVencimiento) : 'Licencia pendiente'}</span>
+          </div>
+        </div>
+      </button>
+    `;
+  }).join('');
+}
+
+function _choferesSelectUser(id) {
+  _choferesSelectedId = String(id || '');
+  _choferesRender();
+}
+
+function _choferesSelectedUser() {
+  return _choferesUsers.find(user => user.id === _choferesSelectedId) || null;
+}
+
+function _choferesRenderForm() {
+  const host = document.getElementById('choferes-form-host');
+  if (!host) return;
+  const user = _choferesSelectedUser();
+  if (!user) {
+    host.innerHTML = `
+      <div class="um-placeholder">
+        <span class="material-icons">badge</span>
+        <h5>Selecciona un usuario</h5>
+        <p>Al registrar la licencia, el usuario aparecerá en los formularios de traslados como chofer disponible.</p>
+      </div>
+    `;
+    return;
+  }
+  const roleBadge = _umRoleBadge(user.rol);
+  const registered = _choferesEstaRegistrado(user);
+  const canEdit = canManageUsers() && canManageTargetRole(user.rol);
+  const fileLabel = user.licenciaArchivoNombre
+    ? `Archivo actual: ${user.licenciaArchivoNombre}`
+    : (registered ? 'Licencia cargada' : 'Sin archivo cargado');
+  host.innerHTML = `
+    <div class="um-form-container" style="display:block;">
+      <div class="um-form-card">
+        <div class="um-profile-hero">
+          <div class="um-form-avatar" style="${_umAvatarStyle(user.nombre || user.email || 'U')}">${_umInitials(user.nombre || user.email || 'U')}</div>
+          <div class="um-profile-hero-copy">
+            <div class="um-form-title">${escapeHtml(user.nombre || 'SIN NOMBRE')}</div>
+            <div class="um-form-subtitle">${escapeHtml(user.email || 'Usuario heredado')}</div>
+            <div class="um-profile-tags">
+              <span class="um-info-pill">${escapeHtml(roleBadge.label)}</span>
+              <span class="um-info-pill">${escapeHtml(user.plazaAsignada || 'Sin plaza')}</span>
+              <span class="um-info-pill ${registered ? '' : 'neutral'}">${registered ? 'Chofer registrado' : 'Registro pendiente'}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="um-form-grid2">
+          <div class="um-info-panel">
+            <div class="um-form-section">Datos del usuario</div>
+            <div class="um-form-field">
+              <label>Nombre</label>
+              <input type="text" value="${escapeHtml(user.nombre || '')}" disabled>
+            </div>
+            <div class="um-form-field">
+              <label>Correo</label>
+              <input type="text" value="${escapeHtml(user.email || '')}" disabled>
+            </div>
+            <div class="um-form-field">
+              <label>Teléfono</label>
+              <input type="text" value="${escapeHtml(user.telefono || 'Sin teléfono')}" disabled>
+            </div>
+            <div class="um-form-field">
+              <label>Plaza</label>
+              <input type="text" value="${escapeHtml(user.plazaAsignada || 'Sin plaza')}" disabled>
+            </div>
+          </div>
+
+          <div class="um-info-panel">
+            <div class="um-form-section">Licencia</div>
+            <div class="um-form-field">
+              <label>Vencimiento de licencia <span style="color:#ef4444;">*</span></label>
+              <input type="date" id="choferes-licencia-vencimiento" value="${escapeHtml(user.licenciaVencimiento || '')}" ${canEdit ? '' : 'disabled'}>
+            </div>
+            <div class="um-form-field">
+              <label>Archivo de licencia ${registered ? '' : '<span style="color:#ef4444;">*</span>'}</label>
+              <input type="file" id="choferes-licencia-file" accept="image/*,application/pdf,.pdf" onchange="_choferesHandleFile()" ${canEdit ? '' : 'disabled'}>
+              <div id="choferes-file-label" class="um-permission-intro">${escapeHtml(fileLabel)}</div>
+              ${user.licenciaArchivoUrl ? `<a href="${escapeHtml(user.licenciaArchivoUrl)}" target="_blank" rel="noopener" class="um-btn-secondary" style="text-decoration:none;justify-content:center;margin-top:8px;"><span class="material-icons" style="font-size:17px;">open_in_new</span> Ver licencia</a>` : ''}
+            </div>
+          </div>
+        </div>
+
+        ${!canEdit ? '<div style="margin:14px 0;padding:12px 14px;border-radius:12px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:12px;">Tu rol actual no puede modificar este registro.</div>' : ''}
+
+        <div class="um-divider"></div>
+        <div class="um-actions">
+          <button type="button" class="um-btn-save" id="choferes-save-btn" onclick="_choferesGuardarRegistro()" ${canEdit ? '' : 'disabled'}>
+            <span class="material-icons" style="font-size:17px;">save</span> GUARDAR CHOFER
+          </button>
+          ${registered ? `<button type="button" class="um-btn-danger" onclick="_choferesDeshabilitar('${_choferesJsArg(user.id)}')" ${canEdit ? '' : 'disabled'}>
+            <span class="material-icons" style="font-size:17px;">block</span> Deshabilitar chofer
+          </button>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function _choferesHandleFile() {
+  const file = document.getElementById('choferes-licencia-file')?.files?.[0] || null;
+  const label = document.getElementById('choferes-file-label');
+  if (label) label.textContent = file ? `Archivo seleccionado: ${file.name}` : 'Sin archivo seleccionado';
+}
+
+function _choferesJsArg(value) {
+  return String(value || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+function _choferesSafeSegment(value) {
+  return String(value || '').trim().replace(/[^a-zA-Z0-9_.@-]/g, '_') || 'usuario';
+}
+
+function _choferesValidarArchivo(file) {
+  if (!file) return 'Sube una foto o PDF de la licencia.';
+  const type = String(file.type || '').toLowerCase();
+  const name = String(file.name || '').toLowerCase();
+  const isAllowed = type.startsWith('image/') || type === 'application/pdf' || name.endsWith('.pdf');
+  if (!isAllowed) return 'La licencia debe ser imagen o PDF.';
+  if (file.size > 12 * 1024 * 1024) return 'La licencia no puede pesar mas de 12 MB.';
+  return '';
+}
+
+async function _choferesSubirLicencia(user, file) {
+  const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
+  if (!storageRoot || typeof storageRoot.ref !== 'function') throw new Error('Storage no esta disponible.');
+  const safeUser = _choferesSafeSegment(user.id || user.email || user.nombre);
+  const safeName = _choferesSafeSegment(file.name || 'licencia');
+  const path = `licencias_choferes/${safeUser}/licencia_${Date.now()}_${safeName}`;
+  const ref = storageRoot.ref(path);
+  const contentType = file.type || (String(file.name || '').toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+  const snap = await ref.put(file, { contentType });
+  const url = await snap.ref.getDownloadURL();
+  return { path, url, contentType };
+}
+
+async function _choferesGuardarRegistro() {
+  if (!canManageUsers()) return showToast('No tienes permisos para registrar choferes.', 'error');
+  const user = _choferesSelectedUser();
+  if (!user) return showToast('Selecciona un usuario.', 'error');
+  if (!canManageTargetRole(user.rol)) return showToast('Tu rol no puede modificar este usuario.', 'error');
+
+  const licenciaVencimiento = _dateInputValue(document.getElementById('choferes-licencia-vencimiento')?.value || '');
+  const file = document.getElementById('choferes-licencia-file')?.files?.[0] || null;
+  const hasExistingFile = Boolean(user.licenciaArchivoUrl || user.licenciaArchivoPath);
+  if (!licenciaVencimiento) return showToast('Captura el vencimiento de licencia.', 'error');
+  if (!file && !hasExistingFile) return showToast('Sube la foto o PDF de la licencia vigente.', 'error');
+  if (file) {
+    const fileError = _choferesValidarArchivo(file);
+    if (fileError) return showToast(fileError, 'error');
+  }
+
+  const btn = document.getElementById('choferes-save-btn');
+  const original = btn?.innerHTML || '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-icons spinner" style="font-size:17px;">sync</span> Guardando...';
+  }
+
+  try {
+    const updateData = {
+      isChofer: true,
+      licenciaVencimiento,
+      licenciaSubidaPor: USER_NAME || currentUserProfile?.email || 'Sistema',
+      licenciaActualizadaAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (file) {
+      const uploaded = await _choferesSubirLicencia(user, file);
+      updateData.licenciaArchivoUrl = uploaded.url;
+      updateData.licenciaArchivoPath = uploaded.path;
+      updateData.licenciaArchivoNombre = file.name || 'licencia';
+      updateData.licenciaArchivoTipo = uploaded.contentType || file.type || '';
+      updateData.licenciaSubidaAt = firebase.firestore.FieldValue.serverTimestamp();
+      if (user.licenciaArchivoPath) {
+        const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
+        try { storageRoot?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) {}
+      }
+    }
+    await db.collection(COL.USERS).doc(user.id).set(updateData, { merge: true });
+    await registrarEventoGestion('CHOFER_REGISTRADO', `Registró chofer ${user.nombre || user.email || user.id}`, {
+      entidad: 'USUARIOS',
+      referencia: user.id,
+      objetivo: user.email || user.nombre || user.id,
+      detalles: `Licencia: ${licenciaVencimiento}${file ? ' | Archivo actualizado' : ''}`,
+      resultado: 'EXITO'
+    });
+    showToast('Chofer registrado.', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast(error?.message || 'No se pudo registrar el chofer.', 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = original;
+    }
+  }
+}
+
+async function _choferesDeshabilitar(id) {
+  if (!canManageUsers()) return showToast('No tienes permisos para deshabilitar choferes.', 'error');
+  const user = _choferesUsers.find(u => u.id === id);
+  if (!user) return showToast('Usuario no encontrado.', 'error');
+  if (!canManageTargetRole(user.rol)) return showToast('Tu rol no puede modificar este usuario.', 'error');
+  const ok = await mexConfirm(
+    'Deshabilitar chofer',
+    `¿Deshabilitar a ${user.nombre || user.email} como chofer de traslados?`,
+    'warning'
+  );
+  if (!ok) return;
+  try {
+    const del = firebase.firestore.FieldValue.delete();
+    await db.collection(COL.USERS).doc(id).set({
+      isChofer: false,
+      licenciaVencimiento: del,
+      licenciaArchivoUrl: del,
+      licenciaArchivoPath: del,
+      licenciaArchivoNombre: del,
+      licenciaArchivoTipo: del,
+      licenciaSubidaAt: del,
+      licenciaActualizadaAt: del,
+      licenciaSubidaPor: del
+    }, { merge: true });
+    if (user.licenciaArchivoPath) {
+      const storageRoot = window._storage || (firebase?.storage ? firebase.storage() : null);
+      try { storageRoot?.ref(user.licenciaArchivoPath)?.delete()?.catch(() => {}); } catch (_) {}
+    }
+    await registrarEventoGestion('CHOFER_DESHABILITADO', `Deshabilitó chofer ${user.nombre || user.email || id}`, {
+      entidad: 'USUARIOS',
+      referencia: id,
+      objetivo: user.email || user.nombre || id,
+      resultado: 'EXITO'
+    });
+    showToast('Chofer deshabilitado.', 'success');
+  } catch (error) {
+    console.error(error);
+    showToast(error?.message || 'No se pudo deshabilitar el chofer.', 'error');
+  }
 }
 
 // Variable para el filtro de plaza activo en usuarios
@@ -22529,9 +23057,14 @@ function toggleControlesMenu(e) {
 window.toggleSidebar = toggleSidebar;
 window.toggleControlesMenu = toggleControlesMenu;
 window.abrirReporteImpresion  = abrirReporteImpresion;
+window.abrirHistorialCuadres = abrirHistorialCuadres;
+window.abrirHistorialCuadre = abrirHistorialCuadres;
+window.cerrarHistorialCuadres = cerrarHistorialCuadres;
 window.abrirCuadrarFlotaDesdeHistorial = abrirCuadrarFlotaDesdeHistorial;
 window.verPdfCuadreHistorial = verPdfCuadreHistorial;
 window.historialCuadresIrPagina = historialCuadresIrPagina;
+window.renderHistorialCuadres = renderHistorialCuadres;
+window.limpiarFiltrosArchivero = limpiarFiltrosArchivero;
 window.generarHtmlAuditoriaCuadrePdf = generarHtmlAuditoriaCuadrePdf;
 window.descargarArchivoLocal  = descargarArchivoLocal;
 window.generarSlugArchivo     = generarSlugArchivo;
@@ -22543,6 +23076,11 @@ window._cfgOpenNavGroup = _cfgOpenNavGroup;
 window._cfgToggleNavGroup = _cfgToggleNavGroup;
 window._cfgSyncNavState = _cfgSyncNavState;
 window._cfgQuickAction = _cfgQuickAction;
+window._choferesDeshabilitar = _choferesDeshabilitar;
+window._choferesFiltrar = _choferesFiltrar;
+window._choferesGuardarRegistro = _choferesGuardarRegistro;
+window._choferesHandleFile = _choferesHandleFile;
+window._choferesSelectUser = _choferesSelectUser;
 
 // ── Exponer funciones al scope global para onclick/onchange ────────────────
 // (ES6 modules son strict y no exponen al window automáticamente)
@@ -23013,6 +23551,7 @@ Object.assign(window, {
   renderizarLogsAuditoria,
   renderizarPaseLista,
   renderizarResumen,
+  renderizarTabConfigChoferes,
   renderizarTabConfigPlazas,
   renderizarTabConfigSolicitudes,
   renderizarTabConfigUsuarios,

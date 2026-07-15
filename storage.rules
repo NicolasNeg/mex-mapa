@@ -111,6 +111,15 @@ service firebase.storage {
               && rolConfig(role).permissions[permiso] == true
             )
           )
+        : permiso == "manage_users"
+          ? (
+            (
+              rolConfig(role) != null
+              && rolConfig(role).permissions is map
+              && rolConfig(role).permissions.keys().hasAny([permiso])
+              && rolConfig(role).permissions[permiso] == true
+            )
+          )
         : false;
     }
 
@@ -175,6 +184,21 @@ service firebase.storage {
           || (
             request.resource.size < 12 * 1024 * 1024
             && request.resource.contentType.matches('image/.*')
+          )
+        );
+    }
+
+    match /licencias_choferes/{userDocId}/{fileName} {
+      allow read: if tienePerfilActual();
+      allow write: if tienePermiso("manage_users")
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 12 * 1024 * 1024
+            && (
+              request.resource.contentType.matches('image/.*')
+              || request.resource.contentType == 'application/pdf'
+            )
           )
         );
     }

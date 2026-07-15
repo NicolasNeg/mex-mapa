@@ -154,6 +154,7 @@ export const NAV_GROUPS = [
         roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
         children: [
           { id: 'usuarios',    label: 'Usuarios',    route: '/gestion?tab=usuarios',    icon: 'group' },
+          { id: 'choferes',    label: 'Choferes',    route: '/gestion?tab=choferes',    icon: 'badge' },
           { id: 'roles',       label: 'Roles',       route: '/gestion?tab=roles',       icon: 'shield' },
           { id: 'alertas-emitir', label: 'Emitir alertas', route: '/app/alertas', icon: 'campaign' },
           { id: 'alertas-historial', label: 'Historial alertas', route: '/app/alertas/historial', icon: 'notifications_active' },

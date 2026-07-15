@@ -1166,9 +1166,9 @@
             <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span>
               Registros / Movimientos</div>
 
-            <div id="mcValidarCuadre" class="mc-item" onclick="abrirHistorialCuadres()"
+            <div id="mcHistorialCuadre" class="mc-item" onclick="abrirHistorialCuadres()"
               style="display: flex; flex-direction: column; align-items: flex-start;">
-              <div><span class="material-icons">fact_check</span> Historial de Cuadre</div>
+              <div><span class="material-icons">history</span> Historial de Cuadre</div>
               <small id="lblUltimoCuadre"
                 style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">--/-- 00:00
                 (Nadie)</small>
@@ -2733,7 +2733,7 @@
 
   <div id="reporte-pdf-container" style="display: none;"></div>
 
-  <div id="historial-cuadres-modal" class="fleet-modal" style="z-index: 6000;">
+  <div id="historial-cuadres-modal" class="fleet-modal" style="z-index: 76050;">
     <div class="historial-cuadre-shell">
       <div class="historial-cuadre-toolbar">
         <div class="historial-cuadre-title">
@@ -2749,7 +2749,7 @@
             <span class="material-icons">filter_list</span>
             Filtrar
           </button>
-          <button class="historial-cuadre-close" title="Cerrar" onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')">
+          <button class="historial-cuadre-close" title="Cerrar" onclick="cerrarHistorialCuadres()">
             <span class="material-icons">close</span>
           </button>
         </div>
@@ -3798,7 +3798,7 @@
                     <span class="material-icons">key</span>
                     <span>
                       <small>Accesos y permisos</small>
-                      <strong>Usuarios, roles y solicitudes</strong>
+                      <strong>Usuarios, choferes y roles</strong>
                     </span>
                   </span>
                   <span class="material-icons cfg-nav-group-chevron">expand_more</span>
@@ -3808,6 +3808,11 @@
                     title="Usuarios">
                     <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
                     <span>Usuarios</span>
+                  </button>
+                  <button id="cfg-tab-choferes" class="cfg-tab" onclick="abrirTabConfig('choferes', this)"
+                    title="Choferes">
+                    <span class="cfg-tab-icon"><span class="material-icons">badge</span></span>
+                    <span>Choferes</span>
                   </button>
                   <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
                     <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>

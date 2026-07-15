@@ -394,8 +394,8 @@
           </button>
           <div id="moreControlsDropdown" class="more-controls-dropdown">
             <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span> Registros / Movimientos</div>
-            <div id="mcValidarCuadre" class="mc-item" onclick="abrirUltimoCuadre()" style="display: flex; flex-direction: column; align-items: flex-start;">
-              <div><span class="material-icons">history</span> Validar cuadre actual</div>
+            <div id="mcHistorialCuadre" class="mc-item" onclick="abrirHistorialCuadres()" style="display: flex; flex-direction: column; align-items: flex-start;">
+              <div><span class="material-icons">history</span> Historial de Cuadre</div>
               <small id="lblUltimoCuadre" style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">--/-- 00:00 (Nadie)</small>
             </div>
             <div class="mc-item" onclick="abrirResumenFlota()"><span class="material-icons">pie_chart</span> Resumen flota</div>
@@ -436,7 +436,7 @@
                   style="background: transparent; color: #64748b; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
                   <span class="material-symbols-outlined" style="font-size: 18px;">admin_panel_settings</span> CUADRE ADMINS
                 </button>
-                <button id="tabFlotaHistorial" onclick="window.abrirHistorialCuadre && window.abrirHistorialCuadre()"
+                <button id="tabFlotaHistorial" onclick="window.abrirHistorialCuadres && window.abrirHistorialCuadres()"
                   style="background: transparent; color: #64748b; border: none; padding: 8px 16px; border-radius: 4px; font-weight: 800; font-size: 12px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 8px; text-transform: uppercase;">
                   <span class="material-symbols-outlined" style="font-size: 18px;">history</span> HISTORIAL DE CUADRE
                 </button>

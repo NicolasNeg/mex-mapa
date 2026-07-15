@@ -7,8 +7,7 @@ import {
   obtenerTrasladosBootstrap,
   crearTraslado,
   actualizarTraslado,
-  cerrarTraslado,
-  resolverDiscrepanciaKm
+  cerrarTraslado
 } from '/js/core/database.js';
 
 let _ctr = null;
@@ -26,11 +25,28 @@ const DEFAULT_TYPES = [
 ];
 
 const GAS_OPTIONS = ['F', '3/4', '1/2', '1/4', 'E', 'N/A'];
+const ROLE_LEVEL = {
+  AUXILIAR: 1,
+  VENTAS: 2,
+  SUPERVISOR: 3,
+  JEFE_PATIO: 4,
+  GERENTE_PLAZA: 5,
+  JEFE_REGIONAL: 6,
+  CORPORATIVO_USER: 7,
+  JEFE_OPERACION: 8,
+  PROGRAMADOR: 9
+};
 
 export async function mount({ container, navigate }) {
   unmount();
   _ctr = container;
   _navigate = navigate;
+
+  _ensureCss();
+  if (!_canViewTraslados()) {
+    _renderNoAccess();
+    return;
+  }
 
   const gs = getState();
   const plaza = _normPlaza(getCurrentPlaza() || gs.profile?.plazaAsignada || '');
@@ -49,15 +65,12 @@ export async function mount({ container, navigate }) {
       unidades: [],
       choferes: [],
       tipos: DEFAULT_TYPES,
-      discrepancias: [],
-      canManage: false,
-      canResolveKm: false
+      canManage: false
     },
     filters: _emptyFilters(),
     draft: _newDraft(plaza)
   };
 
-  _ensureCss();
   _renderShell();
   _bind();
   await _load();
@@ -119,9 +132,7 @@ async function _load() {
       unidades: Array.isArray(data?.unidades) ? data.unidades : [],
       choferes: Array.isArray(data?.choferes) ? data.choferes : [],
       tipos: Array.isArray(data?.tipos) && data.tipos.length ? data.tipos : DEFAULT_TYPES,
-      discrepancias: Array.isArray(data?.discrepancias) ? data.discrepancias : [],
-      canManage: data?.canManage === true,
-      canResolveKm: data?.canResolveKm === true
+      canManage: data?.canManage === true
     };
     _s.loading = false;
     _renderShell();
@@ -158,7 +169,7 @@ function _newDraft(plaza) {
     tipo: '',
     plazaOrigen: _normPlaza(plaza),
     plazaDestino: _normPlaza(plaza),
-    fechaSalida: _toDateTimeLocal(Date.now() + 2 * 60 * 1000),
+    fechaSalida: _toDateTimeLocal(Date.now()),
     fechaRegresoEstimada: '',
     kmSalida: '',
     nota: ''
@@ -173,34 +184,25 @@ function _renderShell() {
   const creadores = _creadores();
   _ctr.innerHTML = `
     <section class="tras" aria-busy="${_s.loading ? 'true' : 'false'}">
-      <header class="tras-top">
-        <div>
-          <p class="tras-kicker">Operacion de flota</p>
-          <h1>Traslados</h1>
-          <p class="tras-sub">Salida, seguimiento, cierre y kilometraje por unidad.</p>
-        </div>
-        <div class="tras-top-actions">
-          <span class="tras-plaza"><span class="material-icons">location_on</span>${esc(_s.plaza || 'GLOBAL')}</span>
-          <button type="button" class="tras-btn ghost" data-action="reload">
-            <span class="material-icons">sync</span>
-            Actualizar
-          </button>
-          <button type="button" class="tras-btn primary" data-action="new" ${_s.boot.canManage ? '' : 'disabled'}>
-            <span class="material-icons">add</span>
-            Nuevo traslado
-          </button>
-        </div>
-      </header>
-
       <div id="tras-banner"></div>
-      <div id="tras-kpis" class="tras-kpis"></div>
 
       <div class="tras-layout">
         <main class="tras-main">
-          <div class="tras-tabs" role="tablist">
-            <button type="button" class="tras-tab" data-tab="activos"><span class="material-icons">local_shipping</span>Activos</button>
-            <button type="button" class="tras-tab" data-tab="historial"><span class="material-icons">history</span>Historial</button>
-            <button type="button" class="tras-tab" data-tab="discrepancias"><span class="material-icons">speed</span>Discrepancias</button>
+          <div class="tras-commandbar">
+            <div class="tras-tabs" role="tablist">
+              <button type="button" class="tras-tab" data-tab="activos"><span class="material-icons">local_shipping</span>Activos</button>
+              <button type="button" class="tras-tab" data-tab="historial"><span class="material-icons">history</span>Historial</button>
+            </div>
+            <div class="tras-actions">
+              <button type="button" class="tras-btn ghost" data-action="reload">
+                <span class="material-icons">sync</span>
+                Actualizar
+              </button>
+              <button type="button" class="tras-btn primary" data-action="new" ${_s.boot.canManage ? '' : 'disabled'}>
+                <span class="material-icons">add</span>
+                Nuevo traslado
+              </button>
+            </div>
           </div>
 
           <section class="tras-filter-panel" aria-label="Filtros de traslados">
@@ -212,7 +214,7 @@ function _renderShell() {
               <label><span>Razon</span><select data-filter="tipo">${_option('', 'Todas', _s.filters.tipo)}${tipos.map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, _s.filters.tipo)).join('')}</select></label>
               <label><span>Plaza salida</span><select data-filter="plazaOrigen">${_option('', 'Todas', _s.filters.plazaOrigen)}${plazas.map(p => _option(p, p, _s.filters.plazaOrigen)).join('')}</select></label>
               <label><span>Plaza regreso</span><select data-filter="plazaDestino">${_option('', 'Todas', _s.filters.plazaDestino)}${plazas.map(p => _option(p, p, _s.filters.plazaDestino)).join('')}</select></label>
-              <label><span>Estatus</span><select data-filter="estatus">${['', 'PROGRAMADO', 'ABIERTO', 'CERRADO'].map(v => _option(v, v || 'Todos', _s.filters.estatus)).join('')}</select></label>
+              <label><span>Estatus</span><select data-filter="estatus">${['', 'ABIERTO', 'CERRADO'].map(v => _option(v, v || 'Todos', _s.filters.estatus)).join('')}</select></label>
               <label><span>Salida desde</span><input type="date" data-filter="salidaDesde" value="${esc(_s.filters.salidaDesde)}"></label>
               <label><span>Salida hasta</span><input type="date" data-filter="salidaHasta" value="${esc(_s.filters.salidaHasta)}"></label>
               <label><span>Regreso desde</span><input type="date" data-filter="regresoDesde" value="${esc(_s.filters.regresoDesde)}"></label>
@@ -244,7 +246,6 @@ function _paintAll() {
   if (!_ctr || !_s) return;
   _paintTabs();
   _paintBanner();
-  _paintKpis();
   _paintTable();
   _paintDetail();
 }
@@ -258,51 +259,11 @@ function _paintTabs() {
 function _paintBanner() {
   const host = _ctr.querySelector('#tras-banner');
   if (!host) return;
-  const pending = _s.boot.discrepancias || [];
   if (_s.error) {
     host.innerHTML = `<div class="tras-banner danger"><span class="material-icons">error</span><strong>${esc(_s.error)}</strong><button type="button" data-action="reload">Reintentar</button></div>`;
     return;
   }
-  if (!pending.length) {
-    host.innerHTML = '';
-    return;
-  }
-  host.innerHTML = `
-    <div class="tras-banner">
-      <span class="material-icons">speed</span>
-      <div><strong>${pending.length} discrepancia${pending.length === 1 ? '' : 's'} de km pendiente${pending.length === 1 ? '' : 's'}</strong><small>Se mantendran visibles hasta que un usuario autorizado las resuelva.</small></div>
-      <button type="button" data-action="tab" data-tab="discrepancias">Revisar</button>
-    </div>
-  `;
-}
-
-function _paintKpis() {
-  const host = _ctr.querySelector('#tras-kpis');
-  if (!host) return;
-  const rows = _s.boot.traslados || [];
-  const stats = rows.reduce((acc, row) => {
-    const st = _estado(row);
-    acc.total += 1;
-    if (st === 'PROGRAMADO') acc.programados += 1;
-    else if (st === 'ABIERTO') acc.abiertos += 1;
-    else if (st === 'CERRADO') acc.cerrados += 1;
-    return acc;
-  }, { total: 0, programados: 0, abiertos: 0, cerrados: 0 });
-  host.innerHTML = [
-    _kpi('Activos', stats.abiertos + stats.programados, 'local_shipping', 'primary'),
-    _kpi('Programados', stats.programados, 'event_upcoming', 'info'),
-    _kpi('Cerrados', stats.cerrados, 'task_alt', 'success'),
-    _kpi('Discrepancias', (_s.boot.discrepancias || []).length, 'speed', (_s.boot.discrepancias || []).length ? 'warn' : 'neutral')
-  ].join('');
-}
-
-function _kpi(label, value, icon, tone) {
-  return `
-    <article class="tras-kpi ${tone}">
-      <span class="material-icons">${icon}</span>
-      <div><strong>${esc(String(value))}</strong><small>${esc(label)}</small></div>
-    </article>
-  `;
+  host.innerHTML = '';
 }
 
 function _paintTable() {
@@ -313,11 +274,6 @@ function _paintTable() {
   if (_s.loading) {
     host.innerHTML = _tableSkeleton();
     if (count) count.textContent = 'Cargando registros';
-    return;
-  }
-
-  if (_s.tab === 'discrepancias') {
-    _paintDiscrepancies(host, count);
     return;
   }
 
@@ -374,40 +330,6 @@ function _rowHtml(row) {
 function _dateCell(value) {
   const label = _fmtDate(value);
   return label ? `<span class="tras-date">${esc(label)}</span>` : '<span class="tras-muted">Sin fecha</span>';
-}
-
-function _paintDiscrepancies(host, count) {
-  const rows = (_s.boot.discrepancias || []).filter(row => {
-    const q = [_s.filters.folio, _s.filters.unidad].join(' ').toLowerCase().trim();
-    if (!q) return true;
-    return [row.mva, row.usuario, row.fuente, row.plaza].some(v => String(v || '').toLowerCase().includes(q));
-  });
-  if (count) count.textContent = `${rows.length} discrepancias pendientes`;
-  if (!rows.length) {
-    host.innerHTML = _emptyState('Sin discrepancias pendientes', 'El kilometraje capturado no requiere revision en este momento.', 'verified');
-    return;
-  }
-  host.innerHTML = `
-    <div class="tras-table-wrap">
-      <table class="tras-table">
-        <thead><tr><th>Unidad</th><th>Km esperado</th><th>Km capturado</th><th>Delta</th><th>Fuente</th><th>Usuario</th><th>Fecha</th><th></th></tr></thead>
-        <tbody>
-          ${rows.map(row => `
-            <tr>
-              <td><strong>${esc(row.mva || '-')}</strong><small>${esc(row.plaza || '')}</small></td>
-              <td>${esc(String(row.kmEsperado ?? '-'))}</td>
-              <td>${esc(String(row.kmCapturado ?? '-'))}</td>
-              <td><span class="tras-delta">${esc(String(row.delta ?? '-'))} km</span></td>
-              <td>${esc(row.fuente || '-')}</td>
-              <td>${esc(row.usuario || '-')}</td>
-              <td>${_dateCell(row.fecha || row.timestamp)}</td>
-              <td><button type="button" class="tras-btn small" data-action="resolve-discrepancy" data-id="${esc(row.id)}" ${_s.boot.canResolveKm ? '' : 'disabled'}><span class="material-icons">done</span>Resolver</button></td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
 }
 
 function _paintDetail() {
@@ -469,7 +391,7 @@ function _formHtml(row) {
         <label>
           <span>Chofer</span>
           <select id="tras-form-chofer" name="choferUid" ${canEdit || isNew ? '' : 'disabled'}>
-            ${_option('', 'Selecciona chofer vigente', draft.choferUid)}
+            ${_option('', 'Selecciona chofer registrado', draft.choferUid)}
             ${_choferes().map(c => _option(c.uid || c.id, c.nombre, draft.choferUid)).join('')}
           </select>
         </label>
@@ -654,9 +576,6 @@ async function _onClick(event) {
     await _submitClose(actionEl.dataset.id);
     return;
   }
-  if (action === 'resolve-discrepancy') {
-    await _resolveDiscrepancy(actionEl.dataset.id);
-  }
 }
 
 function _onInput(event) {
@@ -734,7 +653,7 @@ async function _submitCreate() {
   await _runAction(async () => {
     const res = await crearTraslado(payload);
     if (!res?.ok) throw new Error(res?.error || 'No se pudo crear el traslado.');
-    _toast(`Traslado ${res.folio || ''} creado.`, res.km === 'DISCREPANCIA' ? 'warning' : 'success');
+    _toast(`Traslado ${res.folio || ''} creado.`, 'success');
     _s.selectedId = res.id || '';
     _s.detailMode = 'detail';
     await _load();
@@ -776,21 +695,9 @@ async function _submitClose(id) {
   await _runAction(async () => {
     const res = await cerrarTraslado(id, payload);
     if (!res?.ok) throw new Error(res?.error || 'No se pudo cerrar el traslado.');
-    _toast('Traslado cerrado.', res.km === 'DISCREPANCIA' ? 'warning' : 'success');
+    _toast('Traslado cerrado.', 'success');
     _s.selectedId = id;
     _s.detailMode = 'detail';
-    await _load();
-  });
-}
-
-async function _resolveDiscrepancy(id) {
-  if (!id) return;
-  const note = await _prompt('Resolver discrepancia', 'Captura la nota de resolucion:', 'Nota de resolucion', 'text', '');
-  if (!note) return;
-  await _runAction(async () => {
-    const res = await resolverDiscrepanciaKm(id, { nota: note, usuario: _actor() });
-    if (!res?.ok) throw new Error(res?.error || 'No se pudo resolver la discrepancia.');
-    _toast('Discrepancia resuelta.', 'success');
     await _load();
   });
 }
@@ -901,8 +808,7 @@ function _tipoLabel(tipo) {
 function _estado(row) {
   const raw = String(row?.estadoOperativo || row?.estado || 'ABIERTO').toUpperCase();
   if (raw === 'CERRADO') return 'CERRADO';
-  const salida = _toMs(row?.fechaSalida);
-  return salida && salida > Date.now() ? 'PROGRAMADO' : 'ABIERTO';
+  return 'ABIERTO';
 }
 
 function _val(id) {
@@ -914,14 +820,29 @@ function _actor() {
   return String(gs.profile?.nombre || gs.profile?.usuario || gs.profile?.email || window._auth?.currentUser?.email || 'Sistema').trim();
 }
 
-function _prompt(titulo, texto, placeholder, inputTipo, valor) {
-  if (typeof window.mexPrompt === 'function') return window.mexPrompt(titulo, texto, placeholder, inputTipo, valor);
-  return Promise.resolve(window.prompt(`${titulo}\n${texto}`, valor || ''));
-}
-
 function _toast(message, type = 'info') {
   if (typeof window.showToast === 'function') window.showToast(message, type);
   else console[type === 'error' ? 'error' : 'log'](message);
+}
+
+function _canViewTraslados() {
+  const gs = getState();
+  const role = String(gs.profile?.rol || gs.profile?.role || '').toUpperCase().trim();
+  if (window.mexPerms?.canDo?.('traslados_gestionar')) return true;
+  return (ROLE_LEVEL[role] || 0) >= ROLE_LEVEL.VENTAS;
+}
+
+function _renderNoAccess() {
+  if (!_ctr) return;
+  _ctr.innerHTML = `
+    <section class="tras tras-denied">
+      <div class="tras-empty tras-denied-card">
+        <span class="material-icons">lock</span>
+        <strong>Sin acceso a traslados</strong>
+        <p>Esta seccion esta disponible desde ventas en adelante.</p>
+      </div>
+    </section>
+  `;
 }
 
 function _normPlaza(value) {

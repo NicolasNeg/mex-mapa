@@ -109,7 +109,7 @@ function _idFromContext(ctx = {}) {
 function _tabFromPath(path = '') {
   const clean = _routePath(path);
   const last = clean.split('/').filter(Boolean).pop() || '';
-  if (['usuarios', 'roles', 'plazas', 'catalogos', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'ubicaciones', 'empresa'].includes(last)) {
+  if (['usuarios', 'choferes', 'roles', 'plazas', 'catalogos', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'ubicaciones', 'empresa'].includes(last)) {
     return last;
   }
   return '';

@@ -24,11 +24,11 @@
             <div class="mc-item" onclick="abrirRegistrosMovimientos()"><span class="material-icons">manage_search</span>
               Registros / Movimientos</div>
 
-            <div id="mcValidarCuadre" class="mc-item" onclick="abrirUltimoCuadre()"
+            <div id="mcHistorialCuadre" class="mc-item" onclick="abrirHistorialCuadres()"
               style="display: flex; flex-direction: column; align-items: flex-start;">
-              <div><span class="material-icons">history</span> Validar Cuadre Actual</div>
+              <div><span class="material-icons">history</span> Historial de Cuadre</div>
               <small id="lblUltimoCuadre"
-                style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">✅ --/-- 00:00
+                style="color: #16a34a; font-size: 10px; font-weight: 800; margin-left: 25px;">--/-- 00:00
                 (Nadie)</small>
             </div>
 
@@ -571,14 +571,14 @@
   </div>
 
 <!-- ── historial-cuadres-modal ─────────────────────────────── -->
-  <div id="historial-cuadres-modal" class="fleet-modal" style="z-index: 6000;">
+  <div id="historial-cuadres-modal" class="fleet-modal" style="z-index: 76050;">
     <div class="fleet-header-top"
       style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:15px;">
       <div style="display:flex; align-items:center; gap: 10px;">
         <span class="material-icons" style="font-size:24px; color:var(--mex-blue);">folder_special</span>
         <h2 style="color:var(--primary); font-weight:900; margin:0;">ARCHIVERO DE AUDITORÍAS</h2>
       </div>
-      <button onclick="document.getElementById('historial-cuadres-modal').classList.remove('active')"
+      <button onclick="cerrarHistorialCuadres()"
         style="background:#f1f5f9; color:var(--text); border:none; padding: 10px 20px; border-radius:10px; font-weight:800; cursor:pointer;">CERRAR</button>
     </div>
     <!-- Filtros -->
