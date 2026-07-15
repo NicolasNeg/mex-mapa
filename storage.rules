@@ -111,7 +111,7 @@ service firebase.storage {
               && rolConfig(role).permissions[permiso] == true
             )
           )
-        : permiso == "manage_users"
+        : permiso == "manage_users" || permiso == "view_admin_users"
           ? (
             (
               rolConfig(role) != null
@@ -190,7 +190,8 @@ service firebase.storage {
 
     match /licencias_choferes/{userDocId}/{fileName} {
       allow read: if tienePerfilActual();
-      allow write: if tienePermiso("manage_users")
+      // Quien puede ver la vista de usuarios/choferes puede registrar licencias.
+      allow write: if (tienePermiso("manage_users") || tienePermiso("view_admin_users"))
         && (
           request.resource == null
           || (

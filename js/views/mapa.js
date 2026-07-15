@@ -21214,7 +21214,7 @@ function _choferesRenderForm() {
   }
   const roleBadge = _umRoleBadge(user.rol);
   const registered = _choferesEstaRegistrado(user);
-  const canEdit = canManageUsers() && canManageTargetRole(user.rol);
+  const canEdit = canViewAdminUsers() && canManageTargetRole(user.rol);
   const fileLabel = user.licenciaArchivoNombre
     ? `Archivo actual: ${user.licenciaArchivoNombre}`
     : (registered ? 'Licencia cargada' : 'Sin archivo cargado');
@@ -21324,7 +21324,7 @@ async function _choferesSubirLicencia(user, file) {
 }
 
 async function _choferesGuardarRegistro() {
-  if (!canManageUsers()) return showToast('No tienes permisos para registrar choferes.', 'error');
+  if (!canViewAdminUsers()) return showToast('No tienes permisos para registrar choferes.', 'error');
   const user = _choferesSelectedUser();
   if (!user) return showToast('Selecciona un usuario.', 'error');
   if (!canManageTargetRole(user.rol)) return showToast('Tu rol no puede modificar este usuario.', 'error');
@@ -21385,7 +21385,7 @@ async function _choferesGuardarRegistro() {
 }
 
 async function _choferesDeshabilitar(id) {
-  if (!canManageUsers()) return showToast('No tienes permisos para deshabilitar choferes.', 'error');
+  if (!canViewAdminUsers()) return showToast('No tienes permisos para deshabilitar choferes.', 'error');
   const user = _choferesUsers.find(u => u.id === id);
   if (!user) return showToast('Usuario no encontrado.', 'error');
   if (!canManageTargetRole(user.rol)) return showToast('Tu rol no puede modificar este usuario.', 'error');

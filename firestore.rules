@@ -372,6 +372,30 @@ service cloud.firestore {
         && resource.data.email == request.auth.token.email;
     }
 
+    // Registro/baja de chofer: quien puede ver la vista de usuarios puede
+    // actualizar SOLO los campos de licencia/chofer, sin requerir manage_users.
+    // El diff va primero: si toca otros campos, hasOnly=false y corta barato.
+    function actualizacionChoferValida() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly([
+          "isChofer",
+          "licenciaVencimiento",
+          "licenciaArchivoUrl",
+          "licenciaArchivoPath",
+          "licenciaArchivoNombre",
+          "licenciaArchivoTipo",
+          "licenciaSubidaPor",
+          "licenciaSubidaAt",
+          "licenciaActualizadaAt"
+        ])
+        && request.resource.data.isChofer is bool
+        && tienePerfilActual()
+        && (
+          tienePermiso(perfilActual(), "view_admin_users")
+          || tienePermiso(perfilActual(), "manage_users")
+        );
+    }
+
     function actualizacionSelfServiceUsuarioValida(docId) {
       let changed = request.resource.data.diff(resource.data).affectedKeys();
       return esDocumentoUsuarioPropio(docId)
@@ -766,6 +790,7 @@ service cloud.firestore {
       // Así un usuario puede cambiar su avatar/teléfono/preferencias sin fallar.
       allow update: if actualizacionSelfServiceUsuarioValida(doc)
         || esProgramadorBootstrap()
+        || actualizacionChoferValida()
         || puedeActualizarUsuario(resource.data, request.resource.data);
       allow delete: if puedeEliminarUsuario(resource.data) || esProgramadorBootstrap();
 
