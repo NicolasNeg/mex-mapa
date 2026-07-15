@@ -32,11 +32,10 @@
 }
 
 /* ── Hero / top bar ───────────────────────────────────────── */
+/* El título vive en el header del shell; el hero interno se elimina
+   para que el sidebar llegue hasta arriba. */
 .luminous-admin .cfg-v2-hero {
-  background: var(--lum-bg) !important;
-  border-bottom: 1px solid var(--lum-border) !important;
-  box-shadow: none !important;
-  min-height: 0;
+  display: none !important;
 }
 
 .luminous-admin .cfg-v2-hero-bg,
@@ -98,6 +97,8 @@
   padding: 0 !important;
   gap: 0 !important;
   min-height: 0;
+  flex: 1 1 auto !important;
+  height: 100% !important;
 }
 
 /* ── Sidebar (#cfg-admin-sidebar — gestion + mapa) ───────── */
@@ -127,32 +128,19 @@
   padding: 16px 8px !important;
 }
 
+/* El título del sidebar se elimina (el header del shell ya lo muestra);
+   solo queda el botón de colapsar alineado a la derecha. */
 .luminous-admin .cfg-v2-sidebar-top {
-  padding: 0 8px 12px !important;
+  padding: 0 4px 8px !important;
   border-bottom: 1px solid var(--lum-border);
   margin-bottom: 4px;
+  justify-content: flex-end !important;
 }
 
-.luminous-admin .cfg-v2-sidebar-label {
-  font-size: 15px !important;
-  font-weight: 600 !important;
-  color: var(--lum-on-surface) !important;
-  gap: 10px !important;
-  padding: 0 !important;
-  margin-bottom: 2px !important;
-}
-
-.luminous-admin .cfg-v2-sidebar-label .material-icons {
-  font-size: 20px !important;
-  color: var(--lum-on-surface-variant) !important;
-}
-
+.luminous-admin .cfg-v2-sidebar-top > div:first-child,
+.luminous-admin .cfg-v2-sidebar-label,
 .luminous-admin .cfg-v2-sidebar-sublabel {
-  font-size: 12px !important;
-  font-weight: 400 !important;
-  color: var(--lum-outline) !important;
-  padding-left: 30px !important;
-  margin-bottom: 0 !important;
+  display: none !important;
 }
 
 .luminous-admin .cfg-v2-sidebar-toggle {
@@ -813,6 +801,391 @@
   color: var(--lum-on-surface-variant) !important;
   border: none !important;
   font-weight: 600 !important;
+}
+
+/* ══════════════════════════════════════════════════════════
+   SECCIÓN USUARIOS / CHOFERES — Luminous Admin
+   Directorio izquierdo + editor contextual derecho
+   ══════════════════════════════════════════════════════════ */
+
+/* Subtítulos y kickers unificados en todo el panel */
+.luminous-admin .um-column-kicker,
+.luminous-admin .um-workspace-kicker,
+.luminous-admin .cfg-v2-workspace-kicker {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .um-column-head h4 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin .um-column-head p,
+.luminous-admin #cfg-module-subtitle,
+.luminous-admin .um-workspace-copy p {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  line-height: 1.5 !important;
+  color: var(--lum-outline) !important;
+}
+
+/* Workspace y columnas planas */
+.luminous-admin .um-workspace,
+.luminous-admin .um-workspace-lite {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-body,
+.luminous-admin .um-workspace-shell {
+  background: var(--lum-bg) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-card) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+}
+
+.luminous-admin .um-column-head {
+  background: transparent !important;
+  border-bottom: 1px solid var(--lum-border) !important;
+  padding: 16px 18px !important;
+}
+
+/* Buscador del directorio */
+.luminous-admin .um-search-wrap {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: 8px !important;
+}
+
+.luminous-admin .um-search-wrap input {
+  background: transparent !important;
+  border: none !important;
+  font-size: 14px !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin .um-search-icon {
+  color: var(--lum-outline) !important;
+}
+
+/* Tarjetas de usuario (directorio) */
+.luminous-admin .um-card {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease;
+}
+
+.luminous-admin .um-card:hover {
+  background: var(--lum-surface-high) !important;
+  transform: none !important;
+}
+
+.luminous-admin .um-card.active {
+  background: var(--lum-secondary-container) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-card-name {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+.luminous-admin .um-card-email {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: var(--lum-outline) !important;
+}
+
+/* Avatar monograma */
+.luminous-admin .um-avatar,
+.luminous-admin .um-form-avatar {
+  border-radius: 9999px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Badges de estatus */
+.luminous-admin .um-role-badge {
+  border-radius: 9999px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-role-badge-muted {
+  background: var(--lum-surface) !important;
+  color: var(--lum-on-surface-variant) !important;
+}
+
+.luminous-admin .um-card-meta span {
+  background: rgba(255, 255, 255, 0.7) !important;
+  color: var(--lum-on-surface-variant) !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  border-radius: 9999px !important;
+}
+
+.luminous-admin .um-card.active .um-card-meta span {
+  background: rgba(255, 255, 255, 0.55) !important;
+  color: var(--lum-on-secondary-container) !important;
+}
+
+.luminous-admin .um-card-meta .material-icons {
+  color: var(--lum-outline) !important;
+}
+
+/* Botón Nuevo usuario — azul primario destacado */
+.luminous-admin .um-toolbar-btn.primary,
+.luminous-admin #btn-nuevo-usuario {
+  background: var(--lum-primary) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  padding: 10px 16px !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-toolbar-btn.primary:hover,
+.luminous-admin #btn-nuevo-usuario:hover {
+  background: #1d4ed8 !important;
+}
+
+/* Estado vacío del editor */
+.luminous-admin .um-placeholder {
+  background: transparent !important;
+  border: none !important;
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .um-placeholder .material-icons {
+  width: 72px;
+  height: 72px;
+  line-height: 72px;
+  border-radius: 9999px;
+  background: var(--lum-surface-low) !important;
+  color: var(--lum-outline) !important;
+  font-size: 32px !important;
+}
+
+.luminous-admin .um-placeholder h5 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin .um-placeholder p {
+  font-size: 13px !important;
+  color: var(--lum-outline) !important;
+  max-width: 380px;
+}
+
+/* Perfil del usuario (editor contextual) */
+.luminous-admin .um-profile-hero {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-card) !important;
+}
+
+.luminous-admin .um-form-title {
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  color: var(--lum-on-surface) !important;
+  text-transform: none !important;
+}
+
+.luminous-admin .um-form-subtitle {
+  font-size: 13px !important;
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .um-context-tile {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+}
+
+.luminous-admin .um-context-tile span {
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.05em !important;
+  text-transform: uppercase !important;
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .um-context-tile strong {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+}
+
+/* Bloques de información (Identidad / Rol / Permisos) */
+.luminous-admin .um-info-panel {
+  background: var(--lum-bg) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-card) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-form-section {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--lum-outline) !important;
+  border-bottom: none !important;
+}
+
+.luminous-admin .um-form-field label {
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: var(--lum-on-surface-variant) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* Campos de formulario: 8px según guía */
+.luminous-admin .um-form-field input,
+.luminous-admin .um-form-field select,
+.luminous-admin .um-form-field textarea {
+  border: 1px solid var(--lum-border) !important;
+  border-radius: 8px !important;
+  background: var(--lum-bg) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin .um-form-field input:disabled,
+.luminous-admin .um-form-field select:disabled {
+  background: var(--lum-surface-low) !important;
+  color: var(--lum-on-surface-variant) !important;
+}
+
+/* Icono lápiz de edición por bloque */
+.luminous-admin .um-edit-lock-btn {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 8px !important;
+  color: var(--lum-outline) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-edit-lock-btn:hover {
+  background: var(--lum-surface-high) !important;
+  color: var(--lum-on-surface) !important;
+}
+
+/* Matriz de permisos: bloques modulares */
+.luminous-admin .um-permission-intro {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  color: var(--lum-on-surface-variant) !important;
+  font-size: 13px !important;
+  font-weight: 400 !important;
+}
+
+.luminous-admin .cfg-security-permission-group {
+  background: var(--lum-bg) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-card) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-security-permission-group-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin .cfg-security-permission-group-meta {
+  font-size: 11px !important;
+  color: var(--lum-outline) !important;
+}
+
+/* Acciones de pie: guardar sólido / outline / peligro suave */
+.luminous-admin .um-actions {
+  border-top: 1px solid var(--lum-border) !important;
+  padding-top: 16px !important;
+}
+
+.luminous-admin .um-btn-save {
+  background: var(--lum-primary) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-btn-save:hover {
+  background: #1d4ed8 !important;
+}
+
+.luminous-admin .um-btn-secondary {
+  background: transparent !important;
+  color: var(--lum-on-surface-variant) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-btn-secondary:hover {
+  background: var(--lum-surface-low) !important;
+}
+
+.luminous-admin .um-btn-danger {
+  background: #fdecec !important;
+  color: #b3261e !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-btn-danger:hover {
+  background: #f9dedc !important;
+}
+
+.luminous-admin .um-divider {
+  background: var(--lum-border) !important;
+}
+
+/* Pills de perfil */
+.luminous-admin .um-info-pill {
+  background: rgba(255, 255, 255, 0.8) !important;
+  color: var(--lum-on-surface-variant) !important;
+  border: none !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 9999px !important;
 }
 
 /* ── Collapsed sidebar (desktop) ──────────────────────────── */

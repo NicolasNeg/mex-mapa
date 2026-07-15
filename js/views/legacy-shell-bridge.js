@@ -124,7 +124,7 @@
     'body.legacy-embedded-stage #routeShellLayout{min-height:100vh !important;}',
     'body.legacy-embedded-stage #routeMainStage, body.legacy-embedded-stage .shell-main-stage, body.legacy-embedded-stage .shell-main-offset{margin-left:0 !important;width:100% !important;max-width:none !important;padding-top:0 !important;min-height:100vh !important;}',
     'body.legacy-embedded-stage #homeApp, body.legacy-embedded-stage #cuadreApp, body.legacy-embedded-stage #colaApp, body.legacy-embedded-stage #programmerApp, body.legacy-embedded-stage #incidenciasApp{min-height:100vh !important;}',
-    'body.legacy-embedded-stage .gestion-back-btn, body.legacy-embedded-stage #cfg-sidebar-pin{display:none !important;}',
+    'body.legacy-embedded-stage .gestion-back-btn{display:none !important;}',
     'body.legacy-embedded-stage:not(.legacy-embedded-admin) .cfg-v2-sidebar{display:none !important;}',
     'body.legacy-embedded-stage:not(.legacy-embedded-admin) .cfg-v2-body{grid-template-columns:minmax(0,1fr) !important;}',
     'body.legacy-embedded-stage:not(.legacy-embedded-admin) .cfg-v2-hero{display:none !important;}',

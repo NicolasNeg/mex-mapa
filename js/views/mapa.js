@@ -18349,24 +18349,13 @@ function _cfgMetaForTab(tabName = TAB_ACTIVA_CFG) {
   };
 }
 
-function _cfgIsEmbeddedInShell() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('shell') === '1' || params.get('appStage') === '1';
-  } catch (_) {
-    return false;
-  }
-}
-
 function _cfgApplySidebarPinState(forcePinned = null) {
   const sidebar = document.getElementById('cfg-admin-sidebar');
   const toggle = document.getElementById('cfg-sidebar-pin');
   if (!sidebar) return;
-  const embedded = _cfgIsEmbeddedInShell();
-  let pinned = forcePinned === null
+  const pinned = forcePinned === null
     ? localStorage.getItem('mex.admin.sidebar.pinned') !== '0'
     : Boolean(forcePinned);
-  if (embedded) pinned = true;
   sidebar.classList.toggle('is-pinned', pinned);
   if (toggle) {
     toggle.title = pinned ? 'Colapsar sidebar' : 'Expandir sidebar';
