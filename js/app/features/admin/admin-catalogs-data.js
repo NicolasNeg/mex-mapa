@@ -35,7 +35,8 @@ export async function getAdminMetaSnapshot() {
     ubicaciones: _array(runtimeListas.ubicaciones).length ? _array(runtimeListas.ubicaciones) : _array(cfgListas.ubicaciones),
     categorias: _array(runtimeListas.categorias).length ? _array(runtimeListas.categorias) : _array(cfgListas.categorias),
     modelos: _array(runtimeListas.modelos).length ? _array(runtimeListas.modelos) : _array(cfgListas.modelos),
-    gasolinas: _array(runtimeListas.gasolinas).length ? _array(runtimeListas.gasolinas) : _array(cfgListas.gasolinas)
+    gasolinas: _array(runtimeListas.gasolinas).length ? _array(runtimeListas.gasolinas) : _array(cfgListas.gasolinas),
+    motivos_traslado: _array(runtimeListas.motivos_traslado).length ? _array(runtimeListas.motivos_traslado) : _array(cfgListas.motivos_traslado)
   };
 
   const securityRoles = cfgEmpresa?.security?.roles || {};
@@ -71,7 +72,8 @@ export async function getAdminMetaSnapshot() {
     { id: 'ubicaciones', label: 'Ubicaciones', items: listas.ubicaciones.map(x => ({ name: _norm(x?.nombre || x), extra: _norm(x?.plaza || '') })) },
     { id: 'categorias', label: 'Categorías', items: listas.categorias.map(x => ({ name: _norm(x?.nombre || x), extra: _norm(x?.descripcion || '') })) },
     { id: 'modelos', label: 'Modelos', items: listas.modelos.map(x => ({ name: _norm(x?.nombre || x), extra: _norm(x?.categoria || '') })) },
-    { id: 'gasolinas', label: 'Gasolinas', items: listas.gasolinas.map(x => ({ name: _norm(x?.nombre || x), extra: _norm(x?.valor || '') })) }
+    { id: 'gasolinas', label: 'Gasolinas', items: listas.gasolinas.map(x => ({ name: _norm(x?.nombre || x), extra: _norm(x?.valor || '') })) },
+    { id: 'motivos_traslado', label: 'Motivos de traslado', items: listas.motivos_traslado.map(x => ({ name: _norm(x?.nombre || x?.etiqueta || x), extra: _norm(x?.codigo || '') })) }
   ];
 
   return { roles, plazas, catalogs };

@@ -18,6 +18,15 @@
     _isMissingIndexError, _warnQueryFallback
   } = window._mex;
 
+  const DEFAULT_MOTIVOS_TRASLADO = [
+    { codigo: 'CORT', nombre: 'CORTESIA', etiqueta: 'Cortesia', descripcion: 'Servicio interno o apoyo autorizado.', orden: 1, activo: true },
+    { codigo: 'GAS', nombre: 'CARGA DE GASOLINA', etiqueta: 'Carga de gasolina', descripcion: 'Movimiento para carga o ajuste de combustible.', orden: 2, activo: true },
+    { codigo: 'TRANS', nombre: 'TRANSPORTE DE PERSONAL', etiqueta: 'Transporte de personal', descripcion: 'Traslado requerido por operacion de personal.', orden: 3, activo: true },
+    { codigo: 'DROP', nombre: 'RETORNO POR DROP OFF', etiqueta: 'Retorno por drop off', descripcion: 'Unidad que vuelve despues de entrega o retorno.', orden: 4, activo: true },
+    { codigo: 'INTER', nombre: 'INTERCAMBIO', etiqueta: 'Intercambio', descripcion: 'Movimiento entre plazas o unidades por intercambio.', orden: 5, activo: true },
+    { codigo: 'NOCOM', nombre: 'NO COMERCIAL', etiqueta: 'No comercial', descripcion: 'Uso operativo no relacionado a venta directa.', orden: 6, activo: true }
+  ];
+
   window._mexParts = window._mexParts || {};
   window._mexParts.settings = {
 
@@ -151,6 +160,9 @@
       const sourceListas = snapListas?.exists
         ? snapListas.data()
         : { estados: [], gasolinas: [], categorias: [] };
+      const listasGlobales = Object.prototype.hasOwnProperty.call(sourceListas, 'motivos_traslado')
+        ? sourceListas
+        : { ...sourceListas, motivos_traslado: DEFAULT_MOTIVOS_TRASLADO };
 
       const sourceUbicaciones = _mergeLocationCatalogs((sourceListas.ubicaciones || []));
       const legacyUbicaciones = plazaUp && snapPlaza && snapPlaza.exists && Array.isArray(snapPlaza.data().ubicaciones)
@@ -168,7 +180,7 @@
 
       return {
         empresa: empresaData,
-        listas: { ...sourceListas, ubicaciones }
+        listas: { ...listasGlobales, ubicaciones }
       };
     },
 

@@ -158,7 +158,8 @@ window.MEX_CONFIG = {
     ubicaciones: [],
     estados: [],
     gasolinas: [],
-    categorias: []
+    categorias: [],
+    motivos_traslado: []
   }
 };
 
@@ -1658,14 +1659,14 @@ function _cfgCanAccessTab(tabName = '') {
   if (normalized === 'choferes') return canViewAdminUsers() && (!f || f.puedeUsar('gestion_usuarios'));
   if (normalized === 'roles') return canViewAdminRoles() && (!f || f.puedeUsar('gestion_usuarios'));
   if (normalized === 'solicitudes') return canViewAdminRequests() && (!f || f.puedeUsar('solicitudes_acceso'));
-  if (['estados', 'categorias', 'modelos', 'gasolinas'].includes(normalized)) return canViewAdminOperationCatalogs();
+  if (['estados', 'categorias', 'modelos', 'gasolinas', 'motivos_traslado'].includes(normalized)) return canViewAdminOperationCatalogs();
   if (['plazas', 'ubicaciones'].includes(normalized)) return canViewAdminStructure();
   if (normalized === 'empresa') return canViewAdminOrganization();
   if (normalized === 'programador') return canViewAdminProgrammer();
   return false;
 }
 function _cfgVisibleAdminTabs() {
-  return ['usuarios', 'choferes', 'roles', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'plazas', 'ubicaciones', 'empresa', 'programador']
+  return ['usuarios', 'choferes', 'roles', 'solicitudes', 'estados', 'categorias', 'modelos', 'gasolinas', 'motivos_traslado', 'plazas', 'ubicaciones', 'empresa', 'programador']
     .filter(tabName => _cfgCanAccessTab(tabName));
 }
 function _cfgResolveAllowedTab(preferred = 'usuarios') {
@@ -18134,7 +18135,15 @@ async function migrarConfiguracionAFirestore() {
         { id: "VENTA", color: "#1e293b", orden: 93 }
       ],
       gasolinas: ["F", "15/16", "7/8", "13/16", "3/4", "11/16", "5/8", "9/16", "H", "7/16", "3/8", "5/16", "1/4", "3/16", "1/8", "1/16", "E", "N/A"],
-      categorias: ["ECAR", "CCAR", "ICAR", "FCAR", "SCAR", "CFAR", "SFAR", "FWAR", "MVAR", "IVAH", "MVAH", "FFBH", "CKMR", "MPMN", "PFAR", "GVMD"]
+      categorias: ["ECAR", "CCAR", "ICAR", "FCAR", "SCAR", "CFAR", "SFAR", "FWAR", "MVAR", "IVAH", "MVAH", "FFBH", "CKMR", "MPMN", "PFAR", "GVMD"],
+      motivos_traslado: [
+        { codigo: "CORT", nombre: "CORTESIA", etiqueta: "Cortesia", descripcion: "Servicio interno o apoyo autorizado.", orden: 1, activo: true },
+        { codigo: "GAS", nombre: "CARGA DE GASOLINA", etiqueta: "Carga de gasolina", descripcion: "Movimiento para carga o ajuste de combustible.", orden: 2, activo: true },
+        { codigo: "TRANS", nombre: "TRANSPORTE DE PERSONAL", etiqueta: "Transporte de personal", descripcion: "Traslado requerido por operacion de personal.", orden: 3, activo: true },
+        { codigo: "DROP", nombre: "RETORNO POR DROP OFF", etiqueta: "Retorno por drop off", descripcion: "Unidad que vuelve despues de entrega o retorno.", orden: 4, activo: true },
+        { codigo: "INTER", nombre: "INTERCAMBIO", etiqueta: "Intercambio", descripcion: "Movimiento entre plazas o unidades por intercambio.", orden: 5, activo: true },
+        { codigo: "NOCOM", nombre: "NO COMERCIAL", etiqueta: "No comercial", descripcion: "Uso operativo no relacionado a venta directa.", orden: 6, activo: true }
+      ]
     }
   };
 
@@ -18205,6 +18214,13 @@ const _cfgAdminTabMeta = {
     badge: 'Catálogo',
     description: 'Configura los niveles de combustible disponibles para reporte, estado y seguimiento operativo.'
   },
+  motivos_traslado: {
+    group: 'operacion',
+    groupLabel: 'Operación',
+    label: 'Motivos de traslado',
+    badge: 'Traslados',
+    description: 'Define las razones disponibles al crear, editar o cerrar traslados operativos.'
+  },
   plazas: {
     group: 'estructura',
     groupLabel: 'Estructura',
@@ -18245,12 +18261,14 @@ function _cfgCatalogDisplayValue(tabName, item) {
   if (tab === 'modelos') return String(item.nombre || item.id || '').trim();
   if (tab === 'ubicaciones') return String(item.nombre || item.id || item).trim();
   if (tab === 'estados') return String(item.id || item.nombre || item).trim();
+  if (tab === 'motivos_traslado') return String(typeof item === 'object' ? (item.nombre || item.etiqueta || item.codigo || item.id) : item).trim();
   return String(item.nombre || item.id || item).trim();
 }
 
 function _cfgCatalogDescriptionValue(tabName, item) {
   if (!item || typeof item !== 'object') return '';
-  if (String(tabName || '').trim().toLowerCase() === 'categorias') {
+  const tab = String(tabName || '').trim().toLowerCase();
+  if (tab === 'categorias' || tab === 'motivos_traslado') {
     return String(item.descripcion || item.description || item.desc || '').trim();
   }
   return '';
@@ -18265,7 +18283,7 @@ function _cfgCatalogApplyOrder(list = [], tabName = TAB_ACTIVA_CFG) {
   const tab = String(tabName || '').trim().toLowerCase();
   list.forEach((item, index) => {
     if (!item || typeof item !== 'object') return;
-    if (tab === 'estados' || tab === 'ubicaciones' || tab === 'categorias' || tab === 'modelos') {
+    if (tab === 'estados' || tab === 'ubicaciones' || tab === 'categorias' || tab === 'modelos' || tab === 'motivos_traslado') {
       item.orden = index + 1;
     }
   });
@@ -18410,7 +18428,8 @@ function _cfgSearchPlaceholderForTab(tabName = TAB_ACTIVA_CFG) {
     estados: 'Buscar estado...',
     categorias: 'Buscar categoría...',
     modelos: 'Buscar modelo...',
-    gasolinas: 'Buscar nivel de gasolina...'
+    gasolinas: 'Buscar nivel de gasolina...',
+    motivos_traslado: 'Buscar motivo, código o descripción...'
   };
   return map[tabName] || 'Buscar catálogo...';
 }
@@ -18468,7 +18487,7 @@ function _cfgRefreshQuickTools() {
   if (!tools) return;
 
   const canManageAdvancedConfig = hasPermission('manage_system_settings') || canUseProgrammerConfig();
-  const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(TAB_ACTIVA_CFG);
+  const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas', 'motivos_traslado'].includes(TAB_ACTIVA_CFG);
   const canPublishCurrentTab = TAB_ACTIVA_CFG === 'roles'
     ? (hasPermission('manage_roles_permissions') || canUseProgrammerConfig())
     : canManageAdvancedConfig;
@@ -18523,7 +18542,7 @@ async function _cfgQuickAction(action = '') {
     return;
   }
   if (mode === 'new-item') {
-    const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(TAB_ACTIVA_CFG);
+    const isCatalogTab = ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas', 'motivos_traslado'].includes(TAB_ACTIVA_CFG);
     if (!isCatalogTab) _cfgJumpTab('ubicaciones');
     setTimeout(() => abrirModalNuevaConfig(), 100);
     return;
@@ -19352,6 +19371,7 @@ function abrirPanelConfiguracion(tabInicial) {
     categorias: canViewAdminOperationCatalogs(),
     modelos: canViewAdminOperationCatalogs(),
     gasolinas: canViewAdminOperationCatalogs(),
+    motivos_traslado: canViewAdminOperationCatalogs(),
     plazas: canViewAdminStructure(),
     ubicaciones: canViewAdminStructure(),
     empresa: canViewAdminOrganization(),
@@ -19487,7 +19507,7 @@ function abrirTabConfig(tabName, btnElement) {
 }
 
 function _cfgIsCatalogDetailTab(tabName = TAB_ACTIVA_CFG) {
-  return ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas'].includes(String(tabName || '').trim().toLowerCase());
+  return ['ubicaciones', 'estados', 'categorias', 'modelos', 'gasolinas', 'motivos_traslado'].includes(String(tabName || '').trim().toLowerCase());
 }
 
 function _cfgSelectCatalogItem(index) {
@@ -19504,7 +19524,8 @@ function _cfgCatalogIcon(tabName = TAB_ACTIVA_CFG) {
     estados: 'tune',
     categorias: 'directions_car',
     modelos: 'no_crash',
-    gasolinas: 'local_gas_station'
+    gasolinas: 'local_gas_station',
+    motivos_traslado: 'route'
   };
   return map[String(tabName || '').trim().toLowerCase()] || 'list_alt';
 }
@@ -19693,6 +19714,39 @@ function _cfgCatalogInlineEditorHtml(tabName, item, index) {
     `;
   }
 
+  if (tabName === 'motivos_traslado') {
+    const code = String(itemType.codigo || itemType.id || title.slice(0, 12)).trim().toUpperCase();
+    const active = itemType.activo !== false;
+    return `
+      <div class="cfg-detail-form">
+        <div class="cfg-detail-grid-two">
+          <div class="cfg-detail-field">
+            <label>Motivo visible</label>
+            <input id="cfg-inline-name" type="text" value="${escapeHtml(title)}" placeholder="Ej: CARGA DE GASOLINA">
+          </div>
+          <div class="cfg-detail-field">
+            <label>Código interno</label>
+            <input id="cfg-inline-code" type="text" value="${escapeHtml(code)}" maxlength="18" placeholder="Ej: GAS">
+          </div>
+        </div>
+        <div class="cfg-detail-grid-two">
+          <div class="cfg-detail-field">
+            <label>Orden</label>
+            <input id="cfg-inline-order" type="number" value="${escapeHtml(String(orderValue))}" min="1" max="999">
+          </div>
+          <label class="cfg-detail-toggle">
+            <input id="cfg-inline-active" type="checkbox" ${active ? 'checked' : ''}>
+            <span>Motivo activo</span>
+          </label>
+        </div>
+        <div class="cfg-detail-field">
+          <label>Descripción</label>
+          <textarea id="cfg-inline-description" rows="4" placeholder="Explica cuándo debe usarse este motivo.">${escapeHtml(description)}</textarea>
+        </div>
+      </div>
+    `;
+  }
+
   return '';
 }
 
@@ -19742,6 +19796,15 @@ function _cfgCatalogMetaRows(tabName, item, index) {
       ['Registro', `Elemento ${index + 1}`]
     ];
   }
+  if (tabName === 'motivos_traslado') {
+    const description = _cfgCatalogDescriptionValue(tabName, item);
+    return [
+      ['Motivo', title],
+      ['Código', item.codigo || item.id || 'Sin código'],
+      ['Estado', item.activo === false ? 'Inactivo' : 'Activo'],
+      ['Descripción', description || 'Sin descripción']
+    ];
+  }
   return [];
 }
 
@@ -19755,7 +19818,10 @@ function _cfgCatalogCallout(tabName, item) {
       ? description
       : `La categoría ${title} sirve como capa de orden para modelos, reglas blandas y futuras restricciones de acomodo.`,
     modelos: `Mantén la categoría e imagen consistentes para que el inventario administrativo y el operativo no se descuadren.`,
-    gasolinas: `Este nivel se refleja en reportes y visualizaciones rápidas. Conviene mantenerlo corto y entendible para operación.`
+    gasolinas: `Este nivel se refleja en reportes y visualizaciones rápidas. Conviene mantenerlo corto y entendible para operación.`,
+    motivos_traslado: description
+      ? description
+      : `Este motivo aparece en los formularios de traslados. Mantén nombres claros, cortos y auditables.`
   };
   return map[tabName] || 'Este catálogo impacta la operación del sistema.';
 }
@@ -20184,7 +20250,19 @@ function renderizarListaConfig() {
   let lista = rawLista.map((item, idx) => ({ ...((typeof item === 'object') ? item : { nombre: item }), _origIndex: idx }));
 
   if (query) {
-    lista = lista.filter(item => (item.id || item.nombre || "").toUpperCase().includes(query));
+    lista = lista.filter(item => {
+      const haystack = [
+        item.id,
+        item.nombre,
+        item.codigo,
+        item.etiqueta,
+        item.descripcion,
+        item.description,
+        item.valor,
+        typeof item !== 'object' ? item : ''
+      ].filter(Boolean).join(' ').toUpperCase();
+      return haystack.includes(query);
+    });
   }
 
   if (catFilter) {
@@ -20220,6 +20298,18 @@ function renderizarListaConfig() {
     let valor = esEstado ? item.id : (item.nombre || item);
     const color = esEstado ? item.color : null;
     let pText = "";
+
+    if (TAB_ACTIVA_CFG === 'motivos_traslado') {
+      valor = _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, item);
+      const code = typeof item === 'object' ? String(item.codigo || item.id || '').trim().toUpperCase() : '';
+      const description = typeof item === 'object' ? String(item.descripcion || item.description || '').trim() : '';
+      const active = typeof item === 'object' ? item.activo !== false : true;
+      pText = `
+        ${code ? `<span class="cfg-motive-code">${escapeHtml(code)}</span>` : ''}
+        <span class="cfg-motive-status ${active ? 'is-active' : 'is-inactive'}">${active ? 'ACTIVO' : 'INACTIVO'}</span>
+        ${description ? `<span class="cfg-motive-desc">${escapeHtml(description)}</span>` : ''}
+      `;
+    }
 
     if (TAB_ACTIVA_CFG === 'ubicaciones') {
       const isPlaza = typeof item === 'object' ? item.isPlazaFija : ['PATIO', 'TALLER', 'AGENCIA', 'TALLER EXTERNO', 'HYP COBIAN'].includes(item);
@@ -20264,7 +20354,7 @@ function renderizarListaConfig() {
     const dragAttrs = usaDrag ? `draggable="true" ondragstart="cfgDragStart(event,${i})" ondragover="cfgDragOver(event)" ondrop="cfgDrop(event,${i})"` : '';
     const dragHandle = usaDrag ? `<span class="cfg-drag-handle" title="Arrastrar para reordenar"><span class="material-icons">drag_indicator</span></span>` : '';
     const activeClass = _cfgCatalogSelectedIndex === i ? ' active' : '';
-    const orderBadge = typeof item === 'object' && ['ubicaciones', 'estados', 'categorias', 'modelos'].includes(TAB_ACTIVA_CFG)
+    const orderBadge = typeof item === 'object' && ['ubicaciones', 'estados', 'categorias', 'modelos', 'motivos_traslado'].includes(TAB_ACTIVA_CFG)
       ? `<span style="font-size:10px; color:#94a3b8; font-weight:800; flex-shrink:0;">#${_cfgCatalogOrderValue(item, visIndex)}</span>`
       : '';
 
@@ -20395,8 +20485,9 @@ function _cfgSetModalMeta(type, isEdit) {
     modelos: { icon: 'directions_car', sub: 'Modelo o versión de vehículo' },
     categorias: { icon: 'category', sub: 'Agrupación de modelos de vehículo' },
     gasolinas: { icon: 'local_gas_station', sub: 'Nivel de combustible (ej: ½, ¾, F)' },
+    motivos_traslado: { icon: 'route', sub: 'Motivo operativo disponible en traslados' },
   };
-  const LABELS = { ubicaciones: 'Ubicación', estados: 'Estado', modelos: 'Modelo', categorias: 'Categoría', gasolinas: 'Nivel de gasolina' };
+  const LABELS = { ubicaciones: 'Ubicación', estados: 'Estado', modelos: 'Modelo', categorias: 'Categoría', gasolinas: 'Nivel de gasolina', motivos_traslado: 'Motivo de traslado' };
   const m = META[type] || { icon: 'add_circle', sub: '' };
   const label = LABELS[type] || 'Elemento';
   const title = isEdit ? `Editar ${label}` : `Nueva ${label}`;
@@ -20444,6 +20535,8 @@ function abrirModalNuevaConfig() {
   document.getElementById('cfg-add-estado-options').style.display = 'none';
   document.getElementById('cfg-add-modelo-options').style.display = 'none';
   document.getElementById('cfg-add-categoria-options').style.display = 'none';
+  const motivoOptions = document.getElementById('cfg-add-motivo-options');
+  if (motivoOptions) motivoOptions.style.display = 'none';
 
   if (TAB_ACTIVA_CFG === 'ubicaciones') {
     document.getElementById('cfg-add-ubi-options').style.display = 'block';
@@ -20474,6 +20567,16 @@ function abrirModalNuevaConfig() {
     const orderInput = document.getElementById('cfg-add-categoria-orden');
     if (descInput) descInput.value = '';
     if (orderInput) orderInput.value = String((window.MEX_CONFIG?.listas?.categorias || []).length + 1);
+  } else if (TAB_ACTIVA_CFG === 'motivos_traslado') {
+    if (motivoOptions) motivoOptions.style.display = 'block';
+    const codeInput = document.getElementById('cfg-add-code');
+    const descInput = document.getElementById('cfg-add-description');
+    const orderInput = document.getElementById('cfg-add-order');
+    const activeInput = document.getElementById('cfg-add-active');
+    if (codeInput) codeInput.value = '';
+    if (descInput) descInput.value = '';
+    if (orderInput) orderInput.value = String((window.MEX_CONFIG?.listas?.motivos_traslado || []).length + 1);
+    if (activeInput) activeInput.checked = true;
   }
 
   document.getElementById('cfg-add-name').dataset.editIndex = -1;
@@ -20534,6 +20637,22 @@ function _cfgBuildCatalogPayload(prefix = 'cfg-add', tabName = TAB_ACTIVA_CFG, l
     };
     const imageUrl = _cfgReadValue(`${prefix}-modelo-img`);
     if (imageUrl) newItem.imagenURL = imageUrl;
+  } else if (tabName === 'motivos_traslado') {
+    desiredOrder = _cfgNormalizeDesiredOrder(_cfgReadValue(`${prefix}-order`, String(fallbackIndex + 1)), fallbackIndex + 1, Math.max(listLength, 1));
+    const rawCode = _cfgReadValue(`${prefix}-code`);
+    const code = (rawCode || normalizedName)
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 18) || normalizedName.slice(0, 18);
+    newItem = {
+      codigo: code,
+      nombre: normalizedName,
+      etiqueta: rawName.trim(),
+      descripcion: _cfgReadValue(`${prefix}-description`),
+      orden: desiredOrder,
+      activo: document.getElementById(`${prefix}-active`)?.checked !== false
+    };
   } else {
     newItem = normalizedName;
   }
@@ -20550,7 +20669,7 @@ async function _cfgSaveInlineEdit() {
 
   const duplicated = lista.some((entry, idx) => {
     if (idx === _cfgCatalogEditIndex) return false;
-    return _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry) === payload.normalizedName;
+    return _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry).toUpperCase() === payload.normalizedName;
   });
   if (duplicated) {
     showToast(`"${payload.normalizedName}" ya existe.`, 'error');
@@ -20559,7 +20678,7 @@ async function _cfgSaveInlineEdit() {
 
   lista[_cfgCatalogEditIndex] = payload.newItem;
   _cfgMoveCatalogItem(lista, _cfgCatalogEditIndex, payload.desiredOrder, TAB_ACTIVA_CFG);
-  _cfgCatalogSelectedIndex = Math.max(0, lista.findIndex(entry => _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry) === payload.normalizedName));
+  _cfgCatalogSelectedIndex = Math.max(0, lista.findIndex(entry => _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry).toUpperCase() === payload.normalizedName));
   _cfgCatalogEditIndex = null;
   renderizarListaConfig();
   await _persistListAdminAction(
@@ -20583,7 +20702,7 @@ async function confirmarAgregadoConfig() {
 
   const existe = lista.some((i, idx) => {
     if (idx === editIndex) return false; // ignore self
-    return _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, i) === payload.normalizedName;
+    return _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, i).toUpperCase() === payload.normalizedName;
   });
   if (existe) { showToast(`"${payload.normalizedName}" ya existe`, "error"); return; }
 
@@ -20595,7 +20714,7 @@ async function confirmarAgregadoConfig() {
     _cfgMoveCatalogItem(lista, lista.length - 1, payload.desiredOrder, TAB_ACTIVA_CFG);
   }
 
-  _cfgCatalogSelectedIndex = Math.max(0, lista.findIndex(entry => _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry) === payload.normalizedName));
+  _cfgCatalogSelectedIndex = Math.max(0, lista.findIndex(entry => _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, entry).toUpperCase() === payload.normalizedName));
   document.getElementById('modal-cfg-add').style.display = 'none';
   renderizarListaConfig();
   await _persistListAdminAction(
@@ -20626,7 +20745,7 @@ function moverElementoConfig(index, dir) {
 
 function eliminarElementoConfig(index) {
   const item = window.MEX_CONFIG.listas[TAB_ACTIVA_CFG][index];
-  const nombre = typeof item === 'object' ? (item.id || item.nombre) : item;
+  const nombre = _cfgCatalogDisplayValue(TAB_ACTIVA_CFG, item);
   mexConfirm(`Eliminar "${nombre}"`, '¿Estás seguro? Esta acción no se puede deshacer.', 'danger').then(ok => {
     if (!ok) return;
     window.MEX_CONFIG.listas[TAB_ACTIVA_CFG].splice(index, 1);

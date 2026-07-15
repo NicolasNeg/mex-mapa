@@ -119,7 +119,7 @@
   </style>
   <!-- FOUC guard: hide chrome immediately when loaded as iframe in app shell -->
   <script>(function(){var p=new URLSearchParams(location.search);if(p.get('appStage')==='1'||p.get('shell')==='1')document.documentElement.classList.add('shell-embedded');})();</script>
-  <style>html.shell-embedded #admin-sidebar,html.shell-embedded #topbar,html.shell-embedded #legacySidebar,html.shell-embedded #legacyHeader,html.shell-embedded .legacy-topbar,html.shell-embedded .legacy-sidebar,html.shell-embedded #routeSidebarHost,html.shell-embedded #routeTopbarHost,html.shell-embedded #homeSidebar,html.shell-embedded .shell-topbar-surface,html.shell-embedded .cfg-v2-sidebar,html.shell-embedded .chatv2-header,html.shell-embedded .map-shell-topbar,html.shell-embedded #legacyAppShellBanner{display:none !important}html.shell-embedded body{overflow:hidden !important;padding:0 !important;margin:0 !important}html.shell-embedded .cfg-v2-body{grid-template-columns:minmax(0,1fr) !important}html.shell-embedded .shell-main-stage,html.shell-embedded .shell-main-offset,html.shell-embedded #routeMainStage{margin-left:0 !important;width:100% !important;max-width:none !important;padding-top:0 !important}</style>
+  <style>html.shell-embedded #admin-sidebar,html.shell-embedded #topbar,html.shell-embedded #legacySidebar,html.shell-embedded #legacyHeader,html.shell-embedded .legacy-topbar,html.shell-embedded .legacy-sidebar,html.shell-embedded #routeSidebarHost,html.shell-embedded #routeTopbarHost,html.shell-embedded #homeSidebar,html.shell-embedded .shell-topbar-surface,html.shell-embedded .chatv2-header,html.shell-embedded .map-shell-topbar,html.shell-embedded #legacyAppShellBanner{display:none !important}html.shell-embedded body{overflow:hidden !important;padding:0 !important;margin:0 !important}html.shell-embedded .shell-main-stage,html.shell-embedded .shell-main-offset,html.shell-embedded #routeMainStage{margin-left:0 !important;width:100% !important;max-width:none !important;padding-top:0 !important}</style>
 </head>
 <body>
 
@@ -198,7 +198,7 @@
                 <span class="material-icons">key</span>
                 <span>
                   <small>Accesos y permisos</small>
-                  <strong>Usuarios, roles y solicitudes</strong>
+                  <strong>Usuarios, choferes, roles y solicitudes</strong>
                 </span>
               </span>
               <span class="material-icons cfg-nav-group-chevron">expand_more</span>
@@ -207,6 +207,10 @@
               <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
                 <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
                 <span>Usuarios</span>
+              </button>
+              <button id="cfg-tab-choferes" class="cfg-tab" onclick="abrirTabConfig('choferes', this)" title="Choferes">
+                <span class="cfg-tab-icon"><span class="material-icons">badge</span></span>
+                <span>Choferes</span>
               </button>
               <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
                 <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
@@ -247,6 +251,10 @@
               <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Tipos de combustible">
                 <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
                 <span>Gasolinas</span>
+              </button>
+              <button id="cfg-tab-motivos_traslado" class="cfg-tab" onclick="abrirTabConfig('motivos_traslado', this)" title="Motivos de traslado">
+                <span class="cfg-tab-icon"><span class="material-icons">route</span></span>
+                <span>Motivos traslado</span>
               </button>
             </div>
           </section>
@@ -545,6 +553,31 @@
             <label class="cfg-add-label">Orden sugerido</label>
             <input type="number" id="cfg-add-categoria-orden" class="cfg-add-input" min="1" max="999" placeholder="Ej: 3">
           </div>
+        </div>
+        <div id="cfg-add-motivo-options" style="display:none;">
+          <div class="cfg-add-field">
+            <label class="cfg-add-label">Código interno</label>
+            <input type="text" id="cfg-add-code" class="cfg-add-input" maxlength="18" placeholder="Ej: GAS">
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Descripción operativa</label>
+            <textarea id="cfg-add-description" class="cfg-add-input" rows="4"
+              placeholder="Describe cuándo debe seleccionarse este motivo en un traslado."></textarea>
+          </div>
+          <div class="cfg-add-field" style="margin-top:14px;">
+            <label class="cfg-add-label">Orden sugerido</label>
+            <input type="number" id="cfg-add-order" class="cfg-add-input" min="1" max="999" placeholder="Ej: 1">
+          </div>
+          <label class="cfg-add-checkbox-row" for="cfg-add-active" style="margin-top:14px;">
+            <div class="cfg-add-checkbox-box">
+              <input type="checkbox" id="cfg-add-active" checked>
+              <div class="cfg-add-checkbox-custom"></div>
+            </div>
+            <div>
+              <div class="cfg-add-checkbox-label">Motivo activo</div>
+              <div class="cfg-add-checkbox-sub">Si se desactiva, no debe usarse en formularios nuevos.</div>
+            </div>
+          </label>
         </div>
       </div>
       <div class="cfg-add-actions">

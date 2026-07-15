@@ -67,15 +67,16 @@
   function _userName(u) { return _text(u.nombreCompleto || u.displayName || u.nombre || u.usuario || u.email || 'Usuario'); }
   function _tipoList() {
     const raw = window.MEX_CONFIG && window.MEX_CONFIG.listas;
-    const list = raw && (raw.tiposTraslado || raw.razonesTraslado || raw.trasladosTipos);
+    const list = raw && (raw.motivos_traslado || raw.motivosTraslado || raw.tiposTraslado || raw.razonesTraslado || raw.trasladosTipos);
     if (!Array.isArray(list) || !list.length) return DEFAULT_TIPOS;
     return list.map(item => {
       if (typeof item === 'string') return { codigo: _upper(item), etiqueta: item };
       return {
         codigo: _upper(item.codigo || item.id || item.valor || item.nombre),
-        etiqueta: _text(item.etiqueta || item.label || item.nombre || item.codigo || item.id)
+        etiqueta: _text(item.etiqueta || item.label || item.nombre || item.codigo || item.id),
+        activo: item.activo !== false
       };
-    }).filter(item => item.codigo);
+    }).filter(item => item.codigo && item.activo !== false);
   }
   function _plazasList() {
     const emp = window.MEX_CONFIG && window.MEX_CONFIG.empresa;

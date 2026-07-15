@@ -6636,3 +6636,569 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
     display: none !important;
   }
 }
+
+/* ==========================================================================
+   PANEL ADMIN 2026 — CORPORATIVO MINIMALISTA + RESPONSIVE
+   ========================================================================== */
+.cfg-modal-v2 {
+  --cfg-admin-bg: #f4f6f9;
+  --cfg-admin-surface: #ffffff;
+  --cfg-admin-soft: #f8fafc;
+  --cfg-admin-border: #dbe3ee;
+  --cfg-admin-text: #111827;
+  --cfg-admin-muted: #667085;
+  --cfg-admin-accent: #2563eb;
+  --cfg-admin-green: #059669;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--cfg-admin-bg) !important;
+}
+
+body.gestion-admin-route,
+body.legacy-embedded-admin {
+  --cfg-admin-bg: #f4f6f9;
+  --cfg-admin-surface: #ffffff;
+  --cfg-admin-soft: #f8fafc;
+  --cfg-admin-border: #dbe3ee;
+  --cfg-admin-text: #111827;
+  --cfg-admin-muted: #667085;
+  --cfg-admin-accent: #2563eb;
+}
+
+.cfg-modal-v2 .cfg-v2-hero {
+  background: var(--cfg-admin-surface);
+  border-bottom: 1px solid var(--cfg-admin-border);
+  box-shadow: none;
+}
+
+.cfg-modal-v2 .cfg-v2-hero-bg,
+.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface::before,
+.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface::after {
+  display: none !important;
+}
+
+.cfg-modal-v2 .cfg-v2-hero-content {
+  padding: 16px 88px 14px 24px;
+}
+
+.cfg-modal-v2 .cfg-v2-hero-compact-row {
+  gap: 10px;
+}
+
+.cfg-modal-v2 .cfg-v2-kicker {
+  background: #eef4ff;
+  border: 1px solid #d6e4ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+.cfg-modal-v2 .cfg-v2-title {
+  color: var(--cfg-admin-text);
+  font-size: 16px;
+  letter-spacing: 0;
+}
+
+.cfg-modal-v2 .cfg-v2-subtitle {
+  color: var(--cfg-admin-muted);
+  letter-spacing: 0;
+}
+
+body.gestion-admin-route .gestion-back-btn,
+body.legacy-embedded-admin .gestion-back-btn {
+  background: var(--cfg-admin-soft);
+  border: 1px solid var(--cfg-admin-border);
+  color: #344054;
+  border-radius: 8px;
+  letter-spacing: 0;
+}
+
+.cfg-modal-v2 .cfg-v2-body {
+  background: var(--cfg-admin-bg);
+  padding: 18px;
+  gap: 16px;
+}
+
+.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface {
+  width: 284px !important;
+  min-width: 248px !important;
+  max-width: 284px !important;
+  background: var(--cfg-admin-surface) !important;
+  border: 1px solid var(--cfg-admin-border) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+  padding: 12px !important;
+  color: var(--cfg-admin-text);
+}
+
+.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:hover {
+  width: 284px !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+.cfg-modal-v2 .cfg-v2-sidebar-label,
+.cfg-modal-v2 .cfg-v2-sidebar-label .material-icons,
+.cfg-modal-v2 .cfg-nav-group-copy small,
+.cfg-modal-v2 .cfg-nav-group-copy strong,
+.cfg-modal-v2 .cfg-tab,
+.cfg-modal-v2 .cfg-tab span {
+  color: var(--cfg-admin-text) !important;
+  letter-spacing: 0;
+}
+
+.cfg-modal-v2 .cfg-v2-sidebar-sublabel {
+  color: var(--cfg-admin-muted) !important;
+  letter-spacing: 0;
+}
+
+.cfg-modal-v2 .cfg-nav-group {
+  border-top: 1px solid #eef2f7;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.cfg-modal-v2 .cfg-nav-group:first-child {
+  border-top: 0;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.cfg-modal-v2 .cfg-nav-group-toggle {
+  min-height: 42px;
+  padding: 8px 10px;
+  background: var(--cfg-admin-soft);
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+}
+
+.cfg-modal-v2 .cfg-nav-group-toggle:hover {
+  background: #f1f5f9;
+}
+
+.cfg-modal-v2 .cfg-nav-group-copy .material-icons {
+  color: #475569;
+}
+
+.cfg-modal-v2 .cfg-nav-group-copy small {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.cfg-modal-v2 .cfg-nav-group-copy strong {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.cfg-modal-v2 .cfg-nav-group-body {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.cfg-modal-v2 .cfg-nav-group-body .cfg-tab {
+  min-height: 40px;
+  padding: 0 8px 0 0;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: none !important;
+}
+
+.cfg-modal-v2 .cfg-nav-group-body .cfg-tab:hover {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  transform: none;
+}
+
+.cfg-modal-v2 .cfg-tab-icon {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  color: #64748b !important;
+  background: transparent !important;
+}
+
+.cfg-modal-v2 .cfg-tab.active,
+.cfg-modal-v2 .cfg-tab.is-active {
+  background: #eef4ff !important;
+  border-color: #c7d7fe !important;
+  color: #1d4ed8 !important;
+}
+
+.cfg-modal-v2 .cfg-tab.active span,
+.cfg-modal-v2 .cfg-tab.is-active span {
+  color: #1d4ed8 !important;
+}
+
+.cfg-modal-v2 .cfg-tab.active::before,
+.cfg-modal-v2 .cfg-tab.is-active::before {
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  background: var(--cfg-admin-accent);
+}
+
+.cfg-modal-v2 .cfg-tab.active .cfg-tab-icon,
+.cfg-modal-v2 .cfg-tab.is-active .cfg-tab-icon {
+  color: var(--cfg-admin-accent) !important;
+  background: #dbeafe !important;
+}
+
+.cfg-modal-v2 .cfg-v2-main {
+  border-radius: 8px;
+  border: 1px solid var(--cfg-admin-border);
+  box-shadow: none;
+  background: var(--cfg-admin-surface);
+}
+
+.cfg-modal-v2 .cfg-v2-workspace-header {
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid #eef2f7;
+  background: var(--cfg-admin-surface);
+}
+
+.cfg-modal-v2 .cfg-v2-workspace-kicker,
+.cfg-modal-v2 .cfg-v2-module-badge,
+.cfg-modal-v2 .cfg-catalog-count,
+.cfg-modal-v2 .cfg-detail-meta-item span {
+  letter-spacing: 0;
+}
+
+.cfg-modal-v2 .cfg-v2-workspace-title-row h3,
+.cfg-modal-v2 #cfg-module-title {
+  color: var(--cfg-admin-text);
+  font-size: 20px;
+}
+
+.cfg-modal-v2 #cfg-module-subtitle {
+  color: var(--cfg-admin-muted);
+  max-width: 780px;
+}
+
+.cfg-modal-v2 .cfg-v2-add-bar {
+  padding: 12px 20px;
+  background: #fbfcfe;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.cfg-modal-v2 .cfg-v2-search-box,
+.cfg-modal-v2 .cfg-v2-search-box input {
+  border-radius: 8px;
+}
+
+.cfg-modal-v2 .cfg-v2-btn-add,
+.cfg-modal-v2 .cfg-v2-btn-publish,
+.cfg-modal-v2 .cfg-save-btn,
+.cfg-modal-v2 .cfg-add-btn-save {
+  border-radius: 8px !important;
+  background: #1f2937 !important;
+  color: #ffffff !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.cfg-modal-v2 .cfg-v2-btn-cancel,
+.cfg-modal-v2 .cfg-cancel-btn,
+.cfg-modal-v2 .cfg-add-btn-cancel,
+.cfg-modal-v2 .cfg-detail-btn {
+  border-radius: 8px !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.cfg-modal-v2 .cfg-v2-list {
+  background: var(--cfg-admin-bg);
+  padding: 16px;
+}
+
+.cfg-modal-v2 .cfg-catalog-shell {
+  grid-template-columns: minmax(360px, 1fr) minmax(320px, 420px);
+  gap: 14px;
+}
+
+.cfg-modal-v2 .cfg-catalog-panel,
+.cfg-modal-v2 .cfg-detail-card,
+.cfg-modal-v2 .cfg-emp-card,
+.cfg-modal-v2 .um-body,
+.cfg-modal-v2 .um-form-card,
+.cfg-modal-v2 .cfg-plazas-body,
+.cfg-modal-v2 .cfg-plaza-form-card,
+.cfg-modal-v2 .cfg-security-shell {
+  border-radius: 8px !important;
+  border-color: var(--cfg-admin-border) !important;
+  box-shadow: none !important;
+}
+
+.cfg-modal-v2 .cfg-catalog-panel-head,
+.cfg-modal-v2 .cfg-detail-card-head {
+  background: var(--cfg-admin-surface);
+}
+
+.cfg-modal-v2 .cfg-item {
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.cfg-modal-v2 .cfg-item.active {
+  background: #eef4ff !important;
+  border-color: #b7cdfd !important;
+}
+
+.cfg-motive-code,
+.cfg-motive-status,
+.cfg-motive-desc {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.cfg-motive-code {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.cfg-motive-status.is-active {
+  background: #ecfdf3;
+  color: var(--cfg-admin-green);
+}
+
+.cfg-motive-status.is-inactive {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.cfg-motive-desc {
+  max-width: 260px;
+  background: #f8fafc;
+  color: var(--cfg-admin-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cfg-modal-v2 .cfg-detail-icon {
+  border-radius: 8px;
+  background: #eef4ff;
+  color: var(--cfg-admin-accent);
+  box-shadow: none;
+}
+
+.cfg-modal-v2 .cfg-detail-callout,
+.cfg-modal-v2 .cfg-detail-meta-item,
+.cfg-modal-v2 .cfg-detail-related-block {
+  border-radius: 8px;
+  background: var(--cfg-admin-soft);
+  border-color: #e2e8f0;
+}
+
+.cfg-modal-v2 .cfg-detail-field input,
+.cfg-modal-v2 .cfg-detail-field select,
+.cfg-modal-v2 .cfg-detail-field textarea,
+.cfg-modal-v2 .cfg-add-input,
+.cfg-modal-v2 .cfg-add-select,
+.cfg-modal-v2 .cfg-emp-input,
+.cfg-modal-v2 .um-form-field input {
+  border-radius: 8px !important;
+  font-weight: 600;
+}
+
+@media (max-width: 1180px) {
+  .cfg-modal-v2 .cfg-catalog-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .cfg-modal-v2 .cfg-catalog-detail-col {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .cfg-modal-v2.active {
+    overflow: hidden !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-hero-content {
+    padding: 14px 16px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-hero-compact-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-title {
+    font-size: 15px;
+    white-space: normal;
+  }
+
+  body.gestion-admin-route .gestion-back-btn,
+  body.legacy-embedded-admin .gestion-back-btn {
+    top: 10px;
+    right: 10px;
+    padding: 7px 10px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-body {
+    flex-direction: column;
+    padding: 10px;
+    gap: 10px;
+    overflow: auto;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    padding: 10px !important;
+    border-radius: 8px !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar-top {
+    display: none !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface .cfg-v2-nav {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: stretch;
+    gap: 10px;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    padding-bottom: 2px;
+  }
+
+  .cfg-modal-v2 .cfg-nav-group {
+    flex: 0 0 214px;
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+  }
+
+  .cfg-modal-v2 .cfg-nav-group-toggle {
+    min-height: 40px;
+  }
+
+  .cfg-modal-v2 .cfg-nav-group-copy span:last-child,
+  .cfg-modal-v2 .cfg-nav-group-chevron,
+  .cfg-modal-v2 .cfg-nav-group-body,
+  .cfg-modal-v2 .cfg-nav-group.open .cfg-nav-group-body,
+  .cfg-modal-v2 .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+    display: flex !important;
+  }
+
+  .cfg-modal-v2 .cfg-nav-group-body {
+    max-height: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    flex-direction: column !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-main {
+    min-height: 68vh;
+    overflow: visible;
+  }
+
+  .cfg-modal-v2 .cfg-v2-workspace-header,
+  .cfg-modal-v2 .cfg-v2-add-bar,
+  .cfg-modal-v2 .cfg-v2-list {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-add-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .cfg-modal-v2 .cfg-v2-search-box,
+  .cfg-modal-v2 .cfg-v2-btn-add,
+  .cfg-modal-v2 .cfg-detail-actions > *,
+  .cfg-modal-v2 .cfg-add-actions > * {
+    width: 100%;
+  }
+
+  .cfg-modal-v2 .um-body,
+  .cfg-modal-v2 .cfg-plazas-body,
+  .cfg-modal-v2 .cfg-security-shell {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+  }
+
+  .cfg-modal-v2 .um-list-col,
+  .cfg-modal-v2 .cfg-plazas-list-col {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-height: 340px;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--cfg-admin-border) !important;
+  }
+
+  .cfg-modal-v2 .um-edit-col,
+  .cfg-modal-v2 .cfg-plazas-edit-col {
+    padding: 14px !important;
+  }
+
+  .cfg-modal-v2 .cfg-detail-grid-two,
+  .cfg-modal-v2 .cfg-detail-meta-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cfg-motive-desc {
+    display: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .cfg-modal-v2 .cfg-v2-body {
+    padding: 8px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-kicker {
+    width: fit-content;
+  }
+
+  .cfg-modal-v2 .cfg-nav-group {
+    flex-basis: 188px;
+  }
+
+  .cfg-modal-v2 .cfg-nav-group-copy small {
+    display: none;
+  }
+
+  .cfg-modal-v2 .cfg-nav-group-copy strong {
+    font-size: 10px;
+  }
+
+  .cfg-modal-v2 .cfg-tab-icon {
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+  }
+
+  .cfg-modal-v2 .cfg-tab {
+    font-size: 11px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-workspace-title-row {
+    flex-wrap: wrap;
+  }
+}

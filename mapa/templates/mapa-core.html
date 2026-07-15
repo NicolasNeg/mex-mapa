@@ -2787,21 +2787,26 @@
                     <span class="material-icons">key</span>
                     <span>
                       <small>Accesos y permisos</small>
-                      <strong>Usuarios, roles y solicitudes</strong>
+                      <strong>Usuarios, choferes, roles y solicitudes</strong>
                     </span>
                   </span>
                   <span class="material-icons cfg-nav-group-chevron">expand_more</span>
                 </button>
                 <div class="cfg-nav-group-body">
-                  <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)"
-                    title="Usuarios">
-                    <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
-                    <span>Usuarios</span>
+	                  <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)"
+	                    title="Usuarios">
+	                    <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+	                    <span>Usuarios</span>
+	                  </button>
+                  <button id="cfg-tab-choferes" class="cfg-tab" onclick="abrirTabConfig('choferes', this)"
+                    title="Choferes">
+                    <span class="cfg-tab-icon"><span class="material-icons">badge</span></span>
+                    <span>Choferes</span>
                   </button>
-                  <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
-                    <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
-                    <span>Roles</span>
-                  </button>
+	                  <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
+	                    <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
+	                    <span>Roles</span>
+	                  </button>
                   <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)"
                     style="position:relative;" title="Solicitudes de acceso">
                     <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
@@ -2841,6 +2846,11 @@
                     title="Tipos de combustible">
                     <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
                     <span>Gasolinas</span>
+                  </button>
+                  <button id="cfg-tab-motivos_traslado" class="cfg-tab" onclick="abrirTabConfig('motivos_traslado', this)"
+                    title="Motivos de traslado">
+                    <span class="cfg-tab-icon"><span class="material-icons">route</span></span>
+                    <span>Motivos traslado</span>
                   </button>
                 </div>
               </section>
@@ -3143,6 +3153,31 @@
                 <label class="cfg-add-label">Orden sugerido</label>
                 <input type="number" id="cfg-add-categoria-orden" placeholder="Ej: 3" class="cfg-add-input" min="1" max="999">
               </div>
+            </div>
+            <div id="cfg-add-motivo-options" style="display:none;">
+              <div class="cfg-add-field">
+                <label class="cfg-add-label">Código interno</label>
+                <input type="text" id="cfg-add-code" class="cfg-add-input" maxlength="18" placeholder="Ej: GAS">
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Descripción operativa</label>
+                <textarea id="cfg-add-description" class="cfg-add-input" rows="4"
+                  placeholder="Describe cuándo debe seleccionarse este motivo en un traslado."></textarea>
+              </div>
+              <div class="cfg-add-field" style="margin-top:14px;">
+                <label class="cfg-add-label">Orden sugerido</label>
+                <input type="number" id="cfg-add-order" class="cfg-add-input" min="1" max="999" placeholder="Ej: 1">
+              </div>
+              <label class="cfg-add-checkbox-row" for="cfg-add-active" style="margin-top:14px;">
+                <div class="cfg-add-checkbox-box">
+                  <input type="checkbox" id="cfg-add-active" checked>
+                  <div class="cfg-add-checkbox-custom"></div>
+                </div>
+                <div>
+                  <div class="cfg-add-checkbox-label">Motivo activo</div>
+                  <div class="cfg-add-checkbox-sub">Si se desactiva, no debe usarse en formularios nuevos.</div>
+                </div>
+              </label>
             </div>
 
           </div><!-- /cfg-add-body -->

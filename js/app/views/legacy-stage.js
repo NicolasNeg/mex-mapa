@@ -166,10 +166,10 @@ function _injectFrameOverrides(frame, id) {
       body.legacy-embedded-stage #incidenciasApp{min-height:100vh!important;}
       body.legacy-embedded-stage .gestion-back-btn,
       body.legacy-embedded-stage #cfg-sidebar-pin{display:none!important;}
-      body.legacy-embedded-stage .cfg-v2-sidebar{display:none!important;}
-      body.legacy-embedded-stage .cfg-v2-body{grid-template-columns:minmax(0,1fr)!important;}
-      body.legacy-embedded-stage .cfg-v2-hero{display:none!important;}
-      body.legacy-embedded-stage .cfg-v2-search-box{display:none!important;}
+      body.legacy-embedded-stage:not(.legacy-embedded-admin) .cfg-v2-sidebar{display:none!important;}
+      body.legacy-embedded-stage:not(.legacy-embedded-admin) .cfg-v2-body{grid-template-columns:minmax(0,1fr)!important;}
+      body.legacy-embedded-stage:not(.legacy-embedded-admin) .cfg-v2-hero{display:none!important;}
+      body.legacy-embedded-stage:not(.legacy-embedded-admin) .cfg-v2-search-box{display:none!important;}
       body.legacy-embedded-stage #modal-config-global{border-radius:0!important;}
       body.legacy-embedded-stage .chatv2-header{display:none!important;}
       body.legacy-embedded-stage #buzon-modal{height:100vh!important;min-height:100vh!important;}
