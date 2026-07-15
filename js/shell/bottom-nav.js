@@ -115,9 +115,6 @@ export class ShellBottomNav {
     }
 
     const extras = this._sectionExtras();
-    if (isCuadre && getRoleMeta(this._role).isAdmin) {
-      extras.push({ action: 'cuadre_admin', icon: 'admin_panel_settings', label: 'Admin' });
-    }
 
     const extrasHTML = extras.length
       ? `<span class="mex-bottomnav-sep" aria-hidden="true"></span>` + extras.map(e => this._itemHTML(e, true)).join('')

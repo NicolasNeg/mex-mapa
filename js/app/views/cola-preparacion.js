@@ -9,8 +9,38 @@
 // ═══════════════════════════════════════════════════════════
 
 import { getState, onPlazaChange } from '/js/app/app-state.js';
-import { db, COL } from '/js/core/database.js';
-import { normalizarUnidad } from '/domain/unidad.model.js';
+import { COL } from '/js/core/database.js';
+import {
+  subscribeColaQueue,
+  hydrateQueueUnits,
+  loadPlazaUsers,
+  loadPlazaUnits
+} from '/js/app/features/cola-preparacion/cola-data.js';
+import {
+  enqueueUnit,
+  patchItem,
+  removeItem,
+  reorderItems,
+  bulkCompleteChecklist
+} from '/js/app/features/cola-preparacion/cola-mutations.js';
+import {
+  CHECKLIST_KEYS,
+  CHECKLIST_META,
+  cpProgress,
+  isItemReady,
+  urgencyType,
+  countdownLabel,
+  departureLabel,
+  fromDatetimeLocal,
+  toDatetimeLocal,
+  comparePrepItems,
+  filterAndSortItems,
+  computeStats,
+  canPrepManage,
+  canPrepDelete,
+  findItemByMva,
+  deriveEstadoCola
+} from '/js/app/features/cola-preparacion/cola-view-model.js';
 
 // ── Módulo-level refs (una instancia a la vez) ───────────────
 let _unsub     = null;   // listener Firestore activo
@@ -35,15 +65,6 @@ function _trackListener(action, name, extra = {}) {
   window.__mexTrackListener(window.location.pathname, `app/cola:${name}`, action, extra);
 }
 
-const CHECKLIST_KEYS = ['lavado', 'gasolina', 'docs', 'revision'];
-
-const CHECKLIST_META = [
-  { key: 'lavado', label: 'Lavado', hint: 'Interior y exterior listos para entrega', icon: 'cleaning_services' },
-  { key: 'gasolina', label: 'Gasolina', hint: 'Nivel operativo validado antes de salida', icon: 'local_gas_station' },
-  { key: 'docs', label: 'Documentación', hint: 'Papeles y expediente disponibles', icon: 'description' },
-  { key: 'revision', label: 'Revisión mecánica', hint: 'Check visual o mecánico completado', icon: 'build_circle' }
-];
-
 // ── Helpers privados ─────────────────────────────────────────
 const q   = id  => _container?.querySelector('#' + id) ?? null;
 const qs  = sel => _container?.querySelector(sel) ?? null;
@@ -58,81 +79,6 @@ function esc(v) {
 }
 function escAttr(v) { return esc(v).replace(/'/g, '&#39;'); }
 
-function _toDate(v) {
-  if (!v) return null;
-  if (typeof v.toDate === 'function') {
-    const d = v.toDate();
-    return d && !isNaN(d.getTime()) ? d : null;
-  }
-  const d = new Date(v);
-  return isNaN(d.getTime()) ? null : d;
-}
-
-function _clFromDoc(d) {
-  const c = d && typeof d.checklist === 'object' ? d.checklist : d;
-  return {
-    lavado: c.lavado === true,
-    gasolina: c.gasolina === true,
-    docs: c.docs === true,
-    revision: c.revision === true
-  };
-}
-
-function _normalizeQueueItem(id, d) {
-  const raw = d || {};
-  const orden = Number(raw.orden);
-  return {
-    id: String(id),
-    mva: String(raw.mva || id || '').toUpperCase().trim(),
-    checklist: _clFromDoc(raw),
-    fechaSalida: _toDate(raw.fechaSalida),
-    asignado: String(raw.asignado || '').trim(),
-    notas: String(raw.notas || '').trim(),
-    orden: Number.isFinite(orden) ? orden : null,
-    creadoEn: _toDate(raw.creadoEn || raw.creadoAt || raw.createdAt),
-    creadoAt: raw.creadoAt,
-    actualizadoAt: raw.actualizadoAt
-  };
-}
-
-function _cpProgress(item) {
-  const done = CHECKLIST_KEYS.reduce((a, k) => a + (item?.checklist?.[k] ? 1 : 0), 0);
-  return { done, total: 4, percent: Math.round((done / 4) * 100) };
-}
-
-function _isItemReady(item) {
-  return _cpProgress(item).done === 4;
-}
-
-function _urgencyType(item) {
-  const date = item?.fechaSalida;
-  if (!date) return 'pending';
-  const delta = date.getTime() - Date.now();
-  if (delta <= 24 * 3600000) return 'urgent';
-  if (_isItemReady(item)) return 'ready';
-  return 'pending';
-}
-
-function _countdownLabel(date) {
-  if (!date) return 'Sin fecha';
-  const deltaMs = date.getTime() - Date.now();
-  const deltaHours = Math.round(deltaMs / 3600000);
-  if (deltaMs < 0) return 'Salida vencida';
-  if (deltaHours <= 1) return 'Sale en <1h';
-  if (deltaHours < 24) return `Sale en ${deltaHours}h`;
-  const days = Math.floor(deltaHours / 24);
-  const hours = deltaHours % 24;
-  if (!days) return `Sale en ${deltaHours}h`;
-  return hours ? `Sale en ${days}d ${hours}h` : `Sale en ${days}d`;
-}
-
-function _departureLabel(date) {
-  if (!date) return 'Fecha sin programar';
-  return new Intl.DateTimeFormat('es-MX', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-  }).format(date);
-}
-
 function _fv() {
   return window.firebase?.firestore?.FieldValue;
 }
@@ -141,25 +87,9 @@ function _lower(v) {
   return String(v ?? '').trim().toLowerCase();
 }
 
-function _queueColl(plaza) {
-  const p = String(plaza || _state?.plaza || '').toUpperCase().trim();
-  return db.collection('cola_preparacion').doc(p).collection('items');
-}
-
 function _canPrepManage() {
   const st = getState() || {};
-  const profile = st.profile || {};
-  const role = String(st.role || profile.rol || profile.role || '').toUpperCase();
-  return profile.isAdmin === true || [
-    'PROGRAMADOR',
-    'JEFE_OPERACION',
-    'GERENTE_PLAZA',
-    'SUPERVISOR',
-    'JEFE_PATIO',
-    'COORDINADOR',
-    'ADMINISTRADOR',
-    'ADMIN'
-  ].includes(role);
+  return canPrepManage(st.profile || {}, st.role);
 }
 
 function _canPrepDelete() {
@@ -173,28 +103,7 @@ async function _loadPlazaUsers() {
     _renderDatalists();
     return;
   }
-  try {
-    const [byPlaza, byExtraPlaza] = await Promise.all([
-      db.collection(COL.USERS).where('plazaAsignada', '==', plaza).limit(120).get(),
-      db.collection(COL.USERS).where('plazasPermitidas', 'array-contains', plaza).limit(120).get().catch(() => ({ docs: [] }))
-    ]);
-    const merged = new Map();
-    [...byPlaza.docs, ...(byExtraPlaza.docs || [])].forEach(doc => {
-      const data = doc.data() || {};
-      const email = _lower(data.email || doc.id);
-      const name = String(data.nombre || data.usuario || '').trim();
-      const key = email || name || doc.id;
-      if (!key) return;
-      merged.set(key, {
-        value: email || name,
-        label: [name, email].filter(Boolean).join(' · ')
-      });
-    });
-    _plazaUsers = Array.from(merged.values()).filter(item => String(item.value || '').trim());
-  } catch (e) {
-    console.warn('[prep-app] plaza users', e);
-    _plazaUsers = [];
-  }
+  _plazaUsers = await loadPlazaUsers(plaza);
   _renderDatalists();
 }
 
@@ -205,22 +114,7 @@ async function _loadPlazaUnits() {
     _renderDatalists();
     return;
   }
-  try {
-    const [cuadreSnap, externosSnap] = await Promise.all([
-      db.collection(COL.CUADRE).where('plaza', '==', plaza).limit(500).get(),
-      db.collection(COL.EXTERNOS).where('plaza', '==', plaza).limit(200).get().catch(() => ({ docs: [] }))
-    ]);
-    const next = new Map();
-    [...cuadreSnap.docs, ...(externosSnap.docs || [])].forEach(doc => {
-      const data = doc.data() || {};
-      const unit = normalizarUnidad({ id: doc.id, ...data });
-      if (unit.mva) next.set(String(unit.mva).toUpperCase(), unit);
-    });
-    _plazaUnits = next;
-  } catch (e) {
-    console.warn('[prep-app] plaza units', e);
-    _plazaUnits = new Map();
-  }
+  _plazaUnits = await loadPlazaUnits(plaza);
   _renderDatalists();
 }
 
@@ -268,7 +162,7 @@ function _openPrepCreateModal() {
   form?.reset();
   const dep = new Date(Date.now() + 24 * 3600000);
   const depIn = _container?.querySelector('#prepCreateDeparture');
-  if (depIn) depIn.value = _toDatetimeLocal(dep);
+  if (depIn) depIn.value = toDatetimeLocal(dep);
   const plIn = _container?.querySelector('#prepCreatePlaza');
   if (plIn) plIn.value = _state.plaza || '';
   const pv = _container?.querySelector('#prepCreateUnitPreview');
@@ -292,31 +186,20 @@ async function _persistReorderPrep(sourceId, targetId) {
     _toast('Selecciona una plaza para reordenar.', 'warning');
     return;
   }
-  const base = [...(_state?.items || [])].sort(_comparePrepItems);
+  const base = [...(_state?.items || [])].sort(comparePrepItems);
   const from = base.findIndex(item => item.id === sourceId);
   const to = base.findIndex(item => item.id === targetId);
   if (from < 0 || to < 0) return;
   const [moved] = base.splice(from, 1);
   const insertAt = from < to ? Math.max(0, to - 1) : to;
   base.splice(insertAt, 0, moved);
-  const fv = _fv();
   const actor = _state.profileEmail || '';
   try {
-    const batch = typeof db.batch === 'function' ? db.batch() : null;
-    await Promise.all(base.map((item, index) => {
-      const payload = { orden: (index + 1) * 10 };
-      if (fv) {
-        payload.actualizadoAt = fv.serverTimestamp();
-        payload.actualizadoPor = actor;
-      }
-      const ref = _queueColl(plaza).doc(item.id);
-      if (batch) {
-        batch.set(ref, payload, { merge: true });
-        return Promise.resolve();
-      }
-      return ref.set(payload, { merge: true });
-    }));
-    if (batch) await batch.commit();
+    await reorderItems({
+      plaza,
+      orderedIds: base.map(item => item.id),
+      actor
+    });
     _toast('Orden actualizado.', 'success');
   } catch (err) {
     console.error('[prep-app] reorder', err);
@@ -329,35 +212,20 @@ async function _runBulkComplete() {
     _toast('No tienes permiso para acciones masivas.', 'error');
     return;
   }
-  const items = (_state?.filteredItems || []).filter(item => !_isItemReady(item));
+  const items = (_state?.filteredItems || []).filter(item => !isItemReady(item));
   if (!items.length) {
     _toast('No hay unidades pendientes visibles.', 'info');
     return;
   }
   if (!await _mexConfirm('Checklist masivo', `¿Marcar checklist completo en ${items.length} unidad(es) visibles?`, 'warning')) return;
   const plaza = String(_state?.plaza || '').toUpperCase().trim();
-  const fv = _fv();
   const actor = _state.profileEmail || '';
-  const checklist = CHECKLIST_KEYS.reduce((acc, key) => {
-    acc[key] = true;
-    return acc;
-  }, {});
   try {
-    const batch = typeof db.batch === 'function' ? db.batch() : null;
-    await Promise.all(items.map(item => {
-      const payload = { checklist };
-      if (fv) {
-        payload.actualizadoAt = fv.serverTimestamp();
-        payload.actualizadoPor = actor;
-      }
-      const ref = _queueColl(plaza).doc(item.id);
-      if (batch) {
-        batch.set(ref, payload, { merge: true });
-        return Promise.resolve();
-      }
-      return ref.set(payload, { merge: true });
-    }));
-    if (batch) await batch.commit();
+    await bulkCompleteChecklist({
+      plaza,
+      itemIds: items.map(item => item.id),
+      actor
+    });
     _toast('Checklist completado para las unidades visibles.', 'success');
   } catch (err) {
     console.error('[prep-app] bulk complete', err);
@@ -377,7 +245,12 @@ async function _deletePrepItem(id) {
     return;
   }
   try {
-    await _queueColl(plaza).doc(id).delete();
+    await removeItem({
+      plaza,
+      itemId: id,
+      actor: _state?.profileEmail || '',
+      mva: _state.items.find(i => i.id === id)?.mva || id
+    });
     if (_state) {
       _state.selectedId = null;
       _deleteArmedPrepId = '';
@@ -437,7 +310,7 @@ function _bindPrepExtendedUi() {
     e.preventDefault();
     const plaza = String(_state?.plaza || '').toUpperCase().trim();
     const mva = String(c.querySelector('#prepCreateMva')?.value || '').trim().toUpperCase();
-    const departure = _fromDatetimeLocal(String(c.querySelector('#prepCreateDeparture')?.value || ''));
+    const departure = fromDatetimeLocal(String(c.querySelector('#prepCreateDeparture')?.value || ''));
     const assigned = String(c.querySelector('#prepCreateAssigned')?.value || '').trim();
     const notes = String(c.querySelector('#prepCreateNotes')?.value || '').trim();
     if (!plaza) {
@@ -461,29 +334,25 @@ function _bindPrepExtendedUi() {
       _renderListByState();
       return;
     }
-    const maxOrder = _state.items.reduce((acc, item) => Math.max(acc, Number(item.orden) || 0), 0);
-    const TS = window.firebase?.firestore?.Timestamp;
-    const fv = _fv();
     const actor = _state.profileEmail || '';
-    const payload = {
-      mva,
-      fechaSalida: TS ? TS.fromDate(departure) : departure,
-      checklist: { lavado: false, gasolina: false, docs: false, revision: false },
-      asignado: assigned,
-      notas: notes,
-      orden: maxOrder + 1
-    };
-    if (fv) {
-      payload.creadoAt = fv.serverTimestamp();
-      payload.creadoPor = actor;
-      payload.actualizadoAt = fv.serverTimestamp();
-      payload.actualizadoPor = actor;
-    }
     try {
-      await _queueColl(plaza).doc(mva).set(payload, { merge: true });
+      const result = await enqueueUnit({
+        mva,
+        plaza,
+        fechaSalida: departure,
+        asignado: assigned,
+        notas: notes,
+        origen: 'MANUAL',
+        actor
+      });
       _closePrepCreateModal();
       _state.selectedId = mva;
-      _toast('Unidad agregada a la cola.', 'success');
+      if (result.alreadyExists) {
+        _toast('Ese MVA ya está en la cola; abriendo detalle.', 'warning');
+        _tryOpenMvaFromQuery(mva);
+      } else {
+        _toast('Unidad agregada a la cola.', 'success');
+      }
     } catch (err) {
       console.error(err);
       _toast(err?.message || 'No se pudo crear.', 'error');
@@ -501,68 +370,30 @@ function _bindPrepExtendedUi() {
 }
 
 function _fromDatetimeLocal(value) {
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  return fromDatetimeLocal(value);
 }
 
 function _toDatetimeLocal(date) {
-  if (!date) return '';
-  const d = date instanceof Date ? date : new Date(date);
-  if (Number.isNaN(d.getTime())) return '';
-  const pad = n => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function _comparePrepItems(a, b) {
-  if (Number.isFinite(a.orden) && Number.isFinite(b.orden) && a.orden !== b.orden) {
-    return a.orden - b.orden;
-  }
-  if (Number.isFinite(a.orden) && !Number.isFinite(b.orden)) return -1;
-  if (!Number.isFinite(a.orden) && Number.isFinite(b.orden)) return 1;
-  const aTime = a.fechaSalida?.getTime?.() ?? Number.MAX_SAFE_INTEGER;
-  const bTime = b.fechaSalida?.getTime?.() ?? Number.MAX_SAFE_INTEGER;
-  if (aTime !== bTime) return aTime - bTime;
-  return String(a.mva || '').localeCompare(String(b.mva || ''), 'es', { sensitivity: 'base' });
+  return toDatetimeLocal(date);
 }
 
 async function _hydrateUnitMeta(plaza) {
   const seq = _hydrateSeq;
   const items = _state?.items || [];
-  const mvas = [...new Set(items.map(it => String(it.mva || '').toUpperCase().trim()).filter(Boolean))];
-  if (!plaza || !mvas.length) {
+  if (!plaza || !items.length) {
     _unitsByMva = new Map();
     return;
   }
-  const next = new Map();
-  for (let i = 0; i < mvas.length; i += 10) {
-    const chunk = mvas.slice(i, i + 10);
-    try {
-      const [cuadreSnap, externosSnap] = await Promise.all([
-        db.collection(COL.CUADRE).where('plaza', '==', plaza).where('mva', 'in', chunk).get(),
-        db.collection(COL.EXTERNOS).where('plaza', '==', plaza).where('mva', 'in', chunk).get()
-      ]);
-      cuadreSnap.forEach(doc => {
-        const data = doc.data() || {};
-        const unit = normalizarUnidad({ id: doc.id, ...data });
-        const key = String(unit.mva || '').toUpperCase();
-        if (key) next.set(key, { ...unit, origen: 'PATIO' });
-      });
-      externosSnap.forEach(doc => {
-        const data = doc.data() || {};
-        const unit = normalizarUnidad({ id: doc.id, ...data });
-        const key = String(unit.mva || '').toUpperCase();
-        if (key && !next.has(key)) next.set(key, { ...unit, origen: 'EXTERNO' });
-      });
-    } catch (e) {
-      console.warn('[prep-app] hydrate chunk', e);
-    }
-    if (seq !== _hydrateSeq || String(_state?.plaza || '').toUpperCase().trim() !== plaza) return;
-  }
+  const next = await hydrateQueueUnits(plaza, items, {
+    signal: { get aborted() { return seq !== _hydrateSeq; } }
+  });
+  if (seq !== _hydrateSeq || String(_state?.plaza || '').toUpperCase().trim() !== plaza) return;
   _unitsByMva = next;
   if (seq !== _hydrateSeq || !_state || !_container) return;
   _applyFilters();
   _renderListByState();
   _renderStats();
+  _tryOpenMvaFromQuery();
 }
 
 function _toast(message, type = 'info') {
@@ -587,15 +418,17 @@ async function _patchQueueItem(itemId, patch, opts = {}) {
     _toast('Selecciona una plaza para guardar cambios.', 'warning');
     return false;
   }
-  const fv = _fv();
-  const touch = opts.touchMeta !== false;
-  const mergePayload = { ...patch };
-  if (touch && fv) {
-    mergePayload.actualizadoAt = fv.serverTimestamp();
-    mergePayload.actualizadoPor = _state.profileEmail || '';
-  }
+  const item = _state?.items?.find(i => i.id === itemId);
+  const mva = item?.mva || itemId;
   try {
-    await _queueColl(plaza).doc(itemId).set(mergePayload, { merge: true });
+    await patchItem({
+      plaza,
+      itemId,
+      patch: { ...patch, mva },
+      actor: _state.profileEmail || '',
+      touchMeta: opts.touchMeta !== false,
+      logType: opts.logType || null
+    });
     if (opts.notify !== false) _toast(opts.successMsg || 'Cambios guardados.', 'success');
     return true;
   } catch (e) {
@@ -606,15 +439,19 @@ async function _patchQueueItem(itemId, patch, opts = {}) {
 }
 
 function _makeState(plaza, profile = {}) {
+  const url = new URL(window.location.href);
+  const mvaFromQuery = String(url.searchParams.get('mva') || '').trim().toUpperCase();
   const email = String(profile?.email || '').trim().toLowerCase();
   const name = String(profile?.nombreCompleto || profile?.nombre || '').trim();
   return {
     plaza,
     profileEmail: email,
     profileName: name,
-    items:       [],     // todos los docs de Firestore
+    mvaFromQuery,
+    mvaDeepLinkHandled: false,
+    items:       [],
     filteredItems: [],
-    searchQuery: '',
+    searchQuery: mvaFromQuery.toLowerCase(),
     /** @type {'all'|'urgent'|'pending'|'ready'|'mine'} */
     filterStatus: 'all',
     sortField:   '__operational',
@@ -625,6 +462,20 @@ function _makeState(plaza, profile = {}) {
     errorMessage: '',
     hasSnapshot: false
   };
+}
+
+function _tryOpenMvaFromQuery(forcedMva) {
+  if (!_state || !_container) return;
+  const mva = String(forcedMva || _state.mvaFromQuery || '').trim().toUpperCase();
+  if (!mva) return;
+  const item = findItemByMva(_state.items, mva);
+  if (!item) return;
+  _state.selectedId = item.id;
+  _state.mvaDeepLinkHandled = true;
+  _showDetail(item);
+  _renderListByState();
+  const card = _container.querySelector(`[data-item-id="${CSS.escape(item.id)}"]`);
+  card?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
 }
 
 function _debugLog(...args) {

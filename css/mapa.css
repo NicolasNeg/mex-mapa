@@ -6934,3 +6934,292 @@
     flex-direction: column;
   }
 }
+
+/* Admin insert modal — formal um-style (scoped, no config.css dependency) */
+#modal-insertar-admin .admin-insert-formal {
+  --um-ink: #111827;
+  --um-muted: #6b7280;
+  --um-border: #d1d5db;
+  --um-line: #e5e7eb;
+  width: min(720px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: var(--um-ink);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.18);
+  position: relative;
+  min-height: 0;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--um-line);
+  background: #fff;
+  flex-shrink: 0;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-page-title h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-page-title p {
+  margin: 4px 0 0;
+  color: var(--um-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-page-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+#modal-insertar-admin .admin-formal-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--um-border);
+  border-radius: 4px;
+  background: #f9fafb;
+  color: #374151;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-btn.primary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-btn.ghost {
+  background: #fff;
+  border-color: var(--um-border);
+  color: #374151;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-btn.ghost:hover {
+  background: #f9fafb;
+}
+
+#modal-insertar-admin .admin-insert-search {
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--um-line);
+  background: #fafafa;
+  flex-shrink: 0;
+}
+
+#modal-insertar-admin .admin-formal-search {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+}
+
+#modal-insertar-admin .admin-formal-search > span {
+  color: #374151;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#modal-insertar-admin .admin-formal-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+#modal-insertar-admin .admin-formal-search-wrap .material-icons {
+  position: absolute;
+  left: 10px;
+  color: #9ca3af;
+  font-size: 20px;
+  pointer-events: none;
+}
+
+#modal-insertar-admin .admin-formal-search-wrap input {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px 0 38px;
+  border: 1px solid var(--um-border);
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+#modal-insertar-admin .admin-formal-search-wrap input:focus {
+  border-color: #2563eb;
+}
+
+#modal-insertar-admin .admin-formal-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--um-muted);
+  font-size: 12px;
+}
+
+#modal-insertar-admin .admin-insert-body {
+  padding: 16px 24px 20px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-form-section {
+  margin: 16px 0 10px;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-form-section:first-child {
+  margin-top: 0;
+}
+
+#modal-insertar-admin .admin-insert-formal .um-form-grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+#modal-insertar-admin .admin-insert-formal .span-all {
+  grid-column: 1 / -1;
+}
+
+#modal-insertar-admin .admin-insert-formal label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+#modal-insertar-admin .admin-insert-formal label > span {
+  color: #374151;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+#modal-insertar-admin .admin-insert-formal input,
+#modal-insertar-admin .admin-insert-formal select,
+#modal-insertar-admin .admin-insert-formal textarea {
+  width: 100%;
+  min-height: 34px;
+  border: 1px solid var(--um-border);
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+  padding: 0 8px;
+}
+
+#modal-insertar-admin .admin-insert-formal textarea {
+  min-height: 72px;
+  padding: 8px;
+  resize: vertical;
+}
+
+#modal-insertar-admin .admin-insert-formal input:focus,
+#modal-insertar-admin .admin-insert-formal select:focus,
+#modal-insertar-admin .admin-insert-formal textarea:focus {
+  border-color: #2563eb;
+}
+
+#modal-insertar-admin .admin-insert-formal input:disabled,
+#modal-insertar-admin .admin-insert-formal select:disabled {
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 600;
+}
+
+#modal-insertar-admin .admin-formal-upload input[type="file"] {
+  padding: 8px;
+  border-style: dashed;
+  cursor: pointer;
+}
+
+#modal-insertar-admin .admin-file-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--um-muted);
+  font-size: 12px;
+}
+
+#modal-insertar-admin .admin-formal-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--um-line);
+}
+
+#modal-insertar-admin .floating-results {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+@media (max-width: 640px) {
+  #modal-insertar-admin .admin-insert-formal .um-form-grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  #modal-insertar-admin .admin-insert-formal .um-page-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

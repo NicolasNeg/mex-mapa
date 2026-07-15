@@ -49,7 +49,7 @@ function _appMapToolRedirect(rawPath = '') {
 function _isAuxiliarCuadreRole() {
   const state = getState();
   const role = String(state?.role || state?.profile?.rol || state?.profile?.role || '').toUpperCase().trim();
-  return role === 'AUXILIAR' || role.includes('AUXILIAR') || role.includes('PATIO');
+  return role === 'AUXILIAR';
 }
 
 function _cuadreAuxiliarRedirect(rawPath = '') {
@@ -208,8 +208,11 @@ const ROUTE_STYLES = {
   "/app/mensajes": [{ href: "/css/app-mensajes.css", attr: "data-app-mensajes-css" }],
   "/app/cola-preparacion": [{ href: "/css/cola-preparacion.css", attr: "data-cola-css" }],
   "/app/incidencias": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
-  "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715b", attr: "data-app-unidades-css" }],
-  "/app/cuadre/u": [{ href: "/css/app-unidad-expediente.css?v=20260715a", attr: "data-app-unidad-exp-css" }],
+  "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715d", attr: "data-app-unidades-css" }],
+  "/app/cuadre/u": [
+    { href: "/css/app-unidades.css?v=20260715d", attr: "data-app-unidades-css" },
+    { href: "/css/app-unidad-expediente.css?v=20260715b", attr: "data-app-unidad-exp-css" }
+  ],
   "/app/mapa": [
     { href: "/css/mapa.css", attr: "data-lmapa-css" },
     { href: "/css/alertas.css", attr: "data-lmapa-alertas-css" },

@@ -57,6 +57,7 @@ export const COL = Object.freeze({
   KM_REGISTROS:       'km_registros',
   KM_DISCREPANCIAS:   'km_discrepancias',
   TRASLADOS:          'traslados',
+  COLA_PREPARACION:   'cola_preparacion',
 });
 
 // ── Meta de roles ─────────────────────────────────────────

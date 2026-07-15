@@ -113,8 +113,6 @@
             <div class="chip" onclick="filtrarEspecial('URGENTE', this)">⚡ URGENTE</div>
             <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)">👀 RESGUARDO</div>
             <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)">🏭 TALLER</div>
-            <div class="chip chip-reservas" onclick="abrirModalPDFReservas()"
-              title="Análisis de reservas y proyección operativa">📋 RESERVAS</div>
           </div>
 
           <!-- [2.5] Barra de acciones batch — visible cuando hay filtro activo -->
@@ -126,12 +124,6 @@
             <select id="batch-estado-select"
               style="font-size:12px; border:1px solid #fbbf24; border-radius:6px; padding:3px 6px; background:#fff;">
               <option value="">— Estado —</option>
-              <option value="SUCIO">SUCIO</option>
-              <option value="LISTO">LISTO</option>
-              <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-              <option value="TRASLADO">TRASLADO</option>
-              <option value="RESGUARDO">RESGUARDO</option>
-              <option value="NO ARRENDABLE">NO ARRENDABLE</option>
             </select>
             <button onclick="ejecutarAccionBatch()"
               style="font-size:12px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:4px 12px; font-weight:700; cursor:pointer;">Aplicar</button>
@@ -173,15 +165,6 @@
                   <th>
                     <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
                       <option value="">ESTADO (ALL)</option>
-                      <option value="LISTO">🟢 LISTO</option>
-                      <option value="SUCIO">🟡 SUCIO</option>
-                      <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                      <option value="RESGUARDO">🔘 RESGUARDO</option>
-                      <option value="TRASLADO">🟣 TRASLADO.</option>
-                      <option value="VENTA">⚫ VENTA</option>
-                      <option value="RETENIDA">🟤 RETENIDA.</option>
-                      <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
-                      <option value="HYP">🚚 HYP</option>
                     </select>
                   </th>
                   <th>
@@ -312,19 +295,9 @@
 
               <div class="grid-2">
                 <div class="field">
-                  <label>ESTADO 🛠️</label>
+                  <label>Estado</label>
                   <select id="f_est" onchange="validarBotonGuardar()">
                     <option value="">Seleccionar...</option>
-                    <option value="LISTO">🟢 LISTO</option>
-                    <option value="SUCIO">🟡 SUCIO</option>
-                    <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                    <option value="RESGUARDO">🔘 RESGUARDO</option>
-                    <option value="TRASLADO">🟣 TRASLADO</option>
-                    <option value="VENTA">⚫ VENTA</option>
-                    <option value="RETENIDA">🟤 RETENIDA</option>
-                    <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
-                    <option value="HYP">🚚 HYP</option>
-                    <option value="EN RENTA">✈️ EN RENTA</option>
                   </select>
                 </div>
                 <div class="field">

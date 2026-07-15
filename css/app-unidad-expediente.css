@@ -390,3 +390,27 @@
     gap: 4px;
   }
 }
+
+/* Formulario de detalle (clases uni-* desde app-unidades.css) */
+.uni-expediente .uexp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 0 24px 32px;
+}
+
+.uni-expediente #uexp-detail .uni-detail-card {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.uni-expediente .uexp-head {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.uni-table tbody tr[data-action="expediente"] {
+  cursor: pointer;
+}

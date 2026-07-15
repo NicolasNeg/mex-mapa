@@ -6435,21 +6435,24 @@ function renderFlota(data) {
 
 
 function abrirFormularioFlota() {
-  // Repoblar f_est/f_gas/f_ubi desde MEX_CONFIG (config global de la empresa).
-  // En /app/cuadre el fleet-modal ya nace activo, así que el repoblado de
-  // _openFleetModalInPlace no corre y los selects quedaban con opciones legacy.
-  // _setOptions preserva el valor seleccionado, así que es seguro tras fijar values.
   if (typeof llenarSelectsDinamicos === 'function') llenarSelectsDinamicos();
   const panel = document.getElementById('form-flota-panel');
   const overlay = document.getElementById('form-flota-overlay');
+  const grid = document.querySelector('#fleet-modal .main-grid-flota');
   if (panel) panel.classList.add('active');
-  if (overlay) overlay.classList.add('active');
+  if (grid) grid.classList.add('unit-panel-open');
+  if (overlay) {
+    const mobile = window.matchMedia('(max-width: 1024px)').matches;
+    overlay.classList.toggle('active', mobile);
+  }
 }
 
 function cerrarFormularioFlota() {
   const panel = document.getElementById('form-flota-panel');
   const overlay = document.getElementById('form-flota-overlay');
+  const grid = document.querySelector('#fleet-modal .main-grid-flota');
   if (panel) panel.classList.remove('active');
+  if (grid) grid.classList.remove('unit-panel-open');
   if (overlay) overlay.classList.remove('active');
 }
 
@@ -6510,6 +6513,7 @@ async function seleccionarFilaFlota(index, rowElement) {
       const el = document.getElementById(id);
       if (el) el.value = value;
     });
+    _pintarSelectEstado(document.getElementById('f_est'));
 
     ['f_est', 'f_gas', 'f_ubi', 'f_not'].forEach(id => {
       const el = document.getElementById(id);
@@ -6517,7 +6521,7 @@ async function seleccionarFilaFlota(index, rowElement) {
     });
 
     const delNoteWrapper = document.getElementById('del-note-wrapper');
-    if (delNoteWrapper) delNoteWrapper.style.display = esSoloLectura ? 'none' : 'flex';
+    if (delNoteWrapper) delNoteWrapper.style.display = 'none';
     if (document.getElementById('f_del_note')) document.getElementById('f_del_note').checked = false;
 
     if (document.getElementById('btnDelFlota')) document.getElementById('btnDelFlota').style.display = esSoloLectura ? "none" : "flex";
@@ -6624,6 +6628,7 @@ function resetAutofill() {
 
   // 🚨 CORRECCIÓN: La gasolina debe regresar a "N/A", no a vacío
   if (document.getElementById('f_gas')) document.getElementById('f_gas').value = "N/A";
+  _pintarSelectEstado(document.getElementById('f_est'));
 
   // Forzamos al botón a actualizarse
   validarBotonGuardar();
@@ -10728,16 +10733,26 @@ function _positionMoreControlsDropdown() {
   if (!anchorRect) return;
   if (menu.parentElement !== document.body) document.body.appendChild(menu);
 
+  const isMobile = window.innerWidth <= 640;
   const minW = 240;
   let left = Math.min(anchorRect.left, window.innerWidth - minW - 8);
   left = Math.max(8, left);
   menu.style.position = 'fixed';
-  menu.style.left = `${left}px`;
-  menu.style.minWidth = `${minW}px`;
+  menu.style.left = isMobile ? '8px' : `${left}px`;
+  menu.style.right = isMobile ? '8px' : 'auto';
+  menu.style.minWidth = isMobile ? '0' : `${minW}px`;
+  menu.style.width = isMobile ? 'auto' : '';
   menu.style.zIndex = '50000';
   menu.style.top = `${anchorRect.bottom + 8}px`;
   menu.style.bottom = 'auto';
-  menu.style.right = 'auto';
+  menu.style.background = '#ffffff';
+  menu.style.border = '1px solid #d7dde5';
+  menu.style.boxShadow = '0 18px 44px rgba(19, 27, 46, .16)';
+  menu.style.maxHeight = isMobile
+    ? `calc(100vh - ${anchorRect.bottom + 16}px - env(safe-area-inset-bottom, 0px))`
+    : `${Math.max(120, Math.min(360, window.innerHeight - anchorRect.bottom - 16))}px`;
+  menu.style.overflowY = 'auto';
+  menu.style.webkitOverflowScrolling = 'touch';
 }
 
 function toggleMoreControls(ev) {
@@ -10928,6 +10943,7 @@ async function abrirModalInsertarAdmin() {
     }
   });
   if (document.getElementById('a_ins_gas')) document.getElementById('a_ins_gas').value = 'N/A';
+  _pintarSelectEstado(document.getElementById('a_ins_est'));
 
   const fileInput = document.getElementById('a_ins_file');
   if (fileInput) fileInput.value = "";
@@ -11624,6 +11640,7 @@ function abrirExpedienteAdmin(u, esSoloLectura) {
   setVal('a_mod_pla', u.placas);
   setVal('a_mod_gas', u.gasolina || 'N/A');
   setVal('a_mod_est', u.estado);
+  _pintarSelectEstado(document.getElementById('a_mod_est'));
   setVal('a_mod_ubi', u.ubicacion);
   setVal('a_mod_not', u.notas);
   if (document.getElementById('a_mod_del_note')) document.getElementById('a_mod_del_note').checked = false;
@@ -16836,6 +16853,7 @@ async function verificarHabitosUbicacion() {
       );
       if (ok) {
         estSelect.value = "SUCIO";
+        _pintarSelectEstado(estSelect);
         showToast("Estado cambiado a SUCIO automáticamente", "info");
         validarBotonGuardar();
       }
@@ -16852,6 +16870,7 @@ async function verificarHabitosUbicacion() {
       );
       if (ok) {
         estSelect.value = "LISTO";
+        _pintarSelectEstado(estSelect);
         showToast("Estado cambiado a LISTO", "info");
         validarBotonGuardar();
       }
@@ -22720,15 +22739,76 @@ function verInfoRechazo(docId) {
 }
 
 // ─── Inyecta MEX_CONFIG en todos los <select> de la app ──────────────────────
+const _ESTADO_SELECT_IDS = ['f_est', 'a_ins_est', 'a_mod_est', 'batch-estado-select'];
+let _estadoSelectListenersBound = false;
+
+function _estadoColorMap() {
+  const estados = window.MEX_CONFIG?.listas?.estados || [];
+  const map = {};
+  estados.forEach(e => {
+    const id = (typeof e === 'string' ? e : e.id || '').toString().trim();
+    if (!id) return;
+    map[id] = typeof e === 'string' ? '#64748b' : (e.color || '#64748b');
+  });
+  return map;
+}
+
+function _hexToRgb(hex) {
+  const h = String(hex || '').replace('#', '').trim();
+  if (h.length === 3) {
+    return [
+      parseInt(h[0] + h[0], 16),
+      parseInt(h[1] + h[1], 16),
+      parseInt(h[2] + h[2], 16)
+    ];
+  }
+  if (h.length >= 6) {
+    return [
+      parseInt(h.slice(0, 2), 16),
+      parseInt(h.slice(2, 4), 16),
+      parseInt(h.slice(4, 6), 16)
+    ];
+  }
+  return [100, 116, 139];
+}
+
+function _contrastTextForBg(hex) {
+  const [r, g, b] = _hexToRgb(hex);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.55 ? '#111827' : '#ffffff';
+}
+
+function _pintarSelectEstado(selectEl) {
+  if (!selectEl) return;
+  const val = String(selectEl.value || '').trim();
+  if (!val) {
+    selectEl.style.backgroundColor = '#ffffff';
+    selectEl.style.color = '#111827';
+    return;
+  }
+  const color = _estadoColorMap()[val] || '#64748b';
+  selectEl.style.backgroundColor = color;
+  selectEl.style.color = _contrastTextForBg(color);
+}
+
+function _bindEstadoSelectListeners() {
+  if (_estadoSelectListenersBound) return;
+  _estadoSelectListenersBound = true;
+  _ESTADO_SELECT_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.dataset.estadoTintBound) return;
+    el.dataset.estadoTintBound = '1';
+    el.addEventListener('change', () => _pintarSelectEstado(el));
+  });
+}
+
+function _pintarTodosSelectsEstado() {
+  _ESTADO_SELECT_IDS.forEach(id => _pintarSelectEstado(document.getElementById(id)));
+}
+
 function llenarSelectsDinamicos() {
   if (!window.MEX_CONFIG || !window.MEX_CONFIG.listas) return;
   const { ubicaciones = [], estados = [], categorias = [], gasolinas = [] } = window.MEX_CONFIG.listas;
-
-  const EMOJI_ESTADO = {
-    'LISTO': '🟢', 'SUCIO': '🟡', 'MANTENIMIENTO': '🔴', 'RESGUARDO': '🔘',
-    'TRASLADO': '🟣', 'VENTA': '⚫', 'RETENIDA': '🟤', 'NO ARRENDABLE': '▫️',
-    'HYP': '🚚', 'EN RENTA': '✈️', 'HIBRIDO': '🍃'
-  };
 
   function _setOptions(selectId, options) {
     if (!options || options.length === 0) return; // No borrar si no hay datos
@@ -22871,10 +22951,22 @@ function llenarSelectsDinamicos() {
   const estOpts = estOrdenados.map(est => {
     const o = document.createElement('option');
     o.value = est.id;
-    o.textContent = `${EMOJI_ESTADO[est.id] || '●'} ${est.id}`;
+    o.textContent = est.id;
     return o;
   });
   ['filter-est', 'f_est', 'a_ins_est', 'a_mod_est'].forEach(id => _setOptions(id, estOpts));
+
+  const batchEl = document.getElementById('batch-estado-select');
+  if (batchEl) {
+    const savedBatch = batchEl.value;
+    batchEl.innerHTML = '';
+    const batchPlaceholder = document.createElement('option');
+    batchPlaceholder.value = '';
+    batchPlaceholder.textContent = '— Estado —';
+    batchEl.appendChild(batchPlaceholder);
+    estOpts.forEach(o => batchEl.appendChild(o.cloneNode(true)));
+    if (batchEl.querySelector(`option[value="${savedBatch}"]`)) batchEl.value = savedBatch;
+  }
 
   // Filtrar ubicaciones siempre por la plaza activa para evitar mezclar plazas
   // plazaId='ALL' siempre aparece en todas las plazas
@@ -22915,6 +23007,9 @@ function llenarSelectsDinamicos() {
 
   // Gasolinas
   _setGasOptions(['f_gas', 'a_ins_gas', 'a_mod_gas'], gasolinas);
+
+  _bindEstadoSelectListeners();
+  _pintarTodosSelectsEstado();
 
   console.log('✅ Selects actualizados desde MEX_CONFIG');
 }

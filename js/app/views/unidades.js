@@ -18,6 +18,7 @@ import {
 } from '/js/app/features/unidades/unidades-import.js';
 
 let _ctr = null;
+let _navigate = null;
 let _offs = [];
 let _s = null;
 
@@ -58,9 +59,10 @@ const FIELD_LABEL = {
   descripcion: 'Descripción'
 };
 
-export async function mount({ container }) {
+export async function mount({ container, navigate }) {
   unmount();
   _ctr = container;
+  _navigate = navigate;
   _ensureCss();
 
   const gs = getState();
@@ -71,8 +73,6 @@ export async function mount({ container }) {
     busy: false,
     error: '',
     units: [],
-    selectedId: '',
-    detailEditing: false,
     filters: _emptyFilters(),
     page: 1,
     pageSize: 50,
@@ -108,6 +108,7 @@ export function unmount() {
   _offs.forEach(fn => { try { fn(); } catch (_) {} });
   _offs = [];
   _ctr = null;
+  _navigate = null;
   _s = null;
 }
 
@@ -165,10 +166,17 @@ function _applyDeepLinkFromQuery() {
   if (!mva) return;
   const row = _s.units.find(u => _norm(u.mva) === mva || _norm(u.id) === mva);
   if (!row) return;
-  _s.selectedId = row.id || row.mva || '';
-  _s.detailEditing = params.get('edit') === '1' && _canManage();
-  _paintDetail();
-  _ctr?.querySelector('#uni-detail')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+  _goExpediente(mva, { edit: params.get('edit') === '1' });
+}
+
+function _goExpediente(mva, { edit = false } = {}) {
+  const token = _norm(mva);
+  if (!token) return;
+  let path = `/app/cuadre/u/${encodeURIComponent(token)}`;
+  if (edit) path += '?edit=1';
+  if (typeof _navigate === 'function') _navigate(path);
+  else if (typeof window.__mexGoToUnidad === 'function') window.__mexGoToUnidad(token, { edit });
+  else window.location.assign(path);
 }
 
 function _render() {
@@ -202,7 +210,6 @@ function _render() {
 
       <p id="uni-count" class="uni-meta"></p>
       <div id="uni-message"></div>
-      <div id="uni-detail"></div>
       <main id="uni-table"></main>
       <div id="uni-modal-host"></div>
     </section>
@@ -213,7 +220,6 @@ function _render() {
 function _paint() {
   if (!_ctr || !_s) return;
   _paintMessage();
-  _paintDetail();
   _paintTable();
 }
 
@@ -223,95 +229,6 @@ function _paintMessage() {
   host.innerHTML = _s.error
     ? `<div class="uni-banner danger"><span class="material-icons">error</span>${esc(_s.error)}</div>`
     : '';
-}
-
-function _paintDetail() {
-  const host = _ctr.querySelector('#uni-detail');
-  if (!host) return;
-  const row = _selected();
-  if (!row) {
-    host.innerHTML = '';
-    return;
-  }
-  const unitId = esc(row.id || row.mva);
-  host.innerHTML = `
-    <section class="uni-detail-card uni-detail-card--wide">
-      <div class="uni-detail-head">
-        <div>
-          <p>Detalle de unidad</p>
-          <h2>${esc(row.mva || row.id || 'Unidad')}</h2>
-          <span>${esc([row.modelo, row.placas, row.vin].filter(Boolean).join(' · ') || 'Sin datos adicionales')}</span>
-        </div>
-        <div class="uni-actions"></div>
-      </div>
-      <form class="uni-form uni-form--wide" data-unit-form="edit" data-id="${unitId}" data-context="detail">
-        <section class="uni-form-panel">
-          <div class="uni-form-grid uni-form-grid--meta">
-            ${FIELD_ORDER.filter(k => k !== 'descripcion').map(k => _fieldControl(k, row, { editing: true, required: k === 'mva' })).join('')}
-          </div>
-        </section>
-        <section class="uni-form-panel">
-          ${_fieldControl('descripcion', row, { editing: true })}
-        </section>
-        <div class="uni-form-actions uni-form-actions--footer"${_s.detailEditing && _canManage() ? '' : ' hidden'}>
-          <button type="button" class="uni-btn ghost" data-action="cancel-edit">Cancelar</button>
-          <button type="submit" class="uni-btn primary" data-action="save-detail">Guardar cambios</button>
-        </div>
-      </form>
-    </section>
-  `;
-  _syncDetailEditingUi();
-}
-
-function _syncDetailEditingUi() {
-  const editing = Boolean(_s?.detailEditing && _canManage());
-  const row = _selected();
-  const card = _ctr?.querySelector('#uni-detail .uni-detail-card');
-  const form = _ctr?.querySelector('#uni-detail form[data-unit-form]');
-  if (!card || !form) return;
-
-  card.classList.toggle('is-editing', editing);
-
-  form.querySelectorAll('input, textarea, select').forEach(el => {
-    const locked = el.name === 'id';
-    if (editing && !locked) {
-      el.removeAttribute('readonly');
-      el.readOnly = false;
-      el.disabled = false;
-    } else if (el.tagName === 'SELECT') {
-      el.disabled = true;
-    } else {
-      el.readOnly = true;
-      el.setAttribute('readonly', 'readonly');
-    }
-  });
-
-  const footer = form.querySelector('.uni-form-actions--footer');
-  if (footer) footer.hidden = !editing;
-
-  const headActions = card.querySelector('.uni-detail-head .uni-actions');
-  if (headActions && row) {
-    const mva = row.mva || row.id || '';
-    headActions.innerHTML = editing ? '' : `
-      <button type="button" class="uni-btn ghost" data-action="expediente" data-mva="${esc(mva)}">Expediente completo</button>
-      <button type="button" class="uni-btn ghost" data-action="close-detail">Cerrar</button>
-      <button type="button" class="uni-btn primary" data-action="edit"${_canManage() ? '' : ' disabled'}>Editar</button>
-    `;
-  }
-
-  const saveBtn = form.querySelector('[data-action="save-detail"]');
-  if (saveBtn) saveBtn.disabled = Boolean(_s?.busy);
-}
-
-function _resetDetailForm() {
-  const row = _selected();
-  const form = _ctr?.querySelector('#uni-detail form[data-unit-form]');
-  if (!row || !form) return;
-  FIELD_ORDER.forEach(key => {
-    const el = form.elements[key];
-    if (!el) return;
-    el.value = _field(row, key) || '';
-  });
 }
 
 function _paintTable() {
@@ -360,8 +277,9 @@ function _paintTable() {
 function _rowHtml(row) {
   const id = row.id || row.mva || '';
   const active = _isActive(row);
+  const mva = row.mva || id;
   return `
-    <tr data-action="select" data-id="${esc(id)}">
+    <tr data-action="expediente" data-mva="${esc(mva)}" role="button" tabindex="0">
       <td class="uni-td-mono">${esc(row.fila || row.id || '—')}</td>
       <td>${esc(row.clase || row.categoria || '—')}</td>
       <td class="uni-td-mono">${esc(row.vin || '—')}</td>
@@ -375,8 +293,7 @@ function _rowHtml(row) {
       <td>${esc(row.estado || row.estatus || '—')}</td>
       <td><span class="uni-active-text ${active ? 'yes' : 'no'}">${active ? 'Activo' : 'Inactivo'}</span></td>
       <td class="uni-row-actions">
-        <button type="button" class="uni-link-btn" data-action="expediente" data-mva="${esc(row.mva || '')}">Expediente</button>
-        <button type="button" class="uni-link-btn" data-action="select" data-id="${esc(id)}">Ver</button>
+        <button type="button" class="uni-link-btn" data-action="expediente" data-mva="${esc(mva)}">Ver</button>
       </td>
     </tr>
   `;
@@ -391,26 +308,11 @@ function _onClick(event) {
   if (action === 'export') { _exportCsv(); return; }
   if (action === 'new') { _openUnitModal(); return; }
   if (action === 'import') { _openImportModal(); return; }
-  if (action === 'edit') {
-    if (!_canManage()) return;
-    _s.detailEditing = true;
-    _syncDetailEditingUi();
-    return;
-  }
-  if (action === 'cancel-edit') {
-    _resetDetailForm();
-    _s.detailEditing = false;
-    _syncDetailEditingUi();
-    return;
-  }
-  if (action === 'close-detail') { _s.detailEditing = false; _s.selectedId = ''; _paintDetail(); return; }
   if (action === 'expediente') {
-    const mva = el.dataset.mva || el.closest('tr')?.querySelector('[data-mva]')?.dataset?.mva;
-    if (mva && typeof window.__mexGoToUnidad === 'function') window.__mexGoToUnidad(mva);
-    else if (mva) window.location.assign(`/app/cuadre/u/${encodeURIComponent(String(mva).trim().toUpperCase())}`);
+    const mva = el.dataset.mva || el.closest('tr')?.dataset?.mva;
+    if (mva) _goExpediente(mva);
     return;
   }
-  if (action === 'select') { _s.detailEditing = false; _s.selectedId = el.dataset.id || el.closest('tr')?.dataset.id || ''; _paintDetail(); return; }
   if (action === 'prev') { _s.page = Math.max(1, _s.page - 1); _paintTable(); return; }
   if (action === 'next') { _s.page += 1; _paintTable(); return; }
   if (action === 'close-modal') { _closeModal(); return; }
@@ -691,33 +593,19 @@ async function _saveUnit(form) {
   const original = form.dataset.unitForm === 'edit' ? _findById(form.dataset.id) : null;
   const payload = _unitPayload(row, original);
   if (!payload.mva) return _toast('Captura el número económico.', 'error');
-  const fromDetail = form.dataset.context === 'detail';
-  const keepId = _s.selectedId;
   _s.busy = true;
-  if (fromDetail) _syncDetailEditingUi();
   try {
     const res = original
       ? await actualizarUnidadPlaza({ ...payload, id: original.id || original.fila || original.mva })
       : await registrarUnidadEnPlaza(payload);
     if (!_ok(res)) throw new Error(String(res || 'No se pudo guardar.'));
     _toast('Unidad guardada.', 'success');
-    if (fromDetail) {
-      _s.detailEditing = false;
-      await _load();
-      const saved = _findById(original?.id || original?.fila || keepId) || _findById(payload.mva);
-      _s.selectedId = saved?.id || saved?.mva || payload.mva || keepId;
-      _paint();
-    } else {
-      _closeModal();
-      await _load();
-    }
+    _closeModal();
+    await _load();
   } catch (err) {
     _toast(err?.message || 'No se pudo guardar la unidad.', 'error');
   } finally {
-    if (_s) {
-      _s.busy = false;
-      if (fromDetail) _syncDetailEditingUi();
-    }
+    if (_s) _s.busy = false;
   }
 }
 
@@ -797,10 +685,6 @@ function _normalizeUnit(row = {}) {
 
 function _emptyFilters() {
   return { q: '', clase: '', sucursal: '', plazaActual: '', estado: '', activo: '' };
-}
-
-function _selected() {
-  return _findById(_s.selectedId);
 }
 
 function _findById(id) {

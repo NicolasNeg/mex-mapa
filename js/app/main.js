@@ -338,10 +338,12 @@ async function boot() {
     }
     router.navigate('/app/mapa');
   };
-  window.__mexGoToUnidad = (mva) => {
+  window.__mexGoToUnidad = (mva, opts = {}) => {
     const token = String(mva || '').trim().toUpperCase();
     if (!token) return;
-    router.navigate(`/app/cuadre/u/${encodeURIComponent(token)}`);
+    let path = `/app/cuadre/u/${encodeURIComponent(token)}`;
+    if (opts?.edit) path += '?edit=1';
+    router.navigate(path);
   };
   window.__mexCanViewUnidadExpediente = () => {
     const role = String(getState().role || getState().profile?.rol || getState().profile?.role || '').toUpperCase().trim();

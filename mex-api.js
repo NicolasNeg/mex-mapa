@@ -3067,6 +3067,10 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
   async backfillPlazaEnUnidades(onProgress) {
     return backfillPlazaEnUnidades(onProgress);
   },
+
+  async registrarLogCola(accion, autor, plaza, extra = {}) {
+    await _registrarLog('COLA', accion, autor || 'Sistema', plaza, extra);
+  },
 };
 
 // ─── ESTRUCTURA POR DEFECTO DEL MAPA ────────────────────────

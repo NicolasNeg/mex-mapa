@@ -7,10 +7,20 @@ import {
   db,
   COL,
   obtenerDetalleCompleto,
-  obtenerUnidadesPlazas
+  obtenerUnidadesPlazas,
+  actualizarUnidadPlaza
 } from '/js/core/database.js';
 import { getUnidadBitacora } from '/js/app/features/cuadre/cuadre-data.js';
 import { normalizeIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
+import {
+  FIELD_ORDER,
+  normalizeUnit,
+  buildUnitPayload,
+  renderDetailCardHtml,
+  unitField,
+  esc,
+  norm
+} from '/js/app/features/unidades/unidades-unit-form.js';
 
 const ROUTE_PREFIX = '/app/cuadre/u/';
 
@@ -26,30 +36,9 @@ const ROLE_LEVEL = {
   PROGRAMADOR: 9
 };
 
-const FIELD_LABEL = {
-  mva: 'Número económico',
-  clase: 'Clase',
-  categoria: 'Categoría',
-  vin: 'VIN',
-  anio: 'Año',
-  marca: 'Marca',
-  modelo: 'Modelo',
-  placas: 'Placas',
-  sucursal: 'Locación propietaria',
-  plazaActual: 'Locación actual',
-  estado: 'Estado operativo',
-  gasolina: 'Gasolina',
-  km: 'Kilometraje',
-  ubicacion: 'Ubicación',
-  pos: 'Posición',
-  color: 'Color',
-  activo: 'Activo',
-  descripcion: 'Descripción',
-  notas: 'Notas de cuadre'
-};
-
 let _ctr = null;
 let _navigate = null;
+let _offs = [];
 let _s = null;
 
 export async function mount({ container, navigate }) {
@@ -68,35 +57,59 @@ export async function mount({ container, navigate }) {
     return;
   }
 
-  _s = { mva, loading: true, error: '', editing: false, busy: false, data: null };
+  const params = new URLSearchParams(window.location.search);
+  _s = {
+    mva,
+    loading: true,
+    error: '',
+    editing: params.get('edit') === '1' && _canManage(),
+    busy: false,
+    data: null
+  };
   _renderShell();
+  _bind();
   await _load();
 }
 
 export function unmount() {
+  _offs.forEach(fn => { try { fn(); } catch (_) {} });
+  _offs = [];
   _ctr = null;
   _navigate = null;
   _s = null;
 }
 
 function _ensureCss() {
-  const href = '/css/app-unidad-expediente.css?v=20260715a';
-  let link = document.querySelector('link[data-app-unidad-exp-css="1"]');
-  if (link) {
-    if (link.getAttribute('href') !== href) link.setAttribute('href', href);
-    return;
-  }
-  link = document.createElement('link');
-  link.rel = 'stylesheet';
-  link.href = href;
-  link.dataset.appUnidadExpCss = '1';
-  document.head.appendChild(link);
+  [
+    { href: '/css/app-unidades.css?v=20260715d', attr: 'data-app-unidades-css' },
+    { href: '/css/app-unidad-expediente.css?v=20260715b', attr: 'data-app-unidad-exp-css' }
+  ].forEach(({ href, attr }) => {
+    let link = document.querySelector(`link[${attr}="1"]`);
+    if (link) {
+      if (link.getAttribute('href') !== href) link.setAttribute('href', href);
+      return;
+    }
+    link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.setAttribute(attr, '1');
+    document.head.appendChild(link);
+  });
+}
+
+function _bind() {
+  const click = e => _onClick(e);
+  const submit = e => _onSubmit(e);
+  _ctr?.addEventListener('click', click);
+  _ctr?.addEventListener('submit', submit);
+  _offs.push(() => _ctr?.removeEventListener('click', click));
+  _offs.push(() => _ctr?.removeEventListener('submit', submit));
 }
 
 function _mvaFromPath() {
   const path = String(window.location.pathname || '').replace(/\/+$/, '');
   if (!path.startsWith(ROUTE_PREFIX)) return '';
-  return _norm(decodeURIComponent(path.slice(ROUTE_PREFIX.length) || ''));
+  return norm(decodeURIComponent(path.slice(ROUTE_PREFIX.length) || ''));
 }
 
 async function _load() {
@@ -110,7 +123,7 @@ async function _load() {
 
   try {
     const rows = await obtenerUnidadesPlazas();
-    const indexRow = (Array.isArray(rows) ? rows : []).find(r => _norm(r.mva) === _s.mva);
+    const indexRow = (Array.isArray(rows) ? rows : []).find(r => norm(r.mva) === _s.mva);
     if (!indexRow) {
       _s.loading = false;
       _s.error = 'not_found';
@@ -118,7 +131,7 @@ async function _load() {
       return;
     }
 
-    const plaza = _norm(indexRow.plazaActual || indexRow.sucursal || indexRow.plaza || '');
+    const plaza = norm(indexRow.plazaActual || indexRow.sucursal || indexRow.plaza || '');
     const [detail, extras, bitacora, notas] = await Promise.all([
       obtenerDetalleCompleto(plaza || indexRow.sucursal, _s.mva).catch(() => null),
       _loadExtras(_s.mva, plaza),
@@ -127,8 +140,8 @@ async function _load() {
     ]);
 
     _s.data = {
-      index: indexRow,
-      detail: { ...indexRow, ...(detail || {}) },
+      index: normalizeUnit(indexRow),
+      detail: normalizeUnit({ ...indexRow, ...(detail || {}) }),
       extras: extras || {},
       bitacora: Array.isArray(bitacora) ? bitacora : [],
       notas: Array.isArray(notas) ? notas : []
@@ -153,7 +166,7 @@ async function _loadExtras(mva, plaza) {
 }
 
 async function _loadNotas(mva) {
-  const token = _norm(mva);
+  const token = norm(mva);
   if (!token || !db) return [];
   try {
     const snap = await db.collection(COL.NOTAS).where('mva', '==', token).get();
@@ -166,38 +179,37 @@ async function _loadNotas(mva) {
   }
 }
 
+function _formCtx() {
+  return { plaza: _s?.data?.detail?.sucursal || _s?.data?.detail?.plazaActual || '', allUnits: [] };
+}
+
 function _renderShell() {
   if (!_ctr || !_s) return;
   _ctr.innerHTML = `
-    <section class="uexp" aria-busy="${_s.loading ? 'true' : 'false'}">
+    <section class="uexp uni-expediente" aria-busy="${_s.loading ? 'true' : 'false'}">
       <header class="uexp-head">
         <div class="uexp-head-main">
-          <button type="button" class="uexp-back" data-action="back">
+          <button type="button" class="uexp-back" data-action="back-unidades">
             <span class="material-icons">arrow_back</span>
             <span>Unidades</span>
           </button>
-          <div class="uexp-title-wrap">
-            <h1 id="uexp-mva">${esc(_s.mva)}</h1>
-            <p id="uexp-sub">Cargando expediente…</p>
-          </div>
         </div>
         <div class="uexp-head-actions" id="uexp-actions"></div>
       </header>
       <div id="uexp-body" class="uexp-body"></div>
     </section>
   `;
-  _ctr.addEventListener('click', _onClick);
   _paintBody();
 }
 
 function _paintBody() {
   const body = _ctr?.querySelector('#uexp-body');
-  const sub = _ctr?.querySelector('#uexp-sub');
   const actions = _ctr?.querySelector('#uexp-actions');
   if (!body || !_s) return;
 
   if (_s.loading) {
     body.innerHTML = '<div class="uexp-loading"><span class="material-icons spin">sync</span> Cargando información…</div>';
+    if (actions) actions.innerHTML = '';
     return;
   }
 
@@ -213,49 +225,91 @@ function _paintBody() {
 
   const d = _s.data?.detail || {};
   const extras = _s.data?.extras || {};
-  const subLine = [d.modelo, d.placas, d.plazaActual || d.sucursal].filter(Boolean).join(' · ') || 'Sin datos adicionales';
-  if (sub) sub.textContent = subLine;
+  const canMap = d.plazaActual && typeof window.__mexCanViewPlaza === 'function' && window.__mexCanViewPlaza(d.plazaActual);
 
   if (actions) {
-    const canMap = d.plazaActual && typeof window.__mexCanViewPlaza === 'function' && window.__mexCanViewPlaza(d.plazaActual);
-    actions.innerHTML = `
-      ${canMap ? '<button type="button" class="uexp-btn ghost" data-action="map"><span class="material-icons">map</span>Mapa</button>' : ''}
-      ${_canManage() ? '<button type="button" class="uexp-btn primary" data-action="edit"><span class="material-icons">edit</span>Editar</button>' : ''}
-    `;
+    actions.innerHTML = canMap
+      ? '<button type="button" class="uexp-btn ghost" data-action="map"><span class="material-icons">map</span>Mapa</button>'
+      : '';
   }
 
   body.innerHTML = `
-    <div class="uexp-grid">
-      <section class="uexp-panel">
-        <h2>Datos generales</h2>
-        <dl class="uexp-kv">
-          ${_kvRows(d, ['mva', 'modelo', 'marca', 'anio', 'clase', 'categoria', 'vin', 'placas', 'color', 'sucursal', 'plazaActual', 'activo', 'descripcion'])}
-        </dl>
-      </section>
+    <div id="uexp-detail">${renderDetailCardHtml(d, {
+      editing: _s.editing && _canManage(),
+      canManage: _canManage(),
+      busy: _s.busy,
+      formCtx: _formCtx()
+    })}</div>
 
-      <section class="uexp-panel">
-        <h2>Operación en cuadre</h2>
-        <dl class="uexp-kv">
-          ${_kvRows(d, ['estado', 'gasolina', 'km', 'ubicacion', 'pos', 'notas'])}
-        </dl>
-      </section>
+    ${_extrasPanel(extras)}
 
-      ${_extrasPanel(extras)}
+    <section class="uexp-panel uexp-panel--wide">
+      <div class="uexp-panel-head">
+        <h2>Notas e incidencias</h2>
+        <button type="button" class="uexp-link" data-action="incidencias">Ver todas</button>
+      </div>
+      ${_notasHtml(_s.data?.notas || [])}
+    </section>
 
-      <section class="uexp-panel uexp-panel--wide">
-        <div class="uexp-panel-head">
-          <h2>Notas e incidencias</h2>
-          <button type="button" class="uexp-link" data-action="incidencias">Ver todas</button>
-        </div>
-        ${_notasHtml(_s.data?.notas || [])}
-      </section>
-
-      <section class="uexp-panel uexp-panel--wide">
-        <h2>Bitácora reciente</h2>
-        ${_bitacoraHtml(_s.data?.bitacora || [])}
-      </section>
-    </div>
+    <section class="uexp-panel uexp-panel--wide">
+      <h2>Bitácora reciente</h2>
+      ${_bitacoraHtml(_s.data?.bitacora || [])}
+    </section>
   `;
+
+  _syncEditingUi();
+}
+
+function _syncEditingUi() {
+  const editing = Boolean(_s?.editing && _canManage());
+  const card = _ctr?.querySelector('#uexp-detail .uni-detail-card');
+  const form = _ctr?.querySelector('#uexp-detail form[data-unit-form]');
+  if (!card || !form) return;
+
+  card.classList.toggle('is-editing', editing);
+
+  form.querySelectorAll('input, textarea, select').forEach(el => {
+    const locked = el.name === 'id';
+    if (editing && !locked) {
+      el.removeAttribute('readonly');
+      el.readOnly = false;
+      el.disabled = false;
+    } else if (el.tagName === 'SELECT') {
+      el.disabled = true;
+    } else {
+      el.readOnly = true;
+      el.setAttribute('readonly', 'readonly');
+    }
+  });
+
+  const footer = form.querySelector('.uni-form-actions--footer');
+  if (footer) footer.hidden = !editing;
+
+  const saveBtn = form.querySelector('[data-action="save-detail"]');
+  if (saveBtn) saveBtn.disabled = Boolean(_s?.busy);
+}
+
+function _resetForm() {
+  const row = _s?.data?.detail;
+  const form = _ctr?.querySelector('#uexp-detail form[data-unit-form]');
+  if (!row || !form) return;
+  FIELD_ORDER.forEach(key => {
+    const el = form.elements[key];
+    if (!el) return;
+    el.value = unitField(row, key) || '';
+  });
+}
+
+function _setEditing(next) {
+  if (!_s) return;
+  _s.editing = Boolean(next && _canManage());
+  const path = `${ROUTE_PREFIX}${encodeURIComponent(_s.mva)}`;
+  const qs = _s.editing ? '?edit=1' : '';
+  const nextUrl = `${path}${qs}`;
+  if (`${window.location.pathname}${window.location.search}` !== nextUrl) {
+    window.history.replaceState(null, '', nextUrl);
+  }
+  _paintBody();
 }
 
 function _extrasPanel(extras) {
@@ -269,26 +323,6 @@ function _extrasPanel(extras) {
       ${rec ? `<p class="uexp-rec">${esc(rec)}</p>` : ''}
     </section>
   `;
-}
-
-function _kvRows(data, keys) {
-  return keys.map(key => {
-    const val = _fieldValue(data, key);
-    if (val === '' || val == null) return '';
-    return `<div class="uexp-kv-row"><dt>${esc(FIELD_LABEL[key] || key)}</dt><dd>${esc(val)}</dd></div>`;
-  }).join('');
-}
-
-function _fieldValue(data, key) {
-  if (key === 'activo') {
-    const raw = String(data?.activo ?? data?.active ?? '').toUpperCase();
-    if (!raw) return 'Activo';
-    return ['NO', 'FALSE', 'INACTIVO', '0', 'BAJA'].includes(raw) ? 'Inactivo' : 'Activo';
-  }
-  if (key === 'anio') return data?.anio || data?.año || '';
-  if (key === 'clase') return data?.clase || data?.categoria || '';
-  if (key === 'categoria') return data?.categoria || data?.clase || '';
-  return data?.[key] ?? '';
 }
 
 function _notasHtml(notas) {
@@ -344,12 +378,18 @@ function _onClick(event) {
   const el = event.target.closest('[data-action]');
   if (!el || !_ctr?.contains(el)) return;
   const action = el.dataset.action;
-  if (action === 'back') {
+
+  if (action === 'back-unidades' || action === 'back') {
     _go('/app/unidades');
     return;
   }
   if (action === 'edit' && _canManage()) {
-    _go(`/app/unidades?mva=${encodeURIComponent(_s.mva)}&edit=1`);
+    _setEditing(true);
+    return;
+  }
+  if (action === 'cancel-edit') {
+    _resetForm();
+    _setEditing(false);
     return;
   }
   if (action === 'map') {
@@ -366,6 +406,47 @@ function _onClick(event) {
   }
 }
 
+async function _onSubmit(event) {
+  const form = event.target.closest('form[data-unit-form="edit"]');
+  if (!form || !_ctr?.contains(form)) return;
+  event.preventDefault();
+  if (_s?.busy || !_canManage()) return;
+
+  const original = _s?.data?.detail;
+  if (!original) return;
+
+  const row = Object.fromEntries(new FormData(form).entries());
+  const payload = buildUnitPayload(row, original, { plaza: original.sucursal || original.plazaActual, actor: _actor() });
+  if (!payload.mva) return _toast('Captura el número económico.', 'error');
+
+  _s.busy = true;
+  _syncEditingUi();
+  try {
+    const res = await actualizarUnidadPlaza({
+      ...payload,
+      id: original.id || original.fila || original.mva
+    });
+    if (!_ok(res)) throw new Error(String(res || 'No se pudo guardar.'));
+    _toast('Unidad guardada.', 'success');
+    _s.editing = false;
+    _setUrlEdit(false);
+    await _load();
+  } catch (err) {
+    _toast(err?.message || 'No se pudo guardar la unidad.', 'error');
+  } finally {
+    if (_s) {
+      _s.busy = false;
+      _syncEditingUi();
+    }
+  }
+}
+
+function _setUrlEdit(on) {
+  const path = `${ROUTE_PREFIX}${encodeURIComponent(_s.mva)}`;
+  const qs = on ? '?edit=1' : '';
+  window.history.replaceState(null, '', `${path}${qs}`);
+}
+
 function _go(path) {
   if (typeof _navigate === 'function') _navigate(path);
   else window.location.assign(path);
@@ -379,7 +460,7 @@ function _renderDenied() {
         <span class="material-icons">lock</span>
         <h2>Sin acceso</h2>
         <p>El expediente de unidad está disponible desde el rol Ventas en adelante.</p>
-        <button type="button" class="uexp-btn ghost" data-action="back">Volver</button>
+        <button type="button" class="uexp-btn ghost" data-action="back-unidades">Volver</button>
       </div>
     </section>
   `;
@@ -394,7 +475,7 @@ function _renderNotFound(mva) {
         <span class="material-icons">search_off</span>
         <h2>Unidad no encontrada</h2>
         <p>${mva ? `No hay registro para ${esc(mva)} en el inventario global.` : 'MVA no válido.'}</p>
-        <button type="button" class="uexp-btn ghost" data-action="back">Ir a unidades</button>
+        <button type="button" class="uexp-btn ghost" data-action="back-unidades">Ir a unidades</button>
       </div>
     </section>
   `;
@@ -416,8 +497,9 @@ function _role() {
   return String(gs.role || gs.profile?.rol || gs.profile?.role || '').toUpperCase().trim();
 }
 
-function _norm(value) {
-  return String(value || '').trim().toUpperCase();
+function _actor() {
+  const gs = getState();
+  return String(gs.profile?.nombre || gs.profile?.usuario || gs.profile?.email || window._auth?.currentUser?.email || 'Sistema').trim();
 }
 
 function _fmtTs(value) {
@@ -431,10 +513,13 @@ function _fmtTs(value) {
   return String(value);
 }
 
-function esc(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+function _ok(res) {
+  if (res === true || res === 'OK' || res === 'EXITO') return true;
+  if (typeof res === 'string') return !/^ERROR\b/i.test(res);
+  return Boolean(res?.ok || res?.success);
+}
+
+function _toast(message, type = 'info') {
+  if (typeof window.showToast === 'function') window.showToast(message, type);
+  else console[type === 'error' ? 'error' : 'log'](message);
 }

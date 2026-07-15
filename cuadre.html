@@ -129,16 +129,6 @@
       #fleet-modal .col-table tr { display: table-row !important; background: transparent !important; border: 0 !important; margin: 0 !important; padding: 0 !important; }
       #fleet-modal .col-table th, #fleet-modal .col-table td { display: table-cell !important; white-space: nowrap !important; }
       #fleet-modal .col-table td::before { display: none !important; content: none !important; }
-      /* Panel GESTOR (col-form + KPIs) = bottom-sheet oculto, sube al seleccionar. */
-      #fleet-modal .col-form {
-        position: fixed !important; left: 0 !important; right: 0 !important;
-        top: auto !important; bottom: -105% !important; width: 100% !important;
-        height: 88vh !important; z-index: 10000 !important; border-radius: 24px 24px 0 0 !important;
-        transition: bottom .32s cubic-bezier(.4,0,.2,1) !important;
-      }
-      #fleet-modal .col-form.active { bottom: 0 !important; }
-      /* El scrim (blur) DEBE quedar por debajo del panel, no encima. */
-      #fleet-modal .col-form-overlay { z-index: 9998 !important; }
     }
     /* Botones flotantes SIEMPRE visibles (fixed al viewport), no absolute dentro
        del col-table que crece. */
@@ -206,8 +196,8 @@
     #fleet-modal .more-controls-dropdown,
     body > .cuadre-more-menu.more-controls-dropdown {
       border-radius: 8px !important;
-      border: 1px solid var(--cuadre-border) !important;
-      background: var(--cuadre-surface) !important;
+      border: 1px solid #d7dde5 !important;
+      background: #ffffff !important;
       box-shadow: 0 18px 44px rgba(19, 27, 46, .16) !important;
       overflow: hidden !important;
       display: none;
@@ -233,12 +223,27 @@
     body > .cuadre-more-menu .mc-item {
       min-height: 38px !important;
       padding: 9px 12px !important;
-      border-bottom: 1px solid var(--cuadre-border-soft) !important;
+      border-bottom: 1px solid #e8edf2 !important;
+      background: #ffffff !important;
       transition: background-color .18s ease, color .18s ease !important;
     }
 
     #fleet-modal .mc-item:hover,
-    body > .cuadre-more-menu .mc-item:hover { background: #f7f9fb !important; color: var(--cuadre-blue) !important; }
+    body > .cuadre-more-menu .mc-item:hover { background: #f7f9fb !important; color: #2563eb !important; }
+
+    @media (max-width: 640px) {
+      body > .cuadre-more-menu.more-controls-dropdown {
+        position: fixed !important;
+        left: 8px !important;
+        right: 8px !important;
+        width: auto !important;
+        min-width: 0 !important;
+        max-height: calc(100vh - 96px - env(safe-area-inset-bottom, 0px)) !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+    }
 
     /* Tabla formal — más legible */
     #fleet-modal .col-table {
@@ -322,76 +327,105 @@
       }
     }
 
-    #fleet-modal .col-form {
-      width: min(408px, 100vw) !important;
-      right: -440px !important;
-      padding: 0 !important;
+    #fleet-modal .main-grid-flota {
+      display: flex !important;
+      flex-direction: row !important;
+      align-items: stretch !important;
       gap: 0 !important;
-      background: var(--cuadre-surface) !important;
-      border-left: 1px solid var(--cuadre-border) !important;
-      box-shadow: -18px 0 46px rgba(19, 27, 46, .16) !important;
-      color: var(--cuadre-text) !important;
+      overflow: hidden !important;
     }
 
-    #fleet-modal .col-form.active { right: 0 !important; }
+    #fleet-modal .col-form-overlay {
+      display: none !important;
+    }
+
+    #fleet-modal .col-form {
+      position: relative !important;
+      top: auto !important;
+      right: auto !important;
+      height: auto !important;
+      flex: 0 0 0 !important;
+      width: 0 !important;
+      min-width: 0 !important;
+      max-width: none !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      overflow: hidden !important;
+      opacity: 0;
+      pointer-events: none;
+      border-left: 0 !important;
+      box-shadow: none !important;
+      transition: flex-basis .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1), opacity .2s ease, border-color .2s ease !important;
+    }
+
+    #fleet-modal .main-grid-flota.unit-panel-open .col-form,
+    #fleet-modal .col-form.active {
+      flex: 0 0 min(400px, 34vw) !important;
+      width: min(400px, 34vw) !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      overflow-x: hidden !important;
+      overflow-y: auto !important;
+      border-left: 1px solid var(--cuadre-border) !important;
+      box-shadow: -12px 0 32px rgba(19, 27, 46, .08) !important;
+    }
 
     #fleet-modal .col-form > div:first-child {
       position: sticky !important;
       top: 0 !important;
       z-index: 4 !important;
       margin: 0 !important;
-      padding: 15px 16px !important;
+      padding: 14px 16px !important;
       border-bottom: 1px solid var(--cuadre-border-soft) !important;
-      background: rgba(255,255,255,.98) !important;
-      backdrop-filter: blur(10px) !important;
+      background: #fff !important;
     }
 
     #fleet-modal .col-form > div:first-child h3 {
       color: var(--cuadre-navy) !important;
-      font-size: 15px !important;
-      font-weight: 850 !important;
-      letter-spacing: 0 !important;
+      font-size: 14px !important;
+      font-weight: 800 !important;
+      letter-spacing: .02em !important;
       text-transform: none !important;
     }
 
     #fleet-modal .col-form > div:first-child button {
-      width: 34px !important;
-      height: 34px !important;
+      width: 32px !important;
+      height: 32px !important;
       border-radius: 6px !important;
       border: 1px solid var(--cuadre-border-soft) !important;
-      background: var(--cuadre-surface) !important;
+      background: #fff !important;
       color: var(--cuadre-muted) !important;
     }
 
-    #fleet-modal .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; padding: 14px 16px 0 !important; }
-    #fleet-modal .stat-box { border-radius: 8px !important; border: 1px solid var(--cuadre-border-soft) !important; background: #f7f9fb !important; box-shadow: none !important; padding: 12px !important; }
-    #fleet-modal .stat-box .num { color: var(--cuadre-navy) !important; font-size: 24px !important; font-weight: 900 !important; line-height: 1 !important; }
-    #fleet-modal .stat-box .lbl { margin-top: 6px !important; color: var(--cuadre-muted) !important; font-size: 10px !important; font-weight: 850 !important; letter-spacing: .06em !important; text-transform: uppercase !important; }
+    #fleet-modal .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px !important; padding: 12px 14px 0 !important; }
+    #fleet-modal .stat-box { border-radius: 6px !important; border: 1px solid var(--cuadre-border-soft) !important; background: #f7f9fb !important; box-shadow: none !important; padding: 10px 12px !important; }
+    #fleet-modal .stat-box .num { color: var(--cuadre-navy) !important; font-size: 22px !important; font-weight: 900 !important; line-height: 1 !important; }
+    #fleet-modal .stat-box .lbl { margin-top: 4px !important; color: var(--cuadre-muted) !important; font-size: 10px !important; font-weight: 800 !important; letter-spacing: .05em !important; text-transform: uppercase !important; }
 
     #fleet-modal .form-panel {
-      margin: 14px 16px 16px !important;
+      margin: 10px 12px 12px !important;
       padding: 0 !important;
       border-radius: 8px !important;
       border: 1px solid var(--cuadre-border-soft) !important;
-      background: var(--cuadre-surface) !important;
+      background: #fff !important;
       box-shadow: none !important;
       overflow: visible !important;
     }
 
-    #fleet-modal .form-header { margin: 0 !important; padding: 14px 14px 0 !important; }
+    #fleet-modal .form-header { margin: 0 !important; padding: 12px 12px 0 !important; }
     #fleet-modal .form-title { color: var(--cuadre-muted) !important; font-size: 10px !important; font-weight: 900 !important; letter-spacing: .08em !important; text-transform: uppercase !important; }
 
     #fleet-modal #admin-flota-panel-hint,
-    #fleet-modal #autofill-section { margin: 14px !important; border-radius: 8px !important; box-shadow: none !important; }
+    #fleet-modal #autofill-section { margin: 12px !important; border-radius: 8px !important; box-shadow: none !important; }
     #fleet-modal #autofill-section { border: 1px dashed #9bd5f5 !important; background: #f7fbff !important; padding: 12px !important; }
-    #fleet-modal #form-fields-container { gap: 11px !important; padding: 0 14px 14px !important; }
+    #fleet-modal #form-fields-container { gap: 10px !important; padding: 0 12px 12px !important; }
 
     #fleet-modal .field label {
-      margin-bottom: 6px !important;
+      margin-bottom: 5px !important;
       color: var(--cuadre-muted) !important;
       font-size: 10px !important;
       font-weight: 900 !important;
-      letter-spacing: .07em !important;
+      letter-spacing: .06em !important;
       text-transform: uppercase !important;
     }
 
@@ -400,24 +434,25 @@
     #fleet-modal .field textarea,
     #fleet-modal #autofill-input {
       width: 100% !important;
-      min-height: 40px !important;
+      min-height: 38px !important;
       border-radius: 6px !important;
       border: 1px solid var(--cuadre-border) !important;
-      background: var(--cuadre-surface) !important;
+      background: #fff !important;
       color: var(--cuadre-text) !important;
       font-size: 13px !important;
-      font-weight: 650 !important;
+      font-weight: 600 !important;
       box-shadow: none !important;
       outline: none !important;
-      transition: border-color .18s ease, box-shadow .18s ease !important;
     }
+
+    #fleet-modal .field textarea { min-height: 72px !important; resize: vertical !important; }
 
     #fleet-modal .field input:focus,
     #fleet-modal .field select:focus,
     #fleet-modal .field textarea:focus,
     #fleet-modal #autofill-input:focus {
       border-color: var(--cuadre-blue) !important;
-      box-shadow: 0 0 0 3px rgba(11, 116, 184, .13) !important;
+      box-shadow: 0 0 0 3px rgba(11, 116, 184, .12) !important;
     }
 
     #fleet-modal .locked-input { background: #f2f4f6 !important; color: #454b57 !important; }
@@ -425,35 +460,67 @@
     #fleet-modal .btn-group {
       position: sticky !important;
       bottom: 0 !important;
-      margin: 4px -14px -14px !important;
-      padding: 12px 14px !important;
-      background: rgba(255,255,255,.96) !important;
+      margin: 0 -12px -12px !important;
+      padding: 10px 12px !important;
+      background: #fff !important;
       border-top: 1px solid var(--cuadre-border-soft) !important;
-      backdrop-filter: blur(10px) !important;
     }
 
     #fleet-modal .btn-save,
     #fleet-modal .btn-del {
-      min-height: 42px !important;
+      min-height: 40px !important;
       border-radius: 6px !important;
       font-size: 12px !important;
-      font-weight: 850 !important;
-      letter-spacing: 0 !important;
-      text-transform: none !important;
+      font-weight: 800 !important;
       box-shadow: none !important;
     }
 
-    #fleet-modal .btn-save { background: var(--cuadre-navy) !important; color: #fff !important; }
+    #fleet-modal .btn-save { background: var(--cuadre-navy) !important; color: #fff !important; flex: 1 !important; }
     #fleet-modal .btn-save:hover { background: #202b42 !important; }
     #fleet-modal .btn-del { background: #fff1f1 !important; color: #a61b1b !important; border: 1px solid #f2b8b5 !important; }
-    #fleet-modal .col-form-overlay.active { background: rgba(10, 15, 24, .42) !important; backdrop-filter: blur(4px) !important; }
+
+    @media (max-width: 768px) {
+      #tabFlotaAdmins { display: none !important; }
+    }
 
     @media (max-width: 1024px) {
+      #fleet-modal .col-form-overlay {
+        display: block !important;
+        position: fixed !important;
+        inset: 0 !important;
+        z-index: 9998 !important;
+        background: rgba(15, 23, 42, .28) !important;
+        backdrop-filter: none !important;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity .24s ease, visibility .24s ease;
+      }
+      #fleet-modal .col-form-overlay.active {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+      }
       #fleet-modal .col-form {
+        position: fixed !important;
+        left: 0 !important;
         right: 0 !important;
+        top: auto !important;
+        bottom: -105% !important;
         width: 100% !important;
+        flex: none !important;
+        height: 88vh !important;
+        max-height: 88dvh !important;
+        z-index: 10000 !important;
         border-left: 0 !important;
         border-radius: 18px 18px 0 0 !important;
+        box-shadow: 0 -12px 40px rgba(15, 23, 42, .18) !important;
+        transition: bottom .32s cubic-bezier(.4,0,.2,1) !important;
+      }
+      #fleet-modal .col-form.active {
+        bottom: 0 !important;
+        width: 100% !important;
+        flex: none !important;
       }
     }
 
@@ -558,8 +625,6 @@
                 <div class="chip" onclick="filtrarEspecial('URGENTE', this)" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#ef4444;">bolt</span> URGENTE</div>
                 <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#64748b;">visibility</span> RESGUARDO</div>
                 <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#f97316;">warehouse</span> TALLER</div>
-                <div class="chip chip-reservas" onclick="abrirModalPDFReservas()"
-                  title="Análisis de reservas y proyección operativa" style="display:inline-flex; align-items:center; gap:4px;"><span class="material-symbols-outlined" style="font-size:14px; color:#3b82f6;">event_note</span> RESERVAS</div>
               </div>
               <button onclick="window.limpiarFiltrosFlota && window.limpiarFiltrosFlota()"
                 style="background:white; color:#ef4444; border:1px solid #fee2e2; padding:6px 12px; border-radius:8px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; transition:0.2s; font-size: 12px; white-space:nowrap;"
@@ -577,12 +642,6 @@
               <select id="batch-estado-select"
                 style="font-size:12px; border:1px solid #fbbf24; border-radius:6px; padding:3px 6px; background:#fff;">
                 <option value="">— Estado —</option>
-                <option value="SUCIO">SUCIO</option>
-                <option value="LISTO">LISTO</option>
-                <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                <option value="TRASLADO">TRASLADO</option>
-                <option value="RESGUARDO">RESGUARDO</option>
-                <option value="NO ARRENDABLE">NO ARRENDABLE</option>
               </select>
               <button onclick="ejecutarAccionBatch()"
                 style="font-size:12px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:4px 12px; font-weight:700; cursor:pointer;">Aplicar</button>
@@ -625,15 +684,6 @@
                     <th>
                       <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
                         <option value="">ESTADO (ALL)</option>
-                        <option value="LISTO">LISTO</option>
-                        <option value="SUCIO">SUCIO</option>
-                        <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                        <option value="RESGUARDO">RESGUARDO</option>
-                        <option value="TRASLADO">TRASLADO</option>
-                        <option value="VENTA">VENTA</option>
-                        <option value="RETENIDA">RETENIDA</option>
-                        <option value="NO ARRENDABLE">NO ARRENDABLE</option>
-                        <option value="HYP">HYP</option>
                       </select>
                     </th>
                     <th>
@@ -787,16 +837,6 @@
                     <label>Estado</label>
                     <select id="f_est" onchange="validarBotonGuardar()">
                       <option value="">Seleccionar</option>
-                      <option value="LISTO">LISTO</option>
-                      <option value="SUCIO">SUCIO</option>
-                      <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-                      <option value="RESGUARDO">RESGUARDO</option>
-                      <option value="TRASLADO">TRASLADO</option>
-                      <option value="VENTA">VENTA</option>
-                      <option value="RETENIDA">RETENIDA</option>
-                      <option value="NO ARRENDABLE">NO ARRENDABLE</option>
-                      <option value="HYP">HYP</option>
-                      <option value="EN RENTA">EN RENTA</option>
                     </select>
                   </div>
                   <div class="field">
@@ -872,16 +912,7 @@
 
                 <div class="field">
                   <label>Notas / observaciones</label>
-                  <textarea id="f_not" rows="2" placeholder="Agrega observaciones operativas" oninput="validarBotonGuardar()"></textarea>
-
-                  <div id="del-note-wrapper"
-                    style="display:none; align-items:center; gap:8px; margin-top: 8px; background: #fee2e2; padding: 10px 12px; border-radius: 8px; border: 1px solid #f87171;">
-                    <input type="checkbox" id="f_del_note" style="width: 16px; height: 16px;"
-                      onchange="validarBotonGuardar()">
-                    <label for="f_del_note"
-                      style="margin:0; font-weight:800; text-transform:none; font-size:12px; color: var(--mex-red); cursor:pointer;">Borrar
-                      historial de notas actual</label>
-                  </div>
+                  <textarea id="f_not" rows="3" placeholder="Agrega observaciones operativas" oninput="validarBotonGuardar()"></textarea>
                 </div>
 
                 <div class="btn-group">

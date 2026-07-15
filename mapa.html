@@ -1255,8 +1255,6 @@
             <div class="chip" onclick="filtrarEspecial('URGENTE', this)">⚡ URGENTE</div>
             <div class="chip" onclick="filtrarEspecial('RESGUARDO', this)">👀 RESGUARDO</div>
             <div class="chip chip-taller" onclick="filtrarEspecial('TALLER', this)">🏭 TALLER</div>
-            <div class="chip chip-reservas" onclick="abrirModalPDFReservas()"
-              title="Análisis de reservas y proyección operativa">📋 RESERVAS</div>
           </div>
 
           <!-- [2.5] Barra de acciones batch — visible cuando hay filtro activo -->
@@ -1268,12 +1266,6 @@
             <select id="batch-estado-select"
               style="font-size:12px; border:1px solid #fbbf24; border-radius:6px; padding:3px 6px; background:#fff;">
               <option value="">— Estado —</option>
-              <option value="SUCIO">SUCIO</option>
-              <option value="LISTO">LISTO</option>
-              <option value="MANTENIMIENTO">MANTENIMIENTO</option>
-              <option value="TRASLADO">TRASLADO</option>
-              <option value="RESGUARDO">RESGUARDO</option>
-              <option value="NO ARRENDABLE">NO ARRENDABLE</option>
             </select>
             <button onclick="ejecutarAccionBatch()"
               style="font-size:12px; background:#f59e0b; color:#fff; border:none; border-radius:6px; padding:4px 12px; font-weight:700; cursor:pointer;">Aplicar</button>
@@ -1315,15 +1307,6 @@
                   <th>
                     <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
                       <option value="">ESTADO (ALL)</option>
-                      <option value="LISTO">🟢 LISTO</option>
-                      <option value="SUCIO">🟡 SUCIO</option>
-                      <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                      <option value="RESGUARDO">🔘 RESGUARDO</option>
-                      <option value="TRASLADO">🟣 TRASLADO.</option>
-                      <option value="VENTA">⚫ VENTA</option>
-                      <option value="RETENIDA">🟤 RETENIDA.</option>
-                      <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
-                      <option value="HYP">🚚 HYP</option>
                     </select>
                   </th>
                   <th>
@@ -1454,19 +1437,9 @@
 
               <div class="grid-2">
                 <div class="field">
-                  <label>ESTADO 🛠️</label>
+                  <label>Estado</label>
                   <select id="f_est" onchange="validarBotonGuardar()">
                     <option value="">Seleccionar...</option>
-                    <option value="LISTO">🟢 LISTO</option>
-                    <option value="SUCIO">🟡 SUCIO</option>
-                    <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                    <option value="RESGUARDO">🔘 RESGUARDO</option>
-                    <option value="TRASLADO">🟣 TRASLADO</option>
-                    <option value="VENTA">⚫ VENTA</option>
-                    <option value="RETENIDA">🟤 RETENIDA</option>
-                    <option value="NO ARRENDABLE">▫️ NO ARRENDABLE</option>
-                    <option value="HYP">🚚 HYP</option>
-                    <option value="EN RENTA">✈️ EN RENTA</option>
                   </select>
                 </div>
                 <div class="field">
@@ -1865,181 +1838,85 @@
   </style>
 
   <div id="modal-insertar-admin" class="modal-overlay" style="z-index: 6000;">
-    <div class="console-card admin-console-card" style="min-height: 580px;">
-      <button class="admin-modal-close"
-        onclick="document.getElementById('modal-insertar-admin').classList.remove('active')">
-        <span class="material-icons" style="font-size:20px;">close</span>
-      </button>
-
-      <div class="admin-modal-hero">
-        <div class="admin-modal-kicker">
-          <span class="material-icons" style="font-size:16px;">shield</span>
-          Control Administrativo
+    <div class="console-card admin-insert-formal um-formal">
+      <header class="um-page-header">
+        <div class="um-page-title">
+          <h1>Registro Administrativo</h1>
+          <p>Alta rápida al cuadre admins con base global precargada</p>
         </div>
-        <div class="admin-modal-title">Registro Administrativo</div>
-        <div class="admin-modal-subtitle">Alta rápida al cuadre admins con base global precargada, evidencia flexible y
-          responsable visible.</div>
+        <div class="um-page-actions">
+          <span id="a_ins_badgePlaza" class="admin-formal-badge">PLAZA --</span>
+          <span id="a_ins_badgeAdmin" class="admin-formal-badge">RESPONSABLE --</span>
+          <button type="button" class="um-btn ghost admin-formal-close"
+            onclick="document.getElementById('modal-insertar-admin').classList.remove('active')">
+            <span class="material-icons" style="font-size:18px;">close</span>
+          </button>
+        </div>
+      </header>
 
-        <div class="admin-badge-row">
-          <div id="a_ins_badgePlaza" class="admin-badge">PLAZA --</div>
-          <div id="a_ins_badgeAdmin" class="admin-badge">RESPONSABLE --</div>
+      <div class="um-controls admin-insert-search">
+        <label class="um-search admin-formal-search">
+          <span>Buscar en base maestra</span>
+          <div class="admin-formal-search-wrap">
+            <span class="material-icons">search</span>
+            <input type="text" id="a_ins_searchInput" placeholder="Buscar unidad en Base Maestra..."
+              oninput="filtrarBusquedaAdmin()" autocomplete="off">
+            <div id="a_ins_results" class="floating-results"></div>
+          </div>
+        </label>
+        <div id="a_ins_searchMeta" class="admin-formal-meta">
+          <span class="material-icons" style="font-size:14px;">dataset</span>
+          Preparando índice global...
         </div>
       </div>
 
-      <div class="admin-modal-body">
-        <div class="admin-highlight-card">
-          <div class="admin-section-title" style="margin-top:0;">Vincular Base Maestra</div>
-          <div class="search-wrapper admin-search-shell" style="position:relative;">
-            <span class="material-icons"
-              style="position:absolute; left:20px; top:50%; transform:translateY(-50%); color:#94a3b8; font-size: 24px;">search</span>
-            <input type="text" id="a_ins_searchInput" class="search-global-input"
-              placeholder="Buscar unidad en Base Maestra..." oninput="filtrarBusquedaAdmin()" autocomplete="off">
-            <div id="a_ins_results" class="floating-results"></div>
-          </div>
-          <div id="a_ins_searchMeta" class="admin-search-meta">
-            <span class="material-icons" style="font-size:14px;">dataset</span>
-            Preparando índice global...
-          </div>
-          <div class="admin-search-hint">Busca por MVA, placas, modelo o plaza. La base maestra se precarga desde que
-            abre la app para responder al instante.</div>
+      <div id="a_ins_formContainer" class="admin-insert-body">
+        <p class="um-form-section">Identificación de unidad</p>
+        <div class="um-form-grid2">
+          <label><span>MVA</span><input type="text" id="a_ins_mva" disabled></label>
+          <label><span>Categoría</span><input type="text" id="a_ins_cat" disabled></label>
+          <label><span>Modelo</span><input type="text" id="a_ins_mod" disabled></label>
+          <label><span>Placas</span><input type="text" id="a_ins_pla" disabled></label>
         </div>
 
-        <div class="admin-stitch-strip">
-          <div class="admin-stitch-pill"><span class="material-icons">hub</span>
-            <div><small>Paso 1</small><strong>Vincula la unidad</strong></div>
-          </div>
-          <div class="admin-stitch-pill"><span class="material-icons">inventory_2</span>
-            <div><small>Paso 2</small><strong>Confirma estado y ubicación</strong></div>
-          </div>
-          <div class="admin-stitch-pill"><span class="material-icons">attach_file</span>
-            <div><small>Paso 3</small><strong>Sube archivos y notas</strong></div>
-          </div>
+        <p class="um-form-section">Control operativo</p>
+        <div class="um-form-grid2">
+          <label><span>Gasolina</span>
+            <select id="a_ins_gas">
+              <option value="N/A">Seleccionar...</option>
+            </select>
+          </label>
+          <label><span>Estado</span>
+            <select id="a_ins_est">
+              <option value="">Seleccionar...</option>
+            </select>
+          </label>
+          <label class="span-all"><span>Ubicación física</span>
+            <select id="a_ins_ubi">
+              <option value="">Seleccionar...</option>
+            </select>
+          </label>
         </div>
 
-        <div id="a_ins_formContainer" class="admin-modal-scroll" style="animation: slideUp 0.5s ease;">
-          <div class="admin-section-title">Identificación de Unidad</div>
-          <div class="inner-card admin-form-card">
-            <div class="grid-2">
-              <div class="field"><label>MVA</label><input type="text" id="a_ins_mva" disabled
-                  style="background:#f1f5f9; font-weight:900; color:var(--mex-blue);"></div>
-              <div class="field"><label>Categoría</label><input type="text" id="a_ins_cat" disabled
-                  style="background:#f1f5f9; color:#64748b;"></div>
-            </div>
-            <div class="grid-2" style="margin-top:10px">
-              <div class="field"><label>Modelo</label><input type="text" id="a_ins_mod" disabled
-                  style="background:#f1f5f9; color:#64748b;"></div>
-              <div class="field"><label>Placas</label><input type="text" id="a_ins_pla" disabled
-                  style="background:#f1f5f9; color:#64748b;"></div>
-            </div>
-          </div>
+        <p class="um-form-section">Evidencia y seguimiento</p>
+        <div class="um-form-grid2">
+          <label class="span-all admin-formal-upload">
+            <span>Adjuntar archivos del expediente</span>
+            <input type="file" id="a_ins_file" multiple
+              onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')">
+            <div id="a_ins_fileStatus" class="admin-file-status"><span class="material-icons">folder_open</span> Sin
+              archivos seleccionados todavía</div>
+          </label>
+          <label class="span-all"><span>Notas administrativas</span>
+            <textarea id="a_ins_not" rows="2"
+              placeholder="Describe la incidencia, seguimiento o contexto administrativo relevante..."></textarea>
+          </label>
+        </div>
 
-          <div class="admin-section-title">Control Operativo</div>
-          <div class="inner-card admin-form-card">
-            <div class="grid-2">
-              <div class="field">
-                <label>Gasolina ⛽</label>
-                <select id="a_ins_gas">
-                  <option value="N/A">Seleccionar...</option>
-                  <option value="F">F (Lleno Total)</option>
-                  <optgroup label="MEDIO">
-                    <option value="15/16">15/16</option>
-                    <option value="7/8">7/8</option>
-                    <option value="13/16">13/16</option>
-                    <option value="3/4">3/4</option>
-                    <option value="11/16">11/16</option>
-                    <option value="5/8">5/8</option>
-                    <option value="9/16">9/16</option>
-                    <option value="H">H (Medio)</option>
-                  </optgroup>
-                  <optgroup label="BAJO">
-                    <option value="7/16">7/16</option>
-                    <option value="3/8">3/8</option>
-                    <option value="5/16">5/16</option>
-                    <option value="1/4">1/4</option>
-                    <option value="3/16">3/16</option>
-                    <option value="1/8">1/8</option>
-                    <option value="1/16">1/16</option>
-                    <option value="E">E (Vacío)</option>
-                  </optgroup>
-                  <option value="N/A">N/A</option>
-                </select>
-              </div>
-              <div class="field">
-                <label>Estado 🛠️</label>
-                <select id="a_ins_est">
-                  <option value="">Seleccionar...</option>
-                  <option value="LISTO">🟢 LISTO</option>
-                  <option value="SUCIO">🟡 SUCIO</option>
-                  <option value="RESGUARDO">🔘 RESGUARDO</option>
-                  <option value="TRASLADO">🟣 TRASLADO</option>
-                  <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                  <option value="HYP">🔴 HYP</option>
-                  <option value="EN RENTA">🔵 EN RENTA</option>
-                  <option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option>
-                  <option value="VENTA">⚫ VENTA</option>
-                  <option value="RETENIDA">🟤 RETENIDA</option>
-                </select>
-              </div>
-            </div>
-            <div class="field" style="margin-top:10px">
-              <label>Ubicación Física 📍</label>
-              <select id="a_ins_ubi">
-                <option value="">Seleccionar...</option>
-                <option value="PATIO">🏠 PATIO</option>
-                <option value="TALLER">🔧 TALLER</option>
-                <option value="AGENCIA">🏢 AGENCIA</option>
-                <option value="TALLER EXTERNO">🛣️ TALLER EXTERNO</option>
-                <option value="HYP COBIAN">🛠️ HYP COBIAN</option>
-                <option value="OTRA PLAZA">📌 OTRA PLAZA</option>
-                <optgroup label="PERSONA RESPONSABLE">
-                  <option value="JORGE">👤 JORGE</option>
-                  <option value="GERARDO">👤 GERARDO</option>
-                  <option value="OSVALDO">👤 OSVALDO</option>
-                  <option value="BALANDRAN">👤 BALANDRAN</option>
-                  <option value="ULISES">👤 ULISES</option>
-                  <option value="JOSUE">👤 JOSUE</option>
-                  <option value="ISRAEL">👤 ISRAEL</option>
-                  <option value="ISAAC">👤 ISAAC</option>
-                  <option value="ANGEL">👤 ANGEL</option>
-                  <option value="LEO">👤 LEO</option>
-                  <option value="BRAULIO">👤 BRAULIO</option>
-                  <option value="LONGORIA">👤 LONGORIA</option>
-                  <option value="MARTHA">👤 MARTHA</option>
-                  <option value="FERNANDA">👤 FERNANDA</option>
-                  <option value="ZALLO">👤 ZALLO</option>
-                  <option value="UBALDO">👤 UBALDO</option>
-                  <option value="JOSE LUIS">👤 JOSE LUIS</option>
-                  <option value="PASCUAL">👤 PASCUAL</option>
-                  <option value="EDUARDO">👤 EDUARDO</option>
-                  <option value="EDGAR">👤 EDGAR</option>
-                </optgroup>
-              </select>
-            </div>
-          </div>
-
-          <div class="admin-section-title">Evidencia y Seguimiento</div>
-          <div class="inner-card admin-form-card">
-            <div class="field admin-upload-box">
-              <label>📂 Adjuntar archivos del expediente</label>
-              <input type="file" id="a_ins_file" multiple
-                onchange="actualizarEstadoArchivosAdmin('a_ins_file', 'a_ins_fileStatus')"
-                style="padding:10px; font-size:12px; border:1px dashed #cbd5e1; background:white; cursor:pointer;">
-              <div class="admin-upload-meta">Acepta imágenes, PDF, hojas, documentos, ZIP y archivos de soporte en
-                general.</div>
-              <div id="a_ins_fileStatus" class="admin-file-status"><span class="material-icons">folder_open</span> Sin
-                archivos seleccionados todavía</div>
-            </div>
-            <div class="field" style="margin-top:10px">
-              <label>Notas Administrativas</label>
-              <textarea id="a_ins_not" rows="2"
-                placeholder="Describe la incidencia, seguimiento o contexto administrativo relevante..."
-                style="width:100%; padding:10px; border-radius:10px; border:1px solid var(--border); outline:none; font-family:inherit;"></textarea>
-            </div>
-          </div>
-
-          <button class="btn-save-global" id="btnGuardarAdmin" onclick="ejecutarInsertarAdmin()">
-            <span class="material-icons" id="iconGuardarAdmin">save</span> <span id="txtGuardarAdmin">CONFIRMAR
-              REGISTRO</span>
+        <div class="admin-formal-footer">
+          <button type="button" class="um-btn primary" id="btnGuardarAdmin" onclick="ejecutarInsertarAdmin()">
+            <span class="material-icons" id="iconGuardarAdmin">save</span>
+            <span id="txtGuardarAdmin">Confirmar registro</span>
           </button>
         </div>
       </div>
@@ -2386,19 +2263,9 @@
                 </select>
               </div>
               <div class="field">
-                <label>Estado 🛠️</label>
+                <label>Estado</label>
                 <select id="a_mod_est">
                   <option value="">Seleccionar...</option>
-                  <option value="LISTO">🟢 LISTO</option>
-                  <option value="SUCIO">🟡 SUCIO</option>
-                  <option value="RESGUARDO">🔘 RESGUARDO</option>
-                  <option value="TRASLADO">🟣 TRASLADO</option>
-                  <option value="MANTENIMIENTO">🔴 MANTENIMIENTO</option>
-                  <option value="HYP">🔴 HYP</option>
-                  <option value="EN RENTA">🔵 EN RENTA</option>
-                  <option value="NO ARRENDABLE">⚪ NO ARRENDABLE</option>
-                  <option value="VENTA">⚫ VENTA</option>
-                  <option value="RETENIDA">🟤 RETENIDA</option>
                 </select>
               </div>
             </div>
