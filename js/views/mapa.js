@@ -2620,7 +2620,7 @@ function iniciarApp(esNuevoLogin = true) {
     routeHandlers: {
       openChat:   nombre => _abrirChatDesdeNotificacion(nombre),
       openBuzon:  () => abrirBuzon(),
-      openCuadre: () => { window.location.href = '/app/cuadre'; },
+      openCuadre: () => { window.location.href = '/app/cuadrarflota?source=notif'; },
       openAlerts: () => abrirSiguienteAlerta()
     }
   });
@@ -14593,7 +14593,7 @@ function _abrirChatDesdeNotificacion(nombre = '') {
 
 function _abrirCuadreDesdeNotificacion() {
   try {
-    window.location.href = '/app/cuadre';
+    window.location.href = '/app/cuadrarflota?source=notif';
   } catch (error) {
     console.warn('No se pudo abrir el cuadre desde la notificación:', error);
   }

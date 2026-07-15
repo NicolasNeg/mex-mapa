@@ -2646,7 +2646,7 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
         body: destinatarioNombre
           ? ('Tienes una nueva mision de cuadre para ' + (plazaUp || 'tu plaza') + '.')
           : 'Tienes una nueva mision de cuadre asignada.',
-        deepLink: '/app/cuadre?notif=cuadre',
+        deepLink: '/app/cuadrarflota?missionId=' + encodeURIComponent(missionId) + (plazaUp ? '&plaza=' + encodeURIComponent(plazaUp) : '') + '&source=inbox',
         plaza: plazaUp,
         senderLabel: nombreAdmin || 'Sistema',
         actorName: nombreAdmin || 'Sistema',

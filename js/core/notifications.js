@@ -103,6 +103,39 @@ function _chatUserFromPath(pathname = '') {
   return match ? decodeURIComponent(match[1] || '') : '';
 }
 
+function _missionIdFromNotification(item = {}) {
+  return _safeText(
+    item.missionId
+    || item.cuadreMissionId
+    || item.payload?.missionId
+    || item.payload?.cuadreMissionId
+    || item.notificationId
+    || item.id
+  ).toUpperCase();
+}
+
+function _plazaFromNotification(item = {}) {
+  return _safeText(item.plaza || item.payload?.plaza || item.plazaId || item.payload?.plazaId).toUpperCase();
+}
+
+function _cuadreMissionDeepLink(item = {}) {
+  const params = new URLSearchParams();
+  const missionId = _missionIdFromNotification(item);
+  const plaza = _plazaFromNotification(item);
+  if (missionId) params.set('missionId', missionId);
+  if (plaza) params.set('plaza', plaza);
+  params.set('source', 'notif');
+  return `/app/cuadrarflota?${params.toString()}`;
+}
+
+function _cuadreReviewDeepLink(item = {}) {
+  const params = new URLSearchParams();
+  params.set('notif', 'cuadre');
+  const plaza = _plazaFromNotification(item);
+  if (plaza) params.set('plaza', plaza);
+  return `/app/cuadre?${params.toString()}`;
+}
+
 function _ensureAutoConfiguration() {
   if (_state.autoConfigured) return;
   configureNotifications({
@@ -122,7 +155,7 @@ function _ensureAutoConfiguration() {
     routeHandlers: {
       openBuzon: () => { window.location.href = '/app/mensajes'; },
       openChat: (chatUser = '') => { window.location.href = _chatDeepLink(chatUser); },
-      openCuadre: () => { window.location.href = '/app/cuadre'; },
+      openCuadre: () => { window.location.href = '/app/cuadrarflota?source=notif'; },
       openAlerts: () => { window.location.href = '/app/mapa?notif=alerts'; }
     }
   });
@@ -1230,14 +1263,35 @@ export async function acknowledgeNotification(notificationId) {
 }
 
 function _inferDeepLink(item = {}) {
-  const existing = _safeText(item.deepLink || '');
-  if (existing) return existing;
   const type = _safeText(item.type || '').toLowerCase();
+  const isCuadre = type.includes('cuadre');
+  const isReview = type.includes('review') || type.includes('revision') || type.includes('revisión');
+  const isAssignedMission = isCuadre && !isReview && (
+    type.includes('assigned')
+    || type.includes('updated')
+    || type.includes('mision')
+    || type.includes('mission')
+    || !!_missionIdFromNotification(item)
+  );
+  if (isAssignedMission) return _cuadreMissionDeepLink(item);
+  if (isCuadre && isReview) return _cuadreReviewDeepLink(item);
+
+  const existing = _safeText(item.deepLink || '');
+  if (existing) {
+    try {
+      const target = new URL(existing, window.location.origin);
+      const legacyCuadreLink =
+        (target.pathname === '/mapa' && (target.searchParams.get('openCuadre') || target.searchParams.get('notif') === 'cuadre'))
+        || (target.pathname === '/app/cuadre' && target.searchParams.get('notif') === 'cuadre');
+      if (legacyCuadreLink && isCuadre) return isReview ? _cuadreReviewDeepLink(item) : _cuadreMissionDeepLink(item);
+    } catch (_) {}
+    return existing;
+  }
   if (type.includes('message') || type.includes('mensaje')) {
     const sender = _notificationChatTarget(item);
     return _chatDeepLink(sender);
   }
-  if (type.includes('cuadre')) return '/app/cuadre?notif=cuadre';
+  if (type.includes('cuadre')) return _cuadreMissionDeepLink(item);
   if (type.includes('alert')) return '/app/mapa?notif=alerts';
   if (type.includes('solicitud') || type.includes('request')) return '/app/admin?notif=solicitudes';
   return '';
@@ -1248,7 +1302,12 @@ function _isPersistentCuadreMission(item = {}) {
   const status = _safeText(item.status || '').toUpperCase();
   const missionStatus = _safeText(item.missionStatus || item.payload?.missionStatus || '').toUpperCase();
   const hasMissionId = !!_safeText(item.missionId || item.payload?.missionId || item.notificationId || item.id);
-  const isCuadreMission = type.includes('cuadre.assigned') || (type.includes('cuadre') && hasMissionId);
+  const isReview = type.includes('review') || type.includes('revision') || type.includes('revisión');
+  const isCuadreMission = !isReview && (
+    type.includes('cuadre.assigned')
+    || type.includes('cuadre.updated')
+    || (type.includes('cuadre') && hasMissionId)
+  );
   if (!isCuadreMission) return false;
   if (item.read === true || status === 'READ' || missionStatus === 'COMPLETED' || missionStatus === 'CERRADA') return false;
   return true;
@@ -1286,6 +1345,14 @@ export function routeDeepLink(url = '') {
     closeNotificationCenter();
     if (typeof _state.routeHandlers?.openChat === 'function') _state.routeHandlers.openChat(chatFromPath);
     else window.location.href = _chatDeepLink(chatFromPath);
+    return;
+  }
+
+  if (target.pathname.startsWith('/app/')) {
+    closeNotificationCenter();
+    const next = `${target.pathname}${target.search || ''}${target.hash || ''}`;
+    if (typeof window.__mexShellNavigate === 'function') window.__mexShellNavigate(next);
+    else window.location.href = next;
     return;
   }
 

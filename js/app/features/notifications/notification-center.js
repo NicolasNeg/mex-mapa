@@ -28,7 +28,7 @@ function _routeHandlers(router) {
   return {
     openBuzon: () => _navigate(router, '/app/mensajes'),
     openChat: (chatUser = '') => _navigate(router, _chatRoute(chatUser)),
-    openCuadre: () => _navigate(router, '/app/cuadre'),
+    openCuadre: () => _navigate(router, '/app/cuadrarflota?source=notif'),
     openAlerts: () => _navigate(router, '/app/mapa?notif=alerts')
   };
 }

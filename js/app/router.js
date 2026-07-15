@@ -36,6 +36,22 @@ function _appMapToolRedirect(rawPath = '') {
   return '';
 }
 
+function _isAuxiliarCuadreRole() {
+  const state = getState();
+  const role = String(state?.role || state?.profile?.rol || state?.profile?.role || '').toUpperCase().trim();
+  return role === 'AUXILIAR' || role.includes('AUXILIAR') || role.includes('PATIO');
+}
+
+function _cuadreAuxiliarRedirect(rawPath = '') {
+  const raw = String(rawPath || '');
+  const pathOnly = raw.split('?')[0].replace(/\/$/, '') || _defaultHome();
+  if (pathOnly !== '/app/cuadre' || !_isAuxiliarCuadreRole()) return '';
+  const search = raw.includes('?') ? raw.slice(raw.indexOf('?')) : '';
+  const params = new URLSearchParams(search || '');
+  if (!params.get('source')) params.set('source', 'cuadre-legacy');
+  return `/app/cuadrarflota?${params.toString()}`;
+}
+
 // ── Tabla de rutas ───────────────────────────────────────────
 // loader:    () => Promise<{ mount, unmount }>
 // redirect:  string  — alias, redirige sin render
@@ -97,6 +113,11 @@ const ROUTE_TABLE = {
     feature:  'incidencias'
   },
   '/app/cuadre':   legacyStage('cuadre', '/cuadre'),
+  '/app/cuadrarflota': {
+    loader: () => import('/js/app/views/cuadrarflota.js'),
+    navRoute: '/app/cuadrarflota',
+    feature: 'cuadre'
+  },
   "/app/traslados": { loader: () => import("/js/app/views/traslados.js"), navRoute: "/app/traslados" },
   '/app/admin':    legacyStage('admin', '/gestion'),
   '/app/gestion':           { loader: () => import('/js/app/views/gestion.js'), navRoute: '/app/gestion', feature: 'gestion_usuarios' },
@@ -173,6 +194,7 @@ const ROUTE_STYLES = {
     { href: "/css/alertas.css", attr: "data-lmapa-alertas-css" },
   ],
   "/app/cuadre": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
+  "/app/cuadrarflota": [{ href: "/css/app-cuadrarflota.css", attr: "data-app-cuadrarflota-css" }],
   "/app/traslados": [{ href: "/css/app-traslados.css", attr: "data-app-traslados-css" }],
   "/app/admin": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/gestion": [{ href: "/css/app-gestion.css", id: "app-gestion-css" }],
@@ -285,6 +307,11 @@ export function createRouter({ shell }) {
   async function _renderRoute(rawPath) {
     const renderSeq = ++_renderSeq;
     const path = _routePathOnly(rawPath);
+    const cuadreAuxRedirect = _cuadreAuxiliarRedirect(rawPath);
+    if (cuadreAuxRedirect) {
+      navigate(cuadreAuxRedirect, { replace: true });
+      return;
+    }
     const toolRedirect = _appMapToolRedirect(rawPath);
     if (toolRedirect) {
       navigate(toolRedirect, { replace: true });

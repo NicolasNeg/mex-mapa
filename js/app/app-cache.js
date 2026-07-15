@@ -19,7 +19,8 @@ const VIEW_MODULES = [
   '/js/app/views/incidencias.js',
   '/js/app/views/mensajes.js',
   '/js/app/views/alertas.js',
-  '/js/app/views/profile.js'
+  '/js/app/views/profile.js',
+  '/js/app/views/cuadrarflota.js'
 ];
 
 const VIEW_STYLES = [
@@ -28,7 +29,8 @@ const VIEW_STYLES = [
   '/css/app-incidencias.css',
   '/css/app-mensajes.css',
   '/css/app-alertas.css',
-  '/css/app-profile.css'
+  '/css/app-profile.css',
+  '/css/app-cuadrarflota.css'
 ];
 
 let _assetsWarmed = false;

@@ -1200,7 +1200,10 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
     const body = shouldNotifyMission
       ? (adminName ? `${adminName} te envió la misión del cuadre.` : "Ya tienes una nueva misión de cuadre asignada.")
       : `${actorName || "Patio"} terminó la auditoría y ya puedes finalizar el cuadre.`;
-    const deepLink = `/mapa?notif=cuadre&openCuadre=1&plaza=${encodeURIComponent(plazaId)}`;
+    const missionId = normalizeString(after.cuadreMissionId || "");
+    const deepLink = shouldNotifyMission
+      ? `/app/cuadrarflota?plaza=${encodeURIComponent(plazaId)}${missionId ? `&missionId=${encodeURIComponent(missionId)}` : ""}&source=push`
+      : `/app/cuadre?notif=cuadre&plaza=${encodeURIComponent(plazaId)}`;
 
     await writeOpsEvent(eventId, {
       id: eventId,
@@ -1214,6 +1217,7 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
       payload: {
         estadoCuadreV3: nextState,
         adminIniciador: adminName,
+        missionId,
         missionSize: safeParseArray(after.misionAuditoria).length,
         reviewSize: safeParseArray(after.datosAuditoria).length
       }
@@ -1227,6 +1231,7 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
       deepLink,
       payload: {
         plaza: plazaId,
+        missionId,
         timestamp: nowMillis()
       },
       recipientDocIds: recipients,

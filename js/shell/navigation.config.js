@@ -236,6 +236,7 @@ export const ROUTE_TITLES = {
   '/app/cola-preparacion': 'Cola de preparación',
   '/app/incidencias':      'Notas e incidencias',
   '/app/cuadre':           'Cuadre',
+  '/app/cuadrarflota':     'Cuadrar flota',
   '/app/traslados':        'Traslados',
   '/app/admin':            'Panel admin',
   '/app/gestion':          'Invitaciones',
