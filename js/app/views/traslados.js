@@ -25,6 +25,11 @@ const DEFAULT_TYPES = [
 ];
 
 const GAS_OPTIONS = ['F', '3/4', '1/2', '1/4', 'E', 'N/A'];
+const LIST_ROUTE = '/app/traslados';
+const NEW_ROUTE = '/app/cuadre/traslados/nuevo';
+const VIEW_ROUTE_PREFIX = '/app/cuadre/traslados/v/';
+const NEW_ROUTE_ALIASES = new Set([NEW_ROUTE, '/app/traslados/nuevo']);
+const VIEW_ROUTE_PREFIXES = [VIEW_ROUTE_PREFIX, '/app/traslados/v/'];
 const ROLE_LEVEL = {
   AUXILIAR: 1,
   VENTAS: 2,
@@ -52,12 +57,11 @@ export async function mount({ container, navigate }) {
   const plaza = _normPlaza(getCurrentPlaza() || gs.profile?.plazaAsignada || '');
   _s = {
     plaza,
-    tab: 'activos',
     loading: true,
     busy: false,
     error: '',
     selectedId: '',
-    detailMode: 'empty',
+    detailMode: 'list',
     boot: {
       plaza,
       plazas: [],
@@ -70,6 +74,7 @@ export async function mount({ container, navigate }) {
     filters: _emptyFilters(),
     draft: _newDraft(plaza)
   };
+  _applyRouteMode();
 
   _renderShell();
   _bind();
@@ -79,8 +84,9 @@ export async function mount({ container, navigate }) {
     if (!_s) return;
     _s.plaza = _normPlaza(next);
     _s.selectedId = '';
-    _s.detailMode = 'empty';
+    _s.detailMode = 'list';
     _s.draft = _newDraft(_s.plaza);
+    if (window.location.pathname !== LIST_ROUTE && typeof _navigate === 'function') _navigate(LIST_ROUTE, { replace: true });
     void _load();
   }));
 }
@@ -135,6 +141,7 @@ async function _load() {
       canManage: data?.canManage === true || _canManageTraslados()
     };
     _s.loading = false;
+    _applyRouteMode();
     _renderShell();
     _paintAll();
   } catch (err) {
@@ -176,22 +183,86 @@ function _newDraft(plaza) {
   };
 }
 
+function _applyRouteMode() {
+  if (!_s) return;
+  const path = String(window.location.pathname || '').replace(/\/+$/, '');
+  if (NEW_ROUTE_ALIASES.has(path)) {
+    _s.detailMode = 'new';
+    _s.selectedId = '';
+    return;
+  }
+  const viewPrefix = VIEW_ROUTE_PREFIXES.find(prefix => path.startsWith(prefix));
+  if (viewPrefix) {
+    _s.detailMode = 'detail';
+    _s.selectedId = decodeURIComponent(path.slice(viewPrefix.length) || '');
+    return;
+  }
+  _s.detailMode = 'list';
+  _s.selectedId = '';
+}
+
+function _viewRoute(id) {
+  return `${VIEW_ROUTE_PREFIX}${encodeURIComponent(String(id || ''))}`;
+}
+
+function _go(path, opts = {}) {
+  if (typeof _navigate === 'function') {
+    _navigate(path, opts);
+    return;
+  }
+  if (opts.replace) window.history.replaceState({}, '', path);
+  else window.history.pushState({}, '', path);
+  _applyRouteMode();
+  _renderShell();
+  _paintAll();
+}
+
+function _isEditorMode() {
+  return _s?.detailMode === 'new' || _s?.detailMode === 'detail';
+}
+
 function _renderShell() {
   if (!_ctr || !_s) return;
   const plazas = _plazas();
   const tipos = _tipos();
   const choferes = _choferes();
   const creadores = _creadores();
+  const editor = _isEditorMode();
   _ctr.innerHTML = `
-    <section class="tras" aria-busy="${_s.loading ? 'true' : 'false'}">
+    <section class="tras${editor ? ' tras--editor' : ''}" aria-busy="${_s.loading ? 'true' : 'false'}">
       <div id="tras-banner"></div>
 
-      <div class="tras-layout">
-        <main class="tras-main">
+      ${editor ? `
+        <main class="tras-editor-shell">
+          <header class="tras-editor-top">
+            <div>
+              <nav class="tras-breadcrumb" aria-label="Ruta">
+                <button type="button" data-action="back-list">Traslados</button>
+                <span>/</span>
+                <strong>${_s.detailMode === 'new' ? 'Nuevo traslado' : 'Detalle'}</strong>
+              </nav>
+              <h1>${_s.detailMode === 'new' ? 'Agregar traslado no comercial' : 'Traslado no comercial'}</h1>
+            </div>
+            <div class="tras-actions">
+              <button type="button" class="tras-btn ghost" data-action="back-list">
+                <span class="material-icons">arrow_back</span>
+                Volver a tabla
+              </button>
+              <button type="button" class="tras-btn ghost" data-action="reload">
+                <span class="material-icons">sync</span>
+                Actualizar
+              </button>
+            </div>
+          </header>
+          <div id="tras-editor-host"></div>
+        </main>
+      ` : `
+        <main class="tras-main tras-main--full">
           <div class="tras-commandbar">
-            <div class="tras-tabs" role="tablist">
-              <button type="button" class="tras-tab" data-tab="activos"><span class="material-icons">local_shipping</span>Activos</button>
-              <button type="button" class="tras-tab" data-tab="historial"><span class="material-icons">history</span>Historial</button>
+            <div class="tras-title-block">
+              <p>Traslado no comercial</p>
+              <h1>Control de traslados</h1>
+              <span>Activos e historial en una sola tabla operativa.</span>
             </div>
             <div class="tras-actions">
               <button type="button" class="tras-btn ghost" data-action="reload">
@@ -228,9 +299,7 @@ function _renderShell() {
 
           <div id="tras-table-host" class="tras-table-host"></div>
         </main>
-
-        <aside id="tras-detail-host" class="tras-detail" aria-label="Detalle de traslado"></aside>
-      </div>
+      `}
 
       <datalist id="tras-chofer-list">
         ${choferes.map(c => `<option value="${esc(c.nombre)}"></option>`).join('')}
@@ -244,16 +313,9 @@ function _renderShell() {
 
 function _paintAll() {
   if (!_ctr || !_s) return;
-  _paintTabs();
   _paintBanner();
-  _paintTable();
-  _paintDetail();
-}
-
-function _paintTabs() {
-  _ctr.querySelectorAll('.tras-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.tab === _s.tab);
-  });
+  if (_isEditorMode()) _paintDetail();
+  else _paintTable();
 }
 
 function _paintBanner() {
@@ -290,15 +352,16 @@ function _paintTable() {
       <table class="tras-table">
         <thead>
           <tr>
-            <th>Folio</th>
-            <th>Unidad</th>
-            <th>Chofer</th>
-            <th>Salida</th>
-            <th>Regreso / cierre</th>
-            <th>Plazas</th>
+            <th>Id</th>
+            <th>Conductor</th>
+            <th>Fecha de salida</th>
+            <th>Fecha de regreso</th>
+            <th>Locacion de salida</th>
+            <th>Locacion de regreso</th>
             <th>Razon</th>
+            <th>Numero economico</th>
             <th>Estatus</th>
-            <th></th>
+            <th>Accion</th>
           </tr>
         </thead>
         <tbody>
@@ -311,18 +374,23 @@ function _paintTable() {
 
 function _rowHtml(row) {
   const st = _estado(row);
-  const selected = row.id === _s.selectedId ? ' selected' : '';
+  const routeId = _routeToken(row);
+  const selected = _isSelected(row) ? ' selected' : '';
   return `
-    <tr class="${selected}" data-action="select" data-id="${esc(row.id)}">
-      <td><strong>${esc(row.folio || row.id || '-')}</strong><small>${esc(row.creadoPor || 'Sistema')}</small></td>
-      <td><strong>${esc(row.mva || '-')}</strong><small>${esc([row.modelo, row.placas].filter(Boolean).join(' · ') || 'Sin modelo')}</small></td>
-      <td>${esc(row.choferNombre || '-')}</td>
+    <tr class="${selected}" data-action="select" data-id="${esc(routeId)}">
+      <td><strong>${esc(_shortId(row))}</strong></td>
+      <td><strong>${esc(row.choferNombre || '-')}</strong><small>${esc(row.creadoPor || 'Sistema')}</small></td>
       <td>${_dateCell(row.fechaSalida)}</td>
       <td>${_dateCell(row.fechaCierre || row.fechaRegresoEstimada)}</td>
-      <td><span class="tras-route">${esc(row.plazaOrigen || '-')}<span class="material-icons">arrow_forward</span>${esc(row.plazaDestino || '-')}</span></td>
-      <td><span class="tras-type">${esc(row.tipo || '')}</span><small>${esc(row.tipoEtiqueta || _tipoLabel(row.tipo))}</small></td>
+      <td>${esc(row.plazaOrigen || '-')}</td>
+      <td>${esc(row.plazaDestino || '-')}</td>
+      <td>${esc(row.tipo || '')}</td>
+      <td><strong>${esc(row.mva || '-')}</strong><small>${esc([row.modelo, row.placas].filter(Boolean).join(' · ') || 'Sin modelo')}</small></td>
       <td><span class="tras-status ${st.toLowerCase()}">${esc(st)}</span></td>
-      <td><button type="button" class="tras-icon-btn" data-action="select" data-id="${esc(row.id)}" title="Ver traslado"><span class="material-icons">open_in_new</span></button></td>
+      <td class="tras-row-actions">
+        ${st !== 'CERRADO' ? `<button type="button" class="tras-icon-btn" data-action="select" data-id="${esc(routeId)}" title="Editar traslado"><span class="material-icons">edit</span></button>` : ''}
+        <button type="button" class="tras-icon-btn primary" data-action="select" data-id="${esc(routeId)}" title="Ver traslado"><span class="material-icons">visibility</span></button>
+      </td>
     </tr>
   `;
 }
@@ -333,7 +401,7 @@ function _dateCell(value) {
 }
 
 function _paintDetail() {
-  const host = _ctr.querySelector('#tras-detail-host');
+  const host = _ctr.querySelector('#tras-editor-host');
   if (!host) return;
   if (_s.loading) {
     host.innerHTML = _detailSkeleton();
@@ -351,12 +419,12 @@ function _paintDetail() {
   }
   host.innerHTML = `
     <div class="tras-detail-empty">
-      <span class="material-icons">route</span>
-      <h2>Selecciona un traslado</h2>
-      <p>Consulta el detalle, edita campos abiertos o cierra el traslado con kilometraje de llegada.</p>
-      <button type="button" class="tras-btn primary" data-action="new" ${_s.boot.canManage ? '' : 'disabled'}>
-        <span class="material-icons">add</span>
-        Nuevo traslado
+      <span class="material-icons">search_off</span>
+      <h2>Traslado no encontrado</h2>
+      <p>El registro solicitado no existe o no pertenece a la plaza actual.</p>
+      <button type="button" class="tras-btn primary" data-action="back-list">
+        <span class="material-icons">table_rows</span>
+        Volver a la tabla
       </button>
     </div>
   `;
@@ -369,84 +437,107 @@ function _formHtml(row) {
   const draft = isNew ? _s.draft : _rowToDraft(row);
   const unit = isNew ? _unitByMva(draft.mva) : null;
   const gasSalida = isNew ? (unit?.gasolina || 'N/A') : (row.gasSalida || 'N/A');
-  const title = isNew ? 'Nuevo traslado' : `${row.folio || 'Traslado'} · ${row.mva}`;
-  const subtitle = isNew ? 'Una unidad por traslado, con salida y llegada trazables.' : `${_estado(row)} · ${row.plazaOrigen || '-'} a ${row.plazaDestino || '-'}`;
+  const status = isNew ? 'NUEVO' : _estado(row);
+  const title = isNew ? 'Agregar traslado no comercial' : `Detalle / Estatus del traslado: ${status === 'ABIERTO' ? 'Abierto' : 'Cerrado'}`;
+  const unitSummary = !isNew
+    ? [row.mva, row.modelo, row.categoria, row.placas].filter(Boolean).join(', ')
+    : '';
+  const currentLocation = isNew
+    ? (unit?.ubicacion || unit?.plaza || draft.plazaOrigen || _s.plaza)
+    : (row.ubicacionActual || row.plazaOrigen || '-');
 
   return `
-    <div class="tras-detail-card">
+    <div class="tras-detail-card tras-detail-card--wide">
       <div class="tras-detail-head">
         <div>
           <p>${isNew ? 'Alta' : 'Detalle'}</p>
           <h2>${esc(title)}</h2>
-          <span>${esc(subtitle)}</span>
+          <span>${esc(isNew ? 'Completa la salida, destino y unidad para crear el traslado.' : `${row.folio || _shortId(row)} · ${row.plazaOrigen || '-'} a ${row.plazaDestino || '-'}`)}</span>
         </div>
-        ${!isNew ? `<span class="tras-status ${_estado(row).toLowerCase()}">${esc(_estado(row))}</span>` : ''}
+        <span class="tras-status ${String(status).toLowerCase()}">${esc(status)}</span>
       </div>
 
-      <form class="tras-form" data-action="${isNew ? 'create-transfer' : 'update-transfer'}" data-id="${esc(row?.id || '')}">
-        <label>
-          <span>Unidad</span>
-          <input id="tras-form-mva" name="mva" list="tras-unidad-list" value="${esc(draft.mva)}" ${isNew ? '' : 'readonly'} placeholder="Buscar MVA / placas / modelo">
-        </label>
-        <label>
-          <span>Chofer</span>
-          <select id="tras-form-chofer" name="choferUid" ${canEdit || isNew ? '' : 'disabled'}>
-            ${_option('', 'Selecciona chofer registrado', draft.choferUid)}
-            ${_choferes().map(c => _option(c.uid || c.id, c.nombre, draft.choferUid)).join('')}
-          </select>
-        </label>
-        <label>
-          <span>Razon</span>
-          <select id="tras-form-tipo" name="tipo" ${canEdit || isNew ? '' : 'disabled'}>
-            ${_option('', 'Selecciona razon', draft.tipo)}
-            ${_tipos().map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, draft.tipo)).join('')}
-          </select>
-        </label>
-        <div class="tras-form-pair">
-          <label>
-            <span>Plaza origen</span>
-            <select id="tras-form-plaza-origen" name="plazaOrigen" ${isNew ? '' : 'disabled'}>
-              ${_plazas().map(p => _option(p, p, draft.plazaOrigen || _s.plaza)).join('')}
-            </select>
-          </label>
-          <label>
-            <span>Plaza destino</span>
-            <select id="tras-form-plaza-destino" name="plazaDestino" ${canEdit || isNew ? '' : 'disabled'}>
-              ${_plazas().map(p => _option(p, p, draft.plazaDestino || _s.plaza)).join('')}
-            </select>
-          </label>
-        </div>
-        <div class="tras-form-pair">
-          <label>
-            <span>Fecha salida</span>
-            <input type="datetime-local" id="tras-form-salida" name="fechaSalida" value="${esc(draft.fechaSalida)}" ${canEdit || isNew ? '' : 'disabled'}>
-          </label>
-          <label>
-            <span>Regreso estimado</span>
-            <input type="datetime-local" id="tras-form-regreso" name="fechaRegresoEstimada" value="${esc(draft.fechaRegresoEstimada)}" ${canEdit || isNew ? '' : 'disabled'}>
-          </label>
-        </div>
-        <div class="tras-form-pair">
-          <label>
-            <span>Km salida</span>
-            <input type="number" min="0" id="tras-form-km" name="kmSalida" value="${esc(String(draft.kmSalida ?? ''))}" ${isNew ? '' : 'readonly'} placeholder="Kilometraje">
-          </label>
-          <label>
-            <span>Gas salida</span>
-            <input id="tras-form-gas-salida" value="${esc(gasSalida)}" readonly>
-          </label>
-        </div>
-        <label>
-          <span>${isNew ? 'Nota inicial' : 'Nueva nota / motivo de edicion'}</span>
-          <textarea id="tras-form-nota" name="nota" placeholder="Contexto operativo">${esc(isNew ? draft.nota : '')}</textarea>
-        </label>
+      <form class="tras-form tras-form--wide" data-action="${isNew ? 'create-transfer' : 'update-transfer'}" data-id="${esc(row?.id || '')}">
+        <section class="tras-form-panel">
+          <div class="tras-form-grid tras-form-grid--meta">
+            <label>
+              <span>Chofer</span>
+              <select id="tras-form-chofer" name="choferUid" ${canEdit || isNew ? '' : 'disabled'}>
+                ${_option('', 'Seleccionar chofer', draft.choferUid)}
+                ${_choferes().map(c => _option(c.uid || c.id, c.nombre, draft.choferUid)).join('')}
+              </select>
+            </label>
+            <label>
+              <span>Fecha de salida</span>
+              <input type="datetime-local" id="tras-form-salida" name="fechaSalida" value="${esc(draft.fechaSalida)}" ${canEdit || isNew ? '' : 'disabled'}>
+            </label>
+            <label>
+              <span>Fecha de regreso</span>
+              <input type="datetime-local" id="tras-form-regreso" name="fechaRegresoEstimada" value="${esc(draft.fechaRegresoEstimada)}" ${canEdit || isNew ? '' : 'disabled'}>
+            </label>
+            <label>
+              <span>Oficina de salida</span>
+              <select id="tras-form-plaza-origen" name="plazaOrigen" ${isNew ? '' : 'disabled'}>
+                ${_plazas().map(p => _option(p, p, draft.plazaOrigen || _s.plaza)).join('')}
+              </select>
+            </label>
+            <label>
+              <span>Oficina de regreso</span>
+              <select id="tras-form-plaza-destino" name="plazaDestino" ${canEdit || isNew ? '' : 'disabled'}>
+                ${_plazas().map(p => _option(p, p, draft.plazaDestino || _s.plaza)).join('')}
+              </select>
+            </label>
+            <label>
+              <span>Razon</span>
+              <select id="tras-form-tipo" name="tipo" ${canEdit || isNew ? '' : 'disabled'}>
+                ${_option('', 'Seleccionar razon', draft.tipo)}
+                ${_tipos().map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, draft.tipo)).join('')}
+              </select>
+            </label>
+            ${!isNew ? `
+              <label>
+                <span>Autor</span>
+                <input value="${esc(row.creadoPor || 'Sistema')}" readonly>
+              </label>
+            ` : ''}
+            <label class="span-all">
+              <span>Comentarios</span>
+              <textarea id="tras-form-nota" name="nota" placeholder="Comentarios" ${canEdit || isNew ? '' : 'disabled'}>${esc(isNew ? draft.nota : row.notaCierre || '')}</textarea>
+            </label>
+          </div>
+        </section>
 
-        <div class="tras-form-actions">
-          <button type="submit" class="tras-btn primary" ${_s.busy || (!canEdit && !isNew) ? 'disabled' : ''}>
-            <span class="material-icons">${isNew ? 'add' : 'save'}</span>
-            ${isNew ? 'Crear traslado' : 'Guardar cambios'}
+        <section class="tras-form-panel">
+          <div class="tras-section-line">
+            <h3>Unidades</h3>
+            ${!isNew ? `<span>Ubicacion actual: <strong>${esc(currentLocation)}</strong></span>` : ''}
+          </div>
+          <div class="tras-form-grid tras-form-grid--unit">
+            <label class="span-all">
+              <span>Seleccionar unidad</span>
+              <input id="tras-form-mva" name="mva" list="tras-unidad-list" value="${esc(isNew ? draft.mva : unitSummary)}" ${isNew ? '' : 'readonly'} placeholder="Seleccionar unidad">
+            </label>
+            <label>
+              <span>Kilometros de salida</span>
+              <input type="number" min="0" id="tras-form-km" name="kmSalida" value="${esc(String(draft.kmSalida ?? ''))}" ${isNew ? '' : 'readonly'} placeholder="Kilometros de salida">
+            </label>
+            <label>
+              <span>Combustible de salida</span>
+              <input id="tras-form-gas-salida" value="${esc(gasSalida)}" readonly>
+            </label>
+          </div>
+        </section>
+
+        <div class="tras-form-actions tras-form-actions--footer">
+          <button type="button" class="tras-btn ghost" data-action="back-list">
+            <span class="material-icons">close</span>
+            Cancelar
           </button>
           ${!isNew && !isClosed ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}"><span class="material-icons">flag</span>Cerrar traslado</button>` : ''}
+          <button type="submit" class="tras-btn primary" ${_s.busy || (!canEdit && !isNew) ? 'disabled' : ''}>
+            <span class="material-icons">${isNew ? 'save' : 'save'}</span>
+            ${isNew ? 'Guardar' : 'Guardar cambios'}
+          </button>
         </div>
       </form>
 
@@ -538,27 +629,29 @@ async function _onClick(event) {
   if (!actionEl || !_ctr?.contains(actionEl)) return;
   const action = actionEl.dataset.action;
   if (action === 'reload') {
+    _applyRouteMode();
     void _load();
-    return;
-  }
-  if (action === 'tab') {
-    _s.tab = actionEl.dataset.tab || 'activos';
-    _paintAll();
     return;
   }
   if (action === 'new') {
     _s.detailMode = 'new';
     _s.selectedId = '';
     _s.draft = _newDraft(_s.plaza);
-    _paintDetail();
+    _go(NEW_ROUTE);
     return;
   }
   if (action === 'select') {
     const id = actionEl.dataset.id || actionEl.closest('tr')?.dataset.id || '';
+    if (!id) return;
     _s.selectedId = id;
     _s.detailMode = 'detail';
-    _paintTable();
-    _paintDetail();
+    _go(_viewRoute(id));
+    return;
+  }
+  if (action === 'back-list') {
+    _s.selectedId = '';
+    _s.detailMode = 'list';
+    _go(LIST_ROUTE);
     return;
   }
   if (action === 'clear-filters') {
@@ -656,7 +749,8 @@ async function _submitCreate() {
     _toast(`Traslado ${res.folio || ''} creado.`, 'success');
     _s.selectedId = res.id || '';
     _s.detailMode = 'detail';
-    await _load();
+    if (res.id || res.folio) _go(_viewRoute(res.folio || res.id), { replace: true });
+    else await _load();
   });
 }
 
@@ -722,9 +816,7 @@ async function _runAction(fn) {
 }
 
 function _rowsForTab() {
-  const rows = _s.boot.traslados || [];
-  if (_s.tab === 'historial') return rows.filter(row => _estado(row) === 'CERRADO');
-  return rows.filter(row => _estado(row) !== 'CERRADO');
+  return _s.boot.traslados || [];
 }
 
 function _filteredRows() {
@@ -755,7 +847,17 @@ function _dateRange(rows, field, from, to) {
 }
 
 function _selected() {
-  return (_s.boot.traslados || []).find(row => row.id === _s.selectedId) || null;
+  return (_s.boot.traslados || []).find(row => _isSelected(row)) || null;
+}
+
+function _isSelected(row) {
+  const key = String(_s?.selectedId || '').trim();
+  if (!key || !row) return false;
+  return [row.id, row.folio, _shortId(row)].some(value => String(value || '').trim() === key);
+}
+
+function _routeToken(row) {
+  return String(row?.folio || row?.id || '').trim();
 }
 
 function _rowToDraft(row) {
@@ -802,15 +904,19 @@ function _creadores() {
   return _uniq((_s.boot.traslados || []).map(row => String(row.creadoPor || '').trim()).filter(Boolean));
 }
 
-function _tipoLabel(tipo) {
-  const t = String(tipo || '').toUpperCase();
-  return _tipos().find(item => item.codigo === t)?.etiqueta || t;
-}
-
 function _estado(row) {
   const raw = String(row?.estadoOperativo || row?.estado || 'ABIERTO').toUpperCase();
   if (raw === 'CERRADO') return 'CERRADO';
   return 'ABIERTO';
+}
+
+function _shortId(row) {
+  const folio = String(row?.folio || '').trim();
+  if (folio) return folio;
+  const raw = String(row?.id || '').trim();
+  const digits = (raw.match(/\d+/g) || []).join('');
+  if (digits) return digits.slice(-6);
+  return raw.slice(0, 8) || '-';
 }
 
 function _val(id) {

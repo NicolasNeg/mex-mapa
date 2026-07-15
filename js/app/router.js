@@ -258,12 +258,14 @@ function _stripRouteSlash(value) {
 function _routeForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
   if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
+  if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
   return ROUTE_TABLE[key];
 }
 
 function _styleKeyForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
   if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
+  if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
   return key;
 }
 
