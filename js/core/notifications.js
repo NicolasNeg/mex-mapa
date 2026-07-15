@@ -136,6 +136,33 @@ function _cuadreReviewDeepLink(item = {}) {
   return `/app/cuadre?${params.toString()}`;
 }
 
+function _isLegacyCuadreTarget(target) {
+  const pathname = String(target?.pathname || '').replace(/\/+$/, '') || '/';
+  const params = target?.searchParams || new URLSearchParams();
+  const tab = _safeText(params.get('tab')).toLowerCase();
+  const notif = _safeText(params.get('notif')).toLowerCase();
+  return (
+    (pathname === '/mapa' || pathname === '/app/mapa') &&
+    (
+      tab === 'cuadre' ||
+      !!params.get('openCuadre') ||
+      !!params.get('openCuadreV3') ||
+      !!params.get('cuadre') ||
+      notif === 'cuadre'
+    )
+  );
+}
+
+function _cuadreMissionDeepLinkFromTarget(target) {
+  const params = new URLSearchParams();
+  const missionId = _safeText(target?.searchParams?.get('missionId') || target?.searchParams?.get('cuadreMissionId')).toUpperCase();
+  const plaza = _safeText(target?.searchParams?.get('plaza') || target?.searchParams?.get('plazaId')).toUpperCase();
+  if (missionId) params.set('missionId', missionId);
+  if (plaza) params.set('plaza', plaza);
+  params.set('source', 'legacy-cuadre-link');
+  return `/app/cuadrarflota?${params.toString()}`;
+}
+
 function _ensureAutoConfiguration() {
   if (_state.autoConfigured) return;
   configureNotifications({
@@ -1264,25 +1291,37 @@ export async function acknowledgeNotification(notificationId) {
 
 function _inferDeepLink(item = {}) {
   const type = _safeText(item.type || '').toLowerCase();
-  const isCuadre = type.includes('cuadre');
+  const existing = _safeText(item.deepLink || '');
+  let existingTarget = null;
+  try { if (existing) existingTarget = new URL(existing, window.location.origin); } catch (_) {}
+  const textHint = _safeText(`${type} ${item.title || ''} ${item.body || ''} ${item.kindLabel || ''}`).toLowerCase();
+  const isCuadre = textHint.includes('cuadre') || _isLegacyCuadreTarget(existingTarget);
   const isReview = type.includes('review') || type.includes('revision') || type.includes('revisión');
   const isAssignedMission = isCuadre && !isReview && (
     type.includes('assigned')
     || type.includes('updated')
     || type.includes('mision')
     || type.includes('mission')
+    || textHint.includes('mision')
+    || textHint.includes('misión')
+    || textHint.includes('patio')
     || !!_missionIdFromNotification(item)
+    || _isLegacyCuadreTarget(existingTarget)
   );
-  if (isAssignedMission) return _cuadreMissionDeepLink(item);
+  if (isAssignedMission) {
+    if (
+      _isLegacyCuadreTarget(existingTarget) ||
+      (existingTarget?.pathname === '/app/cuadre' && !!existingTarget.searchParams.get('missionId'))
+    ) return _cuadreMissionDeepLinkFromTarget(existingTarget);
+    return _cuadreMissionDeepLink(item);
+  }
   if (isCuadre && isReview) return _cuadreReviewDeepLink(item);
 
-  const existing = _safeText(item.deepLink || '');
   if (existing) {
     try {
-      const target = new URL(existing, window.location.origin);
-      const legacyCuadreLink =
-        (target.pathname === '/mapa' && (target.searchParams.get('openCuadre') || target.searchParams.get('notif') === 'cuadre'))
-        || (target.pathname === '/app/cuadre' && target.searchParams.get('notif') === 'cuadre');
+      const target = existingTarget || new URL(existing, window.location.origin);
+      const legacyCuadreLink = _isLegacyCuadreTarget(target)
+        || (target.pathname === '/app/cuadre' && target.searchParams.get('notif') === 'cuadre' && !!target.searchParams.get('missionId'));
       if (legacyCuadreLink && isCuadre) return isReview ? _cuadreReviewDeepLink(item) : _cuadreMissionDeepLink(item);
     } catch (_) {}
     return existing;
@@ -1340,6 +1379,16 @@ export function routeDeepLink(url = '') {
   const target = new URL(url, window.location.origin);
   const notif  = target.searchParams.get('notif') || '';
   const chatFromPath = _chatUserFromPath(target.pathname);
+  const missionTarget = _isLegacyCuadreTarget(target)
+    || (target.pathname === '/app/cuadre' && !!target.searchParams.get('missionId'));
+
+  if (missionTarget) {
+    closeNotificationCenter();
+    const next = _cuadreMissionDeepLinkFromTarget(target);
+    if (typeof window.__mexShellNavigate === 'function') window.__mexShellNavigate(next);
+    else window.location.href = next;
+    return;
+  }
 
   if (chatFromPath) {
     closeNotificationCenter();

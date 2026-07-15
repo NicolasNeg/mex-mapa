@@ -147,8 +147,7 @@ async function _resolveAssignedMission() {
   for (const plaza of plazas) {
     if (!plaza) continue;
     const mission = await obtenerMisionAuditoria(plaza).catch(() => []);
-    const units = Array.isArray(mission) ? mission : [];
-    const meta = units.meta || {};
+    const { units, meta } = _missionUnitsAndMeta(mission);
     if (!units.length) continue;
     const metaMissionId = _normId(meta.missionId || meta.cuadreMissionId);
     const idMatch = missionIds.length > 0 && metaMissionId && missionIds.includes(metaMissionId);
@@ -157,6 +156,19 @@ async function _resolveAssignedMission() {
   }
 
   return null;
+}
+
+function _missionUnitsAndMeta(raw) {
+  if (Array.isArray(raw)) {
+    return { units: raw, meta: raw.meta || {} };
+  }
+  if (raw && typeof raw === 'object') {
+    const units = Array.isArray(raw.unidades)
+      ? raw.unidades
+      : (Array.isArray(raw.items) ? raw.items : []);
+    return { units, meta: raw.meta || raw };
+  }
+  return { units: [], meta: {} };
 }
 
 async function _loadInboxMissions(docIds = [], requestedMissionId = '') {
@@ -800,15 +812,20 @@ function _identityTokens() {
   const st = getState();
   const profile = st.profile || {};
   const user = st.user || auth.currentUser || {};
-  const docIds = _uniq([
+  const rawDocIds = [
     profile.id,
     profile.docId,
+    profile.documentId,
     profile.uid,
     profile.email,
     profile.correo,
     user.email,
     user.uid
-  ].map(_docId).filter(Boolean));
+  ];
+  const docIds = _uniq(rawDocIds.flatMap(value => {
+    const v = String(value || '').trim();
+    return v ? [v, v.toLowerCase(), v.toUpperCase()] : [];
+  }));
   const rawTokens = [
     ...docIds,
     profile.email,

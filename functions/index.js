@@ -747,7 +747,34 @@ async function resolveAlertRecipients(data = {}) {
   return [...resolved];
 }
 
-async function resolveCuadreRecipients(plaza, adminIniciador = "") {
+function cuadreMissionTargetFromSettings(settings = {}) {
+  const direct = normalizeString(
+    settings.cuadreDestinoDocId ||
+    settings.destinatarioDocId ||
+    settings.auxiliarDocId ||
+    settings.recipientDocId ||
+    ""
+  );
+  if (direct) return direct;
+  try {
+    const parsed = typeof settings.misionAuditoria === "string"
+      ? JSON.parse(settings.misionAuditoria || "{}")
+      : (settings.misionAuditoria || {});
+    return normalizeString(
+      parsed.destinatarioDocId ||
+      parsed.auxiliarDocId ||
+      parsed.recipientDocId ||
+      parsed.docId ||
+      ""
+    );
+  } catch (_) {
+    return "";
+  }
+}
+
+async function resolveCuadreRecipients(plaza, adminIniciador = "", settings = {}) {
+  const selectedDocId = cuadreMissionTargetFromSettings(settings);
+  if (selectedDocId) return [selectedDocId];
   const plazaUp = normalizePlaza(plaza);
   const byPlaza = await db.collection(USERS_COL).where("plazaAsignada", "==", plazaUp).limit(200).get();
   const recipients = byPlaza.docs.filter(doc => {
@@ -1188,7 +1215,7 @@ exports.onCuadreSettingsWritten = functions.region(REGION).firestore.document(`$
     const actorName = normalizeString(after.ultimoEditor || adminName || "Operación");
     const security = await loadSecurityConfig();
     const recipients = shouldNotifyMission
-      ? await resolveCuadreRecipients(plazaId, adminName)
+      ? await resolveCuadreRecipients(plazaId, adminName, after)
       : await resolveCuadreReviewRecipients(plazaId, actorName, security);
     const eventType = shouldNotifyMission
       ? (previousState === "PROCESO" ? "cuadre.updated" : "cuadre.assigned")

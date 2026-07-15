@@ -21,6 +21,7 @@
   var query = window.location.search || '';
   var hash = window.location.hash || '';
   var params = new URLSearchParams(query || '');
+  var redirectQuery = query;
   var legacyParam = params.get('legacy') === '1';
   var embeddedParam = params.get('shell') === '1' || params.get('appStage') === '1';
   var adminEmbeddedRoute = path === '/gestion' || params.get('admin') === '1';
@@ -39,6 +40,16 @@
   if (path === '/gestion') {
     var tab = new URLSearchParams(window.location.search).get('tab');
     if (tab) appRoute = '/app/admin?tab=' + encodeURIComponent(tab);
+  }
+
+  if (path === '/mapa' && (params.get('tab') === 'cuadre' || params.get('openCuadre') || params.get('openCuadreV3'))) {
+    appRoute = '/app/cuadrarflota';
+    params.delete('tab');
+    params.delete('openCuadre');
+    params.delete('openCuadreV3');
+    params.delete('notif');
+    if (!params.get('source')) params.set('source', 'mapa-cuadre-legacy');
+    redirectQuery = params.toString() ? '?' + params.toString() : '';
   }
 
   function shouldForceLegacy() {
@@ -135,7 +146,7 @@
 
   if (!appRoute) return;
   if (shouldAutoRedirect()) {
-    window.location.replace(appRoute + query + hash);
+    window.location.replace(appRoute + redirectQuery + hash);
     return;
   }
   if (embeddedParam) return;

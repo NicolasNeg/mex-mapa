@@ -31,8 +31,18 @@ function _appMapToolRedirect(rawPath = '') {
   const query = String(rawPath || '').includes('?') ? String(rawPath).slice(String(rawPath).indexOf('?')) : '';
   const params = new URLSearchParams(query || '');
   const open = String(params.get('open') || params.get('tool') || '').trim().toLowerCase();
+  const tab = String(params.get('tab') || '').trim().toLowerCase();
   if (open === 'alertas' || open === 'crear-alerta' || open === 'emitir-alerta') return '/app/alertas';
   if (open === 'historial-alertas' || open === 'alertas-historial') return '/app/alertas/historial';
+  if (tab === 'cuadre' || params.get('openCuadre') || params.get('openCuadreV3')) {
+    const next = new URLSearchParams();
+    const missionId = String(params.get('missionId') || params.get('cuadreMissionId') || '').trim();
+    const plaza = String(params.get('plaza') || params.get('plazaId') || '').trim();
+    if (missionId) next.set('missionId', missionId);
+    if (plaza) next.set('plaza', plaza);
+    next.set('source', 'mapa-cuadre-legacy');
+    return `/app/cuadrarflota?${next.toString()}`;
+  }
   return '';
 }
 

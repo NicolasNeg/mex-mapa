@@ -460,6 +460,10 @@ service cloud.firestore {
         "cuadreDestinoNombre",
         "cuadreMissionEstado",
         "cuadreRevisionEstado",
+        "cuadreRevisionAuxNombre",
+        "cuadreRevisionAuxDocId",
+        "cuadreRevisionAuxFirmaNombre",
+        "cuadreRevisionAuxFirmaUrl",
         "ultimoCuadreTexto",
         "ultimaModificacion",
         "ultimoEditor"
