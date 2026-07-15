@@ -24,7 +24,20 @@ const DEFAULT_TYPES = [
   { codigo: 'NOCOM', etiqueta: 'No comercial' }
 ];
 
-const GAS_OPTIONS = ['F', '3/4', '1/2', '1/4', 'E', 'N/A'];
+// Niveles de gasolina desde las listas globales (Panel Admin → Gasolinas).
+// Fallback minimo solo si la config aun no cargo.
+function _gasCatalog() {
+  const configured = Array.isArray(window.MEX_CONFIG?.listas?.gasolinas)
+    ? window.MEX_CONFIG.listas.gasolinas
+    : [];
+  const values = configured
+    .map(item => String((item && typeof item === 'object' ? (item.nombre ?? item.valor ?? '') : item) || '').trim().toUpperCase())
+    .filter(Boolean);
+  const base = values.length ? values : ['F', '3/4', '1/2', '1/4', 'E'];
+  if (!base.includes('N/A')) base.push('N/A');
+  return Array.from(new Set(base));
+}
+
 const LIST_ROUTE = '/app/traslados';
 const NEW_ROUTE = '/app/cuadre/traslados/nuevo';
 const VIEW_ROUTE_PREFIX = '/app/cuadre/traslados/v/';
@@ -612,7 +625,7 @@ function _closeFormHtml(row) {
       </div>
       <div class="tras-form-pair">
         <label><span>Km llegada</span><input type="number" min="${esc(String(row.kmSalida || 0))}" id="tras-close-km" value="${esc(String(row.kmLlegada || ''))}" required></label>
-        <label><span>Gas llegada</span><select id="tras-close-gas">${GAS_OPTIONS.map(g => _option(g, g, row.gasLlegada || row.gasSalida || 'N/A')).join('')}</select></label>
+        <label><span>Gas llegada</span><select id="tras-close-gas">${_gasSelectOptions(row.gasLlegada || row.gasSalida || 'N/A')}</select></label>
       </div>
       <label><span>Fecha cierre</span><input type="datetime-local" id="tras-close-fecha" value="${esc(_toDateTimeLocal(Date.now()))}"></label>
       <label><span>Nota de cierre</span><textarea id="tras-close-nota" placeholder="Observaciones de llegada"></textarea></label>
@@ -1075,6 +1088,15 @@ function _toDateTimeLocal(value) {
   const d = new Date(ms);
   const pad = n => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Opciones de gasolina garantizando que el valor guardado siga visible
+// aunque ya no exista en el catalogo global.
+function _gasSelectOptions(selected = 'N/A') {
+  const safe = String(selected || 'N/A').trim().toUpperCase() || 'N/A';
+  const values = _gasCatalog();
+  if (!values.includes(safe)) values.unshift(safe);
+  return values.map(v => _option(v, v, safe)).join('');
 }
 
 function _option(value, label, selected) {

@@ -20,7 +20,19 @@ let _s = null;
 let _sig = { canvas: null, ctx: null, drawing: false, hasInk: false, dataUrl: '' };
 let _swipe = null;
 
-const GAS_OPTIONS = ['F', '15/16', '7/8', '13/16', '3/4', '11/16', '5/8', '9/16', 'H', '7/16', '3/8', '5/16', '1/4', '3/16', '1/8', '1/16', 'E', 'N/A'];
+// Niveles de gasolina desde las listas globales (Panel Admin → Gasolinas).
+// Fallback minimo solo si la config aun no cargo.
+function _gasCatalog() {
+  const configured = Array.isArray(window.MEX_CONFIG?.listas?.gasolinas)
+    ? window.MEX_CONFIG.listas.gasolinas
+    : [];
+  const values = configured
+    .map(item => String((item && typeof item === 'object' ? (item.nombre ?? item.valor ?? '') : item) || '').trim().toUpperCase())
+    .filter(Boolean);
+  const base = values.length ? values : ['F', '3/4', '1/2', '1/4', 'E'];
+  if (!base.includes('N/A')) base.push('N/A');
+  return base;
+}
 
 export async function mount({ container, navigate }) {
   unmount();
@@ -874,7 +886,7 @@ function _modelImageUrl(modelo) {
 
 function _gasOptions(selected = 'N/A') {
   const safe = String(selected || 'N/A').toUpperCase();
-  const options = _uniq([safe, ...GAS_OPTIONS]);
+  const options = _uniq([safe, ..._gasCatalog()]);
   return options.map(value => `<option value="${esc(value)}"${value === safe ? ' selected' : ''}>${esc(value)}</option>`).join('');
 }
 
