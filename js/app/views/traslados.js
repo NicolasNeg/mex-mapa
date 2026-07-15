@@ -260,48 +260,34 @@ function _renderShell() {
               <nav class="tras-breadcrumb" aria-label="Ruta">
                 <button type="button" data-action="back-list">Traslados</button>
                 <span>/</span>
-                <strong>${_s.detailMode === 'new' ? 'Nuevo traslado' : 'Detalle'}</strong>
+                <strong>${_s.detailMode === 'new' ? 'Nuevo' : 'Detalle'}</strong>
               </nav>
-              <h1>${_s.detailMode === 'new' ? 'Agregar traslado no comercial' : 'Traslado no comercial'}</h1>
+              <h1>${_s.detailMode === 'new' ? 'Nuevo traslado' : 'Detalle del traslado'}</h1>
             </div>
             <div class="tras-actions">
-              <button type="button" class="tras-btn ghost" data-action="back-list">
-                <span class="material-icons">arrow_back</span>
-                Volver a tabla
-              </button>
-              <button type="button" class="tras-btn ghost" data-action="reload">
-                <span class="material-icons">sync</span>
-                Actualizar
-              </button>
+              <button type="button" class="tras-btn ghost" data-action="back-list">Volver</button>
+              <button type="button" class="tras-btn ghost" data-action="reload">Actualizar</button>
             </div>
           </header>
           <div id="tras-editor-host"></div>
         </main>
       ` : `
         <main class="tras-main tras-main--full">
-          <div class="tras-commandbar">
-            <div class="tras-title-block">
-              <p>Traslado no comercial</p>
-              <h1>Control de traslados</h1>
-              <span>Activos e historial en una sola tabla operativa.</span>
+          <header class="tras-page-header">
+            <div class="tras-page-title">
+              <h1>Traslados</h1>
+              <p>Traslados no comerciales · activos e historial</p>
             </div>
             <div class="tras-actions">
-              <button type="button" class="tras-btn ghost" data-action="reload">
-                <span class="material-icons">sync</span>
-                Actualizar
-              </button>
-              <button type="button" class="tras-btn primary" data-action="new" ${_s.boot.canManage ? '' : 'disabled'}>
-                <span class="material-icons">add</span>
-                Nuevo traslado
-              </button>
+              <button type="button" class="tras-btn ghost" data-action="reload">Actualizar</button>
+              <button type="button" class="tras-btn primary" data-action="new" ${_s.boot.canManage ? '' : 'disabled'}>Nuevo traslado</button>
             </div>
-          </div>
+          </header>
 
-          <section class="tras-card" aria-label="Traslados">
-            <div class="tras-toolbar">
+          <div class="tras-controls">
+            <div class="tras-controls-row">
               <label class="tras-search">
-                <span class="material-icons">search</span>
-                <input data-filter="unidad" value="${esc(_s.filters.unidad)}" placeholder="Buscar por MVA, placas o modelo">
+                <input data-filter="unidad" value="${esc(_s.filters.unidad)}" placeholder="Buscar MVA, placas o modelo">
               </label>
               <div class="tras-quick-status" role="tablist" aria-label="Estatus">
                 ${['', 'ABIERTO', 'CERRADO'].map(v => `
@@ -310,10 +296,8 @@ function _renderShell() {
                   </button>
                 `).join('')}
               </div>
-              <button type="button" class="tras-btn ghost${_advancedFilterCount() ? ' has-filters' : ''}" data-action="toggle-filters" aria-expanded="${_s.filtersOpen ? 'true' : 'false'}">
-                <span class="material-icons">tune</span>
-                Filtros${_advancedFilterCount() ? ` <b class="tras-filter-count">${_advancedFilterCount()}</b>` : ''}
-                <span class="material-icons tras-caret">${_s.filtersOpen ? 'expand_less' : 'expand_more'}</span>
+              <button type="button" class="tras-btn ghost small${_advancedFilterCount() ? ' has-filters' : ''}" data-action="toggle-filters" aria-expanded="${_s.filtersOpen ? 'true' : 'false'}">
+                Filtros${_advancedFilterCount() ? ` (${_advancedFilterCount()})` : ''}
               </button>
             </div>
 
@@ -321,7 +305,7 @@ function _renderShell() {
               <div class="tras-filter-grid">
                 <label><span>Folio</span><input data-filter="folio" value="${esc(_s.filters.folio)}" placeholder="TR-00012"></label>
                 <label><span>Chofer</span><input data-filter="chofer" list="tras-chofer-list" value="${esc(_s.filters.chofer)}" placeholder="Buscar chofer"></label>
-                <label><span>Creador</span><select data-filter="creador">${_option('', 'Todos', _s.filters.creador)}${creadores.map(v => _option(v, v, _s.filters.creador)).join('')}</select></label>
+                <label><span>Autor</span><select data-filter="creador">${_option('', 'Todos', _s.filters.creador)}${creadores.map(v => _option(v, v, _s.filters.creador)).join('')}</select></label>
                 <label><span>Razon</span><select data-filter="tipo">${_option('', 'Todas', _s.filters.tipo)}${tipos.map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, _s.filters.tipo)).join('')}</select></label>
                 <label><span>Plaza salida</span><select data-filter="plazaOrigen">${_option('', 'Todas', _s.filters.plazaOrigen)}${plazas.map(p => _option(p, p, _s.filters.plazaOrigen)).join('')}</select></label>
                 <label><span>Plaza regreso</span><select data-filter="plazaDestino">${_option('', 'Todas', _s.filters.plazaDestino)}${plazas.map(p => _option(p, p, _s.filters.plazaDestino)).join('')}</select></label>
@@ -331,19 +315,14 @@ function _renderShell() {
                 <label><span>Regreso hasta</span><input type="date" data-filter="regresoHasta" value="${esc(_s.filters.regresoHasta)}"></label>
               </div>
               <div class="tras-filter-actions">
-                <button type="button" class="tras-btn ghost small" data-action="clear-filters"><span class="material-icons">filter_alt_off</span>Limpiar filtros</button>
+                <button type="button" class="tras-btn ghost small" data-action="clear-filters">Limpiar filtros</button>
               </div>
             </div>
+          </div>
 
-            <div class="tras-card-head">
-              <div>
-                <h2>Traslados</h2>
-                <span id="tras-count" class="tras-count"></span>
-              </div>
-            </div>
+          <p id="tras-count" class="tras-meta"></p>
 
-            <div id="tras-table-host" class="tras-table-host"></div>
-          </section>
+          <div id="tras-table-host" class="tras-table-host"></div>
         </main>
       `}
 
@@ -387,7 +366,7 @@ function _paintTable() {
 
   const rows = _filteredRows();
   const totalForTab = _rowsForTab().length;
-  if (count) count.textContent = `${rows.length} de ${totalForTab} registros`;
+  if (count) count.textContent = rows.length ? `${rows.length} de ${totalForTab} registros` : '0 registros';
   if (!rows.length) {
     host.innerHTML = _emptyState('Sin traslados', 'No hay registros que coincidan con los filtros actuales.', 'route');
     return;
@@ -424,29 +403,21 @@ function _rowHtml(row) {
   const selected = _isSelected(row) ? ' selected' : '';
   return `
     <tr class="${selected}" data-action="select" data-id="${esc(routeId)}">
-      <td><span class="tras-folio">${esc(_shortId(row))}</span></td>
+      <td class="tras-td-mono">${esc(_shortId(row))}</td>
       <td>
-        <div class="tras-cell-stack">
-          <strong>${esc(row.mva || '-')}</strong>
-          <small>${esc([row.modelo, row.placas].filter(Boolean).join(' · ') || 'Sin modelo')}</small>
-        </div>
+        <span class="tras-td-main">${esc(row.mva || '-')}</span>
+        ${row.modelo || row.placas ? `<span class="tras-td-sub">${esc([row.modelo, row.placas].filter(Boolean).join(' · '))}</span>` : ''}
       </td>
       <td>${esc(row.choferNombre || '-')}</td>
       <td>${esc(row.creadoPor || 'Sistema')}</td>
-      <td>
-        <span class="tras-route">
-          ${esc(row.plazaOrigen || '-')}
-          <span class="material-icons">arrow_forward</span>
-          ${esc(row.plazaDestino || '-')}
-        </span>
-      </td>
-      <td>${_dateCell(row.fechaSalida)}</td>
-      <td>${_dateCell(row.fechaCierre || row.fechaRegresoEstimada)}</td>
-      <td>${row.tipo ? `<span class="tras-type">${esc(row.tipo)}</span>` : '<span class="tras-muted">-</span>'}</td>
-      <td><span class="tras-status ${st.toLowerCase()}"><i></i>${esc(st)}</span></td>
+      <td>${esc(row.plazaOrigen || '-')} → ${esc(row.plazaDestino || '-')}</td>
+      <td class="tras-td-date">${_dateCell(row.fechaSalida)}</td>
+      <td class="tras-td-date">${_dateCell(row.fechaCierre || row.fechaRegresoEstimada)}</td>
+      <td>${esc(row.tipo || '-')}</td>
+      <td><span class="tras-status-text ${st.toLowerCase()}">${esc(st)}</span></td>
       <td class="tras-row-actions">
-        ${st !== 'CERRADO' ? `<button type="button" class="tras-icon-btn" data-action="select" data-id="${esc(routeId)}" title="Editar traslado"><span class="material-icons">edit</span></button>` : ''}
-        <button type="button" class="tras-icon-btn primary" data-action="select" data-id="${esc(routeId)}" title="Ver traslado"><span class="material-icons">visibility</span></button>
+        ${st !== 'CERRADO' ? `<button type="button" class="tras-link-btn" data-action="select" data-id="${esc(routeId)}">Editar</button>` : ''}
+        <button type="button" class="tras-link-btn" data-action="select" data-id="${esc(routeId)}">Ver</button>
       </td>
     </tr>
   `;
@@ -454,7 +425,7 @@ function _rowHtml(row) {
 
 function _dateCell(value) {
   const label = _fmtDate(value);
-  return label ? `<span class="tras-date">${esc(label)}</span>` : '<span class="tras-muted">Sin fecha</span>';
+  return label ? esc(label) : '<span class="tras-muted">—</span>';
 }
 
 function _paintDetail() {
@@ -479,10 +450,7 @@ function _paintDetail() {
       <span class="material-icons">search_off</span>
       <h2>Traslado no encontrado</h2>
       <p>El registro solicitado no existe o no pertenece a la plaza actual.</p>
-      <button type="button" class="tras-btn primary" data-action="back-list">
-        <span class="material-icons">table_rows</span>
-        Volver a la tabla
-      </button>
+      <button type="button" class="tras-btn primary" data-action="back-list">Volver a la tabla</button>
     </div>
   `;
 }
@@ -511,7 +479,7 @@ function _formHtml(row) {
           <h2>${esc(title)}</h2>
           <span>${esc(isNew ? 'Completa la salida, destino y unidad para crear el traslado.' : `${row.folio || _shortId(row)} · ${row.plazaOrigen || '-'} a ${row.plazaDestino || '-'}`)}</span>
         </div>
-        <span class="tras-status ${String(status).toLowerCase()}">${esc(status)}</span>
+        <span class="tras-status-text ${String(status).toLowerCase()}">${esc(status)}</span>
       </div>
 
       <form class="tras-form tras-form--wide" data-action="${isNew ? 'create-transfer' : 'update-transfer'}" data-id="${esc(row?.id || '')}">
@@ -586,13 +554,9 @@ function _formHtml(row) {
         </section>
 
         <div class="tras-form-actions tras-form-actions--footer">
-          <button type="button" class="tras-btn ghost" data-action="back-list">
-            <span class="material-icons">close</span>
-            Cancelar
-          </button>
-          ${!isNew && !isClosed ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}"><span class="material-icons">flag</span>Cerrar traslado</button>` : ''}
+          <button type="button" class="tras-btn ghost" data-action="back-list">Cancelar</button>
+          ${!isNew && !isClosed ? `<button type="button" class="tras-btn ghost" data-action="show-close" data-id="${esc(row.id)}">Cerrar traslado</button>` : ''}
           <button type="submit" class="tras-btn primary" ${_s.busy || (!canEdit && !isNew) ? 'disabled' : ''}>
-            <span class="material-icons">${isNew ? 'save' : 'save'}</span>
             ${isNew ? 'Guardar' : 'Guardar cambios'}
           </button>
         </div>
@@ -618,7 +582,7 @@ function _closeFormHtml(row) {
       <label><span>Fecha cierre</span><input type="datetime-local" id="tras-close-fecha" value="${esc(_toDateTimeLocal(Date.now()))}"></label>
       <label><span>Nota de cierre</span><textarea id="tras-close-nota" placeholder="Observaciones de llegada"></textarea></label>
       <div class="tras-form-actions">
-        <button type="button" class="tras-btn primary" data-action="close-transfer" data-id="${esc(row.id)}" ${_s.busy ? 'disabled' : ''}><span class="material-icons">task_alt</span>Confirmar cierre</button>
+        <button type="button" class="tras-btn primary" data-action="close-transfer" data-id="${esc(row.id)}" ${_s.busy ? 'disabled' : ''}>Confirmar cierre</button>
       </div>
     </form>
   `;
