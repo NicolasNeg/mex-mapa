@@ -401,6 +401,7 @@ function _paintTable() {
             <th>Folio</th>
             <th>Unidad</th>
             <th>Conductor</th>
+            <th>Autor</th>
             <th>Ruta</th>
             <th>Salida</th>
             <th>Regreso</th>
@@ -417,12 +418,6 @@ function _paintTable() {
   `;
 }
 
-function _initials(name) {
-  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return '?';
-  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
-}
-
 function _rowHtml(row) {
   const st = _estado(row);
   const routeId = _routeToken(row);
@@ -436,15 +431,8 @@ function _rowHtml(row) {
           <small>${esc([row.modelo, row.placas].filter(Boolean).join(' · ') || 'Sin modelo')}</small>
         </div>
       </td>
-      <td>
-        <div class="tras-person">
-          <span class="tras-avatar">${esc(_initials(row.choferNombre))}</span>
-          <div class="tras-cell-stack">
-            <strong>${esc(row.choferNombre || '-')}</strong>
-            <small>Creo: ${esc(row.creadoPor || 'Sistema')}</small>
-          </div>
-        </div>
-      </td>
+      <td>${esc(row.choferNombre || '-')}</td>
+      <td>${esc(row.creadoPor || 'Sistema')}</td>
       <td>
         <span class="tras-route">
           ${esc(row.plazaOrigen || '-')}
@@ -647,16 +635,26 @@ function _timelineHtml(row) {
   return `
     <div class="tras-timeline">
       <h3>Historial del traslado</h3>
-      ${items.map(item => `
-        <article>
-          <span class="material-icons">${item.icon}</span>
-          <div>
-            <strong>${esc(item.kind)} · ${esc(item.title)}</strong>
-            <p>${esc(item.body || 'Sin detalle')}</p>
-            <small>${esc(item.user || 'Sistema')} · ${esc(_fmtDate(item.date) || '')}</small>
-          </div>
-        </article>
-      `).join('')}
+      <table class="tras-history-table">
+        <thead>
+          <tr>
+            <th>Evento</th>
+            <th>Detalle</th>
+            <th>Usuario</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(item => `
+            <tr>
+              <td class="tras-history-kind">${esc(item.kind)} · ${esc(item.title)}</td>
+              <td>${esc(item.body || 'Sin detalle')}</td>
+              <td>${esc(item.user || 'Sistema')}</td>
+              <td class="tras-history-date">${esc(_fmtDate(item.date) || '-')}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
     </div>
   `;
 }

@@ -39,31 +39,30 @@
   border: 0;
   font-family: inherit;
   cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease, background .15s ease, color .15s ease, border-color .15s ease;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
 }
 
+/* Botones planos: sin sombras ni animaciones de desplazamiento. */
 .tras-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-height: 38px;
+  gap: 6px;
+  min-height: 36px;
   padding: 0 14px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 900;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
 .tras-btn.primary {
-  background: #0f172a;
+  background: #2563eb;
   color: #fff;
-  box-shadow: 0 10px 22px rgba(15, 23, 42, .16);
 }
 
 .tras-btn.primary:hover {
-  background: #1e293b;
-  transform: translateY(-1px);
+  background: #1d4ed8;
 }
 
 .tras-btn.ghost {
@@ -80,29 +79,22 @@
 .tras-btn.small {
   min-height: 32px;
   padding: 0 10px;
-  font-size: 11px;
-}
-
-.tras-btn:active,
-.tras-icon-btn:active {
-  transform: translateY(1px) scale(.99);
+  font-size: 12px;
 }
 
 .tras-btn:disabled,
 .tras-icon-btn:disabled {
   opacity: .48;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: none;
 }
 
 .tras-icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   display: inline-grid;
   place-items: center;
   border: 1px solid var(--tras-border);
-  border-radius: 9px;
+  border-radius: 6px;
   background: #fff;
   color: #475569;
 }
@@ -135,7 +127,7 @@
 .tras-banner strong {
   display: block;
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 600;
 }
 
 .tras-banner small {
@@ -192,10 +184,10 @@
 .tras-title-block p,
 .tras-breadcrumb {
   margin: 0 0 4px;
-  color: #2563eb;
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: .06em;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
   text-transform: uppercase;
 }
 
@@ -203,17 +195,17 @@
 .tras-editor-top h1 {
   margin: 0;
   color: #0f172a;
-  font-size: 22px;
-  font-weight: 950;
-  line-height: 1.12;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
 }
 
 .tras-title-block span {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   color: #64748b;
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .tras-actions {
@@ -300,9 +292,8 @@
   flex: 1;
   min-height: 0;
   border: 1px solid var(--tras-border);
-  border-radius: 14px;
+  border-radius: 8px;
   background: #fff;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
   overflow: hidden;
 }
 
@@ -353,14 +344,14 @@
 
 .tras-quick-status button {
   border: 0;
-  min-height: 32px;
+  min-height: 30px;
   padding: 0 12px;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: #64748b;
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 900;
+  font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
   transition: background .14s ease, color .14s ease;
 }
@@ -370,9 +361,9 @@
 }
 
 .tras-quick-status button.active {
-  background: #0f172a;
-  color: #fff;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, .18);
+  background: #fff;
+  color: #0f172a;
+  border: 1px solid var(--tras-border);
 }
 
 .tras-filter-count {
@@ -421,8 +412,8 @@
 .tras-card-head h2 {
   display: inline;
   margin: 0 8px 0 0;
-  font-size: 14px;
-  font-weight: 950;
+  font-size: 15px;
+  font-weight: 700;
   color: #0f172a;
 }
 
@@ -440,25 +431,23 @@
 }
 
 .tras label > span {
-  color: #64748b;
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: .06em;
-  text-transform: uppercase;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .tras input,
 .tras select,
 .tras textarea {
   width: 100%;
-  min-height: 38px;
+  min-height: 36px;
   border: 1px solid var(--tras-border);
-  border-radius: 10px;
+  border-radius: 6px;
   background: #fff;
   color: #0f172a;
   font: inherit;
-  font-size: 12px;
-  font-weight: 750;
+  font-size: 13px;
+  font-weight: 400;
   outline: none;
   padding: 0 10px;
   transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
@@ -497,8 +486,8 @@
 
 .tras-count {
   color: #64748b;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .tras-table-host {
@@ -517,7 +506,7 @@
 
 .tras-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 1180px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -526,15 +515,13 @@
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 12px 16px;
+  padding: 10px 16px;
   background: #f8fafc;
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: .05em;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
   text-align: left;
-  text-transform: uppercase;
-  border-bottom: 2px solid #e2e8f0;
+  border-bottom: 1px solid #e2e8f0;
   white-space: nowrap;
 }
 
@@ -564,15 +551,16 @@
 }
 
 .tras-table td {
-  padding: 14px 16px;
-  color: #1e293b;
+  padding: 12px 16px;
+  color: #334155;
+  font-weight: 400;
   vertical-align: middle;
 }
 
 .tras-cell-stack strong {
   display: block;
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 600;
   color: #0f172a;
 }
 
@@ -582,52 +570,23 @@
   display: block;
   margin-top: 2px;
   color: #94a3b8;
-  font-size: 11px;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .tras-folio {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #334155;
-  font-size: 11px;
-  font-weight: 900;
+  color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-
-.tras-person {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.tras-avatar {
-  flex: none;
-  width: 32px;
-  height: 32px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #e0eaff;
-  color: #1d4ed8;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: .02em;
 }
 
 .tras-date {
   display: inline-flex;
   align-items: center;
-  min-height: 24px;
   color: #334155;
-  font-weight: 700;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -655,8 +614,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 800;
-  font-size: 12px;
+  font-weight: 500;
+  font-size: 13px;
   color: #334155;
   white-space: nowrap;
 }
@@ -667,16 +626,8 @@
 }
 
 .tras-type {
-  display: inline-flex;
-  align-items: center;
-  min-height: 24px;
-  padding: 0 9px;
-  border: 1px solid #e2e8f0;
-  border-radius: 999px;
-  background: #f8fafc;
   color: #475569;
-  font-size: 11px;
-  font-weight: 850;
+  font-size: 13px;
   white-space: nowrap;
 }
 
@@ -684,12 +635,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 25px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: .03em;
+  min-height: 22px;
+  padding: 0 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -726,9 +676,8 @@
 .tras-detail-card,
 .tras-detail-empty {
   border: 1px solid var(--tras-border);
-  border-radius: 18px;
-  background: rgba(255,255,255,.94);
-  box-shadow: 0 16px 36px rgba(15, 23, 42, .08);
+  border-radius: 8px;
+  background: #fff;
 }
 
 .tras-detail-card {
@@ -759,7 +708,7 @@
 .tras-detail-empty h2 {
   margin: 0;
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .tras-detail-empty p {
@@ -767,7 +716,7 @@
   max-width: 280px;
   color: #64748b;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 400;
   line-height: 1.5;
 }
 
@@ -783,32 +732,32 @@
 
 .tras-detail-head p {
   margin: 0 0 4px;
-  color: #2563eb;
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: .08em;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .05em;
   text-transform: uppercase;
 }
 
 .tras-detail-head h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 950;
-  line-height: 1.12;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.15;
 }
 
 .tras-detail-head span:not(.tras-status) {
   display: block;
-  margin-top: 5px;
+  margin-top: 4px;
   color: #64748b;
-  font-size: 12px;
-  font-weight: 750;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .tras-detail-card--wide {
   overflow: hidden;
   padding: 0;
-  border-radius: 12px;
+  border-radius: 8px;
 }
 
 .tras-detail-card--wide .tras-detail-head {
@@ -867,24 +816,19 @@
   margin: 0;
   color: #0f172a;
   font-size: 15px;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .tras-section-line span {
   color: #64748b;
-  font-size: 12px;
-  font-weight: 750;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .tras-section-line strong {
-  display: inline-flex;
-  min-height: 24px;
-  align-items: center;
-  border-radius: 7px;
-  background: #eff6ff;
-  color: #1d4ed8;
-  padding: 0 8px;
-  font-size: 11px;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 13px;
 }
 
 .tras-form-pair {
@@ -910,9 +854,9 @@
 .tras-close-form {
   margin-top: 14px;
   padding: 14px;
-  border: 1px solid #bfdbfe;
-  border-radius: 14px;
-  background: #eff6ff;
+  border: 1px solid var(--tras-border);
+  border-radius: 8px;
+  background: #f8fafc;
 }
 
 .tras-detail-card--wide .tras-close-form {
@@ -927,16 +871,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #1d4ed8;
+  color: #0f172a;
 }
 
 .tras-close-head .material-icons {
-  width: 36px;
-  height: 36px;
-  display: grid;
-  place-items: center;
-  border-radius: 11px;
-  background: #dbeafe;
+  color: #475569;
 }
 
 .tras-close-head strong,
@@ -945,15 +884,15 @@
 }
 
 .tras-close-head strong {
-  font-size: 13px;
-  font-weight: 950;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .tras-close-head small {
   margin-top: 2px;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 750;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .tras-timeline {
@@ -968,57 +907,60 @@
 
 .tras-timeline h3 {
   margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* Historial en formato tabla: filas con lineas separadoras. */
+.tras-history-table {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-collapse: collapse;
   font-size: 13px;
-  font-weight: 950;
 }
 
-.tras-timeline article {
-  display: grid;
-  grid-template-columns: 30px 1fr;
-  gap: 10px;
-  padding: 10px 0;
-  border-top: 1px solid #f1f5f9;
-}
-
-.tras-timeline article:first-of-type {
-  border-top: 0;
-}
-
-.tras-timeline article > .material-icons {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: #f1f5f9;
+.tras-history-table th {
+  padding: 9px 12px;
+  background: #f8fafc;
   color: #475569;
-}
-
-.tras-timeline strong {
-  display: block;
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
 }
 
-.tras-timeline p {
-  margin: 4px 0;
+.tras-history-table td {
+  padding: 10px 12px;
   color: #334155;
-  font-size: 12px;
-  font-weight: 650;
+  font-weight: 400;
   line-height: 1.45;
+  border-bottom: 1px solid #eef2f7;
+  vertical-align: top;
 }
 
-.tras-timeline small,
-.tras-timeline.empty {
+.tras-history-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.tras-history-kind {
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.tras-history-date {
   color: #64748b;
-  font-size: 11px;
-  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .tras-timeline.empty {
   display: flex;
   align-items: center;
   gap: 8px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .tras-empty {
@@ -1048,14 +990,14 @@
 .tras-empty strong {
   color: #0f172a;
   font-size: 15px;
-  font-weight: 950;
+  font-weight: 700;
 }
 
 .tras-empty p {
   margin: 0;
   max-width: 320px;
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 400;
 }
 
 .tras-skeleton-table,
