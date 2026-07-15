@@ -17,6 +17,7 @@ const HEADER_ALIASES = {
   activo: ['activo', 'active'],
   color: ['color'],
   gasolina: ['gasolina', 'tanque gasolina', 'gas', 'combustible'],
+  capacidadTanque: ['capacidad tanque', 'tanque litros', 'litros tanque', 'lts tanque', 'capacidad lts', 'capacidad litros'],
   km: ['km', 'kilometraje', 'kilómetros', 'kilometros'],
   descripcion: ['descripcion', 'descripción', 'notas', 'nota', 'observaciones']
 };
@@ -35,7 +36,7 @@ export const IMPORT_FIELD_OPTIONS = [
   { key: 'estado', label: 'Estatus' },
   { key: 'activo', label: 'Activo' },
   { key: 'color', label: 'Color' },
-  { key: 'gasolina', label: 'Tanque gasolina' },
+  { key: 'capacidadTanque', label: 'Capacidad tanque (L)' },
   { key: 'km', label: 'Kilometraje' },
   { key: 'descripcion', label: 'Descripción' }
 ];

@@ -106,6 +106,15 @@ export const ROUTE_MAP = {
     shellIntegrated:    true,
     fullModuleMigrated: true,
   },
+  unidadExpediente: {
+    id: 'unidadExpediente', label: 'Expediente de unidad',
+    legacyRoute:  '/cuadre',
+    appRoute:     '/app/cuadre/u',
+    navRoute:     '/app/unidades',
+    fallbackRoute:'/app/unidades',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+  },
   admin: {
     id: 'admin', label: 'Panel admin',
     legacyRoute:  '/gestion',

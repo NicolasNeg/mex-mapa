@@ -85,9 +85,10 @@
       '.mexbz-cuadre{margin:12px 0;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}',
       '.mexbz-cuadre.ok{background:#ecfdf5;color:#047857}',
       '.mexbz-cuadre.no{background:#fef2f2;color:#b91c1c}',
-      '.mexbz-btn{width:100%;height:48px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;margin-top:8px;display:flex;align-items:center;justify-content:center;gap:8px}',
+      '.mexbz-btn{width:100%;height:48px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;margin-top:0;display:flex;align-items:center;justify-content:center;gap:8px}',
       '.mexbz-btn:hover{background:#1d4ed8}',
       '.mexbz-btn.ghost{background:#f1f5f9;color:#334155}',
+      '.mexbz-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px}',
       '.mexbz-hist{margin-top:8px}',
       '.mexbz-hist-item{display:flex;gap:10px;padding:9px 2px;border-bottom:1px solid #f1f5f9;font-size:13px;color:#334155}',
       '.mexbz-hist-item .material-icons{font-size:18px;color:#94a3b8;flex-shrink:0}',
@@ -311,6 +312,7 @@
   function fichaUnidad(d) {
     var st = estadoCuadre(d);
     var canView = st.key === 'ok' && typeof window.__mexCanViewPlaza === 'function' && window.__mexCanViewPlaza(d.plazaActual);
+    var canUnit = typeof window.__mexCanViewUnidadExpediente === 'function' && window.__mexCanViewUnidadExpediente();
     var box = document.getElementById('mexbzResults');
     box.innerHTML =
       '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
@@ -325,14 +327,26 @@
         kv('Categoría', d.categoria || '—') +
         (d.anio ? kv('Año', d.anio) : '') +
         (d.vin ? kv('VIN', d.vin) : '') +
+        '<div class="mexbz-actions">' +
+        (canUnit ? '<button class="mexbz-btn ghost" id="mexbzGoUnit"><span class="material-icons">directions_car</span>Ver unidad</button>' : '') +
         (canView ? '<button class="mexbz-btn" id="mexbzGoMap"><span class="material-icons">map</span>Ver en mapa</button>' : '') +
+        '</div>' +
       '</div>';
     box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
+    var goUnit = box.querySelector('#mexbzGoUnit');
+    if (goUnit) goUnit.addEventListener('click', function () {
+      close();
+      if (typeof window.__mexGoToUnidad === 'function') {
+        window.__mexGoToUnidad(d.mva);
+      } else {
+        window.__mexShellNavigate?.('/app/cuadre/u/' + encodeURIComponent(String(d.mva || '').trim().toUpperCase()));
+      }
+    });
     var go = box.querySelector('#mexbzGoMap');
     if (go) go.addEventListener('click', function () {
       close();
       if (typeof window.__mexGoToMapUnit === 'function') {
-        window.__mexGoToMapUnit(d.mva, d.plazaActual);   // cambia plaza si aplica + resalta
+        window.__mexGoToMapUnit(d.mva, d.plazaActual);
       } else {
         window.location.assign('/app/mapa');
       }

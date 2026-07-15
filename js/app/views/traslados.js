@@ -114,12 +114,17 @@ export function unmount() {
 }
 
 function _ensureCss() {
-  if (document.querySelector('link[data-app-traslados-css="1"]')) return;
-  const l = document.createElement('link');
-  l.rel = 'stylesheet';
-  l.href = '/css/app-traslados.css';
-  l.dataset.appTrasladosCss = '1';
-  document.head.appendChild(l);
+  const href = '/css/app-traslados.css?v=20260715a';
+  let link = document.querySelector('link[data-app-traslados-css="1"]');
+  if (link) {
+    if (link.getAttribute('href') !== href) link.setAttribute('href', href);
+    return;
+  }
+  link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = href;
+  link.dataset.appTrasladosCss = '1';
+  document.head.appendChild(link);
 }
 
 function _bind() {
@@ -191,17 +196,30 @@ function _emptyFilters() {
 }
 
 function _newDraft(plaza) {
+  const now = Date.now();
   return {
     mva: '',
     choferUid: '',
+    choferNombre: '',
     tipo: '',
     plazaOrigen: _normPlaza(plaza),
     plazaDestino: _normPlaza(plaza),
-    fechaSalida: _toDateTimeLocal(Date.now()),
-    fechaRegresoEstimada: '',
+    fechaSalida: _toDateTimeLocal(now),
+    fechaRegresoEstimada: _toDateTimeLocal(now + 2 * 60 * 60 * 1000),
+    regresoTouched: false,
     kmSalida: '',
-    nota: ''
+    nota: '',
+    unitFilters: _emptyUnitFilters()
   };
+}
+
+function _emptyUnitFilters() {
+  return { mva: '', placas: '', marca: '', modelo: '', anio: '', color: '', clase: '' };
+}
+
+function _defaultRegresoFromSalida(salidaValue) {
+  const base = _toMs(salidaValue) || Date.now();
+  return _toDateTimeLocal(base + 2 * 60 * 60 * 1000);
 }
 
 function _applyRouteMode() {
@@ -329,9 +347,6 @@ function _renderShell() {
       <datalist id="tras-chofer-list">
         ${choferes.map(c => `<option value="${esc(c.nombre)}"></option>`).join('')}
       </datalist>
-      <datalist id="tras-unidad-list">
-        ${_availableUnits().map(u => `<option value="${esc(u.mva)}">${esc([u.mva, u.modelo, u.placas].filter(Boolean).join(' · '))}</option>`).join('')}
-      </datalist>
     </section>
   `;
 }
@@ -437,12 +452,13 @@ function _paintDetail() {
   }
   if (_s.detailMode === 'new') {
     host.innerHTML = _formHtml(null);
-    _syncUnitPreview();
+    _initFormPickers();
     return;
   }
   const row = _selected();
   if (row) {
     host.innerHTML = _formHtml(row);
+    _initFormPickers();
     return;
   }
   host.innerHTML = `
@@ -460,6 +476,9 @@ function _formHtml(row) {
   const isClosed = row && _estado(row) === 'CERRADO';
   const canEdit = _s.boot.canManage && !isClosed;
   const draft = isNew ? _s.draft : _rowToDraft(row);
+  const choferLabel = isNew
+    ? (draft.choferNombre || _choferLabel(draft.choferUid))
+    : (row.choferNombre || _choferLabel(draft.choferUid));
   const unit = isNew ? _unitByMva(draft.mva) : null;
   const gasSalida = isNew ? (unit?.gasolina || 'N/A') : (row.gasSalida || 'N/A');
   const status = isNew ? 'NUEVO' : _estado(row);
@@ -485,13 +504,7 @@ function _formHtml(row) {
       <form class="tras-form tras-form--wide" data-action="${isNew ? 'create-transfer' : 'update-transfer'}" data-id="${esc(row?.id || '')}">
         <section class="tras-form-panel">
           <div class="tras-form-grid tras-form-grid--meta">
-            <label>
-              <span>Chofer</span>
-              <select id="tras-form-chofer" name="choferUid" ${canEdit || isNew ? '' : 'disabled'}>
-                ${_option('', 'Seleccionar chofer', draft.choferUid)}
-                ${_choferes().map(c => _option(c.uid || c.id, c.nombre, draft.choferUid)).join('')}
-              </select>
-            </label>
+            ${_choferPickerHtml({ uid: draft.choferUid, label: choferLabel, disabled: !(canEdit || isNew) })}
             <label>
               <span>Fecha de salida</span>
               <input type="datetime-local" id="tras-form-salida" name="fechaSalida" value="${esc(draft.fechaSalida)}" ${canEdit || isNew ? '' : 'disabled'}>
@@ -537,20 +550,22 @@ function _formHtml(row) {
             <h3>Unidades</h3>
             ${!isNew ? `<span>Ubicacion actual: <strong>${esc(currentLocation)}</strong></span>` : ''}
           </div>
-          <div class="tras-form-grid tras-form-grid--unit">
-            <label class="span-all">
-              <span>Seleccionar unidad</span>
-              <input id="tras-form-mva" name="mva" list="tras-unidad-list" value="${esc(isNew ? draft.mva : unitSummary)}" ${isNew ? '' : 'readonly'} placeholder="Seleccionar unidad">
-            </label>
-            <label>
-              <span>Kilometros de salida</span>
-              <input type="number" min="0" id="tras-form-km" name="kmSalida" value="${esc(String(draft.kmSalida ?? ''))}" ${isNew ? '' : 'readonly'} placeholder="Kilometros de salida">
-            </label>
-            <label>
-              <span>Combustible de salida</span>
-              <input id="tras-form-gas-salida" value="${esc(gasSalida)}" readonly>
-            </label>
-          </div>
+          ${isNew ? _unitPickerSectionHtml(draft, unit, gasSalida) : `
+            <div class="tras-form-grid tras-form-grid--unit">
+              <label class="span-all">
+                <span>Unidad</span>
+                <input value="${esc(unitSummary)}" readonly>
+              </label>
+              <label>
+                <span>Kilometros de salida</span>
+                <input value="${esc(String(draft.kmSalida ?? row.kmSalida ?? ''))}" readonly>
+              </label>
+              <label>
+                <span>Combustible de salida</span>
+                <input value="${esc(gasSalida)}" readonly>
+              </label>
+            </div>
+          `}
         </section>
 
         <div class="tras-form-actions tras-form-actions--footer">
@@ -712,6 +727,18 @@ async function _onClick(event) {
     await _submitClose(actionEl.dataset.id);
     return;
   }
+  if (action === 'picker-select') {
+    _handlePickerSelect(actionEl);
+    return;
+  }
+  if (action === 'picker-toggle') {
+    const field = actionEl.closest('.tras-search-field');
+    if (field) _togglePicker(field, true);
+    return;
+  }
+  if (!actionEl.closest('.tras-search-field')) {
+    _closeAllPickers();
+  }
 }
 
 function _onInput(event) {
@@ -721,9 +748,30 @@ function _onInput(event) {
     _paintTable();
     return;
   }
-  if (event.target?.id === 'tras-form-mva' && _s.detailMode === 'new') {
-    _s.draft.mva = event.target.value || '';
-    _syncUnitPreview();
+  if (event.target?.dataset?.unitFilter != null && _s.detailMode === 'new') {
+    const key = event.target.dataset.unitFilter;
+    if (!_s.draft.unitFilters) _s.draft.unitFilters = _emptyUnitFilters();
+    _s.draft.unitFilters[key] = event.target.value || '';
+    _paintUnitPickerMenu();
+    return;
+  }
+  if (event.target?.id === 'tras-form-chofer-search') {
+    _s.draft.choferSearch = event.target.value || '';
+    const hidden = _ctr?.querySelector('#tras-form-chofer');
+    const selectedLabel = _choferLabel(hidden?.value);
+    if (event.target.value !== selectedLabel) {
+      if (hidden) hidden.value = '';
+      _s.draft.choferUid = '';
+    }
+    _paintChoferPickerMenu();
+    const field = event.target.closest('.tras-search-field');
+    if (field) _togglePicker(field, true);
+    return;
+  }
+  if (event.target?.id === 'tras-form-unit-search') {
+    _paintUnitPickerMenu();
+    const field = event.target.closest('.tras-search-field');
+    if (field) _togglePicker(field, true);
   }
 }
 
@@ -736,7 +784,16 @@ function _onChange(event) {
   }
   if (_s.detailMode === 'new' && event.target?.id?.startsWith('tras-form-')) {
     _readDraftFromForm();
-    if (event.target.id === 'tras-form-mva') _syncUnitPreview();
+    if (event.target.id === 'tras-form-regreso') {
+      _s.draft.regresoTouched = true;
+    }
+    if (event.target.id === 'tras-form-salida' && !_s.draft.regresoTouched) {
+      const regreso = _ctr.querySelector('#tras-form-regreso');
+      if (regreso) {
+        regreso.value = _defaultRegresoFromSalida(event.target.value);
+        _s.draft.fechaRegresoEstimada = regreso.value;
+      }
+    }
   }
 }
 
@@ -752,30 +809,91 @@ async function _onSubmit(event) {
 function _readDraftFromForm() {
   if (!_s) return;
   _s.draft = {
+    ...(_s.draft || {}),
     mva: _val('tras-form-mva').toUpperCase(),
     choferUid: _val('tras-form-chofer'),
+    choferNombre: _val('tras-form-chofer-search') || _s.draft?.choferNombre || '',
     tipo: _val('tras-form-tipo'),
     plazaOrigen: _normPlaza(_val('tras-form-plaza-origen') || _s.plaza),
     plazaDestino: _normPlaza(_val('tras-form-plaza-destino') || _s.plaza),
     fechaSalida: _val('tras-form-salida'),
     fechaRegresoEstimada: _val('tras-form-regreso'),
     kmSalida: _val('tras-form-km'),
-    nota: _val('tras-form-nota')
+    nota: _val('tras-form-nota'),
+    unitFilters: _readUnitFiltersFromDom()
   };
+}
+
+function _readUnitFiltersFromDom() {
+  const out = _emptyUnitFilters();
+  Object.keys(out).forEach(key => {
+    const el = _ctr?.querySelector(`[data-unit-filter="${key}"]`);
+    if (el) out[key] = el.value || '';
+  });
+  return out;
+}
+
+function _applyUnitSelection(unit) {
+  if (!_s || !unit) return;
+  _s.draft.mva = String(unit.mva || '').toUpperCase();
+  _s.draft.unitFilters = {
+    mva: unit.mva || '',
+    placas: unit.placas || '',
+    marca: _unitField(unit, 'marca'),
+    modelo: unit.modelo || '',
+    anio: _unitField(unit, 'anio'),
+    color: _unitField(unit, 'color'),
+    clase: _unitField(unit, 'clase')
+  };
+  const hidden = _ctr?.querySelector('#tras-form-mva');
+  const search = _ctr?.querySelector('#tras-form-unit-search');
+  if (hidden) hidden.value = _s.draft.mva;
+  if (search) search.value = _unitPickerLabel(unit);
+  Object.entries(_s.draft.unitFilters).forEach(([key, value]) => {
+    const el = _ctr?.querySelector(`[data-unit-filter="${key}"]`);
+    if (el) el.value = value;
+  });
+  const km = _ctr?.querySelector('#tras-form-km');
+  const gas = _ctr?.querySelector('#tras-form-gas-salida');
+  if (km) km.value = unit.km ?? '';
+  if (gas) gas.value = unit.gasolina || 'N/A';
+  _s.draft.kmSalida = km?.value || '';
+  _paintUnitSummary(unit);
+  _closeAllPickers();
+}
+
+function _paintUnitSummary(unit) {
+  const host = _ctr?.querySelector('#tras-unit-summary');
+  if (!host) return;
+  if (!unit) {
+    host.hidden = true;
+    host.innerHTML = '';
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = `
+    <div class="tras-unit-summary-grid">
+      <div><span>Clase</span><strong>${esc(_unitField(unit, 'clase') || '—')}</strong></div>
+      <div><span>Económico</span><strong>${esc(unit.mva || '—')}</strong></div>
+      <div><span>Marca</span><strong>${esc(_unitField(unit, 'marca') || '—')}</strong></div>
+      <div><span>Modelo</span><strong>${esc(unit.modelo || '—')}</strong></div>
+      <div><span>Placas</span><strong>${esc(unit.placas || '—')}</strong></div>
+      <div><span>Año</span><strong>${esc(_unitField(unit, 'anio') || '—')}</strong></div>
+      <div><span>Color</span><strong>${esc(_unitField(unit, 'color') || '—')}</strong></div>
+    </div>
+  `;
 }
 
 function _syncUnitPreview() {
   const mva = _val('tras-form-mva').toUpperCase();
   const unit = _unitByMva(mva);
-  const km = _ctr.querySelector('#tras-form-km');
-  const gas = _ctr.querySelector('#tras-form-gas-salida');
-  if (unit) {
-    if (km && (!km.value || _s.draft.mva !== mva)) km.value = unit.km ?? '';
-    if (gas) gas.value = unit.gasolina || 'N/A';
-  } else {
+  if (unit) _applyUnitSelection(unit);
+  else {
+    const gas = _ctr?.querySelector('#tras-form-gas-salida');
     if (gas) gas.value = 'N/A';
+    _paintUnitSummary(null);
   }
-  _s.draft.mva = mva;
+  if (_s?.draft) _s.draft.mva = mva;
 }
 
 async function _submitCreate() {
@@ -786,6 +904,11 @@ async function _submitCreate() {
   if (!payload.choferUid) return _toast('Selecciona chofer.', 'error');
   if (!payload.tipo) return _toast('Selecciona razon de traslado.', 'error');
   if (!payload.kmSalida) return _toast('Captura km de salida.', 'error');
+  const salidaMs = _toMs(payload.fechaSalida);
+  const regresoMs = _toMs(payload.fechaRegresoEstimada);
+  if (regresoMs && salidaMs && regresoMs < salidaMs) {
+    return _toast('La fecha de regreso no puede ser anterior a la salida.', 'error');
+  }
   await _runAction(async () => {
     const res = await crearTraslado(payload);
     if (!res?.ok) throw new Error(res?.error || 'No se pudo crear el traslado.');
@@ -810,6 +933,12 @@ async function _submitUpdate(id) {
     usuario: _actor(),
     actorRole: _currentRole()
   };
+  if (!payload.choferUid) return _toast('Selecciona chofer.', 'error');
+  const salidaMs = _toMs(payload.fechaSalida);
+  const regresoMs = _toMs(payload.fechaRegresoEstimada);
+  if (regresoMs && salidaMs && regresoMs < salidaMs) {
+    return _toast('La fecha de regreso no puede ser anterior a la salida.', 'error');
+  }
   await _runAction(async () => {
     const res = await actualizarTraslado(id, payload);
     if (!res?.ok) throw new Error(res?.error || 'No se pudo actualizar el traslado.');
@@ -907,13 +1036,16 @@ function _rowToDraft(row) {
   return {
     mva: row.mva || '',
     choferUid: row.choferUid || '',
+    choferNombre: row.choferNombre || '',
     tipo: row.tipo || '',
     plazaOrigen: row.plazaOrigen || _s.plaza,
     plazaDestino: row.plazaDestino || _s.plaza,
     fechaSalida: _toDateTimeLocal(row.fechaSalida),
     fechaRegresoEstimada: _toDateTimeLocal(row.fechaRegresoEstimada),
     kmSalida: row.kmSalida ?? '',
-    nota: ''
+    nota: '',
+    regresoTouched: true,
+    unitFilters: _emptyUnitFilters()
   };
 }
 
@@ -927,6 +1059,197 @@ function _availableUnits() {
 function _unitByMva(mva) {
   const key = String(mva || '').trim().toUpperCase();
   return (_s.boot.unidades || []).find(u => String(u.mva || '').trim().toUpperCase() === key) || null;
+}
+
+function _unitField(unit, key) {
+  if (!unit) return '';
+  if (key === 'clase') return unit.categoria || unit.clase || '';
+  if (key === 'anio') return unit.anio || unit.año || unit.year || '';
+  return unit[key] || '';
+}
+
+function _choferLabel(uid) {
+  const key = String(uid || '').trim();
+  if (!key) return '';
+  const found = _choferes().find(c => String(c.uid || c.id) === key);
+  return found?.nombre || '';
+}
+
+function _deaccent(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function _includesText(haystack, needle) {
+  if (!needle) return true;
+  return _deaccent(haystack).toLowerCase().includes(_deaccent(needle).toLowerCase());
+}
+
+function _filteredChoferes(query = '') {
+  const q = String(query || '').trim();
+  return _choferes().filter(c => _includesText(c.nombre, q));
+}
+
+function _filteredUnitsForPicker() {
+  const f = _s?.draft?.unitFilters || _emptyUnitFilters();
+  const quick = String(_val('tras-form-unit-search') || '').trim();
+  return _availableUnits().filter(unit => {
+    if (quick && !_includesText(_unitPickerLabel(unit), quick)) return false;
+    if (f.mva && !_includesText(unit.mva, f.mva)) return false;
+    if (f.placas && !_includesText(unit.placas, f.placas)) return false;
+    if (f.marca && !_includesText(_unitField(unit, 'marca'), f.marca)) return false;
+    if (f.modelo && !_includesText(unit.modelo, f.modelo)) return false;
+    if (f.anio && !_includesText(_unitField(unit, 'anio'), f.anio)) return false;
+    if (f.color && !_includesText(_unitField(unit, 'color'), f.color)) return false;
+    if (f.clase && !_includesText(_unitField(unit, 'clase'), f.clase)) return false;
+    return true;
+  });
+}
+
+function _unitPickerLabel(unit) {
+  return [unit?.mva, _unitField(unit, 'clase'), unit?.modelo, unit?.placas, _unitField(unit, 'marca')]
+    .filter(Boolean)
+    .join(' · ');
+}
+
+function _choferPickerHtml({ uid = '', label = '', disabled = false } = {}) {
+  return `
+    <div class="tras-search-field" data-picker="chofer">
+      <span>Chofer</span>
+      <input type="hidden" id="tras-form-chofer" name="choferUid" value="${esc(uid)}">
+      <div class="tras-search-input-wrap">
+        <input type="text" id="tras-form-chofer-search" class="tras-search-input" value="${esc(label)}" placeholder="Buscar chofer..." autocomplete="off"${disabled ? ' disabled' : ''}>
+        <span class="material-icons" aria-hidden="true">search</span>
+      </div>
+      <ul class="tras-search-menu" id="tras-chofer-menu" hidden></ul>
+    </div>
+  `;
+}
+
+function _unitPickerSectionHtml(draft, unit, gasSalida) {
+  const filters = draft.unitFilters || _emptyUnitFilters();
+  const selectedLabel = unit ? _unitPickerLabel(unit) : '';
+  return `
+    <div class="tras-unit-filters">
+      <label><span>Buscar económico</span><input data-unit-filter="mva" value="${esc(filters.mva)}" placeholder="Buscar económico…"></label>
+      <label><span>Placas</span><input data-unit-filter="placas" value="${esc(filters.placas)}" placeholder="Buscar placas…"></label>
+      <label><span>Marca</span><input data-unit-filter="marca" value="${esc(filters.marca)}" placeholder="Buscar marca…"></label>
+      <label><span>Modelo</span><input data-unit-filter="modelo" value="${esc(filters.modelo)}" placeholder="Buscar modelo…"></label>
+      <label><span>Año</span><input data-unit-filter="anio" value="${esc(filters.anio)}" placeholder="Buscar año…"></label>
+      <label><span>Color</span><input data-unit-filter="color" value="${esc(filters.color)}" placeholder="Buscar color…"></label>
+      <label><span>Clase</span><input data-unit-filter="clase" value="${esc(filters.clase)}" placeholder="Buscar clase…"></label>
+    </div>
+    <div class="tras-search-field span-all" data-picker="unidad">
+      <span>Seleccionar unidad</span>
+      <input type="hidden" id="tras-form-mva" name="mva" value="${esc(draft.mva || '')}">
+      <div class="tras-search-input-wrap">
+        <input type="text" id="tras-form-unit-search" class="tras-search-input" value="${esc(selectedLabel)}" placeholder="Filtra y elige una unidad…" autocomplete="off">
+        <span class="material-icons" aria-hidden="true">directions_car</span>
+      </div>
+      <ul class="tras-search-menu" id="tras-unit-menu" hidden></ul>
+    </div>
+    <div id="tras-unit-summary" class="tras-unit-summary"${unit ? '' : ' hidden'}></div>
+    <div class="tras-form-grid tras-form-grid--unit">
+      <label>
+        <span>Kilometros de salida</span>
+        <input type="number" min="0" id="tras-form-km" name="kmSalida" value="${esc(String(draft.kmSalida ?? unit?.km ?? ''))}" placeholder="Kilometros de salida">
+      </label>
+      <label>
+        <span>Combustible de salida</span>
+        <input id="tras-form-gas-salida" value="${esc(gasSalida)}" readonly>
+      </label>
+    </div>
+  `;
+}
+
+function _initFormPickers() {
+  _paintChoferPickerMenu();
+  _paintUnitPickerMenu();
+  if (_s?.draft?.mva) _paintUnitSummary(_unitByMva(_s.draft.mva));
+  const choferSearch = _ctr?.querySelector('#tras-form-chofer-search');
+  if (choferSearch && !_s.draft?.choferSearch) {
+    _s.draft.choferSearch = choferSearch.value || '';
+  }
+  const onFocus = event => {
+    const field = event.target.closest('.tras-search-field');
+    if (field) _togglePicker(field, true);
+  };
+  _ctr?.querySelectorAll('.tras-search-input').forEach(el => {
+    el.removeEventListener('focus', onFocus);
+    el.addEventListener('focus', onFocus);
+  });
+}
+
+function _togglePicker(field, open) {
+  const menu = field?.querySelector('.tras-search-menu');
+  if (!menu) return;
+  _ctr?.querySelectorAll('.tras-search-menu').forEach(el => {
+    if (el !== menu) el.hidden = true;
+  });
+  menu.hidden = !open;
+}
+
+function _closeAllPickers() {
+  _ctr?.querySelectorAll('.tras-search-menu').forEach(el => { el.hidden = true; });
+}
+
+function _paintChoferPickerMenu() {
+  const menu = _ctr?.querySelector('#tras-chofer-menu');
+  if (!menu) return;
+  const query = _val('tras-form-chofer-search') || _s?.draft?.choferSearch || '';
+  const rows = _filteredChoferes(query).slice(0, 40);
+  if (!rows.length) {
+    menu.innerHTML = `<li class="tras-picker-empty">Sin choferes para esta búsqueda</li>`;
+    return;
+  }
+  menu.innerHTML = rows.map(c => `
+    <li>
+      <button type="button" class="tras-picker-option" data-action="picker-select" data-picker="chofer" data-value="${esc(c.uid || c.id)}" data-label="${esc(c.nombre)}">
+        <strong>${esc(c.nombre)}</strong>
+        ${c.licenciaVencimiento ? `<small>Licencia · ${esc(c.licenciaVencimiento)}</small>` : ''}
+      </button>
+    </li>
+  `).join('');
+}
+
+function _paintUnitPickerMenu() {
+  const menu = _ctr?.querySelector('#tras-unit-menu');
+  if (!menu) return;
+  const rows = _filteredUnitsForPicker().slice(0, 50);
+  if (!rows.length) {
+    menu.innerHTML = `<li class="tras-picker-empty">Sin unidades disponibles con estos filtros</li>`;
+    return;
+  }
+  menu.innerHTML = rows.map(u => `
+    <li>
+      <button type="button" class="tras-picker-option" data-action="picker-select" data-picker="unidad" data-value="${esc(u.mva)}" data-label="${esc(_unitPickerLabel(u))}">
+        <strong>${esc(u.mva || '—')}</strong>
+        <small>${esc([_unitField(u, 'clase'), u.modelo, u.placas, _unitField(u, 'marca')].filter(Boolean).join(' · ') || 'Sin datos')}</small>
+      </button>
+    </li>
+  `).join('');
+}
+
+function _handlePickerSelect(el) {
+  const picker = el.dataset.picker;
+  const value = el.dataset.value || '';
+  const label = el.dataset.label || '';
+  if (picker === 'chofer') {
+    const hidden = _ctr?.querySelector('#tras-form-chofer');
+    const search = _ctr?.querySelector('#tras-form-chofer-search');
+    if (hidden) hidden.value = value;
+    if (search) search.value = label;
+    if (_s?.draft) {
+      _s.draft.choferUid = value;
+      _s.draft.choferNombre = label;
+      _s.draft.choferSearch = label;
+    }
+    _closeAllPickers();
+    return;
+  }
+  if (picker === 'unidad') {
+    const unit = _unitByMva(value);
+    if (unit) _applyUnitSelection(unit);
+  }
 }
 
 function _plazas() {

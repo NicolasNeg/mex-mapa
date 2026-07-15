@@ -338,6 +338,16 @@ async function boot() {
     }
     router.navigate('/app/mapa');
   };
+  window.__mexGoToUnidad = (mva) => {
+    const token = String(mva || '').trim().toUpperCase();
+    if (!token) return;
+    router.navigate(`/app/cuadre/u/${encodeURIComponent(token)}`);
+  };
+  window.__mexCanViewUnidadExpediente = () => {
+    const role = String(getState().role || getState().profile?.rol || getState().profile?.role || '').toUpperCase().trim();
+    const LEVEL = { AUXILIAR: 1, VENTAS: 2, SUPERVISOR: 3, JEFE_PATIO: 4, GERENTE_PLAZA: 5, JEFE_REGIONAL: 6, CORPORATIVO_USER: 7, JEFE_OPERACION: 8, PROGRAMADOR: 9 };
+    return (LEVEL[role] || 0) >= LEVEL.VENTAS;
+  };
   // ¿El usuario puede ver esta plaza? (para mostrar/ocultar "Ver en mapa").
   window.__mexCanViewPlaza = (plaza) => {
     const p = String(plaza || '').trim().toUpperCase();

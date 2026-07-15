@@ -1,0 +1,392 @@
+/* Expediente de unidad — /app/cuadre/u/:mva */
+
+.uexp,
+.uexp * {
+  box-sizing: border-box;
+}
+
+.uexp {
+  --uexp-ink: #111827;
+  --uexp-muted: #6b7280;
+  --uexp-border: #d1d5db;
+  --uexp-line: #e5e7eb;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  color: var(--uexp-ink);
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+}
+
+.uexp .material-icons {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.uexp-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--uexp-line);
+}
+
+.uexp-head-main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.uexp-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--uexp-muted);
+  font: 500 13px/1 Inter, sans-serif;
+  cursor: pointer;
+  padding: 0;
+}
+
+.uexp-back:hover {
+  color: var(--uexp-ink);
+}
+
+.uexp-title-wrap h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.uexp-title-wrap p {
+  margin: 4px 0 0;
+  color: var(--uexp-muted);
+  font-size: 14px;
+}
+
+.uexp-head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.uexp-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 6px;
+  border: 1px solid var(--uexp-border);
+  background: #fff;
+  color: #374151;
+  font: 500 13px/1 Inter, sans-serif;
+  cursor: pointer;
+}
+
+.uexp-btn.primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.uexp-btn.ghost:hover {
+  background: #f9fafb;
+}
+
+.uexp-body {
+  flex: 1;
+  padding: 20px 24px 32px;
+  overflow: auto;
+}
+
+.uexp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.uexp-panel {
+  border: 1px solid var(--uexp-line);
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+}
+
+.uexp-panel--wide {
+  grid-column: 1 / -1;
+}
+
+.uexp-panel h2 {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--uexp-muted);
+}
+
+.uexp-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.uexp-panel-head h2 {
+  margin: 0;
+}
+
+.uexp-link {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  font: 600 12px/1 Inter, sans-serif;
+  cursor: pointer;
+  padding: 0;
+}
+
+.uexp-kv {
+  margin: 0;
+}
+
+.uexp-kv-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 38%) 1fr;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--uexp-line);
+}
+
+.uexp-kv-row:last-child {
+  border-bottom: 0;
+}
+
+.uexp-kv-row dt {
+  margin: 0;
+  color: var(--uexp-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.uexp-kv-row dd {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.uexp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.uexp-tag {
+  display: inline-flex;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.uexp-rec {
+  margin: 0;
+  font-size: 13px;
+  color: #374151;
+}
+
+.uexp-notes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.uexp-note {
+  border: 1px solid var(--uexp-line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #fafafa;
+}
+
+.uexp-note header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.uexp-note header strong {
+  font-size: 14px;
+}
+
+.uexp-note p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.uexp-note footer {
+  display: flex;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--uexp-muted);
+}
+
+.uexp-pill {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.uexp-pill.resuelta,
+.uexp-pill.resuelto {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.uexp-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.uexp-att-img img {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--uexp-line);
+}
+
+.uexp-att-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--uexp-line);
+  border-radius: 6px;
+  color: #2563eb;
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.uexp-log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.uexp-log li {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--uexp-line);
+}
+
+.uexp-log-dot {
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #2563eb;
+  flex-shrink: 0;
+}
+
+.uexp-log-text {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.uexp-log-meta {
+  font-size: 12px;
+  color: var(--uexp-muted);
+  margin-top: 2px;
+}
+
+.uexp-empty {
+  margin: 0;
+  color: var(--uexp-muted);
+  font-size: 13px;
+}
+
+.uexp-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--uexp-muted);
+  padding: 24px 0;
+}
+
+.uexp-loading .spin {
+  animation: uexp-spin 1s linear infinite;
+}
+
+@keyframes uexp-spin {
+  to { transform: rotate(360deg); }
+}
+
+.uexp-banner.danger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.uexp-denied {
+  max-width: 420px;
+  margin: 48px auto;
+  text-align: center;
+  padding: 24px;
+}
+
+.uexp-denied .material-icons {
+  font-size: 40px;
+  color: #94a3b8;
+}
+
+.uexp-denied h2 {
+  margin: 12px 0 8px;
+  font-size: 20px;
+}
+
+.uexp-denied p {
+  margin: 0 0 16px;
+  color: var(--uexp-muted);
+}
+
+@media (max-width: 900px) {
+  .uexp-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .uexp-head {
+    flex-direction: column;
+  }
+
+  .uexp-kv-row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}

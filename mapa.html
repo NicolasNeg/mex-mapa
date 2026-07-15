@@ -4379,7 +4379,7 @@
               <div>
                 <div style="font-size:15px; font-weight:900; color:white; letter-spacing:.03em;">Análisis de Reservas
                 </div>
-                <div style="font-size:11px; color:#94a3b8; font-weight:600;">Carga PDF o pega texto · Motor de
+                <div style="font-size:11px; color:#94a3b8; font-weight:600;">Captura, PDF o texto · Motor de
                   proyección operativa</div>
               </div>
             </div>
@@ -4393,18 +4393,20 @@
             <!-- Upload zone -->
             <div id="pdf-drop-zone"
               style="border:2px dashed #cbd5e1; border-radius:14px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;"
-              onclick="document.getElementById('pdf-file-input').click()"
+              onclick="document.getElementById('pdf-file-input')?.click()"
               ondragover="event.preventDefault();this.style.borderColor='#0284c7';this.style.background='#f0f9ff'"
               ondragleave="this.style.borderColor='#cbd5e1';this.style.background=''" ondrop="_onPDFDrop(event)">
               <span class="material-icons"
-                style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">upload_file</span>
-              <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra tu PDF aquí o haz clic para
-                seleccionar</div>
-              <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Reportes de reservas, regresos o asignaciones
+                style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">add_photo_alternate</span>
+              <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra captura, PDF o texto · o haz clic
               </div>
-              <input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none"
+              <div style="font-size:11px; color:#94a3b8; margin-top:4px;">JPG, PNG, WEBP, PDF o TXT · reservas, regresos o asignaciones
+              </div>
+              <input id="pdf-file-input" type="file" accept="image/jpeg,image/png,image/webp,.pdf,.txt,text/plain,application/pdf" style="display:none"
                 onchange="_onPDFFileInput(this)">
             </div>
+            <div id="pdf-image-preview" style="display:none;"></div>
+            <div id="pdf-image-status" style="display:none;font-size:12px;font-weight:700;color:#0369a1;"></div>
             <!-- OR divider -->
             <div style="display:flex; align-items:center; gap:10px;">
               <div style="flex:1; height:1px; background:#e2e8f0;"></div>

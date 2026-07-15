@@ -35,7 +35,7 @@ const ROLE_LEVEL = {
 
 const FIELD_ORDER = [
   'id', 'clase', 'vin', 'anio', 'marca', 'modelo', 'mva', 'placas',
-  'sucursal', 'plazaActual', 'estado', 'activo', 'color', 'gasolina',
+  'sucursal', 'plazaActual', 'estado', 'activo', 'color', 'capacidadTanque',
   'km', 'descripcion'
 ];
 
@@ -53,7 +53,7 @@ const FIELD_LABEL = {
   estado: 'Estatus',
   activo: 'Activo',
   color: 'Color',
-  gasolina: 'Tanque gasolina',
+  capacidadTanque: 'Capacidad tanque (L)',
   km: 'Kilometraje',
   descripcion: 'Descripción'
 };
@@ -94,6 +94,7 @@ export async function mount({ container }) {
   _render();
   _bind();
   await _load();
+  _applyDeepLinkFromQuery();
 
   _offs.push(onPlazaChange(next => {
     if (!_s) return;
@@ -111,7 +112,7 @@ export function unmount() {
 }
 
 function _ensureCss() {
-  const href = '/css/app-unidades.css?v=20260715b';
+  const href = '/css/app-unidades.css?v=20260715c';
   let link = document.querySelector('link[data-app-unidades-css="1"]');
   if (link) {
     if (link.getAttribute('href') !== href) link.setAttribute('href', href);
@@ -155,6 +156,19 @@ async function _load() {
     _s.error = err?.message || 'No se pudo cargar el inventario global.';
     _paint();
   }
+}
+
+function _applyDeepLinkFromQuery() {
+  if (!_s) return;
+  const params = new URLSearchParams(window.location.search);
+  const mva = _norm(params.get('mva') || '');
+  if (!mva) return;
+  const row = _s.units.find(u => _norm(u.mva) === mva || _norm(u.id) === mva);
+  if (!row) return;
+  _s.selectedId = row.id || row.mva || '';
+  _s.detailEditing = params.get('edit') === '1' && _canManage();
+  _paintDetail();
+  _ctr?.querySelector('#uni-detail')?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
 }
 
 function _render() {
@@ -239,7 +253,7 @@ function _paintDetail() {
         <section class="uni-form-panel">
           ${_fieldControl('descripcion', row, { editing: true })}
         </section>
-        <div class="uni-form-actions uni-form-actions--footer" hidden>
+        <div class="uni-form-actions uni-form-actions--footer"${_s.detailEditing && _canManage() ? '' : ' hidden'}>
           <button type="button" class="uni-btn ghost" data-action="cancel-edit">Cancelar</button>
           <button type="submit" class="uni-btn primary" data-action="save-detail">Guardar cambios</button>
         </div>
@@ -251,6 +265,7 @@ function _paintDetail() {
 
 function _syncDetailEditingUi() {
   const editing = Boolean(_s?.detailEditing && _canManage());
+  const row = _selected();
   const card = _ctr?.querySelector('#uni-detail .uni-detail-card');
   const form = _ctr?.querySelector('#uni-detail form[data-unit-form]');
   if (!card || !form) return;
@@ -275,8 +290,10 @@ function _syncDetailEditingUi() {
   if (footer) footer.hidden = !editing;
 
   const headActions = card.querySelector('.uni-detail-head .uni-actions');
-  if (headActions) {
+  if (headActions && row) {
+    const mva = row.mva || row.id || '';
     headActions.innerHTML = editing ? '' : `
+      <button type="button" class="uni-btn ghost" data-action="expediente" data-mva="${esc(mva)}">Expediente completo</button>
       <button type="button" class="uni-btn ghost" data-action="close-detail">Cerrar</button>
       <button type="button" class="uni-btn primary" data-action="edit"${_canManage() ? '' : ' disabled'}>Editar</button>
     `;
@@ -358,6 +375,7 @@ function _rowHtml(row) {
       <td>${esc(row.estado || row.estatus || '—')}</td>
       <td><span class="uni-active-text ${active ? 'yes' : 'no'}">${active ? 'Activo' : 'Inactivo'}</span></td>
       <td class="uni-row-actions">
+        <button type="button" class="uni-link-btn" data-action="expediente" data-mva="${esc(row.mva || '')}">Expediente</button>
         <button type="button" class="uni-link-btn" data-action="select" data-id="${esc(id)}">Ver</button>
       </td>
     </tr>
@@ -386,6 +404,12 @@ function _onClick(event) {
     return;
   }
   if (action === 'close-detail') { _s.detailEditing = false; _s.selectedId = ''; _paintDetail(); return; }
+  if (action === 'expediente') {
+    const mva = el.dataset.mva || el.closest('tr')?.querySelector('[data-mva]')?.dataset?.mva;
+    if (mva && typeof window.__mexGoToUnidad === 'function') window.__mexGoToUnidad(mva);
+    else if (mva) window.location.assign(`/app/cuadre/u/${encodeURIComponent(String(mva).trim().toUpperCase())}`);
+    return;
+  }
   if (action === 'select') { _s.detailEditing = false; _s.selectedId = el.dataset.id || el.closest('tr')?.dataset.id || ''; _paintDetail(); return; }
   if (action === 'prev') { _s.page = Math.max(1, _s.page - 1); _paintTable(); return; }
   if (action === 'next') { _s.page += 1; _paintTable(); return; }
@@ -468,7 +492,7 @@ function _openUnitModal(row = null) {
               ${_fieldControl('plazaActual', draft, { editing: true })}
               ${_fieldControl('estado', draft, { editing: true })}
               ${_fieldControl('activo', draft, { editing: true })}
-              ${_fieldControl('gasolina', draft, { editing: true })}
+              ${_fieldControl('capacidadTanque', draft, { editing: true })}
               ${_fieldControl('km', draft, { editing: true })}
             </div>
           </section>
@@ -700,7 +724,7 @@ async function _saveUnit(form) {
 function _unitPayload(row, original = null) {
   const plaza = _norm(row.sucursal || row.plaza || original?.sucursal || _s.plaza);
   const actual = _norm(row.plazaActual || row.ubicacionActual || original?.plazaActual || plaza);
-  return {
+  const payload = {
     ...(original || {}),
     mva: _norm(row.mva),
     vin: _norm(row.vin),
@@ -716,12 +740,14 @@ function _unitPayload(row, original = null) {
     plazaActual: actual,
     estado: _norm(row.estado || row.estatus),
     activo: _normalizeActivo(row.activo),
-    gasolina: String(row.gasolina || '').trim(),
+    capacidadTanque: _normalizeCapacidadTanque({ ...(original || {}), ...row }),
     km: _numberOrText(row.km),
     descripcion: String(row.descripcion || row.notas || '').trim(),
     _updatedAt: Date.now(),
     _updatedBy: _actor()
   };
+  delete payload.gasolina;
+  return payload;
 }
 
 function _exportCsv() {
@@ -787,6 +813,7 @@ function _field(row, key) {
   if (key === 'anio') return row.anio || row.año || '';
   if (key === 'activo') return _isActive(row) ? 'Activo' : 'Inactivo';
   if (key === 'descripcion') return row.descripcion || row.notas || '';
+  if (key === 'capacidadTanque') return _capacidadTanqueDisplay(row);
   return row[key] ?? '';
 }
 
@@ -795,7 +822,7 @@ function _fieldControl(key, row, { editing = false, required = false } = {}) {
   const req = required ? ' required' : '';
   const label = `${esc(FIELD_LABEL[key])}${required ? ' *' : ''}`;
   const locked = key === 'id';
-  const catalog = _fieldCatalog(key);
+  const catalog = _fieldCatalog(key, row);
 
   if (key === 'descripcion') {
     if (editing) {
@@ -815,10 +842,19 @@ function _fieldControl(key, row, { editing = false, required = false } = {}) {
     return `<label><span>${label}</span><input value="${esc(val || '—')}" readonly tabindex="-1"></label>`;
   }
 
+  if (key === 'capacidadTanque') {
+    const cap = _capacidadTanqueDisplay(row);
+    if (editing) {
+      return `<label><span>${label}</span><input name="capacidadTanque" type="number" min="0" step="1" inputmode="numeric" placeholder="Ej. 54" value="${esc(cap)}"${req}></label>`;
+    }
+    return `<label><span>${label}</span><input value="${esc(cap ? `${cap} L` : '—')}" readonly tabindex="-1"></label>`;
+  }
+
   if (editing && catalog?.length) {
+    const options = _catalogWithValue(catalog, val);
     return `<label><span>${label}</span><select name="${esc(key)}"${req}>
       ${required ? '' : _option('', 'Seleccionar', val)}
-      ${catalog.map(item => _option(item, item, val)).join('')}
+      ${options.map(item => _option(item, item, val)).join('')}
     </select></label>`;
   }
 
@@ -868,13 +904,56 @@ function _plazasCatalog() {
     .sort((a, b) => a.localeCompare(b, 'es'));
 }
 
-function _fieldCatalog(key) {
-  if (key === 'clase') return _catalogNames('categorias');
-  if (key === 'sucursal' || key === 'plazaActual') return _plazasCatalog();
-  if (key === 'estado') return _catalogNames('estados');
-  if (key === 'gasolina') return _catalogNames('gasolinas');
-  if (key === 'modelo') return _catalogNames('modelos');
+function _fieldCatalog(key, row = null) {
+  if (key === 'clase') return _catalogWithValue(_catalogNames('categorias'), _field(row || {}, key));
+  if (key === 'sucursal' || key === 'plazaActual') {
+    return _catalogWithValue(_plazasCatalog(), _field(row || {}, key));
+  }
+  if (key === 'estado') return _estadosCatalog(_field(row || {}, key));
+  if (key === 'modelo') return _catalogWithValue(_catalogNames('modelos'), _field(row || {}, key));
   return null;
+}
+
+function _catalogWithValue(catalog, currentVal) {
+  const cur = _norm(currentVal);
+  const base = Array.isArray(catalog) ? catalog : [];
+  if (!cur) return base;
+  return [...new Set([...base, cur].filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+}
+
+function _estadosCatalog(currentVal = '') {
+  const base = _catalogNames('estados');
+  const fromUnits = [...new Set((_s?.units || []).map(u => _norm(u.estado || u.estatus)).filter(Boolean))];
+  const fallback = ['ARRENDABLE', 'DISPONIBLE', 'RENTADO', 'MANTENIMIENTO', 'TRASLADO', 'SUCIO', 'LIMPIO'];
+  return _catalogWithValue([...base, ...fromUnits, ...fallback], currentVal);
+}
+
+function _looksLikeFuelLevel(value) {
+  const s = String(value || '').trim().toUpperCase();
+  if (!s) return false;
+  if (/^\d+$/.test(s)) return false;
+  if (/^\d+(\.\d+)?\s*(L|LT|LTS|LITROS?)?$/i.test(s)) return false;
+  return /^(F|E|N\/A|\d+\/\d+|\d+\s*\/\s*\d+|H)$/.test(s) || s.includes('/');
+}
+
+function _capacidadTanqueDisplay(row = {}) {
+  const direct = row.capacidadTanque ?? row.tanqueLitros ?? '';
+  if (direct !== '' && direct != null) {
+    const n = Number(direct);
+    return Number.isFinite(n) && n > 0 ? String(Math.round(n)) : String(direct).trim();
+  }
+  const legacy = row.gasolina;
+  if (legacy != null && legacy !== '' && !_looksLikeFuelLevel(legacy)) {
+    const n = Number(String(legacy).replace(/[^\d.]/g, ''));
+    if (Number.isFinite(n) && n > 0) return String(Math.round(n));
+  }
+  return '';
+}
+
+function _normalizeCapacidadTanque(row = {}) {
+  const raw = row?.capacidadTanque ?? row?.tanqueLitros ?? '';
+  const n = Number(String(raw).replace(/[^\d.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : '';
 }
 
 function _isActive(row) {

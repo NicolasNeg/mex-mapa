@@ -5473,6 +5473,8 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   // DIBUJAR BOTONES
   const btnGrid = document.getElementById('infoPanelBtnGrid');
   if (!btnGrid) return;
+  _closeActionsMenu();
+  _removeAllActionsMenus();
   btnGrid.style.gridTemplateColumns = "1fr 1fr";
   const _limboOff = (loc === "unidades-limbo" || loc === "unidades-taller" || loc === "LIMBO" || loc === "TALLER");
   const btnLimboStyle = _limboOff ? "opacity:0.5; pointer-events:none;" : "cursor:pointer;";
@@ -5483,8 +5485,8 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
     </button>
 
     <div class="usel-btn-wrap">
-      <button type="button" onclick="toggleActionsMenu(event)" class="usel-btn usel-btn-acciones">
-        <span class="material-symbols-outlined">more_horiz</span> Acciones
+      <button type="button" onclick="toggleActionsMenu(event)" class="usel-btn usel-btn-acciones" title="Acciones" aria-label="Acciones">
+        <span class="material-symbols-outlined">more_horiz</span>
       </button>
       <div id="moreActionsMenu" class="actions-dropdown">
         ${actionsHtml}
@@ -5572,8 +5574,18 @@ function _getActionsMenuWrap() {
   return document.querySelector('#infoPanelBtnGrid .usel-btn-wrap');
 }
 
+function _getActionsMenu() {
+  const wrap = _getActionsMenuWrap();
+  return wrap?.querySelector('#moreActionsMenu')
+    || document.getElementById('moreActionsMenu');
+}
+
+function _removeAllActionsMenus() {
+  document.querySelectorAll('#moreActionsMenu').forEach(el => el.remove());
+}
+
 function _closeActionsMenu() {
-  const menu = document.getElementById('moreActionsMenu');
+  const menu = _getActionsMenu();
   if (!menu) return;
   menu.classList.remove('show');
   menu.removeAttribute('style');
@@ -5583,9 +5595,11 @@ function _closeActionsMenu() {
 
 // Cerrar el menú de Acciones al hacer clic fuera de su contenedor.
 document.addEventListener('click', (e) => {
-  const menu = document.getElementById('moreActionsMenu');
+  const menu = _getActionsMenu();
   if (!menu || !menu.classList.contains('show')) return;
-  if (e.target.closest('.usel-btn-wrap') || e.target.closest('#moreActionsMenu')) return;
+  if (e.target.closest('.usel-btn-wrap')
+    || e.target.closest('button.usel-btn-acciones')
+    || e.target.closest('#moreActionsMenu')) return;
   _closeActionsMenu();
 });
 
@@ -5596,7 +5610,8 @@ function _actionItem(icon, label, onclick, iconColor = '') {
 
 function toggleActionsMenu(ev) {
   ev?.stopPropagation?.();
-  const menu = document.getElementById('moreActionsMenu');
+  ev?.preventDefault?.();
+  const menu = _getActionsMenu();
   if (!menu) return;
   if (menu.classList.contains('show')) {
     _closeActionsMenu();
@@ -5604,16 +5619,16 @@ function toggleActionsMenu(ev) {
   }
   menu.classList.add('show');
   if (menu.parentElement !== document.body) document.body.appendChild(menu);
-  _positionActionsMenu();
+  requestAnimationFrame(() => _positionActionsMenu());
 }
 
 function _positionActionsMenu() {
-  const menu = document.getElementById('moreActionsMenu');
+  const menu = _getActionsMenu();
   const wrap = _getActionsMenuWrap();
   const btn = wrap?.querySelector('button.usel-btn-acciones') || wrap?.querySelector('button');
   if (!menu || !btn) return;
   const r = btn.getBoundingClientRect();
-  const width = Math.max(240, r.width);
+  const width = Math.max(260, r.width);
   let left = Math.min(r.left, window.innerWidth - width - 8);
   left = Math.max(8, left);
   const spaceAbove = r.top - 8;
@@ -5622,7 +5637,8 @@ function _positionActionsMenu() {
   menu.style.left = `${left}px`;
   menu.style.width = `${width}px`;
   menu.style.right = 'auto';
-  menu.style.zIndex = '4000';
+  menu.style.zIndex = '60000';
+  menu.style.pointerEvents = 'auto';
   if (spaceAbove >= 180 || spaceAbove > spaceBelow) {
     menu.style.bottom = `${window.innerHeight - r.top + 8}px`;
     menu.style.top = 'auto';
@@ -17091,7 +17107,11 @@ function mostrarDetalleGlobal(d) {
         </div>
     `;
   const btnGrid = document.getElementById('infoPanelBtnGrid');
-  if (btnGrid) btnGrid.innerHTML = `<button onclick="cerrarPanel()" style="grid-column: span 3; padding:18px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer;">ENTENDIDO</button>`;
+  if (btnGrid) {
+    _closeActionsMenu();
+    _removeAllActionsMenus();
+    btnGrid.innerHTML = `<button onclick="cerrarPanel()" style="grid-column: span 3; padding:18px; border-radius:14px; border:none; background:#f1f5f9; color:var(--primary); font-weight:900; cursor:pointer;">ENTENDIDO</button>`;
+  }
   panel.classList.add('open');
 }
 /**
@@ -24113,16 +24133,51 @@ function _actualizarSupervisionConUnidades(unidades) {
 // ═══════════════════════════════════════════════════════════
 
 // ── F4.1  Modal de carga ────────────────────────────────────
+function _isImageReservasFile(file) {
+  if (!file) return false;
+  if (String(file.type || '').startsWith('image/')) return true;
+  return /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(String(file.name || ''));
+}
+
+let _pdfReservasPasteHandler = null;
+
+function _bindPDFReservasPaste(modal) {
+  if (!modal) return;
+  _unbindPDFReservasPaste(modal);
+  _pdfReservasPasteHandler = (event) => {
+    const items = event.clipboardData?.items;
+    if (!items?.length) return;
+    for (const item of items) {
+      if (!String(item.type || '').startsWith('image/')) continue;
+      event.preventDefault();
+      const file = item.getAsFile();
+      if (file) _procesarArchivoReservas(file);
+      return;
+    }
+  };
+  modal.addEventListener('paste', _pdfReservasPasteHandler);
+}
+
+function _unbindPDFReservasPaste(modal) {
+  if (modal && _pdfReservasPasteHandler) {
+    modal.removeEventListener('paste', _pdfReservasPasteHandler);
+  }
+  _pdfReservasPasteHandler = null;
+}
+
 async function abrirModalPDFReservas() {
   const modal = document.getElementById('modal-pdf-reservas') || await _ensureLegacyModalElement('modal-pdf-reservas');
   if (!modal) return;
-  // Limpiar estado previo
   const ta = document.getElementById('pdf-texto-bruto');
   const res = document.getElementById('pdf-resultados');
+  const preview = document.getElementById('pdf-image-preview');
+  const status = document.getElementById('pdf-image-status');
   if (ta) ta.value = '';
   if (res) { res.style.display = 'none'; res.innerHTML = ''; }
-  const dz = document.getElementById('pdf-drop-zone');
-  if (dz) { dz.style.borderColor = '#cbd5e1'; dz.style.background = ''; }
+  if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
+  if (status) { status.style.display = 'none'; status.textContent = ''; }
+  _resetPDFDropZone();
+  _bindPDFReservasPaste(modal);
   modal.style.display = 'flex';
 }
 
@@ -24143,13 +24198,28 @@ async function abrirPrediccionCuadre() {
 
 function cerrarModalPDFReservas() {
   const modal = document.getElementById('modal-pdf-reservas');
-  if (modal) modal.style.display = 'none';
+  if (modal) {
+    _unbindPDFReservasPaste(modal);
+    modal.style.display = 'none';
+  }
+}
+
+function _resetPDFDropZone() {
+  const dz = document.getElementById('pdf-drop-zone');
+  if (!dz) return;
+  dz.style.borderColor = '#cbd5e1';
+  dz.style.background = '';
+  dz.innerHTML = `
+    <span class="material-icons" style="font-size:38px;color:#94a3b8;display:block;margin-bottom:8px;">add_photo_alternate</span>
+    <div style="font-size:13px;font-weight:800;color:#475569;">Arrastra captura, PDF o texto · o haz clic</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px;">JPG, PNG, WEBP, PDF o TXT · también Ctrl+V para pegar captura</div>
+    <input id="pdf-file-input" type="file" accept="image/jpeg,image/png,image/webp,.pdf,.txt,text/plain,application/pdf" style="display:none" onchange="_onPDFFileInput(this)">
+  `;
 }
 
 function _onPDFDrop(event) {
   event.preventDefault();
-  const dz = document.getElementById('pdf-drop-zone');
-  if (dz) { dz.style.borderColor = '#cbd5e1'; dz.style.background = ''; }
+  _resetPDFDropZone();
   const file = event.dataTransfer?.files?.[0];
   if (file) _procesarArchivoReservas(file);
 }
@@ -24157,28 +24227,89 @@ function _onPDFDrop(event) {
 function _onPDFFileInput(input) {
   const file = input?.files?.[0];
   if (file) _procesarArchivoReservas(file);
+  if (input) input.value = '';
 }
 
-function _procesarArchivoReservas(file) {
+async function _procesarArchivoReservas(file) {
+  if (!file) return;
+  const isImage = _isImageReservasFile(file);
   const dz = document.getElementById('pdf-drop-zone');
   if (dz) {
-    dz.innerHTML = `<span class="material-icons" style="font-size:28px;color:#0284c7;display:block;margin-bottom:6px;animation:spin 1s linear infinite;">sync</span><div style="font-size:12px;font-weight:800;color:#0369a1;">Leyendo ${escapeHtml(file.name)}...</div>`;
+    dz.innerHTML = `<span class="material-icons" style="font-size:28px;color:#0284c7;display:block;margin-bottom:6px;animation:spin 1s linear infinite;">sync</span><div style="font-size:12px;font-weight:800;color:#0369a1;">Procesando ${escapeHtml(file.name)}…</div>`;
   }
+
+  if (isImage) {
+    await _procesarImagenAnalisisReservas(file);
+    return;
+  }
+
   const reader = new FileReader();
   reader.onload = (e) => {
     const text = e.target?.result || '';
     const ta = document.getElementById('pdf-texto-bruto');
     if (ta) ta.value = text;
+    const preview = document.getElementById('pdf-image-preview');
+    if (preview) { preview.style.display = 'none'; preview.innerHTML = ''; }
     if (dz) {
-      dz.innerHTML = `<span class="material-icons" style="font-size:28px;color:#10b981;display:block;margin-bottom:6px;">check_circle</span><div style="font-size:12px;font-weight:800;color:#10b981;">Archivo cargado: ${escapeHtml(file.name)}</div>`;
+      dz.innerHTML = `<span class="material-icons" style="font-size:28px;color:#10b981;display:block;margin-bottom:6px;">check_circle</span><div style="font-size:12px;font-weight:800;color:#10b981;">Archivo cargado: ${escapeHtml(file.name)}</div><input id="pdf-file-input" type="file" accept="image/jpeg,image/png,image/webp,.pdf,.txt,text/plain,application/pdf" style="display:none" onchange="_onPDFFileInput(this)">`;
     }
   };
   reader.onerror = () => {
     showToast('No se pudo leer el archivo', 'error');
-    if (dz) dz.innerHTML = `<span class="material-icons" style="font-size:38px;color:#94a3b8;display:block;margin-bottom:8px;">upload_file</span><div style="font-size:13px;font-weight:800;color:#475569;">Arrastra tu PDF aquí o haz clic para seleccionar</div><div style="font-size:11px;color:#94a3b8;margin-top:4px;">Reportes de reservas, regresos o asignaciones</div><input id="pdf-file-input" type="file" accept=".pdf,.txt" style="display:none" onchange="_onPDFFileInput(this)">`;
+    _resetPDFDropZone();
   };
-  // Leer como texto (funciona para .txt; PDFs se leen como texto con metadata extraíble)
   reader.readAsText(file, 'UTF-8');
+}
+
+async function _procesarImagenAnalisisReservas(file) {
+  const status = document.getElementById('pdf-image-status');
+  const preview = document.getElementById('pdf-image-preview');
+  const btn = document.getElementById('btn-analizar-pdf');
+  if (status) {
+    status.style.display = 'block';
+    status.textContent = 'Leyendo captura con IA…';
+  }
+  if (btn) btn.disabled = true;
+  try {
+    const result = await _pdfReservas.procesarAnalisisReservasDesdeImagen(file);
+    const ta = document.getElementById('pdf-texto-bruto');
+    if (ta && result?.text) ta.value = result.text;
+    if (preview && result?.previewUrl) {
+      preview.style.display = 'block';
+      preview.innerHTML = `<img src="${result.previewUrl}" alt="Captura cargada" style="max-width:100%;max-height:160px;border-radius:10px;border:1px solid #e2e8f0;">`;
+    }
+    const dz = document.getElementById('pdf-drop-zone');
+    if (dz) {
+      dz.innerHTML = `<span class="material-icons" style="font-size:28px;color:#10b981;display:block;margin-bottom:6px;">check_circle</span><div style="font-size:12px;font-weight:800;color:#10b981;">Captura leída: ${escapeHtml(file.name)}</div><div style="font-size:11px;color:#64748b;margin-top:4px;">${(result?.reservas?.length || 0)} movimientos detectados</div><input id="pdf-file-input" type="file" accept="image/jpeg,image/png,image/webp,.pdf,.txt,text/plain,application/pdf" style="display:none" onchange="_onPDFFileInput(this)">`;
+    }
+    if (status) status.textContent = 'Captura procesada. Generando proyección…';
+    const reservas = result?.reservas?.length
+      ? result.reservas
+      : _parsearTextoReservas(result?.text || '');
+    const presion = _calcularPresionOperativa(reservas);
+    const recs = _generarRecomendaciones(presion);
+    _renderResultadosPDF(reservas, presion, recs);
+    _actualizarPanelRecomendacion(presion, recs);
+    if (status) {
+      status.textContent = 'Listo — revisa la proyección abajo.';
+      status.style.color = '#059669';
+    }
+    showToast('Captura analizada correctamente', 'success');
+  } catch (err) {
+    console.error('[F4] imagen reservas:', err);
+    const msg = err?.message || err?.details || '';
+    const soft = /demasiado grande|no se detectaron|Formato|imagen|Gemini|configurado/i.test(msg)
+      ? msg
+      : 'No se pudo leer la captura.';
+    showToast(soft, 'error');
+    if (status) {
+      status.textContent = soft;
+      status.style.color = '#dc2626';
+    }
+    _resetPDFDropZone();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
 
 // ── F4.1  Parser de texto (reservas / regresos / entregas) ──

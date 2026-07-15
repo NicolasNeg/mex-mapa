@@ -327,6 +327,10 @@
   background: #fafafa;
 }
 
+.uni-form-actions--footer[hidden] {
+  display: none !important;
+}
+
 .uni input[readonly]:focus,
 .uni textarea[readonly]:focus {
   border-color: var(--uni-border);

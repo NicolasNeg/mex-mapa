@@ -362,9 +362,69 @@ function _setActividadImageBusy(busy) {
   if (input && !busy) input.value = '';
 }
 
+function _actividadToPlainText(data) {
+  const lines = [];
+  (data.reservas || []).forEach(r => {
+    lines.push(`RESERVA ${r.numero || ''} ${r.clase || ''} ${r.cliente || ''} ${r.fecha || ''}`.trim());
+  });
+  (data.regresos || []).forEach(r => {
+    lines.push(`REGRESO ${r.numero || ''} ${r.clase || ''} ${r.cliente || ''} ${r.fecha || ''}`.trim());
+  });
+  (data.vencidos || []).forEach(r => {
+    lines.push(`VENCIDO ${r.numero || ''} ${r.clase || ''} ${r.cliente || ''} ${r.fecha || ''}`.trim());
+  });
+  return lines.filter(Boolean).join('\n');
+}
+
+/** Convierte filas Gemini → formato del analizador de proyección operativa. */
+export function actividadGeminiToReservas(data = {}) {
+  const out = [];
+  const push = (row, accion, keyword) => {
+    if (!row) return;
+    const line = `${row.numero || ''} ${row.clase || ''} ${row.cliente || ''} ${keyword} ${row.fecha || ''}`.trim();
+    const mvaMatch = line.match(/\b([A-Z]{1,3}\d{3,5})\b/i);
+    out.push({
+      mva: mvaMatch ? mvaMatch[1].toUpperCase() : String(row.numero || 'GEN').toUpperCase().slice(0, 12) || 'N/A',
+      accion,
+      fecha: row.fecha ? String(row.fecha).slice(0, 10) : null,
+      linea: line.slice(0, 120)
+    });
+  };
+  (data.reservas || []).forEach(r => push(r, 'ENTRADA', 'reserva'));
+  (data.regresos || []).forEach(r => push(r, 'ENTRADA', 'regreso'));
+  (data.vencidos || []).forEach(r => push(r, 'SALIDA', 'vencido'));
+  return out;
+}
+
+async function _callGeminiActivityCallable(dataUrl, mimeType) {
+  const functions = window._functions
+    || (typeof window.firebase?.app === 'function' ? window.firebase.app().functions('us-central1') : null)
+    || (typeof window.firebase?.functions === 'function' ? window.firebase.functions() : null);
+  if (!functions?.httpsCallable) throw new Error('Functions no disponible');
+  const callable = functions.httpsCallable('generarReporteActividadDesdeImagen');
+  const result = await callable({ imageBase64: dataUrl, mimeType });
+  return result?.data || {};
+}
+
+/**
+ * Imagen (captura) → Gemini → texto + filas para proyección en modal Análisis de Reservas.
+ */
+export async function procesarAnalisisReservasDesdeImagen(file) {
+  if (!file) return null;
+  const isImage = String(file.type || '').startsWith('image/')
+    || /\.(jpe?g|png|webp|gif|bmp|heic)$/i.test(String(file.name || ''));
+  if (!isImage) {
+    throw new Error('Selecciona una imagen (JPG, PNG o WEBP).');
+  }
+  const { dataUrl, mimeType } = await _compressImageFile(file);
+  const data = await _callGeminiActivityCallable(dataUrl, mimeType);
+  const text = _actividadToPlainText(data);
+  const reservas = actividadGeminiToReservas(data);
+  return { text, reservas, data, previewUrl: dataUrl };
+}
+
 /**
  * Camino principal: imagen → Cloud Function (Gemini) → PDF.
- * El usuario no ve texto crudo ni JSON.
  */
 export async function procesarActividadDesdeImagen(eventOrFile) {
   const file = eventOrFile?.target?.files?.[0] || eventOrFile;
@@ -377,14 +437,7 @@ export async function procesarActividadDesdeImagen(eventOrFile) {
   _setActividadImageBusy(true);
   try {
     const { dataUrl, mimeType } = await _compressImageFile(file);
-    const functions = window._functions
-      || (typeof window.firebase?.app === 'function' ? window.firebase.app().functions('us-central1') : null)
-      || (typeof window.firebase?.functions === 'function' ? window.firebase.functions() : null);
-    if (!functions?.httpsCallable) throw new Error('Functions no disponible');
-
-    const callable = functions.httpsCallable('generarReporteActividadDesdeImagen');
-    const result = await callable({ imageBase64: dataUrl, mimeType });
-    const data = result?.data || {};
+    const data = await _callGeminiActivityCallable(dataUrl, mimeType);
     const reservas = _sortReservas(data.reservas || []);
     const regresos = _sortRegresos(data.regresos || []);
     const vencidos = (data.vencidos || []).slice().sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
@@ -413,3 +466,4 @@ export async function procesarActividadDesdeImagen(eventOrFile) {
     _setActividadImageBusy(false);
   }
 }
+

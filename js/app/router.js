@@ -128,6 +128,10 @@ const ROUTE_TABLE = {
     navRoute: '/app/unidades',
   },
   '/app/cuadre':   legacyStage('cuadre', '/cuadre'),
+  '/app/cuadre/u': {
+    loader:   () => import('/js/app/views/unidad-expediente.js'),
+    navRoute: '/app/unidades',
+  },
   '/app/cuadrarflota': {
     loader: () => import('/js/app/views/cuadrarflota.js'),
     navRoute: '/app/cuadrarflota',
@@ -205,6 +209,7 @@ const ROUTE_STYLES = {
   "/app/cola-preparacion": [{ href: "/css/cola-preparacion.css", attr: "data-cola-css" }],
   "/app/incidencias": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
   "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715b", attr: "data-app-unidades-css" }],
+  "/app/cuadre/u": [{ href: "/css/app-unidad-expediente.css?v=20260715a", attr: "data-app-unidad-exp-css" }],
   "/app/mapa": [
     { href: "/css/mapa.css", attr: "data-lmapa-css" },
     { href: "/css/alertas.css", attr: "data-lmapa-alertas-css" },
@@ -265,6 +270,7 @@ function _routeForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
   if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
+  if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
   return ROUTE_TABLE[key];
 }
 
@@ -272,6 +278,7 @@ function _styleKeyForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
   if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
+  if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';
   return key;
 }
 
