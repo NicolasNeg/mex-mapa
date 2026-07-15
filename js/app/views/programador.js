@@ -18,6 +18,7 @@ const _RELEASE_ROUTES = [
   '/app/mensajes',
   '/app/cola-preparacion',
   '/app/incidencias',
+  '/app/unidades',
   '/app/cuadre',
   '/app/admin',
   '/app/programador',

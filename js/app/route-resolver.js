@@ -97,6 +97,15 @@ export const ROUTE_MAP = {
     shellIntegrated:    true,
     fullModuleMigrated: true,
   },
+  unidades: {
+    id: 'unidades', label: 'Unidades',
+    legacyRoute:  '/unidades',
+    appRoute:     '/app/unidades',
+    navRoute:     '/app/unidades',
+    fallbackRoute:'/app/unidades',
+    shellIntegrated:    true,
+    fullModuleMigrated: true,
+  },
   admin: {
     id: 'admin', label: 'Panel admin',
     legacyRoute:  '/gestion',

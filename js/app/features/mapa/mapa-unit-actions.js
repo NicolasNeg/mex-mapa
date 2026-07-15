@@ -22,7 +22,8 @@ const BLOCKED_ACTIONS = new Set([
   'formal_close',
   'report_pdf',
   'edit_structure',
-  'edit_mapa_config'
+  'edit_mapa_config',
+  'persist_position'
 ]);
 
 const ACTION_DEFS = Object.freeze({

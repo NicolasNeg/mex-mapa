@@ -109,6 +109,13 @@ export const NAV_GROUPS = [
         roles: ["VENTAS", "SUPERVISOR", "JEFE_PATIO", "GERENTE_PLAZA", "JEFE_REGIONAL", "CORPORATIVO_USER", "JEFE_OPERACION", "PROGRAMADOR"]
       },
       {
+        id: 'unidades',
+        label: 'Unidades',
+        icon: 'directions_car',
+        route: '/app/unidades',
+        roles: ['VENTAS', 'SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
+      },
+      {
         id: 'incidencias',
         label: 'Notas e incidencias',
         icon: 'warning',
@@ -235,6 +242,7 @@ export const ROUTE_TITLES = {
   '/app/mensajes':         'Mensajes',
   '/app/cola-preparacion': 'Cola de preparación',
   '/app/incidencias':      'Notas e incidencias',
+  '/app/unidades':         'Unidades',
   '/app/cuadre':           'Cuadre',
   '/app/cuadrarflota':     'Cuadrar flota',
   '/app/traslados':        'Traslados',

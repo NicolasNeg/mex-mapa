@@ -20,7 +20,8 @@ const VIEW_MODULES = [
   '/js/app/views/mensajes.js',
   '/js/app/views/alertas.js',
   '/js/app/views/profile.js',
-  '/js/app/views/cuadrarflota.js'
+  '/js/app/views/cuadrarflota.js',
+  '/js/app/views/unidades.js'
 ];
 
 const VIEW_STYLES = [
@@ -30,7 +31,8 @@ const VIEW_STYLES = [
   '/css/app-mensajes.css',
   '/css/app-alertas.css',
   '/css/app-profile.css',
-  '/css/app-cuadrarflota.css'
+  '/css/app-cuadrarflota.css',
+  '/css/app-unidades.css'
 ];
 
 let _assetsWarmed = false;

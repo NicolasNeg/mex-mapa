@@ -2869,6 +2869,14 @@ button.app-mapa-view.is-active {
   text-align: center;
 }
 
+.app-mapa-legacy-panel-btn {
+  gap: 6px;
+}
+
+.app-mapa-legacy-panel-btn .material-icons {
+  font-size: 16px;
+}
+
 .app-mapa-legacy-panel-btn--danger {
   border-color: rgba(248, 113, 113, 0.55);
   background: rgba(127, 29, 29, 0.82);
@@ -2915,6 +2923,42 @@ button.app-mapa-view.is-active {
   font-weight: 800;
   cursor: pointer;
   text-align: center;
+}
+
+.app-mapa-legacy-actions-list,
+.app-mapa-actions-menu {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.app-mapa-legacy-actions-list button,
+.app-mapa-actions-menu .app-mapa-action-btn {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+  text-align: center;
+}
+
+.app-mapa-legacy-actions-list button:hover,
+.app-mapa-actions-menu .app-mapa-action-btn:hover {
+  background: rgba(51, 65, 85, 0.92);
+  border-color: rgba(203, 213, 225, 0.38);
+}
+
+.app-mapa-legacy-actions-list .material-icons,
+.app-mapa-actions-menu .material-icons {
+  font-size: 15px;
 }
 
 .app-mapa-slot.spot-available-hint,

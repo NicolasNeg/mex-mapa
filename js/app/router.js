@@ -78,6 +78,7 @@ const _PREF_ROUTES = new Set([
   '/app/mapa',
   '/app/cola-preparacion',
   '/app/incidencias',
+  '/app/unidades',
   '/app/mensajes',
   '/app/cuadre',
   "/app/traslados",
@@ -121,6 +122,10 @@ const ROUTE_TABLE = {
     loader:   () => import('/js/app/views/incidencias.js'),
     navRoute: '/incidencias',
     feature:  'incidencias'
+  },
+  '/app/unidades': {
+    loader:   () => import('/js/app/views/unidades.js'),
+    navRoute: '/app/unidades',
   },
   '/app/cuadre':   legacyStage('cuadre', '/cuadre'),
   '/app/cuadrarflota': {
@@ -199,6 +204,7 @@ const ROUTE_STYLES = {
   "/app/mensajes": [{ href: "/css/app-mensajes.css", attr: "data-app-mensajes-css" }],
   "/app/cola-preparacion": [{ href: "/css/cola-preparacion.css", attr: "data-cola-css" }],
   "/app/incidencias": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
+  "/app/unidades": [{ href: "/css/app-unidades.css", attr: "data-app-unidades-css" }],
   "/app/mapa": [
     { href: "/css/mapa.css", attr: "data-lmapa-css" },
     { href: "/css/alertas.css", attr: "data-lmapa-alertas-css" },

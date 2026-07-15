@@ -766,7 +766,7 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
           const aid = String(action.id || '').trim();
           const lbl = String(action.label || aid || 'Acción');
           const confirmText = action.requiresConfirm ? ' data-app-mapa-requires-confirm="1"' : '';
-          return `<button type="button" class="app-mapa-action-btn app-mapa-action-btn--primary" data-app-mapa-unit-action="${esc(aid)}"${confirmText}>${esc(lbl)}</button>`;
+          return `<button type="button" class="app-mapa-action-btn app-mapa-action-btn--primary" data-app-mapa-unit-action="${esc(aid)}"${confirmText}><span class="material-icons">task_alt</span>${esc(lbl)}</button>`;
         })
         .join('')}
     </div>`
@@ -775,23 +775,20 @@ function _renderUnitActionsBlock(selected, plaza, actions = {}) {
   return `
     <section class="app-mapa-actions">
       <div class="app-mapa-legacy-panel-actions">
-        <button type="button" class="app-mapa-legacy-panel-btn app-mapa-legacy-panel-btn--danger" data-app-mapa-detail="limbo">LIMBO</button>
-        <details class="app-mapa-legacy-actions-dropdown">
-          <summary>ACCIONES</summary>
-          <div class="app-mapa-legacy-actions-dropdown__body">
-            ${isApartado
-              ? '<button type="button" data-app-mapa-quick-action="QUITAR_APARTADO">QUITAR APARTADO</button>'
-              : '<button type="button" data-app-mapa-quick-action="APARTAR">APARTAR UNIDAD</button>'}
-            ${isDobleCero
-              ? '<button type="button" data-app-mapa-quick-action="QUITAR_DOBLE_CERO">QUITAR DOBLE CERO</button>'
-              : '<button type="button" data-app-mapa-quick-action="DOBLE_CERO">AÑADIR DOBLE CERO</button>'}
-            <button type="button" data-app-mapa-detail="create-incident">CREAR INCIDENCIA</button>
-            <button type="button" data-app-mapa-official-unit="edit-unit">EDITAR UNIDAD</button>
-            <button type="button" data-copy-mva="${esc(mva)}">COPIAR MVA</button>
-            ${secureHtml}
-          </div>
-        </details>
-        <button type="button" class="app-mapa-legacy-panel-btn" data-app-mapa-detail="close-panel">CERRAR</button>
+        <button type="button" class="app-mapa-legacy-panel-btn app-mapa-legacy-panel-btn--danger" data-app-mapa-detail="limbo"><span class="material-icons">logout</span>LIMBO</button>
+        <button type="button" class="app-mapa-legacy-panel-btn" data-app-mapa-detail="create-incident"><span class="material-icons">warning</span>INCIDENCIA</button>
+        <button type="button" class="app-mapa-legacy-panel-btn" data-app-mapa-detail="close-panel"><span class="material-icons">close</span>CERRAR</button>
+      </div>
+      <div class="app-mapa-legacy-actions-list" aria-label="Acciones de unidad">
+        ${isApartado
+          ? '<button type="button" data-app-mapa-quick-action="QUITAR_APARTADO"><span class="material-icons">bookmark_remove</span>Quitar apartado</button>'
+          : '<button type="button" data-app-mapa-quick-action="APARTAR"><span class="material-icons">bookmark_add</span>Apartar unidad</button>'}
+        ${isDobleCero
+          ? '<button type="button" data-app-mapa-quick-action="QUITAR_DOBLE_CERO"><span class="material-icons">remove_circle</span>Quitar doble cero</button>'
+          : '<button type="button" data-app-mapa-quick-action="DOBLE_CERO"><span class="material-icons">add_circle</span>Añadir doble cero</button>'}
+        <button type="button" data-app-mapa-official-unit="edit-unit"><span class="material-icons">edit</span>Editar unidad</button>
+        <button type="button" data-copy-mva="${esc(mva)}"><span class="material-icons">content_copy</span>Copiar MVA</button>
+        ${secureHtml}
       </div>
     </section>
   `;
