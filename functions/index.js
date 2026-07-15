@@ -2828,3 +2828,180 @@ exports.revocarInvitacion = functions.region(REGION).https.onCall(async (data, c
   await db.collection(INVITACIONES_COL).doc(codigo).update({ revocada: true });
   return { ok: true };
 });
+
+// ─── Reporte actividad diaria desde imagen (Gemini) ───────────
+
+const GEMINI_MAX_IMAGE_BYTES = 900 * 1024;
+const GEMINI_ACTIVITY_PROMPT = `Eres un extractor de datos de capturas del sistema Optima (rent a car México).
+Analiza la imagen y extrae SOLO filas visibles de:
+- reservas / reservaciones / salidas
+- regresos / contratos por cerrar / llegadas
+- vencidos / posibles llegadas (si aparecen)
+
+Responde ÚNICAMENTE con JSON válido (sin markdown) con esta forma exacta:
+{
+  "fechaBase": "YYYY-MM-DD o vacío",
+  "reservas": [{"numero":"","fecha":"YYYY-MM-DD HH:mm:ss","clase":"XXXX","cliente":"","pago":false,"frecuente":false}],
+  "regresos": [{"numero":"","fecha":"YYYY-MM-DD HH:mm:ss","clase":"XXXX","cliente":"","pago":false,"frecuente":false}],
+  "vencidos": [{"numero":"","fecha":"YYYY-MM-DD HH:mm:ss","clase":"XXXX","cliente":"","pago":false,"frecuente":false}]
+}
+
+Reglas:
+- No inventes contratos. Si no se lee, omite la fila.
+- "clase" suele ser un código de 4 letras (ej. ECAR, ICAR).
+- "numero" es el contrato.
+- "pago" true si dice CON PAGO; "frecuente" true si dice CLIENTE FRECUENTE.
+- Si una sección no aparece, usa [].`;
+
+function _geminiApiKey() {
+  const cfg = functions.config().gemini || {};
+  return normalizeString(cfg.api_key || process.env.GEMINI_API_KEY);
+}
+
+function _geminiModel() {
+  const cfg = functions.config().gemini || {};
+  return normalizeString(cfg.model || process.env.GEMINI_MODEL || "gemini-2.0-flash");
+}
+
+function _stripDataUrl(raw) {
+  const value = normalizeString(raw);
+  const m = value.match(/^data:([^;]+);base64,(.+)$/i);
+  if (m) return { mimeType: m[1], base64: m[2] };
+  return { mimeType: "", base64: value.replace(/\s+/g, "") };
+}
+
+function _normalizeActivityRow(row, tipo) {
+  if (!row || typeof row !== "object") return null;
+  const numero = normalizeString(row.numero || row.contrato || row.auto_id || "");
+  const fecha = normalizeString(row.fecha || row.fecha_regreso || row.fecha_salida || "");
+  const clase = normalizeUpper(row.clase || row.class || "").slice(0, 8);
+  const cliente = normalizeString(row.cliente || row.modelo || row.notas || "SIN NOMBRE");
+  if (!numero && !fecha && !clase) return null;
+  return {
+    numero: numero || "S/C",
+    fecha: fecha || "",
+    clase: clase || "XXXX",
+    cliente: cliente || "SIN NOMBRE",
+    pago: row.pago === true || /con pago/i.test(String(row.cliente || "")),
+    frecuente: row.frecuente === true || /frecuente/i.test(String(row.cliente || "")),
+    tipo
+  };
+}
+
+function _normalizeActivityList(list, tipo) {
+  if (!Array.isArray(list)) return [];
+  return list.map((row) => _normalizeActivityRow(row, tipo)).filter(Boolean);
+}
+
+function _parseGeminiJson(text) {
+  let raw = normalizeString(text);
+  if (!raw) throw new Error("Respuesta vacía de Gemini");
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced) raw = fenced[1].trim();
+  const start = raw.indexOf("{");
+  const end = raw.lastIndexOf("}");
+  if (start >= 0 && end > start) raw = raw.slice(start, end + 1);
+  return JSON.parse(raw);
+}
+
+async function _callGeminiActivityImage({ base64, mimeType }) {
+  const apiKey = _geminiApiKey();
+  if (!apiKey) {
+    throw new HttpsError("failed-precondition", "Gemini no está configurado en el servidor.");
+  }
+  const model = _geminiModel();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const body = {
+    contents: [{
+      role: "user",
+      parts: [
+        { text: GEMINI_ACTIVITY_PROMPT },
+        { inline_data: { mime_type: mimeType || "image/jpeg", data: base64 } }
+      ]
+    }],
+    generationConfig: {
+      temperature: 0.1,
+      responseMimeType: "application/json"
+    }
+  };
+
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    logger.error("Gemini HTTP error", { status: res.status, payload });
+    throw new HttpsError("internal", "No se pudo analizar la captura.");
+  }
+  const text = payload?.candidates?.[0]?.content?.parts
+    ?.map((p) => p?.text || "")
+    .join("\n") || "";
+  return _parseGeminiJson(text);
+}
+
+exports.generarReporteActividadDesdeImagen = functions
+  .region(REGION)
+  .runWith({ timeoutSeconds: 120, memory: "512MB" })
+  .https.onCall(async (data, context) => {
+    const profile = await findUserProfileFromAuth(context.auth);
+    const actorRole = inferRole(profile.data, profile.data?.email || context.auth?.token?.email);
+    const security = await loadSecurityConfig();
+    if (!isOperationalAdmin(actorRole, security, profile.data || {})) {
+      throw new HttpsError("permission-denied", "No autorizado.");
+    }
+
+    const stripped = _stripDataUrl(data?.imageBase64 || data?.image || "");
+    const mimeType = normalizeString(data?.mimeType || stripped.mimeType || "image/jpeg").toLowerCase();
+    const base64 = stripped.base64;
+    if (!base64) throw new HttpsError("invalid-argument", "Imagen requerida.");
+    if (!/^image\/(jpeg|jpg|png|webp)$/.test(mimeType)) {
+      throw new HttpsError("invalid-argument", "Formato de imagen no soportado.");
+    }
+
+    let decodedLen = 0;
+    try {
+      decodedLen = Buffer.from(base64, "base64").length;
+    } catch (_) {
+      throw new HttpsError("invalid-argument", "Imagen inválida.");
+    }
+    if (!decodedLen || decodedLen > GEMINI_MAX_IMAGE_BYTES) {
+      throw new HttpsError("invalid-argument", "La imagen es demasiado grande. Usa una captura más ligera.");
+    }
+
+    let parsed;
+    try {
+      parsed = await _callGeminiActivityImage({ base64, mimeType });
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      logger.error("generarReporteActividadDesdeImagen Gemini failed", err);
+      await recordProgrammerError("generarReporteActividadDesdeImagen", err, {
+        actor: normalizeLower(profile.data?.email || context.auth?.token?.email || "")
+      });
+      throw new HttpsError("internal", "No se pudo leer la captura.");
+    }
+
+    const reservas = _normalizeActivityList(parsed.reservas, "RESERVA");
+    const regresos = _normalizeActivityList(parsed.regresos, "REGRESO");
+    const vencidos = _normalizeActivityList(parsed.vencidos, "VENCIDO");
+    const fechaBase = normalizeString(parsed.fechaBase || data?.fechaBase || "")
+      || new Date().toISOString().slice(0, 10);
+
+    if (!reservas.length && !regresos.length && !vencidos.length) {
+      throw new HttpsError("failed-precondition", "No se detectaron filas en la captura.");
+    }
+
+    return {
+      ok: true,
+      fechaBase,
+      reservas,
+      regresos,
+      vencidos,
+      counts: {
+        reservas: reservas.length,
+        regresos: regresos.length,
+        vencidos: vencidos.length
+      }
+    };
+  });

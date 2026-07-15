@@ -53,22 +53,10 @@
         </div>
 
         <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display: none;">
-          <button class="btn-more-controls btn-icon-mobile"
-            style="background:var(--mex-blue); border-color:var(--mex-blue); color:white;"
-            onclick="toggleAdminControls()">
-            <span class="material-icons" style="font-size: 18px;">admin_panel_settings</span>
-            <span class="txt-mobile-hide">GESTIÓN ADMIN</span>
+          <button type="button" class="btn-more-controls btn-icon-mobile" onclick="irAModuloUnidades()">
+            <span class="material-symbols-outlined" style="font-size: 18px;">directions_car</span>
+            <span class="txt-mobile-hide">Unidades globales</span>
           </button>
-
-          <div id="adminControlsDropdown" class="more-controls-dropdown">
-            <div class="mc-header">ADMINISTRACIÓN GLOBAL</div>
-            <div class="mc-item" onclick="abrirModalInsertarGlobal()"><span class="material-icons">add_box</span>
-              Insertar Unidad Global</div>
-            <div class="mc-item" onclick="abrirModalEditarGlobal()"><span class="material-icons">edit_square</span>
-              Editar Unidad Global</div>
-            <div class="mc-item" style="color: var(--mex-red);" onclick="abrirModalEliminarGlobal()"><span
-                class="material-icons" style="color: var(--mex-red);">delete_sweep</span> Eliminar Unidad Global</div>
-          </div>
         </div>
 
       </div>

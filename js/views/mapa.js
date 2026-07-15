@@ -5291,8 +5291,7 @@ function _renderSwapStatus() {
 function activarModoSwap() {
   if (!selectedAuto) return;
   MAP_SWAP_MODE_ACTIVE = true;
-  const menu = document.getElementById('moreActionsMenu');
-  if (menu) menu.classList.remove('show');
+  _closeActionsMenu();
   _renderSwapStatus();
   showToast(`Modo CAMBIAR activo para ${selectedAuto.dataset.mva}`, 'success');
 }
@@ -5359,6 +5358,15 @@ function _fuelToPct(raw) {
   const n = parseFloat(s.replace('%', '').replace(',', '.'));
   if (!isNaN(n)) return Math.max(0, Math.min(100, Math.round(n)));
   return null;
+}
+
+// Color de gasolina en tabla cuadre: ≥80% azul, baja hacia rojo.
+function _fuelColor(pct) {
+  const t = Math.max(0, Math.min(1, pct / 80));
+  const r = Math.round(220 + (37 - 220) * t);
+  const g = Math.round(38 + (99 - 38) * t);
+  const b = Math.round(38 + (235 - 38) * t);
+  return `rgb(${r},${g},${b})`;
 }
 
 // Desconcatena una nota guardada como "(fecha) [autor] texto" en sus partes.
@@ -5449,27 +5457,16 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
   const esAdmin = (typeof userRole !== 'undefined' && userRole === 'admin');
 
   // OPCIONES PARA AGREGAR
-  if (esAdmin && !esApartado) actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'APARTAR')"><span class="material-icons" style="color:#fbbf24">lock</span> APARTAR UNIDAD</div>`;
+  if (esAdmin && !esApartado) actionsHtml += _actionItem('lock', 'Apartar unidad', `ejecutarAccionRapida('${d.mva}', 'APARTAR')`, '#f59e0b');
+  if (!esDobleCero) actionsHtml += _actionItem('verified', 'Añadir doble cero', `ejecutarAccionRapida('${d.mva}', 'DOBLE_CERO')`, '#2563eb');
+  if (esAdmin && !esUrgente) actionsHtml += _actionItem('priority_high', 'Marcar urgente', `ejecutarAccionRapida('${d.mva}', 'URGENTE')`, '#ef4444');
+  if (esAdmin && !esManto) actionsHtml += _actionItem('build', 'En taller', `ejecutarAccionRapida('${d.mva}', 'MANTENIMIENTO')`, '#ef4444');
+  if (d.estado !== "LISTO") actionsHtml += _actionItem('check_circle', 'Marcar listo', `ejecutarAccionRapida('${d.mva}', 'LISTO')`, '#10b981');
 
-  if (!esDobleCero) actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'DOBLE_CERO')"><span class="material-icons" style="color:#3b82f6">verified</span> AÑADIR DOBLE CERO</div>`;
-
-  if (esAdmin && !esUrgente) actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'URGENTE')"><span class="material-icons" style="color:#ef4444">priority_high</span> MARCAR COMO URGENTE</div>`;
-
-  if (esAdmin && !esManto) actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'MANTENIMIENTO')"><span class="material-icons" style="color:#ef4444">build</span> PONER EN "TALLER"</div>`;
-
-  if (d.estado !== "LISTO") actionsHtml += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'LISTO')"><span class="material-icons" style="color:#10b981">check_circle</span> PONER EN "LISTO"</div>`;
-  actionsHtml += `<div class="action-item" onclick="activarModoSwap()"><span class="material-icons" style="color:#2563eb">swap_horiz</span> CAMBIAR POSICIÓN</div>`;
-  actionsHtml += `<div class="action-item" onclick="abrirModalRecordatorio('${d.mva}')"><span class="material-icons" style="color:#8b5cf6">alarm_add</span> AGREGAR RECORDATORIO</div>`;
-
-  // OPCIONES PARA QUITAR (BORRAN LAS NOTAS) - Solo Admins pueden quitar cosas delicadas
-  if (esAdmin && esApartado) removeActions += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'QUITAR_APARTADO')"><span class="material-icons" style="color:#64748b">lock_open</span> QUITAR APARTADO</div>`;
-
-  // Cualquiera puede quitar doble cero si se equivocó
-  if (esDobleCero) removeActions += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'QUITAR_DOBLE_CERO')"><span class="material-icons" style="color:#64748b">do_not_disturb_on</span> QUITAR DOBLE CERO</div>`;
-
-  if (esAdmin && esUrgente) removeActions += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'QUITAR_URGENTE')"><span class="material-icons" style="color:#64748b">notifications_paused</span> QUITAR URGENTE</div>`;
-
-  if (esAdmin && esManto) removeActions += `<div class="action-item" onclick="ejecutarAccionRapida('${d.mva}', 'QUITAR_MANTENIMIENTO')"><span class="material-icons" style="color:#64748b">build_circle</span> QUITAR DE MANTENIMIENTO</div>`;
+  if (esAdmin && esApartado) removeActions += _actionItem('lock_open', 'Quitar apartado', `ejecutarAccionRapida('${d.mva}', 'QUITAR_APARTADO')`);
+  if (esDobleCero) removeActions += _actionItem('do_not_disturb_on', 'Quitar doble cero', `ejecutarAccionRapida('${d.mva}', 'QUITAR_DOBLE_CERO')`);
+  if (esAdmin && esUrgente) removeActions += _actionItem('notifications_paused', 'Quitar urgente', `ejecutarAccionRapida('${d.mva}', 'QUITAR_URGENTE')`);
+  if (esAdmin && esManto) removeActions += _actionItem('build_circle', 'Quitar de taller', `ejecutarAccionRapida('${d.mva}', 'QUITAR_MANTENIMIENTO')`);
 
   let divider = removeActions !== "" ? `<div style="height:1px; background:#e2e8f0; margin:5px 0;"></div>` : "";
 
@@ -5486,8 +5483,8 @@ function mostrarDetalle(d, esActualizacionRemota = false) {
     </button>
 
     <div class="usel-btn-wrap">
-      <button onclick="document.getElementById('moreActionsMenu').classList.toggle('show')" class="usel-btn usel-btn-acciones">
-        <span class="material-icons">bolt</span> Acciones
+      <button type="button" onclick="toggleActionsMenu(event)" class="usel-btn usel-btn-acciones">
+        <span class="material-symbols-outlined">more_horiz</span> Acciones
       </button>
       <div id="moreActionsMenu" class="actions-dropdown">
         ${actionsHtml}
@@ -5571,16 +5568,82 @@ async function _renderUltimosMovimientos(mva) {
   }
 }
 
+function _getActionsMenuWrap() {
+  return document.querySelector('#infoPanelBtnGrid .usel-btn-wrap');
+}
+
+function _closeActionsMenu() {
+  const menu = document.getElementById('moreActionsMenu');
+  if (!menu) return;
+  menu.classList.remove('show');
+  menu.removeAttribute('style');
+  const wrap = _getActionsMenuWrap();
+  if (wrap && menu.parentElement !== wrap) wrap.appendChild(menu);
+}
+
 // Cerrar el menú de Acciones al hacer clic fuera de su contenedor.
-// (Antes buscaba un div con estilo inline "position: relative"; el rediseño del
-//  panel usa la clase .usel-btn-wrap, así que el selector viejo nunca casaba y el
-//  MISMO clic que abría el menú lo cerraba de inmediato → nunca se desplegaba.)
 document.addEventListener('click', (e) => {
   const menu = document.getElementById('moreActionsMenu');
-  if (menu && menu.classList.contains('show') && !e.target.closest('.usel-btn-wrap')) {
-    menu.classList.remove('show');
-  }
+  if (!menu || !menu.classList.contains('show')) return;
+  if (e.target.closest('.usel-btn-wrap') || e.target.closest('#moreActionsMenu')) return;
+  _closeActionsMenu();
 });
+
+function _actionItem(icon, label, onclick, iconColor = '') {
+  const icStyle = iconColor ? ` style="color:${iconColor}"` : '';
+  return `<div class="action-item" onclick="${onclick}"><span class="material-symbols-outlined"${icStyle}>${icon}</span><span>${label}</span></div>`;
+}
+
+function toggleActionsMenu(ev) {
+  ev?.stopPropagation?.();
+  const menu = document.getElementById('moreActionsMenu');
+  if (!menu) return;
+  if (menu.classList.contains('show')) {
+    _closeActionsMenu();
+    return;
+  }
+  menu.classList.add('show');
+  if (menu.parentElement !== document.body) document.body.appendChild(menu);
+  _positionActionsMenu();
+}
+
+function _positionActionsMenu() {
+  const menu = document.getElementById('moreActionsMenu');
+  const wrap = _getActionsMenuWrap();
+  const btn = wrap?.querySelector('button.usel-btn-acciones') || wrap?.querySelector('button');
+  if (!menu || !btn) return;
+  const r = btn.getBoundingClientRect();
+  const width = Math.max(240, r.width);
+  let left = Math.min(r.left, window.innerWidth - width - 8);
+  left = Math.max(8, left);
+  const spaceAbove = r.top - 8;
+  const spaceBelow = window.innerHeight - r.bottom - 8;
+  menu.style.position = 'fixed';
+  menu.style.left = `${left}px`;
+  menu.style.width = `${width}px`;
+  menu.style.right = 'auto';
+  menu.style.zIndex = '4000';
+  if (spaceAbove >= 180 || spaceAbove > spaceBelow) {
+    menu.style.bottom = `${window.innerHeight - r.top + 8}px`;
+    menu.style.top = 'auto';
+    menu.style.maxHeight = `${Math.min(420, spaceAbove - 8)}px`;
+  } else {
+    menu.style.top = `${r.bottom + 8}px`;
+    menu.style.bottom = 'auto';
+    menu.style.maxHeight = `${Math.min(420, spaceBelow - 8)}px`;
+  }
+}
+
+function irAModuloUnidades() {
+  document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  document.getElementById('adminControlsDropdown')?.classList.remove('show');
+  const target = '/app/unidades';
+  try {
+    (window.top || window).location.assign(target);
+  } catch (_) {
+    window.location.assign(target);
+  }
+}
 
 async function mostrarConfirmacionSwap(moviendo, ocupante, destino) {
   const destinoLabel = destino?.classList?.contains('spot')
@@ -5698,6 +5761,7 @@ function solicitarGuardadoProgresivo() {
 }
 
 function cerrarPanel() {
+  _closeActionsMenu();
   if (selectedAuto) selectedAuto.classList.remove('selected');
   MAP_SWAP_MODE_ACTIVE = false;
   selectedAuto = null;
@@ -6095,12 +6159,6 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
   if (menuMasControles) menuMasControles.style.display = esOperario ? 'none' : 'inline-block';
 
 
-  // 2. BLINDAJE EXCLUSIVO PARA JEFES (Globales)
-  const adminSection = document.getElementById('btnAdminControlsWrapper');
-  if (adminSection) {
-    adminSection.style.display = hasFullAccess() ? 'inline-block' : 'none';
-  }
-
   const btnTabAdmins = document.getElementById('tabFlotaAdmins');
   if (btnTabAdmins) {
     btnTabAdmins.style.display = canViewAdminCuadre() ? '' : 'none';
@@ -6346,7 +6404,8 @@ function renderFlota(data) {
       <td>${(() => {
         const pct = _fuelToPct(u.gasolina);
         if (pct == null) return `<span class="td-gas">${u.gasolina || 'N/A'}</span>`;
-        return `<div class="gas-cell" title="${u.gasolina}"><div class="gas-cell-track"><div class="gas-cell-fill${pct <= 25 ? ' gas-cell-fill--low' : ''}" style="width:${pct}%"></div></div><span class="gas-cell-label">${u.gasolina}</span></div>`;
+        const gasColor = _fuelColor(pct);
+        return `<div class="gas-cell" title="${u.gasolina}"><div class="gas-cell-track"><div class="gas-cell-fill" style="width:${pct}%;background:${gasColor}"></div></div><span class="gas-cell-label" style="color:${gasColor}">${u.gasolina}</span></div>`;
       })()}</td>
       <td class="td-km">${(typeof u.km === 'number') ? u.km.toLocaleString('es-MX') : '—'}</td>
       <td><span class="badge st-${estadoClass}">${u.estado}</span></td>
@@ -6799,7 +6858,7 @@ let accionPendiente = null;
 let mvaPendiente = null;
 
 function ejecutarAccionRapida(mva, accion) {
-  document.getElementById('moreActionsMenu')?.classList.remove('show');
+  _closeActionsMenu();
   let car = document.getElementById(`auto-${mva}`);
   if (!car) return;
 
@@ -7084,8 +7143,8 @@ function cerrarUsuariosModal() {
 
 function _umIniciar() {
   if (_unsubUsuarios) _unsubUsuarios();
-  document.getElementById('um-cards-container').innerHTML =
-    '<div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>';
+  const host = document.getElementById('um-cards-container');
+  if (host) host.innerHTML = '<tr><td colspan="6" class="um-empty">Cargando usuarios…</td></tr>';
 
   let _qUm = db.collection(COL.USERS);
   _unsubUsuarios = _qUm.onSnapshot(snap => {
@@ -7150,41 +7209,29 @@ function _umRenderCards() {
 
   if (list.length === 0) {
     container.innerHTML = `
-      <div class="um-loading um-loading-empty">
-        <span class="material-icons">person_search</span>
-        <strong>No encontramos usuarios con ese criterio</strong>
-        <small>Ajusta el buscador o cambia el filtro de plaza para recuperar resultados.</small>
-      </div>
+      <tr><td colspan="6" class="um-empty">No hay usuarios con ese criterio.</td></tr>
     `;
     return;
   }
 
   container.innerHTML = list.map(u => {
     const badge = _umRoleBadge(u.rol);
-    const active = u.id === _umSelectedId ? ' active' : '';
+    const active = u.id === _umSelectedId ? ' is-selected' : '';
     const plazaLabel = escapeHtml(u.plazaAsignada || 'Sin plaza');
-    const statusLabel = escapeHtml((u.status || 'ACTIVO').toUpperCase());
-    const multiPlazas = Array.isArray(u.plazasPermitidas) ? u.plazasPermitidas.filter(Boolean) : [];
-    return `<button type="button" class="um-card${active}" onclick="umSeleccionar('${u.id}')" aria-pressed="${active ? 'true' : 'false'}">
-          <div class="um-avatar" style="${_umAvatarStyle(u.nombre)}">${_umInitials(u.nombre)}</div>
-          <div class="um-card-info">
-            <div class="um-card-head">
-              <div class="um-card-copy">
-                <div class="um-card-name" title="${escapeHtml(u.nombre)}">${u.nombre}</div>
-                <div class="um-card-email" title="${escapeHtml(u.email || '(usuario heredado)')}">${u.email || '(usuario heredado)'}</div>
-              </div>
-              <div class="um-card-badges">
-                <span class="um-role-badge" style="${badge.style}">${badge.label}</span>
-                ${multiPlazas.length > 0 ? `<span class="um-role-badge um-role-badge-muted">+${escapeHtml(String(multiPlazas.length))} plazas</span>` : ''}
-              </div>
-            </div>
-            <div class="um-card-meta">
-              <span><span class="material-icons">apartment</span>${plazaLabel}</span>
-              <span class="${statusLabel === 'ACTIVO' ? 'success' : ''}"><span class="material-icons">verified</span>${statusLabel}</span>
-              ${u.isChofer ? `<span class="success"><span class="material-icons">badge</span>CHOFER</span>` : ''}
-            </div>
-          </div>
-        </button>`;
+    const statusRaw = String(u.status || 'ACTIVO').toUpperCase();
+    const statusOk = statusRaw === 'ACTIVO';
+    const statusCls = statusOk ? 'um-status-text yes' : 'um-status-text no';
+    const idArg = String(u.id || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return `<tr class="um-row${active}" onclick="umSeleccionar('${idArg}')">
+      <td class="um-td-main">${escapeHtml(u.nombre || 'Sin nombre')}</td>
+      <td>${escapeHtml(u.email || '(heredado)')}</td>
+      <td>${escapeHtml(badge.label)}</td>
+      <td>${plazaLabel}</td>
+      <td><span class="${statusCls}">${escapeHtml(statusRaw)}</span></td>
+      <td class="um-td-actions">
+        <button type="button" class="um-link-btn" onclick="event.stopPropagation(); umSeleccionar('${idArg}')">Ver</button>
+      </td>
+    </tr>`;
   }).join('');
 }
 
@@ -7202,54 +7249,45 @@ function _umRenderEditForm(user) {
   const canEdit = canManageTargetRole(user.rol);
   const plazasPermitidas = Array.isArray(user.plazasPermitidas) ? user.plazasPermitidas.filter(Boolean) : [];
   const accessMeta = ROLE_META[_sanitizeRole(user.rol) || 'AUXILIAR'] || {};
-  const contextCards = [
-    ['Cobertura', plazasPermitidas.length > 0 ? `Multi-plaza (${plazasPermitidas.length})` : (user.plazaAsignada || 'Sin plaza base')],
-    ['Nivel', accessMeta.fullAccess ? 'Global' : (accessMeta.isAdmin ? 'Administrativo' : 'Operativo')],
-    ['Cuenta', user.email ? 'Cuenta activa' : 'Perfil heredado'],
-    ['Chofer', user.isChofer ? _licenciaChoferLabel(user.licenciaVencimiento) : 'No habilitado']
-  ];
+  const cobertura = plazasPermitidas.length > 0
+    ? `Multi-plaza (${plazasPermitidas.length})`
+    : (user.plazaAsignada || 'Sin plaza base');
+  const nivel = accessMeta.fullAccess ? 'Global' : (accessMeta.isAdmin ? 'Administrativo' : 'Operativo');
+  const chofer = user.isChofer ? _licenciaChoferLabel(user.licenciaVencimiento) : 'No habilitado';
 
   const roleLockedMsg = canEdit ? '' : `
-        <div style="margin:14px 0;padding:12px 14px;border-radius:12px;background:#fff7ed;color:#9a3412;font-weight:700;font-size:12px;">
-          Tu rol actual no puede modificar a ${roleBadge.label}.
+        <div class="um-banner-warn">
+          Tu rol actual no puede modificar a ${escapeHtml(roleBadge.label)}.
         </div>`;
 
-  // Helper: campo bloqueado con lápiz para habilitar
   const lockBtn = (fieldId) => canEdit
-    ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleField('${fieldId}')" title="Editar campo">
-             <span class="material-icons" style="font-size:15px;">edit</span>
-           </button>`
+    ? `<button type="button" class="um-link-btn um-field-edit" onclick="_umToggleField('${fieldId}')">Editar</button>`
     : '';
 
   document.getElementById('um-placeholder').style.display = 'none';
   const container = document.getElementById('um-form-container');
   container.style.display = 'block';
-  container.innerHTML = `<div class="um-form-card">
-        <div class="um-profile-hero">
-          <div class="um-form-avatar" style="${_umAvatarStyle(user.nombre)}">${_umInitials(user.nombre)}</div>
-          <div class="um-profile-hero-copy">
-            <div class="um-form-title">${escapeHtml(user.nombre)}</div>
-            <div class="um-form-subtitle">${escapeHtml(user.email || 'Usuario heredado')}</div>
-            <div class="um-profile-tags">
-              <span class="um-info-pill">${escapeHtml(roleBadge.label)}</span>
-              <span class="um-info-pill">${escapeHtml(user.plazaAsignada || 'Sin plaza')}</span>
-              ${plazasPermitidas.length > 0 ? `<span class="um-info-pill neutral">+${escapeHtml(String(plazasPermitidas.length))} plazas extra</span>` : ''}
-            </div>
+  container.innerHTML = `<div class="um-detail-card">
+        <div class="um-detail-head">
+          <div>
+            <p>Usuario</p>
+            <h2>${escapeHtml(user.nombre)}</h2>
+            <span>${escapeHtml(user.email || 'Usuario heredado')} · ${escapeHtml(roleBadge.label)}</span>
           </div>
         </div>
 
-        <div class="um-context-grid">
-          ${contextCards.map(([label, value]) => `
-            <div class="um-context-tile">
-              <span>${escapeHtml(label)}</span>
-              <strong>${escapeHtml(value)}</strong>
-            </div>
-          `).join('')}
+        <div class="um-form-panel">
+          <div class="um-meta-grid">
+            <div><span>Cobertura</span><strong>${escapeHtml(cobertura)}</strong></div>
+            <div><span>Nivel</span><strong>${escapeHtml(nivel)}</strong></div>
+            <div><span>Cuenta</span><strong>${user.email ? 'Activa' : 'Heredada'}</strong></div>
+            <div><span>Chofer</span><strong>${escapeHtml(chofer)}</strong></div>
+          </div>
         </div>
 
-        <div class="um-form-grid2">
-          <div class="um-info-panel">
-            <div class="um-form-section">Identidad</div>
+        <div class="um-form-panel">
+          <div class="um-form-section">Identidad</div>
+          <div class="um-form-grid2">
             <div class="um-form-field">
               <div class="um-field-label-row">
                 <label>Nombre completo</label>
@@ -7275,9 +7313,7 @@ function _umRenderEditForm(user) {
             <div class="um-form-field">
               <div class="um-field-label-row">
                 <label>Chofer de traslados</label>
-                ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleDriverFields()" title="Editar chofer">
-                  <span class="material-icons" style="font-size:15px;">edit</span>
-                </button>` : ''}
+                ${canEdit ? `<button type="button" class="um-link-btn um-field-edit" onclick="_umToggleDriverFields()">Editar</button>` : ''}
               </div>
               <label class="um-driver-toggle">
                 <input type="checkbox" id="um-edit-is-chofer" ${user.isChofer ? 'checked' : ''} disabled onchange="_umSyncDriverFields('um-edit')">
@@ -7290,15 +7326,15 @@ function _umRenderEditForm(user) {
               <input type="date" id="um-edit-licencia" value="${escapeHtml(user.licenciaVencimiento || '')}" disabled>
             </div>
           </div>
+        </div>
 
-          <div class="um-info-panel">
-            <div class="um-form-section" style="display:flex;align-items:center;justify-content:space-between;">
-              Rol y alcance
-              ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleRolSection()" title="Editar rol">
-            <span class="material-icons" style="font-size:15px;">edit</span>
-          </button>` : ''}
-            </div>
+        <div class="um-form-panel">
+          <div class="um-form-section um-form-section-row">
+            <span>Rol y alcance</span>
+            ${canEdit ? `<button type="button" class="um-link-btn um-field-edit" onclick="_umToggleRolSection()">Editar</button>` : ''}
+          </div>
 
+          <div class="um-form-grid2">
             <div class="um-form-field">
               <label>Rol</label>
               <select id="um-edit-role" onchange="_syncRoleScope('um-edit')" disabled>
@@ -7309,24 +7345,21 @@ function _umRenderEditForm(user) {
             <div class="um-form-field" id="um-edit-plaza-row" style="${_roleNeedsPlaza(user.rol) ? '' : 'display:none;'}">
               <div class="um-field-label-row">
                 <label>Plaza base</label>
-                ${canEdit ? `<button type="button" class="um-edit-lock-btn" onclick="_umToggleField('um-edit-plaza')" title="Cambiar plaza">
-              <span class="material-icons" style="font-size:15px;">edit</span>
-            </button>` : ''}
+                ${canEdit ? `<button type="button" class="um-link-btn um-field-edit" onclick="_umToggleField('um-edit-plaza')">Editar</button>` : ''}
               </div>
               ${_plazaSelectHtml('um-edit-plaza', user.plazaAsignada || '', 'disabled')}
             </div>
 
-            <div class="um-form-field" id="um-edit-plazas-multi-row" style="${_roleNeedsMultiplePlazas(user.rol) ? '' : 'display:none;'}">
-              <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
+            <div class="um-form-field span-all" id="um-edit-plazas-multi-row" style="${_roleNeedsMultiplePlazas(user.rol) ? '' : 'display:none;'}">
+              <label>Plazas permitidas</label>
               ${_plazasMultiHtml('um-edit-plazas-permitidas', user.plazasPermitidas || [])}
             </div>
           </div>
         </div>
 
-        <div class="um-info-panel">
+        <div class="um-form-panel">
           <div class="um-form-section">Permisos individuales</div>
           <div class="um-form-field">
-            <label>Overrides del usuario</label>
             <div class="um-permission-intro">
               ${_permissionSummaryText(user.permissionOverrides || {})}. Usa esto para bloquear o conceder permisos específicos sin cambiar el rol.
             </div>
@@ -7336,16 +7369,15 @@ function _umRenderEditForm(user) {
 
         ${roleLockedMsg}
 
-        <div class="um-divider"></div>
-        <div class="um-actions">
-          <button class="um-btn-save" id="um-btn-guardar" onclick="umGuardarCambios('${user.id}')" ${canEdit ? '' : 'disabled'}>
-            <span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS
+        <div class="um-form-actions">
+          <button class="um-btn primary" id="um-btn-guardar" onclick="umGuardarCambios('${user.id}')" ${canEdit ? '' : 'disabled'}>
+            Guardar cambios
           </button>
-          ${user.email ? `<button class="um-btn-secondary" onclick="umResetPassword('${escapeHtml(user.email)}')" ${canEdit ? '' : 'disabled'}>
-            <span class="material-icons" style="font-size:17px;">lock_reset</span> Restablecer contraseña
+          ${user.email ? `<button class="um-btn ghost" onclick="umResetPassword('${escapeHtml(user.email)}')" ${canEdit ? '' : 'disabled'}>
+            Restablecer contraseña
           </button>` : ''}
-          <button class="um-btn-danger" onclick="umEliminar('${user.id}', '${user.nombre.replace(/'/g, "\\'")}')" ${canEdit ? '' : 'disabled'}>
-            <span class="material-icons" style="font-size:17px;">person_remove</span> Eliminar usuario
+          <button class="um-btn danger" onclick="umEliminar('${user.id}', '${user.nombre.replace(/'/g, "\\'")}')" ${canEdit ? '' : 'disabled'}>
+            Eliminar usuario
           </button>
         </div>
       </div>`;
@@ -7554,34 +7586,28 @@ function umNuevoUsuario() {
   document.getElementById('um-placeholder').style.display = 'none';
   const container = document.getElementById('um-form-container');
   container.style.display = 'block';
-  container.innerHTML = `<div class="um-form-card">
-        <div class="um-profile-hero">
-          <div class="um-form-avatar" style="background:var(--mex-accent);color:white;">
-            <span class="material-icons" style="font-size:28px;">person_add</span>
-          </div>
-          <div class="um-profile-hero-copy">
-            <div class="um-form-title">Nuevo usuario</div>
-            <div class="um-form-subtitle">Prepara la cuenta, define su alcance y déjala lista para operar desde la plaza correcta.</div>
-            <div class="um-profile-tags">
-              <span class="um-info-pill">Alta controlada</span>
-              <span class="um-info-pill">${escapeHtml((typeof _miPlaza === 'function' ? _miPlaza() : '') || 'Sin plaza activa')}</span>
-            </div>
+  container.innerHTML = `<div class="um-detail-card">
+        <div class="um-detail-head">
+          <div>
+            <p>Alta</p>
+            <h2>Nuevo usuario</h2>
+            <span>Define identidad, rol y plaza base</span>
           </div>
         </div>
 
-        <div class="um-form-grid2">
-          <div class="um-info-panel">
-            <div class="um-form-section">Identidad</div>
+        <div class="um-form-panel">
+          <div class="um-form-section">Identidad</div>
+          <div class="um-form-grid2">
             <div class="um-form-field">
-              <label>Nombre completo <span style="color:#ef4444;">*</span></label>
+              <label>Nombre completo *</label>
               <input type="text" id="um-new-nombre" placeholder="Ej. Juan Pérez" oninput="_umValidarNuevo()">
             </div>
             <div class="um-form-field">
-              <label>Correo electrónico <span style="color:#ef4444;">*</span></label>
+              <label>Correo electrónico *</label>
               <input type="email" id="um-new-email" placeholder="correo@ejemplo.com" oninput="_umValidarNuevo()">
             </div>
             <div class="um-form-field">
-              <label>Contraseña temporal <span style="color:#ef4444;">*</span></label>
+              <label>Contraseña temporal *</label>
               <input type="password" id="um-new-pass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" oninput="_umValidarNuevo()">
             </div>
             <div class="um-form-field">
@@ -7600,42 +7626,41 @@ function umNuevoUsuario() {
               <input type="date" id="um-new-licencia" onchange="_umValidarNuevo()">
             </div>
           </div>
+        </div>
 
-          <div class="um-info-panel">
-            <div class="um-form-section">Rol y alcance</div>
+        <div class="um-form-panel">
+          <div class="um-form-section">Rol y alcance</div>
+          <div class="um-form-grid2">
             <div class="um-form-field">
-              <label>Rol <span style="color:#ef4444;">*</span></label>
+              <label>Rol *</label>
               <select id="um-new-role" onchange="_syncRoleScope('um-new'); _umValidarNuevo();">
                 ${_roleOptionsHtml('AUXILIAR')}
               </select>
             </div>
             <div class="um-form-field" id="um-new-plaza-row">
-              <label>Plaza base <span style="color:#ef4444;">*</span></label>
+              <label>Plaza base *</label>
               ${_plazaSelectHtml('um-new-plaza', '', 'onchange="_umValidarNuevo()"')}
             </div>
-
-            <div class="um-form-field" id="um-new-plazas-multi-row" style="display:none;">
-              <label>Plazas permitidas <span style="font-size:10px;color:#64748b;font-weight:600;">(puede ver estos mapas)</span></label>
+            <div class="um-form-field span-all" id="um-new-plazas-multi-row" style="display:none;">
+              <label>Plazas permitidas</label>
               ${_plazasMultiHtml('um-new-plazas-permitidas', [])}
             </div>
-
-            <div class="um-permission-intro">
-              El alcance se define desde el rol. Si el usuario necesita excepciones puntuales, podrás asignarlas después desde su editor contextual.
-            </div>
           </div>
+          <p class="um-permission-intro" style="margin-top:12px;">
+            El alcance se define desde el rol. Las excepciones se asignan después desde el editor del usuario.
+          </p>
         </div>
 
-        <div class="um-info-panel">
+        <div class="um-form-panel">
           <div class="um-form-section">Validación</div>
           <div id="um-new-hints" class="um-permission-intro">
-            Completa los campos requeridos (<span style="color:#ef4444;">*</span>) antes de crear la cuenta.
+            Completa los campos requeridos (*) antes de crear la cuenta.
           </div>
         </div>
 
-        <div class="um-divider"></div>
-        <div class="um-actions">
-          <button class="um-btn-save" id="um-btn-crear" onclick="umCrearUsuario()" disabled style="opacity:.5;cursor:not-allowed;">
-            <span class="material-icons" style="font-size:17px;">person_add</span> CREAR USUARIO
+        <div class="um-form-actions">
+          <button class="um-btn primary" id="um-btn-crear" onclick="umCrearUsuario()" disabled>
+            Crear usuario
           </button>
         </div>
       </div>`;
@@ -10649,26 +10674,89 @@ function obtenerDisenoCalor(fechaIngresoStr) {
 
 // --- LÓGICA DEL MENÚ 'MÁS CONTROLES' ---
 
-function toggleMoreControls() {
-  document.getElementById('adminControlsDropdown')?.classList.remove('show'); // close the other
+function _closeMoreControlsDropdown() {
   const menu = document.getElementById('moreControlsDropdown');
-  if (menu) menu.classList.toggle('show');
+  if (!menu) return;
+  menu.classList.remove('show');
+  menu.removeAttribute('style');
+  const wrapper = document.getElementById('btnMasControlesWrapper');
+  if (wrapper && menu.parentElement !== wrapper) wrapper.appendChild(menu);
+}
+
+function _positionMoreControlsDropdown() {
+  const menu = document.getElementById('moreControlsDropdown');
+  if (!menu) return;
+
+  const isShell = document.documentElement.classList.contains('shell-embedded');
+  let btn = document.querySelector('#btnMasControlesWrapper .btn-more-controls');
+  let anchorRect = btn?.getBoundingClientRect();
+
+  if (isShell) {
+    try {
+      const shellBtn = window.parent.document.getElementById('mexHdrCuadreMoreBtn');
+      const frame = window.frameElement;
+      if (shellBtn && frame) {
+        const shellRect = shellBtn.getBoundingClientRect();
+        const frameRect = frame.getBoundingClientRect();
+        anchorRect = {
+          top: shellRect.top - frameRect.top,
+          bottom: shellRect.bottom - frameRect.top,
+          left: shellRect.left - frameRect.left,
+          width: shellRect.width,
+          height: shellRect.height
+        };
+      }
+    } catch (_) { /* cross-origin */ }
+  }
+
+  if (!anchorRect) return;
+  if (menu.parentElement !== document.body) document.body.appendChild(menu);
+
+  const minW = 240;
+  let left = Math.min(anchorRect.left, window.innerWidth - minW - 8);
+  left = Math.max(8, left);
+  menu.style.position = 'fixed';
+  menu.style.left = `${left}px`;
+  menu.style.minWidth = `${minW}px`;
+  menu.style.zIndex = '50000';
+  menu.style.top = `${anchorRect.bottom + 8}px`;
+  menu.style.bottom = 'auto';
+  menu.style.right = 'auto';
+}
+
+function toggleMoreControls(ev) {
+  ev?.stopPropagation?.();
+  document.getElementById('adminControlsDropdown')?.classList.remove('show');
+  const menu = document.getElementById('moreControlsDropdown');
+  if (!menu) return;
+  if (menu.classList.contains('show')) {
+    _closeMoreControlsDropdown();
+    return;
+  }
+  menu.classList.add('show');
+  _positionMoreControlsDropdown();
 }
 
 function toggleAdminControls() {
-  document.getElementById('moreControlsDropdown')?.classList.remove('show'); // close the other
-  const menu = document.getElementById('adminControlsDropdown');
-  if (menu) menu.classList.toggle('show');
+  _closeMoreControlsDropdown();
+  irAModuloUnidades();
+}
+
+function _clickInsideMoreControls(event) {
+  const menu = document.getElementById('moreControlsDropdown');
+  if (menu?.contains(event.target)) return true;
+  const wrapper = document.getElementById('btnMasControlesWrapper');
+  if (wrapper?.contains(event.target)) return true;
+  try {
+    if (window.parent.document.getElementById('mexHdrCuadreMoreBtn')?.contains(event.target)) return true;
+  } catch (_) { /* cross-origin */ }
+  return false;
 }
 
 // Cerrar los menús si hacemos clic afuera de ellos
 document.addEventListener('click', function (event) {
-  const wrappers = document.querySelectorAll('.more-controls-wrapper');
-  let clickInside = false;
-  wrappers.forEach(w => { if (w.contains(event.target)) clickInside = true; });
-
-  if (!clickInside) {
-    document.getElementById('moreControlsDropdown')?.classList.remove('show');
+  if (!_clickInsideMoreControls(event)) {
+    _closeMoreControlsDropdown();
     document.getElementById('adminControlsDropdown')?.classList.remove('show');
   }
 });
@@ -16158,25 +16246,30 @@ document.addEventListener('click', function (e) {
 
 
 function validarTextareasActividad() {
-  const txtRes = document.getElementById('textoBrutoReservas').value.trim();
-  const txtReg = document.getElementById('textoBrutoRegresos').value.trim();
+  const txtRes = document.getElementById('textoBrutoReservas')?.value.trim() || '';
+  const txtReg = document.getElementById('textoBrutoRegresos')?.value.trim() || '';
   const btn = document.getElementById('btnGenerarPdfActividad');
+  if (!btn) return;
 
   if (txtRes !== "" && txtReg !== "") {
     btn.disabled = false;
-    btn.style.background = "var(--mex-blue)";
+    btn.style.background = "#2563eb";
     btn.style.color = "white";
     btn.style.cursor = "pointer";
-    btn.style.boxShadow = "0 10px 25px rgba(13,42,84,0.2)";
-    btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> GENERAR REPORTE COMPLETO`;
+    btn.style.boxShadow = "none";
+    btn.textContent = "Generar reporte desde texto";
   } else {
     btn.disabled = true;
-    btn.style.background = "#e2e8f0";
-    btn.style.color = "#94a3b8";
+    btn.style.background = "#e5e7eb";
+    btn.style.color = "#9ca3af";
     btn.style.cursor = "not-allowed";
     btn.style.boxShadow = "none";
-    btn.innerHTML = `<span class="material-icons">lock</span> ESPERANDO DATOS...`;
+    btn.textContent = "Generar reporte desde texto";
   }
+}
+
+async function procesarActividadDesdeImagen(eventOrFile) {
+  return _pdfReservas.procesarActividadDesdeImagen(eventOrFile);
 }
 
 // togglePassword definido en el módulo de autenticación (aislado)
@@ -16404,7 +16497,7 @@ async function procesarActividadDiaria() {
     showToast('No se pudo generar el reporte diario.', 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> GENERAR REPORTE COMPLETO`;
+    btn.textContent = 'Generar reporte desde texto';
   }
 }
 // ==========================================
@@ -20990,56 +21083,67 @@ async function guardarEmpresaConfig(actionType = 'EMPRESA_ACTUALIZADA', message 
 // ─── LÓGICA DE USUARIOS EN CONFIGURACIÓN ──────────────────────
 function renderizarTabConfigUsuarios(container) {
   container.innerHTML = `
-        <div class="um-workspace um-workspace-lite">
-          <div class="um-body um-workspace-shell um-workspace-shell-lite">
-            <div class="um-list-col">
-              <div class="um-column-head um-column-head-lite">
-                <div>
-                  <span class="um-column-kicker">Directorio</span>
-                </div>
-                <span id="um-directory-count" class="cfg-catalog-count">0 visibles</span>
-              </div>
+    <div class="um-formal">
+      <header class="um-page-header">
+        <div class="um-page-title">
+          <h1>Usuarios</h1>
+          <p>Cuentas, roles y alcance operativo</p>
+        </div>
+        <div class="um-page-actions">
+          <button id="btn-nuevo-usuario" type="button" class="um-btn primary" onclick="_umNuevoUsuarioConAnim()" ${canManageUsers() ? '' : 'hidden'}>
+            Nuevo usuario
+          </button>
+        </div>
+      </header>
 
-              <div class="um-list-toolbar">
-                <div class="um-search-wrap">
-                  <span class="material-icons um-search-icon">search</span>
-                  <input type="text" id="um-search" placeholder="Buscar por nombre, correo o rol..." oninput="umFiltrar()">
-                </div>
-                <div id="um-plaza-chips" class="um-filter-row"></div>
-              </div>
+      <div class="um-controls">
+        <div class="um-controls-row">
+          <label class="um-search">
+            <span>Buscar</span>
+            <input type="text" id="um-search" placeholder="Nombre, correo o rol" oninput="umFiltrar()">
+          </label>
+          <label>
+            <span>Plaza</span>
+            <select id="um-plaza-filter" onchange="_umOnPlazaFilterChange()">
+              <option value="">Todas</option>
+            </select>
+          </label>
+        </div>
+      </div>
 
-              <div id="um-cards-container" class="um-cards-stack">
-                <div class="um-loading"><span class="material-icons spinner" style="vertical-align:middle;">sync</span> Cargando usuarios...</div>
-              </div>
-            </div>
+      <p class="um-meta" id="um-directory-count">0 registros</p>
 
-            <div class="um-edit-col">
-              <div class="um-column-head um-column-head-lite">
-                <div>
-                  <span class="um-column-kicker">Editor contextual</span>
-                  <h4>Perfil, alcance y permisos</h4>
-                  <p>Todo el cambio importante vive aquí: identidad, rol, plaza y permisos puntuales.</p>
-                </div>
-                <div class="um-column-actions">
-                  <button id="btn-nuevo-usuario" type="button" class="um-toolbar-btn primary" onclick="_umNuevoUsuarioConAnim()" ${canManageUsers() ? '' : 'style="display:none;"'}>
-                    <span class="material-icons">person_add</span>
-                    Nuevo usuario
-                  </button>
-                </div>
-              </div>
-
-              <div class="um-editor-stage">
-                <div id="um-placeholder" class="um-placeholder">
-                  <span class="material-icons">manage_accounts</span>
-                  <h5>Selecciona un usuario</h5>
-                  <p>Desde aquí podrás editar identidad, rol, plaza base, alcance multi-plaza y permisos individuales sin salir de la misma pantalla.</p>
-                </div>
-                <div id="um-form-container" class="um-form-container" style="display:none;"></div>
-              </div>
-            </div>
+      <div class="um-split">
+        <div class="um-table-section">
+          <div class="um-table-wrap">
+            <table class="um-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Correo</th>
+                  <th>Rol</th>
+                  <th>Plaza</th>
+                  <th>Estado</th>
+                  <th class="um-th-actions">Acción</th>
+                </tr>
+              </thead>
+              <tbody id="um-cards-container">
+                <tr><td colspan="6" class="um-empty">Cargando usuarios…</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
-      `;
+
+        <aside class="um-detail-col">
+          <div id="um-placeholder" class="um-detail-placeholder">
+            <p>Selecciona un usuario</p>
+            <span>Edita identidad, rol, plaza y permisos en el panel de detalle.</span>
+          </div>
+          <div id="um-form-container" class="um-form-container" style="display:none;"></div>
+        </aside>
+      </div>
+    </div>
+  `;
   _umRenderPlazaChips();
   _umIniciar();
 }
@@ -21429,14 +21533,21 @@ async function _choferesDeshabilitar(id) {
 let _umPlazaFiltro = null;
 
 function _umRenderPlazaChips() {
-  const wrap = document.getElementById('um-plaza-chips');
-  if (!wrap) return;
+  const select = document.getElementById('um-plaza-filter');
+  if (!select) return;
   const plazas = _umGetPlazasDisponibles();
-  if (plazas.length === 0) { wrap.innerHTML = ''; return; }
-  wrap.innerHTML = plazas.map(p => {
-    const active = _umPlazaFiltro === p;
-    return `<button type="button" class="um-filter-chip${active ? ' active' : ''}" onclick="_umTogglePlazaChip('${escapeHtml(p)}')">${p}</button>`;
+  const current = _umPlazaFiltro || '';
+  select.innerHTML = `<option value="">Todas</option>` + plazas.map(p => {
+    const val = escapeHtml(p);
+    return `<option value="${val}"${current === p ? ' selected' : ''}>${val}</option>`;
   }).join('');
+}
+
+function _umOnPlazaFilterChange() {
+  const select = document.getElementById('um-plaza-filter');
+  const value = String(select?.value || '').trim();
+  _umPlazaFiltro = value || null;
+  _umRenderCards();
 }
 
 function _umTogglePlazaChip(plaza) {
@@ -21487,7 +21598,7 @@ function _umGetFilteredUsers() {
 function _umRenderWorkspaceInsights(list = _umGetFilteredUsers()) {
   const summary = document.getElementById('um-summary-strip');
   const countBadge = document.getElementById('um-directory-count');
-  if (countBadge) countBadge.textContent = `${list.length} visibles`;
+  if (countBadge) countBadge.textContent = `${list.length} registros`;
   if (!summary) return;
 
   const total = _umUsers.length;
@@ -23428,6 +23539,7 @@ Object.assign(window, {
   _umNuevoUsuarioConAnim,
   _umGoToConfigTab,
   _umRenderPlazaChips,
+  _umOnPlazaFilterChange,
   _umToggleField,
   _umTogglePlazaChip,
   _umToggleRolSection,
@@ -23695,6 +23807,7 @@ Object.assign(window, {
   prepararModalInput,
   prepararNuevoFlota,
   procesarActividadDiaria,
+  procesarActividadDesdeImagen,
   procesarAlertaLeida,
   procesarComandoInteligente,
   procesarImagenOCR,
@@ -23757,6 +23870,8 @@ Object.assign(window, {
   subirLogoEmpresa,
   switchIncTab,
   toggleAdminControls,
+  toggleActionsMenu,
+  irAModuloUnidades,
   toggleAdminSidebar,
   toggleDarkMode,
   toggleExpandIncidencia,

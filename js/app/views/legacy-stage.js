@@ -482,29 +482,17 @@ function _syncLegacyCuadreHeader(id, ctx) {
   if (!win || !doc) return;
 
   const masControles = doc.getElementById('btnMasControlesWrapper');
-  const adminControls = doc.getElementById('btnAdminControlsWrapper');
-
   const showMas = masControles && masControles.style.display !== 'none';
-  const showAdmin = adminControls && adminControls.style.display !== 'none';
 
-  const sig = `cuadre:${showMas}:${showAdmin}`;
+  const sig = `cuadre:${showMas}`;
   if (sig === _unitsHeaderSig) return;
   _unitsHeaderSig = sig;
 
   let html = '';
   if (showMas) {
     html += `
-      <button type="button" class="mex-hdr-limbo-btn--legacy" id="mexHdrCuadreMoreBtn" title="Más opciones">
-        <span class="material-icons" style="color:#1d4ed8;">more_horiz</span>
-        <span class="hide-mobile">MÁS CONTROLES</span>
-      </button>
-    `;
-  }
-  if (showAdmin) {
-    html += `
-      <button type="button" class="mex-hdr-limbo-btn--legacy" id="mexHdrCuadreAdminBtn" title="Gestión admin" style="margin-left:8px; border-color:#fee2e2; background:#fef2f2;">
-        <span class="material-icons" style="color:#ef4444;">admin_panel_settings</span>
-        <span class="hide-mobile" style="color:#b91c1c;">GESTIÓN ADMIN</span>
+      <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreMoreBtn" title="Más opciones" aria-label="Más opciones">
+        <span class="material-icons">more_horiz</span>
       </button>
     `;
   }
@@ -513,15 +501,9 @@ function _syncLegacyCuadreHeader(id, ctx) {
 
   const moreBtn = document.getElementById('mexHdrCuadreMoreBtn');
   if (moreBtn) {
-    moreBtn.addEventListener('click', () => {
-      try { win.toggleMoreControls?.(); } catch (_) {}
-    });
-  }
-
-  const adminBtn = document.getElementById('mexHdrCuadreAdminBtn');
-  if (adminBtn) {
-    adminBtn.addEventListener('click', () => {
-      try { win.toggleAdminControls?.(); } catch (_) {}
+    moreBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      try { win.toggleMoreControls?.(ev); } catch (_) {}
     });
   }
 }

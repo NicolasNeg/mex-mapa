@@ -2297,51 +2297,50 @@
 
 <!-- ── modal-lector-reservas ─────────────────────────────── -->
       <div id="modal-lector-reservas" class="modal-overlay" style="z-index: 76000;">
-        <div class="console-card" style="max-width: 750px; text-align: center; padding: 30px;">
+        <div class="console-card" style="max-width: 640px; text-align: left; padding: 28px 28px 24px; position:relative;">
           <button onclick="document.getElementById('modal-lector-reservas').classList.remove('active')"
             style="position:absolute; right:15px; top:15px; background:#f1f5f9; color:#64748b; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer; font-weight:900;">✕</button>
 
-          <span class="material-icons" style="font-size: 50px; color: #0284c7; margin-bottom: 10px;">assessment</span>
-          <h2 style="color: var(--primary); font-weight: 900; margin: 0 0 5px 0; font-size: 22px;">REPORTE DE ACTIVIDAD
-            DIARIA</h2>
-          <p style="color: #64748b; font-size: 13px; margin-bottom: 20px; font-weight: 600;">Genera el PDF maestro de
-            Entradas y Salidas.</p>
+          <h2 style="color: var(--primary, #0f172a); font-weight: 600; margin: 0 0 6px 0; font-size: 20px;">Reporte de actividad diaria</h2>
+          <p style="color: #6b7280; font-size: 13px; margin: 0 0 20px; font-weight: 400;">Sube la captura del sistema. Se generará el PDF automáticamente.</p>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; margin-bottom: 15px;">
-            <div>
-              <label
-                style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-                <span class="material-icons" style="font-size: 16px;">flight_takeoff</span> 1. RESERVAS (Salidas)
-              </label>
-              <textarea id="textoBrutoReservas" rows="6" placeholder="Pega aquí las Reservaciones..."
-                style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fcd34d; background:#fffbeb; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
-                oninput="validarTextareasActividad()"></textarea>
-            </div>
-            <div>
-              <label
-                style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-                <span class="material-icons" style="font-size: 16px;">flight_land</span> 2. REGRESOS (Llegadas)
-              </label>
-              <textarea id="textoBrutoRegresos" rows="6" placeholder="Pega aquí los Contratos por Cerrar..."
-                style="width:100%; padding:15px; border-radius:12px; border:2px dashed #bae6fd; background:#f0f9ff; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"
-                oninput="validarTextareasActividad()"></textarea>
-            </div>
+          <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:18px;">
+            <input id="act-image-input" type="file" accept="image/jpeg,image/png,image/webp,image/*" style="display:none"
+              onchange="procesarActividadDesdeImagen(event)">
+            <button type="button" id="btnActividadDesdeImagen"
+              onclick="document.getElementById('act-image-input').click()"
+              style="width:100%; min-height:42px; padding:0 16px; border:1px solid #2563eb; border-radius:4px; background:#2563eb; color:#fff; font-size:14px; font-weight:500; cursor:pointer;">
+              Subir captura
+            </button>
+            <p id="act-image-status" style="display:none; margin:0; color:#6b7280; font-size:13px;">Generando reporte…</p>
           </div>
 
-          <div style="text-align: left; margin-bottom: 20px;">
-            <label
-              style="font-weight: 900; font-size: 12px; color: #ef4444; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-              <span class="material-icons" style="font-size: 16px;">warning</span> 3. VENCIDOS (Opcional - Posibles
-              Llegadas)
-            </label>
-            <textarea id="textoBrutoVencidos" rows="4" placeholder="Pega aquí los contratos vencidos..."
-              style="width:100%; padding:15px; border-radius:12px; border:2px dashed #fca5a5; background:#fef2f2; outline:none; font-family:monospace; font-size:10px; resize:none; box-sizing: border-box;"></textarea>
-          </div>
-
-          <button id="btnGenerarPdfActividad" onclick="procesarActividadDiaria()" disabled
-            style="width: 100%; padding: 18px; background: #e2e8f0; color: #94a3b8; border: none; border-radius: 12px; font-weight: 900; font-size: 14px; cursor: not-allowed; display: flex; justify-content: center; align-items: center; gap: 10px; transition: 0.3s;">
-            <span class="material-icons">lock</span> ESPERANDO DATOS (PASO 1 Y 2)...
-          </button>
+          <details style="border-top:1px solid #e5e7eb; padding-top:14px;">
+            <summary style="cursor:pointer; color:#374151; font-size:13px; font-weight:500;">Pegar texto manualmente</summary>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px;">
+              <div>
+                <label style="font-weight: 600; font-size: 11px; color: #92400e; display:block; margin-bottom: 6px; text-transform:uppercase; letter-spacing:.03em;">1. Reservas</label>
+                <textarea id="textoBrutoReservas" rows="5" placeholder="Pega aquí las Reservaciones..."
+                  style="width:100%; padding:10px; border-radius:4px; border:1px solid #d1d5db; background:#fff; outline:none; font-family:monospace; font-size:11px; resize:vertical; box-sizing: border-box;"
+                  oninput="validarTextareasActividad()"></textarea>
+              </div>
+              <div>
+                <label style="font-weight: 600; font-size: 11px; color: #1d4ed8; display:block; margin-bottom: 6px; text-transform:uppercase; letter-spacing:.03em;">2. Regresos</label>
+                <textarea id="textoBrutoRegresos" rows="5" placeholder="Pega aquí los Contratos por Cerrar..."
+                  style="width:100%; padding:10px; border-radius:4px; border:1px solid #d1d5db; background:#fff; outline:none; font-family:monospace; font-size:11px; resize:vertical; box-sizing: border-box;"
+                  oninput="validarTextareasActividad()"></textarea>
+              </div>
+            </div>
+            <div style="margin-top: 12px;">
+              <label style="font-weight: 600; font-size: 11px; color: #b91c1c; display:block; margin-bottom: 6px; text-transform:uppercase; letter-spacing:.03em;">3. Vencidos (opcional)</label>
+              <textarea id="textoBrutoVencidos" rows="3" placeholder="Pega aquí los contratos vencidos..."
+                style="width:100%; padding:10px; border-radius:4px; border:1px solid #d1d5db; background:#fff; outline:none; font-family:monospace; font-size:11px; resize:vertical; box-sizing: border-box;"></textarea>
+            </div>
+            <button id="btnGenerarPdfActividad" onclick="procesarActividadDiaria()" disabled
+              style="width: 100%; margin-top:14px; min-height:40px; padding:0 14px; background: #e5e7eb; color: #9ca3af; border: none; border-radius: 4px; font-weight: 500; font-size: 13px; cursor: not-allowed;">
+              Generar reporte desde texto
+            </button>
+          </details>
         </div>
       </div>
 

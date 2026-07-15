@@ -125,6 +125,14 @@ body.app-legacy-stage-active #mexShellContent {
   font-size: 11px;
 }
 
+.mex-hdr-icon-btn {
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 8px;
+}
+
 @media (max-width: 767px) {
   .app-legacy-stage,
   body.app-legacy-stage-active .mex-main,

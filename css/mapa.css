@@ -4419,16 +4419,21 @@
     }
 
     .action-item {
-      padding: 15px;
+      padding: 12px 15px;
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       font-size: 13px;
-      font-weight: 800;
+      font-weight: 500;
       color: var(--text);
       cursor: pointer;
       border-bottom: 1px solid var(--border, #f1f5f9);
       transition: background 0.2s;
+    }
+
+    .action-item .material-symbols-outlined {
+      font-size: 18px;
+      flex-shrink: 0;
     }
 
     .action-item:hover {

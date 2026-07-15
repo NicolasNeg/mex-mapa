@@ -301,3 +301,115 @@ export async function procesarActividadDiaria() {
     btn.innerHTML = `<span class="material-icons">picture_as_pdf</span> GENERAR REPORTE COMPLETO`;
   }
 }
+
+function _sortReservas(list) {
+  return (list || []).slice().sort((a, b) => {
+    const scoreA = (a.pago ? 2 : 0) + (a.frecuente ? 1 : 0);
+    const scoreB = (b.pago ? 2 : 0) + (b.frecuente ? 1 : 0);
+    if (scoreA !== scoreB) return scoreB - scoreA;
+    return new Date(a.fecha) - new Date(b.fecha);
+  });
+}
+
+function _sortRegresos(list) {
+  return (list || []).slice().sort((a, b) => {
+    if (a.frecuente && !b.frecuente) return -1;
+    if (!a.frecuente && b.frecuente) return 1;
+    return new Date(a.fecha) - new Date(b.fecha);
+  });
+}
+
+function _compressImageFile(file, maxEdge = 1600, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer la imagen'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Imagen inválida'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxEdge || height > maxEdge) {
+          const scale = maxEdge / Math.max(width, height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve({ dataUrl, mimeType: 'image/jpeg' });
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function _setActividadImageBusy(busy) {
+  const btn = document.getElementById('btnActividadDesdeImagen');
+  const status = document.getElementById('act-image-status');
+  const input = document.getElementById('act-image-input');
+  if (btn) {
+    btn.disabled = busy;
+    btn.textContent = busy ? 'Generando reporte…' : 'Subir captura';
+  }
+  if (status) {
+    status.style.display = busy ? 'block' : 'none';
+    status.textContent = busy ? 'Generando reporte…' : '';
+  }
+  if (input && !busy) input.value = '';
+}
+
+/**
+ * Camino principal: imagen → Cloud Function (Gemini) → PDF.
+ * El usuario no ve texto crudo ni JSON.
+ */
+export async function procesarActividadDesdeImagen(eventOrFile) {
+  const file = eventOrFile?.target?.files?.[0] || eventOrFile;
+  if (!file) return;
+  if (!String(file.type || '').startsWith('image/')) {
+    window.showToast?.('Selecciona una imagen (JPG, PNG o WEBP).', 'error');
+    return;
+  }
+
+  _setActividadImageBusy(true);
+  try {
+    const { dataUrl, mimeType } = await _compressImageFile(file);
+    const functions = window._functions
+      || (typeof window.firebase?.app === 'function' ? window.firebase.app().functions('us-central1') : null)
+      || (typeof window.firebase?.functions === 'function' ? window.firebase.functions() : null);
+    if (!functions?.httpsCallable) throw new Error('Functions no disponible');
+
+    const callable = functions.httpsCallable('generarReporteActividadDesdeImagen');
+    const result = await callable({ imageBase64: dataUrl, mimeType });
+    const data = result?.data || {};
+    const reservas = _sortReservas(data.reservas || []);
+    const regresos = _sortRegresos(data.regresos || []);
+    const vencidos = (data.vencidos || []).slice().sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    const fechaFront = data.fechaBase
+      ? new Date(`${data.fechaBase}T12:00:00`).toISOString()
+      : new Date().toISOString();
+    const autor = window.USER_NAME || '';
+
+    await window.api?.generarPDFActividadDiaria?.(reservas, regresos, vencidos, autor, fechaFront)
+      .catch((e) => console.warn('[pdf-reservas] log PDF:', e));
+
+    if (typeof window.abrirReporteImpresion === 'function') {
+      window.abrirReporteImpresion(generarHtmlActividadDiaria(reservas, regresos, vencidos, autor, fechaFront));
+    }
+
+    document.getElementById('modal-lector-reservas')?.classList.remove('active');
+    window.showToast?.('Reporte listo.', 'success');
+  } catch (err) {
+    console.error('[pdf-reservas] procesarActividadDesdeImagen:', err);
+    const msg = err?.message || err?.details || '';
+    const soft = /demasiado grande|no se detectaron|Formato|imagen/i.test(msg)
+      ? msg
+      : 'No se pudo leer la captura.';
+    window.showToast?.(soft, 'error');
+  } finally {
+    _setActividadImageBusy(false);
+  }
+}
