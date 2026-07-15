@@ -12609,6 +12609,57 @@ function _cuadreStageMode() {
   return 'aux';
 }
 
+function _cuadreViewTabsHtml(active = '') {
+  const current = String(active || '').toLowerCase();
+  const btn = (key, icon, label, action) => `
+    <button type="button" class="${current === key ? 'active' : ''}" onclick="${action}">
+      <span class="material-symbols-outlined">${icon}</span>
+      ${label}
+    </button>
+  `;
+  return `
+    <div class="cuadre-flow-tabs" data-cuadre-flow-tabs>
+      ${btn('normal', 'directions_car', 'Flota Regular', "abrirCuadreVistaFlota('NORMAL')")}
+      ${btn('admins', 'admin_panel_settings', 'Cuadre Admins', "abrirCuadreVistaFlota('ADMINS')")}
+      ${btn('historial', 'history', 'Historial de Cuadre', 'abrirCuadreHistorialDesdeTabs()')}
+    </div>
+  `;
+}
+
+function _cuadreEnsureViewTabs(modal, active = '') {
+  if (!modal) return;
+  let host = modal.querySelector('[data-cuadre-flow-tabs]');
+  if (!host) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = _cuadreViewTabsHtml(active);
+    host = wrap.firstElementChild;
+    const historialToolbar = modal.querySelector('.historial-cuadre-toolbar');
+    if (historialToolbar?.parentNode) {
+      historialToolbar.insertAdjacentElement('afterend', host);
+    } else {
+      const header = modal.querySelector('.fleet-header-top');
+      if (header?.parentNode) header.insertAdjacentElement('afterend', host);
+      else modal.prepend(host);
+    }
+  } else {
+    host.outerHTML = _cuadreViewTabsHtml(active);
+  }
+}
+
+function abrirCuadreVistaFlota(tab = 'NORMAL') {
+  document.getElementById('audit-modal')?.classList.remove('active');
+  document.getElementById('historial-cuadres-modal')?.classList.remove('active');
+  document.getElementById('modal-cuadre-3v')?.classList.remove('active');
+  const fleet = document.getElementById('fleet-modal');
+  if (fleet) fleet.classList.add('active');
+  cambiarTabFlota(String(tab || '').toUpperCase() === 'ADMINS' ? 'ADMINS' : 'NORMAL');
+}
+
+function abrirCuadreHistorialDesdeTabs() {
+  document.getElementById('audit-modal')?.classList.remove('active');
+  return abrirHistorialCuadres();
+}
+
 function _cuadreMostrarPaso(step) {
   const steps = {
     1: 'audit-paso1',
@@ -12622,7 +12673,10 @@ function _cuadreMostrarPaso(step) {
     el.style.display = String(step) === numero ? (id === 'audit-paso2' ? 'flex' : 'block') : 'none';
   });
   const modal = document.getElementById('audit-modal');
-  if (modal) modal.classList.add('active');
+  if (modal) {
+    _cuadreEnsureViewTabs(modal, 'mision');
+    modal.classList.add('active');
+  }
 }
 
 function _cuadreSetStage(stage, extra = {}) {
@@ -13757,6 +13811,7 @@ async function abrirHistorialCuadres() {
     return;
   }
   modal.classList.add('active');
+  _cuadreEnsureViewTabs(modal, 'historial');
 
   const container = document.getElementById('lista-historial-cuadres');
   if (!container) return;
@@ -23060,6 +23115,8 @@ window.abrirReporteImpresion  = abrirReporteImpresion;
 window.abrirHistorialCuadres = abrirHistorialCuadres;
 window.abrirHistorialCuadre = abrirHistorialCuadres;
 window.cerrarHistorialCuadres = cerrarHistorialCuadres;
+window.abrirCuadreVistaFlota = abrirCuadreVistaFlota;
+window.abrirCuadreHistorialDesdeTabs = abrirCuadreHistorialDesdeTabs;
 window.abrirCuadrarFlotaDesdeHistorial = abrirCuadrarFlotaDesdeHistorial;
 window.verPdfCuadreHistorial = verPdfCuadreHistorial;
 window.historialCuadresIrPagina = historialCuadresIrPagina;

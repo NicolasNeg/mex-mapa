@@ -123,7 +123,7 @@ async function _load() {
   _s.error = '';
   _paintAll();
   try {
-    const data = await obtenerTrasladosBootstrap({ plaza: _s.plaza });
+    const data = await obtenerTrasladosBootstrap({ plaza: _s.plaza, actorRole: _currentRole() });
     const fallbackPlazas = getState().availablePlazas || [];
     _s.boot = {
       plaza: _normPlaza(data?.plaza || _s.plaza),
@@ -132,7 +132,7 @@ async function _load() {
       unidades: Array.isArray(data?.unidades) ? data.unidades : [],
       choferes: Array.isArray(data?.choferes) ? data.choferes : [],
       tipos: Array.isArray(data?.tipos) && data.tipos.length ? data.tipos : DEFAULT_TYPES,
-      canManage: data?.canManage === true
+      canManage: data?.canManage === true || _canManageTraslados()
     };
     _s.loading = false;
     _renderShell();
@@ -645,7 +645,7 @@ function _syncUnitPreview() {
 async function _submitCreate() {
   if (!_s.boot.canManage) return _toast('No tienes permiso para gestionar traslados.', 'error');
   _readDraftFromForm();
-  const payload = { ..._s.draft, usuario: _actor() };
+  const payload = { ..._s.draft, usuario: _actor(), actorRole: _currentRole() };
   if (!payload.mva) return _toast('Selecciona una unidad.', 'error');
   if (!payload.choferUid) return _toast('Selecciona chofer.', 'error');
   if (!payload.tipo) return _toast('Selecciona razon de traslado.', 'error');
@@ -670,7 +670,8 @@ async function _submitUpdate(id) {
     fechaSalida: _val('tras-form-salida'),
     fechaRegresoEstimada: _val('tras-form-regreso'),
     nota: _val('tras-form-nota'),
-    usuario: _actor()
+    usuario: _actor(),
+    actorRole: _currentRole()
   };
   await _runAction(async () => {
     const res = await actualizarTraslado(id, payload);
@@ -689,7 +690,8 @@ async function _submitClose(id) {
     gasLlegada: _val('tras-close-gas'),
     fechaCierre: _val('tras-close-fecha'),
     nota: _val('tras-close-nota'),
-    usuario: _actor()
+    usuario: _actor(),
+    actorRole: _currentRole()
   };
   if (!payload.kmLlegada) return _toast('Captura km de llegada.', 'error');
   await _runAction(async () => {
@@ -826,10 +828,24 @@ function _toast(message, type = 'info') {
 }
 
 function _canViewTraslados() {
-  const gs = getState();
-  const role = String(gs.profile?.rol || gs.profile?.role || '').toUpperCase().trim();
   if (window.mexPerms?.canDo?.('traslados_gestionar')) return true;
-  return (ROLE_LEVEL[role] || 0) >= ROLE_LEVEL.VENTAS;
+  return (ROLE_LEVEL[_currentRole()] || 0) >= ROLE_LEVEL.VENTAS;
+}
+
+function _canManageTraslados() {
+  if (window.mexPerms?.canDo?.('traslados_gestionar')) return true;
+  return (ROLE_LEVEL[_currentRole()] || 0) >= ROLE_LEVEL.VENTAS;
+}
+
+function _currentRole() {
+  const gs = getState();
+  return String(
+    gs.profile?.rol ||
+    gs.profile?.role ||
+    window.CURRENT_USER_PROFILE?.rol ||
+    window.MEX_CONFIG?.profile?.rol ||
+    ''
+  ).toUpperCase().trim();
 }
 
 function _renderNoAccess() {

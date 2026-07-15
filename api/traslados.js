@@ -88,14 +88,23 @@
     const found = _tipoList().find(item => _upper(item.codigo) === raw);
     return found ? found.etiqueta : raw;
   }
-  function _canManageTraslados() {
-    return !!(window.mexPerms && window.mexPerms.canDo && window.mexPerms.canDo('traslados_gestionar'));
+  function _canManageTraslados(roleOverride = '') {
+    if (window.mexPerms?.canDo?.('traslados_gestionar')) return true;
+    return (ROLE_LEVEL[_upper(roleOverride) || _currentRole()] || 0) >= ROLE_LEVEL.VENTAS;
   }
   function _currentRole() {
-    return _upper(window.MEX_CONFIG?.profile?.rol || window._userProfile?.rol || window.currentUserProfile?.rol || '');
+    return _upper(
+      window.MEX_CONFIG?.profile?.rol ||
+      window._userProfile?.rol ||
+      window.currentUserProfile?.rol ||
+      window.CURRENT_USER_PROFILE?.rol ||
+      window.MEX_CONFIG?.profile?.role ||
+      ''
+    );
   }
-  function _canViewTraslados() {
-    return _canManageTraslados() || (ROLE_LEVEL[_currentRole()] || 0) >= ROLE_LEVEL.VENTAS;
+  function _canViewTraslados(roleOverride = '') {
+    const role = _upper(roleOverride) || _currentRole();
+    return _canManageTraslados(role) || (ROLE_LEVEL[role] || 0) >= ROLE_LEVEL.VENTAS;
   }
   function _actorName(usuario) { return _text(usuario || window.MEX_CONFIG?.profile?.nombre || window._userProfile?.nombre || window._auth?.currentUser?.email || 'Sistema'); }
 
@@ -193,16 +202,16 @@
   window._mexParts = window._mexParts || {};
   window._mexParts.traslados = {
     async obtenerTrasladosBootstrap(opts = {}) {
-      if (!_canViewTraslados()) throw new Error('No tienes permiso para ver traslados');
+      if (!_canViewTraslados(opts.actorRole || opts.rol)) throw new Error('No tienes permiso para ver traslados');
       const plaza = _normalizePlazaId(opts.plaza || window.__mexCurrentPlazaId || window.MEX_CONFIG?.profile?.plazaAsignada || '');
       const [traslados, unidades, choferes] = await Promise.all([
         _loadTraslados(plaza), _loadUnidades(plaza), _loadChoferes()
       ]);
-      return { plaza, plazas: _plazasList(), traslados, unidades, choferes, tipos: _tipoList(), canManage: _canManageTraslados() };
+      return { plaza, plazas: _plazasList(), traslados, unidades, choferes, tipos: _tipoList(), canManage: _canManageTraslados(opts.actorRole || opts.rol) };
     },
 
     async crearTraslado(payload = {}) {
-      if (!_canManageTraslados()) return { ok: false, error: 'No tienes permiso para gestionar traslados' };
+      if (!_canManageTraslados(payload.actorRole || payload.rol)) return { ok: false, error: 'No tienes permiso para gestionar traslados' };
       const mva = _upper(payload.mva);
       const plazaOrigen = _normalizePlazaId(payload.plazaOrigen);
       const plazaDestino = _normalizePlazaId(payload.plazaDestino || plazaOrigen);
@@ -250,7 +259,7 @@
     },
 
     async actualizarTraslado(id, cambios = {}) {
-      if (!_canManageTraslados()) return { ok: false, error: 'No tienes permiso para gestionar traslados' };
+      if (!_canManageTraslados(cambios.actorRole || cambios.rol)) return { ok: false, error: 'No tienes permiso para gestionar traslados' };
       const ref = db.collection(TRASLADOS_COL).doc(_text(id));
       const snap = await ref.get();
       if (!snap.exists) return { ok: false, error: 'Traslado no encontrado' };
@@ -298,7 +307,7 @@
     },
 
     async cerrarTraslado(id, payload = {}) {
-      if (!_canManageTraslados()) return { ok: false, error: 'No tienes permiso para gestionar traslados' };
+      if (!_canManageTraslados(payload.actorRole || payload.rol)) return { ok: false, error: 'No tienes permiso para gestionar traslados' };
       const ref = db.collection(TRASLADOS_COL).doc(_text(id));
       const snap = await ref.get();
       if (!snap.exists) return { ok: false, error: 'Traslado no encontrado' };

@@ -6249,6 +6249,60 @@
 
 
 /* CUADRE FLOTA V2 --------------------------------------------------------- */
+.cuadre-flow-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #d9e1ef;
+  background: #ffffff;
+  flex-wrap: wrap;
+  animation: cuadreViewIn .18s ease both;
+}
+.cuadre-flow-tabs button {
+  min-height: 36px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: #52627a;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+}
+.cuadre-flow-tabs button:hover {
+  background: #f2f6fb;
+  color: #0f172a;
+  border-color: #d9e1ef;
+  transform: translateY(-1px);
+}
+.cuadre-flow-tabs button.active {
+  background: #0ea5e9;
+  color: #ffffff;
+  border-color: #0ea5e9;
+}
+.cuadre-flow-tabs .material-symbols-outlined {
+  font-size: 18px;
+}
+#audit-modal .fleet-wrapper,
+#historial-cuadres-modal .historial-cuadre-wrapper {
+  animation: cuadreViewIn .18s ease both;
+}
+@keyframes cuadreViewIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .audit-assignee-strip {
   display: grid;
   gap: 10px;

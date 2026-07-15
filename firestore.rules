@@ -446,6 +446,26 @@ service cloud.firestore {
         && request.resource.data.status is string;
     }
 
+    function settingsCuadreWriteValido() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly([
+        "estadoCuadreV3",
+        "adminIniciador",
+        "adminIniciadorDocId",
+        "adminIniciadorEmail",
+        "misionAuditoria",
+        "datosAuditoria",
+        "cuadreMissionId",
+        "cuadreDestinoDocId",
+        "cuadreDestinoNombre",
+        "cuadreMissionEstado",
+        "cuadreRevisionEstado",
+        "ultimoCuadreTexto",
+        "ultimaModificacion",
+        "ultimoEditor"
+      ]);
+    }
+
     function programmerErrorCreateValido() {
       return request.resource.data.keys().hasAll(["timestamp", "fecha", "kind", "scope", "message"])
         && request.resource.data.keys().hasOnly([
@@ -686,14 +706,14 @@ service cloud.firestore {
 
     // ─── TRASLADOS ──────────────────────────────────────────
     match /traslados/{doc} {
-      allow read: if tienePerfilActual()
-        && tienePermiso(perfilActual(), "traslados_gestionar");
-      allow create: if tienePerfilActual()
-        && tienePermiso(perfilActual(), "traslados_gestionar")
+      allow read: if esAccesoTotal()
+        || (tienePerfilActual() && tienePermiso(perfilActual(), "traslados_gestionar"));
+      allow create: if (esAccesoTotal()
+          || (tienePerfilActual() && tienePermiso(perfilActual(), "traslados_gestionar")))
         && request.resource.data.mva is string
         && request.resource.data.estado == "ABIERTO";
-      allow update: if tienePerfilActual()
-        && tienePermiso(perfilActual(), "traslados_gestionar")
+      allow update: if (esAccesoTotal()
+          || (tienePerfilActual() && tienePermiso(perfilActual(), "traslados_gestionar")))
         && resource.data.estado != "CERRADO";
       allow delete: if false;
     }
@@ -754,9 +774,11 @@ service cloud.firestore {
 
       match /inbox/{notifId} {
         allow read: if esAccesoTotal() || esDocumentoUsuarioPropio(doc);
-        allow create: if false;
-        allow update: if esAccesoTotal() || (esDocumentoUsuarioPropio(doc) && inboxAckValido());
-        allow delete: if esAccesoTotal();
+        allow create: if esAccesoTotal() || esAdminOperativo();
+        allow update: if esAccesoTotal()
+          || esAdminOperativo()
+          || (esDocumentoUsuarioPropio(doc) && inboxAckValido());
+        allow delete: if esAccesoTotal() || esAdminOperativo();
       }
     }
 
@@ -812,6 +834,11 @@ service cloud.firestore {
             tienePermiso(perfilActual(), "manage_system_settings")
             || tienePermiso(perfilActual(), "lock_map")
           )
+        )
+        // Ventas+ iniciando/cerrando misión de cuadre desde la vista oficial.
+        || (
+          esAdminOperativo()
+          && settingsCuadreWriteValido()
         )
         // Auxiliar enviando auditoría: transición PROCESO → REVISION
         || (
