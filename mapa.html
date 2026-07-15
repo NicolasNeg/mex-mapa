@@ -3730,18 +3730,14 @@
       </div>
 
       <!-- ── PANEL DE CONFIGURACIÓN GLOBAL (solo Admin Global) ─────────────── -->
-      <div id="modal-config-global" class="fleet-modal cfg-modal-v2" style="z-index: 70000;">
+      <div id="modal-config-global" class="fleet-modal cfg-modal-v2 luminous-admin" style="z-index: 70000;">
 
         <!-- HERO HEADER -->
         <div class="cfg-v2-hero">
           <div class="cfg-v2-hero-bg"></div>
           <div class="cfg-v2-hero-content">
             <div class="cfg-v2-hero-compact-row">
-              <div class="cfg-v2-kicker">
-                <span class="material-icons" style="font-size:13px;">admin_panel_settings</span>
-                CENTRO DE CONFIGURACIÓN
-              </div>
-              <h2 class="cfg-v2-title">Panel Administrativo</h2>
+              <h2 class="cfg-v2-title">Centro Admin</h2>
               <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
             </div>
             <!-- Contexto rápido del sistema -->
@@ -3777,17 +3773,17 @@
         <div class="cfg-v2-body">
 
           <!-- SIDEBAR -->
-          <div class="cfg-v2-sidebar" id="cfg-admin-sidebar">
+          <div class="cfg-v2-sidebar shell-sidebar-surface is-pinned" id="cfg-admin-sidebar">
             <div class="cfg-v2-sidebar-top">
               <div>
                 <div class="cfg-v2-sidebar-label">
                   <span class="material-icons">admin_panel_settings</span>
-                  <span>Panel Admin</span>
+                  <span>Centro Admin</span>
                 </div>
-                <div class="cfg-v2-sidebar-sublabel">Centro de configuración del negocio</div>
+                <div class="cfg-v2-sidebar-sublabel">Configuración del negocio</div>
               </div>
-              <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Fijar sidebar expandido">
-                <span class="material-icons">push_pin</span>
+              <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Colapsar sidebar" aria-label="Colapsar sidebar" aria-pressed="true">
+                <span class="material-icons">chevron_left</span>
               </button>
             </div>
             <nav class="cfg-v2-nav">
@@ -4021,7 +4017,7 @@
                   oninput="buscarEnListaConfig()">
               </div>
               <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
-                <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
+                <span class="material-icons" style="font-size:18px;">add</span> Agregar
               </button>
             </div>
 
@@ -4034,10 +4030,10 @@
                 Configuración v3</span>
               <div class="cfg-v2-footer-actions">
                 <button class="cfg-v2-btn-cancel" onclick="cerrarPanelConfiguracion()">
-                  CANCELAR
+                  Cancelar
                 </button>
                 <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
-                  <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
+                  <span class="material-icons" style="font-size:18px;">cloud_upload</span> Guardar cambios
                 </button>
               </div>
             </div>

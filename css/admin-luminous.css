@@ -1,0 +1,900 @@
+/* ==========================================================================
+   LUMINOUS ADMIN — Panel administrativo
+   Guía: minimalista, Inter, tokens Material-inspired
+   ========================================================================== */
+
+.cfg-modal-v2.luminous-admin {
+  --lum-bg: #ffffff;
+  --lum-surface-low: #f2f4f6;
+  --lum-surface: #edf0f3;
+  --lum-surface-high: #e7eaee;
+  --lum-surface-lowest: #ffffff;
+  --lum-on-surface: #1a1c1e;
+  --lum-on-surface-variant: #43474e;
+  --lum-outline: #73777f;
+  --lum-primary: #2563eb;
+  --lum-secondary-container: #dae2f9;
+  --lum-on-secondary-container: #131c2b;
+  --lum-border: rgba(67, 71, 78, 0.12);
+  --lum-sidebar-w: 280px;
+  --lum-sidebar-collapsed: 72px;
+  --lum-radius-nav: 12px;
+  --lum-radius-card: 12px;
+  --lum-font: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --lum-nav-size: 14px;
+  --lum-title-size: 22px;
+  --lum-gap: 16px;
+  --lum-elevation-low: 0 1px 3px rgba(0, 0, 0, 0.08);
+
+  font-family: var(--lum-font);
+  background: var(--lum-bg) !important;
+  color: var(--lum-on-surface);
+}
+
+/* ── Hero / top bar ───────────────────────────────────────── */
+.luminous-admin .cfg-v2-hero {
+  background: var(--lum-bg) !important;
+  border-bottom: 1px solid var(--lum-border) !important;
+  box-shadow: none !important;
+  min-height: 0;
+}
+
+.luminous-admin .cfg-v2-hero-bg,
+.luminous-admin .cfg-v2-sidebar.shell-sidebar-surface::before,
+.luminous-admin .cfg-v2-sidebar.shell-sidebar-surface::after {
+  display: none !important;
+}
+
+.luminous-admin .cfg-v2-hero-content {
+  padding: 20px 96px 18px 24px !important;
+}
+
+.luminous-admin .cfg-v2-hero-context-row {
+  display: none !important;
+}
+
+.luminous-admin .cfg-v2-title {
+  font-size: var(--lum-title-size) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--lum-on-surface) !important;
+  line-height: 1.25;
+}
+
+.luminous-admin .cfg-v2-subtitle {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--lum-outline) !important;
+  margin-top: 4px;
+}
+
+.luminous-admin .cfg-v2-subtitle b {
+  font-weight: 500;
+  color: var(--lum-on-surface-variant);
+}
+
+.luminous-admin .cfg-v2-kicker {
+  display: none !important;
+}
+
+.luminous-admin .gestion-back-btn {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  color: var(--lum-on-surface-variant) !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  padding: 8px 14px !important;
+}
+
+.luminous-admin .gestion-back-btn:hover {
+  background: var(--lum-surface-high) !important;
+}
+
+/* ── Body layout ──────────────────────────────────────────── */
+.luminous-admin .cfg-v2-body {
+  background: var(--lum-bg) !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  min-height: 0;
+}
+
+/* ── Sidebar (#cfg-admin-sidebar — gestion + mapa) ───────── */
+.luminous-admin #cfg-admin-sidebar,
+.luminous-admin .cfg-v2-sidebar.shell-sidebar-surface {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-right: 1px solid var(--lum-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 20px 12px !important;
+  gap: var(--lum-gap) !important;
+}
+
+.luminous-admin #cfg-admin-sidebar.is-pinned,
+.luminous-admin .cfg-v2-sidebar.shell-sidebar-surface.is-pinned {
+  width: var(--lum-sidebar-w) !important;
+  min-width: var(--lum-sidebar-w) !important;
+  max-width: var(--lum-sidebar-w) !important;
+}
+
+.luminous-admin #cfg-admin-sidebar:not(.is-pinned),
+.luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) {
+  width: var(--lum-sidebar-collapsed) !important;
+  min-width: var(--lum-sidebar-collapsed) !important;
+  max-width: var(--lum-sidebar-collapsed) !important;
+  padding: 16px 8px !important;
+}
+
+.luminous-admin .cfg-v2-sidebar-top {
+  padding: 0 8px 12px !important;
+  border-bottom: 1px solid var(--lum-border);
+  margin-bottom: 4px;
+}
+
+.luminous-admin .cfg-v2-sidebar-label {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+  gap: 10px !important;
+  padding: 0 !important;
+  margin-bottom: 2px !important;
+}
+
+.luminous-admin .cfg-v2-sidebar-label .material-icons {
+  font-size: 20px !important;
+  color: var(--lum-on-surface-variant) !important;
+}
+
+.luminous-admin .cfg-v2-sidebar-sublabel {
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  color: var(--lum-outline) !important;
+  padding-left: 30px !important;
+  margin-bottom: 0 !important;
+}
+
+.luminous-admin .cfg-v2-sidebar-toggle {
+  background: transparent !important;
+  border: none !important;
+  color: var(--lum-outline) !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 8px !important;
+}
+
+.luminous-admin .cfg-v2-sidebar-toggle:hover {
+  background: var(--lum-surface-high) !important;
+  color: var(--lum-on-surface) !important;
+  transform: none !important;
+}
+
+.luminous-admin .cfg-v2-sidebar.is-pinned .cfg-v2-sidebar-toggle {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Nav groups → flat sections */
+.luminous-admin .cfg-nav-group {
+  border-top: none !important;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
+  gap: 4px !important;
+}
+
+.luminous-admin .cfg-nav-group + .cfg-nav-group {
+  margin-top: 20px !important;
+}
+
+.luminous-admin .cfg-nav-group-toggle {
+  display: none !important;
+}
+
+.luminous-admin .cfg-nav-group::before {
+  display: block;
+  padding: 0 12px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--lum-outline);
+}
+
+.luminous-admin .cfg-nav-group[data-group="accesos"]::before { content: "Accesos y permisos"; }
+.luminous-admin .cfg-nav-group[data-group="operacion"]::before { content: "Operación"; }
+.luminous-admin .cfg-nav-group[data-group="estructura"]::before { content: "Estructura"; }
+.luminous-admin .cfg-nav-group[data-group="organizacion"]::before { content: "Organización"; }
+.luminous-admin .cfg-nav-group[data-group="sistema"]::before { content: "Sistema"; }
+.luminous-admin .cfg-nav-group[data-group="programador"]::before { content: "Programador"; }
+
+.luminous-admin .cfg-nav-group-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  max-height: none !important;
+  opacity: 1 !important;
+  transform: none !important;
+  pointer-events: auto !important;
+  margin-top: 0 !important;
+  padding: 0 !important;
+}
+
+.luminous-admin .cfg-v2-nav {
+  gap: 0 !important;
+  padding: 8px 0 16px;
+}
+
+/* Nav items */
+.luminous-admin .cfg-tab {
+  min-height: 44px !important;
+  padding: 0 12px !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: var(--lum-nav-size) !important;
+  font-weight: 500 !important;
+  color: var(--lum-on-surface-variant) !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  gap: 12px !important;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.luminous-admin .cfg-tab-icon {
+  width: 24px !important;
+  min-width: 24px !important;
+  height: 24px !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+}
+
+.luminous-admin .cfg-tab-icon .material-icons {
+  font-size: 20px !important;
+}
+
+.luminous-admin .cfg-tab:hover {
+  background: var(--lum-surface-high) !important;
+  color: var(--lum-on-surface) !important;
+  transform: none !important;
+}
+
+.luminous-admin .cfg-tab.active,
+.luminous-admin .cfg-tab.is-active {
+  background: var(--lum-secondary-container) !important;
+  color: var(--lum-on-secondary-container) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+.luminous-admin .cfg-tab.active::before,
+.luminous-admin .cfg-tab.is-active::before {
+  display: none !important;
+}
+
+.luminous-admin .cfg-tab.active .cfg-tab-icon,
+.luminous-admin .cfg-tab.is-active .cfg-tab-icon {
+  color: var(--lum-on-secondary-container) !important;
+  background: transparent !important;
+}
+
+.luminous-admin .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+  opacity: 1 !important;
+  max-width: none !important;
+  display: inline !important;
+}
+
+/* ── Main panel ───────────────────────────────────────────── */
+.luminous-admin .cfg-v2-main {
+  background: var(--lum-bg) !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-v2-workspace-header {
+  padding: 24px 28px 0 !important;
+  border-bottom: none !important;
+  background: transparent !important;
+}
+
+.luminous-admin .cfg-v2-workspace-kicker {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--lum-outline) !important;
+  margin-bottom: 6px;
+}
+
+.luminous-admin .cfg-v2-workspace-title-row h3,
+.luminous-admin #cfg-module-title {
+  font-size: var(--lum-title-size) !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--lum-on-surface) !important;
+  line-height: 1.25;
+}
+
+.luminous-admin #cfg-module-subtitle {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--lum-outline) !important;
+  line-height: 1.5;
+  margin-top: 6px;
+  max-width: 640px;
+}
+
+.luminous-admin .cfg-v2-module-badge {
+  background: var(--lum-surface) !important;
+  color: var(--lum-on-surface-variant) !important;
+  border: none !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.04em !important;
+  border-radius: 6px !important;
+  padding: 4px 10px !important;
+}
+
+/* Search + actions bar */
+.luminous-admin .cfg-v2-add-bar {
+  padding: 20px 28px !important;
+  background: transparent !important;
+  border-bottom: 1px solid var(--lum-border) !important;
+  gap: 12px !important;
+}
+
+.luminous-admin .cfg-v2-search-box {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  flex: 1;
+  max-width: 420px;
+}
+
+.luminous-admin .cfg-v2-search-box input {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: var(--lum-on-surface) !important;
+  background: transparent !important;
+}
+
+.luminous-admin .cfg-v2-search-icon {
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .cfg-v2-btn-add {
+  background: var(--lum-on-surface) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  padding: 10px 18px !important;
+  box-shadow: none !important;
+  gap: 6px !important;
+}
+
+.luminous-admin .cfg-v2-btn-add:hover {
+  background: #2d3139 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Content list area */
+.luminous-admin .cfg-v2-list {
+  background: var(--lum-bg) !important;
+  padding: 20px 28px 28px !important;
+}
+
+.luminous-admin .cfg-v2-footer {
+  padding: 16px 28px !important;
+  border-top: 1px solid var(--lum-border) !important;
+  background: var(--lum-bg) !important;
+}
+
+.luminous-admin .cfg-v2-footer-copy {
+  font-size: 12px !important;
+  color: var(--lum-outline) !important;
+  font-weight: 400 !important;
+}
+
+.luminous-admin .cfg-v2-btn-cancel {
+  background: var(--lum-surface-low) !important;
+  color: var(--lum-on-surface-variant) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-v2-btn-publish {
+  background: var(--lum-primary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-v2-btn-publish:hover {
+  background: #1d4ed8 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Horizontal line tabs (tools / sub-nav) ───────────────── */
+.luminous-admin .cfg-v2-tools {
+  display: flex !important;
+  gap: 0 !important;
+  padding: 0 28px !important;
+  border-bottom: 1px solid var(--lum-border) !important;
+  background: var(--lum-bg) !important;
+  overflow-x: auto;
+}
+
+.luminous-admin .cfg-v2-tool-btn {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  color: var(--lum-outline) !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding: 12px 16px !important;
+  box-shadow: none !important;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.luminous-admin .cfg-v2-tool-btn:hover {
+  color: var(--lum-on-surface) !important;
+  background: transparent !important;
+}
+
+.luminous-admin .cfg-v2-tool-btn.active,
+.luminous-admin .cfg-v2-tool-btn.is-active {
+  color: var(--lum-primary) !important;
+  border-bottom-color: var(--lum-primary) !important;
+  font-weight: 500 !important;
+  background: transparent !important;
+}
+
+/* Segmented / pill tabs (filters, chips) */
+.luminous-admin .um-filter-row,
+.luminous-admin .cfg-segmented-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 4px;
+  background: var(--lum-surface);
+  border-radius: 9999px;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.luminous-admin .um-filter-chip {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 9999px !important;
+  color: var(--lum-on-surface-variant) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 8px 14px !important;
+  box-shadow: none !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.luminous-admin .um-filter-chip:hover {
+  background: rgba(255, 255, 255, 0.5) !important;
+}
+
+.luminous-admin .um-filter-chip.active {
+  background: var(--lum-surface-lowest) !important;
+  color: var(--lum-on-surface) !important;
+  box-shadow: var(--lum-elevation-low) !important;
+}
+
+/* ── Catalog & list items ─────────────────────────────────── */
+.luminous-admin .cfg-catalog-shell {
+  gap: 20px !important;
+}
+
+.luminous-admin .cfg-catalog-panel,
+.luminous-admin .cfg-detail-card,
+.luminous-admin .cfg-emp-card,
+.luminous-admin .um-form-card,
+.luminous-admin .cfg-plaza-form-card {
+  background: var(--lum-bg) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-card) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-catalog-panel-head,
+.luminous-admin .cfg-detail-card-head {
+  background: transparent !important;
+  border-bottom: 1px solid var(--lum-border) !important;
+  padding: 16px 18px !important;
+}
+
+.luminous-admin .cfg-catalog-panel-head h4,
+.luminous-admin .cfg-detail-card-head h4 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+  letter-spacing: 0 !important;
+}
+
+.luminous-admin .cfg-catalog-panel-head p,
+.luminous-admin .cfg-detail-card-head p {
+  font-size: 13px !important;
+  color: var(--lum-outline) !important;
+  font-weight: 400 !important;
+}
+
+.luminous-admin .cfg-item {
+  background: var(--lum-bg) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-nav) !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  transition: background 0.15s ease;
+}
+
+.luminous-admin .cfg-item:hover {
+  background: var(--lum-surface-low) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-item.active {
+  background: var(--lum-secondary-container) !important;
+  border-color: transparent !important;
+  color: var(--lum-on-secondary-container) !important;
+}
+
+.luminous-admin .cfg-detail-icon {
+  background: var(--lum-surface-low) !important;
+  color: var(--lum-on-surface-variant) !important;
+  border-radius: var(--lum-radius-nav) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-detail-callout,
+.luminous-admin .cfg-detail-meta-item,
+.luminous-admin .cfg-detail-related-block {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+}
+
+.luminous-admin .cfg-detail-btn,
+.luminous-admin .cfg-add-btn-cancel,
+.luminous-admin .cfg-add-btn-save,
+.luminous-admin .cfg-save-btn,
+.luminous-admin .cfg-cancel-btn {
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-add-btn-save,
+.luminous-admin .cfg-save-btn {
+  background: var(--lum-primary) !important;
+  color: #fff !important;
+}
+
+.luminous-admin .cfg-add-btn-cancel,
+.luminous-admin .cfg-cancel-btn,
+.luminous-admin .cfg-detail-btn {
+  background: var(--lum-surface-low) !important;
+  color: var(--lum-on-surface-variant) !important;
+  border: none !important;
+}
+
+/* ── Users module ─────────────────────────────────────────── */
+.luminous-admin .um-workspace-header {
+  padding: 0 0 20px !important;
+  border-bottom: 1px solid var(--lum-border) !important;
+  background: transparent !important;
+}
+
+.luminous-admin .um-workspace-kicker {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.06em !important;
+  text-transform: uppercase !important;
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .um-workspace-copy h3 {
+  font-size: var(--lum-title-size) !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin .um-workspace-copy p {
+  font-size: 14px !important;
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .um-stat-card {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-card) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-stat-card::after {
+  display: none !important;
+}
+
+.luminous-admin .um-card {
+  background: var(--lum-bg) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-nav) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-card:hover {
+  background: var(--lum-surface-low) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-card.active {
+  background: var(--lum-secondary-container) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-profile-hero {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-card) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-form-card {
+  box-shadow: none !important;
+  border-radius: var(--lum-radius-card) !important;
+}
+
+.luminous-admin .um-info-pill {
+  background: var(--lum-surface) !important;
+  color: var(--lum-on-surface-variant) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 9999px !important;
+}
+
+.luminous-admin .um-toolbar-btn {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+  color: var(--lum-on-surface-variant) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-toolbar-btn.primary {
+  background: var(--lum-primary) !important;
+  color: #fff !important;
+}
+
+.luminous-admin .um-btn-save {
+  background: var(--lum-primary) !important;
+  color: #fff !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-btn-secondary {
+  background: var(--lum-surface-low) !important;
+  color: var(--lum-on-surface-variant) !important;
+  border-radius: var(--lum-radius-nav) !important;
+}
+
+.luminous-admin .um-btn-danger {
+  border-radius: var(--lum-radius-nav) !important;
+}
+
+.luminous-admin .um-list-col {
+  border-right: 1px solid var(--lum-border) !important;
+}
+
+.luminous-admin .um-column-head h4 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin .um-column-kicker {
+  color: var(--lum-outline) !important;
+  font-weight: 600 !important;
+}
+
+/* Security / roles */
+.luminous-admin .cfg-security-shell,
+.luminous-admin .cfg-security-permission-group {
+  border-radius: var(--lum-radius-card) !important;
+}
+
+.luminous-admin .cfg-security-permission-group-head {
+  border-bottom: 1px solid var(--lum-border) !important;
+}
+
+.luminous-admin .cfg-security-permission-item {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  border-radius: var(--lum-radius-nav) !important;
+}
+
+/* Inputs */
+.luminous-admin input,
+.luminous-admin select,
+.luminous-admin textarea,
+.luminous-admin .cfg-add-input,
+.luminous-admin .cfg-emp-input,
+.luminous-admin .um-form-field input {
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-nav) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  background: var(--lum-bg) !important;
+  color: var(--lum-on-surface) !important;
+}
+
+.luminous-admin input:focus,
+.luminous-admin select:focus,
+.luminous-admin textarea:focus {
+  outline: 2px solid rgba(37, 99, 235, 0.25) !important;
+  border-color: var(--lum-primary) !important;
+}
+
+/* Motive badges */
+.luminous-admin .cfg-motive-code {
+  background: var(--lum-secondary-container) !important;
+  color: var(--lum-on-secondary-container) !important;
+}
+
+.luminous-admin .cfg-motive-status.is-active {
+  background: #e8f5e9 !important;
+  color: #2e7d32 !important;
+}
+
+.luminous-admin .cfg-motive-desc {
+  background: var(--lum-surface-low) !important;
+  color: var(--lum-outline) !important;
+}
+
+.luminous-admin .cfg-v2-close {
+  background: var(--lum-surface-low) !important;
+  border: none !important;
+  color: var(--lum-on-surface-variant) !important;
+  border-radius: var(--lum-radius-nav) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .cfg-v2-close:hover {
+  background: var(--lum-surface-high) !important;
+}
+
+.luminous-admin .um-context-tile,
+.luminous-admin .cfg-plazas-body,
+.luminous-admin .cfg-plaza-form-card,
+.luminous-admin .cfg-emp-card {
+  background: var(--lum-bg) !important;
+  border: 1px solid var(--lum-border) !important;
+  border-radius: var(--lum-radius-card) !important;
+  box-shadow: none !important;
+}
+
+.luminous-admin .um-loading,
+.luminous-admin .um-loading-empty {
+  color: var(--lum-outline) !important;
+  font-size: 14px !important;
+  font-weight: 400 !important;
+}
+
+.luminous-admin .cfg-catalog-count {
+  background: var(--lum-surface) !important;
+  color: var(--lum-on-surface-variant) !important;
+  border: none !important;
+  font-weight: 600 !important;
+}
+
+/* ── Collapsed sidebar (desktop) ──────────────────────────── */
+@media (min-width: 901px) {
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-v2-sidebar-label span:not(.material-icons),
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-v2-sidebar-label span:not(.material-icons),
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-v2-sidebar-sublabel,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-v2-sidebar-sublabel,
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-nav-group::before,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-nav-group::before,
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse),
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+    display: none !important;
+  }
+
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-v2-sidebar-top,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-v2-sidebar-top {
+    border-bottom: none;
+    justify-content: center;
+    padding-bottom: 8px !important;
+  }
+
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-v2-sidebar-label,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-v2-sidebar-label {
+    justify-content: center;
+    padding: 0 !important;
+  }
+
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-nav-group + .cfg-nav-group,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-nav-group + .cfg-nav-group {
+    margin-top: 4px !important;
+  }
+
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned) .cfg-tab,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab {
+    justify-content: center !important;
+    padding: 0 !important;
+    min-height: 40px !important;
+  }
+
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned),
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) {
+    overflow-y: auto !important;
+  }
+}
+
+/* ── Mobile ───────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .luminous-admin .cfg-v2-hero-content {
+    padding: 16px 16px 14px !important;
+  }
+
+  .luminous-admin #cfg-admin-sidebar,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface,
+  .luminous-admin #cfg-admin-sidebar.is-pinned,
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface.is-pinned,
+  .luminous-admin #cfg-admin-sidebar:not(.is-pinned),
+  .luminous-admin .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--lum-border) !important;
+    padding: 12px !important;
+  }
+
+  .luminous-admin .cfg-nav-group::before {
+    display: none !important;
+  }
+
+  .luminous-admin .cfg-v2-sidebar-top {
+    display: none !important;
+  }
+
+  .luminous-admin .cfg-v2-workspace-header,
+  .luminous-admin .cfg-v2-add-bar,
+  .luminous-admin .cfg-v2-list {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .luminous-admin .cfg-v2-tools {
+    padding: 0 16px !important;
+  }
+}

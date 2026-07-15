@@ -11,6 +11,7 @@
  *   mapa.css          — Mapa principal, header, carros, paneles, flota, login
  *   alertas.css       — Studio alertas maestras, badges, menú controles, radar
  *   config.css        — Panel config (cfg-*), plazas, empresa, editor de mapa
+ *   admin-luminous.css — Rediseño Luminous Admin (panel administrativo)
  *   mensajes.css      — Chat y mensajes
  *   notificaciones.css — Centro de notificaciones, perfil
  *   programador.css      — Centro de Control (programador.html)
@@ -24,6 +25,7 @@
 @import url('mapa.css');
 @import url('alertas.css');
 @import url('config.css');
+@import url('admin-luminous.css');
 @import url('mensajes.css');
 @import url('notificaciones.css');
 @import url('programador.css');

@@ -1763,12 +1763,7 @@
       display: none;
     }
 
-    /* Al hacer hover el sidebar se expande */
-    .cfg-v2-sidebar:hover {
-      width: var(--cfg-rail-expanded);
-    }
-
-    /* Label del sidebar (solo visible cuando expandido) */
+    /* Ancho expandido solo con is-pinned (sin hover) */
     .cfg-v2-sidebar-label {
       display: flex;
       align-items: center;
@@ -1800,11 +1795,11 @@
       overflow: hidden;
     }
 
-    /* Texto y sublabel: ocultos en collapse, visibles en hover */
-    .cfg-v2-sidebar:not(:hover) .cfg-v2-sidebar-label span:not(.material-icons):not(.material-symbols-outlined),
-    .cfg-v2-sidebar:not(:hover) .cfg-v2-sidebar-sublabel,
-    .cfg-v2-sidebar:not(:hover) .cfg-rail-section-label,
-    .cfg-v2-sidebar:not(:hover) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+    /* Texto y sublabel: ocultos en collapse, visibles expandido */
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-v2-sidebar-label span:not(.material-icons):not(.material-symbols-outlined),
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-v2-sidebar-sublabel,
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-rail-section-label,
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
       opacity: 0;
       width: 0;
       overflow: hidden;
@@ -2352,18 +2347,18 @@
       pointer-events: none;
     }
 
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron {
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron {
       display: none;
     }
 
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle {
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle {
       justify-content: center;
       padding-left: 0;
       padding-right: 0;
     }
 
-    .cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-body {
+    .cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-body {
       display: none;
     }
 
@@ -6375,17 +6370,17 @@ body.editor-inspector-dragging .editor-inspector-card {
   pointer-events: none;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle {
   justify-content: center;
   padding-left: 0;
   padding-right: 0;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-body {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-body {
   display: none;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group.open .cfg-nav-group-body {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group.open .cfg-nav-group-body {
   display: flex;
 }
 
@@ -6398,8 +6393,8 @@ body.editor-inspector-dragging .editor-inspector-card {
   transform: translateX(2px);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle .cfg-nav-group-copy span:last-child,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron {
   display: none;
 }
 
@@ -6523,8 +6518,8 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   background: linear-gradient(180deg, #6ee7b7, #d1fae5);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle:hover {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-toggle:hover {
   background: transparent !important;
   border-color: transparent !important;
   box-shadow: none !important;
@@ -6533,18 +6528,18 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   padding-right: 0;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-copy > span:last-child,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group-body,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group.open .cfg-nav-group-body {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-copy > span:last-child,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-chevron,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group-body,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group.open .cfg-nav-group-body {
   display: none !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-nav-group {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-nav-group {
   border-top-color: rgba(255, 255, 255, 0.04);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab {
   justify-content: center;
   background: transparent !important;
   box-shadow: none !important;
@@ -6552,46 +6547,46 @@ html.light .cfg-nav-group-body .cfg-tab:hover {
   color: rgba(255, 255, 255, 0.76);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab:hover {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab:hover {
   background: transparent !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.active,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.is-active {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab.active,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab.is-active {
   background: transparent !important;
   box-shadow: none !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.active::before,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab.is-active::before {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab.active::before,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab.is-active::before {
   display: none;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
   display: none !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-tab-icon {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-tab-icon {
   background: transparent !important;
   color: rgba(255, 255, 255, 0.72);
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-brand-copy,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .cfg-v2-sidebar-sublabel,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-user-copy,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-btn-copy,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-link-copy {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-brand-copy,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .cfg-v2-sidebar-sublabel,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-user-copy,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-btn-copy,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-link-copy {
   display: none !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-user,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-footer {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-user,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-footer {
   padding-left: 10px !important;
   padding-right: 10px !important;
 }
 
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-footer button,
-.cfg-v2-sidebar:not(:hover):not(.is-pinned):not(.mobile-open) .shell-sidebar-footer a {
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-footer button,
+.cfg-v2-sidebar:not(.is-pinned):not(.mobile-open) .shell-sidebar-footer a {
   justify-content: center !important;
   padding-left: 0 !important;
   padding-right: 0 !important;
@@ -6718,7 +6713,7 @@ body.legacy-embedded-admin .gestion-back-btn {
   gap: 16px;
 }
 
-.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface {
+.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface.is-pinned {
   width: 284px !important;
   min-width: 248px !important;
   max-width: 284px !important;
@@ -6728,12 +6723,24 @@ body.legacy-embedded-admin .gestion-back-btn {
   box-shadow: none !important;
   padding: 12px !important;
   color: var(--cfg-admin-text);
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:hover {
-  width: 284px !important;
-  border-color: #cbd5e1 !important;
+.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) {
+  width: 72px !important;
+  min-width: 72px !important;
+  max-width: 72px !important;
+  background: var(--cfg-admin-surface) !important;
+  border: 1px solid var(--cfg-admin-border) !important;
+  border-radius: 8px !important;
   box-shadow: none !important;
+  padding: 12px 8px !important;
+  color: var(--cfg-admin-text);
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface.is-pinned:hover {
+  border-color: #cbd5e1 !important;
 }
 
 .cfg-modal-v2 .cfg-v2-sidebar-label,
@@ -7200,5 +7207,72 @@ body.legacy-embedded-admin .gestion-back-btn {
 
   .cfg-modal-v2 .cfg-v2-workspace-title-row {
     flex-wrap: wrap;
+  }
+}
+
+/* Panel admin — colapsado explícito por botón (desktop, sin hover) */
+@media (min-width: 901px) {
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-v2-sidebar-top > div:first-child {
+    display: none !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-v2-sidebar-top {
+    justify-content: center;
+    padding-bottom: 6px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-nav-group-toggle {
+    display: none !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-nav-group {
+    border-top: 0;
+    margin-top: 0;
+    padding-top: 0;
+    gap: 4px;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-nav-group-body,
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-nav-group.open .cfg-nav-group-body,
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-nav-group:not(.open) .cfg-nav-group-body {
+    display: flex !important;
+    flex-direction: column !important;
+    max-height: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    transform: none !important;
+    margin-top: 0 !important;
+    gap: 4px !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab {
+    justify-content: center !important;
+    padding: 0 !important;
+    min-height: 40px;
+    border-color: transparent !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab > span:not(.cfg-tab-icon):not(.badge-pulse) {
+    display: none !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab.active::before,
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab.is-active::before {
+    display: none !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab.active,
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-tab.is-active {
+    background: #eef4ff !important;
+    border-color: #c7d7fe !important;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) .cfg-v2-sidebar-toggle {
+    margin: 0 auto;
+  }
+
+  .cfg-modal-v2 .cfg-v2-sidebar.shell-sidebar-surface:not(.is-pinned) {
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
   }
 }

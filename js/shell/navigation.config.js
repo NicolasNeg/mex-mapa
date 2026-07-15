@@ -153,26 +153,11 @@ export const NAV_GROUPS = [
         feature: 'gestion_usuarios'
       },
       {
-        // Sin `route`: es un desplegable puro (clic solo abre/cierra el submenú,
-        // no navega directo a usuarios). Aplica en PC y mobile (mismo handler).
         id: 'panel-admin',
         label: 'Panel admin',
         icon: 'admin_panel_settings',
-        roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR'],
-        children: [
-          { id: 'usuarios',    label: 'Usuarios',    route: '/gestion?tab=usuarios',    icon: 'group' },
-          { id: 'choferes',    label: 'Choferes',    route: '/gestion?tab=choferes',    icon: 'badge' },
-          { id: 'roles',       label: 'Roles',       route: '/gestion?tab=roles',       icon: 'shield' },
-          { id: 'alertas-emitir', label: 'Emitir alertas', route: '/app/alertas', icon: 'campaign' },
-          { id: 'alertas-historial', label: 'Historial alertas', route: '/app/alertas/historial', icon: 'notifications_active' },
-          { id: 'estados',     label: 'Estados',     route: '/gestion?tab=estados',     icon: 'tune',            feature: 'estados_mapa' },
-          { id: 'categorias',  label: 'Categorías',  route: '/gestion?tab=categorias',  icon: 'directions_car',  feature: 'cuadre' },
-          { id: 'modelos',     label: 'Modelos',     route: '/gestion?tab=modelos',     icon: 'no_crash' },
-          { id: 'gasolinas',   label: 'Gasolinas',   route: '/gestion?tab=gasolinas',   icon: 'local_gas_station' },
-          { id: 'plazas',      label: 'Plazas',      route: '/gestion?tab=plazas',      icon: 'location_city' },
-          { id: 'ubicaciones', label: 'Ubicaciones', route: '/gestion?tab=ubicaciones', icon: 'place' },
-          { id: 'empresa',     label: 'Empresa',     route: '/gestion?tab=empresa',     icon: 'business' }
-        ]
+        route: '/app/admin',
+        roles: ['SUPERVISOR', 'JEFE_PATIO', 'GERENTE_PLAZA', 'JEFE_REGIONAL', 'CORPORATIVO_USER', 'JEFE_OPERACION', 'PROGRAMADOR']
       }
     ]
   },

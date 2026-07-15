@@ -146,18 +146,14 @@
   </div>
 
   <!-- ── PANEL DE CONFIGURACIÓN GLOBAL ── -->
-  <div id="modal-config-global" class="fleet-modal cfg-modal-v2 active">
+  <div id="modal-config-global" class="fleet-modal cfg-modal-v2 luminous-admin active">
 
     <!-- HERO HEADER -->
     <div class="cfg-v2-hero" style="position:relative;">
       <div class="cfg-v2-hero-bg"></div>
       <div class="cfg-v2-hero-content">
         <div class="cfg-v2-hero-compact-row">
-          <div class="cfg-v2-kicker">
-            <span class="material-icons" style="font-size:13px;">settings_suggest</span>
-            ADMINISTRACIÓN
-          </div>
-          <h2 class="cfg-v2-title">PANEL ADMINISTRATIVO</h2>
+          <h2 class="cfg-v2-title">Centro Admin</h2>
           <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
         </div>
         <!-- IDs requeridos por JS -->
@@ -182,12 +178,12 @@
           <div>
             <div class="cfg-v2-sidebar-label">
               <span class="material-icons">admin_panel_settings</span>
-              <span>Panel Admin</span>
+              <span>Centro Admin</span>
             </div>
-            <div class="cfg-v2-sidebar-sublabel">Centro de configuración del negocio</div>
+            <div class="cfg-v2-sidebar-sublabel">Configuración del negocio</div>
           </div>
-          <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Fijar sidebar expandido">
-            <span class="material-icons">push_pin</span>
+          <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Colapsar sidebar" aria-label="Colapsar sidebar" aria-pressed="true">
+            <span class="material-icons">chevron_left</span>
           </button>
         </div>
         <nav class="cfg-v2-nav">
@@ -365,7 +361,7 @@
               oninput="buscarEnListaConfig()">
           </div>
           <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
-            <span class="material-icons" style="font-size:18px;">add</span> AGREGAR
+            <span class="material-icons" style="font-size:18px;">add</span> Agregar
           </button>
         </div>
 
@@ -377,10 +373,10 @@
           <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> · Configuración v3</span>
           <div class="cfg-v2-footer-actions">
             <a href="/mapa" class="cfg-v2-btn-cancel" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-              <span class="material-icons" style="font-size:16px;">arrow_back</span> VOLVER
+              <span class="material-icons" style="font-size:16px;">arrow_back</span> Volver
             </a>
             <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
-              <span class="material-icons" style="font-size:18px;">cloud_upload</span> GUARDAR CAMBIOS
+              <span class="material-icons" style="font-size:18px;">cloud_upload</span> Guardar cambios
             </button>
           </div>
         </div>

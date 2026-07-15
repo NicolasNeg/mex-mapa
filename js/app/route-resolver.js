@@ -110,7 +110,7 @@ export const ROUTE_MAP = {
     id: 'admin', label: 'Panel admin',
     legacyRoute:  '/gestion',
     appRoute:     '/app/admin',
-    navRoute:     '/gestion',
+    navRoute:     '/app/admin',
     fallbackRoute:'/gestion',
     shellIntegrated:    true,
     fullModuleMigrated: true,

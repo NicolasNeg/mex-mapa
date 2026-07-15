@@ -93,7 +93,11 @@ export class ShellSidebar {
     const targetFull = normalizeRouteFull(route);
     const currentFull = normalizeRouteFull(this._currentRoute);
     if (targetFull.includes('?')) return targetFull === currentFull;
-    return normalizeRoutePath(route) === normalizeRoutePath(this._currentRoute);
+    const targetPath = normalizeRoutePath(route);
+    const currentPath = normalizeRoutePath(this._currentRoute);
+    if (targetPath === currentPath) return true;
+    if (targetPath === '/app/admin' && currentPath === '/gestion') return true;
+    return false;
   }
 
   _isAnyChildActive(item) {

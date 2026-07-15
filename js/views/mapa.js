@@ -18349,17 +18349,31 @@ function _cfgMetaForTab(tabName = TAB_ACTIVA_CFG) {
   };
 }
 
+function _cfgIsEmbeddedInShell() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('shell') === '1' || params.get('appStage') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
 function _cfgApplySidebarPinState(forcePinned = null) {
   const sidebar = document.getElementById('cfg-admin-sidebar');
   const toggle = document.getElementById('cfg-sidebar-pin');
   if (!sidebar) return;
-  const pinned = forcePinned === null
+  const embedded = _cfgIsEmbeddedInShell();
+  let pinned = forcePinned === null
     ? localStorage.getItem('mex.admin.sidebar.pinned') !== '0'
     : Boolean(forcePinned);
+  if (embedded) pinned = true;
   sidebar.classList.toggle('is-pinned', pinned);
   if (toggle) {
-    toggle.title = pinned ? 'Desfijar sidebar' : 'Fijar sidebar expandido';
+    toggle.title = pinned ? 'Colapsar sidebar' : 'Expandir sidebar';
     toggle.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+    toggle.setAttribute('aria-label', pinned ? 'Colapsar sidebar' : 'Expandir sidebar');
+    const icon = toggle.querySelector('.material-icons, .material-symbols-outlined');
+    if (icon) icon.textContent = pinned ? 'chevron_left' : 'chevron_right';
   }
 }
 
@@ -19246,7 +19260,9 @@ function _applyGestionAdminChrome() {
   document.documentElement.classList.add('gestion-admin-route');
   document.body?.classList.add('gestion-admin-route');
   const modal = document.getElementById('modal-config-global');
-  if (modal) modal.classList.add('active');
+  if (modal) {
+    modal.classList.add('active', 'luminous-admin');
+  }
   const footer = document.querySelector('.cfg-v2-footer');
   if (footer) footer.style.display = 'none';
   const closeBtn = document.querySelector('.cfg-v2-close');
@@ -19386,7 +19402,7 @@ function abrirPanelConfiguracion(tabInicial) {
   _applyGestionAdminChrome();
   const _cfgModal = document.getElementById('modal-config-global');
   if (!_cfgModal) { console.error('modal-config-global no encontrado en el DOM'); return; }
-  _cfgModal.classList.add('active');
+  _cfgModal.classList.add('active', 'luminous-admin');
   _cfgApplySidebarPinState();
   _captureAdminExactLocation({ force: false }).catch(() => {});
   _cfgRefreshSearchPlaceholder();
