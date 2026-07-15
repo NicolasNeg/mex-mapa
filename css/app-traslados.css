@@ -293,18 +293,143 @@
   box-shadow: 0 8px 18px rgba(15, 23, 42, .16);
 }
 
-.tras-filter-panel {
+/* ── Card contenedora (toolbar + filtros + tabla) ─────────── */
+.tras-card {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   border: 1px solid var(--tras-border);
-  border-radius: 16px;
-  background: rgba(255,255,255,.92);
-  padding: 14px;
-  box-shadow: 0 10px 26px rgba(15, 23, 42, .05);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+  overflow: hidden;
+}
+
+.tras-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eef2f7;
+  background: #fff;
+}
+
+.tras-search {
+  flex: 1 1 260px;
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--tras-border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.tras-search .material-icons {
+  color: #94a3b8;
+  font-size: 19px;
+}
+
+.tras-search input {
+  border: 0 !important;
+  background: transparent !important;
+  min-height: 38px;
+  padding: 0;
+  box-shadow: none !important;
+}
+
+.tras-quick-status {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border: 1px solid var(--tras-border);
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.tras-quick-status button {
+  border: 0;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  transition: background .14s ease, color .14s ease;
+}
+
+.tras-quick-status button:hover {
+  color: #0f172a;
+}
+
+.tras-quick-status button.active {
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, .18);
+}
+
+.tras-filter-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 10px;
+  font-style: normal;
+}
+
+.tras-btn.has-filters {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.tras-caret {
+  margin-left: -2px;
+  opacity: .6;
+}
+
+.tras-filter-panel {
+  padding: 14px 16px;
+  border-bottom: 1px solid #eef2f7;
+  background: #fbfdff;
+}
+
+.tras-filter-panel[hidden] {
+  display: none;
+}
+
+.tras-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.tras-card-head h2 {
+  display: inline;
+  margin: 0 8px 0 0;
+  font-size: 14px;
+  font-weight: 950;
+  color: #0f172a;
 }
 
 .tras-filter-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(120px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(5, minmax(130px, 1fr));
+  gap: 12px;
 }
 
 .tras label {
@@ -365,7 +490,7 @@
 .tras-filter-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 10px;
   padding-top: 12px;
 }
@@ -373,94 +498,145 @@
 .tras-count {
   color: #64748b;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 800;
 }
 
 .tras-table-host {
   flex: 1;
   min-height: 420px;
+  display: flex;
+  flex-direction: column;
 }
 
 .tras-table-wrap {
-  height: 100%;
+  flex: 1;
   min-height: 420px;
   overflow: auto;
-  border: 1px solid var(--tras-border);
-  border-radius: 12px;
   background: #fff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, .05);
 }
 
 .tras-table {
   width: 100%;
-  min-width: 1180px;
+  min-width: 1080px;
   border-collapse: collapse;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 .tras-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
-  padding: 11px 12px;
+  padding: 12px 16px;
   background: #f8fafc;
   color: #64748b;
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: .06em;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .05em;
   text-align: left;
   text-transform: uppercase;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.tras-table thead th.tras-th-actions {
+  text-align: right;
 }
 
 .tras-table tbody tr {
-  border-bottom: 1px solid #edf2f7;
   cursor: pointer;
   transition: background .12s ease;
 }
 
-.tras-table tbody tr:nth-child(even) {
+.tras-table tbody td {
+  border-bottom: 1px solid #eef2f7;
+}
+
+.tras-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.tras-table tbody tr:hover {
   background: #f8fafc;
 }
 
-.tras-table tbody tr:hover,
 .tras-table tbody tr.selected {
   background: #eef6ff;
 }
 
 .tras-table td {
-  padding: 11px 12px;
+  padding: 14px 16px;
   color: #1e293b;
   vertical-align: middle;
 }
 
-.tras-table td strong {
+.tras-cell-stack strong {
   display: block;
-  font-size: 12px;
-  font-weight: 950;
+  font-size: 13px;
+  font-weight: 850;
+  color: #0f172a;
 }
 
+.tras-cell-stack small,
 .tras-table td small,
 .tras-muted {
   display: block;
-  margin-top: 3px;
-  color: #64748b;
-  font-size: 10px;
-  font-weight: 750;
+  margin-top: 2px;
+  color: #94a3b8;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.tras-folio {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.tras-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.tras-avatar {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #e0eaff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .02em;
 }
 
 .tras-date {
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  color: #0f172a;
-  font-weight: 800;
+  color: #334155;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .tras-row-actions {
   display: flex;
   align-items: center;
-  gap: 7px;
+  justify-content: flex-end;
+  gap: 6px;
   white-space: nowrap;
 }
 
@@ -478,13 +654,15 @@
 .tras-route {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-weight: 900;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 12px;
+  color: #334155;
   white-space: nowrap;
 }
 
 .tras-route .material-icons {
-  font-size: 15px;
+  font-size: 14px;
   color: #94a3b8;
 }
 
@@ -492,33 +670,44 @@
   display: inline-flex;
   align-items: center;
   min-height: 24px;
-  padding: 0 8px;
-  border-radius: 7px;
-  background: #f1f5f9;
-  color: #334155;
-  font-size: 10px;
-  font-weight: 950;
+  padding: 0 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .tras-status {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  padding: 0 9px;
-  border-radius: 8px;
-  font-size: 10px;
-  font-weight: 950;
-  letter-spacing: .04em;
+  gap: 6px;
+  min-height: 25px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .03em;
+  white-space: nowrap;
+}
+
+.tras-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .tras-status.abierto {
   background: #dcfce7;
-  color: #166534;
+  color: #15803d;
 }
 
 .tras-status.cerrado {
-  background: #fee2e2;
-  color: #b91c1c;
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .tras-status.nuevo {
@@ -878,6 +1067,19 @@
   overflow: hidden;
 }
 
+/* Dentro de la card la tabla vacia y el skeleton van a sangre completa. */
+.tras-table-host .tras-empty,
+.tras-table-host .tras-skeleton-table {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  min-height: 380px;
+}
+
+.tras-skeleton-table .tras-skeleton-row {
+  padding: 16px 4px;
+}
+
 .tras-skeleton-row {
   display: grid;
   grid-template-columns: 1fr 1.2fr 1fr 1fr 1fr;
@@ -953,6 +1155,19 @@
   .tras-detail {
     position: static;
     max-height: none;
+  }
+
+  .tras-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tras-quick-status {
+    width: 100%;
+  }
+
+  .tras-quick-status button {
+    flex: 1;
   }
 
   .tras-filter-grid {

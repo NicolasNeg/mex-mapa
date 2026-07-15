@@ -61,6 +61,7 @@ export async function mount({ container, navigate }) {
     busy: false,
     error: '',
     selectedId: '',
+    filtersOpen: false,
     detailMode: 'list',
     boot: {
       plaza,
@@ -150,6 +151,13 @@ async function _load() {
     _s.error = err?.message || 'No se pudo cargar traslados.';
     _paintAll();
   }
+}
+
+// Filtros "avanzados" activos (los que viven dentro del panel colapsable).
+function _advancedFilterCount() {
+  if (!_s) return 0;
+  const keys = ['folio', 'chofer', 'creador', 'tipo', 'plazaOrigen', 'plazaDestino', 'salidaDesde', 'salidaHasta', 'regresoDesde', 'regresoHasta'];
+  return keys.filter(key => String(_s.filters[key] || '').trim()).length;
 }
 
 function _emptyFilters() {
@@ -276,28 +284,53 @@ function _renderShell() {
             </div>
           </div>
 
-          <section class="tras-filter-panel" aria-label="Filtros de traslados">
-            <div class="tras-filter-grid">
-              <label><span>Folio</span><input data-filter="folio" value="${esc(_s.filters.folio)}" placeholder="TR-00012"></label>
-              <label><span>Unidad</span><input data-filter="unidad" value="${esc(_s.filters.unidad)}" placeholder="MVA, placas o modelo"></label>
-              <label><span>Chofer</span><input data-filter="chofer" list="tras-chofer-list" value="${esc(_s.filters.chofer)}" placeholder="Buscar chofer"></label>
-              <label><span>Creador</span><select data-filter="creador">${_option('', 'Todos', _s.filters.creador)}${creadores.map(v => _option(v, v, _s.filters.creador)).join('')}</select></label>
-              <label><span>Razon</span><select data-filter="tipo">${_option('', 'Todas', _s.filters.tipo)}${tipos.map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, _s.filters.tipo)).join('')}</select></label>
-              <label><span>Plaza salida</span><select data-filter="plazaOrigen">${_option('', 'Todas', _s.filters.plazaOrigen)}${plazas.map(p => _option(p, p, _s.filters.plazaOrigen)).join('')}</select></label>
-              <label><span>Plaza regreso</span><select data-filter="plazaDestino">${_option('', 'Todas', _s.filters.plazaDestino)}${plazas.map(p => _option(p, p, _s.filters.plazaDestino)).join('')}</select></label>
-              <label><span>Estatus</span><select data-filter="estatus">${['', 'ABIERTO', 'CERRADO'].map(v => _option(v, v || 'Todos', _s.filters.estatus)).join('')}</select></label>
-              <label><span>Salida desde</span><input type="date" data-filter="salidaDesde" value="${esc(_s.filters.salidaDesde)}"></label>
-              <label><span>Salida hasta</span><input type="date" data-filter="salidaHasta" value="${esc(_s.filters.salidaHasta)}"></label>
-              <label><span>Regreso desde</span><input type="date" data-filter="regresoDesde" value="${esc(_s.filters.regresoDesde)}"></label>
-              <label><span>Regreso hasta</span><input type="date" data-filter="regresoHasta" value="${esc(_s.filters.regresoHasta)}"></label>
+          <section class="tras-card" aria-label="Traslados">
+            <div class="tras-toolbar">
+              <label class="tras-search">
+                <span class="material-icons">search</span>
+                <input data-filter="unidad" value="${esc(_s.filters.unidad)}" placeholder="Buscar por MVA, placas o modelo">
+              </label>
+              <div class="tras-quick-status" role="tablist" aria-label="Estatus">
+                ${['', 'ABIERTO', 'CERRADO'].map(v => `
+                  <button type="button" class="${_s.filters.estatus === v ? 'active' : ''}" data-action="quick-status" data-value="${v}">
+                    ${v === '' ? 'Todos' : v === 'ABIERTO' ? 'Abiertos' : 'Cerrados'}
+                  </button>
+                `).join('')}
+              </div>
+              <button type="button" class="tras-btn ghost${_advancedFilterCount() ? ' has-filters' : ''}" data-action="toggle-filters" aria-expanded="${_s.filtersOpen ? 'true' : 'false'}">
+                <span class="material-icons">tune</span>
+                Filtros${_advancedFilterCount() ? ` <b class="tras-filter-count">${_advancedFilterCount()}</b>` : ''}
+                <span class="material-icons tras-caret">${_s.filtersOpen ? 'expand_less' : 'expand_more'}</span>
+              </button>
             </div>
-            <div class="tras-filter-actions">
-              <button type="button" class="tras-btn ghost" data-action="clear-filters"><span class="material-icons">filter_alt_off</span>Limpiar filtros</button>
-              <span id="tras-count" class="tras-count"></span>
-            </div>
-          </section>
 
-          <div id="tras-table-host" class="tras-table-host"></div>
+            <div class="tras-filter-panel" ${_s.filtersOpen ? '' : 'hidden'}>
+              <div class="tras-filter-grid">
+                <label><span>Folio</span><input data-filter="folio" value="${esc(_s.filters.folio)}" placeholder="TR-00012"></label>
+                <label><span>Chofer</span><input data-filter="chofer" list="tras-chofer-list" value="${esc(_s.filters.chofer)}" placeholder="Buscar chofer"></label>
+                <label><span>Creador</span><select data-filter="creador">${_option('', 'Todos', _s.filters.creador)}${creadores.map(v => _option(v, v, _s.filters.creador)).join('')}</select></label>
+                <label><span>Razon</span><select data-filter="tipo">${_option('', 'Todas', _s.filters.tipo)}${tipos.map(t => _option(t.codigo, `${t.codigo} · ${t.etiqueta}`, _s.filters.tipo)).join('')}</select></label>
+                <label><span>Plaza salida</span><select data-filter="plazaOrigen">${_option('', 'Todas', _s.filters.plazaOrigen)}${plazas.map(p => _option(p, p, _s.filters.plazaOrigen)).join('')}</select></label>
+                <label><span>Plaza regreso</span><select data-filter="plazaDestino">${_option('', 'Todas', _s.filters.plazaDestino)}${plazas.map(p => _option(p, p, _s.filters.plazaDestino)).join('')}</select></label>
+                <label><span>Salida desde</span><input type="date" data-filter="salidaDesde" value="${esc(_s.filters.salidaDesde)}"></label>
+                <label><span>Salida hasta</span><input type="date" data-filter="salidaHasta" value="${esc(_s.filters.salidaHasta)}"></label>
+                <label><span>Regreso desde</span><input type="date" data-filter="regresoDesde" value="${esc(_s.filters.regresoDesde)}"></label>
+                <label><span>Regreso hasta</span><input type="date" data-filter="regresoHasta" value="${esc(_s.filters.regresoHasta)}"></label>
+              </div>
+              <div class="tras-filter-actions">
+                <button type="button" class="tras-btn ghost small" data-action="clear-filters"><span class="material-icons">filter_alt_off</span>Limpiar filtros</button>
+              </div>
+            </div>
+
+            <div class="tras-card-head">
+              <div>
+                <h2>Traslados</h2>
+                <span id="tras-count" class="tras-count"></span>
+              </div>
+            </div>
+
+            <div id="tras-table-host" class="tras-table-host"></div>
+          </section>
         </main>
       `}
 
@@ -352,16 +385,15 @@ function _paintTable() {
       <table class="tras-table">
         <thead>
           <tr>
-            <th>Id</th>
+            <th>Folio</th>
+            <th>Unidad</th>
             <th>Conductor</th>
-            <th>Fecha de salida</th>
-            <th>Fecha de regreso</th>
-            <th>Locacion de salida</th>
-            <th>Locacion de regreso</th>
+            <th>Ruta</th>
+            <th>Salida</th>
+            <th>Regreso</th>
             <th>Razon</th>
-            <th>Numero economico</th>
             <th>Estatus</th>
-            <th>Accion</th>
+            <th class="tras-th-actions">Accion</th>
           </tr>
         </thead>
         <tbody>
@@ -372,21 +404,45 @@ function _paintTable() {
   `;
 }
 
+function _initials(name) {
+  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return '?';
+  return (parts[0][0] + (parts[1]?.[0] || '')).toUpperCase();
+}
+
 function _rowHtml(row) {
   const st = _estado(row);
   const routeId = _routeToken(row);
   const selected = _isSelected(row) ? ' selected' : '';
   return `
     <tr class="${selected}" data-action="select" data-id="${esc(routeId)}">
-      <td><strong>${esc(_shortId(row))}</strong></td>
-      <td><strong>${esc(row.choferNombre || '-')}</strong><small>${esc(row.creadoPor || 'Sistema')}</small></td>
+      <td><span class="tras-folio">${esc(_shortId(row))}</span></td>
+      <td>
+        <div class="tras-cell-stack">
+          <strong>${esc(row.mva || '-')}</strong>
+          <small>${esc([row.modelo, row.placas].filter(Boolean).join(' · ') || 'Sin modelo')}</small>
+        </div>
+      </td>
+      <td>
+        <div class="tras-person">
+          <span class="tras-avatar">${esc(_initials(row.choferNombre))}</span>
+          <div class="tras-cell-stack">
+            <strong>${esc(row.choferNombre || '-')}</strong>
+            <small>Creo: ${esc(row.creadoPor || 'Sistema')}</small>
+          </div>
+        </div>
+      </td>
+      <td>
+        <span class="tras-route">
+          ${esc(row.plazaOrigen || '-')}
+          <span class="material-icons">arrow_forward</span>
+          ${esc(row.plazaDestino || '-')}
+        </span>
+      </td>
       <td>${_dateCell(row.fechaSalida)}</td>
       <td>${_dateCell(row.fechaCierre || row.fechaRegresoEstimada)}</td>
-      <td>${esc(row.plazaOrigen || '-')}</td>
-      <td>${esc(row.plazaDestino || '-')}</td>
-      <td>${esc(row.tipo || '')}</td>
-      <td><strong>${esc(row.mva || '-')}</strong><small>${esc([row.modelo, row.placas].filter(Boolean).join(' · ') || 'Sin modelo')}</small></td>
-      <td><span class="tras-status ${st.toLowerCase()}">${esc(st)}</span></td>
+      <td>${row.tipo ? `<span class="tras-type">${esc(row.tipo)}</span>` : '<span class="tras-muted">-</span>'}</td>
+      <td><span class="tras-status ${st.toLowerCase()}"><i></i>${esc(st)}</span></td>
       <td class="tras-row-actions">
         ${st !== 'CERRADO' ? `<button type="button" class="tras-icon-btn" data-action="select" data-id="${esc(routeId)}" title="Editar traslado"><span class="material-icons">edit</span></button>` : ''}
         <button type="button" class="tras-icon-btn primary" data-action="select" data-id="${esc(routeId)}" title="Ver traslado"><span class="material-icons">visibility</span></button>
@@ -656,6 +712,18 @@ async function _onClick(event) {
   }
   if (action === 'clear-filters') {
     _s.filters = _emptyFilters();
+    _renderShell();
+    _paintAll();
+    return;
+  }
+  if (action === 'toggle-filters') {
+    _s.filtersOpen = !_s.filtersOpen;
+    _renderShell();
+    _paintAll();
+    return;
+  }
+  if (action === 'quick-status') {
+    _s.filters.estatus = actionEl.dataset.value || '';
     _renderShell();
     _paintAll();
     return;
