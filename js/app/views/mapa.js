@@ -8,10 +8,13 @@
 // ═══════════════════════════════════════════════════════════
 
 const STAGE_ID = 'mex-legacy-mapa-stage';
+const PORTAL_IDS = ['sidebar', 'overlay'];
+const PORTAL_GUARD_ID = 'mex-lmapa-portal-guard';
 
 let _stage     = null;
 let _htmlCache = null;
 let _shell     = null;
+let _portalResizeBound = false;
 
 // ── CSS legacy ───────────────────────────────────────────────
 function _ensureCss() {
@@ -25,6 +28,87 @@ function _ensureCss() {
     link.setAttribute('data-lmapa-css', '1');
     document.head.appendChild(link);
   });
+}
+
+function _ensurePortalGuardCss() {
+  if (document.getElementById(PORTAL_GUARD_ID)) return;
+  const style = document.createElement('style');
+  style.id = PORTAL_GUARD_ID;
+  style.textContent = `
+    body:not(.app-mapa-stage-visible) > #sidebar.units-sidebar,
+    body:not(.app-mapa-stage-visible) > #overlay.overlay,
+    body:not(.app-mapa-stage-visible) > #_sidebarBackdrop.sidebar-backdrop {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+function _isMobileViewport() {
+  try { return window.matchMedia?.('(max-width: 768px)')?.matches === true; } catch (_) {}
+  return window.innerWidth <= 768;
+}
+
+function _findPortalEl(stage, id) {
+  return stage?.querySelector?.(`#${id}`) || document.getElementById(id);
+}
+
+function _restoreMapPortals(stage = _stage || document.getElementById(STAGE_ID)) {
+  if (!stage) return;
+  PORTAL_IDS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el || el.parentElement === stage) return;
+    if (el.dataset.mexMapaPortal === '1' || el.classList.contains('units-sidebar') || el.classList.contains('overlay')) {
+      stage.appendChild(el);
+      delete el.dataset.mexMapaPortal;
+    }
+  });
+}
+
+function _portalMapOverlaysToBody(stage) {
+  if (!stage) return;
+  PORTAL_IDS.forEach(id => {
+    const el = _findPortalEl(stage, id);
+    if (!el || el.parentElement === document.body) return;
+    el.dataset.mexMapaPortal = '1';
+    document.body.appendChild(el);
+  });
+}
+
+function _syncMapPortalState(stage = _stage || document.getElementById(STAGE_ID)) {
+  if (!stage) return;
+  if (_isMobileViewport()) _portalMapOverlaysToBody(stage);
+  else _restoreMapPortals(stage);
+}
+
+function _cleanupMapBodyChrome(stage = _stage || document.getElementById(STAGE_ID)) {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  sidebar?.classList?.remove('open', 'is-pinned');
+  overlay?.classList?.remove('active');
+  document.getElementById('_sidebarBackdrop')?.remove();
+  document.body.classList.remove('sidebar-open', 'admin-sidebar-open');
+  _restoreMapPortals(stage);
+}
+
+function _bindPortalResize() {
+  if (_portalResizeBound) return;
+  window.addEventListener('resize', _onPortalResize);
+  _portalResizeBound = true;
+}
+
+function _unbindPortalResize() {
+  if (!_portalResizeBound) return;
+  window.removeEventListener('resize', _onPortalResize);
+  _portalResizeBound = false;
+}
+
+function _onPortalResize() {
+  const stage = _stage || document.getElementById(STAGE_ID);
+  if (!stage || stage.style.display === 'none') return;
+  _syncMapPortalState(stage);
 }
 
 // ── Stage persistente ────────────────────────────────────────
@@ -109,6 +193,7 @@ function _ensureStageOverrides(stage) {
 // { stage, fresh: false } si ya estaba inicializado.
 // Usado por mapa.js y cuadre.js views.
 export async function ensureStageReady() {
+  _ensurePortalGuardCss();
   const stage = _getOrCreateStage();
   if (!stage) return { stage: null, fresh: false };
   if (stage.dataset.mexInit === '1') return { stage, fresh: false };
@@ -116,14 +201,6 @@ export async function ensureStageReady() {
   const html = await _fetchBodyHtml();
   stage.innerHTML = html;
   _ensureStageOverrides(stage);
-  // `.mex-main` tiene `contain: layout` → es el bloque contenedor de todo hijo
-  // position:fixed, así que atrapa el sidebar de unidades y su backdrop dentro
-  // del área de contenido (bajo el header): en móvil su cabecera/cerrar quedan
-  // tapadas. Los movemos a <body> para que sean overlay real del viewport.
-  ['sidebar', 'overlay'].forEach(id => {
-    const el = stage.querySelector('#' + id);
-    if (el && el.parentElement !== document.body) document.body.appendChild(el);
-  });
   stage.dataset.mexInit = '1';
   await import('/js/views/mapa.js');
   return { stage, fresh: true };
@@ -139,6 +216,7 @@ export async function ensureStageReady() {
 
 export async function mount(ctx) {
   _ensureCss();
+  _ensurePortalGuardCss();
   _shell = ctx?.shell ?? null;
 
   const { stage, fresh } = await ensureStageReady();
@@ -152,7 +230,10 @@ export async function mount(ctx) {
     window.dispatchEvent(new CustomEvent('mex:mapa-stage-visible'));
   }
 
+  document.body.classList.add('app-mapa-stage-visible');
   stage.style.display = 'block';
+  _syncMapPortalState(stage);
+  _bindPortalResize();
 
   // Al mostrar: el stage pudo dimensionarse en 0 mientras estaba oculto → re-fit
   // y re-dibujar SOLO si el grid quedó vacío (no redibuja si ya está pintado).
@@ -194,6 +275,9 @@ function _applyPendingFocus() {
 
 export function unmount() {
   const stage = _stage || document.getElementById(STAGE_ID);
+  document.body.classList.remove('app-mapa-stage-visible');
+  _unbindPortalResize();
+  _cleanupMapBodyChrome(stage);
   if (stage) {
     stage.style.display = 'none';
     window.dispatchEvent(new CustomEvent('mex:mapa-stage-hidden'));
