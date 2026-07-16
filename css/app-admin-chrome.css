@@ -719,6 +719,506 @@ body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
   }
 }
 
+/* ── A2 Accesos: usuarios / choferes / roles / solicitudes ─── */
+
+#modal-config-global.admin-registry .um-workspace-shell,
+#modal-config-global.admin-registry .um-workspace-shell-lite {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 16px !important;
+  background: var(--admin-surface) !important;
+  box-shadow: none !important;
+  overflow: hidden;
+  margin: 0 8px 8px;
+}
+
+#modal-config-global.admin-registry .um-list-col,
+#modal-config-global.admin-registry .um-edit-col {
+  background: var(--admin-surface) !important;
+}
+
+#modal-config-global.admin-registry .um-list-col {
+  border-right: 1px solid var(--admin-border) !important;
+}
+
+#modal-config-global.admin-registry .um-column-head {
+  padding: 16px 18px !important;
+  border-bottom: 1px solid var(--admin-border) !important;
+  background: var(--admin-bg) !important;
+}
+
+#modal-config-global.admin-registry .um-column-head h4,
+#modal-config-global.admin-registry .um-workspace-copy h3,
+#modal-config-global.admin-registry .um-card-name {
+  font-weight: 600 !important;
+  letter-spacing: -0.02em;
+  color: var(--admin-text) !important;
+}
+
+#modal-config-global.admin-registry .um-column-head p,
+#modal-config-global.admin-registry .um-workspace-copy p,
+#modal-config-global.admin-registry .um-card-email {
+  font-weight: 400 !important;
+  color: var(--admin-muted) !important;
+}
+
+#modal-config-global.admin-registry .um-workspace-kicker,
+#modal-config-global.admin-registry .um-column-kicker {
+  background: var(--admin-accent-pale) !important;
+  color: var(--admin-accent) !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.05em !important;
+}
+
+#modal-config-global.admin-registry .um-summary-strip {
+  gap: 10px !important;
+  padding: 0 8px 8px !important;
+}
+
+#modal-config-global.admin-registry .um-stat-card {
+  min-height: 88px !important;
+  padding: 14px 16px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+  box-shadow: none !important;
+}
+
+#modal-config-global.admin-registry .um-stat-card::after {
+  display: none !important;
+}
+
+#modal-config-global.admin-registry .um-stat-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 10px !important;
+  background: var(--admin-accent-pale) !important;
+  color: var(--admin-accent) !important;
+  box-shadow: none !important;
+}
+
+#modal-config-global.admin-registry .um-stat-copy span,
+#modal-config-global.admin-registry .um-stat-copy small {
+  font-weight: 500 !important;
+  color: var(--admin-muted) !important;
+  letter-spacing: 0.04em;
+}
+
+#modal-config-global.admin-registry .um-stat-copy strong {
+  font-size: 22px !important;
+  font-weight: 600 !important;
+}
+
+#modal-config-global.admin-registry .um-toolbar-btn {
+  min-height: 36px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+  color: var(--admin-text) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  transition: transform 0.28s var(--admin-ease), border-color 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .um-toolbar-btn:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: none !important;
+  transform: translateY(-1px);
+}
+
+#modal-config-global.admin-registry .um-toolbar-btn.primary,
+#modal-config-global.admin-registry .um-btn-save {
+  background: var(--admin-accent) !important;
+  border-color: var(--admin-accent) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+#modal-config-global.admin-registry .um-btn-secondary {
+  border: 1px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+  color: var(--admin-text) !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+}
+
+#modal-config-global.admin-registry .um-btn-danger {
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+  background: rgba(239, 68, 68, 0.08) !important;
+  color: #b91c1c !important;
+  font-weight: 500 !important;
+  border-radius: 8px !important;
+}
+
+#modal-config-global.admin-registry .um-card {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-surface) !important;
+  box-shadow: none !important;
+  margin: 0 0 8px !important;
+  padding: 12px 14px !important;
+}
+
+#modal-config-global.admin-registry .um-card:hover {
+  background: var(--admin-bg) !important;
+  transform: none !important;
+  box-shadow: none !important;
+  border-color: #cbd5e1 !important;
+}
+
+#modal-config-global.admin-registry .um-card.active {
+  background: var(--admin-accent-pale) !important;
+  border-color: var(--admin-accent) !important;
+  box-shadow: 0 0 0 3px var(--admin-accent-pale) !important;
+}
+
+#modal-config-global.admin-registry .um-card-meta span,
+#modal-config-global.admin-registry .um-role-badge,
+#modal-config-global.admin-registry .um-info-pill {
+  background: var(--admin-bg) !important;
+  color: var(--admin-muted) !important;
+  border: 1px solid var(--admin-border) !important;
+  font-weight: 500 !important;
+}
+
+#modal-config-global.admin-registry .um-card-meta .material-icons,
+#modal-config-global.admin-registry .um-card-meta .material-symbols-outlined {
+  color: var(--admin-accent) !important;
+}
+
+#modal-config-global.admin-registry .um-info-pill.success {
+  background: rgba(16, 185, 129, 0.1) !important;
+  border-color: rgba(16, 185, 129, 0.35) !important;
+  color: #047857 !important;
+}
+
+#modal-config-global.admin-registry .um-profile-hero {
+  border-radius: 12px !important;
+  border: 1px solid var(--admin-border) !important;
+  background: var(--admin-bg) !important;
+  box-shadow: none !important;
+}
+
+#modal-config-global.admin-registry .um-form-card {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-surface) !important;
+  box-shadow: none !important;
+  max-width: none !important;
+}
+
+#modal-config-global.admin-registry .um-form-grid2 input,
+#modal-config-global.admin-registry .um-form-grid2 select,
+#modal-config-global.admin-registry .um-form-card input,
+#modal-config-global.admin-registry .um-form-card select,
+#modal-config-global.admin-registry .um-form-card textarea {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 8px !important;
+  min-height: 40px;
+  font-weight: 500 !important;
+  color: var(--admin-text) !important;
+  background: var(--admin-surface) !important;
+}
+
+#modal-config-global.admin-registry .um-form-grid2 input:focus,
+#modal-config-global.admin-registry .um-form-card input:focus,
+#modal-config-global.admin-registry .um-form-card select:focus,
+#modal-config-global.admin-registry .um-form-card textarea:focus {
+  border-color: var(--admin-accent) !important;
+  box-shadow: 0 0 0 3px var(--admin-accent-pale) !important;
+  outline: none !important;
+}
+
+#modal-config-global.admin-registry .um-cards-stack,
+#modal-config-global.admin-registry #um-cards-container {
+  padding: 12px !important;
+}
+
+#modal-config-global.admin-registry #um-cards-container table,
+#modal-config-global.admin-registry .um-workspace table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#modal-config-global.admin-registry #um-cards-container th,
+#modal-config-global.admin-registry .um-workspace th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-bg);
+}
+
+#modal-config-global.admin-registry #um-cards-container td,
+#modal-config-global.admin-registry .um-workspace td {
+  padding: 12px;
+  border-bottom: 1px solid var(--admin-border);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--admin-text);
+}
+
+#modal-config-global.admin-registry #um-cards-container tr:hover td {
+  background: var(--admin-bg);
+}
+
+/* Solicitudes */
+#modal-config-global.admin-registry .sol-tab {
+  flex: 1;
+  padding: 12px !important;
+  font-weight: 500 !important;
+  font-size: 12px !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  color: var(--admin-muted) !important;
+  border: none !important;
+  background: transparent !important;
+  border-bottom: 2px solid transparent !important;
+  cursor: pointer;
+  transition: color 0.28s var(--admin-ease), border-color 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .sol-tab.active {
+  color: var(--admin-accent) !important;
+  border-bottom-color: var(--admin-accent) !important;
+}
+
+#modal-config-global.admin-registry #busqueda-solicitudes {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  min-height: 44px;
+  font-weight: 500 !important;
+  padding-left: 40px !important;
+}
+
+#modal-config-global.admin-registry #busqueda-solicitudes:focus {
+  border-color: var(--admin-accent) !important;
+  box-shadow: 0 0 0 3px var(--admin-accent-pale) !important;
+  outline: none !important;
+}
+
+#modal-config-global.admin-registry #contenedor-solicitudes-v2 > div {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-surface) !important;
+}
+
+#modal-config-global.admin-registry #contenedor-solicitudes-v2 button {
+  border-radius: 8px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+/* ── A3 Operación: catálogos ──────────────────────────────── */
+
+#modal-config-global.admin-registry .cfg-item {
+  display: flex !important;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px !important;
+  margin-bottom: 8px !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-surface) !important;
+  box-shadow: none !important;
+  cursor: pointer;
+  transition: border-color 0.28s var(--admin-ease), background 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-item:hover {
+  border-color: #cbd5e1 !important;
+  background: var(--admin-bg) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+#modal-config-global.admin-registry .cfg-item.active {
+  border-color: var(--admin-accent) !important;
+  background: var(--admin-accent-pale) !important;
+  box-shadow: 0 0 0 3px var(--admin-accent-pale) !important;
+}
+
+#modal-config-global.admin-registry .cfg-item-color {
+  border-radius: 6px !important;
+}
+
+#modal-config-global.admin-registry .cfg-item-del {
+  border-radius: 8px !important;
+  border: 1px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+  color: var(--admin-muted) !important;
+}
+
+#modal-config-global.admin-registry .cfg-item-del:hover {
+  border-color: rgba(239, 68, 68, 0.4) !important;
+  color: #b91c1c !important;
+  background: rgba(239, 68, 68, 0.06) !important;
+}
+
+#modal-config-global.admin-registry .cfg-add-card {
+  border-radius: 16px !important;
+  border: 1px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+  box-shadow: 0 24px 48px -24px rgba(15, 23, 42, 0.35) !important;
+}
+
+#modal-config-global.admin-registry .cfg-add-header {
+  border-bottom: 1px solid var(--admin-border) !important;
+  background: var(--admin-bg) !important;
+}
+
+#modal-config-global.admin-registry .cfg-add-header-icon {
+  background: var(--admin-accent-pale) !important;
+  color: var(--admin-accent) !important;
+  border-radius: 10px !important;
+}
+
+/* ── A4 Estructura / empresa / programador ────────────────── */
+
+#modal-config-global.admin-registry .cfg-plazas-body {
+  display: grid !important;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr) !important;
+  gap: 0 !important;
+  margin: 0 8px 8px !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+  background: var(--admin-surface) !important;
+  min-height: 56vh;
+}
+
+#modal-config-global.admin-registry .cfg-plazas-list-col {
+  border-right: 1px solid var(--admin-border) !important;
+  background: var(--admin-surface) !important;
+}
+
+#modal-config-global.admin-registry .cfg-plazas-edit-col {
+  background: var(--admin-bg) !important;
+  padding: 16px !important;
+}
+
+#modal-config-global.admin-registry .cfg-plaza-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  margin: 0 8px 8px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface);
+  cursor: pointer;
+  transition: border-color 0.28s var(--admin-ease), background 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-plaza-card:hover {
+  border-color: #cbd5e1;
+  background: var(--admin-bg);
+}
+
+#modal-config-global.admin-registry .cfg-plaza-card.active {
+  border-color: var(--admin-accent);
+  background: var(--admin-accent-pale);
+  box-shadow: 0 0 0 3px var(--admin-accent-pale);
+}
+
+#modal-config-global.admin-registry .cfg-plaza-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--admin-accent);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+#modal-config-global.admin-registry .cfg-plaza-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+#modal-config-global.admin-registry .cfg-plaza-local {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--admin-muted);
+}
+
+#modal-config-global.admin-registry .cfg-plaza-placeholder {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  min-height: 240px;
+  text-align: center;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#modal-config-global.admin-registry .cfg-plaza-placeholder .material-icons,
+#modal-config-global.admin-registry .cfg-plaza-placeholder .material-symbols-outlined {
+  font-size: 40px;
+  color: #cbd5e1;
+}
+
+#modal-config-global.admin-registry #cfg-plaza-search {
+  border: 0 !important;
+  background: transparent !important;
+  font-weight: 500 !important;
+  color: var(--admin-text) !important;
+}
+
+#modal-config-global.admin-registry [id^="cfg-empresa"],
+#modal-config-global.admin-registry .cfg-empresa-panel,
+#modal-config-global.admin-registry .cfg-empresa-card {
+  border-radius: 12px;
+}
+
+#modal-config-global.admin-registry .cfg-empresa-nombre-locked {
+  background: var(--admin-bg) !important;
+  color: var(--admin-muted) !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 8px !important;
+}
+
+/* Empty / permission states inside list tray */
+#modal-config-global.admin-registry .admin-tray-shell .cfg-v2-list:empty::after,
+#modal-config-global.admin-registry .um-cards-stack:empty::after {
+  content: "Sin elementos en este módulo.";
+  display: block;
+  padding: 40px 20px;
+  text-align: center;
+  color: var(--admin-muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+@media (max-width: 900px) {
+  #modal-config-global.admin-registry .um-workspace-shell,
+  #modal-config-global.admin-registry .um-workspace-shell-lite,
+  #modal-config-global.admin-registry .cfg-plazas-body {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modal-config-global.admin-registry .um-list-col,
+  #modal-config-global.admin-registry .cfg-plazas-list-col {
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--admin-border) !important;
+  }
+
+  #modal-config-global.admin-registry .um-summary-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   #modal-config-global.admin-registry *,
   #modal-config-global.admin-registry *::before {

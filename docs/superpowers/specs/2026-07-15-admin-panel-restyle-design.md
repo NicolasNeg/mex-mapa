@@ -1,7 +1,7 @@
 # Design: Panel Admin — restyle corporativo con toque distintivo (Ciclo A)
 
 **Date:** 2026-07-15  
-**Status:** in progress (A1 shipped)  
+**Status:** in progress (A1–A4 chrome shipped)  
 **Cycle:** A — restyle visual (CSS + markup ESTILO), **sin migrar JS** ni quitar iframe  
 **Out of cycle:** SPA nativa `/app/admin`, edición avanzada de roles/plazas fuera de legacy, redirect `/gestion → /app/admin`  
 **Related:**  

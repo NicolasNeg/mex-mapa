@@ -4,7 +4,7 @@
 //              Network-first para Firestore/API calls.
 // ═══════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'mapa-v563';
+const CACHE_NAME = 'mapa-v565';
 
 // Exponer versión a la página para que error-tracking.js la use como release
 self.addEventListener('message', event => {
@@ -76,6 +76,7 @@ const CRITICAL_ASSETS = [
   '/css/profile.css',
   '/css/editmap.css',
   '/css/app-editmap-chrome.css',
+  '/css/app-admin-chrome.css',
   '/js/views/profile.js',
   '/js/views/editmap.js',
   '/404.html',
