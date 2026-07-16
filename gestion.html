@@ -14,6 +14,7 @@
   <link rel="apple-touch-icon" href="/img/logo.png">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/css/global.css">
 
   <!-- Firebase SDKs -->
@@ -131,24 +132,29 @@
   <!-- ── OVERLAY AUDITORÍA (bloqueo de mapa) — mismo que en mapa.html ── -->
   <div id="overlayAuditoria" style="display:none;">
     <div id="auditViewAdmin" class="audit-card-pill" style="display:none;">
-      <span class="material-icons pulse-icon">admin_panel_settings</span>
+      <span class="material-symbols-outlined pulse-icon">admin_panel_settings</span>
       <h2 style="margin:0; font-size:13px; font-weight:900; letter-spacing:1px;">MODO AUDITORÍA ACTIVO</h2>
     </div>
     <div id="auditViewUser" class="audit-card-intrusive" style="display:none;">
-      <span class="material-icons pulse-icon" style="font-size:65px; margin-bottom:15px;">block</span>
+      <span class="material-symbols-outlined pulse-icon" style="font-size:65px; margin-bottom:15px;">block</span>
       <h1 style="margin:0; font-size:28px; font-weight:900; letter-spacing:1px; line-height:1.1;">SISTEMA BLOQUEADO</h1>
       <p style="margin:15px 0 0; font-size:14px; font-weight:800; background:rgba(0,0,0,0.2); padding:10px 20px; border-radius:12px;">AUDITORÍA DE PATIO EN CURSO</p>
       <p style="margin:20px 0 0; font-size:13px; font-weight:600; opacity:0.9;">Espera a que Administración libere el sistema para continuar.</p>
       <button onclick="cerrarSesion()" style="margin-top:25px; padding:12px 25px; background:white; color:#ef4444; border:none; border-radius:12px; font-weight:900; font-size:14px; cursor:pointer; display:flex; align-items:center; gap:8px; box-shadow:0 4px 10px rgba(0,0,0,0.2);">
-        <span class="material-icons">logout</span> CAMBIAR USUARIO / SALIR
+        <span class="material-symbols-outlined">logout</span> CAMBIAR USUARIO / SALIR
       </button>
     </div>
   </div>
 
   <!-- ── PANEL DE CONFIGURACIÓN GLOBAL ── -->
-  <div id="modal-config-global" class="fleet-modal cfg-modal-v2 luminous-admin active">
+  <div id="modal-config-global" class="fleet-modal cfg-modal-v2 luminous-admin admin-registry active">
 
-    <!-- HERO HEADER -->
+    <a href="/mapa" class="gestion-back-btn">
+      <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span>
+      Volver al mapa
+    </a>
+
+    <!-- HERO HEADER (legacy; insights moved to workspace ribbon) -->
     <div class="cfg-v2-hero" style="position:relative;">
       <div class="cfg-v2-hero-bg"></div>
       <div class="cfg-v2-hero-content">
@@ -156,17 +162,7 @@
           <h2 class="cfg-v2-title">Centro Admin</h2>
           <p class="cfg-v2-subtitle"><b id="empresa-cfg-lbl">Cargando empresa...</b></p>
         </div>
-        <!-- IDs requeridos por JS -->
-        <span id="cfg-insight-users" style="display:none;"></span>
-        <span id="cfg-insight-plazas" style="display:none;"></span>
-        <span id="cfg-insight-catalogs" style="display:none;"></span>
-        <span id="cfg-insight-pending" style="display:none;"></span>
       </div>
-      <!-- Botón volver al mapa -->
-      <a href="/mapa" class="gestion-back-btn">
-        <span class="material-icons" style="font-size:16px;">arrow_back</span>
-        Volver al mapa
-      </a>
     </div>
 
     <!-- BODY: SIDEBAR + CONTENT -->
@@ -177,13 +173,13 @@
         <div class="cfg-v2-sidebar-top shell-sidebar-brand">
           <div>
             <div class="cfg-v2-sidebar-label">
-              <span class="material-icons">admin_panel_settings</span>
+              <span class="material-symbols-outlined">admin_panel_settings</span>
               <span>Centro Admin</span>
             </div>
             <div class="cfg-v2-sidebar-sublabel">Configuración del negocio</div>
           </div>
           <button type="button" id="cfg-sidebar-pin" class="cfg-v2-sidebar-toggle" onclick="_cfgToggleSidebarPin()" title="Colapsar sidebar" aria-label="Colapsar sidebar" aria-pressed="true">
-            <span class="material-icons">chevron_left</span>
+            <span class="material-symbols-outlined">chevron_left</span>
           </button>
         </div>
         <nav class="cfg-v2-nav">
@@ -191,29 +187,29 @@
           <section class="cfg-nav-group open" data-group="accesos">
             <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('accesos')" title="Accesos y permisos">
               <span class="cfg-nav-group-copy">
-                <span class="material-icons">key</span>
+                <span class="material-symbols-outlined">key</span>
                 <span>
                   <small>Accesos y permisos</small>
                   <strong>Usuarios, choferes, roles y solicitudes</strong>
                 </span>
               </span>
-              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+              <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
             </button>
             <div class="cfg-nav-group-body">
               <button id="cfg-tab-usuarios" class="cfg-tab active" onclick="abrirTabConfig('usuarios', this)" title="Usuarios">
-                <span class="cfg-tab-icon"><span class="material-icons">manage_accounts</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">manage_accounts</span></span>
                 <span>Usuarios</span>
               </button>
               <button id="cfg-tab-choferes" class="cfg-tab" onclick="abrirTabConfig('choferes', this)" title="Choferes">
-                <span class="cfg-tab-icon"><span class="material-icons">badge</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">badge</span></span>
                 <span>Choferes</span>
               </button>
               <button id="cfg-tab-roles" class="cfg-tab" onclick="abrirTabConfig('roles', this)" title="Roles">
-                <span class="cfg-tab-icon"><span class="material-icons">verified_user</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">verified_user</span></span>
                 <span>Roles</span>
               </button>
               <button id="cfg-tab-solicitudes" class="cfg-tab" onclick="abrirTabConfig('solicitudes', this)" style="position:relative;" title="Solicitudes de acceso">
-                <span class="cfg-tab-icon"><span class="material-icons">how_to_reg</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">how_to_reg</span></span>
                 <span>Solicitudes</span>
                 <span id="badge-config-solicitudes" class="badge-pulse" style="display:none; position:absolute; left:38px; top:6px; width:10px; height:10px; background:#ef4444; border-radius:50%;"></span>
               </button>
@@ -223,33 +219,33 @@
           <section class="cfg-nav-group open" data-group="operacion">
             <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('operacion')" title="Operación">
               <span class="cfg-nav-group-copy">
-                <span class="material-icons">tune</span>
+                <span class="material-symbols-outlined">tune</span>
                 <span>
                   <small>Operación</small>
                   <strong>Catálogos del patio y reglas</strong>
                 </span>
               </span>
-              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+              <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
             </button>
             <div class="cfg-nav-group-body">
               <button id="cfg-tab-estados" class="cfg-tab" onclick="abrirTabConfig('estados', this)" title="Estados de unidades">
-                <span class="cfg-tab-icon"><span class="material-icons">tune</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">tune</span></span>
                 <span>Estados</span>
               </button>
               <button id="cfg-tab-categorias" class="cfg-tab" onclick="abrirTabConfig('categorias', this)" title="Categorías de vehículos">
-                <span class="cfg-tab-icon"><span class="material-icons">directions_car</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">directions_car</span></span>
                 <span>Categorías</span>
               </button>
               <button id="cfg-tab-modelos" class="cfg-tab" onclick="abrirTabConfig('modelos', this)" title="Modelos registrados">
-                <span class="cfg-tab-icon"><span class="material-icons">no_crash</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">no_crash</span></span>
                 <span>Modelos</span>
               </button>
               <button id="cfg-tab-gasolinas" class="cfg-tab" onclick="abrirTabConfig('gasolinas', this)" title="Tipos de combustible">
-                <span class="cfg-tab-icon"><span class="material-icons">local_gas_station</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">local_gas_station</span></span>
                 <span>Gasolinas</span>
               </button>
               <button id="cfg-tab-motivos_traslado" class="cfg-tab" onclick="abrirTabConfig('motivos_traslado', this)" title="Motivos de traslado">
-                <span class="cfg-tab-icon"><span class="material-icons">route</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">route</span></span>
                 <span>Motivos traslado</span>
               </button>
             </div>
@@ -258,21 +254,21 @@
           <section class="cfg-nav-group open" data-group="estructura">
             <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('estructura')" title="Estructura">
               <span class="cfg-nav-group-copy">
-                <span class="material-icons">schema</span>
+                <span class="material-symbols-outlined">schema</span>
                 <span>
                   <small>Estructura</small>
                   <strong>Plazas, ubicaciones y mapa</strong>
                 </span>
               </span>
-              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+              <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
             </button>
             <div class="cfg-nav-group-body">
               <button id="cfg-tab-plazas" class="cfg-tab" onclick="abrirTabConfig('plazas', this)" title="Plazas del sistema">
-                <span class="cfg-tab-icon"><span class="material-icons">location_city</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">location_city</span></span>
                 <span>Plazas</span>
               </button>
               <button id="cfg-tab-ubicaciones" class="cfg-tab" onclick="abrirTabConfig('ubicaciones', this)" title="Ubicaciones y responsables">
-                <span class="cfg-tab-icon"><span class="material-icons">place</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">place</span></span>
                 <span>Ubicaciones</span>
               </button>
             </div>
@@ -281,17 +277,17 @@
           <section class="cfg-nav-group open" data-group="organizacion">
             <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('organizacion')" title="Organización">
               <span class="cfg-nav-group-copy">
-                <span class="material-icons">business</span>
+                <span class="material-symbols-outlined">business</span>
                 <span>
                   <small>Organización</small>
                   <strong>Empresa y parámetros del negocio</strong>
                 </span>
               </span>
-              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+              <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
             </button>
             <div class="cfg-nav-group-body">
               <button id="cfg-tab-empresa" class="cfg-tab" onclick="abrirTabConfig('empresa', this)" title="Configuración de empresa">
-                <span class="cfg-tab-icon"><span class="material-icons">business</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">business</span></span>
                 <span>Empresa</span>
               </button>
             </div>
@@ -300,17 +296,17 @@
           <section class="cfg-nav-group open" data-group="sistema">
             <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('sistema')" title="Sistema">
               <span class="cfg-nav-group-copy">
-                <span class="material-icons">settings_suggest</span>
+                <span class="material-symbols-outlined">settings_suggest</span>
                 <span>
                   <small>Sistema</small>
                   <strong>Acciones globales y entorno</strong>
                 </span>
               </span>
-              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+              <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
             </button>
             <div class="cfg-nav-group-body">
               <button id="cfg-action-bloqueo-patio" class="cfg-tab cfg-tab-action" onclick="_cfgQuickAction('toggle-lock')" title="Bloquear patio">
-                <span class="cfg-tab-icon"><span class="material-icons">lock</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">lock</span></span>
                 <span>Bloquear patio</span>
               </button>
             </div>
@@ -319,17 +315,17 @@
           <section class="cfg-nav-group open" data-group="programador">
             <button type="button" class="cfg-nav-group-toggle" onclick="_cfgToggleNavGroup('programador')" title="Programador">
               <span class="cfg-nav-group-copy">
-                <span class="material-icons">terminal</span>
+                <span class="material-symbols-outlined">terminal</span>
                 <span>
                   <small>Programador</small>
                   <strong>Observabilidad y control técnico</strong>
                 </span>
               </span>
-              <span class="material-icons cfg-nav-group-chevron">expand_more</span>
+              <span class="material-symbols-outlined cfg-nav-group-chevron">expand_more</span>
             </button>
             <div class="cfg-nav-group-body">
               <button id="cfg-tab-programador" class="cfg-tab" onclick="abrirTabConfig('programador', this)" title="Consola técnica del sistema">
-                <span class="cfg-tab-icon"><span class="material-icons">terminal</span></span>
+                <span class="cfg-tab-icon"><span class="material-symbols-outlined">terminal</span></span>
                 <span>Consola técnica</span>
               </button>
             </div>
@@ -342,12 +338,34 @@
 
         <div class="cfg-v2-workspace-header">
           <div class="cfg-v2-workspace-copy">
-            <div class="cfg-v2-workspace-kicker" id="cfg-module-breadcrumb">ACCESOS · CENTRO ADMIN</div>
+            <div class="cfg-v2-workspace-kicker" id="cfg-module-breadcrumb">Accesos · Centro Admin</div>
             <div class="cfg-v2-workspace-title-row">
               <h3 id="cfg-module-title">Usuarios</h3>
-              <span class="cfg-v2-module-badge" id="cfg-module-badge">CONFIG</span>
+              <span class="cfg-v2-module-badge" id="cfg-module-badge">Config</span>
             </div>
             <p id="cfg-module-subtitle">Gestiona cuentas, alcances y relaciones operativas del sistema.</p>
+          </div>
+          <div class="admin-metric-ribbon" aria-label="Resumen del sistema">
+            <span class="admin-metric-chip" id="cfg-ctx-users">
+              <span class="material-symbols-outlined">group</span>
+              <strong id="cfg-insight-users">--</strong>
+              <small>Usuarios</small>
+            </span>
+            <span class="admin-metric-chip" id="cfg-ctx-plazas">
+              <span class="material-symbols-outlined">location_city</span>
+              <strong id="cfg-insight-plazas">--</strong>
+              <small>Plazas</small>
+            </span>
+            <span class="admin-metric-chip" id="cfg-ctx-catalogs">
+              <span class="material-symbols-outlined">list_alt</span>
+              <strong id="cfg-insight-catalogs">--</strong>
+              <small>Catálogos</small>
+            </span>
+            <span class="admin-metric-chip is-warn" id="cfg-ctx-pending">
+              <span class="material-symbols-outlined">pending_actions</span>
+              <strong id="cfg-insight-pending">--</strong>
+              <small>Pendientes</small>
+            </span>
           </div>
         </div>
 
@@ -356,27 +374,29 @@
         <!-- ADD BAR -->
         <div class="cfg-v2-add-bar">
           <div class="cfg-v2-search-box">
-            <span class="material-icons cfg-v2-search-icon">search</span>
+            <span class="material-symbols-outlined cfg-v2-search-icon">search</span>
             <input type="text" id="cfg-search-input" placeholder="Buscar catálogo..."
               oninput="buscarEnListaConfig()">
           </div>
           <button class="cfg-v2-btn-add" onclick="abrirModalNuevaConfig()">
-            <span class="material-icons" style="font-size:18px;">add</span> Agregar
+            <span class="material-symbols-outlined" style="font-size:18px;">add</span> Agregar
           </button>
         </div>
 
         <!-- LIST -->
-        <div id="cfg-lista-items" class="cfg-v2-list"></div>
+        <div class="admin-tray-shell">
+          <div id="cfg-lista-items" class="cfg-v2-list"></div>
+        </div>
 
         <!-- FOOTER -->
         <div class="cfg-v2-footer">
           <span class="cfg-v2-footer-copy">© <span id="cfg-footer-company-name">Cargando empresa...</span> · Configuración v3</span>
           <div class="cfg-v2-footer-actions">
             <a href="/mapa" class="cfg-v2-btn-cancel" style="text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
-              <span class="material-icons" style="font-size:16px;">arrow_back</span> Volver
+              <span class="material-symbols-outlined" style="font-size:16px;">arrow_back</span> Volver
             </a>
             <button class="cfg-v2-btn-publish" onclick="guardarConfiguracionEnFirebase()">
-              <span class="material-icons" style="font-size:18px;">cloud_upload</span> Guardar cambios
+              <span class="material-symbols-outlined" style="font-size:18px;">cloud_upload</span> Guardar cambios
             </button>
           </div>
         </div>
@@ -416,7 +436,7 @@
   <div id="mex-dialog-overlay">
     <div class="mex-dlg-card">
       <div id="mex-dlg-icon-row" class="mex-dlg-icon-row dlg-info">
-        <span id="mex-dlg-icon" class="material-icons mex-dlg-main-icon">info</span>
+        <span id="mex-dlg-icon" class="material-symbols-outlined mex-dlg-main-icon">info</span>
       </div>
       <div class="mex-dlg-body">
         <h3 id="mex-dlg-title" class="mex-dlg-title"></h3>
@@ -435,7 +455,7 @@
 
   <div id="customModal" class="modal-overlay">
     <div class="modal-box">
-      <div class="material-icons modal-icon" id="modalIcon">warning</div>
+      <div class="material-symbols-outlined modal-icon" id="modalIcon">warning</div>
       <div class="modal-title" id="modalTitle">Confirmación</div>
       <div class="modal-text" id="modalText">¿Estás seguro de continuar?</div>
       <div class="modal-actions">
@@ -450,14 +470,14 @@
     <div class="cfg-add-card">
       <div class="cfg-add-header">
         <div class="cfg-add-header-icon" id="cfg-add-header-icon">
-          <span class="material-icons">add_circle</span>
+          <span class="material-symbols-outlined">add_circle</span>
         </div>
         <div class="cfg-add-header-text">
           <div class="cfg-add-header-title" id="modal-cfg-add-title">Agregar Nuevo</div>
           <div class="cfg-add-header-sub" id="cfg-add-header-sub">Nueva entrada en la lista</div>
         </div>
         <button class="cfg-add-close-btn" onclick="document.getElementById('modal-cfg-add').style.display='none'">
-          <span class="material-icons">close</span>
+          <span class="material-symbols-outlined">close</span>
         </button>
       </div>
       <div class="cfg-add-body">
@@ -528,7 +548,7 @@
                 </div>
               </label>
               <button type="button" class="cfg-add-btn-cancel" style="width:fit-content;" onclick="_cfgUploadModelImage('cfg-add')">
-                <span class="material-icons" style="font-size:16px;">upload</span>
+                <span class="material-symbols-outlined" style="font-size:16px;">upload</span>
                 Subir desde este equipo
               </button>
               <div id="cfg-add-modelo-upload-status" style="font-size:11px; font-weight:700; color:#64748b;"></div>
@@ -579,7 +599,7 @@
       <div class="cfg-add-actions">
         <button class="cfg-add-btn-cancel" onclick="document.getElementById('modal-cfg-add').style.display='none'">Cancelar</button>
         <button class="cfg-add-btn-save" onclick="confirmarAgregadoConfig()">
-          <span class="material-icons">check</span> Guardar
+          <span class="material-symbols-outlined">check</span> Guardar
         </button>
       </div>
     </div>
@@ -593,7 +613,7 @@
       <div
         style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:10px;">
-          <span class="material-icons" style="color:#004a99; font-size:22px;">compare</span>
+          <span class="material-symbols-outlined" style="color:#004a99; font-size:22px;">compare</span>
           <div>
             <div style="font-size:15px; font-weight:900; color:#0f172a; letter-spacing:.03em;">Comparador de Plazas</div>
             <div style="font-size:11px; color:#64748b; font-weight:600;">Vista ejecutiva · KPIs en tiempo real</div>
@@ -602,11 +622,11 @@
         <div style="display:flex; gap:8px; align-items:center;">
           <button onclick="exportarComparadorCSV()" title="Exportar CSV"
             style="background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; padding:7px 12px; font-size:12px; font-weight:800; cursor:pointer; display:flex; align-items:center; gap:5px; color:#334155;">
-            <span class="material-icons" style="font-size:15px;">download</span> CSV
+            <span class="material-symbols-outlined" style="font-size:15px;">download</span> CSV
           </button>
           <button onclick="cerrarComparadorPlazas()"
             style="background:#f1f5f9; border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-            <span class="material-icons" style="font-size:18px; color:#64748b;">close</span>
+            <span class="material-symbols-outlined" style="font-size:18px; color:#64748b;">close</span>
           </button>
         </div>
       </div>
@@ -626,7 +646,7 @@
           <p class="profile-modal-sub">Tu avatar ya funciona y el resto del panel queda listo para futuras configuraciones personales.</p>
         </div>
         <button class="profile-modal-close" onclick="cerrarPerfilUsuario()">
-          <span class="material-icons" style="font-size:18px;">close</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
         </button>
       </div>
       <div class="profile-modal-body">
@@ -641,17 +661,17 @@
         <input type="file" id="profileAvatarInput" accept="image/*" style="display:none;" onchange="subirAvatarPerfil(this)">
         <div class="profile-modal-actions">
           <button class="profile-modal-btn primary" onclick="document.getElementById('profileAvatarInput').click()">
-            <span class="material-icons" style="font-size:18px;">photo_camera</span> Subir y Recortar
+            <span class="material-symbols-outlined" style="font-size:18px;">photo_camera</span> Subir y Recortar
           </button>
           <button class="profile-modal-btn" onclick="eliminarAvatarPerfil()">
-            <span class="material-icons" style="font-size:18px;">delete</span> Quitar Foto
+            <span class="material-symbols-outlined" style="font-size:18px;">delete</span> Quitar Foto
           </button>
         </div>
         <div class="profile-modal-note">Usa una imagen cuadrada o vertical ligera para que se vea mejor en el chat y futuras vistas del sistema.</div>
         <div class="profile-settings-grid">
           <section class="profile-settings-card">
             <div class="profile-settings-head">
-              <div class="profile-settings-icon"><span class="material-icons" style="font-size:20px;">notifications_active</span></div>
+              <div class="profile-settings-icon"><span class="material-symbols-outlined" style="font-size:20px;">notifications_active</span></div>
               <div>
                 <div class="profile-settings-title">Notificaciones del dispositivo</div>
                 <p class="profile-settings-sub">Controla si este equipo recibe avisos reales.</p>
@@ -680,12 +700,12 @@
             </div>
             <div id="profileNotificationMeta" class="profile-setting-meta">Preparando estado del dispositivo…</div>
             <button id="profileOpenNotificationsCenterBtn" type="button" class="profile-modal-btn primary" style="width:100%; margin-top:14px;">
-              <span class="material-icons" style="font-size:18px;">notifications</span> Ver historial y detalles
+              <span class="material-symbols-outlined" style="font-size:18px;">notifications</span> Ver historial y detalles
             </button>
           </section>
           <section class="profile-settings-card">
             <div class="profile-settings-head">
-              <div class="profile-settings-icon"><span class="material-icons" style="font-size:20px;">shield</span></div>
+              <div class="profile-settings-icon"><span class="material-symbols-outlined" style="font-size:20px;">shield</span></div>
               <div>
                 <div class="profile-settings-title">Privacidad y sesión</div>
                 <p class="profile-settings-sub">Estado del permiso y este equipo activo.</p>
@@ -716,7 +736,7 @@
           <p class="profile-avatar-crop-sub">Arrastra y acerca la imagen para ver exactamente cómo se verá tu perfil.</p>
         </div>
         <button class="profile-modal-close" onclick="cancelarRecorteAvatarPerfil()" style="background:#f1f5f9; color:#334155;">
-          <span class="material-icons" style="font-size:18px;">close</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">close</span>
         </button>
       </div>
       <div class="profile-avatar-crop-body">
@@ -745,7 +765,7 @@
       <div class="profile-avatar-crop-actions">
         <button class="profile-modal-btn" onclick="cancelarRecorteAvatarPerfil()">Cancelar</button>
         <button id="profileAvatarCropSaveBtn" class="profile-modal-btn primary" onclick="guardarAvatarRecortadoPerfil()">
-          <span class="material-icons" style="font-size:18px;">check</span> Guardar Foto
+          <span class="material-symbols-outlined" style="font-size:18px;">check</span> Guardar Foto
         </button>
       </div>
     </div>
@@ -807,7 +827,7 @@
         style="background: var(--mex-blue); padding: 20px 25px; color: white; display: flex; justify-content: space-between; align-items: center;">
         <div>
           <h2 style="margin: 0; font-weight: 900; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-            <span class="material-icons" style="color: #38bdf8;">query_stats</span> CUADRE DE PREDICCIONES
+            <span class="material-symbols-outlined" style="color: #38bdf8;">query_stats</span> CUADRE DE PREDICCIONES
           </h2>
           <p style="margin: 5px 0 0 0; font-size: 12px; color: #bae6fd;">Compara Reservas vs Regresos vs Patio Actual</p>
         </div>
@@ -821,7 +841,7 @@
           style="margin-bottom: 20px; background: #f1f5f9; padding: 15px; border-radius: 12px; border: 1px solid #cbd5e1;">
           <label
             style="font-weight: 900; font-size: 13px; color: var(--mex-blue); display: flex; align-items: center; gap: 8px;">
-            <span class="material-icons">calendar_month</span> SELECCIONA LA FECHA DEL CUADRE:
+            <span class="material-symbols-outlined">calendar_month</span> SELECCIONA LA FECHA DEL CUADRE:
           </label>
           <input type="date" id="fecha-prediccion"
             style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid var(--mex-accent); margin-top: 10px; font-family: inherit; font-weight: bold; font-size: 15px; color: #1e293b; outline: none;">
@@ -831,7 +851,7 @@
           <div>
             <label
               style="font-weight: 900; font-size: 12px; color: #d97706; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-              <span class="material-icons" style="font-size: 16px;">event_available</span> PEGAR RESERVAS AQUÍ
+              <span class="material-symbols-outlined" style="font-size: 16px;">event_available</span> PEGAR RESERVAS AQUÍ
             </label>
             <textarea id="txt-pred-reservas" rows="8" placeholder="Pega la tabla de 'Reservaciones'..."
               style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #fcd34d; background: #fffbeb; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
@@ -840,7 +860,7 @@
           <div>
             <label
               style="font-weight: 900; font-size: 12px; color: #0284c7; display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
-              <span class="material-icons" style="font-size: 16px;">event_busy</span> PEGAR REGRESOS AQUÍ
+              <span class="material-symbols-outlined" style="font-size: 16px;">event_busy</span> PEGAR REGRESOS AQUÍ
             </label>
             <textarea id="txt-pred-regresos" rows="8" placeholder="Pega la tabla de 'Contratos por Cerrar'..."
               style="width: 100%; padding: 15px; border-radius: 12px; border: 2px dashed #bae6fd; background: #f0f9ff; font-family: monospace; font-size: 10px; resize: none; outline: none; box-sizing: border-box;"></textarea>
@@ -849,7 +869,7 @@
 
         <button id="btnProcesarPrediccion" onclick="ejecutarPrediccion()"
           style="width: 100%; padding: 18px; background: #10b981; color: white; border: none; border-radius: 12px; font-weight: 900; font-size: 15px; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; box-shadow: 0 10px 20px rgba(16,185,129,0.3); transition: 0.2s;">
-          <span class="material-icons">auto_awesome</span> CALCULAR DISPONIBILIDAD
+          <span class="material-symbols-outlined">auto_awesome</span> CALCULAR DISPONIBILIDAD
         </button>
       </div>
 
@@ -863,11 +883,11 @@
 
           <button id="btnDescargarPrediccionExcel" onclick="crearExcelPrediccion()"
             style="flex: 2; padding: 15px; background: #16a34a; color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 4px 10px rgba(22,163,74,0.3);">
-            <span class="material-icons">table_view</span> CREAR HOJA DE EXCEL EDITABLE
+            <span class="material-symbols-outlined">table_view</span> CREAR HOJA DE EXCEL EDITABLE
           </button>
           <button id="btnDescargarPrediccionPdf" onclick="descargarPDFPrediccion()"
             style="flex: 2; padding: 15px; background: var(--mex-blue); color: white; border: none; border-radius: 12px; font-weight: 900; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px;">
-            <span class="material-icons">picture_as_pdf</span> GUARDAR PDF OFICIAL
+            <span class="material-symbols-outlined">picture_as_pdf</span> GUARDAR PDF OFICIAL
           </button>
         </div>
       </div>
@@ -878,19 +898,19 @@
     <div style="background:#fff; border-radius:18px; width:100%; max-width:620px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 64px rgba(0,0,0,0.4);">
       <div style="display:flex; align-items:center; justify-content:space-between; padding:18px 22px 14px; border-bottom:1px solid #e2e8f0; flex-shrink:0; background:linear-gradient(135deg,#0f172a,#1e3a5f);">
         <div style="display:flex; align-items:center; gap:10px;">
-          <span class="material-icons" style="color:#38bdf8; font-size:24px;">analytics</span>
+          <span class="material-symbols-outlined" style="color:#38bdf8; font-size:24px;">analytics</span>
           <div>
             <div style="font-size:15px; font-weight:900; color:white; letter-spacing:.03em;">Análisis de Reservas</div>
             <div style="font-size:11px; color:#94a3b8; font-weight:600;">Captura, PDF o texto · Motor de proyección operativa</div>
           </div>
         </div>
         <button onclick="cerrarModalPDFReservas()" style="background:rgba(255,255,255,0.1); border:none; border-radius:8px; width:34px; height:34px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-          <span class="material-icons" style="font-size:18px; color:#94a3b8;">close</span>
+          <span class="material-symbols-outlined" style="font-size:18px; color:#94a3b8;">close</span>
         </button>
       </div>
       <div style="overflow-y:auto; padding:20px 22px; flex:1; display:flex; flex-direction:column; gap:16px;">
         <div id="pdf-drop-zone" style="border:2px dashed #cbd5e1; border-radius:14px; padding:28px; text-align:center; cursor:pointer; transition:border-color .2s, background .2s;" onclick="document.getElementById('pdf-file-input')?.click()" ondragover="event.preventDefault();this.style.borderColor='#0284c7';this.style.background='#f0f9ff'" ondragleave="this.style.borderColor='#cbd5e1';this.style.background=''" ondrop="_onPDFDrop(event)">
-          <span class="material-icons" style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">add_photo_alternate</span>
+          <span class="material-symbols-outlined" style="font-size:38px; color:#94a3b8; display:block; margin-bottom:8px;">add_photo_alternate</span>
           <div style="font-size:13px; font-weight:800; color:#475569;">Arrastra captura, PDF o texto · o haz clic</div>
           <div style="font-size:11px; color:#94a3b8; margin-top:4px;">JPG, PNG, WEBP, PDF o TXT · reservas, regresos o asignaciones</div>
           <input id="pdf-file-input" type="file" accept="image/jpeg,image/png,image/webp,.pdf,.txt,text/plain,application/pdf" style="display:none" onchange="_onPDFFileInput(this)">
@@ -904,7 +924,7 @@
         </div>
         <textarea id="pdf-texto-bruto" rows="6" placeholder="Pega aquí el contenido del reporte (reservas, regresos, entregas...)" style="border:1.5px solid #e2e8f0; border-radius:10px; padding:12px 14px; font-size:12px; font-family:monospace; resize:vertical; outline:none; color:#334155; transition:border-color .2s;" onfocus="this.style.borderColor='#0284c7'" onblur="this.style.borderColor='#e2e8f0'"></textarea>
         <button id="btn-analizar-pdf" onclick="_ejecutarAnalisisPDF()" style="background:linear-gradient(135deg,#0369a1,#0284c7); color:white; border:none; border-radius:10px; padding:12px 20px; font-size:13px; font-weight:900; cursor:pointer; letter-spacing:.03em; display:flex; align-items:center; justify-content:center; gap:8px; transition:opacity .2s;">
-          <span class="material-icons" style="font-size:18px;">auto_graph</span>
+          <span class="material-symbols-outlined" style="font-size:18px;">auto_graph</span>
           Analizar y proyectar
         </button>
         <div id="pdf-resultados" style="display:none;"></div>
@@ -919,14 +939,14 @@
     <div class="cfg-add-card">
       <div class="cfg-add-header">
         <div class="cfg-add-header-icon">
-          <span class="material-icons">add_location_alt</span>
+          <span class="material-symbols-outlined">add_location_alt</span>
         </div>
         <div class="cfg-add-header-text">
           <div class="cfg-add-header-title">Nueva Plaza</div>
           <div class="cfg-add-header-sub">Configura los datos iniciales de la sucursal</div>
         </div>
         <button class="cfg-add-close-btn" onclick="_cerrarModalNuevaplaza()">
-          <span class="material-icons">close</span>
+          <span class="material-symbols-outlined">close</span>
         </button>
       </div>
       <div class="cfg-add-body">
@@ -952,7 +972,7 @@
       <div class="cfg-add-actions">
         <button class="cfg-add-btn-cancel" onclick="_cerrarModalNuevaplaza()">Cancelar</button>
         <button class="cfg-add-btn-save" onclick="_confirmarNuevaplaza()">
-          <span class="material-icons">add_location_alt</span> Crear Plaza
+          <span class="material-symbols-outlined">add_location_alt</span> Crear Plaza
         </button>
       </div>
     </div>

@@ -1,0 +1,728 @@
+/* Centro Admin — Corporate Registry chrome (Ciclo A)
+   Scope: #modal-config-global.admin-registry
+   ESTILO: Inter, #3b82f6, Material Symbols Outlined */
+
+#modal-config-global.admin-registry {
+  --admin-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --admin-accent: #3b82f6;
+  --admin-accent-hover: #2563eb;
+  --admin-accent-pale: rgba(59, 130, 246, 0.12);
+  --admin-bg: var(--bg, #f8fafc);
+  --admin-surface: var(--surface, #ffffff);
+  --admin-border: var(--border, #e2e8f0);
+  --admin-text: var(--text, #0f172a);
+  --admin-muted: #64748b;
+  --admin-sidebar: #07111f;
+  --admin-sidebar-text: #e2e8f0;
+  --admin-sidebar-muted: #94a3b8;
+  --admin-sidebar-border: rgba(255, 255, 255, 0.08);
+  --admin-sidebar-w: 280px;
+  --admin-sidebar-collapsed: 72px;
+  --admin-ok: #10b981;
+  --admin-warn: #f59e0b;
+  --admin-bad: #ef4444;
+
+  font-family: Inter, sans-serif;
+  font-variant-numeric: tabular-nums;
+  background: var(--admin-bg) !important;
+  color: var(--admin-text);
+  padding: 0 !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+}
+
+#modal-config-global.admin-registry.active {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#modal-config-global.admin-registry .cfg-v2-hero,
+#modal-config-global.admin-registry .cfg-v2-hero-bg {
+  display: none !important;
+}
+
+#modal-config-global.admin-registry .cfg-v2-body {
+  display: grid !important;
+  grid-template-columns: var(--admin-sidebar-w) minmax(0, 1fr) !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  background: var(--admin-bg) !important;
+}
+
+#modal-config-global.admin-registry #cfg-admin-sidebar,
+#modal-config-global.admin-registry .cfg-v2-sidebar.shell-sidebar-surface {
+  width: var(--admin-sidebar-w) !important;
+  min-width: var(--admin-sidebar-w) !important;
+  max-width: var(--admin-sidebar-w) !important;
+  background: var(--admin-sidebar) !important;
+  border: none !important;
+  border-right: 1px solid var(--admin-sidebar-border) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 16px 10px !important;
+  gap: 12px !important;
+  overflow: hidden auto;
+}
+
+#modal-config-global.admin-registry #cfg-admin-sidebar.is-collapsed,
+#modal-config-global.admin-registry .cfg-v2-sidebar.is-collapsed {
+  width: var(--admin-sidebar-collapsed) !important;
+  min-width: var(--admin-sidebar-collapsed) !important;
+  max-width: var(--admin-sidebar-collapsed) !important;
+}
+
+#modal-config-global.admin-registry .cfg-v2-sidebar-top,
+#modal-config-global.admin-registry .cfg-v2-sidebar-top.shell-sidebar-brand {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 6px 12px;
+  border-bottom: 1px solid var(--admin-sidebar-border);
+  margin-bottom: 4px;
+}
+
+#modal-config-global.admin-registry .cfg-v2-sidebar-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-sidebar-text);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+#modal-config-global.admin-registry .cfg-v2-sidebar-label .material-symbols-outlined {
+  font-size: 20px;
+  color: #2ecc71;
+}
+
+#modal-config-global.admin-registry .cfg-v2-sidebar-sublabel {
+  margin-top: 4px;
+  color: var(--admin-sidebar-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+#modal-config-global.admin-registry .cfg-v2-sidebar-toggle {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--admin-sidebar-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--admin-sidebar-muted);
+  cursor: pointer;
+  transition: background 0.28s var(--admin-ease), color 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-v2-sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--admin-sidebar-text);
+}
+
+#modal-config-global.admin-registry .cfg-v2-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+#modal-config-global.admin-registry .cfg-nav-group {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid transparent;
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 10px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--admin-sidebar-text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-toggle:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-copy .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--admin-sidebar-muted);
+  margin-top: 2px;
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-copy small {
+  display: block;
+  color: var(--admin-sidebar-muted);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-copy strong {
+  display: block;
+  color: var(--admin-sidebar-text);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-chevron {
+  font-size: 18px !important;
+  color: var(--admin-sidebar-muted);
+  transition: transform 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-nav-group:not(.open) .cfg-nav-group-chevron {
+  transform: rotate(-90deg);
+}
+
+#modal-config-global.admin-registry .cfg-nav-group:not(.open) .cfg-nav-group-body {
+  display: none;
+}
+
+#modal-config-global.admin-registry .cfg-nav-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 4px 8px;
+}
+
+#modal-config-global.admin-registry .cfg-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px 8px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--admin-sidebar-muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.28s var(--admin-ease),
+    color 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-tab::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 0;
+  border-radius: 9999px;
+  background: var(--admin-accent);
+  transform: translateY(-50%);
+  transition: height 0.32s var(--admin-ease), opacity 0.28s var(--admin-ease);
+  opacity: 0;
+}
+
+#modal-config-global.admin-registry .cfg-tab.active,
+#modal-config-global.admin-registry .cfg-tab.active:hover {
+  background: rgba(59, 130, 246, 0.14);
+  color: var(--admin-sidebar-text);
+}
+
+#modal-config-global.admin-registry .cfg-tab.active::before {
+  height: 22px;
+  opacity: 1;
+}
+
+#modal-config-global.admin-registry .cfg-tab:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--admin-sidebar-text);
+}
+
+#modal-config-global.admin-registry .cfg-tab-icon .material-symbols-outlined {
+  font-size: 18px;
+}
+
+#modal-config-global.admin-registry .cfg-tab-action {
+  color: #fca5a5;
+}
+
+#modal-config-global.admin-registry #badge-config-solicitudes {
+  position: absolute !important;
+  right: 10px !important;
+  left: auto !important;
+  top: 50% !important;
+  transform: translateY(-50%);
+  width: 8px !important;
+  height: 8px !important;
+  background: var(--admin-bad) !important;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25);
+}
+
+#modal-config-global.admin-registry .cfg-v2-main,
+#modal-config-global.admin-registry .cfg-v2-main.shell-main-stage {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--admin-bg);
+  overflow: hidden;
+}
+
+#modal-config-global.admin-registry .cfg-v2-workspace-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+#modal-config-global.admin-registry .cfg-v2-workspace-kicker {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+#modal-config-global.admin-registry .cfg-v2-workspace-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+#modal-config-global.admin-registry #cfg-module-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+  text-transform: none;
+}
+
+#modal-config-global.admin-registry .cfg-v2-module-badge {
+  padding: 4px 8px;
+  border-radius: 9999px;
+  background: var(--admin-accent-pale);
+  color: var(--admin-accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+#modal-config-global.admin-registry #cfg-module-subtitle {
+  margin: 8px 0 0;
+  max-width: 56ch;
+  color: var(--admin-muted);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+#modal-config-global.admin-registry .admin-metric-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: stretch;
+}
+
+#modal-config-global.admin-registry .admin-metric-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-bg);
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+#modal-config-global.admin-registry .admin-metric-chip .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--admin-muted);
+}
+
+#modal-config-global.admin-registry .admin-metric-chip strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+#modal-config-global.admin-registry .admin-metric-chip small {
+  color: var(--admin-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+#modal-config-global.admin-registry .admin-metric-chip.is-warn {
+  border-color: rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.08);
+}
+
+#modal-config-global.admin-registry .cfg-v2-workspace-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#modal-config-global.admin-registry .cfg-v2-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid var(--admin-border);
+  border-radius: 9999px;
+  background: var(--admin-bg);
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#modal-config-global.admin-registry .cfg-v2-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+#modal-config-global.admin-registry .cfg-v2-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.28s var(--admin-ease), border-color 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-v2-tool-btn:hover {
+  transform: translateY(-1px);
+  border-color: #cbd5e1;
+}
+
+#modal-config-global.admin-registry .cfg-v2-tool-btn.success {
+  color: #ffffff;
+  background: var(--admin-accent);
+  border-color: var(--admin-accent);
+}
+
+#modal-config-global.admin-registry .cfg-v2-add-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+}
+
+#modal-config-global.admin-registry .cfg-v2-search-box {
+  flex: 1 1 240px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  background: var(--admin-surface);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+#modal-config-global.admin-registry .cfg-v2-search-box:focus-within {
+  border-color: var(--admin-accent);
+  box-shadow: 0 0 0 3px var(--admin-accent-pale);
+}
+
+#modal-config-global.admin-registry .cfg-v2-search-icon {
+  color: var(--admin-muted);
+  font-size: 20px !important;
+}
+
+#modal-config-global.admin-registry .cfg-v2-search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--admin-text);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+#modal-config-global.admin-registry .cfg-v2-btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 18px 0 8px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--admin-accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.28s var(--admin-ease), transform 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-v2-btn-add:hover {
+  background: var(--admin-accent-hover);
+  transform: translateY(-1px);
+}
+
+#modal-config-global.admin-registry .cfg-v2-btn-add .material-symbols-outlined {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 18px;
+}
+
+#modal-config-global.admin-registry .admin-tray-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  margin: 0 24px 16px;
+  padding: 6px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+#modal-config-global.admin-registry .cfg-v2-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 12px !important;
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-surface) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  overflow: auto;
+}
+
+#modal-config-global.admin-registry .cfg-item {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-surface) !important;
+  box-shadow: none !important;
+  transition: border-color 0.28s var(--admin-ease), background 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-item:hover,
+#modal-config-global.admin-registry .cfg-item.active {
+  border-color: var(--admin-accent) !important;
+  background: var(--admin-accent-pale) !important;
+}
+
+#modal-config-global.admin-registry .um-body {
+  gap: 16px !important;
+}
+
+#modal-config-global.admin-registry .um-card {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 12px !important;
+  background: var(--admin-surface) !important;
+  transition: border-color 0.28s var(--admin-ease), box-shadow 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .um-card:hover {
+  border-color: #cbd5e1 !important;
+}
+
+#modal-config-global.admin-registry .um-card.active {
+  border-color: var(--admin-accent) !important;
+  box-shadow: 0 0 0 3px var(--admin-accent-pale) !important;
+}
+
+#modal-config-global.admin-registry .um-form-card {
+  border: 1px solid var(--admin-border) !important;
+  border-radius: 16px !important;
+  background: var(--admin-surface) !important;
+}
+
+#modal-config-global.admin-registry .cfg-v2-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+}
+
+#modal-config-global.admin-registry .cfg-v2-footer-copy {
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+#modal-config-global.admin-registry .cfg-v2-footer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#modal-config-global.admin-registry .cfg-v2-btn-cancel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+#modal-config-global.admin-registry .cfg-v2-btn-publish {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px 0 8px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--admin-accent);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.28s var(--admin-ease), transform 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-v2-btn-publish:hover {
+  background: var(--admin-accent-hover);
+  transform: translateY(-1px);
+}
+
+#modal-config-global.admin-registry .cfg-v2-btn-publish .material-symbols-outlined {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.18);
+  font-size: 16px;
+}
+
+#modal-config-global.admin-registry .gestion-back-btn {
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--admin-border);
+  border-radius: 9999px;
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.25);
+  transition: transform 0.28s var(--admin-ease), color 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .gestion-back-btn:hover {
+  color: var(--admin-text);
+  transform: translateY(-1px);
+}
+
+#modal-config-global.admin-registry .cfg-v2-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 9999px;
+  background: var(--admin-surface);
+  color: var(--admin-muted);
+  cursor: pointer;
+  transition: transform 0.28s var(--admin-ease);
+}
+
+#modal-config-global.admin-registry .cfg-v2-close:hover {
+  transform: scale(0.98);
+}
+
+body.dark-theme #modal-config-global.admin-registry {
+  --admin-bg: var(--bg, #0b1220);
+  --admin-surface: var(--surface, #111827);
+  --admin-border: var(--border, #1e293b);
+  --admin-text: var(--text, #f8fafc);
+  --admin-muted: #94a3b8;
+}
+
+body.dark-theme #modal-config-global.admin-registry .admin-tray-shell {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+@media (max-width: 1024px) {
+  #modal-config-global.admin-registry .cfg-v2-body {
+    grid-template-columns: 1fr !important;
+  }
+
+  #modal-config-global.admin-registry #cfg-admin-sidebar,
+  #modal-config-global.admin-registry .cfg-v2-sidebar.shell-sidebar-surface {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    max-height: 220px;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--admin-sidebar-border) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #modal-config-global.admin-registry *,
+  #modal-config-global.admin-registry *::before {
+    animation: none !important;
+    transition: none !important;
+  }
+}

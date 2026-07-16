@@ -12,6 +12,7 @@
  *   alertas.css       — Studio alertas maestras, badges, menú controles, radar
  *   config.css        — Panel config (cfg-*), plazas, empresa, editor de mapa
  *   admin-luminous.css — Rediseño Luminous Admin (panel administrativo)
+ *   app-admin-chrome.css — Corporate Registry chrome (Centro Admin ciclo A)
  *   mensajes.css      — Chat y mensajes
  *   notificaciones.css — Centro de notificaciones, perfil
  *   programador.css      — Centro de Control (programador.html)
@@ -26,6 +27,7 @@
 @import url('alertas.css');
 @import url('config.css');
 @import url('admin-luminous.css');
+@import url('app-admin-chrome.css');
 @import url('mensajes.css');
 @import url('notificaciones.css');
 @import url('programador.css');
