@@ -6207,8 +6207,9 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
   const menuMasControles = document.getElementById('btnMasControlesWrapper');
   if (menuMasControles) menuMasControles.style.display = esOperario ? 'none' : 'inline-block';
 
+  // Controles admin / Unidades globales retirado — no reintroducir
   const menuAdminControls = document.getElementById('btnAdminControlsWrapper');
-  if (menuAdminControls) menuAdminControls.style.display = esOperario ? 'none' : 'inline-block';
+  if (menuAdminControls) menuAdminControls.style.display = 'none';
 
 
   const btnTabAdmins = document.getElementById('tabFlotaAdmins');
@@ -6252,7 +6253,6 @@ function flotaSkeletonHtml(rows = 8) {
     'flota-skel-bar--pla',
     'flota-skel-bar--gas',
     'flota-skel-bar--km',
-    'flota-skel-bar--flota',
     'flota-skel-bar--patio',
     'flota-skel-bar--ubi'
   ];
@@ -6372,21 +6372,6 @@ function filtrarFlota() {
         const vb = (typeof b.km === 'number') ? b.km : -1;
         return sortAsc ? va - vb : vb - va;
       }
-      if (sortCol === 'estadoFlota') {
-        const flotaOf = (u) => {
-          const patio = normalizarEstadoPatio(u.estado) || '';
-          const idx = leerEstadoFlota(u);
-          return (esFlotaCerrada(idx) ? idx : null)
-            || derivarFlotaDesdePatio(patio, idx)
-            || idx
-            || '';
-        };
-        const valA = flotaOf(a).toLowerCase();
-        const valB = flotaOf(b).toLowerCase();
-        if (valA < valB) return sortAsc ? -1 : 1;
-        if (valA > valB) return sortAsc ? 1 : -1;
-        return 0;
-      }
       let valA = (a[sortCol] || '').toString().toLowerCase();
       let valB = (b[sortCol] || '').toString().toLowerCase();
       if (valA < valB) return sortAsc ? -1 : 1;
@@ -6439,18 +6424,13 @@ function renderFlota(data) {
   }
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = data.map((u, i) => {
     const estadoPatio = normalizarEstadoPatio(u.estado) || String(u.estado || 'SUCIO').toUpperCase();
     const estadoClass = estadoPatio ? estadoPatio.replace(/\s+/g, '') : 'SUCIO';
-    const flotaIndex = leerEstadoFlota(u);
-    const flota = (esFlotaCerrada(flotaIndex) ? flotaIndex : null)
-      || derivarFlotaDesdePatio(estadoPatio, flotaIndex)
-      || flotaIndex
-      || '—';
 
     const responsable = _resolverResponsableCuadreAdmin(u);
     const adminResponsable = String(u.adminResponsable || u._updatedBy || u._createdBy || '').trim();
@@ -6495,7 +6475,6 @@ function renderFlota(data) {
         return `<div class="gas-cell" title="${u.gasolina}"><div class="gas-cell-track"><div class="gas-cell-fill" style="width:${pct}%;background:${gasColor}"></div></div><span class="gas-cell-label" style="color:${gasColor}">${u.gasolina}</span></div>`;
       })()}</td>
       <td class="td-km">${(typeof u.km === 'number') ? u.km.toLocaleString('es-MX') : '—'}</td>
-      <td><span class="flota-badge" title="Estado flota (negocio)">${escapeHtml(flota)}</span></td>
       <td><span class="badge st-${estadoClass}" title="Estado patio (cuadre)">${escapeHtml(estadoPatio)}</span></td>
       <td><span class="ubi-plain" title="Ubicación">${escapeHtml(u.ubicacion || '—')}</span></td>
       ${tdAutor}
@@ -10852,27 +10831,47 @@ function _positionMoreControlsDropdown() {
     } catch (_) { /* cross-origin */ }
   }
 
-  if (!anchorRect) return;
   if (menu.parentElement !== document.body) document.body.appendChild(menu);
 
-  const isMobile = window.innerWidth <= 640;
+  const isMobile = window.innerWidth <= 768;
+  const hasAnchor = anchorRect && (anchorRect.width > 0 || anchorRect.height > 0);
+
+  // Mobile shell: Controles vive en el footer — anclar el menú arriba del bottom nav
+  if (isMobile && (!hasAnchor || isShell)) {
+    menu.style.position = 'fixed';
+    menu.style.left = '12px';
+    menu.style.right = '12px';
+    menu.style.top = 'auto';
+    menu.style.bottom = 'max(72px, env(safe-area-inset-bottom, 0px))';
+    menu.style.minWidth = '0';
+    menu.style.width = 'auto';
+    menu.style.zIndex = '50000';
+    menu.style.background = '#ffffff';
+    menu.style.border = '1px solid #d7dde5';
+    menu.style.boxShadow = '0 18px 44px rgba(19, 27, 46, .16)';
+    menu.style.maxHeight = 'min(62dvh, 420px)';
+    menu.style.overflowY = 'auto';
+    menu.style.webkitOverflowScrolling = 'touch';
+    return;
+  }
+
+  if (!hasAnchor) return;
+
   const minW = 240;
   let left = Math.min(anchorRect.left, window.innerWidth - minW - 8);
   left = Math.max(8, left);
   menu.style.position = 'fixed';
-  menu.style.left = isMobile ? '8px' : `${left}px`;
-  menu.style.right = isMobile ? '8px' : 'auto';
-  menu.style.minWidth = isMobile ? '0' : `${minW}px`;
-  menu.style.width = isMobile ? 'auto' : '';
+  menu.style.left = `${left}px`;
+  menu.style.right = 'auto';
+  menu.style.minWidth = `${minW}px`;
+  menu.style.width = '';
   menu.style.zIndex = '50000';
   menu.style.top = `${anchorRect.bottom + 8}px`;
   menu.style.bottom = 'auto';
   menu.style.background = '#ffffff';
   menu.style.border = '1px solid #d7dde5';
   menu.style.boxShadow = '0 18px 44px rgba(19, 27, 46, .16)';
-  menu.style.maxHeight = isMobile
-    ? `calc(100vh - ${anchorRect.bottom + 16}px - env(safe-area-inset-bottom, 0px))`
-    : `${Math.max(120, Math.min(360, window.innerHeight - anchorRect.bottom - 16))}px`;
+  menu.style.maxHeight = `${Math.max(120, Math.min(360, window.innerHeight - anchorRect.bottom - 16))}px`;
   menu.style.overflowY = 'auto';
   menu.style.webkitOverflowScrolling = 'touch';
 }

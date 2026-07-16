@@ -12,6 +12,8 @@ let _state      = null;
 let _cssInjected = false;
 let _abortCtrl  = null;
 
+const PAGE_SIZES = [25, 50, 100];
+
 // ── Estado interno ───────────────────────────────────────────
 function _makeState() {
   return {
@@ -25,9 +27,13 @@ function _makeState() {
     tipoMov:      '',
     fechaMov:     '',
     usuarioMov:   '',
+    pageMov:      1,
+    pageSizeMov:  50,
     // filtros estado
     qEst:         '',
     tipoEst:      'TODOS',
+    pageEst:      1,
+    pageSizeEst:  50,
   };
 }
 
@@ -37,7 +43,7 @@ function _ensureCss() {
   _cssInjected = true;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/css/app-historial-operativo.css';
+  link.href = '/css/app-historial-operativo.css?v=20260715a';
   link.setAttribute('data-hist-op-css', '1');
   document.head.appendChild(link);
 }
@@ -45,6 +51,77 @@ function _ensureCss() {
 // ── Helpers ──────────────────────────────────────────────────
 const q   = id  => _container?.querySelector(`#hist-op-${id}`);
 const esc = str => String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function _csvCell(value) {
+  const s = String(value ?? '');
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function _downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function _exportDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function _toast(message, type = 'info') {
+  if (typeof window.showToast === 'function') window.showToast(message, type);
+  else console[type === 'error' ? 'error' : 'log'](message);
+}
+
+function _pagerHtml(prefix, page, pageSize, total) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize) || 1);
+  const safePage = Math.min(Math.max(1, page), totalPages);
+  const start = total ? (safePage - 1) * pageSize + 1 : 0;
+  const end = Math.min(safePage * pageSize, total);
+  const sizeOpts = PAGE_SIZES.map(n =>
+    `<option value="${n}"${n === pageSize ? ' selected' : ''}>${n}</option>`
+  ).join('');
+  return `
+    <div class="hist-op-pager">
+      <label class="hist-op-page-size"><span>Mostrar</span>
+        <select id="hist-op-pageSize${prefix}">${sizeOpts}</select>
+      </label>
+      <span class="hist-op-pager-label">${total ? `${start}–${end} de ${total}` : 'Sin registros'}</span>
+      <div class="hist-op-pager-btns">
+        <button type="button" class="hist-op-btn-page" data-page-action="prev-${prefix}" ${safePage <= 1 ? 'disabled' : ''}>Anterior</button>
+        <button type="button" class="hist-op-btn-page" data-page-action="next-${prefix}" ${safePage >= totalPages ? 'disabled' : ''}>Siguiente</button>
+      </div>
+    </div>`;
+}
+
+function _filteredMovimientos() {
+  const qv = _state.qMov.toLowerCase();
+  let rows = _state.movimientos;
+  if (qv) rows = rows.filter(r => [r.mva, r.usuario, r.detalles, r.tipo].some(v => (v || '').toLowerCase().includes(qv)));
+  if (_state.tipoMov) rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoMov);
+  if (_state.fechaMov) rows = rows.filter(r => _tsADia(r.timestamp) === _state.fechaMov);
+  if (_state.usuarioMov) rows = rows.filter(r => r.usuario === _state.usuarioMov);
+  return rows;
+}
+
+function _filteredEstado() {
+  const qv = _state.qEst.toLowerCase();
+  let rows = _state.estado.filter(_estadoPermitido);
+  if (qv) {
+    rows = rows.filter(r =>
+      [r.mva, r.autor, r.accion, r.tipo, r.detalles, r.objetivo]
+        .some(v => _cleanAuditText(v).toLowerCase().includes(qv))
+    );
+  }
+  if (_state.tipoEst && _state.tipoEst !== 'TODOS') {
+    rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoEst);
+  }
+  return rows;
+}
 
 // Normaliza cualquier timestamp (segundos | ms | Firestore {seconds}) a día local
 // 'YYYY-MM-DD'. El filtro fallaba cuando timestamp llegaba como objeto (*1000=NaN).
@@ -113,8 +190,6 @@ function _toMs(ts) {
 }
 
 // ── Popover cajón-a-cajón (solo PC con hover) ────────────────
-// Al pasar el ratón sobre una fila reproduce una vez la animación
-// de la unidad deslizándose del cajón origen al destino.
 let _pop = null;
 function _ensurePop() {
   if (_pop) return _pop;
@@ -196,8 +271,11 @@ function _renderShell() {
           <select id="hist-op-usuarioMov">
             <option value="">Todos los usuarios</option>
           </select>
-          <button id="hist-op-limpiarMov" class="hist-op-btn-clear">Limpiar</button>
-          <button id="hist-op-recargarMov" class="hist-op-btn-refresh">
+          <button id="hist-op-limpiarMov" class="hist-op-btn-clear" type="button">Limpiar</button>
+          <button id="hist-op-exportMov" class="hist-op-btn-export" type="button" title="Exportar CSV">
+            <span class="material-icons">download</span> Exportar
+          </button>
+          <button id="hist-op-recargarMov" class="hist-op-btn-refresh" type="button">
             <span class="material-icons">sync</span>
           </button>
           <span id="hist-op-contadorMov" class="hist-op-counter"></span>
@@ -212,7 +290,10 @@ function _renderShell() {
             ${['TODOS','IN','BAJA','EDIT','GESTION'].map(t =>
               `<option value="${t}" ${_state.tipoEst===t?'selected':''}>${_tipoLabel(t)}</option>`).join('')}
           </select>
-          <button id="hist-op-recargarEst" class="hist-op-btn-refresh">
+          <button id="hist-op-exportEst" class="hist-op-btn-export" type="button" title="Exportar CSV">
+            <span class="material-icons">download</span> Exportar
+          </button>
+          <button id="hist-op-recargarEst" class="hist-op-btn-refresh" type="button">
             <span class="material-icons">sync</span>
           </button>
           <span id="hist-op-contadorEst" class="hist-op-counter"></span>
@@ -232,37 +313,41 @@ function _renderMovimientos() {
     return;
   }
 
-  const qv = _state.qMov.toLowerCase();
-  let rows = _state.movimientos;
-  if (qv)              rows = rows.filter(r => [r.mva,r.usuario,r.detalles,r.tipo].some(v => (v||'').toLowerCase().includes(qv)));
-  if (_state.tipoMov)  rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoMov);
-  if (_state.fechaMov) rows = rows.filter(r => _tsADia(r.timestamp) === _state.fechaMov);
-  if (_state.usuarioMov) rows = rows.filter(r => r.usuario === _state.usuarioMov);
-
+  const rows = _filteredMovimientos();
   const ctr = q('contadorMov');
   if (ctr) ctr.textContent = `${rows.length} de ${_state.movimientos.length} registros`;
 
+  const totalPages = Math.max(1, Math.ceil(rows.length / _state.pageSizeMov) || 1);
+  if (_state.pageMov > totalPages) _state.pageMov = totalPages;
+  if (_state.pageMov < 1) _state.pageMov = 1;
+  const start = (_state.pageMov - 1) * _state.pageSizeMov;
+  const pageRows = rows.slice(start, start + _state.pageSizeMov);
+
   if (!rows.length) {
-    wrap.innerHTML = `<div class="hist-op-empty">No hay registros que coincidan.</div>`;
+    wrap.innerHTML = `${_pagerHtml('Mov', _state.pageMov, _state.pageSizeMov, 0)}
+      <div class="hist-op-empty">No hay registros que coincidan.</div>`;
     return;
   }
 
   wrap.innerHTML = `
-    <table class="hist-op-table">
-      <thead><tr>
-        <th>FECHA</th><th>TIPO</th><th>MVA</th><th>MOVIMIENTO</th><th>USUARIO</th>
-      </tr></thead>
-      <tbody>
-        ${rows.map(r => `
-          <tr data-detalles="${esc(r.detalles)}" data-mva="${esc(r.mva)}" data-tipo="${esc(r.tipo)}">
-            <td class="hist-op-cell-date">${esc(r.fecha)}</td>
-            <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}"><span class="material-icons">${_tipoIcon(r.tipo)}</span>${esc(_tipoLabel(r.tipo))}</span></td>
-            <td class="hist-op-cell-mva">${esc(r.mva)}</td>
-            <td>${esc(_cleanAuditText(r.detalles))}</td>
-            <td>${esc(_cleanAuditText(r.usuario))}</td>
-          </tr>`).join('')}
-      </tbody>
-    </table>`;
+    ${_pagerHtml('Mov', _state.pageMov, _state.pageSizeMov, rows.length)}
+    <div class="hist-op-table-scroll">
+      <table class="hist-op-table hist-op-table--dense">
+        <thead><tr>
+          <th>FECHA</th><th>TIPO</th><th>MVA</th><th>MOVIMIENTO</th><th>USUARIO</th>
+        </tr></thead>
+        <tbody>
+          ${pageRows.map(r => `
+            <tr data-detalles="${esc(r.detalles)}" data-mva="${esc(r.mva)}" data-tipo="${esc(r.tipo)}">
+              <td class="hist-op-cell-date">${esc(r.fecha)}</td>
+              <td><span class="hist-op-badge ${_tipoBadgeClass(r.tipo)}"><span class="material-icons">${_tipoIcon(r.tipo)}</span>${esc(_tipoLabel(r.tipo))}</span></td>
+              <td class="hist-op-cell-mva">${esc(r.mva)}</td>
+              <td>${esc(_cleanAuditText(r.detalles))}</td>
+              <td>${esc(_cleanAuditText(r.usuario))}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 function _renderEstado() {
@@ -274,43 +359,75 @@ function _renderEstado() {
     return;
   }
 
-  const qv = _state.qEst.toLowerCase();
-  let rows = _state.estado.filter(_estadoPermitido);
-  if (qv) rows = rows.filter(r => [r.mva,r.autor,r.accion,r.tipo,r.detalles,r.objetivo].some(v => _cleanAuditText(v).toLowerCase().includes(qv)));
-  if (_state.tipoEst && _state.tipoEst !== "TODOS") rows = rows.filter(r => _normalizeTipo(r.tipo) === _state.tipoEst);
-
+  const rows = _filteredEstado();
   const ctr = q("contadorEst");
   if (ctr) ctr.textContent = `${rows.length} de ${_state.estado.length} registros`;
 
+  const totalPages = Math.max(1, Math.ceil(rows.length / _state.pageSizeEst) || 1);
+  if (_state.pageEst > totalPages) _state.pageEst = totalPages;
+  if (_state.pageEst < 1) _state.pageEst = 1;
+  const start = (_state.pageEst - 1) * _state.pageSizeEst;
+  const pageRows = rows.slice(start, start + _state.pageSizeEst);
+
   if (!rows.length) {
-    wrap.innerHTML = `<div class="hist-op-empty"><span class="material-icons">rule</span><div>No hay cambios de estado con esos filtros.</div></div>`;
+    wrap.innerHTML = `${_pagerHtml('Est', _state.pageEst, _state.pageSizeEst, 0)}
+      <div class="hist-op-empty"><span class="material-icons">rule</span><div>No hay cambios de estado con esos filtros.</div></div>`;
     return;
   }
 
   wrap.innerHTML = `
-    <div class="hist-op-state-list">
-      ${rows.map((r, index) => {
-        const tipo = _normalizeTipo(r.tipo);
-        const accion = _cleanAuditText(r.accion || r.detalles || "Cambio registrado");
-        const target = _cleanAuditText(r.mva || r.objetivo || r.referencia || "Unidad");
-        return `
-          <article class="hist-op-state-card is-${tipo.toLowerCase()}" style="animation-delay:${Math.min(index, 10) * 0.025}s">
-            <div class="hist-op-state-mark"><span class="material-icons">${_tipoIcon(tipo)}</span></div>
-            <div class="hist-op-state-body">
-              <div class="hist-op-state-top">
-                <span class="hist-op-badge ${_tipoBadgeClass(tipo)}"><span class="material-icons">${_tipoIcon(tipo)}</span>${esc(_tipoLabel(tipo))}</span>
-                <strong>${esc(target)}</strong>
-                <time>${esc(r.fecha || "")}</time>
-              </div>
-              <p>${esc(accion)}</p>
-              <div class="hist-op-state-meta">
-                <span class="material-icons">person</span>
-                <span>${esc(_cleanAuditText(r.autor || r.usuario || "Sistema"))}</span>
-              </div>
-            </div>
-          </article>`;
-      }).join("")}
+    ${_pagerHtml('Est', _state.pageEst, _state.pageSizeEst, rows.length)}
+    <div class="hist-op-table-scroll">
+      <table class="hist-op-table hist-op-table--dense">
+        <thead><tr>
+          <th>FECHA</th><th>TIPO</th><th>UNIDAD</th><th>CAMBIO</th><th>AUTOR</th>
+        </tr></thead>
+        <tbody>
+          ${pageRows.map(r => {
+            const tipo = _normalizeTipo(r.tipo);
+            const accion = _cleanAuditText(r.accion || r.detalles || "Cambio registrado");
+            const target = _cleanAuditText(r.mva || r.objetivo || r.referencia || "—");
+            return `
+              <tr>
+                <td class="hist-op-cell-date">${esc(r.fecha || "")}</td>
+                <td><span class="hist-op-badge ${_tipoBadgeClass(tipo)}"><span class="material-icons">${_tipoIcon(tipo)}</span>${esc(_tipoLabel(tipo))}</span></td>
+                <td class="hist-op-cell-mva">${esc(target)}</td>
+                <td>${esc(accion)}</td>
+                <td>${esc(_cleanAuditText(r.autor || r.usuario || "Sistema"))}</td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>
     </div>`;
+}
+
+function _exportCsv(kind) {
+  const isMov = kind === 'mov';
+  const rows = isMov ? _filteredMovimientos() : _filteredEstado();
+  if (!rows.length) {
+    _toast('No hay registros para exportar.', 'error');
+    return;
+  }
+  const header = isMov
+    ? ['Fecha', 'Tipo', 'MVA', 'Movimiento', 'Usuario']
+    : ['Fecha', 'Tipo', 'Unidad', 'Cambio', 'Autor'];
+  const body = rows.map(r => {
+    if (isMov) {
+      return [r.fecha, _tipoLabel(r.tipo), r.mva, _cleanAuditText(r.detalles), _cleanAuditText(r.usuario)];
+    }
+    return [
+      r.fecha || '',
+      _tipoLabel(r.tipo),
+      _cleanAuditText(r.mva || r.objetivo || r.referencia || ''),
+      _cleanAuditText(r.accion || r.detalles || ''),
+      _cleanAuditText(r.autor || r.usuario || 'Sistema')
+    ];
+  });
+  const csv = '\ufeff' + [header.map(_csvCell).join(','), ...body.map(line => line.map(_csvCell).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const name = isMov ? 'movimientos' : 'estados';
+  _downloadBlob(blob, `historial-${name}-${_exportDate()}.csv`);
+  _toast(`Exportados ${rows.length} registros (CSV).`, 'success');
 }
 
 // ── Carga de datos ───────────────────────────────────────────
@@ -321,7 +438,6 @@ async function _loadMovimientos() {
   try {
     const logs = await window.api.obtenerHistorialLogs();
     _state.movimientos = logs;
-    // Poblar selector de usuarios
     const sel = q('usuarioMov');
     if (sel) {
       const usuarios = [...new Set(logs.map(l => l.usuario).filter(Boolean))].sort();
@@ -374,16 +490,16 @@ function _bindEvents() {
     if (tabBtn) {
       _state.tab = tabBtn.dataset.tab;
       _container.querySelectorAll('.hist-op-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === _state.tab));
-      _container.querySelectorAll('.hist-op-panel').forEach(p => p.classList.toggle('hidden', !p.id.endsWith(_state.tab.replace('-','-'))));
       document.getElementById('hist-op-panel-movimientos')?.classList.toggle('hidden', _state.tab !== 'movimientos');
       document.getElementById('hist-op-panel-estado')?.classList.toggle('hidden', _state.tab !== 'estado');
       if (_state.tab === 'movimientos' && !_state.movimientos.length && !_state.loadingMov) _loadMovimientos();
-      if (_state.tab === 'estado'       && !_state.estado.length      && !_state.loadingEst) _loadEstado();
+      if (_state.tab === 'estado' && !_state.estado.length && !_state.loadingEst) _loadEstado();
       return;
     }
 
     if (e.target.closest('#hist-op-limpiarMov')) {
       _state.qMov = ''; _state.tipoMov = ''; _state.fechaMov = ''; _state.usuarioMov = '';
+      _state.pageMov = 1;
       const qi = q('qMov'); if (qi) qi.value = '';
       const ti = q('tipoMov'); if (ti) ti.value = '';
       const fi = q('fechaMov'); if (fi) fi.value = '';
@@ -391,25 +507,47 @@ function _bindEvents() {
       _renderMovimientos();
       return;
     }
-    if (e.target.closest('#hist-op-recargarMov')) { _state.movimientos = []; _loadMovimientos(); return; }
-    if (e.target.closest('#hist-op-recargarEst')) { _state.estado = []; _loadEstado(); return; }
+    if (e.target.closest('#hist-op-exportMov')) { _exportCsv('mov'); return; }
+    if (e.target.closest('#hist-op-exportEst')) { _exportCsv('est'); return; }
+    if (e.target.closest('#hist-op-recargarMov')) { _state.movimientos = []; _state.pageMov = 1; _loadMovimientos(); return; }
+    if (e.target.closest('#hist-op-recargarEst')) { _state.estado = []; _state.pageEst = 1; _loadEstado(); return; }
+
+    const pageBtn = e.target.closest('[data-page-action]');
+    if (pageBtn) {
+      const act = pageBtn.dataset.pageAction;
+      if (act === 'prev-Mov') { _state.pageMov = Math.max(1, _state.pageMov - 1); _renderMovimientos(); return; }
+      if (act === 'next-Mov') { _state.pageMov += 1; _renderMovimientos(); return; }
+      if (act === 'prev-Est') { _state.pageEst = Math.max(1, _state.pageEst - 1); _renderEstado(); return; }
+      if (act === 'next-Est') { _state.pageEst += 1; _renderEstado(); return; }
+    }
   }, sig);
 
   _container.addEventListener('input', e => {
     if (!_state) return;
-    if (e.target.id === 'hist-op-qMov')   { _state.qMov = e.target.value; _renderMovimientos(); return; }
-    if (e.target.id === 'hist-op-qEst')   { _state.qEst = e.target.value; _renderEstado(); return; }
+    if (e.target.id === 'hist-op-qMov') { _state.qMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
+    if (e.target.id === 'hist-op-qEst') { _state.qEst = e.target.value; _state.pageEst = 1; _renderEstado(); return; }
   }, sig);
 
   _container.addEventListener('change', e => {
     if (!_state) return;
-    if (e.target.id === 'hist-op-tipoMov')    { _state.tipoMov = e.target.value; _renderMovimientos(); return; }
-    if (e.target.id === 'hist-op-fechaMov')   { _state.fechaMov = e.target.value; _renderMovimientos(); return; }
-    if (e.target.id === 'hist-op-usuarioMov') { _state.usuarioMov = e.target.value; _renderMovimientos(); return; }
-    if (e.target.id === 'hist-op-tipoEst')    { _state.tipoEst = e.target.value; _renderEstado(); return; }
+    if (e.target.id === 'hist-op-tipoMov') { _state.tipoMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
+    if (e.target.id === 'hist-op-fechaMov') { _state.fechaMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
+    if (e.target.id === 'hist-op-usuarioMov') { _state.usuarioMov = e.target.value; _state.pageMov = 1; _renderMovimientos(); return; }
+    if (e.target.id === 'hist-op-tipoEst') { _state.tipoEst = e.target.value; _state.pageEst = 1; _renderEstado(); return; }
+    if (e.target.id === 'hist-op-pageSizeMov') {
+      _state.pageSizeMov = Number(e.target.value) || 50;
+      _state.pageMov = 1;
+      _renderMovimientos();
+      return;
+    }
+    if (e.target.id === 'hist-op-pageSizeEst') {
+      _state.pageSizeEst = Number(e.target.value) || 50;
+      _state.pageEst = 1;
+      _renderEstado();
+      return;
+    }
   }, sig);
 
-  // Popover cajón-a-cajón — solo en dispositivos con hover real (PC)
   if (window.matchMedia?.('(hover: hover) and (pointer: fine)').matches) {
     let curTr = null;
     _container.addEventListener('mouseover', e => {

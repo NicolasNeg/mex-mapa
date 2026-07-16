@@ -42,7 +42,14 @@
 
   function leerEstadoPatio(doc) {
     doc = doc || {};
-    return normalizarEstadoPatio(doc.estadoPatio || doc.estadoCuadre || null);
+    var patio = normalizarEstadoPatio(doc.estadoPatio || doc.estadoCuadre || null);
+    if (patio) return patio;
+    // Índice / merge: a veces solo viene `estado` del cuadre (LISTO/SUCIO…).
+    var raw = doc.estado;
+    if (raw && !normalizarEstadoFlota(raw)) {
+      return normalizarEstadoPatio(raw);
+    }
+    return null;
   }
 
   function esFlotaCerrada(flota) {

@@ -521,7 +521,24 @@ function _renderTurnoCard(turno, esPropio) {
       Cerrar
     </button>` : ''}
   </div>
+  ${_renderTurnoMeta(turno)}
 </div>`;
+}
+
+function _renderTurnoMeta(turno) {
+  const bits = [];
+  if (turno.faceVerified === true) {
+    bits.push('<span class="tu-meta-chip tu-meta-chip--ok"><span class="material-symbols-outlined">verified_user</span> Rostro</span>');
+  } else if (turno.faceVerified === false) {
+    bits.push('<span class="tu-meta-chip"><span class="material-symbols-outlined">face</span> Sin rostro</span>');
+  }
+  if (turno.geoWarn) {
+    bits.push('<span class="tu-meta-chip tu-meta-chip--warn"><span class="material-symbols-outlined">location_off</span> Lejos</span>');
+  } else if (Number.isFinite(turno.lat) && Number.isFinite(turno.lon)) {
+    bits.push('<span class="tu-meta-chip"><span class="material-symbols-outlined">location_on</span> Ubicación</span>');
+  }
+  if (!bits.length) return '';
+  return `<div class="tu-card-meta">${bits.join('')}</div>`;
 }
 
 // ── Tab Horarios ──────────────────────────────────────────────
@@ -942,7 +959,7 @@ function _bindTabBody() {
 }
 
 function _bindActivos() {
-  // Iniciar turno
+  // Iniciar turno → gate cámara + face + geo
   _ctr?.querySelector('#tuBtnIniciar')?.addEventListener('click', async () => {
     const btn = _ctr?.querySelector('#tuBtnIniciar');
     if (btn) btn.disabled = true;
@@ -951,13 +968,17 @@ function _bindActivos() {
       const authUid = window._auth?.currentUser?.uid;
       await iniciarTurno({ uid: authUid, ...profile }, plaza);
     } catch (e) {
+      if (e?.code === 'GATE_CANCELLED') {
+        if (_s && btn) btn.disabled = false;
+        return;
+      }
       console.warn('[turnos] iniciarTurno:', e);
       _toastTurnoError(e, 'iniciar el turno');
       if (_s && btn) btn.disabled = false;
     }
   });
 
-  // Cerrar turno
+  // Cerrar turno propio → gate cámara + geo (face opcional)
   _ctr?.querySelectorAll('[data-cerrar]').forEach(btn => {
     btn.addEventListener('click', async () => {
       const id = btn.dataset.cerrar;
@@ -965,6 +986,10 @@ function _bindActivos() {
       try {
         await cerrarTurno(id, { user: _s?.profile, plaza: _s?.plaza });
       } catch (e) {
+        if (e?.code === 'GATE_CANCELLED') {
+          btn.disabled = false;
+          return;
+        }
         console.warn('[turnos] cerrarTurno:', e);
         _toastTurnoError(e, 'cerrar el turno');
         btn.disabled = false;

@@ -18,7 +18,7 @@
   var CACHE_TTL_MS = 6 * 60 * 60 * 1000;   // válido 6h (recarga sin re-descargar)
   var REFRESH_AGE_MS = 30 * 60 * 1000;     // si la copia local tiene >30min, refresca en 2º plano
   var MAX_LS_BYTES = 4 * 1024 * 1024;      // guard de tamaño ~4MB
-  var LS_UNITS = 'mexbz.units.v1';
+  var LS_UNITS = 'mexbz.units.v2';
   var LS_USERS = 'mexbz.users.v1';
 
   function _lsRead(key) {
@@ -228,16 +228,73 @@
   // Unidad del índice GLOBAL (todas las plazas). sucursal = de dónde es;
   // plazaActual = dónde está ahora; pos = spot del mapa; ubicacion = área.
   function _normRaw(u) {
+    var mex = window.mexEstados;
+    var patio = u.estadoPatio || u.estadoCuadre || '';
+    var flota = u.estadoFlota || u.estatus || '';
+    var rawEstado = u.estado || '';
+    if (mex) {
+      if (!patio) {
+        patio = mex.leerEstadoPatio
+          ? (mex.leerEstadoPatio(u) || '')
+          : (mex.normalizarEstadoPatio(rawEstado) && !mex.normalizarEstadoFlota(rawEstado)
+            ? mex.normalizarEstadoPatio(rawEstado) : '');
+      }
+      if (!flota && mex.resolverEstadoFlota) {
+        flota = mex.resolverEstadoFlota(u) || '';
+      } else if (!flota && mex.normalizarEstadoFlota) {
+        flota = mex.normalizarEstadoFlota(u.estadoFlota || u.estatus || '') || '';
+      }
+    } else {
+      patio = String(patio || '').trim().toUpperCase();
+      flota = String(flota || '').trim().toUpperCase();
+    }
     return {
       mva: u.mva, placas: u.placas, modelo: u.modelo, categoria: u.categoria || u.clase,
       vin: u.vin, anio: u.anio || u['año'] || u.anio,
       sucursal: u.sucursal, plazaActual: u.plazaActual, pos: u.pos, ubicacion: u.ubicacion,
-      estado: u.estado,
-      estadoFlota: u.estadoFlota || u.estado || u.estatus || '',
-      estadoPatio: u.estadoPatio || '',
-      hay: [u.mva, u.placas, u.modelo, u.vin, u.categoria, u.sucursal, u.plazaActual, u.estadoFlota, u.estadoPatio, u.estado].join(' ').toLowerCase(),
+      estado: patio || rawEstado,
+      estadoFlota: flota || '',
+      estadoPatio: patio || '',
+      hay: [u.mva, u.placas, u.modelo, u.vin, u.categoria, u.sucursal, u.plazaActual, flota, patio, rawEstado].join(' ').toLowerCase(),
       _car: null
     };
+  }
+
+  /** Completa patio/flota desde el doc de cuadre cuando el índice aún no los trae. */
+  function _hydrateUnidadDesdeCuadre(d) {
+    var db = window._db;
+    var mva = String(d && d.mva || '').toUpperCase().trim();
+    if (!db || !mva) return Promise.resolve(d);
+    if (d.estadoPatio && d.estadoFlota) return Promise.resolve(d);
+
+    var docId = mva.replace(/\//g, '_').replace(/\s+/g, '_');
+    var apply = function (data) {
+      if (!data) return d;
+      var patio = data.estadoPatio || data.estado || '';
+      var enriched = Object.assign({}, d, {
+        estadoPatio: d.estadoPatio || patio || '',
+        estado: d.estadoPatio || patio || d.estado || '',
+        ubicacion: d.ubicacion || data.ubicacion || '',
+        pos: d.pos || data.pos || '',
+        plazaActual: d.plazaActual || data.plaza || d.plazaActual
+      });
+      if (window.mexEstados && window.mexEstados.resolverEstadoFlota) {
+        enriched.estadoFlota = d.estadoFlota || window.mexEstados.resolverEstadoFlota(enriched) || '';
+      }
+      // Refrescar entrada en cache si existe
+      if (_unitsCache && Array.isArray(_unitsCache)) {
+        var i = _unitsCache.findIndex(function (x) { return String(x.mva || '').toUpperCase() === mva; });
+        if (i >= 0) _unitsCache[i] = Object.assign({}, _unitsCache[i], enriched);
+      }
+      return enriched;
+    };
+
+    return db.collection('cuadre').doc(docId).get().then(function (snap) {
+      if (snap.exists) return apply(snap.data());
+      return db.collection('cuadre').where('mva', '==', mva).limit(1).get().then(function (qs) {
+        return apply(qs.empty ? null : qs.docs[0].data());
+      });
+    }).catch(function () { return d; });
   }
   function _fetchUnitsFromServer() {
     var api = window.api;
@@ -310,7 +367,13 @@
     if (window.mexEstados && typeof window.mexEstados.resolverEstadoFlota === 'function') {
       return window.mexEstados.resolverEstadoFlota(d) || '';
     }
-    return String(d.estadoFlota || d.estado || '').trim().toUpperCase();
+    return String(d.estadoFlota || '').trim().toUpperCase();
+  }
+  function patioLabel(d) {
+    if (window.mexEstados && typeof window.mexEstados.leerEstadoPatio === 'function') {
+      return window.mexEstados.leerEstadoPatio(d) || '';
+    }
+    return String(d.estadoPatio || '').trim().toUpperCase();
   }
   function ubicacionTexto(d, st) {
     if (st.key !== 'ok') return 'Sin ubicar';
@@ -342,50 +405,32 @@
   }
 
   function fichaUnidad(d) {
-    var st = estadoCuadre(d);
-    var canView = st.key === 'ok' && typeof window.__mexCanViewPlaza === 'function' && window.__mexCanViewPlaza(d.plazaActual);
-    var canUnit = typeof window.__mexCanViewUnidadExpediente === 'function' && window.__mexCanViewUnidadExpediente();
-    var chips = chipsEstadoHtml(d);
     var box = document.getElementById('mexbzResults');
-    box.innerHTML =
-      '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
-      '<div class="mexbz-ficha">' +
-        '<h3>' + esc(d.mva) + '</h3>' +
-        (chips ? '<div class="mexbz-estado-row">' + chips + '</div>' : '') +
-        '<div class="mexbz-cuadre ' + (st.key === 'ok' ? 'ok' : 'no') + '" style="' + (st.key === 'err' ? 'background:#fef2f2;color:#dc2626' : '') + '"><span class="material-icons" style="font-size:18px">' + (st.key === 'ok' ? 'check_circle' : (st.key === 'err' ? 'error' : 'help')) + '</span>' + st.txt + '</div>' +
-        kv('Sucursal (origen)', d.sucursal || '—') +
-        kv('Plaza actual', st.key === 'ok' ? d.plazaActual : '—') +
-        kv('Estado flota', flotaLabel(d) || '—') +
-        kv('Estado patio', (d.estadoPatio || (window.mexEstados && window.mexEstados.leerEstadoPatio ? window.mexEstados.leerEstadoPatio(d) : '')) || '—') +
-        kv('Ubicación', ubicacionTexto(d, st)) +
-        kv('Placas', d.placas || '—') +
-        kv('Modelo', d.modelo || '—') +
-        kv('Categoría', d.categoria || '—') +
-        (d.anio ? kv('Año', d.anio) : '') +
-        (d.vin ? kv('VIN', d.vin) : '') +
-        '<div class="mexbz-actions">' +
-        (canUnit ? '<button class="mexbz-btn ghost" id="mexbzGoUnit"><span class="material-icons">directions_car</span>Ver unidad</button>' : '') +
-        (canView ? '<button class="mexbz-btn" id="mexbzGoMap"><span class="material-icons">map</span>Ver en mapa</button>' : '') +
-        '</div>' +
-      '</div>';
-    box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
-    var goUnit = box.querySelector('#mexbzGoUnit');
-    if (goUnit) goUnit.addEventListener('click', function () {
-      close();
-      if (typeof window.__mexGoToUnidad === 'function') {
-        window.__mexGoToUnidad(d.mva);
-      } else {
-        window.__mexShellNavigate?.('/app/cuadre/u/' + encodeURIComponent(String(d.mva || '').trim().toUpperCase()));
-      }
-    });
-    var go = box.querySelector('#mexbzGoMap');
-    if (go) go.addEventListener('click', function () {
-      close();
-      if (typeof window.__mexGoToMapUnit === 'function') {
-        window.__mexGoToMapUnit(d.mva, d.plazaActual);
-      } else {
-        window.location.assign('/app/mapa');
-      }
+    box.innerHTML = '<div class="mexbz-empty">Cargando unidad…</div>';
+
+    _hydrateUnidadDesdeCuadre(d).then(function (unit) {
+      var st = estadoCuadre(unit);
+      var chips = chipsEstadoHtml(unit);
+      var flota = flotaLabel(unit);
+      var patio = patioLabel(unit);
+      box.innerHTML =
+        '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
+        '<div class="mexbz-ficha">' +
+          '<h3>' + esc(unit.mva) + '</h3>' +
+          (chips ? '<div class="mexbz-estado-row">' + chips + '</div>' : '') +
+          '<div class="mexbz-cuadre ' + (st.key === 'ok' ? 'ok' : 'no') + '" style="' + (st.key === 'err' ? 'background:#fef2f2;color:#dc2626' : '') + '"><span class="material-icons" style="font-size:18px">' + (st.key === 'ok' ? 'check_circle' : (st.key === 'err' ? 'error' : 'help')) + '</span>' + st.txt + '</div>' +
+          kv('Sucursal (origen)', unit.sucursal || '—') +
+          kv('Plaza actual', st.key === 'ok' ? unit.plazaActual : '—') +
+          kv('Estado flota', flota || '—') +
+          kv('Estado patio', patio || '—') +
+          kv('Ubicación', ubicacionTexto(unit, st)) +
+          kv('Placas', unit.placas || '—') +
+          kv('Modelo', unit.modelo || '—') +
+          kv('Categoría', unit.categoria || '—') +
+          (unit.anio ? kv('Año', unit.anio) : '') +
+          (unit.vin ? kv('VIN', unit.vin) : '') +
+        '</div>';
+      box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
     });
   }
 

@@ -2948,8 +2948,16 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
     const data = snap.docs[0].data();
     // [F1] Busca estado operativo en colección plana cuadre/externos por campo mva
     let cuadreData = {};
-    const found = await _buscarUnidadEnSubcol(mvaStr); // [F1]
-    if (found) cuadreData = found.data;
+    try {
+      const byId = await db.collection(COL.CUADRE).doc(_mvaToDocId(mvaStr)).get();
+      if (byId.exists) cuadreData = byId.data() || {};
+    } catch (_) {}
+    if (!cuadreData.mva && !cuadreData.estado) {
+      const found = await _buscarUnidadEnSubcol(mvaStr); // [F1]
+      if (found) cuadreData = found.data || {};
+    }
+    const estadoPatio = cuadreData.estadoPatio || cuadreData.estado || data.estadoPatio || '';
+    const estadoFlota = data.estadoFlota || data.estatus || '';
     return {
       id: snap.docs[0].id, fila: snap.docs[0].id, plaza: sucursal,
       mva: data.mva || mvaStr, modelo: data.modelo || cuadreData.modelo || "",
@@ -2958,10 +2966,17 @@ async guardarNuevoUsuarioAuth(nombre, email, password, roleOrIsAdmin, telefono, 
       categoria: data.categoria || data.clase || cuadreData.categoria || "",
       sucursal: data.sucursal || sucursal || "",
       gasolina: cuadreData.gasolina || data.gasolina || "",
-      estado: cuadreData.estado || data.estado || "",
-      ubicacion: cuadreData.ubicacion || "", notas: cuadreData.notas || "",
-      pos: cuadreData.pos || "LIMBO",
-      ...data, ...cuadreData
+      estado: estadoPatio || estadoFlota || data.estado || "",
+      estadoPatio,
+      estadoFlota,
+      ubicacion: cuadreData.ubicacion || data.ubicacion || "",
+      notas: cuadreData.notas || "",
+      pos: cuadreData.pos || data.pos || "LIMBO",
+      plazaActual: data.plazaActual || cuadreData.plaza || sucursal || "",
+      ...data, ...cuadreData,
+      estadoPatio,
+      estadoFlota: estadoFlota || data.estadoFlota || '',
+      estado: estadoPatio || estadoFlota || data.estado || ""
     };
   },
   async actualizarUnidadPlaza(data) {

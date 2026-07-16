@@ -473,24 +473,77 @@
   }
 }
 
-/* Formulario de detalle (clases uni-* desde app-unidades.css) */
+/* Formulario de detalle — reutiliza .uni label/input/grid de app-unidades.css */
 .uni-expediente .uexp-body {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
   padding: 0 24px 32px;
+}
+
+.uni-expediente #uexp-detail {
+  margin: 0;
 }
 
 .uni-expediente #uexp-detail .uni-detail-card {
   margin: 0;
-  border: 0;
+  border: 1px solid var(--uni-border, #d1d5db);
   border-radius: 0;
-  box-shadow: none;
+  background: #fff;
+  overflow: hidden;
+}
+
+.uni-expediente #uexp-detail .uni-detail-head {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--uni-line, #e5e7eb);
+  background: #fafafa;
+}
+
+.uni-expediente #uexp-detail .uni-form-panel {
+  padding: 16px 20px;
+  border-top: 1px solid var(--uni-line, #e5e7eb);
+  background: #fff;
+}
+
+.uni-expediente #uexp-detail .uni-form-panel:first-child {
+  border-top: 0;
+}
+
+.uni-expediente #uexp-detail .uni-form-grid--meta {
+  grid-template-columns: repeat(4, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.uni-expediente #uexp-detail .uni-form-panel .span-all {
+  grid-column: 1 / -1;
+}
+
+.uni-expediente #uexp-detail .uni-form-actions--footer {
+  justify-content: flex-end;
+  padding: 12px 20px;
+  border-top: 1px solid var(--uni-line, #e5e7eb);
+  background: #fafafa;
 }
 
 .uni-expediente .uexp-head {
-  padding-bottom: 0;
-  border-bottom: 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--uexp-line, #e5e7eb);
+}
+
+.uni-expediente .uexp-panel {
+  margin: 0;
+}
+
+@media (max-width: 1100px) {
+  .uni-expediente #uexp-detail .uni-form-grid--meta {
+    grid-template-columns: repeat(3, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .uni-expediente #uexp-detail .uni-form-grid--meta {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
 }
 
 .uni-table tbody tr[data-action="expediente"] {

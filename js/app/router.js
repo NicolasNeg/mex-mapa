@@ -208,10 +208,10 @@ const ROUTE_STYLES = {
   "/app/mensajes": [{ href: "/css/app-mensajes.css", attr: "data-app-mensajes-css" }],
   "/app/cola-preparacion": [{ href: "/css/cola-preparacion.css", attr: "data-cola-css" }],
   "/app/incidencias": [{ href: "/css/app-incidencias.css", attr: "data-app-incidencias-css" }],
-  "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715d", attr: "data-app-unidades-css" }],
+  "/app/unidades": [{ href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" }],
   "/app/cuadre/u": [
-    { href: "/css/app-unidades.css?v=20260715d", attr: "data-app-unidades-css" },
-    { href: "/css/app-unidad-expediente.css?v=20260715b", attr: "data-app-unidad-exp-css" }
+    { href: "/css/app-unidades.css?v=20260715f", attr: "data-app-unidades-css" },
+    { href: "/css/app-unidad-expediente.css?v=20260715c", attr: "data-app-unidad-exp-css" }
   ],
   "/app/mapa": [
     { href: "/css/mapa.css", attr: "data-lmapa-css" },
@@ -233,7 +233,7 @@ const ROUTE_STYLES = {
   "/app/programador": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/editmap": [{ href: "/css/app-legacy-stage.css", attr: "data-app-legacy-stage-css" }],
   "/app/turnos": [{ href: "/css/app-turnos.css", attr: "data-app-turnos-css" }],
-  "/app/historial-operativo": [{ href: "/css/app-historial-operativo.css", attr: "data-app-historial-operativo-css" }],
+  "/app/historial-operativo": [{ href: "/css/app-historial-operativo.css?v=20260715a", attr: "data-app-historial-operativo-css" }],
 };
 
 function _sameStylesheetHref(link, href) {

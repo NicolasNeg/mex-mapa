@@ -566,6 +566,14 @@
   padding: 16px;
 }
 
+.uni-export-hint {
+  margin: 0;
+  padding: 0 16px;
+  color: var(--uni-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .uni-export-menu button {
   display: flex;
   align-items: center;

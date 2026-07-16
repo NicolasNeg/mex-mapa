@@ -417,7 +417,9 @@ service cloud.firestore {
           "profilePreferences",
           "updatedAt",
           "actualizadoAt",
-          "updatedFrom"
+          "updatedFrom",
+          "faceDescriptor",
+          "faceDescriptorEnrolledAt"
         ])
         && (!changed.hasAny(["_reloadRequired"]) || request.resource.data._reloadRequired == false)
         && (!changed.hasAny(["isOnline"]) || request.resource.data.isOnline is bool)
@@ -436,7 +438,11 @@ service cloud.firestore {
         && (!changed.hasAny(["profilePreferences"]) || request.resource.data.profilePreferences is map)
         && (!changed.hasAny(["updatedAt"]) || request.resource.data.updatedAt is number)
         && (!changed.hasAny(["actualizadoAt"]) || request.resource.data.actualizadoAt is number)
-        && (!changed.hasAny(["updatedFrom"]) || request.resource.data.updatedFrom is string);
+        && (!changed.hasAny(["updatedFrom"]) || request.resource.data.updatedFrom is string)
+        && (!changed.hasAny(["faceDescriptor"]) || request.resource.data.faceDescriptor is list)
+        && (!changed.hasAny(["faceDescriptorEnrolledAt"])
+          || request.resource.data.faceDescriptorEnrolledAt is timestamp
+          || request.resource.data.faceDescriptorEnrolledAt is number);
     }
 
     function deviceDocValido(deviceId) {
@@ -1030,13 +1036,20 @@ service cloud.firestore {
         && request.resource.data.estado == 'ACTIVO'
         && request.resource.data.plazaId is string
         && request.resource.data.usuarioNombre is string;
+      // Cierre: fin/estado + meta geo/face/foto del checkout (prefijo cierre*).
       allow update: if estaAutenticado()
         && (
           resource.data.usuarioId == request.auth.uid
           || esAdminOperativo()
           || esProgramadorBootstrap()
         )
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['fin', 'estado']);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'fin', 'estado',
+          'cierreLat', 'cierreLon', 'cierreDireccion',
+          'cierreFaceVerified', 'cierreFaceSimilarity',
+          'cierreViveza', 'cierreAntiSpoof', 'cierreFotoUrl',
+          'cierreGeoWarn', 'cierreDistanciaPlazaM'
+        ]);
       allow delete: if false;
     }
 

@@ -250,11 +250,8 @@ export function renderDetailFormHtml(row, { editing = false, unitId = '', formCt
     <form class="uni-form uni-form--wide" data-unit-form="edit" data-id="${id}" data-context="detail">
       <section class="uni-form-panel">
         <div class="uni-form-grid uni-form-grid--meta">
-          ${FIELD_ORDER.filter(k => k !== 'descripcion').map(k => renderFieldControl(k, row, { editing, required: k === 'mva', ctx })).join('')}
+          ${FIELD_ORDER.map(k => renderFieldControl(k, row, { editing, required: k === 'mva', ctx })).join('')}
         </div>
-      </section>
-      <section class="uni-form-panel">
-        ${renderFieldControl('descripcion', row, { editing, ctx })}
       </section>
       <div class="uni-form-actions uni-form-actions--footer"${editing ? '' : ' hidden'}>
         <button type="button" class="uni-btn ghost" data-action="cancel-edit">Cancelar</button>
@@ -274,7 +271,7 @@ export function renderDetailCardHtml(row, {
   const mva = esc(row?.mva || row?.id || 'Unidad');
   const subtitle = esc([row?.placas, row?.vin].filter(Boolean).join(' · ') || 'Sin datos adicionales');
   const headActions = editing ? '' : `
-    <button type="button" class="uni-btn ghost" data-action="back">Cerrar</button>
+    <button type="button" class="uni-btn ghost" data-action="back">Volver</button>
     <button type="button" class="uni-btn primary" data-action="edit"${canManage ? '' : ' disabled'}>Editar</button>
   `;
   return `

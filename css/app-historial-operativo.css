@@ -379,7 +379,11 @@
 }
 
 #hist-op-panel-estado .hist-op-filters {
-  grid-template-columns: minmax(260px, 1fr) auto auto auto;
+  grid-template-columns: minmax(260px, 1fr) auto auto auto auto;
+}
+
+#hist-op-panel-movimientos .hist-op-filters {
+  grid-template-columns: minmax(220px, 1fr) auto auto auto auto auto auto auto;
 }
 
 .hist-op-filters input[type="text"],
@@ -569,3 +573,112 @@
   .hist-op-counter { grid-column: 1 / -1; margin-left: 0; }
   .hist-op-state-card { grid-template-columns: 38px minmax(0, 1fr); }
 }
+
+
+/* Dense table + pager + export */
+.hist-op-btn-export {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #dbe4f0;
+  background: #ffffff;
+  color: #0b5cab;
+  font: 700 12px/1 Inter, sans-serif;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.hist-op-btn-export .material-icons { font-size: 16px; }
+.hist-op-btn-export:hover { background: #f5fbff; border-color: #bfdbfe; }
+
+.hist-op-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  min-height: 0;
+  flex: 1;
+}
+
+.hist-op-table-scroll {
+  overflow: auto;
+  border: 1px solid #dbe4f0;
+  border-radius: 8px;
+  background: #fff;
+  min-height: 0;
+  flex: 1;
+}
+
+.hist-op-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+
+.hist-op-page-size {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.hist-op-page-size select {
+  min-height: 32px;
+  padding: 0 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  background: #fff;
+  color: #111827;
+  font: 700 12px/1 Inter, sans-serif;
+}
+
+.hist-op-pager-label {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.hist-op-pager-btns {
+  display: flex;
+  gap: 8px;
+}
+
+.hist-op-btn-page {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #dbe4f0;
+  border-radius: 4px;
+  background: #fff;
+  color: #374151;
+  font: 600 12px/1 Inter, sans-serif;
+  cursor: pointer;
+}
+.hist-op-btn-page:hover:not(:disabled) { background: #f8fafc; }
+.hist-op-btn-page:disabled { opacity: .45; cursor: default; }
+
+.hist-op-table--dense {
+  font-size: 12px;
+}
+.hist-op-table--dense thead th {
+  padding: 8px 12px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.hist-op-table--dense td {
+  padding: 8px 12px;
+  vertical-align: top;
+}
+.hist-op-table--dense tbody tr:nth-child(even) { background: #fafbfc; }
+
+/* Cards de estados retiradas — se usa tabla densa */

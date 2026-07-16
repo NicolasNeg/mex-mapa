@@ -70,21 +70,24 @@ export async function mount({ container, navigate }) {
   _ensureCss();
 
   const gs = getState();
+  const plaza = _norm(getCurrentPlaza() || gs.profile?.plazaAsignada || '');
   _s = {
     role: _role(),
-    plaza: _norm(getCurrentPlaza() || gs.profile?.plazaAsignada || ''),
+    plaza,
     loading: true,
     busy: false,
     error: '',
     units: [],
-    filters: _emptyFilters(),
+    // Scope table to active plaza so export cannot silently dump the full fleet.
+    filters: { ..._emptyFilters(), plazaActual: plaza },
     page: 1,
     pageSize: 50,
     importRows: [],
     importRaw: null,
     importMapping: {},
     importFileName: '',
-    importMessage: ''
+    importMessage: '',
+    exportRows: null
   };
   if (!_canView()) {
     _renderNoAccess();
@@ -103,7 +106,10 @@ export async function mount({ container, navigate }) {
   _offs.push(onPlazaChange(next => {
     if (!_s) return;
     _s.plaza = _norm(next);
+    // Keep table + export aligned with shell plaza (user can still clear to "Todas").
+    _s.filters = { ..._s.filters, plazaActual: _s.plaza };
     _s.page = 1;
+    _s.exportRows = null;
     _render();
   }));
 }
@@ -117,7 +123,7 @@ export function unmount() {
 }
 
 function _ensureCss() {
-  const href = '/css/app-unidades.css?v=20260715e';
+  const href = '/css/app-unidades.css?v=20260715f';
   let link = document.querySelector('link[data-app-unidades-css="1"]');
   if (link) {
     if (link.getAttribute('href') !== href) link.setAttribute('href', href);
@@ -308,7 +314,13 @@ function _onClick(event) {
   if (!el || !_ctr?.contains(el)) return;
   const action = el.dataset.action;
   if (action === 'reload') { void _load(); return; }
-  if (action === 'clear') { _s.filters = _emptyFilters(); _s.page = 1; _render(); return; }
+  if (action === 'clear') {
+    _s.filters = _emptyFilters();
+    _s.page = 1;
+    _s.exportRows = null;
+    _render();
+    return;
+  }
   if (action === 'export') { _openExportModal(); return; }
   if (action === 'export-csv') { _closeModal(); _exportCsv(); return; }
   if (action === 'export-xls') { void _exportXls(); return; }
@@ -331,6 +343,7 @@ function _onInput(event) {
   if (!key) return;
   _s.filters[key] = event.target.value || '';
   _s.page = 1;
+  _s.exportRows = null;
   _paintTable();
 }
 
@@ -339,6 +352,7 @@ async function _onChange(event) {
   if (key) {
     _s.filters[key] = event.target.value || '';
     _s.page = 1;
+    _s.exportRows = null;
     _paintTable();
     return;
   }
@@ -466,8 +480,9 @@ function _openImportModal() {
 }
 
 function _openExportModal() {
-  const rows = _filtered();
-  if (!rows.length) return _toast('No hay unidades para exportar con estos filtros.', 'error');
+  const rows = _rowsForExport();
+  if (!rows) return;
+  _s.exportRows = rows;
   const host = _ctr.querySelector('#uni-modal-host');
   host.innerHTML = `
     <div class="uni-modal-backdrop" role="dialog" aria-modal="true">
@@ -476,18 +491,19 @@ function _openExportModal() {
           <div><p>Exportar</p><h2>${rows.length} unidades filtradas</h2></div>
           <button type="button" class="uni-icon-btn" data-action="close-modal"><span class="material-icons">close</span></button>
         </div>
+        <p class="uni-export-hint">${esc(_filterSummary())}</p>
         <div class="uni-export-menu">
           <button type="button" data-action="export-xls">
             <span class="material-symbols-outlined">table_view</span>
-            <span><strong>Excel (.xls)</strong><small>Tabla lista para abrir en Excel / Sheets</small></span>
+            <span><strong>Excel (.xls)</strong><small>Solo las filas visibles con estos filtros</small></span>
           </button>
           <button type="button" data-action="export-pdf">
             <span class="material-symbols-outlined">picture_as_pdf</span>
-            <span><strong>PDF</strong><small>Documento imprimible de la tabla</small></span>
+            <span><strong>PDF</strong><small>Documento imprimible de la tabla filtrada</small></span>
           </button>
           <button type="button" data-action="export-csv">
             <span class="material-symbols-outlined">csv</span>
-            <span><strong>CSV</strong><small>Formato actual, compatible con importación</small></span>
+            <span><strong>CSV</strong><small>Solo filas filtradas · compatible con importación</small></span>
           </button>
         </div>
         <div class="uni-modal-actions">
@@ -708,47 +724,52 @@ function _unitPayload(row, original = null) {
 }
 
 function _exportCsv() {
-  const rows = _filtered();
-  if (!rows.length) return _toast('No hay unidades para exportar.', 'error');
+  const rows = _rowsForExport();
+  if (!rows) return;
   const header = FIELD_ORDER.map(k => FIELD_LABEL[k]);
   const body = rows.map(row => FIELD_ORDER.map(k => _csv(_field(row, k))));
   const csv = '\ufeff' + [header.map(_csv).join(','), ...body.map(r => r.join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-  _downloadBlob(blob, `unidades-${_s.plaza || 'ALL'}-${_exportDate()}.csv`);
-  _toast(`Exportadas ${rows.length} unidades (CSV).`, 'success');
+  _downloadBlob(blob, `unidades-${_exportSlug()}-${_exportDate()}.csv`);
+  _s.exportRows = null;
+  _toast(`Exportadas ${rows.length} unidades filtradas (CSV).`, 'success');
 }
 
 async function _exportXls() {
-  const rows = _filtered();
-  if (!rows.length) return _toast('No hay unidades para exportar.', 'error');
+  const rows = _rowsForExport();
+  if (!rows) return;
   try {
     const XLSX = await loadXlsxLibrary();
+    // Re-check after await: never write a stale full-fleet snapshot.
+    const live = _rowsForExport();
+    if (!live) return;
     const header = FIELD_ORDER.map(k => FIELD_LABEL[k]);
-    const aoa = [header, ...rows.map(row => FIELD_ORDER.map(k => _field(row, k)))];
+    const aoa = [header, ...live.map(row => FIELD_ORDER.map(k => _field(row, k)))];
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Unidades');
     const out = XLSX.write(wb, { bookType: 'xls', type: 'array' });
     const blob = new Blob([out], { type: 'application/vnd.ms-excel' });
-    _downloadBlob(blob, `unidades-${_s.plaza || 'ALL'}-${_exportDate()}.xls`);
+    _downloadBlob(blob, `unidades-${_exportSlug()}-${_exportDate()}.xls`);
+    _s.exportRows = null;
     _closeModal();
-    _toast(`Exportadas ${rows.length} unidades (Excel).`, 'success');
+    _toast(`Exportadas ${live.length} unidades filtradas (Excel).`, 'success');
   } catch (err) {
     _toast(err?.message || 'No se pudo generar el Excel.', 'error');
   }
 }
 
 function _exportPdf() {
-  const rows = _filtered();
-  if (!rows.length) return _toast('No hay unidades para exportar.', 'error');
+  const rows = _rowsForExport();
+  if (!rows) return;
   const cols = FIELD_ORDER.filter(k => k !== 'descripcion');
   const thead = cols.map(k => `<th>${esc(FIELD_LABEL[k])}</th>`).join('');
   const tbody = rows.map(row =>
     `<tr>${cols.map(k => `<td>${esc(_field(row, k) || '—')}</td>`).join('')}</tr>`
   ).join('');
-  const plaza = esc(_s.plaza || 'TODAS');
+  const summary = esc(_filterSummary());
   const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
-    <title>Unidades · ${plaza}</title>
+    <title>Unidades filtradas</title>
     <style>
       body{font:12px/1.35 Inter,system-ui,sans-serif;color:#0f172a;margin:24px;background:#fff}
       h1{font-size:18px;margin:0 0 4px} p{margin:0 0 16px;color:#64748b}
@@ -758,8 +779,8 @@ function _exportPdf() {
       tr:nth-child(even) td{background:#f8fafc}
       @page{size:landscape;margin:12mm}
     </style></head><body>
-    <h1>Inventario de unidades</h1>
-    <p>Plaza filtro: ${plaza} · ${rows.length} registros · ${_exportDate()}</p>
+    <h1>Inventario de unidades (filtrado)</h1>
+    <p>${summary} · ${rows.length} registros · ${_exportDate()}</p>
     <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
     <script>window.onload=function(){window.print()}<\/script>
     </body></html>`;
@@ -770,6 +791,7 @@ function _exportPdf() {
   }
   win.document.write(html);
   win.document.close();
+  _s.exportRows = null;
 }
 
 function _exportDate() {
@@ -787,9 +809,63 @@ function _downloadBlob(blob, filename) {
   URL.revokeObjectURL(url);
 }
 
+/** True when the user has narrowed the table — required before any export. */
+function _hasActiveFilters() {
+  const f = _s?.filters;
+  if (!f) return false;
+  return Boolean(
+    String(f.q || '').trim()
+    || f.clase
+    || f.sucursal
+    || f.plazaActual
+    || f.estado
+    || f.activo
+  );
+}
+
+/**
+ * Single export gate: same dataset as the table (`_filtered`), never `_s.units`.
+ * Returns a defensive copy, or null after toasting why export was blocked.
+ */
+function _rowsForExport() {
+  if (!_s) return null;
+  if (!_hasActiveFilters()) {
+    _toast('Aplica al menos un filtro antes de exportar. No se permite descargar toda la flota.', 'error');
+    return null;
+  }
+  const rows = _filtered();
+  if (!rows.length) {
+    _toast('No hay unidades para exportar con estos filtros.', 'error');
+    return null;
+  }
+  // Never hand out the live collection reference.
+  return rows.slice();
+}
+
+function _filterSummary() {
+  const f = _s?.filters || _emptyFilters();
+  const parts = [];
+  if (String(f.q || '').trim()) parts.push(`Buscar: ${String(f.q).trim()}`);
+  if (f.clase) parts.push(`Clase: ${f.clase}`);
+  if (f.sucursal) parts.push(`Loc. propietaria: ${f.sucursal}`);
+  if (f.plazaActual) parts.push(`Loc. actual: ${f.plazaActual}`);
+  if (f.estado) parts.push(`Estatus: ${f.estado}`);
+  if (f.activo) parts.push(`Activo: ${f.activo === 'ACTIVO' ? 'Activo' : 'Inactivo'}`);
+  return parts.length ? parts.join(' · ') : 'Sin filtros';
+}
+
+function _exportSlug() {
+  const f = _s?.filters || {};
+  const token = _norm(f.plazaActual || f.sucursal || f.estado || f.clase || f.activo || 'filtrado')
+    .replace(/[^A-Z0-9_-]+/g, '-')
+    .slice(0, 24);
+  return token || 'filtrado';
+}
+
 function _filtered() {
   const f = _s.filters;
   const q = _deaccent(f.q).toLowerCase();
+  // Always derive from filters — never return `_s.units` as a shortcut.
   return _s.units.filter(row => {
     const hay = _deaccent([row.mva, row.placas, row.vin, row.modelo, row.marca, row.sucursal, row.plazaActual, row.estado].join(' ')).toLowerCase();
     if (q && !hay.includes(q)) return false;

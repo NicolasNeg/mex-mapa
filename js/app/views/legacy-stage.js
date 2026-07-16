@@ -481,12 +481,20 @@ function _syncLegacyCuadreHeader(id, ctx) {
   const doc = _iframe.contentDocument;
   if (!win || !doc) return;
 
-  const masControles = doc.getElementById('btnMasControlesWrapper');
-  const adminControls = doc.getElementById('btnAdminControlsWrapper');
-  const showMas = masControles && masControles.style.display !== 'none';
-  const showAdmin = adminControls && adminControls.style.display !== 'none';
+  // Mobile: el footer ya tiene Controles — no duplicar tune/car en el header del shell
+  const isMobile = window.matchMedia('(max-width: 768px)').matches;
+  if (isMobile) {
+    if (_unitsHeaderSig === 'cuadre:mobile-clear') return;
+    _unitsHeaderSig = 'cuadre:mobile-clear';
+    _shell.setHeaderActions?.('');
+    return;
+  }
 
-  const sig = `cuadre:${showMas}:${showAdmin}`;
+  const masControles = doc.getElementById('btnMasControlesWrapper');
+  const showMas = masControles && masControles.style.display !== 'none'
+    && getComputedStyle(masControles).display !== 'none';
+
+  const sig = `cuadre:${showMas}:0`;
   if (sig === _unitsHeaderSig) return;
   _unitsHeaderSig = sig;
 
@@ -498,14 +506,6 @@ function _syncLegacyCuadreHeader(id, ctx) {
       </button>
     `;
   }
-  if (showAdmin) {
-    html += `
-      <button type="button" class="mex-hdr-limbo-btn--legacy" id="mexHdrCuadreAdminBtn" title="Unidades globales" style="margin-left:8px;">
-        <span class="material-symbols-outlined" style="color:#2563eb;">directions_car</span>
-        <span class="hide-mobile">UNIDADES</span>
-      </button>
-    `;
-  }
 
   _shell.setHeaderActions?.(html);
 
@@ -514,13 +514,6 @@ function _syncLegacyCuadreHeader(id, ctx) {
     moreBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       try { win.toggleMoreControls?.(ev); } catch (_) {}
-    });
-  }
-  const adminBtn = document.getElementById('mexHdrCuadreAdminBtn');
-  if (adminBtn) {
-    adminBtn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      try { win.irAModuloUnidades?.(); } catch (_) {}
     });
   }
 }

@@ -502,6 +502,10 @@ function _updateTurnoWidget() {
     try {
       await iniciarTurno({ uid: window._auth?.currentUser?.uid || uid, ...profile }, plaza);
     } catch (e) {
+      if (e?.code === 'GATE_CANCELLED') {
+        if (_s && btn) btn.disabled = false;
+        return;
+      }
       console.warn('[dashboard] iniciarTurno:', e);
       if (typeof window.mexAlert === 'function') {
         void window.mexAlert(e?.message || 'No se pudo iniciar el turno.', 'Error');
@@ -554,6 +558,10 @@ function _renderTurnoActivo(el, turno, horario, uid, plaza) {
     try {
       await cerrarTurno(turno.id, { user: _s?.profile, plaza });
     } catch (e) {
+      if (e?.code === 'GATE_CANCELLED') {
+        if (_s && btn) btn.disabled = false;
+        return;
+      }
       console.warn('[dashboard] cerrarTurno:', e);
       if (typeof window.mexAlert === 'function') {
         void window.mexAlert(e?.message || 'No se pudo cerrar el turno.', 'Error');

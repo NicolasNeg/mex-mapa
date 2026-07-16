@@ -110,14 +110,16 @@ export function evaluarListoParaContrato(opts = {}) {
   return { ok: true, nivel: 'warn', motivo: patio ? `Patio: ${patio}` : 'Sin estado de patio' };
 }
 
-export function estaEnPatio(estado) {
-  const p = normalizarEstadoPatio(estado);
-  return Boolean(p && p !== ESTADO_EXTERNO);
+/** Retorna true si la unidad está en el patio físico (ubicacion). */
+export function estaEnPatio(unidad) {
+  const ubi = String(unidad?.ubicacion || '').toUpperCase();
+  return ubi === 'PATIO' || ubi === 'TALLER';
 }
 
-export function estaEnExterno(estado) {
-  return normalizarEstadoPatio(estado) === ESTADO_EXTERNO
-    || String(estado || '').trim().toUpperCase() === ESTADO_EXTERNO;
+/** Retorna true si la unidad es externa. */
+export function estaEnExterno(unidad) {
+  return String(unidad?.tipo || '').toLowerCase() === 'externo'
+    || String(unidad?.ubicacion || '').toUpperCase() === ESTADO_EXTERNO;
 }
 
 /** Catálogo canónico para formularios de Unidades / expediente. */

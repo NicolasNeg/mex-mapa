@@ -84,8 +84,8 @@ export function unmount() {
 
 function _ensureCss() {
   [
-    { href: '/css/app-unidades.css?v=20260715e', attr: 'data-app-unidades-css' },
-    { href: '/css/app-unidad-expediente.css?v=20260715b', attr: 'data-app-unidad-exp-css' }
+    { href: '/css/app-unidades.css?v=20260715f', attr: 'data-app-unidades-css' },
+    { href: '/css/app-unidad-expediente.css?v=20260715c', attr: 'data-app-unidad-exp-css' }
   ].forEach(({ href, attr }) => {
     let link = document.querySelector(`link[${attr}="1"]`);
     if (link) {
@@ -143,9 +143,19 @@ async function _load() {
       plaza ? getColaItemForMva(plaza, _s.mva) : Promise.resolve(null)
     ]);
 
+    const merged = {
+      ...indexRow,
+      ...(detail || {}),
+      // Patio vive en cuadre (`estado`); flota en índice (`estadoFlota`).
+      estadoPatio: (detail && (detail.estadoPatio || detail.estado))
+        || indexRow.estadoPatio
+        || '',
+      estadoFlota: indexRow.estadoFlota || (detail && detail.estadoFlota) || indexRow.estatus || ''
+    };
+
     _s.data = {
       index: normalizeUnit(indexRow),
-      detail: normalizeUnit({ ...indexRow, ...(detail || {}) }),
+      detail: normalizeUnit(merged),
       extras: extras || {},
       bitacora: Array.isArray(bitacora) ? bitacora : [],
       notas: Array.isArray(notas) ? notas : [],
@@ -191,7 +201,7 @@ function _formCtx() {
 function _renderShell() {
   if (!_ctr || !_s) return;
   _ctr.innerHTML = `
-    <section class="uexp uni-expediente" aria-busy="${_s.loading ? 'true' : 'false'}">
+    <section class="uexp uni uni-expediente" aria-busy="${_s.loading ? 'true' : 'false'}">
       <header class="uexp-head">
         <div class="uexp-head-main">
           <button type="button" class="uexp-back" data-action="back-unidades">

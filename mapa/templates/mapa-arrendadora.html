@@ -52,12 +52,8 @@
           </div>
         </div>
 
-        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display: none;">
-          <button type="button" class="btn-more-controls btn-icon-mobile" onclick="irAModuloUnidades()">
-            <span class="material-symbols-outlined" style="font-size: 18px;">directions_car</span>
-            <span class="txt-mobile-hide">Unidades globales</span>
-          </button>
-        </div>
+        <!-- Controles admin / Unidades globales retirado — no reintroducir -->
+        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;" hidden aria-hidden="true"></div>
 
       </div>
 
@@ -162,9 +158,10 @@
                   </th>
                   <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
                   <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
+                  <th onclick="sortFlota('km')" class="sortable">KM ↕</th>
                   <th>
-                    <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
-                      <option value="">ESTADO (ALL)</option>
+                    <select id="filter-est" class="excel-filter" onchange="filtrarFlota()" title="Estado operativo en patio">
+                      <option value="">PATIO (ALL)</option>
                     </select>
                   </th>
                   <th>

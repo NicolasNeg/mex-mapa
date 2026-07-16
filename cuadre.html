@@ -248,34 +248,68 @@
         padding: 8px 14px !important;
       }
 
-      /* Chips: wrap con aire; Limpiar en su propia línea */
+      /* Chips: una sola fila con scroll horizontal (como desktop) */
       #fleet-modal .cuadre-chips-row {
         display: flex !important;
-        flex-wrap: wrap !important;
-        align-items: flex-start !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
         gap: 8px !important;
         margin-bottom: 12px !important;
+        min-width: 0 !important;
       }
       #fleet-modal .cuadre-chips-row .chips-filter {
-        flex: 1 1 100% !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
         display: flex !important;
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         gap: 8px !important;
-        overflow: visible !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
         padding-bottom: 0 !important;
       }
+      #fleet-modal .cuadre-chips-row .chips-filter::-webkit-scrollbar { display: none !important; }
       #fleet-modal .cuadre-chips-row .chip {
+        flex: 0 0 auto !important;
         min-height: 36px !important;
-        padding: 8px 14px !important;
+        padding: 8px 12px !important;
         display: inline-flex !important;
         align-items: center !important;
       }
       #fleet-modal .cuadre-chips-clear {
         flex: 0 0 auto !important;
-        min-height: 44px !important;
-        padding: 8px 14px !important;
-        margin-left: auto !important;
+        min-height: 36px !important;
+        padding: 8px 12px !important;
+        margin-left: 0 !important;
       }
+
+      /* Tabla móvil: headers compactos + celdas consistentes */
+      #fleet-modal .col-table th {
+        font-size: 10px !important;
+        padding: 8px !important;
+        white-space: nowrap !important;
+        letter-spacing: .03em !important;
+      }
+      #fleet-modal .col-table td {
+        padding: 8px !important;
+        font-size: 13px !important;
+        white-space: nowrap !important;
+      }
+      #fleet-modal .col-table .excel-filter {
+        max-width: 108px !important;
+        min-width: 72px !important;
+        font-size: 10px !important;
+        padding: 4px 6px !important;
+        margin-top: 0 !important;
+      }
+      #fleet-modal .col-table td.td-mva,
+      #fleet-modal .table-container td.td-mva {
+        font-size: 13px !important;
+        padding: 8px !important;
+      }
+      #fleet-modal .gas-cell { min-width: 88px !important; gap: 6px !important; }
+      #fleet-modal .badge,
+      #fleet-modal .ubi-badge { font-size: 11px !important; padding: 4px 8px !important; }
 
       /* Tabla: padding inferior para no quedar bajo FABs */
       #fleet-modal .col-table .table-container {
@@ -477,9 +511,16 @@
     #fleet-modal .badge { font-size: 12px !important; padding: 5px 10px !important; border-radius: 4px !important; font-weight: 700 !important; }
     #fleet-modal .ubi-badge { font-size: 12px !important; font-weight: 700 !important; }
 
+    /* Controles admin / Unidades globales: retirado — usar tab CUADRE ADMINS */
+    #btnAdminControlsWrapper { display: none !important; }
+
     @media (max-width: 768px) {
+      /* En shell el footer ya tiene Controles — no duplicar la barra de herramientas */
+      html.shell-embedded #fleet-modal .cuadre-tools-bar {
+        display: none !important;
+      }
       #fleet-modal .cuadre-tools-bar {
-        flex-wrap: wrap !important;
+        flex-wrap: nowrap !important;
         gap: 8px !important;
         padding: 8px 12px !important;
       }
@@ -648,10 +689,6 @@
     #fleet-modal .btn-save:hover { background: #202b42 !important; }
     #fleet-modal .btn-del { background: #fff1f1 !important; color: #a61b1b !important; border: 1px solid #f2b8b5 !important; }
 
-    @media (max-width: 768px) {
-      #tabFlotaAdmins { display: none !important; }
-    }
-
     @media (max-width: 1024px) {
       #fleet-modal .col-form-overlay {
         display: block !important;
@@ -737,10 +774,8 @@
         </div>
       </div>
 
-      <!-- Herramientas del cuadre: Más controles + Gestion admin. Barra propia
-           (no .fleet-header-top) para seguir visible en el shell, donde el
-           header interno se oculta. Ver spec Fase 1.4. Modales se cargan on-demand
-           desde /mapa.html vía _ensureLegacyModalElement. -->
+      <!-- Más controles. En shell móvil se oculta (footer → Controles). El
+           dropdown vive aquí y se abre vía mex:cuadre:more / header desktop. -->
       <div class="cuadre-tools-bar" style="display:flex; align-items:center; gap:10px; padding:8px 24px; background:white; border-bottom:1px solid #e2e8f0; flex-shrink:0;">
         <div id="btnMasControlesWrapper" class="more-controls-wrapper">
           <button type="button" class="btn-more-controls" onclick="toggleMoreControls(event)" title="Más controles" aria-label="Más controles">
@@ -759,13 +794,8 @@
             <div id="mcPrediccionCuadre" class="mc-item" onclick="abrirPrediccionCuadre(); toggleMoreControls();"><span class="material-icons" style="color: #0b74b8;">query_stats</span> Cuadre de predicciones</div>
           </div>
         </div>
-        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;">
-          <button type="button" class="btn-more-controls" onclick="irAModuloUnidades()" title="Unidades globales" aria-label="Unidades globales"
-            style="background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8;">
-            <span class="material-symbols-outlined" style="font-size:18px;">directions_car</span>
-            <span class="txt-mobile-hide">UNIDADES GLOBALES</span>
-          </button>
-        </div>
+        <!-- Placeholder oculto: mapa.js aún busca el id; no reintroducir Controles admin -->
+        <div id="btnAdminControlsWrapper" class="more-controls-wrapper" style="display:none;" hidden aria-hidden="true"></div>
       </div>
 
       <div id="toastContainer"></div>
@@ -861,6 +891,7 @@
                         <option value="PFAR">PFAR</option>
                         <option value="GVMD">GVMD</option>
                       </select>
+                    </th>
                     <th>
                       <select id="filter-modelo" class="excel-filter" onchange="filtrarFlota()">
                         <option value="">MODELO (ALL)</option>
@@ -869,7 +900,6 @@
                     <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
                     <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
                     <th onclick="sortFlota('km')" class="sortable">KM ↕</th>
-                    <th onclick="sortFlota('estadoFlota')" class="sortable" title="Disponibilidad de negocio">FLOTA ↕</th>
                     <th>
                       <select id="filter-est" class="excel-filter" onchange="filtrarFlota()" title="Estado operativo en patio">
                         <option value="">PATIO (ALL)</option>

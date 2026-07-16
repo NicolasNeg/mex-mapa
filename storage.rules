@@ -188,6 +188,20 @@ service firebase.storage {
         );
     }
 
+    // Selfies de check-in/out de turnos (checado facial).
+    // Path: turnos_checadas/{auth.uid}/{inicio|cierre}_*.jpg
+    match /turnos_checadas/{userDocId}/{fileName} {
+      allow read: if tienePerfilActual();
+      allow write: if esDocumentoUsuarioPropio(userDocId)
+        && (
+          request.resource == null
+          || (
+            request.resource.size < 8 * 1024 * 1024
+            && request.resource.contentType.matches('image/.*')
+          )
+        );
+    }
+
     match /licencias_choferes/{userDocId}/{fileName} {
       allow read: if tienePerfilActual();
       // Quien puede ver la vista de usuarios/choferes puede registrar licencias.

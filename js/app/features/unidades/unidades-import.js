@@ -167,9 +167,10 @@ export function parseDelimitedText(text) {
   return analyzeMatrix(matrix);
 }
 
-function _loadScript(src, datasetKey) {
+function _loadScript(src, dataAttr) {
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector(`script[data-${datasetKey}="1"]`);
+    const sel = `script[${dataAttr}="1"]`;
+    const existing = document.querySelector(sel);
     if (existing) {
       if (existing.dataset.ready === '1') return resolve();
       existing.addEventListener('load', () => resolve(), { once: true });
@@ -178,9 +179,7 @@ function _loadScript(src, datasetKey) {
     }
     const s = document.createElement('script');
     s.src = src;
-    s.dataset[datasetKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = '1';
-    // data-uni-tesseract style
-    s.setAttribute(`data-${datasetKey}`, '1');
+    s.setAttribute(dataAttr, '1');
     s.onload = () => { s.dataset.ready = '1'; resolve(); };
     s.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
     document.head.appendChild(s);
@@ -189,14 +188,14 @@ function _loadScript(src, datasetKey) {
 
 async function loadTesseract() {
   if (window.Tesseract) return window.Tesseract;
-  await _loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js', 'uni-tesseract');
+  await _loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js', 'data-uni-tesseract');
   if (!window.Tesseract) throw new Error('OCR no disponible.');
   return window.Tesseract;
 }
 
 async function loadPdfJs() {
   if (window.pdfjsLib) return window.pdfjsLib;
-  await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'uni-pdfjs');
+  await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'data-uni-pdfjs');
   const lib = window.pdfjsLib;
   if (!lib) throw new Error('Lector PDF no disponible.');
   lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
