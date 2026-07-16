@@ -389,74 +389,113 @@
 
 .uni-table {
   width: 100%;
-  min-width: 1280px;
-  border-collapse: collapse;
+  min-width: 1100px;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
 
 .uni-table th {
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 2;
   padding: 10px 12px;
-  background: #f3f4f6;
-  color: #374151;
-  font-size: 12px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 11px;
   font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   text-align: left;
-  border: 1px solid var(--uni-border);
+  border-bottom: 1px solid #e2e8f0;
+  border-right: 1px solid #eef2f7;
   white-space: nowrap;
 }
 
-.uni-table th.uni-th-actions {
-  text-align: right;
+.uni-table th:first-child,
+.uni-table td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: #fff;
+  box-shadow: 1px 0 0 #eef2f7;
+}
+
+.uni-table th:first-child {
+  z-index: 3;
+  background: #f8fafc;
 }
 
 .uni-table td {
-  padding: 10px 12px;
-  color: #374151;
+  padding: 11px 12px;
+  color: #334155;
   vertical-align: middle;
-  border: 1px solid var(--uni-border);
+  border-bottom: 1px solid #f1f5f9;
   line-height: 1.4;
+  transition: background-color .15s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .uni-table tbody tr {
   cursor: pointer;
 }
 
-.uni-table tbody tr:hover {
-  background: #f9fafb;
+.uni-table tbody tr:nth-child(even) td {
+  background: #fcfcfd;
+}
+
+.uni-table tbody tr:nth-child(even) td:first-child {
+  background: #fcfcfd;
+}
+
+.uni-table tbody tr:hover td,
+.uni-table tbody tr:hover td:first-child {
+  background: #eff6ff;
+}
+
+.uni-table tbody tr:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
 }
 
 .uni-td-main {
-  color: #111827;
+  color: #0f172a;
   font-weight: 600;
 }
 
 .uni-td-mono {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+}
+
+.uni-status {
+  display: inline-block;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 12px;
+  color: #334155;
 }
 
 .uni-active-text.yes {
   color: #15803d;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .uni-active-text.no {
-  color: #6b7280;
+  color: #64748b;
   font-weight: 500;
 }
 
-.uni-row-actions {
-  text-align: right;
-  white-space: nowrap;
-}
-
 .uni-empty-row {
-  padding: 32px !important;
+  padding: 40px 16px !important;
   text-align: center;
   color: var(--uni-muted);
+  border: 0 !important;
 }
 
 .uni-pager {

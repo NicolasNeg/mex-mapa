@@ -123,7 +123,7 @@ export function unmount() {
 }
 
 function _ensureCss() {
-  const href = '/css/app-unidades.css?v=20260715f';
+  const href = '/css/app-unidades.css?v=20260715g';
   let link = document.querySelector('link[data-app-unidades-css="1"]');
   if (link) {
     if (link.getAttribute('href') !== href) link.setAttribute('href', href);
@@ -141,14 +141,17 @@ function _bind() {
   const input = e => _onInput(e);
   const change = e => _onChange(e);
   const submit = e => _onSubmit(e);
+  const keydown = e => _onKeydown(e);
   _ctr.addEventListener('click', click);
   _ctr.addEventListener('input', input);
   _ctr.addEventListener('change', change);
   _ctr.addEventListener('submit', submit);
+  _ctr.addEventListener('keydown', keydown);
   _offs.push(() => _ctr?.removeEventListener('click', click));
   _offs.push(() => _ctr?.removeEventListener('input', input));
   _offs.push(() => _ctr?.removeEventListener('change', change));
   _offs.push(() => _ctr?.removeEventListener('submit', submit));
+  _offs.push(() => _ctr?.removeEventListener('keydown', keydown));
 }
 
 async function _load() {
@@ -267,12 +270,12 @@ function _paintTable() {
       <div class="uni-table-wrap">
         <table class="uni-table">
           <thead><tr>
-            <th>Id</th><th>Clase</th><th>VIN</th><th>Año</th><th>Marca</th><th>Modelo</th>
-            <th>Núm. económico</th><th>Placas</th><th>Loc. propietaria</th>
-            <th>Loc. actual</th><th>Estatus</th><th>Activo</th><th class="uni-th-actions">Acción</th>
+            <th>MVA</th><th>Clase</th><th>VIN</th><th>Año</th><th>Marca</th><th>Modelo</th>
+            <th>Placas</th><th>Loc. propietaria</th>
+            <th>Loc. actual</th><th>Estatus</th><th>Activo</th>
           </tr></thead>
           <tbody>
-            ${pageRows.map(_rowHtml).join('') || `<tr><td colspan="13" class="uni-empty-row">Sin unidades para estos filtros.</td></tr>`}
+            ${pageRows.map(_rowHtml).join('') || `<tr><td colspan="11" class="uni-empty-row">Sin unidades para estos filtros.</td></tr>`}
           </tbody>
         </table>
       </div>
@@ -289,22 +292,18 @@ function _rowHtml(row) {
   const active = _isActive(row);
   const mva = row.mva || id;
   return `
-    <tr data-action="expediente" data-mva="${esc(mva)}" role="button" tabindex="0">
-      <td class="uni-td-mono">${esc(row.fila || row.id || '—')}</td>
+    <tr data-action="expediente" data-mva="${esc(mva)}" role="button" tabindex="0" title="Abrir expediente">
+      <td><span class="uni-td-main uni-td-mono">${esc(mva || '—')}</span></td>
       <td>${esc(row.clase || row.categoria || '—')}</td>
       <td class="uni-td-mono">${esc(row.vin || '—')}</td>
       <td class="uni-td-mono">${esc(row.anio || row.año || '—')}</td>
       <td>${esc(row.marca || '—')}</td>
       <td><span class="uni-td-main">${esc(row.modelo || '—')}</span></td>
-      <td><span class="uni-td-main">${esc(row.mva || '—')}</span></td>
-      <td>${esc(row.placas || '—')}</td>
+      <td class="uni-td-mono">${esc(row.placas || '—')}</td>
       <td>${esc(row.sucursal || row.plaza || '—')}</td>
       <td>${esc(row.plazaActual || row.ubicacionActual || row.plaza || '—')}</td>
-      <td>${esc(row.estado || row.estatus || '—')}</td>
+      <td><span class="uni-status">${esc(row.estadoFlota || row.estado || row.estatus || '—')}</span></td>
       <td><span class="uni-active-text ${active ? 'yes' : 'no'}">${active ? 'Activo' : 'Inactivo'}</span></td>
-      <td class="uni-row-actions">
-        <button type="button" class="uni-link-btn" data-action="expediente" data-mva="${esc(mva)}">Ver</button>
-      </td>
     </tr>
   `;
 }
@@ -336,6 +335,15 @@ function _onClick(event) {
   if (action === 'next') { _s.page += 1; _paintTable(); return; }
   if (action === 'close-modal') { _closeModal(); return; }
   if (action === 'apply-import') { void _applyImport(); return; }
+}
+
+function _onKeydown(event) {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const row = event.target.closest('tr[data-action="expediente"]');
+  if (!row || !_ctr?.contains(row)) return;
+  event.preventDefault();
+  const mva = row.dataset.mva;
+  if (mva) _goExpediente(mva);
 }
 
 function _onInput(event) {

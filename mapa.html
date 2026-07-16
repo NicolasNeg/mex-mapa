@@ -1390,18 +1390,7 @@
               <div class="form-title" id="formTitleFlota" style="font-size: 15px;">NUEVO REGISTRO</div>
             </div>
 
-            <div id="admin-flota-panel-hint"
-              style="display:none; margin-bottom:15px; padding:14px 16px; border-radius:14px; border:1px solid #fed7aa; background:linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%);">
-              <div style="display:flex; align-items:flex-start; gap:10px;">
-                <span class="material-icons" style="color:#d97706; font-size:20px;">inventory_2</span>
-                <div style="display:flex; flex-direction:column; gap:5px;">
-                  <strong style="color:#9a3412; font-size:13px; letter-spacing:0.3px;">Modo Cuadre Admins</strong>
-                  <span style="font-size:12px; color:#7c2d12; line-height:1.45;">En esta vista el registro se hace solo
-                    desde el modal administrativo. El buscador del cuadre normal queda oculto para no mezclar
-                    procesos.</span>
-                </div>
-              </div>
-            </div>
+            <div id="admin-flota-panel-hint" style="display:none;" hidden aria-hidden="true"></div>
 
             <div id="autofill-section" class="field"
               style="background:#f8fafc; padding:12px; border-radius:12px; border:1px dashed var(--mex-accent); position:relative; margin-bottom: 15px;">
@@ -1520,6 +1509,13 @@
                     style="margin:0; font-weight:800; text-transform:none; font-size:12px; color: var(--mex-red); cursor:pointer;">Borrar
                     historial de notas actual</label>
                 </div>
+              </div>
+
+              <div class="field" id="admin-evidence-field" style="display:none;">
+                <label>Evidencias (opcional)</label>
+                <input type="file" id="f_admin_file" multiple accept="image/*,.pdf,.doc,.docx"
+                  onchange="typeof actualizarEstadoArchivosAdmin==='function' && actualizarEstadoArchivosAdmin('f_admin_file','f_admin_fileStatus')">
+                <div id="f_admin_fileStatus" class="admin-file-status" style="margin-top:8px;"></div>
               </div>
 
               <div class="btn-group">

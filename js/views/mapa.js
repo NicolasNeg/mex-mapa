@@ -628,6 +628,7 @@ function actualizarPanelLateralFlota() {
   const hint = document.getElementById('admin-flota-panel-hint');
   const autofill = document.getElementById('autofill-section');
   const fields = document.getElementById('form-fields-container');
+  const evidence = document.getElementById('admin-evidence-field');
   const btnLabel = document.getElementById('btnNuevaUnidadFlotaLabel');
   const btnSave = document.getElementById('btnSaveFlota');
   const btnDel = document.getElementById('btnDelFlota');
@@ -638,11 +639,13 @@ function actualizarPanelLateralFlota() {
   const autofillReset = document.getElementById('btnResetAutofill');
 
   if (btnLabel) btnLabel.innerText = esAdmins ? 'REGISTRAR EN CUADRE ADMINS' : 'REGISTRAR NUEVA UNIDAD';
-  if (hint) hint.style.display = esAdmins ? 'block' : 'none';
+  if (hint) hint.style.display = 'none';
+  // Mismo flujo que flota regular: el panel arranca vacío hasta “Nuevo” o click en fila.
   if (autofill) autofill.style.display = 'none';
   if (fields) fields.style.display = 'none';
+  if (evidence) evidence.style.display = 'none';
   if (delNote) delNote.style.display = 'none';
-  if (btnSave) btnSave.style.display = esAdmins ? 'none' : 'flex';
+  if (btnSave) btnSave.style.display = 'none';
   if (btnDel) btnDel.style.display = 'none';
   if (search) search.placeholder = esAdmins
     ? 'Buscar MVA, notas, placas, modelo o responsable...'
@@ -654,7 +657,7 @@ function actualizarPanelLateralFlota() {
   if (autofillResults) autofillResults.style.display = 'none';
   if (autofillReset) autofillReset.style.display = 'none';
   if (title) {
-    title.innerText = esAdmins ? 'GESTIÓN CUADRE ADMINS' : 'SELECCIONA UNA UNIDAD';
+    title.innerText = esAdmins ? 'CUADRE ADMINS' : 'SELECCIONA UNA UNIDAD';
     title.style.color = esAdmins ? '#d97706' : 'var(--mex-blue)';
   }
 }
@@ -6511,15 +6514,7 @@ function cerrarFormularioFlota() {
 // MANEJADOR BOTÓN FLOTANTE GLOBAL DE CUADRE
 // ==========================================
 function manejarBotonAgregarFlotante() {
-  if (VISTA_ACTUAL_FLOTA === 'ADMINS') {
-    if (!hasFullAccess()) {
-      showToast("No tienes permisos suficientes para modificar Cuadre Admins.", "error");
-      return;
-    }
-    abrirModalInsertarAdmin();
-  } else {
-    prepararNuevoFlota();
-  }
+  prepararNuevoFlota();
 }
 
 async function seleccionarFilaFlota(index, rowElement) {
@@ -6532,10 +6527,18 @@ async function seleccionarFilaFlota(index, rowElement) {
 
   if (!SELECT_REF_FLOTA) return;
 
-  if (VISTA_ACTUAL_FLOTA === 'NORMAL') {
-    // ---- LÓGICA FLOTA REGULAR (Panel Lateral Derecho) [cite: 883] ----
+  if (VISTA_ACTUAL_FLOTA === 'NORMAL' || VISTA_ACTUAL_FLOTA === 'ADMINS') {
+    // Panel lateral (flota regular y cuadre admins)
+    const esAdmins = VISTA_ACTUAL_FLOTA === 'ADMINS';
+    if (esAdmins && (typeof userRole === 'undefined' || userRole !== 'admin')) {
+      showToast("No tienes permisos para ver esta información.", "error");
+      return;
+    }
+
     MODO_FLOTA = "MODIFICAR";
-    let esSoloLectura = (typeof userRole !== 'undefined' && userRole !== 'admin');
+    let esSoloLectura = esAdmins
+      ? !canEditAdminCuadre()
+      : (typeof userRole !== 'undefined' && userRole !== 'admin');
 
     const title = document.getElementById('formTitleFlota');
     if (!title) {
@@ -6543,12 +6546,22 @@ async function seleccionarFilaFlota(index, rowElement) {
       return;
     }
     title.innerText = (esSoloLectura ? "VISUALIZANDO: " : "MODIFICANDO: ") + SELECT_REF_FLOTA.mva;
+    title.style.color = esAdmins ? '#d97706' : 'var(--mex-blue)';
     const hint = document.getElementById('admin-flota-panel-hint');
     const autofill = document.getElementById('autofill-section');
     const fields = document.getElementById('form-fields-container');
+    const evidence = document.getElementById('admin-evidence-field');
     if (hint) hint.style.display = 'none';
     if (autofill) autofill.style.display = 'none';
     if (fields) fields.style.display = 'flex';
+    if (evidence) {
+      evidence.style.display = esAdmins ? 'block' : 'none';
+      const fileInput = document.getElementById('f_admin_file');
+      if (fileInput) fileInput.value = '';
+      if (typeof actualizarEstadoArchivosAdmin === 'function') {
+        actualizarEstadoArchivosAdmin('f_admin_file', 'f_admin_fileStatus');
+      }
+    }
 
     const values = {
       f_mva: SELECT_REF_FLOTA.mva || "",
@@ -6583,33 +6596,17 @@ async function seleccionarFilaFlota(index, rowElement) {
       const u = DATOS_TABLA_ACTUAL[index] || {};
       fKmEdit.value = (typeof u.km === 'number') ? u.km : '';
       fKmEdit.dataset.kmOriginal = (typeof u.km === 'number') ? String(u.km) : '';
-      const puedeCorregir = !!(window.mexPerms && window.mexPerms.canDo('km_corregir'));
-      fKmEdit.disabled = !puedeCorregir;
-      fKmEdit.title = puedeCorregir ? 'Corregir kilometraje (queda registrado)' : 'Solo usuarios con permiso pueden corregir km';
+      if (esAdmins) {
+        fKmEdit.disabled = esSoloLectura;
+        fKmEdit.title = 'Kilometraje del registro administrativo';
+      } else {
+        const puedeCorregir = !!(window.mexPerms && window.mexPerms.canDo('km_corregir'));
+        fKmEdit.disabled = !puedeCorregir;
+        fKmEdit.title = puedeCorregir ? 'Corregir kilometraje (queda registrado)' : 'Solo usuarios con permiso pueden corregir km';
+      }
     }
 
     abrirFormularioFlota();
-  } else {
-    // ---- LÓGICA CUADRE ADMINS (Abre el Modal de Expediente) [cite: 890] ----
-
-    // Verificamos permisos mínimos
-    if (typeof userRole === 'undefined' || userRole !== 'admin') {
-      showToast("No tienes permisos para ver esta información.", "error");
-      return;
-    }
-
-    // Determinamos si es un Admin Normal (Solo Lectura) o Global (Edición) [cite: 891]
-    let esSoloLecturaAdmin = !canEditAdminCuadre();
-
-    // Abrimos el modal correcto [cite: 1234]
-    const modal = await _openLegacyModalElement('modal-editar-admin');
-    if (!modal) return;
-
-    // Ponemos el MVA en la cabecera del modal [cite: 1235]
-    document.getElementById('a_mod_badgeMVA').innerText = SELECT_REF_FLOTA.mva;
-
-    // Llamamos a la función que llena los campos del expediente [cite: 1140]
-    abrirExpedienteAdmin(SELECT_REF_FLOTA, esSoloLecturaAdmin);
   }
   validarBotonGuardar();
 }
@@ -6661,6 +6658,8 @@ function aplicarAutofill(u) {
   document.getElementById('btnResetAutofill').style.display = 'block';
 
   document.getElementById('form-fields-container').style.display = 'flex';
+  const evidence = document.getElementById('admin-evidence-field');
+  if (evidence) evidence.style.display = VISTA_ACTUAL_FLOTA === 'ADMINS' ? 'block' : 'none';
   showToast("Datos autocompletados", "success");
   validarBotonGuardar();
 }
@@ -6692,37 +6691,44 @@ function prepararNuevoFlota() {
     return;
   }
 
-  // 🔥 2. SI ESTAMOS EN CUADRE ADMINS 🔥 [cite: 2180]
+  // Cuadre Admins: mismo panel lateral que flota regular (con evidencia opcional)
   if (VISTA_ACTUAL_FLOTA === 'ADMINS') {
     if (!canEditAdminCuadre()) {
-      showToast("⛔ Tu rol solo puede consultar el Cuadre Administrativo.", "error");
+      showToast("Tu rol solo puede consultar el Cuadre Administrativo.", "error");
       return;
     }
-    // Si es Jefe, le abrimos el modal diseñado específicamente para esto [cite: 2181]
-    abrirModalInsertarAdmin();
-    return;
   }
 
-  // 3. LÓGICA: FLOTA REGULAR (Panel lateral derecho) [cite: 2182]
+  // 3. LÓGICA: panel lateral derecho (NORMAL y ADMINS)
   MODO_FLOTA = "INSERTAR";
   SELECT_REF_FLOTA = null;
+  ADMIN_INSERT_UNIT = null;
   document.querySelectorAll('#tablaCuerpoFlota tr').forEach(tr => tr.classList.remove('selected'));
   const title = document.getElementById('formTitleFlota');
   if (!title) {
     showToast("No se pudo abrir el gestor de unidad. Recarga Cuadre e intenta de nuevo.", "error");
     return;
   }
-  title.innerText = "NUEVO REGISTRO";
-  title.style.color = "var(--mex-blue)";
+  const esAdmins = VISTA_ACTUAL_FLOTA === 'ADMINS';
+  title.innerText = esAdmins ? "NUEVO REGISTRO ADMINS" : "NUEVO REGISTRO";
+  title.style.color = esAdmins ? "#d97706" : "var(--mex-blue)";
 
   abrirFormularioFlota();
 
   const fields = document.getElementById('form-fields-container');
   const hint = document.getElementById('admin-flota-panel-hint');
   const autofill = document.getElementById('autofill-section');
+  const evidence = document.getElementById('admin-evidence-field');
   if (fields) fields.style.display = 'none';
   if (hint) hint.style.display = 'none';
   if (autofill) autofill.style.display = 'block';
+  if (evidence) {
+    evidence.style.display = esAdmins ? 'block' : 'none';
+    const fileInput = document.getElementById('f_admin_file');
+    if (fileInput) fileInput.value = '';
+    const fileStatus = document.getElementById('f_admin_fileStatus');
+    if (fileStatus) fileStatus.innerHTML = '';
+  }
   resetAutofill();
   const fKm = document.getElementById('f_km');
   if (fKm) { fKm.value = ''; fKm.disabled = false; fKm.dataset.kmOriginal = ''; }
@@ -6852,7 +6858,26 @@ async function ejecutarGuardadoFlota() {
     }
   }
   else {
-    // 👑 LÓGICA CUADRE ADMINS (Requiere recarga por las fotos y archivos pesados)
+    // Cuadre Admins → misma UI, escribe en cuadre_admins
+    const plaza = _obtenerPlazaOperativaCuadreAdmin(
+      (SELECT_REF_FLOTA && (SELECT_REF_FLOTA.plaza || SELECT_REF_FLOTA.sucursal)) || ''
+    );
+    if (!plaza) {
+      showToast("No se pudo resolver la plaza operativa para Cuadre Admins.", "error");
+      restaurarBotonFlota();
+      return;
+    }
+    if (MODO_FLOTA === "INSERTAR" && !document.getElementById('f_ubi')?.value) {
+      showToast("Selecciona una ubicación para el registro administrativo.", "error");
+      restaurarBotonFlota();
+      return;
+    }
+    const fileEl = document.getElementById('f_admin_file');
+    const evidenceFiles = Array.from(fileEl?.files || []);
+    payload.plaza = plaza;
+    payload.evidenceFiles = evidenceFiles;
+    payload.adminResponsable = USER_NAME;
+
     const tipoAccion = (MODO_FLOTA === "INSERTAR") ? "ADD" : "MODIFICAR";
     api.procesarModificacionMaestra(payload, tipoAccion).then(res => {
       if (res === "EXITO") {
