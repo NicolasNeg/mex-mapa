@@ -10,8 +10,8 @@ import { iniciarTurno, cerrarTurno } from '/js/app/features/turnos/turnos-mutati
 import {
   DIAS, DIA_NOMBRE, TIPOS_DIA, ESTADOS_ASISTENCIA,
   semanaInicio, moverSemana, fechaDia, hoy, rangoSemana,
-  onHorariosSemanales, guardarHorario,
-  onAsistencia, registrarAsistencia,
+  onHorariosSemanales, guardarHorario, copiarSemanaAnterior,
+  onAsistencia, registrarAsistencia, confirmarAsistencia,
   getHistorialTurnos, getUsuariosPlaza,
   getMiHorario,
   onPlantillas, guardarPlantilla, eliminarPlantilla,
@@ -47,6 +47,149 @@ function _toastTurnoError(e, action) {
     return;
   }
   _toast(e?.message || `No se pudo ${action}.`, 'Error');
+}
+
+function _isoHaceDias(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - Math.max(0, Number(n) || 0));
+  return d.toISOString().slice(0, 10);
+}
+
+function _fmtHistRange(desde, hasta) {
+  const fmt = (s) => {
+    const d = new Date(`${s}T12:00:00`);
+    return d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  };
+  return `${fmt(desde)} – ${fmt(hasta)}`;
+}
+
+function _historialResumen(turnos) {
+  let totalMs = 0;
+  for (const t of turnos || []) {
+    const inicio = turnoInicioDate(t);
+    const fin = turnoFinDate(t);
+    const ms = fin.getTime() - inicio.getTime();
+    if (ms > 0) totalMs += ms;
+  }
+  return {
+    count: (turnos || []).length,
+    horas: totalMs > 0 ? formatDuration(totalMs) : '0m'
+  };
+}
+
+function _usuarioHistorial(uid) {
+  const id = String(uid || '').trim();
+  if (!id) return null;
+  const lista = resolveUsuariosLista(_s?.usuarios || [], {
+    isAdmin: Boolean(_s?.isAdmin),
+    uid: _s?.uid,
+    profile: _s?.profile
+  });
+  return lista.find(u => normalizeUsuarioUid(u) === id) || null;
+}
+
+function _renderHistorialTurnoRow(t) {
+  const inicio = turnoInicioDate(t);
+  const fin = turnoFinDate(t);
+  const ms = fin.getTime() - inicio.getTime();
+  const dur = ms > 0 ? formatDuration(ms) : '—';
+  const fechaStr = inicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+  const inicioStr = inicio.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  const finStr = fin.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+  return `<tr class="tu-hist-row">
+    <td class="tu-td-main">${fechaStr}</td>
+    <td>${inicioStr}</td>
+    <td>${finStr}</td>
+    <td><strong>${dur}</strong></td>
+    <td class="tu-hist-plaza">${esc(t.plazaId || '—')}</td>
+  </tr>`;
+}
+
+function _renderHistorialTabla(turnos) {
+  const filas = (turnos || []).map(_renderHistorialTurnoRow).join('');
+  return `
+  <div class="tu-table-wrap">
+    <table class="tu-table">
+      <thead>
+        <tr>
+          <th>Fecha</th>
+          <th>Entrada</th>
+          <th>Salida</th>
+          <th>Duración</th>
+          <th>Plaza</th>
+        </tr>
+      </thead>
+      <tbody>${filas || '<tr><td colspan="5" class="tu-grid-empty">Sin turnos en este rango.</td></tr>'}</tbody>
+    </table>
+  </div>`;
+}
+
+function _renderHistorialFiltros() {
+  const { isAdmin, usuarios, usuariosLoading, historialDesde, historialHasta, historialUsuarioId } = _s;
+  const lista = resolveUsuariosLista(usuarios || [], {
+    isAdmin: Boolean(isAdmin),
+    uid: _s.uid,
+    profile: _s.profile
+  });
+  const opts = lista.map(u => {
+    const uid = normalizeUsuarioUid(u);
+    return `<option value="${esc(uid)}"${uid === historialUsuarioId ? ' selected' : ''}>${esc(nombreUsuario(u))}</option>`;
+  }).join('');
+
+  return `
+  <details class="tu-hist-filters" id="tuHistFilters" open>
+    <summary class="tu-hist-filters__summary">
+      <span class="material-symbols-outlined">filter_list</span>
+      Filtros
+    </summary>
+    <div class="tu-hist-filters__grid">
+      ${isAdmin ? `
+      <div class="tu-field-group tu-field-group--full">
+        <label class="tu-label" for="tuHistUsuario">Colaborador <span class="tu-req">*</span></label>
+        <select class="tu-input" id="tuHistUsuario"${usuariosLoading ? ' disabled' : ''}>
+          <option value="">Selecciona colaborador…</option>
+          ${opts}
+        </select>
+      </div>` : ''}
+      <div class="tu-field-group">
+        <label class="tu-label" for="tuHistDesde">Fecha inicio</label>
+        <input class="tu-input" type="date" id="tuHistDesde" value="${esc(historialDesde)}" max="${esc(historialHasta || hoy())}">
+      </div>
+      <div class="tu-field-group">
+        <label class="tu-label" for="tuHistHasta">Fecha final</label>
+        <input class="tu-input" type="date" id="tuHistHasta" value="${esc(historialHasta)}" max="${esc(hoy())}">
+      </div>
+    </div>
+    <div class="tu-hist-filters__actions">
+      <button class="tu-btn tu-btn--ghost" id="tuHistSemana" type="button">Semana</button>
+      <button class="tu-btn tu-btn--primary" id="tuHistVer" type="button">Ver historial</button>
+    </div>
+  </details>`;
+}
+
+function _renderHistorialSubject(usuario, resumen) {
+  const nombre = usuario ? nombreUsuario(usuario) : String(_s?.profile?.nombreCompleto || _s?.profile?.nombre || 'Colaborador');
+  const rol = usuario?.rol || usuario?.role || _s?.profile?.rol || '';
+  const plaza = _s?.plaza || '';
+  return `
+  <div class="tu-hist-subj">
+    <span class="tu-hist-subj__avatar">${esc(initialUsuario(usuario || _s?.profile || {}))}</span>
+    <div class="tu-hist-subj__info">
+      <h3 class="tu-hist-subj__name">${esc(nombre)}</h3>
+      <span class="tu-hist-subj__meta">${esc([rol, plaza].filter(Boolean).join(' · '))}</span>
+    </div>
+    <span class="tu-hist-subj__range">${esc(_fmtHistRange(_s.historialDesde, _s.historialHasta))}</span>
+    <div class="tu-hist-stats">
+      <div class="tu-hist-stat">
+        <span class="tu-hist-stat__val">${resumen.count}</span>
+        <span class="tu-hist-stat__lbl">Turnos</span>
+      </div>
+      <div class="tu-hist-stat">
+        <span class="tu-hist-stat__val">${esc(resumen.horas)}</span>
+        <span class="tu-hist-stat__lbl">Horas</span>
+      </div>
+    </div>
+  </div>`;
 }
 
 // ── Estado del módulo ─────────────────────────────────────────
@@ -87,6 +230,11 @@ export async function mount({ container }) {
     asistenciaFecha: hoy(),
     historial: [],
     historialCargado: false,
+    historialLoading: false,
+    historialMostrado: false,
+    historialUsuarioId: '',
+    historialDesde: _isoHaceDias(30),
+    historialHasta: hoy(),
     usuariosLoading: false,
     editDia: null,
     plantillas: [],
@@ -380,6 +528,9 @@ function _renderTurnoCard(turno, esPropio) {
 function _renderHorarios() {
   const { semana, horarios, usuarios, isAdmin, usuariosLoading, uid, plantillas, notasSemana, showGestionPlantillas, profile } = _s;
 
+  const semanaActual = semanaInicio();
+  const semanaEditable = isAdmin && semana >= semanaActual;
+
   const semanaFin = moverSemana(semana, 1);
   const semanaFinDisplay = new Date(semanaFin + 'T00:00:00');
   semanaFinDisplay.setDate(semanaFinDisplay.getDate() - 1);
@@ -401,8 +552,8 @@ function _renderHorarios() {
         ${dObj.getDate()}
       </div>
       ${notaGen
-        ? `<div class="tu-grid-nota-gen" title="${esc(notaGen)}" ${isAdmin ? `data-nota-dia="${d}" data-nota-val="${esc(notaGen)}"` : ''}>📌</div>`
-        : (isAdmin ? `<button class="tu-grid-nota-add" data-nota-dia="${d}" title="Agregar nota general" type="button">+</button>` : '')
+        ? `<div class="tu-grid-nota-gen" title="${esc(notaGen)}" ${semanaEditable ? `data-nota-dia="${d}" data-nota-val="${esc(notaGen)}"` : ''}>📌</div>`
+        : (semanaEditable ? `<button class="tu-grid-nota-add" data-nota-dia="${d}" title="Agregar nota general" type="button">+</button>` : '')
       }
     </th>`;
   }).join('');
@@ -434,7 +585,7 @@ function _renderHorarios() {
             const cell  = horario?.dias?.[d];
             const fecha = fechaDia(semana, d);
             const esHoy = fecha === hoy();
-            const editable = isAdmin;
+            const editable = semanaEditable;
             let content = '';
             if (cell) {
               content = cell.tipo === 'NORMAL'
@@ -494,6 +645,11 @@ function _renderHorarios() {
 
   return `
 <div class="tu-horarios">
+  ${isAdmin && !semanaEditable ? `
+  <div class="tu-banner tu-banner--readonly">
+    <span class="material-symbols-outlined">lock</span>
+    Semana pasada — solo lectura
+  </div>` : ''}
   <div class="tu-horarios-toolbar">
     <button class="tu-btn tu-btn--icon" id="tuSemPrev" type="button">
       <span class="material-symbols-outlined">chevron_left</span>
@@ -505,6 +661,10 @@ function _renderHorarios() {
       <span class="material-symbols-outlined">chevron_right</span>
     </button>
     <button class="tu-btn tu-btn--ghost" id="tuSemHoy" type="button">Hoy</button>
+    ${semanaEditable ? `
+    <button class="tu-btn tu-btn--ghost" id="tuCopiarSemana" type="button">
+      <span class="material-symbols-outlined">content_copy</span> Copiar semana anterior
+    </button>` : ''}
     <div style="flex:1"></div>
     ${isAdmin ? `
     <button class="tu-btn tu-btn--ghost" id="tuGestionPlantillas" type="button">
@@ -610,11 +770,12 @@ function _renderHorarios() {
 
 // ── Tab Asistencia ────────────────────────────────────────────
 function _renderAsistencia() {
-  const { asistenciaFecha, asistencia, usuarios, usuariosLoading, horarios, semana } = _s;
+  const { asistenciaFecha, asistencia, usuarios, usuariosLoading } = _s;
+  const pendientes = (asistencia || []).filter(a => String(a.estado || '').toUpperCase() === 'PENDIENTE').length;
 
   let filas = '';
   if (usuariosLoading) {
-    filas = `<tr><td colspan="4" class="tu-grid-loading">Cargando…</td></tr>`;
+    filas = `<tr><td colspan="5" class="tu-grid-empty">Cargando…</td></tr>`;
   } else {
     const lista = resolveUsuariosLista(usuarios, { isAdmin: true, uid: _s.uid, profile: _s.profile });
     const emptyMsg = usuariosPlazaEmptyMessage({
@@ -623,21 +784,23 @@ function _renderAsistencia() {
       hasUsuarios: lista.length > 0,
     });
     if (emptyMsg) {
-      filas = `<tr><td colspan="4" class="tu-grid-empty">${esc(emptyMsg)}</td></tr>`;
+      filas = `<tr><td colspan="5" class="tu-grid-empty">${esc(emptyMsg)}</td></tr>`;
     } else {
       for (const u of lista) {
         const uUid = normalizeUsuarioUid(u);
-        const reg  = asistencia.find(a => a.usuarioId === uUid);
-        const est  = reg?.estado || '';
-        const nota = reg?.nota   || '';
-        filas += `<tr class="tu-asist-row" data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}">
-        <td class="tu-asist-td-name">
-          <span class="tu-grid-avatar">${initialUsuario(u)}</span>
-          <span>${esc(nombreUsuario(u))}</span>
-        </td>
+        const reg = asistencia.find(a => a.usuarioId === uUid);
+        const est = String(reg?.estado || '').toUpperCase();
+        const nota = reg?.nota || '';
+        const isPendiente = est === 'PENDIENTE';
+        const badge = est
+          ? `<span class="tu-asist-badge tu-asist-badge--${esc(est.toLowerCase())}">${esc(ESTADOS_ASISTENCIA[est]?.label || est)}</span>`
+          : '<span class="tu-asist-badge tu-asist-badge--empty">Sin registrar</span>';
+        filas += `<tr class="tu-asist-row${isPendiente ? ' tu-asist-row--pending' : ''}" data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}">
+        <td class="tu-td-main">${esc(nombreUsuario(u))}</td>
+        <td>${badge}</td>
         <td>
           <select class="tu-select tu-asist-estado" data-uid="${esc(uUid)}">
-            <option value="">— sin registrar —</option>
+            <option value="">— elegir —</option>
             ${Object.entries(ESTADOS_ASISTENCIA).map(([k, v]) =>
               `<option value="${k}" ${est === k ? 'selected' : ''}>${v.label}</option>`
             ).join('')}
@@ -647,10 +810,15 @@ function _renderAsistencia() {
           <input class="tu-input tu-asist-nota" type="text" placeholder="Nota (opcional)"
                  value="${esc(nota)}" data-uid="${esc(uUid)}">
         </td>
-        <td>
-          <button class="tu-btn tu-btn--sm tu-btn--primary tu-asist-save"
-                  type="button" data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}">
-            <span class="material-symbols-outlined">save</span>
+        <td class="tu-td-actions">
+          ${isPendiente ? `
+          <button class="tu-btn tu-btn--sm tu-btn--primary tu-asist-confirm" type="button"
+                  data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}" title="Confirmar presente">
+            Confirmar
+          </button>` : ''}
+          <button class="tu-btn tu-btn--sm tu-btn--ghost tu-asist-save" type="button"
+                  data-uid="${esc(uUid)}" data-nombre="${esc(nombreUsuario(u))}" title="Guardar">
+            Guardar
           </button>
         </td>
       </tr>`;
@@ -659,25 +827,27 @@ function _renderAsistencia() {
   }
 
   return `
-<div class="tu-asistencia">
+<div class="tu-asistencia tu-formal">
   <div class="tu-asist-toolbar">
-    <label class="tu-label">Fecha:</label>
+    <label class="tu-label">Fecha</label>
     <input class="tu-input" type="date" id="tuAsistFecha" value="${esc(asistenciaFecha)}">
+    ${pendientes ? `<span class="tu-asist-pending-count">${pendientes} por confirmar</span>` : ''}
     <div class="tu-asist-legend">
-      ${Object.entries(ESTADOS_ASISTENCIA).map(([k, v]) =>
+      ${Object.entries(ESTADOS_ASISTENCIA).map(([, v]) =>
         `<span class="tu-legend-item">
           <span class="tu-legend-dot" style="background:${v.color}"></span>${v.label}
          </span>`).join('')}
     </div>
   </div>
-  <div class="tu-grid-wrap">
-    <table class="tu-grid tu-asist-grid">
+  <div class="tu-table-wrap">
+    <table class="tu-table">
       <thead>
         <tr>
-          <th class="tu-grid-th-name">Colaborador</th>
+          <th>Colaborador</th>
+          <th>Registro</th>
           <th>Estado</th>
           <th>Nota</th>
-          <th></th>
+          <th class="tu-th-actions">Acciones</th>
         </tr>
       </thead>
       <tbody>${filas}</tbody>
@@ -686,17 +856,9 @@ function _renderAsistencia() {
 </div>`;
 }
 
-// ── Tab Historial ─────────────────────────────────────────────
+// ── Tab Historial (por colaborador — patrón CHECADOR) ─────────
 function _renderHistorial() {
-  const { historial, historialCargado, isAdmin, uid, listenerErrors } = _s;
-
-  if (!historialCargado) {
-    void _loadHistorial();
-    return `<div class="tu-loading">
-      <div class="tu-spinner"></div>
-      <span>Cargando historial…</span>
-    </div>`;
-  }
+  const { historial, historialCargado, historialLoading, historialMostrado, isAdmin, uid, listenerErrors } = _s;
 
   if (listenerErrors?.historial?.code === LISTENER_ERROR.INDEX_MISSING) {
     return `<div class="tu-empty-state">
@@ -706,52 +868,51 @@ function _renderHistorial() {
     </div>`;
   }
 
-  if (!historial.length) {
-    return `<div class="tu-empty-state">
-      <span class="material-symbols-outlined">history</span>
-      <p>No hay turnos registrados.</p>
-    </div>`;
+  const filtros = _renderHistorialFiltros();
+
+  if (isAdmin && !historialMostrado) {
+    return `
+<div class="tu-historial">
+  ${filtros}
+  <div class="tu-empty-state tu-hist-empty">
+    <span class="material-symbols-outlined">person_search</span>
+    <p>Selecciona un colaborador y pulsa <strong>Ver historial</strong>.</p>
+  </div>
+</div>`;
   }
 
-  const filas = historial.map(t => {
-    const inicio = turnoInicioDate(t);
-    const fin    = turnoFinDate(t);
-    const ms     = fin.getTime() - inicio.getTime();
-    const dur    = ms > 0 ? formatDuration(ms) : '—';
-    const fechaStr = inicio.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
-    const inicioStr = inicio.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
-    const finStr    = fin.toLocaleTimeString('es-MX',    { hour: '2-digit', minute: '2-digit' });
-    return `<tr class="tu-hist-row">
-      ${isAdmin ? `<td class="tu-hist-nombre">${esc(t.usuarioNombre || '—')}</td>` : ''}
-      <td class="tu-hist-fecha">${fechaStr}</td>
-      <td>${inicioStr}</td>
-      <td>${finStr}</td>
-      <td class="tu-hist-dur"><strong>${dur}</strong></td>
-      <td class="tu-hist-plaza">${esc(t.plazaId || '—')}</td>
-    </tr>`;
-  }).join('');
+  if (historialLoading || (!historialCargado && !isAdmin)) {
+    return `
+<div class="tu-historial">
+  ${filtros}
+  <div class="tu-loading">
+    <div class="tu-spinner"></div>
+    <span>Cargando historial…</span>
+  </div>
+</div>`;
+  }
+
+  const targetUid = isAdmin ? _s.historialUsuarioId : uid;
+  const usuario = _usuarioHistorial(targetUid);
+  const resumen = _historialResumen(historial);
+
+  if (!historial.length) {
+    return `
+<div class="tu-historial">
+  ${filtros}
+  ${_renderHistorialSubject(usuario, resumen)}
+  <div class="tu-empty-state">
+    <span class="material-symbols-outlined">history</span>
+    <p>No hay turnos cerrados en este rango.</p>
+  </div>
+</div>`;
+  }
 
   return `
 <div class="tu-historial">
-  <div class="tu-grid-wrap">
-    <table class="tu-grid">
-      <thead>
-        <tr>
-          ${isAdmin ? '<th>Colaborador</th>' : ''}
-          <th>Fecha</th>
-          <th>Entrada</th>
-          <th>Salida</th>
-          <th>Duración</th>
-          <th>Plaza</th>
-        </tr>
-      </thead>
-      <tbody>${filas}</tbody>
-    </table>
-  </div>
-  ${historial.length >= 40 ? `
-  <div style="text-align:center;padding:16px;">
-    <button class="tu-btn tu-btn--ghost" id="tuHistMore" type="button">Cargar más</button>
-  </div>` : ''}
+  ${filtros}
+  ${_renderHistorialSubject(usuario, resumen)}
+  ${_renderHistorialTabla(historial)}
 </div>`;
 }
 
@@ -761,8 +922,8 @@ function _bindTabs() {
     const btn = e.target.closest('.tu-tab');
     if (!btn || !_s) return;
     _s.tab = btn.dataset.tab;
-    if (_s.tab === 'historial' && !_s.historialCargado) {
-      _s.historialCargado = false;
+    if (_s.tab === 'historial' && !_s.isAdmin && !_s.historialCargado) {
+      void _loadHistorialUsuario();
     }
     _ctr.querySelectorAll('.tu-tab').forEach(b => b.classList.toggle('tu-tab--active', b.dataset.tab === _s.tab));
     _repaintTab();
@@ -831,6 +992,38 @@ function _bindHorarios() {
     _s.semana = semanaInicio();
     _restartListenerHorarios();
     _repaintTab();
+  });
+
+  _ctr?.querySelector('#tuCopiarSemana')?.addEventListener('click', async () => {
+    if (!_s?.isAdmin || !_s?.plaza) return;
+    const semanaActual = semanaInicio();
+    if (_s.semana < semanaActual) {
+      _toast('No puedes copiar horarios en una semana pasada.', 'Semana bloqueada');
+      return;
+    }
+    const ok = typeof window.mexConfirm === 'function'
+      ? await window.mexConfirm(
+        'Copiar semana anterior',
+        '¿Copiar los horarios de la semana pasada a esta semana? Se sobrescribirán celdas existentes.',
+        'warning'
+      )
+      : false;
+    if (!ok) return;
+    const btn = _ctr?.querySelector('#tuCopiarSemana');
+    if (btn) btn.disabled = true;
+    try {
+      const { count, semanaOrigen } = await copiarSemanaAnterior(_s.plaza, _s.semana);
+      if (!count) {
+        _toast('No hay horarios en la semana anterior para copiar.', 'Sin datos');
+      } else {
+        _toast(`${count} horario(s) copiados desde la semana del ${semanaOrigen}.`, 'Listo');
+      }
+    } catch (e) {
+      console.warn('[turnos] copiarSemana:', e);
+      _toast(e?.message || 'No se pudo copiar la semana.', 'Error');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   });
 
   // Exportar
@@ -1045,19 +1238,49 @@ function _bindAsistencia() {
     _repaintTab();
   });
 
-  _ctr?.querySelectorAll('.tu-asist-save').forEach(btn => {
+  _ctr?.querySelectorAll('.tu-asist-confirm').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const uid    = btn.dataset.uid;
+      const uid = btn.dataset.uid;
       const nombre = btn.dataset.nombre;
-      const row    = btn.closest('.tu-asist-row');
-      const estado = row?.querySelector('.tu-asist-estado')?.value || '';
-      const nota   = row?.querySelector('.tu-asist-nota')?.value   || '';
-      if (!estado || !uid) return;
+      const row = btn.closest('.tu-asist-row');
+      const nota = row?.querySelector('.tu-asist-nota')?.value || '';
+      if (!uid) return;
       btn.disabled = true;
       try {
-        await registrarAsistencia(uid, _s.plaza, _s.asistenciaFecha, estado, { nombre, nota });
+        await confirmarAsistencia(uid, _s.plaza, _s.asistenciaFecha, 'PRESENTE', { nombre, nota });
+        _toast(`Asistencia de ${nombre} confirmada.`, 'Asistencia');
+      } catch (e) {
+        console.warn('[turnos] confirmarAsistencia:', e);
+        _toast(e?.message || 'No se pudo confirmar.', 'Error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  _ctr?.querySelectorAll('.tu-asist-save').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid = btn.dataset.uid;
+      const nombre = btn.dataset.nombre;
+      const row = btn.closest('.tu-asist-row');
+      const estado = row?.querySelector('.tu-asist-estado')?.value || '';
+      const nota = row?.querySelector('.tu-asist-nota')?.value || '';
+      if (!estado || !uid) {
+        _toast('Elige un estado antes de guardar.', 'Asistencia');
+        return;
+      }
+      btn.disabled = true;
+      try {
+        const opts = { nombre, nota, origen: 'ADMIN' };
+        if (estado !== 'PENDIENTE') {
+          await confirmarAsistencia(uid, _s.plaza, _s.asistenciaFecha, estado, opts);
+        } else {
+          await registrarAsistencia(uid, _s.plaza, _s.asistenciaFecha, estado, opts);
+        }
+        _toast('Asistencia guardada.', 'Asistencia');
       } catch (e) {
         console.warn('[turnos] registrarAsistencia:', e);
+        _toast(e?.message || 'No se pudo guardar.', 'Error');
       } finally {
         btn.disabled = false;
       }
@@ -1065,78 +1288,209 @@ function _bindAsistencia() {
   });
 }
 
+function _minutosEntre(inicio, fin) {
+  const parse = (s) => {
+    const [h, m] = String(s || '0:0').split(':').map(Number);
+    return (Number(h) || 0) * 60 + (Number(m) || 0);
+  };
+  const a = parse(inicio);
+  const b = parse(fin);
+  if (b <= a) return 0;
+  return b - a;
+}
+
+function _contrasteHex(hex) {
+  const h = String(hex || '#94a3b8').replace('#', '');
+  if (h.length < 6) return '#0f172a';
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum > 0.55 ? '#0f172a' : '#ffffff';
+}
+
+function _exportCabeceraEmpresa() {
+  const emp = window._empresaActual || {};
+  const nombre = emp.nombre || emp.nombreComercial || emp.razonSocial || '';
+  const logo = emp.logoUrl || emp.logo || '';
+  if (!nombre && !logo) return '';
+  return `<header class="rpt-cab">
+    ${logo ? `<img class="rpt-logo" src="${esc(logo)}" alt="">` : ''}
+    <div class="rpt-empresa">
+      ${nombre ? `<strong>${esc(nombre)}</strong>` : ''}
+      <span>Turnos y horarios</span>
+    </div>
+  </header>`;
+}
+
 function _exportarHorarios() {
   if (!_s) return;
-  const { semana, horarios, usuarios, notasSemana } = _s;
-  const semanaFin = moverSemana(semana, 1);
-  const finDisp   = new Date(semanaFin + 'T00:00:00');
-  finDisp.setDate(finDisp.getDate() - 1);
-  const fmt = s => new Date(s + 'T00:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+  const { semana, horarios, usuarios, notasSemana, isAdmin, uid, profile, plaza } = _s;
+  const lista = resolveUsuariosLista(usuarios || [], { isAdmin, uid, profile });
+  if (!lista.length) {
+    _toast('No hay colaboradores para exportar.', 'Exportar');
+    return;
+  }
 
-  const thDias = DIAS.map(d => {
+  const semanaFin = moverSemana(semana, 1);
+  const finDisp = new Date(semanaFin + 'T00:00:00');
+  finDisp.setDate(finDisp.getDate() - 1);
+  const fmt = (s) => new Date(`${s}T00:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' });
+
+  const thDias = DIAS.map((d) => {
     const fecha = fechaDia(semana, d);
-    const dn    = DIA_NOMBRE[d];
-    return `<th>${dn}<br><small>${fecha}</small>${notasSemana[d] ? `<br><small style="color:#6366f1">📌 ${notasSemana[d]}</small>` : ''}</th>`;
+    const dObj = new Date(`${fecha}T12:00:00`);
+    const finde = dObj.getDay() === 0 || dObj.getDay() === 6;
+    const nota = notasSemana[d] ? `<br><small class="nota">📌 ${esc(notasSemana[d])}</small>` : '';
+    return `<th class="${finde ? 'we' : ''}">${esc(DIA_NOMBRE[d].slice(0, 3))}<br><small>${esc(fmt(fecha))}</small>${nota}</th>`;
   }).join('');
 
-  const rows = usuarios.map(u => {
+  let totalMin = 0;
+  const rows = lista.map((u) => {
     const realUid = normalizeUsuarioUid(u);
     const horario = horarios.find(h => h.usuarioId === realUid);
-    const celdas  = DIAS.map(d => {
+    const celdas = DIAS.map((d) => {
       const cell = horario?.dias?.[d];
-      if (!cell) return '<td>—</td>';
-      const texto = cell.tipo === 'NORMAL' ? `${cell.inicio}–${cell.fin}` : (TIPOS_DIA[cell.tipo]?.label || cell.tipo);
-      const nota  = cell.nota ? `<br><small style="color:#6366f1">${cell.nota}</small>` : '';
-      return `<td>${texto}${nota}</td>`;
+      if (!cell) return '<td class="off">—</td>';
+      if (cell.tipo === 'NORMAL') {
+        const mins = _minutosEntre(cell.inicio, cell.fin);
+        totalMin += mins;
+        const nota = cell.nota ? `<br><small>${esc(cell.nota)}</small>` : '';
+        return `<td class="normal"><strong>${esc(cell.inicio)}–${esc(cell.fin)}</strong>${nota}</td>`;
+      }
+      const meta = TIPOS_DIA[cell.tipo] || { label: cell.tipo, color: '#94a3b8' };
+      const bg = meta.color || '#94a3b8';
+      const fg = _contrasteHex(bg);
+      const nota = cell.nota ? `<br><small>${esc(cell.nota)}</small>` : '';
+      return `<td style="background:${bg};color:${fg};font-weight:600">${esc(meta.label || cell.tipo)}${nota}</td>`;
     }).join('');
-    return `<tr><td><strong>${nombreUsuario(u)}</strong></td>${celdas}</tr>`;
+    return `<tr><td class="emp">${esc(nombreUsuario(u))}</td>${celdas}</tr>`;
   }).join('');
+
+  const totalHoras = (totalMin / 60).toFixed(1);
+  const rangoLabel = `Semana del ${fmt(semana)} al ${fmt(finDisp.toISOString().slice(0, 10))}`;
+  const titulo = `Horarios${plaza ? ` — ${plaza}` : ''}`;
+  const cab = _exportCabeceraEmpresa();
 
   const html = `<!DOCTYPE html>
 <html lang="es"><head><meta charset="utf-8">
-<title>Horarios ${semana}</title>
+<title>${esc(titulo)}</title>
 <style>
-  body{font-family:Arial,sans-serif;font-size:12px;color:#1e293b;padding:20px}
-  h2{font-size:16px;margin:0 0 4px}
-  p{color:#64748b;margin:0 0 16px;font-size:11px}
-  table{border-collapse:collapse;width:100%}
-  th,td{border:1px solid #e2e8f0;padding:7px 10px;text-align:center}
-  th{background:#f8fafc;font-weight:700;font-size:11px}
-  td:first-child{text-align:left;font-size:12px}
-  small{font-size:10px;color:#64748b}
-  @media print{body{padding:0}button{display:none}}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font:12px Inter,system-ui,-apple-system,sans-serif;margin:22px;color:#0f172a}
+  h1{font-size:17px;margin:0 0 2px}
+  .sub{color:#64748b;font-size:11px;margin:0 0 14px;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  table{border-collapse:collapse;width:100%;table-layout:fixed}
+  th,td{border:1px solid #cbd5e1;padding:6px 7px;text-align:center;vertical-align:middle}
+  th{background:#f1f5f9;font-size:10px;line-height:1.3;text-transform:uppercase;letter-spacing:0.04em}
+  th small,td small{font-weight:400;opacity:.8;font-size:9px;text-transform:none;letter-spacing:0}
+  td.emp,th.emp{text-align:left;white-space:nowrap;font-weight:600;background:#f8fafc;width:150px}
+  td.off{color:#94a3b8;font-style:italic}
+  td.normal{color:#0f172a}
+  .we{background:#e2e8f0}
+  .nota{color:#6366f1}
+  .rpt-cab{display:flex;align-items:center;gap:14px;border-bottom:2px solid #0f172a;padding-bottom:10px;margin:0 0 14px}
+  .rpt-logo{height:46px;width:auto;object-fit:contain}
+  .rpt-empresa{display:flex;flex-direction:column;line-height:1.35}
+  .rpt-empresa strong{font-size:14px;color:#0f172a}
+  .rpt-empresa span{font-size:10px;color:#64748b}
+  .no-print{margin-top:16px}
+  .btn-print{padding:8px 20px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600}
+  @page{size:landscape;margin:12mm}
+  @media print{body{margin:0}.no-print{display:none}}
 </style></head><body>
-<h2>Horarios</h2>
-<p>Semana del ${fmt(semana)} al ${fmt(finDisp.toISOString().slice(0,10))} · Plaza: ${_s.plaza}</p>
-<table><thead><tr><th>Colaborador</th>${thDias}</tr></thead><tbody>${rows}</tbody></table>
-<br>
-<button onclick="window.print()" style="padding:8px 20px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;">🖨️ Imprimir / Guardar PDF</button>
+${cab}
+<h1>${esc(titulo)}</h1>
+<div class="sub"><span>${esc(rangoLabel)}</span><span>Total semana: ${esc(totalHoras)} h</span></div>
+<table>
+  <thead><tr><th class="emp">Colaborador</th>${thDias}</tr></thead>
+  <tbody>${rows}</tbody>
+</table>
+<div class="no-print">
+  <button class="btn-print" type="button" onclick="window.print()">Imprimir / Guardar PDF</button>
+</div>
+<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
 </body></html>`;
 
   const win = window.open('', '_blank');
-  if (win) { win.document.write(html); win.document.close(); }
+  if (!win) {
+    _toast('Permite ventanas emergentes para exportar.', 'Exportar');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
 }
 
 function _bindHistorial() {
-  _ctr?.querySelector('#tuHistMore')?.addEventListener('click', () => {
+  _ctr?.querySelector('#tuHistSemana')?.addEventListener('click', () => {
     if (!_s) return;
-    void _loadHistorial(true);
+    _s.historialDesde = _isoHaceDias(7);
+    _s.historialHasta = hoy();
+    _repaintTab();
+  });
+
+  _ctr?.querySelector('#tuHistDesde')?.addEventListener('change', e => {
+    if (!_s) return;
+    _s.historialDesde = String(e.target.value || _isoHaceDias(30)).slice(0, 10);
+  });
+
+  _ctr?.querySelector('#tuHistHasta')?.addEventListener('change', e => {
+    if (!_s) return;
+    const val = String(e.target.value || hoy()).slice(0, 10);
+    _s.historialHasta = val > hoy() ? hoy() : val;
+  });
+
+  _ctr?.querySelector('#tuHistUsuario')?.addEventListener('change', e => {
+    if (!_s) return;
+    _s.historialUsuarioId = String(e.target.value || '').trim();
+  });
+
+  _ctr?.querySelector('#tuHistVer')?.addEventListener('click', () => {
+    if (!_s) return;
+    if (_s.isAdmin && !_s.historialUsuarioId) {
+      _toast('Selecciona un colaborador.', 'Historial');
+      return;
+    }
+    const desde = _ctr?.querySelector('#tuHistDesde')?.value || _s.historialDesde;
+    const hasta = _ctr?.querySelector('#tuHistHasta')?.value || _s.historialHasta;
+    _s.historialDesde = String(desde).slice(0, 10);
+    _s.historialHasta = String(hasta > hoy() ? hoy() : hasta).slice(0, 10);
+    if (_s.historialDesde > _s.historialHasta) {
+      _toast('La fecha inicio no puede ser posterior a la final.', 'Historial');
+      return;
+    }
+    if (_s.isAdmin) {
+      _s.historialUsuarioId = _ctr?.querySelector('#tuHistUsuario')?.value || _s.historialUsuarioId;
+    }
+    _s.historialMostrado = true;
+    const wrap = _ctr?.querySelector('#tuHistFilters');
+    if (wrap) wrap.open = false;
+    void _loadHistorialUsuario();
   });
 }
 
-// ── Historial loader ──────────────────────────────────────────
-async function _loadHistorial(more = false) {
+// ── Historial loader (un colaborador + rango) ─────────────────
+async function _loadHistorialUsuario() {
   if (!_s) return;
   const { plaza, isAdmin, uid } = _s;
+  const usuarioId = isAdmin ? _s.historialUsuarioId : uid;
+  if (!usuarioId) return;
+
+  _s.historialLoading = true;
+  _repaintTab();
+
   try {
     const items = await getHistorialTurnos(plaza, {
-      limit: 40,
-      ...(!isAdmin ? { usuarioId: uid } : {}),
+      usuarioId,
+      desde: _s.historialDesde,
+      hasta: _s.historialHasta,
+      limit: 120
     });
     if (!_s) return;
     delete _s.listenerErrors.historial;
-    _s.historial = more ? [...(_s.historial || []), ...items] : items;
+    _s.historial = items;
     _s.historialCargado = true;
+    _s.historialLoading = false;
     _repaintTab();
   } catch (e) {
     console.warn('[turnos] historial:', e);
@@ -1145,8 +1499,9 @@ async function _loadHistorial(more = false) {
       _s.listenerErrors.historial = { code: LISTENER_ERROR.INDEX_MISSING, source: 'historial' };
       _toast('Índice de historial pendiente. Despliega firestore:indexes.', 'Índice requerido');
     }
-    _s.historial = more ? (_s.historial || []) : [];
+    _s.historial = [];
     _s.historialCargado = true;
+    _s.historialLoading = false;
     _repaintTab();
   }
 }

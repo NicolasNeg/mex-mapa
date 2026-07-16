@@ -22,7 +22,8 @@ function buildFleetFrameUrl() {
 
 function buildQueueRouteUrl() {
   const plaza = String(window.getMexCurrentPlaza?.() || '').trim().toUpperCase();
-  return plaza ? `/cola-preparacion?plaza=${encodeURIComponent(plaza)}` : '/cola-preparacion';
+  const base = '/app/cola-preparacion';
+  return plaza ? `${base}?plaza=${encodeURIComponent(plaza)}` : base;
 }
 
 function routeIsWarm() {

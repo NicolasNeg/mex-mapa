@@ -225,5 +225,63 @@ export async function getUnidadBitacora({ plaza, mva, limit = 80 } = {}) {
     } catch (_) {}
   }
 
-  return results;
+  // logs operativos (COLA, TURNO, cuadre, etc.)
+  if (results.length < limit) {
+    const remain = limit - results.length;
+    try {
+      let q = db.collection(COL.LOGS)
+        .where('mva', '==', mvaId)
+        .orderBy('timestamp', 'desc')
+        .limit(remain);
+      if (plazaId) q = q.where('plaza', '==', plazaId);
+      const snap = await q.get();
+      snap.docs.forEach(d => {
+        const data = d.data() || {};
+        results.push({
+          id: d.id,
+          source: 'log',
+          tipo: data.tipo,
+          accion: data.accion,
+          detalles: data.accion,
+          autor: data.autor,
+          timestamp: data.timestamp,
+          creadoEn: data.timestamp
+        });
+      });
+    } catch (_) {
+      try {
+        const snap = await db.collection(COL.LOGS)
+          .where('tipo', '==', 'COLA')
+          .limit(Math.min(remain * 3, 120))
+          .get();
+        snap.docs.forEach(d => {
+          const data = d.data() || {};
+          const logMva = String(data.mva || '').toUpperCase().trim();
+          if (logMva !== mvaId) return;
+          if (plazaId && String(data.plaza || '').toUpperCase().trim() !== plazaId) return;
+          results.push({
+            id: d.id,
+            source: 'log',
+            tipo: data.tipo,
+            accion: data.accion,
+            detalles: data.accion,
+            autor: data.autor,
+            timestamp: data.timestamp,
+            creadoEn: data.timestamp
+          });
+        });
+      } catch (_) {}
+    }
+  }
+
+  const tsOf = (row) => {
+    const raw = row?.timestamp ?? row?.creadoEn ?? row?.fecha;
+    if (raw && typeof raw.toDate === 'function') return raw.toDate().getTime();
+    if (raw instanceof Date) return raw.getTime();
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  results.sort((a, b) => tsOf(b) - tsOf(a));
+  return results.slice(0, limit);
 }

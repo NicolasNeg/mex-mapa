@@ -1090,6 +1090,8 @@ async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
   if (auditExtra.ipAddress) payload.ipAddress = auditExtra.ipAddress;
   if (auditExtra.forwardedFor) payload.forwardedFor = auditExtra.forwardedFor;
+  if (extra?.mva) payload.mva = String(extra.mva).toUpperCase().trim();
+  if (extra?.turnoId) payload.turnoId = String(extra.turnoId);
   await db.collection(COL.LOGS).doc(id).set(payload);
 }
 // Clasifica un movimiento de cajón para historial_patio:

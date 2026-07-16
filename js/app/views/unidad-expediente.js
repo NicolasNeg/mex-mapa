@@ -11,6 +11,9 @@ import {
   actualizarUnidadPlaza
 } from '/js/core/database.js';
 import { getUnidadBitacora } from '/js/app/features/cuadre/cuadre-data.js';
+import { getColaItemForMva } from '/js/app/features/cola-preparacion/cola-data.js';
+import { cpProgress, deriveEstadoCola } from '/js/app/features/cola-preparacion/cola-view-model.js';
+import { resolverEstadoFlota, leerEstadoPatioDoc, precheckContratoUnidad } from '/js/app/features/estados/estado-view-model.js';
 import { normalizeIncidencia } from '/js/app/features/incidencias/incidencias-data.js';
 import {
   FIELD_ORDER,
@@ -132,11 +135,12 @@ async function _load() {
     }
 
     const plaza = norm(indexRow.plazaActual || indexRow.sucursal || indexRow.plaza || '');
-    const [detail, extras, bitacora, notas] = await Promise.all([
+    const [detail, extras, bitacora, notas, colaItem] = await Promise.all([
       obtenerDetalleCompleto(plaza || indexRow.sucursal, _s.mva).catch(() => null),
       _loadExtras(_s.mva, plaza),
       getUnidadBitacora({ plaza, mva: _s.mva, limit: 50 }),
-      _loadNotas(_s.mva)
+      _loadNotas(_s.mva),
+      plaza ? getColaItemForMva(plaza, _s.mva) : Promise.resolve(null)
     ]);
 
     _s.data = {
@@ -144,7 +148,8 @@ async function _load() {
       detail: normalizeUnit({ ...indexRow, ...(detail || {}) }),
       extras: extras || {},
       bitacora: Array.isArray(bitacora) ? bitacora : [],
-      notas: Array.isArray(notas) ? notas : []
+      notas: Array.isArray(notas) ? notas : [],
+      cola: colaItem || null
     };
     _s.loading = false;
     _paintBody();
@@ -234,6 +239,9 @@ function _paintBody() {
   }
 
   body.innerHTML = `
+    ${_colaBanner(_s.data?.cola, d.plazaActual || d.sucursal)}
+    ${_estadosBanner(d)}
+
     <div id="uexp-detail">${renderDetailCardHtml(d, {
       editing: _s.editing && _canManage(),
       canManage: _canManage(),
@@ -361,6 +369,41 @@ function _attachmentsHtml(items) {
   }).join('')}</div>`;
 }
 
+function _estadosBanner(d = {}) {
+  const flota = resolverEstadoFlota(d) || d.estadoFlota || d.estado || '';
+  const patio = leerEstadoPatioDoc(d) || d.estadoPatio || '';
+  if (!flota && !patio) return '';
+  const pre = precheckContratoUnidad(d);
+  const preHtml = pre.nivel === 'ok'
+    ? ''
+    : `<span class="uexp-estado-hint uexp-estado-hint--${esc(pre.nivel)}">${esc(pre.motivo)}</span>`;
+  return `
+    <div class="uexp-estados-banner" role="status">
+      <div class="uexp-estados-chips">
+        ${flota ? `<span class="uexp-chip uexp-chip--flota" title="Disponibilidad de negocio">${esc(flota)}</span>` : ''}
+        ${patio ? `<span class="uexp-chip uexp-chip--patio" title="Estado en patio">${esc(patio)}</span>` : ''}
+      </div>
+      ${preHtml}
+    </div>`;
+}
+
+function _colaBanner(cola, plaza) {
+  if (!cola) return '';
+  const prog = cpProgress(cola);
+  const estado = deriveEstadoCola(cola);
+  const qs = new URLSearchParams({ mva: _s?.mva || cola.mva || '' });
+  if (plaza) qs.set('plaza', plaza);
+  return `
+    <div class="uexp-cola-banner" role="status">
+      <span class="material-icons">format_list_bulleted</span>
+      <div class="uexp-cola-banner-text">
+        <strong>En cola de preparación</strong>
+        <span>${esc(estado)} · checklist ${prog.done}/${prog.total}</span>
+      </div>
+      <button type="button" class="uexp-link" data-action="cola">Ver cola</button>
+    </div>`;
+}
+
 function _bitacoraHtml(rows) {
   if (!rows.length) return '<p class="uexp-empty">Sin movimientos recientes.</p>';
   return `<ul class="uexp-log">${rows.slice(0, 30).map(r => `
@@ -403,6 +446,13 @@ function _onClick(event) {
   }
   if (action === 'incidencias') {
     _go(`/app/incidencias?mva=${encodeURIComponent(_s.mva)}`);
+    return;
+  }
+  if (action === 'cola') {
+    const plaza = _s.data?.detail?.plazaActual || _s.data?.detail?.sucursal || '';
+    const qs = new URLSearchParams({ mva: _s.mva });
+    if (plaza) qs.set('plaza', plaza);
+    _go(`/app/cola-preparacion?${qs.toString()}`);
   }
 }
 

@@ -20,7 +20,8 @@ import {
   patchItem,
   removeItem,
   reorderItems,
-  bulkCompleteChecklist
+  bulkCompleteChecklist,
+  syncItemListoToCuadre
 } from '/js/app/features/cola-preparacion/cola-mutations.js';
 import {
   CHECKLIST_META,
@@ -220,6 +221,31 @@ async function _runBulkComplete() {
       actor
     });
     _toast('Checklist completado para las unidades visibles.', 'success');
+    const syncCandidates = items.filter(it => it.syncCuadre !== false);
+    if (syncCandidates.length && await _mexConfirm(
+      'Sincronizar con cuadre',
+      `¿Marcar ${syncCandidates.length} unidad(es) como LISTO en el cuadre?`,
+      'warning'
+    )) {
+      let synced = 0;
+      for (const it of syncCandidates) {
+        try {
+          const snap = it.cuadreSnapshot || {};
+          await syncItemListoToCuadre({
+            plaza,
+            mva: it.mva || it.id,
+            actor,
+            nombreAutor: _state?.profileName || actor,
+            ubicacion: snap.ubicacion || 'PATIO',
+            gasolina: snap.gasolina || 'N/A'
+          });
+          synced += 1;
+        } catch (err) {
+          console.warn('[prep-app] bulk sync', it.mva, err);
+        }
+      }
+      if (synced) _toast(`${synced} unidad(es) sincronizadas con cuadre.`, 'success');
+    }
   } catch (err) {
     console.error('[prep-app] bulk complete', err);
     _toast(err?.message || 'No se pudo completar la acción masiva.', 'error');
@@ -405,6 +431,38 @@ function _toast(message, type = 'info') {
   window.setTimeout(() => { try { el.remove(); } catch (_) {} }, 3200);
 }
 
+async function _offerSyncListoToCuadre(item) {
+  if (!item || item.syncCuadre === false) return;
+  const mva = String(item.mva || item.id || '').toUpperCase().trim();
+  if (!mva) return;
+  const plaza = String(_state?.plaza || '').toUpperCase().trim();
+  if (!plaza) return;
+
+  const ok = await _mexConfirm(
+    'Sincronizar con cuadre',
+    `El checklist de ${mva} está completo. ¿Marcar la unidad como LISTO en el cuadre?`,
+    'warning'
+  );
+  if (!ok) return;
+
+  const actor = _state?.profileEmail || _state?.profileName || '';
+  const snapshot = item.cuadreSnapshot || {};
+  try {
+    await syncItemListoToCuadre({
+      plaza,
+      mva,
+      actor,
+      nombreAutor: _state?.profileName || actor,
+      ubicacion: snapshot.ubicacion || 'PATIO',
+      gasolina: snapshot.gasolina || 'N/A'
+    });
+    _toast(`${mva} marcada como LISTO en cuadre.`, 'success');
+  } catch (err) {
+    console.error('[prep-app] sync cuadre', err);
+    _toast(err?.message || 'No se pudo sincronizar con cuadre.', 'error');
+  }
+}
+
 async function _patchQueueItem(itemId, patch, opts = {}) {
   const plaza = String(_state?.plaza || '').toUpperCase().trim();
   if (!plaza) {
@@ -414,7 +472,7 @@ async function _patchQueueItem(itemId, patch, opts = {}) {
   const item = _state?.items?.find(i => i.id === itemId);
   const mva = item?.mva || itemId;
   try {
-    await patchItem({
+    const result = await patchItem({
       plaza,
       itemId,
       patch,
@@ -424,6 +482,10 @@ async function _patchQueueItem(itemId, patch, opts = {}) {
       logMeta: { mva, ...(opts.logMeta || {}) }
     });
     if (opts.notify !== false) _toast(opts.successMsg || 'Cambios guardados.', 'success');
+    const merged = result?.item || { ...item, ...patch, mva, syncCuadre: item?.syncCuadre };
+    if (result?.becameReady && merged.syncCuadre !== false) {
+      await _offerSyncListoToCuadre(merged);
+    }
     return true;
   } catch (e) {
     console.error('[prep-app] patch', e);

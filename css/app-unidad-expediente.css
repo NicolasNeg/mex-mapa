@@ -354,6 +354,88 @@
   border: 1px solid #fecaca;
 }
 
+.uexp-cola-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--uexp-line);
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.uexp-cola-banner .material-icons {
+  font-size: 20px;
+  opacity: 0.85;
+}
+
+.uexp-cola-banner-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.uexp-cola-banner-text strong {
+  font-weight: 600;
+  color: var(--uexp-ink);
+}
+
+.uexp-cola-banner-text span {
+  color: var(--uexp-muted);
+  font-size: 12px;
+}
+
+.uexp-estados-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--uexp-line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.uexp-estados-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.uexp-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.uexp-chip--flota {
+  background: #f9fafb;
+  color: #374151;
+  border: 1px solid #d1d5db;
+}
+
+.uexp-chip--patio {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.uexp-estado-hint {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.uexp-estado-hint--warn { color: #b45309; }
+.uexp-estado-hint--block { color: #b91c1c; }
+
 .uexp-denied {
   max-width: 420px;
   margin: 48px auto;

@@ -3,6 +3,7 @@
 // ============================================================================
 
 import { getState } from '/js/app/app-state.js';
+import { estadosFlotaCatalog, resolverEstadoFlota, leerEstadoPatioDoc } from '/js/app/features/estados/estado-view-model.js';
 
 export const FIELD_ORDER = [
   'id', 'clase', 'vin', 'anio', 'marca', 'modelo', 'mva', 'placas',
@@ -21,7 +22,7 @@ export const FIELD_LABEL = {
   placas: 'Placas',
   sucursal: 'Locación propietaria',
   plazaActual: 'Locación actual',
-  estado: 'Estatus',
+  estado: 'Estado flota',
   activo: 'Activo',
   color: 'Color',
   capacidadTanque: 'Capacidad tanque (L)',
@@ -47,6 +48,8 @@ export function optionHtml(value, label, selected) {
 }
 
 export function normalizeUnit(row = {}) {
+  const flota = resolverEstadoFlota(row) || norm(row.estado || row.estatus || '');
+  const patio = leerEstadoPatioDoc(row) || '';
   return {
     ...row,
     id: row.id || row.fila || row.mva || '',
@@ -55,7 +58,9 @@ export function normalizeUnit(row = {}) {
     anio: row.anio || row.año || row.year || '',
     sucursal: norm(row.sucursal || row.plaza || row.locacionPropietaria),
     plazaActual: norm(row.plazaActual || row.locacionActual || row.ubicacionActual || row.plaza || ''),
-    estado: norm(row.estado || row.estatus || ''),
+    estado: flota,
+    estadoFlota: flota,
+    estadoPatio: patio,
     activo: normalizeActivo(row.activo ?? row.active ?? true)
   };
 }
@@ -139,10 +144,7 @@ function catalogWithValue(catalog, currentVal) {
 }
 
 export function estadosCatalog(currentVal = '', allUnits = []) {
-  const base = catalogNames('estados');
-  const fromUnits = [...new Set((allUnits || []).map(u => norm(u.estado || u.estatus)).filter(Boolean))];
-  const fallback = ['ARRENDABLE', 'DISPONIBLE', 'RENTADO', 'MANTENIMIENTO', 'TRASLADO', 'SUCIO', 'LIMPIO'];
-  return catalogWithValue([...base, ...fromUnits, ...fallback], currentVal);
+  return catalogWithValue(estadosFlotaCatalog(currentVal), currentVal);
 }
 
 export function fieldCatalog(key, row = null, ctx = {}) {
@@ -229,6 +231,7 @@ export function buildUnitPayload(row, original = null, { plaza = '', actor = 'Si
     plaza: owner,
     plazaActual: actual,
     estado: norm(row.estado || row.estatus),
+    estadoFlota: norm(row.estado || row.estatus || row.estadoFlota),
     activo: normalizeActivo(row.activo),
     capacidadTanque: normalizeCapacidadTanque({ ...(original || {}), ...row }),
     km: numberOrText(row.km),

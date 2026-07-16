@@ -1,4 +1,10 @@
 import { parseKm } from '/domain/kilometraje.model.js';
+import {
+  derivarFlotaDesdePatio,
+  esFlotaCerrada,
+  leerEstadoFlota,
+  normalizarEstadoPatio
+} from '/domain/estado.model.js';
 // ═══════════════════════════════════════════════════════════
 //  js/views/mapa.js  —  ES6 Module
 //  Vista principal: mapa visual de flota.
@@ -6314,6 +6320,21 @@ function filtrarFlota() {
         const vb = (typeof b.km === 'number') ? b.km : -1;
         return sortAsc ? va - vb : vb - va;
       }
+      if (sortCol === 'estadoFlota') {
+        const flotaOf = (u) => {
+          const patio = normalizarEstadoPatio(u.estado) || '';
+          const idx = leerEstadoFlota(u);
+          return (esFlotaCerrada(idx) ? idx : null)
+            || derivarFlotaDesdePatio(patio, idx)
+            || idx
+            || '';
+        };
+        const valA = flotaOf(a).toLowerCase();
+        const valB = flotaOf(b).toLowerCase();
+        if (valA < valB) return sortAsc ? -1 : 1;
+        if (valA > valB) return sortAsc ? 1 : -1;
+        return 0;
+      }
       let valA = (a[sortCol] || '').toString().toLowerCase();
       let valB = (b[sortCol] || '').toString().toLowerCase();
       if (valA < valB) return sortAsc ? -1 : 1;
@@ -6366,20 +6387,18 @@ function renderFlota(data) {
   }
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 40px; color: #64748b;">No se encontraron registros.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = data.map((u, i) => {
-    const estadoClass = u.estado ? u.estado.replace(/\s+/g, '') : "SUCIO";
-
-    let ubiClass = "ubi-DEFAULT";
-    let ubiUpper = (u.ubicacion || "").toUpperCase();
-    if (ubiUpper.includes("PATIO")) ubiClass = "ubi-PATIO";
-    else if (ubiUpper.includes("TALLER")) ubiClass = "ubi-TALLER";
-    else if (ubiUpper.includes("AGENCIA")) ubiClass = "ubi-AGENCIA";
-    else if (ubiUpper.includes("EXTERNO") || ubiUpper.includes("HYP")) ubiClass = "ubi-EXTERNO";
-    else if (ubiUpper && !_esPlazaFija(ubiUpper.replace(/^👤\s*/i, '').trim())) ubiClass = "ubi-PERSONA";
+    const estadoPatio = normalizarEstadoPatio(u.estado) || String(u.estado || 'SUCIO').toUpperCase();
+    const estadoClass = estadoPatio ? estadoPatio.replace(/\s+/g, '') : 'SUCIO';
+    const flotaIndex = leerEstadoFlota(u);
+    const flota = (esFlotaCerrada(flotaIndex) ? flotaIndex : null)
+      || derivarFlotaDesdePatio(estadoPatio, flotaIndex)
+      || flotaIndex
+      || '—';
 
     const responsable = _resolverResponsableCuadreAdmin(u);
     const adminResponsable = String(u.adminResponsable || u._updatedBy || u._createdBy || '').trim();
@@ -6424,8 +6443,9 @@ function renderFlota(data) {
         return `<div class="gas-cell" title="${u.gasolina}"><div class="gas-cell-track"><div class="gas-cell-fill" style="width:${pct}%;background:${gasColor}"></div></div><span class="gas-cell-label" style="color:${gasColor}">${u.gasolina}</span></div>`;
       })()}</td>
       <td class="td-km">${(typeof u.km === 'number') ? u.km.toLocaleString('es-MX') : '—'}</td>
-      <td><span class="badge st-${estadoClass}">${u.estado}</span></td>
-      <td><span class="ubi-badge ${ubiClass}">${u.ubicacion}</span></td>
+      <td><span class="flota-badge" title="Estado flota (negocio)">${escapeHtml(flota)}</span></td>
+      <td><span class="badge st-${estadoClass}" title="Estado patio (cuadre)">${escapeHtml(estadoPatio)}</span></td>
+      <td><span class="ubi-plain" title="Ubicación">${escapeHtml(u.ubicacion || '—')}</span></td>
       ${tdAutor}
     </tr>
     `;

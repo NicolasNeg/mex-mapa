@@ -962,6 +962,9 @@ service cloud.firestore {
       allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
       match /items/{itemId} {
         allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
+        match /eventos/{eventoId} {
+          allow read, write: if tienePerfilActual() && plazaAutorizada(plaza);
+        }
       }
     }
 
@@ -1049,13 +1052,29 @@ service cloud.firestore {
     }
 
     // ─── ASISTENCIA ───────────────────────────────────────────────────────────
-    // Registro de asistencia diaria por usuario/plaza/fecha.
-    // Lectura: cualquier usuario autenticado (para ver su propia asistencia).
-    // Escritura: solo roles administrativos o programador.
+    // Lectura: autenticados.
+    // Admin: create/update libre.
+    // Empleado: solo puede crear/actualizar SU registro en estado PENDIENTE (check-in).
     match /asistencia/{asistenciaId} {
       allow read: if estaAutenticado();
-      allow create, update: if estaAutenticado()
-        && (esAdminOperativo() || esProgramadorBootstrap());
+      allow create: if estaAutenticado() && (
+        esAdminOperativo()
+        || esProgramadorBootstrap()
+        || (
+          request.auth.uid == request.resource.data.usuarioId
+          && request.resource.data.estado == 'PENDIENTE'
+        )
+      );
+      allow update: if estaAutenticado() && (
+        esAdminOperativo()
+        || esProgramadorBootstrap()
+        || (
+          request.auth.uid == resource.data.usuarioId
+          && request.auth.uid == request.resource.data.usuarioId
+          && request.resource.data.estado == 'PENDIENTE'
+          && (resource.data.estado == 'PENDIENTE' || !('estado' in resource.data))
+        )
+      );
       allow delete: if esProgramadorBootstrap();
     }
 

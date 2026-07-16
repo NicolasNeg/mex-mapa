@@ -47,6 +47,8 @@ export function normalizeQueueItem(id, d) {
     notas: String(raw.notas || '').trim(),
     orden: Number.isFinite(orden) ? orden : null,
     origen: String(raw.origen || '').trim(),
+    syncCuadre: raw.syncCuadre !== false,
+    cuadreSnapshot: raw.cuadreSnapshot && typeof raw.cuadreSnapshot === 'object' ? raw.cuadreSnapshot : null,
     entregadoAt,
     creadoEn: toDate(raw.creadoEn || raw.creadoAt || raw.createdAt),
     creadoAt: raw.creadoAt,

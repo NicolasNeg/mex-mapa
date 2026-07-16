@@ -85,6 +85,14 @@
       '.mexbz-cuadre{margin:12px 0;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}',
       '.mexbz-cuadre.ok{background:#ecfdf5;color:#047857}',
       '.mexbz-cuadre.no{background:#fef2f2;color:#b91c1c}',
+      '.mexbz-estado-row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}',
+      '.mex-estado-chip{display:inline-block;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.02em}',
+      '.mex-estado-chip--flota{background:#f9fafb;color:#374151;border:1px solid #d1d5db}',
+      '.mex-estado-chip--patio{border:1px solid transparent}',
+      '.mex-estado-chip--patio.st-LISTO{background:#dcfce7;color:#166534}',
+      '.mex-estado-chip--patio.st-SUCIO{background:#fef3c7;color:#92400e}',
+      '.mex-estado-chip--patio.st-MANTENIMIENTO{background:#fee2e2;color:#991b1b}',
+      '.mex-estado-chip--patio.st-RESGUARDO,.mex-estado-chip--patio.st-RETENIDA{background:#e0e7ff;color:#3730a3}',
       '.mexbz-btn{width:100%;height:48px;border:none;border-radius:12px;background:#2563eb;color:#fff;font-weight:700;font-size:15px;cursor:pointer;font-family:inherit;margin-top:0;display:flex;align-items:center;justify-content:center;gap:8px}',
       '.mexbz-btn:hover{background:#1d4ed8}',
       '.mexbz-btn.ghost{background:#f1f5f9;color:#334155}',
@@ -225,7 +233,9 @@
       vin: u.vin, anio: u.anio || u['año'] || u.anio,
       sucursal: u.sucursal, plazaActual: u.plazaActual, pos: u.pos, ubicacion: u.ubicacion,
       estado: u.estado,
-      hay: [u.mva, u.placas, u.modelo, u.vin, u.categoria, u.sucursal, u.plazaActual].join(' ').toLowerCase(),
+      estadoFlota: u.estadoFlota || u.estado || u.estatus || '',
+      estadoPatio: u.estadoPatio || '',
+      hay: [u.mva, u.placas, u.modelo, u.vin, u.categoria, u.sucursal, u.plazaActual, u.estadoFlota, u.estadoPatio, u.estado].join(' ').toLowerCase(),
       _car: null
     };
   }
@@ -281,6 +291,27 @@
     if (pa === '' || pa == null) return { key: 'no', txt: 'No Registrado', color: '#64748b' };
     return { key: 'err', txt: 'ERROR', color: '#dc2626' };
   }
+
+  function chipsEstadoHtml(d) {
+    if (window.mexEstados && typeof window.mexEstados.chipsHtml === 'function') {
+      return window.mexEstados.chipsHtml(d, esc);
+    }
+    var flota = String(d.estadoFlota || d.estado || '').trim().toUpperCase();
+    var patio = String(d.estadoPatio || '').trim().toUpperCase();
+    var html = '';
+    if (flota) html += '<span class="mex-estado-chip mex-estado-chip--flota">' + esc(flota) + '</span>';
+    if (patio && patio !== flota) {
+      html += '<span class="mex-estado-chip mex-estado-chip--patio st-' + esc(patio.replace(/\s+/g, '')) + '">' + esc(patio) + '</span>';
+    }
+    return html;
+  }
+
+  function flotaLabel(d) {
+    if (window.mexEstados && typeof window.mexEstados.resolverEstadoFlota === 'function') {
+      return window.mexEstados.resolverEstadoFlota(d) || '';
+    }
+    return String(d.estadoFlota || d.estado || '').trim().toUpperCase();
+  }
   function ubicacionTexto(d, st) {
     if (st.key !== 'ok') return 'Sin ubicar';
     var pos = String(d.pos || '').toUpperCase();
@@ -295,13 +326,14 @@
     box.innerHTML = '';
     list.forEach(function (d, idx) {
       var st = estadoCuadre(d);
+      var flota = flotaLabel(d);
       var row = document.createElement('div');
       row.className = 'mexbz-row';
       row.style.animationDelay = Math.min(idx, 12) * 25 + 'ms';
       row.innerHTML =
         '<span class="mexbz-dot" style="background:' + st.color + '"></span>' +
         '<div style="flex:1;min-width:0">' +
-          '<div class="mva">' + esc(d.mva) + '</div>' +
+          '<div class="mva">' + esc(d.mva) + (flota ? ' <span style="font-size:11px;font-weight:600;color:#6b7280">· ' + esc(flota) + '</span>' : '') + '</div>' +
           '<div class="sub">' + esc(d.sucursal || '?') + (st.key === 'ok' ? ' → ' + esc(d.plazaActual) : ' · ' + st.txt) + (d.modelo ? ' · ' + esc(d.modelo) : '') + '</div>' +
         '</div><span class="material-icons" style="color:#cbd5e1">chevron_right</span>';
       row.addEventListener('click', function () { fichaUnidad(d); });
@@ -313,14 +345,18 @@
     var st = estadoCuadre(d);
     var canView = st.key === 'ok' && typeof window.__mexCanViewPlaza === 'function' && window.__mexCanViewPlaza(d.plazaActual);
     var canUnit = typeof window.__mexCanViewUnidadExpediente === 'function' && window.__mexCanViewUnidadExpediente();
+    var chips = chipsEstadoHtml(d);
     var box = document.getElementById('mexbzResults');
     box.innerHTML =
       '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
       '<div class="mexbz-ficha">' +
         '<h3>' + esc(d.mva) + '</h3>' +
+        (chips ? '<div class="mexbz-estado-row">' + chips + '</div>' : '') +
         '<div class="mexbz-cuadre ' + (st.key === 'ok' ? 'ok' : 'no') + '" style="' + (st.key === 'err' ? 'background:#fef2f2;color:#dc2626' : '') + '"><span class="material-icons" style="font-size:18px">' + (st.key === 'ok' ? 'check_circle' : (st.key === 'err' ? 'error' : 'help')) + '</span>' + st.txt + '</div>' +
         kv('Sucursal (origen)', d.sucursal || '—') +
         kv('Plaza actual', st.key === 'ok' ? d.plazaActual : '—') +
+        kv('Estado flota', flotaLabel(d) || '—') +
+        kv('Estado patio', (d.estadoPatio || (window.mexEstados && window.mexEstados.leerEstadoPatio ? window.mexEstados.leerEstadoPatio(d) : '')) || '—') +
         kv('Ubicación', ubicacionTexto(d, st)) +
         kv('Placas', d.placas || '—') +
         kv('Modelo', d.modelo || '—') +

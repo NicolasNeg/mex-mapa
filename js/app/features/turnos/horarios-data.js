@@ -19,12 +19,18 @@ export const TIPOS_DIA = Object.freeze({
 });
 
 export const ESTADOS_ASISTENCIA = Object.freeze({
-  PRESENTE:    { label: 'Presente',    color: '#10b981' },
-  AUSENTE:     { label: 'Ausente',     color: '#ef4444' },
-  TARDE:       { label: 'Tarde',       color: '#f59e0b' },
-  JUSTIFICADO: { label: 'Justificado', color: '#3b82f6' },
-  DESCANSO:    { label: 'Descanso',    color: '#94a3b8' },
+  PENDIENTE:   { label: 'Por confirmar', color: '#f59e0b' },
+  PRESENTE:    { label: 'Presente',      color: '#10b981' },
+  AUSENTE:     { label: 'Ausente',       color: '#ef4444' },
+  TARDE:       { label: 'Tarde',         color: '#f59e0b' },
+  JUSTIFICADO: { label: 'Justificado',   color: '#3b82f6' },
+  DESCANSO:    { label: 'Descanso',      color: '#94a3b8' },
 });
+
+/** Estados ya confirmados por admin — el check-in no los pisa. */
+export const ESTADOS_ASISTENCIA_CONFIRMADOS = Object.freeze([
+  'PRESENTE', 'AUSENTE', 'TARDE', 'JUSTIFICADO', 'DESCANSO'
+]);
 
 export const DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'];
 
@@ -76,9 +82,13 @@ export function fechaDia(semana, diaKey) {
   return d.toISOString().slice(0, 10);
 }
 
-/** Hoy como YYYY-MM-DD */
+/** Hoy como YYYY-MM-DD en zona local (no UTC). */
 export function hoy() {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /** Rango de fechas (lunes a domingo) para una semana. */
@@ -140,6 +150,49 @@ export async function guardarHorario(usuarioId, plaza, semana, dias, meta = {}) 
   return docId;
 }
 
+/** Copia todos los horarios de la semana anterior a semanaDestino. */
+export async function copiarSemanaAnterior(plaza, semanaDestino) {
+  const p = String(plaza || '').trim();
+  const destino = String(semanaDestino || '').slice(0, 10);
+  if (!p || !destino) throw new Error('Plaza y semana requeridas.');
+
+  const origen = moverSemana(destino, -1);
+  const snap = await db.collection(COL.HORARIOS)
+    .where('plaza', '==', p)
+    .where('semanaInicio', '==', origen)
+    .get();
+
+  if (snap.empty) {
+    return { count: 0, semanaOrigen: origen };
+  }
+
+  const fv = _fv();
+  const batch = db.batch();
+  let count = 0;
+
+  snap.docs.forEach(doc => {
+    const data = doc.data() || {};
+    const usuarioId = data.usuarioId;
+    if (!usuarioId) return;
+    const ref = db.collection(COL.HORARIOS).doc(horarioDocId(p, destino, usuarioId));
+    batch.set(ref, {
+      usuarioId,
+      usuarioNombre: String(data.usuarioNombre || '').trim(),
+      usuarioRol: String(data.usuarioRol || '').toUpperCase(),
+      plaza: p,
+      semanaInicio: destino,
+      dias: data.dias || {},
+      actualizadoPor: _authUid(),
+      actualizadoEn: fv ? fv.serverTimestamp() : Date.now(),
+      creadoEn: fv ? fv.serverTimestamp() : Date.now()
+    }, { merge: true });
+    count += 1;
+  });
+
+  if (count) await batch.commit();
+  return { count, semanaOrigen: origen };
+}
+
 /** Horario de un usuario para una semana (one-shot). */
 export async function getMiHorario(usuarioId, plaza, semana) {
   const docId = horarioDocId(plaza, semana, usuarioId);
@@ -167,23 +220,35 @@ export function onAsistencia(plaza, fechaInicio, fechaFin, callback) {
 /** Registra o actualiza la asistencia de un usuario en una fecha. */
 export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts = {}) {
   const fv = _fv();
+  const uid = String(usuarioId || '').trim();
+  const p = String(plaza || '').trim();
+  const f = String(fecha || '').slice(0, 10);
+  const est = String(estado || '').toUpperCase().trim();
+  if (!uid || !p || !f || !est) throw new Error('Asistencia incompleta.');
+
   let q = db.collection(COL.ASISTENCIA)
-    .where('usuarioId', '==', usuarioId)
-    .where('plaza', '==', plaza)
-    .where('fecha', '==', fecha);
+    .where('usuarioId', '==', uid)
+    .where('plaza', '==', p)
+    .where('fecha', '==', f);
   const snap = await q.limit(1).get();
 
   const base = {
-    usuarioId,
-    usuarioNombre:  String(opts.nombre || '').trim(),
-    plaza,
-    fecha,
-    estado,
-    nota:          String(opts.nota    || '').trim(),
-    turnoId:       opts.turnoId || null,
+    usuarioId: uid,
+    usuarioNombre: String(opts.nombre || '').trim(),
+    plaza: p,
+    fecha: f,
+    estado: est,
+    nota: String(opts.nota || '').trim(),
+    turnoId: opts.turnoId || null,
+    origen: String(opts.origen || 'MANUAL').toUpperCase(),
     registradoPor: _authUid(),
-    registradoEn:  fv ? fv.serverTimestamp() : Date.now(),
+    registradoEn: fv ? fv.serverTimestamp() : Date.now(),
   };
+
+  if (opts.confirmadoPor) {
+    base.confirmadoPor = opts.confirmadoPor;
+    base.confirmadoEn = fv ? fv.serverTimestamp() : Date.now();
+  }
 
   if (snap.empty) {
     const ref = await db.collection(COL.ASISTENCIA).add(base);
@@ -193,17 +258,98 @@ export async function registrarAsistencia(usuarioId, plaza, fecha, estado, opts 
   return snap.docs[0].id;
 }
 
+/**
+ * Check-in: crea asistencia PENDIENTE (por confirmar admin).
+ * No pisa registros ya confirmados (PRESENTE/AUSENTE/…).
+ */
+export async function registrarAsistenciaDesdeCheckin(usuarioId, plaza, fecha, opts = {}) {
+  const uid = String(usuarioId || '').trim();
+  const p = String(plaza || '').trim();
+  const f = String(fecha || hoy()).slice(0, 10);
+  if (!uid || !p) throw new Error('Asistencia incompleta.');
+
+  const snap = await db.collection(COL.ASISTENCIA)
+    .where('usuarioId', '==', uid)
+    .where('plaza', '==', p)
+    .where('fecha', '==', f)
+    .limit(1)
+    .get();
+
+  if (!snap.empty) {
+    const data = snap.docs[0].data() || {};
+    const actual = String(data.estado || '').toUpperCase();
+    if (ESTADOS_ASISTENCIA_CONFIRMADOS.includes(actual)) {
+      return { id: snap.docs[0].id, skipped: true, reason: 'CONFIRMADO', estado: actual };
+    }
+    // Ya pendiente: solo refresca turnoId / timestamp
+    const fv = _fv();
+    await snap.docs[0].ref.update({
+      estado: 'PENDIENTE',
+      turnoId: opts.turnoId || data.turnoId || null,
+      origen: 'CHECKIN',
+      registradoPor: _authUid(),
+      registradoEn: fv ? fv.serverTimestamp() : Date.now(),
+      usuarioNombre: String(opts.nombre || data.usuarioNombre || '').trim()
+    });
+    return { id: snap.docs[0].id, skipped: false, estado: 'PENDIENTE' };
+  }
+
+  const id = await registrarAsistencia(uid, p, f, 'PENDIENTE', {
+    ...opts,
+    origen: 'CHECKIN'
+  });
+  return { id, skipped: false, estado: 'PENDIENTE' };
+}
+
+/** Admin confirma o ajusta un registro pendiente. */
+export async function confirmarAsistencia(usuarioId, plaza, fecha, estadoFinal, opts = {}) {
+  const est = String(estadoFinal || 'PRESENTE').toUpperCase().trim();
+  if (!ESTADOS_ASISTENCIA_CONFIRMADOS.includes(est)) {
+    throw new Error('Estado de confirmación inválido.');
+  }
+  return registrarAsistencia(usuarioId, plaza, fecha, est, {
+    ...opts,
+    origen: opts.origen || 'CONFIRMACION',
+    confirmadoPor: _authUid()
+  });
+}
+
 // ── Historial de turnos ───────────────────────────────────────
-/** Trae los últimos 'limit' turnos CERRADOS de la plaza (o del usuario). */
+/** Trae turnos CERRADOS de un usuario en rango de fechas (historial por colaborador). */
 export async function getHistorialTurnos(plaza, opts = {}) {
-  const lim = opts.limit || 40;
-  let q = db.collection(COL.TURNOS).where('estado', '==', 'CERRADO');
-  if (plaza) q = q.where('plazaId', '==', plaza);
-  if (opts.usuarioId) q = q.where('usuarioId', '==', opts.usuarioId);
+  const lim = opts.limit || 80;
+  const usuarioId = String(opts.usuarioId || '').trim();
+  if (!usuarioId) return [];
+
+  const desde = String(opts.desde || '').slice(0, 10);
+  const hasta = String(opts.hasta || '').slice(0, 10);
+  const Timestamp = window.firebase?.firestore?.Timestamp;
+
+  let q = db.collection(COL.TURNOS)
+    .where('estado', '==', 'CERRADO')
+    .where('usuarioId', '==', usuarioId);
+
+  if (desde) {
+    const start = Timestamp?.fromDate?.(new Date(`${desde}T00:00:00`))
+      || new Date(`${desde}T00:00:00`);
+    q = q.where('inicio', '>=', start);
+  }
+  if (hasta) {
+    const end = Timestamp?.fromDate?.(new Date(`${hasta}T23:59:59.999`))
+      || new Date(`${hasta}T23:59:59.999`);
+    q = q.where('inicio', '<=', end);
+  }
+
   q = q.orderBy('inicio', 'desc').limit(lim);
+
   try {
     const snap = await q.get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    let rows = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const p = String(plaza || '').trim();
+    if (p) {
+      rows = rows.filter(r => String(r.plazaId || r.plaza || '').toUpperCase() === p.toUpperCase());
+    }
+    return rows;
   } catch (err) {
     if (isFirestoreIndexError(err)) {
       const e = new Error('INDEX_MISSING');

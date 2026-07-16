@@ -2,13 +2,14 @@
  * Cola de preparación — escrituras Firestore + logs operativos (tipo COLA).
  */
 
-import { db, COL } from '/js/core/database.js';
+import { db, COL, aplicarEstado } from '/js/core/database.js';
 import { queueItemsRef } from '/js/app/features/cola-preparacion/cola-data.js';
 import {
   CHECKLIST_KEYS,
   deriveEstadoCola,
   departureLabel,
-  isItemReady
+  isItemReady,
+  normalizeQueueItem
 } from '/js/app/features/cola-preparacion/cola-view-model.js';
 
 function fv() {
@@ -73,6 +74,70 @@ function touchMeta(payload, actor) {
   };
 }
 
+async function appendColaEvento(plaza, itemId, tipo, payload = {}, actor = '') {
+  const p = normalizePlaza(plaza);
+  const id = String(itemId || '').trim();
+  if (!p || !id) return;
+  const fieldValue = fv();
+  const Timestamp = ts();
+  try {
+    await queueItemsRef(p).doc(id).collection('eventos').add({
+      tipo: String(tipo || 'EVENTO').toUpperCase(),
+      payload,
+      actor: actor || '',
+      timestamp: fieldValue?.serverTimestamp?.() || Timestamp?.now?.() || Date.now()
+    });
+  } catch (e) {
+    console.warn('[cola-mutations] evento failed', e);
+  }
+}
+
+/**
+ * Marca la unidad como LISTO en cuadre/externos cuando el checklist de cola está completo.
+ */
+export async function syncItemListoToCuadre({
+  plaza,
+  mva,
+  actor = '',
+  nombreAutor = '',
+  ubicacion = '',
+  gasolina = 'N/A',
+  nota = ''
+} = {}) {
+  const p = normalizePlaza(plaza);
+  const m = normalizeMva(mva);
+  if (!p || !m) throw new Error('Plaza y MVA requeridos.');
+
+  const snapshot = await fetchCuadreSnapshot(p, m);
+  const ubi = String(ubicacion || snapshot?.ubicacion || 'PATIO').trim();
+  const gas = String(gasolina || snapshot?.gasolina || 'N/A').trim();
+  const autor = String(nombreAutor || actor || 'Sistema').trim();
+  const notaFinal = String(nota || 'Lista en cola de preparación').trim();
+
+  const res = await aplicarEstado(
+    m,
+    'LISTO',
+    ubi,
+    gas,
+    notaFinal,
+    false,
+    autor,
+    autor,
+    p
+  );
+
+  if (typeof res === 'object' && res?.code === 'CONFLICT') {
+    throw new Error(`Conflicto de versión en ${m}. Recarga el cuadre e intenta de nuevo.`);
+  }
+  if (typeof res === 'string' && /^ERROR/i.test(res)) {
+    throw new Error(res);
+  }
+
+  await appendColaEvento(p, m, 'SYNC_CUADRE', { estado: 'LISTO', ubicacion: ubi, gasolina: gas }, actor);
+  await registrarLogCola(`🚀 SYNC CUADRE: ${m} → LISTO`, actor, p, { mva: m });
+  return { ok: true };
+}
+
 function checklistAllTrue() {
   return CHECKLIST_KEYS.reduce((acc, key) => {
     acc[key] = true;
@@ -134,7 +199,8 @@ export async function enqueueUnit({
     asignado: String(asignado || '').trim(),
     notas: String(notas || '').trim(),
     orden: nextOrden,
-    origen: String(origen || 'MANUAL').toUpperCase()
+    origen: String(origen || 'MANUAL').toUpperCase(),
+    syncCuadre: true
   };
   if (snapshot) payload.cuadreSnapshot = snapshot;
   if (fieldValue) {
@@ -145,6 +211,8 @@ export async function enqueueUnit({
   }
 
   await ref.set(payload, { merge: true });
+
+  await appendColaEvento(p, m, 'ALTA', { origen: payload.origen, fechaSalida: departure.toISOString() }, actor);
 
   const fechaLabel = departureLabel(departure);
   await registrarLogCola(
@@ -173,6 +241,12 @@ export async function patchItem({
   const id = String(itemId || '').trim();
   if (!p || !id) throw new Error('Plaza e ítem requeridos.');
 
+  const ref = queueItemsRef(p).doc(id);
+  const beforeSnap = await ref.get();
+  const beforeItem = beforeSnap.exists
+    ? normalizeQueueItem(id, beforeSnap.data() || {})
+    : normalizeQueueItem(id, {});
+
   const mva = normalizeMva(logMeta.mva || patch.mva || id);
   const cleanPatch = { ...patch };
   delete cleanPatch.mva;
@@ -189,7 +263,15 @@ export async function patchItem({
     });
   }
 
-  await queueItemsRef(p).doc(id).set(mergePayload, { merge: true });
+  await ref.set(mergePayload, { merge: true });
+
+  const afterItem = normalizeQueueItem(id, {
+    ...(beforeSnap.data() || {}),
+    ...mergePayload,
+    checklist: mergePayload.checklist || beforeItem.checklist,
+    mva: beforeItem.mva || mva
+  });
+  const becameReady = !isItemReady(beforeItem) && isItemReady(afterItem);
 
   if (logType === 'checklist' && cleanPatch.checklist) {
     const parts = CHECKLIST_KEYS.filter(k => cleanPatch.checklist[k] === true).map(k => `${k} ✓`);
@@ -214,11 +296,16 @@ export async function patchItem({
     await registrarLogCola(`📝 NOTAS COLA: ${mva}`, actor, p, { mva });
   } else if (logType === 'complete') {
     await registrarLogCola(`🚀 LISTO PREP: ${mva} · checklist completo`, actor, p, { mva });
+    await appendColaEvento(p, id, 'CHECKLIST', { complete: true }, actor);
   } else if (logType === 'save') {
     await registrarLogCola(`✏️ COLA: ${mva} · datos operativos actualizados`, actor, p, { mva });
   }
 
-  return { ok: true };
+  if (becameReady && logType !== 'complete') {
+    await appendColaEvento(p, id, 'CHECKLIST', { complete: true }, actor);
+  }
+
+  return { ok: true, becameReady, item: afterItem };
 }
 
 export async function removeItem({ plaza, itemId, actor = '', mva = '' } = {}) {

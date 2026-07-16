@@ -15,6 +15,20 @@ export function queueItemsRef(plaza) {
   return db.collection(COL.COLA_PREPARACION).doc(p).collection('items');
 }
 
+/** Ítem activo en cola para un MVA (one-shot). */
+export async function getColaItemForMva(plaza, mva) {
+  const p = normalizePlaza(plaza);
+  const m = String(mva || '').toUpperCase().trim();
+  if (!p || !m) return null;
+  try {
+    const snap = await queueItemsRef(p).doc(m).get();
+    if (!snap.exists) return null;
+    return normalizeQueueItem(m, snap.data() || {});
+  } catch (_) {
+    return null;
+  }
+}
+
 /**
  * @param {{ plaza: string, onData: (items: object[]) => void, onError?: (err: Error) => void }} opts
  * @returns {() => void} unsubscribe

@@ -8,7 +8,7 @@ import {
   iniciarTurno as iniciarTurnoData,
   cerrarTurno as cerrarTurnoData,
 } from '/js/app/features/turnos/turnos-data.js';
-import { registrarAsistencia, hoy } from '/js/app/features/turnos/horarios-data.js';
+import { registrarAsistenciaDesdeCheckin, hoy } from '/js/app/features/turnos/horarios-data.js';
 import { formatDuration, turnoInicioDate } from '/js/app/features/turnos/turnos-view-model.js';
 
 async function registrarLogTurno(accion, autor, plaza, extra = {}) {
@@ -48,10 +48,18 @@ export async function iniciarTurno(user, plazaId) {
   );
 
   try {
-    await registrarAsistencia(firebaseUid, plaza, hoy(), 'PRESENTE', {
+    const res = await registrarAsistenciaDesdeCheckin(firebaseUid, plaza, hoy(), {
       nombre,
-      turnoId,
+      turnoId
     });
+    if (!res?.skipped) {
+      await registrarLogTurno(
+        `⏳ ASISTENCIA PENDIENTE: ${nombre} · por confirmar`,
+        nombre,
+        plaza,
+        { turnoId, usuarioId: firebaseUid }
+      );
+    }
   } catch (e) {
     console.warn('[turnos-mutations] auto-asistencia:', e);
   }

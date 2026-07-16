@@ -29,6 +29,73 @@
     } catch (_) { /* el sync del índice no debe afectar la mutación */ }
   }
 
+  // ponytail: espejo de domain/estado.model.js (scripts clásicos no importan ES modules).
+  const _ESTADOS_FLOTA_CERRADOS = ['EN RENTA', 'TRASLADO', 'VENTA'];
+  const _ESTADOS_PATIO_ARRENDABLES = ['LISTO', 'SUCIO', 'RESGUARDO'];
+
+  function _normFlota(valor) {
+    const upper = String(valor || '').trim().toUpperCase();
+    if (!upper) return null;
+    if (upper === 'RENTADO' || upper === 'RENTADA') return 'EN RENTA';
+    if (upper === 'DISPONIBLE' || upper === 'LIMPIO') return 'ARRENDABLE';
+    const ok = ['ARRENDABLE', 'NO ARRENDABLE', 'EN RENTA', 'TRASLADO', 'VENTA', 'MANTENIMIENTO'];
+    return ok.includes(upper) ? upper : null;
+  }
+
+  function _normPatio(valor) {
+    const upper = String(valor || '').trim().toUpperCase();
+    if (!upper) return null;
+    const ok = ['LISTO', 'SUCIO', 'MANTENIMIENTO', 'RESGUARDO', 'TRASLADO', 'NO ARRENDABLE', 'RETENIDA', 'VENTA', 'EXTERNO'];
+    return ok.includes(upper) ? upper : upper;
+  }
+
+  function _leerFlotaIndex(data) {
+    return _normFlota((data && (data.estadoFlota || data.estado || data.estatus)) || '');
+  }
+
+  function _derivarFlotaDesdePatio(estadoPatio, flotaActual) {
+    const patio = _normPatio(estadoPatio);
+    const actual = _normFlota(flotaActual);
+    if (actual && _ESTADOS_FLOTA_CERRADOS.includes(actual)) return actual;
+    if (!patio || patio === 'EXTERNO') return actual;
+    if (_ESTADOS_PATIO_ARRENDABLES.includes(patio)) return 'ARRENDABLE';
+    if (patio === 'MANTENIMIENTO') return 'MANTENIMIENTO';
+    if (patio === 'NO ARRENDABLE' || patio === 'RETENIDA') return 'NO ARRENDABLE';
+    if (patio === 'TRASLADO') return 'TRASLADO';
+    if (patio === 'VENTA') return 'VENTA';
+    return actual;
+  }
+
+  /** Sync ubicación + estadoFlota/estadoPatio al índice global. */
+  async function _syncIndexEstadoYUbicacion(mva, { plazaActual, ubicacion, estadoPatio, pos } = {}) {
+    try {
+      const mvaStr = String(mva || '').toUpperCase().trim();
+      if (!mvaStr) return;
+      const snap = await db.collection(COL.INDEX).where('mva', '==', mvaStr).limit(1).get();
+      if (snap.empty) return;
+      const doc = snap.docs[0];
+      const data = doc.data() || {};
+      const patio = _normPatio(estadoPatio);
+      const flotaActual = _leerFlotaIndex(data);
+      const patch = {};
+      if (plazaActual !== undefined) patch.plazaActual = plazaActual;
+      if (ubicacion !== undefined) patch.ubicacion = ubicacion;
+      if (pos !== undefined) patch.pos = pos;
+      if (patio) {
+        patch.estadoPatio = patio;
+        const nextFlota = _derivarFlotaDesdePatio(patio, flotaActual);
+        if (nextFlota) {
+          patch.estadoFlota = nextFlota;
+          // Alias legacy: Unidades / formularios que aún leen `estado` del index.
+          if (!flotaActual || !_ESTADOS_FLOTA_CERRADOS.includes(flotaActual)) {
+            patch.estado = nextFlota;
+          }
+        }
+      }
+      if (Object.keys(patch).length) await doc.ref.set(patch, { merge: true });
+    } catch (_) { /* sync índice no debe romper mutación */ }
+  }
+
   // ── KILOMETRAJE ──────────────────────────────────────────
   // ponytail: copia privada de domain/kilometraje.model.js::clasificarCaptura
   // (los scripts clásicos no importan ES modules). Mantener en sincronía.
@@ -144,7 +211,11 @@
       };
       if (plazaUp && !actual.plaza) updatePayload.plaza = plazaUp;
       await docRef.update(updatePayload);
-      _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp, ubicacion: ubi });
+      _syncIndexEstadoYUbicacion(mvaStr, {
+        plazaActual: plazaUp,
+        ubicacion: ubi,
+        estadoPatio: estado
+      });
       await _actualizarFeed(_feedAccionUnidad(mvaStr, actual, estado, ubi, gas, notaFinal, notaEntrada, borrarNotas), responsableSesion, plazaUp);
 
       const cambiosReales = [];
@@ -284,15 +355,25 @@
       // Completitud del índice global: si la unidad no tiene doc en index_unidades,
       // lo creamos para que sea buscable (con su ubicación actual ya puesta).
       if (indexSnap.empty) {
+        const patioInit = _normPatio(objeto.estado || 'SUCIO') || 'SUCIO';
+        const flotaInit = _derivarFlotaDesdePatio(patioInit, null) || 'ARRENDABLE';
         await db.collection(COL.INDEX).add({
           mva: mvaStr,
           sucursal: plazaUp || '',
           modelo: unitData.modelo, placas: unitData.placas, categoria: unitData.categoria,
           plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: objeto.ubicacion || 'PATIO',
+          estadoPatio: patioInit,
+          estadoFlota: flotaInit,
+          estado: flotaInit,
           _createdAt: ahora, _createdBy: objeto.responsableSesion || 'Sistema'
         }).catch(function () {});
       } else {
-        _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: objeto.ubicacion || 'PATIO' });
+        _syncIndexEstadoYUbicacion(mvaStr, {
+          plazaActual: plazaUp || '',
+          pos: 'LIMBO',
+          ubicacion: objeto.ubicacion || 'PATIO',
+          estadoPatio: objeto.estado || 'SUCIO'
+        });
       }
       // Captura de km al insertar (obligatoria en el form; tolerante aquí para
       // callers legacy sin km, p.ej. el comando de voz).

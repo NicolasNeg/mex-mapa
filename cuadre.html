@@ -39,6 +39,7 @@
   <script src="/api/settings.js"></script>
   <script src="/api/users.js"></script>
   <script src="/api/_assemble.js"></script>
+  <script src="/js/core/estado-bridge.js"></script>
   <script src="/js/core/app-bootstrap.js"></script>
   <script src="/js/core/feature-gates.js"></script>
 
@@ -860,9 +861,10 @@
                     <th onclick="sortFlota('placas')" class="sortable">Placas ↕</th>
                     <th onclick="sortFlota('gasolina')" class="sortable">Gas ↕</th>
                     <th onclick="sortFlota('km')" class="sortable">KM ↕</th>
+                    <th onclick="sortFlota('estadoFlota')" class="sortable" title="Disponibilidad de negocio">FLOTA ↕</th>
                     <th>
-                      <select id="filter-est" class="excel-filter" onchange="filtrarFlota()">
-                        <option value="">ESTADO (ALL)</option>
+                      <select id="filter-est" class="excel-filter" onchange="filtrarFlota()" title="Estado operativo en patio">
+                        <option value="">PATIO (ALL)</option>
                       </select>
                     </th>
                     <th>
