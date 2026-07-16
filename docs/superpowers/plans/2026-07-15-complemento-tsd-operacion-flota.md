@@ -43,10 +43,10 @@ Fuente: `MapGestion/POR ARREGLAR.md`
 
 | # | Issue | Archivos probables | Done when |
 |---|--------|-------------------|-----------|
-| P0-1 | Alertas sin estilo + reaparecen aunque leídas | alertas CSS/JS, mark-as-read | Estilo correcto; leída no vuelve a “nueva” |
-| P0-2 | Se puede insertar 2× la misma unidad; no valida `plazaActual` | `api/cuadre.js` insert, index | Insert bloquea si MVA ya en cuadre o `plazaActual` otra plaza |
-| P0-3 | Buscador → “Ver en mapa” no resalta / no pasa MVA al mapa | `mapa-buscador.js`, `__mexGoToMapUnit`, mapa search | Al llegar, input + highlight de esa unidad |
-| P0-4 | Cuadre sin “Más controles” / “Controles admin” | `cuadre.html`, shell iframe, `mapa.js` fleet UI | Menús restaurados en ruta cuadre |
+| P0-1 | Alertas sin estilo + reaparecen aunque leídas | alertas CSS/JS, mark-as-read | Estilo correcto; leída no vuelve a “nueva” | **2026-07-15:** alias-aware `_alertReadByUser` + portal modal |
+| P0-2 | Se puede insertar 2× la misma unidad; no valida `plazaActual` | `api/cuadre.js` insert, index | Insert bloquea si MVA ya en cuadre o `plazaActual` otra plaza | ✅ guards en API |
+| P0-3 | Buscador → “Ver en mapa” no resalta / no pasa MVA al mapa | `mapa-buscador.js`, `__mexGoToMapUnit`, mapa search | Al llegar, input + highlight de esa unidad | **2026-07-15:** badge En cuadre → mapa; `?mva=` en mount |
+| P0-4 | Cuadre sin “Más controles” / “Controles admin” | `cuadre.html`, shell iframe, `mapa.js` fleet UI | Menús restaurados en ruta cuadre | ✅ Más controles; sin Unidades globales |
 
 ---
 

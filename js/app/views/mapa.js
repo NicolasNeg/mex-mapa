@@ -238,7 +238,24 @@ export async function mount(ctx) {
   // Al mostrar: el stage pudo dimensionarse en 0 mientras estaba oculto → re-fit
   // y re-dibujar SOLO si el grid quedó vacío (no redibuja si ya está pintado).
   _kickMapaRender();
-  // "Ver en mapa" desde el buscador global deja window.__mexPendingMapFocus.
+
+  // Deep link /app/mapa?mva=D5129&plaza=BJX (cola, compartidos, etc.)
+  try {
+    const qs = new URLSearchParams(window.location.search || '');
+    const mvaQs = String(qs.get('mva') || '').trim().toUpperCase();
+    const plazaQs = String(qs.get('plaza') || '').trim().toUpperCase();
+    if (mvaQs) {
+      window.__mexPendingMapFocus = mvaQs;
+      if (plazaQs && window.__mexCanViewPlaza?.(plazaQs)) {
+        // Preferir el helper del shell (cambia plaza + deja focus pendiente).
+        if (typeof window.__mexGoToMapUnit === 'function') {
+          window.__mexGoToMapUnit(mvaQs, plazaQs);
+        }
+      }
+    }
+  } catch (_) {}
+
+  // "Ver en mapa" / ?mva= deja window.__mexPendingMapFocus.
   _applyPendingFocus();
 
   if (_shell) _shell.setHeaderActions(null);

@@ -9866,6 +9866,13 @@ function abrirSiguienteAlerta() {
   alertaAccionActualActiva = accion.type === 'NONE' ? null : accion;
   _renderizarBotonAccionAlerta(btnAccion, accion, metaTipo.color);
 
+  // Portal al body: en rutas SPA el modal vive dentro del stage del mapa
+  // (display:none fuera de /app/mapa) y sin esto las interruptivas fallan.
+  try {
+    if (modalAlerta.parentElement !== document.body) {
+      document.body.appendChild(modalAlerta);
+    }
+  } catch (_) {}
   modalAlerta.classList.add('active');
 }
 

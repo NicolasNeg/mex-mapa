@@ -512,10 +512,39 @@ function _alertMatchesUser(alerta, usuarioActivo) {
   return destinatarios.includes(usuario);
 }
 
+function _alertIdentityAliases(usuarioActivo) {
+  const aliases = new Set();
+  const push = (v) => {
+    const u = String(v || "").trim().toUpperCase();
+    if (u) aliases.add(u);
+  };
+  push(usuarioActivo);
+  try {
+    const authUser = (typeof auth !== "undefined" && auth?.currentUser) || window._auth?.currentUser;
+    push(authUser?.displayName);
+    push(authUser?.email);
+    push(authUser?.uid);
+  } catch (_) {}
+  try {
+    const profile = window.__mexCurrentUserRecord || {};
+    push(profile.nombre);
+    push(profile.usuario);
+    push(profile.nombreCompleto);
+    push(profile.displayName);
+    push(profile.email);
+    push(profile.uid);
+  } catch (_) {}
+  return [...aliases];
+}
+
 function _alertReadByUser(alerta, usuarioActivo) {
-  const usuario = String(usuarioActivo || "").trim().toUpperCase();
-  if (!usuario) return false;
-  return _splitAlertCsv(alerta && alerta.leidoPor).includes(usuario);
+  const readers = _splitAlertCsv(
+    (alerta && (alerta.leidoPor || alerta.leidaPor || alerta.readBy || alerta.vistoPor)) || ""
+  );
+  if (!readers.length) return false;
+  const aliases = _alertIdentityAliases(usuarioActivo);
+  if (!aliases.length) return false;
+  return aliases.some((a) => readers.includes(a));
 }
 
 function _sanitizeRole(role) {
@@ -2082,16 +2111,13 @@ const API_FUNCTIONS = {
     const snap = await ref.get();
     if (!snap.exists) return "ERROR";
     const lectores = _splitAlertCsv(snap.data().leidoPor);
-    // Fallback al usuario de Firebase Auth cuando usuarioActivo llega vacío
-    const usuario = String(
-      usuarioActivo ||
-      auth.currentUser?.displayName ||
-      auth.currentUser?.email ||
-      auth.currentUser?.uid ||
-      ""
-    ).trim().toUpperCase();
-    if (!usuario) return "ERROR";
-    if (!lectores.includes(usuario)) lectores.push(usuario);
+    // Guardar todos los alias conocidos (nombre / email / uid) para que
+    // checarNotificaciones no vuelva a mostrar la alerta como nueva.
+    const aliases = _alertIdentityAliases(usuarioActivo);
+    if (!aliases.length) return "ERROR";
+    aliases.forEach((usuario) => {
+      if (!lectores.includes(usuario)) lectores.push(usuario);
+    });
     await ref.update({ leidoPor: lectores.join(", ") });
     return "OK";
   },

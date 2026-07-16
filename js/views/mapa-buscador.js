@@ -85,6 +85,9 @@
       '.mexbz-cuadre{margin:12px 0;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}',
       '.mexbz-cuadre.ok{background:#ecfdf5;color:#047857}',
       '.mexbz-cuadre.no{background:#fef2f2;color:#b91c1c}',
+      '.mexbz-cuadre--goto{cursor:pointer;outline:none}',
+      '.mexbz-cuadre--goto:hover{filter:brightness(.97);box-shadow:inset 0 0 0 1px rgba(4,120,87,.25)}',
+      '.mexbz-goto-hint{font-weight:600;opacity:.75;font-size:12px}',
       '.mexbz-estado-row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}',
       '.mex-estado-chip{display:inline-block;padding:4px 10px;border-radius:4px;font-size:11px;font-weight:600;letter-spacing:.02em}',
       '.mex-estado-chip--flota{background:#f9fafb;color:#374151;border:1px solid #d1d5db}',
@@ -413,12 +416,26 @@
       var chips = chipsEstadoHtml(unit);
       var flota = flotaLabel(unit);
       var patio = patioLabel(unit);
+      var canView = st.key === 'ok'
+        && typeof window.__mexCanViewPlaza === 'function'
+        && window.__mexCanViewPlaza(unit.plazaActual);
+      // Sin botones grandes (Ver unidad / Ver en mapa): el badge "En cuadre"
+      // abre el mapa con focus del MVA — es el deep-link de POR ARREGLAR.
+      var cuadreBadge = '<div class="mexbz-cuadre ' + (st.key === 'ok' ? 'ok' : 'no')
+        + (canView ? ' mexbz-cuadre--goto' : '')
+        + '" style="' + (st.key === 'err' ? 'background:#fef2f2;color:#dc2626' : '') + '"'
+        + (canView ? ' id="mexbzGoMap" role="button" tabindex="0" title="Abrir en mapa"' : '')
+        + '><span class="material-icons" style="font-size:18px">'
+        + (st.key === 'ok' ? 'check_circle' : (st.key === 'err' ? 'error' : 'help'))
+        + '</span>' + st.txt
+        + (canView ? ' <span class="mexbz-goto-hint">· mapa</span>' : '')
+        + '</div>';
       box.innerHTML =
         '<button class="mexbz-back" id="mexbzBack"><span class="material-icons" style="font-size:16px">arrow_back</span>Resultados</button>' +
         '<div class="mexbz-ficha">' +
           '<h3>' + esc(unit.mva) + '</h3>' +
           (chips ? '<div class="mexbz-estado-row">' + chips + '</div>' : '') +
-          '<div class="mexbz-cuadre ' + (st.key === 'ok' ? 'ok' : 'no') + '" style="' + (st.key === 'err' ? 'background:#fef2f2;color:#dc2626' : '') + '"><span class="material-icons" style="font-size:18px">' + (st.key === 'ok' ? 'check_circle' : (st.key === 'err' ? 'error' : 'help')) + '</span>' + st.txt + '</div>' +
+          cuadreBadge +
           kv('Sucursal (origen)', unit.sucursal || '—') +
           kv('Plaza actual', st.key === 'ok' ? unit.plazaActual : '—') +
           kv('Estado flota', flota || '—') +
@@ -431,6 +448,22 @@
           (unit.vin ? kv('VIN', unit.vin) : '') +
         '</div>';
       box.querySelector('#mexbzBack').addEventListener('click', searchUnidades);
+      var go = box.querySelector('#mexbzGoMap');
+      if (go) {
+        var goMap = function () {
+          close();
+          if (typeof window.__mexGoToMapUnit === 'function') {
+            window.__mexGoToMapUnit(unit.mva, unit.plazaActual);
+          } else {
+            window.location.assign('/app/mapa?mva=' + encodeURIComponent(String(unit.mva || '').trim().toUpperCase())
+              + (unit.plazaActual ? '&plaza=' + encodeURIComponent(String(unit.plazaActual).trim().toUpperCase()) : ''));
+          }
+        };
+        go.addEventListener('click', goMap);
+        go.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); goMap(); }
+        });
+      }
     });
   }
 
