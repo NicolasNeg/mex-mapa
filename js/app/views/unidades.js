@@ -14,7 +14,11 @@ import {
   applyMapping,
   parseDelimitedText,
   readSpreadsheetFile,
-  saveMapping
+  saveMapping,
+  extractTextFromImageFile,
+  extractTextFromPdfFile,
+  matrixFromOcrText,
+  loadXlsxLibrary
 } from '/js/app/features/unidades/unidades-import.js';
 
 let _ctr = null;
@@ -113,7 +117,7 @@ export function unmount() {
 }
 
 function _ensureCss() {
-  const href = '/css/app-unidades.css?v=20260715c';
+  const href = '/css/app-unidades.css?v=20260715e';
   let link = document.querySelector('link[data-app-unidades-css="1"]');
   if (link) {
     if (link.getAttribute('href') !== href) link.setAttribute('href', href);
@@ -305,7 +309,10 @@ function _onClick(event) {
   const action = el.dataset.action;
   if (action === 'reload') { void _load(); return; }
   if (action === 'clear') { _s.filters = _emptyFilters(); _s.page = 1; _render(); return; }
-  if (action === 'export') { _exportCsv(); return; }
+  if (action === 'export') { _openExportModal(); return; }
+  if (action === 'export-csv') { _closeModal(); _exportCsv(); return; }
+  if (action === 'export-xls') { void _exportXls(); return; }
+  if (action === 'export-pdf') { _closeModal(); _exportPdf(); return; }
   if (action === 'new') { _openUnitModal(); return; }
   if (action === 'import') { _openImportModal(); return; }
   if (action === 'expediente') {
@@ -426,20 +433,22 @@ function _openImportModal() {
           <div><p>Importación global</p><h2>Cargar unidades al índice maestro</h2></div>
           <button type="button" class="uni-icon-btn" data-action="close-modal"><span class="material-icons">close</span></button>
         </div>
-        <div class="uni-import-grid">
-          <label class="uni-drop">
-            <input id="uni-import-file" type="file" accept=".csv,.txt,.tsv,.xls,.xlsx,.pdf,image/*">
-            <span class="material-icons">upload_file</span>
-            <strong>Seleccionar archivo</strong>
-            <small>CSV, TSV o Excel (.xls/.xlsx). PDF o foto: pega filas en el cuadro de texto.</small>
-          </label>
-          <label class="uni-import-text">
-            <span>Filas pegadas</span>
-            <textarea id="uni-import-paste" placeholder="MVA, Modelo, Placas, Clase, Locación propietaria, Locación actual, Estatus"></textarea>
-            <button type="button" class="uni-btn ghost" data-action="parse-paste">Previsualizar texto</button>
-          </label>
+        <div class="uni-import-body">
+          <div class="uni-import-grid">
+            <label class="uni-drop">
+              <input id="uni-import-file" type="file" accept=".csv,.txt,.tsv,.xls,.xlsx,.pdf,image/*,.png,.jpg,.jpeg,.webp">
+              <span class="material-icons">upload_file</span>
+              <strong>Seleccionar archivo</strong>
+              <small>CSV, Excel, PDF o foto de tabla. Las imágenes se leen con OCR automáticamente.</small>
+            </label>
+            <label class="uni-import-text">
+              <span>Filas pegadas</span>
+              <textarea id="uni-import-paste" placeholder="MVA, Modelo, Placas, Clase, Locación propietaria, Locación actual, Estatus"></textarea>
+              <button type="button" class="uni-btn ghost" data-action="parse-paste">Previsualizar texto</button>
+            </label>
+          </div>
+          <div id="uni-import-preview">${_importPreviewHtml()}</div>
         </div>
-        <div id="uni-import-preview">${_importPreviewHtml()}</div>
         <div class="uni-modal-actions">
           <button type="button" class="uni-btn ghost" data-action="close-modal">Cancelar</button>
           <button type="button" class="uni-btn primary" data-action="apply-import" disabled>Aplicar importación</button>
@@ -454,6 +463,39 @@ function _openImportModal() {
     _s.importMessage = _s.importRows.length ? `${_s.importRows.length} unidades listas para revisar.` : 'No se detectaron filas válidas.';
     _paintImportPreview();
   });
+}
+
+function _openExportModal() {
+  const rows = _filtered();
+  if (!rows.length) return _toast('No hay unidades para exportar con estos filtros.', 'error');
+  const host = _ctr.querySelector('#uni-modal-host');
+  host.innerHTML = `
+    <div class="uni-modal-backdrop" role="dialog" aria-modal="true">
+      <div class="uni-modal uni-modal--export">
+        <div class="uni-modal-head">
+          <div><p>Exportar</p><h2>${rows.length} unidades filtradas</h2></div>
+          <button type="button" class="uni-icon-btn" data-action="close-modal"><span class="material-icons">close</span></button>
+        </div>
+        <div class="uni-export-menu">
+          <button type="button" data-action="export-xls">
+            <span class="material-symbols-outlined">table_view</span>
+            <span><strong>Excel (.xls)</strong><small>Tabla lista para abrir en Excel / Sheets</small></span>
+          </button>
+          <button type="button" data-action="export-pdf">
+            <span class="material-symbols-outlined">picture_as_pdf</span>
+            <span><strong>PDF</strong><small>Documento imprimible de la tabla</small></span>
+          </button>
+          <button type="button" data-action="export-csv">
+            <span class="material-symbols-outlined">csv</span>
+            <span><strong>CSV</strong><small>Formato actual, compatible con importación</small></span>
+          </button>
+        </div>
+        <div class="uni-modal-actions">
+          <button type="button" class="uni-btn ghost" data-action="close-modal">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function fileNameFromPaste() {
@@ -485,18 +527,45 @@ async function _readImportFile(file) {
     } else if (/\.(xlsx|xls)$/i.test(file.name)) {
       const { matrix, sheetName } = await readSpreadsheetFile(file);
       _setImportRaw(analyzeMatrix(matrix), `${file.name} · ${sheetName}`);
-    } else if (/\.(pdf|png|jpe?g|webp|gif)$/i.test(file.name) || /^image\//i.test(file.type || '')) {
-      _s.importRaw = null;
-      _s.importMapping = {};
-      _s.importRows = [];
-      _s.importMessage = `${file.name}: copia las filas del documento en el cuadro de texto y pulsa Previsualizar.`;
+    } else if (/\.pdf$/i.test(file.name) || file.type === 'application/pdf') {
+      _s.importMessage = `Leyendo PDF ${file.name}…`;
       _paintImportPreview();
-      return;
+      const text = await extractTextFromPdfFile(file, (pct) => {
+        _s.importMessage = `Leyendo PDF… ${pct}%`;
+        _paintImportPreview();
+      });
+      const paste = _ctr.querySelector('#uni-import-paste');
+      if (paste) paste.value = text;
+      _setImportRaw(matrixFromOcrText(text), file.name);
+      _rebuildImportRows();
+      if (!_s.importRows.length && text) {
+        _s.importMessage = 'Se extrajo texto del PDF, pero no se detectaron filas tabulares. Revisa el cuadro de texto y pulsa Previsualizar.';
+        _paintImportPreview();
+        return;
+      }
+    } else if (/\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name) || /^image\//i.test(file.type || '')) {
+      _s.importMessage = `Leyendo imagen con OCR…`;
+      _paintImportPreview();
+      const text = await extractTextFromImageFile(file, (pct) => {
+        _s.importMessage = `OCR en progreso… ${pct}%`;
+        _paintImportPreview();
+      });
+      const paste = _ctr.querySelector('#uni-import-paste');
+      if (paste) paste.value = text;
+      _setImportRaw(matrixFromOcrText(text), file.name);
+      _rebuildImportRows();
+      if (!_s.importRows.length) {
+        _s.importMessage = text
+          ? 'OCR listo: revisa el texto pegado, ajusta filas si hace falta y pulsa Previsualizar.'
+          : 'No se pudo leer texto en la imagen. Prueba una captura más nítida o pega filas manualmente.';
+        _paintImportPreview();
+        return;
+      }
     } else {
       _s.importRaw = null;
       _s.importMapping = {};
       _s.importRows = [];
-      _s.importMessage = `Formato no soportado (${file.name}). Usa CSV, Excel o pega filas manualmente.`;
+      _s.importMessage = `Formato no soportado (${file.name}). Usa CSV, Excel, PDF o imagen.`;
       _paintImportPreview();
       return;
     }
@@ -640,14 +709,78 @@ function _unitPayload(row, original = null) {
 
 function _exportCsv() {
   const rows = _filtered();
+  if (!rows.length) return _toast('No hay unidades para exportar.', 'error');
   const header = FIELD_ORDER.map(k => FIELD_LABEL[k]);
   const body = rows.map(row => FIELD_ORDER.map(k => _csv(_field(row, k))));
   const csv = '\ufeff' + [header.map(_csv).join(','), ...body.map(r => r.join(','))].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  _downloadBlob(blob, `unidades-${_s.plaza || 'ALL'}-${_exportDate()}.csv`);
+  _toast(`Exportadas ${rows.length} unidades (CSV).`, 'success');
+}
+
+async function _exportXls() {
+  const rows = _filtered();
+  if (!rows.length) return _toast('No hay unidades para exportar.', 'error');
+  try {
+    const XLSX = await loadXlsxLibrary();
+    const header = FIELD_ORDER.map(k => FIELD_LABEL[k]);
+    const aoa = [header, ...rows.map(row => FIELD_ORDER.map(k => _field(row, k)))];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Unidades');
+    const out = XLSX.write(wb, { bookType: 'xls', type: 'array' });
+    const blob = new Blob([out], { type: 'application/vnd.ms-excel' });
+    _downloadBlob(blob, `unidades-${_s.plaza || 'ALL'}-${_exportDate()}.xls`);
+    _closeModal();
+    _toast(`Exportadas ${rows.length} unidades (Excel).`, 'success');
+  } catch (err) {
+    _toast(err?.message || 'No se pudo generar el Excel.', 'error');
+  }
+}
+
+function _exportPdf() {
+  const rows = _filtered();
+  if (!rows.length) return _toast('No hay unidades para exportar.', 'error');
+  const cols = FIELD_ORDER.filter(k => k !== 'descripcion');
+  const thead = cols.map(k => `<th>${esc(FIELD_LABEL[k])}</th>`).join('');
+  const tbody = rows.map(row =>
+    `<tr>${cols.map(k => `<td>${esc(_field(row, k) || '—')}</td>`).join('')}</tr>`
+  ).join('');
+  const plaza = esc(_s.plaza || 'TODAS');
+  const html = `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+    <title>Unidades · ${plaza}</title>
+    <style>
+      body{font:12px/1.35 Inter,system-ui,sans-serif;color:#0f172a;margin:24px;background:#fff}
+      h1{font-size:18px;margin:0 0 4px} p{margin:0 0 16px;color:#64748b}
+      table{width:100%;border-collapse:collapse;font-size:10px}
+      th,td{border:1px solid #cbd5e1;padding:5px 6px;text-align:left;vertical-align:top}
+      th{background:#0f172a;color:#fff;font-weight:700}
+      tr:nth-child(even) td{background:#f8fafc}
+      @page{size:landscape;margin:12mm}
+    </style></head><body>
+    <h1>Inventario de unidades</h1>
+    <p>Plaza filtro: ${plaza} · ${rows.length} registros · ${_exportDate()}</p>
+    <table><thead><tr>${thead}</tr></thead><tbody>${tbody}</tbody></table>
+    <script>window.onload=function(){window.print()}<\/script>
+    </body></html>`;
+  const win = window.open('', '_blank');
+  if (!win) {
+    _toast('Permite ventanas emergentes para exportar PDF.', 'error');
+    return;
+  }
+  win.document.write(html);
+  win.document.close();
+}
+
+function _exportDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function _downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `unidades-${_s.plaza || 'ALL'}-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();

@@ -84,7 +84,7 @@ export function unmount() {
 
 function _ensureCss() {
   [
-    { href: '/css/app-unidades.css?v=20260715d', attr: 'data-app-unidades-css' },
+    { href: '/css/app-unidades.css?v=20260715e', attr: 'data-app-unidades-css' },
     { href: '/css/app-unidad-expediente.css?v=20260715b', attr: 'data-app-unidad-exp-css' }
   ].forEach(({ href, attr }) => {
     let link = document.querySelector(`link[${attr}="1"]`);

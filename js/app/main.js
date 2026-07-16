@@ -331,10 +331,30 @@ async function boot() {
   // (legacy-stage lo reenvía al iframe del mapa cuando se muestra). Si la unidad
   // está en otra plaza permitida, cambia la plaza activa primero.
   window.__mexGoToMapUnit = (mva, plaza) => {
-    window.__mexPendingMapFocus = String(mva || '').trim().toUpperCase();
+    const token = String(mva || '').trim().toUpperCase();
+    window.__mexPendingMapFocus = token;
     const p = String(plaza || '').trim().toUpperCase();
     if (p && p !== String(getState().currentPlaza || '').toUpperCase() && window.__mexCanViewPlaza(p)) {
       setCurrentPlaza(p, { source: 'buscador-ir-al-mapa' });
+    }
+    const onMapa = String(getState().currentRoute || window.location.pathname || '')
+      .replace(/\/$/, '')
+      .startsWith('/app/mapa');
+    if (onMapa) {
+      // Ya estamos en mapa: remount no garantiza el focus; aplicarlo ya.
+      let tries = 0;
+      const tick = () => {
+        tries++;
+        let ok = false;
+        try { ok = window.__mexFocusUnidad?.(token) === true; } catch (_) {}
+        if (ok || tries > 90) {
+          if (ok) window.__mexPendingMapFocus = null;
+          return;
+        }
+        setTimeout(tick, 200);
+      };
+      setTimeout(tick, 80);
+      return;
     }
     router.navigate('/app/mapa');
   };

@@ -52,15 +52,20 @@
       const lectores = _splitAlertCsv(snap.data().leidoPor);
       // Fallback al usuario de Firebase Auth cuando usuarioActivo llega vacío
       const currentUser = firebase.auth().currentUser;
-      const usuario = String(
-        usuarioActivo ||
-        currentUser?.displayName ||
-        currentUser?.email ||
-        currentUser?.uid ||
-        ""
-      ).trim().toUpperCase();
-      if (!usuario) return "ERROR";
-      if (!lectores.includes(usuario)) lectores.push(usuario);
+      const aliases = [
+        usuarioActivo,
+        currentUser?.displayName,
+        currentUser?.email,
+        currentUser?.uid
+      ]
+        .map((v) => String(v || "").trim().toUpperCase())
+        .filter(Boolean);
+      if (!aliases.length) return "ERROR";
+      // Guardar todos los alias conocidos → evita que reaparezca si el
+      // cliente compara con email vs nombre de usuario.
+      aliases.forEach((usuario) => {
+        if (!lectores.includes(usuario)) lectores.push(usuario);
+      });
       await ref.update({ leidoPor: lectores.join(", ") });
       return "OK";
     },

@@ -3508,6 +3508,33 @@
       display: flex;
     }
 
+    /* Skeleton de filas mientras carga inventario del cuadre */
+    @keyframes flotaSkelShimmer {
+      to { background-position: -220% 0; }
+    }
+    #tablaCuerpoFlota tr.flota-skel-row td {
+      padding: 14px 10px;
+      border-bottom: 1px solid var(--border, #e2e8f0);
+      vertical-align: middle;
+    }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar {
+      display: block;
+      height: 14px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 44%, #e2e8f0 90%);
+      background-size: 220% 100%;
+      animation: flotaSkelShimmer 1.15s linear infinite;
+    }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--mva { width: 52px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--cat { width: 36px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--mod { width: 88px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--pla { width: 72px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--gas { width: 48px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--km { width: 56px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--flota { width: 84px; height: 22px; border-radius: 8px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--patio { width: 72px; height: 22px; border-radius: 8px; }
+    #tablaCuerpoFlota tr.flota-skel-row .flota-skel-bar--ubi { width: 64px; }
+
     #historial-cuadres-modal {
       z-index: 76050 !important;
     }

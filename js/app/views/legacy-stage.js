@@ -482,17 +482,27 @@ function _syncLegacyCuadreHeader(id, ctx) {
   if (!win || !doc) return;
 
   const masControles = doc.getElementById('btnMasControlesWrapper');
+  const adminControls = doc.getElementById('btnAdminControlsWrapper');
   const showMas = masControles && masControles.style.display !== 'none';
+  const showAdmin = adminControls && adminControls.style.display !== 'none';
 
-  const sig = `cuadre:${showMas}`;
+  const sig = `cuadre:${showMas}:${showAdmin}`;
   if (sig === _unitsHeaderSig) return;
   _unitsHeaderSig = sig;
 
   let html = '';
   if (showMas) {
     html += `
-      <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreMoreBtn" title="Más opciones" aria-label="Más opciones">
-        <span class="material-icons">more_horiz</span>
+      <button type="button" class="mex-hdr-limbo-btn--legacy mex-hdr-icon-btn" id="mexHdrCuadreMoreBtn" title="Más controles" aria-label="Más controles">
+        <span class="material-icons">tune</span>
+      </button>
+    `;
+  }
+  if (showAdmin) {
+    html += `
+      <button type="button" class="mex-hdr-limbo-btn--legacy" id="mexHdrCuadreAdminBtn" title="Unidades globales" style="margin-left:8px;">
+        <span class="material-symbols-outlined" style="color:#2563eb;">directions_car</span>
+        <span class="hide-mobile">UNIDADES</span>
       </button>
     `;
   }
@@ -504,6 +514,13 @@ function _syncLegacyCuadreHeader(id, ctx) {
     moreBtn.addEventListener('click', (ev) => {
       ev.stopPropagation();
       try { win.toggleMoreControls?.(ev); } catch (_) {}
+    });
+  }
+  const adminBtn = document.getElementById('mexHdrCuadreAdminBtn');
+  if (adminBtn) {
+    adminBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      try { win.irAModuloUnidades?.(); } catch (_) {}
     });
   }
 }

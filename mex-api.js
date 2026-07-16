@@ -1659,6 +1659,15 @@ const API_FUNCTIONS = {
     const docId  = _mvaToDocId(mvaStr);
     const plazaUp = (objeto.plaza || '').toUpperCase().trim(); // [F1]
 
+    const existingSnap = await db.collection(COL.CUADRE).doc(docId).get();
+    if (existingSnap.exists) {
+      const plazaDoc = String(existingSnap.data()?.plaza || '').toUpperCase().trim();
+      if (!plazaUp || !plazaDoc || plazaDoc === plazaUp) {
+        return `La unidad ${mvaStr} ya está registrada en el patio.`;
+      }
+      return `La unidad ${mvaStr} está en el cuadre de ${plazaDoc}. Retírala de ahí antes de insertarla aquí.`;
+    }
+
     // Verificar duplicado solo dentro de la misma plaza
     const dupQuery = plazaUp
       ? db.collection(COL.CUADRE).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
@@ -1670,6 +1679,11 @@ const API_FUNCTIONS = {
     const notaFinal = objeto.notas ? `(${ahora}) [${objeto.responsableSesion || "?"}] ${objeto.notas}` : "";
     const indexSnap = await db.collection(COL.INDEX).where("mva", "==", mvaStr).limit(1).get();
     const indexData = indexSnap.empty ? {} : indexSnap.docs[0].data();
+
+    const plazaActualIdx = String(indexData.plazaActual || '').toUpperCase().trim();
+    if (plazaActualIdx && plazaActualIdx !== plazaUp) {
+      return `La unidad ${mvaStr} está registrada en la plaza ${plazaActualIdx}. Retírala de ahí antes de insertarla aquí.`;
+    }
 
     const unitData = {
       categoria:    indexData.categoria || objeto.categ || "S/C",

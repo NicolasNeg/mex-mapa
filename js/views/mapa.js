@@ -1,10 +1,15 @@
 import { parseKm } from '/domain/kilometraje.model.js';
-import {
-  derivarFlotaDesdePatio,
-  esFlotaCerrada,
-  leerEstadoFlota,
-  normalizarEstadoPatio
-} from '/domain/estado.model.js';
+// Estados flota/patio: preferir window.mexEstados (estado-bridge.js) para no
+// romper si el SW sirve un domain/estado.model.js cacheado sin los exports nuevos.
+const _mexEst = (typeof window !== 'undefined' && window.mexEstados) ? window.mexEstados : {};
+const derivarFlotaDesdePatio = _mexEst.derivarFlotaDesdePatio
+  || function (patio, flota) { return flota || null; };
+const esFlotaCerrada = _mexEst.esFlotaCerrada || function () { return false; };
+const leerEstadoFlota = _mexEst.leerEstadoFlota
+  || function (doc) { return (doc && (doc.estadoFlota || doc.estado || doc.estatus)) || null; };
+const normalizarEstadoPatio = _mexEst.normalizarEstadoPatio
+  || function (v) { const u = String(v || '').trim().toUpperCase(); return u || null; };
+
 // ═══════════════════════════════════════════════════════════
 //  js/views/mapa.js  —  ES6 Module
 //  Vista principal: mapa visual de flota.
@@ -707,7 +712,7 @@ function cambiarTabFlota(tabSeleccionado) {
       btnHistorial.style.color = '#64748b';
     }
 
-    document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="8" style="text-align:center; padding: 40px;"><span class="material-icons spinner">sync</span> Cargando Cuadre Admins...</td></tr>`;
+    document.getElementById('tablaCuerpoFlota').innerHTML = flotaSkeletonHtml(10);
 
     api.obtenerCuadreAdminsData(_miPlaza()).then(data => {
       DB_ADMINS = data;
@@ -4891,8 +4896,18 @@ window.__mexFocusUnidad = function (mva) {
   // Reflejar la unidad en el buscador del mapa (input text) — ver spec Fase 1.5.
   var sd = document.getElementById('searchInput');
   var sm = document.getElementById('searchInputMobile');
-  if (sd) sd.value = target;
-  if (sm) sm.value = target;
+  if (sd) {
+    sd.value = target;
+    try { sd.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+  }
+  if (sm) {
+    sm.value = target;
+    try { sm.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+  }
+  try {
+    if (typeof ejecutarFiltroMasivo === 'function') ejecutarFiltroMasivo(target);
+    else if (typeof buscarMasivo === 'function') buscarMasivo();
+  } catch (_) {}
   try { car.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
   _selectCarOnMap(car, { openPanel: true });
   car.classList.add('car-focus-pulse');
@@ -5661,6 +5676,18 @@ function irAModuloUnidades() {
   document.getElementById('adminControlsDropdown')?.classList.remove('show');
   const target = '/app/unidades';
   try {
+    if (typeof window.parent?.__mexShellNavigate === 'function') {
+      window.parent.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) { /* cross-origin */ }
+  try {
+    if (typeof window.__mexShellNavigate === 'function') {
+      window.__mexShellNavigate(target);
+      return;
+    }
+  } catch (_) {}
+  try {
     (window.top || window).location.assign(target);
   } catch (_) {
     window.location.assign(target);
@@ -6180,6 +6207,9 @@ function _openFleetModalInPlace(initialTab = 'NORMAL') {
   const menuMasControles = document.getElementById('btnMasControlesWrapper');
   if (menuMasControles) menuMasControles.style.display = esOperario ? 'none' : 'inline-block';
 
+  const menuAdminControls = document.getElementById('btnAdminControlsWrapper');
+  if (menuAdminControls) menuAdminControls.style.display = esOperario ? 'none' : 'inline-block';
+
 
   const btnTabAdmins = document.getElementById('tabFlotaAdmins');
   if (btnTabAdmins) {
@@ -6213,8 +6243,30 @@ function cerrarModalFlota() {
   refrescarDatos();
 }
 
+/** Filas skeleton que imitan la tabla de unidades mientras carga el inventario. */
+function flotaSkeletonHtml(rows = 8) {
+  const bars = [
+    'flota-skel-bar--mva',
+    'flota-skel-bar--cat',
+    'flota-skel-bar--mod',
+    'flota-skel-bar--pla',
+    'flota-skel-bar--gas',
+    'flota-skel-bar--km',
+    'flota-skel-bar--flota',
+    'flota-skel-bar--patio',
+    'flota-skel-bar--ubi'
+  ];
+  const cells = bars.map((cls) =>
+    `<td><span class="flota-skel-bar ${cls}" aria-hidden="true"></span></td>`
+  ).join('');
+  return Array.from({ length: rows }, (_, i) =>
+    `<tr class="flota-skel-row" style="animation-delay:${i * 40}ms">${cells}</tr>`
+  ).join('');
+}
+
 function cargarFlota() {
-  document.getElementById('tablaCuerpoFlota').innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 40px; color: #64748b;"><span class="material-icons spinner" style="vertical-align:middle; margin-right:8px;">sync</span>Cargando inventario...</td></tr>`;
+  const tbody = document.getElementById('tablaCuerpoFlota');
+  if (tbody) tbody.innerHTML = flotaSkeletonHtml();
 
   api.obtenerDatosFlotaConsola(_miPlaza()).then(data => {
     let unicos = [];
@@ -6721,7 +6773,7 @@ function prepararNuevoFlota() {
 }
 
 
-function ejecutarGuardadoFlota() {
+async function ejecutarGuardadoFlota() {
   const mvaField = document.getElementById('f_mva');
   const estField = document.getElementById('f_est');
 
@@ -6771,14 +6823,33 @@ function ejecutarGuardadoFlota() {
   if (VISTA_ACTUAL_FLOTA === 'NORMAL') {
     // ⚡ APLICACIÓN INSTANTÁNEA (SIN LAG) ⚡
     if (MODO_FLOTA === "INSERTAR") {
-      actualizarTablaLocal(payload.mva, 'INSERTAR', payload); // Actualiza tabla
-      showToast("Unidad insertada", "success");
-      restaurarBotonFlota();
-      prepararNuevoFlota();
+      const mvaIns = payload.mva;
+      const yaEnTabla = (DB_FLOTA || []).some(u => String(u.mva || '').toUpperCase() === mvaIns);
+      if (yaEnTabla) {
+        showToast(`La unidad ${mvaIns} ya está en el cuadre de esta plaza.`, "error");
+        restaurarBotonFlota();
+        return;
+      }
 
-      // Guardado silencioso de fondo en Google — etiquetar con plaza del usuario
+      // Guardado con respuesta real: no dar éxito si el backend rechaza
+      // (duplicado / plazaActual ocupada).
       payload.plaza = _miPlaza() || '';
-      api.insertarUnidadDesdeHTML(payload).catch(() => showToast("Error de red de fondo", "error"));
+      try {
+        const res = await api.insertarUnidadDesdeHTML(payload);
+        const ok = String(res || '').startsWith('EXITO');
+        if (!ok) {
+          showToast(res || 'No se pudo insertar la unidad', 'error');
+          restaurarBotonFlota();
+          return;
+        }
+        actualizarTablaLocal(mvaIns, 'INSERTAR', payload);
+        showToast("Unidad insertada", "success");
+        restaurarBotonFlota();
+        prepararNuevoFlota();
+      } catch (_) {
+        showToast("Error de red al insertar", "error");
+        restaurarBotonFlota();
+      }
     } else {
       // 1. Modifica la Tabla al instante
       actualizarTablaLocal(payload.mva, 'MODIFICAR', payload);
@@ -8926,8 +8997,39 @@ function _parseListaAlertaCsv(valor) {
   ));
 }
 
+function _alertaAliasesUsuario(usuario = USER_NAME) {
+  const aliases = new Set();
+  const push = (v) => {
+    const u = String(v || '').trim().toUpperCase();
+    if (u) aliases.add(u);
+  };
+  push(usuario);
+  push(USER_NAME);
+  try {
+    const authUser = (typeof auth !== 'undefined' && auth?.currentUser) || window._auth?.currentUser;
+    push(authUser?.displayName);
+    push(authUser?.email);
+    push(authUser?.uid);
+  } catch (_) {}
+  try {
+    const profile = window.__mexCurrentUserRecord || {};
+    push(profile.nombre);
+    push(profile.usuario);
+    push(profile.nombreCompleto);
+    push(profile.displayName);
+    push(profile.email);
+    push(profile.uid);
+  } catch (_) {}
+  return [...aliases];
+}
+
 function _alertaYaLeidaPor(alerta, usuario = USER_NAME) {
-  return _parseListaAlertaCsv(alerta && alerta.leidoPor).includes(String(usuario || '').trim().toUpperCase());
+  const readers = _parseListaAlertaCsv(
+    (alerta && (alerta.leidoPor || alerta.leidaPor || alerta.readBy || alerta.vistoPor)) || ''
+  );
+  if (!readers.length) return false;
+  const aliases = _alertaAliasesUsuario(usuario);
+  return aliases.some(a => readers.includes(a));
 }
 
 function _alertaAplicaAUsuario(alerta, usuario = USER_NAME) {
@@ -17103,14 +17205,16 @@ function ejecutarAccionGemini(respuestaIA) {
         plaza: _miPlaza() || ''
       };
 
-      // Magia Visual: Actualiza la tabla al instante (Optimistic UI)
-      if (typeof VISTA_ACTUAL_FLOTA !== 'undefined' && VISTA_ACTUAL_FLOTA === 'NORMAL') {
-        if (typeof actualizarTablaLocal === "function") actualizarTablaLocal(payloadNuevo.mva, 'INSERTAR', payloadNuevo);
-      }
-
-      // Manda a guardar a Google Sheets
+      // Magia Visual solo si el backend confirma
       api.insertarUnidadDesdeHTML(payloadNuevo).then((res) => {
-        if (res.startsWith("EXITO")) refrescarDatos();
+        if (String(res || '').startsWith('EXITO')) {
+          if (typeof VISTA_ACTUAL_FLOTA !== 'undefined' && VISTA_ACTUAL_FLOTA === 'NORMAL') {
+            if (typeof actualizarTablaLocal === "function") actualizarTablaLocal(payloadNuevo.mva, 'INSERTAR', payloadNuevo);
+          }
+          refrescarDatos();
+        } else if (res) {
+          showToast(res, 'error');
+        }
       }).catch(e => console.error(e));
     }
 

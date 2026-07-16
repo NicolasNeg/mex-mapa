@@ -166,3 +166,95 @@ export function parseDelimitedText(text) {
   const matrix = lines.map(splitCsvLine).filter(r => r.some(Boolean));
   return analyzeMatrix(matrix);
 }
+
+function _loadScript(src, datasetKey) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[data-${datasetKey}="1"]`);
+    if (existing) {
+      if (existing.dataset.ready === '1') return resolve();
+      existing.addEventListener('load', () => resolve(), { once: true });
+      existing.addEventListener('error', reject, { once: true });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = src;
+    s.dataset[datasetKey.replace(/-([a-z])/g, (_, c) => c.toUpperCase())] = '1';
+    // data-uni-tesseract style
+    s.setAttribute(`data-${datasetKey}`, '1');
+    s.onload = () => { s.dataset.ready = '1'; resolve(); };
+    s.onerror = () => reject(new Error(`No se pudo cargar ${src}`));
+    document.head.appendChild(s);
+  });
+}
+
+async function loadTesseract() {
+  if (window.Tesseract) return window.Tesseract;
+  await _loadScript('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js', 'uni-tesseract');
+  if (!window.Tesseract) throw new Error('OCR no disponible.');
+  return window.Tesseract;
+}
+
+async function loadPdfJs() {
+  if (window.pdfjsLib) return window.pdfjsLib;
+  await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js', 'uni-pdfjs');
+  const lib = window.pdfjsLib;
+  if (!lib) throw new Error('Lector PDF no disponible.');
+  lib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  return lib;
+}
+
+/** Limpia ruido típico de OCR y deja líneas tabulables. */
+export function normalizeOcrText(text) {
+  return String(text || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[|¦]/g, '\t')
+    .replace(/ {2,}/g, '\t')
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+export async function extractTextFromImageFile(file, onProgress) {
+  const Tesseract = await loadTesseract();
+  const result = await Tesseract.recognize(file, 'spa+eng', {
+    logger: (m) => {
+      if (m?.status === 'recognizing text' && typeof onProgress === 'function') {
+        onProgress(Math.round((m.progress || 0) * 100));
+      }
+    }
+  });
+  return normalizeOcrText(result?.data?.text || '');
+}
+
+export async function extractTextFromPdfFile(file, onProgress) {
+  const pdfjs = await loadPdfJs();
+  const buf = await file.arrayBuffer();
+  const doc = await pdfjs.getDocument({ data: buf }).promise;
+  const pages = [];
+  for (let i = 1; i <= doc.numPages; i += 1) {
+    if (typeof onProgress === 'function') {
+      onProgress(Math.round((i / doc.numPages) * 100));
+    }
+    const page = await doc.getPage(i);
+    const content = await page.getTextContent();
+    const line = (content.items || []).map(it => it.str || '').join(' ');
+    pages.push(line);
+  }
+  return normalizeOcrText(pages.join('\n'));
+}
+
+/**
+ * Intenta convertir texto OCR en matriz (filas/columnas).
+ * Si no hay delimitadores claros, parte por espacios múltiples.
+ */
+export function matrixFromOcrText(text) {
+  const cleaned = normalizeOcrText(text);
+  if (!cleaned) return { headers: [], body: [], hasHeader: false, mapping: {} };
+  // Preferir parseo CSV/TSV si hay comas/tabs.
+  if (/[,\t;]/.test(cleaned)) return parseDelimitedText(cleaned);
+  const lines = cleaned.split(/\n/).filter(Boolean);
+  const matrix = lines.map(line => line.split(/\s{2,}|\t+/).map(c => c.trim()).filter(Boolean));
+  return analyzeMatrix(matrix.filter(r => r.length >= 2));
+}
+

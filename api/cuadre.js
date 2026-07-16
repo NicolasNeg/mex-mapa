@@ -310,6 +310,17 @@
       const docId  = _mvaToDocId(mvaStr);
       const plazaUp = (objeto.plaza || '').toUpperCase().trim();
 
+      // Guard duro por docId (1 MVA = 1 doc en cuadre): evita duplicados aunque
+      // falle el índice compuesto plaza+mva o el campo plaza esté vacío.
+      const existingSnap = await db.collection(COL.CUADRE).doc(docId).get();
+      if (existingSnap.exists) {
+        const plazaDoc = String(existingSnap.data()?.plaza || '').toUpperCase().trim();
+        if (!plazaUp || !plazaDoc || plazaDoc === plazaUp) {
+          return `La unidad ${mvaStr} ya está registrada en el patio.`;
+        }
+        return `La unidad ${mvaStr} está en el cuadre de ${plazaDoc}. Retírala de ahí antes de insertarla aquí.`;
+      }
+
       const dupQuery = plazaUp
         ? db.collection(COL.CUADRE).where("plaza", "==", plazaUp).where("mva", "==", mvaStr).limit(1)
         : db.collection(COL.CUADRE).where("mva", "==", mvaStr).limit(1);
