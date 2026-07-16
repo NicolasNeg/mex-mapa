@@ -268,20 +268,28 @@ function _paint() {
 
   _ctr.innerHTML = `
     <section class="cf" aria-busy="${_s.busy ? 'true' : 'false'}">
-      <header class="cf-head">
-        <div>
-          <p class="cf-eyebrow">Mision a Patio</p>
-          <h1>Cuadre de flota</h1>
-          <span>${esc(_s.plaza || 'SIN PLAZA')} · ${esc(_s.mission?.missionId || 'MISION ACTIVA')}</span>
-        </div>
-        <button type="button" class="cf-icon-btn" data-action="reload" title="Recargar">
-          <span class="material-icons">sync</span>
-        </button>
-      </header>
+      <div class="cf-shell">
+        <header class="cf-head">
+          <div class="cf-head-copy">
+            <p class="cf-eyebrow">Mision a patio</p>
+            <h1>Cuadre de flota</h1>
+            <p class="cf-head-meta">${esc(_s.plaza || 'SIN PLAZA')} · ${esc(_s.mission?.missionId || 'MISION ACTIVA')}</p>
+          </div>
+          <div class="cf-head-rail">
+            <div class="cf-ring" style="--cf-pct:${summary.percent}">
+              <strong>${summary.percent}<small>%</small></strong>
+              <span>revisado</span>
+            </div>
+            <button type="button" class="cf-icon-btn" data-action="reload" title="Recargar" aria-label="Recargar">
+              <span class="material-symbols-outlined">sync</span>
+            </button>
+          </div>
+        </header>
 
-      ${_stepsHtml(summary)}
+        ${_stepsHtml(summary)}
 
-      ${_s.step === 'sign' ? _signStepHtml(summary) : _reviewStepHtml(summary)}
+        ${_s.step === 'sign' ? _signStepHtml(summary) : _reviewStepHtml(summary)}
+      </div>
 
       ${_s.showExtra ? _extraModalHtml() : ''}
     </section>
@@ -305,13 +313,13 @@ function _stepsHtml(summary) {
         return `
           <li class="cf-step ${isCurrent ? 'is-current' : ''} ${isDone && !isCurrent ? 'is-done' : ''}">
             ${clickable ? `<button type="button" data-action="go-step" data-step="${step.id}">` : '<div>'}
-              <span class="cf-step-dot"><span class="material-icons">${isDone && !isCurrent ? 'check' : step.icon}</span></span>
+              <span class="cf-step-dot"><span class="material-symbols-outlined">${isDone && !isCurrent ? 'check' : step.icon}</span></span>
               <span class="cf-step-txt">
                 <strong>${i + 1}. ${step.label}</strong>
                 ${step.hint ? `<small>${esc(step.hint)}</small>` : ''}
               </span>
             ${clickable ? '</button>' : '</div>'}
-            ${i < steps.length - 1 ? '<span class="cf-step-arrow material-icons">arrow_forward</span>' : ''}
+            ${i < steps.length - 1 ? '<span class="cf-step-arrow material-symbols-outlined">arrow_forward</span>' : ''}
           </li>
         `;
       }).join('')}
@@ -323,29 +331,29 @@ function _reviewStepHtml(summary) {
   return `
     <section class="cf-progress" aria-label="Avance de auditoria">
       <div class="cf-progress-top">
-        <strong>${summary.revisadas} / ${summary.total}</strong>
-        <span>${summary.percent}% revisado</span>
+        <strong>${summary.revisadas}<span> / ${summary.total}</span></strong>
+        <span>${summary.pendientes ? `${summary.pendientes} pendientes` : 'Listo para firmar'}</span>
       </div>
-      <div class="cf-bar"><span style="width:${summary.percent}%"></span></div>
+      <div class="cf-bar" role="progressbar" aria-valuenow="${summary.percent}" aria-valuemin="0" aria-valuemax="100"><span style="width:${summary.percent}%"></span></div>
     </section>
 
     <div class="cf-toolbar">
       <label class="cf-search">
-        <span class="material-icons">search</span>
-        <input data-search value="${esc(_s.search)}" placeholder="Buscar MVA, placas o modelo">
+        <span class="material-symbols-outlined">search</span>
+        <input data-search value="${esc(_s.search)}" placeholder="Buscar MVA, placas o modelo" aria-label="Buscar unidades">
       </label>
-      <div class="cf-view-toggle" role="tablist">
-        <button type="button" class="${_s.view === 'card' ? 'active' : ''}" data-action="view-card">
-          <span class="material-icons">style</span>
+      <div class="cf-view-toggle" role="tablist" aria-label="Vista">
+        <button type="button" role="tab" aria-selected="${_s.view === 'card'}" class="${_s.view === 'card' ? 'active' : ''}" data-action="view-card">
+          <span class="material-symbols-outlined">style</span>
           Tarjeta
         </button>
-        <button type="button" class="${_s.view === 'list' ? 'active' : ''}" data-action="view-list">
-          <span class="material-icons">view_list</span>
+        <button type="button" role="tab" aria-selected="${_s.view === 'list'}" class="${_s.view === 'list' ? 'active' : ''}" data-action="view-list">
+          <span class="material-symbols-outlined">view_list</span>
           Lista
         </button>
       </div>
       <button type="button" class="cf-btn secondary" data-action="open-extra">
-        <span class="material-icons">add</span>
+        <span class="material-symbols-outlined">add</span>
         Sobrante
       </button>
     </div>
@@ -353,9 +361,9 @@ function _reviewStepHtml(summary) {
     <main class="cf-main">${_mainHtml()}</main>
 
     <div class="cf-flow-next">
-      <button type="button" class="cf-btn primary wide" data-action="go-step" data-step="sign">
-        <span class="material-icons">draw</span>
-        ${summary.pendientes > 0 ? `Continuar a firma (${summary.pendientes} pendientes)` : 'Continuar a firma'}
+      <button type="button" class="cf-btn primary wide cf-btn-island" data-action="go-step" data-step="sign">
+        <span>${summary.pendientes > 0 ? `Continuar a firma (${summary.pendientes} pendientes)` : 'Continuar a firma'}</span>
+        <span class="cf-btn-icon"><span class="material-symbols-outlined">draw</span></span>
       </button>
     </div>
   `;
@@ -363,32 +371,34 @@ function _reviewStepHtml(summary) {
 
 function _signStepHtml(summary) {
   return `
-    <section class="cf-sign">
-      <div>
-        <p class="cf-eyebrow">Paso final · Firma del auxiliar</p>
-        <h2>Enviar reporte preliminar a Ventas</h2>
-        <p class="cf-sign-note">Revisaste ${summary.revisadas} de ${summary.total} unidades. Firma para enviar el reporte.</p>
-      </div>
-      <label class="cf-field">
-        <span>Nombre del auxiliar</span>
-        <div class="cf-locked-name">
-          <span class="material-icons">lock</span>
-          <input value="${esc(_actorName())}" readonly aria-readonly="true" tabindex="-1">
+    <section class="cf-sign-shell">
+      <div class="cf-sign">
+        <div class="cf-sign-copy">
+          <p class="cf-eyebrow">Paso final · Firma del auxiliar</p>
+          <h2>Enviar reporte a Ventas</h2>
+          <p class="cf-sign-note">Revisaste ${summary.revisadas} de ${summary.total} unidades. Firma para enviar el reporte preliminar.</p>
         </div>
-      </label>
-      <div class="cf-sign-pad">
-        <canvas id="cfSignatureCanvas" width="680" height="180" aria-label="Firma digital"></canvas>
-        <button type="button" class="cf-clear-sign" data-action="clear-signature">Limpiar firma</button>
-      </div>
-      <div class="cf-sign-actions">
-        <button type="button" class="cf-btn secondary" data-action="go-step" data-step="review">
-          <span class="material-icons">arrow_back</span>
-          Volver a revisar
-        </button>
-        <button type="button" class="cf-btn primary" data-action="submit" ${_s.busy ? 'disabled' : ''}>
-          <span class="material-icons">${_s.busy ? 'sync' : 'send'}</span>
-          ${_s.busy ? 'Enviando...' : 'Enviar a Ventas'}
-        </button>
+        <label class="cf-field">
+          <span>Nombre del auxiliar</span>
+          <div class="cf-locked-name">
+            <span class="material-symbols-outlined">lock</span>
+            <input value="${esc(_actorName())}" readonly aria-readonly="true" tabindex="-1">
+          </div>
+        </label>
+        <div class="cf-sign-pad">
+          <canvas id="cfSignatureCanvas" width="680" height="180" aria-label="Firma digital"></canvas>
+          <button type="button" class="cf-clear-sign" data-action="clear-signature">Limpiar firma</button>
+        </div>
+        <div class="cf-sign-actions">
+          <button type="button" class="cf-btn secondary" data-action="go-step" data-step="review">
+            <span class="material-symbols-outlined">arrow_back</span>
+            Volver a revisar
+          </button>
+          <button type="button" class="cf-btn primary cf-btn-island" data-action="submit" ${_s.busy ? 'disabled' : ''}>
+            <span>${_s.busy ? 'Enviando...' : 'Enviar a Ventas'}</span>
+            <span class="cf-btn-icon"><span class="material-symbols-outlined">${_s.busy ? 'sync' : 'send'}</span></span>
+          </button>
+        </div>
       </div>
     </section>
   `;
@@ -423,12 +433,12 @@ function _errorHtml(message) {
   return `
     <section class="cf cf-state">
       <div class="cf-state-card">
-        <span class="material-icons">assignment_late</span>
+        <span class="material-symbols-outlined">assignment_late</span>
         <h1>Sin mision disponible</h1>
         <p>${esc(message)}</p>
         <div class="cf-state-actions">
-          <button type="button" class="cf-btn primary" data-action="reload"><span class="material-icons">sync</span>Recargar</button>
-          <button type="button" class="cf-btn secondary" data-action="go-map"><span class="material-icons">map</span>Ir al mapa</button>
+          <button type="button" class="cf-btn primary" data-action="reload"><span class="material-symbols-outlined">sync</span>Recargar</button>
+          <button type="button" class="cf-btn secondary" data-action="go-map"><span class="material-symbols-outlined">map</span>Ir al mapa</button>
         </div>
       </div>
     </section>
@@ -439,12 +449,12 @@ function _completedHtml() {
   return `
     <section class="cf cf-state">
       <div class="cf-state-card success">
-        <span class="material-icons">task_alt</span>
+        <span class="material-symbols-outlined">task_alt</span>
         <h1>Reporte enviado</h1>
         <p>Ventas ya puede revisar la auditoria cruzada y cerrar el cuadre. La mision seguira visible hasta que el cierre quede completado.</p>
         <div class="cf-state-actions">
-          <button type="button" class="cf-btn secondary" data-action="reload"><span class="material-icons">sync</span>Ver estado</button>
-          <button type="button" class="cf-btn primary" data-action="go-map"><span class="material-icons">map</span>Volver al mapa</button>
+          <button type="button" class="cf-btn secondary" data-action="reload"><span class="material-symbols-outlined">sync</span>Ver estado</button>
+          <button type="button" class="cf-btn primary" data-action="go-map"><span class="material-symbols-outlined">map</span>Volver al mapa</button>
         </div>
       </div>
     </section>
@@ -453,39 +463,41 @@ function _completedHtml() {
 
 function _cardHtml(unit, visibleCount) {
   if (!unit) {
-    return `<div class="cf-empty"><span class="material-icons">search_off</span><strong>Sin unidades visibles</strong><p>Ajusta la busqueda para continuar.</p></div>`;
+    return `<div class="cf-empty"><span class="material-symbols-outlined">search_off</span><strong>Sin unidades visibles</strong><p>Ajusta la busqueda para continuar.</p></div>`;
   }
   const idx = _s.units.findIndex(item => item === unit);
   const imgUrl = _modelImageUrl(unit.modelo);
   return `
     <section class="cf-card-wrap">
       <div class="cf-card-count">${visibleCount} coincidencia(s) · ${idx + 1} de ${_s.units.length}</div>
-      <article class="cf-card-main ${_statusClass(unit.status)}" data-card-mva="${esc(unit.mva)}">
-        <div class="cf-card-status">${_statusLabel(unit.status)}</div>
-        ${imgUrl
-          ? `<div class="cf-card-img"><img src="${esc(imgUrl)}" alt="${esc(unit.modelo)}" loading="lazy" draggable="false" onerror="this.parentElement.remove()"></div>`
-          : ''}
-        <h2>${esc(unit.mva)}</h2>
-        <p>${esc(unit.modelo)} · ${esc(unit.placas)}</p>
-        <div class="cf-card-meta">
-          <span>${esc(unit.estado || 'SIN ESTADO')}</span>
-          <span>${esc(unit.ubicacion || 'SIN UBICACION')}</span>
-        </div>
-        <div class="cf-fields">
-          ${_unitFields(unit)}
-        </div>
-      </article>
+      <div class="cf-card-shell">
+        <article class="cf-card-main ${_statusClass(unit.status)}" data-card-mva="${esc(unit.mva)}">
+          <div class="cf-card-status">${_statusLabel(unit.status)}</div>
+          ${imgUrl
+            ? `<div class="cf-card-img"><img src="${esc(imgUrl)}" alt="${esc(unit.modelo)}" loading="lazy" draggable="false" onerror="this.parentElement.remove()"></div>`
+            : ''}
+          <h2>${esc(unit.mva)}</h2>
+          <p>${esc(unit.modelo)} · ${esc(unit.placas)}</p>
+          <div class="cf-card-meta">
+            <span>${esc(unit.estado || 'SIN ESTADO')}</span>
+            <span>${esc(unit.ubicacion || 'SIN UBICACION')}</span>
+          </div>
+          <div class="cf-fields">
+            ${_unitFields(unit)}
+          </div>
+        </article>
+      </div>
       <div class="cf-card-actions">
         <button type="button" class="cf-swipe-btn bad" data-action="mark-missing" data-mva="${esc(unit.mva)}">
-          <span class="material-icons">close</span>
+          <span class="material-symbols-outlined">close</span>
           Faltante
         </button>
         <button type="button" class="cf-swipe-btn ghost" data-action="skip">
-          <span class="material-icons">redo</span>
+          <span class="material-symbols-outlined">redo</span>
           Omitir
         </button>
         <button type="button" class="cf-swipe-btn ok" data-action="mark-ok" data-mva="${esc(unit.mva)}">
-          <span class="material-icons">check</span>
+          <span class="material-symbols-outlined">check</span>
           Presente
         </button>
       </div>
@@ -495,7 +507,7 @@ function _cardHtml(unit, visibleCount) {
 
 function _listHtml(units) {
   if (!units.length) {
-    return `<div class="cf-empty"><span class="material-icons">search_off</span><strong>Sin coincidencias</strong><p>Busca por MVA, placas o modelo.</p></div>`;
+    return `<div class="cf-empty"><span class="material-symbols-outlined">search_off</span><strong>Sin coincidencias</strong><p>Busca por MVA, placas o modelo.</p></div>`;
   }
   return `
     <div class="cf-list">
@@ -507,8 +519,8 @@ function _listHtml(units) {
           </div>
           <div class="cf-row-fields">${_unitFields(unit)}</div>
           <div class="cf-row-actions">
-            <button type="button" class="cf-icon-btn bad" data-action="mark-missing" data-mva="${esc(unit.mva)}" title="Faltante"><span class="material-icons">close</span></button>
-            <button type="button" class="cf-icon-btn ok" data-action="mark-ok" data-mva="${esc(unit.mva)}" title="Presente"><span class="material-icons">check</span></button>
+            <button type="button" class="cf-icon-btn bad" data-action="mark-missing" data-mva="${esc(unit.mva)}" title="Faltante"><span class="material-symbols-outlined">close</span></button>
+            <button type="button" class="cf-icon-btn ok" data-action="mark-ok" data-mva="${esc(unit.mva)}" title="Presente"><span class="material-symbols-outlined">check</span></button>
           </div>
         </article>
       `).join('')}
@@ -536,7 +548,7 @@ function _extraModalHtml() {
       <section class="cf-modal" role="dialog" aria-modal="true" onclick="event.stopPropagation()">
         <header>
           <h2>Anadir sobrante</h2>
-          <button type="button" class="cf-icon-btn" data-action="close-extra"><span class="material-icons">close</span></button>
+          <button type="button" class="cf-icon-btn" data-action="close-extra"><span class="material-symbols-outlined">close</span></button>
         </header>
         <label class="cf-field"><span>MVA</span><input data-extra="mva" value="${esc(_s.extra.mva)}" placeholder="C1234"></label>
         <label class="cf-field"><span>Modelo</span><input data-extra="modelo" value="${esc(_s.extra.modelo)}" placeholder="Modelo"></label>
@@ -545,7 +557,7 @@ function _extraModalHtml() {
           <label class="cf-field"><span>Gasolina</span><select data-extra="gasolina">${_gasOptions(_s.extra.gasolina)}</select></label>
           <label class="cf-field"><span>Kilometraje</span><input data-extra="km" inputmode="numeric" value="${esc(_s.extra.km)}" placeholder="KM"></label>
         </div>
-        <button type="button" class="cf-btn primary wide" data-action="save-extra"><span class="material-icons">add</span>Agregar sobrante</button>
+        <button type="button" class="cf-btn primary wide" data-action="save-extra"><span class="material-symbols-outlined">add</span>Agregar sobrante</button>
       </section>
     </div>
   `;
@@ -715,7 +727,14 @@ async function _submit() {
     console.error('[cuadrarflota] enviar', err);
     _s.busy = false;
     _paint();
-    _toast(err?.message || 'No se pudo enviar a Ventas.', 'error');
+    const code = String(err?.code || err?.message || '');
+    const denied = /permission|insufficient|PERMISSION_DENIED/i.test(code);
+    _toast(
+      denied
+        ? 'No se pudo enviar: permisos de Firestore. Recarga e intenta de nuevo; si persiste, avisa a Programador.'
+        : (err?.message || 'No se pudo enviar a Ventas.'),
+      'error'
+    );
   }
 }
 

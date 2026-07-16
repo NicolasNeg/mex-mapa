@@ -870,7 +870,19 @@ service cloud.firestore {
 
     match /settings/{doc} {
       allow read: if tienePerfilActual() || esAccesoTotal();
-      allow write: if esAccesoTotal()
+      // OR barato PRIMERO: auxiliar → REVISION. Si va al final, los
+      // tienePermiso()/esAdminOperativo() anteriores pueden agotar el
+      // presupuesto de expresiones y negar con "Missing or insufficient permissions"
+      // aunque la rama auxiliar sea válida (mismo patrón que alertas/users).
+      allow write: if (
+          tienePerfilActual()
+          && settingsCuadreWriteValido()
+          && request.resource.data.estadoCuadreV3 == "REVISION"
+        )
+        || (
+          esAdminOperativo()
+          && settingsCuadreWriteValido()
+        )
         || (
           tienePerfilActual()
           && (
@@ -878,21 +890,7 @@ service cloud.firestore {
             || tienePermiso(perfilActual(), "lock_map")
           )
         )
-        // Ventas+ iniciando/cerrando misión de cuadre desde la vista oficial.
-        || (
-          esAdminOperativo()
-          && settingsCuadreWriteValido()
-        )
-        // Auxiliar enviando auditoría a Ventas. Antes exigía que el estado
-        // previo fuera exactamente "PROCESO"; si el campo faltaba o quedó en
-        // otro estado (reintento, misión legacy) la lectura lanzaba/negaba y
-        // el auxiliar veía "no tienes permisos". Ahora solo se exige que el
-        // resultado sea REVISION y que únicamente toque campos de cuadre.
-        || (
-          tienePerfilActual()
-          && settingsCuadreWriteValido()
-          && request.resource.data.estadoCuadreV3 == "REVISION"
-        );
+        || esAccesoTotal();
     }
 
     match /ops_events/{doc} {
