@@ -309,8 +309,16 @@ window.editmap_selectPlaza = async function (plaza) {
   await _openEditorForPlaza(normalized);
 };
 
-window.cerrarEditmapStandalone = function () {
+window.cerrarEditmapStandalone = async function () {
   try {
+    if (!window.__edAllowClose && typeof window.__edIsDirty === 'function' && window.__edIsDirty()) {
+      const ok = await (window.mexConfirm || (() => Promise.resolve(true)))(
+        'Cambios sin guardar',
+        'Hay cambios sin guardar. ¿Salir de todos modos?',
+        'warning'
+      );
+      if (!ok) return;
+    }
     const modal = document.getElementById('modal-editor-mapa');
     if (modal) modal.classList.remove('active');
   } catch (_) { /* noop */ }
@@ -321,6 +329,15 @@ window.cerrarEditmapStandalone = function () {
   }
   window.location.href = '/mapa';
 };
+
+function _ensureEditmapChromeCss() {
+  if (document.querySelector('link[href="/css/app-editmap-chrome.css"]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = '/css/app-editmap-chrome.css';
+  document.head.appendChild(link);
+}
+_ensureEditmapChromeCss();
 
 auth.onAuthStateChanged(async user => {
   if (!user) {

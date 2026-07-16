@@ -219,7 +219,9 @@
       await _actualizarFeed(_feedAccionUnidad(mvaStr, actual, estado, ubi, gas, notaFinal, notaEntrada, borrarNotas), responsableSesion, plazaUp);
 
       const cambiosReales = [];
-      if ((actual.estado || '') !== estado) cambiosReales.push(`Estado ${actual.estado || '?'} → ${estado}`);
+      const estadoAnterior = actual.estado || '';
+      const estadoCambio = estadoAnterior !== estado;
+      if (estadoCambio) cambiosReales.push(`Estado ${estadoAnterior || '?'} → ${estado}`);
       if ((actual.gasolina || '') !== gas) cambiosReales.push(`Gas ${actual.gasolina || '?'} → ${gas}`);
       if ((actual.ubicacion || '') !== ubi) cambiosReales.push(`Ubi ${actual.ubicacion || '?'} → ${ubi}`);
       const notaAnterior = (actual.notas || '').trim();
@@ -232,7 +234,21 @@
       const logMsg = cambiosReales.length > 0
         ? `✏️ ${mvaStr}: ${cambiosReales.join(' | ')}`
         : `🔄 ${mvaStr} (revisión sin cambios)`;
-      await _registrarLog("MODIF", logMsg, responsableSesion, plazaUp);
+      const cambioHuman = cambiosReales.length > 0
+        ? cambiosReales
+            .map(c => c
+              .replace(/^Estado\s+.+$/i, 'Cambio de estado')
+              .replace(/^Gas\s+/i, 'Gasolina ')
+              .replace(/^Ubi\s+/i, 'Ubicación ')
+              .replace(/Notas reemplazadas/i, 'Notas actualizadas'))
+            .filter((c, i, arr) => arr.indexOf(c) === i)
+            .join(' · ')
+        : 'Revisión sin cambios';
+      await _registrarLog("MODIF", logMsg, responsableSesion, plazaUp, {
+        mva: mvaStr,
+        cambio: cambioHuman,
+        ...(estadoCambio ? { estadoAnterior: estadoAnterior || '?', estadoNuevo: estado } : {})
+      });
       return "EXITO";
     },
 
@@ -296,11 +312,17 @@
           fuente: fuenteUp, usuario: usuario || 'Sistema', plaza: plazaUp || '',
           fecha: ahora, timestamp: _ts(), estado: 'PENDIENTE'
         });
-        await _registrarLog('KM', `⚠️ KM DISCREPANCIA: ${mvaStr} · ${kmAnterior} ➜ ${kmNum} (+${c.delta} km sin salida registrada)`, usuario, plazaUp);
+        await _registrarLog('KM', `⚠️ KM DISCREPANCIA: ${mvaStr} · ${kmAnterior} ➜ ${kmNum} (+${c.delta} km sin salida registrada)`, usuario, plazaUp, {
+          mva: mvaStr,
+          cambio: `Discrepancia de km: ${kmAnterior} → ${kmNum} (+${c.delta} km sin salida registrada)`
+        });
         return 'DISCREPANCIA';
       }
       if (esCorreccion) {
-        await _registrarLog('KM', `✏️ KM CORREGIDO: ${mvaStr} · ${kmAnterior} ➜ ${kmNum}`, usuario, plazaUp);
+        await _registrarLog('KM', `✏️ KM CORREGIDO: ${mvaStr} · ${kmAnterior} ➜ ${kmNum}`, usuario, plazaUp, {
+          mva: mvaStr,
+          cambio: `Km corregido: ${kmAnterior} → ${kmNum}`
+        });
       }
       return 'EXITO';
     },
@@ -362,7 +384,10 @@
 
       await db.collection(COL.CUADRE).doc(docId).set(unitData);
       await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp);
-      await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp);
+      await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+        mva: mvaStr,
+        cambio: 'Unidad insertada'
+      });
       // Completitud del índice global: si la unidad no tiene doc en index_unidades,
       // lo creamos para que sea buscable (con su ubicación actual ya puesta).
       if (indexSnap.empty) {
@@ -444,7 +469,10 @@
 
       await db.collection(COL.EXTERNOS).doc(docId).set(unitData);
       await _actualizarFeed(`EXT IN: ${mvaStr} (${objeto.modelo || 'S/M'})`, objeto.responsableSesion, plazaUp);
-      await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp);
+      await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+        mva: mvaStr,
+        cambio: 'Unidad externa insertada'
+      });
       _syncIndexUbicacion(mvaStr, { plazaActual: plazaUp || '', pos: 'LIMBO', ubicacion: 'EXTERNO' });
       return `EXITO|${objeto.modelo || 'S/M'}|${objeto.placas || 'S/P'}`;
     },
@@ -478,7 +506,10 @@
 
         if (eliminado) {
           await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp);
-          await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp);
+          await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
+            mva: mvaStr,
+            cambio: 'Unidad eliminada'
+          });
           // Sale de todo cuadre → queda "No Registrado" en el índice global.
           _syncIndexUbicacion(mvaStr, { plazaActual: '', pos: '', ubicacion: '' });
         }

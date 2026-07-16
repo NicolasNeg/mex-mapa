@@ -21,12 +21,23 @@ export function mount({ container }) {
   _container = container;
   const plaza = getCurrentPlaza() || getState()?.profile?.plazaAsignada || '';
   _render(plaza);
-  _offPlaza = onPlazaChange(nextPlaza => {
+  _offPlaza = onPlazaChange(async nextPlaza => {
     if (!_iframe) return;
     const url = _editUrl(nextPlaza);
-    if (_iframe.src !== new URL(url, window.location.origin).href) {
-      _iframe.src = url;
-    }
+    const nextHref = new URL(url, window.location.origin).href;
+    if (_iframe.src === nextHref) return;
+    try {
+      const dirty = _iframe.contentWindow?.__edIsDirty?.();
+      if (dirty) {
+        const ok = await (window.mexConfirm || (() => Promise.resolve(true)))(
+          'Cambios sin guardar',
+          'Hay cambios sin guardar en el editor. ¿Cambiar de plaza de todos modos?',
+          'warning'
+        );
+        if (!ok) return;
+      }
+    } catch (_) { /* cross-origin / unloaded iframe */ }
+    _iframe.src = url;
   });
 }
 

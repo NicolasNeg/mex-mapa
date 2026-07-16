@@ -1,7 +1,7 @@
 # Design: Editor de mapa — restyle profesional + funciones mínimas
 
 **Date:** 2026-07-15  
-**Status:** approved in brainstorming (awaiting user review of this file)  
+**Status:** implemented (ciclo A)  
 **Cycle:** A — look & feel del editor **original** + funciones mínimas de profesionalismo  
 **Out of cycle:** migración nativa a mapviz / quitar iframe (ciclo B futuro)  
 **Related:**  

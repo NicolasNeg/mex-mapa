@@ -152,15 +152,19 @@ html, body {
 body[data-editmap-standalone="1"] #modal-editor-mapa {
   position: fixed;
   inset: 56px 0 0 0;
-  padding: 10px;
-  background: rgba(2, 6, 23, 0.54);
+  padding: 0;
+  background: var(--bg, #f8fafc);
   align-items: stretch;
-  justify-content: center;
+  justify-content: stretch;
 }
 
-body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-shell {
-  width: min(1780px, 100%);
-  max-height: calc(100svh - 76px);
+body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-shell,
+body[data-editmap-standalone="1"] #modal-editor-mapa .ed-shell {
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  height: 100%;
+  border-radius: 0;
 }
 
 body[data-editmap-standalone="1"] #modal-editor-mapa .mapa-editor-body {

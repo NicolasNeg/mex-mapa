@@ -1109,6 +1109,25 @@ function _windowLocationAuditExtra(extra = {}) {
   });
 }
 
+function _extractMvaFromLogAccion(mensaje) {
+  const text = String(mensaje || '')
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  if (!text) return '';
+  let m = text.match(/^(?:EXTERNO\s+)?INSERTADO:\s*([A-Z0-9][\w-]*)\s*$/i);
+  if (m) return m[1].toUpperCase();
+  m = text.match(/^SE\s+ELIMIN[OÓ]\s+LA\s+UNIDAD:\s*([A-Z0-9][\w-]*)\s*$/i);
+  if (m) return m[1].toUpperCase();
+  m = text.match(/^KM\s+(?:DISCREPANCIA|CORREGIDO):\s*([A-Z0-9][\w-]*)\b/i);
+  if (m) return m[1].toUpperCase();
+  m = text.match(/^([A-Z0-9][\w-]*)\s*(?:\(|:)/);
+  if (m && /[0-9]/.test(m[1])) return m[1].toUpperCase();
+  m = text.match(/:\s*([A-Z0-9][\w-]{1,15})\b/);
+  if (m && /[0-9]/.test(m[1])) return m[1].toUpperCase();
+  return '';
+}
+
 async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   const ts = _ts();
   const id = `log_${ts}_${Math.floor(Math.random() * 1000)}`;
@@ -1119,7 +1138,22 @@ async function _registrarLog(tipo, mensaje, autor, plaza, extra = {}) {
   if (auditExtra.exactLocation) payload.exactLocation = auditExtra.exactLocation;
   if (auditExtra.ipAddress) payload.ipAddress = auditExtra.ipAddress;
   if (auditExtra.forwardedFor) payload.forwardedFor = auditExtra.forwardedFor;
-  if (extra?.mva) payload.mva = String(extra.mva).toUpperCase().trim();
+  const mva = extra?.mva
+    ? String(extra.mva).toUpperCase().trim()
+    : _extractMvaFromLogAccion(mensaje);
+  if (mva) payload.mva = mva;
+  if (extra?.cambio != null && String(extra.cambio).trim()) {
+    payload.cambio = String(extra.cambio).trim();
+  }
+  if (extra?.estadoAnterior != null && String(extra.estadoAnterior).trim()) {
+    payload.estadoAnterior = String(extra.estadoAnterior).trim();
+  }
+  if (extra?.estadoNuevo != null && String(extra.estadoNuevo).trim()) {
+    payload.estadoNuevo = String(extra.estadoNuevo).trim();
+  }
+  if (Array.isArray(extra?.cambios) && extra.cambios.length) {
+    payload.cambios = extra.cambios;
+  }
   if (extra?.turnoId) payload.turnoId = String(extra.turnoId);
   await db.collection(COL.LOGS).doc(id).set(payload);
 }
@@ -1566,7 +1600,9 @@ const API_FUNCTIONS = {
 
     // Registrar SOLO los cambios reales (no mostrar campos sin cambio)
     const cambiosReales = [];
-    if ((actual.estado || '') !== estado) cambiosReales.push(`Estado ${actual.estado || '?'} → ${estado}`);
+    const estadoAnterior = actual.estado || '';
+    const estadoCambio = estadoAnterior !== estado;
+    if (estadoCambio) cambiosReales.push(`Estado ${estadoAnterior || '?'} → ${estado}`);
     if ((actual.gasolina || '') !== gas) cambiosReales.push(`Gas ${actual.gasolina || '?'} → ${gas}`);
     if ((actual.ubicacion || '') !== ubi) cambiosReales.push(`Ubi ${actual.ubicacion || '?'} → ${ubi}`);
     const notaAnterior = (actual.notas || '').trim();
@@ -1580,7 +1616,21 @@ const API_FUNCTIONS = {
     const logMsg = cambiosReales.length > 0
       ? `✏️ ${mvaStr}: ${cambiosReales.join(' | ')}`
       : `🔄 ${mvaStr} (revisión sin cambios)`;
-    await _registrarLog("MODIF", logMsg, responsableSesion, plazaUp); // [F1] incluye plaza en log
+    const cambioHuman = cambiosReales.length > 0
+      ? cambiosReales
+          .map(c => c
+            .replace(/^Estado\s+.+$/i, 'Cambio de estado')
+            .replace(/^Gas\s+/i, 'Gasolina ')
+            .replace(/^Ubi\s+/i, 'Ubicación ')
+            .replace(/Notas reemplazadas/i, 'Notas actualizadas'))
+          .filter((c, i, arr) => arr.indexOf(c) === i)
+          .join(' · ')
+      : 'Revisión sin cambios';
+    await _registrarLog("MODIF", logMsg, responsableSesion, plazaUp, {
+      mva: mvaStr,
+      cambio: cambioHuman,
+      ...(estadoCambio ? { estadoAnterior: estadoAnterior || '?', estadoNuevo: estado } : {})
+    }); // [F1] incluye plaza en log
     return "EXITO";
   },
 
@@ -1734,7 +1784,10 @@ const API_FUNCTIONS = {
     await db.collection(COL.CUADRE).doc(docId).set(unitData); // [F1]
 
     await _actualizarFeed(`IN: ${mvaStr} (${indexData.modelo || objeto.modelo})`, objeto.responsableSesion, plazaUp); // [F1]
-    await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp); // [F1]
+    await _registrarLog("IN", `📥 INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+      mva: mvaStr,
+      cambio: 'Unidad insertada'
+    }); // [F1]
     return `EXITO|${indexData.modelo || objeto.modelo}|${indexData.placas || objeto.placas}`;
   },
 
@@ -1774,7 +1827,10 @@ const API_FUNCTIONS = {
     await db.collection(COL.EXTERNOS).doc(docId).set(unitData); // [F1]
 
     await _actualizarFeed(`EXT IN: ${mvaStr} (${objeto.modelo || 'S/M'})`, objeto.responsableSesion, plazaUp); // [F1]
-    await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp); // [F1]
+    await _registrarLog("IN", `🚗 EXTERNO INSERTADO: ${mvaStr}`, objeto.responsableSesion, plazaUp, {
+      mva: mvaStr,
+      cambio: 'Unidad externa insertada'
+    }); // [F1]
     return `EXITO|${objeto.modelo || 'S/M'}|${objeto.placas || 'S/P'}`;
   },
 
@@ -1800,7 +1856,10 @@ const API_FUNCTIONS = {
 
       if (eliminado) {
         await _actualizarFeed(`BAJA: ${mvaStr}`, responsableSesion, plazaUp); // [F1]
-        await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp); // [F1]
+        await _registrarLog("BAJA", `🗑️ SE ELIMINÓ LA UNIDAD: ${mvaStr}`, responsableSesion, plazaUp, {
+          mva: mvaStr,
+          cambio: 'Unidad eliminada'
+        }); // [F1]
       }
     }
     return "EXITO";
@@ -2454,19 +2513,68 @@ const API_FUNCTIONS = {
   async obtenerLogsServer() {
     const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
     return snap.docs.map(d => {
-      const data = d.data();
+      const data = d.data() || {};
       const accion = data.accion || "";
-      const mvaMatch = accion.match(/\*(\w+)\*/);
-      const estadoMatch = accion.match(/ESTADO\s*[→➜]\s*(\w+)/);
-      const ubiMatch = accion.match(/UBI\s*[→➜]\s*(\w+)/);
+      const clean = String(accion)
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, "")
+        .replace(/\s{2,}/g, " ")
+        .trim();
+      let mva = String(data.mva || "").toUpperCase().trim();
+      let cambio = String(data.cambio || "").trim();
+      let estadoAnterior = String(data.estadoAnterior || "").trim();
+      let estadoNuevo = String(data.estadoNuevo || "").trim();
+      if (!mva) {
+        const m = clean.match(/^(?:EXTERNO\s+)?INSERTADO:\s*([A-Z0-9][\w-]*)\s*$/i)
+          || clean.match(/^SE\s+ELIMIN[OÓ]\s+LA\s+UNIDAD:\s*([A-Z0-9][\w-]*)\s*$/i)
+          || clean.match(/^KM\s+(?:DISCREPANCIA|CORREGIDO):\s*([A-Z0-9][\w-]*)\b/i)
+          || clean.match(/^([A-Z0-9][\w-]*)\s*(?:\(|:)/);
+        if (m) mva = String(m[1]).toUpperCase();
+      }
+      if (!cambio || (!estadoAnterior && !estadoNuevo)) {
+        const bodyMatch = clean.match(/^[A-Z0-9][\w-]*\s*:\s*(.+)$/i);
+        const body = bodyMatch ? bodyMatch[1] : "";
+        if (body) {
+          const chunks = body.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean);
+          const otros = [];
+          for (const chunk of chunks) {
+            const est = chunk.match(/^Estado\s+(.+?)\s*(?:→|->|➜)\s*(.+)$/i);
+            if (est) {
+              if (!estadoAnterior) estadoAnterior = est[1].trim();
+              if (!estadoNuevo) estadoNuevo = est[2].trim();
+              continue;
+            }
+            otros.push(chunk
+              .replace(/^Gas\s+/i, "Gasolina ")
+              .replace(/^Ubi\s+/i, "Ubicación ")
+              .replace(/Notas reemplazadas/i, "Notas actualizadas"));
+          }
+          if (!cambio) {
+            const bits = [];
+            if (estadoAnterior || estadoNuevo) bits.push("Cambio de estado");
+            bits.push(...otros);
+            cambio = bits.join(" · ") || body;
+          }
+        } else if (/revisi[oó]n\s+sin\s+cambios/i.test(clean) && !cambio) {
+          cambio = "Revisión sin cambios";
+        } else if (/INSERTADO/i.test(clean) && !cambio) {
+          cambio = /externo/i.test(clean) ? "Unidad externa insertada" : "Unidad insertada";
+        } else if (/ELIMIN/i.test(clean) && !cambio) {
+          cambio = "Unidad eliminada";
+        }
+      }
+      const estadoMatch = !estadoNuevo && accion.match(/ESTADO\s*[→➜]\s*(\w+)/i);
+      const ubiMatch = accion.match(/UBI\s*[→➜]\s*(\w+)/i);
       return {
         fecha:    _fecha(data),
         tipo:     data.tipo || "OTRO",
-        accion:   accion,
-        mva:      data.mva || (mvaMatch ? mvaMatch[1] : ""),
+        accion,
+        cambio:   cambio || clean || accion,
+        mva,
         detalles: ubiMatch ? ubiMatch[1] : (estadoMatch ? estadoMatch[1] : ""),
         ubicacion: ubiMatch ? ubiMatch[1] : "",
-        estado:   estadoMatch ? estadoMatch[1] : (data.tipo || ""),
+        estado:   estadoNuevo || (estadoMatch ? estadoMatch[1] : (data.tipo || "")),
+        estadoAnterior,
+        estadoNuevo,
         autor:    data.autor || "",
         usuario:  data.autor || "",
         timestamp: data.timestamp || 0,

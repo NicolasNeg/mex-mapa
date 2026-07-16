@@ -254,7 +254,10 @@
       }
       await unit.ref.set({ estado: 'TRASLADO', traslado_destino: plazaDestino, trasladoId: ref.id, trasladoFolio: folio, _updatedAt: nowText, _updatedBy: actor }, { merge: true });
       await _actualizarFeed('TRASLADO SALIDA: ' + mva + ' -> ' + plazaDestino, actor, plazaOrigen);
-      await _registrarLog('TRASLADO', 'TRASLADO CREADO: ' + folio + ' · ' + mva + ' -> ' + plazaDestino, actor, plazaOrigen);
+      await _registrarLog('TRASLADO', 'TRASLADO CREADO: ' + folio + ' · ' + mva + ' -> ' + plazaDestino, actor, plazaOrigen, {
+        mva,
+        cambio: 'Traslado creado → ' + plazaDestino
+      });
       await _registrarEventoGestion('TRASLADO_CREADO', 'Creo traslado ' + folio + ' para ' + mva, actor, { entidad: 'TRASLADO', referencia: ref.id, plaza: plazaOrigen });
       return { ok: true, id: ref.id, folio };
     },
@@ -347,7 +350,10 @@
       const cierre = { estado: 'CERRADO', kmLlegada, gasLlegada, fechaCierre, cerradoPor: actor, notaCierre: cierreNota, notas, ediciones: (Array.isArray(data.ediciones) ? data.ediciones : []).concat([_edicion('estado', 'ABIERTO', 'CERRADO', actor)]) };
       await ref.set(cierre, { merge: true });
       await _actualizarFeed('TRASLADO CERRADO: ' + data.mva + ' -> ' + data.plazaDestino, actor, data.plazaDestino);
-      await _registrarLog('TRASLADO', 'TRASLADO CERRADO: ' + (data.folio || ref.id) + ' · ' + data.mva, actor, data.plazaDestino);
+      await _registrarLog('TRASLADO', 'TRASLADO CERRADO: ' + (data.folio || ref.id) + ' · ' + data.mva, actor, data.plazaDestino, {
+        mva: data.mva,
+        cambio: 'Traslado cerrado'
+      });
       return { ok: true, id: ref.id };
     }
   };

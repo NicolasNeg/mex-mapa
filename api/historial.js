@@ -39,19 +39,73 @@
     async obtenerLogsServer() {
       const snap = await db.collection(COL.LOGS).orderBy("timestamp", "desc").limit(200).get();
       return snap.docs.map(d => {
-        const data = d.data();
+        const data = d.data() || {};
         const accion = data.accion || "";
-        const mvaMatch = accion.match(/\*(\w+)\*/);
-        const estadoMatch = accion.match(/ESTADO\s*[→➜]\s*(\w+)/);
-        const ubiMatch = accion.match(/UBI\s*[→➜]\s*(\w+)/);
+        const clean = String(accion)
+          .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\uFE0F]/gu, "")
+          .replace(/\s{2,}/g, " ")
+          .trim();
+
+        // Structured fields first; parse legacy accion as fallback
+        let mva = String(data.mva || "").toUpperCase().trim();
+        let cambio = String(data.cambio || "").trim();
+        let estadoAnterior = String(data.estadoAnterior || "").trim();
+        let estadoNuevo = String(data.estadoNuevo || "").trim();
+
+        if (!mva) {
+          let m = clean.match(/^(?:EXTERNO\s+)?INSERTADO:\s*([A-Z0-9][\w-]*)\s*$/i)
+            || clean.match(/^SE\s+ELIMIN[OÓ]\s+LA\s+UNIDAD:\s*([A-Z0-9][\w-]*)\s*$/i)
+            || clean.match(/^KM\s+(?:DISCREPANCIA|CORREGIDO):\s*([A-Z0-9][\w-]*)\b/i)
+            || clean.match(/^([A-Z0-9][\w-]*)\s*(?:\(|:)/);
+          if (m) mva = String(m[1]).toUpperCase();
+        }
+
+        if (!cambio || (!estadoAnterior && !estadoNuevo)) {
+          const bodyMatch = clean.match(/^[A-Z0-9][\w-]*\s*:\s*(.+)$/i);
+          const body = bodyMatch ? bodyMatch[1] : "";
+          if (body) {
+            const chunks = body.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean);
+            const otros = [];
+            for (const chunk of chunks) {
+              const est = chunk.match(/^Estado\s+(.+?)\s*(?:→|->|➜)\s*(.+)$/i);
+              if (est) {
+                if (!estadoAnterior) estadoAnterior = est[1].trim();
+                if (!estadoNuevo) estadoNuevo = est[2].trim();
+                continue;
+              }
+              otros.push(chunk
+                .replace(/^Gas\s+/i, "Gasolina ")
+                .replace(/^Ubi\s+/i, "Ubicación ")
+                .replace(/Notas reemplazadas/i, "Notas actualizadas"));
+            }
+            if (!cambio) {
+              const bits = [];
+              if (estadoAnterior || estadoNuevo) bits.push("Cambio de estado");
+              bits.push(...otros);
+              cambio = bits.join(" · ") || body;
+            }
+          } else if (/revisi[oó]n\s+sin\s+cambios/i.test(clean)) {
+            if (!cambio) cambio = "Revisión sin cambios";
+          } else if (/INSERTADO/i.test(clean)) {
+            if (!cambio) cambio = /externo/i.test(clean) ? "Unidad externa insertada" : "Unidad insertada";
+          } else if (/ELIMIN/i.test(clean)) {
+            if (!cambio) cambio = "Unidad eliminada";
+          }
+        }
+
+        const estadoMatch = !estadoNuevo && accion.match(/ESTADO\s*[→➜]\s*(\w+)/i);
+        const ubiMatch = accion.match(/UBI\s*[→➜]\s*(\w+)/i);
         return {
           fecha:    _fecha(data),
           tipo:     data.tipo || "OTRO",
           accion,
-          mva:      data.mva || (mvaMatch ? mvaMatch[1] : ""),
+          cambio:   cambio || clean || accion,
+          mva,
           detalles: ubiMatch ? ubiMatch[1] : (estadoMatch ? estadoMatch[1] : ""),
           ubicacion: ubiMatch ? ubiMatch[1] : "",
-          estado:   estadoMatch ? estadoMatch[1] : (data.tipo || ""),
+          estado:   estadoNuevo || (estadoMatch ? estadoMatch[1] : (data.tipo || "")),
+          estadoAnterior,
+          estadoNuevo,
           autor:    data.autor || "",
           usuario:  data.autor || "",
           timestamp: data.timestamp || 0,

@@ -2333,281 +2333,254 @@
 
 <!-- ── modal-editor-mapa ─────────────────────────────── -->
       <div id="modal-editor-mapa" class="modal-overlay"
-        style="z-index:75000; padding:8px; align-items:center; justify-content:center;">
-        <div class="mapa-editor-shell">
+        style="z-index:75000;">
+        <div class="mapa-editor-shell ed-shell">
 
-          <div class="mapa-editor-header">
-            <div class="mapa-editor-header-left">
-              <span class="material-icons" style="color:#38bdf8; font-size:28px; flex-shrink:0;">map</span>
-              <div>
-                <h2>EDITOR DE MAPA</h2>
-                <p>Edición directa sobre el plano · vista previa en vivo</p>
-              </div>
+          <header class="ed-topbar">
+            <span class="material-symbols-outlined" style="color:#3b82f6;font-size:24px;flex-shrink:0;">map</span>
+            <div style="flex:1;min-width:0;">
+              <h2>Editor de mapa</h2>
+              <p id="ed-dirty-label" class="ed-dirty">Guardado</p>
             </div>
-            <div class="mapa-editor-header-tools">
-              <button onclick="modoAgregarEditor('cajon')" class="mapa-editor-tool-btn cajon" id="btn-tool-cajon"
-                data-tip="Cajón: elige la herramienta y luego haz clic en el mapa para colocarlo.">
-                <span class="material-icons">crop_square</span>
-                <span>Cajón</span>
-              </button>
-              <button onclick="modoAgregarEditor('area')" class="mapa-editor-tool-btn area" id="btn-tool-area"
-                data-tip="Área: crea zonas especiales como taller, acceso o recepción.">
-                <span class="material-icons">dashboard_customize</span>
-                <span>Área</span>
-              </button>
-              <button onclick="modoAgregarEditor('label')" class="mapa-editor-tool-btn etiqueta" id="btn-tool-label"
-                data-tip="Etiqueta: agrega un rótulo rápido para nombrar secciones del patio.">
-                <span class="material-icons">sell</span>
-                <span>Etiqueta</span>
-              </button>
-              <button onclick="editorAgregarForma('fila-3')" class="mapa-editor-tool-btn ghost"
-                data-tip="Fila x3: inserta una base visual de tres cajones para acelerar el acomodo.">
-                <span class="material-icons">view_week</span>
-                <span>Fila x3</span>
-              </button>
-              <button onclick="editorAgregarForma('rect-h')" class="mapa-editor-tool-btn ghost"
-                data-tip="Rect H: agrega una pieza horizontal para bloques largos o pasillos.">
-                <span class="material-icons">crop_16_9</span>
-                <span>Rect H</span>
-              </button>
-            </div>
-            <div class="mapa-editor-header-right">
-              <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="mapa-btn-guardar">
-                <span class="material-icons" style="font-size:18px;">save</span> GUARDAR CAMBIOS
-              </button>
-              <button onclick="document.getElementById('modal-editor-mapa').classList.remove('active')"
-                class="mapa-btn-cerrar">
-                <span class="material-icons" style="font-size:20px;">close</span>
-              </button>
-            </div>
+            <button type="button" id="btn-ed-undo" class="ed-tool ed-tool-inline" onclick="editorUndo()" title="Deshacer" disabled>
+              <span class="material-symbols-outlined">undo</span>
+            </button>
+            <button type="button" id="btn-ed-redo" class="ed-tool ed-tool-inline" onclick="editorRedo()" title="Rehacer" disabled>
+              <span class="material-symbols-outlined">redo</span>
+            </button>
+            <button type="button" onclick="editorZoom(-0.1)" class="ed-tool ed-tool-inline" title="Alejar">
+              <span class="material-symbols-outlined">remove</span>
+            </button>
+            <span id="ed-zoom-label" class="ed-zoom-label">100%</span>
+            <button type="button" onclick="editorZoom(0.1)" class="ed-tool ed-tool-inline" title="Acercar">
+              <span class="material-symbols-outlined">add</span>
+            </button>
+            <button type="button" onclick="editorZoom(0)" class="ed-tool ed-tool-inline" title="Zoom 1:1" style="font-size:11px;padding:8px 10px;">1:1</button>
+            <button id="btnGuardarMapa" onclick="guardarMapaEditor(this)" class="ed-btn-primary" disabled>
+              <span class="material-symbols-outlined" style="font-size:18px;">save</span> Guardar
+            </button>
+            <button type="button" onclick="cerrarEditorMapa()" class="ed-tool ed-tool-inline" title="Cerrar">
+              <span class="material-symbols-outlined">close</span>
+            </button>
+          </header>
+
+          <div class="ed-desktop-only-msg">
+            Abre el editor en escritorio (mínimo 1024px).
           </div>
 
-          <div class="mapa-editor-body">
-            <div class="mapa-editor-canvas">
+          <div class="ed-main">
+            <aside class="ed-rail" aria-label="Herramientas">
+              <button onclick="modoAgregarEditor('cajon')" class="ed-tool" id="btn-tool-cajon" type="button"
+                data-tip="Cajón: elige la herramienta y luego haz clic en el mapa para colocarlo.">
+                <span class="material-symbols-outlined">crop_square</span><span>Cajón</span>
+              </button>
+              <button onclick="modoAgregarEditor('area')" class="ed-tool" id="btn-tool-area" type="button"
+                data-tip="Área: crea zonas especiales como taller, acceso o recepción.">
+                <span class="material-symbols-outlined">dashboard_customize</span><span>Área</span>
+              </button>
+              <button onclick="modoAgregarEditor('label')" class="ed-tool" id="btn-tool-label" type="button"
+                data-tip="Etiqueta: agrega un rótulo rápido para nombrar secciones del patio.">
+                <span class="material-symbols-outlined">sell</span><span>Etiqueta</span>
+              </button>
+              <div class="ed-rail-sep"></div>
+              <button onclick="editorAgregarForma('fila-3')" class="ed-tool" type="button"
+                data-tip="Fila x3: inserta una base visual de tres cajones para acelerar el acomodo.">
+                <span class="material-symbols-outlined">view_week</span><span>Fila x3</span>
+              </button>
+              <button onclick="editorAgregarForma('rect-h')" class="ed-tool" type="button"
+                data-tip="Rect H: agrega una pieza horizontal para bloques largos o pasillos.">
+                <span class="material-symbols-outlined">crop_16_9</span><span>Rect H</span>
+              </button>
+              <button onclick="editorAgregarForma('cuadrado')" class="ed-tool" type="button"
+                data-tip="Agrega un cajón cuadrado.">
+                <span class="material-symbols-outlined">check_box_outline_blank</span><span>Cuadrado</span>
+              </button>
+              <button onclick="editorAgregarForma('rect-v')" class="ed-tool" type="button"
+                data-tip="Agrega un rectángulo vertical.">
+                <span class="material-symbols-outlined">crop_portrait</span><span>Rect V</span>
+              </button>
+              <button onclick="editorAgregarForma('rect-grande')" class="ed-tool" type="button"
+                data-tip="Agrega un rectángulo grande.">
+                <span class="material-symbols-outlined">crop_32_9</span><span>Grande</span>
+              </button>
+            </aside>
+
+            <section class="ed-canvas mapa-editor-canvas">
               <div id="editor-loading" class="mapa-editor-loading">
-                <span class="material-icons spinner" style="font-size:48px; color:#38bdf8;">sync</span>
+                <span class="material-symbols-outlined spinner" style="font-size:48px; color:#3b82f6;">sync</span>
                 <p>Cargando estructura del mapa…</p>
               </div>
 
               <div id="editor-grid-wrapper" class="editor-grid-stage" style="display:none;">
-                <div class="editor-help-strip">
-                  <button class="editor-help-card" type="button"
-                    data-tip="1. Elige una pieza arriba. 2. Haz clic en el mapa para colocarla.">
-                    <span class="material-icons">add_box</span>
-                    <span>Agregar</span>
-                  </button>
-                  <button class="editor-help-card" type="button"
-                    data-tip="Arrastra una pieza para moverla y usa los nodos dorados para cambiar su tamaño.">
-                    <span class="material-icons">open_with</span>
-                    <span>Mover</span>
-                  </button>
-                  <button class="editor-help-card" type="button"
-                    data-tip="Encierra con el mouse o usa Shift/Ctrl/Cmd para seleccionar varias piezas.">
-                    <span class="material-icons">select_all</span>
-                    <span>Multi</span>
-                  </button>
-                  <button class="editor-help-card" type="button"
-                    data-tip="Click derecho o botón de tres puntos para abrir más opciones sobre un spot.">
-                    <span class="material-icons">more_horiz</span>
-                    <span>Más</span>
-                  </button>
-                </div>
-
                 <div id="editor-add-hint" class="mapa-add-hint" style="display:none;">
-                  <span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span>
+                  <span class="material-symbols-outlined" style="font-size:18px; flex-shrink:0;">touch_app</span>
                   Toca el mapa para colocar un elemento nuevo
                 </div>
 
-                <div id="editor-live-badge" class="editor-live-pill">
-                  <span class="material-icons" style="font-size:18px;">visibility</span>
-                  <span>Vista previa en vivo</span>
-                </div>
-
-                <div id="editor-selection-summary" class="editor-selection-summary">
-                  <span class="material-icons" style="font-size:18px;">mouse</span>
-                  <span>Haz clic o encierra con el mouse para empezar.</span>
-                </div>
-
-                <div class="editor-floating-card editor-inspector-card">
-                  <div class="editor-card-header">
-                    <div>
-                      <div class="editor-card-kicker">Inspector</div>
-                      <h3>Selección</h3>
-                    </div>
-                    <span class="editor-card-dot"></span>
-                  </div>
-
-                  <div id="editor-no-sel" class="mapa-no-sel editor-empty-state">
-                    <span class="material-icons"
-                      style="font-size:54px; color:#1e3a5f; display:block; margin-bottom:12px;">ads_click</span>
-                    <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.</p>
-                  </div>
-
-                  <div id="editor-sel-form" style="display:none;">
-                    <div class="editor-form-grid two">
-                      <div class="mapa-field-group">
-                        <label class="mapa-field-label">Nombre</label>
-                        <input id="ep-nombre" type="text" maxlength="20" class="mapa-input" placeholder="Ej: A-01"
-                          oninput="editorPropChange()">
-                      </div>
-                      <div class="mapa-field-group">
-                        <label class="mapa-field-label">Tipo</label>
-                        <select id="ep-tipo" class="mapa-select" onchange="editorPropChange()">
-                          <option value="cajon">Cajón</option>
-                          <option value="area">Área</option>
-                          <option value="label">Etiqueta</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div class="editor-form-grid two">
-                      <div class="mapa-field-group">
-                        <label class="mapa-field-label">Posición X</label>
-                        <input id="ep-x" type="number" min="0" step="10" class="mapa-input"
-                          oninput="editorPropChange()">
-                      </div>
-                      <div class="mapa-field-group">
-                        <label class="mapa-field-label">Posición Y</label>
-                        <input id="ep-y" type="number" min="0" step="10" class="mapa-input"
-                          oninput="editorPropChange()">
-                      </div>
-                    </div>
-
-                    <div class="editor-form-grid two">
-                      <div class="mapa-field-group">
-                        <label class="mapa-field-label">Ancho</label>
-                        <div class="mapa-size-ctrl">
-                          <button onclick="editorSpanChange('width',-10)">−</button>
-                          <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
-                            style="width:58px; text-align:center;" oninput="editorPropChange()">
-                          <button onclick="editorSpanChange('width',10)">+</button>
-                        </div>
-                      </div>
-                      <div class="mapa-field-group">
-                        <label class="mapa-field-label">Alto</label>
-                        <div class="mapa-size-ctrl">
-                          <button onclick="editorSpanChange('height',-10)">−</button>
-                          <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
-                            style="width:58px; text-align:center;" oninput="editorPropChange()">
-                          <button onclick="editorSpanChange('height',10)">+</button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div class="mapa-field-group">
-                      <label class="mapa-field-label">Rotación</label>
-                      <input id="ep-rotation" type="number" min="-360" max="360" step="5" class="mapa-input"
-                        oninput="editorPropChange()">
-                    </div>
-
-                    <div class="mapa-field-group">
-                      <label class="mapa-field-label">Ajuste fino</label>
-                      <div class="mapa-arrow-pad">
-                        <div></div>
-                        <button onclick="editorMoverCelda(0,-1)" class="mapa-arrow-btn" title="Arriba"><span
-                            class="material-icons">north</span></button>
-                        <div></div>
-                        <button onclick="editorMoverCelda(-1,0)" class="mapa-arrow-btn" title="Izquierda"><span
-                            class="material-icons">west</span></button>
-                        <div class="mapa-arrow-center"><span class="material-icons">open_with</span></div>
-                        <button onclick="editorMoverCelda(1,0)" class="mapa-arrow-btn" title="Derecha"><span
-                            class="material-icons">east</span></button>
-                        <div></div>
-                        <button onclick="editorMoverCelda(0,1)" class="mapa-arrow-btn" title="Abajo"><span
-                            class="material-icons">south</span></button>
-                        <div></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div id="editor-selection-actions" class="editor-floating-toolbar editor-selection-actions"
-                  style="display:none;">
-                  <button type="button" onclick="editorCopiarCelda()"
-                    data-tip="Duplica la selección con un pequeño desplazamiento.">
-                    <span class="material-icons">content_copy</span>
+                <div id="editor-selection-actions" class="editor-floating-toolbar editor-selection-actions" style="display:none;">
+                  <button type="button" onclick="editorCopiarCelda()" data-tip="Duplica la selección con un pequeño desplazamiento.">
+                    <span class="material-symbols-outlined">content_copy</span>
                   </button>
-                  <button type="button" onclick="editorEliminarCelda()"
-                    data-tip="Elimina la pieza o el grupo seleccionado.">
-                    <span class="material-icons">delete_forever</span>
+                  <button type="button" onclick="editorEliminarCelda()" data-tip="Elimina la pieza o el grupo seleccionado.">
+                    <span class="material-symbols-outlined">delete_forever</span>
                   </button>
-                  <button type="button" onclick="editorDuplicarFila()"
-                    data-tip="Clona una fila completa a partir del spot seleccionado.">
-                    <span class="material-icons">table_rows</span>
+                  <button type="button" onclick="editorDuplicarFila()" data-tip="Clona una fila completa a partir del spot seleccionado.">
+                    <span class="material-symbols-outlined">table_rows</span>
                   </button>
-                  <button type="button" onclick="editorToggleMoreMenu(event)"
-                    data-tip="Abre más opciones para el spot o grupo activo.">
-                    <span class="material-icons">more_horiz</span>
+                  <button type="button" onclick="editorToggleMoreMenu(event)" data-tip="Abre más opciones para el spot o grupo activo.">
+                    <span class="material-symbols-outlined">more_horiz</span>
                   </button>
                 </div>
 
-                <div id="editor-group-actions" class="editor-floating-toolbar editor-group-actions"
-                  style="display:none;">
+                <div id="editor-group-actions" class="editor-floating-toolbar editor-group-actions" style="display:none;">
                   <button type="button" onclick="editorAlinearGrupo('left')" data-tip="Alinea los bordes izquierdos.">
-                    <span class="material-icons">align_horizontal_left</span>
+                    <span class="material-symbols-outlined">align_horizontal_left</span>
                   </button>
-                  <button type="button" onclick="editorAlinearGrupo('centerH')"
-                    data-tip="Centra horizontalmente el grupo.">
-                    <span class="material-icons">align_horizontal_center</span>
+                  <button type="button" onclick="editorAlinearGrupo('centerH')" data-tip="Centra horizontalmente el grupo.">
+                    <span class="material-symbols-outlined">align_horizontal_center</span>
                   </button>
                   <button type="button" onclick="editorAlinearGrupo('right')" data-tip="Alinea los bordes derechos.">
-                    <span class="material-icons">align_horizontal_right</span>
+                    <span class="material-symbols-outlined">align_horizontal_right</span>
                   </button>
-                  <button type="button" onclick="editorAlinearGrupo('top')"
-                    data-tip="Alinea la parte superior del grupo.">
-                    <span class="material-icons">align_vertical_top</span>
+                  <button type="button" onclick="editorAlinearGrupo('top')" data-tip="Alinea la parte superior del grupo.">
+                    <span class="material-symbols-outlined">align_vertical_top</span>
                   </button>
-                  <button type="button" onclick="editorAlinearGrupo('centerV')"
-                    data-tip="Centra verticalmente el grupo.">
-                    <span class="material-icons">align_vertical_center</span>
+                  <button type="button" onclick="editorAlinearGrupo('centerV')" data-tip="Centra verticalmente el grupo.">
+                    <span class="material-symbols-outlined">align_vertical_center</span>
                   </button>
                   <button type="button" onclick="editorAlinearGrupo('bottom')" data-tip="Alinea la base del grupo.">
-                    <span class="material-icons">align_vertical_bottom</span>
+                    <span class="material-symbols-outlined">align_vertical_bottom</span>
                   </button>
-                  <button type="button" onclick="editorDistribuirGrupo('H')"
-                    data-tip="Distribuye la separación horizontal del grupo.">
+                  <button type="button" onclick="editorDistribuirGrupo('H')" data-tip="Distribuye la separación horizontal del grupo.">
                     <span>↔</span>
                   </button>
-                  <button type="button" onclick="editorDistribuirGrupo('V')"
-                    data-tip="Distribuye la separación vertical del grupo.">
+                  <button type="button" onclick="editorDistribuirGrupo('V')" data-tip="Distribuye la separación vertical del grupo.">
                     <span>↕</span>
                   </button>
                 </div>
 
-                <div class="ed-zoom-bar editor-floating-zoom">
-                  <button onclick="editorZoom(-0.1)" title="Zoom -">−</button>
-                  <span id="ed-zoom-label">100%</span>
-                  <button onclick="editorZoom(+0.1)" title="Zoom +">+</button>
-                  <button onclick="editorZoom(0)" title="Reset zoom"
-                    style="font-size:11px; width:auto; padding:0 8px;">1:1</button>
-                </div>
-
                 <div id="ed-more-menu" class="ed-more-menu" style="display:none;">
-                  <button onclick="editorCentrarH()"><span class="material-icons"
-                      style="font-size:15px;">align_horizontal_center</span><span>Centrar
-                      horizontalmente</span></button>
-                  <button onclick="editorCentrarV()"><span class="material-icons"
-                      style="font-size:15px;">align_vertical_center</span><span>Centrar verticalmente</span></button>
+                  <button onclick="editorCentrarH()"><span class="material-symbols-outlined" style="font-size:15px;">align_horizontal_center</span><span>Centrar horizontalmente</span></button>
+                  <button onclick="editorCentrarV()"><span class="material-symbols-outlined" style="font-size:15px;">align_vertical_center</span><span>Centrar verticalmente</span></button>
                   <hr>
-                  <button onclick="editorTraerFrente()"><span class="material-icons"
-                      style="font-size:15px;">flip_to_front</span><span>Traer al frente</span></button>
-                  <button onclick="editorEnviarFondo()"><span class="material-icons"
-                      style="font-size:15px;">flip_to_back</span><span>Enviar al fondo</span></button>
+                  <button onclick="editorTraerFrente()"><span class="material-symbols-outlined" style="font-size:15px;">flip_to_front</span><span>Traer al frente</span></button>
+                  <button onclick="editorEnviarFondo()"><span class="material-symbols-outlined" style="font-size:15px;">flip_to_back</span><span>Enviar al fondo</span></button>
                   <hr>
-                  <button onclick="editorAgregarForma('cuadrado')"><span class="material-icons"
-                      style="font-size:15px;">check_box_outline_blank</span><span>Agregar cuadrado</span></button>
-                  <button onclick="editorAgregarForma('rect-v')"><span class="material-icons"
-                      style="font-size:15px;">crop_portrait</span><span>Agregar rectángulo vertical</span></button>
-                  <button onclick="editorAgregarForma('rect-grande')"><span class="material-icons"
-                      style="font-size:15px;">crop_32_9</span><span>Agregar rectángulo grande</span></button>
+                  <button onclick="editorAgregarForma('cuadrado')"><span class="material-symbols-outlined" style="font-size:15px;">check_box_outline_blank</span><span>Agregar cuadrado</span></button>
+                  <button onclick="editorAgregarForma('rect-v')"><span class="material-symbols-outlined" style="font-size:15px;">crop_portrait</span><span>Agregar rectángulo vertical</span></button>
+                  <button onclick="editorAgregarForma('rect-grande')"><span class="material-symbols-outlined" style="font-size:15px;">crop_32_9</span><span>Agregar rectángulo grande</span></button>
                 </div>
 
                 <div id="editor-grid"
                   style="display:none; background:rgba(0,0,0,0.25); border:1px solid rgba(255,255,255,0.07); border-radius:12px; gap:3px; padding:6px;">
                 </div>
               </div>
-            </div>
+            </section>
+
+            <aside class="ed-inspector" aria-label="Inspector">
+              <h3 class="ed-inspector-title">Selección</h3>
+              <div id="editor-no-sel" class="mapa-no-sel">
+                <span class="material-symbols-outlined">ads_click</span>
+                <p>Haz clic en una pieza para editarla.<br>Shift o arrastre para multiselección.</p>
+              </div>
+
+              <div id="editor-sel-form" style="display:none;">
+                <div class="editor-form-grid two">
+                  <div class="mapa-field-group">
+                    <label class="mapa-field-label">Nombre</label>
+                    <input id="ep-nombre" type="text" maxlength="20" class="mapa-input" placeholder="Ej: A-01"
+                      oninput="editorPropChange()">
+                  </div>
+                  <div class="mapa-field-group">
+                    <label class="mapa-field-label">Tipo</label>
+                    <select id="ep-tipo" class="mapa-select" onchange="editorPropChange()">
+                      <option value="cajon">Cajón</option>
+                      <option value="area">Área</option>
+                      <option value="label">Etiqueta</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="editor-form-grid two">
+                  <div class="mapa-field-group">
+                    <label class="mapa-field-label">Posición X</label>
+                    <input id="ep-x" type="number" min="0" step="10" class="mapa-input" oninput="editorPropChange()">
+                  </div>
+                  <div class="mapa-field-group">
+                    <label class="mapa-field-label">Posición Y</label>
+                    <input id="ep-y" type="number" min="0" step="10" class="mapa-input" oninput="editorPropChange()">
+                  </div>
+                </div>
+
+                <div class="editor-form-grid two">
+                  <div class="mapa-field-group">
+                    <label class="mapa-field-label">Ancho</label>
+                    <div class="mapa-size-ctrl">
+                      <button type="button" onclick="editorSpanChange('width',-10)">−</button>
+                      <input id="ep-width" type="number" min="40" step="10" class="mapa-input"
+                        style="width:58px; text-align:center;" oninput="editorPropChange()">
+                      <button type="button" onclick="editorSpanChange('width',10)">+</button>
+                    </div>
+                  </div>
+                  <div class="mapa-field-group">
+                    <label class="mapa-field-label">Alto</label>
+                    <div class="mapa-size-ctrl">
+                      <button type="button" onclick="editorSpanChange('height',-10)">−</button>
+                      <input id="ep-height" type="number" min="30" step="10" class="mapa-input"
+                        style="width:58px; text-align:center;" oninput="editorPropChange()">
+                      <button type="button" onclick="editorSpanChange('height',10)">+</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mapa-field-group">
+                  <label class="mapa-field-label">Rotación</label>
+                  <input id="ep-rotation" type="number" min="-360" max="360" step="5" class="mapa-input"
+                    oninput="editorPropChange()">
+                </div>
+
+                <div class="mapa-field-group">
+                  <label class="mapa-field-label">Zona</label>
+                  <input id="ep-zone" type="text" class="mapa-input" placeholder="Ej: Patio A"
+                    oninput="editorPropChange()" onfocus="editorPropFocus()">
+                </div>
+
+                <label class="ed-check-row">
+                  <input id="ep-blocked" type="checkbox" onchange="editorPropChange()">
+                  <span>Bloqueado</span>
+                </label>
+                <label class="ed-check-row">
+                  <input id="ep-reserved" type="checkbox" onchange="editorPropChange()">
+                  <span>Reservado</span>
+                </label>
+
+                <div class="mapa-field-group">
+                  <label class="mapa-field-label">Ajuste fino</label>
+                  <div class="mapa-arrow-pad">
+                    <div></div>
+                    <button type="button" onclick="editorMoverCelda(0,-1)" class="mapa-arrow-btn" title="Arriba"><span
+                        class="material-symbols-outlined">north</span></button>
+                    <div></div>
+                    <button type="button" onclick="editorMoverCelda(-1,0)" class="mapa-arrow-btn" title="Izquierda"><span
+                        class="material-symbols-outlined">west</span></button>
+                    <div class="mapa-arrow-center"><span class="material-symbols-outlined">open_with</span></div>
+                    <button type="button" onclick="editorMoverCelda(1,0)" class="mapa-arrow-btn" title="Derecha"><span
+                        class="material-symbols-outlined">east</span></button>
+                    <div></div>
+                    <button type="button" onclick="editorMoverCelda(0,1)" class="mapa-arrow-btn" title="Abajo"><span
+                        class="material-symbols-outlined">south</span></button>
+                    <div></div>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
+
+          <footer class="ed-status">
+            <span id="ed-status-pieces">0 piezas</span>
+            <span id="editor-selection-summary">Sin selección</span>
+            <span style="margin-left:auto;">Esc deselecciona · Del borra · ⌘Z deshace</span>
+          </footer>
         </div>
       </div>
 

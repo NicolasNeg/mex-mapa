@@ -17441,10 +17441,170 @@ let _edMultiSel = [];       // multi-selección de celdas
 let _edRotate = null;       // estado de rotación: { celdaId, cx, cy, startAngle }
 let _edRectSel = null;      // rect de selección: { startX, startY }
 let _edMenuHideHandler = null;
+let _edSession = null;
+let _edPropSnapshotTaken = false;
+let _edBeforeunloadBound = false;
+const _ED_SAVE_LABEL_HTML = '<span class="material-symbols-outlined" style="font-size:18px;">save</span> Guardar';
 
 // [F2] Defaults para celdas nuevas
 const _ED_DEFAULT_W = 120;
 const _ED_DEFAULT_H = 80;
+
+async function _edEnsureSession() {
+  if (_edSession) return _edSession;
+  const mod = await import('/js/app/features/mapa/editor-session.js');
+  _edSession = mod.createEditorSession();
+  return _edSession;
+}
+
+function _edIsEditorOpen() {
+  return !!document.getElementById('modal-editor-mapa')?.classList.contains('active');
+}
+
+function _edRefreshDirtyUi() {
+  const dirty = !!_edSession?.isDirty();
+  const lbl = document.getElementById('ed-dirty-label');
+  if (lbl) {
+    lbl.textContent = dirty ? 'Sin guardar' : 'Guardado';
+    lbl.classList.toggle('is-dirty', dirty);
+  }
+  const btn = document.getElementById('btnGuardarMapa');
+  if (btn) btn.disabled = !dirty || !_edCeldas.length;
+  const u = document.getElementById('btn-ed-undo');
+  const r = document.getElementById('btn-ed-redo');
+  if (u) u.disabled = !_edSession?.canUndo();
+  if (r) r.disabled = !_edSession?.canRedo();
+}
+
+function _edMarkMutation() {
+  if (!_edSession) return;
+  _edSession.pushUndo(_edCeldas);
+  _edRefreshDirtyUi();
+}
+
+function editorPropFocus() {
+  if (!_edPropSnapshotTaken && _edSel) {
+    _edMarkMutation();
+    _edPropSnapshotTaken = true;
+  }
+}
+
+function editorUndo() {
+  if (!_edSession?.canUndo()) return;
+  const prev = _edSession.undo(_edCeldas);
+  if (!prev) return;
+  _edCeldas = prev;
+  _edPropSnapshotTaken = false;
+  _resetEditorPanel();
+  _renderEditorCanvas();
+  _edRefreshDirtyUi();
+  _edSyncEditorHud();
+}
+
+function editorRedo() {
+  if (!_edSession?.canRedo()) return;
+  const next = _edSession.redo(_edCeldas);
+  if (!next) return;
+  _edCeldas = next;
+  _edPropSnapshotTaken = false;
+  _resetEditorPanel();
+  _renderEditorCanvas();
+  _edRefreshDirtyUi();
+  _edSyncEditorHud();
+}
+
+async function cerrarEditorMapa() {
+  if (_edSession?.isDirty()) {
+    const ok = await mexConfirm(
+      'Cambios sin guardar',
+      'Hay cambios sin guardar. ¿Cerrar el editor?',
+      'warning'
+    );
+    if (!ok) return false;
+  }
+  document.getElementById('modal-editor-mapa')?.classList.remove('active');
+  const standalone = EDITMAP_STANDALONE_ROUTE_RE.test(window.location.pathname || '')
+    || window.__MEX_EDITMAP_STANDALONE === true;
+  if (standalone && typeof window.cerrarEditmapStandalone === 'function') {
+    window.__edAllowClose = true;
+    try { window.cerrarEditmapStandalone(); }
+    finally { window.__edAllowClose = false; }
+  }
+  return true;
+}
+
+function editorMoverCeldaByPx(dx, dy) {
+  const refs = _edSelectedRefs();
+  if (!refs.length) return;
+  _edMarkMutation();
+  refs.forEach(ref => {
+    ref.x = Math.max(0, (ref.x || 0) + dx);
+    ref.y = Math.max(0, (ref.y || 0) + dy);
+  });
+  if (_edSel) _edFillSelectionForm(_edSel);
+  _renderEditorCanvas();
+  _edRefreshDirtyUi();
+}
+
+function _edOnKeydown(e) {
+  const modal = document.getElementById('modal-editor-mapa');
+  if (!modal?.classList.contains('active')) return;
+  const tag = (e.target && e.target.tagName) || '';
+  const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+  if ((e.key === 'Delete' || e.key === 'Backspace') && !typing) {
+    e.preventDefault();
+    editorEliminarCelda();
+    return;
+  }
+  if (e.key === 'Escape') {
+    _resetEditorPanel();
+    _renderEditorCanvas();
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    if (e.shiftKey) editorRedo();
+    else editorUndo();
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'y') {
+    e.preventDefault();
+    editorRedo();
+    return;
+  }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd' && !typing) {
+    e.preventDefault();
+    editorCopiarCelda();
+    return;
+  }
+  if (!typing && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+    e.preventDefault();
+    const map = {
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0]
+    };
+    const [dx, dy] = map[e.key];
+    if (e.shiftKey) editorMoverCeldaByPx(dx, dy);
+    else editorMoverCelda(dx, dy);
+  }
+}
+
+function _edBindChromeGuards() {
+  if (!_edBeforeunloadBound) {
+    _edBeforeunloadBound = true;
+    window.addEventListener('beforeunload', (e) => {
+      if (!_edSession?.isDirty() || !_edIsEditorOpen()) return;
+      e.preventDefault();
+      e.returnValue = '';
+    });
+    document.addEventListener('keydown', _edOnKeydown);
+  }
+}
+
+window.__edIsDirty = () => !!_edSession?.isDirty();
+window.__edIsEditorOpen = _edIsEditorOpen;
 
 function _edSelectedRefs() {
   const refs = new Map();
@@ -17487,16 +17647,25 @@ function _edFillSelectionForm(celda) {
   setVal('ep-width', Math.round(celda.width || _ED_DEFAULT_W));
   setVal('ep-height', Math.round(celda.height || _ED_DEFAULT_H));
   setVal('ep-rotation', Math.round(celda.rotation || 0));
+  setVal('ep-zone', celda.zone || '');
+  const blocked = document.getElementById('ep-blocked');
+  if (blocked) blocked.checked = celda.isBlocked === true;
+  const reserved = document.getElementById('ep-reserved');
+  if (reserved) reserved.checked = celda.isReserved === true;
 }
 
 function _edSyncEditorHud() {
   const hint = document.getElementById('editor-add-hint');
   const summary = document.getElementById('editor-selection-summary');
-  const liveBadge = document.getElementById('editor-live-badge');
   const selectionActions = document.getElementById('editor-selection-actions');
   const groupActions = document.getElementById('editor-group-actions');
+  const pieces = document.getElementById('ed-status-pieces');
   const selectedRefs = _edSelectedRefs();
   const selectedCount = selectedRefs.length;
+
+  if (pieces) {
+    pieces.textContent = `${_edCeldas.length} pieza${_edCeldas.length === 1 ? '' : 's'}`;
+  }
 
   if (hint) {
     if (_edModo) {
@@ -17505,7 +17674,7 @@ function _edSyncEditorHud() {
         area: 'Haz clic en el plano para crear una zona especial.',
         label: 'Haz clic en el plano para colocar una etiqueta.'
       };
-      hint.innerHTML = `<span class="material-icons" style="font-size:18px; flex-shrink:0;">touch_app</span>${labels[_edModo] || 'Haz clic en el plano para agregar una pieza.'}`;
+      hint.innerHTML = `<span class="material-symbols-outlined" style="font-size:18px; flex-shrink:0;">touch_app</span>${labels[_edModo] || 'Haz clic en el plano para agregar una pieza.'}`;
       hint.style.display = 'flex';
     } else {
       hint.style.display = 'none';
@@ -17514,24 +17683,19 @@ function _edSyncEditorHud() {
 
   if (summary) {
     let icon = 'mouse';
-    let text = 'Haz clic o encierra con el mouse para empezar.';
+    let text = 'Sin selección';
     if (_edModo) {
       icon = 'add_box';
-      text = `Modo ${_edModo.toUpperCase()} activo.`;
+      const modoLabel = _edModo === 'cajon' ? 'cajón' : _edModo;
+      text = `Modo ${modoLabel} activo`;
     } else if (selectedCount > 1) {
       icon = 'select_all';
-      text = `${selectedCount} piezas seleccionadas.`;
+      text = `${selectedCount} piezas seleccionadas`;
     } else if (_edSel) {
       icon = 'tune';
-      text = `Editando ${_edSel.valor || 'pieza'}.`;
+      text = `Editando ${_edSel.valor || 'pieza'}`;
     }
-    summary.innerHTML = `<span class="material-icons" style="font-size:18px;">${icon}</span><span>${text}</span>`;
-  }
-
-  if (liveBadge) {
-    const parts = [`${_edCeldas.length} pieza${_edCeldas.length === 1 ? '' : 's'}`];
-    parts.push(selectedCount ? `${selectedCount} seleccionada${selectedCount === 1 ? '' : 's'}` : 'Vista previa en vivo');
-    liveBadge.innerHTML = `<span class="material-icons" style="font-size:18px;">visibility</span><span>${parts.join(' · ')}</span>`;
+    summary.innerHTML = `<span class="material-symbols-outlined">${icon}</span><span>${text}</span>`;
   }
 
   if (selectionActions) selectionActions.style.display = selectedCount ? 'flex' : 'none';
@@ -17599,7 +17763,7 @@ function _edToggleSelection(celda) {
   _renderEditorCanvas();
 }
 
-function abrirEditorMapa(plazaOverride) {
+async function abrirEditorMapa(plazaOverride) {
   // Si se pasa una plaza explícita (desde /editmap/PLAZA), sobreescribir la activa
   if (plazaOverride) {
     PLAZA_ACTIVA_MAPA = _rememberActivePlaza(plazaOverride, { forEditmap: true });
@@ -17613,13 +17777,17 @@ function abrirEditorMapa(plazaOverride) {
   document.getElementById('editor-loading').style.display = 'flex';
   document.getElementById('editor-grid-wrapper').style.display = 'none';
   _edCeldas = []; _edSel = null; _edModo = null; _edDrag = null; _edResize = null; _edZoom = 1.0; _edMultiSel = []; _edRotate = null; _edRectSel = null; _edDragResizeBound = false;
+  _edPropSnapshotTaken = false;
   const zl = document.getElementById('ed-zoom-label'); if (zl) zl.innerText = '100%';
   _edCloseMoreMenu();
   _resetEditorPanel();
   _edSyncEditorHud();
-  _bindEditorInspectorDrag();
+  _edBindChromeGuards();
+  await _edEnsureSession();
+  _edSession.reset(_edCeldas);
+  _edRefreshDirtyUi();
 
-  (window.api || api).obtenerEstructuraMapa(_miPlaza()).then(estructura => {
+  (window.api || api).obtenerEstructuraMapa(_miPlaza()).then(async estructura => {
     document.getElementById('editor-loading').style.display = 'none';
     document.getElementById('editor-grid-wrapper').style.display = 'block';
     // [F2] Normalizar al formato absoluto (también acepta legado grid)
@@ -17646,11 +17814,15 @@ function abrirEditorMapa(plazaOverride) {
       googleMapsUrl: c.googleMapsUrl ?? null,
       pathType: c.pathType ?? null
     }));
+    await _edEnsureSession();
+    _edSession.reset(_edCeldas);
+    _edRefreshDirtyUi();
     _renderEditorCanvas();
     _edSyncEditorHud();
   }).catch(err => {
     document.getElementById('editor-loading').innerHTML =
-      `<span style="color:#ef4444;font-weight:700;">Error: ${err}</span>`;
+      `<span style="color:#ef4444;font-weight:700;">Error: ${err}</span>
+       <button type="button" class="ed-btn-primary" style="margin-top:12px;" onclick="abrirEditorMapa()">Reintentar</button>`;
   });
 }
 
@@ -17708,7 +17880,7 @@ function _renderEditorCanvas() {
     _edRectSel = { startX: sx, startY: sy, additive: e.shiftKey || e.ctrlKey || e.metaKey };
     const rectEl = document.createElement('div');
     rectEl.id = 'ed-rect-sel';
-    rectEl.style.cssText = `position:absolute; border:1.5px dashed #a855f7; background:rgba(168,85,247,0.08); pointer-events:none; z-index:99;
+    rectEl.style.cssText = `position:absolute; border:1.5px dashed #3b82f6; background:rgba(59,130,246,0.08); pointer-events:none; z-index:99;
           left:${sx}px; top:${sy}px; width:0; height:0;`;
     inner.appendChild(rectEl);
   };
@@ -17790,6 +17962,7 @@ function _renderEditorCanvas() {
 
       const keepMulti = _edMultiSel.length > 1 && _edMultiSel.some(item => item.id === celda.id);
       _edSelectCelda(celda, { preserveMulti: keepMulti });
+      _edMarkMutation();
       _edDrag = {
         celdaId: celda.id, startMouseX: e.clientX, startMouseY: e.clientY, startCeldaX: celda.x, startCeldaY: celda.y,
         multiStarts: _edSelectedRefs().map(c => ({ id: c.id, x: c.x, y: c.y }))
@@ -17814,6 +17987,7 @@ function _renderEditorCanvas() {
         h.addEventListener('mousedown', e => {
           if (e.button !== 0) return;
           e.stopPropagation();
+          _edMarkMutation();
           _edResize = {
             celdaId: celda.id, dir, startMouseX: e.clientX, startMouseY: e.clientY,
             startW: celda.width, startH: celda.height, startX: celda.x, startY: celda.y
@@ -17828,6 +18002,7 @@ function _renderEditorCanvas() {
       rotH.addEventListener('mousedown', e => {
         if (e.button !== 0) return;
         e.stopPropagation();
+        _edMarkMutation();
         const rect = el.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
@@ -17932,6 +18107,7 @@ function _bindEditorDragResize(inner) {
     if (_edRotate) {
       const preserve = _edSelectedRefs().length > 1;
       _edRotate = null;
+      _edRefreshDirtyUi();
       if (_edSel) _edSelectCelda(_edSel, { preserveMulti: preserve });
       return;
     }
@@ -17939,11 +18115,13 @@ function _bindEditorDragResize(inner) {
       _edDrag = null;
       const svg = document.getElementById('ed-guides-svg');
       if (svg) svg.innerHTML = '';
+      _edRefreshDirtyUi();
       _renderEditorCanvas();
     }
     if (_edResize) {
       const preserve = _edSelectedRefs().length > 1;
       _edResize = null;
+      _edRefreshDirtyUi();
       if (_edSel) _edSelectCelda(_edSel, { preserveMulti: preserve });
     }
     if (_edRectSel) {
@@ -18022,7 +18200,7 @@ function _edDrawGuides(dragged, lines) {
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', l.x1); line.setAttribute('y1', l.y1);
     line.setAttribute('x2', l.x2); line.setAttribute('y2', l.y2);
-    line.setAttribute('stroke', '#a855f7');
+    line.setAttribute('stroke', '#3b82f6');
     line.setAttribute('stroke-width', '1');
     line.setAttribute('stroke-dasharray', '4,3');
     line.setAttribute('opacity', '0.8');
@@ -18033,6 +18211,7 @@ function _edDrawGuides(dragged, lines) {
 // [F2] Selecciona una celda y actualiza el panel de propiedades
 function _edSelectCelda(celda, options = {}) {
   const { preserveMulti = false } = options;
+  _edPropSnapshotTaken = false;
   _edModo = null;
   const addHint = document.getElementById('editor-add-hint');
   if (addHint) addHint.style.display = 'none';
@@ -18066,6 +18245,7 @@ function _edClickLibre(cx, cy) {
   const nombre = tipo === 'cajon' ? `X${n}` : tipo === 'area' ? `AREA${n}` : `S${n}`;
   const w = tipo === 'area' ? _ED_DEFAULT_W * 2 : _ED_DEFAULT_W; // [F2]
   const h = tipo === 'area' ? _ED_DEFAULT_H * 2 : _ED_DEFAULT_H; // [F2]
+  _edMarkMutation();
   const nueva = {
     id: 'ec_new_' + Date.now(), valor: nombre, tipo, esLabel: tipo === 'label',
     orden: _edCeldas.length,
@@ -18090,6 +18270,10 @@ function _edClickLibre(cx, cy) {
 // [F2] Cambio de propiedades desde el panel lateral
 function editorPropChange() {
   if (!_edSel) return;
+  if (!_edPropSnapshotTaken) {
+    _edMarkMutation();
+    _edPropSnapshotTaken = true;
+  }
   _edSel.valor = document.getElementById('ep-nombre').value.toUpperCase();
   _edSel.tipo = document.getElementById('ep-tipo').value;
   _edSel.esLabel = _edSel.tipo === 'label';
@@ -18100,27 +18284,34 @@ function editorPropChange() {
   _edSel.width = Math.max(20, toNum('ep-width', _edSel.width));
   _edSel.height = Math.max(20, toNum('ep-height', _edSel.height));
   _edSel.rotation = toNum('ep-rotation', _edSel.rotation || 0);
+  _edSel.zone = (document.getElementById('ep-zone')?.value || '').trim() || null;
+  _edSel.isBlocked = !!document.getElementById('ep-blocked')?.checked;
+  _edSel.isReserved = !!document.getElementById('ep-reserved')?.checked;
   const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
   if (idx >= 0) _edCeldas[idx] = { ..._edSel };
   _edFillSelectionForm(_edSel);
   _renderEditorCanvas();
+  _edRefreshDirtyUi();
 }
 
 // [F2] editorSpanChange renombrado a editorDimChange — ajusta width/height en pasos
 function editorSpanChange(prop, delta) {
   if (!_edSel) return;
+  _edMarkMutation();
   if (prop === 'width') _edSel.width = Math.max(20, (_edSel.width || _ED_DEFAULT_W) + delta);
   else if (prop === 'height') _edSel.height = Math.max(20, (_edSel.height || _ED_DEFAULT_H) + delta);
   const idx = _edCeldas.findIndex(c => c.id === _edSel.id);
   if (idx >= 0) { _edCeldas[idx].width = _edSel.width; _edCeldas[idx].height = _edSel.height; }
   _edFillSelectionForm(_edSel);
   _renderEditorCanvas();
+  _edRefreshDirtyUi();
 }
 
 // [F2] editorMoverCelda — mueve en pasos de px
 function editorMoverCelda(dCol, dRow) {
   const refs = _edSelectedRefs();
   if (!refs.length) return;
+  _edMarkMutation();
   const STEP = 10;
   refs.forEach(ref => {
     ref.x = Math.max(0, (ref.x || 0) + dCol * STEP);
@@ -18128,15 +18319,18 @@ function editorMoverCelda(dCol, dRow) {
   });
   if (_edSel) _edFillSelectionForm(_edSel);
   _renderEditorCanvas();
+  _edRefreshDirtyUi();
 }
 
 function editorEliminarCelda() {
   const refs = _edSelectedRefs();
   if (!refs.length) return;
+  _edMarkMutation();
   const ids = new Set(refs.map(c => c.id));
   _edCeldas = _edCeldas.filter(c => !ids.has(c.id));
   _resetEditorPanel();
   _renderEditorCanvas();
+  _edRefreshDirtyUi();
 }
 
 // ── ZOOM ──
@@ -18153,6 +18347,7 @@ function editorZoom(delta) {
 function editorCopiarCelda() {
   const refs = _edSelectedRefs();
   if (!refs.length) return;
+  _edMarkMutation();
   const copias = refs.map((ref, index) => ({
     ...ref,
     id: 'ec_copy_' + Date.now() + '_' + index,
@@ -18171,6 +18366,7 @@ function editorAgregarForma(tipo) {
   const baseX = 60, baseY = 60;
   const n = _edCeldas.length + 1;
   const nombre = `C${n}`;
+  _edMarkMutation();
   if (tipo === 'fila-3') {
     const nuevas = [];
     const y = baseY + (_edCeldas.length > 0 ? Math.max(..._edCeldas.map(c => c.y + c.height)) + 10 : 0);
@@ -18238,6 +18434,7 @@ function editorCentrarH() {
   _edCloseMoreMenu();
   const refs = _edSelectedRefs();
   if (!refs.length) return;
+  _edMarkMutation();
   const inner = document.getElementById('editor-canvas-inner');
   const cw = inner ? parseInt(inner.style.width) : 800;
   const bounds = _edSelectionBounds(refs);
@@ -18250,6 +18447,7 @@ function editorCentrarV() {
   _edCloseMoreMenu();
   const refs = _edSelectedRefs();
   if (!refs.length) return;
+  _edMarkMutation();
   const inner = document.getElementById('editor-canvas-inner');
   const ch = inner ? parseInt(inner.style.height) : 500;
   const bounds = _edSelectionBounds(refs);
@@ -18262,6 +18460,7 @@ function editorTraerFrente() {
   _edCloseMoreMenu();
   const refs = _edSelectedRefs();
   if (!refs.length) return;
+  _edMarkMutation();
   let nextOrden = Math.max(..._edCeldas.map(c => c.orden ?? 0), 0) + 1;
   refs.forEach(ref => { ref.orden = nextOrden++; });
   _renderEditorCanvas();
@@ -18271,6 +18470,7 @@ function editorEnviarFondo() {
   _edCloseMoreMenu();
   const refs = _edSelectedRefs();
   if (!refs.length) return;
+  _edMarkMutation();
   let nextOrden = Math.min(..._edCeldas.map(c => c.orden ?? 0), 0) - refs.length;
   refs.forEach(ref => { ref.orden = nextOrden++; });
   _renderEditorCanvas();
@@ -18279,6 +18479,7 @@ function editorEnviarFondo() {
 function editorDuplicarFila() {
   _edCloseMoreMenu();
   if (!_edSel) return;
+  _edMarkMutation();
   const filaY = _edSel.y;
   const tol = 20;
   const fila = _edCeldas.filter(c => Math.abs(c.y - filaY) <= tol);
@@ -18296,6 +18497,7 @@ function editorAlinearGrupo(modo) {
   const sel = _edSelectedRefs();
   if (sel.length < 2) { showToast('Selecciona 2+ celdas con Shift+clic', 'error'); return; }
   const refs = sel.map(c => _edCeldas.find(x => x.id === c.id)).filter(Boolean);
+  _edMarkMutation();
   if (modo === 'left') { const min = Math.min(...refs.map(c => c.x)); refs.forEach(c => c.x = min); }
   if (modo === 'right') { const max = Math.max(...refs.map(c => c.x + c.width)); refs.forEach(c => c.x = max - c.width); }
   if (modo === 'centerH') { const avg = refs.reduce((s, c) => s + c.x + c.width / 2, 0) / refs.length; refs.forEach(c => c.x = Math.round(avg - c.width / 2)); }
@@ -18309,6 +18511,7 @@ function editorDistribuirGrupo(eje) {
   const sel = _edSelectedRefs();
   if (sel.length < 3) { showToast('Selecciona 3+ celdas para distribuir', 'error'); return; }
   const refs = sel.map(c => _edCeldas.find(x => x.id === c.id)).filter(Boolean);
+  _edMarkMutation();
   if (eje === 'H') {
     refs.sort((a, b) => a.x - b.x);
     const totalW = refs.reduce((s, c) => s + c.width, 0);
@@ -18344,9 +18547,9 @@ function editorCambiarGrid(dim, delta) { /* [F2] sin efecto en canvas libre */ }
 
 function guardarMapaEditor(btn) {
   if (_edCeldas.length === 0) { showToast("El mapa está vacío", "error"); return; }
-  const saveLabelHtml = '<span class="material-icons" style="font-size:17px;">save</span> GUARDAR CAMBIOS';
+  const saveLabelHtml = _ED_SAVE_LABEL_HTML;
   btn.disabled = true;
-  btn.innerHTML = '<span class="material-icons spinner" style="font-size:16px;">sync</span> Guardando...';
+  btn.innerHTML = '<span class="material-symbols-outlined spinner" style="font-size:16px;">sync</span> Guardando...';
   const isStandaloneEditmap = EDITMAP_STANDALONE_ROUTE_RE.test(window.location.pathname || '') || window.__MEX_EDITMAP_STANDALONE === true;
 
   // [F2] Payload con campos de posicionamiento absoluto
@@ -18381,10 +18584,11 @@ function guardarMapaEditor(btn) {
     return;
   }
   (window.api || api).guardarEstructuraMapa(payload, _plazaGuardado).then(res => {
-    btn.disabled = false;
     btn.innerHTML = saveLabelHtml;
     if (res === 'OK') {
-      showToast("✅ Mapa guardado correctamente", "success");
+      _edSession?.markClean(_edCeldas);
+      _edRefreshDirtyUi();
+      showToast("Mapa guardado correctamente", "success");
       if (isStandaloneEditmap) {
         return;
       }
@@ -18392,10 +18596,14 @@ function guardarMapaEditor(btn) {
         document.getElementById('modal-editor-mapa').classList.remove('active');
         dibujarMapaCompleto();
       }, 1200);
+    } else {
+      btn.disabled = false;
+      _edRefreshDirtyUi();
     }
   }).catch(err => {
     btn.disabled = false;
     btn.innerHTML = saveLabelHtml;
+    _edRefreshDirtyUi();
     showToast("Error: " + err, "error");
   });
 }
@@ -23828,6 +24036,7 @@ Object.assign(window, {
   abrirChat,
   abrirCreadorAlertas,
   abrirEditorMapa,
+  cerrarEditorMapa,
   abrirRutaEditmap,
   abrirExpedienteAdmin,
   abrirExpedienteGlobal,
@@ -23959,7 +24168,11 @@ Object.assign(window, {
   editorEliminarCelda,
   editorEnviarFondo,
   editorMoverCelda,
+  editorMoverCeldaByPx,
   editorPropChange,
+  editorPropFocus,
+  editorRedo,
+  editorUndo,
   editorSpanChange,
   editorToggleMoreMenu,
   editorTraerFrente,
@@ -25692,10 +25905,18 @@ window.addEventListener('mex:navigate-mapa', () => {
 });
 
 // App Shell header plaza picker → reload map for the new plaza.
-window.addEventListener('mex:plaza-change', (e) => {
+window.addEventListener('mex:plaza-change', async (e) => {
   const source = e?.detail?.source || '';
   if (source === 'mapa' || source === 'editmap') return; // dispatched by us, ignore
   const plaza = String(e?.detail?.plaza || '').toUpperCase().trim();
   if (!plaza || plaza === PLAZA_ACTIVA_MAPA) return;
+  if (_edIsEditorOpen() && _edSession?.isDirty()) {
+    const ok = await mexConfirm(
+      'Cambios sin guardar',
+      'Hay cambios sin guardar en el editor. ¿Cambiar de plaza de todos modos?',
+      'warning'
+    );
+    if (!ok) return;
+  }
   cambiarPlazaMapa(plaza);
 });

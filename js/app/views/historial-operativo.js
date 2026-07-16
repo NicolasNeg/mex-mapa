@@ -7,6 +7,8 @@
 //  Tab 2: Estados (COL.LOGS: IN / BAJA / EDIT / GESTION)
 // ═══════════════════════════════════════════════════════════
 
+import { normalizeHistorialLog } from '/domain/historial-log.model.js';
+
 let _container  = null;
 let _state      = null;
 let _cssInjected = false;
@@ -43,7 +45,7 @@ function _ensureCss() {
   _cssInjected = true;
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = '/css/app-historial-operativo.css?v=20260715a';
+  link.href = '/css/app-historial-operativo.css?v=20260715b';
   link.setAttribute('data-hist-op-css', '1');
   document.head.appendChild(link);
 }
@@ -108,13 +110,33 @@ function _filteredMovimientos() {
   return rows;
 }
 
+function _normalizeEstadoRow(log) {
+  const n = normalizeHistorialLog(log);
+  return {
+    ...log,
+    tipo: _normalizeTipo(log.tipo || n.tipo),
+    mva: n.mva === '—' ? '' : n.mva,
+    unidad: n.mva,
+    cambio: n.cambio,
+    estadoAnterior: n.estadoAnterior,
+    estadoNuevo: n.estadoNuevo,
+    estadoLabel: n.estadoLabel,
+    accion: n.cambio,
+    detalles: n.cambio,
+    autor: n.autor,
+    usuario: n.autor,
+    fecha: n.fecha || log.fecha || '',
+    timestamp: log.timestamp || n.timestamp || 0
+  };
+}
+
 function _filteredEstado() {
   const qv = _state.qEst.toLowerCase();
   let rows = _state.estado.filter(_estadoPermitido);
   if (qv) {
     rows = rows.filter(r =>
-      [r.mva, r.autor, r.accion, r.tipo, r.detalles, r.objetivo]
-        .some(v => _cleanAuditText(v).toLowerCase().includes(qv))
+      [r.unidad, r.mva, r.autor, r.cambio, r.tipo, r.estadoLabel, r.estadoAnterior, r.estadoNuevo]
+        .some(v => String(v || '').toLowerCase().includes(qv))
     );
   }
   if (_state.tipoEst && _state.tipoEst !== 'TODOS') {
@@ -187,6 +209,17 @@ function _toMs(ts) {
   if (typeof ts === "number") return ts < 1e12 ? ts * 1000 : ts;
   const ms = new Date(ts).getTime();
   return Number.isFinite(ms) ? ms : 0;
+}
+
+function _estadoCellHtml(row) {
+  if (row.estadoAnterior || row.estadoNuevo) {
+    return `<span class="hist-op-estado-flow">
+      <span class="hist-op-estado-prev">${esc(row.estadoAnterior || '—')}</span>
+      <span class="hist-op-estado-arrow" aria-hidden="true">→</span>
+      <span class="hist-op-estado-next">${esc(row.estadoNuevo || '—')}</span>
+    </span>`;
+  }
+  return `<span class="hist-op-estado-empty">—</span>`;
 }
 
 // ── Popover cajón-a-cajón (solo PC con hover) ────────────────
@@ -378,22 +411,22 @@ function _renderEstado() {
   wrap.innerHTML = `
     ${_pagerHtml('Est', _state.pageEst, _state.pageSizeEst, rows.length)}
     <div class="hist-op-table-scroll">
-      <table class="hist-op-table hist-op-table--dense">
+      <table class="hist-op-table hist-op-table--dense hist-op-table--estado">
         <thead><tr>
-          <th>FECHA</th><th>TIPO</th><th>UNIDAD</th><th>CAMBIO</th><th>AUTOR</th>
+          <th>FECHA</th><th>TIPO</th><th>UNIDAD</th><th>CAMBIO</th><th>ESTADO</th><th>AUTOR</th>
         </tr></thead>
         <tbody>
           ${pageRows.map(r => {
             const tipo = _normalizeTipo(r.tipo);
-            const accion = _cleanAuditText(r.accion || r.detalles || "Cambio registrado");
-            const target = _cleanAuditText(r.mva || r.objetivo || r.referencia || "—");
+            const unidad = r.unidad || r.mva || '—';
             return `
               <tr>
                 <td class="hist-op-cell-date">${esc(r.fecha || "")}</td>
                 <td><span class="hist-op-badge ${_tipoBadgeClass(tipo)}"><span class="material-icons">${_tipoIcon(tipo)}</span>${esc(_tipoLabel(tipo))}</span></td>
-                <td class="hist-op-cell-mva">${esc(target)}</td>
-                <td>${esc(accion)}</td>
-                <td>${esc(_cleanAuditText(r.autor || r.usuario || "Sistema"))}</td>
+                <td class="hist-op-cell-mva">${esc(unidad)}</td>
+                <td class="hist-op-cell-cambio">${esc(r.cambio || "Cambio registrado")}</td>
+                <td class="hist-op-cell-estado">${_estadoCellHtml(r)}</td>
+                <td>${esc(r.autor || "Sistema")}</td>
               </tr>`;
           }).join("")}
         </tbody>
@@ -410,7 +443,7 @@ function _exportCsv(kind) {
   }
   const header = isMov
     ? ['Fecha', 'Tipo', 'MVA', 'Movimiento', 'Usuario']
-    : ['Fecha', 'Tipo', 'Unidad', 'Cambio', 'Autor'];
+    : ['Fecha', 'Tipo', 'Unidad', 'Cambio', 'Estado anterior', 'Estado nuevo', 'Autor'];
   const body = rows.map(r => {
     if (isMov) {
       return [r.fecha, _tipoLabel(r.tipo), r.mva, _cleanAuditText(r.detalles), _cleanAuditText(r.usuario)];
@@ -418,9 +451,11 @@ function _exportCsv(kind) {
     return [
       r.fecha || '',
       _tipoLabel(r.tipo),
-      _cleanAuditText(r.mva || r.objetivo || r.referencia || ''),
-      _cleanAuditText(r.accion || r.detalles || ''),
-      _cleanAuditText(r.autor || r.usuario || 'Sistema')
+      r.unidad || r.mva || '',
+      r.cambio || '',
+      r.estadoAnterior || '',
+      r.estadoNuevo || '',
+      r.autor || 'Sistema'
     ];
   });
   const csv = '\ufeff' + [header.map(_csvCell).join(','), ...body.map(line => line.map(_csvCell).join(','))].join('\n');
@@ -461,13 +496,7 @@ async function _loadEstado() {
   try {
     const serverLogs = await (window.api.obtenerLogsServer?.() || Promise.resolve([]));
     _state.estado = (Array.isArray(serverLogs) ? serverLogs : [])
-      .map(log => ({
-        ...log,
-        tipo: _normalizeTipo(log.tipo),
-        accion: _cleanAuditText(log.accion || log.detalles || ""),
-        detalles: _cleanAuditText(log.detalles || ""),
-        autor: _cleanAuditText(log.autor || log.usuario || "Sistema")
-      }))
+      .map(_normalizeEstadoRow)
       .filter(_estadoPermitido)
       .sort((a, b) => _toMs(b.timestamp) - _toMs(a.timestamp));
   } catch (e) {
