@@ -1,7 +1,7 @@
 # Design: Editor de mapa profesional
 
 **Date:** 2026-07-15  
-**Status:** design note (implementation → `docs/superpowers/plans/2026-07-15-editor-mapa-profesional.md`)  
+**Status:** superseded for **cycle A** by `docs/superpowers/specs/2026-07-15-editor-mapa-restyle-design.md` (restyle + funciones mínimas sobre el editor original). This file remains as the longer-horizon native/mapviz vision (cycle B+).  
 **Vault:** `MapGestion/NUEVO EDITOR DE MAPA. MAS PROFESIONAL Y MAS HERRAMIENTAS..md` (screenshot + “pasar a ser una herramienta más profesional”)
 
 ---
