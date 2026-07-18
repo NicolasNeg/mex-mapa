@@ -257,9 +257,14 @@ function _stripRouteSlash(value) {
   return raw.length > 1 && raw.endsWith('/') ? raw.slice(0, -1) : raw;
 }
 
+function _isAdminAppPath(path) {
+  const key = _stripRouteSlash(String(path || '').split('?')[0]);
+  return key === '/app/admin' || key.startsWith('/app/admin/');
+}
+
 function _routeForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
-  if (key === '/app/admin' || key.startsWith('/app/admin/')) return ROUTE_TABLE['/app/admin'];
+  if (_isAdminAppPath(key)) return ROUTE_TABLE['/app/admin'];
   if (key.startsWith('/app/mensajes/')) return ROUTE_TABLE['/app/mensajes'];
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return ROUTE_TABLE['/app/traslados'];
   if (key.startsWith('/app/cuadre/u/')) return ROUTE_TABLE['/app/cuadre/u'];
@@ -268,7 +273,7 @@ function _routeForPath(path) {
 
 function _styleKeyForPath(path) {
   const key = _stripRouteSlash(String(path || '').split('?')[0]) || '/app/dashboard';
-  if (key === '/app/admin' || key.startsWith('/app/admin/')) return '/app/admin';
+  if (_isAdminAppPath(key)) return '/app/admin';
   if (key.startsWith('/app/mensajes/')) return '/app/mensajes';
   if (key.startsWith('/app/traslados/') || key === '/app/cuadre/traslados' || key.startsWith('/app/cuadre/traslados/')) return '/app/traslados';
   if (key.startsWith('/app/cuadre/u/')) return '/app/cuadre/u';
@@ -304,7 +309,7 @@ export function createRouter({ shell }) {
   }
 
   // ── Navegar ───────────────────────────────────────────────
-  function navigate(path, { replace = false } = {}) {
+  function navigate(path, { replace = false, soft = false } = {}) {
     const raw = String(path || '');
     const pathOnly = _routePathOnly(raw);
     if (!isInternalAppRoute(pathOnly)) {
@@ -318,13 +323,15 @@ export function createRouter({ shell }) {
     } else {
       history.pushState({}, '', urlForBar);
     }
-    _renderRoute(raw);
+    // soft: el iframe admin ya pide actualizar la URL; no rematar con remount.
+    _renderRoute(raw, { soft });
   }
 
   // ── Renderizar ruta ───────────────────────────────────────
-  async function _renderRoute(rawPath) {
+  async function _renderRoute(rawPath, { soft = false } = {}) {
     const renderSeq = ++_renderSeq;
     const path = _routePathOnly(rawPath);
+    const prevPath = _routePathOnly(getState().currentRoute || window.location.pathname);
     const cuadreAuxRedirect = _cuadreAuxiliarRedirect(rawPath);
     if (cuadreAuxRedirect) {
       navigate(cuadreAuxRedirect, { replace: true });
@@ -364,6 +371,30 @@ export function createRouter({ shell }) {
 
     // Cerrar drawer mobile si está abierto
     shell.sidebar?.closeMobileDrawer?.();
+
+    // Admin ↔ admin: solo cambiar pestaña dentro del iframe keep-alive.
+    // Remount + _syncAdminShellRoute creaban un loop (URL oscilando entre secciones).
+    // `soft` solo aplica si ya estábamos en admin (nunca “secuestrar” otra vista).
+    const softAdmin =
+      _isAdminAppPath(path) &&
+      _isAdminAppPath(prevPath) &&
+      typeof _currentUnmount === 'function';
+    if (softAdmin) {
+      try {
+        const mod = await import('/js/app/views/legacy-stage.js');
+        if (renderSeq !== _renderSeq) return;
+        if (typeof mod.softSyncAdmin === 'function' && mod.softSyncAdmin({
+          navigate,
+          shell,
+          state: getState(),
+          legacyId: 'admin',
+        })) {
+          return;
+        }
+      } catch (err) {
+        console.warn('[router] softSyncAdmin falló, remount completo:', err);
+      }
+    }
 
     // Unmount vista anterior
     if (typeof _currentUnmount === 'function') {

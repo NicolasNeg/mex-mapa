@@ -2028,24 +2028,27 @@ function _adminShellPath(tab = 'usuarios', entityId = '') {
 }
 
 function _syncAdminShellRoute(tab = 'usuarios', entityId = '', opts = {}) {
+  if (opts.syncRoute === false || window.__mexSuppressAdminRouteSync) return;
   const path = _adminShellPath(tab, entityId);
   const replace = opts.replace !== false && !entityId; // detalle → push (back vuelve a lista)
+  const nextPath = path.split('?')[0].replace(/\/$/, '');
+  const navOpts = { replace, soft: true };
   try {
     const parentWin = window.parent && window.parent !== window ? window.parent : null;
     const parentPath = String(parentWin?.location?.pathname || '').replace(/\/$/, '') || '';
-    const nextPath = path.split('?')[0].replace(/\/$/, '');
     if (parentPath === nextPath) return;
+    // Misma sección admin con otro detalle: comparar prefijo /app/admin/:section
+    if (!entityId && parentPath.startsWith(`${nextPath}/`)) return;
     if (typeof parentWin?.__mexShellNavigate === 'function') {
-      parentWin.__mexShellNavigate(path, { replace });
+      parentWin.__mexShellNavigate(path, navOpts);
       return;
     }
   } catch (_) { /* cross-origin */ }
   try {
     if (typeof window.__mexShellNavigate === 'function') {
       const here = String(window.location.pathname || '').replace(/\/$/, '');
-      if (here !== path.split('?')[0].replace(/\/$/, '')) {
-        window.__mexShellNavigate(path, { replace });
-      }
+      if (here === nextPath || (!entityId && here.startsWith(`${nextPath}/`))) return;
+      window.__mexShellNavigate(path, navOpts);
       return;
     }
   } catch (_) {}
@@ -20398,7 +20401,7 @@ function abrirPanelConfiguracion(tabInicial) {
   }
 }
 
-function abrirTabConfig(tabName, btnElement) {
+function abrirTabConfig(tabName, btnElement, opts = {}) {
   const normalizedTab = _cfgResolveAllowedTab(tabName);
   if (!normalizedTab) {
     showToast("No tienes acceso a esa vista administrativa.", "error");
@@ -20412,8 +20415,9 @@ function abrirTabConfig(tabName, btnElement) {
     _syncInlineAdminRoute(normalizedTab);
   }
   // En shell (iframe admin=1) sincronizar URL padre: /app/admin/:section
-  if (_isDedicatedGestionIframeMode()) {
-    _syncAdminShellRoute(normalizedTab);
+  // soft:true evita remount; syncRoute:false / suppress cuando el padre ya eligió la pestaña.
+  if (_isDedicatedGestionIframeMode() && opts.syncRoute !== false && !window.__mexSuppressAdminRouteSync) {
+    _syncAdminShellRoute(normalizedTab, opts.entityId || '', opts);
   }
   // Si estábamos en tabs con listeners de usuarios, desuscribir al salir.
   if (TAB_ACTIVA_CFG === 'usuarios' && _unsubUsuarios) {

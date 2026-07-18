@@ -16,6 +16,7 @@ let _offGlobalSearch = null;
 let _offPlazaChange = null;
 let _unitsHeaderTimer = null;
 let _unitsHeaderSig = '';
+let _adminSyncTimers = [];
 
 // Views kept alive between navigations (iframe preserved in memory, not destroyed).
 // Excludes alertas/alertasHist (tool overlays on mapa, share its iframe src).
@@ -289,6 +290,14 @@ function _requestedAdminRoute(ctx = {}) {
   return { tab, entityId };
 }
 
+function _clearAdminSyncTimers() {
+  if (!_adminSyncTimers.length) return;
+  _adminSyncTimers.forEach((timerId) => {
+    try { window.clearTimeout(timerId); } catch (_) {}
+  });
+  _adminSyncTimers = [];
+}
+
 function _activateAdminTab(frame, tab, entityId = '') {
   const targetTab = String(tab || '').trim().toLowerCase();
   if (!targetTab) return;
@@ -300,16 +309,21 @@ function _activateAdminTab(frame, tab, entityId = '') {
       || doc.querySelector(`.cfg-tab[onclick*="'${targetTab}'"]`);
     if (!btn && !entityId) return;
 
-    if (typeof win.abrirPanelConfiguracion === 'function') {
-      win.abrirPanelConfiguracion(targetTab);
-    }
-    if (typeof win.abrirTabConfig === 'function') {
-      win.abrirTabConfig(targetTab, btn);
-    } else if (btn) {
-      btn.click();
-    }
-    if (entityId && typeof win.__mexAdminOpenEntity === 'function') {
-      win.__mexAdminOpenEntity(targetTab, entityId);
+    // El shell ya tiene la URL correcta: no pedir al iframe que vuelva a navegar el padre.
+    win.__mexSuppressAdminRouteSync = true;
+    try {
+      if (typeof win.abrirPanelConfiguracion === 'function') {
+        win.abrirPanelConfiguracion(targetTab);
+      } else if (typeof win.abrirTabConfig === 'function') {
+        win.abrirTabConfig(targetTab, btn, { syncRoute: false });
+      } else if (btn) {
+        btn.click();
+      }
+      if (entityId && typeof win.__mexAdminOpenEntity === 'function') {
+        win.__mexAdminOpenEntity(targetTab, entityId);
+      }
+    } finally {
+      try { win.__mexSuppressAdminRouteSync = false; } catch (_) {}
     }
   } catch (_) {
     // The frame is same-origin in hosting/dev. If it is not ready yet, later attempts retry.
@@ -318,11 +332,32 @@ function _activateAdminTab(frame, tab, entityId = '') {
 
 function _scheduleFrameSync(frame, id, ctx = {}) {
   if (id !== 'admin') return;
+  _clearAdminSyncTimers();
   const { tab, entityId } = _requestedAdminRoute(ctx);
   if (!tab) return;
   [0, 250, 750, 1500, 3000].forEach(delay => {
-    window.setTimeout(() => _activateAdminTab(frame, tab, entityId), delay);
+    _adminSyncTimers.push(window.setTimeout(() => _activateAdminTab(frame, tab, entityId), delay));
   });
+}
+
+/** Cambia de sección admin sin remount del iframe keep-alive. */
+export function softSyncAdmin(ctx = {}) {
+  const entry = _iframePool.get('admin');
+  const frame = entry?.iframe || (_currentId === 'admin' ? _iframe : null);
+  if (!frame || !_isFrameAlive(frame)) return false;
+
+  _currentId = 'admin';
+  _iframe = frame;
+  document.body.classList.add('app-legacy-stage-active');
+  const host = document.getElementById('legacyStageHost');
+  if (host) host.style.display = 'block';
+  _iframePool.forEach((pooled, key) => {
+    if (pooled.sectionEl) pooled.sectionEl.style.display = key === 'admin' ? 'block' : 'none';
+  });
+
+  _injectFrameOverrides(frame, 'admin');
+  _scheduleFrameSync(frame, 'admin', { ...ctx, legacyId: 'admin', state: ctx.state || getState() });
+  return true;
 }
 
 function _scheduleToolFrameSync(frame, id) {
@@ -806,6 +841,7 @@ export function mount(ctx = {}) {
 
 export function unmount() {
   try { _shell?.setHeaderActions?.(''); } catch (_) {}
+  _clearAdminSyncTimers();
   _clearUnitsHeader();
   if (typeof _offGlobalSearch === 'function') { try { _offGlobalSearch(); } catch (_) {} }
   if (typeof _offPlazaChange === 'function') { try { _offPlazaChange(); } catch (_) {} }

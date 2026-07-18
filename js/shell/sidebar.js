@@ -96,7 +96,13 @@ export class ShellSidebar {
     const targetPath = normalizeRoutePath(route);
     const currentPath = normalizeRoutePath(this._currentRoute);
     if (targetPath === currentPath) return true;
-    if (targetPath === '/app/admin' && currentPath === '/gestion') return true;
+    // Panel admin: /app/admin/usuarios debe quedar activo en cualquier /app/admin/*
+    if (
+      (targetPath === '/app/admin' || targetPath === '/app/admin/usuarios') &&
+      (currentPath === '/app/admin' || currentPath.startsWith('/app/admin/') || currentPath === '/gestion')
+    ) {
+      return true;
+    }
     return false;
   }
 
